@@ -89,6 +89,7 @@ func NewVmContext(chain Chain, snapshotBlockHash *types.Hash, prevAccountBlockHa
 	} else if *prevAccountBlockHash != types.ZERO_HASH {
 		var err error
 		prevAccountBlock, err = chain.GetAccountBlockByHash(prevAccountBlockHash)
+
 		if err != nil {
 			return nil, err
 		}

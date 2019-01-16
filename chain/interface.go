@@ -76,19 +76,13 @@ type Chain interface {
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
-	GetSecondSnapshotBlock() *ledger.SnapshotBlock
 
-	GetGenesisMintageBlock() *ledger.AccountBlock
-	GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase
-
-	GetGenesisMintageSendBlock() *ledger.AccountBlock
-	GetGenesisMintageSendBlockVC() vmctxt_interface.VmDatabase
-
-	GetGenesisConsensusGroupBlock() *ledger.AccountBlock
-	GetGenesisConsensusGroupBlockVC() vmctxt_interface.VmDatabase
-
-	GetGenesisRegisterBlock() *ledger.AccountBlock
-	GetGenesisRegisterBlockVC() vmctxt_interface.VmDatabase
+	NewGenesisSnapshotBlock() ledger.SnapshotBlock
+	NewSecondSnapshotBlock() ledger.SnapshotBlock
+	NewGenesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
 
 	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error)

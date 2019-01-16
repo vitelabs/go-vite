@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/rand"
+	"runtime/debug"
 	"time"
 )
 
@@ -118,6 +119,8 @@ func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmCon
 	}
 	defer func() {
 		if err := recover(); err != nil {
+			// print stack
+			debug.PrintStack()
 			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
 			if sendBlock != nil {
 				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
@@ -126,8 +129,13 @@ func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmCon
 			resultErr = errors.New("generator_vm panic error")
 		}
 	}()
+
+	startTime := time.Now()
 	newVm := *vm.NewVM()
 	blockList, isRetry, err := newVm.Run(vmContext, block, sendBlock)
+	stopTime := time.Now()
+	timeConsume := uint64(stopTime.Sub(startTime).Nanoseconds() / (1000 * 1000))
+	fmt.Printf("vm: %d毫秒\n", timeConsume)
 
 	tLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
 

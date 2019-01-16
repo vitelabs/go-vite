@@ -20,6 +20,13 @@ type Collector interface {
 type Chain interface {
 	vm_context.Chain
 
+	NewGenesisSnapshotBlock() ledger.SnapshotBlock
+	NewSecondSnapshotBlock() ledger.SnapshotBlock
+	NewGenesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+
 	AccountType(address *types.Address) (uint64, error)
 	GetLatestBlockEventId() (uint64, error)
 	GetEvent(eventId uint64) (byte, []types.Hash, error)
@@ -28,13 +35,6 @@ type Chain interface {
 	TrieDb() *leveldb.DB
 	CleanTrieNodePool()
 	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
-
-	GetSecondSnapshotBlock() *ledger.SnapshotBlock
-
-	GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase
-	GetGenesisMintageSendBlockVC() vmctxt_interface.VmDatabase
-	GetGenesisConsensusGroupBlockVC() vmctxt_interface.VmDatabase
-	GetGenesisRegisterBlockVC() vmctxt_interface.VmDatabase
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 	IsGenesisAccountBlock(block *ledger.AccountBlock) bool

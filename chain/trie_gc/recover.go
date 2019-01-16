@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/trie"
@@ -12,37 +13,38 @@ import (
 func (gc *collector) recoverGenesis() error {
 	// recover genesis trie
 	batch := new(leveldb.Batch)
-	genesisSnapshotBlock := gc.chain.GetGenesisSnapshotBlock()
+
+	genesisSnapshotBlock := gc.chain.NewGenesisSnapshotBlock()
 	trieSaveCallback1, err := genesisSnapshotBlock.StateTrie.Save(batch)
 	if err != nil {
 		return err
 	}
 
-	genesisConsensusGroupBlockVC := gc.chain.GetGenesisConsensusGroupBlockVC()
+	_, genesisConsensusGroupBlockVC := gc.chain.NewGenesisConsensusGroupBlock()
 	trieSaveCallback2, err := genesisConsensusGroupBlockVC.UnsavedCache().Trie().Save(batch)
 	if err != nil {
 		return err
 	}
 
-	genesisMintageBlockVC := gc.chain.GetGenesisMintageBlockVC()
+	_, genesisMintageBlockVC := gc.chain.NewGenesisMintageBlock()
 	trieSaveCallback3, err := genesisMintageBlockVC.UnsavedCache().Trie().Save(batch)
 	if err != nil {
 		return err
 	}
 
-	genesisMintageSendBlockVC := gc.chain.GetGenesisMintageSendBlockVC()
+	_, genesisMintageSendBlockVC := gc.chain.NewGenesisMintageSendBlock()
 	trieSaveCallback4, err := genesisMintageSendBlockVC.UnsavedCache().Trie().Save(batch)
 	if err != nil {
 		return err
 	}
 
-	genesisRegisterBlockVC := gc.chain.GetGenesisRegisterBlockVC()
+	_, genesisRegisterBlockVC := gc.chain.NewGenesisRegisterBlock()
 	trieSaveCallback5, err := genesisRegisterBlockVC.UnsavedCache().Trie().Save(batch)
 	if err != nil {
 		return err
 	}
 
-	secondSnapshotBlock := gc.chain.GetSecondSnapshotBlock()
+	secondSnapshotBlock := gc.chain.NewSecondSnapshotBlock()
 	trieSaveCallback6, err := secondSnapshotBlock.StateTrie.Save(batch)
 	if err != nil {
 		return err
@@ -58,6 +60,7 @@ func (gc *collector) recoverGenesis() error {
 	trieSaveCallback4()
 	trieSaveCallback5()
 	trieSaveCallback6()
+
 	return nil
 }
 
@@ -80,14 +83,40 @@ func (gc *collector) saveTrie(t *trie.Trie) error {
 	return nil
 }
 
+func isNodeExist(chainInstance Chain, node *trie.TrieNode) (bool, error) {
+	db := chainInstance.ChainDb().Db()
+
+	nodeHash := node.Hash()
+	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, nodeHash.Bytes())
+	ok, err := db.Has(dbKey, nil)
+	if !ok || err != nil {
+		return ok, err
+	}
+
+	if node.NodeType() == trie.TRIE_HASH_NODE {
+		dbKey2, _ := database.EncodeKey(database.DBKP_TRIE_REF_VALUE, node.Value())
+		ok2, err := db.Has(dbKey2, nil)
+		if !ok || err != nil {
+			return ok2, err
+		}
+	}
+	return true, nil
+
+}
+
 // Recover data when delete too much data
 func (gc *collector) Recover() (returnErr error) {
+	// clear trie node pool
+	gc.chain.CleanTrieNodePool()
+
 	defer func() {
 		// finally, start gc
 		if returnErr != nil {
 			fmt.Println("Recover failed, error is " + returnErr.Error())
 		}
 	}()
+
+	const PRINT_PER_COUNT = 1
 
 	if err := gc.recoverGenesis(); err != nil {
 		return errors.New("recoverGenesis failed, error is " + err.Error())
@@ -209,6 +238,10 @@ func (gc *collector) Recover() (returnErr error) {
 					return errors.New("saveTrie failed, error is " + err.Error())
 				}
 			}
+		}
+
+		if i%PRINT_PER_COUNT == 0 {
+			fmt.Printf("Recover %d/%d\n", i, latestBlockEventId)
 		}
 
 	}

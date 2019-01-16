@@ -32,58 +32,27 @@ var GenesisConsensusGroupBlockVC vmctxt_interface.VmDatabase
 var GenesisRegisterBlock ledger.AccountBlock
 var GenesisRegisterBlockVC vmctxt_interface.VmDatabase
 
-func (c *chain) GetSecondSnapshotBlock() *ledger.SnapshotBlock {
-	return &SecondSnapshotBlock
-}
-
-func (c *chain) GetGenesisMintageBlock() *ledger.AccountBlock {
-	return &GenesisMintageBlock
-}
-
-func (c *chain) GetGenesisMintageSendBlock() *ledger.AccountBlock {
-	return &GenesisMintageSendBlock
-}
-func (c *chain) GetGenesisConsensusGroupBlock() *ledger.AccountBlock {
-	return &GenesisConsensusGroupBlock
-}
-
-func (c *chain) GetGenesisRegisterBlock() *ledger.AccountBlock {
-	return &GenesisRegisterBlock
-}
-
-func (c *chain) GetGenesisMintageBlockVC() vmctxt_interface.VmDatabase {
-	return GenesisMintageBlockVC
-}
-
-func (c *chain) GetGenesisMintageSendBlockVC() vmctxt_interface.VmDatabase {
-	return GenesisMintageSendBlockVC
-}
-func (c *chain) GetGenesisConsensusGroupBlockVC() vmctxt_interface.VmDatabase {
-	return GenesisConsensusGroupBlockVC
-}
-
-func (c *chain) GetGenesisRegisterBlockVC() vmctxt_interface.VmDatabase {
-	return GenesisRegisterBlockVC
-}
-
 func initGenesis(config *config.Genesis) {
-	GenesisSnapshotBlock = genesisSnapshotBlock()
+	GenesisSnapshotBlock = NewGenesisSnapshotBlock()
 
-	GenesisMintageBlock, GenesisMintageBlockVC = genesisMintageBlock(config)
+	GenesisMintageBlock, GenesisMintageBlockVC = NewGenesisMintageBlock(config)
 
-	GenesisMintageSendBlock, GenesisMintageSendBlockVC = genesisMintageSendBlock(config)
+	GenesisMintageSendBlock, GenesisMintageSendBlockVC = NewGenesisMintageSendBlock(config)
 
-	GenesisConsensusGroupBlock, GenesisConsensusGroupBlockVC = genesisConsensusGroupBlock(config)
+	GenesisConsensusGroupBlock, GenesisConsensusGroupBlockVC = NewGenesisConsensusGroupBlock(config)
 
-	GenesisRegisterBlock, GenesisRegisterBlockVC = genesisRegisterBlock(config)
+	GenesisRegisterBlock, GenesisRegisterBlockVC = NewGenesisRegisterBlock(config)
 
-	SecondSnapshotBlock = secondSnapshotBlock()
+	SecondSnapshotBlock = NewSecondSnapshotBlock()
 }
 
-var genesisTrieNodePool = trie.NewTrieNodePool()
 var genesisTimestamp = time.Unix(1541650394, 0)
 
-func genesisSnapshotBlock() ledger.SnapshotBlock {
+func (c *chain) NewGenesisSnapshotBlock() ledger.SnapshotBlock {
+	return NewGenesisSnapshotBlock()
+}
+
+func NewGenesisSnapshotBlock() ledger.SnapshotBlock {
 	genesisSnapshotBlock := ledger.SnapshotBlock{
 		Height:    1,
 		Timestamp: &genesisTimestamp,
@@ -98,8 +67,11 @@ func genesisSnapshotBlock() ledger.SnapshotBlock {
 
 	return genesisSnapshotBlock
 }
+func (c *chain) NewSecondSnapshotBlock() ledger.SnapshotBlock {
+	return NewSecondSnapshotBlock()
+}
 
-func secondSnapshotBlock() ledger.SnapshotBlock {
+func NewSecondSnapshotBlock() ledger.SnapshotBlock {
 	timestamp := genesisTimestamp.Add(time.Second * 15)
 
 	genesisSnapshotBlock := ledger.SnapshotBlock{
@@ -138,7 +110,11 @@ func secondSnapshotBlock() ledger.SnapshotBlock {
 
 var totalSupply = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 
-func genesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func (c *chain) NewGenesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+	return NewGenesisMintageBlock(c.globalCfg.Genesis)
+}
+
+func NewGenesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
@@ -151,7 +127,7 @@ func genesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_in
 		SnapshotHash: GenesisSnapshotBlock.Hash,
 	}
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, nil))
 	tokenName := "Vite Token"
 	tokenSymbol := "VITE"
 	decimals := uint8(18)
@@ -165,7 +141,11 @@ func genesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_in
 	return block, vmContext
 }
 
-func genesisMintageSendBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func (c *chain) NewGenesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+	return NewGenesisMintageSendBlock(c.globalCfg.Genesis)
+}
+
+func NewGenesisMintageSendBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 12)
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendReward,
@@ -223,7 +203,11 @@ func getConsensusGroupData(consensusGroupConfig *config.ConsensusGroupInfo) ([]b
 		consensusGroupConfig.WithdrawHeight)
 }
 
-func genesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func (c *chain) NewGenesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+	return NewGenesisConsensusGroupBlock(c.globalCfg.Genesis)
+}
+
+func NewGenesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 
 	block := ledger.AccountBlock{
@@ -246,7 +230,7 @@ func genesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vm
 		log15.Crit("Init common consensus group information failed, error is "+err.Error(), "module", "genesis")
 	}
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, nil))
 	vmContext.SetStorage(abi.GetConsensusGroupKey(types.SNAPSHOT_GID), snapshotConsensusGroupData)
 	vmContext.SetStorage(abi.GetConsensusGroupKey(types.DELEGATE_GID), commonConsensusGroupData)
 
@@ -256,7 +240,11 @@ func genesisConsensusGroupBlock(config *config.Genesis) (ledger.AccountBlock, vm
 	return block, vmContext
 }
 
-func genesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+func (c *chain) NewGenesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
+	return NewGenesisRegisterBlock(c.globalCfg.Genesis)
+}
+
+func NewGenesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_interface.VmDatabase) {
 	timestamp := genesisTimestamp.Add(time.Second * 10)
 
 	block := ledger.AccountBlock{
@@ -270,7 +258,7 @@ func genesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt_i
 		Timestamp:    &timestamp,
 	}
 
-	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, genesisTrieNodePool))
+	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, nil))
 	for index, addr := range config.BlockProducers {
 		nodeName := "s" + strconv.Itoa(index+1)
 		registerData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(0), uint64(0), []types.Address{addr})
