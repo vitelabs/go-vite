@@ -13,6 +13,8 @@ type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
+	GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
 
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)

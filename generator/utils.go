@@ -130,12 +130,8 @@ func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmCon
 		}
 	}()
 
-	startTime := time.Now()
 	newVm := *vm.NewVM()
 	blockList, isRetry, err := newVm.Run(vmContext, block, sendBlock)
-	stopTime := time.Now()
-	timeConsume := uint64(stopTime.Sub(startTime).Nanoseconds() / (1000 * 1000))
-	fmt.Printf("vm: %d毫秒\n", timeConsume)
 
 	tLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
 

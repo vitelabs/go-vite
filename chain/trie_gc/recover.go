@@ -116,7 +116,7 @@ func (gc *collector) Recover() (returnErr error) {
 		}
 	}()
 
-	const PRINT_PER_COUNT = 1
+	const PRINT_PER_COUNT = 10000
 
 	if err := gc.recoverGenesis(); err != nil {
 		return errors.New("recoverGenesis failed, error is " + err.Error())
@@ -246,6 +246,7 @@ func (gc *collector) Recover() (returnErr error) {
 
 	}
 
+	fmt.Printf("Recover %d/%d\n", latestBlockEventId, latestBlockEventId)
 	fmt.Println("Data recovery complete")
 	return nil
 }
