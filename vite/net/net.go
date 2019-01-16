@@ -43,6 +43,7 @@ type net struct {
 	*broadcaster
 	*receiver
 	*filter
+	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	term      chan struct{}
 	log       log15.Logger
 	protocols []*p2p.Protocol // mount to p2p.server
@@ -50,7 +51,6 @@ type net struct {
 	fs        *fileServer
 	handlers  map[ViteCmd]MsgHandler
 	topo      *topo.Topology
-	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	plugins   []p2p.Plugin
 }
 
@@ -88,8 +88,8 @@ func New(cfg *Config) Net {
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.query = newQueryHandler(cfg.Chain)
-	n.addHandler(n.query)
-	n.addHandler(syncer)   // FileListCode, SubLedgerCode, ExceptionCode
+	n.addHandler(n.query)  // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	n.addHandler(syncer)   // FileListCode, SubLedgerCode
 	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
@@ -317,20 +317,8 @@ func (n *net) handleMsg(p *peer) (err error) {
 	}
 
 	if handler, ok := n.handlers[code]; ok && handler != nil {
-		n.log.Debug(fmt.Sprintf("begin handle message %s from %s", code, p))
-
-		begin := time.Now()
-		err = handler.Handle(msg, p)
-		monitor.LogDuration("net", "handle_"+code.String(), time.Now().Sub(begin).Nanoseconds())
-
-		n.log.Debug(fmt.Sprintf("handle message %s from %s done", code, p))
-
-		p.msgHandled[code]++
-
-		return err
+		return handler.Handle(msg, p)
 	}
-
-	// n.log.Error(fmt.Sprintf("missing handler for message %d from %s", msg.Cmd, p))
 
 	return nil
 }
@@ -338,22 +326,10 @@ func (n *net) handleMsg(p *peer) (err error) {
 func (n *net) Info() *NodeInfo {
 	peersInfo := n.peers.Info()
 
-	// var send, received, handled, discarded uint64
-	// for _, pi := range peersInfo {
-	// 	send += pi.MsgSend
-	// 	received += pi.MsgReceived
-	// 	handled += pi.MsgHandled
-	// 	discarded += pi.MsgDiscarded
-	// }
-
 	return &NodeInfo{
 		PeerCount: len(peersInfo),
 		Peers:     peersInfo,
 		Latency:   n.broadcaster.Statistic(),
-		// MsgSend:      send,
-		// MsgReceived:  received,
-		// MsgHandled:   handled,
-		// MsgDiscarded: discarded,
 	}
 }
 
@@ -361,10 +337,6 @@ type NodeInfo struct {
 	PeerCount int         `json:"peerCount"`
 	Peers     []*PeerInfo `json:"peers"`
 	Latency   []int64     `json:"latency"` // [0,1,12,24]
-	// MsgSend      uint64      `json:"msgSend"`
-	// MsgReceived  uint64      `json:"msgReceived"`
-	// MsgHandled   uint64      `json:"msgHandled"`
-	// MsgDiscarded uint64      `json:"msgDiscarded"`
 }
 
 type Task struct {

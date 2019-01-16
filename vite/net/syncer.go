@@ -73,7 +73,6 @@ func (s *SyncStateFeed) Notify(st SyncState) {
 	}
 }
 
-// @section syncer
 // the minimal height difference between snapshot chain of ours and bestPeer
 // if the difference is little than this value, then we deem no need sync
 const minHeightDifference = 3600
@@ -110,10 +109,8 @@ type syncer struct {
 	chunkTo   uint64
 	chunked   int32
 
-	shouldGrowTo uint64
-	current      uint64
-	rw           sync.RWMutex
-	doneTasks    pieces // done tasks
+	verifier Verifier
+	bn       *blockNotifier
 
 	running int32
 	term    chan struct{}
@@ -361,43 +358,62 @@ func (s *syncer) Cmds() []ViteCmd {
 	return []ViteCmd{FileListCode, SubLedgerCode}
 }
 
-func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
-	if ViteCmd(msg.Cmd) == FileListCode {
+func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
+	switch ViteCmd(msg.Cmd) {
+	case FileListCode:
 		res := new(message.FileList)
-
-		if err := res.Deserialize(msg.Payload); err != nil {
-			s.log.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
+		if err = res.Deserialize(msg.Payload); err != nil {
 			return err
 		}
-
 		s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
 
-		if len(res.Files) > 0 {
-			s.fc.gotFiles(res.Files, sender)
-		} else if sender.Height() >= s.to {
-			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-				for _, c := range res.Chunks {
-					s.pool.add(c[0], c[1], false)
-					s.cmu.Lock()
-					s.chunkFrom = c[0]
-					s.chunkTo = c[1]
-					s.cmu.Unlock()
-				}
-			} else {
-				for _, c := range res.Chunks {
-					var from, to uint64
-					s.cmu.Lock()
-					if c[1] > s.chunkTo {
-						from, to = s.chunkTo+1, c[1]
-						s.pool.add(from, to, false)
-					}
-					s.cmu.Unlock()
-				}
-			}
+		// todo
+
+	case SubLedgerCode:
+		subLedger := new(message.SubLedger)
+		if err = subLedger.Deserialize(msg.Payload); err != nil {
+			return
 		}
-	} else {
-		s.pool.Handle(msg, sender)
+
+		// todo
 	}
+
+	//if ViteCmd(msg.Cmd) == FileListCode {
+	//	res := new(message.FileList)
+	//
+	//	if err := res.Deserialize(msg.Payload); err != nil {
+	//		s.log.Error(fmt.Sprintf("descerialize %s from %s error: %v", res, sender.RemoteAddr(), err))
+	//		return err
+	//	}
+	//
+	//	s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
+	//
+	//	if len(res.Files) > 0 {
+	//		s.fc.gotFiles(res.Files, sender)
+	//	} else if sender.Height() >= s.to {
+	//		if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+	//			for _, c := range res.Chunks {
+	//				s.pool.add(c[0], c[1], false)
+	//				s.cmu.Lock()
+	//				s.chunkFrom = c[0]
+	//				s.chunkTo = c[1]
+	//				s.cmu.Unlock()
+	//			}
+	//		} else {
+	//			for _, c := range res.Chunks {
+	//				var from, to uint64
+	//				s.cmu.Lock()
+	//				if c[1] > s.chunkTo {
+	//					from, to = s.chunkTo+1, c[1]
+	//					s.pool.add(from, to, false)
+	//				}
+	//				s.cmu.Unlock()
+	//			}
+	//		}
+	//	}
+	//} else {
+	//	s.pool.Handle(msg, sender)
+	//}
 
 	return nil
 }

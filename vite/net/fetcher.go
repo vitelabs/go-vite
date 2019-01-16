@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
@@ -93,6 +94,11 @@ type fPolicy interface {
 
 type fetcher struct {
 	filter Filter
+
+	st       SyncState
+	verifier Verifier
+	bn       *blockNotifier
+
 	policy fPolicy
 	pool   MsgIder
 	ready  int32 // atomic
@@ -108,6 +114,58 @@ func newFetcher(filter Filter, peers *peerSet, pool MsgIder) *fetcher {
 	}
 }
 
+func (f *fetcher) subSyncState(st SyncState) {
+	f.st = st
+}
+
+func (f *fetcher) canFetch() bool {
+	return f.st != Syncing && f.st != SyncNotStart
+}
+
+func (f *fetcher) ID() string {
+	return "fetcher"
+}
+
+func (f *fetcher) Cmds() []ViteCmd {
+	return []ViteCmd{SnapshotBlocksCode, AccountBlocksCode}
+}
+
+func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
+	switch ViteCmd(msg.Cmd) {
+	case SnapshotBlocksCode:
+		bs := new(message.SnapshotBlocks)
+		if err = bs.Deserialize(msg.Payload); err != nil {
+			return err
+		}
+
+		for _, block := range bs.Blocks {
+			if err = f.verifier.VerifyNetSb(block); err != nil {
+				return err
+			}
+
+			f.filter.done(block.Hash)
+			f.bn.NotifySnapshotBlock(block, types.RemoteFetch)
+		}
+
+	case AccountBlocksCode:
+		bs := new(message.AccountBlocks)
+		if err = bs.Deserialize(msg.Payload); err != nil {
+			return err
+		}
+
+		for _, block := range bs.Blocks {
+			if err = f.verifier.VerifyNetAb(block); err != nil {
+				return err
+			}
+
+			f.filter.done(block.Hash)
+			f.bn.NotifyAccountBlock(block, types.RemoteFetch)
+		}
+	}
+
+	return nil
+}
+
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 	monitor.LogEvent("net/fetch", "GetSnapshotBlocks")
 
@@ -117,7 +175,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	if f.ready == 0 {
+	if !f.canFetch() {
 		f.log.Debug("not ready")
 		return
 	}
@@ -151,7 +209,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	if f.ready == 0 {
+	if !f.canFetch() {
 		f.log.Warn("not ready")
 		return
 	}
@@ -194,7 +252,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		return
 	}
 
-	if f.ready == 0 {
+	if !f.canFetch() {
 		f.log.Warn("not ready")
 		return
 	}
@@ -225,15 +283,5 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
-	}
-}
-
-func (f *fetcher) listen(st SyncState) {
-	if st == Syncdone || st == SyncDownloaded || st == Syncerr {
-		f.log.Info(fmt.Sprintf("ready: %s", st))
-		atomic.StoreInt32(&f.ready, 1)
-	} else if st == Syncing {
-		f.log.Warn(fmt.Sprintf("silence: %s", st))
-		atomic.StoreInt32(&f.ready, 0)
 	}
 }
