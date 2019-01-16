@@ -131,12 +131,27 @@ func (s *receiver) block(peer Peer, reason p2p.DiscReason) {
 }
 
 func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
-	if block == nil {
+	defer monitor.LogTime("net/receive", "NewSnapshotBlock_Time", time.Now())
+	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
+
+	s.mu.Lock()
+	seen := s.KnownBlocks.Lookup(block.Hash[:])
+	s.mu.Unlock()
+
+	if seen {
+		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
 		return
 	}
 
-	defer monitor.LogTime("net/receive", "NewSnapshotBlock_Time", time.Now())
-	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
+	// record
+	hash := block.ComputeHash()
+	s.mu.Lock()
+	exist := s.KnownBlocks.InsertUnique(hash[:])
+	s.mu.Unlock()
+
+	if exist {
+		return
+	}
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
@@ -144,15 +159,6 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 			s.block(sender, p2p.DiscProtocolError)
 			return err
 		}
-	}
-
-	s.mu.Lock()
-	firstSeen := s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
-
-	if !firstSeen {
-		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
-		return
 	}
 
 	// broadcast
@@ -174,12 +180,27 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 }
 
 func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
-	if block == nil {
+	defer monitor.LogTime("net/receive", "NewAccountBlock_Time", time.Now())
+	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
+
+	s.mu.Lock()
+	seen := s.KnownBlocks.Lookup(block.Hash[:])
+	s.mu.Unlock()
+
+	if seen {
+		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s/%d", block.Hash, block.Height))
 		return
 	}
 
-	defer monitor.LogTime("net/receive", "NewAccountBlock_Time", time.Now())
-	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
+	// record
+	hash := block.ComputeHash()
+	s.mu.Lock()
+	exist := s.KnownBlocks.InsertUnique(hash[:])
+	s.mu.Unlock()
+
+	if exist {
+		return
+	}
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
@@ -187,15 +208,6 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 			s.block(sender, p2p.DiscProtocolError)
 			return
 		}
-	}
-
-	s.mu.Lock()
-	firstSeen := s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
-
-	if !firstSeen {
-		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s/%d", block.Hash, block.Height))
-		return
 	}
 
 	s.broadcaster.BroadcastAccountBlock(block)
@@ -210,10 +222,6 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	} else {
 		s.aFeed.Notify(block, types.RemoteBroadcast)
 	}
-
-	s.mu.Lock()
-	s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
 
 	return nil
 }
