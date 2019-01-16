@@ -3,15 +3,14 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -171,6 +170,31 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
 		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+	}
+
+	//metrics
+	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
+		mBool := ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
+		cfg.MetricsEnable = &mBool
+	}
+	if ctx.GlobalIsSet(utils.InfluxDBEnableFlag.Name) {
+		iBool := ctx.GlobalBool(utils.InfluxDBEnableFlag.Name)
+		cfg.InfluxDBEnable = &iBool
+	}
+	if endpoint := ctx.GlobalString(utils.InfluxDBEndpointFlag.Name); len(endpoint) > 0 {
+		cfg.InfluxDBEndpoint = &endpoint
+	}
+	if database := ctx.GlobalString(utils.InfluxDBDatabaseFlag.Name); len(database) > 0 {
+		cfg.InfluxDBDatabase = &database
+	}
+	if username := ctx.GlobalString(utils.InfluxDBUsernameFlag.Name); len(username) > 0 {
+		cfg.InfluxDBUsername = &username
+	}
+	if password := ctx.GlobalString(utils.InfluxDBPasswordFlag.Name); len(password) > 0 {
+		cfg.InfluxDBPassword = &password
+	}
+	if tag := ctx.GlobalString(utils.InfluxDBHostTagFlag.Name); len(tag) > 0 {
+		cfg.InfluxDBHostTag = &tag
 	}
 }
 

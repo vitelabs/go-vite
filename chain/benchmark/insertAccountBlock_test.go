@@ -2,6 +2,9 @@ package chain_benchmark
 
 import (
 	"github.com/vitelabs/go-vite/chain/test_tools"
+
+	"fmt"
+
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/rand"
 	"testing"
@@ -10,17 +13,18 @@ import (
 
 func Benchmark_InsertAccountBlock(b *testing.B) {
 	chainInstance := newChainInstance("insertAccountBlock", true)
+	//chainInstance := newRocketChainInstance("insertAccountBlock", true)
 	const (
-		ACCOUNT_NUMS        = 1000
+		ACCOUNT_NUMS        = 100000
 		ACCOUNT_BLOCK_LIMIT = 1000 * 10000
 
 		PRINT_PER_COUNT = 1000
 
 		CREATE_REQUEST_TX_PROBABILITY = 50
 
-		LOOP_INSERT_SNAPSHOTBLOCK = true
+		LOOP_INSERT_SNAPSHOTBLOCK = false
 
-		INSERT_SNAPSHOTBLOCK_INTERVAL = time.Millisecond * 100
+		INSERT_SNAPSHOTBLOCK_INTERVAL = time.Millisecond * 1000
 
 		INSERT_ACCOUNTBLOCK_INTERVAL = 0
 	)
@@ -37,6 +41,7 @@ func Benchmark_InsertAccountBlock(b *testing.B) {
 
 	accounts := test_tools.MakeAccounts(ACCOUNT_NUMS, chainInstance)
 	accountLength := len(accounts)
+	fmt.Printf("Account length is %d\n", accountLength)
 
 	tps.Start()
 

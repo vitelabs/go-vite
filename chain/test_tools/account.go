@@ -74,6 +74,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
+
 	if options != nil && options.MockVmContext {
 		vmContext = &MockVmDatabase{}
 	} else {
@@ -121,6 +122,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) []*vm_context.VmA
 	now := time.Now()
 
 	var vmContext vmctxt_interface.VmDatabase
+
 	if options != nil && options.MockVmContext {
 		vmContext = &MockVmDatabase{}
 	} else {
@@ -158,6 +160,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) []*vm_context.VmA
 
 func MakeAccounts(num uint64, chainInstance chain.Chain) []*Account {
 	accountList := make([]*Account, num)
+
 	for i := uint64(0); i < num; i++ {
 		addr, privateKey, _ := types.CreateAddress()
 

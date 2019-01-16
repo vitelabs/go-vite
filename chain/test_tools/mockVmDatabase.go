@@ -128,6 +128,10 @@ func (context *MockVmDatabase) DebugGetStorage() map[string][]byte {
 	return nil
 }
 
-func (context *MockVmDatabase) GetOneHourQuota() uint64 {
-	return 0
+func (context *MockVmDatabase) GetOneHourQuota() (uint64, error) {
+	return 0, nil
+}
+
+func (context *MockVmDatabase) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+	return nil, nil
 }
