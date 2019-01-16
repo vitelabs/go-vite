@@ -6,10 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-
 	"errors"
-
-	"github.com/jerry-vite/cuckoofilter"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -22,8 +19,7 @@ const filterCap = 10000
 
 var errDiffGesis = errors.New("different genesis block")
 
-// @section Peer for protocol handle, not p2p Peer.
-//var errPeerTermed = errors.New("peer has been terminated")
+// Peer for protocol handle, not p2p Peer.
 type Peer interface {
 	RemoteAddr() *net2.TCPAddr
 	FileAddress() *net2.TCPAddr
@@ -34,14 +30,13 @@ type Peer interface {
 	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
 	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
+	SendMsg(msg *p2p.Msg) (err error)
 	Report(err error)
 	ID() string
 	Height() uint64
 	Head() types.Hash
 	Disconnect(reason p2p.DiscReason)
 }
-
-const peerMsgConcurrency = 10
 
 type peer struct {
 	*p2p.Peer
@@ -51,15 +46,11 @@ type peer struct {
 	height   uint64     // height of the snapshotchain
 	filePort uint16     // fileServer port, for request file
 	CmdSet   p2p.CmdSet // which cmdSet it belongs
-
-	mu          sync.RWMutex
-	KnownBlocks *cuckoo.Filter
-
-	log        log15.Logger
-	errChan    chan error
-	term       chan struct{}
-	msgHandled map[ViteCmd]uint64 // message statistic
-	wg         sync.WaitGroup
+	knownBlocks blockFilter
+	log     log15.Logger
+	errChan chan error
+	term    chan struct{}
+	wg      sync.WaitGroup
 }
 
 func (p *peer) Head() types.Hash {
@@ -80,11 +71,10 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		mrw:         mrw,
 		id:          p.ID().String(),
 		CmdSet:      cmdSet,
-		KnownBlocks: cuckoo.NewFilter(filterCap),
+		knownBlocks: newBlockFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errChan:     make(chan error, 1),
 		term:        make(chan struct{}),
-		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
 
@@ -158,19 +148,7 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 }
 
 func (p *peer) SeeBlock(hash types.Hash) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	seen := p.KnownBlocks.Lookup(hash[:])
-	if seen {
-		return
-	}
-
-	success := p.KnownBlocks.Insert(hash[:])
-	if !success {
-		p.KnownBlocks.Reset()
-		p.KnownBlocks.Insert(hash[:])
-	}
+	p.knownBlocks.record(hash[:])
 }
 
 // send
@@ -184,27 +162,13 @@ func (p *peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err e
 }
 
 func (p *peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	err = p.Send(NewSnapshotBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
 	p.SeeBlock(b.Hash)
-
-	return
+	return p.Send(NewSnapshotBlockCode, 0, b)
 }
 
 func (p *peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
-	err = p.Send(NewAccountBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
 	p.SeeBlock(b.Hash)
-
-	return
+	return p.Send(NewAccountBlockCode, 0, b)
 }
 
 func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
@@ -223,19 +187,15 @@ func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err e
 	return nil
 }
 
+func (p *peer) SendMsg(msg *p2p.Msg) (err error) {
+	return p.mrw.WriteMsg(msg)
+}
+
 type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
-	// MsgReceived        uint64            `json:"msgReceived"`
-	// MsgHandled         uint64            `json:"msgHandled"`
-	// MsgSend            uint64            `json:"msgSend"`
-	// MsgDiscarded       uint64            `json:"msgDiscarded"`
-	// MsgReceivedDetail  map[string]uint64 `json:"msgReceived"`
-	// MsgDiscardedDetail map[string]uint64 `json:"msgDiscarded"`
-	// MsgHandledDetail   map[string]uint64 `json:"msgHandledDetail"`
-	// MsgSendDetail      map[string]uint64 `json:"msgSendDetail"`
+	ID      string `json:"id"`
+	Addr    string `json:"addr"`
+	Head    string `json:"head"`
+	Height  uint64 `json:"height"`
 	Created string `json:"created"`
 }
 
@@ -244,44 +204,11 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *peer) Info() *PeerInfo {
-	// var handled, send, received, discard uint64
-	// handMap := make(map[string]uint64, len(p.msgHandled))
-	// for cmd, num := range p.msgHandled {
-	// 	handMap[cmd.String()] = num
-	// 	handled += num
-	// }
-	//
-	// sendMap := make(map[string]uint64, len(p.mrw.Send))
-	// for code, num := range p.mrw.Send {
-	// 	sendMap[ViteCmd(code).String()] = num
-	// 	send += num
-	// }
-	//
-	// recMap := make(map[string]uint64, len(p.mrw.Received))
-	// for code, num := range p.mrw.Received {
-	// 	recMap[ViteCmd(code).String()] = num
-	// 	received += num
-	// }
-	//
-	// discMap := make(map[string]uint64, len(p.mrw.Discarded))
-	// for code, num := range p.mrw.Discarded {
-	// 	discMap[ViteCmd(code).String()] = num
-	// 	discard += num
-	// }
-
 	return &PeerInfo{
-		ID:     p.id,
-		Addr:   p.RemoteAddr().String(),
-		Head:   p.head.String(),
-		Height: p.height,
-		// MsgReceived:        received,
-		// MsgHandled:         handled,
-		// MsgSend:            send,
-		// MsgDiscarded:       discard,
-		// MsgReceivedDetail:  recMap,
-		// MsgDiscardedDetail: discMap,
-		// MsgHandledDetail:   handMap,
-		// MsgSendDetail:      sendMap,
+		ID:      p.id,
+		Addr:    p.RemoteAddr().String(),
+		Head:    p.head.String(),
+		Height:  p.height,
 		Created: p.Created.Format("2006-01-02 15:04:05"),
 	}
 }
@@ -448,11 +375,7 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []Peer) {
 
 	i := 0
 	for _, p := range m.peers {
-		p.mu.RLock()
-		seen := p.KnownBlocks.Lookup(hash[:])
-		p.mu.RUnlock()
-
-		if !seen {
+		if seen := p.knownBlocks.has(hash[:]); !seen {
 			peers[i] = p
 			i++
 		}

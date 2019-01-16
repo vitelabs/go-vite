@@ -5,31 +5,116 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
 type broadcaster struct {
+	cacheSblocks []*ledger.SnapshotBlock
+	cacheAblocks []*ledger.AccountBlock
+
 	peers *peerSet
 	log   log15.Logger
+
+	st SyncState
+
+	verifier Verifier
+	bn       *blockNotifier
 
 	mu     sync.Mutex
 	statis circle.List // statistic latency of block propagation
 }
 
+func newBroadcaster(peers *peerSet, verifier Verifier, bn *blockNotifier) *broadcaster {
+	return &broadcaster{
+		cacheSblocks: make([]*ledger.SnapshotBlock, 0, 1000),
+		cacheAblocks: make([]*ledger.AccountBlock, 0, 1000),
+		peers:        peers,
+		log:          log15.New("module", "net/broadcaster"),
+		statis:       circle.NewList(records_24),
+		verifier:     verifier,
+		bn:           bn,
+	}
+}
+
+func (b *broadcaster) ID() string {
+	return "broadcaster"
+}
+
+func (b *broadcaster) Cmds() []ViteCmd {
+	return []ViteCmd{NewAccountBlockCode, NewSnapshotBlockCode}
+}
+
+func (b *broadcaster) Handle(msg *p2p.Msg, sender Peer) (err error) {
+	switch ViteCmd(msg.Cmd) {
+	case NewSnapshotBlockCode:
+		block := new(ledger.SnapshotBlock)
+		if err = block.Deserialize(msg.Payload); err != nil {
+			return err
+		}
+
+		hasSeen := b.bn.knownBlocks.lookAndRecord(block.Hash[:])
+
+		if hasSeen {
+			return nil
+		}
+
+		if err = b.verifier.VerifyNetSb(block); err != nil {
+			return err
+		}
+
+		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+
+		sender.SeeBlock(block.Hash)
+
+		b.BroadcastSnapshotBlock(block)
+
+		if b.canNotify() {
+			b.bn.NotifySnapshotBlock(block, types.RemoteBroadcast)
+		} else if len(b.cacheSblocks) < cap(b.cacheSblocks) {
+			b.cacheSblocks = append(b.cacheSblocks, block)
+		}
+
+	case NewAccountBlockCode:
+		block := new(ledger.AccountBlock)
+		if err = block.Deserialize(msg.Payload); err != nil {
+			return err
+		}
+
+		hasSeen := b.bn.knownBlocks.lookAndRecord(block.Hash[:])
+
+		if hasSeen {
+			return nil
+		}
+
+		if err = b.verifier.VerifyNetAb(block); err != nil {
+			return err
+		}
+
+		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
+
+		sender.SeeBlock(block.Hash)
+
+		b.BroadcastAccountBlock(block)
+
+		if b.canNotify() {
+			b.bn.NotifyAccountBlock(block, types.RemoteBroadcast)
+		} else if len(b.cacheAblocks) < cap(b.cacheAblocks) {
+			b.cacheAblocks = append(b.cacheAblocks, block)
+		}
+	}
+
+	return nil
+}
+
 const records_1 = 3600
 const records_12 = 12 * records_1
 const records_24 = 24 * records_1
-
-func newBroadcaster(peers *peerSet) *broadcaster {
-	return &broadcaster{
-		peers:  peers,
-		log:    log15.New("module", "net/broadcaster"),
-		statis: circle.NewList(records_24),
-	}
-}
 
 func (b *broadcaster) Statistic() []int64 {
 	ret := make([]int64, 4)
@@ -84,13 +169,33 @@ func (b *broadcaster) Statistic() []int64 {
 	return ret
 }
 
+func (b *broadcaster) subSyncState(st SyncState) {
+	b.st = st
+
+	if b.canNotify() {
+		for _, block := range b.cacheAblocks {
+			b.bn.NotifyAccountBlock(block, types.RemoteBroadcast)
+		}
+		for _, block := range b.cacheSblocks {
+			b.bn.NotifySnapshotBlock(block, types.RemoteBroadcast)
+		}
+
+		b.cacheSblocks = b.cacheSblocks[:0]
+		b.cacheAblocks = b.cacheAblocks[:0]
+	}
+}
+
+func (b *broadcaster) canNotify() bool {
+	return b.st != Syncing && b.st != SyncNotStart
+}
+
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
 	defer monitor.LogTime("net/broadcast", "SnapshotBlock", now)
 
-	peers := b.peers.UnknownBlock(block.Hash)
-	for _, peer := range peers {
-		peer.SendNewSnapshotBlock(block)
+	ps := b.peers.UnknownBlock(block.Hash)
+	for _, p := range ps {
+		p.SendNewSnapshotBlock(block)
 	}
 
 	if block.Timestamp != nil && block.Height > currentHeight {
@@ -100,7 +205,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		b.mu.Unlock()
 	}
 
-	b.log.Debug(fmt.Sprintf("broadcast SnapshotBlock %s/%d to %d peers", block.Hash, block.Height, len(peers)))
+	b.log.Debug(fmt.Sprintf("broadcast SnapshotBlock %s/%d to %d peers", block.Hash, block.Height, len(ps)))
 }
 
 func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -113,9 +218,9 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	now := time.Now()
 	defer monitor.LogTime("net/broadcast", "AccountBlock", now)
 
-	peers := b.peers.UnknownBlock(block.Hash)
-	for _, peer := range peers {
-		peer.SendNewAccountBlock(block)
+	ps := b.peers.UnknownBlock(block.Hash)
+	for _, p := range ps {
+		p.SendNewAccountBlock(block)
 	}
 
 	if block.Timestamp != nil {
@@ -125,7 +230,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 		b.mu.Unlock()
 	}
 
-	b.log.Debug(fmt.Sprintf("broadcast AccountBlock %s to %d peers", block.Hash, len(peers)))
+	b.log.Debug(fmt.Sprintf("broadcast AccountBlock %s to %d peers", block.Hash, len(ps)))
 }
 
 func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
