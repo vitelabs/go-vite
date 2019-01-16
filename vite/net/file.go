@@ -325,7 +325,7 @@ func chooseIdleConn(list connList) *conn {
 	createNew := rand.Intn(10) > 5
 
 	for i, c := range list {
-		if c.idle {
+		if !c.idle {
 			continue
 		}
 
