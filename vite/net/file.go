@@ -687,10 +687,10 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		elapse := time.Now().Sub(start).Seconds()
-		ctx.speed = file.FileSize / int64(elapse)
+		elapse := time.Now().Sub(start)
+		ctx.speed = file.FileSize / int64(elapse.Seconds()+1)
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, elapse %s", sCount, aCount, file.Filename, ctx.RemoteAddr(), elapse))
 		return nil
 	}
 }
