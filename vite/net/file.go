@@ -361,6 +361,7 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 			// choose a file connection
 			if c := chooseIdleConn(cList); c != nil {
 				c.file = file
+				r.state = reqPending
 				fc.exec(c)
 				return nil
 			}
@@ -538,11 +539,15 @@ loop:
 			// clean
 			fc.removePeer(conns, record, pFiles, conn.peer)
 
-			if err := fc.requestFile(conns, record, pFiles, file); err != nil {
-				fc.rec.catch(&fileTask{
-					file: file,
-				})
+			if r, ok := record[file.Filename]; ok {
+				r.state = reqError
 			}
+
+			//if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+			//	fc.rec.catch(&fileTask{
+			//		file: file,
+			//	})
+			//}
 
 		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
@@ -687,10 +692,10 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		elapse := time.Now().Sub(start).Seconds()
-		ctx.speed = file.FileSize / int64(elapse)
+		elapse := time.Now().Sub(start)
+		ctx.speed = file.FileSize / int64(elapse.Seconds()+1)
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, elapse %s", sCount, aCount, file.Filename, ctx.RemoteAddr(), elapse))
 		return nil
 	}
 }
