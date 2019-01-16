@@ -90,7 +90,7 @@ func checkTrie(chainInstance chain.Chain) error {
 		startSnapshotBlockHeight = latestSnapshotBlock.Height - checkSnapshotBlockNum + 1
 	}
 
-	fmt.Printf("check from %d to %d", startSnapshotBlockHeight, latestSnapshotBlock.Height)
+	fmt.Printf("check from %d to %d\n", startSnapshotBlockHeight, latestSnapshotBlock.Height)
 
 	current := startSnapshotBlockHeight
 
