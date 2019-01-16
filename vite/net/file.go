@@ -361,6 +361,7 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 			// choose a file connection
 			if c := chooseIdleConn(cList); c != nil {
 				c.file = file
+				r.state = reqPending
 				fc.exec(c)
 				return nil
 			}
@@ -538,11 +539,15 @@ loop:
 			// clean
 			fc.removePeer(conns, record, pFiles, conn.peer)
 
-			if err := fc.requestFile(conns, record, pFiles, file); err != nil {
-				fc.rec.catch(&fileTask{
-					file: file,
-				})
+			if r, ok := record[file.Filename]; ok {
+				r.state = reqError
 			}
+
+			//if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+			//	fc.rec.catch(&fileTask{
+			//		file: file,
+			//	})
+			//}
 
 		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
