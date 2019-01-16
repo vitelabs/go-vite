@@ -146,10 +146,10 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 	// record
 	hash := block.ComputeHash()
 	s.mu.Lock()
-	exist := s.KnownBlocks.InsertUnique(hash[:])
+	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
 	s.mu.Unlock()
 
-	if exist {
+	if !insertSuccess {
 		return
 	}
 
@@ -197,10 +197,10 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	// record
 	hash := block.ComputeHash()
 	s.mu.Lock()
-	exist := s.KnownBlocks.InsertUnique(hash[:])
+	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
 	s.mu.Unlock()
 
-	if exist {
+	if !insertSuccess {
 		return
 	}
 
