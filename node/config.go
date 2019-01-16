@@ -6,12 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vitelabs/go-vite/config/biz"
 
 	"encoding/json"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -21,7 +24,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
-	"math/big"
 )
 
 type Config struct {
@@ -50,7 +52,7 @@ type Config struct {
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
 	BootNodes            []string `json:"BootNodes"`
 	StaticNodes          []string `json:"StaticNodes"`
-	Port                 uint     `json:"Port"`
+	Port                 int      `json:"Port"`
 	NetID                uint     `json:"NetID"`
 	Discovery            bool     `json:"Discovery"`
 
@@ -98,7 +100,7 @@ type Config struct {
 	Topology               []string `json:"Topology"`
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
-	TopoEnable             bool     `json:"TopoEnable"`
+	TopoEnabled            bool     `json:"TopoEnabled"`
 	DashboardTargetURL     string
 
 	// reward
@@ -123,13 +125,15 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
+	addr := "0.0.0.0:" + strconv.Itoa(c.FilePort)
+
 	return &config.Net{
-		Single:     c.Single,
-		FilePort:   uint16(c.FilePort),
-		Topology:   c.Topology,
-		Topic:      c.TopologyTopic,
-		Interval:   int64(c.TopologyReportInterval),
-		TopoEnable: c.TopoEnable,
+		Single:      c.Single,
+		FileAddress: addr,
+		Topology:    c.Topology,
+		Topic:       c.TopologyTopic,
+		Interval:    int64(c.TopologyReportInterval),
+		TopoEnabled: c.TopoEnabled,
 	}
 }
 
@@ -157,13 +161,14 @@ func (c *Config) makeMinerConfig() *config.Producer {
 }
 
 func (c *Config) makeP2PConfig() *p2p.Config {
+	addr := "0.0.0.0:" + strconv.Itoa(c.Port)
 	return &p2p.Config{
 		Name:            c.Identity,
 		NetID:           network.ID(c.NetID),
 		MaxPeers:        c.MaxPeers,
 		MaxPendingPeers: c.MaxPendingPeers,
 		MaxInboundRatio: c.MaxPassivePeersRatio,
-		Port:            c.Port,
+		Addr:            addr,
 		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
 		PeerKey:         c.GetPrivateKey(),
 		BootNodes:       c.BootNodes,
@@ -406,7 +411,7 @@ func (c *Config) RunErrorLogHandler() log15.Handler {
 	return log15.StreamHandler(logger, log15.LogfmtFormat())
 }
 
-//resolve the dataDir so future changes to the current working directory don't affect the node
+// resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
 
 	if c.DataDir != "" {

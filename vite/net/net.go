@@ -20,15 +20,15 @@ var netLog = log15.New("module", "vite/net")
 type Config struct {
 	Single bool // for test
 
-	Port     uint16
+	FileAddr string
 	Chain    Chain
 	Verifier Verifier
 
 	// for topo
-	Topology   []string
-	Topic      string
-	Interval   int64 // second
-	TopoEnable bool
+	Topology    []string
+	Topic       string
+	Interval    int64 // second
+	TopoEnabled bool
 }
 
 const DefaultPort uint16 = 8484
@@ -59,10 +59,6 @@ func New(cfg *Config) Net {
 		return mock()
 	}
 
-	if cfg.Port == 0 {
-		cfg.Port = DefaultPort
-	}
-
 	g := new(gid)
 	peers := newPeerSet()
 
@@ -83,7 +79,7 @@ func New(cfg *Config) Net {
 		broadcaster: broadcaster,
 		receiver:    receiver,
 		filter:      filter,
-		fs:          newFileServer(cfg.Port, cfg.Chain),
+		fs:          newFileServer(cfg.FileAddr, cfg.Chain),
 		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
 	}
@@ -105,7 +101,7 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	if cfg.TopoEnable {
+	if cfg.TopoEnabled {
 		n.topo = topo.New(&topo.Config{
 			Addrs:    cfg.Topology,
 			Interval: cfg.Interval,
