@@ -1,11 +1,13 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	net2 "net"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -197,9 +199,18 @@ func (n *net) handlePeer(p *peer) error {
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
 	n.log.Debug(fmt.Sprintf("handshake with %s", p))
-	err := p.Handshake(&message.HandShake{
+
+	var filePort uint16
+	fileAddress, err := net2.ResolveTCPAddr("tcp", n.FileAddr)
+	if err != nil {
+		filePort = uint16(fileAddress.Port)
+	} else {
+		filePort = DefaultPort
+	}
+
+	err = p.Handshake(&message.HandShake{
 		Height:  current.Height,
-		Port:    n.Port,
+		Port:    filePort,
 		Current: current.Hash,
 		Genesis: genesis.Hash,
 	})

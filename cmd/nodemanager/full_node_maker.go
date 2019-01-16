@@ -93,7 +93,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
+		cfg.Port = ctx.GlobalInt(utils.ListenPortFlag.Name)
 	}
 
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
