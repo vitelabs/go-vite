@@ -99,13 +99,13 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 			if hashH != nil {
 				err := self.pool.RollbackAccountTo(k, hashH.Hash, hashH.Height)
 				if err != nil {
-					self.log.Error("account rollback err.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
+					self.log.Error("account rollback err1.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
 					return nil, err
 				}
 			} else {
 				err := self.pool.RollbackAccountTo(k, b.Hash, b.Height)
 				if err != nil {
-					self.log.Error("account rollback err.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
+					self.log.Error("account rollback err2.", "addr", k, "accHash", b.Hash, "accHeight", b.Height, "err", err)
 					return nil, err
 				}
 			}

@@ -131,21 +131,29 @@ func (s *receiver) block(peer Peer, reason p2p.DiscReason) {
 }
 
 func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
-	if block == nil {
-		return
-	}
-
 	defer monitor.LogTime("net/receive", "NewSnapshotBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewSnapshotBlock_Event")
 
-	s.mu.RLock()
+	s.mu.Lock()
 	seen := s.KnownBlocks.Lookup(block.Hash[:])
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	if seen {
 		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", block.Hash, block.Height))
 		return
 	}
+
+	// record
+	hash := block.ComputeHash()
+	s.mu.Lock()
+	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
+	s.mu.Unlock()
+
+	if !insertSuccess {
+		return
+	}
+
+	s.log.Info(fmt.Sprintf("record NewSnapshotBlock %s/%d", block.Hash, block.Height))
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetSb(block); err != nil {
@@ -170,29 +178,33 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 		s.sFeed.Notify(block, types.RemoteBroadcast)
 	}
 
-	s.mu.Lock()
-	s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
-
 	return nil
 }
 
 func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
-	if block == nil {
-		return
-	}
-
 	defer monitor.LogTime("net/receive", "NewAccountBlock_Time", time.Now())
 	monitor.LogEvent("net/receive", "NewAccountBlock_Event")
 
-	s.mu.RLock()
+	s.mu.Lock()
 	seen := s.KnownBlocks.Lookup(block.Hash[:])
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	if seen {
-		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s", block.Hash))
+		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s/%d", block.Hash, block.Height))
 		return
 	}
+
+	// record
+	hash := block.ComputeHash()
+	s.mu.Lock()
+	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
+	s.mu.Unlock()
+
+	if !insertSuccess {
+		return
+	}
+
+	s.log.Info(fmt.Sprintf("record NewAccountBlock %s/%d", block.Hash, block.Height))
 
 	if s.verifier != nil {
 		if err = s.verifier.VerifyNetAb(block); err != nil {
@@ -214,10 +226,6 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	} else {
 		s.aFeed.Notify(block, types.RemoteBroadcast)
 	}
-
-	s.mu.Lock()
-	s.KnownBlocks.InsertUnique(block.Hash[:])
-	s.mu.Unlock()
 
 	return nil
 }
@@ -309,7 +317,7 @@ func (s *receiver) listen(st SyncState) {
 		return
 	}
 
-	if st == Syncdone || st == SyncDownloaded {
+	if st == Syncdone || st == SyncDownloaded || st == Syncerr {
 		s.log.Info(fmt.Sprintf("ready: %s", st))
 		atomic.StoreInt32(&s.ready, 1)
 
