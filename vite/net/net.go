@@ -19,8 +19,8 @@ import (
 var netLog = log15.New("module", "vite/net")
 
 type Config struct {
-	FileAddr string
 	Single   bool // for test
+	FileAddr string
 	Chain    Chain
 	Verifier Verifier
 }
@@ -55,12 +55,12 @@ func New(cfg *Config) Net {
 
 	feed := newBlockFeeder()
 
-	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, new(memBlockStore))
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000))
 	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, g, feed)
 	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
 
-	syncer.feed.Sub(fetcher.subSyncState)     // subscribe sync status
-	syncer.feed.Sub(broadcaster.subSyncState) // subscribe sync status
+	syncer.SubscribeSyncStatus(fetcher.subSyncState)     // subscribe sync status
+	syncer.SubscribeSyncStatus(broadcaster.subSyncState) // subscribe sync status
 
 	n := &net{
 		Config:          cfg,
@@ -69,7 +69,7 @@ func New(cfg *Config) Net {
 		syncer:          syncer,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
-		fs:              newFileServer(cfg.Port, cfg.Chain),
+		fs:              newFileServer(cfg.Address, cfg.Chain.Compressor()),
 		handlers:        make(map[ViteCmd]MsgHandler),
 		log:             netLog,
 	}

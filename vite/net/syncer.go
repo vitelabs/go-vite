@@ -2,8 +2,6 @@ package net
 
 import (
 	"fmt"
-	"sort"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,46 +38,12 @@ func (s SyncState) String() string {
 	return syncStatus[s]
 }
 
-type SyncStateFeed struct {
-	currentId int
-	subs      map[int]SyncStateCallback
-}
-
-func newSyncStateFeed() *SyncStateFeed {
-	return &SyncStateFeed{
-		subs: make(map[int]SyncStateCallback),
-	}
-}
-
-func (s *SyncStateFeed) Sub(fn SyncStateCallback) int {
-	s.currentId++
-	s.subs[s.currentId] = fn
-	return s.currentId
-}
-
-func (s *SyncStateFeed) Unsub(subId int) {
-	if subId <= 0 {
-		return
-	}
-
-	delete(s.subs, subId)
-}
-
-func (s *SyncStateFeed) Notify(st SyncState) {
-	for _, fn := range s.subs {
-		if fn != nil {
-			fn(st)
-		}
-	}
-}
-
 // the minimal height difference between snapshot chain of ours and bestPeer
 // if the difference is little than this value, then we deem no need sync
 const minHeightDifference = 3600
-
-var waitEnoughPeers = 10 * time.Second
-var enoughPeers = 3
-var chainGrowInterval = time.Second
+const waitEnoughPeers = 10 * time.Second
+const enoughPeers = 3
+const chainGrowInterval = time.Second
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
@@ -90,27 +54,28 @@ func shouldSync(from, to uint64) bool {
 }
 
 type syncer struct {
-	from, to   uint64 // include
-	count      uint64 // atomic, current amount of snapshotblocks have received
-	total      uint64 // atomic, total amount of snapshotblocks need download, equal: to - from + 1
-	peers      *peerSet
-	state      SyncState
-	downloaded chan struct{}
-	feed       *SyncStateFeed
-	chain      Chain // query latest block
-	pEvent     chan *peerEvent
-	notifier   blockNotifier
-	fc         *fileClient
-	pool       *chunkPool
+	from, to uint64 // include
+	count    uint64 // atomic, current amount of snapshotblocks have received
+	peers    *peerSet
+	state    SyncState
 
-	cmu       sync.Mutex
-	fileEnd   uint64
-	chunkFrom uint64
-	chunkTo   uint64
-	chunked   int32
+	// query current block and height
+	chain Chain
 
+	// get peer add/delete event
+	pEvent chan *peerEvent
+
+	// handle blocks
 	verifier Verifier
-	bn       *blockFeed
+	notifier blockNotifier
+
+	// for sync tasks
+	fc   *fileClient
+	pool *chunkPool
+
+	// for subscribe
+	curSubId int
+	subs     map[int]SyncStateCallback
 
 	running int32
 	term    chan struct{}
@@ -119,15 +84,14 @@ type syncer struct {
 
 func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, notifier blockNotifier) *syncer {
 	s := &syncer{
-		state:      SyncNotStart,
-		term:       make(chan struct{}),
-		downloaded: make(chan struct{}, 1),
-		feed:       newSyncStateFeed(),
-		chain:      chain,
-		peers:      peers,
-		pEvent:     make(chan *peerEvent, 1),
-		log:        log15.New("module", "net/syncer"),
-		notifier:   notifier,
+		state:    SyncNotStart,
+		term:     make(chan struct{}),
+		chain:    chain,
+		peers:    peers,
+		pEvent:   make(chan *peerEvent, 1),
+		notifier: notifier,
+		subs:     make(map[int]SyncStateCallback),
+		log:      log15.New("module", "net/syncer"),
 	}
 
 	// subscribe peer add/del event
@@ -141,6 +105,31 @@ func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, noti
 	s.fc = fc
 
 	return s
+}
+
+func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) int {
+	s.curSubId++
+	s.subs[s.curSubId] = fn
+	return s.curSubId
+}
+
+func (s *syncer) UnsubscribeSyncStatus(subId int) {
+	if subId <= 0 {
+		return
+	}
+
+	delete(s.subs, subId)
+}
+
+func (s *syncer) SyncState() SyncState {
+	return s.state
+}
+
+func (s *syncer) setState(st SyncState) {
+	s.state = st
+	for _, sub := range s.subs {
+		sub(st)
+	}
 }
 
 func (s *syncer) Stop() {
@@ -488,19 +477,6 @@ func (s *syncer) catch(c piece) {
 	s.log.Warn(fmt.Sprintf("retry sync from %d to %d", from, s.to))
 }
 
-func (s *syncer) setState(t SyncState) {
-	s.state = t
-	s.feed.Notify(t)
-}
-
-func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
-	return s.feed.Sub(fn)
-}
-
-func (s *syncer) UnsubscribeSyncStatus(subId int) {
-	s.feed.Unsub(subId)
-}
-
 func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
 	err = s.receiver.ReceiveSnapshotBlock(block, sender)
 	if err != nil {
@@ -534,6 +510,7 @@ func (s *syncer) Status() *SyncStatus {
 		State:    s.state,
 	}
 }
+<<<<<<< HEAD
 
 func (s *syncer) SyncState() SyncState {
 	return s.state
@@ -555,3 +532,5 @@ func (ps pieces) Less(i, j int) bool {
 func (ps pieces) Swap(i, j int) {
 	ps[i], ps[j] = ps[j], ps[i]
 }
+=======
+>>>>>>> fileDownloader

@@ -29,17 +29,42 @@ type syncTask interface {
 	do() error
 	rest() [][2]uint64
 	taskType() syncTaskType
+	info() string
+}
+
+type blockReceiver interface {
+	receiveAccountBlock(block *ledger.AccountBlock) error
+	receiveSnapshotBlock(block *ledger.SnapshotBlock) error
+}
+
+type File = *ledger.CompressedFileMeta
+type Files []File
+
+func (f Files) Len() int {
+	return len(f)
+}
+
+func (f Files) Less(i, j int) bool {
+	return f[i].StartHeight < f[j].StartHeight
+}
+
+func (f Files) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
 }
 
 type fileDownloader interface {
-	download(file *ledger.CompressedFileMeta) (uint64, error)
+	download(file File) (uint64, error)
 }
 
 type fileTask struct {
 	st         syncTaskState
-	file       *ledger.CompressedFileMeta
+	file       File
 	downloader fileDownloader
 	index      uint64
+}
+
+func (f *fileTask) info() string {
+	panic("implement me")
 }
 
 func (f *fileTask) state() syncTaskState {
@@ -79,6 +104,10 @@ type chunkTask struct {
 	st         syncTaskState
 	_rest      [][2]uint64
 	downloader chunkDownloader
+}
+
+func (c *chunkTask) info() string {
+	panic("implement me")
 }
 
 func (c *chunkTask) state() syncTaskState {
@@ -129,29 +158,30 @@ type executor struct {
 }
 
 func (e *executor) add(task syncTask) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if len(e.tasks) == 0 {
-		e.tasks = append(e.tasks, task)
-		return
-	}
-
-	from, to := task.bound()
-
-	last := e.tasks[len(e.tasks)-1]
-	f, to := last.bound()
-
-	for i := 0; i < len(e.tasks); i++ {
-		f, t := e.tasks[i].bound()
-		if from > t {
-			continue
-		} else if f == from {
-			return
-		} else {
-
-		}
-	}
+	// todo
+	//e.mu.Lock()
+	//defer e.mu.Unlock()
+	//
+	//if len(e.tasks) == 0 {
+	//	e.tasks = append(e.tasks, task)
+	//	return
+	//}
+	//
+	//from, to := task.bound()
+	//
+	//last := e.tasks[len(e.tasks)-1]
+	//f, to := last.bound()
+	//
+	//for i := 0; i < len(e.tasks); i++ {
+	//	f, t := e.tasks[i].bound()
+	//	if from > t {
+	//		continue
+	//	} else if f == from {
+	//		return
+	//	} else {
+	//
+	//	}
+	//}
 }
 
 func (e *executor) runTo(to uint64) {
