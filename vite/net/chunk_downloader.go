@@ -43,6 +43,7 @@ func (s reqState) String() string {
 	return reqStatus[s]
 }
 
+<<<<<<< HEAD:vite/net/request.go
 type context interface {
 	Add(r Request)
 	Retry(id uint64, err error)
@@ -95,7 +96,11 @@ const file2Chunk = 600
 const minSubLedger = 1000
 
 const chunk = 20
+=======
+const chunkSize = 50
+>>>>>>> fileDownloader:vite/net/chunk_downloader.go
 const maxBlocksOneTrip = 1000
+const chunkTimeout = 20 * time.Second
 
 func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
@@ -122,8 +127,6 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-var chunkTimeout = 20 * time.Second
-
 // @request for chunk
 type chunkRequest struct {
 	id       uint64
@@ -133,14 +136,6 @@ type chunkRequest struct {
 	deadline time.Time
 	msg      *message.GetChunk
 	count    uint64
-}
-
-func (c *chunkRequest) setBand(from, to uint64) {
-	c.from, c.to = from, to
-}
-
-func (c *chunkRequest) band() (from, to uint64) {
-	return c.from, c.to
 }
 
 type chunkPool struct {
@@ -158,6 +153,10 @@ type chunkPool struct {
 	to       uint64
 	running  int32
 	resQueue *blockQueue.BlockQueue
+}
+
+func (p *chunkPool) download(from, to uint64) ([][2]uint64, error) {
+	panic("implement me")
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {

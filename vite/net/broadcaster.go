@@ -26,22 +26,68 @@ type blockStore interface {
 }
 
 type memBlockStore struct {
+	rw sync.RWMutex
+
+	aIndex  int
+	ablocks []*ledger.AccountBlock
+
+	sIndex  int
+	sblocks []*ledger.SnapshotBlock
+}
+
+func newMemBlockStore(max int) blockStore {
+	return &memBlockStore{
+		ablocks: make([]*ledger.AccountBlock, 0, max),
+		sblocks: make([]*ledger.SnapshotBlock, 0, max),
+	}
 }
 
 func (m *memBlockStore) enqueueAccountBlock(block *ledger.AccountBlock) {
-	panic("implement me")
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	if len(m.ablocks) < cap(m.ablocks) {
+		m.ablocks = append(m.ablocks, block)
+	}
 }
 
 func (m *memBlockStore) dequeueAccountBlock() (block *ledger.AccountBlock) {
-	panic("implement me")
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	if m.aIndex > len(m.ablocks)-1 {
+		m.ablocks = m.ablocks[:0]
+		return
+	}
+
+	block = m.ablocks[m.aIndex]
+	m.aIndex++
+
+	return
 }
 
 func (m *memBlockStore) enqueueSnapshotBlock(block *ledger.SnapshotBlock) {
-	panic("implement me")
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	if len(m.sblocks) < cap(m.sblocks) {
+		m.sblocks = append(m.sblocks, block)
+	}
 }
 
 func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
-	panic("implement me")
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	if m.sIndex > len(m.sblocks)-1 {
+		m.sblocks = m.sblocks[:0]
+		return
+	}
+
+	block = m.sblocks[m.sIndex]
+	m.sIndex++
+
+	return
 }
 
 type broadcaster struct {
