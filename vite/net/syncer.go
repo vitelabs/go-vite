@@ -99,7 +99,7 @@ type syncer struct {
 	feed       *SyncStateFeed
 	chain      Chain // query latest block
 	pEvent     chan *peerEvent
-	receiver   Receiver
+	notifier   blockNotifier
 	fc         *fileClient
 	pool       *chunkPool
 
@@ -110,14 +110,14 @@ type syncer struct {
 	chunked   int32
 
 	verifier Verifier
-	bn       *blockNotifier
+	bn       *blockFeed
 
 	running int32
 	term    chan struct{}
 	log     log15.Logger
 }
 
-func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
+func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, notifier blockNotifier) *syncer {
 	s := &syncer{
 		state:      SyncNotStart,
 		term:       make(chan struct{}),
@@ -127,7 +127,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 		peers:      peers,
 		pEvent:     make(chan *peerEvent, 1),
 		log:        log15.New("module", "net/syncer"),
-		receiver:   receiver,
+		notifier:   notifier,
 	}
 
 	// subscribe peer add/del event
