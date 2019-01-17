@@ -409,7 +409,10 @@ func (s *syncer) createChunkTasks(fileEnd uint64) {
 		return
 	}
 
-	s.pool.add(fileEnd+1, s.to, false)
+	if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+		s.pool.add(fileEnd+1, s.to, false)
+		s.chunkTo = s.to
+	}
 }
 
 func (s *syncer) done(c piece) {
