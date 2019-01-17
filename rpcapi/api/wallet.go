@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/hex"
 	"errors"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
@@ -11,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"math/big"
 )
 
 type HexSignedTuple struct {
@@ -287,16 +288,16 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple,
 	return &t, nil
 }
 
-func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
+func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.Hash, error) {
 	amount, ok := new(big.Int).SetString(params.Amount, 10)
 	if !ok {
-		return ErrStrToBigInt
+		return nil, ErrStrToBigInt
 	}
 	var difficulty *big.Int = nil
 	if params.Difficulty != nil {
 		difficulty, ok = new(big.Int).SetString(*params.Difficulty, 10)
 		if !ok {
-			return ErrStrToBigInt
+			return nil, ErrStrToBigInt
 		}
 	}
 
@@ -313,11 +314,11 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 
 	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	g, e := generator.NewGenerator(m.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
 	if e != nil {
-		return e
+		return nil, e
 	}
 
 	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
@@ -338,16 +339,16 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) error {
 
 	if e != nil {
 		newerr, _ := TryMakeConcernedError(e)
-		return newerr
+		return nil, newerr
 	}
 	if result.Err != nil {
 		newerr, _ := TryMakeConcernedError(result.Err)
-		return newerr
+		return nil, newerr
 	}
 	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+		return &result.BlockGenList[0].AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
 	} else {
-		return errors.New("generator gen an empty block")
+		return nil, errors.New("generator gen an empty block")
 	}
 
 }
