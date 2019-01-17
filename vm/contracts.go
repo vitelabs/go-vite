@@ -55,7 +55,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 	},
 }
 
-func getPrecompiledContract(addr types.Address, methodSelector []byte) (contracts.PrecompiledContractMethod, bool, error) {
+func GetPrecompiledContract(addr types.Address, methodSelector []byte) (contracts.PrecompiledContractMethod, bool, error) {
 	p, ok := simpleContracts[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {

@@ -38,4 +38,5 @@ type PrecompiledContractMethod interface {
 	DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
+	GetQuota() uint64
 }

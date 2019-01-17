@@ -329,7 +329,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 	defer monitor.LogTime("vm", "SendCall", time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := getPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
+	if p, ok, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -391,7 +391,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		vm.updateBlock(block, util.ErrDepth, 0)
 		return vm.blockList, NoRetry, util.ErrDepth
 	}
-	if p, ok, _ := getPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
