@@ -329,7 +329,7 @@ func chooseIdleConn(list connList, hasNewPeers bool) *conn {
 			continue
 		}
 
-		if i < total/3 {
+		if i <= total/3 {
 			return c
 		}
 
