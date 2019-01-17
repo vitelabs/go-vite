@@ -317,7 +317,7 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 	}
 }
 
-func chooseIdleConn(list connList) *conn {
+func chooseIdleConn(list connList, hasNewPeers bool) *conn {
 	sort.Sort(list)
 	total := len(list)
 
@@ -333,7 +333,7 @@ func chooseIdleConn(list connList) *conn {
 			return c
 		}
 
-		if createNew {
+		if hasNewPeers && createNew {
 			return nil
 		}
 
@@ -358,15 +358,17 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 				}
 			}
 
+			hasNewPeers := len(newPeers) != 0
+
 			// choose a file connection
-			if c := chooseIdleConn(cList); c != nil {
+			if c := chooseIdleConn(cList, hasNewPeers); c != nil {
 				c.file = file
 				r.state = reqPending
 				fc.exec(c)
 				return nil
 			}
 
-			if len(newPeers) == 0 {
+			if !hasNewPeers {
 				return
 			}
 
