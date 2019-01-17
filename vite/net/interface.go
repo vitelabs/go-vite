@@ -42,6 +42,7 @@ type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.Bloc
 type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
 type SyncStateCallback = func(SyncState)
 
+// A BlockSubscriber implementation can be subscribed and Unsubscribed, when got a block, should notify subscribers
 type BlockSubscriber interface {
 	// SubscribeAccountBlock return the subId, always larger than 0, use to unsubscribe
 	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
@@ -88,19 +89,6 @@ type Fetcher interface {
 	FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64)
 }
 
-// A Receiver implementation can handle blocks received from peers
-type Receiver interface {
-	BlockSubscriber
-	ReceiveSnapshotBlock(block *ledger.SnapshotBlock) (err error)
-	ReceiveAccountBlock(block *ledger.AccountBlock) (err error)
-
-	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock) (err error)
-	ReceiveAccountBlocks(blocks []*ledger.AccountBlock) (err error)
-
-	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock) (err error)
-	ReceiveNewAccountBlock(block *ledger.AccountBlock) (err error)
-}
-
 // A Syncer implementation can synchronise blocks to peers
 type Syncer interface {
 	SyncStateSubscriber
@@ -111,11 +99,10 @@ type Net interface {
 	Syncer
 	Fetcher
 	Broadcaster
-	Receiver
+	BlockSubscriber
 	Protocols() []*p2p.Protocol
 	Start(svr p2p.Server) error
 	Stop()
 	Info() *NodeInfo
-	Tasks() []*Task
 	AddPlugin(plugin p2p.Plugin)
 }

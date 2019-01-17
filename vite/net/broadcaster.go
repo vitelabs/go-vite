@@ -14,31 +14,61 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
-type broadcaster struct {
-	cacheSblocks []*ledger.SnapshotBlock
-	cacheAblocks []*ledger.AccountBlock
+// A blockStore implementation can store blocks in queue,
+// when node is syncing, blocks from remote broadcaster can be stored.
+// dequeue these blocks when sync done.
+type blockStore interface {
+	enqueueAccountBlock(block *ledger.AccountBlock)
+	dequeueAccountBlock() (block *ledger.AccountBlock)
 
+	enqueueSnapshotBlock(block *ledger.SnapshotBlock)
+	dequeueSnapshotBlock() (block *ledger.SnapshotBlock)
+}
+
+type memBlockStore struct {
+}
+
+func (m *memBlockStore) enqueueAccountBlock(block *ledger.AccountBlock) {
+	panic("implement me")
+}
+
+func (m *memBlockStore) dequeueAccountBlock() (block *ledger.AccountBlock) {
+	panic("implement me")
+}
+
+func (m *memBlockStore) enqueueSnapshotBlock(block *ledger.SnapshotBlock) {
+	panic("implement me")
+}
+
+func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
+	panic("implement me")
+}
+
+type broadcaster struct {
 	peers *peerSet
-	log   log15.Logger
 
 	st SyncState
 
 	verifier Verifier
-	bn       *blockNotifier
+	feed     blockNotifier
+	filter   blockFilter
+
+	store blockStore
 
 	mu     sync.Mutex
 	statis circle.List // statistic latency of block propagation
+
+	log log15.Logger
 }
 
-func newBroadcaster(peers *peerSet, verifier Verifier, bn *blockNotifier) *broadcaster {
+func newBroadcaster(peers *peerSet, verifier Verifier, feed blockNotifier, store blockStore) *broadcaster {
 	return &broadcaster{
-		cacheSblocks: make([]*ledger.SnapshotBlock, 0, 1000),
-		cacheAblocks: make([]*ledger.AccountBlock, 0, 1000),
-		peers:        peers,
-		log:          log15.New("module", "net/broadcaster"),
-		statis:       circle.NewList(records_24),
-		verifier:     verifier,
-		bn:           bn,
+		peers:    peers,
+		log:      log15.New("module", "net/broadcaster"),
+		statis:   circle.NewList(records_24),
+		verifier: verifier,
+		feed:     feed,
+		store:    store,
 	}
 }
 
@@ -58,26 +88,34 @@ func (b *broadcaster) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			return err
 		}
 
-		hasSeen := b.bn.knownBlocks.lookAndRecord(block.Hash[:])
+		sender.SeeBlock(block.Hash)
 
-		if hasSeen {
+		b.log.Debug(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+
+		// check if block has exist first
+		if exist := b.filter.has(block.Hash[:]); exist {
+			return nil
+		}
+
+		// use the compute hash, because computeHash can`t be forged
+		hash := block.ComputeHash()
+
+		// check if has exist or record, return true if has exist
+		if exist := b.filter.lookAndRecord(hash[:]); exist {
 			return nil
 		}
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
+			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender.RemoteAddr(), err))
 			return err
 		}
-
-		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
-
-		sender.SeeBlock(block.Hash)
 
 		b.BroadcastSnapshotBlock(block)
 
 		if b.canNotify() {
-			b.bn.NotifySnapshotBlock(block, types.RemoteBroadcast)
-		} else if len(b.cacheSblocks) < cap(b.cacheSblocks) {
-			b.cacheSblocks = append(b.cacheSblocks, block)
+			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
+		} else {
+			b.store.enqueueSnapshotBlock(block)
 		}
 
 	case NewAccountBlockCode:
@@ -86,26 +124,33 @@ func (b *broadcaster) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			return err
 		}
 
-		hasSeen := b.bn.knownBlocks.lookAndRecord(block.Hash[:])
+		sender.SeeBlock(block.Hash)
+		b.log.Debug(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
 
-		if hasSeen {
+		// check if block has exist first
+		if exist := b.filter.has(block.Hash[:]); exist {
+			return nil
+		}
+
+		// use the compute hash, because computeHash can`t be forged
+		hash := block.ComputeHash()
+
+		// check if has exist or record, return true if has exist
+		if exist := b.filter.lookAndRecord(hash[:]); exist {
 			return nil
 		}
 
 		if err = b.verifier.VerifyNetAb(block); err != nil {
+			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender.RemoteAddr(), err))
 			return err
 		}
-
-		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
-
-		sender.SeeBlock(block.Hash)
 
 		b.BroadcastAccountBlock(block)
 
 		if b.canNotify() {
-			b.bn.NotifyAccountBlock(block, types.RemoteBroadcast)
-		} else if len(b.cacheAblocks) < cap(b.cacheAblocks) {
-			b.cacheAblocks = append(b.cacheAblocks, block)
+			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
+		} else {
+			b.store.enqueueAccountBlock(block)
 		}
 	}
 
@@ -173,15 +218,12 @@ func (b *broadcaster) subSyncState(st SyncState) {
 	b.st = st
 
 	if b.canNotify() {
-		for _, block := range b.cacheAblocks {
-			b.bn.NotifyAccountBlock(block, types.RemoteBroadcast)
+		for block := b.store.dequeueSnapshotBlock(); block != nil; block = b.store.dequeueSnapshotBlock() {
+			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
 		}
-		for _, block := range b.cacheSblocks {
-			b.bn.NotifySnapshotBlock(block, types.RemoteBroadcast)
+		for block := b.store.dequeueAccountBlock(); block != nil; block = b.store.dequeueAccountBlock() {
+			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
 		}
-
-		b.cacheSblocks = b.cacheSblocks[:0]
-		b.cacheAblocks = b.cacheAblocks[:0]
 	}
 }
 

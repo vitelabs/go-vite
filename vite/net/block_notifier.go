@@ -5,40 +5,50 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type blockNotifier struct {
-	aSubs       map[int]AccountblockCallback
-	bSubs       map[int]SnapshotBlockCallback
-	currentId   int
-	knownBlocks blockFilter
+type blockFeeder interface {
+	BlockSubscriber
+	blockNotifier
 }
 
-func (bf *blockNotifier) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
+type blockNotifier interface {
+	notifySnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource)
+	notifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource)
+}
+
+type blockFeed struct {
+	aSubs     map[int]AccountblockCallback
+	bSubs     map[int]SnapshotBlockCallback
+	currentId int
+}
+
+func newBlockFeeder() blockFeeder {
+	return &blockFeed{
+		aSubs: make(map[int]AccountblockCallback),
+		bSubs: make(map[int]SnapshotBlockCallback),
+	}
+}
+
+func (bf *blockFeed) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
 	bf.currentId++
 	bf.aSubs[bf.currentId] = fn
 	return bf.currentId
 }
 
-func (bf *blockNotifier) UnsubscribeAccountBlock(subId int) {
+func (bf *blockFeed) UnsubscribeAccountBlock(subId int) {
 	delete(bf.aSubs, subId)
 }
 
-func (bf *blockNotifier) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
+func (bf *blockFeed) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
 	bf.currentId++
 	bf.bSubs[bf.currentId] = fn
 	return bf.currentId
 }
 
-func (bf *blockNotifier) UnsubscribeSnapshotBlock(subId int) {
+func (bf *blockFeed) UnsubscribeSnapshotBlock(subId int) {
 	delete(bf.aSubs, subId)
 }
 
-func (bf *blockNotifier) NotifySnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
-	ok := bf.knownBlocks.lookAndRecord(block.Hash[:])
-
-	if ok {
-		return
-	}
-
+func (bf *blockFeed) notifySnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 	for _, fn := range bf.bSubs {
 		if fn != nil {
 			fn(block, source)
@@ -46,13 +56,7 @@ func (bf *blockNotifier) NotifySnapshotBlock(block *ledger.SnapshotBlock, source
 	}
 }
 
-func (bf *blockNotifier) NotifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource) {
-	ok := bf.knownBlocks.lookAndRecord(block.Hash[:])
-
-	if ok {
-		return
-	}
-
+func (bf *blockFeed) notifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource) {
 	for _, fn := range bf.aSubs {
 		if fn != nil {
 			fn(block.AccountAddress, block, source)

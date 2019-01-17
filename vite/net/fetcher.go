@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -28,11 +30,18 @@ type MsgIder interface {
 	MsgID() uint64
 }
 
-type fetchPolicy struct {
+// a fetchPolicy implementation can choose suitable peers to fetch blocks
+type fetchPolicy interface {
+	pickAccount(height uint64) (l []Peer)
+	pickSnap() Peer
+}
+
+// a fp is fetchPolicy implementation
+type fp struct {
 	peers *peerSet
 }
 
-func (p *fetchPolicy) pickAccount(height uint64) []Peer {
+func (p *fp) pickAccount(height uint64) []Peer {
 	var l, taller []Peer
 
 	peers := p.peers.Peers()
@@ -83,34 +92,161 @@ func (p *fetchPolicy) pickAccount(height uint64) []Peer {
 	return l
 }
 
-func (p *fetchPolicy) pickSnap() Peer {
+func (p *fp) pickSnap() Peer {
 	return p.peers.BestPeer()
 }
 
-type fPolicy interface {
-	pickAccount(height uint64) (l []Peer)
-	pickSnap() Peer
+// fetch filter
+const maxMark = 5
+
+var timeThreshold = 5 * time.Second
+
+type record struct {
+	addAt  time.Time
+	doneAt time.Time
+	mark   int
+	_done  bool
+}
+
+func (r *record) inc() {
+	r.mark += 1
+}
+
+func (r *record) reset() {
+	r.mark = 0
+	r._done = false
+	r.addAt = time.Now()
+}
+
+func (r *record) done() {
+	r.doneAt = time.Now()
+	r._done = true
+}
+
+type filter struct {
+	records map[types.Hash]*record
+	lock    sync.RWMutex
+}
+
+func newFilter() *filter {
+	return &filter{
+		records: make(map[types.Hash]*record, 10000),
+	}
+}
+
+func (f *filter) loop() {
+	defer f.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.term:
+			return
+		case now := <-ticker.C:
+			f.lock.Lock()
+
+			for hash, r := range f.records {
+				if r._done && now.Sub(r.doneAt) > timeThreshold {
+					delete(f.records, hash)
+				}
+			}
+
+			f.lock.Unlock()
+		}
+	}
+}
+
+// will suppress fetch
+func (f *filter) hold(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "hold", time.Now())
+
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if r, ok := f.records[hash]; ok {
+		if r._done {
+			if r.mark >= maxMark && time.Now().Sub(r.doneAt) >= timeThreshold {
+				r.reset()
+				return false
+			}
+		} else {
+			if r.mark >= maxMark*2 && time.Now().Sub(r.addAt) >= timeThreshold*2 {
+				r.reset()
+				return false
+			}
+		}
+
+		r.inc()
+	} else {
+		f.records[hash] = &record{addAt: time.Now()}
+		return false
+	}
+
+	return true
+}
+
+func (f *filter) done(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "done", time.Now())
+
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if r, ok := f.records[hash]; ok {
+		r.done()
+	} else {
+		f.records[hash] = &record{addAt: time.Now()}
+		f.records[hash].done()
+	}
+}
+
+func (f *filter) has(hash types.Hash) bool {
+	defer monitor.LogTime("net/filter", "has", time.Now())
+
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	r, ok := f.records[hash]
+	return ok && r._done
+}
+
+func (f *filter) fail(hash types.Hash) {
+	defer monitor.LogTime("net/filter", "fail", time.Now())
+
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	if r, ok := f.records[hash]; ok {
+		if r._done {
+			return
+		}
+
+		delete(f.records, hash)
+	}
 }
 
 type fetcher struct {
-	filter Filter
+	filter *filter
 
 	st       SyncState
 	verifier Verifier
-	bn       *blockNotifier
+	notifier blockNotifier
 
-	policy fPolicy
+	policy fetchPolicy
 	pool   MsgIder
 	ready  int32 // atomic
 	log    log15.Logger
 }
 
-func newFetcher(filter Filter, peers *peerSet, pool MsgIder) *fetcher {
+func newFetcher(peers *peerSet, pool MsgIder, verifier Verifier, notifier blockNotifier) *fetcher {
 	return &fetcher{
-		filter: filter,
-		policy: &fetchPolicy{peers},
-		pool:   pool,
-		log:    log15.New("module", "net/fetcher"),
+		filter:   filter,
+		policy:   &fp{peers},
+		pool:     pool,
+		notifier: notifier,
+		verifier: verifier,
+		log:      log15.New("module", "net/fetcher"),
 	}
 }
 
@@ -119,7 +255,7 @@ func (f *fetcher) subSyncState(st SyncState) {
 }
 
 func (f *fetcher) canFetch() bool {
-	return f.st != Syncing && f.st != SyncNotStart
+	return f.st == SyncDownloaded || f.st == Syncdone
 }
 
 func (f *fetcher) ID() string {
@@ -144,7 +280,7 @@ func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			}
 
 			f.filter.done(block.Hash)
-			f.bn.NotifySnapshotBlock(block, types.RemoteFetch)
+			f.notifier.notifySnapshotBlock(block, types.RemoteFetch)
 		}
 
 	case AccountBlocksCode:
@@ -159,7 +295,7 @@ func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			}
 
 			f.filter.done(block.Hash)
-			f.bn.NotifyAccountBlock(block, types.RemoteFetch)
+			f.notifier.notifyAccountBlock(block, types.RemoteFetch)
 		}
 	}
 

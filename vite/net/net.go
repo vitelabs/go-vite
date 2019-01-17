@@ -14,35 +14,26 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
-	"github.com/vitelabs/go-vite/vite/net/topo"
 )
 
 var netLog = log15.New("module", "vite/net")
 
 type Config struct {
-	Single bool // for test
-
 	FileAddr string
+	Single   bool // for test
 	Chain    Chain
 	Verifier Verifier
-
-	// for topo
-	Topology    []string
-	Topic       string
-	Interval    int64 // second
-	TopoEnabled bool
 }
 
 const DefaultPort uint16 = 8484
 
 type net struct {
 	*Config
-	peers *peerSet
-	*syncer
-	*fetcher
+	peers    *peerSet
+	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
+	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
-	*receiver
-	*filter
+	BlockSubscriber
 	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	term      chan struct{}
 	log       log15.Logger
@@ -50,47 +41,45 @@ type net struct {
 	wg        sync.WaitGroup
 	fs        *fileServer
 	handlers  map[ViteCmd]MsgHandler
-	topo      *topo.Topology
 	plugins   []p2p.Plugin
 }
 
-// auto from
 func New(cfg *Config) Net {
 	// for test
 	if cfg.Single {
-		return mock()
+		return mock(cfg)
 	}
 
 	g := new(gid)
 	peers := newPeerSet()
 
-	broadcaster := newBroadcaster(peers)
-	filter := newFilter()
-	receiver := newReceiver(cfg.Verifier, broadcaster, filter, nil)
-	syncer := newSyncer(cfg.Chain, peers, g, receiver)
-	fetcher := newFetcher(filter, peers, g)
+	feed := newBlockFeeder()
 
-	syncer.feed.Sub(receiver.listen) // subscribe sync status
-	syncer.feed.Sub(fetcher.listen)  // subscribe sync status
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, new(memBlockStore))
+	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, g, feed)
+	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
+
+	syncer.feed.Sub(fetcher.subSyncState)     // subscribe sync status
+	syncer.feed.Sub(broadcaster.subSyncState) // subscribe sync status
 
 	n := &net{
-		Config:      cfg,
-		peers:       peers,
-		syncer:      syncer,
-		fetcher:     fetcher,
-		broadcaster: broadcaster,
-		receiver:    receiver,
-		filter:      filter,
-		fs:          newFileServer(cfg.FileAddr, cfg.Chain),
-		handlers:    make(map[ViteCmd]MsgHandler),
-		log:         netLog,
+		Config:          cfg,
+		BlockSubscriber: feed,
+		peers:           peers,
+		syncer:          syncer,
+		fetcher:         fetcher,
+		broadcaster:     broadcaster,
+		fs:              newFileServer(cfg.Port, cfg.Chain),
+		handlers:        make(map[ViteCmd]MsgHandler),
+		log:             netLog,
 	}
 
 	n.addHandler(_statusHandler(statusHandler))
 	n.query = newQueryHandler(cfg.Chain)
-	n.addHandler(n.query)  // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
-	n.addHandler(syncer)   // FileListCode, SubLedgerCode
-	n.addHandler(receiver) // NewSnapshotBlockCode, NewAccountBlockCode, SnapshotBlocksCode, AccountBlocksCode
+	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	n.addHandler(syncer)      // FileListCode, SubLedgerCode
+	n.addHandler(broadcaster) // NewSnapshotBlockCode, NewAccountBlockCode
+	n.addHandler(fetcher)     // SnapshotBlocksCode, AccountBlocksCode
 
 	n.protocols = append(n.protocols, &p2p.Protocol{
 		Name: Vite,
@@ -101,16 +90,6 @@ func New(cfg *Config) Net {
 			return n.handlePeer(peer)
 		},
 	})
-
-	// topo
-	if cfg.TopoEnabled {
-		n.topo = topo.New(&topo.Config{
-			Addrs:    cfg.Topology,
-			Interval: cfg.Interval,
-			Topic:    cfg.Topic,
-		})
-		n.protocols = append(n.protocols, n.topo.Protocol())
-	}
 
 	return n
 }
@@ -141,16 +120,8 @@ func (n *net) addHandler(handler MsgHandler) {
 func (n *net) Start(svr p2p.Server) (err error) {
 	n.term = make(chan struct{})
 
-	n.receiver.p2p = svr
-
 	if err = n.fs.start(); err != nil {
 		return
-	}
-
-	if n.topo != nil {
-		if err = n.topo.Start(svr); err != nil {
-			return
-		}
 	}
 
 	if err = n.startPlugins(svr); err != nil {
@@ -161,8 +132,6 @@ func (n *net) Start(svr p2p.Server) (err error) {
 	common.Go(n.heartbeat)
 
 	n.query.start()
-
-	n.filter.start()
 
 	return
 }
@@ -181,13 +150,7 @@ func (n *net) Stop() {
 
 		n.fs.stop()
 
-		if n.topo != nil {
-			n.topo.Stop()
-		}
-
 		n.query.stop()
-
-		n.filter.stop()
 
 		n.wg.Wait()
 	}
