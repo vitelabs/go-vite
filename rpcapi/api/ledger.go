@@ -361,6 +361,13 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 	if prevQuota <= fittestQuota {
 		return fittestHash, nil
 	} else {
+		ok, err := calculatedPoW(l.chain, accAddr, *prevHash)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return fittestHash, nil
+		}
 		return prevHash, nil
 	}
 
@@ -379,6 +386,26 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 	//}
 	//return &targetSnapshotBlock.Hash, nil
 
+}
+
+func calculatedPoW(chain chain.Chain, addr *types.Address, snapshotHash types.Hash) (bool, error) {
+	prevBlock, err := chain.GetLatestAccountBlock(addr)
+	if err != nil {
+		return false, err
+	}
+	for {
+		if prevBlock != nil && prevBlock.SnapshotHash == snapshotHash {
+			if isPoW(prevBlock.Nonce) {
+				return true, nil
+			}
+			prevBlock, err = chain.GetAccountBlockByHash(&prevBlock.PrevHash)
+			if err != nil {
+				return false, err
+			}
+		} else {
+			return false, nil
+		}
+	}
 }
 
 func (l *LedgerApi) GetNeedSnapshotContent() map[types.Address]*ledger.HashHeight {
