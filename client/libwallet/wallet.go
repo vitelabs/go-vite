@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 
 	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
@@ -18,7 +20,6 @@ import (
 )
 
 func main() {
-
 }
 
 type GoResult struct {
@@ -447,4 +448,17 @@ func RandomMnemonic(language *C.char, mnemonicSize int) *C.char {
 		return CString(failResult(err))
 	}
 	return CString(successResultWithData(mnemonic))
+}
+
+//export ComputeHashForAccountBlock
+func ComputeHashForAccountBlock(block *C.char) *C.char {
+	blockStr := GoString(block)
+
+	accBlock := ledger.AccountBlock{}
+	err := json.Unmarshal([]byte(blockStr), &accBlock)
+	if err != nil {
+		return CString(failResult(err))
+	}
+	hash := accBlock.ComputeHash()
+	return CString(successResultWithData(hash.Hex()))
 }
