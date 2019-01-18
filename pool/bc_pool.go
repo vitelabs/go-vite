@@ -446,6 +446,12 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	sort.Sort(ByHeight(blocks))
 
 	head := self.chainpool.diskChain.Head()
+
+	if cur.tailHeight == head.Height() && cur.tailHash == head.Hash() {
+		self.log.Info("poolChain and db is connected.", "head", head.Height(), "headHash", head.Hash())
+		return nil
+	}
+
 	h := len(blocks) - 1
 	smallest := blocks[0]
 	longest := blocks[h]

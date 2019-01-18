@@ -151,8 +151,8 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 
 // referredBlock' snapshotBlock's sbHeight can't lower than thisBlock
 func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) (VerifyResult, error) {
-	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
-	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
+	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockHeadByHash(&thisBlock.SnapshotHash)
+	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockHeadByHash(&referredBlock.SnapshotHash)
 	if referredSnapshotBlock != nil {
 		if thisSnapshotBlock != nil {
 			if referredSnapshotBlock.Height > thisSnapshotBlock.Height {
@@ -329,7 +329,7 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 func (verifier *AccountVerifier) verifySnapshot(bs *BlockState) bool {
 	defer monitor.LogTime("AccountVerifier", "verifySnapshot", time.Now())
 
-	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&bs.block.SnapshotHash)
+	snapshotBlock, err := verifier.chain.GetSnapshotBlockHeadByHash(&bs.block.SnapshotHash)
 	if snapshotBlock == nil {
 		if err != nil {
 			bs.vStat.errMsg += errors.New("func GetSnapshotBlockByHash failed: " + err.Error()).Error()

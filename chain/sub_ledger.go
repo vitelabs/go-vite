@@ -3,9 +3,14 @@ package chain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/monitor"
+	"time"
 )
 
 func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64) {
+	monitorTags := []string{"chain", "GetSubLedgerByHeight"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	beginHeight, endHeight := uint64(1), uint64(0)
 
 	if forward {
@@ -49,6 +54,9 @@ func (c *chain) GetSubLedgerByHeight(startHeight uint64, count uint64, forward b
 }
 
 func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error) {
+	monitorTags := []string{"chain", "GetSubLedgerByHash"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	startHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(startBlockHash)
 	if err != nil {
 		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetSubLedgerByHash")
@@ -65,6 +73,9 @@ func (c *chain) GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, for
 }
 
 func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetConfirmSubLedger"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	count := toHeight - fromHeight + 1
 	snapshotBlocks, err := c.GetSnapshotBlocksByHeight(fromHeight, count, true, true)
 	if err != nil {
@@ -77,6 +88,9 @@ func (c *chain) GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledg
 }
 
 func (c *chain) GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
+	monitorTags := []string{"chain", "GetConfirmSubLedgerBySnapshotBlocks"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	chainRangeSet := c.getChainRangeSet(snapshotBlocks)
 
 	accountChainSubLedger, getErr := c.getChainSet(chainRangeSet)

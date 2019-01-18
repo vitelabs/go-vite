@@ -6,8 +6,10 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path/filepath"
@@ -226,7 +228,11 @@ func (vm *VM) Cancel() {
 
 // send contract create transaction, create address, sub balance and service fee
 func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "SendCreate", time.Now())
+	//defer monitor.LogTime("vm", "SendCreate", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendCreate")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	// check can make transaction
 	quotaLeft := quotaTotal
 	quotaRefund := uint64(0)
@@ -278,7 +284,11 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 
 // receive contract create transaction, create contract account, run initialization code, set contract code, do send blocks
 func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
-	defer monitor.LogTime("vm", "ReceiveCreate", time.Now())
+	//defer monitor.LogTime("vm", "ReceiveCreate", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "receiveCreate")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	quotaLeft := quotaTotal
 	if block.VmContext.IsAddressExisted(&block.AccountBlock.AccountAddress) {
 		return nil, NoRetry, util.ErrAddressCollision
@@ -326,7 +336,11 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 }
 
 func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "SendCall", time.Now())
+	//defer monitor.LogTime("vm", "SendCall", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendCall")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	// check can make transaction
 	quotaLeft := quotaTotal
 	if p, ok, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
@@ -383,7 +397,12 @@ func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
 }
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
-	defer monitor.LogTime("vm", "ReceiveCall", time.Now())
+
+	//defer monitor.LogTime("vm", "ReceiveCall", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "receiveCall")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	if checkDepth(block.VmContext, sendBlock) {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
@@ -571,7 +590,11 @@ func doRefund(vm *VM, block *vm_context.VmAccountBlock, sendBlock *ledger.Accoun
 }
 
 func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "SendReward", time.Now())
+	//defer monitor.LogTime("vm", "SendReward", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendReward")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	// check can make transaction
 	quotaLeft := quotaTotal
 	cost, err := util.IntrinsicGasCost(block.AccountBlock.Data, false)
@@ -591,7 +614,11 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 }
 
 func (vm *VM) sendRefund(block *vm_context.VmAccountBlock, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlock, error) {
-	defer monitor.LogTime("vm", "sendRefund", time.Now())
+	//defer monitor.LogTime("vm", "sendRefund", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "sendRefund")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	block.AccountBlock.Fee = helper.Big0
 	cost, err := util.IntrinsicGasCost(block.AccountBlock.Data, false)
 	if err != nil {
@@ -612,7 +639,11 @@ func (vm *VM) sendRefund(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 }
 
 func (vm *VM) receiveRefund(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
-	defer monitor.LogTime("vm", "receiveRefund", time.Now())
+	//defer monitor.LogTime("vm", "receiveRefund", time.Now())
+	var monitorTags []string
+	monitorTags = append(monitorTags, "vm", "receiveRefund")
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
 	// check can make transaction
 	quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 		block.VmContext,

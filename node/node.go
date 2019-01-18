@@ -3,6 +3,9 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/metrics"
+	"github.com/vitelabs/go-vite/metrics/influxdb"
 	"net"
 	"net/url"
 	"os"
@@ -10,8 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/vitelabs/go-vite/common/types"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -47,6 +49,10 @@ type Node struct {
 	viteConfig *config.Config
 	viteServer *vite.Vite
 
+	// metrics
+	metricsConfig *metrics.Config
+	ifxReporter   *influxdb.Reporter
+
 	// List of APIs currently provided by the node
 	rpcAPIs          []rpc.API
 	inProcessHandler *rpc.Server
@@ -74,14 +80,15 @@ type Node struct {
 
 func New(conf *Config) (*Node, error) {
 	return &Node{
-		config:       conf,
-		walletConfig: conf.makeWalletConfig(),
-		p2pConfig:    conf.makeP2PConfig(),
-		viteConfig:   conf.makeViteConfig(),
-		ipcEndpoint:  conf.IPCEndpoint(),
-		httpEndpoint: conf.HTTPEndpoint(),
-		wsEndpoint:   conf.WSEndpoint(),
-		stop:         make(chan struct{}),
+		config:        conf,
+		walletConfig:  conf.makeWalletConfig(),
+		p2pConfig:     conf.makeP2PConfig(),
+		viteConfig:    conf.makeViteConfig(),
+		metricsConfig: conf.makeMetricsConfig(),
+		ipcEndpoint:   conf.IPCEndpoint(),
+		httpEndpoint:  conf.HTTPEndpoint(),
+		wsEndpoint:    conf.WSEndpoint(),
+		stop:          make(chan struct{}),
 	}, nil
 }
 
@@ -169,6 +176,9 @@ func (node *Node) Start() error {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
+	// metrics start
+	node.startMetrics()
+
 	//p2p\vite start
 	log.Info(fmt.Sprintf("Begin Start Vite... "))
 	if err := node.startVite(); err != nil {
@@ -216,6 +226,10 @@ func (node *Node) Stop() error {
 	if err := node.stopVite(); err != nil {
 		log.Error(fmt.Sprintf("Node stopVite error: %v", err))
 	}
+
+	// metrics influxdb reporter
+	log.Info(fmt.Sprintf("Begin Stop Metrics... "))
+	node.stopReporter()
 
 	//rpc
 	log.Info(fmt.Sprintf("Begin Stop RPD... "))
@@ -291,6 +305,41 @@ func (node *Node) startWallet() error {
 	}
 
 	return nil
+}
+func (node *Node) startMetrics() {
+	// init metrics args
+	metricsCfg := node.metricsConfig
+	if metricsCfg == nil {
+		return
+	}
+	metrics.InitMetrics(metricsCfg.IsEnable, metricsCfg.IsInfluxDBEnable)
+
+	if metrics.MetricsEnabled {
+		log.Info("start metrics collection")
+		go metrics.CollectProcessMetrics(3 * time.Second)
+
+		influxDBInfo := metricsCfg.InfluxDBInfo
+		if metrics.InfluxDBExportFlag == false || influxDBInfo == nil {
+			log.Info("influxdb export disable or influxdbinfo of reporter is not complete")
+			return
+		}
+
+		rp, err := influxdb.NewReporter(metrics.DefaultRegistry, 10*time.Second,
+			influxDBInfo.Endpoint, influxDBInfo.Database, influxDBInfo.Username, influxDBInfo.Password,
+			"monitor", map[string]string{"host": influxDBInfo.HostTag})
+		if err != nil || rp == nil {
+			log.Error(fmt.Sprintf("new influxdb reporter err: %v", err))
+			return
+		}
+		node.ifxReporter = rp
+		log.Info("start influxdb export")
+		go node.ifxReporter.Start()
+	}
+}
+
+func (node *Node) stopReporter() {
+	log.Info("stop influxdb export")
+	node.ifxReporter.Stop()
 }
 
 func (node *Node) startVite() error {
