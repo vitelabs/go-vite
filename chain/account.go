@@ -27,15 +27,31 @@ func (c *chain) AccountType(address *types.Address) (uint64, error) {
 		return ledger.AccountTypeNotExist, nil
 	}
 
-	gid, getGidErr := c.GetContractGid(address)
-	if getGidErr != nil {
-		return ledger.AccountTypeError, getGidErr
+	genesisBlock, err := c.chainDb.Ac.GetBlockByHeight(account.AccountId, 1)
+
+	if err != nil {
+		return ledger.AccountTypeError, err
 	}
 
-	if gid == nil {
-		return ledger.AccountTypeGeneral, nil
+	if genesisBlock == nil {
+		return ledger.AccountTypeNotExist, nil
 	}
-	return ledger.AccountTypeContract, nil
+
+	fromBlock, getBlockErr := c.chainDb.Ac.GetBlock(&genesisBlock.FromBlockHash)
+	if getBlockErr != nil {
+		return ledger.AccountTypeError, getBlockErr
+	}
+
+	gid, getBlockErr := c.ChainDb().Ac.GetContractGidFromSendCreateBlock(fromBlock)
+	if getBlockErr != nil {
+		return ledger.AccountTypeError, getBlockErr
+	}
+
+	if gid != nil {
+		return ledger.AccountTypeContract, nil
+	}
+
+	return ledger.AccountTypeGeneral, nil
 }
 
 // TODO cache
