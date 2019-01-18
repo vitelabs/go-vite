@@ -40,7 +40,7 @@ func TestReporter_Start(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("start 1")
-	go rep.Start()
+	rep.Start()
 	time.AfterFunc(5*time.Second, func() {
 		rep.Stop()
 		t.Log("stop 1")

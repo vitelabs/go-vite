@@ -229,7 +229,7 @@ func (node *Node) Stop() error {
 
 	// metrics influxdb reporter
 	log.Info(fmt.Sprintf("Begin Stop Metrics... "))
-	node.stopReporter()
+	node.stopMetrics()
 
 	//rpc
 	log.Info(fmt.Sprintf("Begin Stop RPD... "))
@@ -312,34 +312,39 @@ func (node *Node) startMetrics() {
 	if metricsCfg == nil {
 		return
 	}
+	if metricsCfg.IsInfluxDBEnable == false || metricsCfg.InfluxDBInfo == nil {
+		log.Info("influxdb export disable or influxdbinfo of reporter is not complete")
+		metricsCfg.IsInfluxDBEnable = false
+	}
+
 	metrics.InitMetrics(metricsCfg.IsEnable, metricsCfg.IsInfluxDBEnable)
 
 	if metrics.MetricsEnabled {
 		log.Info("start metrics collection")
 		go metrics.CollectProcessMetrics(3 * time.Second)
 
-		influxDBInfo := metricsCfg.InfluxDBInfo
-		if metrics.InfluxDBExportFlag == false || influxDBInfo == nil {
-			log.Info("influxdb export disable or influxdbinfo of reporter is not complete")
-			return
-		}
+		if metrics.InfluxDBExportEnable {
+			influxDBInfo := metricsCfg.InfluxDBInfo
 
-		rp, err := influxdb.NewReporter(metrics.DefaultRegistry, 10*time.Second,
-			influxDBInfo.Endpoint, influxDBInfo.Database, influxDBInfo.Username, influxDBInfo.Password,
-			"monitor", map[string]string{"host": influxDBInfo.HostTag})
-		if err != nil || rp == nil {
-			log.Error(fmt.Sprintf("new influxdb reporter err: %v", err))
-			return
+			rp, err := influxdb.NewReporter(metrics.DefaultRegistry, 10*time.Second,
+				influxDBInfo.Endpoint, influxDBInfo.Database, influxDBInfo.Username, influxDBInfo.Password,
+				"monitor", map[string]string{"host": influxDBInfo.HostTag})
+			if err != nil || rp == nil {
+				log.Error(fmt.Sprintf("new influxdb reporter err: %v", err))
+				return
+			}
+			node.ifxReporter = rp
+			log.Info("start influxdb export")
+			node.ifxReporter.Start()
 		}
-		node.ifxReporter = rp
-		log.Info("start influxdb export")
-		go node.ifxReporter.Start()
 	}
 }
 
-func (node *Node) stopReporter() {
-	log.Info("stop influxdb export")
-	node.ifxReporter.Stop()
+func (node *Node) stopMetrics() {
+	if node.ifxReporter != nil {
+		log.Info("stop influxdb export")
+		node.ifxReporter.Stop()
+	}
 }
 
 func (node *Node) startVite() error {
