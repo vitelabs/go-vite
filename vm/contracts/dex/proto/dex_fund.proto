@@ -13,14 +13,30 @@ message Fund {
     repeated Account Accounts = 2;
 }
 
-message SettleAction {
+message FundSettle {
     bytes Address = 1;
     bytes Token = 2;
     bytes IncAvailable = 3;
-    bytes DeduceLocked = 4;
+    bytes ReduceLocked = 4;
     bytes ReleaseLocked = 5;
 }
 
+message FeeSettle {
+    bytes Token = 1;
+    bytes Amount = 2;
+}
+
 message SettleActions {
-    repeated SettleAction actions = 1;
+    repeated FundSettle fundActions = 1;
+    repeated FeeSettle feeActions = 2;
+}
+
+message FeeByPeriod {
+    bool Divided = 1;
+    repeated FeeAccount fees  = 2;
+}
+
+message FeeAccount {
+    bytes Token = 1;
+    bytes Amount = 2;
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"math/big"
-	"strings"
 )
 
 const maxTxsCountPerTaker = 1000
@@ -21,7 +20,8 @@ type matcher struct {
 	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
 	books           map[SkipListId]*skiplist
-	settleActions   map[types.Address]map[types.TokenTypeId]*proto.SettleAction
+	fundSettles     map[types.Address]map[types.TokenTypeId]*proto.FundSettle
+	feeSettles      map[types.TokenTypeId]*proto.FeeSettle
 }
 
 type OrderTx struct {
@@ -44,7 +44,8 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 	mc.protocol = &po
 	mc.books = make(map[SkipListId]*skiplist)
-	mc.settleActions = make(map[types.Address]map[types.TokenTypeId]*proto.SettleAction)
+	mc.fundSettles = make(map[types.Address]map[types.TokenTypeId]*proto.FundSettle)
+	mc.feeSettles = make(map[types.TokenTypeId]*proto.FeeSettle)
 	return mc
 }
 
@@ -64,8 +65,12 @@ func (mc *matcher) MatchOrder(taker Order) (err error) {
 	return nil
 }
 
-func (mc *matcher) GetSettleActions() map[types.Address]map[types.TokenTypeId]*proto.SettleAction {
-	return mc.settleActions
+func (mc *matcher) GetFundSettles() map[types.Address]map[types.TokenTypeId]*proto.FundSettle {
+	return mc.fundSettles
+}
+
+func (mc *matcher) GetFees() map[types.TokenTypeId]*proto.FeeSettle {
+	return mc.feeSettles
 }
 
 func (mc *matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipListId) (*Order, error) {
@@ -189,185 +194,6 @@ func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skip
 	}
 }
 
-func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
-	for _, maker := range makers {
-		pl := nodePayload(maker)
-		makerId, _ := NewOrderId(maker.Id)
-		if err = makerBook.updatePayload(makerId, &pl); err != nil {
-			return err
-			//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
-		}
-		mc.emitOrderRes(maker)
-	}
-	size := len(makers)
-	if size > 0 {
-		if makers[size-1].Status == FullyExecuted || makers[size-1].Status == Cancelled {
-			toTruncateId, _ := NewOrderId(makers[size-1].Id)
-			if err = makerBook.truncateHeadTo(toTruncateId, int32(size)); err != nil {
-				return err
-			}
-		} else if size >= 2 {
-			toTruncateId, _ := NewOrderId(makers[size-2].Id)
-			if err = makerBook.truncateHeadTo(toTruncateId, int32(size-1)); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (mc *matcher) handleTakerRes(order Order) (err error) {
-	if order.Status == PartialExecuted || order.Status == Pending {
-		if err = mc.saveTakerAsMaker(order); err != nil {
-			return err
-		}
-	}
-	mc.emitOrderRes(order)
-	return nil
-}
-
-func (mc *matcher) saveTakerAsMaker(maker Order) error {
-	var (
-		bookToMake *skiplist
-		err error
-		)
-	if bookToMake, err = mc.getBookById(getBookIdToMakeForOrder(maker)); err != nil {
-		return err
-	}
-	pl := nodePayload(maker)
-	makerId, _ := NewOrderId(maker.Id)
-	return bookToMake.insert(makerId, &pl)
-}
-
-func (mc *matcher) emitOrderRes(orderRes Order) {
-	event := OrderUpdateEvent{orderRes.Order}
-	(*mc.storage).AddLog(newLog(event))
-}
-
-func (mc *matcher) handleTxs(txs []OrderTx) {
-	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
-	for _, tx := range txs {
-		mc.handleTxSettleAction(tx)
-		txEvent := TransactionEvent{tx.Transaction}
-		(*mc.storage).AddLog(newLog(txEvent))
-		//fmt.Printf("matched tx is : %s\n", tx.String())
-	}
-}
-
-func (mc *matcher) handleRefund(order *Order) {
-	if order.Status == FullyExecuted || order.Status == Cancelled {
-		switch order.Side {
-		case false: //buy
-			order.RefundToken = order.QuoteToken
-			refundAmount := SubBigInt(order.Amount, order.ExecutedAmount)
-			refundFee := SubBigInt(order.LockedBuyFee, order.ExecutedFee)
-			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
-		case true:
-			order.RefundToken = order.TradeToken
-			order.RefundQuantity = SubBigInt(order.Quantity, order.ExecutedQuantity)
-		}
-		mc.updateSettleAction(proto.SettleAction{Address:order.Address, Token:order.RefundToken, ReleaseLocked:order.RefundQuantity})
-	}
-}
-
-func (mc *matcher) handleTxSettleAction(tx OrderTx) {
-	takerInSettle := proto.SettleAction{Address : tx.takerAddress}
-	takerOutSettle := proto.SettleAction{Address : tx.takerAddress}
-	makerInSettle := proto.SettleAction{Address : tx.makerAddress}
-	makerOutSettle := proto.SettleAction{Address : tx.makerAddress}
-	switch tx.TakerSide {
-		case false: //buy
-			takerInSettle.Token = tx.takerTradeToken
-			takerInSettle.IncAvailable = tx.Quantity
-			makerOutSettle.Token = tx.takerTradeToken
-			makerOutSettle.DeduceLocked = tx.Quantity
-
-			takerOutSettle.Token = tx.takerQuoteToken
-			takerOutSettle.DeduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
-			makerInSettle.Token = tx.takerQuoteToken
-			makerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.MakerFee)
-
-		case true: //sell
-			takerInSettle.Token = tx.takerQuoteToken
-			takerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.TakerFee)
-			makerOutSettle.Token = tx.takerQuoteToken
-			makerOutSettle.DeduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
-
-			takerOutSettle.Token = tx.takerTradeToken
-			takerOutSettle.DeduceLocked = tx.Quantity
-			makerInSettle.Token = tx.takerTradeToken
-			makerInSettle.IncAvailable = tx.Quantity
-	}
-	for _, ac := range []proto.SettleAction{takerInSettle, takerOutSettle, makerInSettle, makerOutSettle} {
-		mc.updateSettleAction(ac)
-	}
-}
-
-func (mc *matcher) updateSettleAction(action proto.SettleAction) {
-	var (
-		actionMap map[types.TokenTypeId]*proto.SettleAction // token -> action
-		ok bool
-		ac *proto.SettleAction
-		address = types.Address{}
-	)
-	address.SetBytes(action.Address)
-	if actionMap, ok = mc.settleActions[address]; !ok {
-		actionMap = make(map[types.TokenTypeId]*proto.SettleAction)
-	}
-	token := types.TokenTypeId{}
-	token.SetBytes(action.Token)
-	if ac, ok = actionMap[token]; !ok {
-		ac = &proto.SettleAction{Address:address.Bytes(), Token:action.Token}
-	}
-	ac.IncAvailable = AddBigInt(ac.IncAvailable, action.IncAvailable)
-	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, action.ReleaseLocked)
-	ac.DeduceLocked = AddBigInt(ac.DeduceLocked, action.DeduceLocked)
-	actionMap[token] = ac
-	mc.settleActions[address] = actionMap
-}
-
-
-func newLog(event OrderEvent) *ledger.VmLog {
-	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, event.getTopicId())
-	log.Data = event.toDataBytes()
-	return log
-}
-
-func matchPrice(taker Order, maker Order) (matched bool, executedPrice string) {
-	if taker.Type == Market || priceEqual(taker.Price, maker.Price) {
-		return true, maker.Price
-	} else {
-		matched = false
-		tp, _ := new(big.Float).SetString(taker.Price)
-		mp, _ := new(big.Float).SetString(maker.Price)
-		switch taker.Side {
-		case false: // buy
-			matched = tp.Cmp(mp) >= 0
-		case true: // sell
-			matched = tp.Cmp(mp) <= 0
-		}
-		return matched, maker.Price
-	}
-}
-
-func filterTimeout(takerTimestamp int64, maker *Order) bool {
-	if takerTimestamp > maker.Timestamp+timeoutSecond {
-		switch maker.Status {
-		case Pending:
-			maker.CancelReason = cancelledOnTimeout
-		case PartialExecuted:
-			maker.CancelReason = partialExecutedCancelledOnTimeout
-		default:
-			maker.CancelReason = unknownCancelledOnTimeout
-		}
-		maker.Status = Cancelled
-		return true
-	} else {
-		return false
-	}
-}
-
 func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	tx = OrderTx{}
 	tx.Id = generateTxId(taker.Id, maker.Id)
@@ -424,29 +250,6 @@ func isDust(order *Order, quantity []byte) bool {
 	return CalculateRawAmountF(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals).Cmp(new(big.Float).SetInt64(int64(1))) < 0
 }
 
-func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {
-	if pl, fwk, _, err := makerBook.getByKey(orderId); err != nil {
-		return Order{}, (*makerBook.protocol).getNilKey().(OrderId), err
-	} else {
-		maker := (*pl).(Order)
-		return maker, fwk.(OrderId), nil
-	}
-}
-
-func ValidPrice(price string) bool {
-	if len(price) == 0 {
-		return false
-	} else if  pr, ok := new(big.Float).SetString(price);  !ok || pr.Cmp(big.NewFloat(0)) <= 0 {
-		return false
-	} else {
-		idx := strings.Index(price, ",")
-		if idx > 0 && len(price) - idx >= 12 { // price max precision is 10 decimal
-			return false
-		}
-	}
-	return true
-}
-
 func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
 	return roundAmount(CalculateRawAmountF(quantity, price, tradeDecimals, quoteDecimals)).Bytes()
 }
@@ -490,6 +293,214 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 func roundAmount(amountF *big.Float) *big.Int {
 	amount, _ := new(big.Float).Add(amountF, big.NewFloat(0.5)).Int(nil)
 	return amount
+}
+
+func (mc *matcher) handleRefund(order *Order) {
+	if order.Status == FullyExecuted || order.Status == Cancelled {
+		switch order.Side {
+		case false: //buy
+			order.RefundToken = order.QuoteToken
+			refundAmount := SubBigInt(order.Amount, order.ExecutedAmount)
+			refundFee := SubBigInt(order.LockedBuyFee, order.ExecutedFee)
+			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
+		case true:
+			order.RefundToken = order.TradeToken
+			order.RefundQuantity = SubBigInt(order.Quantity, order.ExecutedQuantity)
+		}
+		mc.updateFundSettle(proto.FundSettle{Address:order.Address, Token:order.RefundToken, ReleaseLocked:order.RefundQuantity})
+	}
+}
+
+func (mc *matcher) handleTakerRes(order Order) (err error) {
+	if order.Status == PartialExecuted || order.Status == Pending {
+		if err = mc.saveTakerAsMaker(order); err != nil {
+			return err
+		}
+	}
+	mc.emitOrderRes(order)
+	return nil
+}
+
+func (mc *matcher) saveTakerAsMaker(maker Order) error {
+	var (
+		bookToMake *skiplist
+		err error
+	)
+	if bookToMake, err = mc.getBookById(getBookIdToMakeForOrder(maker)); err != nil {
+		return err
+	}
+	pl := nodePayload(maker)
+	makerId, _ := NewOrderId(maker.Id)
+	return bookToMake.insert(makerId, &pl)
+}
+
+func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
+	for _, maker := range makers {
+		pl := nodePayload(maker)
+		makerId, _ := NewOrderId(maker.Id)
+		if err = makerBook.updatePayload(makerId, &pl); err != nil {
+			return err
+			//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
+		}
+		mc.emitOrderRes(maker)
+	}
+	size := len(makers)
+	if size > 0 {
+		if makers[size-1].Status == FullyExecuted || makers[size-1].Status == Cancelled {
+			toTruncateId, _ := NewOrderId(makers[size-1].Id)
+			if err = makerBook.truncateHeadTo(toTruncateId, int32(size)); err != nil {
+				return err
+			}
+		} else if size >= 2 {
+			toTruncateId, _ := NewOrderId(makers[size-2].Id)
+			if err = makerBook.truncateHeadTo(toTruncateId, int32(size-1)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (mc *matcher) emitOrderRes(orderRes Order) {
+	event := OrderUpdateEvent{orderRes.Order}
+	(*mc.storage).AddLog(newLog(event))
+}
+
+func (mc *matcher) handleTxs(txs []OrderTx) {
+	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
+	for _, tx := range txs {
+		mc.handleTxFundSettle(tx)
+		txEvent := TransactionEvent{tx.Transaction}
+		(*mc.storage).AddLog(newLog(txEvent))
+		//fmt.Printf("matched tx is : %s\n", tx.String())
+	}
+}
+
+func (mc *matcher) handleTxFundSettle(tx OrderTx) {
+	takerInSettle := proto.FundSettle{Address : tx.takerAddress}
+	takerOutSettle := proto.FundSettle{Address : tx.takerAddress}
+	makerInSettle := proto.FundSettle{Address : tx.makerAddress}
+	makerOutSettle := proto.FundSettle{Address : tx.makerAddress}
+	switch tx.TakerSide {
+		case false: //buy
+			takerInSettle.Token = tx.takerTradeToken
+			takerInSettle.IncAvailable = tx.Quantity
+			makerOutSettle.Token = tx.takerTradeToken
+			makerOutSettle.ReduceLocked = tx.Quantity
+
+			takerOutSettle.Token = tx.takerQuoteToken
+			takerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
+			makerInSettle.Token = tx.takerQuoteToken
+			makerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.MakerFee)
+
+		case true: //sell
+			takerInSettle.Token = tx.takerQuoteToken
+			takerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.TakerFee)
+			makerOutSettle.Token = tx.takerQuoteToken
+			makerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
+
+			takerOutSettle.Token = tx.takerTradeToken
+			takerOutSettle.ReduceLocked = tx.Quantity
+			makerInSettle.Token = tx.takerTradeToken
+			makerInSettle.IncAvailable = tx.Quantity
+	}
+	for _, ac := range []proto.FundSettle{takerInSettle, takerOutSettle, makerInSettle, makerOutSettle} {
+		mc.updateFundSettle(ac)
+	}
+	mc.updateFee(tx.takerQuoteToken, tx.TakerFee, tx.MakerFee)
+}
+
+func (mc *matcher) updateFundSettle(settle proto.FundSettle) {
+	var (
+		settleMap map[types.TokenTypeId]*proto.FundSettle // token -> settle
+		ok        bool
+		ac        *proto.FundSettle
+		address    = types.Address{}
+	)
+	address.SetBytes(settle.Address)
+	if settleMap, ok = mc.fundSettles[address]; !ok {
+		settleMap = make(map[types.TokenTypeId]*proto.FundSettle)
+	}
+	token := types.TokenTypeId{}
+	token.SetBytes(settle.Token)
+	if ac, ok = settleMap[token]; !ok {
+		ac = &proto.FundSettle{Address:address.Bytes(), Token: settle.Token}
+	}
+	ac.IncAvailable = AddBigInt(ac.IncAvailable, settle.IncAvailable)
+	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, settle.ReleaseLocked)
+	ac.ReduceLocked = AddBigInt(ac.ReduceLocked, settle.ReduceLocked)
+	settleMap[token] = ac
+	mc.fundSettles[address] = settleMap
+}
+
+func (mc *matcher) updateFee(quoteToken []byte, feeAmountToInc ...[]byte) {
+	var (
+		feeSettle *proto.FeeSettle
+		ok bool
+	)
+
+	token := types.TokenTypeId{}
+	token.SetBytes(quoteToken)
+	if feeSettle, ok = mc.feeSettles[token]; !ok {
+		feeSettle = &proto.FeeSettle{}
+		feeSettle.Token = quoteToken
+		feeSettle.Amount = big.NewInt(0).Bytes()
+	}
+	for _, amt := range feeAmountToInc {
+		feeSettle.Amount = AddBigInt(feeSettle.Amount, amt)
+	}
+	mc.feeSettles[token] = feeSettle
+}
+
+func newLog(event OrderEvent) *ledger.VmLog {
+	log := &ledger.VmLog{}
+	log.Topics = append(log.Topics, event.getTopicId())
+	log.Data = event.toDataBytes()
+	return log
+}
+
+func matchPrice(taker Order, maker Order) (matched bool, executedPrice string) {
+	if taker.Type == Market || priceEqual(taker.Price, maker.Price) {
+		return true, maker.Price
+	} else {
+		matched = false
+		tp, _ := new(big.Float).SetString(taker.Price)
+		mp, _ := new(big.Float).SetString(maker.Price)
+		switch taker.Side {
+		case false: // buy
+			matched = tp.Cmp(mp) >= 0
+		case true: // sell
+			matched = tp.Cmp(mp) <= 0
+		}
+		return matched, maker.Price
+	}
+}
+
+func filterTimeout(takerTimestamp int64, maker *Order) bool {
+	if takerTimestamp > maker.Timestamp+timeoutSecond {
+		switch maker.Status {
+		case Pending:
+			maker.CancelReason = cancelledOnTimeout
+		case PartialExecuted:
+			maker.CancelReason = partialExecutedCancelledOnTimeout
+		default:
+			maker.CancelReason = unknownCancelledOnTimeout
+		}
+		maker.Status = Cancelled
+		return true
+	} else {
+		return false
+	}
+}
+
+
+func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {
+	if pl, fwk, _, err := makerBook.getByKey(orderId); err != nil {
+		return Order{}, (*makerBook.protocol).getNilKey().(OrderId), err
+	} else {
+		maker := (*pl).(Order)
+		return maker, fwk.(OrderId), nil
+	}
 }
 
 func getBookIdToTake(order Order) SkipListId {

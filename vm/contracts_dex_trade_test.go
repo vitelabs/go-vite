@@ -73,12 +73,12 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, 4, len(actions.Actions))
-	for _, ac := range actions.Actions {
+	assert.Equal(t, 4, len(actions.FundActions))
+	for _, ac := range actions.FundActions {
 		// sellOrder0
 		if bytes.Equal([]byte(ac.Address), sellAddress0.Bytes()) {
 			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(300, ac.DeduceLocked))
+				assert.True(t, CheckBigEqualToInt(300, ac.ReduceLocked))
 			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
 				assert.True(t, CheckBigEqualToInt(929070, ac.IncAvailable)) // amount - feeExecuted
 			}
@@ -86,7 +86,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
 				assert.True(t, CheckBigEqualToInt(300, ac.IncAvailable))
 			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(930930, ac.DeduceLocked)) // amount + feeExecuted
+				assert.True(t, CheckBigEqualToInt(930930, ac.ReduceLocked)) // amount + feeExecuted
 			}
 		}
 	}
@@ -136,9 +136,9 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, 1, len(actions.Actions))
-	assert.True(t, bytes.Equal(actions.Actions[0].Token, VITE.tokenId.Bytes()))
-	assert.True(t, CheckBigEqualToInt(350350, actions.Actions[0].ReleaseLocked)) // 1281280 - 930930
+	assert.Equal(t, 1, len(actions.FundActions))
+	assert.True(t, bytes.Equal(actions.FundActions[0].Token, VITE.tokenId.Bytes()))
+	assert.True(t, CheckBigEqualToInt(350350, actions.FundActions[0].ReleaseLocked)) // 1281280 - 930930
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	_, err = method.DoSend(db, senderAccBlock, 100100100)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())

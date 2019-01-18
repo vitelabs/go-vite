@@ -145,20 +145,25 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = types.AddressDexTrade
 
-	viteAction := dexproto.SettleAction{}
+	viteAction := dexproto.FundSettle{}
 	viteAction.Address = userAddress.Bytes()
 	viteAction.Token = VITE.tokenId.Bytes()
-	viteAction.DeduceLocked = big.NewInt(1000).Bytes()
+	viteAction.ReduceLocked = big.NewInt(1000).Bytes()
 	viteAction.ReleaseLocked = big.NewInt(100).Bytes()
 
-	ethAction := dexproto.SettleAction{}
+	ethAction := dexproto.FundSettle{}
 	ethAction.Address = userAddress.Bytes()
 	ethAction.Token = ETH.tokenId.Bytes()
 	ethAction.IncAvailable = big.NewInt(30).Bytes()
 
+	feeAction := dexproto.FeeSettle{}
+	feeAction.Token = ETH.tokenId.Bytes()
+	feeAction.Amount = big.NewInt(15).Bytes()
+
 	actions := dexproto.SettleActions{}
-	actions.Actions = append(actions.Actions, &viteAction)
-	actions.Actions = append(actions.Actions, &ethAction)
+	actions.FundActions = append(actions.FundActions, &viteAction)
+	actions.FundActions = append(actions.FundActions, &ethAction)
+	actions.FeeActions = append(actions.FeeActions, &feeAction)
 	data, _ := proto.Marshal(&actions)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundSettleOrders, data)
@@ -166,7 +171,9 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	//fmt.Printf("err %s\n", err.Error())
 	assert.True(t, err == nil)
 
+	var blockHeight = uint64(123)
 	receiveBlock := &ledger.AccountBlock{}
+	receiveBlock.Height = blockHeight
 	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	//fmt.Printf("receive err %s\n", err.Error())
@@ -185,6 +192,12 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(30, ethAcc.Available))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
+
+	dexFee, err := contracts.GetFeeFromStorage(db, contracts.GetFeeKeyForHeight(blockHeight))
+	assert.Equal(t, 1, len(dexFee.Fees))
+	assert.False(t, dexFee.Divided)
+	feeAcc := dexFee.Fees[0]
+	assert.True(t, CheckBigEqualToInt(15, feeAcc.Amount))
 }
 
 func initDexFundDatabase() *testDatabase {

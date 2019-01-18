@@ -122,89 +122,137 @@ func (m *Fund) GetAccounts() []*Account {
 	return nil
 }
 
-type SettleAction struct {
+type FundSettle struct {
 	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
 	Token                []byte   `protobuf:"bytes,2,opt,name=Token,proto3" json:"Token,omitempty"`
 	IncAvailable         []byte   `protobuf:"bytes,3,opt,name=IncAvailable,proto3" json:"IncAvailable,omitempty"`
-	DeduceLocked         []byte   `protobuf:"bytes,4,opt,name=DeduceLocked,proto3" json:"DeduceLocked,omitempty"`
+	ReduceLocked         []byte   `protobuf:"bytes,4,opt,name=ReduceLocked,proto3" json:"ReduceLocked,omitempty"`
 	ReleaseLocked        []byte   `protobuf:"bytes,5,opt,name=ReleaseLocked,proto3" json:"ReleaseLocked,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SettleAction) Reset()         { *m = SettleAction{} }
-func (m *SettleAction) String() string { return proto.CompactTextString(m) }
-func (*SettleAction) ProtoMessage()    {}
-func (*SettleAction) Descriptor() ([]byte, []int) {
+func (m *FundSettle) Reset()         { *m = FundSettle{} }
+func (m *FundSettle) String() string { return proto.CompactTextString(m) }
+func (*FundSettle) ProtoMessage()    {}
+func (*FundSettle) Descriptor() ([]byte, []int) {
 	return fileDescriptor_c247044ebb68d1ae, []int{2}
 }
 
-func (m *SettleAction) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SettleAction.Unmarshal(m, b)
+func (m *FundSettle) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FundSettle.Unmarshal(m, b)
 }
-func (m *SettleAction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SettleAction.Marshal(b, m, deterministic)
+func (m *FundSettle) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FundSettle.Marshal(b, m, deterministic)
 }
-func (m *SettleAction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SettleAction.Merge(m, src)
+func (m *FundSettle) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FundSettle.Merge(m, src)
 }
-func (m *SettleAction) XXX_Size() int {
-	return xxx_messageInfo_SettleAction.Size(m)
+func (m *FundSettle) XXX_Size() int {
+	return xxx_messageInfo_FundSettle.Size(m)
 }
-func (m *SettleAction) XXX_DiscardUnknown() {
-	xxx_messageInfo_SettleAction.DiscardUnknown(m)
+func (m *FundSettle) XXX_DiscardUnknown() {
+	xxx_messageInfo_FundSettle.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SettleAction proto.InternalMessageInfo
+var xxx_messageInfo_FundSettle proto.InternalMessageInfo
 
-func (m *SettleAction) GetAddress() []byte {
+func (m *FundSettle) GetAddress() []byte {
 	if m != nil {
 		return m.Address
 	}
 	return nil
 }
 
-func (m *SettleAction) GetToken() []byte {
+func (m *FundSettle) GetToken() []byte {
 	if m != nil {
 		return m.Token
 	}
 	return nil
 }
 
-func (m *SettleAction) GetIncAvailable() []byte {
+func (m *FundSettle) GetIncAvailable() []byte {
 	if m != nil {
 		return m.IncAvailable
 	}
 	return nil
 }
 
-func (m *SettleAction) GetDeduceLocked() []byte {
+func (m *FundSettle) GetReduceLocked() []byte {
 	if m != nil {
-		return m.DeduceLocked
+		return m.ReduceLocked
 	}
 	return nil
 }
 
-func (m *SettleAction) GetReleaseLocked() []byte {
+func (m *FundSettle) GetReleaseLocked() []byte {
 	if m != nil {
 		return m.ReleaseLocked
 	}
 	return nil
 }
 
+type FeeSettle struct {
+	Token                []byte   `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
+	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FeeSettle) Reset()         { *m = FeeSettle{} }
+func (m *FeeSettle) String() string { return proto.CompactTextString(m) }
+func (*FeeSettle) ProtoMessage()    {}
+func (*FeeSettle) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{3}
+}
+
+func (m *FeeSettle) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeSettle.Unmarshal(m, b)
+}
+func (m *FeeSettle) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeSettle.Marshal(b, m, deterministic)
+}
+func (m *FeeSettle) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeSettle.Merge(m, src)
+}
+func (m *FeeSettle) XXX_Size() int {
+	return xxx_messageInfo_FeeSettle.Size(m)
+}
+func (m *FeeSettle) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeSettle.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeSettle proto.InternalMessageInfo
+
+func (m *FeeSettle) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+func (m *FeeSettle) GetAmount() []byte {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
 type SettleActions struct {
-	Actions              []*SettleAction `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+	FundActions          []*FundSettle `protobuf:"bytes,1,rep,name=fundActions,proto3" json:"fundActions,omitempty"`
+	FeeActions           []*FeeSettle  `protobuf:"bytes,2,rep,name=feeActions,proto3" json:"feeActions,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *SettleActions) Reset()         { *m = SettleActions{} }
 func (m *SettleActions) String() string { return proto.CompactTextString(m) }
 func (*SettleActions) ProtoMessage()    {}
 func (*SettleActions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{3}
+	return fileDescriptor_c247044ebb68d1ae, []int{4}
 }
 
 func (m *SettleActions) XXX_Unmarshal(b []byte) error {
@@ -225,9 +273,110 @@ func (m *SettleActions) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SettleActions proto.InternalMessageInfo
 
-func (m *SettleActions) GetActions() []*SettleAction {
+func (m *SettleActions) GetFundActions() []*FundSettle {
 	if m != nil {
-		return m.Actions
+		return m.FundActions
+	}
+	return nil
+}
+
+func (m *SettleActions) GetFeeActions() []*FeeSettle {
+	if m != nil {
+		return m.FeeActions
+	}
+	return nil
+}
+
+type FeeByPeriod struct {
+	Divided              bool          `protobuf:"varint,1,opt,name=Divided,proto3" json:"Divided,omitempty"`
+	Fees                 []*FeeAccount `protobuf:"bytes,2,rep,name=fees,proto3" json:"fees,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *FeeByPeriod) Reset()         { *m = FeeByPeriod{} }
+func (m *FeeByPeriod) String() string { return proto.CompactTextString(m) }
+func (*FeeByPeriod) ProtoMessage()    {}
+func (*FeeByPeriod) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{5}
+}
+
+func (m *FeeByPeriod) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeByPeriod.Unmarshal(m, b)
+}
+func (m *FeeByPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeByPeriod.Marshal(b, m, deterministic)
+}
+func (m *FeeByPeriod) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeByPeriod.Merge(m, src)
+}
+func (m *FeeByPeriod) XXX_Size() int {
+	return xxx_messageInfo_FeeByPeriod.Size(m)
+}
+func (m *FeeByPeriod) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeByPeriod.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeByPeriod proto.InternalMessageInfo
+
+func (m *FeeByPeriod) GetDivided() bool {
+	if m != nil {
+		return m.Divided
+	}
+	return false
+}
+
+func (m *FeeByPeriod) GetFees() []*FeeAccount {
+	if m != nil {
+		return m.Fees
+	}
+	return nil
+}
+
+type FeeAccount struct {
+	Token                []byte   `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
+	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FeeAccount) Reset()         { *m = FeeAccount{} }
+func (m *FeeAccount) String() string { return proto.CompactTextString(m) }
+func (*FeeAccount) ProtoMessage()    {}
+func (*FeeAccount) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{6}
+}
+
+func (m *FeeAccount) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeAccount.Unmarshal(m, b)
+}
+func (m *FeeAccount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeAccount.Marshal(b, m, deterministic)
+}
+func (m *FeeAccount) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeAccount.Merge(m, src)
+}
+func (m *FeeAccount) XXX_Size() int {
+	return xxx_messageInfo_FeeAccount.Size(m)
+}
+func (m *FeeAccount) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeAccount.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeAccount proto.InternalMessageInfo
+
+func (m *FeeAccount) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+func (m *FeeAccount) GetAmount() []byte {
+	if m != nil {
+		return m.Amount
 	}
 	return nil
 }
@@ -235,28 +384,36 @@ func (m *SettleActions) GetActions() []*SettleAction {
 func init() {
 	proto.RegisterType((*Account)(nil), "proto.Account")
 	proto.RegisterType((*Fund)(nil), "proto.Fund")
-	proto.RegisterType((*SettleAction)(nil), "proto.SettleAction")
+	proto.RegisterType((*FundSettle)(nil), "proto.FundSettle")
+	proto.RegisterType((*FeeSettle)(nil), "proto.FeeSettle")
 	proto.RegisterType((*SettleActions)(nil), "proto.SettleActions")
+	proto.RegisterType((*FeeByPeriod)(nil), "proto.FeeByPeriod")
+	proto.RegisterType((*FeeAccount)(nil), "proto.FeeAccount")
 }
 
 func init() { proto.RegisterFile("dex_fund.proto", fileDescriptor_c247044ebb68d1ae) }
 
 var fileDescriptor_c247044ebb68d1ae = []byte{
-	// 251 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x8f, 0xc1, 0x4a, 0x03, 0x31,
-	0x10, 0x86, 0xd9, 0x6d, 0xb7, 0xab, 0xe3, 0xb6, 0x87, 0x51, 0x24, 0x07, 0x0f, 0x25, 0x78, 0x28,
-	0x82, 0x3d, 0xe8, 0x5d, 0x58, 0x10, 0x41, 0xe8, 0x69, 0xd5, 0xb3, 0x6c, 0x93, 0x11, 0x4a, 0x43,
-	0x22, 0x4d, 0x22, 0x3e, 0x94, 0x0f, 0x29, 0x26, 0xd9, 0x36, 0xbd, 0x78, 0xda, 0x9d, 0xff, 0xff,
-	0x98, 0xcc, 0x07, 0x33, 0x49, 0xdf, 0xef, 0x1f, 0x5e, 0xcb, 0xe5, 0xe7, 0xce, 0x38, 0x83, 0x55,
-	0xf8, 0xf0, 0x37, 0xa8, 0x5b, 0x21, 0x8c, 0xd7, 0x0e, 0x2f, 0xa0, 0x7a, 0x35, 0x5b, 0xd2, 0xac,
-	0x98, 0x17, 0x8b, 0xa6, 0x8b, 0x03, 0x5e, 0xc1, 0x69, 0xfb, 0xd5, 0x6f, 0x54, 0xbf, 0x56, 0xc4,
-	0xca, 0xd0, 0x1c, 0x02, 0xbc, 0x84, 0xc9, 0xca, 0x88, 0x2d, 0x49, 0x36, 0x0a, 0x55, 0x9a, 0xf8,
-	0x0a, 0xc6, 0x4f, 0x5e, 0x4b, 0x64, 0x50, 0xb7, 0x52, 0xee, 0xc8, 0xda, 0xb4, 0x75, 0x18, 0xf1,
-	0x06, 0x4e, 0xd2, 0xc3, 0x96, 0x95, 0xf3, 0xd1, 0xe2, 0xec, 0x6e, 0x16, 0x2f, 0x5b, 0xa6, 0xb8,
-	0xdb, 0xf7, 0xfc, 0xa7, 0x80, 0xe6, 0x85, 0x9c, 0x53, 0xd4, 0x0a, 0xb7, 0x31, 0xfa, 0x9f, 0xb5,
-	0x7b, 0x89, 0x32, 0x97, 0xe0, 0xd0, 0x3c, 0x6b, 0x71, 0xf0, 0x88, 0xc7, 0x1e, 0x65, 0x7f, 0xcc,
-	0x23, 0x49, 0x2f, 0x28, 0x09, 0x8d, 0x23, 0x93, 0x67, 0x78, 0x0d, 0xd3, 0x8e, 0x14, 0xf5, 0x76,
-	0x80, 0xaa, 0x00, 0x1d, 0x87, 0xfc, 0x01, 0xa6, 0xf9, 0xb5, 0x16, 0x6f, 0xa1, 0xee, 0xe3, 0x2f,
-	0x2b, 0x82, 0xea, 0x79, 0x52, 0xcd, 0xb1, 0x6e, 0x60, 0xd6, 0x93, 0x50, 0xde, 0xff, 0x06, 0x00,
-	0x00, 0xff, 0xff, 0x05, 0x70, 0x82, 0x52, 0xb3, 0x01, 0x00, 0x00,
+	// 333 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x51, 0x4d, 0x4b, 0xc3, 0x40,
+	0x14, 0x24, 0xfd, 0xee, 0xeb, 0x07, 0x76, 0x91, 0xb2, 0x07, 0x0f, 0x65, 0x51, 0x28, 0x1e, 0x8a,
+	0xd8, 0x93, 0xde, 0x22, 0x52, 0x10, 0x8a, 0xc8, 0xaa, 0x67, 0x49, 0x77, 0x5f, 0x20, 0x34, 0xee,
+	0x4a, 0xbe, 0xd0, 0xbf, 0xe4, 0xaf, 0x94, 0x6c, 0x76, 0x9b, 0x14, 0x44, 0xf0, 0x14, 0x66, 0xde,
+	0xec, 0x64, 0xde, 0x3c, 0x98, 0x4a, 0xfc, 0x7c, 0x0b, 0x73, 0x25, 0x57, 0x1f, 0x89, 0xce, 0x34,
+	0xe9, 0x9a, 0x0f, 0x7b, 0x85, 0xbe, 0x2f, 0x84, 0xce, 0x55, 0x46, 0x4e, 0xa1, 0xfb, 0xa2, 0xf7,
+	0xa8, 0xa8, 0xb7, 0xf0, 0x96, 0x63, 0x5e, 0x01, 0x72, 0x06, 0x43, 0xbf, 0x08, 0xa2, 0x38, 0xd8,
+	0xc5, 0x48, 0x5b, 0x66, 0x52, 0x13, 0x64, 0x0e, 0xbd, 0xad, 0x16, 0x7b, 0x94, 0xb4, 0x6d, 0x46,
+	0x16, 0xb1, 0x2d, 0x74, 0x36, 0xb9, 0x92, 0x84, 0x42, 0xdf, 0x97, 0x32, 0xc1, 0x34, 0xb5, 0xae,
+	0x0e, 0x92, 0x4b, 0x18, 0xd8, 0x1f, 0xa7, 0xb4, 0xb5, 0x68, 0x2f, 0x47, 0xd7, 0xd3, 0x2a, 0xd9,
+	0xca, 0xd2, 0xfc, 0x30, 0x67, 0xdf, 0x1e, 0x40, 0x69, 0xf7, 0x8c, 0x59, 0x16, 0xe3, 0x1f, 0xa6,
+	0x87, 0x15, 0x5a, 0xcd, 0x15, 0x18, 0x8c, 0x1f, 0x94, 0xa8, 0xb7, 0xa8, 0xa2, 0x1e, 0x71, 0xa5,
+	0x86, 0xa3, 0xcc, 0x05, 0xda, 0x75, 0x3a, 0x95, 0xa6, 0xc9, 0x91, 0x73, 0x98, 0x70, 0x8c, 0x31,
+	0x48, 0x9d, 0xa8, 0x6b, 0x44, 0xc7, 0x24, 0xbb, 0x81, 0xe1, 0x06, 0xd1, 0x46, 0xfd, 0xbd, 0xd3,
+	0x39, 0xf4, 0xfc, 0xf7, 0x72, 0x35, 0x9b, 0xd3, 0x22, 0x56, 0xc0, 0xa4, 0x7a, 0xe7, 0x8b, 0x2c,
+	0xd2, 0x2a, 0x25, 0x6b, 0x18, 0x95, 0x27, 0xb3, 0x90, 0x7a, 0xa6, 0xa7, 0x99, 0xed, 0xa9, 0x6e,
+	0x84, 0x37, 0x55, 0xe4, 0x0a, 0x20, 0x44, 0x67, 0x61, 0xbb, 0x3d, 0x71, 0x6f, 0x5c, 0x32, 0xde,
+	0xd0, 0xb0, 0x47, 0x18, 0x6d, 0x10, 0xef, 0xbe, 0x9e, 0x30, 0x89, 0xb4, 0x39, 0xda, 0x7d, 0x54,
+	0x44, 0x12, 0xa5, 0x89, 0x3d, 0xe0, 0x0e, 0x92, 0x0b, 0xe8, 0x84, 0x88, 0xce, 0x74, 0x56, 0x9b,
+	0xba, 0x9b, 0x99, 0x31, 0xbb, 0x05, 0xa8, 0xb9, 0xff, 0x75, 0xb0, 0xeb, 0x19, 0xcf, 0xf5, 0x4f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x2a, 0x71, 0x23, 0xee, 0xb0, 0x02, 0x00, 0x00,
 }

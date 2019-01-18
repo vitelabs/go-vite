@@ -77,7 +77,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
 		return []*SendBlock{}, err
 	}
-	return handleSettleActions(block, matcher.GetSettleActions())
+	return handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
 }
 
 type MethodDexTradeCancelOrder struct {
@@ -135,60 +135,64 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId); err != nil {
 		return []*SendBlock{}, err
 	}
-	return handleSettleActions(block, matcher.GetSettleActions())
+	return handleSettleActions(block, matcher.GetFundSettles(), nil)
 }
 
-func handleSettleActions(block *ledger.AccountBlock, actionMaps map[types.Address]map[types.TokenTypeId]*dexproto.SettleAction) ([]*SendBlock, error) {
-	//fmt.Printf("actionMaps.size %d\n", len(actionMaps))
-	if len(actionMaps) == 0 {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]*dexproto.FeeSettle) ([]*SendBlock, error) {
+	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
+	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return []*SendBlock{}, nil
 	}
-	actions := make([]*dexproto.SettleAction, 0, 100)
-	for _, actionMap := range actionMaps {
-		for _, action := range actionMap {
-			actions = append(actions, action)
+	settleActions := &dexproto.SettleActions{}
+	if len(fundSettles) > 0 {
+		fundActions := make([]*dexproto.FundSettle, 0, 100)
+		for _, fundSettleMap := range fundSettles {
+			for _, fundAction := range fundSettleMap {
+				fundActions = append(fundActions, fundAction)
+			}
 		}
+		//sort fundActions for stable marsh result
+		sort.Sort(fundActionsWrapper(fundActions))
+		//fmt.Printf("fundActions.size %d\n", len(fundActions))
+		settleActions.FundActions = fundActions
 	}
-	//sort actions for stable marsh result
-	sort.Sort(settleActions(actions))
-	//fmt.Printf("actions.size %d\n", len(actions))
-	settleOrders := &dexproto.SettleActions{Actions: actions}
+	//every block will trigger exactly one market, fee token type should also be single
+	for _, feeAction := range feeSettles {
+		settleActions.FeeActions = append(settleActions.FeeActions, feeAction)
+	}
+
 	var (
-		settleData, dexFundBlockData []byte
-		err error
+		settleData, dexSettleBlockData []byte
+		err                            error
 	)
-	if settleData, err = proto.Marshal(settleOrders); err != nil {
+	if settleData, err = proto.Marshal(settleActions); err != nil {
 		return []*SendBlock{}, err
 	}
-
-	if len(actions) > 0 {
-		if dexFundBlockData, err = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); err != nil {
-			return []*SendBlock{}, err
-		}
-		return []*SendBlock{
-			{block,
-				types.AddressDexFund,
-				ledger.BlockTypeSendCall,
-				big.NewInt(0),
-				ledger.ViteTokenId, // no need send token
-				dexFundBlockData,
-			},
-		} ,nil
+	if dexSettleBlockData, err = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); err != nil {
+		return []*SendBlock{}, err
 	}
-	return []*SendBlock{}, nil
+	return []*SendBlock{
+		{block,
+			types.AddressDexFund,
+			ledger.BlockTypeSendCall,
+			big.NewInt(0),
+			ledger.ViteTokenId, // no need send token
+			dexSettleBlockData,
+		},
+	} ,nil
 }
 
-type settleActions []*dexproto.SettleAction
+type fundActionsWrapper []*dexproto.FundSettle
 
-func (sa settleActions) Len() int {
+func (sa fundActionsWrapper) Len() int {
 	return len(sa)
 }
 
-func (sa settleActions) Swap(i, j int) {
+func (sa fundActionsWrapper) Swap(i, j int) {
 	sa[i], sa[j] = sa[j], sa[i]
 }
 
-func (sa settleActions) Less(i, j int) bool {
+func (sa fundActionsWrapper) Less(i, j int) bool {
 	addCmp := bytes.Compare(sa[i].Address, sa[j].Address)
 	tokenCmp := bytes.Compare(sa[i].Address, sa[j].Address)
 	if addCmp < 0 && tokenCmp < 0 {

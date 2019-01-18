@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
@@ -35,7 +36,9 @@ const (
 
 var (
 	ABIDexFund, _ = abi.JSONToABIContract(strings.NewReader(jsonDexFund))
-	fundKeyPrefix = []byte("fund:")
+	fundKeyPrefix = []byte("fund:") // fund:types.Address
+	feeAccKeyPrefix = []byte("fee:") // fund:feeAccId feeAccId = PeriodIdByHeight
+	feeAccPeriodByHeight uint64 = 10
 )
 
 type ParamDexFundWithDraw struct {
@@ -71,6 +74,23 @@ func (df *DexFund) deSerialize(fundData []byte) (dexFund *DexFund, err error) {
 		return nil, err
 	} else {
 		return &DexFund{protoFund}, nil
+	}
+}
+
+type DexFee struct {
+	dexproto.FeeByPeriod
+}
+
+func (df *DexFee) serialize() (data []byte, err error) {
+	return proto.Marshal(&df.FeeByPeriod)
+}
+
+func (df *DexFee) deSerialize(feeData []byte) (dexFee *DexFee, err error) {
+	protoFee := dexproto.FeeByPeriod{}
+	if err := proto.Unmarshal(feeData, &protoFee); err != nil {
+		return nil, err
+	} else {
+		return &DexFee{protoFee}, nil
 	}
 }
 
@@ -295,8 +315,13 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
 		return []*SendBlock{}, err
 	}
-	for _, action := range settleActions.Actions {
-		if err = doSettleAction(db, action); err != nil {
+	for _, fundAction := range settleActions.FundActions {
+		if err = doSettleFund(db, fundAction); err != nil {
+			return []*SendBlock{}, err
+		}
+	}
+	for _, feeAction := range settleActions.FeeActions {
+		if err = doSettleFee(db, block.Height, feeAction); err != nil {
 			return []*SendBlock{}, err
 		}
 	}
@@ -440,7 +465,7 @@ func checkOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 		return fmt.Errorf("invalid order type")
 	}
 	if orderParam.OrderType == dex.Limited {
-		if !dex.ValidPrice(orderParam.Price) {
+		if !ValidPrice(orderParam.Price) {
 			return fmt.Errorf("invalid format for price")
 		}
 	}
@@ -481,10 +506,10 @@ func renderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_i
 }
 
 func checkActions(actions *dexproto.SettleActions) error {
-	if actions == nil || len(actions.Actions) == 0 {
-		return fmt.Errorf("settle orders is emtpy")
+	if actions == nil || len(actions.FundActions) == 0 && len(actions.FeeActions) == 0 {
+		return fmt.Errorf("settle actions is emtpy")
 	}
-	for _ , v := range actions.Actions {
+	for _ , v := range actions.FundActions {
 		if len(v.Address) != 20 {
 			return fmt.Errorf("invalid address format for settle")
 		}
@@ -494,17 +519,26 @@ func checkActions(actions *dexproto.SettleActions) error {
 		if dex.CmpToBigZero(v.IncAvailable) < 0 {
 			return fmt.Errorf("negative incrAvailable for settle")
 		}
-		if dex.CmpToBigZero(v.DeduceLocked) < 0 {
-			return fmt.Errorf("negative deduceLocked for settle")
+		if dex.CmpToBigZero(v.ReduceLocked) < 0 {
+			return fmt.Errorf("negative reduceLocked for settle")
 		}
 		if dex.CmpToBigZero(v.ReleaseLocked) < 0 {
 			return fmt.Errorf("negative releaseLocked for settle")
 		}
 	}
+
+	for _ , fee := range actions.FeeActions {
+		if len(fee.Token) != 10 {
+			return fmt.Errorf("invalid tokenId format for fee settle")
+		}
+		if dex.CmpToBigZero(fee.Amount) <= 0 {
+			return fmt.Errorf("negative feeAmount for settle")
+		}
+	}
 	return nil
 }
 
-func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleAction) error {
+func doSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.FundSettle) error {
 	address := &types.Address{}
 	address.SetBytes([]byte(action.Address))
 	if dexFund, err := GetFundFromStorage(db, *address); err != nil {
@@ -518,11 +552,11 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 			}
 			account, exists := getAccountByTokeIdFromFund(dexFund, *tokenId)
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
-			if dex.CmpToBigZero(action.DeduceLocked) > 0 {
-				if dex.CmpForBigInt(action.DeduceLocked, account.Locked) > 0 {
-					return fmt.Errorf("try deduce locked amount execeed locked")
+			if dex.CmpToBigZero(action.ReduceLocked) > 0 {
+				if dex.CmpForBigInt(action.ReduceLocked, account.Locked) > 0 {
+					return fmt.Errorf("try reduce locked amount execeed locked")
 				}
-				account.Locked = dex.SubBigInt(account.Locked, action.DeduceLocked)
+				account.Locked = dex.SubBigInt(account.Locked, action.ReduceLocked)
 			}
 			if dex.CmpToBigZero(action.ReleaseLocked) > 0 {
 				if dex.CmpForBigInt(action.ReleaseLocked, account.Locked) > 0 {
@@ -540,9 +574,92 @@ func doSettleAction(db vmctxt_interface.VmDatabase, action *dexproto.SettleActio
 			if err = saveFundToStorage(db, *address, dexFund); err != nil {
 				return err
 			}
-			//fmt.Printf("settle for :address %s, tokenId %s, DeduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.DeduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
+			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
 		}
 		return err
 	}
 	return nil
+}
+
+func doSettleFee(storage vmctxt_interface.VmDatabase, blockHeight uint64, feeAction *dexproto.FeeSettle) error {
+	feeKey := GetFeeKeyForHeight(blockHeight)
+	var (
+		dexFee *DexFee
+		err error
+	)
+	if dexFee, err = GetFeeFromStorage(storage, feeKey); err != nil {
+		return err
+	} else {
+		if dexFee.Divided {
+			return fmt.Errorf("err status for settle fee as fee already divided for height %d", blockHeight)
+		}
+		var foundToken = false
+		for _, feeAcc := range dexFee.Fees {
+			if bytes.Compare(feeAcc.Token, feeAction.Token) == 0 {
+				feeAcc.Amount = dex.AddBigInt(feeAcc.Amount, feeAction.Amount)
+				foundToken = true
+				break
+			}
+		}
+		if !foundToken {
+			feeAcc := &dexproto.FeeAccount{}
+			feeAcc.Token = feeAction.Token
+			feeAcc.Amount = feeAction.Amount
+			dexFee.Fees = append(dexFee.Fees, feeAcc)
+		}
+	}
+	if err = SaveFeeToStorage(storage, feeKey, dexFee); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func GetFeeFromStorage(storage vmctxt_interface.VmDatabase, feeKey []byte) (dexFee *DexFee, err error) {
+	dexFee = &DexFee{}
+	if feeBytes := storage.GetStorage(&types.AddressDexFund, feeKey); len(feeBytes) > 0 {
+		if dexFee, err = dexFee.deSerialize(feeBytes); err != nil {
+			return nil, err
+		} else {
+			return dexFee, nil
+		}
+	} else {
+		dexFee.Divided = false
+		return dexFee, nil
+	}
+}
+
+func SaveFeeToStorage(storage vmctxt_interface.VmDatabase, feeKey []byte, fee *DexFee) error {
+	if feeBytes, err := proto.Marshal(fee); err == nil {
+		storage.SetStorage(feeKey, feeBytes)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func GetFeeKeyForHeight(blockHeight uint64) []byte {
+	var periodIdByLastHeight uint64
+	if int64(blockHeight) % int64(feeAccPeriodByHeight) == 0 {
+		periodIdByLastHeight = blockHeight
+	} else {
+		periodIdByLastHeight = ((blockHeight / feeAccPeriodByHeight) + 1) * feeAccPeriodByHeight
+	}
+	bs := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bs, periodIdByLastHeight)
+	return append(feeAccKeyPrefix, bs...)
+}
+
+func ValidPrice(price string) bool {
+	if len(price) == 0 {
+		return false
+	} else if  pr, ok := new(big.Float).SetString(price);  !ok || pr.Cmp(big.NewFloat(0)) <= 0 {
+		return false
+	} else {
+		idx := strings.Index(price, ",")
+		if idx > 0 && len(price) - idx >= 12 { // price max precision is 10 decimal
+			return false
+		}
+	}
+	return true
 }
