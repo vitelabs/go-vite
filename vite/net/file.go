@@ -329,7 +329,7 @@ func chooseIdleConn(list connList, hasNewPeers bool) *conn {
 			continue
 		}
 
-		if i < total/3 {
+		if i <= total/3 {
 			return c
 		}
 
@@ -381,7 +381,7 @@ func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fil
 				r.state = reqPending
 				if err = fc.doRequest(conns, file, p); err != nil {
 					r.state = reqError
-					fc.removePeer(conns, record, pFiles, p)
+					//fc.removePeer(conns, record, pFiles, p)
 				} else {
 					// download
 					return
@@ -534,12 +534,12 @@ loop:
 			}
 
 			// retry
-			if err := fc.doRequest(conns, file, conn.peer); err == nil {
-				break
-			}
+			//if err := fc.doRequest(conns, file, conn.peer); err == nil {
+			//	break
+			//}
 
 			// clean
-			fc.removePeer(conns, record, pFiles, conn.peer)
+			//fc.removePeer(conns, record, pFiles, conn.peer)
 
 			if r, ok := record[file.Filename]; ok {
 				r.state = reqError
