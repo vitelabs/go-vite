@@ -26,10 +26,10 @@ type fileServer struct {
 	addr   string
 	ln     net2.Listener
 	record map[uint64]struct{} // use to record nonce
-	term   chan struct{}
-	log    log15.Logger
-	wg     sync.WaitGroup
-	chain  Chain
+
+	log   log15.Logger
+	wg    sync.WaitGroup
+	chain Chain
 
 	mu    sync.Mutex
 	conns map[string]net2.Conn
@@ -53,7 +53,6 @@ func (s *fileServer) start() error {
 	}
 
 	s.ln = ln
-	s.term = make(chan struct{})
 
 	s.wg.Add(1)
 	common.Go(s.listenLoop)
@@ -62,28 +61,17 @@ func (s *fileServer) start() error {
 }
 
 func (s *fileServer) stop() {
-	if s.term == nil {
-		return
+	if s.ln != nil {
+		s.ln.Close()
 	}
 
-	select {
-	case <-s.term:
-	default:
-		close(s.term)
-
-		if s.ln != nil {
-			s.ln.Close()
-		}
-
-		s.mu.Lock()
-		for addr, c := range s.conns {
-			c.Close()
-			delete(s.conns, addr)
-		}
-		s.mu.Unlock()
-
-		s.wg.Wait()
+	s.mu.Lock()
+	for _, c := range s.conns {
+		s.delConnLocked(c)
 	}
+	s.mu.Unlock()
+
+	s.wg.Wait()
 }
 
 func (s *fileServer) listenLoop() {
@@ -121,13 +109,30 @@ func (s *fileServer) listenLoop() {
 	}
 }
 
+func (s *fileServer) addConn(conn net2.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.conns[conn.RemoteAddr().String()] = conn
+}
+
+func (s *fileServer) delConnLocked(conn net2.Conn) {
+	conn.Close()
+	delete(s.conns, conn.RemoteAddr().String())
+}
+
+func (s *fileServer) delConn(conn net2.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.delConnLocked(conn)
+}
+
 func (s *fileServer) handleConn(conn net2.Conn) {
-	defer conn.Close()
 	defer s.wg.Done()
 
-	s.mu.Lock()
-	s.conns[conn.RemoteAddr().String()] = conn
-	s.mu.Unlock()
+	s.addConn(conn)
+	defer s.delConn(conn)
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(fReadTimeout))
