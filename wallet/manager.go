@@ -242,6 +242,20 @@ func (m *Manager) Start() {
 	}
 }
 
+func (m *Manager) StartWallet() error {
+	m.entropyStoreManager = make(map[string]*entropystore.Manager)
+	files, e := m.ListEntropyFilesInStandardDir()
+	if e != nil {
+		return e
+	}
+	for _, entropyStore := range files {
+		if e = m.AddEntropyStore(entropyStore); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
 func (m *Manager) Stop() {
 	for _, em := range m.entropyStoreManager {
 		em.Lock()
