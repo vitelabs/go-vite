@@ -2,12 +2,19 @@ package main
 
 import "C"
 import (
+	"encoding/base64"
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/vitelabs/go-vite/wallet/entropystore"
+
+	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/wallet"
+	"golang.org/x/crypto/ed25519"
 )
 
 func main() {
@@ -336,4 +343,108 @@ func EntropyStoreToAddress(entropyStore *C.char) *C.char {
 		return CString(failResult(err))
 	}
 	return CString(successResultWithData(address.Hex()))
+}
+
+//export Hash256
+func Hash256(data *C.char) *C.char {
+	dataBase64 := GoString(data)
+	byt, err := base64.StdEncoding.DecodeString(dataBase64)
+	if err != nil {
+		return CString(failResult(errors.New("base decode fail")))
+	}
+	return CString(successResultWithData(base64.StdEncoding.EncodeToString(crypto.Hash256(byt))))
+}
+
+//export Hash
+func Hash(size int, data *C.char) *C.char {
+	dataBase64 := GoString(data)
+	byt, err := base64.StdEncoding.DecodeString(dataBase64)
+	if err != nil {
+		return CString(failResult(errors.New("base decode fail")))
+	}
+	return CString(successResultWithData(base64.StdEncoding.EncodeToString(crypto.Hash(size, byt))))
+}
+
+type SignDataResult struct {
+	PubkicKey string
+	Data      string
+	Signature string
+}
+
+//export SignData
+func SignData(privHex *C.char, messageBase64 *C.char) *C.char {
+	priKey, err := ed255192.HexToPrivateKey(GoString(privHex))
+	if err != nil {
+		return CString(failResult(err))
+	}
+
+	messageBase64Str := GoString(messageBase64)
+	message, err := base64.StdEncoding.DecodeString(messageBase64Str)
+	if err != nil {
+		return CString(failResult(err))
+	}
+	var byt []byte = priKey
+	var a ed25519.PrivateKey = byt
+	signature := ed25519.Sign(a, message)
+
+	return CString(successResultWithData(SignDataResult{
+		PubkicKey: base64.StdEncoding.EncodeToString(priKey.PubByte()),
+		Data:      messageBase64Str,
+		Signature: base64.StdEncoding.EncodeToString(signature),
+	}))
+}
+
+//export VerifySignature
+func VerifySignature(pub, message, signData *C.char) *C.char {
+	pubByt, err := base64.StdEncoding.DecodeString(GoString(pub))
+	if err != nil {
+		return CString(failResult(err))
+	}
+	messageByt, err := base64.StdEncoding.DecodeString(GoString(message))
+	if err != nil {
+		return CString(failResult(err))
+	}
+	signDataByt, err := base64.StdEncoding.DecodeString(GoString(signData))
+	if err != nil {
+		return CString(failResult(err))
+	}
+
+	result, err := crypto.VerifySig(pubByt, messageByt, signDataByt)
+	if err != nil {
+		return CString(failResult(err))
+	}
+	return CString(successResultWithData(result))
+}
+
+//export PubkeyToAddress
+func PubkeyToAddress(pubBase64 *C.char) *C.char {
+	pubByt, err := base64.StdEncoding.DecodeString(GoString(pubBase64))
+	if err != nil {
+		return CString(failResult(err))
+	}
+	address := types.PubkeyToAddress(pubByt)
+	return CString(successResultWithData(address.Hex()))
+}
+
+//export TransformMnemonic
+func TransformMnemonic(mnemonic, language, extensionWord *C.char) *C.char {
+	extensionWordStr := GoString(extensionWord)
+	extensionWordP := &extensionWordStr
+	if extensionWordStr == "" {
+		extensionWordP = nil
+	}
+	entropyprofile, e := entropystore.MnemonicToEntropy(GoString(mnemonic), GoString(language), extensionWordP != nil, extensionWordP)
+	if e != nil {
+		return CString(failResult(e))
+	}
+	return CString(entropyprofile.PrimaryAddress.Hex())
+}
+
+//export RandomMnemonic
+func RandomMnemonic(language *C.char, mnemonicSize int) *C.char {
+	mnemonic, err := entropystore.NewMnemonic(GoString(language), &mnemonicSize)
+	if err != nil {
+		return CString(failResult(err))
+	}
+	return CString(successResultWithData(mnemonic))
 }
