@@ -29,6 +29,7 @@ var DefaultNodeConfig = Config{
 	WSExposeAll:          true,
 	HttpExposeAll:        true,
 	TopoEnabled:          false,
+	FilePort:             8484,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.
