@@ -21,6 +21,7 @@ const (
 
 const Dirname = "p2p"
 const privKeyFileName = "priv.key"
+const DefaultAddr = "0.0.0.0:8483"
 
 func getServerKey(p2pDir string) (priv ed25519.PrivateKey, err error) {
 	privKeyFile := filepath.Join(p2pDir, privKeyFileName)
@@ -78,8 +79,8 @@ func EnsureConfig(cfg *Config) *Config {
 		cfg.MaxInboundRatio = DefaultMaxInboundRatio
 	}
 
-	if cfg.Port == 0 {
-		cfg.Port = DefaultPort
+	if cfg.Addr == "" {
+		cfg.Addr = DefaultAddr
 	}
 
 	if cfg.DataDir == "" {

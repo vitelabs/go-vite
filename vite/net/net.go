@@ -1,11 +1,13 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	net2 "net"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -20,15 +22,15 @@ var netLog = log15.New("module", "vite/net")
 type Config struct {
 	Single bool // for test
 
-	Port     uint16
+	FileAddr string
 	Chain    Chain
 	Verifier Verifier
 
 	// for topo
-	Topology   []string
-	Topic      string
-	Interval   int64 // second
-	TopoEnable bool
+	Topology    []string
+	Topic       string
+	Interval    int64 // second
+	TopoEnabled bool
 }
 
 const DefaultPort uint16 = 8484
@@ -59,10 +61,6 @@ func New(cfg *Config) Net {
 		return mock()
 	}
 
-	if cfg.Port == 0 {
-		cfg.Port = DefaultPort
-	}
-
 	g := new(gid)
 	peers := newPeerSet()
 
@@ -83,7 +81,7 @@ func New(cfg *Config) Net {
 		broadcaster: broadcaster,
 		receiver:    receiver,
 		filter:      filter,
-		fs:          newFileServer(cfg.Port, cfg.Chain),
+		fs:          newFileServer(cfg.FileAddr, cfg.Chain),
 		handlers:    make(map[ViteCmd]MsgHandler),
 		log:         netLog,
 	}
@@ -105,7 +103,7 @@ func New(cfg *Config) Net {
 	})
 
 	// topo
-	if cfg.TopoEnable {
+	if cfg.TopoEnabled {
 		n.topo = topo.New(&topo.Config{
 			Addrs:    cfg.Topology,
 			Interval: cfg.Interval,
@@ -201,9 +199,18 @@ func (n *net) handlePeer(p *peer) error {
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
 	n.log.Debug(fmt.Sprintf("handshake with %s", p))
-	err := p.Handshake(&message.HandShake{
+
+	var filePort uint16
+	fileAddress, err := net2.ResolveTCPAddr("tcp", n.FileAddr)
+	if err != nil {
+		filePort = uint16(fileAddress.Port)
+	} else {
+		filePort = DefaultPort
+	}
+
+	err = p.Handshake(&message.HandShake{
 		Height:  current.Height,
-		Port:    n.Port,
+		Port:    filePort,
 		Current: current.Hash,
 		Genesis: genesis.Hash,
 	})

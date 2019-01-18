@@ -64,14 +64,14 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// net
 	netVerifier := verifier.NewNetVerifier(sbVerifier, aVerifier)
 	net := net.New(&net.Config{
-		Single:     cfg.Single,
-		Port:       uint16(cfg.FilePort),
-		Chain:      chain,
-		Verifier:   netVerifier,
-		Topology:   cfg.Topology,
-		Topic:      cfg.Topic,
-		Interval:   cfg.Interval,
-		TopoEnable: cfg.TopoEnable,
+		Single:      cfg.Single,
+		FileAddr:    cfg.FileAddress,
+		Chain:       chain,
+		Verifier:    netVerifier,
+		Topology:    cfg.Topology,
+		Topic:       cfg.Topic,
+		Interval:    cfg.Interval,
+		TopoEnabled: cfg.TopoEnabled,
 	})
 
 	// vite

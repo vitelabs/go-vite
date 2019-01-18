@@ -28,7 +28,7 @@ var DefaultNodeConfig = Config{
 	WSOrigins:            []string{"*"},
 	WSExposeAll:          true,
 	HttpExposeAll:        true,
-	TopoEnable:           false,
+	TopoEnabled:          false,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.
