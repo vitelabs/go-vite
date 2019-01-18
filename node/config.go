@@ -164,6 +164,10 @@ func (c *Config) makeMinerConfig() *config.Producer {
 }
 
 func (c *Config) makeP2PConfig() *p2p.Config {
+	if c.Port == 0 {
+		c.Port = 8483
+	}
+
 	addr := "0.0.0.0:" + strconv.Itoa(c.Port)
 	return &p2p.Config{
 		Name:            c.Identity,
