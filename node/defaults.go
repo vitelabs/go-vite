@@ -21,7 +21,7 @@ var DefaultNodeConfig = Config{
 	MaxPassivePeersRatio: 0,
 	MaxPendingPeers:      0,
 	BootNodes:            nil,
-	Port:                 0,
+	Port:                 8483,
 	NetID:                0,
 	Discovery:            true,
 	LogLevel:             "info",
