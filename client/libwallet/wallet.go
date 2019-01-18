@@ -462,3 +462,8 @@ func ComputeHashForAccountBlock(block *C.char) *C.char {
 	hash := accBlock.ComputeHash()
 	return CString(successResultWithData(hash.Hex()))
 }
+
+// export Hello
+func Hello(name *C.char) *C.char {
+	return CString("Hello " + GoString(name) + " !")
+}
