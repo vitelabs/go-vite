@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/influxdata/influxdb/client/v2"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
+	"sync"
 	"time"
 )
 
@@ -13,6 +15,30 @@ var log = log15.New("module", "influxdb")
 
 // DefaultTimeout is the default connection timeout used to connect to an InfluxDB instance
 const DefaultTimeout = 0
+
+// InfluxDB starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval.
+func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, password, namespace string) {
+	InfluxDBWithTags(r, d, url, database, username, password, namespace, nil)
+}
+
+// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
+func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
+	if !metrics.InfluxDBExportEnable {
+		log.Info("influxdb export disable")
+		return
+	}
+	rep, err := NewReporter(r, d, url, database, username, password, namespace, tags)
+	if err != nil || rep == nil {
+		log.Error("unable to make influxdb client", "err", err)
+	}
+	rep.run()
+}
+
+const (
+	Create = iota
+	Start
+	Stop
+)
 
 type Reporter struct {
 	reg      metrics.Registry
@@ -33,6 +59,9 @@ type Reporter struct {
 
 	breaker      chan struct{}
 	stopListener chan struct{}
+
+	status      int
+	statusMutex sync.Mutex
 }
 
 func (r *Reporter) makeClient() (err error) {
@@ -49,24 +78,6 @@ func (r *Reporter) makeClient() (err error) {
 	return err
 }
 
-// InfluxDB starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval.
-func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, password, namespace string) {
-	InfluxDBWithTags(r, d, url, database, username, password, namespace, nil)
-}
-
-// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
-func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
-	if !metrics.InfluxDBExportFlag {
-		log.Info("influxdb export disable")
-		return
-	}
-	rep, err := NewReporter(r, d, url, database, username, password, namespace, tags)
-	if err != nil || rep == nil {
-		log.Error("unable to make influxdb client", "err", err)
-	}
-	rep.run()
-}
-
 func NewReporter(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) (*Reporter, error) {
 	rep := &Reporter{
 		reg:       r,
@@ -77,6 +88,7 @@ func NewReporter(r metrics.Registry, d time.Duration, url, database, username, p
 		password:  password,
 		namespace: namespace,
 		tags:      tags,
+		status:    Create,
 	}
 	if err := rep.makeClient(); err != nil {
 		return nil, errors.New("unable to make influxdb client, err " + err.Error())
@@ -86,6 +98,40 @@ func NewReporter(r metrics.Registry, d time.Duration, url, database, username, p
 	rep.stopListener = make(chan struct{})
 
 	return rep, nil
+}
+
+// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
+func (r *Reporter) Start() {
+	log.Info("reporter be called to start")
+
+	r.statusMutex.Lock()
+	defer r.statusMutex.Unlock()
+
+	if r.status != Start {
+		common.Go(r.run)
+		r.status = Start
+	}
+
+	log.Info("reporter start")
+}
+
+func (r *Reporter) Stop() {
+	log.Info("reporter be called to stop")
+
+	r.statusMutex.Lock()
+	defer r.statusMutex.Unlock()
+	if r.status != Stop {
+		r.breaker <- struct{}{}
+		close(r.breaker)
+
+		<-r.stopListener
+		close(r.stopListener)
+
+		metrics.InfluxDBExportEnable = false
+		r.status = Stop
+	}
+
+	log.Info("reporter stoped")
 }
 
 func (r *Reporter) run() {
@@ -253,28 +299,4 @@ func (r *Reporter) send() error {
 		bp.AddPoint(pt)
 	})
 	return r.client.Write(bp)
-}
-
-// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
-func (r *Reporter) Start() {
-	if !metrics.InfluxDBExportFlag {
-		log.Error("influxdb export disable")
-		return
-	}
-	log.Info("reporter start")
-	r.run()
-}
-
-func (r *Reporter) Stop() {
-	log.Info("reporter be called to stop")
-
-	r.breaker <- struct{}{}
-	close(r.breaker)
-
-	<-r.stopListener
-	close(r.stopListener)
-
-	metrics.InfluxDBExportFlag = false
-
-	log.Info("reporter stoped")
 }

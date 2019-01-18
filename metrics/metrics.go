@@ -19,9 +19,9 @@ import (
 // This global kill-switch helps quantify the observer effect and makes
 // for less cluttered pprof profiles.
 var (
-	MetricsEnabled     = false
-	InfluxDBExportFlag = false
-	log                = log15.New("module", "metrics")
+	MetricsEnabled       = false
+	InfluxDBExportEnable = false
+	log                  = log15.New("module", "metrics")
 )
 
 type InfluxDBConfig struct {
@@ -40,7 +40,7 @@ type Config struct {
 
 func InitMetrics(metricFlag, influxDBFlag bool) {
 	MetricsEnabled = metricFlag
-	InfluxDBExportFlag = influxDBFlag
+	InfluxDBExportEnable = influxDBFlag
 }
 
 var (
