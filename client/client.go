@@ -5,11 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/pow"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 type AccountBlock struct {
