@@ -6,16 +6,13 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-
-	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
-
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"golang.org/x/crypto/ed25519"
 )
 
