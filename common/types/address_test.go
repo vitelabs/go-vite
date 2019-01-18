@@ -84,3 +84,11 @@ func TestAddress_UnmarshalJSON(t *testing.T) {
 	}
 	assert.Equal(t, addr0.String(), addr.String())
 }
+
+func TestAddress_PrintContact(t *testing.T) {
+	fmt.Println("AddressRegister", AddressRegister)
+	fmt.Println("AddressVote", AddressVote)
+	fmt.Println("AddressPledge", AddressPledge)
+	fmt.Println("AddressConsensusGroup", AddressConsensusGroup)
+	fmt.Println("AddressMintage", AddressMintage)
+}

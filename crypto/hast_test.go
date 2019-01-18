@@ -2,9 +2,10 @@ package crypto
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func TestHash(t *testing.T) {
@@ -21,5 +22,10 @@ func TestHash(t *testing.T) {
 
 	if !bytes.Equal(Hash256(a, b), Hash256([]byte{1, 2, 3, 4})) {
 		t.Fatal("not equal")
+	}
+
+	decodeString, _ := base64.StdEncoding.DecodeString("8J+Qu/CfkKjwn5Cx")
+	for _, v := range decodeString {
+		fmt.Println(v)
 	}
 }

@@ -27,7 +27,7 @@ func NewMnemonic(language string, mnemonicSize *int) (string, error) {
 
 	wordList := hd_bip.GetWordList(language)
 	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
+	if wordList[0] != currentWl[0] {
 		bip39.SetWordList(wordList)
 		defer bip39.SetWordList(currentWl)
 	}
@@ -39,7 +39,7 @@ func NewMnemonic(language string, mnemonicSize *int) (string, error) {
 func MnemonicToEntropy(mnemonic, language string, useTwoFactorPhrases bool, extensionWord *string) (entropyprofile *EntropyProfile, e error) {
 	wordList := hd_bip.GetWordList(language)
 	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
+	if wordList[0] != currentWl[0] {
 		bip39.SetWordList(wordList)
 		defer bip39.SetWordList(currentWl)
 	}

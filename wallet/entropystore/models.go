@@ -19,13 +19,28 @@ type EntropyProfile struct {
 	PrimaryAddress      *types.Address `json:"primaryAddress"`
 }
 
+func (ep *EntropyProfile) ExtractMnemonic() (mnemonic string, err error) {
+	wordList := hd_bip.GetWordList(ep.MnemonicLang)
+	currentWl := bip39.GetWordList()
+	if wordList[0] != currentWl[0] {
+		bip39.SetWordList(wordList)
+		defer bip39.SetWordList(currentWl)
+	}
+
+	m, e := bip39.NewMnemonic(ep.Entropy)
+	if e != nil {
+		return "", e
+	}
+	return m, nil
+}
+
 func (ep *EntropyProfile) GetSeed(extensionWord *string) (seed []byte, err error) {
 	if ep.seed != nil {
 		return ep.seed, nil
 	}
 	wordList := hd_bip.GetWordList(ep.MnemonicLang)
 	currentWl := bip39.GetWordList()
-	if &wordList != &currentWl {
+	if wordList[0] != currentWl[0] {
 		bip39.SetWordList(wordList)
 		defer bip39.SetWordList(currentWl)
 	}

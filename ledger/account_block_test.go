@@ -22,21 +22,27 @@ type Aclass struct {
 }
 
 func TestComputeHash(t *testing.T) {
-	addr, _ := types.HexToAddress("vite_847e1672c9a775ca0f3c3a2d3bf389ca466e5501cbecdb7107")
-	nonce, _ := base64.StdEncoding.DecodeString("PRdIJ3eSXDQ=")
-	fromBlockHash, _ := types.HexToHash("48290760a0249c28e92bfbcac31e1c0b61e74f666bddc1a2574b96a7bb533852")
-	snapshotBlockHash, _ := types.HexToHash("3e3393b720679ff09dbc57f6e23570dbca3dc947cf28cdcbad3abc1cb6da2bee")
+	addr, _ := types.HexToAddress("vite_c2406893861fa23cc5deafb2461f50163b728ccc2d2931b830")
+	//nonce, _ := base64.StdEncoding.DecodeString("PRdIJ3eSXDQ=")
+	preHash, _ := types.HexToHash("1d3eaf71c77d6e219f42743347bbc3e24bed3b458b2b39a3ac606fc0778f741d")
+	snapshotBlockHash, _ := types.HexToHash("8584c529b76ec0fca65e7934d93d7e6e5fe4d19be006b17cd40c3150289b7b5a")
+	data, _ := base64.StdEncoding.DecodeString("8J+Qu/CfkKjwn5Cx")
+	a, _ := new(big.Int).SetString("11000000000000000000", 10)
+	toaddr, _ := types.HexToAddress("vite_f505b7e70389bb14db9b6cb84ea41bd7b822a71864b659445f")
+	tti, _ := types.HexToTokenTypeId("tti_c55ec37a916b7f447575ae59")
 	ts := time.Unix(1539604021, 0)
 	block := &AccountBlock{
-		BlockType: 4,
+		BlockType: 2,
 
-		Height:         1,
-		PrevHash:       types.Hash{},
+		Amount:         a,
+		Height:         6,
+		PrevHash:       preHash,
 		AccountAddress: addr,
 		Fee:            big.NewInt(0),
-		Nonce:          nonce,
+		ToAddress:      toaddr,
+		TokenId:        tti,
 		Timestamp:      &ts,
-		FromBlockHash:  fromBlockHash,
+		Data:           data,
 		SnapshotHash:   snapshotBlockHash,
 	}
 	fmt.Println(block.ComputeHash())

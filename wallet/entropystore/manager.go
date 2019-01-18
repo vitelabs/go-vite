@@ -84,6 +84,14 @@ func (km *Manager) IsUnlocked() bool {
 	return km.unlockedEntropy != nil
 }
 
+func (km *Manager) ExtractMnemonic(passphrase string) (string, error) {
+	ep, err := km.ks.ExtractEntropy(passphrase)
+	if err != nil {
+		return "", err
+	}
+	return ep.ExtractMnemonic()
+}
+
 func (km *Manager) ListAddress(from, to uint32, extensionWord *string) ([]types.Address, error) {
 	if from > to {
 		return nil, errors.New("from > to")
