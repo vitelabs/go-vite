@@ -135,6 +135,9 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
+	if c.FilePort == 0 {
+		c.FilePort = 8484
+	}
 	addr := "0.0.0.0:" + strconv.Itoa(c.FilePort)
 
 	return &config.Net{
