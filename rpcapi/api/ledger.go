@@ -430,6 +430,10 @@ func (l *LedgerApi) StopSender(producerId uint8) {
 	l.chain.KafkaSender().StopById(producerId)
 }
 
+func (l *LedgerApi) AccountType(addr types.Address) (uint64, error) {
+	return l.chain.AccountType(&addr)
+}
+
 func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error) {
 	block, err := l.chain.GetAccountBlockByHash(&blockHash)
 	if block == nil {
