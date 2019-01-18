@@ -119,6 +119,7 @@ func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (Ver
 
 func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("AccountVerifier", "VerifyforVM", time.Now())
+	vLog := verifier.log.New("method", "VerifyforVM")
 
 	var preHash *types.Hash
 	if block.Height > 1 {
@@ -126,18 +127,22 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	}
 	gen, err := generator.NewGenerator(verifier.chain, &block.SnapshotHash, preHash, &block.AccountAddress)
 	if err != nil {
-		verifier.log.Error("new generator error," + err.Error())
+		vLog.Error("new generator error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 
 	genResult, err := gen.GenerateWithBlock(block, nil)
 	if err != nil {
-		verifier.log.Error("generator block error," + err.Error())
+		vLog.Error("generator block error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 	if len(genResult.BlockGenList) == 0 {
 		if genResult.Err != nil {
-			verifier.log.Error(genResult.Err.Error())
+			errInf := fmt.Sprintf("sbHash %v, addr %v,", block.SnapshotHash, block.AccountAddress)
+			if block.IsReceiveBlock() {
+				errInf += fmt.Sprintf("fromHash %v", block.FromBlockHash)
+			}
+			vLog.Error(genResult.Err.Error(), "block:", errInf)
 			return nil, genResult.Err
 		}
 		return nil, errors.New("vm failed, blockList is empty")

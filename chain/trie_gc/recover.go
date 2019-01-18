@@ -112,7 +112,7 @@ func (gc *collector) Recover() (returnErr error) {
 	defer func() {
 		// finally, start gc
 		if returnErr != nil {
-			fmt.Println("Recover failed, error is " + returnErr.Error())
+			gc.log.Info("Recover failed, error is " + returnErr.Error())
 		}
 	}()
 
@@ -127,7 +127,7 @@ func (gc *collector) Recover() (returnErr error) {
 		return errors.New("GetLatestBlockEventId failed, error is " + err.Error())
 	}
 
-	fmt.Println("Recovering data, dont't shut down...")
+	gc.log.Info("Recovering data, dont't shut down...")
 
 	accountTypeCache := make(map[types.Address]byte)
 
@@ -241,12 +241,12 @@ func (gc *collector) Recover() (returnErr error) {
 		}
 
 		if i%PRINT_PER_COUNT == 0 {
-			fmt.Printf("Recover %d/%d\n", i, latestBlockEventId)
+			gc.log.Info(fmt.Sprintf("Recover %d/%d\n", i, latestBlockEventId))
 		}
 
 	}
 
-	fmt.Printf("Recover %d/%d\n", latestBlockEventId, latestBlockEventId)
-	fmt.Println("Data recovery complete")
+	gc.log.Info(fmt.Sprintf("Recover %d/%d\n", latestBlockEventId, latestBlockEventId))
+	gc.log.Info("Data recovery complete")
 	return nil
 }
