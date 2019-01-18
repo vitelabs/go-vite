@@ -201,7 +201,7 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 	tx.TakerId = taker.Id
 	tx.MakerId = maker.Id
 	tx.Price = maker.Price
-	executeQuantity := MinBigInt(SubBigInt(taker.Quantity, taker.ExecutedQuantity), SubBigInt(maker.Quantity, maker.ExecutedQuantity))
+	executeQuantity := MinBigInt(SubBigIntAbs(taker.Quantity, taker.ExecutedQuantity), SubBigIntAbs(maker.Quantity, maker.ExecutedQuantity))
 	takerAmount := calculateOrderAmount(taker, executeQuantity, maker.Price)
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
@@ -226,15 +226,15 @@ func calculateOrderAndTx(taker *Order, maker *Order) (tx OrderTx) {
 func calculateOrderAmount(order *Order, quantity []byte, price string) []byte {
 	amount := CalculateRawAmount(quantity, price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
 	if !order.Side && new(big.Int).SetBytes(order.Amount).Cmp(new(big.Int).SetBytes(AddBigInt(order.ExecutedAmount, amount))) < 0 {// side is buy
-		amount = SubBigInt(order.Amount, order.ExecutedAmount)
+		amount = SubBigIntAbs(order.Amount, order.ExecutedAmount)
 	}
 	return amount
 }
 
 func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byte) []byte {
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
-	if bytes.Equal(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity) ||
-		order.Type == Market && !order.Side && bytes.Equal(SubBigInt(order.Amount, order.ExecutedAmount), amount) || // market buy order
+	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
+		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order
 		isDust(order, quantity) {
 		order.Status = FullyExecuted
 	} else {
@@ -247,7 +247,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byt
 
 // leave quantity is too small for calculate precision
 func isDust(order *Order, quantity []byte) bool {
-	return CalculateRawAmountF(SubBigInt(SubBigInt(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals).Cmp(new(big.Float).SetInt64(int64(1))) < 0
+	return CalculateRawAmountF(SubBigIntAbs(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity), order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals).Cmp(new(big.Float).SetInt64(int64(1))) < 0
 }
 
 func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
@@ -279,7 +279,7 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 			executedFee = AddBigInt(order.ExecutedFee, feeBytes)
 			//check if executeFee exceed lockedBuyFee
 			if CmpForBigInt(order.LockedBuyFee, executedFee) <= 0 {
-				feeBytes = SubBigInt(order.LockedBuyFee, order.ExecutedFee)
+				feeBytes = SubBigIntAbs(order.LockedBuyFee, order.ExecutedFee)
 				executedFee = order.LockedBuyFee
 			}
 		}
@@ -300,12 +300,12 @@ func (mc *matcher) handleRefund(order *Order) {
 		switch order.Side {
 		case false: //buy
 			order.RefundToken = order.QuoteToken
-			refundAmount := SubBigInt(order.Amount, order.ExecutedAmount)
-			refundFee := SubBigInt(order.LockedBuyFee, order.ExecutedFee)
+			refundAmount := SubBigIntAbs(order.Amount, order.ExecutedAmount)
+			refundFee := SubBigIntAbs(order.LockedBuyFee, order.ExecutedFee)
 			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
 		case true:
 			order.RefundToken = order.TradeToken
-			order.RefundQuantity = SubBigInt(order.Quantity, order.ExecutedQuantity)
+			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
 		mc.updateFundSettle(proto.FundSettle{Address:order.Address, Token:order.RefundToken, ReleaseLocked:order.RefundQuantity})
 	}
@@ -391,11 +391,11 @@ func (mc *matcher) handleTxFundSettle(tx OrderTx) {
 			takerOutSettle.Token = tx.takerQuoteToken
 			takerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
 			makerInSettle.Token = tx.takerQuoteToken
-			makerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.MakerFee)
+			makerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.MakerFee)
 
 		case true: //sell
 			takerInSettle.Token = tx.takerQuoteToken
-			takerInSettle.IncAvailable = SubBigInt(tx.Amount, tx.TakerFee)
+			takerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.TakerFee)
 			makerOutSettle.Token = tx.takerQuoteToken
 			makerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
 

@@ -40,3 +40,12 @@ message FeeAccount {
     bytes Token = 1;
     bytes Amount = 2;
 }
+
+message VxFunds {
+    repeated VxFundWithPeriod funds = 1;
+}
+
+message VxFundWithPeriod {
+    uint64 Period = 1; // last snapshot height in period
+    bytes Amount = 2;
+}

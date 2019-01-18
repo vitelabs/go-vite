@@ -9,9 +9,12 @@ func AddBigInt(a []byte, b []byte) []byte {
 	return new(big.Int).Add(new(big.Int).SetBytes(a), new(big.Int).SetBytes(b)).Bytes()
 }
 
-
-func SubBigInt(a []byte, b []byte) []byte {
+func SubBigIntAbs(a []byte, b []byte) []byte {
 	return new(big.Int).Sub(new(big.Int).SetBytes(a), new(big.Int).SetBytes(b)).Bytes()
+}
+
+func SubBigInt(a []byte, b []byte) *big.Int {
+	return new(big.Int).Sub(new(big.Int).SetBytes(a), new(big.Int).SetBytes(b))
 }
 
 func MinBigInt(a []byte, b []byte) []byte {

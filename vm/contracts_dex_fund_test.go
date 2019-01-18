@@ -68,7 +68,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	_, err = depositMethod.DoReceive(db, depositReceiveBlock, depositSendAccBlock)
 	assert.True(t, err == nil)
 
-	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
+	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
 	assert.Equal(t, 1, len(dexFund.Accounts))
 	acc := dexFund.Accounts[0]
 	assert.True(t, bytes.Equal(acc.Token, VITE.tokenId.Bytes()))
@@ -91,7 +91,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
 	appendedBlocks, _ := withdrawMethod.DoReceive(db, withdrawReceiveBlock, withdrawSendAccBlock)
 
-	dexFund, _ = contracts.GetFundFromStorage(db, userAddress)
+	dexFund, _ = dex.GetUserFundFromStorage(db, userAddress)
 	acc = dexFund.Accounts[0]
 	assert.True(t, CheckBigEqualToInt(2800, acc.Available))
 	assert.Equal(t, 1, len(appendedBlocks))
@@ -124,7 +124,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 
-	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
+	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
 
 	assert.True(t, CheckBigEqualToInt(800, acc.Available))
@@ -171,13 +171,14 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	//fmt.Printf("err %s\n", err.Error())
 	assert.True(t, err == nil)
 
-	var blockHeight = uint64(123)
 	receiveBlock := &ledger.AccountBlock{}
-	receiveBlock.Height = blockHeight
+	now := time.Now()
+	receiveBlock.Timestamp = &now
+	receiveBlock.SnapshotHash = types.DataHash([]byte{10, 1})
 	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	//fmt.Printf("receive err %s\n", err.Error())
-	dexFund, _ := contracts.GetFundFromStorage(db, userAddress)
+	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
 	assert.Equal(t, 2, len(dexFund.Accounts))
 	var ethAcc, viteAcc *dexproto.Account
 	acc := dexFund.Accounts[0]
@@ -193,7 +194,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := contracts.GetFeeFromStorage(db, contracts.GetFeeKeyForHeight(blockHeight))
+	dexFee, err := dex.GetFeeFromStorage(db, 123) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 1, len(dexFee.Fees))
 	assert.False(t, dexFee.Divided)
 	feeAcc := dexFee.Fees[0]
@@ -204,7 +205,7 @@ func initDexFundDatabase() *testDatabase {
 	db := NewNoDatabase()
 	db.addr = types.AddressDexFund
 	t1 := time.Unix(1536214502, 0)
-	snapshot1 := &ledger.SnapshotBlock{Height: 1, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
+	snapshot1 := &ledger.SnapshotBlock{Height: 123, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 	return db
 }
