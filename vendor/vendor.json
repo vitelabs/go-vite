@@ -75,6 +75,12 @@
 			"revisionTime": "2018-11-15T17:14:25Z"
 		},
 		{
+			"checksumSHA1": "qDsgp2kAeI9nhj565HUScaUyjU4=",
+			"path": "github.com/elastic/gosigar/sys/windows",
+			"revision": "f498c67133bcded80f5966ee63acfe68cff4e6bf",
+			"revisionTime": "2018-11-15T17:14:25Z"
+		},
+		{
 			"checksumSHA1": "J12tRgeIEE5eeWcHwa4J8nXTdn4=",
 			"path": "github.com/ethereum/go-ethereum/common",
 			"revision": "41ac8dd803b646b5fa92354a983ee5df68253e2a",

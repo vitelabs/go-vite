@@ -270,7 +270,7 @@ wait:
 			if s.current != oldCurrent {
 				oldCurrent = s.current
 				oldCurrentTime = now
-			} else if s.shouldGrowTo > s.current && now.Sub(oldCurrentTime) > 10*time.Minute {
+			} else if now.Sub(oldCurrentTime) > 20*time.Minute {
 				// timeout
 				s.setState(Syncerr)
 				s.log.Error("sync error: timeout")
