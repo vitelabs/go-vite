@@ -1,28 +1,32 @@
 package main
 
+/*
+#include <stdlib.h>
+*/
 import "C"
 import (
 	"encoding/base64"
 	"encoding/json"
 	"path/filepath"
+	"unsafe"
 
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"golang.org/x/crypto/ed25519"
 )
 
 func main() {
 }
 
 type GoResult struct {
-	Error string
-	Code  int // 0:success
-	Data  interface{}
+	Error string      `json:"error"`
+	Code  int         `json:"code"`
+	Data  interface{} `json:"data"`
 }
 
 func successResult() string {
@@ -92,8 +96,11 @@ func Unlock(entropyStore, passphrase *C.char) *C.char {
 		return CString(failResult(errors.New("wallet should be init")))
 	}
 
-	tmp.Unlock(entropyStoreStr, passphraseStr)
-	return nil
+	err := tmp.Unlock(entropyStoreStr, passphraseStr)
+	if err != nil {
+		return CString(failResult(err))
+	}
+	return CString(successResult())
 }
 
 //export IsUnlocked
@@ -170,17 +177,17 @@ func RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensio
 		tmpExtensionWordStr = nil
 	}
 
-	em, err := tmp.RecoverEntropyStoreFromMnemonic(mnemonicStr, newPassphraseStr, languageStr, tmpExtensionWordStr)
+	em, err := tmp.RecoverEntropyStoreFromMnemonic(mnemonicStr, languageStr, newPassphraseStr, tmpExtensionWordStr)
 	if err != nil {
 		return CString(failResult(err))
 	}
 
-	return CString(em.GetPrimaryAddr().String())
+	return CString(successResultWithData(em.GetPrimaryAddr().String()))
 }
 
 type EntropyResult struct {
-	Mnemonic     string
-	EntropyStore string
+	Mnemonic     string `json:"mnemonic"`
+	EntropyStore string `json:"entropyStore"`
 }
 
 //export NewMnemonicAndEntropyStore
@@ -211,9 +218,9 @@ func NewMnemonicAndEntropyStore(passphrase, language, extensionWord *C.char, mne
 }
 
 type DerivationResult struct {
-	Path       string
-	Address    string
-	PrivateKey string
+	Path       string `json:"path"`
+	Address    string `json:"address"`
+	PrivateKey string `json:"privateKey"`
 }
 
 //export DeriveByFullPath
@@ -320,7 +327,7 @@ func GetDataDir() *C.char {
 	if tmp == nil {
 		return CString(failResult(errors.New("wallet should be init")))
 	}
-	return CString(tmp.GetDataDir())
+	return CString(successResultWithData(tmp.GetDataDir()))
 }
 
 //export EntropyStoreToAddress
@@ -364,9 +371,9 @@ func Hash(size int, data *C.char) *C.char {
 }
 
 type SignDataResult struct {
-	PubkicKey string
-	Data      string
-	Signature string
+	PublicKey string `json:"publicKey"`
+	Data      string `json:"data"`
+	Signature string `json:"signature"`
 }
 
 //export SignData
@@ -386,7 +393,7 @@ func SignData(privHex *C.char, messageBase64 *C.char) *C.char {
 	signature := ed25519.Sign(a, message)
 
 	return CString(successResultWithData(SignDataResult{
-		PubkicKey: base64.StdEncoding.EncodeToString(priKey.PubByte()),
+		PublicKey: base64.StdEncoding.EncodeToString(priKey.PubByte()),
 		Data:      messageBase64Str,
 		Signature: base64.StdEncoding.EncodeToString(signature),
 	}))
@@ -435,7 +442,7 @@ func TransformMnemonic(mnemonic, language, extensionWord *C.char) *C.char {
 	if e != nil {
 		return CString(failResult(e))
 	}
-	return CString(entropyprofile.PrimaryAddress.Hex())
+	return CString(successResultWithData(entropyprofile.PrimaryAddress.Hex()))
 }
 
 //export RandomMnemonic
@@ -460,7 +467,12 @@ func ComputeHashForAccountBlock(block *C.char) *C.char {
 	return CString(successResultWithData(hash.Hex()))
 }
 
-// export Hello
+//export Hello
 func Hello(name *C.char) *C.char {
 	return CString("Hello " + GoString(name) + " !")
+}
+
+//export FreeCchar
+func FreeCchar(c *C.char) {
+	C.free(unsafe.Pointer(c))
 }
