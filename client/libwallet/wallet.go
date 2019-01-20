@@ -7,7 +7,10 @@ import "C"
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"path/filepath"
+	"time"
 	"unsafe"
 
 	"github.com/go-errors/errors"
@@ -55,6 +58,8 @@ func failResult(err error) string {
 }
 
 var instance *wallet.Manager
+
+var verbose = false
 
 //export InitWallet
 func InitWallet(dataDir *C.char, maxSearchIndex int, useLightScrypt bool) *C.char {
@@ -454,22 +459,79 @@ func RandomMnemonic(language *C.char, mnemonicSize int) *C.char {
 	return CString(successResultWithData(mnemonic))
 }
 
+type HashAccountBlock struct {
+	ledger.AccountBlock
+
+	Height string  `json:"height"`
+	Quota  *string `json:"quota"`
+
+	Amount     *string `json:"amount"`
+	Fee        *string `json:"fee"`
+	Difficulty *string `json:"difficulty"`
+
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (self *HashAccountBlock) completed() *ledger.AccountBlock {
+	block := &self.AccountBlock
+	if self.Amount != nil {
+		amount := big.NewInt(0)
+		amount.SetString(*self.Amount, 10)
+		block.Amount = amount
+	}
+
+	if self.Fee != nil {
+		fee := big.NewInt(0)
+		fee.SetString(*self.Fee, 10)
+		block.Fee = fee
+	}
+
+	if self.Difficulty != nil {
+		difficulty := big.NewInt(0)
+		difficulty.SetString(*self.Difficulty, 10)
+		block.Difficulty = difficulty
+	}
+
+	if self.Quota != nil {
+		quota := big.NewInt(0)
+		quota.SetString(*self.Quota, 10)
+		block.Quota = quota.Uint64()
+	}
+
+	height := big.NewInt(0)
+	height.SetString(self.Height, 10)
+	block.Height = height.Uint64()
+
+	t := time.Unix(0, self.Timestamp*int64(time.Millisecond))
+	block.Timestamp = &t
+
+	return block
+}
+
 //export ComputeHashForAccountBlock
 func ComputeHashForAccountBlock(block *C.char) *C.char {
 	blockStr := GoString(block)
 
-	accBlock := ledger.AccountBlock{}
-	err := json.Unmarshal([]byte(blockStr), &accBlock)
+	hashBlock := HashAccountBlock{}
+	err := json.Unmarshal([]byte(blockStr), &hashBlock)
 	if err != nil {
 		return CString(failResult(err))
 	}
-	hash := accBlock.ComputeHash()
+	completed := hashBlock.completed()
+	bytes, _ := json.Marshal(completed)
+	if verbose {
+		fmt.Println(string(bytes))
+	}
+	hash := completed.ComputeHash()
 	return CString(successResultWithData(hash.Hex()))
 }
 
 //export Hello
 func Hello(name *C.char) *C.char {
 	return CString("Hello " + GoString(name) + " !")
+}
+func Verbose(flag bool) {
+	verbose = flag
 }
 
 //export FreeCchar
