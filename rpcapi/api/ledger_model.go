@@ -28,7 +28,7 @@ type AccountBlock struct {
 	ConfirmedTimes *string       `json:"confirmedTimes"`
 	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
 
-	ReceiveBlockHeights []uint64 `json:receiveBlockHeights`
+	ReceiveBlockHeights []uint64 `json:"receiveBlockHeights"`
 }
 
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
