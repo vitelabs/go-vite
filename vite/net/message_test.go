@@ -3,20 +3,22 @@ package net
 import (
 	crand "crypto/rand"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"math/rand"
 	net2 "net"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/config"
+
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/vite/net/message"
+	"github.com/vitelabs/go-vite/vm_context"
 )
 
 // mock chain
@@ -39,6 +41,7 @@ func getChain() chain.Chain {
 	if chn == nil {
 		chn = chain.NewChain(&config.Config{
 			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/test"),
+			Genesis: new(config.Genesis),
 		})
 
 		chn.Init()
@@ -156,6 +159,10 @@ func mockBlocks(chn chain.Chain, to uint64) {
 
 // mock peer
 type mock_Peer struct {
+}
+
+func (m *mock_Peer) Disconnect(reason p2p.DiscReason) {
+	panic("implement me")
 }
 
 func (m *mock_Peer) ID() string {

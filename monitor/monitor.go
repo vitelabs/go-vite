@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"encoding/json"
+	"github.com/vitelabs/go-vite/metrics"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -188,4 +189,8 @@ func loop() {
 		}
 	}
 
+}
+
+func LogTimerConsuming(tagsName []string, tm time.Time) {
+	metrics.TimeConsuming(tagsName, tm)
 }

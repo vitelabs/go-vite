@@ -21,14 +21,15 @@ var DefaultNodeConfig = Config{
 	MaxPassivePeersRatio: 0,
 	MaxPendingPeers:      0,
 	BootNodes:            nil,
-	Port:                 0,
+	Port:                 8483,
 	NetID:                0,
 	Discovery:            true,
 	LogLevel:             "info",
 	WSOrigins:            []string{"*"},
 	WSExposeAll:          true,
 	HttpExposeAll:        true,
-	TopoEnable:           false,
+	TopoEnabled:          false,
+	FilePort:             8484,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

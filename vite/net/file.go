@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	net2 "net"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,33 +23,36 @@ const fWriteTimeout = 20 * time.Second
 const fileTimeout = 5 * time.Minute
 
 type fileServer struct {
-	port   uint16
+	addr   string
 	ln     net2.Listener
 	record map[uint64]struct{} // use to record nonce
-	term   chan struct{}
-	log    log15.Logger
-	wg     sync.WaitGroup
-	chain  Chain
+
+	log   log15.Logger
+	wg    sync.WaitGroup
+	chain Chain
+
+	mu    sync.Mutex
+	conns map[string]net2.Conn
 }
 
-func newFileServer(port uint16, chain Chain) *fileServer {
+func newFileServer(addr string, chain Chain) *fileServer {
 	return &fileServer{
-		port:   port,
+		addr:   addr,
 		record: make(map[uint64]struct{}),
 		log:    log15.New("module", "net/fileServer"),
 		chain:  chain,
+		conns:  make(map[string]net2.Conn),
 	}
 }
 
 func (s *fileServer) start() error {
-	ln, err := net2.Listen("tcp", "0.0.0.0:"+strconv.FormatUint(uint64(s.port), 10))
+	ln, err := net2.Listen("tcp", s.addr)
 
 	if err != nil {
 		return err
 	}
 
 	s.ln = ln
-	s.term = make(chan struct{})
 
 	s.wg.Add(1)
 	common.Go(s.listenLoop)
@@ -59,86 +61,112 @@ func (s *fileServer) start() error {
 }
 
 func (s *fileServer) stop() {
-	if s.term == nil {
-		return
+	if s.ln != nil {
+		s.ln.Close()
 	}
 
-	select {
-	case <-s.term:
-	default:
-		close(s.term)
-
-		if s.ln != nil {
-			s.ln.Close()
-		}
-
-		s.wg.Wait()
+	s.mu.Lock()
+	for _, c := range s.conns {
+		s.delConnLocked(c)
 	}
+	s.mu.Unlock()
+
+	s.wg.Wait()
 }
 
 func (s *fileServer) listenLoop() {
 	defer s.wg.Done()
 
+	var tempDelay time.Duration
+	var maxDelay = time.Second
+
 	for {
-		select {
-		case <-s.term:
-			return
-		default:
-			conn, err := s.ln.Accept()
-			if err != nil {
+		conn, err := s.ln.Accept()
+		if err != nil {
+			if ne, ok := err.(net2.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+
+				if tempDelay > maxDelay {
+					tempDelay = maxDelay
+				}
+
+				time.Sleep(tempDelay)
+
 				continue
 			}
 
-			s.wg.Add(1)
-			common.Go(func() {
-				s.handleConn(conn)
-			})
+			return
 		}
+
+		s.wg.Add(1)
+		common.Go(func() {
+			s.handleConn(conn)
+		})
 	}
 }
 
+func (s *fileServer) addConn(conn net2.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.conns[conn.RemoteAddr().String()] = conn
+}
+
+func (s *fileServer) delConnLocked(conn net2.Conn) {
+	conn.Close()
+	delete(s.conns, conn.RemoteAddr().String())
+}
+
+func (s *fileServer) delConn(conn net2.Conn) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.delConnLocked(conn)
+}
+
 func (s *fileServer) handleConn(conn net2.Conn) {
-	defer conn.Close()
 	defer s.wg.Done()
 
+	s.addConn(conn)
+	defer s.delConn(conn)
+
 	for {
-		select {
-		case <-s.term:
+		//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+		msg, err := p2p.ReadMsg(conn)
+		if err != nil {
+			s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
 			return
-		default:
-			conn.SetReadDeadline(time.Now().Add(fReadTimeout))
-			msg, err := p2p.ReadMsg(conn)
+		}
+
+		code := ViteCmd(msg.Cmd)
+		if code != GetFilesCode {
+			s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
+			return
+		}
+
+		req := new(message.GetFiles)
+		if err = req.Deserialize(msg.Payload); err != nil {
+			s.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
+			return
+		}
+
+		s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
+
+		// send files
+		var n int64
+		for _, filename := range req.Names {
+			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
+			n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
+
 			if err != nil {
-				s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
+				s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
 				return
-			}
-
-			code := ViteCmd(msg.Cmd)
-			if code != GetFilesCode {
-				s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
-				return
-			}
-
-			req := new(message.GetFiles)
-			if err = req.Deserialize(msg.Payload); err != nil {
-				s.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
-				return
-			}
-
-			s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
-
-			// send files
-			var n int64
-			for _, filename := range req.Names {
-				conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-				n, err = io.Copy(conn, s.chain.Compressor().FileReader(filename))
-
-				if err != nil {
-					s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", filename, conn.RemoteAddr(), err))
-					return
-				} else {
-					s.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
-				}
+			} else {
+				s.log.Info(fmt.Sprintf("send file<%s> %d bytes to %s done", filename, n, conn.RemoteAddr()))
 			}
 		}
 	}
@@ -153,7 +181,22 @@ type conn struct {
 	peer   Peer
 	idle   bool
 	idleT  time.Time
-	done   bool // file request done
+	done   bool  // file request done
+	speed  int64 // byte/s
+}
+
+type connList []*conn
+
+func (l connList) Len() int {
+	return len(l)
+}
+
+func (l connList) Less(i, j int) bool {
+	return l[i].speed > l[j].speed
+}
+
+func (l connList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }
 
 type filesEvent struct {
@@ -279,42 +322,82 @@ func (fc *fileClient) usePeer(conns map[string]*conn, record map[string]*fileSta
 	}
 }
 
-func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) {
+func chooseIdleConn(list connList, hasNewPeers bool) *conn {
+	sort.Sort(list)
+	total := len(list)
+
+	// should create new file connection
+	createNew := rand.Intn(10) > 5
+
+	for i, c := range list {
+		if !c.idle {
+			continue
+		}
+
+		if i <= total/3 {
+			return c
+		}
+
+		if hasNewPeers && createNew {
+			return nil
+		}
+
+		return c
+	}
+
+	return nil
+}
+
+func (fc *fileClient) requestFile(conns map[string]*conn, record map[string]*fileState, pFiles map[string]files, file *ledger.CompressedFileMeta) (err error) {
 	if r, ok := record[file.Filename]; ok {
 		if len(r.peers) > 0 {
+			var cList connList
 			var id string
-			ids := rand.Perm(len(r.peers))
+			var newPeers peers
+			for _, p := range r.peers {
+				id = p.ID()
+				if c, ok := conns[id]; ok {
+					cList = append(cList, c)
+				} else {
+					newPeers = append(newPeers, p)
+				}
+			}
+
+			hasNewPeers := len(newPeers) != 0
+
+			// choose a file connection
+			if c := chooseIdleConn(cList, hasNewPeers); c != nil {
+				c.file = file
+				r.state = reqPending
+				fc.exec(c)
+				return nil
+			}
+
+			if !hasNewPeers {
+				return
+			}
+
+			ids := rand.Perm(len(newPeers))
 			// random a idle peer
 			for _, idx := range ids {
-				// may be remove peers from r.peers
-				if idx >= len(r.peers) {
-					continue
-				}
-
-				p := r.peers[idx]
+				p := newPeers[idx]
 				id = p.ID()
 
-				// connection is busy
-				if c, ok := conns[id]; ok && !c.idle {
-					continue
-				}
-
 				r.state = reqPending
-				if err := fc.doRequest(conns, file, p); err != nil {
+				if err = fc.doRequest(conns, file, p); err != nil {
 					r.state = reqError
-					fc.removePeer(conns, record, pFiles, p)
+					//fc.removePeer(conns, record, pFiles, p)
 				} else {
 					// download
 					return
 				}
 			}
+		} else {
+			return fmt.Errorf("no peers for file %s", file.Filename)
 		}
-
-		// no peers
-		//r.state = reqDone
-		//fc.pool.add(file.StartHeight, file.EndHeight)
-		//return
 	}
+
+	return nil
 }
 
 var errDisconnectedPeer = errors.New("peer has disconnected, can`t download file")
@@ -345,11 +428,7 @@ func (fc *fileClient) doRequest(conns map[string]*conn, file *ledger.CompressedF
 	}
 
 	c.file = file
-
-	// exec
-	common.Go(func() {
-		fc.exec(c)
-	})
+	fc.exec(c)
 
 	return nil
 }
@@ -379,17 +458,26 @@ type fileState struct {
 	state reqState
 }
 
+type fileTask struct {
+	file     *ledger.CompressedFileMeta
+	from, to uint64
+}
+
+func (f *fileTask) band() (from, to uint64) {
+	return f.file.StartHeight, f.file.EndHeight
+}
+
+func (f *fileTask) setBand(from, to uint64) {
+	f.from, f.to = from, to
+}
+
 func (fc *fileClient) loop() {
 	defer fc.wg.Done()
 
-	conns := make(map[string]*conn)
+	conns := make(map[string]*conn) // peerId: conn
 	record := make(map[string]*fileState)
 	pFiles := make(map[string]files)
 	fileList := make(files, 0, 10)
-
-	idleTimeout := 30 * time.Second
-	ticker := time.NewTicker(idleTimeout)
-	defer ticker.Stop()
 
 	delConn := func(c *conn) {
 		delete(conns, c.peer.ID())
@@ -424,7 +512,7 @@ loop:
 				t := time.NewTicker(time.Second)
 				jobTicker = t.C
 				defer t.Stop()
-				fc.usePeer(conns, record, pFiles, e.sender)
+				//fc.usePeer(conns, record, pFiles, e.sender)
 			}
 
 		case c := <-fc.idleChan: // a job done
@@ -439,11 +527,11 @@ loop:
 			c.idle = true
 			c.idleT = time.Now()
 
-			fc.usePeer(conns, record, pFiles, c.peer)
+			//fc.usePeer(conns, record, pFiles, c.peer)
 
 		case conn := <-fc.delChan: // a job error
 			delConn(conn)
-			fc.log.Error(fmt.Sprintf("delete connection %s", conn.RemoteAddr()))
+			fc.log.Error(fmt.Sprintf("delete file connection %s", conn.RemoteAddr()))
 
 			file := conn.file
 			if file == nil {
@@ -451,14 +539,22 @@ loop:
 			}
 
 			// retry
-			if err := fc.doRequest(conns, file, conn.peer); err == nil {
-				break
-			}
+			//if err := fc.doRequest(conns, file, conn.peer); err == nil {
+			//	break
+			//}
 
 			// clean
-			fc.removePeer(conns, record, pFiles, conn.peer)
+			//fc.removePeer(conns, record, pFiles, conn.peer)
 
-			fc.requestFile(conns, record, pFiles, file)
+			if r, ok := record[file.Filename]; ok {
+				r.state = reqError
+			}
+
+			//if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+			//	fc.rec.catch(&fileTask{
+			//		file: file,
+			//	})
+			//}
 
 		case <-jobTicker:
 			if file := fc.nextFile(fileList, record); file == nil {
@@ -477,13 +573,10 @@ loop:
 					break loop
 				}
 			} else if file.StartHeight <= fc.to {
-				fc.requestFile(conns, record, pFiles, file)
-			}
-
-		case now := <-ticker.C:
-			for _, c := range conns {
-				if c.idle && now.Sub(c.idleT) > idleTimeout {
-					delConn(c)
+				if err := fc.requestFile(conns, record, pFiles, file); err != nil {
+					fc.rec.catch(&fileTask{
+						file: file,
+					})
 				}
 			}
 		}
@@ -509,15 +602,14 @@ func (fc *fileClient) delete(ctx *conn) {
 }
 
 func (fc *fileClient) exec(ctx *conn) {
-	select {
-	case <-fc.term:
-		return
-	default:
-		// next
-	}
-
 	ctx.idle = false
 
+	common.Go(func() {
+		fc.download(ctx)
+	})
+}
+
+func (fc *fileClient) download(ctx *conn) {
 	getFiles := &message.GetFiles{
 		Names: []string{ctx.file.Filename},
 	}
@@ -545,6 +637,10 @@ func (fc *fileClient) exec(ctx *conn) {
 	} else {
 		ctx.done = true
 		fc.idle(ctx)
+		fc.rec.done(&filePiece{
+			from: ctx.file.StartHeight,
+			to:   ctx.file.EndHeight,
+		})
 	}
 }
 
@@ -565,6 +661,7 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 
 		var fileError error
 
+		start := time.Now()
 		fc.chain.Compressor().BlockParser(ctx, file.BlockNumbers, func(block ledger.Block, err error) {
 			if err != nil || fileError != nil {
 				ctx.Close()
@@ -602,7 +699,10 @@ func (fc *fileClient) receiveFile(ctx *conn) error {
 			return fmt.Errorf("incomplete file %s %d/%d", file.Filename, sCount, sTotal)
 		}
 
-		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s", sCount, aCount, file.Filename, ctx.RemoteAddr()))
+		elapse := time.Now().Sub(start)
+		ctx.speed = file.FileSize / int64(elapse.Seconds()+1)
+
+		fc.log.Info(fmt.Sprintf("receive %d SnapshotBlocks %d AccountBlocks of file %s from %s, elapse %s", sCount, aCount, file.Filename, ctx.RemoteAddr(), elapse))
 		return nil
 	}
 }

@@ -29,8 +29,12 @@ func (p *MethodMintage) GetRefundData() []byte {
 	return []byte{1}
 }
 
+func (p *MethodMintage) GetQuota() uint64 {
+	return MintageGas
+}
+
 func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, MintageGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -122,8 +126,12 @@ func (p *MethodMintageCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
+func (p *MethodMintageCancelPledge) GetQuota() uint64 {
+	return MintageCancelPledgeGas
+}
+
 func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, MintageCancelPledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
