@@ -36,8 +36,7 @@ type AccountFundInfo struct {
 }
 
 func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) ([]*AccountFundInfo, error) {
-	snapshotBlock := f.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(f.chain, &snapshotBlock.Hash, nil, &addr)
+	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +74,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
 	}
 
-	snapshotBlock := f.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(f.chain, &snapshotBlock.Hash, nil, &addr)
+	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
