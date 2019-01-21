@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	fundKeyPrefix            = []byte("fund:") // fund:types.Address
+	fundKeyPrefix = []byte("fund:") // fund:types.Address
 
-	feeAccKeyPrefix          = []byte("fee:")  // fee:feeAccId feeAccId = PeriodIdByHeight
+	feeAccKeyPrefix          = []byte("fee:") // fee:feeAccId feeAccId = PeriodIdByHeight
 	feePeriodByHeight uint64 = 10
 
 	vxFundKeyPrefix     = []byte("vxFund:") // vxFund:types.Address
@@ -76,7 +76,6 @@ func (dvf *VxFunds) DeSerialize(vxFundsData []byte) (*VxFunds, error) {
 	}
 }
 
-
 func CheckSettleActions(actions *dexproto.SettleActions) error {
 	if actions == nil || len(actions.FundActions) == 0 && len(actions.FeeActions) == 0 {
 		return fmt.Errorf("settle actions is emtpy")
@@ -121,6 +120,27 @@ func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (acc
 	account.Available = big.NewInt(0).Bytes()
 	account.Locked = big.NewInt(0).Bytes()
 	return account, false
+}
+
+func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Account, error) {
+	var dexAccount = make([]*Account, 0)
+	if tokenId != nil {
+		for _, v := range dexFund.Accounts {
+			if bytes.Equal(tokenId.Bytes(), v.Token) {
+				var acc = &Account{}
+				acc.Deserialize(v)
+				dexAccount = append(dexAccount, acc)
+				break
+			}
+		}
+	} else {
+		for _, v := range dexFund.Accounts {
+			var acc = &Account{}
+			acc.Deserialize(v)
+			dexAccount = append(dexAccount, acc)
+		}
+	}
+	return dexAccount, nil
 }
 
 func GetUserFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
