@@ -12,16 +12,14 @@ import (
 )
 
 type DexFundApi struct {
-	chain     chain.Chain
-	log       log15.Logger
-	ledgerApi *LedgerApi
+	chain chain.Chain
+	log   log15.Logger
 }
 
-func NewDexFundApiApi(vite *vite.Vite) *DexFundApi {
+func NewDexFundApi(vite *vite.Vite) *DexFundApi {
 	return &DexFundApi{
-		chain:     vite.Chain(),
-		log:       log15.New("module", "rpc_api/pledge_api"),
-		ledgerApi: NewLedgerApi(vite),
+		chain: vite.Chain(),
+		log:   log15.New("module", "rpc_api/pledge_api"),
 	}
 }
 
@@ -30,12 +28,12 @@ func (f DexFundApi) String() string {
 }
 
 type AccountFundInfo struct {
-	Token     types.TokenTypeId `json:"token"`
-	Available string            `json:"available"`
-	Locked    string            `json:"locked"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Available string        `json:"available"`
+	Locked    string        `json:"locked"`
 }
 
-func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) ([]*AccountFundInfo, error) {
+func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
 	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -49,9 +47,13 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 		return nil, err
 	}
 
-	tokenInfoList := make([]*AccountFundInfo, 0)
+	accFundInfo := make(map[types.TokenTypeId]*AccountFundInfo, 0)
 	for _, v := range fundInfo {
-		info := &AccountFundInfo{Token: v.Token}
+		err, tokenInfo := dex.GetTokenInfo(vmContext, v.Token)
+		if err != nil {
+			return nil, err
+		}
+		info := &AccountFundInfo{TokenInfo: RawTokenInfoToRpc(tokenInfo, v.Token)}
 		a := "0"
 		if v.Available != nil {
 			a = v.Available.String()
@@ -64,9 +66,9 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 		}
 		info.Locked = l
 
-		tokenInfoList = append(tokenInfoList, info)
+		accFundInfo[v.Token] = info
 	}
-	return tokenInfoList, nil
+	return accFundInfo, nil
 }
 
 func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
