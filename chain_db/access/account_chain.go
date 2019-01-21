@@ -221,14 +221,8 @@ func (ac *AccountChain) GetBlock(blockHash *types.Hash) (*ledger.AccountBlock, e
 	if dsErr := accountBlock.DbDeserialize(data); dsErr != nil {
 		return nil, dsErr
 	}
-
 	accountBlock.Hash = *blockHash
-	accountBlockMeta, err := ac.GetBlockMeta(&accountBlock.Hash)
-	if err != nil {
-		return nil, err
-	}
-
-	accountBlock.Meta = accountBlockMeta
+	accountBlock.Meta = blockMeta
 
 	return accountBlock, nil
 }

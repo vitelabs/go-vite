@@ -22,8 +22,12 @@ func (p *MethodCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{1}
 }
 
+func (p *MethodCreateConsensusGroup) GetQuota() uint64 {
+	return CreateConsensusGroupGas
+}
+
 func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CreateConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -127,11 +131,15 @@ func (p *MethodCancelConsensusGroup) GetRefundData() []byte {
 	return []byte{2}
 }
 
+func (p *MethodCancelConsensusGroup) GetQuota() uint64 {
+	return CancelConsensusGroupGas
+}
+
 // Cancel consensus group and get pledge back.
 // A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
 // Consensus group name is kept even if canceled.
 func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CancelConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -204,10 +212,14 @@ func (p *MethodReCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{3}
 }
 
+func (p *MethodReCreateConsensusGroup) GetQuota() uint64 {
+	return ReCreateConsensusGroupGas
+}
+
 // Pledge again for a canceled consensus group.
 // A consensus group will start generate contract blocks after recreate receive block is confirmed.
 func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, ReCreateConsensusGroupGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}

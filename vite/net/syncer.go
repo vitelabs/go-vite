@@ -2,6 +2,8 @@ package net
 
 import (
 	"fmt"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -101,10 +103,21 @@ type syncer struct {
 	receiver   Receiver
 	fc         *fileClient
 	pool       *chunkPool
-	chunked    int32
-	running    int32
-	term       chan struct{}
-	log        log15.Logger
+
+	cmu       sync.Mutex
+	fileEnd   uint64
+	chunkFrom uint64
+	chunkTo   uint64
+	chunked   int32
+
+	shouldGrowTo uint64
+	current      uint64
+	rw           sync.RWMutex
+	doneTasks    pieces // done tasks
+
+	running int32
+	term    chan struct{}
+	log     log15.Logger
 }
 
 func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syncer {
@@ -124,7 +137,7 @@ func newSyncer(chain Chain, peers *peerSet, gid MsgIder, receiver Receiver) *syn
 	peers.Sub(s.pEvent)
 
 	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain, s)
+	fc := newFileClient(chain, s, peers)
 	fc.subAllFileDownloaded(s.createChunkTasks)
 
 	s.pool = pool
@@ -204,6 +217,7 @@ wait:
 		return
 	}
 
+	s.current = current.Height
 	s.from = current.Height + 1
 	s.to = p.height
 	s.total = s.to - s.from + 1
@@ -211,12 +225,11 @@ wait:
 	s.setState(Syncing)
 	s.sync()
 
-	// check chain grow timeout
-	var timeoutChan <-chan time.Time
-
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
+	var oldCurrent uint64
+	var oldCurrentTime time.Time
 
 	for {
 		select {
@@ -248,16 +261,22 @@ wait:
 		case <-s.downloaded:
 			s.log.Info("sync downloaded")
 			s.setState(SyncDownloaded)
-			// check chain height timeout
-			timeoutChan = time.NewTimer(u64ToDuration(s.total * 1000)).C
 
-		case <-timeoutChan:
-			s.log.Error("sync error: timeout")
-			s.setState(Syncerr)
-			return
-
-		case <-checkChainTicker.C:
+		case now := <-checkChainTicker.C:
 			current := s.chain.GetLatestSnapshotBlock()
+
+			s.current = current.Height
+
+			if s.current != oldCurrent {
+				oldCurrent = s.current
+				oldCurrentTime = now
+			} else if now.Sub(oldCurrentTime) > 20*time.Minute {
+				// timeout
+				s.setState(Syncerr)
+				s.log.Error("sync error: timeout")
+				return
+			}
+
 			if current.Height >= s.to {
 				s.log.Info(fmt.Sprintf("sync done, current height: %d", current.Height))
 				s.setState(Syncdone)
@@ -266,7 +285,6 @@ wait:
 
 			s.fc.threshold(current.Height + 3600)
 			s.pool.threshold(current.Height + 3600)
-			s.log.Debug(fmt.Sprintf("current height: %d", current.Height))
 
 		case <-s.term:
 			s.log.Warn("sync cancel")
@@ -354,9 +372,25 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) error {
 
 		if len(res.Files) > 0 {
 			s.fc.gotFiles(res.Files, sender)
-		} else if sender.Height() >= s.to && atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
-			for _, c := range res.Chunks {
-				s.pool.add(c[0], c[1], false)
+		} else if sender.Height() >= s.to {
+			if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+				for _, c := range res.Chunks {
+					s.pool.add(c[0], c[1], false)
+					s.cmu.Lock()
+					s.chunkFrom = c[0]
+					s.chunkTo = c[1]
+					s.cmu.Unlock()
+				}
+			} else {
+				for _, c := range res.Chunks {
+					var from, to uint64
+					s.cmu.Lock()
+					if c[1] > s.chunkTo {
+						from, to = s.chunkTo+1, c[1]
+						s.pool.add(from, to, false)
+					}
+					s.cmu.Unlock()
+				}
 			}
 		}
 	} else {
@@ -375,7 +409,33 @@ func (s *syncer) createChunkTasks(fileEnd uint64) {
 		return
 	}
 
-	s.pool.add(fileEnd+1, s.to, false)
+	if atomic.CompareAndSwapInt32(&s.chunked, 0, 1) {
+		s.pool.add(fileEnd+1, s.to, false)
+		s.chunkTo = s.to
+	}
+}
+
+func (s *syncer) done(c piece) {
+	s.rw.Lock()
+	defer s.rw.Unlock()
+
+	s.doneTasks = append(s.doneTasks, c)
+	sort.Sort(s.doneTasks)
+
+	from, to := s.doneTasks[0].band()
+	for i := 1; i < len(s.doneTasks); i++ {
+		t := s.doneTasks[i]
+		tFrom, tTo := t.band()
+		if tFrom == to+1 {
+			to = tTo
+		} else {
+			break
+		}
+	}
+
+	if from <= s.current+1 && to > s.current {
+		s.shouldGrowTo = to
+	}
 }
 
 func (s *syncer) catch(c piece) {
@@ -423,19 +483,18 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	s.feed.Unsub(subId)
 }
 
-//func (s *syncer) offset(block *ledger.SnapshotBlock) uint64 {
-//	return block.Height - s.from
-//}
-
-func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive SnapshotBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveSnapshotBlock(block)
+func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error) {
+	err = s.receiver.ReceiveSnapshotBlock(block, sender)
+	if err != nil {
+		return
+	}
 	s.inc()
+
+	return nil
 }
 
-func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) {
-	s.log.Debug(fmt.Sprintf("syncer: receive AccountBlock %s/%d", block.Hash, block.Height))
-	s.receiver.ReceiveAccountBlock(block)
+func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error) {
+	return s.receiver.ReceiveAccountBlock(block, sender)
 }
 
 type SyncStatus struct {
@@ -460,4 +519,21 @@ func (s *syncer) Status() *SyncStatus {
 
 func (s *syncer) SyncState() SyncState {
 	return s.state
+}
+
+type pieces []piece
+
+func (ps pieces) Len() int {
+	return len(ps)
+}
+
+func (ps pieces) Less(i, j int) bool {
+	from, _ := ps[i].band()
+	from2, _ := ps[j].band()
+
+	return from < from2
+}
+
+func (ps pieces) Swap(i, j int) {
+	ps[i], ps[j] = ps[j], ps[i]
 }

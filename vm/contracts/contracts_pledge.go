@@ -21,17 +21,21 @@ func (p *MethodPledge) GetRefundData() []byte {
 	return []byte{1}
 }
 
+func (p *MethodPledge) GetQuota() uint64 {
+	return PledgeGas
+}
+
 // pledge ViteToken for a beneficial to get quota
 func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
-	quotaLeft, err := util.UseQuota(quotaLeft, PledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!util.IsViteToken(block.TokenId) ||
 		!util.IsUserAccount(db, block.AccountAddress) ||
-		(fork.IsVite2(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
+		(fork.IsLimitFork(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
@@ -79,9 +83,13 @@ func (p *MethodCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
+func (p *MethodCancelPledge) GetQuota() uint64 {
+	return CancelPledgeGas
+}
+
 // cancel pledge ViteToken
 func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, CancelPledgeGas)
+	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
 	}
@@ -116,7 +124,7 @@ func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *le
 		return nil, errors.New("invalid pledge amount")
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
-	if fork.IsVite2(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
+	if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
 		return nil, errors.New("invalid pledge amount")
 	}
 

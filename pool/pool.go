@@ -290,6 +290,9 @@ func (self *pool) Restart() {
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
 	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
+	if self.bc.IsGenesisSnapshotBlock(block) {
+		return
+	}
 
 	err := self.pendingSc.v.verifySnapshotData(block)
 	if err != nil {
@@ -315,7 +318,9 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
-
+	if self.bc.IsGenesisAccountBlock(block) {
+		return
+	}
 	ac := self.selfPendingAc(address)
 	err := ac.v.verifyAccountData(block)
 	if err != nil {

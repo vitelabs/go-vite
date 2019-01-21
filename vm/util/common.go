@@ -39,7 +39,7 @@ func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 }
 
 var (
-	SolidityXXContractType = []byte{1}
+	SolidityPPContractType = []byte{1}
 	contractTypeSize       = 1
 )
 
@@ -59,7 +59,7 @@ func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
 }
 func IsExistContractType(contractType []byte) bool {
-	if bytes.Equal(contractType, SolidityXXContractType) {
+	if bytes.Equal(contractType, SolidityPPContractType) {
 		return true
 	}
 	return false

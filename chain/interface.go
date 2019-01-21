@@ -15,6 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
 type InsertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
@@ -75,6 +76,14 @@ type Chain interface {
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+
+	NewGenesisSnapshotBlock() ledger.SnapshotBlock
+	NewSecondSnapshotBlock() ledger.SnapshotBlock
+	NewGenesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	NewGenesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+
 	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error)
 	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
@@ -115,6 +124,7 @@ type Chain interface {
 	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
+	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	NewStateTrie() *trie.Trie
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool

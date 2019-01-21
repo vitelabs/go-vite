@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -126,7 +127,9 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 			if sendBlock != nil {
 				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
 			}
+
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
+
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}
@@ -158,6 +161,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 		Err:          err,
 	}, nil
 }
+
 
 func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
 	latestBlock := gen.vmContext.PrevAccountBlock()
@@ -248,7 +252,7 @@ func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, con
 func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
 	blockPacked.AccountAddress = sendBlock.ToAddress
 	blockPacked.FromBlockHash = sendBlock.Hash
-	if fork.IsVite1(gen.sbHeight) {
+	if fork.IsSmartFork(gen.sbHeight) {
 		blockPacked.Amount = big.NewInt(0)
 		blockPacked.Fee = big.NewInt(0)
 		blockPacked.TokenId = types.ZERO_TOKENID

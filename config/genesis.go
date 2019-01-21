@@ -38,9 +38,8 @@ type ForkPoint struct {
 }
 
 type ForkPoints struct {
-	// example, need modify
-	Vite1 *ForkPoint
-	Vite2 *ForkPoint
+	Smart *ForkPoint
+	Limit *ForkPoint
 }
 
 type Genesis struct {

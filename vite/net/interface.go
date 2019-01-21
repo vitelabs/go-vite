@@ -91,14 +91,16 @@ type Fetcher interface {
 
 // @section Receiver
 type Receiver interface {
-	ReceiveSnapshotBlock(block *ledger.SnapshotBlock)
-	ReceiveAccountBlock(block *ledger.AccountBlock)
+	ReceiveSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error)
+	ReceiveAccountBlock(block *ledger.AccountBlock, sender Peer) (err error)
 
-	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock)
-	ReceiveAccountBlocks(blocks []*ledger.AccountBlock)
+	ReceiveSnapshotBlocks(blocks []*ledger.SnapshotBlock, sender Peer) (err error)
+	ReceiveAccountBlocks(blocks []*ledger.AccountBlock, sender Peer) (err error)
 
-	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock)
-	ReceiveNewAccountBlock(block *ledger.AccountBlock)
+	ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender Peer) (err error)
+	ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Peer) (err error)
+
+	block(peer Peer, reason p2p.DiscReason)
 
 	SubscribeAccountBlock(fn AccountblockCallback) (subId int)
 	// if subId is 0, then ignore

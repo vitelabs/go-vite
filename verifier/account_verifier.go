@@ -119,6 +119,7 @@ func (verifier *AccountVerifier) VerifyReferred(block *ledger.AccountBlock) (Ver
 
 func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks []*vm_context.VmAccountBlock, err error) {
 	defer monitor.LogTime("AccountVerifier", "VerifyforVM", time.Now())
+	vLog := verifier.log.New("method", "VerifyforVM")
 
 	var preHash *types.Hash
 	if block.Height > 1 {
@@ -126,18 +127,22 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 	}
 	gen, err := generator.NewGenerator(verifier.chain, &block.SnapshotHash, preHash, &block.AccountAddress)
 	if err != nil {
-		verifier.log.Error("new generator error," + err.Error())
+		vLog.Error("new generator error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 
 	genResult, err := gen.GenerateWithBlock(block, nil)
 	if err != nil {
-		verifier.log.Error("generator block error," + err.Error())
+		vLog.Error("generator block error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 	if len(genResult.BlockGenList) == 0 {
 		if genResult.Err != nil {
-			verifier.log.Error(genResult.Err.Error())
+			errInf := fmt.Sprintf("sbHash %v, addr %v,", block.SnapshotHash, block.AccountAddress)
+			if block.IsReceiveBlock() {
+				errInf += fmt.Sprintf("fromHash %v", block.FromBlockHash)
+			}
+			vLog.Error(genResult.Err.Error(), "block:", errInf)
 			return nil, genResult.Err
 		}
 		return nil, errors.New("vm failed, blockList is empty")
@@ -151,8 +156,8 @@ func (verifier *AccountVerifier) VerifyforVM(block *ledger.AccountBlock) (blocks
 
 // referredBlock' snapshotBlock's sbHeight can't lower than thisBlock
 func (verifier *AccountVerifier) VerifySnapshotOfReferredBlock(thisBlock *ledger.AccountBlock, referredBlock *ledger.AccountBlock) (VerifyResult, error) {
-	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&thisBlock.SnapshotHash)
-	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockByHash(&referredBlock.SnapshotHash)
+	thisSnapshotBlock, _ := verifier.chain.GetSnapshotBlockHeadByHash(&thisBlock.SnapshotHash)
+	referredSnapshotBlock, _ := verifier.chain.GetSnapshotBlockHeadByHash(&referredBlock.SnapshotHash)
 	if referredSnapshotBlock != nil {
 		if thisSnapshotBlock != nil {
 			if referredSnapshotBlock.Height > thisSnapshotBlock.Height {
@@ -262,7 +267,7 @@ func (verifier *AccountVerifier) VerifyDataValidity(block *ledger.AccountBlock, 
 		return err
 	}
 
-	if fork.IsVite1(sbHeight) {
+	if fork.IsSmartFork(sbHeight) {
 		if block.IsReceiveBlock() && block.Data != nil && accType == ledger.AccountTypeGeneral {
 			return errors.New("receiveBlock data must be nil when addr is general")
 		}
@@ -311,6 +316,10 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 		return err
 	}
 
+	if verifier.chain.IsGenesisAccountBlock(block) {
+		return nil
+	}
+
 	if block.IsReceiveBlock() || (block.IsSendBlock() && (len(block.Signature) > 0 || len(block.PublicKey) > 0)) {
 		if err := verifier.VerifySigature(block); err != nil {
 			return err
@@ -325,7 +334,7 @@ func (verifier *AccountVerifier) VerifyP2PDataValidity(block *ledger.AccountBloc
 func (verifier *AccountVerifier) verifySnapshot(bs *BlockState) bool {
 	defer monitor.LogTime("AccountVerifier", "verifySnapshot", time.Now())
 
-	snapshotBlock, err := verifier.chain.GetSnapshotBlockByHash(&bs.block.SnapshotHash)
+	snapshotBlock, err := verifier.chain.GetSnapshotBlockHeadByHash(&bs.block.SnapshotHash)
 	if snapshotBlock == nil {
 		if err != nil {
 			bs.vStat.errMsg += errors.New("func GetSnapshotBlockByHash failed: " + err.Error()).Error()
@@ -481,7 +490,7 @@ func (verifier *AccountVerifier) verifyDatasIntergrity(block *ledger.AccountBloc
 		}
 	}
 
-	if fork.IsVite1(vite1Height) {
+	if fork.IsSmartFork(vite1Height) {
 		if block.IsReceiveBlock() {
 			if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
 				return errors.New("block amount can't be anything other than nil or 0 ")

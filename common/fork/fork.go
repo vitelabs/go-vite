@@ -38,12 +38,12 @@ func SetForkPoints(points *config.ForkPoints) {
 	sort.Sort(forkPointList)
 }
 
-func IsVite1(blockHeight uint64) bool {
-	return forkPoints.Vite1.Height > 0 && blockHeight >= forkPoints.Vite1.Height
+func IsSmartFork(blockHeight uint64) bool {
+	return forkPoints.Smart.Height > 0 && blockHeight >= forkPoints.Smart.Height
 }
 
-func IsVite2(blockHeight uint64) bool {
-	return forkPoints.Vite2.Height > 0 && blockHeight >= forkPoints.Vite2.Height
+func IsLimitFork(blockHeight uint64) bool {
+	return forkPoints.Limit.Height > 0 && blockHeight >= forkPoints.Limit.Height
 }
 
 func GetForkPoints() config.ForkPoints {

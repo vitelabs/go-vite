@@ -3,15 +3,19 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/metrics"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vitelabs/go-vite/config/biz"
 
 	"encoding/json"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -21,7 +25,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
-	"math/big"
 )
 
 type Config struct {
@@ -50,7 +53,7 @@ type Config struct {
 	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
 	BootNodes            []string `json:"BootNodes"`
 	StaticNodes          []string `json:"StaticNodes"`
-	Port                 uint     `json:"Port"`
+	Port                 int      `json:"Port"`
 	NetID                uint     `json:"NetID"`
 	Discovery            bool     `json:"Discovery"`
 
@@ -98,11 +101,20 @@ type Config struct {
 	Topology               []string `json:"Topology"`
 	TopologyTopic          string   `json:"TopologyTopic"`
 	TopologyReportInterval int      `json:"TopologyReportInterval"`
-	TopoEnable             bool     `json:"TopoEnable"`
+	TopoEnabled            bool     `json:"TopoEnabled"`
 	DashboardTargetURL     string
 
 	// reward
 	RewardAddr string `json:"RewardAddr"`
+
+	//metrics
+	MetricsEnable    *bool   `json:"MetricsEnable"`
+	InfluxDBEnable   *bool   `json:"InfluxDBEnable"`
+	InfluxDBEndpoint *string `json:"InfluxDBEndpoint"`
+	InfluxDBDatabase *string `json:"InfluxDBDatabase"`
+	InfluxDBUsername *string `json:"InfluxDBUsername"`
+	InfluxDBPassword *string `json:"InfluxDBPassword"`
+	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -123,13 +135,18 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
+	if c.FilePort == 0 {
+		c.FilePort = 8484
+	}
+	addr := "0.0.0.0:" + strconv.Itoa(c.FilePort)
+
 	return &config.Net{
-		Single:     c.Single,
-		FilePort:   uint16(c.FilePort),
-		Topology:   c.Topology,
-		Topic:      c.TopologyTopic,
-		Interval:   int64(c.TopologyReportInterval),
-		TopoEnable: c.TopoEnable,
+		Single:      c.Single,
+		FileAddress: addr,
+		Topology:    c.Topology,
+		Topic:       c.TopologyTopic,
+		Interval:    int64(c.TopologyReportInterval),
+		TopoEnabled: c.TopoEnabled,
 	}
 }
 
@@ -148,6 +165,31 @@ func (c *Config) makeVmConfig() *config.Vm {
 	}
 }
 
+func (c *Config) makeMetricsConfig() *metrics.Config {
+	mc := &metrics.Config{
+		IsEnable:         false,
+		IsInfluxDBEnable: false,
+		InfluxDBInfo:     nil,
+	}
+	if c.MetricsEnable != nil && *c.MetricsEnable == true {
+		mc.IsEnable = true
+		if c.InfluxDBEnable != nil && *c.InfluxDBEnable == true &&
+			c.InfluxDBEndpoint != nil && len(*c.InfluxDBEndpoint) > 0 &&
+			(c.InfluxDBEndpoint != nil && c.InfluxDBDatabase != nil && c.InfluxDBPassword != nil && c.InfluxDBHostTag != nil) {
+			mc.IsInfluxDBEnable = true
+			mc.InfluxDBInfo = &metrics.InfluxDBConfig{
+				Endpoint: *c.InfluxDBEndpoint,
+				Database: *c.InfluxDBDatabase,
+				Username: *c.InfluxDBUsername,
+				Password: *c.InfluxDBPassword,
+				HostTag:  *c.InfluxDBHostTag,
+			}
+		}
+	}
+
+	return mc
+}
+
 func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
 		Producer:         c.MinerEnabled,
@@ -157,13 +199,18 @@ func (c *Config) makeMinerConfig() *config.Producer {
 }
 
 func (c *Config) makeP2PConfig() *p2p.Config {
+	if c.Port == 0 {
+		c.Port = 8483
+	}
+
+	addr := "0.0.0.0:" + strconv.Itoa(c.Port)
 	return &p2p.Config{
 		Name:            c.Identity,
 		NetID:           network.ID(c.NetID),
 		MaxPeers:        c.MaxPeers,
 		MaxPendingPeers: c.MaxPendingPeers,
 		MaxInboundRatio: c.MaxPassivePeersRatio,
-		Port:            c.Port,
+		Addr:            addr,
 		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
 		PeerKey:         c.GetPrivateKey(),
 		BootNodes:       c.BootNodes,
@@ -179,8 +226,15 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 		forkPoints = genesisConfig.ForkPoints
 	}
 
-	if forkPoints.Vite1 == nil {
-		forkPoints.Vite1 = &config.ForkPoint{}
+	if forkPoints.Smart == nil {
+		forkPoints.Smart = &config.ForkPoint{}
+	}
+	if forkPoints.Smart.Height == 0 {
+		forkPoints.Smart.Height = 5788912
+	}
+	if forkPoints.Smart.Hash == nil {
+		forkHash, _ := types.HexToHash("41f9c0ff86f3a57f43c70e109d44c66769cc63334f1530c99576211b1e625570")
+		forkPoints.Smart.Hash = &forkHash
 	}
 
 	return forkPoints
@@ -403,7 +457,7 @@ func (c *Config) RunErrorLogHandler() log15.Handler {
 	return log15.StreamHandler(logger, log15.LogfmtFormat())
 }
 
-//resolve the dataDir so future changes to the current working directory don't affect the node
+// resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
 
 	if c.DataDir != "" {

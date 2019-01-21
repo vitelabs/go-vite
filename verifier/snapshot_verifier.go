@@ -26,10 +26,10 @@ func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifie
 }
 
 func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
-	if err := self.verifyDataValidity(block); err != nil {
+	if err := self.verifyTimestamp(block); err != nil {
 		return err
 	}
-	if err := self.verifyTimestamp(block); err != nil {
+	if err := self.verifyDataValidity(block); err != nil {
 		return err
 	}
 	return nil
@@ -50,6 +50,10 @@ func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) er
 	computedHash := block.ComputeHash()
 	if block.Hash.IsZero() || computedHash != block.Hash {
 		return ErrVerifyHashFailed
+	}
+
+	if self.reader.IsGenesisSnapshotBlock(block) {
+		return nil
 	}
 
 	if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
@@ -137,7 +141,7 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 	if first == nil {
 		return nil, errors.New("account block is nil.")
 	}
-	refer, e := self.reader.GetSnapshotBlockByHash(&first.SnapshotHash)
+	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
 
 	if e != nil {
 		return nil, e
