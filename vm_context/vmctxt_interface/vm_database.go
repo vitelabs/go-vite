@@ -29,6 +29,7 @@ type VmDatabase interface {
 	GetContractCode(addr *types.Address) []byte
 
 	GetStorage(addr *types.Address, key []byte) []byte
+	GetOriginalStorage(key []byte) []byte
 	SetStorage(key []byte, value []byte)
 	GetStorageHash() *types.Hash
 

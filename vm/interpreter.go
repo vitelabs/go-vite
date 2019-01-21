@@ -67,12 +67,16 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
+			currentCode := ""
+			if currentPc < uint64(len(c.code)) {
+				currentCode = hex.EncodeToString(c.code[currentPc:])
+			}
 			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.AccountBlock.BlockType,
 				"address", c.block.AccountBlock.AccountAddress.String(),
 				"height", c.block.AccountBlock.Height,
 				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
-				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
+				"\ncurrent code", currentCode,
 				"\nop", opCodeToString[op],
 				"pc", currentPc,
 				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,

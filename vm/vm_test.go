@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -23,6 +25,7 @@ import (
 
 func init() {
 	InitVmConfig(false, false, true, common.HomeDir())
+	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Limit: &config.ForkPoint{Height: 20}})
 }
 
 func TestVmRun(t *testing.T) {
@@ -224,7 +227,7 @@ func TestVmRun(t *testing.T) {
 		receiveCallBlockList2[0].AccountBlock.Quota != 21046 ||
 		len(receiveCallBlockList2[0].AccountBlock.Data) != 33 ||
 		receiveCallBlockList2[0].AccountBlock.Data[32] != 1 ||
-		receiveCallBlockList2[1].AccountBlock.BlockType != ledger.BlockTypeSendCall ||
+		receiveCallBlockList2[1].AccountBlock.BlockType != ledger.BlockTypeSendRefund ||
 		receiveCallBlockList2[1].AccountBlock.Height != 4 ||
 		receiveCallBlockList2[1].AccountBlock.AccountAddress != addr2 ||
 		receiveCallBlockList2[1].AccountBlock.ToAddress != addr1 ||
@@ -584,12 +587,12 @@ func TestCalcQuotaV2(t *testing.T) {
 	db.accountBlockMap[addr1][hash13] = block13
 	// second account block referring to same snapshotBlock with PoW, first block receive error
 	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, maxPledgeAmount, difficulty)
-	if quotaTotal != uint64(0) || quotaAddition != uint64(0) || err != nil {
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) || err != util.ErrOutOfQuota {
 		t.Fatalf("calc quota error")
 	}
 	// second account block referring to same snapshotBlock without PoW, first block receive error
 	quotaTotal, quotaAddition, err = quota.CalcQuotaV2(db, addr1, maxPledgeAmount, helper.Big0)
-	if quotaTotal != uint64(0) || quotaAddition != uint64(0) || err != nil {
+	if quotaTotal != uint64(0) || quotaAddition != uint64(0) || err != util.ErrOutOfQuota {
 		t.Fatalf("calc quota error")
 	}
 
@@ -921,9 +924,6 @@ func TestVm(t *testing.T) {
 		}
 
 		for k, testCase := range *testCaseMap {
-			if k != "sendMessage_msgA" {
-				continue
-			}
 			var sbTime time.Time
 			if testCase.SBTime > 0 {
 				sbTime = time.Unix(testCase.SBTime, 0)
@@ -961,6 +961,7 @@ func TestVm(t *testing.T) {
 				for k, v := range testCase.PreStorage {
 					vByte, _ := hex.DecodeString(v)
 					db.storage[k] = vByte
+					db.originalStorage[k] = vByte
 				}
 			}
 			c := newContract(

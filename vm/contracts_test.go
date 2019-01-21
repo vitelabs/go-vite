@@ -5,26 +5,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
 	"time"
 )
 
-func TestContractsRefundWithVmContext(t *testing.T) {
+/*func TestContractsRefundWithVmContext(t *testing.T) {
 	// init chain
 	chn := chain.NewChain(&config.Config{
 		DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
@@ -94,7 +89,7 @@ func TestContractsRefundWithVmContext(t *testing.T) {
 		receiveBlockList[1].VmContext.GetBalance(&contractAddr, &ledger.ViteTokenId).Cmp(contractBalance) != 0 {
 		t.Fatalf("refund error")
 	}
-}
+}*/
 
 func TestContractsRefund(t *testing.T) {
 	// prepare db
@@ -700,7 +695,7 @@ func TestContractsPledge(t *testing.T) {
 	addr4, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
 	addr5 := types.AddressPledge
-	pledgeAmount := new(big.Int).Set(new(big.Int).Mul(big.NewInt(10), util.AttovPerVite))
+	pledgeAmount := new(big.Int).Set(new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite))
 	block13Data, err := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr4)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{

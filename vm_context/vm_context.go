@@ -331,6 +331,10 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	return nil
 }
 
+func (context *VmContext) GetOriginalStorage(key []byte) []byte {
+	return context.trie.GetValue(key)
+}
+
 func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
