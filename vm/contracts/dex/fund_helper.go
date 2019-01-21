@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -123,6 +124,9 @@ func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (acc
 }
 
 func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Account, error) {
+	if dexFund == nil {
+		return nil, errors.New("fund user doesn't exist.")
+	}
 	var dexAccount = make([]*Account, 0)
 	if tokenId != nil {
 		for _, v := range dexFund.Accounts {
