@@ -108,6 +108,10 @@ func uint64ToString(u uint64) string {
 	return strconv.FormatUint(u, 10)
 }
 
+func stringToUint64(s string) (uint64, error) {
+	return strconv.ParseUint(s, 10, 64)
+}
+
 const (
 	secondBetweenSnapshotBlocks int64 = 1
 )
