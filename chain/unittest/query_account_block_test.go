@@ -6,7 +6,7 @@ import (
 )
 
 func Test_GetAccountBlocksByHash(t *testing.T) {
-	chainInstance := newChainInstance("testdata", false, false)
+	chainInstance := NewChainInstance("testdata", false)
 	allLatestBlock, _ := chainInstance.GetAllLatestAccountBlock()
 	fmt.Printf("allLatestBlock length: %d\n", len(allLatestBlock))
 	for _, block := range allLatestBlock {

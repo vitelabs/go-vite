@@ -12,28 +12,29 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 const INDEX_SEP = ",,,"
 
 type Indexer struct {
-	file      *os.File
-	indexList []*ledger.CompressedFileMeta
-	log       log15.Logger
-	lock      sync.RWMutex
+	file          *os.File
+	chainInstance Chain
+	indexList     []*ledger.CompressedFileMeta
+	log           log15.Logger
+	lock          sync.RWMutex
 
 	dir string
 }
 
-func NewIndexer(dir string) *Indexer {
+func NewIndexer(dir string, chainInstance Chain) *Indexer {
 	indexFileName := path.Join(dir, "index")
 	var file *os.File
 	var oErr error
 
 	indexer := &Indexer{
-		log: log15.New("module", "compressor/indexer"),
-		dir: dir,
+		log:           log15.New("module", "compressor/indexer"),
+		chainInstance: chainInstance,
+		dir:           dir,
 	}
 
 	file, oErr = os.OpenFile(indexFileName, os.O_RDWR, 0666)
@@ -54,8 +55,6 @@ func NewIndexer(dir string) *Indexer {
 			indexer.log.Crit("truncate failed, error is "+tErr.Error(), "method", "NewIndexer")
 		}
 	}
-
-	indexer.checkAndDeleteDataFile()
 
 	return indexer
 }
@@ -96,6 +95,12 @@ func (indexer *Indexer) newFileName(startHeight uint64, endHeight uint64) string
 	return "subgraph_" + strconv.FormatUint(startHeight, 10) + "_" + strconv.FormatUint(endHeight, 10)
 }
 
+func (indexer *Indexer) CheckAndRepair() {
+	indexer.checkAndRepairIndexErr()
+	indexer.checkAndRepairRollback()
+	indexer.checkAndDeleteDataFile()
+}
+
 func (indexer *Indexer) check(item *ledger.CompressedFileMeta) (bool, error) {
 	// Rename err
 	fileSize, fileSizeErr := indexer.getFileSize(filepath.Join(indexer.dir, item.Filename))
@@ -109,6 +114,40 @@ func (indexer *Indexer) check(item *ledger.CompressedFileMeta) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (indexer *Indexer) checkAndRepairIndexErr() {
+	indexListLength := len(indexer.indexList)
+	if indexListLength <= 0 {
+		return
+	}
+	needDeleteToHeight := uint64(0)
+
+	for i := indexListLength - 1; i >= 0; i-- {
+		item := indexer.indexList[i]
+		if item.BlockNumbers <= 0 {
+			// index err
+			needDeleteToHeight = item.StartHeight
+		}
+	}
+	if needDeleteToHeight > 0 {
+		indexer.Delete(needDeleteToHeight)
+	}
+}
+
+func (indexer *Indexer) checkAndRepairRollback() {
+	indexListLength := len(indexer.indexList)
+	if indexListLength <= 0 {
+		return
+	}
+
+	latestSb := indexer.chainInstance.GetLatestSnapshotBlock()
+
+	lastItem := indexer.indexList[indexListLength-1]
+
+	if latestSb.Height < lastItem.EndHeight {
+		indexer.Delete(latestSb.Height + 1)
+	}
 }
 
 func (indexer *Indexer) checkAndDeleteDataFile() {
@@ -129,12 +168,12 @@ func (indexer *Indexer) checkAndDeleteDataFile() {
 
 func (indexer *Indexer) flushToFile() {
 	indexer.file.Truncate(0)
+	indexer.file.Seek(0, 0)
+
 	for _, indexItem := range indexer.indexList {
 		_, err := indexer.file.WriteString(indexer.formatToLine(indexItem) + "\n")
 		if err != nil {
-			indexer.log.Error("WriteString failed, error is "+err.Error(), "method", "flushToFile")
-			time.Sleep(time.Second)
-			indexer.flushToFile()
+			indexer.log.Crit("WriteString failed, error is "+err.Error(), "method", "flushToFile")
 		}
 	}
 }
@@ -166,11 +205,12 @@ func (indexer *Indexer) truncate(n int64) error {
 
 func (indexer *Indexer) loadFromFile() (int64, error) {
 	indexer.indexList = make([]*ledger.CompressedFileMeta, 0)
-	//indexer.file.Seek(0, io.SeekStart)
+	indexer.file.Seek(0, 0)
 	reader := bufio.NewReader(indexer.file)
 
 	var hasParsedSize = int64(0)
 	for {
+
 		var line []byte
 
 		for {
@@ -330,11 +370,11 @@ func (indexer *Indexer) Get(startBlockHeight uint64, endBlockHeight uint64) []*l
 	}
 	return fileNameList
 }
-func (indexer *Indexer) Delete(toHeight uint64) error {
+func (indexer *Indexer) Delete(toHeight uint64) {
 	indexer.lock.Lock()
 	defer indexer.lock.Unlock()
 
-	var needDeleteIndex = 0
+	var needDeleteIndex = -1
 	for i := len(indexer.indexList) - 1; i >= 0; i-- {
 		indexItem := indexer.indexList[i]
 		if indexItem.EndHeight < toHeight {
@@ -343,13 +383,14 @@ func (indexer *Indexer) Delete(toHeight uint64) error {
 		needDeleteIndex = i
 	}
 
-	if needDeleteIndex <= 0 {
-		return nil
+	if needDeleteIndex < 0 {
+		return
 	}
 
 	indexer.indexList = indexer.indexList[:needDeleteIndex]
 	indexer.flushToFile()
-	return nil
+	indexer.checkAndDeleteDataFile()
+	return
 }
 
 func (indexer *Indexer) Add(ti *taskInfo, tmpFile string, blockNumbers uint64) error {
