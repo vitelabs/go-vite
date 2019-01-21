@@ -110,7 +110,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	_, err := method.DoSend(db, senderAccBlock, 100100100)
 	assert.True(t, err == nil)
 
-	param := new(contracts.ParamDexFundNewOrder)
+	param := new(dex.ParamDexFundNewOrder)
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderAccBlock.Data)
 	assert.True(t, err == nil)
 	//fmt.Printf("UnpackMethod err for send %s\n", err.Error())
@@ -131,7 +131,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	assert.True(t, CheckBigEqualToInt(2000, acc.Locked))
 	assert.Equal(t, 1, len(appendedBlocks))
 
-	param1 := new(contracts.ParamDexSerializedData)
+	param1 := new(dex.ParamDexSerializedData)
 	err = contracts.ABIDexTrade.UnpackMethod(param1, contracts.MethodNameDexTradeNewOrder, appendedBlocks[0].Data)
 	order1 := &dexproto.Order{}
 	proto.Unmarshal(param1.Data, order1)

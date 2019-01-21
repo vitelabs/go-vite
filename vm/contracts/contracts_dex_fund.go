@@ -13,9 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -36,25 +34,6 @@ const (
 var (
 	ABIDexFund, _            = abi.JSONToABIContract(strings.NewReader(jsonDexFund))
 )
-
-type ParamDexFundWithDraw struct {
-	Token   types.TokenTypeId
-	Amount  *big.Int
-}
-
-type ParamDexFundNewOrder struct {
-	OrderId []byte
-	TradeToken   types.TokenTypeId
-	QuoteToken   types.TokenTypeId
-	Side bool
-	OrderType uint32
-	Price string
-	Quantity *big.Int
-}
-
-type ParamDexSerializedData struct {
-	Data []byte
-}
 
 type MethodDexFundUserDeposit struct {
 }
@@ -99,6 +78,11 @@ func (md *MethodDexFundUserDeposit) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if !exists {
 		dexFund.Accounts = append(dexFund.Accounts, dexAccount)
 	}
+	if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
+		if err = onDepositVx(db, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height, sendBlock.AccountAddress, sendBlock.Amount); err != nil {
+			return []*SendBlock{}, err
+		}
+	}
 	return []*SendBlock{}, dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
 }
 
@@ -118,7 +102,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundWithdrawGas); err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundWithDraw)
+	param := new(dex.ParamDexFundWithDraw)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.Data); err != nil {
 		return quotaLeft, err
 	}
@@ -132,7 +116,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, bloc
 }
 
 func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	param := new(ParamDexFundWithDraw)
+	param := new(dex.ParamDexFundWithDraw)
 	var (
 		dexFund = &dex.UserFund{}
 		err     error
@@ -150,6 +134,11 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, b
 	}
 	available = available.Sub(available, param.Amount)
 	account.Available = available.Bytes()
+	if bytes.Equal(param.Token.Bytes(), dex.VxTokenBytes) {
+		if err = onWithdrawVx(db, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height, sendBlock.AccountAddress, param.Amount); err != nil {
+			return  []*SendBlock{}, err
+		}
+	}
 	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -181,11 +170,11 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundNewOrderGas); err != nil {
 		return quotaLeft, err
 	}
-	param := new(ParamDexFundNewOrder)
+	param := new(dex.ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.Data); err != nil {
 		return quotaLeft, err
 	}
-	if err = CheckOrderParam(db, param); err != nil {
+	if err = dex.CheckOrderParam(db, param); err != nil {
 		return quotaLeft, err
 	}
 	return util.UseQuotaForData(block.Data, quotaLeft)
@@ -198,12 +187,12 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		err error
 		orderBytes []byte
 	)
-	param := new(ParamDexFundNewOrder)
+	param := new(dex.ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
 	order := &dexproto.Order{}
-	RenderOrder(order, param, db, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
+	dex.RenderOrder(order, param, db, sendBlock.AccountAddress, db.GetSnapshotBlockByHash(&block.SnapshotHash).Timestamp)
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -250,7 +239,7 @@ func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
 		return quotaLeft, fmt.Errorf("invalid block source")
 	}
-	param := new(ParamDexSerializedData)
+	param := new(dex.ParamDexSerializedData)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, block.Data); err != nil {
 		return quotaLeft, err
 	}
@@ -268,7 +257,7 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
 		return []*SendBlock{}, fmt.Errorf("invalid block source")
 	}
-	param := new(ParamDexSerializedData)
+	param := new(dex.ParamDexSerializedData)
 	var err error
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
@@ -281,8 +270,10 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 		if err = doSettleFund(db, fundAction); err != nil {
 			return []*SendBlock{}, err
 		}
-		if bytes.Compare(fundAction.Token, dex.VxTokenBytes) == 0 {
-			doSettleVxFunds(db, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height, fundAction)
+		if bytes.Equal(fundAction.Token, dex.VxTokenBytes) { // in condition vx amount changed, should update vxFunds
+			if err = onSettleVx(db, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height, fundAction); err != nil {
+				return []*SendBlock{}, err
+			}
 		}
 	}
 	for _, feeAction := range settleActions.FeeActions {
@@ -293,65 +284,24 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 	return []*SendBlock{}, nil
 }
 
-func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
-	var (
-		orderId dex.OrderId
-		err     error
-	)
-	if orderId, err = dex.NewOrderId(orderParam.OrderId); err != nil {
-		return err
-	}
-	if !orderId.IsNormal() {
-		return fmt.Errorf("invalid order id")
-	}
-	if err, _ = dex.GetTokenInfo(db, orderParam.TradeToken); err != nil {
-		return err
-	}
-	if err, _ = dex.GetTokenInfo(db, orderParam.QuoteToken); err != nil {
-		return err
-	}
-	if orderParam.OrderType != dex.Market && orderParam.OrderType != dex.Limited {
-		return fmt.Errorf("invalid order type")
-	}
-	if orderParam.OrderType == dex.Limited {
-		if !dex.ValidPrice(orderParam.Price) {
-			return fmt.Errorf("invalid format for price")
-		}
-	}
-	if orderParam.Quantity.Sign() <= 0 {
-		return fmt.Errorf("invalid trade quantity for order")
-	}
-	if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
-		return fmt.Errorf("invalid price format")
-	}
-	return nil
+type MethodDexVxDividend struct {
 }
 
-func RenderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
-	order.Id = param.OrderId
-	order.Address = address.Bytes()
-	order.TradeToken = param.TradeToken.Bytes()
-	order.QuoteToken = param.QuoteToken.Bytes()
-	_, tradeTokenInfo := dex.GetTokenInfo(db, param.TradeToken)
-	order.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
-	_, quoteTokenInfo := dex.GetTokenInfo(db, param.QuoteToken)
-	order.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
-	order.Side = param.Side
-	order.Type = int32(param.OrderType)
-	order.Price = param.Price
-	order.Quantity = param.Quantity.Bytes()
-	if order.Type == dex.Limited {
-		order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
-		if !order.Side { //buy
-			order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
-		}
-	}
-	order.Status = dex.Pending
-	order.Timestamp = snapshotTM.Unix()
-	order.ExecutedQuantity = big.NewInt(0).Bytes()
-	order.ExecutedAmount = big.NewInt(0).Bytes()
-	order.RefundToken = []byte{}
-	order.RefundQuantity = big.NewInt(0).Bytes()
+func (md *MethodDexVxDividend) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexVxDividend) GetRefundData() []byte {
+	return []byte{}
+}
+
+func (md *MethodDexVxDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+	var err error
+	return quotaLeft, err
+}
+
+func (md MethodDexVxDividend) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+	return []*SendBlock{}, nil
 }
 
 
@@ -473,7 +423,7 @@ func doSettleFee(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64
 		}
 		var foundToken = false
 		for _, feeAcc := range dexFee.Fees {
-			if bytes.Compare(feeAcc.Token, feeAction.Token) == 0 {
+			if bytes.Equal(feeAcc.Token, feeAction.Token) {
 				feeAcc.Amount = dex.AddBigInt(feeAcc.Amount, feeAction.Amount)
 				foundToken = true
 				break
@@ -493,67 +443,117 @@ func doSettleFee(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64
 	}
 }
 
-func doSettleVxFunds(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, action *dexproto.FundSettle) error {
+func onDepositVx(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, address types.Address, depositAmount *big.Int) error {
+	return doSettleVxFunds(storage, snapshotBlockHeight, address.Bytes(), depositAmount)
+}
+
+func onWithdrawVx(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, address types.Address, withdrawAmount *big.Int) error {
+	amtChanged := new(big.Int).Sub(big.NewInt(0), withdrawAmount)
+	return doSettleVxFunds(storage, snapshotBlockHeight, address.Bytes(), amtChanged)
+}
+
+func onSettleVx(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, action *dexproto.FundSettle) error {
+	amtChange := dex.SubBigInt(action.IncAvailable, action.ReduceLocked)
+	return doSettleVxFunds(storage, snapshotBlockHeight, action.Address, amtChange)
+}
+
+func doSettleVxFunds(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, addressBytes []byte, amtChange *big.Int) error {
 	var (
-		dexVxFunds *dex.VxFunds
-		newAmt *big.Int
-		err error
+		dexVxFunds            *dex.VxFunds
+		userNewAmt, sumChange *big.Int
+		err                   error
+		periodId uint64
 	)
-	if dexVxFunds, err = dex.GetVxFundsFromStorage(storage, action.Address); err != nil {
+	if dexVxFunds, err = dex.GetVxFundsFromStorage(storage, addressBytes); err != nil {
 		return err
 	} else {
-		periodId := dex.GetPeriodIdFromHeight(snapshotBlockHeight)
-		amtChange := dex.SubBigInt(action.IncAvailable, action.ReduceLocked)
+		periodId = dex.GetPeriodIdFromHeight(snapshotBlockHeight)
 		fundsLen := len(dexVxFunds.Funds)
-
 		if fundsLen == 0 { //need append new period
 			var (
 				tokenId *types.TokenTypeId
 				account *dexproto.Account
 				exists bool
 			)
-			if tokenId, err = dex.FromBytesToTokenTypeId(action.Token); err != nil {
+			if tokenId, err = dex.FromBytesToTokenTypeId(dex.VxTokenBytes); err != nil {
 				return err
 			}
 			address := &types.Address{}
-			address.SetBytes(action.Address)
+			address.SetBytes(addressBytes)
 			if account, exists, err = dex.GetAccountByAddressAndTokenId(storage, *address, *tokenId); err != nil {
 				return err
 			}
 			if !exists && dex.IsValidVxAmountForDividend(amtChange) {
 				fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: amtChange.Bytes()}
 				dexVxFunds.Funds = append(dexVxFunds.Funds, fundWithPeriod)
+				sumChange = amtChange
 			} else if exists && amtChange.Sign() > 0 {
 				amountInAccount := dex.AddBigInt(account.Available, account.Locked)
-				newAmt = new(big.Int).Add(new(big.Int).SetBytes(amountInAccount), amtChange)
-				if dex.IsValidVxAmountForDividend(newAmt) {
-					fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: newAmt.Bytes()}
+				userNewAmt = new(big.Int).Add(new(big.Int).SetBytes(amountInAccount), amtChange)
+				if dex.IsValidVxAmountForDividend(userNewAmt) {
+					fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
 					dexVxFunds.Funds = append(dexVxFunds.Funds, fundWithPeriod)
+					sumChange = userNewAmt
 				}
 			}
 		} else if dexVxFunds.Funds[fundsLen - 1].Period == periodId { //update current period
-			newAmt = new(big.Int).Add(new(big.Int).SetBytes(dexVxFunds.Funds[fundsLen - 1].Amount), amtChange)
-			// in case fundsLen > 1, save last period to diff the condition of current period not changed ever from last saved period
-			if dex.IsValidVxAmountForDividend(newAmt) || fundsLen > 1 {
-				dexVxFunds.Funds[fundsLen - 1].Amount = newAmt.Bytes()
+			userNewAmt = new(big.Int).Add(new(big.Int).SetBytes(dexVxFunds.Funds[fundsLen - 1].Amount), amtChange)
+			if dex.IsValidVxAmountForDividend(userNewAmt) {
+				dexVxFunds.Funds[fundsLen - 1].Amount = userNewAmt.Bytes()
+				sumChange = amtChange
+			} else if fundsLen > 1 { // in case fundsLen > 1, update last period to diff the condition of current period not changed ever from last saved period
+				if dex.IsValidVxAmountBytesForDividend(dexVxFunds.Funds[fundsLen - 1].Amount) {
+					sumChange = dex.NegativeAmount(dexVxFunds.Funds[fundsLen - 1].Amount)
+				}
+				dexVxFunds.Funds[fundsLen - 1].Amount = userNewAmt.Bytes()
 			} else { // clear funds in case only current period saved and not valid any more
+				if dex.IsValidVxAmountBytesForDividend(dexVxFunds.Funds[fundsLen - 1].Amount) {
+					sumChange = dex.NegativeAmount(dexVxFunds.Funds[fundsLen - 1].Amount)
+				}
 				dexVxFunds.Funds = nil
 			}
 		} else { // need save new status, whether new amt is valid or not, in order to diff last saved period
-			newAmt = new(big.Int).Add(new(big.Int).SetBytes(dexVxFunds.Funds[fundsLen - 1].Amount), amtChange) // the result must not be negative
-			if newAmt.Sign() < 0 {
+			userNewAmt = new(big.Int).Add(new(big.Int).SetBytes(dexVxFunds.Funds[fundsLen - 1].Amount), amtChange) // the result must not be negative
+			if userNewAmt.Sign() < 0 {
 				return fmt.Errorf("try sub amount exceed last amt available")
 			} else {
-				fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: newAmt.Bytes()}
+				fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
 				dexVxFunds.Funds = append(dexVxFunds.Funds, fundWithPeriod)
+				if dex.IsValidVxAmountForDividend(userNewAmt) {
+					if !dex.IsValidVxAmountBytesForDividend(dexVxFunds.Funds[fundsLen - 1].Amount) {
+						sumChange = userNewAmt
+					} else {
+						sumChange = amtChange
+					}
+				} else {
+					if dex.IsValidVxAmountBytesForDividend(dexVxFunds.Funds[fundsLen - 1].Amount) {
+						sumChange = dex.NegativeAmount(dexVxFunds.Funds[fundsLen - 1].Amount)
+					}
+				}
 			}
 		}
 	}
-	if len(dexVxFunds.Funds) > 0 {
-		if err = dex.SaveVxFundsToStorage(storage, action.Address, dexVxFunds); err != nil {
+	if err = dex.SaveVxFundsToStorage(storage, addressBytes, dexVxFunds); err != nil {
 			return err
+	}
+	if dex.CmpToBigZero(sumChange.Bytes()) != 0 {
+		var (
+			dexVxFundSum *dex.VxFunds
+		)
+		if dexVxFundSum, err = dex.GetVxFundSumKFromStorage(storage); err != nil {
+			return err
+		} else {
+			fundSumLen := len(dexVxFundSum.Funds)
+			if fundSumLen == 0  {
+				dexVxFundSum.Funds = append(dexVxFundSum.Funds, &dexproto.VxFundWithPeriod{Amount:sumChange.Bytes(), Period:periodId})
+			} else if dexVxFundSum.Funds[fundSumLen - 1].Period != periodId {
+				dexVxFundSum.Funds[fundSumLen - 1].Amount = dex.AddBigInt(dexVxFundSum.Funds[fundSumLen - 1].Amount, sumChange.Bytes())
+			} else {
+				sumRes := dex.AddBigInt(dexVxFundSum.Funds[fundSumLen - 1].Amount, sumChange.Bytes())
+				dexVxFundSum.Funds = append(dexVxFundSum.Funds, &dexproto.VxFundWithPeriod{Amount:sumRes, Period:periodId})
+			}
+			dex.SaveVxFundSumKToStorage(storage, dexVxFundSum)
 		}
 	}
 	return nil
 }
-

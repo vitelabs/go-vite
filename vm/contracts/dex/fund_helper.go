@@ -11,7 +11,9 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -20,10 +22,30 @@ var (
 	feeAccKeyPrefix          = []byte("fee:")  // fee:feeAccId feeAccId = PeriodIdByHeight
 	feePeriodByHeight uint64 = 10
 
-	vxFundKeyPrefix     = []byte("vxFund:") // vxFund:types.Address
+	vxFundKeyPrefix     = []byte("vxFund:")    // vxFund:types.Address
+	vxFundSumKey        = []byte("vxFundSum:") // vxFundSum:periodId
 	VxTokenBytes        = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	VxDividendThreshold = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil), big.NewInt(10)) // 18 : vx decimals, 10 amount
 )
+
+type ParamDexFundWithDraw struct {
+	Token   types.TokenTypeId
+	Amount  *big.Int
+}
+
+type ParamDexFundNewOrder struct {
+	OrderId []byte
+	TradeToken   types.TokenTypeId
+	QuoteToken   types.TokenTypeId
+	Side bool
+	OrderType uint32
+	Price string
+	Quantity *big.Int
+}
+
+type ParamDexSerializedData struct {
+	Data []byte
+}
 
 type UserFund struct {
 	dexproto.Fund
@@ -76,6 +98,66 @@ func (dvf *VxFunds) DeSerialize(vxFundsData []byte) (*VxFunds, error) {
 	}
 }
 
+func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
+	var (
+		orderId OrderId
+		err     error
+	)
+	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
+		return err
+	}
+	if !orderId.IsNormal() {
+		return fmt.Errorf("invalid order id")
+	}
+	if err, _ = GetTokenInfo(db, orderParam.TradeToken); err != nil {
+		return err
+	}
+	if err, _ = GetTokenInfo(db, orderParam.QuoteToken); err != nil {
+		return err
+	}
+	if orderParam.OrderType != Market && orderParam.OrderType != Limited {
+		return fmt.Errorf("invalid order type")
+	}
+	if orderParam.OrderType == Limited {
+		if !ValidPrice(orderParam.Price) {
+			return fmt.Errorf("invalid format for price")
+		}
+	}
+	if orderParam.Quantity.Sign() <= 0 {
+		return fmt.Errorf("invalid trade quantity for order")
+	}
+	if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
+		return fmt.Errorf("invalid price format")
+	}
+	return nil
+}
+
+func RenderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
+	order.Id = param.OrderId
+	order.Address = address.Bytes()
+	order.TradeToken = param.TradeToken.Bytes()
+	order.QuoteToken = param.QuoteToken.Bytes()
+	_, tradeTokenInfo := GetTokenInfo(db, param.TradeToken)
+	order.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
+	_, quoteTokenInfo := GetTokenInfo(db, param.QuoteToken)
+	order.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
+	order.Side = param.Side
+	order.Type = int32(param.OrderType)
+	order.Price = param.Price
+	order.Quantity = param.Quantity.Bytes()
+	if order.Type == Limited {
+		order.Amount = CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
+		if !order.Side { //buy
+			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
+		}
+	}
+	order.Status = Pending
+	order.Timestamp = snapshotTM.Unix()
+	order.ExecutedQuantity = big.NewInt(0).Bytes()
+	order.ExecutedAmount = big.NewInt(0).Bytes()
+	order.RefundToken = []byte{}
+	order.RefundQuantity = big.NewInt(0).Bytes()
+}
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {
 	if actions == nil || len(actions.FundActions) == 0 && len(actions.FeeActions) == 0 {
@@ -213,6 +295,38 @@ func GetVxFundsKey(address []byte) []byte {
 	return append(vxFundKeyPrefix, address...)
 }
 
+func GetVxFundSumKFromStorage(storage vmctxt_interface.VmDatabase) (vxFundSum *VxFunds, err error) {
+	vxFundSumKey := GetVxFundSumKey()
+	vxFundSum = &VxFunds{}
+	if vxFundSumBytes := storage.GetStorage(&types.AddressDexFund, vxFundSumKey); len(vxFundSumBytes) > 0 {
+		if vxFundSum, err = vxFundSum.DeSerialize(vxFundSumBytes); err != nil {
+			return nil, err
+		} else {
+			return vxFundSum, nil
+		}
+	} else {
+		return vxFundSum, nil
+	}
+}
+
+func SaveVxFundSumKToStorage(storage vmctxt_interface.VmDatabase, vxFundSum *VxFunds) error {
+	vxFundSumKey := GetVxFundSumKey()
+	if vxFundSumBytes, err := proto.Marshal(vxFundSum); err == nil {
+		storage.SetStorage(vxFundSumKey, vxFundSumBytes)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func GetVxFundSumKey() []byte {
+	return vxFundSumKey
+}
+
+func IsValidVxAmountBytesForDividend(amount []byte) bool {
+	return new(big.Int).SetBytes(amount).Cmp(VxDividendThreshold) >= 0
+}
+
 func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
 }
@@ -236,8 +350,12 @@ func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (er
 
 func GetPeriodIdBytesFromHeight(height uint64) []byte {
 	periodId := GetPeriodIdFromHeight(height)
+	return Uint64ToBytes(periodId)
+}
+
+func Uint64ToBytes(value uint64) []byte {
 	bs := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bs, periodId)
+	binary.LittleEndian.PutUint64(bs, value)
 	return bs
 }
 

@@ -64,7 +64,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return []*SendBlock{}, fmt.Errorf("invalid block source")
 	}
-	param := new(ParamDexSerializedData)
+	param := new(dex.ParamDexSerializedData)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
