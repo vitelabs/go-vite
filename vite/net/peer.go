@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/pkg/errors"
-	"github.com/seiflotfy/cuckoofilter"
+	"errors"
+
+	"github.com/jerry-vite/cuckoofilter"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -17,7 +18,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-const filterCap = 100000
+const filterCap = 10000
 
 var errDiffGesis = errors.New("different genesis block")
 
@@ -51,7 +52,7 @@ type peer struct {
 	CmdSet   p2p.CmdSet // which cmdSet it belongs
 
 	mu          sync.RWMutex
-	KnownBlocks *cuckoofilter.CuckooFilter
+	KnownBlocks *cuckoo.Filter
 
 	log        log15.Logger
 	errChan    chan error
@@ -74,7 +75,7 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		mrw:         mrw,
 		id:          p.ID().String(),
 		CmdSet:      cmdSet,
-		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
+		KnownBlocks: cuckoo.NewFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errChan:     make(chan error, 1),
 		term:        make(chan struct{}),
@@ -153,8 +154,18 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 
 func (p *peer) SeeBlock(hash types.Hash) {
 	p.mu.Lock()
-	p.KnownBlocks.InsertUnique(hash[:])
-	p.mu.Unlock()
+	defer p.mu.Unlock()
+
+	seen := p.KnownBlocks.Lookup(hash[:])
+	if seen {
+		return
+	}
+
+	success := p.KnownBlocks.Insert(hash[:])
+	if !success {
+		p.KnownBlocks.Reset()
+		p.KnownBlocks.Insert(hash[:])
+	}
 }
 
 // send

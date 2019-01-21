@@ -316,6 +316,12 @@
 			"revisionTime": "2017-04-05T19:55:58Z"
 		},
 		{
+			"checksumSHA1": "oUkIq68/vjrcevnGaGOvEAeF1YQ=",
+			"path": "github.com/jerry-vite/cuckoofilter",
+			"revision": "a8d938a37e3cbc09d04299b8c78c28fd3339527a",
+			"revisionTime": "2019-01-21T09:36:13Z"
+		},
+		{
 			"checksumSHA1": "3ohk4dFYrERZ6WTdKkIwnTA0HSI=",
 			"path": "github.com/kr/pretty",
 			"revision": "73f6ac0b30a98e433b289500d779f50c1a6f0712",
@@ -512,12 +518,6 @@
 			"path": "github.com/rs/cors",
 			"revision": "dc7332ab32be5dfec05dae2a6ab79cbfa53b6407",
 			"revisionTime": "2018-08-26T18:02:56Z"
-		},
-		{
-			"checksumSHA1": "y5uEa8FUgEkc/2/fs+XQ+ilB0js=",
-			"path": "github.com/seiflotfy/cuckoofilter",
-			"revision": "09e42b44620a3ea116a06f755fbf05fb62a1f550",
-			"revisionTime": "2018-08-01T14:34:48Z"
 		},
 		{
 			"checksumSHA1": "KUrV5Esg6Wdcrv+hDc6/p0Q3/qw=",
