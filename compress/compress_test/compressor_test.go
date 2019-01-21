@@ -3,6 +3,7 @@ package compress_test
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/unittest"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -28,6 +29,33 @@ func getChainInstance() chain.Chain {
 		innerChainInstance.Start()
 	}
 	return innerChainInstance
+}
+
+func Test_CompressorRunTask(t *testing.T) {
+	chainInstance := chain_unittest.NewChainInstance("testdata", false)
+
+	compressor := chainInstance.Compressor()
+	compressor.Start()
+	for i := 1; i <= 20000; i++ {
+		compressor.RunTask()
+		fmt.Printf("Run %d task\n", i)
+	}
+}
+
+func Test_DeleteAndRunTask(t *testing.T) {
+	chainInstance := chain_unittest.NewChainInstance("testdata", false)
+
+	latestSb := chainInstance.GetLatestSnapshotBlock()
+	needDeleteHeight := uint64(10000)
+
+	chainInstance.DeleteSnapshotBlocksToHeight(latestSb.Height - needDeleteHeight)
+
+	compressor := chainInstance.Compressor()
+	compressor.Start()
+	for i := 1; i <= 20000; i++ {
+		compressor.RunTask()
+		fmt.Printf("Run %d task\n", i)
+	}
 }
 
 func TestNewCompressor(t *testing.T) {
