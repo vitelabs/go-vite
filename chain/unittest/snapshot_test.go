@@ -14,7 +14,7 @@ func getAccountNumber(chainInstance chain.Chain) uint64 {
 }
 
 func Test_SnapshotStateTrie(t *testing.T) {
-	chainInstance := newChainInstance("testdata", false, false)
+	chainInstance := NewChainInstance("testdata", false)
 
 	const (
 		MAX_SNAPSHOTBLOCK_COUNT = 100

@@ -20,7 +20,7 @@ func Test_SaList_Add(t *testing.T) {
 
 		TEST_TIMES = 10
 	)
-	chainInstance := newChainInstance("unit_test", false, true)
+	chainInstance := NewChainInstance("unit_test", false)
 
 	accounts := test_tools.MakeAccounts(10, chainInstance)
 

@@ -160,5 +160,4 @@ func newChainInstance(dirName string, clearDataDir bool) chain.Chain {
 
 func newMarkerInstance(chainInstance chain.Chain) *trie_gc.Marker {
 	return trie_gc.NewMarker(chainInstance, 0)
-
 }
