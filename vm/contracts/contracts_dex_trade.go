@@ -49,6 +49,10 @@ func (md *MethodDexTradeNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
+func (md *MethodDexTradeNewOrder) GetQuota() uint64 {
+	return 1000
+}
+
 func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if quotaLeft, err := util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
 		return quotaLeft, err
@@ -89,6 +93,10 @@ func (md *MethodDexTradeCancelOrder) GetFee(db vmctxt_interface.VmDatabase, bloc
 
 func (md *MethodDexTradeCancelOrder) GetRefundData() []byte {
 	return []byte{}
+}
+
+func (md *MethodDexTradeCancelOrder) GetQuota() uint64 {
+	return 1000
 }
 
 func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {

@@ -46,6 +46,10 @@ func (md *MethodDexFundUserDeposit) GetRefundData() []byte {
 	return []byte{}
 }
 
+func (md *MethodDexFundUserDeposit) GetQuota() uint64 {
+	return 1000
+}
+
 func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, dexFundDepositGas)
 	if err != nil {
@@ -95,6 +99,10 @@ func (md *MethodDexFundUserWithdraw) GetFee(db vmctxt_interface.VmDatabase, bloc
 
 func (md *MethodDexFundUserWithdraw) GetRefundData() []byte {
 	return []byte{}
+}
+
+func (md *MethodDexFundUserWithdraw) GetQuota() uint64 {
+	return 1000
 }
 
 func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
@@ -165,6 +173,10 @@ func (md *MethodDexFundNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
+func (md *MethodDexFundNewOrder) GetQuota() uint64 {
+	return 1000
+}
+
 func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	var err error
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundNewOrderGas); err != nil {
@@ -231,6 +243,10 @@ func (md *MethodDexFundSettleOrders) GetRefundData() []byte {
 	return []byte{}
 }
 
+func (md *MethodDexFundSettleOrders) GetQuota() uint64 {
+	return 1000
+}
+
 func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	var err error
 	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundSettleOrdersGas); err != nil {
@@ -293,6 +309,10 @@ func (md *MethodDexVxDividend) GetFee(db vmctxt_interface.VmDatabase, block *led
 
 func (md *MethodDexVxDividend) GetRefundData() []byte {
 	return []byte{}
+}
+
+func (md *MethodDexVxDividend) GetQuota() uint64 {
+	return 1000
 }
 
 func (md *MethodDexVxDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
