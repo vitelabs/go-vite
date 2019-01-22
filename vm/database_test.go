@@ -39,7 +39,7 @@ func NewNoDatabase() *testDatabase {
 }
 
 func (db *testDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
-	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
+	if balance, ok := db.balanceMap[*addr][*tokenTypeId]; ok {
 		return new(big.Int).Set(balance)
 	} else {
 		return big.NewInt(0)

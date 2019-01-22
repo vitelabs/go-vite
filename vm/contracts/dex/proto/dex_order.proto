@@ -1,0 +1,58 @@
+syntax="proto3";
+
+package proto;
+
+message Order {
+    bytes Id = 1;
+    bytes Address = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bool  Side = 7; // false buy, true sell
+    int32 Type = 8; // 0 limit order, 1 market order
+    string Price = 9;
+    bytes Quantity = 10;
+    bytes Amount = 11; // QuoteAmount
+    bytes LockedBuyFee = 12; // fee locked ahead for buy
+    int32 Status = 13;
+    int32 CancelReason = 14;
+    int64 Timestamp = 15;
+    bytes ExecutedQuantity = 16;
+    bytes ExecutedAmount = 17;
+    bytes ExecutedFee = 18; // fee actually executed
+    bytes RefundToken = 19;
+    bytes RefundQuantity = 20; //refund trade/quote token
+}
+
+message OrderNode {
+    Order Order = 1;
+    repeated bytes ForwardOnLevel = 2;
+    repeated bytes BackwardOnLevel = 3;
+}
+
+message OrderListMeta {
+    bytes Header = 1;
+    bytes Tail = 2;
+    int32 Length = 3;
+    int32 Level = 4;
+    repeated bytes ForwardOnLevel = 5;
+}
+
+message OrderBook {
+    repeated string MarketSide = 1; //format : TradeToken|QuoteToken|Side
+}
+
+message Transaction {
+    bytes Id = 1;
+    bool TakerSide = 2;
+    bytes TakerId = 3;
+    bytes MakerId = 4;
+    string Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7;
+    bytes TakerFee = 8;
+    bytes MakerFee = 9;
+    int64 Timestamp = 10;
+}
+

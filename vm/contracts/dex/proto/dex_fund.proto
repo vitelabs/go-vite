@@ -1,0 +1,51 @@
+syntax="proto3";
+
+package proto;
+
+message Account {
+    bytes Token = 1;
+    bytes Available = 2;
+    bytes Locked   = 3;
+}
+
+message Fund {
+    bytes Address = 1;
+    repeated Account Accounts = 2;
+}
+
+message FundSettle {
+    bytes Address = 1;
+    bytes Token = 2;
+    bytes IncAvailable = 3;
+    bytes ReduceLocked = 4;
+    bytes ReleaseLocked = 5;
+}
+
+message FeeSettle {
+    bytes Token = 1;
+    bytes Amount = 2;
+}
+
+message SettleActions {
+    repeated FundSettle fundActions = 1;
+    repeated FeeSettle feeActions = 2;
+}
+
+message FeeByPeriod {
+    bool Divided = 1;
+    repeated FeeAccount fees  = 2;
+}
+
+message FeeAccount {
+    bytes Token = 1;
+    bytes Amount = 2;
+}
+
+message VxFunds {
+    repeated VxFundWithPeriod funds = 1;
+}
+
+message VxFundWithPeriod {
+    uint64 Period = 1; // last snapshot height in period
+    bytes Amount = 2;
+}
