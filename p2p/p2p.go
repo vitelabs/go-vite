@@ -371,11 +371,7 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		return
 	}
 
-	dialPending := make(chan struct{}, svr.config.MaxPendingPeers)
-
 	common.Go(func() {
-		dialPending <- struct{}{}
-
 		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 			svr.setupConn(conn, flag, id)
 		} else {
@@ -386,8 +382,6 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		if done != nil {
 			done <- id
 		}
-
-		<-dialPending
 	})
 }
 
