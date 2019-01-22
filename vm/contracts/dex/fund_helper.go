@@ -44,6 +44,10 @@ type ParamDexFundNewOrder struct {
 	Quantity *big.Int
 }
 
+type ParamDexFundDividend struct {
+	PeriodId uint64
+}
+
 type ParamDexSerializedData struct {
 	Data []byte
 }
@@ -314,6 +318,10 @@ func SaveVxFundsToStorage(storage vmctxt_interface.VmDatabase, address []byte, v
 	} else {
 		return err
 	}
+}
+
+func DeleteVxFundsToStorage(storage vmctxt_interface.VmDatabase, address []byte) {
+	storage.SetStorage(GetVxFundsKey(address), nil)
 }
 
 func GetVxFundsKey(address []byte) []byte {
