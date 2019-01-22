@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -17,9 +18,9 @@ import (
 )
 
 var (
-	fundKeyPrefix            = []byte("fund:") // fund:types.Address
+	fundKeyPrefix = []byte("fund:") // fund:types.Address
 
-	feeAccKeyPrefix          = []byte("fee:")  // fee:feeAccId feeAccId = PeriodIdByHeight
+	feeAccKeyPrefix          = []byte("fee:") // fee:feeAccId feeAccId = PeriodIdByHeight
 	feePeriodByHeight uint64 = 10
 
 	vxFundKeyPrefix     = []byte("vxFund:")    // vxFund:types.Address
@@ -203,6 +204,30 @@ func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (acc
 	account.Available = big.NewInt(0).Bytes()
 	account.Locked = big.NewInt(0).Bytes()
 	return account, false
+}
+
+func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Account, error) {
+	if dexFund == nil {
+		return nil, errors.New("fund user doesn't exist.")
+	}
+	var dexAccount = make([]*Account, 0)
+	if tokenId != nil {
+		for _, v := range dexFund.Accounts {
+			if bytes.Equal(tokenId.Bytes(), v.Token) {
+				var acc = &Account{}
+				acc.Deserialize(v)
+				dexAccount = append(dexAccount, acc)
+				break
+			}
+		}
+	} else {
+		for _, v := range dexFund.Accounts {
+			var acc = &Account{}
+			acc.Deserialize(v)
+			dexAccount = append(dexAccount, acc)
+		}
+	}
+	return dexAccount, nil
 }
 
 func GetUserFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
