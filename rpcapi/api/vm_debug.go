@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -340,7 +341,12 @@ type compileResult struct {
 }
 
 func compile(fileName string) ([]compileResult, error) {
-	cmd := exec.Command("./solc", "--bin", "--abi", fileName)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("solc", "--bin", "--abi", fileName)
+	} else {
+		cmd = exec.Command("./solc", "--bin", "--abi", fileName)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.New(strings.Trim(string(out), "\n"))
@@ -348,13 +354,24 @@ func compile(fileName string) ([]compileResult, error) {
 	list := strings.Split(string(out), "\n")
 	codeList := make([]compileResult, 0)
 	for i := 0; i < len(list); i++ {
-		if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && list[i+1] == "Binary: " && list[i+3] == "Contract JSON ABI " {
-			if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
-				return nil, errors.New("code len is 0")
+		if runtime.GOOS == "windows" {
+			if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && strings.HasPrefix(list[i+1], "Binary: ") && strings.HasPrefix(list[i+3], "Contract JSON ABI") {
+				if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
+					return nil, errors.New("code len is 0")
+				}
+				name := list[i][9+len(fileName) : len(list[i])-9]
+				codeList = append(codeList, compileResult{name, list[i+2][:len(list[i+2])-1], list[i+4][:len(list[i+4])-1]})
+				i = i + 4
 			}
-			name := list[i][9+len(fileName) : len(list[i])-8]
-			codeList = append(codeList, compileResult{name, list[i+2], list[i+4]})
-			i = i + 4
+		} else {
+			if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && list[i+1] == "Binary: " && list[i+3] == "Contract JSON ABI " {
+				if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
+					return nil, errors.New("code len is 0")
+				}
+				name := list[i][9+len(fileName) : len(list[i])-8]
+				codeList = append(codeList, compileResult{name, list[i+2], list[i+4]})
+				i = i + 4
+			}
 		}
 	}
 	if len(codeList) == 0 {
