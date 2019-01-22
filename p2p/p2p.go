@@ -143,7 +143,10 @@ func New(cfg *Config) (Server, error) {
 		self:        node,
 		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
 		log:         log15.New("module", "p2p/server"),
-		dialer:      &net.Dialer{Timeout: 5 * time.Second},
+		dialer: &net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 10 * time.Second,
+		},
 	}
 
 	if cfg.Discovery {
@@ -371,11 +374,7 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		return
 	}
 
-	dialPending := make(chan struct{}, svr.config.MaxPendingPeers)
-
 	common.Go(func() {
-		dialPending <- struct{}{}
-
 		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
 			svr.setupConn(conn, flag, id)
 		} else {
@@ -386,8 +385,6 @@ func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, d
 		if done != nil {
 			done <- id
 		}
-
-		<-dialPending
 	})
 }
 
