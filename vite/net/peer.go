@@ -222,125 +222,120 @@ const (
 
 type peerEvent struct {
 	code  peerEventCode
-	peer  *peer
+	peer  Peer
 	count int
-	err   error
 }
 
 type peerSet struct {
-	peers map[string]*peer
-	rw    sync.RWMutex
-	subs  []chan<- *peerEvent
+	m   map[peerId]*peer
+	prw sync.RWMutex
+
+	subs []chan<- peerEvent
 }
 
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers: make(map[string]*peer),
+		m: make(map[peerId]*peer),
 	}
 }
 
-func (m *peerSet) Sub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	m.subs = append(m.subs, c)
+func (m *peerSet) Sub(ch chan<- peerEvent) {
+	m.subs = append(m.subs, ch)
 }
 
-func (m *peerSet) UnSub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	var i, j int
-	for i, j = 0, 0; i < len(m.subs); i++ {
-		if m.subs[i] != c {
-			m.subs[j] = m.subs[i]
-			j++
+func (m *peerSet) UnSub(ch chan<- peerEvent) {
+	for i, c := range m.subs {
+		if c == ch {
+			if i != len(m.subs)-1 {
+				copy(m.subs[i:], m.subs[i+1:])
+			}
+			m.subs = m.subs[:len(m.subs)-1]
+			return
 		}
 	}
-	m.subs = m.subs[:j]
 }
 
-func (m *peerSet) Notify(e *peerEvent) {
+func (m *peerSet) Notify(e peerEvent) {
 	for _, c := range m.subs {
-		select {
-		case c <- e:
-		default:
-		}
+		c <- e
 	}
 }
 
-// the tallest peer
+// BestPeer is the tallest peer
 func (m *peerSet) BestPeer() (best Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
 	var maxHeight uint64
-	for _, peer := range m.peers {
-		peerHeight := peer.height
+	for _, p := range m.m {
+		peerHeight := p.height
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
-			best = peer
+			best = p
 		}
 	}
 
 	return
 }
 
+// SyncPeer is the middle Peer
 func (m *peerSet) SyncPeer() Peer {
-	s := m.Peers()
-	if len(s) == 0 {
+	l := m.Peers()
+	if len(l) == 0 {
 		return nil
 	}
 
-	sort.Sort(s)
-	mid := len(s) / 2
+	sort.Sort(l)
+	mid := len(l) / 2
 
-	return s[mid]
+	return l[mid]
 }
 
 func (m *peerSet) Add(peer *peer) error {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+	m.prw.Lock()
+	defer m.prw.Unlock()
 
-	if _, ok := m.peers[peer.id]; ok {
+	if _, ok := m.m[peer.id]; ok {
 		return errSetHasPeer
 	}
 
-	m.peers[peer.id] = peer
-	m.Notify(&peerEvent{
+	m.m[peer.id] = peer
+
+	go m.Notify(peerEvent{
 		code:  addPeer,
 		peer:  peer,
-		count: len(m.peers),
+		count: len(m.m),
 	})
 	return nil
 }
 
 func (m *peerSet) Del(peer *peer) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+	m.prw.Lock()
+	defer m.prw.Unlock()
 
-	delete(m.peers, peer.id)
-	m.Notify(&peerEvent{
+	delete(m.m, peer.id)
+
+	go m.Notify(peerEvent{
 		code:  delPeer,
 		peer:  peer,
-		count: len(m.peers),
+		count: len(m.m),
 	})
 }
 
 func (m *peerSet) Count() int {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	return len(m.peers)
+	return len(m.m)
 }
 
 // Pick peers whose height taller than the target height
 // has sorted from low to high
 func (m *peerSet) Pick(height uint64) (l []Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	for _, p := range m.peers {
+	for _, p := range m.m {
 		if p.height >= height {
 			l = append(l, p)
 		}
@@ -350,68 +345,60 @@ func (m *peerSet) Pick(height uint64) (l []Peer) {
 }
 
 func (m *peerSet) Info() (info []*PeerInfo) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	info = make([]*PeerInfo, len(m.peers))
+	info = make([]*PeerInfo, len(m.m))
 
 	i := 0
-	for _, peer := range m.peers {
-		info[i] = peer.Info()
+	for _, p := range m.m {
+		info[i] = p.Info()
 		i++
 	}
 
 	return
 }
 
-func (m *peerSet) UnknownBlock(hash types.Hash) (peers []Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+func (m *peerSet) UnknownBlock(hash types.Hash) (l peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make([]Peer, len(m.peers))
+	l = make(peers, len(m.m))
 
 	i := 0
-	for _, p := range m.peers {
+	for _, p := range m.m {
 		if seen := p.knownBlocks.has(hash[:]); !seen {
-			peers[i] = p
+			l[i] = p
 			i++
 		}
 	}
 
-	return peers[:i]
+	return l[:i]
 }
 
-func (m *peerSet) Peers() (peers Peers) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+func (m *peerSet) Peers() (l peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make(Peers, len(m.peers))
+	l = make(peers, len(m.m))
 
 	i := 0
-	for _, peer := range m.peers {
-		peers[i] = peer
+	for _, p := range m.m {
+		l[i] = p
 		i++
 	}
 
 	return
 }
 
-func (m *peerSet) Has(id string) bool {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	_, ok := m.peers[id]
-	return ok
-}
-
 func (m *peerSet) Get(id string) Peer {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	return m.peers[id]
+	return m.m[id]
 }
 
-// @implementation sort.Interface
+// peers can be sort by height, from low to high
 type peers []Peer
 
 func (s peers) Len() int {
@@ -438,18 +425,4 @@ func (s peers) delete(id string) peers {
 	}
 
 	return s
-}
-
-type Peers []Peer
-
-func (l Peers) Len() int {
-	return len(l)
-}
-
-func (l Peers) Less(i, j int) bool {
-	return l[i].Height() < l[j].Height()
-}
-
-func (l Peers) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
 }
