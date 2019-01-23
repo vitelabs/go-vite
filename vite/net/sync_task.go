@@ -1,18 +1,10 @@
 package net
 
 import (
+	"context"
 	"sync"
 
 	"github.com/vitelabs/go-vite/ledger"
-)
-
-type syncTaskState int
-
-const (
-	syncTaskWait syncTaskState = iota
-	syncTaskPending
-	syncTaskDone
-	syncTaskError
 )
 
 type syncTaskType int
@@ -24,11 +16,12 @@ const (
 
 type syncTask interface {
 	bound() (from, to uint64)
-	state() syncTaskState
-	setState(st syncTaskState)
-	do() error
+	state() reqState
+	setState(st reqState)
+	do(ctx context.Context) error
 	taskType() syncTaskType
 	info() string
+	cancel()
 }
 
 type blockReceiver interface {
@@ -56,20 +49,24 @@ type fileDownloader interface {
 }
 
 type fileTask struct {
-	st         syncTaskState
+	st         reqState
 	file       File
 	downloader fileDownloader
+	ctx        context.Context
+}
+
+func (f *fileTask) cancel() {
 }
 
 func (f *fileTask) info() string {
 	panic("implement me")
 }
 
-func (f *fileTask) state() syncTaskState {
+func (f *fileTask) state() reqState {
 	return f.st
 }
 
-func (f *fileTask) setState(st syncTaskState) {
+func (f *fileTask) setState(st reqState) {
 	f.st = st
 }
 
@@ -91,7 +88,7 @@ type chunkDownloader interface {
 
 type chunkTask struct {
 	from, to   uint64
-	st         syncTaskState
+	st         reqState
 	downloader chunkDownloader
 }
 
@@ -99,11 +96,11 @@ func (c *chunkTask) info() string {
 	panic("implement me")
 }
 
-func (c *chunkTask) state() syncTaskState {
+func (c *chunkTask) state() reqState {
 	return c.st
 }
 
-func (c *chunkTask) setState(st syncTaskState) {
+func (c *chunkTask) setState(st reqState) {
 	c.st = st
 }
 
@@ -121,100 +118,106 @@ func (c *chunkTask) do() error {
 
 type syncTaskExecutor interface {
 	add(t syncTask)
+	cancel(t syncTask)
 	runTo(to uint64)
-	start()
-	stop()
+	last() syncTask
+	terminate()
 }
 
 type syncTaskListener interface {
 	done(t syncTask)
-	cache(t syncTask, err error)
+	catch(t syncTask, err error)
+	nonTask(last syncTask)
 }
 
 type executor struct {
 	mu    sync.Mutex
 	tasks []syncTask
 
-	doneIndex      int
-	setChainTarget func(to uint64) // when continuous tasks have done, then chain should grow to the specified height.
-	listener       syncTaskListener
+	doneIndex int
+	listener  syncTaskListener
+
+	ctx       context.Context
+	ctxCancel func()
 }
 
-func (e *executor) add(task syncTask) {
-	// todo
-	//e.mu.Lock()
-	//defer e.mu.Unlock()
-	//
-	//if len(e.tasks) == 0 {
-	//	e.tasks = append(e.tasks, task)
-	//	return
-	//}
-	//
-	//from, to := task.bound()
-	//
-	//last := e.tasks[len(e.tasks)-1]
-	//f, to := last.bound()
-	//
-	//for i := 0; i < len(e.tasks); i++ {
-	//	f, t := e.tasks[i].bound()
-	//	if from > t {
-	//		continue
-	//	} else if f == from {
-	//		return
-	//	} else {
-	//
-	//	}
-	//}
+func (e *executor) cancel(t syncTask) {
+	panic("implement me")
+}
+
+func newExecutor(listener syncTaskListener) syncTaskExecutor {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &executor{
+		listener:  listener,
+		ctx:       ctx,
+		ctxCancel: cancel,
+	}
+}
+
+func (e *executor) add(t syncTask) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.tasks = append(e.tasks, t)
 }
 
 func (e *executor) runTo(to uint64) {
-	var jump = 0
+	e.mu.Lock()
+
+	var skip = 0 // pending / cancel / done but not continue
 	var index = 0
 	var continuous = true // is task done continuously
 
-	for index = e.doneIndex + jump; index < len(e.tasks); index = e.doneIndex + jump {
+	for index = e.doneIndex + skip; index < len(e.tasks); index = e.doneIndex + skip {
 		t := e.tasks[index]
 		st := t.state()
 
-		if st == syncTaskDone && continuous {
+		if st == reqDone && continuous {
 			e.doneIndex++
-		} else if st == syncTaskPending || st == syncTaskDone {
+		} else if st == reqPending || st == reqDone {
 			continuous = false
-			jump++
+			skip++
 		} else {
 			continuous = false
 			if from, _ := t.bound(); from <= to {
 				e.run(t)
 			} else {
-				break
+				e.mu.Unlock()
+				return
 			}
 		}
 	}
 
-	// chain should grow to the target height
-	_, to = e.tasks[e.doneIndex].bound()
-	e.setChainTarget(to)
+	last := e.tasks[index-1]
+	e.mu.Unlock()
+
+	// no tasks remand
+	e.listener.nonTask(last)
 }
 
 func (e *executor) run(t syncTask) {
-	t.setState(syncTaskPending)
+	t.setState(reqPending)
 	go e.do(t)
 }
 
 func (e *executor) do(t syncTask) {
-	if err := t.do(); err != nil {
-		t.setState(syncTaskError)
-		e.listener.cache(t, err)
+	if err := t.do(e.ctx); err != nil {
+		t.setState(reqError)
+		e.listener.catch(t, err)
 	} else {
-		t.setState(syncTaskDone)
+		t.setState(reqDone)
 		e.listener.done(t)
 	}
 }
 
-func (e *executor) start() {
-	panic("implement me")
+func (e *executor) last() syncTask {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.tasks[len(e.tasks)-1]
 }
 
-func (e *executor) stop() {
+func (e *executor) terminate() {
 	panic("implement me")
 }
