@@ -11,7 +11,8 @@ import (
 
 type NodeConfig struct {
 	QuotaParams
-	sectionList []*big.Float
+	sectionList    []*big.Float
+	difficultyList []*big.Int
 }
 
 var nodeConfig NodeConfig
@@ -22,9 +23,9 @@ func InitQuotaConfig(isTestParam bool) {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
 	if isTestParam {
-		nodeConfig = NodeConfig{QuotaParamTest, sectionList}
+		nodeConfig = NodeConfig{QuotaParamTest, sectionList, difficultyListTest}
 	} else {
-		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList}
+		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList, difficultyListMainNet}
 	}
 }
 
@@ -79,7 +80,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
 			// quick fail on a receive error block referencing to the same snapshot block
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError {
-				return 0, 0, nil
+				return 0, 0, util.ErrOutOfQuota
 			}
 			if isPoW && IsPoW(prevBlock.Nonce) {
 				// only one block gets extra quota when referencing to the same snapshot block
@@ -154,4 +155,33 @@ func getExactIndex(x *big.Float, index int) int {
 	} else {
 		return index - 1
 	}
+}
+
+func calcSectionIndexByQuotaRequired(quotaRequired uint64) uint64 {
+	if quotaRequired > helper.MaxUint64-quotaForSection+1 {
+		return helper.MaxUint64/quotaForSection + 1
+	}
+	return (quotaRequired + quotaForSection - 1) / quotaForSection
+}
+
+func CanPoW(db quotaDb, addr types.Address) bool {
+	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
+	prevBlock := db.PrevAccountBlock()
+	for {
+		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
+			if IsPoW(prevBlock.Nonce) {
+				return false
+			} else {
+				prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
+				continue
+			}
+		} else {
+			return true
+		}
+	}
+}
+
+func CalcPoWDifficulty(quotaRequired uint64) *big.Int {
+	index := calcSectionIndexByQuotaRequired(quotaRequired)
+	return new(big.Int).Set(nodeConfig.difficultyList[index])
 }

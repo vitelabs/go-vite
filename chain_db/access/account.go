@@ -64,6 +64,11 @@ func (accountAccess *Account) GetAddressById(accountId uint64) (*types.Address, 
 	return &b2Address, nil
 }
 
+func (accountAccess *Account) IsAccountExisted(address *types.Address) (bool, error) {
+	keyAccountMeta, _ := database.EncodeKey(database.DBKP_ACCOUNT, address.Bytes())
+	return accountAccess.db.Has(keyAccountMeta, nil)
+}
+
 func (accountAccess *Account) GetAccountByAddress(address *types.Address) (*ledger.Account, error) {
 	keyAccountMeta, _ := database.EncodeKey(database.DBKP_ACCOUNT, address.Bytes())
 

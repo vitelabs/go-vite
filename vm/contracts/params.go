@@ -23,6 +23,7 @@ const (
 	dexFundWithdrawGas        uint64 = 300
 	dexFundNewOrderGas        uint64 = 300
 	dexFundSettleOrdersGas    uint64 = 300
+	dexFundVxDividendGas      uint64 = 300
 	dexTradeNewOrderGas    	  uint64 = 300
 	dexTradeCancelOrderGas    uint64 = 300
 

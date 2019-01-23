@@ -67,7 +67,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(appendedBlocks))
 	assert.True(t, bytes.Equal(appendedBlocks[0].Block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()))
 	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
-	param := new(contracts.ParamDexSerializedData)
+	param := new(dex.ParamDexSerializedData)
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}
@@ -130,7 +130,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(db.logList))
 	assert.Equal(t, 1, len(appendedBlocks))
 	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
-	param := new(contracts.ParamDexSerializedData)
+	param := new(dex.ParamDexSerializedData)
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}

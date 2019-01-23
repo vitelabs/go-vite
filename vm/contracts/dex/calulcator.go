@@ -62,3 +62,7 @@ func AdjustForDecimalsDiff(sourceAmountF *big.Float, sourceDecimals, targetDecim
 		return sourceAmountF.Mul(sourceAmountF, decimalDiffFloat)
 	}
 }
+
+func NegativeAmount(amount []byte) *big.Int {
+	return new(big.Int).Sub(big.NewInt(0), new(big.Int).SetBytes(amount))
+}

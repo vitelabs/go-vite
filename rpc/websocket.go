@@ -243,7 +243,12 @@ func (self *WebSocketCli) Handle() {
 		default:
 		}
 		log.Info("connecting to " + self.u.String() + ".")
-		c, err := websocket.Dial(self.u.String(), "", "*")
+		config, err := websocket.NewConfig(self.u.String(), "*")
+		if err != nil {
+			panic(err)
+		}
+		config.Dialer = &net.Dialer{Timeout: time.Second * 10, KeepAlive: time.Second * 5}
+		c, err := websocket.DialConfig(config)
 		if err == nil {
 			log.Info("connect to " + self.u.String() + " success.")
 			self.c = c
