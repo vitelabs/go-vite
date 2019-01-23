@@ -216,9 +216,6 @@ loop:
 		}
 	}
 
-	close(p.term)
-	p.wg.Wait()
-
 	return err
 }
 

@@ -47,10 +47,10 @@ type peer struct {
 	filePort uint16     // fileServer port, for request file
 	CmdSet   p2p.CmdSet // which cmdSet it belongs
 	knownBlocks blockFilter
-	log     log15.Logger
 	errChan chan error
-	term    chan struct{}
-	wg      sync.WaitGroup
+	once    sync.Once
+
+	log log15.Logger
 }
 
 func (p *peer) Head() types.Hash {
@@ -74,16 +74,13 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		knownBlocks: newBlockFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errChan:     make(chan error, 1),
-		term:        make(chan struct{}),
 	}
 }
 
 func (p *peer) Report(err error) {
-	select {
-	case p.errChan <- err:
-	default:
-		// nothing
-	}
+	p.once.Do(func() {
+		p.errChan <- err
+	})
 }
 
 func (p *peer) FileAddress() *net2.TCPAddr {
@@ -148,7 +145,7 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 }
 
 func (p *peer) SeeBlock(hash types.Hash) {
-	p.knownBlocks.record(hash[:])
+	p.knownBlocks.lookAndRecord(hash[:])
 }
 
 // send
@@ -337,7 +334,7 @@ func (m *peerSet) Count() int {
 	return len(m.peers)
 }
 
-// pick peers whose height taller than the target height
+// Pick peers whose height taller than the target height
 // has sorted from low to high
 func (m *peerSet) Pick(height uint64) (l []Peer) {
 	m.rw.RLock()
@@ -405,6 +402,13 @@ func (m *peerSet) Has(id string) bool {
 
 	_, ok := m.peers[id]
 	return ok
+}
+
+func (m *peerSet) Get(id string) Peer {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	return m.peers[id]
 }
 
 // @implementation sort.Interface

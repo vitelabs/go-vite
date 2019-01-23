@@ -27,7 +27,6 @@ type syncTask interface {
 	state() syncTaskState
 	setState(st syncTaskState)
 	do() error
-	rest() [][2]uint64
 	taskType() syncTaskType
 	info() string
 }
@@ -53,14 +52,13 @@ func (f Files) Swap(i, j int) {
 }
 
 type fileDownloader interface {
-	download(file File) (uint64, error)
+	download(file File) error
 }
 
 type fileTask struct {
 	st         syncTaskState
 	file       File
 	downloader fileDownloader
-	index      uint64
 }
 
 func (f *fileTask) info() string {
@@ -75,12 +73,6 @@ func (f *fileTask) setState(st syncTaskState) {
 	f.st = st
 }
 
-func (f *fileTask) rest() [][2]uint64 {
-	return [][2]uint64{
-		{f.index, f.file.EndHeight},
-	}
-}
-
 func (f *fileTask) taskType() syncTaskType {
 	return syncFileTask
 }
@@ -90,19 +82,16 @@ func (f *fileTask) bound() (from, to uint64) {
 }
 
 func (f *fileTask) do() error {
-	index, err := f.downloader.download(f.file)
-	f.index = index
-	return err
+	return f.downloader.download(f.file)
 }
 
 type chunkDownloader interface {
-	download(from, to uint64) ([][2]uint64, error)
+	download(from, to uint64) error
 }
 
 type chunkTask struct {
 	from, to   uint64
 	st         syncTaskState
-	_rest      [][2]uint64
 	downloader chunkDownloader
 }
 
@@ -118,10 +107,6 @@ func (c *chunkTask) setState(st syncTaskState) {
 	c.st = st
 }
 
-func (c *chunkTask) rest() [][2]uint64 {
-	return c._rest
-}
-
 func (c *chunkTask) taskType() syncTaskType {
 	return syncChunkTask
 }
@@ -131,9 +116,7 @@ func (c *chunkTask) bound() (from, to uint64) {
 }
 
 func (c *chunkTask) do() error {
-	rest, err := c.downloader.download(c.from, c.to)
-	c._rest = rest
-	return err
+	return c.downloader.download(c.from, c.to)
 }
 
 type syncTaskExecutor interface {
