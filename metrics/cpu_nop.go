@@ -1,3 +1,5 @@
+// +build !linux
+
 package metrics
 
 // getProcessCPUTime returns 0 on Windows as there is no system call to resolve

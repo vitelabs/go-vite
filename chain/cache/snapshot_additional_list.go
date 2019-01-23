@@ -122,7 +122,7 @@ type AdditionList struct {
 func NewAdditionList(chain Chain) (*AdditionList, error) {
 	al := &AdditionList{
 		aggregateHeight: 60 * 60,
-		saveHeight:      5 * 24 * 60 * 60,
+		saveHeight:      2 * 24 * 60 * 60,
 
 		flushInterval: time.Hour * 1,
 		status:        0,
@@ -388,7 +388,7 @@ func (al *AdditionList) loadFromDb() error {
 
 		frag.TailHeight = GetFragTailHeightFromDbKey(iter.Key())
 		frag.HeadHeight = GetFragHeadHeightFromDbKey(iter.Key())
-		if lastHeight > 0 && frag.TailHeight != lastHeight + 1 {
+		if lastHeight > 0 && frag.TailHeight != lastHeight+1 {
 			// log error, and need rebuild
 			al.log.Error(fmt.Sprintf("current lastHeight is %d, miss %d - %d", lastHeight, frag.TailHeight, frag.HeadHeight))
 			break
