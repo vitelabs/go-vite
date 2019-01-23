@@ -234,17 +234,18 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
 
-	if block.IsSendBlock() && block.Meta == nil {
-		var err error
-		block.Meta, err = chain.ChainDb().Ac.GetBlockMeta(&block.Hash)
-		if err != nil {
-			return nil, err
+	if block.IsSendBlock() {
+		if block.Meta == nil {
+			var err error
+			block.Meta, err = chain.ChainDb().Ac.GetBlockMeta(&block.Hash)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if block.Meta != nil {
 			rpcAccountBlock.ReceiveBlockHeights = block.Meta.ReceiveBlockHeights
 		}
-
 	}
 	return rpcAccountBlock, nil
 }
