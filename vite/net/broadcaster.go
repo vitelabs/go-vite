@@ -93,6 +93,8 @@ func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
 type broadcaster struct {
 	peers *peerSet
 
+	height uint64
+
 	st SyncState
 
 	verifier Verifier
@@ -277,6 +279,10 @@ func (b *broadcaster) canNotify() bool {
 	return b.st != Syncing && b.st != SyncNotStart
 }
 
+func (b *broadcaster) setHeight(height uint64) {
+	b.height = height
+}
+
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
 	defer monitor.LogTime("net/broadcast", "SnapshotBlock", now)
@@ -286,7 +292,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		p.SendNewSnapshotBlock(block)
 	}
 
-	if block.Timestamp != nil && block.Height > currentHeight {
+	if block.Timestamp != nil && block.Height > b.height {
 		delta := now.Sub(*block.Timestamp)
 		b.mu.Lock()
 		b.statis.Put(delta.Nanoseconds() / 1e6)

@@ -44,8 +44,8 @@ type fp struct {
 func (p *fp) pickAccount(height uint64) []Peer {
 	var l, taller []Peer
 
-	peers := p.peers.Peers()
-	total := len(peers)
+	all := p.peers.Peers()
+	total := len(all)
 
 	if total == 0 {
 		return l
@@ -54,40 +54,40 @@ func (p *fp) pickAccount(height uint64) []Peer {
 	// best
 	var peer Peer
 	var maxHeight uint64
-	for _, p := range peers {
-		peerHeight := p.Height()
+	for _, p := range all {
+		ph := p.Height()
 
-		if peerHeight > maxHeight {
-			maxHeight = peerHeight
+		if ph > maxHeight {
+			maxHeight = ph
 			peer = p
 		}
 
-		if peerHeight >= height {
+		if ph >= height {
 			taller = append(taller, p)
 		}
 	}
 
 	l = append(l, peer)
 
-	// random
+	// random a peer
 	ran := rand.Intn(total)
-	if peer = peers[ran]; peer != l[0] {
+	if peer = all[ran]; peer != l[0] {
 		l = append(l, peer)
 	}
 
 	// taller
-	if len(taller) > 0 {
-		ran = rand.Intn(len(taller))
-		peer = taller[ran]
-
-		for _, p := range l {
-			if peer == p {
-				return l
-			}
-		}
-
-		l = append(l, peer)
-	}
+	//if len(taller) > 0 {
+	//	ran = rand.Intn(len(taller))
+	//	peer = taller[ran]
+	//
+	//	for _, p := range l {
+	//		if peer == p {
+	//			return l
+	//		}
+	//	}
+	//
+	//	l = append(l, peer)
+	//}
 
 	return l
 }
@@ -97,13 +97,12 @@ func (p *fp) pickSnap() Peer {
 }
 
 // fetch filter
-const maxMark = 5
-
-var timeThreshold = 5 * time.Second
+const maxMark = 3
+const timeThreshold = int64(3 * time.Second)
 
 type record struct {
-	addAt  time.Time
-	doneAt time.Time
+	addAt  int64
+	doneAt int64
 	mark   int
 	_done  bool
 }
@@ -115,64 +114,50 @@ func (r *record) inc() {
 func (r *record) reset() {
 	r.mark = 0
 	r._done = false
-	r.addAt = time.Now()
+	r.addAt = time.Now().Unix()
 }
 
 func (r *record) done() {
-	r.doneAt = time.Now()
+	r.doneAt = time.Now().Unix()
 	r._done = true
 }
 
 type filter struct {
-	records map[types.Hash]*record
+	records map[types.Hash]record
 	lock    sync.RWMutex
 }
 
 func newFilter() *filter {
 	return &filter{
-		records: make(map[types.Hash]*record, 10000),
+		records: make(map[types.Hash]record, 3600),
 	}
 }
 
-func (f *filter) loop() {
-	defer f.wg.Done()
+func (f *filter) clean(t int64) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-f.term:
-			return
-		case now := <-ticker.C:
-			f.lock.Lock()
-
-			for hash, r := range f.records {
-				if r._done && now.Sub(r.doneAt) > timeThreshold {
-					delete(f.records, hash)
-				}
-			}
-
-			f.lock.Unlock()
+	for hash, r := range f.records {
+		if r._done && (t-r.doneAt) > int64(timeThreshold) {
+			delete(f.records, hash)
 		}
 	}
 }
 
 // will suppress fetch
 func (f *filter) hold(hash types.Hash) bool {
-	defer monitor.LogTime("net/filter", "hold", time.Now())
-
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	now := time.Now().Unix()
 	if r, ok := f.records[hash]; ok {
 		if r._done {
-			if r.mark >= maxMark && time.Now().Sub(r.doneAt) >= timeThreshold {
+			if r.mark >= maxMark && (now-r.doneAt) >= timeThreshold {
 				r.reset()
 				return false
 			}
 		} else {
-			if r.mark >= maxMark*2 && time.Now().Sub(r.addAt) >= timeThreshold*2 {
+			if r.mark >= maxMark*2 && (now-r.addAt) >= timeThreshold*2 {
 				r.reset()
 				return false
 			}
@@ -180,7 +165,7 @@ func (f *filter) hold(hash types.Hash) bool {
 
 		r.inc()
 	} else {
-		f.records[hash] = &record{addAt: time.Now()}
+		f.records[hash] = record{addAt: now}
 		return false
 	}
 
@@ -188,22 +173,18 @@ func (f *filter) hold(hash types.Hash) bool {
 }
 
 func (f *filter) done(hash types.Hash) {
-	defer monitor.LogTime("net/filter", "done", time.Now())
-
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
 	if r, ok := f.records[hash]; ok {
 		r.done()
 	} else {
-		f.records[hash] = &record{addAt: time.Now()}
+		f.records[hash] = record{addAt: time.Now().Unix()}
 		f.records[hash].done()
 	}
 }
 
 func (f *filter) has(hash types.Hash) bool {
-	defer monitor.LogTime("net/filter", "has", time.Now())
-
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
@@ -212,8 +193,6 @@ func (f *filter) has(hash types.Hash) bool {
 }
 
 func (f *filter) fail(hash types.Hash) {
-	defer monitor.LogTime("net/filter", "fail", time.Now())
-
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
@@ -235,13 +214,15 @@ type fetcher struct {
 
 	policy fetchPolicy
 	pool   MsgIder
-	ready  int32 // atomic
-	log    log15.Logger
+
+	log log15.Logger
+
+	term chan struct{}
 }
 
 func newFetcher(peers *peerSet, pool MsgIder, verifier Verifier, notifier blockNotifier) *fetcher {
 	return &fetcher{
-		filter:   filter,
+		filter:   newFilter(),
 		policy:   &fp{peers},
 		pool:     pool,
 		notifier: notifier,
@@ -250,12 +231,43 @@ func newFetcher(peers *peerSet, pool MsgIder, verifier Verifier, notifier blockN
 	}
 }
 
+func (f *fetcher) start() {
+	f.term = make(chan struct{})
+	go f.cleanLoop()
+}
+
+func (f *fetcher) stop() {
+	if f.term == nil {
+		return
+	}
+
+	select {
+	case <-f.term:
+	default:
+		close(f.term)
+	}
+}
+
+func (f *fetcher) cleanLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.term:
+			return
+		case now := <-ticker.C:
+			f.filter.clean(now.Unix())
+		}
+	}
+}
+
 func (f *fetcher) subSyncState(st SyncState) {
 	f.st = st
 }
 
 func (f *fetcher) canFetch() bool {
-	return f.st == SyncDownloaded || f.st == Syncdone
+	return f.st == Syncdone || f.st == Syncerr
 }
 
 func (f *fetcher) ID() string {
