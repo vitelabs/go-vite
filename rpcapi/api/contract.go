@@ -29,8 +29,13 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
-func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, height uint64, prevHash types.Hash, snapshotHash types.Hash) types.Address {
-	return util.NewContractAddress(selfAddr, height, prevHash, snapshotHash)
+func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash, snapshotHash types.Hash) (*types.Address, error) {
+	h, err := stringToUint64(heightStr)
+	if err != nil {
+		return nil, err
+	}
+	addr := util.NewContractAddress(selfAddr, h, prevHash, snapshotHash)
+	return &addr, nil
 }
 
 func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiStr string, params []string) ([]byte, error) {
