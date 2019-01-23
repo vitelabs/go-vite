@@ -45,7 +45,6 @@ func mock(cfg *Config) Net {
 		chain: cfg.Chain,
 		syncer: &syncer{
 			state:   Syncdone,
-			feed:    newSyncStateFeed(),
 			peers:   peers,
 			pool:    &chunkPool{},
 			running: 1,
@@ -53,7 +52,6 @@ func mock(cfg *Config) Net {
 		fetcher: &fetcher{
 			policy: &fp{peers},
 			pool:   pool,
-			ready:  1,
 		},
 		broadcaster: &broadcaster{
 			peers:    peers,

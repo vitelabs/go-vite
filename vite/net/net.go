@@ -3,10 +3,9 @@ package net
 import (
 	"errors"
 	"fmt"
+	net2 "net"
 	"sync"
 	"time"
-
-	net2 "net"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
@@ -133,6 +132,8 @@ func (n *net) Start(svr p2p.Server) (err error) {
 
 	n.query.start()
 
+	n.fetcher.start()
+
 	return
 }
 
@@ -152,6 +153,8 @@ func (n *net) Stop() {
 
 		n.query.stop()
 
+		n.fetcher.stop()
+
 		n.wg.Wait()
 	}
 }
@@ -163,17 +166,17 @@ func (n *net) handlePeer(p *peer) error {
 
 	n.log.Debug(fmt.Sprintf("handshake with %s", p))
 
-	var filePort uint16
-	fileAddress, err := net2.ResolveTCPAddr("tcp", n.FileAddr)
+	var port uint16
+	tcpAddr, err := net2.ResolveTCPAddr("tcp", n.Address)
 	if err != nil {
-		filePort = uint16(fileAddress.Port)
+		port = 0
 	} else {
-		filePort = DefaultPort
+		port = uint16(tcpAddr.Port)
 	}
 
 	err = p.Handshake(&message.HandShake{
 		Height:  current.Height,
-		Port:    filePort,
+		Port:    port,
 		Current: current.Hash,
 		Genesis: genesis.Hash,
 	})
@@ -189,10 +192,11 @@ func (n *net) handlePeer(p *peer) error {
 }
 
 func (n *net) startPeer(p *peer) (err error) {
-	n.peers.Add(p)
-	defer n.peers.Del(p)
+	if err = n.peers.Add(p); err != nil {
+		return err
+	}
 
-	n.log.Debug(fmt.Sprintf("startPeer %s", p))
+	defer n.peers.Del(p)
 
 	common.Go(n.syncer.Start)
 
@@ -210,7 +214,7 @@ loop:
 			}
 
 		default:
-			if err := n.handleMsg(p); err != nil {
+			if err = n.handleMsg(p); err != nil {
 				return err
 			}
 		}
@@ -224,6 +228,7 @@ func (n *net) heartbeat() {
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+
 	var height uint64
 
 	for {
@@ -243,7 +248,8 @@ func (n *net) heartbeat() {
 			}
 
 			height = current.Height
-			currentHeight = height
+
+			n.broadcaster.setHeight(height)
 
 			for _, p := range l {
 				p.Send(StatusCode, 0, &ledger.HashHeight{
@@ -256,8 +262,6 @@ func (n *net) heartbeat() {
 		}
 	}
 }
-
-var errMissHandler = errors.New("missing message handler")
 
 func (n *net) handleMsg(p *peer) (err error) {
 	msg, err := p.mrw.ReadMsg()
