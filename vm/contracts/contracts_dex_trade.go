@@ -49,18 +49,15 @@ func (md *MethodDexTradeNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeNewOrder) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexTradeNewOrder) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexTradeNewOrderGas, data)
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if quotaLeft, err := util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
-		return quotaLeft, err
-	}
+func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
-		return quotaLeft, fmt.Errorf("invalid block source")
+		return fmt.Errorf("invalid block source")
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -95,33 +92,30 @@ func (md *MethodDexTradeCancelOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeCancelOrder) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexTradeCancelOrder) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexTradeCancelOrderGas, data)
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexTradeCancelOrderGas); err != nil {
-		return quotaLeft, err
-	}
 	param := new(ParamDexCancelOrder)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var order *dex.Order
 	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
-		return quotaLeft, fmt.Errorf("cancel order not own to initiator")
+		return fmt.Errorf("cancel order not own to initiator")
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return quotaLeft, fmt.Errorf("order status is invalid to cancel")
+		return fmt.Errorf("order status is invalid to cancel")
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -132,7 +126,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var (
 		order *dex.Order
-		err error
+		err   error
 	)
 	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
 		return []*SendBlock{}, err
@@ -187,7 +181,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			ledger.ViteTokenId, // no need send token
 			dexSettleBlockData,
 		},
-	} ,nil
+	}, nil
 }
 
 type fundActionsWrapper []*dexproto.FundSettle
