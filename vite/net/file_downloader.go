@@ -20,6 +20,8 @@ import (
 )
 
 var errNoSuitablePeers = errors.New("no suitable peers")
+var errFileConnExist = errors.New("fileConn has exist")
+var errFileConnClosed = errors.New("file connection has closed")
 
 type fileConnState byte
 
@@ -30,6 +32,30 @@ const (
 	fileConnStateClosed
 )
 
+type downloadErrorCode byte
+
+const (
+	downloadIncompleteErr downloadErrorCode = iota + 1
+	downloadPackMsgErr
+	downloadSendErr
+	downloadReceiveErr
+	downloadParseErr
+	downloadOtherErr
+)
+
+type downloadError struct {
+	code downloadErrorCode
+	err  string
+}
+
+func (e downloadError) Fatal() bool {
+	return e.code == downloadReceiveErr
+}
+
+func (e downloadError) Error() string {
+	return e.err
+}
+
 type fileParser interface {
 	BlockParser(reader io.Reader, blockNum uint64, processFunc func(block ledger.Block, err error))
 }
@@ -37,81 +63,98 @@ type fileParser interface {
 type fileConn struct {
 	net2.Conn
 	id     peerId
-	st     uint64 // time + state
-	failed int    // failed times
-	speed  int64  // download speed
+	busy   int32 // atomic
+	t      int64 // timestamp
+	speed  int64 // download speed
 	parser fileParser
+	closed int32
 }
 
-func (f *fileConn) state() (st fileConnState, t int64) {
-	stt := atomic.LoadUint64(&f.st)
-	return fileConnState(stt & 0xff), int64(stt >> 8)
+func (f *fileConn) isBusy() bool {
+	return atomic.LoadInt32(&f.busy) == 1
 }
 
-func (f *fileConn) setState(st fileConnState) {
-	stt := uint64(time.Now().Unix()<<8) | uint64(st)
-	atomic.StoreUint64(&f.st, stt)
-}
+func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError) {
+	atomic.StoreInt32(&f.busy, 1)
 
-func (f *fileConn) download(file File, rec blockReceiver) (height uint64, fatal bool, outerr error) {
-	f.setState(fileConnStateBusy)
-	defer f.setState(fileConnStateIdle)
+	defer f.idle()
 
 	getFiles := &message.GetFiles{
 		Names: []string{file.Filename},
 	}
 
-	msg, outerr := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
-
-	if outerr != nil {
-		return
+	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
+	if err != nil {
+		return &downloadError{
+			code: downloadPackMsgErr,
+			err:  err.Error(),
+		}
 	}
 
 	f.Conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-	if outerr = p2p.WriteMsg(f.Conn, msg); outerr != nil {
-		return
+	if err = p2p.WriteMsg(f.Conn, msg); err != nil {
+		return &downloadError{
+			code: downloadSendErr,
+			err:  err.Error(),
+		}
 	}
 
 	var sCount, aCount uint64
+
 	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
-		// Fatal error, then close the connection, and disconnect the peer
-		if outerr != nil {
-			fatal = true
-			f.Conn.Close()
+		// Fatal error, then close the connection
+		if outerr != nil && outerr.Fatal() {
+			f.close()
 		}
 
 		switch block.(type) {
 		case *ledger.SnapshotBlock:
 			block := block.(*ledger.SnapshotBlock)
-			sCount++
-			outerr = rec.receiveSnapshotBlock(block)
-			height = block.Height
+			err = rec.receiveSnapshotBlock(block)
+
+			if block.Height >= file.StartHeight && block.Height <= file.EndHeight {
+				sCount++
+			}
 
 		case *ledger.AccountBlock:
 			block := block.(*ledger.AccountBlock)
 			aCount++
-			outerr = rec.receiveAccountBlock(block)
+			err = rec.receiveAccountBlock(block)
+		}
+
+		if err != nil {
+			outerr = &downloadError{
+				code: downloadReceiveErr,
+				err:  err.Error(),
+			}
 		}
 	})
 
 	sTotal := file.EndHeight - file.StartHeight + 1
 	aTotal := file.BlockNumbers - sTotal
+
 	if sCount < sTotal || aCount < aTotal {
-		outerr = fmt.Errorf("incomplete file %s %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal)
-		return
+		outerr = &downloadError{
+			code: downloadIncompleteErr,
+			err:  fmt.Sprintf("incomplete file %s %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
+		}
 	}
 
 	return
 }
 
-func (f *fileConn) reset() {
-
+func (f *fileConn) idle() {
+	atomic.StoreInt32(&f.busy, 0)
+	atomic.StoreInt64(&f.t, time.Now().Unix())
 }
 
 func (f *fileConn) close() error {
-	f.setState(fileConnStateClosed)
-	return f.Conn.Close()
+	if atomic.CompareAndSwapInt32(&f.closed, 0, 1) {
+		return f.Conn.Close()
+	}
+
+	return errFileConnClosed
 }
 
 type fileConns []*fileConn
@@ -128,20 +171,173 @@ func (fl fileConns) Swap(i, j int) {
 	fl[i], fl[j] = fl[j], fl[i]
 }
 
-type fileConnections struct {
-	sources []*fileSource
-	conns   fileConns
+func (fl fileConns) del(i int) fileConns {
+	total := len(fl)
+	if i < total {
+		fl[i].close()
+
+		if i != total-1 {
+			copy(fl[i:], fl[i+1:])
+		}
+		return fl[:total-1]
+	}
+
+	return fl
+}
+
+type filePeer struct {
+	id   peerId
+	addr string
+	fail int32
+}
+
+type filePeerPool struct {
+	mu sync.Mutex
+
+	// for filePeer
+	mf map[filename]map[peerId]struct{}
+	mp map[peerId]*filePeer
+
+	// for fileConn
+	mi map[peerId]int // index
+	l  fileConns
+}
+
+func newPool() *filePeerPool {
+	return &filePeerPool{
+		mf: make(map[filename]map[peerId]struct{}),
+		mp: make(map[peerId]*filePeer),
+		mi: make(map[peerId]int),
+	}
+}
+
+func (fp *filePeerPool) addPeer(files []filename, addr string, id peerId) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	for _, name := range files {
+		if _, ok := fp.mf[name]; !ok {
+			fp.mf[name] = make(map[peerId]struct{})
+		}
+		fp.mf[name][id] = struct{}{}
+	}
+
+	if _, ok := fp.mp[id]; !ok {
+		fp.mp[id] = &filePeer{id, addr, 0}
+	} else {
+		fp.mp[id].addr = addr
+	}
+}
+
+// delete filePeer and connection
+func (fp *filePeerPool) delPeer(id peerId) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	for _, m := range fp.mf {
+		delete(m, id)
+	}
+
+	delete(fp.mp, id)
+
+	fp.delConn(id)
+}
+
+func (fp *filePeerPool) addConn(c *fileConn) error {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	if _, ok := fp.mi[c.id]; ok {
+		return errFileConnExist
+	}
+
+	fp.l = append(fp.l, c)
+	fp.mi[c.id] = len(fp.l) - 1
+	return nil
+}
+
+func (fp *filePeerPool) errConn(c *fileConn) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	if p, ok := fp.mp[c.id]; ok {
+		p.fail++
+
+		// fail too many times, then delete the peer
+		if p.fail > 3 {
+			fp.delPeer(c.id)
+		}
+	}
+}
+
+func (fp *filePeerPool) delConn(id peerId) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	if i, ok := fp.mi[id]; ok {
+		delete(fp.mi, id)
+
+		fp.l = fp.l.del(i)
+	}
+}
+
+// sort list, and update index to map
+func (fp *filePeerPool) sort() {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	sort.Sort(fp.l)
+	for i, c := range fp.l {
+		fp.mi[c.id] = i
+	}
+}
+
+// choose a fast file connection, or random create new conns
+func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	if peerM, ok := fp.mf[name]; ok && len(peerM) > 0 {
+		totalConns := len(fp.l)
+
+		var hasFreshPeer = false // have peers those has no file connection
+		var randCreate = false   // should create new connection randomly
+		var freshPeerId peerId   // if should create new connection, then will use this filePeer
+		for id := range peerM {
+			// this peer has no connection
+			if _, ok = fp.mi[id]; !ok {
+				freshPeerId = id
+				hasFreshPeer = true
+				randCreate = rand.Intn(10) > 5
+				break
+			}
+		}
+
+		for i, conn := range fp.l {
+			if conn.isBusy() {
+				continue
+			}
+
+			// can download file
+			if _, ok = peerM[conn.id]; !ok {
+				continue
+			}
+
+			if i <= totalConns/3 {
+				return nil, conn, nil
+			}
+
+			if hasFreshPeer && randCreate {
+				return fp.mp[freshPeerId], nil, nil
+			}
+		}
+	}
+
+	return nil, nil, errNoSuitablePeers
 }
 
 type filename = string
 type peerId = string
-
-type fileSource struct {
-	id    string
-	addr  string
-	files []File
-	fail  int32
-}
 
 type fileClient struct {
 	fqueue list.List // wait to download
@@ -152,10 +348,10 @@ type fileClient struct {
 
 	peers *peerSet
 
-	mu       sync.Mutex
-	filePool map[filename]fileConnections
-	connPool map[peerId]*fileConn
-	srcPool  map[peerId]*fileSource
+	pool *filePeerPool
+
+	mu      sync.Mutex
+	dialing map[string]struct{}
 
 	dialer *net2.Dialer
 
@@ -164,247 +360,119 @@ type fileClient struct {
 
 func newFileClient(parser fileParser, rec blockReceiver, peers *peerSet) *fileClient {
 	return &fileClient{
-		fqueue:   list.New(),
-		parser:   parser,
-		peers:    peers,
-		dialer:   &net2.Dialer{Timeout: 5 * time.Second},
-		rec:      rec,
-		filePool: make(map[filename]fileConnections),
-		connPool: make(map[peerId]*fileConn),
-		srcPool:  make(map[peerId]*fileSource),
-		log:      log15.New("module", "net/fileClient"),
+		fqueue: list.New(),
+		parser: parser,
+		peers:  peers,
+		pool:   newPool(),
+		dialer: &net2.Dialer{Timeout: 5 * time.Second},
+		rec:    rec,
+		log:    log15.New("module", "net/fileClient"),
 	}
 }
 
-func (fc *fileClient) addResource(files Files, sender Peer) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-
-	id := sender.ID()
-
-	src := fc.srcPool[id]
-	if src == nil {
-		src = &fileSource{
-			id:   id,
-			addr: sender.RemoteAddr().String(),
-		}
-	}
-
-	src.files = files
-	for _, file := range files {
-		if fcons, ok := fc.filePool[file.Filename]; ok {
-
-		} else {
-			fcons = fileConnections{
-				sources: []*fileSource{src},
-				conns:   nil,
-			}
-		}
-	}
-
-	fc.srcPool[id] = src
+func (fc *fileClient) addFilePeer(files []filename, sender Peer) {
+	fc.pool.addPeer(files, sender.FileAddress().String(), sender.ID())
 }
 
-func (fc *fileClient) delResource(id peerId) {
-
-}
-
-func (fc *fileClient) download(file File) (height uint64, err error) {
-	var c *fileConn
-	var src *fileSource
-
+func (fc *fileClient) download(file File) error {
 	for {
-		if c, err = fc.chooseConn(file.Filename); err != nil {
+		if p, c, err := fc.pool.chooseSource(file.Filename); err != nil {
 			// no peers
-			return 0, err
+			return err
 		} else if c != nil {
-			height, err = fc.doJob(c, file)
-			if err != nil {
-				// retry
-				continue
-			} else {
-				// done
-				return
+			err = fc.doJob(c, file)
+			if err == nil {
+				// downloaded
+				return nil
 			}
-		} else if src, err = fc.chooseFreshSrc(file.Filename); err != nil {
-			// no peers
-			return
-		} else if src != nil {
-			c, err = fc.createConn(src)
-			// dial error, will retry
+		} else if p != nil {
+			c, err = fc.createConn(p)
 			if err != nil {
-				continue
+				time.Sleep(100 * time.Microsecond)
 			} else {
-				height, err = fc.doJob(c, file)
-				if err != nil {
-					continue
-				} else {
-					return
+				err = fc.doJob(c, file)
+				if err == nil {
+					// downloaded
+					return nil
 				}
 			}
 		} else {
-			fc.wait(file)
+			time.Sleep(100 * time.Microsecond)
 		}
 	}
 }
 
-func (fc *fileClient) doJob(c *fileConn, file File) (height uint64, err error) {
-	var fatal bool
-	height, fatal, err = c.download(file, fc.rec)
-	if err != nil && fatal {
-		fc.fatalPeer(c.id)
+func (fc *fileClient) doJob(c *fileConn, file File) error {
+	if derr := c.download(file, fc.rec); derr != nil {
+		if derr.Fatal() {
+			fc.fatalPeer(c.id, derr)
+		}
+
+		return derr
 	}
-	return
+
+	return nil
 }
 
-func (fc *fileClient) wait(file File) {
-	fc.mu.Lock()
-	fc.fqueue.Append(file)
-	fc.mu.Unlock()
-
-	time.Sleep(500 * time.Millisecond)
-}
-
-func (fc *fileClient) fatalPeer(id string) {
-
+func (fc *fileClient) fatalPeer(id peerId, err error) {
+	fc.pool.delPeer(id)
+	if p := fc.peers.Get(id); p != nil {
+		p.Report(err)
+	}
 }
 
 func (fc *fileClient) stop() {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 
-	for id, c := range fc.connPool {
-		c.close()
-		delete(fc.connPool, id)
-	}
+}
 
-	fc.filePool = make(map[filename]fileConnections)
+func (fc *fileClient) dialed(addr string) {
+	fc.mu.Lock()
+	delete(fc.dialing, addr)
+	fc.mu.Unlock()
+}
+
+func (fc *fileClient) countFail(p *filePeer) {
+	count := atomic.AddInt32(&p.fail, 1)
+	if count >= 3 {
+		fc.pool.delPeer(p.id)
+	}
 }
 
 // tcp dial error
-func (fc *fileClient) createConn(src *fileSource) (c *fileConn, err error) {
-	tcp, err := fc.dialer.Dial("tcp", src.addr)
-
-	if err != nil {
-		atomic.AddInt32(&src.fail, 1)
-		return
-	}
+func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
+	addr := p.addr
 
 	fc.mu.Lock()
-	defer fc.mu.Unlock()
-
-	// has a file connection, maybe create concurrently
-	var exist bool
-	if c, exist = fc.connPool[src.id]; exist {
-		tcp.Close()
+	if _, ok := fc.dialing[addr]; ok {
+		fc.mu.Unlock()
 		return
 	}
+	fc.dialing[addr] = struct{}{}
+	fc.mu.Unlock()
+
+	tcp, err := fc.dialer.Dial("tcp", addr)
+
+	if err != nil {
+		fc.countFail(p)
+		fc.dialed(addr)
+		return
+	}
+
+	fc.dialed(addr)
 
 	c = &fileConn{
 		Conn:   tcp,
-		id:     src.id,
+		id:     p.id,
 		parser: fc.parser,
 	}
-	c.setState(fileConnStateNew)
 
-	// add to conn pool
-	fc.connPool[src.id] = c
-
-	// add to file pool
-	for _, file := range src.files {
-		name := file.Filename
-		if fpool, ok := fc.filePool[name]; ok {
-			fpool.conns = append(fpool.conns, c)
-		}
+	err = fc.pool.addConn(c)
+	if err != nil {
+		// already exist a file connection
+		c.close()
 	}
+
 	return
-}
-
-// choose a src, haven`t created file connection
-// will return error if have no peers
-func (fc *fileClient) chooseFreshSrc(name filename) (src *fileSource, err error) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-
-	if p, ok := fc.filePool[name]; ok {
-		n := len(p.sources)
-		if n == 0 {
-			return nil, errNoSuitablePeers
-		}
-
-		ids := rand.Perm(n)
-		for i := 0; i < n; i++ {
-			j := ids[i]
-			src = p.sources[j]
-			if _, ok = fc.connPool[src.id]; ok {
-				continue
-			}
-
-			return
-		}
-
-		return nil, nil
-	}
-	return nil, errNoSuitablePeers
-}
-
-// choose a fast file connection, or random create new conns
-func (fc *fileClient) chooseConn(name filename) (c *fileConn, err error) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-
-	if p, ok := fc.filePool[name]; ok {
-		m := len(p.sources)
-		if m == 0 {
-			return nil, errNoSuitablePeers
-		}
-
-		n := len(p.conns)
-		hasIdlePeers := len(p.sources) > n
-
-		if n > 0 {
-			// sort by speed
-			sort.Sort(p.conns)
-
-			// create new conn, don`t choose slow file conn
-			create := rand.Intn(10) < 5
-
-			for i := 0; i < n; i++ {
-				c = p.conns[i]
-				st, _ := c.state()
-				if st == fileConnStateBusy {
-					continue
-				}
-
-				if i <= n/3 {
-					return
-				}
-
-				if hasIdlePeers && create {
-					return nil, nil
-				}
-
-				return
-			}
-		}
-	}
-	return nil, errNoSuitablePeers
-}
-
-func (fc *fileClient) remove(id peerId) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-
-	//id := sender.ID()
-	//
-	//if conn, ok := conns[id]; ok {
-	//	delete(conns, id)
-	//	conn.Close()
-	//}
-	//
-	//delete(pFiles, id)
-	//
-	//for _, r := range fRecord {
-	//	r.peers = r.peers.delete(id)
-	//}
 }

@@ -3,7 +3,7 @@ package net
 import (
 	"sync"
 
-	"github.com/seiflotfy/cuckoofilter"
+	"github.com/jerry-vite/cuckoofilter"
 )
 
 type blockFilter interface {
@@ -14,12 +14,12 @@ type blockFilter interface {
 
 type defBlockFilter struct {
 	rw   sync.RWMutex
-	pool *cuckoofilter.CuckooFilter
+	pool *cuckoo.Filter
 }
 
 func newBlockFilter(cap uint) blockFilter {
 	return &defBlockFilter{
-		pool: cuckoofilter.NewCuckooFilter(cap),
+		pool: cuckoo.NewFilter(cap),
 	}
 }
 
@@ -34,7 +34,15 @@ func (d *defBlockFilter) record(b []byte) {
 	d.rw.Lock()
 	defer d.rw.Unlock()
 
-	d.pool.Insert(b)
+	d.recordLocked(b)
+}
+
+func (d *defBlockFilter) recordLocked(b []byte) {
+	success := d.pool.Insert(b)
+	if !success {
+		d.pool.Reset()
+		d.pool.Insert(b)
+	}
 }
 
 func (d *defBlockFilter) lookAndRecord(b []byte) bool {
@@ -46,6 +54,6 @@ func (d *defBlockFilter) lookAndRecord(b []byte) bool {
 		return ok
 	}
 
-	d.pool.Insert(b)
+	d.recordLocked(b)
 	return false
 }
