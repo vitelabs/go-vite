@@ -19,7 +19,7 @@ type DexFundApi struct {
 func NewDexFundApi(vite *vite.Vite) *DexFundApi {
 	return &DexFundApi{
 		chain: vite.Chain(),
-		log:   log15.New("module", "rpc_api/pledge_api"),
+		log:   log15.New("module", "rpc_api/dexfund_api"),
 	}
 }
 
