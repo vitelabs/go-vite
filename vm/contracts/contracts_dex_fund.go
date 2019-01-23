@@ -279,7 +279,7 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 		}
 	}
 	for _, feeAction := range settleActions.FeeActions {
-		if err = doSettleFee(db, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height, feeAction); err != nil {
+		if err = doSettleFee(db, feeAction, db.GetSnapshotBlockByHash(&block.SnapshotHash).Height); err != nil {
 			return []*SendBlock{}, err
 		}
 	}
@@ -344,8 +344,10 @@ func checkAndLockFundForNewOrder(db vmctxt_interface.VmDatabase, dexFund *dex.Us
 		lockToken = order.TradeToken
 		lockAmount = order.Quantity
 	}
-	if lockTokenId, err = dex.FromBytesToTokenTypeId(lockToken); err != nil {
+	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
 		return false, err
+	} else {
+		lockTokenId = &tkId
 	}
 	//var tokenName string
 	//if tokenInfo := cabi.GetTokenById(db, *lockTokenId); tokenInfo != nil {
@@ -392,13 +394,13 @@ func doSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.FundSettle, s
 	if dexFund, err := dex.GetUserFundFromStorage(db, *address); err != nil {
 		return err
 	} else {
-		if tokenId, err := dex.FromBytesToTokenTypeId(action.Token); err != nil {
+		if tokenId, err := types.BytesToTokenTypeId(action.Token); err != nil {
 			return err
 		} else {
-			if err, _ = dex.GetTokenInfo(db, *tokenId); err != nil {
+			if err, _ = dex.GetTokenInfo(db, tokenId); err != nil {
 				return err
 			}
-			account, exists := dex.GetAccountByTokeIdFromFund(dexFund, *tokenId)
+			account, exists := dex.GetAccountByTokeIdFromFund(dexFund, tokenId)
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if dex.CmpToBigZero(action.ReduceLocked) > 0 {
 				if dex.CmpForBigInt(action.ReduceLocked, account.Locked) > 0 {
@@ -435,12 +437,12 @@ func doSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.FundSettle, s
 	return nil
 }
 
-func doSettleFee(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, feeAction *dexproto.FeeSettle) error {
+func doSettleFee(db vmctxt_interface.VmDatabase, feeAction *dexproto.FeeSettle, snapshotBlockHeight uint64) error {
 	var (
 		dexFee *dex.Fee
 		err    error
 	)
-	if dexFee, err = dex.GetFeeFromStorage(storage, snapshotBlockHeight); err != nil {
+	if dexFee, err = dex.GetFeeFromStorage(db, snapshotBlockHeight); err != nil {
 		return err
 	} else {
 		if dexFee.Divided {
@@ -461,7 +463,7 @@ func doSettleFee(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64
 			dexFee.Fees = append(dexFee.Fees, feeAcc)
 		}
 	}
-	if err = dex.SaveFeeToStorage(storage, snapshotBlockHeight, dexFee); err != nil {
+	if err = dex.SaveFeeToStorage(db, snapshotBlockHeight, dexFee); err != nil {
 		return err
 	} else {
 		return nil

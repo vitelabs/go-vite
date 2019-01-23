@@ -88,7 +88,7 @@ func (id *OrderId) setBytes(value []byte) error {
 	return nil
 }
 
-type OrderNodeProtocol struct {}
+type OrderNodeProtocol struct{}
 
 func (protocol *OrderNodeProtocol) getNilKey() nodeKeyType {
 	key, _ := NewOrderId(nilOrderIdValue)
@@ -100,7 +100,7 @@ func (protocol *OrderNodeProtocol) getHeaderKey() nodeKeyType {
 	return nodeKeyType(key)
 }
 
-func (protocol *OrderNodeProtocol) serialize(node *skiplistNode) ([]byte, error)  {
+func (protocol *OrderNodeProtocol) serialize(node *skiplistNode) ([]byte, error) {
 	protoNode := &orderproto.OrderNode{}
 	protoNode.ForwardOnLevel = convertKeyOnLevelToProto(node.forwardOnLevel)
 	protoNode.BackwardOnLevel = convertKeyOnLevelToProto(node.backwardOnLevel)
@@ -161,7 +161,7 @@ func (protocol *OrderNodeProtocol) deSerializeMeta(nodeData []byte) (*skiplistMe
 func priceEqual(a string, b string) bool {
 	af, _ := new(big.Float).SetString(a)
 	bf, _ := new(big.Float).SetString(b)
-	return  af.Cmp(bf) == 0
+	return af.Cmp(bf) == 0
 }
 
 func convertKeyOnLevelToProto(from []nodeKeyType) [][]byte {
@@ -183,7 +183,7 @@ func convertKeyOnLevelFromProto(from [][]byte) []nodeKeyType {
 
 // orders should sort as desc by price and timestamp
 func (order Order) compareTo(toPayload *nodePayload) int8 {
-	target, _:= (*toPayload).(Order)
+	target, _ := (*toPayload).(Order)
 	return CompareOrderPrice(order, target)
 }
 
@@ -223,4 +223,3 @@ func CompareOrderPrice(order Order, target Order) int8 {
 	}
 	return result
 }
-

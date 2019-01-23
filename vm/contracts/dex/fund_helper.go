@@ -30,18 +30,18 @@ var (
 )
 
 type ParamDexFundWithDraw struct {
-	Token   types.TokenTypeId
-	Amount  *big.Int
+	Token  types.TokenTypeId
+	Amount *big.Int
 }
 
 type ParamDexFundNewOrder struct {
-	OrderId []byte
-	TradeToken   types.TokenTypeId
-	QuoteToken   types.TokenTypeId
-	Side bool
-	OrderType uint32
-	Price string
-	Quantity *big.Int
+	OrderId    []byte
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
+	Side       bool
+	OrderType  uint32
+	Price      string
+	Quantity   *big.Int
 }
 
 type ParamDexFundDividend struct {
@@ -362,15 +362,6 @@ func IsValidVxAmountBytesForDividend(amount []byte) bool {
 
 func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
-}
-
-func FromBytesToTokenTypeId(bytes []byte) (tokenId *types.TokenTypeId, err error) {
-	tokenId = &types.TokenTypeId{}
-	if err := tokenId.SetBytes(bytes); err == nil {
-		return tokenId, nil
-	} else {
-		return nil, err
-	}
 }
 
 func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (error, *types.TokenInfo) {
