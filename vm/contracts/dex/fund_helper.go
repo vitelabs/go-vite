@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
@@ -18,30 +19,31 @@ import (
 )
 
 var (
-	fundKeyPrefix = []byte("fund:") // fund:types.Address
+	fundKeyPrefix = []byte("fd:") // fund:types.Address
 
-	feeAccKeyPrefix          = []byte("fee:") // fee:feeAccId feeAccId = PeriodIdByHeight
-	feePeriodByHeight uint64 = 10
+	feeAccKeyPrefix          = []byte("fee:") // fee:periodId
+	lastFeePeriodKey         = []byte("lFPId:")
 
-	vxFundKeyPrefix     = []byte("vxFund:")    // vxFund:types.Address
-	vxFundSumKey        = []byte("vxFundSum:") // vxFundSum:periodId
+	VxFundKeyPrefix     = []byte("vxF:")    // vxFund:types.Address
+	vxSumFundsKey       = []byte("vxFS:") // vxFundSum:periodId
+	lastDividendIdKey   = []byte("divId:")
 	VxTokenBytes        = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	VxDividendThreshold = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil), big.NewInt(10)) // 18 : vx decimals, 10 amount
 )
 
 type ParamDexFundWithDraw struct {
-	Token   types.TokenTypeId
-	Amount  *big.Int
+	Token  types.TokenTypeId
+	Amount *big.Int
 }
 
 type ParamDexFundNewOrder struct {
-	OrderId []byte
-	TradeToken   types.TokenTypeId
-	QuoteToken   types.TokenTypeId
-	Side bool
-	OrderType uint32
-	Price string
-	Quantity *big.Int
+	OrderId    []byte
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
+	Side       bool
+	OrderType  uint32
+	Price      string
+	Quantity   *big.Int
 }
 
 type ParamDexFundDividend struct {
@@ -234,10 +236,10 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 	return dexAccount, nil
 }
 
-func GetUserFundFromStorage(storage vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
+func GetUserFundFromStorage(db vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
 	fundKey := GetUserFundKey(address)
 	dexFund = &UserFund{}
-	if fundBytes := storage.GetStorage(&types.AddressDexFund, fundKey); len(fundBytes) > 0 {
+	if fundBytes := db.GetStorage(&types.AddressDexFund, fundKey); len(fundBytes) > 0 {
 		if dexFund, err = dexFund.DeSerialize(fundBytes); err != nil {
 			return nil, err
 		}
@@ -245,17 +247,17 @@ func GetUserFundFromStorage(storage vmctxt_interface.VmDatabase, address types.A
 	return dexFund, nil
 }
 
-func SaveUserFundToStorage(storage vmctxt_interface.VmDatabase, address types.Address, dexFund *UserFund) error {
+func SaveUserFundToStorage(db vmctxt_interface.VmDatabase, address types.Address, dexFund *UserFund) error {
 	if fundRes, err := dexFund.Serialize(); err == nil {
-		storage.SetStorage(GetUserFundKey(address), fundRes)
+		db.SetStorage(GetUserFundKey(address), fundRes)
 		return nil
 	} else {
 		return err
 	}
 }
 
-func GetAccountByAddressAndTokenId(storage vmctxt_interface.VmDatabase, address types.Address, token types.TokenTypeId) (account *dexproto.Account, exists bool, err error) {
-	if dexFund, err := GetUserFundFromStorage(storage, address); err != nil {
+func GetAccountByAddressAndTokenId(db vmctxt_interface.VmDatabase, address types.Address, token types.TokenTypeId) (account *dexproto.Account, exists bool, err error) {
+	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
 		return nil, false, err
 	} else {
 		account, exists = GetAccountByTokeIdFromFund(dexFund, token)
@@ -267,39 +269,101 @@ func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func GetFeeFromStorage(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64) (dexFee *Fee, err error) {
-	feeKey := GetFeeKeyForHeight(snapshotBlockHeight)
+func GetCurrentFeeFromStorage(db vmctxt_interface.VmDatabase) (dexFee *Fee, err error) {
+	if feeKey, err := GetFeeCurrentKeyFromStorage(db); err != nil {
+		return nil, err
+	} else {
+		return getFeeByKeyFromStorage(db, feeKey)
+	}
+}
+
+func GetFeeByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (dexFee *Fee, err error) {
+	return getFeeByKeyFromStorage(db, GetFeeKeyByPeriodId(periodId))
+}
+
+func getFeeByKeyFromStorage(db vmctxt_interface.VmDatabase, feeKey []byte) (dexFee *Fee, err error) {
 	dexFee = &Fee{}
-	if feeBytes := storage.GetStorage(&types.AddressDexFund, feeKey); len(feeBytes) > 0 {
+	if feeBytes := db.GetStorage(&types.AddressDexFund, feeKey); len(feeBytes) > 0 {
 		if dexFee, err = dexFee.DeSerialize(feeBytes); err != nil {
 			return nil, err
 		} else {
 			return dexFee, nil
 		}
 	} else {
-		dexFee.Divided = false
-		return dexFee, nil
+		return nil, nil
 	}
 }
 
-func SaveFeeToStorage(storage vmctxt_interface.VmDatabase, snapshotBlockHeight uint64, fee *Fee) error {
-	feeKey := GetFeeKeyForHeight(snapshotBlockHeight)
-	if feeBytes, err := proto.Marshal(fee); err == nil {
-		storage.SetStorage(feeKey, feeBytes)
-		return nil
-	} else {
+func GetNotDividedFeesByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (map[uint64]*Fee, error) {
+	var (
+		dexFees = make(map[uint64]*Fee)
+		dexFee *Fee
+		err error
+	)
+	for {
+		if dexFee, err = GetFeeByPeriodIdFromStorage(db, periodId); err != nil {
+			return nil, err
+		} else {
+			if dexFee != nil {
+				dexFees[periodId] = dexFee
+			} else {
+				return dexFees, nil
+			}
+		}
+		periodId = dexFee.LastValidPeriod
+	}
+}
+
+func SaveCurrentFeeToStorage(db vmctxt_interface.VmDatabase, fee *Fee) error {
+	if feeKey, err := GetFeeCurrentKeyFromStorage(db); err != nil {
 		return err
+	} else {
+		if feeBytes, err := proto.Marshal(fee); err == nil {
+			db.SetStorage(feeKey, feeBytes)
+			return nil
+		} else {
+			return err
+		}
 	}
 }
 
-func GetFeeKeyForHeight(height uint64) []byte {
-	return append(feeAccKeyPrefix, GetPeriodIdBytesFromHeight(height)...)
+func DeleteFeeByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
+	db.SetStorage(GetFeeKeyByPeriodId(periodId), nil)
 }
 
-func GetVxFundsFromStorage(storage vmctxt_interface.VmDatabase, address []byte) (vxFunds *VxFunds, err error) {
+func GetFeeKeyByPeriodId(periodId uint64) []byte {
+	return append(feeAccKeyPrefix, Uint64ToBytes(periodId)...)
+}
+
+func GetFeeCurrentKeyFromStorage(db vmctxt_interface.VmDatabase) ([]byte, error) {
+	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
+		return nil, err
+	} else {
+		return append(feeAccKeyPrefix, Uint64ToBytes(periodId)...), nil
+	}
+}
+
+func GetFeeLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) uint64 {
+	if lastPeriodIdBytes := db.GetStorage(&types.AddressDexFund, lastFeePeriodKey); len(lastPeriodIdBytes) == 8 {
+		return binary.BigEndian.Uint64(lastPeriodIdBytes)
+	} else {
+		return 0
+	}
+}
+
+func SaveFeeLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) error {
+	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
+		return err
+	} else {
+		db.SetStorage(lastFeePeriodKey, Uint64ToBytes(periodId))
+		return nil
+	}
+}
+
+func GetVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) (vxFunds *VxFunds, err error) {
 	vxFundsKey := GetVxFundsKey(address)
 	vxFunds = &VxFunds{}
-	if vxFundsBytes := storage.GetStorage(&types.AddressDexFund, vxFundsKey); len(vxFundsBytes) > 0 {
+	if vxFundsBytes := db.GetStorage(&types.AddressDexFund, vxFundsKey); len(vxFundsBytes) > 0 {
 		if vxFunds, err = vxFunds.DeSerialize(vxFundsBytes); err != nil {
 			return nil, err
 		} else {
@@ -310,50 +374,99 @@ func GetVxFundsFromStorage(storage vmctxt_interface.VmDatabase, address []byte) 
 	}
 }
 
-func SaveVxFundsToStorage(storage vmctxt_interface.VmDatabase, address []byte, vxFunds *VxFunds) error {
+func SaveVxFundsToStorage(db vmctxt_interface.VmDatabase, address []byte, vxFunds *VxFunds) error {
 	vxFundsKey := GetVxFundsKey(address)
 	if vxFundsBytes, err := proto.Marshal(vxFunds); err == nil {
-		storage.SetStorage(vxFundsKey, vxFundsBytes)
+		db.SetStorage(vxFundsKey, vxFundsBytes)
 		return nil
 	} else {
 		return err
 	}
 }
 
-func DeleteVxFundsToStorage(storage vmctxt_interface.VmDatabase, address []byte) {
-	storage.SetStorage(GetVxFundsKey(address), nil)
+func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64) (bool, []byte, bool) {
+	var (
+		vxAmtBytes []byte
+		matchIndex int
+		needUpdateVxFunds bool
+	)
+	for i, fund := range vxFunds.Funds {
+		if periodId >= fund.Period {
+			vxAmtBytes = fund.Amount
+			matchIndex = i
+			if periodId == fund.Period {
+				break
+			}
+		} else {
+			break
+		}
+	}
+	if len(vxAmtBytes) == 0 {
+		return false, nil, false
+	}
+	if matchIndex > 0 {
+		vxFunds.Funds = vxFunds.Funds[matchIndex:]
+		needUpdateVxFunds = true
+	}
+	if len(vxFunds.Funds) > 1 && vxFunds.Funds[1].Period == periodId + 1 {
+		vxFunds.Funds = vxFunds.Funds[1:]
+		needUpdateVxFunds = true
+	}
+	return true, vxAmtBytes, needUpdateVxFunds
+}
+
+func GetCurrentPeriodIdFromStorage(db vmctxt_interface.VmDatabase) (uint64, error) {
+	groupInfo := cabi.GetConsensusGroup(db, types.SNAPSHOT_GID)
+	reader := core.NewReader(*db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
+	return reader.TimeToIndex(*db.CurrentSnapshotBlock().Timestamp)
+}
+
+func DeleteVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) {
+	db.SetStorage(GetVxFundsKey(address), nil)
 }
 
 func GetVxFundsKey(address []byte) []byte {
-	return append(vxFundKeyPrefix, address...)
+	return append(VxFundKeyPrefix, address...)
 }
 
-func GetVxFundSumKFromStorage(storage vmctxt_interface.VmDatabase) (vxFundSum *VxFunds, err error) {
-	vxFundSumKey := GetVxFundSumKey()
-	vxFundSum = &VxFunds{}
-	if vxFundSumBytes := storage.GetStorage(&types.AddressDexFund, vxFundSumKey); len(vxFundSumBytes) > 0 {
-		if vxFundSum, err = vxFundSum.DeSerialize(vxFundSumBytes); err != nil {
+func GetVxSumFundsFromStorage(db vmctxt_interface.VmDatabase) (vxSumFunds *VxFunds, err error) {
+	vxSumFundsKey := GetVxSumFundsKey()
+	vxSumFunds = &VxFunds{}
+	if vxSumFundsBytes := db.GetStorage(&types.AddressDexFund, vxSumFundsKey); len(vxSumFundsBytes) > 0 {
+		if vxSumFunds, err = vxSumFunds.DeSerialize(vxSumFundsBytes); err != nil {
 			return nil, err
 		} else {
-			return vxFundSum, nil
+			return vxSumFunds, nil
 		}
 	} else {
-		return vxFundSum, nil
+		return vxSumFunds, nil
 	}
 }
 
-func SaveVxFundSumKToStorage(storage vmctxt_interface.VmDatabase, vxFundSum *VxFunds) error {
-	vxFundSumKey := GetVxFundSumKey()
-	if vxFundSumBytes, err := proto.Marshal(vxFundSum); err == nil {
-		storage.SetStorage(vxFundSumKey, vxFundSumBytes)
+func SaveVxSumFundsToStorage(db vmctxt_interface.VmDatabase, vxSumFunds *VxFunds) error {
+	vxSumFundsKey := GetVxSumFundsKey()
+	if vxSumFundsBytes, err := proto.Marshal(vxSumFunds); err == nil {
+		db.SetStorage(vxSumFundsKey, vxSumFundsBytes)
 		return nil
 	} else {
 		return err
 	}
 }
 
-func GetVxFundSumKey() []byte {
-	return vxFundSumKey
+func GetLastDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 {
+	if lastDividendIdBytes := db.GetStorage(&types.AddressDexFund, lastDividendIdKey); len(lastDividendIdBytes) == 8 {
+		return binary.BigEndian.Uint64(lastDividendIdBytes)
+	} else {
+		return 0
+	}
+}
+
+func SaveLastDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
+	db.SetStorage(lastDividendIdKey, Uint64ToBytes(periodId))
+}
+
+func GetVxSumFundsKey() []byte {
+	return vxSumFundsKey
 }
 
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
@@ -381,25 +494,10 @@ func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (er
 	}
 }
 
-func GetPeriodIdBytesFromHeight(height uint64) []byte {
-	periodId := GetPeriodIdFromHeight(height)
-	return Uint64ToBytes(periodId)
-}
-
 func Uint64ToBytes(value uint64) []byte {
 	bs := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bs, value)
+	binary.BigEndian.PutUint64(bs, value)
 	return bs
-}
-
-func GetPeriodIdFromHeight(height uint64) uint64 {
-	var periodIdByLastHeight uint64
-	if int64(height)%int64(feePeriodByHeight) == 0 {
-		periodIdByLastHeight = height
-	} else {
-		periodIdByLastHeight = ((height / feePeriodByHeight) + 1) * feePeriodByHeight
-	}
-	return periodIdByLastHeight
 }
 
 func ValidPrice(price string) bool {
@@ -408,7 +506,7 @@ func ValidPrice(price string) bool {
 	} else if pr, ok := new(big.Float).SetString(price); !ok || pr.Cmp(big.NewFloat(0)) <= 0 {
 		return false
 	} else {
-		idx := strings.Index(price, ",")
+		idx := strings.Index(price, ".")
 		if idx > 0 && len(price)-idx >= 12 { // price max precision is 10 decimal
 			return false
 		}

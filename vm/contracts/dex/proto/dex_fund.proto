@@ -32,8 +32,8 @@ message SettleActions {
 }
 
 message FeeByPeriod {
-    bool Divided = 1;
-    repeated FeeAccount fees  = 2;
+    repeated FeeAccount fees  = 1;
+    uint64 lastValidPeriod = 2;
 }
 
 message FeeAccount {

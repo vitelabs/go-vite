@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -12,6 +13,7 @@ import (
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 	"time"
@@ -194,9 +196,8 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := dex.GetFeeFromStorage(db, 123) // initDexFundDatabase snapshotBlock Height
+	dexFee, err := dex.GetCurrentFeeFromStorage(db) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 1, len(dexFee.Fees))
-	assert.False(t, dexFee.Divided)
 	feeAcc := dexFee.Fees[0]
 	assert.True(t, CheckBigEqualToInt(15, feeAcc.Amount))
 }
@@ -207,6 +208,25 @@ func initDexFundDatabase() *testDatabase {
 	t1 := time.Unix(1536214502, 0)
 	snapshot1 := &ledger.SnapshotBlock{Height: 123, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
+
+	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
+	consensusGroupKey, _ := types.BytesToHash(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))
+	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(1),
+		int64(3),
+		uint8(2),
+		uint8(50),
+		ledger.ViteTokenId,
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		uint8(1),
+		[]byte{},
+		db.addr,
+		big.NewInt(0),
+		uint64(1))
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
+
 	return db
 }
 
@@ -235,6 +255,6 @@ func CheckBigEqualToInt(expected int, value []byte) bool {
 
 func orderIdBytesFromInt(v int) []byte {
 	bs := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bs, uint32(v))
+	binary.BigEndian.PutUint32(bs, uint32(v))
 	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
 }

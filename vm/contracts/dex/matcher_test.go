@@ -302,6 +302,6 @@ func fromOrderIdToInt(orderId nodeKeyType) int {
 }
 
 func fromOrderIdBytesToInt(orderIdBytes []byte) int {
-	res := int(binary.LittleEndian.Uint32(orderIdBytes[16:20]))
+	res := int(binary.BigEndian.Uint32(orderIdBytes[16:20]))
 	return res
 }

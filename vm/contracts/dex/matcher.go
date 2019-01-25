@@ -251,7 +251,7 @@ func isDust(order *Order, quantity []byte) bool {
 }
 
 func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) []byte {
-	return roundAmount(CalculateRawAmountF(quantity, price, tradeDecimals, quoteDecimals)).Bytes()
+	return RoundAmount(CalculateRawAmountF(quantity, price, tradeDecimals, quoteDecimals)).Bytes()
 }
 
 func CalculateRawAmountF(quantity []byte, price string, tradeDecimals int32, quoteDecimals int32) *big.Float {
@@ -265,7 +265,7 @@ func CalculateRawFee(amount []byte, feeRate float64) []byte {
 	amtF := new(big.Float).SetInt(new(big.Int).SetBytes(amount))
 	rateF := big.NewFloat(feeRate)
 	amtFee := amtF.Mul(amtF, rateF)
-	return roundAmount(amtFee).Bytes()
+	return RoundAmount(amtFee).Bytes()
 }
 
 func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (feeBytes, executedFee []byte) {
@@ -290,10 +290,6 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 	return feeBytes, executedFee
 }
 
-func roundAmount(amountF *big.Float) *big.Int {
-	amount, _ := new(big.Float).Add(amountF, big.NewFloat(0.5)).Int(nil)
-	return amount
-}
 
 func (mc *matcher) handleRefund(order *Order) {
 	if order.Status == FullyExecuted || order.Status == Cancelled {
