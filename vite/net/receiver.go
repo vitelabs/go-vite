@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/seiflotfy/cuckoofilter"
+	"github.com/jerry-vite/cuckoofilter"
 
 	"github.com/vitelabs/go-vite/p2p/discovery"
 
@@ -39,7 +39,7 @@ type receiver struct {
 	p2p         p2p.Server
 
 	mu          sync.RWMutex
-	KnownBlocks *cuckoofilter.CuckooFilter
+	KnownBlocks *cuckoo.Filter
 }
 
 func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter, p2p p2p.Server) *receiver {
@@ -54,7 +54,7 @@ func newReceiver(verifier Verifier, broadcaster Broadcaster, filter Filter, p2p 
 		log:         log15.New("module", "net/receiver"),
 		batchSource: types.RemoteSync,
 		p2p:         p2p,
-		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
+		KnownBlocks: cuckoo.NewFilter(filterCap),
 	}
 }
 
@@ -146,12 +146,18 @@ func (s *receiver) ReceiveNewSnapshotBlock(block *ledger.SnapshotBlock, sender P
 	// record
 	hash := block.ComputeHash()
 	s.mu.Lock()
-	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
-	s.mu.Unlock()
-
-	if !insertSuccess {
+	has := s.KnownBlocks.Lookup(hash[:])
+	if has {
+		s.mu.Unlock()
+		s.log.Debug(fmt.Sprintf("has NewSnapshotBlock %s/%d", hash, block.Height))
 		return
 	}
+	insertSuccess := s.KnownBlocks.Insert(hash[:])
+	if !insertSuccess {
+		s.KnownBlocks.Reset()
+		s.KnownBlocks.Insert(hash[:])
+	}
+	s.mu.Unlock()
 
 	s.log.Info(fmt.Sprintf("record NewSnapshotBlock %s/%d", block.Hash, block.Height))
 
@@ -197,12 +203,18 @@ func (s *receiver) ReceiveNewAccountBlock(block *ledger.AccountBlock, sender Pee
 	// record
 	hash := block.ComputeHash()
 	s.mu.Lock()
-	insertSuccess := s.KnownBlocks.InsertUnique(hash[:])
-	s.mu.Unlock()
-
-	if !insertSuccess {
+	has := s.KnownBlocks.Lookup(hash[:])
+	if has {
+		s.mu.Unlock()
+		s.log.Debug(fmt.Sprintf("has NewAccountBlock %s/%d", hash, block.Height))
 		return
 	}
+	insertSuccess := s.KnownBlocks.Insert(hash[:])
+	if !insertSuccess {
+		s.KnownBlocks.Reset()
+		s.KnownBlocks.Insert(hash[:])
+	}
+	s.mu.Unlock()
 
 	s.log.Info(fmt.Sprintf("record NewAccountBlock %s/%d", block.Hash, block.Height))
 

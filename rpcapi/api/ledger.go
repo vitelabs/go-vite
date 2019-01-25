@@ -166,7 +166,12 @@ func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count u
 	return l.ledgerBlocksToRpcBlocks(accountBlocks)
 }
 
-func (l *LedgerApi) GetBlockByHeight(addr types.Address, height uint64) (*AccountBlock, error) {
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, heightStr string) (*AccountBlock, error) {
+	height, err := strconv.ParseUint(heightStr, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
 	accountBlock, err := l.chain.GetAccountBlockByHeight(&addr, height)
 	if err != nil {
 		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")

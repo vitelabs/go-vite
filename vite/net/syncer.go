@@ -251,7 +251,7 @@ wait:
 						// have no peers
 						s.log.Error("sync error: no peers")
 						s.setState(Syncerr)
-						return
+						//return
 					}
 				}
 			} else if shouldSync(current.Height, e.peer.Height()) {
@@ -274,7 +274,7 @@ wait:
 				// timeout
 				s.setState(Syncerr)
 				s.log.Error("sync error: timeout")
-				return
+				//return
 			}
 
 			if current.Height >= s.to {
@@ -283,8 +283,10 @@ wait:
 				return
 			}
 
-			s.fc.threshold(current.Height + 3600)
-			s.pool.threshold(current.Height + 3600)
+			if s.state != Syncerr {
+				s.fc.threshold(current.Height + 3600)
+				s.pool.threshold(current.Height + 3600)
+			}
 
 		case <-s.term:
 			s.log.Warn("sync cancel")

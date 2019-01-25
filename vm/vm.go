@@ -251,6 +251,9 @@ func (vm *VM) sendCreate(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	}
 
 	gid := util.GetGidFromCreateContractData(block.AccountBlock.Data)
+	if gid == types.SNAPSHOT_GID {
+		return nil, errors.New("invalid consensus group")
+	}
 	if !contracts.IsExistGid(block.VmContext, gid) {
 		return nil, errors.New("consensus group not exist")
 	}

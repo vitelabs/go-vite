@@ -227,14 +227,12 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 	}
 
 	if forkPoints.Smart == nil {
-		forkPoints.Smart = &config.ForkPoint{}
-	}
-	if forkPoints.Smart.Height == 0 {
-		forkPoints.Smart.Height = 5788912
-	}
-	if forkPoints.Smart.Hash == nil {
 		forkHash, _ := types.HexToHash("41f9c0ff86f3a57f43c70e109d44c66769cc63334f1530c99576211b1e625570")
-		forkPoints.Smart.Hash = &forkHash
+
+		forkPoints.Smart = &config.ForkPoint{
+			Height: 5788912,
+			Hash:   &forkHash,
+		}
 	}
 
 	return forkPoints

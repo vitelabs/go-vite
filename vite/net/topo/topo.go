@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/jerry-vite/cuckoofilter"
 	"github.com/pkg/errors"
-	"github.com/seiflotfy/cuckoofilter"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/log15"
@@ -39,7 +39,7 @@ type Topology struct {
 	log       log15.Logger
 	term      chan struct{}
 	rec       chan *Event
-	record    *cuckoofilter.CuckooFilter
+	record    *cuckoo.Filter
 	wg        sync.WaitGroup
 }
 
@@ -61,7 +61,7 @@ func New(cfg *Config) *Topology {
 		peers:  new(sync.Map),
 		log:    log15.New("module", "Topo"),
 		rec:    make(chan *Event, 10),
-		record: cuckoofilter.NewCuckooFilter(1000),
+		record: cuckoo.NewFilter(1000),
 	}
 }
 

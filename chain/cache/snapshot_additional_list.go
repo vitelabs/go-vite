@@ -111,25 +111,26 @@ type AdditionList struct {
 
 	log log15.Logger
 
-	modifyLock sync.RWMutex
-	wg         sync.WaitGroup
-	statusLock sync.Mutex
-	status     int // 0 means stop, 1 means start
-	timer      *time.Ticker
-	terminal   chan struct{}
+	modifyLock         sync.RWMutex
+	wg                 sync.WaitGroup
+	statusLock         sync.Mutex
+	status             int // 0 means stop, 1 means start
+	timer              *time.Ticker
+	terminal           chan struct{}
+	buildCountPerRound uint64
 }
 
 func NewAdditionList(chain Chain) (*AdditionList, error) {
 	al := &AdditionList{
 		aggregateHeight: 60 * 60,
-		saveHeight:      5 * 24 * 60 * 60,
+		saveHeight:      3 * 24 * 60 * 60,
 
-		flushInterval: time.Hour * 1,
-		status:        0,
-		log:           log15.New("module", "snapshot_additional_list"),
-		chain:         chain,
+		flushInterval:      time.Hour * 1,
+		buildCountPerRound: 60 * 60,
+		status:             0,
+		log:                log15.New("module", "snapshot_additional_list"),
+		chain:              chain,
 	}
-
 	if err := al.loadFromDb(); err != nil {
 		al.log.Error("al.loadFromDb failed, error is "+err.Error(), "method", "NewAdditionList")
 		return nil, err
@@ -141,8 +142,6 @@ func NewAdditionList(chain Chain) (*AdditionList, error) {
 		return nil, err
 	}
 	al.log.Info("Complete the calculation of entire network quota and cache build")
-
-	al.flush(true)
 
 	return al, nil
 }
@@ -162,7 +161,9 @@ func (al *AdditionList) Start() {
 		for {
 			select {
 			case <-al.timer.C:
-				al.flush(true)
+				if err := al.flush(true); err != nil {
+					al.log.Error("al.flush failed, error is "+err.Error(), "method", "Start")
+				}
 			case <-al.terminal:
 				return
 			}
@@ -196,59 +197,40 @@ func (al *AdditionList) build() error {
 	}
 	latestHeight := latestSnapshotBlock.Height
 
-	// prepend
-	prependTailHeight := uint64(1)
-	if latestHeight > uint64(al.saveHeight) {
-		prependTailHeight = latestHeight - uint64(al.saveHeight) + 1
-	}
-
-	prependHeadHeight := latestHeight
-
-	if len(al.list) > 0 {
-		prependHeadHeight = al.list[0].SnapshotHashHeight.Height - 1
-	}
-
-	if prependTailHeight < prependHeadHeight {
-		needBuildPrependTailHeight := uint64(1)
-		if prependTailHeight > al.aggregateHeight {
-			needBuildPrependTailHeight = prependTailHeight - al.aggregateHeight + 1
-		}
-		count := prependHeadHeight - needBuildPrependTailHeight + 1
-		snapshotBlocks, err := al.chain.GetSnapshotBlocksByHeight(needBuildPrependTailHeight, count, true, true)
-		if err != nil {
-			return err
-		}
-
-		originList := al.list
-		al.list = make([]*AdditionItem, 0)
-		if err := al.addList(snapshotBlocks); err != nil {
-			return err
-		}
-
-		al.list = append(al.list, originList...)
-	}
-
 	// append
-	appendTailHeight := uint64(0)
-	appendHeadHeight := uint64(0)
-	if len(al.list) > 0 {
-		appendTailHeight = al.list[len(al.list)-1].SnapshotHashHeight.Height + 1
-		if appendTailHeight <= latestHeight {
-			appendHeadHeight = latestHeight
+	appendTailHeight := uint64(1)
+	appendHeadHeight := latestHeight
+	alListLength := len(al.list)
+	if alListLength > 0 {
+		appendTailHeight = al.list[alListLength-1].SnapshotHashHeight.Height + 1
+	} else {
+		if latestHeight > uint64(al.saveHeight) {
+			appendTailHeight = latestHeight - uint64(al.saveHeight) + 1
 		}
 	}
 
-	if appendTailHeight > 0 &&
-		appendHeadHeight > 0 &&
-		appendHeadHeight >= appendTailHeight {
+	al.log.Info(fmt.Sprintf("Will build %d - %d", appendTailHeight, appendHeadHeight))
+	for appendTailHeight <= appendHeadHeight {
 
 		count := appendHeadHeight - appendTailHeight + 1
+		if count > al.buildCountPerRound {
+			count = al.buildCountPerRound
+		}
+
 		snapshotBlocks, err := al.chain.GetSnapshotBlocksByHeight(appendTailHeight, count, true, true)
 		if err != nil {
 			return err
 		}
 		al.addList(snapshotBlocks)
+		if err := al.flush(false); err != nil {
+			al.log.Crit("al.flush failed, error is "+err.Error(), "method", "build")
+		}
+
+		al.log.Info(fmt.Sprintf("Has builded %d - %d", appendTailHeight, appendTailHeight+count-1))
+
+		appendTailHeight += count
 	}
+
 	return nil
 }
 
@@ -368,6 +350,19 @@ func (al *AdditionList) saveFrag(fragment *Fragment) error {
 	db := al.chain.ChainDb().Db()
 	return db.Put(key, value, nil)
 }
+func (al *AdditionList) clearDb() error {
+	db := al.chain.ChainDb().Db()
+
+	iter := db.NewIterator(util.BytesPrefix([]byte{database.DBKP_ADDITIONAL_LIST}), nil)
+	defer iter.Release()
+
+	batch := new(leveldb.Batch)
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+
+	return db.Write(batch, nil)
+}
 
 func (al *AdditionList) loadFromDb() error {
 	db := al.chain.ChainDb().Db()
@@ -376,7 +371,8 @@ func (al *AdditionList) loadFromDb() error {
 	defer iter.Release()
 
 	var frags []*Fragment
-	var list []*AdditionItem
+
+	list := make([]*AdditionItem, 0, al.saveHeight)
 
 	var lastHeight uint64
 	for iter.Next() {
@@ -388,10 +384,21 @@ func (al *AdditionList) loadFromDb() error {
 
 		frag.TailHeight = GetFragTailHeightFromDbKey(iter.Key())
 		frag.HeadHeight = GetFragHeadHeightFromDbKey(iter.Key())
-		if lastHeight > 0 && frag.TailHeight != lastHeight + 1 {
-			// log error, and need rebuild
-			al.log.Error(fmt.Sprintf("current lastHeight is %d, miss %d - %d", lastHeight, frag.TailHeight, frag.HeadHeight))
-			break
+		if lastHeight > 0 && frag.TailHeight != lastHeight+1 {
+			if frag.TailHeight > lastHeight+1 {
+				// log error, and need rebuild
+				al.log.Error(fmt.Sprintf("current lastHeight is %d, miss %d - %d", lastHeight, frag.TailHeight, frag.HeadHeight), "method", "loadFromDb")
+				break
+			} else {
+				al.log.Error(fmt.Sprintf("DB cache is not correct, current lastHeight is %d and read %d - %d. clear and rebuild",
+					lastHeight, frag.TailHeight, frag.HeadHeight), "method", "loadFromDb")
+
+				if err := al.clearDb(); err != nil {
+					al.log.Crit("clear db failed, error is " + err.Error())
+				}
+
+				break
+			}
 		}
 
 		frags = append(frags, frag)
@@ -402,7 +409,6 @@ func (al *AdditionList) loadFromDb() error {
 		err != leveldb.ErrNotFound {
 		return err
 	}
-
 	al.frags = frags
 	al.list = list
 

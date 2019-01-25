@@ -18,7 +18,7 @@ This implementation uses a a static bucket size of 4 fingerprints and a fingerpr
 package main
 
 import "fmt"
-import "github.com/seiflotfy/cuckoofilter"
+import "github.com/jerry-vite/cuckoofilter"
 
 func main() {
   cf := cuckoofilter.NewDefaultCuckooFilter()
@@ -41,6 +41,8 @@ func main() {
 
   count = cf.Count()
   fmt.Println(count) // count == 0
+  
+  cf.Reset()    // reset
 }
 ```
 
