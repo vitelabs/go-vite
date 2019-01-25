@@ -33,11 +33,11 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock.AccountAddress = buyAddress0
 	buyOrder0 := getNewOrderData(101, buyAddress0, ETH, VITE, false, "30", 10)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder0)
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "invalid block source", err.Error())
 
 	senderAccBlock.AccountAddress = types.AddressDexFund
-	_, err = method.DoSend(db, senderAccBlock, 100100100)
+	err = method.DoSend(db, senderAccBlock)
 	assert.True(t,  err == nil)
 
 	receiveBlock := &ledger.AccountBlock{}
@@ -103,18 +103,18 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock.AccountAddress = userAddress1
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "cancel order not own to initiator", err.Error())
 
 	senderAccBlock.AccountAddress = userAddress2
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH.tokenId, VITE.tokenId, true)
-	_, err = method.DoSend(db, senderAccBlock, 100100100)
+	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 
 	// executedQuantity = 100,
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	_, err = method.DoSend(db, senderAccBlock, 100100100)
+	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, nil, err)
 
 	receiveBlock := &ledger.AccountBlock{}
@@ -140,7 +140,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.True(t, bytes.Equal(actions.FundActions[0].Token, VITE.tokenId.Bytes()))
 	assert.True(t, CheckBigEqualToInt(350350, actions.FundActions[0].ReleaseLocked)) // 1281280 - 930930
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	_, err = method.DoSend(db, senderAccBlock, 100100100)
+	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())
 }
 

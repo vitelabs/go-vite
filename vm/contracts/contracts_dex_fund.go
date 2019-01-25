@@ -48,22 +48,18 @@ func (md *MethodDexFundUserDeposit) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserDeposit) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexFundUserDeposit) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundDepositGas, data)
 }
 
-func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, dexFundDepositGas)
-	if err != nil {
-		return quotaLeft, err
-	}
+func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
-		return quotaLeft, fmt.Errorf("deposit amount is zero")
+		return fmt.Errorf("deposit amount is zero")
 	}
-	if err, _ = dex.GetTokenInfo(db, block.TokenId); err != nil {
-		return quotaLeft, err
+	if err, _ := dex.GetTokenInfo(db, block.TokenId); err != nil {
+		return err
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md *MethodDexFundUserDeposit) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -100,26 +96,23 @@ func (md *MethodDexFundUserWithdraw) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserWithdraw) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexFundUserWithdraw) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundWithdrawGas, data)
 }
 
-func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundWithdrawGas); err != nil {
-		return quotaLeft, err
-	}
 	param := new(dex.ParamDexFundWithDraw)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, block.Data); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if param.Amount.Sign() <= 0 {
-		return quotaLeft, fmt.Errorf("withdraw amount is zero")
+		return fmt.Errorf("withdraw amount is zero")
 	}
 	if tokenInfo := cabi.GetTokenById(db, param.Token); tokenInfo == nil {
-		return quotaLeft, fmt.Errorf("token to withdraw is invalid")
+		return fmt.Errorf("token to withdraw is invalid")
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -173,23 +166,20 @@ func (md *MethodDexFundNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundNewOrder) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexFundNewOrder) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewOrderGas, data)
 }
 
-func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundNewOrderGas); err != nil {
-		return quotaLeft, err
-	}
 	param := new(dex.ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.Data); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if err = dex.CheckOrderParam(db, param); err != nil {
-		return quotaLeft, err
+		return err
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -243,30 +233,27 @@ func (md *MethodDexFundSettleOrders) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundSettleOrders) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexFundSettleOrders) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewOrderGas, data)
 }
 
-func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundSettleOrdersGas); err != nil {
-		return quotaLeft, err
-	}
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
-		return quotaLeft, fmt.Errorf("invalid block source")
+		return fmt.Errorf("invalid block source")
 	}
 	param := new(dex.ParamDexSerializedData)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, block.Data); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	settleActions := &dexproto.SettleActions{}
 	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if err = dex.CheckSettleActions(settleActions); err != nil {
-		return quotaLeft, err
+		return err
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -307,26 +294,20 @@ func (md *MethodDexFundFeeDividend) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundFeeDividend) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexFundFeeDividend) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewOrderGas, data)
 }
 
-func (md *MethodDexFundFeeDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	var (
-		err        error
-	)
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexFundVxDividendGas); err != nil {
-		return quotaLeft, err
-	}
+func (md *MethodDexFundFeeDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	//TODO check periodId is a finished period, not current period
 	param := new(dex.ParamDexFundDividend)
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundFeeDividend, block.Data); err != nil {
-		return quotaLeft, err
+	if err := ABIDexFund.UnpackMethod(param, MethodNameDexFundFeeDividend, block.Data); err != nil {
+		return err
 	}
 	if lastDividendId := dex.GetLastDividendIdFromStorage(db); lastDividendId > 0 && param.PeriodId != lastDividendId + 1 {
-		return quotaLeft, fmt.Errorf("dividend period id not equals to expected id %d", lastDividendId + 1)
+		return fmt.Errorf("dividend period id not equals to expected id %d", lastDividendId + 1)
 	}
-	return quotaLeft, err
+	return nil
 }
 
 func (md MethodDexFundFeeDividend) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -368,8 +349,10 @@ func checkAndLockFundForNewOrder(dexFund *dex.UserFund, order *dexproto.Order, o
 		lockToken = order.TradeToken
 		lockAmount = order.Quantity
 	}
-	if lockTokenId, err = dex.FromBytesToTokenTypeId(lockToken); err != nil {
+	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
 		return false, err
+	} else {
+		lockTokenId = &tkId
 	}
 	//var tokenName string
 	//if tokenInfo := cabi.GetTokenById(db, *lockTokenId); tokenInfo != nil {
@@ -416,13 +399,13 @@ func doSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.FundSettle) e
 	if dexFund, err := dex.GetUserFundFromStorage(db, *address); err != nil {
 		return err
 	} else {
-		if tokenId, err := dex.FromBytesToTokenTypeId(action.Token); err != nil {
+		if tokenId, err := types.BytesToTokenTypeId(action.Token); err != nil {
 			return err
 		} else {
-			if err, _ = dex.GetTokenInfo(db, *tokenId); err != nil {
+			if err, _ = dex.GetTokenInfo(db, tokenId); err != nil {
 				return err
 			}
-			account, exists := dex.GetAccountByTokeIdFromFund(dexFund, *tokenId)
+			account, exists := dex.GetAccountByTokeIdFromFund(dexFund, tokenId)
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if dex.CmpToBigZero(action.ReduceLocked) > 0 {
 				if dex.CmpForBigInt(action.ReduceLocked, account.Locked) > 0 {

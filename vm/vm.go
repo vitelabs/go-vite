@@ -357,7 +357,15 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
-		quotaLeft, err = p.DoSend(block.VmContext, block.AccountBlock, quotaLeft)
+		cost, err := p.GetQuota(block.AccountBlock.Data)
+		if err != nil {
+			return nil, err
+		}
+		quotaLeft, err = util.UseQuota(quotaLeft, cost)
+		if err != nil {
+			return nil, err
+		}
+		err = p.DoSend(block.VmContext, block.AccountBlock)
 		if err != nil {
 			return nil, err
 		}

@@ -162,7 +162,6 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	}, nil
 }
 
-
 func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
 	latestBlock := gen.vmContext.PrevAccountBlock()
 	if latestBlock == nil {

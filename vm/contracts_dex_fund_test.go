@@ -52,7 +52,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock.Amount = big.NewInt(100)
 
 	depositSendAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
-	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
+	err = depositMethod.DoSend(db, depositSendAccBlock)
 	assert.True(t, err != nil)
 	assert.True(t, bytes.Equal([]byte(err.Error()), []byte("token is invalid")))
 
@@ -60,7 +60,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock.Amount = big.NewInt(3000)
 
 	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
-	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
+	err = depositMethod.DoSend(db, depositSendAccBlock)
 	assert.True(t, err == nil)
 	assert.True(t, bytes.Equal(depositSendAccBlock.TokenId.Bytes(), VITE.tokenId.Bytes()))
 	assert.Equal(t, depositSendAccBlock.Amount.Uint64(), uint64(3000))
@@ -83,7 +83,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	withdrawSendAccBlock := &ledger.AccountBlock{}
 	withdrawSendAccBlock.AccountAddress = userAddress
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
-	_, err = withdrawMethod.DoSend(db, withdrawSendAccBlock, 100010001000)
+	err = withdrawMethod.DoSend(db, withdrawSendAccBlock)
 	assert.True(t, err == nil)
 
 	withdrawReceiveBlock := &ledger.AccountBlock{}
@@ -109,7 +109,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	assert.True(t, err == nil)
 
 	param := new(dex.ParamDexFundNewOrder)
@@ -169,7 +169,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	data, _ := proto.Marshal(&actions)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundSettleOrders, data)
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	//fmt.Printf("err %s\n", err.Error())
 	assert.True(t, err == nil)
 

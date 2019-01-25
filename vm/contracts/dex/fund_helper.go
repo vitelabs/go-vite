@@ -477,12 +477,12 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
 }
 
-func FromBytesToTokenTypeId(bytes []byte) (tokenId *types.TokenTypeId, err error) {
-	tokenId = &types.TokenTypeId{}
-	if err := tokenId.SetBytes(bytes); err == nil {
-		return tokenId, nil
-	} else {
+func FromBytesToTokenTypeId(tokenBytes []byte) (*types.TokenTypeId, error) {
+	token := &types.TokenTypeId{}
+	if err := token.SetBytes(tokenBytes); err != nil {
 		return nil, err
+	} else {
+		return token, nil
 	}
 }
 

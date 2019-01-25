@@ -33,10 +33,11 @@ type SendBlock struct {
 type PrecompiledContractMethod interface {
 	GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
-	DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error)
+	DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error
 	// check status, update state
 	DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
-	GetQuota() uint64
+	// send block quota
+	GetQuota(data []byte) (uint64, error)
 }
