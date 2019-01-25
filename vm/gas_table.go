@@ -227,7 +227,7 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		y          = stack.back(1)
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
-		val        = c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
+		val        = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
 	)
 	if len(val) == 0 && y.Sign() != 0 {
 		return sstoreSetGas, nil

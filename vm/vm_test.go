@@ -271,7 +271,8 @@ func TestDelegateCall(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	c := newContract(
-		&vm_context.VmAccountBlock{receiveCallBlock, db},
+		receiveCallBlock,
+		db,
 		&sendCallBlock,
 		nil,
 		1000000,
@@ -967,7 +968,8 @@ func TestVm(t *testing.T) {
 				}
 			}
 			c := newContract(
-				&vm_context.VmAccountBlock{receiveCallBlock, db},
+				receiveCallBlock,
+				db,
 				&sendCallBlock,
 				sendCallBlock.Data,
 				testCase.QuotaTotal,
@@ -1030,4 +1032,19 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 		}
 	}
 	return ""
+}
+
+func TestOffChainReader(t *testing.T) {
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
+	db, addr1, _, _, _, _ := prepareDb(viteTotalSupply)
+	vm := NewVM()
+	nodeConfig.IsDebug = false
+	db.addr = addr1
+	loc, _ := types.BigToHash(big.NewInt(0))
+	value, _ := types.BigToHash(big.NewInt(100))
+	db.SetStorage(loc.Bytes(), value.Bytes())
+	code := []byte{byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(CALLDATALOAD), byte(SLOAD), byte(PUSH1), 0, byte(MSTORE), byte(RETURN)}
+	data := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+	returndata, err := vm.offChainReader(db, code, data)
+	fmt.Println(returndata, err)
 }

@@ -343,7 +343,7 @@ func opBlake2b(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 }
 
 func opAddress(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.get().SetBytes(c.block.AccountBlock.AccountAddress.Bytes()))
+	stack.push(c.intPool.get().SetBytes(c.block.AccountAddress.Bytes()))
 	return nil, nil
 }
 
@@ -351,7 +351,7 @@ func opBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 	addrBig, tokenTypeIdBig := stack.pop(), stack.pop()
 	address, _ := types.BigToAddress(addrBig)
 	tokenTypeId, _ := types.BigToTokenTypeId(tokenTypeIdBig)
-	stack.push(c.intPool.get().Set(c.block.VmContext.GetBalance(&address, &tokenTypeId)))
+	stack.push(c.intPool.get().Set(c.db.GetBalance(&address, &tokenTypeId)))
 
 	c.intPool.put(addrBig, tokenTypeIdBig)
 	return nil, nil
@@ -412,7 +412,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 func opExtCodeSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	addrBig := stack.peek()
 	contractAddress, _ := types.BigToAddress(addrBig)
-	_, code := util.GetContractCode(c.block.VmContext, &contractAddress)
+	_, code := util.GetContractCode(c.db, &contractAddress)
 	addrBig.SetInt64(int64(len(code)))
 	return nil, nil
 }
@@ -425,7 +425,7 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 		length     = stack.pop()
 	)
 	contractAddress, _ := types.BigToAddress(addrBig)
-	_, code := util.GetContractCode(c.block.VmContext, &contractAddress)
+	_, code := util.GetContractCode(c.db, &contractAddress)
 	codeCopy := helper.GetDataBig(code, codeOffset, length)
 	memory.set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
@@ -459,10 +459,10 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	tmp := stack.pop()
 	height := tmp.Uint64()
-	currentHeight := c.block.VmContext.CurrentSnapshotBlock().Height
+	currentHeight := c.db.CurrentSnapshotBlock().Height
 	minHeight := currentHeight - getBlockByHeightLimit
 	if height > minHeight && height <= currentHeight {
-		block, _ := c.block.VmContext.GetSnapshotBlockByHeight(height)
+		block, _ := c.db.GetSnapshotBlockByHeight(height)
 		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
 	} else {
 		stack.push(c.intPool.getZero())
@@ -473,12 +473,12 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 }
 
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetInt64((c.block.VmContext.CurrentSnapshotBlock().Timestamp.Unix()))))
+	stack.push(helper.U256(c.intPool.get().SetInt64((c.db.CurrentSnapshotBlock().Timestamp.Unix()))))
 	return nil, nil
 }
 
 func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.VmContext.CurrentSnapshotBlock().Height)))
+	stack.push(helper.U256(c.intPool.get().SetUint64(c.db.CurrentSnapshotBlock().Height)))
 	return nil, nil
 }
 
@@ -520,7 +520,7 @@ func opMstore8(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 func opSLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
-	val := c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
+	val := c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
 	loc.SetBytes(val)
 	return nil, nil
 }
@@ -528,7 +528,7 @@ func opSLoad(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]b
 func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	loc, val := stack.pop(), stack.pop()
 	locHash, _ := types.BigToHash(loc)
-	c.block.VmContext.SetStorage(locHash.Bytes(), val.Bytes())
+	c.db.SetStorage(locHash.Bytes(), val.Bytes())
 
 	c.intPool.put(loc, val)
 	return nil, nil
@@ -628,7 +628,7 @@ func makeLog(size int) executionFunc {
 		}
 
 		d := memory.get(mStart.Int64(), mSize.Int64())
-		c.block.VmContext.AddLog(&ledger.VmLog{Topics: topics, Data: d})
+		c.db.AddLog(&ledger.VmLog{Topics: topics, Data: d})
 
 		if nodeConfig.IsDebug {
 			topicsStr := ""
@@ -639,10 +639,10 @@ func makeLog(size int) executionFunc {
 				topicsStr = topicsStr[:len(topicsStr)-1]
 			}
 			nodeConfig.log.Info("vm log",
-				"blockType", c.block.AccountBlock.BlockType,
-				"address", c.block.AccountBlock.AccountAddress.String(),
-				"height", c.block.AccountBlock.Height,
-				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
+				"blockType", c.block.BlockType,
+				"address", c.block.AccountAddress.String(),
+				"height", c.block.Height,
+				"fromHash", c.block.FromBlockHash.String(),
 				"topics", topicsStr,
 				"data", hex.EncodeToString(d))
 		}
@@ -678,7 +678,7 @@ func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 	vm.AppendBlock(
 		&vm_context.VmAccountBlock{
 			util.MakeSendBlock(
-				c.block.AccountBlock,
+				c.block,
 				toAddress,
 				ledger.BlockTypeSendCall,
 				amount,
