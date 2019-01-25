@@ -225,7 +225,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 			Index: i,
 			Quota: quota,
 		}
-		if types.IsPrecompiledContractAddress(addr) {
+		if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
 			task.Quota = math.MaxUint64
 		}
 		w.contractTaskPQueue[i] = task
