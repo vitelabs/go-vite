@@ -546,7 +546,7 @@ func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 		return false
 	}
 
-	if bs.sbHeight == 1 && bs.block.IsSendBlock() {
+	if bs.block.Height == 1 && bs.block.IsSendBlock() {
 		eLog.Info(fmt.Sprintf("hash:%v, addr:%v, toAddr:%v", bs.block.Hash, bs.block.AccountAddress, bs.block.ToAddress))
 	}
 
