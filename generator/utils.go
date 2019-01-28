@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+//isRandom is especially for conract's addr, because consensus can control it within a snapshotday
 func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,
 	referredSnapshotHashList []types.Hash, isRandom bool) (prevSbHash *types.Hash, fittestSbHash *types.Hash, err error) {
 	var fittestSbHeight uint64
@@ -56,10 +57,15 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
 		}
 	}
-	gapHeight := latestSb.Height - referredMaxSbHeight
-	fittestSbHeight = latestSb.Height - minGapToLatest(gapHeight, DefaultHeightDifference)
-	if isRandom && fittestSbHeight < latestSb.Height {
-		fittestSbHeight = fittestSbHeight + addHeight(1)
+	gap2Referred := latestSb.Height - referredMaxSbHeight
+	if gap2Referred <= DefaultHeightDifference {
+		fittestSbHeight = latestSb.Height - gap2Referred
+	} else {
+		if isRandom {
+			fittestSbHeight = latestSb.Height - gap2Referred + addHeight(gap2Referred-DefaultHeightDifference)
+		} else {
+			fittestSbHeight = latestSb.Height - DefaultHeightDifference
+		}
 	}
 
 	// protect code
@@ -90,19 +96,6 @@ func addHeight(gapHeight uint64) uint64 {
 		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
 	}
 	return randHeight
-}
-
-func minGapToLatest(us ...uint64) uint64 {
-	if len(us) == 0 {
-		panic("zero args")
-	}
-	min := us[0]
-	for _, u := range us {
-		if u < min {
-			min = u
-		}
-	}
-	return min
 }
 
 func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmContextList []vmctxt_interface.VmDatabase, resultErr error) {

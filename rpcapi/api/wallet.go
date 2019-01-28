@@ -312,7 +312,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 		Data:           params.Data,
 	}
 
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, true)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, false)
 	if err != nil {
 		return nil, err
 	}
