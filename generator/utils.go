@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-//isRandom is especially for conract's addr, because consensus can control it within a snapshotday
 func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,
 	referredSnapshotHashList []types.Hash, isRandom bool) (prevSbHash *types.Hash, fittestSbHash *types.Hash, err error) {
 	var fittestSbHeight uint64
@@ -58,14 +57,11 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 		}
 	}
 	gap2Referred := latestSb.Height - referredMaxSbHeight
-	if gap2Referred <= DefaultHeightDifference {
-		fittestSbHeight = latestSb.Height - gap2Referred
+	_, minGap, randomTether := measureGapToLatest(gap2Referred, DefaultHeightDifference)
+	if isRandom {
+		fittestSbHeight = latestSb.Height - (minGap + addHeight(randomTether))
 	} else {
-		if isRandom {
-			fittestSbHeight = latestSb.Height - gap2Referred + addHeight(gap2Referred-DefaultHeightDifference)
-		} else {
-			fittestSbHeight = latestSb.Height - DefaultHeightDifference
-		}
+		fittestSbHeight = latestSb.Height - minGap
 	}
 
 	// protect code
@@ -89,11 +85,19 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 	return &prevSb.Hash, fittestSbHash, nil
 }
 
+func measureGapToLatest(referredGap, defaultGap uint64) (maxGap, minGap, randomTether uint64) {
+	if referredGap <= defaultGap {
+		return referredGap, 0, referredGap
+	} else {
+		return referredGap, defaultGap, referredGap - defaultGap
+	}
+}
+
 func addHeight(gapHeight uint64) uint64 {
 	randHeight := uint64(0)
 	if gapHeight >= 1 {
 		rand.Seed(time.Now().UnixNano())
-		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
+		randHeight = uint64(rand.Intn(int(gapHeight+1))) % types.SnapshotHourHeight
 	}
 	return randHeight
 }

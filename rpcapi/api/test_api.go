@@ -86,7 +86,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, false)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, false)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
 	if err != nil {
 		return err
 	}

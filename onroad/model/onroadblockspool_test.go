@@ -160,7 +160,7 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address,
 		TokenId:        &ledger.ViteTokenId,
 		Difficulty:     difficulty,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, false)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return nil, err
 	}
