@@ -97,7 +97,7 @@ func addHeight(gapHeight uint64) uint64 {
 	randHeight := uint64(0)
 	if gapHeight >= 1 {
 		rand.Seed(time.Now().UnixNano())
-		randHeight = uint64(rand.Intn(int(gapHeight+1))) % types.SnapshotHourHeight
+		randHeight = uint64(rand.Intn(int(gapHeight%types.SnapshotHourHeight + 1)))
 	}
 	return randHeight
 }
