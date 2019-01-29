@@ -56,9 +56,6 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		blackList: make(map[types.Address]bool),
 		log:       slog.New("worker", "c"),
 	}
-	if currentSnapshotBlock := manager.chain.GetLatestSnapshotBlock(); currentSnapshotBlock != nil {
-		worker.currentSnapshotHash = currentSnapshotBlock.Hash
-	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
 		processors[i] = NewContractTaskProcessor(worker, i)
@@ -76,8 +73,10 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
 	w.accEvent = accEvent
-	if w.currentSnapshotHash.IsZero() {
-		w.currentSnapshotHash = accEvent.SnapshotHash
+	if sb := w.manager.chain.GetLatestSnapshotBlock(); sb != nil {
+		w.currentSnapshotHash = sb.Hash
+	} else {
+		w.currentSnapshotHash = w.accEvent.SnapshotHash
 	}
 
 	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
@@ -116,7 +115,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				return
 			}
 
-			q, _ := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, address)
+			q := w.GetPledgeQuota(address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
@@ -222,12 +221,7 @@ LOOP:
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
-	var oLog = w.log.New("method", "getAndSortAllAddrQuota")
-
-	quotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, w.contractAddressList)
-	if err != nil {
-		oLog.Error("GetPledgeQuotas err", "error", err)
-	}
+	quotas := w.GetPledgeQuotas(w.contractAddressList)
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
@@ -236,9 +230,6 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 			Addr:  addr,
 			Index: i,
 			Quota: quota,
-		}
-		if types.IsPrecompiledContractAddress(addr) {
-			task.Quota = math.MaxUint64
 		}
 		w.contractTaskPQueue[i] = task
 		i++
@@ -296,4 +287,30 @@ func (w ContractWorker) Status() int {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	return w.status
+}
+
+func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
+	var quotas = make(map[types.Address]uint64, 0)
+	var err error
+	quotas, err = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, w.contractAddressList)
+	if err != nil {
+		w.log.Error("GetPledgeQuotas err", "error", err)
+	}
+	if w.gid == types.DELEGATE_GID {
+		for _, v := range types.PrecompiledContractWithoutQuotaAddressList {
+			quotas[v] = math.MaxUint64
+		}
+	}
+	return quotas
+}
+
+func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
+	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+		return math.MaxUint64
+	}
+	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
+	if err != nil {
+		w.log.Error("GetPledgeQuotas err", "error", err)
+	}
+	return quota
 }
