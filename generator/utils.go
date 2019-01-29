@@ -56,10 +56,12 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 			return nil, nil, errors.New("the height of the snapshotblock referred can't be larger than the latest")
 		}
 	}
-	gapHeight := latestSb.Height - referredMaxSbHeight
-	fittestSbHeight = latestSb.Height - minGapToLatest(gapHeight, DefaultHeightDifference)
-	if isRandom && fittestSbHeight < latestSb.Height {
-		fittestSbHeight = fittestSbHeight + addHeight(1)
+	gap2Referred := latestSb.Height - referredMaxSbHeight
+	minGap, randomGap := measureGapToLatest(gap2Referred, DefaultHeightDifference)
+	if isRandom {
+		fittestSbHeight = latestSb.Height - randomGap
+	} else {
+		fittestSbHeight = latestSb.Height - minGap
 	}
 
 	// protect code
@@ -83,26 +85,24 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 	return &prevSb.Hash, fittestSbHash, nil
 }
 
-func addHeight(gapHeight uint64) uint64 {
+func measureGapToLatest(referredGap, defaultGap uint64) (minGap, randomGap uint64) {
+	var minConfirmedHeight uint64
+	if referredGap <= defaultGap {
+		minConfirmedHeight = 0
+		return referredGap, minConfirmedHeight + getRandomHeight(referredGap)
+	} else {
+		minConfirmedHeight = defaultGap
+		return defaultGap, minConfirmedHeight + getRandomHeight(referredGap-defaultGap)
+	}
+}
+
+func getRandomHeight(gapHeight uint64) uint64 {
 	randHeight := uint64(0)
 	if gapHeight >= 1 {
 		rand.Seed(time.Now().UnixNano())
-		randHeight = uint64(rand.Intn(int(gapHeight + 1)))
+		randHeight = uint64(rand.Intn(int(gapHeight%types.SnapshotHourHeight + 1)))
 	}
 	return randHeight
-}
-
-func minGapToLatest(us ...uint64) uint64 {
-	if len(us) == 0 {
-		panic("zero args")
-	}
-	min := us[0]
-	for _, u := range us {
-		if u < min {
-			min = u
-		}
-	}
-	return min
 }
 
 func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmContextList []vmctxt_interface.VmDatabase, resultErr error) {
