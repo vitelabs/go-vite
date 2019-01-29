@@ -86,13 +86,10 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 }
 
 func measureGapToLatest(referredGap, defaultGap uint64) (minGap, randomGap uint64) {
-	var minConfirmedHeight uint64
 	if referredGap <= defaultGap {
-		minConfirmedHeight = 0
-		return referredGap, minConfirmedHeight + getRandomHeight(referredGap)
+		return referredGap, uint64(0) + getRandomHeight(referredGap)
 	} else {
-		minConfirmedHeight = defaultGap
-		return defaultGap, minConfirmedHeight + getRandomHeight(referredGap-defaultGap)
+		return defaultGap, defaultGap + getRandomHeight(referredGap-defaultGap)
 	}
 }
 
