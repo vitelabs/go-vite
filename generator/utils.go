@@ -57,9 +57,9 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 		}
 	}
 	gap2Referred := latestSb.Height - referredMaxSbHeight
-	_, minGap, randomTether := measureGapToLatest(gap2Referred, DefaultHeightDifference)
+	minGap, randomGap := measureGapToLatest(gap2Referred, DefaultHeightDifference)
 	if isRandom {
-		fittestSbHeight = latestSb.Height - (minGap + addHeight(randomTether))
+		fittestSbHeight = latestSb.Height - randomGap
 	} else {
 		fittestSbHeight = latestSb.Height - minGap
 	}
@@ -85,15 +85,18 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 	return &prevSb.Hash, fittestSbHash, nil
 }
 
-func measureGapToLatest(referredGap, defaultGap uint64) (maxGap, minGap, randomTether uint64) {
+func measureGapToLatest(referredGap, defaultGap uint64) (minGap, randomGap uint64) {
+	var minConfirmedHeight uint64
 	if referredGap <= defaultGap {
-		return referredGap, 0, referredGap
+		minConfirmedHeight = 0
+		return referredGap, minConfirmedHeight + getRandomHeight(referredGap)
 	} else {
-		return referredGap, defaultGap, referredGap - defaultGap
+		minConfirmedHeight = defaultGap
+		return defaultGap, minConfirmedHeight + getRandomHeight(referredGap-defaultGap)
 	}
 }
 
-func addHeight(gapHeight uint64) uint64 {
+func getRandomHeight(gapHeight uint64) uint64 {
 	randHeight := uint64(0)
 	if gapHeight >= 1 {
 		rand.Seed(time.Now().UnixNano())
