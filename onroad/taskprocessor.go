@@ -219,6 +219,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 		for _, v := range genResult.BlockGenList {
 			if v != nil && v.AccountBlock != nil {
+				if task.Quota < v.AccountBlock.Quota {
+					plog.Error(fmt.Sprintf("addr %v out of quota expected during snapshotTime %v.", task.Addr, tp.worker.currentSnapshotHash))
+					tp.worker.addIntoBlackList(task.Addr)
+					return
+				}
 				task.Quota -= v.AccountBlock.Quota
 			}
 		}

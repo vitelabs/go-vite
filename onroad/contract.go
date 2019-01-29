@@ -18,9 +18,10 @@ type ContractWorker struct {
 
 	uBlocksPool *model.OnroadBlocksPool
 
-	gid      types.Gid
-	address  types.Address
-	accEvent producerevent.AccountStartEvent
+	gid                 types.Gid
+	address             types.Address
+	accEvent            producerevent.AccountStartEvent
+	currentSnapshotHash types.Hash
 
 	status      int
 	statusMutex sync.Mutex
@@ -55,7 +56,9 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		blackList: make(map[types.Address]bool),
 		log:       slog.New("worker", "c"),
 	}
-
+	if currentSnapshotBlock := manager.chain.GetLatestSnapshotBlock(); currentSnapshotBlock != nil {
+		worker.currentSnapshotHash = currentSnapshotBlock.Hash
+	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
 		processors[i] = NewContractTaskProcessor(worker, i)
@@ -73,6 +76,10 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
 	w.accEvent = accEvent
+	if w.currentSnapshotHash.IsZero() {
+		w.currentSnapshotHash = accEvent.SnapshotHash
+	}
+
 	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
 
 	log := w.log.New("method", "start")
@@ -109,7 +116,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				return
 			}
 
-			q, _ := w.manager.Chain().GetPledgeQuota(w.accEvent.SnapshotHash, address)
+			q, _ := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
@@ -215,7 +222,12 @@ LOOP:
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
-	quotas, _ := w.manager.Chain().GetPledgeQuotas(w.accEvent.SnapshotHash, w.contractAddressList)
+	var oLog = w.log.New("method", "getAndSortAllAddrQuota")
+
+	quotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, w.contractAddressList)
+	if err != nil {
+		oLog.Error("GetPledgeQuotas err", "error", err)
+	}
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
