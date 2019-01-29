@@ -37,6 +37,7 @@ type Peer interface {
 	Report(err error)
 	ID() string
 	Height() uint64
+	Head() types.Hash
 	Disconnect(reason p2p.DiscReason)
 }
 
@@ -59,6 +60,10 @@ type peer struct {
 	term       chan struct{}
 	msgHandled map[ViteCmd]uint64 // message statistic
 	wg         sync.WaitGroup
+}
+
+func (p *peer) Head() types.Hash {
+	return p.head
 }
 
 func (p *peer) Height() uint64 {
@@ -341,7 +346,7 @@ func (m *peerSet) Notify(e *peerEvent) {
 }
 
 // the tallest peer
-func (m *peerSet) BestPeer() (best *peer) {
+func (m *peerSet) BestPeer() (best Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
@@ -357,13 +362,13 @@ func (m *peerSet) BestPeer() (best *peer) {
 	return
 }
 
-func (m *peerSet) SyncPeer() *peer {
+func (m *peerSet) SyncPeer() Peer {
 	s := m.Peers()
 	if len(s) == 0 {
 		return nil
 	}
 
-	sort.Sort(ps(s))
+	sort.Sort(s)
 	mid := len(s) / 2
 
 	return s[mid]
@@ -407,7 +412,7 @@ func (m *peerSet) Count() int {
 
 // pick peers whose height taller than the target height
 // has sorted from low to high
-func (m *peerSet) Pick(height uint64) (l []*peer) {
+func (m *peerSet) Pick(height uint64) (l []Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
@@ -435,11 +440,11 @@ func (m *peerSet) Info() (info []*PeerInfo) {
 	return
 }
 
-func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
+func (m *peerSet) UnknownBlock(hash types.Hash) (peers []Peer) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
-	peers = make([]*peer, len(m.peers))
+	peers = make([]Peer, len(m.peers))
 
 	i := 0
 	for _, p := range m.peers {
@@ -456,11 +461,11 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
 	return peers[:i]
 }
 
-func (m *peerSet) Peers() (peers []*peer) {
+func (m *peerSet) Peers() (peers Peers) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
-	peers = make([]*peer, len(m.peers))
+	peers = make(Peers, len(m.peers))
 
 	i := 0
 	for _, peer := range m.peers {
@@ -508,17 +513,16 @@ func (s peers) delete(id string) peers {
 	return s
 }
 
-// @section
-type ps []*peer
+type Peers []Peer
 
-func (s ps) Len() int {
-	return len(s)
+func (l Peers) Len() int {
+	return len(l)
 }
 
-func (s ps) Less(i, j int) bool {
-	return s[i].Height() < s[j].Height()
+func (l Peers) Less(i, j int) bool {
+	return l[i].Height() < l[j].Height()
 }
 
-func (s ps) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
+func (l Peers) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }

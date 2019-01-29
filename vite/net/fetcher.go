@@ -45,7 +45,7 @@ func (p *fetchPolicy) pickAccount(height uint64) []Peer {
 	var peer Peer
 	var maxHeight uint64
 	for _, p := range peers {
-		peerHeight := p.height
+		peerHeight := p.Height()
 
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
