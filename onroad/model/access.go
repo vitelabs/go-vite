@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytes"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
@@ -34,16 +33,16 @@ func (access *UAccess) GetContractAddrListWithoutPrecompiledByGid(gid *types.Gid
 		access.log.Error("GetContractAddrListWithoutPrecompiledByGid", "error", err)
 		return nil, err
 	}
-
-	//if *gid == types.DELEGATE_GID {
-	//	addrList = append(addrList, types.PrecompiledContractAddressList...)
-	//}
 	return addrList, nil
 }
 
 func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
 	var addrList []types.Address
 	var err error
+
+	if gid == types.DELEGATE_GID && types.IsPrecompiledContractAddress(address) {
+		return nil
+	}
 
 	addrList, err = access.store.GetContractAddrList(&gid)
 	if err != nil {
@@ -70,8 +69,8 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 		return err
 	} else {
 		for k, v := range addrList {
-			if bytes.Equal(v.Bytes(), address.Bytes()) {
-				addrList = append(addrList[0:k-1], addrList[k+1:]...)
+			if v == address {
+				addrList = append(addrList[0:k], addrList[k+1:]...)
 				break
 			}
 		}
