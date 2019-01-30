@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytes"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
@@ -31,9 +30,9 @@ func (access *UAccess) Init(chain chain.Chain) {
 func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address, error) {
 	addrList, err := access.store.GetContractAddrList(gid)
 	if err != nil {
+		access.log.Error("GetContractAddrListByGid", "error", err)
 		return nil, err
 	}
-
 	if *gid == types.DELEGATE_GID {
 		addrList = append(addrList, types.PrecompiledContractAddressList...)
 	}
@@ -44,9 +43,13 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 	var addrList []types.Address
 	var err error
 
-	addrList, err = access.GetContractAddrListByGid(&gid)
-	if addrList == nil && err != nil {
-		access.log.Error("GetMeta", "error", err)
+	if gid == types.DELEGATE_GID && types.IsPrecompiledContractAddress(address) {
+		return nil
+	}
+
+	addrList, err = access.store.GetContractAddrList(&gid)
+	if err != nil {
+		access.log.Error("WriteContractAddrToGid", "error", err)
 		return err
 	} else {
 		for _, v := range addrList {
@@ -63,14 +66,18 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 	var addrList []types.Address
 	var err error
 
-	addrList, err = access.GetContractAddrListByGid(&gid)
+	addrList, err = access.store.GetContractAddrList(&gid)
 	if addrList == nil || err != nil {
-		access.log.Error("GetContractAddrListByGid", "error", err)
+		access.log.Error("DeleteContractAddrFromGid", "error", err)
 		return err
 	} else {
 		for k, v := range addrList {
-			if bytes.Equal(v.Bytes(), address.Bytes()) {
-				addrList = append(addrList[0:k-1], addrList[k+1:]...)
+			if v == address {
+				if k >= len(addrList)-1 {
+					addrList = addrList[0:k]
+				} else {
+					addrList = append(addrList[0:k], addrList[k+1:]...)
+				}
 				break
 			}
 		}

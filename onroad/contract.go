@@ -302,9 +302,8 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 
 func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
-	var err error
 	if w.gid == types.DELEGATE_GID {
-		commonContractAddressList := make([]types.Address, 0)
+		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
 			if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
 				quotas[addr] = math.MaxUint64
@@ -321,9 +320,10 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 			}
 		}
 	} else {
-		quotas, err = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
-		if err != nil {
-			w.log.Error("GetPledgeQuotas err", "error", err)
+		var qRrr error
+		quotas, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
+		if qRrr != nil {
+			w.log.Error("GetPledgeQuotas err", "error", qRrr)
 		}
 	}
 	return quotas
