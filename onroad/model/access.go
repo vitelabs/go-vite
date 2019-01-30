@@ -28,15 +28,16 @@ func (access *UAccess) Init(chain chain.Chain) {
 	access.store = NewOnroadSet(chain)
 }
 
-func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address, error) {
+func (access *UAccess) GetContractAddrListWithoutPrecompiledByGid(gid *types.Gid) ([]types.Address, error) {
 	addrList, err := access.store.GetContractAddrList(gid)
 	if err != nil {
+		access.log.Error("GetContractAddrListWithoutPrecompiledByGid", "error", err)
 		return nil, err
 	}
 
-	if *gid == types.DELEGATE_GID {
-		addrList = append(addrList, types.PrecompiledContractAddressList...)
-	}
+	//if *gid == types.DELEGATE_GID {
+	//	addrList = append(addrList, types.PrecompiledContractAddressList...)
+	//}
 	return addrList, nil
 }
 
@@ -44,9 +45,9 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 	var addrList []types.Address
 	var err error
 
-	addrList, err = access.GetContractAddrListByGid(&gid)
-	if addrList == nil && err != nil {
-		access.log.Error("GetMeta", "error", err)
+	addrList, err = access.store.GetContractAddrList(&gid)
+	if err != nil {
+		access.log.Error("WriteContractAddrToGid", "error", err)
 		return err
 	} else {
 		for _, v := range addrList {
@@ -63,9 +64,9 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 	var addrList []types.Address
 	var err error
 
-	addrList, err = access.GetContractAddrListByGid(&gid)
+	addrList, err = access.store.GetContractAddrList(&gid)
 	if addrList == nil || err != nil {
-		access.log.Error("GetContractAddrListByGid", "error", err)
+		access.log.Error("DeleteContractAddrFromGid", "error", err)
 		return err
 	} else {
 		for k, v := range addrList {
