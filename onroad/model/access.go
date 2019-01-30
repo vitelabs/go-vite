@@ -27,11 +27,14 @@ func (access *UAccess) Init(chain chain.Chain) {
 	access.store = NewOnroadSet(chain)
 }
 
-func (access *UAccess) GetContractAddrListWithoutPrecompiledByGid(gid *types.Gid) ([]types.Address, error) {
+func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address, error) {
 	addrList, err := access.store.GetContractAddrList(gid)
 	if err != nil {
-		access.log.Error("GetContractAddrListWithoutPrecompiledByGid", "error", err)
+		access.log.Error("GetContractAddrListByGid", "error", err)
 		return nil, err
+	}
+	if *gid == types.DELEGATE_GID {
+		addrList = append(addrList, types.PrecompiledContractAddressList...)
 	}
 	return addrList, nil
 }
@@ -70,7 +73,11 @@ func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types
 	} else {
 		for k, v := range addrList {
 			if v == address {
-				addrList = append(addrList[0:k], addrList[k+1:]...)
+				if k >= len(addrList)-1 {
+					addrList = addrList[0:k]
+				} else {
+					addrList = append(addrList[0:k], addrList[k+1:]...)
+				}
 				break
 			}
 		}

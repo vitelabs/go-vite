@@ -269,7 +269,7 @@ func createContract(vite *VitePrepared, addr *types.Address, addrPrivKey ed25519
 		}
 
 		gid := util.GetGidFromCreateContractData(genBlock.AccountBlock.Data)
-		addrList, err := vite.onroadPool.dbAccess.GetContractAddrListWithoutPrecompiledByGid(&gid)
+		addrList, err := vite.onroadPool.dbAccess.GetContractAddrListByGid(&gid)
 		if err != nil {
 			return nil, err
 		}
@@ -382,7 +382,7 @@ func revertAllAbove(vite *VitePrepared, subLedger map[types.Address][]*ledger.Ac
 
 func checkRevertSendCreateGidToAddress(vite *VitePrepared, block *ledger.AccountBlock) error {
 	gid := util.GetGidFromCreateContractData(block.Data)
-	addrList, err := vite.onroadPool.dbAccess.GetContractAddrListWithoutPrecompiledByGid(&gid)
+	addrList, err := vite.onroadPool.dbAccess.GetContractAddrListByGid(&gid)
 	if err != nil {
 		return err
 	}
