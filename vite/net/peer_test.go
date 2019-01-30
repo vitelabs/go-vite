@@ -35,10 +35,16 @@ func TestPeerSet_SyncPeer(t *testing.T) {
 	fmt.Println("mid", peerMap.SyncPeer().Height())
 }
 
+func TestPeerSet_SyncPeer2(t *testing.T) {
+	var m = newPeerSet()
+	if m.SyncPeer() != nil {
+		t.Fail()
+	}
+}
+
 func TestPeerSet_BestPeer(t *testing.T) {
-	var set = newPeerSet()
-	var p Peer = set.BestPeer()
-	if p != nil {
+	var m = newPeerSet()
+	if m.BestPeer() != nil {
 		t.Fail()
 	}
 }

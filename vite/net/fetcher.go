@@ -179,8 +179,9 @@ func (f *filter) done(hash types.Hash) {
 	if r, ok := f.records[hash]; ok {
 		r.done()
 	} else {
-		f.records[hash] = record{addAt: time.Now().Unix()}
-		f.records[hash].done()
+		r = record{addAt: time.Now().Unix()}
+		r.done()
+		f.records[hash] = r
 	}
 }
 

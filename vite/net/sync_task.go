@@ -2,6 +2,7 @@ package net
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -14,14 +15,49 @@ const (
 	syncChunkTask
 )
 
-type syncTask interface {
+type reqState byte
+
+const (
+	reqWaiting reqState = iota
+	reqPending
+	reqRespond
+	reqDone
+	reqError
+	reqCancel
+)
+
+var reqStatus = [...]string{
+	reqWaiting: "waiting",
+	reqPending: "pending",
+	reqRespond: "respond",
+	reqDone:    "done",
+	reqError:   "error",
+	reqCancel:  "canceled",
+}
+
+func (s reqState) String() string {
+	if s > reqCancel {
+		return "unknown request state"
+	}
+	return reqStatus[s]
+}
+
+type syncTask struct {
+	task
+	st     reqState
+	typ    syncTaskType
+	cancel func()
+	ctx    context.Context
+}
+
+func (t *syncTask) do() error {
+	return t.task.do(t.ctx)
+}
+
+type task interface {
 	bound() (from, to uint64)
-	state() reqState
-	setState(st reqState)
 	do(ctx context.Context) error
-	taskType() syncTaskType
-	info() string
-	cancel()
+	String() string
 }
 
 type blockReceiver interface {
@@ -45,104 +81,70 @@ func (f Files) Swap(i, j int) {
 }
 
 type fileDownloader interface {
-	download(file File) error
+	download(ctx context.Context, file File) <-chan error
 }
 
 type fileTask struct {
-	st         reqState
 	file       File
 	downloader fileDownloader
-	ctx        context.Context
 }
 
-func (f *fileTask) cancel() {
-}
-
-func (f *fileTask) info() string {
-	panic("implement me")
-}
-
-func (f *fileTask) state() reqState {
-	return f.st
-}
-
-func (f *fileTask) setState(st reqState) {
-	f.st = st
-}
-
-func (f *fileTask) taskType() syncTaskType {
-	return syncFileTask
+func (f *fileTask) String() string {
+	return f.file.Filename
 }
 
 func (f *fileTask) bound() (from, to uint64) {
 	return f.file.StartHeight, f.file.EndHeight
 }
 
-func (f *fileTask) do() error {
-	return f.downloader.download(f.file)
+func (f *fileTask) do(ctx context.Context) error {
+	return <-f.downloader.download(ctx, f.file)
 }
 
 type chunkDownloader interface {
-	download(from, to uint64) error
+	// only return error when no suitable peers to request the subledger
+	download(ctx context.Context, from, to uint64) <-chan error
 }
 
 type chunkTask struct {
 	from, to   uint64
-	st         reqState
 	downloader chunkDownloader
 }
 
-func (c *chunkTask) info() string {
-	panic("implement me")
-}
-
-func (c *chunkTask) state() reqState {
-	return c.st
-}
-
-func (c *chunkTask) setState(st reqState) {
-	c.st = st
-}
-
-func (c *chunkTask) taskType() syncTaskType {
-	return syncChunkTask
+func (c *chunkTask) String() string {
+	return "chunk<" + strconv.FormatUint(c.from, 10) + "-" + strconv.FormatUint(c.to, 10) + ">"
 }
 
 func (c *chunkTask) bound() (from, to uint64) {
 	return c.from, c.to
 }
 
-func (c *chunkTask) do() error {
-	return c.downloader.download(c.from, c.to)
+func (c *chunkTask) do(ctx context.Context) error {
+	return <-c.downloader.download(ctx, c.from, c.to)
 }
 
 type syncTaskExecutor interface {
-	add(t syncTask)
-	cancel(t syncTask)
+	add(t *syncTask)
+	exec(t *syncTask)
 	runTo(to uint64)
-	last() syncTask
+	last() *syncTask
 	terminate()
 }
 
 type syncTaskListener interface {
-	done(t syncTask)
-	catch(t syncTask, err error)
-	nonTask(last syncTask)
+	taskDone(t *syncTask, err error) // one task done
+	allTaskDone(last *syncTask)      // all task done
 }
 
 type executor struct {
 	mu    sync.Mutex
-	tasks []syncTask
+	tasks []*syncTask
 
 	doneIndex int
 	listener  syncTaskListener
 
 	ctx       context.Context
 	ctxCancel func()
-}
-
-func (e *executor) cancel(t syncTask) {
-	panic("implement me")
 }
 
 func newExecutor(listener syncTaskListener) syncTaskExecutor {
@@ -155,7 +157,8 @@ func newExecutor(listener syncTaskListener) syncTaskExecutor {
 	}
 }
 
-func (e *executor) add(t syncTask) {
+// add from low to high
+func (e *executor) add(t *syncTask) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -167,15 +170,14 @@ func (e *executor) runTo(to uint64) {
 
 	var skip = 0 // pending / cancel / done but not continue
 	var index = 0
-	var continuous = true // is task done continuously
+	var continuous = true // is task done consecutively
 
 	for index = e.doneIndex + skip; index < len(e.tasks); index = e.doneIndex + skip {
 		t := e.tasks[index]
-		st := t.state()
 
-		if st == reqDone && continuous {
+		if t.st == reqDone && continuous {
 			e.doneIndex++
-		} else if st == reqPending || st == reqDone {
+		} else if t.st == reqPending || t.st == reqDone {
 			continuous = false
 			skip++
 		} else {
@@ -193,25 +195,26 @@ func (e *executor) runTo(to uint64) {
 	e.mu.Unlock()
 
 	// no tasks remand
-	e.listener.nonTask(last)
+	e.listener.allTaskDone(last)
 }
 
-func (e *executor) run(t syncTask) {
-	t.setState(reqPending)
-	go e.do(t)
+func (e *executor) run(t *syncTask) {
+	t.st = reqPending
+	go e.exec(t)
 }
 
-func (e *executor) do(t syncTask) {
-	if err := t.do(e.ctx); err != nil {
-		t.setState(reqError)
-		e.listener.catch(t, err)
+func (e *executor) exec(t *syncTask) {
+	t.ctx, t.cancel = context.WithCancel(e.ctx)
+	if err := t.do(); err != nil {
+		t.st = reqError
+		e.listener.taskDone(t, err)
 	} else {
-		t.setState(reqDone)
-		e.listener.done(t)
+		t.st = reqDone
+		e.listener.taskDone(t, nil)
 	}
 }
 
-func (e *executor) last() syncTask {
+func (e *executor) last() *syncTask {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -219,5 +222,7 @@ func (e *executor) last() syncTask {
 }
 
 func (e *executor) terminate() {
-	panic("implement me")
+	if e.ctx != nil {
+		e.ctxCancel()
+	}
 }

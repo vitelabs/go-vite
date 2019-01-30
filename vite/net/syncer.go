@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -66,8 +67,11 @@ type syncer struct {
 
 	peers *peerSet
 
-	pending int // pending count of FileList msg
-	resChan chan *message.FileList
+	pending   int  // pending count of FileList msg
+	responsed int  // number of FileList msg received
+	taskMade  bool // has make tasks
+	mu        sync.Mutex
+	fileMap   map[filename]File
 
 	// query current block and height
 	chain Chain
@@ -100,6 +104,7 @@ func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) error {
 	}
 
 	s.notifier.notifyAccountBlock(block, types.RemoteSync)
+	atomic.AddUint64(&s.aCount, 1)
 	return nil
 }
 
@@ -110,6 +115,7 @@ func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) error {
 	}
 
 	s.notifier.notifySnapshotBlock(block, types.RemoteSync)
+	atomic.AddUint64(&s.sCount, 1)
 	return nil
 }
 
@@ -118,6 +124,7 @@ func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, noti
 		state:     SyncNotStart,
 		chain:     chain,
 		peers:     peers,
+		fileMap:   make(map[filename]File),
 		eventChan: make(chan peerEvent, 1),
 		verifier:  verifier,
 		notifier:  notifier,
@@ -169,6 +176,17 @@ func (s *syncer) Stop() {
 		s.pool.stop()
 		s.fc.stop()
 	}
+}
+
+func (s *syncer) clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.aCount = 0
+	s.sCount = 0
+	s.pending = 0
+	s.taskMade = false
+	s.fileMap = make(map[filename]File)
 }
 
 func (s *syncer) Start() {
@@ -237,7 +255,7 @@ wait:
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
 	defer checkChainTicker.Stop()
-	var lastChekTime time.Time
+	var lastCheckTime = time.Now()
 
 	for {
 		select {
@@ -275,9 +293,10 @@ wait:
 				return
 			}
 
-			if current.Height == s.current && now.Sub(lastChekTime) > 10*time.Minute {
+			if current.Height == s.current && now.Sub(lastCheckTime) > 10*time.Minute {
 				s.setState(Syncerr)
 			} else {
+				s.current = current.Height
 				s.exec.runTo(s.current + 3600)
 			}
 
@@ -296,6 +315,10 @@ func (s *syncer) setTarget(to uint64) {
 
 func (s *syncer) getSubLedgerFromAll() {
 	l := s.peers.Pick(s.from + 1)
+
+	s.mu.Lock()
+	s.pending = len(l)
+	s.mu.Unlock()
 
 	for _, p := range l {
 		s.getSubLedgerFrom(p)
@@ -322,62 +345,55 @@ func (s *syncer) getSubLedgerFrom(p Peer) {
 	}
 }
 
-func (s *syncer) pendingFileList() {
-	var wait <-chan time.Time
-	count := 0
+func (s *syncer) receiveFileList(msg *message.FileList) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	fileMap := make(map[filename]File)
-
-Loop:
-	for {
-		select {
-		case <-s.term:
-			return
-		case files := <-s.resChan:
-			if wait == nil {
-				wait = time.After(3 * time.Second)
-			}
-
-			for _, file := range files.Files {
-				fileMap[file.Filename] = file
-			}
-
-			count++
-			if count > 3 || count > s.pending/2 {
-				break Loop
-			}
-
-		case <-wait:
-			break Loop
+	for _, file := range msg.Files {
+		if _, ok := s.fileMap[file.Filename]; ok {
+			continue
 		}
+
+		s.fileMap[file.Filename] = file
 	}
 
-	// prepare tasks
-	if len(fileMap) > 0 {
-		// has file
-		files := make(Files, len(fileMap))
-		i := 0
-		for _, file := range fileMap {
-			files[i] = file
-			i++
-		}
+	s.responsed++
 
-		sort.Sort(files)
-		for _, file := range files {
-			s.exec.add(&fileTask{
-				file:       file,
-				downloader: s.fc,
-			})
-		}
-	} else {
-		// use chunk
-		cks := splitChunk(s.from, s.to, chunkSize)
-		for _, ck := range cks {
-			s.exec.add(&chunkTask{
-				from:       ck[0],
-				to:         ck[1],
-				downloader: s.pool,
-			})
+	if (s.responsed*2 > s.pending || s.responsed > 3) && (!s.taskMade) {
+		s.taskMade = true
+		// prepare tasks
+		if len(s.fileMap) > 0 {
+			// has file
+			files := make(Files, len(s.fileMap))
+			i := 0
+			for _, file := range s.fileMap {
+				files[i] = file
+				i++
+			}
+
+			sort.Sort(files)
+			for _, file := range files {
+				s.exec.add(&syncTask{
+					task: &fileTask{
+						file:       file,
+						downloader: s.fc,
+					},
+					typ: syncFileTask,
+				})
+			}
+		} else {
+			// use chunk
+			cks := splitChunk(s.from, s.to, chunkSize)
+			for _, ck := range cks {
+				s.exec.add(&syncTask{
+					task: &chunkTask{
+						from:       ck[0],
+						to:         ck[1],
+						downloader: s.pool,
+					},
+					typ: syncChunkTask,
+				})
+			}
 		}
 	}
 }
@@ -408,7 +424,7 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			s.fc.addFilePeer(names, sender)
 		}
 
-		s.resChan <- res
+		s.receiveFileList(res)
 
 	case SubLedgerCode:
 		return s.pool.Handle(msg, sender)
@@ -417,48 +433,52 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
 	return nil
 }
 
-func (s *syncer) done(t syncTask) {
-	from, to := t.bound()
-	atomic.AddUint64(&s.sCount, to+1-from)
+func (s *syncer) taskDone(t *syncTask, err error) {
+	if err != nil {
+		if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
+			return
+		}
+
+		from, to := t.bound()
+		target := atomic.LoadUint64(&s.to)
+
+		if to <= target {
+			s.setState(Syncerr)
+			return
+		}
+
+		if from > s.to {
+			return
+		}
+
+		// todo
+		//s.pool.download(from, s.to)
+	}
 }
 
-func (s *syncer) catch(t syncTask, err error) {
-	if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
-		return
-	}
-
-	from, to := t.bound()
-	target := atomic.LoadUint64(&s.to)
-
-	if to <= target {
-		s.setState(Syncerr)
-		return
-	}
-
-	if from > s.to {
-		return
-	}
-
-	s.pool.download(from, s.to)
-}
-
-func (s *syncer) nonTask(last syncTask) {
+func (s *syncer) allTaskDone(last *syncTask) {
 	_, to := last.bound()
 	target := atomic.LoadUint64(&s.to)
 
 	if to >= target {
+		s.setState(SyncDownloaded)
 		return
 	}
 
 	// use chunk
-	cks := splitChunk(to+1, s.to, chunkSize)
+	cks := splitChunk(to+1, target, chunkSize)
 	for _, ck := range cks {
-		s.exec.add(&chunkTask{
-			from:       ck[0],
-			to:         ck[1],
-			downloader: s.pool,
+		s.exec.add(&syncTask{
+			task: &chunkTask{
+				from:       ck[0],
+				to:         ck[1],
+				downloader: s.pool,
+			},
+			typ: syncChunkTask,
 		})
 	}
+
+	s.pool.start()
 }
 
 type SyncStatus struct {

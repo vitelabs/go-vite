@@ -1,7 +1,6 @@
 package net
 
 import (
-	"errors"
 	"fmt"
 	net2 "net"
 	"sync"
@@ -18,19 +17,20 @@ import (
 var netLog = log15.New("module", "vite/net")
 
 type Config struct {
-	Single   bool // for test
-	FileAddr string
-	Chain    Chain
-	Verifier Verifier
+	Single      bool // for test
+	FileAddress string
+	Chain       Chain
+	Verifier    Verifier
 }
 
 const DefaultPort uint16 = 8484
 
 type net struct {
 	*Config
-	peers    *peerSet
-	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
-	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
+	fileAddress *net2.TCPAddr
+	peers       *peerSet
+	*syncer     // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
+	*fetcher    // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
 	BlockSubscriber
 	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
@@ -68,7 +68,7 @@ func New(cfg *Config) Net {
 		syncer:          syncer,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
-		fs:              newFileServer(cfg.Address, cfg.Chain.Compressor()),
+		fs:              newFileServer(cfg.FileAddress, cfg.Chain.Compressor()),
 		handlers:        make(map[ViteCmd]MsgHandler),
 		log:             netLog,
 	}
@@ -160,18 +160,23 @@ func (n *net) Stop() {
 }
 
 // will be called by p2p.server, run as goroutine
-func (n *net) handlePeer(p *peer) error {
+func (n *net) handlePeer(p *peer) (err error) {
 	current := n.Chain.GetLatestSnapshotBlock()
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 
 	n.log.Debug(fmt.Sprintf("handshake with %s", p))
 
 	var port uint16
-	tcpAddr, err := net2.ResolveTCPAddr("tcp", n.Address)
-	if err != nil {
-		port = 0
+	if n.fileAddress != nil {
+		port = uint16(n.fileAddress.Port)
 	} else {
-		port = uint16(tcpAddr.Port)
+		var tcpAddr *net2.TCPAddr
+		tcpAddr, err = net2.ResolveTCPAddr("tcp", n.FileAddress)
+		if err != nil {
+			port = 0
+		} else {
+			port = uint16(tcpAddr.Port)
+		}
 	}
 
 	err = p.Handshake(&message.HandShake{
