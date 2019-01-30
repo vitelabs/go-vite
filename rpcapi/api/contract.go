@@ -82,6 +82,22 @@ func (c *ContractApi) GetCallContractData(abiStr string, methodName string, para
 	return abiContract.PackMethod(methodName, arguments...)
 }
 
+func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, params []string) ([]byte, error) {
+	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
+	if err != nil {
+		return nil, err
+	}
+	method, ok := abiContract.OffChains[offChainName]
+	if !ok {
+		return nil, errors.New("offchain name not found")
+	}
+	arguments, err := convert(params, method.Inputs)
+	if err != nil {
+		return nil, err
+	}
+	return abiContract.PackOffChain(offChainName, arguments...)
+}
+
 type CallOffChainMethodParam struct {
 	SelfAddr     types.Address
 	MethodName   string
