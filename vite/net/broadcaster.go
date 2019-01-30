@@ -117,6 +117,7 @@ func newBroadcaster(peers *peerSet, verifier Verifier, feed blockNotifier, store
 		verifier: verifier,
 		feed:     feed,
 		store:    store,
+		filter:   newBlockFilter(1000),
 	}
 }
 

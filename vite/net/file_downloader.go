@@ -1,6 +1,7 @@
 package net
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/list"
+	"github.com/vitelabs/go-vite/common"
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -22,6 +23,7 @@ import (
 var errNoSuitablePeers = errors.New("no suitable peers")
 var errFileConnExist = errors.New("fileConn has exist")
 var errFileConnClosed = errors.New("file connection has closed")
+var errPeerDialing = errors.New("peer is dialing")
 
 type fileConnState byte
 
@@ -200,7 +202,7 @@ type filePeerPool struct {
 
 	// for fileConn
 	mi map[peerId]int // index
-	l  fileConns
+	l  fileConns      // sort by speed, from fast to slow
 }
 
 func newPool() *filePeerPool {
@@ -331,16 +333,41 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 				return fp.mp[freshPeerId], nil, nil
 			}
 		}
+
+		if hasFreshPeer {
+			return fp.mp[freshPeerId], nil, nil
+		} else {
+			return nil, nil, nil
+		}
 	}
 
 	return nil, nil, errNoSuitablePeers
+}
+
+type asyncFileTask struct {
+	file File
+	ch   chan error
+	ctx  context.Context
+}
+type asyncFileTasks []asyncFileTask
+
+func (l asyncFileTasks) Len() int {
+	return len(l)
+}
+
+func (l asyncFileTasks) Less(i, j int) bool {
+	return l[i].file.StartHeight < l[j].file.StartHeight
+}
+
+func (l asyncFileTasks) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }
 
 type filename = string
 type peerId = string
 
 type fileClient struct {
-	fqueue list.List // wait to download
+	fqueue asyncFileTasks // wait to download
 
 	parser fileParser
 
@@ -355,18 +382,21 @@ type fileClient struct {
 
 	dialer *net2.Dialer
 
+	term chan struct{}
+	wg   sync.WaitGroup
+
 	log log15.Logger
 }
 
 func newFileClient(parser fileParser, rec blockReceiver, peers *peerSet) *fileClient {
 	return &fileClient{
-		fqueue: list.New(),
-		parser: parser,
-		peers:  peers,
-		pool:   newPool(),
-		dialer: &net2.Dialer{Timeout: 5 * time.Second},
-		rec:    rec,
-		log:    log15.New("module", "net/fileClient"),
+		parser:  parser,
+		peers:   peers,
+		pool:    newPool(),
+		dialer:  &net2.Dialer{Timeout: 5 * time.Second},
+		dialing: make(map[string]struct{}),
+		rec:     rec,
+		log:     log15.New("module", "net/fileClient"),
 	}
 }
 
@@ -374,32 +404,68 @@ func (fc *fileClient) addFilePeer(files []filename, sender Peer) {
 	fc.pool.addPeer(files, sender.FileAddress().String(), sender.ID())
 }
 
-func (fc *fileClient) download(file File) error {
-	for {
-		if p, c, err := fc.pool.chooseSource(file.Filename); err != nil {
-			// no peers
-			return err
-		} else if c != nil {
-			err = fc.doJob(c, file)
-			if err == nil {
+func (fc *fileClient) download(ctx context.Context, file File) <-chan error {
+	ch := make(chan error, 1)
+
+	cont, err := fc.downloadFile(file)
+	if cont {
+		fc.wait(asyncFileTask{
+			file: file,
+			ch:   ch,
+			ctx:  ctx,
+		})
+	} else {
+		ch <- err
+	}
+
+	return ch
+}
+
+func (fc *fileClient) runTask(t asyncFileTask) {
+	select {
+	case <-t.ctx.Done():
+		t.ch <- t.ctx.Err()
+	default:
+
+	}
+
+	cont, err := fc.downloadFile(t.file)
+	if cont {
+		fc.wait(t)
+	} else {
+		t.ch <- err
+	}
+}
+
+func (fc *fileClient) downloadFile(file File) (cont bool, err error) {
+	var p *filePeer
+	var c *fileConn
+	if p, c, err = fc.pool.chooseSource(file.Filename); err != nil {
+		// no peers
+		return false, err
+	} else if c != nil {
+		if err = fc.doJob(c, file); err == nil {
+			// downloaded
+			return false, nil
+		}
+	} else if p != nil {
+		if c, err = fc.createConn(p); err == nil {
+			if err = fc.doJob(c, file); err == nil {
 				// downloaded
-				return nil
+				return false, nil
 			}
-		} else if p != nil {
-			c, err = fc.createConn(p)
-			if err != nil {
-				time.Sleep(100 * time.Microsecond)
-			} else {
-				err = fc.doJob(c, file)
-				if err == nil {
-					// downloaded
-					return nil
-				}
-			}
-		} else {
-			time.Sleep(100 * time.Microsecond)
 		}
 	}
+
+	return true, err
+}
+
+func (fc *fileClient) wait(t asyncFileTask) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+
+	fc.fqueue = append(fc.fqueue, t)
+	sort.Sort(fc.fqueue)
 }
 
 func (fc *fileClient) doJob(c *fileConn, file File) error {
@@ -421,10 +487,51 @@ func (fc *fileClient) fatalPeer(id peerId, err error) {
 	}
 }
 
-func (fc *fileClient) stop() {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (fc *fileClient) start() {
+	fc.term = make(chan struct{})
 
+	fc.wg.Add(1)
+	common.Go(fc.loop)
+}
+
+func (fc *fileClient) stop() {
+	if fc.term == nil {
+		return
+	}
+
+	select {
+	case <-fc.term:
+	default:
+		close(fc.term)
+		fc.wg.Wait()
+	}
+}
+
+func (fc *fileClient) loop() {
+	defer fc.wg.Done()
+
+	ticker := time.NewTicker(500 * time.Microsecond)
+	defer ticker.Stop()
+
+Loop:
+	for {
+		select {
+		case <-fc.term:
+			break Loop
+		case <-ticker.C:
+			var t asyncFileTask
+			fc.mu.Lock()
+			if len(fc.fqueue) > 0 {
+				t = fc.fqueue[0]
+				fc.fqueue = fc.fqueue[1:]
+			}
+			fc.mu.Unlock()
+
+			if t.file != nil {
+				go fc.runTask(t)
+			}
+		}
+	}
 }
 
 func (fc *fileClient) dialed(addr string) {
@@ -447,20 +554,18 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 	fc.mu.Lock()
 	if _, ok := fc.dialing[addr]; ok {
 		fc.mu.Unlock()
-		return
+		return nil, errPeerDialing
 	}
 	fc.dialing[addr] = struct{}{}
 	fc.mu.Unlock()
 
 	tcp, err := fc.dialer.Dial("tcp", addr)
+	fc.dialed(addr)
 
 	if err != nil {
 		fc.countFail(p)
-		fc.dialed(addr)
-		return
+		return nil, err
 	}
-
-	fc.dialed(addr)
 
 	c = &fileConn{
 		Conn:   tcp,

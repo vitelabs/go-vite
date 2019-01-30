@@ -1,11 +1,11 @@
 package net
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -16,33 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
-
-type reqState byte
-
-const (
-	reqWaiting reqState = iota
-	reqPending
-	reqRespond
-	reqDone
-	reqError
-	reqCancel
-)
-
-var reqStatus = [...]string{
-	reqWaiting: "waiting",
-	reqPending: "pending",
-	reqRespond: "respond",
-	reqDone:    "done",
-	reqError:   "error",
-	reqCancel:  "canceled",
-}
-
-func (s reqState) String() string {
-	if s > reqCancel {
-		return "unknown request state"
-	}
-	return reqStatus[s]
-}
 
 const chunkSize = 50
 const maxBlocksOneTrip = 1000
@@ -76,7 +49,7 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 type chunkRequest struct {
 	id       uint64
 	from, to uint64
-	msg      *message.GetChunk
+	msg      message.GetChunk
 	deadline time.Time
 	pieces   chunkResponses
 	mu       sync.Mutex
@@ -178,19 +151,19 @@ type chunkPool struct {
 	log log15.Logger
 }
 
-func (p *chunkPool) download(from, to uint64) error {
+func (p *chunkPool) download(ctx context.Context, from, to uint64) <-chan error {
 	cr := &chunkRequest{
 		id:   p.gid.MsgID(),
 		from: from,
 		to:   to,
 		ch:   make(chan error, 1),
-		msg:  &message.GetChunk{from, to},
+		msg:  message.GetChunk{from, to},
 	}
 
 	p.chunks.Store(cr.id, cr)
 	p.request(cr)
 
-	return <-cr.ch
+	return cr.ch
 }
 
 func newChunkPool(peers *peerSet, gid MsgIder, handler blockReceiver) *chunkPool {
@@ -222,26 +195,26 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 }
 
 func (p *chunkPool) start() {
-	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
-		p.term = make(chan struct{})
+	p.term = make(chan struct{})
 
-		p.wg.Add(1)
-		common.Go(p.checkLoop)
+	p.wg.Add(1)
+	common.Go(p.checkLoop)
 
-		p.wg.Add(1)
-		common.Go(p.handleLoop)
-	}
+	p.wg.Add(1)
+	common.Go(p.handleLoop)
 }
 
 func (p *chunkPool) stop() {
-	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
-		select {
-		case <-p.term:
-		default:
-			close(p.term)
-			p.resQueue.Close()
-			p.wg.Wait()
-		}
+	if p.term == nil {
+		return
+	}
+
+	select {
+	case <-p.term:
+	default:
+		close(p.term)
+		p.resQueue.Close()
+		p.wg.Wait()
 	}
 }
 
@@ -332,23 +305,32 @@ func (p *chunkPool) checkLoop() {
 	ticker := time.NewTicker(chunkTimeout / 2)
 	defer ticker.Stop()
 
-loop:
+	check := func(key, value interface{}) bool {
+		c := value.(*chunkRequest)
+		if time.Now().After(c.deadline) {
+			p.request(c)
+		}
+
+		return true
+	}
+
+Loop:
 	for {
 		select {
 		case <-p.term:
-			break loop
+			break Loop
 
-		case now := <-ticker.C:
-			p.chunks.Range(func(key, value interface{}) bool {
-				c := value.(*chunkRequest)
-				if now.After(c.deadline) {
-					p.request(c)
-				}
-
-				return true
-			})
+		case <-ticker.C:
+			p.chunks.Range(check)
 		}
 	}
+
+	del := func(key, value interface{}) bool {
+		p.chunks.Delete(key)
+		return true
+	}
+
+	p.chunks.Range(del)
 }
 
 func (p *chunkPool) request(c *chunkRequest) {
@@ -361,5 +343,5 @@ func (p *chunkPool) request(c *chunkRequest) {
 
 	p1 := ps[rand.Intn(len(ps))]
 	c.deadline = time.Now().Add(chunkTimeout)
-	p1.Send(GetChunkCode, c.id, c.msg)
+	p1.Send(GetChunkCode, c.id, &c.msg)
 }
