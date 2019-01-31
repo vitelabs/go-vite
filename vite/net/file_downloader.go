@@ -441,6 +441,7 @@ func (fc *fileClient) downloadFile(file File) (cont bool, err error) {
 	var p *filePeer
 	var c *fileConn
 	if p, c, err = fc.pool.chooseSource(file.Filename); err != nil {
+		fc.log.Error(fmt.Sprintf("no suitable peers to download file %s", file.Filename))
 		// no peers
 		return false, err
 	} else if c != nil {
@@ -469,13 +470,18 @@ func (fc *fileClient) wait(t asyncFileTask) {
 }
 
 func (fc *fileClient) doJob(c *fileConn, file File) error {
+	start := time.Now()
 	if derr := c.download(file, fc.rec); derr != nil {
 		if derr.Fatal() {
 			fc.fatalPeer(c.id, derr)
 		}
 
+		fc.log.Error(fmt.Sprintf("download file %s from %s error: %v", file.Filename, c.RemoteAddr(), derr))
+
 		return derr
 	}
+
+	fc.log.Info(fmt.Sprintf("download file %s from %s elapse %s", file.Filename, c.RemoteAddr(), time.Now().Sub(start)))
 
 	return nil
 }
