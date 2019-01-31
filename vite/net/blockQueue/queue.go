@@ -46,7 +46,7 @@ func (q *blockQueue) Push(v interface{}) {
 
 	if !q.closed {
 		q.list.Append(v)
-		q.cond.Broadcast()
+		q.cond.Signal()
 	}
 }
 
@@ -63,7 +63,6 @@ func (q *blockQueue) Close() {
 
 	if !q.closed {
 		q.closed = true
-		q.cond.Broadcast()
-
+		q.cond.Signal()
 	}
 }
