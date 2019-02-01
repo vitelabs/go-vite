@@ -73,20 +73,24 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, 4, len(actions.FundActions))
+	assert.Equal(t, 2, len(actions.FundActions))
 	for _, ac := range actions.FundActions {
 		// sellOrder0
 		if bytes.Equal([]byte(ac.Address), sellAddress0.Bytes()) {
-			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(300, ac.ReduceLocked))
-			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(929070, ac.IncAvailable)) // amount - feeExecuted
+			for _, fundSettle := range ac.FundSettles {
+				if bytes.Equal(fundSettle.Token, ETH.tokenId.Bytes()) {
+					assert.True(t, CheckBigEqualToInt(300, fundSettle.ReduceLocked))
+				} else if bytes.Equal(fundSettle.Token, VITE.tokenId.Bytes()) {
+					assert.True(t, CheckBigEqualToInt(929070, fundSettle.IncAvailable)) // amount - feeExecuted
+				}
 			}
 		} else { // buyOrder1
-			if bytes.Equal(ac.Token, ETH.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(300, ac.IncAvailable))
-			} else if bytes.Equal(ac.Token, VITE.tokenId.Bytes()) {
-				assert.True(t, CheckBigEqualToInt(930930, ac.ReduceLocked)) // amount + feeExecuted
+			for _, fundSettle := range ac.FundSettles {
+				if bytes.Equal(fundSettle.Token, ETH.tokenId.Bytes()) {
+					assert.True(t, CheckBigEqualToInt(300, fundSettle.IncAvailable))
+				} else if bytes.Equal(fundSettle.Token, VITE.tokenId.Bytes()) {
+					assert.True(t, CheckBigEqualToInt(930930, fundSettle.ReduceLocked)) // amount + feeExecuted
+				}
 			}
 		}
 	}
@@ -137,8 +141,8 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(actions.FundActions))
-	assert.True(t, bytes.Equal(actions.FundActions[0].Token, VITE.tokenId.Bytes()))
-	assert.True(t, CheckBigEqualToInt(350350, actions.FundActions[0].ReleaseLocked)) // 1281280 - 930930
+	assert.True(t, bytes.Equal(actions.FundActions[0].FundSettles[0].Token, VITE.tokenId.Bytes()))
+	assert.True(t, CheckBigEqualToInt(350350, actions.FundActions[0].FundSettles[0].ReleaseLocked)) // 1281280 - 930930
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "order status is invalid to cancel", err.Error())

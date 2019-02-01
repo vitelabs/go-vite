@@ -78,7 +78,11 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
 		return []*SendBlock{}, err
 	}
-	return handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	blocks , err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	if err != nil {
+		fmt.Printf("MethodDexTradeNewOrder doReceive err %v\n", err)
+	}
+	return blocks, err
 }
 
 type MethodDexTradeCancelOrder struct {
@@ -140,27 +144,48 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	return handleSettleActions(block, matcher.GetFundSettles(), nil)
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]*dexproto.FeeSettle) ([]*SendBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*SendBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return []*SendBlock{}, nil
 	}
 	settleActions := &dexproto.SettleActions{}
 	if len(fundSettles) > 0 {
-		fundActions := make([]*dexproto.FundSettle, 0, 100)
-		for _, fundSettleMap := range fundSettles {
+		fundActions := make([]*dexproto.UserFundSettle, 0, len(fundSettles))
+		for address, fundSettleMap := range fundSettles {
+			settles := make([]*dexproto.FundSettle, 0, len(fundSettleMap))
 			for _, fundAction := range fundSettleMap {
-				fundActions = append(fundActions, fundAction)
+				settles = append(settles, fundAction)
 			}
+			sort.Sort(FundSettleSorter(settles))
+
+			userFundSettle := &dexproto.UserFundSettle{}
+			userFundSettle.Address = address.Bytes()
+			userFundSettle.FundSettles = settles
+			fundActions = append(fundActions, userFundSettle)
 		}
 		//sort fundActions for stable marsh result
-		sort.Sort(fundActionsWrapper(fundActions))
+		sort.Sort(UserFundSettleSorter(fundActions))
 		//fmt.Printf("fundActions.size %d\n", len(fundActions))
 		settleActions.FundActions = fundActions
 	}
 	//every block will trigger exactly one market, fee token type should also be single
-	for _, feeAction := range feeSettles {
-		settleActions.FeeActions = append(settleActions.FeeActions, feeAction)
+	if len(feeSettles) > 0 {
+		feeActions := make([]*dexproto.FeeSettle, 0, 10)
+		for token, userFeeSettleMap := range feeSettles {
+			userFeeSettles := make([]*dexproto.UserFeeSettle, 0, len(userFeeSettleMap))
+			for _, userFeeSettle := range userFeeSettleMap {
+				userFeeSettles = append(userFeeSettles, userFeeSettle)
+			}
+			sort.Sort(UserFeeSettleSorter(userFeeSettles))
+
+			feeSettle := &dexproto.FeeSettle{}
+			feeSettle.Token = token.Bytes()
+			feeSettle.UserFeeSettles = userFeeSettles
+			feeActions = append(feeActions, feeSettle)
+		}
+		sort.Sort(FeeSettleSorter(feeActions))
+		settleActions.FeeActions = feeActions
 	}
 
 	var (
@@ -184,20 +209,76 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	}, nil
 }
 
-type fundActionsWrapper []*dexproto.FundSettle
+type FundSettleSorter []*dexproto.FundSettle
 
-func (sa fundActionsWrapper) Len() int {
-	return len(sa)
+func (st FundSettleSorter) Len() int {
+	return len(st)
 }
 
-func (sa fundActionsWrapper) Swap(i, j int) {
-	sa[i], sa[j] = sa[j], sa[i]
+func (st FundSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
 }
 
-func (sa fundActionsWrapper) Less(i, j int) bool {
-	addCmp := bytes.Compare(sa[i].Address, sa[j].Address)
-	tokenCmp := bytes.Compare(sa[i].Address, sa[j].Address)
-	if addCmp < 0 && tokenCmp < 0 {
+func (st FundSettleSorter) Less(i, j int) bool {
+	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
+	if tkCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type UserFundSettleSorter []*dexproto.UserFundSettle
+
+func (st UserFundSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st UserFundSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st UserFundSettleSorter) Less(i, j int) bool {
+	addCmp := bytes.Compare(st[i].Address, st[j].Address)
+	if addCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type UserFeeSettleSorter []*dexproto.UserFeeSettle
+
+func (st UserFeeSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st UserFeeSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st UserFeeSettleSorter) Less(i, j int) bool {
+	addCmp := bytes.Compare(st[i].Address, st[j].Address)
+	if addCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type FeeSettleSorter []*dexproto.FeeSettle
+
+func (st FeeSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st FeeSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st FeeSettleSorter) Less(i, j int) bool {
+	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
+	if tkCmp < 0 {
 		return true
 	} else {
 		return false

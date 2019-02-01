@@ -21,7 +21,7 @@ type matcher struct {
 	protocol        *nodePayloadProtocol
 	books           map[SkipListId]*skiplist
 	fundSettles     map[types.Address]map[types.TokenTypeId]*proto.FundSettle
-	feeSettles      map[types.TokenTypeId]*proto.FeeSettle
+	feeSettles      map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle
 }
 
 type OrderTx struct {
@@ -45,7 +45,7 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
 	mc.protocol = &po
 	mc.books = make(map[SkipListId]*skiplist)
 	mc.fundSettles = make(map[types.Address]map[types.TokenTypeId]*proto.FundSettle)
-	mc.feeSettles = make(map[types.TokenTypeId]*proto.FeeSettle)
+	mc.feeSettles = make(map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle)
 	return mc
 }
 
@@ -69,7 +69,7 @@ func (mc *matcher) GetFundSettles() map[types.Address]map[types.TokenTypeId]*pro
 	return mc.fundSettles
 }
 
-func (mc *matcher) GetFees() map[types.TokenTypeId]*proto.FeeSettle {
+func (mc *matcher) GetFees() map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle {
 	return mc.feeSettles
 }
 
@@ -303,7 +303,7 @@ func (mc *matcher) handleRefund(order *Order) {
 			order.RefundToken = order.TradeToken
 			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
-		mc.updateFundSettle(proto.FundSettle{Address: order.Address, Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})
+		mc.updateFundSettle(order.Address, proto.FundSettle{Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})
 	}
 }
 
@@ -373,10 +373,10 @@ func (mc *matcher) handleTxs(txs []OrderTx) {
 }
 
 func (mc *matcher) handleTxFundSettle(tx OrderTx) {
-	takerInSettle := proto.FundSettle{Address: tx.takerAddress}
-	takerOutSettle := proto.FundSettle{Address: tx.takerAddress}
-	makerInSettle := proto.FundSettle{Address: tx.makerAddress}
-	makerOutSettle := proto.FundSettle{Address: tx.makerAddress}
+	takerInSettle := proto.FundSettle{}
+	takerOutSettle := proto.FundSettle{}
+	makerInSettle := proto.FundSettle{}
+	makerOutSettle := proto.FundSettle{}
 	switch tx.TakerSide {
 	case false: //buy
 		takerInSettle.Token = tx.takerTradeToken
@@ -400,52 +400,59 @@ func (mc *matcher) handleTxFundSettle(tx OrderTx) {
 		makerInSettle.Token = tx.takerTradeToken
 		makerInSettle.IncAvailable = tx.Quantity
 	}
-	for _, ac := range []proto.FundSettle{takerInSettle, takerOutSettle, makerInSettle, makerOutSettle} {
-		mc.updateFundSettle(ac)
-	}
-	mc.updateFee(tx.takerQuoteToken, tx.TakerFee, tx.MakerFee)
+	mc.updateFundSettle(tx.takerAddress, takerInSettle)
+	mc.updateFundSettle(tx.takerAddress, takerOutSettle)
+	mc.updateFundSettle(tx.makerAddress, makerInSettle)
+	mc.updateFundSettle(tx.makerAddress, makerOutSettle)
+
+	mc.updateFee(tx.takerQuoteToken, tx.takerAddress, tx.TakerFee)
+	mc.updateFee(tx.takerQuoteToken, tx.makerAddress, tx.MakerFee)
 }
 
-func (mc *matcher) updateFundSettle(settle proto.FundSettle) {
+func (mc *matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle) {
 	var (
 		settleMap map[types.TokenTypeId]*proto.FundSettle // token -> settle
 		ok        bool
 		ac        *proto.FundSettle
 		address   = types.Address{}
 	)
-	address.SetBytes(settle.Address)
+	address.SetBytes(addressBytes)
 	if settleMap, ok = mc.fundSettles[address]; !ok {
 		settleMap = make(map[types.TokenTypeId]*proto.FundSettle)
+		mc.fundSettles[address] = settleMap
 	}
 	token := types.TokenTypeId{}
 	token.SetBytes(settle.Token)
 	if ac, ok = settleMap[token]; !ok {
-		ac = &proto.FundSettle{Address: address.Bytes(), Token: settle.Token}
+		ac = &proto.FundSettle{Token: settle.Token}
+		settleMap[token] = ac
 	}
 	ac.IncAvailable = AddBigInt(ac.IncAvailable, settle.IncAvailable)
 	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, settle.ReleaseLocked)
 	ac.ReduceLocked = AddBigInt(ac.ReduceLocked, settle.ReduceLocked)
-	settleMap[token] = ac
-	mc.fundSettles[address] = settleMap
 }
 
-func (mc *matcher) updateFee(quoteToken []byte, feeAmountToInc ...[]byte) {
+func (mc *matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
 	var (
-		feeSettle *proto.FeeSettle
-		ok        bool
+		userFeeSettles map[types.Address]*proto.UserFeeSettle
+		userFeeSettle  *proto.UserFeeSettle
+		ok             bool
 	)
 
 	token := types.TokenTypeId{}
 	token.SetBytes(quoteToken)
-	if feeSettle, ok = mc.feeSettles[token]; !ok {
-		feeSettle = &proto.FeeSettle{}
-		feeSettle.Token = quoteToken
-		feeSettle.Amount = big.NewInt(0).Bytes()
+	if userFeeSettles, ok = mc.feeSettles[token]; !ok {
+		userFeeSettles = make(map[types.Address]*proto.UserFeeSettle)
+		mc.feeSettles[token] = userFeeSettles
 	}
-	for _, amt := range feeAmountToInc {
-		feeSettle.Amount = AddBigInt(feeSettle.Amount, amt)
+	addr := types.Address{}
+	addr.SetBytes(address)
+	if userFeeSettle, ok = userFeeSettles[addr]; !ok {
+		userFeeSettle = &proto.UserFeeSettle{Address: address, Amount:amount}
+		userFeeSettles[addr] = userFeeSettle
+	} else {
+		userFeeSettle.Amount = AddBigInt(userFeeSettle.Amount, amount)
 	}
-	mc.feeSettles[token] = feeSettle
 }
 
 func newLog(event OrderEvent) *ledger.VmLog {

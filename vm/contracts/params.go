@@ -23,8 +23,9 @@ const (
 	dexFundWithdrawGas        uint64 = 300
 	dexFundNewOrderGas        uint64 = 300
 	dexFundSettleOrdersGas    uint64 = 300
-	dexFundVxDividendGas      uint64 = 300
-	dexTradeNewOrderGas    	  uint64 = 300
+	dexFundFeeDividendGas     uint64 = 300
+	dexFundMinedVxDividendGas     uint64 = 300
+	dexTradeNewOrderGas       uint64 = 300
 	dexTradeCancelOrderGas    uint64 = 300
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group

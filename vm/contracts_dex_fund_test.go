@@ -147,24 +147,28 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = types.AddressDexTrade
 
-	viteAction := dexproto.FundSettle{}
-	viteAction.Address = userAddress.Bytes()
-	viteAction.Token = VITE.tokenId.Bytes()
-	viteAction.ReduceLocked = big.NewInt(1000).Bytes()
-	viteAction.ReleaseLocked = big.NewInt(100).Bytes()
+	viteFundSettle := &dexproto.FundSettle{}
+	viteFundSettle.Token = VITE.tokenId.Bytes()
+	viteFundSettle.ReduceLocked = big.NewInt(1000).Bytes()
+	viteFundSettle.ReleaseLocked = big.NewInt(100).Bytes()
 
-	ethAction := dexproto.FundSettle{}
-	ethAction.Address = userAddress.Bytes()
-	ethAction.Token = ETH.tokenId.Bytes()
-	ethAction.IncAvailable = big.NewInt(30).Bytes()
+	ethFundSettle := &dexproto.FundSettle{}
+	ethFundSettle.Token = ETH.tokenId.Bytes()
+	ethFundSettle.IncAvailable = big.NewInt(30).Bytes()
+
+	fundAction := &dexproto.UserFundSettle{}
+	fundAction.Address = userAddress.Bytes()
+	fundAction.FundSettles = append(fundAction.FundSettles, viteFundSettle, ethFundSettle)
 
 	feeAction := dexproto.FeeSettle{}
 	feeAction.Token = ETH.tokenId.Bytes()
-	feeAction.Amount = big.NewInt(15).Bytes()
+	userFeeSettle := &dexproto.UserFeeSettle{}
+	userFeeSettle.Address = userAddress.Bytes()
+	userFeeSettle.Amount = big.NewInt(15).Bytes()
+	feeAction.UserFeeSettles = append(feeAction.UserFeeSettles, userFeeSettle)
 
 	actions := dexproto.SettleActions{}
-	actions.FundActions = append(actions.FundActions, &viteAction)
-	actions.FundActions = append(actions.FundActions, &ethAction)
+	actions.FundActions = append(actions.FundActions, fundAction)
 	actions.FeeActions = append(actions.FeeActions, &feeAction)
 	data, _ := proto.Marshal(&actions)
 
@@ -196,7 +200,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := dex.GetCurrentFeeFromStorage(db) // initDexFundDatabase snapshotBlock Height
+	dexFee, err := dex.GetCurrentFeeSumFromStorage(db) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 1, len(dexFee.Fees))
 	feeAcc := dexFee.Fees[0]
 	assert.True(t, CheckBigEqualToInt(15, feeAcc.Amount))
