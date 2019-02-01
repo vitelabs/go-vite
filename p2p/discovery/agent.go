@@ -181,6 +181,10 @@ func (a *agent) readLoop() {
 
 		tempDelay = 0
 
+		if n == 0 {
+			continue
+		}
+
 		p, err := unPacket(buf[:n])
 		if err != nil {
 			a.log.Error(fmt.Sprintf("unpack message from %s error: %v", addr, err))

@@ -157,5 +157,18 @@ func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, erro
 		}
 		return nil, nil
 	}
-	return AddrListDbDeserialize(data)
+	addrList, err := AddrListDbDeserialize(data)
+	if err != nil {
+		return nil, err
+	}
+	if *gid == types.DELEGATE_GID {
+		commonAddrList := make([]types.Address, 0, len(addrList))
+		for _, v := range addrList {
+			if !types.IsPrecompiledContractAddress(v) {
+				commonAddrList = append(commonAddrList, v)
+			}
+		}
+		return commonAddrList, nil
+	}
+	return addrList, nil
 }
