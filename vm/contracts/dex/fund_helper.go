@@ -27,7 +27,7 @@ var (
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
 	VxFundKeyPrefix      = []byte("vxF:")    // vxFund:types.Address
-	vxSumFundsKey        = []byte("vxFS:") // vxFundSum:periodId
+	vxSumFundsKey        = []byte("vxFS:") // vxFundSum
 	lastFeeDividendIdKey = []byte("lDId:")
 	lastMinedVxDividendIdKey = []byte("lMVDId:")
 
@@ -152,12 +152,12 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 		if !ValidPrice(orderParam.Price) {
 			return fmt.Errorf("invalid format for price")
 		}
+		if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
+			return fmt.Errorf("invalid price format")
+		}
 	}
 	if orderParam.Quantity.Sign() <= 0 {
 		return fmt.Errorf("invalid trade quantity for order")
-	}
-	if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
-		return fmt.Errorf("invalid price format")
 	}
 	return nil
 }
@@ -197,7 +197,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 		if len(fund.Address) != 20 {
 			return fmt.Errorf("invalid address format for settle")
 		}
-		if len(fund.FundSettles) <= 0 {
+		if len(fund.FundSettles) == 0 {
 			return fmt.Errorf("no user funds to settle")
 		}
 	}
@@ -206,7 +206,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 		if len(fee.Token) != 10 {
 			return fmt.Errorf("invalid tokenId format for fee settle")
 		}
-		if len(fee.UserFeeSettles) <= 0 {
+		if len(fee.UserFeeSettles) == 0 {
 			return fmt.Errorf("no userFees to settle")
 		}
 	}
@@ -227,7 +227,7 @@ func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (acc
 }
 
 func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Account, error) {
-	if dexFund == nil {
+	if dexFund == nil || len(dexFund.Accounts) == 0 {
 		return nil, errors.New("fund user doesn't exist.")
 	}
 	var dexAccount = make([]*Account, 0)
@@ -251,9 +251,8 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 }
 
 func GetUserFundFromStorage(db vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
-	fundKey := GetUserFundKey(address)
 	dexFund = &UserFund{}
-	if fundBytes := db.GetStorage(&types.AddressDexFund, fundKey); len(fundBytes) > 0 {
+	if fundBytes := db.GetStorage(&types.AddressDexFund, GetUserFundKey(address)); len(fundBytes) > 0 {
 		if dexFund, err = dexFund.DeSerialize(fundBytes); err != nil {
 			return nil, err
 		}
@@ -295,15 +294,6 @@ func BatchSaveUserFund(db vmctxt_interface.VmDatabase, address types.Address, fu
 		}
 	}
 	return nil
-}
-
-func GetAccountByAddressAndTokenId(db vmctxt_interface.VmDatabase, address types.Address, token types.TokenTypeId) (account *dexproto.Account, exists bool, err error) {
-	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
-		return nil, false, err
-	} else {
-		account, exists = GetAccountByTokeIdFromFund(dexFund, token)
-		return account, exists, nil
-	}
 }
 
 func GetUserFundKey(address types.Address) []byte {
@@ -371,8 +361,8 @@ func SaveCurrentFeeSumToStorage(db vmctxt_interface.VmDatabase, feeSum *FeeSumBy
 		}
 	}
 }
-
-func MarkFeeSumAsDivided(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeriod, periodId uint64) {
+//fee sum used both by fee dividend and mined vx dividend
+func MarkFeeSumAsFeeDivided(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeriod, periodId uint64) {
 	if feeSum.MinedVxDivided {
 		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
@@ -400,7 +390,7 @@ func GetFeeSumCurrentKeyFromStorage(db vmctxt_interface.VmDatabase) ([]byte, err
 	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
 		return nil, err
 	} else {
-		return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...), nil
+		return GetFeeSumKeyByPeriodId(periodId), nil
 	}
 }
 
@@ -422,9 +412,8 @@ func SaveFeeSumLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) error {
 }
 
 func GetUserFeesFromStorage(db vmctxt_interface.VmDatabase, address []byte) (userFees *UserFees, err error) {
-	userFeesKey := GetUserFeesKey(address)
 	userFees = &UserFees{}
-	if userFeesBytes := db.GetStorage(&types.AddressDexFund, userFeesKey); len(userFeesBytes) > 0 {
+	if userFeesBytes := db.GetStorage(&types.AddressDexFund, GetUserFeesKey(address)); len(userFeesBytes) > 0 {
 		if userFees, err = userFees.DeSerialize(userFeesBytes); err != nil {
 			return nil, err
 		} else {
@@ -436,9 +425,8 @@ func GetUserFeesFromStorage(db vmctxt_interface.VmDatabase, address []byte) (use
 }
 
 func SaveUserFeesToStorage(db vmctxt_interface.VmDatabase, address []byte, userFees *UserFees) error {
-	userFeesKey := GetUserFeesKey(address)
 	if userFeesBytes, err := userFees.Serialize(); err == nil {
-		db.SetStorage(userFeesKey, userFeesBytes)
+		db.SetStorage(GetUserFeesKey(address), userFeesBytes)
 		return nil
 	} else {
 		return err
@@ -455,30 +443,27 @@ func GetUserFeesKey(address []byte) []byte {
 
 
 func GetVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) (vxFunds *VxFunds, err error) {
-	vxFundsKey := GetVxFundsKey(address)
-	vxFunds = &VxFunds{}
-	if vxFundsBytes := db.GetStorage(&types.AddressDexFund, vxFundsKey); len(vxFundsBytes) > 0 {
+	if vxFundsBytes := db.GetStorage(&types.AddressDexFund, GetVxFundsKey(address)); len(vxFundsBytes) > 0 {
 		if vxFunds, err = vxFunds.DeSerialize(vxFundsBytes); err != nil {
 			return nil, err
 		} else {
 			return vxFunds, nil
 		}
 	} else {
-		return vxFunds, nil
+		return nil, nil
 	}
 }
 
 func SaveVxFundsToStorage(db vmctxt_interface.VmDatabase, address []byte, vxFunds *VxFunds) error {
-	vxFundsKey := GetVxFundsKey(address)
 	if vxFundsBytes, err := vxFunds.Serialize(); err == nil {
-		db.SetStorage(vxFundsKey, vxFundsBytes)
+		db.SetStorage(GetVxFundsKey(address), vxFundsBytes)
 		return nil
 	} else {
 		return err
 	}
 }
 
-func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64) (bool, []byte, bool, bool) {
+func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
 	var (
 		vxAmtBytes []byte
 		matchIndex int
@@ -488,17 +473,14 @@ func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64) (bool, []byte, bool
 		if periodId >= fund.Period {
 			vxAmtBytes = fund.Amount
 			matchIndex = i
-			if periodId == fund.Period {
-				break
-			}
 		} else {
 			break
 		}
 	}
 	if len(vxAmtBytes) == 0 {
-		return false, nil, false, CheckVxFundsCanBeDelete(vxFunds)
+		return false, nil, false, checkDelete && CheckUserVxFundsCanBeDelete(vxFunds)
 	}
-	if matchIndex > 0 {
+	if matchIndex > 0 {//remove obsolete items, but leave current matched item
 		vxFunds.Funds = vxFunds.Funds[matchIndex:]
 		needUpdateVxFunds = true
 	}
@@ -506,11 +488,11 @@ func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64) (bool, []byte, bool
 		vxFunds.Funds = vxFunds.Funds[1:]
 		needUpdateVxFunds = true
 	}
-	return true, vxAmtBytes, needUpdateVxFunds, CheckVxFundsCanBeDelete(vxFunds)
+	return true, vxAmtBytes, needUpdateVxFunds, checkDelete && CheckUserVxFundsCanBeDelete(vxFunds)
 }
 
-func CheckVxFundsCanBeDelete(vxFunds *VxFunds) bool {
-	return len(vxFunds.Funds) == 1 && IsValidVxAmountBytesForDividend(vxFunds.Funds[0].Amount)
+func CheckUserVxFundsCanBeDelete(vxFunds *VxFunds) bool {
+	return len(vxFunds.Funds) == 1 && !IsValidVxAmountBytesForDividend(vxFunds.Funds[0].Amount)
 }
 
 func DeleteVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) {
@@ -522,8 +504,6 @@ func GetVxFundsKey(address []byte) []byte {
 }
 
 func GetVxSumFundsFromStorage(db vmctxt_interface.VmDatabase) (vxSumFunds *VxFunds, err error) {
-	vxSumFundsKey := GetVxSumFundsKey()
-	vxSumFunds = &VxFunds{}
 	if vxSumFundsBytes := db.GetStorage(&types.AddressDexFund, vxSumFundsKey); len(vxSumFundsBytes) > 0 {
 		if vxSumFunds, err = vxSumFunds.DeSerialize(vxSumFundsBytes); err != nil {
 			return nil, err
@@ -531,12 +511,11 @@ func GetVxSumFundsFromStorage(db vmctxt_interface.VmDatabase) (vxSumFunds *VxFun
 			return vxSumFunds, nil
 		}
 	} else {
-		return vxSumFunds, nil
+		return nil, nil
 	}
 }
 
 func SaveVxSumFundsToStorage(db vmctxt_interface.VmDatabase, vxSumFunds *VxFunds) error {
-	vxSumFundsKey := GetVxSumFundsKey()
 	if vxSumFundsBytes, err := vxSumFunds.Serialize(); err == nil {
 		db.SetStorage(vxSumFundsKey, vxSumFundsBytes)
 		return nil
@@ -569,10 +548,6 @@ func SaveLastMinedVxDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId
 	db.SetStorage(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
 }
 
-func GetVxSumFundsKey() []byte {
-	return vxSumFundsKey
-}
-
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
 	return new(big.Int).SetBytes(amount).Cmp(VxDividendThreshold) >= 0
 }
@@ -598,22 +573,22 @@ func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (er
 func GetMindedVxAmt(db vmctxt_interface.VmDatabase) (amtFroFeePerMarket, amtForPledge, amtForViteLabs *big.Int, success bool) {
 	tokenId := &types.TokenTypeId{}
 	tokenId.SetBytes(VxTokenBytes)
-	amt := db.GetBalance(&types.AddressDexFund, tokenId)
+	vxBalance := db.GetBalance(&types.AddressDexFund, tokenId)
 	var toDivideTotal *big.Int
-	if amt.Sign() > 0 {
-		if amt.Cmp(VxMinedAmtPerPeriod) < 0 {
-			toDivideTotal = amt
+	if vxBalance.Sign() > 0 {
+		if vxBalance.Cmp(VxMinedAmtPerPeriod) < 0 {
+			toDivideTotal = vxBalance
 		} else {
 			toDivideTotal = VxMinedAmtPerPeriod
 		}
-		amtF := new(big.Float).SetInt(toDivideTotal)
+		toDivideTotalF := new(big.Float).SetInt(toDivideTotal)
 		proportion, _ := new(big.Float).SetString("0.2")
-		amtFroFeePerMarket = RoundAmount(new(big.Float).Mul(amtF, proportion))
+		amtFroFeePerMarket = RoundAmount(new(big.Float).Mul(toDivideTotalF, proportion))
 		amtForFeeTotal := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
 		proportion, _ = new(big.Float).SetString("0.1")
-		amtForViteLabs = RoundAmount(new(big.Float).Mul(amtF, proportion))
-		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
-		amtForPledge = new(big.Int).Sub(amtForPledge, amtForViteLabs)
+		amtForViteLabs = RoundAmount(new(big.Float).Mul(toDivideTotalF, proportion))
+		amtForPledge.Sub(toDivideTotal, amtForFeeTotal)
+		amtForPledge.Sub(amtForPledge, amtForViteLabs)
 		return amtFroFeePerMarket, amtForPledge, amtForViteLabs, true
 	} else {
 		return nil,nil,nil, false
@@ -626,7 +601,7 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 	proportionAmt = RoundAmount(new(big.Float).Mul(new(big.Float).SetInt(toDivideTotalAmt), proportion))
 	toDivideLeaveNewAmt := new(big.Int).Sub(toDivideLeaveAmt, proportionAmt)
 	if toDivideLeaveNewAmt.Sign() <= 0 || dividedReferAmt.Cmp(totalReferAmt) >= 0 {
-		proportionAmt = toDivideLeaveAmt
+		proportionAmt.Set(toDivideLeaveAmt)
 		finished = true
 	} else {
 		toDivideLeaveAmt.Set(toDivideLeaveNewAmt)
