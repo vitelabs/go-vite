@@ -120,8 +120,8 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 		return errors.New(fmt.Sprintf("block is not next. prevHash:%s, headHash:%s", block.PrevHash, head.Hash))
 	}
 
-	for addr, _ := range block.SnapshotContent {
-		_, err := self.VerifyAccountTimeout(addr, block.Height)
+	for addr, hashH := range block.SnapshotContent {
+		_, err := self.VerifyAccountTimeout(addr, hashH, block.Height)
 		if err != nil {
 			stat.result = FAIL
 			return err
@@ -130,7 +130,8 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 	return nil
 }
 
-func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotHeight uint64) (*ledger.HashHeight, error) {
+func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, hashH *ledger.HashHeight, snapshotHeight uint64) (*ledger.HashHeight, error) {
+
 	defer monitor.LogTime("verify", "accountTimeout", time.Now())
 
 	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
@@ -139,6 +140,9 @@ func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, snapshotH
 	}
 
 	if first == nil {
+		if hashH != nil {
+			return nil, errors.Errorf("account block[%s:%d:%s] is nil.", addr, hashH.Height, hashH.Hash)
+		}
 		return nil, errors.New("account block is nil.")
 	}
 	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
