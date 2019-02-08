@@ -38,11 +38,21 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 			if block == nil {
 				err := errors.New(fmt.Sprintf("Block is not existed in need snapshot cache, blockHash is %s, blockHeight is %d, address is %s",
 					item.Hash, item.Height, addr))
+				c.log.Error(err.Error(), "method", "GenStateTrie")
+
 				return nil, err
 			}
 		}
 
 		currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
+	}
+
+	if len(snapshotContent) > 0 && currentTrie.Hash() == prevTrie.Hash() {
+		latestSnapshotBlock := c.GetLatestSnapshotBlock()
+		err := errors.New(fmt.Sprintf("len(snapshotContent) > 0 && currentTrie.Hash() == prevTrie.Hash(), snapshotContent is %v, stateHash is %s, latestSnapshotBlock.height is %d\n",
+			snapshotContent, prevTrie.Hash(), latestSnapshotBlock.Height))
+		c.log.Error(err.Error(), "method", "GenStateTrie")
+		return nil, err
 	}
 
 	return currentTrie, nil
