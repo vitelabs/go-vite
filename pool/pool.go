@@ -909,6 +909,11 @@ func (self *failStat) isFail() bool {
 		return false
 	}
 
+	if time.Now().Sub(*update) > 10*self.timeThreshold {
+		self.clear()
+		return false
+	}
+
 	if update.Sub(*first) > self.timeThreshold {
 		return true
 	}
