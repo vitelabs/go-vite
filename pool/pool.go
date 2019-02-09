@@ -630,25 +630,25 @@ func (self *pool) loopCompact() {
 	}
 }
 func (self *pool) poolRecover() {
-	if err := recover(); err != nil {
-		var e error
-		switch t := err.(type) {
-		case error:
-			e = errors.WithStack(t)
-		case string:
-			e = errors.New(t)
-		default:
-			e = errors.Errorf("unknown type, %+v", err)
-		}
-
-		self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
-		fmt.Printf("%+v", e)
-		if self.stat.inc() {
-			common.Go(self.Restart)
-		} else {
-			panic(e)
-		}
-	}
+	//if err := recover(); err != nil {
+	//	var e error
+	//	switch t := err.(type) {
+	//	case error:
+	//		e = errors.WithStack(t)
+	//	case string:
+	//		e = errors.New(t)
+	//	default:
+	//		e = errors.Errorf("unknown type, %+v", err)
+	//	}
+	//
+	//	self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
+	//	fmt.Printf("%+v", e)
+	//	if self.stat.inc() {
+	//		common.Go(self.Restart)
+	//	} else {
+	//		panic(e)
+	//	}
+	//}
 }
 func (self *pool) loopBroadcastAndDel() {
 	defer self.poolRecover()
