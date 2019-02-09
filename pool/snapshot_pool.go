@@ -31,7 +31,7 @@ type snapshotPool struct {
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
-	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source)}
+	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source), failStat: (&failStat{}).init(time.Second * 20)}
 }
 
 type snapshotPoolBlock struct {
@@ -41,6 +41,7 @@ type snapshotPoolBlock struct {
 	// last check data time
 	lastCheckTime time.Time
 	checkResult   bool
+	failStat      *failStat
 }
 
 func (self *snapshotPoolBlock) Height() uint64 {
@@ -405,6 +406,7 @@ func (self *snapshotPool) Stop() {
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
 	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
 	block := b.block
+	b.failStat.inc()
 	results := stat.results
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
