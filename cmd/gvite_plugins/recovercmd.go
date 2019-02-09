@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
+	"os"
 )
 
 var (
@@ -29,6 +30,6 @@ func recoverLedgerAction(ctx *cli.Context) error {
 		return err
 	}
 	nodeManager.Start()
-	nodeManager.Stop()
+	os.Exit(0)
 	return nil
 }

@@ -48,11 +48,12 @@ func (nodeManager *RecoverNodeManager) Start() error {
 		panic(err)
 	}
 
+	fmt.Printf("Deleting to %d...\n", deleteToHeight)
 	if _, _, err := c.DeleteSnapshotBlocksToHeight(deleteToHeight); err != nil {
 		fmt.Errorf("Delete to %d height failed. error is "+err.Error()+"\n", deleteToHeight)
 		return err
 	}
-	fmt.Printf("Delete to %d\n", deleteToHeight)
+	fmt.Printf("Delete to %d successed!\n", deleteToHeight)
 
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	return nil
