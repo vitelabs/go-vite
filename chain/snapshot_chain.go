@@ -47,14 +47,6 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 		currentTrie.SetValue(addr.Bytes(), block.StateHash.Bytes())
 	}
 
-	if len(snapshotContent) > 0 && currentTrie.Hash() == prevTrie.Hash() {
-		latestSnapshotBlock := c.GetLatestSnapshotBlock()
-		err := errors.New(fmt.Sprintf("len(snapshotContent) > 0 && currentTrie.Hash() == prevTrie.Hash(), snapshotContent is %v, stateHash is %s, latestSnapshotBlock.height is %d\n",
-			snapshotContent, prevTrie.Hash(), latestSnapshotBlock.Height))
-		c.log.Error(err.Error(), "method", "GenStateTrie")
-		return nil, err
-	}
-
 	return currentTrie, nil
 }
 
