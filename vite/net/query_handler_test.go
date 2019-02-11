@@ -157,6 +157,10 @@ func mockBlocks(chn chain.Chain, to uint64) {
 type mock_Peer struct {
 }
 
+func (m *mock_Peer) SendMsg(msg *p2p.Msg) (err error) {
+	panic("implement me")
+}
+
 func (m *mock_Peer) Head() types.Hash {
 	panic("implement me")
 }

@@ -11,16 +11,6 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func RandStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
-
 // to is larger or equal than from
 func mockFromTo() (from, to uint64) {
 	from, to = mockU64(), mockU64()
@@ -35,60 +25,6 @@ func mockU64() uint64 {
 	u := rand.Uint64()
 	return u >> 40
 }
-
-func mockPeers(n int) (peers []*peer) {
-	var num int
-	for {
-		num = rand.Intn(n)
-		if num > 0 {
-			break
-		}
-	}
-	fmt.Printf("mock %d peers\n", num)
-
-	for i := 0; i < num; i++ {
-		peers = append(peers, &peer{id: RandStringRunes(8), height: mockU64()})
-	}
-
-	return peers
-}
-
-//func TestSplitSubLedger(t *testing.T) {
-//	peers := mockPeers(200)
-//
-//	var to uint64
-//	for _, peer := range peers {
-//		if peer.height > to {
-//			to = peer.height
-//		}
-//	}
-//
-//	var from uint64 = 0
-//
-//	cs := splitSubLedger(from, to, peers)
-//	fmt.Printf("from %d to %d split %d ledger pieces\n", from, to, len(cs))
-//
-//	low := from
-//	for _, c := range cs {
-//		if low != c.from {
-//			t.Fatalf("ledger piece is not coherent: %d, %d - %d @%d", low, c.from, c.to, c.peer.height)
-//		}
-//
-//		if c.to < c.from {
-//			t.Fatalf("ledger piece from is larger than to: %d - %d @%d", c.from, c.to, c.peer.height)
-//		}
-//
-//		if c.to > c.peer.height {
-//			t.Fatalf("ledger piece from out of peer: %d - %d @%d", c.from, c.to, c.peer.height)
-//		}
-//
-//		low = c.to + 1
-//	}
-//
-//	if low != to+1 {
-//		t.Fatalf("ledger pieces is not compelete, %d %d", low, to)
-//	}
-//}
 
 func TestSplitChunk(t *testing.T) {
 	from, to := mockFromTo()
@@ -114,7 +50,7 @@ func TestSplitChunk(t *testing.T) {
 			t.Fatalf("chunk from is larger than to: %d - %d", c[0], c[1])
 		}
 
-		if c[1] >= c[0]+chunk {
+		if c[1] >= c[0]+batch {
 			t.Fatalf("chunk is too large: %d - %d", c[0], c[1])
 		}
 
@@ -130,7 +66,7 @@ func TestSplitChunkOne(t *testing.T) {
 	to := rand.Uint64()
 	from := to
 
-	cs := splitChunk(from, to, 243)
+	cs := splitChunk(from, to, 2)
 
 	if uint64(len(cs)) != 1 {
 		t.Fail()
@@ -142,10 +78,11 @@ func TestSplitChunkOne(t *testing.T) {
 }
 
 func TestSplitChunkMini(t *testing.T) {
-	to := rand.Uint64()
-	from := to - uint64(rand.Intn(10))
-
 	const batch = 333
+
+	to := rand.Uint64()
+	from := to - uint64(rand.Intn(batch-10))
+
 	cs := splitChunk(from, to, batch)
 
 	if uint64(len(cs)) != 1 {
@@ -154,5 +91,91 @@ func TestSplitChunkMini(t *testing.T) {
 
 	if cs[0][0] != from || cs[0][1] != to {
 		t.Fail()
+	}
+}
+
+func TestChunkRequest_Done(t *testing.T) {
+	var c chunkRequest
+	c.from, c.to = mockFromTo()
+	c.to = c.from + 100000
+
+	const batch = 10
+	cs := splitChunk(c.from, c.to, batch)
+
+	var done bool
+	var mid = len(cs) / 2
+	for i := 0; i < mid; i++ {
+		_, done = c.receive(ChunkResponse{
+			From: cs[i][0],
+			To:   cs[i][1],
+		})
+	}
+
+	if done {
+		t.Fail()
+	}
+
+	for i := mid; i < len(cs); i++ {
+		_, done = c.receive(ChunkResponse{
+			From: cs[i][0],
+			To:   cs[i][1],
+		})
+	}
+
+	if !done {
+		t.Fail()
+	}
+}
+
+func TestChunkRequest_Done2(t *testing.T) {
+	var c chunkRequest
+	c.from, c.to = mockFromTo()
+	c.to = c.from + 100000
+
+	const batch = 10
+	cs := splitChunk(c.from, c.to, batch)
+
+	var rest [][2]uint64
+	var done bool
+	var mid = len(cs) / 2
+	for i := 0; i < mid; i++ {
+		rest, done = c.receive(ChunkResponse{
+			From: cs[i][0],
+			To:   cs[i][1],
+		})
+	}
+
+	if done {
+		t.Fail()
+	}
+
+	for i := 0; i < len(rest); i++ {
+		_, done = c.receive(ChunkResponse{
+			From: rest[i][0],
+			To:   rest[i][1],
+		})
+	}
+
+	if !done {
+		t.Fail()
+	}
+}
+
+func BenchmarkChunkRequest_Receive(b *testing.B) {
+	var c chunkRequest
+	c.from, c.to = mockFromTo()
+	c.to = c.from + 100000
+
+	const batch = 10
+	cs := splitChunk(c.from, c.to, batch)
+	total := len(cs)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		j := i % total
+		c.receive(ChunkResponse{
+			From: cs[j][0],
+			To:   cs[j][1],
+		})
 	}
 }

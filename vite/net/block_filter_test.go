@@ -1,71 +1,75 @@
 package net
 
 import (
+	"crypto/rand"
+	"io"
 	"testing"
-
-	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func TestHold(t *testing.T) {
-	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
-	if e != nil {
-		panic(e)
-	}
+func TestFilter_Has(t *testing.T) {
+	const cap = 1000
+	filter := newBlockFilter(cap)
 
-	f := newFilter()
+	m := make(map[types.Hash]struct{})
 
-	// first time, should not hold
-	if f.hold(hash) {
-		t.Fail()
-	}
+	for i := 0; i < cap*10; i++ {
+		var hash types.Hash
+		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
+			continue
+		}
 
-	// have`nt done, then hold 2*timeThreshold and maxMark*2 times
-	for i := 0; i < maxMark*2; i++ {
-		if !f.hold(hash) {
+		m[hash] = struct{}{}
+
+		filter.record(hash[:])
+
+		if !filter.has(hash[:]) {
 			t.Fail()
 		}
 	}
 
-	time.Sleep(time.Duration(timeThreshold))
-	if !f.hold(hash) {
-		t.Fail()
-	}
-
-	// have wait exceed 2 * timeThreshold and maxMark times from add
-	time.Sleep(time.Duration(timeThreshold))
-
-	if f.hold(hash) {
-		t.Fail()
+	for i := 0; i < cap*10; i++ {
+		var hash types.Hash
+		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
+			continue
+		}
+		if _, ok := m[hash]; ok {
+			continue
+		}
+		if filter.has(hash[:]) {
+			t.Log("should not has")
+			t.Fail()
+		}
 	}
 }
 
-func TestDone(t *testing.T) {
-	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
-	if e != nil {
-		panic(e)
-	}
+func TestFilter_LookAndRecord(t *testing.T) {
+	const cap = 1000
+	filter := newBlockFilter(cap)
 
-	f := newFilter()
+	m := make(map[types.Hash]struct{})
 
-	// first time, should hold
-	if f.hold(hash) {
-		t.Fail()
-	}
+	for i := 0; i < cap*10; i++ {
+		var hash types.Hash
+		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
+			continue
+		}
+		if _, ok := m[hash]; ok {
+			continue
+		}
+		m[hash] = struct{}{}
 
-	f.done(hash)
-
-	// task done, then hold maxMark times and timeThreshold
-	for i := 0; i < maxMark; i++ {
-		if !f.hold(hash) {
+		exist := filter.lookAndRecord(hash[:])
+		if exist {
+			t.Log("should not exist")
 			t.Fail()
 		}
-	}
 
-	// have done, then hold timeThreshold
-	time.Sleep(time.Duration(timeThreshold))
-	if f.hold(hash) {
-		t.Fail()
+		exist = filter.lookAndRecord(hash[:])
+		if !exist {
+			t.Log("should exist")
+			t.Fail()
+		}
 	}
 }

@@ -32,8 +32,8 @@ type MsgIder interface {
 
 // a fetchPolicy implementation can choose suitable peers to fetch blocks
 type fetchPolicy interface {
-	pickAccount(height uint64) (l []Peer)
-	pickSnap() Peer
+	accountTargets(height uint64) (l []Peer)
+	snapshotTarget(height uint64) Peer
 }
 
 // a fp is fetchPolicy implementation
@@ -41,7 +41,32 @@ type fp struct {
 	peers *peerSet
 }
 
-func (p *fp) pickAccount(height uint64) []Peer {
+// best peer and another random peer
+func (p *fp) accountTargets(height uint64) (l []Peer) {
+	best := p.peers.BestPeer()
+	if best == nil {
+		return
+	}
+
+	l = append(l, best)
+
+	all := p.peers.Peers()
+	if total := len(all); total > 1 {
+		for {
+			i := rand.Intn(total)
+			if all[i] != best {
+				l = append(l, all[i])
+				break
+			}
+		}
+	}
+
+	return
+}
+
+/*
+// best peer, a random peer, a random taller peer
+func (p *fp) accountTargets(height uint64) []Peer {
 	var l, taller []Peer
 
 	all := p.peers.Peers()
@@ -76,24 +101,31 @@ func (p *fp) pickAccount(height uint64) []Peer {
 	}
 
 	// taller
-	//if len(taller) > 0 {
-	//	ran = rand.Intn(len(taller))
-	//	peer = taller[ran]
-	//
-	//	for _, p := range l {
-	//		if peer == p {
-	//			return l
-	//		}
-	//	}
-	//
-	//	l = append(l, peer)
-	//}
+	if len(taller) > 0 {
+		ran = rand.Intn(len(taller))
+		peer = taller[ran]
+
+		for _, p := range l {
+			if peer == p {
+				return l
+			}
+		}
+
+		l = append(l, peer)
+	}
 
 	return l
 }
+*/
 
-func (p *fp) pickSnap() Peer {
-	return p.peers.BestPeer()
+func (p *fp) snapshotTarget(height uint64) Peer {
+	if height == 0 {
+		return p.peers.BestPeer()
+	}
+
+	ps := p.peers.Pick(height)
+	i := rand.Intn(len(ps))
+	return ps[i]
 }
 
 // fetch filter
@@ -123,13 +155,13 @@ func (r *record) done() {
 }
 
 type filter struct {
-	records map[types.Hash]record
+	records map[types.Hash]*record
 	lock    sync.RWMutex
 }
 
 func newFilter() *filter {
 	return &filter{
-		records: make(map[types.Hash]record, 3600),
+		records: make(map[types.Hash]*record, 3600),
 	}
 }
 
@@ -165,7 +197,7 @@ func (f *filter) hold(hash types.Hash) bool {
 
 		r.inc()
 	} else {
-		f.records[hash] = record{addAt: now}
+		f.records[hash] = &record{addAt: now}
 		return false
 	}
 
@@ -178,19 +210,7 @@ func (f *filter) done(hash types.Hash) {
 
 	if r, ok := f.records[hash]; ok {
 		r.done()
-	} else {
-		r = record{addAt: time.Now().Unix()}
-		r.done()
-		f.records[hash] = r
 	}
-}
-
-func (f *filter) has(hash types.Hash) bool {
-	f.lock.RLock()
-	defer f.lock.RUnlock()
-
-	r, ok := f.records[hash]
-	return ok && r._done
 }
 
 func (f *filter) fail(hash types.Hash) {
@@ -292,8 +312,11 @@ func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
 				return err
 			}
 
-			f.filter.done(block.Hash)
 			f.notifier.notifySnapshotBlock(block, types.RemoteFetch)
+		}
+
+		if len(bs.Blocks) > 0 {
+			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
 		}
 
 	case AccountBlocksCode:
@@ -307,8 +330,11 @@ func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
 				return err
 			}
 
-			f.filter.done(block.Hash)
 			f.notifier.notifyAccountBlock(block, types.RemoteFetch)
+		}
+
+		if len(bs.Blocks) > 0 {
+			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
 		}
 	}
 
@@ -329,7 +355,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	if p := f.policy.pickSnap(); p != nil {
+	if p := f.policy.snapshotTarget(0); p != nil {
 		m := &message.GetSnapshotBlocks{
 			From:    ledger.HashHeight{Hash: start},
 			Count:   count,
@@ -363,7 +389,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	if peerList := f.policy.pickAccount(0); len(peerList) != 0 {
+	if peerList := f.policy.accountTargets(0); len(peerList) != 0 {
 		addr := NULL_ADDRESS
 		if address != nil {
 			addr = *address
@@ -406,7 +432,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		return
 	}
 
-	if peerList := f.policy.pickAccount(sHeight); len(peerList) != 0 {
+	if peerList := f.policy.accountTargets(sHeight); len(peerList) != 0 {
 		addr := NULL_ADDRESS
 		if address != nil {
 			addr = *address
