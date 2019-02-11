@@ -293,9 +293,11 @@ wait:
 				return
 			}
 
+			s.log.Info(fmt.Sprintf("sync current: %d, chain speed %d", current.Height, current.Height-s.current))
+
 			if current.Height == s.current && now.Sub(lastCheckTime) > 10*time.Minute {
 				s.setState(Syncerr)
-			} else {
+			} else if s.state == Syncing {
 				s.current = current.Height
 				s.exec.runTo(s.current + 3600)
 			}
@@ -427,6 +429,7 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		s.receiveFileList(res)
 
 	case SubLedgerCode:
+		s.log.Info(fmt.Sprintf("receive %s from %s", SubLedgerCode, sender.RemoteAddr()))
 		return s.pool.Handle(msg, sender)
 	}
 
@@ -439,20 +442,13 @@ func (s *syncer) taskDone(t *syncTask, err error) {
 			return
 		}
 
-		from, to := t.bound()
+		_, to := t.bound()
 		target := atomic.LoadUint64(&s.to)
 
 		if to <= target {
 			s.setState(Syncerr)
 			return
 		}
-
-		if from > s.to {
-			return
-		}
-
-		// todo
-		//s.pool.download(from, s.to)
 	}
 }
 
