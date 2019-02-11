@@ -32,11 +32,11 @@ type SyncInfo struct {
 	Status   string `json:"status"`
 }
 
-func (n *NetApi) SyncInfo() *SyncInfo {
+func (n *NetApi) SyncInfo() SyncInfo {
 	log.Info("SyncInfo")
 	s := n.net.Status()
 
-	return &SyncInfo{
+	return SyncInfo{
 		From:     strconv.FormatUint(s.From, 10),
 		To:       strconv.FormatUint(s.To, 10),
 		Received: strconv.FormatUint(s.Received, 10),
@@ -44,6 +44,10 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 		State:    uint(s.State),
 		Status:   s.State.String(),
 	}
+}
+
+func (n *NetApi) SyncDetail() net.SyncDetail {
+	return n.net.Detail()
 }
 
 func (n *NetApi) Peers() *net.NodeInfo {

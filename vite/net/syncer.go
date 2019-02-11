@@ -485,14 +485,28 @@ type SyncStatus struct {
 	State    SyncState
 }
 
-func (s *syncer) Status() *SyncStatus {
+func (s *syncer) Status() SyncStatus {
 	current := s.chain.GetLatestSnapshotBlock()
 
-	return &SyncStatus{
+	return SyncStatus{
 		From:     s.from,
 		To:       s.to,
 		Current:  current.Height,
 		Received: s.sCount,
 		State:    s.state,
+	}
+}
+
+type SyncDetail struct {
+	SyncStatus
+	FileClientStatus
+	ChunkPoolStatus
+}
+
+func (s *syncer) Detail() SyncDetail {
+	return SyncDetail{
+		SyncStatus:       s.Status(),
+		FileClientStatus: s.fc.status(),
+		ChunkPoolStatus:  s.pool.status(),
 	}
 }

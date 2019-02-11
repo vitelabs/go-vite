@@ -10,7 +10,7 @@ import (
 )
 
 func TestSyncer_Handle(t *testing.T) {
-	syncer := newSyncer(nil, newPeerSet(), new(gid), nil)
+	syncer := newSyncer(nil, newPeerSet(), nil, nil, nil)
 	syncer.to = 100000
 
 	// one

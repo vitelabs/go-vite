@@ -26,6 +26,10 @@ type fileReader interface {
 	FileReader(filename string) io.ReadCloser
 }
 
+type FileServerStatus struct {
+	Conns []string
+}
+
 type fileServer struct {
 	addr    string
 	ln      net2.Listener
@@ -43,6 +47,22 @@ func newFileServer(addr string, reader fileReader) *fileServer {
 		conns:  make(map[string]net2.Conn),
 		reader: reader,
 		log:    log15.New("module", "net/fileServer"),
+	}
+}
+
+func (s *fileServer) status() FileServerStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	conns := make([]string, len(s.conns))
+
+	i := 0
+	for addr := range s.conns {
+		conns[i] = addr
+		i++
+	}
+
+	return FileServerStatus{
+		Conns: conns,
 	}
 }
 

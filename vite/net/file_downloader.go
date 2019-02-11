@@ -62,12 +62,18 @@ type fileParser interface {
 	BlockParser(reader io.Reader, blockNum uint64, processFunc func(block ledger.Block, err error))
 }
 
+type FileConnStatus struct {
+	Id    string
+	Addr  string
+	Speed float64
+}
+
 type fileConn struct {
 	net2.Conn
 	id     peerId
-	busy   int32 // atomic
-	t      int64 // timestamp
-	speed  int64 // download speed
+	busy   int32   // atomic
+	t      int64   // timestamp
+	speed  float64 // download speed, byte/s
 	parser fileParser
 	closed int32
 	log    log15.Logger
@@ -79,6 +85,14 @@ func newFileConn(conn net2.Conn, id peerId, parser fileParser, log log15.Logger)
 		id:     id,
 		parser: parser,
 		log:    log,
+	}
+}
+
+func (f *fileConn) status() FileConnStatus {
+	return FileConnStatus{
+		Id:    f.id,
+		Addr:  f.RemoteAddr().String(),
+		Speed: f.speed,
 	}
 }
 
@@ -114,6 +128,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 
 	var sCount, aCount uint64
 
+	start := time.Now()
 	// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
 	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
@@ -154,6 +169,13 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 			code: downloadIncompleteErr,
 			err:  fmt.Sprintf("incomplete <file %s> %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
 		}
+	}
+
+	if outerr != nil {
+		f.speed = 0
+	} else {
+		// bytes/s
+		f.speed = float64(file.FileSize) / (time.Now().Sub(start).Seconds() + 1)
 	}
 
 	return
@@ -211,6 +233,10 @@ type filePeer struct {
 	fail int32
 }
 
+type FilePoolStatus struct {
+	Conns []FileConnStatus
+}
+
 type filePeerPool struct {
 	mu sync.Mutex
 
@@ -226,6 +252,21 @@ func newPool() *filePeerPool {
 		mf: make(map[filename]map[peerId]struct{}),
 		mp: make(map[peerId]*filePeer),
 		mi: make(map[peerId]int),
+	}
+}
+
+func (fp *filePeerPool) status() FilePoolStatus {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	conns := make([]FileConnStatus, len(fp.l))
+
+	for i := 0; i < len(fp.l); i++ {
+		conns[i] = fp.l[i].status()
+	}
+
+	return FilePoolStatus{
+		Conns: conns,
 	}
 }
 
@@ -304,6 +345,10 @@ func (fp *filePeerPool) sort() {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
+	fp.sortLocked()
+}
+
+func (fp *filePeerPool) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
 		fp.mi[c.id] = i
@@ -330,6 +375,9 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 				break
 			}
 		}
+
+		// sort first
+		fp.sortLocked()
 
 		for i, conn := range fp.l {
 			if conn.isBusy() {
@@ -364,6 +412,21 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 
 	// no peers
 	return nil, nil, errNoSuitablePeers
+}
+
+func (fp *filePeerPool) reset() {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	fp.mf = make(map[filename]map[peerId]struct{})
+	fp.mp = make(map[peerId]*filePeer)
+	fp.mi = make(map[peerId]int)
+
+	for _, c := range fp.l {
+		c.close()
+	}
+
+	fp.l = nil
 }
 
 type asyncFileTask struct {
@@ -533,6 +596,7 @@ func (fc *fileClient) stop() {
 	case <-fc.term:
 	default:
 		close(fc.term)
+		fc.pool.reset()
 		fc.wg.Wait()
 	}
 }
@@ -599,4 +663,23 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 	}
 
 	return
+}
+
+func (fc *fileClient) status() FileClientStatus {
+	fc.mu.Lock()
+	queue := make([]File, len(fc.fqueue))
+	for i := 0; i < len(fc.fqueue); i++ {
+		queue[i] = fc.fqueue[i].file
+	}
+	fc.mu.Unlock()
+
+	return FileClientStatus{
+		FPool: fc.pool.status(),
+		Queue: queue,
+	}
+}
+
+type FileClientStatus struct {
+	FPool FilePoolStatus
+	Queue []File
 }

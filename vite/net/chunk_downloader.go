@@ -46,6 +46,14 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
+type ChunkReqStatus struct {
+	From, To uint64
+	Done     bool
+	Pieces   chunkResponses
+	Deadline string
+	Target   string
+}
+
 type chunkRequest struct {
 	id       uint64
 	from, to uint64
@@ -55,20 +63,24 @@ type chunkRequest struct {
 	mu       sync.Mutex
 	ch       chan error
 	once     sync.Once
+
+	// for status
+	_done  bool
+	target string
 }
 
-type chunkResponse struct {
-	from, to uint64
+type ChunkResponse struct {
+	From, To uint64
 }
 
-type chunkResponses []chunkResponse
+type chunkResponses []ChunkResponse
 
 func (crs chunkResponses) Len() int {
 	return len(crs)
 }
 
 func (crs chunkResponses) Less(i, j int) bool {
-	return crs[i].from < crs[j].from
+	return crs[i].From < crs[j].From
 }
 
 func (crs chunkResponses) Swap(i, j int) {
@@ -84,11 +96,16 @@ func (cr *chunkRequest) expired(t time.Time) bool {
 
 func (cr *chunkRequest) done(err error) {
 	cr.once.Do(func() {
+		if err != nil {
+			cr._done = false
+		} else {
+			cr._done = true
+		}
 		cr.ch <- err
 	})
 }
 
-func (cr *chunkRequest) receive(crs chunkResponse) (rest [][2]uint64, done bool) {
+func (cr *chunkRequest) receive(crs ChunkResponse) (rest [][2]uint64, done bool) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -100,21 +117,21 @@ func (cr *chunkRequest) receive(crs chunkResponse) (rest [][2]uint64, done bool)
 	for i := 0; i < len(cr.pieces); i++ {
 		piece := cr.pieces[i]
 		// useless
-		if piece.to < from {
+		if piece.To < from {
 			continue
 		}
 
 		// missing front piece
-		if piece.from > from {
+		if piece.From > from {
 			done = false
 			rest = append(rest, [2]uint64{
 				from + 1,
-				piece.from - 1,
+				piece.From - 1,
 			})
 		}
 
 		// next response
-		from = piece.to + 1
+		from = piece.To + 1
 	}
 
 	// from should equal (cr.to + 1)
@@ -129,6 +146,20 @@ func (cr *chunkRequest) receive(crs chunkResponse) (rest [][2]uint64, done bool)
 	return
 }
 
+func (cr *chunkRequest) status() ChunkReqStatus {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+
+	return ChunkReqStatus{
+		From:     cr.from,
+		To:       cr.to,
+		Done:     cr._done,
+		Pieces:   cr.pieces,
+		Deadline: cr.deadline.Format("2006-1-2 15:3:4"),
+		Target:   cr.target,
+	}
+}
+
 type subLedger struct {
 	*p2p.Msg
 	sender Peer
@@ -138,7 +169,7 @@ type chunkPool struct {
 	peers *peerSet
 	gid   MsgIder
 
-	chunks sync.Map
+	chunks sync.Map // uint64: *chunkRequest
 
 	handler blockReceiver
 
@@ -149,6 +180,10 @@ type chunkPool struct {
 	wg      sync.WaitGroup
 
 	log log15.Logger
+}
+
+type ChunkPoolStatus struct {
+	Request []ChunkReqStatus
 }
 
 func (p *chunkPool) download(ctx context.Context, from, to uint64) <-chan error {
@@ -266,21 +301,21 @@ func (p *chunkPool) handleResponse(leg subLedger) (err error) {
 
 	start, end := chunk.SBlocks[0].Height, chunk.SBlocks[len(chunk.SBlocks)-1].Height
 
-	var res chunkResponse
+	var res ChunkResponse
 	if start < end {
 		for i, block := range chunk.SBlocks {
 			if block.Height != start+uint64(i) {
 				return
 			}
 		}
-		res.from, res.to = start, end
+		res.From, res.To = start, end
 	} else {
 		for i, block := range chunk.SBlocks {
 			if block.Height != start-uint64(i) {
 				return
 			}
 		}
-		res.from, res.to = end, start
+		res.From, res.To = end, start
 	}
 
 	if v, ok := p.chunks.Load(leg.Id); ok {
@@ -344,6 +379,21 @@ func (p *chunkPool) request(c *chunkRequest) {
 	if err != nil {
 		p.log.Error(fmt.Sprintf("send %s to %s error: %v", c.msg.String(), p1.RemoteAddr(), err))
 	} else {
+		c.target = p1.RemoteAddr().String()
 		p.log.Info(fmt.Sprintf("send %s to %s", c.msg.String(), p1.RemoteAddr()))
+	}
+}
+
+func (p *chunkPool) status() ChunkPoolStatus {
+	var request []ChunkReqStatus
+
+	p.chunks.Range(func(key, value interface{}) bool {
+		cr := value.(*chunkRequest)
+		request = append(request, cr.status())
+		return true
+	})
+
+	return ChunkPoolStatus{
+		Request: request,
 	}
 }
