@@ -185,12 +185,7 @@ func (p *chunkPool) Cmds() []ViteCmd {
 }
 
 func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
-	cmd := ViteCmd(msg.Cmd)
-
-	p.log.Info(fmt.Sprintf("receive %s from %s", cmd, sender.RemoteAddr()))
-
 	p.resQueue.Push(subLedger{msg, sender})
-
 	return nil
 }
 
@@ -235,6 +230,7 @@ func (p *chunkPool) handleLoop() {
 			leg := v.(subLedger)
 
 			if err := p.handleResponse(leg); err != nil {
+				p.log.Error(fmt.Sprintf("handle SubLedgerMsg from %s error: %v", leg.sender.RemoteAddr(), err))
 				leg.sender.Report(err)
 				v, ok := p.chunks.Load(leg.Id)
 				if ok {
@@ -293,6 +289,7 @@ func (p *chunkPool) handleResponse(leg subLedger) (err error) {
 		if done {
 			p.chunks.Delete(leg.Id)
 			request.done(nil)
+			p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> done", request.from, request.to))
 		}
 	}
 
@@ -343,5 +340,10 @@ func (p *chunkPool) request(c *chunkRequest) {
 
 	p1 := ps[rand.Intn(len(ps))]
 	c.deadline = time.Now().Add(chunkTimeout)
-	p1.Send(GetChunkCode, c.id, &c.msg)
+	err := p1.Send(GetChunkCode, c.id, &c.msg)
+	if err != nil {
+		p.log.Error(fmt.Sprintf("send %s to %s error: %v", c.msg.String(), p1.RemoteAddr(), err))
+	} else {
+		p.log.Info(fmt.Sprintf("send %s to %s", c.msg.String(), p1.RemoteAddr()))
+	}
 }

@@ -70,6 +70,16 @@ type fileConn struct {
 	speed  int64 // download speed
 	parser fileParser
 	closed int32
+	log    log15.Logger
+}
+
+func newFileConn(conn net2.Conn, id peerId, parser fileParser, log log15.Logger) *fileConn {
+	return &fileConn{
+		Conn:   conn,
+		id:     id,
+		parser: parser,
+		log:    log,
+	}
 }
 
 func (f *fileConn) isBusy() bool {
@@ -77,8 +87,7 @@ func (f *fileConn) isBusy() bool {
 }
 
 func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError) {
-	atomic.StoreInt32(&f.busy, 1)
-
+	f.setBusy()
 	defer f.idle()
 
 	getFiles := &message.GetFiles{
@@ -87,6 +96,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 
 	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 	if err != nil {
+		f.log.Error(fmt.Sprintf("pack GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
 		return &downloadError{
 			code: downloadPackMsgErr,
 			err:  err.Error(),
@@ -95,6 +105,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 
 	f.Conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
 	if err = p2p.WriteMsg(f.Conn, msg); err != nil {
+		f.log.Error(fmt.Sprintf("write GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
 		return &downloadError{
 			code: downloadSendErr,
 			err:  err.Error(),
@@ -103,10 +114,12 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 
 	var sCount, aCount uint64
 
+	// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
 	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
 		// Fatal error, then close the connection
 		if outerr != nil && outerr.Fatal() {
+			f.log.Error(fmt.Sprintf("download <file %s> from %s error: %v, close connection", file.Filename, f.RemoteAddr(), outerr))
 			f.close()
 		}
 
@@ -139,11 +152,16 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	if sCount < sTotal || aCount < aTotal {
 		outerr = &downloadError{
 			code: downloadIncompleteErr,
-			err:  fmt.Sprintf("incomplete file %s %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
+			err:  fmt.Sprintf("incomplete <file %s> %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
 		}
 	}
 
 	return
+}
+
+func (f *fileConn) setBusy() {
+	atomic.StoreInt32(&f.busy, 1)
+	atomic.StoreInt64(&f.t, time.Now().Unix())
 }
 
 func (f *fileConn) idle() {
@@ -196,13 +214,11 @@ type filePeer struct {
 type filePeerPool struct {
 	mu sync.Mutex
 
-	// for filePeer
-	mf map[filename]map[peerId]struct{}
-	mp map[peerId]*filePeer
+	mf map[filename]map[peerId]struct{} // find which peer can download the spec file
+	mp map[peerId]*filePeer             // manage peers
 
-	// for fileConn
-	mi map[peerId]int // index
-	l  fileConns      // sort by speed, from fast to slow
+	mi map[peerId]int // manage fileConns, corresponding value is the index of `filePeerPool.l`
+	l  fileConns      // fileConns sort by speed, from fast to slow
 }
 
 func newPool() *filePeerPool {
@@ -258,16 +274,16 @@ func (fp *filePeerPool) addConn(c *fileConn) error {
 	return nil
 }
 
-func (fp *filePeerPool) errConn(c *fileConn) {
+func (fp *filePeerPool) catch(id peerId) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if p, ok := fp.mp[c.id]; ok {
+	if p, ok := fp.mp[id]; ok {
 		p.fail++
 
 		// fail too many times, then delete the peer
 		if p.fail > 3 {
-			fp.delPeer(c.id)
+			fp.delPeer(id)
 		}
 	}
 }
@@ -294,7 +310,7 @@ func (fp *filePeerPool) sort() {
 	}
 }
 
-// choose a fast file connection, or random create new conns
+// choose a fast fileConn, or create a new conn randomly
 func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
@@ -302,15 +318,15 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 	if peerM, ok := fp.mf[name]; ok && len(peerM) > 0 {
 		totalConns := len(fp.l)
 
-		var hasFreshPeer = false // have peers those has no file connection
-		var randCreate = false   // should create new connection randomly
-		var freshPeerId peerId   // if should create new connection, then will use this filePeer
+		var hasFreshPeer = false  // whether have peers those has no file connection
+		var createNewConn = false // whether create new connection randomly if have no fast idle fileConns
+		var freshPeerId peerId    // if should create new connection, then will use this filePeer
 		for id := range peerM {
 			// this peer has no connection
 			if _, ok = fp.mi[id]; !ok {
 				freshPeerId = id
 				hasFreshPeer = true
-				randCreate = rand.Intn(10) > 5
+				createNewConn = rand.Intn(10) > 5
 				break
 			}
 		}
@@ -320,27 +336,33 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 				continue
 			}
 
-			// can download file
+			// can`t download this file
 			if _, ok = peerM[conn.id]; !ok {
 				continue
 			}
 
+			// the fileConn is fast enough
 			if i <= totalConns/3 {
 				return nil, conn, nil
 			}
 
-			if hasFreshPeer && randCreate {
+			// the fileConn is not so fast
+			if hasFreshPeer && createNewConn {
 				return fp.mp[freshPeerId], nil, nil
+			} else {
+				return nil, conn, nil
 			}
 		}
 
 		if hasFreshPeer {
 			return fp.mp[freshPeerId], nil, nil
 		} else {
+			// all peers are busy, the file downloading should be wait
 			return nil, nil, nil
 		}
 	}
 
+	// no peers
 	return nil, nil, errNoSuitablePeers
 }
 
@@ -407,8 +429,8 @@ func (fc *fileClient) addFilePeer(files []filename, sender Peer) {
 func (fc *fileClient) download(ctx context.Context, file File) <-chan error {
 	ch := make(chan error, 1)
 
-	cont, err := fc.downloadFile(file)
-	if cont {
+	wait, err := fc.downloadFile(file)
+	if wait {
 		fc.wait(asyncFileTask{
 			file: file,
 			ch:   ch,
@@ -437,7 +459,7 @@ func (fc *fileClient) runTask(t asyncFileTask) {
 	}
 }
 
-func (fc *fileClient) downloadFile(file File) (cont bool, err error) {
+func (fc *fileClient) downloadFile(file File) (wait bool, err error) {
 	var p *filePeer
 	var c *fileConn
 	if p, c, err = fc.pool.chooseSource(file.Filename); err != nil {
@@ -474,14 +496,16 @@ func (fc *fileClient) doJob(c *fileConn, file File) error {
 	if derr := c.download(file, fc.rec); derr != nil {
 		if derr.Fatal() {
 			fc.fatalPeer(c.id, derr)
+		} else {
+			fc.pool.catch(c.id)
 		}
 
-		fc.log.Error(fmt.Sprintf("download file %s from %s error: %v", file.Filename, c.RemoteAddr(), derr))
+		fc.log.Error(fmt.Sprintf("download <file %s> from %s error: %v", file.Filename, c.RemoteAddr(), derr))
 
 		return derr
 	}
 
-	fc.log.Info(fmt.Sprintf("download file %s from %s elapse %s", file.Filename, c.RemoteAddr(), time.Now().Sub(start)))
+	fc.log.Info(fmt.Sprintf("download <file %s> from %s elapse %s", file.Filename, c.RemoteAddr(), time.Now().Sub(start)))
 
 	return nil
 }
@@ -546,13 +570,6 @@ func (fc *fileClient) dialed(addr string) {
 	fc.mu.Unlock()
 }
 
-func (fc *fileClient) countFail(p *filePeer) {
-	count := atomic.AddInt32(&p.fail, 1)
-	if count >= 3 {
-		fc.pool.delPeer(p.id)
-	}
-}
-
 // tcp dial error
 func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 	addr := p.addr
@@ -569,15 +586,11 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 	fc.dialed(addr)
 
 	if err != nil {
-		fc.countFail(p)
+		fc.pool.catch(p.id)
 		return nil, err
 	}
 
-	c = &fileConn{
-		Conn:   tcp,
-		id:     p.id,
-		parser: fc.parser,
-	}
+	c = newFileConn(tcp, p.id, fc.parser, fc.log)
 
 	err = fc.pool.addConn(c)
 	if err != nil {
