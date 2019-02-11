@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/config"
 	"math/big"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/config"
 
 	"runtime/debug"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vite/net"
 )
 
 type DebugApi struct {
@@ -279,10 +279,6 @@ func errMap(err error) map[string]interface{} {
 	m := make(map[string]interface{})
 	m["err"] = err
 	return m
-}
-
-func (api DebugApi) FetchTaskQueue() []*net.Task {
-	return api.v.Net().Tasks()
 }
 
 func (api DebugApi) MachineInfo() map[string]interface{} {

@@ -2,6 +2,10 @@ package generator
 
 import (
 	"fmt"
+	"math/rand"
+	"runtime/debug"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,9 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/rand"
-	"runtime/debug"
-	"time"
 )
 
 func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,

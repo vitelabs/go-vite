@@ -6,12 +6,8 @@ import (
 	"math/big"
 	"math/rand"
 	net2 "net"
-	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/config"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -38,18 +34,18 @@ func getAccountList() []types.Address {
 }
 
 func getChain() chain.Chain {
-	if chn == nil {
-		chn = chain.NewChain(&config.Config{
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/test"),
-			Genesis: new(config.Genesis),
-		})
-
-		chn.Init()
-		chn.Start()
-
-		to := rand.Intn(1000)
-		mockBlocks(chn, uint64(to))
-	}
+	//if chn == nil {
+	//	chn = chain.NewChain(&config.Config{
+	//		DataDir: filepath.Join(common.HomeDir(), "Library/GVite/test"),
+	//		Genesis: new(config.Genesis),
+	//	})
+	//
+	//	chn.Init()
+	//	chn.Start()
+	//
+	//	to := rand.Intn(1000)
+	//	mockBlocks(chn, uint64(to))
+	//}
 
 	return chn
 }
@@ -159,6 +155,10 @@ func mockBlocks(chn chain.Chain, to uint64) {
 
 // mock peer
 type mock_Peer struct {
+}
+
+func (m *mock_Peer) Head() types.Hash {
+	panic("implement me")
 }
 
 func (m *mock_Peer) Disconnect(reason p2p.DiscReason) {

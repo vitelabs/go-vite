@@ -316,6 +316,9 @@ wait:
 			if err = e.err; err != nil {
 				reason = DiscProtocolError
 				proactively = true
+
+				// todo block it
+
 				break
 			}
 

@@ -141,3 +141,7 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 	}
 	return &r
 }
+
+func (o PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {
+	return o.manager.DbAccess().GetContractAddrListByGid(&gid)
+}
