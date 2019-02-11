@@ -412,8 +412,8 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 			return
 		}
 		simpleAccountInfo := value.(*OnroadAccountInfo)
-		simpleAccountInfo.mutex.Lock()
-		defer simpleAccountInfo.mutex.Unlock()
+		simpleAccountInfo.Mutex.Lock()
+		defer simpleAccountInfo.Mutex.Unlock()
 
 		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 		if ok {
@@ -432,8 +432,8 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 			return
 		}
 		simpleAccountInfo := value.(*OnroadAccountInfo)
-		simpleAccountInfo.mutex.Lock()
-		defer simpleAccountInfo.mutex.Unlock()
+		simpleAccountInfo.Mutex.Lock()
+		defer simpleAccountInfo.Mutex.Unlock()
 
 		accountBlock, e := p.dbAccess.Chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if e != nil {
