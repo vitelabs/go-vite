@@ -55,192 +55,126 @@ func convertToArray(param string, t abi.Type) (interface{}, error) {
 	if t.Elem.Elem != nil {
 		return nil, errors.New(t.String() + " type not supported")
 	}
-	elemList := []string{}
-	if err := json.Unmarshal([]byte(param), &elemList); err != nil {
-		return nil, err
-	}
 	typeString := t.Elem.String()
 	if typeString == "bool" {
-		return convertToBoolArray(elemList)
+		return convertToBoolArray(param)
 	} else if strings.HasPrefix(typeString, "int") {
-		return convertToIntArray(elemList, *t.Elem)
+		return convertToIntArray(param, *t.Elem)
 	} else if strings.HasPrefix(typeString, "uint") {
-		return convertToUintArray(elemList, *t.Elem)
+		return convertToUintArray(param, *t.Elem)
 	} else if typeString == "address" {
-		return convertToAddressArray(elemList)
+		return convertToAddressArray(param)
 	} else if typeString == "tokenId" {
-		return convertToTokenIdArray(elemList)
+		return convertToTokenIdArray(param)
 	} else if typeString == "gid" {
-		return convertToGidArray(elemList)
+		return convertToGidArray(param)
 	} else if typeString == "string" {
-		return elemList, nil
-	} else if strings.HasPrefix(typeString, "bytes") {
-		return convertToBytesArray(elemList, *t.Elem)
+		return convertToStringArray(param)
 	}
 	return nil, errors.New(typeString + " array type not supported")
 }
 
-func convertToBoolArray(elemList []string) (interface{}, error) {
+func convertToBoolArray(param string) (interface{}, error) {
 	resultList := make([]bool, 0)
-	for _, elem := range elemList {
-		elemInterface, err := convertToBool(elem)
-		if err != nil {
-			return nil, err
-		}
-		resultList = append(resultList, elemInterface.(bool))
+	if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+		return nil, err
 	}
 	return resultList, nil
 }
 
-func convertToIntArray(elemList []string, t abi.Type) (interface{}, error) {
+func convertToIntArray(param string, t abi.Type) (interface{}, error) {
 	size := t.Size
 	if size == 8 {
 		resultList := make([]int8, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToInt(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(int8))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 16 {
 		resultList := make([]int16, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToInt(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(int16))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 32 {
 		resultList := make([]int32, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToInt(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(int32))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 64 {
 		resultList := make([]int64, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToInt(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(int64))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else {
 		resultList := make([]*big.Int, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToInt(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(*big.Int))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	}
 }
-func convertToUintArray(elemList []string, t abi.Type) (interface{}, error) {
+func convertToUintArray(param string, t abi.Type) (interface{}, error) {
 	size := t.Size
 	if size == 8 {
 		resultList := make([]uint8, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToUint(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(uint8))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 16 {
 		resultList := make([]uint16, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToUint(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(uint16))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 32 {
 		resultList := make([]uint32, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToUint(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(uint32))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else if size == 64 {
 		resultList := make([]uint64, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToUint(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(uint64))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	} else {
 		resultList := make([]*big.Int, 0)
-		for _, elem := range elemList {
-			elemInterface, err := convertToUint(elem, size)
-			if err != nil {
-				return nil, err
-			}
-			resultList = append(resultList, elemInterface.(*big.Int))
+		if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+			return nil, err
 		}
 		return resultList, nil
 	}
 }
-func convertToAddressArray(elemList []string) (interface{}, error) {
+func convertToAddressArray(param string) (interface{}, error) {
 	resultList := make([]types.Address, 0)
-	for _, elem := range elemList {
-		elemInterface, err := types.HexToAddress(elem)
-		if err != nil {
-			return nil, err
-		}
-		resultList = append(resultList, elemInterface)
+	if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+		return nil, err
 	}
 	return resultList, nil
 }
-func convertToTokenIdArray(elemList []string) (interface{}, error) {
+func convertToTokenIdArray(param string) (interface{}, error) {
 	resultList := make([]types.TokenTypeId, 0)
-	for _, elem := range elemList {
-		elemInterface, err := types.HexToTokenTypeId(elem)
-		if err != nil {
-			return nil, err
-		}
-		resultList = append(resultList, elemInterface)
+	if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+		return nil, err
 	}
 	return resultList, nil
 }
-func convertToGidArray(elemList []string) (interface{}, error) {
+func convertToGidArray(param string) (interface{}, error) {
 	resultList := make([]types.Gid, 0)
-	for _, elem := range elemList {
-		elemInterface, err := types.HexToGid(elem)
-		if err != nil {
-			return nil, err
-		}
-		resultList = append(resultList, elemInterface)
+	if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+		return nil, err
 	}
 	return resultList, nil
 }
-func convertToBytesArray(elemList []string, t abi.Type) (interface{}, error) {
-	resultList := make([][]byte, 0)
-	for _, elem := range elemList {
-		elemInterface, err := convertToBytes(elem, t.Size)
-		if err != nil {
-			return nil, err
-		}
-		resultList = append(resultList, elemInterface.([]byte))
+func convertToStringArray(param string) (interface{}, error) {
+	resultList := make([]string, 0)
+	if err := json.Unmarshal([]byte(param), &resultList); err != nil {
+		return nil, err
 	}
 	return resultList, nil
 }
@@ -302,8 +236,8 @@ func convertToFixedBytes(param string, size int) (interface{}, error) {
 	if len(param) != size*2 {
 		return nil, errors.New(param + " is not valid bytes")
 	}
-	return hex.DecodeString(param[2:])
+	return hex.DecodeString(param)
 }
 func convertToDynamicBytes(param string) (interface{}, error) {
-	return hex.DecodeString(param[2:])
+	return hex.DecodeString(param)
 }

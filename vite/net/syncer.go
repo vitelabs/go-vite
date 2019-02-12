@@ -203,23 +203,23 @@ wait:
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
 	// p is not all enough, no need to sync
-	if current.Height+minSubLedger > p.height {
-		if current.Height < p.height {
+	if current.Height+minSubLedger > p.Height() {
+		if current.Height < p.Height() {
 			p.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
-				From:    ledger.HashHeight{Hash: p.head},
+				From:    ledger.HashHeight{Hash: p.Head()},
 				Count:   1,
 				Forward: true,
 			})
 		}
 
-		s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", p.RemoteAddr(), p.height, current.Height))
+		s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", p.RemoteAddr(), p.Height(), current.Height))
 		s.setState(Syncdone)
 		return
 	}
 
 	s.current = current.Height
 	s.from = current.Height + 1
-	s.to = p.height
+	s.to = p.Height()
 	s.total = s.to - s.from + 1
 	s.count = 0
 	s.setState(Syncing)
@@ -239,11 +239,11 @@ wait:
 				// because peer`s height is growing
 				if e.peer.height >= s.to {
 					if targetPeer := s.peers.SyncPeer(); targetPeer != nil {
-						if shouldSync(current.Height, targetPeer.height) {
-							s.setTarget(targetPeer.height)
+						if shouldSync(current.Height, targetPeer.Height()) {
+							s.setTarget(targetPeer.Height())
 						} else {
 							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", targetPeer, targetPeer.height, current.Height))
+							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", targetPeer, targetPeer.Height(), current.Height))
 							s.setState(Syncdone)
 							return
 						}
@@ -251,7 +251,7 @@ wait:
 						// have no peers
 						s.log.Error("sync error: no peers")
 						s.setState(Syncerr)
-						return
+						//return
 					}
 				}
 			} else if shouldSync(current.Height, e.peer.Height()) {
@@ -274,7 +274,7 @@ wait:
 				// timeout
 				s.setState(Syncerr)
 				s.log.Error("sync error: timeout")
-				return
+				//return
 			}
 
 			if current.Height >= s.to {
@@ -283,8 +283,10 @@ wait:
 				return
 			}
 
-			s.fc.threshold(current.Height + 3600)
-			s.pool.threshold(current.Height + 3600)
+			if s.state != Syncerr {
+				s.fc.threshold(current.Height + 3600)
+				s.pool.threshold(current.Height + 3600)
+			}
 
 		case <-s.term:
 			s.log.Warn("sync cancel")

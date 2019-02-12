@@ -304,3 +304,26 @@ func TestFind_Node_Remote(t *testing.T) {
 	wg.Wait()
 	fmt.Println("done")
 }
+
+func TestBytes_0(t *testing.T) {
+	a := mockAgent(9000)
+	fmt.Println("mock agent", a)
+
+	conn, err := net.Dial("udp", "127.0.0.1:9000")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	i := 0
+	for {
+		_, err = conn.Write([]byte{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		i++
+
+		if i > 100 {
+			return
+		}
+	}
+}

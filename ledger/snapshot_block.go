@@ -48,6 +48,7 @@ func (sc *SnapshotContent) Serialize() ([]byte, error) {
 	buf, err := proto.Marshal(pb)
 	if err != nil {
 		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotContent.Serialize")
+		return nil, err
 	}
 	return buf, nil
 }
@@ -56,6 +57,7 @@ func (sc *SnapshotContent) Deserialize(buf []byte) error {
 	unmarshalErr := proto.Unmarshal(buf, pb)
 	if unmarshalErr != nil {
 		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotContent.Deserialize")
+		return unmarshalErr
 	}
 
 	sc.DeProto(pb)
@@ -168,6 +170,7 @@ func (sb *SnapshotBlock) DbSerialize() ([]byte, error) {
 	buf, err := proto.Marshal(pb)
 	if err != nil {
 		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.DbSerialize")
+		return nil, err
 	}
 	return buf, nil
 }
@@ -177,6 +180,7 @@ func (sb *SnapshotBlock) Serialize() ([]byte, error) {
 	buf, err := proto.Marshal(pb)
 	if err != nil {
 		snapshotBlockLog.Error("proto.Marshal failed, error is "+err.Error(), "method", "SnapshotBlock.Serialize")
+		return nil, err
 	}
 	return buf, nil
 }
@@ -186,6 +190,7 @@ func (sb *SnapshotBlock) Deserialize(buf []byte) error {
 	unmarshalErr := proto.Unmarshal(buf, pb)
 	if unmarshalErr != nil {
 		snapshotBlockLog.Error("proto.Unmarshal failed, error is "+unmarshalErr.Error(), "method", "SnapshotBlock.Deserialize")
+		return unmarshalErr
 	}
 
 	sb.DeProto(pb)

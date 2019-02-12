@@ -535,6 +535,7 @@ func (verifier *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, 
 }
 
 func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
+	var eLog = verifier.log.New("picker", "send1")
 	var accErr error
 	bs.vStat.referredSelfResult = SUCCESS
 
@@ -545,9 +546,18 @@ func (verifier *AccountVerifier) checkAccAddressType(bs *BlockState) bool {
 		return false
 	}
 
+	if bs.block.Height == 1 && bs.block.IsSendBlock() {
+		eLog.Info(fmt.Sprintf("hash:%v, addr:%v, toAddr:%v", bs.block.Hash, bs.block.AccountAddress, bs.block.ToAddress))
+	}
+
 	if bs.accType == ledger.AccountTypeNotExist {
 		if bs.block.Height == 1 {
 			if bs.block.IsSendBlock() {
+				if !fork.IsSmartFork(bs.sbHeight) {
+					eLog.Info(fmt.Sprintf("solve addr:%v", bs.block.AccountAddress))
+					bs.accType = ledger.AccountTypeGeneral
+					return true
+				}
 				bs.vStat.referredSelfResult = FAIL
 				bs.vStat.errMsg += ErrVerifyAccountAddrFailed.Error()
 				return false

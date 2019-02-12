@@ -27,6 +27,8 @@ type AccountBlock struct {
 
 	ConfirmedTimes *string       `json:"confirmedTimes"`
 	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
+
+	ReceiveBlockHeights []string `json:"receiveBlockHeights"`
 }
 
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
@@ -231,5 +233,21 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
+
+	if block.IsSendBlock() {
+		if block.Meta == nil {
+			var err error
+			block.Meta, err = chain.ChainDb().Ac.GetBlockMeta(&block.Hash)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if block.Meta != nil {
+			for _, receiveBlockHeight := range block.Meta.ReceiveBlockHeights {
+				rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlockHeight, 10))
+			}
+		}
+	}
 	return rpcAccountBlock, nil
 }
