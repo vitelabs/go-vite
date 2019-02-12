@@ -460,7 +460,10 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 	tmp := stack.pop()
 	height := tmp.Uint64()
 	currentHeight := c.block.VmContext.CurrentSnapshotBlock().Height
-	minHeight := currentHeight - getBlockByHeightLimit
+	minHeight := uint64(0)
+	if currentHeight > getBlockByHeightLimit {
+		minHeight = currentHeight - getBlockByHeightLimit
+	}
 	if height > minHeight && height <= currentHeight {
 		block, _ := c.block.VmContext.GetSnapshotBlockByHeight(height)
 		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
@@ -484,6 +487,35 @@ func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 
 func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().SetBytes(c.sendBlock.TokenId.Bytes()))
+	return nil, nil
+}
+
+func opAccountHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.AccountBlock.Height)))
+	return nil, nil
+}
+
+func opAccountHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	tmp := stack.pop()
+	height := tmp.Uint64()
+	currentHeight := c.block.AccountBlock.Height
+	minHeight := uint64(1)
+	if currentHeight > getAccountBlockByHeightLimit {
+		minHeight = currentHeight - getAccountBlockByHeightLimit
+	}
+	if height >= minHeight && height < currentHeight {
+		block := c.block.VmContext.GetAccountBlockByHeight(&c.block.AccountBlock.AccountAddress, height)
+		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
+	} else {
+		stack.push(c.intPool.getZero())
+	}
+
+	c.intPool.put(tmp)
+	return nil, nil
+}
+
+func opFromHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.get().SetBytes(c.block.AccountBlock.FromBlockHash.Bytes()))
 	return nil, nil
 }
 

@@ -404,6 +404,16 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
 }
+func (context *VmContext) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+	// TODO
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetAccountBlockByHeight")
+		return nil
+	}
+
+	accountBlock, _ := context.chain.GetAccountBlockByHeight(addr, height)
+	return accountBlock
+}
 
 func (context *VmContext) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
 	if context.isSelf(addr) {

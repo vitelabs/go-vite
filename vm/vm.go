@@ -116,7 +116,7 @@ type VM struct {
 }
 
 func NewVM() *VM {
-	return &VM{i: simpleInterpreter}
+	return &VM{}
 }
 
 func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmAccountBlock, err error) {
@@ -170,6 +170,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
+	vm.i = NewInterpreter(block.Height)
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil

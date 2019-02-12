@@ -46,7 +46,8 @@ const (
 	callDepth  uint64 = 512  // Maximum Depth of call.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
-	getBlockByHeightLimit uint64 = 256
+	getBlockByHeightLimit        uint64 = 256
+	getAccountBlockByHeightLimit uint64 = 256
 
 	//CallValueTransferGas  uint64 = 9000  // Paid for CALL when the amount transfer is non-zero.
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.

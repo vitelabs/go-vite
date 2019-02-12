@@ -82,6 +82,9 @@ func (db *memoryDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 func (db *memoryDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	return nil
 }
+func (db *memoryDatabase) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+	return nil
+}
 func (db *memoryDatabase) Reset() {}
 func (db *memoryDatabase) IsAddressExisted(addr *types.Address) bool {
 	return false

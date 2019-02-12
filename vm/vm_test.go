@@ -256,6 +256,7 @@ func TestDelegateCall(t *testing.T) {
 	blockTime := time.Now()
 
 	vm := NewVM()
+	vm.i = NewInterpreter(1)
 	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
@@ -936,6 +937,7 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM()
+			vm.i = NewInterpreter(1)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)

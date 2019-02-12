@@ -107,6 +107,14 @@ func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountB
 	}
 	return nil
 }
+func (db *testDatabase) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+	for _, b := range db.accountBlockMap[*addr] {
+		if b.Height == height {
+			return b
+		}
+	}
+	return nil
+}
 func (db *testDatabase) Reset() {}
 func (db *testDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]

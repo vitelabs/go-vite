@@ -3,6 +3,7 @@ package vm
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -14,11 +15,19 @@ type Interpreter struct {
 
 var (
 	simpleInterpreter = &Interpreter{simpleInstructionSet}
+	limitInterpreter  = &Interpreter{limitInstructionSet}
 )
+
+func NewInterpreter(blockHeight uint64) *Interpreter {
+	if fork.IsLimitFork(blockHeight) {
+		return limitInterpreter
+	} else {
+		return simpleInterpreter
+	}
+}
 
 func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 	c.returnData = nil
-
 	var (
 		op   opCode
 		mem  = newMemory()
