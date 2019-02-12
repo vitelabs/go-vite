@@ -18,7 +18,7 @@ type OnroadMeta struct {
 }
 
 type OnroadAccountInfo struct {
-	mutex               sync.RWMutex
+	Mutex               sync.RWMutex
 	AccountAddress      *types.Address
 	TotalNumber         uint64
 	TokenBalanceInfoMap map[types.TokenTypeId]*TokenBalanceInfo
