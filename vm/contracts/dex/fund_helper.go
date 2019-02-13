@@ -13,7 +13,6 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -151,9 +150,6 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	if orderParam.OrderType == Limited {
 		if !ValidPrice(orderParam.Price) {
 			return fmt.Errorf("invalid format for price")
-		}
-		if _, err = strconv.ParseFloat(orderParam.Price, 64); err != nil {
-			return fmt.Errorf("invalid price format")
 		}
 	}
 	if orderParam.Quantity.Sign() <= 0 {
@@ -570,10 +566,7 @@ func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (er
 	}
 }
 
-func GetMindedVxAmt(db vmctxt_interface.VmDatabase) (amtFroFeePerMarket, amtForPledge, amtForViteLabs *big.Int, success bool) {
-	tokenId := &types.TokenTypeId{}
-	tokenId.SetBytes(VxTokenBytes)
-	vxBalance := db.GetBalance(&types.AddressDexFund, tokenId)
+func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtForViteLabs *big.Int, success bool) {
 	var toDivideTotal *big.Int
 	if vxBalance.Sign() > 0 {
 		if vxBalance.Cmp(VxMinedAmtPerPeriod) < 0 {

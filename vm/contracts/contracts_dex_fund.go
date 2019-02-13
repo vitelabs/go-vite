@@ -380,7 +380,10 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vmctxt_interface.VmDatabase,
 	if lastMinedVxDividendId := dex.GetLastMinedVxDividendIdFromStorage(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
 		return []*SendBlock{}, fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1)
 	}
-	if amtForFeePerMarket, amtForPledge, amtForViteLabs, success := dex.GetMindedVxAmt(db); !success {
+	vxTokenId := &types.TokenTypeId{}
+	vxTokenId.SetBytes(dex.VxTokenBytes)
+	vxBalance := db.GetBalance(&types.AddressDexFund, vxTokenId)
+	if amtForFeePerMarket, amtForPledge, amtForViteLabs, success := dex.GetMindedVxAmt(vxBalance); !success {
 		return []*SendBlock{}, fmt.Errorf("no vx available for mine")
 	} else {
 		if err = doDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
@@ -923,9 +926,15 @@ func doDivideMinedVxForFee(db vmctxt_interface.VmDatabase, periodId uint64, mine
 }
 
 func doDivideMinedVxForPledge(db vmctxt_interface.VmDatabase, minedVxAmt *big.Int) error {
+	if minedVxAmt.Sign() == 0 {
+		return nil
+	}
 	return nil
 }
 
 func doDivideMinedVxForViteLabs(db vmctxt_interface.VmDatabase, minedVxAmt *big.Int) error {
+	if minedVxAmt.Sign() == 0 {
+		return nil
+	}
 	return nil
 }
