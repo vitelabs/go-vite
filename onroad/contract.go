@@ -4,13 +4,14 @@ import (
 	"container/heap"
 	"sync"
 
+	"strconv"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"strconv"
 )
 
 type ContractWorker struct {

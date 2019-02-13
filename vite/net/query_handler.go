@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-// @section Cmd
 const Vite = "vite"
 
 const CmdSet = 2
