@@ -186,7 +186,7 @@ func TestAutoReceiveWorker_Status(t *testing.T) {
 		Amount:         big.NewInt(10000),
 		Data:           data,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(db.chain, &msg.AccountAddress, nil, false)
+	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(db.chain, &msg.AccountAddress, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -289,7 +289,8 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 				return err
 			}
 			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate {
-				gidList := v.VmContext.UnsavedCache().ContractGidList()
+				unsavedCache := v.VmContext.UnsavedCache()
+				gidList := unsavedCache.ContractGidList()
 				for _, v := range gidList {
 					p.log.Debug("WriteOnroad", "gid", v.Gid(), "addr", v.Addr())
 					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {

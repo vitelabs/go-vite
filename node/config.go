@@ -135,11 +135,18 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
-	fileAddress := "0.0.0.0:" + strconv.Itoa(c.FilePort)
+	if c.FilePort == 0 {
+		c.FilePort = 8484
+	}
+	addr := "0.0.0.0:" + strconv.Itoa(c.FilePort)
 
 	return &config.Net{
 		Single:      c.Single,
-		FileAddress: fileAddress,
+		FileAddress: addr,
+		Topology:    c.Topology,
+		Topic:       c.TopologyTopic,
+		Interval:    int64(c.TopologyReportInterval),
+		TopoEnabled: c.TopoEnabled,
 	}
 }
 

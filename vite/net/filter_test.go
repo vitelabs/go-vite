@@ -28,13 +28,13 @@ func TestHold(t *testing.T) {
 		}
 	}
 
-	time.Sleep(time.Duration(timeThreshold))
+	time.Sleep(timeThreshold)
 	if !f.hold(hash) {
 		t.Fail()
 	}
 
 	// have wait exceed 2 * timeThreshold and maxMark times from add
-	time.Sleep(time.Duration(timeThreshold))
+	time.Sleep(timeThreshold)
 
 	if f.hold(hash) {
 		t.Fail()
@@ -64,7 +64,7 @@ func TestDone(t *testing.T) {
 	}
 
 	// have done, then hold timeThreshold
-	time.Sleep(time.Duration(timeThreshold))
+	time.Sleep(timeThreshold)
 	if f.hold(hash) {
 		t.Fail()
 	}
