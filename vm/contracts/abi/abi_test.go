@@ -3,9 +3,7 @@ package abi
 import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"math/big"
 	"strings"
 	"testing"
 )
@@ -43,19 +41,5 @@ func BenchmarkConsensusGroupUnpackVariable(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		info := new(types.ConsensusGroupInfo)
 		ABIConsensusGroup.UnpackVariable(info, VariableNameConsensusGroupInfo, value)
-	}
-}
-
-func TestPackMethodParam(t *testing.T) {
-	_, err := PackMethodParam(types.AddressVote, MethodNameVote, types.DELEGATE_GID, "node")
-	if err != nil {
-		t.Fatalf("pack method param failed, %v", err)
-	}
-}
-
-func TestPackConsensusGroupConditionParam(t *testing.T) {
-	_, err := PackConsensusGroupConditionParam(RegisterConditionPrefix, uint8(1), big.NewInt(1), ledger.ViteTokenId, uint64(10))
-	if err != nil {
-		t.Fatalf("pack consensus group condition param failed")
 	}
 }
