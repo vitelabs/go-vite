@@ -142,7 +142,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 	defer s.deleteConn(conn)
 
 	for {
-		conn.SetReadDeadline(time.Now().Add(fReadTimeout))
+		//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 		msg, err := p2p.ReadMsg(conn)
 		if err != nil {
 			s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))

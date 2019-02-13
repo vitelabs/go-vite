@@ -32,7 +32,7 @@ var syncStatus = [...]string{
 	Syncdone:       "Sync done",
 	Syncerr:        "Sync error",
 	SyncCancel:     "Sync canceled",
-	SyncDownloaded: "Sync all blocks Downloaded",
+	SyncDownloaded: "Sync downloaded",
 }
 
 func (s SyncState) String() string {
@@ -499,6 +499,7 @@ func (s *syncer) Status() SyncStatus {
 
 type SyncDetail struct {
 	SyncStatus
+	ExecutorStatus
 	FileClientStatus
 	ChunkPoolStatus
 }
@@ -506,6 +507,7 @@ type SyncDetail struct {
 func (s *syncer) Detail() SyncDetail {
 	return SyncDetail{
 		SyncStatus:       s.Status(),
+		ExecutorStatus:   s.exec.status(),
 		FileClientStatus: s.fc.status(),
 		ChunkPoolStatus:  s.pool.status(),
 	}

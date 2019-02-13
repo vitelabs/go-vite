@@ -54,6 +54,10 @@ func (t *syncTask) do() error {
 	return t.task.do(t.ctx)
 }
 
+func (t *syncTask) String() string {
+	return t.task.String() + " " + t.st.String()
+}
+
 type task interface {
 	bound() (from, to uint64)
 	do(ctx context.Context) error
@@ -129,6 +133,7 @@ type syncTaskExecutor interface {
 	runTo(to uint64)
 	last() *syncTask
 	terminate()
+	status() ExecutorStatus
 }
 
 type syncTaskListener interface {
@@ -147,6 +152,10 @@ type executor struct {
 	ctxCancel func()
 }
 
+type ExecutorStatus struct {
+	Tasks []string
+}
+
 func newExecutor(listener syncTaskListener) syncTaskExecutor {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -154,6 +163,22 @@ func newExecutor(listener syncTaskListener) syncTaskExecutor {
 		listener:  listener,
 		ctx:       ctx,
 		ctxCancel: cancel,
+	}
+}
+
+func (e *executor) status() ExecutorStatus {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	tasks := make([]string, len(e.tasks))
+	i := 0
+	for _, t := range e.tasks {
+		tasks[i] = t.String()
+		i++
+	}
+
+	return ExecutorStatus{
+		tasks,
 	}
 }
 

@@ -596,7 +596,6 @@ func (fc *fileClient) stop() {
 	case <-fc.term:
 	default:
 		close(fc.term)
-		fc.pool.reset()
 		fc.wg.Wait()
 	}
 }
@@ -626,6 +625,8 @@ Loop:
 			}
 		}
 	}
+
+	fc.pool.reset()
 }
 
 func (fc *fileClient) dialed(addr string) {
