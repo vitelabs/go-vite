@@ -66,6 +66,18 @@ type mockSnapshotI interface {
 type mockSnapshotS struct {
 }
 
+func (*mockSnapshotS) GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	panic("implement me")
+}
+
+func (*mockSnapshotS) IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool {
+	panic("implement me")
+}
+
+func (*mockSnapshotS) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
+	panic("implement me")
+}
+
 func (*mockSnapshotS) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
 	panic("implement me")
 }

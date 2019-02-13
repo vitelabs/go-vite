@@ -71,7 +71,7 @@ func TestGenerator_GenerateWithOnroad(t *testing.T) {
 	}
 	var referredSnapshotHashList []types.Hash
 	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, false)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(v.chain, &fromBlock.ToAddress, referredSnapshotHashList, true)
 	if err != nil {
 		t.Error("GetFittestGeneratorSnapshotHash", err)
 		return
@@ -139,7 +139,7 @@ func createRPCBlockCallPledgeContarct(vite *VitePrepared, addr *types.Address) e
 		Data:           pledgeData,
 	}
 
-	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, false)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func callTransfer(vite *VitePrepared, fromAddr, toAddr *types.Address, fromAddrP
 		Difficulty:     difficulty,
 	}
 
-	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, false)
+	_, fitestSnapshotBlockHash, err := GetFittestGeneratorSnapshotHash(vite.chain, &im.AccountAddress, nil, true)
 	if err != nil {
 		return err
 	}

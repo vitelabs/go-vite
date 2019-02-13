@@ -69,7 +69,7 @@ func newNodeInfoWithPriceAndTs(value int, price string, ts uint64) (nodeKeyType,
 
 func orderIdBytesFromInt(v int) []byte {
 	bs := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bs, uint32(v))
+	binary.BigEndian.PutUint32(bs, uint32(v))
 	res := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
 	return res
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -12,6 +13,7 @@ import (
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 	"time"
@@ -50,7 +52,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock.Amount = big.NewInt(100)
 
 	depositSendAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
-	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
+	err = depositMethod.DoSend(db, depositSendAccBlock)
 	assert.True(t, err != nil)
 	assert.True(t, bytes.Equal([]byte(err.Error()), []byte("token is invalid")))
 
@@ -58,7 +60,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock.Amount = big.NewInt(3000)
 
 	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
-	_, err = depositMethod.DoSend(db, depositSendAccBlock, 100010001000)
+	err = depositMethod.DoSend(db, depositSendAccBlock)
 	assert.True(t, err == nil)
 	assert.True(t, bytes.Equal(depositSendAccBlock.TokenId.Bytes(), VITE.tokenId.Bytes()))
 	assert.Equal(t, depositSendAccBlock.Amount.Uint64(), uint64(3000))
@@ -81,7 +83,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	withdrawSendAccBlock := &ledger.AccountBlock{}
 	withdrawSendAccBlock.AccountAddress = userAddress
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
-	_, err = withdrawMethod.DoSend(db, withdrawSendAccBlock, 100010001000)
+	err = withdrawMethod.DoSend(db, withdrawSendAccBlock)
 	assert.True(t, err == nil)
 
 	withdrawReceiveBlock := &ledger.AccountBlock{}
@@ -107,7 +109,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	assert.True(t, err == nil)
 
 	param := new(dex.ParamDexFundNewOrder)
@@ -145,29 +147,33 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = types.AddressDexTrade
 
-	viteAction := dexproto.FundSettle{}
-	viteAction.Address = userAddress.Bytes()
-	viteAction.Token = VITE.tokenId.Bytes()
-	viteAction.ReduceLocked = big.NewInt(1000).Bytes()
-	viteAction.ReleaseLocked = big.NewInt(100).Bytes()
+	viteFundSettle := &dexproto.FundSettle{}
+	viteFundSettle.Token = VITE.tokenId.Bytes()
+	viteFundSettle.ReduceLocked = big.NewInt(1000).Bytes()
+	viteFundSettle.ReleaseLocked = big.NewInt(100).Bytes()
 
-	ethAction := dexproto.FundSettle{}
-	ethAction.Address = userAddress.Bytes()
-	ethAction.Token = ETH.tokenId.Bytes()
-	ethAction.IncAvailable = big.NewInt(30).Bytes()
+	ethFundSettle := &dexproto.FundSettle{}
+	ethFundSettle.Token = ETH.tokenId.Bytes()
+	ethFundSettle.IncAvailable = big.NewInt(30).Bytes()
+
+	fundAction := &dexproto.UserFundSettle{}
+	fundAction.Address = userAddress.Bytes()
+	fundAction.FundSettles = append(fundAction.FundSettles, viteFundSettle, ethFundSettle)
 
 	feeAction := dexproto.FeeSettle{}
 	feeAction.Token = ETH.tokenId.Bytes()
-	feeAction.Amount = big.NewInt(15).Bytes()
+	userFeeSettle := &dexproto.UserFeeSettle{}
+	userFeeSettle.Address = userAddress.Bytes()
+	userFeeSettle.Amount = big.NewInt(15).Bytes()
+	feeAction.UserFeeSettles = append(feeAction.UserFeeSettles, userFeeSettle)
 
 	actions := dexproto.SettleActions{}
-	actions.FundActions = append(actions.FundActions, &viteAction)
-	actions.FundActions = append(actions.FundActions, &ethAction)
+	actions.FundActions = append(actions.FundActions, fundAction)
 	actions.FeeActions = append(actions.FeeActions, &feeAction)
 	data, _ := proto.Marshal(&actions)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundSettleOrders, data)
-	_, err := method.DoSend(db, senderAccBlock, 100100100)
+	err := method.DoSend(db, senderAccBlock)
 	//fmt.Printf("err %s\n", err.Error())
 	assert.True(t, err == nil)
 
@@ -194,9 +200,8 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := dex.GetFeeFromStorage(db, 123) // initDexFundDatabase snapshotBlock Height
+	dexFee, err := dex.GetCurrentFeeSumFromStorage(db) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 1, len(dexFee.Fees))
-	assert.False(t, dexFee.Divided)
 	feeAcc := dexFee.Fees[0]
 	assert.True(t, CheckBigEqualToInt(15, feeAcc.Amount))
 }
@@ -207,6 +212,25 @@ func initDexFundDatabase() *testDatabase {
 	t1 := time.Unix(1536214502, 0)
 	snapshot1 := &ledger.SnapshotBlock{Height: 123, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
+
+	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
+	consensusGroupKey, _ := types.BytesToHash(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))
+	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+		uint8(25),
+		int64(1),
+		int64(3),
+		uint8(2),
+		uint8(50),
+		ledger.ViteTokenId,
+		uint8(1),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		uint8(1),
+		[]byte{},
+		db.addr,
+		big.NewInt(0),
+		uint64(1))
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
+
 	return db
 }
 
@@ -235,6 +259,6 @@ func CheckBigEqualToInt(expected int, value []byte) bool {
 
 func orderIdBytesFromInt(v int) []byte {
 	bs := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bs, uint32(v))
+	binary.BigEndian.PutUint32(bs, uint32(v))
 	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
 }

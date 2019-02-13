@@ -49,18 +49,15 @@ func (md *MethodDexTradeNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeNewOrder) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexTradeNewOrder) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexTradeNewOrderGas, data)
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if quotaLeft, err := util.UseQuota(quotaLeft, dexTradeNewOrderGas); err != nil {
-		return quotaLeft, err
-	}
+func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
-		return quotaLeft, fmt.Errorf("invalid block source")
+		return fmt.Errorf("invalid block source")
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -81,7 +78,11 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
 		return []*SendBlock{}, err
 	}
-	return handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	blocks , err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	if err != nil {
+		fmt.Printf("MethodDexTradeNewOrder doReceive err %v\n", err)
+	}
+	return blocks, err
 }
 
 type MethodDexTradeCancelOrder struct {
@@ -95,33 +96,30 @@ func (md *MethodDexTradeCancelOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeCancelOrder) GetQuota() uint64 {
-	return 1000
+func (md *MethodDexTradeCancelOrder) GetQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexTradeCancelOrderGas, data)
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	if quotaLeft, err = util.UseQuota(quotaLeft, dexTradeCancelOrderGas); err != nil {
-		return quotaLeft, err
-	}
 	param := new(ParamDexCancelOrder)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var order *dex.Order
 	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
-		return quotaLeft, fmt.Errorf("cancel order not own to initiator")
+		return fmt.Errorf("cancel order not own to initiator")
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return quotaLeft, fmt.Errorf("order status is invalid to cancel")
+		return fmt.Errorf("order status is invalid to cancel")
 	}
-	return util.UseQuotaForData(block.Data, quotaLeft)
+	return nil
 }
 
 func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -132,7 +130,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var (
 		order *dex.Order
-		err error
+		err   error
 	)
 	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
 		return []*SendBlock{}, err
@@ -146,27 +144,48 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	return handleSettleActions(block, matcher.GetFundSettles(), nil)
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]*dexproto.FeeSettle) ([]*SendBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*SendBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return []*SendBlock{}, nil
 	}
 	settleActions := &dexproto.SettleActions{}
 	if len(fundSettles) > 0 {
-		fundActions := make([]*dexproto.FundSettle, 0, 100)
-		for _, fundSettleMap := range fundSettles {
+		fundActions := make([]*dexproto.UserFundSettle, 0, len(fundSettles))
+		for address, fundSettleMap := range fundSettles {
+			settles := make([]*dexproto.FundSettle, 0, len(fundSettleMap))
 			for _, fundAction := range fundSettleMap {
-				fundActions = append(fundActions, fundAction)
+				settles = append(settles, fundAction)
 			}
+			sort.Sort(FundSettleSorter(settles))
+
+			userFundSettle := &dexproto.UserFundSettle{}
+			userFundSettle.Address = address.Bytes()
+			userFundSettle.FundSettles = settles
+			fundActions = append(fundActions, userFundSettle)
 		}
 		//sort fundActions for stable marsh result
-		sort.Sort(fundActionsWrapper(fundActions))
+		sort.Sort(UserFundSettleSorter(fundActions))
 		//fmt.Printf("fundActions.size %d\n", len(fundActions))
 		settleActions.FundActions = fundActions
 	}
 	//every block will trigger exactly one market, fee token type should also be single
-	for _, feeAction := range feeSettles {
-		settleActions.FeeActions = append(settleActions.FeeActions, feeAction)
+	if len(feeSettles) > 0 {
+		feeActions := make([]*dexproto.FeeSettle, 0, 10)
+		for token, userFeeSettleMap := range feeSettles {
+			userFeeSettles := make([]*dexproto.UserFeeSettle, 0, len(userFeeSettleMap))
+			for _, userFeeSettle := range userFeeSettleMap {
+				userFeeSettles = append(userFeeSettles, userFeeSettle)
+			}
+			sort.Sort(UserFeeSettleSorter(userFeeSettles))
+
+			feeSettle := &dexproto.FeeSettle{}
+			feeSettle.Token = token.Bytes()
+			feeSettle.UserFeeSettles = userFeeSettles
+			feeActions = append(feeActions, feeSettle)
+		}
+		sort.Sort(FeeSettleSorter(feeActions))
+		settleActions.FeeActions = feeActions
 	}
 
 	var (
@@ -187,23 +206,79 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			ledger.ViteTokenId, // no need send token
 			dexSettleBlockData,
 		},
-	} ,nil
+	}, nil
 }
 
-type fundActionsWrapper []*dexproto.FundSettle
+type FundSettleSorter []*dexproto.FundSettle
 
-func (sa fundActionsWrapper) Len() int {
-	return len(sa)
+func (st FundSettleSorter) Len() int {
+	return len(st)
 }
 
-func (sa fundActionsWrapper) Swap(i, j int) {
-	sa[i], sa[j] = sa[j], sa[i]
+func (st FundSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
 }
 
-func (sa fundActionsWrapper) Less(i, j int) bool {
-	addCmp := bytes.Compare(sa[i].Address, sa[j].Address)
-	tokenCmp := bytes.Compare(sa[i].Address, sa[j].Address)
-	if addCmp < 0 && tokenCmp < 0 {
+func (st FundSettleSorter) Less(i, j int) bool {
+	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
+	if tkCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type UserFundSettleSorter []*dexproto.UserFundSettle
+
+func (st UserFundSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st UserFundSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st UserFundSettleSorter) Less(i, j int) bool {
+	addCmp := bytes.Compare(st[i].Address, st[j].Address)
+	if addCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type UserFeeSettleSorter []*dexproto.UserFeeSettle
+
+func (st UserFeeSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st UserFeeSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st UserFeeSettleSorter) Less(i, j int) bool {
+	addCmp := bytes.Compare(st[i].Address, st[j].Address)
+	if addCmp < 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+type FeeSettleSorter []*dexproto.FeeSettle
+
+func (st FeeSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st FeeSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st FeeSettleSorter) Less(i, j int) bool {
+	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
+	if tkCmp < 0 {
 		return true
 	} else {
 		return false

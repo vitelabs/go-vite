@@ -289,7 +289,8 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 				return err
 			}
 			if v.AccountBlock.BlockType == ledger.BlockTypeSendCreate {
-				gidList := v.VmContext.UnsavedCache().ContractGidList()
+				unsavedCache := v.VmContext.UnsavedCache()
+				gidList := unsavedCache.ContractGidList()
 				for _, v := range gidList {
 					p.log.Debug("WriteOnroad", "gid", v.Gid(), "addr", v.Addr())
 					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {
@@ -411,8 +412,8 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 			return
 		}
 		simpleAccountInfo := value.(*OnroadAccountInfo)
-		simpleAccountInfo.mutex.Lock()
-		defer simpleAccountInfo.mutex.Unlock()
+		simpleAccountInfo.Mutex.Lock()
+		defer simpleAccountInfo.Mutex.Unlock()
 
 		tokenBalanceInfo, ok := simpleAccountInfo.TokenBalanceInfoMap[block.TokenId]
 		if ok {
@@ -431,8 +432,8 @@ func (p *OnroadBlocksPool) updateSimpleCache(isAdd bool, block *ledger.AccountBl
 			return
 		}
 		simpleAccountInfo := value.(*OnroadAccountInfo)
-		simpleAccountInfo.mutex.Lock()
-		defer simpleAccountInfo.mutex.Unlock()
+		simpleAccountInfo.Mutex.Lock()
+		defer simpleAccountInfo.Mutex.Unlock()
 
 		accountBlock, e := p.dbAccess.Chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if e != nil {

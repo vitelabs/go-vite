@@ -630,25 +630,25 @@ func (self *pool) loopCompact() {
 	}
 }
 func (self *pool) poolRecover() {
-	if err := recover(); err != nil {
-		var e error
-		switch t := err.(type) {
-		case error:
-			e = errors.WithStack(t)
-		case string:
-			e = errors.New(t)
-		default:
-			e = errors.Errorf("unknown type, %+v", err)
-		}
-
-		self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
-		fmt.Printf("%+v", e)
-		if self.stat.inc() {
-			common.Go(self.Restart)
-		} else {
-			panic(e)
-		}
-	}
+	//if err := recover(); err != nil {
+	//	var e error
+	//	switch t := err.(type) {
+	//	case error:
+	//		e = errors.WithStack(t)
+	//	case string:
+	//		e = errors.New(t)
+	//	default:
+	//		e = errors.Errorf("unknown type, %+v", err)
+	//	}
+	//
+	//	self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
+	//	fmt.Printf("%+v", e)
+	//	if self.stat.inc() {
+	//		common.Go(self.Restart)
+	//	} else {
+	//		panic(e)
+	//	}
+	//}
 }
 func (self *pool) loopBroadcastAndDel() {
 	defer self.poolRecover()
@@ -786,6 +786,10 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 }
 
 func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
+	fail := block.failStat.isFail()
+	if fail {
+		return false
+	}
 	var result = true
 	for k, v := range block.block.SnapshotContent {
 		ac := self.selfPendingAc(k)
@@ -863,6 +867,62 @@ type recoverStat struct {
 	updateTime    time.Time
 	threshold     int32
 	timeThreshold time.Duration
+}
+type failStat struct {
+	first         *time.Time
+	update        *time.Time
+	timeThreshold time.Duration
+}
+
+func (self *failStat) init(d time.Duration) *failStat {
+	self.timeThreshold = d
+	return self
+}
+func (self *failStat) inc() bool {
+	update := self.update
+	if update != nil {
+		if time.Now().Sub(*update) > self.timeThreshold {
+			self.clear()
+			return false
+		}
+	}
+	if self.first == nil {
+		now := time.Now()
+		self.first = &now
+	}
+	now := time.Now()
+	self.update = &now
+
+	if self.update.Sub(*self.first) > self.timeThreshold {
+		return false
+	}
+	return true
+}
+
+func (self *failStat) isFail() bool {
+	first := self.first
+	if first == nil {
+		return false
+	}
+	update := self.update
+	if update == nil {
+		return false
+	}
+
+	if time.Now().Sub(*update) > 10*self.timeThreshold {
+		self.clear()
+		return false
+	}
+
+	if update.Sub(*first) > self.timeThreshold {
+		return true
+	}
+	return false
+}
+
+func (self *failStat) clear() {
+	self.first = nil
+	self.update = nil
 }
 
 func (self *recoverStat) init(t int32, d time.Duration) *recoverStat {

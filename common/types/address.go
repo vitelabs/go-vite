@@ -5,12 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-	"strings"
-
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"math/big"
+	"strings"
 )
 
 const (

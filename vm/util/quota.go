@@ -72,6 +72,18 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
+func TotalGasCost(baseCost uint64, data []byte) (uint64, error) {
+	dataCost, err := DataGasCost(data)
+	if err != nil {
+		return 0, err
+	}
+	totalCost, overflow := helper.SafeAdd(baseCost, dataCost)
+	if overflow {
+		return 0, err
+	}
+	return totalCost, nil
+}
+
 func CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
