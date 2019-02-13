@@ -15,11 +15,21 @@ const (
 	[
 		{"type":"function","name":"Mintage","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"}]},
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
+		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
+		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
+		{"type":"function","name":"Burn","inputs":[]},
+		{"type":"function","name":"TransferOwner","inputs":[{"name":"newOwner","type":"address"}]},
+		{"type":"function","name":"ChangeTokenType","inputs":[{"name":"tokenId","type":"tokenId"}]},
 		{"type":"variable","name":"mintage","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]}
 	]`
 
 	MethodNameMintage             = "Mintage"
 	MethodNameMintageCancelPledge = "CancelPledge"
+	MethodNameMint                = "Mint"
+	MethodNameIssue               = "Issue"
+	MethodNameBurn                = "Burn"
+	MethodNameTransferOwner       = "TransferOwner"
+	MethodNameChangeTokenType     = "ChangeTokenType"
 	VariableNameMintage           = "mintage"
 )
 

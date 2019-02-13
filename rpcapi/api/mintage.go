@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"math/big"
 )
 
 type MintageApi struct {
@@ -26,20 +25,60 @@ func (m MintageApi) String() string {
 }
 
 type MintageParams struct {
-	SelfAddr     types.Address
-	Height       uint64
-	PrevHash     types.Hash
-	SnapshotHash types.Hash
-	TokenName    string
-	TokenSymbol  string
-	TotalSupply  *big.Int
-	Decimals     uint8
+	SelfAddr      types.Address
+	Height        uint64
+	PrevHash      types.Hash
+	SnapshotHash  types.Hash
+	TokenName     string
+	TokenSymbol   string
+	TotalSupply   string
+	Decimals      uint8
+	IsReIssuable  bool
+	MaxSupply     string
+	OwnerBurnOnly bool
 }
 
 func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
 	tokenId := abi.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
-	return abi.ABIMintage.PackMethod(abi.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, param.TotalSupply, param.Decimals)
+	totalSupply, err := stringToBigInt(&param.TotalSupply)
+	if err != nil {
+		return nil, err
+	}
+	return abi.ABIMintage.PackMethod(abi.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals)
 }
 func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
+}
+
+func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
+	tokenId := abi.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
+	totalSupply, err := stringToBigInt(&param.TotalSupply)
+	if err != nil {
+		return nil, err
+	}
+	maxSupply, err := stringToBigInt(&param.MaxSupply)
+	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
+}
+
+type IssueParams struct {
+	TokenId    types.TokenTypeId
+	Amount     string
+	Beneficial types.Address
+}
+
+func (m *MintageApi) GetIssueData(param IssueParams) ([]byte, error) {
+	amount, err := stringToBigInt(&param.Amount)
+	if err != nil {
+		return nil, err
+	}
+	return abi.ABIMintage.PackMethod(abi.MethodNameIssue, param.TokenId, amount, param.Beneficial)
+}
+func (m *MintageApi) GetBurnData() ([]byte, error) {
+	return abi.ABIMintage.PackMethod(abi.MethodNameBurn)
+}
+func (m *MintageApi) GetTransferOwnerData(newOwner types.Address) ([]byte, error) {
+	return abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, newOwner)
+}
+func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error) {
+	return abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenId)
 }
