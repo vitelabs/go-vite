@@ -76,8 +76,14 @@ func (m *MintageApi) GetIssueData(param IssueParams) ([]byte, error) {
 func (m *MintageApi) GetBurnData() ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameBurn)
 }
-func (m *MintageApi) GetTransferOwnerData(newOwner types.Address) ([]byte, error) {
-	return abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, newOwner)
+
+type TransferOwnerParams struct {
+	TokenId  types.TokenTypeId
+	NewOwner types.Address
+}
+
+func (m *MintageApi) GetTransferOwnerData(param TransferOwnerParams) ([]byte, error) {
+	return abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
 }
 func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenId)

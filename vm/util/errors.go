@@ -19,4 +19,5 @@ var (
 	ErrForked                     = errors.New("chain forked")
 	ErrCalcPoWLimitReached        = errors.New("can not calc PoW in this block")
 	ErrContractSendBlockRunFailed = errors.New("contract send block run failed")
+	ErrVersionNotSupport          = errors.New("feature not supported in current snapshot height")
 )

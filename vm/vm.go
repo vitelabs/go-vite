@@ -170,12 +170,12 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
-	vm.i = NewInterpreter(block.Height)
+	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height)
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			if !fork.IsSmartFork(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+			if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
 				return nil, NoRetry, errors.New("snapshot height not supported")
 			}
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
@@ -185,7 +185,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return vm.receiveRefund(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		if !fork.IsSmartFork(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+		if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
 			return nil, NoRetry, errors.New("snapshot height not supported")
 		}
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
