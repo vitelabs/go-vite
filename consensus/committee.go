@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"time"
 
 	"strconv"
@@ -89,7 +90,7 @@ func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 
 	err = tel.rw.checkSnapshotHashValid(electionResult.Height, electionResult.Hash, header.SnapshotHash)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, fmt.Sprintf(" account[%s][%d] ", header.Hash, header.Height))
 	}
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
