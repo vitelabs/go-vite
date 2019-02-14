@@ -38,6 +38,8 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 			if block == nil {
 				err := errors.New(fmt.Sprintf("Block is not existed in need snapshot cache, blockHash is %s, blockHeight is %d, address is %s",
 					item.Hash, item.Height, addr))
+				c.log.Error(err.Error(), "method", "GenStateTrie")
+
 				return nil, err
 			}
 		}

@@ -162,6 +162,12 @@ var (
 		Usage: "Enable VM debug",
 	}
 
+	// Ledger
+	LedgerDeleteToHeight = cli.Uint64Flag{
+		Name:  "del",
+		Usage: "Delete to height",
+	}
+
 	//Net
 	SingleFlag = cli.BoolFlag{
 		Name:  "single",
