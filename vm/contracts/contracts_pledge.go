@@ -42,6 +42,7 @@ func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	if err = cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, block.Data); err != nil {
 		return quotaLeft, errors.New("invalid beneficial address")
 	}
+	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNamePledge, *beneficialAddr)
 	return quotaLeft, nil
 }
 func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -104,6 +105,7 @@ func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledge
 	if param.Amount.Sign() == 0 {
 		return quotaLeft, errors.New("cancel pledge amount is 0")
 	}
+	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNameCancelPledge, param.Beneficial, param.Amount)
 	return quotaLeft, nil
 }
 

@@ -2,6 +2,7 @@ package abi
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
@@ -99,8 +100,7 @@ func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlo
 func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
 	data := db.GetStorageBySnapshotHash(&types.AddressMintage, GetMintageKey(tokenId), nil)
 	if len(data) > 0 {
-		tokenInfo := new(types.TokenInfo)
-		ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
+		tokenInfo, _ := ParseTokenInfo(data)
 		return tokenInfo
 	}
 	return nil
@@ -119,10 +119,23 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 			break
 		}
 		tokenId := GetTokenIdFromMintageKey(key)
-		tokenInfo := new(types.TokenInfo)
-		if err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, value); err == nil {
+		if tokenInfo, err := ParseTokenInfo(value); err == nil {
 			tokenInfoMap[tokenId] = tokenInfo
 		}
 	}
 	return tokenInfoMap
+}
+
+func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
+	if len(data) == 0 {
+		return nil, errors.New("token info data is nil")
+	}
+	tokenInfo := new(types.TokenInfo)
+	if data[31] == 224 {
+		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
+		return tokenInfo, err
+	} else {
+		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
+		return tokenInfo, err
+	}
 }

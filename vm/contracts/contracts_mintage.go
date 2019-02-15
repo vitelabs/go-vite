@@ -147,6 +147,7 @@ func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block
 	if err = cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
+	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameMintageCancelPledge, *tokenId)
 	return quotaLeft, nil
 }
 func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -318,6 +319,7 @@ func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accou
 		new(big.Int).Add(tokenInfo.MaxSupply, tokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
+	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameIssue, param.TokenId, param.Amount, param.Beneficial)
 	return quotaLeft, nil
 }
 func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -442,6 +444,7 @@ func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledg
 	if tokenInfo == nil || !tokenInfo.IsReIssuable || tokenInfo.Owner != block.AccountAddress {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
+	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
 	return quotaLeft, nil
 }
 func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
