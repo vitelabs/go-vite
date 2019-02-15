@@ -273,6 +273,8 @@ func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		oldIdList := db.GetStorage(&block.AccountAddress, ownerTokenIdListKey)
 		db.SetStorage(ownerTokenIdListKey, cabi.AppendTokenId(oldIdList, param.TokenId))
 	}
+
+	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameMint, param.TokenId))
 	return []*SendBlock{
 		{
 			block,
@@ -343,6 +345,8 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
 	db.SetStorage(cabi.GetMintageKey(param.TokenId), newTokenInfo)
+
+	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameIssue, param.TokenId))
 	return []*SendBlock{
 		{
 			block,
@@ -406,6 +410,8 @@ func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		oldTokenInfo.OwnerBurnOnly)
 	db.SubBalance(&sendBlock.TokenId, sendBlock.Amount)
 	db.SetStorage(cabi.GetMintageKey(sendBlock.TokenId), newTokenInfo)
+
+	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameBurn, sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
 	return nil, nil
 }
 
@@ -474,6 +480,8 @@ func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *l
 	newKey := cabi.GetOwnerTokenIdListKey(param.NewOwner)
 	newIdList := db.GetStorage(&block.AccountAddress, newKey)
 	db.SetStorage(newKey, cabi.AppendTokenId(newIdList, param.TokenId))
+
+	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameTransferOwner, param.TokenId, param.NewOwner))
 	return nil, nil
 }
 
@@ -536,5 +544,7 @@ func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block 
 	oldKey := cabi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
 	oldIdList := db.GetStorage(&block.AccountAddress, oldKey)
 	db.SetStorage(oldKey, cabi.DeleteTokenId(oldIdList, *tokenId))
+
+	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameChangeTokenType, *tokenId))
 	return nil, nil
 }
