@@ -142,6 +142,17 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 	return tokenInfoMap
 }
 
+func GetTokenMapByOwner(db StorageDatabase, owner types.Address) map[types.TokenTypeId]*types.TokenInfo {
+	defer monitor.LogTime("vm", "GetTokenMapByOwner", time.Now())
+	tokenIdList := db.GetStorageBySnapshotHash(&types.AddressMintage, GetOwnerTokenIdListKey(owner), nil)
+	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
+	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {
+		tokenId, _ := types.BytesToTokenTypeId(tokenIdList[i*types.TokenTypeIdSize : (i+1)*types.TokenTypeIdSize])
+		tokenInfoMap[tokenId] = GetTokenById(db, tokenId)
+	}
+	return tokenInfoMap
+}
+
 func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
 	if len(data) == 0 {
 		return nil, errors.New("token info data is nil")
