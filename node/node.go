@@ -270,6 +270,10 @@ func (node *Node) Config() *Config {
 	return node.config
 }
 
+func (node *Node) ViteConfig() *config.Config {
+	return node.viteConfig
+}
+
 func (node *Node) ViteServer() *vite.Vite {
 	return node.viteServer
 }
