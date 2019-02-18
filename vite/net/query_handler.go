@@ -295,18 +295,29 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
-	fileList := &message.FileList{
-		Files:  files,
-		Chunks: chunks,
-		Nonce:  0,
-	}
+	const batch = 1000
+	i := 0
+	total := len(files)
+	for i < total {
+		fileList := &message.FileList{}
 
-	err = sender.Send(FileListCode, msg.Id, fileList)
+		if total-i < batch {
+			fileList.Files = files[i:total]
+			fileList.Chunks = chunks
+		} else {
+			j := i + batch
+			fileList.Files = files[i:j]
+			i = j
+		}
 
-	if err != nil {
-		netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
-	} else {
-		netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		err = sender.Send(FileListCode, msg.Id, fileList)
+
+		if err != nil {
+			netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
+			return
+		} else {
+			netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		}
 	}
 
 	return
