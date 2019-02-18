@@ -19,6 +19,11 @@ const (
 	ReCreateConsensusGroupGas uint64 = 62200
 	MintageGas                uint64 = 83200
 	MintageCancelPledgeGas    uint64 = 83200
+	MintGas                   uint64 = 104525
+	IssueGas                  uint64 = 69325
+	BurnGas                   uint64 = 48837
+	TransferOwnerGas          uint64 = 58981
+	ChangeTokenTypeGas        uint64 = 53525
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group

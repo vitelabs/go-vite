@@ -25,6 +25,10 @@ import (
 
 func init() {
 	InitVmConfig(false, false, true, common.HomeDir())
+	initFork()
+}
+
+func initFork() {
 	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Limit: &config.ForkPoint{Height: 20}})
 }
 
@@ -975,9 +979,6 @@ func TestVm(t *testing.T) {
 			code, _ := hex.DecodeString(testCase.Code)
 			c.setCallCode(testCase.ToAddress, code)
 			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
-			if k == "transfer_balanceOverflow" {
-				fmt.Println("transfer_balanceOverflow")
-			}
 			ret, err := c.run(vm)
 			returnData, _ := hex.DecodeString(testCase.ReturnData)
 			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {

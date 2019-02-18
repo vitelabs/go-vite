@@ -200,8 +200,7 @@ func (p *MethodMint) GetRefundData() []byte {
 	return []byte{3}
 }
 func (p *MethodMint) GetQuota() uint64 {
-	// TODO
-	return 0
+	return MintGas
 }
 func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -297,8 +296,7 @@ func (p *MethodIssue) GetRefundData() []byte {
 	return []byte{4}
 }
 func (p *MethodIssue) GetQuota() uint64 {
-	// TODO
-	return 0
+	return IssueGas
 }
 func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -368,8 +366,7 @@ func (p *MethodBurn) GetRefundData() []byte {
 	return []byte{5}
 }
 func (p *MethodBurn) GetQuota() uint64 {
-	// TODO
-	return 0
+	return BurnGas
 }
 func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -424,8 +421,7 @@ func (p *MethodTransferOwner) GetRefundData() []byte {
 	return []byte{6}
 }
 func (p *MethodTransferOwner) GetQuota() uint64 {
-	// TODO
-	return 0
+	return TransferOwnerGas
 }
 func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -494,8 +490,7 @@ func (p *MethodChangeTokenType) GetRefundData() []byte {
 	return []byte{7}
 }
 func (p *MethodChangeTokenType) GetQuota() uint64 {
-	// TODO
-	return 0
+	return ChangeTokenTypeGas
 }
 func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -522,9 +517,9 @@ func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *le
 }
 func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
-	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameChangeTokenType, block.Data)
+	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameChangeTokenType, sendBlock.Data)
 	oldTokenInfo := cabi.GetTokenById(db, *tokenId)
-	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != block.AccountAddress {
+	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != sendBlock.AccountAddress {
 		return nil, util.ErrInvalidMethodParam
 	}
 	newTokenInfo, _ := cabi.ABIMintage.PackVariable(
@@ -537,8 +532,8 @@ func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block 
 		oldTokenInfo.PledgeAmount,
 		oldTokenInfo.WithdrawHeight,
 		false,
-		oldTokenInfo.MaxSupply,
-		oldTokenInfo.OwnerBurnOnly)
+		helper.Big0,
+		false)
 	db.SetStorage(cabi.GetMintageKey(*tokenId), newTokenInfo)
 
 	oldKey := cabi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)

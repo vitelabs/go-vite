@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -1379,6 +1381,403 @@ func TestContractsMintage(t *testing.T) {
 	if tokenMap := abi.GetTokenMap(db); len(tokenMap) != 2 || tokenMap[tokenId].TokenName != tokenName {
 		t.Fatalf("get token map failed")
 	}
+}
+
+func TestContractsMintageV2(t *testing.T) {
+	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Limit: &config.ForkPoint{Height: 2}})
+	defer initFork()
+
+	// prepare db
+	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
+	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
+	blockTime := time.Now()
+	// mint
+	balance1 := new(big.Int).Set(viteTotalSupply)
+	addr2 := types.AddressMintage
+	isReIssuable := true
+	tokenName := "test token"
+	tokenSymbol := "t"
+	totalSupply := big.NewInt(1e10)
+	maxSupply := new(big.Int).Mul(big.NewInt(2), totalSupply)
+	decimals := uint8(3)
+	ownerBurnOnly := true
+	tokenId := abi.NewTokenId(addr1, 3, hash12, snapshot2.Hash)
+	block13Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenId, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
+	hash13 := types.DataHash([]byte{1, 3})
+	block13 := &ledger.AccountBlock{
+		Height:         3,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash12,
+		Data:           block13Data,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash13,
+	}
+	vm := NewVM()
+	db.addr = addr1
+	sendMintageBlockList, isRetry, err := vm.Run(db, block13, nil)
+	fee := new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite)
+	balance1.Sub(balance1, new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite))
+	if len(sendMintageBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		sendMintageBlockList[0].AccountBlock.Fee.Cmp(new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite)) != 0 ||
+		!bytes.Equal(sendMintageBlockList[0].AccountBlock.Data, block13Data) ||
+		sendMintageBlockList[0].AccountBlock.Amount.Cmp(big.NewInt(0)) != 0 ||
+		sendMintageBlockList[0].AccountBlock.Fee.Cmp(fee) != 0 ||
+		sendMintageBlockList[0].AccountBlock.Quota != contracts.MintGas {
+		t.Fatalf("send mint transaction error")
+	}
+	db.accountBlockMap[addr1][hash13] = sendMintageBlockList[0].AccountBlock
+
+	hash21 := types.DataHash([]byte{2, 1})
+	block21 := &ledger.AccountBlock{
+		Height:         1,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash13,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash21,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveMintageBlockList, isRetry, err := vm.Run(db, block21, sendMintageBlockList[0].AccountBlock)
+	key := abi.GetMintageKey(tokenId)
+	tokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), uint64(0), isReIssuable, maxSupply, ownerBurnOnly)
+	if len(receiveMintageBlockList) != 2 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][string(key)], tokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveMintageBlockList[0].AccountBlock.Data) != 33 ||
+		receiveMintageBlockList[0].AccountBlock.Data[32] != byte(0) ||
+		receiveMintageBlockList[0].AccountBlock.Quota != 0 ||
+		receiveMintageBlockList[1].AccountBlock.Amount.Cmp(totalSupply) != 0 ||
+		receiveMintageBlockList[1].AccountBlock.ToAddress != addr1 ||
+		receiveMintageBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendReward ||
+		receiveMintageBlockList[1].AccountBlock.Quota != 0 ||
+		receiveMintageBlockList[1].AccountBlock.TokenId != tokenId ||
+		receiveMintageBlockList[1].AccountBlock.Height != receiveMintageBlockList[0].AccountBlock.Height+1 ||
+		len(db.logList) != 1 ||
+		db.logList[0].Topics[0] != abi.ABIMintage.Events[abi.EventNameMint].Id() ||
+		!bytes.Equal(db.logList[0].Topics[1].Bytes(), helper.LeftPadBytes(tokenId.Bytes(), 32)) {
+		t.Fatalf("receive mint transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash21] = receiveMintageBlockList[0].AccountBlock
+	hash22 := types.DataHash([]byte{2, 2})
+	receiveMintageBlockList[1].AccountBlock.Hash = hash22
+	receiveMintageBlockList[1].AccountBlock.PrevHash = hash21
+	db.accountBlockMap[addr2][hash22] = receiveMintageBlockList[1].AccountBlock
+
+	hash14 := types.DataHash([]byte{1, 4})
+	block14 := &ledger.AccountBlock{
+		Height:         4,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash22,
+		PrevHash:       hash13,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash14,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	tokenBalance := new(big.Int).Set(totalSupply)
+	receiveMintageRewardBlockList, isRetry, err := vm.Run(db, block14, receiveMintageBlockList[1].AccountBlock)
+	if len(receiveMintageRewardBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][tokenId].Cmp(tokenBalance) != 0 ||
+		receiveMintageRewardBlockList[0].AccountBlock.Quota != 21000 {
+		t.Fatalf("receive mintage reward transaction error")
+	}
+	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlockList[0].AccountBlock
+
+	// get contracts data
+	db.addr = types.AddressMintage
+	if tokenInfo := abi.GetTokenById(db, tokenId); tokenInfo == nil || tokenInfo.TokenName != tokenName {
+		t.Fatalf("get token by id failed")
+	}
+	if tokenMap := abi.GetTokenMap(db); len(tokenMap) != 2 || tokenMap[tokenId].TokenName != tokenName {
+		t.Fatalf("get token map failed")
+	}
+
+	// issue
+	reIssueAmount := big.NewInt(1000)
+	block15Data, err := abi.ABIMintage.PackMethod(abi.MethodNameIssue, tokenId, reIssueAmount, addr1)
+	hash15 := types.DataHash([]byte{1, 5})
+	block15 := &ledger.AccountBlock{
+		Height:         5,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash14,
+		Data:           block15Data,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash15,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	sendIssueBlockList, isRetry, err := vm.Run(db, block15, nil)
+	if len(sendIssueBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		!bytes.Equal(sendIssueBlockList[0].AccountBlock.Data, block15Data) ||
+		sendIssueBlockList[0].AccountBlock.Amount.Cmp(big.NewInt(0)) != 0 ||
+		sendIssueBlockList[0].AccountBlock.Quota != contracts.IssueGas {
+		t.Fatalf("send issue transaction error")
+	}
+	db.accountBlockMap[addr1][hash15] = sendIssueBlockList[0].AccountBlock
+
+	hash23 := types.DataHash([]byte{2, 3})
+	block23 := &ledger.AccountBlock{
+		Height:         3,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash15,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash21,
+		PrevHash:       hash22,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveIssueBlockList, isRetry, err := vm.Run(db, block23, sendIssueBlockList[0].AccountBlock)
+	totalSupply = totalSupply.Add(totalSupply, reIssueAmount)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), uint64(0), isReIssuable, maxSupply, ownerBurnOnly)
+	if len(receiveIssueBlockList) != 2 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][string(key)], tokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveIssueBlockList[0].AccountBlock.Data) != 33 ||
+		receiveIssueBlockList[0].AccountBlock.Data[32] != byte(0) ||
+		receiveIssueBlockList[0].AccountBlock.Quota != 0 ||
+		receiveIssueBlockList[1].AccountBlock.Amount.Cmp(reIssueAmount) != 0 ||
+		receiveIssueBlockList[1].AccountBlock.ToAddress != addr1 ||
+		receiveIssueBlockList[1].AccountBlock.BlockType != ledger.BlockTypeSendReward ||
+		receiveIssueBlockList[1].AccountBlock.Quota != 0 ||
+		receiveIssueBlockList[1].AccountBlock.TokenId != tokenId ||
+		receiveIssueBlockList[1].AccountBlock.Height != receiveIssueBlockList[0].AccountBlock.Height+1 ||
+		len(db.logList) != 2 ||
+		db.logList[1].Topics[0] != abi.ABIMintage.Events[abi.EventNameIssue].Id() ||
+		!bytes.Equal(db.logList[1].Topics[1].Bytes(), helper.LeftPadBytes(tokenId.Bytes(), 32)) {
+		t.Fatalf("receive issue transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash23] = receiveIssueBlockList[0].AccountBlock
+	hash24 := types.DataHash([]byte{2, 4})
+	receiveIssueBlockList[1].AccountBlock.Hash = hash24
+	receiveIssueBlockList[1].AccountBlock.PrevHash = hash23
+	db.accountBlockMap[addr2][hash24] = receiveIssueBlockList[1].AccountBlock
+
+	hash16 := types.DataHash([]byte{1, 6})
+	block16 := &ledger.AccountBlock{
+		Height:         6,
+		AccountAddress: addr1,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash24,
+		PrevHash:       hash15,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash16,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	receiveIssueRewardBlockList, isRetry, err := vm.Run(db, block16, receiveIssueBlockList[1].AccountBlock)
+	if len(receiveIssueRewardBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][tokenId].Cmp(totalSupply) != 0 ||
+		receiveIssueRewardBlockList[0].AccountBlock.Quota != 21000 {
+		t.Fatalf("receive issue reward transaction error")
+	}
+	db.accountBlockMap[addr1][hash16] = receiveIssueRewardBlockList[0].AccountBlock
+
+	// burn
+	block17Data, err := abi.ABIMintage.PackMethod(abi.MethodNameBurn)
+	hash17 := types.DataHash([]byte{1, 7})
+	burnAmount := big.NewInt(1000)
+	block17 := &ledger.AccountBlock{
+		Height:         7,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         burnAmount,
+		TokenId:        tokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash16,
+		Data:           block17Data,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash17,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	sendBurnBlockList, isRetry, err := vm.Run(db, block17, nil)
+	totalSupply = totalSupply.Sub(totalSupply, burnAmount)
+	if len(sendBurnBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		db.balanceMap[addr1][tokenId].Cmp(totalSupply) != 0 ||
+		!bytes.Equal(sendBurnBlockList[0].AccountBlock.Data, block17Data) ||
+		sendBurnBlockList[0].AccountBlock.Amount.Cmp(burnAmount) != 0 ||
+		sendBurnBlockList[0].AccountBlock.Quota != contracts.BurnGas {
+		t.Fatalf("send burn transaction error")
+	}
+	db.accountBlockMap[addr1][hash17] = sendBurnBlockList[0].AccountBlock
+
+	hash25 := types.DataHash([]byte{2, 5})
+	block25 := &ledger.AccountBlock{
+		Height:         5,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash17,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash25,
+		PrevHash:       hash24,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveBurnBlockList, isRetry, err := vm.Run(db, block25, sendBurnBlockList[0].AccountBlock)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, big.NewInt(0), uint64(0), isReIssuable, maxSupply, ownerBurnOnly)
+	if len(receiveBurnBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][string(key)], tokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		db.balanceMap[addr2][tokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveBurnBlockList[0].AccountBlock.Data) != 33 ||
+		receiveBurnBlockList[0].AccountBlock.Data[32] != byte(0) ||
+		receiveBurnBlockList[0].AccountBlock.Quota != 0 ||
+		len(db.logList) != 3 ||
+		db.logList[2].Topics[0] != abi.ABIMintage.Events[abi.EventNameBurn].Id() ||
+		!bytes.Equal(db.logList[2].Topics[1].Bytes(), helper.LeftPadBytes(tokenId.Bytes(), 32)) ||
+		!bytes.Equal(db.logList[2].Data, append(helper.LeftPadBytes(addr1.Bytes(), 32), helper.LeftPadBytes(burnAmount.Bytes(), 32)...)) {
+		t.Fatalf("receive burn transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash25] = receiveBurnBlockList[0].AccountBlock
+
+	// transfer owner
+	addr3, _, _ := types.CreateAddress()
+	block18Data, err := abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, tokenId, addr3)
+	hash18 := types.DataHash([]byte{1, 8})
+	block18 := &ledger.AccountBlock{
+		Height:         8,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash17,
+		Data:           block18Data,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash18,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	sendTransferOwnerBlockList, isRetry, err := vm.Run(db, block18, nil)
+	if len(sendTransferOwnerBlockList) != 1 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		db.balanceMap[addr1][tokenId].Cmp(totalSupply) != 0 ||
+		!bytes.Equal(sendTransferOwnerBlockList[0].AccountBlock.Data, block18Data) ||
+		sendTransferOwnerBlockList[0].AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
+		sendTransferOwnerBlockList[0].AccountBlock.Quota != contracts.TransferOwnerGas {
+		t.Fatalf("send transfer owner transaction error")
+	}
+	db.accountBlockMap[addr1][hash18] = sendTransferOwnerBlockList[0].AccountBlock
+
+	hash26 := types.DataHash([]byte{2, 6})
+	block26 := &ledger.AccountBlock{
+		Height:         6,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash18,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash26,
+		PrevHash:       hash25,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveTransferOwnerBlockList, isRetry, err := vm.Run(db, block26, sendTransferOwnerBlockList[0].AccountBlock)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, big.NewInt(0), uint64(0), isReIssuable, maxSupply, ownerBurnOnly)
+	if len(receiveTransferOwnerBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][string(key)], tokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		db.balanceMap[addr2][tokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveTransferOwnerBlockList[0].AccountBlock.Data) != 33 ||
+		receiveTransferOwnerBlockList[0].AccountBlock.Data[32] != byte(0) ||
+		receiveTransferOwnerBlockList[0].AccountBlock.Quota != 0 ||
+		len(db.logList) != 4 ||
+		db.logList[3].Topics[0] != abi.ABIMintage.Events[abi.EventNameTransferOwner].Id() ||
+		!bytes.Equal(db.logList[3].Topics[1].Bytes(), helper.LeftPadBytes(tokenId.Bytes(), 32)) ||
+		!bytes.Equal(db.logList[3].Data, helper.LeftPadBytes(addr3.Bytes(), 32)) {
+		t.Fatalf("receive transfer owner transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash26] = receiveTransferOwnerBlockList[0].AccountBlock
+
+	// change token type
+	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	block31Data, err := abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenId)
+	hash31 := types.DataHash([]byte{3, 1})
+	block31 := &ledger.AccountBlock{
+		Height:         1,
+		ToAddress:      addr2,
+		AccountAddress: addr3,
+		Amount:         big.NewInt(0),
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		Data:           block31Data,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash31,
+	}
+	vm = NewVM()
+	db.addr = addr1
+	sendChangeTokenTypeBlockList, isRetry, err := vm.Run(db, block31, nil)
+	if len(sendChangeTokenTypeBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(sendChangeTokenTypeBlockList[0].AccountBlock.Data, block31Data) ||
+		sendChangeTokenTypeBlockList[0].AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
+		sendChangeTokenTypeBlockList[0].AccountBlock.Quota != contracts.ChangeTokenTypeGas {
+		t.Fatalf("send change token type transaction error")
+	}
+	db.accountBlockMap[addr3][hash31] = sendChangeTokenTypeBlockList[0].AccountBlock
+
+	hash27 := types.DataHash([]byte{2, 7})
+	block27 := &ledger.AccountBlock{
+		Height:         7,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash31,
+		SnapshotHash:   snapshot2.Hash,
+		Timestamp:      &blockTime,
+		Hash:           hash27,
+		PrevHash:       hash26,
+	}
+	vm = NewVM()
+	db.addr = addr2
+	receiveChangeTokenTypeBlockList, isRetry, err := vm.Run(db, block27, sendChangeTokenTypeBlockList[0].AccountBlock)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, big.NewInt(0), uint64(0), false, big.NewInt(0), false)
+	if len(receiveChangeTokenTypeBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][string(key)], tokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
+		db.balanceMap[addr2][tokenId].Cmp(helper.Big0) != 0 ||
+		len(receiveChangeTokenTypeBlockList[0].AccountBlock.Data) != 33 ||
+		receiveChangeTokenTypeBlockList[0].AccountBlock.Data[32] != byte(0) ||
+		receiveChangeTokenTypeBlockList[0].AccountBlock.Quota != 0 ||
+		len(db.logList) != 5 ||
+		db.logList[4].Topics[0] != abi.ABIMintage.Events[abi.EventNameChangeTokenType].Id() ||
+		!bytes.Equal(db.logList[4].Topics[1].Bytes(), helper.LeftPadBytes(tokenId.Bytes(), 32)) {
+		t.Fatalf("receive change token type transaction error")
+	}
+	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
+	db.accountBlockMap[addr2][hash27] = receiveChangeTokenTypeBlockList[0].AccountBlock
 }
 
 func TestCheckCreateConsensusGroupData(t *testing.T) {

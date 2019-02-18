@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/big"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -852,16 +851,4 @@ func TestPackEvent(t *testing.T) {
 			t.Fatalf("pack %v event result error, expected [%v, %v], got [%v, %v]", test.eventName, test.topics, hex.EncodeToString(test.data), topics, hex.EncodeToString(data))
 		}
 	}
-}
-
-func TestABIContract_MethodById(t *testing.T) {
-	//str := "burn(tokenId,address,uint256)"
-	//data := types.DataHash([]byte(str)).Bytes()
-	data := helper.LeftPadBytes(big.NewInt(1e18).Bytes(), 32)
-	result := "{"
-	for _, d := range data {
-		result = result + strconv.Itoa(int(d)) + ","
-	}
-	result = result[:len(result)-1] + "}"
-	fmt.Println(result)
 }

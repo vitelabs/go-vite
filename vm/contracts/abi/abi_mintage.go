@@ -81,6 +81,9 @@ func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
 	tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
 	return tokenId
 }
+func IsMintageKey(key []byte) bool {
+	return len(key) == types.HashSize
+}
 func GetOwnerTokenIdListKey(owner types.Address) []byte {
 	return owner.Bytes()
 }
@@ -127,6 +130,9 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 		key, value, ok := iterator.Next()
 		if !ok {
 			break
+		}
+		if !IsMintageKey(key) {
+			continue
 		}
 		tokenId := GetTokenIdFromMintageKey(key)
 		if tokenInfo, err := ParseTokenInfo(value); err == nil {

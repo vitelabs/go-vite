@@ -2,9 +2,11 @@ package abi
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -79,5 +81,17 @@ func TestDeleteTokenId(t *testing.T) {
 		if !bytes.Equal(result, target) {
 			t.Fatalf("delete token id failed, delete %v from input %v, expected %v, got %v", test.tokenId, test.input, target, result)
 		}
+	}
+}
+
+func TestABIContract_MethodById(t *testing.T) {
+	for _, e := range ABIMintage.Events {
+		data := e.Id().Bytes()
+		result := "{"
+		for _, d := range data {
+			result = result + strconv.Itoa(int(d)) + ","
+		}
+		result = result[:len(result)-1] + "}"
+		fmt.Printf("%v: %v\n", e.Name, result)
 	}
 }

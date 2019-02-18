@@ -491,7 +491,7 @@ func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 }
 
 func opAccountHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.AccountBlock.Height)))
+	stack.push(helper.U256(c.intPool.get().SetUint64(c.block.VmContext.PrevAccountBlock().Height)))
 	return nil, nil
 }
 
