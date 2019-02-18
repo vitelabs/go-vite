@@ -35,7 +35,7 @@ func (p *MethodMintage) GetQuota() uint64 {
 }
 
 func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
@@ -203,7 +203,7 @@ func (p *MethodMint) GetQuota() uint64 {
 	return MintGas
 }
 func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
@@ -299,7 +299,7 @@ func (p *MethodIssue) GetQuota() uint64 {
 	return IssueGas
 }
 func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
@@ -369,7 +369,7 @@ func (p *MethodBurn) GetQuota() uint64 {
 	return BurnGas
 }
 func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
@@ -424,7 +424,7 @@ func (p *MethodTransferOwner) GetQuota() uint64 {
 	return TransferOwnerGas
 }
 func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
@@ -493,7 +493,7 @@ func (p *MethodChangeTokenType) GetQuota() uint64 {
 	return ChangeTokenTypeGas
 }
 func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return quotaLeft, util.ErrVersionNotSupport
 	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())

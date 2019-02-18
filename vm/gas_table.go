@@ -231,7 +231,7 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		locHash, _   = types.BigToHash(loc)
 		currentValue = c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
 	)
-	if !fork.IsLimitFork(c.block.VmContext.CurrentSnapshotBlock().Height) {
+	if !fork.IsMintFork(c.block.VmContext.CurrentSnapshotBlock().Height) {
 		if len(currentValue) == 0 && newValue.Sign() != 0 {
 			// zero value to non-zero value, charge 20000
 			return sstoreSetGas, nil

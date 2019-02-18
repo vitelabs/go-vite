@@ -35,7 +35,7 @@ func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!util.IsViteToken(block.TokenId) ||
 		!util.IsUserAccount(db, block.AccountAddress) ||
-		(fork.IsLimitFork(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
+		(fork.IsMintFork(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
@@ -126,7 +126,7 @@ func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *le
 		return nil, errors.New("invalid pledge amount")
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
-	if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
+	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
 		return nil, errors.New("invalid pledge amount")
 	}
 

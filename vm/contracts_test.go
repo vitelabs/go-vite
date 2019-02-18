@@ -1384,7 +1384,7 @@ func TestContractsMintage(t *testing.T) {
 }
 
 func TestContractsMintageV2(t *testing.T) {
-	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Limit: &config.ForkPoint{Height: 2}})
+	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Mint: &config.ForkPoint{Height: 2}})
 	defer initFork()
 
 	// prepare db

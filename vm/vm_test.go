@@ -29,7 +29,7 @@ func init() {
 }
 
 func initFork() {
-	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Limit: &config.ForkPoint{Height: 20}})
+	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Mint: &config.ForkPoint{Height: 20}})
 }
 
 func TestVmRun(t *testing.T) {

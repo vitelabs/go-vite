@@ -19,7 +19,7 @@ var (
 )
 
 func NewInterpreter(blockHeight uint64) *Interpreter {
-	if fork.IsLimitFork(blockHeight) {
+	if fork.IsMintFork(blockHeight) {
 		return limitInterpreter
 	} else {
 		return simpleInterpreter

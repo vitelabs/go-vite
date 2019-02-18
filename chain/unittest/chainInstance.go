@@ -28,12 +28,12 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 	if forkPoints.Smart.Height == 0 {
 		forkPoints.Smart.Height = 5788912
 	}
-	if forkPoints.Limit == nil {
-		forkPoints.Limit = &config.ForkPoint{}
+	if forkPoints.Mint == nil {
+		forkPoints.Mint = &config.ForkPoint{}
 	}
-	if forkPoints.Limit.Height == 0 {
+	if forkPoints.Mint.Height == 0 {
 		// TODO
-		forkPoints.Limit.Height = helper.MaxUint64
+		forkPoints.Mint.Height = helper.MaxUint64
 	}
 
 	return forkPoints
