@@ -3,6 +3,7 @@ package trie_gc
 import (
 	"errors"
 	"fmt"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"

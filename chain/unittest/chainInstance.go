@@ -3,15 +3,15 @@ package chain_unittest
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/node"
-	"math/big"
-	"os"
-	"path/filepath"
 )
 
 func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
@@ -138,8 +138,24 @@ func makeChainConfig(genesisFile string) *config.Genesis {
 }
 
 func NewChainInstance(dirName string, clearDataDir bool) chain.Chain {
-	dataDir := filepath.Join(node.DefaultDataDir(), dirName)
+	dataDir := filepath.Join(config.DefaultDataDir(), dirName)
 
+	if clearDataDir {
+		os.RemoveAll(dataDir)
+	}
+
+	chainInstance := chain.NewChain(&config.Config{
+		DataDir: dataDir,
+
+		Genesis: makeChainConfig(""),
+	})
+
+	chainInstance.Init()
+
+	return chainInstance
+}
+
+func NewChainInstanceFromAbsPath(dataDir string, clearDataDir bool) chain.Chain {
 	if clearDataDir {
 		os.RemoveAll(dataDir)
 	}

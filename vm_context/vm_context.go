@@ -3,6 +3,9 @@ package vm_context
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"time"
 )
 
 var (
@@ -382,6 +383,18 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
+		firstBlockMeta, err := context.chain.GetAccountBlockMetaByHash(&firstBlock.Hash)
+		if err != nil {
+			panic(err)
+		}
+
+		if firstBlockMeta == nil {
+			err := errors.New(fmt.Sprintf("Block meta is not exited, but block is exited, addr is %s, height is %d, hash is %s",
+				firstBlock.AccountAddress, firstBlock.Height, firstBlock.Hash))
+			panic(err)
+		}
+
+		firstBlock.Meta = firstBlockMeta
 		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
 			return true
 		}

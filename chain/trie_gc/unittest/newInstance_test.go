@@ -3,16 +3,18 @@ package trie_gc_unittest
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
-	"math/big"
-	"os"
-	"path/filepath"
 )
 
 var innerChainInstance chain.Chain
@@ -136,6 +138,7 @@ func makeChainConfig(genesisFile string) *config.Genesis {
 
 	// set fork points
 	genesisConfig.ForkPoints = makeForkPointsConfig(genesisConfig)
+	fork.SetForkPoints(genesisConfig.ForkPoints)
 
 	return genesisConfig
 }
