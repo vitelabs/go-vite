@@ -365,6 +365,8 @@ func (s *syncer) receiveFileList(msg *message.FileList) {
 		s.taskMade = true
 		// prepare tasks
 		if len(s.fileMap) > 0 {
+			s.fc.start()
+
 			// has file
 			files := make(Files, len(s.fileMap))
 			i := 0

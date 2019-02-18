@@ -104,6 +104,8 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	f.setBusy()
 	defer f.idle()
 
+	f.log.Info(fmt.Sprintf("begain download <file %s> from %s", file.Filename, f.RemoteAddr()))
+
 	getFiles := &message.GetFiles{
 		Names: []string{file.Filename},
 	}
@@ -467,8 +469,9 @@ type fileClient struct {
 
 	dialer *net2.Dialer
 
-	term chan struct{}
-	wg   sync.WaitGroup
+	term    chan struct{}
+	wg      sync.WaitGroup
+	running int32
 
 	log log15.Logger
 }
@@ -581,22 +584,26 @@ func (fc *fileClient) fatalPeer(id peerId, err error) {
 }
 
 func (fc *fileClient) start() {
-	fc.term = make(chan struct{})
+	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
+		fc.term = make(chan struct{})
 
-	fc.wg.Add(1)
-	common.Go(fc.loop)
+		fc.wg.Add(1)
+		common.Go(fc.loop)
+	}
 }
 
 func (fc *fileClient) stop() {
-	if fc.term == nil {
-		return
-	}
+	if atomic.CompareAndSwapInt32(&fc.running, 1, 0) {
+		if fc.term == nil {
+			return
+		}
 
-	select {
-	case <-fc.term:
-	default:
-		close(fc.term)
-		fc.wg.Wait()
+		select {
+		case <-fc.term:
+		default:
+			close(fc.term)
+			fc.wg.Wait()
+		}
 	}
 }
 

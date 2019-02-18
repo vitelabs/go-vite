@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -225,26 +226,30 @@ func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
 }
 
 func (p *chunkPool) start() {
-	p.term = make(chan struct{})
+	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
+		p.term = make(chan struct{})
 
-	p.wg.Add(1)
-	common.Go(p.checkLoop)
+		p.wg.Add(1)
+		common.Go(p.checkLoop)
 
-	p.wg.Add(1)
-	common.Go(p.handleLoop)
+		p.wg.Add(1)
+		common.Go(p.handleLoop)
+	}
 }
 
 func (p *chunkPool) stop() {
-	if p.term == nil {
-		return
-	}
+	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if p.term == nil {
+			return
+		}
 
-	select {
-	case <-p.term:
-	default:
-		close(p.term)
-		p.resQueue.Close()
-		p.wg.Wait()
+		select {
+		case <-p.term:
+		default:
+			close(p.term)
+			p.resQueue.Close()
+			p.wg.Wait()
+		}
 	}
 }
 

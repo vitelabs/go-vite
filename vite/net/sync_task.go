@@ -216,11 +216,16 @@ func (e *executor) runTo(to uint64) {
 		}
 	}
 
-	last := e.tasks[index-1]
+	var last *syncTask
+	if len(e.tasks) > 0 {
+		last = e.tasks[len(e.tasks)-1]
+	}
 	e.mu.Unlock()
 
 	// no tasks remand
-	e.listener.allTaskDone(last)
+	if last != nil {
+		e.listener.allTaskDone(last)
+	}
 }
 
 func (e *executor) run(t *syncTask) {
