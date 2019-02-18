@@ -1504,6 +1504,10 @@ func TestContractsMintageV2(t *testing.T) {
 		t.Fatalf("get token map failed")
 	}
 
+	if tokenMap := abi.GetTokenMapByOwner(db, addr1); len(tokenMap) != 1 {
+		t.Fatalf("get token map by owner failed")
+	}
+
 	// issue
 	reIssueAmount := big.NewInt(1000)
 	block15Data, err := abi.ABIMintage.PackMethod(abi.MethodNameIssue, tokenId, reIssueAmount, addr1)
@@ -1720,6 +1724,13 @@ func TestContractsMintageV2(t *testing.T) {
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash26] = receiveTransferOwnerBlockList[0].AccountBlock
 
+	if tokenMap := abi.GetTokenMapByOwner(db, addr1); len(tokenMap) != 0 {
+		t.Fatalf("get token map by owner failed")
+	}
+	if tokenMap := abi.GetTokenMapByOwner(db, addr3); len(tokenMap) != 1 {
+		t.Fatalf("get token map by owner failed")
+	}
+
 	// change token type
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
 	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
@@ -1778,6 +1789,10 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash27] = receiveChangeTokenTypeBlockList[0].AccountBlock
+
+	if tokenMap := abi.GetTokenMapByOwner(db, addr3); len(tokenMap) != 0 {
+		t.Fatalf("get token map by owner failed")
+	}
 }
 
 func TestCheckCreateConsensusGroupData(t *testing.T) {
