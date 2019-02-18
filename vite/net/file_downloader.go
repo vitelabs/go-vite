@@ -104,7 +104,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	f.setBusy()
 	defer f.idle()
 
-	f.log.Info(fmt.Sprintf("begain download <file %s> from %s", file.Filename, f.RemoteAddr()))
+	f.log.Info(fmt.Sprintf("begin download <file %s> from %s", file.Filename, f.RemoteAddr()))
 
 	getFiles := &message.GetFiles{
 		Names: []string{file.Filename},
@@ -134,7 +134,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
 	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
-		// Fatal error, then close the connection
+		// Fatal error, then close the connection to interrupt the stream
 		if outerr != nil && outerr.Fatal() {
 			f.log.Error(fmt.Sprintf("download <file %s> from %s error: %v, close connection", file.Filename, f.RemoteAddr(), outerr))
 			f.close()
@@ -295,13 +295,21 @@ func (fp *filePeerPool) delPeer(id peerId) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
+	fp.delPeerLocked(id)
+}
+
+func (fp *filePeerPool) delPeerLocked(id peerId) {
 	for _, m := range fp.mf {
 		delete(m, id)
 	}
 
 	delete(fp.mp, id)
 
-	fp.delConn(id)
+	if i, ok := fp.mi[id]; ok {
+		delete(fp.mi, id)
+
+		fp.l = fp.l.del(i)
+	}
 }
 
 func (fp *filePeerPool) addConn(c *fileConn) error {
@@ -326,19 +334,8 @@ func (fp *filePeerPool) catch(id peerId) {
 
 		// fail too many times, then delete the peer
 		if p.fail > 3 {
-			fp.delPeer(id)
+			fp.delPeerLocked(id)
 		}
-	}
-}
-
-func (fp *filePeerPool) delConn(id peerId) {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	if i, ok := fp.mi[id]; ok {
-		delete(fp.mi, id)
-
-		fp.l = fp.l.del(i)
 	}
 }
 
@@ -512,7 +509,8 @@ func (fc *fileClient) download(ctx context.Context, file File) <-chan error {
 func (fc *fileClient) runTask(t asyncFileTask) {
 	select {
 	case <-t.ctx.Done():
-		t.ch <- t.ctx.Err()
+		t.ch <- nil
+		return
 	default:
 
 	}

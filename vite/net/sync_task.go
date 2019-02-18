@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type syncTaskType int
+type syncTaskType byte
 
 const (
 	syncFileTask syncTaskType = iota
@@ -128,9 +128,11 @@ func (c *chunkTask) do(ctx context.Context) error {
 }
 
 type syncTaskExecutor interface {
+	end() (uint64, syncTaskType)
 	add(t *syncTask)
 	exec(t *syncTask)
 	runTo(to uint64)
+	deleteFrom(start uint64) (nextStart uint64)
 	last() *syncTask
 	terminate()
 	status() ExecutorStatus
@@ -164,6 +166,19 @@ func newExecutor(listener syncTaskListener) syncTaskExecutor {
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
+}
+
+func (e *executor) end() (uint64, syncTaskType) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if len(e.tasks) > 0 {
+		t := e.tasks[len(e.tasks)-1]
+		_, to := t.bound()
+		return to, t.typ
+	}
+
+	return 0, 0
 }
 
 func (e *executor) status() ExecutorStatus {
@@ -249,6 +264,42 @@ func (e *executor) last() *syncTask {
 	defer e.mu.Unlock()
 
 	return e.tasks[len(e.tasks)-1]
+}
+
+// delete tasks those start is larger than start
+// if add chunk task first, and get fileList later, then can delete chunk tasks and add file tasks
+func (e *executor) deleteFrom(start uint64) (nextStart uint64) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for i := e.doneIndex; i < len(e.tasks); i++ {
+		t := e.tasks[i]
+		if t.st == reqDone {
+			continue
+		}
+
+		tStart, _ := t.bound()
+		if tStart >= start {
+			for j := i; j < len(e.tasks); j++ {
+				t = e.tasks[j]
+				// cancel tasks
+				if t.cancel != nil {
+					t.cancel()
+				}
+			}
+
+			e.tasks = e.tasks[:i]
+			break
+		}
+	}
+
+	if len(e.tasks) > 0 {
+		last := e.tasks[len(e.tasks)-1]
+		_, to := last.bound()
+		return to + 1
+	}
+
+	return 0
 }
 
 func (e *executor) terminate() {

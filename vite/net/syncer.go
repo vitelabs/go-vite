@@ -57,6 +57,11 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
+type fileRecord struct {
+	File
+	add bool
+}
+
 type syncer struct {
 	from, to uint64
 	current  uint64 // current height
@@ -67,11 +72,10 @@ type syncer struct {
 
 	peers *peerSet
 
-	pending   int  // pending count of FileList msg
-	responsed int  // number of FileList msg received
-	taskMade  bool // has make tasks
+	pending   int // pending count of FileList msg
+	responsed int // number of FileList msg received
 	mu        sync.Mutex
-	fileMap   map[filename]File
+	fileMap   map[filename]*fileRecord
 
 	// query current block and height
 	chain Chain
@@ -124,12 +128,11 @@ func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, noti
 		state:     SyncNotStart,
 		chain:     chain,
 		peers:     peers,
-		fileMap:   make(map[filename]File),
+		fileMap:   make(map[filename]*fileRecord),
 		eventChan: make(chan peerEvent, 1),
 		verifier:  verifier,
 		notifier:  notifier,
 		subs:      make(map[int]SyncStateCallback),
-		term:      make(chan struct{}),
 		log:       log15.New("module", "net/syncer"),
 	}
 
@@ -144,6 +147,9 @@ func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, noti
 }
 
 func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.curSubId++
 	s.subs[s.curSubId] = fn
 	return s.curSubId
@@ -153,6 +159,9 @@ func (s *syncer) UnsubscribeSyncStatus(subId int) {
 	if subId <= 0 {
 		return
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	delete(s.subs, subId)
 }
@@ -169,12 +178,21 @@ func (s *syncer) setState(st SyncState) {
 }
 
 func (s *syncer) Stop() {
-	select {
-	case <-s.term:
-	default:
-		close(s.term)
-		s.pool.stop()
-		s.fc.stop()
+	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
+		if s.term == nil {
+			return
+		}
+
+		select {
+		case <-s.term:
+		default:
+			close(s.term)
+			s.exec.terminate()
+			s.pool.stop()
+			s.fc.stop()
+			s.clear()
+			s.peers.UnSub(s.eventChan)
+		}
 	}
 }
 
@@ -185,17 +203,19 @@ func (s *syncer) clear() {
 	s.aCount = 0
 	s.sCount = 0
 	s.pending = 0
-	s.taskMade = false
-	s.fileMap = make(map[filename]File)
+	s.fileMap = make(map[filename]*fileRecord)
 }
 
 func (s *syncer) Start() {
+	// is running
 	if !atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		return
 	}
+	s.term = make(chan struct{})
 
 	s.peers.Sub(s.eventChan)
-	defer s.peers.UnSub(s.eventChan)
+
+	defer s.Stop()
 
 	start := time.NewTimer(waitEnoughPeers)
 
@@ -299,6 +319,7 @@ wait:
 				s.setState(Syncerr)
 			} else if s.state == Syncing {
 				s.current = current.Height
+				lastCheckTime = now
 				s.exec.runTo(s.current + 3600)
 			}
 
@@ -341,6 +362,7 @@ func (s *syncer) getSubLedgerFrom(p Peer) {
 	}
 
 	if err := p.Send(GetSubLedgerCode, 0, msg); err != nil {
+		p.Report(err)
 		return
 	} else {
 		s.log.Info(fmt.Sprintf("get subledger from %d to %d to %s at %d", from, pTo, p.RemoteAddr(), p.Height()))
@@ -356,47 +378,64 @@ func (s *syncer) receiveFileList(msg *message.FileList) {
 			continue
 		}
 
-		s.fileMap[file.Filename] = file
+		s.fileMap[file.Filename] = &fileRecord{file, false}
 	}
 
 	s.responsed++
 
-	if (s.responsed*2 > s.pending || s.responsed > 3) && (!s.taskMade) {
-		s.taskMade = true
+	if s.responsed*2 > s.pending || s.responsed > 3 {
 		// prepare tasks
 		if len(s.fileMap) > 0 {
 			s.fc.start()
 
-			// has file
+			// has new file to download
 			files := make(Files, len(s.fileMap))
 			i := 0
-			for _, file := range s.fileMap {
-				files[i] = file
-				i++
+			for _, r := range s.fileMap {
+				if !r.add {
+					files[i] = r.File
+					i++
+					r.add = true
+				}
 			}
 
-			sort.Sort(files)
-			for _, file := range files {
-				s.exec.add(&syncTask{
-					task: &fileTask{
-						file:       file,
-						downloader: s.fc,
-					},
-					typ: syncFileTask,
-				})
+			if files = files[:i]; len(files) > 0 {
+				sort.Sort(files)
+				start := files[0].StartHeight
+
+				// delete following tasks
+				start = s.exec.deleteFrom(start)
+
+				// add new tasks
+				for _, file := range files {
+					if file.EndHeight >= start {
+						s.exec.add(&syncTask{
+							task: &fileTask{
+								file:       file,
+								downloader: s.fc,
+							},
+							typ: syncFileTask,
+						})
+					}
+				}
 			}
 		} else {
-			// use chunk
-			cks := splitChunk(s.from, s.to, chunkSize)
-			for _, ck := range cks {
-				s.exec.add(&syncTask{
-					task: &chunkTask{
-						from:       ck[0],
-						to:         ck[1],
-						downloader: s.pool,
-					},
-					typ: syncChunkTask,
-				})
+			to, _ := s.exec.end()
+			// no tasks, then use chunk
+			if to == 0 {
+				s.pool.start()
+
+				cks := splitChunk(s.from, s.to, chunkSize)
+				for _, ck := range cks {
+					s.exec.add(&syncTask{
+						task: &chunkTask{
+							from:       ck[0],
+							to:         ck[1],
+							downloader: s.pool,
+						},
+						typ: syncChunkTask,
+					})
+				}
 			}
 		}
 	}
@@ -440,6 +479,8 @@ func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
 
 func (s *syncer) taskDone(t *syncTask, err error) {
 	if err != nil {
+		s.log.Error(fmt.Sprintf("sync task %s error", t.String()))
+
 		if s.state != Syncing || atomic.LoadInt32(&s.running) == 0 {
 			return
 		}

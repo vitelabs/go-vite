@@ -64,7 +64,7 @@ type chunkRequest struct {
 	mu       sync.Mutex
 	ch       chan error
 	once     sync.Once
-
+	ctx      context.Context
 	// for status
 	_done  bool
 	target string
@@ -194,6 +194,7 @@ func (p *chunkPool) download(ctx context.Context, from, to uint64) <-chan error 
 		to:   to,
 		ch:   make(chan error, 1),
 		msg:  message.GetChunk{from, to},
+		ctx:  ctx,
 	}
 
 	p.chunks.Store(cr.id, cr)
@@ -344,8 +345,19 @@ func (p *chunkPool) checkLoop() {
 
 	check := func(key, value interface{}) bool {
 		c := value.(*chunkRequest)
-		if time.Now().After(c.deadline) {
-			p.request(c)
+
+		select {
+		case <-c.ctx.Done():
+			// chunk request is canceled
+			p.chunks.Delete(key)
+			c.done(nil)
+			p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> is canceled", c.from, c.to))
+
+		default:
+			if time.Now().After(c.deadline) {
+				p.request(c)
+				p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> is timeout", c.from, c.to))
+			}
 		}
 
 		return true
@@ -363,6 +375,8 @@ Loop:
 	}
 
 	del := func(key, value interface{}) bool {
+		c := value.(*chunkRequest)
+		c.done(nil)
 		p.chunks.Delete(key)
 		return true
 	}
