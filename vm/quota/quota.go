@@ -1,7 +1,6 @@
 package quota
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -59,11 +58,11 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 	if difficulty != nil && difficulty.Sign() > 0 {
-		if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+		/*if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
 			if powLimitReached, err := CheckPoWLimit(db); err != nil || powLimitReached {
 				return 0, 0, util.ErrCalcPoWLimitReached
 			}
-		}
+		}*/
 		return CalcQuotaV2(db, addr, pledgeAmount, difficulty)
 	} else {
 		return CalcQuotaV2(db, addr, pledgeAmount, helper.Big0)
