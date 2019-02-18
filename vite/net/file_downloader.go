@@ -389,7 +389,7 @@ func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error
 			}
 
 			// the fileConn is fast enough
-			if i <= totalConns/3 {
+			if i <= totalConns/4 {
 				return nil, conn, nil
 			}
 
