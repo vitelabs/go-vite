@@ -328,7 +328,7 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	return []*SendBlock{
 		{
 			block,
-			sendBlock.AccountAddress,
+			param.Beneficial,
 			ledger.BlockTypeSendReward,
 			param.Amount,
 			param.TokenId,
