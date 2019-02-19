@@ -23,7 +23,12 @@ var (
 	testtokenlruCron      *cron.Cron = nil
 	testtokenlruLimitSize            = 20
 	dataDir                          = ""
+	netId                            = uint(0)
 )
+
+func InitConfig(id uint) {
+	netId = id
+}
 
 func InitLog(dir, lvl string) {
 	dataDir = dir
