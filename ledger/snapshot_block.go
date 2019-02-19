@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/fork"
@@ -46,26 +47,29 @@ type SnapshotContentList []*SnapshotContentItem
 func (scList SnapshotContentList) Len() int      { return len(scList) }
 func (scList SnapshotContentList) Swap(i, j int) { scList[i], scList[j] = scList[j], scList[i] }
 func (scList SnapshotContentList) Less(i, j int) bool {
-	return scList[i].HashHeight.Height < scList[j].HashHeight.Height
+	return bytes.Compare(scList[i].Address.Bytes(), scList[j].Address.Bytes()) <= 0
 }
 
 func NewSnapshotContentList(sc SnapshotContent) SnapshotContentList {
 	scList := make(SnapshotContentList, 0, len(sc))
 	for addr, hashHeight := range sc {
+		scItemAddr := addr
 		scList = append(scList, &SnapshotContentItem{
-			Address: &addr,
+			Address: &scItemAddr,
 			HashHeight: &HashHeight{
 				Hash:   hashHeight.Hash,
 				Height: hashHeight.Height,
 			},
 		})
 	}
+
 	return scList
 }
 
 func (sc SnapshotContent) Bytes() []byte {
 	scList := NewSnapshotContentList(sc)
 	sort.Sort(scList)
+
 	bytes := make([]byte, 0, ScItemBytesLen*len(scList))
 	for _, scItem := range scList {
 		bytes = append(bytes, scItem.Bytes()...)
@@ -164,7 +168,8 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 
 	// Snapshot Content
 	if fork.IsMintFork(sb.Height) {
-		source = append(source, sb.SnapshotContent.Bytes()...)
+		scBytes := sb.SnapshotContent.Bytes()
+		source = append(source, scBytes...)
 	}
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
