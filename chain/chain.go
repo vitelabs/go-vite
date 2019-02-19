@@ -161,7 +161,6 @@ func (c *chain) checkData() bool {
 }
 
 func (c *chain) checkForkPoints() (bool, *config.ForkPoint, error) {
-	// check Vite1 upgrade
 	if c.globalCfg.ForkPoints == nil {
 		return true, nil, nil
 	}

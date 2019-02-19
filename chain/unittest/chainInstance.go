@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/node/unittest"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -37,7 +39,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 	return forkPoints
 }
 
-func makeChainConfig(genesisFile string) *config.Genesis {
+func MakeChainConfig(genesisFile string) *config.Genesis {
 	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
 	var defaultBlockProducers []types.Address
 	addrStrList := []string{
@@ -138,7 +140,10 @@ func makeChainConfig(genesisFile string) *config.Genesis {
 	}
 
 	// set fork points
-	genesisConfig.ForkPoints = makeForkPointsConfig(genesisConfig)
+
+	genesisConfig.ForkPoints = node_unittest.MakeMainNetForkPointsConfig()
+
+	fork.SetForkPoints(genesisConfig.ForkPoints)
 
 	return genesisConfig
 }
@@ -153,7 +158,7 @@ func NewChainInstance(dirName string, clearDataDir bool) chain.Chain {
 	chainInstance := chain.NewChain(&config.Config{
 		DataDir: dataDir,
 
-		Genesis: makeChainConfig(""),
+		Genesis: MakeChainConfig(""),
 	})
 
 	chainInstance.Init()
