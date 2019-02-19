@@ -24,6 +24,8 @@ type teller struct {
 	mLog log15.Logger
 }
 
+const seedDuration = time.Minute * 10
+
 func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
 
 	t := &teller{rw: rw}
@@ -40,7 +42,7 @@ func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
 	return t
 }
 
-func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, error) {
+func (self *teller) voteResults(b *ledger.SnapshotBlock, seeds *core.SeedInfo) ([]types.Address, error) {
 	head := self.rw.GetLatestSnapshotBlock()
 
 	if b.Height > head.Height {
@@ -48,7 +50,7 @@ func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, error
 	}
 
 	headH := ledger.HashHeight{Height: b.Height, Hash: b.Hash}
-	addressList, e := self.calVotes(headH)
+	addressList, e := self.calVotes(headH, seeds)
 	if e != nil {
 		return nil, e
 	}
@@ -64,7 +66,12 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 		return nil, e
 	}
 
-	voteResults, err := self.voteResults(block)
+	seeds, err := self.rw.GetSeedsBeforeHashH(block, seedDuration)
+	if err != nil {
+		return nil, err
+	}
+	seed := core.NewSeedInfo(seeds)
+	voteResults, err := self.voteResults(block, seed)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +143,7 @@ func (self *teller) findSeed(votes []*core.Vote) int64 {
 	return result.Int64()
 }
 
-func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
+func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.voteCache.Get(hashH.Hash)
 	if ok {
@@ -147,10 +154,11 @@ func (self *teller) calVotes(hashH ledger.HashHeight) ([]types.Address, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// filter size of members
-	finalVotes := self.algo.FilterVotes(votes, &hashH)
+	finalVotes := self.algo.FilterVotes(votes, &hashH, seed)
 	// shuffle the members
-	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH)
+	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH, seed)
 
 	address := core.ConvertVoteToAddress(finalVotes)
 

@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/config"
 	"math/big"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/config"
 
 	"runtime/debug"
 
@@ -187,6 +188,9 @@ func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index ui
 	return result
 }
 func (api DebugApi) ConsensusBlockRate(gid types.Gid, startIndex, endIndex uint64) map[string]interface{} {
+	// todo
+	return nil
+
 	ch := api.v.Chain()
 	genesis := chain.GenesisSnapshotBlock
 

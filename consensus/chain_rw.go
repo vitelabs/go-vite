@@ -26,8 +26,13 @@ type ch interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 }
 
+type seedReader interface {
+	GetSnapshotBlockByHashH(hashH *ledger.HashHeight, startT *time.Time) ([]*ledger.SnapshotBlock, error)
+}
+
 type chainRw struct {
-	rw ch
+	rw  ch
+	rw2 seedReader
 }
 
 type VoteDetails struct {
@@ -61,6 +66,30 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 		return nil, errors.New("before time[" + t.String() + "] block not exist")
 	}
 	return block, nil
+}
+
+func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration) (map[types.Address]uint64, error) {
+	startT := lastBlock.Timestamp.Add(-dur)
+	blocks, err := self.rw2.GetSnapshotBlockByHashH(&ledger.HashHeight{Hash: lastBlock.Hash, Height: lastBlock.Height}, &startT)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, _ := self.groupSnapshotBySeedExist(blocks)
+
+	m := make(map[types.Address]*ledger.SnapshotBlock)
+	seedM := make(map[types.Address]uint64)
+	for _, v := range snapshots {
+		prev, ok := m[v.Producer()]
+		if !ok {
+			m[v.Producer()] = v
+		}
+		_, ok = seedM[v.Producer()]
+		if !ok {
+			seedM[v.Producer()] = self.getSeed(prev, v)
+		}
+	}
+
+	return seedM, nil
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
@@ -162,4 +191,12 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 		return errors.Errorf("refer snapshot block height must >= start snapshot block height")
 	}
 	return nil
+}
+func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([]*ledger.SnapshotBlock, []*ledger.SnapshotBlock) {
+	var exists []*ledger.SnapshotBlock
+	var notExists []*ledger.SnapshotBlock
+	return exists, notExists
+}
+func (self *chainRw) getSeed(prev *ledger.SnapshotBlock, this *ledger.SnapshotBlock) uint64 {
+	return prev.Height
 }

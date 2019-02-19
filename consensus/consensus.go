@@ -23,7 +23,9 @@ type Event struct {
 	SnapshotHash   types.Hash // add to block
 	SnapshotHeight uint64     // add to block
 
-	VoteTime time.Time // voteTime
+	VoteTime    time.Time // voteTime
+	PeriodStime time.Time // start time for period
+	PeriodEtime time.Time // end time for period
 }
 
 type electionResult struct {

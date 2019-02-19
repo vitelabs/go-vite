@@ -1,7 +1,12 @@
 package producer
 
 import (
+	"math/rand"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/hashicorp/golang-lru"
 
 	"time"
 
@@ -17,14 +22,19 @@ var wLog = log15.New("module", "miner/worker")
 // worker
 type worker struct {
 	producerLifecycle
-	tools    *tools
-	coinbase *AddressContext
-	mu       sync.Mutex
-	wg       sync.WaitGroup
+	tools     *tools
+	coinbase  *AddressContext
+	mu        sync.Mutex
+	wg        sync.WaitGroup
+	seedCache *lru.Cache
 }
 
 func newWorker(chain *tools, coinbase *AddressContext) *worker {
-	return &worker{tools: chain, coinbase: coinbase}
+	cache, err := lru.New(1000)
+	if err != nil {
+		panic(err)
+	}
+	return &worker{tools: chain, coinbase: coinbase, seedCache: cache}
 }
 
 func (self *worker) Init() error {
@@ -77,8 +87,10 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 	// unlock pool
 	defer self.tools.ledgerUnLock()
 
+	seed := self.randomSeed()
+
 	// generate snapshot block
-	b, err := self.tools.generateSnapshot(e, self.coinbase)
+	b, err := self.tools.generateSnapshot(e, self.coinbase, seed, self.getSeedByHash)
 	if err != nil {
 		wLog.Error("produce snapshot block fail[generate].", "err", err)
 		return
@@ -90,4 +102,32 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 		wLog.Error("produce snapshot block fail[insert].", "err", err)
 		return
 	}
+
+	// todo
+	// self.storeSeedHash(seed, seedHash)
+}
+
+func (self *worker) randomSeed() uint64 {
+	r := rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
+	return r.Uint64()
+}
+
+func (self *worker) getSeedByHash(hash *types.Hash) uint64 {
+	if hash == nil {
+		// default-> zero
+		return 0
+	}
+	value, ok := self.seedCache.Get(*hash)
+	if ok {
+		return value.(uint64)
+	} else {
+		// default-> zero
+		return 0
+	}
+}
+func (self *worker) storeSeedHash(seed uint64, hash *types.Hash) {
+	if seed == 0 {
+		return
+	}
+	self.seedCache.Add(*hash, seed)
 }

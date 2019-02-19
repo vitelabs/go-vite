@@ -30,7 +30,7 @@ func (self *tools) ledgerUnLock() {
 	self.pool.UnLock()
 }
 
-func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext) (*ledger.SnapshotBlock, error) {
+func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)
 	if err != nil {
@@ -40,6 +40,9 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
+	// todo
+	//lastSeed := self.generateSeed(e, head, fn)
+
 	block := &ledger.SnapshotBlock{
 		PrevHash:        head.Hash,
 		Height:          head.Height + 1,
@@ -48,6 +51,9 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		StateHash:       *trie.Hash(),
 		SnapshotContent: accounts,
 	}
+
+	// todo
+	// 	seedHash :=
 
 	block.Hash = block.ComputeHash()
 	manager, err := self.wt.GetEntropyStoreManager(coinbase.EntryPath)
@@ -135,4 +141,18 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
 	}
 	return finalAccounts, nil
+}
+func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
+	// todo
+	var blocks []*ledger.SnapshotBlock
+	for _, v := range blocks {
+		// todo should be seedHash
+		var seedHash = &v.Hash
+		if seedHash != nil {
+			if e.PeriodStime.Before(*v.Timestamp) {
+				return 0
+			}
+			return fn(seedHash)
+		}
+	}
 }

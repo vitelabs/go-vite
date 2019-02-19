@@ -464,5 +464,7 @@ func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, vot
 		SnapshotHash:   r.Hash,
 		SnapshotHeight: r.Height,
 		VoteTime:       voteTime,
+		PeriodStime:    r.STime,
+		PeriodEtime:    r.ETime,
 	}
 }

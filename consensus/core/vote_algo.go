@@ -5,13 +5,25 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
 type Algo interface {
-	ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote
-	FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote
+	ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight, info *SeedInfo) []*Vote
+	FilterVotes(votes []*Vote, hashH *ledger.HashHeight, info *SeedInfo) []*Vote
 	FilterSimple(votes []*Vote) []*Vote
+}
+
+type SeedInfo struct {
+	seeds map[types.Address]uint64
+}
+
+func NewSeedInfo(ss map[types.Address]uint64) *SeedInfo {
+	if ss == nil {
+		return &SeedInfo{seeds: make(map[types.Address]uint64)}
+	}
+	return &SeedInfo{seeds: ss}
 }
 
 type algo struct {
@@ -23,17 +35,27 @@ func NewAlgo(info *GroupInfo) *algo {
 }
 
 // balance + snapshotHeight + gid
-func (self *algo) findSeed(votes []*Vote, sheight uint64) int64 {
+func (self *algo) findSeed(votes []*Vote, sheight uint64, info *SeedInfo) int64 {
+	seeds := info.seeds
+	if seeds == nil || len(seeds) == 0 {
+		result := big.NewInt(0)
+		for _, v := range votes {
+			result.Add(result, v.Balance)
+		}
+		result.Add(result, new(big.Int).SetUint64(sheight))
+		return result.Add(result, self.info.seed).Int64()
+	}
+
 	result := big.NewInt(0)
-	for _, v := range votes {
-		result.Add(result, v.Balance)
+	for _, v := range seeds {
+		result.Add(result, big.NewInt(0).SetUint64(v))
 	}
 	result.Add(result, new(big.Int).SetUint64(sheight))
 	return result.Add(result, self.info.seed).Int64()
 }
 
-func (self *algo) ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight) (result []*Vote) {
-	seed := self.findSeed(votes, hashH.Height)
+func (self *algo) ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight, info *SeedInfo) (result []*Vote) {
+	seed := self.findSeed(votes, hashH.Height, info)
 	l := len(votes)
 	random := rand.New(rand.NewSource(seed))
 	perm := random.Perm(l)
@@ -44,7 +66,7 @@ func (self *algo) ShuffleVotes(votes []*Vote, hashH *ledger.HashHeight) (result 
 	return result
 }
 
-func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
+func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight, info *SeedInfo) []*Vote {
 	// simple filter for low balance
 	simpleVotes := self.FilterSimple(votes)
 
@@ -52,7 +74,7 @@ func (self *algo) FilterVotes(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 		simpleVotes = votes
 	}
 
-	votes = self.filterRandV2(simpleVotes, hashH)
+	votes = self.filterRandV2(simpleVotes, hashH, info)
 
 	return votes
 }
@@ -76,14 +98,14 @@ func (self *algo) calRandCnt(total int, randNum int) int {
 		return (total) / 3
 	}
 }
-func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
+func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight, seedInfo *SeedInfo) []*Vote {
 	total := self.info.NodeCount
 	sort.Sort(ByBalance(votes))
 	length := len(votes)
 	if length < int(total) {
 		return votes
 	}
-	seed := self.findSeed(votes, hashH.Height)
+	seed := self.findSeed(votes, hashH.Height, seedInfo)
 
 	randCnt := self.calRandCnt(int(total), int(self.info.RandCount))
 	topTotal := int(total) - randCnt
@@ -115,12 +137,12 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
 	return result
 }
 
-func (self *algo) filterRandV2(votes []*Vote, hashH *ledger.HashHeight) []*Vote {
+func (self *algo) filterRandV2(votes []*Vote, hashH *ledger.HashHeight, seedInfo *SeedInfo) []*Vote {
 	var result []*Vote
 	total := int(self.info.NodeCount)
 	sort.Sort(ByBalance(votes))
 
-	seed := self.findSeed(votes, hashH.Height)
+	seed := self.findSeed(votes, hashH.Height, seedInfo)
 	length := len(votes)
 	if length <= int(total) {
 		random1 := rand.New(rand.NewSource(seed))
