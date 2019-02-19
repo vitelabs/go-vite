@@ -295,19 +295,13 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
-	const batch = 1000
-	i := 0
-	total := len(files)
-	for i < total {
-		fileList := &message.FileList{}
-
-		if total-i < batch {
-			fileList.Files = files[i:total]
+	fss := splitFiles(files, 1000)
+	for i, fs := range fss {
+		fileList := &message.FileList{
+			Files: fs,
+		}
+		if i == len(fss)-1 {
 			fileList.Chunks = chunks
-		} else {
-			j := i + batch
-			fileList.Files = files[i:j]
-			i = j
 		}
 
 		err = sender.Send(FileListCode, msg.Id, fileList)
@@ -317,6 +311,23 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 			return
 		} else {
 			netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		}
+	}
+
+	return
+}
+
+func splitFiles(fs []*ledger.CompressedFileMeta, batch int) (fss [][]*ledger.CompressedFileMeta) {
+	total := len(fs)
+	i := 0
+	for i < total {
+		if total-i < batch {
+			fss = append(fss, fs[i:total])
+			i = total
+		} else {
+			j := i + batch
+			fss = append(fss, fs[i:j])
+			i = j
 		}
 	}
 

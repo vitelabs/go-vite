@@ -288,7 +288,7 @@ func mockAccountMap(addrm, addrn, blockm, blockn int) (ret accountBlockMap, tota
 	return ret, total
 }
 
-func Test_splitAccountMap(t *testing.T) {
+func Test_SplitAccountMap(t *testing.T) {
 	mblocks, total := mockAccountMap(100, 1000, 100, 1000)
 	total2 := countAccountBlocks(mblocks)
 	if uint64(total) != total2 {
@@ -319,7 +319,7 @@ func Test_splitAccountMap(t *testing.T) {
 	fmt.Println(total, total2, total3)
 }
 
-func Test_splitAccountMap_Min(t *testing.T) {
+func Test_SplitAccountMap_Min(t *testing.T) {
 	mblocks, total := mockAccountMap(100, 300, 1, 2)
 	total2 := countAccountBlocks(mblocks)
 	if uint64(total) != total2 {
@@ -348,4 +348,48 @@ func Test_splitAccountMap_Min(t *testing.T) {
 	}
 
 	fmt.Println(total, total2, total3)
+}
+
+func Test_SplitFiles(t *testing.T) {
+	total := rand.Intn(9999)
+	files := make([]*ledger.CompressedFileMeta, total)
+
+	for i := 0; i < total; i++ {
+		files[i] = &ledger.CompressedFileMeta{
+			StartHeight: uint64(i),
+			EndHeight:   uint64(i),
+		}
+	}
+
+	const batch = 1000
+	filess := splitFiles(files, batch)
+
+	var start uint64
+	var count int
+	for k, fs := range filess {
+		l := len(fs)
+		if k != len(filess)-1 {
+			if l != batch {
+				t.Fatalf("files number should be %d, but get %d", batch, l)
+			}
+		} else {
+			if l > batch {
+				t.Fatalf("files number should small than %d, but get %d", batch, l)
+			}
+		}
+
+		count += l
+
+		for _, f := range fs {
+			if f.StartHeight != start {
+				t.Fatalf("file startHeight should be %d, but get %d", start, f.StartHeight)
+			} else {
+				start++
+			}
+		}
+	}
+
+	if count != total {
+		t.Fatalf("files count should be %d, but get %d", total, count)
+	}
 }

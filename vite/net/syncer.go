@@ -298,6 +298,8 @@ wait:
 						// have no peers
 						s.log.Error("sync error: no peers")
 						s.setState(Syncerr)
+						// no peers, then quit
+						return
 					}
 				}
 			} else if shouldSync(current.Height, e.peer.Height()) {

@@ -22,8 +22,8 @@ func TestExecutor_DeleteTo(t *testing.T) {
 		})
 	}
 
-	if exec.end() != to {
-		t.Fatalf("task end should be %d, but get %d", to, exec.end())
+	if e, _ := exec.end(); e != to {
+		t.Fatalf("task end should be %d, but get %d", to, e)
 	}
 
 	target := to >> 1
