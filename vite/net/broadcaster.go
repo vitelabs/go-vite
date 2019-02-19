@@ -318,13 +318,6 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 		p.SendNewAccountBlock(block)
 	}
 
-	if block.Timestamp != nil {
-		delta := now.Sub(*block.Timestamp)
-		b.mu.Lock()
-		b.statis.Put(delta.Nanoseconds() / 1e6)
-		b.mu.Unlock()
-	}
-
 	b.log.Debug(fmt.Sprintf("broadcast AccountBlock %s to %d peers", block.Hash, len(ps)))
 }
 
