@@ -41,36 +41,12 @@ type fp struct {
 	peers *peerSet
 }
 
-// best peer and another random peer
-func (p *fp) accountTargets(height uint64) (l []Peer) {
-	best := p.peers.BestPeer()
-	if best == nil {
-		return
-	}
-
-	l = append(l, best)
-
-	all := p.peers.Peers()
-	if total := len(all); total > 1 {
-		for {
-			i := rand.Intn(total)
-			if all[i] != best {
-				l = append(l, all[i])
-				break
-			}
-		}
-	}
-
-	return
-}
-
-/*
-// best peer, a random peer, a random taller peer
+// best peer , random peer, a random taller peer
 func (p *fp) accountTargets(height uint64) []Peer {
 	var l, taller []Peer
 
-	all := p.peers.Peers()
-	total := len(all)
+	peers := p.peers.Peers()
+	total := len(peers)
 
 	if total == 0 {
 		return l
@@ -79,24 +55,24 @@ func (p *fp) accountTargets(height uint64) []Peer {
 	// best
 	var peer Peer
 	var maxHeight uint64
-	for _, p := range all {
-		ph := p.Height()
+	for _, p := range peers {
+		peerHeight := p.Height()
 
-		if ph > maxHeight {
-			maxHeight = ph
+		if peerHeight > maxHeight {
+			maxHeight = peerHeight
 			peer = p
 		}
 
-		if ph >= height {
+		if peerHeight >= height {
 			taller = append(taller, p)
 		}
 	}
 
 	l = append(l, peer)
 
-	// random a peer
+	// random
 	ran := rand.Intn(total)
-	if peer = all[ran]; peer != l[0] {
+	if peer = peers[ran]; peer != l[0] {
 		l = append(l, peer)
 	}
 
@@ -116,7 +92,6 @@ func (p *fp) accountTargets(height uint64) []Peer {
 
 	return l
 }
-*/
 
 func (p *fp) snapshotTarget(height uint64) Peer {
 	if height == 0 {
@@ -365,9 +340,9 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		id := f.pool.MsgID()
 
 		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
-			f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+			f.log.Error(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
 		} else {
-			f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
+			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
 		}
 		monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 	} else {
@@ -407,9 +382,9 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 		for _, p := range peerList {
 			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
 			} else {
-				f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}
@@ -450,9 +425,9 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 
 		for _, p := range peerList {
 			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send %s to %s error: %v", m, p, err))
+				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
 			} else {
-				f.log.Info(fmt.Sprintf("send %s to %s done", m, p))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}
