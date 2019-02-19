@@ -104,8 +104,8 @@ func (p *fp) snapshotTarget(height uint64) Peer {
 }
 
 // fetch filter
-const maxMark = 3
-const timeThreshold = int64(3 * time.Second)
+const maxMark = 3       // times
+const timeThreshold = 3 // second
 
 type record struct {
 	addAt  int64
@@ -145,7 +145,7 @@ func (f *filter) clean(t int64) {
 	defer f.lock.Unlock()
 
 	for hash, r := range f.records {
-		if r._done && (t-r.doneAt) > int64(timeThreshold) {
+		if r._done && (t-r.doneAt) > timeThreshold {
 			delete(f.records, hash)
 		}
 	}
@@ -172,7 +172,7 @@ func (f *filter) hold(hash types.Hash) bool {
 
 		r.inc()
 	} else {
-		f.records[hash] = &record{addAt: now}
+		f.records[hash] = &record{addAt: now, mark: 1}
 		return false
 	}
 

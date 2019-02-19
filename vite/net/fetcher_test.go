@@ -19,7 +19,7 @@ func TestFilter_Hold(t *testing.T) {
 
 	// first time, should not hold
 	if f.hold(hash) {
-		t.Fail()
+		t.Fatal("should not hold first time")
 	}
 
 	// should exist in map
@@ -29,7 +29,7 @@ func TestFilter_Hold(t *testing.T) {
 	}
 
 	// have`nt done, then hold 2*timeThreshold and maxMark*2 times
-	for i := 0; i < maxMark*2; i++ {
+	for i := 0; i < maxMark*2-1; i++ {
 		if !f.hold(hash) {
 			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
@@ -40,9 +40,10 @@ func TestFilter_Hold(t *testing.T) {
 	}
 
 	// have wait exceed 2 * timeThreshold and maxMark times from add
-	time.Sleep(time.Duration(2 * timeThreshold))
+	time.Sleep(2 * timeThreshold * time.Second)
 
-	if f.hold(hash) {
+	hold := f.hold(hash)
+	if hold {
 		t.Fatalf("should not hold, mark %d, elapse %d", r.mark, time.Now().Unix()-r.addAt)
 	}
 }
@@ -57,22 +58,22 @@ func TestFilter_Done(t *testing.T) {
 
 	// first time, should hold
 	if f.hold(hash) {
-		t.Fail()
+		t.Fatal("should not hold first time")
 	}
 
 	f.done(hash)
 
 	// task done, then hold maxMark times and timeThreshold
-	for i := 0; i < maxMark; i++ {
+	for i := 0; i < maxMark-1; i++ {
 		if !f.hold(hash) {
-			t.Fail()
+			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
 	}
 
 	// have done, then hold timeThreshold
-	time.Sleep(time.Duration(timeThreshold))
+	time.Sleep(timeThreshold * time.Second)
 	if f.hold(hash) {
-		t.Fail()
+		t.Fatal("should not hold")
 	}
 }
 
