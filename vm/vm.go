@@ -116,7 +116,7 @@ type VM struct {
 }
 
 func NewVM() *VM {
-	return &VM{i: simpleInterpreter}
+	return &VM{}
 }
 
 func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmAccountBlock, err error) {
@@ -170,11 +170,12 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
+	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height)
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			if !fork.IsSmartFork(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+			if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
 				return nil, NoRetry, errors.New("snapshot height not supported")
 			}
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
@@ -184,7 +185,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return vm.receiveRefund(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		if !fork.IsSmartFork(database.GetSnapshotBlockByHash(&block.SnapshotHash).Height) {
+		if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
 			return nil, NoRetry, errors.New("snapshot height not supported")
 		}
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
@@ -447,12 +448,6 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 		vm.revert(block)
 		refundFlag := false
-		// TODO
-		/*if fork.IsVite1(block.VmContext.GetSnapshotBlockByHash(&block.AccountBlock.SnapshotHash).Height) {
-			refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendRefund)
-		} else {
-			refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
-		}*/
 		refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
 		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 		vm.updateBlock(block, err, 0)

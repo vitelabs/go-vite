@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -28,13 +29,15 @@ func (p *MethodPledge) GetQuota(data []byte) (uint64, error) {
 func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Cmp(pledgeAmountMin) < 0 ||
 		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db, block.AccountAddress) ||
+		(fork.IsMintFork(db.CurrentSnapshotBlock().Height) && block.Amount.Cmp(pledgeAmountMin2) < 0) {
 		return errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
 	if err := cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, block.Data); err != nil {
 		return errors.New("invalid beneficial address")
 	}
+	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNamePledge, *beneficialAddr)
 	return nil
 }
 func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -93,6 +96,7 @@ func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledge
 	if param.Amount.Sign() == 0 {
 		return errors.New("cancel pledge amount is 0")
 	}
+	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNameCancelPledge, param.Beneficial, param.Amount)
 	return nil
 }
 
@@ -113,6 +117,9 @@ func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *le
 		return nil, errors.New("invalid pledge amount")
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
+	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) && oldBeneficial.Amount.Sign() != 0 && oldBeneficial.Amount.Cmp(pledgeAmountMin2) < 0 {
+		return nil, errors.New("invalid pledge amount")
+	}
 
 	if oldPledge.Amount.Sign() == 0 {
 		db.SetStorage(pledgeKey, nil)

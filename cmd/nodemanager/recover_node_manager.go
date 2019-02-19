@@ -18,6 +18,11 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	if err != nil {
 		return nil, err
 	}
+
+	// single mode
+	node.Config().Single = true
+	node.ViteConfig().Net.Single = true
+
 	return &RecoverNodeManager{
 		ctx:  ctx,
 		node: node,

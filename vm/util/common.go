@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
 	"time"
@@ -111,4 +112,9 @@ func IsUserAccount(db CommonDb, addr types.Address) bool {
 	}
 	_, code := GetContractCode(db, &addr)
 	return len(code) == 0
+}
+
+func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
+	topics, data, _ := c.PackEvent(name, params...)
+	return &ledger.VmLog{Topics: topics, Data: data}
 }

@@ -331,6 +331,10 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	return nil
 }
 
+func (context *VmContext) GetOriginalStorage(key []byte) []byte {
+	return context.trie.GetValue(key)
+}
+
 func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
@@ -382,7 +386,15 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
-		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
+		confirmedSnapshotBlock, err := context.chain.GetConfirmBlock(&firstBlock.Hash)
+		if err != nil {
+			panic(err)
+		}
+		if confirmedSnapshotBlock == nil {
+			return false
+		}
+
+		if confirmedSnapshotBlock.Height > 0 && confirmedSnapshotBlock.Height <= context.currentSnapshotBlock.Height {
 			return true
 		}
 		return false
@@ -398,6 +410,16 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	}
 
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
+	return accountBlock
+}
+func (context *VmContext) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+	// TODO
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetAccountBlockByHeight")
+		return nil
+	}
+
+	accountBlock, _ := context.chain.GetAccountBlockByHeight(addr, height)
 	return accountBlock
 }
 

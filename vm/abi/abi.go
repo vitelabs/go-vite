@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"io"
 )
 
@@ -70,6 +71,14 @@ func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, e
 		return nil, err
 	}
 	return arguments, nil
+}
+
+func (abi ABIContract) PackEvent(name string, args ...interface{}) ([]types.Hash, []byte, error) {
+	e, exist := abi.Events[name]
+	if !exist {
+		return nil, nil, fmt.Errorf("event '%s' not found", name)
+	}
+	return e.Pack(args...)
 }
 
 // UnpackMethod output in v according to the abi specification
