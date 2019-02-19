@@ -15,12 +15,12 @@ type Interpreter struct {
 
 var (
 	simpleInterpreter = &Interpreter{simpleInstructionSet}
-	limitInterpreter  = &Interpreter{limitInstructionSet}
+	mintInterpreter   = &Interpreter{mintInstructionSet}
 )
 
 func NewInterpreter(blockHeight uint64) *Interpreter {
 	if fork.IsMintFork(blockHeight) {
-		return limitInterpreter
+		return mintInterpreter
 	} else {
 		return simpleInterpreter
 	}

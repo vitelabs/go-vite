@@ -59,6 +59,9 @@ func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 		return nil, err
 	}
 	maxSupply, err := stringToBigInt(&param.MaxSupply)
+	if err != nil {
+		return nil, err
+	}
 	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
 }
 
@@ -124,17 +127,6 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 	return &TokenInfoList{listLen, tokenList[start:end]}, nil
 }
 
-func getRange(index, count, listLen int) (int, int) {
-	start := index * count
-	if start >= listLen {
-		return listLen, listLen
-	}
-	end := start + count
-	if end >= listLen {
-		return start, listLen
-	}
-	return start, end
-}
 func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
 	snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)

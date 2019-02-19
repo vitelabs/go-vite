@@ -31,10 +31,10 @@ type operation struct {
 
 var (
 	simpleInstructionSet = newSimpleInstructionSet()
-	limitInstructionSet  = newLimitInstructionSet()
+	mintInstructionSet   = newMintInstructionSet()
 )
 
-func newLimitInstructionSet() [256]operation {
+func newMintInstructionSet() [256]operation {
 	instructionSet := newSimpleInstructionSet()
 	instructionSet[ACCOUNTHEIGHT] = operation{
 		execute:       opAccountHeight,

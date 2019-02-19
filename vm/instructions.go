@@ -498,12 +498,12 @@ func opAccountHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *sta
 func opAccountHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	tmp := stack.pop()
 	height := tmp.Uint64()
-	currentHeight := c.block.AccountBlock.Height
-	minHeight := uint64(1)
+	currentHeight := c.block.VmContext.PrevAccountBlock().Height
+	minHeight := uint64(0)
 	if currentHeight > getAccountBlockByHeightLimit {
 		minHeight = currentHeight - getAccountBlockByHeightLimit
 	}
-	if height >= minHeight && height < currentHeight {
+	if height > minHeight && height <= currentHeight {
 		block := c.block.VmContext.GetAccountBlockByHeight(&c.block.AccountBlock.AccountAddress, height)
 		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
 	} else {

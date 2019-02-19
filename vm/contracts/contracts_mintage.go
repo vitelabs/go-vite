@@ -261,8 +261,6 @@ func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		param.TotalSupply,
 		param.Decimals,
 		sendBlock.AccountAddress,
-		sendBlock.Amount,
-		uint64(0),
 		param.IsReIssuable,
 		param.MaxSupply,
 		param.OwnerBurnOnly)
@@ -316,7 +314,7 @@ func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accou
 	}
 	tokenInfo := cabi.GetTokenById(db, param.TokenId)
 	if tokenInfo == nil || !tokenInfo.IsReIssuable || tokenInfo.Owner != block.AccountAddress ||
-		new(big.Int).Add(tokenInfo.MaxSupply, tokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
+		new(big.Int).Sub(tokenInfo.MaxSupply, tokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameIssue, param.TokenId, param.Amount, param.Beneficial)
@@ -327,7 +325,7 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameIssue, sendBlock.Data)
 	oldTokenInfo := cabi.GetTokenById(db, param.TokenId)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != sendBlock.AccountAddress ||
-		new(big.Int).Add(oldTokenInfo.MaxSupply, oldTokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
+		new(big.Int).Sub(oldTokenInfo.MaxSupply, oldTokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 	newTokenInfo, _ := cabi.ABIMintage.PackVariable(
@@ -337,8 +335,6 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 		oldTokenInfo.TotalSupply.Add(oldTokenInfo.TotalSupply, param.Amount),
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
-		oldTokenInfo.PledgeAmount,
-		oldTokenInfo.WithdrawHeight,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -400,8 +396,6 @@ func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		oldTokenInfo.TotalSupply.Sub(oldTokenInfo.TotalSupply, sendBlock.Amount),
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
-		oldTokenInfo.PledgeAmount,
-		oldTokenInfo.WithdrawHeight,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -463,8 +457,6 @@ func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *l
 		oldTokenInfo.TotalSupply,
 		oldTokenInfo.Decimals,
 		param.NewOwner,
-		oldTokenInfo.PledgeAmount,
-		oldTokenInfo.WithdrawHeight,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -529,8 +521,6 @@ func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block 
 		oldTokenInfo.TotalSupply,
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
-		oldTokenInfo.PledgeAmount,
-		oldTokenInfo.WithdrawHeight,
 		false,
 		helper.Big0,
 		false)

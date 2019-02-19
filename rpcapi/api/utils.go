@@ -119,3 +119,15 @@ const (
 func getWithdrawTime(snapshotTime *time.Time, snapshotHeight uint64, withdrawHeight uint64) int64 {
 	return snapshotTime.Unix() + int64(withdrawHeight-snapshotHeight)*secondBetweenSnapshotBlocks
 }
+
+func getRange(index, count, listLen int) (int, int) {
+	start := index * count
+	if start >= listLen {
+		return listLen, listLen
+	}
+	end := start + count
+	if end >= listLen {
+		return start, listLen
+	}
+	return start, end
+}
