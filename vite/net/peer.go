@@ -1,12 +1,13 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	net2 "net"
 	"sort"
 	"strconv"
 	"sync"
-	"errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -14,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
-
-const filterCap = 10000
 
 var errDiffGesis = errors.New("different genesis block")
 
@@ -40,15 +39,15 @@ type Peer interface {
 
 type peer struct {
 	*p2p.Peer
-	mrw      *p2p.ProtoFrame
-	id       string
-	head     types.Hash // hash of the top snapshotblock in snapshotchain
-	height   uint64     // height of the snapshotchain
-	filePort uint16     // fileServer port, for request file
-	CmdSet   p2p.CmdSet // which cmdSet it belongs
+	mrw         *p2p.ProtoFrame
+	id          string
+	head        types.Hash // hash of the top snapshotblock in snapshotchain
+	height      uint64     // height of the snapshotchain
+	filePort    uint16     // fileServer port, for request file
+	CmdSet      p2p.CmdSet // which cmdSet it belongs
 	knownBlocks blockFilter
-	errChan chan error
-	once    sync.Once
+	errChan     chan error
+	once        sync.Once
 
 	log log15.Logger
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/tylertreat/BoomFilters"
 )
 
+const filterCap = 100000
 const rt = 0.0001
 
 type blockFilter interface {
