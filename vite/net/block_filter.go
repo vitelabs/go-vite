@@ -3,8 +3,10 @@ package net
 import (
 	"sync"
 
-	"github.com/jerry-vite/cuckoofilter"
+	"github.com/tylertreat/BoomFilters"
 )
+
+const rt = 0.0001
 
 type blockFilter interface {
 	has(b []byte) bool
@@ -14,12 +16,16 @@ type blockFilter interface {
 
 type defBlockFilter struct {
 	rw   sync.RWMutex
-	pool *cuckoo.Filter
+	pool *boom.CountingBloomFilter
+	cp   uint
+	th   uint
 }
 
-func newBlockFilter(cap uint) blockFilter {
+func newBlockFilter(cp uint) blockFilter {
 	return &defBlockFilter{
-		pool: cuckoo.NewFilter(cap),
+		pool: boom.NewDefaultCountingBloomFilter(cp, rt),
+		cp:   cp,
+		th:   cp * 9 / 10,
 	}
 }
 
@@ -27,7 +33,7 @@ func (d *defBlockFilter) has(b []byte) bool {
 	d.rw.RLock()
 	defer d.rw.RUnlock()
 
-	return d.pool.Lookup(b)
+	return d.pool.Test(b)
 }
 
 func (d *defBlockFilter) record(b []byte) {
@@ -38,18 +44,18 @@ func (d *defBlockFilter) record(b []byte) {
 }
 
 func (d *defBlockFilter) recordLocked(b []byte) {
-	success := d.pool.Insert(b)
-	if !success {
+	if d.pool.Count() > d.th {
 		d.pool.Reset()
-		d.pool.Insert(b)
 	}
+
+	d.pool.Add(b)
 }
 
 func (d *defBlockFilter) lookAndRecord(b []byte) bool {
 	d.rw.Lock()
 	defer d.rw.Unlock()
 
-	ok := d.pool.Lookup(b)
+	ok := d.pool.Test(b)
 	if ok {
 		return ok
 	}
