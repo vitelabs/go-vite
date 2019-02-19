@@ -207,7 +207,7 @@ func (db *testDatabase) GetGid() *types.Gid {
 	return nil
 }
 func (db *testDatabase) Address() *types.Address {
-	return nil
+	return &db.addr
 }
 func (db *testDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[len(db.snapshotBlockList)-1]

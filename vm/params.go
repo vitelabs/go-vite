@@ -55,6 +55,7 @@ const (
 
 	MaxCodeSize         = 24575 // Maximum bytecode to permit for a contract
 	outOfQuotaRetryTime = 2     // Retry 3 times when a contract receive block runs out of quota
+	offChainReaderGas   = 1000000
 )
 
 var (
