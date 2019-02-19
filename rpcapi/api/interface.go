@@ -236,8 +236,8 @@ func convertToFixedBytes(param string, size int) (interface{}, error) {
 	if len(param) != size*2 {
 		return nil, errors.New(param + " is not valid bytes")
 	}
-	return hex.DecodeString(param[:])
+	return hex.DecodeString(param)
 }
 func convertToDynamicBytes(param string) (interface{}, error) {
-	return hex.DecodeString(param[:])
+	return hex.DecodeString(param)
 }

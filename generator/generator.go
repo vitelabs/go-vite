@@ -120,7 +120,7 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc Sig
 }
 
 func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, producer types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
-	gen.log.Info("generateBlock", "BlockType", block.BlockType)
+	var oLog = gen.log.New("method", "generateBlock")
 	defer func() {
 		if err := recover(); err != nil {
 			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
@@ -128,7 +128,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
 			}
 
-			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
+			oLog.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
 
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
@@ -149,6 +149,11 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 					v.AccountBlock.PublicKey = publicKey
 				}
 			} else {
+				if v.AccountBlock.Height != blockList[k-1].AccountBlock.Height+1 {
+					oLog.Error(fmt.Sprintf("recv(%v,%v), vmsend[%v]=%v",
+						blockList[0].AccountBlock.Hash, blockList[0].AccountBlock.Height, k-1, v.AccountBlock.Height), "err", "vm result height conflict")
+					v.AccountBlock.Height = blockList[k-1].AccountBlock.Height + 1
+				}
 				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
 				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
 			}
@@ -161,7 +166,6 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 		Err:          err,
 	}, nil
 }
-
 
 func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
 	latestBlock := gen.vmContext.PrevAccountBlock()

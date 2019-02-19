@@ -6,8 +6,6 @@ import (
 
 	"math/rand"
 
-	"fmt"
-
 	"encoding/base64"
 
 	"github.com/pkg/errors"
@@ -104,28 +102,28 @@ func (self *accountPool) Compact() int {
 		defer self.compactLock.UnLock()
 	}
 
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type,%+v", err)
-			}
-
-			self.log.Warn("Compact start recover.", "err", err, "withstack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("Compact end recover.")
-			self.pool.RLock()
-			defer self.pool.RUnLock()
-			self.rMu.Lock()
-			defer self.rMu.Unlock()
-			self.initPool()
-		}
-	}()
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		var e error
+	//		switch t := err.(type) {
+	//		case error:
+	//			e = errors.WithStack(t)
+	//		case string:
+	//			e = errors.New(t)
+	//		default:
+	//			e = errors.Errorf("unknown type,%+v", err)
+	//		}
+	//
+	//		self.log.Warn("Compact start recover.", "err", err, "withstack", fmt.Sprintf("%+v", e))
+	//		fmt.Printf("%+v", e)
+	//		defer self.log.Warn("Compact end recover.")
+	//		self.pool.RLock()
+	//		defer self.pool.RUnLock()
+	//		self.rMu.Lock()
+	//		defer self.rMu.Unlock()
+	//		self.initPool()
+	//	}
+	//}()
 
 	defer monitor.LogTime("pool", "accountCompact", time.Now())
 	self.pool.RLock()
@@ -220,24 +218,24 @@ func (self *accountPool) tryInsert() verifyTask {
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
-	// recover logic
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type, %+v", err)
-			}
-			self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("tryInsert end recover.")
-			self.initPool()
-		}
-	}()
+	//// recover logic
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		var e error
+	//		switch t := err.(type) {
+	//		case error:
+	//			e = errors.WithStack(t)
+	//		case string:
+	//			e = errors.New(t)
+	//		default:
+	//			e = errors.Errorf("unknown type, %+v", err)
+	//		}
+	//		self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
+	//		fmt.Printf("%+v", e)
+	//		defer self.log.Warn("tryInsert end recover.")
+	//		self.initPool()
+	//	}
+	//}()
 
 	cp := self.chainpool
 	current := cp.current

@@ -27,11 +27,21 @@ var (
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 
-	PrecompiledContractAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractAddressList             = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractWithoutQuotaAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 
 func IsPrecompiledContractAddress(addr Address) bool {
 	for _, cAddr := range PrecompiledContractAddressList {
+		if cAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+func IsPrecompiledContractWithoutQuotaAddress(addr Address) bool {
+	for _, cAddr := range PrecompiledContractWithoutQuotaAddressList {
 		if cAddr == addr {
 			return true
 		}

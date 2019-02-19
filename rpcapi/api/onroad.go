@@ -122,6 +122,9 @@ func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccou
 }
 
 func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
+	onroadInfo.Mutex.RLock()
+	defer onroadInfo.Mutex.RUnlock()
+
 	var r RpcAccountInfo
 	r.AccountAddress = *onroadInfo.AccountAddress
 	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
@@ -140,4 +143,8 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 		}
 	}
 	return &r
+}
+
+func (o PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {
+	return o.manager.DbAccess().GetContractAddrListByGid(&gid)
 }

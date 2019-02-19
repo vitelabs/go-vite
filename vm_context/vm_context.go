@@ -382,7 +382,15 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
-		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
+		confirmedSnapshotBlock, err := context.chain.GetConfirmBlock(&firstBlock.Hash)
+		if err != nil {
+			panic(err)
+		}
+		if confirmedSnapshotBlock == nil {
+			return false
+		}
+
+		if confirmedSnapshotBlock.Height > 0 && confirmedSnapshotBlock.Height <= context.currentSnapshotBlock.Height {
 			return true
 		}
 		return false

@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"encoding/base64"
 	"testing"
 
 	ch "github.com/vitelabs/go-vite/chain"
@@ -173,4 +174,14 @@ func TestPool_Lock(t *testing.T) {
 	}
 	p.UnLock()
 
+}
+
+func TestAddress(t *testing.T) {
+	bytes, e := base64.StdEncoding.DecodeString("jbqarcyPTcv32/E+CHrdXQKjQNQlgOIOOS0l7cOp47A=")
+	if e != nil {
+		t.Fatal(e)
+	}
+	address := types.PubkeyToAddress(bytes)
+
+	t.Log(address)
 }
