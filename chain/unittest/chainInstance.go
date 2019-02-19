@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
@@ -32,8 +31,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 		forkPoints.Mint = &config.ForkPoint{}
 	}
 	if forkPoints.Mint.Height == 0 {
-		// TODO
-		forkPoints.Mint.Height = helper.MaxUint64
+		forkPoints.Mint.Height = 9473361
 	}
 
 	return forkPoints
