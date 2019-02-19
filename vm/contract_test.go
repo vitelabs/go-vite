@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 )
@@ -44,8 +43,10 @@ func TestRun(t *testing.T) {
 			ToAddress:      types.Address{},
 			BlockType:      ledger.BlockTypeReceive,
 		}
+		db := NewNoDatabase()
 		c := newContract(
-			&vm_context.VmAccountBlock{receiveCallBlock, NewNoDatabase()},
+			receiveCallBlock,
+			db,
 			&sendCallBlock,
 			sendCallBlock.Data,
 			1000000,
