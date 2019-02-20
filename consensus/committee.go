@@ -54,6 +54,7 @@ func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
+
 func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	info := self.rw.GetMemberInfo(gid, self.genesis)
 	if info == nil {

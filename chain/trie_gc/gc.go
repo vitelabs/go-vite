@@ -1,6 +1,7 @@
 package trie_gc
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/log15"
 	"math/rand"
 	"sync"
@@ -28,7 +29,8 @@ type collector struct {
 
 	chain Chain
 
-	log log15.Logger
+	ledgerGcRetain uint64
+	log            log15.Logger
 
 	marker *Marker
 }
@@ -45,6 +47,51 @@ func NewCollector(chain Chain, ledgerGcRetain uint64) Collector {
 	}
 
 	return gc
+}
+
+func (gc *collector) Check() (bool, error) {
+	checkSnapshotBlockNum := gc.marker.RetainSnapshotHeight()
+	const (
+		numPerCheck = 100
+	)
+
+	latestSnapshotBlock := gc.chain.GetLatestSnapshotBlock()
+	startSnapshotBlockHeight := uint64(1)
+
+	if latestSnapshotBlock.Height > checkSnapshotBlockNum {
+		startSnapshotBlockHeight = latestSnapshotBlock.Height - checkSnapshotBlockNum + 1
+	}
+
+	fmt.Printf("check from %d to %d\n", startSnapshotBlockHeight, latestSnapshotBlock.Height)
+
+	current := startSnapshotBlockHeight
+
+	for current <= latestSnapshotBlock.Height {
+		next := current + numPerCheck
+
+		if next > latestSnapshotBlock.Height {
+			next = latestSnapshotBlock.Height
+		}
+		count := next - current + 1
+		sbList, err := gc.chain.GetSnapshotBlocksByHeight(current, count, true, false)
+		if err != nil {
+			return false, err
+		}
+
+		for _, sb := range sbList {
+			result, err := gc.chain.ShallowCheckStateTrie(&sb.StateHash)
+			if err != nil {
+				return false, err
+			}
+			if !result {
+				return false, nil
+			}
+		}
+
+		current = next + 1
+	}
+
+	return true, nil
 }
 
 func (gc *collector) randomCheckInterval() time.Duration {

@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/index"
@@ -337,9 +338,16 @@ func (c *chain) Start() {
 		}
 	}
 
+	// check trie
+	if result, err := c.TrieGc().Check(); err != nil {
+		panic(errors.New("c.TrieGc().Check() failed when start chain, error is " + err.Error()))
+	} else if !result {
+		c.TrieGc().Recover()
+	}
+
 	// trie gc
 	if c.cfg.LedgerGc {
-		c.trieGc.Start()
+		c.TrieGc().Start()
 	}
 
 	// start build filter token index
@@ -363,7 +371,7 @@ func (c *chain) Stop() {
 
 	// trie gc
 	if c.cfg.LedgerGc {
-		c.trieGc.Stop()
+		c.TrieGc().Stop()
 	}
 	// Stop compress
 	c.log.Info("Stop chain module")
