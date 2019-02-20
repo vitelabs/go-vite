@@ -321,8 +321,6 @@ func (c *chain) Start() {
 	// Start compress in the background
 	c.log.Info("Start chain module")
 
-	c.DeleteSnapshotBlocksToHeight(352900)
-
 	// check
 	c.checkAndInitData()
 
