@@ -22,8 +22,11 @@ func (p *MethodRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Ac
 func (p *MethodRegister) GetRefundData() []byte {
 	return []byte{1}
 }
-func (p *MethodRegister) GetQuota(data []byte) (uint64, error) {
+func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 	return RegisterGas, nil
+}
+func (p *MethodRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
@@ -127,8 +130,11 @@ func (p *MethodCancelRegister) GetFee(db vmctxt_interface.VmDatabase, block *led
 func (p *MethodCancelRegister) GetRefundData() []byte {
 	return []byte{2}
 }
-func (p *MethodCancelRegister) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 	return CancelRegisterGas, nil
+}
+func (p *MethodCancelRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
@@ -203,13 +209,16 @@ func (p *MethodReward) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Acco
 func (p *MethodReward) GetRefundData() []byte {
 	return []byte{3}
 }
-func (p *MethodReward) GetQuota(data []byte) (uint64, error) {
+func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 	return RewardGas, nil
+}
+func (p *MethodReward) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	sendQuota, _ := p.GetQuota(nil)
+	sendQuota, _ := p.GetSendQuota(nil)
 	quotaLeft, err := util.UseQuota(quotaLeft, sendQuota)
 	if err != nil {
 		return quotaLeft, err
@@ -409,8 +418,11 @@ func (p *MethodUpdateRegistration) GetFee(db vmctxt_interface.VmDatabase, block 
 func (p *MethodUpdateRegistration) GetRefundData() []byte {
 	return []byte{4}
 }
-func (p *MethodUpdateRegistration) GetQuota(data []byte) (uint64, error) {
+func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 	return UpdateRegistrationGas, nil
+}
+func (p *MethodUpdateRegistration) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // update registration info

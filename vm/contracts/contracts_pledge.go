@@ -20,8 +20,11 @@ func (p *MethodPledge) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodPledge) GetQuota(data []byte) (uint64, error) {
+func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
 	return PledgeGas, nil
+}
+func (p *MethodPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // pledge ViteToken for a beneficial to get quota
@@ -76,8 +79,11 @@ func (p *MethodCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodCancelPledge) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return CancelPledgeGas, nil
+}
+func (p *MethodCancelPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // cancel pledge ViteToken

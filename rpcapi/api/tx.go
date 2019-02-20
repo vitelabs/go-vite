@@ -187,7 +187,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, 
 			if method, ok, err := vm.GetPrecompiledContract(*param.ToAddr, param.Data); !ok || err != nil {
 				return "", errors.New("precompiled contract method not exists")
 			} else {
-				quotaRequired, err = method.GetQuota(param.Data)
+				quotaRequired, err = method.GetSendQuota(param.Data)
 				if err != nil {
 					return "", err
 				}

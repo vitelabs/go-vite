@@ -29,10 +29,12 @@ func (p *MethodMintage) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodMintage) GetQuota(data []byte) (uint64, error) {
+func (p *MethodMintage) GetSendQuota(data []byte) (uint64, error) {
 	return MintageGas, nil
 }
-
+func (p *MethodMintage) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	param := new(cabi.ParamMintage)
 	err := cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMintage, block.Data)
@@ -122,10 +124,12 @@ func (p *MethodMintageCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodMintageCancelPledge) GetQuota(data []byte) (uint64, error) {
+func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return MintageCancelPledgeGas, nil
 }
-
+func (p *MethodMintageCancelPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return errors.New("invalid block data")
