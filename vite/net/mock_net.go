@@ -13,8 +13,8 @@ type mockNet struct {
 	*syncer
 	*fetcher
 	*broadcaster
-	*blockFeed
 	chain Chain
+	BlockSubscriber
 }
 
 func (n *mockNet) AddPlugin(plugin p2p.Plugin) {
@@ -38,36 +38,41 @@ func mock(cfg *Config) Net {
 
 	feed := newBlockFeeder()
 
+	syncer := &syncer{
+		from:      0,
+		to:        0,
+		current:   0,
+		aCount:    0,
+		sCount:    0,
+		state:     Syncdone,
+		peers:     peers,
+		pending:   0,
+		responsed: 0,
+		mu:        sync.Mutex{},
+		fileMap:   make(map[filename]*fileRecord),
+		chain:     cfg.Chain,
+		eventChan: make(chan peerEvent),
+		verifier:  cfg.Verifier,
+		notifier:  feed,
+		fc:        nil,
+		pool:      nil,
+		exec:      nil,
+		curSubId:  0,
+		subs:      make(map[int]SyncStateCallback),
+		running:   1,
+		term:      make(chan struct{}),
+		log:       log15.New("module", "net/syncer"),
+	}
+	syncer.exec = newExecutor(syncer)
+	syncer.fc = newFileClient(cfg.Chain, syncer, peers)
+	syncer.pool = newChunkPool(peers, new(gid), syncer)
+
 	return &mockNet{
 		Config: &Config{
 			Single: true,
 		},
-		chain: cfg.Chain,
-		syncer: &syncer{
-			from:      0,
-			to:        0,
-			current:   0,
-			aCount:    0,
-			sCount:    0,
-			state:     Syncdone,
-			peers:     peers,
-			pending:   0,
-			responsed: 0,
-			mu:        sync.Mutex{},
-			fileMap:   make(map[filename]*fileRecord),
-			chain:     cfg.Chain,
-			eventChan: make(chan peerEvent),
-			verifier:  cfg.Verifier,
-			notifier:  newBlockFeeder(),
-			fc:        nil,
-			pool:      &chunkPool{},
-			exec:      nil,
-			curSubId:  0,
-			subs:      make(map[int]SyncStateCallback),
-			running:   1,
-			term:      make(chan struct{}),
-			log:       log15.New("module", "net/syncer"),
-		},
+		chain:  cfg.Chain,
+		syncer: syncer,
 		fetcher: &fetcher{
 			policy: &fp{peers},
 			pool:   pool,
@@ -83,5 +88,6 @@ func mock(cfg *Config) Net {
 			statis:   circle.NewList(records_24),
 			log:      log15.New("module", "mocknet/broadcaster"),
 		},
+		BlockSubscriber: feed,
 	}
 }
