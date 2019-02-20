@@ -14,6 +14,7 @@ type Collector interface {
 	Start()
 	Stop()
 	Status() uint8
+	Check() (bool, error)
 	Recover() (returnErr error)
 }
 
@@ -35,6 +36,7 @@ type Chain interface {
 	TrieDb() *leveldb.DB
 	CleanTrieNodePool()
 	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
+	ShallowCheckStateTrie(stateHash *types.Hash) (bool, error)
 
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 	IsGenesisAccountBlock(block *ledger.AccountBlock) bool

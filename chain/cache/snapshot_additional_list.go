@@ -459,7 +459,8 @@ func (al *AdditionList) DeleteStartWith(block *ledger.SnapshotBlock) error {
 
 	index := al.getIndexByHeight(block.Height)
 	if index < 0 {
-		return errors.New(fmt.Sprintf("Can't find block, block hash is %s, block height is %d", block.Hash, block.Height))
+		//  errors.New(fmt.Sprintf("Can't find block, block hash is %s, block height is %d", block.Hash, block.Height))
+		return nil
 	}
 	ai := al.list[index]
 	if ai.SnapshotHashHeight.Hash != block.Hash {
