@@ -68,7 +68,7 @@ func New(cfg *Config) Net {
 		syncer:          syncer,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
-		fs:              newFileServer(cfg.FileAddress, cfg.Chain.Compressor()),
+		fs:              newFileServer(cfg.FileAddress, cfg.Chain),
 		handlers:        make(map[ViteCmd]MsgHandler),
 		log:             netLog,
 	}
