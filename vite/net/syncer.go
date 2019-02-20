@@ -137,7 +137,7 @@ func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, noti
 	}
 
 	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain.Compressor(), s, peers)
+	fc := newFileClient(chain, s, peers)
 	s.exec = newExecutor(s)
 
 	s.pool = pool

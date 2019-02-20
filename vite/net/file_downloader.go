@@ -453,7 +453,7 @@ type peerId = string
 type fileClient struct {
 	fqueue asyncFileTasks // wait to download
 
-	parser fileParser
+	chain Chain
 
 	rec blockReceiver
 
@@ -473,9 +473,9 @@ type fileClient struct {
 	log log15.Logger
 }
 
-func newFileClient(parser fileParser, rec blockReceiver, peers *peerSet) *fileClient {
+func newFileClient(chain Chain, rec blockReceiver, peers *peerSet) *fileClient {
 	return &fileClient{
-		parser:  parser,
+		chain:   chain,
 		peers:   peers,
 		pool:    newPool(),
 		dialer:  &net2.Dialer{Timeout: 5 * time.Second},
@@ -660,7 +660,7 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 		return nil, err
 	}
 
-	c = newFileConn(tcp, p.id, fc.parser, fc.log)
+	c = newFileConn(tcp, p.id, fc.chain.Compressor(), fc.log)
 
 	err = fc.pool.addConn(c)
 	if err != nil {

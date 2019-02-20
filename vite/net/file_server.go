@@ -35,18 +35,18 @@ type fileServer struct {
 	ln      net2.Listener
 	mu      sync.Mutex
 	conns   map[string]net2.Conn // key is addr
-	reader  fileReader
+	chain   Chain
 	running int32
 	wg      sync.WaitGroup
 	log     log15.Logger
 }
 
-func newFileServer(addr string, reader fileReader) *fileServer {
+func newFileServer(addr string, chain Chain) *fileServer {
 	return &fileServer{
-		addr:   addr,
-		conns:  make(map[string]net2.Conn),
-		reader: reader,
-		log:    log15.New("module", "net/fileServer"),
+		addr:  addr,
+		conns: make(map[string]net2.Conn),
+		chain: chain,
+		log:   log15.New("module", "net/fileServer"),
 	}
 }
 
@@ -165,7 +165,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 
 		for _, name := range req.Names {
 			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-			_, err = io.Copy(conn, s.reader.FileReader(name))
+			_, err = io.Copy(conn, s.chain.Compressor().FileReader(name))
 
 			if err != nil {
 				s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", name, conn.RemoteAddr(), err))
