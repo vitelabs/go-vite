@@ -61,6 +61,13 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	}
 	fmt.Printf("Delete to %d successed!\n", deleteToHeight)
 
+	fmt.Printf("Rebuild data...\n")
+	if err := c.TrieGc().Recover(); err != nil {
+		fmt.Errorf("Rebuild data failed! error is %s\n", err.Error())
+	} else {
+		fmt.Printf("Rebuild data successed!\n")
+	}
+
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	return nil
 }
