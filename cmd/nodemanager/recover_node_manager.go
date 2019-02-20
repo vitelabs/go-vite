@@ -25,6 +25,10 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	node.Config().Single = true
 	node.ViteConfig().Net.Single = true
 
+	// no miner
+	node.Config().MinerEnabled = false
+	node.ViteConfig().Producer.Producer = false
+
 	return &RecoverNodeManager{
 		ctx:  ctx,
 		node: node,
