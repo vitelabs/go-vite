@@ -33,13 +33,27 @@ type target struct {
 type Finder interface {
 	Start(p2p p2p.Server) error
 	Stop()
-	Info() *Info
+	Info() Info
 	SetListener(listener Listener)
 }
 
 type Info struct {
-	Addr string
-	SBPS []string
+	Addr   string
+	SBPS   []string
+	SPeers Peers
+}
+
+type Peers struct {
+	Total  int
+	Sbps   int
+	Detail []Peer
+}
+
+type Peer struct {
+	ID      string
+	NetAddr string
+	Address string
+	SBP     bool
 }
 
 type Listener interface {
@@ -51,7 +65,10 @@ type Listener interface {
 type finder struct {
 	self     types.Address
 	informer Informer
-	nodes    sync.Map
+
+	nodes      sync.Map // addr: target  all nodes
+	sbpTargets sync.Map // id: target  sbps
+
 	nodeChan chan *discovery.Node
 	p2p      p2p.Server
 	term     chan struct{}
@@ -63,10 +80,39 @@ func (f *finder) SetListener(listener Listener) {
 	f.listener = listener
 }
 
-func (f *finder) Info() *Info {
-	return &Info{
-		Addr: f.self.String(),
-		SBPS: []string{},
+func (f *finder) Info() Info {
+	var p2pPeers = f.p2p.Peers()
+
+	total := len(p2pPeers)
+	var speers = Peers{
+		Total:  total,
+		Detail: make([]Peer, 0, total),
+	}
+
+	for _, peer := range p2pPeers {
+		// is sbp
+		if v, ok := f.sbpTargets.Load(peer.ID); ok {
+			if tgt, ok := v.(target); ok {
+				speers.Detail = append(speers.Detail, Peer{
+					ID:      tgt.id.String(),
+					NetAddr: tgt.tcp.String(),
+					Address: tgt.address.String(),
+					SBP:     true,
+				})
+			}
+		} else {
+			speers.Detail = append(speers.Detail, Peer{
+				ID:      peer.ID,
+				NetAddr: peer.Address,
+				SBP:     false,
+			})
+		}
+	}
+
+	return Info{
+		Addr:   f.self.String(),
+		SBPS:   []string{},
+		SPeers: speers,
 	}
 }
 
@@ -132,14 +178,16 @@ func (f *finder) connect(addrs []types.Address) {
 		return
 	}
 
-	var node *target
+	var node target
 	for _, addr := range addrs {
 		if addr == f.self {
 			continue
 		}
 
 		if v, ok := f.nodes.Load(addr); ok {
-			if node, ok = v.(*target); ok {
+			if node, ok = v.(target); ok {
+				f.sbpTargets.Store(node.id, node)
+
 				f.p2p.Connect(node.id, node.tcp)
 				if f.listener != nil {
 					f.listener.ConnectCallback(addr, node.id)
