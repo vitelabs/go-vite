@@ -292,13 +292,23 @@ func (n *net) handleMsg(p *peer) (err error) {
 	return nil
 }
 
-func (n *net) Info() *NodeInfo {
+func (n *net) Info() NodeInfo {
 	peersInfo := n.peers.Info()
 
-	return &NodeInfo{
+	var plugins []interface{}
+	for _, plg := range n.plugins {
+		plugins = append(plugins, plg.Info())
+	}
+
+	return NodeInfo{
 		PeerCount: len(peersInfo),
 		Peers:     peersInfo,
 		Latency:   n.broadcaster.Statistic(),
+		// MsgSend:      send,
+		// MsgReceived:  received,
+		// MsgHandled:   handled,
+		// MsgDiscarded: discarded,
+		Plugins: plugins,
 	}
 }
 
@@ -306,6 +316,7 @@ type NodeInfo struct {
 	PeerCount int         `json:"peerCount"`
 	Peers     []*PeerInfo `json:"peers"`
 	Latency   []int64     `json:"latency"` // [0,1,12,24]
+	Plugins   []interface{}
 }
 
 type Task struct {

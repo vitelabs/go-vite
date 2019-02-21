@@ -50,7 +50,7 @@ func (n *NetApi) SyncDetail() net.SyncDetail {
 	return n.net.Detail()
 }
 
-func (n *NetApi) Peers() *net.NodeInfo {
+func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 
