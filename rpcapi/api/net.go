@@ -46,7 +46,7 @@ func (n *NetApi) SyncInfo() *SyncInfo {
 	}
 }
 
-func (n *NetApi) Peers() *net.NodeInfo {
+func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 

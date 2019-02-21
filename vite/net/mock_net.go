@@ -18,8 +18,8 @@ type mockNet struct {
 func (n *mockNet) AddPlugin(plugin p2p.Plugin) {
 }
 
-func (n *mockNet) Info() *NodeInfo {
-	return &NodeInfo{}
+func (n *mockNet) Info() NodeInfo {
+	return NodeInfo{}
 }
 
 func (n *mockNet) Protocols() []*p2p.Protocol {

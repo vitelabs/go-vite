@@ -130,7 +130,7 @@ type Net interface {
 	Protocols() []*p2p.Protocol
 	Start(svr p2p.Server) error
 	Stop()
-	Info() *NodeInfo
+	Info() NodeInfo
 	Tasks() []*Task
 	AddPlugin(plugin p2p.Plugin)
 }
