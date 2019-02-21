@@ -186,7 +186,7 @@ func (f *finder) connect(addrs []types.Address) {
 
 		if v, ok := f.nodes.Load(addr); ok {
 			if node, ok = v.(target); ok {
-				f.sbpTargets.Store(node.id, node)
+				f.sbpTargets.Store(node.id.String(), node)
 
 				f.p2p.Connect(node.id, node.tcp)
 				if f.listener != nil {
