@@ -1,16 +1,17 @@
 package compress
 
 import (
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const (
@@ -94,7 +95,7 @@ func (c *Compressor) Indexer() *Indexer {
 	return c.indexer
 }
 
-func (c *Compressor) FileReader(filename string) io.ReadCloser {
+func (c *Compressor) FileReader(filename string) (io.ReadCloser, error) {
 	return NewFileReader(path.Join(c.dir, filename))
 }
 
