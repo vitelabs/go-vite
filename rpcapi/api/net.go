@@ -58,3 +58,7 @@ func (n *NetApi) PeersCount() uint {
 func (n *NetApi) Nodes() []string {
 	return n.p2p.Nodes()
 }
+
+func (n *NetApi) NodeInfo() p2p.NodeInfo {
+	return n.p2p.NodeInfo()
+}

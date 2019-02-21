@@ -33,7 +33,7 @@ type target struct {
 type Finder interface {
 	Start(p2p p2p.Server) error
 	Stop()
-	Info() Info
+	Info() interface{}
 	SetListener(listener Listener)
 }
 
@@ -80,7 +80,7 @@ func (f *finder) SetListener(listener Listener) {
 	f.listener = listener
 }
 
-func (f *finder) Info() Info {
+func (f *finder) Info() interface{} {
 	var p2pPeers = f.p2p.Peers()
 
 	total := len(p2pPeers)
