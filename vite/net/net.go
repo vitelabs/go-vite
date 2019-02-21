@@ -371,7 +371,7 @@ type NodeInfo struct {
 	// MsgReceived  uint64      `json:"msgReceived"`
 	// MsgHandled   uint64      `json:"msgHandled"`
 	// MsgDiscarded uint64      `json:"msgDiscarded"`
-	Plugins []interface{}
+	Plugins []interface{} `json:"plugins"`
 }
 
 type Task struct {
