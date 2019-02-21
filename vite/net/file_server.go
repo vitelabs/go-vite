@@ -23,7 +23,7 @@ var errFileServerIsRunning = errors.New("file server is running")
 var errFileServerNotRunning = errors.New("file server is not running")
 
 type fileReader interface {
-	FileReader(filename string) io.ReadCloser
+	FileReader(filename string) (io.ReadCloser, error)
 }
 
 type FileServerStatus struct {
@@ -165,7 +165,13 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 
 		for _, name := range req.Names {
 			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-			_, err = io.Copy(conn, s.chain.Compressor().FileReader(name))
+			reader, err := s.chain.Compressor().FileReader(name)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("read file %s to %s error: %v", name, conn.RemoteAddr(), err))
+				return
+			}
+
+			_, err = io.Copy(conn, reader)
 
 			if err != nil {
 				s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", name, conn.RemoteAddr(), err))
