@@ -18,6 +18,11 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	if err != nil {
 		return nil, err
 	}
+
+	// single mode
+	node.Config().Single = true
+	node.ViteConfig().Net.Single = true
+
 	return &RecoverNodeManager{
 		ctx:  ctx,
 		node: node,
@@ -55,6 +60,13 @@ func (nodeManager *RecoverNodeManager) Start() error {
 		return err
 	}
 	fmt.Printf("Delete to %d successed!\n", deleteToHeight)
+
+	fmt.Printf("Rebuild data...\n")
+	if err := c.TrieGc().Recover(); err != nil {
+		fmt.Errorf("Rebuild data failed! error is %s\n", err.Error())
+	} else {
+		fmt.Printf("Rebuild data successed!\n")
+	}
 
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	return nil

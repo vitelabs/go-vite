@@ -11,5 +11,4 @@ import (
 func main() {
 	govite.PrintBuildVersion()
 	gvite_plugins.Loading()
-
 }
