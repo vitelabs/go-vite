@@ -15,8 +15,16 @@ import (
 type FilterType byte
 
 const (
+	// UnknownSubscription indicates an unknown subscription type
 	UnknownSubscription FilterType = iota
+	// ConfirmedLogsSubscription queries for new or removed(snapshot chain fork) logs contained in snapshot blocks
+	ConfirmedLogsSubscription
+	// LogsSubscription queries for new or removed logs(account chain fork) contained in account blocks
 	LogsSubscription
+	//
+
+	// LastIndexSubscription keeps track of the last index
+	LastIndexSubscription
 	// TODO other types
 )
 
