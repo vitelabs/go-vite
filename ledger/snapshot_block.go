@@ -79,7 +79,28 @@ type SnapshotBlock struct {
 	StateHash types.Hash `json:"stateHash"`
 	StateTrie *trie.Trie `json:"-"`
 
+	Seed            uint64
+	SeedHash        *types.Hash
 	SnapshotContent SnapshotContent `json:"snapshotContent"`
+}
+
+func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) types.Hash {
+	var source []byte
+	//Seed
+	seedBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(seedBytes, seed)
+	source = append(source, seedBytes...)
+
+	// PrevHash
+	source = append(source, prevHash.Bytes()...)
+
+	// Timestamp
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return hash
 }
 
 func (sb *SnapshotBlock) ComputeHash() types.Hash {
@@ -104,6 +125,18 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	forkName := fork.GetRecentForkName(sb.Height)
 	if forkName != "" {
 		source = append(source, []byte(forkName)...)
+	}
+
+	// Seed
+	if sb.Seed > 0 {
+		seedBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(seedBytes, sb.Seed)
+		source = append(source, seedBytes...)
+	}
+
+	// SeedHash
+	if sb.SeedHash != nil {
+		source = append(source, sb.SeedHash.Bytes()...)
 	}
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
@@ -135,6 +168,10 @@ func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	pb.Signature = sb.Signature
 	pb.Timestamp = sb.Timestamp.UnixNano()
 	pb.StateHash = sb.StateHash.Bytes()
+	pb.Seed = sb.Seed
+	if sb.SeedHash != nil {
+		pb.SeedHash = sb.SeedHash.Bytes()
+	}
 	return pb
 }
 
@@ -162,6 +199,11 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) {
 	if pb.SnapshotContent != nil {
 		sb.SnapshotContent = SnapshotContent{}
 		sb.SnapshotContent.DeProto(pb.SnapshotContent)
+	}
+	sb.Seed = pb.Seed
+	if len(pb.SeedHash) == types.HashSize {
+		seedHash, _ := types.BytesToHash(pb.SeedHash)
+		sb.SeedHash = &seedHash
 	}
 }
 

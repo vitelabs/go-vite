@@ -408,6 +408,17 @@ func (c *chain) GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger
 	return c.binarySearchBeforeTime(start, end, blockCreatedTime)
 }
 
+func (c *chain) GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error) {
+	monitorTags := []string{"chain", "GetSnapshotBlocksAfterAndEqualTime"}
+	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
+	blocks, err := c.chainDb.Sc.GetSnapshotBlocksAfterAndEqualTime(endHeight, startTime, producer)
+	if err != nil {
+		c.log.Error("c.chainDb.Sc.GetSnapshotBlocksAfterAndEqualTime failed, error is "+err.Error(), "method", "GetSnapshotBlocksAfterAndEqualTime")
+	}
+	return blocks, err
+}
+
 func (c *chain) GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error) {
 	monitorTags := []string{"chain", "GetConfirmAccountBlock"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
