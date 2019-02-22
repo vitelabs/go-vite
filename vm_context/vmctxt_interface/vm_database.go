@@ -19,7 +19,7 @@ type VmDatabase interface {
 	GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock
 
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
-	GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock
+	GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock
 
 	UnsavedCache() UnsavedCache
 	Reset()

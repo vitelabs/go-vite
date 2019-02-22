@@ -98,6 +98,11 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 				addr.String(), b.Height, b.Hash))
 		}
 	}
+	for _, v := range stat.results {
+		if v != SUCCESS {
+			return nil
+		}
+	}
 
 	trie, err := self.reader.GenStateTrie(prev.StateHash, block.SnapshotContent)
 	if err != nil {

@@ -107,8 +107,8 @@ func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountB
 	}
 	return nil
 }
-func (db *testDatabase) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
-	for _, b := range db.accountBlockMap[*addr] {
+func (db *testDatabase) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	for _, b := range db.accountBlockMap[db.addr] {
 		if b.Height == height {
 			return b
 		}

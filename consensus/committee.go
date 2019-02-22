@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"time"
 
 	"strconv"
@@ -38,6 +39,8 @@ type committee struct {
 	tellers  sync.Map
 	signer   types.Address
 
+	whiteProducers map[string]bool
+
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
 
@@ -65,8 +68,12 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	return t, nil
 }
 
-func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool, error) {
-	gid, err := self.rw.getGid(header)
+func (self *committee) VerifyAccountProducer(accountBlock *ledger.AccountBlock) (bool, error) {
+	if self.whiteProducers[accountBlock.Hash.String()] {
+		fmt.Println("verify white account producer ", accountBlock.Hash.String())
+		return true, nil
+	}
+	gid, err := self.rw.getGid(accountBlock)
 	if err != nil {
 		return false, err
 	}
@@ -83,16 +90,18 @@ func (self *committee) VerifyAccountProducer(header *ledger.AccountBlock) (bool,
 	}
 	tel := t.(*teller)
 
-	electionResult, err := tel.electionTime(*header.Timestamp)
+	electionResult, err := tel.electionTime(*accountBlock.Timestamp)
 	if err != nil {
 		return false, err
 	}
 
-	err = tel.rw.checkSnapshotHashValid(electionResult.Height, electionResult.Hash, header.SnapshotHash)
+	voteTime := tel.voteTime(electionResult.Index)
+
+	err = tel.rw.checkSnapshotHashValid(electionResult.Height, electionResult.Hash, accountBlock.SnapshotHash, voteTime)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, fmt.Sprintf(" account[%s][%d] ", accountBlock.Hash, accountBlock.Height))
 	}
-	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
+	return self.verifyProducer(*accountBlock.Timestamp, accountBlock.Producer(), electionResult), nil
 }
 
 func (self *committee) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
@@ -129,7 +138,7 @@ func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint6
 	}
 	var result []*Event
 	for _, p := range electionResult.Plans {
-		e := newConsensusEvent(electionResult, p, gid)
+		e := newConsensusEvent(electionResult, p, gid, tel.voteTime(index))
 		result = append(result, &e)
 	}
 	return result, uint64(electionResult.Index), nil
@@ -155,7 +164,7 @@ func (self *committee) ReadByTime(gid types.Gid, t2 time.Time) ([]*Event, uint64
 	}
 	var result []*Event
 	for _, p := range electionResult.Plans {
-		e := newConsensusEvent(electionResult, p, gid)
+		e := newConsensusEvent(electionResult, p, gid, tel.voteTime(electionResult.Index))
 		result = append(result, &e)
 	}
 	return result, uint64(electionResult.Index), nil
@@ -231,9 +240,14 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 }
 
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
-	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime}
+	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime, whiteProducers: make(map[string]bool)}
 	committee.mLog = log15.New("module", "consensus/committee")
 	return committee
+}
+
+var whiteAccBlocksArr = []string{
+	"f3b9187d69e0749e28f9c8172fd6b7b468cbe89acb14f8038bbbb6a402d738ae",
+	"d7251a9d1da157dcfd20a729fc368f1dfc85a55e4057df229fbb1bacb3405385",
 }
 
 func (self *committee) Init() error {
@@ -254,6 +268,10 @@ func (self *committee) Init() error {
 			return err
 		}
 		self.contract = t
+	}
+
+	for _, v := range whiteAccBlocksArr {
+		self.whiteProducers[v] = true
 	}
 	return nil
 }
@@ -350,7 +368,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.event(tmpV, tmpResult)
+				self.event(tmpV, tmpResult, t.voteTime(index))
 			})
 		}
 
@@ -358,7 +376,7 @@ func (self *committee) update(t *teller, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.eventProducer(tmpV, tmpResult)
+				self.eventProducer(tmpV, tmpResult, t.voteTime(index))
 			})
 		}
 
@@ -385,7 +403,7 @@ func copyMap(m *sync.Map) (map[string]*subscribeEvent, map[string]*producerSubsc
 	})
 	return r1, r2
 }
-func (self *committee) eventProducer(e *producerSubscribeEvent, result *electionResult) {
+func (self *committee) eventProducer(e *producerSubscribeEvent, result *electionResult, voteTime time.Time) {
 	self.wg.Add(1)
 	defer self.wg.Done()
 	var r []types.Address
@@ -395,18 +413,18 @@ func (self *committee) eventProducer(e *producerSubscribeEvent, result *election
 	e.fn(ProducersEvent{Addrs: r, Index: result.Index, Gid: e.gid})
 }
 
-func (self *committee) event(e *subscribeEvent, result *electionResult) {
+func (self *committee) event(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	self.wg.Add(1)
 	defer self.wg.Done()
 	if e.addr == nil {
 		// all
-		self.eventAll(e, result)
+		self.eventAll(e, result, voteTime)
 	} else {
-		self.eventAddr(e, result)
+		self.eventAddr(e, result, voteTime)
 	}
 }
 
-func (self *committee) eventAll(e *subscribeEvent, result *electionResult) {
+func (self *committee) eventAll(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	for _, p := range result.Plans {
 		now := time.Now()
 		sub := p.STime.Sub(now)
@@ -418,10 +436,10 @@ func (self *committee) eventAll(e *subscribeEvent, result *electionResult) {
 			time.Sleep(sub)
 		}
 
-		e.fn(newConsensusEvent(result, p, e.gid))
+		e.fn(newConsensusEvent(result, p, e.gid, voteTime))
 	}
 }
-func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
+func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	for _, p := range result.Plans {
 		if p.Member == *e.addr {
 			now := time.Now()
@@ -432,12 +450,12 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult) {
 			if sub > time.Millisecond*10 {
 				time.Sleep(sub)
 			}
-			e.fn(newConsensusEvent(result, p, e.gid))
+			e.fn(newConsensusEvent(result, p, e.gid, voteTime))
 		}
 	}
 }
 
-func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid) Event {
+func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, voteTime time.Time) Event {
 	return Event{
 		Gid:            gid,
 		Address:        p.Member,
@@ -446,5 +464,6 @@ func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid) Eve
 		Timestamp:      p.STime,
 		SnapshotHash:   r.Hash,
 		SnapshotHeight: r.Height,
+		VoteTime:       voteTime,
 	}
 }

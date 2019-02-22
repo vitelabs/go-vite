@@ -504,7 +504,7 @@ func opAccountHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 		minHeight = currentHeight - getAccountBlockByHeightLimit
 	}
 	if height > minHeight && height <= currentHeight {
-		block := c.db.GetAccountBlockByHeight(&c.block.AccountAddress, height)
+		block := c.db.GetSelfAccountBlockByHeight(height)
 		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
 	} else {
 		stack.push(c.intPool.getZero())

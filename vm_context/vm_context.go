@@ -3,6 +3,9 @@ package vm_context
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"time"
 )
 
 var (
@@ -386,15 +387,19 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
-		confirmedSnapshotBlock, err := context.chain.GetConfirmBlock(&firstBlock.Hash)
+		firstBlockMeta, err := context.chain.GetAccountBlockMetaByHash(&firstBlock.Hash)
 		if err != nil {
 			panic(err)
 		}
-		if confirmedSnapshotBlock == nil {
-			return false
+
+		if firstBlockMeta == nil {
+			err := errors.New(fmt.Sprintf("Block meta is not exited, but block is exited, addr is %s, height is %d, hash is %s",
+				firstBlock.AccountAddress, firstBlock.Height, firstBlock.Hash))
+			panic(err)
 		}
 
-		if confirmedSnapshotBlock.Height > 0 && confirmedSnapshotBlock.Height <= context.currentSnapshotBlock.Height {
+		firstBlock.Meta = firstBlockMeta
+		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
 			return true
 		}
 		return false
@@ -412,14 +417,18 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
 }
-func (context *VmContext) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
-	// TODO
-	if context.chain == nil {
-		context.log.Error("context.chain is nil", "method", "GetAccountBlockByHeight")
+func (context *VmContext) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	if context.address == nil || context.prevAccountBlock == nil {
 		return nil
 	}
-
-	accountBlock, _ := context.chain.GetAccountBlockByHeight(addr, height)
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSelfAccountBlockByHeight")
+		return nil
+	}
+	accountBlock, _ := context.chain.GetAccountBlockByHeight(context.address, height)
+	if accountBlock == nil || accountBlock.Height > context.prevAccountBlock.Height {
+		return nil
+	}
 	return accountBlock
 }
 
