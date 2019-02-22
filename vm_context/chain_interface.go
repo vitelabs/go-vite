@@ -17,6 +17,7 @@ type Chain interface {
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 	GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error)
 
+	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
 
