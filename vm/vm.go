@@ -775,7 +775,19 @@ func findPrevReceiveBlock(db vmctxt_interface.VmDatabase, sendBlock *ledger.Acco
 	}
 }
 
-func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data []byte) ([]byte, error) {
+func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data []byte) (result []byte, err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			nodeConfig.log.Error("offchain reader panic",
+				"err", err,
+				"addr", db.Address(),
+				"snapshotHash", db.CurrentSnapshotBlock().Hash,
+				"code", hex.EncodeToString(code),
+				"data", hex.EncodeToString(data))
+			result = nil
+			err = errors.New("offchain reader panic")
+		}
+	}()
 	vm.i = NewInterpreter(db.CurrentSnapshotBlock().Height)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas, 0)
 	c.setCallCode(*db.Address(), code)
