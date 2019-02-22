@@ -12,6 +12,7 @@ import (
 )
 
 func (gc *collector) recoverGenesis() error {
+
 	// recover genesis trie
 	batch := new(leveldb.Batch)
 
