@@ -42,7 +42,7 @@ func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
 	return t
 }
 
-func (self *teller) voteResults(b *ledger.SnapshotBlock, seeds *core.SeedInfo) ([]types.Address, error) {
+func (self *teller) voteResults(b *ledger.SnapshotBlock, seeds *core.SeedInfo, voteIndex uint64) ([]types.Address, error) {
 	head := self.rw.GetLatestSnapshotBlock()
 
 	if b.Height > head.Height {
@@ -50,7 +50,7 @@ func (self *teller) voteResults(b *ledger.SnapshotBlock, seeds *core.SeedInfo) (
 	}
 
 	headH := ledger.HashHeight{Height: b.Height, Hash: b.Hash}
-	addressList, e := self.calVotes(headH, seeds)
+	addressList, e := self.calVotes(headH, seeds, voteIndex)
 	if e != nil {
 		return nil, e
 	}
@@ -59,6 +59,8 @@ func (self *teller) voteResults(b *ledger.SnapshotBlock, seeds *core.SeedInfo) (
 
 func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 	sTime := self.info.GenVoteTime(index)
+
+	voteIndex := self.info.Time2Index(sTime) - 1
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -71,7 +73,7 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 		return nil, err
 	}
 	seed := core.NewSeedInfo(seeds)
-	voteResults, err := self.voteResults(block, seed)
+	voteResults, err := self.voteResults(block, seed, voteIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +145,7 @@ func (self *teller) findSeed(votes []*core.Vote) int64 {
 	return result.Int64()
 }
 
-func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo) ([]types.Address, error) {
+func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteIndex uint64) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.voteCache.Get(hashH.Hash)
 	if ok {
@@ -154,9 +156,13 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo) ([]ty
 	if err != nil {
 		return nil, err
 	}
-
+	successRate, err := self.rw.GetSuccessRateByHour(voteIndex)
+	if err != nil {
+		return nil, err
+	}
+	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
-	finalVotes := self.algo.FilterVotes(votes, &hashH, seed)
+	finalVotes := self.algo.FilterVotes(context)
 	// shuffle the members
 	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH, seed)
 

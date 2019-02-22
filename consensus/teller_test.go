@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -60,8 +61,9 @@ func testFilterVotes(t *testing.T, al core.Algo, votes []*core.Vote, seeds map[t
 
 	hash, _ := types.HexToHash("706b00a2ae1725fb5d90b3b7a76d76c922eb075be485749f987af7aa46a66785")
 	testH := &ledger.HashHeight{Hash: hash, Height: 1}
-	fVotes1 := al.FilterVotes(votes, testH, core.NewSeedInfo(seeds))
-	fVotes2 := al.FilterVotes(votes, testH, core.NewSeedInfo(seeds))
+	context := core.NewVoteAlgoContext(votes, testH, nil, core.NewSeedInfo(seeds))
+	fVotes1 := al.FilterVotes(context)
+	fVotes2 := al.FilterVotes(context)
 
 	result := ""
 	for k, v := range fVotes1 {
@@ -106,7 +108,9 @@ func TestGenPlans(t *testing.T) {
 
 }
 func testGenPlan(t *testing.T, teller *teller, votes []*core.Vote, expectedCnt int) {
-	votes = teller.algo.FilterVotes(votes, nil, core.NewSeedInfo(nil))
+	context := core.NewVoteAlgoContext(votes, nil, nil, core.NewSeedInfo(nil))
+	votes = teller.algo.FilterVotes(context)
+	votes = teller.algo.FilterVotes(nil)
 
 	plans := teller.info.GenPlanByAddress(teller.info.Time2Index(time.Now()), core.ConvertVoteToAddress(votes))
 	for _, v := range plans {

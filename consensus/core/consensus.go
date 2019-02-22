@@ -105,11 +105,12 @@ func (self *reader) VoteDetails(startIndex, endIndex uint64,
 
 func (self *reader) voteDetail(index uint64,
 	r stateCh) ([]*Vote, []*Vote, error) {
+	panic("not supported.")
+
+	// todo
 	//voteTime := self.info.GenVoteTime(index)
 	//block, err := r.GetSnapshotBlockBeforeTime(&voteTime)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
+	//
 	//hashH := ledger.HashHeight{Hash: block.Hash, Height: block.Height}
 	//
 	//votes, err := CalVotes(self.info, hashH, r)
@@ -117,13 +118,13 @@ func (self *reader) voteDetail(index uint64,
 	//	return nil, nil, err
 	//}
 	//// top
-	//topVotes := self.ag.FilterSimple(votes)
+	//groupA, groupB := self.ag.FilterSimple(votes)
+	//topVotes := mergeGroup(groupA, groupB)
 	//// filter size of members
-	//finalVotes := self.ag.FilterVotes(votes, &hashH)
+	//finalVotes := self.ag.FilterVotes(nil)
 	//// shuffle the members
-	//finalVotes = self.ag.ShuffleVotes(finalVotes, &hashH)
+	//finalVotes = self.ag.ShuffleVotes(finalVotes, &hashH, nil)
 	//return topVotes, finalVotes, nil
-	panic("not supported.")
 }
 
 func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registration, r stateCh) (uint64, uint64, error) {

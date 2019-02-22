@@ -69,7 +69,8 @@ func TestAlgo_FilterVotes2(t *testing.T) {
 	}
 	//result := make(map[string]uint64)
 	hashH := &ledger.HashHeight{Height: 1}
-	actual := ag.FilterVotes(votes, hashH)
+	context := NewVoteAlgoContext(votes, hashH, nil, NewSeedInfo(nil))
+	actual := ag.FilterVotes(context)
 	for _, v := range actual {
 		print("\""+v.Name+"\"", ",")
 	}
@@ -94,7 +95,7 @@ func printResult(ag *algo, total uint64, cnt int) {
 	result := make(map[string]uint64)
 	for j := uint64(0); j < total; j++ {
 		hashH := &ledger.HashHeight{Height: j}
-		tmp := ag.FilterVotes(votes, hashH)
+		tmp := ag.FilterVotes(NewVoteAlgoContext(votes, hashH, nil, NewSeedInfo(nil)))
 		for _, v := range tmp {
 			result[v.Name] = result[v.Name] + 1
 		}
@@ -134,7 +135,7 @@ func TestAlgo_FilterVotes3(t *testing.T) {
 	}
 	//result := make(map[string]uint64)
 	hashH := &ledger.HashHeight{Height: 1}
-	actual := ag.FilterVotes(votes, hashH)
+	actual := ag.FilterVotes(NewVoteAlgoContext(votes, hashH, nil, NewSeedInfo(nil)))
 	sort.Sort(ByBalance(actual))
 	for _, v := range actual {
 		println("\""+v.Name+"\"", v.Balance.String(), ",")

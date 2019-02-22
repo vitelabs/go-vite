@@ -33,6 +33,10 @@ type seedReader interface {
 type chainRw struct {
 	rw  ch
 	rw2 seedReader
+
+	hourPoints   PointLinkedArray
+	dayPoints    PointLinkedArray
+	periodPoints PointLinkedArray
 }
 
 type VoteDetails struct {
@@ -192,11 +196,75 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	}
 	return nil
 }
+
 func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([]*ledger.SnapshotBlock, []*ledger.SnapshotBlock) {
+	// todo
 	var exists []*ledger.SnapshotBlock
+	// todo
 	var notExists []*ledger.SnapshotBlock
 	return exists, notExists
 }
+
 func (self *chainRw) getSeed(prev *ledger.SnapshotBlock, this *ledger.SnapshotBlock) uint64 {
 	return prev.Height
 }
+
+// an hour = 48 * period
+func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
+	hourInfos := NewSBPInfos()
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		tmpIndex := index - i
+		point := self.periodPoints.GetByHeight(tmpIndex).(*periodPoint)
+		infos := point.GetSBPInfos()
+		for k, v := range infos {
+			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+		}
+	}
+	// todo
+	return nil, nil
+}
+
+// a day = 23 * hour + LatestHour
+func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.Int, error) {
+	dayInfos := NewSBPInfos()
+	startIndex := uint64(0)
+	endIndex := index
+	if day <= index {
+		startIndex = index - (day - 1)
+	}
+	points := self.genPoints(startIndex, endIndex)
+
+	for _, p := range points {
+		switch p.(type) {
+		case *dayPoint:
+			break
+		case *hourPoint:
+			height := self.hourPoints.GetByHeight(p.Height())
+			infos := height.(*hourPoint).GetSBPInfos()
+			for k, v := range infos {
+				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+			}
+		case *periodPoint:
+			height := self.periodPoints.GetByHeight(p.Height())
+			infos := height.(*periodPoint).GetSBPInfos()
+			for k, v := range infos {
+				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+			}
+		}
+	}
+	// todo
+	return nil, nil
+}
+
+func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
+	return nil
+}
+
+const (
+	period = 1
+	hour   = 48 * period
+	day    = 24 * hour
+)
