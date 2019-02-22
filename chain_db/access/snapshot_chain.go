@@ -104,7 +104,7 @@ func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.
 
 func (sc *SnapshotChain) GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error) {
 	startKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, 1)
-	endKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, endHeight)
+	endKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, endHeight+1)
 
 	iter := sc.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 	defer iter.Release()
