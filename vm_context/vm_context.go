@@ -387,19 +387,15 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
-		firstBlockMeta, err := context.chain.GetAccountBlockMetaByHash(&firstBlock.Hash)
+		confirmedSnapshotBlock, err := context.chain.GetConfirmBlock(&firstBlock.Hash)
 		if err != nil {
 			panic(err)
 		}
-
-		if firstBlockMeta == nil {
-			err := errors.New(fmt.Sprintf("Block meta is not exited, but block is exited, addr is %s, height is %d, hash is %s",
-				firstBlock.AccountAddress, firstBlock.Height, firstBlock.Hash))
-			panic(err)
+		if confirmedSnapshotBlock == nil {
+			return false
 		}
 
-		firstBlock.Meta = firstBlockMeta
-		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
+		if confirmedSnapshotBlock.Height > 0 && confirmedSnapshotBlock.Height <= context.currentSnapshotBlock.Height {
 			return true
 		}
 		return false
