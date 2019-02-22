@@ -155,4 +155,6 @@ func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, 
 			return fn(seedHash)
 		}
 	}
+
+	return 0
 }
