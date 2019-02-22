@@ -17,4 +17,7 @@ message SnapshotBlock {
     bytes stateHash = 7;
 
     SnapshotContent snapshotContent = 8;
+
+    uint64 seed = 9;
+    bytes seedHash = 10;
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"time"
 )
 
 func getSnapshotBlockHash(dbKey []byte) *types.Hash {
@@ -100,6 +101,43 @@ func (sc *SnapshotChain) GetSnapshotContent(snapshotBlockHeight uint64) (ledger.
 
 	return snapshotContent, nil
 }
+
+func (sc *SnapshotChain) GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error) {
+	startKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, 1)
+	endKey, _ := database.EncodeKey(database.DBKP_SNAPSHOTBLOCK, endHeight+1)
+
+	iter := sc.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
+	defer iter.Release()
+
+	iterOk := iter.Last()
+
+	blocks := make([]*ledger.SnapshotBlock, 0)
+	for iterOk {
+		data := iter.Value()
+		block := &ledger.SnapshotBlock{}
+		if dsErr := block.Deserialize(data); dsErr != nil {
+			return nil, dsErr
+		}
+
+		if block.Timestamp.Before(*startTime) {
+			break
+		}
+
+		if producer == nil || block.Producer() == *producer {
+			block.Hash = *getSnapshotBlockHash(iter.Key())
+			blocks = append(blocks, block)
+		}
+
+		iterOk = iter.Prev()
+	}
+
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return blocks, nil
+}
+
 func (sc *SnapshotChain) GetSnapshotBlocks(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error) {
 	var startHeight, endHeight = uint64(0), uint64(0)
 	if forward {
