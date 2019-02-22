@@ -417,14 +417,18 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
 	return accountBlock
 }
-func (context *VmContext) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
-	// TODO
-	if context.chain == nil {
-		context.log.Error("context.chain is nil", "method", "GetAccountBlockByHeight")
+func (context *VmContext) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	if context.address == nil || context.prevAccountBlock == nil {
 		return nil
 	}
-
-	accountBlock, _ := context.chain.GetAccountBlockByHeight(addr, height)
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSelfAccountBlockByHeight")
+		return nil
+	}
+	accountBlock, _ := context.chain.GetAccountBlockByHeight(context.address, height)
+	if accountBlock == nil || accountBlock.Height > context.prevAccountBlock.Height {
+		return nil
+	}
 	return accountBlock
 }
 

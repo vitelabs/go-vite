@@ -82,7 +82,7 @@ func (db *memoryDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 func (db *memoryDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	return nil
 }
-func (db *memoryDatabase) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+func (db *memoryDatabase) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
 	return nil
 }
 func (db *memoryDatabase) Reset() {}
