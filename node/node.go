@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/metrics/influxdb"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"net"
 	"net/url"
 	"os"
@@ -76,6 +77,8 @@ type Node struct {
 	stop            chan struct{}
 	lock            sync.RWMutex
 	instanceDirLock flock.Releaser // prevents concurrent use of instance directory
+
+	es *filters.EventSystem
 }
 
 func New(conf *Config) (*Node, error) {
@@ -365,6 +368,10 @@ func (node *Node) startRPC() error {
 		return err
 	}
 
+	// start event system
+	node.es = filters.NewEventSystem(node.Vite())
+	node.es.Start()
+
 	// Start rpc
 	if node.config.IPCEnabled {
 		if err := node.startIPC(node.GetIpcApis()); err != nil {
@@ -460,6 +467,7 @@ func (node *Node) stopRPC() error {
 	node.stopWS()
 	node.stopHTTP()
 	node.stopIPC()
+	node.es.Stop()
 	return nil
 }
 

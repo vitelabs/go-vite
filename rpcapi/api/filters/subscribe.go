@@ -1,4 +1,4 @@
-package api
+package filters
 
 import (
 	"context"
@@ -6,34 +6,18 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"github.com/vitelabs/go-vite/vite"
 	"sync"
 	"time"
 )
 
-type FilterType byte
-
-const (
-	// UnknownSubscription indicates an unknown subscription type
-	UnknownSubscription FilterType = iota
-	// ConfirmedLogsSubscription queries for new or removed(snapshot chain fork) logs contained in snapshot blocks
-	ConfirmedLogsSubscription
-	// LogsSubscription queries for new or removed logs(account chain fork) contained in account blocks
-	LogsSubscription
-	//
-
-	// LastIndexSubscription keeps track of the last index
-	LastIndexSubscription
-	// TODO other types
-)
-
 type filter struct {
 	typ      FilterType
-	param    FilterParam
 	deadline *time.Timer
 	hashes   []types.Hash
 	logs     []*ledger.VmLog
+	param    FilterParam
+	s        *RpcSubscription
 }
 
 type SubscribeApi struct {
@@ -41,48 +25,103 @@ type SubscribeApi struct {
 	log         log15.Logger
 	filterMap   map[rpc.ID]*filter
 	filterMapMu sync.Mutex
-	eventSystem *filters.EventSystem
+	eventSystem *EventSystem
 }
 
 func NewSubscribeApi(vite *vite.Vite) *SubscribeApi {
-	return &SubscribeApi{
+	s := &SubscribeApi{
 		vite:        vite,
 		log:         log15.New("module", "rpc_api/subscribe_api"),
 		filterMap:   make(map[rpc.ID]*filter),
-		eventSystem: filters.NewEventSystem(vite),
+		eventSystem: NewEventSystem(vite),
+	}
+	go s.timeoutLoop()
+	return s
+}
+
+func (s *SubscribeApi) timeoutLoop() {
+	// delete timeout filters every 5 minutes
+	ticker := time.NewTicker(5 * time.Minute)
+	for {
+		<-ticker.C
+		s.filterMapMu.Lock()
+		for id, f := range s.filterMap {
+			select {
+			case <-f.deadline.C:
+				f.s.Unsubscribe()
+				delete(s.filterMap, id)
+			default:
+				continue
+			}
+		}
+		s.filterMapMu.Unlock()
 	}
 }
 
 type FilterParam struct {
-	FromSnapshotBlockHeight uint64          `json:"fromHeight"`
-	ToSnapshotBlockHeight   uint64          `json:"toHeight"`
-	AccountAddrList         []types.Address `json:"addrList"`
-	Topics                  [][]types.Hash  `json:"topics"`
-	AccountHash             *types.Hash     `json:"accountHash"`
-	SnapshotHash            *types.Hash     `json:"snapshotHash"`
+	FromBlock       string          `json:"fromBlock"`
+	ToBlock         string          `json:"toBlock"`
+	AccountAddrList []types.Address `json:"addrList"`
+	Topics          [][]types.Hash  `json:"topics"`
+	AccountHash     *types.Hash     `json:"accountHash"`
+	SnapshotHash    *types.Hash     `json:"snapshotHash"`
 }
 
-func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
+func (s *SubscribeApi) AccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
 	}
-	// TODO new go thread to listen to event channel
 	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		accountBlockHashCh := make(chan []*AccountBlockMsg, 128)
+		acSub := s.eventSystem.SubscribeAccountBlocks(accountBlockHashCh)
+		for {
+			select {
+			case h := <-accountBlockHashCh:
+				notifier.Notify(rpcSub.ID, h)
+			case <-rpcSub.Err():
+				acSub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				acSub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
 	return rpcSub, nil
 }
 
-func (s *SubscribeApi) NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription, error) {
+func (s *SubscribeApi) ConfirmedAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
 	}
-	// TODO new go thread to listen to event channel
 	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		acMsg := make(chan []*AccountBlockMsg, 128)
+		sub := s.eventSystem.SubscribeAccountBlocks(acMsg)
+
+		for {
+			select {
+			case msg := <-acMsg:
+				notifier.Notify(rpcSub.ID, msg)
+			case <-rpcSub.Err():
+				sub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				sub.Unsubscribe()
+				return
+			}
+		}
+	}()
 	return rpcSub, nil
 }
 
-func (s *SubscribeApi) NewLogs(ctx context.Context, param FilterParam) (*rpc.Subscription, error) {
+func (s *SubscribeApi) Logs(ctx context.Context, param FilterParam) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -112,12 +151,17 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 	return "", nil
 }
 
-func (s *SubscribeApi) NewSnapshotBlocksFilter() (rpc.ID, error) {
+func (s *SubscribeApi) NewConfirmedAccountBlocksFilter() (rpc.ID, error) {
 	// TODO
 	return "", nil
 }
 
 func (s *SubscribeApi) NewLogsFilter() (rpc.ID, error) {
+	// TODO
+	return "", nil
+}
+
+func (s *SubscribeApi) NewConfirmedLogsFilter() (rpc.ID, error) {
 	// TODO
 	return "", nil
 }

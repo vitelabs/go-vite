@@ -3,6 +3,7 @@ package rpcapi
 import (
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -141,7 +142,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "subscribe",
 			Version:   "1.0",
-			Service:   api.NewSubscribeApi(vite),
+			Service:   filters.NewSubscribeApi(vite),
 			Public:    true,
 		}
 	default:
