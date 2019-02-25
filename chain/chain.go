@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/index"
@@ -335,6 +336,13 @@ func (c *chain) Start() {
 				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
 			}
 		}
+	}
+
+	// check trie
+	if result, err := c.TrieGc().Check(); err != nil {
+		panic(errors.New("c.TrieGc().Check() failed when start chain, error is " + err.Error()))
+	} else if !result {
+		c.TrieGc().Recover()
 	}
 
 	// trie gc

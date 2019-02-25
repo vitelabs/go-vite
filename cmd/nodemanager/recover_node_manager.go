@@ -13,6 +13,8 @@ type RecoverNodeManager struct {
 	node *node.Node
 }
 
+const CountPerDelete = uint64(10000)
+
 func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManager, error) {
 	node, err := maker.MakeNode(ctx)
 	if err != nil {
@@ -22,6 +24,10 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	// single mode
 	node.Config().Single = true
 	node.ViteConfig().Net.Single = true
+
+	// no miner
+	node.Config().MinerEnabled = false
+	node.ViteConfig().Producer.Producer = false
 
 	return &RecoverNodeManager{
 		ctx:  ctx,
@@ -46,26 +52,47 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	}
 
 	deleteToHeight := nodeManager.getDeleteToHeight()
-	c := node.Vite().Chain()
 
 	if deleteToHeight <= 0 {
 		err := errors.New("deleteToHeight is 0.\n")
 		panic(err)
 	}
 
-	fmt.Printf("Deleting to %d...\n", deleteToHeight)
+	c := node.Vite().Chain()
 
-	if _, _, err := c.DeleteSnapshotBlocksToHeight(deleteToHeight); err != nil {
-		fmt.Printf("Delete to %d height failed. error is "+err.Error()+"\n", deleteToHeight)
-		return err
+	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
+	fmt.Printf("Delete target height is %d\n", deleteToHeight)
+
+	tmpDeleteToHeight := c.GetLatestSnapshotBlock().Height + 1
+
+	for tmpDeleteToHeight > deleteToHeight {
+		if tmpDeleteToHeight > CountPerDelete {
+			tmpDeleteToHeight = tmpDeleteToHeight - CountPerDelete
+		}
+
+		if tmpDeleteToHeight < deleteToHeight {
+			tmpDeleteToHeight = deleteToHeight
+		}
+
+		fmt.Printf("Deleting to %d...\n", tmpDeleteToHeight)
+
+		if _, _, err := c.DeleteSnapshotBlocksToHeight(tmpDeleteToHeight); err != nil {
+			fmt.Printf("Delete to %d height failed. error is "+err.Error()+"\n", tmpDeleteToHeight)
+			return err
+		}
+		fmt.Printf("Delete to %d successed!\n", tmpDeleteToHeight)
+
 	}
-	fmt.Printf("Delete to %d successed!\n", deleteToHeight)
 
-	fmt.Printf("Rebuild data...\n")
-	if err := c.TrieGc().Recover(); err != nil {
-		fmt.Errorf("Rebuild data failed! error is %s\n", err.Error())
-	} else {
-		fmt.Printf("Rebuild data successed!\n")
+	if checkResult, checkErr := c.TrieGc().Check(); checkErr != nil {
+		fmt.Printf("Check trie failed! error is %s\n", checkErr.Error())
+	} else if !checkResult {
+		fmt.Printf("Rebuild data...\n")
+		if err := c.TrieGc().Recover(); err != nil {
+			fmt.Printf("Rebuild data failed! error is %s\n", err.Error())
+		} else {
+			fmt.Printf("Rebuild data successed!\n")
+		}
 	}
 
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
