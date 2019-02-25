@@ -138,6 +138,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 		if outerr != nil && outerr.Fatal() {
 			f.log.Error(fmt.Sprintf("download <file %s> from %s error: %v, close connection", file.Filename, f.RemoteAddr(), outerr))
 			f.close()
+			return
 		}
 
 		switch block.(type) {
@@ -166,7 +167,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	sTotal := file.EndHeight - file.StartHeight + 1
 	aTotal := file.BlockNumbers - sTotal
 
-	if sCount < sTotal || aCount < aTotal {
+	if (sCount < sTotal || aCount < aTotal) && outerr == nil {
 		outerr = &downloadError{
 			code: downloadIncompleteErr,
 			err:  fmt.Sprintf("incomplete <file %s> %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
