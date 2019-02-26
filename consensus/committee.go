@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
+
+	"github.com/hashicorp/golang-lru"
+
 	"strconv"
 
 	"sync"
@@ -45,6 +49,10 @@ type committee struct {
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
 
+	lruCache *lru.Cache
+	dbCache  *DbCache
+	dbDir    string
+
 	wg     sync.WaitGroup
 	closed chan struct{}
 }
@@ -63,7 +71,13 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	if info == nil {
 		return nil, errors.New("can't get member info.")
 	}
-	t := newTeller(info, self.rw, self.mLog)
+	var cache Cache
+	if gid == types.SNAPSHOT_GID {
+		cache = self.dbCache
+	} else {
+		cache = self.lruCache
+	}
+	t := newTeller(info, self.rw, self.mLog, cache)
 	self.tellers.Store(gid, t)
 	return t, nil
 }
@@ -284,6 +298,17 @@ func (self *committee) Init() error {
 		return errors.New("pre init fail.")
 	}
 	defer self.PostInit()
+
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	self.lruCache = cache
+
+	if self.dbDir != "" {
+		self.dbCache = &DbCache{db: consensus_db.NewConsensusDBByDir(self.dbDir)}
+	}
+
 	{
 		t, err := self.initTeller(types.SNAPSHOT_GID)
 		if err != nil {

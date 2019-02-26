@@ -80,7 +80,7 @@ func TestShuffleVotes(t *testing.T) {
 
 	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
 
-	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"))
+	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"), nil)
 
 	votes := genVotes(11)
 	shuffleVotes1 := teller.algo.ShuffleVotes(votes, nil, core.NewSeedInfo(nil))
@@ -99,7 +99,7 @@ func TestShuffleVotes(t *testing.T) {
 func TestGenPlans(t *testing.T) {
 	info := core.NewGroupInfo(time.Now(), types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, PerCount: 3, RandCount: 0, Gid: types.DELEGATE_GID})
 
-	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"))
+	teller := newTeller(info, &chainRw{}, log15.New("module", "unitTest"), nil)
 
 	votes := genVotes(20)
 	testGenPlan(t, teller, votes, 60)

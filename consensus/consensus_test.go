@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/vitelabs/go-vite/chain/unittest"
+
 	"time"
 
 	"fmt"
@@ -182,6 +184,18 @@ func getChainInstance() chain.Chain {
 			Chain: &config.Chain{GenesisFile: "/Users/jie/Documents/vite/src/github.com/vitelabs/genesis.json"},
 		})
 		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func getChainInstanceFromPath(path string) chain.Chain {
+	if path == "" {
+		path = "Documents/vite/src/github.com/vitelabs/aaaaaaaa/devdata"
+	}
+	if innerChainInstance == nil {
+		innerChainInstance = chain_unittest.NewChainInstanceFromAbsPath(path, false)
 		innerChainInstance.Start()
 	}
 
@@ -543,4 +557,94 @@ func TestChain2(t *testing.T) {
 			strconv.FormatUint(i, 10))
 	}
 
+}
+
+func TestGenCache(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	cs.dbCache.db.Check()
+	for i := uint64(0); i < 105461; i++ {
+		cs.periods.GetByHeight(i)
+	}
+}
+
+func TestA(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	head := c.GetLatestSnapshotBlock()
+
+	index, err := cs.VoteTimeToIndex(types.SNAPSHOT_GID, *head.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(index)
+}
+
+func TestContractProducerVerify(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	{
+		s := time.Now()
+		i := uint64(105461)
+		p, err := cs.periods.GetByHeight(i)
+		if err != nil {
+			panic(errors.WithMessage(err, fmt.Sprintf("index:%d.", i)))
+		}
+		point := p.(*periodPoint)
+		fmt.Printf("%d, %s, %s, %s, %+v, %+v, %+v\n",
+			point.Height(), time.Now().Sub(s).String(), point.PrevHash(), point.NextHash(), point.proof, point.proof2, point.GetSBPInfos())
+
+	}
+	{
+		head := c.GetLatestSnapshotBlock()
+
+		index, err := cs.VoteTimeToIndex(types.SNAPSHOT_GID, *head.Timestamp)
+		if err != nil {
+			panic(err)
+		}
+		for i := index; i >= 0; i-- {
+			s := time.Now()
+			p, err := cs.periods.GetByHeight(i)
+			if err != nil {
+				panic(errors.WithMessage(err, fmt.Sprintf("index:%d.", i)))
+			}
+			point := p.(*periodPoint)
+			fmt.Printf("%d, %s, %s, %s, %+v\n", point.Height(), time.Now().Sub(s).String(), point.PrevHash(), point.NextHash(), point.GetSBPInfos())
+		}
+	}
+
+}
+func TestChainSnapshot(t *testing.T) {
+	start := uint64(7413544)
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	prev, err := c.GetSnapshotBlockByHeight(start)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := uint64(1); i < 1000; i++ {
+		block, err := c.GetSnapshotBlockByHeight(start - i)
+		if err != nil {
+			panic(err)
+		}
+		sub := prev.Timestamp.Sub(*block.Timestamp)
+		if sub > time.Second*3 {
+			fmt.Printf("height:%d, diff:%s\n", block.Height, sub)
+		}
+		prev = block
+	}
 }

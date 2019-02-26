@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"math/big"
 	"time"
 
@@ -30,11 +29,11 @@ type hashPoint struct {
 }
 
 func (self *hashPoint) PrevHash() *types.Hash {
-	panic("implement me")
+	return self.prevHash
 }
 
 func (self *hashPoint) NextHash() *types.Hash {
-	panic("implement me")
+	return self.nextHash
 }
 
 func (self *hashPoint) Height() uint64 {
@@ -165,10 +164,6 @@ func newPeriodPointArray(rw ch) (*periodLinkedArray, error) {
 func (self *periodLinkedArray) GetByHeight(height uint64) (Point, error) {
 	value, ok := self.periods.Get(height)
 	if !ok || value == nil {
-		// todo
-		if height == 1049105 {
-			fmt.Println("1049105")
-		}
 		result, err := self.getByHeight(height)
 		if err != nil {
 			return nil, err
@@ -229,13 +224,6 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 		return nil, err
 	}
 
-	// todo
-	if height == 1049105 {
-		for _, v := range blocks {
-			fmt.Println(v.Height, v.Timestamp)
-		}
-		fmt.Println(stime, etime, endSnapshotBlock.Height)
-	}
 	// actually no block
 	if len(blocks) == 0 {
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)

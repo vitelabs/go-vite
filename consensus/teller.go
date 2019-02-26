@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -18,28 +19,28 @@ import (
 type teller struct {
 	info *core.GroupInfo
 	//voteCache map[int32]*electionResult
-	voteCache *lru.Cache
-	rw        *chainRw
-	algo      core.Algo
+	//voteCache *lru.Cache
+	rw   *chainRw
+	algo core.Algo
+
+	//cacheDb *consensus_db.ConsensusDB
+
+	voteCache Cache
 
 	mLog log15.Logger
 }
 
 const seedDuration = time.Minute * 10
 
-func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
-
+func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger, cacheDb Cache) *teller {
 	t := &teller{rw: rw}
 	//t.info = &membersInfo{genesisTime: genesisTime, memberCnt: memberCnt, interval: interval, perCnt: perCnt, randCnt: 2, LowestLimit: big.NewInt(1000)}
 	t.info = info
 	t.algo = core.NewAlgo(t.info)
 	t.mLog = log.New("gid", info.Gid.String())
 	t.mLog.Info("new teller.", "membersInfo", info.String())
-	cache, err := lru.New(1024 * 10)
-	if err != nil {
-		panic(err)
-	}
-	t.voteCache = cache
+
+	t.voteCache = cacheDb
 	return t
 }
 
@@ -68,7 +69,8 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 		self.mLog.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
-
+	// todo
+	self.mLog.Info(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
 	seeds, err := self.rw.GetSeedsBeforeHashH(block, seedDuration)
 	if err != nil {
 		return nil, err
@@ -148,9 +150,10 @@ func (self *teller) findSeed(votes []*core.Vote) int64 {
 
 func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteIndex uint64) ([]types.Address, error) {
 	// load from cache
-	r, ok := self.voteCache.Get(hashH.Hash)
+	r, ok := self.voteCacheGet(hashH.Hash)
 	if ok {
-		return r.([]types.Address), nil
+		fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s", voteIndex, hashH.Hash))
+		return r, nil
 	}
 	// record vote
 	votes, err := self.rw.CalVotes(self.info, hashH)
@@ -162,7 +165,7 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 		return nil, err
 	}
 
-	self.mLog.Info(fmt.Sprintf("success rate log: %+v", successRate))
+	self.mLog.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
 	finalVotes := self.algo.FilterVotes(context)
@@ -172,6 +175,22 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	address := core.ConvertVoteToAddress(finalVotes)
 
 	// update cache
-	self.voteCache.Add(hashH.Hash, address)
+	self.voteCachePut(hashH.Hash, address)
 	return address, nil
+}
+func (self *teller) voteCacheGet(hashes types.Hash) ([]types.Address, bool) {
+	if self.voteCache == nil {
+		return nil, false
+	}
+	value, ok := self.voteCache.Get(hashes)
+	if ok {
+		return value.(consensus_db.AddrArr), ok
+	}
+	return nil, ok
+}
+
+func (self *teller) voteCachePut(hashes types.Hash, addrArr []types.Address) {
+	if self.voteCache != nil {
+		self.voteCache.Add(hashes, addrArr)
+	}
 }
