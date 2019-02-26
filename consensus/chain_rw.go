@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
+
 	"sort"
 
 	"github.com/pkg/errors"
@@ -26,6 +28,7 @@ type ch interface {
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	NewDb(dbDir string) (*leveldb.DB, error)
 }
 
 type chainRw struct {

@@ -282,9 +282,20 @@ func NewConsensus(genesisTime time.Time, ch ch) *committee {
 	if err != nil {
 		panic(errors.Wrap(err, "create period point fail."))
 	}
+
 	rw := &chainRw{rw: ch, periodPoints: points}
 	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
 	committee.mLog = log15.New("module", "consensus/committee")
+	db, err := ch.NewDb("consensus")
+	if err != nil {
+		panic(err)
+	}
+	committee.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	committee.lruCache = cache
 	return committee
 }
 
@@ -298,16 +309,6 @@ func (self *committee) Init() error {
 		return errors.New("pre init fail.")
 	}
 	defer self.PostInit()
-
-	cache, err := lru.New(1024 * 10)
-	if err != nil {
-		panic(err)
-	}
-	self.lruCache = cache
-
-	if self.dbDir != "" {
-		self.dbCache = &DbCache{db: consensus_db.NewConsensusDBByDir(self.dbDir)}
-	}
 
 	{
 		t, err := self.initTeller(types.SNAPSHOT_GID)
