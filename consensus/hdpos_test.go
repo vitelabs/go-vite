@@ -79,6 +79,10 @@ func TestTime2Index(t *testing.T) {
 	for i := uint64(90); i < 100; i++ {
 		t.Log(fmt.Sprintf("startTime:%s, endTime:%s", info.GenSTime(i), info.GenETime(i)))
 	}
+
+	time2Index := info.Time2Index(now)
+	t.Log("genesis index", time2Index)
+	t.Log("genesis next index", info.Time2Index(now.Add(time.Nanosecond*1000)))
 }
 
 func TestUpdate(tt *testing.T) {

@@ -149,28 +149,16 @@ func TestChainRw_checkSnapshotHashValid(t *testing.T) {
 	if e != nil {
 		panic(e)
 	}
-<<<<<<< Updated upstream
-	err := rw.checkSnapshotHashValid(block.Height, block.Hash, b2.Hash, *b2.Timestamp)
-	if err != nil {
-		t.Error(err)
-	}
-	err = rw.checkSnapshotHashValid(block.Height, block.Hash, block.Hash, *b2.Timestamp)
-=======
 	err := rw.checkSnapshotHashValid(block.Height, block.Hash, b2.Hash, time.Now())
 	if err != nil {
 		t.Error(err)
 	}
 	err = rw.checkSnapshotHashValid(block.Height, block.Hash, block.Hash, time.Now())
->>>>>>> Stashed changes
 	if err != nil {
 		t.Error(err)
 	}
 
-<<<<<<< Updated upstream
-	err = rw.checkSnapshotHashValid(b2.Height, b2.Hash, block.Hash, *b2.Timestamp)
-=======
 	err = rw.checkSnapshotHashValid(b2.Height, b2.Hash, block.Hash, time.Now())
->>>>>>> Stashed changes
 	t.Log(err)
 	if err == nil {
 		t.Error(err)

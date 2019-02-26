@@ -34,6 +34,7 @@ type committee struct {
 
 	genesis  time.Time
 	rw       *chainRw
+	periods  *periodLinkedArray
 	snapshot *teller
 	contract *teller
 	tellers  sync.Map
@@ -201,6 +202,30 @@ func (self *committee) ReadVoteMapForAPI(gid types.Gid, ti time.Time) ([]*VoteDe
 
 	return tel.voteDetailsBeforeTime(ti)
 }
+func (self *committee) ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error) {
+	var result []SBPInfos
+	for i := start; i < end; i++ {
+		rateByHour, err := self.rw.GetSuccessRateByHour2(i)
+		if err != nil {
+			panic(err)
+		}
+		result = append(result, rateByHour)
+	}
+	return result, nil
+}
+
+func (self *committee) ReadSuccessRate2ForAPI(start, end uint64) ([]SBPInfos, error) {
+	var result []SBPInfos
+	for i := start; i < end; i++ {
+		rateByHour, err := self.periods.GetByHeight(i)
+		if err != nil {
+			panic(err)
+		}
+		point := rateByHour.(*periodPoint)
+		result = append(result, point.GetSBPInfos())
+	}
+	return result, nil
+}
 
 func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
 	t, ok := self.tellers.Load(gid)
@@ -239,7 +264,12 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 }
 
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
-	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime, whiteProducers: make(map[string]bool)}
+	points, err := newPeriodPointArray(ch)
+	if err != nil {
+		panic(errors.Wrap(err, "create period point fail."))
+	}
+	rw := &chainRw{rw: ch, periodPoints: points}
+	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
 	committee.mLog = log15.New("module", "consensus/committee")
 	return committee
 }
@@ -268,6 +298,8 @@ func (self *committee) Init() error {
 		}
 		self.contract = t
 	}
+
+	self.periods.snapshot = self.snapshot
 
 	for _, v := range whiteAccBlocksArr {
 		self.whiteProducers[v] = true

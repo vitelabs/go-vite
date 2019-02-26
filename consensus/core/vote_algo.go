@@ -212,7 +212,7 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 		return groupA, groupB
 	}
 	// todo
-	return groupA, groupB
+	//return groupA, groupB
 
 	var groupA1 []*SuccessRateVote
 	var deleteGroupA []*SuccessRateVote

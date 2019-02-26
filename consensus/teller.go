@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -160,6 +161,8 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	if err != nil {
 		return nil, err
 	}
+
+	self.mLog.Info(fmt.Sprintf("success rate log: %+v", successRate))
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
 	finalVotes := self.algo.FilterVotes(context)

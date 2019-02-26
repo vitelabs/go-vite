@@ -81,6 +81,18 @@ func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64
 	return result
 }
 
+func (api DebugApi) ConsensusSuccessRate(start, end uint64) map[string]interface{} {
+	result := make(map[string]interface{})
+	rate, err := api.v.Consensus().ReadSuccessRateForAPI(start, end)
+	rate2, err2 := api.v.Consensus().ReadSuccessRate2ForAPI(start, end)
+	result["result"] = rate
+	result["result2"] = rate2
+	result["error"] = err
+	result["error2"] = err2
+	nowIndex, _ := api.v.Consensus().VoteTimeToIndex(types.SNAPSHOT_GID, time.Now())
+	result["nowIndex"] = nowIndex
+	return result
+}
 func (api DebugApi) ConsensusVoteDetails(gid types.Gid, offset int64, index uint64) map[string]interface{} {
 	result := make(map[string]interface{})
 	if index == 0 {

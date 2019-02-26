@@ -24,15 +24,12 @@ type ch interface {
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-}
-
-type seedReader interface {
-	GetSnapshotBlockByHashH(hashH *ledger.HashHeight, startT *time.Time) ([]*ledger.SnapshotBlock, error)
+	GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 }
 
 type chainRw struct {
-	rw  ch
-	rw2 seedReader
+	rw ch
 
 	hourPoints   PointLinkedArray
 	dayPoints    PointLinkedArray
@@ -74,7 +71,8 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 
 func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration) (map[types.Address]uint64, error) {
 	startT := lastBlock.Timestamp.Add(-dur)
-	blocks, err := self.rw2.GetSnapshotBlockByHashH(&ledger.HashHeight{Hash: lastBlock.Hash, Height: lastBlock.Height}, &startT)
+	//blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(&ledger.HashHeight{Hash: lastBlock.Hash, Height: lastBlock.Height}, &startT)
+	blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(lastBlock.Height, &startT, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +81,16 @@ func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur ti
 	m := make(map[types.Address]*ledger.SnapshotBlock)
 	seedM := make(map[types.Address]uint64)
 	for _, v := range snapshots {
-		prev, ok := m[v.Producer()]
+		top, ok := m[v.Producer()]
 		if !ok {
 			m[v.Producer()] = v
 		}
 		_, ok = seedM[v.Producer()]
 		if !ok {
-			seedM[v.Producer()] = self.getSeed(prev, v)
+			seed := self.getSeed(top, v)
+			if seed != 0 {
+				seedM[v.Producer()] = seed
+			}
 		}
 	}
 
@@ -198,33 +199,78 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 }
 
 func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([]*ledger.SnapshotBlock, []*ledger.SnapshotBlock) {
-	// todo
 	var exists []*ledger.SnapshotBlock
-	// todo
 	var notExists []*ledger.SnapshotBlock
+
+	for _, v := range blocks {
+		if v.Seed > 0 || v.SeedHash != nil {
+			exists = append(exists, v)
+		} else {
+			notExists = append(notExists, v)
+		}
+	}
+
 	return exists, notExists
 }
 
-func (self *chainRw) getSeed(prev *ledger.SnapshotBlock, this *ledger.SnapshotBlock) uint64 {
-	return prev.Height
+func (self *chainRw) getSeed(top *ledger.SnapshotBlock, prev *ledger.SnapshotBlock) uint64 {
+	seedHash := top.SeedHash
+	if seedHash == nil {
+		return 0
+	}
+	expectedSeedHash := ledger.ComputeSeedHash(prev.Seed, prev.PrevHash, prev.Timestamp)
+	if expectedSeedHash == *seedHash {
+		return prev.Seed
+	}
+	return 0
 }
 
 // an hour = 48 * period
 func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
+	result := make(map[types.Address]int32)
 	hourInfos := NewSBPInfos()
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break
 		}
 		tmpIndex := index - i
-		point := self.periodPoints.GetByHeight(tmpIndex).(*periodPoint)
+		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		if err != nil {
+			return nil, err
+		}
+		point := p.(*periodPoint)
 		infos := point.GetSBPInfos()
 		for k, v := range infos {
 			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
 		}
 	}
-	// todo
-	return nil, nil
+
+	for k, v := range hourInfos {
+		result[k] = v.Rate()
+	}
+	return result, nil
+}
+
+// an hour = 48 * period
+func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
+	hourInfos := NewSBPInfos()
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		tmpIndex := index - i
+		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		if err != nil {
+			return nil, err
+		}
+		point := p.(*periodPoint)
+		infos := point.GetSBPInfos()
+		for k, v := range infos {
+			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+		}
+	}
+
+	return hourInfos, nil
 }
 
 // a day = 23 * hour + LatestHour
@@ -235,6 +281,7 @@ func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.I
 	if day <= index {
 		startIndex = index - (day - 1)
 	}
+	// [startIndex, endIndex]
 	points := self.genPoints(startIndex, endIndex)
 
 	for _, p := range points {
@@ -242,13 +289,19 @@ func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.I
 		case *dayPoint:
 			break
 		case *hourPoint:
-			height := self.hourPoints.GetByHeight(p.Height())
+			height, err := self.hourPoints.GetByHeight(p.Height())
+			if err != nil {
+				return nil, err
+			}
 			infos := height.(*hourPoint).GetSBPInfos()
 			for k, v := range infos {
 				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
 			}
 		case *periodPoint:
-			height := self.periodPoints.GetByHeight(p.Height())
+			height, err := self.periodPoints.GetByHeight(p.Height())
+			if err != nil {
+				return nil, err
+			}
 			infos := height.(*periodPoint).GetSBPInfos()
 			for k, v := range infos {
 				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
@@ -259,6 +312,7 @@ func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.I
 	return nil, nil
 }
 
+// [startIndex, endIndex]
 func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
 	return nil
 }
