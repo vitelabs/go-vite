@@ -60,6 +60,7 @@ type Chain interface {
 	Start()
 	Destroy()
 	Stop()
+	NewDb(dbDir string) (*leveldb.DB, error)
 	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
 
@@ -125,6 +126,7 @@ type Chain interface {
 	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie
+	ShallowCheckStateTrie(stateHash *types.Hash) (bool, error)
 	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	NewStateTrie() *trie.Trie
 

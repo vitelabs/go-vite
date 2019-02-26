@@ -29,6 +29,11 @@ func DeleteNodes(db *leveldb.DB, hashList []types.Hash) error {
 	return db.Write(batch, nil)
 }
 
+func ShallowCheck(db *leveldb.DB, rootHash *types.Hash) (bool, error) {
+	dbKey, _ := database.EncodeKey(database.DBKP_TRIE_NODE, rootHash.Bytes())
+	return db.Has(dbKey, nil)
+}
+
 func NewTrie(db *leveldb.DB, rootHash *types.Hash, pool *TrieNodePool) *Trie {
 	trie := &Trie{
 		db:        db,

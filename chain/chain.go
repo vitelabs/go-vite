@@ -2,12 +2,14 @@ package chain
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/chain/trie_gc"
 	"github.com/vitelabs/go-vite/chain_db"
+	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
@@ -86,6 +88,10 @@ func NewChain(cfg *config.Config) Chain {
 
 	initGenesis(cfg.Genesis)
 	return chain
+}
+
+func (c *chain) NewDb(dbDir string) (*leveldb.DB, error) {
+	return database.NewLevelDb(filepath.Join(c.dataDir, dbDir))
 }
 
 func (c *chain) Init() {
@@ -335,6 +341,13 @@ func (c *chain) Start() {
 				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
 			}
 		}
+	}
+
+	// check trie
+	if result, err := c.TrieGc().Check(); err != nil {
+		panic(errors.New("c.TrieGc().Check() failed when start chain, error is " + err.Error()))
+	} else if !result {
+		c.TrieGc().Recover()
 	}
 
 	// trie gc
