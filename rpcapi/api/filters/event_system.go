@@ -2,11 +2,8 @@ package filters
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
 	"sync"
 	"time"
@@ -14,17 +11,31 @@ import (
 
 type FilterType byte
 
+var Es *EventSystem
+
 const (
 	// UnknownSubscription indicates an unknown subscription type
 	UnknownSubscription FilterType = iota
 	ConfirmedLogsSubscription
 	LogsSubscription
-	NewAndConfirmedLogsSubscription
 	ConfirmedAccountBlocksSubscription
 	AccountBlocksSubscription
 	// LastIndexSubscription keeps track of the last index
 	LastIndexSubscription
 )
+
+type heightRange struct {
+	fromHeight uint64
+	toHeight   uint64
+}
+
+type filterParam struct {
+	snapshotRange *heightRange
+	addrRange     map[types.Address]heightRange
+	topics        [][]types.Hash
+	accountHash   *types.Hash
+	snapshotHash  *types.Hash
+}
 
 type subscription struct {
 	id                      rpc.ID
@@ -32,7 +43,7 @@ type subscription struct {
 	createTime              time.Time
 	installed               chan struct{}
 	err                     chan error
-	param                   FilterParam
+	param                   *filterParam
 	accountBlockCh          chan []*AccountBlockMsg
 	confirmedAccountBlockCh chan []*ConfirmedAccountBlockMsg
 	logsCh                  chan []*LogsMsg
@@ -43,7 +54,7 @@ type EventSystem struct {
 	chain     *ChainSubscribe
 	install   chan *subscription         // install filter
 	uninstall chan *subscription         // remove filter
-	acCh      chan AccountChainEvent     // Channel to receive new account chain event
+	acCh      chan []*AccountChainEvent  // Channel to receive new account chain event
 	spCh      chan SnapshotChainEvent    // Channel to receive new snapshot chain event
 	acDelCh   chan AccountChainDelEvent  // Channel to receive new account chain delete event when account chain fork
 	spDelCh   chan SnapshotChainDelEvent // Channel to receive new snapshot chain delete event when snapshot chain fork
@@ -51,19 +62,24 @@ type EventSystem struct {
 }
 
 const (
-	acChanSize    = 10
+	acChanSize    = 100
 	spChanSize    = 10
 	acDelChanSize = 10
 	spDelChanSize = 10
+	installSize   = 10
+	uninstallSize = 10
 )
 
 func NewEventSystem(v *vite.Vite) *EventSystem {
 	es := &EventSystem{
-		vite:    v,
-		acCh:    make(chan AccountChainEvent, acChanSize),
-		spCh:    make(chan SnapshotChainEvent, spChanSize),
-		acDelCh: make(chan AccountChainDelEvent, acDelChanSize),
-		spDelCh: make(chan SnapshotChainDelEvent, spDelChanSize),
+		vite:      v,
+		acCh:      make(chan []*AccountChainEvent, acChanSize),
+		spCh:      make(chan SnapshotChainEvent, spChanSize),
+		acDelCh:   make(chan AccountChainDelEvent, acDelChanSize),
+		spDelCh:   make(chan SnapshotChainDelEvent, spDelChanSize),
+		install:   make(chan *subscription, installSize),
+		uninstall: make(chan *subscription, uninstallSize),
+		stop:      make(chan struct{}),
 	}
 	return es
 }
@@ -79,6 +95,7 @@ func (es *EventSystem) Stop() {
 }
 
 func (es *EventSystem) eventLoop() {
+	fmt.Println("start event loop")
 	index := make(map[FilterType]map[rpc.ID]*subscription)
 	for i := UnknownSubscription; i < LastIndexSubscription; i++ {
 		index[i] = make(map[rpc.ID]*subscription)
@@ -87,7 +104,7 @@ func (es *EventSystem) eventLoop() {
 	for {
 		select {
 		case acEvent := <-es.acCh:
-			es.handleAcEvent(&acEvent)
+			es.handleAcEvent(index, acEvent)
 		case spEvent := <-es.spCh:
 			es.handleSpEvent(&spEvent)
 		case acDelEvent := <-es.acDelCh:
@@ -95,31 +112,108 @@ func (es *EventSystem) eventLoop() {
 		case spDelEvent := <-es.spDelCh:
 			es.handleSpDelEvent(&spDelEvent)
 		case i := <-es.install:
+			fmt.Println("install " + i.id)
 			index[i.typ][i.id] = i
 			close(i.installed)
 		case u := <-es.uninstall:
+			fmt.Println("uninstall " + u.id)
 			delete(index[u.typ], u.id)
 			close(u.err)
 
 		// system stopped
 		case <-es.stop:
+			for _, subscriptions := range index {
+				for _, s := range subscriptions {
+					fmt.Println("close " + s.id)
+					close(s.err)
+				}
+			}
+			index = nil
 			return
 		}
 	}
 }
 
-func (es *EventSystem) handleAcEvent(acEvent *AccountChainEvent) {
-	// TODO
+func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscription, acEvent []*AccountChainEvent) {
+	if len(acEvent) == 0 {
+		return
+	}
+	// handle account blocks
+	msgs := make([]*AccountBlockMsg, len(acEvent))
+	for i, e := range acEvent {
+		msgs[i] = &AccountBlockMsg{Hash: e.Hash, Removed: false}
+	}
+	for _, f := range filters[AccountBlocksSubscription] {
+		f.accountBlockCh <- msgs
+	}
+	// handle logs
+	for _, f := range filters[LogsSubscription] {
+		var logs []*LogsMsg
+		for _, e := range acEvent {
+			if matchedLogs := filterLogs(e, f.param, false); len(matchedLogs) > 0 {
+				logs = append(logs, matchedLogs...)
+			}
+		}
+		if len(logs) > 0 {
+			f.logsCh <- logs
+		}
+	}
 }
+
 func (es *EventSystem) handleSpEvent(acEvent *SnapshotChainEvent) {
 	// TODO
-	fmt.Printf("handle snapshot block event: %v\n", acEvent.SnapshotBlock.Hash)
+	//fmt.Printf("handle snapshot block event: %v\n", acEvent.SnapshotBlock.Hash)
 }
 func (es *EventSystem) handleAcDelEvent(acEvent *AccountChainDelEvent) {
 	// TODO
 }
 func (es *EventSystem) handleSpDelEvent(acEvent *SnapshotChainDelEvent) {
 	// TODO
+}
+
+func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*LogsMsg {
+	if len(e.Logs) == 0 {
+		return nil
+	}
+	var logs []*LogsMsg
+	if filter.accountHash != nil && *filter.accountHash != e.Hash {
+		return nil
+	}
+	if filter.addrRange != nil {
+		if hr, ok := filter.addrRange[e.Addr]; !ok {
+			return nil
+		} else if (hr.fromHeight > 0 && hr.fromHeight > e.Height) || (hr.toHeight > 0 && hr.toHeight < e.Height) {
+			return nil
+		}
+	}
+	for _, l := range e.Logs {
+		if len(l.Topics) < len(filter.topics) {
+			return nil
+		}
+		for i, topicRange := range filter.topics {
+			flag := false
+			if len(topicRange) == 0 {
+				flag = true
+				continue
+			}
+			for _, topic := range topicRange {
+				if topic == l.Topics[i] {
+					flag = true
+					continue
+				}
+			}
+			if !flag {
+				return nil
+			}
+		}
+		logs = append(logs, &LogsMsg{l, e.Hash, nil, &e.Addr, removed})
+	}
+	return logs
+}
+
+func filterConfirmedLogs(e *SnapshotChainEvent, filter filterParam) []*LogsMsg {
+	// TODO
+	return nil
 }
 
 type RpcSubscription struct {
@@ -147,33 +241,6 @@ func (s *RpcSubscription) Unsubscribe() {
 		}
 		<-s.Err()
 	})
-}
-
-type AccountBlockBase struct {
-	From      types.Address
-	To        types.Address
-	BlockType byte
-}
-
-type AccountBlockMsg struct {
-	AccountBlockBase
-	Delete bool
-}
-
-type ConfirmedAccountBlockMsg struct {
-	AccountBlockList []AccountBlockBase
-	SnapshotHash     types.Hash
-	Delete           bool
-}
-
-type VmLogBase struct {
-	Logs             []ledger.VmLog
-	AccountBlockHash types.Hash
-}
-type LogsMsg struct {
-	Logs         []VmLogBase
-	SnapshotHash *types.Hash
-	Delete       bool
 }
 
 func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlockMsg) *RpcSubscription {
@@ -204,41 +271,7 @@ func (es *EventSystem) SubscribeConfirmedAccountBlocks(ch chan []*ConfirmedAccou
 	return es.subscribe(sub)
 }
 
-func (es *EventSystem) SubscribeLogs(p FilterParam, ch chan []*LogsMsg) (*RpcSubscription, error) {
-	// TODO following code has bug
-	from := uint64(0)
-	to := uint64(0)
-	if fromBlock, err := api.StringToUint64(p.FromBlock); err != nil {
-		from = fromBlock
-	}
-	if toBlock, err := api.StringToUint64(p.ToBlock); err != nil {
-		to = toBlock
-	}
-
-	// only interested in new logs
-	if p.FromBlock == rpc.NewBlockNumber && p.ToBlock == rpc.NewBlockNumber {
-		return es.subscribeLogs(p, ch), nil
-	}
-	// only interested in new confirmed logs
-	if p.FromBlock == rpc.LatestBlockNumber && p.ToBlock == rpc.LatestBlockNumber {
-		return es.subscribeConfirmedLogs(p, ch), nil
-	}
-	// only interested in confirmed logs within a specific block range
-	if from >= 0 && to >= 0 && to >= from {
-		return es.subscribeConfirmedLogs(p, ch), nil
-	}
-	// interested in confirmed logs from a specific block number, new confirmed logs and new logs
-	if p.FromBlock >= rpc.LatestBlockNumber && p.ToBlock == rpc.NewBlockNumber {
-		return es.subscribeNewAndConfirmedLogs(p, ch), nil
-	}
-	// interested in logs from a specific block number to new confirmed blocks
-	if from >= 0 && p.ToBlock == rpc.LatestBlockNumber {
-		return es.subscribeConfirmedLogs(p, ch), nil
-	}
-	return nil, errors.New("invalid from and to block combination")
-}
-
-func (es *EventSystem) subscribeLogs(p FilterParam, ch chan []*LogsMsg) *RpcSubscription {
+func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*LogsMsg) *RpcSubscription {
 	sub := &subscription{
 		id:                      rpc.NewID(),
 		typ:                     LogsSubscription,
@@ -253,22 +286,7 @@ func (es *EventSystem) subscribeLogs(p FilterParam, ch chan []*LogsMsg) *RpcSubs
 	return es.subscribe(sub)
 }
 
-func (es *EventSystem) subscribeNewAndConfirmedLogs(p FilterParam, ch chan []*LogsMsg) *RpcSubscription {
-	sub := &subscription{
-		id:                      rpc.NewID(),
-		typ:                     NewAndConfirmedLogsSubscription,
-		param:                   p,
-		createTime:              time.Now(),
-		installed:               make(chan struct{}),
-		err:                     make(chan error),
-		accountBlockCh:          make(chan []*AccountBlockMsg),
-		confirmedAccountBlockCh: make(chan []*ConfirmedAccountBlockMsg),
-		logsCh:                  ch,
-	}
-	return es.subscribe(sub)
-}
-
-func (es *EventSystem) subscribeConfirmedLogs(p FilterParam, ch chan []*LogsMsg) *RpcSubscription {
+func (es *EventSystem) SubscribeConfirmedLogs(p *filterParam, ch chan []*LogsMsg) *RpcSubscription {
 	sub := &subscription{
 		id:                      rpc.NewID(),
 		typ:                     ConfirmedLogsSubscription,
@@ -283,8 +301,8 @@ func (es *EventSystem) subscribeConfirmedLogs(p FilterParam, ch chan []*LogsMsg)
 	return es.subscribe(sub)
 }
 
-func (es *EventSystem) subscribe(sub *subscription) *RpcSubscription {
-	es.install <- sub
-	<-sub.installed
-	return &RpcSubscription{ID: sub.id}
+func (es *EventSystem) subscribe(s *subscription) *RpcSubscription {
+	es.install <- s
+	<-s.installed
+	return &RpcSubscription{ID: s.id, sub: s, es: es}
 }

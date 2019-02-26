@@ -111,9 +111,3 @@ type ServerCodec interface {
 	// Closed when underlying connection is closed
 	Closed() <-chan interface{}
 }
-
-const (
-	NewBlockNumber      = "new"
-	LatestBlockNumber   = "latest"
-	EarliestBlockNumber = "eatliest"
-)

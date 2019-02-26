@@ -34,6 +34,7 @@ type VmDatabase interface {
 
 	AddLog(log *ledger.VmLog)
 	GetLogListHash() *types.Hash
+	GetLogList() ledger.VmLogList
 
 	NewStorageIterator(addr *types.Address, prefix []byte) StorageIterator
 

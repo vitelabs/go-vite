@@ -77,8 +77,6 @@ type Node struct {
 	stop            chan struct{}
 	lock            sync.RWMutex
 	instanceDirLock flock.Releaser // prevents concurrent use of instance directory
-
-	es *filters.EventSystem
 }
 
 func New(conf *Config) (*Node, error) {
@@ -369,8 +367,8 @@ func (node *Node) startRPC() error {
 	}
 
 	// start event system
-	node.es = filters.NewEventSystem(node.Vite())
-	node.es.Start()
+	filters.Es = filters.NewEventSystem(node.Vite())
+	filters.Es.Start()
 
 	// Start rpc
 	if node.config.IPCEnabled {
@@ -467,7 +465,7 @@ func (node *Node) stopRPC() error {
 	node.stopWS()
 	node.stopHTTP()
 	node.stopIPC()
-	node.es.Stop()
+	filters.Es.Stop()
 	return nil
 }
 

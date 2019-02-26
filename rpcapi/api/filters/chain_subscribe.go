@@ -9,8 +9,10 @@ import (
 )
 
 type AccountChainEvent struct {
-	AccountBlock *ledger.AccountBlock
-	Logs         []*ledger.VmLog
+	Hash   types.Hash
+	Height uint64
+	Addr   types.Address
+	Logs   []*ledger.VmLog
 }
 type AccountChainDelEvent struct {
 }
@@ -47,8 +49,11 @@ func (c *ChainSubscribe) Stop() {
 }
 
 func (c *ChainSubscribe) InsertedAccountBlocks(blocks []*vm_context.VmAccountBlock) {
-	// TODO convert blocks to event
-	c.es.acCh <- AccountChainEvent{}
+	acEvents := make([]*AccountChainEvent, len(blocks))
+	for i, b := range blocks {
+		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmContext.GetLogList()}
+	}
+	c.es.acCh <- acEvents
 }
 
 func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
