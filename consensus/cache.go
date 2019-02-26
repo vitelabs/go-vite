@@ -62,7 +62,7 @@ func (self *DbCache) Get(hashes interface{}) (interface{}, bool) {
 		fmt.Printf("parse fail. %s, %s\n", err.Error(), string(bytes))
 		return nil, false
 	}
-	return result, true
+	return []types.Address(result), true
 }
 
 func (self *DbCache) Add(hashes interface{}, addrArr interface{}) bool {

@@ -8,8 +8,6 @@ import (
 
 	"github.com/vitelabs/go-vite/common/fork"
 
-	"github.com/vitelabs/go-vite/consensus/consensus_db"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -155,7 +153,7 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	// load from cache
 	r, ok := self.voteCacheGet(hashH.Hash)
 	if ok {
-		fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s", voteIndex, hashH.Hash))
+		fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
 	}
 	// record vote
@@ -191,7 +189,7 @@ func (self *teller) voteCacheGet(hashes types.Hash) ([]types.Address, bool) {
 	}
 	value, ok := self.voteCache.Get(hashes)
 	if ok {
-		return value.(consensus_db.AddrArr), ok
+		return value.([]types.Address), ok
 	}
 	return nil, ok
 }

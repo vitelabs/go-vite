@@ -2,6 +2,7 @@ package nodemanager
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/node"
@@ -14,8 +15,6 @@ type RecoverNodeManager struct {
 	ctx  *cli.Context
 	node *node.Node
 }
-
-const CountPerDelete = uint64(10000)
 
 func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManager, error) {
 	node, err := maker.MakeNode(ctx)

@@ -145,8 +145,12 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	}
 	return finalAccounts, nil
 }
+
+const seedDuration = time.Minute * 10
+
 func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
-	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(e.SnapshotHeight, &e.Timestamp, &e.Address)
+	t := e.Timestamp.Add(-seedDuration)
+	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(e.SnapshotHeight, &t, &e.Address)
 	if err != nil {
 		return 0
 	}
