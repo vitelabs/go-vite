@@ -30,7 +30,35 @@ type operation struct {
 }
 
 var (
-	simpleInstructionSet = [256]operation{
+	simpleInstructionSet = newSimpleInstructionSet()
+	mintInstructionSet   = newMintInstructionSet()
+)
+
+func newMintInstructionSet() [256]operation {
+	instructionSet := newSimpleInstructionSet()
+	instructionSet[ACCOUNTHEIGHT] = operation{
+		execute:       opAccountHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[ACCOUNTHASH] = operation{
+		execute:       opAccountHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[FROMHASH] = operation{
+		execute:       opFromHash,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
+
+func newSimpleInstructionSet() [256]operation {
+	return [256]operation{
 		STOP: {
 			execute:       opStop,
 			gasCost:       constGasFunc(0),
@@ -830,4 +858,4 @@ var (
 			returns:       true,
 		},
 	}
-)
+}

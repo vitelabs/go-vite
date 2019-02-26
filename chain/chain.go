@@ -167,7 +167,6 @@ func (c *chain) checkData() bool {
 }
 
 func (c *chain) checkForkPoints() (bool, *config.ForkPoint, error) {
-	// check Vite1 upgrade
 	if c.globalCfg.ForkPoints == nil {
 		return true, nil, nil
 	}
@@ -352,7 +351,7 @@ func (c *chain) Start() {
 
 	// trie gc
 	if c.cfg.LedgerGc {
-		c.trieGc.Start()
+		c.TrieGc().Start()
 	}
 
 	// start build filter token index
@@ -376,7 +375,7 @@ func (c *chain) Stop() {
 
 	// trie gc
 	if c.cfg.LedgerGc {
-		c.trieGc.Stop()
+		c.TrieGc().Stop()
 	}
 	// Stop compress
 	c.log.Info("Stop chain module")

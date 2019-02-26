@@ -161,7 +161,7 @@ func (al *AdditionList) Start() {
 		for {
 			select {
 			case <-al.timer.C:
-				if err := al.flush(true); err != nil {
+				if err := al.flush(nil, true); err != nil {
 					al.log.Error("al.flush failed, error is "+err.Error(), "method", "Start")
 				}
 			case <-al.terminal:
@@ -222,7 +222,7 @@ func (al *AdditionList) build() error {
 			return err
 		}
 		al.addList(snapshotBlocks)
-		if err := al.flush(false); err != nil {
+		if err := al.flush(nil, false); err != nil {
 			al.log.Crit("al.flush failed, error is "+err.Error(), "method", "build")
 		}
 
@@ -234,14 +234,15 @@ func (al *AdditionList) build() error {
 	return nil
 }
 
-func (al *AdditionList) flush(isLock bool) error {
+func (al *AdditionList) flush(batch *leveldb.Batch, isLock bool) error {
 	if isLock {
 		al.modifyLock.Lock()
 		defer al.modifyLock.Unlock()
 	}
 
 	if len(al.list) <= 0 {
-		return nil
+		// delete all
+		return al.deleteAllFrags(batch)
 	}
 
 	headAdditionItem := al.list[len(al.list)-1]
@@ -267,13 +268,13 @@ func (al *AdditionList) flush(isLock bool) error {
 			List:       newFragList,
 		}
 
-		if err := al.saveFrag(newFrag); err != nil {
+		if err := al.saveFrag(batch, newFrag); err != nil {
 			err := errors.New("saveFrag failed, error is " + err.Error())
 			al.log.Error(err.Error(), "method", "flush")
 			return err
 		}
 		al.frags = append(al.frags, newFrag)
-		al.clearStaleData()
+		al.clearStaleData(batch)
 	} else if newFragTailHeight > newFragHeadHeight+1 {
 		i := len(al.frags) - 1
 		for ; i >= 0; i-- {
@@ -285,7 +286,7 @@ func (al *AdditionList) flush(isLock bool) error {
 		if i < 0 {
 			i = 0
 		}
-		if err := al.deleteFrags(al.frags[i:]); err != nil {
+		if err := al.deleteFrags(batch, al.frags[i:]); err != nil {
 			return err
 		}
 
@@ -294,7 +295,7 @@ func (al *AdditionList) flush(isLock bool) error {
 	return nil
 }
 
-func (al *AdditionList) clearStaleData() {
+func (al *AdditionList) clearStaleData(batch *leveldb.Batch) {
 	count := len(al.list)
 	if count <= 0 {
 		return
@@ -321,7 +322,7 @@ func (al *AdditionList) clearStaleData() {
 		return
 	}
 
-	if err := al.deleteFrags(needClearFrags); err != nil {
+	if err := al.deleteFrags(batch, needClearFrags); err != nil {
 		al.log.Error("deleteFrags failed, error is "+err.Error(), "method", "clearStaleData")
 		return
 	}
@@ -329,26 +330,67 @@ func (al *AdditionList) clearStaleData() {
 	al.list = al.list[needClearCount:]
 }
 
-func (al *AdditionList) deleteFrags(fragments []*Fragment) error {
-	batch := new(leveldb.Batch)
+func (al *AdditionList) deleteAllFrags(batch *leveldb.Batch) error {
+	isCommit := false
+	if batch == nil {
+		isCommit = true
+		batch = new(leveldb.Batch)
+	}
+
+	db := al.chain.ChainDb().Db()
+	iter := db.NewIterator(util.BytesPrefix([]byte{database.DBKP_ADDITIONAL_LIST}), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return err
+	}
+	if isCommit {
+		return al.chain.ChainDb().Commit(batch)
+	}
+	return nil
+}
+
+func (al *AdditionList) deleteFrags(batch *leveldb.Batch, fragments []*Fragment) error {
+	isCommit := false
+	if batch == nil {
+		isCommit = true
+		batch = new(leveldb.Batch)
+	}
 
 	for _, fragment := range fragments {
 		key := fragment.GetDbKey()
 		batch.Delete(key)
 	}
 
-	return al.chain.ChainDb().Commit(batch)
+	if isCommit {
+		return al.chain.ChainDb().Commit(batch)
+	}
+	return nil
 }
 
-func (al *AdditionList) saveFrag(fragment *Fragment) error {
+func (al *AdditionList) saveFrag(batch *leveldb.Batch, fragment *Fragment) error {
+	isCommit := false
+	if batch == nil {
+		isCommit = true
+		batch = new(leveldb.Batch)
+	}
+
 	key := fragment.GetDbKey()
 	value, err := fragment.Serialize()
 	if err != nil {
 		return err
 	}
 
-	db := al.chain.ChainDb().Db()
-	return db.Put(key, value, nil)
+	batch.Put(key, value)
+
+	if isCommit {
+		return al.chain.ChainDb().Commit(batch)
+	}
+	return nil
 }
 func (al *AdditionList) clearDb() error {
 	db := al.chain.ChainDb().Db()
@@ -453,21 +495,25 @@ func (al *AdditionList) Add(block *ledger.SnapshotBlock, quota uint64) {
 	al.add(block, quota)
 }
 
-func (al *AdditionList) DeleteStartWith(block *ledger.SnapshotBlock) error {
+func (al *AdditionList) DeleteStartWith(batch *leveldb.Batch, block *ledger.SnapshotBlock) error {
 	al.modifyLock.Lock()
 	defer al.modifyLock.Unlock()
 
 	index := al.getIndexByHeight(block.Height)
-	if index < 0 {
-		return errors.New(fmt.Sprintf("Can't find block, block hash is %s, block height is %d", block.Hash, block.Height))
+
+	if index >= 0 {
+		ai := al.list[index]
+		if ai.SnapshotHashHeight.Hash != block.Hash {
+			return errors.New(fmt.Sprintf("Block hash is error, block hash is %s, block height is %d, ai.SnapshotHashHeight.Hash is %s ,ai.SnapshotHashHeight.Height is %d",
+				block.Hash, block.Height, ai.SnapshotHashHeight.Hash, ai.SnapshotHashHeight.Height))
+		}
+		al.list = al.list[:index]
+	} else if index == -3 {
+		// delete all
+		al.list = make([]*AdditionItem, 0)
 	}
-	ai := al.list[index]
-	if ai.SnapshotHashHeight.Hash != block.Hash {
-		return errors.New(fmt.Sprintf("Block hash is error, block hash is %s, block height is %d, ai.SnapshotHashHeight.Hash is %s ,ai.SnapshotHashHeight.Height is %d",
-			block.Hash, block.Height, ai.SnapshotHashHeight.Hash, ai.SnapshotHashHeight.Height))
-	}
-	al.list = al.list[:index]
-	return al.flush(false)
+
+	return al.flush(batch, false)
 }
 
 func (al *AdditionList) GetAggregateQuota(block *ledger.SnapshotBlock) (uint64, error) {
@@ -518,12 +564,12 @@ func (al *AdditionList) getIndexByHeight(height uint64) int {
 
 	headHeight := headAdditionItem.SnapshotHashHeight.Height
 	if headHeight < height {
-		return -1
+		return -2
 	}
 
 	tailHeight := tailAdditionItem.SnapshotHashHeight.Height
 	if tailHeight > height {
-		return -1
+		return -3
 	}
 
 	index := int(height - tailHeight)

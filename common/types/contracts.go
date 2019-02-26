@@ -51,4 +51,7 @@ type TokenInfo struct {
 	Owner          Address  `json:"owner"`
 	PledgeAmount   *big.Int `json:"pledgeAmount"`
 	WithdrawHeight uint64   `json:"withdrawHeight"`
+	MaxSupply      *big.Int `json:"maxSupply"`
+	OwnerBurnOnly  bool     `json:"ownerBurnOnly"`
+	IsReIssuable   bool     `json:"isReIssuable"`
 }

@@ -137,4 +137,5 @@ type Transport interface {
 type Plugin interface {
 	Start(p2p Server) error
 	Stop()
+	Info() interface{}
 }

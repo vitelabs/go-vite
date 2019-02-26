@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-// @section Cmd
 const Vite = "vite"
 
 const CmdSet = 2
@@ -296,18 +295,40 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
-	fileList := &message.FileList{
-		Files:  files,
-		Chunks: chunks,
-		Nonce:  0,
+	fss := splitFiles(files, 1000)
+	for i, fs := range fss {
+		fileList := &message.FileList{
+			Files: fs,
+		}
+		if i == len(fss)-1 {
+			fileList.Chunks = chunks
+		}
+
+		err = sender.Send(FileListCode, msg.Id, fileList)
+
+		if err != nil {
+			netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
+			return
+		} else {
+			netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		}
 	}
 
-	err = sender.Send(FileListCode, msg.Id, fileList)
+	return
+}
 
-	if err != nil {
-		netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
-	} else {
-		netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+func splitFiles(fs []*ledger.CompressedFileMeta, batch int) (fss [][]*ledger.CompressedFileMeta) {
+	total := len(fs)
+	i := 0
+	for i < total {
+		if total-i < batch {
+			fss = append(fss, fs[i:total])
+			i = total
+		} else {
+			j := i + batch
+			fss = append(fss, fs[i:j])
+			i = j
+		}
 	}
 
 	return

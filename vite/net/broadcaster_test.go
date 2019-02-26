@@ -2,8 +2,11 @@ package net
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/vite/net/circle"
 	"testing"
+
+	"github.com/vitelabs/go-vite/ledger"
+
+	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
 func TestBroadcaster_Statistic(t *testing.T) {
@@ -129,4 +132,46 @@ func BenchmarkBroadcaster_Statistic(b *testing.B) {
 		ret = bdc.Statistic()
 	}
 	fmt.Println(ret)
+}
+
+func TestMemStore_EnqueueAccountBlock(t *testing.T) {
+	store := newMemBlockStore(1000)
+	for i := uint64(0); i < 1100; i++ {
+		store.enqueueAccountBlock(&ledger.AccountBlock{
+			Height: i,
+		})
+	}
+	for i := uint64(0); i < 1000; i++ {
+		block := store.dequeueAccountBlock()
+		if block.Height != i {
+			t.Fail()
+		}
+	}
+	for i := uint64(0); i < 100; i++ {
+		block := store.dequeueAccountBlock()
+		if block != nil {
+			t.Fail()
+		}
+	}
+}
+
+func TestMemStore_EnqueueSnapshotBlock(t *testing.T) {
+	store := newMemBlockStore(1000)
+	for i := uint64(0); i < 1100; i++ {
+		store.enqueueSnapshotBlock(&ledger.SnapshotBlock{
+			Height: i,
+		})
+	}
+	for i := uint64(0); i < 1000; i++ {
+		block := store.dequeueSnapshotBlock()
+		if block.Height != i {
+			t.Fail()
+		}
+	}
+	for i := uint64(0); i < 100; i++ {
+		block := store.dequeueSnapshotBlock()
+		if block != nil {
+			t.Fail()
+		}
+	}
 }

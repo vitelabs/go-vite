@@ -94,7 +94,7 @@ func (ms *mockServer) PeersCount() uint {
 	panic("implement me")
 }
 
-func (ms *mockServer) NodeInfo() *p2p.NodeInfo {
+func (ms *mockServer) NodeInfo() p2p.NodeInfo {
 	panic("implement me")
 }
 

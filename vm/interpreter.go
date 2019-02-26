@@ -3,6 +3,7 @@ package vm
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -14,11 +15,19 @@ type Interpreter struct {
 
 var (
 	simpleInterpreter = &Interpreter{simpleInstructionSet}
+	mintInterpreter   = &Interpreter{mintInstructionSet}
 )
+
+func NewInterpreter(blockHeight uint64) *Interpreter {
+	if fork.IsMintFork(blockHeight) {
+		return mintInterpreter
+	} else {
+		return simpleInterpreter
+	}
+}
 
 func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 	c.returnData = nil
-
 	var (
 		op   opCode
 		mem  = newMemory()
@@ -67,18 +76,22 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
+			currentCode := ""
+			if currentPc < uint64(len(c.code)) {
+				currentCode = hex.EncodeToString(c.code[currentPc:])
+			}
 			nodeConfig.interpreterLog.Info("vm step",
-				"blockType", c.block.AccountBlock.BlockType,
-				"address", c.block.AccountBlock.AccountAddress.String(),
-				"height", c.block.AccountBlock.Height,
-				"fromHash", c.block.AccountBlock.FromBlockHash.String(),
-				"\ncurrent code", hex.EncodeToString(c.code[currentPc:]),
+				"blockType", c.block.BlockType,
+				"address", c.block.AccountAddress.String(),
+				"height", c.block.Height,
+				"fromHash", c.block.FromBlockHash.String(),
+				"\ncurrent code", currentCode,
 				"\nop", opCodeToString[op],
 				"pc", currentPc,
 				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
-				"\nstorage", util.PrintMap(c.block.VmContext.DebugGetStorage()))
+				"\nstorage", util.PrintMap(c.db.DebugGetStorage()))
 		}
 
 		if operation.returns {

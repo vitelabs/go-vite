@@ -8,7 +8,7 @@ import (
 )
 
 func TestConvert(t *testing.T) {
-	params:=[]string{
+	params := []string{
 		"true",
 		"-1",
 		"-01",
@@ -81,7 +81,7 @@ func TestConvert(t *testing.T) {
 		"{\"type\":\"gid[2]\"}," +
 		"{\"type\":\"string[]\"}," +
 		"{\"type\":\"string[2]\"}" +
-	"],\"name\":\"testFunction\",\"type\":\"function\"}]"
+		"],\"name\":\"testFunction\",\"type\":\"function\"}]"
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
 		t.Fatalf("convert abi failed, %v", err)
@@ -91,4 +91,9 @@ func TestConvert(t *testing.T) {
 		t.Fatalf("convert arguments failed, %v", err)
 	}
 	fmt.Println(arguments)
+	data, err := abiContract.PackMethod("testFunction", arguments...)
+	if err != nil {
+		t.Fatalf("pack method failed, %v", err)
+	}
+	fmt.Println(data)
 }
