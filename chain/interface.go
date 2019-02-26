@@ -60,6 +60,7 @@ type Chain interface {
 	Start()
 	Destroy()
 	Stop()
+	NewDb(dbDir string) (*leveldb.DB, error)
 	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
 	GetNeedSnapshotContent() ledger.SnapshotContent
 
