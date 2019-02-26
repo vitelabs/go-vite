@@ -3,6 +3,9 @@ package ledger
 import (
 	"bytes"
 	"encoding/binary"
+	"sort"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
@@ -11,8 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vitepb"
-	"sort"
-	"time"
 )
 
 var snapshotBlockLog = log15.New("module", "ledger/snapshot_block")

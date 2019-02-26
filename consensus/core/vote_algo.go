@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -211,8 +213,9 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 	if len(groupB) == 0 {
 		return groupA, groupB
 	}
-	// todo
-	//return groupA, groupB
+	if !fork.IsMintFork(height.Height) {
+		return groupA, groupB
+	}
 
 	var groupA1 []*SuccessRateVote
 	var deleteGroupA []*SuccessRateVote

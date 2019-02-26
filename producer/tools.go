@@ -3,6 +3,8 @@ package producer
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -40,8 +42,6 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
-	// todo
-	//lastSeed := self.generateSeed(e, head, fn)
 
 	block := &ledger.SnapshotBlock{
 		PrevHash:        head.Hash,
@@ -51,9 +51,12 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		StateHash:       *trie.Hash(),
 		SnapshotContent: accounts,
 	}
-
-	// todo
-	// 	seedHash :=
+	if fork.IsMintFork(block.Height) {
+		lastSeed := self.generateSeed(e, head, fn)
+		seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+		block.SeedHash = &seedHash
+		block.Seed = lastSeed
+	}
 
 	block.Hash = block.ComputeHash()
 	manager, err := self.wt.GetEntropyStoreManager(coinbase.EntryPath)
@@ -143,11 +146,12 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	return finalAccounts, nil
 }
 func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
-	// todo
-	var blocks []*ledger.SnapshotBlock
+	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(e.SnapshotHeight, &e.Timestamp, &e.Address)
+	if err != nil {
+		return 0
+	}
 	for _, v := range blocks {
-		// todo should be seedHash
-		var seedHash = &v.Hash
+		var seedHash = v.SeedHash
 		if seedHash != nil {
 			if e.PeriodStime.Before(*v.Timestamp) {
 				return 0

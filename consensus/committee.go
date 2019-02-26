@@ -515,15 +515,16 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, vote
 
 func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, voteTime time.Time) Event {
 	return Event{
-		Gid:            gid,
-		Address:        p.Member,
-		Stime:          p.STime,
-		Etime:          p.ETime,
-		Timestamp:      p.STime,
-		SnapshotHash:   r.Hash,
-		SnapshotHeight: r.Height,
-		VoteTime:       voteTime,
-		PeriodStime:    r.STime,
-		PeriodEtime:    r.ETime,
+		Gid:               gid,
+		Address:           p.Member,
+		Stime:             p.STime,
+		Etime:             p.ETime,
+		Timestamp:         p.STime,
+		SnapshotHash:      r.Hash,
+		SnapshotHeight:    r.Height,
+		SnapshotTimeStamp: r.Timestamp,
+		VoteTime:          voteTime,
+		PeriodStime:       r.STime,
+		PeriodEtime:       r.ETime,
 	}
 }

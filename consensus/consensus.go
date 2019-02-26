@@ -19,9 +19,10 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp      time.Time  // add to block
-	SnapshotHash   types.Hash // add to block
-	SnapshotHeight uint64     // add to block
+	Timestamp         time.Time  // add to block
+	SnapshotHash      types.Hash // add to block
+	SnapshotHeight    uint64     // add to block
+	SnapshotTimeStamp time.Time  // add to block
 
 	VoteTime    time.Time // voteTime
 	PeriodStime time.Time // start time for period
@@ -29,12 +30,13 @@ type Event struct {
 }
 
 type electionResult struct {
-	Plans  []*core.MemberPlan
-	STime  time.Time
-	ETime  time.Time
-	Index  uint64
-	Hash   types.Hash
-	Height uint64
+	Plans     []*core.MemberPlan
+	STime     time.Time
+	ETime     time.Time
+	Index     uint64
+	Hash      types.Hash
+	Height    uint64
+	Timestamp time.Time
 }
 
 type ProducersEvent struct {

@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/hashicorp/golang-lru"
@@ -206,7 +208,7 @@ func (self *periodLinkedArray) NextHeight(height uint64) uint64 {
 
 func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) {
 	stime, etime := self.snapshot.index2Time(height)
-	// todo
+	// todo opt
 	endSnapshotBlock, err := self.rw.GetSnapshotBlockBeforeTime(&etime)
 	if err != nil {
 		return nil, err
@@ -216,6 +218,10 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 	}
 
 	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock) {
+		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
+	}
+
+	if !fork.IsMintFork(endSnapshotBlock.Height) {
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 

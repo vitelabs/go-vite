@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"sort"
@@ -166,10 +168,6 @@ func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()
 }
 func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash, voteTime time.Time) error {
-	//header := self.rw.GetLatestSnapshotBlock()
-	//if header.Timestamp.Before(voteTime) {
-	//	return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
-	//}
 	if startHash == actual {
 		return nil
 	}
@@ -186,6 +184,12 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	}
 	if actualB == nil {
 		return errors.Errorf("refer snapshot block is nil. hashH:%s", actual)
+	}
+	if fork.IsMintFork(actualB.Height) {
+		header := self.rw.GetLatestSnapshotBlock()
+		if header.Timestamp.Before(voteTime) {
+			return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
+		}
 	}
 
 	block, _ := self.rw.GetSnapshotBlockByHeight(actualB.Height + 1)
@@ -277,48 +281,48 @@ func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
 }
 
 // a day = 23 * hour + LatestHour
-func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.Int, error) {
-	dayInfos := NewSBPInfos()
-	startIndex := uint64(0)
-	endIndex := index
-	if day <= index {
-		startIndex = index - (day - 1)
-	}
-	// [startIndex, endIndex]
-	points := self.genPoints(startIndex, endIndex)
-
-	for _, p := range points {
-		switch p.(type) {
-		case *dayPoint:
-			break
-		case *hourPoint:
-			height, err := self.hourPoints.GetByHeight(p.Height())
-			if err != nil {
-				return nil, err
-			}
-			infos := height.(*hourPoint).GetSBPInfos()
-			for k, v := range infos {
-				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
-			}
-		case *periodPoint:
-			height, err := self.periodPoints.GetByHeight(p.Height())
-			if err != nil {
-				return nil, err
-			}
-			infos := height.(*periodPoint).GetSBPInfos()
-			for k, v := range infos {
-				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
-			}
-		}
-	}
-	// todo
-	return nil, nil
-}
-
-// [startIndex, endIndex]
-func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
-	return nil
-}
+//func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.Int, error) {
+//	dayInfos := NewSBPInfos()
+//	startIndex := uint64(0)
+//	endIndex := index
+//	if day <= index {
+//		startIndex = index - (day - 1)
+//	}
+//	// [startIndex, endIndex]
+//	points := self.genPoints(startIndex, endIndex)
+//
+//	for _, p := range points {
+//		switch p.(type) {
+//		case *dayPoint:
+//			break
+//		case *hourPoint:
+//			height, err := self.hourPoints.GetByHeight(p.Height())
+//			if err != nil {
+//				return nil, err
+//			}
+//			infos := height.(*hourPoint).GetSBPInfos()
+//			for k, v := range infos {
+//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+//			}
+//		case *periodPoint:
+//			height, err := self.periodPoints.GetByHeight(p.Height())
+//			if err != nil {
+//				return nil, err
+//			}
+//			infos := height.(*periodPoint).GetSBPInfos()
+//			for k, v := range infos {
+//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+//			}
+//		}
+//	}
+//	// todo
+//	return nil, nil
+//}
+//
+//// [startIndex, endIndex]
+//func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
+//	return nil
+//}
 
 const (
 	period = 1

@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/consensus/consensus_db"
 
 	"github.com/pkg/errors"
@@ -70,7 +72,7 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 		return nil, e
 	}
 	// todo
-	self.mLog.Info(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
+	self.mLog.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
 	seeds, err := self.rw.GetSeedsBeforeHashH(block, seedDuration)
 	if err != nil {
 		return nil, err
@@ -92,6 +94,7 @@ func (self *teller) genPlan(index uint64, members []types.Address, hashH *ledger
 	result.Index = index
 	result.Hash = hashH.Hash
 	result.Height = hashH.Height
+	result.Timestamp = *hashH.Timestamp
 	return &result
 }
 
@@ -160,12 +163,16 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	if err != nil {
 		return nil, err
 	}
-	successRate, err := self.rw.GetSuccessRateByHour(voteIndex)
-	if err != nil {
-		return nil, err
+
+	var successRate map[types.Address]int32
+	if fork.IsMintFork(hashH.Height) {
+		successRate, err = self.rw.GetSuccessRateByHour(voteIndex)
+		if err != nil {
+			return nil, err
+		}
+		self.mLog.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
 	}
 
-	self.mLog.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
 	finalVotes := self.algo.FilterVotes(context)
