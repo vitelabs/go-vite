@@ -182,12 +182,35 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 }
 
 func (s *SubscribeApi) NewConfirmedAccountBlocksFilter() (rpc.ID, error) {
-	// TODO
-	return "", nil
-}
+	fmt.Println("new confirmed account blocks filter start")
+	var (
+		acCh  = make(chan []*ConfirmedAccountBlockMsg)
+		acSub = s.eventSystem.SubscribeConfirmedAccountBlocks(acCh)
+	)
 
-func (s *SubscribeApi) Test(p map[types.Address]interface{}) {
-	fmt.Println(p)
+	s.filterMapMu.Lock()
+	s.filterMap[acSub.ID] = &filter{typ: acSub.sub.typ, deadline: time.NewTimer(deadline), s: acSub}
+	s.filterMapMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case ac := <-acCh:
+				s.filterMapMu.Lock()
+				if f, found := s.filterMap[acSub.ID]; found {
+					f.confirmedBlocks = append(f.confirmedBlocks, ac...)
+				}
+				s.filterMapMu.Unlock()
+			case <-acSub.Err():
+				s.filterMapMu.Lock()
+				delete(s.filterMap, acSub.ID)
+				s.filterMapMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return acSub.ID, nil
 }
 
 func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
@@ -227,8 +250,39 @@ func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
 }
 
 func (s *SubscribeApi) NewConfirmedLogsFilter(param RpcFilterParam) (rpc.ID, error) {
-	// TODO
-	return "", nil
+	fmt.Println("new confirmed logs filter start")
+	p, err := param.toFilterParam()
+	if err != nil {
+		return "", err
+	}
+	var (
+		logsCh  = make(chan []*LogsMsg)
+		logsSub = s.eventSystem.SubscribeConfirmedLogs(p, logsCh)
+	)
+
+	s.filterMapMu.Lock()
+	s.filterMap[logsSub.ID] = &filter{typ: logsSub.sub.typ, deadline: time.NewTimer(deadline), s: logsSub}
+	s.filterMapMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case l := <-logsCh:
+				s.filterMapMu.Lock()
+				if f, found := s.filterMap[logsSub.ID]; found {
+					f.confirmedLogs = append(f.confirmedLogs, l...)
+				}
+				s.filterMapMu.Unlock()
+			case <-logsSub.Err():
+				s.filterMapMu.Lock()
+				delete(s.filterMap, logsSub.ID)
+				s.filterMapMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return logsSub.ID, nil
 }
 
 func (s *SubscribeApi) UninstallFilter(id rpc.ID) bool {

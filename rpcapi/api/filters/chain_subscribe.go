@@ -17,8 +17,15 @@ type AccountChainEvent struct {
 type AccountChainDelEvent struct {
 }
 
+type SnapshotedAccountInfo struct {
+	Hash   types.Hash
+	Height uint64
+	Logs   []*ledger.VmLog
+}
 type SnapshotChainEvent struct {
-	SnapshotBlock *ledger.SnapshotBlock
+	SnapshotHash   types.Hash
+	SnapshotHeight uint64
+	Content        map[types.Address]*SnapshotedAccountInfo
 }
 type SnapshotChainDelEvent struct {
 }
@@ -33,7 +40,7 @@ func NewChainSubscribe(v *vite.Vite, e *EventSystem) *ChainSubscribe {
 	c := &ChainSubscribe{vite: v, es: e}
 	list := make([]uint64, 0, 6)
 	list = append(list, v.Chain().RegisterInsertAccountBlocksSuccess(c.InsertedAccountBlocks))
-	list = append(list, v.Chain().RegisterInsertSnapshotBlocksSuccess(c.InsertedSnapshotBlocks))
+	// TODO list = append(list, v.Chain().RegisterInsertSnapshotBlocksSuccess(c.InsertedSnapshotBlocks))
 	list = append(list, v.Chain().RegisterDeleteAccountBlocks(c.PreDeleteAccountBlocks))
 	list = append(list, v.Chain().RegisterDeleteAccountBlocksSuccess(c.DeletedAccountBlocks))
 	// TODO list = append(list, v.Chain().RegisterDeleteSnapshotBlocks(c.PreDeleteSnapshotBlocks))
@@ -64,9 +71,16 @@ func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*led
 	// TODO convert blocks and logs from cache and send to channel
 }
 
-func (c *ChainSubscribe) InsertedSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
-	// TODO
-	c.es.spCh <- SnapshotChainEvent{blocks[0]}
+func (c *ChainSubscribe) InsertedSnapshotBlocks(blocks []*ledger.SnapshotBlock, content map[types.Hash]map[types.Address][]*ledger.AccountBlock) {
+	var scEvents []*SnapshotChainEvent
+	for _, b := range blocks {
+		confirmedBlocks := content[b.Hash]
+		if len(confirmedBlocks) == 0 {
+			return
+		}
+
+	}
+	c.es.spCh <- scEvents
 }
 
 func (c *ChainSubscribe) PreDeleteSnapshotBlocks([]*ledger.SnapshotBlock) {

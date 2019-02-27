@@ -55,7 +55,7 @@ type EventSystem struct {
 	install   chan *subscription         // install filter
 	uninstall chan *subscription         // remove filter
 	acCh      chan []*AccountChainEvent  // Channel to receive new account chain event
-	spCh      chan SnapshotChainEvent    // Channel to receive new snapshot chain event
+	spCh      chan []*SnapshotChainEvent // Channel to receive new snapshot chain event
 	acDelCh   chan AccountChainDelEvent  // Channel to receive new account chain delete event when account chain fork
 	spDelCh   chan SnapshotChainDelEvent // Channel to receive new snapshot chain delete event when snapshot chain fork
 	stop      chan struct{}
@@ -74,7 +74,7 @@ func NewEventSystem(v *vite.Vite) *EventSystem {
 	es := &EventSystem{
 		vite:      v,
 		acCh:      make(chan []*AccountChainEvent, acChanSize),
-		spCh:      make(chan SnapshotChainEvent, spChanSize),
+		spCh:      make(chan []*SnapshotChainEvent, spChanSize),
 		acDelCh:   make(chan AccountChainDelEvent, acDelChanSize),
 		spDelCh:   make(chan SnapshotChainDelEvent, spDelChanSize),
 		install:   make(chan *subscription, installSize),
@@ -106,7 +106,7 @@ func (es *EventSystem) eventLoop() {
 		case acEvent := <-es.acCh:
 			es.handleAcEvent(index, acEvent)
 		case spEvent := <-es.spCh:
-			es.handleSpEvent(&spEvent)
+			es.handleSpEvent(index, spEvent)
 		case acDelEvent := <-es.acDelCh:
 			es.handleAcDelEvent(&acDelEvent)
 		case spDelEvent := <-es.spDelCh:
@@ -160,7 +160,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 }
 
-func (es *EventSystem) handleSpEvent(acEvent *SnapshotChainEvent) {
+func (es *EventSystem) handleSpEvent(filters map[FilterType]map[rpc.ID]*subscription, acEvent []*SnapshotChainEvent) {
 	// TODO
 	//fmt.Printf("handle snapshot block event: %v\n", acEvent.SnapshotBlock.Hash)
 }
