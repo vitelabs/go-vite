@@ -5,9 +5,8 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
