@@ -81,15 +81,17 @@ func (r *Range) toHeightRange() (*heightRange, error) {
 		if err != nil {
 			return nil, err
 		}
+		if toHeight < fromHeight {
+			return nil, errors.New("to height < from height")
+		}
 		return &heightRange{fromHeight, toHeight}, nil
 	}
 	return nil, nil
 }
 
 type RpcFilterParam struct {
-	AddrRange   map[string]*Range `json:"addrRange"`
-	Topics      [][]types.Hash    `json:"topics"`
-	AccountHash *types.Hash       `json:"accountHash"`
+	AddrRange map[string]*Range `json:"addrRange"`
+	Topics    [][]types.Hash    `json:"topics"`
 }
 
 func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
@@ -113,9 +115,8 @@ func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
 		addrRange[addr] = *hr
 	}
 	target := &filterParam{
-		addrRange:   addrRange,
-		topics:      p.Topics,
-		accountHash: p.AccountHash,
+		addrRange: addrRange,
+		topics:    p.Topics,
 	}
 	return target, nil
 }
@@ -295,4 +296,8 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 		}
 	}()
 	return rpcSub, nil
+}
+
+func (s *SubscribeApi) TestDelete(addr types.Address, height uint64) (map[types.Address][]*ledger.AccountBlock, error) {
+	return s.vite.Chain().DeleteAccountBlocks(&addr, height)
 }

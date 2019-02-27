@@ -67,5 +67,5 @@ func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger 
 func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) {
 	deletedBlocks := c.preDeleteAccountBlocks
 	c.preDeleteAccountBlocks = nil
-	c.es.acCh <- deletedBlocks
+	c.es.acDelCh <- deletedBlocks
 }

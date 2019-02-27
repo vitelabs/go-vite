@@ -23,7 +23,7 @@ type InsertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
 type DeleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
 type DeleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
 
-type InsertSnapshotBlocksSuccess func([]*ledger.SnapshotBlock, map[types.Hash][]*ledger.AccountBlock)
+type InsertSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
 type DeleteSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
 
 type Chain interface {
@@ -120,10 +120,7 @@ type Chain interface {
 	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
 	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
 	RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64
-
-	RegisterDeleteSnapshotBlocks(processor DeleteSnapshotBlocksSuccess) uint64
 	RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64
-
 	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
 	GetStateTrie(stateHash *types.Hash) *trie.Trie

@@ -25,9 +25,8 @@ type heightRange struct {
 }
 
 type filterParam struct {
-	addrRange   map[types.Address]heightRange
-	topics      [][]types.Hash
-	accountHash *types.Hash
+	addrRange map[types.Address]heightRange
+	topics    [][]types.Hash
 }
 
 type subscription struct {
@@ -92,9 +91,9 @@ func (es *EventSystem) eventLoop() {
 	for {
 		select {
 		case acEvent := <-es.acCh:
-			es.handleAcEvent(index, acEvent)
+			es.handleAcEvent(index, acEvent, false)
 		case acDelEvent := <-es.acDelCh:
-			es.handleAcEvent(index, acDelEvent)
+			es.handleAcEvent(index, acDelEvent, true)
 		case i := <-es.install:
 			fmt.Println("install " + i.id)
 			index[i.typ][i.id] = i
@@ -118,14 +117,14 @@ func (es *EventSystem) eventLoop() {
 	}
 }
 
-func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscription, acEvent []*AccountChainEvent) {
+func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscription, acEvent []*AccountChainEvent, removed bool) {
 	if len(acEvent) == 0 {
 		return
 	}
 	// handle account blocks
 	msgs := make([]*AccountBlockMsg, len(acEvent))
 	for i, e := range acEvent {
-		msgs[i] = &AccountBlockMsg{Hash: e.Hash, Removed: false}
+		msgs[i] = &AccountBlockMsg{Hash: e.Hash, Removed: removed}
 	}
 	for _, f := range filters[AccountBlocksSubscription] {
 		f.accountBlockCh <- msgs
@@ -134,7 +133,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	for _, f := range filters[LogsSubscription] {
 		var logs []*LogsMsg
 		for _, e := range acEvent {
-			if matchedLogs := filterLogs(e, f.param, false); len(matchedLogs) > 0 {
+			if matchedLogs := filterLogs(e, f.param, removed); len(matchedLogs) > 0 {
 				logs = append(logs, matchedLogs...)
 			}
 		}
@@ -149,9 +148,6 @@ func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs
 		return nil
 	}
 	var logs []*LogsMsg
-	if filter.accountHash != nil && *filter.accountHash != e.Hash {
-		return nil
-	}
 	if filter.addrRange != nil {
 		if hr, ok := filter.addrRange[e.Addr]; !ok {
 			return nil
