@@ -17,6 +17,8 @@ type ExportNodeManager struct {
 	node *node.Node
 }
 
+var digits = big.NewInt(1000000000000000000)
+
 func NewExportNodeManager(ctx *cli.Context, maker NodeMaker) (*ExportNodeManager, error) {
 	node, err := maker.MakeNode(ctx)
 	if err != nil {
@@ -142,7 +144,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 	}
 
 	fmt.Printf("Complete the balance that already belongs to the account query. "+
-		"There are %d accounts, %d accounts is general account, %d accounts is contract account\n", len(allAddress), len(generalAddressList), len(contractAddressList))
+		"There are %d accounts, %d accounts is general account, %d accounts is contract account\n", len(allAddress), len(generalAddressMap), len(contractAddressMap))
 
 	// query balance that is onroad.
 	fmt.Printf("Start query balance that is onroad.\n")
@@ -158,7 +160,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 	}
 
 	for _, addr := range allAddress {
-		onroadBlocks, err := chainInstance.GetOnRoadBlocksBySendAccount(addr, sb.Hash)
+		onroadBlocks, err := chainInstance.GetOnRoadBlocksBySendAccount(&addr, sb.Height)
 		if err != nil {
 			return errors.New(fmt.Sprintf("GetOnRoadBlocksBySendAccount failed, addr is %s, sb.height is %d, sb.hash is %s, error is %s",
 				addr.String(), sb.Height, sb.Hash, err.Error()))
@@ -181,60 +183,31 @@ func (nodeManager *ExportNodeManager) Start() error {
 				onroadBalanceMap[fromAddress].Add(onroadBalanceMap[fromAddress], onroadBlock.Amount)
 				sumBalanceMap[fromAddress].Add(sumBalanceMap[fromAddress], onroadBlock.Amount)
 			} else {
-				return errors.New(fmt.Sprintf("To address is not existed, toAddress is %s, addr is %s, onroadBlock height is %d, onroadBlock hash is %s",
+				return errors.New(fmt.Sprintf("ToAddress is not existed, toAddress is %s, addr is %s, onroadBlock height is %d, onroadBlock hash is %s",
 					toAddress, addr, onroadBlock.Height, onroadBlock.Hash))
 			}
 
 		}
-
 	}
 	fmt.Printf("Complete the balance that is onroad query.\n")
 
-	//deleteToHeight := nodeManager.getDeleteToHeight()
-	//
-	//if deleteToHeight <= 0 {
-	//	err := errors.New("deleteToHeight is 0.\n")
-	//	panic(err)
-	//}
-	//
-	//
-	//fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
-	//fmt.Printf("Delete target height is %d\n", deleteToHeight)
-	//
-	//tmpDeleteToHeight := c.GetLatestSnapshotBlock().Height + 1
-	//
-	//for tmpDeleteToHeight > deleteToHeight {
-	//	if tmpDeleteToHeight > CountPerDelete {
-	//		tmpDeleteToHeight = tmpDeleteToHeight - CountPerDelete
-	//	}
-	//
-	//	if tmpDeleteToHeight < deleteToHeight {
-	//		tmpDeleteToHeight = deleteToHeight
-	//	}
-	//
-	//	fmt.Printf("Deleting to %d...\n", tmpDeleteToHeight)
-	//
-	//	if _, _, err := c.DeleteSnapshotBlocksToHeight(tmpDeleteToHeight); err != nil {
-	//		fmt.Printf("Delete to %d height failed. error is "+err.Error()+"\n", tmpDeleteToHeight)
-	//		return err
-	//	}
-	//	fmt.Printf("Delete to %d successed!\n", tmpDeleteToHeight)
-	//
-	//}
-	//
-	//if checkResult, checkErr := c.TrieGc().Check(); checkErr != nil {
-	//	fmt.Printf("Check trie failed! error is %s\n", checkErr.Error())
-	//} else if !checkResult {
-	//	fmt.Printf("Rebuild data...\n")
-	//	if err := c.TrieGc().Recover(); err != nil {
-	//		fmt.Printf("Rebuild data failed! error is %s\n", err.Error())
-	//	} else {
-	//		fmt.Printf("Rebuild data successed!\n")
-	//	}
-	//}
-	//
-	//fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
+	nodeManager.PrintBalanceMap(sumBalanceMap)
 	return nil
+}
+
+func (nodeManager *ExportNodeManager) PrintBalanceMap(balanceMap map[types.Address]*big.Int) {
+	totalBalance := big.NewInt(0)
+	for addr, balance := range balanceMap {
+		humanBalance := big.NewInt(0)
+		humanBalance.Div(balance, digits)
+		fmt.Printf("%s: %s | %s vite \n", addr, balance, humanBalance)
+		totalBalance = totalBalance.Add(totalBalance, balance)
+	}
+	humanBalance := big.NewInt(0)
+	humanBalance.Div(totalBalance, digits)
+
+	fmt.Printf("total: %s | %s vite \n", totalBalance, totalBalance)
+
 }
 
 func (nodeManager *ExportNodeManager) Stop() error {

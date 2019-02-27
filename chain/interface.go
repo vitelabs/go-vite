@@ -148,5 +148,5 @@ type Chain interface {
 	Fti() *chain_index.FilterTokenIndex
 
 	// get on road blocks in a snapshot
-	GetOnRoadBlocksBySendAccount(sendAccountAddress types.Address, snapshotHash types.Hash) ([]*ledger.AccountBlock, error)
+	GetOnRoadBlocksBySendAccount(sendAccountAddress *types.Address, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, error)
 }
