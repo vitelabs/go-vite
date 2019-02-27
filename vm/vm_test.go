@@ -260,7 +260,7 @@ func TestDelegateCall(t *testing.T) {
 	blockTime := time.Now()
 
 	vm := NewVM()
-	vm.i = NewInterpreter(1)
+	vm.i = NewInterpreter(1, false)
 	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
@@ -945,7 +945,7 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM()
-			vm.i = NewInterpreter(1)
+			vm.i = NewInterpreter(1, false)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
@@ -1062,7 +1062,7 @@ func TestOffChainReader(t *testing.T) {
 
 	for k, testCase := range *testCaseMap {
 		vm := NewVM()
-		vm.i = NewInterpreter(1)
+		vm.i = NewInterpreter(1, true)
 		var sbTime time.Time
 		if testCase.SBTime > 0 {
 			sbTime = time.Unix(testCase.SBTime, 0)

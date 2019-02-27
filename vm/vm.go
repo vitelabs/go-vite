@@ -170,7 +170,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
-	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height)
+	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height, false)
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
@@ -789,7 +789,7 @@ func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data [
 			err = errors.New("offchain reader panic")
 		}
 	}()
-	vm.i = NewInterpreter(db.CurrentSnapshotBlock().Height)
+	vm.i = NewInterpreter(db.CurrentSnapshotBlock().Height, true)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas, 0)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)

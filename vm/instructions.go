@@ -357,13 +357,29 @@ func opBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 	return nil, nil
 }
 
+func opOffchainBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop(), stack.pop())
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opCaller(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().SetBytes(c.sendBlock.AccountAddress.Bytes()))
 	return nil, nil
 }
 
+func opOffchainCaller(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().Set(c.sendBlock.Amount))
+	return nil, nil
+}
+
+func opOffchainCallValue(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
 	return nil, nil
 }
 
@@ -475,8 +491,19 @@ func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) 
 	return nil, nil
 }
 
+func opOffchainBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop())
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(helper.U256(c.intPool.get().SetInt64((c.db.CurrentSnapshotBlock().Timestamp.Unix()))))
+	return nil, nil
+}
+
+func opOffchainTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
 	return nil, nil
 }
 
@@ -485,13 +512,28 @@ func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	return nil, nil
 }
 
+func opOffchainHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().SetBytes(c.sendBlock.TokenId.Bytes()))
 	return nil, nil
 }
 
+func opOffchainTokenId(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opAccountHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(helper.U256(c.intPool.get().SetUint64(c.db.PrevAccountBlock().Height)))
+	return nil, nil
+}
+
+func opOffchainAccountHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push((c.intPool.getZero()))
 	return nil, nil
 }
 
@@ -514,8 +556,19 @@ func opAccountHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 	return nil, nil
 }
 
+func opOffchainAccountHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop())
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
 func opFromHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().SetBytes(c.block.FromBlockHash.Bytes()))
+	return nil, nil
+}
+
+func opOffchainFromHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
 	return nil, nil
 }
 
@@ -563,6 +616,11 @@ func opSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 	c.db.SetStorage(locHash.Bytes(), val.Bytes())
 
 	c.intPool.put(loc, val)
+	return nil, nil
+}
+
+func opOffchainSStore(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop(), stack.pop())
 	return nil, nil
 }
 
@@ -684,6 +742,16 @@ func makeLog(size int) executionFunc {
 	}
 }
 
+func makeOffchainLog(size int) executionFunc {
+	return func(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+		c.intPool.put(stack.pop(), stack.pop())
+		for i := 0; i < size; i++ {
+			c.intPool.put(stack.pop())
+		}
+		return nil, nil
+	}
+}
+
 func opDelegateCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	addrBig, inOffset, inSize, outOffset, outSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	contractAddress, _ := types.BigToAddress(addrBig)
@@ -721,6 +789,11 @@ func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 	return nil, nil
 }
 
+func opOffchainCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop())
+	return nil, nil
+}
+
 func opReturn(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := memory.getPtr(offset.Int64(), size.Int64())
@@ -735,4 +808,9 @@ func opRevert(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]
 
 	c.intPool.put(offset, size)
 	return ret, nil
+}
+
+func opOffchainRevert(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	c.intPool.put(stack.pop(), stack.pop())
+	return nil, nil
 }
