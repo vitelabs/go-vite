@@ -106,7 +106,13 @@ func (s *fileServer) listenLoop() {
 	for {
 		c, err := s.ln.Accept()
 		if err != nil {
-			continue
+			if nerr, ok := err.(net2.Error); ok {
+				if nerr.Temporary() {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+			}
+			return
 		}
 
 		s.wg.Add(1)
