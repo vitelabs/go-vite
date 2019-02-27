@@ -44,6 +44,9 @@ type net struct {
 }
 
 func New(cfg *Config) Net {
+	// wraper_verifier
+	cfg.Verifier = newVerifier(cfg.Verifier)
+
 	// for test
 	if cfg.Single {
 		return mock(cfg)
