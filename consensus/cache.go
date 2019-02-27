@@ -68,7 +68,6 @@ func (self *DbCache) Get(hashes interface{}) (interface{}, bool) {
 func (self *DbCache) Add(hashes interface{}, addrArr interface{}) bool {
 	arrs := addrArr.([]types.Address)
 	bytes := consensus_db.AddrArr(arrs).Bytes()
-	fmt.Printf("store %s, %+v\n", hashes, addrArr)
 	self.db.StoreElectionResultByHash(hashes.(types.Hash), bytes)
 	return false
 }

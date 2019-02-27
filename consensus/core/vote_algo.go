@@ -168,7 +168,7 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 	sort.Sort(ByBalance(groupB))
 
 	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
-	length := len(groupA)
+	length := len(groupA) + len(groupB)
 	if len(groupB) == 0 {
 		random1 := rand.New(rand.NewSource(seed))
 		arr := random1.Perm(int(length))

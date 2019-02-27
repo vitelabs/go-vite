@@ -153,7 +153,7 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	// load from cache
 	r, ok := self.voteCacheGet(hashH.Hash)
 	if ok {
-		fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
+		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
 	}
 	// record vote
@@ -196,6 +196,7 @@ func (self *teller) voteCacheGet(hashes types.Hash) ([]types.Address, bool) {
 
 func (self *teller) voteCachePut(hashes types.Hash, addrArr []types.Address) {
 	if self.voteCache != nil {
+		self.mLog.Info(fmt.Sprintf("store election result %s, %+v\n", hashes, addrArr))
 		self.voteCache.Add(hashes, addrArr)
 	}
 }
