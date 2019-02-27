@@ -6,9 +6,9 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/fork"
+	"runtime/debug"
 
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -778,6 +778,7 @@ func findPrevReceiveBlock(db vmctxt_interface.VmDatabase, sendBlock *ledger.Acco
 func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data []byte) (result []byte, err error) {
 	defer func() {
 		if err := recover(); err != nil {
+			debug.PrintStack()
 			nodeConfig.log.Error("offchain reader panic",
 				"err", err,
 				"addr", db.Address(),
