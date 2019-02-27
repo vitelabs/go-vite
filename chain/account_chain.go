@@ -855,3 +855,35 @@ func (c *chain) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
 func (c *chain) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
 	return block.Hash == GenesisMintageBlock.Hash || block.Hash == GenesisMintageSendBlock.Hash || block.Hash == GenesisConsensusGroupBlock.Hash || block.Hash == GenesisRegisterBlock.Hash
 }
+
+func (c *chain) GetOnRoadBlocksBySendAccount(sendAccountAddress *types.Address, snapshotHash *types.Hash) ([]*ledger.AccountBlock, error) {
+	account, err := c.chainDb.Account.GetAccountByAddress(sendAccountAddress)
+	if err != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetOnRoadBlocksBySendAccount")
+		return nil, err
+	}
+	if account == nil {
+		err := errors.New("account is nil")
+		c.log.Error(err.Error(), "method", "GetOnRoadBlocksBySendAccount")
+		return nil, err
+	}
+
+	snapshotBlockHeight, err := c.chainDb.Sc.GetSnapshotBlockHeight(snapshotHash)
+	if err != nil {
+		c.log.Error("GetSnapshotBlockHeight failed, error is "+err.Error(), "method", "GetOnRoadBlocksBySendAccount")
+		return nil, err
+	}
+
+	if snapshotBlockHeight <= 0 {
+		err := errors.New("snapshot block is not existed")
+		c.log.Error(err.Error(), "method", "GetOnRoadBlocksBySendAccount")
+		return nil, err
+	}
+
+	blocks, err := c.chainDb.Ac.GetOnRoadBlocksBySendAccount(account.AccountId, snapshotBlockHeight)
+	if err != nil {
+		c.log.Error("GetOnRoadBlocksBySendAccount failed, error is "+err.Error(), "method", "GetOnRoadBlocksBySendAccount")
+		return nil, err
+	}
+	return blocks, nil
+}

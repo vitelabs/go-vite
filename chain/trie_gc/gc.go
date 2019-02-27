@@ -49,17 +49,12 @@ func NewCollector(chain Chain, ledgerGcRetain uint64) Collector {
 }
 
 func (gc *collector) Check() (bool, error) {
-	checkSnapshotBlockNum := gc.marker.RetainSnapshotHeight()
 	const (
 		numPerCheck = 100
 	)
 
+	startSnapshotBlockHeight := gc.RetainMinHeight()
 	latestSnapshotBlock := gc.chain.GetLatestSnapshotBlock()
-	startSnapshotBlockHeight := uint64(1)
-
-	if latestSnapshotBlock.Height > checkSnapshotBlockNum {
-		startSnapshotBlockHeight = latestSnapshotBlock.Height - checkSnapshotBlockNum + 1
-	}
 
 	fmt.Printf("check from %d to %d\n", startSnapshotBlockHeight, latestSnapshotBlock.Height)
 
@@ -153,6 +148,19 @@ func (gc *collector) Stop() {
 
 	gc.wg.Wait()
 	gc.log.Info("gc stopped.")
+}
+
+func (gc *collector) RetainMinHeight() uint64 {
+	checkSnapshotBlockNum := gc.marker.RetainSnapshotHeight()
+
+	latestSnapshotBlock := gc.chain.GetLatestSnapshotBlock()
+	retainMinHeight := uint64(1)
+
+	if latestSnapshotBlock.Height > checkSnapshotBlockNum {
+		retainMinHeight = latestSnapshotBlock.Height - checkSnapshotBlockNum + 1
+	}
+
+	return retainMinHeight
 }
 
 func (gc *collector) Status() uint8 {

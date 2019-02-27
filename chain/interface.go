@@ -146,4 +146,7 @@ type Chain interface {
 	// get receive block heights
 	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
 	Fti() *chain_index.FilterTokenIndex
+
+	// get on road blocks in a snapshot
+	GetOnRoadBlocksBySendAccount(sendAccountAddress types.Address, snapshotHash types.Hash) ([]*ledger.AccountBlock, error)
 }

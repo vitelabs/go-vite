@@ -29,6 +29,11 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	node.Config().MinerEnabled = false
 	node.ViteConfig().Producer.Producer = false
 
+	// no ledger gc
+	ledgerGc := false
+	node.Config().LedgerGc = &ledgerGc
+	node.ViteConfig().Chain.LedgerGc = ledgerGc
+
 	return &RecoverNodeManager{
 		ctx:  ctx,
 		node: node,
@@ -43,6 +48,10 @@ func (nodeManager *RecoverNodeManager) getDeleteToHeight() uint64 {
 	return deleteToHeight
 }
 
+func (nodeManager *RecoverNodeManager) isRecoverTrie() bool {
+	return nodeManager.ctx.GlobalIsSet(utils.RecoverTrieFlag.Name)
+}
+
 func (nodeManager *RecoverNodeManager) Start() error {
 	// Start up the node
 	node := nodeManager.node
@@ -51,14 +60,18 @@ func (nodeManager *RecoverNodeManager) Start() error {
 		return err
 	}
 
+	c := node.Vite().Chain()
+
+	if nodeManager.isRecoverTrie() {
+		return c.TrieGc().Recover()
+	}
+
 	deleteToHeight := nodeManager.getDeleteToHeight()
 
 	if deleteToHeight <= 0 {
 		err := errors.New("deleteToHeight is 0.\n")
 		panic(err)
 	}
-
-	c := node.Vite().Chain()
 
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	fmt.Printf("Delete target height is %d\n", deleteToHeight)

@@ -813,3 +813,34 @@ func (ac *AccountChain) GetUnConfirmAccountBlocks(accountId uint64, beforeHeight
 
 	return accountBlocks, nil
 }
+
+func (ac *AccountChain) GetOnRoadBlocksBySendAccount(accountId uint64, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, error) {
+	blocks := make([]*ledger.AccountBlock, 0)
+	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, 1)
+	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, helper.MaxUint64)
+	iter := ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
+	defer iter.Release()
+	for iter.Next() {
+		accountBlock := &ledger.AccountBlock{}
+		if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
+			return nil, dsErr
+		}
+
+		if accountBlock.IsReceiveBlock() {
+			continue
+		}
+
+		accountBlockHash := getAccountBlockHash(iter.Key())
+		_, getMetaErr := ac.GetBlockMeta(accountBlockHash)
+		if getMetaErr != nil {
+			return nil, getMetaErr
+		}
+
+		//if accountBlockMeta.SnapshotHeight >
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return blocks, nil
+}
