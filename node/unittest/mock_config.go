@@ -11,7 +11,7 @@ func MakeMainNetForkPointsConfig() *config.ForkPoints {
 			Height: 5788912,
 		},
 		Mint: &config.ForkPoint{
-			Height: 9473361,
+			Height: 9453262,
 		},
 	}
 
