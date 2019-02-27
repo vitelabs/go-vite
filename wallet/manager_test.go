@@ -58,6 +58,20 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	//fmt.Println(em.GetEntropyStoreFile())
 }
 
+func TestManager_NewMnemonicAndSeedStore2(t *testing.T) {
+
+	for i := 1; i <= 25; i++ {
+		manager := wallet.New(&wallet.Config{
+			DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_%d/devdata/wallet", i),
+		})
+		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println(mnemonic, ",", em.GetEntropyStoreFile())
+	}
+}
+
 func TestManager_GetEntropyStoreManager(t *testing.T) {
 	manager := wallet.New(&wallet.Config{
 		DataDir: "/Users/zhutiantao/Library/GVite/testdata/wallet/",

@@ -3,6 +3,10 @@ package chain_unittest
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
@@ -10,9 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node/unittest"
-	"math/big"
-	"os"
-	"path/filepath"
 )
 
 func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
@@ -157,7 +158,7 @@ func NewChainInstance(dirName string, clearDataDir bool) chain.Chain {
 	chainInstance := chain.NewChain(&config.Config{
 		DataDir: dataDir,
 
-		Genesis: makeChainConfig(""),
+		Genesis: MakeChainConfig(""),
 	})
 
 	chainInstance.Init()

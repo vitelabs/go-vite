@@ -648,3 +648,42 @@ func TestChainSnapshot(t *testing.T) {
 		prev = block
 	}
 }
+
+func TestChainRw_GetSeedsBeforeHashH(t *testing.T) {
+	chainInstance := chain.NewChain(&config.Config{
+		DataDir: "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_bk/devdata",
+		Genesis: chain_unittest.MakeChainConfig("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/genesis_test.json"),
+	})
+
+	chainInstance.Init()
+	chainInstance.Start()
+	c := chainInstance
+	//cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	m := make(map[types.Address][]*ledger.SnapshotBlock)
+	head := c.GetLatestSnapshotBlock()
+	headHeight := head.Height
+
+	for i := headHeight; i >= types.GenesisHeight; i-- {
+		block, err := c.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			panic(err)
+		}
+		_, ok := m[block.Producer()]
+		if ok {
+			m[block.Producer()] = append(m[block.Producer()], block)
+		} else {
+			var arr []*ledger.SnapshotBlock
+			arr = append(arr, block)
+			m[block.Producer()] = arr
+		}
+	}
+
+	for k, v := range m {
+		fmt.Printf("addr:%s, %d\n", k.String(), len(v))
+		for _, v := range v {
+			fmt.Printf("%d, %d, %s\n", v.Height, v.Seed, v.SeedHash)
+		}
+
+	}
+}
