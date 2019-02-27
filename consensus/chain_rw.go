@@ -89,6 +89,7 @@ func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur ti
 		top, ok := m[v.Producer()]
 		if !ok {
 			m[v.Producer()] = v
+			continue
 		}
 		_, ok = seedM[v.Producer()]
 		if !ok {
