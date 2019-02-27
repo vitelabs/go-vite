@@ -3,10 +3,14 @@ package nodemanager
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/trie"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"gopkg.in/urfave/cli.v1"
 	"math/big"
@@ -235,6 +239,98 @@ func (nodeManager *ExportNodeManager) Start() error {
 	//
 	//fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	return nil
+}
+
+func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, balance *big.Int, trie *trie.Trie, c chain.Chain) (map[types.Address]*big.Int, error) {
+	if addr == types.AddressRegister {
+		return exportRegisterBalance(m, trie), nil
+	} else if addr == types.AddressPledge {
+		return exportPledgeBalance(m, trie), nil
+	} else if addr == types.AddressMintage {
+		return exportMintageBalance(m, trie), nil
+	} else if addr == types.AddressVote {
+		return m, nil
+	} else {
+		// for other contract, return to creator
+		responseBlock, err := c.GetAccountBlockByHeight(&addr, 1)
+		if err != nil {
+			return m, err
+		}
+		requestBlock, err := c.GetAccountBlockByHash(&responseBlock.FromBlockHash)
+		if err != nil {
+			return m, err
+		}
+		updateBalance(m, requestBlock.AccountAddress, new(big.Int).Add(requestBlock.Fee, balance))
+		return nil, err
+	}
+}
+
+func exportRegisterBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[types.Address]*big.Int {
+	// for register contract, return to register pledge addr
+	iter := trie.NewIterator(nil)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if abi.IsRegisterKey(key) {
+			registration := new(types.Registration)
+			if err := abi.ABIRegister.UnpackVariable(registration, abi.VariableNameRegistration, value); err == nil && registration.Amount != nil && registration.Amount.Sign() > 0 {
+				updateBalance(m, registration.PledgeAddr, registration.Amount)
+			}
+		}
+	}
+	return m
+}
+
+func exportPledgeBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[types.Address]*big.Int {
+	// for pledge contract, return to pledge addr
+	iter := trie.NewIterator(nil)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if abi.IsPledgeKey(key) {
+			pledgeInfo := new(abi.PledgeInfo)
+			if err := abi.ABIPledge.UnpackVariable(pledgeInfo, abi.VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
+				updateBalance(m, abi.GetPledgeAddrFromPledgeKey(key), pledgeInfo.Amount)
+			}
+		}
+	}
+	return m
+}
+
+var mintageFee = new(big.Int).Mul(big.NewInt(1e3), big.NewInt(1e18))
+
+func exportMintageBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[types.Address]*big.Int {
+	// for mintage contract, return 1000 vite to owner except for vite token
+	iter := trie.NewIterator(nil)
+	for {
+		key, value, ok := iter.Next()
+		if !ok {
+			break
+		}
+		tokenId := abi.GetTokenIdFromMintageKey(key)
+		if tokenId == ledger.ViteTokenId {
+			continue
+		}
+		tokenInfo := new(types.TokenInfo)
+		if err := abi.ABIMintage.UnpackVariable(tokenInfo, abi.VariableNameMintage, value); err == nil {
+			updateBalance(m, tokenInfo.Owner, mintageFee)
+		}
+	}
+	return m
+}
+
+func updateBalance(m map[types.Address]*big.Int, addr types.Address, balance *big.Int) map[types.Address]*big.Int {
+	if v, ok := m[addr]; ok {
+		v = v.Add(v, balance)
+		m[addr] = v
+	} else {
+		m[addr] = balance
+	}
+	return m
 }
 
 func (nodeManager *ExportNodeManager) Stop() error {
