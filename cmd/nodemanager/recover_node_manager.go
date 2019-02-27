@@ -15,6 +15,8 @@ type RecoverNodeManager struct {
 	node *node.Node
 }
 
+const CountPerDelete = uint64(10000)
+
 func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManager, error) {
 	node, err := maker.MakeNode(ctx)
 	if err != nil {
