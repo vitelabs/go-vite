@@ -358,7 +358,7 @@ func (node *Node) startVite() error {
 func (node *Node) startRPC() error {
 
 	// Init rpc log
-	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti)
+	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti, node.config.NetID)
 
 	// Start the various API endpoints, terminating all in case of errors
 	if err := node.startInProcess(node.GetInProcessApis()); err != nil {

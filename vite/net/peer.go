@@ -1,15 +1,13 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	net2 "net"
 	"sort"
 	"strconv"
 	"sync"
 
-	"errors"
-
-	"github.com/jerry-vite/cuckoofilter"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -18,12 +16,9 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-const filterCap = 10000
-
 var errDiffGesis = errors.New("different genesis block")
 
-// @section Peer for protocol handle, not p2p Peer.
-//var errPeerTermed = errors.New("peer has been terminated")
+// Peer for protocol handle, not p2p Peer.
 type Peer interface {
 	RemoteAddr() *net2.TCPAddr
 	FileAddress() *net2.TCPAddr
@@ -34,6 +29,7 @@ type Peer interface {
 	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
 	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
 	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
+	SendMsg(msg *p2p.Msg) (err error)
 	Report(err error)
 	ID() string
 	Height() uint64
@@ -41,25 +37,19 @@ type Peer interface {
 	Disconnect(reason p2p.DiscReason)
 }
 
-const peerMsgConcurrency = 10
-
 type peer struct {
 	*p2p.Peer
-	mrw      *p2p.ProtoFrame
-	id       string
-	head     types.Hash // hash of the top snapshotblock in snapshotchain
-	height   uint64     // height of the snapshotchain
-	filePort uint16     // fileServer port, for request file
-	CmdSet   p2p.CmdSet // which cmdSet it belongs
+	mrw         *p2p.ProtoFrame
+	id          string
+	head        types.Hash // hash of the top snapshotblock in snapshotchain
+	height      uint64     // height of the snapshotchain
+	filePort    uint16     // fileServer port, for request file
+	CmdSet      p2p.CmdSet // which cmdSet it belongs
+	knownBlocks blockFilter
+	errChan     chan error
+	once        sync.Once
 
-	mu          sync.RWMutex
-	KnownBlocks *cuckoo.Filter
-
-	log        log15.Logger
-	errChan    chan error
-	term       chan struct{}
-	msgHandled map[ViteCmd]uint64 // message statistic
-	wg         sync.WaitGroup
+	log log15.Logger
 }
 
 func (p *peer) Head() types.Hash {
@@ -80,20 +70,16 @@ func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
 		mrw:         mrw,
 		id:          p.ID().String(),
 		CmdSet:      cmdSet,
-		KnownBlocks: cuckoo.NewFilter(filterCap),
+		knownBlocks: newBlockFilter(filterCap),
 		log:         log15.New("module", "net/peer"),
 		errChan:     make(chan error, 1),
-		term:        make(chan struct{}),
-		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
 
 func (p *peer) Report(err error) {
-	select {
-	case p.errChan <- err:
-	default:
-		// nothing
-	}
+	p.once.Do(func() {
+		p.errChan <- err
+	})
 }
 
 func (p *peer) FileAddress() *net2.TCPAddr {
@@ -158,19 +144,7 @@ func (p *peer) SetHead(head types.Hash, height uint64) {
 }
 
 func (p *peer) SeeBlock(hash types.Hash) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	seen := p.KnownBlocks.Lookup(hash[:])
-	if seen {
-		return
-	}
-
-	success := p.KnownBlocks.Insert(hash[:])
-	if !success {
-		p.KnownBlocks.Reset()
-		p.KnownBlocks.Insert(hash[:])
-	}
+	p.knownBlocks.lookAndRecord(hash[:])
 }
 
 // send
@@ -184,27 +158,13 @@ func (p *peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err e
 }
 
 func (p *peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	err = p.Send(NewSnapshotBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
 	p.SeeBlock(b.Hash)
-
-	return
+	return p.Send(NewSnapshotBlockCode, 0, b)
 }
 
 func (p *peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
-	err = p.Send(NewAccountBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
 	p.SeeBlock(b.Hash)
-
-	return
+	return p.Send(NewAccountBlockCode, 0, b)
 }
 
 func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
@@ -223,19 +183,15 @@ func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err e
 	return nil
 }
 
+func (p *peer) SendMsg(msg *p2p.Msg) (err error) {
+	return p.mrw.WriteMsg(msg)
+}
+
 type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
-	// MsgReceived        uint64            `json:"msgReceived"`
-	// MsgHandled         uint64            `json:"msgHandled"`
-	// MsgSend            uint64            `json:"msgSend"`
-	// MsgDiscarded       uint64            `json:"msgDiscarded"`
-	// MsgReceivedDetail  map[string]uint64 `json:"msgReceived"`
-	// MsgDiscardedDetail map[string]uint64 `json:"msgDiscarded"`
-	// MsgHandledDetail   map[string]uint64 `json:"msgHandledDetail"`
-	// MsgSendDetail      map[string]uint64 `json:"msgSendDetail"`
+	ID      string `json:"id"`
+	Addr    string `json:"addr"`
+	Head    string `json:"head"`
+	Height  uint64 `json:"height"`
 	Created string `json:"created"`
 }
 
@@ -244,44 +200,11 @@ func (p *PeerInfo) String() string {
 }
 
 func (p *peer) Info() *PeerInfo {
-	// var handled, send, received, discard uint64
-	// handMap := make(map[string]uint64, len(p.msgHandled))
-	// for cmd, num := range p.msgHandled {
-	// 	handMap[cmd.String()] = num
-	// 	handled += num
-	// }
-	//
-	// sendMap := make(map[string]uint64, len(p.mrw.Send))
-	// for code, num := range p.mrw.Send {
-	// 	sendMap[ViteCmd(code).String()] = num
-	// 	send += num
-	// }
-	//
-	// recMap := make(map[string]uint64, len(p.mrw.Received))
-	// for code, num := range p.mrw.Received {
-	// 	recMap[ViteCmd(code).String()] = num
-	// 	received += num
-	// }
-	//
-	// discMap := make(map[string]uint64, len(p.mrw.Discarded))
-	// for code, num := range p.mrw.Discarded {
-	// 	discMap[ViteCmd(code).String()] = num
-	// 	discard += num
-	// }
-
 	return &PeerInfo{
-		ID:     p.id,
-		Addr:   p.RemoteAddr().String(),
-		Head:   p.head.String(),
-		Height: p.height,
-		// MsgReceived:        received,
-		// MsgHandled:         handled,
-		// MsgSend:            send,
-		// MsgDiscarded:       discard,
-		// MsgReceivedDetail:  recMap,
-		// MsgDiscardedDetail: discMap,
-		// MsgHandledDetail:   handMap,
-		// MsgSendDetail:      sendMap,
+		ID:      p.id,
+		Addr:    p.RemoteAddr().String(),
+		Head:    p.head.String(),
+		Height:  p.height,
 		Created: p.Created.Format("2006-01-02 15:04:05"),
 	}
 }
@@ -298,125 +221,120 @@ const (
 
 type peerEvent struct {
 	code  peerEventCode
-	peer  *peer
+	peer  Peer
 	count int
-	err   error
 }
 
 type peerSet struct {
-	peers map[string]*peer
-	rw    sync.RWMutex
-	subs  []chan<- *peerEvent
+	m   map[peerId]*peer
+	prw sync.RWMutex
+
+	subs []chan<- peerEvent
 }
 
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers: make(map[string]*peer),
+		m: make(map[peerId]*peer),
 	}
 }
 
-func (m *peerSet) Sub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	m.subs = append(m.subs, c)
+func (m *peerSet) Sub(ch chan<- peerEvent) {
+	m.subs = append(m.subs, ch)
 }
 
-func (m *peerSet) UnSub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	var i, j int
-	for i, j = 0, 0; i < len(m.subs); i++ {
-		if m.subs[i] != c {
-			m.subs[j] = m.subs[i]
-			j++
+func (m *peerSet) UnSub(ch chan<- peerEvent) {
+	for i, c := range m.subs {
+		if c == ch {
+			if i != len(m.subs)-1 {
+				copy(m.subs[i:], m.subs[i+1:])
+			}
+			m.subs = m.subs[:len(m.subs)-1]
+			return
 		}
 	}
-	m.subs = m.subs[:j]
 }
 
-func (m *peerSet) Notify(e *peerEvent) {
+func (m *peerSet) Notify(e peerEvent) {
 	for _, c := range m.subs {
-		select {
-		case c <- e:
-		default:
-		}
+		c <- e
 	}
 }
 
-// the tallest peer
+// BestPeer is the tallest peer
 func (m *peerSet) BestPeer() (best Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
 	var maxHeight uint64
-	for _, peer := range m.peers {
-		peerHeight := peer.height
+	for _, p := range m.m {
+		peerHeight := p.height
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
-			best = peer
+			best = p
 		}
 	}
 
 	return
 }
 
+// SyncPeer is the middle Peer
 func (m *peerSet) SyncPeer() Peer {
-	s := m.Peers()
-	if len(s) == 0 {
+	l := m.Peers()
+	if len(l) == 0 {
 		return nil
 	}
 
-	sort.Sort(s)
-	mid := len(s) / 2
+	sort.Sort(l)
+	mid := len(l) / 2
 
-	return s[mid]
+	return l[mid]
 }
 
 func (m *peerSet) Add(peer *peer) error {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+	m.prw.Lock()
+	defer m.prw.Unlock()
 
-	if _, ok := m.peers[peer.id]; ok {
+	if _, ok := m.m[peer.id]; ok {
 		return errSetHasPeer
 	}
 
-	m.peers[peer.id] = peer
-	m.Notify(&peerEvent{
+	m.m[peer.id] = peer
+
+	go m.Notify(peerEvent{
 		code:  addPeer,
 		peer:  peer,
-		count: len(m.peers),
+		count: len(m.m),
 	})
 	return nil
 }
 
 func (m *peerSet) Del(peer *peer) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+	m.prw.Lock()
+	defer m.prw.Unlock()
 
-	delete(m.peers, peer.id)
-	m.Notify(&peerEvent{
+	delete(m.m, peer.id)
+
+	go m.Notify(peerEvent{
 		code:  delPeer,
 		peer:  peer,
-		count: len(m.peers),
+		count: len(m.m),
 	})
 }
 
 func (m *peerSet) Count() int {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	return len(m.peers)
+	return len(m.m)
 }
 
-// pick peers whose height taller than the target height
+// Pick peers whose height taller than the target height
 // has sorted from low to high
 func (m *peerSet) Pick(height uint64) (l []Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	for _, p := range m.peers {
+	for _, p := range m.m {
 		if p.height >= height {
 			l = append(l, p)
 		}
@@ -426,65 +344,60 @@ func (m *peerSet) Pick(height uint64) (l []Peer) {
 }
 
 func (m *peerSet) Info() (info []*PeerInfo) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	info = make([]*PeerInfo, len(m.peers))
+	info = make([]*PeerInfo, len(m.m))
 
 	i := 0
-	for _, peer := range m.peers {
-		info[i] = peer.Info()
+	for _, p := range m.m {
+		info[i] = p.Info()
 		i++
 	}
 
 	return
 }
 
-func (m *peerSet) UnknownBlock(hash types.Hash) (peers []Peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+func (m *peerSet) UnknownBlock(hash types.Hash) (l peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make([]Peer, len(m.peers))
+	l = make(peers, len(m.m))
 
 	i := 0
-	for _, p := range m.peers {
-		p.mu.RLock()
-		seen := p.KnownBlocks.Lookup(hash[:])
-		p.mu.RUnlock()
-
-		if !seen {
-			peers[i] = p
+	for _, p := range m.m {
+		if seen := p.knownBlocks.has(hash[:]); !seen {
+			l[i] = p
 			i++
 		}
 	}
 
-	return peers[:i]
+	return l[:i]
 }
 
-func (m *peerSet) Peers() (peers Peers) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+func (m *peerSet) Peers() (l peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make(Peers, len(m.peers))
+	l = make(peers, len(m.m))
 
 	i := 0
-	for _, peer := range m.peers {
-		peers[i] = peer
+	for _, p := range m.m {
+		l[i] = p
 		i++
 	}
 
 	return
 }
 
-func (m *peerSet) Has(id string) bool {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+func (m *peerSet) Get(id string) Peer {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	_, ok := m.peers[id]
-	return ok
+	return m.m[id]
 }
 
-// @implementation sort.Interface
+// peers can be sort by height, from low to high
 type peers []Peer
 
 func (s peers) Len() int {
@@ -511,18 +424,4 @@ func (s peers) delete(id string) peers {
 	}
 
 	return s
-}
-
-type Peers []Peer
-
-func (l Peers) Len() int {
-	return len(l)
-}
-
-func (l Peers) Less(i, j int) bool {
-	return l[i].Height() < l[j].Height()
-}
-
-func (l Peers) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
 }

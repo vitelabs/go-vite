@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-// @section Cmd
 const Vite = "vite"
 
 const CmdSet = 2
@@ -261,7 +260,10 @@ func (q *queryHandler) loop() {
 
 // @section getSubLedgerHandler
 type getSubLedgerHandler struct {
-	chain Chain
+	chain interface {
+		GetSubLedgerByHeight(start, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
+		GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
+	}
 }
 
 func (s *getSubLedgerHandler) ID() string {
@@ -296,25 +298,52 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
-	fileList := &message.FileList{
-		Files:  files,
-		Chunks: chunks,
-		Nonce:  0,
+	fss := splitFiles(files, maxFilesOneTrip)
+	for i, fs := range fss {
+		fileList := &message.FileList{
+			Files: fs,
+		}
+		if i == len(fss)-1 {
+			fileList.Chunks = chunks
+		}
+
+		err = sender.Send(FileListCode, msg.Id, fileList)
+
+		if err != nil {
+			netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
+			return
+		} else {
+			netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		}
 	}
 
-	err = sender.Send(FileListCode, msg.Id, fileList)
+	return
+}
 
-	if err != nil {
-		netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
-	} else {
-		netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+func splitFiles(fs []*ledger.CompressedFileMeta, batch int) (fss [][]*ledger.CompressedFileMeta) {
+	total := len(fs)
+	i := 0
+	for i < total {
+		if total-i < batch {
+			fss = append(fss, fs[i:total])
+			i = total
+		} else {
+			j := i + batch
+			fss = append(fss, fs[i:j])
+			i = j
+		}
 	}
 
 	return
 }
 
 type getSnapshotBlocksHandler struct {
-	chain Chain
+	chain interface {
+		GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+		GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+		GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
+		GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
+	}
 }
 
 func (s *getSnapshotBlocksHandler) ID() string {
@@ -386,7 +415,12 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 
 // @section get account blocks
 type getAccountBlocksHandler struct {
-	chain Chain
+	chain interface {
+		GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+		GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
+		GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
+		GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
+	}
 }
 
 func (a *getAccountBlocksHandler) ID() string {
@@ -471,7 +505,9 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 
 // @section getChunkHandler
 type getChunkHandler struct {
-	chain Chain
+	chain interface {
+		GetConfirmSubLedger(start, end uint64) ([]*ledger.SnapshotBlock, accountBlockMap, error)
+	}
 }
 
 func (c *getChunkHandler) ID() string {

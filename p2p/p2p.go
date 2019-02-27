@@ -68,7 +68,7 @@ type Server interface {
 	Connect(id discovery.NodeID, addr *net.TCPAddr)
 	Peers() []*PeerInfo
 	PeersCount() uint
-	NodeInfo() *NodeInfo
+	NodeInfo() NodeInfo
 	Available() bool
 	Nodes() (urls []string)
 	SubNodes(ch chan<- *discovery.Node)
@@ -660,23 +660,29 @@ func (svr *server) PeersCount() uint {
 	return uint(svr.peers.Size())
 }
 
-func (svr *server) NodeInfo() *NodeInfo {
+func (svr *server) NodeInfo() NodeInfo {
 	protocols := make([]string, len(svr.config.Protocols))
 	for i, protocol := range svr.config.Protocols {
 		protocols[i] = protocol.String()
 	}
 
-	return &NodeInfo{
+	var plugins []interface{}
+	for _, plg := range svr.plugins {
+		plugins = append(plugins, plg.Info())
+	}
+
+	return NodeInfo{
 		ID:    svr.self.ID.String(),
 		Name:  svr.config.Name,
 		Url:   svr.self.String(),
 		NetID: svr.config.NetID,
-		Address: &address{
+		Address: address{
 			IP:  svr.self.IP,
 			TCP: svr.self.TCP,
 			UDP: svr.self.UDP,
 		},
 		Protocols: protocols,
+		Plugins:   plugins,
 	}
 }
 
@@ -719,12 +725,13 @@ func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
 
 // NodeInfo represent current p2p node
 type NodeInfo struct {
-	ID        string     `json:"remoteID"`
-	Name      string     `json:"name"`
-	Url       string     `json:"url"`
-	NetID     network.ID `json:"netId"`
-	Address   *address   `json:"address"`
-	Protocols []string   `json:"protocols"`
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	Url       string        `json:"url"`
+	NetID     network.ID    `json:"netId"`
+	Address   address       `json:"address"`
+	Protocols []string      `json:"protocols"`
+	Plugins   []interface{} `json:"plugins"`
 }
 
 type address struct {

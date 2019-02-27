@@ -19,6 +19,11 @@ const (
 	ReCreateConsensusGroupGas uint64 = 62200
 	MintageGas                uint64 = 83200
 	MintageCancelPledgeGas    uint64 = 83200
+	MintGas                   uint64 = 104525
+	IssueGas                  uint64 = 69325
+	BurnGas                   uint64 = 48837
+	TransferOwnerGas          uint64 = 58981
+	ChangeTokenTypeGas        uint64 = 53525
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group
@@ -42,6 +47,7 @@ var (
 	viteTotalSupply                  = new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
 	rewardPerBlock                   = big.NewInt(951293759512937595) // Reward pre snapshot block, rewardPreBlock * blockNumPerYear / viteTotalSupply = 3%
 	pledgeAmountMin                  = new(big.Int).Mul(big.NewInt(10), util.AttovPerVite)
+	pledgeAmountMin2                 = new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite)
 	mintageFee                       = new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite) // Mintage cost choice 1, destroy ViteToken
 	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
 	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite)

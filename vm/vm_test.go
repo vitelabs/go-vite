@@ -25,7 +25,11 @@ import (
 
 func init() {
 	InitVmConfig(false, false, true, common.HomeDir())
-	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}})
+	initFork()
+}
+
+func initFork() {
+	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Mint: &config.ForkPoint{Height: 20}})
 }
 
 func TestVmRun(t *testing.T) {
@@ -256,6 +260,7 @@ func TestDelegateCall(t *testing.T) {
 	blockTime := time.Now()
 
 	vm := NewVM()
+	vm.i = NewInterpreter(1, false)
 	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
@@ -271,7 +276,8 @@ func TestDelegateCall(t *testing.T) {
 		Timestamp:      &blockTime,
 	}
 	c := newContract(
-		&vm_context.VmAccountBlock{receiveCallBlock, db},
+		receiveCallBlock,
+		db,
 		&sendCallBlock,
 		nil,
 		1000000,
@@ -914,6 +920,9 @@ func TestVm(t *testing.T) {
 		t.Fatalf("read dir failed, %v", ok)
 	}
 	for _, testFile := range testFiles {
+		if testFile.IsDir() {
+			continue
+		}
 		file, ok := os.Open(testDir + testFile.Name())
 		if ok != nil {
 			t.Fatalf("open test file failed, %v", ok)
@@ -924,9 +933,6 @@ func TestVm(t *testing.T) {
 		}
 
 		for k, testCase := range *testCaseMap {
-			if k != "sendMessage_msgA" {
-				continue
-			}
 			var sbTime time.Time
 			if testCase.SBTime > 0 {
 				sbTime = time.Unix(testCase.SBTime, 0)
@@ -939,6 +945,7 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM()
+			vm.i = NewInterpreter(1, false)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
@@ -964,10 +971,12 @@ func TestVm(t *testing.T) {
 				for k, v := range testCase.PreStorage {
 					vByte, _ := hex.DecodeString(v)
 					db.storage[k] = vByte
+					db.originalStorage[k] = vByte
 				}
 			}
 			c := newContract(
-				&vm_context.VmAccountBlock{receiveCallBlock, db},
+				receiveCallBlock,
+				db,
 				&sendCallBlock,
 				sendCallBlock.Data,
 				testCase.QuotaTotal,
@@ -975,9 +984,6 @@ func TestVm(t *testing.T) {
 			code, _ := hex.DecodeString(testCase.Code)
 			c.setCallCode(testCase.ToAddress, code)
 			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
-			if k == "transfer_balanceOverflow" {
-				fmt.Println("transfer_balanceOverflow")
-			}
 			ret, err := c.run(vm)
 			returnData, _ := hex.DecodeString(testCase.ReturnData)
 			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
@@ -1030,4 +1036,61 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 		}
 	}
 	return ""
+}
+
+type OffchainTestCaseMap map[string]OffchainTestCase
+type OffchainTestCase struct {
+	SBHeight   uint64
+	SBTime     int64
+	ToAddress  types.Address
+	InputData  string
+	Code       string
+	ReturnData string
+	Err        string
+	PreStorage map[string]string
+}
+
+func TestOffChainReader(t *testing.T) {
+	testCaseMap := new(OffchainTestCaseMap)
+	file, ok := os.Open("./test/offchaintest/offchain.json")
+	if ok != nil {
+		t.Fatalf("open test file failed, %v", ok)
+	}
+	if ok := json.NewDecoder(file).Decode(testCaseMap); ok != nil {
+		t.Fatalf("decode test file failed, %v", ok)
+	}
+
+	for k, testCase := range *testCaseMap {
+		vm := NewVM()
+		vm.i = NewInterpreter(1, true)
+		var sbTime time.Time
+		if testCase.SBTime > 0 {
+			sbTime = time.Unix(testCase.SBTime, 0)
+		} else {
+			sbTime = time.Now()
+		}
+		sb := ledger.SnapshotBlock{
+			Height:    testCase.SBHeight,
+			Timestamp: &sbTime,
+			Hash:      types.DataHash([]byte{1, 1}),
+		}
+		db := NewMemoryDatabase(testCase.ToAddress, &sb)
+		if len(testCase.PreStorage) > 0 {
+			for k, v := range testCase.PreStorage {
+				vByte, _ := hex.DecodeString(v)
+				db.storage[k] = vByte
+				db.originalStorage[k] = vByte
+			}
+		}
+		code, _ := hex.DecodeString(testCase.Code)
+		inputData, _ := hex.DecodeString(testCase.InputData)
+		returndata, err := vm.OffChainReader(db, code, inputData)
+		if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
+			t.Fatalf("%v failed, err not match, expected %v, got %v", k, testCase.Err, err)
+		}
+		returndataTarget, _ := hex.DecodeString(testCase.ReturnData)
+		if !bytes.Equal(returndata, returndataTarget) {
+			t.Fatalf("%v return data not match, expected %v, got %v", k, testCase.ReturnData, hex.EncodeToString(returndata))
+		}
+	}
 }
