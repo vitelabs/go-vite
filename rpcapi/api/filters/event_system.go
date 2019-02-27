@@ -36,8 +36,8 @@ type subscription struct {
 	installed      chan struct{}
 	err            chan error
 	param          *filterParam
-	accountBlockCh chan []*AccountBlockMsg
-	logsCh         chan []*LogsMsg
+	accountBlockCh chan []*AccountBlock
+	logsCh         chan []*Logs
 }
 
 type EventSystem struct {
@@ -122,16 +122,16 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 		return
 	}
 	// handle account blocks
-	msgs := make([]*AccountBlockMsg, len(acEvent))
+	msgs := make([]*AccountBlock, len(acEvent))
 	for i, e := range acEvent {
-		msgs[i] = &AccountBlockMsg{Hash: e.Hash, Removed: removed}
+		msgs[i] = &AccountBlock{Hash: e.Hash, Removed: removed}
 	}
 	for _, f := range filters[AccountBlocksSubscription] {
 		f.accountBlockCh <- msgs
 	}
 	// handle logs
 	for _, f := range filters[LogsSubscription] {
-		var logs []*LogsMsg
+		var logs []*Logs
 		for _, e := range acEvent {
 			if matchedLogs := filterLogs(e, f.param, removed); len(matchedLogs) > 0 {
 				logs = append(logs, matchedLogs...)
@@ -143,11 +143,11 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 }
 
-func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*LogsMsg {
+func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs {
 	if len(e.Logs) == 0 {
 		return nil
 	}
-	var logs []*LogsMsg
+	var logs []*Logs
 	if filter.addrRange != nil {
 		if hr, ok := filter.addrRange[e.Addr]; !ok {
 			return nil
@@ -175,7 +175,7 @@ func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs
 				return nil
 			}
 		}
-		logs = append(logs, &LogsMsg{l, e.Hash, &e.Addr, removed})
+		logs = append(logs, &Logs{l, e.Hash, &e.Addr, removed})
 	}
 	return logs
 }
@@ -206,7 +206,7 @@ func (s *RpcSubscription) Unsubscribe() {
 	})
 }
 
-func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlockMsg) *RpcSubscription {
+func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlock) *RpcSubscription {
 	sub := &subscription{
 		id:             rpc.NewID(),
 		typ:            AccountBlocksSubscription,
@@ -214,12 +214,12 @@ func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlockMsg) *RpcSu
 		installed:      make(chan struct{}),
 		err:            make(chan error),
 		accountBlockCh: ch,
-		logsCh:         make(chan []*LogsMsg),
+		logsCh:         make(chan []*Logs),
 	}
 	return es.subscribe(sub)
 }
 
-func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*LogsMsg) *RpcSubscription {
+func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*Logs) *RpcSubscription {
 	sub := &subscription{
 		id:             rpc.NewID(),
 		typ:            LogsSubscription,
@@ -227,7 +227,7 @@ func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*LogsMsg) *RpcSub
 		createTime:     time.Now(),
 		installed:      make(chan struct{}),
 		err:            make(chan error),
-		accountBlockCh: make(chan []*AccountBlockMsg),
+		accountBlockCh: make(chan []*AccountBlock),
 		logsCh:         ch,
 	}
 	return es.subscribe(sub)

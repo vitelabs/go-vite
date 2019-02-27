@@ -23,8 +23,8 @@ type filter struct {
 	deadline *time.Timer
 	param    filterParam
 	s        *RpcSubscription
-	blocks   []*AccountBlockMsg
-	logs     []*LogsMsg
+	blocks   []*AccountBlock
+	logs     []*Logs
 }
 
 type SubscribeApi struct {
@@ -121,12 +121,12 @@ func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
 	return target, nil
 }
 
-type AccountBlockMsg struct {
+type AccountBlock struct {
 	Hash    types.Hash `json:"hash"`
 	Removed bool       `json:"removed"`
 }
 
-type LogsMsg struct {
+type Logs struct {
 	Log              *ledger.VmLog  `json:"log"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
 	Addr             *types.Address `json:"addr"`
@@ -136,7 +136,7 @@ type LogsMsg struct {
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 	fmt.Println("new account blocks filter start")
 	var (
-		acCh  = make(chan []*AccountBlockMsg)
+		acCh  = make(chan []*AccountBlock)
 		acSub = s.eventSystem.SubscribeAccountBlocks(acCh)
 	)
 
@@ -172,7 +172,7 @@ func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
 		return "", err
 	}
 	var (
-		logsCh  = make(chan []*LogsMsg)
+		logsCh  = make(chan []*Logs)
 		logsSub = s.eventSystem.SubscribeLogs(p, logsCh)
 	)
 
@@ -214,6 +214,16 @@ func (s *SubscribeApi) UninstallFilter(id rpc.ID) bool {
 	return found
 }
 
+type AccountBlocksMsg struct {
+	Blocks []*AccountBlock `json:"blocks"`
+	Id     rpc.ID          `json:"id"`
+}
+
+type LogsMsg struct {
+	Logs []*Logs `json:"logs"`
+	Id   rpc.ID  `json:"id"`
+}
+
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 	s.filterMapMu.Lock()
 	defer s.filterMapMu.Unlock()
@@ -228,11 +238,11 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		case AccountBlocksSubscription:
 			blocks := f.blocks
 			f.blocks = nil
-			return blocks, nil
+			return AccountBlocksMsg{blocks, id}, nil
 		case LogsSubscription:
 			logs := f.logs
 			f.logs = nil
-			return logs, nil
+			return LogsMsg{logs, id}, nil
 		}
 	}
 
@@ -247,7 +257,7 @@ func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription,
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		accountBlockHashCh := make(chan []*AccountBlockMsg, 128)
+		accountBlockHashCh := make(chan []*AccountBlock, 128)
 		acSub := s.eventSystem.SubscribeAccountBlocks(accountBlockHashCh)
 		for {
 			select {
@@ -279,7 +289,7 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		logsMsg := make(chan []*LogsMsg, 128)
+		logsMsg := make(chan []*Logs, 128)
 		sub := s.eventSystem.SubscribeLogs(p, logsMsg)
 
 		for {
@@ -298,6 +308,7 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	return rpcSub, nil
 }
 
+// TODO delete test method
 func (s *SubscribeApi) TestDelete(addr types.Address, height uint64) (map[types.Address][]*ledger.AccountBlock, error) {
 	return s.vite.Chain().DeleteAccountBlocks(&addr, height)
 }
