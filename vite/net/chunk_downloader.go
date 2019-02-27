@@ -20,6 +20,7 @@ import (
 
 const chunkSize = 50
 const maxBlocksOneTrip = 1000
+const maxFilesOneTrip = 1000
 const chunkTimeout = 10 * time.Second
 
 func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
