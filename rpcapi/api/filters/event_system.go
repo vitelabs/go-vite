@@ -3,6 +3,7 @@ package filters
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/vite"
 	"sync"
@@ -47,6 +48,7 @@ type subscription struct {
 	accountBlockCh          chan []*AccountBlockMsg
 	confirmedAccountBlockCh chan []*ConfirmedAccountBlockMsg
 	logsCh                  chan []*LogsMsg
+	confirmedLogsCh         chan []*LogsMsg
 }
 
 type EventSystem struct {
@@ -59,6 +61,7 @@ type EventSystem struct {
 	acDelCh   chan AccountChainDelEvent  // Channel to receive new account chain delete event when account chain fork
 	spDelCh   chan SnapshotChainDelEvent // Channel to receive new snapshot chain delete event when snapshot chain fork
 	stop      chan struct{}
+	log       log15.Logger
 }
 
 const (
@@ -80,6 +83,7 @@ func NewEventSystem(v *vite.Vite) *EventSystem {
 		install:   make(chan *subscription, installSize),
 		uninstall: make(chan *subscription, uninstallSize),
 		stop:      make(chan struct{}),
+		log:       log15.New("module", "rpc_api/event_system"),
 	}
 	return es
 }
@@ -160,9 +164,35 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 }
 
-func (es *EventSystem) handleSpEvent(filters map[FilterType]map[rpc.ID]*subscription, acEvent []*SnapshotChainEvent) {
-	// TODO
-	//fmt.Printf("handle snapshot block event: %v\n", acEvent.SnapshotBlock.Hash)
+func (es *EventSystem) handleSpEvent(filters map[FilterType]map[rpc.ID]*subscription, scEvents []*SnapshotChainEvent) {
+	if len(scEvents) == 0 {
+		return
+	}
+	msgs := make([]*ConfirmedAccountBlockMsg, len(scEvents))
+	for scIndex, scEvent := range scEvents {
+		hashList := make([]types.Hash, len(scEvent.Content))
+		// handle account blocks
+		for i, e := range scEvent.Content {
+			hashList[i] = e.Hash
+		}
+		msgs[scIndex] = &ConfirmedAccountBlockMsg{hashList, scEvent.SnapshotHash, false}
+		// handle logs
+		for _, f := range filters[LogsSubscription] {
+			var logs []*LogsMsg
+			for _, e := range scEvent.Content {
+				if matchedLogs := filterConfirmedLogs(e, scEvent.SnapshotHash, scEvent.SnapshotHeight, f.param, false); len(matchedLogs) > 0 {
+					logs = append(logs, matchedLogs...)
+				}
+			}
+			if len(logs) > 0 {
+				f.confirmedLogsCh <- logs
+			}
+		}
+	}
+	for _, f := range filters[AccountBlocksSubscription] {
+		f.confirmedAccountBlockCh <- msgs
+	}
+
 }
 func (es *EventSystem) handleAcDelEvent(acEvent *AccountChainDelEvent) {
 	// TODO
@@ -211,7 +241,7 @@ func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs
 	return logs
 }
 
-func filterConfirmedLogs(e *SnapshotChainEvent, filter filterParam) []*LogsMsg {
+func filterConfirmedLogs(e *AccountChainEvent, snapshotHash types.Hash, snapshotHeight uint64, filter *filterParam, removed bool) []*LogsMsg {
 	// TODO
 	return nil
 }
@@ -237,6 +267,7 @@ func (s *RpcSubscription) Unsubscribe() {
 			case <-s.sub.accountBlockCh:
 			case <-s.sub.confirmedAccountBlockCh:
 			case <-s.sub.logsCh:
+			case <-s.sub.confirmedLogsCh:
 			}
 		}
 		<-s.Err()
@@ -253,6 +284,7 @@ func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlockMsg) *RpcSu
 		accountBlockCh:          ch,
 		confirmedAccountBlockCh: make(chan []*ConfirmedAccountBlockMsg),
 		logsCh:                  make(chan []*LogsMsg),
+		confirmedLogsCh:         make(chan []*LogsMsg),
 	}
 	return es.subscribe(sub)
 }
@@ -267,6 +299,7 @@ func (es *EventSystem) SubscribeConfirmedAccountBlocks(ch chan []*ConfirmedAccou
 		accountBlockCh:          make(chan []*AccountBlockMsg),
 		confirmedAccountBlockCh: ch,
 		logsCh:                  make(chan []*LogsMsg),
+		confirmedLogsCh:         make(chan []*LogsMsg),
 	}
 	return es.subscribe(sub)
 }
@@ -282,6 +315,7 @@ func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*LogsMsg) *RpcSub
 		accountBlockCh:          make(chan []*AccountBlockMsg),
 		confirmedAccountBlockCh: make(chan []*ConfirmedAccountBlockMsg),
 		logsCh:                  ch,
+		confirmedLogsCh:         make(chan []*LogsMsg),
 	}
 	return es.subscribe(sub)
 }
@@ -296,7 +330,8 @@ func (es *EventSystem) SubscribeConfirmedLogs(p *filterParam, ch chan []*LogsMsg
 		err:                     make(chan error),
 		accountBlockCh:          make(chan []*AccountBlockMsg),
 		confirmedAccountBlockCh: make(chan []*ConfirmedAccountBlockMsg),
-		logsCh:                  ch,
+		logsCh:                  make(chan []*LogsMsg),
+		confirmedLogsCh:         ch,
 	}
 	return es.subscribe(sub)
 }

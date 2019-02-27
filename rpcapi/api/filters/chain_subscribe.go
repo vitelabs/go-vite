@@ -17,15 +17,10 @@ type AccountChainEvent struct {
 type AccountChainDelEvent struct {
 }
 
-type SnapshotedAccountInfo struct {
-	Hash   types.Hash
-	Height uint64
-	Logs   []*ledger.VmLog
-}
 type SnapshotChainEvent struct {
 	SnapshotHash   types.Hash
 	SnapshotHeight uint64
-	Content        map[types.Address]*SnapshotedAccountInfo
+	Content        []*AccountChainEvent
 }
 type SnapshotChainDelEvent struct {
 }
@@ -71,14 +66,27 @@ func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*led
 	// TODO convert blocks and logs from cache and send to channel
 }
 
-func (c *ChainSubscribe) InsertedSnapshotBlocks(blocks []*ledger.SnapshotBlock, content map[types.Hash]map[types.Address][]*ledger.AccountBlock) {
+func (c *ChainSubscribe) InsertedSnapshotBlocks(blocks []*ledger.SnapshotBlock, content map[types.Address][]*ledger.AccountBlock) {
+	// TODO change content type
 	var scEvents []*SnapshotChainEvent
 	for _, b := range blocks {
 		confirmedBlocks := content[b.Hash]
 		if len(confirmedBlocks) == 0 {
 			return
 		}
-
+		accList := make([]*AccountChainEvent, len(confirmedBlocks))
+		for i, accB := range confirmedBlocks {
+			if accB.LogHash != nil {
+				logList, err := c.vite.Chain().GetVmLogList(accB.LogHash)
+				if err != nil {
+					c.es.log.Error("get vm log list failed when insert snapshot block", "hash", b.Hash, "err", err)
+				}
+				accList[i] = &AccountChainEvent{accB.Hash, accB.Height, accB.AccountAddress, logList}
+			} else {
+				accList[i] = &AccountChainEvent{accB.Hash, accB.Height, accB.AccountAddress, nil}
+			}
+		}
+		scEvents = append(scEvents, &SnapshotChainEvent{b.Hash, b.Height, accList})
 	}
 	c.es.spCh <- scEvents
 }
