@@ -32,7 +32,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 		forkPoints.Mint = &config.ForkPoint{}
 	}
 	if forkPoints.Mint.Height == 0 {
-		forkPoints.Mint.Height = 9473361
+		forkPoints.Mint.Height = 9453262
 	}
 
 	return forkPoints
