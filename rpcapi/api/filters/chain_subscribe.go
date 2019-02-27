@@ -14,32 +14,20 @@ type AccountChainEvent struct {
 	Addr   types.Address
 	Logs   []*ledger.VmLog
 }
-type AccountChainDelEvent struct {
-}
-
-type SnapshotChainEvent struct {
-	SnapshotHash   types.Hash
-	SnapshotHeight uint64
-	Content        []*AccountChainEvent
-}
-type SnapshotChainDelEvent struct {
-}
 
 type ChainSubscribe struct {
-	vite         *vite.Vite
-	es           *EventSystem
-	listenIdList []uint64
+	vite                   *vite.Vite
+	es                     *EventSystem
+	listenIdList           []uint64
+	preDeleteAccountBlocks []*AccountChainEvent
 }
 
 func NewChainSubscribe(v *vite.Vite, e *EventSystem) *ChainSubscribe {
 	c := &ChainSubscribe{vite: v, es: e}
-	list := make([]uint64, 0, 6)
+	list := make([]uint64, 0, 3)
 	list = append(list, v.Chain().RegisterInsertAccountBlocksSuccess(c.InsertedAccountBlocks))
-	// TODO list = append(list, v.Chain().RegisterInsertSnapshotBlocksSuccess(c.InsertedSnapshotBlocks))
 	list = append(list, v.Chain().RegisterDeleteAccountBlocks(c.PreDeleteAccountBlocks))
 	list = append(list, v.Chain().RegisterDeleteAccountBlocksSuccess(c.DeletedAccountBlocks))
-	// TODO list = append(list, v.Chain().RegisterDeleteSnapshotBlocks(c.PreDeleteSnapshotBlocks))
-	list = append(list, v.Chain().RegisterDeleteSnapshotBlocksSuccess(c.DeletedSnapshotBlocks))
 	c.listenIdList = list
 	return c
 }
@@ -59,46 +47,25 @@ func (c *ChainSubscribe) InsertedAccountBlocks(blocks []*vm_context.VmAccountBlo
 }
 
 func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	// TODO get blocks and logs detail and cache
+	acEvents := make([]*AccountChainEvent, 0)
+	for addr, blocks := range subLedger {
+		for _, b := range blocks {
+			if b.LogHash != nil {
+				logList, err := c.vite.Chain().GetVmLogList(b.LogHash)
+				if err != nil {
+					c.es.log.Error("get log list failed when preDeleteAccountBlocks", "addr", addr, "hash", b.Hash, "height", b.Height, "err", err)
+				}
+				acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, addr, logList})
+			} else {
+				acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, addr, nil})
+			}
+		}
+	}
+	c.preDeleteAccountBlocks = append(c.preDeleteAccountBlocks, acEvents...)
 	return nil
 }
 func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) {
-	// TODO convert blocks and logs from cache and send to channel
-}
-
-func (c *ChainSubscribe) InsertedSnapshotBlocks(blocks []*ledger.SnapshotBlock, content map[types.Address][]*ledger.AccountBlock) {
-	// TODO change content type
-	var scEvents []*SnapshotChainEvent
-	for _, b := range blocks {
-		confirmedBlocks := content[b.Hash]
-		if len(confirmedBlocks) == 0 {
-			return
-		}
-		accList := make([]*AccountChainEvent, len(confirmedBlocks))
-		for i, accB := range confirmedBlocks {
-			if accB.LogHash != nil {
-				logList, err := c.vite.Chain().GetVmLogList(accB.LogHash)
-				if err != nil {
-					c.es.log.Error("get vm log list failed when insert snapshot block", "hash", b.Hash, "err", err)
-				}
-				accList[i] = &AccountChainEvent{accB.Hash, accB.Height, accB.AccountAddress, logList}
-			} else {
-				accList[i] = &AccountChainEvent{accB.Hash, accB.Height, accB.AccountAddress, nil}
-			}
-		}
-		scEvents = append(scEvents, &SnapshotChainEvent{b.Hash, b.Height, accList})
-	}
-	c.es.spCh <- scEvents
-}
-
-func (c *ChainSubscribe) PreDeleteSnapshotBlocks([]*ledger.SnapshotBlock) {
-	// TODO
-}
-func (c *ChainSubscribe) DeletedSnapshotBlocks([]*ledger.SnapshotBlock) {
-	// TODO
-}
-
-func (c *ChainSubscribe) GetLogs(addr types.Address, startSnapshotHeight uint64, endSnapshotHeight uint64) ([]*ledger.VmLog, error) {
-	// TODO
-	return nil, nil
+	deletedBlocks := c.preDeleteAccountBlocks
+	c.preDeleteAccountBlocks = nil
+	c.es.acCh <- deletedBlocks
 }

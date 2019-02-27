@@ -19,14 +19,12 @@ var (
 )
 
 type filter struct {
-	typ             FilterType
-	deadline        *time.Timer
-	param           filterParam
-	s               *RpcSubscription
-	blocks          []*AccountBlockMsg
-	confirmedBlocks []*ConfirmedAccountBlockMsg
-	logs            []*LogsMsg
-	confirmedLogs   []*LogsMsg
+	typ      FilterType
+	deadline *time.Timer
+	param    filterParam
+	s        *RpcSubscription
+	blocks   []*AccountBlockMsg
+	logs     []*LogsMsg
 }
 
 type SubscribeApi struct {
@@ -89,18 +87,12 @@ func (r *Range) toHeightRange() (*heightRange, error) {
 }
 
 type RpcFilterParam struct {
-	SnapshotRange *Range            `json:"snapshotRange"`
-	AddrRange     map[string]*Range `json:"addrRange"`
-	Topics        [][]types.Hash    `json:"topics"`
-	AccountHash   *types.Hash       `json:"accountHash"`
-	SnapshotHash  *types.Hash       `json:"snapshotHash"`
+	AddrRange   map[string]*Range `json:"addrRange"`
+	Topics      [][]types.Hash    `json:"topics"`
+	AccountHash *types.Hash       `json:"accountHash"`
 }
 
 func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
-	snapshotRange, err := p.SnapshotRange.toHeightRange()
-	if err != nil {
-		return nil, err
-	}
 	var addrRange map[types.Address]heightRange
 	if len(p.AddrRange) == 0 {
 		return nil, errors.New("addrRange is nil")
@@ -121,11 +113,9 @@ func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
 		addrRange[addr] = *hr
 	}
 	target := &filterParam{
-		snapshotRange: snapshotRange,
-		addrRange:     addrRange,
-		topics:        p.Topics,
-		accountHash:   p.AccountHash,
-		snapshotHash:  p.SnapshotHash,
+		addrRange:   addrRange,
+		topics:      p.Topics,
+		accountHash: p.AccountHash,
 	}
 	return target, nil
 }
@@ -135,18 +125,11 @@ type AccountBlockMsg struct {
 	Removed bool       `json:"removed"`
 }
 
-type ConfirmedAccountBlockMsg struct {
-	HashList     []types.Hash `json:"hashList"`
-	SnapshotHash types.Hash   `json:"snapshotHash"`
-	Removed      bool         `json:"removed"`
-}
-
 type LogsMsg struct {
-	Log               *ledger.VmLog  `json:"log"`
-	AccountBlockHash  types.Hash     `json:"accountBlockHash"`
-	SnapshotBlockHash *types.Hash    `json:"snapshotBlockHash"`
-	Addr              *types.Address `json:"addr"`
-	Removed           bool           `json:"removed"`
+	Log              *ledger.VmLog  `json:"log"`
+	AccountBlockHash types.Hash     `json:"accountBlockHash"`
+	Addr             *types.Address `json:"addr"`
+	Removed          bool           `json:"removed"`
 }
 
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
@@ -167,38 +150,6 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 				s.filterMapMu.Lock()
 				if f, found := s.filterMap[acSub.ID]; found {
 					f.blocks = append(f.blocks, ac...)
-				}
-				s.filterMapMu.Unlock()
-			case <-acSub.Err():
-				s.filterMapMu.Lock()
-				delete(s.filterMap, acSub.ID)
-				s.filterMapMu.Unlock()
-				return
-			}
-		}
-	}()
-
-	return acSub.ID, nil
-}
-
-func (s *SubscribeApi) NewConfirmedAccountBlocksFilter() (rpc.ID, error) {
-	fmt.Println("new confirmed account blocks filter start")
-	var (
-		acCh  = make(chan []*ConfirmedAccountBlockMsg)
-		acSub = s.eventSystem.SubscribeConfirmedAccountBlocks(acCh)
-	)
-
-	s.filterMapMu.Lock()
-	s.filterMap[acSub.ID] = &filter{typ: acSub.sub.typ, deadline: time.NewTimer(deadline), s: acSub}
-	s.filterMapMu.Unlock()
-
-	go func() {
-		for {
-			select {
-			case ac := <-acCh:
-				s.filterMapMu.Lock()
-				if f, found := s.filterMap[acSub.ID]; found {
-					f.confirmedBlocks = append(f.confirmedBlocks, ac...)
 				}
 				s.filterMapMu.Unlock()
 			case <-acSub.Err():
@@ -235,42 +186,6 @@ func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
 				s.filterMapMu.Lock()
 				if f, found := s.filterMap[logsSub.ID]; found {
 					f.logs = append(f.logs, l...)
-				}
-				s.filterMapMu.Unlock()
-			case <-logsSub.Err():
-				s.filterMapMu.Lock()
-				delete(s.filterMap, logsSub.ID)
-				s.filterMapMu.Unlock()
-				return
-			}
-		}
-	}()
-
-	return logsSub.ID, nil
-}
-
-func (s *SubscribeApi) NewConfirmedLogsFilter(param RpcFilterParam) (rpc.ID, error) {
-	fmt.Println("new confirmed logs filter start")
-	p, err := param.toFilterParam()
-	if err != nil {
-		return "", err
-	}
-	var (
-		logsCh  = make(chan []*LogsMsg)
-		logsSub = s.eventSystem.SubscribeConfirmedLogs(p, logsCh)
-	)
-
-	s.filterMapMu.Lock()
-	s.filterMap[logsSub.ID] = &filter{typ: logsSub.sub.typ, deadline: time.NewTimer(deadline), s: logsSub}
-	s.filterMapMu.Unlock()
-
-	go func() {
-		for {
-			select {
-			case l := <-logsCh:
-				s.filterMapMu.Lock()
-				if f, found := s.filterMap[logsSub.ID]; found {
-					f.confirmedLogs = append(f.confirmedLogs, l...)
 				}
 				s.filterMapMu.Unlock()
 			case <-logsSub.Err():
@@ -350,33 +265,6 @@ func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription,
 	return rpcSub, nil
 }
 
-func (s *SubscribeApi) NewConfirmedAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
-	notifier, supported := rpc.NotifierFromContext(ctx)
-	if !supported {
-		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
-	}
-	rpcSub := notifier.CreateSubscription()
-
-	go func() {
-		acMsg := make(chan []*ConfirmedAccountBlockMsg, 128)
-		sub := s.eventSystem.SubscribeConfirmedAccountBlocks(acMsg)
-
-		for {
-			select {
-			case msg := <-acMsg:
-				notifier.Notify(rpcSub.ID, msg)
-			case <-rpcSub.Err():
-				sub.Unsubscribe()
-				return
-			case <-notifier.Closed():
-				sub.Unsubscribe()
-				return
-			}
-		}
-	}()
-	return rpcSub, nil
-}
-
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
 	p, err := param.toFilterParam()
 	if err != nil {
@@ -392,38 +280,6 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	go func() {
 		logsMsg := make(chan []*LogsMsg, 128)
 		sub := s.eventSystem.SubscribeLogs(p, logsMsg)
-
-		for {
-			select {
-			case msg := <-logsMsg:
-				notifier.Notify(rpcSub.ID, msg)
-			case <-rpcSub.Err():
-				sub.Unsubscribe()
-				return
-			case <-notifier.Closed():
-				sub.Unsubscribe()
-				return
-			}
-		}
-	}()
-	return rpcSub, nil
-}
-
-func (s *SubscribeApi) NewConfirmedLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
-	p, err := param.toFilterParam()
-	if err != nil {
-		return nil, err
-	}
-
-	notifier, supported := rpc.NotifierFromContext(ctx)
-	if !supported {
-		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
-	}
-	rpcSub := notifier.CreateSubscription()
-
-	go func() {
-		logsMsg := make(chan []*LogsMsg, 128)
-		sub := s.eventSystem.SubscribeConfirmedLogs(p, logsMsg)
 
 		for {
 			select {
