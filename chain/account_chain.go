@@ -439,6 +439,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	monitorTags := []string{"chain", "GetAccountBlockByHash"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+	if blockHash == nil {
+		return nil, nil
+	}
 
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {

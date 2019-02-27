@@ -107,6 +107,14 @@ func (db *testDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountB
 	}
 	return nil
 }
+func (db *testDatabase) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	for _, b := range db.accountBlockMap[db.addr] {
+		if b.Height == height {
+			return b
+		}
+	}
+	return nil
+}
 func (db *testDatabase) Reset() {}
 func (db *testDatabase) IsAddressExisted(addr *types.Address) bool {
 	_, ok := db.accountBlockMap[*addr]
@@ -199,7 +207,7 @@ func (db *testDatabase) GetGid() *types.Gid {
 	return nil
 }
 func (db *testDatabase) Address() *types.Address {
-	return nil
+	return &db.addr
 }
 func (db *testDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[len(db.snapshotBlockList)-1]
@@ -259,6 +267,10 @@ func (db *testDatabase) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, erro
 
 func (db *testDatabase) GetOneHourQuota() (uint64, error) {
 	return 0, nil
+}
+
+func (db *testDatabase) GetOriginalStorage(key []byte) []byte {
+	return nil
 }
 
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {

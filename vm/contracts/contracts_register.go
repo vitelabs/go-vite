@@ -43,6 +43,7 @@ func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	if err = checkRegisterData(cabi.MethodNameRegister, db, block, param); err != nil {
 		return quotaLeft, err
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
 	return quotaLeft, nil
 }
 
@@ -157,6 +158,7 @@ func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *led
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, db, block, param, cabi.MethodNameCancelRegister) {
 		return quotaLeft, errors.New("check register condition failed")
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
 	return quotaLeft, nil
 }
 func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -234,6 +236,7 @@ func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	if !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, errors.New("consensus group has no reward")
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return quotaLeft, nil
 }
 func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -437,6 +440,7 @@ func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block 
 	if err = checkRegisterData(cabi.MethodNameUpdateRegistration, db, block, param); err != nil {
 		return quotaLeft, err
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return quotaLeft, nil
 }
 func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

@@ -316,6 +316,9 @@ wait:
 			if err = e.err; err != nil {
 				reason = DiscProtocolError
 				proactively = true
+
+				// todo block it
+
 				break
 			}
 
@@ -498,7 +501,7 @@ func (s *PeerSet) Info() []*PeerInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	info := make([]*PeerInfo, s.Size())
+	info := make([]*PeerInfo, len(s.m))
 	i := 0
 	for _, p := range s.m {
 		info[i] = p.Info()

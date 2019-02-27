@@ -29,7 +29,8 @@ type collector struct {
 
 	chain Chain
 
-	log log15.Logger
+	ledgerGcRetain uint64
+	log            log15.Logger
 
 	marker *Marker
 }
