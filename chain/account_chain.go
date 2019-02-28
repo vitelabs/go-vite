@@ -118,6 +118,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			sendBlockMeta, getBlockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlock.FromBlockHash)
 			if getBlockMetaErr != nil {
 				c.log.Error("GetBlockMeta failed, error is "+getBlockMetaErr.Error(), "method", "InsertAccountBlocks")
+				return getBlockMetaErr
 			}
 
 			if sendBlockMeta != nil {
