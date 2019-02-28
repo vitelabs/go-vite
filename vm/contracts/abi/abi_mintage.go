@@ -160,7 +160,7 @@ func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
 	tokenInfo := new(types.TokenInfo)
 	if data[31] == 224 {
 		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
-		if err != nil {
+		if err == nil {
 			tokenInfo.PledgeAddr = tokenInfo.Owner
 		}
 		return tokenInfo, err

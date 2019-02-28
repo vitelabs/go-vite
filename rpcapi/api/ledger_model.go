@@ -141,6 +141,7 @@ type RpcTokenInfo struct {
 	Owner          types.Address     `json:"owner"`
 	PledgeAmount   *string           `json:"pledgeAmount,omitempty"` // *big.Int
 	WithdrawHeight string            `json:"withdrawHeight"`         // uint64
+	PledgeAddr     types.Address     `json:"pledgeAddr"`
 	TokenId        types.TokenTypeId `json:"tokenId"`
 	MaxSupply      *string           `json:"maxSupply"` // *big.Int
 	OwnerBurnOnly  bool              `json:"ownerBurnOnly"`
@@ -158,6 +159,7 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 			Owner:          tinfo.Owner,
 			PledgeAmount:   nil,
 			WithdrawHeight: strconv.FormatUint(tinfo.WithdrawHeight, 10),
+			PledgeAddr:     tinfo.PledgeAddr,
 			TokenId:        tti,
 			OwnerBurnOnly:  tinfo.OwnerBurnOnly,
 			IsReIssuable:   tinfo.IsReIssuable,
