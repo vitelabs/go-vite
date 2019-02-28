@@ -23,7 +23,7 @@ const (
 	IssueGas                  uint64 = 69325
 	BurnGas                   uint64 = 48837
 	TransferOwnerGas          uint64 = 58981
-	ChangeTokenTypeGas        uint64 = 53525
+	ChangeTokenTypeGas        uint64 = 63125
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group

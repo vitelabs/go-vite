@@ -1,6 +1,8 @@
 package types
 
-import "math/big"
+import (
+	"math/big"
+)
 
 type ConsensusGroupInfo struct {
 	Gid                    Gid         // Consensus group id
@@ -50,6 +52,7 @@ type TokenInfo struct {
 	Decimals       uint8    `json:"decimals"`
 	Owner          Address  `json:"owner"`
 	PledgeAmount   *big.Int `json:"pledgeAmount"`
+	PledgeAddr     Address  `json:"pledgeAddr"`
 	WithdrawHeight uint64   `json:"withdrawHeight"`
 	MaxSupply      *big.Int `json:"maxSupply"`
 	OwnerBurnOnly  bool     `json:"ownerBurnOnly"`
