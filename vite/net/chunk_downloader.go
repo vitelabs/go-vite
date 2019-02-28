@@ -360,7 +360,7 @@ func (p *chunkPool) checkLoop() {
 		case <-c.ctx.Done():
 			// chunk request is canceled
 			p.chunks.Delete(key)
-			c.done(c.ctx.Err())
+			c.done(nil)
 			p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> is canceled", c.from, c.to))
 
 		default:
