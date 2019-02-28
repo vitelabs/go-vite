@@ -320,9 +320,8 @@ func exportMintageBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[typ
 		if tokenId == ledger.ViteTokenId {
 			continue
 		}
-		tokenInfo := new(types.TokenInfo)
-		if err := abi.ABIMintage.UnpackVariable(tokenInfo, abi.VariableNameMintage, value); err == nil {
-			updateBalance(m, tokenInfo.Owner, mintageFee)
+		if tokenInfo, err := abi.ParseTokenInfo(value); err == nil {
+			updateBalance(m, tokenInfo.PledgeAddr, mintageFee)
 		}
 	}
 	return m
