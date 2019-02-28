@@ -52,10 +52,20 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		SnapshotContent: accounts,
 	}
 	if fork.IsMintFork(block.Height) {
-		lastSeed := self.generateSeed(e, head, fn)
-		seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
-		block.SeedHash = &seedHash
-		block.Seed = lastSeed
+		lastBlock := self.getLastSeedBlock(e, head)
+		if lastBlock != nil {
+			if lastBlock.Timestamp.Before(e.PeriodStime) {
+				lastSeed := fn(lastBlock.SeedHash)
+				seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+				block.SeedHash = &seedHash
+				block.Seed = lastSeed
+			}
+		} else {
+			seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+			block.SeedHash = &seedHash
+			block.Seed = 0
+		}
+
 	}
 
 	block.Hash = block.ComputeHash()
@@ -147,6 +157,22 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 }
 
 const seedDuration = time.Minute * 10
+
+func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
+	t := head.Timestamp.Add(-seedDuration)
+	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(head.Height, &t, &e.Address)
+	if err != nil {
+		return nil
+	}
+	for _, v := range blocks {
+		var seedHash = v.SeedHash
+		if seedHash != nil {
+			return v
+		}
+	}
+
+	return nil
+}
 
 func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
 	t := e.SnapshotTimeStamp.Add(-seedDuration)

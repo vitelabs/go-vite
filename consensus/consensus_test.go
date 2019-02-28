@@ -660,6 +660,15 @@ func TestChainRw_GetSeedsBeforeHashH(t *testing.T) {
 	c := chainInstance
 	//cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
 
+	hash := types.HexToHashPanic("79ac82df5ce2970d1a36ba25313de1bc9af99a09d3570ac9b5f47abfe9cbb49d")
+
+	block, err := c.GetSnapshotBlockByHash(&hash)
+	if err != nil {
+		panic(err)
+	}
+
+	t.Log(block.Producer())
+
 	m := make(map[types.Address][]*ledger.SnapshotBlock)
 	head := c.GetLatestSnapshotBlock()
 	headHeight := head.Height
@@ -669,7 +678,14 @@ func TestChainRw_GetSeedsBeforeHashH(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		if block.SeedHash == nil {
+			continue
+		}
 		_, ok := m[block.Producer()]
+		//bs, ok := m[block.Producer()]
+		//if len(bs) >= 2 {
+		//	continue
+		//}
 		if ok {
 			m[block.Producer()] = append(m[block.Producer()], block)
 		} else {
@@ -681,8 +697,14 @@ func TestChainRw_GetSeedsBeforeHashH(t *testing.T) {
 
 	for k, v := range m {
 		fmt.Printf("addr:%s, %d\n", k.String(), len(v))
+		var top *ledger.SnapshotBlock
 		for _, v := range v {
-			fmt.Printf("%d, %d, %s\n", v.Height, v.Seed, v.SeedHash)
+			fmt.Printf("%s, %d, %d, %s\n", v.Hash, v.Height, v.Seed, v.SeedHash)
+			if top != nil {
+				seedHash := ledger.ComputeSeedHash(top.Seed, v.PrevHash, v.Timestamp)
+				fmt.Printf("expected:%s, actual:%s, %t\n", v.SeedHash, seedHash, *v.SeedHash == seedHash)
+			}
+			top = v
 		}
 
 	}

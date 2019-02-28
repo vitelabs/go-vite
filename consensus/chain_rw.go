@@ -2,15 +2,12 @@ package consensus
 
 import (
 	"math/big"
+	"sort"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/syndtr/goleveldb/leveldb"
-
-	"sort"
-
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -83,20 +80,34 @@ func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur ti
 	}
 	snapshots, _ := self.groupSnapshotBySeedExist(blocks)
 
-	m := make(map[types.Address]*ledger.SnapshotBlock)
-	seedM := make(map[types.Address]uint64)
-	for _, v := range snapshots {
-		top, ok := m[v.Producer()]
-		if !ok {
-			m[v.Producer()] = v
+	m := make(map[types.Address][]*ledger.SnapshotBlock)
+	for _, block := range snapshots {
+		if block.SeedHash == nil {
 			continue
 		}
-		_, ok = seedM[v.Producer()]
-		if !ok {
-			seed := self.getSeed(top, v)
-			if seed != 0 {
-				seedM[v.Producer()] = seed
-			}
+		producer := block.Producer()
+		bs, ok := m[producer]
+		if len(bs) >= 2 {
+			continue
+		}
+		if ok {
+			m[producer] = append(m[producer], block)
+		} else {
+			var arr []*ledger.SnapshotBlock
+			arr = append(arr, block)
+			m[producer] = arr
+		}
+	}
+
+	seedM := make(map[types.Address]uint64)
+	for k, v := range m {
+		if len(v) != 2 {
+			continue
+		}
+
+		seed := self.getSeed(v[0], v[1])
+		if seed != 0 {
+			seedM[k] = seed
 		}
 	}
 
@@ -211,7 +222,7 @@ func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([
 	var notExists []*ledger.SnapshotBlock
 
 	for _, v := range blocks {
-		if v.Seed > 0 || v.SeedHash != nil {
+		if v.SeedHash != nil {
 			exists = append(exists, v)
 		} else {
 			notExists = append(notExists, v)
@@ -222,11 +233,11 @@ func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([
 }
 
 func (self *chainRw) getSeed(top *ledger.SnapshotBlock, prev *ledger.SnapshotBlock) uint64 {
-	seedHash := top.SeedHash
+	seedHash := prev.SeedHash
 	if seedHash == nil {
 		return 0
 	}
-	expectedSeedHash := ledger.ComputeSeedHash(prev.Seed, prev.PrevHash, prev.Timestamp)
+	expectedSeedHash := ledger.ComputeSeedHash(top.Seed, prev.PrevHash, prev.Timestamp)
 	if expectedSeedHash == *seedHash {
 		return prev.Seed
 	}

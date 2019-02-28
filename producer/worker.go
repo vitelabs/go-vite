@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 
@@ -104,7 +105,7 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 	}
 
 	// todo
-	// self.storeSeedHash(seed, seedHash)
+	self.storeSeedHash(seed, b.SeedHash)
 }
 
 func (self *worker) randomSeed() uint64 {
@@ -117,8 +118,10 @@ func (self *worker) getSeedByHash(hash *types.Hash) uint64 {
 		// default-> zero
 		return 0
 	}
+	fmt.Printf("query seed, hash:%s\n", hash)
 	value, ok := self.seedCache.Get(*hash)
 	if ok {
+		fmt.Printf("query seed, hash:%s, seed:%d\n", hash, value.(uint64))
 		return value.(uint64)
 	} else {
 		// default-> zero
@@ -129,5 +132,9 @@ func (self *worker) storeSeedHash(seed uint64, hash *types.Hash) {
 	if seed == 0 {
 		return
 	}
+	if hash == nil {
+		return
+	}
+	fmt.Printf("store seed, hash:%s, seed:%d\n", hash, seed)
 	self.seedCache.Add(*hash, seed)
 }
