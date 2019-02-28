@@ -3,18 +3,19 @@ package net
 import (
 	"crypto/rand"
 	"io"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func TestFilter_Has(t *testing.T) {
-	const cap = 1000
-	filter := newBlockFilter(cap)
+func TestFilter_record(t *testing.T) {
+	filter := newBlockFilter(1000)
 
-	m := make(map[types.Hash]struct{})
+	count := mrand.Intn(100000)
+	m := make(map[types.Hash]struct{}, count)
 
-	for i := 0; i < cap*10; i++ {
+	for i := 0; i < count; i++ {
 		var hash types.Hash
 		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
 			continue
@@ -28,8 +29,28 @@ func TestFilter_Has(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
 
-	for i := 0; i < cap*10; i++ {
+func TestFilter_has(t *testing.T) {
+	filter := newBlockFilter(1000)
+
+	count := mrand.Intn(100000)
+	m := make(map[types.Hash]struct{}, count)
+
+	for i := 0; i < count; i++ {
+		var hash types.Hash
+		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
+			continue
+		}
+
+		m[hash] = struct{}{}
+
+		filter.record(hash[:])
+	}
+
+	count = mrand.Intn(100000)
+	var failed int
+	for i := 0; i < count; i++ {
 		var hash types.Hash
 		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
 			continue
@@ -38,19 +59,21 @@ func TestFilter_Has(t *testing.T) {
 			continue
 		}
 		if filter.has(hash[:]) {
-			t.Log("should not has")
-			t.Fail()
+			failed++
 		}
 	}
+
+	t.Logf("failed: %d, count: %d\n", failed, count)
 }
 
 func TestFilter_LookAndRecord(t *testing.T) {
-	const cap = 1000
-	filter := newBlockFilter(cap)
+	filter := newBlockFilter(1000)
 
-	m := make(map[types.Hash]struct{})
+	count := mrand.Intn(100000)
+	m := make(map[types.Hash]struct{}, count)
 
-	for i := 0; i < cap*10; i++ {
+	var failed int
+	for i := 0; i < count; i++ {
 		var hash types.Hash
 		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
 			continue
@@ -62,14 +85,14 @@ func TestFilter_LookAndRecord(t *testing.T) {
 
 		exist := filter.lookAndRecord(hash[:])
 		if exist {
-			t.Log("should not exist")
-			t.Fail()
+			failed++
 		}
 
 		exist = filter.lookAndRecord(hash[:])
 		if !exist {
-			t.Log("should exist")
-			t.Fail()
+			failed++
 		}
 	}
+
+	t.Logf("failed %d, count: %d", failed, count)
 }

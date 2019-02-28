@@ -26,9 +26,25 @@ func (m MintageApi) String() string {
 	return "MintageApi"
 }
 
+type NewTokenIdParams struct {
+	SelfAddr     types.Address
+	Height       string
+	PrevHash     types.Hash
+	SnapshotHash types.Hash
+}
+
+func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, error) {
+	h, err := stringToUint64(param.Height)
+	if err != nil {
+		return nil, err
+	}
+	tid := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
+	return &tid, nil
+}
+
 type MintageParams struct {
 	SelfAddr      types.Address
-	Height        uint64
+	Height        string
 	PrevHash      types.Hash
 	SnapshotHash  types.Hash
 	TokenName     string
@@ -41,7 +57,11 @@ type MintageParams struct {
 }
 
 func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
-	tokenId := abi.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
+	h, err := stringToUint64(param.Height)
+	if err != nil {
+		return nil, err
+	}
+	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err
@@ -53,7 +73,11 @@ func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]by
 }
 
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
-	tokenId := abi.NewTokenId(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
+	h, err := stringToUint64(param.Height)
+	if err != nil {
+		return nil, err
+	}
+	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err

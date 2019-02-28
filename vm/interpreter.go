@@ -14,15 +14,25 @@ type Interpreter struct {
 }
 
 var (
-	simpleInterpreter = &Interpreter{simpleInstructionSet}
-	mintInterpreter   = &Interpreter{mintInstructionSet}
+	simpleInterpreter         = &Interpreter{simpleInstructionSet}
+	offchainSimpleInterpreter = &Interpreter{offchainSimpleInstructionSet}
+	mintInterpreter           = &Interpreter{mintInstructionSet}
+	offchainMintInterpreter   = &Interpreter{offchainMintInstructionSet}
 )
 
-func NewInterpreter(blockHeight uint64) *Interpreter {
+func NewInterpreter(blockHeight uint64, offChain bool) *Interpreter {
 	if fork.IsMintFork(blockHeight) {
-		return mintInterpreter
+		if offChain {
+			return offchainMintInterpreter
+		} else {
+			return mintInterpreter
+		}
 	} else {
-		return simpleInterpreter
+		if offChain {
+			return offchainSimpleInterpreter
+		} else {
+			return simpleInterpreter
+		}
 	}
 }
 

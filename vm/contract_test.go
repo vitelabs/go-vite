@@ -27,7 +27,7 @@ func TestRun(t *testing.T) {
 	}
 	for _, test := range tests {
 		vm := NewVM()
-		vm.i = NewInterpreter(1)
+		vm.i = NewInterpreter(1, false)
 		//vm.Debug = true
 		sendCallBlock := ledger.AccountBlock{
 			AccountAddress: types.Address{},

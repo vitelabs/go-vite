@@ -260,7 +260,7 @@ func TestDelegateCall(t *testing.T) {
 	blockTime := time.Now()
 
 	vm := NewVM()
-	vm.i = NewInterpreter(1)
+	vm.i = NewInterpreter(1, false)
 	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
@@ -920,6 +920,9 @@ func TestVm(t *testing.T) {
 		t.Fatalf("read dir failed, %v", ok)
 	}
 	for _, testFile := range testFiles {
+		if testFile.IsDir() {
+			continue
+		}
 		file, ok := os.Open(testDir + testFile.Name())
 		if ok != nil {
 			t.Fatalf("open test file failed, %v", ok)
@@ -942,7 +945,7 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM()
-			vm.i = NewInterpreter(1)
+			vm.i = NewInterpreter(1, false)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
@@ -1035,17 +1038,59 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccou
 	return ""
 }
 
+type OffchainTestCaseMap map[string]OffchainTestCase
+type OffchainTestCase struct {
+	SBHeight   uint64
+	SBTime     int64
+	ToAddress  types.Address
+	InputData  string
+	Code       string
+	ReturnData string
+	Err        string
+	PreStorage map[string]string
+}
+
 func TestOffChainReader(t *testing.T) {
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
-	db, addr1, _, _, _, _ := prepareDb(viteTotalSupply)
-	vm := NewVM()
-	nodeConfig.IsDebug = false
-	db.addr = addr1
-	loc, _ := types.BigToHash(big.NewInt(0))
-	value, _ := types.BigToHash(big.NewInt(100))
-	db.SetStorage(loc.Bytes(), value.Bytes())
-	code := []byte{byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(CALLDATALOAD), byte(SLOAD), byte(PUSH1), 0, byte(MSTORE), byte(RETURN)}
-	data := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
-	returndata, err := vm.OffChainReader(db, code, data)
-	fmt.Println(returndata, err)
+	testCaseMap := new(OffchainTestCaseMap)
+	file, ok := os.Open("./test/offchaintest/offchain.json")
+	if ok != nil {
+		t.Fatalf("open test file failed, %v", ok)
+	}
+	if ok := json.NewDecoder(file).Decode(testCaseMap); ok != nil {
+		t.Fatalf("decode test file failed, %v", ok)
+	}
+
+	for k, testCase := range *testCaseMap {
+		vm := NewVM()
+		vm.i = NewInterpreter(1, true)
+		var sbTime time.Time
+		if testCase.SBTime > 0 {
+			sbTime = time.Unix(testCase.SBTime, 0)
+		} else {
+			sbTime = time.Now()
+		}
+		sb := ledger.SnapshotBlock{
+			Height:    testCase.SBHeight,
+			Timestamp: &sbTime,
+			Hash:      types.DataHash([]byte{1, 1}),
+		}
+		db := NewMemoryDatabase(testCase.ToAddress, &sb)
+		if len(testCase.PreStorage) > 0 {
+			for k, v := range testCase.PreStorage {
+				vByte, _ := hex.DecodeString(v)
+				db.storage[k] = vByte
+				db.originalStorage[k] = vByte
+			}
+		}
+		code, _ := hex.DecodeString(testCase.Code)
+		inputData, _ := hex.DecodeString(testCase.InputData)
+		returndata, err := vm.OffChainReader(db, code, inputData)
+		if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
+			t.Fatalf("%v failed, err not match, expected %v, got %v", k, testCase.Err, err)
+		}
+		returndataTarget, _ := hex.DecodeString(testCase.ReturnData)
+		if !bytes.Equal(returndata, returndataTarget) {
+			t.Fatalf("%v return data not match, expected %v, got %v", k, testCase.ReturnData, hex.EncodeToString(returndata))
+		}
+	}
 }

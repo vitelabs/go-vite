@@ -166,7 +166,7 @@ func (db *memoryDatabase) GetGid() *types.Gid {
 	return nil
 }
 func (db *memoryDatabase) Address() *types.Address {
-	return nil
+	return &db.addr
 }
 func (db *memoryDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.sb

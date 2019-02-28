@@ -6,9 +6,9 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/fork"
+	"runtime/debug"
 
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -170,7 +170,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockContext := &vm_context.VmAccountBlock{block.Copy(), database}
-	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height)
+	vm.i = NewInterpreter(database.CurrentSnapshotBlock().Height, false)
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
@@ -778,6 +778,7 @@ func findPrevReceiveBlock(db vmctxt_interface.VmDatabase, sendBlock *ledger.Acco
 func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data []byte) (result []byte, err error) {
 	defer func() {
 		if err := recover(); err != nil {
+			debug.PrintStack()
 			nodeConfig.log.Error("offchain reader panic",
 				"err", err,
 				"addr", db.Address(),
@@ -788,7 +789,7 @@ func (vm *VM) OffChainReader(db vmctxt_interface.VmDatabase, code []byte, data [
 			err = errors.New("offchain reader panic")
 		}
 	}()
-	vm.i = NewInterpreter(db.CurrentSnapshotBlock().Height)
+	vm.i = NewInterpreter(db.CurrentSnapshotBlock().Height, true)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas, 0)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
