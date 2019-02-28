@@ -411,13 +411,13 @@ func (s *syncer) receiveFileList(msg *message.FileList) {
 				// add new tasks
 				for _, file := range files {
 					if file.EndHeight >= start {
-						s.exec.add(&syncTask{
-							task: &fileTask{
-								file:       file,
-								downloader: s.fc,
-							},
-							typ: syncFileTask,
-						})
+						t := newSyncTask()
+						t.task = &fileTask{
+							file:       file,
+							downloader: s.fc,
+						}
+						t.typ = syncFileTask
+						s.exec.add(t)
 					}
 				}
 			}
@@ -427,16 +427,16 @@ func (s *syncer) receiveFileList(msg *message.FileList) {
 			if to == 0 {
 				s.pool.start()
 
-				cks := splitChunk(s.from, s.to, chunkSize)
+				cks := splitChunkCount(s.from, s.to, CHUNK_SIZE, SYNC_TASK_BATCH)
 				for _, ck := range cks {
-					s.exec.add(&syncTask{
-						task: &chunkTask{
-							from:       ck[0],
-							to:         ck[1],
-							downloader: s.pool,
-						},
-						typ: syncChunkTask,
-					})
+					t := newSyncTask()
+					t.task = &chunkTask{
+						from:       ck[0],
+						to:         ck[1],
+						downloader: s.pool,
+					}
+					t.typ = syncChunkTask
+					s.exec.add(t)
 				}
 			}
 		}
@@ -494,6 +494,10 @@ func (s *syncer) taskDone(t *syncTask, err error) {
 			s.setState(Syncerr)
 			return
 		}
+	} else if t.typ == syncFileTask {
+		s.mu.Lock()
+		delete(s.fileMap, t.task.String())
+		s.mu.Unlock()
 	}
 }
 
@@ -506,17 +510,18 @@ func (s *syncer) allTaskDone(last *syncTask) {
 		return
 	}
 
+	rest := s.exec.clean()
 	// use chunk
-	cks := splitChunk(to+1, target, chunkSize)
+	cks := splitChunkCount(to+1, target, CHUNK_SIZE, uint64(SYNC_TASK_BATCH-rest))
 	for _, ck := range cks {
-		s.exec.add(&syncTask{
-			task: &chunkTask{
-				from:       ck[0],
-				to:         ck[1],
-				downloader: s.pool,
-			},
-			typ: syncChunkTask,
-		})
+		t := newSyncTask()
+		t.task = &chunkTask{
+			from:       ck[0],
+			to:         ck[1],
+			downloader: s.pool,
+		}
+		t.typ = syncChunkTask
+		s.exec.add(t)
 	}
 
 	s.pool.start()

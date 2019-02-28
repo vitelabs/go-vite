@@ -141,10 +141,17 @@ func Test_SplitFiles(t *testing.T) {
 }
 
 type chain_getSubLedger struct {
+	hasFile bool
 }
 
 func (c *chain_getSubLedger) GetSubLedgerByHeight(start, count uint64, forward bool) (fs []*ledger.CompressedFileMeta, cs [][2]uint64) {
 	end := start + count - 1
+
+	if !c.hasFile {
+		cs = append(cs, [2]uint64{start, end})
+		return
+	}
+
 	for i := start; i <= end; i++ {
 		j := i + 3599
 		if j > end {
@@ -181,15 +188,15 @@ func Test_getSubLedgerHandler(t *testing.T) {
 		return func(msgId uint64, payload p2p.Serializable) {
 			fileList := payload.(*message.FileList)
 			for _, f := range fileList.Files {
-				if height+1 != f.StartHeight {
+				if height != f.StartHeight {
 					t.Fatal("file is not continuous")
 				}
-				height = f.EndHeight
+				height = f.EndHeight + 1
 			}
 
 			if len(fileList.Chunks) != 0 {
 				c := fileList.Chunks[0]
-				if height+1 != c[0] {
+				if height != c[0] {
 					t.Fatal("chunk is not continuous")
 				}
 				height = c[1]
@@ -208,8 +215,10 @@ func Test_getSubLedgerHandler(t *testing.T) {
 	mp := NewMockPeer()
 	mp.Handlers[FileListCode] = counter()
 
+	chain := &chain_getSubLedger{false}
+	// noFile
 	handler := &getSubLedgerHandler{
-		chain: &chain_getSubLedger{},
+		chain: chain,
 	}
 
 	msg, err := p2p.PackMsg(0, uint16(GetSubLedgerCode), 0, &message.GetSnapshotBlocks{
@@ -221,9 +230,17 @@ func Test_getSubLedgerHandler(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("pack query message error: %v\n", err)
+		panic("pack query message error: " + err.Error())
 	}
 
+	err = handler.Handle(msg, mp)
+	if err != nil {
+		t.Fatalf("handle error: %v\n", err)
+	}
+
+	// hasFile
+	mp.Handlers[FileListCode] = counter()
+	chain.hasFile = true
 	err = handler.Handle(msg, mp)
 	if err != nil {
 		t.Fatalf("handle error: %v\n", err)

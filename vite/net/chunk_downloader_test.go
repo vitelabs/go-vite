@@ -77,6 +77,20 @@ func TestSplitChunkOne(t *testing.T) {
 	}
 }
 
+func TestSplitChunkCount(t *testing.T) {
+	from := uint64(rand.Intn(1000))
+	to := from + 1000
+
+	cs := splitChunkCount(from, to, 50, 10)
+	if len(cs) != 10 {
+		t.Fatalf("to many chunks")
+	}
+
+	for _, c := range cs {
+		t.Log(c[0], c[1])
+	}
+}
+
 func TestSplitChunkMini(t *testing.T) {
 	const batch = 333
 

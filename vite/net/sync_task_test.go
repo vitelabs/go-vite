@@ -75,3 +75,49 @@ func TestExecutor_DeleteTo2(t *testing.T) {
 		t.Fatalf("start should be 1001, but get %d", start)
 	}
 }
+
+func TestExecutor_clean(t *testing.T) {
+	const total = 1000
+
+	e := &executor{
+		tasks: make([]*syncTask, 0, total),
+	}
+
+	var st reqState
+	var doneCount int
+	var rd int
+	var sts = make([]reqState, 0, total)
+	for i := 0; i < total; i++ {
+		rd = rand.Intn(11)
+		if rd > 8 {
+			st = reqDone
+			doneCount++
+		} else if rd > 6 {
+			st = reqPending
+			sts = append(sts, st)
+		} else if rd > 4 {
+			st = reqError
+			sts = append(sts, st)
+		} else {
+			st = reqWaiting
+			sts = append(sts, st)
+		}
+
+		e.tasks = append(e.tasks, &syncTask{
+			st: st,
+		})
+	}
+
+	e.clean()
+
+	rest := len(e.tasks)
+	if rest != total-doneCount {
+		t.Fatalf("tasks count is not %d but %d", total-doneCount, len(e.tasks))
+	}
+	for i := 0; i < rest; i++ {
+		st = e.tasks[i].st
+		if st != sts[i] {
+			t.Fatalf("tasks state is not right")
+		}
+	}
+}
