@@ -13,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_context"
 	"gopkg.in/urfave/cli.v1"
 	"math/big"
+	"sort"
 )
 
 type ExportNodeManager struct {
@@ -55,7 +56,6 @@ func (nodeManager *ExportNodeManager) getSbHeight() uint64 {
 	return sbHeight
 }
 
-// TODO unknown to address
 func (nodeManager *ExportNodeManager) Start() error {
 
 	allAddress := make(map[types.Address]struct{})
@@ -63,8 +63,13 @@ func (nodeManager *ExportNodeManager) Start() error {
 	contractAddressMap := make(map[types.Address]struct{})
 
 	inAccountBalanceMap := make(map[types.Address]*big.Int)
+	inContractBalanceMap := make(map[types.Address]*big.Int)
+
+	inAccountVCPBalanceMap := make(map[types.Address]*big.Int)
 	contractRevertBalanceMap := make(map[types.Address]*big.Int)
+
 	onroadBalanceMap := make(map[types.Address]*big.Int)
+	onroadVCPBalanceMap := make(map[types.Address]*big.Int)
 
 	// Start up the node
 	node := nodeManager.node
@@ -98,6 +103,12 @@ func (nodeManager *ExportNodeManager) Start() error {
 
 	viteBalanceKey := vm_context.BalanceKey(&ledger.ViteTokenId)
 
+	vcpTokenId, err := types.HexToTokenTypeId("tti_251a3e67a41b5ea2373936c8")
+	if err != nil {
+		return errors.New("HexToTokenTypeId failed, error is " + err.Error())
+	}
+	vcpBalanceKey := vm_context.BalanceKey(&vcpTokenId)
+
 	// query balance that already belongs to the account.
 	fmt.Printf("Start query balance that already belongs to the account or needs to be refunded by the contract.\n")
 	for {
@@ -128,7 +139,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 			return errors.New(fmt.Sprintf("The state trie of account is nil, addr is %s", addr.String()))
 		}
 
-		if balanceBytes := accountStateTrie.GetValue(viteBalanceKey); balanceBytes != nil {
+		if balanceBytes := accountStateTrie.GetValue(viteBalanceKey); len(balanceBytes) > 0 {
 			balance.SetBytes(balanceBytes)
 		}
 
@@ -138,9 +149,17 @@ func (nodeManager *ExportNodeManager) Start() error {
 
 			inAccountBalanceMap[addr] = balance
 
+			if vcpBalanceBytes := accountStateTrie.GetValue(vcpBalanceKey); len(vcpBalanceBytes) > 0 {
+				vcpBalance := big.NewInt(0)
+				vcpBalance.SetBytes(vcpBalanceBytes)
+				inAccountVCPBalanceMap[addr] = vcpBalance
+			}
+
 		case 3:
 			contractAddressMap[addr] = struct{}{}
 			//balance *big.Int, trie *trie.Trie, c chain.Chain
+			inContractBalanceMap[addr] = balance
+
 			var err error
 			contractRevertBalanceMap, err = exportContractBalance(contractRevertBalanceMap, addr, balance, accountStateTrie, chainInstance)
 			if err != nil {
@@ -173,6 +192,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 	}
 
 	inexistentAccountMap := make(map[types.Address]struct{})
+
 	for addr := range allAddress {
 		onroadBlocks, err := chainInstance.GetOnRoadBlocksBySendAccount(&addr, sb.Height)
 		if err != nil {
@@ -181,6 +201,11 @@ func (nodeManager *ExportNodeManager) Start() error {
 		}
 
 		for _, onroadBlock := range onroadBlocks {
+			if onroadBlock.TokenId != ledger.ViteTokenId &&
+				onroadBlock.TokenId != vcpTokenId {
+				continue
+			}
+
 			fromAddress := onroadBlock.AccountAddress
 			toAddress := onroadBlock.ToAddress
 
@@ -193,19 +218,32 @@ func (nodeManager *ExportNodeManager) Start() error {
 				fallthrough
 			case 2:
 				// auto receive money
-				if _, ok := onroadBalanceMap[toAddress]; !ok {
-					onroadBalanceMap[toAddress] = big.NewInt(0)
+				if onroadBlock.TokenId == ledger.ViteTokenId {
+					if _, ok := onroadBalanceMap[toAddress]; !ok {
+						onroadBalanceMap[toAddress] = big.NewInt(0)
+					}
+
+					onroadBalanceMap[toAddress].Add(onroadBalanceMap[toAddress], onroadBlock.Amount)
+				} else {
+					if _, ok := onroadVCPBalanceMap[toAddress]; !ok {
+						onroadVCPBalanceMap[toAddress] = big.NewInt(0)
+					}
+					onroadVCPBalanceMap[toAddress].Add(onroadVCPBalanceMap[toAddress], onroadBlock.Amount)
 				}
+
 				if _, ok := allAddress[toAddress]; !ok {
 					inexistentAccountMap[toAddress] = struct{}{}
 					generalAddressMap[toAddress] = struct{}{}
 				}
-				onroadBalanceMap[toAddress].Add(onroadBalanceMap[toAddress], onroadBlock.Amount)
 			case 3:
+				if onroadBlock.TokenId != ledger.ViteTokenId {
+					break
+				}
 				// revert the money
 				if _, ok := onroadBalanceMap[fromAddress]; !ok {
 					onroadBalanceMap[fromAddress] = big.NewInt(0)
 				}
+
 				onroadBalanceMap[fromAddress].Add(onroadBalanceMap[fromAddress], onroadBlock.Amount)
 			default:
 				return errors.New(fmt.Sprintf("ToAddress is not existed, toAddress is %s, addr is %s, onroadBlock height is %d, onroadBlock hash is %s",
@@ -221,8 +259,40 @@ func (nodeManager *ExportNodeManager) Start() error {
 	fmt.Printf("Complete calculating the balance that is onroad.There are %d accounts, %d accounts is general account, %d accounts is contract account\n",
 		len(allAddress), len(generalAddressMap), len(contractAddressMap))
 
+	fmt.Println("======inAccount balance map======")
+	nodeManager.printBalanceMap(inAccountBalanceMap, "vite")
+	fmt.Println("======inAccount balance map======")
+
+	fmt.Println("======inContract balance map======")
+	nodeManager.printBalanceMap(inContractBalanceMap, "vite")
+	fmt.Println("======inContract balance map======")
+
+	fmt.Println("======inAccount vcp balance map======")
+	nodeManager.printBalanceMap(inAccountVCPBalanceMap, "vcp")
+	fmt.Println("======inAccount vcp balance map======")
+
+	fmt.Println("======contractRevert balance map======")
+	nodeManager.printBalanceMap(contractRevertBalanceMap, "vite")
+	fmt.Println("======contractRevert balance map======")
+
+	fmt.Println("======onroad balance map======")
+	nodeManager.printBalanceMap(onroadBalanceMap, "vite")
+	fmt.Println("======onroad balance map======")
+
+	fmt.Println("======onroad vcp balance map======")
+	nodeManager.printBalanceMap(onroadVCPBalanceMap, "vcp")
+	fmt.Println("======onroad vcp balance map======")
+
 	sumBalanceMap := nodeManager.calculateSumBalanceMap(inAccountBalanceMap, contractRevertBalanceMap, onroadBalanceMap)
-	nodeManager.printBalanceMap(sumBalanceMap)
+	sumVCPBalanceMap := nodeManager.calculateSumBalanceMap(inAccountVCPBalanceMap, onroadVCPBalanceMap)
+	fmt.Println("======sum balance map======")
+	nodeManager.printBalanceMap(sumBalanceMap, "vite")
+	fmt.Println("======sum balance map======")
+
+	fmt.Println("======sum vcp balance map======")
+	nodeManager.printBalanceMap(sumVCPBalanceMap, "vcp")
+	fmt.Println("======sum vcp balance map======")
+
 	return nil
 }
 
@@ -241,14 +311,38 @@ func (nodeManager *ExportNodeManager) calculateSumBalanceMap(balanceMapList ...m
 
 }
 
-func (nodeManager *ExportNodeManager) printBalanceMap(balanceMap map[types.Address]*big.Int) {
-	totalBalance := big.NewInt(0)
+type sortedBalanceItem struct {
+	addr    types.Address
+	balance *big.Int
+}
+type sortedBalanceList []*sortedBalanceItem
+
+func (list sortedBalanceList) Len() int      { return len(list) }
+func (list sortedBalanceList) Swap(i, j int) { list[i], list[j] = list[j], list[i] }
+func (list sortedBalanceList) Less(i, j int) bool {
+	return list[i].balance.Cmp(list[j].balance) < 0
+}
+func getSortedBalanceList(balanceMap map[types.Address]*big.Int) sortedBalanceList {
+	list := make(sortedBalanceList, 0, len(balanceMap))
 	for addr, balance := range balanceMap {
-		fmt.Printf("%s: %s\n", addr, balance)
-		totalBalance = totalBalance.Add(totalBalance, balance)
+		list = append(list, &sortedBalanceItem{
+			addr:    addr,
+			balance: balance,
+		})
+	}
+	sort.Sort(sort.Reverse(list))
+	return list
+}
+
+func (nodeManager *ExportNodeManager) printBalanceMap(balanceMap map[types.Address]*big.Int, unit string) {
+	totalBalance := big.NewInt(0)
+	balanceList := getSortedBalanceList(balanceMap)
+	for _, item := range balanceList {
+		fmt.Printf("%s: %s %s\n", item.addr, item.balance, unit)
+		totalBalance = totalBalance.Add(totalBalance, item.balance)
 	}
 
-	fmt.Printf("total: %s\n", totalBalance)
+	fmt.Printf("total: %s %s\n", totalBalance, unit)
 
 }
 func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, balance *big.Int, trie *trie.Trie, c chain.Chain) (map[types.Address]*big.Int, error) {
