@@ -112,7 +112,7 @@ func (s *fileServer) listenLoop() {
 					continue
 				}
 			}
-			return
+			break
 		}
 
 		s.wg.Add(1)
@@ -120,6 +120,8 @@ func (s *fileServer) listenLoop() {
 			s.handleConn(c)
 		})
 	}
+
+	s.log.Warn("file server stop listening")
 }
 
 func (s *fileServer) deleteConn(c net2.Conn) {
