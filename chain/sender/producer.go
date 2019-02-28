@@ -277,9 +277,12 @@ func (producer *Producer) getParsedData(block *ledger.AccountBlock) (string, err
 	switch block.ToAddress.String() {
 	case types.AddressMintage.String():
 		tokenInfo := new(types.TokenInfo)
+		if m, err := abi.ABIMintage.MethodById(block.Data); err != nil || m.Name != abi.MethodNameMintage {
+			return "", nil
+		}
 		err := abi.ABIMintage.UnpackVariable(tokenInfo, abi.MethodNameMintage, block.Data)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 		tokenBytes, err := json.Marshal(tokenInfo)
 		return string(tokenBytes), err
