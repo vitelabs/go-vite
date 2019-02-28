@@ -18,24 +18,24 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-const chunkSize = 50
+const CHUNK_SIZE = 50
 const maxBlocksOneTrip = 1000
 const maxFilesOneTrip = 1000
-const chunkTimeout = 10 * time.Second
+const chunkTimeout = 6 * time.Second
 
-func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
+func splitChunk(from, to, chunkSize uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
 	if from > to || to == 0 {
 		return
 	}
 
-	total := (to-from)/chunk + 1
+	total := (to-from)/chunkSize + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if cTo = from + chunk - 1; cTo > to {
+		if cTo = from + chunkSize - 1; cTo > to {
 			cTo = to
 		}
 
@@ -46,6 +46,15 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	}
 
 	return chunks[:i]
+}
+
+func splitChunkCount(from, to, chunkSize, count uint64) (chunks [][2]uint64) {
+	to2 := from + chunkSize*count - 1
+	if to > to2 {
+		to = to2
+	}
+
+	return splitChunk(from, to, chunkSize)
 }
 
 type ChunkReqStatus struct {
@@ -351,7 +360,7 @@ func (p *chunkPool) checkLoop() {
 		case <-c.ctx.Done():
 			// chunk request is canceled
 			p.chunks.Delete(key)
-			c.done(nil)
+			c.done(c.ctx.Err())
 			p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> is canceled", c.from, c.to))
 
 		default:

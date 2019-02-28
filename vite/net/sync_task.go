@@ -8,6 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+const SYNC_TASK_BATCH = 1000
+
 type syncTaskType byte
 
 const (
@@ -42,12 +44,30 @@ func (s reqState) String() string {
 	return reqStatus[s]
 }
 
+var syncTaskPool sync.Pool
+
+func backSyncTask(t *syncTask) {
+	t.task = nil
+	t.st = reqWaiting
+	t.ctx = nil
+	t.cancel = nil
+	syncTaskPool.Put(t)
+}
+
 type syncTask struct {
 	task
 	st     reqState
 	typ    syncTaskType
 	cancel func()
 	ctx    context.Context
+}
+
+func newSyncTask() *syncTask {
+	v := syncTaskPool.Get()
+	if v == nil {
+		return &syncTask{}
+	}
+	return v.(*syncTask)
 }
 
 func (t *syncTask) do() error {
@@ -136,6 +156,7 @@ type syncTaskExecutor interface {
 	last() *syncTask
 	terminate()
 	status() ExecutorStatus
+	clean() int // remove tasks done
 }
 
 type syncTaskListener interface {
@@ -144,11 +165,12 @@ type syncTaskListener interface {
 }
 
 type executor struct {
-	mu    sync.Mutex
-	tasks []*syncTask
+	mu sync.Mutex
 
+	tasks     []*syncTask
 	doneIndex int
-	listener  syncTaskListener
+
+	listener syncTaskListener
 
 	ctx       context.Context
 	ctxCancel func()
@@ -162,6 +184,7 @@ func newExecutor(listener syncTaskListener) syncTaskExecutor {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &executor{
+		tasks:     make([]*syncTask, 0, SYNC_TASK_BATCH),
 		listener:  listener,
 		ctx:       ctx,
 		ctxCancel: cancel,
@@ -286,6 +309,9 @@ func (e *executor) deleteFrom(start uint64) (nextStart uint64) {
 				if t.cancel != nil {
 					t.cancel()
 				}
+
+				// put back to pool
+				backSyncTask(t)
 			}
 
 			e.tasks = e.tasks[:i]
@@ -302,8 +328,36 @@ func (e *executor) deleteFrom(start uint64) (nextStart uint64) {
 	return 0
 }
 
+func (e *executor) clean() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	j := 0
+	for i := 0; i < len(e.tasks); i++ {
+		t := e.tasks[i]
+		if t.st != reqDone {
+			e.tasks[j] = e.tasks[i]
+			j++
+		} else {
+			backSyncTask(t)
+			e.tasks[i] = nil
+		}
+	}
+
+	e.tasks = e.tasks[:j]
+	e.doneIndex = 0
+
+	return j
+}
+
 func (e *executor) terminate() {
 	if e.ctx != nil {
 		e.ctxCancel()
 	}
+
+	e.mu.Lock()
+	e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+	e.tasks = nil
+	e.doneIndex = 0
+	e.mu.Unlock()
 }

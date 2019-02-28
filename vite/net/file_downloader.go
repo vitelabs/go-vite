@@ -510,7 +510,7 @@ func (fc *fileClient) download(ctx context.Context, file File) <-chan error {
 func (fc *fileClient) runTask(t asyncFileTask) {
 	select {
 	case <-t.ctx.Done():
-		t.ch <- nil
+		t.ch <- t.ctx.Err()
 		return
 	default:
 
