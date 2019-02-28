@@ -427,7 +427,7 @@ func (s *syncer) receiveFileList(msg *message.FileList) {
 			if to == 0 {
 				s.pool.start()
 
-				cks := splitChunk(s.from, s.to, chunkSize)
+				cks := splitChunk(s.from, s.to, 3600)
 				for _, ck := range cks {
 					s.exec.add(&syncTask{
 						task: &chunkTask{
@@ -507,7 +507,7 @@ func (s *syncer) allTaskDone(last *syncTask) {
 	}
 
 	// use chunk
-	cks := splitChunk(to+1, target, chunkSize)
+	cks := splitChunk(to+1, target, 3600)
 	for _, ck := range cks {
 		s.exec.add(&syncTask{
 			task: &chunkTask{
