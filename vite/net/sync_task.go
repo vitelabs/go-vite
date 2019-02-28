@@ -310,8 +310,8 @@ func (e *executor) deleteFrom(start uint64) (nextStart uint64) {
 					t.cancel()
 				}
 
-				// put back to pool
-				backSyncTask(t)
+				// cannot put back to pool, because may be has callback will cause panic
+				// backSyncTask(t)
 			}
 
 			e.tasks = e.tasks[:i]
