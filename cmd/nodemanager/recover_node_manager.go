@@ -9,6 +9,8 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
+const CountPerDelete = 10000
+
 type RecoverNodeManager struct {
 	ctx  *cli.Context
 	node *node.Node

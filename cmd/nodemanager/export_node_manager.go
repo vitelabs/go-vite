@@ -172,7 +172,8 @@ func (nodeManager *ExportNodeManager) Start() error {
 		return chainInstance.AccountType(&addr)
 	}
 
-	for addr, _ := range allAddress {
+	inexistentAccountMap := make(map[types.Address]struct{})
+	for addr := range allAddress {
 		onroadBlocks, err := chainInstance.GetOnRoadBlocksBySendAccount(&addr, sb.Height)
 		if err != nil {
 			return errors.New(fmt.Sprintf("GetOnRoadBlocksBySendAccount failed, addr is %s, sb.height is %d, sb.hash is %s, error is %s",
@@ -196,7 +197,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 					onroadBalanceMap[toAddress] = big.NewInt(0)
 				}
 				if _, ok := allAddress[toAddress]; !ok {
-					allAddress[toAddress] = struct{}{}
+					inexistentAccountMap[toAddress] = struct{}{}
 					generalAddressMap[toAddress] = struct{}{}
 				}
 				onroadBalanceMap[toAddress].Add(onroadBalanceMap[toAddress], onroadBlock.Amount)
@@ -212,6 +213,10 @@ func (nodeManager *ExportNodeManager) Start() error {
 			}
 
 		}
+	}
+
+	for addr := range inexistentAccountMap {
+		allAddress[addr] = struct{}{}
 	}
 	fmt.Printf("Complete calculating the balance that is onroad.There are %d accounts, %d accounts is general account, %d accounts is contract account\n",
 		len(allAddress), len(generalAddressMap), len(contractAddressMap))
@@ -254,6 +259,8 @@ func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, bal
 	} else if addr == types.AddressMintage {
 		return exportMintageBalance(m, trie), nil
 	} else if addr == types.AddressVote {
+		return m, nil
+	} else if addr == types.AddressConsensusGroup {
 		return m, nil
 	} else {
 		// for other contract, return to creator
@@ -315,6 +322,9 @@ func exportMintageBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[typ
 		key, value, ok := iter.Next()
 		if !ok {
 			break
+		}
+		if !abi.IsMintageKey(key) {
+			continue
 		}
 		tokenId := abi.GetTokenIdFromMintageKey(key)
 		if tokenId == ledger.ViteTokenId {

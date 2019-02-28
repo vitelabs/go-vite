@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -865,8 +866,9 @@ func (c *chain) GetOnRoadBlocksBySendAccount(sendAccountAddress *types.Address, 
 		c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetOnRoadBlocksBySendAccount")
 		return nil, err
 	}
+
 	if account == nil {
-		err := errors.New("account is nil")
+		err := errors.New(fmt.Sprintf("account is nil, addr is %s", sendAccountAddress))
 		c.log.Error(err.Error(), "method", "GetOnRoadBlocksBySendAccount")
 		return nil, err
 	}
