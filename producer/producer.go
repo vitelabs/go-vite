@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -185,6 +186,12 @@ func (self *producer) producerContract(e consensus.Event) {
 		err := self.tools.checkAddressLock(e.Address, self.coinbase)
 		if err != nil {
 			mLog.Error("coinbase must be unlock.", "addr", e.Address.String(), "err", err)
+			return
+		}
+
+		header := self.tools.chain.GetLatestSnapshotBlock()
+		if header.Timestamp.Before(e.VoteTime) {
+			mLog.Error(fmt.Sprintf("contract producer fail. snapshot is too lower. voteTime:%s, headerTime:%s, headerHeight:%d, headerHash:%s", e.VoteTime, header.Timestamp, header.Height, header.Hash))
 			return
 		}
 

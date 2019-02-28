@@ -86,6 +86,9 @@ const (
 	DIFFICULTY
 	GASLIMIT
 	TOKENID
+	ACCOUNTHEIGHT
+	ACCOUNTHASH
+	FROMHASH
 )
 
 // 0x50 range - 'storage' and execution.
@@ -248,13 +251,16 @@ var opCodeToString = map[opCode]string{
 	EXTCODEHASH:    "EXTCODEHASH",
 
 	// 0x40 range - block operations.
-	BLOCKHASH:  "BLOCKHASH",
-	COINBASE:   "COINBASE",
-	TIMESTAMP:  "TIMESTAMP",
-	HEIGHT:     "HEIGHT",
-	DIFFICULTY: "DIFFICULTY",
-	GASLIMIT:   "GASLIMIT",
-	TOKENID:    "TOKENID",
+	BLOCKHASH:     "BLOCKHASH",
+	COINBASE:      "COINBASE",
+	TIMESTAMP:     "TIMESTAMP",
+	HEIGHT:        "HEIGHT",
+	DIFFICULTY:    "DIFFICULTY",
+	GASLIMIT:      "GASLIMIT",
+	TOKENID:       "TOKENID",
+	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
+	ACCOUNTHASH:   "ACCOUNTHASH",
+	FROMHASH:      "FROMHASH",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -418,6 +424,9 @@ var stringToOp = map[string]opCode{
 	"DIFFICULTY":     DIFFICULTY,
 	"GASLIMIT":       GASLIMIT,
 	"TOKENID":        TOKENID,
+	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
+	"ACCOUNTHASH":    ACCOUNTHASH,
+	"FROMHASH":       FROMHASH,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,

@@ -54,6 +54,7 @@ func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 		return quotaLeft, errors.New("check vote condition failed")
 	}
 
+	block.Data, _ = cabi.ABIVote.PackMethod(cabi.MethodNameVote, param.Gid, param.NodeName)
 	return quotaLeft, nil
 }
 
@@ -96,6 +97,7 @@ func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.
 	if err != nil || *gid == types.DELEGATE_GID || !IsExistGid(db, *gid) {
 		return quotaLeft, errors.New("consensus group not exist or cannot cancel vote")
 	}
+	block.Data, _ = cabi.ABIVote.PackMethod(cabi.MethodNameCancelVote, *gid)
 	return quotaLeft, nil
 }
 

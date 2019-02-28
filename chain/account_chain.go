@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -117,6 +118,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			sendBlockMeta, getBlockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlock.FromBlockHash)
 			if getBlockMetaErr != nil {
 				c.log.Error("GetBlockMeta failed, error is "+getBlockMetaErr.Error(), "method", "InsertAccountBlocks")
+				return getBlockMetaErr
 			}
 
 			if sendBlockMeta != nil {
@@ -128,6 +130,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 					c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 					return saveSendBlockMetaErr
 				}
+			} else if !c.IsGenesisAccountBlock(accountBlock) {
+				err := errors.New(fmt.Sprintf("sendBlockMeta is nil, accountBlock is %+v\n, acccountBlockMeta is %+v\n", accountBlock, accountBlock.Meta))
+				c.log.Error(err.Error(), "method", "InsertAccountBlocks")
+				return err
 			}
 		}
 
@@ -439,6 +445,9 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
 	monitorTags := []string{"chain", "GetAccountBlockByHash"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+	if blockHash == nil {
+		return nil, nil
+	}
 
 	block, err := c.chainDb.Ac.GetBlock(blockHash)
 	if err != nil {

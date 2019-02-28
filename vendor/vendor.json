@@ -670,6 +670,12 @@
 			"revisionTime": "2018-07-16T17:03:10Z"
 		},
 		{
+			"checksumSHA1": "OPHMic4lHkxLcetBQ122gRyQGNE=",
+			"path": "github.com/tylertreat/BoomFilters",
+			"revision": "611b3dbe80e85df3a0a10a43997d4d5784e86245",
+			"revisionTime": "2018-10-28T19:28:13Z"
+		},
+		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
 			"path": "golang.org/x/crypto/blake2b",
 			"revision": "a49355c7e3f8fe157a85be2f77e6e269a0f89602",

@@ -2,7 +2,6 @@ package vm
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 	"testing"
 )
@@ -16,7 +15,7 @@ type twoOperandTest struct {
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
+	c := &contract{intPool: poolOfIntPools.get(), db: NewNoDatabase()}
 	stack := newStack()
 
 	// convert args
@@ -262,7 +261,7 @@ func TestByteOp(t *testing.T) {
 	}
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
+	c := &contract{intPool: poolOfIntPools.get(), db: NewNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for _, test := range tests {
@@ -283,7 +282,7 @@ func TestByteOp(t *testing.T) {
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
+	c := &contract{intPool: poolOfIntPools.get(), db: NewNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for i, test := range tests {
@@ -399,7 +398,7 @@ func TestSLT(t *testing.T) {
 func TestOpMstore(t *testing.T) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
+	c := &contract{intPool: poolOfIntPools.get(), db: NewNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -424,7 +423,7 @@ func TestOpMstore(t *testing.T) {
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), block: &vm_context.VmAccountBlock{nil, NewNoDatabase()}}
+	c := &contract{intPool: poolOfIntPools.get(), db: NewNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)

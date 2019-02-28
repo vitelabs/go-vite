@@ -69,8 +69,7 @@
     "mintage",
     "consensusGroup",
     "tx",
-    "dashboard",
-    "debug"
+    "dashboard"
   ],
   "Miner": false,
   "CoinBase": "",
