@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -128,6 +129,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 					c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 					return saveSendBlockMetaErr
 				}
+			} else if !c.IsGenesisAccountBlock(accountBlock) {
+				err := errors.New(fmt.Sprintf("sendBlockMeta is nil, accountBlock is %+v\n, acccountBlockMeta is %+v\n", accountBlock, accountBlock.Meta))
+				c.log.Error(err.Error(), "method", "InsertAccountBlocks")
+				return err
 			}
 		}
 
