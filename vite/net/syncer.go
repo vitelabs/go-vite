@@ -494,10 +494,8 @@ func (s *syncer) taskDone(t *syncTask, err error) {
 			s.setState(Syncerr)
 			return
 		}
-	} else if t.typ == syncFileTask {
-		s.mu.Lock()
-		delete(s.fileMap, t.task.String())
-		s.mu.Unlock()
+	} else {
+		// t maybe reset and put back into syncTaskPool, so t.task maybe nil
 	}
 }
 
