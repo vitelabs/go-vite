@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/node"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"gopkg.in/urfave/cli.v1"
 	"math/big"
@@ -119,29 +118,29 @@ func (nodeManager *ExportNodeManager) Start() error {
 			return errors.New("Get account type failed, error is " + err.Error())
 		}
 
+		var balance = big.NewInt(0)
+
 		switch accountType {
 		case 2:
 			generalAddressMap[addr] = struct{}{}
+			accountStateHash, err := types.BytesToHash(value)
+			if err != nil {
+				return errors.New(fmt.Sprintf("Convert value to accountStateHash failed, error is " + err.Error()))
+			}
+
+			accountStateTrie := chainInstance.GetStateTrie(&accountStateHash)
+			if accountStateTrie == nil {
+				return errors.New(fmt.Sprintf("The state trie of account is nil, addr is %s", addr.String()))
+			}
+
+			if balanceBytes := accountStateTrie.GetValue(viteBalanceKey); balanceBytes != nil {
+				balance.SetBytes(balanceBytes)
+			}
 		case 3:
 			contractAddressMap[addr] = struct{}{}
-			continue
 		default:
 			return errors.New(fmt.Sprintf("Account type is %d, addr is %s", accountType, addr))
 
-		}
-		accountStateHash, err := types.BytesToHash(value)
-		if err != nil {
-			return errors.New(fmt.Sprintf("Convert value to accountStateHash failed, error is " + err.Error()))
-		}
-
-		accountStateTrie := chainInstance.GetStateTrie(&accountStateHash)
-		if accountStateTrie == nil {
-			return errors.New(fmt.Sprintf("The state trie of account is nil, addr is %s", addr.String()))
-		}
-
-		var balance = big.NewInt(0)
-		if balanceBytes := accountStateTrie.GetValue(viteBalanceKey); balanceBytes != nil {
-			balance.SetBytes(balanceBytes)
 		}
 
 		inAccountBalanceMap[addr] = balance
@@ -154,14 +153,16 @@ func (nodeManager *ExportNodeManager) Start() error {
 	// query balance that is onroad.
 	fmt.Printf("Start query balance that is onroad.\n")
 
-	isGeneralAccount := func(addr types.Address) bool {
-		_, ok := generalAddressMap[addr]
-		return ok
-	}
+	getAccountType := func(addr types.Address) (uint64, error) {
+		if _, ok := generalAddressMap[addr]; ok {
+			return 2, nil
+		}
 
-	isContractAccount := func(addr types.Address) bool {
-		_, ok := contractAddressMap[addr]
-		return ok
+		if _, ok := contractAddressMap[addr]; ok {
+			return 3, nil
+		}
+
+		return chainInstance.AccountType(&addr)
 	}
 
 	for _, addr := range allAddress {
@@ -175,26 +176,41 @@ func (nodeManager *ExportNodeManager) Start() error {
 			fromAddress := onroadBlock.AccountAddress
 			toAddress := onroadBlock.ToAddress
 
-			if _, ok := onroadBalanceMap[toAddress]; !ok {
-				onroadBalanceMap[toAddress] = big.NewInt(0)
+			accountType, err := getAccountType(toAddress)
+			if err != nil {
+				return errors.New("getAccountType failed, error is " + err.Error())
 			}
-
-			if isGeneralAccount(toAddress) {
+			switch accountType {
+			case 1:
+				fallthrough
+			case 2:
 				// auto receive money
+				if _, ok := onroadBalanceMap[toAddress]; !ok {
+					onroadBalanceMap[toAddress] = big.NewInt(0)
+				}
+				if _, ok := sumBalanceMap[toAddress]; !ok {
+					sumBalanceMap[toAddress] = big.NewInt(0)
+					allAddress = append(allAddress, toAddress)
+					generalAddressMap[toAddress] = struct{}{}
+				}
 				onroadBalanceMap[toAddress].Add(onroadBalanceMap[toAddress], onroadBlock.Amount)
 				sumBalanceMap[toAddress].Add(sumBalanceMap[toAddress], onroadBlock.Amount)
-			} else if isContractAccount(toAddress) {
+			case 3:
 				// revert the money
+				if _, ok := onroadBalanceMap[fromAddress]; !ok {
+					onroadBalanceMap[fromAddress] = big.NewInt(0)
+				}
 				onroadBalanceMap[fromAddress].Add(onroadBalanceMap[fromAddress], onroadBlock.Amount)
 				sumBalanceMap[fromAddress].Add(sumBalanceMap[fromAddress], onroadBlock.Amount)
-			} else {
+			default:
 				return errors.New(fmt.Sprintf("ToAddress is not existed, toAddress is %s, addr is %s, onroadBlock height is %d, onroadBlock hash is %s",
 					toAddress, addr, onroadBlock.Height, onroadBlock.Hash))
 			}
 
 		}
 	}
-	fmt.Printf("Complete the balance that is onroad query.\n")
+	fmt.Printf("Complete the balance that is onroad query.There are %d accounts, %d accounts is general account, %d accounts is contract account\n",
+		len(allAddress), len(generalAddressMap), len(contractAddressMap))
 
 	nodeManager.PrintBalanceMap(sumBalanceMap)
 	return nil
@@ -203,15 +219,11 @@ func (nodeManager *ExportNodeManager) Start() error {
 func (nodeManager *ExportNodeManager) PrintBalanceMap(balanceMap map[types.Address]*big.Int) {
 	totalBalance := big.NewInt(0)
 	for addr, balance := range balanceMap {
-		humanBalance := big.NewInt(0)
-		humanBalance.Div(balance, digits)
-		fmt.Printf("%s: %s | %s vite \n", addr, balance, humanBalance)
+		fmt.Printf("%s: %s\n", addr, balance)
 		totalBalance = totalBalance.Add(totalBalance, balance)
 	}
-	humanBalance := big.NewInt(0)
-	humanBalance.Div(totalBalance, digits)
 
-	fmt.Printf("total: %s | %s vite \n", totalBalance, totalBalance)
+	fmt.Printf("total: %s\n", totalBalance)
 
 }
 func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, balance *big.Int, trie *trie.Trie, c chain.Chain) (map[types.Address]*big.Int, error) {
