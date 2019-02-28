@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/node"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 	"gopkg.in/urfave/cli.v1"
 	"math/big"
@@ -288,9 +287,8 @@ func exportMintageBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[typ
 		if tokenId == ledger.ViteTokenId {
 			continue
 		}
-		tokenInfo := new(types.TokenInfo)
-		if err := abi.ABIMintage.UnpackVariable(tokenInfo, abi.VariableNameMintage, value); err == nil {
-			updateBalance(m, tokenInfo.Owner, mintageFee)
+		if tokenInfo, err := abi.ParseTokenInfo(value); err == nil {
+			updateBalance(m, tokenInfo.PledgeAddr, mintageFee)
 		}
 	}
 	return m
