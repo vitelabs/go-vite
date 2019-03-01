@@ -366,8 +366,8 @@ func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, bal
 		if err != nil {
 			return m, err
 		}
-		updateBalance(m, requestBlock.AccountAddress, new(big.Int).Add(requestBlock.Fee, balance))
-		return nil, err
+		m = updateBalance(m, requestBlock.AccountAddress, new(big.Int).Add(requestBlock.Fee, balance))
+		return m, err
 	}
 }
 
@@ -382,7 +382,7 @@ func exportRegisterBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[ty
 		if abi.IsRegisterKey(key) {
 			registration := new(types.Registration)
 			if err := abi.ABIRegister.UnpackVariable(registration, abi.VariableNameRegistration, value); err == nil && registration.Amount != nil && registration.Amount.Sign() > 0 {
-				updateBalance(m, registration.PledgeAddr, registration.Amount)
+				m = updateBalance(m, registration.PledgeAddr, registration.Amount)
 			}
 		}
 	}
@@ -400,7 +400,7 @@ func exportPledgeBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[type
 		if abi.IsPledgeKey(key) {
 			pledgeInfo := new(abi.PledgeInfo)
 			if err := abi.ABIPledge.UnpackVariable(pledgeInfo, abi.VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
-				updateBalance(m, abi.GetPledgeAddrFromPledgeKey(key), pledgeInfo.Amount)
+				m = updateBalance(m, abi.GetPledgeAddrFromPledgeKey(key), pledgeInfo.Amount)
 			}
 		}
 	}
@@ -425,7 +425,7 @@ func exportMintageBalance(m map[types.Address]*big.Int, trie *trie.Trie) map[typ
 			continue
 		}
 		if tokenInfo, err := abi.ParseTokenInfo(value); err == nil {
-			updateBalance(m, tokenInfo.PledgeAddr, mintageFee)
+			m = updateBalance(m, tokenInfo.PledgeAddr, mintageFee)
 		}
 	}
 	return m
