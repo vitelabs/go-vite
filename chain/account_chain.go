@@ -118,6 +118,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 			sendBlockMeta, getBlockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlock.FromBlockHash)
 			if getBlockMetaErr != nil {
 				c.log.Error("GetBlockMeta failed, error is "+getBlockMetaErr.Error(), "method", "InsertAccountBlocks")
+				return getBlockMetaErr
 			}
 
 			if sendBlockMeta != nil {
@@ -129,6 +130,10 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 					c.log.Error("WriteSendBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertAccountBlocks")
 					return saveSendBlockMetaErr
 				}
+			} else if !c.IsGenesisAccountBlock(accountBlock) {
+				err := errors.New(fmt.Sprintf("sendBlockMeta is nil, accountBlock is %+v\n, acccountBlockMeta is %+v\n", accountBlock, accountBlock.Meta))
+				c.log.Error(err.Error(), "method", "InsertAccountBlocks")
+				return err
 			}
 		}
 
