@@ -3,7 +3,6 @@ package model
 import (
 	"container/list"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/util"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context"
 )
 
@@ -202,7 +202,7 @@ func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
 	if e != nil {
 		return e
 	}
-	p.log.Debug(fmt.Sprintf("get contract onroad %v from db, len=%v", addr, len(blockList)))
+	p.log.Info(fmt.Sprintf("get contract onroad %v from db, len=%v", addr, len(blockList)))
 	if len(blockList) <= 0 {
 		return nil
 	}
@@ -212,7 +212,7 @@ func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
 		contractBlocksList.AddNewTx(b)
 	}
 	p.contractCache.Store(addr, contractBlocksList)
-	p.log.Debug(fmt.Sprintf("load result: len=%v", contractBlocksList.TxRemain()))
+	p.log.Info(fmt.Sprintf("load result: len=%v", contractBlocksList.TxRemain()))
 	return nil
 }
 
@@ -248,7 +248,7 @@ func (p *OnroadBlocksPool) ReleaseContractCache(addr types.Address) {
 	log := p.log.New("ReleaseContractCache", addr)
 	if v, ok := p.contractCache.Load(addr); ok {
 		if l, ok := v.(*ContractCallerList); ok && l != nil {
-			log.Debug(fmt.Sprintf("release %v callers", l.Len()), "tx num remain", l.TxRemain())
+			log.Info(fmt.Sprintf("release %v callers", l.Len()), "tx num remain", l.TxRemain())
 		}
 		p.contractCache.Delete(addr)
 	}
@@ -265,8 +265,12 @@ func (p *OnroadBlocksPool) WriteOnroadSuccess(blocks []*vm_context.VmAccountBloc
 	for _, v := range blocks {
 		if v.AccountBlock.IsSendBlock() {
 			code, _ := p.dbAccess.Chain.AccountType(&v.AccountBlock.ToAddress)
+			if code == ledger.AccountTypeContract {
+				p.NewSignalToWorker(v.AccountBlock)
+				return
+			}
 			if (code == ledger.AccountTypeNotExist && v.AccountBlock.BlockType == ledger.BlockTypeSendCreate) ||
-				code == ledger.AccountTypeContract || code == ledger.AccountTypeError {
+				code == ledger.AccountTypeError {
 				return
 			}
 			p.updateCache(true, v.AccountBlock)
@@ -519,7 +523,7 @@ func (p *OnroadBlocksPool) NewSignalToWorker(block *ledger.AccountBlock) {
 		p.contractListenerMutex.RLock()
 		defer p.contractListenerMutex.RUnlock()
 		if f, ok := p.newContractListener[*gid]; ok {
-			f(block.AccountAddress)
+			f(block.ToAddress)
 		}
 	} else {
 		p.commonTxListenerMutex.RLock()
