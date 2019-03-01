@@ -139,7 +139,7 @@ func (b *broadcaster) Handle(msg *p2p.Msg, sender Peer) (err error) {
 
 		sender.SeeBlock(block.Hash)
 
-		b.log.Debug(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
+		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.RemoteAddr()))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -174,7 +174,7 @@ func (b *broadcaster) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		}
 
 		sender.SeeBlock(block.Hash)
-		b.log.Debug(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
+		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.RemoteAddr()))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -288,9 +288,15 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
 	defer monitor.LogTime("net/broadcast", "SnapshotBlock", now)
 
+	var err error
 	ps := b.peers.UnknownBlock(block.Hash)
 	for _, p := range ps {
-		p.SendNewSnapshotBlock(block)
+		err = p.SendNewSnapshotBlock(block)
+		if err != nil {
+			b.log.Error(fmt.Sprintf("Failed to broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.RemoteAddr()))
+		} else {
+			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.RemoteAddr()))
+		}
 	}
 
 	if block.Timestamp != nil && block.Height > b.height {
@@ -299,8 +305,6 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		b.statis.Put(delta.Nanoseconds() / 1e6)
 		b.mu.Unlock()
 	}
-
-	b.log.Debug(fmt.Sprintf("broadcast SnapshotBlock %s/%d to %d peers", block.Hash, block.Height, len(ps)))
 }
 
 func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -313,12 +317,16 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	now := time.Now()
 	defer monitor.LogTime("net/broadcast", "AccountBlock", now)
 
+	var err error
 	ps := b.peers.UnknownBlock(block.Hash)
 	for _, p := range ps {
-		p.SendNewAccountBlock(block)
+		err = p.SendNewAccountBlock(block)
+		if err != nil {
+			b.log.Error(fmt.Sprintf("Failed to broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.RemoteAddr()))
+		} else {
+			b.log.Info(fmt.Sprintf("broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.RemoteAddr()))
+		}
 	}
-
-	b.log.Debug(fmt.Sprintf("broadcast AccountBlock %s to %d peers", block.Hash, len(ps)))
 }
 
 func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {

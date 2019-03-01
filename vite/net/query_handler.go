@@ -298,6 +298,22 @@ func (s *getSubLedgerHandler) Handle(msg *p2p.Msg, sender Peer) (err error) {
 		return sender.Send(ExceptionCode, msg.Id, message.Missing)
 	}
 
+	if len(files) == 0 {
+		fileList := &message.FileList{
+			Chunks: chunks,
+		}
+
+		err = sender.Send(FileListCode, msg.Id, fileList)
+
+		if err != nil {
+			netLog.Error(fmt.Sprintf("send %s to %s error: %v", fileList, sender.RemoteAddr(), err))
+			return
+		} else {
+			netLog.Info(fmt.Sprintf("send %s to %s done", fileList, sender.RemoteAddr()))
+		}
+		return
+	}
+
 	fss := splitFiles(files, maxFilesOneTrip)
 	for i, fs := range fss {
 		fileList := &message.FileList{

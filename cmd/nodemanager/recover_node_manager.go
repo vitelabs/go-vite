@@ -2,6 +2,7 @@ package nodemanager
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/node"

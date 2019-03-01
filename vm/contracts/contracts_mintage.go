@@ -145,31 +145,44 @@ func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block
 func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
 	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, sendBlock.Data)
-	storageKey := cabi.GetMintageKey(*tokenId)
-	tokenInfo := new(types.TokenInfo)
-	cabi.ABIMintage.UnpackVariable(tokenInfo, cabi.VariableNameMintage, db.GetStorage(&block.AccountAddress, storageKey))
-
-	if tokenInfo.Owner != sendBlock.AccountAddress ||
+	tokenInfo := cabi.GetTokenById(db, *tokenId)
+	if tokenInfo.PledgeAddr != sendBlock.AccountAddress ||
 		tokenInfo.PledgeAmount.Sign() == 0 ||
 		tokenInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
 		return nil, errors.New("cannot withdraw mintage pledge, status error")
 	}
-
-	newTokenInfo, _ := cabi.ABIMintage.PackVariable(
-		cabi.VariableNameMintage,
-		tokenInfo.TokenName,
-		tokenInfo.TokenSymbol,
-		tokenInfo.TotalSupply,
-		tokenInfo.Decimals,
-		tokenInfo.Owner,
-		big.NewInt(0),
-		uint64(0))
-	db.SetStorage(storageKey, newTokenInfo)
+	var newTokenInfo []byte
+	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
+		newTokenInfo, _ = cabi.ABIMintage.PackVariable(
+			cabi.VariableNameMintage,
+			tokenInfo.TokenName,
+			tokenInfo.TokenSymbol,
+			tokenInfo.TotalSupply,
+			tokenInfo.Decimals,
+			tokenInfo.Owner,
+			big.NewInt(0),
+			uint64(0))
+	} else {
+		newTokenInfo, _ = cabi.ABIMintage.PackVariable(
+			cabi.VariableNameTokenInfo,
+			tokenInfo.TokenName,
+			tokenInfo.TokenSymbol,
+			tokenInfo.TotalSupply,
+			tokenInfo.Decimals,
+			tokenInfo.Owner,
+			helper.Big0,
+			uint64(0),
+			tokenInfo.PledgeAddr,
+			tokenInfo.IsReIssuable,
+			tokenInfo.MaxSupply,
+			tokenInfo.OwnerBurnOnly)
+	}
+	db.SetStorage(cabi.GetMintageKey(*tokenId), newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
 		return []*SendBlock{
 			{
 				block,
-				tokenInfo.Owner,
+				tokenInfo.PledgeAddr,
 				ledger.BlockTypeSendCall,
 				tokenInfo.PledgeAmount,
 				ledger.ViteTokenId,
@@ -183,7 +196,9 @@ func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, bl
 type MethodMint struct{}
 
 func (p *MethodMint) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
-	if block.Amount.Sign() > 0 {
+	if block.Amount.Cmp(mintagePledgeAmount) == 0 && util.IsViteToken(block.TokenId) {
+		return big.NewInt(0), nil
+	} else if block.Amount.Sign() > 0 {
 		return big.NewInt(0), errors.New("invalid amount")
 	}
 	return new(big.Int).Set(mintageFee), nil
@@ -242,22 +257,40 @@ func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 	if len(db.GetStorage(&block.AccountAddress, key)) > 0 {
 		return nil, util.ErrIdCollision
 	}
-	tokenInfo, _ := cabi.ABIMintage.PackVariable(
-		cabi.VariableNameTokenInfo,
-		param.TokenName,
-		param.TokenSymbol,
-		param.TotalSupply,
-		param.Decimals,
-		sendBlock.AccountAddress,
-		param.IsReIssuable,
-		param.MaxSupply,
-		param.OwnerBurnOnly)
-	db.SetStorage(key, tokenInfo)
-	if param.IsReIssuable {
-		ownerTokenIdListKey := cabi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
-		oldIdList := db.GetStorage(&block.AccountAddress, ownerTokenIdListKey)
-		db.SetStorage(ownerTokenIdListKey, cabi.AppendTokenId(oldIdList, param.TokenId))
+	var tokenInfo []byte
+	if sendBlock.Amount.Sign() == 0 {
+		tokenInfo, _ = cabi.ABIMintage.PackVariable(
+			cabi.VariableNameTokenInfo,
+			param.TokenName,
+			param.TokenSymbol,
+			param.TotalSupply,
+			param.Decimals,
+			sendBlock.AccountAddress,
+			sendBlock.Amount,
+			uint64(0),
+			sendBlock.AccountAddress,
+			param.IsReIssuable,
+			param.MaxSupply,
+			param.OwnerBurnOnly)
+	} else {
+		tokenInfo, _ = cabi.ABIMintage.PackVariable(
+			cabi.VariableNameTokenInfo,
+			param.TokenName,
+			param.TokenSymbol,
+			param.TotalSupply,
+			param.Decimals,
+			sendBlock.AccountAddress,
+			sendBlock.Amount,
+			db.CurrentSnapshotBlock().Height+nodeConfig.params.MintagePledgeHeight,
+			sendBlock.AccountAddress,
+			param.IsReIssuable,
+			param.MaxSupply,
+			param.OwnerBurnOnly)
 	}
+	db.SetStorage(key, tokenInfo)
+	ownerTokenIdListKey := cabi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
+	oldIdList := db.GetStorage(&block.AccountAddress, ownerTokenIdListKey)
+	db.SetStorage(ownerTokenIdListKey, cabi.AppendTokenId(oldIdList, param.TokenId))
 
 	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameMint, param.TokenId))
 	return []*SendBlock{
@@ -319,6 +352,9 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 		oldTokenInfo.TotalSupply.Add(oldTokenInfo.TotalSupply, param.Amount),
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
+		oldTokenInfo.PledgeAmount,
+		oldTokenInfo.WithdrawHeight,
+		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -376,6 +412,9 @@ func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		oldTokenInfo.TotalSupply.Sub(oldTokenInfo.TotalSupply, sendBlock.Amount),
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
+		oldTokenInfo.PledgeAmount,
+		oldTokenInfo.WithdrawHeight,
+		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -433,6 +472,9 @@ func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *l
 		oldTokenInfo.TotalSupply,
 		oldTokenInfo.Decimals,
 		param.NewOwner,
+		oldTokenInfo.PledgeAmount,
+		oldTokenInfo.WithdrawHeight,
+		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly)
@@ -493,14 +535,13 @@ func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block 
 		oldTokenInfo.TotalSupply,
 		oldTokenInfo.Decimals,
 		oldTokenInfo.Owner,
+		oldTokenInfo.PledgeAmount,
+		oldTokenInfo.WithdrawHeight,
+		oldTokenInfo.PledgeAddr,
 		false,
 		helper.Big0,
 		false)
 	db.SetStorage(cabi.GetMintageKey(*tokenId), newTokenInfo)
-
-	oldKey := cabi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
-	oldIdList := db.GetStorage(&block.AccountAddress, oldKey)
-	db.SetStorage(oldKey, cabi.DeleteTokenId(oldIdList, *tokenId))
 
 	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameChangeTokenType, *tokenId))
 	return nil, nil
