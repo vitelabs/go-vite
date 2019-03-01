@@ -1,11 +1,13 @@
 package pow
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"encoding/binary"
 	"errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"golang.org/x/crypto/blake2b"
@@ -48,7 +50,6 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 			return nonce, nil
 		}
 	}
-	return nil, errors.New("get pow nonce error")
 }
 
 func powHash256(nonce []byte, data []byte) []byte {
