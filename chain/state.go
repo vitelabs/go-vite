@@ -35,6 +35,10 @@ func (c *chain) StartSaveTrie() {
 	c.saveTrieStatus = SAVE_TRIE_STATUS_STARTED
 }
 
+func (c *chain) ShallowCheckStateTrie(stateHash *types.Hash) (bool, error) {
+	return trie.ShallowCheck(c.TrieDb(), stateHash)
+}
+
 func (c *chain) GetStateTrie(stateHash *types.Hash) *trie.Trie {
 	return trie.NewTrie(c.TrieDb(), stateHash, c.trieNodePool)
 }

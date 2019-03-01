@@ -3,6 +3,11 @@ package trie_gc_unittest
 import (
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"testing"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain"
@@ -11,10 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
-	"testing"
 )
 
 func deleteAllTrie(chainInstance chain.Chain) error {

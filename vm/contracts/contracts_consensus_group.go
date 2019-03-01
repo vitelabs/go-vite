@@ -48,7 +48,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if IsExistGid(db, gid) {
 		return errors.New("consensus group id already exists")
 	}
-	paramData, _ := cabi.ABIConsensusGroup.PackMethod(
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(
 		cabi.MethodNameCreateConsensusGroup,
 		gid,
 		param.NodeCount,
@@ -61,7 +61,6 @@ func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 		param.RegisterConditionParam,
 		param.VoteConditionId,
 		param.VoteConditionParam)
-	block.Data = paramData
 	return nil
 }
 func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *types.ConsensusGroupInfo) error {
@@ -159,6 +158,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 		groupInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
 		return errors.New("invalid group or owner or not due yet")
 	}
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelConsensusGroup, *gid)
 	return nil
 }
 func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -237,6 +237,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bl
 		groupInfo.IsActive() {
 		return errors.New("invalid group info or owner or status")
 	}
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReCreateConsensusGroup, *gid)
 	return nil
 }
 func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

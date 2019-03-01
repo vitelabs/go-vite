@@ -40,19 +40,19 @@ func newTeller(info *core.GroupInfo, rw *chainRw, log log15.Logger) *teller {
 	return t
 }
 
-func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, *ledger.HashHeight, error) {
+func (self *teller) voteResults(b *ledger.SnapshotBlock) ([]types.Address, error) {
 	head := self.rw.GetLatestSnapshotBlock()
 
 	if b.Height > head.Height {
-		return nil, nil, errors.New("rollback happened, block height[" + strconv.FormatUint(b.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
+		return nil, errors.New("rollback happened, block height[" + strconv.FormatUint(b.Height, 10) + "], head height[" + strconv.FormatUint(head.Height, 10) + "]")
 	}
 
 	headH := ledger.HashHeight{Height: b.Height, Hash: b.Hash}
 	addressList, e := self.calVotes(headH)
 	if e != nil {
-		return nil, nil, e
+		return nil, e
 	}
-	return addressList, &headH, nil
+	return addressList, nil
 }
 
 func (self *teller) electionIndex(index uint64) (*electionResult, error) {
@@ -64,15 +64,15 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 		return nil, e
 	}
 
-	voteResults, hashH, err := self.voteResults(block)
+	voteResults, err := self.voteResults(block)
 	if err != nil {
 		return nil, err
 	}
 
-	plans := self.genPlan(index, voteResults, hashH)
+	plans := self.genPlan(index, voteResults, block)
 	return plans, nil
 }
-func (self *teller) genPlan(index uint64, members []types.Address, hashH *ledger.HashHeight) *electionResult {
+func (self *teller) genPlan(index uint64, members []types.Address, hashH *ledger.SnapshotBlock) *electionResult {
 	result := electionResult{}
 	result.STime = self.info.GenSTime(index)
 	result.ETime = self.info.GenETime(index)

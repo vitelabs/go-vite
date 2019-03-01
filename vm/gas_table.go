@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"bytes"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -224,19 +226,61 @@ func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint6
 
 func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	var (
-		y          = stack.back(1)
-		loc        = stack.back(0)
-		locHash, _ = types.BigToHash(loc)
-		val        = c.block.VmContext.GetStorage(&c.block.AccountBlock.AccountAddress, locHash.Bytes())
+		newValue     = stack.back(1)
+		loc          = stack.back(0)
+		locHash, _   = types.BigToHash(loc)
+		currentValue = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
 	)
-	if len(val) == 0 && y.Sign() != 0 {
-		return sstoreSetGas, nil
-	} else if len(val) > 0 && y.Sign() == 0 {
-		c.quotaRefund = c.quotaRefund + sstoreRefundGas
-		return sstoreClearGas, nil
-	} else {
-		return sstoreResetGas, nil
+	if !fork.IsMintFork(c.db.CurrentSnapshotBlock().Height) {
+		if len(currentValue) == 0 && newValue.Sign() != 0 {
+			// zero value to non-zero value, charge 20000
+			return sstoreSetGas, nil
+		} else if len(currentValue) > 0 && newValue.Sign() == 0 {
+			// non-zero value to zero value, charge 5000 with 15000 refund
+			c.quotaRefund = c.quotaRefund + sstoreRefundGas
+			return sstoreClearGas, nil
+		} else {
+			// non-zero value to non-zero value or zero value to zero value, charge 5000
+			return sstoreResetGas, nil
+		}
 	}
+	if bytes.Equal(currentValue, newValue.Bytes()) {
+		// no change, charge 200
+		return sstoreNoopGas, nil
+	}
+	originalValue := c.db.GetOriginalStorage(locHash.Bytes())
+	if bytes.Equal(originalValue, currentValue) {
+		if len(originalValue) == 0 {
+			// zero value to non-zero value, charge 20000
+			return sstoreInitGas, nil
+		}
+		if newValue.Sign() == 0 {
+			// non-zero value to zero value, charge 5000 with 15000 refund
+			c.quotaRefund = c.quotaRefund + sstoreClearRefundGas
+		}
+		// non-zero value to non-zero value, charge 5000
+		return sstoreCleanGas, nil
+	}
+	// value changed again, charge 200
+	if len(originalValue) > 0 {
+		if len(currentValue) == 0 {
+			// non-zero value to zero value to non-zero value, withdraw 15000 refund
+			c.quotaRefund = c.quotaRefund - sstoreClearRefundGas
+		} else if newValue.Sign() == 0 {
+			// non-zero value to non-zero value to zero value,
+			c.quotaRefund = c.quotaRefund + sstoreClearRefundGas
+		}
+	}
+	if bytes.Equal(originalValue, newValue.Bytes()) {
+		if len(originalValue) == 0 {
+			// zero value to non-zero value to zero value, 19800 refund
+			c.quotaRefund = c.quotaRefund + sstoreResetClearRefundGas
+		} else {
+			// non-zero value a to non-zero value b to non-zero value a,4800 refund for first sstore
+			c.quotaRefund = c.quotaRefund + sstoreResetRefundGas
+		}
+	}
+	return sstoreDirtyGas, nil
 }
 
 func gasPush(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
