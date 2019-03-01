@@ -1,13 +1,11 @@
 package pow
 
 import (
+	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/helper"
-
-	"encoding/binary"
-	"errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"golang.org/x/crypto/blake2b"
