@@ -190,7 +190,7 @@ func (p *OnroadBlocksPool) ReleaseFullOnroadBlocksCache(addr types.Address) erro
 func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
 	p.log.Debug("loadContractCacheFromDb", "addr", addr)
 	if c, ok := p.contractCache.Load(addr); ok {
-		if cc, ok := c.(*ContractCallerList); ok && cc != nil {
+		if cc, ok := c.(*ContractCallerList); ok && cc.TxRemain() > 0 {
 			p.log.Debug(fmt.Sprintf("found in cache, tx remain=%v", cc.TxRemain()))
 			return nil
 		}
