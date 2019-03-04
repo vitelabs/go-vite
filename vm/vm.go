@@ -420,7 +420,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		// check quota
 		qutoaUsed := p.GetReceiveQuota()
 		if qutoaUsed > 0 {
-			quotaTotal, _, err := nodeConfig.calcQuota(
+			quotaTotal, _, err := quota.CalcQuota(
 				block.VmContext,
 				block.AccountBlock.AccountAddress,
 				abi.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
