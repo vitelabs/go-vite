@@ -53,7 +53,7 @@ func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexTradeNewOrderGas, data)
 }
 
-func (p *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -104,7 +104,7 @@ func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexTradeCancelOrderGas, data)
 }
 
-func (p *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 

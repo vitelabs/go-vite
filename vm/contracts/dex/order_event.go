@@ -8,7 +8,16 @@ import (
 )
 
 const orderEventName = "orderUpdateEvent"
+const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
+
+
+const (
+	NewOrderGetFundFail = iota
+	NewOrderLockFundFail
+	NewOrderSaveFundFail
+	NewOrderInternalErr
+)
 
 type OrderEvent interface {
 	getTopicId() types.Hash
@@ -22,6 +31,10 @@ type OrderUpdateEvent struct {
 
 type TransactionEvent struct {
 	dexproto.Transaction
+}
+
+type NewOrderFailEvent struct {
+	dexproto.OrderFail
 }
 
 func (od OrderUpdateEvent) getTopicId() types.Hash {
@@ -54,6 +67,24 @@ func (tx TransactionEvent) toDataBytes() []byte {
 func (tx TransactionEvent) fromBytes(data []byte) interface{} {
 	event := TransactionEvent{}
 	if err := proto.Unmarshal(data, &event.Transaction); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (of NewOrderFailEvent) getTopicId() types.Hash {
+	return fromNameToHash(newOrderFailEventName)
+}
+
+func (of NewOrderFailEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&of.OrderFail)
+	return data
+}
+
+func (of NewOrderFailEvent) fromBytes(data []byte) interface{} {
+	event := NewOrderFailEvent{}
+	if err := proto.Unmarshal(data, &event.OrderFail); err != nil {
 		return nil
 	} else {
 		return event

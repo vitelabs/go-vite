@@ -56,3 +56,8 @@ message Transaction {
     int64 Timestamp = 10;
 }
 
+message OrderFail {
+    Order Order = 1;
+    string ErrCode = 2;
+}
+

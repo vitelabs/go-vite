@@ -9,10 +9,12 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -184,6 +186,18 @@ func RenderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_i
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
+}
+
+func EmitOrderFailLog(db vmctxt_interface.VmDatabase, order *dexproto.Order, errCode int) {
+	orderFail := dexproto.OrderFail{}
+	orderFail.Order = order
+	orderFail.ErrCode = strconv.Itoa(errCode)
+	event := NewOrderFailEvent{orderFail}
+
+	log := &ledger.VmLog{}
+	log.Topics = append(log.Topics, event.getTopicId())
+	log.Data = event.toDataBytes()
+	db.AddLog(log)
 }
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {
