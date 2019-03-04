@@ -13,7 +13,7 @@ var (
 		Action:   utils.MigrateFlags(exportLedgerAction),
 		Name:     "export",
 		Usage:    "export --sbHeight=5000000",
-		Flags:    exportFlags,
+		Flags:    append(exportFlags, configFlags...),
 		Category: "EXPORT COMMANDS",
 		Description: `
 Export ledger.

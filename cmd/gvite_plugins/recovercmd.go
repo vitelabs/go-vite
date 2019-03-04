@@ -14,7 +14,7 @@ var (
 		Name:      "recover",
 		Usage:     "recover --del=500000",
 		ArgsUsage: "--del=500000",
-		Flags:     ledgerFlags,
+		Flags:     append(exportFlags, configFlags...),
 		Category:  "RECOVER COMMANDS",
 		Description: `
 Recover ledger.
