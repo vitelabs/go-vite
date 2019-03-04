@@ -95,6 +95,9 @@ type Config struct {
 	VMTestParamEnabled bool `json:"VMTestParamEnabled"`
 	VMDebug            bool `json:"VMDebug"`
 
+	// subscribe
+	SubscribeEnabled bool `json:"SubscribeEnabled"`
+
 	//Net TODO: cmd after ？
 	Single                 bool     `json:"Single"`
 	FilePort               int      `json:"FilePort"`
@@ -123,14 +126,15 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:    c.makeChainConfig(),
-		Producer: c.makeMinerConfig(),
-		DataDir:  c.DataDir,
-		Net:      c.makeNetConfig(),
-		Vm:       c.makeVmConfig(),
-		Reward:   c.makeRewardConfig(),
-		Genesis:  c.makeGenesisConfig(),
-		LogLevel: c.LogLevel,
+		Chain:     c.makeChainConfig(),
+		Producer:  c.makeMinerConfig(),
+		DataDir:   c.DataDir,
+		Net:       c.makeNetConfig(),
+		Vm:        c.makeVmConfig(),
+		Subscribe: c.makeSubscribeConfig(),
+		Reward:    c.makeRewardConfig(),
+		Genesis:   c.makeGenesisConfig(),
+		LogLevel:  c.LogLevel,
 	}
 }
 
@@ -162,6 +166,12 @@ func (c *Config) makeVmConfig() *config.Vm {
 		IsVmTest:         c.VMTestEnabled,
 		IsUseVmTestParam: c.VMTestParamEnabled,
 		IsVmDebug:        c.VMDebug,
+	}
+}
+
+func (c *Config) makeSubscribeConfig() *config.Subscribe {
+	return &config.Subscribe{
+		IsSubscribe: c.SubscribeEnabled,
 	}
 }
 

@@ -10,6 +10,7 @@ type Config struct {
 	*Producer   `json:"Producer"`
 	*Chain      `json:"Chain"`
 	*Vm         `json:"Vm"`
+	*Subscribe  `json:"Subscribe"`
 	*Net        `json:"Net"`
 	*biz.Reward `json:"Reward"`
 	*Genesis    `json:"Genesis"`

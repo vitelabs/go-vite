@@ -367,8 +367,10 @@ func (node *Node) startRPC() error {
 	}
 
 	// start event system
-	filters.Es = filters.NewEventSystem(node.Vite())
-	filters.Es.Start()
+	if node.config.SubscribeEnabled {
+		filters.Es = filters.NewEventSystem(node.Vite())
+		filters.Es.Start()
+	}
 
 	// Start rpc
 	if node.config.IPCEnabled {
@@ -465,7 +467,9 @@ func (node *Node) stopRPC() error {
 	node.stopWS()
 	node.stopHTTP()
 	node.stopIPC()
-	filters.Es.Stop()
+	if filters.Es != nil {
+		filters.Es.Stop()
+	}
 	return nil
 }
 
