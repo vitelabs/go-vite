@@ -34,7 +34,7 @@ type NewTokenIdParams struct {
 }
 
 func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, error) {
-	h, err := stringToUint64(param.Height)
+	h, err := StringToUint64(param.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ type MintageParams struct {
 }
 
 func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
-	h, err := stringToUint64(param.Height)
+	h, err := StringToUint64(param.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]by
 }
 
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
-	h, err := stringToUint64(param.Height)
+	h, err := StringToUint64(param.Height)
 	if err != nil {
 		return nil, err
 	}
