@@ -865,6 +865,36 @@ func (c *chain) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
 	return block.Hash == GenesisMintageBlock.Hash || block.Hash == GenesisMintageSendBlock.Hash || block.Hash == GenesisConsensusGroupBlock.Hash || block.Hash == GenesisRegisterBlock.Hash
 }
 
+func (c *chain) GetSendAndReceiveBlocks(accountAddress *types.Address, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, []*ledger.AccountBlock, error) {
+	account, err := c.chainDb.Account.GetAccountByAddress(accountAddress)
+	if err != nil {
+		c.log.Error("GetAccountByAddress failed, error is "+err.Error(), "method", "GetSendAndReceiveBlocks")
+		return nil, nil, err
+	}
+
+	if account == nil {
+		err := errors.New(fmt.Sprintf("account is nil, addr is %s", accountAddress))
+		c.log.Error(err.Error(), "method", "GetSendAndReceiveBlocks")
+		return nil, nil, err
+	}
+
+	sendBlocks, receiveBlocks, err := c.chainDb.Ac.GetSendAndReceiveBlocks(account.AccountId, snapshotBlockHeight)
+
+	if err != nil {
+		c.log.Error("GetSendBlocks failed, error is "+err.Error(), "method", "GetSendAndReceiveBlocks")
+		return nil, nil, err
+	}
+
+	for _, sendBlock := range sendBlocks {
+		c.completeBlock(sendBlock, account)
+	}
+
+	for _, receiveBlock := range receiveBlocks {
+		c.completeBlock(receiveBlock, account)
+	}
+	return sendBlocks, receiveBlocks, nil
+}
+
 func (c *chain) GetOnRoadBlocksBySendAccount(sendAccountAddress *types.Address, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, error) {
 	account, err := c.chainDb.Account.GetAccountByAddress(sendAccountAddress)
 	if err != nil {

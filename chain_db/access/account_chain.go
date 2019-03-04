@@ -770,7 +770,7 @@ func (ac *AccountChain) GetUnConfirmAccountBlocks(accountId uint64, beforeHeight
 
 	var iter iterator.Iterator
 	if beforeHeight > 0 {
-		startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, 1)
+		startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, uint64(1))
 		endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, beforeHeight)
 		iter = ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
 	} else {
@@ -814,6 +814,62 @@ func (ac *AccountChain) GetUnConfirmAccountBlocks(accountId uint64, beforeHeight
 	return accountBlocks, nil
 }
 
+func (ac *AccountChain) GetSendAndReceiveBlocks(accountId uint64, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, []*ledger.AccountBlock, error) {
+	sendBlocks := make([]*ledger.AccountBlock, 0)
+	receiveBlocks := make([]*ledger.AccountBlock, 0)
+
+	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, uint64(1))
+	endKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, helper.MaxUint64)
+	iter := ac.db.NewIterator(&util.Range{Start: startKey, Limit: endKey}, nil)
+	defer iter.Release()
+
+	lastSnapshotBlockHeight := uint64(0)
+	sendBlockList := make([]*ledger.AccountBlock, 0)
+	receiveBlockList := make([]*ledger.AccountBlock, 0)
+
+	for iter.Next() {
+		accountBlock := &ledger.AccountBlock{}
+		if dsErr := accountBlock.DbDeserialize(iter.Value()); dsErr != nil {
+			return nil, nil, dsErr
+		}
+
+		accountBlockHash := getAccountBlockHash(iter.Key())
+		accountBlockMeta, getMetaErr := ac.GetBlockMeta(accountBlockHash)
+		if getMetaErr != nil {
+			return nil, nil, getMetaErr
+		}
+
+		if accountBlockMeta.SnapshotHeight > snapshotBlockHeight {
+			break
+		}
+
+		accountBlock.Meta = accountBlockMeta
+		accountBlock.Hash = *accountBlockHash
+
+		if accountBlock.IsSendBlock() {
+			sendBlockList = append(sendBlockList, accountBlock)
+		} else {
+			receiveBlockList = append(receiveBlockList, accountBlock)
+		}
+
+		if accountBlockMeta.SnapshotHeight > lastSnapshotBlockHeight {
+
+			sendBlocks = append(sendBlocks, sendBlockList...)
+			sendBlockList = make([]*ledger.AccountBlock, 0)
+
+			receiveBlocks = append(receiveBlocks, receiveBlockList...)
+			receiveBlockList = make([]*ledger.AccountBlock, 0)
+			lastSnapshotBlockHeight = accountBlockMeta.SnapshotHeight
+		}
+	}
+
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, nil, err
+	}
+
+	return sendBlocks, receiveBlocks, nil
+}
+
 func (ac *AccountChain) GetSendBlocks(accountId uint64, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, error) {
 	blocks := make([]*ledger.AccountBlock, 0)
 	startKey, _ := database.EncodeKey(database.DBKP_ACCOUNTBLOCK, accountId, 1)
@@ -840,16 +896,17 @@ func (ac *AccountChain) GetSendBlocks(accountId uint64, snapshotBlockHeight uint
 			break
 		}
 
+		if accountBlock.IsSendBlock() {
+			accountBlock.Meta = accountBlockMeta
+			accountBlock.Hash = *getAccountBlockHash(iter.Key())
+
+			sendBlockList = append(sendBlockList, accountBlock)
+		}
+
 		if accountBlockMeta.SnapshotHeight > lastSnapshotBlockHeight {
 			blocks = append(blocks, sendBlockList...)
 			sendBlockList = make([]*ledger.AccountBlock, 0)
 			lastSnapshotBlockHeight = accountBlockMeta.SnapshotHeight
-		}
-
-		if accountBlock.IsSendBlock() {
-			accountBlock.Meta = accountBlockMeta
-
-			sendBlockList = append(sendBlockList, accountBlock)
 		}
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {

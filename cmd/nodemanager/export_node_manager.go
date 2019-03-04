@@ -203,6 +203,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 		for _, onroadBlock := range onroadBlocks {
 			if onroadBlock.TokenId != ledger.ViteTokenId &&
 				onroadBlock.TokenId != vcpTokenId {
+
 				continue
 			}
 
@@ -237,6 +238,8 @@ func (nodeManager *ExportNodeManager) Start() error {
 				}
 			case 3:
 				if onroadBlock.TokenId != ledger.ViteTokenId {
+					fmt.Printf("Error: The token id of contract onroad block is not vite token id, but is %s, hash is %s, addr is %s\n",
+						onroadBlock.TokenId, onroadBlock.Hash, onroadBlock.AccountAddress)
 					break
 				}
 				// revert the money
@@ -338,8 +341,10 @@ func (nodeManager *ExportNodeManager) printBalanceMap(balanceMap map[types.Addre
 	totalBalance := big.NewInt(0)
 	balanceList := getSortedBalanceList(balanceMap)
 	for _, item := range balanceList {
-		fmt.Printf("%s: %s %s\n", item.addr, item.balance, unit)
-		totalBalance = totalBalance.Add(totalBalance, item.balance)
+		if item.balance.Sign() > 0 {
+			fmt.Printf("%s: %s %s\n", item.addr, item.balance, unit)
+			totalBalance = totalBalance.Add(totalBalance, item.balance)
+		}
 	}
 
 	fmt.Printf("total: %s %s\n", totalBalance, unit)
