@@ -16,6 +16,9 @@ type VoteAlgoContext struct {
 	hashH       *ledger.HashHeight
 	successRate map[types.Address]int32
 	seeds       *SeedInfo
+
+	// topN sbp
+	sbps []*Vote
 }
 
 func NewVoteAlgoContext(votes []*Vote, hashH *ledger.HashHeight, successRate map[types.Address]int32, seeds *SeedInfo) *VoteAlgoContext {
@@ -88,6 +91,8 @@ func (self *algo) FilterVotes(context *VoteAlgoContext) []*Vote {
 	hashH := context.hashH
 	// simple filter for low balance
 	groupA1, groupB1 := self.FilterSimple(votes)
+	// top N sbps
+	context.sbps = mergeGroup(groupA1, groupB1)
 
 	successRates := context.successRate
 
@@ -193,14 +198,18 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 		}
 
 		for _, v := range secondArr {
-			result = append(result, groupB[v])
+			promotion := groupB[v]
+			promotion.Type = append(promotion.Type, RANDOM_PROMOTION)
+			result = append(result, promotion)
 		}
 	} else {
 		random1 := rand.New(rand.NewSource(seed))
 		arr := random1.Perm(int(length))[0:total]
 		for _, v := range arr {
 			if v >= total {
-				result = append(result, groupB[v-total])
+				promotion := groupB[v-total]
+				promotion.Type = append(promotion.Type, RANDOM_PROMOTION)
+				result = append(result, promotion)
 			} else {
 				result = append(result, groupA[v])
 			}
@@ -242,7 +251,7 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 		}
 
 		for _, v := range tmps {
-			if v.Rate > 0 && v.Rate < Line {
+			if v.Rate >= 0 && v.Rate < Line {
 				deleteGroupA = append(deleteGroupA, v)
 			} else {
 				groupA1 = append(groupA1, v)
@@ -280,9 +289,12 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 		if lenA < i || len(improvementGroupB) < i {
 			break
 		}
-		tmp := deleteGroupA[lenA-i]
-		deleteGroupA[lenA-i] = improvementGroupB[i-1]
-		improvementGroupB[i-i] = tmp
+		demotion := deleteGroupA[lenA-i]
+		promotion := improvementGroupB[i-1]
+		promotion.Type = append(promotion.Type, SUCCESS_RATE_PROMOTION)
+		demotion.Type = append(demotion.Type, SUCCESS_RATE_DEMOTION)
+		deleteGroupA[lenA-i] = promotion
+		improvementGroupB[i-i] = demotion
 	}
 
 	var resultGroupA []*Vote

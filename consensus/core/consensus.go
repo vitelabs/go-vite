@@ -33,10 +33,20 @@ func NewReader(genesisTime time.Time, info *types.ConsensusGroupInfo) ConsensusR
 	return &reader{info: i, ag: NewAlgo(i)}
 }
 
+type VoteType uint8
+
+const (
+	NORMAL                 = VoteType(0)
+	SUCCESS_RATE_PROMOTION = VoteType(1)
+	SUCCESS_RATE_DEMOTION  = VoteType(2)
+	RANDOM_PROMOTION       = VoteType(3)
+)
+
 type Vote struct {
 	Name    string
 	Addr    types.Address
 	Balance *big.Int
+	Type    []VoteType
 }
 
 type ByBalance []*Vote

@@ -177,6 +177,15 @@ func (self *teller) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteI
 	// shuffle the members
 	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH, seed)
 
+	result := fmt.Sprintf("CalVotes result: %d:%d:%s, ", voteIndex, hashH.Height, hashH.Hash)
+	for _, v := range finalVotes {
+		if len(v.Type) > 0 {
+			result += fmt.Sprintf("[%s:%+v],", v.Name, v.Type)
+		} else {
+			result += fmt.Sprintf("[%s],", v.Name)
+		}
+	}
+	self.mLog.Info(result)
 	address := core.ConvertVoteToAddress(finalVotes)
 
 	// update cache
