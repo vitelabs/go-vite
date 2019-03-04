@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
+	"time"
 )
 
 type NodeConfig struct {
@@ -36,6 +37,7 @@ type quotaDb interface {
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
 	GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (uint64, error) {
@@ -56,6 +58,11 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 	if difficulty != nil && difficulty.Sign() > 0 {
+		/*if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
+			if powLimitReached, err := CheckPoWLimit(db); err != nil || powLimitReached {
+				return 0, 0, util.ErrCalcPoWLimitReached
+			}
+		}*/
 		return CalcQuotaV2(db, addr, pledgeAmount, difficulty)
 	} else {
 		return CalcQuotaV2(db, addr, pledgeAmount, helper.Big0)
@@ -157,6 +164,34 @@ func getExactIndex(x *big.Float, index int) int {
 	}
 }
 
+// A single account is limited to send 10 tx with PoW in one day
+func CheckPoWLimit(db quotaDb) (bool, error) {
+	if db.PrevAccountBlock() == nil {
+		return false, nil
+	}
+	powtimes := 1
+	currentSb := db.CurrentSnapshotBlock()
+	startTime := getTodayStartTime(currentSb.Timestamp, *db.GetGenesisSnapshotBlock().Timestamp)
+	prevBlockHash := db.PrevAccountBlock().Hash
+	for {
+		prevBlock := db.GetAccountBlockByHash(&prevBlockHash)
+		if prevBlock == nil || prevBlock.Timestamp.Before(*startTime) {
+			return false, nil
+		}
+		if IsPoW(prevBlock.Nonce) {
+			powtimes = powtimes + 1
+			if powtimes > powTimesPerDay {
+				return true, nil
+			}
+		}
+		prevBlockHash = prevBlock.PrevHash
+	}
+}
+
+func getTodayStartTime(currentTime *time.Time, genesisTime time.Time) *time.Time {
+	startTime := genesisTime.Add(currentTime.Sub(genesisTime).Round(day))
+	return &startTime
+}
 func calcSectionIndexByQuotaRequired(quotaRequired uint64) uint64 {
 	if quotaRequired > helper.MaxUint64-quotaForSection+1 {
 		return helper.MaxUint64/quotaForSection + 1

@@ -72,7 +72,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 }
 
 func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
-	if status != 0 || status != 1 || status != 2 {
+	if status != 0 && status != 1 && status != 2 {
 		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
 	}
 
@@ -84,7 +84,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	if err != nil {
 		return nil, err
 	}
-	fundInfo, err := dex.GetAccountFundInfo(dexFund, nil)
+	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
 	if err != nil {
 		return nil, err
 	}

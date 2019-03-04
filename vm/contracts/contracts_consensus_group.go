@@ -22,8 +22,12 @@ func (p *MethodCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodCreateConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return CreateConsensusGroupGas, nil
+}
+
+func (p *MethodCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -44,7 +48,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if IsExistGid(db, gid) {
 		return errors.New("consensus group id already exists")
 	}
-	paramData, _ := cabi.ABIConsensusGroup.PackMethod(
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(
 		cabi.MethodNameCreateConsensusGroup,
 		gid,
 		param.NodeCount,
@@ -57,7 +61,6 @@ func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 		param.RegisterConditionParam,
 		param.VoteConditionId,
 		param.VoteConditionParam)
-	block.Data = paramData
 	return nil
 }
 func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *types.ConsensusGroupInfo) error {
@@ -127,8 +130,12 @@ func (p *MethodCancelConsensusGroup) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodCancelConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCancelConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return CancelConsensusGroupGas, nil
+}
+
+func (p *MethodCancelConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Cancel consensus group and get pledge back.
@@ -151,6 +158,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 		groupInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
 		return errors.New("invalid group or owner or not due yet")
 	}
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelConsensusGroup, *gid)
 	return nil
 }
 func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -204,8 +212,12 @@ func (p *MethodReCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{3}
 }
 
-func (p *MethodReCreateConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodReCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return ReCreateConsensusGroupGas, nil
+}
+
+func (p *MethodReCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Pledge again for a canceled consensus group.
@@ -225,6 +237,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bl
 		groupInfo.IsActive() {
 		return errors.New("invalid group info or owner or status")
 	}
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReCreateConsensusGroup, *gid)
 	return nil
 }
 func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

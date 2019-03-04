@@ -39,5 +39,7 @@ type PrecompiledContractMethod interface {
 	// refund data at receive error
 	GetRefundData() []byte
 	// send block quota
-	GetQuota(data []byte) (uint64, error)
+	GetSendQuota(data []byte) (uint64, error)
+	// receive block quota
+	GetReceiveQuota() uint64
 }

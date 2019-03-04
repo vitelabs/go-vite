@@ -30,7 +30,279 @@ type operation struct {
 }
 
 var (
-	simpleInstructionSet = [256]operation{
+	simpleInstructionSet         = newSimpleInstructionSet()
+	offchainSimpleInstructionSet = newOffchainSimpleInstructionSet()
+	mintInstructionSet           = newMintInstructionSet()
+	offchainMintInstructionSet   = newOffchainMintInstructionSet()
+)
+
+func newMintInstructionSet() [256]operation {
+	instructionSet := newSimpleInstructionSet()
+	instructionSet[ACCOUNTHEIGHT] = operation{
+		execute:       opAccountHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[ACCOUNTHASH] = operation{
+		execute:       opAccountHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[FROMHASH] = operation{
+		execute:       opFromHash,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
+
+func newOffchainMintInstructionSet() [256]operation {
+	instructionSet := newSimpleInstructionSet()
+	instructionSet[ACCOUNTHEIGHT] = operation{
+		execute:       opOffchainAccountHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[ACCOUNTHASH] = operation{
+		execute:       opOffchainAccountHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[FROMHASH] = operation{
+		execute:       opOffchainFromHash,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
+
+func newSimpleInstructionSet() [256]operation {
+	instructionSet := newBaseInstructionSet()
+	instructionSet[CALLER] = operation{
+		execute:       opCaller,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[CALLVALUE] = operation{
+		execute:       opCallValue,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[BALANCE] = operation{
+		execute:       opBalance,
+		gasCost:       constGasFunc(balanceGas),
+		validateStack: makeStackFunc(2, 1),
+		valid:         true,
+	}
+	instructionSet[BLOCKHASH] = operation{
+		execute:       opBlockHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[TIMESTAMP] = operation{
+		execute:       opTimestamp,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[HEIGHT] = operation{
+		execute:       opHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[TOKENID] = operation{
+		execute:       opTokenId,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[SSTORE] = operation{
+		execute:       opSStore,
+		gasCost:       gasSStore,
+		validateStack: makeStackFunc(2, 0),
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG0] = operation{
+		execute:       makeLog(0),
+		gasCost:       makeGasLog(0),
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG1] = operation{
+		execute:       makeLog(1),
+		gasCost:       makeGasLog(1),
+		validateStack: makeStackFunc(3, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG2] = operation{
+		execute:       makeLog(2),
+		gasCost:       makeGasLog(2),
+		validateStack: makeStackFunc(4, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG3] = operation{
+		execute:       makeLog(3),
+		gasCost:       makeGasLog(3),
+		validateStack: makeStackFunc(5, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG4] = operation{
+		execute:       makeLog(4),
+		gasCost:       makeGasLog(4),
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[CALL] = operation{
+		execute:       opCall,
+		gasCost:       gasCall,
+		validateStack: makeStackFunc(5, 0),
+		memorySize:    memoryCall,
+		valid:         true,
+	}
+	instructionSet[REVERT] = operation{
+		execute:       opRevert,
+		gasCost:       gasRevert,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryRevert,
+		valid:         true,
+		reverts:       true,
+		returns:       true,
+	}
+	return instructionSet
+}
+
+func newOffchainSimpleInstructionSet() [256]operation {
+	instructionSet := newBaseInstructionSet()
+	instructionSet[CALLER] = operation{
+		execute:       opOffchainCaller,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[CALLVALUE] = operation{
+		execute:       opOffchainCallValue,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[BALANCE] = operation{
+		execute:       opOffchainBalance,
+		gasCost:       constGasFunc(balanceGas),
+		validateStack: makeStackFunc(2, 1),
+		valid:         true,
+	}
+	instructionSet[BLOCKHASH] = operation{
+		execute:       opOffchainBlockHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[TIMESTAMP] = operation{
+		execute:       opOffchainTimestamp,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[HEIGHT] = operation{
+		execute:       opOffchainHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[TOKENID] = operation{
+		execute:       opOffchainTokenId,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[SSTORE] = operation{
+		execute:       opOffchainSStore,
+		gasCost:       gasSStore,
+		validateStack: makeStackFunc(2, 0),
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG0] = operation{
+		execute:       makeOffchainLog(0),
+		gasCost:       makeGasLog(0),
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG1] = operation{
+		execute:       makeOffchainLog(1),
+		gasCost:       makeGasLog(1),
+		validateStack: makeStackFunc(3, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG2] = operation{
+		execute:       makeOffchainLog(2),
+		gasCost:       makeGasLog(2),
+		validateStack: makeStackFunc(4, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG3] = operation{
+		execute:       makeOffchainLog(3),
+		gasCost:       makeGasLog(3),
+		validateStack: makeStackFunc(5, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[LOG4] = operation{
+		execute:       makeOffchainLog(4),
+		gasCost:       makeGasLog(4),
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memoryLog,
+		valid:         true,
+		writes:        true,
+	}
+	instructionSet[CALL] = operation{
+		execute:       opOffchainCall,
+		gasCost:       gasCall,
+		validateStack: makeStackFunc(5, 0),
+		memorySize:    memoryCall,
+		valid:         true,
+	}
+	instructionSet[REVERT] = operation{
+		execute:       opOffchainRevert,
+		gasCost:       gasRevert,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryRevert,
+		valid:         true,
+		halts:         true,
+	}
+	return instructionSet
+}
+
+func newBaseInstructionSet() [256]operation {
+	return [256]operation{
 		STOP: {
 			execute:       opStop,
 			gasCost:       constGasFunc(0),
@@ -201,24 +473,6 @@ var (
 			validateStack: makeStackFunc(0, 1),
 			valid:         true,
 		},
-		BALANCE: {
-			execute:       opBalance,
-			gasCost:       constGasFunc(balanceGas),
-			validateStack: makeStackFunc(2, 1),
-			valid:         true,
-		},
-		CALLER: {
-			execute:       opCaller,
-			gasCost:       constGasFunc(quickStepGas),
-			validateStack: makeStackFunc(0, 1),
-			valid:         true,
-		},
-		CALLVALUE: {
-			execute:       opCallValue,
-			gasCost:       constGasFunc(quickStepGas),
-			validateStack: makeStackFunc(0, 1),
-			valid:         true,
-		},
 		CALLDATALOAD: {
 			execute:       opCallDataLoad,
 			gasCost:       constGasFunc(fastestStepGas),
@@ -277,30 +531,6 @@ var (
 			memorySize:    memoryReturnDataCopy,
 			valid:         true,
 		},
-		BLOCKHASH: {
-			execute:       opBlockHash,
-			gasCost:       constGasFunc(extStepGas),
-			validateStack: makeStackFunc(1, 1),
-			valid:         true,
-		},
-		TIMESTAMP: {
-			execute:       opTimestamp,
-			gasCost:       constGasFunc(quickStepGas),
-			validateStack: makeStackFunc(0, 1),
-			valid:         true,
-		},
-		HEIGHT: {
-			execute:       opHeight,
-			gasCost:       constGasFunc(quickStepGas),
-			validateStack: makeStackFunc(0, 1),
-			valid:         true,
-		},
-		TOKENID: {
-			execute:       opTokenId,
-			gasCost:       constGasFunc(quickStepGas),
-			validateStack: makeStackFunc(0, 1),
-			valid:         true,
-		},
 		POP: {
 			execute:       opPop,
 			gasCost:       constGasFunc(quickStepGas),
@@ -333,13 +563,6 @@ var (
 			gasCost:       constGasFunc(sLoadGas),
 			validateStack: makeStackFunc(1, 1),
 			valid:         true,
-		},
-		SSTORE: {
-			execute:       opSStore,
-			gasCost:       gasSStore,
-			validateStack: makeStackFunc(2, 0),
-			valid:         true,
-			writes:        true,
 		},
 		JUMP: {
 			execute:       opJump,
@@ -757,53 +980,6 @@ var (
 			validateStack: makeSwapStackFunc(17),
 			valid:         true,
 		},
-		LOG0: {
-			execute:       makeLog(0),
-			gasCost:       makeGasLog(0),
-			validateStack: makeStackFunc(2, 0),
-			memorySize:    memoryLog,
-			valid:         true,
-			writes:        true,
-		},
-		LOG1: {
-			execute:       makeLog(1),
-			gasCost:       makeGasLog(1),
-			validateStack: makeStackFunc(3, 0),
-			memorySize:    memoryLog,
-			valid:         true,
-			writes:        true,
-		},
-		LOG2: {
-			execute:       makeLog(2),
-			gasCost:       makeGasLog(2),
-			validateStack: makeStackFunc(4, 0),
-			memorySize:    memoryLog,
-			valid:         true,
-			writes:        true,
-		},
-		LOG3: {
-			execute:       makeLog(3),
-			gasCost:       makeGasLog(3),
-			validateStack: makeStackFunc(5, 0),
-			memorySize:    memoryLog,
-			valid:         true,
-			writes:        true,
-		},
-		LOG4: {
-			execute:       makeLog(4),
-			gasCost:       makeGasLog(4),
-			validateStack: makeStackFunc(6, 0),
-			memorySize:    memoryLog,
-			valid:         true,
-			writes:        true,
-		},
-		CALL: {
-			execute:       opCall,
-			gasCost:       gasCall,
-			validateStack: makeStackFunc(5, 0),
-			memorySize:    memoryCall,
-			valid:         true,
-		},
 		RETURN: {
 			execute:       opReturn,
 			gasCost:       gasReturn,
@@ -820,14 +996,5 @@ var (
 			valid:         true,
 			returns:       true,
 		},
-		REVERT: {
-			execute:       opRevert,
-			gasCost:       gasRevert,
-			validateStack: makeStackFunc(2, 0),
-			memorySize:    memoryRevert,
-			valid:         true,
-			reverts:       true,
-			returns:       true,
-		},
 	}
-)
+}

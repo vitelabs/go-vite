@@ -3,6 +3,9 @@ package vm_context
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/trie"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/big"
-	"time"
 )
 
 var (
@@ -331,6 +332,10 @@ func (context *VmContext) GetStorage(addr *types.Address, key []byte) []byte {
 	return nil
 }
 
+func (context *VmContext) GetOriginalStorage(key []byte) []byte {
+	return context.trie.GetValue(key)
+}
+
 func (context *VmContext) GetStorageHash() *types.Hash {
 	return context.unsavedCache.Trie().Hash()
 }
@@ -382,7 +387,15 @@ func (context *VmContext) IsAddressExisted(addr *types.Address) bool {
 			return false
 		}
 
-		if firstBlock.Meta.SnapshotHeight > 0 && firstBlock.Meta.SnapshotHeight <= context.currentSnapshotBlock.Height {
+		confirmedSnapshotBlock, err := context.chain.GetConfirmBlock(&firstBlock.Hash)
+		if err != nil {
+			panic(err)
+		}
+		if confirmedSnapshotBlock == nil {
+			return false
+		}
+
+		if confirmedSnapshotBlock.Height > 0 && confirmedSnapshotBlock.Height <= context.currentSnapshotBlock.Height {
 			return true
 		}
 		return false
@@ -398,6 +411,20 @@ func (context *VmContext) GetAccountBlockByHash(hash *types.Hash) *ledger.Accoun
 	}
 
 	accountBlock, _ := context.chain.GetAccountBlockByHash(hash)
+	return accountBlock
+}
+func (context *VmContext) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	if context.address == nil || context.prevAccountBlock == nil {
+		return nil
+	}
+	if context.chain == nil {
+		context.log.Error("context.chain is nil", "method", "GetSelfAccountBlockByHeight")
+		return nil
+	}
+	accountBlock, _ := context.chain.GetAccountBlockByHeight(context.address, height)
+	if accountBlock == nil || accountBlock.Height > context.prevAccountBlock.Height {
+		return nil
+	}
 	return accountBlock
 }
 

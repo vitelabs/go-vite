@@ -50,8 +50,12 @@ func (md *MethodDexFundUserDeposit) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserDeposit) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundDepositGas, data)
+}
+
+func (p *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -98,8 +102,12 @@ func (md *MethodDexFundUserWithdraw) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserWithdraw) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundWithdrawGas, data)
+}
+
+func (p *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -167,8 +175,12 @@ func (md *MethodDexFundNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundNewOrder) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundNewOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundNewOrderGas, data)
+}
+
+func (p *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -234,8 +246,12 @@ func (md *MethodDexFundSettleOrders) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundSettleOrders) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundSettleOrdersGas, data)
+}
+
+func (p *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -299,8 +315,12 @@ func (md *MethodDexFundFeeDividend) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundFeeDividend) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundFeeDividend) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundFeeDividendGas, data)
+}
+
+func (p *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundFeeDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -349,8 +369,12 @@ func (md *MethodDexFundMinedVxDividend) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundMinedVxDividend) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundMinedVxDividend) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundMinedVxDividendGas, data)
+}
+
+func (p *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundMinedVxDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {

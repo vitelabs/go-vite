@@ -22,8 +22,11 @@ func (p *MethodRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Ac
 func (p *MethodRegister) GetRefundData() []byte {
 	return []byte{1}
 }
-func (p *MethodRegister) GetQuota(data []byte) (uint64, error) {
+func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 	return RegisterGas, nil
+}
+func (p *MethodRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
@@ -38,6 +41,7 @@ func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	if err := checkRegisterData(cabi.MethodNameRegister, db, block, param); err != nil {
 		return err
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
 
@@ -127,8 +131,11 @@ func (p *MethodCancelRegister) GetFee(db vmctxt_interface.VmDatabase, block *led
 func (p *MethodCancelRegister) GetRefundData() []byte {
 	return []byte{2}
 }
-func (p *MethodCancelRegister) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 	return CancelRegisterGas, nil
+}
+func (p *MethodCancelRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
@@ -147,6 +154,7 @@ func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *led
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, db, block, param, cabi.MethodNameCancelRegister) {
 		return errors.New("check register condition failed")
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
 	return nil
 }
 func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -203,13 +211,16 @@ func (p *MethodReward) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Acco
 func (p *MethodReward) GetRefundData() []byte {
 	return []byte{3}
 }
-func (p *MethodReward) GetQuota(data []byte) (uint64, error) {
+func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 	return RewardGas, nil
+}
+func (p *MethodReward) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	sendQuota, _ := p.GetQuota(nil)
+	sendQuota, _ := p.GetSendQuota(nil)
 	quotaLeft, err := util.UseQuota(quotaLeft, sendQuota)
 	if err != nil {
 		return quotaLeft, err
@@ -225,6 +236,7 @@ func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	if !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, errors.New("consensus group has no reward")
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return quotaLeft, nil
 }
 func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -409,8 +421,11 @@ func (p *MethodUpdateRegistration) GetFee(db vmctxt_interface.VmDatabase, block 
 func (p *MethodUpdateRegistration) GetRefundData() []byte {
 	return []byte{4}
 }
-func (p *MethodUpdateRegistration) GetQuota(data []byte) (uint64, error) {
+func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 	return UpdateRegistrationGas, nil
+}
+func (p *MethodUpdateRegistration) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // update registration info
@@ -423,6 +438,7 @@ func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block 
 	if err := checkRegisterData(cabi.MethodNameUpdateRegistration, db, block, param); err != nil {
 		return err
 	}
+	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
 func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

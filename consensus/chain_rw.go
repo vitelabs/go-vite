@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"sort"
 
 	"github.com/pkg/errors"
@@ -128,7 +130,7 @@ func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
 func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()
 }
-func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash) error {
+func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash, voteTime time.Time) error {
 	if startHash == actual {
 		return nil
 	}
@@ -146,6 +148,19 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	if actualB == nil {
 		return errors.Errorf("refer snapshot block is nil. hashH:%s", actual)
 	}
+	if fork.IsMintFork(actualB.Height) {
+		header := self.rw.GetLatestSnapshotBlock()
+		if header.Timestamp.Before(voteTime) {
+			return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
+		}
+	}
+	block, _ := self.rw.GetSnapshotBlockByHeight(actualB.Height + 1)
+	if block != nil {
+		if block.Timestamp.Before(voteTime) {
+			return errors.Errorf("refer snapshot do not match first one before voteTime.")
+		}
+	}
+
 	if actualB.Height < startB.Height {
 		return errors.Errorf("refer snapshot block height must >= start snapshot block height")
 	}
