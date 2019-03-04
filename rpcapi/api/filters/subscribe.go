@@ -313,3 +313,55 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	}()
 	return rpcSub, nil
 }
+
+func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
+	// TODO
+	filterParam, err := param.toFilterParam()
+	if err != nil {
+		return nil, err
+	}
+	var logs []*Logs
+	for addr, hr := range filterParam.addrRange {
+		startHeight := hr.fromHeight
+		endHeight := hr.toHeight
+		acc, err := s.vite.Chain().GetLatestAccountBlock(&addr)
+		if err != nil {
+			return nil, err
+		}
+		if acc == nil {
+			continue
+		}
+		if endHeight == 0 || endHeight > acc.Height {
+			endHeight = acc.Height
+		}
+		for {
+			start, count, finish := getHeightPage(startHeight, endHeight, 100)
+			if finish {
+				break
+			}
+			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, start, count, true)
+			if err != nil {
+				return nil, err
+			}
+			for _, b := range blocks {
+				if b.LogHash != nil {
+					list, err := s.vite.Chain().GetVmLogList(b.LogHash)
+					if err != nil {
+						return nil, err
+					}
+					for _, l := range list {
+						// TODO filter log
+						logs = append(logs, &Logs{l, b.Hash, &addr, false})
+					}
+				}
+			}
+			startHeight = startHeight + count
+		}
+	}
+	return nil, nil
+}
+
+func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
+	// TODO
+	return 0, 0, true
+}
