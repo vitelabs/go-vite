@@ -30,10 +30,12 @@ func (p *MethodMintage) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodMintage) GetQuota(data []byte) (uint64, error) {
+func (p *MethodMintage) GetSendQuota(data []byte) (uint64, error) {
 	return MintageGas, nil
 }
-
+func (p *MethodMintage) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
 		return util.ErrVersionNotSupport
@@ -127,10 +129,12 @@ func (p *MethodMintageCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodMintageCancelPledge) GetQuota(data []byte) (uint64, error) {
+func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return MintageCancelPledgeGas, nil
 }
-
+func (p *MethodMintageCancelPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return errors.New("invalid block data")
@@ -206,8 +210,11 @@ func (p *MethodMint) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 func (p *MethodMint) GetRefundData() []byte {
 	return []byte{3}
 }
-func (p *MethodMint) GetQuota(data []byte) (uint64, error) {
+func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
 	return MintGas, nil
+}
+func (p *MethodMint) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
@@ -314,8 +321,11 @@ func (p *MethodIssue) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accou
 func (p *MethodIssue) GetRefundData() []byte {
 	return []byte{4}
 }
-func (p *MethodIssue) GetQuota(data []byte) (uint64, error) {
+func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
 	return IssueGas, nil
+}
+func (p *MethodIssue) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
@@ -381,8 +391,11 @@ func (p *MethodBurn) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 func (p *MethodBurn) GetRefundData() []byte {
 	return []byte{5}
 }
-func (p *MethodBurn) GetQuota(data []byte) (uint64, error) {
+func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
 	return BurnGas, nil
+}
+func (p *MethodBurn) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
@@ -433,8 +446,11 @@ func (p *MethodTransferOwner) GetFee(db vmctxt_interface.VmDatabase, block *ledg
 func (p *MethodTransferOwner) GetRefundData() []byte {
 	return []byte{6}
 }
-func (p *MethodTransferOwner) GetQuota(data []byte) (uint64, error) {
+func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
 	return TransferOwnerGas, nil
+}
+func (p *MethodTransferOwner) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
@@ -499,8 +515,11 @@ func (p *MethodChangeTokenType) GetFee(db vmctxt_interface.VmDatabase, block *le
 func (p *MethodChangeTokenType) GetRefundData() []byte {
 	return []byte{7}
 }
-func (p *MethodChangeTokenType) GetQuota(data []byte) (uint64, error) {
+func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
 	return ChangeTokenTypeGas, nil
+}
+func (p *MethodChangeTokenType) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {

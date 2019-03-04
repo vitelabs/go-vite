@@ -353,7 +353,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 		if !nodeConfig.canTransfer(block.VmContext, block.AccountBlock.AccountAddress, block.AccountBlock.TokenId, block.AccountBlock.Amount, block.AccountBlock.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
-		cost, err := p.GetQuota(block.AccountBlock.Data)
+		cost, err := p.GetSendQuota(block.AccountBlock.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -404,7 +404,6 @@ func getReceiveCallData(db vmctxt_interface.VmDatabase, err error) []byte {
 }
 
 func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
-
 	//defer monitor.LogTime("vm", "ReceiveCall", time.Now())
 	var monitorTags []string
 	monitorTags = append(monitorTags, "vm", "receiveCall")
@@ -418,6 +417,22 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		return vm.blockList, NoRetry, util.ErrDepth
 	}
 	if p, ok, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+		// check quota
+		qutoaUsed := p.GetReceiveQuota()
+		if qutoaUsed > 0 {
+			quotaTotal, _, err := nodeConfig.calcQuota(
+				block.VmContext,
+				block.AccountBlock.AccountAddress,
+				abi.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
+				block.AccountBlock.Difficulty)
+			if err != nil {
+				return nil, NoRetry, err
+			}
+			_, err = util.UseQuota(quotaTotal, qutoaUsed)
+			if err != nil {
+				return nil, Retry, err
+			}
+		}
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
@@ -445,7 +460,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		refundFlag := false
 		refundFlag = doRefund(vm, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
 		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
-		vm.updateBlock(block, err, 0)
+		vm.updateBlock(block, err, qutoaUsed)
 		if refundFlag {
 			if refundErr := vm.doSendBlockList(0, util.PrecompiledContractsSendGas); refundErr == nil {
 				return vm.blockList, NoRetry, err

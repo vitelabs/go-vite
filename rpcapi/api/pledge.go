@@ -64,10 +64,11 @@ type PledgeInfoList struct {
 	List              []*PledgeInfo `json:"pledgeInfoList"`
 }
 type PledgeInfo struct {
-	Amount         string        `json:"amount"`
-	WithdrawHeight string        `json:"withdrawHeight"`
-	BeneficialAddr types.Address `json:"beneficialAddr"`
-	WithdrawTime   int64         `json:"withdrawTime"`
+	Amount         string         `json:"amount"`
+	WithdrawHeight *string        `json:"withdrawHeight"`
+	BeneficialAddr *types.Address `json:"beneficialAddr"`
+	WithdrawTime   *int64         `json:"withdrawTime"`
+	PledgeAddr     *types.Address `json:"pledgeAddr"`
 }
 type byWithdrawHeight []*abi.PledgeInfo
 
@@ -97,11 +98,26 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	}
 	targetList := make([]*PledgeInfo, endHeight-startHeight)
 	for i, info := range list[startHeight:endHeight] {
+		withdrawHeight := uint64ToString(info.WithdrawHeight)
+		withdrawTime := getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)
 		targetList[i] = &PledgeInfo{
-			*bigIntToString(info.Amount),
-			uint64ToString(info.WithdrawHeight),
-			info.BeneficialAddr,
-			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
+			Amount:         *bigIntToString(info.Amount),
+			WithdrawHeight: &withdrawHeight,
+			BeneficialAddr: &info.BeneficialAddr,
+			WithdrawTime:   &withdrawTime}
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
+}
+
+func (p *PledgeApi) GetPledgeInfoListByBeneficial(beneficial types.Address, snapshotHash *types.Hash) ([]*PledgeInfo, error) {
+	vmContext, err := vm_context.NewVmContext(p.chain, snapshotHash, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	list := abi.GetPledgeInfoListByBeneficial(vmContext, beneficial, snapshotHash)
+	pledgeInfoList := make([]*PledgeInfo, len(list))
+	for i, info := range list {
+		pledgeInfoList[i] = &PledgeInfo{Amount: *bigIntToString(info.Amount), PledgeAddr: info.PledgeAddr}
+	}
+	return pledgeInfoList, nil
 }

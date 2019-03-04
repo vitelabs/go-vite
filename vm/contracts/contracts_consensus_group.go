@@ -22,8 +22,12 @@ func (p *MethodCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodCreateConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return CreateConsensusGroupGas, nil
+}
+
+func (p *MethodCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -126,8 +130,12 @@ func (p *MethodCancelConsensusGroup) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodCancelConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodCancelConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return CancelConsensusGroupGas, nil
+}
+
+func (p *MethodCancelConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Cancel consensus group and get pledge back.
@@ -204,8 +212,12 @@ func (p *MethodReCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{3}
 }
 
-func (p *MethodReCreateConsensusGroup) GetQuota(data []byte) (uint64, error) {
+func (p *MethodReCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
 	return ReCreateConsensusGroupGas, nil
+}
+
+func (p *MethodReCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Pledge again for a canceled consensus group.

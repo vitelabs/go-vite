@@ -49,8 +49,12 @@ func (md *MethodDexTradeNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeNewOrder) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexTradeNewOrderGas, data)
+}
+
+func (p *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -78,7 +82,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
 		return []*SendBlock{}, err
 	}
-	blocks , err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	blocks, err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
 	if err != nil {
 		fmt.Printf("MethodDexTradeNewOrder doReceive err %v\n", err)
 	}
@@ -96,8 +100,12 @@ func (md *MethodDexTradeCancelOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexTradeCancelOrder) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexTradeCancelOrderGas, data)
+}
+
+func (p *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
