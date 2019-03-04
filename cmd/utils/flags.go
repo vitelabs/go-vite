@@ -162,6 +162,12 @@ var (
 		Usage: "Enable VM debug",
 	}
 
+	// Subscribe
+	SubscribeFlag = cli.BoolFlag{
+		Name:  "subscribe",
+		Usage: "Enable Subscribe",
+	}
+
 	// Ledger
 	LedgerDeleteToHeight = cli.Uint64Flag{
 		Name:  "del",

@@ -2,7 +2,6 @@ package filters
 
 import (
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -36,6 +35,9 @@ type SubscribeApi struct {
 }
 
 func NewSubscribeApi(vite *vite.Vite) *SubscribeApi {
+	if Es == nil {
+		panic("Set \"SubscribeEnabled\" to \"true\" in node_config.json")
+	}
 	s := &SubscribeApi{
 		vite:        vite,
 		log:         log15.New("module", "rpc_api/subscribe_api"),
@@ -47,7 +49,7 @@ func NewSubscribeApi(vite *vite.Vite) *SubscribeApi {
 }
 
 func (s *SubscribeApi) timeoutLoop() {
-	fmt.Println("start filter timeout loop")
+	s.log.Info("start timeout loop")
 	// delete timeout filters every 5 minutes
 	ticker := time.NewTicker(5 * time.Minute)
 	for {
@@ -134,7 +136,7 @@ type Logs struct {
 }
 
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
-	fmt.Println("new account blocks filter start")
+	s.log.Info("NewAccountBlocksFilter")
 	var (
 		acCh  = make(chan []*AccountBlock)
 		acSub = s.eventSystem.SubscribeAccountBlocks(acCh)
@@ -166,7 +168,7 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 }
 
 func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
-	fmt.Println("new logs filter start")
+	s.log.Info("NewLogsFilter")
 	p, err := param.toFilterParam()
 	if err != nil {
 		return "", err
@@ -202,6 +204,7 @@ func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
 }
 
 func (s *SubscribeApi) UninstallFilter(id rpc.ID) bool {
+	s.log.Info("UninstallFilter")
 	s.filterMapMu.Lock()
 	f, found := s.filterMap[id]
 	if found {
@@ -225,6 +228,7 @@ type LogsMsg struct {
 }
 
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
+	s.log.Info("GetFilterChanges", "id", id)
 	s.filterMapMu.Lock()
 	defer s.filterMapMu.Unlock()
 
@@ -250,6 +254,7 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 }
 
 func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
+	s.log.Info("NewAccountBlocks")
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -277,6 +282,7 @@ func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription,
 }
 
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
+	s.log.Info("NewLogs")
 	p, err := param.toFilterParam()
 	if err != nil {
 		return nil, err
@@ -306,9 +312,4 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 		}
 	}()
 	return rpcSub, nil
-}
-
-// TODO delete test method
-func (s *SubscribeApi) TestDelete(addr types.Address, height uint64) (map[types.Address][]*ledger.AccountBlock, error) {
-	return s.vite.Chain().DeleteAccountBlocks(&addr, height)
 }

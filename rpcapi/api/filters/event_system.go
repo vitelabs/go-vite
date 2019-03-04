@@ -1,8 +1,8 @@
 package filters
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/vite"
@@ -82,7 +82,7 @@ func (es *EventSystem) Stop() {
 }
 
 func (es *EventSystem) eventLoop() {
-	fmt.Println("start event loop")
+	es.log.Info("start event loop")
 	index := make(map[FilterType]map[rpc.ID]*subscription)
 	for i := LogsSubscription; i <= AccountBlocksSubscription; i++ {
 		index[i] = make(map[rpc.ID]*subscription)
@@ -95,11 +95,11 @@ func (es *EventSystem) eventLoop() {
 		case acDelEvent := <-es.acDelCh:
 			es.handleAcEvent(index, acDelEvent, true)
 		case i := <-es.install:
-			fmt.Println("install " + i.id)
+			es.log.Info("install ", "id", i.id)
 			index[i.typ][i.id] = i
 			close(i.installed)
 		case u := <-es.uninstall:
-			fmt.Println("uninstall " + u.id)
+			es.log.Info("uninstall ", "id", u.id)
 			delete(index[u.typ], u.id)
 			close(u.err)
 
@@ -107,11 +107,11 @@ func (es *EventSystem) eventLoop() {
 		case <-es.stop:
 			for _, subscriptions := range index {
 				for _, s := range subscriptions {
-					fmt.Println("close " + s.id)
 					close(s.err)
 				}
 			}
 			index = nil
+			es.log.Info("stop event loop")
 			return
 		}
 	}
@@ -156,28 +156,34 @@ func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs
 		}
 	}
 	for _, l := range e.Logs {
-		if len(l.Topics) < len(filter.topics) {
-			return nil
+		log := filterLog(e, filter, removed, l)
+		if log != nil {
+			logs = append(logs, log)
 		}
-		for i, topicRange := range filter.topics {
-			flag := false
-			if len(topicRange) == 0 {
+	}
+	return logs
+}
+
+func filterLog(e *AccountChainEvent, filter *filterParam, removed bool, l *ledger.VmLog) *Logs {
+	if len(l.Topics) < len(filter.topics) {
+		return nil
+	}
+	for i, topicRange := range filter.topics {
+		if len(topicRange) == 0 {
+			continue
+		}
+		flag := false
+		for _, topic := range topicRange {
+			if topic == l.Topics[i] {
 				flag = true
 				continue
 			}
-			for _, topic := range topicRange {
-				if topic == l.Topics[i] {
-					flag = true
-					continue
-				}
-			}
-			if !flag {
-				return nil
-			}
 		}
-		logs = append(logs, &Logs{l, e.Hash, &e.Addr, removed})
+		if !flag {
+			return nil
+		}
 	}
-	return logs
+	return &Logs{l, e.Hash, &e.Addr, removed}
 }
 
 type RpcSubscription struct {
