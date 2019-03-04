@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/metrics/influxdb"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"net"
 	"net/url"
 	"os"
@@ -365,6 +366,10 @@ func (node *Node) startRPC() error {
 		return err
 	}
 
+	// start event system
+	filters.Es = filters.NewEventSystem(node.Vite())
+	filters.Es.Start()
+
 	// Start rpc
 	if node.config.IPCEnabled {
 		if err := node.startIPC(node.GetIpcApis()); err != nil {
@@ -460,6 +465,7 @@ func (node *Node) stopRPC() error {
 	node.stopWS()
 	node.stopHTTP()
 	node.stopIPC()
+	filters.Es.Stop()
 	return nil
 }
 
