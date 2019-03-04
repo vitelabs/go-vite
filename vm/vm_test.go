@@ -409,7 +409,7 @@ func TestCall(t *testing.T) {
 var DefaultDifficulty = new(big.Int).SetUint64(67108863)
 
 func TestCalcQuotaV2(t *testing.T) {
-	quota.InitQuotaConfig(false, false)
+	quota.InitQuotaConfig(false)
 	// prepare db
 	addr1, _, _ := types.CreateAddress()
 	db := NewNoDatabase()

@@ -13,7 +13,7 @@ import (
 // using 1 million for the sake of simplicity in test net.
 // Default difficulty is 0xffffffc000000000.
 func TestCalcLogisticQuotaParam(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	quotaLimit := 1000000.0
 	defaultSection := nodeConfig.sectionList[1]
 
@@ -48,7 +48,7 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 }
 
 func TestCalcQuotaForPoWTest(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	difficulty := float64(0x000000000000FFFF)
@@ -62,7 +62,7 @@ func TestCalcQuotaForPoWTest(t *testing.T) {
 }
 
 func TestCalcQuotaForMinPledgeTest(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	tmpFLoat.SetUint64(1)
@@ -76,7 +76,7 @@ func TestCalcQuotaForMinPledgeTest(t *testing.T) {
 }
 
 func TestCalcQuotaForMaxPledgeTest(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	tmpFLoat.SetUint64(1)
@@ -91,7 +91,7 @@ func TestCalcQuotaForMaxPledgeTest(t *testing.T) {
 }
 
 func TestCalcQuotaForPoWMainNet(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	difficulty := float64(67108863)
@@ -105,7 +105,7 @@ func TestCalcQuotaForPoWMainNet(t *testing.T) {
 }
 
 func TestCalcQuotaForMinPledgeMainNet(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	tmpFLoat.SetUint64(1)
@@ -119,7 +119,7 @@ func TestCalcQuotaForMinPledgeMainNet(t *testing.T) {
 }
 
 func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	tmpFLoat.SetUint64(1)
@@ -134,7 +134,7 @@ func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
 }
 
 func TestPledgeWaitHeightSection(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	x := new(big.Float).SetPrec(precForFloat)
 	pledgeMin := new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18))
 	for i := 0; i < len(nodeConfig.sectionList); i++ {
@@ -147,7 +147,7 @@ func TestPledgeWaitHeightSection(t *testing.T) {
 }
 
 func TestPledgeAmountSection(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	x := new(big.Float).SetPrec(precForFloat)
 	unit := new(big.Float).SetInt64(1e18)
 	for i := 0; i < len(nodeConfig.sectionList); i++ {
@@ -163,7 +163,7 @@ func TestPledgeQuota(t *testing.T) {
 	/*InitQuotaConfig(false)
 	list := []string{"0", "10000", "20009", "30036", "40089", "50178", "60312", "70501", "80754", "91082", "101495", "112005", "122623", "133362", "144235", "155256", "166440", "177804", "189364", "201141", "213156", "225428", "237989", "250862", "264082", "277682", "291702", "306188", "321192", "336772", "353004", "369958", "387743", "406468", "426270", "447322", "469840", "494096", "520436", "549332", "581427", "617620", "659288", "708576", "769276", "848844", "965904", "1197301"}
 	*/
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	list := []string{"0", "11", "21", "31", "41", "51", "61", "71", "81", "92", "102", "113", "123", "134", "145", "156", "167", "178", "190", "202", "214", "226", "238", "251", "265", "278", "292", "307", "322", "337", "354", "370", "388", "407", "427", "448", "470", "495", "521", "550", "582", "618", "660", "709", "770", "849", "966", "1198"}
 	x := new(big.Float).SetPrec(precForFloat)
 	unit := new(big.Float).SetInt64(1e18)
@@ -179,7 +179,7 @@ func TestPledgeQuota(t *testing.T) {
 }
 
 func TestPoWQuotaSection(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	x := new(big.Float).SetPrec(100)
 	for i := 0; i < len(nodeConfig.sectionList); i++ {
 		x.Set(nodeConfig.paramB)
@@ -194,7 +194,7 @@ func TestPoWQuotaSection(t *testing.T) {
 }
 
 func TestPoWQuota(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	list := []string{"0", "67108864", "134276096", "201564160", "269029376", "336736256", "404742144", "473120768", "541929472", "611241984", "681119744", "751652864", "822910976", "894976000", "967946240", "1041903616", "1116962816", "1193222144", "1270800384", "1349836800", "1430462464", "1512824832", "1597120512", "1683513344", "1772216320", "1863491584", "1957568512", "2054791168", "2155479040", "2260041728", "2368962560", "2482757632", "2602090496", "2727755776", "2860646400", "3001933824", "3153051648", "3315826688", "3492593664", "3686514688", "3901882368", "4144775168", "4424400896", "4755193856", "5162500096", "5696520192", "6482067456", "8034975744"}
 	/*
 		InitQuotaConfig(true)
@@ -212,7 +212,7 @@ func TestPoWQuota(t *testing.T) {
 }
 
 func TestCalcPoWDifficultyMainNet(t *testing.T) {
-	InitQuotaConfig(false, false)
+	InitQuotaConfig(false)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	for i, difficulty := range difficultyListMainNet {
 		tmpFLoat.SetInt(difficulty)
@@ -224,7 +224,7 @@ func TestCalcPoWDifficultyMainNet(t *testing.T) {
 	}
 }
 func TestCalcPoWDifficultyTest(t *testing.T) {
-	InitQuotaConfig(false, true)
+	InitQuotaConfig(true)
 	tmpFLoat := new(big.Float).SetPrec(precForFloat)
 	for i, difficulty := range difficultyListTest {
 		tmpFLoat.SetInt(difficulty)

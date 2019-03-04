@@ -2,7 +2,6 @@ package abi
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
@@ -189,13 +188,7 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
-	var memberMethodName string
-	for _, value := range abi.Methods {
-		memberMethodName = value.Name
-		break
-	}
 	if len(sigdata) < 4 {
-		fmt.Printf("MethodById param not specify method for method %s\n", memberMethodName)
 		return nil, fmt.Errorf("method id is not specified")
 	}
 	for _, method := range abi.Methods {
@@ -203,6 +196,5 @@ func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
 			return &method, nil
 		}
 	}
-	fmt.Printf("MethodById param not found for method %s, with data %s\n", memberMethodName, hex.EncodeToString(sigdata[:4]))
 	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
 }

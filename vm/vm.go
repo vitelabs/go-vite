@@ -35,6 +35,7 @@ type VMConfig struct {
 
 type NodeConfig struct {
 	isTest      bool
+	calcQuota   func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 	canTransfer func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 
 	interpreterLog log15.Logger
@@ -52,7 +53,9 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+				return 1000000, 0, nil
+			},
 			canTransfer: func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
@@ -60,7 +63,9 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	} else {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-
+			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
+			},
 			canTransfer: func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
 					return tokenAmount.Cmp(db.GetBalance(&addr, &tokenTypeId)) <= 0
@@ -76,7 +81,7 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	nodeConfig.log = log15.New("module", "vm")
 	nodeConfig.interpreterLog = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
-	quota.InitQuotaConfig(isTest, isTestParam)
+	quota.InitQuotaConfig(isTestParam)
 	nodeConfig.IsDebug = isDebug
 	if isDebug {
 		InitLog(datadir, "dbug")
@@ -183,7 +188,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 		if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
 			return nil, NoRetry, errors.New("snapshot height not supported")
 		}
-		quotaTotal, quotaAddition, err := quota.CalcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,
 			abi.GetPledgeBeneficialAmount(database, block.AccountAddress),
@@ -198,7 +203,7 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return []*vm_context.VmAccountBlock{blockContext}, NoRetry, nil
 		}
 	case ledger.BlockTypeSendCall:
-		quotaTotal, quotaAddition, err := quota.CalcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,
 			abi.GetPledgeBeneficialAmount(database, block.AccountAddress),
@@ -473,7 +478,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		return vm.blockList, NoRetry, err
 	} else {
 		// check can make transaction
-		quotaTotal, quotaAddition, err := quota.CalcQuota(
+		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			block.VmContext,
 			block.AccountBlock.AccountAddress,
 			abi.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
@@ -661,7 +666,7 @@ func (vm *VM) receiveRefund(block *vm_context.VmAccountBlock, sendBlock *ledger.
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	// check can make transaction
-	quotaTotal, quotaAddition, err := quota.CalcQuota(
+	quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 		block.VmContext,
 		block.AccountBlock.AccountAddress,
 		abi.GetPledgeBeneficialAmount(block.VmContext, block.AccountBlock.AccountAddress),
