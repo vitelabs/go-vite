@@ -23,8 +23,8 @@ const (
 		{"type":"function","name":"DexFundUserWithdraw", "inputs":[{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint32"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
 		{"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"DexFundFeeDividend", "inputs":[{"name":"periodId","type":"uint32"}]},
-		{"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint32"}]}
+		{"type":"function","name":"DexFundFeeDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
+		{"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint64"}]}
 	]`
 
 	MethodNameDexFundUserDeposit     = "DexFundUserDeposit"
@@ -50,8 +50,12 @@ func (md *MethodDexFundUserDeposit) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserDeposit) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundDepositGas, data)
+}
+
+func (p *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -98,8 +102,12 @@ func (md *MethodDexFundUserWithdraw) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundUserWithdraw) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundWithdrawGas, data)
+}
+
+func (p *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -167,8 +175,12 @@ func (md *MethodDexFundNewOrder) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundNewOrder) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundNewOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundNewOrderGas, data)
+}
+
+func (p *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -234,8 +246,12 @@ func (md *MethodDexFundSettleOrders) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundSettleOrders) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundSettleOrdersGas, data)
+}
+
+func (p *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -299,8 +315,12 @@ func (md *MethodDexFundFeeDividend) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundFeeDividend) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundFeeDividend) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundFeeDividendGas, data)
+}
+
+func (p *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundFeeDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -324,7 +344,7 @@ func (md MethodDexFundFeeDividend) DoReceive(db vmctxt_interface.VmDatabase, blo
 		err error
 	)
 	param := new(dex.ParamDexFundDividend)
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundFeeDividend, block.Data); err != nil {
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
 	if lastDividendId := dex.GetLastFeeDividendIdFromStorage(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
@@ -349,8 +369,12 @@ func (md *MethodDexFundMinedVxDividend) GetRefundData() []byte {
 	return []byte{}
 }
 
-func (md *MethodDexFundMinedVxDividend) GetQuota(data []byte) (uint64, error) {
+func (md *MethodDexFundMinedVxDividend) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundMinedVxDividendGas, data)
+}
+
+func (p *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (md *MethodDexFundMinedVxDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -374,7 +398,7 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vmctxt_interface.VmDatabase,
 		err error
 	)
 	param := new(dex.ParamDexFundDividend)
-	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundMinedVxDividend, block.Data); err != nil {
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundMinedVxDividend, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
 	if lastMinedVxDividendId := dex.GetLastMinedVxDividendIdFromStorage(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
@@ -738,15 +762,17 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 	//allow divide history fees that not divided yet
 	if feeSumsMap, err = dex.GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
 		return err
-	} else if len(feeSumsMap) == 0 { // no fee to divide
+	} else if len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
 		return nil
 	}
+
 	if vxSumFunds, err = dex.GetVxSumFundsFromStorage(db); err != nil {
 		return err
 	} else if vxSumFunds == nil {
 		return nil
 	}
 	foundVxSumFunds, vxSumAmtBytes, needUpdateVxSum, _ := dex.MatchVxFundsByPeriod(vxSumFunds, periodId, false)
+	//fmt.Printf("foundVxSumFunds %v, vxSumAmtBytes %s, needUpdateVxSum %v with periodId %d\n", foundVxSumFunds, new(big.Int).SetBytes(vxSumAmtBytes).String(), needUpdateVxSum, periodId)
 	if !foundVxSumFunds { // not found vxSumFunds
 		return nil
 	}
@@ -756,10 +782,12 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 		}
 	}
 	vxSumAmt := new(big.Int).SetBytes(vxSumAmtBytes)
-
+	if vxSumAmt.Sign() <= 0 {
+		return nil
+	}
 	// sum fees from multi period not divided
 	feeSumMap := make(map[types.TokenTypeId]*big.Int)
-	for periodId, fee := range feeSumsMap {
+	for pId, fee := range feeSumsMap {
 		for _, feeAccount := range fee.Fees {
 			if tokenId, err := types.BytesToTokenTypeId(feeAccount.Token); err != nil {
 				return err
@@ -771,17 +799,19 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 				}
 			}
 		}
-		dex.MarkFeeSumAsFeeDivided(db, fee, periodId)
+
+		dex.MarkFeeSumAsFeeDivided(db, fee, pId)
 	}
 
 	var (
-		dividedVxAmt                     = big.NewInt(0)
 		userVxFundsKey, userVxFundsBytes []byte
 		ok                               bool
 	)
 
 	iterator := db.NewStorageIterator(&types.AddressDexFund, dex.VxFundKeyPrefix)
+
 	feeSumLeavedMap := make(map[types.TokenTypeId]*big.Int)
+	dividedVxAmtMap := make(map[types.TokenTypeId]*big.Int)
 	for {
 		if len(feeSumMap) == 0 {
 			break
@@ -813,21 +843,19 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 			}
 		}
 		userVxAmount := new(big.Int).SetBytes(userVxAmtBytes)
+		//fmt.Printf("address %s, userVxAmount %s, needDeleteVxFunds %v\n", string(address.Bytes()), userVxAmount.String(), needDeleteVxFunds)
 		if !dex.IsValidVxAmountForDividend(userVxAmount) { //skip vxAmount not valid for dividend
 			continue
 		}
 
-		var (
-			toDivideLeaveAmt *big.Int
-			finished         bool
-		)
-
-		for tokenId, toDivideFeeAmt := range feeSumMap {
-			if toDivideLeaveAmt, ok = feeSumLeavedMap[tokenId]; !ok {
-				toDivideLeaveAmt = new(big.Int).Set(toDivideFeeAmt)
-				feeSumLeavedMap[tokenId] = toDivideLeaveAmt
+		var finished bool
+		for tokenId, feeSumAmount := range feeSumMap {
+			if _, ok = feeSumLeavedMap[tokenId]; !ok {
+				feeSumLeavedMap[tokenId] = new(big.Int).Set(feeSumAmount)
+				dividedVxAmtMap[tokenId] = big.NewInt(0)
 			}
-			userFeeDividend[tokenId], finished = dex.DivideByProportion(vxSumAmt, userVxAmount, dividedVxAmt, toDivideFeeAmt, toDivideLeaveAmt)
+			//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
+			userFeeDividend[tokenId], finished = dex.DivideByProportion(vxSumAmt, userVxAmount, dividedVxAmtMap[tokenId], feeSumAmount, feeSumLeavedMap[tokenId])
 			if finished {
 				delete(feeSumMap, tokenId)
 			}
@@ -900,9 +928,7 @@ func doDivideMinedVxForFee(db vmctxt_interface.VmDatabase, periodId uint64, mine
 					return fmt.Errorf("user with valid userFee, but no valid feeSum")
 					//continue
 				} else {
-					dividedFeeAmt := dividedFeeMap[tokenId]
-					toDivideVxLeaveAmt := toDivideVxLeaveAmtMap[tokenId]
-					vxDividend, finished := dex.DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.Amount), dividedFeeAmt, minedVxAmtPerMarket, toDivideVxLeaveAmt)
+					vxDividend, finished := dex.DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.Amount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
 					userVxDividend.Add(userVxDividend, vxDividend)
 					if finished {
 						delete(feeSumMap, tokenId)
@@ -926,6 +952,7 @@ func doDivideMinedVxForFee(db vmctxt_interface.VmDatabase, periodId uint64, mine
 }
 
 func doDivideMinedVxForPledge(db vmctxt_interface.VmDatabase, minedVxAmt *big.Int) error {
+	// support accumulate history pledge vx
 	if minedVxAmt.Sign() == 0 {
 		return nil
 	}

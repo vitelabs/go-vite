@@ -144,7 +144,8 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	if err, _ = GetTokenInfo(db, orderParam.QuoteToken); err != nil {
 		return err
 	}
-	if orderParam.OrderType != Market && orderParam.OrderType != Limited {
+	// TODO add market order support
+	if orderParam.OrderType != Limited {
 		return fmt.Errorf("invalid order type")
 	}
 	if orderParam.OrderType == Limited {
@@ -332,10 +333,19 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, p
 		if dexFeeSum, err = GetFeeSumByPeriodIdFromStorage(db, periodId); err != nil {
 			return nil, err
 		} else {
-			if dexFeeSum != nil && !dexFeeSum.FeeDivided {
-				dexFeeSums[periodId] = dexFeeSum
+			if dexFeeSum == nil {
+				if periodId > 0 {
+					periodId --
+					continue
+				} else {
+					return nil, nil
+				}
 			} else {
-				return dexFeeSums, nil
+				if !dexFeeSum.FeeDivided {
+					dexFeeSums[periodId] = dexFeeSum
+				} else {
+					return dexFeeSums, nil
+				}
 			}
 		}
 		periodId = dexFeeSum.LastValidPeriod
@@ -580,7 +590,7 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 		amtForFeeTotal := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
 		proportion, _ = new(big.Float).SetString("0.1")
 		amtForViteLabs = RoundAmount(new(big.Float).Mul(toDivideTotalF, proportion))
-		amtForPledge.Sub(toDivideTotal, amtForFeeTotal)
+		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
 		amtForPledge.Sub(amtForPledge, amtForViteLabs)
 		return amtFroFeePerMarket, amtForPledge, amtForViteLabs, true
 	} else {
