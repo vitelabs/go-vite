@@ -246,7 +246,7 @@ func (db *testDatabase) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledge
 }
 
 func (db *testDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return db.CurrentSnapshotBlock()
+	return db.snapshotBlockList[0]
 }
 
 func (db *testDatabase) DebugGetStorage() map[string][]byte {

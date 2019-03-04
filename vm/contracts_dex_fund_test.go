@@ -215,10 +215,15 @@ func initDexFundDatabase() *testDatabase {
 
 	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
 	consensusGroupKey, _ := types.BytesToHash(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))
+
+	//	planInterval = uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount)
+	// 	75 = 1 * 25 * 3
+	//	subSec := int64(t.Sub(self.genesisTime).Seconds())
+	//	i := uint64(subSec) / self.PlanInterval
 	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(1),
-		int64(3),
+		uint8(25),//nodeCount
+		int64(1),//interval
+		int64(3),//perCount
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
@@ -232,6 +237,13 @@ func initDexFundDatabase() *testDatabase {
 	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
 
 	return db
+}
+
+func rollPeriod(db *testDatabase) {
+	lastSnapshot := db.snapshotBlockList[len(db.snapshotBlockList) - 1]
+	t1 := time.Unix(int64(lastSnapshot.Timestamp.Unix() + 75), 0)
+	snapshot1 := &ledger.SnapshotBlock{Height: lastSnapshot.Height + 1, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
+	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 }
 
 func depositCash(db *testDatabase, address types.Address, amount uint64, token types.TokenTypeId) {
