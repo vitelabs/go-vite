@@ -7,10 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 )
 
-func Init(dir, lvl string, testApi_prikey, testApi_tti string) {
+func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint) {
 	api.InitLog(dir, lvl)
 	api.InitTestAPIParams(testApi_prikey, testApi_tti)
 	api.InitGetTestTokenLimitPolicy()
+	api.InitConfig(netId)
 }
 
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {

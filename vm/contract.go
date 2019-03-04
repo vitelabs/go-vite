@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
 var (
@@ -16,16 +16,18 @@ type contract struct {
 	data                   []byte
 	code                   []byte
 	codeAddr               types.Address
-	block                  *vm_context.VmAccountBlock
+	block                  *ledger.AccountBlock
+	db                     vmctxt_interface.VmDatabase
 	sendBlock              *ledger.AccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 	returnData             []byte
 }
 
-func newContract(block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
+func newContract(block *ledger.AccountBlock, db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{
 		block:       block,
+		db:          db,
 		sendBlock:   sendBlock,
 		data:        data,
 		quotaLeft:   quotaLeft,

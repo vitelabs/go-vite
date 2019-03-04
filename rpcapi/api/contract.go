@@ -8,8 +8,10 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_context"
 	"strings"
 )
 
@@ -78,4 +80,35 @@ func (c *ContractApi) GetCallContractData(abiStr string, methodName string, para
 		return nil, err
 	}
 	return abiContract.PackMethod(methodName, arguments...)
+}
+
+func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, params []string) ([]byte, error) {
+	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
+	if err != nil {
+		return nil, err
+	}
+	method, ok := abiContract.OffChains[offChainName]
+	if !ok {
+		return nil, errors.New("offchain name not found")
+	}
+	arguments, err := convert(params, method.Inputs)
+	if err != nil {
+		return nil, err
+	}
+	return abiContract.PackOffChain(offChainName, arguments...)
+}
+
+type CallOffChainMethodParam struct {
+	SelfAddr     types.Address
+	MethodName   string
+	OffChainCode []byte
+	Data         []byte
+}
+
+func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
+	db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
 }

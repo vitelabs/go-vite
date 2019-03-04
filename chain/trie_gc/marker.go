@@ -44,6 +44,9 @@ func NewMarker(chain Chain, retainSnapshotHeight uint64) *Marker {
 
 	return m
 }
+func (m *Marker) RetainSnapshotHeight() uint64 {
+	return m.retainSnapshotHeight
+}
 
 func (m *Marker) getMinSnapshotHeight() uint64 {
 	latestSnapshotBlock := m.chain.GetLatestSnapshotBlock()

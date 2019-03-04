@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"math/big"
 	"reflect"
@@ -808,5 +809,46 @@ func TestABI_MethodById(t *testing.T) {
 			t.Errorf("Method %v (id %v) not 'findable' by id in ABI", name, hex.EncodeToString(m.Id()))
 		}
 	}
+}
 
+func TestPackEvent(t *testing.T) {
+	var testCases = []struct {
+		abiJson   string
+		eventName string
+		params    []interface{}
+		topics    []types.Hash
+		data      []byte
+	}{
+		{
+			`[{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
+			"mint",
+			[]interface{}{ledger.ViteTokenId},
+			[]types.Hash{
+				{63, 157, 204, 0, 213, 233, 41, 4, 1, 66, 195, 251, 43, 103, 163, 190, 27, 14, 145, 233, 141, 172, 24, 213, 188, 43, 120, 23, 164, 207, 236, 182},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}},
+			[]byte{},
+		},
+		{
+			`[{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]}]`,
+			"burn",
+			[]interface{}{ledger.ViteTokenId, ledger.GenesisAccountAddress, big.NewInt(1e18)},
+			[]types.Hash{
+				{97, 183, 48, 235, 101, 233, 99, 47, 158, 102, 219, 185, 87, 54, 55, 226, 222, 80, 17, 178, 245, 18, 137, 74, 55, 152, 28, 98, 222, 60, 189, 64},
+				{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}},
+			[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 226, 146, 240, 172, 71, 28, 115, 217, 20, 174, 255, 16, 187, 37, 146, 94, 19, 178, 169, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0},
+		},
+	}
+	for _, test := range testCases {
+		abi, err := JSONToABIContract(strings.NewReader(test.abiJson))
+		if err != nil {
+			t.Fatal(err)
+		}
+		topics, data, err := abi.PackEvent(test.eventName, test.params...)
+		if err != nil {
+			t.Fatalf("pack %v event failed %v", test.eventName, err)
+		}
+		if len(topics) != len(test.topics) || !bytes.Equal(data, test.data) {
+			t.Fatalf("pack %v event result error, expected [%v, %v], got [%v, %v]", test.eventName, test.topics, hex.EncodeToString(test.data), topics, hex.EncodeToString(data))
+		}
+	}
 }
