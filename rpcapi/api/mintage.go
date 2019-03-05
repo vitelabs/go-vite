@@ -56,18 +56,6 @@ type MintageParams struct {
 	OwnerBurnOnly bool
 }
 
-func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
-	h, err := stringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
-	totalSupply, err := stringToBigInt(&param.TotalSupply)
-	if err != nil {
-		return nil, err
-	}
-	return abi.ABIMintage.PackMethod(abi.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals)
-}
 func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
 }

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/fork"
 	"runtime/debug"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -175,9 +174,6 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockContext.AccountBlock.Data = nil
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
-				return nil, NoRetry, errors.New("snapshot height not supported")
-			}
 			return vm.receiveCreate(blockContext, sendBlock, quota.CalcCreateQuota(sendBlock.Fee))
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
 			return vm.receiveCall(blockContext, sendBlock)
@@ -185,9 +181,6 @@ func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlo
 			return vm.receiveRefund(blockContext, sendBlock)
 		}
 	case ledger.BlockTypeSendCreate:
-		if !fork.IsSmartFork(database.CurrentSnapshotBlock().Height) {
-			return nil, NoRetry, errors.New("snapshot height not supported")
-		}
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
 			database,
 			block.AccountAddress,

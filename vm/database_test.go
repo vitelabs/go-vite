@@ -278,8 +278,8 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
 	db = NewNoDatabase()
 	db.storageMap[types.AddressMintage] = make(map[string][]byte)
-	viteTokenIdLoc, _ := types.BytesToHash(helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), 32))
-	db.storageMap[types.AddressMintage][string(viteTokenIdLoc.Bytes())], _ = abi.ABIMintage.PackVariable(abi.VariableNameMintage, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0))
+	viteTokenIdLoc := abi.GetMintageKey(ledger.ViteTokenId)
+	db.storageMap[types.AddressMintage][string(viteTokenIdLoc)], _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0), addr1, false, helper.Big0, false)
 
 	timestamp = 1536214502
 	t1 := time.Unix(timestamp-1, 0)

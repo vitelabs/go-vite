@@ -153,7 +153,7 @@
     "code": "678040201008040201601f601f031a600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94982,
+    "quotaLeft": 99782,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -170,7 +170,7 @@
     "code": "6780402010080402016020601f051a600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94980,
+    "quotaLeft": 99780,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -187,7 +187,7 @@
     "code": "6780402010080402017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff1a600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94988,
+    "quotaLeft": 99788,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -204,7 +204,7 @@
     "code": "67804020100804020160001a600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94988,
+    "quotaLeft": 99788,
     "quotaRefund": 0,
     "err": "",
     "storage": {

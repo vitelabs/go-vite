@@ -62,7 +62,7 @@
     "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff19600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94991,
+    "quotaLeft": 99791,
     "quotaRefund": 0,
     "err": "",
     "storage": {

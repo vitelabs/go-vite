@@ -32,12 +32,10 @@ type operation struct {
 var (
 	simpleInstructionSet         = newSimpleInstructionSet()
 	offchainSimpleInstructionSet = newOffchainSimpleInstructionSet()
-	mintInstructionSet           = newMintInstructionSet()
-	offchainMintInstructionSet   = newOffchainMintInstructionSet()
 )
 
-func newMintInstructionSet() [256]operation {
-	instructionSet := newSimpleInstructionSet()
+func newSimpleInstructionSet() [256]operation {
+	instructionSet := newBaseInstructionSet()
 	instructionSet[ACCOUNTHEIGHT] = operation{
 		execute:       opAccountHeight,
 		gasCost:       constGasFunc(quickStepGas),
@@ -56,34 +54,6 @@ func newMintInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
-	return instructionSet
-}
-
-func newOffchainMintInstructionSet() [256]operation {
-	instructionSet := newSimpleInstructionSet()
-	instructionSet[ACCOUNTHEIGHT] = operation{
-		execute:       opOffchainAccountHeight,
-		gasCost:       constGasFunc(quickStepGas),
-		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	instructionSet[ACCOUNTHASH] = operation{
-		execute:       opOffchainAccountHash,
-		gasCost:       constGasFunc(extStepGas),
-		validateStack: makeStackFunc(1, 1),
-		valid:         true,
-	}
-	instructionSet[FROMHASH] = operation{
-		execute:       opOffchainFromHash,
-		gasCost:       constGasFunc(quickStepGas),
-		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	return instructionSet
-}
-
-func newSimpleInstructionSet() [256]operation {
-	instructionSet := newBaseInstructionSet()
 	instructionSet[CALLER] = operation{
 		execute:       opCaller,
 		gasCost:       constGasFunc(quickStepGas),
@@ -194,6 +164,24 @@ func newSimpleInstructionSet() [256]operation {
 
 func newOffchainSimpleInstructionSet() [256]operation {
 	instructionSet := newBaseInstructionSet()
+	instructionSet[ACCOUNTHEIGHT] = operation{
+		execute:       opOffchainAccountHeight,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[ACCOUNTHASH] = operation{
+		execute:       opOffchainAccountHash,
+		gasCost:       constGasFunc(extStepGas),
+		validateStack: makeStackFunc(1, 1),
+		valid:         true,
+	}
+	instructionSet[FROMHASH] = operation{
+		execute:       opOffchainFromHash,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
 	instructionSet[CALLER] = operation{
 		execute:       opOffchainCaller,
 		gasCost:       constGasFunc(quickStepGas),

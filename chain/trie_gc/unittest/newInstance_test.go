@@ -81,7 +81,7 @@ func makeChainConfig(genesisFile string) *config.Genesis {
 		CountingTokenId:     ledger.ViteTokenId,
 		RegisterConditionId: 1,
 		RegisterConditionParam: config.ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
+			PledgeAmount: new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18)),
 			PledgeHeight: uint64(3600 * 24 * 90),
 			PledgeToken:  ledger.ViteTokenId,
 		},
@@ -99,7 +99,7 @@ func makeChainConfig(genesisFile string) *config.Genesis {
 		CountingTokenId:     ledger.ViteTokenId,
 		RegisterConditionId: 1,
 		RegisterConditionParam: config.ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
+			PledgeAmount: new(big.Int).Mul(big.NewInt(1e5), big.NewInt(1e18)),
 			PledgeHeight: uint64(3600 * 24 * 90),
 			PledgeToken:  ledger.ViteTokenId,
 		},

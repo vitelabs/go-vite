@@ -27,7 +27,7 @@
     "code": "60087ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa600039600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994973,
+    "quotaLeft": 99999999773,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -44,7 +44,7 @@
     "code": "60006000600039600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994976,
+    "quotaLeft": 99999999776,
     "quotaRefund": 0,
     "err": "",
     "storage": {

@@ -2,7 +2,6 @@ package vm
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -231,19 +230,6 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		locHash, _   = types.BigToHash(loc)
 		currentValue = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
 	)
-	if !fork.IsMintFork(c.db.CurrentSnapshotBlock().Height) {
-		if len(currentValue) == 0 && newValue.Sign() != 0 {
-			// zero value to non-zero value, charge 20000
-			return sstoreSetGas, nil
-		} else if len(currentValue) > 0 && newValue.Sign() == 0 {
-			// non-zero value to zero value, charge 5000 with 15000 refund
-			c.quotaRefund = c.quotaRefund + sstoreRefundGas
-			return sstoreClearGas, nil
-		} else {
-			// non-zero value to non-zero value or zero value to zero value, charge 5000
-			return sstoreResetGas, nil
-		}
-	}
 	if bytes.Equal(currentValue, newValue.Bytes()) {
 		// no change, charge 200
 		return sstoreNoopGas, nil

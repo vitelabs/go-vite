@@ -48,7 +48,6 @@ var simpleContracts = map[types.Address]*precompiledContract{
 	},*/
 	types.AddressMintage: {
 		map[string]contracts.PrecompiledContractMethod{
-			cabi.MethodNameMintage:             &contracts.MethodMintage{},
 			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
 			cabi.MethodNameMint:                &contracts.MethodMint{},
 			cabi.MethodNameIssue:               &contracts.MethodIssue{},

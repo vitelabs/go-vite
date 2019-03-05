@@ -3,7 +3,6 @@ package abi
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -15,7 +14,6 @@ import (
 const (
 	jsonMintage = `
 	[
-		{"type":"function","name":"Mintage","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"}]},
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
 		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
 		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
@@ -31,14 +29,12 @@ const (
 		{"type":"event","name":"changeTokenType","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}
 	]`
 
-	MethodNameMintage             = "Mintage"
 	MethodNameMintageCancelPledge = "CancelPledge"
 	MethodNameMint                = "Mint"
 	MethodNameIssue               = "Issue"
 	MethodNameBurn                = "Burn"
 	MethodNameTransferOwner       = "TransferOwner"
 	MethodNameChangeTokenType     = "ChangeTokenType"
-	VariableNameMintage           = "mintage"
 	VariableNameTokenInfo         = "tokenInfo"
 	EventNameMint                 = "mint"
 	EventNameIssue                = "issue"
@@ -73,16 +69,15 @@ type ParamTransferOwner struct {
 	NewOwner types.Address
 }
 
-// TODO no left pad
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
-	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
+	return tokenId.Bytes()
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
-	tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
+	tokenId, _ := types.BytesToTokenTypeId(key)
 	return tokenId
 }
 func IsMintageKey(key []byte) bool {
-	return len(key) == types.HashSize
+	return len(key) == types.TokenTypeIdSize
 }
 func GetOwnerTokenIdListKey(owner types.Address) []byte {
 	return owner.Bytes()
@@ -158,14 +153,6 @@ func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
 		return nil, errors.New("token info data is nil")
 	}
 	tokenInfo := new(types.TokenInfo)
-	if data[31] == 224 {
-		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
-		if err == nil {
-			tokenInfo.PledgeAddr = tokenInfo.Owner
-		}
-		return tokenInfo, err
-	} else {
-		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
-		return tokenInfo, err
-	}
+	err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
+	return tokenInfo, err
 }

@@ -3,7 +3,6 @@ package vm
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -16,23 +15,13 @@ type Interpreter struct {
 var (
 	simpleInterpreter         = &Interpreter{simpleInstructionSet}
 	offchainSimpleInterpreter = &Interpreter{offchainSimpleInstructionSet}
-	mintInterpreter           = &Interpreter{mintInstructionSet}
-	offchainMintInterpreter   = &Interpreter{offchainMintInstructionSet}
 )
 
 func NewInterpreter(blockHeight uint64, offChain bool) *Interpreter {
-	if fork.IsMintFork(blockHeight) {
-		if offChain {
-			return offchainMintInterpreter
-		} else {
-			return mintInterpreter
-		}
+	if offChain {
+		return offchainSimpleInterpreter
 	} else {
-		if offChain {
-			return offchainSimpleInterpreter
-		} else {
-			return simpleInterpreter
-		}
+		return simpleInterpreter
 	}
 }
 

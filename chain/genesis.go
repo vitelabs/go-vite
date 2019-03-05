@@ -1,6 +1,7 @@
 package chain
 
 import (
+	vmutil "github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
 	"time"
@@ -131,9 +132,10 @@ func NewGenesisMintageBlock(config *config.Genesis) (ledger.AccountBlock, vmctxt
 	tokenName := "Vite Token"
 	tokenSymbol := "VITE"
 	decimals := uint8(18)
-	mintageData, _ := abi.ABIMintage.PackVariable(abi.VariableNameMintage, tokenName, tokenSymbol, totalSupply, decimals, config.GenesisAccountAddress, big.NewInt(0), uint64(0))
+	mintageData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, config.GenesisAccountAddress, big.NewInt(0), uint64(0), config.GenesisAccountAddress, false, helper.Big0, false)
 
 	vmContext.SetStorage(abi.GetMintageKey(ledger.ViteTokenId), mintageData)
+	vmContext.AddLog(vmutil.NewLog(abi.ABIMintage, abi.EventNameMint, ledger.ViteTokenId))
 
 	block.StateHash = *vmContext.GetStorageHash()
 	block.Hash = block.ComputeHash()

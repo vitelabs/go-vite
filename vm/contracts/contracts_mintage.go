@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -12,114 +11,6 @@ import (
 	"math/big"
 	"regexp"
 )
-
-type MethodMintage struct{}
-
-func (p *MethodMintage) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
-	if block.Amount.Cmp(mintagePledgeAmount) == 0 && util.IsViteToken(block.TokenId) {
-		// Pledge ViteToken to mintage
-		return big.NewInt(0), nil
-	} else if block.Amount.Sign() > 0 {
-		return big.NewInt(0), errors.New("invalid amount")
-	}
-	// Destroy ViteToken to mintage
-	return new(big.Int).Set(mintageFee), nil
-}
-
-func (p *MethodMintage) GetRefundData() []byte {
-	return []byte{1}
-}
-
-func (p *MethodMintage) GetQuota() uint64 {
-	return MintageGas
-}
-
-func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-	param := new(cabi.ParamMintage)
-	err = cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMintage, block.Data)
-	if err != nil {
-		return quotaLeft, err
-	}
-	if err = CheckToken(*param); err != nil {
-		return quotaLeft, err
-	}
-	tokenId := cabi.NewTokenId(block.AccountAddress, block.Height, block.PrevHash, block.SnapshotHash)
-	if cabi.GetTokenById(db, tokenId) != nil {
-		return quotaLeft, util.ErrIdCollision
-	}
-	block.Data, _ = cabi.ABIMintage.PackMethod(
-		cabi.MethodNameMintage,
-		tokenId,
-		param.TokenName,
-		param.TokenSymbol,
-		param.TotalSupply,
-		param.Decimals)
-	return quotaLeft, nil
-}
-func CheckToken(param cabi.ParamMintage) error {
-	if param.TotalSupply.Sign() <= 0 ||
-		param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
-		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
-		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
-		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
-		return errors.New("invalid token param")
-	}
-	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
-		return errors.New("invalid token name")
-	}
-	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenSymbol); !ok {
-		return errors.New("invalid token symbol")
-	}
-	return nil
-}
-func (p *MethodMintage) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	param := new(cabi.ParamMintage)
-	cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMintage, sendBlock.Data)
-	key := cabi.GetMintageKey(param.TokenId)
-	if len(db.GetStorage(&block.AccountAddress, key)) > 0 {
-		return nil, util.ErrIdCollision
-	}
-	var tokenInfo []byte
-	if sendBlock.Amount.Sign() == 0 {
-		tokenInfo, _ = cabi.ABIMintage.PackVariable(
-			cabi.VariableNameMintage,
-			param.TokenName,
-			param.TokenSymbol,
-			param.TotalSupply,
-			param.Decimals,
-			sendBlock.AccountAddress,
-			sendBlock.Amount,
-			uint64(0))
-	} else {
-		tokenInfo, _ = cabi.ABIMintage.PackVariable(
-			cabi.VariableNameMintage,
-			param.TokenName,
-			param.TokenSymbol,
-			param.TotalSupply,
-			param.Decimals,
-			sendBlock.AccountAddress,
-			sendBlock.Amount,
-			db.CurrentSnapshotBlock().Height+nodeConfig.params.MintagePledgeHeight)
-	}
-	db.SetStorage(key, tokenInfo)
-	return []*SendBlock{
-		{
-			block,
-			sendBlock.AccountAddress,
-			ledger.BlockTypeSendReward,
-			param.TotalSupply,
-			param.TokenId,
-			[]byte{},
-		},
-	}, nil
-}
 
 type MethodMintageCancelPledge struct{}
 
@@ -159,32 +50,19 @@ func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, bl
 		tokenInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
 		return nil, errors.New("cannot withdraw mintage pledge, status error")
 	}
-	var newTokenInfo []byte
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		newTokenInfo, _ = cabi.ABIMintage.PackVariable(
-			cabi.VariableNameMintage,
-			tokenInfo.TokenName,
-			tokenInfo.TokenSymbol,
-			tokenInfo.TotalSupply,
-			tokenInfo.Decimals,
-			tokenInfo.Owner,
-			big.NewInt(0),
-			uint64(0))
-	} else {
-		newTokenInfo, _ = cabi.ABIMintage.PackVariable(
-			cabi.VariableNameTokenInfo,
-			tokenInfo.TokenName,
-			tokenInfo.TokenSymbol,
-			tokenInfo.TotalSupply,
-			tokenInfo.Decimals,
-			tokenInfo.Owner,
-			helper.Big0,
-			uint64(0),
-			tokenInfo.PledgeAddr,
-			tokenInfo.IsReIssuable,
-			tokenInfo.MaxSupply,
-			tokenInfo.OwnerBurnOnly)
-	}
+	newTokenInfo, _ := cabi.ABIMintage.PackVariable(
+		cabi.VariableNameTokenInfo,
+		tokenInfo.TokenName,
+		tokenInfo.TokenSymbol,
+		tokenInfo.TotalSupply,
+		tokenInfo.Decimals,
+		tokenInfo.Owner,
+		helper.Big0,
+		uint64(0),
+		tokenInfo.PledgeAddr,
+		tokenInfo.IsReIssuable,
+		tokenInfo.MaxSupply,
+		tokenInfo.OwnerBurnOnly)
 	db.SetStorage(cabi.GetMintageKey(*tokenId), newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
 		return []*SendBlock{
@@ -218,9 +96,6 @@ func (p *MethodMint) GetQuota() uint64 {
 	return MintGas
 }
 func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -249,9 +124,20 @@ func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 		param.OwnerBurnOnly)
 	return quotaLeft, nil
 }
+
 func CheckMintToken(param cabi.ParamMintage) error {
-	if err := CheckToken(param); err != nil {
-		return err
+	if param.TotalSupply.Sign() <= 0 ||
+		param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
+		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
+		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
+		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
+		return errors.New("invalid token param")
+	}
+	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
+		return errors.New("invalid token name")
+	}
+	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenSymbol); !ok {
+		return errors.New("invalid token symbol")
 	}
 	if param.IsReIssuable {
 		if param.MaxSupply.Cmp(param.TotalSupply) < 0 || param.MaxSupply.Cmp(helper.Tt256m1) > 0 {
@@ -330,9 +216,6 @@ func (p *MethodIssue) GetQuota() uint64 {
 	return IssueGas
 }
 func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -401,9 +284,6 @@ func (p *MethodBurn) GetQuota() uint64 {
 	return BurnGas
 }
 func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -457,9 +337,6 @@ func (p *MethodTransferOwner) GetQuota() uint64 {
 	return TransferOwnerGas
 }
 func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -527,9 +404,6 @@ func (p *MethodChangeTokenType) GetQuota() uint64 {
 	return ChangeTokenTypeGas
 }
 func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
