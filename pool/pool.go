@@ -418,6 +418,7 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 }
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
+	return false
 	return self.selfPendingAc(address).ExistInCurrent(requestHash)
 }
 
