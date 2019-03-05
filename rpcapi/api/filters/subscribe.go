@@ -363,12 +363,12 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			startHeight = startHeight + count
 		}
 	}
-	return nil, nil
+	return logs, nil
 }
 
 func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
-	if end-count <= start {
-		return start, end, true
+	if end < count || end-count <= start {
+		return start, end - start, true
 	}
-	return start, start + count, false
+	return start, count, false
 }
