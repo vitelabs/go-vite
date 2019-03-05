@@ -54,7 +54,7 @@ func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundDepositGas, data)
 }
 
-func (p *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
+func (md *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -106,7 +106,7 @@ func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundWithdrawGas, data)
 }
 
-func (p *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
+func (md *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -179,7 +179,7 @@ func (md *MethodDexFundNewOrder) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundNewOrderGas, data)
 }
 
-func (p *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
+func (md *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -209,18 +209,23 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 	order := &dexproto.Order{}
 	dex.RenderOrder(order, param, db, sendBlock.AccountAddress, db.CurrentSnapshotBlock().Timestamp)
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
+		dex.EmitOrderFailLog(db, order, dex.NewOrderGetFundFail)
 		return []*SendBlock{}, err
 	}
 	if _, err = checkAndLockFundForNewOrder(dexFund, order); err != nil {
+		dex.EmitOrderFailLog(db, order, dex.NewOrderLockFundFail)
 		return []*SendBlock{}, err
 	}
 	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
+		dex.EmitOrderFailLog(db, order, dex.NewOrderSaveFundFail)
 		return []*SendBlock{}, err
 	}
 	if orderBytes, err = proto.Marshal(order); err != nil {
+		dex.EmitOrderFailLog(db, order, dex.NewOrderInternalErr)
 		return []*SendBlock{}, err
 	}
 	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, orderBytes); err != nil {
+		dex.EmitOrderFailLog(db, order, dex.NewOrderInternalErr)
 		return []*SendBlock{}, err
 	}
 	return []*SendBlock{
@@ -250,7 +255,7 @@ func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundSettleOrdersGas, data)
 }
 
-func (p *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
+func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -319,7 +324,7 @@ func (md *MethodDexFundFeeDividend) GetSendQuota(data []byte) (uint64, error) {
 	return util.TotalGasCost(dexFundFeeDividendGas, data)
 }
 
-func (p *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
+func (md *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
 	return 0
 }
 
@@ -373,7 +378,7 @@ func (md *MethodDexFundMinedVxDividend) GetSendQuota(data []byte) (uint64, error
 	return util.TotalGasCost(dexFundMinedVxDividendGas, data)
 }
 
-func (p *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
+func (md *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
 	return 0
 }
 
