@@ -14,19 +14,30 @@ type NodeConfig struct {
 	QuotaParams
 	sectionList    []*big.Float
 	difficultyList []*big.Int
+	calcQuotaFunc  func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
 }
 
 var nodeConfig NodeConfig
 
-func InitQuotaConfig(isTestParam bool) {
+func InitQuotaConfig(isTest bool, isTestParam bool) {
 	sectionList := make([]*big.Float, len(sectionStrList))
 	for i, str := range sectionStrList {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
-	if isTestParam {
-		nodeConfig = NodeConfig{QuotaParamTest, sectionList, difficultyListTest}
+	var calcQuotaFunc func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
+	if isTest {
+		calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+			return 1000000, 0, nil
+		}
 	} else {
-		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList, difficultyListMainNet}
+		calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+			return calcQuota(db, addr, pledgeAmount, difficulty)
+		}
+	}
+	if isTestParam {
+		nodeConfig = NodeConfig{QuotaParamTest, sectionList, difficultyListTest, calcQuotaFunc}
+	} else {
+		nodeConfig = NodeConfig{QuotaParamMainNet, sectionList, difficultyListMainNet, calcQuotaFunc}
 	}
 }
 
@@ -57,6 +68,9 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 // contract account only gets quota via pledge
 // user account genesis block(a receive block) must calculate a PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+	return nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty)
+}
+func calcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 	if difficulty != nil && difficulty.Sign() > 0 {
 		/*if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
 			if powLimitReached, err := CheckPoWLimit(db); err != nil || powLimitReached {
