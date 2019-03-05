@@ -218,13 +218,13 @@ func (s *SubscribeApi) UninstallFilter(id rpc.ID) bool {
 }
 
 type AccountBlocksMsg struct {
-	Blocks []*AccountBlock `json:"blocks"`
-	Id     rpc.ID          `json:"id"`
+	Blocks []*AccountBlock `json:"result"`
+	Id     rpc.ID          `json:"subscription"`
 }
 
 type LogsMsg struct {
-	Logs []*Logs `json:"logs"`
-	Id   rpc.ID  `json:"id"`
+	Logs []*Logs `json:"result"`
+	Id   rpc.ID  `json:"subscription"`
 }
 
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
@@ -312,4 +312,63 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 		}
 	}()
 	return rpcSub, nil
+}
+
+var getAccountBlocksCount uint64 = 100
+
+func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
+	filterParam, err := param.toFilterParam()
+	if err != nil {
+		return nil, err
+	}
+	var logs []*Logs
+	for addr, hr := range filterParam.addrRange {
+		startHeight := hr.fromHeight
+		endHeight := hr.toHeight
+		acc, err := s.vite.Chain().GetLatestAccountBlock(&addr)
+		if err != nil {
+			return nil, err
+		}
+		if acc == nil {
+			continue
+		}
+		if endHeight == 0 || endHeight > acc.Height {
+			endHeight = acc.Height
+		}
+		for {
+			start, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
+			if count == 0 {
+				break
+			}
+			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, start, count, true)
+			if err != nil {
+				return nil, err
+			}
+			for _, b := range blocks {
+				if b.LogHash != nil {
+					list, err := s.vite.Chain().GetVmLogList(b.LogHash)
+					if err != nil {
+						return nil, err
+					}
+					for _, l := range list {
+						if filterLog(filterParam, l) {
+							logs = append(logs, &Logs{l, b.Hash, &addr, false})
+						}
+					}
+				}
+			}
+			if finish {
+				break
+			}
+			startHeight = startHeight + count
+		}
+	}
+	return nil, nil
+}
+
+func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
+	if end-count <= start {
+		return start, end, true
+	}
+	return start, start + count, false
 }
