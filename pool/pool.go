@@ -45,6 +45,8 @@ type Reader interface {
 }
 type Debug interface {
 	Info(addr *types.Address) string
+	AccountBlockInfo(addr types.Address, hash types.Hash) interface{}
+	SnapshotBlockInfo(hash types.Hash) interface{}
 	Snapshot() map[string]interface{}
 	SnapshotPendingNum() uint64
 	AccountPendingNum() *big.Int
@@ -226,6 +228,24 @@ func (self *pool) Info(addr *types.Address) string {
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
 	}
 }
+func (self *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
+	b := self.selfPendingAc(addr).blockpool.get(hash)
+	if b != nil {
+		sb := b.(*accountPoolBlock)
+		return sb.block
+	}
+	return nil
+}
+
+func (self *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
+	b := self.pendingSc.blockpool.get(hash)
+	if b != nil {
+		sb := b.(*snapshotPoolBlock)
+		return sb.block
+	}
+	return nil
+}
+
 func (self *pool) Details(addr *types.Address, hash types.Hash) string {
 	if addr == nil {
 		bp := self.pendingSc.blockpool
