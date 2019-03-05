@@ -156,17 +156,16 @@ func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs
 		}
 	}
 	for _, l := range e.Logs {
-		log := filterLog(e, filter, removed, l)
-		if log != nil {
-			logs = append(logs, log)
+		if filterLog(filter, l) {
+			logs = append(logs, &Logs{l, e.Hash, &e.Addr, removed})
 		}
 	}
 	return logs
 }
 
-func filterLog(e *AccountChainEvent, filter *filterParam, removed bool, l *ledger.VmLog) *Logs {
+func filterLog(filter *filterParam, l *ledger.VmLog) bool {
 	if len(l.Topics) < len(filter.topics) {
-		return nil
+		return false
 	}
 	for i, topicRange := range filter.topics {
 		if len(topicRange) == 0 {
@@ -180,10 +179,10 @@ func filterLog(e *AccountChainEvent, filter *filterParam, removed bool, l *ledge
 			}
 		}
 		if !flag {
-			return nil
+			return false
 		}
 	}
-	return &Logs{l, e.Hash, &e.Addr, removed}
+	return true
 }
 
 type RpcSubscription struct {

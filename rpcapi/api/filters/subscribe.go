@@ -218,13 +218,13 @@ func (s *SubscribeApi) UninstallFilter(id rpc.ID) bool {
 }
 
 type AccountBlocksMsg struct {
-	Blocks []*AccountBlock `json:"blocks"`
-	Id     rpc.ID          `json:"id"`
+	Blocks []*AccountBlock `json:"result"`
+	Id     rpc.ID          `json:"subscription"`
 }
 
 type LogsMsg struct {
-	Logs []*Logs `json:"logs"`
-	Id   rpc.ID  `json:"id"`
+	Logs []*Logs `json:"result"`
+	Id   rpc.ID  `json:"subscription"`
 }
 
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
@@ -314,8 +314,9 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	return rpcSub, nil
 }
 
+var getAccountBlocksCount uint64 = 100
+
 func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
-	// TODO
 	filterParam, err := param.toFilterParam()
 	if err != nil {
 		return nil, err
@@ -335,8 +336,8 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			endHeight = acc.Height
 		}
 		for {
-			start, count, finish := getHeightPage(startHeight, endHeight, 100)
-			if finish {
+			start, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
+			if count == 0 {
 				break
 			}
 			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, start, count, true)
@@ -350,10 +351,14 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 						return nil, err
 					}
 					for _, l := range list {
-						// TODO filter log
-						logs = append(logs, &Logs{l, b.Hash, &addr, false})
+						if filterLog(filterParam, l) {
+							logs = append(logs, &Logs{l, b.Hash, &addr, false})
+						}
 					}
 				}
+			}
+			if finish {
+				break
 			}
 			startHeight = startHeight + count
 		}
@@ -362,6 +367,8 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 }
 
 func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
-	// TODO
-	return 0, 0, true
+	if end-count <= start {
+		return start, end, true
+	}
+	return start, start + count, false
 }
