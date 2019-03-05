@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"sync"
 
+	"strconv"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
