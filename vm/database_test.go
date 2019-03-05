@@ -167,6 +167,10 @@ func (db *testDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
 
+func (db *testDatabase) GetLogList() ledger.VmLogList {
+	return db.logList
+}
+
 type testIteratorItem struct {
 	key, value []byte
 }

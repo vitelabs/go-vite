@@ -154,6 +154,10 @@ func (db *memoryDatabase) GetLogListHash() *types.Hash {
 	}
 }
 
+func (db *memoryDatabase) GetLogList() ledger.VmLogList {
+	return db.logList
+}
+
 func (db *memoryDatabase) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
 	return nil
 }
