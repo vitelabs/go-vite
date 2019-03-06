@@ -23,6 +23,8 @@ func TestMatcher(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
 	mc := NewMatcher(getAddress(), &st)
+
+	DeleteTerminatedOrder = true
 	SetFeeRate(0.06, 0.05) // takerFee, makerFee
 	// buy
 	buy1 := newOrderInfo(101, ETH, VITE, false, Limited, "100.02", 1000, time.Now().UnixNano()/1000)
@@ -75,6 +77,11 @@ func TestMatcher(t *testing.T) {
 	// localStorage.logs[9] txEvent taker -> maker[202, 104]
 	// localStorage.logs[10] txEvent taker -> maker[202, 102]
 	assert.Equal(t, 11, len(localStorage.logs))
+
+	buy4OrderId, _ := NewOrderId(orderIdBytesFromInt(104))
+	pl, _, _ , err := mc.books[bookIdToMakeForSell].getByKey(buy4OrderId)
+	assert.True(t, err != nil)
+	assert.True(t, pl == nil)
 
 	log := localStorage.logs[6]
 	odEvent := OrderUpdateEvent{}
@@ -167,6 +174,10 @@ func TestMatcher(t *testing.T) {
 	assert.True(t, CheckBigEqualToInt(100100000, txEvent.Amount))
 	assert.True(t, CheckBigEqualToInt(6006000, txEvent.TakerFee))
 	assert.True(t, CheckBigEqualToInt(5005000, txEvent.MakerFee))
+
+	buy7 := newOrderInfo(105, ETH, VITE, false, Limited, "10.01", 20, time.Now().UnixNano()/1000)
+	err = mc.MatchOrder(buy7)
+	assert.Equal(t, err.Error(), "order id already exists")
 }
 
 func TestFeeCalculation(t *testing.T) {
