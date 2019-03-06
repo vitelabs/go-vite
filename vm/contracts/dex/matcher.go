@@ -33,8 +33,9 @@ type OrderTx struct {
 }
 
 var (
-	TakerFeeRate = 0.001
-	MakerFeeRate = 0.001
+	TakerFeeRate          = 0.001
+	MakerFeeRate          = 0.001
+	DeleteTerminatedOrder = false
 )
 
 func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
@@ -55,6 +56,9 @@ func (mc *matcher) MatchOrder(taker Order) (err error) {
 			err = fmt.Errorf("matchOrder failed with exception %v", r)
 		}
 	}()
+	if mc.checkOrderIdExists(taker.Id) {
+		return fmt.Errorf("order id already exists")
+	}
 	var bookToTake *skiplist
 	if bookToTake, err = mc.getBookById(getBookIdToTake(taker)); err != nil {
 		return err
@@ -113,10 +117,15 @@ func (mc *matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId
 	if orderId, err = NewOrderId(order.Id); err != nil {
 		return err
 	}
-	if err = book.updatePayload(orderId, &pl); err != nil {
+	if err = book.delete(orderId); err != nil {
 		return err
 	}
-	return book.delete(orderId)
+	if DeleteTerminatedOrder {
+		mc.rawDelete(orderId)
+		return nil
+	} else {
+		return book.updatePayload(orderId, &pl)
+	}
 }
 
 func (mc *matcher) getBookById(bookId SkipListId) (*skiplist, error) {
@@ -290,7 +299,6 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 	return feeBytes, executedFee
 }
 
-
 func (mc *matcher) handleRefund(order *Order) {
 	if order.Status == FullyExecuted || order.Status == Cancelled {
 		switch order.Side {
@@ -307,9 +315,11 @@ func (mc *matcher) handleRefund(order *Order) {
 	}
 }
 
-func (mc *matcher) handleTakerRes(order Order) (err error) {
+func (mc *matcher) handleTakerRes(order Order) error {
 	if order.Status == PartialExecuted || order.Status == Pending {
-		if err = mc.saveTakerAsMaker(order); err != nil {
+		if bookToMake, err := mc.getBookById(getBookIdToMakeForOrder(order)); err != nil {
+			return err
+		} else if err = mc.saveTakerAsMaker(order, bookToMake); err != nil {
 			return err
 		}
 	}
@@ -317,42 +327,52 @@ func (mc *matcher) handleTakerRes(order Order) (err error) {
 	return nil
 }
 
-func (mc *matcher) saveTakerAsMaker(maker Order) error {
-	var (
-		bookToMake *skiplist
-		err        error
-	)
-	if bookToMake, err = mc.getBookById(getBookIdToMakeForOrder(maker)); err != nil {
-		return err
-	}
+func (mc *matcher) saveTakerAsMaker(maker Order, bookToMake *skiplist) error {
 	pl := nodePayload(maker)
 	makerId, _ := NewOrderId(maker.Id)
 	return bookToMake.insert(makerId, &pl)
 }
 
-func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
-	for _, maker := range makers {
-		pl := nodePayload(maker)
-		makerId, _ := NewOrderId(maker.Id)
-		if err = makerBook.updatePayload(makerId, &pl); err != nil {
-			return err
-			//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
-		}
-		mc.emitOrderRes(maker)
+func (mc *matcher) checkOrderIdExists(orderIdBytes []byte) bool {
+	orderId, _ := NewOrderId(orderIdBytes)
+	if len((*mc.storage).GetStorage(mc.contractAddress, orderId.getStorageKey())) == 0 {
+		return false
+	} else {
+		return true
 	}
+}
+
+func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
 	size := len(makers)
+	var truncatedSize int // will be zero in case only one partiallyExecuted order
 	if size > 0 {
 		if makers[size-1].Status == FullyExecuted || makers[size-1].Status == Cancelled {
 			toTruncateId, _ := NewOrderId(makers[size-1].Id)
 			if err = makerBook.truncateHeadTo(toTruncateId, int32(size)); err != nil {
 				return err
 			}
+			truncatedSize = size
 		} else if size >= 2 {
 			toTruncateId, _ := NewOrderId(makers[size-2].Id)
 			if err = makerBook.truncateHeadTo(toTruncateId, int32(size-1)); err != nil {
 				return err
 			}
+			truncatedSize = size - 1
 		}
+	}
+
+	for index, maker := range makers {
+		makerId, _ := NewOrderId(maker.Id)
+		if DeleteTerminatedOrder && index <= truncatedSize - 1 {
+			mc.rawDelete(makerId)
+		} else {
+			pl := nodePayload(maker)
+			if err = makerBook.updatePayload(makerId, &pl); err != nil {
+				return err
+				//fmt.Printf("failed update maker storage for err : %s\n", err.Error())
+			}
+		}
+		mc.emitOrderRes(maker)
 	}
 	return nil
 }
@@ -448,11 +468,16 @@ func (mc *matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
 	addr := types.Address{}
 	addr.SetBytes(address)
 	if userFeeSettle, ok = userFeeSettles[addr]; !ok {
-		userFeeSettle = &proto.UserFeeSettle{Address: address, Amount:amount}
+		userFeeSettle = &proto.UserFeeSettle{Address: address, Amount: amount}
 		userFeeSettles[addr] = userFeeSettle
 	} else {
 		userFeeSettle.Amount = AddBigInt(userFeeSettle.Amount, amount)
 	}
+}
+
+
+func (mc *matcher) rawDelete(orderId OrderId) {
+	(*mc.storage).SetStorage(orderId.getStorageKey(), nil)
 }
 
 func newLog(event OrderEvent) *ledger.VmLog {
