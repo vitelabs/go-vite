@@ -116,6 +116,11 @@ var (
 		utils.InfluxDBPasswordFlag,
 		utils.InfluxDBHostTagFlag,
 	}
+
+	// Ledger
+	ledgerFlags = []cli.Flag{
+		utils.LedgerDeleteToHeight,
+	}
 )
 
 func init() {
@@ -140,11 +145,12 @@ func init() {
 		licenseCommand,
 		consoleCommand,
 		attachCommand,
+		ledgerRecoverCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags, metricsFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags)
 
 	app.Before = beforeAction
 	app.Action = action

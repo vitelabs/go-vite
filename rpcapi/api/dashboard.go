@@ -91,3 +91,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	result["signData"] = hexutil.Encode(sign)
 	return result
 }
+
+func (api DashboardApi) NetId() uint {
+	return netId
+}

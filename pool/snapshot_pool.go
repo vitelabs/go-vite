@@ -4,8 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -31,7 +29,7 @@ type snapshotPool struct {
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
-	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source)}
+	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source), failStat: (&failStat{}).init(time.Second * 20)}
 }
 
 type snapshotPoolBlock struct {
@@ -41,6 +39,7 @@ type snapshotPoolBlock struct {
 	// last check data time
 	lastCheckTime time.Time
 	checkResult   bool
+	failStat      *failStat
 }
 
 func (self *snapshotPoolBlock) Height() uint64 {
@@ -91,33 +90,33 @@ func (self *snapshotPool) init(
 
 func (self *snapshotPool) loopCheckFork() {
 	// recover logic
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type, %+v", err)
-			}
-
-			self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("loopCheckFork end recover.")
-			self.pool.Lock()
-			defer self.pool.UnLock()
-			self.initPool()
-			if self.rstat.inc() {
-				common.Go(self.loopCheckFork)
-			} else {
-				panic(e)
-			}
-
-			self.pool.version.Inc()
-		}
-	}()
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		var e error
+	//		switch t := err.(type) {
+	//		case error:
+	//			e = errors.WithStack(t)
+	//		case string:
+	//			e = errors.New(t)
+	//		default:
+	//			e = errors.Errorf("unknown type, %+v", err)
+	//		}
+	//
+	//		self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
+	//		fmt.Printf("%+v", e)
+	//		defer self.log.Warn("loopCheckFork end recover.")
+	//		self.pool.Lock()
+	//		defer self.pool.UnLock()
+	//		self.initPool()
+	//		if self.rstat.inc() {
+	//			common.Go(self.loopCheckFork)
+	//		} else {
+	//			panic(e)
+	//		}
+	//
+	//		self.pool.version.Inc()
+	//	}
+	//}()
 	self.wg.Add(1)
 	defer self.wg.Done()
 	for {
@@ -223,33 +222,33 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 }
 
 func (self *snapshotPool) loop() {
-	// recover logic
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type, %+v", err)
-			}
-
-			self.log.Error("snapshot loop start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("snapshot loop end recover.")
-			self.pool.Lock()
-			defer self.pool.UnLock()
-			self.initPool()
-			if self.rstat.inc() {
-				common.Go(self.loop)
-			} else {
-				panic(e)
-			}
-			self.pool.version.Inc()
-		}
-	}()
+	//// recover logic
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		var e error
+	//		switch t := err.(type) {
+	//		case error:
+	//			e = errors.WithStack(t)
+	//		case string:
+	//			e = errors.New(t)
+	//		default:
+	//			e = errors.Errorf("unknown type, %+v", err)
+	//		}
+	//
+	//		self.log.Error("snapshot loop start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
+	//		fmt.Printf("%+v", e)
+	//		defer self.log.Warn("snapshot loop end recover.")
+	//		self.pool.Lock()
+	//		defer self.pool.UnLock()
+	//		self.initPool()
+	//		if self.rstat.inc() {
+	//			common.Go(self.loop)
+	//		} else {
+	//			panic(e)
+	//		}
+	//		self.pool.version.Inc()
+	//	}
+	//}()
 
 	self.wg.Add(1)
 	defer self.wg.Done()
@@ -405,6 +404,7 @@ func (self *snapshotPool) Stop() {
 func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
 	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
 	block := b.block
+	b.failStat.inc()
 	results := stat.results
 
 	accounts := make(map[types.Address]*ledger.HashHeight)

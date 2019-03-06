@@ -27,18 +27,20 @@ func getCodeKey(addr types.Address) string {
 
 // test database for single call
 type memoryDatabase struct {
-	addr    types.Address
-	storage map[string][]byte
-	logList []*ledger.VmLog
-	sb      *ledger.SnapshotBlock
+	addr            types.Address
+	storage         map[string][]byte
+	originalStorage map[string][]byte
+	logList         []*ledger.VmLog
+	sb              *ledger.SnapshotBlock
 }
 
 func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryDatabase {
 	return &memoryDatabase{
-		addr:    addr,
-		storage: make(map[string][]byte),
-		logList: make([]*ledger.VmLog, 0),
-		sb:      sb,
+		addr:            addr,
+		storage:         make(map[string][]byte),
+		originalStorage: make(map[string][]byte),
+		logList:         make([]*ledger.VmLog, 0),
+		sb:              sb,
 	}
 }
 func (db *memoryDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
@@ -80,6 +82,9 @@ func (db *memoryDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.Snaps
 func (db *memoryDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
 	return nil
 }
+func (db *memoryDatabase) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
+	return nil
+}
 func (db *memoryDatabase) Reset() {}
 func (db *memoryDatabase) IsAddressExisted(addr *types.Address) bool {
 	return false
@@ -95,6 +100,15 @@ func (db *memoryDatabase) GetContractCode(addr *types.Address) []byte {
 	}
 	return nil
 }
+
+func (db *memoryDatabase) GetOriginalStorage(key []byte) []byte {
+	if data, ok := db.originalStorage[hex.EncodeToString(key)]; ok {
+		return data
+	} else {
+		return nil
+	}
+}
+
 func (db *memoryDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 	if data, ok := db.storage[hex.EncodeToString(key)]; ok {
 		return data
@@ -104,11 +118,10 @@ func (db *memoryDatabase) GetStorage(addr *types.Address, key []byte) []byte {
 }
 func (db *memoryDatabase) SetStorage(key []byte, value []byte) {
 	if len(value) == 0 {
-		if _, ok := db.storage[hex.EncodeToString(key)]; !ok {
-			return
-		}
+		delete(db.storage, hex.EncodeToString(key))
+	} else {
+		db.storage[hex.EncodeToString(key)] = value
 	}
-	db.storage[hex.EncodeToString(key)] = value
 }
 func (db *memoryDatabase) PrintStorage() string {
 	str := "["
@@ -153,7 +166,7 @@ func (db *memoryDatabase) GetGid() *types.Gid {
 	return nil
 }
 func (db *memoryDatabase) Address() *types.Address {
-	return nil
+	return &db.addr
 }
 func (db *memoryDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
 	return db.sb

@@ -3,6 +3,7 @@ package quota
 import (
 	"errors"
 	"math/big"
+	"time"
 )
 
 var (
@@ -16,6 +17,9 @@ const (
 	maxQuotaHeightGap uint64 = 3600 * 24 // Maximum Snapshot block height gap to gain quota by pledge.
 
 	precForFloat uint = 18
+
+	day            = 24 * time.Hour
+	powTimesPerDay = 10
 )
 
 type QuotaParams struct {

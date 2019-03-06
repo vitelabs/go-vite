@@ -38,6 +38,8 @@ func (c *chain) GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.Sn
 			if block == nil {
 				err := errors.New(fmt.Sprintf("Block is not existed in need snapshot cache, blockHash is %s, blockHeight is %d, address is %s",
 					item.Hash, item.Height, addr))
+				c.log.Error(err.Error(), "method", "GenStateTrie")
+
 				return nil, err
 			}
 		}
@@ -636,7 +638,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	// Delete sa list cache
-	if deleteErr := c.saList.DeleteStartWith(snapshotBlocks[0]); deleteErr != nil {
+	if deleteErr := c.saList.DeleteStartWith(batch, snapshotBlocks[0]); deleteErr != nil {
 		c.log.Crit("c.saList.DeleteStartWith failed, error is "+deleteErr.Error(), "method", "DeleteSnapshotBlocksByHeight")
 	}
 
