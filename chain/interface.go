@@ -31,8 +31,10 @@ type Chain interface {
 	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlocksByHeight(addr types.Address, start uint64, count uint64, forward bool) ([]*ledger.AccountBlock, error)
 	GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock
+
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 	GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error)
+
 	GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 	GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error)
 
