@@ -161,6 +161,7 @@ func (w *ContractWorker) Stop() {
 		close(w.stopDispatcherListener)
 
 		w.uBlocksPool.DeleteContractCache(w.gid)
+		w.clearBlackList()
 
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
@@ -258,6 +259,12 @@ func (w *ContractWorker) popContractTask() *contractTask {
 		return heap.Pop(&w.contractTaskPQueue).(*contractTask)
 	}
 	return nil
+}
+
+func (w *ContractWorker) clearBlackList() {
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	w.blackList = make(map[types.Address]bool)
 }
 
 // Don't deal with it for this around of blocks-generating period
