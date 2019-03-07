@@ -35,6 +35,8 @@ type Peer interface {
 	Height() uint64
 	Head() types.Hash
 	Disconnect(reason p2p.DiscReason)
+	Info() PeerInfo
+	HasBlock(hash types.Hash) bool
 }
 
 type peer struct {
@@ -147,6 +149,10 @@ func (p *peer) SeeBlock(hash types.Hash) {
 	p.knownBlocks.lookAndRecord(hash[:])
 }
 
+func (p *peer) HasBlock(hash types.Hash) bool {
+	return p.knownBlocks.has(hash[:])
+}
+
 // send
 
 func (p *peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
@@ -195,8 +201,8 @@ func (p *PeerInfo) String() string {
 	return p.ID + "@" + p.Addr + "/" + strconv.FormatUint(p.Height, 10)
 }
 
-func (p *peer) Info() *PeerInfo {
-	return &PeerInfo{
+func (p *peer) Info() PeerInfo {
+	return PeerInfo{
 		ID:      p.id,
 		Addr:    p.RemoteAddr().String(),
 		Head:    p.head.String(),
@@ -207,6 +213,7 @@ func (p *peer) Info() *PeerInfo {
 
 // @section PeerSet
 var errSetHasPeer = errors.New("peer is existed")
+var errNilPeer = errors.New("peer is nil")
 
 type peerEventCode byte
 
@@ -222,7 +229,7 @@ type peerEvent struct {
 }
 
 type peerSet struct {
-	m   map[peerId]*peer
+	m   map[peerId]Peer
 	prw sync.RWMutex
 
 	subs []chan<- peerEvent
@@ -230,7 +237,7 @@ type peerSet struct {
 
 func newPeerSet() *peerSet {
 	return &peerSet{
-		m: make(map[peerId]*peer),
+		m: make(map[peerId]Peer),
 	}
 }
 
@@ -263,7 +270,7 @@ func (m *peerSet) BestPeer() (best Peer) {
 
 	var maxHeight uint64
 	for _, p := range m.m {
-		peerHeight := p.height
+		peerHeight := p.Height()
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
 			best = p
@@ -287,14 +294,18 @@ func (m *peerSet) SyncPeer() Peer {
 }
 
 func (m *peerSet) Add(peer *peer) error {
+	if peer == nil {
+		return errNilPeer
+	}
+
 	m.prw.Lock()
 	defer m.prw.Unlock()
 
-	if _, ok := m.m[peer.id]; ok {
+	if _, ok := m.m[peer.ID()]; ok {
 		return errSetHasPeer
 	}
 
-	m.m[peer.id] = peer
+	m.m[peer.ID()] = peer
 
 	go m.Notify(peerEvent{
 		code:  addPeer,
@@ -305,6 +316,10 @@ func (m *peerSet) Add(peer *peer) error {
 }
 
 func (m *peerSet) Del(peer *peer) {
+	if peer == nil {
+		return
+	}
+
 	m.prw.Lock()
 	defer m.prw.Unlock()
 
@@ -331,7 +346,7 @@ func (m *peerSet) Pick(height uint64) (l []Peer) {
 	defer m.prw.RUnlock()
 
 	for _, p := range m.m {
-		if p.height >= height {
+		if p.Height() >= height {
 			l = append(l, p)
 		}
 	}
@@ -339,11 +354,11 @@ func (m *peerSet) Pick(height uint64) (l []Peer) {
 	return
 }
 
-func (m *peerSet) Info() (info []*PeerInfo) {
+func (m *peerSet) Info() (info []PeerInfo) {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 
-	info = make([]*PeerInfo, len(m.m))
+	info = make([]PeerInfo, len(m.m))
 
 	i := 0
 	for _, p := range m.m {
@@ -362,7 +377,7 @@ func (m *peerSet) UnknownBlock(hash types.Hash) (l peers) {
 
 	i := 0
 	for _, p := range m.m {
-		if seen := p.knownBlocks.has(hash[:]); !seen {
+		if seen := p.HasBlock(hash); !seen {
 			l[i] = p
 			i++
 		}

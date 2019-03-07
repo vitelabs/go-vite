@@ -27,6 +27,12 @@
 			"revisionTime": "2018-07-25T03:58:23Z"
 		},
 		{
+			"checksumSHA1": "/sEYS6BkMfP0yyUMSxbUqVaL824=",
+			"path": "github.com/aead/ecdh",
+			"revision": "85c03e91d99ae3280de8341f9434bf4c733ddafb",
+			"revisionTime": "2019-02-19T10:11:02Z"
+		},
+		{
 			"checksumSHA1": "0EhLvZ6Og9HYqJtCc2Dzs1EgM30=",
 			"path": "github.com/bitly/go-simplejson",
 			"revision": "0c965951289cce37dec52ad1f34200fefc816777",
@@ -680,6 +686,12 @@
 			"path": "golang.org/x/crypto/blake2b",
 			"revision": "a49355c7e3f8fe157a85be2f77e6e269a0f89602",
 			"revisionTime": "2018-06-20T09:14:27Z"
+		},
+		{
+			"checksumSHA1": "JjkVVfbdvjH+FbVgKPrv0+WtpFw=",
+			"path": "golang.org/x/crypto/curve25519",
+			"revision": "8dd112bcdc25174059e45e07517d9fc663123347",
+			"revisionTime": "2019-02-28T09:13:53Z"
 		},
 		{
 			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
