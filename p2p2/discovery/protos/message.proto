@@ -1,0 +1,27 @@
+syntax="proto3";
+
+package protos;
+
+message Handshake {
+    string Name = 1;
+    bytes ID = 2;
+    repeated uint32 CmdSets = 3;
+    bytes RemoteIP = 4;
+	uint32 RemotePort = 5;
+    uint32 Port = 6;
+}
+
+message ConnProperty {
+    string LocalID = 1;
+    bytes LocalIP = 2;
+    uint32 LocalPort = 3;
+    string RemoteID = 4;
+    bytes RemoteIP = 5;
+    uint32 RemotePort = 6;
+}
+
+message Topo {
+    string Pivot = 1;
+    repeated ConnProperty Peers = 2;
+    int64 Time = 3;
+}

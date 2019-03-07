@@ -18,28 +18,54 @@
 
 package ticket
 
+import (
+	"errors"
+	"sync/atomic"
+)
+
+var errClosed = errors.New("ticket has already closed")
+
 // Ticket represent limited resources to control concurrency
 type Ticket interface {
+	// Take a ticket, if no tickets remain, then will be blocked.
+	// if Ticket is closed, will return non-block.
 	Take()
+	// Return a ticket, if Ticket is closed, will return
 	Return()
+	// Remainder get the number of available tickets
 	Remainder() int
+	// Total is the total tickets
 	Total() int
+	// Close Ticket, Take() will get endless non-blocking tickets
+	// return error, if Ticket has been closed
+	Close() error
+	// Reset will create new tickets
+	Reset()
 }
 
 type ticket struct {
-	total int
-	ch    chan struct{}
+	total   int
+	ch      chan struct{}
+	_closed int32
 }
 
 // Take retrieve a resource from pool, if pool is empty,
 // then current goroutine will be blocked
 func (t *ticket) Take() {
+	if t.closed() {
+		return
+	}
+
 	<-t.ch
 }
 
 // Return a resource to pool, if there are some goroutine is blocked since resource shortage,
 // then a goroutine will be notified
 func (t *ticket) Return() {
+	if t.closed() {
+		return
+	}
+
 	t.ch <- struct{}{}
 }
 
@@ -51,6 +77,26 @@ func (t *ticket) Remainder() int {
 // Total represent count of all resources in pool
 func (t *ticket) Total() int {
 	return t.total
+}
+
+func (t *ticket) Close() error {
+	if atomic.CompareAndSwapInt32(&t._closed, 0, 1) {
+		close(t.ch)
+		return nil
+	}
+	return errClosed
+}
+
+func (t *ticket) closed() bool {
+	return atomic.LoadInt32(&t._closed) == 1
+}
+
+func (t *ticket) Reset() {
+	t.ch = make(chan struct{}, t.total)
+	for i := 0; i < t.total; i++ {
+		t.ch <- struct{}{}
+	}
+	atomic.StoreInt32(&t._closed, 0)
 }
 
 // New will create a resource pool, total means count of resource in pool

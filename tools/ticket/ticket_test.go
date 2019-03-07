@@ -19,6 +19,7 @@
 package ticket
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -74,5 +75,51 @@ func TestTicket_Return(t *testing.T) {
 	}
 	if pool.Remainder() != total {
 		t.Errorf("should be %d resources in pool, but get %d", total, pool.Remainder())
+	}
+}
+
+func TestTicket_Close(t *testing.T) {
+	const total = 5
+	pool := New(total)
+
+	if err := pool.Close(); err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+
+	if err := pool.Close(); err == nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+
+	pool.Reset()
+	for i := 0; i < total-2; i++ {
+		pool.Take()
+	}
+
+	pool.Close()
+	for i := 0; i < total; i++ {
+		pool.Return()
+	}
+
+	if pool.Remainder() != 2 {
+		t.Fail()
+	}
+}
+
+func TestTicket_Reset(t *testing.T) {
+	const total = 5
+	pool := New(total)
+	for i := 0; i < total; i++ {
+		pool.Take()
+	}
+
+	if pool.Remainder() != 0 {
+		t.Fail()
+	}
+
+	pool.Reset()
+	if pool.Remainder() != total {
+		t.Fail()
 	}
 }
