@@ -27,15 +27,21 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")    // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	VxFundKeyPrefix      = []byte("vxF:")    // vxFund:types.Address
-	vxSumFundsKey        = []byte("vxFS:") // vxFundSum
-	lastFeeDividendIdKey = []byte("lDId:")
+	VxFundKeyPrefix          = []byte("vxF:")    // vxFund:types.Address
+	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
+	lastFeeDividendIdKey     = []byte("lDId:")
 	lastMinedVxDividendIdKey = []byte("lMVDId:")
+	marketKeyPrefix          = []byte("mks:")
 
 	VxTokenBytes        = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
-	vxTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
-	VxDividendThreshold = new(big.Int).Mul(vxTokenPow, big.NewInt(10))     // 10
-	VxMinedAmtPerPeriod = new(big.Int).Mul(vxTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
+	commonTokenPow      = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
+	VxDividendThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(10))     // 10
+	VxMinedAmtPerPeriod = new(big.Int).Mul(commonTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
+	NewMarketFeeAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+
+	MarketExistsError = errors.New("market already exists")
+	MarketNotExistsError = errors.New("market not exists")
 )
 
 type ParamDexFundWithDraw struct {
@@ -59,6 +65,11 @@ type ParamDexFundDividend struct {
 
 type ParamDexSerializedData struct {
 	Data []byte
+}
+
+type ParamDexFundNewMarket struct {
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
 }
 
 type UserFund struct {
@@ -129,6 +140,23 @@ func (ufs *UserFees) DeSerialize(userFeesData []byte) (*UserFees, error) {
 	}
 }
 
+type MarketInfo struct {
+	dexproto.MarketInfo
+}
+
+func (mi *MarketInfo) Serialize() (data []byte, err error) {
+	return proto.Marshal(&mi.MarketInfo)
+}
+
+func (mi *MarketInfo) DeSerialize(data []byte) (*MarketInfo, error) {
+	marketInfo := dexproto.MarketInfo{}
+	if err := proto.Unmarshal(data, &marketInfo); err != nil {
+		return nil, err
+	} else {
+		return &MarketInfo{marketInfo}, nil
+	}
+}
+
 func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
 	var (
 		orderId OrderId
@@ -140,11 +168,8 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	if !orderId.IsNormal() {
 		return fmt.Errorf("invalid order id")
 	}
-	if err, _ = GetTokenInfo(db, orderParam.TradeToken); err != nil {
-		return err
-	}
-	if err, _ = GetTokenInfo(db, orderParam.QuoteToken); err != nil {
-		return err
+	if !CheckMarketExists(db, orderParam.TradeToken, orderParam.QuoteToken) {
+		return MarketNotExistsError
 	}
 	// TODO add market order support
 	if orderParam.OrderType != Limited {
@@ -161,15 +186,47 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	return nil
 }
 
+func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId, feeAmount *big.Int) (err error) {
+	if feeTokenId != ledger.ViteTokenId {
+		return fmt.Errorf("token type of fee for create market not valid")
+	}
+	if feeAmount.Cmp(NewMarketFeeAmount) < 0 {
+		return fmt.Errorf("fee for create market not enough")
+	}
+	if CheckMarketExists(db, marketParam.TradeToken, marketParam.QuoteToken) {
+		return MarketExistsError
+	}
+	return nil
+}
+
+func CheckMarketExists(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.TokenTypeId) bool {
+	return len(db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken))) > 0
+}
+
+func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, marketParam *ParamDexFundNewMarket, address types.Address) error {
+	if err, tradeTokenInfo := GetTokenInfo(db, marketParam.TradeToken); err != nil {
+		return err
+	} else {
+		marketInfo.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
+	}
+	if err, quoteTokenInfo := GetTokenInfo(db, marketParam.QuoteToken); err != nil {
+		return err
+	} else {
+		marketInfo.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
+	}
+	marketInfo.Creator = address.Bytes()
+	marketInfo.Timestamp = db.CurrentSnapshotBlock().Timestamp.Unix()
+	return nil
+}
+
 func RenderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
 	order.Id = param.OrderId
 	order.Address = address.Bytes()
 	order.TradeToken = param.TradeToken.Bytes()
 	order.QuoteToken = param.QuoteToken.Bytes()
-	_, tradeTokenInfo := GetTokenInfo(db, param.TradeToken)
-	order.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
-	_, quoteTokenInfo := GetTokenInfo(db, param.QuoteToken)
-	order.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
+	marketInfo, _ := GetMarketInfo(db, param.TradeToken, param.QuoteToken)
+	order.TradeTokenDecimals = int32(marketInfo.TradeTokenDecimals)
+	order.QuoteTokenDecimals = int32(marketInfo.QuoteTokenDecimals)
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = param.Price
@@ -624,6 +681,34 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 		toDivideLeaveAmt.Set(toDivideLeaveNewAmt)
 	}
 	return proportionAmt, finished
+}
+func GetMarketInfo(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, err error) {
+	if marketInfoBytes := db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken)); len(marketInfoBytes) > 0 {
+		if marketInfo, err = marketInfo.DeSerialize(marketInfoBytes); err != nil {
+			return nil, err
+		} else {
+			return marketInfo, nil
+		}
+	} else {
+		return nil, nil
+	}
+}
+
+func SaveMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) error {
+	if marketInfoBytes, err := marketInfo.Serialize(); err == nil {
+		db.SetStorage(GetMarketInfoKey(tradeToken, quoteToken), marketInfoBytes)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
+	re := make([]byte, len(marketKeyPrefix) + 2 * types.TokenTypeIdSize)
+	copy(re[0:len(marketKeyPrefix)], marketKeyPrefix)
+	copy(re[len(marketKeyPrefix):], tradeToken.Bytes())
+	copy(re[len(marketKeyPrefix)+ types.TokenTypeIdSize:], quoteToken.Bytes())
+	return re
 }
 
 func Uint64ToBytes(value uint64) []byte {
