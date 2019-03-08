@@ -60,7 +60,7 @@ func newMintInstructionSet() [256]operation {
 }
 
 func newOffchainMintInstructionSet() [256]operation {
-	instructionSet := newSimpleInstructionSet()
+	instructionSet := newOffchainSimpleInstructionSet()
 	instructionSet[ACCOUNTHEIGHT] = operation{
 		execute:       opOffchainAccountHeight,
 		gasCost:       constGasFunc(quickStepGas),
