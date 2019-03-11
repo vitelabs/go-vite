@@ -34,7 +34,7 @@ func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	}
 
 	param := new(cabi.ParamRegister)
-	if err = cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameRegister, block.Data); err != nil {
+	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 	if param.Gid == types.DELEGATE_GID {
@@ -43,7 +43,7 @@ func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	if err = checkRegisterData(cabi.MethodNameRegister, db, block, param); err != nil {
 		return quotaLeft, err
 	}
-	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
 	return quotaLeft, nil
 }
 
@@ -62,7 +62,7 @@ func checkRegisterData(methodName string, db vmctxt_interface.VmDatabase, block 
 
 func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamRegister)
-	cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameRegister, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, sendBlock.Data)
 
 	// Registration is not exist
 	// or registration is not active and belongs to sender account
@@ -82,7 +82,7 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	var hisAddrList []types.Address
 	if len(oldData) > 0 {
 		old := new(types.Registration)
-		cabi.ABIRegister.UnpackVariable(old, cabi.VariableNameRegistration, oldData)
+		cabi.ABIConsensusGroup.UnpackVariable(old, cabi.VariableNameRegistration, oldData)
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 			return nil, errors.New("register data exist")
 		}
@@ -93,18 +93,18 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	// Node addr belong to one name in a consensus group
 	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err = cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
+	err = cabi.ABIConsensusGroup.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, errors.New("node address is registered to another name before")
 	}
 	if err != nil {
 		// hisName not exist, update hisName
 		hisAddrList = append(hisAddrList, param.NodeAddr)
-		hisNameData, _ := cabi.ABIRegister.PackVariable(cabi.VariableNameHisName, param.Name)
+		hisNameData, _ := cabi.ABIConsensusGroup.PackVariable(cabi.VariableNameHisName, param.Name)
 		db.SetStorage(hisNameKey, hisNameData)
 	}
 
-	registerInfo, _ := cabi.ABIRegister.PackVariable(
+	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
 		cabi.VariableNameRegistration,
 		param.Name,
 		param.NodeAddr,
@@ -145,7 +145,7 @@ func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *led
 	}
 
 	param := new(cabi.ParamCancelRegister)
-	if err = cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameCancelRegister, block.Data); err != nil {
+	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 
@@ -158,18 +158,18 @@ func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *led
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, db, block, param, cabi.MethodNameCancelRegister) {
 		return quotaLeft, errors.New("check register condition failed")
 	}
-	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
 	return quotaLeft, nil
 }
 func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamCancelRegister)
-	cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameCancelRegister, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, sendBlock.Data)
 
 	snapshotBlock := db.CurrentSnapshotBlock()
 
 	key := cabi.GetRegisterKey(param.Name, param.Gid)
 	old := new(types.Registration)
-	err := cabi.ABIRegister.UnpackVariable(
+	err := cabi.ABIConsensusGroup.UnpackVariable(
 		old,
 		cabi.VariableNameRegistration,
 		db.GetStorage(&block.AccountAddress, key))
@@ -178,7 +178,7 @@ func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *
 	}
 
 	// update lock amount and loc start height
-	registerInfo, _ := cabi.ABIRegister.PackVariable(
+	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
 		cabi.VariableNameRegistration,
 		old.Name,
 		old.NodeAddr,
@@ -230,21 +230,21 @@ func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(cabi.ParamReward)
-	if err = cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameReward, block.Data); err != nil {
+	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 	if !util.IsSnapshotGid(param.Gid) {
 		return quotaLeft, errors.New("consensus group has no reward")
 	}
-	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return quotaLeft, nil
 }
 func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamReward)
-	cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameReward, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, sendBlock.Data)
 	key := cabi.GetRegisterKey(param.Name, param.Gid)
 	old := new(types.Registration)
-	err := cabi.ABIRegister.UnpackVariable(old, cabi.VariableNameRegistration, db.GetStorage(&block.AccountAddress, key))
+	err := cabi.ABIConsensusGroup.UnpackVariable(old, cabi.VariableNameRegistration, db.GetStorage(&block.AccountAddress, key))
 	if err != nil || sendBlock.AccountAddress != old.PledgeAddr {
 		return nil, errors.New("invalid owner")
 	}
@@ -253,7 +253,7 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 		panic(err)
 	}
 	if endIndex != old.RewardIndex {
-		registerInfo, _ := cabi.ABIRegister.PackVariable(
+		registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
 			cabi.VariableNameRegistration,
 			old.Name,
 			old.NodeAddr,
@@ -433,30 +433,30 @@ func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block 
 	}
 
 	param := new(cabi.ParamRegister)
-	if err = cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameUpdateRegistration, block.Data); err != nil {
+	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 
 	if err = checkRegisterData(cabi.MethodNameUpdateRegistration, db, block, param); err != nil {
 		return quotaLeft, err
 	}
-	block.Data, _ = cabi.ABIRegister.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return quotaLeft, nil
 }
 func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamRegister)
-	cabi.ABIRegister.UnpackMethod(param, cabi.MethodNameUpdateRegistration, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, sendBlock.Data)
 
 	key := cabi.GetRegisterKey(param.Name, param.Gid)
 	old := new(types.Registration)
-	err := cabi.ABIRegister.UnpackVariable(old, cabi.VariableNameRegistration, db.GetStorage(&block.AccountAddress, key))
+	err := cabi.ABIConsensusGroup.UnpackVariable(old, cabi.VariableNameRegistration, db.GetStorage(&block.AccountAddress, key))
 	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return nil, errors.New("register not exist or already canceled")
 	}
 	// check node addr belong to one name in a consensus group
 	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err = cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
+	err = cabi.ABIConsensusGroup.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
 	if err == nil && *hisName != param.Name {
 		// hisName exist
 		return nil, errors.New("node address is registered to another name before")
@@ -464,10 +464,10 @@ func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, blo
 	if err != nil {
 		// hisName not exist, update hisName
 		old.HisAddrList = append(old.HisAddrList, param.NodeAddr)
-		hisNameData, _ := cabi.ABIRegister.PackVariable(cabi.VariableNameHisName, param.Name)
+		hisNameData, _ := cabi.ABIConsensusGroup.PackVariable(cabi.VariableNameHisName, param.Name)
 		db.SetStorage(hisNameKey, hisNameData)
 	}
-	registerInfo, _ := cabi.ABIRegister.PackVariable(
+	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
 		cabi.VariableNameRegistration,
 		old.Name,
 		param.NodeAddr,

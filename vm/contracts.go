@@ -14,22 +14,6 @@ type precompiledContract struct {
 }
 
 var simpleContracts = map[types.Address]*precompiledContract{
-	types.AddressRegister: {
-		map[string]contracts.PrecompiledContractMethod{
-			cabi.MethodNameRegister:           &contracts.MethodRegister{},
-			cabi.MethodNameCancelRegister:     &contracts.MethodCancelRegister{},
-			cabi.MethodNameReward:             &contracts.MethodReward{},
-			cabi.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
-		},
-		cabi.ABIRegister,
-	},
-	types.AddressVote: {
-		map[string]contracts.PrecompiledContractMethod{
-			cabi.MethodNameVote:       &contracts.MethodVote{},
-			cabi.MethodNameCancelVote: &contracts.MethodCancelVote{},
-		},
-		cabi.ABIVote,
-	},
 	types.AddressPledge: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNamePledge:       &contracts.MethodPledge{},
@@ -37,15 +21,20 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		cabi.ABIPledge,
 	},
-	/* TODO not support consensus group this version
 	types.AddressConsensusGroup: {
 		map[string]contracts.PrecompiledContractMethod{
-			contracts.MethodNameCreateConsensusGroup:   &contracts.MethodCreateConsensusGroup{},
+			/*contracts.MethodNameCreateConsensusGroup:   &contracts.MethodCreateConsensusGroup{},
 			contracts.MethodNameCancelConsensusGroup:   &contracts.MethodCancelConsensusGroup{},
-			contracts.MethodNameReCreateConsensusGroup: &contracts.MethodReCreateConsensusGroup{},
+			contracts.MethodNameReCreateConsensusGroup: &contracts.MethodReCreateConsensusGroup{},*/
+			cabi.MethodNameRegister:           &contracts.MethodRegister{},
+			cabi.MethodNameCancelRegister:     &contracts.MethodCancelRegister{},
+			cabi.MethodNameReward:             &contracts.MethodReward{},
+			cabi.MethodNameUpdateRegistration: &contracts.MethodUpdateRegistration{},
+			cabi.MethodNameVote:               &contracts.MethodVote{},
+			cabi.MethodNameCancelVote:         &contracts.MethodCancelVote{},
 		},
-		contracts.ABIConsensusGroup,
-	},*/
+		cabi.ABIConsensusGroup,
+	},
 	types.AddressMintage: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},

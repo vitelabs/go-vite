@@ -21,18 +21,24 @@ const (
 )
 
 var (
-	AddressRegister, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	AddressVote, _           = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
 	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 
-	PrecompiledContractAddressList             = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
-	PrecompiledContractWithoutQuotaAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 
-func IsPrecompiledContractAddress(addr Address) bool {
-	for _, cAddr := range PrecompiledContractAddressList {
+func IsPrecompiledContractAddr(addr Address) bool {
+	addrBytes := addr.Bytes()
+	if helper.AllZero(addrBytes[:AddressSize-1]) && addrBytes[AddressSize-1] != byte(0) {
+		return true
+	}
+	return false
+}
+
+func IsPrecompiledContractAddrInUse(addr Address) bool {
+	for _, cAddr := range PrecompiledContractAddrList {
 		if cAddr == addr {
 			return true
 		}
@@ -40,8 +46,8 @@ func IsPrecompiledContractAddress(addr Address) bool {
 	return false
 }
 
-func IsPrecompiledContractWithoutQuotaAddress(addr Address) bool {
-	for _, cAddr := range PrecompiledContractWithoutQuotaAddressList {
+func IsPrecompiledContractWithoutQuotaAddressInUse(addr Address) bool {
+	for _, cAddr := range PrecompiledContractWithoutQuotaAddrList {
 		if cAddr == addr {
 			return true
 		}

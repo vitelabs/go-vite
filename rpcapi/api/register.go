@@ -32,16 +32,16 @@ func (r RegisterApi) String() string {
 }
 
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister, gid, name)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
 
 type RegistrationInfo struct {

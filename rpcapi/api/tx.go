@@ -183,7 +183,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, 
 		if param.ToAddr == nil {
 			return "", errors.New("toAddr is nil")
 		}
-		if types.IsPrecompiledContractAddress(*param.ToAddr) {
+		if types.IsPrecompiledContractAddrInUse(*param.ToAddr) {
 			if method, ok, err := vm.GetPrecompiledContract(*param.ToAddr, param.Data); !ok || err != nil {
 				return "", errors.New("precompiled contract method not exists")
 			} else {

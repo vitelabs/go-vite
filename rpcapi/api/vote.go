@@ -27,10 +27,10 @@ func (v VoteApi) String() string {
 }
 
 func (v *VoteApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIVote.PackMethod(abi.MethodNameVote, gid, name)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, gid, name)
 }
 func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
-	return abi.ABIVote.PackMethod(abi.MethodNameCancelVote, gid)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, gid)
 }
 
 var (

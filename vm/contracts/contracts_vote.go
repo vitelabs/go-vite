@@ -32,7 +32,7 @@ func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 	}
 
 	param := new(cabi.ParamVote)
-	if err = cabi.ABIVote.UnpackMethod(param, cabi.MethodNameVote, block.Data); err != nil {
+	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameVote, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
 	if param.Gid == types.DELEGATE_GID {
@@ -54,15 +54,15 @@ func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 		return quotaLeft, errors.New("check vote condition failed")
 	}
 
-	block.Data, _ = cabi.ABIVote.PackMethod(cabi.MethodNameVote, param.Gid, param.NodeName)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameVote, param.Gid, param.NodeName)
 	return quotaLeft, nil
 }
 
 func (p *MethodVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamVote)
-	cabi.ABIVote.UnpackMethod(param, cabi.MethodNameVote, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameVote, sendBlock.Data)
 	voteKey := cabi.GetVoteKey(sendBlock.AccountAddress, param.Gid)
-	voteStatus, _ := cabi.ABIVote.PackVariable(cabi.VariableNameVoteStatus, param.NodeName)
+	voteStatus, _ := cabi.ABIConsensusGroup.PackVariable(cabi.VariableNameVoteStatus, param.NodeName)
 	db.SetStorage(voteKey, voteStatus)
 	return nil, nil
 }
@@ -93,17 +93,17 @@ func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
-	err = cabi.ABIVote.UnpackMethod(gid, cabi.MethodNameCancelVote, block.Data)
+	err = cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelVote, block.Data)
 	if err != nil || *gid == types.DELEGATE_GID || !IsExistGid(db, *gid) {
 		return quotaLeft, errors.New("consensus group not exist or cannot cancel vote")
 	}
-	block.Data, _ = cabi.ABIVote.PackMethod(cabi.MethodNameCancelVote, *gid)
+	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelVote, *gid)
 	return quotaLeft, nil
 }
 
 func (p *MethodCancelVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	gid := new(types.Gid)
-	cabi.ABIVote.UnpackMethod(gid, cabi.MethodNameCancelVote, sendBlock.Data)
+	cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelVote, sendBlock.Data)
 	voteKey := cabi.GetVoteKey(sendBlock.AccountAddress, *gid)
 	db.SetStorage(voteKey, nil)
 	return nil, nil

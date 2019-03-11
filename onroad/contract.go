@@ -290,7 +290,7 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+	if types.IsPrecompiledContractWithoutQuotaAddressInUse(addr) {
 		return math.MaxUint64
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
@@ -305,7 +305,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	if w.gid == types.DELEGATE_GID {
 		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+			if types.IsPrecompiledContractWithoutQuotaAddressInUse(addr) {
 				quotas[addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)

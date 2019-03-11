@@ -252,7 +252,7 @@ func NewGenesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctx
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: types.AddressRegister,
+		AccountAddress: types.AddressConsensusGroup,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 
@@ -263,9 +263,9 @@ func NewGenesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctx
 	vmContext := vm_context.NewEmptyVmContextByTrie(trie.NewTrie(nil, nil, nil))
 	for index, addr := range config.BlockProducers {
 		nodeName := "s" + strconv.Itoa(index+1)
-		registerData, _ := abi.ABIRegister.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(0), uint64(0), []types.Address{addr})
+		registerData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), uint64(0), uint64(0), []types.Address{addr})
 		vmContext.SetStorage(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID), registerData)
-		hisNameData, _ := abi.ABIRegister.PackVariable(abi.VariableNameHisName, nodeName)
+		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, nodeName)
 		vmContext.SetStorage(abi.GetHisNameKey(addr, types.SNAPSHOT_GID), hisNameData)
 	}
 

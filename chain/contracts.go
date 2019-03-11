@@ -21,7 +21,7 @@ func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types
 	}
 
 	if block.Height == 1 {
-		if types.IsPrecompiledContractAddress(block.AccountAddress) {
+		if types.IsPrecompiledContractAddrInUse(block.AccountAddress) {
 			return &types.DELEGATE_GID, nil
 		}
 
@@ -44,7 +44,7 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 		return nil, nil
 	}
 
-	if types.IsPrecompiledContractAddress(*addr) {
+	if types.IsPrecompiledContractAddrInUse(*addr) {
 		return &types.DELEGATE_GID, nil
 	}
 

@@ -14,7 +14,7 @@ import (
 const (
 	jsonMintage = `
 	[
-		{"type":"function","name":"CancelPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
+		{"type":"function","name":"CancelMintPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
 		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
 		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"Burn","inputs":[]},
@@ -29,7 +29,7 @@ const (
 		{"type":"event","name":"changeTokenType","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}
 	]`
 
-	MethodNameMintageCancelPledge = "CancelPledge"
+	MethodNameMintageCancelPledge = "CancelMintPledge"
 	MethodNameMint                = "Mint"
 	MethodNameIssue               = "Issue"
 	MethodNameBurn                = "Burn"

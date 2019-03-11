@@ -596,7 +596,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if err != nil {
 		return nil, err
 	}
-	if block.AccountBlock.AccountAddress != types.AddressRegister &&
+	if block.AccountBlock.AccountAddress != types.AddressConsensusGroup &&
 		block.AccountBlock.AccountAddress != types.AddressMintage {
 		return nil, errors.New("invalid account address")
 	}
@@ -743,7 +743,7 @@ func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) 
 		depth = depth + 1
 		prevReceiveBlock := findPrevReceiveBlock(db, prevBlock)
 		prevBlock = db.GetAccountBlockByHash(&prevReceiveBlock.FromBlockHash)
-		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsPrecompiledContractAddress(prevReceiveBlock.AccountAddress) {
+		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsPrecompiledContractAddrInUse(prevReceiveBlock.AccountAddress) {
 			// some precompiled contracts' genesis block does not have prevblock
 			return false
 		}

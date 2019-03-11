@@ -14,7 +14,7 @@ func (c *chain) AccountType(address *types.Address) (uint64, error) {
 	monitorTags := []string{"chain", "AccountType"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
-	if types.IsPrecompiledContractAddress(*address) {
+	if types.IsPrecompiledContractAddrInUse(*address) {
 		return ledger.AccountTypeContract, nil
 	}
 
