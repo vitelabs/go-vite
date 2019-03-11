@@ -74,15 +74,6 @@ func (abm *AccountBlockMeta) Deserialize(buf []byte) error {
 	return nil
 }
 
-const (
-	BlockTypeSendCreate byte = iota + 1
-	BlockTypeSendCall
-	BlockTypeSendReward
-	BlockTypeReceive
-	BlockTypeReceiveError
-	BlockTypeSendRefund
-)
-
 type AccountBlock struct {
 	Meta *AccountBlockMeta `json:"-"`
 

@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 
@@ -11,15 +10,6 @@ import (
 	"testing"
 	"time"
 )
-
-type Bclass struct {
-	HAHA uint64
-}
-
-type Aclass struct {
-	b  Bclass
-	Ts []uint64
-}
 
 func TestComputeHash(t *testing.T) {
 	addr, _ := types.HexToAddress("vite_847e1672c9a775ca0f3c3a2d3bf389ca466e5501cbecdb7107")
@@ -49,25 +39,6 @@ func TestHash(t *testing.T) {
 	fmt.Println(hash.String())
 }
 
-func TestAccountBlock_Copy(t *testing.T) {
-	a := Aclass{
-		b: Bclass{
-			HAHA: 12,
-		},
-		Ts: []uint64{1, 2, 3},
-	}
-	fmt.Println(a.Ts)
-
-	d := a
-	fmt.Println(d.Ts)
-
-	d.Ts[0] = 10
-	fmt.Println(d.Ts)
-
-	fmt.Println(a.Ts)
-
-}
-
 type RpcAccountBlock struct {
 	*AccountBlock
 
@@ -83,13 +54,11 @@ func createAccountBlock(ledgerBlock *AccountBlock, confirmedTimes uint64) *RpcAc
 	}
 }
 
-func TestCreateAccountBlock(t *testing.T) {
+func BenchmarkAccountBlockHash(b *testing.B) {
 	accountAddress1, privateKey, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
 
-	now := time.Now()
-
-	block := &AccountBlock{
+	block := &PMAccountBlock{
 		PrevHash:       types.Hash{},
 		BlockType:      BlockTypeSendCall,
 		AccountAddress: accountAddress1,
@@ -100,18 +69,26 @@ func TestCreateAccountBlock(t *testing.T) {
 		Quota:          1,
 		Fee:            big.NewInt(0),
 		PublicKey:      privateKey.PubByte(),
-		SnapshotHash:   types.Hash{},
-		Timestamp:      &now,
-		Data:           []byte{'a', 'b', 'c', 'd', 'e'},
-		StateHash:      types.Hash{},
-		LogHash:        &types.Hash{},
-		Nonce:          []byte("test nonce test nonce"),
-		Signature:      []byte("test signature test signature test signature"),
+
+		Data:      []byte{'a', 'b', 'c', 'd', 'e'},
+		StateHash: types.Hash{},
+		LogHash:   &types.Hash{},
+		Nonce:     []byte("test nonce test nonce"),
+		Signature: []byte("test signature test signature test signature"),
 	}
 
-	rpcBlock := createAccountBlock(block, 12)
-	rpcBlock.Height = "1231231"
-	rpcBlock.Data = "12312312312312asdijfasd"
-	result, _ := json.Marshal(rpcBlock)
-	fmt.Println(string(result))
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		block.ComputeHash()
+	}
+	b.StopTimer()
+
+	firstHash := block.ComputeHash()
+	b.Log(firstHash)
+	for i := 0; i < 10000; i++ {
+		if firstHash != block.ComputeHash() {
+			b.Fatal("error!")
+		}
+	}
+
 }
