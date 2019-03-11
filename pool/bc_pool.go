@@ -839,7 +839,11 @@ func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.Hash
 	self.log.Debug("CurrentModifyToChain", "id", target.id(), "TailHeight", target.tailHeight, "HeadHeight", target.headHeight)
 	return self.chainpool.currentModifyToChain(target)
 }
-func clearChainBase(target *forkedChain) []commonBlock {
+
+/**
+If a block exists in chain and refer's chain at the same time, reduce the chain.
+*/
+func reduceChainByRefer(target *forkedChain) []commonBlock {
 	var r []commonBlock
 	tailH := target.tailHeight
 	base := target.referChain
@@ -859,6 +863,10 @@ func (self *BCPool) CurrentModifyToEmpty() error {
 		return nil
 	}
 	head := self.chainpool.diskChain.Head()
+	emptyChain := self.chainpool.findEmptyForHead(head)
+	if emptyChain != nil {
+		self.chainpool.currentModifyToChain(emptyChain)
+	}
 	self.chainpool.currentModify(head)
 	return nil
 }
