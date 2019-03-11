@@ -51,7 +51,10 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	chain := chain.NewChain(cfg)
 
 	// pool
-	pl := pool.NewPool(chain)
+	pl, err := pool.NewPool(chain)
+	if err != nil {
+		return nil, err
+	}
 	genesis := chain.GetGenesisSnapshotBlock()
 
 	// consensus

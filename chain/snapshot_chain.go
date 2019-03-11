@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"fmt"
+	"github.com/vitelabs/go-vite/monitor"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -85,6 +87,8 @@ func (c *chain) GetNeedSnapshotContent() ledger.SnapshotContent {
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	monitorTags := []string{"chain", "InsertSnapshotBlock"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+
+	monitor.LogEventNum("chain", "insert", 1)
 
 	batch := new(leveldb.Batch)
 

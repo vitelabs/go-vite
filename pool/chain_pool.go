@@ -635,3 +635,12 @@ func (self *chainPool) findOtherChainsByTail(cur *forkedChain, hash types.Hash, 
 	}
 	return result
 }
+func (self *chainPool) getCurrentBlocks(begin uint64, end uint64) (blocks []commonBlock) {
+	for i := begin; i <= end; i++ {
+		block := self.current.getBlock(i, true)
+		if block == nil {
+			return
+		}
+	}
+	return blocks
+}

@@ -28,6 +28,7 @@ type accountPool struct {
 	f             *accountSyncer
 	receivedIndex sync.Map
 	pool          *pool
+	hashBlacklist Blacklist
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
@@ -55,6 +56,17 @@ type accountPoolBlock struct {
 	fail     bool
 }
 
+func (self *accountPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *types.Hash) {
+	if self.block.IsReceiveBlock() {
+		accounts = append(accounts, self.block.FromBlockHash)
+	}
+	if self.Height() > types.GenesisHeight {
+		accounts = append(accounts, self.PrevHash())
+	}
+	snapshot = &self.block.SnapshotHash
+	return accounts, snapshot
+}
+
 func (self *accountPoolBlock) Height() uint64 {
 	return self.block.Height
 }
@@ -70,13 +82,14 @@ func (self *accountPoolBlock) Source() types.BlockSource {
 	return self.source
 }
 
-func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger) *accountPool {
+func newAccountPool(name string, rw *accountCh, v *ForkVersion, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}
 	pool.Id = name
 	pool.rw = rw
 	pool.version = v
 	pool.loopTime = time.Now()
 	pool.log = log.New("account", name)
+	pool.hashBlacklist = hashBlacklist
 	return pool
 }
 
@@ -414,17 +427,7 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 }
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return true
-			}
-		}
-	}
-	return false
+	return self.blockpool.contains(hash, height)
 }
 
 func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain {
@@ -447,9 +450,6 @@ func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain
 }
 
 func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) *forkedChain {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
 	block := self.chainpool.current.getBlock(height, disk)
 	if block != nil && block.Hash() == hash {
 		return self.chainpool.current
@@ -562,4 +562,112 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 }
 func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
+}
+func (self *accountPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
+	// if current size is empty, do nothing.
+	if self.chainpool.current.size() <= 0 {
+		return 0, errors.New("empty chainpool")
+	}
+
+	// if an compact operation is in progress, do nothing.
+	self.compactLock.Lock()
+	defer self.compactLock.UnLock()
+
+	// lock other chain insert
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	if info.offset == nil {
+		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+	} else {
+		block := current.getBlock(info.offset.Height+1, false)
+		if block == nil || block.PrevHash() != info.offset.Hash {
+			return uint64(0), errors.New("current chain modify.")
+		}
+	}
+
+	minH := info.offset.Height + 1
+	headH := current.headHeight
+	for i := minH; i <= headH; i++ {
+		block := self.getCurrentBlock(i)
+		if block == nil {
+			return uint64(i - minH), errors.New("current chain modify")
+		}
+		if self.hashBlacklist.Exists(block.Hash()) {
+			return uint64(i - minH), errors.New("block in blacklist")
+		}
+
+		item := NewItem(block, &self.address)
+
+		err := q.AddItem(item)
+		if err != nil {
+			return uint64(i - minH), err
+		}
+		info.offset.Hash = item.Hash()
+		info.offset.Height = item.Height()
+	}
+
+	return uint64(headH - minH), errors.New("all in")
+}
+
+func (self *accountPool) tryInsertItems(items []*Item) error {
+	// if current size is empty, do nothing.
+	if self.chainpool.current.size() <= 0 {
+		return errors.New("empty chainpool")
+	}
+
+	// if an compact operation is in progress, do nothing.
+	self.compactLock.Lock()
+	defer self.compactLock.UnLock()
+
+	// lock other chain insert
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		block := item.commonBlock
+
+		if block.Height() == current.tailHeight+1 &&
+			block.PrevHash() == current.tailHash {
+			block.resetForkVersion()
+			stat := self.v.verifyAccount(block.(*accountPoolBlock))
+			if !block.checkForkVersion() {
+				block.resetForkVersion()
+				return errors.New("new fork version")
+			}
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return errors.New("fail verifier")
+			case verifier.PENDING:
+				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
+				return errors.New("fail verifier pending.")
+			}
+			err, num := self.verifySuccess(stat.blocks)
+			if err != nil {
+				self.log.Error("account block write fail. ",
+					"hash", block.Hash(), "height", block.Height(), "error", err)
+				return err
+			}
+			i = i + int(num) - 1
+		} else {
+			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
+			return errors.New("tail not match")
+		}
+	}
+	return nil
 }

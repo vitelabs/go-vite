@@ -486,12 +486,19 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 
 // check blocks is a chain
 func (self *BCPool) checkChain(blocks []commonBlock) error {
-	smalletHeight := blocks[0].Height()
-
-	for i, b := range blocks {
-		if b.Height() != smalletHeight+uint64(i) {
+	var prev commonBlock
+	for _, b := range blocks {
+		if prev == nil {
+			prev = b
+			continue
+		}
+		if b.PrevHash() != prev.Hash() {
 			return errors.New("not a chain")
 		}
+		if b.Height()-1 != prev.Height() {
+			return errors.New("not a chain")
+		}
+		prev = b
 	}
 	return nil
 }
