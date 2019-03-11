@@ -30,7 +30,7 @@ type SendBlock struct {
 	Data      []byte
 }
 
-type PrecompiledContractMethod interface {
+type BuiltinContractMethod interface {
 	GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
 	DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error)

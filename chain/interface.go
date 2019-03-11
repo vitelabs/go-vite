@@ -99,8 +99,8 @@ type Chain interface {
 	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) (*big.Int, error)
 
 	// Pledge quota
-	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (uint64, error)
-	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]uint64, error)
+	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (types.Quota, error)
+	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]types.Quota, error)
 
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
 	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error)

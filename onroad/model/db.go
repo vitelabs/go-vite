@@ -164,7 +164,7 @@ func (ucf *OnroadSet) GetContractAddrList(gid *types.Gid) ([]types.Address, erro
 	if *gid == types.DELEGATE_GID {
 		commonAddrList := make([]types.Address, 0, len(addrList))
 		for _, v := range addrList {
-			if !types.IsPrecompiledContractAddrInUse(v) {
+			if !types.IsBuiltinContractAddrInUse(v) {
 				commonAddrList = append(commonAddrList, v)
 			}
 		}

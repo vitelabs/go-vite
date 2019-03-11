@@ -290,14 +290,14 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsPrecompiledContractWithoutQuotaAddressInUse(addr) {
+	if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
 		return math.MaxUint64
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuotas err", "error", err)
 	}
-	return quota
+	return quota.Current()
 }
 
 func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
@@ -305,7 +305,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	if w.gid == types.DELEGATE_GID {
 		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsPrecompiledContractWithoutQuotaAddressInUse(addr) {
+			if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
 				quotas[addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)
@@ -316,12 +316,13 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 			w.log.Error("GetPledgeQuotas err", "error", err)
 		} else {
 			for k, v := range commonQuotas {
-				quotas[k] = v
+				quotas[k] = v.Current()
 			}
 		}
 	} else {
 		var qRrr error
-		quotas, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
+		// TODO
+		_, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)
 		}

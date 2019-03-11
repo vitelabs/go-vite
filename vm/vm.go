@@ -63,7 +63,7 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
 			calcQuota: func(db vmctxt_interface.VmDatabase, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-				return quota.CalcQuota(db, addr, pledgeAmount, difficulty)
+				return quota.CalcQuotaForBlock(db, addr, pledgeAmount, difficulty)
 			},
 			canTransfer: func(db vmctxt_interface.VmDatabase, addr types.Address, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
@@ -154,6 +154,12 @@ func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmA
 	)
 }
 
+type GlobalStatus struct {
+	Seed          interface{}
+	SnapshotBlock ledger.SnapshotBlock
+}
+
+// func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *GlobalStatus) (block *vm_context.VmAccountBlock, isRetry bool, err error)
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "run", time.Now())
 	defer func() {
@@ -340,7 +346,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
+	if p, ok, err := GetBuiltinContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +413,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		vm.updateBlock(block, util.ErrDepth, 0)
 		return vm.blockList, NoRetry, util.ErrDepth
 	}
-	if p, ok, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := GetBuiltinContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
@@ -427,7 +433,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 							blockToSend.Data),
 						nil})
 			}
-			if err = vm.doSendBlockList(0, util.PrecompiledContractsSendGas); err == nil {
+			if err = vm.doSendBlockList(0, util.BuiltinContractsSendGas); err == nil {
 				return vm.blockList, NoRetry, nil
 			}
 		}
@@ -437,7 +443,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 		vm.updateBlock(block, err, 0)
 		if refundFlag {
-			if refundErr := vm.doSendBlockList(0, util.PrecompiledContractsSendGas); refundErr == nil {
+			if refundErr := vm.doSendBlockList(0, util.BuiltinContractsSendGas); refundErr == nil {
 				return vm.blockList, NoRetry, err
 			} else {
 				monitor.LogEvent("vm", "impossibleReceiveError")
@@ -743,8 +749,8 @@ func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) 
 		depth = depth + 1
 		prevReceiveBlock := findPrevReceiveBlock(db, prevBlock)
 		prevBlock = db.GetAccountBlockByHash(&prevReceiveBlock.FromBlockHash)
-		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsPrecompiledContractAddrInUse(prevReceiveBlock.AccountAddress) {
-			// some precompiled contracts' genesis block does not have prevblock
+		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsBuiltinContractAddrInUse(prevReceiveBlock.AccountAddress) {
+			// some built-in contracts' genesis block does not have prevblock
 			return false
 		}
 	}

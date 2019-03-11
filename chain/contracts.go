@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_context"
 	"time"
 )
@@ -21,7 +20,7 @@ func (c *chain) GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types
 	}
 
 	if block.Height == 1 {
-		if types.IsPrecompiledContractAddrInUse(block.AccountAddress) {
+		if types.IsBuiltinContractAddrInUse(block.AccountAddress) {
 			return &types.DELEGATE_GID, nil
 		}
 
@@ -44,7 +43,7 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 		return nil, nil
 	}
 
-	if types.IsPrecompiledContractAddrInUse(*addr) {
+	if types.IsBuiltinContractAddrInUse(*addr) {
 		return &types.DELEGATE_GID, nil
 	}
 
@@ -69,11 +68,13 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 	return gid, nil
 }
 
-func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]uint64, error) {
+func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]types.Quota, error) {
 	monitorTags := []string{"chain", "GetPledgeQuotas"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
+	// TODO
+	return nil, nil
 
-	pledgeDb, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	/*pledgeDb, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotas")
 		return nil, err
@@ -91,19 +92,20 @@ func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.
 			return nil, err
 		}
 	}
-	return quotas, nil
+	return quotas, nil*/
 }
-func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (uint64, error) {
+func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (types.Quota, error) {
 	monitorTags := []string{"chain", "GetPledgeQuota"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &beneficial)
+	// TODO
+	return types.Quota{}, nil
+	/*vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &beneficial)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuota")
 		return 0, err
 	}
 	pledgeAmount := abi.GetPledgeBeneficialAmount(vmContext, beneficial)
-	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount)
+	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount)*/
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {

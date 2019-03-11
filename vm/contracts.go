@@ -8,21 +8,21 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
-type precompiledContract struct {
-	m   map[string]contracts.PrecompiledContractMethod
+type builtinContract struct {
+	m   map[string]contracts.BuiltinContractMethod
 	abi abi.ABIContract
 }
 
-var simpleContracts = map[types.Address]*precompiledContract{
+var simpleContracts = map[types.Address]*builtinContract{
 	types.AddressPledge: {
-		map[string]contracts.PrecompiledContractMethod{
+		map[string]contracts.BuiltinContractMethod{
 			cabi.MethodNamePledge:       &contracts.MethodPledge{},
 			cabi.MethodNameCancelPledge: &contracts.MethodCancelPledge{},
 		},
 		cabi.ABIPledge,
 	},
 	types.AddressConsensusGroup: {
-		map[string]contracts.PrecompiledContractMethod{
+		map[string]contracts.BuiltinContractMethod{
 			/*contracts.MethodNameCreateConsensusGroup:   &contracts.MethodCreateConsensusGroup{},
 			contracts.MethodNameCancelConsensusGroup:   &contracts.MethodCancelConsensusGroup{},
 			contracts.MethodNameReCreateConsensusGroup: &contracts.MethodReCreateConsensusGroup{},*/
@@ -36,7 +36,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		cabi.ABIConsensusGroup,
 	},
 	types.AddressMintage: {
-		map[string]contracts.PrecompiledContractMethod{
+		map[string]contracts.BuiltinContractMethod{
 			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
 			cabi.MethodNameMint:                &contracts.MethodMint{},
 			cabi.MethodNameIssue:               &contracts.MethodIssue{},
@@ -48,7 +48,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 	},
 }
 
-func GetPrecompiledContract(addr types.Address, methodSelector []byte) (contracts.PrecompiledContractMethod, bool, error) {
+func GetBuiltinContract(addr types.Address, methodSelector []byte) (contracts.BuiltinContractMethod, bool, error) {
 	p, ok := simpleContracts[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {

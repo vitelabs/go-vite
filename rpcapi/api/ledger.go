@@ -363,7 +363,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 	if err != nil {
 		return nil, err
 	}
-	if prevQuota <= fittestQuota {
+	if prevQuota.Current() <= fittestQuota.Current() {
 		return fittestHash, nil
 	} else {
 		ok, err := calculatedPoW(l.chain, accAddr, *prevHash)
