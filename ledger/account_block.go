@@ -10,11 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 )
-
-var accountBlockLog = log15.New("module", "ledger/account_block")
 
 type AccountBlockMeta struct {
 	// Account id
