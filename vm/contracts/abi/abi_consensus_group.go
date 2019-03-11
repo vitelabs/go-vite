@@ -102,10 +102,10 @@ type ParamVote struct {
 
 // Consensus group variable keys
 func GetConsensusGroupKey(gid types.Gid) []byte {
-	return helper.LeftPadBytes(gid.Bytes(), types.HashSize)
+	return gid.Bytes()
 }
 func GetGidFromConsensusGroupKey(key []byte) types.Gid {
-	gid, _ := types.BytesToGid(key[types.HashSize-types.GidSize:])
+	gid, _ := types.BytesToGid(key)
 	return gid
 }
 func isConsensusGroupKey(key []byte) bool {
@@ -175,7 +175,8 @@ func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) [
 }
 
 func GetConsensusGroup(db StorageDatabase, gid types.Gid) *types.ConsensusGroupInfo {
-	data := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetConsensusGroupKey(gid), nil)
+	data := db.GetStorage(&types.AddressConsensusGroup, GetConsensusGroupKey(gid))
+
 	if len(data) > 0 {
 		consensusGroupInfo := new(types.ConsensusGroupInfo)
 		ABIConsensusGroup.UnpackVariable(consensusGroupInfo, VariableNameConsensusGroupInfo, data)
@@ -187,7 +188,7 @@ func GetConsensusGroup(db StorageDatabase, gid types.Gid) *types.ConsensusGroupI
 
 // Register readers
 func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
-	if value := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetRegisterKey(name, gid), nil); len(value) > 0 {
+	if value := db.GetStorage(&types.AddressConsensusGroup, GetRegisterKey(name, gid)); len(value) > 0 {
 		registration := new(types.Registration)
 		if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 			return registration.IsActive()
@@ -254,7 +255,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 
 func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Registration {
 	defer monitor.LogTime("vm", "GetRegistration", time.Now())
-	value := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetRegisterKey(name, gid), nil)
+	value := db.GetStorage(&types.AddressConsensusGroup, GetRegisterKey(name, gid))
 	registration := new(types.Registration)
 	if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 		return registration
@@ -265,7 +266,7 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Regi
 // Vote readers
 func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteInfo {
 	defer monitor.LogTime("vm", "GetVote", time.Now())
-	data := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetVoteKey(addr, gid), nil)
+	data := db.GetStorage(&types.AddressConsensusGroup, GetVoteKey(addr, gid))
 	if len(data) > 0 {
 		nodeName := new(string)
 		ABIConsensusGroup.UnpackVariable(nodeName, VariableNameVoteStatus, data)

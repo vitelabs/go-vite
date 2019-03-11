@@ -37,12 +37,12 @@ var simpleContracts = map[types.Address]*builtinContract{
 	},
 	types.AddressMintage: {
 		map[string]contracts.BuiltinContractMethod{
-			cabi.MethodNameMintageCancelPledge: &contracts.MethodMintageCancelPledge{},
-			cabi.MethodNameMint:                &contracts.MethodMint{},
-			cabi.MethodNameIssue:               &contracts.MethodIssue{},
-			cabi.MethodNameBurn:                &contracts.MethodBurn{},
-			cabi.MethodNameTransferOwner:       &contracts.MethodTransferOwner{},
-			cabi.MethodNameChangeTokenType:     &contracts.MethodChangeTokenType{},
+			cabi.MethodNameCancelMintPledge: &contracts.MethodMintageCancelPledge{},
+			cabi.MethodNameMint:             &contracts.MethodMint{},
+			cabi.MethodNameIssue:            &contracts.MethodIssue{},
+			cabi.MethodNameBurn:             &contracts.MethodBurn{},
+			cabi.MethodNameTransferOwner:    &contracts.MethodTransferOwner{},
+			cabi.MethodNameChangeTokenType:  &contracts.MethodChangeTokenType{},
 		},
 		cabi.ABIMintage,
 	},

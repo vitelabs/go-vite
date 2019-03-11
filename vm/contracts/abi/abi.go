@@ -6,7 +6,8 @@ import (
 )
 
 type StorageDatabase interface {
-	GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte
+	GetStorage(addr *types.Address, key []byte) []byte
+	NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator
 	NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator
 }
 

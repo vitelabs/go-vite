@@ -29,18 +29,18 @@ const (
 		{"type":"event","name":"changeTokenType","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}
 	]`
 
-	MethodNameMintageCancelPledge = "CancelMintPledge"
-	MethodNameMint                = "Mint"
-	MethodNameIssue               = "Issue"
-	MethodNameBurn                = "Burn"
-	MethodNameTransferOwner       = "TransferOwner"
-	MethodNameChangeTokenType     = "ChangeTokenType"
-	VariableNameTokenInfo         = "tokenInfo"
-	EventNameMint                 = "mint"
-	EventNameIssue                = "issue"
-	EventNameBurn                 = "burn"
-	EventNameTransferOwner        = "transferOwner"
-	EventNameChangeTokenType      = "changeTokenType"
+	MethodNameCancelMintPledge = "CancelMintPledge"
+	MethodNameMint             = "Mint"
+	MethodNameIssue            = "Issue"
+	MethodNameBurn             = "Burn"
+	MethodNameTransferOwner    = "TransferOwner"
+	MethodNameChangeTokenType  = "ChangeTokenType"
+	VariableNameTokenInfo      = "tokenInfo"
+	EventNameMint              = "mint"
+	EventNameIssue             = "issue"
+	EventNameBurn              = "burn"
+	EventNameTransferOwner     = "transferOwner"
+	EventNameChangeTokenType   = "changeTokenType"
 )
 
 var (
@@ -106,7 +106,7 @@ func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlo
 }
 
 func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
-	data := db.GetStorageBySnapshotHash(&types.AddressMintage, GetMintageKey(tokenId), nil)
+	data := db.GetStorage(&types.AddressMintage, GetMintageKey(tokenId))
 	if len(data) > 0 {
 		tokenInfo, _ := ParseTokenInfo(data)
 		return tokenInfo
@@ -139,7 +139,7 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 
 func GetTokenMapByOwner(db StorageDatabase, owner types.Address) map[types.TokenTypeId]*types.TokenInfo {
 	defer monitor.LogTime("vm", "GetTokenMapByOwner", time.Now())
-	tokenIdList := db.GetStorageBySnapshotHash(&types.AddressMintage, GetOwnerTokenIdListKey(owner), nil)
+	tokenIdList := db.GetStorage(&types.AddressMintage, GetOwnerTokenIdListKey(owner))
 	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {
 		tokenId, _ := types.BytesToTokenTypeId(tokenIdList[i*types.TokenTypeIdSize : (i+1)*types.TokenTypeIdSize])

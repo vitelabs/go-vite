@@ -35,7 +35,7 @@ type quotaDb interface {
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
-	GetCurrentQuota(addr types.Address) (uint64, int)
+	//TODO GetCurrentQuota(addr types.Address) (uint64, int)
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
@@ -114,12 +114,14 @@ func calcQuotaByPledgeAmountAndDifficulty(pledgeAmount, difficulty *big.Int) uin
 }
 
 func calcQuotaUsed(db quotaDb, addr types.Address) (uint64, uint64) {
-	quotaUsed, txNum := db.GetCurrentQuota(addr)
+	// TODO
+	return 0, 0
+	/*quotaUsed, txNum := db.GetCurrentQuota(addr)
 	if txNum == 0 {
 		return 0, 0
 	} else {
 		return quotaUsed, quotaUsed / uint64(txNum)
-	}
+	}*/
 }
 
 func calcQuotaByIndex(index int) uint64 {

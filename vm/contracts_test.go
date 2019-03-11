@@ -109,6 +109,9 @@ func TestContractsRefund(t *testing.T) {
 	addr6, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	block13Data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr6)
+	if err != nil {
+		panic(err)
+	}
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -1703,7 +1706,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 
 	// cancel pledge
-	block18Data, err := abi.ABIMintage.PackMethod(abi.MethodNameCancelPledge, tokenId)
+	block18Data, err := abi.ABIMintage.PackMethod(abi.MethodNameCancelMintPledge, tokenId)
 	hash18 := types.DataHash([]byte{1, 8})
 	block18 := &ledger.AccountBlock{
 		Height:         8,

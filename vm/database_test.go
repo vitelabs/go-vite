@@ -322,8 +322,8 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
 	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
-	consensusGroupKey, _ := types.BytesToHash(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))
-	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	consensusGroupKey := abi.GetConsensusGroupKey(types.SNAPSHOT_GID)
+	consensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
@@ -337,9 +337,12 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		addr1,
 		big.NewInt(0),
 		uint64(1))
-	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
-	consensusGroupKey, _ = types.BytesToHash(abi.GetConsensusGroupKey(types.DELEGATE_GID))
-	consensusGroupData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	if err != nil {
+		panic(err)
+	}
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey)] = consensusGroupData
+	consensusGroupKey = abi.GetConsensusGroupKey(types.DELEGATE_GID)
+	consensusGroupData, err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		int64(1),
@@ -353,12 +356,24 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		addr1,
 		big.NewInt(0),
 		uint64(1))
-	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey.Bytes())] = consensusGroupData
-	db.storageMap[types.AddressPledge] = make(map[string][]byte)
-	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr1))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	if err != nil {
+		panic(err)
+	}
+	db.storageMap[types.AddressConsensusGroup][string(consensusGroupKey)] = consensusGroupData
 
-	db.storageMap[types.AddressRegister] = make(map[string][]byte)
-	db.storageMap[types.AddressRegister][string(abi.GetRegisterKey("s1", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
-	db.storageMap[types.AddressRegister][string(abi.GetRegisterKey("s2", types.SNAPSHOT_GID))], _ = abi.ABIRegister.PackVariable(abi.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	db.storageMap[types.AddressPledge] = make(map[string][]byte)
+	db.storageMap[types.AddressPledge][string(abi.GetPledgeBeneficialKey(addr1))], err = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	if err != nil {
+		panic(err)
+	}
+
+	db.storageMap[types.AddressConsensusGroup][string(abi.GetRegisterKey("s1", types.SNAPSHOT_GID))], err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	if err != nil {
+		panic(err)
+	}
+	db.storageMap[types.AddressConsensusGroup][string(abi.GetRegisterKey("s2", types.SNAPSHOT_GID))], err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), uint64(1), uint64(0), []types.Address{addr1})
+	if err != nil {
+		panic(err)
+	}
 	return
 }

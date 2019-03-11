@@ -35,15 +35,15 @@ func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block
 		return quotaLeft, errors.New("invalid block data")
 	}
 	tokenId := new(types.TokenTypeId)
-	if err = cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, block.Data); err != nil {
+	if err = cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameCancelMintPledge, block.Data); err != nil {
 		return quotaLeft, util.ErrInvalidMethodParam
 	}
-	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameMintageCancelPledge, *tokenId)
+	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameCancelMintPledge, *tokenId)
 	return quotaLeft, nil
 }
 func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
-	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, sendBlock.Data)
+	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameCancelMintPledge, sendBlock.Data)
 	tokenInfo := cabi.GetTokenById(db, *tokenId)
 	if tokenInfo.PledgeAddr != sendBlock.AccountAddress ||
 		tokenInfo.PledgeAmount.Sign() == 0 ||

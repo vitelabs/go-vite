@@ -57,7 +57,7 @@ type MintageParams struct {
 }
 
 func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
-	return abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
+	return abi.ABIMintage.PackMethod(abi.MethodNameCancelMintPledge, tokenId)
 }
 
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
