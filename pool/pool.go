@@ -6,12 +6,10 @@ import (
 	"math/big"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/golang-lru"
-
-	"sync/atomic"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -126,7 +124,7 @@ type pool struct {
 
 	stat *recoverStat
 
-	addrCache *lru.Cache
+	addrCache     *lru.Cache
 	hashBlacklist Blacklist
 }
 

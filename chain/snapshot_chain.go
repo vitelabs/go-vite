@@ -1,10 +1,8 @@
 package chain
 
 import (
-	"time"
-
 	"fmt"
-	"github.com/vitelabs/go-vite/monitor"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"

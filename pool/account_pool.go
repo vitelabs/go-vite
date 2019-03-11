@@ -1,12 +1,11 @@
 package pool
 
 import (
+	"encoding/base64"
+	"fmt"
+	"math/rand"
 	"sync"
 	"time"
-
-	"math/rand"
-
-	"encoding/base64"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
