@@ -35,15 +35,16 @@ type quotaDb interface {
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
+	GetCurrentQuota(addr types.Address) (uint64, int)
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
-	quotaTotal, _, quotaUsed, err := CalcQuotaV3(db, beneficial, pledgeAmount, big.NewInt(0))
-	return types.NewQuota(quotaTotal, quotaUsed), err
+	quotaTotal, _, quotaUsed, quotaAvg, err := calcQuotaV3(db, beneficial, pledgeAmount, big.NewInt(0))
+	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
 }
 
 func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, quotaAddition, quotaUsed, err := CalcQuotaV3(db, addr, pledgeAmount, difficulty)
+	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, addr, pledgeAmount, difficulty)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -67,10 +68,20 @@ func CalcCreateQuota(fee *big.Int) uint64 {
 	return quotaForCreateContract
 }
 
-func CalcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed uint64, err error) {
+// Check whether current quota of a contract account is enough to receive a new block
+func CheckQuota(db quotaDb, addr types.Address, q types.Quota) bool {
+	// TODO optimize for receive error
+	if q.Current() >= q.Avg() {
+		return true
+	} else {
+		return false
+	}
+}
+
+func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64, err error) {
 	powFlag := difficulty != nil && difficulty.Sign() > 0
 	if powFlag && !CanPoW(db, addr) {
-		return 0, 0, 0, util.ErrCalcPoWTwice
+		return 0, 0, 0, 0, util.ErrCalcPoWTwice
 	}
 	quotaTotal = calcQuotaTotal(pledgeAmount, difficulty)
 	if powFlag {
@@ -78,8 +89,8 @@ func CalcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 	} else {
 		quotaAddition = 0
 	}
-	quotaUsed = calcQuotaUsed(db, addr)
-	return quotaTotal, quotaAddition, quotaUsed, nil
+	quotaUsed, quotaAvg = calcQuotaUsed(db, addr)
+	return quotaTotal, quotaAddition, quotaUsed, quotaAvg, nil
 }
 func calcQuotaTotal(pledgeAmount *big.Int, difficulty *big.Int) uint64 {
 	if (pledgeAmount == nil || pledgeAmount.Sign() <= 0) && (difficulty == nil || difficulty.Sign() <= 0) {
@@ -102,9 +113,13 @@ func calcQuotaByPledgeAmountAndDifficulty(pledgeAmount, difficulty *big.Int) uin
 	return calcQuotaByIndex(getIndexInSection(tmpFloat1))
 }
 
-func calcQuotaUsed(db quotaDb, addr types.Address) uint64 {
-	// TODO
-	return 0
+func calcQuotaUsed(db quotaDb, addr types.Address) (uint64, uint64) {
+	quotaUsed, txNum := db.GetCurrentQuota(addr)
+	if txNum == 0 {
+		return 0, 0
+	} else {
+		return quotaUsed, quotaUsed / uint64(txNum)
+	}
 }
 
 func calcQuotaByIndex(index int) uint64 {

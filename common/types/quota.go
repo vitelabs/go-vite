@@ -3,13 +3,14 @@ package types
 type Quota struct {
 	current uint64
 	total   uint64
+	avg     uint64
 }
 
-func NewQuota(total, used uint64) Quota {
+func NewQuota(total, used, avg uint64) Quota {
 	if total > used {
-		return Quota{total - used, total}
+		return Quota{total - used, total, avg}
 	} else {
-		return Quota{0, total}
+		return Quota{0, total, avg}
 	}
 }
 
@@ -26,4 +27,8 @@ func (q *Quota) Current() uint64 {
 // Quota used of a single account in past 74 snapshot blocks and unconfirmed account blocks
 func (q *Quota) Used() uint64 {
 	return q.total - q.current
+}
+
+func (q *Quota) Avg() uint64 {
+	return q.avg
 }
