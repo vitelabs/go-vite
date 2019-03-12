@@ -30,9 +30,10 @@ func createBlock() *PMAccountBlock {
 		AccountAddress: accountAddress1,
 		PublicKey:      privateKey.PubByte(),
 		ToAddress:      accountAddress2,
-		Amount:         big.NewInt(1000),
-		TokenId:        ViteTokenId,
-		FromBlockHash:  fromBlockHash,
+
+		Amount:        big.NewInt(1000),
+		TokenId:       ViteTokenId,
+		FromBlockHash: fromBlockHash,
 
 		Data: []byte{'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e',
 			'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e'},
@@ -47,7 +48,7 @@ func createBlock() *PMAccountBlock {
 		Signature:  signature,
 	}
 }
-func BenchmarkAccountBlockHash(b *testing.B) {
+func BenchmarkAccountBlock_ComputeHash(b *testing.B) {
 	b.StopTimer()
 	block := createBlock()
 	b.StartTimer()

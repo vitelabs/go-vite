@@ -48,7 +48,7 @@ type Chain interface {
 	RegisterPrepareDeleteSnapshotBlocks(listener PrepareDeleteSnapshotBlocksListener) (eventHandler uint64)
 	RegisterDeleteSnapshotBlocks(listener DeleteSnapshotBlocksListener) (eventHandler uint64)
 
-	UnRegister(eventHandler uint64) (err error)
+	UnRegister(eventHandler uint64)
 
 	/*
 	 *	C(Create)
@@ -64,10 +64,10 @@ type Chain interface {
 	 */
 
 	// TODO contain the account block of toHash
-	DeleteAccountBlocks(addr *types.Address, toHash *types.Hash) (map[types.Address][]*ledger.AccountBlock, error)
+	// DeleteAccountBlocks(addr *types.Address, toHash *types.Hash) (map[types.Address][]*ledger.AccountBlock, error)
 
 	// TODO contain the account block of toHeight
-	DeleteAccountBlocksToHeight(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
+	// DeleteAccountBlocksToHeight(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 
 	// contain the snapshot block of toHash, delete all blocks higher than snapshot line
 	DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
@@ -89,15 +89,14 @@ type Chain interface {
 	// query receive block of send block
 	GetReceiveAbBySendAb(sendBlockHash *types.Hash) (*ledger.AccountBlock, error)
 
-	// query send block of receive block
-	GetSendAbByReceiveAb(receiveBlockHash *types.Hash) (*ledger.AccountBlock, error)
-
 	// is received
 	IsReceived(sendBlockHash *types.Hash) (bool, error)
 
 	// high to low, contains the block that has the blockHash
 	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
+	// get call depth
+	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
 	// ====== Query snapshot block ======
 
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error)
@@ -141,6 +140,8 @@ type Chain interface {
 	GetSnapshotContentBySbHash(hash *types.Hash) (ledger.SnapshotContent, error)
 
 	// ====== Query unconfirmed pool ======
+	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
+
 	GetContentNeedSnapshot() ledger.SnapshotContent
 	GenSnapshotState(snapshotContent ledger.SnapshotContent) (state interface{}, err error)
 

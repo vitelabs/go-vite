@@ -1,22 +1,9 @@
 package chain_genesis
 
-type Genesis struct {
-	indexDB IndexDB
-	blockDB BlockDB
+func InitLedger(indexDB IndexDB, blockDB BlockDB) error {
+	return nil
 }
 
-func NewGenesis(indexDB IndexDB, blockDB BlockDB) *Genesis {
-	return &Genesis{}
-}
-
-func (genesis *Genesis) InitLedger() bool {
-	return false
-}
-
-func (genesis *Genesis) check() {
-
-}
-
-func (genesis *Genesis) destroyDB() {
-
+func CheckLedger(indexDB IndexDB, blockDB BlockDB) bool {
+	return true
 }

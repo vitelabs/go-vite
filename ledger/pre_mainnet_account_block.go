@@ -3,6 +3,7 @@ package ledger
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -14,14 +15,14 @@ import (
 var accountBlockLog = log15.New("module", "ledger/account_block")
 
 const (
-	BlockTypeSendCreate   = byte(1)
-	BlockTypeSendCall     = byte(2)
-	BlockTypeSendReward   = byte(3)
-	BlockTypeReceive      = byte(4)
-	BlockTypeReceiveError = byte(5)
-	BlockTypeSendRefund   = byte(6)
+	BlockTypeSendCreate   = byte(1) // send
+	BlockTypeSendCall     = byte(2) // send
+	BlockTypeSendReward   = byte(3) // send
+	BlockTypeReceive      = byte(4) // receive
+	BlockTypeReceiveError = byte(5) // receive
+	BlockTypeSendRefund   = byte(6) // send
 
-	BlockTypeGenesisReceive = byte(7)
+	BlockTypeGenesisReceive = byte(7) // receive
 )
 
 type PMAccountBlock struct {
@@ -36,22 +37,22 @@ type PMAccountBlock struct {
 	PublicKey ed25519.PublicKey `json:"publicKey"`
 	ToAddress types.Address     `json:"toAddress"` // 5
 
-	Amount  *big.Int          `json:"amount"`  // 6
+	Amount  *big.Int          `json:"amount"`  // 6	padding 32 bytes
 	TokenId types.TokenTypeId `json:"tokenId"` // 7
 
 	FromBlockHash types.Hash `json:"fromBlockHash"` // 8
 
-	Data []byte `json:"data"` // 9
+	Data []byte `json:"data"` // 9	hash
 
 	Quota uint64   `json:"quota"`
-	Fee   *big.Int `json:"fee"` // 10
+	Fee   *big.Int `json:"fee"` // 10 padding 32 bytes
 
 	StateHash types.Hash `json:"stateHash"`
 
 	LogHash *types.Hash `json:"logHash"` // 11
 
 	Difficulty *big.Int `json:"difficulty"`
-	Nonce      []byte   `json:"nonce"` // 12
+	Nonce      []byte   `json:"nonce"` // 12 padding 8 bytes
 
 	SendBlockList []*PMAccountBlock `json:sendBlockList` // 13
 
@@ -100,6 +101,7 @@ func (ab *PMAccountBlock) Copy() *PMAccountBlock {
 func (ab *PMAccountBlock) hashSourceLength() int {
 	// 1, 2, 3 , 4
 	size := 1 + types.HashSize + 8 + types.AddressSize
+
 	if ab.IsSendBlock() {
 		// 5, 6, 7
 		size += types.AddressSize + len(ab.Amount.Bytes()) + types.TokenTypeIdSize
@@ -114,22 +116,15 @@ func (ab *PMAccountBlock) hashSourceLength() int {
 	}
 
 	// 10
-	if ab.Fee != nil {
-		size += len(ab.Fee.Bytes())
-	}
+	size += types.HashSize
 
 	// 11
 	if ab.LogHash != nil {
 		size += types.HashSize
 	}
 
-	// 12
-	size += len(ab.Nonce)
-
-	// 13
-	for _, sendBlock := range ab.SendBlockList {
-		size += sendBlock.hashSourceLength()
-	}
+	// 12, 13
+	size += 8 + types.HashSize*len(ab.SendBlockList)
 
 	return size
 }
@@ -153,8 +148,8 @@ func (ab *PMAccountBlock) hashSource() []byte {
 	if ab.IsSendBlock() {
 		// ToAddress
 		source = append(source, ab.ToAddress.Bytes()...)
-		// Amount
-		source = append(source, ab.Amount.Bytes()...)
+		// Amount(fixed 32 bytes, left padding)
+		source = append(source, common.LeftPadBytes(ab.Amount.Bytes(), 32)...)
 		// TokenId
 		source = append(source, ab.TokenId.Bytes()...)
 	} else {
@@ -168,22 +163,24 @@ func (ab *PMAccountBlock) hashSource() []byte {
 		source = append(source, dataHashBytes...)
 	}
 
-	// Fee
+	// Fee(fixed 32 bytes, left padding)
+	var feeBytes []byte
 	if ab.Fee != nil {
-		source = append(source, ab.Fee.Bytes()...)
+		feeBytes = ab.Fee.Bytes()
 	}
+	source = append(source, common.LeftPadBytes(feeBytes, 32)...)
 
 	// LogHash
 	if ab.LogHash != nil {
 		source = append(source, ab.LogHash.Bytes()...)
 	}
 
-	// Nonce
-	source = append(source, ab.Nonce...)
+	// Nonce(fixed 8 bytes, left padding)
+	source = append(source, common.LeftPadBytes(ab.Nonce, 8)...)
 
-	// Send block list
+	// Send block hash list
 	for _, sendBlock := range ab.SendBlockList {
-		source = append(source, sendBlock.hashSource()...)
+		source = append(source, sendBlock.Hash.Bytes()...)
 	}
 	return source
 }
