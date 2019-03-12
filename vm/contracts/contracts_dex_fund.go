@@ -485,6 +485,9 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 	if err = settleUserFees(db, fee); err != nil {
 		return []*SendBlock{}, err
 	}
+	if err = dex.AddDonateFeeSum(db); err != nil {
+		return []*SendBlock{}, err
+	}
 	if err = dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken); err != nil {
 		return []*SendBlock{}, err
 	}
@@ -836,12 +839,13 @@ func doSettleVxFunds(db vmctxt_interface.VmDatabase, addressBytes []byte, amtCha
 func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 	var (
 		feeSumsMap map[uint64]*dex.FeeSumByPeriod
+		donateFeeSums  = make(map[uint64]*big.Int)
 		vxSumFunds *dex.VxFunds
 		err        error
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap, err = dex.GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
+	if feeSumsMap, donateFeeSums, err = dex.GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
 		return err
 	} else if len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
 		return nil
@@ -882,6 +886,11 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 		}
 
 		dex.MarkFeeSumAsFeeDivided(db, fee, pId)
+	}
+
+	for pIdForDonateFee, donateFeeSum := range donateFeeSums {
+		feeSumMap[ledger.ViteTokenId] = new(big.Int).Add(feeSumMap[ledger.ViteTokenId], donateFeeSum)
+		dex.DeleteDonateFeeSum(db, pIdForDonateFee)
 	}
 
 	var (

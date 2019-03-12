@@ -43,6 +43,15 @@ func TestMatcher(t *testing.T) {
 	bookNameToMakeForBuy := getBookIdToMakeForOrder(buy5)
 	assert.Equal(t,104, fromOrderIdToInt(mc.books[bookNameToMakeForBuy].header))
 
+	orders, size, err := mc.PeekOrdersFromMarket(bookNameToMakeForBuy, 10)
+	assert.Equal(t, 5, len(orders))
+	assert.Equal(t, int32(5), size)
+	assert.Equal(t, 104, fromOrderIdBytesToInt(orders[0].Id))
+	assert.Equal(t, 102, fromOrderIdBytesToInt(orders[1].Id))
+	assert.Equal(t, 101, fromOrderIdBytesToInt(orders[2].Id))
+	assert.Equal(t, 103, fromOrderIdBytesToInt(orders[3].Id))
+	assert.Equal(t, 105, fromOrderIdBytesToInt(orders[4].Id))
+
 	sell1 := newOrderInfo(201, ETH, VITE, true, Limited, "100.1", 10000, time.Now().UnixNano()/1000)
 	sell2 := newOrderInfo(202, ETH, VITE, true, Limited, "100.02", 5000, time.Now().UnixNano()/1000)
 	mc.MatchOrder(sell1)
@@ -79,7 +88,7 @@ func TestMatcher(t *testing.T) {
 	assert.Equal(t, 11, len(localStorage.logs))
 
 	buy4OrderId, _ := NewOrderId(orderIdBytesFromInt(104))
-	pl, _, _ , err := mc.books[bookIdToMakeForSell].getByKey(buy4OrderId)
+	pl, _, _ , err = mc.books[bookIdToMakeForSell].getByKey(buy4OrderId)
 	assert.True(t, err != nil)
 	assert.True(t, pl == nil)
 

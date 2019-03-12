@@ -98,6 +98,32 @@ func (mc *matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipLi
 	}
 }
 
+func (mc *matcher) PeekOrdersFromMarket(makerBookId SkipListId, len int32) ([]*Order, int32, error) {
+	var (
+		book *skiplist
+		err  error
+		i int32 = 0
+	)
+	if book, err = mc.getBookById(makerBookId); err != nil {
+		return nil, 0, err
+	}
+	if book.length == 0 {
+		return nil, 0, nil
+	}
+	orders := make([]*Order, 0, len)
+	currentId := book.header
+	for ; i < book.length && i < len; i++ {
+		if pl, forward, _, err := book.getByKey(currentId); err != nil {
+			return nil, book.length, err
+		} else {
+			od, _ := (*pl).(Order)
+ 			orders = append(orders, &od)
+			currentId = forward
+		}
+	}
+	return orders, book.length, nil
+}
+
 func (mc *matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId) (err error) {
 	var book *skiplist
 	if book, err = mc.getBookById(makerBookId); err != nil {

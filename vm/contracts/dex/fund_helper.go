@@ -25,6 +25,7 @@ var (
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
 	feeSumKeyPrefix     = []byte("fS:")    // feeSum:periodId
+	donateFeeSumKeyPrefix = []byte("dfS:")    // donateFeeSum:periodId, feeSum for new market fee exceed
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
 	VxFundKeyPrefix          = []byte("vxF:")    // vxFund:types.Address
@@ -39,6 +40,7 @@ var (
 	VxMinedAmtPerPeriod = new(big.Int).Mul(commonTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
 	NewMarketFeeAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+	NewMarketFeeDonateAmount = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
 
 	MarketExistsError = errors.New("market already exists")
 	MarketNotExistsError = errors.New("market not exists")
@@ -394,34 +396,38 @@ func getFeeSumByKeyFromStorage(db vmctxt_interface.VmDatabase, feeKey []byte) (f
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (map[uint64]*FeeSumByPeriod, error) {
+func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int, error) {
 	var (
 		dexFeeSums  = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum  *FeeSumByPeriod
+		donateFeeSums  = make(map[uint64]*big.Int)
 		err        error
 	)
 	for {
 		if dexFeeSum, err = GetFeeSumByPeriodIdFromStorage(db, periodId); err != nil {
-			return nil, err
+			return nil, nil, err
 		} else {
 			if dexFeeSum == nil {
 				if periodId > 0 {
 					periodId --
 					continue
 				} else {
-					return nil, nil
+					return nil, nil, nil
 				}
 			} else {
 				if !dexFeeSum.FeeDivided {
 					dexFeeSums[periodId] = dexFeeSum
+					if donateFeeSum := GetDonateFeeSum(db, periodId); donateFeeSum.Sign() > 0 {// when donateFee exists feeSum must exists
+						donateFeeSums[periodId] = donateFeeSum
+					}
 				} else {
-					return dexFeeSums, nil
+					return dexFeeSums, donateFeeSums, nil
 				}
 			}
 		}
 		periodId = dexFeeSum.LastValidPeriod
 		if periodId == 0 {
-			return dexFeeSums, nil
+			return dexFeeSums, donateFeeSums, nil
 		}
 	}
 }
@@ -639,6 +645,32 @@ func GetCurrentPeriodIdFromStorage(db vmctxt_interface.VmDatabase) (uint64, erro
 	return reader.TimeToIndex(*db.CurrentSnapshotBlock().Timestamp)
 }
 
+func GetDonateFeeSum(db vmctxt_interface.VmDatabase, periodId uint64) *big.Int {
+	if amountBytes := db.GetStorage(&types.AddressDexFund, GetDonateFeeSumKey(periodId)); len(amountBytes) > 0 {
+		return new(big.Int).SetBytes(amountBytes)
+	} else {
+		return big.NewInt(0)
+	}
+}
+
+func AddDonateFeeSum(db vmctxt_interface.VmDatabase) error {
+	if period, err := GetCurrentPeriodIdFromStorage(db); err != nil {
+		return err
+	} else {
+		donateFeeSum := GetDonateFeeSum(db, period)
+		db.SetStorage(GetDonateFeeSumKey(period), new(big.Int).Add(donateFeeSum, NewMarketFeeDonateAmount).Bytes())
+		return nil
+	}
+}
+
+func DeleteDonateFeeSum(db vmctxt_interface.VmDatabase, period uint64) {
+	db.SetStorage(GetDonateFeeSumKey(period), nil)
+}
+
+func GetDonateFeeSumKey(periodId uint64) []byte {
+	return append(donateFeeSumKeyPrefix, Uint64ToBytes(periodId)...)
+}
+
 func GetTokenInfo(db vmctxt_interface.VmDatabase, tokenId types.TokenTypeId) (error, *types.TokenInfo) {
 	if tokenInfo := cabi.GetTokenById(db, tokenId); tokenInfo == nil {
 		return fmt.Errorf("token is invalid"), nil
@@ -682,6 +714,7 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 	}
 	return proportionAmt, finished
 }
+
 func GetMarketInfo(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, err error) {
 	if marketInfoBytes := db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken)); len(marketInfoBytes) > 0 {
 		if marketInfo, err = marketInfo.DeSerialize(marketInfoBytes); err != nil {
