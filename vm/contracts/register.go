@@ -193,7 +193,6 @@ func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *
 	if old.Amount.Sign() > 0 {
 		return []*SendBlock{
 			{
-				block,
 				sendBlock.AccountAddress,
 				ledger.BlockTypeSendCall,
 				old.Amount,
@@ -268,7 +267,6 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 		if reward != nil && reward.Sign() > 0 {
 			return []*SendBlock{
 				{
-					block,
 					param.BeneficialAddr,
 					ledger.BlockTypeSendReward,
 					reward,

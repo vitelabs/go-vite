@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"testing"
@@ -56,5 +57,24 @@ func TestHas(t *testing.T) {
 		if result != test.result {
 			t.Fatalf("analysis result error, code: [%v], dest: %v, expected: %v, got: %v", test.code, test.dest, test.result, result)
 		}
+	}
+}
+
+func TestContainsAuxCode(t *testing.T) {
+	code := "608060405260043610604c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680632d16c91a146052578063ba3d93d614609f57604c565b60006000fd5b348015605e5760006000fd5b5060896004803603602081101560745760006000fd5b810190808035906020019092919050505060c8565b6040518082815260200191505060405180910390f35b34801560ab5760006000fd5b5060b260dd565b6040518082815260200191505060405180910390f35b60008160006000505401905060d8565b919050565b6000600060005054905060eb565b9056fea165627a7a72305820614b83ac7ad21936973699f9740d3cdc61d467686393dccfdda77dc053f21b7c0029"
+	codeB, _ := hex.DecodeString(code)
+	if !containsAuxCode(codeB) {
+		t.Fatalf("check contains aux code failed")
+	}
+}
+
+func TestContainsStatusCode2(t *testing.T) {
+	code := []byte{byte(HEIGHT), byte(PUSH1), 0}
+	if !ContainsStatusCode(code) {
+		t.Fatalf("check contains status code failed")
+	}
+	code = []byte{byte(PUSH1), byte(HEIGHT)}
+	if ContainsStatusCode(code) {
+		t.Fatalf("check contains status code failed")
 	}
 }

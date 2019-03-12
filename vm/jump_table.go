@@ -54,6 +54,12 @@ func newSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
+	instructionSet[SEED] = operation{
+		execute:       opSeed,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
 	instructionSet[CALLER] = operation{
 		execute:       opCaller,
 		gasCost:       constGasFunc(quickStepGas),
@@ -70,12 +76,6 @@ func newSimpleInstructionSet() [256]operation {
 		execute:       opBalance,
 		gasCost:       constGasFunc(balanceGas),
 		validateStack: makeStackFunc(2, 1),
-		valid:         true,
-	}
-	instructionSet[BLOCKHASH] = operation{
-		execute:       opBlockHash,
-		gasCost:       constGasFunc(extStepGas),
-		validateStack: makeStackFunc(1, 1),
 		valid:         true,
 	}
 	instructionSet[TIMESTAMP] = operation{
@@ -182,6 +182,12 @@ func newOffchainSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
+	instructionSet[SEED] = operation{
+		execute:       opOffchainSeed,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
 	instructionSet[CALLER] = operation{
 		execute:       opOffchainCaller,
 		gasCost:       constGasFunc(quickStepGas),
@@ -197,12 +203,6 @@ func newOffchainSimpleInstructionSet() [256]operation {
 	instructionSet[BALANCE] = operation{
 		execute:       opOffchainBalance,
 		gasCost:       constGasFunc(balanceGas),
-		validateStack: makeStackFunc(2, 1),
-		valid:         true,
-	}
-	instructionSet[BLOCKHASH] = operation{
-		execute:       opOffchainBlockHash,
-		gasCost:       constGasFunc(extStepGas),
 		validateStack: makeStackFunc(1, 1),
 		valid:         true,
 	}

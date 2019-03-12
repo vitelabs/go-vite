@@ -31,7 +31,6 @@ func InitQuotaConfig(isTestParam bool) {
 }
 
 type quotaDb interface {
-	GetStorage(addr *types.Address, key []byte) []byte
 	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
 	CurrentSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock

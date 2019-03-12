@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 )
@@ -64,4 +65,36 @@ func codeBitmap(code []byte) bitvec {
 		}
 	}
 	return bits
+}
+
+var (
+	auxCodePrefix  = []byte{0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
+	auxCodeSuffix  = []byte{0x00, 0x29}
+	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED, DELEGATECALL}
+)
+
+// Check whether code includes status reading opcode
+func ContainsStatusCode(code []byte) bool {
+	if containsAuxCode(code) {
+		code = code[:len(code)-43]
+	}
+	m := codeBitmap(code)
+	for i := uint64(0); i < uint64(len(code)); i++ {
+		if m.codeSegment(i) {
+			for _, c := range statusCodeList {
+				if opCode(code[i]) == c {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func containsAuxCode(code []byte) bool {
+	l := len(code)
+	if l > 43 && bytes.Equal(code[l-43:l-34], auxCodePrefix) && bytes.Equal(code[l-2:], auxCodeSuffix) {
+		return true
+	}
+	return false
 }

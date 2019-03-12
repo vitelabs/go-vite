@@ -143,7 +143,6 @@ func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *le
 	}
 	return []*SendBlock{
 		{
-			block,
 			sendBlock.AccountAddress,
 			ledger.BlockTypeSendCall,
 			param.Amount,

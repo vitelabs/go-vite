@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 func opStop(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
@@ -348,17 +347,16 @@ func opAddress(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([
 }
 
 func opBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	addrBig, tokenTypeIdBig := stack.pop(), stack.pop()
-	address, _ := types.BigToAddress(addrBig)
+	tokenTypeIdBig := stack.pop()
 	tokenTypeId, _ := types.BigToTokenTypeId(tokenTypeIdBig)
-	stack.push(c.intPool.get().Set(c.db.GetBalance(&address, &tokenTypeId)))
+	stack.push(c.intPool.get().Set(c.db.GetBalance(&c.block.AccountAddress, &tokenTypeId)))
 
-	c.intPool.put(addrBig, tokenTypeIdBig)
+	c.intPool.put(tokenTypeIdBig)
 	return nil, nil
 }
 
 func opOffchainBalance(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	c.intPool.put(stack.pop(), stack.pop())
+	c.intPool.put(stack.pop())
 	stack.push(c.intPool.getZero())
 	return nil, nil
 }
@@ -428,6 +426,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 func opExtCodeSize(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	addrBig := stack.peek()
 	contractAddress, _ := types.BigToAddress(addrBig)
+	// TODO getContractCode by global status if addr is not self
 	_, code := util.GetContractCode(c.db, &contractAddress)
 	addrBig.SetInt64(int64(len(code)))
 	return nil, nil
@@ -441,6 +440,7 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack
 		length     = stack.pop()
 	)
 	contractAddress, _ := types.BigToAddress(addrBig)
+	// TODO getContractCode by global status if addr is not self
 	_, code := util.GetContractCode(c.db, &contractAddress)
 	codeCopy := helper.GetDataBig(code, codeOffset, length)
 	memory.set(memOffset.Uint64(), length.Uint64(), codeCopy)
@@ -472,33 +472,8 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, memory *memory, stack *st
 	return nil, nil
 }
 
-func opBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	tmp := stack.pop()
-	height := tmp.Uint64()
-	currentHeight := c.db.CurrentSnapshotBlock().Height
-	minHeight := uint64(0)
-	if currentHeight > getBlockByHeightLimit {
-		minHeight = currentHeight - getBlockByHeightLimit
-	}
-	if height > minHeight && height <= currentHeight {
-		block, _ := c.db.GetSnapshotBlockByHeight(height)
-		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
-	} else {
-		stack.push(c.intPool.getZero())
-	}
-
-	c.intPool.put(tmp)
-	return nil, nil
-}
-
-func opOffchainBlockHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	c.intPool.put(stack.pop())
-	stack.push(c.intPool.getZero())
-	return nil, nil
-}
-
 func opTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetInt64((c.db.CurrentSnapshotBlock().Timestamp.Unix()))))
+	stack.push(helper.U256(c.intPool.get().SetInt64(vm.globalStatus.SnapshotBlock.Timestamp.Unix())))
 	return nil, nil
 }
 
@@ -508,7 +483,7 @@ func opOffchainTimestamp(pc *uint64, vm *VM, c *contract, memory *memory, stack 
 }
 
 func opHeight(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetUint64(c.db.CurrentSnapshotBlock().Height)))
+	stack.push(helper.U256(c.intPool.get().SetUint64(vm.globalStatus.SnapshotBlock.Height)))
 	return nil, nil
 }
 
@@ -568,6 +543,17 @@ func opFromHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) (
 }
 
 func opOffchainFromHash(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
+func opSeed(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
+	// TODO use vm.globalStatus.Seed
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
+func opOffchainSeed(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.getZero())
 	return nil, nil
 }
@@ -776,16 +762,13 @@ func opCall(pc *uint64, vm *VM, c *contract, memory *memory, stack *stack) ([]by
 	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
 	data := memory.get(inOffset.Int64(), inSize.Int64())
 	vm.AppendBlock(
-		&vm_context.VmAccountBlock{
-			util.MakeSendBlock(
-				c.block,
-				toAddress,
-				ledger.BlockTypeSendCall,
-				amount,
-				tokenId,
-				vm.VmContext.GetNewBlockHeight(c.block),
-				data),
-			nil})
+		util.MakeSendBlock(
+			c.block.AccountAddress,
+			toAddress,
+			ledger.BlockTypeSendCall,
+			amount,
+			tokenId,
+			data))
 	return nil, nil
 }
 

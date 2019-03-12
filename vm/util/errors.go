@@ -15,6 +15,7 @@ var (
 	ErrCalcPoWTwice                = errors.New("calc PoW twice referring to one snapshot block")
 	ErrAbiMethodNotFound           = errors.New("abi: method not found")
 	ErrDepth                       = errors.New("max call depth exceeded")
+	ErrInvalidConfirmTime          = errors.New("invalid confirm time")
 
 	ErrForked                     = errors.New("chain forked")
 	ErrCalcPoWLimitReached        = errors.New("can not calc PoW in this block")

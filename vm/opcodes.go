@@ -89,6 +89,7 @@ const (
 	ACCOUNTHEIGHT
 	ACCOUNTHASH
 	FROMHASH
+	SEED
 )
 
 // 0x50 range - 'storage' and execution.
@@ -261,6 +262,7 @@ var opCodeToString = map[opCode]string{
 	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
 	ACCOUNTHASH:   "ACCOUNTHASH",
 	FROMHASH:      "FROMHASH",
+	SEED:          "SEED",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -427,6 +429,7 @@ var stringToOp = map[string]opCode{
 	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
 	"ACCOUNTHASH":    ACCOUNTHASH,
 	"FROMHASH":       FROMHASH,
+	"SEED":           SEED,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,

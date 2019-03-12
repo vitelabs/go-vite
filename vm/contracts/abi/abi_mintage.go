@@ -115,7 +115,7 @@ func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInf
 }
 
 func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
-	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMap"}, time.Now())
 	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressMintage, nil, nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	if iterator == nil {
@@ -138,7 +138,7 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 }
 
 func GetTokenMapByOwner(db StorageDatabase, owner types.Address) map[types.TokenTypeId]*types.TokenInfo {
-	defer monitor.LogTime("vm", "GetTokenMapByOwner", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMapByOwner"}, time.Now())
 	tokenIdList := db.GetStorage(&types.AddressMintage, GetOwnerTokenIdListKey(owner))
 	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {

@@ -190,7 +190,6 @@ func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, b
 	if groupInfo.PledgeAmount.Sign() > 0 {
 		return []*SendBlock{
 			{
-				block,
 				sendBlock.AccountAddress,
 				ledger.BlockTypeSendCall,
 				groupInfo.PledgeAmount,

@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
-	"time"
 )
 
 var (
@@ -23,29 +22,26 @@ func IsSnapshotGid(gid types.Gid) bool {
 	return gid == types.SNAPSHOT_GID
 }
 
-func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, height uint64, data []byte) *ledger.AccountBlock {
-	newTimestamp := time.Unix(0, block.Timestamp.UnixNano())
+func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, data []byte) *ledger.AccountBlock {
 	return &ledger.AccountBlock{
-		AccountAddress: block.AccountAddress,
+		AccountAddress: fromAddress,
 		ToAddress:      toAddress,
 		BlockType:      blockType,
 		Amount:         amount,
 		TokenId:        tokenId,
-		Height:         height,
-		SnapshotHash:   block.SnapshotHash,
 		Data:           data,
 		Fee:            big.NewInt(0),
-		Timestamp:      &newTimestamp,
 	}
 }
 
 var (
 	SolidityPPContractType = []byte{1}
 	contractTypeSize       = 1
+	confirmTimeSize        = 1
 )
 
-func GetCreateContractData(bytecode []byte, contractType []byte, gid types.Gid) []byte {
-	return helper.JoinBytes(gid.Bytes(), contractType, bytecode)
+func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, bytecode)
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -54,7 +50,7 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 }
 
 func GetCodeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize+contractTypeSize:]
+	return data[types.GidSize+contractTypeSize+confirmTimeSize:]
 }
 func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
@@ -64,6 +60,9 @@ func IsExistContractType(contractType []byte) bool {
 		return true
 	}
 	return false
+}
+func GetConfirmTimeFromCreateContractData(data []byte) uint8 {
+	return uint8(data[types.GidSize+contractTypeSize])
 }
 
 func PackContractCode(contractType, code []byte) []byte {

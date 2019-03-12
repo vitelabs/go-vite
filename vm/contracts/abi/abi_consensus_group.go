@@ -149,7 +149,7 @@ func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHa
 }
 
 func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) []*types.ConsensusGroupInfo {
-	defer monitor.LogTime("vm", "GetActiveConsensusGroupList", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getActiveConsensusGroupList"}, time.Now())
 	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, nil, snapshotHash)
 	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	if iterator == nil {
@@ -198,7 +198,7 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
 }
 
 func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []*types.Registration {
-	defer monitor.LogTime("vm", "GetCandidateList", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getCandidateList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)
@@ -226,7 +226,7 @@ func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Has
 }
 
 func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Address) []*types.Registration {
-	defer monitor.LogTime("vm", "GetRegistrationList", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getRegistrationList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), nil)
@@ -254,7 +254,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 }
 
 func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Registration {
-	defer monitor.LogTime("vm", "GetRegistration", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getRegistration"}, time.Now())
 	value := db.GetStorage(&types.AddressConsensusGroup, GetRegisterKey(name, gid))
 	registration := new(types.Registration)
 	if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
@@ -265,7 +265,7 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Regi
 
 // Vote readers
 func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteInfo {
-	defer monitor.LogTime("vm", "GetVote", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getVote"}, time.Now())
 	data := db.GetStorage(&types.AddressConsensusGroup, GetVoteKey(addr, gid))
 	if len(data) > 0 {
 		nodeName := new(string)
@@ -276,7 +276,7 @@ func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteI
 }
 
 func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []*types.VoteInfo {
-	defer monitor.LogTime("vm", "GetVoteList", time.Now())
+	defer monitor.LogTimerConsuming([]string{"vm", "getVoteList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)

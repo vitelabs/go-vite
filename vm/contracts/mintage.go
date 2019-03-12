@@ -67,7 +67,6 @@ func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if tokenInfo.PledgeAmount.Sign() > 0 {
 		return []*SendBlock{
 			{
-				block,
 				tokenInfo.PledgeAddr,
 				ledger.BlockTypeSendCall,
 				tokenInfo.PledgeAmount,
@@ -193,7 +192,6 @@ func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameMint, param.TokenId))
 	return []*SendBlock{
 		{
-			block,
 			sendBlock.AccountAddress,
 			ledger.BlockTypeSendReward,
 			param.TotalSupply,
@@ -262,7 +260,6 @@ func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Ac
 	db.AddLog(util.NewLog(cabi.ABIMintage, cabi.EventNameIssue, param.TokenId))
 	return []*SendBlock{
 		{
-			block,
 			param.Beneficial,
 			ledger.BlockTypeSendReward,
 			param.Amount,

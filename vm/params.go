@@ -7,27 +7,23 @@ import (
 )
 
 const (
-	quickStepGas    uint64 = 2
-	fastestStepGas  uint64 = 3
-	fastStepGas     uint64 = 5
-	midStepGas      uint64 = 8
-	slowStepGas     uint64 = 10
-	extStepGas      uint64 = 20
-	extCodeSizeGas  uint64 = 700
-	extCodeCopyGas  uint64 = 700
-	balanceGas      uint64 = 400
-	sLoadGas        uint64 = 200
-	expByteGas      uint64 = 50
-	quadCoeffDiv    uint64 = 512   // Divisor for the quadratic particle of the memory cost equation.
-	logGas          uint64 = 375   // Per LOG* operation.
-	logTopicGas     uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
-	logDataGas      uint64 = 8     // Per byte in a LOG* operation's data.
-	blake2bGas      uint64 = 30    // Once per Blake2b operation.
-	blake2bWordGas  uint64 = 6     // Once per word of the Blake2b operation's data.
-	sstoreSetGas    uint64 = 20000 // Once per SSTORE operation
-	sstoreResetGas  uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
-	sstoreClearGas  uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
-	sstoreRefundGas uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
+	quickStepGas   uint64 = 2
+	fastestStepGas uint64 = 3
+	fastStepGas    uint64 = 5
+	midStepGas     uint64 = 8
+	slowStepGas    uint64 = 10
+	extStepGas     uint64 = 20
+	extCodeSizeGas uint64 = 700
+	extCodeCopyGas uint64 = 700
+	balanceGas     uint64 = 400
+	sLoadGas       uint64 = 200
+	expByteGas     uint64 = 50
+	quadCoeffDiv   uint64 = 512 // Divisor for the quadratic particle of the memory cost equation.
+	logGas         uint64 = 375 // Per LOG* operation.
+	logTopicGas    uint64 = 375 // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
+	logDataGas     uint64 = 8   // Per byte in a LOG* operation's data.
+	blake2bGas     uint64 = 30  // Once per Blake2b operation.
+	blake2bWordGas uint64 = 6   // Once per word of the Blake2b operation's data.
 
 	sstoreNoopGas             uint64 = 200
 	sstoreInitGas             uint64 = 20000
@@ -56,6 +52,9 @@ const (
 	MaxCodeSize         = 24575 // Maximum bytecode to permit for a contract
 	outOfQuotaRetryTime = 2     // Retry 3 times when a contract receive block runs out of quota
 	offChainReaderGas   = 1000000
+
+	confirmTimeMin = 0
+	confirmTimeMax = 75
 )
 
 var (
