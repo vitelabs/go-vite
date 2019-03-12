@@ -25,13 +25,13 @@ func createSnapshotContent(count int) SnapshotContent {
 	return sc
 }
 
-func createSnapshotBlock(scCount int) *PMSnapshotBlock {
+func createSnapshotBlock(scCount int) *SnapshotBlock {
 	_, privateKey, _ := types.CreateAddress()
 	now := time.Now()
 	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
 	stateHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is stateHash")))
 
-	sb := &PMSnapshotBlock{
+	sb := &SnapshotBlock{
 		PrevHash:        prevHash,
 		Height:          123,
 		PublicKey:       privateKey.PubByte(),
@@ -77,7 +77,7 @@ func BmSnapshotBlockDeserialize(b *testing.B, scCount int) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		newBlock := &PMSnapshotBlock{}
+		newBlock := &SnapshotBlock{}
 		if err := newBlock.Deserialize(buf); err != nil {
 			b.Fatal(err)
 		}

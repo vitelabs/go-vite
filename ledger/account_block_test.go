@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func createBlock() *PMAccountBlock {
+func createBlock() *AccountBlock {
 	accountAddress1, privateKey, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
 
@@ -21,7 +21,7 @@ func createBlock() *PMAccountBlock {
 
 	signature := ed25519.Sign(privateKey, hash.Bytes())
 
-	return &PMAccountBlock{
+	return &AccountBlock{
 		BlockType: BlockTypeSendCall,
 		Hash:      hash,
 		PrevHash:  prevHash,
@@ -74,7 +74,7 @@ func BenchmarkAccountBlock_DeProto(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		newBlock := &PMAccountBlock{}
+		newBlock := &AccountBlock{}
 		if err := newBlock.deProto(pb); err != nil {
 			b.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func BenchmarkAccountBlock_Deserialize(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		newBlock := &PMAccountBlock{}
+		newBlock := &AccountBlock{}
 		if err := newBlock.Deserialize(buf); err != nil {
 			b.Fatal(err)
 		}

@@ -9,4 +9,6 @@ func NewUnconfirmedPool() *UnconfirmedPool {
 	return &UnconfirmedPool{}
 }
 
-func (up *UnconfirmedPool) InsertAccountBlock(block *ledger.AccountBlock) error {}
+func (up *UnconfirmedPool) InsertAccountBlock(block *ledger.AccountBlock) error {
+	return nil
+}
