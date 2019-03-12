@@ -112,45 +112,6 @@ func (sc SnapshotContent) deProto(pb []byte) error {
 	return nil
 }
 
-//func (sc SnapshotContent) proto() map[string]*vitepb.SnapshotItem {
-//	pb := make(map[string]*vitepb.SnapshotItem, len(sc))
-//
-//	for addr, snapshotItem := range sc {
-//		pb[hex.EncodeToString(addr.Bytes())] = &vitepb.SnapshotItem{
-//			AccountBlockHash:   snapshotItem.Hash.Bytes(),
-//			AccountBlockHeight: snapshotItem.Height,
-//		}
-//	}
-//	return pb
-//}
-//
-//func (sc SnapshotContent) deProto(pb map[string]*vitepb.SnapshotItem) error {
-//
-//	for addrHexString, snapshotItem := range pb {
-//		addrBytes, err := hex.DecodeString(addrHexString)
-//		if err != nil {
-//			return err
-//		}
-//
-//		addr, err := types.BytesToAddress(addrBytes)
-//		if err != nil {
-//			return err
-//		}
-//
-//		hashHeight := &HashHeight{
-//			Height: snapshotItem.AccountBlockHeight,
-//		}
-//
-//		hashHeight.Hash, err = types.BytesToHash(snapshotItem.AccountBlockHash)
-//		if err != nil {
-//			return err
-//		}
-//
-//		sc[addr] = hashHeight
-//	}
-//	return nil
-//}
-
 type PMSnapshotBlock struct {
 	Hash types.Hash `json:"hash"`
 
