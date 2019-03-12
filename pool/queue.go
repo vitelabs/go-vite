@@ -14,7 +14,10 @@ var (
 	REFER_ERROR = errors.New("refer not exist")
 )
 
-type Queue interface {
+type Packages interface {
+}
+
+type Package interface {
 	AddItem(item *Item) error
 	Levels() []Level
 	Size() int
@@ -130,111 +133,6 @@ type ownerLevel struct {
 	level int
 }
 
-type queue struct {
-	all             map[types.Hash]*ownerLevel
-	ls              []*level
-	snapshotExistsF SnapshotExistsFunc
-	accountExistsF  AccountExistsFunc
-	maxLevel        int
-}
-
-func (self *queue) Info() string {
-	levelInfo := ""
-	for max, l := range self.Levels() {
-		levelInfo += "\n"
-		buckets := l.Buckets()
-		if len(buckets) == 0 {
-			levelInfo = strconv.Itoa(max) + ":" + levelInfo
-			break
-		}
-		bucketInfo := ""
-		for _, b := range buckets {
-			bucketInfo += "|" + strconv.Itoa(len(b.Items()))
-		}
-		levelInfo += bucketInfo
-	}
-
-	return fmt.Sprintf("sum:%d, level:%s\n", len(self.all), levelInfo)
-}
-
-func (self *queue) Size() int {
-	return len(self.all)
-}
-
-type SnapshotExistsFunc func(hash types.Hash) error
-type AccountExistsFunc func(hash types.Hash) error
-
-func NewQueue(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int) Queue {
-	tmpLs := make([]*level, max)
-	for i := 0; i < max; i++ {
-		tmpLs[i] = newLevel()
-	}
-	return &queue{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max}
-}
-
-func (self *queue) Levels() []Level {
-	var levels []Level
-	for _, v := range self.ls {
-		levels = append(levels, v)
-	}
-	return levels
-}
-
-func (self *queue) AddItem(b *Item) error {
-	max := 0
-
-	// account level
-	for _, r := range b.referAccounts {
-		tmp, ok := self.all[r]
-		if !ok {
-			err := self.accountExistsF(r)
-			if err != nil {
-				return REFER_ERROR
-			}
-			continue
-		}
-		lNum := tmp.level
-		if lNum >= max {
-			if tmp.owner == b.ownerWrapper {
-				max = lNum
-			} else {
-				max = lNum + 1
-			}
-		}
-		if max > self.maxLevel-1 {
-			return MAX_ERROR
-		}
-	}
-	// snapshot level
-	if b.referSnapshot != nil {
-		sHash := *b.referSnapshot
-		tmp, ok := self.all[sHash]
-		if !ok {
-			err := self.snapshotExistsF(sHash)
-			if err != nil {
-				return REFER_ERROR
-			}
-		} else {
-			lNum := tmp.level
-			if lNum >= max {
-				if tmp.owner == b.ownerWrapper {
-					max = lNum
-				} else {
-					max = lNum + 1
-				}
-			}
-		}
-	}
-
-	if max > self.maxLevel-1 {
-		return MAX_ERROR
-	}
-	self.all[b.Hash()] = &ownerLevel{b.ownerWrapper, max}
-	return self.ls[max].add(b)
-}
-func (self *queue) print() {
-	for i, v := range self.ls {
-		fmt.Println("----------Level" + strconv.Itoa(i) + "------------")
-		v.print()
-	}
+type packages struct {
+	ps []Package
 }

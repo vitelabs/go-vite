@@ -562,7 +562,7 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
 }
-func (self *accountPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
+func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error) {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
 		return 0, errors.New("empty chainpool")

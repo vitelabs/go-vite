@@ -7,13 +7,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/golang-collections/collections/stack"
+
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+/**
+loop:
+1. make a queue for blocks plan
+2. insert for queue
+*/
 func (self *pool) loopQueue() {
 	for {
 		q := self.makeQueue()
@@ -27,11 +34,115 @@ func (self *pool) loopQueue() {
 	}
 }
 
-func (self *pool) makeQueue() Queue {
-	q := NewQueue(self.snapshotExists, self.accountExists, 50)
-	addrOffsets := make(map[types.Address]*offsetInfo)
-	snapshotOffset := &offsetInfo{}
+/**
+make a queue from account pool and snapshot pool
+*/
+func (self *pool) makeQueue() Package {
+	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: self.pendingSc.CurrentChain().tailHeight, Hash: self.pendingSc.CurrentChain().tailHash}}
 
+	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
+	for {
+		tmpSb := self.makeSnapshotBlock(snapshotOffset)
+		if tmpSb == nil {
+			self.makeQueueFromAccounts(p)
+			break
+		} else {
+			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
+			if err != nil {
+				snapshotOffset.offset = &ledger.HashHeight{Hash: tmpSb.cur.block.Hash, Height: tmpSb.cur.block.Height}
+			} else {
+				break
+			}
+		}
+	}
+	return p
+}
+
+type completeSnapshotBlock struct {
+	cur   *snapshotPoolBlock
+	addrM map[types.Address]*stack.Stack
+}
+
+func (self *completeSnapshotBlock) isEmpty() bool {
+	if len(self.addrM) > 0 {
+		for _, v := range self.addrM {
+			if v.Len() > 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (self *pool) makeSnapshotBlock(info *offsetInfo) *completeSnapshotBlock {
+	if self.pendingSc.CurrentChain().size() == 0 {
+		return nil
+	}
+	current := self.pendingSc.CurrentChain()
+	block := current.getBlock(info.offset.Height+1, false)
+	if block == nil {
+		return nil
+	}
+	b := block.(*snapshotPoolBlock)
+	result := &completeSnapshotBlock{cur: b}
+	contents := b.block.SnapshotContent
+
+	addrM := make(map[types.Address]*stack.Stack)
+	for k, v := range contents {
+		ac := self.selfPendingAc(k)
+		acurr := ac.CurrentChain()
+		ab := acurr.getBlock(v.Height, true)
+		if ab == nil {
+			return nil
+		}
+		if ab.Height() > acurr.tailHeight {
+			tmp := stack.New()
+			for h := ab.Height(); h > acurr.tailHeight; h-- {
+				tmp.Push(ac.getCurrentBlock(h))
+			}
+			if tmp.Len() > 0 {
+				addrM[k] = tmp
+			}
+		}
+	}
+	result.addrM = addrM
+	return result
+}
+
+func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock) error {
+	sum := 0
+	for {
+		for _, v := range b.addrM {
+			for v.Len() > 0 {
+				ab := v.Peek().(*accountPoolBlock)
+				item := NewItem(ab, &ab.block.AccountAddress)
+				err := p.AddItem(item)
+				if err != nil {
+					break
+				}
+				sum += 1
+				v.Pop()
+			}
+		}
+		if sum == 0 {
+			break
+		} else {
+			sum = 0
+		}
+	}
+	if b.isEmpty() {
+		item := NewItem(b.cur, nil)
+		err := p.AddItem(item)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return REFER_ERROR
+	}
+}
+func (self *pool) makeQueueFromAccounts(p Package) {
+	addrOffsets := make(map[types.Address]*offsetInfo)
 	for {
 		sum := uint64(0)
 		self.pendingAc.Range(func(key, v interface{}) bool {
@@ -41,21 +152,51 @@ func (self *pool) makeQueue() Queue {
 				offset = &offsetInfo{}
 				addrOffsets[key.(types.Address)] = offset
 			}
-			num, _ := cp.makeQueue(q, offset)
+
+			num, _ := cp.makePackage(p, offset)
 			sum += num
 			return true
 		})
-
-		num, _ := self.pendingSc.makeQueue(q, snapshotOffset)
-		sum += num
 		if sum == 0 {
 			break
 		}
 	}
-	return q
 }
 
-func (self *pool) insertQueue(q Queue, N int) {
+//func (self *pool) makePackages() (Packages, error) {
+//	q := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
+//	addrOffsets := make(map[types.Address]*offsetInfo)
+//	snapshotOffset := &offsetInfo{}
+//
+//	spkg, err := self.pendingSc.makePackage(self.snapshotExists, self.accountExists, snapshotOffset)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for {
+//		sum := uint64(0)
+//		self.pendingAc.Range(func(key, v interface{}) bool {
+//			cp := v.(*accountPool)
+//			offset := addrOffsets[key.(types.Address)]
+//			if offset == nil {
+//				offset = &offsetInfo{}
+//				addrOffsets[key.(types.Address)] = offset
+//			}
+//			num, _ := cp.makePackage(q, offset)
+//			sum += num
+//			return true
+//		})
+//
+//		num, _ := self.pendingSc.makeQueue(q, snapshotOffset)
+//		sum += num
+//		if sum == 0 {
+//			break
+//		}
+//	}
+//	return q
+//}
+
+func (self *pool) insertQueue(q Package, N int) {
 	var wg sync.WaitGroup
 	closed := NewClosed()
 	levels := q.Levels()

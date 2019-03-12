@@ -561,7 +561,7 @@ func (self *snapshotPool) loopFetchForSnapshot() {
 	}
 	return
 }
-func (self *snapshotPool) makeQueue(q Queue, info *offsetInfo) (uint64, error) {
+func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
 	self.pool.RLock()
 	defer self.pool.RUnLock()
 	self.rMu.Lock()
@@ -635,4 +635,53 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 		}
 	}
 
+}
+
+func (self *snapshotPool) makePackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, info *offsetInfo) (*snapshotPackage, error) {
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	if info.offset == nil {
+		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+	}
+
+	if current.size() == 0 {
+		return NewSnapshotPackage2(snapshotF, accountF, 50, nil), nil
+	}
+	block := current.getBlock(info.offset.Height+1, false)
+	if block == nil || block.PrevHash() != info.offset.Hash {
+		return nil, errors.New("current chain modify.")
+	}
+
+	c := block.(*snapshotPoolBlock)
+	return NewSnapshotPackage2(snapshotF, accountF, 50, c.block), nil
+
+	//minH := info.offset.Height + 1
+	//headH := current.headHeight
+	//for i := minH; i <= headH; i++ {
+	//	block := self.getCurrentBlock(i)
+	//	if block == nil {
+	//		return uint64(i - minH), errors.New("current chain modify")
+	//	}
+	//
+	//	if self.hashBlacklist.Exists(block.Hash()) {
+	//		return uint64(i - minH), errors.New("block in blacklist")
+	//	}
+	//
+	//	item := NewItem(block, nil)
+	//
+	//	err := q.AddItem(item)
+	//	if err != nil {
+	//		return uint64(i - minH), err
+	//	}
+	//	info.offset.Hash = item.Hash()
+	//	info.offset.Height = item.Height()
+	//}
+	//
+	//return uint64(headH - minH), errors.New("all in")
 }
