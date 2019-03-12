@@ -151,6 +151,7 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	}
 	return nil, nil
 }
+
 func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
 	snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)

@@ -20,28 +20,24 @@ func (p *MethodPledge) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodPledge) GetQuota() uint64 {
-	return PledgeGas
+func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
+	return PledgeGas, nil
 }
 
 // pledge ViteToken for a beneficial to get quota
-func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
 	if !util.IsViteToken(block.TokenId) ||
 		!util.IsUserAccount(db, block.AccountAddress) ||
 		block.Amount.Cmp(pledgeAmountMin) < 0 {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	beneficialAddr := new(types.Address)
-	if err = cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, block.Data); err != nil {
-		return quotaLeft, errors.New("invalid beneficial address")
+	if err := cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, block.Data); err != nil {
+		return errors.New("invalid beneficial address")
 	}
 	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNamePledge, *beneficialAddr)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	beneficialAddr := new(types.Address)
@@ -82,29 +78,25 @@ func (p *MethodCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodCancelPledge) GetQuota() uint64 {
-	return CancelPledgeGas
+func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
+	return CancelPledgeGas, nil
 }
 
 // cancel pledge ViteToken
-func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	param := new(cabi.ParamCancelPledge)
-	if err = cabi.ABIPledge.UnpackMethod(param, cabi.MethodNameCancelPledge, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIPledge.UnpackMethod(param, cabi.MethodNameCancelPledge, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 	if param.Amount.Sign() == 0 {
-		return quotaLeft, errors.New("cancel pledge amount is 0")
+		return errors.New("cancel pledge amount is 0")
 	}
 	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNameCancelPledge, param.Beneficial, param.Amount)
-	return quotaLeft, nil
+	return nil
 }
 
 func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

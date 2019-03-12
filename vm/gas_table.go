@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
@@ -328,9 +330,25 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 	if err != nil {
 		return 0, err
 	}
-	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
-		return 0, util.ErrGasUintOverflow
+	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
+	cost, err := quota.GetQuotaRequired(util.MakeSendBlock(
+		c.block.AccountAddress,
+		toAddress,
+		ledger.BlockTypeSendCall,
+		amount,
+		tokenId,
+		mem.get(inOffset.Int64(), inSize.Int64())))
+	if err != nil {
+		return 0, err
+	}
+	if cost > callMinusGas {
+		cost = cost - callMinusGas
+		var overflow bool
+		if gas, overflow = helper.SafeAdd(gas, cost); overflow {
+			return 0, util.ErrGasUintOverflow
+		}
 	}
 	return gas, nil
 }

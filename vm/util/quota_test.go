@@ -29,7 +29,7 @@ func TestCalcQuotaUsed(t *testing.T) {
 		{15000, 5000, 5000, 5000, 5000, errors.New("")},
 	}
 	for i, test := range tests {
-		quotaUsed := CalcQuotaUsed(test.quotaTotal, test.quotaAddition, test.quotaLeft, test.quotaRefund, test.err)
+		quotaUsed := CalcQuotaUsed(true, test.quotaTotal, test.quotaAddition, test.quotaLeft, test.quotaRefund, test.err)
 		if quotaUsed != test.quotaUsed {
 			t.Fatalf("%v th calculate quota used failed, expected %v, got %v", i, test.quotaUsed, quotaUsed)
 		}

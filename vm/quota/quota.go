@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
@@ -190,6 +191,29 @@ func CanPoW(db quotaDb, addr types.Address) bool {
 		} else {
 			return true
 		}
+	}
+}
+
+func GetQuotaRequired(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		quotaRequired, _ := util.IntrinsicGasCost(block.Data, false)
+		return quotaRequired, nil
+	} else if block.BlockType == ledger.BlockTypeReceive {
+		quotaRequired, _ := util.IntrinsicGasCost(nil, false)
+		return quotaRequired, nil
+	} else if block.BlockType == ledger.BlockTypeSendCall {
+		if types.IsBuiltinContractAddrInUse(block.ToAddress) {
+			if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
+				return 0, errors.New("built-in contract method not exists")
+			} else {
+				return method.GetSendQuota(block.Data)
+			}
+		} else {
+			quotaRequired, _ := util.IntrinsicGasCost(block.Data, false)
+			return quotaRequired, nil
+		}
+	} else {
+		return 0, errors.New("block type not supported")
 	}
 }
 

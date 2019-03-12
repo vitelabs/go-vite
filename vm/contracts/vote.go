@@ -18,44 +18,39 @@ func (p *MethodVote) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 }
 
 func (p *MethodVote) GetRefundData() []byte {
-	return []byte{1}
+	return []byte{5}
 }
-func (p *MethodVote) GetQuota() uint64 {
-	return VoteGas
+func (p *MethodVote) GetSendQuota(data []byte) (uint64, error) {
+	return VoteGas, nil
 }
 
 // vote for a super node of a consensus group
-func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-
+func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	param := new(cabi.ParamVote)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameVote, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameVote, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 	if param.Gid == types.DELEGATE_GID {
-		return quotaLeft, errors.New("cannot vote consensus group")
+		return errors.New("cannot vote consensus group")
 	}
 
 	consensusGroupInfo := cabi.GetConsensusGroup(db, param.Gid)
 	if consensusGroupInfo == nil {
-		return quotaLeft, errors.New("consensus group not exist")
+		return errors.New("consensus group not exist")
 	}
 
 	if !cabi.IsActiveRegistration(db, param.NodeName, param.Gid) {
-		return quotaLeft, errors.New("registration not exist")
+		return errors.New("registration not exist")
 	}
 
 	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.VoteConditionId, cabi.VoteConditionPrefix); !ok {
-		return quotaLeft, errors.New("consensus group vote condition not exist")
+		return errors.New("consensus group vote condition not exist")
 	} else if !condition.checkData(consensusGroupInfo.VoteConditionParam, db, block, param, cabi.MethodNameVote) {
-		return quotaLeft, errors.New("check vote condition failed")
+		return errors.New("check vote condition failed")
 	}
 
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameVote, param.Gid, param.NodeName)
-	return quotaLeft, nil
+	return nil
 }
 
 func (p *MethodVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
@@ -75,30 +70,25 @@ func (p *MethodCancelVote) GetFee(db vmctxt_interface.VmDatabase, block *ledger.
 }
 
 func (p *MethodCancelVote) GetRefundData() []byte {
-	return []byte{2}
+	return []byte{6}
 }
-func (p *MethodCancelVote) GetQuota() uint64 {
-	return CancelVoteGas
+func (p *MethodCancelVote) GetSendQuota(data []byte) (uint64, error) {
+	return CancelVoteGas, nil
 }
 
 // cancel vote for a super node of a consensus group
-func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-
+func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
-	err = cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelVote, block.Data)
+	err := cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelVote, block.Data)
 	if err != nil || *gid == types.DELEGATE_GID || !IsExistGid(db, *gid) {
-		return quotaLeft, errors.New("consensus group not exist or cannot cancel vote")
+		return errors.New("consensus group not exist or cannot cancel vote")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelVote, *gid)
-	return quotaLeft, nil
+	return nil
 }
 
 func (p *MethodCancelVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {

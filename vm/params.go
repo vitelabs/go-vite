@@ -33,8 +33,8 @@ const (
 	sstoreResetClearRefundGas uint64 = 19800
 	sstoreResetRefundGas      uint64 = 4800
 
-	jumpdestGas     uint64 = 1   // Jumpdest gas cost.
-	callGas         uint64 = 700 // Once per DELEGATECALL operation & message call transaction.
+	jumpdestGas     uint64 = 1 // Jumpdest gas cost.
+	callMinusGas    uint64 = 10000
 	contractCodeGas uint64 = 200 // Per byte in contract code
 	copyGas         uint64 = 3   //
 	memoryGas       uint64 = 3   // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
@@ -42,16 +42,14 @@ const (
 	callDepth  uint64 = 512  // Maximum Depth of call.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
-	getBlockByHeightLimit        uint64 = 256
 	getAccountBlockByHeightLimit uint64 = 256
 
 	//CallValueTransferGas  uint64 = 9000  // Paid for CALL when the amount transfer is non-zero.
 	//CallNewAccountGas     uint64 = 25000 // Paid for CALL when the destination address didn't exist prior.
 	//CallStipend           uint64 = 2300  // Free gas given at beginning of call.
 
-	MaxCodeSize         = 24575 // Maximum bytecode to permit for a contract
-	outOfQuotaRetryTime = 2     // Retry 3 times when a contract receive block runs out of quota
-	offChainReaderGas   = 1000000
+	MaxCodeSize       = 24575 // Maximum bytecode to permit for a contract
+	offChainReaderGas = 1000000
 
 	confirmTimeMin = 0
 	confirmTimeMax = 75

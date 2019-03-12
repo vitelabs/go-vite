@@ -22,29 +22,24 @@ func (p *MethodRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Ac
 func (p *MethodRegister) GetRefundData() []byte {
 	return []byte{1}
 }
-func (p *MethodRegister) GetQuota() uint64 {
-	return RegisterGas
+func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
+	return RegisterGas, nil
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
-func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-
+func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	param := new(cabi.ParamRegister)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 	if param.Gid == types.DELEGATE_GID {
-		return quotaLeft, errors.New("cannot register consensus group")
+		return errors.New("cannot register consensus group")
 	}
-	if err = checkRegisterData(cabi.MethodNameRegister, db, block, param); err != nil {
-		return quotaLeft, err
+	if err := checkRegisterData(cabi.MethodNameRegister, db, block, param); err != nil {
+		return err
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
-	return quotaLeft, nil
+	return nil
 }
 
 func checkRegisterData(methodName string, db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, param *cabi.ParamRegister) error {
@@ -133,33 +128,28 @@ func (p *MethodCancelRegister) GetFee(db vmctxt_interface.VmDatabase, block *led
 func (p *MethodCancelRegister) GetRefundData() []byte {
 	return []byte{2}
 }
-func (p *MethodCancelRegister) GetQuota() uint64 {
-	return CancelRegisterGas
+func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
+	return CancelRegisterGas, nil
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
-func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-
+func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	param := new(cabi.ParamCancelRegister)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 
 	consensusGroupInfo := cabi.GetConsensusGroup(db, param.Gid)
 	if consensusGroupInfo == nil {
-		return quotaLeft, errors.New("consensus group not exist")
+		return errors.New("consensus group not exist")
 	}
 	if condition, ok := getConsensusGroupCondition(consensusGroupInfo.RegisterConditionId, cabi.RegisterConditionPrefix); !ok {
-		return quotaLeft, errors.New("consensus group register condition not exist")
+		return errors.New("consensus group register condition not exist")
 	} else if !condition.checkData(consensusGroupInfo.RegisterConditionParam, db, block, param, cabi.MethodNameCancelRegister) {
-		return quotaLeft, errors.New("check register condition failed")
+		return errors.New("check register condition failed")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamCancelRegister)
@@ -214,29 +204,25 @@ func (p *MethodReward) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Acco
 func (p *MethodReward) GetRefundData() []byte {
 	return []byte{3}
 }
-func (p *MethodReward) GetQuota() uint64 {
-	return RewardGas
+func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
+	return RewardGas, nil
 }
 
 // get reward of generating snapshot block
-func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	param := new(cabi.ParamReward)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 	if !util.IsSnapshotGid(param.Gid) {
-		return quotaLeft, errors.New("consensus group has no reward")
+		return errors.New("consensus group has no reward")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamReward)
@@ -419,27 +405,22 @@ func (p *MethodUpdateRegistration) GetFee(db vmctxt_interface.VmDatabase, block 
 func (p *MethodUpdateRegistration) GetRefundData() []byte {
 	return []byte{4}
 }
-func (p *MethodUpdateRegistration) GetQuota() uint64 {
-	return UpdateRegistrationGas
+func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
+	return UpdateRegistrationGas, nil
 }
 
 // update registration info
-func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
-
+func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	param := new(cabi.ParamRegister)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 
-	if err = checkRegisterData(cabi.MethodNameUpdateRegistration, db, block, param); err != nil {
-		return quotaLeft, err
+	if err := checkRegisterData(cabi.MethodNameUpdateRegistration, db, block, param); err != nil {
+		return err
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamRegister)

@@ -292,15 +292,6 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	return l.ledgerBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
-	l.log.Info("GetTokenMintage")
-	if t, err := l.chain.GetTokenInfoById(&tti); err != nil {
-		return nil, err
-	} else {
-		return RawTokenInfoToRpc(t, tti), nil
-	}
-}
-
 func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 	l.log.Info("GetSenderInfo")
 	if l.chain.KafkaSender() == nil {

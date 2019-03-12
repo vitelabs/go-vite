@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -170,52 +169,52 @@ type CalcPoWDifficultyParam struct {
 	UsePledgeQuota bool `json:"usePledgeQuota"`
 }
 
-func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, err error) {
-	var quotaRequired uint64
-	if param.BlockType == ledger.BlockTypeSendCreate {
-		quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
-	} else if param.BlockType == ledger.BlockTypeReceive {
-		quotaRequired, _ = util.IntrinsicGasCost(nil, false)
+type CalcPoWDifficultyResult struct {
+	quotaRequired uint64 `json:"quota"`
+	difficulty    string `json:"difficulty"`
+}
+
+func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	block := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		AccountAddress: param.SelfAddr,
+		PrevHash:       param.PrevHash,
+		SnapshotHash:   param.SnapshotHash,
+		Data:           param.Data,
+	}
+	if param.ToAddr != nil {
+		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		if param.ToAddr == nil {
-			return "", errors.New("toAddr is nil")
-		}
-		if types.IsBuiltinContractAddrInUse(*param.ToAddr) {
-			if method, ok, err := vm.GetBuiltinContract(*param.ToAddr, param.Data); !ok || err != nil {
-				return "", errors.New("built-in contract method not exists")
-			} else {
-				quotaRequired = method.GetQuota()
-			}
-		} else {
-			quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
-		}
-	} else {
-		return "", errors.New("block type not supported")
+		return nil, errors.New("toAddr is nil")
+	}
+	quotaRequired, err := quota.GetQuotaRequired(block)
+	if err != nil {
+		return nil, err
 	}
 
 	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, &param.PrevHash, &param.SelfAddr)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	pledgeAmount := abi.GetPledgeBeneficialAmount(db, param.SelfAddr)
 	q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
 	if param.UsePledgeQuota {
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return "0", nil
+			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
 		}
 	}
 
 	if !quota.CanPoW(db, param.SelfAddr) {
-		return "", util.ErrCalcPoWTwice
+		return nil, util.ErrCalcPoWTwice
 	}
 	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return d.String(), nil
+	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
 }
 
 func isPoW(nonce []byte) bool {
