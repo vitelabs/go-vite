@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -28,7 +29,6 @@ func (self *pool) loopQueue() {
 			continue
 		}
 		self.insertQueue(q, 5)
-		//fmt.Println(q.Info())
 	}
 }
 
@@ -47,10 +47,9 @@ func (self *pool) makeQueue() Package {
 		} else {
 			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
-				snapshotOffset.offset = &ledger.HashHeight{Hash: tmpSb.cur.block.Hash, Height: tmpSb.cur.block.Height}
-			} else {
 				break
 			}
+			snapshotOffset.offset = &ledger.HashHeight{Hash: tmpSb.cur.block.Hash, Height: tmpSb.cur.block.Height}
 		}
 	}
 	return p
@@ -198,6 +197,15 @@ func (self *pool) insertQueue(q Package, N int) {
 	var wg sync.WaitGroup
 	closed := NewClosed()
 	levels := q.Levels()
+	t0 := time.Now()
+	var n2 int32
+
+	defer func() {
+		sub := time.Now().Sub(t0)
+		queueResult := fmt.Sprintf("queue[%s][%d][%d]", sub, (int64(n2)*time.Second.Nanoseconds())/sub.Nanoseconds(), n2)
+		fmt.Println(queueResult)
+	}()
+
 	for _, level := range levels {
 		bs := level.Buckets()
 		lenBs := len(bs)
@@ -240,8 +248,11 @@ func (self *pool) insertQueue(q Package, N int) {
 		close(bucketCh)
 		wg.Wait()
 		sub := time.Now().Sub(t1)
-		levelInfo = "[" + sub.String() + "][" + strconv.Itoa(int((int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds())) + "]" + "[" + strconv.Itoa(int(num)) + "]" + "->" + levelInfo
-		//fmt.Println(levelInfo)
+		levelInfo = "\tlevel[" + sub.String() + "][" + strconv.Itoa(int((int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds())) + "]" + "[" + strconv.Itoa(int(num)) + "]" + "->" + levelInfo
+		fmt.Println(levelInfo)
+
+		atomic.AddInt32(&n2, num)
+
 		if closed.IsClosed() {
 			return
 		}
