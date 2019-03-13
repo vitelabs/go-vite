@@ -97,6 +97,10 @@ type Chain interface {
 
 	// get call depth
 	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
+
+	// get confirmed times
+	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
+
 	// ====== Query snapshot block ======
 
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error)
@@ -143,6 +147,7 @@ type Chain interface {
 	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
 
 	GetContentNeedSnapshot() ledger.SnapshotContent
+
 	GenSnapshotState(snapshotContent ledger.SnapshotContent) (state interface{}, err error)
 
 	// ====== Query account ======
@@ -168,8 +173,7 @@ type Chain interface {
 
 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
 
-	// get storage (类型未确定), if history is too old, failed
-	// GetStorage(storageHash *types.Hash) (storage interface{}, err error)
+	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
 	// get storage (类型未确定), if history is too old, failed
 	GetHistoryStorage(addr *types.Address, snapshotBlockHash *types.Hash) (storage interface{}, err error)
@@ -205,6 +209,11 @@ type Chain interface {
 
 	// TODO insert syncCache ledger
 	// TODO query syncCache state
+
+	// ====== OnRoad ======
+	HasOnRoadBlocks(address *types.Address) (bool, error)
+
+	GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error)
 }
 
 type LedgerReader interface {
