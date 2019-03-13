@@ -1,14 +1,12 @@
 package pool
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/golang-collections/collections/stack"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -243,8 +241,7 @@ func (self *pool) insertQueue(q Package, N int) {
 		wg.Wait()
 		sub := time.Now().Sub(t1)
 		levelInfo = "[" + sub.String() + "][" + strconv.Itoa(int((int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds())) + "]" + "[" + strconv.Itoa(int(num)) + "]" + "->" + levelInfo
-		fmt.Println(levelInfo)
-
+		//fmt.Println(levelInfo)
 		if closed.IsClosed() {
 			return
 		}

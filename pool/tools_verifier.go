@@ -6,7 +6,6 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 )
@@ -52,9 +51,9 @@ type accountVerifier struct {
 }
 
 func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
-	if err := self.v.VerifyNetAb(b); err != nil {
-		return err
-	}
+	//if err := self.v.VerifyNetAb(b); err != nil {
+	//	return err
+	//}
 	return nil
 }
 

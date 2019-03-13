@@ -2,15 +2,15 @@ package chain
 
 import (
 	"errors"
-	"math/big"
-
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_context"
-	"time"
 )
 
 type BlockMapQueryParam struct {
@@ -32,6 +32,7 @@ func (c *chain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	monitor.LogEventNum("chain", "InsertAccountBlocks", len(vmAccountBlocks))
+	monitor.LogEventNum("chain", "insert", len(vmAccountBlocks))
 
 	batch := new(leveldb.Batch)
 
