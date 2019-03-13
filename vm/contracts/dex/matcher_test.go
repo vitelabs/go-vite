@@ -43,7 +43,7 @@ func TestMatcher(t *testing.T) {
 	bookNameToMakeForBuy := getBookIdToMakeForOrder(buy5)
 	assert.Equal(t,104, fromOrderIdToInt(mc.books[bookNameToMakeForBuy].header))
 
-	orders, size, err := mc.PeekOrdersFromMarket(bookNameToMakeForBuy, 10)
+	orders, size, err := mc.GetOrdersFromMarket(bookNameToMakeForBuy, 0, 10)
 	assert.Equal(t, 5, len(orders))
 	assert.Equal(t, int32(5), size)
 	assert.Equal(t, 104, fromOrderIdBytesToInt(orders[0].Id))

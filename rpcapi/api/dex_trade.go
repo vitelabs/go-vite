@@ -26,7 +26,6 @@ func (f DexTradeApi) String() string {
 	return "DexTradeApi"
 }
 
-
 func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken types.TokenTypeId, side bool) (order *dex.Order, err error) {
 	var (
 		orderId []byte
@@ -35,17 +34,28 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 	if err != nil {
 		return nil, err
 	}
-	vmContext, _ := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexTrade)
-	storage, _ := vmContext.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
-	makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-	return matcher.GetOrderByIdAndBookId(orderId, makerBookId)
+	if matcher, err := f.getMatcher(); err != nil {
+		return nil, err
+	} else {
+		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
+		return matcher.GetOrderByIdAndBookId(makerBookId, orderId)
+	}
 }
 
-func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, len int32) (order []*dex.Order, size int32, err error) {
-	vmContext, _ := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexTrade)
-	storage, _ := vmContext.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
-	makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-	return matcher.PeekOrdersFromMarket(makerBookId, len)
+func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (order []*dex.Order, size int32, err error) {
+	if matcher, err := f.getMatcher(); err != nil {
+		return nil, 0, err
+	} else {
+		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
+		return matcher.GetOrdersFromMarket(makerBookId, begin, end)
+	}
+}
+
+func (f DexTradeApi) getMatcher() (matcher *dex.Matcher, err error) {
+	if vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexTrade); err != nil {
+		return nil, err
+	} else {
+		storage, _ := vmContext.(dex.BaseStorage)
+		return dex.NewMatcher(&types.AddressDexTrade, &storage), nil
+	}
 }
