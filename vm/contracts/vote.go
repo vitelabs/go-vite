@@ -53,7 +53,7 @@ func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 	return nil
 }
 
-func (p *MethodVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(cabi.ParamVote)
 	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameVote, sendBlock.Data)
 	voteKey := cabi.GetVoteKey(sendBlock.AccountAddress, param.Gid)
@@ -91,7 +91,7 @@ func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.
 	return nil
 }
 
-func (p *MethodCancelVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodCancelVote) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelVote, sendBlock.Data)
 	voteKey := cabi.GetVoteKey(sendBlock.AccountAddress, *gid)

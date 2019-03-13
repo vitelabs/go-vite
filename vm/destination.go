@@ -70,7 +70,7 @@ func codeBitmap(code []byte) bitvec {
 var (
 	auxCodePrefix  = []byte{0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
 	auxCodeSuffix  = []byte{0x00, 0x29}
-	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED, DELEGATECALL}
+	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
 )
 
 // Check whether code includes status reading opcode

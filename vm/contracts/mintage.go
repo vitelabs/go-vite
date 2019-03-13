@@ -77,7 +77,7 @@ func CheckMintToken(param cabi.ParamMintage) error {
 	}
 	return nil
 }
-func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(cabi.ParamMintage)
 	cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMint, sendBlock.Data)
 	key := cabi.GetMintageKey(param.TokenId)
@@ -108,7 +108,7 @@ func (p *MethodMint) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.Acc
 			param.Decimals,
 			sendBlock.AccountAddress,
 			sendBlock.Amount,
-			db.CurrentSnapshotBlock().Height+nodeConfig.params.MintagePledgeHeight,
+			globalStatus.SnapshotBlock.Height+nodeConfig.params.MintagePledgeHeight,
 			sendBlock.AccountAddress,
 			param.IsReIssuable,
 			param.MaxSupply,
@@ -157,13 +157,13 @@ func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameCancelMintPledge, *tokenId)
 	return nil
 }
-func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
 	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameCancelMintPledge, sendBlock.Data)
 	tokenInfo := cabi.GetTokenById(db, *tokenId)
 	if tokenInfo.PledgeAddr != sendBlock.AccountAddress ||
 		tokenInfo.PledgeAmount.Sign() == 0 ||
-		tokenInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
+		tokenInfo.WithdrawHeight > globalStatus.SnapshotBlock.Height {
 		return nil, errors.New("cannot withdraw mintage pledge, status error")
 	}
 	newTokenInfo, _ := cabi.ABIMintage.PackVariable(
@@ -222,7 +222,7 @@ func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accou
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameIssue, param.TokenId, param.Amount, param.Beneficial)
 	return nil
 }
-func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(cabi.ParamIssue)
 	cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameIssue, sendBlock.Data)
 	oldTokenInfo := cabi.GetTokenById(db, param.TokenId)
@@ -280,7 +280,7 @@ func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameBurn)
 	return nil
 }
-func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	oldTokenInfo := cabi.GetTokenById(db, sendBlock.TokenId)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable ||
 		(oldTokenInfo.OwnerBurnOnly && oldTokenInfo.Owner != sendBlock.AccountAddress) {
@@ -336,7 +336,7 @@ func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledg
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
 	return nil
 }
-func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(cabi.ParamTransferOwner)
 	cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameTransferOwner, sendBlock.Data)
 	oldTokenInfo := cabi.GetTokenById(db, param.TokenId)
@@ -396,7 +396,7 @@ func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *le
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameChangeTokenType, &tokenId)
 	return nil
 }
-func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
 	cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameChangeTokenType, sendBlock.Data)
 	oldTokenInfo := cabi.GetTokenById(db, *tokenId)

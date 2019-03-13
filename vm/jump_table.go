@@ -42,10 +42,10 @@ func newSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
-	instructionSet[ACCOUNTHASH] = operation{
+	instructionSet[PREVHASH] = operation{
 		execute:       opAccountHash,
 		gasCost:       constGasFunc(extStepGas),
-		validateStack: makeStackFunc(1, 1),
+		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
 	instructionSet[FROMHASH] = operation{
@@ -170,7 +170,7 @@ func newOffchainSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
-	instructionSet[ACCOUNTHASH] = operation{
+	instructionSet[PREVHASH] = operation{
 		execute:       opOffchainAccountHash,
 		gasCost:       constGasFunc(extStepGas),
 		validateStack: makeStackFunc(1, 1),

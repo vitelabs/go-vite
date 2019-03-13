@@ -39,7 +39,7 @@ func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acco
 	block.Data, _ = cabi.ABIPledge.PackMethod(cabi.MethodNamePledge, *beneficialAddr)
 	return nil
 }
-func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	beneficialAddr := new(types.Address)
 	cabi.ABIPledge.UnpackMethod(beneficialAddr, cabi.MethodNamePledge, sendBlock.Data)
 	beneficialKey := cabi.GetPledgeBeneficialKey(*beneficialAddr)
@@ -52,7 +52,7 @@ func (p *MethodPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeInfo, amount, db.CurrentSnapshotBlock().Height+nodeConfig.params.MinPledgeHeight)
+	pledgeInfo, _ := cabi.ABIPledge.PackVariable(cabi.VariableNamePledgeInfo, amount, globalStatus.SnapshotBlock.Height+nodeConfig.params.MinPledgeHeight)
 	db.SetStorage(pledgeKey, pledgeInfo)
 
 	oldBeneficialData := db.GetStorage(&block.AccountAddress, beneficialKey)
@@ -99,14 +99,14 @@ func (p *MethodCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledge
 	return nil
 }
 
-func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(cabi.ParamCancelPledge)
 	cabi.ABIPledge.UnpackMethod(param, cabi.MethodNameCancelPledge, sendBlock.Data)
 	beneficialKey := cabi.GetPledgeBeneficialKey(param.Beneficial)
 	pledgeKey := cabi.GetPledgeKey(sendBlock.AccountAddress, beneficialKey)
 	oldPledge := new(cabi.PledgeInfo)
 	err := cabi.ABIPledge.UnpackVariable(oldPledge, cabi.VariableNamePledgeInfo, db.GetStorage(&block.AccountAddress, pledgeKey))
-	if err != nil || oldPledge.WithdrawHeight > db.CurrentSnapshotBlock().Height || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	if err != nil || oldPledge.WithdrawHeight > globalStatus.SnapshotBlock.Height || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return nil, errors.New("pledge not yet due")
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)

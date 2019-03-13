@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"math/big"
-	"regexp"
 )
 
 type MethodCreateConsensusGroup struct{}
@@ -94,7 +93,7 @@ func checkCondition(db vmctxt_interface.VmDatabase, conditionId uint8, condition
 	}
 	return nil
 }
-func (p *MethodCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(types.ConsensusGroupInfo)
 	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCreateConsensusGroup, sendBlock.Data)
 	key := cabi.GetConsensusGroupKey(param.Gid)
@@ -115,7 +114,7 @@ func (p *MethodCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, b
 		param.VoteConditionParam,
 		sendBlock.AccountAddress,
 		sendBlock.Amount,
-		db.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
+		globalStatus.SnapshotBlock.Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	db.SetStorage(key, groupInfo)
 	return nil, nil
 }
@@ -151,24 +150,17 @@ func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 	if err != nil {
 		return quotaLeft, err
 	}
-	groupInfo := cabi.GetConsensusGroup(db, *gid)
-	if groupInfo == nil ||
-		block.AccountAddress != groupInfo.Owner ||
-		!groupInfo.IsActive() ||
-		groupInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
-		return quotaLeft, errors.New("invalid group or owner or not due yet")
-	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelConsensusGroup, sendBlock.Data)
 	key := cabi.GetConsensusGroupKey(*gid)
 	groupInfo := cabi.GetConsensusGroup(db, *gid)
 	if groupInfo == nil ||
 		!groupInfo.IsActive() ||
-		groupInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
+		groupInfo.WithdrawHeight > globalStatus.SnapshotBlock.Height {
 		return nil, errors.New("pledge not yet due")
 	}
 	newGroupInfo, _ := cabi.ABIConsensusGroup.PackVariable(
@@ -239,7 +231,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bl
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReCreateConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameReCreateConsensusGroup, sendBlock.Data)
 	key := cabi.GetConsensusGroupKey(*gid)
@@ -262,7 +254,7 @@ func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase,
 		groupInfo.VoteConditionParam,
 		groupInfo.Owner,
 		sendBlock.Amount,
-		db.CurrentSnapshotBlock().Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
+		globalStatus.SnapshotBlock.Height+nodeConfig.params.CreateConsensusGroupPledgeHeight)
 	db.SetStorage(key, newGroupInfo)
 	return nil, nil
 }
@@ -283,15 +275,6 @@ func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix cabi.Condit
 	return condition, ok
 }
 
-func getRegisterWithdrawHeightByCondition(conditionId uint8, param []byte, currentHeight uint64) uint64 {
-	if cabi.RegisterConditionPrefix+cabi.ConditionCode(conditionId) == cabi.RegisterConditionOfPledge {
-		v := new(cabi.VariableConditionRegisterOfPledge)
-		cabi.ABIConsensusGroup.UnpackVariable(v, cabi.VariableNameConditionRegisterOfPledge, param)
-		return currentHeight + v.PledgeHeight
-	}
-	return currentHeight
-}
-
 type registerConditionOfPledge struct{}
 
 func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.VmDatabase) bool {
@@ -308,29 +291,6 @@ func (c registerConditionOfPledge) checkParam(param []byte, db vmctxt_interface.
 
 func (c registerConditionOfPledge) checkData(paramData []byte, db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, blockParamInterface interface{}, method string) bool {
 	switch method {
-	case cabi.MethodNameRegister:
-		blockParam := blockParamInterface.(*cabi.ParamRegister)
-		if blockParam.Gid == types.DELEGATE_GID ||
-			len(blockParam.Name) == 0 ||
-			len(blockParam.Name) > registrationNameLengthMax {
-			return false
-		}
-		if ok, _ := regexp.MatchString("^([0-9a-zA-Z_.]+[ ]?)*[0-9a-zA-Z_.]$", blockParam.Name); !ok {
-			return false
-		}
-		param := new(cabi.VariableConditionRegisterOfPledge)
-		cabi.ABIConsensusGroup.UnpackVariable(param, cabi.VariableNameConditionRegisterOfPledge, paramData)
-		if block.Amount.Cmp(param.PledgeAmount) != 0 || block.TokenId != param.PledgeToken {
-			return false
-		}
-	case cabi.MethodNameCancelRegister:
-		if block.Amount.Sign() != 0 ||
-			!util.IsUserAccount(db, block.AccountAddress) {
-			return false
-		}
-
-		param := new(cabi.VariableConditionRegisterOfPledge)
-		cabi.ABIConsensusGroup.UnpackVariable(param, cabi.VariableNameConditionRegisterOfPledge, paramData)
 	case cabi.MethodNameUpdateRegistration:
 		if block.Amount.Sign() != 0 {
 			return false

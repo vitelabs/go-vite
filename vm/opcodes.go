@@ -87,7 +87,7 @@ const (
 	GASLIMIT
 	TOKENID
 	ACCOUNTHEIGHT
-	ACCOUNTHASH
+	PREVHASH
 	FROMHASH
 	SEED
 )
@@ -260,7 +260,7 @@ var opCodeToString = map[opCode]string{
 	GASLIMIT:      "GASLIMIT",
 	TOKENID:       "TOKENID",
 	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
-	ACCOUNTHASH:   "ACCOUNTHASH",
+	PREVHASH:      "PREVHASH",
 	FROMHASH:      "FROMHASH",
 	SEED:          "SEED",
 
@@ -427,7 +427,7 @@ var stringToOp = map[string]opCode{
 	"GASLIMIT":       GASLIMIT,
 	"TOKENID":        TOKENID,
 	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
-	"ACCOUNTHASH":    ACCOUNTHASH,
+	"PREVHASH":       PREVHASH,
 	"FROMHASH":       FROMHASH,
 	"SEED":           SEED,
 	"POP":            POP,

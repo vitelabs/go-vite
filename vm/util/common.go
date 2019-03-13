@@ -21,6 +21,9 @@ func IsViteToken(tokenId types.TokenTypeId) bool {
 func IsSnapshotGid(gid types.Gid) bool {
 	return gid == types.SNAPSHOT_GID
 }
+func IsDelegateGid(gid types.Gid) bool {
+	return gid == types.DELEGATE_GID
+}
 
 func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, data []byte) *ledger.AccountBlock {
 	return &ledger.AccountBlock{

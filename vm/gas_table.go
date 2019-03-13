@@ -319,7 +319,7 @@ func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 		return 0, err
 	}
 	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, delegateCallGas); overflow {
 		return 0, util.ErrGasUintOverflow
 	}
 	return gas, nil

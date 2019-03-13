@@ -39,7 +39,8 @@ type BuiltinContractMethod interface {
 	// quota for doSend block
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
-	DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error)
+	// TODO return ledger.AccountBlock instead of SendBlock
+	DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
 }

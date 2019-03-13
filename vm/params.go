@@ -34,6 +34,7 @@ const (
 	sstoreResetRefundGas      uint64 = 4800
 
 	jumpdestGas     uint64 = 1 // Jumpdest gas cost.
+	delegateCallGas uint64 = 700
 	callMinusGas    uint64 = 10000
 	contractCodeGas uint64 = 200 // Per byte in contract code
 	copyGas         uint64 = 3   //

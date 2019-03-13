@@ -43,7 +43,7 @@ func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount str
 
 type QuotaAndTxNum struct {
 	TotalQuota   string `json:"total"`
-	CurrentQuota string `json:"quota"`
+	CurrentQuota string `json:"current"`
 	CurrentTxNum string `json:"txNum"`
 }
 

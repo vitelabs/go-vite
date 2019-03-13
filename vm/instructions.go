@@ -513,21 +513,12 @@ func opOffchainAccountHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack
 }
 
 func opAccountHash(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	tmp := stack.pop()
-	height := tmp.Uint64()
-	currentHeight := c.db.PrevAccountBlock().Height
-	minHeight := uint64(0)
-	if currentHeight > getAccountBlockByHeightLimit {
-		minHeight = currentHeight - getAccountBlockByHeightLimit
-	}
-	if height > minHeight && height <= currentHeight {
-		block := c.db.GetSelfAccountBlockByHeight(height)
-		stack.push(c.intPool.get().SetBytes(block.Hash.Bytes()))
-	} else {
+	prevAccountBlock := c.db.PrevAccountBlock()
+	if prevAccountBlock == nil {
 		stack.push(c.intPool.getZero())
+	} else {
+		stack.push(c.intPool.get().SetBytes(prevAccountBlock.Hash.Bytes()))
 	}
-
-	c.intPool.put(tmp)
 	return nil, nil
 }
 

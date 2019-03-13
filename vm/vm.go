@@ -112,7 +112,7 @@ type VM struct {
 	abort int32
 	VmContext
 	i            *Interpreter
-	globalStatus *GlobalStatus
+	globalStatus *util.GlobalStatus
 }
 
 func NewVM() *VM {
@@ -154,17 +154,12 @@ func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_context.VmAccoun
 	)
 }
 
-type GlobalStatus struct {
-	Seed          interface{}
-	SnapshotBlock ledger.SnapshotBlock
-}
-
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (result []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	return nil, false, nil
 }
 
 // TODO
-func (vm *VM) RunV2(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *GlobalStatus) (vmAccountBlock *vm_context.VmAccountBlock, isRetry bool, err error) {
+func (vm *VM) RunV2(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
 		if nodeConfig.IsDebug {
@@ -296,7 +291,7 @@ func (vm *VM) receiveCreate(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
 
 	quotaLeft := quotaTotal
-	// TODO check new contract address not exists in global status
+	// TODO check prev account block exists instead
 	if db.IsAddressExisted(&block.AccountAddress) {
 		return nil, NoRetry, util.ErrAddressCollision
 	}
@@ -433,7 +428,7 @@ func (vm *VM) receiveCall(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 	}
 	if p, ok, _ := contracts.GetBuiltinContract(block.AccountAddress, sendBlock.Data); ok {
 		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
-		blockListToSend, err := p.DoReceive(db, block, sendBlock)
+		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm.globalStatus)
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
 			vm.updateBlock(db, block, err, 0)
@@ -513,7 +508,7 @@ func (vm *VM) receiveCall(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 		vm.revert(db)
 
 		if err == util.ErrOutOfQuota {
-			// TODO if is prevBlock is confirmed, block.VmContext.IsConfirmed(block.VmContext.PrevAccountBlock())
+			// TODO if is prevBlock is confirmed, block.VmContext.getUnConfirmedBlocks() == 0
 			var isPrevBlockConfirmed = true
 			// prev account block cannot be nil because this is a contract account, there must be a receive create block at least
 			if db.PrevAccountBlock() != nil && !isPrevBlockConfirmed {
