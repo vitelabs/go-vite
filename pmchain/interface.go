@@ -153,8 +153,6 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
 
-	GetContractMeta(contractAddress *types.Address) (meta interface{}, err error)
-
 	// ===== Query state ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
@@ -168,13 +166,13 @@ type Chain interface {
 	// get contract code
 	GetContractCode(contractAddr *types.Address) ([]byte, error)
 
+	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+
 	// get storage (类型未确定), if history is too old, failed
 	// GetStorage(storageHash *types.Hash) (storage interface{}, err error)
 
 	// get storage (类型未确定), if history is too old, failed
 	GetHistoryStorage(addr *types.Address, snapshotBlockHash *types.Hash) (storage interface{}, err error)
-
-	GetContractMetaAndGid(contractAddr *types.Address) (gid *types.Gid, meta interface{}, err error)
 	// ====== Query built-in contract storage ======
 
 	GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error)
@@ -195,9 +193,9 @@ type Chain interface {
 
 	// ====== Query used quota ======
 
-	GetQuotaUnused(address *types.Address, sbHashHeight *ledger.HashHeight) uint64
+	GetQuotaUnused(address *types.Address) uint64
 
-	GetQuotaUsed(address *types.Address, sbHashHeight *ledger.HashHeight) uint64
+	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
 	// ====== Query vm log list ======
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)

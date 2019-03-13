@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/pmchain/cache"
 	"github.com/vitelabs/go-vite/pmchain/genesis"
 	"github.com/vitelabs/go-vite/pmchain/index"
+	"github.com/vitelabs/go-vite/pmchain/state"
 )
 
 type chain struct {
@@ -15,6 +16,8 @@ type chain struct {
 	indexDB *chain_index.IndexDB
 
 	blockDB *chain_block.BlockDB
+
+	stateDB *chain_state.StateDB
 }
 
 /*
@@ -29,13 +32,15 @@ func (c *chain) NewChain() *chain {
 /*
  * 1. Check and init ledger (check genesis block)
  * 2. Init index database
- * 3. Init block database
- * 4. Init cache
+ * 3. Init state database
+ * 4. Init block database
+ * 5. Init cache
  */
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	// Init ledger
 	indexDB := chain_index.NewIndexDB()
+	//stateDB := chain_state.NewStateDB()
 	blockDB := chain_block.NewBlockDB()
 
 	if !chain_genesis.CheckLedger(indexDB, blockDB) {
