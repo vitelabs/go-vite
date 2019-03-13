@@ -12,7 +12,7 @@ func TestSerialize(t *testing.T) {
 	order.Id = orderIdBytesFromInt(100)
 	order.Address = []byte("123")
 	order.Price = "10.0"
-	order.Timestamp = 10000
+	//order.Timestamp = 10000
 	order.Side = false
 	node := &skiplistNode{}
 	pl := nodePayload(order)
@@ -24,7 +24,7 @@ func TestSerialize(t *testing.T) {
 	od := (*res.payload).(Order)
 	assert.Equal(t, od.Address, order.Address)
 	assert.Equal(t, od.Price, order.Price)
-	assert.Equal(t, od.Timestamp, order.Timestamp)
+	//assert.Equal(t, od.Timestamp, order.Timestamp)
 	assert.Equal(t, od.Side, order.Side)
 }
 
@@ -41,7 +41,7 @@ func TestCompare(t *testing.T) {
 	assert.Equal(t, int8(1), (*payload22).(Order).compareTo(payload2))
 
 	_, payload29 := newNodeInfoWithTs(2, 3)
-	assert.Equal(t, int8(-1), (*payload29).(Order).compareTo(payload2))
+	assert.Equal(t, int8(0), (*payload29).(Order).compareTo(payload2))
 }
 
 func newNodeInfo(value int) (nodeKeyType, *nodePayload) {
@@ -60,7 +60,7 @@ func newNodeInfoWithPriceAndTs(value int, price string, ts uint64) (nodeKeyType,
 	order := Order{}
 	order.Id = orderIdBytesFromInt(value)
 	order.Price = price
-	order.Timestamp = int64(ts)
+	//order.Timestamp = int64(ts)
 	order.Side = false // buy
 	pl := nodePayload(order)
 	orderId, _ := NewOrderId(order.Id)

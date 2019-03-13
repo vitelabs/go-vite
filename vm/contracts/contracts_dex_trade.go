@@ -33,8 +33,8 @@ var (
 
 type ParamDexCancelOrder struct {
 	OrderId    []byte
-	QuoteToken types.TokenTypeId
 	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
 	Side       bool
 }
 
@@ -73,13 +73,13 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
-	order := &dexproto.Order{}
-	if err = proto.Unmarshal(param.Data, order); err != nil {
+	orderInfo := &dexproto.OrderInfo{}
+	if err = proto.Unmarshal(param.Data, orderInfo); err != nil {
 		return []*SendBlock{}, err
 	}
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
-	if err = matcher.MatchOrder(dex.Order{*order}); err != nil {
+	if err = matcher.MatchOrder(dex.TakerOrder{*orderInfo}); err != nil {
 		return []*SendBlock{}, err
 	}
 	blocks, err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
@@ -146,7 +146,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
 		return []*SendBlock{}, fmt.Errorf("order status is invalid to cancel")
 	}
-	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId); err != nil {
+	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId, param.TradeToken, param.QuoteToken); err != nil {
 		return []*SendBlock{}, err
 	}
 	return handleSettleActions(block, matcher.GetFundSettles(), nil)

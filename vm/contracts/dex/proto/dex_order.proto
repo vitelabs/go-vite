@@ -5,10 +5,6 @@ package proto;
 message Order {
     bytes Id = 1;
     bytes Address = 2;
-    bytes TradeToken = 3;
-    bytes QuoteToken = 4;
-    int32 TradeTokenDecimals = 5;
-    int32 QuoteTokenDecimals = 6;
     bool  Side = 7; // false buy, true sell
     int32 Type = 8; // 0 limit order, 1 market order
     string Price = 9;
@@ -17,12 +13,35 @@ message Order {
     bytes LockedBuyFee = 12; // fee locked ahead for buy
     int32 Status = 13;
     int32 CancelReason = 14;
-    int64 Timestamp = 15;
     bytes ExecutedQuantity = 16;
     bytes ExecutedAmount = 17;
     bytes ExecutedFee = 18; // fee actually executed
     bytes RefundToken = 19;
     bytes RefundQuantity = 20; //refund trade/quote token
+}
+
+message OrderTokenInfo {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    int32 TradeTokenDecimals = 3; // will not be set in case cancel order
+    int32 QuoteTokenDecimals = 4; // will not be set in case cancel order
+}
+
+message OrderInfo {
+    Order Order = 1;
+    OrderTokenInfo OrderTokenInfo = 2;
+}
+
+message OrderUpdateInfo {
+    bytes Id = 1;
+    int32 Status = 13;
+    int32 CancelReason = 14;
+    bytes ExecutedQuantity = 16;
+    bytes ExecutedAmount = 17;
+    bytes ExecutedFee = 18; // fee actually executed
+    bytes RefundToken = 19;
+    bytes RefundQuantity = 20; //refund trade/quote token
+    OrderTokenInfo OrderTokenInfo = 2;
 }
 
 message OrderNode {
@@ -53,11 +72,10 @@ message Transaction {
     bytes Amount = 7;
     bytes TakerFee = 8;
     bytes MakerFee = 9;
-    int64 Timestamp = 10;
 }
 
 message OrderFail {
-    Order Order = 1;
+    OrderInfo OrderInfo = 1;
     string ErrCode = 2;
 }
 

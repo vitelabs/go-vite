@@ -2,6 +2,7 @@ package dex
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -36,6 +37,10 @@ const (
 
 type Order struct {
 	orderproto.Order
+}
+
+type TakerOrder struct {
+	orderproto.OrderInfo
 }
 
 var nilOrderIdValue = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -189,19 +194,20 @@ func (order Order) compareTo(toPayload *nodePayload) int8 {
 
 // orders should sort as desc by price and timestamp
 func (order Order) randSeed() int64 {
-	return order.Timestamp
+	return int64(binary.BigEndian.Uint64(order.Id[0:8]))
 }
 
 func CompareOrderPrice(order Order, target Order) int8 {
 	var result int8
 	if priceEqual(order.GetPrice(), target.GetPrice()) {
-		if order.GetTimestamp() == target.GetTimestamp() {
-			result = 0
-		} else if order.GetTimestamp() > target.GetTimestamp() {
-			result = -1
-		} else {
-			result = 1
-		}
+		//if order.GetTimestamp() == target.GetTimestamp() {
+		//	result = 0
+		//} else if order.GetTimestamp() > target.GetTimestamp() {
+		//	result = -1
+		//} else {
+		//	result = 1
+		//}
+		return 0
 	} else {
 		cp, _ := new(big.Float).SetString(order.Price)
 		tp, _ := new(big.Float).SetString(target.Price)

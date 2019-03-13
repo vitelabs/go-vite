@@ -76,3 +76,14 @@ message MarketInfo {
     bytes Creator    = 3; //creator address
     int64 Timestamp = 4;
 }
+
+message MarketEvent {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    bytes TradeTokenSymbol = 3;
+    bytes QuoteTokenSymbol = 4;
+    bytes TradeTokenDecimals = 5;
+    bytes QuoteTokenDecimals = 6;
+    bytes Creator    = 7; //creator address
+    int64 Timestamp = 8;
+}

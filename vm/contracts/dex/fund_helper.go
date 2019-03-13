@@ -32,7 +32,7 @@ var (
 	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
 	lastFeeDividendIdKey     = []byte("lDId:")
 	lastMinedVxDividendIdKey = []byte("lMVDId:")
-	marketKeyPrefix          = []byte("mks:")
+	marketKeyPrefix          = []byte("mk:")
 
 	VxTokenBytes        = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	commonTokenPow      = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
@@ -221,35 +221,39 @@ func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, ma
 	return nil
 }
 
-func RenderOrder(order *dexproto.Order, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
+func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
+	orderTokenDecimals := &dexproto.OrderTokenInfo{}
+	orderTokenDecimals.TradeToken = param.TradeToken.Bytes()
+	orderTokenDecimals.QuoteToken = param.QuoteToken.Bytes()
+	marketInfo, _ := GetMarketInfo(db, param.TradeToken, param.QuoteToken)
+	orderTokenDecimals.TradeTokenDecimals = int32(marketInfo.TradeTokenDecimals)
+	orderTokenDecimals.QuoteTokenDecimals = int32(marketInfo.QuoteTokenDecimals)
+
+	order := &dexproto.Order{}
 	order.Id = param.OrderId
 	order.Address = address.Bytes()
-	order.TradeToken = param.TradeToken.Bytes()
-	order.QuoteToken = param.QuoteToken.Bytes()
-	marketInfo, _ := GetMarketInfo(db, param.TradeToken, param.QuoteToken)
-	order.TradeTokenDecimals = int32(marketInfo.TradeTokenDecimals)
-	order.QuoteTokenDecimals = int32(marketInfo.QuoteTokenDecimals)
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = param.Price
 	order.Quantity = param.Quantity.Bytes()
 	if order.Type == Limited {
-		order.Amount = CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
+		order.Amount = CalculateRawAmount(order.Quantity, order.Price, orderTokenDecimals.TradeTokenDecimals, orderTokenDecimals.QuoteTokenDecimals)
 		if !order.Side { //buy
 			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
 		}
 	}
 	order.Status = Pending
-	order.Timestamp = snapshotTM.Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
+	orderInfo.Order = order
+	orderInfo.OrderTokenInfo = orderTokenDecimals
 }
 
-func EmitOrderFailLog(db vmctxt_interface.VmDatabase, order *dexproto.Order, errCode int) {
+func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) {
 	orderFail := dexproto.OrderFail{}
-	orderFail.Order = order
+	orderFail.OrderInfo = orderInfo
 	orderFail.ErrCode = strconv.Itoa(errCode)
 	event := NewOrderFailEvent{orderFail}
 

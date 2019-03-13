@@ -22,7 +22,7 @@ var (
 	userAddress2, _ = types.BytesToAddress([]byte("12345678901234567892"))
 )
 
-func TestDividend(t *testing.T) {
+func TestDexDividend(t *testing.T) {
 	db := initDexFundDatabase()
 	registerToken(db, vxTokenInfo)
 	rollPeriod(db)

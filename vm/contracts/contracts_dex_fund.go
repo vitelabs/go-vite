@@ -190,35 +190,35 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 
 func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	var (
-		dexFund        = &dex.UserFund{}
+		dexFund                = &dex.UserFund{}
 		tradeBlockData []byte
 		err            error
-		orderBytes     []byte
+		orderInfoBytes []byte
 	)
 	param := new(dex.ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
-	order := &dexproto.Order{}
-	dex.RenderOrder(order, param, db, sendBlock.AccountAddress, db.CurrentSnapshotBlock().Timestamp)
+	orderInfo := &dexproto.OrderInfo{}
+	dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress, db.CurrentSnapshotBlock().Timestamp)
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
-		dex.EmitOrderFailLog(db, order, dex.NewOrderGetFundFail)
+		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderGetFundFail)
 		return []*SendBlock{}, err
 	}
-	if _, err = checkAndLockFundForNewOrder(dexFund, order); err != nil {
-		dex.EmitOrderFailLog(db, order, dex.NewOrderLockFundFail)
+	if _, err = checkAndLockFundForNewOrder(dexFund, orderInfo); err != nil {
+		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderLockFundFail)
 		return []*SendBlock{}, err
 	}
 	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
-		dex.EmitOrderFailLog(db, order, dex.NewOrderSaveFundFail)
+		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderSaveFundFail)
 		return []*SendBlock{}, err
 	}
-	if orderBytes, err = proto.Marshal(order); err != nil {
-		dex.EmitOrderFailLog(db, order, dex.NewOrderInternalErr)
+	if orderInfoBytes, err = proto.Marshal(orderInfo); err != nil {
+		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderInternalErr)
 		return []*SendBlock{}, err
 	}
-	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, orderBytes); err != nil {
-		dex.EmitOrderFailLog(db, order, dex.NewOrderInternalErr)
+	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
+		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderInternalErr)
 		return []*SendBlock{}, err
 	}
 	return []*SendBlock{
@@ -508,21 +508,21 @@ func depositAccount(db vmctxt_interface.VmDatabase, address types.Address, token
 	}
 }
 
-func checkAndLockFundForNewOrder(dexFund *dex.UserFund, order *dexproto.Order) (needUpdate bool, err error) {
+func checkAndLockFundForNewOrder(dexFund *dex.UserFund, orderInfo *dexproto.OrderInfo) (needUpdate bool, err error) {
 	var (
 		lockToken, lockAmount []byte
 		lockTokenId           *types.TokenTypeId
 		lockAmountToInc       *big.Int
 	)
-	switch order.Side {
+	switch orderInfo.Order.Side {
 	case false: //buy
-		lockToken = order.QuoteToken
-		if order.Type == dex.Limited {
-			lockAmount = dex.AddBigInt(order.Amount, order.LockedBuyFee)
+		lockToken = orderInfo.OrderTokenInfo.QuoteToken
+		if orderInfo.Order.Type == dex.Limited {
+			lockAmount = dex.AddBigInt(orderInfo.Order.Amount, orderInfo.Order.LockedBuyFee)
 		}
 	case true: // sell
-		lockToken = order.TradeToken
-		lockAmount = order.Quantity
+		lockToken = orderInfo.OrderTokenInfo.TradeToken
+		lockAmount = orderInfo.Order.Quantity
 	}
 	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
 		return false, err
@@ -535,20 +535,20 @@ func checkAndLockFundForNewOrder(dexFund *dex.UserFund, order *dexproto.Order) (
 	//}
 	account, exists := dex.GetAccountByTokeIdFromFund(dexFund, *lockTokenId)
 	available := new(big.Int).SetBytes(account.Available)
-	if order.Type != dex.Market || order.Side { // limited or sell order
+	if orderInfo.Order.Type != dex.Market || orderInfo.Order.Side { // limited or sell orderInfo
 		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
 		//fmt.Printf("token %s, available %s , lockAmountToInc %s\n", tokenName, available.String(), lockAmountToInc.String())
 		if available.Cmp(lockAmountToInc) < 0 {
-			return false, fmt.Errorf("order lock amount exceed fund available")
+			return false, fmt.Errorf("orderInfo lock amount exceed fund available")
 		}
 	}
-	if !order.Side && order.Type == dex.Market { // buy or market order
+	if !orderInfo.Order.Side && orderInfo.Order.Type == dex.Market { // buy or market orderInfo
 		if available.Sign() <= 0 {
-			return false, fmt.Errorf("no quote amount available for market sell order")
+			return false, fmt.Errorf("no quote amount available for market sell orderInfo")
 		} else {
 			lockAmount = available.Bytes()
-			//NOTE: use amount available for order amount to full fill
-			order.Amount = lockAmount
+			//NOTE: use amount available for orderInfo amount to full fill
+			orderInfo.Order.Amount = lockAmount
 			lockAmountToInc = available
 			needUpdate = true
 		}
