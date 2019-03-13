@@ -47,8 +47,6 @@ type AccountBlock struct {
 	Quota uint64   `json:"quota"`
 	Fee   *big.Int `json:"fee"` // 10 padding 32 bytes
 
-	StateHash types.Hash `json:"stateHash"`
-
 	LogHash *types.Hash `json:"logHash"` // 11
 
 	Difficulty *big.Int `json:"difficulty"`
@@ -249,26 +247,23 @@ func (ab *AccountBlock) proto() *vitepb.PMAccountBlock {
 		pb.Fee = ab.Fee.Bytes()
 	}
 
-	// 14
-	pb.StateHash = ab.StateHash.Bytes()
-
 	if ab.LogHash != nil {
-		// 15
+		// 14
 		pb.LogHash = ab.LogHash.Bytes()
 	}
 
 	if ab.Difficulty != nil {
-		// 16
+		// 15
 		pb.Difficulty = ab.Difficulty.Bytes()
 	}
-	// 17
+	// 16
 	pb.Nonce = ab.Nonce
-	// 18
+	// 17
 	pb.SendBlockList = make([]*vitepb.PMAccountBlock, 0, len(ab.SendBlockList))
 	for _, sendBlock := range ab.SendBlockList {
 		pb.SendBlockList = append(pb.SendBlockList, sendBlock.proto())
 	}
-	// 19
+	// 18
 	pb.Signature = ab.Signature
 	return pb
 }
@@ -328,13 +323,6 @@ func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
 	}
 
 	// 14
-	if len(pb.StateHash) > 0 {
-		if ab.StateHash, err = types.BytesToHash(pb.StateHash); err != nil {
-			return err
-		}
-	}
-
-	// 15
 	if len(pb.LogHash) > 0 {
 		logHash, err := types.BytesToHash(pb.LogHash)
 		if err != nil {
@@ -344,14 +332,14 @@ func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
 		ab.LogHash = &logHash
 	}
 
-	// 16
+	// 15
 	if len(pb.Difficulty) > 0 {
 		ab.Difficulty = new(big.Int).SetBytes(pb.Difficulty)
 	}
-	// 17
+	// 16
 	ab.Nonce = pb.Nonce
 
-	// 18
+	// 17
 	ab.SendBlockList = make([]*AccountBlock, 0, len(pb.SendBlockList))
 	for _, pbSendBlock := range pb.SendBlockList {
 		sendBlock := &AccountBlock{}
@@ -360,7 +348,7 @@ func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
 		}
 		ab.SendBlockList = append(ab.SendBlockList, sendBlock)
 	}
-	// 19
+	// 18
 	ab.Signature = pb.Signature
 	return nil
 }

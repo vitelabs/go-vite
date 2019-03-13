@@ -16,7 +16,6 @@ func createBlock() *AccountBlock {
 	hash, _ := types.BytesToHash(crypto.Hash256([]byte("This is hash")))
 	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
 	fromBlockHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is fromBlockHash")))
-	stateHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is stateHash")))
 	logHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is logHash")))
 
 	signature := ed25519.Sign(privateKey, hash.Bytes())
@@ -38,16 +37,16 @@ func createBlock() *AccountBlock {
 		Data: []byte{'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e',
 			'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e'},
 
-		Quota:     1,
-		Fee:       big.NewInt(10),
-		StateHash: stateHash,
-		LogHash:   &logHash,
+		Quota:   1,
+		Fee:     big.NewInt(10),
+		LogHash: &logHash,
 
 		Difficulty: big.NewInt(10),
 		Nonce:      []byte("test nonce test nonce"),
 		Signature:  signature,
 	}
 }
+
 func BenchmarkAccountBlock_ComputeHash(b *testing.B) {
 	b.StopTimer()
 	block := createBlock()

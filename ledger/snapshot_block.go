@@ -125,16 +125,14 @@ type SnapshotBlock struct {
 
 	Timestamp *time.Time `json:"timestamp"` // 3
 
-	StateHash types.Hash `json:"stateHash"` // 4
-
-	SnapshotContent SnapshotContent `json:"snapshotContent"` // 5
+	SnapshotContent SnapshotContent `json:"snapshotContent"` // 4
 }
 
 func (sb *SnapshotBlock) hashSourceLength() int {
-	// 1 , 2, 3, 4
-	size := types.HashSize + 8 + 8 + types.HashSize
+	// 1 , 2, 3
+	size := types.HashSize + 8 + 8
 
-	// 5
+	// 4
 	size += len(sb.SnapshotContent) * ScItemBytesLen
 
 	// forkName
@@ -160,9 +158,6 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	unixTimeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(unixTimeBytes, uint64(sb.Timestamp.Unix()))
 	source = append(source, unixTimeBytes...)
-
-	// StateHash
-	source = append(source, sb.StateHash.Bytes()...)
 
 	// Snapshot Content
 	scBytesList := sb.SnapshotContent.bytesList()
@@ -212,8 +207,6 @@ func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	// 6
 	pb.Timestamp = sb.Timestamp.UnixNano()
 	// 7
-	pb.StateHash = sb.StateHash.Bytes()
-	// 8
 	pb.SnapshotContent = sb.SnapshotContent.proto()
 	return pb
 }
@@ -241,11 +234,6 @@ func (sb *SnapshotBlock) deProto(pb *vitepb.SnapshotBlock) error {
 	sb.Timestamp = &timestamp
 
 	// 7
-	if sb.StateHash, err = types.BytesToHash(pb.StateHash); err != nil {
-		return err
-	}
-
-	// 8
 	if len(pb.SnapshotContent) > 0 {
 		sb.SnapshotContent = make(SnapshotContent, len(pb.SnapshotContent)/ScItemBytesLen)
 

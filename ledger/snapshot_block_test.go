@@ -29,14 +29,12 @@ func createSnapshotBlock(scCount int) *SnapshotBlock {
 	_, privateKey, _ := types.CreateAddress()
 	now := time.Now()
 	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
-	stateHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is stateHash")))
 
 	sb := &SnapshotBlock{
 		PrevHash:        prevHash,
 		Height:          123,
 		PublicKey:       privateKey.PubByte(),
 		Timestamp:       &now,
-		StateHash:       stateHash,
 		SnapshotContent: createSnapshotContent(scCount),
 	}
 	sb.Hash = sb.ComputeHash()

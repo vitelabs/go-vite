@@ -148,8 +148,6 @@ type Chain interface {
 
 	GetContentNeedSnapshot() ledger.SnapshotContent
 
-	GenSnapshotState(snapshotContent ledger.SnapshotContent) (state interface{}, err error)
-
 	// ====== Query account ======
 
 	// AccountType(address *types.Address) (byte, error)

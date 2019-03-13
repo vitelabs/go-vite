@@ -13,23 +13,26 @@ type StorageIterator interface {
 type Chain interface {
 	IsContractAccount(address *types.Address) (bool, error)
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+
+	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 }
 
 type VMDB interface {
 	// ====== Context ======
 	Address() *types.Address
-	LatestSnapshotBlock() *ledger.SnapshotBlock
-	PrevAccountBlock() *ledger.AccountBlock
+	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	PrevAccountBlock() (*ledger.AccountBlock, error)
 
 	IsContractAccount() (bool, error)
 
-	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
+	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) // TODO
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
 	// ====== State ======
-	GetStateHash() *types.Hash
-	Reset()
+	GetReceiptHash() *types.Hash // TODO
+	Reset()                      // TODO
 
 	// ====== Storage ======
 	GetValue(key []byte) []byte

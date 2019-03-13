@@ -13,7 +13,6 @@ message SnapshotBlock {
     bytes signature = 5;
 
     int64 timestamp = 6;
-    bytes stateHash = 7;
 
-    bytes snapshotContent = 8;
+    bytes snapshotContent = 7;
 }
