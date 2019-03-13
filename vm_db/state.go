@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func (db *vmDB) getPrevStateSnapshot() (StateSnapshot, error) {
+func (db *vmDb) getPrevStateSnapshot() (StateSnapshot, error) {
 	if db.prevStateSnapshot == nil {
 		if db.prevAccountBlockHash == nil {
 			return nil, errors.New("no context, db.prevAccountBlockHash is nil")
@@ -22,10 +22,10 @@ func (db *vmDB) getPrevStateSnapshot() (StateSnapshot, error) {
 	return db.prevStateSnapshot, nil
 }
 
-func (db *vmDB) GetReceiptHash() *types.Hash {
+func (db *vmDb) GetReceiptHash() *types.Hash {
 	return nil
 }
 
-func (db *vmDB) Reset() {
-
+func (db *vmDb) Reset() {
+	db.unsaved = NewUnsaved()
 }

@@ -6,8 +6,18 @@ import (
 	"math/big"
 )
 
+type VmAccountBlock struct {
+	AccountBlock *ledger.AccountBlock
+	VmDb         VmDb
+}
+
 type StorageIterator interface {
-	Next() (key, value []byte, ok bool)
+	Prev() bool
+	Next() bool
+
+	Key() []byte
+	Value() []byte
+	Error() error
 }
 
 type StateSnapshot interface {
@@ -16,6 +26,8 @@ type StateSnapshot interface {
 	GetCode() ([]byte, error)
 
 	GetValue([]byte) ([]byte, error)
+
+	NewStorageIterator(prefix []byte) StorageIterator // TODO
 }
 
 type Chain interface {
@@ -36,7 +48,7 @@ type Chain interface {
 	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
 }
 
-type VMDB interface {
+type VmDb interface {
 	// ====== Context ======
 	Address() *types.Address
 	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
@@ -50,7 +62,7 @@ type VMDB interface {
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash // TODO
-	Reset()                      // TODO
+	Reset()
 
 	// ====== Storage ======
 	GetValue(key []byte) ([]byte, error)
@@ -67,7 +79,9 @@ type VMDB interface {
 
 	// ====== VMLog ======
 	AddLog(log *ledger.VmLog)
-	GetLogList(logHash *types.Hash) (ledger.VmLogList, error)
+
+	GetLogList() ledger.VmLogList
+	GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error)
 	GetLogListHash() *types.Hash
 
 	// ====== AccountBlock ======

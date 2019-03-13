@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type vmDB struct {
+type vmDb struct {
 	unsaved *Unsaved
 	chain   Chain
 
@@ -21,7 +21,7 @@ type vmDB struct {
 	prevStateSnapshot StateSnapshot // for cache
 }
 
-func NewVMDB(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VMDB, error) {
+func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VmDb, error) {
 	if address == nil {
 		return nil, errors.New("address is nil")
 	} else if latestSnapshotBlockHash == nil {
@@ -30,7 +30,7 @@ func NewVMDB(chain Chain, address *types.Address, latestSnapshotBlockHash *types
 		return nil, errors.New("prevAccountBlockHash is nil")
 	}
 
-	return &vmDB{
+	return &vmDb{
 		unsaved: NewUnsaved(),
 		chain:   chain,
 		address: address,
@@ -40,8 +40,8 @@ func NewVMDB(chain Chain, address *types.Address, latestSnapshotBlockHash *types
 	}, nil
 }
 
-func NewNoContextVMDB(chain Chain) VMDB {
-	return &vmDB{
+func NewNoContextVmDb(chain Chain) VmDb {
+	return &vmDb{
 		chain: chain,
 	}
 }

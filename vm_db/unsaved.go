@@ -6,6 +6,11 @@ import (
 	"math/big"
 )
 
+type storageItem struct {
+	key   []byte
+	value []byte
+}
+
 type Unsaved struct {
 	contractMeta *ledger.ContractMeta
 
@@ -13,6 +18,8 @@ type Unsaved struct {
 
 	logList ledger.VmLogList
 	storage map[string][]byte
+
+	sortedStorage []*storageItem
 
 	balanceMap map[types.TokenTypeId]*big.Int
 }
@@ -48,6 +55,10 @@ func (unsaved *Unsaved) AddLog(log *ledger.VmLog) {
 	unsaved.logList = append(unsaved.logList, log)
 }
 
+func (unsaved *Unsaved) GetLogList() ledger.VmLogList {
+	return unsaved.logList
+}
+
 func (unsaved *Unsaved) GetLogListHash() *types.Hash {
 	return unsaved.logList.Hash()
 }
@@ -61,4 +72,35 @@ func (unsaved *Unsaved) SetCode(code []byte) {
 
 func (unsaved *Unsaved) GetCode() []byte {
 	return unsaved.code
+}
+
+func (unsaved *Unsaved) NewStorageIterator() StorageIterator {
+	return NewUnsavedStorageIterator()
+}
+
+func NewUnsavedStorageIterator() *UnsavedStorageIterator {
+	return &UnsavedStorageIterator{}
+}
+
+type UnsavedStorageIterator struct {
+}
+
+func (iter *UnsavedStorageIterator) Next() bool {
+	return false
+}
+
+func (iter *UnsavedStorageIterator) Prev() bool {
+	return false
+}
+
+func (iter *UnsavedStorageIterator) Key() []byte {
+	return nil
+}
+
+func (iter *UnsavedStorageIterator) Value() []byte {
+	return nil
+}
+
+func (iter *UnsavedStorageIterator) Error() error {
+	return nil
 }

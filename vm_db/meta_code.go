@@ -5,15 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (db *vmDB) SetContractMeta(meta *ledger.ContractMeta) {
+func (db *vmDb) SetContractMeta(meta *ledger.ContractMeta) {
 	db.unsaved.SetContractMeta(meta)
 }
 
-func (db *vmDB) SetContractCode(code []byte) {
+func (db *vmDb) SetContractCode(code []byte) {
 	db.unsaved.SetCode(code)
 }
 
-func (db *vmDB) GetContractCode() ([]byte, error) {
+func (db *vmDb) GetContractCode() ([]byte, error) {
 	if code := db.unsaved.GetCode(); len(code) > 0 {
 		return code, nil
 	}
@@ -25,6 +25,6 @@ func (db *vmDB) GetContractCode() ([]byte, error) {
 
 	return prevStateSnapshot.GetCode()
 }
-func (db *vmDB) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
+func (db *vmDb) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	return nil, nil
 }

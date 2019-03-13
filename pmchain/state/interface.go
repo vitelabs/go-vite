@@ -5,6 +5,15 @@ import (
 	"math/big"
 )
 
+type StorageIterator interface {
+	Prev() bool
+	Next() bool
+
+	Key() []byte
+	Value() []byte
+	Error() error
+}
+
 type StateSnapshot interface {
 	// ====== balance ======
 	GetBalance(tokenId *types.TokenTypeId) (*big.Int, error)
@@ -14,4 +23,6 @@ type StateSnapshot interface {
 
 	// ====== Storage ======
 	GetValue([]byte) ([]byte, error)
+
+	NewStorageIterator(prefix []byte) StorageIterator
 }

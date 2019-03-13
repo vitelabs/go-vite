@@ -1,11 +1,14 @@
 package chain_index
 
 type IndexDB struct {
-	db DB
+	db    DB
+	memDb MemDB
 }
 
 func NewIndexDB() *IndexDB {
-	return &IndexDB{}
+	return &IndexDB{
+		memDb: newMemDb(),
+	}
 }
 
 func (iDB *IndexDB) Destroy() {}

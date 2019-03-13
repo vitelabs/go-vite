@@ -7,11 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (db *vmDB) Address() *types.Address {
+func (db *vmDb) Address() *types.Address {
 	return db.address
 }
 
-func (db *vmDB) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+func (db *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	if db.latestSnapshotBlock == nil {
 		if db.latestSnapshotBlockHash == nil {
 			return nil, errors.New("No context, db.latestSnapshotBlockHash is nil")
@@ -27,7 +27,7 @@ func (db *vmDB) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return db.latestSnapshotBlock, nil
 }
 
-func (db *vmDB) PrevAccountBlock() (*ledger.AccountBlock, error) {
+func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	if db.prevAccountBlock == nil {
 		if db.prevAccountBlockHash == nil {
 			return nil, errors.New("No context, db.prevAccountBlockHash is nil")
@@ -43,14 +43,14 @@ func (db *vmDB) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	return db.prevAccountBlock, nil
 }
 
-func (db *vmDB) IsContractAccount() (bool, error) {
+func (db *vmDb) IsContractAccount() (bool, error) {
 	return db.chain.IsContractAccount(db.address)
 }
 
-func (db *vmDB) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
+func (db *vmDb) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
 	return 0, nil
 }
 
-func (db *vmDB) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+func (db *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
 	return db.chain.GetQuotaUsed(db.address)
 }
