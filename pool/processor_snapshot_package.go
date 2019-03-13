@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -16,6 +18,11 @@ type snapshotPackage struct {
 	accountExistsF  AccountExistsFunc
 	maxLevel        int
 	snapshot        *ledger.SnapshotBlock
+}
+
+func (self *snapshotPackage) Exists(hash types.Hash) bool {
+	_, result := self.all[hash]
+	return result
 }
 
 func (self *snapshotPackage) Info() string {
@@ -80,7 +87,7 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return REFER_ERROR
+				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("account[%s] not exist.", r))
 			}
 			continue
 		}
@@ -103,7 +110,7 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 		if !ok {
 			err := self.snapshotExistsF(sHash)
 			if err != nil {
-				return REFER_ERROR
+				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("snapshot[%s] not exist.", sHash))
 			}
 		} else {
 			lNum := tmp.level

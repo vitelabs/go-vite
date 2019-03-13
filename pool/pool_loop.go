@@ -40,13 +40,18 @@ func (self *pool) makeQueue() Package {
 
 	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
 	for {
-		tmpSb := self.makeSnapshotBlock(snapshotOffset)
+		tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
+			if p.Size() > 0 {
+				break
+			}
 			self.makeQueueFromAccounts(p)
+			//fmt.Println("from accounts")
 			break
 		} else {
 			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
+				fmt.Println("from snapshot", err)
 				break
 			}
 			snapshotOffset.offset = &ledger.HashHeight{Hash: tmpSb.cur.block.Hash, Height: tmpSb.cur.block.Height}
@@ -71,7 +76,7 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 	return true
 }
 
-func (self *pool) makeSnapshotBlock(info *offsetInfo) *completeSnapshotBlock {
+func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) *completeSnapshotBlock {
 	if self.pendingSc.CurrentChain().size() == 0 {
 		return nil
 	}
@@ -95,7 +100,11 @@ func (self *pool) makeSnapshotBlock(info *offsetInfo) *completeSnapshotBlock {
 		if ab.Height() > acurr.tailHeight {
 			tmp := stack.New()
 			for h := ab.Height(); h > acurr.tailHeight; h-- {
-				tmp.Push(ac.getCurrentBlock(h))
+				currB := ac.getCurrentBlock(h)
+				if p.Exists(currB.Hash()) {
+					break
+				}
+				tmp.Push(currB)
 			}
 			if tmp.Len() > 0 {
 				addrM[k] = tmp
@@ -115,6 +124,7 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 				item := NewItem(ab, &ab.block.AccountAddress)
 				err := p.AddItem(item)
 				if err != nil {
+					fmt.Printf("account add fail. %s\n", err)
 					break
 				}
 				sum += 1
@@ -135,7 +145,7 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 		}
 		return nil
 	} else {
-		return REFER_ERROR
+		return errors.WithMessage(REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 	}
 }
 func (self *pool) makeQueueFromAccounts(p Package) {

@@ -22,6 +22,7 @@ type Package interface {
 	Levels() []Level
 	Size() int
 	Info() string
+	Exists(hash types.Hash) bool
 }
 
 type Level interface {
