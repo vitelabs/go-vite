@@ -3,6 +3,7 @@ package pmchain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/state"
 	"github.com/vitelabs/go-vite/vm_context"
 	"io"
 	"math/big"
@@ -108,7 +109,11 @@ type Chain interface {
 	// is valid
 	IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
 
+	GetGenesisSnapshotHeader() *ledger.SnapshotBlock
+
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+
+	GetLatestSnapshotHeader() *ledger.SnapshotBlock
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
@@ -173,8 +178,7 @@ type Chain interface {
 
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
-	// get storage (类型未确定), if history is too old, failed
-	GetHistoryStorage(addr *types.Address, snapshotBlockHash *types.Hash) (storage interface{}, err error)
+	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot chain_state.StateSnapshot, err error)
 	// ====== Query built-in contract storage ======
 
 	GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error)

@@ -6,11 +6,12 @@ import (
 )
 
 func (db *vmDB) AddLog(log *ledger.VmLog) {
-
+	db.unsaved.AddLog(log)
 }
-func (db *vmDB) GetLogList() ledger.VmLogList {
-	return nil
+
+func (db *vmDB) GetLogList(logHash *types.Hash) (ledger.VmLogList, error) {
+	return db.chain.GetLogList(logHash)
 }
 func (db *vmDB) GetLogListHash() *types.Hash {
-	return nil
+	return db.unsaved.GetLogListHash()
 }

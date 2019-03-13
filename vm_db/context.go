@@ -1,6 +1,7 @@
 package vm_db
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,6 +20,8 @@ func (db *vmDB) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 		db.latestSnapshotBlock, err = db.chain.GetSnapshotHeaderByHash(db.latestSnapshotBlockHash)
 		if err != nil {
 			return nil, err
+		} else if db.latestSnapshotBlock == nil {
+			return nil, errors.New(fmt.Sprintf("the returned snapshotHeader of db.chain.GetSnapshotHeaderByHash is nil, db.latestSnapshotBlockHash is %s", db.latestSnapshotBlockHash))
 		}
 	}
 	return db.latestSnapshotBlock, nil
@@ -30,9 +33,11 @@ func (db *vmDB) PrevAccountBlock() (*ledger.AccountBlock, error) {
 			return nil, errors.New("No context, db.prevAccountBlockHash is nil")
 		}
 		var err error
-		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(db.latestSnapshotBlockHash)
+		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(db.prevAccountBlockHash)
 		if err != nil {
 			return nil, err
+		} else if db.prevAccountBlock == nil {
+			return nil, errors.New(fmt.Sprintf("the returned accountBlock of db.chain.GetAccountBlockByHash is nil, db.prevAccountBlockHash is %s", db.prevAccountBlockHash))
 		}
 	}
 	return db.prevAccountBlock, nil

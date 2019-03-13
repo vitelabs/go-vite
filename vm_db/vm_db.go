@@ -16,7 +16,9 @@ type vmDB struct {
 	latestSnapshotBlock     *ledger.SnapshotBlock // for cache
 
 	prevAccountBlockHash *types.Hash
-	prevAccountBlock     *ledger.AccountBlock
+	prevAccountBlock     *ledger.AccountBlock // for cache
+
+	prevStateSnapshot StateSnapshot // for cache
 }
 
 func NewVMDB(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VMDB, error) {
