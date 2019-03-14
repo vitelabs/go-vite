@@ -34,15 +34,14 @@ func TestDexFund(t *testing.T) {
 	db := initDexFundDatabase()
 	userAddress, _ := types.BytesToAddress([]byte("12345678901234567890"))
 	depositCash(db, userAddress, 3000, VITE.tokenId)
-	registerToken(db, VITE)
 	innerTestDepositAndWithdraw(t, db, userAddress)
 	innerTestFundNewOrder(t, db, userAddress)
-	//innerTestNewMarket(t, db)
 	innerTestSettleOrder(t, db, userAddress)
 }
 
 func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress types.Address) {
 	var err error
+	registerToken(db, VITE)
 	//deposit
 	depositMethod := contracts.MethodDexFundUserDeposit{}
 
@@ -101,56 +100,16 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 
 }
 
-func innerTestNewMarket(t *testing.T, db *testDatabase) {
-	userAddress1, _ := types.BytesToAddress([]byte("12345678901234567891"))
-	senderAccBlock := &ledger.AccountBlock{}
-	senderAccBlock.AccountAddress = userAddress1
-	senderAccBlock.TokenId = ETH.tokenId
-	senderAccBlock.Amount = new(big.Int).Div(dex.NewMarketFeeDividendAmount, big.NewInt(2))
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewMarket, VITE.tokenId, ETH.tokenId)
-	method := contracts.MethodDexFundNewMarket{}
-	err := method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "token type of fee for create market not valid", err.Error())
-	senderAccBlock.TokenId = VITE.tokenId
-	err = method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "fee for create market not enough", err.Error())
-	senderAccBlock.Amount = dex.NewMarketFeeAmount
-	senderAccBlock.Amount = new(big.Int).Add(dex.NewMarketFeeAmount, dex.NewMarketFeeDividendAmount)
-
-	receiveBlock := &ledger.AccountBlock{}
-	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
-	assert.True(t, err == nil)
-	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress1)
-	acc := dexFund.Accounts[0]
-	assert.True(t, dex.CmpForBigInt(dex.NewMarketFeeDividendAmount.Bytes(), acc.Available) == 0)
-
-	marketInfo, err := dex.GetMarketInfo(db, VITE.tokenId, ETH.tokenId)
-	assert.True(t, marketInfo != nil)
-	assert.True(t, bytes.Equal(marketInfo.Creator, userAddress1.Bytes()))
-	assert.Equal(t, VITE.decimals, marketInfo.TradeTokenDecimals)
-	assert.Equal(t, ETH.decimals, marketInfo.QuoteTokenDecimals)
-	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
-
-	assert.Equal(t, dex.MarketExistsError, err)
-	userFees, _ := dex.GetUserFeesFromStorage(db, userAddress1.Bytes())
-	assert.Equal(t, 1, len(userFees.Fees))
-	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Token, VITE.tokenId.Bytes()))
-	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Amount, dex.NewMarketFeeDividendAmount.Bytes()))
-}
-
 func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Address) {
 	registerToken(db, ETH)
+
 	method := contracts.MethodDexFundNewOrder{}
+
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
 	err := method.DoSend(db, senderAccBlock)
-	assert.Equal(t, err, dex.MarketNotExistsError)
-
-	innerTestNewMarket(t, db)
-	
-	err = method.DoSend(db, senderAccBlock)
 	assert.True(t, err == nil)
 
 	param := new(dex.ParamDexFundNewOrder)
@@ -242,15 +201,9 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
 	dexFee, err := dex.GetCurrentFeeSumFromStorage(db) // initDexFundDatabase snapshotBlock Height
-	assert.Equal(t, 2, len(dexFee.Fees))
-	if bytes.Equal(dexFee.Fees[0].Token, ETH.tokenId.Bytes()) {
-		assert.True(t, CheckBigEqualToInt(15, dexFee.Fees[0].Amount))
-		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[1].Amount))
-	} else {
-		assert.True(t, CheckBigEqualToInt(15, dexFee.Fees[1].Amount))
-		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[0].Amount))
-	}
-
+	assert.Equal(t, 1, len(dexFee.Fees))
+	feeAcc := dexFee.Fees[0]
+	assert.True(t, CheckBigEqualToInt(15, feeAcc.Amount))
 }
 
 func initDexFundDatabase() *testDatabase {
