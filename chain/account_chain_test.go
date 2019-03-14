@@ -159,11 +159,11 @@ func BenchmarkChain_InsertAccountBlocks(b *testing.B) {
 }
 
 func TestContractsAddr(t *testing.T) {
-	fmt.Println(types.AddressRegister.String())
-	fmt.Println(types.AddressRegister.String())
-	fmt.Println(types.AddressRegister.String())
-	fmt.Println(types.AddressRegister.String())
-	fmt.Println(types.AddressRegister.String())
+	fmt.Println(types.AddressConsensusGroup.String())
+	fmt.Println(types.AddressConsensusGroup.String())
+	fmt.Println(types.AddressConsensusGroup.String())
+	fmt.Println(types.AddressConsensusGroup.String())
+	fmt.Println(types.AddressConsensusGroup.String())
 }
 
 func TestGetAccountBlocksByHash(t *testing.T) {
@@ -271,7 +271,7 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 			Count:           10,
 			Forward:         true,
 		},
-		types.AddressRegister: {
+		types.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         true,
@@ -299,7 +299,7 @@ func TestChain_GetAccountBlockMap(t *testing.T) {
 			Count:           10,
 			Forward:         false,
 		},
-		types.AddressRegister: {
+		types.AddressConsensusGroup: {
 			OriginBlockHash: nil,
 			Count:           10,
 			Forward:         false,

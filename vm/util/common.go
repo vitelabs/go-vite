@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
-	"time"
 )
 
 var (
@@ -24,7 +23,6 @@ func IsSnapshotGid(gid types.Gid) bool {
 }
 
 func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, height uint64, data []byte) *ledger.AccountBlock {
-	newTimestamp := time.Unix(0, block.Timestamp.UnixNano())
 	return &ledger.AccountBlock{
 		AccountAddress: block.AccountAddress,
 		ToAddress:      toAddress,
@@ -32,10 +30,8 @@ func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockTyp
 		Amount:         amount,
 		TokenId:        tokenId,
 		Height:         height,
-		SnapshotHash:   block.SnapshotHash,
 		Data:           data,
 		Fee:            big.NewInt(0),
-		Timestamp:      &newTimestamp,
 	}
 }
 
@@ -107,7 +103,7 @@ func PrintMap(m map[string][]byte) string {
 }
 
 func IsUserAccount(db CommonDb, addr types.Address) bool {
-	if types.IsPrecompiledContractAddress(addr) {
+	if types.IsBuiltinContractAddr(addr) {
 		return false
 	}
 	_, code := GetContractCode(db, &addr)

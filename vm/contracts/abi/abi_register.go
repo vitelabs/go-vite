@@ -60,7 +60,7 @@ func IsRegisterKey(key []byte) bool {
 }
 
 func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
-	if value := db.GetStorageBySnapshotHash(&types.AddressRegister, GetRegisterKey(name, gid), nil); len(value) > 0 {
+	if value := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetRegisterKey(name, gid), nil); len(value) > 0 {
 		registration := new(types.Registration)
 		if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 			return registration.IsActive()
@@ -73,9 +73,9 @@ func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Has
 	defer monitor.LogTime("vm", "GetCandidateList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressRegister, types.SNAPSHOT_GID.Bytes(), snapshotHash)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)
 	} else {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressRegister, gid.Bytes(), snapshotHash)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, gid.Bytes(), snapshotHash)
 	}
 	registerList := make([]*types.Registration, 0)
 	if iterator == nil {
@@ -100,9 +100,9 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 	defer monitor.LogTime("vm", "GetRegistrationList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressRegister, types.SNAPSHOT_GID.Bytes(), nil)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), nil)
 	} else {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressRegister, gid.Bytes(), nil)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, gid.Bytes(), nil)
 	}
 	registerList := make([]*types.Registration, 0)
 	if iterator == nil {
@@ -125,7 +125,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 
 func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Registration {
 	defer monitor.LogTime("vm", "GetRegistration", time.Now())
-	value := db.GetStorageBySnapshotHash(&types.AddressRegister, GetRegisterKey(name, gid), nil)
+	value := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetRegisterKey(name, gid), nil)
 	registration := new(types.Registration)
 	if err := ABIRegister.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 		return registration

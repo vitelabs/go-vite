@@ -351,13 +351,13 @@ func (nodeManager *ExportNodeManager) printBalanceMap(balanceMap map[types.Addre
 
 }
 func exportContractBalance(m map[types.Address]*big.Int, addr types.Address, balance *big.Int, trie *trie.Trie, c chain.Chain) (map[types.Address]*big.Int, error) {
-	if addr == types.AddressRegister {
+	if addr == types.AddressConsensusGroup {
 		return exportRegisterBalance(m, trie), nil
 	} else if addr == types.AddressPledge {
 		return exportPledgeBalance(m, trie), nil
 	} else if addr == types.AddressMintage {
 		return exportMintageBalance(m, trie), nil
-	} else if addr == types.AddressVote {
+	} else if addr == types.AddressConsensusGroup {
 		return m, nil
 	} else if addr == types.AddressConsensusGroup {
 		return m, nil

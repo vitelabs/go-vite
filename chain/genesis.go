@@ -250,7 +250,7 @@ func NewGenesisRegisterBlock(config *config.Genesis) (ledger.AccountBlock, vmctx
 	block := ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		Height:         1,
-		AccountAddress: types.AddressRegister,
+		AccountAddress: types.AddressConsensusGroup,
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 

@@ -155,6 +155,10 @@ func printDebugBlockInfo(block *ledger.AccountBlock, blockList []*vm_context.VmA
 	)
 }
 
+func (vm *VM) RunV2(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_context.VmAccountBlock, isRetry bool, err error) {
+	return nil, false, nil
+}
+
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (blockList []*vm_context.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTime("vm", "run", time.Now())
 	defer func() {
@@ -603,7 +607,7 @@ func (vm *VM) sendReward(block *vm_context.VmAccountBlock, quotaTotal, quotaAddi
 	if err != nil {
 		return nil, err
 	}
-	if block.AccountBlock.AccountAddress != types.AddressRegister &&
+	if block.AccountBlock.AccountAddress != types.AddressConsensusGroup &&
 		block.AccountBlock.AccountAddress != types.AddressMintage {
 		return nil, errors.New("invalid account address")
 	}
@@ -750,7 +754,7 @@ func checkDepth(db vmctxt_interface.VmDatabase, sendBlock *ledger.AccountBlock) 
 		depth = depth + 1
 		prevReceiveBlock := findPrevReceiveBlock(db, prevBlock)
 		prevBlock = db.GetAccountBlockByHash(&prevReceiveBlock.FromBlockHash)
-		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsPrecompiledContractAddress(prevReceiveBlock.AccountAddress) {
+		if prevBlock == nil && prevReceiveBlock.Height == 1 && types.IsBuiltinContractAddr(prevReceiveBlock.AccountAddress) {
 			// some precompiled contracts' genesis block does not have prevblock
 			return false
 		}

@@ -36,13 +36,13 @@ type Registration struct {
 	PledgeAddr     Address
 	Amount         *big.Int
 	WithdrawHeight uint64
-	RewardIndex    uint64
-	CancelHeight   uint64
+	RewardTime     int64
+	CancelTime     int64
 	HisAddrList    []Address
 }
 
 func (r *Registration) IsActive() bool {
-	return r.CancelHeight == 0
+	return r.CancelTime == 0
 }
 
 type TokenInfo struct {
