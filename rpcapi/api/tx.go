@@ -8,10 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
 
@@ -175,7 +171,9 @@ type CalcPoWDifficultyResult struct {
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
-	block := &ledger.AccountBlock{
+	// TODO
+	return nil, nil
+	/*block := &ledger.AccountBlock{
 		BlockType:      param.BlockType,
 		AccountAddress: param.SelfAddr,
 		PrevHash:       param.PrevHash,
@@ -207,14 +205,18 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		}
 	}
 
-	if !quota.CanPoW(db, param.SelfAddr) {
+	canPoW, err := quota.CanPoW(db, param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
 	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
 	if err != nil {
 		return nil, err
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil*/
 }
 
 func isPoW(nonce []byte) bool {

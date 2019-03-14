@@ -32,10 +32,11 @@ func InitQuotaConfig(isTestParam bool) {
 }
 
 type quotaDb interface {
-	GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock
-	CurrentSnapshotBlock() *ledger.SnapshotBlock
+	Address() *types.Address
+	LatestSnapshotBlock() *ledger.SnapshotBlock
 	PrevAccountBlock() *ledger.AccountBlock
-	//TODO GetCurrentQuota(addr types.Address) (uint64, int)
+	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+	GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error)
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
@@ -43,8 +44,8 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
 }
 
-func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, addr, pledgeAmount, difficulty)
+func CalcQuotaForBlock(db quotaDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
+	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, *db.Address(), pledgeAmount, difficulty)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -80,8 +81,14 @@ func CheckQuota(db quotaDb, addr types.Address, q types.Quota) bool {
 
 func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64, err error) {
 	powFlag := difficulty != nil && difficulty.Sign() > 0
-	if powFlag && !CanPoW(db, addr) {
-		return 0, 0, 0, 0, util.ErrCalcPoWTwice
+	if powFlag {
+		canPoW, err := CanPoW(db, addr)
+		if err != nil {
+			return 0, 0, 0, 0, err
+		}
+		if canPoW {
+			return 0, 0, 0, 0, util.ErrCalcPoWTwice
+		}
 	}
 	quotaTotal = calcQuotaTotal(pledgeAmount, difficulty)
 	if powFlag {
@@ -114,14 +121,12 @@ func calcQuotaByPledgeAmountAndDifficulty(pledgeAmount, difficulty *big.Int) uin
 }
 
 func calcQuotaUsed(db quotaDb, addr types.Address) (uint64, uint64) {
-	// TODO
-	return 0, 0
-	/*quotaUsed, txNum := db.GetCurrentQuota(addr)
+	quotaUsed, txNum := db.GetQuotaUsed(&addr)
 	if txNum == 0 {
 		return 0, 0
 	} else {
 		return quotaUsed, quotaUsed / uint64(txNum)
-	}*/
+	}
 }
 
 func calcQuotaByIndex(index int) uint64 {
@@ -176,22 +181,17 @@ func IsPoW(nonce []byte) bool {
 	return len(nonce) > 0
 }
 
-func CanPoW(db quotaDb, addr types.Address) bool {
-	// TODO use chain.getUnconfirmedAccountBlocks instead
-	currentSnapshotHash := db.CurrentSnapshotBlock().Hash
-	prevBlock := db.PrevAccountBlock()
-	for {
-		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
-			if IsPoW(prevBlock.Nonce) {
-				return false
-			} else {
-				prevBlock = db.GetAccountBlockByHash(&prevBlock.PrevHash)
-				continue
-			}
-		} else {
-			return true
+func CanPoW(db quotaDb, addr types.Address) (bool, error) {
+	blocks, err := db.GetUnconfirmedBlocks()
+	if err != nil {
+		return false, err
+	}
+	for _, b := range blocks {
+		if IsPoW(b.Nonce) {
+			return false, nil
 		}
 	}
+	return true, nil
 }
 
 func GetQuotaRequired(block *ledger.AccountBlock) (uint64, error) {

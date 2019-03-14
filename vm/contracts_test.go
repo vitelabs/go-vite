@@ -752,7 +752,7 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr5
 	receivePledgeBlockList, isRetry, err := vm.Run(db, block51, sendPledgeBlockList[0].AccountBlock)
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
-	pledgeKey := abi.GetPledgeKey(addr1, beneficialKey)
+	pledgeKey := abi.GetPledgeKey(addr1, addr4)
 	withdrawHeight := snapshot2.Height + 3600*24*3
 	if len(receivePledgeBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][string(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize))) ||

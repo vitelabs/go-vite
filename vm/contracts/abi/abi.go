@@ -2,13 +2,13 @@ package abi
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type StorageDatabase interface {
-	GetStorage(addr *types.Address, key []byte) []byte
-	NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator
-	NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator
+	GetValue(key []byte) []byte
+	NewStorageIterator(prefix []byte) vm_db.StorageIterator
+	Address() *types.Address
 }
 
 type ConditionCode uint8

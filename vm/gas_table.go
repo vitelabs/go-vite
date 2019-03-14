@@ -230,13 +230,13 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		newValue     = stack.back(1)
 		loc          = stack.back(0)
 		locHash, _   = types.BigToHash(loc)
-		currentValue = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
+		currentValue = c.db.GetValue(locHash.Bytes())
 	)
 	if bytes.Equal(currentValue, newValue.Bytes()) {
 		// no change, charge 200
 		return sstoreNoopGas, nil
 	}
-	originalValue := c.db.GetOriginalStorage(locHash.Bytes())
+	originalValue := c.db.GetOriginalValue(locHash.Bytes())
 	if bytes.Equal(originalValue, currentValue) {
 		if len(originalValue) == 0 {
 			// zero value to non-zero value, charge 20000

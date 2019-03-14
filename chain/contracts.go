@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -109,7 +108,9 @@ func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	monitorTags := []string{"chain", "GetRegisterList"}
+	// TODO
+	return nil, nil
+	/*monitorTags := []string{"chain", "GetRegisterList"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
@@ -117,11 +118,13 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*type
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetCandidateList")
 		return nil, err
 	}
-	return abi.GetCandidateList(vmContext, gid, nil), nil
+	return abi.GetCandidateList(vmContext, gid, nil), nil*/
 }
 
 func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	monitorTags := []string{"chain", "GetVoteMap"}
+	// TODO
+	return nil, nil
+	/*monitorTags := []string{"chain", "GetVoteMap"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
@@ -129,11 +132,13 @@ func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.Vot
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteList")
 		return nil, err
 	}
-	return abi.GetVoteList(vmContext, gid, nil), nil
+	return abi.GetVoteList(vmContext, gid, nil), nil*/
 }
 
 func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) (*big.Int, error) {
-	monitorTags := []string{"chain", "GetPledgeAmount"}
+	// TODO
+	return nil, nil
+	/*monitorTags := []string{"chain", "GetPledgeAmount"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
@@ -141,11 +146,13 @@ func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Addres
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil, err
 	}
-	return abi.GetPledgeBeneficialAmount(vmContext, beneficial), nil
+	return abi.GetPledgeBeneficialAmount(vmContext, beneficial), nil*/
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
-	monitorTags := []string{"chain", "GetConsensusGroupList"}
+	// TODO
+	return nil, nil
+	/*monitorTags := []string{"chain", "GetConsensusGroupList"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
@@ -153,7 +160,7 @@ func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.Consens
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetActiveConsensusGroupList")
 		return nil, err
 	}
-	return abi.GetActiveConsensusGroupList(vmContext, nil), nil
+	return abi.GetActiveConsensusGroupList(vmContext, nil), nil*/
 }
 
 func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
@@ -174,7 +181,9 @@ func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenT
 }
 
 func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error) {
-	monitorTags := []string{"chain", "GetTokenInfoById"}
+	// TODO
+	return nil, nil
+	/*monitorTags := []string{"chain", "GetTokenInfoById"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	vmContext, err := vm_context.NewVmContext(c, nil, nil, &types.AddressMintage)
@@ -182,5 +191,5 @@ func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, 
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetTokenInfoById")
 		return nil, err
 	}
-	return abi.GetTokenById(vmContext, *tokenId), nil
+	return abi.GetTokenById(vmContext, *tokenId), nil*/
 }

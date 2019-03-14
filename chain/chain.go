@@ -14,7 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm_context"
 	"path/filepath"
 	"reflect"
 	"sync"
@@ -245,7 +244,7 @@ func (c *chain) initData() {
 
 	}
 
-	// Insert mintage block
+	/*// Insert mintage block
 	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
 		AccountBlock: &GenesisMintageBlock,
 		VmContext:    GenesisMintageBlockVC,
@@ -280,7 +279,7 @@ func (c *chain) initData() {
 	err = c.InsertSnapshotBlock(&SecondSnapshotBlock)
 	if err != nil {
 		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
-	}
+	}*/
 }
 
 func (c *chain) initCache() {

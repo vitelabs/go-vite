@@ -349,7 +349,7 @@ func opAddress(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 func opBalance(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	tokenTypeIdBig := stack.pop()
 	tokenTypeId, _ := types.BigToTokenTypeId(tokenTypeIdBig)
-	stack.push(c.intPool.get().Set(c.db.GetBalance(&c.block.AccountAddress, &tokenTypeId)))
+	stack.push(c.intPool.get().Set(c.db.GetBalance(&tokenTypeId)))
 
 	c.intPool.put(tokenTypeIdBig)
 	return nil, nil
@@ -426,8 +426,7 @@ func opCodeCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 func opExtCodeSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	addrBig := stack.peek()
 	contractAddress, _ := types.BigToAddress(addrBig)
-	// TODO getContractCode by global status if addr is not self
-	_, code := util.GetContractCode(c.db, &contractAddress)
+	_, code := util.GetContractCode(c.db, &contractAddress, vm.globalStatus)
 	addrBig.SetInt64(int64(len(code)))
 	return nil, nil
 }
@@ -440,8 +439,7 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) (
 		length     = stack.pop()
 	)
 	contractAddress, _ := types.BigToAddress(addrBig)
-	// TODO getContractCode by global status if addr is not self
-	_, code := util.GetContractCode(c.db, &contractAddress)
+	_, code := util.GetContractCode(c.db, &contractAddress, vm.globalStatus)
 	codeCopy := helper.GetDataBig(code, codeOffset, length)
 	mem.set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
@@ -539,8 +537,7 @@ func opOffchainFromHash(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 }
 
 func opSeed(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	// TODO use vm.globalStatus.Seed
-	stack.push(c.intPool.getZero())
+	stack.push(c.intPool.get().SetUint64(vm.globalStatus.Seed))
 	return nil, nil
 }
 
@@ -582,7 +579,7 @@ func opMstore8(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 func opSLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
-	val := c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
+	val := c.db.GetValue(locHash.Bytes())
 	loc.SetBytes(val)
 	return nil, nil
 }
@@ -590,7 +587,7 @@ func opSLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte
 func opSStore(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	loc, val := stack.pop(), stack.pop()
 	locHash, _ := types.BigToHash(loc)
-	c.db.SetStorage(locHash.Bytes(), val.Bytes())
+	c.db.SetValue(locHash.Bytes(), val.Bytes())
 
 	c.intPool.put(loc, val)
 	return nil, nil

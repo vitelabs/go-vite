@@ -8,10 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 	"strings"
 )
 
@@ -106,9 +104,11 @@ type CallOffChainMethodParam struct {
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
+	// TODO
+	return nil, nil
+	/*db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
+	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)*/
 }

@@ -73,11 +73,23 @@ func PackContractCode(contractType, code []byte) []byte {
 }
 
 type CommonDb interface {
-	GetContractCode(addr *types.Address) []byte
+	Address() *types.Address
+	IsContractAccount() (bool, error)
+	GetContractCode() ([]byte, error)
+	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error)
 }
 
-func GetContractCode(db CommonDb, addr *types.Address) ([]byte, []byte) {
-	code := db.GetContractCode(addr)
+func GetContractCode(db CommonDb, addr *types.Address, status *GlobalStatus) ([]byte, []byte) {
+	var code []byte
+	var err error
+	if *db.Address() == *addr {
+		code, err = db.GetContractCode()
+	} else {
+		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock)
+	}
+	if err != nil {
+		panic(err)
+	}
 	if len(code) > 0 {
 		return code[:contractTypeSize], code[contractTypeSize:]
 	}
@@ -108,13 +120,16 @@ func PrintMap(m map[string][]byte) string {
 	return result
 }
 
-func IsUserAccount(db CommonDb, addr types.Address) bool {
-	// TODO use contract.isContractType instead
-	if types.IsBuiltinContractAddr(addr) {
+func IsUserAccount(db CommonDb) bool {
+	// TODO check this method
+	if types.IsBuiltinContractAddr(*db.Address()) {
 		return false
 	}
-	_, code := GetContractCode(db, &addr)
-	return len(code) == 0
+	ok, err := db.IsContractAccount()
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
 func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {

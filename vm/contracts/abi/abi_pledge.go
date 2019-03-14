@@ -3,6 +3,7 @@ package abi
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strings"
 )
@@ -42,8 +43,8 @@ type PledgeInfo struct {
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {
 	return beneficial.Bytes()
 }
-func GetPledgeKey(addr types.Address, pledgeBeneficialKey []byte) []byte {
-	return append(addr.Bytes(), pledgeBeneficialKey...)
+func GetPledgeKey(addr types.Address, beneficialAddr types.Address) []byte {
+	return append(addr.Bytes(), beneficialAddr.Bytes()...)
 }
 func IsPledgeKey(key []byte) bool {
 	return len(key) == 2*types.AddressSize
@@ -53,21 +54,27 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 	return address
 }
 
-func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
+func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) (*big.Int, error) {
+	if *db.Address() != types.AddressPledge {
+		return nil, util.ErrAddressNotMatch
+	}
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
-	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorage(&types.AddressPledge, key)); err == nil {
-		return beneficialAmount.Amount
+	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetValue(key)); err == nil {
+		return beneficialAmount.Amount, nil
 	}
-	return big.NewInt(0)
+	return big.NewInt(0), nil
 }
 
-func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int) {
+func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int, error) {
+	if *db.Address() != types.AddressPledge {
+		return nil, nil, util.ErrAddressNotMatch
+	}
 	pledgeAmount := big.NewInt(0)
-	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressPledge, addr.Bytes(), nil)
+	iterator := db.NewStorageIterator(addr.Bytes())
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	if iterator == nil {
-		return pledgeInfoList, pledgeAmount
+		return pledgeInfoList, pledgeAmount, nil
 	}
 	for {
 		key, value, ok := iterator.Next()
@@ -83,5 +90,5 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 			}
 		}
 	}
-	return pledgeInfoList, pledgeAmount
+	return pledgeInfoList, pledgeAmount, nil
 }

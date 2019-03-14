@@ -1,7 +1,6 @@
 package api
 
 import (
-	"sort"
 	"time"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -10,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type RegisterApi struct {
@@ -71,7 +69,9 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
-	snapshotBlock := r.chain.GetLatestSnapshotBlock()
+	// TODO
+	return nil, nil
+	/*snapshotBlock := r.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
@@ -92,15 +92,17 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 			}
 		}
 	}
-	return targetList, nil
+	return targetList, nil*/
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+	// TODO
+	return nil, nil
+	/*vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return abi.GetRegistration(vmContext, gid, name), nil
+	return abi.GetRegistration(vmContext, gid, name), nil*/
 }
 
 // Deprecated: Use GetRegistration instead
@@ -127,7 +129,9 @@ type RegistParam struct {
 }
 
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
-	if len(paramList) == 0 {
+	// TODO
+	return nil, nil
+	/*if len(paramList) == 0 {
 		return nil, nil
 	}
 	addrList := make([]*types.Address, len(paramList))
@@ -146,7 +150,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 			addrList[k] = &r.PledgeAddr
 		}
 	}
-	return addrList, nil
+	return addrList, nil*/
 }
 
 type CandidateInfo struct {

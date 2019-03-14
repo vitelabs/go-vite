@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
@@ -505,13 +504,16 @@ func (context *VmContext) NewStorageIteratorBySnapshotHash(addr *types.Address, 
 }
 
 func (context *VmContext) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
-	return abi.GetActiveConsensusGroupList(context, &snapshotHash), nil
+	//return abi.GetActiveConsensusGroupList(context, &snapshotHash), nil
+	return nil, nil
 }
 func (context *VmContext) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	return abi.GetCandidateList(context, gid, &snapshotHash), nil
+	//return abi.GetCandidateList(context, gid, &snapshotHash), nil
+	return nil, nil
 }
 func (context *VmContext) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	return abi.GetVoteList(context, gid, &snapshotHash), nil
+	//return abi.GetVoteList(context, gid, &snapshotHash), nil
+	return nil, nil
 }
 func (context *VmContext) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
 	balanceList := make(map[types.Address]*big.Int)

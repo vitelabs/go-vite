@@ -5,9 +5,9 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"regexp"
 	"runtime/debug"
@@ -17,7 +17,7 @@ import (
 type MethodRegister struct {
 }
 
-func (p *MethodRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 func (p *MethodRegister) GetRefundData() []byte {
@@ -28,22 +28,22 @@ func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
-func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
-	if !util.IsUserAccount(db, block.AccountAddress) {
+func (p *MethodRegister) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
+	if !util.IsUserAccount(db) {
 		return util.ErrInvalidMethodParam
 	}
-	param := new(cabi.ParamRegister)
-	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, block.Data); err != nil {
+	param := new(abi.ParamRegister)
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterParam(param.Gid, param.Name) {
+	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
 
-func checkRegisterParam(gid types.Gid, name string) bool {
+func checkRegisterAndVoteParam(gid types.Gid, name string) bool {
 	if util.IsDelegateGid(gid) ||
 		len(name) == 0 ||
 		len(name) > registrationNameLengthMax {
@@ -55,13 +55,13 @@ func checkRegisterParam(gid types.Gid, name string) bool {
 	return true
 }
 
-func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	// Check param by group info
-	param := new(cabi.ParamRegister)
-	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameRegister, sendBlock.Data)
+	param := new(abi.ParamRegister)
+	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, sendBlock.Data)
 	snapshotBlock := globalStatus.SnapshotBlock
-	groupInfo := cabi.GetConsensusGroup(db, param.Gid)
-	pledgeParam, _ := cabi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
+	groupInfo := abi.GetConsensusGroup(db, param.Gid)
+	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
 	if sendBlock.Amount.Cmp(pledgeParam.PledgeAmount) != 0 || sendBlock.TokenId != pledgeParam.PledgeToken {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -72,7 +72,7 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	}
 
 	// Check registration owner
-	old := cabi.GetRegistration(db, param.Gid, param.Name)
+	old := abi.GetRegistration(db, param.Gid, param.Name)
 	var hisAddrList []types.Address
 	if old != nil {
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
@@ -86,21 +86,21 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 	}
 
 	// check node addr belong to one name in a consensus group
-	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
+	hisNameKey := abi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err := cabi.ABIConsensusGroup.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
+	err := abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, util.ErrInvalidMethodParam
 	}
 	if err != nil {
 		// hisName not exist, update hisName
 		hisAddrList = append(hisAddrList, param.NodeAddr)
-		hisNameData, _ := cabi.ABIConsensusGroup.PackVariable(cabi.VariableNameHisName, param.Name)
-		db.SetStorage(hisNameKey, hisNameData)
+		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, param.Name)
+		db.SetValue(hisNameKey, hisNameData)
 	}
 
-	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
-		cabi.VariableNameRegistration,
+	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
+		abi.VariableNameRegistration,
 		param.Name,
 		param.NodeAddr,
 		sendBlock.AccountAddress,
@@ -109,14 +109,14 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 		rewardTime,
 		int64(0),
 		hisAddrList)
-	db.SetStorage(cabi.GetRegisterKey(param.Name, param.Gid), registerInfo)
+	db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 	return nil, nil
 }
 
 type MethodCancelRegister struct {
 }
 
-func (p *MethodCancelRegister) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodCancelRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 func (p *MethodCancelRegister) GetRefundData() []byte {
@@ -127,38 +127,38 @@ func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
-func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+func (p *MethodCancelRegister) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db) {
 		return util.ErrInvalidMethodParam
 	}
-	param := new(cabi.ParamCancelRegister)
-	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, block.Data); err != nil {
+	param := new(abi.ParamCancelRegister)
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterParam(param.Gid, param.Name) {
+	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelRegister, param.Gid, param.Name)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, param.Gid, param.Name)
 	return nil
 }
-func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
-	param := new(cabi.ParamCancelRegister)
-	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCancelRegister, sendBlock.Data)
+func (p *MethodCancelRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+	param := new(abi.ParamCancelRegister)
+	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, sendBlock.Data)
 	snapshotBlock := globalStatus.SnapshotBlock
-	old := cabi.GetRegistration(db, param.Gid, param.Name)
+	old := abi.GetRegistration(db, param.Gid, param.Name)
 	if old == nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.WithdrawHeight > snapshotBlock.Height {
 		return nil, util.ErrInvalidMethodParam
 	}
 
 	rewardTime := old.RewardTime
 	cancelTime := snapshotBlock.Timestamp.Unix()
-	if checkRewardDrained(db, cabi.GetConsensusGroup(db, param.Gid), old.RewardTime, cancelTime) {
+	if checkRewardDrained(db, abi.GetConsensusGroup(db, param.Gid), old.RewardTime, cancelTime) {
 		rewardTime = -1
 	}
 
-	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
-		cabi.VariableNameRegistration,
+	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
+		abi.VariableNameRegistration,
 		old.Name,
 		old.NodeAddr,
 		old.PledgeAddr,
@@ -167,7 +167,7 @@ func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *
 		rewardTime,
 		cancelTime,
 		old.HisAddrList)
-	db.SetStorage(cabi.GetRegisterKey(param.Name, param.Gid), registerInfo)
+	db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 	if old.Amount.Sign() > 0 {
 		return []*SendBlock{
 			{
@@ -185,7 +185,7 @@ func (p *MethodCancelRegister) DoReceive(db vmctxt_interface.VmDatabase, block *
 type MethodReward struct {
 }
 
-func (p *MethodReward) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodReward) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
@@ -197,25 +197,25 @@ func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 }
 
 // get reward of generating snapshot block
-func (p *MethodReward) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+func (p *MethodReward) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db) {
 		return util.ErrInvalidMethodParam
 	}
-	param := new(cabi.ParamReward)
-	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, block.Data); err != nil {
+	param := new(abi.ParamReward)
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !util.IsSnapshotGid(param.Gid) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return nil
 }
-func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
-	param := new(cabi.ParamReward)
-	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameReward, sendBlock.Data)
-	old := cabi.GetRegistration(db, param.Gid, param.Name)
+func (p *MethodReward) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+	param := new(abi.ParamReward)
+	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, sendBlock.Data)
+	old := abi.GetRegistration(db, param.Gid, param.Name)
 	if old == nil || sendBlock.AccountAddress != old.PledgeAddr || old.RewardTime == -1 {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -227,8 +227,8 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 		endTime = -1
 	}
 	if endTime != old.RewardTime {
-		registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
-			cabi.VariableNameRegistration,
+		registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
+			abi.VariableNameRegistration,
 			old.Name,
 			old.NodeAddr,
 			old.PledgeAddr,
@@ -237,17 +237,18 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 			endTime,
 			old.CancelTime,
 			old.HisAddrList)
-		db.SetStorage(cabi.GetRegisterKey(param.Name, param.Gid), registerInfo)
+		db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 
 		if reward != nil && reward.Sign() > 0 {
-			// TODO update vitetoken totalSupply and send event by call mintage method
+			// send reward by issue vite token
+			issueData, _ := abi.ABIMintage.PackMethod(abi.MethodNameIssue, ledger.ViteTokenId, reward, param.BeneficialAddr)
 			return []*SendBlock{
 				{
-					param.BeneficialAddr,
-					ledger.BlockTypeSendReward,
-					reward,
+					types.AddressMintage,
+					ledger.BlockTypeSendCall,
+					big.NewInt(0),
 					ledger.ViteTokenId,
-					[]byte{},
+					issueData,
 				},
 			}, nil
 		}
@@ -255,7 +256,7 @@ func (p *MethodReward) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.A
 	return nil, nil
 }
 
-func checkRewardDrained(db vmctxt_interface.VmDatabase, groupInfo *types.ConsensusGroupInfo, rewardTime, cancelTime int64) bool {
+func checkRewardDrained(db vm_db.VMDB, groupInfo *types.ConsensusGroupInfo, rewardTime, cancelTime int64) bool {
 	if rewardTime == -1 {
 		return true
 	}
@@ -267,14 +268,14 @@ func checkRewardDrained(db vmctxt_interface.VmDatabase, groupInfo *types.Consens
 	return false
 }
 
-func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid types.Gid, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *big.Int, err error) {
+func CalcReward(db vm_db.VMDB, old *types.Registration, gid types.Gid, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *big.Int, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
 			err = errors.New("calc reward panic")
 		}
 	}()
-	groupInfo := cabi.GetConsensusGroup(db, gid)
+	groupInfo := abi.GetConsensusGroup(db, gid)
 	reader := newConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
 	startTime = reader.timeToRewardStartDayTime(old.RewardTime)
 	if !old.IsActive() {
@@ -292,7 +293,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 	reward = big.NewInt(0)
 	tmp1 := big.NewInt(0)
 	tmp2 := big.NewInt(0)
-	pledgeParam, _ := cabi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
+	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
 	for startIndex < endIndex {
 		detailMap, summary := reader.getConsensusDetailByDay(startIndex, endIndex)
 		selfDetail := detailMap[old.Name]
@@ -330,7 +331,7 @@ func CalcReward(db vmctxt_interface.VmDatabase, old *types.Registration, gid typ
 type MethodUpdateRegistration struct {
 }
 
-func (p *MethodUpdateRegistration) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodUpdateRegistration) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
@@ -342,45 +343,45 @@ func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 }
 
 // update registration info
-func (p *MethodUpdateRegistration) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+func (p *MethodUpdateRegistration) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db, block.AccountAddress) {
+		!util.IsUserAccount(db) {
 		return util.ErrInvalidMethodParam
 	}
-	param := new(cabi.ParamRegister)
-	if err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, block.Data); err != nil {
+	param := new(abi.ParamRegister)
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterParam(param.Gid, param.Name) {
+	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
-func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
-	param := new(cabi.ParamRegister)
-	cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameUpdateRegistration, sendBlock.Data)
-	old := cabi.GetRegistration(db, param.Gid, param.Name)
+func (p *MethodUpdateRegistration) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+	param := new(abi.ParamRegister)
+	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, sendBlock.Data)
+	old := abi.GetRegistration(db, param.Gid, param.Name)
 	if old == nil || !old.IsActive() ||
 		old.PledgeAddr != sendBlock.AccountAddress ||
 		old.NodeAddr == param.NodeAddr {
 		return nil, util.ErrInvalidMethodParam
 	}
 	// check node addr belong to one name in a consensus group
-	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
+	hisNameKey := abi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err := cabi.ABIConsensusGroup.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
+	err := abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, util.ErrInvalidMethodParam
 	}
 	if err != nil {
 		// hisName not exist, update hisName
 		old.HisAddrList = append(old.HisAddrList, param.NodeAddr)
-		hisNameData, _ := cabi.ABIConsensusGroup.PackVariable(cabi.VariableNameHisName, param.Name)
-		db.SetStorage(hisNameKey, hisNameData)
+		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, param.Name)
+		db.SetValue(hisNameKey, hisNameData)
 	}
-	registerInfo, _ := cabi.ABIConsensusGroup.PackVariable(
-		cabi.VariableNameRegistration,
+	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
+		abi.VariableNameRegistration,
 		old.Name,
 		param.NodeAddr,
 		old.PledgeAddr,
@@ -389,6 +390,6 @@ func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, blo
 		old.RewardTime,
 		old.CancelTime,
 		old.HisAddrList)
-	db.SetStorage(cabi.GetRegisterKey(param.Name, param.Gid), registerInfo)
+	db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 	return nil, nil
 }

@@ -777,7 +777,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 	return ""
 }
 
-func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccountBlock) string {
+func checkSendBlockList(expected []*TestCaseSendBlock, got []*vm_context.VmAccountBlockV2) string {
 	if len(got) != len(expected) {
 		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got))
 	}

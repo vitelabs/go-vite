@@ -132,9 +132,10 @@ func RecoverVmContext(chain vm_context.Chain, block *ledger.AccountBlock) (vmCon
 
 	tLog.Debug("vm result", fmt.Sprintf("len %v, isRetry %v, err %v", len(blockList), isRetry, err))
 
-	for _, v := range blockList {
+	// TODO
+	/*for _, v := range blockList {
 		vmContextList = append(vmContextList, v.VmContext)
-	}
+	}*/
 
 	return vmContextList, err
 }

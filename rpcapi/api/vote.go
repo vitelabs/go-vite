@@ -3,11 +3,9 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type VoteApi struct {
@@ -45,7 +43,9 @@ type VoteInfo struct {
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	vmContext, err := vm_context.NewVmContext(v.chain, nil, nil, nil)
+	// TODO
+	return nil, nil
+	/*vmContext, err := vm_context.NewVmContext(v.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -60,5 +60,5 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
 		}
 	}
-	return nil, nil
+	return nil, nil*/
 }

@@ -6,8 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
-	"sort"
 )
 
 type MintageApi struct {
@@ -123,7 +121,9 @@ func (a byName) Less(i, j int) bool {
 }
 
 func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
+	// TODO
+	return nil, nil
+	/*snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
@@ -136,11 +136,13 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 	}
 	sort.Sort(byName(tokenList))
 	start, end := getRange(index, count, listLen)
-	return &TokenInfoList{listLen, tokenList[start:end]}, nil
+	return &TokenInfoList{listLen, tokenList[start:end]}, nil*/
 }
 
 func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
+	// TODO
+	return nil, nil
+	/*snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
@@ -149,11 +151,13 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	if tokenInfo != nil {
 		return RawTokenInfoToRpc(tokenInfo, tokenId), nil
 	}
-	return nil, nil
+	return nil, nil*/
 }
 
 func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
+	// TODO
+	return nil, nil
+	/*snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
@@ -163,5 +167,5 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
-	return tokenList, nil
+	return tokenList, nil*/
 }

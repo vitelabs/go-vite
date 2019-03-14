@@ -1,11 +1,12 @@
 package abi
 
 import (
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strings"
 	"time"
@@ -148,7 +149,9 @@ func NewGid(accountAddress types.Address, accountBlockHeight uint64, prevBlockHa
 }
 
 func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) []*types.ConsensusGroupInfo {
-	defer monitor.LogTimerConsuming([]string{"vm", "getActiveConsensusGroupList"}, time.Now())
+	// TODO use chain db instead
+	return nil
+	/*defer monitor.LogTimerConsuming([]string{"vm", "getActiveConsensusGroupList"}, time.Now())
 	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, nil, snapshotHash)
 	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	if iterator == nil {
@@ -170,11 +173,11 @@ func GetActiveConsensusGroupList(db StorageDatabase, snapshotHash *types.Hash) [
 			}
 		}
 	}
-	return consensusGroupInfoList
+	return consensusGroupInfoList*/
 }
 
 func GetConsensusGroup(db StorageDatabase, gid types.Gid) *types.ConsensusGroupInfo {
-	data := db.GetStorage(&types.AddressConsensusGroup, GetConsensusGroupKey(gid))
+	data := db.GetValue(GetConsensusGroupKey(gid))
 
 	if len(data) > 0 {
 		consensusGroupInfo := new(types.ConsensusGroupInfo)
@@ -192,18 +195,23 @@ func GetRegisterOfPledgeInfo(data []byte) (*VariableConditionRegisterOfPledge, e
 }
 
 // Register readers
-func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) bool {
-	if value := db.GetStorage(&types.AddressConsensusGroup, GetRegisterKey(name, gid)); len(value) > 0 {
+func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) (bool, error) {
+	if *db.Address() != types.AddressConsensusGroup {
+		return false, util.ErrAddressNotMatch
+	}
+	if value := db.GetValue(GetRegisterKey(name, gid)); len(value) > 0 {
 		registration := new(types.Registration)
 		if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
-			return registration.IsActive()
+			return registration.IsActive(), nil
 		}
 	}
-	return false
+	return false, errors.New("registration not exists")
 }
 
 func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []*types.Registration {
-	defer monitor.LogTimerConsuming([]string{"vm", "getCandidateList"}, time.Now())
+	// TODO use chain db instead
+	return nil
+	/*defer monitor.LogTimerConsuming([]string{"vm", "getCandidateList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)
@@ -227,11 +235,13 @@ func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Has
 			registerList = append(registerList, registration)
 		}
 	}
-	return registerList
+	return registerList*/
 }
 
 func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Address) []*types.Registration {
-	defer monitor.LogTimerConsuming([]string{"vm", "getRegistrationList"}, time.Now())
+	// TODO use chain db instead
+	return nil
+	/*defer monitor.LogTimerConsuming([]string{"vm", "getRegistrationList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), nil)
@@ -255,12 +265,12 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 			registerList = append(registerList, registration)
 		}
 	}
-	return registerList
+	return registerList*/
 }
 
 func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Registration {
 	defer monitor.LogTimerConsuming([]string{"vm", "getRegistration"}, time.Now())
-	value := db.GetStorage(&types.AddressConsensusGroup, GetRegisterKey(name, gid))
+	value := db.GetValue(GetRegisterKey(name, gid))
 	registration := new(types.Registration)
 	if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, value); err == nil {
 		return registration
@@ -271,7 +281,7 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) *types.Regi
 // Vote readers
 func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteInfo {
 	defer monitor.LogTimerConsuming([]string{"vm", "getVote"}, time.Now())
-	data := db.GetStorage(&types.AddressConsensusGroup, GetVoteKey(addr, gid))
+	data := db.GetValue(GetVoteKey(addr, gid))
 	if len(data) > 0 {
 		nodeName := new(string)
 		ABIConsensusGroup.UnpackVariable(nodeName, VariableNameVoteStatus, data)
@@ -281,7 +291,9 @@ func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteI
 }
 
 func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []*types.VoteInfo {
-	defer monitor.LogTimerConsuming([]string{"vm", "getVoteList"}, time.Now())
+	// TODO use chain db instead
+	return nil
+	/*defer monitor.LogTimerConsuming([]string{"vm", "getVoteList"}, time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
 		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)
@@ -306,5 +318,5 @@ func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []
 			voteInfoList = append(voteInfoList, &types.VoteInfo{voterAddr, *nodeName})
 		}
 	}
-	return voteInfoList
+	return voteInfoList*/
 }

@@ -7,8 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
-	"sort"
 )
 
 type PledgeApi struct {
@@ -82,7 +80,9 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 }
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
-	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	// TODO
+	return nil, nil
+	/*snapshotBlock := p.chain.GetLatestSnapshotBlock()
 	vmContext, err := vm_context.NewVmContext(p.chain, &snapshotBlock.Hash, nil, nil)
 	if err != nil {
 		return nil, err
@@ -104,5 +104,5 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
-	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
+	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil*/
 }

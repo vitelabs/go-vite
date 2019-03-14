@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
@@ -33,14 +33,14 @@ type SendBlock struct {
 }
 
 type BuiltinContractMethod interface {
-	GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error)
+	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
-	DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error
+	DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error
 	// quota for doSend block
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
 	// TODO return ledger.AccountBlock instead of SendBlock
-	DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error)
+	DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
 }
