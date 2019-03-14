@@ -30,6 +30,9 @@ type chainDb interface {
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 }
+type preMainNetChain interface {
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error)
+}
 
 type chainRw interface {
 	insertBlock(block commonBlock) error
@@ -130,6 +133,7 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 
 type snapshotCh struct {
 	bc      chainDb
+	newBc   preMainNetChain
 	version *ForkVersion
 	log     log15.Logger
 }
@@ -203,6 +207,24 @@ func (self *snapshotCh) insertBlock(block commonBlock) error {
 	return self.bc.InsertSnapshotBlock(b.block)
 }
 
+func (self *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+	if b.Source() == types.QueryChain {
+		self.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
+	}
+	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
+	bm, err := self.newBc.InsertSnapshotBlock(b.block)
+
+	results := make(map[types.Address][]commonBlock)
+	for addr, bs := range bm {
+		var r []commonBlock
+		for _, b := range bs {
+			r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
+		}
+		results[addr] = r
+	}
+	return results, err
+}
+
 func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
 	monitor.LogEvent("pool", "NonSnapshot")
 	for _, b := range bs {
@@ -213,4 +235,12 @@ func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
 		}
 	}
 	return nil
+}
+
+type preMainNetChainImpl struct {
+	bc chainDb
+}
+
+func (self *preMainNetChainImpl) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error) {
+	return nil, self.bc.InsertSnapshotBlock(snapshotBlock)
 }

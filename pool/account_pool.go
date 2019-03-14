@@ -107,12 +107,14 @@ func (self *accountPool) Init(
 2. fetch block for snippet chain.
 */
 func (self *accountPool) Compact() int {
-	// if an insert operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
-		return 0
-	} else {
-		defer self.compactLock.UnLock()
-	}
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+	//// if an insert operation is in progress, do nothing.
+	//if !self.compactLock.TryLock() {
+	//	return 0
+	//} else {
+	//	defer self.compactLock.UnLock()
+	//}
 
 	//defer func() {
 	//	if err := recover(); err != nil {
@@ -137,12 +139,12 @@ func (self *accountPool) Compact() int {
 	//	}
 	//}()
 
-	defer monitor.LogTime("pool", "accountCompact", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	//defer monitor.LogTime("pool", "accountCompact", time.Now())
+	//self.pool.RLock()
+	//defer self.pool.RUnLock()
+	//defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
+	//self.rMu.Lock()
+	//defer self.rMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
@@ -208,6 +210,40 @@ func (self *accountPool) TryInsert() verifyTask {
 	} else {
 		return nil
 	}
+}
+
+/**
+try insert block to real chain.
+*/
+func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
+
+	targetChain := self.findInTree(h.Hash, h.Height)
+	if targetChain != nil {
+		if targetChain.ChainId() == self.chainpool.current.ChainId() {
+			return nil, nil
+		}
+
+		_, forkPoint, err := self.getForkPointByChains(targetChain, self.CurrentChain())
+		if err != nil {
+			return nil, err
+		}
+		// key point in disk chain
+		if forkPoint.Height() < self.CurrentChain().tailHeight {
+			return h, nil
+		}
+		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", self.address, "hash", h.Hash, "height", h.Height, "targetChain",
+			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+		err = self.CurrentModifyToChain(targetChain, h)
+		if err != nil {
+			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+		}
+		return nil, nil
+	}
+	return nil, nil
 }
 
 /**
@@ -469,8 +505,13 @@ func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk boo
 }
 
 func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks []*accountPoolBlock) error {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	//self.rMu.Lock()
+	//defer self.rMu.Unlock()
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 
 	stat := self.v.verifyDirectAccount(received, sendBlocks)
 	result := stat.verifyResult()
@@ -621,16 +662,18 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 		return errors.New("empty chainpool")
 	}
 
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 	// if an compact operation is in progress, do nothing.
-	self.compactLock.Lock()
-	defer self.compactLock.UnLock()
+	//self.compactLock.Lock()
+	//defer self.compactLock.UnLock()
 
 	// lock other chain insert
-	self.pool.RLock()
-	defer self.pool.RUnLock()
+	//self.pool.RLock()
+	//defer self.pool.RUnLock()
 
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	//self.rMu.Lock()
+	//defer self.rMu.Unlock()
 
 	cp := self.chainpool
 	current := cp.current

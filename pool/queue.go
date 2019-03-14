@@ -27,6 +27,9 @@ type Package interface {
 
 type Level interface {
 	Buckets() []Bucket
+	Add(item *Item) error
+	Snapshot() bool
+	Index() int
 }
 
 type Bucket interface {
@@ -52,6 +55,10 @@ func NewItem(b commonBlock, owner *types.Address) *Item {
 	}
 	i.referAccounts, i.referSnapshot = b.ReferHashes()
 	return i
+}
+
+func (self *Item) Snapshot() bool {
+	return self.owner == nil
 }
 
 type bucket struct {
@@ -96,44 +103,4 @@ func (self *bucket) print() {
 
 func newBucket(owner *types.Address) *bucket {
 	return &bucket{last: -1, owner: owner}
-}
-
-type level struct {
-	bs map[string]*bucket
-}
-
-func (self *level) Buckets() (result []Bucket) {
-	for _, v := range self.bs {
-		result = append(result, v)
-	}
-	return
-}
-
-func newLevel() *level {
-	return &level{bs: make(map[string]*bucket)}
-}
-
-func (self *level) add(b *Item) error {
-	bu, ok := self.bs[b.ownerWrapper]
-	if !ok {
-		self.bs[b.ownerWrapper] = newBucket(b.owner)
-		bu = self.bs[b.ownerWrapper]
-	}
-	return bu.add(b)
-}
-func (self *level) print() {
-	for k, v := range self.bs {
-		fmt.Println("--------Bucket[" + k + "]----------")
-		v.print()
-	}
-
-}
-
-type ownerLevel struct {
-	owner string
-	level int
-}
-
-type packages struct {
-	ps []Package
 }

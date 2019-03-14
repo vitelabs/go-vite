@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/helper"
+
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
@@ -198,7 +200,7 @@ func (self *pool) Init(s syncer,
 	accountV *verifier.AccountVerifier) {
 	self.sync = s
 	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
+	rw := &snapshotCh{version: self.version, bc: self.bc, newBc: &preMainNetChainImpl{bc: self.bc}, log: self.log}
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
@@ -849,6 +851,136 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 		}
 	}
 	return nil
+}
+func (self *pool) insertLevel(l Level) error {
+	if l.Snapshot() {
+		return self.insertSnapshotLevel(l)
+	} else {
+		return self.insertAccountLevel(l)
+	}
+}
+func (self *pool) insertSnapshotLevel(l Level) error {
+	t1 := time.Now()
+	num := 0
+	defer func() {
+		sub := time.Now().Sub(t1)
+		levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
+		fmt.Println(levelInfo)
+	}()
+	for _, b := range l.Buckets() {
+		num = num + len(b.Items())
+		return self.insertSnapshotBucket(b)
+	}
+	return nil
+}
+
+var MAX_PARALLEL = 5
+
+func (self *pool) insertAccountLevel(l Level) error {
+	bs := l.Buckets()
+	lenBs := len(bs)
+	if lenBs == 0 {
+		return nil
+	}
+
+	N := helper.MinInt(lenBs, MAX_PARALLEL)
+	bucketCh := make(chan Bucket, lenBs)
+
+	var wg sync.WaitGroup
+	wg.Add(N)
+
+	var num int32
+	t1 := time.Now()
+	var globalErr error
+	for i := 0; i < N; i++ {
+		common.Go(func() {
+			defer wg.Done()
+			for b := range bucketCh {
+				if globalErr != nil {
+					return
+				}
+				atomic.AddInt32(&num, int32(len(b.Items())))
+				err := self.insertAccountBucket(b)
+				if err != nil {
+					globalErr = err
+					return
+				}
+			}
+		})
+	}
+	levelInfo := ""
+	for _, bucket := range bs {
+		levelInfo += "|" + strconv.Itoa(len(bucket.Items()))
+		if bucket.Owner() == nil {
+			levelInfo += "S"
+		}
+
+		bucketCh <- bucket
+	}
+	close(bucketCh)
+	wg.Wait()
+	sub := time.Now().Sub(t1)
+	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo)
+	fmt.Println(levelInfo)
+
+	if globalErr != nil {
+		return globalErr
+	}
+	return nil
+}
+func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
+	self.RLock()
+	defer self.RUnLock()
+
+	accounts := make(map[types.Address]*ledger.HashHeight)
+
+	for k, account := range accs {
+		monitor.LogEvent("pool", "snapshotPending")
+		self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+		this := self.selfPendingAc(k)
+		hashH, e := this.pendingAccountTo(account, account.Height)
+		self.fetchAccounts(accounts, snapshot.Height)
+		if e != nil {
+			self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
+		}
+		if hashH != nil {
+			accounts[k] = account
+		}
+	}
+	if len(accounts) > 0 {
+		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
+		self.forkAccounts(accounts)
+	}
+}
+
+func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+	for addr, hashH := range accounts {
+		ac := self.selfPendingAc(addr)
+		if !ac.existInPool(hashH.Hash) {
+			head := ac.chainpool.diskChain.Head()
+			u := uint64(10)
+			if hashH.Height > head.Height() {
+				u = hashH.Height - head.Height()
+			}
+			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+		}
+	}
+
+}
+
+func (self *pool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
+	self.Lock()
+	defer self.UnLock()
+
+	for k, v := range accounts {
+		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
+		err := self.ForkAccountTo(k, v)
+		if err != nil {
+			self.log.Error("forkaccountTo err", "err", err)
+		}
+	}
+
+	self.version.Inc()
 }
 
 type recoverStat struct {

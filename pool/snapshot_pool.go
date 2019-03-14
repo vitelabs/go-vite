@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -314,12 +315,12 @@ func (self *snapshotPool) loop() {
 }
 
 func (self *snapshotPool) loopCompactSnapshot() {
-	defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	//defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
+	//self.pool.RLock()
+	//defer self.pool.RUnLock()
+	//defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
+	//self.rMu.Lock()
+	//defer self.rMu.Unlock()
 	defer monitor.LogTime("pool", "snapshot_loopGenSnippetChains", time.Now())
 	self.loopGenSnippetChains()
 	defer monitor.LogTime("pool", "snapshot_loopAppendChains", time.Now())
@@ -403,6 +404,48 @@ L:
 	}
 	return nil, nil
 }
+func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
+	// lock current chain tail
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
+
+	pool := self.chainpool
+	current := pool.current
+
+	for _, item := range items {
+		block := item.commonBlock
+
+		if block.Height() == current.tailHeight+1 &&
+			block.PrevHash() == current.tailHash {
+			block.resetForkVersion()
+			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
+			if !block.checkForkVersion() {
+				block.resetForkVersion()
+				return nil, item, errors.New("new fork version")
+			}
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return nil, item, errors.New("fail verifier")
+			case verifier.PENDING:
+				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
+				return nil, item, errors.New("fail verifier pending.")
+			}
+			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))
+			if err != nil {
+				return nil, item, err
+			}
+			self.blockpool.afterInsert(block)
+			if len(accBlocks) > 0 {
+				return accBlocks, item, err
+			}
+		} else {
+			return nil, item, errors.New("tail not match")
+		}
+	}
+	return nil, nil, nil
+}
 
 func (self *snapshotPool) snapshotTryInsertItems(items []*Item) error {
 	defer monitor.LogTime("pool", "snapshotTryInsertItems", time.Now())
@@ -445,6 +488,20 @@ func (self *snapshotPool) snapshotTryInsertItems(items []*Item) error {
 		}
 	}
 	return nil
+}
+
+func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+	height := block.Height()
+	hash := block.Hash()
+	delAbs, err := self.rw.insertSnapshotBlock(block)
+	if err == nil {
+		current.removeTail(block)
+		//self.fixReferInsert(chain, self.diskChain, height)
+		return delAbs, nil
+	} else {
+		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash))
+		return nil, err
+	}
 }
 
 func (self *snapshotPool) Start() {

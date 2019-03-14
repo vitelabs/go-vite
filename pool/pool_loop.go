@@ -2,15 +2,10 @@ package pool
 
 import (
 	"fmt"
-	"strconv"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -28,7 +23,10 @@ func (self *pool) loopQueue() {
 			time.Sleep(20 * time.Millisecond)
 			continue
 		}
-		self.insertQueue(q, 5)
+		err := self.insertQueue(q)
+		if err != nil {
+			fmt.Printf("insert queue err:%s\n", err)
+		}
 	}
 }
 
@@ -40,21 +38,27 @@ func (self *pool) makeQueue() Package {
 
 	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
 	for {
-		tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
+		newOffset, errAcc, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
+			// just account
 			if p.Size() > 0 {
 				break
 			}
 			self.makeQueueFromAccounts(p)
 			//fmt.Println("from accounts")
 			break
-		} else {
+		}
+		if errAcc != nil && p.Size() == 0 {
+			self.snapshotPendingFix(newOffset, errAcc)
+			break
+		}
+		{ // snapshot block
 			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
 				fmt.Println("from snapshot", err)
 				break
 			}
-			snapshotOffset.offset = &ledger.HashHeight{Hash: tmpSb.cur.block.Hash, Height: tmpSb.cur.block.Height}
+			snapshotOffset.offset = newOffset
 		}
 	}
 	return p
@@ -76,26 +80,43 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 	return true
 }
 
-func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) *completeSnapshotBlock {
+func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, map[types.Address]*ledger.HashHeight, *completeSnapshotBlock) {
 	if self.pendingSc.CurrentChain().size() == 0 {
-		return nil
+		return nil, nil, nil
 	}
 	current := self.pendingSc.CurrentChain()
 	block := current.getBlock(info.offset.Height+1, false)
 	if block == nil {
-		return nil
+		return nil, nil, nil
 	}
+	newOffset := &ledger.HashHeight{Hash: block.Hash(), Height: block.Height()}
 	b := block.(*snapshotPoolBlock)
 	result := &completeSnapshotBlock{cur: b}
 	contents := b.block.SnapshotContent
 
+	errorAcc := make(map[types.Address]*ledger.HashHeight)
+
+	pending := false
 	addrM := make(map[types.Address]*stack.Stack)
 	for k, v := range contents {
 		ac := self.selfPendingAc(k)
 		acurr := ac.CurrentChain()
 		ab := acurr.getBlock(v.Height, true)
 		if ab == nil {
-			return nil
+			errorAcc[k] = v
+			pending = true
+			continue
+		}
+		if ab.Hash() != v.Hash {
+			fmt.Printf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
+				b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash())
+			// todo switch account chain
+			errorAcc[k] = v
+			pending = true
+			continue
+		}
+		if pending {
+			continue
 		}
 		if ab.Height() > acurr.tailHeight {
 			tmp := stack.New()
@@ -111,8 +132,12 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) *completeSnapsh
 			}
 		}
 	}
+
+	if len(errorAcc) > 0 {
+		return newOffset, errorAcc, nil
+	}
 	result.addrM = addrM
-	return result
+	return newOffset, nil, result
 }
 
 func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock) error {
@@ -124,6 +149,10 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 				item := NewItem(ab, &ab.block.AccountAddress)
 				err := p.AddItem(item)
 				if err != nil {
+					if err == MAX_ERROR {
+						fmt.Printf("account max. %s\n", err)
+						return err
+					}
 					fmt.Printf("account add fail. %s\n", err)
 					break
 				}
@@ -203,86 +232,55 @@ func (self *pool) makeQueueFromAccounts(p Package) {
 //	return q
 //}
 
-func (self *pool) insertQueue(q Package, N int) {
-	var wg sync.WaitGroup
-	closed := NewClosed()
+func (self *pool) insertQueue(q Package) error {
 	levels := q.Levels()
 	t0 := time.Now()
-	var n2 int32
 
 	defer func() {
 		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("queue[%s][%d][%d]", sub, (int64(n2)*time.Second.Nanoseconds())/sub.Nanoseconds(), n2)
+		queueResult := fmt.Sprintf("queue[%s][%d][%d]", sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
 		fmt.Println(queueResult)
 	}()
 
 	for _, level := range levels {
-		bs := level.Buckets()
-		lenBs := len(bs)
-		if lenBs == 0 {
-			return
+		if level == nil {
+			continue
 		}
-		N = helper.MinInt(lenBs, 5)
-		bucketCh := make(chan Bucket, lenBs)
-
-		wg.Add(N)
-
-		var num int32
-		t1 := time.Now()
-		for i := 0; i < N; i++ {
-			common.Go(func() {
-				defer wg.Done()
-				for b := range bucketCh {
-					if closed.IsClosed() {
-						return
-					}
-					atomic.AddInt32(&num, int32(len(b.Items())))
-					err := self.insertBucket(b)
-					if err != nil {
-						closed.Close()
-						return
-					}
-				}
-			})
-		}
-
-		levelInfo := ""
-		for _, bucket := range bs {
-			levelInfo += "|" + strconv.Itoa(len(bucket.Items()))
-			if bucket.Owner() == nil {
-				levelInfo += "S"
-			}
-
-			bucketCh <- bucket
-		}
-		close(bucketCh)
-		wg.Wait()
-		sub := time.Now().Sub(t1)
-		levelInfo = "\tlevel[" + sub.String() + "][" + strconv.Itoa(int((int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds())) + "]" + "[" + strconv.Itoa(int(num)) + "]" + "->" + levelInfo
-		fmt.Println(levelInfo)
-
-		atomic.AddInt32(&n2, num)
-
-		if closed.IsClosed() {
-			return
-		}
-	}
-}
-
-func (self *pool) insertBucket(bucket Bucket) error {
-	owner := bucket.Owner()
-	if owner == nil {
-		err := self.pendingSc.snapshotTryInsertItems(bucket.Items())
-		if err != nil {
-			return err
-		}
-	} else {
-		err := self.selfPendingAc(*owner).tryInsertItems(bucket.Items())
+		err := self.insertLevel(level)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (self *pool) insertAccountBucket(bucket Bucket) error {
+	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *pool) insertSnapshotBucket(bucket Bucket) error {
+	// stop the world for snapshot insert
+	self.Lock()
+	defer self.UnLock()
+	accBlocks, item, err := self.pendingSc.snapshotInsertItems(bucket.Items())
+	if err != nil {
+		return err
+	}
+	if accBlocks == nil || len(accBlocks) == 0 {
+		return nil
+	}
+
+	for k, v := range accBlocks {
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
+	}
+	return errors.Errorf("account blocks rollback for snapshot block[%s-%d] insert.", item.Hash(), item.Height())
 }
 
 var NotFound = errors.New("Not Found")
