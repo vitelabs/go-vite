@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/state"
 	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"io"
 	"math/big"
 	"time"
@@ -56,7 +57,7 @@ type Chain interface {
 	 */
 
 	// vmAccountBlocks must have the same address
-	InsertAccountBlock(vmAccountBlocks *vm_context.VmAccountBlock) error
+	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
 
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidSubLedger map[types.Address][]*ledger.AccountBlock, err error)
 
@@ -173,6 +174,11 @@ type Chain interface {
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
 	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot chain_state.StateSnapshot, err error)
+
+	GetQuotaUnused(address *types.Address) uint64
+
+	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+
 	// ====== Query built-in contract storage ======
 
 	GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error)
@@ -190,12 +196,6 @@ type Chain interface {
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 
 	GetAllTokenInfo() ([]*types.TokenInfo, error)
-
-	// ====== Query used quota ======
-
-	GetQuotaUnused(address *types.Address) uint64
-
-	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
 	// ====== Query vm log list ======
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)

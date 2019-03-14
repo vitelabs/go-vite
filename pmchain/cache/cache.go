@@ -1,6 +1,7 @@
 package chain_cache
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -36,10 +37,9 @@ func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
 	return cache.unconfirmedPool.GetCurrentBlocks()
 }
 
-// TODO
-//func (cache *Cache) DeleteUnconfirmedAccountBlock(blocks []*ledger.AccountBlock) {
-//	cache.indexes.DeleteAccountBlocks(blocks)
-//	//cache.unconfirmedPool.InsertAccountBlock(block)
-//}
+func (cache *Cache) DeleteUnconfirmedSubLedger(subLedger map[types.Address][]*ledger.AccountBlock) {
+	// cache.indexes.DeleteAccountBlocks(blocks)
+	// cache.unconfirmedPool.InsertAccountBlock(block)
+}
 
 func (cache *Cache) Destroy() {}

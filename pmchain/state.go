@@ -43,3 +43,11 @@ func (c *chain) GetStateSnapshot(blockHash *types.Hash) (chain_state.StateSnapsh
 	}
 	return stateSnapshot, nil
 }
+
+func (c *chain) GetQuotaUnused(address *types.Address) uint64 {
+	return 0
+}
+
+func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+	return 0, 0
+}

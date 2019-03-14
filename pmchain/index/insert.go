@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -49,7 +50,7 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) {
  *	1. location
  *	2. accountId
  */
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock) error {
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock, sbLocation *chain_block.Location, abLocations []*chain_block.Location) error {
 	batch := iDB.store.NewBatch()
 	// hash -> height
 	if err := iDB.insertSnapshotBlockHash(batch, &snapshotBlock.Hash, snapshotBlock.Height); err != nil {

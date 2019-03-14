@@ -63,3 +63,7 @@ func (c *chain) GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger
 func (c *chain) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
 	return 0, nil
 }
+
+func (c *chain) GetConfirmedTimes(blockHash *types.Hash) (uint64, error) {
+	return 0, nil
+}

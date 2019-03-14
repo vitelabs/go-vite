@@ -15,8 +15,15 @@ func (c *chain) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
 func (c *chain) IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error) {
 	return nil, nil
 }
+func (c *chain) GetGenesisSnapshotHeader() *ledger.SnapshotBlock {
+	return nil
+}
 
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return nil
+}
+
+func (c *chain) GetLatestSnapshotHeader() *ledger.SnapshotBlock {
 	return nil
 }
 

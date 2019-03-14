@@ -24,7 +24,7 @@ type chain struct {
 /*
  * Init chain config
  */
-func (c *chain) NewChain() *chain {
+func (c *chain) NewChain() Chain {
 	return &chain{
 		log: log15.New("module", "chain"),
 	}
