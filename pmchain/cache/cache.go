@@ -22,10 +22,6 @@ func NewCache() *Cache {
 	}
 }
 
-func (cache *Cache) UnconfirmedPool() *UnconfirmedPool {
-	return cache.unconfirmedPool
-}
-
 func (cache *Cache) InsertUnconfirmedAccountBlock(block *ledger.AccountBlock) {
 	dataId := cache.ds.InsertAccountBlock(block)
 
@@ -40,6 +36,10 @@ func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
 func (cache *Cache) DeleteUnconfirmedSubLedger(subLedger map[types.Address][]*ledger.AccountBlock) {
 	// cache.indexes.DeleteAccountBlocks(blocks)
 	// cache.unconfirmedPool.InsertAccountBlock(block)
+}
+
+func (cache *Cache) CleanUnconfirmedPool() {
+
 }
 
 func (cache *Cache) Destroy() {}

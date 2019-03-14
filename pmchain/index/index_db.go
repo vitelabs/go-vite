@@ -16,4 +16,8 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 	}, nil
 }
 
+func (iDB *IndexDB) CleanUnconfirmedIndex() {
+	iDB.memDb.Clean()
+}
+
 func (iDB *IndexDB) Destroy() {}
