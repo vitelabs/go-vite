@@ -34,7 +34,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) (
 	// clean cache
 	c.cache.CleanUnconfirmedPool()
 
-	// clean index
+	// clean unconfirmed index
 	c.indexDB.CleanUnconfirmedIndex()
 
 	// delete blocks
