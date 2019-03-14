@@ -70,3 +70,7 @@ type VMDB interface {
 	// ====== debug ======
 	DebugGetStorage() map[string][]byte
 }
+
+func NewVMDB(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VMDB, error) {
+	return nil, nil
+}

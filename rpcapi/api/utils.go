@@ -5,7 +5,9 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path/filepath"
@@ -135,4 +137,15 @@ func getRange(index, count, listLen int) (int, int) {
 		return start, listLen
 	}
 	return start, end
+}
+
+func getPrevBlockHash(c chain.Chain, addr *types.Address) (*types.Hash, error) {
+	b, err := c.GetLatestAccountBlock(addr)
+	if err != nil {
+		return nil, err
+	}
+	if b != nil {
+		return &b.Hash, nil
+	}
+	return &types.Hash{}, nil
 }

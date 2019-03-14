@@ -120,28 +120,38 @@ func NewVM() *VM {
 }
 
 func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_context.VmAccountBlockV2, err error) {
-	responseBlockList := make([]string, 0)
+	var str string
 	if result != nil {
 		if result.AccountBlock.IsSendBlock() {
-			responseBlockList = append(responseBlockList,
-				"{SelfAddr: "+result.AccountBlock.AccountAddress.String()+", "+
-					"ToAddr: "+result.AccountBlock.ToAddress.String()+", "+
-					"BlockType: "+strconv.FormatInt(int64(result.AccountBlock.BlockType), 10)+", "+
-					"Quota: "+strconv.FormatUint(result.AccountBlock.Quota, 10)+", "+
-					"Amount: "+result.AccountBlock.Amount.String()+", "+
-					"TokenId: "+result.AccountBlock.TokenId.String()+", "+
-					"Height: "+strconv.FormatUint(result.AccountBlock.Height, 10)+", "+
-					"Data: "+hex.EncodeToString(result.AccountBlock.Data)+", "+
-					"Fee: "+result.AccountBlock.Fee.String()+"}")
+			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
+				"ToAddr: " + result.AccountBlock.ToAddress.String() + ", " +
+				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
+				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
+				"Amount: " + result.AccountBlock.Amount.String() + ", " +
+				"TokenId: " + result.AccountBlock.TokenId.String() + ", " +
+				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
+				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
+				"Fee: " + result.AccountBlock.Fee.String() + "}"
 		} else {
-			// TODO add sendBlockList
-			responseBlockList = append(responseBlockList,
-				"{SelfAddr: "+result.AccountBlock.AccountAddress.String()+", "+
-					"FromHash: "+result.AccountBlock.FromBlockHash.String()+", "+
-					"BlockType: "+strconv.FormatInt(int64(result.AccountBlock.BlockType), 10)+", "+
-					"Quota: "+strconv.FormatUint(result.AccountBlock.Quota, 10)+", "+
-					"Height: "+strconv.FormatUint(result.AccountBlock.Height, 10)+", "+
-					"Data: "+hex.EncodeToString(result.AccountBlock.Data)+"}")
+			if len(result.AccountBlock.SendBlockList) > 0 {
+				str = "["
+				for _, sendBlock := range result.AccountBlock.SendBlockList {
+					str = str + "{ToAddr:" + sendBlock.ToAddress.String() + ", " +
+						"BlockType:" + strconv.FormatInt(int64(sendBlock.BlockType), 10) + ", " +
+						"Data:" + hex.EncodeToString(sendBlock.Data) + ", " +
+						"Amount:" + sendBlock.Amount.String() + ", " +
+						"TokenId:" + sendBlock.TokenId.String() + ", " +
+						"Fee:" + sendBlock.Fee.String() + "}"
+				}
+				str = str + "]"
+			}
+			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
+				"FromHash: " + result.AccountBlock.FromBlockHash.String() + ", " +
+				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
+				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
+				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
+				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
+				"SendBlockList: " + str + "}"
 		}
 	}
 	nodeConfig.log.Info("vm run stop",
@@ -150,15 +160,15 @@ func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_context.VmAccoun
 		"height", block.Height,
 		"fromHash", block.FromBlockHash.String(),
 		"err", err,
-		"generatedBlockList", responseBlockList,
+		"block", str,
 	)
 }
 
+// Deprecated: Use RunV2 instead
 func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (result []*vm_context.VmAccountBlockV2, isRetry bool, err error) {
 	return nil, false, nil
 }
 
-// TODO
 func (vm *VM) RunV2(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_context.VmAccountBlockV2, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
@@ -332,9 +342,7 @@ func (vm *VM) receiveCreate(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock
 }
 
 func mergeReceiveBlock(db vm_db.VMDB, receiveBlock *ledger.AccountBlock, sendBlockList []*ledger.AccountBlock) *vm_context.VmAccountBlockV2 {
-	if len(sendBlockList) > 0 {
-		// TODO merge send block list into receive block
-	}
+	receiveBlock.SendBlockList = sendBlockList
 	return &vm_context.VmAccountBlockV2{receiveBlock, db}
 }
 

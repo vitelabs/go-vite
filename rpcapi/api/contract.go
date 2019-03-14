@@ -8,8 +8,10 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_db"
 	"strings"
 )
 
@@ -104,11 +106,15 @@ type CallOffChainMethodParam struct {
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	// TODO
-	return nil, nil
-	/*db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(c.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)*/
+	db, err := vm_db.NewVMDB(tmpChain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
 }

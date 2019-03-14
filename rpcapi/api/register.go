@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/vm_db"
+	"sort"
 	"time"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -50,7 +52,7 @@ type RegistrationInfo struct {
 	WithdrawHeight string        `json:"withdrawHeight"`
 	WithdrawTime   int64         `json:"withdrawTime"`
 	CancelTime     int64         `json:"cancelTime"`
-	// TODO reward
+	Reward         string        `json:"reward"`
 }
 
 type byRegistrationWithdrawHeight []*types.Registration
@@ -69,14 +71,21 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
-	// TODO
-	return nil, nil
-	/*snapshotBlock := r.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
+	snapshotBlock := r.chain.GetLatestSnapshotBlock()
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
+	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	list, err := abi.GetRegistrationList(db, gid, pledgeAddr)
+	if err != nil {
+		return nil, err
+	}
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
@@ -92,35 +101,21 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 			}
 		}
 	}
-	return targetList, nil*/
+	return targetList, nil
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	// TODO
-	return nil, nil
-	/*vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	return abi.GetRegistration(vmContext, gid, name), nil*/
-}
-
-// Deprecated: Use GetRegistration instead
-func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types.Address, error) {
-	var g types.Gid
-	if gid == nil || *gid == types.DELEGATE_GID {
-		g = types.SNAPSHOT_GID
-	} else {
-		g = *gid
-	}
-	registration, err := r.GetRegistration(name, g)
+	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
-	if registration != nil {
-		return &registration.PledgeAddr, nil
-	}
-	return nil, nil
+	return abi.GetRegistration(db, gid, name)
 }
 
 type RegistParam struct {
@@ -129,28 +124,39 @@ type RegistParam struct {
 }
 
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
-	// TODO
-	return nil, nil
-	/*if len(paramList) == 0 {
+	if len(paramList) == 0 {
 		return nil, nil
 	}
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
 	addrList := make([]*types.Address, len(paramList))
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	for k, v := range paramList {
 		var r *types.Registration
 		if v.Gid == nil || *v.Gid == types.DELEGATE_GID {
-			r = abi.GetRegistration(vmContext, types.SNAPSHOT_GID, v.Name)
+			if r, err = abi.GetRegistration(db, types.SNAPSHOT_GID, v.Name); err != nil {
+				return nil, err
+			}
 		} else {
-			r = abi.GetRegistration(vmContext, *v.Gid, v.Name)
+			if r, err = abi.GetRegistration(db, *v.Gid, v.Name); err != nil {
+			}
+			return nil, err
 		}
 		if r != nil {
 			addrList[k] = &r.PledgeAddr
 		}
 	}
-	return addrList, nil*/
+	return addrList, nil
 }
 
 type CandidateInfo struct {

@@ -113,9 +113,10 @@ type AccountBlock struct {
 
 	LogHash *types.Hash `json:"logHash"`
 
-	Difficulty *big.Int `json:"difficulty"`
-	Nonce      []byte   `json:"nonce"`
-	Signature  []byte   `json:"signature"`
+	Difficulty    *big.Int        `json:"difficulty"`
+	Nonce         []byte          `json:"nonce"`
+	SendBlockList []*AccountBlock `json:sendBlockList` // 13
+	Signature     []byte          `json:"signature"`
 }
 
 func (ab *AccountBlock) Copy() *AccountBlock {

@@ -7,6 +7,8 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_db"
+	"sort"
 )
 
 type PledgeApi struct {
@@ -80,14 +82,21 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 }
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
-	// TODO
-	return nil, nil
-	/*snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(p.chain, &snapshotBlock.Hash, nil, nil)
+	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(p.chain, &types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
-	list, amount := abi.GetPledgeInfoList(vmContext, addr)
+	db, err := vm_db.NewVMDB(tmpChain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	list, amount, err := abi.GetPledgeInfoList(db, addr)
+	if err != nil {
+		return nil, err
+	}
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {
@@ -104,5 +113,5 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
 	}
-	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil*/
+	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
