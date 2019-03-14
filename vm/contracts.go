@@ -14,7 +14,7 @@ type precompiledContract struct {
 }
 
 var simpleContracts = map[types.Address]*precompiledContract{
-	types.AddressRegister: {
+	types.AddressConsensusGroup: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameRegister:       &contracts.MethodRegister{},
 			cabi.MethodNameCancelRegister: &contracts.MethodCancelRegister{},
@@ -23,7 +23,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		cabi.ABIRegister,
 	},
-	types.AddressVote: {
+	types.AddressConsensusGroup: {
 		map[string]contracts.PrecompiledContractMethod{
 			cabi.MethodNameVote:       &contracts.MethodVote{},
 			cabi.MethodNameCancelVote: &contracts.MethodCancelVote{},

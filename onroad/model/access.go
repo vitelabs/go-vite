@@ -34,7 +34,7 @@ func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address
 		return nil, err
 	}
 	if *gid == types.DELEGATE_GID {
-		addrList = append(addrList, types.PrecompiledContractAddressList...)
+		addrList = append(addrList, types.BuiltinContractAddrList...)
 	}
 	return addrList, nil
 }
@@ -43,7 +43,7 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 	var addrList []types.Address
 	var err error
 
-	if gid == types.DELEGATE_GID && types.IsPrecompiledContractAddress(address) {
+	if gid == types.DELEGATE_GID && types.IsBuiltinContractAddr(address) {
 		return nil
 	}
 
