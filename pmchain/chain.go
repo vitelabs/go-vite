@@ -1,6 +1,7 @@
 package pmchain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/cache"
@@ -39,7 +40,12 @@ func (c *chain) NewChain() *chain {
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	// Init ledger
-	indexDB := chain_index.NewIndexDB()
+	chainDir := ""
+	indexDB, err := chain_index.NewIndexDB(chainDir)
+	if err != nil {
+		c.log.Error(fmt.Sprintf("Init failed, call chain_index.NewIndexDB error, error is %s, chainDir is %s", err, chainDir))
+		return err
+	}
 	//stateDB := chain_state.NewStateDB()
 	blockDB := chain_block.NewBlockDB()
 
@@ -49,7 +55,12 @@ func (c *chain) Init() error {
 		blockDB.Destroy()
 
 		// init
-		indexDB = chain_index.NewIndexDB()
+		indexDB, err = chain_index.NewIndexDB(chainDir)
+		if err != nil {
+			c.log.Error(fmt.Sprintf("Init failed, call chain_index.NewIndexDB error, error is %s, chainDir is %s", err, chainDir))
+			return err
+		}
+
 		blockDB = chain_block.NewBlockDB()
 
 		c.log.Info("Init ledger", "method", "Init")

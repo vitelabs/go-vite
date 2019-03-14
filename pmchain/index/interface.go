@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-type DB interface {
+type Store interface {
 	NewBatch() Batch
 	Write(Batch) error
 }
@@ -17,5 +17,7 @@ type MemDB interface {
 	Put(blockHash *types.Hash, key, value []byte)
 	Get(key []byte) ([]byte, bool)
 
-	GetAndDelete(blockHash *types.Hash) ([][]byte, [][]byte)
+	GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte)
+
+	DeleteByBlockHash(blockHash *types.Hash)
 }

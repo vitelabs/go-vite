@@ -50,7 +50,7 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) {
  *	2. accountId
  */
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock) error {
-	batch := iDB.db.NewBatch()
+	batch := iDB.store.NewBatch()
 	// hash -> height
 	if err := iDB.insertSnapshotBlockHash(batch, &snapshotBlock.Hash, snapshotBlock.Height); err != nil {
 		return err
@@ -72,7 +72,15 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 		iDB.flush(batch, blocks)
 	}
 
-	return iDB.db.Write(batch)
+	if err := iDB.store.Write(batch); err != nil {
+		return err
+	}
+	// clean mem store
+	for _, blocks := range confirmedSubLedger {
+		iDB.cleanMemDb(blocks)
+	}
+
+	return nil
 }
 
 func (iDB *IndexDB) insertAccount(batch Batch, addr *types.Address, accountId uint64) error {
@@ -124,15 +132,19 @@ func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, 
 
 // TODO write failed
 func (iDB *IndexDB) flush(batch Batch, blocks []*ledger.AccountBlock) {
-
 	for _, block := range blocks {
-		keyList, valueList := iDB.memDb.GetAndDelete(&block.Hash)
+		keyList, valueList := iDB.memDb.GetByBlockHash(&block.Hash)
 		if len(keyList) > 0 {
 			for index, key := range keyList {
 				batch.Put(key, valueList[index])
 			}
 		}
+	}
+}
 
+func (iDB *IndexDB) cleanMemDb(blocks []*ledger.AccountBlock) {
+	for _, block := range blocks {
+		iDB.memDb.DeleteByBlockHash(&block.Hash)
 	}
 }
 

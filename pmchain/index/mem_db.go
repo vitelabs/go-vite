@@ -34,9 +34,9 @@ func (mDb *memDb) Get(key []byte) ([]byte, bool) {
 	return result, ok
 }
 
-func (mDb *memDb) GetAndDelete(blockHash *types.Hash) ([][]byte, [][]byte) {
-	mDb.mu.Lock()
-	defer mDb.mu.Unlock()
+func (mDb *memDb) GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte) {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
 
 	keyList := mDb.hashKeyList[*blockHash]
 	if len(keyList) <= 0 {
@@ -45,12 +45,24 @@ func (mDb *memDb) GetAndDelete(blockHash *types.Hash) ([][]byte, [][]byte) {
 
 	valueList := make([][]byte, 0, len(keyList))
 	for key := range keyList {
-		keyString := string(key)
-		valueList = append(valueList, mDb.storage[keyString])
+		valueList = append(valueList, mDb.storage[string(key)])
+	}
 
-		delete(mDb.storage, keyString)
+	return keyList, valueList
+}
+
+func (mDb *memDb) DeleteByBlockHash(blockHash *types.Hash) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+
+	keyList := mDb.hashKeyList[*blockHash]
+	if len(keyList) <= 0 {
+		return
+	}
+
+	for key := range keyList {
+		delete(mDb.storage, string(key))
 	}
 	delete(mDb.hashKeyList, *blockHash)
 
-	return keyList, valueList
 }
