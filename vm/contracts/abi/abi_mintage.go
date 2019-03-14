@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strings"
 	"time"
@@ -105,21 +106,27 @@ func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlo
 		snapshotHash.Bytes())
 }
 
-func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
+func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) (*types.TokenInfo, error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
+	}
 	data := db.GetValue(GetMintageKey(tokenId))
 	if len(data) > 0 {
 		tokenInfo, _ := ParseTokenInfo(data)
-		return tokenInfo
+		return tokenInfo, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
+func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
+	}
 	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMap"}, time.Now())
 	iterator := db.NewStorageIterator(nil)
 	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	if iterator == nil {
-		return tokenInfoMap
+		return tokenInfoMap, nil
 	}
 	for {
 		key, value, ok := iterator.Next()
@@ -134,18 +141,24 @@ func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
 			tokenInfoMap[tokenId] = tokenInfo
 		}
 	}
-	return tokenInfoMap
+	return tokenInfoMap, nil
 }
 
-func GetTokenMapByOwner(db StorageDatabase, owner types.Address) map[types.TokenTypeId]*types.TokenInfo {
+func GetTokenMapByOwner(db StorageDatabase, owner types.Address) (tokenInfoMap map[types.TokenTypeId]*types.TokenInfo, err error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
+	}
 	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMapByOwner"}, time.Now())
 	tokenIdList := db.GetValue(GetOwnerTokenIdListKey(owner))
-	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
+	tokenInfoMap = make(map[types.TokenTypeId]*types.TokenInfo)
 	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {
 		tokenId, _ := types.BytesToTokenTypeId(tokenIdList[i*types.TokenTypeIdSize : (i+1)*types.TokenTypeIdSize])
-		tokenInfoMap[tokenId] = GetTokenById(db, tokenId)
+		tokenInfoMap[tokenId], err = GetTokenById(db, tokenId)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return tokenInfoMap
+	return tokenInfoMap, nil
 }
 
 func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {

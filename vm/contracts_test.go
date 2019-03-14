@@ -1397,14 +1397,14 @@ func TestContractsMintageV2(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressMintage
-	if tokenInfo := abi.GetTokenById(db, tokenId); tokenInfo == nil || tokenInfo.TokenName != tokenName {
+	if tokenInfo, _ := abi.GetTokenById(db, tokenId); tokenInfo == nil || tokenInfo.TokenName != tokenName {
 		t.Fatalf("get token by id failed")
 	}
 	if tokenMap := abi.GetTokenMap(db); len(tokenMap) != 2 || tokenMap[tokenId].TokenName != tokenName {
 		t.Fatalf("get token map failed")
 	}
 
-	if tokenMap := abi.GetTokenMapByOwner(db, addr1); len(tokenMap) != 1 {
+	if tokenMap, _ := abi.GetTokenMapByOwner(db, addr1); len(tokenMap) != 1 {
 		t.Fatalf("get token map by owner failed")
 	}
 

@@ -23,3 +23,9 @@ var (
 	ErrContractSendBlockRunFailed = errors.New("contract send block run failed")
 	ErrVersionNotSupport          = errors.New("feature not supported in current snapshot height")
 )
+
+func DealWithErr(v interface{}) {
+	if v != nil {
+		panic(v)
+	}
+}

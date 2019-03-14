@@ -87,9 +87,7 @@ func GetContractCode(db CommonDb, addr *types.Address, status *GlobalStatus) ([]
 	} else {
 		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock)
 	}
-	if err != nil {
-		panic(err)
-	}
+	DealWithErr(err)
 	if len(code) > 0 {
 		return code[:contractTypeSize], code[contractTypeSize:]
 	}
@@ -126,9 +124,7 @@ func IsUserAccount(db CommonDb) bool {
 		return false
 	}
 	ok, err := db.IsContractAccount()
-	if err != nil {
-		panic(err)
-	}
+	DealWithErr(err)
 	return ok
 }
 

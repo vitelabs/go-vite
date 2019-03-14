@@ -3,6 +3,7 @@ package contracts
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"time"
 )
@@ -17,29 +18,23 @@ func newConsensusReader(genesisTime *time.Time, groupInfo *types.ConsensusGroupI
 }
 
 func (r *consensusReader) timeToPeriodIndex(time time.Time) uint64 {
-	if i, err := r.reader.TimeToIndex(time); err != nil {
-		panic(err)
-	} else {
-		return i
-	}
+	i, err := r.reader.TimeToIndex(time)
+	util.DealWithErr(err)
+	return i
 }
 
 func (r *consensusReader) timeToRewardStartIndex(t int64) uint64 {
 	startDayTime := r.timeToRewardStartDayTime(t)
-	if i, err := r.reader.TimeToIndex(time.Unix(startDayTime, 0)); err != nil {
-		panic(err)
-	} else {
-		return i
-	}
+	i, err := r.reader.TimeToIndex(time.Unix(startDayTime, 0))
+	util.DealWithErr(err)
+	return i
 }
 
 func (r *consensusReader) timeToRewardEndIndex(t int64) uint64 {
 	endDayTime := r.timeToRewardEndDayTime(t)
-	if i, err := r.reader.TimeToIndex(time.Unix(endDayTime, 0)); err != nil {
-		panic(err)
-	} else {
-		return i
-	}
+	i, err := r.reader.TimeToIndex(time.Unix(endDayTime, 0))
+	util.DealWithErr(err)
+	return i
 }
 
 // Inclusive
@@ -55,11 +50,9 @@ func (r *consensusReader) timeToRewardEndDayTime(currentTime int64) int64 {
 }
 
 func (r *consensusReader) getIndexInDay() uint64 {
-	if periodTime, err := r.reader.PeriodTime(); err != nil {
-		panic(err)
-	} else {
-		return uint64(nodeConfig.params.RewardTimeUnit) / periodTime
-	}
+	periodTime, err := r.reader.PeriodTime()
+	util.DealWithErr(err)
+	return uint64(nodeConfig.params.RewardTimeUnit) / periodTime
 }
 
 type consensusDetail struct {

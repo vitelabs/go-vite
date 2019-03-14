@@ -474,9 +474,7 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 		// add balance, create account if not exist
 		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 		isContract, err := db.IsContractAccount()
-		if err != nil {
-			panic(err)
-		}
+		util.DealWithErr(err)
 		// do transfer transaction if account code size is zero
 		if !isContract {
 			vm.updateBlock(db, block, nil, util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
@@ -500,9 +498,7 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 
 		if err == util.ErrOutOfQuota {
 			unConfirmedList, err := db.GetUnconfirmedBlocks()
-			if err != nil {
-				panic(err)
-			}
+			util.DealWithErr(err)
 			if len(unConfirmedList) > 0 {
 				// Contract receive out of quota, current block is not first unconfirmed block, retry next snapshotBlock
 				return nil, Retry, err
@@ -726,9 +722,7 @@ func calcContractFee(data []byte) (*big.Int, error) {
 
 func checkDepth(db vm_db.VMDB, sendBlock *ledger.AccountBlock) bool {
 	depth, err := db.GetCallDepth(sendBlock)
-	if err != nil {
-		panic(err)
-	}
+	util.DealWithErr(err)
 	return depth >= callDepth
 }
 
@@ -754,8 +748,6 @@ func (vm *VM) OffChainReader(db vm_db.VMDB, code []byte, data []byte) (result []
 
 func getPledgeAmount(db vm_db.VMDB) *big.Int {
 	pledgeAmount, err := db.GetPledgeAmount(db.Address())
-	if err != nil {
-		panic(err)
-	}
+	util.DealWithErr(err)
 	return pledgeAmount
 }

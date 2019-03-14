@@ -60,7 +60,11 @@ func (p *MethodRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, se
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, sendBlock.Data)
 	snapshotBlock := globalStatus.SnapshotBlock
-	groupInfo := abi.GetConsensusGroup(db, param.Gid)
+	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
+	util.DealWithErr(err)
+	if groupInfo == nil {
+		return nil, util.ErrInvalidMethodParam
+	}
 	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
 	if sendBlock.Amount.Cmp(pledgeParam.PledgeAmount) != 0 || sendBlock.TokenId != pledgeParam.PledgeToken {
 		return nil, util.ErrInvalidMethodParam
@@ -72,7 +76,8 @@ func (p *MethodRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, se
 	}
 
 	// Check registration owner
-	old := abi.GetRegistration(db, param.Gid, param.Name)
+	old, err := abi.GetRegistration(db, param.Gid, param.Name)
+	util.DealWithErr(err)
 	var hisAddrList []types.Address
 	if old != nil {
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
@@ -88,7 +93,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, se
 	// check node addr belong to one name in a consensus group
 	hisNameKey := abi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err := abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
+	err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -146,14 +151,20 @@ func (p *MethodCancelRegister) DoReceive(db vm_db.VMDB, block *ledger.AccountBlo
 	param := new(abi.ParamCancelRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, sendBlock.Data)
 	snapshotBlock := globalStatus.SnapshotBlock
-	old := abi.GetRegistration(db, param.Gid, param.Name)
+	old, err := abi.GetRegistration(db, param.Gid, param.Name)
+	util.DealWithErr(err)
 	if old == nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.WithdrawHeight > snapshotBlock.Height {
 		return nil, util.ErrInvalidMethodParam
 	}
 
 	rewardTime := old.RewardTime
 	cancelTime := snapshotBlock.Timestamp.Unix()
-	if checkRewardDrained(db, abi.GetConsensusGroup(db, param.Gid), old.RewardTime, cancelTime) {
+	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
+	util.DealWithErr(err)
+	if groupInfo == nil {
+		return nil, util.ErrInvalidMethodParam
+	}
+	if checkRewardDrained(db, groupInfo, old.RewardTime, cancelTime) {
 		rewardTime = -1
 	}
 
@@ -215,7 +226,8 @@ func (p *MethodReward) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
 func (p *MethodReward) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(abi.ParamReward)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, sendBlock.Data)
-	old := abi.GetRegistration(db, param.Gid, param.Name)
+	old, err := abi.GetRegistration(db, param.Gid, param.Name)
+	util.DealWithErr(err)
 	if old == nil || sendBlock.AccountAddress != old.PledgeAddr || old.RewardTime == -1 {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -275,7 +287,8 @@ func CalcReward(db vm_db.VMDB, old *types.Registration, gid types.Gid, current *
 			err = errors.New("calc reward panic")
 		}
 	}()
-	groupInfo := abi.GetConsensusGroup(db, gid)
+	groupInfo, err := abi.GetConsensusGroup(db, gid)
+	util.DealWithErr(err)
 	reader := newConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
 	startTime = reader.timeToRewardStartDayTime(old.RewardTime)
 	if !old.IsActive() {
@@ -361,7 +374,8 @@ func (p *MethodUpdateRegistration) DoSend(db vm_db.VMDB, block *ledger.AccountBl
 func (p *MethodUpdateRegistration) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, sendBlock.Data)
-	old := abi.GetRegistration(db, param.Gid, param.Name)
+	old, err := abi.GetRegistration(db, param.Gid, param.Name)
+	util.DealWithErr(err)
 	if old == nil || !old.IsActive() ||
 		old.PledgeAddr != sendBlock.AccountAddress ||
 		old.NodeAddr == param.NodeAddr {
@@ -370,7 +384,7 @@ func (p *MethodUpdateRegistration) DoReceive(db vm_db.VMDB, block *ledger.Accoun
 	// check node addr belong to one name in a consensus group
 	hisNameKey := abi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
-	err := abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
+	err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, db.GetValue(hisNameKey))
 	if err == nil && *hisName != param.Name {
 		return nil, util.ErrInvalidMethodParam
 	}

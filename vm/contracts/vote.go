@@ -42,7 +42,8 @@ func (p *MethodVote) DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error {
 func (p *MethodVote) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(abi.ParamVote)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, sendBlock.Data)
-	consensusGroupInfo := abi.GetConsensusGroup(db, param.Gid)
+	consensusGroupInfo, err := abi.GetConsensusGroup(db, param.Gid)
+	util.DealWithErr(err)
 	if consensusGroupInfo == nil {
 		return nil, util.ErrInvalidMethodParam
 	}
