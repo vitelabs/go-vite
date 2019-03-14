@@ -32,7 +32,7 @@ func (c ContractApi) String() string {
 }
 
 func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash, snapshotHash types.Hash) (*types.Address, error) {
-	h, err := stringToUint64(heightStr)
+	h, err := StringToUint64(heightStr)
 	if err != nil {
 		return nil, err
 	}

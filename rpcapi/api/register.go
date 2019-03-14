@@ -51,7 +51,8 @@ type RegistrationInfo struct {
 	PledgeAmount   string        `json:"pledgeAmount"`
 	WithdrawHeight string        `json:"withdrawHeight"`
 	WithdrawTime   int64         `json:"withdrawTime"`
-	CancelHeight   string        `json:"cancelHeight"`
+	CancelTime     int64         `json:"cancelTime"`
+	// TODO reward
 }
 
 type byRegistrationWithdrawHeight []*types.Registration
@@ -60,7 +61,11 @@ func (a byRegistrationWithdrawHeight) Len() int      { return len(a) }
 func (a byRegistrationWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 	if a[i].WithdrawHeight == a[j].WithdrawHeight {
-		return a[i].CancelHeight > a[j].CancelHeight
+		if a[i].CancelTime == a[j].CancelTime {
+			return a[i].Name > a[j].Name
+		} else {
+			return a[i].CancelTime > a[j].CancelTime
+		}
 	}
 	return a[i].WithdrawHeight > a[j].WithdrawHeight
 }
@@ -83,7 +88,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				PledgeAmount:   *bigIntToString(info.Amount),
 				WithdrawHeight: uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-				CancelHeight:   uint64ToString(info.CancelHeight),
+				CancelTime:     info.CancelTime,
 			}
 		}
 	}

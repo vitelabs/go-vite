@@ -22,6 +22,7 @@ import "fmt"
 type methodNotFoundError struct {
 	service string
 	method  string
+	id      interface{}
 }
 
 func (e *methodNotFoundError) ErrorCode() int { return -32601 }
@@ -29,13 +30,19 @@ func (e *methodNotFoundError) ErrorCode() int { return -32601 }
 func (e *methodNotFoundError) Error() string {
 	return fmt.Sprintf("The method %s%s%s does not exist/is not available", e.service, serviceMethodSeparator, e.method)
 }
+func (e *methodNotFoundError) Id() interface{} { return e.id }
 
 // received message isn't a valid request
-type invalidRequestError struct{ message string }
+type invalidRequestError struct {
+	message string
+	id      interface{}
+}
 
 func (e *invalidRequestError) ErrorCode() int { return -32600 }
 
 func (e *invalidRequestError) Error() string { return e.message }
+
+func (e *invalidRequestError) Id() interface{} { return e.id }
 
 // received message is invalid
 type invalidMessageError struct{ message string }

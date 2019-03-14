@@ -54,6 +54,7 @@ func newSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
+
 	instructionSet[SEED] = operation{
 		execute:       opSeed,
 		gasCost:       constGasFunc(quickStepGas),

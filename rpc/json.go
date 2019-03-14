@@ -142,7 +142,7 @@ func (c *jsonCodec) ReadRequestHeaders() ([]rpcRequest, bool, Error) {
 
 	var incomingMsg json.RawMessage
 	if err := c.decode(&incomingMsg); err != nil {
-		return nil, false, &invalidRequestError{err.Error()}
+		return nil, false, &invalidRequestError{err.Error(), nil}
 	}
 	if isBatch(incomingMsg) {
 		return parseBatchRequest(incomingMsg)
@@ -187,14 +187,14 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 			var subscribeMethod [1]string
 			if err := json.Unmarshal(in.Payload, &subscribeMethod); err != nil {
 				log.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
-				return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+				return nil, false, &invalidRequestError{"Unable to parse subscription request", in.Id}
 			}
 
 			reqs[0].service, reqs[0].method = strings.TrimSuffix(in.Method, subscribeMethodSuffix), subscribeMethod[0]
 			reqs[0].params = in.Payload
 			return reqs, false, nil
 		}
-		return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+		return nil, false, &invalidRequestError{"Unable to parse subscription request", in.Id}
 	}
 
 	if strings.HasSuffix(in.Method, unsubscribeMethodSuffix) {
@@ -204,7 +204,7 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 
 	elems := strings.Split(in.Method, serviceMethodSeparator)
 	if len(elems) != 2 {
-		return nil, false, &methodNotFoundError{in.Method, ""}
+		return nil, false, &methodNotFoundError{in.Method, "", in.Id}
 	}
 
 	// regular RPC call
@@ -239,7 +239,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 				var subscribeMethod [1]string
 				if err := json.Unmarshal(r.Payload, &subscribeMethod); err != nil {
 					log.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
-					return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+					return nil, false, &invalidRequestError{"Unable to parse subscription request", id}
 				}
 
 				requests[i].service, requests[i].method = strings.TrimSuffix(r.Method, subscribeMethodSuffix), subscribeMethod[0]
@@ -247,7 +247,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 				continue
 			}
 
-			return nil, true, &invalidRequestError{"Unable to parse (un)subscribe request arguments"}
+			return nil, true, &invalidRequestError{"Unable to parse (un)subscribe request arguments", id}
 		}
 
 		if strings.HasSuffix(r.Method, unsubscribeMethodSuffix) {
@@ -263,7 +263,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 		if elem := strings.Split(r.Method, serviceMethodSeparator); len(elem) == 2 {
 			requests[i].service, requests[i].method = elem[0], elem[1]
 		} else {
-			requests[i].err = &methodNotFoundError{r.Method, ""}
+			requests[i].err = &methodNotFoundError{r.Method, "", id}
 		}
 	}
 
