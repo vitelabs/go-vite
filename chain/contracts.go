@@ -1,6 +1,9 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -70,97 +73,94 @@ func (c *chain) GetContractGid(addr *types.Address) (*types.Gid, error) {
 func (c *chain) GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]types.Quota, error) {
 	monitorTags := []string{"chain", "GetPledgeQuotas"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-	// TODO
-	return nil, nil
-
-	/*pledgeDb, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	// TODO optimize
+	pledgeDb, err := vm_db.NewVMDB(nil, &types.AddressPledge, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotas")
 		return nil, err
 	}
-	quotas := make(map[types.Address]uint64)
+	quotas := make(map[types.Address]types.Quota)
 	for _, addr := range beneficialList {
-		balanceDb, err := vm_context.NewVmContext(c, &snapshotHash, nil, &addr)
+		balanceDb, err := vm_db.NewVMDB(nil, &addr, &snapshotHash, nil)
 		if err != nil {
 			c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuotas")
 			return nil, err
 		}
-		pledgeAmount := abi.GetPledgeBeneficialAmount(pledgeDb, addr)
+		// TODO get pledge amount by chain
+		pledgeAmount, err := abi.GetPledgeBeneficialAmount(pledgeDb, addr)
+		if err != nil {
+			return nil, err
+		}
 		quotas[addr], err = quota.GetPledgeQuota(balanceDb, addr, pledgeAmount)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return quotas, nil*/
+	return quotas, nil
 }
 func (c *chain) GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (types.Quota, error) {
 	monitorTags := []string{"chain", "GetPledgeQuota"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 	// TODO
-	return types.Quota{}, nil
-	/*vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, &beneficial)
+	vmContext, err := vm_db.NewVMDB(nil, &beneficial, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeQuota")
-		return 0, err
+		return types.Quota{}, err
 	}
-	pledgeAmount := abi.GetPledgeBeneficialAmount(vmContext, beneficial)
-	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount)*/
+	// TODO get pledge amount by chain
+	pledgeAmount, err := abi.GetPledgeBeneficialAmount(vmContext, beneficial)
+	if err != nil {
+		return types.Quota{}, err
+	}
+	return quota.GetPledgeQuota(vmContext, beneficial, pledgeAmount)
 }
 
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	// TODO
-	return nil, nil
-	/*monitorTags := []string{"chain", "GetRegisterList"}
+	monitorTags := []string{"chain", "GetRegisterList"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	// TODO
+	vmContext, err := vm_db.NewVMDB(nil, nil, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetCandidateList")
 		return nil, err
 	}
-	return abi.GetCandidateList(vmContext, gid, nil), nil*/
+	return abi.GetCandidateList(vmContext, gid, nil)
 }
 
 func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	// TODO
-	return nil, nil
-	/*monitorTags := []string{"chain", "GetVoteMap"}
+	monitorTags := []string{"chain", "GetVoteMap"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	vmContext, err := vm_db.NewVMDB(nil, nil, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetVoteList")
 		return nil, err
 	}
-	return abi.GetVoteList(vmContext, gid, nil), nil*/
+	return abi.GetVoteList(vmContext, gid, nil)
 }
 
 func (c *chain) GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) (*big.Int, error) {
-	// TODO
-	return nil, nil
-	/*monitorTags := []string{"chain", "GetPledgeAmount"}
+	monitorTags := []string{"chain", "GetPledgeAmount"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	// TODO
+	vmContext, err := vm_db.NewVMDB(nil, nil, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil, err
 	}
-	return abi.GetPledgeBeneficialAmount(vmContext, beneficial), nil*/
+	return abi.GetPledgeBeneficialAmount(vmContext, beneficial)
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
-	// TODO
-	return nil, nil
-	/*monitorTags := []string{"chain", "GetConsensusGroupList"}
+	monitorTags := []string{"chain", "GetConsensusGroupList"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-
-	vmContext, err := vm_context.NewVmContext(c, &snapshotHash, nil, nil)
+	// TODO
+	vmContext, err := vm_db.NewVMDB(nil, nil, &snapshotHash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetActiveConsensusGroupList")
 		return nil, err
 	}
-	return abi.GetActiveConsensusGroupList(vmContext, nil), nil*/
+	return abi.GetActiveConsensusGroupList(vmContext)
 }
 
 func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
@@ -181,15 +181,13 @@ func (c *chain) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenT
 }
 
 func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error) {
-	// TODO
-	return nil, nil
-	/*monitorTags := []string{"chain", "GetTokenInfoById"}
+	monitorTags := []string{"chain", "GetTokenInfoById"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
-
-	vmContext, err := vm_context.NewVmContext(c, nil, nil, &types.AddressMintage)
+	// TODO
+	vmContext, err := vm_db.NewVMDB(nil, &types.AddressMintage, &c.latestSnapshotBlock.Hash, nil)
 	if err != nil {
 		c.log.Error("NewVmContext failed, error is "+err.Error(), "method", "GetTokenInfoById")
 		return nil, err
 	}
-	return abi.GetTokenById(vmContext, *tokenId), nil*/
+	return abi.GetTokenById(vmContext, *tokenId)
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 	"time"
@@ -90,6 +91,10 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
+			_, _, reward, err := contracts.CalcReward(db, info, gid, snapshotBlock)
+			if err != nil {
+				return nil, err
+			}
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
 				NodeAddr:       info.NodeAddr,
@@ -98,6 +103,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				WithdrawHeight: uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 				CancelTime:     info.CancelTime,
+				Reward:         *bigIntToString(reward),
 			}
 		}
 	}
