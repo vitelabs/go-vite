@@ -13,15 +13,15 @@ import (
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	accountBlock := vmAccountBlock.AccountBlock
 	// write unconfirmed pool
-	if err := c.cache.UnconfirmedPool().InsertAccountBlock(accountBlock); err != nil {
-		return err
-	}
+	c.cache.InsertUnconfirmedAccountBlock(accountBlock)
 
 	// write index database
 	c.indexDB.InsertAccountBlock(vmAccountBlock)
 	return nil
 }
 
-func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error) {
+func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
+	_ := c.cache.GetCurrentUnconfirmedBlocks()
+
 	return nil, nil
 }

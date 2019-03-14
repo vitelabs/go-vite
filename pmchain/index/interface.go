@@ -11,6 +11,7 @@ type Store interface {
 
 type Batch interface {
 	Put(key, value []byte)
+	Delete(key []byte)
 }
 
 type MemDB interface {

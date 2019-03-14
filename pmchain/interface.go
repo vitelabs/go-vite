@@ -58,17 +58,11 @@ type Chain interface {
 	// vmAccountBlocks must have the same address
 	InsertAccountBlock(vmAccountBlocks *vm_context.VmAccountBlock) error
 
-	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error)
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidSubLedger map[types.Address][]*ledger.AccountBlock, err error)
 
 	/*
 	 *	D(Delete)
 	 */
-
-	// TODO contain the account block of toHash
-	// DeleteAccountBlocks(addr *types.Address, toHash *types.Hash) (map[types.Address][]*ledger.AccountBlock, error)
-
-	// TODO contain the account block of toHeight
-	// DeleteAccountBlocksToHeight(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 
 	// contain the snapshot block of toHash, delete all blocks higher than snapshot line
 	DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)

@@ -95,7 +95,7 @@ func (iDB *IndexDB) insertAccountBlockHash(blockHash *types.Hash, accountId uint
 
 }
 
-func insertAccountBlockHeight(batch Batch, accountId uint64, height uint64, location string) error {
+func (iDB *IndexDB) insertAccountBlockHeight(batch Batch, accountId uint64, height uint64, location string) error {
 	return nil
 }
 
