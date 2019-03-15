@@ -105,7 +105,7 @@ type Chain interface {
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)

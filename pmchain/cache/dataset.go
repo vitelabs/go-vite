@@ -23,11 +23,11 @@ type dataSet struct {
 
 func NewDataSet() *dataSet {
 	return &dataSet{
-		dataRefCount: make(map[uint64]int16, 0),
-		blockDataId:  make(map[types.Hash]uint64, 0),
+		dataRefCount: make(map[uint64]int16),
+		blockDataId:  make(map[types.Hash]uint64),
 
-		accountBlockSet:  make(map[uint64]*ledger.AccountBlock, 0),
-		snapshotBlockSet: make(map[uint64]*ledger.SnapshotBlock, 0),
+		accountBlockSet:  make(map[uint64]*ledger.AccountBlock),
+		snapshotBlockSet: make(map[uint64]*ledger.SnapshotBlock),
 
 		abHeightIndexes: make(map[types.Address]map[uint64]*ledger.AccountBlock),
 
@@ -91,6 +91,10 @@ func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) uint
 	ds.blockDataId[snapshotBlock.Hash] = newDataId
 
 	return newDataId
+}
+
+func (ds *dataSet) GetDataId(hash *types.Hash) uint64 {
+	return ds.blockDataId[*hash]
 }
 
 func (ds *dataSet) IsDataExisted(hash *types.Hash) bool {

@@ -7,6 +7,6 @@ import (
 
 type Chain interface {
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidSubLedger map[types.Address][]*ledger.AccountBlock, err error)
-	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	GetSnapshotHeaderByHeight(uint64) (*ledger.SnapshotBlock, error)
 	GetContentNeedSnapshot() ledger.SnapshotContent
 }

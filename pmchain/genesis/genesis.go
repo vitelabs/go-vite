@@ -19,17 +19,17 @@ func InitLedger(chain Chain) error {
 }
 
 func CheckLedger(chain Chain) (byte, error) {
-	latestSb, err := chain.GetLatestSnapshotBlock()
+	firstSb, err := chain.GetSnapshotHeaderByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
 	}
-	if latestSb == nil {
+	if firstSb == nil {
 		return LedgerEmpty, nil
 	}
 
 	genesisSnapshotBlock := NewGenesisSnapshotBlock()
 
-	if latestSb.Hash == genesisSnapshotBlock.Hash {
+	if firstSb.Hash == genesisSnapshotBlock.Hash {
 		return LedgerValid, nil
 	}
 	return LedgerInvalid, nil

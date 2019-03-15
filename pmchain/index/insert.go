@@ -61,7 +61,6 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 /*
  *	TODO
  *	1. location
- *	2. accountId
  */
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock, sbLocation *chain_block.Location, abLocations []*chain_block.Location) error {
 	batch := iDB.store.NewBatch()
@@ -69,15 +68,16 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	iDB.insertSnapshotBlockHash(batch, &snapshotBlock.Hash, snapshotBlock.Height)
 
 	// height -> location
-	if err := iDB.insertSnapshotBlockHeight(batch, snapshotBlock.Height, ""); err != nil {
-		return err
-	}
+	iDB.insertSnapshotBlockHeight(batch, snapshotBlock.Height, sbLocation)
+
 	// confirm block
-	for _, hashHeight := range snapshotBlock.SnapshotContent {
-		accountId := uint64(1)
-		if err := iDB.insertConfirmHeight(batch, accountId, hashHeight.Height, snapshotBlock.Height); err != nil {
-			return err
+	for addr, hashHeight := range snapshotBlock.SnapshotContent {
+		accountId, err := iDB.getAccountId(&addr)
+		if err != nil {
+			return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s", err.Error()))
 		}
+
+		iDB.insertConfirmHeight(batch, accountId, hashHeight.Height, snapshotBlock.Height)
 	}
 	// flush account block indexes
 	for _, blocks := range confirmedSubLedger {
@@ -147,7 +147,6 @@ func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, 
 	return nil
 }
 
-// TODO write failed
 func (iDB *IndexDB) flush(batch Batch, blocks []*ledger.AccountBlock) {
 	for _, block := range blocks {
 		keyList, valueList := iDB.memDb.GetByBlockHash(&block.Hash)
@@ -165,8 +164,9 @@ func (iDB *IndexDB) cleanMemDb(blocks []*ledger.AccountBlock) {
 	}
 }
 
-func (iDB *IndexDB) insertConfirmHeight(batch Batch, accountId uint64, height uint64, snapshotHeight uint64) error {
-	return nil
+func (iDB *IndexDB) insertConfirmHeight(batch Batch, accountId uint64, height uint64, snapshotHeight uint64) {
+	key := createConfirmHeightKey(accountId, height)
+	batch.Put(key, SerializeHeight(snapshotHeight))
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash, height uint64) {
@@ -174,6 +174,7 @@ func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *type
 	batch.Put(key, SerializeHeight(height))
 }
 
-func (iDB *IndexDB) insertSnapshotBlockHeight(batch Batch, snapshotBlockHeight uint64, location string) error {
-	return nil
+func (iDB *IndexDB) insertSnapshotBlockHeight(batch Batch, snapshotBlockHeight uint64, location *chain_block.Location) {
+	key := createSnapshotBlockHeightKey(snapshotBlockHeight)
+	batch.Put(key, SerializeLocation(location))
 }

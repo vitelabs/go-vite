@@ -1,6 +1,7 @@
 package chain_block
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	"os"
@@ -15,7 +16,8 @@ const (
 )
 
 type fileManager struct {
-	maxFileSize int64
+	maxFileSize  int64
+	bufSizeBytes []byte
 
 	dirName string
 	dirFd   *os.File
@@ -29,8 +31,9 @@ func newFileManager(dirName string) (*fileManager, error) {
 	var err error
 
 	fm := &fileManager{
-		dirName:     dirName,
-		maxFileSize: 10 * 1024 * 1024,
+		dirName:      dirName,
+		maxFileSize:  10 * 1024 * 1024,
+		bufSizeBytes: make([]byte, 4),
 	}
 
 	fm.dirFd, err = fm.newDirFd(dirName)
@@ -77,25 +80,37 @@ func (fm *fileManager) Close() error {
 	return nil
 }
 
-// TODO size
 func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
-	if fm.latestFileSize+bufSize > fm.maxFileSize {
+
+	if fm.latestFileSize+bufSize+4 > fm.maxFileSize {
 		fm.moveOneForward()
+	}
+
+	binary.BigEndian.PutUint32(fm.bufSizeBytes, uint32(bufSize))
+
+	if _, err := fm.latestFileFd.Write(fm.bufSizeBytes); err != nil {
+		return nil, errors.New(fmt.Sprintf("fm.latestFileFd.Write  failed, error is %s", err.Error()))
 	}
 
 	if _, err := fm.latestFileFd.Write(buf); err != nil {
 		return nil, errors.New(fmt.Sprintf("fm.latestFileFd.Write failed, error is %s", err.Error()))
 	}
 
-	location := newLocation(fm.latestFileId, uint32(fm.latestFileSize)+1)
-	fm.latestFileSize += bufSize
+	location := NewLocation(fm.latestFileId, uint32(fm.latestFileSize)+1)
+
+	fm.latestFileSize += bufSize + 4
 
 	return location, nil
 }
 
 func (fm *fileManager) DeleteTo(location *Location) (*Location, error) {
 	return nil, nil
+}
+
+// TODO cache
+func (fm *fileManager) GetFd(location *Location) (*os.File, error) {
+	return fm.getFileFd(location.FileId())
 }
 
 func (fm *fileManager) newDirFd(dirName string) (*os.File, error) {

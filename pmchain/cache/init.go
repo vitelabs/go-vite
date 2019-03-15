@@ -1,9 +1,18 @@
 package chain_cache
 
-func (cache *Cache) init() error {
+import (
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/ledger"
+)
+
+func (cache *Cache) Init(latestSnapshotBlock *ledger.SnapshotBlock) error {
 	genesisSnapshotBlock, err := cache.chain.GetSnapshotBlockByHeight(1)
 	if err != nil {
 		return err
+	}
+
+	if genesisSnapshotBlock == nil {
+		return errors.New("genesisSnapshotBlock is nil")
 	}
 
 	// init genesis snapshot block
@@ -11,14 +20,7 @@ func (cache *Cache) init() error {
 	cache.hd.SetGenesisSnapshotBlock(dataId)
 
 	// init latest snapshot block
-	latestSnapshotBlock, err := cache.chain.GetLatestSnapshotBlock()
-	if err != nil {
-		return err
-	}
-
-	if latestSnapshotBlock != nil {
-		cache.UpdateLatestSnapshotBlock(latestSnapshotBlock)
-	}
+	cache.UpdateLatestSnapshotBlock(latestSnapshotBlock)
 
 	return nil
 }

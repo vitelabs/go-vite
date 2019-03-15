@@ -70,10 +70,7 @@ func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
 // No state hash
 func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
 	chainInstance := acc.chainInstance
-	latestSnapshotBlock, err := chainInstance.GetLatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
 	prevHash := acc.Hash()
 	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
@@ -120,10 +117,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	}
 	chainInstance := acc.chainInstance
 
-	latestSnapshotBlock, err := chainInstance.GetLatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
 	prevHash := acc.Hash()
 	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)

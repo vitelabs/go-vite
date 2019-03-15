@@ -1,30 +1,29 @@
 package chain_cache
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
 )
 
-type insertedItem struct {
-	dataId  uint64
-	eventId uint64
-}
+//type insertedItem struct {
+//	dataId  uint64
+//	eventId uint64
+//}
 
 type UnconfirmedPool struct {
 	ds *dataSet
 
-	mu       sync.RWMutex
-	memStore map[types.Address][]uint64
+	mu sync.RWMutex
+	//memStore map[types.Address][]uint64
 
-	latestEventId uint64
-	insertedList  []*insertedItem
+	//latestEventId uint64
+	insertedList []uint64
 }
 
 func NewUnconfirmedPool(ds *dataSet) *UnconfirmedPool {
 	return &UnconfirmedPool{
-		ds:       ds,
-		memStore: make(map[types.Address][]uint64),
+		ds: ds,
+		//memStore: make(map[types.Address][]uint64),
 	}
 }
 
@@ -38,14 +37,8 @@ func NewUnconfirmedPool(ds *dataSet) *UnconfirmedPool {
 func (up *UnconfirmedPool) InsertAccountBlock(dataId uint64) {
 	up.mu.Lock()
 	defer up.mu.Unlock()
-	eventId := up.newEventId()
-	up.insertedList = append(up.insertedList, &insertedItem{
-		dataId:  dataId,
-		eventId: eventId,
-	})
 
-	block := up.ds.GetAccountBlock(dataId)
-	up.memStore[block.AccountAddress] = append(up.memStore[block.AccountAddress], dataId)
+	up.insertedList = append(up.insertedList, dataId)
 
 	up.ds.RefDataId(dataId)
 }
@@ -58,19 +51,36 @@ func (up *UnconfirmedPool) GetCurrentBlocks() []*ledger.AccountBlock {
 		up.mu.RUnlock()
 		return nil
 	}
-	currentEventId := up.insertedList[currentLength-1].eventId
+	currentDataId := up.insertedList[currentLength-1]
 	up.mu.RUnlock()
 
 	blocks := make([]*ledger.AccountBlock, 0, len(up.insertedList))
-	for _, inserted := range up.insertedList {
-		if inserted.eventId > currentEventId {
+	for _, dataId := range up.insertedList {
+		if dataId > currentDataId {
 			break
 		}
-		blocks = append(blocks, up.ds.GetAccountBlock(inserted.dataId))
+		blocks = append(blocks, up.ds.GetAccountBlock(dataId))
 
 	}
 
 	return blocks
+}
+func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
+	up.mu.Lock()
+	defer up.mu.Unlock()
+
+	newInsertedList := make([]uint64, 0, len(up.insertedList)-len(blocks))
+	deletedDataIdMap := make(map[uint64]struct{}, len(blocks))
+	for _, block := range blocks {
+		dataId := up.ds.GetDataId(&block.Hash)
+		deletedDataIdMap[dataId] = struct{}{}
+	}
+	for _, insertedDataId := range up.insertedList {
+		if _, ok := deletedDataIdMap[insertedDataId]; !ok {
+			newInsertedList = append(newInsertedList, insertedDataId)
+		}
+	}
+	up.insertedList = newInsertedList
 }
 
 //func (up *UnconfirmedPool) Snapshot(sc ledger.SnapshotContent) {
@@ -98,11 +108,6 @@ func (up *UnconfirmedPool) GetCurrentBlocks() []*ledger.AccountBlock {
 //	}
 //	return sc
 //}
-
-func (up *UnconfirmedPool) newEventId() uint64 {
-	up.latestEventId++
-	return up.latestEventId
-}
 
 func findIndex(blocks []*ledger.AccountBlock, hashHeight *ledger.HashHeight) int {
 	return 0

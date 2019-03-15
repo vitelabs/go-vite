@@ -30,12 +30,9 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
 	unconfirmedBlocks := c.cache.GetCurrentUnconfirmedBlocks()
-	canBeSnappedBlocks, invalidSubLedger := c.filterCanBeSnapped(unconfirmedBlocks)
+	canBeSnappedBlocks, invalidSubLedger, needDeletedAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
 	canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
-
-	// remove unconfirmed subLedger
-	c.cache.DeleteUnconfirmedSubLedger(canBeSnappedSubLedger)
 
 	// write block db
 	accountBlockLocations, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
@@ -54,6 +51,12 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 		c.log.Error(chainErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, chainErr
 	}
+
+	// remove invalid subLedger index
+	c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)
+
+	// remove invalid subLedger cache
+	c.cache.DeleteUnconfirmedBlocks(needDeletedAccountBlocks)
 
 	// update latest snapshot block cache
 	c.cache.UpdateLatestSnapshotBlock(snapshotBlock)

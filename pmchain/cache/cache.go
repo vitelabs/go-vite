@@ -26,13 +26,6 @@ func NewCache(chain Chain) (*Cache, error) {
 	return c, nil
 }
 
-func (cache *Cache) Init() error {
-	if err := cache.init(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
 	return cache.ds.IsDataExisted(hash)
 }
@@ -51,9 +44,8 @@ func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
 	return cache.unconfirmedPool.GetCurrentBlocks()
 }
 
-func (cache *Cache) DeleteUnconfirmedSubLedger(subLedger map[types.Address][]*ledger.AccountBlock) {
-	// cache.indexes.DeleteAccountBlocks(blocks)
-	// cache.unconfirmedPool.InsertAccountBlock(block)
+func (cache *Cache) DeleteUnconfirmedBlocks(blocks []*ledger.AccountBlock) {
+	cache.unconfirmedPool.DeleteBlocks(blocks)
 }
 
 func (cache *Cache) UpdateLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {

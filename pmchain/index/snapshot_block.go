@@ -1,13 +1,15 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/pmchain/block"
 )
 
 func (iDB *IndexDB) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(append(key, SnapshotBlockHashKeyPrefix), hash.Bytes()...))
+	key := createSnapshotBlockHashKey(hash)
 
 	if ok := iDB.memDb.Has(key); ok {
 		return ok, nil
@@ -17,19 +19,40 @@ func (iDB *IndexDB) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
 }
 
 func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_block.Location, error) {
-	_ := createSnapshotBlockHashKey(hash)
+	createSnapshotBlockHashKey(hash)
 
 	return nil, nil
 }
 
 func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Location, error) {
-	return nil, nil
-}
+	key := createSnapshotBlockHeightKey(height)
 
-func (iDB *IndexDB) GetLatestSnapshotBlockHeight() (uint64, error) {
-	return 1, nil
+	value, err := iDB.store.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(value) <= 0 {
+		return nil, nil
+	}
+
+	return DeserializeLocation(value), nil
 }
 
 func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, error) {
-	return nil, nil
+	startKey := createSnapshotBlockHeightKey(1)
+	endKey := createSnapshotBlockHeightKey(helper.MaxUint64)
+
+	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
+	defer iter.Release()
+
+	var location *chain_block.Location
+	if iter.Last() {
+		location = DeserializeLocation(iter.Value())
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return location, nil
 }
