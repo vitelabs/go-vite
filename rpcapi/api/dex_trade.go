@@ -15,6 +15,11 @@ type DexTradeApi struct {
 	log   log15.Logger
 }
 
+type OrdersRes struct {
+	Orders []*dex.Order `json:"Orders,omitempty"`
+	Size   int32        `json:"Size"`
+}
+
 func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
 	return &DexTradeApi{
 		chain: vite.Chain(),
@@ -42,12 +47,31 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 	}
 }
 
-func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (order []*dex.Order, size int32, err error) {
+func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
 	if matcher, err := f.getMatcher(); err != nil {
-		return nil, 0, err
+		return nil, err
 	} else {
 		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-		return matcher.GetOrdersFromMarket(makerBookId, begin, end)
+		if ods, size, err := matcher.GetOrdersFromMarket(makerBookId, begin, end); err == nil {
+			ordersRes = &OrdersRes{ods, size}
+			return ordersRes, err
+		} else {
+			return &OrdersRes{ods, size}, err
+		}
+	}
+}
+
+func (f DexTradeApi)  TravelMarketOrders(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
+	if matcher, err := f.getMatcher(); err != nil {
+		return nil, err
+	} else {
+		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
+		if ods, size, err := matcher.GetOrdersFromMarket(makerBookId, begin, end); err == nil {
+			ordersRes = &OrdersRes{ods, size}
+			return ordersRes, err
+		} else {
+			return &OrdersRes{ods, size}, err
+		}
 	}
 }
 
