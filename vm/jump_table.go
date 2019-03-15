@@ -44,7 +44,7 @@ func newSimpleInstructionSet() [256]operation {
 	}
 	instructionSet[PREVHASH] = operation{
 		execute:       opAccountHash,
-		gasCost:       constGasFunc(extStepGas),
+		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
@@ -76,7 +76,7 @@ func newSimpleInstructionSet() [256]operation {
 	instructionSet[BALANCE] = operation{
 		execute:       opBalance,
 		gasCost:       constGasFunc(balanceGas),
-		validateStack: makeStackFunc(2, 1),
+		validateStack: makeStackFunc(1, 1),
 		valid:         true,
 	}
 	instructionSet[TIMESTAMP] = operation{

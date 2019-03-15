@@ -125,7 +125,7 @@ func IsUserAccount(db CommonDb) bool {
 	}
 	ok, err := db.IsContractAccount()
 	DealWithErr(err)
-	return ok
+	return !ok
 }
 
 func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {

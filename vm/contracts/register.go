@@ -290,7 +290,15 @@ func CalcReward(db vm_db.VMDB, old *types.Registration, gid types.Gid, current *
 	groupInfo, err := abi.GetConsensusGroup(db, gid)
 	util.DealWithErr(err)
 	reader := newConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	startTime = reader.timeToRewardStartDayTime(old.RewardTime)
+	return calcReward(old, current, reader, groupInfo)
+}
+
+func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader *consensusReader, groupInfo *types.ConsensusGroupInfo) (startTime int64, endTime int64, reward *big.Int, err error) {
+	if old.RewardTime < reader.genesisTime {
+		startTime = reader.timeToRewardStartDayTime(reader.genesisTime)
+	} else {
+		startTime = reader.timeToRewardStartDayTime(old.RewardTime)
+	}
 	if !old.IsActive() {
 		endTime = reader.timeToRewardEndDayTime(old.CancelTime)
 	} else {
@@ -309,36 +317,45 @@ func CalcReward(db vm_db.VMDB, old *types.Registration, gid types.Gid, current *
 	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
 	for startIndex < endIndex {
 		detailMap, summary := reader.getConsensusDetailByDay(startIndex, endIndex)
-		selfDetail := detailMap[old.Name]
-
-		// rewardByDay = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount * pledgeAmount) / (selfVoteCount + totalPledgeAmount)
-		// 				+ 0.5 * rewardPerBlock * selfProducedBlockNum
-		tmp1.Set(selfDetail.voteCount)
-		tmp1.Add(tmp1, pledgeParam.PledgeAmount)
-		tmp2.SetUint64(summary.blockNum)
-		tmp1.Mul(tmp1, tmp2)
-		tmp1.Mul(tmp1, helper.Big50)
-		tmp1.Mul(tmp1, rewardPerBlock)
-		tmp1.Mul(tmp1, tmp2)
-
-		tmp2.SetInt64(int64(len(detailMap)))
-		tmp2.Mul(tmp2, pledgeParam.PledgeAmount)
-		tmp2.Add(tmp2, selfDetail.voteCount)
-		tmp1.Quo(tmp1, tmp2)
-		tmp2.SetUint64(selfDetail.expectedBlockNum)
-		tmp1.Quo(tmp1, tmp2)
-
-		tmp2.SetUint64(selfDetail.blockNum)
-		tmp2.Mul(tmp2, helper.Big50)
-		tmp2.Mul(tmp2, rewardPerBlock)
-
-		tmp1.Add(tmp1, tmp2)
-		tmp1.Quo(tmp1, helper.Big100)
-
-		reward.Add(reward, tmp1)
+		reward.Add(reward, calcRewardByDay(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
 		startIndex = startIndex + indexInDay
 	}
 	return startTime, endTime, reward, nil
+}
+
+func calcRewardByDay(detailMap map[string]*consensusDetail, summary *consensusDetail, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
+	reward := big.NewInt(0)
+	selfDetail, ok := detailMap[name]
+	if !ok {
+		return reward
+	}
+
+	// reward = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount * pledgeAmount) / (selfVoteCount + totalPledgeAmount)
+	// 			+ 0.5 * rewardPerBlock * selfProducedBlockNum
+	tmp1.Set(selfDetail.voteCount)
+	tmp1.Add(tmp1, pledgeAmount)
+	tmp2.SetUint64(summary.blockNum)
+	tmp1.Mul(tmp1, tmp2)
+	tmp1.Mul(tmp1, helper.Big50)
+	tmp1.Mul(tmp1, rewardPerBlock)
+	tmp1.Mul(tmp1, tmp2)
+
+	tmp2.SetInt64(int64(len(detailMap)))
+	tmp2.Mul(tmp2, pledgeAmount)
+	tmp2.Add(tmp2, selfDetail.voteCount)
+	tmp1.Quo(tmp1, tmp2)
+	tmp2.SetUint64(selfDetail.expectedBlockNum)
+	tmp1.Quo(tmp1, tmp2)
+
+	tmp2.SetUint64(selfDetail.blockNum)
+	tmp2.Mul(tmp2, helper.Big50)
+	tmp2.Mul(tmp2, rewardPerBlock)
+
+	tmp1.Add(tmp1, tmp2)
+	tmp1.Quo(tmp1, helper.Big100)
+
+	reward.Set(tmp1)
+	return reward
 }
 
 type MethodUpdateRegistration struct {

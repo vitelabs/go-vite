@@ -2,14 +2,11 @@ package vm
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/crypto"
-	"math/big"
-	"time"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 )
 
 var (
@@ -43,10 +40,7 @@ func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryData
 		sb:              sb,
 	}
 }
-func (db *memoryDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
-	if *addr != db.addr {
-		return big.NewInt(0)
-	}
+func (db *memoryDatabase) GetBalance(tokenTypeId *types.TokenTypeId) *big.Int {
 	if balance, ok := db.storage[getBalanceKey(tokenTypeId)]; ok {
 		return new(big.Int).SetBytes(balance)
 	} else {
@@ -54,13 +48,13 @@ func (db *memoryDatabase) GetBalance(addr *types.Address, tokenTypeId *types.Tok
 	}
 }
 func (db *memoryDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	balance := db.GetBalance(&db.addr, tokenTypeId)
+	balance := db.GetBalance(tokenTypeId)
 	if balance.Cmp(amount) >= 0 {
 		db.storage[getBalanceKey(tokenTypeId)] = balance.Sub(balance, amount).Bytes()
 	}
 }
 func (db *memoryDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	balance := db.GetBalance(&db.addr, tokenTypeId)
+	balance := db.GetBalance(tokenTypeId)
 	if balance.Sign() == 0 && amount.Sign() == 0 {
 		return
 	}
@@ -70,38 +64,26 @@ func (db *memoryDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.Snaps
 	return nil, nil
 }
 
-// forward=true return [startHeight, startHeight+count), forward=false return (startHeight-count, startHeight]
-func (db *memoryDatabase) GetSnapshotBlocks(startHeight uint64, count uint64, forward, containSnapshotContent bool) []*ledger.SnapshotBlock {
-	blockList := make([]*ledger.SnapshotBlock, 0)
-	return blockList
-}
-func (db *memoryDatabase) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
-	return nil
-}
-
-func (db *memoryDatabase) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
-	return nil
-}
-func (db *memoryDatabase) GetSelfAccountBlockByHeight(height uint64) *ledger.AccountBlock {
-	return nil
-}
 func (db *memoryDatabase) Reset() {}
-func (db *memoryDatabase) IsAddressExisted(addr *types.Address) bool {
-	return false
-}
-func (db *memoryDatabase) SetContractGid(gid *types.Gid, addr *types.Address) {
-}
+
 func (db *memoryDatabase) SetContractCode(code []byte) {
 	db.storage[getCodeKey(db.addr)] = code
 }
-func (db *memoryDatabase) GetContractCode(addr *types.Address) []byte {
+func (db *memoryDatabase) GetContractCode() ([]byte, error) {
 	if code, ok := db.storage[getCodeKey(db.addr)]; ok {
-		return code
+		return code, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func (db *memoryDatabase) GetOriginalStorage(key []byte) []byte {
+func (db *memoryDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
+	if code, ok := db.storage[getCodeKey(*addr)]; ok {
+		return code, nil
+	}
+	return nil, nil
+}
+
+func (db *memoryDatabase) GetOriginalValue(key []byte) []byte {
 	if data, ok := db.originalStorage[hex.EncodeToString(key)]; ok {
 		return data
 	} else {
@@ -109,14 +91,14 @@ func (db *memoryDatabase) GetOriginalStorage(key []byte) []byte {
 	}
 }
 
-func (db *memoryDatabase) GetStorage(addr *types.Address, key []byte) []byte {
+func (db *memoryDatabase) GetValue(key []byte) []byte {
 	if data, ok := db.storage[hex.EncodeToString(key)]; ok {
 		return data
 	} else {
 		return nil
 	}
 }
-func (db *memoryDatabase) SetStorage(key []byte, value []byte) {
+func (db *memoryDatabase) SetValue(key []byte, value []byte) {
 	if len(value) == 0 {
 		delete(db.storage, hex.EncodeToString(key))
 	} else {
@@ -131,7 +113,7 @@ func (db *memoryDatabase) PrintStorage() string {
 	str += "]"
 	return str
 }
-func (db *memoryDatabase) GetStorageHash() *types.Hash {
+func (db *memoryDatabase) GetReceiptHash() *types.Hash {
 	return &types.Hash{}
 }
 func (db *memoryDatabase) AddLog(log *ledger.VmLog) {
@@ -158,69 +140,51 @@ func (db *memoryDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
 }
 
-func (db *memoryDatabase) NewStorageIterator(addr *types.Address, prefix []byte) vmctxt_interface.StorageIterator {
+func (db *memoryDatabase) NewStorageIterator(prefix []byte) vm_db.StorageIterator {
 	return nil
 }
 
-func (db *memoryDatabase) CopyAndFreeze() vmctxt_interface.VmDatabase {
-	return db
-}
-
-func (db *memoryDatabase) GetGid() *types.Gid {
-	return nil
-}
 func (db *memoryDatabase) Address() *types.Address {
 	return &db.addr
 }
-func (db *memoryDatabase) CurrentSnapshotBlock() *ledger.SnapshotBlock {
+func (db *memoryDatabase) LatestSnapshotBlock() *ledger.SnapshotBlock {
 	return db.sb
 }
 func (db *memoryDatabase) PrevAccountBlock() *ledger.AccountBlock {
 	return nil
 }
-func (db *memoryDatabase) UnsavedCache() vmctxt_interface.UnsavedCache {
-	return nil
-}
-
-func (db *memoryDatabase) GetStorageBySnapshotHash(addr *types.Address, key []byte, snapshotHash *types.Hash) []byte {
-	return db.GetStorage(addr, key)
-}
-func (db *memoryDatabase) NewStorageIteratorBySnapshotHash(addr *types.Address, prefix []byte, snapshotHash *types.Hash) vmctxt_interface.StorageIterator {
-	return db.NewStorageIterator(addr, prefix)
-}
-
-func (db *memoryDatabase) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
-	return abi.GetActiveConsensusGroupList(db, &snapshotHash), nil
-}
-func (db *memoryDatabase) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	return abi.GetCandidateList(db, gid, &snapshotHash), nil
-}
-func (db *memoryDatabase) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	return abi.GetVoteList(db, gid, &snapshotHash), nil
-}
-func (db *memoryDatabase) GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) {
-	balanceList := make(map[types.Address]*big.Int)
-	for _, addr := range addressList {
-		balanceList[addr] = db.GetBalance(&addr, &tokenTypeId)
-	}
-	return balanceList, nil
-}
-func (db *memoryDatabase) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
-	return nil, nil
-}
 
 func (db *memoryDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return db.CurrentSnapshotBlock()
+	return db.LatestSnapshotBlock()
 }
 
 func (db *memoryDatabase) DebugGetStorage() map[string][]byte {
 	return db.storage
 }
 
-func (db *memoryDatabase) GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error) {
+func (db *memoryDatabase) IsContractAccount() (bool, error) {
+	return len(db.storage[getCodeKey(db.addr)]) > 0, nil
+}
+
+func (db *memoryDatabase) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
+	return 0, nil
+}
+
+func (db *memoryDatabase) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+	return 0, 0
+}
+
+func (db *memoryDatabase) DeleteValue(key []byte) {
+	delete(db.storage, hex.EncodeToString(key))
+}
+
+func (db *memoryDatabase) GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error) {
 	return nil, nil
 }
 
-func (db *memoryDatabase) GetOneHourQuota() (uint64, error) {
-	return 0, nil
+func (db *memoryDatabase) SetContractMeta(meta *ledger.ContractMeta) {
+}
+
+func (db *memoryDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+	return big.NewInt(0), nil
 }

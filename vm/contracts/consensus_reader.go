@@ -39,7 +39,7 @@ func (r *consensusReader) timeToRewardEndIndex(t int64) uint64 {
 
 // Inclusive
 func (r *consensusReader) timeToRewardStartDayTime(currentTime int64) int64 {
-	delta := (currentTime - r.genesisTime - 1 + nodeConfig.params.RewardTimeUnit) / nodeConfig.params.RewardTimeUnit
+	delta := (currentTime - r.genesisTime + nodeConfig.params.RewardTimeUnit - 1) / nodeConfig.params.RewardTimeUnit
 	return r.genesisTime + delta*nodeConfig.params.RewardTimeUnit
 }
 

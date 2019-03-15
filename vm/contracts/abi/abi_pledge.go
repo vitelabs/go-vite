@@ -81,13 +81,14 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 		if !ok {
 			break
 		}
-		if IsPledgeKey(key) {
-			pledgeInfo := new(PledgeInfo)
-			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
-				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
-				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
-				pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
-			}
+		if !filterKeyValue(key, value, IsPledgeKey) {
+			continue
+		}
+		pledgeInfo := new(PledgeInfo)
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
+			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
+			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+			pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
 		}
 	}
 	return pledgeInfoList, pledgeAmount, nil

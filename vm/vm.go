@@ -185,6 +185,7 @@ func (vm *VM) RunV2(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger
 	}
 	blockcopy := block.Copy()
 	vm.i = NewInterpreter(db.LatestSnapshotBlock().Height, false)
+	vm.globalStatus = status
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
 		blockcopy.Data = nil
@@ -298,7 +299,7 @@ func (vm *VM) receiveCreate(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
 
 	quotaLeft := quotaTotal
-	if db.PrevAccountBlock != nil {
+	if db.PrevAccountBlock() != nil {
 		return nil, NoRetry, util.ErrAddressCollision
 	}
 	// check can make transaction

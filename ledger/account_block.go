@@ -143,8 +143,14 @@ func (ab *AccountBlock) Copy() *AccountBlock {
 	newAb.Data = make([]byte, len(ab.Data))
 	copy(newAb.Data, ab.Data)
 
-	timestamp := time.Unix(0, ab.Timestamp.UnixNano())
-	newAb.Timestamp = &timestamp
+	// TODO
+	if ab.Timestamp != nil {
+		timestamp := time.Unix(0, ab.Timestamp.UnixNano())
+		newAb.Timestamp = &timestamp
+	} else {
+		t := time.Now()
+		newAb.Timestamp = &t
+	}
 
 	if ab.LogHash != nil {
 		logHash := *ab.LogHash

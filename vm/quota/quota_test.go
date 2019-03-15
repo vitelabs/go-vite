@@ -37,25 +37,25 @@ func TestCalcParamAndSectionList(t *testing.T) {
 
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 
-	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10000")
+	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
 	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsMainnet)
 	paramaForMainnet := floatTmp.String()
 
-	defaultDifficultyForMainnet := new(big.Float).SetPrec(precForFloat).SetUint64(67108863)
+	defaultDifficultyForMainnet := new(big.Float).SetPrec(precForFloat).SetUint64(67108862)
 	floatTmp.Quo(defaultSection, defaultDifficultyForMainnet)
 	parambForMainnet := floatTmp.String()
 
-	fmt.Printf("QuotaParamMainNet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
+	fmt.Printf("QuotaParamMainnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
 
 	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10")
 	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsTestnet)
 	paramaForTestnet := floatTmp.String()
 
-	defaultDifficultyForTestnet := new(big.Float).SetPrec(precForFloat).SetUint64(65535)
+	defaultDifficultyForTestnet := new(big.Float).SetPrec(precForFloat).SetUint64(65534)
 	floatTmp.Quo(defaultSection, defaultDifficultyForTestnet)
 	parambForTestnet := floatTmp.String()
 
-	fmt.Printf("QuotaParamTest  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForTestnet, parambForTestnet)
+	fmt.Printf("QuotaParamTestnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForTestnet, parambForTestnet)
 }
 
 func TestCalcPledgeAmountSection(t *testing.T) {

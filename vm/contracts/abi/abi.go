@@ -18,12 +18,17 @@ const (
 	VoteConditionPrefix       ConditionCode = 20
 	RegisterConditionOfPledge ConditionCode = 11
 	VoteConditionOfDefault    ConditionCode = 21
-	VoteConditionOfBalance    ConditionCode = 22
 )
 
 var (
 	consensusGroupConditionIdNameMap = map[ConditionCode]string{
 		RegisterConditionOfPledge: VariableNameConditionRegisterOfPledge,
-		VoteConditionOfBalance:    VariableNameConditionVoteOfKeepToken,
 	}
 )
+
+func filterKeyValue(key, value []byte, f func(key []byte) bool) bool {
+	if len(value) > 0 && (f == nil || f(key)) {
+		return true
+	}
+	return false
+}
