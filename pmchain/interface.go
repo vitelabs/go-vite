@@ -2,17 +2,16 @@ package pmchain
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pmchain/state"
-	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_db"
 	"io"
 	"math/big"
 	"time"
 )
 
-type PrepareInsertAccountBlocksListener func(blocks []*vm_context.VmAccountBlock) error
-type InsertAccountBlocksListener func(blocks []*vm_context.VmAccountBlock) error
+type PrepareInsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
+type InsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
 
 type PrepareInsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
 type InsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
@@ -104,13 +103,9 @@ type Chain interface {
 	// is valid
 	IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
 
-	GetGenesisSnapshotHeader() *ledger.SnapshotBlock
-
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetLatestSnapshotHeader() *ledger.SnapshotBlock
-
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -173,7 +168,7 @@ type Chain interface {
 
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
-	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot chain_state.StateSnapshot, err error)
+	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot interfaces.StateSnapshot, err error)
 
 	GetQuotaUnused(address *types.Address) uint64
 
@@ -216,13 +211,4 @@ type LedgerReader interface {
 	Bound() (from, to uint64)
 	Size() int
 	Stream() io.ReadCloser
-}
-
-type SyncCache interface {
-	NewWriter(from, to uint64) io.WriteCloser
-	Chunks() [][2]uint64
-	NewReader() (interface {
-		Read(from, to uint64, fn func(ablock *ledger.AccountBlock, sblock *ledger.SnapshotBlock, err error))
-		Close() error
-	}, error)
 }

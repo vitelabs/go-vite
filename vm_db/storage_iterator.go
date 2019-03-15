@@ -1,6 +1,8 @@
 package vm_db
 
-func (db *vmDb) NewStorageIterator(prefix []byte) StorageIterator {
+import "github.com/vitelabs/go-vite/interfaces"
+
+func (db *vmDb) NewStorageIterator(prefix []byte) interfaces.StorageIterator {
 	return nil
 }
 

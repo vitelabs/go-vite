@@ -3,6 +3,7 @@ package vm_db
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -18,7 +19,7 @@ type vmDb struct {
 	prevAccountBlockHash *types.Hash
 	prevAccountBlock     *ledger.AccountBlock // for cache
 
-	prevStateSnapshot StateSnapshot // for cache
+	prevStateSnapshot interfaces.StateSnapshot // for cache
 }
 
 func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VmDb, error) {

@@ -51,5 +51,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 		return nil, chainErr
 	}
 
+	// set cache
+	c.cache.UpdateLatestSnapshotBlock(snapshotBlock)
+
 	return invalidSubLedger, nil
 }

@@ -2,6 +2,7 @@ package vm_db
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
@@ -11,25 +12,6 @@ type VmAccountBlock struct {
 	VmDb         VmDb
 }
 
-type StorageIterator interface {
-	Prev() bool
-	Next() bool
-
-	Key() []byte
-	Value() []byte
-	Error() error
-}
-
-type StateSnapshot interface {
-	GetBalance(tokenId *types.TokenTypeId) (*big.Int, error)
-
-	GetCode() ([]byte, error)
-
-	GetValue([]byte) ([]byte, error)
-
-	NewStorageIterator(prefix []byte) StorageIterator // TODO
-}
-
 type Chain interface {
 	IsContractAccount(address *types.Address) (bool, error)
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
@@ -37,9 +19,9 @@ type Chain interface {
 	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 
-	GetStateSnapshot(blockHash *types.Hash) (StateSnapshot, error)
+	GetStateSnapshot(blockHash *types.Hash) (interfaces.StateSnapshot, error)
 
-	GetLogList(logHash *types.Hash) (ledger.VmLogList, error)
+	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
 
 	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
 
@@ -71,7 +53,7 @@ type VmDb interface {
 	SetValue(key []byte, value []byte)
 	DeleteValue(key []byte)
 
-	NewStorageIterator(prefix []byte) StorageIterator // TODO
+	NewStorageIterator(prefix []byte) interfaces.StorageIterator // TODO
 
 	// ====== Balance ======
 	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)

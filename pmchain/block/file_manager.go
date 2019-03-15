@@ -45,9 +45,9 @@ func newFileManager(dirName string) (*fileManager, error) {
 	}
 
 	if fm.latestFileId > 0 {
-		fm.latestFileFd, err = fm.openFile(fm.latestFileId)
+		fm.latestFileFd, err = fm.getFileFd(fm.latestFileId)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("fm.openFile failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
+			return nil, errors.New(fmt.Sprintf("fm.getFileFd failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
 		}
 		fm.latestFileSize, err = fm.fileSize(fm.latestFileFd)
 		if err != nil {
@@ -73,6 +73,10 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	fm.latestFileSize += bufSize
 
 	return location, nil
+}
+
+func (fm *fileManager) DeleteTo(location *Location) (*Location, error) {
+	return nil, nil
 }
 
 func (fm *fileManager) newDirFd(dirName string) (*os.File, error) {
@@ -137,7 +141,7 @@ func (fm *fileManager) filenameToFileId(filename string) (uint64, error) {
 
 }
 
-func (fm *fileManager) openFile(fileId uint64) (*os.File, error) {
+func (fm *fileManager) getFileFd(fileId uint64) (*os.File, error) {
 	absoluteFilename := fm.fileIdToAbsoluteFilename(fileId)
 
 	file, oErr := os.OpenFile(absoluteFilename, os.O_RDWR, 0666)
@@ -163,6 +167,10 @@ func (fm *fileManager) moveOneForward() error {
 	fd, err := fm.createNewFile(nextLatestFileId)
 	if err != nil {
 		return errors.New(fmt.Sprintf("moveToNextFd failed, error is %s, nextLatestFileId is %d", err, nextLatestFileId))
+	}
+
+	if err := fm.latestFileFd.Close(); err != nil {
+		errors.New(fmt.Sprintf("fm.latestFileFd.Close() failed, error is %s, latestFileId is %d", err, fm.latestFileId))
 	}
 
 	fm.latestFileId = nextLatestFileId

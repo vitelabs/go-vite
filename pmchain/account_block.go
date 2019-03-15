@@ -24,7 +24,7 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		return nil, err
 	}
 
-	if len(location) <= 0 {
+	if location == nil {
 		return nil, nil
 	}
 

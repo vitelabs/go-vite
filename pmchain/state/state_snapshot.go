@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"math/big"
 )
 
@@ -21,11 +22,11 @@ func (ss *stateSnapshot) GetValue([]byte) ([]byte, error) {
 	return nil, nil
 }
 
-func (ss *stateSnapshot) NewStorageIterator(prefix []byte) StorageIterator {
+func (ss *stateSnapshot) NewStorageIterator(prefix []byte) interfaces.StorageIterator {
 	return nil
 }
 
-func (sDB *StateDB) NewStateSnapshot(blockHash *types.Hash) (StateSnapshot, error) {
+func (sDB *StateDB) NewStateSnapshot(blockHash *types.Hash) (interfaces.StateSnapshot, error) {
 	return &stateSnapshot{
 		stateDB: sDB,
 	}, nil

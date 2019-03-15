@@ -12,3 +12,11 @@ func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_blo
 func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Location, error) {
 	return nil, nil
 }
+
+func (iDB *IndexDB) GetLatestSnapshotBlockHeight() (uint64, error) {
+	return 1, nil
+}
+
+func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, error) {
+	return nil, nil
+}
