@@ -1,13 +1,13 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/pmchain/block"
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-	key, _ := dbutils.EncodeKey(AccountBlockHashKeyPrefix, hash.Bytes())
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(append(key, AccountBlockHashKeyPrefix), hash.Bytes()...)
 
 	if ok := iDB.memDb.Has(key); ok {
 		return ok, nil

@@ -1,7 +1,6 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
@@ -72,7 +71,8 @@ func (iDB *IndexDB) deleteSnapshotBlockHeight(batch Batch, snapshotBlockHeight u
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch Batch, blockHash *types.Hash) {
-	key, _ := dbutils.EncodeKey(AccountBlockHashKeyPrefix, blockHash.Bytes())
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(append(key, AccountBlockHashKeyPrefix), blockHash.Bytes()...)
 
 	batch.Delete(key)
 }

@@ -1,7 +1,7 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/common/dbutils"
+	"encoding/binary"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
@@ -87,7 +87,9 @@ func (iDB *IndexDB) insertAccount(batch Batch, addr *types.Address, accountId ui
 }
 
 func (iDB *IndexDB) insertAccountBlockHash(blockHash *types.Hash, accountId uint64, height uint64) {
-	key, _ := dbutils.EncodeKey(AccountBlockHashKeyPrefix, blockHash.Bytes())
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(append(key, AccountBlockHashKeyPrefix), blockHash.Bytes()...)
+
 	value := SerializeAccountIdHeight(accountId, height)
 
 	iDB.memDb.Put(blockHash, key, value)
@@ -99,7 +101,9 @@ func (iDB *IndexDB) insertAccountBlockHeight(batch Batch, accountId uint64, heig
 }
 
 func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, sendHeight, receiveAccountId, receiveHeight uint64) {
-	key, _ := dbutils.EncodeKey(ReceiveHeightKeyPrefix, sendAccountId, sendHeight)
+	key := make([]byte, 0, 17)
+	key = append(append(append(key, ReceiveHeightKeyPrefix), Uint8ToFixedBytes(sendAccountId)...), Uint8ToFixedBytes(sendHeight)...)
+
 	value := SerializeAccountIdHeight(receiveAccountId, receiveHeight)
 
 	iDB.memDb.Put(blockHash, key, value)
@@ -112,13 +116,16 @@ func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, se
 
 func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId, sendAccountId, sendHeight uint64) {
 	id := uint64(13)
-	key, _ := dbutils.EncodeKey(OnRoadKeyPrefix, toAccountId, id)
+	key := make([]byte, 0, 17)
+	key = append(append(append(key, OnRoadKeyPrefix), Uint8ToFixedBytes(toAccountId)...), Uint8ToFixedBytes(id)...)
+
 	value := SerializeAccountIdHeight(sendAccountId, sendHeight)
 	iDB.memDb.Put(blockHash, key, value)
 }
 
 func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, logList ledger.VmLogList) error {
-	key, _ := dbutils.EncodeKey(VmLogListKeyPrefix, logHash.Bytes())
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(append(append(key, VmLogListKeyPrefix), logHash.Bytes()...))
 
 	value, err := logList.Serialize()
 
@@ -152,7 +159,8 @@ func (iDB *IndexDB) insertConfirmHeight(batch Batch, accountId uint64, height ui
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash, height uint64) {
-	key, _ := dbutils.EncodeKey(SnapshotBlockHashKeyPrefix, snapshotBlockHash.Bytes())
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(append(append(key, SnapshotBlockHashKeyPrefix), snapshotBlockHash.Bytes()...))
 
 	batch.Put(key, SerializeHeight(height))
 }
@@ -171,4 +179,10 @@ func DeserializeAccountIdHeight(accountId, height uint64) []byte {
 
 func SerializeHeight(height uint64) []byte {
 	return nil
+}
+
+func Uint8ToFixedBytes(height uint64) []byte {
+	bytes := make([]byte, 0, 8)
+	binary.BigEndian.PutUint64(bytes, height)
+	return bytes
 }

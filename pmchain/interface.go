@@ -98,7 +98,7 @@ type Chain interface {
 
 	// ====== Query snapshot block ======
 
-	IsSnapshotBlockExisted(hash *types.Hash) (bool, error)
+	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	// is valid
 	IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
