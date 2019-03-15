@@ -103,6 +103,8 @@ func (mc *Matcher) GetOrdersFromMarket(makerBookId SkipListId, begin, end int32)
 		book *skiplist
 		err  error
 		i int32 = 0
+		pl *nodePayload
+		forward nodeKeyType
 	)
 	if begin >= end {
 		return nil, book.length, nil
@@ -113,9 +115,11 @@ func (mc *Matcher) GetOrdersFromMarket(makerBookId SkipListId, begin, end int32)
 	orders := make([]*Order, 0, end - begin)
 	currentId := book.header
 	for ; i < book.length && i < end; i++ {
-		if pl, forward, _, err := book.getByKey(currentId); err != nil {
+		if pl, forward, _, err = book.getByKey(currentId); err != nil {
+			//fmt.Printf("getOrderFailed index %d, book.length %d, currentId %s, err %s\n", i, book.length, currentId.toString(), err.Error())
 			return nil, book.length, err
 		} else if i >= begin {
+			//fmt.Printf("index %d, currentId %s, forward %s\n", i, currentId.toString(), forward.toString())
 			od, _ := (*pl).(Order)
  			orders = append(orders, &od)
 			currentId = forward
@@ -145,6 +149,8 @@ func (mc *Matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId
 	var orderId OrderId
 	if orderId, err = NewOrderId(order.Id); err != nil {
 		return err
+	} else if !orderId.IsNormal() {
+		return fmt.Errorf("invalid order id format")
 	}
 	if err = book.delete(orderId); err != nil {
 		return err

@@ -2,6 +2,7 @@ package dex
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -26,6 +27,11 @@ func TestSerialize(t *testing.T) {
 	assert.Equal(t, od.Price, order.Price)
 	//assert.Equal(t, od.Timestamp, order.Timestamp)
 	assert.Equal(t, od.Side, order.Side)
+
+	nilOrderIdBytes, err := hex.DecodeString("0000000000000000000000000000000000000000")
+	assert.Equal(t, nil, err)
+	nilOrderId, err := NewOrderId(nilOrderIdBytes)
+	assert.False(t, nilOrderId.IsNormal())
 }
 
 func TestCompare(t *testing.T) {
