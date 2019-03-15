@@ -11,7 +11,6 @@ import (
 
 /*
  *	TODO
- *	1. toAccountId
  */
 func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	accountBlock := vmAccountBlock.AccountBlock
@@ -24,7 +23,6 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 	if accountId <= 0 {
 		// need create account
 		accountId = iDB.createAccount(blockHash, &accountBlock.AccountAddress)
-
 	}
 	// hash -> accountId & height
 	iDB.insertAccountBlockHash(blockHash, accountId, accountBlock.Height)
@@ -39,7 +37,16 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 		iDB.insertReceiveHeight(blockHash, sendAccountId, sendHeight, accountId, accountBlock.Height)
 	} else {
 		// insert on road block
-		toAccountId := uint64(3)
+		toAccountId, err := iDB.getAccountId(&accountBlock.ToAddress)
+		if err != nil {
+			return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s, toAccountId is %d", err.Error(), toAccountId))
+		}
+
+		if toAccountId <= 0 {
+			// need create account
+			toAccountId = iDB.createAccount(blockHash, &accountBlock.ToAddress)
+		}
+
 		iDB.insertOnRoad(blockHash, toAccountId, accountId, accountBlock.Height)
 	}
 
@@ -93,9 +100,7 @@ func (iDB *IndexDB) insertAccount(batch Batch, addr *types.Address, accountId ui
 }
 
 func (iDB *IndexDB) insertAccountBlockHash(blockHash *types.Hash, accountId uint64, height uint64) {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(key, AccountBlockHashKeyPrefix), blockHash.Bytes()...)
-
+	key := createAccountBlockHashKey(blockHash)
 	value := SerializeAccountIdHeight(accountId, height)
 
 	iDB.memDb.Put(blockHash, key, value)
@@ -108,7 +113,7 @@ func (iDB *IndexDB) insertAccountBlockHeight(batch Batch, accountId uint64, heig
 
 func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, sendHeight, receiveAccountId, receiveHeight uint64) {
 	key := make([]byte, 0, 17)
-	key = append(append(append(key, ReceiveHeightKeyPrefix), Uint8ToFixedBytes(sendAccountId)...), Uint8ToFixedBytes(sendHeight)...)
+	key = append(append(append(key, ReceiveHeightKeyPrefix), Uint64ToFixedBytes(sendAccountId)...), Uint64ToFixedBytes(sendHeight)...)
 
 	value := SerializeAccountIdHeight(receiveAccountId, receiveHeight)
 
@@ -123,7 +128,7 @@ func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, se
 func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId, sendAccountId, sendHeight uint64) {
 	id := uint64(13)
 	key := make([]byte, 0, 17)
-	key = append(append(append(key, OnRoadKeyPrefix), Uint8ToFixedBytes(toAccountId)...), Uint8ToFixedBytes(id)...)
+	key = append(append(append(key, OnRoadKeyPrefix), Uint64ToFixedBytes(toAccountId)...), Uint64ToFixedBytes(id)...)
 
 	value := SerializeAccountIdHeight(sendAccountId, sendHeight)
 	iDB.memDb.Put(blockHash, key, value)
@@ -165,9 +170,7 @@ func (iDB *IndexDB) insertConfirmHeight(batch Batch, accountId uint64, height ui
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash, height uint64) {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(append(key, SnapshotBlockHashKeyPrefix), snapshotBlockHash.Bytes()...))
-
+	key := createSnapshotBlockHashKey(snapshotBlockHash)
 	batch.Put(key, SerializeHeight(height))
 }
 

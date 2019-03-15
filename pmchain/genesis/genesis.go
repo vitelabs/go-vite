@@ -11,7 +11,7 @@ func InitLedger(chain Chain) error {
 	// insert genesis account blocks
 
 	// init genesis snapshot block
-	genesisSnapshotBlock := newGenesisSnapshotBlock()
+	genesisSnapshotBlock := NewGenesisSnapshotBlock()
 
 	// insert
 	chain.InsertSnapshotBlock(genesisSnapshotBlock)
@@ -27,7 +27,7 @@ func CheckLedger(chain Chain) (byte, error) {
 		return LedgerEmpty, nil
 	}
 
-	genesisSnapshotBlock := newGenesisSnapshotBlock()
+	genesisSnapshotBlock := NewGenesisSnapshotBlock()
 
 	if latestSb.Hash == genesisSnapshotBlock.Hash {
 		return LedgerValid, nil

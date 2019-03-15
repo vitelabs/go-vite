@@ -22,10 +22,15 @@ func NewCache(chain Chain) (*Cache, error) {
 		unconfirmedPool: NewUnconfirmedPool(ds),
 		hd:              newHotData(ds),
 	}
-	if err := c.init(); err != nil {
-		return nil, err
-	}
+
 	return c, nil
+}
+
+func (cache *Cache) Init() error {
+	if err := cache.init(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
@@ -54,11 +59,14 @@ func (cache *Cache) DeleteUnconfirmedSubLedger(subLedger map[types.Address][]*le
 func (cache *Cache) UpdateLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
 	dataId := cache.ds.InsertSnapshotBlock(snapshotBlock)
 	cache.hd.UpdateLatestSnapshotBlock(dataId)
-
 }
 
 func (cache *Cache) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return cache.hd.GetLatestSnapshotBlock()
+}
+
+func (cache *Cache) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return cache.hd.GetGenesisSnapshotBlock()
 }
 
 func (cache *Cache) CleanUnconfirmedPool() {

@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+func InsertSnapshotBlock() {
+
+}
+
 func BmInsertAccountBlock(b *testing.B, accountNumber int) {
 	b.StopTimer()
 	const (

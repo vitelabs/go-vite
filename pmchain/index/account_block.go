@@ -6,9 +6,7 @@ import (
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(key, AccountBlockHashKeyPrefix), hash.Bytes()...)
-
+	key := createAccountBlockHashKey(hash)
 	if ok := iDB.memDb.Has(key); ok {
 		return ok, nil
 	}

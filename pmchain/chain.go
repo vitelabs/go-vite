@@ -64,17 +64,23 @@ func (c *chain) Init() error {
 
 		status, err := chain_genesis.CheckLedger(c)
 		if err != nil {
-			c.log.Error(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
+
+			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
 		if status == chain_genesis.LedgerInvalid {
 			// clean
 			if err = c.indexDB.CleanAllData(); err != nil {
-				c.log.Error(fmt.Sprintf("c.indexDB.CleanAllData failed, error is %s", err), "method", "Init")
+				cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
 				return err
 			}
 			if err = c.blockDB.CleanAllData(); err != nil {
-				c.log.Error(fmt.Sprintf("c.blockDB.CleanAllData failed, error is %s", err), "method", "Init")
+				cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
 				return err
 			}
 
@@ -85,21 +91,28 @@ func (c *chain) Init() error {
 			// valid or empty
 			// Init cache
 			if c.cache, err = chain_cache.NewCache(c); err != nil {
-				c.log.Error(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err), "method", "Init")
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
 				return err
 			}
 
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
 				if err = chain_genesis.InitLedger(c); err != nil {
-					c.log.Error(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err), "method", "Init")
+					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
+					c.log.Error(cErr.Error(), "method", "Init")
 					return err
 				}
 			}
-
 			break
 		}
-
+	}
+	// set genesis snapshot block
+	if err := c.cache.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.Init failed, [Error] %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")

@@ -30,7 +30,7 @@ func (c *chain) IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) 
 }
 
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return nil
+	return c.cache.GetGenesisSnapshotBlock()
 }
 
 func (c *chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {

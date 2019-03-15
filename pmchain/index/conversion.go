@@ -22,8 +22,12 @@ func SerializeHeight(height uint64) []byte {
 	return nil
 }
 
-func Uint8ToFixedBytes(height uint64) []byte {
-	bytes := make([]byte, 0, 8)
+func Uint64ToFixedBytes(height uint64) []byte {
+	bytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(bytes, height)
 	return bytes
+}
+
+func FixedBytesToUint64(bytes []byte) uint64 {
+	return binary.BigEndian.Uint64(bytes)
 }

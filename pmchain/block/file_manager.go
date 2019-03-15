@@ -77,6 +77,7 @@ func (fm *fileManager) Close() error {
 	return nil
 }
 
+// TODO size
 func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
 	if fm.latestFileSize+bufSize > fm.maxFileSize {

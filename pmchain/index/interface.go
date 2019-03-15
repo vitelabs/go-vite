@@ -1,11 +1,14 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
 type Store interface {
 	NewBatch() Batch
+	NewIterator(slice *util.Range) iterator.Iterator
 	Write(Batch) error
 	Has(key []byte) (bool, error)
 	Get(key []byte) ([]byte, error)

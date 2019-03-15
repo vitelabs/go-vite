@@ -12,4 +12,6 @@ const (
 	SnapshotBlockHashKeyPrefix = byte(5)
 
 	AccountAddressKeyPrefix = byte(6)
+
+	AccountIdKeyPrefix = byte(7)
 )

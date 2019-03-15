@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"os"
 	"path"
 )
@@ -27,9 +29,15 @@ func NewStore(chainDir string) (Store, error) {
 		dbDir: dbDir,
 	}, nil
 }
+
+func (s *store) NewIterator(slice *util.Range) iterator.Iterator {
+	return s.db.NewIterator(slice, nil)
+}
+
 func (s *store) NewBatch() Batch {
 	return new(leveldb.Batch)
 }
+
 func (s *store) Write(batch Batch) error {
 	return s.db.Write(batch.(*leveldb.Batch), nil)
 }

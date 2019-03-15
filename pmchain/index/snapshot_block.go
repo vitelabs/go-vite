@@ -17,6 +17,8 @@ func (iDB *IndexDB) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
 }
 
 func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_block.Location, error) {
+	_ := createSnapshotBlockHashKey(hash)
+
 	return nil, nil
 }
 
