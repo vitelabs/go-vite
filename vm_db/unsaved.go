@@ -2,6 +2,7 @@ package vm_db
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
@@ -74,7 +75,7 @@ func (unsaved *Unsaved) GetCode() []byte {
 	return unsaved.code
 }
 
-func (unsaved *Unsaved) NewStorageIterator() StorageIterator {
+func (unsaved *Unsaved) NewStorageIterator() interfaces.StorageIterator {
 	return NewUnsavedStorageIterator()
 }
 

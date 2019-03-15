@@ -4,18 +4,22 @@ import (
 	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/block"
 )
 
-func (iDB *IndexDB) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock, subLedgerNeedDeleted map[types.Address][]*ledger.AccountBlock, subLedgerNeedUnconfirmed map[types.Address][]*ledger.AccountBlock) error {
+func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment, unconfirmedBlocks []*ledger.AccountBlock) error {
+	// snapshotBlocks []*ledger.SnapshotBlock,
+	// subLedgerNeedDeleted map[types.Address][]*ledger.AccountBlock,
+	// subLedgerNeedUnconfirmed map[types.Address][]*ledger.AccountBlock
+
 	batch := iDB.store.NewBatch()
 
-	for _, snapshotBlock := range snapshotBlocks {
+	for _, seg := range deletedSnapshotSegments {
+		snapshotBlock := seg.SnapshotBlock
 		iDB.deleteSnapshotBlockHash(batch, &snapshotBlock.Hash)
 		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
-	}
 
-	for _, blocks := range subLedgerNeedDeleted {
-		for _, block := range blocks {
+		for _, block := range seg.AccountBlocks {
 			iDB.deleteAccountBlockHash(batch, &block.Hash)
 
 			accountId := uint64(12)
@@ -41,17 +45,16 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock,
 				// delete vm log list
 				iDB.deleteVmLogList(batch, block.LogHash)
 			}
+
 		}
 	}
 
-	for _, blocks := range subLedgerNeedUnconfirmed {
-		for _, block := range blocks {
-			// remove confirmed indexes
-			accountId := uint64(12)
-			iDB.deleteConfirmHeight(batch, accountId, block.Height)
+	for _, block := range unconfirmedBlocks {
+		// remove confirmed indexes
+		accountId := uint64(12)
+		iDB.deleteConfirmHeight(batch, accountId, block.Height)
 
-			// blocks move to unconfirmed pool
-		}
+		// blocks move to unconfirmed pool
 	}
 	if err := iDB.store.Write(batch); err != nil {
 		return err

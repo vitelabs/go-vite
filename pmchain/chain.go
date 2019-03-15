@@ -8,10 +8,15 @@ import (
 	"github.com/vitelabs/go-vite/pmchain/genesis"
 	"github.com/vitelabs/go-vite/pmchain/index"
 	"github.com/vitelabs/go-vite/pmchain/state"
+	"path"
 )
 
 type chain struct {
-	log   log15.Logger
+	dataDir  string
+	chainDir string
+
+	log log15.Logger
+
 	cache *chain_cache.Cache
 
 	indexDB *chain_index.IndexDB
@@ -24,9 +29,11 @@ type chain struct {
 /*
  * Init chain config
  */
-func (c *chain) NewChain() Chain {
+func NewChain(dataDir string) Chain {
 	return &chain{
-		log: log15.New("module", "chain"),
+		dataDir:  dataDir,
+		chainDir: path.Join(dataDir, "ledger"),
+		log:      log15.New("module", "chain"),
 	}
 }
 
@@ -40,14 +47,17 @@ func (c *chain) NewChain() Chain {
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	// Init ledger
-	chainDir := ""
-	indexDB, err := chain_index.NewIndexDB(chainDir)
+	indexDB, err := chain_index.NewIndexDB(c.chainDir)
 	if err != nil {
-		c.log.Error(fmt.Sprintf("Init failed, call chain_index.NewIndexDB error, error is %s, chainDir is %s", err, chainDir))
+		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 		return err
 	}
 	//stateDB := chain_state.NewStateDB()
-	blockDB := chain_block.NewBlockDB()
+	blockDB, err := chain_block.NewBlockDB(c.chainDir)
+	if err != nil {
+		c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+		return err
+	}
 
 	if !chain_genesis.CheckLedger(indexDB, blockDB) {
 		// destroy
@@ -55,13 +65,17 @@ func (c *chain) Init() error {
 		blockDB.Destroy()
 
 		// init
-		indexDB, err = chain_index.NewIndexDB(chainDir)
+		indexDB, err = chain_index.NewIndexDB(c.chainDir)
 		if err != nil {
-			c.log.Error(fmt.Sprintf("Init failed, call chain_index.NewIndexDB error, error is %s, chainDir is %s", err, chainDir))
+			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 			return err
 		}
 
-		blockDB = chain_block.NewBlockDB()
+		blockDB, err = chain_block.NewBlockDB(c.dataDir)
+		if err != nil {
+			c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+			return err
+		}
 
 		c.log.Info("Init ledger", "method", "Init")
 		chain_genesis.InitLedger(indexDB, blockDB)
@@ -74,7 +88,10 @@ func (c *chain) Init() error {
 	c.blockDB = blockDB
 
 	// Init cache
-	c.cache = chain_cache.NewCache()
+	if c.cache, err = chain_cache.NewCache(c); err != nil {
+		c.log.Error(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err), "method", "Init")
+		return err
+	}
 
 	c.log.Info("Complete initialization", "method", "Init")
 	return nil

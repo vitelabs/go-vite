@@ -21,4 +21,6 @@ type MemDB interface {
 	GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte)
 
 	DeleteByBlockHash(blockHash *types.Hash)
+
+	Clean()
 }

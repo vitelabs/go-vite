@@ -64,5 +64,12 @@ func (mDb *memDb) DeleteByBlockHash(blockHash *types.Hash) {
 		delete(mDb.storage, string(key))
 	}
 	delete(mDb.hashKeyList, *blockHash)
+}
 
+func (mDb *memDb) Clean() {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+
+	mDb.storage = make(map[string][]byte)
+	mDb.hashKeyList = make(map[types.Hash][][]byte)
 }

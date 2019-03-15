@@ -2,6 +2,7 @@ package pmchain
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"time"
@@ -15,20 +16,37 @@ func (c *chain) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
 func (c *chain) IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error) {
 	return nil, nil
 }
-func (c *chain) GetGenesisSnapshotHeader() *ledger.SnapshotBlock {
-	return nil
-}
 
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return nil
 }
 
-func (c *chain) GetLatestSnapshotHeader() *ledger.SnapshotBlock {
-	return nil
-}
+func (c *chain) GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+	var latestSb *ledger.SnapshotBlock
+	if c.cache != nil {
+		latestSb = c.cache.GetLatestSnapshotBlock()
+	}
 
-func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
-	return nil
+	if latestSb == nil {
+		var err error
+		location, err := c.indexDB.GetLatestSnapshotBlockLocation()
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestSnapshotBlockLocation failed, error is %s", err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetLatestSnapshotBlock")
+			return nil, cErr
+		}
+
+		sb, err := c.blockDB.GetSnapshotBlock(location)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.blockDB.GetSnapshotBlock failed, error is %s", err.Error()))
+
+			c.log.Error(cErr.Error(), "method", "GetLatestSnapshotBlock")
+			return nil, cErr
+		}
+
+		latestSb = sb
+	}
+	return latestSb, nil
 }
 
 // header without snapshot content

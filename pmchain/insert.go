@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -33,7 +34,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	c.cache.DeleteUnconfirmedSubLedger(canBeSnappedSubLedger)
 
 	// write block db
-	accountBlockLocations, snapshotBlockLocation, err := c.blockDB.Write(canBeSnappedBlocks, snapshotBlock)
+	accountBlockLocations, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
+		SnapshotBlock: snapshotBlock,
+		AccountBlocks: canBeSnappedBlocks,
+	})
 	if err != nil {
 		chainErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(chainErr.Error(), "method", "InsertSnapshotBlock")
@@ -46,6 +50,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 		c.log.Error(chainErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, chainErr
 	}
+
+	// set cache
+	c.cache.UpdateLatestSnapshotBlock(snapshotBlock)
 
 	return invalidSubLedger, nil
 }

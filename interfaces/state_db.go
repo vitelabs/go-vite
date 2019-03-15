@@ -1,4 +1,4 @@
-package chain_state
+package interfaces
 
 import (
 	"github.com/vitelabs/go-vite/common/types"

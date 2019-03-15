@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func (db *vmDb) getPrevStateSnapshot() (StateSnapshot, error) {
+func (db *vmDb) getPrevStateSnapshot() (interfaces.StateSnapshot, error) {
 	if db.prevStateSnapshot == nil {
 		if db.prevAccountBlockHash == nil {
 			return nil, errors.New("no context, db.prevAccountBlockHash is nil")
