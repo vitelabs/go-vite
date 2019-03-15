@@ -625,6 +625,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 
 	if info.offset == nil {
 		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+		info.quotaUnused = self.rw.getQuotaUnused()
 	} else {
 		block := current.getBlock(info.offset.Height+1, false)
 		if block == nil || block.PrevHash() != info.offset.Hash {
@@ -642,7 +643,9 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 		if self.hashBlacklist.Exists(block.Hash()) {
 			return uint64(i - minH), errors.New("block in blacklist")
 		}
-
+		if info.quotaEnough(block) {
+			return uint64(i - minH), errors.New("block quota not enough.")
+		}
 		item := NewItem(block, &self.address)
 
 		err := q.AddItem(item)
@@ -651,6 +654,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 		}
 		info.offset.Hash = item.Hash()
 		info.offset.Height = item.Height()
+		info.quotaSub(block)
 	}
 
 	return uint64(headH - minH), errors.New("all in")

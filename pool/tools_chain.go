@@ -130,6 +130,9 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 	}
 	return block
 }
+func (self *accountCh) getQuotaUnused() uint64 {
+	return uint64(-1)
+}
 
 type snapshotCh struct {
 	bc      chainDb

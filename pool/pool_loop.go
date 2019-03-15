@@ -2,6 +2,7 @@ package pool
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/golang-collections/collections/stack"
@@ -44,15 +45,14 @@ func (self *pool) makeQueue() Package {
 			if p.Size() > 0 {
 				break
 			}
-			self.makeQueueFromAccounts(p)
-			//fmt.Println("from accounts")
+
+			if errAcc != nil && rand.Intn(10) > 3 {
+				self.snapshotPendingFix(newOffset, errAcc)
+			} else {
+				self.makeQueueFromAccounts(p)
+			}
 			break
-		}
-		if errAcc != nil && p.Size() == 0 {
-			self.snapshotPendingFix(newOffset, errAcc)
-			break
-		}
-		{ // snapshot block
+		} else { // snapshot block
 			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
 				fmt.Println("from snapshot", err)
@@ -320,7 +320,26 @@ func (self *pool) snapshotExists(hash types.Hash) error {
 }
 
 type offsetInfo struct {
-	offset *ledger.HashHeight
+	offset      *ledger.HashHeight
+	quotaUnused uint64
+}
+
+func (self offsetInfo) quotaEnough(b commonBlock) bool {
+	accB := b.(*accountPoolBlock)
+	quotaUsed := accB.block.Quota
+	if quotaUsed > self.quotaUnused {
+		return false
+	}
+	return true
+}
+func (self offsetInfo) quotaSub(b commonBlock) {
+	accB := b.(*accountPoolBlock)
+	quotaUsed := accB.block.Quota
+	if quotaUsed > self.quotaUnused {
+		self.quotaUnused = self.quotaUnused - quotaUsed
+	} else {
+		self.quotaUnused = 0
+	}
 }
 
 // todo fix: not in same thread with loopCompact
