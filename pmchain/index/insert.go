@@ -1,7 +1,8 @@
 package chain_index
 
 import (
-	"encoding/binary"
+	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
@@ -10,27 +11,31 @@ import (
 
 /*
  *	TODO
- *	1. accountId
- *	2. sendAccountId
- *	3. sendHeight
- *	4. toAccountId
- *	5. new account
+ *	1. toAccountId
  */
-func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) {
+func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	accountBlock := vmAccountBlock.AccountBlock
 
 	blockHash := &accountBlock.Hash
-	accountId := uint64(1)
+	accountId, err := iDB.getAccountId(&accountBlock.AccountAddress)
+	if err != nil {
+		return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s", err.Error()))
+	}
+	if accountId <= 0 {
+		// need create account
+		accountId = iDB.createAccount(blockHash, &accountBlock.AccountAddress)
+
+	}
 	// hash -> accountId & height
 	iDB.insertAccountBlockHash(blockHash, accountId, accountBlock.Height)
 
-	//if err := insertAccountBlockHeight(batch, accountId, accountBlock.Height, ""); err != nil {
-	//	return err
-	//}
 	if accountBlock.IsReceiveBlock() {
 		// close send block
-		sendAccountId := uint64(2)
-		sendHeight := uint64(12)
+		sendAccountId, sendHeight, err := iDB.GetAccountHeightByHash(&accountBlock.FromBlockHash)
+		if err != nil {
+			return errors.New(fmt.Sprintf("iDB.GetAccountHeightByHash failed, error is %s, accountBlock.FromBlockHash is %s", err.Error(), accountBlock.FromBlockHash))
+		}
+
 		iDB.insertReceiveHeight(blockHash, sendAccountId, sendHeight, accountId, accountBlock.Height)
 	} else {
 		// insert on road block
@@ -43,6 +48,7 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) {
 		vmLogList := vmAccountBlock.VmDb.GetLogList()
 		iDB.insertVmLogList(blockHash, accountBlock.LogHash, vmLogList)
 	}
+	return nil
 }
 
 /*
@@ -167,22 +173,4 @@ func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *type
 
 func (iDB *IndexDB) insertSnapshotBlockHeight(batch Batch, snapshotBlockHeight uint64, location string) error {
 	return nil
-}
-
-func SerializeAccountIdHeight(accountId, height uint64) []byte {
-	return nil
-}
-
-func DeserializeAccountIdHeight(accountId, height uint64) []byte {
-	return nil
-}
-
-func SerializeHeight(height uint64) []byte {
-	return nil
-}
-
-func Uint8ToFixedBytes(height uint64) []byte {
-	bytes := make([]byte, 0, 8)
-	binary.BigEndian.PutUint64(bytes, height)
-	return bytes
 }

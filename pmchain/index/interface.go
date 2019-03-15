@@ -8,6 +8,7 @@ type Store interface {
 	NewBatch() Batch
 	Write(Batch) error
 	Has(key []byte) (bool, error)
+	Get(key []byte) ([]byte, error)
 	Clean() error
 
 	Close() error

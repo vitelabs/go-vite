@@ -19,7 +19,11 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	c.cache.InsertUnconfirmedAccountBlock(accountBlock)
 
 	// write index database
-	c.indexDB.InsertAccountBlock(vmAccountBlock)
+	if err := c.indexDB.InsertAccountBlock(vmAccountBlock); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
+		return cErr
+	}
 	return nil
 }
 

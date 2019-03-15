@@ -6,6 +6,8 @@ import (
 )
 
 type IndexDB struct {
+	latestAccountId uint64
+
 	store Store
 	memDb MemDB
 }
@@ -15,10 +17,19 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &IndexDB{
+
+	iDB := &IndexDB{
 		store: store,
 		memDb: newMemDb(),
-	}, nil
+	}
+	latestAccountId, err := iDB.queryLatestAccountId()
+	if err != nil {
+		return nil, err
+	}
+
+	iDB.latestAccountId = latestAccountId
+
+	return iDB, nil
 }
 
 func (iDB *IndexDB) CleanUnconfirmedIndex() {
@@ -28,6 +39,9 @@ func (iDB *IndexDB) CleanUnconfirmedIndex() {
 func (iDB *IndexDB) CleanAllData() error {
 	// clean memory
 	iDB.memDb.Clean()
+
+	// clean latestAccountId
+	iDB.latestAccountId = 0
 
 	// clean store
 	if err := iDB.store.Clean(); err != nil {

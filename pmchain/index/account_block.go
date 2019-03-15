@@ -20,6 +20,10 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	return nil, nil
 }
 
+func (iDB *IndexDB) GetAccountHeightByHash(blockHash *types.Hash) (uint64, uint64, error) {
+	return 0, 0, nil
+}
+
 //func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (string, error) {
 //	return "", nil
 //}

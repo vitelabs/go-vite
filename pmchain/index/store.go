@@ -34,6 +34,10 @@ func (s *store) Write(batch Batch) error {
 	return s.db.Write(batch.(*leveldb.Batch), nil)
 }
 
+func (s *store) Get(key []byte) ([]byte, error) {
+	return s.db.Get(key, nil)
+}
+
 func (s *store) Has(key []byte) (bool, error) {
 	return s.db.Has(key, nil)
 }

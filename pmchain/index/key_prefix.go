@@ -10,4 +10,6 @@ const (
 	VmLogListKeyPrefix = byte(4)
 
 	SnapshotBlockHashKeyPrefix = byte(5)
+
+	AccountAddressKeyPrefix = byte(6)
 )
