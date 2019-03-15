@@ -34,6 +34,14 @@ func (mDb *memDb) Get(key []byte) ([]byte, bool) {
 	return result, ok
 }
 
+func (mDb *memDb) Has(key []byte) bool {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
+	_, ok := mDb.storage[string(key)]
+	return ok
+}
+
 func (mDb *memDb) GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte) {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()

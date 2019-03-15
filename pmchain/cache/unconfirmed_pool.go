@@ -54,6 +54,10 @@ func (up *UnconfirmedPool) InsertAccountBlock(dataId uint64) {
 func (up *UnconfirmedPool) GetCurrentBlocks() []*ledger.AccountBlock {
 	up.mu.RLock()
 	currentLength := len(up.insertedList)
+	if currentLength <= 0 {
+		up.mu.RUnlock()
+		return nil
+	}
 	currentEventId := up.insertedList[currentLength-1].eventId
 	up.mu.RUnlock()
 

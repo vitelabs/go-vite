@@ -75,7 +75,7 @@ type Chain interface {
 	 */
 
 	// ====== Query account block ======
-	IsAccountBlockExisted(hash *types.Hash) (bool, error)
+	IsAccountBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 

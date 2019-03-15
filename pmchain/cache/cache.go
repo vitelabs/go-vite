@@ -7,10 +7,10 @@ import (
 
 type Cache struct {
 	chain Chain
-	ds    *dataSet
+
+	ds *dataSet
 
 	unconfirmedPool *UnconfirmedPool
-	indexes         *indexes
 	hd              *hotData
 }
 
@@ -20,7 +20,6 @@ func NewCache(chain Chain) (*Cache, error) {
 		ds:              ds,
 		chain:           chain,
 		unconfirmedPool: NewUnconfirmedPool(ds),
-		indexes:         NewIndexes(ds),
 		hd:              newHotData(ds),
 	}
 	if err := c.init(); err != nil {
@@ -29,10 +28,17 @@ func NewCache(chain Chain) (*Cache, error) {
 	return c, nil
 }
 
+func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
+	return cache.ds.IsDataExisted(hash)
+}
+
+func (cache *Cache) IsSnapshotBlockExisted(hash *types.Hash) bool {
+	return cache.ds.IsDataExisted(hash)
+}
+
 func (cache *Cache) InsertUnconfirmedAccountBlock(block *ledger.AccountBlock) {
 	dataId := cache.ds.InsertAccountBlock(block)
 
-	cache.indexes.InsertAccountBlock(dataId)
 	cache.unconfirmedPool.InsertAccountBlock(dataId)
 }
 
@@ -59,4 +65,8 @@ func (cache *Cache) CleanUnconfirmedPool() {
 
 }
 
-func (cache *Cache) Destroy() {}
+func (cache *Cache) Destroy() {
+	cache.ds = nil
+	cache.unconfirmedPool = nil
+	cache.hd = nil
+}

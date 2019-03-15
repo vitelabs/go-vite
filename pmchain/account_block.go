@@ -1,13 +1,26 @@
 package pmchain
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
 func (c *chain) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-	return true, nil
+	// cache
+	if ok := c.cache.IsAccountBlockExisted(hash); ok {
+		return ok, nil
+	}
+
+	// query index
+	ok, err := c.indexDB.IsAccountBlockExisted(hash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.IsAccountBlockExisted failed, error is %s, hash is %s", err, hash))
+		return false, cErr
+	}
+
+	return ok, nil
 }
 
 func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error) {

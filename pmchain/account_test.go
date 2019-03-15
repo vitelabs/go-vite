@@ -75,7 +75,8 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		return nil, err
 	}
 
-	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.addr, &latestSnapshotBlock.Hash, nil)
+	prevHash := acc.Hash()
+	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		AccountAddress: acc.addr,
 		ToAddress:      toAccount.addr,
 		Height:         acc.Height() + 1,
-		PrevHash:       acc.Hash(),
+		PrevHash:       prevHash,
 		Amount:         big.NewInt(rand.Int63n(100000000000000000)),
 		TokenId:        ledger.ViteTokenId,
 		PublicKey:      acc.publicKey,
@@ -117,8 +118,15 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	if UnreceivedBlock == nil {
 		return nil, nil
 	}
+	chainInstance := acc.chainInstance
 
-	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.addr, nil, nil)
+	latestSnapshotBlock, err := chainInstance.GetLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	prevHash := acc.Hash()
+	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +135,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		AccountAddress: acc.addr,
 		FromBlockHash:  UnreceivedBlock.Hash,
 		Height:         acc.Height() + 1,
-		PrevHash:       acc.Hash(),
+		PrevHash:       prevHash,
 		PublicKey:      acc.publicKey,
 
 		Quota: options.Quota,
@@ -151,10 +159,10 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	}, nil
 }
 
-func MakeAccounts(num uint64, chainInstance Chain) []*Account {
+func MakeAccounts(num int, chainInstance Chain) []*Account {
 	accountList := make([]*Account, num)
 
-	for i := uint64(0); i < num; i++ {
+	for i := 0; i < num; i++ {
 		addr, privateKey, _ := types.CreateAddress()
 
 		accountList[i] = &Account{

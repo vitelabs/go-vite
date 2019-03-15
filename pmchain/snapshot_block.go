@@ -9,7 +9,19 @@ import (
 )
 
 func (c *chain) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
-	return false, nil
+	// cache
+	if ok := c.cache.IsSnapshotBlockExisted(hash); ok {
+		return ok, nil
+	}
+
+	// query index
+	ok, err := c.indexDB.IsSnapshotBlockExisted(hash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.IsSnapshotBlockExisted failed, error is %s, hash is %s", err, hash))
+		return false, cErr
+	}
+
+	return ok, nil
 }
 
 // is valid

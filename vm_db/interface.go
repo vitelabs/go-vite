@@ -25,7 +25,7 @@ type Chain interface {
 
 	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
 
-	GetGenesisSnapshotHeader() *ledger.SnapshotBlock
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
 }
@@ -51,7 +51,6 @@ type VmDb interface {
 	GetOriginalValue(key []byte) ([]byte, error)
 
 	SetValue(key []byte, value []byte)
-	DeleteValue(key []byte)
 
 	NewStorageIterator(prefix []byte) interfaces.StorageIterator // TODO
 
@@ -70,7 +69,7 @@ type VmDb interface {
 	GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error)
 
 	// ====== SnapshotBlock ======
-	GetGenesisSnapshotHeader() *ledger.SnapshotBlock
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	// ====== Meta & Code ======
 	SetContractMeta(meta *ledger.ContractMeta)

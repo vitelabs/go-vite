@@ -53,9 +53,7 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) {
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock, sbLocation *chain_block.Location, abLocations []*chain_block.Location) error {
 	batch := iDB.store.NewBatch()
 	// hash -> height
-	if err := iDB.insertSnapshotBlockHash(batch, &snapshotBlock.Hash, snapshotBlock.Height); err != nil {
-		return err
-	}
+	iDB.insertSnapshotBlockHash(batch, &snapshotBlock.Hash, snapshotBlock.Height)
 
 	// height -> location
 	if err := iDB.insertSnapshotBlockHeight(batch, snapshotBlock.Height, ""); err != nil {
@@ -153,8 +151,10 @@ func (iDB *IndexDB) insertConfirmHeight(batch Batch, accountId uint64, height ui
 	return nil
 }
 
-func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash, height uint64) error {
-	return nil
+func (iDB *IndexDB) insertSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash, height uint64) {
+	key, _ := dbutils.EncodeKey(SnapshotBlockHashKeyPrefix, snapshotBlockHash.Bytes())
+
+	batch.Put(key, SerializeHeight(height))
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHeight(batch Batch, snapshotBlockHeight uint64, location string) error {
@@ -166,5 +166,9 @@ func SerializeAccountIdHeight(accountId, height uint64) []byte {
 }
 
 func DeserializeAccountIdHeight(accountId, height uint64) []byte {
+	return nil
+}
+
+func SerializeHeight(height uint64) []byte {
 	return nil
 }

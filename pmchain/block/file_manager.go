@@ -59,6 +59,24 @@ func newFileManager(dirName string) (*fileManager, error) {
 	return fm, nil
 }
 
+func (fm *fileManager) Close() error {
+	fm.dirName = ""
+	if fm.dirFd != nil {
+		if err := fm.dirFd.Close(); err != nil {
+			return err
+		}
+	}
+
+	fm.latestFileId = 0
+	fm.latestFileSize = 0
+	if fm.latestFileFd != nil {
+		if err := fm.latestFileFd.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
 	if fm.latestFileSize+bufSize > fm.maxFileSize {

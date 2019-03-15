@@ -27,7 +27,18 @@ func NewBlockDB(chainDir string) (*BlockDB, error) {
 	}, nil
 }
 
-func (bDB *BlockDB) Destroy() {}
+func (bDB *BlockDB) CleanAllData() error {
+	return nil
+}
+
+func (bDB *BlockDB) Destroy() error {
+	if err := bDB.fm.Close(); err != nil {
+		return errors.New(fmt.Sprintf("bDB.fm.Close failed, error is %s", err))
+	}
+
+	bDB.fm = nil
+	return nil
+}
 
 func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 	accountBlocksLocation := make([]*Location, 0, len(ss.AccountBlocks))

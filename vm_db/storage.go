@@ -18,7 +18,3 @@ func (db *vmDb) GetOriginalValue(key []byte) ([]byte, error) {
 func (db *vmDb) SetValue(key []byte, value []byte) {
 	db.unsaved.SetValue(key, value)
 }
-
-func (db *vmDb) DeleteValue(key []byte) {
-	db.unsaved.SetValue(key, []byte{})
-}

@@ -1,13 +1,36 @@
 package chain_genesis
 
-func InitLedger(indexDB IndexDB, blockDB BlockDB) error {
+const (
+	LedgerUnknown = byte(0)
+	LedgerEmpty   = byte(1)
+	LedgerValid   = byte(2)
+	LedgerInvalid = byte(3)
+)
+
+func InitLedger(chain Chain) error {
 	// insert genesis account blocks
 
-	// insert genesis snapshot block
-	indexDB.InsertSnapshotBlock(nil, nil, nil, nil)
+	// init genesis snapshot block
+	genesisSnapshotBlock := newGenesisSnapshotBlock()
+
+	// insert
+	chain.InsertSnapshotBlock(genesisSnapshotBlock)
 	return nil
 }
 
-func CheckLedger(indexDB IndexDB, blockDB BlockDB) bool {
-	return false
+func CheckLedger(chain Chain) (byte, error) {
+	latestSb, err := chain.GetLatestSnapshotBlock()
+	if err != nil {
+		return LedgerUnknown, err
+	}
+	if latestSb == nil {
+		return LedgerEmpty, nil
+	}
+
+	genesisSnapshotBlock := newGenesisSnapshotBlock()
+
+	if latestSb.Hash == genesisSnapshotBlock.Hash {
+		return LedgerValid, nil
+	}
+	return LedgerInvalid, nil
 }

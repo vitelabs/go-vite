@@ -7,6 +7,10 @@ import (
 type Store interface {
 	NewBatch() Batch
 	Write(Batch) error
+	Has(key []byte) (bool, error)
+	Clean() error
+
+	Close() error
 }
 
 type Batch interface {
@@ -17,6 +21,7 @@ type Batch interface {
 type MemDB interface {
 	Put(blockHash *types.Hash, key, value []byte)
 	Get(key []byte) ([]byte, bool)
+	Has(key []byte) bool
 
 	GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte)
 
