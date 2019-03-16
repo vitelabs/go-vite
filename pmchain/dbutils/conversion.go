@@ -1,4 +1,4 @@
-package chain_index
+package chain_dbutils
 
 import (
 	"encoding/binary"

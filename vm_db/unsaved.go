@@ -34,6 +34,22 @@ func NewUnsaved() *Unsaved {
 	}
 }
 
+func (unsaved *Unsaved) GetStorage() map[string][]byte {
+	return unsaved.storage
+}
+
+func (unsaved *Unsaved) GetBalanceMap() map[types.TokenTypeId]*big.Int {
+	return unsaved.balanceMap
+}
+
+func (unsaved *Unsaved) GetCode() []byte {
+	return unsaved.code
+}
+
+func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
+	return unsaved.contractMeta
+}
+
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
 	unsaved.storage[string(key)] = value
 }
@@ -69,10 +85,6 @@ func (unsaved *Unsaved) SetContractMeta(contractMeta *ledger.ContractMeta) {
 }
 func (unsaved *Unsaved) SetCode(code []byte) {
 	unsaved.code = code
-}
-
-func (unsaved *Unsaved) GetCode() []byte {
-	return unsaved.code
 }
 
 func (unsaved *Unsaved) NewStorageIterator() interfaces.StorageIterator {

@@ -54,9 +54,13 @@ type VmDb interface {
 
 	NewStorageIterator(prefix []byte) interfaces.StorageIterator // TODO
 
+	GetUnsavedStorage() map[string][]byte
+
 	// ====== Balance ======
 	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
 	SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
+
+	GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int
 
 	// ====== VMLog ======
 	AddLog(log *ledger.VmLog)
@@ -78,6 +82,9 @@ type VmDb interface {
 
 	GetContractCode() ([]byte, error)
 	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) // TODO
+
+	GetUnsavedContractMeta() *ledger.ContractMeta
+	GetUnsavedContractCode() []byte
 
 	// ====== built-in contract ======
 	GetPledgeAmount(addr *types.Address) (*big.Int, error)

@@ -20,3 +20,7 @@ func (db *vmDb) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
 func (db *vmDb) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
 	db.unsaved.SetBalance(tokenTypeId, amount)
 }
+
+func (db *vmDb) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
+	return db.unsaved.GetBalanceMap()
+}

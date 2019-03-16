@@ -1,6 +1,8 @@
 package chain_state
 
-type StateDB struct{}
+type StateDB struct {
+	mvDB *multiVersionDB
+}
 
 func NewStateDB() *StateDB {
 	return &StateDB{}
