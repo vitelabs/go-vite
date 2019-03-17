@@ -2,7 +2,6 @@ package pmchain
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"io"
@@ -156,7 +155,7 @@ type Chain interface {
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
 	// get history balance, if history is too old, failed
-	GetHistoryBalance(addr *types.Address, tokenId *types.TokenTypeId, accountBlockHash *types.Hash) (*big.Int, error)
+	GetHistoryBalance(accountBlockHash *types.Hash, addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
 	// get confirmed snapshot balance, if history is too old, failed
 	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)
@@ -167,8 +166,6 @@ type Chain interface {
 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
 
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
-
-	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot interfaces.StateSnapshot, err error)
 
 	GetQuotaUnused(address *types.Address) uint64
 

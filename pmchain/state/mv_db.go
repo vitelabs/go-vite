@@ -43,6 +43,14 @@ func (mvDB *multiVersionDB) Destroy() error {
 	return nil
 }
 
+func (mvDB *multiVersionDB) GetValue(key []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (mvDB *multiVersionDB) DeleteValue(valueId uint64) error {
+	return nil
+}
+
 // TODO valueId
 func (mvDB *multiVersionDB) Insert(block *ledger.AccountBlock, keyList [][]byte, valueList [][]byte) error {
 

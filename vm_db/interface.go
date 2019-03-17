@@ -16,6 +16,11 @@ type Chain interface {
 	IsContractAccount(address *types.Address) (bool, error)
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
+	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
+
+	GetContractCode(contractAddr *types.Address) ([]byte, error)
+	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+
 	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 
@@ -48,7 +53,7 @@ type VmDb interface {
 
 	// ====== Storage ======
 	GetValue(key []byte) ([]byte, error)
-	GetOriginalValue(key []byte) ([]byte, error)
+	GetOriginalValue(key []byte) ([]byte, error) // TODO
 
 	SetValue(key []byte, value []byte)
 

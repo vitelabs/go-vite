@@ -7,12 +7,13 @@ func (db *vmDb) GetValue(key []byte) ([]byte, error) {
 	return db.GetOriginalValue(key)
 }
 func (db *vmDb) GetOriginalValue(key []byte) ([]byte, error) {
-	prevStateSnapshot, err := db.getPrevStateSnapshot()
-	if err != nil {
-		return nil, err
-	}
-
-	return prevStateSnapshot.GetValue(key)
+	//prevStateSnapshot, err := db.getPrevStateSnapshot()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//return prevStateSnapshot.GetValue(key)
+	return nil, nil
 }
 
 func (db *vmDb) SetValue(key []byte, value []byte) {

@@ -1,6 +1,7 @@
 package chain_state
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
@@ -37,6 +38,21 @@ func (sDB *StateDB) DeleteSubLedger(deletedSnapshotSegments []*chain_block.Snaps
 			}
 		}
 		//sbHashList = append(sbHashList, &seg.SnapshotBlock.Hash)
+	}
+
+	// delete value id list
+	// set key index
+	// delete undo log list
+	minValueId := helper.MaxUint64
+	for _, valueId := range undo {
+		if valueId < minValueId {
+			minValueId = valueId
+		}
+
+		if err := sDB.mvDB.DeleteValue(valueId); err != nil {
+			return err
+		}
+		//sDB.mvDB.``
 	}
 
 	return nil
