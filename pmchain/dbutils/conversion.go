@@ -39,6 +39,13 @@ func DeserializeLocation(bytes []byte) *chain_block.Location {
 	return chain_block.NewLocation(FixedBytesToUint64(bytes[:8]), binary.BigEndian.Uint32(bytes[8:]))
 }
 
+func SerializeUint64(number uint64) []byte {
+	return nil
+}
+func DeserializeUint64(buf []byte) uint64 {
+	return 0
+}
+
 func Uint64ToFixedBytes(height uint64) []byte {
 	bytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(bytes, height)

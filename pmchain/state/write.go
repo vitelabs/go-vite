@@ -45,23 +45,26 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		valueList = append(valueList, unsavedContractMeta.Serialize())
 	}
 
-	if err := sDB.mvDB.Insert(&block.AccountBlock.Hash, keyList, valueList); err != nil {
+	if err := sDB.mvDB.Insert(block.AccountBlock, keyList, valueList); err != nil {
 		return err
 	}
 	return nil
 }
+
+/*
+ * TODO
+ * 1. accountId
+ */
 func (sDB *StateDB) Flush(snapshotBlockHash *types.Hash, blocks []*ledger.AccountBlock) error {
 	blockHashList := make([]*types.Hash, 0, len(blocks))
+
 	for _, block := range blocks {
 		blockHashList = append(blockHashList, &block.Hash)
 	}
-	keyList, err := sDB.mvDB.Flush(blockHashList)
-	if err != nil {
+	if err := sDB.mvDB.Flush(blockHashList); err != nil {
 		return err
 	}
-	if err := sDB.recordSnapshot(snapshotBlockHash, keyList); err != nil {
-		return err
-	}
+
 	return nil
 }
 

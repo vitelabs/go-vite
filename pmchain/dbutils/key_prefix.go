@@ -21,13 +21,17 @@ const (
 )
 
 const (
-	ValueIdKeyPrefix = byte(1)
+	KeyIdKeyPrefix = byte(1)
 
-	StorageKeyKeyPrefix = byte(2)
+	ValueIdKeyPrefix = byte(2)
 
-	BalanceKeyPrefix = byte(3)
+	StorageKeyKeyPrefix = byte(3)
 
-	CodeKeyPrefix = byte(4)
+	BalanceKeyPrefix = byte(4)
 
-	ContractMetaKeyPrefix = byte(5)
+	CodeKeyPrefix = byte(5)
+
+	ContractMetaKeyPrefix = byte(6)
+
+	StateUndoKeyPrefix = byte(7)
 )

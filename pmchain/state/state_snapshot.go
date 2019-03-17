@@ -6,8 +6,24 @@ import (
 	"math/big"
 )
 
+func (sDB *StateDB) NewStateSnapshot(snapshotBlockHash *types.Hash, addr *types.Address) (interfaces.StateSnapshot, error) {
+	return newStateSnapshot(sDB, snapshotBlockHash, addr)
+}
+
 type stateSnapshot struct {
-	stateDB *StateDB
+	stateDB           *StateDB
+	snapshotBlockHash *types.Hash
+	addr              *types.Address
+}
+
+func newStateSnapshot(sDB *StateDB, snapshotBlockHash *types.Hash, addr *types.Address) (*stateSnapshot, error) {
+	ss := &stateSnapshot{
+		stateDB:           sDB,
+		snapshotBlockHash: snapshotBlockHash,
+		addr:              addr,
+	}
+
+	return ss, nil
 }
 
 func (ss *stateSnapshot) GetBalance(tokenId *types.TokenTypeId) (*big.Int, error) {
@@ -25,10 +41,4 @@ func (ss *stateSnapshot) GetValue([]byte) ([]byte, error) {
 
 func (ss *stateSnapshot) NewStorageIterator(prefix []byte) interfaces.StorageIterator {
 	return nil
-}
-
-func (sDB *StateDB) NewStateSnapshot(blockHash *types.Hash) (interfaces.StateSnapshot, error) {
-	return &stateSnapshot{
-		stateDB: sDB,
-	}, nil
 }

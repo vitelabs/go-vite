@@ -44,42 +44,46 @@ func (mvDB *multiVersionDB) Destroy() error {
 }
 
 // TODO valueId
-func (mvDB *multiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valueList [][]byte) error {
+func (mvDB *multiVersionDB) Insert(block *ledger.AccountBlock, keyList [][]byte, valueList [][]byte) error {
 
+	prevValueIdList := make([]uint64, len(keyList))
 	for index, key := range keyList {
-		prevValueId, err := mvDB.getValueId(key)
+		prevValueId, err := mvDB.getLatestValueId(key)
 		if err != nil {
 			return err
 		}
+		prevValueIdList[index] = prevValueId
 
 		valueId := uint64(100)
 
 		// update key
-		mvDB.pending.Put(blockHash, key, chain_dbutils.Uint64ToFixedBytes(valueId))
+		mvDB.pending.Put(&block.Hash, key, chain_dbutils.Uint64ToFixedBytes(valueId))
 
 		// insert value
 		valueIdKey := chain_dbutils.CreateValueIdKey(valueId)
-		mvDB.pending.Put(blockHash, valueIdKey, append(chain_dbutils.Uint64ToFixedBytes(prevValueId), valueList[index]...))
-
+		mvDB.pending.Put(&block.Hash, valueIdKey, valueList[index])
 	}
 
+	// insert undo log
+	if err := mvDB.writeUndoLog(block, keyList, prevValueIdList); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (mvDB *multiVersionDB) Flush(blockHashList []*types.Hash) ([][]byte, error) {
+func (mvDB *multiVersionDB) Flush(blockHashList []*types.Hash) error {
 	batch := new(leveldb.Batch)
 
 	keyList, valueList := mvDB.pending.GetByBlockHashList(blockHashList)
-
 	for index, key := range keyList {
 		batch.Put(key, valueList[index])
 	}
 
 	if err := mvDB.db.Write(batch, nil); err != nil {
-		return nil, err
+		return err
 	}
 	mvDB.pending.DeleteByBlockHashList(blockHashList)
-	return keyList, nil
+	return nil
 }
 
 func (mvDB *multiVersionDB) DeletePendingByBlockHash(blocks []*ledger.AccountBlock) {
@@ -88,7 +92,43 @@ func (mvDB *multiVersionDB) DeletePendingByBlockHash(blocks []*ledger.AccountBlo
 	}
 }
 
-func (mvDB *multiVersionDB) getValueId(key []byte) (uint64, error) {
+func (mvDB *multiVersionDB) writeUndoLog(block *ledger.AccountBlock, keyList [][]byte, valueIdList []uint64) error {
+	undoLog := make([]byte, 0, len(valueIdList)*16)
+	for index, key := range keyList {
+		keyId, err := mvDB.getKeyId(key)
+		if err != nil {
+			return err
+		}
+		undoLog = append(undoLog, chain_dbutils.Uint64ToFixedBytes(keyId)...)
+		undoLog = append(undoLog, chain_dbutils.Uint64ToFixedBytes(valueIdList[index])...)
+	}
+
+	undoKey := chain_dbutils.CreateStateUndoKey(1, block.Height)
+	mvDB.pending.Put(&block.Hash, undoKey, undoLog)
+	return nil
+}
+
+func (mvDB *multiVersionDB) GetUndoLog(accountId uint64, height uint64) []byte {
+	return nil
+}
+
+func (mvDB *multiVersionDB) DeleteUndoLog(accountId uint64, height uint64) []byte {
+	return nil
+}
+
+func (mvDB *multiVersionDB) getKeyId(key []byte) (uint64, error) {
+	keyIdBytes, err := mvDB.db.Get(chain_dbutils.CreateKeyIdKey(key), nil)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	return chain_dbutils.DeserializeUint64(keyIdBytes), nil
+}
+
+func (mvDB *multiVersionDB) getLatestValueId(key []byte) (uint64, error) {
 	valueIdBytes := make([]byte, 0, 8)
 
 	var ok bool

@@ -48,6 +48,13 @@ func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) []byte {
 	return key
 }
 
+func CreateKeyIdKey(mvDbKey []byte) []byte {
+	key := make([]byte, 0, 1+len(mvDbKey))
+	key = append(key, KeyIdKeyPrefix)
+	key = append(key, mvDbKey...)
+	return key
+}
+
 func CreateValueIdKey(valueId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, ValueIdKeyPrefix)
@@ -83,5 +90,13 @@ func CreateContractMetaKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, ContractMetaKeyPrefix)
 	key = append(key, Uint64ToFixedBytes(accountId)...)
+	return key
+}
+
+func CreateStateUndoKey(accountId uint64, height uint64) []byte {
+	key := make([]byte, 0, 17)
+	key = append(key, StateUndoKeyPrefix)
+	key = append(key, SerializeAccountId(accountId)...)
+	key = append(key, SerializeAccountId(height)...)
 	return key
 }
