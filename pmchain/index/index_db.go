@@ -3,13 +3,14 @@ package chain_index
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/pmchain/pending"
 )
 
 type IndexDB struct {
 	latestAccountId uint64
 
 	store Store
-	memDb MemDB
+	memDb *chain_pending.MemDB
 }
 
 func NewIndexDB(chainDir string) (*IndexDB, error) {
@@ -20,7 +21,7 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 
 	iDB := &IndexDB{
 		store: store,
-		memDb: newMemDb(),
+		memDb: chain_pending.NewMemDB(),
 	}
 	latestAccountId, err := iDB.queryLatestAccountId()
 	if err != nil {

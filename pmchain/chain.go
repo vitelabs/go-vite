@@ -69,26 +69,16 @@ func (c *chain) Init() error {
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
-		if status == chain_genesis.LedgerInvalid {
-			// clean
-			if err = c.indexDB.CleanAllData(); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed, error is %s", err))
-
-				c.log.Error(cErr.Error(), "method", "Init")
-				return err
-			}
-			if err = c.blockDB.CleanAllData(); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed, error is %s", err))
-
-				c.log.Error(cErr.Error(), "method", "Init")
-				return err
-			}
-
-			// destroy
-			c.indexDB.Destroy()
-			c.blockDB.Destroy()
-		} else {
+		if status != chain_genesis.LedgerInvalid {
 			// valid or empty
+			// Init state db
+			if c.stateDB, err = chain_state.NewStateDB(c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
+				return err
+			}
+
 			// Init cache
 			if c.cache, err = chain_cache.NewCache(c); err != nil {
 				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
@@ -106,15 +96,36 @@ func (c *chain) Init() error {
 				}
 			}
 			break
+
 		}
+
+		// clean
+		if err = c.indexDB.CleanAllData(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed, error is %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+		if err = c.blockDB.CleanAllData(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed, error is %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		// destroy
+		c.indexDB.Destroy()
+		c.blockDB.Destroy()
 	}
+
+	// set cache
+
 	latestSnapshotBlock, err := c.getLatestSnapshotBlock()
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getLatestSnapshotBlock failed, [Error] %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
 	}
-	// set cache
 
 	if err := c.cache.Init(latestSnapshotBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed, [Error] %s", err))
@@ -139,6 +150,13 @@ func (c *chain) Destroy() error {
 	c.cache.Destroy()
 	c.log.Info("Destroy cache", "method", "Destroy")
 
+	if err := c.stateDB.Destroy(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Destroy failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Destroy")
+		return cErr
+	}
+	c.log.Info("Destroy stateDB", "method", "Destroy")
+
 	if err := c.indexDB.Destroy(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Destroy failed, error is %s", err))
 		c.log.Error(cErr.Error(), "method", "Destroy")
@@ -154,6 +172,7 @@ func (c *chain) Destroy() error {
 	c.log.Info("Destroy blockDB", "method", "Destroy")
 
 	c.cache = nil
+	c.stateDB = nil
 	c.indexDB = nil
 	c.blockDB = nil
 

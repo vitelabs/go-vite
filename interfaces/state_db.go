@@ -12,6 +12,7 @@ type StorageIterator interface {
 	Key() []byte
 	Value() []byte
 	Error() error
+	Release()
 }
 
 type StateSnapshot interface {

@@ -11,6 +11,7 @@ type stateSnapshot struct {
 }
 
 func (ss *stateSnapshot) GetBalance(tokenId *types.TokenTypeId) (*big.Int, error) {
+
 	return nil, nil
 }
 

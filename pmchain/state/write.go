@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/dbutils"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -44,7 +45,21 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		valueList = append(valueList, unsavedContractMeta.Serialize())
 	}
 
-	if err := sDB.mvDB.Insert(keyList, valueList); err != nil {
+	if err := sDB.mvDB.Insert(&block.AccountBlock.Hash, keyList, valueList); err != nil {
+		return err
+	}
+	return nil
+}
+func (sDB *StateDB) Flush(snapshotBlockHash *types.Hash, blocks []*ledger.AccountBlock) error {
+	blockHashList := make([]*types.Hash, 0, len(blocks))
+	for _, block := range blocks {
+		blockHashList = append(blockHashList, &block.Hash)
+	}
+	keyList, err := sDB.mvDB.Flush(blockHashList)
+	if err != nil {
+		return err
+	}
+	if err := sDB.recordSnapshot(snapshotBlockHash, keyList); err != nil {
 		return err
 	}
 	return nil

@@ -24,6 +24,13 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
 		return cErr
 	}
+
+	// write state db
+	if err := c.stateDB.Write(vmAccountBlock); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Write failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
+		return cErr
+	}
 	return nil
 }
 
@@ -40,17 +47,27 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 		AccountBlocks: canBeSnappedBlocks,
 	})
 	if err != nil {
-		chainErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(chainErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, chainErr
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
+		return nil, cErr
 	}
 
 	// insert index
 	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedSubLedger, snapshotBlockLocation, accountBlockLocations); err != nil {
-		chainErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(chainErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, chainErr
+		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
+		return nil, cErr
 	}
+
+	// flush state db
+	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Flush failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
+		return nil, cErr
+	}
+
+	// remove state db
+	c.stateDB.DeleteInvalidAccountBlocks(invalidSubLedger)
 
 	// remove invalid subLedger index
 	c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)

@@ -90,5 +90,5 @@ type VmDb interface {
 	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
 	// ====== debug ======
-	DebugGetStorage() map[string][]byte // TODO
+	DebugGetStorage() (map[string][]byte, error)
 }

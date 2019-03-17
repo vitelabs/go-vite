@@ -17,7 +17,7 @@ func CreateAccountIdKey(accountId uint64) []byte {
 	key = append(key, AccountIdKeyPrefix)
 	key = append(key, Uint64ToFixedBytes(accountId)...)
 
-	return accountIdKey
+	return key
 }
 
 func CreateConfirmHeightKey(accountId, height uint64) []byte {
