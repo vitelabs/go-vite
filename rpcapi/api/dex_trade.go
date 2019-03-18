@@ -43,7 +43,7 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 		return nil, err
 	} else {
 		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-		return matcher.GetOrderByIdAndBookId(orderId, makerBookId)
+		return matcher.GetOrderByIdAndBookId(makerBookId, orderId)
 	}
 }
 

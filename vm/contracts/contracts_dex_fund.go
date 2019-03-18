@@ -24,7 +24,8 @@ const (
 		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint32"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
 		{"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexFundFeeDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
-		{"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint64"}]}
+		{"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
+		{"type":"function","name":"DexFundNewMarket", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]}
 	]`
 
 	MethodNameDexFundUserDeposit     = "DexFundUserDeposit"
@@ -33,6 +34,7 @@ const (
 	MethodNameDexFundSettleOrders    = "DexFundSettleOrders"
 	MethodNameDexFundFeeDividend     = "DexFundFeeDividend"
 	MethodNameDexFundMinedVxDividend = "DexFundMinedVxDividend"
+	MethodNameDexFundNewMarket 		 = "DexFundNewMarket"
 )
 
 var (
@@ -69,26 +71,17 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 }
 
 func (md *MethodDexFundUserDeposit) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	var (
-		dexFund = &dex.UserFund{}
-		err     error
-	)
-	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
+	if account, err := depositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount); err != nil {
 		return []*SendBlock{}, err
-	}
-	account, exists := dex.GetAccountByTokeIdFromFund(dexFund, sendBlock.TokenId)
-	available := new(big.Int).SetBytes(account.Available)
-	account.Available = available.Add(available, sendBlock.Amount).Bytes()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
-	}
-	// must do after account updated by deposit
-	if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
-		if err = onDepositVx(db, sendBlock.AccountAddress, sendBlock.Amount, account); err != nil {
-			return []*SendBlock{}, err
+	} else {
+		// must do after account updated by deposit
+		if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
+			if err = onDepositVx(db, sendBlock.AccountAddress, sendBlock.Amount, account); err != nil {
+				return []*SendBlock{}, err
+			}
 		}
+		return []*SendBlock{}, nil
 	}
-	return []*SendBlock{}, dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
 }
 
 type MethodDexFundUserWithdraw struct {
@@ -429,6 +422,92 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vmctxt_interface.VmDatabase,
 	return []*SendBlock{}, nil
 }
 
+type MethodDexFundNewMarket struct {
+}
+
+func (md *MethodDexFundNewMarket) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundNewMarket) GetRefundData() []byte {
+	return []byte{}
+}
+
+func (md *MethodDexFundNewMarket) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewMarketGas, data)
+}
+
+func (md *MethodDexFundNewMarket) GetReceiveQuota() uint64 {
+	return 0
+}
+
+func (md *MethodDexFundNewMarket) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+	var err error
+	param := new(dex.ParamDexFundNewMarket)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewMarket, block.Data); err != nil {
+		return err
+	}
+	if err = dex.CheckMarketParam(db, param, block.TokenId, block.Amount); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+	var err error
+	param := new(dex.ParamDexFundNewMarket)
+	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
+		return []*SendBlock{}, err
+	}
+	if dex.CheckMarketExists(db, param.TradeToken, param.QuoteToken) {
+		return []*SendBlock{}, dex.MarketExistsError
+	}
+	marketInfo := &dex.MarketInfo{}
+	if err = dex.RenderMarketInfo(db, marketInfo, param, sendBlock.AccountAddress); err != nil {
+		return []*SendBlock{}, err
+	}
+
+	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
+	if exceedAmount.Sign() > 0 {
+		if _, err = depositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount); err != nil {
+			return []*SendBlock{}, err
+		}
+	}
+	userFee := &dexproto.UserFeeSettle{}
+	userFee.Address = sendBlock.AccountAddress.Bytes()
+	userFee.Amount = dex.NewMarketFeeDividendAmount.Bytes()
+	fee := &dexproto.FeeSettle{}
+	fee.Token = ledger.ViteTokenId.Bytes()
+	fee.UserFeeSettles = append(fee.UserFeeSettles, userFee)
+	if err = settleFeeSum(db, []*dexproto.FeeSettle{fee}); err != nil {
+		return []*SendBlock{}, err
+	}
+	if err = settleUserFees(db, fee); err != nil {
+		return []*SendBlock{}, err
+	}
+	if err = dex.AddDonateFeeSum(db); err != nil {
+		return []*SendBlock{}, err
+	}
+	if err = dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken); err != nil {
+		return []*SendBlock{}, err
+	}
+	return []*SendBlock{}, nil
+}
+
+func depositAccount(db vmctxt_interface.VmDatabase, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account, error) {
+	if dexFund, err := dex.GetUserFundFromStorage(db, address); err != nil {
+		return nil, err
+	} else {
+		account, exists := dex.GetAccountByTokeIdFromFund(dexFund, tokenId)
+		available := new(big.Int).SetBytes(account.Available)
+		account.Available = available.Add(available, amount).Bytes()
+		if !exists {
+			dexFund.Accounts = append(dexFund.Accounts, account)
+		}
+		return account, dex.SaveUserFundToStorage(db, address, dexFund)
+	}
+}
+
 func checkAndLockFundForNewOrder(dexFund *dex.UserFund, order *dexproto.Order) (needUpdate bool, err error) {
 	var (
 		lockToken, lockAmount []byte
@@ -760,12 +839,13 @@ func doSettleVxFunds(db vmctxt_interface.VmDatabase, addressBytes []byte, amtCha
 func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 	var (
 		feeSumsMap map[uint64]*dex.FeeSumByPeriod
+		donateFeeSums  = make(map[uint64]*big.Int)
 		vxSumFunds *dex.VxFunds
 		err        error
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap, err = dex.GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
+	if feeSumsMap, donateFeeSums, err = dex.GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
 		return err
 	} else if len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
 		return nil
@@ -806,6 +886,11 @@ func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 		}
 
 		dex.MarkFeeSumAsFeeDivided(db, fee, pId)
+	}
+
+	for pIdForDonateFee, donateFeeSum := range donateFeeSums {
+		feeSumMap[ledger.ViteTokenId] = new(big.Int).Add(feeSumMap[ledger.ViteTokenId], donateFeeSum)
+		dex.DeleteDonateFeeSum(db, pIdForDonateFee)
 	}
 
 	var (

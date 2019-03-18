@@ -118,7 +118,7 @@ func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, bloc
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var order *dex.Order
-	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
+	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
 		return err
 	}
 	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
@@ -140,7 +140,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 		order *dex.Order
 		err   error
 	)
-	if order, err = matcher.GetOrderByIdAndBookId(param.OrderId, makerBookId); err != nil {
+	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
 		return []*SendBlock{}, err
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
