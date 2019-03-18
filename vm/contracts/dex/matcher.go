@@ -15,7 +15,7 @@ const maxTxsCountPerTaker = 1000
 const timeoutSecond = 7 * 24 * 3600
 const txIdLength = 20
 
-type Matcher struct {
+type matcher struct {
 	contractAddress *types.Address
 	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
@@ -38,8 +38,8 @@ var (
 	DeleteTerminatedOrder = false
 )
 
-func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *Matcher {
-	mc := &Matcher{}
+func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *matcher {
+	mc := &matcher{}
 	mc.contractAddress = contractAddress
 	mc.storage = storage
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
@@ -50,7 +50,7 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *Matcher {
 	return mc
 }
 
-func (mc *Matcher) MatchOrder(taker Order) (err error) {
+func (mc *matcher) MatchOrder(taker Order) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("matchOrder failed with exception %v", r)
@@ -69,15 +69,15 @@ func (mc *Matcher) MatchOrder(taker Order) (err error) {
 	return nil
 }
 
-func (mc *Matcher) GetFundSettles() map[types.Address]map[types.TokenTypeId]*proto.FundSettle {
+func (mc *matcher) GetFundSettles() map[types.Address]map[types.TokenTypeId]*proto.FundSettle {
 	return mc.fundSettles
 }
 
-func (mc *Matcher) GetFees() map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle {
+func (mc *matcher) GetFees() map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle {
 	return mc.feeSettles
 }
 
-func (mc *Matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipListId) (*Order, error) {
+func (mc *matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipListId) (*Order, error) {
 	var (
 		book *skiplist
 		err  error
@@ -98,35 +98,7 @@ func (mc *Matcher) GetOrderByIdAndBookId(orderIdBytes []byte, makerBookId SkipLi
 	}
 }
 
-func (mc *Matcher) GetOrdersFromMarket(makerBookId SkipListId, begin, end int32) ([]*Order, int32, error) {
-	var (
-		book *skiplist
-		err  error
-		i int32 = 0
-	)
-	if begin >= end {
-		return nil, book.length, nil
-	}
-	if book, err = mc.getBookById(makerBookId); err != nil || book.length == 0 {
-		return nil, 0, err
-	}
-	orders := make([]*Order, 0, end - begin)
-	currentId := book.header
-	for ; i < book.length && i < end; i++ {
-		if pl, forward, _, err := book.getByKey(currentId); err != nil {
-			return nil, book.length, err
-		} else if i >= begin {
-			od, _ := (*pl).(Order)
-			orders = append(orders, &od)
-			currentId = forward
-		} else {
-			currentId = forward
-		}
-	}
-	return orders, book.length, nil
-}
-
-func (mc *Matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId) (err error) {
+func (mc *matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId) (err error) {
 	var book *skiplist
 	if book, err = mc.getBookById(makerBookId); err != nil {
 		return err
@@ -156,7 +128,7 @@ func (mc *Matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId
 	}
 }
 
-func (mc *Matcher) getBookById(bookId SkipListId) (*skiplist, error) {
+func (mc *matcher) getBookById(bookId SkipListId) (*skiplist, error) {
 	var (
 		book *skiplist
 		err  error
@@ -171,7 +143,7 @@ func (mc *Matcher) getBookById(bookId SkipListId) (*skiplist, error) {
 	return mc.books[bookId], nil
 }
 
-func (mc *Matcher) doMatchTaker(taker Order, makerBook *skiplist) (err error) {
+func (mc *matcher) doMatchTaker(taker Order, makerBook *skiplist) (err error) {
 	if makerBook.length == 0 {
 		return mc.handleTakerRes(taker)
 	}
@@ -196,7 +168,7 @@ func (mc *Matcher) doMatchTaker(taker Order, makerBook *skiplist) (err error) {
 }
 
 //TODO add assertion for order calculation correctness
-func (mc *Matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
+func (mc *matcher) recursiveTakeOrder(taker *Order, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
 	if filterTimeout(taker.Timestamp, &maker) {
 		mc.handleRefund(&maker)
 		*modifiedMakers = append(*modifiedMakers, maker)
@@ -327,7 +299,7 @@ func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate float64) (f
 	return feeBytes, executedFee
 }
 
-func (mc *Matcher) handleRefund(order *Order) {
+func (mc *matcher) handleRefund(order *Order) {
 	if order.Status == FullyExecuted || order.Status == Cancelled {
 		switch order.Side {
 		case false: //buy
@@ -343,7 +315,7 @@ func (mc *Matcher) handleRefund(order *Order) {
 	}
 }
 
-func (mc *Matcher) handleTakerRes(order Order) error {
+func (mc *matcher) handleTakerRes(order Order) error {
 	if order.Status == PartialExecuted || order.Status == Pending {
 		if bookToMake, err := mc.getBookById(getBookIdToMakeForOrder(order)); err != nil {
 			return err
@@ -355,13 +327,13 @@ func (mc *Matcher) handleTakerRes(order Order) error {
 	return nil
 }
 
-func (mc *Matcher) saveTakerAsMaker(maker Order, bookToMake *skiplist) error {
+func (mc *matcher) saveTakerAsMaker(maker Order, bookToMake *skiplist) error {
 	pl := nodePayload(maker)
 	makerId, _ := NewOrderId(maker.Id)
 	return bookToMake.insert(makerId, &pl)
 }
 
-func (mc *Matcher) checkOrderIdExists(orderIdBytes []byte) bool {
+func (mc *matcher) checkOrderIdExists(orderIdBytes []byte) bool {
 	orderId, _ := NewOrderId(orderIdBytes)
 	if len((*mc.storage).GetStorage(mc.contractAddress, orderId.getStorageKey())) == 0 {
 		return false
@@ -370,7 +342,7 @@ func (mc *Matcher) checkOrderIdExists(orderIdBytes []byte) bool {
 	}
 }
 
-func (mc *Matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
+func (mc *matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (err error) {
 	size := len(makers)
 	var truncatedSize int // will be zero in case only one partiallyExecuted order
 	if size > 0 {
@@ -405,12 +377,12 @@ func (mc *Matcher) handleModifiedMakers(makers []Order, makerBook *skiplist) (er
 	return nil
 }
 
-func (mc *Matcher) emitOrderRes(orderRes Order) {
+func (mc *matcher) emitOrderRes(orderRes Order) {
 	event := OrderUpdateEvent{orderRes.Order}
 	(*mc.storage).AddLog(newLog(event))
 }
 
-func (mc *Matcher) handleTxs(txs []OrderTx) {
+func (mc *matcher) handleTxs(txs []OrderTx) {
 	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
 		mc.handleTxFundSettle(tx)
@@ -420,7 +392,7 @@ func (mc *Matcher) handleTxs(txs []OrderTx) {
 	}
 }
 
-func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
+func (mc *matcher) handleTxFundSettle(tx OrderTx) {
 	takerInSettle := proto.FundSettle{}
 	takerOutSettle := proto.FundSettle{}
 	makerInSettle := proto.FundSettle{}
@@ -457,7 +429,7 @@ func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
 	mc.updateFee(tx.takerQuoteToken, tx.makerAddress, tx.MakerFee)
 }
 
-func (mc *Matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle) {
+func (mc *matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle) {
 	var (
 		settleMap map[types.TokenTypeId]*proto.FundSettle // token -> settle
 		ok        bool
@@ -480,7 +452,7 @@ func (mc *Matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle
 	ac.ReduceLocked = AddBigInt(ac.ReduceLocked, settle.ReduceLocked)
 }
 
-func (mc *Matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
+func (mc *matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
 	var (
 		userFeeSettles map[types.Address]*proto.UserFeeSettle
 		userFeeSettle  *proto.UserFeeSettle
@@ -504,7 +476,7 @@ func (mc *Matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
 }
 
 
-func (mc *Matcher) rawDelete(orderId OrderId) {
+func (mc *matcher) rawDelete(orderId OrderId) {
 	(*mc.storage).SetStorage(orderId.getStorageKey(), nil)
 }
 
