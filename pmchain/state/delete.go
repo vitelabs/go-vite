@@ -1,59 +1,28 @@
 package chain_state
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
 )
 
 func (sDB *StateDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Address][]*ledger.AccountBlock) {
 	for _, blocks := range invalidSubLedger {
-		sDB.mvDB.DeletePendingByBlockHash(blocks)
+		sDB.mvDB.DeletePendingBlocks(blocks)
 	}
 }
 
-// TODO
 func (sDB *StateDB) DeleteSubLedger(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
-	// clean pending
-	sDB.mvDB.pending.Clean()
-
-	//sbHashList := make([]*types.Hash, 0, len(deletedSnapshotSegments))
-	undo := make(map[uint64]uint64)
+	size := 0
 	for _, seg := range deletedSnapshotSegments {
-		for _, block := range seg.AccountBlocks {
-			accountId := uint64(10)
-			undoLog := sDB.mvDB.GetUndoLog(accountId, block.Height)
-
-			currentPointer := 0
-			undoLogLen := len(undoLog)
-			for currentPointer < undoLogLen {
-				undoKeyId := chain_dbutils.FixedBytesToUint64(undoLog[currentPointer : currentPointer+4])
-				if _, ok := undo[undoKeyId]; !ok {
-					undo[undoKeyId] = chain_dbutils.FixedBytesToUint64(undoLog[currentPointer+4 : currentPointer+8])
-				}
-
-				currentPointer += 8
-			}
-		}
-		//sbHashList = append(sbHashList, &seg.SnapshotBlock.Hash)
+		size += len(seg.AccountBlocks)
 	}
 
-	// delete value id list
-	// set key index
-	// delete undo log list
-	minValueId := helper.MaxUint64
-	for _, valueId := range undo {
-		if valueId < minValueId {
-			minValueId = valueId
+	blockHashList := make([]*types.Hash, 0, size)
+	for _, seg := range deletedSnapshotSegments {
+		for _, accountBlock := range seg.AccountBlocks {
+			blockHashList = append(blockHashList, &accountBlock.Hash)
 		}
-
-		if err := sDB.mvDB.DeleteValue(valueId); err != nil {
-			return err
-		}
-		//sDB.mvDB.``
 	}
-
-	return nil
+	return sDB.mvDB.Undo(blockHashList)
 }

@@ -66,7 +66,7 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 	return accountBlocksLocation, snapshotBlockLocation, nil
 }
 
-func (bDB *BlockDB) DeleteTo(location *Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) DeleteTo(location *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
 	// bDB.fm.DeleteTo(location)
-	return nil, nil
+	return nil, nil, nil
 }

@@ -17,9 +17,9 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 	accountBlock := vmAccountBlock.AccountBlock
 
 	blockHash := &accountBlock.Hash
-	accountId, err := iDB.getAccountId(&accountBlock.AccountAddress)
+	accountId, err := iDB.GetAccountId(&accountBlock.AccountAddress)
 	if err != nil {
-		return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s", err.Error()))
+		return errors.New(fmt.Sprintf("iDB.GetAccountId failed, error is %s", err.Error()))
 	}
 	if accountId <= 0 {
 		// need create account
@@ -38,9 +38,9 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 		iDB.insertReceiveHeight(blockHash, sendAccountId, sendHeight, accountId, accountBlock.Height)
 	} else {
 		// insert on road block
-		toAccountId, err := iDB.getAccountId(&accountBlock.ToAddress)
+		toAccountId, err := iDB.GetAccountId(&accountBlock.ToAddress)
 		if err != nil {
-			return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s, toAccountId is %d", err.Error(), toAccountId))
+			return errors.New(fmt.Sprintf("iDB.GetAccountId failed, error is %s, toAccountId is %d", err.Error(), toAccountId))
 		}
 
 		if toAccountId <= 0 {
@@ -73,9 +73,9 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	// confirm block
 	for addr, hashHeight := range snapshotBlock.SnapshotContent {
-		accountId, err := iDB.getAccountId(&addr)
+		accountId, err := iDB.GetAccountId(&addr)
 		if err != nil {
-			return errors.New(fmt.Sprintf("iDB.getAccountId failed, error is %s", err.Error()))
+			return errors.New(fmt.Sprintf("iDB.GetAccountId failed, error is %s", err.Error()))
 		}
 
 		iDB.insertConfirmHeight(batch, accountId, hashHeight.Height, snapshotBlock.Height)
@@ -114,7 +114,7 @@ func (iDB *IndexDB) insertAccountBlockHeight(batch Batch, accountId uint64, heig
 
 func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, sendHeight, receiveAccountId, receiveHeight uint64) {
 	key := make([]byte, 0, 17)
-	key = append(append(append(key, ReceiveHeightKeyPrefix), chain_dbutils.Uint64ToFixedBytes(sendAccountId)...), chain_dbutils.Uint64ToFixedBytes(sendHeight)...)
+	key = chain_dbutils.CreateReceiveHeightKey(sendAccountId, sendHeight)
 
 	value := chain_dbutils.SerializeAccountIdHeight(receiveAccountId, receiveHeight)
 

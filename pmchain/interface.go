@@ -95,6 +95,9 @@ type Chain interface {
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
 
+	// get latest account block
+	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+
 	// ====== Query snapshot block ======
 
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
@@ -149,6 +152,8 @@ type Chain interface {
 	// The address is contract address when it's first receive block inserted into the chain.
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
+
+	GetAccountId(address *types.Address) (uint64, error)
 
 	// ===== Query state ======
 	// get balance

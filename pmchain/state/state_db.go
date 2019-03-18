@@ -1,23 +1,37 @@
 package chain_state
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/state/mvdb"
 	"math/big"
 )
 
 type StateDB struct {
-	mvDB *multiVersionDB
+	mvDB  *mvdb.MultiVersionDB
+	chain Chain
+
+	ssm *stateSnapshotManager
 }
 
-func NewStateDB(chainDir string) (*StateDB, error) {
-	mvDB, err := newMultiVersionDB(chainDir)
+func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
+	mvDB, err := mvdb.NewMultiVersionDB(chainDir)
+	if err != nil {
+		return nil, err
+	}
+
+	ssm, err := newStateSnapshotManager(chain, mvDB)
 	if err != nil {
 		return nil, err
 	}
 	return &StateDB{
-		mvDB: mvDB,
+		mvDB:  mvDB,
+		chain: chain,
+		ssm:   ssm,
 	}, nil
 }
 
@@ -31,7 +45,13 @@ func (sDB *StateDB) Destroy() error {
 }
 
 func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	accountId := uint64(1)
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return nil, err
+	}
+	if accountId <= 0 {
+		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
 
 	value, err := sDB.mvDB.GetValue(chain_dbutils.CreateBalanceKey(accountId, tokenTypeId))
 	if err != nil {
@@ -42,16 +62,77 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 }
 
 func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
-	accountId := uint64(1)
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return nil, err
+	}
+	if accountId <= 0 {
+		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
 
 	return sDB.mvDB.GetValue(chain_dbutils.CreateCodeKey(accountId))
 }
 
-func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
-	accountId := uint64(1)
-	return sDB.mvDB.GetValue(chain_dbutils.CreateStorageKeyKey(accountId, key))
+func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return nil, err
+	}
+	if accountId <= 0 {
+		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
+
+	value, err := sDB.mvDB.GetValue(chain_dbutils.CreateContractMetaKey(accountId))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(value) <= 0 {
+		return nil, nil
+	}
+
+	meta := &ledger.ContractMeta{}
+	if err := meta.Deserialize(value); err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
-func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator {
-	return nil
+func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return false, err
+	}
+	if accountId <= 0 {
+		return false, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
+
+	return sDB.mvDB.HasValue(chain_dbutils.CreateContractMetaKey(accountId))
+}
+func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return nil, err
+	}
+	if accountId <= 0 {
+		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
+
+	return sDB.mvDB.GetValue(chain_dbutils.CreateStorageKeyPrefix(accountId, []byte(key)))
+}
+
+func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+	accountId, err := sDB.chain.GetAccountId(addr)
+	if err != nil {
+		return nil, err
+	}
+	if accountId <= 0 {
+		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
+	}
+
+	return sDB.mvDB.NewIterator(chain_dbutils.CreateStorageKeyPrefix(accountId, prefix)), nil
+}
+
+func (sDB *StateDB) NewStateSnapshot(addr *types.Address, snapshotBlockHeight uint64) (interfaces.StateSnapshot, error) {
+	return sDB.ssm.NewStateSnapshot(addr, snapshotBlockHeight)
 }

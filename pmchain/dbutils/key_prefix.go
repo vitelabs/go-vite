@@ -25,13 +25,15 @@ const (
 
 	ValueIdKeyPrefix = byte(2)
 
-	StorageKeyKeyPrefix = byte(3)
+	LatestValueKeyPrefix = byte(3)
 
 	BalanceKeyPrefix = byte(4)
 
-	CodeKeyPrefix = byte(5)
+	StorageKeyPrefix = byte(5)
 
-	ContractMetaKeyPrefix = byte(6)
+	CodeKeyPrefix = byte(6)
 
-	StateUndoKeyPrefix = byte(7)
+	ContractMetaKeyPrefix = byte(7)
+
+	StateUndoKeyPrefix = byte(8)
 )

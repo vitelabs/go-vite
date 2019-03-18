@@ -8,12 +8,12 @@ import (
 	"math/big"
 )
 
-/*
- * TODO
- * 1. accountId
- */
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
-	accountId := uint64(1)
+	accountId, err := sDB.chain.GetAccountId(&block.AccountBlock.AccountAddress)
+	if err != nil {
+		return err
+	}
+
 	vmDb := block.VmDb
 
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
@@ -25,10 +25,12 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	keyList := make([][]byte, 0, kvSize)
 	valueList := make([][]byte, 0, kvSize)
 
+	// write balance
 	balanceKeyList, balanceValueList := sDB.prepareWriteBalance(accountId, unsavedBalanceMap)
 	keyList = append(keyList, balanceKeyList...)
 	valueList = append(valueList, balanceValueList...)
 
+	// write storage
 	storageKeyList, storageValueList := sDB.prepareWriteStorage(accountId, unsavedStorage)
 	keyList = append(keyList, storageKeyList...)
 	valueList = append(valueList, storageValueList...)
@@ -45,16 +47,12 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		valueList = append(valueList, unsavedContractMeta.Serialize())
 	}
 
-	if err := sDB.mvDB.Insert(block.AccountBlock, keyList, valueList); err != nil {
+	if err := sDB.mvDB.Insert(&block.AccountBlock.Hash, keyList, valueList); err != nil {
 		return err
 	}
 	return nil
 }
 
-/*
- * TODO
- * 1. accountId
- */
 func (sDB *StateDB) Flush(snapshotBlockHash *types.Hash, blocks []*ledger.AccountBlock) error {
 	blockHashList := make([]*types.Hash, 0, len(blocks))
 
@@ -85,7 +83,7 @@ func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage map[str
 	valueList := make([][]byte, 0, len(unsavedStorage))
 
 	for keyStr, value := range unsavedStorage {
-		keyList = append(keyList, chain_dbutils.CreateStorageKeyKey(accountId, []byte(keyStr)))
+		keyList = append(keyList, chain_dbutils.CreateStorageKeyPrefix(accountId, []byte(keyStr)))
 		valueList = append(valueList, value)
 	}
 	return keyList, valueList

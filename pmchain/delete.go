@@ -38,7 +38,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) (
 	c.indexDB.CleanUnconfirmedIndex()
 
 	// delete blocks
-	deletedSnapshotSegments, err := c.blockDB.DeleteTo(location)
+	deletedSnapshotSegments, unconfirmedAccountBlocks, err := c.blockDB.DeleteTo(location)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteTo failed, error is %s, location is %d", err.Error(), location))
 		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
@@ -59,10 +59,10 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) (
 		return nil, nil, cErr
 	}
 
-	// insert unconfirmed block
-	//for _, block := range unconfirmedBlocks {
-	//	c.cache.InsertUnconfirmedAccountBlock(block)
-	//}
+	//insert unconfirmed block
+	for _, block := range unconfirmedAccountBlocks {
+		c.cache.InsertUnconfirmedAccountBlock(block)
+	}
 
 	return nil, nil, nil
 }

@@ -12,6 +12,14 @@ func CreateAccountAddressKey(addr *types.Address) []byte {
 	return key
 }
 
+func CreateReceiveHeightKey(sendAccountId, sendHeight uint64) []byte {
+	key := make([]byte, 0, 17)
+	key = append(key, ReceiveHeightKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(sendAccountId)...)
+	key = append(key, Uint64ToFixedBytes(sendHeight)...)
+	return key
+}
+
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, AccountIdKeyPrefix)
@@ -62,11 +70,10 @@ func CreateValueIdKey(valueId uint64) []byte {
 	return key
 }
 
-func CreateStorageKeyKey(accountId uint64, storageKey []byte) []byte {
-	key := make([]byte, 0, 9+len(storageKey))
-	key = append(key, StorageKeyKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
-	key = append(key, storageKey...)
+func CreateLatestValueKey(keyId uint64) []byte {
+	key := make([]byte, 0, 9)
+	key = append(key, LatestValueKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(keyId)...)
 	return key
 }
 
@@ -75,6 +82,15 @@ func CreateBalanceKey(accountId uint64, tokenTypeId *types.TokenTypeId) []byte {
 	key = append(key, BalanceKeyPrefix)
 	key = append(key, Uint64ToFixedBytes(accountId)...)
 	key = append(key, tokenTypeId.Bytes()...)
+	return key
+}
+
+func CreateStorageKeyPrefix(accountId uint64, storageKey []byte) []byte {
+	key := make([]byte, 0, 1+8+len(storageKey))
+
+	key = append(key, StorageKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, storageKey...)
 	return key
 }
 
@@ -93,10 +109,9 @@ func CreateContractMetaKey(accountId uint64) []byte {
 	return key
 }
 
-func CreateStateUndoKey(accountId uint64, height uint64) []byte {
-	key := make([]byte, 0, 17)
+func CreateStateUndoKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 33)
 	key = append(key, StateUndoKeyPrefix)
-	key = append(key, SerializeAccountId(accountId)...)
-	key = append(key, SerializeAccountId(height)...)
+	key = append(key, blockHash.Bytes()...)
 	return key
 }

@@ -19,8 +19,20 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	return nil, nil
 }
 
+func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) ([]*chain_block.Location, uint64, [2]uint64, error) {
+	return nil, 0, [2]uint64{}, nil
+}
+
 func (iDB *IndexDB) GetAccountHeightByHash(blockHash *types.Hash) (uint64, uint64, error) {
 	return 0, 0, nil
+}
+
+func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64, error) {
+	return 0, 0, nil
+}
+
+func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
+	return false, nil
 }
 
 //func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (string, error) {

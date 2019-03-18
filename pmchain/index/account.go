@@ -9,15 +9,7 @@ import (
 	"sync/atomic"
 )
 
-func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
-	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
-
-	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountAddressKey(addr), chain_dbutils.SerializeAccountId(newAccountId))
-	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountIdKey(newAccountId), addr.Bytes())
-	return newAccountId
-
-}
-func (iDB *IndexDB) getAccountId(addr *types.Address) (uint64, error) {
+func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	key := chain_dbutils.CreateAccountAddressKey(addr)
 	value, ok := iDB.memDb.Get(key)
 	if !ok {
@@ -35,6 +27,15 @@ func (iDB *IndexDB) getAccountId(addr *types.Address) (uint64, error) {
 		return 0, nil
 	}
 	return chain_dbutils.DeserializeAccountId(value), nil
+}
+
+func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
+	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
+
+	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountAddressKey(addr), chain_dbutils.SerializeAccountId(newAccountId))
+	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountIdKey(newAccountId), addr.Bytes())
+	return newAccountId
+
 }
 
 func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
