@@ -2,7 +2,8 @@ package dex
 
 import (
 	"bytes"
-	"encoding/hex"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	orderproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
@@ -38,6 +39,10 @@ type Order struct {
 	orderproto.Order
 }
 
+type TakerOrder struct {
+	orderproto.OrderInfo
+}
+
 var nilOrderIdValue = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 var maxOrderIdValue = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
@@ -55,11 +60,11 @@ func (id OrderId) getStorageKey() []byte {
 	return append(orderStorageSalt, id[:]...)
 }
 
-func (id OrderId) isNil() bool {
+func (id OrderId) isNilKey() bool {
 	return bytes.Compare(id[:], nilOrderIdValue) == 0
 }
 
-func (id OrderId) isHeader() bool {
+func (id OrderId) isBarrierKey() bool {
 	return bytes.Compare(id[:], maxOrderIdValue) == 0
 }
 
@@ -69,11 +74,11 @@ func (id OrderId) equals(counter nodeKeyType) bool {
 }
 
 func (id OrderId) toString() string {
-	return hex.EncodeToString(id.bytes())
+	return base64.StdEncoding.EncodeToString(id.bytes())
 }
 
 func (id OrderId) IsNormal() bool {
-	return !id.isNil() && !id.isHeader()
+	return !id.isNilKey() && !id.isBarrierKey()
 }
 
 func (id OrderId) bytes() []byte {
@@ -95,7 +100,7 @@ func (protocol *OrderNodeProtocol) getNilKey() nodeKeyType {
 	return nodeKeyType(key)
 }
 
-func (protocol *OrderNodeProtocol) getHeaderKey() nodeKeyType {
+func (protocol *OrderNodeProtocol) getBarrierKey() nodeKeyType {
 	key, _ := NewOrderId(maxOrderIdValue)
 	return nodeKeyType(key)
 }
@@ -189,19 +194,20 @@ func (order Order) compareTo(toPayload *nodePayload) int8 {
 
 // orders should sort as desc by price and timestamp
 func (order Order) randSeed() int64 {
-	return order.Timestamp
+	return int64(binary.BigEndian.Uint64(order.Id[12:20]))
 }
 
 func CompareOrderPrice(order Order, target Order) int8 {
 	var result int8
 	if priceEqual(order.GetPrice(), target.GetPrice()) {
-		if order.GetTimestamp() == target.GetTimestamp() {
-			result = 0
-		} else if order.GetTimestamp() > target.GetTimestamp() {
-			result = -1
-		} else {
-			result = 1
-		}
+		//if order.GetTimestamp() == target.GetTimestamp() {
+		//	result = 0
+		//} else if order.GetTimestamp() > target.GetTimestamp() {
+		//	result = -1
+		//} else {
+		//	result = 1
+		//}
+		return 0
 	} else {
 		cp, _ := new(big.Float).SetString(order.Price)
 		tp, _ := new(big.Float).SetString(target.Price)

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -99,7 +100,6 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	userAddress, _ := types.BytesToAddress([]byte("12345678901234567891"))
 	userAddress1, _ := types.BytesToAddress([]byte("12345678901234567892"))
-	userAddress2, _ := types.BytesToAddress([]byte("12345678901234567892"))
 
 	method := contracts.MethodDexTradeCancelOrder{}
 
@@ -155,29 +155,34 @@ func initDexTradeDatabase()  *testDatabase {
 }
 
 func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteToken tokenInfo, side bool, price string, quantity int64) []byte {
+	tokenInfo := &dexproto.OrderTokenInfo{}
+	tokenInfo.TradeToken = tradeToken.tokenId.Bytes()
+	tokenInfo.QuoteToken = quoteToken.tokenId.Bytes()
+	tokenInfo.TradeTokenDecimals = tradeToken.decimals
+	tokenInfo.QuoteTokenDecimals = quoteToken.decimals
+	fmt.Printf("")
 	order := &dexproto.Order{}
 	order.Id = orderIdBytesFromInt(id)
 	order.Address = address.Bytes()
-	order.TradeToken = tradeToken.tokenId.Bytes()
-	order.QuoteToken = quoteToken.tokenId.Bytes()
-	order.TradeTokenDecimals = tradeToken.decimals
-	order.QuoteTokenDecimals = quoteToken.decimals
-	order.Side = side //sell
+	order.Side = side
 	order.Type = dex.Limited
 	order.Price = price
 	order.Quantity = big.NewInt(quantity).Bytes()
 	order.Status =  dex.Pending
-	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, order.TradeTokenDecimals, order.QuoteTokenDecimals)
+	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, tokenInfo.TradeTokenDecimals, tokenInfo.QuoteTokenDecimals)
 	if order.Type == dex.Limited && !order.Side {//buy
 		//fmt.Printf("newOrderInfo set LockedBuyFee id %v, order.Type %v, order.Side %v, order.Amount %v\n", id, order.Type, order.Side, order.Amount)
 		order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
 	}
-	order.Timestamp = time.Now().Unix()
+	//order.Timestamp = time.Now().Unix()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
-	data, _ := proto.Marshal(order)
+	orderInfo := &dexproto.OrderInfo{}
+	orderInfo.OrderTokenInfo = tokenInfo
+	orderInfo.Order = order
+	data, _ := proto.Marshal(orderInfo)
 	return data
 }
 

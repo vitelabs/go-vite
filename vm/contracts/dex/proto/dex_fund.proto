@@ -69,10 +69,3 @@ message VxFundWithPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
 }
-
-message MarketInfo {
-    int32 TradeTokenDecimals = 1;
-    int32 QuoteTokenDecimals = 2;
-    bytes Creator    = 3; //creator address
-    int64 Timestamp = 4;
-}

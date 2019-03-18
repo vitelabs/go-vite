@@ -23,24 +23,19 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type Order struct {
 	Id                   []byte   `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
 	Address              []byte   `protobuf:"bytes,2,opt,name=Address,proto3" json:"Address,omitempty"`
-	TradeToken           []byte   `protobuf:"bytes,3,opt,name=TradeToken,proto3" json:"TradeToken,omitempty"`
-	QuoteToken           []byte   `protobuf:"bytes,4,opt,name=QuoteToken,proto3" json:"QuoteToken,omitempty"`
-	TradeTokenDecimals   int32    `protobuf:"varint,5,opt,name=TradeTokenDecimals,proto3" json:"TradeTokenDecimals,omitempty"`
-	QuoteTokenDecimals   int32    `protobuf:"varint,6,opt,name=QuoteTokenDecimals,proto3" json:"QuoteTokenDecimals,omitempty"`
-	Side                 bool     `protobuf:"varint,7,opt,name=Side,proto3" json:"Side,omitempty"`
-	Type                 int32    `protobuf:"varint,8,opt,name=Type,proto3" json:"Type,omitempty"`
-	Price                string   `protobuf:"bytes,9,opt,name=Price,proto3" json:"Price,omitempty"`
-	Quantity             []byte   `protobuf:"bytes,10,opt,name=Quantity,proto3" json:"Quantity,omitempty"`
-	Amount               []byte   `protobuf:"bytes,11,opt,name=Amount,proto3" json:"Amount,omitempty"`
-	LockedBuyFee         []byte   `protobuf:"bytes,12,opt,name=LockedBuyFee,proto3" json:"LockedBuyFee,omitempty"`
-	Status               int32    `protobuf:"varint,13,opt,name=Status,proto3" json:"Status,omitempty"`
-	CancelReason         int32    `protobuf:"varint,14,opt,name=CancelReason,proto3" json:"CancelReason,omitempty"`
-	Timestamp            int64    `protobuf:"varint,15,opt,name=Timestamp,proto3" json:"Timestamp,omitempty"`
-	ExecutedQuantity     []byte   `protobuf:"bytes,16,opt,name=ExecutedQuantity,proto3" json:"ExecutedQuantity,omitempty"`
-	ExecutedAmount       []byte   `protobuf:"bytes,17,opt,name=ExecutedAmount,proto3" json:"ExecutedAmount,omitempty"`
-	ExecutedFee          []byte   `protobuf:"bytes,18,opt,name=ExecutedFee,proto3" json:"ExecutedFee,omitempty"`
-	RefundToken          []byte   `protobuf:"bytes,19,opt,name=RefundToken,proto3" json:"RefundToken,omitempty"`
-	RefundQuantity       []byte   `protobuf:"bytes,20,opt,name=RefundQuantity,proto3" json:"RefundQuantity,omitempty"`
+	Side                 bool     `protobuf:"varint,3,opt,name=Side,proto3" json:"Side,omitempty"`
+	Type                 int32    `protobuf:"varint,4,opt,name=Type,proto3" json:"Type,omitempty"`
+	Price                string   `protobuf:"bytes,5,opt,name=Price,proto3" json:"Price,omitempty"`
+	Quantity             []byte   `protobuf:"bytes,6,opt,name=Quantity,proto3" json:"Quantity,omitempty"`
+	Amount               []byte   `protobuf:"bytes,7,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	LockedBuyFee         []byte   `protobuf:"bytes,8,opt,name=LockedBuyFee,proto3" json:"LockedBuyFee,omitempty"`
+	Status               int32    `protobuf:"varint,9,opt,name=Status,proto3" json:"Status,omitempty"`
+	CancelReason         int32    `protobuf:"varint,10,opt,name=CancelReason,proto3" json:"CancelReason,omitempty"`
+	ExecutedQuantity     []byte   `protobuf:"bytes,11,opt,name=ExecutedQuantity,proto3" json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount       []byte   `protobuf:"bytes,12,opt,name=ExecutedAmount,proto3" json:"ExecutedAmount,omitempty"`
+	ExecutedFee          []byte   `protobuf:"bytes,13,opt,name=ExecutedFee,proto3" json:"ExecutedFee,omitempty"`
+	RefundToken          []byte   `protobuf:"bytes,14,opt,name=RefundToken,proto3" json:"RefundToken,omitempty"`
+	RefundQuantity       []byte   `protobuf:"bytes,15,opt,name=RefundQuantity,proto3" json:"RefundQuantity,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -83,34 +78,6 @@ func (m *Order) GetAddress() []byte {
 		return m.Address
 	}
 	return nil
-}
-
-func (m *Order) GetTradeToken() []byte {
-	if m != nil {
-		return m.TradeToken
-	}
-	return nil
-}
-
-func (m *Order) GetQuoteToken() []byte {
-	if m != nil {
-		return m.QuoteToken
-	}
-	return nil
-}
-
-func (m *Order) GetTradeTokenDecimals() int32 {
-	if m != nil {
-		return m.TradeTokenDecimals
-	}
-	return 0
-}
-
-func (m *Order) GetQuoteTokenDecimals() int32 {
-	if m != nil {
-		return m.QuoteTokenDecimals
-	}
-	return 0
 }
 
 func (m *Order) GetSide() bool {
@@ -169,13 +136,6 @@ func (m *Order) GetCancelReason() int32 {
 	return 0
 }
 
-func (m *Order) GetTimestamp() int64 {
-	if m != nil {
-		return m.Timestamp
-	}
-	return 0
-}
-
 func (m *Order) GetExecutedQuantity() []byte {
 	if m != nil {
 		return m.ExecutedQuantity
@@ -211,6 +171,219 @@ func (m *Order) GetRefundQuantity() []byte {
 	return nil
 }
 
+type OrderTokenInfo struct {
+	TradeToken           []byte   `protobuf:"bytes,1,opt,name=TradeToken,proto3" json:"TradeToken,omitempty"`
+	QuoteToken           []byte   `protobuf:"bytes,2,opt,name=QuoteToken,proto3" json:"QuoteToken,omitempty"`
+	TradeTokenDecimals   int32    `protobuf:"varint,3,opt,name=TradeTokenDecimals,proto3" json:"TradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals   int32    `protobuf:"varint,4,opt,name=QuoteTokenDecimals,proto3" json:"QuoteTokenDecimals,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *OrderTokenInfo) Reset()         { *m = OrderTokenInfo{} }
+func (m *OrderTokenInfo) String() string { return proto.CompactTextString(m) }
+func (*OrderTokenInfo) ProtoMessage()    {}
+func (*OrderTokenInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5df90bf1b4327f51, []int{1}
+}
+
+func (m *OrderTokenInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderTokenInfo.Unmarshal(m, b)
+}
+func (m *OrderTokenInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderTokenInfo.Marshal(b, m, deterministic)
+}
+func (m *OrderTokenInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderTokenInfo.Merge(m, src)
+}
+func (m *OrderTokenInfo) XXX_Size() int {
+	return xxx_messageInfo_OrderTokenInfo.Size(m)
+}
+func (m *OrderTokenInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderTokenInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OrderTokenInfo proto.InternalMessageInfo
+
+func (m *OrderTokenInfo) GetTradeToken() []byte {
+	if m != nil {
+		return m.TradeToken
+	}
+	return nil
+}
+
+func (m *OrderTokenInfo) GetQuoteToken() []byte {
+	if m != nil {
+		return m.QuoteToken
+	}
+	return nil
+}
+
+func (m *OrderTokenInfo) GetTradeTokenDecimals() int32 {
+	if m != nil {
+		return m.TradeTokenDecimals
+	}
+	return 0
+}
+
+func (m *OrderTokenInfo) GetQuoteTokenDecimals() int32 {
+	if m != nil {
+		return m.QuoteTokenDecimals
+	}
+	return 0
+}
+
+type OrderInfo struct {
+	Order                *Order          `protobuf:"bytes,1,opt,name=Order,proto3" json:"Order,omitempty"`
+	OrderTokenInfo       *OrderTokenInfo `protobuf:"bytes,2,opt,name=OrderTokenInfo,proto3" json:"OrderTokenInfo,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *OrderInfo) Reset()         { *m = OrderInfo{} }
+func (m *OrderInfo) String() string { return proto.CompactTextString(m) }
+func (*OrderInfo) ProtoMessage()    {}
+func (*OrderInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5df90bf1b4327f51, []int{2}
+}
+
+func (m *OrderInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderInfo.Unmarshal(m, b)
+}
+func (m *OrderInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderInfo.Marshal(b, m, deterministic)
+}
+func (m *OrderInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderInfo.Merge(m, src)
+}
+func (m *OrderInfo) XXX_Size() int {
+	return xxx_messageInfo_OrderInfo.Size(m)
+}
+func (m *OrderInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OrderInfo proto.InternalMessageInfo
+
+func (m *OrderInfo) GetOrder() *Order {
+	if m != nil {
+		return m.Order
+	}
+	return nil
+}
+
+func (m *OrderInfo) GetOrderTokenInfo() *OrderTokenInfo {
+	if m != nil {
+		return m.OrderTokenInfo
+	}
+	return nil
+}
+
+type OrderUpdateInfo struct {
+	Id                   []byte          `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Status               int32           `protobuf:"varint,2,opt,name=Status,proto3" json:"Status,omitempty"`
+	CancelReason         int32           `protobuf:"varint,3,opt,name=CancelReason,proto3" json:"CancelReason,omitempty"`
+	ExecutedQuantity     []byte          `protobuf:"bytes,4,opt,name=ExecutedQuantity,proto3" json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount       []byte          `protobuf:"bytes,5,opt,name=ExecutedAmount,proto3" json:"ExecutedAmount,omitempty"`
+	ExecutedFee          []byte          `protobuf:"bytes,6,opt,name=ExecutedFee,proto3" json:"ExecutedFee,omitempty"`
+	RefundToken          []byte          `protobuf:"bytes,7,opt,name=RefundToken,proto3" json:"RefundToken,omitempty"`
+	RefundQuantity       []byte          `protobuf:"bytes,8,opt,name=RefundQuantity,proto3" json:"RefundQuantity,omitempty"`
+	OrderTokenInfo       *OrderTokenInfo `protobuf:"bytes,9,opt,name=OrderTokenInfo,proto3" json:"OrderTokenInfo,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *OrderUpdateInfo) Reset()         { *m = OrderUpdateInfo{} }
+func (m *OrderUpdateInfo) String() string { return proto.CompactTextString(m) }
+func (*OrderUpdateInfo) ProtoMessage()    {}
+func (*OrderUpdateInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5df90bf1b4327f51, []int{3}
+}
+
+func (m *OrderUpdateInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderUpdateInfo.Unmarshal(m, b)
+}
+func (m *OrderUpdateInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderUpdateInfo.Marshal(b, m, deterministic)
+}
+func (m *OrderUpdateInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderUpdateInfo.Merge(m, src)
+}
+func (m *OrderUpdateInfo) XXX_Size() int {
+	return xxx_messageInfo_OrderUpdateInfo.Size(m)
+}
+func (m *OrderUpdateInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderUpdateInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OrderUpdateInfo proto.InternalMessageInfo
+
+func (m *OrderUpdateInfo) GetId() []byte {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *OrderUpdateInfo) GetCancelReason() int32 {
+	if m != nil {
+		return m.CancelReason
+	}
+	return 0
+}
+
+func (m *OrderUpdateInfo) GetExecutedQuantity() []byte {
+	if m != nil {
+		return m.ExecutedQuantity
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetExecutedAmount() []byte {
+	if m != nil {
+		return m.ExecutedAmount
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetExecutedFee() []byte {
+	if m != nil {
+		return m.ExecutedFee
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetRefundToken() []byte {
+	if m != nil {
+		return m.RefundToken
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetRefundQuantity() []byte {
+	if m != nil {
+		return m.RefundQuantity
+	}
+	return nil
+}
+
+func (m *OrderUpdateInfo) GetOrderTokenInfo() *OrderTokenInfo {
+	if m != nil {
+		return m.OrderTokenInfo
+	}
+	return nil
+}
+
 type OrderNode struct {
 	Order                *Order   `protobuf:"bytes,1,opt,name=Order,proto3" json:"Order,omitempty"`
 	ForwardOnLevel       [][]byte `protobuf:"bytes,2,rep,name=ForwardOnLevel,proto3" json:"ForwardOnLevel,omitempty"`
@@ -224,7 +397,7 @@ func (m *OrderNode) Reset()         { *m = OrderNode{} }
 func (m *OrderNode) String() string { return proto.CompactTextString(m) }
 func (*OrderNode) ProtoMessage()    {}
 func (*OrderNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5df90bf1b4327f51, []int{1}
+	return fileDescriptor_5df90bf1b4327f51, []int{4}
 }
 
 func (m *OrderNode) XXX_Unmarshal(b []byte) error {
@@ -281,7 +454,7 @@ func (m *OrderListMeta) Reset()         { *m = OrderListMeta{} }
 func (m *OrderListMeta) String() string { return proto.CompactTextString(m) }
 func (*OrderListMeta) ProtoMessage()    {}
 func (*OrderListMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5df90bf1b4327f51, []int{2}
+	return fileDescriptor_5df90bf1b4327f51, []int{5}
 }
 
 func (m *OrderListMeta) XXX_Unmarshal(b []byte) error {
@@ -348,7 +521,7 @@ func (m *OrderBook) Reset()         { *m = OrderBook{} }
 func (m *OrderBook) String() string { return proto.CompactTextString(m) }
 func (*OrderBook) ProtoMessage()    {}
 func (*OrderBook) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5df90bf1b4327f51, []int{3}
+	return fileDescriptor_5df90bf1b4327f51, []int{6}
 }
 
 func (m *OrderBook) XXX_Unmarshal(b []byte) error {
@@ -386,7 +559,6 @@ type Transaction struct {
 	Amount               []byte   `protobuf:"bytes,7,opt,name=Amount,proto3" json:"Amount,omitempty"`
 	TakerFee             []byte   `protobuf:"bytes,8,opt,name=TakerFee,proto3" json:"TakerFee,omitempty"`
 	MakerFee             []byte   `protobuf:"bytes,9,opt,name=MakerFee,proto3" json:"MakerFee,omitempty"`
-	Timestamp            int64    `protobuf:"varint,10,opt,name=Timestamp,proto3" json:"Timestamp,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -396,7 +568,7 @@ func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5df90bf1b4327f51, []int{4}
+	return fileDescriptor_5df90bf1b4327f51, []int{7}
 }
 
 func (m *Transaction) XXX_Unmarshal(b []byte) error {
@@ -480,26 +652,19 @@ func (m *Transaction) GetMakerFee() []byte {
 	return nil
 }
 
-func (m *Transaction) GetTimestamp() int64 {
-	if m != nil {
-		return m.Timestamp
-	}
-	return 0
-}
-
 type OrderFail struct {
-	Order                *Order   `protobuf:"bytes,1,opt,name=Order,proto3" json:"Order,omitempty"`
-	ErrCode              string   `protobuf:"bytes,2,opt,name=ErrCode,proto3" json:"ErrCode,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	OrderInfo            *OrderInfo `protobuf:"bytes,1,opt,name=OrderInfo,proto3" json:"OrderInfo,omitempty"`
+	ErrCode              string     `protobuf:"bytes,2,opt,name=ErrCode,proto3" json:"ErrCode,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *OrderFail) Reset()         { *m = OrderFail{} }
 func (m *OrderFail) String() string { return proto.CompactTextString(m) }
 func (*OrderFail) ProtoMessage()    {}
 func (*OrderFail) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5df90bf1b4327f51, []int{5}
+	return fileDescriptor_5df90bf1b4327f51, []int{8}
 }
 
 func (m *OrderFail) XXX_Unmarshal(b []byte) error {
@@ -520,9 +685,9 @@ func (m *OrderFail) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_OrderFail proto.InternalMessageInfo
 
-func (m *OrderFail) GetOrder() *Order {
+func (m *OrderFail) GetOrderInfo() *OrderInfo {
 	if m != nil {
-		return m.Order
+		return m.OrderInfo
 	}
 	return nil
 }
@@ -534,54 +699,211 @@ func (m *OrderFail) GetErrCode() string {
 	return ""
 }
 
+type MarketInfo struct {
+	TradeTokenDecimals   int32    `protobuf:"varint,1,opt,name=TradeTokenDecimals,proto3" json:"TradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals   int32    `protobuf:"varint,2,opt,name=QuoteTokenDecimals,proto3" json:"QuoteTokenDecimals,omitempty"`
+	Creator              []byte   `protobuf:"bytes,3,opt,name=Creator,proto3" json:"Creator,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *MarketInfo) Reset()         { *m = MarketInfo{} }
+func (m *MarketInfo) String() string { return proto.CompactTextString(m) }
+func (*MarketInfo) ProtoMessage()    {}
+func (*MarketInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5df90bf1b4327f51, []int{9}
+}
+
+func (m *MarketInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MarketInfo.Unmarshal(m, b)
+}
+func (m *MarketInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MarketInfo.Marshal(b, m, deterministic)
+}
+func (m *MarketInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MarketInfo.Merge(m, src)
+}
+func (m *MarketInfo) XXX_Size() int {
+	return xxx_messageInfo_MarketInfo.Size(m)
+}
+func (m *MarketInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_MarketInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MarketInfo proto.InternalMessageInfo
+
+func (m *MarketInfo) GetTradeTokenDecimals() int32 {
+	if m != nil {
+		return m.TradeTokenDecimals
+	}
+	return 0
+}
+
+func (m *MarketInfo) GetQuoteTokenDecimals() int32 {
+	if m != nil {
+		return m.QuoteTokenDecimals
+	}
+	return 0
+}
+
+func (m *MarketInfo) GetCreator() []byte {
+	if m != nil {
+		return m.Creator
+	}
+	return nil
+}
+
+type NewMarket struct {
+	TradeToken           []byte   `protobuf:"bytes,1,opt,name=TradeToken,proto3" json:"TradeToken,omitempty"`
+	QuoteToken           []byte   `protobuf:"bytes,2,opt,name=QuoteToken,proto3" json:"QuoteToken,omitempty"`
+	TradeTokenSymbol     string   `protobuf:"bytes,3,opt,name=TradeTokenSymbol,proto3" json:"TradeTokenSymbol,omitempty"`
+	QuoteTokenSymbol     string   `protobuf:"bytes,4,opt,name=QuoteTokenSymbol,proto3" json:"QuoteTokenSymbol,omitempty"`
+	TradeTokenDecimals   int32    `protobuf:"varint,5,opt,name=TradeTokenDecimals,proto3" json:"TradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals   int32    `protobuf:"varint,6,opt,name=QuoteTokenDecimals,proto3" json:"QuoteTokenDecimals,omitempty"`
+	Creator              []byte   `protobuf:"bytes,7,opt,name=Creator,proto3" json:"Creator,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NewMarket) Reset()         { *m = NewMarket{} }
+func (m *NewMarket) String() string { return proto.CompactTextString(m) }
+func (*NewMarket) ProtoMessage()    {}
+func (*NewMarket) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5df90bf1b4327f51, []int{10}
+}
+
+func (m *NewMarket) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NewMarket.Unmarshal(m, b)
+}
+func (m *NewMarket) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NewMarket.Marshal(b, m, deterministic)
+}
+func (m *NewMarket) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NewMarket.Merge(m, src)
+}
+func (m *NewMarket) XXX_Size() int {
+	return xxx_messageInfo_NewMarket.Size(m)
+}
+func (m *NewMarket) XXX_DiscardUnknown() {
+	xxx_messageInfo_NewMarket.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NewMarket proto.InternalMessageInfo
+
+func (m *NewMarket) GetTradeToken() []byte {
+	if m != nil {
+		return m.TradeToken
+	}
+	return nil
+}
+
+func (m *NewMarket) GetQuoteToken() []byte {
+	if m != nil {
+		return m.QuoteToken
+	}
+	return nil
+}
+
+func (m *NewMarket) GetTradeTokenSymbol() string {
+	if m != nil {
+		return m.TradeTokenSymbol
+	}
+	return ""
+}
+
+func (m *NewMarket) GetQuoteTokenSymbol() string {
+	if m != nil {
+		return m.QuoteTokenSymbol
+	}
+	return ""
+}
+
+func (m *NewMarket) GetTradeTokenDecimals() int32 {
+	if m != nil {
+		return m.TradeTokenDecimals
+	}
+	return 0
+}
+
+func (m *NewMarket) GetQuoteTokenDecimals() int32 {
+	if m != nil {
+		return m.QuoteTokenDecimals
+	}
+	return 0
+}
+
+func (m *NewMarket) GetCreator() []byte {
+	if m != nil {
+		return m.Creator
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Order)(nil), "proto.Order")
+	proto.RegisterType((*OrderTokenInfo)(nil), "proto.OrderTokenInfo")
+	proto.RegisterType((*OrderInfo)(nil), "proto.OrderInfo")
+	proto.RegisterType((*OrderUpdateInfo)(nil), "proto.OrderUpdateInfo")
 	proto.RegisterType((*OrderNode)(nil), "proto.OrderNode")
 	proto.RegisterType((*OrderListMeta)(nil), "proto.OrderListMeta")
 	proto.RegisterType((*OrderBook)(nil), "proto.OrderBook")
 	proto.RegisterType((*Transaction)(nil), "proto.Transaction")
 	proto.RegisterType((*OrderFail)(nil), "proto.OrderFail")
+	proto.RegisterType((*MarketInfo)(nil), "proto.MarketInfo")
+	proto.RegisterType((*NewMarket)(nil), "proto.NewMarket")
 }
 
 func init() { proto.RegisterFile("dex_order.proto", fileDescriptor_5df90bf1b4327f51) }
 
 var fileDescriptor_5df90bf1b4327f51 = []byte{
-	// 592 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xdd, 0x6e, 0xd3, 0x30,
-	0x14, 0x56, 0xda, 0xa5, 0x6d, 0x4e, 0xbb, 0x6e, 0x98, 0x09, 0x59, 0x13, 0x42, 0x51, 0x2e, 0xa6,
-	0x08, 0xa4, 0x5d, 0xc0, 0x13, 0x6c, 0x63, 0x13, 0x95, 0x5a, 0xc6, 0xb2, 0xde, 0x23, 0x13, 0x1f,
-	0x20, 0x6a, 0x1b, 0x4f, 0x8e, 0x03, 0xdb, 0xe5, 0x9e, 0x00, 0xf1, 0xc6, 0xc8, 0xc7, 0x4e, 0xdb,
-	0xec, 0x47, 0xe2, 0xaa, 0xf9, 0x7e, 0x4e, 0x7d, 0x12, 0x7f, 0x1f, 0xec, 0x49, 0xbc, 0xfd, 0xaa,
-	0xb4, 0x44, 0x7d, 0x7c, 0xa3, 0x95, 0x51, 0x2c, 0xa4, 0x9f, 0xe4, 0x3e, 0x84, 0xf0, 0xd2, 0xd2,
-	0x6c, 0x0c, 0x9d, 0x89, 0xe4, 0x41, 0x1c, 0xa4, 0xa3, 0xac, 0x33, 0x91, 0x8c, 0x43, 0xff, 0x44,
-	0x4a, 0x8d, 0x55, 0xc5, 0x3b, 0x44, 0x36, 0x90, 0xbd, 0x01, 0x98, 0x6b, 0x21, 0x71, 0xae, 0x16,
-	0x58, 0xf2, 0x2e, 0x89, 0x5b, 0x8c, 0xd5, 0xaf, 0x6a, 0x65, 0xbc, 0xbe, 0xe3, 0xf4, 0x0d, 0xc3,
-	0x8e, 0x81, 0x6d, 0xdc, 0x1f, 0x31, 0x2f, 0x56, 0x62, 0x59, 0xf1, 0x30, 0x0e, 0xd2, 0x30, 0x7b,
-	0x42, 0xb1, 0xfe, 0xcd, 0xf4, 0xda, 0xdf, 0x73, 0xfe, 0xc7, 0x0a, 0x63, 0xb0, 0x73, 0x5d, 0x48,
-	0xe4, 0xfd, 0x38, 0x48, 0x07, 0x19, 0x3d, 0x5b, 0x6e, 0x7e, 0x77, 0x83, 0x7c, 0x40, 0x53, 0xf4,
-	0xcc, 0x0e, 0x20, 0xfc, 0xa2, 0x8b, 0x1c, 0x79, 0x14, 0x07, 0x69, 0x94, 0x39, 0xc0, 0x0e, 0x61,
-	0x70, 0x55, 0x8b, 0xd2, 0x14, 0xe6, 0x8e, 0x03, 0xed, 0xbe, 0xc6, 0xec, 0x15, 0xf4, 0x4e, 0x56,
-	0xaa, 0x2e, 0x0d, 0x1f, 0x92, 0xe2, 0x11, 0x4b, 0x60, 0x34, 0x55, 0xf9, 0x02, 0xe5, 0x69, 0x7d,
-	0x77, 0x81, 0xc8, 0x47, 0xa4, 0xb6, 0x38, 0x3b, 0x7b, 0x6d, 0x84, 0xa9, 0x2b, 0xbe, 0x4b, 0x3b,
-	0x78, 0x64, 0x67, 0xcf, 0x44, 0x99, 0xe3, 0x32, 0x43, 0x51, 0xa9, 0x92, 0x8f, 0x49, 0x6d, 0x71,
-	0xec, 0x35, 0x44, 0xf3, 0x62, 0x85, 0x95, 0x11, 0xab, 0x1b, 0xbe, 0x17, 0x07, 0x69, 0x37, 0xdb,
-	0x10, 0xec, 0x2d, 0xec, 0x9f, 0xdf, 0x62, 0x5e, 0x1b, 0x94, 0xeb, 0xcd, 0xf7, 0x69, 0x83, 0x47,
-	0x3c, 0x3b, 0x82, 0x71, 0xc3, 0xf9, 0x37, 0x79, 0x41, 0xce, 0x07, 0x2c, 0x8b, 0x61, 0xd8, 0x30,
-	0xf6, 0x85, 0x18, 0x99, 0xb6, 0x29, 0xeb, 0xc8, 0xf0, 0x7b, 0x5d, 0x4a, 0x77, 0xcd, 0x2f, 0x9d,
-	0x63, 0x8b, 0xb2, 0x67, 0x39, 0xb8, 0xde, 0xea, 0xc0, 0x9d, 0xd5, 0x66, 0x93, 0xfb, 0x00, 0x22,
-	0xca, 0xe0, 0x67, 0x25, 0x91, 0x25, 0x3e, 0x90, 0x14, 0xc5, 0xe1, 0xfb, 0x91, 0xcb, 0xeb, 0x31,
-	0x71, 0x99, 0xcf, 0xea, 0x11, 0x8c, 0x2f, 0x94, 0xfe, 0x2d, 0xb4, 0xbc, 0x2c, 0xa7, 0xf8, 0x0b,
-	0x97, 0xbc, 0x13, 0x77, 0xed, 0x3f, 0xb7, 0x59, 0x96, 0xc2, 0xde, 0xa9, 0xc8, 0x17, 0xdb, 0xc6,
-	0x2e, 0x19, 0x1f, 0xd2, 0xc9, 0xdf, 0x00, 0x76, 0xe9, 0xbf, 0xa7, 0x45, 0x65, 0x66, 0x68, 0x84,
-	0xbd, 0xaf, 0x4f, 0x28, 0x9a, 0x45, 0x46, 0x99, 0x47, 0x94, 0x24, 0x51, 0x2c, 0x7d, 0x29, 0xe8,
-	0xd9, 0x7a, 0xa7, 0x58, 0xfe, 0x30, 0x3f, 0xa9, 0x0d, 0x61, 0xe6, 0x91, 0x4d, 0x98, 0x3b, 0x75,
-	0x87, 0x68, 0x07, 0x9e, 0xd8, 0x3e, 0x7c, 0x6a, 0xfb, 0xe4, 0x9d, 0xff, 0x2c, 0xa7, 0x4a, 0x2d,
-	0x6c, 0xa9, 0x66, 0x42, 0x2f, 0xd0, 0x50, 0xb4, 0x83, 0xb8, 0x9b, 0x46, 0xd9, 0x16, 0x93, 0xfc,
-	0xe9, 0xc0, 0x70, 0xae, 0x45, 0x59, 0x89, 0xdc, 0x14, 0xaa, 0x7c, 0x54, 0x67, 0x1b, 0x21, 0xb1,
-	0x40, 0x4d, 0xe3, 0x1d, 0x6a, 0xc6, 0x86, 0xb0, 0x65, 0x27, 0x30, 0x91, 0xbe, 0xcf, 0x0d, 0xb4,
-	0xca, 0xcc, 0x2b, 0xae, 0xc9, 0x0d, 0xdc, 0xd4, 0x27, 0x7c, 0xae, 0x3e, 0xbd, 0x67, 0xeb, 0xd3,
-	0x6f, 0xd5, 0xe7, 0x10, 0x06, 0x74, 0x9c, 0x4d, 0xda, 0xc0, 0xcd, 0x34, 0xd8, 0x6a, 0xb3, 0x46,
-	0x8b, 0x9c, 0xd6, 0xe0, 0x76, 0x2d, 0xe0, 0x41, 0x2d, 0x92, 0x89, 0xff, 0x7c, 0x17, 0xf6, 0x86,
-	0xfe, 0x27, 0x55, 0x1c, 0xfa, 0xe7, 0x5a, 0x9f, 0x29, 0xff, 0x81, 0xa2, 0xac, 0x81, 0xdf, 0x7a,
-	0xe4, 0xfe, 0xf0, 0x2f, 0x00, 0x00, 0xff, 0xff, 0x3a, 0x24, 0x9e, 0x02, 0x46, 0x05, 0x00, 0x00,
+	// 741 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xc1, 0x6e, 0xda, 0x4a,
+	0x14, 0x95, 0x0d, 0x06, 0x7c, 0x21, 0x10, 0x8d, 0xde, 0x7b, 0xb2, 0xa2, 0xa7, 0x0a, 0x79, 0x11,
+	0xa1, 0x54, 0x62, 0x91, 0xae, 0xbb, 0x48, 0xd2, 0x44, 0x45, 0x82, 0xa4, 0x71, 0xc8, 0xba, 0x9a,
+	0x30, 0x37, 0x2d, 0x82, 0x78, 0xa2, 0x61, 0x68, 0xc2, 0xb2, 0x9b, 0xee, 0xfb, 0x01, 0xfd, 0x87,
+	0xfe, 0x43, 0x7f, 0xa3, 0x3f, 0xd1, 0x3f, 0xa8, 0xe6, 0xce, 0x18, 0x0c, 0x21, 0x2d, 0x51, 0xbb,
+	0xc2, 0xe7, 0xdc, 0x33, 0x9e, 0xe3, 0x7b, 0x0f, 0x17, 0x1a, 0x02, 0xef, 0xdf, 0x4a, 0x25, 0x50,
+	0xb5, 0x6f, 0x95, 0xd4, 0x92, 0x05, 0xf4, 0x13, 0x7f, 0x2b, 0x40, 0x70, 0x66, 0x68, 0x56, 0x07,
+	0xbf, 0x23, 0x22, 0xaf, 0xe9, 0xb5, 0x6a, 0x89, 0xdf, 0x11, 0x2c, 0x82, 0xf2, 0x81, 0x10, 0x0a,
+	0x27, 0x93, 0xc8, 0x27, 0x32, 0x83, 0x8c, 0x41, 0xf1, 0x62, 0x28, 0x30, 0x2a, 0x34, 0xbd, 0x56,
+	0x25, 0xa1, 0x67, 0xc3, 0xf5, 0x67, 0xb7, 0x18, 0x15, 0x9b, 0x5e, 0x2b, 0x48, 0xe8, 0x99, 0xfd,
+	0x03, 0xc1, 0x1b, 0x35, 0x1c, 0x60, 0x14, 0x34, 0xbd, 0x56, 0x98, 0x58, 0xc0, 0x76, 0xa0, 0x72,
+	0x3e, 0xe5, 0xa9, 0x1e, 0xea, 0x59, 0x54, 0xa2, 0x17, 0xcf, 0x31, 0xfb, 0x0f, 0x4a, 0x07, 0x37,
+	0x72, 0x9a, 0xea, 0xa8, 0x4c, 0x15, 0x87, 0x58, 0x0c, 0xb5, 0xae, 0x1c, 0x8c, 0x50, 0x1c, 0x4e,
+	0x67, 0x27, 0x88, 0x51, 0x85, 0xaa, 0x4b, 0x9c, 0x39, 0x7b, 0xa1, 0xb9, 0x9e, 0x4e, 0xa2, 0x90,
+	0x3c, 0x38, 0x64, 0xce, 0x1e, 0xf1, 0x74, 0x80, 0xe3, 0x04, 0xf9, 0x44, 0xa6, 0x11, 0x50, 0x75,
+	0x89, 0x63, 0x7b, 0xb0, 0x7d, 0x7c, 0x8f, 0x83, 0xa9, 0x46, 0x31, 0xf7, 0x56, 0xa5, 0x3b, 0x1e,
+	0xf0, 0x6c, 0x17, 0xea, 0x19, 0xe7, 0xbc, 0xd6, 0x48, 0xb9, 0xc2, 0xb2, 0x26, 0x54, 0x33, 0xc6,
+	0x58, 0xde, 0x22, 0x51, 0x9e, 0x32, 0x8a, 0x04, 0xaf, 0xa7, 0xa9, 0xe8, 0xcb, 0x11, 0xa6, 0x51,
+	0xdd, 0x2a, 0x72, 0x94, 0xb9, 0xcb, 0xc2, 0xb9, 0xab, 0x86, 0xbd, 0x6b, 0x99, 0x8d, 0xbf, 0x7a,
+	0x50, 0xa7, 0x29, 0xd2, 0xb1, 0x4e, 0x7a, 0x2d, 0xd9, 0x33, 0x80, 0xbe, 0xe2, 0x02, 0xed, 0xbb,
+	0xed, 0x58, 0x73, 0x8c, 0xa9, 0x9f, 0x4f, 0xa5, 0x76, 0x75, 0x3b, 0xe1, 0x1c, 0xc3, 0xda, 0xc0,
+	0x16, 0xea, 0x57, 0x38, 0x18, 0xde, 0xf0, 0xf1, 0x84, 0x46, 0x1e, 0x24, 0x6b, 0x2a, 0x46, 0xbf,
+	0x38, 0x3d, 0xd7, 0xdb, 0x38, 0xac, 0xa9, 0xc4, 0x29, 0x84, 0xe4, 0x98, 0xcc, 0xc6, 0x2e, 0x84,
+	0xe4, 0xb3, 0xba, 0x5f, 0xb3, 0x19, 0x6d, 0x13, 0x97, 0xb8, 0x7c, 0xbe, 0x5c, 0xfd, 0x44, 0x32,
+	0x5d, 0xdd, 0xff, 0x37, 0x2f, 0x9e, 0x17, 0x93, 0x15, 0x71, 0xfc, 0xdd, 0x87, 0x06, 0x51, 0x97,
+	0xb7, 0x82, 0x6b, 0xa4, 0x6b, 0x57, 0x23, 0xbf, 0x88, 0x90, 0xff, 0xcb, 0x08, 0x15, 0x36, 0x8c,
+	0x50, 0x71, 0xe3, 0x08, 0x05, 0x9b, 0x44, 0xa8, 0xf4, 0xdb, 0x08, 0x95, 0x37, 0x89, 0x50, 0x65,
+	0x5d, 0x84, 0xd6, 0xb4, 0x37, 0x7c, 0x4a, 0x7b, 0x3f, 0x7a, 0x6e, 0x9e, 0xa7, 0x52, 0xe0, 0x46,
+	0xf3, 0xdc, 0x85, 0xfa, 0x89, 0x54, 0x77, 0x5c, 0x89, 0xb3, 0xb4, 0x8b, 0x1f, 0x70, 0x1c, 0xf9,
+	0xcd, 0x82, 0x31, 0xb6, 0xcc, 0xb2, 0x16, 0x34, 0x0e, 0xf9, 0x60, 0x94, 0x17, 0x16, 0x48, 0xb8,
+	0x4a, 0xc7, 0x9f, 0x3d, 0xd8, 0xa2, 0x77, 0x77, 0x87, 0x13, 0xdd, 0x43, 0xcd, 0xcd, 0x40, 0x5f,
+	0x23, 0xcf, 0x8c, 0xd4, 0x12, 0x87, 0x68, 0x5b, 0xf1, 0xe1, 0xd8, 0xc5, 0x9e, 0x9e, 0x8d, 0xb6,
+	0x8b, 0xe9, 0x3b, 0xfd, 0xde, 0x8d, 0xd7, 0x21, 0xb3, 0xc5, 0xec, 0xad, 0x36, 0xcb, 0x16, 0xac,
+	0x71, 0x1f, 0xac, 0x73, 0x1f, 0x3f, 0x77, 0x6d, 0x39, 0x94, 0x72, 0x64, 0xfe, 0x73, 0x3d, 0xae,
+	0x46, 0xa8, 0x69, 0x7d, 0x7a, 0xcd, 0x42, 0x2b, 0x4c, 0x72, 0x4c, 0xfc, 0xc3, 0x83, 0x6a, 0x5f,
+	0xf1, 0x74, 0xc2, 0x07, 0x7a, 0x28, 0xd3, 0x07, 0xf9, 0xfc, 0x1f, 0xc2, 0x3e, 0x1f, 0xa1, 0xa2,
+	0xe3, 0x3e, 0x6d, 0xdf, 0x05, 0x61, 0x16, 0x36, 0x81, 0x8e, 0xa0, 0x2f, 0xa8, 0x25, 0x19, 0x34,
+	0x95, 0x9e, 0xab, 0xd8, 0x48, 0x66, 0xf0, 0x2f, 0xae, 0xe8, 0x1d, 0xa8, 0xd0, 0x75, 0x8b, 0xf5,
+	0x3c, 0xc7, 0xa6, 0xd6, 0xcb, 0x6a, 0xa1, 0xad, 0x65, 0x38, 0xbe, 0x74, 0x0d, 0x3a, 0x31, 0x33,
+	0x68, 0xe7, 0x96, 0x82, 0xcb, 0xce, 0x76, 0x3e, 0x3b, 0x14, 0xbd, 0xdc, 0xde, 0x88, 0xa0, 0x7c,
+	0xac, 0xd4, 0x91, 0x74, 0xed, 0x08, 0x93, 0x0c, 0xc6, 0x9f, 0xbc, 0xac, 0xd7, 0x24, 0x5c, 0xbf,
+	0xcd, 0xbc, 0x27, 0x6e, 0x33, 0xff, 0xb1, 0x6d, 0x66, 0x8c, 0x1c, 0x29, 0xe4, 0x5a, 0xaa, 0xac,
+	0xf7, 0x0e, 0xc6, 0x5f, 0x7c, 0x08, 0x4f, 0xf1, 0xce, 0x7a, 0xf9, 0xe3, 0xad, 0xbc, 0x07, 0xdb,
+	0x0b, 0xf5, 0xc5, 0xec, 0xe6, 0x4a, 0x8e, 0xe9, 0xc2, 0x30, 0x79, 0xc0, 0x1b, 0xed, 0xe2, 0xa4,
+	0xd3, 0x16, 0xad, 0x76, 0x95, 0x7f, 0xa4, 0x3f, 0xc1, 0x13, 0xfb, 0x53, 0xda, 0xa4, 0x3f, 0xe5,
+	0xa5, 0xfe, 0x5c, 0x95, 0x68, 0xbc, 0x2f, 0x7e, 0x06, 0x00, 0x00, 0xff, 0xff, 0x8b, 0x16, 0x18,
+	0xe7, 0xa1, 0x08, 0x00, 0x00,
 }

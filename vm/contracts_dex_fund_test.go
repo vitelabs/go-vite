@@ -149,7 +149,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	assert.Equal(t, err, dex.MarketNotExistsError)
 
 	innerTestNewMarket(t, db)
-	
+
 	err = method.DoSend(db, senderAccBlock)
 	assert.True(t, err == nil)
 
@@ -176,10 +176,10 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	param1 := new(dex.ParamDexSerializedData)
 	err = contracts.ABIDexTrade.UnpackMethod(param1, contracts.MethodNameDexTradeNewOrder, appendedBlocks[0].Data)
-	order1 := &dexproto.Order{}
+	order1 := &dexproto.OrderInfo{}
 	proto.Unmarshal(param1.Data, order1)
-	assert.True(t, CheckBigEqualToInt(6, order1.Amount))
-	assert.Equal(t, order1.Status, int32(dex.Pending))
+	assert.True(t, CheckBigEqualToInt(6, order1.Order.Amount))
+	assert.Equal(t, order1.Order.Status, int32(dex.Pending))
 }
 
 func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Address) {

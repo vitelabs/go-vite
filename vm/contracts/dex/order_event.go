@@ -7,9 +7,11 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 )
 
-const orderEventName = "orderUpdateEvent"
+const newOrderEventName = "newOrderEvent"
+const orderUpdateEventName = "orderUpdateEvent"
 const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
+const newMarketEventName = "newMarketEvent"
 
 
 const (
@@ -25,8 +27,12 @@ type OrderEvent interface {
 	fromBytes([]byte) interface{}
 }
 
+type NewOrderEvent struct {
+	dexproto.OrderInfo
+}
+
 type OrderUpdateEvent struct {
-	dexproto.Order
+	dexproto.OrderUpdateInfo
 }
 
 type TransactionEvent struct {
@@ -37,18 +43,40 @@ type NewOrderFailEvent struct {
 	dexproto.OrderFail
 }
 
+type NewMarketEvent struct {
+	dexproto.NewMarket
+}
+
+func (od NewOrderEvent) getTopicId() types.Hash {
+	return fromNameToHash(newOrderEventName)
+}
+
+func (od NewOrderEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&od.OrderInfo)
+	return data
+}
+
+func (od NewOrderEvent) fromBytes(data []byte) interface{} {
+	event := NewOrderEvent{}
+	if err := proto.Unmarshal(data, &event.OrderInfo); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
 func (od OrderUpdateEvent) getTopicId() types.Hash {
-	return fromNameToHash(orderEventName)
+	return fromNameToHash(orderUpdateEventName)
 }
 
 func (od OrderUpdateEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&od.Order)
+	data, _ := proto.Marshal(&od.OrderUpdateInfo)
 	return data
 }
 
 func (od OrderUpdateEvent) fromBytes(data []byte) interface{} {
 	event := OrderUpdateEvent{}
-	if err := proto.Unmarshal(data, &event.Order); err != nil {
+	if err := proto.Unmarshal(data, &event.OrderUpdateInfo); err != nil {
 		return nil
 	} else {
 		return event
@@ -85,6 +113,24 @@ func (of NewOrderFailEvent) toDataBytes() []byte {
 func (of NewOrderFailEvent) fromBytes(data []byte) interface{} {
 	event := NewOrderFailEvent{}
 	if err := proto.Unmarshal(data, &event.OrderFail); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (me NewMarketEvent) getTopicId() types.Hash {
+	return fromNameToHash(newMarketEventName)
+}
+
+func (me NewMarketEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&me.NewMarket)
+	return data
+}
+
+func (me NewMarketEvent) fromBytes(data []byte) interface{} {
+	event := NewMarketEvent{}
+	if err := proto.Unmarshal(data, &event.NewMarket); err != nil {
 		return nil
 	} else {
 		return event
