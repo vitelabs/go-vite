@@ -79,3 +79,19 @@ message OrderFail {
     string ErrCode = 2;
 }
 
+message MarketInfo {
+    int32 TradeTokenDecimals = 1;
+    int32 QuoteTokenDecimals = 2;
+    bytes Creator    = 3; //creator address
+}
+
+message NewMarket {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    string TradeTokenSymbol = 3;
+    string QuoteTokenSymbol = 4;
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bytes Creator    = 7; //creator address
+}
+

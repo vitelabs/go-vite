@@ -205,19 +205,25 @@ func CheckMarketExists(db vmctxt_interface.VmDatabase, tradeToken, quoteToken ty
 	return len(db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken))) > 0
 }
 
-func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, marketParam *ParamDexFundNewMarket, address types.Address) error {
+func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, marketParam *ParamDexFundNewMarket, address types.Address) error {
 	if err, tradeTokenInfo := GetTokenInfo(db, marketParam.TradeToken); err != nil {
 		return err
 	} else {
 		marketInfo.TradeTokenDecimals = int32(tradeTokenInfo.Decimals)
+		newMarketEvent.TradeToken = marketParam.TradeToken.Bytes()
+		newMarketEvent.TradeTokenDecimals = marketInfo.TradeTokenDecimals
+		newMarketEvent.TradeTokenSymbol = tradeTokenInfo.TokenSymbol
 	}
 	if err, quoteTokenInfo := GetTokenInfo(db, marketParam.QuoteToken); err != nil {
 		return err
 	} else {
 		marketInfo.QuoteTokenDecimals = int32(quoteTokenInfo.Decimals)
+		newMarketEvent.QuoteToken = marketParam.QuoteToken.Bytes()
+		newMarketEvent.QuoteTokenDecimals = marketInfo.QuoteTokenDecimals
+		newMarketEvent.QuoteTokenSymbol = quoteTokenInfo.TokenSymbol
 	}
 	marketInfo.Creator = address.Bytes()
-	marketInfo.Timestamp = db.CurrentSnapshotBlock().Timestamp.Unix()
+	newMarketEvent.Creator = address.Bytes()
 	return nil
 }
 
@@ -738,6 +744,13 @@ func SaveMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, trad
 	} else {
 		return err
 	}
+}
+
+func AddNewMarketEventLog(db vmctxt_interface.VmDatabase, newMarketEvent *NewMarketEvent) {
+	log := &ledger.VmLog{}
+	log.Topics = append(log.Topics, newMarketEvent.getTopicId())
+	log.Data = newMarketEvent.toDataBytes()
+	db.AddLog(log)
 }
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {

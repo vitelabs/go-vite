@@ -11,6 +11,7 @@ const newOrderEventName = "newOrderEvent"
 const orderUpdateEventName = "orderUpdateEvent"
 const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
+const newMarketEventName = "newMarketEvent"
 
 
 const (
@@ -40,6 +41,10 @@ type TransactionEvent struct {
 
 type NewOrderFailEvent struct {
 	dexproto.OrderFail
+}
+
+type NewMarketEvent struct {
+	dexproto.NewMarket
 }
 
 func (od NewOrderEvent) getTopicId() types.Hash {
@@ -108,6 +113,24 @@ func (of NewOrderFailEvent) toDataBytes() []byte {
 func (of NewOrderFailEvent) fromBytes(data []byte) interface{} {
 	event := NewOrderFailEvent{}
 	if err := proto.Unmarshal(data, &event.OrderFail); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (me NewMarketEvent) getTopicId() types.Hash {
+	return fromNameToHash(newMarketEventName)
+}
+
+func (me NewMarketEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&me.NewMarket)
+	return data
+}
+
+func (me NewMarketEvent) fromBytes(data []byte) interface{} {
+	event := NewMarketEvent{}
+	if err := proto.Unmarshal(data, &event.NewMarket); err != nil {
 		return nil
 	} else {
 		return event

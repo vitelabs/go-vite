@@ -463,7 +463,8 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 		return []*SendBlock{}, dex.MarketExistsError
 	}
 	marketInfo := &dex.MarketInfo{}
-	if err = dex.RenderMarketInfo(db, marketInfo, param, sendBlock.AccountAddress); err != nil {
+	newMarketEvent := &dex.NewMarketEvent{}
+	if err = dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
 
@@ -491,6 +492,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 	if err = dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken); err != nil {
 		return []*SendBlock{}, err
 	}
+	dex.AddNewMarketEventLog(db, newMarketEvent)
 	return []*SendBlock{}, nil
 }
 
