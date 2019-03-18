@@ -66,6 +66,7 @@ var simpleContracts = map[types.Address]*precompiledContract{
 			contracts.MethodNameDexFundSettleOrders:             &contracts.MethodDexFundSettleOrders{},
 			contracts.MethodNameDexFundFeeDividend:             &contracts.MethodDexFundFeeDividend{},
 			contracts.MethodNameDexFundMinedVxDividend:             &contracts.MethodDexFundMinedVxDividend{},
+			contracts.MethodNameDexFundNewMarket:             &contracts.MethodDexFundNewMarket{},
 		},
 		contracts.ABIDexFund,
 	},
