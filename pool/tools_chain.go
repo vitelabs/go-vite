@@ -2,10 +2,10 @@ package pool
 
 import (
 	"strconv"
-
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -131,7 +131,17 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 	return block
 }
 func (self *accountCh) getQuotaUnused() uint64 {
-	return uint64(-1)
+	// todo
+	return uint64(helper.MaxUint64)
+}
+func (self *accountCh) getConfirmedTimes(abHash *types.Hash) (uint64, error) {
+	// todo
+	return 0, nil
+}
+func (self *accountCh) needSnapshot(addr *types.Address) uint8 {
+	// todo
+	// 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+	return uint8(0)
 }
 
 type snapshotCh struct {

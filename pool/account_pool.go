@@ -643,8 +643,13 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 		if self.hashBlacklist.Exists(block.Hash()) {
 			return uint64(i - minH), errors.New("block in blacklist")
 		}
+		// check quota
 		if info.quotaEnough(block) {
 			return uint64(i - minH), errors.New("block quota not enough.")
+		}
+		// check request block confirmed time for response block
+		if err := self.checkSnapshotSuccess(block); err != nil {
+			return uint64(i - minH), err
 		}
 		item := NewItem(block, &self.address)
 
@@ -713,6 +718,22 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 		} else {
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
+		}
+	}
+	return nil
+}
+func (self *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
+	if block.block.IsReceiveBlock() {
+		if num := self.rw.needSnapshot(&block.block.ToAddress); num > 0 {
+			b, err := self.rw.getConfirmedTimes(&block.block.FromBlockHash)
+			if err != nil {
+				return err
+			}
+			if b >= uint64(num) {
+				return nil
+			} else {
+				return errors.New("send block need to snapshot.")
+			}
 		}
 	}
 	return nil
