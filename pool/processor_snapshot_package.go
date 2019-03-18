@@ -5,10 +5,8 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type snapshotPackage struct {
@@ -140,7 +138,7 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 		self.ls[max] = tmp
 	}
 
-	self.all[b.Hash()] = &ownerLevel{b.ownerWrapper, max}
+	self.addToAll(b, &ownerLevel{b.ownerWrapper, max})
 	return tmp.Add(b)
 }
 
@@ -148,5 +146,10 @@ func (self *snapshotPackage) print() {
 	for i, _ := range self.ls {
 		fmt.Println("----------Level" + strconv.Itoa(i) + "------------")
 		//v.print()
+	}
+}
+func (self *snapshotPackage) addToAll(b *Item, l *ownerLevel) {
+	for _, v := range b.Keys() {
+		self.all[v] = l
 	}
 }

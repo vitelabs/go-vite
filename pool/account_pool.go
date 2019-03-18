@@ -55,7 +55,7 @@ type accountPoolBlock struct {
 	fail     bool
 }
 
-func (self *accountPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *types.Hash) {
+func (self *accountPoolBlock) ReferHashes() (keys []types.Hash, accounts []types.Hash, snapshot *types.Hash) {
 	if self.block.IsReceiveBlock() {
 		accounts = append(accounts, self.block.FromBlockHash)
 	}
@@ -63,7 +63,9 @@ func (self *accountPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *ty
 		accounts = append(accounts, self.PrevHash())
 	}
 	snapshot = &self.block.SnapshotHash
-	return accounts, snapshot
+	keys = append(keys, self.Hash())
+	// todo add send hashes for RS block
+	return keys, accounts, snapshot
 }
 
 func (self *accountPoolBlock) Height() uint64 {

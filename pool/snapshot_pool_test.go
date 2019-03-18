@@ -20,7 +20,7 @@ type mockCommonBlock struct {
 	prevHash types.Hash
 }
 
-func (self *mockCommonBlock) ReferHashes() ([]types.Hash, *types.Hash) {
+func (self *mockCommonBlock) ReferHashes() ([]types.Hash, []types.Hash, *types.Hash) {
 	panic("implement me")
 }
 

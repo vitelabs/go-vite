@@ -41,6 +41,7 @@ type Item struct {
 	commonBlock
 	owner         *types.Address
 	ownerWrapper  string
+	keys          []types.Hash
 	referAccounts []types.Hash
 	referSnapshot *types.Hash
 }
@@ -53,12 +54,16 @@ func NewItem(b commonBlock, owner *types.Address) *Item {
 	} else {
 		i.ownerWrapper = owner.String()
 	}
-	i.referAccounts, i.referSnapshot = b.ReferHashes()
+	i.keys, i.referAccounts, i.referSnapshot = b.ReferHashes()
 	return i
 }
 
 func (self *Item) Snapshot() bool {
 	return self.owner == nil
+}
+
+func (self *Item) Keys() []types.Hash {
+	return self.keys
 }
 
 type bucket struct {

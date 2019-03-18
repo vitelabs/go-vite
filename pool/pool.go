@@ -78,7 +78,7 @@ type commonBlock interface {
 	resetForkVersion()
 	forkVersion() int
 	Source() types.BlockSource
-	ReferHashes() ([]types.Hash, *types.Hash)
+	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
 }
 
 func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {

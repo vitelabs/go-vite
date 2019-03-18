@@ -44,7 +44,7 @@ type snapshotPoolBlock struct {
 	failStat      *failStat
 }
 
-func (self *snapshotPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *types.Hash) {
+func (self *snapshotPoolBlock) ReferHashes() (keys []types.Hash, accounts []types.Hash, snapshot *types.Hash) {
 	for _, v := range self.block.SnapshotContent {
 		accounts = append(accounts, v.Hash)
 	}
@@ -52,6 +52,7 @@ func (self *snapshotPoolBlock) ReferHashes() (accounts []types.Hash, snapshot *t
 		prev := self.PrevHash()
 		snapshot = &prev
 	}
+	keys = append(keys, self.Hash())
 	return
 }
 
