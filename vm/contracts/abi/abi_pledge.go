@@ -1,10 +1,11 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
 )
 
 const (
@@ -53,11 +54,6 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[types.AddressSize:])
 	return address
 }
-func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
-	address, _ := types.BytesToAddress(key[:types.AddressSize])
-	return address
-}
-
 func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[:types.AddressSize])
 	return address
