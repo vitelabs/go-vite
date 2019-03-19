@@ -3,6 +3,7 @@ package chain_cache
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"sync/atomic"
 )
 
 type dataSet struct {
@@ -139,10 +140,25 @@ func (ds *dataSet) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock
 }
 
 func (ds *dataSet) gc(dataId uint64) {
+	delete(ds.dataRefCount, dataId)
 
+	ab, ok := ds.accountBlockSet[dataId]
+	if ok {
+		delete(ds.blockDataId, ab.Hash)
+		delete(ds.accountBlockSet, dataId)
+		delete(ds.abHeightIndexes[ab.AccountAddress], dataId)
+		return
+	}
+
+	sb, ok := ds.snapshotBlockSet[dataId]
+	if ok {
+		delete(ds.blockDataId, sb.Hash)
+		delete(ds.snapshotBlockSet, dataId)
+		delete(ds.sbHeightIndexes, dataId)
+		return
+	}
 }
 
 func (ds *dataSet) newDataId() uint64 {
-	ds.dataId++
-	return ds.dataId
+	return atomic.AddUint64(&ds.dataId, 1)
 }

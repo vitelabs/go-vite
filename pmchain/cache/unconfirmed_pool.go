@@ -33,7 +33,7 @@ func (up *UnconfirmedPool) InsertAccountBlock(address *types.Address, dataId uin
 }
 
 // No lock
-func (up *UnconfirmedPool) GetCurrentBlocks() []*ledger.AccountBlock {
+func (up *UnconfirmedPool) GetBlocks() []*ledger.AccountBlock {
 	up.mu.RLock()
 	currentLength := len(up.insertedList)
 	if currentLength <= 0 {
@@ -82,9 +82,24 @@ func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
 		if block, ok := deletedDataIdMap[insertedDataId]; !ok {
 			newInsertedList = append(newInsertedList, insertedDataId)
 			newInsertedMap[block.AccountAddress] = append(newInsertedMap[block.AccountAddress], insertedDataId)
+
+			// un ref
+			up.ds.UnRefDataId(insertedDataId)
 		}
 
 	}
 	up.insertedList = newInsertedList
 	up.insertedMap = newInsertedMap
+}
+
+func (up *UnconfirmedPool) DeleteAllBlocks() {
+	up.mu.Lock()
+	defer up.mu.Unlock()
+
+	for _, insertedDataId := range up.insertedList {
+		// un ref
+		up.ds.UnRefDataId(insertedDataId)
+	}
+	up.insertedList = nil
+	up.insertedMap = make(map[types.Address][]uint64)
 }

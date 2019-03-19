@@ -41,9 +41,10 @@ func (cache *Cache) InsertUnconfirmedAccountBlock(block *ledger.AccountBlock) {
 }
 
 func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
-	return cache.unconfirmedPool.GetCurrentBlocks()
+	return cache.unconfirmedPool.GetBlocks()
 }
 
+// TODO
 func (cache *Cache) GetLatestAccountBlock(address *types.Address) *ledger.AccountBlock {
 	return nil
 }
@@ -70,7 +71,7 @@ func (cache *Cache) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 }
 
 func (cache *Cache) CleanUnconfirmedPool() {
-
+	cache.unconfirmedPool.DeleteAllBlocks()
 }
 
 func (cache *Cache) Destroy() {
