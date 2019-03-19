@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/dbutils"
 )
@@ -13,6 +14,10 @@ func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 	}
 
 	return iDB.store.Has(key)
+}
+
+func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_block.Location, error) {
+	return 0, nil, nil
 }
 
 func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_block.Location, error) {
@@ -36,6 +41,17 @@ func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64
 
 func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 	return false, nil
+}
+func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
+	return nil, nil
+}
+
+func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
+	return false, nil
+}
+
+func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
+	return nil, nil
 }
 
 //func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (string, error) {

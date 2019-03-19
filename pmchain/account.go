@@ -30,3 +30,15 @@ func (c *chain) GetAccountId(address *types.Address) (uint64, error) {
 
 	return accountId, nil
 }
+
+func (c *chain) getAccountAddress(accountId uint64) (*types.Address, error) {
+	addr, err := c.indexDB.GetAccountAddress(accountId)
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountAddress failed, error is %s, accountId is %d", err.Error(), accountId))
+		c.log.Error(cErr.Error(), "method", "getAccountAddress")
+		return nil, cErr
+	}
+
+	return addr, nil
+}

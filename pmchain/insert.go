@@ -14,6 +14,10 @@ import (
  *	2.
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
+
+	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
+	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil)
+
 	accountBlock := vmAccountBlock.AccountBlock
 	// write unconfirmed pool
 	c.cache.InsertUnconfirmedAccountBlock(accountBlock)
@@ -31,11 +35,16 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
 		return cErr
 	}
+
+	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil)
 	return nil
 }
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
+	sbList := []*ledger.SnapshotBlock{snapshotBlock}
+	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
+
 	unconfirmedBlocks := c.cache.GetCurrentUnconfirmedBlocks()
 	canBeSnappedBlocks, invalidSubLedger, needDeletedAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
@@ -77,6 +86,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 
 	// update latest snapshot block cache
 	c.cache.UpdateLatestSnapshotBlock(snapshotBlock)
+
+	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
 
 	return invalidSubLedger, nil
 }

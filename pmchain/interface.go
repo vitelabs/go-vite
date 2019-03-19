@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-type PrepareInsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
-type InsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
+type PrepareInsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
+type InsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
 
 type PrepareInsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
 type InsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
@@ -139,7 +139,7 @@ type Chain interface {
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
 	// ====== Query unconfirmed pool ======
-	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
+	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
 
 	GetContentNeedSnapshot() ledger.SnapshotContent
 
@@ -156,9 +156,6 @@ type Chain interface {
 	// ===== Query state ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
-
-	// get history balance, if history is too old, failed
-	GetHistoryBalance(accountBlockHash *types.Hash, addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
 	// get confirmed snapshot balance, if history is too old, failed
 	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)

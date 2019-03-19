@@ -31,6 +31,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 }
 
 func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+
 	// clean cache
 	c.cache.CleanUnconfirmedPool()
 
@@ -39,6 +40,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) (
 
 	// delete blocks
 	deletedSnapshotSegments, unconfirmedAccountBlocks, err := c.blockDB.DeleteTo(location)
+
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteTo failed, error is %s, location is %d", err.Error(), location))
 		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")

@@ -29,6 +29,10 @@ func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	return chain_dbutils.DeserializeAccountId(value), nil
 }
 
+func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) {
+	return nil, nil
+}
+
 func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 

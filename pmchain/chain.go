@@ -18,6 +18,8 @@ type chain struct {
 
 	log log15.Logger
 
+	em *eventManager
+
 	cache *chain_cache.Cache
 
 	indexDB *chain_index.IndexDB
@@ -35,6 +37,7 @@ func NewChain(dataDir string) Chain {
 		dataDir:  dataDir,
 		chainDir: path.Join(dataDir, "ledger"),
 		log:      log15.New("module", "chain"),
+		em:       newEventManager(),
 	}
 }
 

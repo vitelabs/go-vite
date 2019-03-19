@@ -10,9 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-/*
- *	TODO
- */
 func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	accountBlock := vmAccountBlock.AccountBlock
 
@@ -59,10 +56,6 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 	return nil
 }
 
-/*
- *	TODO
- *	1. location
- */
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedSubLedger map[types.Address][]*ledger.AccountBlock, sbLocation *chain_block.Location, abLocations []*chain_block.Location) error {
 	batch := iDB.store.NewBatch()
 	// hash -> height
@@ -128,16 +121,14 @@ func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, se
 
 func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId, sendAccountId, sendHeight uint64) {
 	id := uint64(13)
-	key := make([]byte, 0, 17)
-	key = append(append(append(key, OnRoadKeyPrefix), chain_dbutils.Uint64ToFixedBytes(toAccountId)...), chain_dbutils.Uint64ToFixedBytes(id)...)
 
+	key := chain_dbutils.CreateOnRoadKey(toAccountId, id)
 	value := chain_dbutils.SerializeAccountIdHeight(sendAccountId, sendHeight)
 	iDB.memDb.Put(blockHash, key, value)
 }
 
 func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, logList ledger.VmLogList) error {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(append(key, VmLogListKeyPrefix), logHash.Bytes()...))
+	key := chain_dbutils.CreateVmLogListKey(logHash)
 
 	value, err := logList.Serialize()
 

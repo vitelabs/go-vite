@@ -37,11 +37,14 @@ func (cache *Cache) IsSnapshotBlockExisted(hash *types.Hash) bool {
 func (cache *Cache) InsertUnconfirmedAccountBlock(block *ledger.AccountBlock) {
 	dataId := cache.ds.InsertAccountBlock(block)
 
-	cache.unconfirmedPool.InsertAccountBlock(dataId)
+	cache.unconfirmedPool.InsertAccountBlock(&block.AccountAddress, dataId)
 }
 
 func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
 	return cache.unconfirmedPool.GetCurrentBlocks()
+}
+func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*ledger.AccountBlock {
+	return cache.unconfirmedPool.GetBlocksByAddress(address)
 }
 
 func (cache *Cache) DeleteUnconfirmedBlocks(blocks []*ledger.AccountBlock) {

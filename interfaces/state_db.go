@@ -23,4 +23,6 @@ type StateSnapshot interface {
 	GetValue([]byte) ([]byte, error)
 
 	NewStorageIterator(prefix []byte) StorageIterator
+
+	Release()
 }

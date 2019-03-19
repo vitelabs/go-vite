@@ -20,6 +20,21 @@ func CreateReceiveHeightKey(sendAccountId, sendHeight uint64) []byte {
 	return key
 }
 
+func CreateOnRoadKey(toAccountId, id uint64) []byte {
+	key := make([]byte, 0, 17)
+	key = append(key, OnRoadKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(toAccountId)...)
+	key = append(key, Uint64ToFixedBytes(id)...)
+	return key
+}
+
+func CreateVmLogListKey(logHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, VmLogListKeyPrefix)
+	key = append(key, logHash.Bytes()...)
+	return key
+}
+
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, AccountIdKeyPrefix)
