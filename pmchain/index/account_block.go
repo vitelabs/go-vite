@@ -29,9 +29,8 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
-	iter.Last()
-	if err := iter.Error(); err != nil {
-		if err == leveldb.ErrNotFound {
+	if !iter.Last() {
+		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 			return 0, nil, nil
 		}
 		return 0, nil, err
@@ -59,6 +58,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	return chain_dbutils.DeserializeLocation(value), nil
 }
 
+// TODO
 func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) ([]*chain_block.Location, uint64, [2]uint64, error) {
 
 	return nil, 0, [2]uint64{}, nil
@@ -134,23 +134,17 @@ func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 	return ledger.VmLogListDeserialize(value)
 }
 
-func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
-	accountId, err := iDB.GetAccountId(address)
+func (iDB *IndexDB) getAccountIdHeight(blockHash *types.Hash) (uint64, uint64, error) {
+	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
+	value, err := iDB.getValue(key)
 	if err != nil {
-		return false, err
+		return 0, 0, err
 	}
 
-	key := chain_dbutils.CreateOnRoadPrefixKey(accountId)
+	if len(value) <= 0 {
+		return 0, 0, err
+	}
 
-	return iDB.hasValueByPrefix(key)
-}
-
-func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
-	return nil, nil
-}
-
-func (iDB *IndexDB) getAccountIdHeight(blockHash *types.Hash) (uint64, uint64, error) {
-	_ := chain_dbutils.CreateAccountBlockHashKey(blockHash)
-
-	return 0, 0, nil
+	accountId, height := chain_dbutils.DeserializeAccountIdHeight(value)
+	return accountId, height, nil
 }

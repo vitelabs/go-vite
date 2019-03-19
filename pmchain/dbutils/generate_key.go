@@ -35,6 +35,13 @@ func CreateOnRoadPrefixKey(toAccountId uint64) []byte {
 	return key
 }
 
+func CreateOnRoadReverseKey(reverseKey []byte) []byte {
+	key := make([]byte, 0, 1+len(reverseKey))
+	key = append(key, OnRoadKeyPrefix)
+	key = append(key, reverseKey...)
+	return key
+}
+
 func CreateVmLogListKey(logHash *types.Hash) []byte {
 	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, VmLogListKeyPrefix)

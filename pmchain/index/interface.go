@@ -3,20 +3,20 @@ package chain_index
 import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
+type Chain interface {
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+}
 type Store interface {
-	NewBatch() Batch
+	NewBatch() interfaces.Batch
 	NewIterator(slice *util.Range) iterator.Iterator
-	Write(Batch) error
+	Write(interfaces.Batch) error
 	Has(key []byte) (bool, error)
 	Get(key []byte) ([]byte, error)
 	Clean() error
 
 	Close() error
-}
-
-type Batch interface {
-	Put(key, value []byte)
-	Delete(key []byte)
 }

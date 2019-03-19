@@ -51,18 +51,19 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
 
 	// write block db
-	accountBlockLocations, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
+	_, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,
 	})
+
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
 	}
 
-	// insert index
-	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedSubLedger, snapshotBlockLocation, accountBlockLocations); err != nil {
+	// insert index TODO
+	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedSubLedger, snapshotBlockLocation, nil); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr

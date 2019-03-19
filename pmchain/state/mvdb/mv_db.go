@@ -30,7 +30,7 @@ func NewMultiVersionDB(chainDir string) (*MultiVersionDB, error) {
 
 	return &MultiVersionDB{
 		db:      db,
-		pending: chain_pending.NewMemDB(),
+		pending: chain_pending.NewMemDB(nil),
 	}, nil
 }
 
@@ -192,10 +192,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash) error {
 	batch := new(leveldb.Batch)
 
-	keyList, valueList := mvDB.pending.GetByBlockHashList(blockHashList)
-	for index, key := range keyList {
-		batch.Put(key, valueList[index])
-	}
+	mvDB.pending.Flush(batch, blockHashList)
 
 	if err := mvDB.db.Write(batch, nil); err != nil {
 		return err

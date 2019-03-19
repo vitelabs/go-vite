@@ -7,34 +7,33 @@ import (
 )
 
 type IndexDB struct {
-	latestAccountId uint64
+	chain Chain
 
-	store Store
-	memDb *chain_pending.MemDB
+	store           Store
+	memDb           *chain_pending.MemDB
+	latestAccountId uint64
 }
 
-func NewIndexDB(chainDir string) (*IndexDB, error) {
+func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
+	var err error
+
 	store, err := NewStore(chainDir)
 	if err != nil {
 		return nil, err
 	}
 
 	iDB := &IndexDB{
+		chain: chain,
 		store: store,
-		memDb: chain_pending.NewMemDB(),
+		memDb: chain_pending.NewMemDB(store),
 	}
-	latestAccountId, err := iDB.queryLatestAccountId()
+
+	iDB.latestAccountId, err = iDB.queryLatestAccountId()
 	if err != nil {
 		return nil, err
 	}
 
-	iDB.latestAccountId = latestAccountId
-
 	return iDB, nil
-}
-
-func (iDB *IndexDB) CleanUnconfirmedIndex() {
-	iDB.memDb.Clean()
 }
 
 func (iDB *IndexDB) CleanAllData() error {

@@ -26,3 +26,13 @@ type StateSnapshot interface {
 
 	Release()
 }
+
+type Batch interface {
+	Put(key, value []byte)
+	Delete(key []byte)
+}
+
+type Store interface {
+	Get([]byte) ([]byte, error)
+	Has([]byte) (bool, error)
+}

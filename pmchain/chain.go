@@ -53,7 +53,7 @@ func (c *chain) Init() error {
 	for {
 		var err error
 		// Init ledger
-		c.indexDB, err = chain_index.NewIndexDB(c.chainDir)
+		c.indexDB, err = chain_index.NewIndexDB(c, c.chainDir)
 		if err != nil {
 			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 			return err

@@ -1,7 +1,10 @@
 package chain_index
 
 import (
+	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/dbutils"
@@ -16,91 +19,126 @@ func (iDB *IndexDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Addres
 
 }
 
-func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
-	// snapshotBlocks []*ledger.SnapshotBlock,
-	// subLedgerNeedDeleted map[types.Address][]*ledger.AccountBlock,
-	// subLedgerNeedUnconfirmed map[types.Address][]*ledger.AccountBlock
+// TODO
+func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment, unconfirmedBlocks []*ledger.AccountBlock) error {
+	batch := iDB.store.NewBatch()
 
-	//batch := iDB.store.NewBatch()
-	//
-	//for _, seg := range deletedSnapshotSegments {
-	//	snapshotBlock := seg.SnapshotBlock
-	//	iDB.deleteSnapshotBlockHash(batch, &snapshotBlock.Hash)
-	//	iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
-	//
-	//	for _, block := range seg.AccountBlocks {
-	//		iDB.deleteAccountBlockHash(batch, &block.Hash)
-	//
-	//		accountId := uint64(12)
-	//		iDB.deleteAccountBlockHeight(batch, accountId, block.Height)
-	//
-	//		if block.IsReceiveBlock() {
-	//			// delete send block close index
-	//			sendAccountId := uint64(14)
-	//			sendHeight := uint64(20)
-	//			iDB.deleteReceiveHeight(batch, sendAccountId, sendHeight)
-	//
-	//			// insert onRoad
-	//			if false {
-	//				iDB.insertOnRoad(&block.FromBlockHash, accountId, sendAccountId, sendHeight)
-	//			}
-	//		} else {
-	//			// remove on road
-	//			toAccountId := uint64(3232)
-	//			iDB.deleteOnRoad(batch, toAccountId, accountId, block.Height)
-	//		}
-	//
-	//		if block.LogHash != nil {
-	//			// delete vm log list
-	//			iDB.deleteVmLogList(batch, block.LogHash)
-	//		}
-	//
-	//	}
-	//}
-	//
-	//for _, block := range unconfirmedBlocks {
-	//	// remove confirmed indexes
-	//	accountId := uint64(12)
-	//	iDB.deleteConfirmHeight(batch, accountId, block.Height)
-	//
-	//	// blocks move to unconfirmed pool
-	//}
-	//if err := iDB.store.Write(batch); err != nil {
-	//	return err
-	//}
+	deletedHashMap := make(map[types.Hash]struct{})
+
+	for _, seg := range deletedSnapshotSegments {
+		snapshotBlock := seg.SnapshotBlock
+		iDB.deleteSnapshotBlockHash(batch, &snapshotBlock.Hash)
+		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
+
+		for _, block := range seg.AccountBlocks {
+			deletedHashMap[block.Hash] = struct{}{}
+			// delete account block hash index
+			iDB.deleteAccountBlockHash(batch, &block.Hash)
+
+			accountId, err := iDB.GetAccountId(&block.AccountAddress)
+			if err != nil {
+				return err
+			}
+			if accountId <= 0 {
+				return errors.New(fmt.Sprintf("accountId is 0, block is %+v", block))
+			}
+			// delete account block height index
+			iDB.deleteAccountBlockHeight(batch, accountId, block.Height)
+
+			// delete confirmed index
+			iDB.deleteConfirmHeight(batch, accountId, block.Height)
+
+			if block.IsReceiveBlock() {
+				// delete send block close index
+				if _, ok := deletedHashMap[block.FromBlockHash]; !ok {
+					sendAccountId, sendHeight, err := iDB.getAccountIdHeight(&block.FromBlockHash)
+					if err != nil {
+						return err
+					}
+					if sendAccountId <= 0 {
+						return errors.New(fmt.Sprintf("sendAccountId is 0, block is %+v", block))
+					}
+
+					iDB.deleteReceiveHeight(batch, sendAccountId, sendHeight)
+
+					// insert onRoad
+					if err := iDB.insertOnRoad(&block.FromBlockHash, accountId, sendAccountId, sendHeight); err != nil {
+						return err
+					}
+				}
+			} else {
+				// remove on road
+				//toAccountId, err := iDB.GetAccountId(&block.ToAddress)
+				//if err != nil {
+				//	return err
+				//}
+				//if toAccountId <= 0 {
+				//	return errors.New(fmt.Sprintf("toAccountId is 0, block is %+v", block))
+				//}
+				//iDB.deleteOnRoad(batch, toAccountId, accountId, block.Height)
+			}
+
+			if block.LogHash != nil {
+				// delete vm log list
+				iDB.deleteVmLogList(batch, block.LogHash)
+			}
+
+		}
+	}
+
+	for _, block := range unconfirmedBlocks {
+		// remove confirmed indexes
+		accountId, err := iDB.GetAccountId(&block.AccountAddress)
+		if err != nil {
+			return err
+		}
+		if accountId <= 0 {
+			return errors.New(fmt.Sprintf("accountId is 0, block is %+v", block))
+		}
+
+		iDB.deleteConfirmHeight(batch, accountId, block.Height)
+	}
+	if err := iDB.store.Write(batch); err != nil {
+		return err
+	}
+	// clean mem
+	iDB.memDb.Clean()
+
 	return nil
 
 }
 
-func (iDB *IndexDB) deleteSnapshotBlockHash(batch Batch, snapshotBlockHash *types.Hash) {
-
-}
-
-func (iDB *IndexDB) deleteSnapshotBlockHeight(batch Batch, snapshotBlockHeight uint64) {
-
-}
-
-func (iDB *IndexDB) deleteAccountBlockHash(batch Batch, blockHash *types.Hash) {
-
-	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
-
+func (iDB *IndexDB) deleteSnapshotBlockHash(batch interfaces.Batch, snapshotBlockHash *types.Hash) {
+	key := chain_dbutils.CreateSnapshotBlockHashKey(snapshotBlockHash)
 	batch.Delete(key)
 }
 
-func (iDB *IndexDB) deleteAccountBlockHeight(batch Batch, accountId uint64, height uint64) {
-
+func (iDB *IndexDB) deleteSnapshotBlockHeight(batch interfaces.Batch, snapshotBlockHeight uint64) {
+	key := chain_dbutils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
+	batch.Delete(key)
 }
 
-func (iDB *IndexDB) deleteReceiveHeight(batch Batch, sendAccountId, sendHeight uint64) {
-
+func (iDB *IndexDB) deleteAccountBlockHash(batch interfaces.Batch, blockHash *types.Hash) {
+	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
+	batch.Delete(key)
 }
 
-func (iDB *IndexDB) deleteOnRoad(batch Batch, toAccountId, sendAccountId, sendHeight uint64) {
-
+func (iDB *IndexDB) deleteAccountBlockHeight(batch interfaces.Batch, accountId uint64, height uint64) {
+	key := chain_dbutils.CreateAccountBlockHeightKey(accountId, height)
+	batch.Delete(key)
 }
 
-func (iDB *IndexDB) deleteVmLogList(batch Batch, logHash *types.Hash) {
+func (iDB *IndexDB) deleteReceiveHeight(batch interfaces.Batch, sendAccountId, sendHeight uint64) {
+	key := chain_dbutils.CreateReceiveHeightKey(sendAccountId, sendHeight)
+	batch.Delete(key)
 }
 
-func (iDB *IndexDB) deleteConfirmHeight(batch Batch, accountId uint64, height uint64) {
+func (iDB *IndexDB) deleteVmLogList(batch interfaces.Batch, logHash *types.Hash) {
+	key := chain_dbutils.CreateVmLogListKey(logHash)
+	batch.Delete(key)
+}
+
+func (iDB *IndexDB) deleteConfirmHeight(batch interfaces.Batch, accountId uint64, height uint64) {
+	key := chain_dbutils.CreateConfirmHeightKey(accountId, height)
+	batch.Delete(key)
 }

@@ -2,28 +2,63 @@ package chain_pending
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"sync"
 )
 
+const (
+	valueMark   = byte(0)
+	deletedMark = byte(1)
+)
+
 type MemDB struct {
-	mu          sync.RWMutex
+	mu        sync.RWMutex
+	dataStore interfaces.Store
+
 	storage     map[string][]byte
 	hashKeyList map[types.Hash][][]byte
 }
 
-func NewMemDB() *MemDB {
+func NewMemDB(dataStore interfaces.Store) *MemDB {
 	return &MemDB{
+		dataStore:   dataStore,
 		storage:     make(map[string][]byte),
 		hashKeyList: make(map[types.Hash][][]byte),
 	}
 }
 
-func (mDb *MemDB) Put(blockHash *types.Hash, key, value []byte) {
+func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
-	mDb.storage[string(key)] = value
-	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
+	innerValue, ok := mDb.storage[string(key)]
+	if !ok {
+		if mDb.dataStore != nil {
+			if ok, err := mDb.dataStore.Has(key); err != nil {
+				return err
+			} else if ok {
+				dsValue, err := mDb.dataStore.Get(key)
+				if err != nil {
+					return err
+				}
+
+				value = append(dsValue, value...)
+			}
+		}
+
+		mDb.put(blockHash, key, value)
+		return nil
+	}
+	innerValue = append(innerValue, value...)
+
+	mDb.storage[string(key)] = innerValue
+	return nil
+}
+
+func (mDb *MemDB) Put(blockHash *types.Hash, key, value []byte) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+	mDb.put(blockHash, key, value)
 }
 
 func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
@@ -31,59 +66,42 @@ func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 	defer mDb.mu.RUnlock()
 
 	result, ok := mDb.storage[string(key)]
-	return result, ok
+	if result[0] == deletedMark {
+		return nil, true
+	}
+	return result[1:], ok
 }
 
 func (mDb *MemDB) Has(key []byte) bool {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
 
-	_, ok := mDb.storage[string(key)]
-	return ok
+	value, ok := mDb.storage[string(key)]
+	if !ok {
+		return false
+	}
+	if value[0] == deletedMark {
+		return false
+	}
+
+	return true
 }
 
-func (mDb *MemDB) GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte) {
-	mDb.mu.RLock()
-	defer mDb.mu.RUnlock()
-
-	keyList := mDb.hashKeyList[*blockHash]
-	if len(keyList) <= 0 {
-		return nil, nil
-	}
-
-	valueList := make([][]byte, 0, len(keyList))
-	for key := range keyList {
-		valueList = append(valueList, mDb.storage[string(key)])
-	}
-
-	return keyList, valueList
-}
-
-func (mDb *MemDB) GetByBlockHashList(blockHashList []*types.Hash) ([][]byte, [][]byte) {
-	mDb.mu.RLock()
-	defer mDb.mu.RUnlock()
-
-	size := 0
-	for _, blockHash := range blockHashList {
-		size += len(mDb.hashKeyList[*blockHash])
-	}
-	// less memory copy
-	keyList := make([][]byte, 0, size)
-	valueList := make([][]byte, 0, size)
+func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
 
 	for _, blockHash := range blockHashList {
-		keyList = append(keyList, mDb.hashKeyList[*blockHash]...)
-		if len(keyList) <= 0 {
-			return nil, nil
+		keyList := mDb.hashKeyList[*blockHash]
+		for _, key := range keyList {
+			value := mDb.storage[string(key)]
+			if value[0] == deletedMark {
+				batch.Delete(key)
+			} else {
+				batch.Put(key, value[1:])
+			}
 		}
-
-		for key := range keyList {
-			valueList = append(valueList, mDb.storage[string(key)])
-		}
-
 	}
-
-	return keyList, valueList
 }
 
 func (mDb *MemDB) DeleteByBlockHash(blockHash *types.Hash) {
@@ -108,6 +126,15 @@ func (mDb *MemDB) Clean() {
 
 	mDb.storage = make(map[string][]byte)
 	mDb.hashKeyList = make(map[types.Hash][][]byte)
+}
+
+func (mDb *MemDB) put(blockHash *types.Hash, key, value []byte) {
+
+	innerValue := make([]byte, len(value)+1)
+	copy(innerValue[1:], value)
+
+	mDb.storage[string(key)] = innerValue
+	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
 }
 
 func (mDb *MemDB) deleteByBlockHash(blockHash *types.Hash) {

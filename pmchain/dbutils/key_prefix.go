@@ -20,6 +20,8 @@ const (
 	ConfirmHeightKeyPrefix = byte(9)
 
 	AccountBlockHeightKeyPrefix = byte(10)
+
+	OnRoadReverseKeyPrefix = byte(11)
 )
 
 const (

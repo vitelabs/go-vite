@@ -6,6 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/interfaces"
 	"os"
 	"path"
 )
@@ -34,11 +35,11 @@ func (s *store) NewIterator(slice *util.Range) iterator.Iterator {
 	return s.db.NewIterator(slice, nil)
 }
 
-func (s *store) NewBatch() Batch {
+func (s *store) NewBatch() interfaces.Batch {
 	return new(leveldb.Batch)
 }
 
-func (s *store) Write(batch Batch) error {
+func (s *store) Write(batch interfaces.Batch) error {
 	return s.db.Write(batch.(*leveldb.Batch), nil)
 }
 
