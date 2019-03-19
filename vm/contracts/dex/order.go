@@ -192,9 +192,14 @@ func (order Order) compareTo(toPayload *nodePayload) int8 {
 	return CompareOrderPrice(order, target)
 }
 
-// orders should sort as desc by price and timestamp
-func (order Order) randSeed() int64 {
-	return int64(binary.BigEndian.Uint64(order.Id[12:20]))
+// TODO use timer setted periodId as part of seed
+// return value must not negative
+func (order Order) randomSeed() int64 {
+	var intVal int64 = 0
+	for i := 0; i < 5; i++ {
+		intVal += int64(binary.BigEndian.Uint32(order.Id[i*4 : i*4 + 4]))
+	}
+	return intVal
 }
 
 func CompareOrderPrice(order Order, target Order) int8 {

@@ -65,7 +65,10 @@ func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *
 }
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	var err error
+	var (
+		err error
+		blocks = []*SendBlock{}
+	)
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return []*SendBlock{}, fmt.Errorf("invalid block source")
 	}
@@ -82,10 +85,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 	if err = matcher.MatchOrder(dex.TakerOrder{*orderInfo}); err != nil {
 		return []*SendBlock{}, err
 	}
-	blocks, err := handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
-	if err != nil {
-		fmt.Printf("MethodDexTradeNewOrder doReceive err %v\n", err)
-	}
+	blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
 	return blocks, err
 }
 
