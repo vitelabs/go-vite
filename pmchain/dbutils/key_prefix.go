@@ -18,6 +18,8 @@ const (
 	AccountIdKeyPrefix = byte(8)
 
 	ConfirmHeightKeyPrefix = byte(9)
+
+	AccountBlockHeightKeyPrefix = byte(10)
 )
 
 const (

@@ -30,7 +30,28 @@ func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 }
 
 func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) {
-	return nil, nil
+	key := chain_dbutils.CreateAccountIdKey(accountId)
+	value, ok := iDB.memDb.Get(key)
+	if !ok {
+		var err error
+		value, err = iDB.store.Get(key)
+		if err != nil {
+			if err == leveldb.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+
+	if len(value) <= 0 {
+		return nil, nil
+	}
+
+	addr, err := types.BytesToAddress(value)
+	if err != nil {
+		return nil, err
+	}
+	return &addr, nil
 }
 
 func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {

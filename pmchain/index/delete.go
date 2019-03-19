@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
+	"github.com/vitelabs/go-vite/pmchain/dbutils"
 )
 
 func (iDB *IndexDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Address][]*ledger.AccountBlock) {
@@ -80,8 +81,8 @@ func (iDB *IndexDB) deleteSnapshotBlockHeight(batch Batch, snapshotBlockHeight u
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch Batch, blockHash *types.Hash) {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(append(key, AccountBlockHashKeyPrefix), blockHash.Bytes()...)
+
+	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
 
 	batch.Delete(key)
 }

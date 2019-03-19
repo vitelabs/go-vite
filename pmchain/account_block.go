@@ -96,6 +96,9 @@ func (c *chain) GetReceiveAbBySendAb(sendBlockHash *types.Hash) (*ledger.Account
 		return nil, cErr
 	}
 
+	if receiveAccountId <= 0 {
+		return nil, nil
+	}
 	receiveAddr, err := c.getAccountAddress(receiveAccountId)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getAccountAddress failed, receiveAccountId is %d. Error: %s",
@@ -199,6 +202,10 @@ func (c *chain) GetConfirmedTimes(blockHash *types.Hash) (uint64, error) {
 }
 
 func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error) {
+	if block := c.cache.GetLatestAccountBlock(addr); block != nil {
+		return block, nil
+	}
+
 	height, location, err := c.indexDB.GetLatestAccountBlock(addr)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, addr is %s. Error: %s",

@@ -88,29 +88,3 @@ func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
 	up.insertedList = newInsertedList
 	up.insertedMap = newInsertedMap
 }
-
-//func (up *UnconfirmedPool) Snapshot(sc ledger.SnapshotContent) {
-//	up.mu.Lock()
-//	defer up.mu.Unlock()
-//
-//	for addr, hashHeight := range sc {
-//		index := findIndex(up.memStore[addr], hashHeight)
-//		up.memStore[addr] = up.memStore[addr][index+1:]
-//	}
-//}
-//
-//// TODO
-//func (up *UnconfirmedPool) GetContentNeedSnapshot() ledger.SnapshotContent {
-//	up.mu.RLock()
-//	defer up.mu.RUnlock()
-//
-//	sc := make(ledger.SnapshotContent, len(up.memStore))
-//	for addr, blocks := range up.memStore {
-//		block := blocks[len(blocks)-1]
-//		sc[addr] = &ledger.HashHeight{
-//			Hash:   block.Hash,
-//			Height: block.Height,
-//		}
-//	}
-//	return sc
-//}

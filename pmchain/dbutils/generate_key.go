@@ -28,6 +28,13 @@ func CreateOnRoadKey(toAccountId, id uint64) []byte {
 	return key
 }
 
+func CreateOnRoadPrefixKey(toAccountId uint64) []byte {
+	key := make([]byte, 0, 9)
+	key = append(key, OnRoadKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(toAccountId)...)
+	return key
+}
+
 func CreateVmLogListKey(logHash *types.Hash) []byte {
 	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, VmLogListKeyPrefix)
@@ -54,6 +61,15 @@ func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
 	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, AccountBlockHashKeyPrefix)
 	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
+func CreateAccountBlockHeightKey(accountId, height uint64) []byte {
+	key := make([]byte, 0, 17)
+
+	key = append(key, AccountBlockHeightKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, Uint64ToFixedBytes(height)...)
 	return key
 }
 

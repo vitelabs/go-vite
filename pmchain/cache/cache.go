@@ -43,6 +43,11 @@ func (cache *Cache) InsertUnconfirmedAccountBlock(block *ledger.AccountBlock) {
 func (cache *Cache) GetCurrentUnconfirmedBlocks() []*ledger.AccountBlock {
 	return cache.unconfirmedPool.GetCurrentBlocks()
 }
+
+func (cache *Cache) GetLatestAccountBlock(address *types.Address) *ledger.AccountBlock {
+	return nil
+}
+
 func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*ledger.AccountBlock {
 	return cache.unconfirmedPool.GetBlocksByAddress(address)
 }

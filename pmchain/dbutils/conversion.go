@@ -9,8 +9,8 @@ func SerializeAccountIdHeight(accountId, height uint64) []byte {
 	return nil
 }
 
-func DeserializeAccountIdHeight(accountId, height uint64) []byte {
-	return nil
+func DeserializeAccountIdHeight(buf []byte) (uint64, uint64) {
+	return 0, 0
 }
 
 func SerializeAccountId(accountId uint64) []byte {

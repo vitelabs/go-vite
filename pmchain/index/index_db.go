@@ -58,3 +58,29 @@ func (iDB *IndexDB) Destroy() error {
 	iDB.store = nil
 	return nil
 }
+
+func (iDB *IndexDB) getValue(key []byte) ([]byte, error) {
+	value, ok := iDB.memDb.Get(key)
+	if !ok {
+		var err error
+		value, err = iDB.store.Get(key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(value) <= 0 {
+		return nil, nil
+	}
+	return value, nil
+}
+
+func (iDB *IndexDB) hasValue(key []byte) (bool, error) {
+	if ok := iDB.memDb.Has(key); ok {
+		return ok, nil
+	}
+
+	return iDB.store.Has(key)
+}
+func (iDB *IndexDB) hasValueByPrefix(prefix []byte) (bool, error) {
+	return false, nil
+}
