@@ -34,7 +34,7 @@ type nodeKeyType interface {
 
 type nodePayload interface {
 	compareTo(payload *nodePayload) int8
-	randSeed() int64
+	randomSeed() int64
 }
 
 type nodePayloadProtocol interface {
@@ -104,7 +104,7 @@ func newSkiplist(listId SkipListId, contractAddress *types.Address, storage *Bas
 	skl.level = 1
 	skl.storage = storage
 	skl.protocol = protocol
-	skl.barrierNode, _ = skl.createNode((*skl.protocol).getBarrierKey(), nil, skiplistMaxLevel)
+	skl.barrierNode = skl.createNode((*skl.protocol).getBarrierKey(), nil, skiplistMaxLevel)
 	skl.contractAddress = contractAddress
 	if err := skl.initMeta(listId); err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func newSkiplist(listId SkipListId, contractAddress *types.Address, storage *Bas
 	return skl, nil
 }
 
-func (skl *skiplist) createNode(key nodeKeyType, payload *nodePayload, level int8) (*skiplistNode, int8) {
+func (skl *skiplist) createNode(key nodeKeyType, payload *nodePayload, level int8) (*skiplistNode) {
 	node := skiplistNode{}
 	node.nodeKey = key
 	node.payload = payload
@@ -124,7 +124,7 @@ func (skl *skiplist) createNode(key nodeKeyType, payload *nodePayload, level int
 	for i := 0; i < int(level); i++ {
 		node.backwardOnLevel[i] = (*skl.protocol).getNilKey()
 	}
-	return &node, level
+	return &node
 }
 
 func (skl *skiplist) getNodeWithDirtyFilter(nodeKey nodeKeyType, dirtyNodes map[string]*skiplistNode) (*skiplistNode, error) {
@@ -239,8 +239,8 @@ func (skl *skiplist) insert(key nodeKeyType, payload *nodePayload) (err error) {
 		updateNodes[i] = currentNode
 	}
 
-	level := randomLevel((*payload).randSeed())
-	newNode, level := skl.createNode(key, payload, level)
+	level := randomLevel((*payload).randomSeed())
+	newNode := skl.createNode(key, payload, level)
 	if level > skl.level {
 		for i = skl.level; i < level; i++ {
 			updateNodes[i] = skl.barrierNode
