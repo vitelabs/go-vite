@@ -103,7 +103,7 @@ type Chain interface {
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	// is valid
-	IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
+	IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
@@ -137,8 +137,6 @@ type Chain interface {
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
-
-	GetSnapshotContentBySbHash(hash *types.Hash) (ledger.SnapshotContent, error)
 
 	// ====== Query unconfirmed pool ======
 	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)

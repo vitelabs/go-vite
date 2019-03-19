@@ -57,3 +57,11 @@ func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, err
 
 	return location, nil
 }
+
+func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher bool, count uint64) ([]*chain_block.Location, [2]uint64, error) {
+	return nil, [2]uint64{1, 2}, nil
+}
+
+func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHash *types.Hash) ([]*chain_block.Location, [2]uint64, error) {
+	return nil, [2]uint64{1, 2}, nil
+}

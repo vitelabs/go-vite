@@ -22,6 +22,9 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) ([]*chain_block.Location, uint64, [2]uint64, error) {
 	return nil, 0, [2]uint64{}, nil
 }
+func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error) {
+	return 0, nil
+}
 
 func (iDB *IndexDB) GetAccountHeightByHash(blockHash *types.Hash) (uint64, uint64, error) {
 	return 0, 0, nil

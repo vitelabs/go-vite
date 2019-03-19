@@ -155,7 +155,7 @@ func (c *chain) GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger
 	//	currentHeight++
 	//}
 	//
-	//return nil, nil
+	return nil, nil
 }
 
 // get call depth

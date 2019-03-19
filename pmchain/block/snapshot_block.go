@@ -39,3 +39,13 @@ func (bDB *BlockDB) GetSnapshotBlock(location *Location) (*ledger.SnapshotBlock,
 
 	return sb, nil
 }
+
+// TODO optimize
+func (bDB *BlockDB) GetSnapshotHeader(location *Location) (*ledger.SnapshotBlock, error) {
+	sb, err := bDB.GetSnapshotBlock(location)
+	if err != nil {
+		return nil, err
+	}
+	sb.SnapshotContent = nil
+	return sb, nil
+}
