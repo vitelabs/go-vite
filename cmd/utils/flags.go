@@ -174,6 +174,18 @@ var (
 		Usage: "Delete to height",
 	}
 
+	// Trie
+	RecoverTrieFlag = cli.BoolFlag{
+		Name:  "trie",
+		Usage: "Recover trie",
+	}
+
+	// Export sb height
+	ExportSbHeightFlags = cli.Uint64Flag{
+		Name:  "sbHeight",
+		Usage: "The snapshot block height",
+	}
+
 	//Net
 	SingleFlag = cli.BoolFlag{
 		Name:  "single",

@@ -120,6 +120,12 @@ var (
 	// Ledger
 	ledgerFlags = []cli.Flag{
 		utils.LedgerDeleteToHeight,
+		utils.RecoverTrieFlag,
+	}
+
+	// Export
+	exportFlags = []cli.Flag{
+		utils.ExportSbHeightFlags,
 	}
 )
 
@@ -146,11 +152,14 @@ func init() {
 		consoleCommand,
 		attachCommand,
 		ledgerRecoverCommand,
+		exportCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
+		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
+		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags)
 
 	app.Before = beforeAction
 	app.Action = action
