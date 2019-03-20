@@ -3,6 +3,8 @@ package producer
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -30,7 +32,7 @@ func (self *tools) ledgerUnLock() {
 	self.pool.UnLock()
 }
 
-func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext) (*ledger.SnapshotBlock, error) {
+func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)
 	if err != nil {
@@ -40,6 +42,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
+
 	block := &ledger.SnapshotBlock{
 		PrevHash:        head.Hash,
 		Height:          head.Height + 1,
@@ -47,6 +50,22 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		StateTrie:       trie,
 		StateHash:       *trie.Hash(),
 		SnapshotContent: accounts,
+	}
+	if fork.IsMintFork(block.Height) {
+		lastBlock := self.getLastSeedBlock(e, head)
+		if lastBlock != nil {
+			if lastBlock.Timestamp.Before(e.PeriodStime) {
+				lastSeed := fn(lastBlock.SeedHash)
+				seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+				block.SeedHash = &seedHash
+				block.Seed = lastSeed
+			}
+		} else {
+			seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+			block.SeedHash = &seedHash
+			block.Seed = 0
+		}
+
 	}
 
 	block.Hash = block.ComputeHash()
@@ -135,4 +154,41 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
 	}
 	return finalAccounts, nil
+}
+
+const seedDuration = time.Minute * 10
+
+func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
+	t := head.Timestamp.Add(-seedDuration)
+	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(head.Height, &t, &e.Address)
+	if err != nil {
+		return nil
+	}
+	for _, v := range blocks {
+		var seedHash = v.SeedHash
+		if seedHash != nil {
+			return v
+		}
+	}
+
+	return nil
+}
+
+func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
+	t := e.SnapshotTimeStamp.Add(-seedDuration)
+	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(e.SnapshotHeight, &t, &e.Address)
+	if err != nil {
+		return 0
+	}
+	for _, v := range blocks {
+		var seedHash = v.SeedHash
+		if seedHash != nil {
+			if e.PeriodStime.Before(*v.Timestamp) {
+				return 0
+			}
+			return fn(seedHash)
+		}
+	}
+
+	return 0
 }

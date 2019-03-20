@@ -9,6 +9,8 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -26,10 +28,17 @@ type ch interface {
 	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	NewDb(dbDir string) (*leveldb.DB, error)
 }
 
 type chainRw struct {
 	rw ch
+
+	hourPoints   PointLinkedArray
+	dayPoints    PointLinkedArray
+	periodPoints PointLinkedArray
 }
 
 type VoteDetails struct {
@@ -63,6 +72,49 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 		return nil, errors.New("before time[" + t.String() + "] block not exist")
 	}
 	return block, nil
+}
+
+func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration) (map[types.Address]uint64, error) {
+	startT := lastBlock.Timestamp.Add(-dur)
+	//blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(&ledger.HashHeight{Hash: lastBlock.Hash, Height: lastBlock.Height}, &startT)
+	blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(lastBlock.Height, &startT, nil)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, _ := self.groupSnapshotBySeedExist(blocks)
+
+	m := make(map[types.Address][]*ledger.SnapshotBlock)
+	for _, block := range snapshots {
+		if block.SeedHash == nil {
+			continue
+		}
+		producer := block.Producer()
+		bs, ok := m[producer]
+		if len(bs) >= 2 {
+			continue
+		}
+		if ok {
+			m[producer] = append(m[producer], block)
+		} else {
+			var arr []*ledger.SnapshotBlock
+			arr = append(arr, block)
+			m[producer] = arr
+		}
+	}
+
+	seedM := make(map[types.Address]uint64)
+	for k, v := range m {
+		if len(v) != 2 {
+			continue
+		}
+
+		seed := self.getSeed(v[0], v[1])
+		if seed != 0 {
+			seedM[k] = seed
+		}
+	}
+
+	return seedM, nil
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
@@ -154,6 +206,7 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 			return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
 		}
 	}
+
 	block, _ := self.rw.GetSnapshotBlockByHeight(actualB.Height + 1)
 	if block != nil {
 		if block.Timestamp.Before(voteTime) {
@@ -166,3 +219,128 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	}
 	return nil
 }
+
+func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([]*ledger.SnapshotBlock, []*ledger.SnapshotBlock) {
+	var exists []*ledger.SnapshotBlock
+	var notExists []*ledger.SnapshotBlock
+
+	for _, v := range blocks {
+		if v.SeedHash != nil {
+			exists = append(exists, v)
+		} else {
+			notExists = append(notExists, v)
+		}
+	}
+
+	return exists, notExists
+}
+
+func (self *chainRw) getSeed(top *ledger.SnapshotBlock, prev *ledger.SnapshotBlock) uint64 {
+	seedHash := prev.SeedHash
+	if seedHash == nil {
+		return 0
+	}
+	expectedSeedHash := ledger.ComputeSeedHash(top.Seed, prev.PrevHash, prev.Timestamp)
+	if expectedSeedHash == *seedHash {
+		return prev.Seed
+	}
+	return 0
+}
+
+// an hour = 48 * period
+func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
+	result := make(map[types.Address]int32)
+	hourInfos := NewSBPInfos()
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		tmpIndex := index - i
+		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		if err != nil {
+			return nil, err
+		}
+		point := p.(*periodPoint)
+		infos := point.GetSBPInfos()
+		for k, v := range infos {
+			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+		}
+	}
+
+	for k, v := range hourInfos {
+		result[k] = v.Rate()
+	}
+	return result, nil
+}
+
+// an hour = 48 * period
+func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
+	hourInfos := NewSBPInfos()
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		tmpIndex := index - i
+		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		if err != nil {
+			return nil, err
+		}
+		point := p.(*periodPoint)
+		infos := point.GetSBPInfos()
+		for k, v := range infos {
+			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+		}
+	}
+
+	return hourInfos, nil
+}
+
+// a day = 23 * hour + LatestHour
+//func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.Int, error) {
+//	dayInfos := NewSBPInfos()
+//	startIndex := uint64(0)
+//	endIndex := index
+//	if day <= index {
+//		startIndex = index - (day - 1)
+//	}
+//	// [startIndex, endIndex]
+//	points := self.genPoints(startIndex, endIndex)
+//
+//	for _, p := range points {
+//		switch p.(type) {
+//		case *dayPoint:
+//			break
+//		case *hourPoint:
+//			height, err := self.hourPoints.GetByHeight(p.Height())
+//			if err != nil {
+//				return nil, err
+//			}
+//			infos := height.(*hourPoint).GetSBPInfos()
+//			for k, v := range infos {
+//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+//			}
+//		case *periodPoint:
+//			height, err := self.periodPoints.GetByHeight(p.Height())
+//			if err != nil {
+//				return nil, err
+//			}
+//			infos := height.(*periodPoint).GetSBPInfos()
+//			for k, v := range infos {
+//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+//			}
+//		}
+//	}
+//	// todo
+//	return nil, nil
+//}
+//
+//// [startIndex, endIndex]
+//func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
+//	return nil
+//}
+
+const (
+	period = 1
+	hour   = 48 * period
+	day    = 24 * hour
+)

@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
+
+	"github.com/hashicorp/golang-lru"
+
 	"strconv"
 
 	"sync"
@@ -34,6 +38,7 @@ type committee struct {
 
 	genesis  time.Time
 	rw       *chainRw
+	periods  *periodLinkedArray
 	snapshot *teller
 	contract *teller
 	tellers  sync.Map
@@ -43,6 +48,10 @@ type committee struct {
 
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
+
+	lruCache *lru.Cache
+	dbCache  *DbCache
+	dbDir    string
 
 	wg     sync.WaitGroup
 	closed chan struct{}
@@ -63,7 +72,13 @@ func (self *committee) initTeller(gid types.Gid) (*teller, error) {
 	if info == nil {
 		return nil, errors.New("can't get member info.")
 	}
-	t := newTeller(info, self.rw, self.mLog)
+	var cache Cache
+	if gid == types.SNAPSHOT_GID {
+		cache = self.dbCache
+	} else {
+		cache = self.lruCache
+	}
+	t := newTeller(info, self.rw, self.mLog, cache)
 	self.tellers.Store(gid, t)
 	return t, nil
 }
@@ -202,6 +217,30 @@ func (self *committee) ReadVoteMapForAPI(gid types.Gid, ti time.Time) ([]*VoteDe
 
 	return tel.voteDetailsBeforeTime(ti)
 }
+func (self *committee) ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error) {
+	var result []SBPInfos
+	for i := start; i < end; i++ {
+		rateByHour, err := self.rw.GetSuccessRateByHour2(i)
+		if err != nil {
+			panic(err)
+		}
+		result = append(result, rateByHour)
+	}
+	return result, nil
+}
+
+func (self *committee) ReadSuccessRate2ForAPI(start, end uint64) ([]SBPInfos, error) {
+	var result []SBPInfos
+	for i := start; i < end; i++ {
+		rateByHour, err := self.periods.GetByHeight(i)
+		if err != nil {
+			panic(err)
+		}
+		point := rateByHour.(*periodPoint)
+		result = append(result, point.GetSBPInfos())
+	}
+	return result, nil
+}
 
 func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
 	t, ok := self.tellers.Load(gid)
@@ -240,8 +279,24 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 }
 
 func NewConsensus(genesisTime time.Time, ch ch) *committee {
-	committee := &committee{rw: &chainRw{rw: ch}, genesis: genesisTime, whiteProducers: make(map[string]bool)}
+	points, err := newPeriodPointArray(ch)
+	if err != nil {
+		panic(errors.Wrap(err, "create period point fail."))
+	}
+
+	rw := &chainRw{rw: ch, periodPoints: points}
+	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
 	committee.mLog = log15.New("module", "consensus/committee")
+	db, err := ch.NewDb("consensus")
+	if err != nil {
+		panic(err)
+	}
+	committee.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	committee.lruCache = cache
 	return committee
 }
 
@@ -255,6 +310,7 @@ func (self *committee) Init() error {
 		return errors.New("pre init fail.")
 	}
 	defer self.PostInit()
+
 	{
 		t, err := self.initTeller(types.SNAPSHOT_GID)
 		if err != nil {
@@ -269,6 +325,8 @@ func (self *committee) Init() error {
 		}
 		self.contract = t
 	}
+
+	self.periods.snapshot = self.snapshot
 
 	for _, v := range whiteAccBlocksArr {
 		self.whiteProducers[v] = true
@@ -457,13 +515,16 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, vote
 
 func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, voteTime time.Time) Event {
 	return Event{
-		Gid:            gid,
-		Address:        p.Member,
-		Stime:          p.STime,
-		Etime:          p.ETime,
-		Timestamp:      p.STime,
-		SnapshotHash:   r.Hash,
-		SnapshotHeight: r.Height,
-		VoteTime:       voteTime,
+		Gid:               gid,
+		Address:           p.Member,
+		Stime:             p.STime,
+		Etime:             p.ETime,
+		Timestamp:         p.STime,
+		SnapshotHash:      r.Hash,
+		SnapshotHeight:    r.Height,
+		SnapshotTimeStamp: r.Timestamp,
+		VoteTime:          voteTime,
+		PeriodStime:       r.STime,
+		PeriodEtime:       r.ETime,
 	}
 }

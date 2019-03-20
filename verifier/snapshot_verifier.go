@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -74,6 +76,17 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 		if block.Hash != snapshotBlock.Hash {
 			stat.result = FAIL
 			return errors.New("genesis block error.")
+		}
+	}
+	if fork.IsMintFork(block.Height) {
+		if block.Seed != 0 {
+			seedBlock := self.getLastSeedBlock(block)
+			if seedBlock != nil {
+				hash := ledger.ComputeSeedHash(block.Seed, seedBlock.PrevHash, seedBlock.Timestamp)
+				if hash != *seedBlock.SeedHash {
+					return errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
+				}
+			}
 		}
 	}
 	return nil
@@ -225,6 +238,25 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 	}
 	stat.result = SUCCESS
 	return stat
+}
+
+const seedDuration = time.Minute * 10
+
+func (self *SnapshotVerifier) getLastSeedBlock(head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
+	t := head.Timestamp.Add(-seedDuration)
+	addr := head.Producer()
+	blocks, err := self.reader.GetSnapshotBlocksAfterAndEqualTime(head.Height, &t, &addr)
+	if err != nil {
+		return nil
+	}
+	for _, v := range blocks {
+		var seedHash = v.SeedHash
+		if seedHash != nil {
+			return v
+		}
+	}
+
+	return nil
 }
 
 //func (self *SnapshotVerifier) VerifyProducer(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {

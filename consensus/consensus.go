@@ -19,20 +19,24 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp      time.Time  // add to block
-	SnapshotHash   types.Hash // add to block
-	SnapshotHeight uint64     // add to block
+	Timestamp         time.Time  // add to block
+	SnapshotHash      types.Hash // add to block
+	SnapshotHeight    uint64     // add to block
+	SnapshotTimeStamp time.Time  // add to block
 
-	VoteTime time.Time // voteTime
+	VoteTime    time.Time // voteTime
+	PeriodStime time.Time // start time for period
+	PeriodEtime time.Time // end time for period
 }
 
 type electionResult struct {
-	Plans  []*core.MemberPlan
-	STime  time.Time
-	ETime  time.Time
-	Index  uint64
-	Hash   types.Hash
-	Height uint64
+	Plans     []*core.MemberPlan
+	STime     time.Time
+	ETime     time.Time
+	Index     uint64
+	Hash      types.Hash
+	Height    uint64
+	Timestamp time.Time
 }
 
 type ProducersEvent struct {
@@ -52,6 +56,8 @@ type Reader interface {
 	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
 	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error)
 	ReadVoteMapForAPI(gid types.Gid, t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
+	ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error)
+	ReadSuccessRate2ForAPI(start, end uint64) ([]SBPInfos, error)
 	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
 }

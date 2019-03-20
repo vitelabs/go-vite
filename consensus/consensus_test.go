@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/vitelabs/go-vite/chain/unittest"
+
 	"time"
 
 	"fmt"
@@ -149,16 +151,16 @@ func TestChainRw_checkSnapshotHashValid(t *testing.T) {
 	if e != nil {
 		panic(e)
 	}
-	err := rw.checkSnapshotHashValid(block.Height, block.Hash, b2.Hash)
+	err := rw.checkSnapshotHashValid(block.Height, block.Hash, b2.Hash, time.Now())
 	if err != nil {
 		t.Error(err)
 	}
-	err = rw.checkSnapshotHashValid(block.Height, block.Hash, block.Hash)
+	err = rw.checkSnapshotHashValid(block.Height, block.Hash, block.Hash, time.Now())
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = rw.checkSnapshotHashValid(b2.Height, b2.Hash, block.Hash)
+	err = rw.checkSnapshotHashValid(b2.Height, b2.Hash, block.Hash, time.Now())
 	t.Log(err)
 	if err == nil {
 		t.Error(err)
@@ -182,6 +184,18 @@ func getChainInstance() chain.Chain {
 			Chain: &config.Chain{GenesisFile: "/Users/jie/Documents/vite/src/github.com/vitelabs/genesis.json"},
 		})
 		innerChainInstance.Init()
+		innerChainInstance.Start()
+	}
+
+	return innerChainInstance
+}
+
+func getChainInstanceFromPath(path string) chain.Chain {
+	if path == "" {
+		path = "Documents/vite/src/github.com/vitelabs/aaaaaaaa/devdata"
+	}
+	if innerChainInstance == nil {
+		innerChainInstance = chain_unittest.NewChainInstanceFromAbsPath(path, false)
 		innerChainInstance.Start()
 	}
 
@@ -543,4 +557,155 @@ func TestChain2(t *testing.T) {
 			strconv.FormatUint(i, 10))
 	}
 
+}
+
+func TestGenCache(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	cs.dbCache.db.Check()
+	for i := uint64(0); i < 105461; i++ {
+		cs.periods.GetByHeight(i)
+	}
+}
+
+func TestA(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	head := c.GetLatestSnapshotBlock()
+
+	index, err := cs.VoteTimeToIndex(types.SNAPSHOT_GID, *head.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(index)
+}
+
+func TestContractProducerVerify(t *testing.T) {
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	cs.dbDir = "/Users/jie/Library/GVite/testdata/consensus"
+	cs.Init()
+	{
+		s := time.Now()
+		i := uint64(105461)
+		p, err := cs.periods.GetByHeight(i)
+		if err != nil {
+			panic(errors.WithMessage(err, fmt.Sprintf("index:%d.", i)))
+		}
+		point := p.(*periodPoint)
+		fmt.Printf("%d, %s, %s, %s, %+v, %+v, %+v\n",
+			point.Height(), time.Now().Sub(s).String(), point.PrevHash(), point.NextHash(), point.proof, point.proof2, point.GetSBPInfos())
+
+	}
+	{
+		head := c.GetLatestSnapshotBlock()
+
+		index, err := cs.VoteTimeToIndex(types.SNAPSHOT_GID, *head.Timestamp)
+		if err != nil {
+			panic(err)
+		}
+		for i := index; i >= 0; i-- {
+			s := time.Now()
+			p, err := cs.periods.GetByHeight(i)
+			if err != nil {
+				panic(errors.WithMessage(err, fmt.Sprintf("index:%d.", i)))
+			}
+			point := p.(*periodPoint)
+			fmt.Printf("%d, %s, %s, %s, %+v\n", point.Height(), time.Now().Sub(s).String(), point.PrevHash(), point.NextHash(), point.GetSBPInfos())
+		}
+	}
+
+}
+func TestChainSnapshot(t *testing.T) {
+	start := uint64(7413544)
+	c := getChainInstanceFromPath("/Users/jie/Library/GVite/testdata")
+
+	prev, err := c.GetSnapshotBlockByHeight(start)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := uint64(1); i < 1000; i++ {
+		block, err := c.GetSnapshotBlockByHeight(start - i)
+		if err != nil {
+			panic(err)
+		}
+		sub := prev.Timestamp.Sub(*block.Timestamp)
+		if sub > time.Second*3 {
+			fmt.Printf("height:%d, diff:%s\n", block.Height, sub)
+		}
+		prev = block
+	}
+}
+
+func TestChainRw_GetSeedsBeforeHashH(t *testing.T) {
+	chainInstance := chain.NewChain(&config.Config{
+		DataDir: "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_bk/devdata",
+		Genesis: chain_unittest.MakeChainConfig("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/genesis_test.json"),
+	})
+
+	chainInstance.Init()
+	chainInstance.Start()
+	c := chainInstance
+	//cs := NewConsensus(*c.GetGenesisSnapshotBlock().Timestamp, c)
+
+	hash := types.HexToHashPanic("79ac82df5ce2970d1a36ba25313de1bc9af99a09d3570ac9b5f47abfe9cbb49d")
+
+	block, err := c.GetSnapshotBlockByHash(&hash)
+	if err != nil {
+		panic(err)
+	}
+
+	t.Log(block.Producer())
+
+	m := make(map[types.Address][]*ledger.SnapshotBlock)
+	head := c.GetLatestSnapshotBlock()
+	headHeight := head.Height
+
+	for i := headHeight; i >= types.GenesisHeight; i-- {
+		block, err := c.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			panic(err)
+		}
+		if block.SeedHash == nil {
+			continue
+		}
+		_, ok := m[block.Producer()]
+		//bs, ok := m[block.Producer()]
+		//if len(bs) >= 2 {
+		//	continue
+		//}
+		if ok {
+			m[block.Producer()] = append(m[block.Producer()], block)
+		} else {
+			var arr []*ledger.SnapshotBlock
+			arr = append(arr, block)
+			m[block.Producer()] = arr
+		}
+	}
+
+	for k, v := range m {
+		fmt.Printf("addr:%s, %d\n", k.String(), len(v))
+		var top *ledger.SnapshotBlock
+		for _, v := range v {
+			fmt.Printf("%s, %d, %d, %s\n", v.Hash, v.Height, v.Seed, v.SeedHash)
+			if top != nil {
+				seedHash := ledger.ComputeSeedHash(top.Seed, v.PrevHash, v.Timestamp)
+				fmt.Printf("expected:%s, actual:%s, %t\n", v.SeedHash, seedHash, *v.SeedHash == seedHash)
+			}
+			top = v
+		}
+
+	}
 }
