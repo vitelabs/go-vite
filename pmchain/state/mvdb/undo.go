@@ -3,7 +3,7 @@ package mvdb
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash) error {
@@ -44,7 +44,7 @@ func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash) error {
 }
 
 func (mvDB *MultiVersionDB) GetUndoLog(blockHash *types.Hash) ([]byte, error) {
-	return mvDB.db.Get(chain_dbutils.CreateStateUndoKey(blockHash), nil)
+	return mvDB.db.Get(chain_utils.CreateStateUndoKey(blockHash), nil)
 }
 
 // positive sequence undo log list(from low to high)
@@ -59,8 +59,8 @@ func (mvDB *MultiVersionDB) PosSeqUndoLogListToOperations(undoLogList [][]byte) 
 		currentPointer := 0
 		undoLogLen := len(undoLog)
 		for currentPointer < undoLogLen {
-			undoKeyId := chain_dbutils.FixedBytesToUint64(undoLog[currentPointer : currentPointer+4])
-			undoValueId := chain_dbutils.FixedBytesToUint64(undoLog[currentPointer+4 : currentPointer+8])
+			undoKeyId := chain_utils.FixedBytesToUint64(undoLog[currentPointer : currentPointer+4])
+			undoValueId := chain_utils.FixedBytesToUint64(undoLog[currentPointer+4 : currentPointer+8])
 
 			if _, ok := operations[undoKeyId]; !ok {
 				operations[undoKeyId] = undoValueId
@@ -76,8 +76,8 @@ func (mvDB *MultiVersionDB) ParseUndoLog(undoLog []byte, processor func(keyId ui
 	currentPointer := 0
 	undoLogLen := len(undoLog)
 	for currentPointer < undoLogLen {
-		undoKeyId := chain_dbutils.FixedBytesToUint64(undoLog[currentPointer : currentPointer+4])
-		undoValueId := chain_dbutils.FixedBytesToUint64(undoLog[currentPointer+4 : currentPointer+8])
+		undoKeyId := chain_utils.FixedBytesToUint64(undoLog[currentPointer : currentPointer+4])
+		undoValueId := chain_utils.FixedBytesToUint64(undoLog[currentPointer+4 : currentPointer+8])
 
 		processor(undoKeyId, undoValueId)
 
@@ -92,15 +92,15 @@ func (mvDB *MultiVersionDB) writeUndoLog(blockHash *types.Hash, keyList [][]byte
 		if err != nil {
 			return err
 		}
-		undoLog = append(undoLog, chain_dbutils.Uint64ToFixedBytes(keyId)...)
-		undoLog = append(undoLog, chain_dbutils.Uint64ToFixedBytes(valueIdList[index])...)
+		undoLog = append(undoLog, chain_utils.Uint64ToFixedBytes(keyId)...)
+		undoLog = append(undoLog, chain_utils.Uint64ToFixedBytes(valueIdList[index])...)
 	}
 
-	undoKey := chain_dbutils.CreateStateUndoKey(blockHash)
+	undoKey := chain_utils.CreateStateUndoKey(blockHash)
 	mvDB.pending.Put(blockHash, undoKey, undoLog)
 	return nil
 }
 
 func (mvDB *MultiVersionDB) deleteUndoLog(batch *leveldb.Batch, blockHash *types.Hash) {
-	batch.Delete(chain_dbutils.CreateStateUndoKey(blockHash))
+	batch.Delete(chain_utils.CreateStateUndoKey(blockHash))
 }

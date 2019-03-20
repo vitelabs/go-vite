@@ -1,7 +1,8 @@
-package chain_dbutils
+package chain_utils
 
 import (
 	"encoding/binary"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/pmchain/block"
 )
 
@@ -11,6 +12,10 @@ func SerializeAccountIdHeight(accountId, height uint64) []byte {
 
 func DeserializeAccountIdHeight(buf []byte) (uint64, uint64) {
 	return 0, 0
+}
+
+func DeserializeHashList(buf []byte) []*types.Hash {
+	return nil
 }
 
 func SerializeAccountId(accountId uint64) []byte {

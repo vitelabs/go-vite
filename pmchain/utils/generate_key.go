@@ -1,4 +1,4 @@
-package chain_dbutils
+package chain_utils
 
 import (
 	"github.com/vitelabs/go-vite/common/types"

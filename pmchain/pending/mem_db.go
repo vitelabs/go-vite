@@ -3,15 +3,12 @@ package chain_pending
 import (
 	"bytes"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"sync"
-)
-
-const (
-	valueMark   = byte(0)
-	deletedMark = byte(1)
 )
 
 type MemDB struct {
@@ -35,6 +32,9 @@ func newStorage() *memdb.DB {
 	return memdb.New(comparer.DefaultComparer, 10*1024*1024)
 }
 
+func (mDb *MemDB) NewIterator(slice *util.Range) iterator.Iterator {
+	return mDb.storage.NewIterator(slice)
+}
 func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
@@ -71,11 +71,7 @@ func (mDb *MemDB) Put(blockHash *types.Hash, key, value []byte) {
 func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
-	result, errNotFound := mDb.storage.Get(key)
-	if errNotFound != nil {
-		return nil, false
-	}
-	return result, true
+	return mDb.get(key)
 }
 
 func (mDb *MemDB) Has(key []byte) bool {
@@ -97,18 +93,21 @@ func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
 	return bytes.HasPrefix(key, prefixKey)
 }
 
-func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
+func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash, deleteEmptyValue bool) {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
 	for _, blockHash := range blockHashList {
 		keyList := mDb.hashKeyList[*blockHash]
 		for _, key := range keyList {
-			value := mDb.Get(key)
-			if value[0] == deletedMark {
+			value, ok := mDb.get(key)
+			if !ok {
+				continue
+			}
+			if len(value) <= 0 && deleteEmptyValue {
 				batch.Delete(key)
 			} else {
-				batch.Put(key, value[1:])
+				batch.Put(key, value)
 			}
 		}
 	}
@@ -136,6 +135,14 @@ func (mDb *MemDB) Clean() {
 
 	mDb.storage.Reset()
 	mDb.hashKeyList = make(map[types.Hash][][]byte)
+}
+
+func (mDb *MemDB) get(key []byte) ([]byte, bool) {
+	result, errNotFound := mDb.storage.Get(key)
+	if errNotFound != nil {
+		return nil, false
+	}
+	return result, true
 }
 
 func (mDb *MemDB) put(blockHash *types.Hash, key, value []byte) {

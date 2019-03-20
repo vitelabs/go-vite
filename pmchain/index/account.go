@@ -5,12 +5,12 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"sync/atomic"
 )
 
 func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
-	key := chain_dbutils.CreateAccountAddressKey(addr)
+	key := chain_utils.CreateAccountAddressKey(addr)
 	value, ok := iDB.memDb.Get(key)
 	if !ok {
 		var err error
@@ -26,11 +26,11 @@ func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	if len(value) <= 0 {
 		return 0, nil
 	}
-	return chain_dbutils.DeserializeAccountId(value), nil
+	return chain_utils.DeserializeAccountId(value), nil
 }
 
 func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) {
-	key := chain_dbutils.CreateAccountIdKey(accountId)
+	key := chain_utils.CreateAccountIdKey(accountId)
 	value, ok := iDB.memDb.Get(key)
 	if !ok {
 		var err error
@@ -57,22 +57,22 @@ func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) 
 func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 
-	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountAddressKey(addr), chain_dbutils.SerializeAccountId(newAccountId))
-	iDB.memDb.Put(blockHash, chain_dbutils.CreateAccountIdKey(newAccountId), addr.Bytes())
+	iDB.memDb.Put(blockHash, chain_utils.CreateAccountAddressKey(addr), chain_utils.SerializeAccountId(newAccountId))
+	iDB.memDb.Put(blockHash, chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
 	return newAccountId
 
 }
 
 func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
-	startKey := chain_dbutils.CreateAccountIdKey(1)
-	endKey := chain_dbutils.CreateAccountIdKey(helper.MaxUint64)
+	startKey := chain_utils.CreateAccountIdKey(1)
+	endKey := chain_utils.CreateAccountIdKey(helper.MaxUint64)
 
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
 	var latestAccountId uint64
 	if iter.Last() {
-		latestAccountId = chain_dbutils.FixedBytesToUint64(iter.Key()[1:])
+		latestAccountId = chain_utils.FixedBytesToUint64(iter.Key()[1:])
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return 0, err

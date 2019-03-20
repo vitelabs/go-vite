@@ -1,9 +1,11 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
@@ -12,28 +14,66 @@ func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
 		return false, err
 	}
 
-	key := chain_dbutils.CreateOnRoadPrefixKey(accountId)
+	key := chain_utils.CreateOnRoadPrefixKey(accountId)
 
 	return iDB.hasValueByPrefix(key)
 }
 
-// TODO
 func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
+	accountId, err := iDB.GetAccountId(address)
+	if err != nil {
+		return nil, err
+	}
+	key := chain_utils.CreateOnRoadPrefixKey(accountId)
+	iter := iDB.NewIterator(util.BytesPrefix(key))
+	defer iter.Release()
 
-	return nil, nil
+	hashList := make([]*types.Hash, 0, countPerPage)
+
+	startIndex := pageNum * countPerPage
+	endIndex := (pageNum + 1) * countPerPage
+
+	index := 0
+	for iter.Next() {
+		if index > endIndex {
+			break
+		}
+
+		if index >= startIndex {
+			result := chain_utils.DeserializeHashList(iter.Value())
+
+			lackLen := countPerPage - len(hashList)
+
+			hashList = append(hashList, result[:lackLen]...)
+
+			index += len(result)
+		} else {
+			index++
+		}
+
+		if len(hashList) >= countPerPage {
+			break
+		}
+	}
+
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return hashList, nil
 }
 
 func (iDB *IndexDB) newOnRoadId(blockHash *types.Hash) uint64 {
 	return iDB.chain.GetLatestSnapshotBlock().Height
 }
 
-func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId, sendAccountId, sendHeight uint64) error {
+func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId uint64) error {
 	onRoadId := iDB.newOnRoadId(blockHash)
 
-	key := chain_dbutils.CreateOnRoadKey(toAccountId, onRoadId)
-	value := chain_dbutils.SerializeAccountIdHeight(sendAccountId, sendHeight)
+	key := chain_utils.CreateOnRoadKey(toAccountId, onRoadId)
+	value := blockHash.Bytes()
 
-	reverseKey := chain_dbutils.CreateOnRoadReverseKey(value)
+	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
 
 	if err := iDB.memDb.Append(blockHash, key, value); err != nil {
 		return err
@@ -44,7 +84,7 @@ func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId, sendAccount
 
 // TODO
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendAccountId uint64, sendHeight uint64) error {
-	key := chain_dbutils.CreateOnRoadReverseKey(chain_dbutils.SerializeAccountIdHeight(sendAccountId, sendHeight))
+	key := chain_utils.CreateOnRoadReverseKey(chain_utils.SerializeAccountIdHeight(sendAccountId, sendHeight))
 
 	batch.Delete(key)
 

@@ -5,8 +5,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
 	"github.com/vitelabs/go-vite/pmchain/state/mvdb"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"math/big"
 	"sync/atomic"
 )
@@ -245,7 +245,7 @@ func newStateSnapshot(ssm *stateSnapshotManager, snapshotId uint64, addr *types.
 }
 
 func (ss *stateSnapshot) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	key := chain_dbutils.CreateBalanceKey(ss.accountId, tokenTypeId)
+	key := chain_utils.CreateBalanceKey(ss.accountId, tokenTypeId)
 
 	value, err := ss.getValue(key)
 	if err != nil {
@@ -256,7 +256,7 @@ func (ss *stateSnapshot) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, e
 }
 
 func (ss *stateSnapshot) GetValue(key []byte) ([]byte, error) {
-	storageKey := chain_dbutils.CreateStorageKeyPrefix(ss.accountId, key)
+	storageKey := chain_utils.CreateStorageKeyPrefix(ss.accountId, key)
 
 	value, err := ss.getValue(storageKey)
 	if err != nil {

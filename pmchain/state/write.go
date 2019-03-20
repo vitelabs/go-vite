@@ -3,7 +3,7 @@ package chain_state
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -37,13 +37,13 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	// write code
 	if len(unsavedCode) > 0 {
-		keyList = append(keyList, chain_dbutils.CreateCodeKey(accountId))
+		keyList = append(keyList, chain_utils.CreateCodeKey(accountId))
 		valueList = append(valueList, unsavedCode)
 	}
 
 	// write contract meta
 	if unsavedContractMeta != nil {
-		keyList = append(keyList, chain_dbutils.CreateContractMetaKey(accountId))
+		keyList = append(keyList, chain_utils.CreateContractMetaKey(accountId))
 		valueList = append(valueList, unsavedContractMeta.Serialize())
 	}
 
@@ -71,7 +71,7 @@ func (sDB *StateDB) prepareWriteBalance(accountId uint64, balanceMap map[types.T
 	valueList := make([][]byte, 0, len(balanceMap))
 
 	for tokenTypeId, balance := range balanceMap {
-		keyList = append(keyList, chain_dbutils.CreateBalanceKey(accountId, &tokenTypeId))
+		keyList = append(keyList, chain_utils.CreateBalanceKey(accountId, &tokenTypeId))
 		valueList = append(valueList, balance.Bytes())
 
 	}
@@ -83,7 +83,7 @@ func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage [][2][]
 	valueList := make([][]byte, 0, len(unsavedStorage))
 
 	for _, kv := range unsavedStorage {
-		keyList = append(keyList, chain_dbutils.CreateStorageKeyPrefix(accountId, kv[0]))
+		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(accountId, kv[0]))
 		valueList = append(valueList, kv[1])
 	}
 	return keyList, valueList

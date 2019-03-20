@@ -1,4 +1,4 @@
-package chain_dbutils
+package chain_utils
 
 const (
 	AccountBlockHashKeyPrefix = byte(1)

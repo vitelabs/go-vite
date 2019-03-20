@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -50,7 +50,7 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 			toAccountId = iDB.createAccount(blockHash, &accountBlock.ToAddress)
 		}
 
-		iDB.insertOnRoad(blockHash, toAccountId, accountId, accountBlock.Height)
+		iDB.insertOnRoad(blockHash, toAccountId)
 	}
 
 	if accountBlock.LogHash != nil {
@@ -110,30 +110,30 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 }
 
 func (iDB *IndexDB) insertAccountBlockHash(blockHash *types.Hash, accountId uint64, height uint64) {
-	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
-	value := chain_dbutils.SerializeAccountIdHeight(accountId, height)
+	key := chain_utils.CreateAccountBlockHashKey(blockHash)
+	value := chain_utils.SerializeAccountIdHeight(accountId, height)
 
 	iDB.memDb.Put(blockHash, key, value)
 
 }
 
 func (iDB *IndexDB) insertAccountBlockHeight(batch interfaces.Batch, accountId uint64, height uint64, location *chain_block.Location) {
-	key := chain_dbutils.CreateAccountBlockHeightKey(accountId, height)
-	value := chain_dbutils.SerializeLocation(location)
+	key := chain_utils.CreateAccountBlockHeightKey(accountId, height)
+	value := chain_utils.SerializeLocation(location)
 	batch.Put(key, value)
 }
 
 func (iDB *IndexDB) insertReceiveHeight(blockHash *types.Hash, sendAccountId, sendHeight, receiveAccountId, receiveHeight uint64) {
 	key := make([]byte, 0, 17)
-	key = chain_dbutils.CreateReceiveHeightKey(sendAccountId, sendHeight)
+	key = chain_utils.CreateReceiveHeightKey(sendAccountId, sendHeight)
 
-	value := chain_dbutils.SerializeAccountIdHeight(receiveAccountId, receiveHeight)
+	value := chain_utils.SerializeAccountIdHeight(receiveAccountId, receiveHeight)
 
 	iDB.memDb.Put(blockHash, key, value)
 }
 
 func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, logList ledger.VmLogList) error {
-	key := chain_dbutils.CreateVmLogListKey(logHash)
+	key := chain_utils.CreateVmLogListKey(logHash)
 
 	value, err := logList.Serialize()
 
@@ -145,7 +145,7 @@ func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, 
 }
 
 func (iDB *IndexDB) flush(batch interfaces.Batch, blockHashList []*types.Hash) {
-	iDB.memDb.Flush(batch, blockHashList)
+	iDB.memDb.Flush(batch, blockHashList, true)
 }
 
 func (iDB *IndexDB) cleanMemDb(blocks []*ledger.AccountBlock) {
@@ -155,16 +155,16 @@ func (iDB *IndexDB) cleanMemDb(blocks []*ledger.AccountBlock) {
 }
 
 func (iDB *IndexDB) insertConfirmHeight(batch interfaces.Batch, accountId uint64, height uint64, snapshotHeight uint64) {
-	key := chain_dbutils.CreateConfirmHeightKey(accountId, height)
-	batch.Put(key, chain_dbutils.SerializeHeight(snapshotHeight))
+	key := chain_utils.CreateConfirmHeightKey(accountId, height)
+	batch.Put(key, chain_utils.SerializeHeight(snapshotHeight))
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHash(batch interfaces.Batch, snapshotBlockHash *types.Hash, height uint64) {
-	key := chain_dbutils.CreateSnapshotBlockHashKey(snapshotBlockHash)
-	batch.Put(key, chain_dbutils.SerializeHeight(height))
+	key := chain_utils.CreateSnapshotBlockHashKey(snapshotBlockHash)
+	batch.Put(key, chain_utils.SerializeHeight(height))
 }
 
 func (iDB *IndexDB) insertSnapshotBlockHeight(batch interfaces.Batch, snapshotBlockHeight uint64, location *chain_block.Location) {
-	key := chain_dbutils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
-	batch.Put(key, chain_dbutils.SerializeLocation(location))
+	key := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
+	batch.Put(key, chain_utils.SerializeLocation(location))
 }

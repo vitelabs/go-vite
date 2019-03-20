@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 func (iDB *IndexDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Address][]*ledger.AccountBlock) {
@@ -16,7 +16,6 @@ func (iDB *IndexDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Addres
 			iDB.memDb.DeleteByBlockHash(&accountBlock.Hash)
 		}
 	}
-
 }
 
 // TODO
@@ -62,7 +61,7 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 					iDB.deleteReceiveHeight(batch, sendAccountId, sendHeight)
 
 					// insert onRoad
-					if err := iDB.insertOnRoad(&block.FromBlockHash, accountId, sendAccountId, sendHeight); err != nil {
+					if err := iDB.insertOnRoad(&block.FromBlockHash, accountId); err != nil {
 						return err
 					}
 				}
@@ -109,36 +108,36 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 }
 
 func (iDB *IndexDB) deleteSnapshotBlockHash(batch interfaces.Batch, snapshotBlockHash *types.Hash) {
-	key := chain_dbutils.CreateSnapshotBlockHashKey(snapshotBlockHash)
+	key := chain_utils.CreateSnapshotBlockHashKey(snapshotBlockHash)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteSnapshotBlockHeight(batch interfaces.Batch, snapshotBlockHeight uint64) {
-	key := chain_dbutils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
+	key := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch interfaces.Batch, blockHash *types.Hash) {
-	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
+	key := chain_utils.CreateAccountBlockHashKey(blockHash)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteAccountBlockHeight(batch interfaces.Batch, accountId uint64, height uint64) {
-	key := chain_dbutils.CreateAccountBlockHeightKey(accountId, height)
+	key := chain_utils.CreateAccountBlockHeightKey(accountId, height)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteReceiveHeight(batch interfaces.Batch, sendAccountId, sendHeight uint64) {
-	key := chain_dbutils.CreateReceiveHeightKey(sendAccountId, sendHeight)
+	key := chain_utils.CreateReceiveHeightKey(sendAccountId, sendHeight)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteVmLogList(batch interfaces.Batch, logHash *types.Hash) {
-	key := chain_dbutils.CreateVmLogListKey(logHash)
+	key := chain_utils.CreateVmLogListKey(logHash)
 	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteConfirmHeight(batch interfaces.Batch, accountId uint64, height uint64) {
-	key := chain_dbutils.CreateConfirmHeightKey(accountId, height)
+	key := chain_utils.CreateConfirmHeightKey(accountId, height)
 	batch.Delete(key)
 }

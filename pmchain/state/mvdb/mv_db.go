@@ -4,8 +4,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
 	"github.com/vitelabs/go-vite/pmchain/pending"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"path"
 	"sync/atomic"
 )
@@ -52,7 +52,7 @@ func (mvDB *MultiVersionDB) LatestKeyId() uint64 {
 }
 
 func (mvDB *MultiVersionDB) GetKeyId(key []byte) (uint64, error) {
-	keyIdKey := chain_dbutils.CreateKeyIdKey(key)
+	keyIdKey := chain_utils.CreateKeyIdKey(key)
 
 	keyIdBytes, ok := mvDB.pending.Get(keyIdKey)
 	if !ok {
@@ -66,11 +66,11 @@ func (mvDB *MultiVersionDB) GetKeyId(key []byte) (uint64, error) {
 		}
 	}
 
-	return chain_dbutils.DeserializeUint64(keyIdBytes), nil
+	return chain_utils.DeserializeUint64(keyIdBytes), nil
 }
 
 func (mvDB *MultiVersionDB) GetValueId(keyId uint64) (uint64, error) {
-	latestValueKey := chain_dbutils.CreateLatestValueKey(keyId)
+	latestValueKey := chain_utils.CreateLatestValueKey(keyId)
 
 	valueIdBytes, ok := mvDB.pending.Get(latestValueKey)
 	if !ok {
@@ -85,7 +85,7 @@ func (mvDB *MultiVersionDB) GetValueId(keyId uint64) (uint64, error) {
 		}
 	}
 
-	return chain_dbutils.FixedBytesToUint64(valueIdBytes), nil
+	return chain_utils.FixedBytesToUint64(valueIdBytes), nil
 }
 
 func (mvDB *MultiVersionDB) GetValue(key []byte) ([]byte, error) {
@@ -129,7 +129,7 @@ func (mvDB *MultiVersionDB) HasValue(key []byte) (bool, error) {
 }
 
 func (mvDB *MultiVersionDB) GetValueByValueId(valueId uint64) ([]byte, error) {
-	valueIdKey := chain_dbutils.CreateValueIdKey(valueId)
+	valueIdKey := chain_utils.CreateValueIdKey(valueId)
 
 	value, ok := mvDB.pending.Get(valueIdKey)
 	if !ok {
@@ -163,7 +163,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 		if keyId <= 0 {
 			keyId = atomic.AddUint64(&mvDB.latestKeyId, 1)
 			// insert key id
-			mvDB.pending.Put(blockHash, chain_dbutils.CreateKeyIdKey(key), chain_dbutils.Uint64ToFixedBytes(keyId))
+			mvDB.pending.Put(blockHash, chain_utils.CreateKeyIdKey(key), chain_utils.Uint64ToFixedBytes(keyId))
 		} else {
 			prevValueId, err := mvDB.GetValueId(keyId)
 			if err != nil {
@@ -175,10 +175,10 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 		valueId := startValueId + uint64(index+1)
 
 		// update latest value index
-		mvDB.pending.Put(blockHash, chain_dbutils.CreateLatestValueKey(keyId), chain_dbutils.Uint64ToFixedBytes(valueId))
+		mvDB.pending.Put(blockHash, chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
 
 		// insert value
-		valueIdKey := chain_dbutils.CreateValueIdKey(valueId)
+		valueIdKey := chain_utils.CreateValueIdKey(valueId)
 		mvDB.pending.Put(blockHash, valueIdKey, valueList[index])
 	}
 
@@ -192,7 +192,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash) error {
 	batch := new(leveldb.Batch)
 
-	mvDB.pending.Flush(batch, blockHashList)
+	mvDB.pending.Flush(batch, blockHashList, true)
 
 	if err := mvDB.db.Write(batch, nil); err != nil {
 		return err
@@ -208,5 +208,5 @@ func (mvDB *MultiVersionDB) DeletePendingBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (mvDB *MultiVersionDB) updateKeyIdIndex(batch *leveldb.Batch, keyId uint64, valueId uint64) {
-	batch.Put(chain_dbutils.CreateLatestValueKey(keyId), chain_dbutils.Uint64ToFixedBytes(valueId))
+	batch.Put(chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
 }

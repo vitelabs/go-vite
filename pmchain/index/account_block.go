@@ -7,11 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-	key := chain_dbutils.CreateAccountBlockHashKey(hash)
+	key := chain_utils.CreateAccountBlockHashKey(hash)
 
 	return iDB.hasValue(key)
 }
@@ -23,8 +23,8 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 		return 0, nil, err
 	}
 
-	startKey := chain_dbutils.CreateAccountBlockHeightKey(accountId, 1)
-	endKey := chain_dbutils.CreateAccountBlockHeightKey(accountId, helper.MaxUint64)
+	startKey := chain_utils.CreateAccountBlockHeightKey(accountId, 1)
+	endKey := chain_utils.CreateAccountBlockHeightKey(accountId, helper.MaxUint64)
 
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
@@ -36,8 +36,8 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 		return 0, nil, err
 	}
 
-	height := chain_dbutils.FixedBytesToUint64(iter.Key()[9:])
-	location := chain_dbutils.DeserializeLocation(iter.Value())
+	height := chain_utils.FixedBytesToUint64(iter.Key()[9:])
+	location := chain_utils.DeserializeLocation(iter.Value())
 	return height, location, nil
 }
 
@@ -46,7 +46,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	if err != nil {
 		return nil, err
 	}
-	key := chain_dbutils.CreateAccountBlockHeightKey(accountId, height)
+	key := chain_utils.CreateAccountBlockHeightKey(accountId, height)
 	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	if len(value) <= 0 {
 		return nil, nil
 	}
-	return chain_dbutils.DeserializeLocation(value), nil
+	return chain_utils.DeserializeLocation(value), nil
 }
 
 // TODO
@@ -72,7 +72,7 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 	if accountId <= 0 {
 		return 0, nil
 	}
-	key := chain_dbutils.CreateConfirmHeightKey(accountId, height)
+	key := chain_utils.CreateConfirmHeightKey(accountId, height)
 	value, err := iDB.getValue(key)
 
 	if err != nil {
@@ -82,7 +82,7 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 		return 0, nil
 	}
 
-	return chain_dbutils.FixedBytesToUint64(value), nil
+	return chain_utils.FixedBytesToUint64(value), nil
 }
 
 func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64, error) {
@@ -94,7 +94,7 @@ func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64
 	if accountId <= 0 {
 		return 0, 0, nil
 	}
-	key := chain_dbutils.CreateReceiveHeightKey(accountId, height)
+	key := chain_utils.CreateReceiveHeightKey(accountId, height)
 	value, err := iDB.getValue(key)
 
 	if err != nil {
@@ -104,7 +104,7 @@ func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64
 		return 0, 0, nil
 	}
 
-	receiveAccountId, receiveHeight := chain_dbutils.DeserializeAccountIdHeight(value)
+	receiveAccountId, receiveHeight := chain_utils.DeserializeAccountIdHeight(value)
 	return receiveAccountId, receiveHeight, nil
 }
 
@@ -118,11 +118,11 @@ func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 		return false, nil
 	}
 
-	key := chain_dbutils.CreateReceiveHeightKey(accountId, height)
+	key := chain_utils.CreateReceiveHeightKey(accountId, height)
 	return iDB.hasValue(key)
 }
 func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
-	key := chain_dbutils.CreateVmLogListKey(logHash)
+	key := chain_utils.CreateVmLogListKey(logHash)
 	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (iDB *IndexDB) getAccountIdHeight(blockHash *types.Hash) (uint64, uint64, error) {
-	key := chain_dbutils.CreateAccountBlockHashKey(blockHash)
+	key := chain_utils.CreateAccountBlockHashKey(blockHash)
 	value, err := iDB.getValue(key)
 	if err != nil {
 		return 0, 0, err
@@ -145,6 +145,6 @@ func (iDB *IndexDB) getAccountIdHeight(blockHash *types.Hash) (uint64, uint64, e
 		return 0, 0, err
 	}
 
-	accountId, height := chain_dbutils.DeserializeAccountIdHeight(value)
+	accountId, height := chain_utils.DeserializeAccountIdHeight(value)
 	return accountId, height, nil
 }

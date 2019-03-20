@@ -6,8 +6,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
 	"github.com/vitelabs/go-vite/pmchain/state/mvdb"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 	"math/big"
 )
 
@@ -53,7 +53,7 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	value, err := sDB.mvDB.GetValue(chain_dbutils.CreateBalanceKey(accountId, tokenTypeId))
+	value, err := sDB.mvDB.GetValue(chain_utils.CreateBalanceKey(accountId, tokenTypeId))
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
 		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	return sDB.mvDB.GetValue(chain_dbutils.CreateCodeKey(accountId))
+	return sDB.mvDB.GetValue(chain_utils.CreateCodeKey(accountId))
 }
 
 func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
@@ -82,7 +82,7 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	value, err := sDB.mvDB.GetValue(chain_dbutils.CreateContractMetaKey(accountId))
+	value, err := sDB.mvDB.GetValue(chain_utils.CreateContractMetaKey(accountId))
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
 		return false, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	return sDB.mvDB.HasValue(chain_dbutils.CreateContractMetaKey(accountId))
+	return sDB.mvDB.HasValue(chain_utils.CreateContractMetaKey(accountId))
 }
 func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
 	accountId, err := sDB.chain.GetAccountId(addr)
@@ -118,7 +118,7 @@ func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
 		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	return sDB.mvDB.GetValue(chain_dbutils.CreateStorageKeyPrefix(accountId, []byte(key)))
+	return sDB.mvDB.GetValue(chain_utils.CreateStorageKeyPrefix(accountId, []byte(key)))
 }
 
 func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
@@ -130,7 +130,7 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) (inte
 		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
 	}
 
-	return sDB.mvDB.NewIterator(chain_dbutils.CreateStorageKeyPrefix(accountId, prefix)), nil
+	return sDB.mvDB.NewIterator(chain_utils.CreateStorageKeyPrefix(accountId, prefix)), nil
 }
 
 func (sDB *StateDB) NewStateSnapshot(addr *types.Address, snapshotBlockHeight uint64) (interfaces.StateSnapshot, error) {

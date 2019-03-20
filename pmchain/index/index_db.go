@@ -5,6 +5,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/common/dbutils"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/pmchain/pending"
 )
 
@@ -51,6 +53,14 @@ func (iDB *IndexDB) CleanAllData() error {
 	}
 	return nil
 }
+
+func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
+	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
+		iDB.memDb.NewIterator(slice),
+		iDB.store.NewIterator(slice),
+	}, nil)
+}
+
 func (iDB *IndexDB) Destroy() error {
 	iDB.memDb = nil
 	if err := iDB.store.Close(); err != nil {

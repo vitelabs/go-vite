@@ -3,16 +3,16 @@ package mvdb
 import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/pmchain/dbutils"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 func (mvDB *MultiVersionDB) NewIterator(prefix []byte) interfaces.StorageIterator {
-	keyIdIterator := mvDB.db.NewIterator(util.BytesPrefix(chain_dbutils.CreateKeyIdKey(prefix)), nil)
+	keyIdIterator := mvDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateKeyIdKey(prefix)), nil)
 	return NewIterator(mvDB, keyIdIterator)
 }
 
 func (mvDB *MultiVersionDB) NewSnapshotIterator(prefix []byte, isKeyIdValid func(uint64) bool, getValueIdFromCache func(uint64) (uint64, bool)) interfaces.StorageIterator {
-	keyIdIterator := mvDB.db.NewIterator(util.BytesPrefix(chain_dbutils.CreateKeyIdKey(prefix)), nil)
+	keyIdIterator := mvDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateKeyIdKey(prefix)), nil)
 	return NewSnapshotIterator(mvDB, keyIdIterator, isKeyIdValid, getValueIdFromCache)
 }
 
