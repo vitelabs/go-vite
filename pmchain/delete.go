@@ -60,7 +60,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location) (
 
 	//insert unconfirmed block
 	for _, block := range unconfirmedAccountBlocks {
-		c.cache.InsertUnconfirmedAccountBlock(block)
+		c.cache.InsertAccountBlock(block)
 	}
 
 	return nil, nil, nil

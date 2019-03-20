@@ -3,6 +3,7 @@ package pmchain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
 	"io"
 	"math/big"
@@ -74,6 +75,7 @@ type Chain interface {
 	 */
 
 	// ====== Query account block ======
+	IsGenesisAccountBlock(hash *types.Hash) bool
 	IsAccountBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
@@ -138,6 +140,10 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
+	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
+
+	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
+
 	// ====== Query unconfirmed pool ======
 	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
 
@@ -167,7 +173,7 @@ type Chain interface {
 
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
-	GetQuotaUnused(address *types.Address) uint64
+	GetQuotaUnused(address *types.Address) (uint64, error)
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 

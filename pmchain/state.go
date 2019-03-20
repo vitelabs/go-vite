@@ -65,10 +65,18 @@ func (c *chain) GetContractList(gid *types.Gid) (map[types.Address]*ledger.Contr
 	return nil, nil
 }
 
-func (c *chain) GetQuotaUnused(address *types.Address) uint64 {
-	return 0
+func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {
+	totalQuota, err := c.GetPledgeQuota(&c.GetLatestSnapshotBlock().Hash, address)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
+		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
+		return 0, cErr
+	}
+
+	quotaUsed, _ := c.GetQuotaUsed(address)
+	return totalQuota - quotaUsed, nil
 }
 
 func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
-	return 0, 0
+	return c.cache.GetQuotaUsed(address)
 }

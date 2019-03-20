@@ -7,6 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+func (c *chain) IsGenesisAccountBlock(hash *types.Hash) bool {
+	return true
+}
+
 func (c *chain) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 	// cache
 	if ok := c.cache.IsAccountBlockExisted(hash); ok {

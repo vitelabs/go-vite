@@ -339,7 +339,7 @@ func (c *chain) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHei
 	return snapshotHeaders, nil
 }
 
-func (c *chain) getLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	var err error
 	location, err := c.indexDB.GetLatestSnapshotBlockLocation()
 	if err != nil {
@@ -445,4 +445,12 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 	}
 	return c.GetSnapshotHeaderByHeight(start.Height + uint64(i-1))
 
+}
+
+func (c *chain) GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error) {
+	return nil, nil
+}
+
+func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error) {
+	return nil, nil
 }

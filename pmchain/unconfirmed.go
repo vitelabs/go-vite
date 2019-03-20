@@ -10,7 +10,7 @@ func (c *chain) GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
 }
 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
-	currentUnconfirmedBlocks := c.cache.GetCurrentUnconfirmedBlocks()
+	currentUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	needSnapshotBlocks, _, _ := c.filterCanBeSnapped(currentUnconfirmedBlocks)
 

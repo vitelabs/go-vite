@@ -20,7 +20,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 	accountBlock := vmAccountBlock.AccountBlock
 	// write unconfirmed pool
-	c.cache.InsertUnconfirmedAccountBlock(accountBlock)
+	c.cache.InsertAccountBlock(accountBlock)
 
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(vmAccountBlock); err != nil {
@@ -45,7 +45,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
-	unconfirmedBlocks := c.cache.GetCurrentUnconfirmedBlocks()
+	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	canBeSnappedBlocks, invalidSubLedger, needDeletedAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
 	canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
@@ -71,7 +71,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 
 	// flush state db
 	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.Flush failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
 	}
@@ -83,10 +83,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)
 
 	// remove invalid subLedger cache
-	c.cache.DeleteUnconfirmedBlocks(needDeletedAccountBlocks)
+	c.cache.DeleteUnconfirmedAccountBlocks(append(canBeSnappedBlocks, needDeletedAccountBlocks...))
 
 	// update latest snapshot block cache
-	c.cache.UpdateLatestSnapshotBlock(snapshotBlock)
+	c.cache.InsertSnapshotBlock(snapshotBlock)
 
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
 

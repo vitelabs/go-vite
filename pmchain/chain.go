@@ -122,15 +122,7 @@ func (c *chain) Init() error {
 	}
 
 	// set cache
-
-	latestSnapshotBlock, err := c.getLatestSnapshotBlock()
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.getLatestSnapshotBlock failed, [Error] %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
-	if err := c.cache.Init(latestSnapshotBlock); err != nil {
+	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed, [Error] %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
