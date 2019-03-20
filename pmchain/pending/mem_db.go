@@ -1,6 +1,9 @@
 package chain_pending
 
 import (
+	"bytes"
+	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"sync"
@@ -15,24 +18,28 @@ type MemDB struct {
 	mu        sync.RWMutex
 	dataStore interfaces.Store
 
-	storage     map[string][]byte
+	storage *memdb.DB
+
 	hashKeyList map[types.Hash][][]byte
 }
 
 func NewMemDB(dataStore interfaces.Store) *MemDB {
 	return &MemDB{
 		dataStore:   dataStore,
-		storage:     make(map[string][]byte),
+		storage:     newStorage(),
 		hashKeyList: make(map[types.Hash][][]byte),
 	}
+}
+
+func newStorage() *memdb.DB {
+	return memdb.New(comparer.DefaultComparer, 10*1024*1024)
 }
 
 func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
-
-	innerValue, ok := mDb.storage[string(key)]
-	if !ok {
+	innerValue, errNotFound := mDb.storage.Get(key)
+	if errNotFound != nil {
 		if mDb.dataStore != nil {
 			if ok, err := mDb.dataStore.Has(key); err != nil {
 				return err
@@ -51,7 +58,7 @@ func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
 	}
 	innerValue = append(innerValue, value...)
 
-	mDb.storage[string(key)] = innerValue
+	mDb.storage.Put(key, innerValue)
 	return nil
 }
 
@@ -64,27 +71,30 @@ func (mDb *MemDB) Put(blockHash *types.Hash, key, value []byte) {
 func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
-
-	result, ok := mDb.storage[string(key)]
-	if result[0] == deletedMark {
-		return nil, true
+	result, errNotFound := mDb.storage.Get(key)
+	if errNotFound != nil {
+		return nil, false
 	}
-	return result[1:], ok
+	return result, true
 }
 
 func (mDb *MemDB) Has(key []byte) bool {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
 
-	value, ok := mDb.storage[string(key)]
-	if !ok {
-		return false
-	}
-	if value[0] == deletedMark {
+	return mDb.storage.Contains(key)
+}
+
+func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
+	key, _, errNotFound := mDb.storage.Find(prefixKey)
+	if errNotFound != nil {
 		return false
 	}
 
-	return true
+	return bytes.HasPrefix(key, prefixKey)
 }
 
 func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
@@ -94,7 +104,7 @@ func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
 	for _, blockHash := range blockHashList {
 		keyList := mDb.hashKeyList[*blockHash]
 		for _, key := range keyList {
-			value := mDb.storage[string(key)]
+			value := mDb.Get(key)
 			if value[0] == deletedMark {
 				batch.Delete(key)
 			} else {
@@ -124,16 +134,12 @@ func (mDb *MemDB) Clean() {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
-	mDb.storage = make(map[string][]byte)
+	mDb.storage.Reset()
 	mDb.hashKeyList = make(map[types.Hash][][]byte)
 }
 
 func (mDb *MemDB) put(blockHash *types.Hash, key, value []byte) {
-
-	innerValue := make([]byte, len(value)+1)
-	copy(innerValue[1:], value)
-
-	mDb.storage[string(key)] = innerValue
+	mDb.storage.Put(key, value)
 	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
 }
 
@@ -143,8 +149,8 @@ func (mDb *MemDB) deleteByBlockHash(blockHash *types.Hash) {
 		return
 	}
 
-	for key := range keyList {
-		delete(mDb.storage, string(key))
+	for _, key := range keyList {
+		mDb.storage.Delete(key)
 	}
 	delete(mDb.hashKeyList, *blockHash)
 }

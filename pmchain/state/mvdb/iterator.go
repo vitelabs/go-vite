@@ -51,9 +51,6 @@ func NewSnapshotIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageI
 	}
 }
 
-func (iterator *Iterator) Prev() bool {
-	return iterator.step(false)
-}
 func (iterator *Iterator) Next() bool {
 	return iterator.step(true)
 }
@@ -115,13 +112,7 @@ func (iterator *Iterator) step(next bool) bool {
 		iterator.currentKeyId = 0
 		iterator.currentKey = nil
 
-		var ok bool
-		if next {
-			ok = iterator.keyIdIterator.Next()
-		} else {
-			ok = iterator.keyIdIterator.Prev()
-		}
-		if !ok {
+		if ok := iterator.keyIdIterator.Next(); !ok {
 			iterator.setError(iterator.keyIdIterator.Error())
 			return false
 		}

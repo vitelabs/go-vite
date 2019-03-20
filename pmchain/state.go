@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
@@ -79,4 +80,24 @@ func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {
 
 func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
 	return c.cache.GetQuotaUsed(address)
+}
+
+func (c *chain) GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+	ss, err := c.stateDB.NewStorageIterator(address, prefix)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageIterator failed, address is %s. prefix is %s", address, prefix))
+		c.log.Error(cErr.Error(), "method", "GetStateIterator")
+		return nil, cErr
+	}
+	return ss, nil
+}
+
+func (c *chain) GetValue(address *types.Address, key []byte) ([]byte, error) {
+	value, err := c.stateDB.GetValue(address, key)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetValue failed, address is %s. key is %s", address, key))
+		c.log.Error(cErr.Error(), "method", "GetValue")
+		return nil, cErr
+	}
+	return value, err
 }

@@ -1,6 +1,9 @@
 package vm_db
 
 import (
+	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/memdb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,25 +16,55 @@ type Unsaved struct {
 	code []byte
 
 	logList ledger.VmLogList
-	storage map[string][]byte
 
-	storageList *UnsavedStorage
+	storage    *memdb.DB
+	kvCount    int
+	deletedKey map[string]struct{}
+
+	storageDirty bool
+	storageCache [][2][]byte
 
 	balanceMap map[types.TokenTypeId]*big.Int
 }
 
 func NewUnsaved() *Unsaved {
 	return &Unsaved{
-		logList: make(ledger.VmLogList, 0),
-
-		storage:     make(map[string][]byte),
-		storageList: newUnsavedStorage(),
-		balanceMap:  make(map[types.TokenTypeId]*big.Int),
+		logList:      make(ledger.VmLogList, 0),
+		deletedKey:   make(map[string]struct{}),
+		storage:      memdb.New(comparer.DefaultComparer, 16*1024),
+		storageDirty: false,
+		balanceMap:   make(map[types.TokenTypeId]*big.Int),
 	}
 }
+func (unsaved *Unsaved) Reset() {
+	unsaved.contractMeta = nil
+	unsaved.code = nil
 
-func (unsaved *Unsaved) GetStorage() map[string][]byte {
-	return unsaved.storage
+	unsaved.logList = nil
+
+	unsaved.storage.Reset()
+	unsaved.kvCount = 0
+	unsaved.deletedKey = make(map[string]struct{})
+	unsaved.storageDirty = false
+
+	unsaved.storageCache = nil
+
+	unsaved.balanceMap = make(map[types.TokenTypeId]*big.Int)
+}
+
+func (unsaved *Unsaved) GetStorage() [][2][]byte {
+	if unsaved.storageDirty {
+		iter := unsaved.storage.NewIterator(nil)
+		defer iter.Release()
+
+		unsaved.storageCache = make([][2][]byte, 0, unsaved.kvCount)
+		for iter.Next() {
+			unsaved.storageCache = append(unsaved.storageCache, [2][]byte{iter.Key(), iter.Value()})
+		}
+		unsaved.storageDirty = false
+	}
+
+	return unsaved.storageCache
 }
 
 func (unsaved *Unsaved) GetBalanceMap() map[types.TokenTypeId]*big.Int {
@@ -47,19 +80,23 @@ func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
 }
 
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
-	unsaved.storage[string(key)] = value
-
-	// TODO
-	unsaved.storageList.Add(key, value)
-}
-
-func (unsaved *Unsaved) GetSortedStorage() [][2][]byte {
-	return unsaved.storageList.GetSortedList()
+	if len(value) <= 0 {
+		unsaved.deletedKey[string(key)] = struct{}{}
+	}
+	unsaved.storageDirty = true
+	unsaved.storage.Put(key, value)
 }
 
 func (unsaved *Unsaved) GetValue(key []byte) ([]byte, bool) {
-	result, ok := unsaved.storage[string(key)]
-	return result, ok
+	value, errNotFound := unsaved.storage.Get(key)
+	if errNotFound != nil {
+		if _, ok := unsaved.deletedKey[string(key)]; ok {
+			return nil, true
+		}
+		return nil, false
+	}
+
+	return value, true
 }
 
 func (unsaved *Unsaved) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, bool) {
@@ -90,33 +127,11 @@ func (unsaved *Unsaved) SetCode(code []byte) {
 	unsaved.code = code
 }
 
-func (unsaved *Unsaved) NewStorageIterator() interfaces.StorageIterator {
-	return nil
+func (unsaved *Unsaved) NewStorageIterator(prefix []byte) interfaces.StorageIterator {
+	return unsaved.storage.NewIterator(util.BytesPrefix(prefix))
 }
 
-func NewUnsavedStorageIterator() *UnsavedStorageIterator {
-	return &UnsavedStorageIterator{}
-}
-
-type UnsavedStorageIterator struct {
-}
-
-func (iter *UnsavedStorageIterator) Next() bool {
-	return false
-}
-
-func (iter *UnsavedStorageIterator) Prev() bool {
-	return false
-}
-
-func (iter *UnsavedStorageIterator) Key() []byte {
-	return nil
-}
-
-func (iter *UnsavedStorageIterator) Value() []byte {
-	return nil
-}
-
-func (iter *UnsavedStorageIterator) Error() error {
-	return nil
+func (unsaved *Unsaved) ReleaseRuntime() {
+	unsaved.GetStorage()
+	unsaved.storage = nil
 }

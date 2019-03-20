@@ -2,7 +2,11 @@ package vm_db
 
 func (db *vmDb) DebugGetStorage() (map[string][]byte, error) {
 	result := make(map[string][]byte)
-	iter := db.NewStorageIterator(nil)
+	iter, err := db.NewStorageIterator(nil)
+	if err != nil {
+		return nil, err
+	}
+
 	defer iter.Release()
 
 	for iter.Next() {

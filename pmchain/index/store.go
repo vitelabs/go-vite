@@ -18,9 +18,11 @@ type store struct {
 }
 
 func NewStore(chainDir string) (Store, error) {
+
 	dbDir := path.Join(chainDir, "indexes")
 
 	db, err := leveldb.OpenFile(dbDir, nil)
+
 	if err != nil {
 		return nil, err
 	}

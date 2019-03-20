@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/pmchain/dbutils"
 )
 
-// TODO
 func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
 	accountId, err := iDB.GetAccountId(address)
 	if err != nil {

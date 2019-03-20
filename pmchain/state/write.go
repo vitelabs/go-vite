@@ -78,13 +78,13 @@ func (sDB *StateDB) prepareWriteBalance(accountId uint64, balanceMap map[types.T
 	return keyList, valueList
 }
 
-func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage map[string][]byte) ([][]byte, [][]byte) {
+func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage [][2][]byte) ([][]byte, [][]byte) {
 	keyList := make([][]byte, 0, len(unsavedStorage))
 	valueList := make([][]byte, 0, len(unsavedStorage))
 
-	for keyStr, value := range unsavedStorage {
-		keyList = append(keyList, chain_dbutils.CreateStorageKeyPrefix(accountId, []byte(keyStr)))
-		valueList = append(valueList, value)
+	for _, kv := range unsavedStorage {
+		keyList = append(keyList, chain_dbutils.CreateStorageKeyPrefix(accountId, kv[0]))
+		valueList = append(valueList, kv[1])
 	}
 	return keyList, valueList
 }

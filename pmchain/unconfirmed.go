@@ -34,6 +34,9 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
  * Check quota, consensus, dependencies
  */
 func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, map[types.Address][]*ledger.AccountBlock, []*ledger.AccountBlock) {
+	// checkA()
+
+	// checkB()
 	return blocks, nil, nil
 }
 

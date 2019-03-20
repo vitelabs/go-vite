@@ -6,15 +6,18 @@ import (
 )
 
 func (db *vmDb) GetReceiptHash() *types.Hash {
-	sortedKVList := db.unsaved.GetSortedStorage()
+	kvList := db.unsaved.GetStorage()
+	if len(kvList) <= 0 {
+		return nil
+	}
 
 	size := 0
-	for _, kv := range sortedKVList {
+	for _, kv := range kvList {
 		size += len(kv[0]) + len(kv[1])
 	}
 
 	hashSource := make([]byte, 0, size)
-	for _, kv := range sortedKVList {
+	for _, kv := range kvList {
 		hashSource = append(hashSource, kv[0]...)
 		hashSource = append(hashSource, kv[1]...)
 	}
@@ -25,5 +28,9 @@ func (db *vmDb) GetReceiptHash() *types.Hash {
 }
 
 func (db *vmDb) Reset() {
-	db.unsaved = NewUnsaved()
+	db.unsaved.Reset()
+}
+
+func (db *vmDb) Finish() {
+	db.unsaved.ReleaseRuntime()
 }

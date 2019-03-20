@@ -2,6 +2,7 @@ package pmchain
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -76,6 +77,7 @@ type Chain interface {
 
 	// ====== Query account block ======
 	IsGenesisAccountBlock(hash *types.Hash) bool
+
 	IsAccountBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
@@ -151,8 +153,6 @@ type Chain interface {
 
 	// ====== Query account ======
 
-	// AccountType(address *types.Address) (byte, error)
-
 	// The address is contract address when it's first receive block inserted into the chain.
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
@@ -176,6 +176,10 @@ type Chain interface {
 	GetQuotaUnused(address *types.Address) (uint64, error)
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+
+	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+
+	GetValue(address *types.Address, key []byte) ([]byte, error)
 
 	// ====== Query built-in contract storage ======
 

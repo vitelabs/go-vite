@@ -7,19 +7,13 @@ func (db *vmDb) GetValue(key []byte) ([]byte, error) {
 	return db.GetOriginalValue(key)
 }
 func (db *vmDb) GetOriginalValue(key []byte) ([]byte, error) {
-	//prevStateSnapshot, err := db.getPrevStateSnapshot()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//return prevStateSnapshot.GetValue(key)
-	return nil, nil
+	return db.chain.GetValue(db.address, key)
 }
 
 func (db *vmDb) SetValue(key []byte, value []byte) {
 	db.unsaved.SetValue(key, value)
 }
 
-func (db *vmDb) GetUnsavedStorage() map[string][]byte {
+func (db *vmDb) GetUnsavedStorage() [][2][]byte {
 	return db.unsaved.GetStorage()
 }

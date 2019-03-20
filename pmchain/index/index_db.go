@@ -3,6 +3,8 @@ package chain_index
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/pmchain/pending"
 )
 
@@ -81,5 +83,21 @@ func (iDB *IndexDB) hasValue(key []byte) (bool, error) {
 	return iDB.store.Has(key)
 }
 func (iDB *IndexDB) hasValueByPrefix(prefix []byte) (bool, error) {
-	return false, nil
+	if ok := iDB.memDb.HasByPrefix(prefix); ok {
+		return ok, nil
+	}
+
+	iter := iDB.store.NewIterator(util.BytesPrefix(prefix))
+	defer iter.Release()
+
+	iter.Next()
+
+	if err := iter.Error(); err != nil {
+		if err == leveldb.ErrNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+
 }

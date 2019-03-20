@@ -33,6 +33,10 @@ type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+
+	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+
+	GetValue(addr *types.Address, key []byte) ([]byte, error)
 }
 
 type VmDb interface {
@@ -48,18 +52,21 @@ type VmDb interface {
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
 	// ====== State ======
-	GetReceiptHash() *types.Hash // TODO
+	GetReceiptHash() *types.Hash
 	Reset()
+
+	// Release memory used in runtime.
+	Finish()
 
 	// ====== Storage ======
 	GetValue(key []byte) ([]byte, error)
-	GetOriginalValue(key []byte) ([]byte, error) // TODO
+	GetOriginalValue(key []byte) ([]byte, error)
 
 	SetValue(key []byte, value []byte)
 
-	NewStorageIterator(prefix []byte) interfaces.StorageIterator // TODO
+	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
 
-	GetUnsavedStorage() map[string][]byte
+	GetUnsavedStorage() [][2][]byte
 
 	// ====== Balance ======
 	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
