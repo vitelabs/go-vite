@@ -62,6 +62,10 @@ func newFileManager(dirName string) (*fileManager, error) {
 	return fm, nil
 }
 
+func (fm *fileManager) RemoveAllFile() error {
+	return os.RemoveAll(fm.dirName)
+}
+
 func (fm *fileManager) Close() error {
 	fm.dirName = ""
 	if fm.dirFd != nil {

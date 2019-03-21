@@ -1,6 +1,7 @@
 package chain_block
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/ledger"
@@ -28,7 +29,7 @@ func NewBlockDB(chainDir string) (*BlockDB, error) {
 }
 
 func (bDB *BlockDB) CleanAllData() error {
-	return nil
+	return bDB.CleanAllData()
 }
 
 func (bDB *BlockDB) Destroy() error {
@@ -66,7 +67,35 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 	return accountBlocksLocation, snapshotBlockLocation, nil
 }
 
+func (bDB *BlockDB) Read(location *Location) ([]byte, error) {
+	fd, err := bDB.fm.GetFd(location)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("bDB.fm.GetFd failed, [Error] %s, location is %+v", err.Error(), location))
+	}
+	if fd == nil {
+		return nil, errors.New(fmt.Sprintf("fd is nil, location is %+v", location))
+	}
+	defer fd.Close()
+
+	if _, err := fd.Seek(int64(location.Offset()-1), 0); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
+	}
+
+	bufSizeBytes := make([]byte, 4)
+	if _, err := fd.Read(bufSizeBytes); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	}
+	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
+
+	buf := make([]byte, bufSize)
+	if _, err := fd.Read(buf); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	}
+	return buf, nil
+}
+
 func (bDB *BlockDB) DeleteTo(location *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
 	// bDB.fm.DeleteTo(location)
+
 	return nil, nil, nil
 }
