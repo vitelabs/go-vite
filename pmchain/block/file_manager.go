@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"io"
 	"os"
 	"path"
 	"strconv"
@@ -84,6 +85,33 @@ func (fm *fileManager) Close() error {
 	return nil
 }
 
+func (fm *fileManager) Read(location *Location) ([]byte, error) {
+	fd, err := fm.GetFd(location)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("bDB.fm.GetFd failed, [Error] %s, location is %+v", err.Error(), location))
+	}
+	if fd == nil {
+		return nil, errors.New(fmt.Sprintf("fd is nil, location is %+v", location))
+	}
+	defer fd.Close()
+
+	if _, err := fd.Seek(int64(location.Offset()-1), 0); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
+	}
+
+	bufSizeBytes := make([]byte, 4)
+	if _, err := fd.Read(bufSizeBytes); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	}
+	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
+
+	buf := make([]byte, bufSize)
+	if _, err := fd.Read(buf); err != nil {
+		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	}
+	return buf, nil
+}
+
 func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
 
@@ -108,13 +136,101 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	return location, nil
 }
 
-func (fm *fileManager) DeleteTo(location *Location) (*Location, error) {
-	return nil, nil
+func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location, bfp *blockFileParser) {
+	startFileId := startLocation.FileId()
+	endFileId := endLocation.FileId()
+	for i := startFileId; i <= endFileId; i++ {
+		startOffset := int64(0)
+		endOffset := int64(0)
+		if i == startFileId {
+			startOffset = int64(startLocation.Offset())
+		}
+		if i == endFileId {
+			endOffset = int64(endLocation.Offset())
+		}
+
+		buf, err := fm.readFile(i, startOffset, endOffset)
+		if err != nil {
+			bfp.WriteError(err)
+			return
+		}
+
+		bfp.Write(buf)
+	}
 }
 
-// TODO cache
+func (fm *fileManager) DeleteTo(location *Location, bfp *blockFileParser) {
+	startOffset := int64(location.Offset())
+
+	for i := location.FileId(); i <= fm.latestFileId; i++ {
+		buf, err := fm.deleteFile(i, startOffset)
+		if err != nil {
+			bfp.WriteError(err)
+			return
+		}
+
+		bfp.Write(buf)
+		startOffset = 0
+	}
+}
+
 func (fm *fileManager) GetFd(location *Location) (*os.File, error) {
 	return fm.getFileFd(location.FileId())
+}
+
+func (fm *fileManager) readFile(fileId uint64, startOffset, endOffset int64) ([]byte, error) {
+	fd, err := fm.getFileFd(fileId)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+
+	if endOffset == 0 {
+		if fileId == fm.latestFileId {
+			endOffset = fm.latestFileSize
+		} else {
+			endOffset = fm.maxFileSize
+		}
+	}
+
+	buf := make([]byte, endOffset-startOffset)
+
+	readN, rErr := fd.ReadAt(buf, startOffset)
+
+	if rErr != nil && rErr != io.EOF {
+		return nil, rErr
+	}
+
+	return buf[:readN], nil
+}
+
+func (fm *fileManager) deleteFile(fileId uint64, startOffset int64) ([]byte, error) {
+	fd, err := fm.getFileFd(fileId)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+
+	var buf []byte
+	if fileId == fm.latestFileId {
+		buf = make([]byte, fm.latestFileSize-startOffset)
+	} else {
+		buf = make([]byte, fm.maxFileSize-startOffset)
+	}
+
+	readN, rErr := fd.ReadAt(buf, startOffset)
+
+	if rErr != nil && rErr != io.EOF {
+		return nil, rErr
+	}
+
+	if startOffset <= 0 {
+		os.Remove(fd.Name())
+	} else {
+		fd.Truncate(startOffset - 1)
+	}
+
+	return buf[:readN], nil
 }
 
 func (fm *fileManager) newDirFd(dirName string) (*os.File, error) {
