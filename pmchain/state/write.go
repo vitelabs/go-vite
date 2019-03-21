@@ -17,7 +17,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	vmDb := block.VmDb
 
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
-	unsavedStorage := vmDb.GetUnsavedStorage()
+	unsavedStorage, deletedKeys := vmDb.GetUnsavedStorage()
 	unsavedCode := vmDb.GetUnsavedContractCode()
 	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
 
@@ -31,7 +31,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	valueList = append(valueList, balanceValueList...)
 
 	// write storage
-	storageKeyList, storageValueList := sDB.prepareWriteStorage(accountId, unsavedStorage)
+	storageKeyList, storageValueList := sDB.prepareWriteStorage(accountId, unsavedStorage, deletedKeys)
 	keyList = append(keyList, storageKeyList...)
 	valueList = append(valueList, storageValueList...)
 
@@ -78,13 +78,18 @@ func (sDB *StateDB) prepareWriteBalance(accountId uint64, balanceMap map[types.T
 	return keyList, valueList
 }
 
-func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage [][2][]byte) ([][]byte, [][]byte) {
+func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage [][2][]byte, deletedKeys map[string]struct{}) ([][]byte, [][]byte) {
 	keyList := make([][]byte, 0, len(unsavedStorage))
 	valueList := make([][]byte, 0, len(unsavedStorage))
 
 	for _, kv := range unsavedStorage {
 		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(accountId, kv[0]))
 		valueList = append(valueList, kv[1])
+	}
+
+	for keyStr := range deletedKeys {
+		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(accountId, []byte(keyStr)))
+		valueList = append(valueList, nil)
 	}
 	return keyList, valueList
 }

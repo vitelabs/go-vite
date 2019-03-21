@@ -23,6 +23,7 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 	batch := iDB.store.NewBatch()
 
 	deletedHashMap := make(map[types.Hash]struct{})
+	needDeleteOnRoadHashMap := make(map[types.Hash]struct{})
 
 	for _, seg := range deletedSnapshotSegments {
 		snapshotBlock := seg.SnapshotBlock
@@ -49,6 +50,7 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 
 			if block.IsReceiveBlock() {
 				// delete send block close index
+				delete(needDeleteOnRoadHashMap, block.FromBlockHash)
 				if _, ok := deletedHashMap[block.FromBlockHash]; !ok {
 					sendAccountId, sendHeight, err := iDB.getAccountIdHeight(&block.FromBlockHash)
 					if err != nil {
@@ -66,15 +68,7 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 					}
 				}
 			} else {
-				// remove on road
-				//toAccountId, err := iDB.GetAccountId(&block.ToAddress)
-				//if err != nil {
-				//	return err
-				//}
-				//if toAccountId <= 0 {
-				//	return errors.New(fmt.Sprintf("toAccountId is 0, block is %+v", block))
-				//}
-				//iDB.deleteOnRoad(batch, toAccountId, accountId, block.Height)
+				needDeleteOnRoadHashMap[block.Hash] = struct{}{}
 			}
 
 			if block.LogHash != nil {
@@ -83,6 +77,10 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 			}
 
 		}
+	}
+
+	for hash := range needDeleteOnRoadHashMap {
+		iDB.deleteOnRoad(batch, &hash)
 	}
 
 	for _, block := range unconfirmedBlocks {

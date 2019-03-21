@@ -58,7 +58,7 @@ func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		iDB.memDb.NewIterator(slice),
 		iDB.store.NewIterator(slice),
-	}, nil)
+	}, iDB.memDb.DeletedKeys())
 }
 
 func (iDB *IndexDB) Destroy() error {
@@ -76,12 +76,13 @@ func (iDB *IndexDB) getValue(key []byte) ([]byte, error) {
 		var err error
 		value, err = iDB.store.Get(key)
 		if err != nil {
+			if err == leveldb.ErrNotFound {
+				return nil, nil
+			}
 			return nil, err
 		}
 	}
-	if len(value) <= 0 {
-		return nil, nil
-	}
+
 	return value, nil
 }
 

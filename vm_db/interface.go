@@ -66,7 +66,7 @@ type VmDb interface {
 
 	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
 
-	GetUnsavedStorage() [][2][]byte
+	GetUnsavedStorage() ([][2][]byte, map[string]struct{})
 
 	// ====== Balance ======
 	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)

@@ -14,6 +14,6 @@ func (db *vmDb) SetValue(key []byte, value []byte) {
 	db.unsaved.SetValue(key, value)
 }
 
-func (db *vmDb) GetUnsavedStorage() [][2][]byte {
+func (db *vmDb) GetUnsavedStorage() ([][2][]byte, map[string]struct{}) {
 	return db.unsaved.GetStorage()
 }

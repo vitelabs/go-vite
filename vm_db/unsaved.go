@@ -17,9 +17,9 @@ type Unsaved struct {
 
 	logList ledger.VmLogList
 
-	storage    *memdb.DB
-	kvCount    int
-	deletedKey map[string]struct{}
+	storage     *memdb.DB
+	kvCount     int
+	deletedKeys map[string]struct{}
 
 	storageDirty bool
 	storageCache [][2][]byte
@@ -30,7 +30,7 @@ type Unsaved struct {
 func NewUnsaved() *Unsaved {
 	return &Unsaved{
 		logList:      make(ledger.VmLogList, 0),
-		deletedKey:   make(map[string]struct{}),
+		deletedKeys:  make(map[string]struct{}),
 		storage:      memdb.New(comparer.DefaultComparer, 16*1024),
 		storageDirty: false,
 		balanceMap:   make(map[types.TokenTypeId]*big.Int),
@@ -44,7 +44,7 @@ func (unsaved *Unsaved) Reset() {
 
 	unsaved.storage.Reset()
 	unsaved.kvCount = 0
-	unsaved.deletedKey = make(map[string]struct{})
+	unsaved.deletedKeys = make(map[string]struct{})
 	unsaved.storageDirty = false
 
 	unsaved.storageCache = nil
@@ -52,7 +52,7 @@ func (unsaved *Unsaved) Reset() {
 	unsaved.balanceMap = make(map[types.TokenTypeId]*big.Int)
 }
 
-func (unsaved *Unsaved) GetStorage() [][2][]byte {
+func (unsaved *Unsaved) GetStorage() ([][2][]byte, map[string]struct{}) {
 	if unsaved.storageDirty {
 		iter := unsaved.storage.NewIterator(nil)
 		defer iter.Release()
@@ -64,7 +64,7 @@ func (unsaved *Unsaved) GetStorage() [][2][]byte {
 		unsaved.storageDirty = false
 	}
 
-	return unsaved.storageCache
+	return unsaved.storageCache, unsaved.deletedKeys
 }
 
 func (unsaved *Unsaved) GetBalanceMap() map[types.TokenTypeId]*big.Int {
@@ -80,17 +80,19 @@ func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
 }
 
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
-	if len(value) <= 0 {
-		unsaved.deletedKey[string(key)] = struct{}{}
-	}
 	unsaved.storageDirty = true
-	unsaved.storage.Put(key, value)
+	if len(value) <= 0 {
+		unsaved.deletedKeys[string(key)] = struct{}{}
+		unsaved.storage.Delete(key)
+	} else {
+		unsaved.storage.Put(key, value)
+	}
 }
 
 func (unsaved *Unsaved) GetValue(key []byte) ([]byte, bool) {
 	value, errNotFound := unsaved.storage.Get(key)
 	if errNotFound != nil {
-		if _, ok := unsaved.deletedKey[string(key)]; ok {
+		if _, ok := unsaved.deletedKeys[string(key)]; ok {
 			return nil, true
 		}
 		return nil, false

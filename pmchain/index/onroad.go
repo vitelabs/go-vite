@@ -82,11 +82,32 @@ func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId uint64) erro
 	return nil
 }
 
-// TODO
-func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendAccountId uint64, sendHeight uint64) error {
-	key := chain_utils.CreateOnRoadReverseKey(chain_utils.SerializeAccountIdHeight(sendAccountId, sendHeight))
+func (iDB *IndexDB) receiveOnRoad(blockHash *types.Hash, sendBlockHash *types.Hash) error {
+	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
+	value, err := iDB.getValue(reverseKey)
+	if err != nil {
+		return err
+	}
 
-	batch.Delete(key)
+	iDB.memDb.Delete(blockHash, reverseKey)
+
+	iDB.memDb.Delete(blockHash, value)
+
+	return nil
+}
+
+func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash *types.Hash) error {
+	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
+	value, err := iDB.getValue(reverseKey)
+	if err != nil {
+		return err
+	}
+	if len(value) <= 0 {
+		return nil
+	}
+
+	batch.Delete(reverseKey)
+	batch.Delete(value)
 
 	return nil
 }

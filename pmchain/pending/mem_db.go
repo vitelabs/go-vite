@@ -17,6 +17,7 @@ type MemDB struct {
 
 	storage *memdb.DB
 
+	deletedKey  map[string]struct{}
 	hashKeyList map[types.Hash][][]byte
 }
 
@@ -24,12 +25,17 @@ func NewMemDB(dataStore interfaces.Store) *MemDB {
 	return &MemDB{
 		dataStore:   dataStore,
 		storage:     newStorage(),
+		deletedKey:  make(map[string]struct{}),
 		hashKeyList: make(map[types.Hash][][]byte),
 	}
 }
 
 func newStorage() *memdb.DB {
 	return memdb.New(comparer.DefaultComparer, 10*1024*1024)
+}
+
+func (mDb *MemDB) DeletedKeys() map[string]struct{} {
+	return mDb.deletedKey
 }
 
 func (mDb *MemDB) NewIterator(slice *util.Range) iterator.Iterator {
@@ -56,6 +62,11 @@ func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
 		mDb.put(blockHash, key, value)
 		return nil
 	}
+
+	if _, ok := mDb.deletedKey[string(key)]; ok {
+		delete(mDb.deletedKey, string(key))
+	}
+
 	innerValue = append(innerValue, value...)
 
 	mDb.storage.Put(key, innerValue)
@@ -72,6 +83,14 @@ func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
 	return mDb.get(key)
+}
+
+func (mDb *MemDB) Delete(blockHash *types.Hash, key []byte) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+	mDb.storage.Delete(key)
+	mDb.deletedKey[string(key)] = struct{}{}
+	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
 }
 
 func (mDb *MemDB) Has(key []byte) bool {
@@ -93,22 +112,25 @@ func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
 	return bytes.HasPrefix(key, prefixKey)
 }
 
-func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash, deleteEmptyValue bool) {
+func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
 	for _, blockHash := range blockHashList {
 		keyList := mDb.hashKeyList[*blockHash]
 		for _, key := range keyList {
-			value, ok := mDb.get(key)
-			if !ok {
-				continue
-			}
-			if len(value) <= 0 && deleteEmptyValue {
+			if _, ok := mDb.deletedKey[string(key)]; ok {
+				delete(mDb.deletedKey, string(key))
 				batch.Delete(key)
 			} else {
+				value, ok := mDb.get(key)
+				if !ok {
+					continue
+				}
+
 				batch.Put(key, value)
 			}
+
 		}
 	}
 }
@@ -146,6 +168,9 @@ func (mDb *MemDB) get(key []byte) ([]byte, bool) {
 }
 
 func (mDb *MemDB) put(blockHash *types.Hash, key, value []byte) {
+	if _, ok := mDb.deletedKey[string(key)]; ok {
+		delete(mDb.deletedKey, string(key))
+	}
 	mDb.storage.Put(key, value)
 	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
 }
@@ -157,6 +182,7 @@ func (mDb *MemDB) deleteByBlockHash(blockHash *types.Hash) {
 	}
 
 	for _, key := range keyList {
+		delete(mDb.deletedKey, string(key))
 		mDb.storage.Delete(key)
 	}
 	delete(mDb.hashKeyList, *blockHash)

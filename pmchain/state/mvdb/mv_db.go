@@ -192,7 +192,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash) error {
 	batch := new(leveldb.Batch)
 
-	mvDB.pending.Flush(batch, blockHashList, true)
+	mvDB.pending.Flush(batch, blockHashList)
 
 	if err := mvDB.db.Write(batch, nil); err != nil {
 		return err

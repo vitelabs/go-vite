@@ -12,7 +12,7 @@ type MergedIterator struct {
 	iters       []interfaces.StorageIterator
 	finishIters []interfaces.StorageIterator
 
-	deletedList map[string]struct{}
+	deletedKeys map[string]struct{}
 	index       int
 
 	lastKey []byte
@@ -24,10 +24,10 @@ type MergedIterator struct {
 	err error
 }
 
-func NewMergedIterator(iters []interfaces.StorageIterator, deletedList map[string]struct{}) interfaces.StorageIterator {
+func NewMergedIterator(iters []interfaces.StorageIterator, deletedKeys map[string]struct{}) interfaces.StorageIterator {
 	return &MergedIterator{
 		cmp:         comparer.DefaultComparer,
-		deletedList: deletedList,
+		deletedKeys: deletedKeys,
 		iters:       iters,
 		finishIters: make([]interfaces.StorageIterator, 0, len(iters)),
 		keys:        make([][]byte, len(iters)),
@@ -62,8 +62,8 @@ func (mi *MergedIterator) Next() bool {
 				key = iter.Key()
 			}
 
-			if mi.deletedList != nil {
-				if _, ok := mi.deletedList[string(key)]; ok {
+			if mi.deletedKeys != nil {
+				if _, ok := mi.deletedKeys[string(key)]; ok {
 					key = nil
 					mi.keys[i] = nil
 					continue

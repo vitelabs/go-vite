@@ -35,9 +35,10 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 
 		iDB.insertReceiveHeight(blockHash, sendAccountId, sendHeight, accountId, accountBlock.Height)
 
-		// remove on road
-		// iDB.deleteOnRoad(sendAccountId, sendHeight)
-
+		// receive on road
+		if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
+			return err
+		}
 	} else {
 		// insert on road block
 		toAccountId, err := iDB.GetAccountId(&accountBlock.ToAddress)
@@ -145,7 +146,7 @@ func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, 
 }
 
 func (iDB *IndexDB) flush(batch interfaces.Batch, blockHashList []*types.Hash) {
-	iDB.memDb.Flush(batch, blockHashList, true)
+	iDB.memDb.Flush(batch, blockHashList)
 }
 
 func (iDB *IndexDB) cleanMemDb(blocks []*ledger.AccountBlock) {
