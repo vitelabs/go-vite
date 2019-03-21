@@ -414,11 +414,11 @@ func (producer *Producer) send() {
 
 				// DeleteAccountBlocksEvent  = byte(2)
 			case byte(2):
-				m.MsgType = "DeleteUnconfirmedAccountBlocks"
+				m.MsgType = "DeleteInvalidAccountBlocks"
 
 				buf, jsonErr := json.Marshal(blockHashList)
 				if jsonErr != nil {
-					producer.log.Error("[DeleteUnconfirmedAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
+					producer.log.Error("[DeleteInvalidAccountBlocks] json.Marshal failed, error is "+jsonErr.Error(), "method", "send")
 					return
 				}
 				m.Data = string(buf)

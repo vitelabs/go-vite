@@ -91,7 +91,7 @@ func (*MockChain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*
 }
 
 func (*MockChain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
-	logger.Info("DeleteUnconfirmedAccountBlocks")
+	logger.Info("DeleteInvalidAccountBlocks")
 	return nil, nil
 }
 

@@ -24,11 +24,9 @@ type Chain interface {
 	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 
-	GetStateSnapshot(blockHash *types.Hash) (interfaces.StateSnapshot, error)
-
 	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
 
-	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
+	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
@@ -82,7 +80,7 @@ type VmDb interface {
 	GetLogListHash() *types.Hash
 
 	// ====== AccountBlock ======
-	GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error)
+	GetUnconfirmedBlocks() []*ledger.AccountBlock
 
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock

@@ -22,12 +22,11 @@ type stateSnapshotManager struct {
 	chain       Chain
 	cachePolicy map[types.Address]int
 
-	uosList           map[types.Address]*list.List
-	pendingUndoLogs   map[types.Address][][]byte
-	activeSnapshotMap map[types.Address]map[uint64]*stateSnapshot
+	undoOperationsList map[types.Address]*list.List
+	pendingUndoLogs    map[types.Address][][]byte
+	activeSnapshotMap  map[types.Address]map[uint64]*stateSnapshot
 
 	latestActiveSnapshotId uint64
-	latestSnapshotHeight   uint64
 }
 
 func newStateSnapshotManager(chain Chain, mvDB *mvdb.MultiVersionDB) (*stateSnapshotManager, error) {
@@ -37,20 +36,16 @@ func newStateSnapshotManager(chain Chain, mvDB *mvdb.MultiVersionDB) (*stateSnap
 		types.AddressPledge:   75 * 5,
 	}
 	cachePolicyLen := len(cachePolicy)
+
 	ssm := &stateSnapshotManager{
 
-		mvDB:              mvDB,
-		chain:             chain,
-		cachePolicy:       cachePolicy,
-		uosList:           make(map[types.Address]*list.List, cachePolicyLen),
-		pendingUndoLogs:   make(map[types.Address][][]byte, cachePolicyLen),
-		activeSnapshotMap: make(map[types.Address]map[uint64]*stateSnapshot, cachePolicyLen),
-	}
+		mvDB:        mvDB,
+		chain:       chain,
+		cachePolicy: cachePolicy,
 
-	latestSnapshotBlock := chain.GetLatestSnapshotBlock()
-
-	if latestSnapshotBlock != nil {
-		ssm.latestSnapshotHeight = latestSnapshotBlock.Height
+		undoOperationsList: make(map[types.Address]*list.List, cachePolicyLen),
+		pendingUndoLogs:    make(map[types.Address][][]byte, cachePolicyLen),
+		activeSnapshotMap:  make(map[types.Address]map[uint64]*stateSnapshot, cachePolicyLen),
 	}
 
 	if err := ssm.init(); err != nil {
@@ -60,19 +55,22 @@ func newStateSnapshotManager(chain Chain, mvDB *mvdb.MultiVersionDB) (*stateSnap
 }
 
 func (ssm *stateSnapshotManager) init() error {
+
+	latestSnapshotHeight := ssm.chain.GetLatestSnapshotBlock().Height
+
 	for addr, count := range ssm.cachePolicy {
 
 		l := list.New()
-		ssm.uosList[addr] = l
+		ssm.undoOperationsList[addr] = l
 		ssm.activeSnapshotMap[addr] = make(map[uint64]*stateSnapshot)
-
-		if ssm.latestSnapshotHeight > 0 {
-			continue
-		}
 
 		latestBlock, err := ssm.chain.GetLatestAccountBlock(&addr)
 		if err != nil {
 			return err
+		}
+
+		if latestBlock == nil {
+			continue
 		}
 
 		blockHash := &latestBlock.Hash
@@ -98,7 +96,7 @@ func (ssm *stateSnapshotManager) init() error {
 				if currentConfirmedTimes != confirmedTimes {
 					l.PushBack(&undoOperationsType{
 						operations:     undoOperations,
-						snapshotHeight: ssm.latestSnapshotHeight - currentConfirmedTimes,
+						snapshotHeight: latestSnapshotHeight - currentConfirmedTimes,
 					})
 					undoOperations = make(map[uint64]uint64)
 					currentConfirmedTimes = confirmedTimes
@@ -135,6 +133,7 @@ func (ssm *stateSnapshotManager) Flush(snapshotHeight uint64) {
 			snapshotHeight: snapshotHeight,
 			operations:     ssm.mvDB.PosSeqUndoLogListToOperations(undoLogList),
 		}
+
 		ssm.appendUndoOperations(&addr, undoOperations)
 
 		activeSnapshots := ssm.activeSnapshotMap[addr]
@@ -155,7 +154,7 @@ func (ssm *stateSnapshotManager) NewStateSnapshot(address *types.Address, snapsh
 		keyIdValueIdCache[keyId] = valueId
 	}
 
-	undoOperationsList := ssm.uosList[*address]
+	undoOperationsList := ssm.undoOperationsList[*address]
 
 	current := undoOperationsList.Back()
 	for {
@@ -170,7 +169,7 @@ func (ssm *stateSnapshotManager) NewStateSnapshot(address *types.Address, snapsh
 		current = current.Prev()
 	}
 
-	snapshotId := atomic.AddUint64(&ssm.latestSnapshotHeight, 1)
+	snapshotId := atomic.AddUint64(&ssm.latestActiveSnapshotId, 1)
 	ss, err := newStateSnapshot(ssm, snapshotId, address, ssm.mvDB, ssm.mvDB.LatestKeyId(), keyIdValueIdCache)
 	if err != nil {
 		return nil, err
@@ -190,7 +189,7 @@ func (ssm *stateSnapshotManager) ReleaseActiveStateSnapshot(address *types.Addre
 func (ssm *stateSnapshotManager) getUndoOperations(address *types.Address, count int) map[uint64]uint64 {
 	undoOperations := make(map[uint64]uint64)
 
-	undoOperationsList := ssm.uosList[*address]
+	undoOperationsList := ssm.undoOperationsList[*address]
 	element := undoOperationsList.Back()
 	for i := count; i > count+1; i-- {
 		currentUndoOperations := element.Value.(map[uint64]uint64)
@@ -204,7 +203,7 @@ func (ssm *stateSnapshotManager) getUndoOperations(address *types.Address, count
 }
 
 func (ssm *stateSnapshotManager) appendUndoOperations(address *types.Address, undoOperations *undoOperationsType) {
-	l := ssm.uosList[*address]
+	l := ssm.undoOperationsList[*address]
 	if l.Len() >= ssm.cachePolicy[*address] {
 		l.Remove(l.Front())
 	}

@@ -3,7 +3,7 @@ package chain_utils
 const (
 	AccountBlockHashKeyPrefix = byte(1)
 
-	ReceiveHeightKeyPrefix = byte(2)
+	ReceiveKeyPrefix = byte(2)
 
 	OnRoadKeyPrefix = byte(3)
 

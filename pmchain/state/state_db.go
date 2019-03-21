@@ -24,15 +24,20 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		return nil, err
 	}
 
-	ssm, err := newStateSnapshotManager(chain, mvDB)
-	if err != nil {
-		return nil, err
-	}
 	return &StateDB{
 		mvDB:  mvDB,
 		chain: chain,
-		ssm:   ssm,
 	}, nil
+}
+
+func (sDB *StateDB) Init() error {
+	ssm, err := newStateSnapshotManager(sDB.chain, sDB.mvDB)
+	if err != nil {
+		return err
+	}
+	sDB.ssm = ssm
+
+	return nil
 }
 
 func (sDB *StateDB) Destroy() error {

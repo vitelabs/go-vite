@@ -9,14 +9,20 @@ import (
 )
 
 func (c *chain) DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
-	location, err := c.indexDB.GetSnapshotBlockLocationByHash(toHash)
+	height, err := c.indexDB.GetSnapshotBlockHeight(toHash)
+
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocationByHash failed, error is %s, snapshotHash is %s", err.Error(), toHash))
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed, error is %s, snapshotHash is %s", err.Error(), toHash))
 		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
 		return nil, nil, cErr
 	}
-	// TODO
-	return c.deleteSnapshotBlocksToLocation(location, location)
+	if height <= 0 {
+		cErr := errors.New(fmt.Sprintf("height <= 0, error is %s, snapshotHash is %s", err.Error(), toHash))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
+		return nil, nil, cErr
+	}
+
+	return c.DeleteSnapshotBlocksToHeight(height)
 }
 
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {

@@ -31,7 +31,7 @@ type blockFileParser struct {
 	bytesBuffer chan *byteBuffer
 
 	closed bool
-	err    chan error
+	err    error
 }
 
 func newBlockFileParser() *blockFileParser {
@@ -53,8 +53,9 @@ func (bfp *blockFileParser) Close() error {
 	close(bfp.bytesBuffer)
 	return nil
 }
-func (bfp *blockFileParser) WriteError(err error) {
-	bfp.err <- err
+
+func (bfp *blockFileParser) WriteErr(err error) {
+	bfp.err = err
 }
 
 func (bfp *blockFileParser) Write(buf []byte) (int, error) {
@@ -83,7 +84,7 @@ func (bfp *blockFileParser) Write(buf []byte) (int, error) {
 			bfp.blockSizeBufferPointer += readNumbers
 
 			if bfp.blockSizeBufferPointer >= 4 {
-				bfp.blockSize = int(binary.BigEndian.Uint32(bfp.blockSizeBuffer))
+				bfp.blockSize = int(binary.BigEndian.Uint32(bfp.blockSizeBuffer) - 5)
 			}
 		} else if bfp.blockType == BlockTypeUnknown {
 
@@ -127,10 +128,10 @@ func (bfp *blockFileParser) Write(buf []byte) (int, error) {
 	}
 	return bufLen, nil
 }
-func (bfp *blockFileParser) Next() <-chan *byteBuffer {
+func (bfp *blockFileParser) Iterator() <-chan *byteBuffer {
 	return bfp.bytesBuffer
 }
 
-func (bfp *blockFileParser) Error() <-chan error {
+func (bfp *blockFileParser) Error() error {
 	return bfp.err
 }

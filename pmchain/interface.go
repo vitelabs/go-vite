@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
-	"io"
 	"math/big"
 	"time"
 )
@@ -59,7 +58,7 @@ type Chain interface {
 	// vmAccountBlocks must have the same address
 	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
 
-	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidSubLedger map[types.Address][]*ledger.AccountBlock, err error)
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
 
 	/*
 	 *	D(Delete)
@@ -142,6 +141,8 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
+	GetSeed(snapshotHash *types.Hash, n int) uint64
+
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
 	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
@@ -203,7 +204,7 @@ type Chain interface {
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 
 	// ====== Sync ledger ======
-	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr LedgerReader, err error)
+	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
 	// TODO insert syncCache ledger
 	// TODO query syncCache state
@@ -212,10 +213,4 @@ type Chain interface {
 	HasOnRoadBlocks(address *types.Address) (bool, error)
 
 	GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error)
-}
-
-type LedgerReader interface {
-	Bound() (from, to uint64)
-	Size() int
-	Stream() io.ReadCloser
 }

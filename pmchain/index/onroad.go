@@ -63,38 +63,32 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	return hashList, nil
 }
 
-func (iDB *IndexDB) newOnRoadId(blockHash *types.Hash) uint64 {
-	return iDB.chain.GetLatestSnapshotBlock().Height
-}
+//func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, addr *types.Address) error {
+//	key := chain_utils.CreateOnRoadKey(addr, onRoadId)
+//	value := blockHash.Bytes()
+//
+//	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
+//
+//	if err := iDB.memDb.Append(blockHash, key, value); err != nil {
+//		return err
+//	}
+//	iDB.memDb.Put(blockHash, reverseKey, key)
+//	return nil
+//}
 
-func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, toAccountId uint64) error {
-	onRoadId := iDB.newOnRoadId(blockHash)
-
-	key := chain_utils.CreateOnRoadKey(toAccountId, onRoadId)
-	value := blockHash.Bytes()
-
-	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
-
-	if err := iDB.memDb.Append(blockHash, key, value); err != nil {
-		return err
-	}
-	iDB.memDb.Put(blockHash, reverseKey, key)
-	return nil
-}
-
-func (iDB *IndexDB) receiveOnRoad(blockHash *types.Hash, sendBlockHash *types.Hash) error {
-	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-	value, err := iDB.getValue(reverseKey)
-	if err != nil {
-		return err
-	}
-
-	iDB.memDb.Delete(blockHash, reverseKey)
-
-	iDB.memDb.Delete(blockHash, value)
-
-	return nil
-}
+//func (iDB *IndexDB) receiveOnRoad(blockHash *types.Hash, sendBlockHash *types.Hash) error {
+//	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
+//	value, err := iDB.getValue(reverseKey)
+//	if err != nil {
+//		return err
+//	}
+//
+//	iDB.memDb.Delete(blockHash, reverseKey)
+//
+//	iDB.memDb.Delete(blockHash, value)
+//
+//	return nil
+//}
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash *types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())

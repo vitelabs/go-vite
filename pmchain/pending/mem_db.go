@@ -15,8 +15,7 @@ type MemDB struct {
 	mu        sync.RWMutex
 	dataStore interfaces.Store
 
-	storage *memdb.DB
-
+	storage     *memdb.DB
 	deletedKey  map[string]struct{}
 	hashKeyList map[types.Hash][][]byte
 }
@@ -112,7 +111,7 @@ func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
 	return bytes.HasPrefix(key, prefixKey)
 }
 
-func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
+func (mDb *MemDB) FlushList(batch interfaces.Batch, blockHashList []*types.Hash) {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
@@ -132,6 +131,27 @@ func (mDb *MemDB) Flush(batch interfaces.Batch, blockHashList []*types.Hash) {
 			}
 
 		}
+	}
+}
+
+func (mDb *MemDB) Flush(batch interfaces.Batch, blockHash *types.Hash) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+
+	keyList := mDb.hashKeyList[*blockHash]
+	for _, key := range keyList {
+		if _, ok := mDb.deletedKey[string(key)]; ok {
+			delete(mDb.deletedKey, string(key))
+			batch.Delete(key)
+		} else {
+			value, ok := mDb.get(key)
+			if !ok {
+				continue
+			}
+
+			batch.Put(key, value)
+		}
+
 	}
 }
 

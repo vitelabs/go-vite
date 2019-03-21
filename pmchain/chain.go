@@ -32,7 +32,7 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(dataDir string) Chain {
+func NewChain(dataDir string) *chain {
 	return &chain{
 		dataDir:  dataDir,
 		chainDir: path.Join(dataDir, "ledger"),
@@ -74,17 +74,17 @@ func (c *chain) Init() error {
 		}
 		if status != chain_genesis.LedgerInvalid {
 			// valid or empty
-			// Init state db
-			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
+			// Init cache
+			if c.cache, err = chain_cache.NewCache(c); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
 
 				c.log.Error(cErr.Error(), "method", "Init")
 				return err
 			}
 
-			// Init cache
-			if c.cache, err = chain_cache.NewCache(c); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
+			// Init state db
+			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
 				c.log.Error(cErr.Error(), "method", "Init")
 				return err
@@ -104,13 +104,13 @@ func (c *chain) Init() error {
 
 		// clean
 		if err = c.indexDB.CleanAllData(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed, error is %s", err))
+			cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed. Error: %s", err))
 
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
 		if err = c.blockDB.CleanAllData(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed, error is %s", err))
+			cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed. Error: %s", err))
 
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
@@ -121,9 +121,16 @@ func (c *chain) Init() error {
 		c.blockDB.Destroy()
 	}
 
-	// set cache
+	// init cache
 	if err := c.cache.Init(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.cache.Init failed, [Error] %s", err))
+		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
+	}
+
+	// init state db
+	if err := c.stateDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
 	}

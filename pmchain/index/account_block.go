@@ -11,29 +11,24 @@ import (
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-	key := chain_utils.CreateAccountBlockHashKey(hash)
 
-	return iDB.hasValue(key)
+	return iDB.hasValue(chain_utils.CreateAccountBlockHashKey(hash))
 }
 
 // latest account block in disk
 func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_block.Location, error) {
-	accountId, err := iDB.GetAccountId(addr)
-	if err != nil {
-		return 0, nil, err
-	}
 
-	startKey := chain_utils.CreateAccountBlockHeightKey(accountId, 1)
-	endKey := chain_utils.CreateAccountBlockHeightKey(accountId, helper.MaxUint64)
+	startKey := chain_utils.CreateAccountBlockHeightKey(addr, 1)
+	endKey := chain_utils.CreateAccountBlockHeightKey(addr, helper.MaxUint64)
 
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
 	if !iter.Last() {
 		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
-			return 0, nil, nil
+			return 0, nil, err
 		}
-		return 0, nil, err
+		return 0, nil, nil
 	}
 
 	height := chain_utils.FixedBytesToUint64(iter.Key()[9:])
@@ -42,11 +37,7 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 }
 
 func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_block.Location, error) {
-	accountId, err := iDB.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	key := chain_utils.CreateAccountBlockHeightKey(accountId, height)
+	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
 	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, err
@@ -64,15 +55,7 @@ func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) 
 	return nil, 0, [2]uint64{}, nil
 }
 func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error) {
-	accountId, height, err := iDB.getAccountIdHeight(blockHash)
-	if err != nil {
-		return 0, err
-	}
-
-	if accountId <= 0 {
-		return 0, nil
-	}
-	key := chain_utils.CreateConfirmHeightKey(accountId, height)
+	key := chain_utils.CreateConfirmHeightKey(blockHash)
 	value, err := iDB.getValue(key)
 
 	if err != nil {
@@ -86,40 +69,42 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 }
 
 func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64, error) {
-	accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	if accountId <= 0 {
-		return 0, 0, nil
-	}
-	key := chain_utils.CreateReceiveHeightKey(accountId, height)
-	value, err := iDB.getValue(key)
-
-	if err != nil {
-		return 0, 0, err
-	}
-	if len(value) <= 0 {
-		return 0, 0, nil
-	}
-
-	receiveAccountId, receiveHeight := chain_utils.DeserializeAccountIdHeight(value)
-	return receiveAccountId, receiveHeight, nil
+	//accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
+	//if err != nil {
+	//	return 0, 0, err
+	//}
+	//
+	//if accountId <= 0 {
+	//	return 0, 0, nil
+	//}
+	//key := chain_utils.CreateReceiveHeightKey(accountId, height)
+	//value, err := iDB.getValue(key)
+	//
+	//if err != nil {
+	//	return 0, 0, err
+	//}
+	//if len(value) <= 0 {
+	//	return 0, 0, nil
+	//}
+	//
+	//receiveAccountId, receiveHeight := chain_utils.DeserializeAccountIdHeight(value)
+	//return receiveAccountId, receiveHeight, nil
+	return 0, 0, nil
 }
 
 func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
-	accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
-	if err != nil {
-		return false, err
-	}
+	//accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
+	//if err != nil {
+	//	return false, err
+	//}
+	//
+	//if accountId <= 0 {
+	//	return false, nil
+	//}
+	//
+	//key := chain_utils.CreateReceiveHeightKey(accountId, height)
+	return iDB.hasValue([]byte{})
 
-	if accountId <= 0 {
-		return false, nil
-	}
-
-	key := chain_utils.CreateReceiveHeightKey(accountId, height)
-	return iDB.hasValue(key)
 }
 func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
 	key := chain_utils.CreateVmLogListKey(logHash)

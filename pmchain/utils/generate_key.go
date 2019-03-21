@@ -12,18 +12,17 @@ func CreateAccountAddressKey(addr *types.Address) []byte {
 	return key
 }
 
-func CreateReceiveHeightKey(sendAccountId, sendHeight uint64) []byte {
-	key := make([]byte, 0, 17)
-	key = append(key, ReceiveHeightKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(sendAccountId)...)
-	key = append(key, Uint64ToFixedBytes(sendHeight)...)
+func CreateReceiveKey(sendBlockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, ReceiveKeyPrefix)
+	key = append(key, sendBlockHash.Bytes()...)
 	return key
 }
 
-func CreateOnRoadKey(toAccountId, id uint64) []byte {
-	key := make([]byte, 0, 17)
+func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
 	key = append(key, OnRoadKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(toAccountId)...)
+	key = append(key, addr.Bytes()...)
 	key = append(key, Uint64ToFixedBytes(id)...)
 	return key
 }
@@ -57,11 +56,10 @@ func CreateAccountIdKey(accountId uint64) []byte {
 	return key
 }
 
-func CreateConfirmHeightKey(accountId, height uint64) []byte {
-	key := make([]byte, 0, 17)
+func CreateConfirmHeightKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, ConfirmHeightKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
-	key = append(key, Uint64ToFixedBytes(height)...)
+	key = append(key, blockHash.Bytes()...)
 	return key
 }
 func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
@@ -71,11 +69,11 @@ func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
 	return key
 }
 
-func CreateAccountBlockHeightKey(accountId, height uint64) []byte {
-	key := make([]byte, 0, 17)
+func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
 
 	key = append(key, AccountBlockHeightKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, addr.Bytes()...)
 	key = append(key, Uint64ToFixedBytes(height)...)
 	return key
 }

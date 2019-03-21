@@ -52,10 +52,13 @@ func (c *chain) GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock,
 	// query location
 	location, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, height is %d",
-			err.Error(), height))
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			height, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotHeaderByHeight")
 		return nil, cErr
+	}
+	if location == nil {
+		return nil, nil
 	}
 
 	// query block
@@ -65,6 +68,10 @@ func (c *chain) GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock,
 			err.Error(), height, location))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotHeaderByHeight")
 		return nil, cErr
+	}
+
+	if snapshotBlock == nil {
+		return nil, nil
 	}
 
 	snapshotBlock.SnapshotContent = nil
@@ -365,6 +372,76 @@ func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
+// [startHeight, latestHeight]
+func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error) {
+	if startHeight <= 0 {
+		startHeight = 1
+	}
+	latestSb := c.GetLatestSnapshotBlock()
+	if endHeight > latestSb.Height {
+		endHeight = latestSb.Height
+	}
+	// query location
+	startLocation, err := c.indexDB.GetSnapshotBlockLocation(startHeight)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			startHeight, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	if startLocation == nil {
+		return nil, nil
+	}
+
+	endLocation, err := c.indexDB.GetSnapshotBlockLocation(endHeight)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			endHeight, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	if endLocation == nil {
+		return nil, nil
+	}
+
+	segList, err := c.blockDB.ReadRange(startLocation, endLocation)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed,  startLocation is %+v, endLocation is %+v, . Error: %s,",
+			startLocation, endLocation, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	return segList, nil
+}
+
+func (c *chain) GetSeed(snapshotHash *types.Hash, n int) uint64 {
+	return 0
+}
+
+// [startHeight, latestHeight]
+func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error) {
+	// query location
+	startLocation, err := c.indexDB.GetSnapshotBlockLocation(height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			height, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	if startLocation == nil {
+		return nil, nil
+	}
+
+	segList, err := c.blockDB.ReadRange(startLocation, nil)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed,  startLocation is %+v, endLocation is nil. Error: %s,",
+			startLocation, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	return segList, nil
+}
+
 type getSnapshotListFunc func() ([]*chain_block.Location, [2]uint64, error)
 
 func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
@@ -445,12 +522,4 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 	}
 	return c.GetSnapshotHeaderByHeight(start.Height + uint64(i-1))
 
-}
-
-func (c *chain) GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error) {
-	return nil, nil
-}
-
-func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error) {
-	return nil, nil
 }

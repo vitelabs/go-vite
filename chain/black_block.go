@@ -111,7 +111,7 @@ func (bb *blackBlock) DeleteAccountBlock(subLedger map[types.Address][]*ledger.A
 	for addr, blocks := range subLedger {
 		bb.log.Info(addr.String())
 		for _, block := range blocks {
-			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteUnconfirmedAccountBlocks")
+			bb.log.Info(fmt.Sprintf("%+v", block), "method", "DeleteInvalidAccountBlocks")
 		}
 	}
 	bb.recordNeedSnapshotCache()

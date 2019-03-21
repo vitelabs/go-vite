@@ -58,8 +58,8 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 		if err != nil {
 			return nil, nil, errors.New(fmt.Sprintf("ss.AccountBlocks.Serialize failed, error is %s, accountBlock is %+v", err.Error(), accountBlock))
 		}
-		sBuf := snappy.Encode(bDB.snappyWriteBuffer, buf)
-		if location, err := bDB.fm.Write(sBuf); err != nil {
+
+		if location, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeAccountBlock, buf)); err != nil {
 			return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, accountBlock is %+v", err.Error(), accountBlock))
 		} else {
 			accountBlocksLocation = append(accountBlocksLocation, location)
@@ -70,8 +70,8 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 	if err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("ss.SnapshotBlock.Serialize failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock))
 	}
-	sBuf := snappy.Encode(bDB.snappyWriteBuffer, buf)
-	snapshotBlockLocation, err := bDB.fm.Write(sBuf)
+
+	snapshotBlockLocation, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeSnapshotBlock, buf))
 
 	if err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock))
@@ -84,86 +84,137 @@ func (bDB *BlockDB) Read(location *Location) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	sBuf, err := snappy.Decode(nil, buf)
+	sBuf, err := snappy.Decode(nil, buf[1:])
 	if err != nil {
 		return nil, err
 	}
 	return sBuf, nil
 }
 
-func (bDB *BlockDB) DeleteTo(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
-	// bDB.fm.DeleteTo(location)
+func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([]*SnapshotSegment, error) {
 	bfp := newBlockFileParser()
-	readBfp := newBlockFileParser()
-
 	bDB.wg.Add(1)
 	go func() {
-		defer bDB.wg.Wait()
-		bDB.fm.DeleteTo(location, bfp)
-		bDB.fm.ReadRange(prevLocation, location, readBfp)
+		defer bDB.wg.Done()
+		bDB.fm.ReadRange(startLocation, endLocation, bfp)
 	}()
 
 	var segList []*SnapshotSegment
 	var seg *SnapshotSegment
 	var snappyReadBuffer = make([]byte, 0, 1024*1024) // 1M
-LOOP:
-	for {
-		select {
-		case buf, ok := <-bfp.Next():
-			if !ok {
-				break LOOP
-			}
-			if buf.BlockType == BlockTypeSnapshotBlock {
-				if seg != nil {
-					segList = append(segList, seg)
-				}
+	iterator := bfp.Iterator()
 
-				sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
-				sb := &ledger.SnapshotBlock{}
-				if err := sb.Deserialize(sBuf); err != nil {
-					return nil, nil, err
-				}
-				seg = &SnapshotSegment{
-					SnapshotBlock: sb,
-				}
-			} else if buf.BlockType == BlockTypeAccountBlock {
-				if seg == nil {
-					seg = &SnapshotSegment{}
-				}
+	for buf := range iterator {
+		if seg == nil {
+			seg = &SnapshotSegment{}
+		}
 
-				sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
-				ab := &ledger.AccountBlock{}
-				if err := ab.Deserialize(sBuf); err != nil {
-					return nil, nil, err
-				}
-				seg.AccountBlocks = append(seg.AccountBlocks, ab)
+		if buf.BlockType == BlockTypeSnapshotBlock {
+
+			sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+			if err != nil {
+				return nil, err
 			}
-		case err := <-bfp.Error():
-			return nil, nil, err
+			sb := &ledger.SnapshotBlock{}
+			if err := sb.Deserialize(sBuf); err != nil {
+				return nil, err
+			}
+			seg.SnapshotBlock = sb
+			segList = append(segList, seg)
+
+			seg = nil
+		} else if buf.BlockType == BlockTypeAccountBlock {
+			sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+			if err != nil {
+				return nil, err
+			}
+
+			ab := &ledger.AccountBlock{}
+			if err := ab.Deserialize(sBuf); err != nil {
+				return nil, err
+			}
+			seg.AccountBlocks = append(seg.AccountBlocks, ab)
+		}
+	}
+
+	if seg != nil {
+		segList = append(segList, seg)
+	}
+
+	if err := bfp.Error(); err != nil {
+		return nil, err
+	}
+
+	return segList, nil
+}
+
+func (bDB *BlockDB) DeleteTo(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
+	// bDB.fm.DeleteTo(location)
+	bfp := newBlockFileParser()
+	bfp2 := newBlockFileParser()
+
+	bDB.wg.Add(1)
+	go func() {
+		defer bDB.wg.Done()
+		bDB.fm.DeleteTo(location, bfp)
+		bDB.fm.ReadRange(prevLocation, location, bfp2)
+	}()
+
+	var segList []*SnapshotSegment
+	var seg *SnapshotSegment
+	var snappyReadBuffer = make([]byte, 0, 1024*1024) // 1M
+
+	iterator := bfp.Iterator()
+
+	for buf := range iterator {
+
+		if buf.BlockType == BlockTypeSnapshotBlock {
+			if seg != nil {
+				segList = append(segList, seg)
+			}
+
+			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
+			sb := &ledger.SnapshotBlock{}
+			if err := sb.Deserialize(sBuf); err != nil {
+				return nil, nil, err
+			}
+			seg = &SnapshotSegment{
+				SnapshotBlock: sb,
+			}
+		} else if buf.BlockType == BlockTypeAccountBlock {
+			if seg == nil {
+				seg = &SnapshotSegment{}
+			}
+
+			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
+			ab := &ledger.AccountBlock{}
+			if err := ab.Deserialize(sBuf); err != nil {
+				return nil, nil, err
+			}
+			seg.AccountBlocks = append(seg.AccountBlocks, ab)
 		}
 
 	}
+	if err := bfp.Error(); err != nil {
+		return nil, nil, err
+	}
 
 	var accountBlockList []*ledger.AccountBlock
-LOOP2:
-	for {
-		select {
-		case buf, ok := <-bfp.Next():
-			if !ok {
-				break LOOP2
-			}
-			if buf.BlockType == BlockTypeAccountBlock {
-				sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
-				ab := &ledger.AccountBlock{}
-				if err := ab.Deserialize(sBuf); err != nil {
-					return nil, nil, err
-				}
-				accountBlockList = append(accountBlockList, ab)
-			}
+	iterator2 := bfp2.Iterator()
 
-		case err := <-bfp.Error():
-			return nil, nil, err
+	for buf := range iterator2 {
+		if buf.BlockType == BlockTypeAccountBlock {
+			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
+			ab := &ledger.AccountBlock{}
+			if err := ab.Deserialize(sBuf); err != nil {
+				return nil, nil, err
+			}
+			accountBlockList = append(accountBlockList, ab)
 		}
+	}
+
+	if err := bfp2.Error(); err != nil {
+		return nil, nil, err
 	}
 	return segList, accountBlockList, nil
 }

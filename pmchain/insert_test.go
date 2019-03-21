@@ -77,7 +77,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		}
 
 		b.StartTimer()
-		if i%snapshotPerBlockNum == 0 {
+		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 			if err := InsertSnapshotBlock(chainInstance); err != nil {
 				b.Fatal(err)
 			}

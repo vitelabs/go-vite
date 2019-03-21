@@ -422,7 +422,7 @@ func TestGetAccountBlockByHeight(t *testing.T) {
 
 	}
 
-	//chainInstance.DeleteUnconfirmedAccountBlocks(&addr, 1491)
+	//chainInstance.DeleteInvalidAccountBlocks(&addr, 1491)
 	//
 	//snapshotBlock, _ := chainInstance.GetSnapshotBlockByHeight(2007)
 	//

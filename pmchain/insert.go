@@ -3,7 +3,6 @@ package pmchain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -41,17 +40,17 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 }
 
 // no lock
-func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
-	canBeSnappedBlocks, invalidSubLedger, needDeletedAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
+	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
-	canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
+	//canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
 
 	// write block db
-	_, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
+	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,
 	})
@@ -63,7 +62,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	}
 
 	// insert index TODO
-	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedSubLedger, snapshotBlockLocation, nil); err != nil {
+	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
@@ -77,18 +76,15 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (map[ty
 	}
 
 	// remove state db
-	c.stateDB.DeleteInvalidAccountBlocks(invalidSubLedger)
+	//c.stateDB.DeleteInvalidAccountBlocks(invalidSubLedger)
 
 	// remove invalid subLedger index
-	c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)
-
-	// remove invalid subLedger cache
-	c.cache.DeleteUnconfirmedAccountBlocks(append(canBeSnappedBlocks, needDeletedAccountBlocks...))
+	//c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)
 
 	// update latest snapshot block cache
-	c.cache.InsertSnapshotBlock(snapshotBlock)
+	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)
 
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
 
-	return invalidSubLedger, nil
+	return invalidAccountBlocks, nil
 }

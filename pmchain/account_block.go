@@ -217,6 +217,9 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return nil, cErr
 	}
+	if height <= 0 {
+		return nil, nil
+	}
 
 	// cache
 	if block := c.cache.GetAccountBlockByHeight(addr, height); block != nil {

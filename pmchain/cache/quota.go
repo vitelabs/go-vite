@@ -22,7 +22,9 @@ type quotaList struct {
 
 	list               *list.List
 	listMaxLength      int
-	accumulationHeight int
+	accumulationHeight uint64
+
+	status byte
 }
 
 func newQuotaList(chain Chain) *quotaList {
@@ -39,7 +41,12 @@ func newQuotaList(chain Chain) *quotaList {
 }
 
 func (ql *quotaList) init() error {
-	return ql.build()
+	if err := ql.build(); err != nil {
+		return err
+	}
+
+	ql.status = 1
+	return nil
 }
 func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	used := ql.used[*addr]
@@ -73,6 +80,9 @@ func (ql *quotaList) Sub(addr *types.Address, quota uint64) {
 }
 
 func (ql *quotaList) NewNext() {
+	if ql.status < 1 {
+		return
+	}
 	ql.backElement = make(map[types.Address]*item)
 	ql.list.PushBack(ql.backElement)
 
@@ -110,29 +120,30 @@ func (ql *quotaList) build() error {
 		ql.calculateUsed()
 	}()
 
-	if ql.list.Len() >= ql.accumulationHeight {
+	listLength := uint64(ql.list.Len())
+
+	if listLength >= ql.accumulationHeight {
 		return nil
 	}
 
 	latestSbHeight := ql.chain.GetLatestSnapshotBlock().Height
 
-	var snapshotSegments []*chain_block.SnapshotSegment
-	listLen := uint64(ql.list.Len())
-
-	if latestSbHeight <= listLen {
+	if latestSbHeight <= listLength {
 		return nil
 	}
 
-	endSbHeight := latestSbHeight + 1 - listLen
+	endSbHeight := latestSbHeight + 1 - listLength
 	startSbHeight := uint64(1)
 
-	lackListLen := uint64(ql.listMaxLength) - listLen
+	lackListLen := uint64(ql.listMaxLength) - listLength
 	if endSbHeight > lackListLen {
 		startSbHeight = endSbHeight - lackListLen
 	}
 
+	var snapshotSegments []*chain_block.SnapshotSegment
+
 	var err error
-	if listLen <= 0 {
+	if listLength <= 0 {
 		snapshotSegments, err = ql.chain.GetSubLedgerAfterHeight(startSbHeight)
 		if err != nil {
 			return err
@@ -142,24 +153,30 @@ func (ql *quotaList) build() error {
 			return errors.New(fmt.Sprintf("ql.chain.GetSubLedgerAfterHeight, snapshotSegments is nil, startSbHeight is %d", startSbHeight))
 		}
 
-		for _, seg := range snapshotSegments {
+		for _, seg := range snapshotSegments[1:] {
 
-			item := make(map[types.Address]uint64)
+			newItem := make(map[types.Address]*item)
 			for _, block := range seg.AccountBlocks {
-				if _, ok := item[block.AccountAddress]; !ok {
-					item[block.AccountAddress] = 0
+				if _, ok := newItem[block.AccountAddress]; !ok {
+					newItem[block.AccountAddress] = &item{
+						Quota:      block.Quota,
+						BlockCount: 1,
+					}
+				} else {
+					newItem[block.AccountAddress].Quota += block.Quota
+					newItem[block.AccountAddress].BlockCount += 1
 				}
-				item[block.AccountAddress] += block.Quota
+
 			}
-			ql.list.PushBack(item)
+			ql.list.PushBack(newItem)
 		}
 
-		if snapshotSegments[len(snapshotSegments)-1].SnapshotBlock == nil {
-			ql.list.PushBack(make(map[types.Address]uint64))
+		if snapshotSegments[len(snapshotSegments)-1].SnapshotBlock != nil {
+			ql.list.PushBack(make(map[types.Address]*item))
 		}
 
 	} else {
-		snapshotSegments, err = ql.chain.GetSubLedger(endSbHeight, startSbHeight)
+		snapshotSegments, err = ql.chain.GetSubLedger(startSbHeight, endSbHeight)
 		if err != nil {
 			return err
 		}
@@ -169,17 +186,25 @@ func (ql *quotaList) build() error {
 				startSbHeight, endSbHeight))
 		}
 
-		for _, seg := range snapshotSegments {
+		segLength := len(snapshotSegments)
+		for i := segLength - 1; i > 0; i-- {
+			seg := snapshotSegments[i]
+			newItem := make(map[types.Address]*item)
 
-			item := make(map[types.Address]uint64)
 			for _, block := range seg.AccountBlocks {
-				if _, ok := item[block.AccountAddress]; !ok {
-					item[block.AccountAddress] = 0
+				if _, ok := newItem[block.AccountAddress]; !ok {
+					newItem[block.AccountAddress] = &item{
+						Quota:      block.Quota,
+						BlockCount: 1,
+					}
+				} else {
+					newItem[block.AccountAddress].Quota += block.Quota
+					newItem[block.AccountAddress].BlockCount += 1
 				}
-				item[block.AccountAddress] += block.Quota
 			}
-			ql.list.PushFront(item)
+			ql.list.PushFront(newItem)
 		}
+
 	}
 
 	return nil
@@ -231,7 +256,7 @@ func (ql *quotaList) calculateUsed() {
 
 func (ql *quotaList) resetAccumulationStart() {
 	ql.accumulationStart = ql.list.Back()
-	for i := 1; i < ql.accumulationHeight; i++ {
+	for i := uint64(1); i < ql.accumulationHeight; i++ {
 		prev := ql.accumulationStart.Prev()
 		if prev == nil {
 			break
