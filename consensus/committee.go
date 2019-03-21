@@ -68,7 +68,10 @@ func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (boo
 }
 
 func (self *committee) initTeller(gid types.Gid) (*teller, error) {
-	info := self.rw.GetMemberInfo(gid, self.genesis)
+	info, err := self.rw.GetMemberInfo(gid)
+	if err != nil {
+		return nil, err
+	}
 	if info == nil {
 		return nil, errors.New("can't get member info.")
 	}

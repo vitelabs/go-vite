@@ -18,6 +18,13 @@ type MemberPlan struct {
 type GroupInfo struct {
 	types.ConsensusGroupInfo
 
+	// todo
+	Repeat int32
+	// checkLevel = 0  check all info
+	// checkLevel = 1  Just check if it is in the producer collection
+	// todo
+	checkLevel uint8
+
 	genesisTime  time.Time
 	seed         *big.Int
 	PlanInterval uint64
@@ -35,7 +42,7 @@ func NewGroupInfo(genesisTime time.Time, info types.ConsensusGroupInfo) *GroupIn
 }
 
 func planInterval(info *types.ConsensusGroupInfo) uint64 {
-	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount)
+	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount) * uint64(1)
 }
 
 func (self *GroupInfo) Time2Index(t time.Time) uint64 {

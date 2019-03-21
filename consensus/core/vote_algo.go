@@ -90,15 +90,17 @@ func (self *algo) FilterVotes(context *VoteAlgoContext) []*Vote {
 	votes := context.votes
 	hashH := context.hashH
 	// simple filter for low balance
-	groupA1, groupB1 := self.FilterSimple(votes)
+	groupA, groupB := self.FilterSimple(votes)
 	// top N sbps
-	context.sbps = mergeGroup(groupA1, groupB1)
+	context.sbps = mergeGroup(groupA, groupB)
 
 	successRates := context.successRate
 
-	groupA2, groupB2 := self.filterBySuccessRate(groupA1, groupB1, hashH, successRates)
+	if successRates != nil {
+		groupA, groupB = self.filterBySuccessRate(groupA, groupB, hashH, successRates)
+	}
 
-	votes = self.filterRandV2(groupA2, groupB2, hashH, context.seeds)
+	votes = self.filterRandV2(groupA, groupB, hashH, context.seeds)
 
 	return votes
 }

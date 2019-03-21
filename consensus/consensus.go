@@ -1,11 +1,16 @@
 package consensus
 
 import (
+	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type Verifier interface {
@@ -27,16 +32,6 @@ type Event struct {
 	VoteTime    time.Time // voteTime
 	PeriodStime time.Time // start time for period
 	PeriodEtime time.Time // end time for period
-}
-
-type electionResult struct {
-	Plans     []*core.MemberPlan
-	STime     time.Time
-	ETime     time.Time
-	Index     uint64
-	Hash      types.Hash
-	Height    uint64
-	Timestamp time.Time
 }
 
 type ProducersEvent struct {
@@ -61,6 +56,7 @@ type Reader interface {
 	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
 }
+
 type Life interface {
 	Start()
 	Init() error
@@ -72,4 +68,46 @@ type Consensus interface {
 	Subscriber
 	Reader
 	Life
+}
+
+// update committee result
+type consensus struct {
+	common.LifecycleStatus
+
+	mLog log15.Logger
+
+	genesis time.Time
+
+	rw *chainRw
+
+	snapshot  *snapshotCs
+	contracts map[types.Gid]*contractsCs
+
+	// subscribes map[types.Gid]map[string]*subscribeEvent
+	subscribes sync.Map
+
+	wg     sync.WaitGroup
+	closed chan struct{}
+}
+
+func NewConsensus(genesisTime time.Time, ch ch) *committee {
+	points, err := newPeriodPointArray(ch)
+	if err != nil {
+		panic(errors.Wrap(err, "create period point fail."))
+	}
+
+	rw := &chainRw{rw: ch, periodPoints: points}
+	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
+	committee.mLog = log15.New("module", "consensus/committee")
+	db, err := ch.NewDb("consensus")
+	if err != nil {
+		panic(err)
+	}
+	committee.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	committee.lruCache = cache
+	return committee
 }

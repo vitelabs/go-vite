@@ -2,11 +2,8 @@ package consensus
 
 import (
 	"math/big"
-	"time"
-
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"sort"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -34,11 +31,17 @@ type ch interface {
 }
 
 type chainRw struct {
-	rw ch
+	// todo
+	genesisTime time.Time
+	rw          ch
 
 	hourPoints   PointLinkedArray
 	dayPoints    PointLinkedArray
 	periodPoints PointLinkedArray
+}
+
+func newChainRw() {
+
 }
 
 type VoteDetails struct {
@@ -62,6 +65,7 @@ func (a ByBalance) Less(i, j int) bool {
 }
 
 func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
+	// todo if t < genesisTime, return genesis block
 	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
 
 	if e != nil {
@@ -72,6 +76,9 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 		return nil, errors.New("before time[" + t.String() + "] block not exist")
 	}
 	return block, nil
+}
+func (self *chainRw) GetSeedsByHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration, num int) (map[types.Address]uint64, error) {
+	return self.GetSeedsBeforeHashH(lastBlock, dur)
 }
 
 func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration) (map[types.Address]uint64, error) {
@@ -161,18 +168,21 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 	}
 }
 
-func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *core.GroupInfo {
+func (self *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 	// todo consensus group maybe change ??
 	var result *core.GroupInfo
 	head := self.rw.GetLatestSnapshotBlock()
-	consensusGroupList, _ := self.rw.GetConsensusGroupList(head.Hash)
+	consensusGroupList, err := self.rw.GetConsensusGroupList(head.Hash)
+	if err != nil {
+		return nil, err
+	}
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = core.NewGroupInfo(genesis, *v)
+			result = core.NewGroupInfo(self.genesisTime, *v)
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
@@ -293,6 +303,21 @@ func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
 	}
 
 	return hourInfos, nil
+}
+func (self *chainRw) getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bool) {
+	// todo
+	return nil, false
+}
+func (self *chainRw) updateSnapshotVoteCache(hashes types.Hash, addresses []types.Address) {
+	// todo
+}
+
+func (self *chainRw) getContractVoteCache(hashes types.Hash) ([]types.Address, bool) {
+	// todo
+	return nil, false
+}
+func (self *chainRw) updateContractVoteCache(hashes types.Hash, addresses []types.Address) {
+	// todo
 }
 
 // a day = 23 * hour + LatestHour
