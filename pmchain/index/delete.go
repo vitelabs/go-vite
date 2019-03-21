@@ -8,14 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
-func (iDB *IndexDB) DeleteInvalidAccountBlocks(invalidSubLedger map[types.Address][]*ledger.AccountBlock) {
-	for _, blocks := range invalidSubLedger {
-		for _, accountBlock := range blocks {
-			iDB.memDb.DeleteByBlockHash(&accountBlock.Hash)
-		}
-	}
-}
-
 // TODO
 func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment, unconfirmedBlocks []*ledger.AccountBlock) error {
 	//batch := iDB.store.NewBatch()

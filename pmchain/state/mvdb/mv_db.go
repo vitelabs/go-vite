@@ -3,7 +3,6 @@ package mvdb
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/pending"
 	"github.com/vitelabs/go-vite/pmchain/utils"
 	"path"
@@ -201,10 +200,8 @@ func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash) error {
 	return nil
 }
 
-func (mvDB *MultiVersionDB) DeletePendingBlocks(blocks []*ledger.AccountBlock) {
-	for _, block := range blocks {
-		mvDB.pending.DeleteByBlockHash(&block.Hash)
-	}
+func (mvDB *MultiVersionDB) DeletePendingBlock(blockHash *types.Hash) {
+	mvDB.pending.DeleteByBlockHash(blockHash)
 }
 
 func (mvDB *MultiVersionDB) updateKeyIdIndex(batch *leveldb.Batch, keyId uint64, valueId uint64) {

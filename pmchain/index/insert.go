@@ -42,7 +42,8 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	confirmedBlocks []*ledger.AccountBlock,
 	snapshotBlockLocation *chain_block.Location,
-	abLocationsList []*chain_block.Location) error {
+	abLocationsList []*chain_block.Location,
+	invalidBlocks []*ledger.AccountBlock) error {
 
 	batch := iDB.store.NewBatch()
 
@@ -71,6 +72,10 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	}
 
 	// clean mem store
+	for _, accountBlock := range invalidBlocks {
+		iDB.memDb.DeleteByBlockHash(&accountBlock.Hash)
+	}
+
 	for _, block := range confirmedBlocks {
 		iDB.memDb.DeleteByBlockHash(&block.Hash)
 	}

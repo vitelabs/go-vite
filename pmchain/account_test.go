@@ -77,6 +77,8 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	if err != nil {
 		return nil, err
 	}
+	vmDb.SetBalance(&ledger.ViteTokenId, big.NewInt(100))
+	vmDb.Finish()
 
 	tx := &ledger.AccountBlock{
 		AccountAddress: acc.addr,

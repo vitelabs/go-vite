@@ -62,24 +62,19 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	}
 
 	// insert index TODO
-	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList); err != nil {
+	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks,
+		snapshotBlockLocation, abLocationList, invalidAccountBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
 	}
 
 	// flush state db
-	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks); err != nil {
+	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks, invalidAccountBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
 	}
-
-	// remove state db
-	//c.stateDB.DeleteInvalidAccountBlocks(invalidSubLedger)
-
-	// remove invalid subLedger index
-	//c.indexDB.DeleteInvalidAccountBlocks(invalidSubLedger)
 
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/vitelabs/go-vite/pmchain/block"
 	"net/http"
 	_ "net/http/pprof"
 )
@@ -66,27 +65,7 @@ func BmInsertAccountBlockCache(b *testing.B, accountNumber int) {
 
 		if i%2 == 0 {
 			snapshotBlock := createSnapshotBlock(chainInstance)
-			unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
-			canBeSnappedBlocks, invalidAccountBlocks := chainInstance.filterCanBeSnapped(unconfirmedBlocks)
-
-			// canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
-
-			// write block db
-			accountBlocksLocation, snapshotBlockLocation, err := chainInstance.blockDB.Write(&chain_block.SnapshotSegment{
-				SnapshotBlock: snapshotBlock,
-				AccountBlocks: canBeSnappedBlocks,
-			})
-
-			if err != nil {
-				b.Fatal(err)
-			}
-
-			chainInstance.indexDB.InsertSnapshotBlock(
-				snapshotBlock,
-				canBeSnappedBlocks,
-				snapshotBlockLocation,
-				accountBlocksLocation)
-			chainInstance.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)
+			chainInstance.InsertSnapshotBlock(snapshotBlock)
 
 		}
 		b.StopTimer()
