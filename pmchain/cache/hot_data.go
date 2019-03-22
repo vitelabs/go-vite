@@ -5,7 +5,8 @@ import "github.com/vitelabs/go-vite/ledger"
 type hotData struct {
 	ds *dataSet
 
-	latestSbDataId uint64
+	latestSbDataId  uint64
+	genesisSbDataId uint64
 }
 
 func newHotData(ds *dataSet) *hotData {
@@ -13,6 +14,7 @@ func newHotData(ds *dataSet) *hotData {
 		ds: ds,
 	}
 }
+
 func (hd *hotData) UpdateLatestSnapshotBlock(latestSbDataId uint64) {
 	if hd.latestSbDataId > 0 {
 		hd.ds.UnRefDataId(hd.latestSbDataId)
@@ -28,4 +30,12 @@ func (hd *hotData) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	}
 
 	return hd.ds.GetSnapshotBlock(hd.latestSbDataId)
+}
+
+func (hd *hotData) SetGenesisSnapshotBlock(dataId uint64) {
+	hd.genesisSbDataId = dataId
+}
+
+func (hd *hotData) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return hd.ds.GetSnapshotBlock(hd.genesisSbDataId)
 }

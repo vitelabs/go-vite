@@ -8,8 +8,12 @@ import (
 	"runtime"
 )
 
-func NewChainInstance(dirName string) (Chain, error) {
+func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	dataDir := path.Join(defaultDataDir(), dirName)
+	if clear {
+		os.RemoveAll(dataDir)
+	}
+
 	chainInstance := NewChain(dataDir)
 
 	if err := chainInstance.Init(); err != nil {

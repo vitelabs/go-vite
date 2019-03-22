@@ -4,14 +4,14 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/vm_db"
-	"io"
 	"math/big"
 	"time"
 )
 
-type PrepareInsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
-type InsertAccountBlocksListener func(blocks *vm_db.VmAccountBlock) error
+type PrepareInsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
+type InsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
 
 type PrepareInsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
 type InsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
@@ -58,7 +58,7 @@ type Chain interface {
 	// vmAccountBlocks must have the same address
 	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
 
-	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidSubLedger map[types.Address][]*ledger.AccountBlock, err error)
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
 
 	/*
 	 *	D(Delete)
@@ -75,7 +75,9 @@ type Chain interface {
 	 */
 
 	// ====== Query account block ======
-	IsAccountBlockExisted(hash *types.Hash) (bool, error)
+	IsGenesisAccountBlock(hash *types.Hash) bool
+
+	IsAccountBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 
@@ -96,16 +98,19 @@ type Chain interface {
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
 
+	// get latest account block
+	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
+
 	// ====== Query snapshot block ======
 
-	IsSnapshotBlockExisted(hash *types.Hash) (bool, error)
+	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
 	// is valid
-	IsSnapshotContentValid(snapshotContent *ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
+	IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -136,27 +141,28 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
-	GetSnapshotContentBySbHash(hash *types.Hash) (ledger.SnapshotContent, error)
+	GetSeed(snapshotHash *types.Hash, n int) uint64
+
+	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
+
+	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
 
 	// ====== Query unconfirmed pool ======
-	GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error)
+	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
 
 	GetContentNeedSnapshot() ledger.SnapshotContent
 
 	// ====== Query account ======
 
-	// AccountType(address *types.Address) (byte, error)
-
 	// The address is contract address when it's first receive block inserted into the chain.
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
 
+	GetAccountId(address *types.Address) (uint64, error)
+
 	// ===== Query state ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
-
-	// get history balance, if history is too old, failed
-	GetHistoryBalance(addr *types.Address, tokenId *types.TokenTypeId, accountBlockHash *types.Hash) (*big.Int, error)
 
 	// get confirmed snapshot balance, if history is too old, failed
 	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)
@@ -168,11 +174,13 @@ type Chain interface {
 
 	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
 
-	GetStateSnapshot(blockHash *types.Hash) (stateSnapshot interfaces.StateSnapshot, err error)
-
-	GetQuotaUnused(address *types.Address) uint64
+	GetQuotaUnused(address *types.Address) (uint64, error)
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+
+	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+
+	GetValue(address *types.Address, key []byte) ([]byte, error)
 
 	// ====== Query built-in contract storage ======
 
@@ -196,7 +204,7 @@ type Chain interface {
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 
 	// ====== Sync ledger ======
-	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr LedgerReader, err error)
+	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
 	// TODO insert syncCache ledger
 	// TODO query syncCache state
@@ -205,10 +213,4 @@ type Chain interface {
 	HasOnRoadBlocks(address *types.Address) (bool, error)
 
 	GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error)
-}
-
-type LedgerReader interface {
-	Bound() (from, to uint64)
-	Size() int
-	Stream() io.ReadCloser
 }

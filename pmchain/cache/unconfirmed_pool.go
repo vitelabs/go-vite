@@ -3,103 +3,80 @@ package chain_cache
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"sync"
 )
-
-type insertedItem struct {
-	dataId  uint64
-	eventId uint64
-}
 
 type UnconfirmedPool struct {
 	ds *dataSet
 
-	mu       sync.RWMutex
-	memStore map[types.Address][]uint64
-
-	latestEventId uint64
-	insertedList  []*insertedItem
+	insertedList []uint64
+	insertedMap  map[types.Address][]uint64
 }
 
 func NewUnconfirmedPool(ds *dataSet) *UnconfirmedPool {
 	return &UnconfirmedPool{
-		ds:       ds,
-		memStore: make(map[types.Address][]uint64),
+		ds:          ds,
+		insertedMap: make(map[types.Address][]uint64),
 	}
 }
 
-//func (up *UnconfirmedPool) Clean() {
-//	up.mu.Lock()
-//	defer up.mu.Unlock()
-//
-//	up.memStore = make(map[types.Address][]uint64)
-//}
+func (up *UnconfirmedPool) InsertAccountBlock(address *types.Address, dataId uint64) {
 
-func (up *UnconfirmedPool) InsertAccountBlock(dataId uint64) {
-	up.mu.Lock()
-	defer up.mu.Unlock()
-	eventId := up.newEventId()
-	up.insertedList = append(up.insertedList, &insertedItem{
-		dataId:  dataId,
-		eventId: eventId,
-	})
-
-	block := up.ds.GetAccountBlock(dataId)
-	up.memStore[block.AccountAddress] = append(up.memStore[block.AccountAddress], dataId)
+	up.insertedList = append(up.insertedList, dataId)
+	up.insertedMap[*address] = append(up.insertedMap[*address], dataId)
 
 	up.ds.RefDataId(dataId)
 }
 
 // No lock
-func (up *UnconfirmedPool) GetCurrentBlocks() []*ledger.AccountBlock {
-	up.mu.RLock()
-	currentLength := len(up.insertedList)
-	currentEventId := up.insertedList[currentLength-1].eventId
-	up.mu.RUnlock()
-
+func (up *UnconfirmedPool) GetBlocks() []*ledger.AccountBlock {
 	blocks := make([]*ledger.AccountBlock, 0, len(up.insertedList))
-	for _, inserted := range up.insertedList {
-		if inserted.eventId > currentEventId {
-			break
-		}
-		blocks = append(blocks, up.ds.GetAccountBlock(inserted.dataId))
-
+	for _, dataId := range up.insertedList {
+		blocks = append(blocks, up.ds.GetAccountBlock(dataId))
 	}
-
 	return blocks
 }
 
-//func (up *UnconfirmedPool) Snapshot(sc ledger.SnapshotContent) {
-//	up.mu.Lock()
-//	defer up.mu.Unlock()
-//
-//	for addr, hashHeight := range sc {
-//		index := findIndex(up.memStore[addr], hashHeight)
-//		up.memStore[addr] = up.memStore[addr][index+1:]
-//	}
-//}
-//
-//// TODO
-//func (up *UnconfirmedPool) GetContentNeedSnapshot() ledger.SnapshotContent {
-//	up.mu.RLock()
-//	defer up.mu.RUnlock()
-//
-//	sc := make(ledger.SnapshotContent, len(up.memStore))
-//	for addr, blocks := range up.memStore {
-//		block := blocks[len(blocks)-1]
-//		sc[addr] = &ledger.HashHeight{
-//			Hash:   block.Hash,
-//			Height: block.Height,
-//		}
-//	}
-//	return sc
-//}
+func (up *UnconfirmedPool) GetBlocksByAddress(addr *types.Address) []*ledger.AccountBlock {
 
-func (up *UnconfirmedPool) newEventId() uint64 {
-	up.latestEventId++
-	return up.latestEventId
+	list := up.insertedMap[*addr]
+
+	blocks := make([]*ledger.AccountBlock, 0, len(list))
+	for _, dataId := range list {
+		blocks = append(blocks, up.ds.GetAccountBlock(dataId))
+	}
+	return blocks
 }
 
-func findIndex(blocks []*ledger.AccountBlock, hashHeight *ledger.HashHeight) int {
-	return 0
+func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
+
+	newInsertedList := make([]uint64, 0, len(up.insertedList)-len(blocks))
+	newInsertedMap := make(map[types.Address][]uint64)
+
+	deletedDataIdMap := make(map[uint64]*ledger.AccountBlock, len(blocks))
+	for _, block := range blocks {
+		dataId := up.ds.GetDataId(&block.Hash)
+		deletedDataIdMap[dataId] = block
+	}
+	for _, insertedDataId := range up.insertedList {
+		if block, ok := deletedDataIdMap[insertedDataId]; !ok {
+			newInsertedList = append(newInsertedList, insertedDataId)
+			newInsertedMap[block.AccountAddress] = append(newInsertedMap[block.AccountAddress], insertedDataId)
+
+			// un ref
+			up.ds.UnRefDataId(insertedDataId)
+		}
+
+	}
+	up.insertedList = newInsertedList
+	up.insertedMap = newInsertedMap
+}
+
+func (up *UnconfirmedPool) DeleteAllBlocks() {
+
+	for _, insertedDataId := range up.insertedList {
+		// un ref
+		up.ds.UnRefDataId(insertedDataId)
+	}
+	up.insertedList = nil
+	up.insertedMap = make(map[types.Address][]uint64)
 }

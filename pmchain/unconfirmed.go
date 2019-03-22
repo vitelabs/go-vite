@@ -5,12 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) GetUnconfirmedBlocks(addr *types.Address) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+func (c *chain) GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock {
+	return c.cache.GetUnconfirmedBlocksByAddress(addr)
 }
 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
-	currentUnconfirmedBlocks := c.cache.GetCurrentUnconfirmedBlocks()
+	currentUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	needSnapshotBlocks, _ := c.filterCanBeSnapped(currentUnconfirmedBlocks)
 
@@ -30,9 +30,13 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 }
 
 /*
+ * TODO
  * Check quota, consensus, dependencies
  */
-func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, map[types.Address][]*ledger.AccountBlock) {
+func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock) {
+	// checkA()
+
+	// checkB()
 	return blocks, nil
 }
 

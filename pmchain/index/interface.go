@@ -1,26 +1,22 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
+type Chain interface {
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+}
 type Store interface {
-	NewBatch() Batch
-	Write(Batch) error
-}
+	NewBatch() interfaces.Batch
+	NewIterator(slice *util.Range) iterator.Iterator
+	Write(interfaces.Batch) error
+	Has(key []byte) (bool, error)
+	Get(key []byte) ([]byte, error)
+	Clean() error
 
-type Batch interface {
-	Put(key, value []byte)
-	Delete(key []byte)
-}
-
-type MemDB interface {
-	Put(blockHash *types.Hash, key, value []byte)
-	Get(key []byte) ([]byte, bool)
-
-	GetByBlockHash(blockHash *types.Hash) ([][]byte, [][]byte)
-
-	DeleteByBlockHash(blockHash *types.Hash)
-
-	Clean()
+	Close() error
 }
