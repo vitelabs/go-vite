@@ -24,7 +24,7 @@ func (p *MethodVote) GetQuota() uint64 {
 	return VoteGas
 }
 
-// vote for a super node of a consensus group
+// vote for chain super node of chain consensus group
 func (p *MethodVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
@@ -81,7 +81,7 @@ func (p *MethodCancelVote) GetQuota() uint64 {
 	return CancelVoteGas
 }
 
-// cancel vote for a super node of a consensus group
+// cancel vote for chain super node of chain consensus group
 func (p *MethodCancelVote) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {

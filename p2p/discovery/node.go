@@ -21,15 +21,15 @@ var errUnmatchedLength = errors.New("unmatch length, needs 64 hex chars")
 // ZERO_NODE_ID is the zero-value of NodeID type
 var ZERO_NODE_ID NodeID
 
-// NodeID use to mark node, and build a structural network
+// NodeID use to mark node, and build chain structural network
 type NodeID [32]byte
 
-// Bytes return a slice derived from NodeID
+// Bytes return chain slice derived from NodeID
 func (id NodeID) Bytes() []byte {
 	return id[:]
 }
 
-// String return a hex coded string of NodeID
+// String return chain hex coded string of NodeID
 func (id NodeID) String() string {
 	return hex.EncodeToString(id[:])
 }
@@ -39,7 +39,7 @@ func (id NodeID) Brief() string {
 	return hex.EncodeToString(id[:4])
 }
 
-// IsZero validate whether a NodeID is zero-value
+// IsZero validate whether chain NodeID is zero-value
 func (id NodeID) IsZero() bool {
 	for _, byt := range id {
 		if byt|0 != 0 {
@@ -60,7 +60,7 @@ func (id NodeID) Equal(id2 NodeID) bool {
 	return true
 }
 
-// HexStr2NodeID parse a hex coded string to NodeID
+// HexStr2NodeID parse chain hex coded string to NodeID
 func HexStr2NodeID(str string) (id NodeID, err error) {
 	bytes, err := hex.DecodeString(strings.TrimPrefix(str, "0x"))
 	if err != nil {
@@ -70,7 +70,7 @@ func HexStr2NodeID(str string) (id NodeID, err error) {
 	return Bytes2NodeID(bytes)
 }
 
-// Bytes2NodeID turn a slice to NodeID
+// Bytes2NodeID turn chain slice to NodeID
 func Bytes2NodeID(buf []byte) (id NodeID, err error) {
 	if len(buf) != len(id) {
 		return id, errUnmatchedLength
@@ -86,7 +86,7 @@ var errInvalidIP = errors.New("invalid IP")
 var errMissPort = errors.New("missing port")
 var errInvalidScheme = errors.New("invalid scheme")
 
-// Node mean a node in vite P2P network
+// Node mean chain node in vite P2P network
 type Node struct {
 	ID  NodeID
 	IP  net.IP
@@ -149,7 +149,7 @@ func protoToNode(pb *protos.Node) (*Node, error) {
 	return node, nil
 }
 
-// Validate whether a node has essential information
+// Validate whether chain node has essential information
 func (n *Node) Validate() error {
 	if n.ID.IsZero() {
 		return errMissID
@@ -170,12 +170,12 @@ func (n *Node) Validate() error {
 	return nil
 }
 
-// Serialize a Node to []byte
+// Serialize chain Node to []byte
 func (n *Node) Serialize() ([]byte, error) {
 	return proto.Marshal(n.proto())
 }
 
-// Deserialize encoded data, []byte, to a Node,
+// Deserialize encoded data, []byte, to chain Node,
 // you must create the Node first, like following:
 //		n := new(Node)
 //		err := n.Deserialize(buf)
@@ -249,7 +249,7 @@ func (n *Node) String() string {
 	return nodeURL.String()
 }
 
-// ParseNode parse a url-like string to Node
+// ParseNode parse chain url-like string to Node
 func ParseNode(u string) (*Node, error) {
 	nodeURL, err := url.Parse(u)
 	if err != nil {
@@ -319,7 +319,7 @@ func parsePort(str string) (port uint16, err error) {
 	return uint16(i), nil
 }
 
-// commonBits between a and b, from right to left
+// commonBits between chain and b, from right to left
 func commonBits(a, b NodeID) int {
 	total := len(a)
 

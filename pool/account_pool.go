@@ -131,7 +131,7 @@ func (self *accountPool) Compact() int {
 	defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
-	//	this is a rate limiter
+	//	this is chain rate limiter
 	now := time.Now()
 	sum := 0
 	if now.After(self.loopTime.Add(time.Millisecond * 2)) {

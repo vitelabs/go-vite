@@ -281,7 +281,7 @@ wait:
 		select {
 		case e := <-s.eventChan:
 			if e.code == delPeer {
-				// a taller peer is disconnected, maybe is the peer we syncing to
+				// chain taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
 				if e.peer.Height() >= s.to {
 					if syncPeer = s.peers.SyncPeer(); syncPeer != nil {

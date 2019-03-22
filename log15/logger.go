@@ -13,19 +13,19 @@ const lvlKey = "lvl"
 const msgKey = "msg"
 const errorKey = "LOG15_ERROR"
 
-// Lvl is a type for predefined log levels.
+// Lvl is chain type for predefined log levels.
 type Lvl int
 
 // List of predefined log Levels
 const (
-	LvlCrit  Lvl = iota
+	LvlCrit Lvl = iota
 	LvlError
 	LvlWarn
 	LvlInfo
 	LvlDebug
 )
 
-// Returns the name of a Lvl
+// Returns the name of chain Lvl
 func (l Lvl) String() string {
 	switch l {
 	case LvlDebug:
@@ -43,7 +43,7 @@ func (l Lvl) String() string {
 	}
 }
 
-// LvlFromString returns the appropriate Lvl from a string name.
+// LvlFromString returns the appropriate Lvl from chain string name.
 // Useful for parsing command line args and configuration files.
 func LvlFromString(lvlString string) (Lvl, error) {
 	switch lvlString {
@@ -62,7 +62,7 @@ func LvlFromString(lvlString string) (Lvl, error) {
 	}
 }
 
-// A Record is what a Logger asks its handler to write
+// A Record is what chain Logger asks its handler to write
 type Record struct {
 	Time     time.Time
 	Lvl      Lvl
@@ -79,9 +79,9 @@ type RecordKeyNames struct {
 	Lvl  string
 }
 
-// A Logger writes key/value pairs to a Handler
+// A Logger writes key/value pairs to chain Handler
 type Logger interface {
-	// New returns a new Logger that has this logger's context plus the given context
+	// New returns chain new Logger that has this logger's context plus the given context
 	New(ctx ...interface{}) Logger
 
 	// GetHandler gets the handler associated with the logger.
@@ -90,7 +90,7 @@ type Logger interface {
 	// SetHandler updates the logger to write records to the specified handler.
 	SetHandler(h Handler)
 
-	// Log a message at the given level with context key/value pairs
+	// Log chain message at the given level with context key/value pairs
 	Debug(msg string, ctx ...interface{})
 	Info(msg string, ctx ...interface{})
 	Warn(msg string, ctx ...interface{})
@@ -162,14 +162,14 @@ func (l *logger) SetHandler(h Handler) {
 }
 
 func normalize(ctx []interface{}) []interface{} {
-	// if the caller passed a Ctx object, then expand it
+	// if the caller passed chain Ctx object, then expand it
 	if len(ctx) == 1 {
 		if ctxMap, ok := ctx[0].(Ctx); ok {
 			ctx = ctxMap.toArray()
 		}
 	}
 
-	// ctx needs to be even because it's a series of key/value pairs
+	// ctx needs to be even because it's chain series of key/value pairs
 	// no one wants to check for errors on logging functions,
 	// so instead of erroring on bad input, we'll just make sure
 	// that things are the right length and users can fix bugs
@@ -181,11 +181,11 @@ func normalize(ctx []interface{}) []interface{} {
 	return ctx
 }
 
-// Lazy allows you to defer calculation of a logged value that is expensive
+// Lazy allows you to defer calculation of chain logged value that is expensive
 // to compute until it is certain that it must be evaluated with the given filters.
 //
-// Lazy may also be used in conjunction with a Logger's New() function
-// to generate a child logger which always reports the current value of changing
+// Lazy may also be used in conjunction with chain Logger's New() function
+// to generate chain child logger which always reports the current value of changing
 // state.
 //
 // You may wrap any function which takes no arguments to Lazy. It may return any
@@ -194,7 +194,7 @@ type Lazy struct {
 	Fn interface{}
 }
 
-// Ctx is a map of key/value pairs to pass as context to a log function
+// Ctx is chain map of key/value pairs to pass as context to chain log function
 // Use this only if you really need greater safety around the arguments you pass
 // to the logging functions.
 type Ctx map[string]interface{}

@@ -25,9 +25,9 @@ func (p *MethodPledge) GetQuota() uint64 {
 	return PledgeGas
 }
 
-// pledge ViteToken for a beneficial to get quota
+// pledge ViteToken for chain beneficial to get quota
 func (p *MethodPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	// pledge gas is low without data gas cost, so that a new account is easy to pledge
+	// pledge gas is low without data gas cost, so that chain new account is easy to pledge
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err

@@ -11,12 +11,12 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 /*
-Package rpc provides access to the exported methods of an object across a network
-or other I/O connection. After creating a server instance objects can be registered,
+Package rpc provides access to the exported methods of an object across chain network
+or other I/O connection. After creating chain server instance objects can be registered,
 making it visible from the outside. Exported methods that follow specific
 conventions can be called remotely. It also has support for the publish/subscribe
 pattern.
@@ -29,24 +29,24 @@ Methods that satisfy the following criteria are made available for remote access
  - method returned value(s) must be exported or builtin types
 
 An example method:
- func (s *CalcService) Add(a, b int) (int, error)
+ func (s *CalcService) Add(chain, b int) (int, error)
 
 When the returned error isn't nil the returned integer is ignored and the error is
 send back to the client. Otherwise the returned integer is send back to the client.
 
 Optional arguments are supported by accepting pointer values as arguments. E.g.
-if we want to do the addition in an optional finite field we can accept a mod
+if we want to do the addition in an optional finite field we can accept chain mod
 argument as pointer value.
 
- func (s *CalService) Add(a, b int, mod *int) (int, error)
+ func (s *CalService) Add(chain, b int, mod *int) (int, error)
 
-This RPC method can be called with 2 integers and a null value as third argument.
+This RPC method can be called with 2 integers and chain null value as third argument.
 In that case the mod argument will be nil. Or it can be called with 3 integers,
 in that case mod will be pointing to the given third argument. Since the optional
 argument is the last argument the RPC package will also accept 2 integers as
 arguments. It will pass the mod argument as nil to the RPC method.
 
-The server offers the ServeCodec method which accepts a ServerCodec instance. It will
+The server offers the ServeCodec method which accepts chain ServerCodec instance. It will
 read requests from the codec, process the request and sends the response back to the
 client using the codec. The server can execute requests concurrently. Responses
 can be sent back to the client out of order.
@@ -54,15 +54,15 @@ can be sent back to the client out of order.
 An example server which uses the JSON codec:
  type CalculatorService struct {}
 
- func (s *CalculatorService) Add(a, b int) int {
-	return a + b
+ func (s *CalculatorService) Add(chain, b int) int {
+	return chain + b
  }
 
- func (s *CalculatorService) Div(a, b int) (int, error) {
+ func (s *CalculatorService) Div(chain, b int) (int, error) {
 	if b == 0 {
 		return 0, errors.New("divide by zero")
 	}
-	return a/b, nil
+	return chain/b, nil
  }
 
  calculator := new(CalculatorService)
@@ -92,7 +92,7 @@ An example method:
 Subscriptions are deleted when:
  - the user sends an unsubscribe request
  - the connection which was used to create the subscription is closed. This can be initiated
-   by the client and server. The server will close the connection on a write error or when
+   by the client and server. The server will close the connection on chain write error or when
    the queue of buffered notifications gets too big.
 */
 package rpc

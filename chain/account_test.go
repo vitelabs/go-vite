@@ -1,146 +1,172 @@
 package chain
 
 import (
-	"fmt"
-	"strconv"
-	"testing"
-
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
+	"math/rand"
+	"sync"
 )
 
-func TestChain_GetAccount(t *testing.T) {
-	chainInstance := getChainInstance()
-	addr, _ := types.HexToAddress("vite_5acd0b2ef651bdc0c586aafe7a780103f45ac532cd886eb859")
-	account, _ := chainInstance.GetAccount(&addr)
-	fmt.Printf("%+v\n", account)
+type Account struct {
+	addr       types.Address
+	privateKey ed25519.PrivateKey
+	publicKey  ed25519.PublicKey
+
+	unreceivedBlocks []*ledger.AccountBlock
+	latestBlock      *ledger.AccountBlock
+
+	unreceivedLock sync.Mutex
+
+	chainInstance Chain
 }
 
-func TestAccountType(t *testing.T) {
-	chainInstance := getChainInstance()
-
-	addr, _ := types.HexToAddress("vite_00000000000000000000000000000000000000056ad6d26692")
-	code, _ := chainInstance.AccountType(&addr)
-	fmt.Println(code)
+type CreateTxOptions struct {
+	MockVmContext bool
+	MockSignature bool
+	Quota         uint64
 }
 
-func TestAccountBalance(t *testing.T) {
-	chainInstance := getChainInstance()
+func (acc *Account) Height() uint64 {
+	if acc.latestBlock != nil {
+		return acc.latestBlock.Height
+	}
+	return 0
+}
 
-	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000001c9e9f25417")
-	for i := uint64(2); i <= 12; i++ {
-		block, e := chainInstance.GetAccountBlockByHeight(&addr, i)
-		if e != nil {
-			panic(e)
+func (acc *Account) Hash() types.Hash {
+	if acc.latestBlock != nil {
+		return acc.latestBlock.Hash
+	}
+	return types.Hash{}
+}
+
+func (acc *Account) HasUnreceivedBlock() bool {
+	return len(acc.unreceivedBlocks) > 0
+}
+
+func (acc *Account) AddUnreceivedBlock(block *ledger.AccountBlock) {
+	acc.unreceivedLock.Lock()
+	defer acc.unreceivedLock.Unlock()
+
+	acc.unreceivedBlocks = append(acc.unreceivedBlocks, block)
+}
+
+func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
+	acc.unreceivedLock.Lock()
+	defer acc.unreceivedLock.Unlock()
+
+	if len(acc.unreceivedBlocks) <= 0 {
+		return nil
+	}
+
+	block := acc.unreceivedBlocks[0]
+	acc.unreceivedBlocks = acc.unreceivedBlocks[1:]
+	return block
+}
+
+// No state hash
+func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+	chainInstance := acc.chainInstance
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+
+	prevHash := acc.Hash()
+	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
+	if err != nil {
+		return nil, err
+	}
+	vmDb.SetBalance(&ledger.ViteTokenId, big.NewInt(100))
+	vmDb.Finish()
+
+	tx := &ledger.AccountBlock{
+		AccountAddress: acc.addr,
+		ToAddress:      toAccount.addr,
+		Height:         acc.Height() + 1,
+		PrevHash:       prevHash,
+		Amount:         big.NewInt(rand.Int63n(100000000000000000)),
+		TokenId:        ledger.ViteTokenId,
+		PublicKey:      acc.publicKey,
+		Quota:          options.Quota,
+	}
+
+	// compute hash
+	tx.Hash = tx.ComputeHash()
+
+	// sign
+	if options != nil && options.MockSignature {
+		tx.Signature = []byte("This is chain mock signature")
+	} else {
+		tx.Signature = ed25519.Sign(acc.privateKey, tx.Hash.Bytes())
+	}
+
+	acc.latestBlock = tx
+
+	toAccount.AddUnreceivedBlock(tx)
+	return &vm_db.VmAccountBlock{
+		AccountBlock: tx,
+		VmDb:         vmDb,
+	}, nil
+}
+
+// No state hash
+func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+
+	UnreceivedBlock := acc.PopUnreceivedBlock()
+	if UnreceivedBlock == nil {
+		return nil, nil
+	}
+	chainInstance := acc.chainInstance
+
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+
+	prevHash := acc.Hash()
+	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
+	if err != nil {
+		return nil, err
+	}
+
+	receiveTx := &ledger.AccountBlock{
+		AccountAddress: acc.addr,
+		FromBlockHash:  UnreceivedBlock.Hash,
+		Height:         acc.Height() + 1,
+		PrevHash:       prevHash,
+		PublicKey:      acc.publicKey,
+
+		Quota: options.Quota,
+	}
+
+	// compute hash
+	receiveTx.Hash = receiveTx.ComputeHash()
+
+	// sign
+	if options != nil && options.MockSignature {
+		receiveTx.Signature = []byte("This is chain mock signature")
+	} else {
+		receiveTx.Signature = ed25519.Sign(acc.privateKey, receiveTx.Hash.Bytes())
+	}
+
+	acc.latestBlock = receiveTx
+
+	return &vm_db.VmAccountBlock{
+		AccountBlock: receiveTx,
+		VmDb:         vmDb,
+	}, nil
+}
+
+func MakeAccounts(num int, chainInstance Chain) []*Account {
+	accountList := make([]*Account, num)
+
+	for i := 0; i < num; i++ {
+		addr, privateKey, _ := types.CreateAddress()
+
+		accountList[i] = &Account{
+			addr:          addr,
+			privateKey:    privateKey,
+			publicKey:     privateKey.PubByte(),
+			chainInstance: chainInstance,
 		}
-		if block.BlockType == 2 {
-			println("send", strconv.FormatUint(block.Height, 10))
-			continue
-		}
-		printParams(chainInstance, block)
 	}
-
-	//printParam2(chainInstance, "3d6b153c65945ef7f21fe459aa16f29c5dbd173d2127a1ceef43255bd3358532")
-	//printParam3(chainInstance, "3d6b153c65945ef7f21fe459aa16f29c5dbd173d2127a1ceef43255bd3358532") // 5  update
-	//printParam(chainInstance, "1ff817db93c0a311ba974c027fea119c401f504a38768afe9ecf1ba351919bd5")  // 2
-	//printParam(chainInstance, "3c79ab2df58d1a9ff8a3452bc99f3b473b64fb50c9c1f39f4db7689ee50f036d")  // 7 err
-
-	//printParam(block)
-	//method, e := abi.ABIRegister.MethodById(block.Data[0:4])
-	//if e != nil {
-	//	panic(e)
-	//}
-	//
-	//t.Log(method.Name)
-	//fmt.Println(code)
-
-	//hash, _ := types.HexToHash("f7e4c8516e5e73b50d3e56abb30b0edaf8d871e08810d920d87aee27d6336436")
-	//block, e := chainInstance.GetAccountBlockByHash(&hash)
-	//if e != nil {
-	//	panic(e)
-	//}
-	////block.Data[:(len(block.Data) - 1)]
-	//num := big.NewInt(0).SetBytes(block.Data[(len(block.Data) - 1):])
-	//println(num.String())
-}
-func printParams(c Chain, block *ledger.AccountBlock) {
-	byHash, e := c.GetAccountBlockByHash(&block.FromBlockHash)
-	if e != nil {
-		panic(e)
-	}
-	if byHash == nil {
-		panic(block.FromBlockHash.String())
-	}
-	printParam(c, byHash)
-	println()
-}
-func printParam(c Chain, block *ledger.AccountBlock) {
-	method, e := abi.ABIRegister.MethodById(block.Data[0:4])
-	if e != nil {
-		panic(e)
-	}
-	switch method.Name {
-	case "Register":
-		printRegisterParams(block.Data)
-		print("   " + block.Amount.String())
-		return
-	case "UpdateRegistration":
-		printUpdateParams(block.Data)
-		print("   " + block.Amount.String())
-		return
-	}
-
-	panic(method.Name)
-}
-func printUpdateParams(bytes []byte) {
-	param := new(abi.ParamRegister)
-	if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameUpdateRegistration, bytes); err != nil {
-		panic(err)
-	}
-	fmt.Printf("update:%+v", param)
-}
-func printRegisterParams(bytes []byte) {
-	param := new(abi.ParamRegister)
-	if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, bytes); err != nil {
-		panic(err)
-	}
-	fmt.Printf("register:%+v", param)
-}
-func printParam2(c Chain, hs string) {
-	hash, _ := types.HexToHash(hs)
-	block, e := c.GetAccountBlockByHash(&hash)
-	if e != nil {
-		panic(e)
-	}
-
-	method, e := abi.ABIRegister.MethodById(block.Data[0:4])
-	if e != nil {
-		panic(e)
-	}
-	fmt.Println(method.Name)
-
-	//param := new(abi.ParamRegister)
-	//if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameRegister, block.Data); err != nil {
-	//	panic(err)
-	//}
-	//
-	//fmt.Printf("%+v\n", param)
-}
-
-func printParam3(c Chain, hs string) {
-	hash, _ := types.HexToHash(hs)
-	block, e := c.GetAccountBlockByHash(&hash)
-	if e != nil {
-		panic(e)
-	}
-
-	param := new(abi.ParamRegister)
-	if err := abi.ABIRegister.UnpackMethod(param, abi.MethodNameUpdateRegistration, block.Data); err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%+v\n", param)
+	return accountList
 }

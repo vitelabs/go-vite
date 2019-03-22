@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -30,7 +30,7 @@ func (e *methodNotFoundError) Error() string {
 	return fmt.Sprintf("The method %s%s%s does not exist/is not available", e.service, serviceMethodSeparator, e.method)
 }
 
-// received message isn't a valid request
+// received message isn't chain valid request
 type invalidRequestError struct{ message string }
 
 func (e *invalidRequestError) ErrorCode() int { return -32600 }
@@ -58,7 +58,7 @@ func (e *callbackError) ErrorCode() int { return -32000 }
 
 func (e *callbackError) Error() string { return e.message }
 
-// issued when a request is received after the server is issued to stop.
+// issued when chain request is received after the server is issued to stop.
 type shutdownError struct{}
 
 func (e *shutdownError) ErrorCode() int { return -32000 }

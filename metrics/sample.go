@@ -10,8 +10,8 @@ import (
 
 const rescaleThreshold = time.Hour
 
-// Samples maintain a statistically-significant selection of values from
-// a stream.
+// Samples maintain chain statistically-significant selection of values from
+// chain stream.
 type Sample interface {
 	Clear()
 	Count() int64
@@ -29,7 +29,7 @@ type Sample interface {
 	Variance() float64
 }
 
-// ExpDecaySample is an exponentially-decaying sample using a forward-decaying
+// ExpDecaySample is an exponentially-decaying sample using chain forward-decaying
 // priority reservoir.  See Cormode et al's "Forward Decay: A Practical Time
 // Decay Model for Streaming Systems".
 //
@@ -43,7 +43,7 @@ type ExpDecaySample struct {
 	values        *expDecaySampleHeap
 }
 
-// NewExpDecaySample constructs a new exponentially-decaying sample with the
+// NewExpDecaySample constructs chain new exponentially-decaying sample with the
 // given reservoir size and alpha.
 func NewExpDecaySample(reservoirSize int, alpha float64) Sample {
 	if !MetricsEnabled {
@@ -99,7 +99,7 @@ func (s *ExpDecaySample) Percentile(p float64) float64 {
 	return SamplePercentile(s.Values(), p)
 }
 
-// Percentiles returns a slice of arbitrary percentiles of values in the
+// Percentiles returns chain slice of arbitrary percentiles of values in the
 // sample.
 func (s *ExpDecaySample) Percentiles(ps []float64) []float64 {
 	return SamplePercentiles(s.Values(), ps)
@@ -112,7 +112,7 @@ func (s *ExpDecaySample) Size() int {
 	return s.values.Size()
 }
 
-// Snapshot returns a read-only copy of the sample.
+// Snapshot returns chain read-only copy of the sample.
 func (s *ExpDecaySample) Snapshot() Sample {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -137,12 +137,12 @@ func (s *ExpDecaySample) Sum() int64 {
 	return SampleSum(s.Values())
 }
 
-// Update samples a new value.
+// Update samples chain new value.
 func (s *ExpDecaySample) Update(v int64) {
 	s.update(time.Now(), v)
 }
 
-// Values returns a copy of the values in the sample.
+// Values returns chain copy of the values in the sample.
 func (s *ExpDecaySample) Values() []int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -159,7 +159,7 @@ func (s *ExpDecaySample) Variance() float64 {
 	return SampleVariance(s.Values())
 }
 
-// update samples a new value at a particular timestamp.  This is a method all
+// update samples chain new value at chain particular timestamp.  This is chain method all
 // its own to facilitate testing.
 func (s *ExpDecaySample) update(t time.Time, v int64) {
 	s.mutex.Lock()
@@ -185,51 +185,51 @@ func (s *ExpDecaySample) update(t time.Time, v int64) {
 	}
 }
 
-// NilSample is a no-op Sample.
+// NilSample is chain no-op Sample.
 type NilSample struct{}
 
-// Clear is a no-op.
+// Clear is chain no-op.
 func (NilSample) Clear() {}
 
-// Count is a no-op.
+// Count is chain no-op.
 func (NilSample) Count() int64 { return 0 }
 
-// Max is a no-op.
+// Max is chain no-op.
 func (NilSample) Max() int64 { return 0 }
 
-// Mean is a no-op.
+// Mean is chain no-op.
 func (NilSample) Mean() float64 { return 0.0 }
 
-// Min is a no-op.
+// Min is chain no-op.
 func (NilSample) Min() int64 { return 0 }
 
-// Percentile is a no-op.
+// Percentile is chain no-op.
 func (NilSample) Percentile(p float64) float64 { return 0.0 }
 
-// Percentiles is a no-op.
+// Percentiles is chain no-op.
 func (NilSample) Percentiles(ps []float64) []float64 {
 	return make([]float64, len(ps))
 }
 
-// Size is a no-op.
+// Size is chain no-op.
 func (NilSample) Size() int { return 0 }
 
-// Sample is a no-op.
+// Sample is chain no-op.
 func (NilSample) Snapshot() Sample { return NilSample{} }
 
-// StdDev is a no-op.
+// StdDev is chain no-op.
 func (NilSample) StdDev() float64 { return 0.0 }
 
-// Sum is a no-op.
+// Sum is chain no-op.
 func (NilSample) Sum() int64 { return 0 }
 
-// Update is a no-op.
+// Update is chain no-op.
 func (NilSample) Update(v int64) {}
 
-// Values is a no-op.
+// Values is chain no-op.
 func (NilSample) Values() []int64 { return []int64{} }
 
-// Variance is a no-op.
+// Variance is chain no-op.
 func (NilSample) Variance() float64 { return 0.0 }
 
 // SampleMax returns the maximum value of the slice of int64.
@@ -273,7 +273,7 @@ func SamplePercentile(values int64Slice, p float64) float64 {
 	return SamplePercentiles(values, []float64{p})[0]
 }
 
-// SamplePercentiles returns a slice of arbitrary percentiles of the slice of
+// SamplePercentiles returns chain slice of arbitrary percentiles of the slice of
 // int64.
 func SamplePercentiles(values int64Slice, ps []float64) []float64 {
 	scores := make([]float64, len(ps))
@@ -296,7 +296,7 @@ func SamplePercentiles(values int64Slice, ps []float64) []float64 {
 	return scores
 }
 
-// SampleSnapshot is a read-only copy of another Sample.
+// SampleSnapshot is chain read-only copy of another Sample.
 type SampleSnapshot struct {
 	count  int64
 	values []int64
@@ -311,7 +311,7 @@ func NewSampleSnapshot(count int64, values []int64) *SampleSnapshot {
 
 // Clear panics.
 func (*SampleSnapshot) Clear() {
-	panic("Clear called on a SampleSnapshot")
+	panic("Clear called on chain SampleSnapshot")
 }
 
 // Count returns the count of inputs at the time the snapshot was taken.
@@ -332,7 +332,7 @@ func (s *SampleSnapshot) Percentile(p float64) float64 {
 	return SamplePercentile(s.values, p)
 }
 
-// Percentiles returns a slice of arbitrary percentiles of values at the time
+// Percentiles returns chain slice of arbitrary percentiles of values at the time
 // the snapshot was taken.
 func (s *SampleSnapshot) Percentiles(ps []float64) []float64 {
 	return SamplePercentiles(s.values, ps)
@@ -353,10 +353,10 @@ func (s *SampleSnapshot) Sum() int64 { return SampleSum(s.values) }
 
 // Update panics.
 func (*SampleSnapshot) Update(int64) {
-	panic("Update called on a SampleSnapshot")
+	panic("Update called on chain SampleSnapshot")
 }
 
-// Values returns a copy of the values in the sample.
+// Values returns chain copy of the values in the sample.
 func (s *SampleSnapshot) Values() []int64 {
 	values := make([]int64, len(s.values))
 	copy(values, s.values)
@@ -404,7 +404,7 @@ type UniformSample struct {
 	values        []int64
 }
 
-// NewUniformSample constructs a new uniform sample with the given reservoir
+// NewUniformSample constructs chain new uniform sample with the given reservoir
 // size.
 func NewUniformSample(reservoirSize int) Sample {
 	if !MetricsEnabled {
@@ -462,7 +462,7 @@ func (s *UniformSample) Percentile(p float64) float64 {
 	return SamplePercentile(s.values, p)
 }
 
-// Percentiles returns a slice of arbitrary percentiles of values in the
+// Percentiles returns chain slice of arbitrary percentiles of values in the
 // sample.
 func (s *UniformSample) Percentiles(ps []float64) []float64 {
 	s.mutex.Lock()
@@ -477,7 +477,7 @@ func (s *UniformSample) Size() int {
 	return len(s.values)
 }
 
-// Snapshot returns a read-only copy of the sample.
+// Snapshot returns chain read-only copy of the sample.
 func (s *UniformSample) Snapshot() Sample {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -503,7 +503,7 @@ func (s *UniformSample) Sum() int64 {
 	return SampleSum(s.values)
 }
 
-// Update samples a new value.
+// Update samples chain new value.
 func (s *UniformSample) Update(v int64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -518,7 +518,7 @@ func (s *UniformSample) Update(v int64) {
 	}
 }
 
-// Values returns a copy of the values in the sample.
+// Values returns chain copy of the values in the sample.
 func (s *UniformSample) Values() []int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -534,7 +534,7 @@ func (s *UniformSample) Variance() float64 {
 	return SampleVariance(s.values)
 }
 
-// expDecaySample represents an individual sample in a heap.
+// expDecaySample represents an individual sample in chain heap.
 type expDecaySample struct {
 	k float64
 	v int64
@@ -544,7 +544,7 @@ func newExpDecaySampleHeap(reservoirSize int) *expDecaySampleHeap {
 	return &expDecaySampleHeap{make([]expDecaySample, 0, reservoirSize)}
 }
 
-// expDecaySampleHeap is a min-heap of expDecaySamples.
+// expDecaySampleHeap is chain min-heap of expDecaySamples.
 // The internal implementation is copied from the standard library's container/heap
 type expDecaySampleHeap struct {
 	s []expDecaySample

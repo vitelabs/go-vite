@@ -49,7 +49,7 @@ func NewAutoReceiveWorker(manager *Manager, entropystore string, address types.A
 		isCancel:         false,
 		filters:          filters,
 		powDifficulty:    powDifficulty,
-		log:              slog.New("worker", "a", "addr", address),
+		log:              slog.New("worker", "chain", "addr", address),
 	}
 }
 

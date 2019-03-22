@@ -10,7 +10,7 @@ type ConsensusGroupInfo struct {
 	Interval               int64       // Timestamp gap between two continuous block
 	PerCount               int64       // Continuous block generation interval count
 	RandCount              uint8       // Random miner count
-	RandRank               uint8       // Chose random miner with a rank limit of vote
+	RandRank               uint8       // Chose random miner with chain rank limit of vote
 	CountingTokenId        TokenTypeId // Token id for selecting miner through vote
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte

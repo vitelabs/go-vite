@@ -131,6 +131,26 @@ type SnapshotBlock struct {
 	SnapshotContent SnapshotContent `json:"snapshotContent"` // 6
 }
 
+func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) types.Hash {
+	source := make([]byte, 0, 8+types.HashSize+8)
+
+	//Seed
+	seedBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(seedBytes, seed)
+	source = append(source, seedBytes...)
+
+	// PrevHash
+	source = append(source, prevHash.Bytes()...)
+
+	// Timestamp
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return hash
+}
+
 func (sb *SnapshotBlock) hashSourceLength() int {
 	// 1 , 2, 3, 4, 5
 	size := types.HashSize + 8 + 8 + 8 + types.HashSize

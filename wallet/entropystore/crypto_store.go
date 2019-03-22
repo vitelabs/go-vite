@@ -19,11 +19,11 @@ import (
 
 const (
 	// StandardScryptN is the N parameter of Scrypt encryption algorithm, using 256MB
-	// memory and taking approximately 1s CPU time on a modern processor.
+	// memory and taking approximately 1s CPU time on chain modern processor.
 	StandardScryptN = 1 << 18
 
 	// StandardScryptP is the P parameter of Scrypt encryption algorithm, using 256MB
-	// memory and taking approximately 1s CPU time on a modern processor.
+	// memory and taking approximately 1s CPU time on chain modern processor.
 	StandardScryptP = 1
 
 	scryptR      = 8

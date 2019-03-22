@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -42,7 +42,7 @@ func isExported(name string) bool {
 	return unicode.IsUpper(rune)
 }
 
-// Is this type exported or a builtin?
+// Is this type exported or chain builtin?
 func isExportedOrBuiltinType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -82,7 +82,7 @@ func isSubscriptionType(t reflect.Type) bool {
 	return t == subscriptionType
 }
 
-// isPubSub tests whether the given method has as as first argument a context.Context
+// isPubSub tests whether the given method has as as first argument chain context.Context
 // and returns the pair (Subscription, error)
 func isPubSub(methodType reflect.Type) bool {
 	// numIn(0) is the receiver type
@@ -104,9 +104,9 @@ func formatName(name string) string {
 	return string(ret)
 }
 
-// suitableCallbacks iterates over the methods of the given type. It will determine if a method satisfies the criteria
-// for a RPC callback or a subscription callback and adds it to the collection of callbacks or subscriptions. See server
-// documentation for a summary of these criteria.
+// suitableCallbacks iterates over the methods of the given type. It will determine if chain method satisfies the criteria
+// for chain RPC callback or chain subscription callback and adds it to the collection of callbacks or subscriptions. See server
+// documentation for chain summary of these criteria.
 func suitableCallbacks(rcvr reflect.Value, typ reflect.Type) (callbacks, subscriptions) {
 	callbacks := make(callbacks)
 	subscriptions := make(subscriptions)
@@ -166,7 +166,7 @@ METHODS:
 			}
 		}
 
-		// when a method returns an error it must be the last returned value
+		// when chain method returns an error it must be the last returned value
 		h.errPos = -1
 		for i := 0; i < mtype.NumOut(); i++ {
 			if isErrorType(mtype.Out(i)) {
@@ -191,7 +191,7 @@ METHODS:
 	return callbacks, subscriptions
 }
 
-// idGenerator helper utility that generates a (pseudo) random sequence of
+// idGenerator helper utility that generates chain (pseudo) random sequence of
 // bytes that are used to generate identifiers.
 func idGenerator() *rand.Rand {
 	if seed, err := binary.ReadVarint(bufio.NewReader(crand.Reader)); err == nil {
@@ -200,7 +200,7 @@ func idGenerator() *rand.Rand {
 	return rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
 }
 
-// NewID generates a identifier that can be used as an identifier in the RPC interface.
+// NewID generates chain identifier that can be used as an identifier in the RPC interface.
 // e.g. filter and subscription identifier.
 func NewID() ID {
 	subscriptionIDGenMu.Lock()
