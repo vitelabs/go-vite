@@ -20,11 +20,11 @@ var storage BaseStorage
 var po nodePayloadProtocol = &OrderNodeProtocol{}
 
 const idRange int = 100000
-const batchOrderCount int = 4000 //2000
+const batchOrderCount int = 400 //4000
 const priceRange int = 50000
-const maxTruncateLength = 53 // 10
-const normalTruncateCeil = 13 // 10
-const loopTimes = 300000    //100000
+const maxTruncateLength = 6 // 53
+const normalTruncateCeil = 3 // 13
+const loopTimes = 30000    //300000
 
 var emptyCount = 0
 var deleteToEmptyCount = 0

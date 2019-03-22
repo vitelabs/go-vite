@@ -697,12 +697,12 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 		} else {
 			toDivideTotal = VxMinedAmtPerPeriod
 		}
-		toDivideTotalF := new(big.Float).SetInt(toDivideTotal)
-		proportion, _ := new(big.Float).SetString("0.2")
-		amtFroFeePerMarket = RoundAmount(new(big.Float).Mul(toDivideTotalF, proportion))
+		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
+		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString("0.2")
+		amtFroFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
 		amtForFeeTotal := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
-		proportion, _ = new(big.Float).SetString("0.1")
-		amtForViteLabs = RoundAmount(new(big.Float).Mul(toDivideTotalF, proportion))
+		proportion, _ = new(big.Float).SetPrec(bigFloatPrec).SetString("0.1")
+		amtForViteLabs = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
 		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
 		amtForPledge.Sub(amtForPledge, amtForViteLabs)
 		return amtFroFeePerMarket, amtForPledge, amtForViteLabs, true
@@ -713,8 +713,8 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 
 func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTotalAmt, toDivideLeaveAmt *big.Int) (proportionAmt *big.Int, finished bool) {
 	dividedReferAmt.Add(dividedReferAmt, partReferAmt)
-	proportion := new(big.Float).Quo(new(big.Float).SetInt(partReferAmt), new(big.Float).SetInt(totalReferAmt))
-	proportionAmt = RoundAmount(new(big.Float).Mul(new(big.Float).SetInt(toDivideTotalAmt), proportion))
+	proportion := new(big.Float).SetPrec(bigFloatPrec).Quo(new(big.Float).SetPrec(bigFloatPrec).SetInt(partReferAmt), new(big.Float).SetPrec(bigFloatPrec).SetInt(totalReferAmt))
+	proportionAmt = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotalAmt), proportion))
 	toDivideLeaveNewAmt := new(big.Int).Sub(toDivideLeaveAmt, proportionAmt)
 	if toDivideLeaveNewAmt.Sign() <= 0 || dividedReferAmt.Cmp(totalReferAmt) >= 0 {
 		proportionAmt.Set(toDivideLeaveAmt)

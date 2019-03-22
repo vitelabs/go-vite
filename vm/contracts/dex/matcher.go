@@ -14,6 +14,7 @@ import (
 const maxTxsCountPerTaker = 1000
 const timeoutSecond = 7 * 24 * 3600
 const txIdLength = 20
+const bigFloatPrec = 120
 
 type Matcher struct {
 	contractAddress *types.Address
@@ -33,8 +34,8 @@ type OrderTx struct {
 }
 
 var (
-	TakerFeeRate          = 0.001
-	MakerFeeRate          = 0.001
+	TakerFeeRate          = "0.001"
+	MakerFeeRate          = "0.001"
 	DeleteTerminatedOrder = false
 )
 
@@ -298,20 +299,20 @@ func CalculateRawAmount(quantity []byte, price string, tradeDecimals int32, quot
 }
 
 func CalculateRawAmountF(quantity []byte, price string, tradeDecimals, quoteDecimals int32) *big.Float {
-	qtF := big.NewFloat(0).SetInt(new(big.Int).SetBytes(quantity))
-	prF, _ := big.NewFloat(0).SetString(price)
-	amountF := new(big.Float).Mul(prF, qtF)
+	qtF := new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(quantity))
+	prF, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(price)
+	amountF := new(big.Float).SetPrec(bigFloatPrec).Mul(prF, qtF)
 	return AdjustForDecimalsDiff(amountF, tradeDecimals, quoteDecimals)
 }
 
-func CalculateRawFee(amount []byte, feeRate float64) []byte {
-	amtF := new(big.Float).SetInt(new(big.Int).SetBytes(amount))
-	rateF := big.NewFloat(feeRate)
+func CalculateRawFee(amount []byte, feeRate string) []byte {
+	amtF := new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount))
+	rateF, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(feeRate)
 	amtFee := amtF.Mul(amtF, rateF)
 	return RoundAmount(amtFee).Bytes()
 }
 
-func calculateFeeAndExecutedFee(order *proto.Order, amount []byte, feeRate float64) (feeBytes, executedFee []byte) {
+func calculateFeeAndExecutedFee(order *proto.Order, amount []byte, feeRate string) (feeBytes, executedFee []byte) {
 	feeBytes = CalculateRawFee(amount, feeRate)
 	switch order.Side {
 	case false: //buy
@@ -614,7 +615,7 @@ func generateTxId(takerId []byte, makerId []byte) []byte {
 	return crypto.Hash(txIdLength, takerId, makerId)
 }
 
-func MaxFeeRate() float64 {
+func MaxFeeRate() string {
 	if TakerFeeRate > MakerFeeRate {
 		return TakerFeeRate
 	} else {
@@ -623,7 +624,7 @@ func MaxFeeRate() float64 {
 }
 
 // only for unit test
-func SetFeeRate(takerFR float64, makerFR float64) {
+func SetFeeRate(takerFR string, makerFR string) {
 	TakerFeeRate = takerFR
 	MakerFeeRate = makerFR
 }
