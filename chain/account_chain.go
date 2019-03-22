@@ -626,12 +626,12 @@ func (c *chain) GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.Account
 }
 
 func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error) {
-	monitorTags := []string{"chain", "DeleteAccountBlocks"}
+	monitorTags := []string{"chain", "DeleteInvalidAccountBlocks"}
 	defer monitor.LogTimerConsuming(monitorTags, time.Now())
 
 	account, accountErr := c.chainDb.Account.GetAccountByAddress(addr)
 	if accountErr != nil {
-		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("GetAccountByAddress failed, error is "+accountErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, accountErr
 	}
 
@@ -643,7 +643,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	deleteMap, reopenList, getErr := c.chainDb.Ac.GetDeleteMapAndReopenList(planToDelete, c.chainDb.Account.GetAccountByAddress, true, true)
 	if getErr != nil {
-		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("GetDeleteMapAndReopenList failed, error is "+getErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, getErr
 	}
 
@@ -653,24 +653,24 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 		return nil, nil
 	}
 	if deleteAccountBlocksErr != nil {
-		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("Delete failed, error is "+deleteAccountBlocksErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, deleteAccountBlocksErr
 	}
 
 	if reopenErr := c.chainDb.Ac.ReopenSendBlocks(batch, reopenList, deleteMap); reopenErr != nil {
-		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("ReopenSendBlocks failed, error is "+reopenErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, reopenErr
 	}
 
 	subLedger, toSubLedgerErr := c.subLedgerAccountIdToAccountAddress(deleteAccountBlocks)
 
 	if toSubLedgerErr != nil {
-		c.log.Error("subLedgerAccountIdToAccountAddress failed, error is "+toSubLedgerErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("subLedgerAccountIdToAccountAddress failed, error is "+toSubLedgerErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, toSubLedgerErr
 	}
 
 	if triggerErr := c.em.triggerDeleteAccountBlocks(batch, subLedger); triggerErr != nil {
-		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Error("c.em.trigger, error is "+triggerErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, triggerErr
 	}
 
@@ -690,7 +690,7 @@ func (c *chain) DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[t
 
 	writeErr := c.chainDb.Commit(batch)
 	if writeErr != nil {
-		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteAccountBlocks", "addr", addr, "toHeight", toHeight)
+		c.log.Crit("Write db failed, error is "+writeErr.Error(), "method", "DeleteInvalidAccountBlocks", "addr", addr, "toHeight", toHeight)
 		return nil, writeErr
 	}
 
