@@ -17,16 +17,16 @@ func TestCalcLogisticQuotaParam(t *testing.T) {
 	quotaLimit := 1000000.0
 	defaultSection := nodeConfig.sectionList[1]
 
-	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for a pure transfer transaction
+	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for chain pure transfer transaction
 	// maxHeightGap := 86400.0
-	// Pledge minimum amount of Vite Token, calc no PoW, wait for one snapshot block, gets quota for a pure transfer transaction
+	// Pledge minimum amount of Vite Token, calc no PoW, wait for one snapshot block, gets quota for chain pure transfer transaction
 	maxHeightGap, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0")
 	minPledgeAmount, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0e22")
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 	floatTmp.Quo(defaultSection, maxHeightGap)
 	floatTmp.Quo(floatTmp, minPledgeAmount)
 	fmt.Printf("paramA      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", floatTmp.String())
-	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for a pure transfer transaction
+	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for chain pure transfer transaction
 	//defaultDifficulty, _ := new(big.Float).SetPrec(precForFloat).SetString("0x000000000000FFFF")
 	defaultDifficulty := new(big.Float).SetPrec(precForFloat).SetUint64(67108863)
 	floatTmp.Quo(defaultSection, defaultDifficulty)
@@ -57,7 +57,7 @@ func TestCalcQuotaForPoWTest(t *testing.T) {
 	x.Add(x, tmpFLoat)
 	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaTotal != util.TxGas {
-		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaTotal)
+		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaTotal)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestCalcQuotaForMinPledgeTest(t *testing.T) {
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaWithoutPoW != util.TxGas {
-		t.Fatalf("gain quota pledge minimum Vite Token not enough to create a transaction, got %v", quotaWithoutPoW)
+		t.Fatalf("gain quota pledge minimum Vite Token not enough to create chain transaction, got %v", quotaWithoutPoW)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestCalcQuotaForMaxPledgeTest(t *testing.T) {
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaWithoutPoW != util.TxGas*uint64(len(nodeConfig.sectionList)-1) {
-		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaWithoutPoW)
+		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaWithoutPoW)
 	}
 }
 
@@ -100,7 +100,7 @@ func TestCalcQuotaForPoWMainNet(t *testing.T) {
 	x.Add(x, tmpFLoat)
 	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaTotal != util.TxGas {
-		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaTotal)
+		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaTotal)
 	}
 }
 
@@ -114,7 +114,7 @@ func TestCalcQuotaForMinPledgeMainNet(t *testing.T) {
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaWithoutPoW != util.TxGas {
-		t.Fatalf("gain quota pledge minimum Vite Token not enough to create a transaction, got %v", quotaWithoutPoW)
+		t.Fatalf("gain quota pledge minimum Vite Token not enough to create chain transaction, got %v", quotaWithoutPoW)
 	}
 }
 
@@ -129,7 +129,7 @@ func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
 	x.Mul(tmpFLoat, x)
 	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
 	if quotaWithoutPoW != util.TxGas*uint64(len(nodeConfig.sectionList)-1) {
-		t.Fatalf("gain quota by calc PoW not enough to create a transaction, got %v", quotaWithoutPoW)
+		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaWithoutPoW)
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 
 type (
 	executionFunc       func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)
-	gasFunc             func(*VM, *contract, *stack, *memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
+	gasFunc             func(*VM, *contract, *stack, *memory, uint64) (uint64, error) // last parameter is the requested memory size as chain uint64
 	stackValidationFunc func(*stack) error
 	memorySizeFunc      func(*stack) *big.Int
 )
@@ -23,7 +23,7 @@ type operation struct {
 
 	halts   bool // indicates whether the operation should halt further execution
 	jumps   bool // indicates whether the program counter should not increment
-	writes  bool // determines whether this a state modifying operation
+	writes  bool // determines whether this chain state modifying operation
 	valid   bool // indication whether the retrieved operation is valid and known
 	reverts bool // determines whether the operation reverts state (implicitly halts)
 	returns bool // determines whether the operations sets the return data content

@@ -28,7 +28,7 @@ type Chain interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	// Compressor could compress/uncompress a file
+	// Compressor could compress/uncompress chain file
 	Compressor() *compress.Compressor
 }
 
@@ -42,7 +42,7 @@ type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.Bloc
 type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
 type SyncStateCallback = func(SyncState)
 
-// A BlockSubscriber implementation can be subscribed and Unsubscribed, when got a block, should notify subscribers
+// A BlockSubscriber implementation can be subscribed and Unsubscribed, when got chain block, should notify subscribers
 type BlockSubscriber interface {
 	// SubscribeAccountBlock return the subId, always larger than 0, use to unsubscribe
 	SubscribeAccountBlock(fn AccountblockCallback) (subId int)

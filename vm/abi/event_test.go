@@ -206,7 +206,7 @@ func TestEventTupleUnpack(t *testing.T) {
 		&BadEventTransferWithSameFieldAndTag{},
 		jsonEventTransfer,
 		"abi: multiple variables maps to the same abi field 'value'",
-		"Can not unpack ERC20 Transfer event with a field and a tag mapping to the same abi variable",
+		"Can not unpack ERC20 Transfer event with chain field and chain tag mapping to the same abi variable",
 	}, {
 		eventTransferData1,
 		&BadEventTransferWithEmptyTag{},
@@ -298,7 +298,7 @@ func TestEventTupleUnpack(t *testing.T) {
 
 func unpackTestEventData(dest interface{}, hexData string, jsonEvent []byte, assert *assert.Assertions) error {
 	data, err := hex.DecodeString(hexData)
-	assert.NoError(err, "Hex data should be a correct hex-string")
+	assert.NoError(err, "Hex data should be chain correct hex-string")
 	var e Event
 	assert.NoError(json.Unmarshal(jsonEvent, &e), "Should be able to unmarshal event ABI")
 	a := ABIContract{Events: map[string]Event{"e": e}}

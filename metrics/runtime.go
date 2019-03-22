@@ -9,40 +9,40 @@ import (
 var (
 	memStats       runtime.MemStats
 	runtimeMetrics struct {
-					   MemStats struct {
-						   Alloc         Gauge
-						   BuckHashSys   Gauge
-						   DebugGC       Gauge
-						   EnableGC      Gauge
-						   Frees         Gauge
-						   HeapAlloc     Gauge
-						   HeapIdle      Gauge
-						   HeapInuse     Gauge
-						   HeapObjects   Gauge
-						   HeapReleased  Gauge
-						   HeapSys       Gauge
-						   LastGC        Gauge
-						   Lookups       Gauge
-						   Mallocs       Gauge
-						   MCacheInuse   Gauge
-						   MCacheSys     Gauge
-						   MSpanInuse    Gauge
-						   MSpanSys      Gauge
-						   NextGC        Gauge
-						   NumGC         Gauge
-						   GCCPUFraction GaugeFloat64
-						   PauseNs       Histogram
-						   PauseTotalNs  Gauge
-						   StackInuse    Gauge
-						   StackSys      Gauge
-						   Sys           Gauge
-						   TotalAlloc    Gauge
-					   }
-					   NumCgoCall   Gauge
-					   NumGoroutine Gauge
-					   NumThread    Gauge
-					   ReadMemStats Timer
-				   }
+		MemStats struct {
+			Alloc         Gauge
+			BuckHashSys   Gauge
+			DebugGC       Gauge
+			EnableGC      Gauge
+			Frees         Gauge
+			HeapAlloc     Gauge
+			HeapIdle      Gauge
+			HeapInuse     Gauge
+			HeapObjects   Gauge
+			HeapReleased  Gauge
+			HeapSys       Gauge
+			LastGC        Gauge
+			Lookups       Gauge
+			Mallocs       Gauge
+			MCacheInuse   Gauge
+			MCacheSys     Gauge
+			MSpanInuse    Gauge
+			MSpanSys      Gauge
+			NextGC        Gauge
+			NumGC         Gauge
+			GCCPUFraction GaugeFloat64
+			PauseNs       Histogram
+			PauseTotalNs  Gauge
+			StackInuse    Gauge
+			StackSys      Gauge
+			Sys           Gauge
+			TotalAlloc    Gauge
+		}
+		NumCgoCall   Gauge
+		NumGoroutine Gauge
+		NumThread    Gauge
+		ReadMemStats Timer
+	}
 	frees       uint64
 	lookups     uint64
 	mallocs     uint64
@@ -53,7 +53,7 @@ var (
 )
 
 // Capture new values for the Go runtime statistics exported in
-// runtime.MemStats.  This is designed to be called as a goroutine.
+// runtime.MemStats.  This is designed to be called as chain goroutine.
 func CaptureRuntimeMemStats(r Registry, d time.Duration) {
 	for range time.Tick(d) {
 		CaptureRuntimeMemStatsOnce(r)
@@ -61,8 +61,8 @@ func CaptureRuntimeMemStats(r Registry, d time.Duration) {
 }
 
 // Capture new values for the Go runtime statistics exported in
-// runtime.MemStats.  This is designed to be called in a background
-// goroutine.  Giving a registry which has not been given to
+// runtime.MemStats.  This is designed to be called in chain background
+// goroutine.  Giving chain registry which has not been given to
 // RegisterRuntimeMemStats will panic.
 //
 // Be very careful with this because runtime.ReadMemStats calls the C

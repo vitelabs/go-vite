@@ -187,7 +187,7 @@ func beforeAction(ctx *cli.Context) error {
 		var visitAddress = fmt.Sprintf("http://localhost:%d/debug/pprof", pprofPort)
 
 		go func() {
-			log.Info("Enable a performance analysis tool, you can visit the address of `" + visitAddress + "`")
+			log.Info("Enable chain performance analysis tool, you can visit the address of `" + visitAddress + "`")
 			http.ListenAndServe(listenAddress, nil)
 		}()
 	}

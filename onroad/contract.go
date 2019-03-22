@@ -101,7 +101,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.contractAddressList = addressList
 		log.Info("get addresslist", "len", len(addressList))
 
-		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in Start
+		// 2. get getAndSortAllAddrQuota it is chain heavy operation so we call it only once in Start
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
