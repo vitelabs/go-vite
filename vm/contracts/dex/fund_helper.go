@@ -44,6 +44,17 @@ var (
 
 	MarketExistsError = errors.New("market already exists")
 	MarketNotExistsError = errors.New("market not exists")
+
+	bitcoinToken, _ = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
+	ethToken, _     = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
+	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
+	//quoteTokenToDecimals = map[types.TokenTypeId]int{ledger.ViteTokenId : 18, bitcoinToken : 8, ethToken : 8, usdtToken : 5}
+
+	viteMinAmount       = commonTokenPow // 1 VITE
+	bitcoinMinAmount    = big.NewInt(1000000) //0.01 BTC
+	ethMinAmount        = big.NewInt(10000000)//0.1 ETH
+	usdtMinAmount       = big.NewInt(100000)//1 USDT
+	QuoteTokenMinAmount = map[types.TokenTypeId]*big.Int{ledger.ViteTokenId : viteMinAmount, bitcoinToken: bitcoinMinAmount, ethToken: ethMinAmount, usdtToken : usdtMinAmount}
 )
 
 type ParamDexFundWithDraw struct {
@@ -159,35 +170,6 @@ func (mi *MarketInfo) DeSerialize(data []byte) (*MarketInfo, error) {
 	}
 }
 
-func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
-	var (
-		orderId OrderId
-		err     error
-	)
-	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
-		return err
-	}
-	if !orderId.IsNormal() {
-		return fmt.Errorf("invalid order id")
-	}
-	if !CheckMarketExists(db, orderParam.TradeToken, orderParam.QuoteToken) {
-		return MarketNotExistsError
-	}
-	// TODO add market order support
-	if orderParam.OrderType != Limited {
-		return fmt.Errorf("invalid order type")
-	}
-	if orderParam.OrderType == Limited {
-		if !ValidPrice(orderParam.Price) {
-			return fmt.Errorf("invalid format for price")
-		}
-	}
-	if orderParam.Quantity.Sign() <= 0 {
-		return fmt.Errorf("invalid trade quantity for order")
-	}
-	return nil
-}
-
 func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId, feeAmount *big.Int) (err error) {
 	if feeTokenId != ledger.ViteTokenId {
 		return fmt.Errorf("token type of fee for create market not valid")
@@ -195,14 +177,10 @@ func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundN
 	if feeAmount.Cmp(NewMarketFeeAmount) < 0 {
 		return fmt.Errorf("fee for create market not enough")
 	}
-	if CheckMarketExists(db, marketParam.TradeToken, marketParam.QuoteToken) {
+	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
 		return MarketExistsError
 	}
 	return nil
-}
-
-func CheckMarketExists(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.TokenTypeId) bool {
-	return len(db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken))) > 0
 }
 
 func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, marketParam *ParamDexFundNewMarket, address types.Address) error {
@@ -224,6 +202,44 @@ func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, ne
 	}
 	marketInfo.Creator = address.Bytes()
 	newMarketEvent.Creator = address.Bytes()
+	return nil
+}
+
+func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
+	var (
+		orderId OrderId
+		err     error
+		marketInfo *MarketInfo
+	)
+	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
+		return err
+	}
+	if !orderId.IsNormal() {
+		return fmt.Errorf("invalid order id")
+	}
+	if marketInfo, _ = GetMarketInfo(db, orderParam.TradeToken, orderParam.QuoteToken); marketInfo == nil {
+		return MarketNotExistsError
+	}
+	if orderParam.Quantity.Sign() <= 0 {
+		return fmt.Errorf("invalid trade quantity for order")
+	}
+	// TODO add market order support
+	if orderParam.OrderType != Limited {
+		return fmt.Errorf("invalid order type")
+	}
+	if orderParam.OrderType == Limited {
+		if !ValidPrice(orderParam.Price) {
+			return fmt.Errorf("invalid format for price")
+		}
+		amount := CalculateRawAmount(orderParam.Quantity.Bytes(), orderParam.Price, marketInfo.TradeTokenDecimals, marketInfo.QuoteTokenDecimals)
+		if !orderParam.Side { //buy
+			lockedBuyFee := CalculateRawFee(amount, MaxFeeRate())
+			amount = AddBigInt(amount, lockedBuyFee)
+		}
+		if new(big.Int).SetBytes(amount).Cmp(QuoteTokenMinAmount[orderParam.QuoteToken]) < 0 {
+			return fmt.Errorf("order amount too small")
+		}
+	}
 	return nil
 }
 

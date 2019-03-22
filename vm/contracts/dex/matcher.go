@@ -36,7 +36,7 @@ type OrderTx struct {
 var (
 	TakerFeeRate          = "0.001"
 	MakerFeeRate          = "0.001"
-	DeleteTerminatedOrder = false
+	DeleteTerminatedOrder = true
 )
 
 func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *Matcher {

@@ -459,7 +459,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
 		return []*SendBlock{}, err
 	}
-	if dex.CheckMarketExists(db, param.TradeToken, param.QuoteToken) {
+	if mi, _ := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); mi != nil {
 		return []*SendBlock{}, dex.MarketExistsError
 	}
 	marketInfo := &dex.MarketInfo{}
@@ -467,7 +467,6 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 	if err = dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param, sendBlock.AccountAddress); err != nil {
 		return []*SendBlock{}, err
 	}
-
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
 	if exceedAmount.Sign() > 0 {
 		if _, err = depositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount); err != nil {

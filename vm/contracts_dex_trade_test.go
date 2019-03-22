@@ -18,6 +18,7 @@ import (
 func TestDexTrade(t *testing.T) {
 	db := initDexTradeDatabase()
 	dex.SetFeeRate("0.001", "0.001")
+	dex.DeleteTerminatedOrder = false
 	innerTestTradeNewOrder(t, db)
 	innerTestTradeCancelOrder(t, db)
 }
