@@ -97,6 +97,7 @@ func (self *bucket) add(b *Item) error {
 
 	self.bs = append(self.bs, b)
 	self.last = self.last + 1
+	fmt.Println("add bucket------------", b.Hash(), len(self.bs))
 	return nil
 }
 func (self *bucket) print() {

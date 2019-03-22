@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -86,6 +88,10 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVeri
 		// todo
 		return result
 	case verifier.FAIL:
+		if result.err == nil {
+			result.err = errors.New(stat.ErrMsg())
+		}
+
 		return result
 	}
 

@@ -692,7 +692,7 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
-
+		fmt.Printf("try to insert account block[%s]%d-%d.\n", block.Hash(), i, len(items))
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
@@ -705,10 +705,10 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 			case verifier.FAIL:
 				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
-				return errors.New("fail verifier")
+				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
 				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
-				return errors.New("fail verifier pending.")
+				return errors.Wrap(stat.err, "fail verifier pending.")
 			}
 			err, num := self.verifySuccess(stat.blocks)
 			if err != nil {
@@ -721,6 +721,7 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
 		}
+		fmt.Printf("try to insert account block[%s]%d-%d success.\n", block.Hash(), i, len(items))
 	}
 	return nil
 }

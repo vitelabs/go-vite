@@ -150,9 +150,10 @@ type CandidateInfo struct {
 	VoteNum  string        `json:"voteNum"`
 }
 
+// @deprecated gid
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
 	head := r.chain.GetLatestSnapshotBlock()
-	details, _, err := r.cs.ReadVoteMapForAPI(gid, (*head.Timestamp).Add(time.Second))
+	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
 	if err != nil {
 		return nil, err
 	}

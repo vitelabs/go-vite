@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -52,6 +53,7 @@ func (self *accountCh) insertBlock(b commonBlock) error {
 	if !b.checkForkVersion() {
 		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(b.forkVersion()), 10))
 	}
+
 	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	block := b.(*accountPoolBlock)
 	accountBlock := &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock}
@@ -92,6 +94,7 @@ func (self *accountCh) insertBlocks(bs []commonBlock) error {
 	var blocks []*vm_context.VmAccountBlock
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
+		fmt.Printf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash())
 		blocks = append(blocks, &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock})
 		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}

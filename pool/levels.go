@@ -30,12 +30,11 @@ func (self *accountLevel) Snapshot() bool {
 }
 
 func (self *accountLevel) Add(b *Item) error {
-	bu, ok := self.bs[b.ownerWrapper]
+	_, ok := self.bs[b.ownerWrapper]
 	if !ok {
 		self.bs[b.ownerWrapper] = newBucket(b.owner)
-		bu = self.bs[b.ownerWrapper]
 	}
-	return bu.add(b)
+	return self.bs[b.ownerWrapper].add(b)
 }
 func (self *accountLevel) print() {
 	for k, v := range self.bs {

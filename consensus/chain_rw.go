@@ -5,6 +5,11 @@ import (
 	"sort"
 	"time"
 
+	"github.com/vitelabs/go-vite/log15"
+
+	"github.com/hashicorp/golang-lru"
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/fork"
@@ -14,6 +19,7 @@ import (
 )
 
 type ch interface {
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
@@ -38,9 +44,31 @@ type chainRw struct {
 	hourPoints   PointLinkedArray
 	dayPoints    PointLinkedArray
 	periodPoints PointLinkedArray
+
+	dbCache  *DbCache
+	lruCache *lru.Cache
+
+	log log15.Logger
 }
 
-func newChainRw() {
+func newChainRw(rw ch, log log15.Logger) *chainRw {
+	self := &chainRw{rw: rw}
+
+	self.periodPoints = newPeriodPointArray(rw)
+	self.genesisTime = *rw.GetGenesisSnapshotBlock().Timestamp
+
+	db, err := rw.NewDb("consensus")
+	if err != nil {
+		panic(err)
+	}
+	self.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	self.lruCache = cache
+	self.log = log
+	return self
 
 }
 
@@ -181,6 +209,9 @@ func (self *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 			result = core.NewGroupInfo(self.genesisTime, *v)
 		}
 	}
+	if result == nil {
+		return nil, errors.Errorf("can't get consensus group[%s] info by [%s-%d].", gid, head.Hash, head.Height)
+	}
 
 	return result, nil
 }
@@ -214,13 +245,6 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 		header := self.rw.GetLatestSnapshotBlock()
 		if header.Timestamp.Before(voteTime) {
 			return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
-		}
-	}
-
-	block, _ := self.rw.GetSnapshotBlockByHeight(actualB.Height + 1)
-	if block != nil {
-		if block.Timestamp.Before(voteTime) {
-			return errors.Errorf("refer snapshot do not match first one before voteTime.")
 		}
 	}
 

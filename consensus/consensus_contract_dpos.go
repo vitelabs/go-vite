@@ -21,8 +21,9 @@ type contractDposCs struct {
 func newContractDposCs(info *core.GroupInfo, rw *chainRw, log log15.Logger) *contractDposCs {
 	cs := &contractDposCs{}
 	cs.rw = rw
+	cs.info = info
+	cs.algo = core.NewAlgo(info)
 	cs.log = log.New("gid", fmt.Sprintf("contract-%s", info.Gid.String()))
-	// todo
 	return cs
 }
 
@@ -32,41 +33,49 @@ func (self *contractDposCs) electionTime(t time.Time) (*electionResult, error) {
 }
 
 func (self *contractDposCs) electionIndex(index uint64) (*electionResult, error) {
-	sTime := self.GenVoteTime(index, self.info)
-
-	block, e := self.rw.GetSnapshotBeforeTime(sTime)
-	if e != nil {
-		self.log.Error("geSnapshotBeferTime fail.", "err", e)
-		return nil, e
-	}
-	// todo
-	self.log.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
-	seeds, err := self.rw.GetSeedsByHashH(block, seedDuration, 25)
+	voteResults, block, err := self.electionAddrsIndex(index)
 	if err != nil {
 		return nil, err
 	}
-	seed := core.NewSeedInfo(seeds)
-	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed)
-	if err != nil {
-		return nil, err
-	}
-
 	plans := genElectionResult(self.info, index, voteResults, block)
 	return plans, nil
 }
 
-func (self *contractDposCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo) ([]types.Address, error) {
+func (self *contractDposCs) electionAddrsIndex(index uint64) ([]types.Address, *ledger.SnapshotBlock, error) {
+	sTime := self.GenVoteTime(index)
+
+	block, e := self.rw.GetSnapshotBeforeTime(sTime)
+	if e != nil {
+		self.log.Error("geSnapshotBeferTime fail.", "err", e)
+		return nil, nil, e
+	}
+
+	voteResults, err := self.calVotes(block)
+	if err != nil {
+		return nil, nil, err
+	}
+	return voteResults, block, nil
+}
+
+func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Address, error) {
 	// load from cache
-	r, ok := self.rw.getContractVoteCache(hashH.Hash)
+	r, ok := self.rw.getContractVoteCache(block.Hash)
 	if ok {
 		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
 	}
+	hashH := ledger.HashHeight{Hash: block.Hash, Height: block.Height}
 	// record vote
 	votes, err := self.rw.CalVotes(self.info, hashH)
 	if err != nil {
 		return nil, err
 	}
+
+	seeds, err := self.rw.GetSeedsByHashH(block, seedDuration, 25)
+	if err != nil {
+		return nil, err
+	}
+	seed := core.NewSeedInfo(seeds)
 
 	context := core.NewVoteAlgoContext(votes, &hashH, nil, seed)
 	// filter size of members
@@ -82,7 +91,63 @@ func (self *contractDposCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInf
 }
 
 // generate the vote time for account consensus group
-func (self *contractDposCs) GenVoteTime(idx uint64, info *core.GroupInfo) time.Time {
-	sTime := info.GenSTime(idx)
-	return sTime.Add(time.Second * 75)
+func (self *contractDposCs) GenVoteTime(idx uint64) time.Time {
+	sTime := self.info.GenSTime(idx)
+	return sTime.Add(-time.Second * 75)
+}
+
+func (self *contractDposCs) time2Index(t time.Time) uint64 {
+	return self.info.Time2Index(t)
+}
+
+func (self *contractDposCs) verifyAccountsProducer(accountBlocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+	head := self.rw.GetLatestSnapshotBlock()
+
+	index := self.time2Index(*head.Timestamp)
+	result, _, err := self.electionAddrsIndex(index)
+	if err != nil {
+		return nil, err
+	}
+	resultM := make(map[types.Address]bool)
+	for _, v := range result {
+		resultM[v] = true
+	}
+	return self.verifyProducers(accountBlocks, resultM), nil
+}
+
+func (self *contractDposCs) verifyProducers(blocks []*ledger.AccountBlock, result map[types.Address]bool) []*ledger.AccountBlock {
+	var inValid []*ledger.AccountBlock
+	for _, v := range blocks {
+		if !result[v.AccountAddress] {
+			inValid = append(inValid, v)
+		}
+	}
+	return inValid
+}
+
+func (self *contractDposCs) VerifyAccountProducer(accountBlock *ledger.AccountBlock) (bool, error) {
+	head := self.rw.GetLatestSnapshotBlock()
+	electionResult, err := self.electionTime(*head.Timestamp)
+	if err != nil {
+		return false, err
+	}
+	return self.verifyProducer(*accountBlock.Timestamp, accountBlock.Producer(), electionResult), nil
+}
+
+func (self *contractDposCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
+	if result == nil {
+		return false
+	}
+
+	for _, plan := range result.Plans {
+		if plan.Member == address {
+			if self.info.CheckLevel == 1 {
+				return true
+			}
+			if plan.STime == t {
+				return true
+			}
+		}
+	}
+	return false
 }

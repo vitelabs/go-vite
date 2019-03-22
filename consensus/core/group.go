@@ -23,7 +23,7 @@ type GroupInfo struct {
 	// checkLevel = 0  check all info
 	// checkLevel = 1  Just check if it is in the producer collection
 	// todo
-	checkLevel uint8
+	CheckLevel uint8
 
 	genesisTime  time.Time
 	seed         *big.Int
@@ -60,6 +60,13 @@ func (self *GroupInfo) GenETime(index uint64) time.Time {
 	planInterval := self.PlanInterval
 	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
+
+func (self *GroupInfo) Index2Time(index uint64) (time.Time, time.Time) {
+	sTime := self.GenSTime(index)
+	eTime := self.GenETime(index)
+	return sTime, eTime
+}
+
 func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
 	if index < 2 {
 		index = 2

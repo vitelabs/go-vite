@@ -110,18 +110,6 @@ func (self *teller) voteDetails(index uint64) ([]*VoteDetails, *ledger.HashHeigh
 	return details, &headH, err
 }
 
-func (self *teller) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {
-	block, e := self.rw.GetSnapshotBeforeTime(t)
-	if e != nil {
-		self.mLog.Error("geSnapshotBeferTime fail.", "err", e)
-		return nil, nil, e
-	}
-
-	headH := ledger.HashHeight{Height: block.Height, Hash: block.Hash}
-	details, err := self.rw.CalVoteDetails(self.info.Gid, self.info, headH)
-	return details, &headH, err
-}
-
 func (self *teller) electionTime(t time.Time) (*electionResult, error) {
 	index := self.info.Time2Index(t)
 	return self.electionIndex(index)
@@ -208,4 +196,42 @@ func (self *teller) voteCachePut(hashes types.Hash, addrArr []types.Address) {
 		self.mLog.Info(fmt.Sprintf("store election result %s, %+v\n", hashes, addrArr))
 		self.voteCache.Add(hashes, addrArr)
 	}
+}
+
+type dposReader struct {
+	snapshot  *snapshotCs
+	contracts *contractsCs
+
+	log log15.Logger
+}
+
+func (self *dposReader) ElectionIndex(gid types.Gid, index uint64) (*electionResult, error) {
+	if gid == types.SNAPSHOT_GID {
+		return self.snapshot.electionIndex(index)
+	}
+	return self.contracts.ElectionIndex(gid, index)
+}
+func (self *dposReader) Time2Index(gid types.Gid, t time.Time) (uint64, error) {
+	if gid == types.SNAPSHOT_GID {
+		return self.snapshot.time2Index(t), nil
+	}
+	cs, err := self.contracts.getOrLoadGid(gid)
+	if err != nil {
+		return 0, errors.Errorf("can't get consensus group for gid:[%s]", gid)
+	}
+	return cs.time2Index(t), nil
+}
+
+func (self *dposReader) GenVoteTime(gid types.Gid, t uint64) time.Time {
+	if gid == types.SNAPSHOT_GID {
+		voteTime, _ := self.snapshot.GenVoteTime(t)
+		return voteTime
+	}
+	cs, err := self.contracts.getOrLoadGid(gid)
+	if err != nil {
+		self.log.Error(fmt.Sprintf("can't get consensus group for gid:[%s]", gid))
+		return time.Now()
+	}
+	voteTime := cs.GenVoteTime(t)
+	return voteTime
 }

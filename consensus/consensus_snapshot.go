@@ -21,12 +21,20 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
-func newSnapshotCs(info *core.GroupInfo, rw *chainRw, log log15.Logger, cacheDb Cache) *snapshotCs {
+func newSnapshotCs(rw *chainRw, log log15.Logger) *snapshotCs {
 	cs := &snapshotCs{}
 	cs.rw = rw
 	cs.log = log.New("gid", "snapshot")
-	// todo
+	info, err := rw.GetMemberInfo(types.SNAPSHOT_GID)
+	if err != nil {
+		panic(err)
+	}
+	cs.algo = core.NewAlgo(info)
+	cs.info = info
 	return cs
+}
+func (self *snapshotCs) time2Index(t time.Time) uint64 {
+	return self.info.Time2Index(t)
 }
 
 func (self *snapshotCs) electionTime(t time.Time) (*electionResult, error) {
@@ -35,7 +43,7 @@ func (self *snapshotCs) electionTime(t time.Time) (*electionResult, error) {
 }
 
 func (self *snapshotCs) electionIndex(index uint64) (*electionResult, error) {
-	sTime, voteIndex := self.GenVoteTime(index, self.info)
+	sTime, voteIndex := self.GenVoteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -103,6 +111,41 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 }
 
 // generate the vote time for snapshot consensus group
-func (self *snapshotCs) GenVoteTime(idx uint64, info *core.GroupInfo) (time.Time, uint64) {
-	return info.GenSTime(idx), idx - 1
+func (self *snapshotCs) GenVoteTime(idx uint64) (time.Time, uint64) {
+	return self.info.GenSTime(idx - 1), idx - 2
+}
+
+func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {
+	block, e := self.rw.GetSnapshotBeforeTime(t)
+	if e != nil {
+		self.log.Error("geSnapshotBeferTime fail.", "err", e)
+		return nil, nil, e
+	}
+
+	headH := ledger.HashHeight{Height: block.Height, Hash: block.Hash}
+	details, err := self.rw.CalVoteDetails(self.info.Gid, self.info, headH)
+	return details, &headH, err
+}
+
+func (self *snapshotCs) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
+	electionResult, err := self.electionTime(*header.Timestamp)
+	if err != nil {
+		return false, err
+	}
+
+	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
+}
+
+func (self *snapshotCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
+	if result == nil {
+		return false
+	}
+	for _, plan := range result.Plans {
+		if plan.Member == address {
+			if plan.STime == t {
+				return true
+			}
+		}
+	}
+	return false
 }

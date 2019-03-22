@@ -3,6 +3,7 @@ package pool
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/golang-collections/collections/stack"
@@ -27,6 +28,9 @@ func (self *pool) loopQueue() {
 		err := self.insertQueue(q)
 		if err != nil {
 			fmt.Printf("insert queue err:%s\n", err)
+			fmt.Printf("all queue:%s\n", q.Info())
+			time.Sleep(time.Second * 2)
+			os.Exit(0)
 		}
 	}
 }
@@ -150,10 +154,10 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 				err := p.AddItem(item)
 				if err != nil {
 					if err == MAX_ERROR {
-						fmt.Printf("account max. %s\n", err)
+						fmt.Printf("account[%s] max. %s\n", item.Hash(), err)
 						return err
 					}
-					fmt.Printf("account add fail. %s\n", err)
+					fmt.Printf("account[%s] add fail. %s\n", item.Hash(), err)
 					break
 				}
 				sum += 1
@@ -170,6 +174,7 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 		item := NewItem(b.cur, nil)
 		err := p.AddItem(item)
 		if err != nil {
+			fmt.Printf("add snapshot[%s] error. %s\n", item.Hash(), err)
 			return err
 		}
 		return nil

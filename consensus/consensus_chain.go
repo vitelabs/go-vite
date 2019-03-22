@@ -155,12 +155,12 @@ type periodLinkedArray struct {
 	snapshot *teller
 }
 
-func newPeriodPointArray(rw ch) (*periodLinkedArray, error) {
+func newPeriodPointArray(rw ch) *periodLinkedArray {
 	cache, err := lru.New(4 * 24 * 60)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return &periodLinkedArray{rw: rw, periods: cache}, nil
+	return &periodLinkedArray{rw: rw, periods: cache}
 }
 
 func (self *periodLinkedArray) GetByHeight(height uint64) (Point, error) {

@@ -101,6 +101,10 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 			return e
 		}
 		if hash == nil {
+			fmt.Printf("snapshot:[%s], account[%s] hash:[%d]-[%s] not exist.\n", block.Hash, addr, b.Height, b.Hash)
+			time.Sleep(time.Second)
+			hash, e = self.reader.GetAccountBlockHashByHeight(&addr, b.Height)
+			fmt.Printf("snapshot:[%s], account[%s] hash:[%d]-[%s] not exist.%s\n", block.Hash, addr, b.Height, b.Hash, hash)
 			stat.results[addr] = PENDING
 		} else if *hash == b.Hash {
 			stat.results[addr] = SUCCESS

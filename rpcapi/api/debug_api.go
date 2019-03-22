@@ -12,9 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/consensus/core"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -80,124 +78,6 @@ func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64
 	return result
 }
 
-func (api DebugApi) ConsensusSuccessRate(start, end uint64) map[string]interface{} {
-	result := make(map[string]interface{})
-	rate, err := api.v.Consensus().ReadSuccessRateForAPI(start, end)
-	rate2, err2 := api.v.Consensus().ReadSuccessRate2ForAPI(start, end)
-	result["result"] = rate
-	result["result2"] = rate2
-	result["error"] = err
-	result["error2"] = err2
-	nowIndex, _ := api.v.Consensus().VoteTimeToIndex(types.SNAPSHOT_GID, time.Now())
-	result["nowIndex"] = nowIndex
-	return result
-}
-func (api DebugApi) ConsensusVoteDetails(gid types.Gid, offset int64, index uint64) map[string]interface{} {
-	result := make(map[string]interface{})
-	if index == 0 {
-		head := api.v.Chain().GetLatestSnapshotBlock()
-		i, e := api.v.Consensus().VoteTimeToIndex(gid, *head.Timestamp)
-		if e != nil {
-			result["err"] = e
-			return result
-		}
-		index = i
-	}
-
-	i := big.NewInt(0).SetUint64(index)
-	finalIndex := i.Add(i, big.NewInt(offset))
-
-	events, u, e := api.v.Consensus().ReadVoteMapByTime(gid, finalIndex.Uint64())
-	if e != nil {
-		result["err"] = e
-		return result
-	}
-
-	result["events"] = events
-	result["hashH"] = u
-	return result
-}
-func (api DebugApi) ConsensusPlanAndActual(gid types.Gid, offset int64, index uint64) map[string]interface{} {
-	result := make(map[string]interface{})
-	if index == 0 {
-		head := api.v.Chain().GetLatestSnapshotBlock()
-		i, e := api.v.Consensus().VoteTimeToIndex(gid, *head.Timestamp)
-		if e != nil {
-			result["err"] = e
-			return result
-		}
-		index = i
-	}
-	type PlanActual struct {
-		T time.Time
-		B ledger.SnapshotBlock
-		E consensus.Event
-		R bool
-	}
-
-	i := big.NewInt(0).SetUint64(index)
-	finalIndex := i.Add(i, big.NewInt(offset))
-
-	var blocks []*ledger.SnapshotBlock
-	stime, etime, err := api.v.Consensus().VoteIndexToTime(gid, finalIndex.Uint64())
-	block, err := api.v.Chain().GetSnapshotBlockBeforeTime(etime)
-	if err != nil {
-		result["err"] = err
-		return result
-	}
-	blocks = append(blocks, block)
-
-	nextHeight := block.Height - 1
-	for block.Height > types.EmptyHeight {
-		b, err := api.v.Chain().GetSnapshotBlockByHeight(nextHeight)
-		if err != nil {
-			result["err"] = err
-			result["blocks"] = blocks
-			return result
-		}
-		if b == nil {
-			break
-		}
-		if b.Timestamp.Before(*stime) {
-			break
-		}
-		blocks = append(blocks, b)
-		nextHeight = b.Height - 1
-	}
-
-	result["blocks"] = blocks
-
-	events, resultIndex, err := api.v.Consensus().ReadByIndex(gid, finalIndex.Uint64())
-	if err != nil {
-		result["err"] = err
-		return result
-	}
-	result["events"] = events
-	result["index"] = finalIndex
-	result["rIndex"] = resultIndex
-	result["stime"] = stime
-	result["etime"] = etime
-
-	merge := make(map[time.Time]*PlanActual)
-
-	for _, v := range events {
-		merge[v.Timestamp] = &PlanActual{E: *v, T: v.Timestamp}
-	}
-
-	for _, v := range blocks {
-		a, ok := merge[*v.Timestamp]
-		if ok {
-			a.B = *v
-			if v.Producer() == a.E.Address {
-				a.R = true
-			}
-		} else {
-			merge[*v.Timestamp] = &PlanActual{B: *v, T: *v.Timestamp}
-		}
-	}
-	result["merge"] = merge
-	return result
-}
 func (api DebugApi) ConsensusBlockRate(gid types.Gid, startIndex, endIndex uint64) map[string]interface{} {
 	// todo
 	return nil

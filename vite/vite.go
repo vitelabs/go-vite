@@ -55,10 +55,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	if err != nil {
 		return nil, err
 	}
-	genesis := chain.GetGenesisSnapshotBlock()
-
 	// consensus
-	cs := consensus.NewConsensus(*genesis.Timestamp, chain)
+	cs := consensus.NewConsensus(chain)
 
 	// sb verifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)

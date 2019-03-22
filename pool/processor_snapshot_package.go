@@ -10,6 +10,8 @@ import (
 )
 
 type snapshotPackage struct {
+	num             int
+	current         int
 	all             map[types.Hash]*ownerLevel
 	ls              []Level
 	snapshotExistsF SnapshotExistsFunc
@@ -25,6 +27,10 @@ func (self *snapshotPackage) Exists(hash types.Hash) bool {
 
 func (self *snapshotPackage) Info() string {
 	levelInfo := ""
+	if self.Levels() == nil {
+		return "level-empty"
+	}
+	sum := 0
 	for max, l := range self.Levels() {
 		levelInfo += "\n"
 		buckets := l.Buckets()
@@ -32,14 +38,22 @@ func (self *snapshotPackage) Info() string {
 			levelInfo = strconv.Itoa(max) + ":" + levelInfo
 			break
 		}
-		bucketInfo := ""
+		bucketInfo := "" + strconv.Itoa(l.Index())
 		for _, b := range buckets {
 			bucketInfo += "|" + strconv.Itoa(len(b.Items()))
+			for _, v := range b.Items() {
+				bucketInfo += ":" + v.Hash().String()
+				sum++
+			}
 		}
 		levelInfo += bucketInfo
 	}
+	levelInfo += "\nall:"
+	for k := range self.all {
+		levelInfo += "|" + k.String()
+	}
 
-	return fmt.Sprintf("sum:%d,:%s\n", len(self.all), levelInfo)
+	return fmt.Sprintf("sum:%d,%d,%d:%s\n", len(self.all), sum, self.num, levelInfo)
 }
 
 func (self *snapshotPackage) Size() int {
@@ -58,19 +72,22 @@ func NewSnapshotPackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc
 	//for i := 0; i < max; i++ {
 	//	tmpLs[i] = newLevel()
 	//}
-	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max}
+	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, current: -1}
 }
 func NewSnapshotPackage2(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int, snapshot *ledger.SnapshotBlock) *snapshotPackage {
 	tmpLs := make([]Level, max)
 	//for i := 0; i < max; i++ {
 	//	tmpLs[i] = newLevel()
 	//}
-	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, snapshot: snapshot}
+	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, snapshot: snapshot, current: -1}
 }
 
 func (self *snapshotPackage) Levels() []Level {
 	var levels []Level
 	for _, v := range self.ls {
+		if v == nil {
+			break
+		}
 		levels = append(levels, v)
 	}
 	return levels
@@ -130,7 +147,7 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 		self.ls[max] = tmp
 	}
 	if b.Snapshot() != tmp.Snapshot() {
-		max = max + 1
+		max = self.current + 1
 		if max > self.maxLevel-1 {
 			return MAX_ERROR
 		}
@@ -138,8 +155,15 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 		self.ls[max] = tmp
 	}
 
-	self.addToAll(b, &ownerLevel{b.ownerWrapper, max})
-	return tmp.Add(b)
+	err := tmp.Add(b)
+	if err == nil {
+		self.num = self.num + 1
+		self.addToAll(b, &ownerLevel{b.ownerWrapper, max})
+	}
+	if max > self.current {
+		self.current = max
+	}
+	return err
 }
 
 func (self *snapshotPackage) print() {
@@ -149,6 +173,7 @@ func (self *snapshotPackage) print() {
 	}
 }
 func (self *snapshotPackage) addToAll(b *Item, l *ownerLevel) {
+	fmt.Println("------max:", l.level)
 	for _, v := range b.Keys() {
 		self.all[v] = l
 	}

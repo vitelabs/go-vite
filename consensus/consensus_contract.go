@@ -20,10 +20,11 @@ type contractsCs struct {
 	log log15.Logger
 }
 
-func newContractCs(rw *chainRw, log log15.Logger) *snapshotCs {
-	cs := &snapshotCs{}
+func newContractCs(rw *chainRw, log log15.Logger) *contractsCs {
+	cs := &contractsCs{}
 	cs.rw = rw
 	cs.log = log.New("gid", "contracts")
+	cs.contracts = make(map[types.Gid]*contractDposCs)
 	// todo
 	return cs
 }
@@ -81,7 +82,7 @@ func (self *contractsCs) reloadGid(gid types.Gid) (*contractDposCs, error) {
 		return nil, err
 	}
 	if info == nil {
-		return nil, nil
+		return nil, errors.Errorf("can't load consensus gid:%s", gid)
 	}
 	cs := newContractDposCs(info, self.rw, self.log)
 	self.contracts[gid] = cs

@@ -4,17 +4,15 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/consensus_db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
 type Verifier interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
 	VerifySnapshotProducer(block *ledger.SnapshotBlock) (bool, error)
 }
 
@@ -48,13 +46,18 @@ type Subscriber interface {
 
 type Reader interface {
 	ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
-	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
-	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error)
-	ReadVoteMapForAPI(gid types.Gid, t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
-	ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error)
-	ReadSuccessRate2ForAPI(start, end uint64) ([]SBPInfos, error)
 	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
+}
+
+type APIReader interface {
+	ReadVoteMap(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
+	ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error)
+}
+
+type innerReader interface {
+	Reader
+	GenVoteTime(gid types.Gid, t uint64) (*time.Time, error)
 }
 
 type Life interface {
@@ -68,10 +71,11 @@ type Consensus interface {
 	Subscriber
 	Reader
 	Life
+	API() APIReader
 }
 
 // update committee result
-type consensus struct {
+type committee struct {
 	common.LifecycleStatus
 
 	mLog log15.Logger
@@ -81,33 +85,26 @@ type consensus struct {
 	rw *chainRw
 
 	snapshot  *snapshotCs
-	contracts map[types.Gid]*contractsCs
+	contracts *contractsCs
 
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map
+
+	api APIReader
 
 	wg     sync.WaitGroup
 	closed chan struct{}
 }
 
-func NewConsensus(genesisTime time.Time, ch ch) *committee {
-	points, err := newPeriodPointArray(ch)
-	if err != nil {
-		panic(errors.Wrap(err, "create period point fail."))
-	}
+func (self *committee) API() APIReader {
+	return self.api
+}
 
-	rw := &chainRw{rw: ch, periodPoints: points}
-	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
-	committee.mLog = log15.New("module", "consensus/committee")
-	db, err := ch.NewDb("consensus")
-	if err != nil {
-		panic(err)
-	}
-	committee.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
-	cache, err := lru.New(1024 * 10)
-	if err != nil {
-		panic(err)
-	}
-	committee.lruCache = cache
-	return committee
+func NewConsensus(ch ch) *committee {
+	log := log15.New("module", "consensus")
+	rw := newChainRw(ch, log)
+	self := &committee{rw: rw}
+	self.mLog = log
+
+	return self
 }

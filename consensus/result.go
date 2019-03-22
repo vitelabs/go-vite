@@ -3,10 +3,9 @@ package consensus
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type electionResult struct {

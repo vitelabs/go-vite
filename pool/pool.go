@@ -899,10 +899,11 @@ func (self *pool) insertAccountLevel(l Level) error {
 				if globalErr != nil {
 					return
 				}
-				atomic.AddInt32(&num, int32(len(b.Items())))
 				err := self.insertAccountBucket(b)
+				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err
+					fmt.Printf("error[%s] for insert account block.\n", err)
 					return
 				}
 			}
@@ -920,7 +921,7 @@ func (self *pool) insertAccountLevel(l Level) error {
 	close(bucketCh)
 	wg.Wait()
 	sub := time.Now().Sub(t1)
-	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo)
+	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
 	fmt.Println(levelInfo)
 
 	if globalErr != nil {
