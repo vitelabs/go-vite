@@ -3,6 +3,7 @@ package vnode
 import (
 	crand "crypto/rand"
 	mrand "math/rand"
+	"net"
 )
 
 func mockID() (id NodeID) {
@@ -10,11 +11,15 @@ func mockID() (id NodeID) {
 	return
 }
 
-func mockHost() (host []byte) {
-	host = make([]byte, mrand.Intn(MaxHostLength))
+func mockIP() (ip net.IP) {
+	ipv4 := mrand.Intn(10) > 5
+	if ipv4 {
+		ip = make(net.IP, 4)
+	} else {
+		ip = make(net.IP, 16)
+	}
 
-	crand.Read(host)
-
+	crand.Read(ip)
 	return
 }
 
@@ -30,13 +35,25 @@ func mockRest() (ext []byte) {
 	return
 }
 
-func MockNode(ext bool) *Node {
+func mockNet() int {
+	return mrand.Intn(1000)
+}
+
+func MockNode(domain bool, ext bool) *Node {
 	n := &Node{
-		ID:       mockID(),
-		Hostname: mockHost(),
-		Port:     mockPort(),
-		Net:      mrand.Int(),
-		Ext:      nil,
+		ID: mockID(),
+		EndPoint: EndPoint{
+			mockIP(),
+			mockPort(),
+			HostIP,
+		},
+		Net: mockNet(),
+		Ext: nil,
+	}
+
+	if domain {
+		n.Host = []byte("www.vite.org")
+		n.typ = HostDomain
 	}
 
 	if ext {

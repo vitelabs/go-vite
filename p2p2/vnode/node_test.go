@@ -30,8 +30,8 @@ func compare(n, n2 *Node, rest bool) error {
 		return fmt.Errorf("different ID %s %s", n.ID, n2.ID)
 	}
 
-	if !bytes.Equal(n.Hostname, n2.Hostname) {
-		return fmt.Errorf("different Host %v %v", n.Hostname, n2.Hostname)
+	if !bytes.Equal(n.Host, n2.Host) {
+		return fmt.Errorf("different Host %v %v", n.Host, n2.Host)
 	}
 
 	if n.Port != n2.Port {
@@ -56,34 +56,124 @@ func TestNodeID_IsZero(t *testing.T) {
 }
 
 func TestNode_Serialize(t *testing.T) {
-	n := MockNode(true)
-	data, err := n.Serialize()
-	if err != nil {
-		t.Error(err)
+	var conds = [4][2]bool{
+		{true, true},
+		{true, false},
+		{false, false},
+		{false, true},
 	}
 
-	n2, err := Deserialize(data)
-	if err != nil {
-		t.Error(err)
-	}
+	for i := 0; i < 4; i++ {
+		n := MockNode(conds[i][0], conds[i][1])
+		data, err := n.Serialize()
+		if err != nil {
+			t.Error(err)
+		}
 
-	if err = compare(n, n2, true); err != nil {
-		t.Error(err)
+		n2 := new(Node)
+		err = n2.Deserialize(data)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err = compare(n, n2, true); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
-func TestNode_String(t *testing.T) {
-	n := MockNode(false)
+func TestParseNode_Protocol(t *testing.T) {
+	var protocolTests = [...]string{
+		"vnode://vite.org",
+		"https://vite.org",
+		"http://vite.org",
+		"vite.org",
+	}
 
-	str := n.String()
+	var err, err2 error
+	for _, url := range protocolTests {
+		_, err2 = ParseNode(url)
+		if err != err2 {
+			t.Error(err2)
+		}
+		err = errInvalidScheme
+	}
+}
 
-	n2, err := ParseNode(str)
+func TestParseNode_Host(t *testing.T) {
+	factor := func(host []byte, typ HostType, port int) func(n *Node) error {
+		return func(n *Node) error {
+			if !bytes.Equal(n.Host, host) {
+				return fmt.Errorf("different host: %v %v", n.Host, host)
+			}
+			if n.Port != port {
+				return fmt.Errorf("different port: %d %d", n.Port, port)
+			}
+			if n.typ != typ {
+				return fmt.Errorf("different type: %d %d", n.typ, typ)
+			}
+			return nil
+		}
+	}
+
+	var protocolTests = [...]struct {
+		url    string
+		handle func(n *Node) error
+	}{
+		{
+			"vnode://vite.org",
+			factor([]byte("vite.org"), HostDomain, DefaultPort),
+		},
+		{
+			"vnode://vite.org:8888",
+			factor([]byte("vite.org"), HostDomain, 8888),
+		},
+
+		{
+			"vnode://127.0.0.1",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, DefaultPort),
+		},
+		{
+			"vnode://127.0.0.1:8888",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, 8888),
+		},
+	}
+
+	var node *Node
+	var err error
+	for _, tt := range protocolTests {
+		node, err = ParseNode(tt.url)
+		if err != nil {
+			t.Error(err)
+		} else {
+			if err = tt.handle(node); err != nil {
+				t.Error(tt.url, err)
+			} else {
+				if tt.url != node.String() {
+					t.Errorf("different url: %s %s", tt.url, node.String())
+				}
+			}
+		}
+	}
+}
+
+func TestParseNode_Net(t *testing.T) {
+	n, err := ParseNode("vnode://vite.org/2")
+
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err = compare(n, n2, false); err != nil {
+	if n.Net != 2 {
+		t.Fail()
+	}
+
+	n, err = ParseNode("vnode://vite.org")
+	if err != nil {
 		t.Error(err)
+	}
+	if n.Net != 0 {
+		t.Fail()
 	}
 }
 
@@ -95,26 +185,26 @@ func TestCommonBits(t *testing.T) {
 	b[total-1] = b[total-1] | 1
 
 	if Distance(a, b) != 8*total-1 {
-		t.Fail()
+		t.Errorf("distance should be %d, but %d", 8*total-1, Distance(a, b))
 	}
 
 	// reset
-	b[total-1] = 0
+	b = NodeID{}
 
 	// change first byte
 	b[0] = b[0] | 1
 	if Distance(a, b) != 7 {
-		t.Fail()
+		t.Errorf("distance should be %d, but %d", 7, Distance(a, b))
 	}
 
 	// reset
-	b[0] = 0
+	b = NodeID{}
 
 	// change random byte
 	bytIndex := rand.Intn(total)
-	bitIndex := rand.Intn(8)
+	bitIndex := rand.Intn(7) + 1
 	b[bytIndex] = 1 << uint(bitIndex)
-	if Distance(a, b) != 8*bytIndex+(8-bitIndex) {
-		t.Fail()
+	if Distance(a, b) != 8*bytIndex+(8-bitIndex-1) {
+		t.Errorf("distance should be %d, but %d", 8*bytIndex+(8-bitIndex-1), Distance(a, b))
 	}
 }

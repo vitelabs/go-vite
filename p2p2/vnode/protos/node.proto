@@ -8,4 +8,5 @@ message Node {
     uint32 Port = 3;
     uint32 Net = 4;
     bytes Ext = 5;
+    uint32 HostType = 6;
 }

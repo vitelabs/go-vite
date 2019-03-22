@@ -21,7 +21,6 @@ package vnode
 import (
 	"encoding/hex"
 	"errors"
-	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -31,7 +30,8 @@ import (
 )
 
 const DefaultPort = 8483
-const MaxHostLength = 127
+const PortLength = 2
+const MaxHostLength = 1<<6 - 1
 
 var errUnmatchedLength = errors.New("needs 64 hex chars")
 
@@ -116,35 +116,43 @@ var errInvalidScheme = errors.New("invalid scheme")
 type Node struct {
 	// ID is the unique node identity
 	ID NodeID
-	// Hostname can be IPv4/IPv6 or domain
-	Hostname []byte
-	// Port can be access by other nodes
-	Port int
+
+	EndPoint
+
 	// Net is the network this node belongs
 	Net int
 	// Ext can be arbitrary data, will be sent to other nodes
 	Ext []byte
 }
 
-// Host is `domain:port` or `IP:port`
-func (n Node) Host() string {
-	return string(n.Hostname) + ":" + strconv.Itoa(n.Port)
+// Address is formatted `domain:Port` or `IP:Port`
+func (n Node) Address() string {
+	return n.EndPoint.String()
 }
 
 const NodeURLScheme = "vnode"
 
 // String marshal node to url-like string, looks like:
-// vnode://<hex node id>@<ip>:<port>/net
+// vnode://<hex_node_id>@<ip/domain>:<Port>/net
 // the field `Ext` will not be included in the encoded string
 func (n Node) String() string {
-	nodeURL := url.URL{
-		Scheme: NodeURLScheme,
-		User:   url.User(n.ID.String()),
-		Host:   n.Host(),
-		Path:   "/" + strconv.Itoa(int(n.Net)),
+	var str = NodeURLScheme + "://"
+
+	if !n.ID.IsZero() {
+		str += n.ID.String()
 	}
 
-	return nodeURL.String()
+	if n.Port == DefaultPort {
+		str += n.Hostname()
+	} else {
+		str += n.Address()
+	}
+
+	if n.Net > 0 {
+		str += "/" + strconv.Itoa(int(n.Net))
+	}
+
+	return str
 }
 
 // ParseNode parse a url-like string to Node
@@ -169,24 +177,15 @@ func ParseNode(u string) (n *Node, err error) {
 		}
 	}
 
-	hostname := nodeURL.Hostname()
-	if hostname == "" {
-		err = errMissHost
+	n.Host, n.typ, err = parseHost(nodeURL.Hostname())
+	if err != nil {
 		return
-	}
-
-	if ip := net.ParseIP(hostname); len(ip) != 0 {
-		n.Hostname = ip
-	} else {
-		n.Hostname = []byte(hostname)
 	}
 
 	port := nodeURL.Port()
 	if port == "" {
 		n.Port = DefaultPort
-	}
-
-	if n.Port, err = parsePort(nodeURL.Port()); err != nil {
+	} else if n.Port, err = parsePort(nodeURL.Port()); err != nil {
 		return
 	}
 
@@ -222,7 +221,8 @@ func parseNid(str string) (nid int, err error) {
 func (n *Node) Serialize() ([]byte, error) {
 	pb := &protos.Node{
 		ID:       n.ID.Bytes(),
-		Hostname: n.Hostname,
+		Hostname: n.Host,
+		HostType: uint32(n.typ),
 		Port:     uint32(n.Port),
 		Net:      uint32(n.Net),
 		Ext:      n.Ext,
@@ -231,26 +231,22 @@ func (n *Node) Serialize() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
-func Deserialize(data []byte) (n *Node, err error) {
+func (n *Node) Deserialize(data []byte) (err error) {
 	pb := new(protos.Node)
 	err = proto.Unmarshal(data, pb)
 	if err != nil {
 		return
 	}
 
-	n = new(Node)
-
 	n.ID, err = Bytes2NodeID(pb.ID)
 	if err != nil {
 		return
 	}
 
-	n.Hostname = pb.Hostname
+	n.Host = pb.Hostname
+	n.typ = HostType(pb.HostType)
 
 	n.Port = int(pb.Port)
-	if n.Port == 0 {
-		n.Port = DefaultPort
-	}
 
 	n.Net = int(pb.Net)
 
