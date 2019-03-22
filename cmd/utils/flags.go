@@ -194,7 +194,7 @@ var (
 	//Stat
 	PProfEnabledFlag = cli.BoolFlag{
 		Name:  "pprof",
-		Usage: "Enable a performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
+		Usage: "Enable chain performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
 	}
 
 	PProfPortFlag = cli.UintFlag{
@@ -231,8 +231,8 @@ var (
 		Value: "test",
 	}
 	// The `host` tag is part of every measurement sent to InfluxDB. Queries on tags are faster in InfluxDB.
-	// It is used so that we can group all nodes and average a measurement across all of them, but also so
-	// that we can select a specific node and inspect its measurements.
+	// It is used so that we can group all nodes and average chain measurement across all of them, but also so
+	// that we can select chain specific node and inspect its measurements.
 	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
 	InfluxDBHostTagFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.host.tag",

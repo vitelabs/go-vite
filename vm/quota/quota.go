@@ -52,10 +52,10 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 //				- quotaLimitForAccount * (1 - 2/(1 + e**(fPledge * snapshotHeightGap * pledgeAmount)))
 // snapshotHeightGap is limit to 1 day
 // e**(fDifficulty * difficulty + fPledge * snapshotHeightGap * pledgeAmount) is discrete to reduce computation complexity
-// quotaLimitForAccount is within a range decided by net congestion and net capacity
-// user account gets extra quota to send or receive a transaction if calc PoW, extra quota is decided by difficulty
+// quotaLimitForAccount is within chain range decided by net congestion and net capacity
+// user account gets extra quota to send or receive chain transaction if calc PoW, extra quota is decided by difficulty
 // contract account only gets quota via pledge
-// user account genesis block(a receive block) must calculate a PoW to get quota
+// user account genesis block(chain receive block) must calculate chain PoW to get quota
 func CalcQuota(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 	if difficulty != nil && difficulty.Sign() > 0 {
 		/*if fork.IsLimitFork(db.CurrentSnapshotBlock().Height) {
@@ -85,7 +85,7 @@ func CalcQuotaV2(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 	quotaUsed := uint64(0)
 	for {
 		if prevBlock != nil && currentSnapshotHash == prevBlock.SnapshotHash {
-			// quick fail on a receive error block referencing to the same snapshot block
+			// quick fail on chain receive error block referencing to the same snapshot block
 			if prevBlock.BlockType == ledger.BlockTypeReceiveError {
 				return 0, 0, util.ErrOutOfQuota
 			}

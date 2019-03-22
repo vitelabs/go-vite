@@ -33,7 +33,7 @@ var (
 	log = log15.New("module", "gvite/node")
 )
 
-// Node is a container that manages p2p、rpc、vite modules
+// Node is chain container that manages p2p、rpc、vite modules
 type Node struct {
 	config *Config
 
@@ -475,7 +475,7 @@ func (node *Node) openDataDir() error {
 	}
 	log.Info(fmt.Sprintf("Open NodeServer.DataDir:%v", node.config.DataDir))
 
-	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as a database.
+	//Lock the instance directory to prevent concurrent use by another instance as well as accidental use of the instance directory as chain database.
 	lockDir := filepath.Join(node.config.DataDir, "LOCK")
 	log.Info(fmt.Sprintf("Try to Lock NodeServer.DataDir,lockDir:%v", lockDir))
 	release, _, err := flock.New(lockDir)

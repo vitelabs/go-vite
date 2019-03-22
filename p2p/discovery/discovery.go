@@ -35,7 +35,7 @@ func Priv2NodeID(priv ed25519.PrivateKey) (NodeID, error) {
 	return Bytes2NodeID(pub)
 }
 
-// Config is the essential configuration to create a Discovery implementation
+// Config is the essential configuration to create chain Discovery implementation
 type Config struct {
 	PeerKey   ed25519.PrivateKey
 	DBPath    string
@@ -106,7 +106,7 @@ func (d *discovery) Delete(id NodeID) {
 	d.db.deleteNode(id)
 }
 
-// New create a Discovery implementation
+// New create chain Discovery implementation
 func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config:   cfg,

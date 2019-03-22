@@ -101,7 +101,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.contractAddressList = addressList
 		log.Info("get addresslist", "len", len(addressList))
 
-		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in Start
+		// 2. get getAndSortAllAddrQuota it is chain heavy operation so we call it only once in Start
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
@@ -290,7 +290,7 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
@@ -305,7 +305,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	if w.gid == types.DELEGATE_GID {
 		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+			if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 				quotas[addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)

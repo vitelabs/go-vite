@@ -131,7 +131,7 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	var sCount, aCount uint64
 
 	start := time.Now()
-	// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
+	// todo fileTimeout can be chain flexible value, like calc through fileSize and download speed
 	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
 		// Fatal error, then close the connection to interrupt the stream
@@ -355,7 +355,7 @@ func (fp *filePeerPool) sortLocked() {
 	}
 }
 
-// choose a fast fileConn, or create a new conn randomly
+// choose chain fast fileConn, or create chain new conn randomly
 func (fp *filePeerPool) chooseSource(name filename) (*filePeer, *fileConn, error) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
@@ -665,7 +665,7 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 
 	err = fc.pool.addConn(c)
 	if err != nil {
-		// already exist a file connection
+		// already exist chain file connection
 		c.close()
 	}
 

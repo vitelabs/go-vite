@@ -42,7 +42,7 @@ func GetAddrFromVoteKey(key []byte) types.Address {
 
 func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) *types.VoteInfo {
 	defer monitor.LogTime("vm", "GetVote", time.Now())
-	data := db.GetStorageBySnapshotHash(&types.AddressVote, GetVoteKey(addr, gid), nil)
+	data := db.GetStorageBySnapshotHash(&types.AddressConsensusGroup, GetVoteKey(addr, gid), nil)
 	if len(data) > 0 {
 		nodeName := new(string)
 		ABIVote.UnpackVariable(nodeName, VariableNameVoteStatus, data)
@@ -55,9 +55,9 @@ func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) []
 	defer monitor.LogTime("vm", "GetVoteList", time.Now())
 	var iterator vmctxt_interface.StorageIterator
 	if gid == types.DELEGATE_GID {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressVote, types.SNAPSHOT_GID.Bytes(), snapshotHash)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, types.SNAPSHOT_GID.Bytes(), snapshotHash)
 	} else {
-		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressVote, gid.Bytes(), snapshotHash)
+		iterator = db.NewStorageIteratorBySnapshotHash(&types.AddressConsensusGroup, gid.Bytes(), snapshotHash)
 	}
 	voteInfoList := make([]*types.VoteInfo, 0)
 	if iterator == nil {

@@ -103,7 +103,7 @@ func PrintMap(m map[string][]byte) string {
 }
 
 func IsUserAccount(db CommonDb, addr types.Address) bool {
-	if types.IsPrecompiledContractAddress(addr) {
+	if types.IsBuiltinContractAddr(addr) {
 		return false
 	}
 	_, code := GetContractCode(db, &addr)

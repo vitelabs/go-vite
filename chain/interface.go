@@ -1,157 +1,216 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"time"
-
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/cache"
-	"github.com/vitelabs/go-vite/chain/index"
-	"github.com/vitelabs/go-vite/chain/sender"
-	"github.com/vitelabs/go-vite/chain/trie_gc"
-	"github.com/vitelabs/go-vite/chain_db"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/compress"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 )
 
-type InsertProcessorFunc func(batch *leveldb.Batch, blocks []*vm_context.VmAccountBlock) error
-type InsertProcessorFuncSuccess func(blocks []*vm_context.VmAccountBlock)
-type DeleteProcessorFunc func(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error
-type DeleteProcessorFuncSuccess func(subLedger map[types.Address][]*ledger.AccountBlock)
+type PrepareInsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
+type InsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
 
-type InsertSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
-type DeleteSnapshotBlocksSuccess func([]*ledger.SnapshotBlock)
+type PrepareInsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
+type InsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
+
+type PrepareDeleteAccountBlocksListener func(subLedger map[types.Address][]*ledger.AccountBlock) error
+type DeleteAccountBlocksListener func(subLedger map[types.Address][]*ledger.AccountBlock) error
+
+type PrepareDeleteSnapshotBlocksListener func(snapshotBlockList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error
+type DeleteSnapshotBlocksListener func(snapshotBlockList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error
 
 type Chain interface {
-	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
-	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-	GetAccountBlocksByHeight(addr types.Address, start uint64, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-	GetAccountBlockMap(queryParams map[types.Address]*BlockMapQueryParam) map[types.Address][]*ledger.AccountBlock
+	/*
+	 *	Lifecycle
+	 */
+	Init() error
 
-	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
-	GetAccountBalance(addr *types.Address) (map[types.TokenTypeId]*big.Int, error)
+	Start() error
 
-	GetAccountBalanceByTokenId(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
-	GetAccountBlockHashByHeight(addr *types.Address, height uint64) (*types.Hash, error)
+	Stop() error
 
-	GetAllLatestAccountBlock() ([]*ledger.AccountBlock, error)
+	Destroy() error
+
+	/*
+	*	Event Manager
+	 */
+	RegisterPrepareInsertAccountBlocks(listener PrepareInsertAccountBlocksListener) (eventHandler uint64)
+	RegisterInsertAccountBlocks(listener InsertAccountBlocksListener) (eventHandler uint64)
+
+	RegisterPrepareInsertSnapshotBlocks(listener PrepareInsertSnapshotBlocksListener) (eventHandler uint64)
+	RegisterInsertSnapshotBlocks(listener InsertSnapshotBlocksListener) (eventHandler uint64)
+
+	RegisterPrepareDeleteAccountBlocks(listener PrepareDeleteAccountBlocksListener) (eventHandler uint64)
+	RegisterDeleteAccountBlocks(listener DeleteAccountBlocksListener) (eventHandler uint64)
+
+	RegisterPrepareDeleteSnapshotBlocks(listener PrepareDeleteSnapshotBlocksListener) (eventHandler uint64)
+	RegisterDeleteSnapshotBlocks(listener DeleteSnapshotBlocksListener) (eventHandler uint64)
+
+	UnRegister(eventHandler uint64)
+
+	/*
+	 *	C(Create)
+	 */
+
+	// vmAccountBlocks must have the same address
+	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
+
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
+
+	/*
+	 *	D(Delete)
+	 */
+
+	// contain the snapshot block of toHash, delete all blocks higher than snapshot line
+	DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+
+	// contain the snapshot block of toHeight`, delete all blocks higher than snapshot line
+	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+
+	/*
+	 *	R(Retrieve)
+	 */
+
+	// ====== Query account block ======
+	IsGenesisAccountBlock(hash *types.Hash) bool
+
+	IsAccountBlockExisted(hash *types.Hash) (bool, error) // ok
+
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
+
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-	GetAccountBlocksByAddress(addr *types.Address, index int, num int, count int) ([]*ledger.AccountBlock, error)
-	GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
 
-	GetUnConfirmAccountBlocks(addr *types.Address) []*ledger.AccountBlock
-	GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error)
-	GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error)
+	// query receive block of send block
+	GetReceiveAbBySendAb(sendBlockHash *types.Hash) (*ledger.AccountBlock, error)
 
-	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
-	Init()
-	Compressor() *compress.Compressor
-	TrieGc() trie_gc.Collector
+	// is received
+	IsReceived(sendBlockHash *types.Hash) (bool, error)
 
-	StopSaveTrie()
-	StartSaveTrie()
+	// high to low, contains the block that has the blockHash
+	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
-	ChainDb() *chain_db.ChainDb
-	SaList() *chain_cache.AdditionList
+	// get call depth
+	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
 
-	Start()
-	Destroy()
-	Stop()
-	NewDb(dbDir string) (*leveldb.DB, error)
-	GenStateTrie(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
-	GetNeedSnapshotContent() ledger.SnapshotContent
+	// get confirmed times
+	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
 
-	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error
-	GetAccountBlockMetaByHash(hash *types.Hash) (*ledger.AccountBlockMeta, error)
-	GetSnapshotBlocksByHash(originBlockHash *types.Hash, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
-	GetSnapshotBlocksByHeight(height uint64, count uint64, forward bool, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
-	GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+	// get latest account block
+	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 
-	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	// ====== Query snapshot block ======
 
-	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockHeadByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	// is valid
+	IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
+
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	NewGenesisSnapshotBlock() ledger.SnapshotBlock
-	NewSecondSnapshotBlock() ledger.SnapshotBlock
-	NewGenesisMintageBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
-	NewGenesisMintageSendBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
-	NewGenesisConsensusGroupBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
-	NewGenesisRegisterBlock() (ledger.AccountBlock, vmctxt_interface.VmDatabase)
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
-	GetConfirmBlock(accountBlockHash *types.Hash) (*ledger.SnapshotBlock, error)
-	GetConfirmTimes(accountBlockHash *types.Hash) (uint64, error)
-	GetSnapshotBlockBeforeTime(blockCreatedTime *time.Time) (*ledger.SnapshotBlock, error)
-	GetConfirmAccountBlock(snapshotHeight uint64, address *types.Address) (*ledger.AccountBlock, error)
-	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
-	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
-	GetContractGid(addr *types.Address) (*types.Gid, error)
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
-	KafkaSender() *sender.KafkaSender
+	// header without snapshot content
+	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
 
-	// Pledge amount
-	GetPledgeAmount(snapshotHash types.Hash, beneficial types.Address) (*big.Int, error)
+	// block contains header、snapshot content
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 
-	// Pledge quota
-	GetPledgeQuota(snapshotHash types.Hash, beneficial types.Address) (uint64, error)
-	GetPledgeQuotas(snapshotHash types.Hash, beneficialList []types.Address) (map[types.Address]uint64, error)
+	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
 
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error)
+	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+
+	// contains start snapshot block and end snapshot block
+	GetRangeSnapshotHeaders(startHash *types.Hash, endHash *types.Hash) ([]*ledger.SnapshotBlock, error)
+
+	GetRangeSnapshotBlocks(startHash *types.Hash, endHash *types.Hash) ([]*ledger.SnapshotBlock, error)
+
+	// contains the snapshot header that has the blockHash
+	GetSnapshotHeaders(blockHash *types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+
+	// contains the snapshot block that has the blockHash
+	GetSnapshotBlocks(blockHash *types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+
+	GetConfirmSnapshotHeaderByAbHash(abHash *types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetConfirmSnapshotBlockByAbHash(abHash *types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+
+	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+
+	GetSeed(snapshotHash *types.Hash, n int) uint64
+
+	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
+
+	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
+
+	// ====== Query unconfirmed pool ======
+	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
+
+	GetContentNeedSnapshot() ledger.SnapshotContent
+
+	// ====== Query account ======
+
+	// The address is contract address when it's first receive block inserted into the chain.
+	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
+	IsContractAccount(address *types.Address) (bool, error)
+
+	GetAccountId(address *types.Address) (uint64, error)
+
+	// ===== Query state ======
+	// get balance
+	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
+
+	// get confirmed snapshot balance, if history is too old, failed
+	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)
+
+	// get contract code
+	GetContractCode(contractAddr *types.Address) ([]byte, error)
+
+	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+
+	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
+
+	GetQuotaUnused(address *types.Address) (uint64, error)
+
+	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+
+	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+
+	GetValue(address *types.Address, key []byte) ([]byte, error)
+
+	// ====== Query built-in contract storage ======
+
+	GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error)
+
+	GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error)
+
+	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+
+	// total
+	GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (uint64, error)
+
+	// total
+	GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]uint64, error)
 
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
-	AccountType(address *types.Address) (uint64, error)
-	GetAccount(address *types.Address) (*ledger.Account, error)
-	GetSubLedgerByHeight(startHeight uint64, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
-	GetSubLedgerByHash(startBlockHash *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
-	GetConfirmSubLedger(fromHeight uint64, toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+
+	GetAllTokenInfo() ([]*types.TokenInfo, error)
+
+	// ====== Query vm log list ======
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
-	UnRegister(listenerId uint64)
-	TrieDb() *leveldb.DB
-	CleanTrieNodePool()
-	RegisterInsertAccountBlocks(processor InsertProcessorFunc) uint64
-	RegisterInsertAccountBlocksSuccess(processor InsertProcessorFuncSuccess) uint64
-	RegisterDeleteAccountBlocks(processor DeleteProcessorFunc) uint64
-	RegisterDeleteAccountBlocksSuccess(processor DeleteProcessorFuncSuccess) uint64
-	RegisterInsertSnapshotBlocksSuccess(processor InsertSnapshotBlocksSuccess) uint64
-	RegisterDeleteSnapshotBlocksSuccess(processor DeleteSnapshotBlocksSuccess) uint64
-	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
 
-	GetStateTrie(stateHash *types.Hash) *trie.Trie
-	ShallowCheckStateTrie(stateHash *types.Hash) (bool, error)
-	GenStateTrieFromDb(prevStateHash types.Hash, snapshotContent ledger.SnapshotContent) (*trie.Trie, error)
-	NewStateTrie() *trie.Trie
+	// ====== Sync ledger ======
+	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
-	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
-	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
+	// TODO insert syncCache ledger
+	// TODO query syncCache state
 
-	// Be
-	GetLatestBlockEventId() (uint64, error)
-	GetEvent(eventId uint64) (byte, []types.Hash, error)
+	// ====== OnRoad ======
+	HasOnRoadBlocks(address *types.Address) (bool, error)
 
-	// onroad
-	IsSuccessReceived(addr *types.Address, hash *types.Hash) bool
-
-	getChainRangeSet(snapshotBlocks []*ledger.SnapshotBlock) map[types.Address][2]*ledger.HashHeight
-
-	// account block is existed
-	IsAccountBlockExisted(hash types.Hash) (bool, error)
-
-	// get receive block heights
-	GetReceiveBlockHeights(hash *types.Hash) ([]uint64, error)
-	Fti() *chain_index.FilterTokenIndex
-
-	// get on road blocks in a snapshot
-	GetOnRoadBlocksBySendAccount(sendAccountAddress *types.Address, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, error)
-	GetSendAndReceiveBlocks(accountAddress *types.Address, snapshotBlockHeight uint64) ([]*ledger.AccountBlock, []*ledger.AccountBlock, error)
+	GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error)
 }

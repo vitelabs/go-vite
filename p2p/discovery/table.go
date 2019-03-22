@@ -20,7 +20,7 @@ type element struct {
 	next *element
 }
 
-// bucket no need possess a lock
+// bucket no need possess chain lock
 // because we operate bucket through table, so use table lock is more suited
 type bucket struct {
 	head *element // contains an head item

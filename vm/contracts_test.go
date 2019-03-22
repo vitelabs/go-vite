@@ -33,7 +33,7 @@ import (
 	// init sendBlock and receive block
 	snapshotBlock := chn.GetLatestSnapshotBlock()
 	addr, _ := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
-	contractAddr := types.AddressRegister
+	contractAddr := types.AddressConsensusGroup
 	contractBalance, _ := chn.GetAccountBalanceByTokenId(&contractAddr, &ledger.ViteTokenId)
 	vm := NewVM()
 	prevAccountBlock, err := chn.GetLatestAccountBlock(&contractAddr)
@@ -99,7 +99,7 @@ func TestContractsRefund(t *testing.T) {
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 
-	addr2 := types.AddressRegister
+	addr2 := types.AddressConsensusGroup
 	nodeName := "s1"
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	registrationDataOld := db.storageMap[addr2][string(locHashRegister.Bytes())]
@@ -211,7 +211,7 @@ func TestContractsRegister(t *testing.T) {
 	publicKey6 := ed25519.PublicKey(privateKey6.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
-	addr2 := types.AddressRegister
+	addr2 := types.AddressConsensusGroup
 	nodeName := "super1"
 	block13Data, err := abi.ABIRegister.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7)
 	hash13 := types.DataHash([]byte{1, 3})
@@ -328,7 +328,7 @@ func TestContractsRegister(t *testing.T) {
 	db.accountBlockMap[addr2][hash22] = receiveRegisterBlockList2[0].AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressRegister
+	db.addr = types.AddressConsensusGroup
 	if registerList := abi.GetCandidateList(db, types.SNAPSHOT_GID, nil); len(registerList) != 3 || len(registerList[0].Name) == 0 {
 		t.Fatalf("get register list failed")
 	}
@@ -525,7 +525,7 @@ func TestContractsVote(t *testing.T) {
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	blockTime := time.Now()
 	// vote
-	addr3 := types.AddressVote
+	addr3 := types.AddressConsensusGroup
 	nodeName := "s1"
 	block13Data, _ := abi.ABIVote.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, nodeName)
 	hash13 := types.DataHash([]byte{1, 3})
@@ -636,7 +636,7 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlockList2[0].AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressVote
+	db.addr = types.AddressConsensusGroup
 	if voteList := abi.GetVoteList(db, types.SNAPSHOT_GID, nil); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
 		t.Fatalf("get vote list failed")
 	}
@@ -1948,12 +1948,12 @@ func TestCheckTokenName(t *testing.T) {
 	}{
 		{"", false},
 		{" ", false},
-		{"a", true},
+		{"chain", true},
 		{"ab", true},
 		{"ab ", false},
-		{"a b", true},
-		{"a  b", false},
-		{"a _b", true},
+		{"chain b", true},
+		{"chain  b", false},
+		{"chain _b", true},
 		{"_a", true},
 		{"_a b c", true},
 		{"_a bb c", true},
@@ -2034,9 +2034,9 @@ func TestGenesisBlockData(t *testing.T) {
 	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(abi.GetConsensusGroupKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(abi.GetConsensusGroupKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressRegister.Bytes()))
+	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressConsensusGroup.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressRegister.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n")
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()

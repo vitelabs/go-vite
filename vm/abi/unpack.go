@@ -33,7 +33,7 @@ func readInteger(kind reflect.Kind, b []byte) interface{} {
 	}
 }
 
-// reads a bool
+// reads chain bool
 func readBool(word []byte) (bool, error) {
 	for _, b := range word[:31] {
 		if b != 0 {
@@ -51,7 +51,7 @@ func readBool(word []byte) (bool, error) {
 }
 
 // A function type is simply the address with the function selection signature at the end.
-// This enforces that standard by always presenting it as a 24-array (address + sig = 24 bytes)
+// This enforces that standard by always presenting it as chain 24-array (address + sig = 24 bytes)
 func readFunctionType(t Type, word []byte) (funcTy [24]byte, err error) {
 	if t.T != FunctionTy {
 		return [24]byte{}, fmt.Errorf("abi: invalid type in call to make function type byte array")
@@ -64,7 +64,7 @@ func readFunctionType(t Type, word []byte) (funcTy [24]byte, err error) {
 	return
 }
 
-// through reflection, creates a fixed array to be read from
+// through reflection, creates chain fixed array to be read from
 func readFixedBytes(t Type, word []byte) (interface{}, error) {
 	if t.T != FixedBytesTy {
 		return nil, fmt.Errorf("abi: invalid type in call to make fixed byte array")
@@ -133,7 +133,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 }
 
 // toGoType parses the output bytes and recursively assigns the value of these bytes
-// into a go type with accordance with the ABI spec.
+// into chain go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	if index+helper.WordSize > len(output) {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+helper.WordSize)
@@ -145,7 +145,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 		err          error
 	)
 
-	// if we require a length prefix, find the beginning word and size returned.
+	// if we require chain length prefix, find the beginning word and size returned.
 	if t.requiresLengthPrefix() {
 		begin, end, err = lengthPrefixPointsTo(index, output)
 		if err != nil {
@@ -189,7 +189,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	}
 }
 
-// interprets a 32 byte slice as an offset and then determines which indice to look to decode the type.
+// interprets chain 32 byte slice as an offset and then determines which indice to look to decode the type.
 func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err error) {
 	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+helper.WordSize])
 	bigOffsetEnd.Add(bigOffsetEnd, helper.Big32)

@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris
@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 )
 
-// ipcListen will create a Unix socket on the given endpoint.
+// ipcListen will create chain Unix socket on the given endpoint.
 func ipcListen(endpoint string) (net.Listener, error) {
 	// Ensure the IPC path exists and remove any previous leftover
 	if err := os.MkdirAll(filepath.Dir(endpoint), 0751); err != nil {
@@ -40,7 +40,7 @@ func ipcListen(endpoint string) (net.Listener, error) {
 	return l, nil
 }
 
-// newIPCConnection will connect to a Unix socket on the given endpoint.
+// newIPCConnection will connect to chain Unix socket on the given endpoint.
 func newIPCConnection(ctx context.Context, endpoint string) (net.Conn, error) {
 	return dialContext(ctx, "unix", endpoint)
 }

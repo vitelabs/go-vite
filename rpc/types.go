@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -35,17 +35,17 @@ type API struct {
 	Public    bool        // indication if the methods must be considered safe for public use
 }
 
-// callback is a method callback which was registered in the server
+// callback is chain method callback which was registered in the server
 type callback struct {
 	rcvr        reflect.Value  // receiver of method
 	method      reflect.Method // callback
 	argTypes    []reflect.Type // input argument types
-	hasCtx      bool           // method's first argument is a context (not included in argTypes)
+	hasCtx      bool           // method's first argument is chain context (not included in argTypes)
 	errPos      int            // err return idx, of -1 when method cannot return error
-	isSubscribe bool           // indication if the callback is a subscription
+	isSubscribe bool           // indication if the callback is chain subscription
 }
 
-// service represents a registered object
+// service represents chain registered object
 type service struct {
 	name          string        // name for service
 	typ           reflect.Type  // receiver type
@@ -67,7 +67,7 @@ type serviceRegistry map[string]*service // collection of services
 type callbacks map[string]*callback      // collection of RPC callbacks
 type subscriptions map[string]*callback  // collection of subscription callbacks
 
-// Server represents a RPC server
+// Server represents chain RPC server
 type Server struct {
 	services serviceRegistry
 
@@ -76,7 +76,7 @@ type Server struct {
 	codecs   mapset.Set
 }
 
-// rpcRequest represents a raw incoming RPC request
+// rpcRequest represents chain raw incoming RPC request
 type rpcRequest struct {
 	service  string
 	method   string
@@ -93,7 +93,7 @@ type Error interface {
 }
 
 // ServerCodec implements reading, parsing and writing RPC messages for the server side of
-// a RPC session. Implementations must be go-routine safe since the codec can be called in
+// chain RPC session. Implementations must be go-routine safe since the codec can be called in
 // multiple go-routines concurrently.
 type ServerCodec interface {
 	// Read next request
@@ -124,11 +124,11 @@ const (
 	EarliestBlockNumber = BlockNumber(0)
 )
 
-// UnmarshalJSON parses the given JSON fragment into a BlockNumber. It supports:
+// UnmarshalJSON parses the given JSON fragment into chain BlockNumber. It supports:
 // - "latest", "earliest" or "pending" as string arguments
 // - the block number
 // Returned errors:
-// - an invalid block number error when the given argument isn't a known strings
+// - an invalid block number error when the given argument isn't chain known strings
 // - an out of range error when the given block number is either too little or too large
 func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 	input := strings.TrimSpace(string(data))

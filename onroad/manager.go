@@ -105,7 +105,7 @@ func (manager *Manager) Close() error {
 }
 
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
-	manager.log.Info("receive a net event", "state", state)
+	manager.log.Info("receive chain net event", "state", state)
 	common.Go(func() {
 		if state == net.Syncdone {
 			manager.resumeContractWorks()
@@ -147,7 +147,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 	}
 
 	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
-		manager.log.Error("receive a right event but address locked", "event", event)
+		manager.log.Error("receive chain right event but address locked", "event", event)
 		return
 	}
 
