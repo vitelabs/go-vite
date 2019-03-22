@@ -55,7 +55,7 @@ func BmInsertAccountBlockCache(b *testing.B, accountNumber int) {
 		b.StartTimer()
 		chainInstance.cache.InsertAccountBlock(tx.AccountBlock)
 
-		if err := chainInstance.indexDB.InsertAccountBlock(tx); err != nil {
+		if err := chainInstance.indexDB.InsertAccountBlock(tx.AccountBlock); err != nil {
 			b.Fatal(err)
 		}
 

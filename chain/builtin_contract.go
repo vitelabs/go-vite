@@ -10,7 +10,7 @@ import (
 
 // sb height
 func (c *chain) GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error) {
-	ss, err := c.getStateSnapshot(&types.AddressRegister, snapshotHash)
+	ss, err := c.getStateSnapshot(&types.AddressPledge, snapshotHash)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetRegisterList")
 		return nil, err
@@ -24,7 +24,7 @@ func (c *chain) GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*ty
 }
 
 func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error) {
-	ss, err := c.getStateSnapshot(&types.AddressVote, snapshotHash)
+	ss, err := c.getStateSnapshot(&types.AddressPledge, snapshotHash)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetVoteMap")
 		return nil, err

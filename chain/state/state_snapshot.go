@@ -31,9 +31,7 @@ type stateSnapshotManager struct {
 
 func newStateSnapshotManager(chain Chain, mvDB *mvdb.MultiVersionDB) (*stateSnapshotManager, error) {
 	cachePolicy := map[types.Address]int{
-		types.AddressRegister: 75 * 5,
-		types.AddressVote:     75 * 5,
-		types.AddressPledge:   75 * 5,
+		types.AddressPledge: 75 * 5,
 	}
 	cachePolicyLen := len(cachePolicy)
 
