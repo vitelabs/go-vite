@@ -26,7 +26,7 @@ func TestMatcher(t *testing.T) {
 	mc := NewMatcher(getAddress(), &st)
 
 	DeleteTerminatedOrder = true
-	SetFeeRate(0.06, 0.05) // takerFee, makerFee
+	SetFeeRate("0.06", "0.05") // takerFee, makerFee
 	// buy
 	buy1 := newOrderInfo(101, ETH, VITE, false, Limited, "100.02", 1000, time.Now().UnixNano()/1000)
 	buy2 := newOrderInfo(102, ETH, VITE, false, Limited, "100.03", 3000, time.Now().UnixNano()/1000)
@@ -191,14 +191,14 @@ func TestMatcher(t *testing.T) {
 }
 
 func TestFeeCalculation(t *testing.T) {
-	SetFeeRate(0.07, 0.05) // takerFee, makerFee
+	SetFeeRate("0.07", "0.05") // takerFee, makerFee
 	buyTakerOrder := newOrderInfo(601, ETH, VITE, false, Limited, "0.001234211", 1000000, time.Now().UnixNano()/1000)
 	assert.True(t, CheckBigEqualToInt(8639, buyTakerOrder.Order.LockedBuyFee)) // 123421 * 0.07
 
 	buyTakerOrder1 := newOrderInfo(602, ETH, VITE, false, Limited, "0.001234231", 1000000, time.Now().UnixNano()/1000)
 	assert.True(t, CheckBigEqualToInt(8640, buyTakerOrder1.Order.LockedBuyFee)) //123423 * 0.07
 	buyTakerOrder1.Order.ExecutedFee = new(big.Int).SetInt64(8634).Bytes()// 8640 - 8634 = 6
-	feeBytes, executedFee := calculateFeeAndExecutedFee(buyTakerOrder1.Order,	new(big.Int).SetInt64(100).Bytes(), 0.07)
+	feeBytes, executedFee := calculateFeeAndExecutedFee(buyTakerOrder1.Order,	new(big.Int).SetInt64(100).Bytes(), "0.07")
 	assert.True(t, CheckBigEqualToInt(6, feeBytes))
 	assert.True(t, CheckBigEqualToInt(8640, executedFee))
 }
@@ -228,7 +228,7 @@ func TestDustWithOrder(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
 	mc := NewMatcher(getAddress(), &st)
-	SetFeeRate(0.06, 0.05) // takerFee, makerFee
+	SetFeeRate("0.06", "0.05") // takerFee, makerFee
 	// buy quantity = origin * 100,000,000
 	buy1 := newOrderInfo(301, ETH, VITE,false, Limited, "0.00012345", 10000, time.Now().UnixNano()/1000) //amount 123.45
 	mc.MatchOrder(buy1)

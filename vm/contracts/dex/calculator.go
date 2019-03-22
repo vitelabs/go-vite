@@ -55,7 +55,7 @@ func AdjustForDecimalsDiff(sourceAmountF *big.Float, sourceDecimals, targetDecim
 	}
 	dcDiffAbs, dcDiffSign := SubForAbsAndSign(sourceDecimals, targetDecimals)
 	decimalDiffInt := new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(dcDiffAbs)), nil)
-	decimalDiffFloat := new(big.Float).SetInt(decimalDiffInt)
+	decimalDiffFloat := new(big.Float).SetPrec(bigFloatPrec).SetInt(decimalDiffInt)
 	if dcDiffSign > 0 {
 		return sourceAmountF.Quo(sourceAmountF, decimalDiffFloat)
 	} else {
@@ -68,6 +68,6 @@ func NegativeAmount(amount []byte) *big.Int {
 }
 
 func RoundAmount(amountF *big.Float) *big.Int {
-	amount, _ := new(big.Float).Add(amountF, big.NewFloat(0.5)).Int(nil)
+	amount, _ := new(big.Float).SetPrec(bigFloatPrec).Add(amountF, big.NewFloat(0.5)).Int(nil)
 	return amount
 }

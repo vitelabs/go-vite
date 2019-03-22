@@ -31,6 +31,7 @@ var (
 )
 
 func TestDexFund(t *testing.T) {
+	dex.QuoteTokenMinAmount[ETH.tokenId] = big.NewInt(6)
 	db := initDexFundDatabase()
 	userAddress, _ := types.BytesToAddress([]byte("12345678901234567890"))
 	depositCash(db, userAddress, 3000, VITE.tokenId)
@@ -143,7 +144,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	method := contracts.MethodDexFundNewOrder{}
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
+	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(1000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
 	err := method.DoSend(db, senderAccBlock)
 	assert.Equal(t, err, dex.MarketNotExistsError)
@@ -151,7 +152,11 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	innerTestNewMarket(t, db)
 
 	err = method.DoSend(db, senderAccBlock)
-	assert.True(t, err == nil)
+	assert.Equal(t, "order amount too small", err.Error())
+
+	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
+	err = method.DoSend(db, senderAccBlock)
+	assert.Equal(t, nil, err)
 
 	param := new(dex.ParamDexFundNewOrder)
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderAccBlock.Data)
