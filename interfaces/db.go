@@ -7,6 +7,7 @@ import (
 )
 
 type StorageIterator interface {
+	Last() bool
 	Next() bool
 
 	Key() []byte

@@ -8,7 +8,7 @@ import (
 )
 
 func (c *chain) IsGenesisAccountBlock(hash *types.Hash) bool {
-	return true
+	return false
 }
 
 func (c *chain) IsAccountBlockExisted(hash *types.Hash) (bool, error) {

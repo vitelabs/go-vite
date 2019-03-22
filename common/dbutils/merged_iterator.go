@@ -9,17 +9,16 @@ import (
 
 type MergedIterator struct {
 	cmp         comparer.BasicComparer
-	iters       []interfaces.StorageIterator
-	finishIters []interfaces.StorageIterator
-
 	deletedKeys map[string]struct{}
-	index       int
 
-	lastKey []byte
+	iters      []interfaces.StorageIterator
+	iterIsLast []byte
+
+	index int
 
 	keys [][]byte
 
-	currentKey []byte
+	prevKey []byte
 
 	err error
 }
@@ -29,12 +28,53 @@ func NewMergedIterator(iters []interfaces.StorageIterator, deletedKeys map[strin
 		cmp:         comparer.DefaultComparer,
 		deletedKeys: deletedKeys,
 		iters:       iters,
-		finishIters: make([]interfaces.StorageIterator, 0, len(iters)),
+		iterIsLast:  make([]byte, len(iters)),
 		keys:        make([][]byte, len(iters)),
 	}
 }
 
+func (mi *MergedIterator) reset() {
+	mi.iterIsLast = make([]byte, len(mi.iters))
+	mi.index = 0
+
+	mi.keys = make([][]byte, len(mi.iters))
+	mi.prevKey = nil
+}
+
+func (mi *MergedIterator) Last() bool {
+	if mi.err != nil {
+		return false
+	}
+	mi.reset()
+
+	maxKeyIndex := -1
+	var maxKey []byte
+	for i := 0; i < len(mi.iters); i++ {
+		iter := mi.iters[i]
+		if !iter.Last() {
+			continue
+		}
+
+		key := iter.Key()
+		if mi.cmp.Compare(maxKey, key) < 0 || len(maxKey) <= 0 {
+			maxKey = key
+			maxKeyIndex = i
+		}
+	}
+	if maxKeyIndex < 0 {
+		return false
+	}
+
+	mi.index = maxKeyIndex
+	mi.prevKey = maxKey
+
+	return true
+
+}
 func (mi *MergedIterator) Next() bool {
+	if mi.err != nil {
+		return false
+	}
 	mi.keys[mi.index] = nil
 
 	minKeyIndex := -1
@@ -43,7 +83,7 @@ func (mi *MergedIterator) Next() bool {
 	for i := 0; i < len(mi.iters); i++ {
 		iter := mi.iters[i]
 
-		if iter == nil {
+		if mi.iterIsLast[i] > 0 {
 			continue
 		}
 
@@ -55,8 +95,8 @@ func (mi *MergedIterator) Next() bool {
 						mi.err = err
 						return false
 					}
-					mi.iters[i] = nil
-					mi.finishIters = append(mi.finishIters, iter)
+
+					mi.iterIsLast[i] = 1
 					break
 				}
 				key = iter.Key()
@@ -70,7 +110,7 @@ func (mi *MergedIterator) Next() bool {
 				}
 			}
 
-			if bytes.Equal(key, mi.lastKey) {
+			if bytes.Equal(key, mi.prevKey) {
 				key = nil
 				mi.keys[i] = nil
 				continue
@@ -79,7 +119,7 @@ func (mi *MergedIterator) Next() bool {
 			break
 		}
 
-		if key != nil && (mi.cmp.Compare(minKey, key) < 0 || len(minKey) <= 0) {
+		if key != nil && (mi.cmp.Compare(key, minKey) < 0 || len(minKey) <= 0) {
 			minKey = key
 			minKeyIndex = i
 
@@ -91,7 +131,7 @@ func (mi *MergedIterator) Next() bool {
 	}
 
 	mi.index = minKeyIndex
-	mi.lastKey = minKey
+	mi.prevKey = minKey
 
 	return true
 }
@@ -104,7 +144,7 @@ func (mi *MergedIterator) Key() []byte {
 }
 
 func (mi *MergedIterator) Value() []byte {
-	if len(mi.currentKey) <= 0 || mi.err != nil {
+	if len(mi.keys[mi.index]) <= 0 || mi.err != nil {
 		return nil
 	}
 
@@ -117,11 +157,6 @@ func (mi *MergedIterator) Error() error {
 
 func (mi *MergedIterator) Release() {
 	for _, iter := range mi.iters {
-		if iter != nil {
-			iter.Release()
-		}
-	}
-	for _, iter := range mi.finishIters {
 		iter.Release()
 	}
 }

@@ -12,17 +12,15 @@ import (
 )
 
 type MemDB struct {
-	mu        sync.RWMutex
-	dataStore interfaces.Store
+	mu sync.RWMutex
 
 	storage     *memdb.DB
 	deletedKey  map[string]struct{}
 	hashKeyList map[types.Hash][][]byte
 }
 
-func NewMemDB(dataStore interfaces.Store) *MemDB {
+func NewMemDB() *MemDB {
 	return &MemDB{
-		dataStore:   dataStore,
 		storage:     newStorage(),
 		deletedKey:  make(map[string]struct{}),
 		hashKeyList: make(map[types.Hash][][]byte),
@@ -39,37 +37,6 @@ func (mDb *MemDB) DeletedKeys() map[string]struct{} {
 
 func (mDb *MemDB) NewIterator(slice *util.Range) iterator.Iterator {
 	return mDb.storage.NewIterator(slice)
-}
-func (mDb *MemDB) Append(blockHash *types.Hash, key, value []byte) error {
-	mDb.mu.Lock()
-	defer mDb.mu.Unlock()
-	innerValue, errNotFound := mDb.storage.Get(key)
-	if errNotFound != nil {
-		if mDb.dataStore != nil {
-			if ok, err := mDb.dataStore.Has(key); err != nil {
-				return err
-			} else if ok {
-				dsValue, err := mDb.dataStore.Get(key)
-				if err != nil {
-					return err
-				}
-
-				value = append(dsValue, value...)
-			}
-		}
-
-		mDb.put(blockHash, key, value)
-		return nil
-	}
-
-	if _, ok := mDb.deletedKey[string(key)]; ok {
-		delete(mDb.deletedKey, string(key))
-	}
-
-	innerValue = append(innerValue, value...)
-
-	mDb.storage.Put(key, innerValue)
-	return nil
 }
 
 func (mDb *MemDB) Put(blockHash *types.Hash, key, value []byte) {

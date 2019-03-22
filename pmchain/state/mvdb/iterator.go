@@ -1,6 +1,7 @@
 package mvdb
 
 import (
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/pmchain/utils"
@@ -11,7 +12,9 @@ func (mvDB *MultiVersionDB) NewIterator(prefix []byte) interfaces.StorageIterato
 	return NewIterator(mvDB, keyIdIterator)
 }
 
-func (mvDB *MultiVersionDB) NewSnapshotIterator(prefix []byte, isKeyIdValid func(uint64) bool, getValueIdFromCache func(uint64) (uint64, bool)) interfaces.StorageIterator {
+func (mvDB *MultiVersionDB) NewSnapshotIterator(prefix []byte, isKeyIdValid func(uint64) bool,
+	getValueIdFromCache func(uint64) (uint64, bool)) interfaces.StorageIterator {
+
 	keyIdIterator := mvDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateKeyIdKey(prefix)), nil)
 	return NewSnapshotIterator(mvDB, keyIdIterator, isKeyIdValid, getValueIdFromCache)
 }
@@ -32,7 +35,7 @@ type Iterator struct {
 	getValueIdFromCache func(uint64) (uint64, bool)
 }
 
-func NewIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageIterator) *Iterator {
+func NewIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageIterator) interfaces.StorageIterator {
 	return &Iterator{
 		mvDB:          mvDB,
 		keyIdIterator: keyIdIterator,
@@ -40,7 +43,7 @@ func NewIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageIterator)
 }
 
 func NewSnapshotIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageIterator,
-	isKeyIdValid func(uint64) bool, getValueIdFromCache func(uint64) (uint64, bool)) *Iterator {
+	isKeyIdValid func(uint64) bool, getValueIdFromCache func(uint64) (uint64, bool)) interfaces.StorageIterator {
 
 	return &Iterator{
 		mvDB:          mvDB,
@@ -49,6 +52,11 @@ func NewSnapshotIterator(mvDB *MultiVersionDB, keyIdIterator interfaces.StorageI
 		isKeyIdValid:        isKeyIdValid,
 		getValueIdFromCache: getValueIdFromCache,
 	}
+}
+
+// TODO
+func (iterator *Iterator) Last() bool {
+	panic(errors.New("Last() is not supported"))
 }
 
 func (iterator *Iterator) Next() bool {
@@ -111,8 +119,12 @@ func (iterator *Iterator) step(next bool) bool {
 	for {
 		iterator.currentKeyId = 0
 		iterator.currentKey = nil
+		var ok bool
+		if next {
+			ok = iterator.keyIdIterator.Next()
+		}
 
-		if ok := iterator.keyIdIterator.Next(); !ok {
+		if !ok {
 			iterator.setError(iterator.keyIdIterator.Error())
 			return false
 		}

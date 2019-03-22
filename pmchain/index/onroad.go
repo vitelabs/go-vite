@@ -1,11 +1,14 @@
 package chain_index
 
 import (
+	"errors"
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/pmchain/utils"
+	"sync/atomic"
 )
 
 func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
@@ -19,6 +22,7 @@ func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
 	return iDB.hasValueByPrefix(key)
 }
 
+// TODO
 func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
 	accountId, err := iDB.GetAccountId(address)
 	if err != nil {
@@ -63,32 +67,31 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	return hashList, nil
 }
 
-//func (iDB *IndexDB) insertOnRoad(blockHash *types.Hash, addr *types.Address) error {
-//	key := chain_utils.CreateOnRoadKey(addr, onRoadId)
-//	value := blockHash.Bytes()
-//
-//	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
-//
-//	if err := iDB.memDb.Append(blockHash, key, value); err != nil {
-//		return err
-//	}
-//	iDB.memDb.Put(blockHash, reverseKey, key)
-//	return nil
-//}
+func (iDB *IndexDB) insertOnRoad(sendBlockHash *types.Hash, addr *types.Address) {
+	onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
+	key := chain_utils.CreateOnRoadKey(addr, onRoadId)
+	value := sendBlockHash.Bytes()
 
-//func (iDB *IndexDB) receiveOnRoad(blockHash *types.Hash, sendBlockHash *types.Hash) error {
-//	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-//	value, err := iDB.getValue(reverseKey)
-//	if err != nil {
-//		return err
-//	}
-//
-//	iDB.memDb.Delete(blockHash, reverseKey)
-//
-//	iDB.memDb.Delete(blockHash, value)
-//
-//	return nil
-//}
+	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
+
+	iDB.memDb.Put(sendBlockHash, key, value)
+	iDB.memDb.Put(sendBlockHash, reverseKey, key)
+
+}
+
+func (iDB *IndexDB) receiveOnRoad(receiveBlockHash *types.Hash, sendBlockHash *types.Hash) error {
+	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
+	key, err := iDB.store.Get(reverseKey)
+	if err != nil {
+		return err
+	}
+
+	iDB.memDb.Delete(receiveBlockHash, reverseKey)
+
+	iDB.memDb.Delete(receiveBlockHash, key)
+
+	return nil
+}
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash *types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
@@ -97,7 +100,7 @@ func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash *types.Ha
 		return err
 	}
 	if len(value) <= 0 {
-		return nil
+		return errors.New(fmt.Sprintf("onRoad block is not exsited, block hash is %s", sendBlockHash))
 	}
 
 	batch.Delete(reverseKey)

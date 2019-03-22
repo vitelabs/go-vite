@@ -13,9 +13,11 @@ import (
 type IndexDB struct {
 	chain Chain
 
-	store           Store
-	memDb           *chain_pending.MemDB
+	store Store
+	memDb *chain_pending.MemDB
+
 	latestAccountId uint64
+	latestOnRoadId  uint64
 }
 
 func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
@@ -29,10 +31,15 @@ func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
 	iDB := &IndexDB{
 		chain: chain,
 		store: store,
-		memDb: chain_pending.NewMemDB(store),
+		memDb: chain_pending.NewMemDB(),
 	}
 
 	iDB.latestAccountId, err = iDB.queryLatestAccountId()
+	if err != nil {
+		return nil, err
+	}
+
+	iDB.latestOnRoadId, err = iDB.queryLatestOnRoadId()
 	if err != nil {
 		return nil, err
 	}

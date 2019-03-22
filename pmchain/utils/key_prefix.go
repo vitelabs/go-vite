@@ -22,6 +22,8 @@ const (
 	AccountBlockHeightKeyPrefix = byte(10)
 
 	OnRoadReverseKeyPrefix = byte(11)
+
+	LatestOnRoadIdKeyPrefix = byte(12)
 )
 
 const (

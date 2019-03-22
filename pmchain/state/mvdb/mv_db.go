@@ -29,7 +29,7 @@ func NewMultiVersionDB(chainDir string) (*MultiVersionDB, error) {
 
 	return &MultiVersionDB{
 		db:      db,
-		pending: chain_pending.NewMemDB(nil),
+		pending: chain_pending.NewMemDB(),
 	}, nil
 }
 

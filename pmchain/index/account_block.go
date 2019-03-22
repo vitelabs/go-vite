@@ -15,13 +15,12 @@ func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 	return iDB.hasValue(chain_utils.CreateAccountBlockHashKey(hash))
 }
 
-// latest account block in disk
 func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_block.Location, error) {
 
 	startKey := chain_utils.CreateAccountBlockHeightKey(addr, 1)
 	endKey := chain_utils.CreateAccountBlockHeightKey(addr, helper.MaxUint64)
 
-	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
+	iter := iDB.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
 	if !iter.Last() {

@@ -13,23 +13,21 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 
 	blockHash := &accountBlock.Hash
 	// hash -> addr & height
-	iDB.memDb.Put(blockHash,
-		chain_utils.CreateAccountBlockHashKey(blockHash),
+	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHashKey(blockHash),
 		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToFixedBytes(accountBlock.Height)...))
 
 	if accountBlock.IsReceiveBlock() {
 		// close send block
-		iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(blockHash), accountBlock.FromBlockHash.Bytes())
+		iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
 		// receive on road
-		//if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
-		//	return err
-		//}
+		if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
+			return err
+		}
+	} else {
+		// insert on road block
+		iDB.insertOnRoad(blockHash, &accountBlock.ToAddress)
 	}
-	//else {
-	// insert on road block
-	//iDB.insertOnRoad(blockHash, &accountBlock.ToAddress)
-	//}
 
 	if accountBlock.LogHash != nil {
 		// insert vm log list
@@ -67,6 +65,10 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 		iDB.memDb.Flush(batch, &block.Hash)
 	}
 
+	// latest on road id
+	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToFixedBytes(iDB.latestOnRoadId))
+
+	// write index db
 	if err := iDB.store.Write(batch); err != nil {
 		return err
 	}
