@@ -60,7 +60,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Locati
 		return nil, nil
 	}
 
-	return chain_utils.DeserializeLocation(value), nil
+	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
 // only in disk
@@ -73,7 +73,7 @@ func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, err
 
 	var location *chain_block.Location
 	if iter.Last() {
-		location = chain_utils.DeserializeLocation(iter.Value())
+		location = chain_utils.DeserializeLocation(iter.Value()[types.HashSize:])
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err
@@ -170,7 +170,7 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, hig
 				maxHeight = height
 			}
 
-			locationList = append(locationList, chain_utils.DeserializeLocation(iter.Value()))
+			locationList = append(locationList, chain_utils.DeserializeLocation(iter.Value()[types.HashSize:]))
 		}
 	} else {
 		iterOk := iter.Last()
@@ -183,7 +183,7 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, hig
 				maxHeight = height
 			}
 
-			locationList = append(locationList, chain_utils.DeserializeLocation(iter.Value()))
+			locationList = append(locationList, chain_utils.DeserializeLocation(iter.Value()[types.HashSize:]))
 			iterOk = iter.Prev()
 		}
 	}

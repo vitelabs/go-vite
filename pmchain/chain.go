@@ -198,8 +198,10 @@ func (c *chain) checkAndRepair() error {
 	if indexDbLatestLocation == nil {
 		return errors.New(fmt.Sprintf("latestLocation is nil, Error: %s", err))
 	}
+
 	blockDbLatestLocation := c.blockDB.LatestLocation()
 	compareResult := indexDbLatestLocation.Compare(blockDbLatestLocation)
+
 	if compareResult < 0 {
 		segs, err := c.blockDB.ReadRange(indexDbLatestLocation, blockDbLatestLocation)
 		if err != nil {
@@ -227,7 +229,11 @@ func (c *chain) checkAndRepair() error {
 				}
 			}
 		}
-	} else {
+	} else if compareResult > 0 {
+		if err := c.indexDB.Rollback(blockDbLatestLocation); err != nil {
+			return errors.New(fmt.Sprintf("c.indexDB.Rollback failed, location is %+v. Error: %s",
+				blockDbLatestLocation, err))
+		}
 		//c.indexDB.DeleteSnapshotBlocks()
 	}
 

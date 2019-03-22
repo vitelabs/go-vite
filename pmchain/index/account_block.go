@@ -30,7 +30,7 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 	}
 
 	height := chain_utils.FixedBytesToUint64(iter.Key()[9:])
-	location := chain_utils.DeserializeLocation(iter.Value())
+	location := chain_utils.DeserializeLocation(iter.Value()[types.HashSize:])
 	return height, location, nil
 }
 
@@ -44,7 +44,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	if len(value) <= 0 {
 		return nil, nil
 	}
-	return chain_utils.DeserializeLocation(value), nil
+	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
 // TODO

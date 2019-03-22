@@ -47,7 +47,8 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
 
 	// height -> location
-	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height), chain_utils.SerializeLocation(snapshotBlockLocation))
+	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height),
+		append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
 
 	// confirm block
 	for _, hashHeight := range snapshotBlock.SnapshotContent {
@@ -58,7 +59,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	for index, block := range confirmedBlocks {
 		// height -> account block location
 		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height),
-			chain_utils.SerializeLocation(abLocationsList[index]))
+			append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
 
 		iDB.memDb.Flush(batch, &block.Hash)
 	}
