@@ -17,8 +17,13 @@ type BlockDB struct {
 }
 
 type SnapshotSegment struct {
-	SnapshotBlock *ledger.SnapshotBlock
-	AccountBlocks []*ledger.AccountBlock
+	SnapshotBlock         *ledger.SnapshotBlock
+	SnapshotBlockLocation *Location // optional
+
+	AccountBlocks         []*ledger.AccountBlock
+	AccountBlocksLocation []*Location // optional
+
+	RightBoundary *Location // optional
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
@@ -38,7 +43,7 @@ func (bDB *BlockDB) Stop() {
 }
 
 func (bDB *BlockDB) CleanAllData() error {
-	return bDB.CleanAllData()
+	return bDB.fm.RemoveAllFile()
 }
 
 func (bDB *BlockDB) Destroy() error {
@@ -48,6 +53,60 @@ func (bDB *BlockDB) Destroy() error {
 
 	bDB.fm = nil
 	return nil
+}
+
+func (bDB *BlockDB) CheckAndRepair() error {
+	latestLocation := bDB.fm.LatestLocation()
+	startLocation := NewLocation(latestLocation.FileId(), 0)
+	bfp := newBlockFileParser()
+
+	bDB.wg.Add(1)
+	go func() {
+		defer bDB.wg.Done()
+		bDB.fm.ReadRange(startLocation, latestLocation, bfp)
+	}()
+
+	snappyReadBuffer := make([]byte, 0, 1024*1024) // 1M
+	iterator := bfp.Iterator()
+
+	currentOffset := int64(0)
+	for buf := range iterator {
+		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+		if err != nil {
+			break
+		}
+		sb := &ledger.SnapshotBlock{}
+		if err := sb.Deserialize(sBuf); err != nil {
+			break
+		}
+
+		if buf.BlockType == BlockTypeSnapshotBlock {
+
+			sb := &ledger.SnapshotBlock{}
+			if err := sb.Deserialize(sBuf); err != nil {
+				break
+			}
+
+		} else if buf.BlockType == BlockTypeAccountBlock {
+			ab := &ledger.AccountBlock{}
+			if err := ab.Deserialize(sBuf); err != nil {
+				break
+			}
+		}
+		currentOffset += buf.Size
+	}
+
+	if currentOffset < latestLocation.Offset() {
+		if err := bDB.fm.DeleteTo(NewLocation(startLocation.FileId(), currentOffset)); err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+
+func (bDB *BlockDB) LatestLocation() *Location {
+	return bDB.fm.LatestLocation()
 }
 
 func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
@@ -104,40 +163,50 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 	var snappyReadBuffer = make([]byte, 0, 1024*1024) // 1M
 	iterator := bfp.Iterator()
 
+	currentFileId := uint64(0)
+	currentOffset := int64(0)
+
 	for buf := range iterator {
 		if seg == nil {
 			seg = &SnapshotSegment{}
 		}
 
+		if buf.FileId != currentFileId {
+			currentFileId = buf.FileId
+			currentOffset = 0
+		}
+
+		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+		if err != nil {
+			return nil, err
+		}
 		if buf.BlockType == BlockTypeSnapshotBlock {
 
-			sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
-			if err != nil {
-				return nil, err
-			}
 			sb := &ledger.SnapshotBlock{}
 			if err := sb.Deserialize(sBuf); err != nil {
 				return nil, err
 			}
 			seg.SnapshotBlock = sb
+			seg.SnapshotBlockLocation = NewLocation(currentFileId, currentOffset)
+			seg.RightBoundary = NewLocation(currentFileId, currentOffset+buf.Size)
+
 			segList = append(segList, seg)
 
 			seg = nil
 		} else if buf.BlockType == BlockTypeAccountBlock {
-			sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
-			if err != nil {
-				return nil, err
-			}
-
 			ab := &ledger.AccountBlock{}
 			if err := ab.Deserialize(sBuf); err != nil {
 				return nil, err
 			}
 			seg.AccountBlocks = append(seg.AccountBlocks, ab)
+			seg.AccountBlocksLocation = append(seg.AccountBlocksLocation, NewLocation(currentFileId, currentOffset))
 		}
+
+		currentOffset += buf.Size
 	}
 
 	if seg != nil {
+		seg.RightBoundary = NewLocation(currentFileId, currentOffset)
 		segList = append(segList, seg)
 	}
 
@@ -149,14 +218,14 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 }
 
 func (bDB *BlockDB) DeleteTo(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
-	// bDB.fm.DeleteTo(location)
+	// bDB.fm.DeleteAndReadTo(location)
 	bfp := newBlockFileParser()
 	bfp2 := newBlockFileParser()
 
 	bDB.wg.Add(1)
 	go func() {
 		defer bDB.wg.Done()
-		bDB.fm.DeleteTo(location, bfp)
+		bDB.fm.DeleteAndReadTo(location, bfp)
 		bDB.fm.ReadRange(prevLocation, location, bfp2)
 	}()
 

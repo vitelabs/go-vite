@@ -5,7 +5,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/utils"
 )
@@ -104,18 +103,6 @@ func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 	//key := chain_utils.CreateReceiveHeightKey(accountId, height)
 	return iDB.hasValue([]byte{})
 
-}
-func (iDB *IndexDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
-	key := chain_utils.CreateVmLogListKey(logHash)
-	value, err := iDB.getValue(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(value) <= 0 {
-		return nil, nil
-	}
-	return ledger.VmLogListDeserialize(value)
 }
 
 func (iDB *IndexDB) getAccountIdHeight(blockHash *types.Hash) (uint64, uint64, error) {

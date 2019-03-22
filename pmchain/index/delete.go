@@ -9,7 +9,8 @@ import (
 )
 
 // TODO
-func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment, unconfirmedBlocks []*ledger.AccountBlock) error {
+func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment,
+	unconfirmedBlocks []*ledger.AccountBlock) error {
 	//batch := iDB.store.NewBatch()
 	//
 	//deletedHashMap := make(map[types.Hash]struct{})
@@ -50,7 +51,7 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 	//					return errors.New(fmt.Sprintf("sendAccountId is 0, block is %+v", block))
 	//				}
 	//
-	//				iDB.deleteReceiveHeight(batch, sendAccountId, sendHeight)
+	//				iDB.deleteReceive(batch, sendAccountId, sendHeight)
 	//
 	//				// insert onRoad
 	//				if err := iDB.insertOnRoad(&block.FromBlockHash, accountId); err != nil {
@@ -92,35 +93,33 @@ func (iDB *IndexDB) DeleteSnapshotBlocks(deletedSnapshotSegments []*chain_block.
 	//iDB.memDb.Clean()
 
 	return nil
+}
+
+func (iDB *IndexDB) setIndexDbLatestLocation(batch interfaces.Batch, latestLocation *chain_block.Location) {
+	batch.Put(chain_utils.CreateIndexDbLatestLocationKey(), chain_utils.SerializeLocation(latestLocation))
 
 }
 
 func (iDB *IndexDB) deleteSnapshotBlockHash(batch interfaces.Batch, snapshotBlockHash *types.Hash) {
-	key := chain_utils.CreateSnapshotBlockHashKey(snapshotBlockHash)
-	batch.Delete(key)
+	batch.Delete(chain_utils.CreateSnapshotBlockHashKey(snapshotBlockHash))
 }
 
 func (iDB *IndexDB) deleteSnapshotBlockHeight(batch interfaces.Batch, snapshotBlockHeight uint64) {
-	key := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
-	batch.Delete(key)
+	batch.Delete(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight))
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch interfaces.Batch, blockHash *types.Hash) {
-	key := chain_utils.CreateAccountBlockHashKey(blockHash)
-	batch.Delete(key)
+	batch.Delete(chain_utils.CreateAccountBlockHashKey(blockHash))
 }
 
 func (iDB *IndexDB) deleteAccountBlockHeight(batch interfaces.Batch, addr *types.Address, height uint64) {
-	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
-	batch.Delete(key)
+	batch.Delete(chain_utils.CreateAccountBlockHeightKey(addr, height))
 }
 
-func (iDB *IndexDB) deleteReceiveHeight(batch interfaces.Batch, sendAccountId, sendHeight uint64) {
-	//key := chain_utils.CreateReceiveHeightKey(sendAccountId, sendHeight)
-	//batch.Delete(key)
+func (iDB *IndexDB) deleteReceive(batch interfaces.Batch, sendBlockHash *types.Hash) {
+	batch.Delete(chain_utils.CreateReceiveKey(sendBlockHash))
 }
 
-func (iDB *IndexDB) deleteVmLogList(batch interfaces.Batch, logHash *types.Hash) {
-	key := chain_utils.CreateVmLogListKey(logHash)
-	batch.Delete(key)
+func (iDB *IndexDB) deleteConfirmHeight(batch interfaces.Batch, hash *types.Hash) {
+	batch.Delete(chain_utils.CreateConfirmHeightKey(hash))
 }

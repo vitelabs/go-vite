@@ -34,13 +34,13 @@ func SerializeLocation(location *chain_block.Location) []byte {
 	bytes := make([]byte, 12)
 	binary.BigEndian.PutUint64(bytes, location.FileId())
 
-	binary.BigEndian.PutUint32(bytes[8:], location.Offset())
+	binary.BigEndian.PutUint32(bytes[8:], uint32(location.Offset()))
 
 	return bytes
 }
 
 func DeserializeLocation(bytes []byte) *chain_block.Location {
-	return chain_block.NewLocation(FixedBytesToUint64(bytes[:8]), binary.BigEndian.Uint32(bytes[8:]))
+	return chain_block.NewLocation(FixedBytesToUint64(bytes[:8]), int64(binary.BigEndian.Uint32(bytes[8:])))
 }
 
 func SerializeUint64(number uint64) []byte {

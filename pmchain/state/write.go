@@ -9,42 +9,51 @@ import (
 )
 
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
-	accountId, err := sDB.chain.GetAccountId(&block.AccountBlock.AccountAddress)
-	if err != nil {
-		return err
-	}
-
+	address := &block.AccountBlock.AccountAddress
 	vmDb := block.VmDb
 
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
 	unsavedStorage, deletedKeys := vmDb.GetUnsavedStorage()
 	unsavedCode := vmDb.GetUnsavedContractCode()
 	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
+	unsavedVmLogList := vmDb.GetLogList()
 
-	kvSize := len(unsavedBalanceMap) + len(unsavedStorage) + 2
+	kvSize := len(unsavedBalanceMap) + len(unsavedStorage) + 3
 	keyList := make([][]byte, 0, kvSize)
 	valueList := make([][]byte, 0, kvSize)
 
 	// write balance
-	balanceKeyList, balanceValueList := sDB.prepareWriteBalance(accountId, unsavedBalanceMap)
+	balanceKeyList, balanceValueList := sDB.prepareWriteBalance(address, unsavedBalanceMap)
 	keyList = append(keyList, balanceKeyList...)
 	valueList = append(valueList, balanceValueList...)
 
 	// write storage
-	storageKeyList, storageValueList := sDB.prepareWriteStorage(accountId, unsavedStorage, deletedKeys)
+	storageKeyList, storageValueList := sDB.prepareWriteStorage(address, unsavedStorage, deletedKeys)
 	keyList = append(keyList, storageKeyList...)
 	valueList = append(valueList, storageValueList...)
 
 	// write code
 	if len(unsavedCode) > 0 {
-		keyList = append(keyList, chain_utils.CreateCodeKey(accountId))
+		keyList = append(keyList, chain_utils.CreateCodeKey(address))
 		valueList = append(valueList, unsavedCode)
 	}
 
 	// write contract meta
 	if unsavedContractMeta != nil {
-		keyList = append(keyList, chain_utils.CreateContractMetaKey(accountId))
+		keyList = append(keyList, chain_utils.CreateContractMetaKey(address))
 		valueList = append(valueList, unsavedContractMeta.Serialize())
+	}
+
+	// write log list
+	logHash := block.AccountBlock.LogHash
+	if logHash != nil {
+		// insert vm log list
+		keyList = append(keyList, chain_utils.CreateVmLogListKey(logHash))
+		value, err := unsavedVmLogList.Serialize()
+		if err != nil {
+			return err
+		}
+		valueList = append(valueList, value)
 	}
 
 	if err := sDB.mvDB.Insert(&block.AccountBlock.Hash, keyList, valueList); err != nil {
@@ -56,45 +65,47 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 func (sDB *StateDB) Flush(snapshotBlockHash *types.Hash,
 	blocks []*ledger.AccountBlock,
 	invalidAccountBlocks []*ledger.AccountBlock) error {
+
 	blockHashList := make([]*types.Hash, 0, len(blocks))
 
 	for _, block := range blocks {
 		blockHashList = append(blockHashList, &block.Hash)
 	}
 
-	for _, block := range invalidAccountBlocks {
-		sDB.mvDB.DeletePendingBlock(&block.Hash)
-	}
 	if err := sDB.mvDB.Flush(blockHashList); err != nil {
 		return err
+	}
+
+	for _, block := range invalidAccountBlocks {
+		sDB.mvDB.DeletePendingBlock(&block.Hash)
 	}
 
 	return nil
 }
 
-func (sDB *StateDB) prepareWriteBalance(accountId uint64, balanceMap map[types.TokenTypeId]*big.Int) ([][]byte, [][]byte) {
+func (sDB *StateDB) prepareWriteBalance(addr *types.Address, balanceMap map[types.TokenTypeId]*big.Int) ([][]byte, [][]byte) {
 	keyList := make([][]byte, 0, len(balanceMap))
 	valueList := make([][]byte, 0, len(balanceMap))
 
 	for tokenTypeId, balance := range balanceMap {
-		keyList = append(keyList, chain_utils.CreateBalanceKey(accountId, &tokenTypeId))
+		keyList = append(keyList, chain_utils.CreateBalanceKey(addr, &tokenTypeId))
 		valueList = append(valueList, balance.Bytes())
 
 	}
 	return keyList, valueList
 }
 
-func (sDB *StateDB) prepareWriteStorage(accountId uint64, unsavedStorage [][2][]byte, deletedKeys map[string]struct{}) ([][]byte, [][]byte) {
+func (sDB *StateDB) prepareWriteStorage(addr *types.Address, unsavedStorage [][2][]byte, deletedKeys map[string]struct{}) ([][]byte, [][]byte) {
 	keyList := make([][]byte, 0, len(unsavedStorage))
 	valueList := make([][]byte, 0, len(unsavedStorage))
 
 	for _, kv := range unsavedStorage {
-		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(accountId, kv[0]))
+		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(addr, kv[0]))
 		valueList = append(valueList, kv[1])
 	}
 
 	for keyStr := range deletedKeys {
-		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(accountId, []byte(keyStr)))
+		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(addr, []byte(keyStr)))
 		valueList = append(valueList, nil)
 	}
 	return keyList, valueList

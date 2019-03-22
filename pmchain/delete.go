@@ -51,7 +51,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location, p
 	deletedSnapshotSegments, unconfirmedAccountBlocks, err := c.blockDB.DeleteTo(location, prevLocation)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteTo failed, error is %s, location is %d", err.Error(), location))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteAndReadTo failed, error is %s, location is %d", err.Error(), location))
 		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 		return nil, nil, cErr
 	}

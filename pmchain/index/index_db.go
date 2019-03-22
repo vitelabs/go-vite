@@ -7,7 +7,9 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/pending"
+	"github.com/vitelabs/go-vite/pmchain/utils"
 )
 
 type IndexDB struct {
@@ -66,6 +68,20 @@ func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
 		iDB.memDb.NewIterator(slice),
 		iDB.store.NewIterator(slice),
 	}, iDB.memDb.DeletedKeys())
+}
+
+func (iDB *IndexDB) QueryLatestLocation() (*chain_block.Location, error) {
+	value, err := iDB.store.Get(chain_utils.CreateIndexDbLatestLocationKey())
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if len(value) <= 0 {
+		return nil, nil
+	}
+	return chain_utils.DeserializeLocation(value), nil
 }
 
 func (iDB *IndexDB) Destroy() error {

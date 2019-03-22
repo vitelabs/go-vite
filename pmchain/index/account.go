@@ -9,6 +9,10 @@ import (
 	"sync/atomic"
 )
 
+func (iDB *IndexDB) HasAccount(addr *types.Address) (bool, error) {
+	return iDB.hasValue(chain_utils.CreateAccountAddressKey(addr))
+}
+
 func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	key := chain_utils.CreateAccountAddressKey(addr)
 	value, ok := iDB.memDb.Get(key)

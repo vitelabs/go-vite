@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+// ====== index db ======
 func CreateAccountAddressKey(addr *types.Address) []byte {
 	addrBytes := addr.Bytes()
 	key := make([]byte, 0, 1+types.AddressSize)
@@ -45,19 +46,16 @@ func CreateLatestOnRoadIdKey() []byte {
 	return []byte{LatestOnRoadIdKeyPrefix}
 }
 
-func CreateVmLogListKey(logHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, VmLogListKeyPrefix)
-	key = append(key, logHash.Bytes()...)
-	return key
-}
-
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, AccountIdKeyPrefix)
 	key = append(key, Uint64ToFixedBytes(accountId)...)
 
 	return key
+}
+
+func CreateAccountIdPrefixKey() []byte {
+	return []byte{AccountIdKeyPrefix}
 }
 
 func CreateConfirmHeightKey(blockHash *types.Hash) []byte {
@@ -82,6 +80,14 @@ func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
 	return key
 }
 
+func CreateAccountBlockHeightPrefixKey(addr *types.Address) []byte {
+	key := make([]byte, 0, 1+types.AddressSize)
+
+	key = append(key, AccountBlockHeightKeyPrefix)
+	key = append(key, addr.Bytes()...)
+	return key
+}
+
 func CreateSnapshotBlockHashKey(snapshotBlockHash *types.Hash) []byte {
 	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, SnapshotBlockHashKeyPrefix)
@@ -95,6 +101,12 @@ func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) []byte {
 	key = append(key, Uint64ToFixedBytes(snapshotBlockHeight)...)
 	return key
 }
+
+func CreateIndexDbLatestLocationKey() []byte {
+	return []byte{IndexDbLatestLocationKeyPrefix}
+}
+
+// ====== state db ======
 
 func CreateKeyIdKey(mvDbKey []byte) []byte {
 	key := make([]byte, 0, 1+len(mvDbKey))
@@ -117,35 +129,35 @@ func CreateLatestValueKey(keyId uint64) []byte {
 	return key
 }
 
-func CreateBalanceKey(accountId uint64, tokenTypeId *types.TokenTypeId) []byte {
-	key := make([]byte, 0, 1+8+types.TokenTypeIdSize)
+func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
 	key = append(key, BalanceKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, addr.Bytes()...)
 	key = append(key, tokenTypeId.Bytes()...)
 	return key
 }
 
-func CreateStorageKeyPrefix(accountId uint64, storageKey []byte) []byte {
-	key := make([]byte, 0, 1+8+len(storageKey))
+func CreateStorageKeyPrefix(addr *types.Address, storageKey []byte) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+len(storageKey))
 
 	key = append(key, StorageKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, addr.Bytes()...)
 	key = append(key, storageKey...)
 	return key
 }
 
-func CreateCodeKey(accountId uint64) []byte {
-	key := make([]byte, 0, 9)
+func CreateCodeKey(addr *types.Address) []byte {
+	key := make([]byte, 0, 1+types.AddressSize)
 
 	key = append(key, CodeKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, addr.Bytes()...)
 	return key
 }
 
-func CreateContractMetaKey(accountId uint64) []byte {
-	key := make([]byte, 0, 9)
+func CreateContractMetaKey(addr *types.Address) []byte {
+	key := make([]byte, 0, 1+types.AddressSize)
 	key = append(key, ContractMetaKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, addr.Bytes()...)
 	return key
 }
 
@@ -153,5 +165,12 @@ func CreateStateUndoKey(blockHash *types.Hash) []byte {
 	key := make([]byte, 0, 33)
 	key = append(key, StateUndoKeyPrefix)
 	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
+func CreateVmLogListKey(logHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, VmLogListKeyPrefix)
+	key = append(key, logHash.Bytes()...)
 	return key
 }

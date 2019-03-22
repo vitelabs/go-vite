@@ -5,13 +5,15 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pmchain/block"
 	"github.com/vitelabs/go-vite/pmchain/utils"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
-	accountBlock := vmAccountBlock.AccountBlock
-
+func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error {
 	blockHash := &accountBlock.Hash
+	if ok, err := iDB.HasAccount(&accountBlock.AccountAddress); err != nil {
+		return err
+	} else if !ok {
+		iDB.createAccount(blockHash, &accountBlock.AccountAddress)
+	}
 	// hash -> addr & height
 	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHashKey(blockHash),
 		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToFixedBytes(accountBlock.Height)...))
@@ -28,12 +30,6 @@ func (iDB *IndexDB) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) err
 		// insert on road block
 		iDB.insertOnRoad(blockHash, &accountBlock.ToAddress)
 	}
-
-	if accountBlock.LogHash != nil {
-		// insert vm log list
-		vmLogList := vmAccountBlock.VmDb.GetLogList()
-		iDB.insertVmLogList(blockHash, accountBlock.LogHash, vmLogList)
-	}
 	return nil
 }
 
@@ -41,7 +37,8 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	confirmedBlocks []*ledger.AccountBlock,
 	snapshotBlockLocation *chain_block.Location,
 	abLocationsList []*chain_block.Location,
-	invalidBlocks []*ledger.AccountBlock) error {
+	invalidBlocks []*ledger.AccountBlock,
+	latestLocation *chain_block.Location) error {
 
 	batch := iDB.store.NewBatch()
 
@@ -56,6 +53,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	for _, hashHeight := range snapshotBlock.SnapshotContent {
 		batch.Put(chain_utils.CreateConfirmHeightKey(&hashHeight.Hash), heightBytes)
 	}
+
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
@@ -67,6 +65,9 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 
 	// latest on road id
 	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToFixedBytes(iDB.latestOnRoadId))
+
+	// latest location
+	iDB.setIndexDbLatestLocation(batch, latestLocation)
 
 	// write index db
 	if err := iDB.store.Write(batch); err != nil {

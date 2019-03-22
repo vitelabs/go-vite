@@ -16,16 +16,18 @@ var ClosedErr = errors.New("blockFileParser is closed")
 type byteBuffer struct {
 	BlockType byte
 	Buffer    []byte
+	Size      int64
+	FileId    uint64
 }
 
 type blockFileParser struct {
-	blockSize              int
+	blockSize              int64
 	blockSizeBuffer        []byte
 	blockSizeBufferPointer int
 
 	blockType byte
 
-	blockBufferPointer int
+	blockBufferPointer int64
 	blockBuffer        []byte
 
 	bytesBuffer chan *byteBuffer
@@ -58,7 +60,7 @@ func (bfp *blockFileParser) WriteErr(err error) {
 	bfp.err = err
 }
 
-func (bfp *blockFileParser) Write(buf []byte) (int, error) {
+func (bfp *blockFileParser) Write(fileId uint64, buf []byte) (int, error) {
 	if bfp.closed {
 		return 0, ClosedErr
 	}
@@ -84,7 +86,7 @@ func (bfp *blockFileParser) Write(buf []byte) (int, error) {
 			bfp.blockSizeBufferPointer += readNumbers
 
 			if bfp.blockSizeBufferPointer >= 4 {
-				bfp.blockSize = int(binary.BigEndian.Uint32(bfp.blockSizeBuffer) - 5)
+				bfp.blockSize = int64(binary.BigEndian.Uint32(bfp.blockSizeBuffer) - 5)
 			}
 		} else if bfp.blockType == BlockTypeUnknown {
 
@@ -92,7 +94,7 @@ func (bfp *blockFileParser) Write(buf []byte) (int, error) {
 			readPointer += 1
 
 		} else {
-			readNumbers := bfp.blockSize - bfp.blockBufferPointer
+			readNumbers := int(bfp.blockSize - bfp.blockBufferPointer)
 
 			if readNumbers > restLen {
 				if len(bfp.blockBuffer) <= 0 {
@@ -101,18 +103,22 @@ func (bfp *blockFileParser) Write(buf []byte) (int, error) {
 				bfp.blockBuffer = append(bfp.blockBuffer, buf[readPointer:]...)
 
 				readPointer = bufLen
-				bfp.blockBufferPointer += restLen
+				bfp.blockBufferPointer += int64(restLen)
 			} else {
 				nextPointer := readPointer + readNumbers
 				if len(bfp.blockBuffer) <= 0 {
 					bfp.bytesBuffer <- &byteBuffer{
 						BlockType: bfp.blockType,
 						Buffer:    buf[readPointer:nextPointer],
+						Size:      bfp.blockSize + 5,
+						FileId:    fileId,
 					}
 				} else {
 					bfp.bytesBuffer <- &byteBuffer{
 						BlockType: bfp.blockType,
 						Buffer:    append(bfp.blockBuffer, buf[readPointer:nextPointer]...),
+						Size:      bfp.blockSize + 5,
+						FileId:    fileId,
 					}
 				}
 

@@ -7,23 +7,23 @@ const (
 
 	OnRoadKeyPrefix = byte(3)
 
-	VmLogListKeyPrefix = byte(4)
+	SnapshotBlockHashKeyPrefix = byte(4)
 
-	SnapshotBlockHashKeyPrefix = byte(5)
+	SnapshotBlockHeightKeyPrefix = byte(5)
 
-	SnapshotBlockHeightKeyPrefix = byte(6)
+	AccountAddressKeyPrefix = byte(6)
 
-	AccountAddressKeyPrefix = byte(7)
+	AccountIdKeyPrefix = byte(7)
 
-	AccountIdKeyPrefix = byte(8)
+	ConfirmHeightKeyPrefix = byte(8)
 
-	ConfirmHeightKeyPrefix = byte(9)
+	AccountBlockHeightKeyPrefix = byte(9)
 
-	AccountBlockHeightKeyPrefix = byte(10)
+	OnRoadReverseKeyPrefix = byte(10)
 
-	OnRoadReverseKeyPrefix = byte(11)
+	LatestOnRoadIdKeyPrefix = byte(11)
 
-	LatestOnRoadIdKeyPrefix = byte(12)
+	IndexDbLatestLocationKeyPrefix = byte(12)
 )
 
 const (
@@ -42,4 +42,6 @@ const (
 	ContractMetaKeyPrefix = byte(7)
 
 	StateUndoKeyPrefix = byte(8)
+
+	VmLogListKeyPrefix = byte(9)
 )

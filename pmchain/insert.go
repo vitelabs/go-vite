@@ -22,7 +22,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	c.cache.InsertAccountBlock(accountBlock)
 
 	// write index database
-	if err := c.indexDB.InsertAccountBlock(vmAccountBlock); err != nil {
+	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
 		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
 		return cErr
@@ -47,7 +47,12 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
-	//canBeSnappedSubLedger := blocksToMap(canBeSnappedBlocks)
+	// flush state db
+	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks, invalidAccountBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
+		return nil, cErr
+	}
 
 	// write block db
 	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
@@ -61,17 +66,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		return nil, cErr
 	}
 
-	// insert index TODO
+	// insert index
 	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks,
-		snapshotBlockLocation, abLocationList, invalidAccountBlocks); err != nil {
+		snapshotBlockLocation, abLocationList, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, cErr
-	}
-
-	// flush state db
-	if err := c.stateDB.Flush(&snapshotBlock.Hash, canBeSnappedBlocks, invalidAccountBlocks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
 		return nil, cErr
 	}

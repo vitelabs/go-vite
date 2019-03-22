@@ -1,8 +1,6 @@
 package chain_state
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -49,16 +47,21 @@ func (sDB *StateDB) Destroy() error {
 	return nil
 }
 
-func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
+func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
+	key := chain_utils.CreateVmLogListKey(logHash)
+	value, err := sDB.mvDB.GetValue(key)
 	if err != nil {
 		return nil, err
 	}
-	if accountId <= 0 {
-		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
 
-	value, err := sDB.mvDB.GetValue(chain_utils.CreateBalanceKey(accountId, tokenTypeId))
+	if len(value) <= 0 {
+		return nil, nil
+	}
+	return ledger.VmLogListDeserialize(value)
+}
+
+func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
+	value, err := sDB.mvDB.GetValue(chain_utils.CreateBalanceKey(addr, tokenTypeId))
 	if err != nil {
 		return nil, err
 	}
@@ -67,27 +70,12 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 }
 
 func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	if accountId <= 0 {
-		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
 
-	return sDB.mvDB.GetValue(chain_utils.CreateCodeKey(accountId))
+	return sDB.mvDB.GetValue(chain_utils.CreateCodeKey(addr))
 }
 
 func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	if accountId <= 0 {
-		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
-
-	value, err := sDB.mvDB.GetValue(chain_utils.CreateContractMetaKey(accountId))
+	value, err := sDB.mvDB.GetValue(chain_utils.CreateContractMetaKey(addr))
 	if err != nil {
 		return nil, err
 	}
@@ -104,38 +92,14 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 }
 
 func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
-	if err != nil {
-		return false, err
-	}
-	if accountId <= 0 {
-		return false, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
-
-	return sDB.mvDB.HasValue(chain_utils.CreateContractMetaKey(accountId))
+	return sDB.mvDB.HasValue(chain_utils.CreateContractMetaKey(addr))
 }
 func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	if accountId <= 0 {
-		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
-
-	return sDB.mvDB.GetValue(chain_utils.CreateStorageKeyPrefix(accountId, []byte(key)))
+	return sDB.mvDB.GetValue(chain_utils.CreateStorageKeyPrefix(addr, []byte(key)))
 }
 
 func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	accountId, err := sDB.chain.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	if accountId <= 0 {
-		return nil, errors.New(fmt.Sprintf("account is not exsited, addr is %s", addr))
-	}
-
-	return sDB.mvDB.NewIterator(chain_utils.CreateStorageKeyPrefix(accountId, prefix)), nil
+	return sDB.mvDB.NewIterator(chain_utils.CreateStorageKeyPrefix(addr, prefix)), nil
 }
 
 func (sDB *StateDB) NewStateSnapshot(addr *types.Address, snapshotBlockHeight uint64) (interfaces.StateSnapshot, error) {

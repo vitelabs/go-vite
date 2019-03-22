@@ -215,7 +215,6 @@ type stateSnapshot struct {
 	ssm        *stateSnapshotManager
 	snapshotId uint64
 	address    *types.Address
-	accountId  uint64
 	mvDB       *mvdb.MultiVersionDB
 
 	maxKeyId uint64
@@ -235,16 +234,11 @@ func newStateSnapshot(ssm *stateSnapshotManager, snapshotId uint64, addr *types.
 		cacheKeyIdValueId: cacheKeyIdValueId,
 	}
 
-	accountId, err := ssm.chain.GetAccountId(addr)
-	if err != nil {
-		return nil, err
-	}
-	ss.accountId = accountId
 	return ss, nil
 }
 
 func (ss *stateSnapshot) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	key := chain_utils.CreateBalanceKey(ss.accountId, tokenTypeId)
+	key := chain_utils.CreateBalanceKey(ss.address, tokenTypeId)
 
 	value, err := ss.getValue(key)
 	if err != nil {
@@ -255,7 +249,7 @@ func (ss *stateSnapshot) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, e
 }
 
 func (ss *stateSnapshot) GetValue(key []byte) ([]byte, error) {
-	storageKey := chain_utils.CreateStorageKeyPrefix(ss.accountId, key)
+	storageKey := chain_utils.CreateStorageKeyPrefix(ss.address, key)
 
 	value, err := ss.getValue(storageKey)
 	if err != nil {
