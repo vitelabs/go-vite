@@ -1,5 +1,6 @@
 package chain_utils
 
+// index db
 const (
 	AccountBlockHashKeyPrefix = byte(1)
 
@@ -26,6 +27,20 @@ const (
 	IndexDbLatestLocationKeyPrefix = byte(12)
 )
 
+// state db
+const (
+	BalanceKeyPrefix = byte(1)
+
+	StorageKeyPrefix = byte(2)
+
+	CodeKeyPrefix = byte(3)
+
+	ContractMetaKeyPrefix = byte(4)
+
+	VmLogListKeyPrefix = byte(5)
+)
+
+// mv db
 const (
 	KeyIdKeyPrefix = byte(1)
 
@@ -33,17 +48,7 @@ const (
 
 	LatestValueKeyPrefix = byte(3)
 
-	BalanceKeyPrefix = byte(4)
+	UndoKeyPrefix = byte(4)
 
-	StorageKeyPrefix = byte(5)
-
-	CodeKeyPrefix = byte(6)
-
-	ContractMetaKeyPrefix = byte(7)
-
-	StateUndoKeyPrefix = byte(8)
-
-	VmLogListKeyPrefix = byte(9)
-
-	StateDbLatestLocationKeyPrefix = byte(12)
+	MvDbLatestLocationKeyPrefix = byte(5)
 )

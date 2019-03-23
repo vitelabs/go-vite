@@ -108,27 +108,6 @@ func CreateIndexDbLatestLocationKey() []byte {
 
 // ====== state db ======
 
-func CreateKeyIdKey(mvDbKey []byte) []byte {
-	key := make([]byte, 0, 1+len(mvDbKey))
-	key = append(key, KeyIdKeyPrefix)
-	key = append(key, mvDbKey...)
-	return key
-}
-
-func CreateValueIdKey(valueId uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, ValueIdKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(valueId)...)
-	return key
-}
-
-func CreateLatestValueKey(keyId uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, LatestValueKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(keyId)...)
-	return key
-}
-
 func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {
 	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
 	key = append(key, BalanceKeyPrefix)
@@ -161,13 +140,6 @@ func CreateContractMetaKey(addr *types.Address) []byte {
 	return key
 }
 
-func CreateStateUndoKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 33)
-	key = append(key, StateUndoKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-
 func CreateVmLogListKey(logHash *types.Hash) []byte {
 	key := make([]byte, 0, 1+types.HashSize)
 	key = append(key, VmLogListKeyPrefix)
@@ -175,6 +147,36 @@ func CreateVmLogListKey(logHash *types.Hash) []byte {
 	return key
 }
 
-func CreateStateDbLatestLocationKey() []byte {
-	return []byte{StateDbLatestLocationKeyPrefix}
+// ====== mv db ======
+
+func CreateKeyIdKey(mvDbKey []byte) []byte {
+	key := make([]byte, 0, 1+len(mvDbKey))
+	key = append(key, KeyIdKeyPrefix)
+	key = append(key, mvDbKey...)
+	return key
+}
+
+func CreateValueIdKey(valueId uint64) []byte {
+	key := make([]byte, 0, 9)
+	key = append(key, ValueIdKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(valueId)...)
+	return key
+}
+
+func CreateLatestValueKey(keyId uint64) []byte {
+	key := make([]byte, 0, 9)
+	key = append(key, LatestValueKeyPrefix)
+	key = append(key, Uint64ToFixedBytes(keyId)...)
+	return key
+}
+
+func CreateUndoKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 33)
+	key = append(key, UndoKeyPrefix)
+	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
+func CreateMvDbLatestLocationKey() []byte {
+	return []byte{MvDbLatestLocationKeyPrefix}
 }

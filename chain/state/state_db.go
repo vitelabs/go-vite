@@ -11,8 +11,9 @@ import (
 )
 
 type StateDB struct {
-	mvDB  *mvdb.MultiVersionDB
-	chain Chain
+	mvDB     *mvdb.MultiVersionDB
+	flushLog *journal
+	chain    Chain
 
 	ssm *stateSnapshotManager
 }
@@ -23,8 +24,15 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		return nil, err
 	}
 
+	dbLog, err := newJournal(chainDir)
+	if err != nil {
+		return nil, err
+	}
+
 	return &StateDB{
-		mvDB:  mvDB,
+		mvDB:     mvDB,
+		flushLog: dbLog,
+
 		chain: chain,
 	}, nil
 }

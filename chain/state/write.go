@@ -72,6 +72,10 @@ func (sDB *StateDB) Flush(blocks []*ledger.AccountBlock, invalidAccountBlocks []
 		blockHashList = append(blockHashList, &block.Hash)
 	}
 
+	if err := sDB.flushLog.Write(blockHashList); err != nil {
+		return err
+	}
+
 	if err := sDB.mvDB.Flush(blockHashList, latestLocation); err != nil {
 		return err
 	}
@@ -90,7 +94,6 @@ func (sDB *StateDB) prepareWriteBalance(addr *types.Address, balanceMap map[type
 	for tokenTypeId, balance := range balanceMap {
 		keyList = append(keyList, chain_utils.CreateBalanceKey(addr, &tokenTypeId))
 		valueList = append(valueList, balance.Bytes())
-
 	}
 	return keyList, valueList
 }

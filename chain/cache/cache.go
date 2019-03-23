@@ -20,8 +20,9 @@ type Cache struct {
 func NewCache(chain Chain) (*Cache, error) {
 	ds := NewDataSet()
 	c := &Cache{
-		ds:              ds,
-		chain:           chain,
+		ds:    ds,
+		chain: chain,
+
 		unconfirmedPool: NewUnconfirmedPool(ds),
 		hd:              newHotData(ds),
 		quotaList:       newQuotaList(chain),

@@ -6,6 +6,8 @@ import (
 )
 
 type Chain interface {
+	IsAccountBlockExisted(hash *types.Hash) (bool, error)
+
 	GetAccountId(address *types.Address) (uint64, error)
 
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)

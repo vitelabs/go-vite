@@ -97,7 +97,15 @@ func (c *chain) Init() error {
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
 				}
+			} else {
+				// Check and repair
+				if err = c.checkAndRepair(); err != nil {
+					cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
+					c.log.Error(cErr.Error(), "method", "Init")
+					return err
+				}
 			}
+
 			break
 
 		}
@@ -180,79 +188,6 @@ func (c *chain) Destroy() error {
 	c.blockDB = nil
 
 	c.log.Info("Complete destruction", "method", "Destroy")
-
-	return nil
-}
-
-func (c *chain) checkAndRepair() error {
-	// repair block db
-	if err := c.blockDB.CheckAndRepair(); err != nil {
-		return errors.New(fmt.Sprintf("c.blockDB.CheckAndRepair failed. Error: %s", err))
-	}
-
-	// repair index db
-	indexDbLatestLocation, err := c.indexDB.QueryLatestLocation()
-	if err != nil {
-		return errors.New(fmt.Sprintf("c.indexDB.QueryLatestLocation failed. Error: %s", err))
-	}
-	if indexDbLatestLocation == nil {
-		return errors.New(fmt.Sprintf("latestLocation is nil, Error: %s", err))
-	}
-
-	blockDbLatestLocation := c.blockDB.LatestLocation()
-	compareResult := indexDbLatestLocation.Compare(blockDbLatestLocation)
-
-	if compareResult < 0 {
-		segs, err := c.blockDB.ReadRange(indexDbLatestLocation, blockDbLatestLocation)
-		if err != nil {
-			return errors.New(fmt.Sprintf("c.blockDB.ReadRange failed, startLocation is %+v, endLocation is %+v. Error: %s",
-				indexDbLatestLocation, blockDbLatestLocation, err))
-		}
-		for _, seg := range segs {
-			for _, block := range seg.AccountBlocks {
-				if err := c.indexDB.InsertAccountBlock(block); err != nil {
-					return errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, block is %+v. Error: %s",
-						block, err))
-				}
-			}
-			if seg.SnapshotBlock != nil {
-				if err := c.indexDB.InsertSnapshotBlock(
-					seg.SnapshotBlock,
-					seg.AccountBlocks,
-					seg.SnapshotBlockLocation,
-					seg.AccountBlocksLocation,
-					nil,
-					seg.RightBoundary,
-				); err != nil {
-					return errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed. Error: %s",
-						err))
-				}
-			}
-		}
-	} else if compareResult > 0 {
-		if err := c.indexDB.Rollback(blockDbLatestLocation); err != nil {
-			return errors.New(fmt.Sprintf("c.indexDB.Rollback failed, location is %+v. Error: %s",
-				blockDbLatestLocation, err))
-		}
-		//c.indexDB.DeleteSnapshotBlocks()
-	}
-
-	// repair state db
-	//stateDbLatestLocation, err := c.stateDB.QueryLatestLocation()
-	//
-	//if err != nil {
-	//	return errors.New(fmt.Sprintf("c.stateDB.QueryLatestLocation failed. Error: %s", err))
-	//}
-	//
-	//blockDbLatestLocation := c.blockDB.LatestLocation()
-	//
-	//compareResult := stateDbLatestLocation.Compare(blockDbLatestLocation)
-	//
-	//if compareResult > 0 {
-	//
-	//} else if compareResult < 0 {
-	//
-	//}
 
 	return nil
 }

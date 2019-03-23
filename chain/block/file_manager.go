@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/fileutils"
 	"io"
 	"os"
 	"path"
@@ -13,7 +14,7 @@ import (
 
 const (
 	filenamePrefix       = "data"
-	filenamePrefixLength = 4
+	filenamePrefixLength = len(filenamePrefix)
 )
 
 type fileManager struct {
@@ -40,10 +41,10 @@ func newFileManager(dirName string) (*fileManager, error) {
 		bufSizeBytes: make([]byte, 4),
 	}
 
-	fm.dirFd, err = fm.newDirFd(dirName)
+	fm.dirFd, err = fileutils.OpenOrCreateFd(dirName)
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("fm.newDirFd failed, error is %s, dirName is %s", err, dirName))
+		return nil, errors.New(fmt.Sprintf("fileutils.OpenOrCreateFd failed, error is %s, dirName is %s", err, dirName))
 	}
 
 	fm.latestFileId, err = fm.loadLatestFileId()
@@ -56,12 +57,12 @@ func newFileManager(dirName string) (*fileManager, error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("fm.getFileFd failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
 		}
-		fm.latestFileSize, err = fm.fileSize(fm.latestFileFd)
+		fm.latestFileSize, err = fileutils.FileSize(fm.latestFileFd)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("fm.fileSize failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
 		}
-	} else if err = fm.moveOneForward(); err != nil {
-		return nil, errors.New(fmt.Sprintf("fm.moveOneForward failed, error is %s", err))
+	} else if err = fm.moveToNext(); err != nil {
+		return nil, errors.New(fmt.Sprintf("fm.moveToNext failed, error is %s", err))
 	}
 	return fm, nil
 }
@@ -143,7 +144,7 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
 
 	if fm.latestFileSize+bufSize > fm.maxFileSize {
-		fm.moveOneForward()
+		fm.moveToNext()
 	}
 
 	if _, err := fm.latestFileFd.Write(buf); err != nil {
@@ -360,28 +361,6 @@ func (fm *fileManager) deleteAndReadFile(fileId uint64, toOffset int64) ([]byte,
 	return buf[:readN], nil
 }
 
-func (fm *fileManager) newDirFd(dirName string) (*os.File, error) {
-	var dirFd *os.File
-	for dirFd == nil {
-		var openErr error
-		dirFd, openErr = os.Open(dirName)
-		if openErr != nil {
-			if os.IsNotExist(openErr) {
-				var cErr error
-				cErr = os.Mkdir(dirName, 0744)
-
-				if cErr != nil {
-					return nil, errors.New(fmt.Sprintf("Create %s failed, error is %s", dirName, cErr.Error()))
-				}
-			} else {
-				return nil, errors.New(fmt.Sprintf("os.Open %s failed, error is %s", dirName, openErr.Error()))
-			}
-		}
-	}
-
-	return dirFd, nil
-}
-
 func (fm *fileManager) loadLatestFileId() (uint64, error) {
 	allFilename, readErr := fm.dirFd.Readdirnames(0)
 	if readErr != nil {
@@ -433,16 +412,7 @@ func (fm *fileManager) getFileFd(fileId uint64) (*os.File, error) {
 	return file, oErr
 }
 
-func (fm *fileManager) fileSize(fd *os.File) (int64, error) {
-	fileInfo, err := fd.Stat()
-	if err != nil {
-		return 0, errors.New(fmt.Sprintf("fd.Stat() failed, error is %s", err.Error()))
-	}
-
-	return fileInfo.Size(), nil
-}
-
-func (fm *fileManager) moveOneForward() error {
+func (fm *fileManager) moveToNext() error {
 	nextLatestFileId := fm.latestFileId + 1
 
 	fd, err := fm.createNewFile(nextLatestFileId)

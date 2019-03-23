@@ -206,8 +206,7 @@ func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash, latestLocation *c
 	batch := new(leveldb.Batch)
 
 	mvDB.pending.FlushList(batch, blockHashList)
-	batch.Put(chain_utils.CreateStateDbLatestLocationKey(), chain_utils.SerializeLocation(latestLocation))
-
+	mvDB.updateLatestLocation(batch, latestLocation)
 	if err := mvDB.db.Write(batch, nil); err != nil {
 		return err
 	}
@@ -220,7 +219,7 @@ func (mvDB *MultiVersionDB) DeletePendingBlock(blockHash *types.Hash) {
 }
 
 func (mvDB *MultiVersionDB) QueryLatestLocation() (*chain_block.Location, error) {
-	key := chain_utils.CreateStateDbLatestLocationKey()
+	key := chain_utils.CreateMvDbLatestLocationKey()
 	value, err := mvDB.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -230,6 +229,11 @@ func (mvDB *MultiVersionDB) QueryLatestLocation() (*chain_block.Location, error)
 	}
 
 	return chain_utils.DeserializeLocation(value), nil
+}
+
+func (mvDB *MultiVersionDB) updateLatestLocation(batch *leveldb.Batch, latestLocation *chain_block.Location) {
+	batch.Put(chain_utils.CreateMvDbLatestLocationKey(), chain_utils.SerializeLocation(latestLocation))
+
 }
 
 func (mvDB *MultiVersionDB) updateKeyIdIndex(batch *leveldb.Batch, keyId uint64, valueId uint64) {

@@ -17,5 +17,6 @@ func (sDB *StateDB) DeleteSubLedger(deletedSnapshotSegments []*chain_block.Snaps
 			blockHashList = append(blockHashList, &accountBlock.Hash)
 		}
 	}
-	return sDB.mvDB.Undo(blockHashList)
+	// TODO
+	return sDB.mvDB.Undo(blockHashList, nil)
 }
