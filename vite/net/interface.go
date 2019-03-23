@@ -32,6 +32,11 @@ type Chain interface {
 	Compressor() *compress.Compressor
 }
 
+type Producer interface {
+	// IsProducer can check an address is whether a producer
+	IsProducer(address types.Address) bool
+}
+
 type Verifier interface {
 	VerifyNetSb(block *ledger.SnapshotBlock) error
 	VerifyNetAb(block *ledger.AccountBlock) error
@@ -97,13 +102,12 @@ type Syncer interface {
 }
 
 type Net interface {
+	p2p.Protocol
 	Syncer
 	Fetcher
 	Broadcaster
 	BlockSubscriber
-	Protocols() []*p2p.Protocol
 	Start(svr p2p.Server) error
 	Stop()
 	Info() NodeInfo
-	AddPlugin(plugin p2p.Plugin)
 }

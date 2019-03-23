@@ -1,3 +1,21 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 // Package p2p implements the vite P2P network
 
 package p2p
@@ -10,104 +28,436 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/p2p/block"
 	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/nat"
-	"github.com/vitelabs/go-vite/p2p/network"
+
+	"github.com/golang/protobuf/proto"
+
+	"github.com/vitelabs/go-vite/p2p/protos"
+
+	"github.com/vitelabs/go-vite/log15"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-var errSvrStarted = errors.New("server has started")
-var blockMinExpired = time.Minute
-var blockMaxExpired = 5 * time.Minute
+var errP2PAlreadyRunning = errors.New("p2p is already running")
+var errP2PNotRunning = errors.New("p2p is not running")
+var errInvalidProtocolID = errors.New("protocol id must larger than 0")
+var errProtocolExisted = errors.New("protocol has existed")
+var errPeerNotExist = errors.New("peer not exist")
 
-const blockCount = 5
-
-func blockPolicy(t time.Time, count int) bool {
-	del := time.Now().Sub(t)
-
-	if del < blockMinExpired {
-		return true
-	}
-
-	if del > blockMaxExpired {
-		return false
-	}
-
-	if count < blockCount {
-		return false
-	}
-
-	return true
+// Authenticator will authenticate all inbound connection whether can access our server
+type Authenticator interface {
+	// Authenticate the connection, connection will be disconnected if return false
+	Authenticate() bool
 }
 
-// Config is the essential configuration to create a p2p.server
-type Config struct {
-	Discovery       bool
-	Name            string
-	NetID           network.ID         // which network server runs on
-	MaxPeers        uint               // max peers can be connected
-	MaxPendingPeers uint               // max peers waiting for connect
-	MaxInboundRatio uint               // max inbound peers: MaxPeers / MaxInboundRatio
-	Addr            string             // TCP and UDP listen port
-	DataDir         string             // the directory for storing node table, default is "~/viteisbest/p2p"
-	PeerKey         ed25519.PrivateKey // use for encrypt message, the corresponding public key use for NodeID
-	ExtNodeData     []byte             // extension data for Node
-	Protocols       []*Protocol        // protocols server supported
-	BootNodes       []string           // nodes as discovery seed
-	StaticNodes     []string           // nodes to connect
+// NodeInfo represent current p2p node
+type NodeInfo struct {
+	// ID is the hex-encoded NodeID
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	NetID     int        `json:"netId"`
+	Version   int        `json:"version"`
+	Address   string     `json:"address"`
+	Protocols []string   `json:"protocols"`
+	PeerCount int        `json:"peerCount"`
+	Peers     []PeerInfo `json:"peers"`
 }
 
-type Server interface {
+type P2P interface {
+	Config() Config
 	Start() error
-	Stop()
-	AddPlugin(plugin Plugin)
-	Connect(id discovery.NodeID, addr *net.TCPAddr)
-	Peers() []*PeerInfo
-	PeersCount() uint
-	NodeInfo() NodeInfo
-	Available() bool
-	Nodes() (urls []string)
-	SubNodes(ch chan<- *discovery.Node)
-	UnSubNodes(ch chan<- *discovery.Node)
-	URL() string
-	Config() *Config
-	Block(id discovery.NodeID, ip net.IP, err error)
+	Stop() error
+	Connect(node string) error
+	Ban(ip net.IP)
+	Unban(ip net.IP)
+	Info() NodeInfo
+	Register(pt Protocol) error
 }
 
-type server struct {
-	config      *Config
-	addr        *net.TCPAddr
-	staticNodes []*discovery.Node
-
-	running   int32          // atomic
-	wg        sync.WaitGroup // Wait for all jobs done
-	term      chan struct{}
-	pending   chan struct{} // how many connection can wait for handshake
-	addPeer   chan *transport
-	delPeer   chan *Peer
-	discv     discovery.Discovery
-	handshake *Handshake
-	peers     *PeerSet
-	blockUtil *block.Block
-	self      *discovery.Node
-	ln        net.Listener
-	nodeChan  chan *discovery.Node // sub discovery nodes
-	log       log15.Logger
-
-	rw     sync.RWMutex // for block
-	dialer *net.Dialer
-
-	plugins []Plugin
+type netutils interface {
+	ban(ip net.IP)
+	unban(ip net.IP)
 }
 
-func (svr *server) Config() *Config {
-	return svr.config
+type Handshaker interface {
+	Handshake(conn net.Conn, level Level) (peer PeerMux, err error)
 }
 
+type basePeer interface {
+	MsgWriter
+	ID() vnode.NodeID
+	String() string
+	Address() string
+	Info() PeerInfo
+	Close(err PeerError) error
+	Level() Level
+	SetLevel(level Level) error
+}
+
+type Peer interface {
+	basePeer
+	State() interface{}
+	SetState(state interface{})
+}
+
+type PeerMux interface {
+	basePeer
+	run() error
+	setManager(pm peerLeveler)
+}
+
+type peerManager interface {
+	register(p PeerMux) error
+	changeLevel(p PeerMux, old Level) error
+}
+
+type p2p struct {
+	cfg Config
+
+	self vnode.Node
+
+	rw sync.RWMutex
+
+	discv discovery.Discover
+
+	// condition for loop find, if number of peers is little than cfg.minPeers
+	cond *sync.Cond
+	dialer
+	staticNodes []vnode.Node
+
+	ptMap map[ProtocolID]Protocol
+
+	peerMap   map[vnode.NodeID]PeerMux
+	peerLevel map[Level][]PeerMux
+
+	handshaker Handshaker
+
+	netTool netutils
+
+	server Server
+
+	wg sync.WaitGroup
+
+	running int32
+	term    chan struct{}
+
+	log log15.Logger
+}
+
+func New(cfg Config) P2P {
+	cfg.ensure()
+
+	log := log15.New("module", "p2p")
+
+	ptMap := make(map[ProtocolID]Protocol)
+	var p = &p2p{
+		cfg:       cfg,
+		ptMap:     ptMap,
+		peerMap:   make(map[vnode.NodeID]PeerMux),
+		peerLevel: make(map[Level][]PeerMux),
+		handshaker: &handshaker{
+			version: version,
+			netId:   cfg.NetID,
+			name:    cfg.Name,
+			id:      cfg.Node.ID,
+			priv:    cfg.PeerKey,
+			codecFactory: &transportFactory{
+				minCompressLength: 100,
+				readTimeout:       readMsgTimeout,
+				writeTimeout:      writeMsgTimeout,
+			},
+			ptMap: ptMap,
+			log:   log.New("module", "handshaker"),
+		},
+	}
+
+	if cfg.Discovery {
+		p.discv = discovery.New(cfg.Config)
+	}
+
+	p.cond = sync.NewCond(&p.rw)
+
+	p.server = newServer(retryStartDuration, retryStartCount, cfg.MaxPeers[Inbound], cfg.MaxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
+
+	return p
+}
+
+func (p *p2p) check(peer PeerMux) error {
+	id := peer.ID()
+
+	if id == p.self.ID {
+		return PeerConnectSelf
+	}
+
+	p.rw.RLock()
+	defer p.rw.RUnlock()
+
+	if _, ok := p.peerMap[id]; ok {
+		return PeerAlreadyConnected
+	}
+
+	plevel := peer.Level()
+	if len(p.peerLevel[plevel]) >= p.cfg.MaxPeers[plevel] {
+		return PeerTooManyPeers
+	}
+
+	p.peerLevel[plevel] = append(p.peerLevel[plevel], peer)
+
+	return nil
+}
+
+func (p *p2p) Start() (err error) {
+	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
+		p.term = make(chan struct{})
+
+		if err = p.server.Start(); err != nil {
+			return err
+		}
+
+		if err = p.discv.Start(); err != nil {
+			return err
+		}
+
+		p.wg.Add(1)
+		go p.findLoop()
+
+		p.wg.Add(1)
+		go p.beatLoop()
+	}
+
+	return errP2PAlreadyRunning
+}
+
+func (p *p2p) Stop() error {
+	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		close(p.term)
+
+		p.rw.RLock()
+		for _, peer := range p.peerMap {
+			_ = peer.Close(PeerQuitting)
+		}
+		p.rw.RUnlock()
+
+		p.wg.Wait()
+	}
+
+	return errP2PNotRunning
+}
+
+func (p *p2p) Connect(node string) error {
+	n, err := vnode.ParseNode(node)
+	if err != nil {
+		return err
+	}
+
+	p.connect(n)
+	return nil
+}
+
+func (p *p2p) Ban(ip net.IP) {
+	panic("implement me")
+}
+
+func (p *p2p) Unban(ip net.IP) {
+	panic("implement me")
+}
+
+func (p *p2p) Info() NodeInfo {
+	return NodeInfo{
+		ID:        "",
+		Name:      "",
+		NetID:     0,
+		Version:   0,
+		Address:   "",
+		Protocols: nil,
+		Peers:     nil,
+	}
+}
+
+func (p *p2p) Register(pt Protocol) error {
+	p.rw.Lock()
+	defer p.rw.Unlock()
+
+	pid := pt.ID()
+
+	if pid < 1 {
+		return errInvalidProtocolID
+	}
+
+	if _, ok := p.ptMap[pid]; ok {
+		return errProtocolExisted
+	}
+
+	p.ptMap[pid] = pt
+
+	return nil
+}
+
+func (p *p2p) Config() Config {
+	return p.cfg
+}
+
+// register and run peer, blocked, should invoke by goroutine
+func (p *p2p) register(peer PeerMux) (err error) {
+	defer p.wg.Done()
+
+	peer.setManager(p)
+
+	err = p.check(peer)
+	if err != nil {
+		if pe, ok := err.(PeerError); ok {
+			_ = peer.Close(pe)
+		}
+
+		return err
+	}
+
+	// run
+	if err = peer.run(); err != nil {
+		p.log.Error(fmt.Sprintf("peer %s run error: %v", peer, err))
+	} else {
+		p.log.Error(fmt.Sprintf("peer %s run done", peer))
+	}
+
+	err = p.unregister(peer.ID())
+
+	// notify findLoop
+	p.cond.Signal()
+
+	return
+}
+
+func (p *p2p) unregister(id vnode.NodeID) (err error) {
+	p.rw.Lock()
+	defer p.rw.Unlock()
+
+	if peer, ok := p.peerMap[id]; ok {
+		delete(p.peerMap, id)
+
+		level := peer.Level()
+		total := len(p.peerLevel[level]) - 1
+		for i, peer2 := range p.peerLevel[level] {
+			if peer2.ID() == id {
+				if i != total {
+					copy(p.peerLevel[level][i:], p.peerLevel[level][i+1:])
+				}
+				p.peerLevel[level] = p.peerLevel[level][:total]
+			}
+		}
+
+		return nil
+	}
+
+	return errPeerNotExist
+}
+
+func (p *p2p) changeLevel(peer PeerMux, oldLevel Level) error {
+	p.rw.Lock()
+	defer p.rw.Unlock()
+
+	level := peer.Level()
+	id := peer.ID()
+	if _, ok := p.peerMap[id]; ok {
+
+		// remove from oldLevel
+		total := len(p.peerLevel[oldLevel]) - 1
+		for i, peer2 := range p.peerLevel[oldLevel] {
+			if peer2.ID() == id {
+				if i != total {
+					copy(p.peerLevel[oldLevel][i:], p.peerLevel[oldLevel][i+1:])
+				}
+				p.peerLevel[oldLevel] = p.peerLevel[oldLevel][:total]
+			}
+		}
+
+		p.peerLevel[level] = append(p.peerLevel[level], peer)
+
+		return nil
+	}
+
+	return errPeerNotExist
+}
+
+func (p *p2p) beatLoop() {
+	defer p.wg.Done()
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	var now time.Time
+
+	for {
+		select {
+		case <-p.term:
+			return
+		case now = <-ticker.C:
+		}
+
+		var heartBeat = &protos.HeartBeat{
+			State:     make(map[int32][]byte),
+			Timestamp: now.Unix(),
+		}
+
+		for pid, pt := range p.ptMap {
+			heartBeat.State[int32(pid)] = pt.State()
+		}
+
+		data, err := proto.Marshal(heartBeat)
+		if err != nil {
+			p.log.Error(fmt.Sprintf("Failed to marshal heartbeat data: %v", err))
+			continue
+		}
+
+		for _, pe := range p.peerMap {
+			_ = pe.WriteMsg(Msg{
+				Pid:     baseProtocolID,
+				Code:    baseHeartBeat,
+				Payload: data,
+			})
+		}
+	}
+}
+
+func (p *p2p) count() int {
+	p.rw.RLock()
+	defer p.rw.RUnlock()
+
+	return len(p.peerMap)
+}
+
+func (p *p2p) findLoop() {
+	defer p.wg.Done()
+
+	for {
+		p.rw.RLock()
+		for len(p.peerMap) >= p.cfg.MinPeers {
+			p.cond.Wait()
+		}
+		p.rw.RUnlock()
+
+		if atomic.LoadInt32(&p.running) == 0 {
+			return
+		}
+
+		nodes := p.discv.GetNodes()
+		for _, n := range nodes {
+			p.connect(n)
+		}
+	}
+}
+
+func (p *p2p) connect(node *vnode.Node) {
+	peer, err := p.dialer.dialNode(node)
+	if err != nil {
+		p.log.Error(fmt.Sprintf("failed to dail %s: %v", node.String(), err))
+	} else {
+		p.wg.Add(1)
+		go p.register(peer)
+	}
+}
+
+/*
 func New(cfg *Config) (Server, error) {
 	cfg = EnsureConfig(cfg)
 
@@ -229,513 +579,4 @@ func (svr *server) Start() error {
 	svr.log.Info("p2p server started")
 	return nil
 }
-
-func (svr *server) Stop() {
-	if svr.term == nil {
-		return
-	}
-
-	select {
-	case <-svr.term:
-	default:
-		svr.log.Warn("p2p server stop")
-
-		close(svr.term)
-
-		if svr.ln != nil {
-			svr.ln.Close()
-		}
-
-		if svr.discv != nil {
-			svr.discv.Stop()
-			svr.discv.UnSubNodes(svr.nodeChan)
-		}
-
-		svr.wg.Wait()
-
-		svr.log.Warn("p2p server stopped")
-	}
-}
-
-func (svr *server) AddPlugin(plugin Plugin) {
-	svr.plugins = append(svr.plugins, plugin)
-}
-
-func (svr *server) startPlugins() (err error) {
-	for _, plugin := range svr.plugins {
-		if err = plugin.Start(svr); err != nil {
-			return
-		}
-	}
-	return nil
-}
-
-func (svr *server) updateNode(addr *nat.Addr) {
-	if addr.Proto == "tcp" {
-		svr.self.TCP = uint16(addr.Port)
-	} else {
-		svr.self.UDP = uint16(addr.Port)
-	}
-}
-
-func (svr *server) setHandshake() {
-	config := svr.config
-	cmds := make([]CmdSet, len(config.Protocols))
-	for i, pt := range config.Protocols {
-		cmds[i] = pt.ID
-	}
-
-	svr.handshake = &Handshake{
-		Name:    config.Name,
-		ID:      svr.self.ID,
-		CmdSets: cmds,
-		Port:    uint16(svr.addr.Port),
-	}
-}
-
-func (svr *server) blocked(buf []byte) bool {
-	svr.rw.RLock()
-	defer svr.rw.RUnlock()
-
-	return svr.blockUtil.Blocked(buf)
-}
-
-func (svr *server) Block(id discovery.NodeID, ip net.IP, err error) {
-	svr.rw.Lock()
-	defer svr.rw.Unlock()
-
-	svr.blockUtil.Block(id[:])
-	svr.blockUtil.Block(ip)
-	svr.log.Warn(fmt.Sprintf("block %s@%s: %v", id, ip, err))
-
-	if svr.discv != nil && id != discovery.ZERO_NODE_ID {
-		svr.discv.Delete(id)
-	}
-}
-
-func (svr *server) unblock(id discovery.NodeID, ip net.IP) {
-	svr.rw.Lock()
-	defer svr.rw.Unlock()
-
-	svr.blockUtil.UnBlock(id[:])
-	svr.blockUtil.UnBlock(ip)
-	svr.log.Warn(fmt.Sprintf("unblock %s@%s", id, ip))
-}
-
-func (svr *server) dialStatic() {
-	for _, node := range svr.staticNodes {
-		svr.dial(node.ID, node.TCPAddr(), static, nil)
-	}
-}
-
-func (svr *server) dialLoop() {
-	defer svr.wg.Done()
-
-	dialing := make(map[discovery.NodeID]struct{})
-
-	var node *discovery.Node
-
-	// connect to static node first
-	svr.dialStatic()
-
-	dialDone := make(chan discovery.NodeID, svr.config.MaxPendingPeers)
-
-	for {
-		select {
-		case <-svr.term:
-			return
-		case node = <-svr.nodeChan:
-			if _, ok := dialing[node.ID]; ok {
-				break
-			}
-
-			if svr.blocked(node.ID[:]) {
-				break
-			}
-
-			dialing[node.ID] = struct{}{}
-			svr.dial(node.ID, node.TCPAddr(), outbound, dialDone)
-
-		case id := <-dialDone:
-			delete(dialing, id)
-		}
-	}
-}
-
-// when peer is disconnected, maybe we want to reconnect it.
-// we can get ID and addr only from peer, but not Node
-// so dial(id, addr, flag) not dial(Node, flag)
-func (svr *server) dial(id discovery.NodeID, addr *net.TCPAddr, flag connFlag, done chan<- discovery.NodeID) {
-	if err := svr.checkConn(id, flag); err != nil {
-		if done != nil {
-			done <- id
-		}
-
-		return
-	}
-
-	common.Go(func() {
-		if conn, err := svr.dialer.Dial("tcp", addr.String()); err == nil {
-			svr.setupConn(conn, flag, id)
-		} else {
-			svr.Block(id, addr.IP, err)
-			svr.log.Warn(fmt.Sprintf("dial node %s@%s failed: %v", id, addr, err))
-		}
-
-		if done != nil {
-			done <- id
-		}
-	})
-}
-
-func (svr *server) Connect(id discovery.NodeID, addr *net.TCPAddr) {
-	svr.dial(id, addr, static, nil)
-}
-
-// TCPListener will be closed in method: server.Stop()
-func (svr *server) listenLoop() {
-	defer svr.wg.Done()
-
-	var tempDelay time.Duration
-	var maxDelay = time.Second
-
-	for {
-		select {
-		case svr.pending <- struct{}{}:
-			// for goroutine setupConn catch, so can`t declare them out of select
-			var conn net.Conn
-			var err error
-
-			for {
-				if conn, err = svr.ln.Accept(); err != nil {
-					// temporary error
-					if ne, ok := err.(net.Error); ok && ne.Temporary() {
-						svr.log.Warn(fmt.Sprintf("listen temp error: %v", ne))
-
-						if tempDelay == 0 {
-							tempDelay = 5 * time.Millisecond
-						} else {
-							tempDelay *= 2
-						}
-
-						if tempDelay > maxDelay {
-							tempDelay = maxDelay
-						}
-
-						time.Sleep(tempDelay)
-
-						continue
-					}
-
-					svr.log.Warn(fmt.Sprintf("listen error: %v", err))
-					return
-				}
-
-				// next Accept
-				break
-			}
-
-			if addr := conn.RemoteAddr().(*net.TCPAddr); svr.blocked(addr.IP) {
-				svr.log.Warn(fmt.Sprintf("%s has been blocked, will not setup", addr))
-				conn.Close()
-				// next pending
-				<-svr.pending
-			} else {
-				common.Go(func() {
-					svr.setupConn(conn, inbound, discovery.ZERO_NODE_ID)
-					<-svr.pending
-				})
-			}
-
-		case <-svr.term:
-			return
-		}
-	}
-}
-
-func (svr *server) setupConn(c net.Conn, flag connFlag, id discovery.NodeID) {
-	var err error
-	if err = svr.checkHead(c); err != nil {
-		svr.log.Warn(fmt.Sprintf("HeadShake with %s error: %v, block it", c.RemoteAddr(), err))
-		c.Close()
-		svr.Block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
-		return
-	}
-
-	ts := &transport{
-		Conn:  c,
-		flags: flag,
-	}
-
-	if err = svr.handleTS(ts, id); err != nil {
-		svr.log.Warn(fmt.Sprintf("HandShake with %s error: %v, block it", c.RemoteAddr(), err))
-		ts.Close()
-		svr.Block(id, c.RemoteAddr().(*net.TCPAddr).IP, err)
-		return
-	}
-
-	svr.addPeer <- ts
-}
-
-func (svr *server) handleTS(ts *transport, id discovery.NodeID) error {
-	// handshake data, add remoteIP and remotePort
-	// handshake is not same for every peer
-	handshake := *svr.handshake
-	tcpAddr := ts.RemoteAddr().(*net.TCPAddr)
-	handshake.RemoteIP = tcpAddr.IP
-	handshake.RemotePort = uint16(tcpAddr.Port)
-
-	their, err := ts.Handshake(svr.config.PeerKey, &handshake)
-
-	if err != nil {
-		return err
-	}
-
-	if id != discovery.ZERO_NODE_ID && their.ID != id {
-		return fmt.Errorf("unmatched server ID, dial %s got %s", id, their.ID)
-	}
-
-	if err = svr.checkConn(id, ts.flags); err != nil {
-		return err
-	}
-
-	ts.name = their.Name
-	ts.cmdSets = their.CmdSets
-
-	// use to describe the connection
-	ts.remoteID = their.ID
-	ts.remoteIP = handshake.RemoteIP
-	ts.remotePort = handshake.RemotePort
-
-	ts.localID = svr.self.ID
-	ts.localIP = their.RemoteIP
-	ts.localPort = their.RemotePort
-
-	return nil
-}
-
-func (svr *server) checkHead(c net.Conn) error {
-	head, err := headShake(c, &headMsg{
-		Version: Version,
-		NetID:   svr.config.NetID,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	if svr.config.NetID != head.NetID {
-		return fmt.Errorf("different NetID: our %s, their %s", svr.config.NetID, head.NetID)
-	}
-
-	// todo compatibility
-	if head.Version < Version {
-		return fmt.Errorf("P2P version too low: our %d, their %d", Version, head.Version)
-	}
-
-	return nil
-}
-
-func (svr *server) checkConn(id discovery.NodeID, flag connFlag) error {
-	if id == svr.self.ID {
-		return DiscSelf
-	}
-
-	if svr.peers.Has(id) {
-		return DiscAlreadyConnected
-	}
-
-	// static can be connected even if peers too many
-	if flag == static {
-		return nil
-	}
-
-	if uint(svr.peers.Size()) >= svr.config.MaxPeers {
-		return DiscTooManyPeers
-	}
-
-	if flag.is(inbound) && uint(svr.peers.inbound) >= svr.maxInboundPeers() {
-		return DiscTooManyInboundPeers
-	}
-
-	return nil
-}
-
-func (svr *server) loop() {
-	defer svr.wg.Done()
-
-	var peersCount int
-	var checkTicker = time.NewTicker(30 * time.Second)
-	defer checkTicker.Stop()
-	run := func() {
-		svr.dialStatic()
-		if svr.discv != nil {
-			svr.discv.More(svr.nodeChan, (DefaultMinPeers-peersCount)*4)
-		}
-	}
-
-loop:
-	for {
-		select {
-		case <-svr.term:
-			break loop
-		case c := <-svr.addPeer:
-			err := svr.checkConn(c.remoteID, c.flags)
-
-			if err == nil {
-				var p *Peer
-				if p, err = NewPeer(c, svr.config.Protocols); err == nil {
-					svr.peers.Add(p)
-					peersCount = svr.peers.Size()
-					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
-
-					monitor.LogDuration("p2p/peer", "count", int64(peersCount))
-					monitor.LogEvent("p2p/peer", "create")
-
-					common.Go(func() {
-						svr.runPeer(p)
-					})
-				}
-			}
-
-			if err != nil {
-				c.Close()
-				svr.Block(c.remoteID, c.remoteIP, err)
-				svr.log.Warn(fmt.Sprintf("can`t create new peer: %v", err))
-			}
-
-		case p := <-svr.delPeer:
-			svr.unblock(p.ID(), p.ts.remoteIP)
-			svr.peers.Del(p)
-			peersCount = svr.peers.Size()
-			svr.log.Error(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
-
-			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
-			monitor.LogEvent("p2p/peer", "delete")
-
-			if p.ts.is(static) {
-				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
-			}
-
-		case <-checkTicker.C:
-			if peersCount < DefaultMinPeers {
-				run()
-			}
-			svr.markPeers()
-		}
-	}
-
-	svr.peers.DisconnectAll()
-
-	svr.markPeers()
-}
-
-func (svr *server) markPeers() {
-	if svr.discv != nil {
-		now := time.Now()
-		svr.peers.mu.Lock()
-		defer svr.peers.mu.Unlock()
-		for id, p := range svr.peers.m {
-			svr.discv.Mark(id, now.Sub(p.Created).Nanoseconds())
-		}
-	}
-}
-
-func (svr *server) runPeer(p *Peer) {
-	err := p.run()
-	if err != nil {
-		svr.log.Error(fmt.Sprintf("run peer %s error: %v", p, err))
-	}
-	select {
-	case svr.delPeer <- p:
-	case <-svr.term:
-	}
-}
-
-func (svr *server) Peers() []*PeerInfo {
-	return svr.peers.Info()
-}
-
-func (svr *server) PeersCount() uint {
-	return uint(svr.peers.Size())
-}
-
-func (svr *server) NodeInfo() NodeInfo {
-	protocols := make([]string, len(svr.config.Protocols))
-	for i, protocol := range svr.config.Protocols {
-		protocols[i] = protocol.String()
-	}
-
-	var plugins []interface{}
-	for _, plg := range svr.plugins {
-		plugins = append(plugins, plg.Info())
-	}
-
-	return NodeInfo{
-		ID:    svr.self.ID.String(),
-		Name:  svr.config.Name,
-		Url:   svr.self.String(),
-		NetID: svr.config.NetID,
-		Address: address{
-			IP:  svr.self.IP,
-			TCP: svr.self.TCP,
-			UDP: svr.self.UDP,
-		},
-		Protocols: protocols,
-		Plugins:   plugins,
-	}
-}
-
-func (svr *server) URL() string {
-	return svr.self.String()
-}
-
-func (svr *server) Available() bool {
-	return svr.PeersCount() > 0
-}
-
-func (svr *server) maxOutboundPeers() uint {
-	return svr.config.MaxPeers - svr.maxInboundPeers()
-}
-
-func (svr *server) maxInboundPeers() uint {
-	return svr.config.MaxPeers / svr.config.MaxInboundRatio
-}
-
-func (svr *server) Nodes() (urls []string) {
-	if svr.discv == nil {
-		return nil
-	}
-
-	return svr.discv.Nodes()
-}
-
-func (svr *server) SubNodes(ch chan<- *discovery.Node) {
-	if svr.discv == nil {
-		return
-	}
-	svr.discv.SubNodes(ch, false)
-}
-func (svr *server) UnSubNodes(ch chan<- *discovery.Node) {
-	if svr.discv == nil {
-		return
-	}
-	svr.discv.UnSubNodes(ch)
-}
-
-// NodeInfo represent current p2p node
-type NodeInfo struct {
-	ID        string        `json:"id"`
-	Name      string        `json:"name"`
-	Url       string        `json:"url"`
-	NetID     network.ID    `json:"netId"`
-	Address   address       `json:"address"`
-	Protocols []string      `json:"protocols"`
-	Plugins   []interface{} `json:"plugins"`
-}
-
-type address struct {
-	IP  net.IP `json:"ip"`
-	TCP uint16 `json:"tcp"`
-	UDP uint16 `json:"udp"`
-}
+*/

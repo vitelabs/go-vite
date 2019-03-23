@@ -19,10 +19,7 @@
 package net
 
 import (
-	"fmt"
 	net2 "net"
-
-	"github.com/vitelabs/go-vite/vite/net/message"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -31,14 +28,14 @@ import (
 
 type Handler func(msgId uint64, payload p2p.Serializable)
 type MockPeer struct {
-	Handlers map[ViteCmd]Handler
+	Handlers map[code]Handler
 	addr     *net2.TCPAddr
 	faddr    *net2.TCPAddr
 }
 
 func NewMockPeer() *MockPeer {
 	mp := &MockPeer{
-		Handlers: make(map[ViteCmd]Handler),
+		Handlers: make(map[code]Handler),
 		addr:     &net2.TCPAddr{},
 		faddr:    &net2.TCPAddr{},
 	}
@@ -79,7 +76,7 @@ func (mp *MockPeer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 	panic("implement me")
 }
 
-func (mp *MockPeer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
+func (mp *MockPeer) Send(code code, msgId uint64, payload p2p.Serializable) (err error) {
 	return
 }
 
@@ -103,16 +100,16 @@ func (mp *MockPeer) Head() types.Hash {
 	panic("implement me")
 }
 
-func (mp *MockPeer) Disconnect(reason p2p.DiscReason) {
+func (mp *MockPeer) Disconnect(reason p2p.PeerError) {
 	panic("implement me")
 }
 
 func defFileListHandler(msgId uint64, payload p2p.Serializable) {
-	fileList := payload.(*message.FileList)
-	fmt.Printf("msgId: %d\n", msgId)
-	for _, f := range fileList.Files {
-		fmt.Println(f)
-	}
-
-	fmt.Println(fileList.Chunks)
+	//fileList := payload.(*message.FileList)
+	//fmt.Printf("msgId: %d\n", msgId)
+	//for _, f := range fileList.Files {
+	//	fmt.Println(f)
+	//}
+	//
+	//fmt.Println(fileList.Chunks)
 }

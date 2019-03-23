@@ -19,15 +19,15 @@ import (
 var errNoSuitablePeer = errors.New("no suitable peer")
 
 type gid struct {
-	index uint64 // atomic
+	index uint32 // atomic
 }
 
-func (g *gid) MsgID() uint64 {
-	return atomic.AddUint64(&g.index, 1)
+func (g *gid) MsgID() p2p.MsgId {
+	return atomic.AddUint32(&g.index, 1)
 }
 
 type MsgIder interface {
-	MsgID() uint64
+	MsgID() p2p.MsgId
 }
 
 // a fetchPolicy implementation can choose suitable peers to fetch blocks
@@ -45,7 +45,7 @@ type fp struct {
 func (p *fp) accountTargets(height uint64) []Peer {
 	var l, taller []Peer
 
-	peers := p.peers.Peers()
+	peers := p.peers.peers()
 	total := len(peers)
 
 	if total == 0 {
@@ -56,7 +56,7 @@ func (p *fp) accountTargets(height uint64) []Peer {
 	var peer Peer
 	var maxHeight uint64
 	for _, p := range peers {
-		peerHeight := p.Height()
+		peerHeight := p.height()
 
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
@@ -95,10 +95,10 @@ func (p *fp) accountTargets(height uint64) []Peer {
 
 func (p *fp) snapshotTarget(height uint64) Peer {
 	if height == 0 {
-		return p.peers.BestPeer()
+		return p.peers.bestPeer()
 	}
 
-	ps := p.peers.Pick(height)
+	ps := p.peers.pick(height)
 	i := rand.Intn(len(ps))
 	return ps[i]
 }
@@ -270,12 +270,12 @@ func (f *fetcher) ID() string {
 	return "fetcher"
 }
 
-func (f *fetcher) Cmds() []ViteCmd {
-	return []ViteCmd{SnapshotBlocksCode, AccountBlocksCode}
+func (f *fetcher) Cmds() []code {
+	return []code{SnapshotBlocksCode, AccountBlocksCode}
 }
 
-func (f *fetcher) Handle(msg *p2p.Msg, sender Peer) (err error) {
-	switch ViteCmd(msg.Cmd) {
+func (f *fetcher) Handle(msg p2p.Msg, sender Peer) (err error) {
+	switch code(msg.Code) {
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		if err = bs.Deserialize(msg.Payload); err != nil {
@@ -339,10 +339,10 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 
 		id := f.pool.MsgID()
 
-		if err := p.Send(GetSnapshotBlocksCode, id, m); err != nil {
-			f.log.Error(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
+		if err := p.send(GetSnapshotBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
 		} else {
-			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
+			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", start, count, p.Address()))
 		}
 		monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 	} else {
@@ -381,10 +381,10 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		id := f.pool.MsgID()
 
 		for _, p := range peerList {
-			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
+			if err := p.send(GetAccountBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
 			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.Address()))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}
@@ -424,10 +424,10 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		id := f.pool.MsgID()
 
 		for _, p := range peerList {
-			if err := p.Send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.RemoteAddr(), err))
+			if err := p.send(GetAccountBlocksCode, id, m); err != nil {
+				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
 			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.RemoteAddr()))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.Address()))
 			}
 			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
 		}

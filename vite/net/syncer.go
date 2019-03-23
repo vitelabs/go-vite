@@ -2,7 +2,6 @@ package net
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
@@ -191,7 +189,7 @@ func (s *syncer) Stop() {
 			s.pool.stop()
 			s.fc.stop()
 			s.clear()
-			s.peers.UnSub(s.eventChan)
+			s.peers.unSub(s.eventChan)
 		}
 	}
 }
@@ -213,7 +211,7 @@ func (s *syncer) Start() {
 	}
 	s.term = make(chan struct{})
 
-	s.peers.Sub(s.eventChan)
+	s.peers.sub(s.eventChan)
 
 	defer s.Stop()
 
@@ -239,28 +237,33 @@ wait:
 	start.Stop()
 
 	// for now syncState is SyncNotStart
-	syncPeer := s.peers.SyncPeer()
+	syncPeer := s.peers.syncPeer()
 	if syncPeer == nil {
 		s.setState(Syncerr)
 		s.log.Error("sync error: no peers")
 		return
 	}
 
-	syncPeerHeight := syncPeer.Height()
+	syncPeerHeight := syncPeer.height()
 
 	// compare snapshot chain height
 	current := s.chain.GetLatestSnapshotBlock()
 	// p is not all enough, no need to sync
 	if current.Height+minHeightDifference > syncPeerHeight {
 		if current.Height < syncPeerHeight {
-			syncPeer.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
+			err := syncPeer.send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
 				From:    ledger.HashHeight{Height: syncPeerHeight},
 				Count:   1,
 				Forward: true,
 			})
+
+			if err != nil {
+				s.log.Error(fmt.Sprintf("Failed to send GetSnapshotBlocks to %s", syncPeer.Address()))
+				return
+			}
 		}
 
-		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.RemoteAddr(), syncPeerHeight, current.Height))
+		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.Address(), syncPeerHeight, current.Height))
 		s.setState(Syncdone)
 		return
 	}
@@ -270,7 +273,7 @@ wait:
 	s.to = syncPeerHeight
 	s.current = current.Height
 	s.setState(Syncing)
-	s.getSubLedgerFromAll()
+	// todo
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -283,9 +286,9 @@ wait:
 			if e.code == delPeer {
 				// a taller peer is disconnected, maybe is the peer we syncing to
 				// because peer`s height is growing
-				if e.peer.Height() >= s.to {
-					if syncPeer = s.peers.SyncPeer(); syncPeer != nil {
-						syncPeerHeight = syncPeer.Height()
+				if e.peer.height() >= s.to {
+					if syncPeer = s.peers.syncPeer(); syncPeer != nil {
+						syncPeerHeight = syncPeer.height()
 						if shouldSync(current.Height, syncPeerHeight) {
 							s.setTarget(syncPeerHeight)
 						} else {
@@ -302,8 +305,8 @@ wait:
 						return
 					}
 				}
-			} else if shouldSync(current.Height, e.peer.Height()) {
-				s.getSubLedgerFrom(e.peer)
+			} else if shouldSync(current.Height, e.peer.height()) {
+				// todo
 			}
 
 		case now := <-checkChainTicker.C:
@@ -336,147 +339,6 @@ wait:
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
 	atomic.StoreUint64(&s.to, to)
-}
-
-func (s *syncer) getSubLedgerFromAll() {
-	l := s.peers.Pick(s.from + 1)
-
-	s.mu.Lock()
-	s.pending = len(l)
-	s.mu.Unlock()
-
-	for _, p := range l {
-		s.getSubLedgerFrom(p)
-	}
-}
-
-func (s *syncer) getSubLedgerFrom(p Peer) {
-	from, to := s.from, s.to
-	pTo := p.Height()
-	if pTo > to {
-		pTo = to
-	}
-
-	msg := &message.GetSubLedger{
-		From:    ledger.HashHeight{Height: from},
-		Count:   pTo - from + 1,
-		Forward: true,
-	}
-
-	if err := p.Send(GetSubLedgerCode, 0, msg); err != nil {
-		p.Report(err)
-		return
-	} else {
-		s.log.Info(fmt.Sprintf("get subledger from %d to %d to %s at %d", from, pTo, p.RemoteAddr(), p.Height()))
-	}
-}
-
-func (s *syncer) receiveFileList(msg *message.FileList) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, file := range msg.Files {
-		if _, ok := s.fileMap[file.Filename]; ok {
-			continue
-		}
-
-		s.fileMap[file.Filename] = &fileRecord{file, false}
-	}
-
-	s.responsed++
-
-	if s.responsed*2 > s.pending || s.responsed > 3 {
-		// prepare tasks
-		if len(s.fileMap) > 0 {
-			s.fc.start()
-
-			// has new file to download
-			files := make(Files, len(s.fileMap))
-			i := 0
-			for _, r := range s.fileMap {
-				if !r.add {
-					files[i] = r.File
-					i++
-					r.add = true
-				}
-			}
-
-			if files = files[:i]; len(files) > 0 {
-				sort.Sort(files)
-				start := files[0].StartHeight
-
-				// delete following tasks
-				start = s.exec.deleteFrom(start)
-
-				// add new tasks
-				for _, file := range files {
-					if file.EndHeight >= start {
-						s.exec.add(&syncTask{
-							task: &fileTask{
-								file:       file,
-								downloader: s.fc,
-							},
-							typ: syncFileTask,
-						})
-					}
-				}
-			}
-		} else {
-			to, _ := s.exec.end()
-			// no tasks, then use chunk
-			if to == 0 {
-				s.pool.start()
-
-				cks := splitChunk(s.from, s.to, 3600)
-				for _, ck := range cks {
-					s.exec.add(&syncTask{
-						task: &chunkTask{
-							from:       ck[0],
-							to:         ck[1],
-							downloader: s.pool,
-						},
-						typ: syncChunkTask,
-					})
-				}
-			}
-		}
-	}
-}
-
-func (s *syncer) ID() string {
-	return "syncer"
-}
-
-func (s *syncer) Cmds() []ViteCmd {
-	return []ViteCmd{FileListCode, SubLedgerCode}
-}
-
-func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
-	switch ViteCmd(msg.Cmd) {
-	case FileListCode:
-		res := new(message.FileList)
-		if err = res.Deserialize(msg.Payload); err != nil {
-			return err
-		}
-
-		s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
-
-		if len(res.Files) > 0 {
-			names := make([]filename, len(res.Files))
-			for i, file := range res.Files {
-				names[i] = file.Filename
-			}
-			s.fc.addFilePeer(names, sender)
-		}
-
-		s.receiveFileList(res)
-
-	case SubLedgerCode:
-		s.log.Info(fmt.Sprintf("receive %s from %s", SubLedgerCode, sender.RemoteAddr()))
-		return s.pool.Handle(msg, sender)
-	}
-
-	return nil
 }
 
 func (s *syncer) taskDone(t *syncTask, err error) {

@@ -16,8 +16,6 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 var errNoSuitablePeers = errors.New("no suitable peers")
@@ -104,83 +102,85 @@ func (f *fileConn) download(file File, rec blockReceiver) (outerr *downloadError
 	f.setBusy()
 	defer f.idle()
 
-	f.log.Info(fmt.Sprintf("begin download <file %s> from %s", file.Filename, f.RemoteAddr()))
+	/*
+		f.log.Info(fmt.Sprintf("begin download <file %s> from %s", file.Filename, f.RemoteAddr()))
 
-	getFiles := &message.GetFiles{
-		Names: []string{file.Filename},
-	}
-
-	msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
-	if err != nil {
-		f.log.Error(fmt.Sprintf("pack GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
-		return &downloadError{
-			code: downloadPackMsgErr,
-			err:  err.Error(),
-		}
-	}
-
-	f.Conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
-	if err = p2p.WriteMsg(f.Conn, msg); err != nil {
-		f.log.Error(fmt.Sprintf("write GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
-		return &downloadError{
-			code: downloadSendErr,
-			err:  err.Error(),
-		}
-	}
-
-	var sCount, aCount uint64
-
-	start := time.Now()
-	// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
-	f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
-	f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
-		// Fatal error, then close the connection to interrupt the stream
-		if outerr != nil && outerr.Fatal() {
-			f.log.Error(fmt.Sprintf("download <file %s> from %s error: %v, close connection", file.Filename, f.RemoteAddr(), outerr))
-			f.close()
-			return
+		getFiles := &message.GetFiles{
+			Names: []string{file.Filename},
 		}
 
-		switch block.(type) {
-		case *ledger.SnapshotBlock:
-			block := block.(*ledger.SnapshotBlock)
-			err = rec.receiveSnapshotBlock(block)
-
-			if block.Height >= file.StartHeight && block.Height <= file.EndHeight {
-				sCount++
-			}
-
-		case *ledger.AccountBlock:
-			block := block.(*ledger.AccountBlock)
-			aCount++
-			err = rec.receiveAccountBlock(block)
-		}
-
+		msg, err := p2p.PackMsg(CmdSet, p2p.Cmd(GetFilesCode), 0, getFiles)
 		if err != nil {
-			outerr = &downloadError{
-				code: downloadReceiveErr,
+			f.log.Error(fmt.Sprintf("pack GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
+			return &downloadError{
+				code: downloadPackMsgErr,
 				err:  err.Error(),
 			}
 		}
-	})
 
-	sTotal := file.EndHeight - file.StartHeight + 1
-	aTotal := file.BlockNumbers - sTotal
-
-	if (sCount < sTotal || aCount < aTotal) && outerr == nil {
-		outerr = &downloadError{
-			code: downloadIncompleteErr,
-			err:  fmt.Sprintf("incomplete <file %s> %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
+		f.Conn.SetWriteDeadline(time.Now().Add(fWriteTimeout))
+		if err = p2p.WriteMsg(f.Conn, msg); err != nil {
+			f.log.Error(fmt.Sprintf("write GetFilesMsg<file %s> to %s error: %v", file.Filename, f.RemoteAddr(), err))
+			return &downloadError{
+				code: downloadSendErr,
+				err:  err.Error(),
+			}
 		}
-	}
 
-	if outerr != nil {
-		f.speed = 0
-	} else {
-		// bytes/s
-		f.speed = float64(file.FileSize) / (time.Now().Sub(start).Seconds() + 1)
-	}
+		var sCount, aCount uint64
 
+		start := time.Now()
+		// todo fileTimeout can be a flexible value, like calc through fileSize and download speed
+		f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
+		f.parser.BlockParser(f.Conn, file.BlockNumbers, func(block ledger.Block, err error) {
+			// Fatal error, then close the connection to interrupt the stream
+			if outerr != nil && outerr.Fatal() {
+				f.log.Error(fmt.Sprintf("download <file %s> from %s error: %v, close connection", file.Filename, f.RemoteAddr(), outerr))
+				f.close()
+				return
+			}
+
+			switch block.(type) {
+			case *ledger.SnapshotBlock:
+				block := block.(*ledger.SnapshotBlock)
+				err = rec.receiveSnapshotBlock(block)
+
+				if block.Height >= file.StartHeight && block.Height <= file.EndHeight {
+					sCount++
+				}
+
+			case *ledger.AccountBlock:
+				block := block.(*ledger.AccountBlock)
+				aCount++
+				err = rec.receiveAccountBlock(block)
+			}
+
+			if err != nil {
+				outerr = &downloadError{
+					code: downloadReceiveErr,
+					err:  err.Error(),
+				}
+			}
+		})
+
+		sTotal := file.EndHeight - file.StartHeight + 1
+		aTotal := file.BlockNumbers - sTotal
+
+		if (sCount < sTotal || aCount < aTotal) && outerr == nil {
+			outerr = &downloadError{
+				code: downloadIncompleteErr,
+				err:  fmt.Sprintf("incomplete <file %s> %d/%d, %d/%d", file.Filename, sCount, sTotal, aCount, aTotal),
+			}
+		}
+
+		if outerr != nil {
+			f.speed = 0
+		} else {
+			// bytes/s
+			f.speed = float64(file.FileSize) / (time.Now().Sub(start).Seconds() + 1)
+		}
+
+	*/
 	return
 }
 
@@ -487,7 +487,7 @@ func newFileClient(chain Chain, rec blockReceiver, peers *peerSet) *fileClient {
 }
 
 func (fc *fileClient) addFilePeer(files []filename, sender Peer) {
-	fc.pool.addPeer(files, sender.FileAddress().String(), sender.ID())
+	fc.pool.addPeer(files, sender.fileAddress(), sender.ID().String())
 }
 
 func (fc *fileClient) download(ctx context.Context, file File) <-chan error {
@@ -577,9 +577,9 @@ func (fc *fileClient) doJob(c *fileConn, file File) error {
 
 func (fc *fileClient) fatalPeer(id peerId, err error) {
 	fc.pool.delPeer(id)
-	if p := fc.peers.Get(id); p != nil {
-		p.Report(err)
-	}
+	//if p := fc.peers.get(id); p != nil {
+	//	p.catch(err)
+	//}
 }
 
 func (fc *fileClient) start() {
@@ -660,6 +660,8 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 		fc.pool.catch(p.id)
 		return nil, err
 	}
+
+	// handshake
 
 	c = newFileConn(tcp, p.id, fc.chain.Compressor(), fc.log)
 

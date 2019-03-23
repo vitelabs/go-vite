@@ -57,7 +57,7 @@ type ChunkReqStatus struct {
 }
 
 type chunkRequest struct {
-	id       uint64
+	id       p2p.MsgId
 	from, to uint64
 	msg      message.GetChunk
 	deadline time.Time
@@ -163,7 +163,7 @@ func (cr *chunkRequest) status() ChunkReqStatus {
 }
 
 type subLedger struct {
-	*p2p.Msg
+	p2p.Msg
 	sender Peer
 }
 
@@ -218,11 +218,11 @@ func (p *chunkPool) ID() string {
 	return "chunk pool"
 }
 
-func (p *chunkPool) Cmds() []ViteCmd {
-	return []ViteCmd{SubLedgerCode}
+func (p *chunkPool) Cmds() []code {
+	return []code{SubLedgerCode}
 }
 
-func (p *chunkPool) Handle(msg *p2p.Msg, sender Peer) error {
+func (p *chunkPool) Handle(msg p2p.Msg, sender Peer) error {
 	p.resQueue.Push(subLedger{msg, sender})
 	return nil
 }
@@ -272,8 +272,8 @@ func (p *chunkPool) handleLoop() {
 			leg := v.(subLedger)
 
 			if err := p.handleResponse(leg); err != nil {
-				p.log.Error(fmt.Sprintf("handle SubLedgerMsg from %s error: %v", leg.sender.RemoteAddr(), err))
-				leg.sender.Report(err)
+				p.log.Error(fmt.Sprintf("handle SubLedgerMsg from %s error: %v", leg.sender.Address(), err))
+				leg.sender.catch(err)
 				v, ok := p.chunks.Load(leg.Id)
 				if ok {
 					go p.request(v.(*chunkRequest))
@@ -284,56 +284,56 @@ func (p *chunkPool) handleLoop() {
 }
 
 func (p *chunkPool) handleResponse(leg subLedger) (err error) {
-	chunk := new(message.SubLedger)
-	if err = chunk.Deserialize(leg.Payload); err != nil {
-		return
-	}
-
-	// receive account blocks first
-	for _, block := range chunk.ABlocks {
-		if err = p.handler.receiveAccountBlock(block); err != nil {
-			return
-		}
-	}
-
-	if len(chunk.SBlocks) == 0 {
-		return
-	}
-
-	for _, block := range chunk.SBlocks {
-		if err = p.handler.receiveSnapshotBlock(block); err != nil {
-			return
-		}
-	}
-
-	start, end := chunk.SBlocks[0].Height, chunk.SBlocks[len(chunk.SBlocks)-1].Height
-
-	var res ChunkResponse
-	if start < end {
-		for i, block := range chunk.SBlocks {
-			if block.Height != start+uint64(i) {
-				return
-			}
-		}
-		res.From, res.To = start, end
-	} else {
-		for i, block := range chunk.SBlocks {
-			if block.Height != start-uint64(i) {
-				return
-			}
-		}
-		res.From, res.To = end, start
-	}
-
-	if v, ok := p.chunks.Load(leg.Id); ok {
-		request := v.(*chunkRequest)
-		_, done := request.receive(res)
-		if done {
-			p.chunks.Delete(leg.Id)
-			request.done(nil)
-			p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> done", request.from, request.to))
-		}
-	}
+	//chunk := new(message.SubLedger)
+	//if err = chunk.Deserialize(leg.Payload); err != nil {
+	//	return
+	//}
+	//
+	//// receive account blocks first
+	//for _, block := range chunk.ABlocks {
+	//	if err = p.handler.receiveAccountBlock(block); err != nil {
+	//		return
+	//	}
+	//}
+	//
+	//if len(chunk.SBlocks) == 0 {
+	//	return
+	//}
+	//
+	//for _, block := range chunk.SBlocks {
+	//	if err = p.handler.receiveSnapshotBlock(block); err != nil {
+	//		return
+	//	}
+	//}
+	//
+	//start, end := chunk.SBlocks[0].Height, chunk.SBlocks[len(chunk.SBlocks)-1].Height
+	//
+	//var res ChunkResponse
+	//if start < end {
+	//	for i, block := range chunk.SBlocks {
+	//		if block.Height != start+uint64(i) {
+	//			return
+	//		}
+	//	}
+	//	res.From, res.To = start, end
+	//} else {
+	//	for i, block := range chunk.SBlocks {
+	//		if block.Height != start-uint64(i) {
+	//			return
+	//		}
+	//	}
+	//	res.From, res.To = end, start
+	//}
+	//
+	//if v, ok := p.chunks.Load(leg.Id); ok {
+	//	request := v.(*chunkRequest)
+	//	_, done := request.receive(res)
+	//	if done {
+	//		p.chunks.Delete(leg.Id)
+	//		request.done(nil)
+	//		p.log.Info(fmt.Sprintf("chunkRequest<%d-%d> done", request.from, request.to))
+	//	}
+	//}
 
 	return
 }
@@ -386,7 +386,7 @@ Loop:
 }
 
 func (p *chunkPool) request(c *chunkRequest) {
-	ps := p.peers.Pick(c.to)
+	ps := p.peers.pick(c.to)
 
 	if len(ps) == 0 {
 		c.done(errNoSuitablePeers)
@@ -395,12 +395,12 @@ func (p *chunkPool) request(c *chunkRequest) {
 
 	p1 := ps[rand.Intn(len(ps))]
 	c.deadline = time.Now().Add(chunkTimeout)
-	err := p1.Send(GetChunkCode, c.id, &c.msg)
+	err := p1.send(GetChunkCode, c.id, &c.msg)
 	if err != nil {
-		p.log.Error(fmt.Sprintf("send %s to %s error: %v", c.msg.String(), p1.RemoteAddr(), err))
+		p.log.Error(fmt.Sprintf("send %s to %s error: %v", c.msg.String(), p1.Address(), err))
 	} else {
-		c.target = p1.RemoteAddr().String()
-		p.log.Info(fmt.Sprintf("send %s to %s", c.msg.String(), p1.RemoteAddr()))
+		c.target = p1.Address()
+		p.log.Info(fmt.Sprintf("send %s to %s", c.msg.String(), p1.Address()))
 	}
 }
 

@@ -17,22 +17,51 @@ type mockNet struct {
 	BlockSubscriber
 }
 
-func (n *mockNet) AddPlugin(plugin p2p.Plugin) {
+func (n *mockNet) Name() string {
+	return "mock_net"
+}
+
+func (n *mockNet) ID() p2p.ProtocolID {
+	return ID
+}
+
+func (n *mockNet) Auth(input []byte) (output []byte) {
+	return nil
+}
+
+func (n *mockNet) Handshake(their []byte) error {
+	return nil
+}
+
+func (n *mockNet) Handle(msg p2p.Msg) error {
+	return nil
+}
+
+func (n *mockNet) State() []byte {
+	return nil
+}
+
+func (n *mockNet) SetState(state []byte, peer p2p.Peer) {
+	panic("implement me")
+}
+
+func (n *mockNet) OnPeerAdded(peer p2p.Peer) error {
+	panic("implement me")
+}
+
+func (n *mockNet) OnPeerRemoved(peer p2p.Peer) error {
+	panic("implement me")
 }
 
 func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{}
 }
 
-func (n *mockNet) Protocols() []*p2p.Protocol {
-	return nil
-}
-
 func (n *mockNet) Start(svr p2p.Server) error {
 	return nil
 }
 
-func mock(cfg *Config) Net {
+func mock(cfg Config) Net {
 	peers := newPeerSet()
 	pool := &gid{}
 

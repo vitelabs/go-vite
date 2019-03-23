@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type HashHeight struct {
 	Hash                 []byte   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
@@ -30,16 +32,17 @@ func (m *HashHeight) Reset()         { *m = HashHeight{} }
 func (m *HashHeight) String() string { return proto.CompactTextString(m) }
 func (*HashHeight) ProtoMessage()    {}
 func (*HashHeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_snapshot_additional_list_8011c913dc472a9e, []int{0}
+	return fileDescriptor_0465ba0378bb302e, []int{0}
 }
+
 func (m *HashHeight) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HashHeight.Unmarshal(m, b)
 }
 func (m *HashHeight) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HashHeight.Marshal(b, m, deterministic)
 }
-func (dst *HashHeight) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HashHeight.Merge(dst, src)
+func (m *HashHeight) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HashHeight.Merge(m, src)
 }
 func (m *HashHeight) XXX_Size() int {
 	return xxx_messageInfo_HashHeight.Size(m)
@@ -77,16 +80,17 @@ func (m *SnapshotAdditionalItem) Reset()         { *m = SnapshotAdditionalItem{}
 func (m *SnapshotAdditionalItem) String() string { return proto.CompactTextString(m) }
 func (*SnapshotAdditionalItem) ProtoMessage()    {}
 func (*SnapshotAdditionalItem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_snapshot_additional_list_8011c913dc472a9e, []int{1}
+	return fileDescriptor_0465ba0378bb302e, []int{1}
 }
+
 func (m *SnapshotAdditionalItem) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotAdditionalItem.Unmarshal(m, b)
 }
 func (m *SnapshotAdditionalItem) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotAdditionalItem.Marshal(b, m, deterministic)
 }
-func (dst *SnapshotAdditionalItem) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotAdditionalItem.Merge(dst, src)
+func (m *SnapshotAdditionalItem) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotAdditionalItem.Merge(m, src)
 }
 func (m *SnapshotAdditionalItem) XXX_Size() int {
 	return xxx_messageInfo_SnapshotAdditionalItem.Size(m)
@@ -129,16 +133,17 @@ func (m *SnapshotAdditionalFragment) Reset()         { *m = SnapshotAdditionalFr
 func (m *SnapshotAdditionalFragment) String() string { return proto.CompactTextString(m) }
 func (*SnapshotAdditionalFragment) ProtoMessage()    {}
 func (*SnapshotAdditionalFragment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_snapshot_additional_list_8011c913dc472a9e, []int{2}
+	return fileDescriptor_0465ba0378bb302e, []int{2}
 }
+
 func (m *SnapshotAdditionalFragment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SnapshotAdditionalFragment.Unmarshal(m, b)
 }
 func (m *SnapshotAdditionalFragment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SnapshotAdditionalFragment.Marshal(b, m, deterministic)
 }
-func (dst *SnapshotAdditionalFragment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SnapshotAdditionalFragment.Merge(dst, src)
+func (m *SnapshotAdditionalFragment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotAdditionalFragment.Merge(m, src)
 }
 func (m *SnapshotAdditionalFragment) XXX_Size() int {
 	return xxx_messageInfo_SnapshotAdditionalFragment.Size(m)
@@ -163,10 +168,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("vitepb/snapshot_additional_list.proto", fileDescriptor_snapshot_additional_list_8011c913dc472a9e)
+	proto.RegisterFile("vitepb/snapshot_additional_list.proto", fileDescriptor_0465ba0378bb302e)
 }
 
-var fileDescriptor_snapshot_additional_list_8011c913dc472a9e = []byte{
+var fileDescriptor_0465ba0378bb302e = []byte{
 	// 230 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0x41, 0x4b, 0x03, 0x31,
 	0x10, 0x85, 0x89, 0x5d, 0xf7, 0x30, 0x15, 0x0f, 0x83, 0x94, 0xe0, 0x41, 0xc2, 0x82, 0x92, 0xd3,

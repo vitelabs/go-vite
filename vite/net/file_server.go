@@ -1,7 +1,6 @@
 package net
 
 import (
-	"fmt"
 	"io"
 	net2 "net"
 	"sync"
@@ -11,8 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 const fReadTimeout = 20 * time.Second
@@ -90,7 +87,7 @@ func (s *fileServer) stop() (err error) {
 		}
 
 		for id, c := range s.conns {
-			c.Close()
+			_ = c.Close()
 			delete(s.conns, id)
 		}
 
@@ -116,9 +113,7 @@ func (s *fileServer) listenLoop() {
 		}
 
 		s.wg.Add(1)
-		common.Go(func() {
-			s.handleConn(c)
-		})
+		go s.handleConn(c)
 	}
 }
 
@@ -147,44 +142,5 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 	s.addConn(conn)
 	defer s.deleteConn(conn)
 
-	for {
-		//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
-		msg, err := p2p.ReadMsg(conn)
-		if err != nil {
-			s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
-			return
-		}
-
-		code := ViteCmd(msg.Cmd)
-		if code != GetFilesCode {
-			s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
-			return
-		}
-
-		req := new(message.GetFiles)
-		if err = req.Deserialize(msg.Payload); err != nil {
-			s.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
-			return
-		}
-
-		s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
-
-		for _, name := range req.Names {
-			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-			reader, err := s.chain.Compressor().FileReader(name)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("read file %s to %s error: %v", name, conn.RemoteAddr(), err))
-				return
-			}
-
-			_, err = io.Copy(conn, reader)
-
-			if err != nil {
-				s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", name, conn.RemoteAddr(), err))
-				return
-			} else {
-				s.log.Info(fmt.Sprintf("send file<%s> to %s done", name, conn.RemoteAddr()))
-			}
-		}
-	}
+	// todo
 }

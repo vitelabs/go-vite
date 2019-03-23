@@ -2,41 +2,12 @@ syntax="proto3";
 
 package protos;
 
-// all udp messages must contain NodeID of sender.
-
-message Node {
-    bytes ID = 1;
-    bytes IP = 2;
-    uint32 UDP = 3;
-    uint32 TCP = 4;
-    uint32 Net = 5;
-    bytes Ext = 6;
-}
-
 message Ping {
-    bytes ID = 1;
-    uint32 TCP = 2;
-    int64 Expiration = 3;
-    uint32 Net = 4;
-    bytes Ext = 5;
 }
 
 message Pong {
-    bytes ID = 1;
-    bytes Ping = 2;
-    bytes IP = 3;
-    int64 Expiration = 4;
 }
 
-message FindNode {
-    bytes ID = 1;
-    bytes Target = 2;
-    int64 Expiration = 3;
-    uint32 N = 4;
-}
+message FindNode {}
 
-message Neighbors {
-    bytes ID = 1;
-    repeated Node Nodes = 2;
-    int64 Expiration = 3;
-}
+message Neighbors {}
