@@ -11,11 +11,10 @@ The goal for Vite’s design is to _provide a reliable public platform for indus
 
 Official golang implementation of Vite Protocol
 
-![GitHub release](https://img.shields.io/github/release/vitelabs/go-vite.svg)
-![Go Report Card](https://goreportcard.com/badge/github.com/vitelabs/go-vite)
-![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/vitelabs/go-vite.svg)
-![Downloads](https://img.shields.io/github/downloads/vitelabs/go-vite/total.svg)
-<!-- ![Discord](https://img.shields.io/discord/:serverId.svg) -->
+[![GitHub release](https://img.shields.io/github/release/vitelabs/go-vite.svg)](https://github.com/vitelabs/go-vite/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vitelabs/go-vite)](https://goreportcard.com/report/github.com/vitelabs/go-vite)
+[![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/vitelabs/go-vite.svg)](https://github.com/vitelabs/go-vite/pulls)
+[![Downloads](https://img.shields.io/github/downloads/vitelabs/go-vite/total.svg)](https://github.com/vitelabs/go-vite/releases)
 
 
 The go-vite binary files can be download from [releases](https://github.com/vitelabs/go-vite/releases).
@@ -27,7 +26,6 @@ The go-vite binary files can be download from [releases](https://github.com/vite
    * [Techblog](https://vite.blog/)
    * [Runing a node](https://vite.wiki/tutorial/node/install.html)
    
-<!-- ## Develop -->
 
 ## Product
    * [Products Navigation](https://vite.net)
@@ -48,20 +46,18 @@ The go-vite binary files can be download from [releases](https://github.com/vite
    * [Forum](https://forum.vite.net/)
 
 
+## Installation
 
-## Build the source
+You can choose one of the following installation options:
 
-1. [Install Go](https://golang.org/doc/install)
-2. Run `go get github.com/vitelabs/go-vite` in your terminal, then you will find the source code here: `$GOPATH/src/github.com/vitelabs/go-vite/` (as default, $GOPATH is `~/go`)
-3. Go to the source code directory and run `make gvite`, you will get an executable file here: `$GOPATH/src/github.com/vitelabs/go-vite/build/cmd/gvite/gvite`
-4. Configuration use config file `node_config.json` to set Config, the file should be in the same directory of vite. you can use the default config to connect to the testNet.
-5. Run the appropriate binary file on your OS. eg.  use ```nohup ./gvite >> gvite.log 2>&1 &``` to start the node.
+- [Install from binary](https://vite.wiki/tutorial/node/install.html#install-from-binary)
 
+- [Install from source](https://vite.wiki/tutorial/node/install.html#install-from-source)
 
 
 ## Contribution
 
-We are very very welcome contributions from anyone, even if little change (eg. improving comment, formatter) can help us make VITE better!
+We are very very welcome contributions from anyone, even if little change (eg. improving comment, formatter) can help us make Vite better!
 
 If you\`d like to contribute to vite, please fork, fix, commit and make a pull request. We\`ll review and handle the PR. Please 
 make sure your code follows our guidelines:
