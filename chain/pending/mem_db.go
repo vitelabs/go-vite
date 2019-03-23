@@ -54,16 +54,20 @@ func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 func (mDb *MemDB) Delete(blockHash *types.Hash, key []byte) {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
+
 	mDb.storage.Delete(key)
 	mDb.deletedKey[string(key)] = struct{}{}
 	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
 }
 
-func (mDb *MemDB) Has(key []byte) bool {
+func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
 	mDb.mu.RLock()
 	defer mDb.mu.RUnlock()
+	if _, ok := mDb.deletedKey[string(key)]; ok {
+		return false, true
+	}
 
-	return mDb.storage.Contains(key)
+	return mDb.storage.Contains(key), false
 }
 
 func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
@@ -143,10 +147,17 @@ func (mDb *MemDB) Clean() {
 	defer mDb.mu.Unlock()
 
 	mDb.storage.Reset()
+
+	mDb.deletedKey = make(map[string]struct{})
+
 	mDb.hashKeyList = make(map[types.Hash][][]byte)
 }
 
 func (mDb *MemDB) get(key []byte) ([]byte, bool) {
+	if _, ok := mDb.deletedKey[string(key)]; ok {
+		return nil, true
+	}
+
 	result, errNotFound := mDb.storage.Get(key)
 	if errNotFound != nil {
 		return nil, false

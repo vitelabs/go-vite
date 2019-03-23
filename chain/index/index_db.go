@@ -110,8 +110,12 @@ func (iDB *IndexDB) getValue(key []byte) ([]byte, error) {
 }
 
 func (iDB *IndexDB) hasValue(key []byte) (bool, error) {
-	if ok := iDB.memDb.Has(key); ok {
+	if ok, deleted := iDB.memDb.Has(key); ok {
 		return ok, nil
+
+	} else if deleted {
+		return false, nil
+
 	}
 
 	return iDB.store.Has(key)

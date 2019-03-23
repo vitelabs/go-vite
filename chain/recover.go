@@ -29,12 +29,12 @@ func (c *chain) checkAndRepair() error {
 	compareResult := stateDbLatestLocation.Compare(blockDbLatestLocation)
 
 	if compareResult > 0 {
-		if err := c.stateDB.Rollback(blockDbLatestLocation); err != nil {
-			return errors.New(fmt.Sprintf("c.stateDB.Rollback failed. Error: %s", err))
+		if err := c.stateDB.CheckAndDelete(blockDbLatestLocation); err != nil {
+			return errors.New(fmt.Sprintf("c.stateDB.DeleteTo failed. Error: %s", err))
 		}
 	} else if compareResult < 0 {
-		if err := c.blockDB.Rollback(stateDbLatestLocation); err != nil {
-			return errors.New(fmt.Sprintf("c.blockDB.Rollback failed. Error: %s", err))
+		if err := c.blockDB.DeleteTo(stateDbLatestLocation); err != nil {
+			return errors.New(fmt.Sprintf("c.blockDB.DeleteTo failed. Error: %s", err))
 		}
 
 		return c.checkAndRepairIndexDb(stateDbLatestLocation)
@@ -82,8 +82,8 @@ func (c *chain) checkAndRepairIndexDb(latestLocation *chain_block.Location) erro
 			}
 		}
 	} else if compareResult > 0 {
-		if err := c.indexDB.Rollback(latestLocation); err != nil {
-			return errors.New(fmt.Sprintf("c.indexDB.Rollback failed, location is %+v. Error: %s",
+		if err := c.indexDB.DeleteTo(latestLocation); err != nil {
+			return errors.New(fmt.Sprintf("c.indexDB.DeleteTo failed, location is %+v. Error: %s",
 				latestLocation, err))
 		}
 	}

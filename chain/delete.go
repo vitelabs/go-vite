@@ -8,72 +8,82 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotChunk, error) {
 	height, err := c.indexDB.GetSnapshotBlockHeight(toHash)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed, error is %s, snapshotHash is %s", err.Error(), toHash))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
-		return nil, nil, cErr
+		c.log.Error(cErr.Error(), "method", "Rollback")
+		return nil, cErr
 	}
 	if height <= 0 {
 		cErr := errors.New(fmt.Sprintf("height <= 0, error is %s, snapshotHash is %s", err.Error(), toHash))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
-		return nil, nil, cErr
+		c.log.Error(cErr.Error(), "method", "Rollback")
+		return nil, cErr
 	}
 
 	return c.DeleteSnapshotBlocksToHeight(height)
 }
 
-func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
 	location, err := c.indexDB.GetSnapshotBlockLocation(toHeight)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, snapshotHeight is %d", err.Error(), toHeight))
 		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-		return nil, nil, cErr
+		return nil, cErr
 	}
 
 	prevLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, (snapshotHeight -1) is %d", err.Error(), toHeight-1))
 		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-		return nil, nil, cErr
+		return nil, cErr
 	}
 	return c.deleteSnapshotBlocksToLocation(location, prevLocation)
 }
 
-func (c *chain) deleteSnapshotBlocksToLocation(location *chain_block.Location, prevLocation *chain_block.Location) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error) {
+func (c *chain) deleteSnapshotBlocksToLocation(
+	location *chain_block.Location,
+	prevLocation *chain_block.Location) ([]*ledger.SnapshotChunk, error) {
 
-	// clean cache
-	c.cache.CleanUnconfirmedPool()
-
-	// delete blocks
-	deletedSnapshotSegments, unconfirmedAccountBlocks, err := c.blockDB.DeleteTo(location, prevLocation)
+	// rollback blocks db
+	deletedSnapshotSegments, unconfirmedAccountBlocks, newLatestSnapshotBlock, err := c.blockDB.Rollback(location, prevLocation)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteAndReadTo failed, error is %s, location is %d", err.Error(), location))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
-		return nil, nil, cErr
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	// delete index
-	if err := c.indexDB.DeleteSnapshotBlocks(deletedSnapshotSegments, unconfirmedAccountBlocks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.DeleteSnapshotBlocks failed, error is %s", err.Error()))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
-		return nil, nil, cErr
+	// rollback index db
+	if err := c.indexDB.Rollback(deletedSnapshotSegments, location); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Rollback failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	// delete state db
-	if err := c.stateDB.DeleteSubLedger(deletedSnapshotSegments); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.DeleteSnapshotBlocks failed, error is %s", err.Error()))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
-		return nil, nil, cErr
+	// rollback state db
+	if err := c.stateDB.Rollback(deletedSnapshotSegments, location); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	//insert unconfirmed block
-	for _, block := range unconfirmedAccountBlocks {
-		c.cache.InsertAccountBlock(block)
+	// rollback cache
+	deletedUnconfirmBlocks, err := c.cache.Rollback(deletedSnapshotSegments, unconfirmedAccountBlocks, newLatestSnapshotBlock)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.Rollback failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	return nil, nil, nil
+	var snapshotChunkList = make([]*ledger.SnapshotChunk, 0, len(deletedSnapshotSegments)+1)
+	for _, seg := range deletedSnapshotSegments {
+		snapshotChunkList = append(snapshotChunkList, &ledger.SnapshotChunk{
+			SnapshotBlock: seg.SnapshotBlock,
+			AccountBlocks: seg.AccountBlocks,
+		})
+	}
+	if len(deletedUnconfirmBlocks) > 0 {
+		snapshotChunkList = append(snapshotChunkList, &ledger.SnapshotChunk{
+			AccountBlocks: deletedUnconfirmBlocks,
+		})
+	}
+	return snapshotChunkList, nil
 }

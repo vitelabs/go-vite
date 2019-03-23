@@ -128,7 +128,6 @@ func (c *chain) Init() error {
 		c.indexDB.Destroy()
 		c.blockDB.Destroy()
 	}
-	//c.log.Error(cErr.Error(), "method", "checkAndRepair")
 
 	// init cache
 	if err := c.cache.Init(); err != nil {

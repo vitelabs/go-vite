@@ -55,6 +55,6 @@ func (bDB *BlockDB) CheckAndRepair() error {
 
 }
 
-func (bDB *BlockDB) Rollback(location *Location) error {
+func (bDB *BlockDB) DeleteTo(location *Location) error {
 	return bDB.fm.DeleteTo(location)
 }

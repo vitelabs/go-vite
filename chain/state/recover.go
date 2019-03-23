@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func (sDB *StateDB) Rollback(location *chain_block.Location) error {
+func (sDB *StateDB) CheckAndDelete(location *chain_block.Location) error {
 	logFileIdList, err := sDB.flushLog.LogFileIdList()
 	if err != nil {
 		return err

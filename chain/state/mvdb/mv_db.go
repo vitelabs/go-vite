@@ -191,8 +191,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, keyList [][]byte, valu
 		mvDB.pending.Put(blockHash, chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
 
 		// insert value
-		valueIdKey := chain_utils.CreateValueIdKey(valueId)
-		mvDB.pending.Put(blockHash, valueIdKey, valueList[index])
+		mvDB.pending.Put(blockHash, chain_utils.CreateValueIdKey(valueId), valueList[index])
 	}
 
 	// insert undo log
@@ -207,9 +206,11 @@ func (mvDB *MultiVersionDB) Flush(blockHashList []*types.Hash, latestLocation *c
 
 	mvDB.pending.FlushList(batch, blockHashList)
 	mvDB.updateLatestLocation(batch, latestLocation)
+
 	if err := mvDB.db.Write(batch, nil); err != nil {
 		return err
 	}
+
 	mvDB.pending.DeleteByBlockHashList(blockHashList)
 	return nil
 }
@@ -236,6 +237,14 @@ func (mvDB *MultiVersionDB) updateLatestLocation(batch *leveldb.Batch, latestLoc
 
 }
 
-func (mvDB *MultiVersionDB) updateKeyIdIndex(batch *leveldb.Batch, keyId uint64, valueId uint64) {
+func (mvDB *MultiVersionDB) updateLatestValueId(batch *leveldb.Batch, keyId uint64, valueId uint64) {
 	batch.Put(chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
+}
+
+func (mvDB *MultiVersionDB) deleteValue(batch *leveldb.Batch, valueId uint64) {
+	batch.Delete(chain_utils.CreateValueIdKey(valueId))
+}
+
+func (mvDB *MultiVersionDB) deleteValueId(batch *leveldb.Batch, keyId uint64) {
+	batch.Delete(chain_utils.CreateLatestValueKey(keyId))
 }

@@ -1,6 +1,7 @@
 package chain_cache
 
 import (
+	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
@@ -29,6 +30,23 @@ func NewCache(chain Chain) (*Cache, error) {
 	}
 
 	return c, nil
+}
+func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment,
+	newUnconfirmedAccountBlocks []*ledger.AccountBlock, newLatestSnapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	// delete all confirmed block
+	deleteBlocks := cache.unconfirmedPool.DeleteAllBlocks()
+
+	// update latest snapshot block
+	cache.setLatestSnapshotBlock(newLatestSnapshotBlock)
+
+	// rollback quota list
+	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments)); err != nil {
+		return nil, err
+	}
+	return deleteBlocks, nil
 }
 
 // ====== Account blocks ======
@@ -74,13 +92,6 @@ func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*led
 	defer cache.mu.RUnlock()
 
 	return cache.unconfirmedPool.GetBlocksByAddress(address)
-}
-
-func (cache *Cache) CleanUnconfirmedPool() {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	cache.unconfirmedPool.DeleteAllBlocks()
 }
 
 // ====== Snapshot block ======

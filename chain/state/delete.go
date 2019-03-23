@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func (sDB *StateDB) DeleteSubLedger(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
+func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, toLocation *chain_block.Location) error {
 	size := 0
 	for _, seg := range deletedSnapshotSegments {
 		size += len(seg.AccountBlocks)
@@ -18,5 +18,5 @@ func (sDB *StateDB) DeleteSubLedger(deletedSnapshotSegments []*chain_block.Snaps
 		}
 	}
 	// TODO
-	return sDB.mvDB.Undo(blockHashList, nil)
+	return sDB.mvDB.Undo(blockHashList, toLocation)
 }

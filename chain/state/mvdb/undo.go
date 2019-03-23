@@ -7,14 +7,15 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash, latestLocation *chain_block.Location) error {
+func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash, toLocation *chain_block.Location) error {
 	// clean pending
 	mvDB.pending.Clean()
 
 	batch := new(leveldb.Batch)
 
 	// calculate undo
-	undo := make(map[uint64]uint64)
+	undo := make(map[uint64]uint64, 100)
+	deleteValueIdList := make([]uint64, 0, 100)
 
 	for _, blockHash := range blockHashList {
 		undoLog, err := mvDB.GetUndoLog(blockHash)
@@ -29,6 +30,8 @@ func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash, latestLocation *ch
 		mvDB.ParseUndoLog(undoLog, func(keyId uint64, valueId uint64) {
 			if _, ok := undo[keyId]; !ok {
 				undo[keyId] = valueId
+			} else {
+				deleteValueIdList = append(deleteValueIdList, valueId)
 			}
 		})
 
@@ -39,22 +42,32 @@ func (mvDB *MultiVersionDB) Undo(blockHashList []*types.Hash, latestLocation *ch
 	// set key index
 	for keyId, valueId := range undo {
 		if valueId <= 0 {
-
+			mvDB.deleteValueId(batch, keyId)
 		} else {
-			mvDB.updateKeyIdIndex(batch, keyId, valueId)
+			mvDB.updateLatestValueId(batch, keyId, valueId)
 		}
 	}
+	for _, valueId := range deleteValueIdList {
+		mvDB.deleteValue(batch, valueId)
+	}
 
-	mvDB.updateLatestLocation(batch, latestLocation)
+	mvDB.updateLatestLocation(batch, toLocation)
 
 	return mvDB.db.Write(batch, nil)
 }
 
 func (mvDB *MultiVersionDB) GetUndoLog(blockHash *types.Hash) ([]byte, error) {
-	return mvDB.db.Get(chain_utils.CreateUndoKey(blockHash), nil)
+	undoLog, err := mvDB.db.Get(chain_utils.CreateUndoKey(blockHash), nil)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return undoLog, nil
 }
 
-// positive sequence undo log list(from low to high)
+// assume undoLogList is positive sequence undo log list(from low to high)
 func (mvDB *MultiVersionDB) PosSeqUndoLogListToOperations(undoLogList [][]byte) map[uint64]uint64 {
 	size := 0
 	for _, undoLog := range undoLogList {

@@ -71,12 +71,16 @@ func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
 	up.insertedMap = newInsertedMap
 }
 
-func (up *UnconfirmedPool) DeleteAllBlocks() {
-
+func (up *UnconfirmedPool) DeleteAllBlocks() []*ledger.AccountBlock {
+	deleteBlocks := make([]*ledger.AccountBlock, len(up.insertedList))
 	for _, insertedDataId := range up.insertedList {
+		// query
+		deleteBlocks = append(deleteBlocks, up.ds.GetAccountBlock(insertedDataId))
+
 		// un ref
 		up.ds.UnRefDataId(insertedDataId)
 	}
 	up.insertedList = nil
 	up.insertedMap = make(map[types.Address][]uint64)
+	return deleteBlocks
 }

@@ -10,7 +10,6 @@ import (
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
-
 	return iDB.hasValue(chain_utils.CreateAccountBlockHashKey(hash))
 }
 
@@ -66,42 +65,25 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 	return chain_utils.FixedBytesToUint64(value), nil
 }
 
-func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (uint64, uint64, error) {
-	//accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
-	//if err != nil {
-	//	return 0, 0, err
-	//}
-	//
-	//if accountId <= 0 {
-	//	return 0, 0, nil
-	//}
-	//key := chain_utils.CreateReceiveHeightKey(accountId, height)
-	//value, err := iDB.getValue(key)
-	//
-	//if err != nil {
-	//	return 0, 0, err
-	//}
-	//if len(value) <= 0 {
-	//	return 0, 0, nil
-	//}
-	//
-	//receiveAccountId, receiveHeight := chain_utils.DeserializeAccountIdHeight(value)
-	//return receiveAccountId, receiveHeight, nil
-	return 0, 0, nil
+func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, error) {
+
+	value, err := iDB.getValue(chain_utils.CreateReceiveKey(sendBlockHash))
+	if err != nil {
+		return nil, err
+	}
+	if len(value) <= 0 {
+		return nil, nil
+	}
+
+	hash, err := types.BytesToHash(value)
+	if err != nil {
+		return nil, err
+	}
+	return &hash, nil
 }
 
 func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
-	//accountId, height, err := iDB.getAccountIdHeight(sendBlockHash)
-	//if err != nil {
-	//	return false, err
-	//}
-	//
-	//if accountId <= 0 {
-	//	return false, nil
-	//}
-	//
-	//key := chain_utils.CreateReceiveHeightKey(accountId, height)
-	return iDB.hasValue([]byte{})
+	return iDB.hasValue(chain_utils.CreateReceiveKey(sendBlockHash))
 
 }
 

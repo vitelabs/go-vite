@@ -81,9 +81,13 @@ func (iDB *IndexDB) insertOnRoad(sendBlockHash *types.Hash, addr *types.Address)
 
 func (iDB *IndexDB) receiveOnRoad(receiveBlockHash *types.Hash, sendBlockHash *types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-	key, err := iDB.store.Get(reverseKey)
+	key, err := iDB.getValue(reverseKey)
 	if err != nil {
 		return err
+	}
+	if len(key) <= 0 {
+		return errors.New(fmt.Sprintf("onRoad block is not existed, receiveBlockHash is %s, sendBlockHash is %s",
+			receiveBlockHash, sendBlockHash))
 	}
 
 	iDB.memDb.Delete(receiveBlockHash, reverseKey)

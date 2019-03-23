@@ -123,13 +123,19 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 
 		if buf.FileId != currentFileId {
 			currentFileId = buf.FileId
-			currentOffset = 0
+			if buf.FileId == startLocation.FileId() {
+				currentOffset = startLocation.Offset()
+			} else {
+				currentOffset = 0
+			}
 		}
 
 		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
 		if err != nil {
 			return nil, err
 		}
+
+		location := NewLocation(currentFileId, currentOffset)
 		if buf.BlockType == BlockTypeSnapshotBlock {
 
 			sb := &ledger.SnapshotBlock{}
@@ -137,7 +143,7 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 				return nil, err
 			}
 			seg.SnapshotBlock = sb
-			seg.SnapshotBlockLocation = NewLocation(currentFileId, currentOffset)
+			seg.SnapshotBlockLocation = location
 			seg.RightBoundary = NewLocation(currentFileId, currentOffset+buf.Size)
 
 			segList = append(segList, seg)
@@ -149,7 +155,7 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 				return nil, err
 			}
 			seg.AccountBlocks = append(seg.AccountBlocks, ab)
-			seg.AccountBlocksLocation = append(seg.AccountBlocksLocation, NewLocation(currentFileId, currentOffset))
+			seg.AccountBlocksLocation = append(seg.AccountBlocksLocation, location)
 		}
 
 		currentOffset += buf.Size
@@ -167,7 +173,9 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 	return segList, nil
 }
 
-func (bDB *BlockDB) DeleteTo(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock, error) {
+func (bDB *BlockDB) Rollback(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock,
+	*ledger.SnapshotBlock, error) {
+
 	// bDB.fm.DeleteAndReadTo(location)
 	bfp := newBlockFileParser()
 	bfp2 := newBlockFileParser()
@@ -186,54 +194,71 @@ func (bDB *BlockDB) DeleteTo(location *Location, prevLocation *Location) ([]*Sna
 	iterator := bfp.Iterator()
 
 	for buf := range iterator {
+		if seg == nil {
+			seg = &SnapshotSegment{}
+		}
+
+		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 
 		if buf.BlockType == BlockTypeSnapshotBlock {
-			if seg != nil {
-				segList = append(segList, seg)
-			}
 
-			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
 			sb := &ledger.SnapshotBlock{}
 			if err := sb.Deserialize(sBuf); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
-			seg = &SnapshotSegment{
-				SnapshotBlock: sb,
-			}
+			seg.SnapshotBlock = sb
+			segList = append(segList, seg)
+			seg = nil
 		} else if buf.BlockType == BlockTypeAccountBlock {
-			if seg == nil {
-				seg = &SnapshotSegment{}
-			}
 
-			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
 			ab := &ledger.AccountBlock{}
 			if err := ab.Deserialize(sBuf); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			seg.AccountBlocks = append(seg.AccountBlocks, ab)
 		}
-
 	}
+
+	if seg != nil {
+		segList = append(segList, seg)
+	}
+
 	if err := bfp.Error(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var accountBlockList []*ledger.AccountBlock
+	var newLatestSnapshotBlock *ledger.SnapshotBlock
 	iterator2 := bfp2.Iterator()
 
 	for buf := range iterator2 {
-		if buf.BlockType == BlockTypeAccountBlock {
-			sBuf := snappy.Encode(snappyReadBuffer, buf.Buffer)
+		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		if buf.BlockType == BlockTypeSnapshotBlock {
+			sb := &ledger.SnapshotBlock{}
+			if err := sb.Deserialize(sBuf); err != nil {
+				return nil, nil, nil, err
+			}
+			newLatestSnapshotBlock = sb
+
+		} else if buf.BlockType == BlockTypeAccountBlock {
+
 			ab := &ledger.AccountBlock{}
 			if err := ab.Deserialize(sBuf); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			accountBlockList = append(accountBlockList, ab)
 		}
 	}
 
 	if err := bfp2.Error(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return segList, accountBlockList, nil
+	return segList, accountBlockList, newLatestSnapshotBlock, nil
 }
