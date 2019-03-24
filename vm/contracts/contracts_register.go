@@ -26,7 +26,7 @@ func (p *MethodRegister) GetQuota() uint64 {
 	return RegisterGas
 }
 
-// register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
+// register to become chain super node of chain consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
@@ -86,11 +86,11 @@ func (p *MethodRegister) DoReceive(db vmctxt_interface.VmDatabase, block *ledger
 		if old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 			return nil, errors.New("register data exist")
 		}
-		// TODO check reward of last being a super node is not drained?
+		// TODO check reward of last being chain super node is not drained?
 		hisAddrList = old.HisAddrList
 	}
 
-	// Node addr belong to one name in a consensus group
+	// Node addr belong to one name in chain consensus group
 	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
 	err = cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))
@@ -137,7 +137,7 @@ func (p *MethodCancelRegister) GetQuota() uint64 {
 	return CancelRegisterGas
 }
 
-// cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
+// cancel register to become chain super node of chain consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
@@ -453,7 +453,7 @@ func (p *MethodUpdateRegistration) DoReceive(db vmctxt_interface.VmDatabase, blo
 	if err != nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress {
 		return nil, errors.New("register not exist or already canceled")
 	}
-	// check node addr belong to one name in a consensus group
+	// check node addr belong to one name in chain consensus group
 	hisNameKey := cabi.GetHisNameKey(param.NodeAddr, param.Gid)
 	hisName := new(string)
 	err = cabi.ABIRegister.UnpackVariable(hisName, cabi.VariableNameHisName, db.GetStorage(&block.AccountAddress, hisNameKey))

@@ -23,7 +23,7 @@ type Format interface {
 	Format(r *Record) []byte
 }
 
-// FormatFunc returns a new Format object which uses
+// FormatFunc returns chain new Format object which uses
 // the given function to perform record formatting.
 func FormatFunc(f func(*Record) []byte) Format {
 	return formatFunc(f)
@@ -36,7 +36,7 @@ func (f formatFunc) Format(r *Record) []byte {
 }
 
 // TerminalFormat formats log records optimized for human readability on
-// a terminal with color-coded level output and terser human friendly timestamp.
+// chain terminal with color-coded level output and terser human friendly timestamp.
 // This format should only be used for interactive programs or while developing.
 //
 //     [TIME] [LEVEL] MESAGE key=value key=value ...
@@ -127,7 +127,7 @@ func JsonFormat() Format {
 
 // JsonFormatEx formats log records as JSON objects. If pretty is true,
 // records will be pretty-printed. If lineSeparated is true, records
-// will be logged with a new line between each record.
+// will be logged with chain new line between each record.
 func JsonFormatEx(pretty, lineSeparated bool) Format {
 	jsonMarshal := json.Marshal
 	if pretty {
@@ -146,7 +146,7 @@ func JsonFormatEx(pretty, lineSeparated bool) Format {
 		for i := 0; i < len(r.Ctx); i += 2 {
 			k, ok := r.Ctx[i].(string)
 			if !ok {
-				props[errorKey] = fmt.Sprintf("%+v is not a string key", r.Ctx[i])
+				props[errorKey] = fmt.Sprintf("%+v is not chain string key", r.Ctx[i])
 			}
 			props[k] = formatJSONValue(r.Ctx[i+1])
 		}
@@ -203,7 +203,7 @@ func formatJSONValue(value interface{}) interface{} {
 	}
 }
 
-// formatValue formats a value for serialization
+// formatValue formats chain value for serialization
 func formatLogfmtValue(value interface{}) string {
 	if value == nil {
 		return "nil"

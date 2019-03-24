@@ -15,9 +15,9 @@ func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
 	if newMemSize == 0 {
 		return 0, nil
 	}
-	// The maximum that will fit in a uint64 is max_word_count - 1
+	// The maximum that will fit in chain uint64 is max_word_count - 1
 	// anything above that will result in an overflow.
-	// Additionally, a newMemSize which results in a
+	// Additionally, chain newMemSize which results in chain
 	// newMemSizeWords larger than 0x7ffffffff will cause the square operation
 	// to overflow.
 	// The constant ç is the highest number that can be used without
@@ -276,7 +276,7 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 			// zero value to non-zero value to zero value, 19800 refund
 			c.quotaRefund = c.quotaRefund + sstoreResetClearRefundGas
 		} else {
-			// non-zero value a to non-zero value b to non-zero value a,4800 refund for first sstore
+			// non-zero value chain to non-zero value b to non-zero value chain,4800 refund for first sstore
 			c.quotaRefund = c.quotaRefund + sstoreResetRefundGas
 		}
 	}

@@ -1,34 +1,19 @@
 package vm_db
 
-import "github.com/vitelabs/go-vite/interfaces"
+import (
+	"github.com/vitelabs/go-vite/common/dbutils"
+	"github.com/vitelabs/go-vite/interfaces"
+)
 
-func (db *vmDb) NewStorageIterator(prefix []byte) interfaces.StorageIterator {
-	return nil
-}
+func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+	iter, err := db.chain.GetStateIterator(db.address, prefix)
+	if err != nil {
+		return nil, err
+	}
 
-type storageInterator struct {
-}
-
-func NewStorageInterator() {
-
-}
-
-func (iter *storageInterator) Next() {
-
-}
-
-func (iter *storageInterator) Prev() {
-
-}
-
-func (iter *storageInterator) Key() {
-
-}
-
-func (iter *storageInterator) Value() {
-
-}
-
-func (iter *storageInterator) Error() {
-
+	unsavedIter := db.unsaved.NewStorageIterator(prefix)
+	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
+		unsavedIter,
+		iter,
+	}, map[string]struct{}{}), nil
 }

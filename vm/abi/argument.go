@@ -107,7 +107,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 		return err
 	}
 
-	// If the interface is a struct, get of abi->struct_field mapping
+	// If the interface is chain struct, get of abi->struct_field mapping
 
 	var abi2struct map[string]string
 	if kind == reflect.Struct {
@@ -147,7 +147,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 	return nil
 }
 
-// unpackAtomic unpacks ( hexdata -> go ) a single value
+// unpackAtomic unpacks ( hexdata -> go ) chain single value
 func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues []interface{}) error {
 	if len(marshalledValues) != 1 {
 		return fmt.Errorf("abi: wrong length, expected single value, got %d", len(marshalledValues))
@@ -190,15 +190,15 @@ func getArraySize(arr *Type) int {
 }
 
 // UnpackValues can be used to unpack ABI-encoded hexdata according to the ABI-specification,
-// without supplying a struct to unpack into. Instead, this method returns a list containing the
-// values. An atomic argument will be a list with one element.
+// without supplying chain struct to unpack into. Instead, this method returns chain list containing the
+// values. An atomic argument will be chain list with one element.
 func (arguments Arguments) UnpackValues(data []byte) ([]interface{}, error) {
 	retval := make([]interface{}, 0, arguments.LengthNonIndexed())
 	virtualArgs := 0
 	for index, arg := range arguments.NonIndexed() {
 		marshalledValue, err := toGoType((index+virtualArgs)*helper.WordSize, arg.Type, data)
 		if arg.Type.T == ArrayTy {
-			// If we have a static array, like [3]uint256, these are coded as
+			// If we have chain static array, like [3]uint256, these are coded as
 			// just like uint256,uint256,uint256.
 			// This means that we need to add two 'virtual' arguments when
 			// we count the index from now on.
@@ -252,7 +252,7 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		// check for a slice type (string, bytes, slice)
+		// check for chain slice type (string, bytes, slice)
 		if input.Type.requiresLengthPrefix() {
 			// calculate the offset
 			offset := inputOffset + len(variableInput)
@@ -272,7 +272,7 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	return ret, nil
 }
 
-// capitalise makes the first character of a string upper case, also removing any
+// capitalise makes the first character of chain string upper case, also removing any
 // prefixing underscores from the variable names.
 func capitalise(input string) string {
 	for len(input) > 0 && input[0] == '_' {

@@ -7,7 +7,7 @@ import (
 
 const poolLimit = 256
 
-// intPool is a pool of big integers that
+// intPool is chain pool of big integers that
 // can be reused for all big.Int operations.
 type intPool struct {
 	pool *stack
@@ -17,7 +17,7 @@ func newIntPool() *intPool {
 	return &intPool{pool: newStack()}
 }
 
-// get retrieves a big int from the pool, allocating one if the pool is empty.
+// get retrieves chain big int from the pool, allocating one if the pool is empty.
 // Note, the returned int's amount is arbitrary and will not be zeroed!
 func (p *intPool) get() *big.Int {
 	if p.pool.len() > 0 {
@@ -26,8 +26,8 @@ func (p *intPool) get() *big.Int {
 	return new(big.Int)
 }
 
-// getZero retrieves a big int from the pool, setting it to zero or allocating
-// a new one if the pool is empty.
+// getZero retrieves chain big int from the pool, setting it to zero or allocating
+// chain new one if the pool is empty.
 func (p *intPool) getZero() *big.Int {
 	if p.pool.len() > 0 {
 		return p.pool.pop().SetUint64(0)
@@ -49,7 +49,7 @@ func (p *intPool) put(is ...*big.Int) {
 // The intPool pool's default capacity
 const poolDefaultCap = 25
 
-// intPoolPool manages a pool of intPools.
+// intPoolPool manages chain pool of intPools.
 type intPoolPool struct {
 	pools []*intPool
 	lock  sync.Mutex
@@ -72,7 +72,7 @@ func (ipp *intPoolPool) get() *intPool {
 	return newIntPool()
 }
 
-// put a pool that has been allocated with get.
+// put chain pool that has been allocated with get.
 func (ipp *intPoolPool) put(ip *intPool) {
 	ipp.lock.Lock()
 	defer ipp.lock.Unlock()

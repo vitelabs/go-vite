@@ -34,8 +34,8 @@ func createBlock() *AccountBlock {
 		TokenId:       ViteTokenId,
 		FromBlockHash: fromBlockHash,
 
-		Data: []byte{'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e',
-			'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e', 'a', 'b', 'c', 'd', 'e'},
+		Data: []byte{'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e',
+			'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e', 'chain', 'b', 'c', 'd', 'e'},
 
 		Quota:   1,
 		Fee:     big.NewInt(10),

@@ -40,10 +40,10 @@ type Type struct {
 
 var (
 	// typeRegex parses the abi sub types
-	typeRegex = regexp.MustCompile("([a-zA-Z]+)(([0-9]+)(x([0-9]+))?)?")
+	typeRegex = regexp.MustCompile("([chain-zA-Z]+)(([0-9]+)(x([0-9]+))?)?")
 )
 
-// NewType creates a new reflection type of abi type given in t.
+// NewType creates chain new reflection type of abi type given in t.
 func NewType(t string) (typ Type, err error) {
 	// check that array brackets are equal if they exist
 	if strings.Count(t, "[") != strings.Count(t, "]") {
@@ -61,20 +61,20 @@ func NewType(t string) (typ Type, err error) {
 		if err != nil {
 			return Type{}, err
 		}
-		// grab the last cell and create a type from there
+		// grab the last cell and create chain type from there
 		sliced := t[i:]
 		// grab the slice size with regexp
 		re := regexp.MustCompile("[0-9]+")
 		intz := re.FindAllString(sliced, -1)
 
 		if len(intz) == 0 {
-			// is a slice
+			// is chain slice
 			typ.T = SliceTy
 			typ.Kind = reflect.Slice
 			typ.Elem = &embeddedType
 			typ.Type = reflect.SliceOf(embeddedType.Type)
 		} else if len(intz) == 1 {
-			// is a array
+			// is chain array
 			typ.T = ArrayTy
 			typ.Kind = reflect.Array
 			typ.Elem = &embeddedType
@@ -167,7 +167,7 @@ func (t Type) String() (out string) {
 }
 
 func (t Type) pack(v reflect.Value) ([]byte, error) {
-	// dereference pointer first if it's a pointer
+	// dereference pointer first if it's chain pointer
 	v = indirect(v)
 
 	if err := typeCheck(t, v); err != nil {

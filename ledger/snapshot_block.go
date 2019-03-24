@@ -125,14 +125,37 @@ type SnapshotBlock struct {
 
 	Timestamp *time.Time `json:"timestamp"` // 3
 
-	SnapshotContent SnapshotContent `json:"snapshotContent"` // 4
+	Seed     uint64     `json:Seed`     // 4
+	SeedHash types.Hash `json:SeedHash` // 5
+
+	SnapshotContent SnapshotContent `json:"snapshotContent"` // 6
+}
+
+func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) types.Hash {
+	source := make([]byte, 0, 8+types.HashSize+8)
+
+	//Seed
+	seedBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(seedBytes, seed)
+	source = append(source, seedBytes...)
+
+	// PrevHash
+	source = append(source, prevHash.Bytes()...)
+
+	// Timestamp
+	unixTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(unixTimeBytes, uint64(timestamp.Unix()))
+	source = append(source, unixTimeBytes...)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return hash
 }
 
 func (sb *SnapshotBlock) hashSourceLength() int {
-	// 1 , 2, 3
-	size := types.HashSize + 8 + 8
+	// 1 , 2, 3, 4, 5
+	size := types.HashSize + 8 + 8 + 8 + types.HashSize
 
-	// 4
+	// 6
 	size += len(sb.SnapshotContent) * ScItemBytesLen
 
 	// forkName
@@ -158,6 +181,14 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	unixTimeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(unixTimeBytes, uint64(sb.Timestamp.Unix()))
 	source = append(source, unixTimeBytes...)
+
+	// Seed
+	seedBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(seedBytes, sb.Seed)
+	source = append(source, seedBytes...)
+
+	// Seed Hash
+	source = append(source, sb.SeedHash.Bytes()...)
 
 	// Snapshot Content
 	scBytesList := sb.SnapshotContent.bytesList()
@@ -201,12 +232,14 @@ func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	// 3
 	pb.Height = sb.Height
 	// 4
-	pb.PublicKey = sb.PublicKey
+
 	// 5
-	pb.Signature = sb.Signature
+	pb.PublicKey = sb.PublicKey
 	// 6
-	pb.Timestamp = sb.Timestamp.UnixNano()
+	pb.Signature = sb.Signature
 	// 7
+	pb.Timestamp = sb.Timestamp.UnixNano()
+	// 8
 	pb.SnapshotContent = sb.SnapshotContent.proto()
 	return pb
 }

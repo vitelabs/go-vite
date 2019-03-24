@@ -28,7 +28,7 @@ var (
 		Category: "CONSOLE COMMANDS",
 		Description: `
 The GVite console is an interactive shell for the JavaScript runtime environment
-which exposes a node admin interface as well as the Ðapp JavaScript API.
+which exposes chain node admin interface as well as the Ðapp JavaScript API.
 See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
 	}
 
@@ -41,7 +41,7 @@ See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.`,
 		Flags:     jsFlags,
 		Category:  "CONSOLE COMMANDS",
 		Description: `
-The JavaScript VM exposes a node admin interface as well as the Ðapp
+The JavaScript VM exposes chain node admin interface as well as the Ðapp
 JavaScript API. See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console`,
 	}
 
@@ -55,13 +55,13 @@ JavaScript API. See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console`
 		Category:  "CONSOLE COMMANDS",
 		Description: `
 The GVite console is an interactive shell for the JavaScript runtime environment
-which exposes a node admin interface as well as the Ðapp JavaScript API.
+which exposes chain node admin interface as well as the Ðapp JavaScript API.
 See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.
-This command allows to open a console on a running gvite node.`,
+This command allows to open chain console on chain running gvite node.`,
 	}
 )
 
-// localConsole starts a new gvite node, attaching a JavaScript console to it at the same time.
+// localConsole starts chain new gvite node, attaching chain JavaScript console to it at the same time.
 func localConsoleAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags
@@ -94,7 +94,7 @@ func localConsoleAction(ctx *cli.Context) error {
 	}
 	defer console.Stop(false)
 
-	// If only a short execution was requested, evaluate and return
+	// If only chain short execution was requested, evaluate and return
 	if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
 		console.Evaluate(script)
 		return nil
@@ -107,7 +107,7 @@ func localConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// ephemeralConsole starts a new gvite node, attaches an ephemeral JavaScript
+// ephemeralConsole starts chain new gvite node, attaches an ephemeral JavaScript
 // console to it, executes each of the files specified as arguments and tears
 // everything down.
 func ephemeralConsoleAction(ctx *cli.Context) error {
@@ -158,10 +158,10 @@ func ephemeralConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// remoteConsole will connect to a remote gvite instance, attaching a JavaScript console to it.
+// remoteConsole will connect to chain remote gvite instance, attaching chain JavaScript console to it.
 func remoteConsoleAction(ctx *cli.Context) error {
 
-	// Attach to a remotely running gvite instance and start the JavaScript console
+	// Attach to chain remotely running gvite instance and start the JavaScript console
 	//gvite attach ipc:/some/custom/path
 	//gvite attach http://191.168.1.1:8545
 	//gvite attach ws://191.168.1.1:8546
@@ -200,7 +200,7 @@ func remoteConsoleAction(ctx *cli.Context) error {
 	return nil
 }
 
-// dialRPC returns a RPC client which connects to the given endpoint.
+// dialRPC returns chain RPC client which connects to the given endpoint.
 // The check for empty endpoint implements the defaulting logic for "gvite attach" with no argument.
 func dialRPC(dataDir string, endpoint string) (*rpc.Client, error) {
 	if endpoint == "" {

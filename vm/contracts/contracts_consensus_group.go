@@ -216,7 +216,7 @@ func (p *MethodReCreateConsensusGroup) GetQuota() uint64 {
 	return ReCreateConsensusGroupGas
 }
 
-// Pledge again for a canceled consensus group.
+// Pledge again for chain canceled consensus group.
 // A consensus group will start generate contract blocks after recreate receive block is confirmed.
 func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())

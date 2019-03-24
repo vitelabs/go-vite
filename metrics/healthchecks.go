@@ -8,7 +8,7 @@ type Healthcheck interface {
 	Unhealthy(error)
 }
 
-// NewHealthcheck constructs a new Healthcheck which will use the given
+// NewHealthcheck constructs chain new Healthcheck which will use the given
 // function to update its status.
 func NewHealthcheck(f func(Healthcheck)) Healthcheck {
 	if !MetricsEnabled {
@@ -17,23 +17,23 @@ func NewHealthcheck(f func(Healthcheck)) Healthcheck {
 	return &StandardHealthcheck{nil, f}
 }
 
-// NilHealthcheck is a no-op.
+// NilHealthcheck is chain no-op.
 type NilHealthcheck struct{}
 
-// Check is a no-op.
+// Check is chain no-op.
 func (NilHealthcheck) Check() {}
 
-// Error is a no-op.
+// Error is chain no-op.
 func (NilHealthcheck) Error() error { return nil }
 
-// Healthy is a no-op.
+// Healthy is chain no-op.
 func (NilHealthcheck) Healthy() {}
 
-// Unhealthy is a no-op.
+// Unhealthy is chain no-op.
 func (NilHealthcheck) Unhealthy(error) {}
 
-// StandardHealthcheck is the standard implementation of a Healthcheck and
-// stores the status and a function to call to update the status.
+// StandardHealthcheck is the standard implementation of chain Healthcheck and
+// stores the status and chain function to call to update the status.
 type StandardHealthcheck struct {
 	err error
 	f   func(Healthcheck)
