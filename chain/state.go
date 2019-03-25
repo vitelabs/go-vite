@@ -51,7 +51,6 @@ func (c *chain) GetContractMeta(contractAddress *types.Address) (*ledger.Contrac
 	return meta, nil
 }
 
-// TODO
 func (c *chain) GetContractList(gid *types.Gid) ([]*types.Address, error) {
 
 	addrList, err := c.stateDB.GetContractList(gid)
@@ -64,15 +63,14 @@ func (c *chain) GetContractList(gid *types.Gid) ([]*types.Address, error) {
 }
 
 func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {
-	totalQuota, err := c.GetPledgeQuota(address)
+	quotaInfo, err := c.GetPledgeQuota(address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
 		return 0, cErr
 	}
 
-	quotaUsed, _ := c.GetQuotaUsed(address)
-	return totalQuota - quotaUsed, nil
+	return quotaInfo.Total() - quotaInfo.Used(), nil
 }
 
 func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {

@@ -65,10 +65,10 @@ type Chain interface {
 	 */
 
 	// contain the snapshot block of toHash, delete all blocks higher than snapshot line
-	DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+	DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotChunk, error)
 
 	// contain the snapshot block of toHeight`, delete all blocks higher than snapshot line
-	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
+	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error)
 
 	/*
 	 *	R(Retrieve)
@@ -183,7 +183,7 @@ type Chain interface {
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
-	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+	GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
 	GetValue(address *types.Address, key []byte) ([]byte, error)
 
@@ -196,10 +196,10 @@ type Chain interface {
 	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (types.Quota, error)
+	GetPledgeQuota(addr *types.Address) (*types.Quota, error)
 
 	// total
-	GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]types.Quota, error)
+	GetPledgeQuotas(addrList []*types.Address) (map[types.Address]*types.Quota, error)
 
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 

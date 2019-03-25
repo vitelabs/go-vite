@@ -6,7 +6,7 @@ import (
 )
 
 func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
-	iter, err := db.chain.GetStateIterator(db.address, prefix)
+	iter, err := db.chain.GetStorageIterator(db.address, prefix)
 	if err != nil {
 		return nil, err
 	}

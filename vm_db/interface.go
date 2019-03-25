@@ -31,9 +31,9 @@ type Chain interface {
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
-	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+	GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
 	GetValue(addr *types.Address, key []byte) ([]byte, error)
 
