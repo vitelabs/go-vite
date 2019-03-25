@@ -15,5 +15,5 @@ func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, e
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		unsavedIter,
 		iter,
-	}, map[string]struct{}{}), nil
+	}, db.unsaved.deletedKeys), nil
 }
