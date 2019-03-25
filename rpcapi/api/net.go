@@ -28,7 +28,7 @@ type SyncInfo struct {
 	To       string `json:"to"`
 	Received string `json:"received"`
 	Current  string `json:"current"`
-	State    uint   `json:"state"`
+	State    uint   `json:"state_bak"`
 	Status   string `json:"status"`
 }
 

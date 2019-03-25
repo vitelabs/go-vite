@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/fileutils"
 	"io"
 	"os"
 	"path"
@@ -13,18 +14,14 @@ import (
 
 const (
 	filenamePrefix       = "data"
-	filenamePrefixLength = 4
+	filenamePrefixLength = len(filenamePrefix)
 )
 
 type fileManager struct {
-	maxFileSize  int64
-	bufSizeBytes []byte
+	maxFileSize int64
 
 	dirName string
 	dirFd   *os.File
-
-	prevFiledId uint64
-	prevOffset  uint32
 
 	latestFileFd   *os.File
 	latestFileId   uint64
@@ -35,15 +32,14 @@ func newFileManager(dirName string) (*fileManager, error) {
 	var err error
 
 	fm := &fileManager{
-		dirName:      dirName,
-		maxFileSize:  10 * 1024 * 1024,
-		bufSizeBytes: make([]byte, 4),
+		dirName:     dirName,
+		maxFileSize: 10 * 1024 * 1024,
 	}
 
-	fm.dirFd, err = fm.newDirFd(dirName)
+	fm.dirFd, err = fileutils.OpenOrCreateFd(dirName)
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("fm.newDirFd failed, error is %s, dirName is %s", err, dirName))
+		return nil, errors.New(fmt.Sprintf("fileutils.OpenOrCreateFd failed, error is %s, dirName is %s", err, dirName))
 	}
 
 	fm.latestFileId, err = fm.loadLatestFileId()
@@ -56,12 +52,12 @@ func newFileManager(dirName string) (*fileManager, error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("fm.getFileFd failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
 		}
-		fm.latestFileSize, err = fm.fileSize(fm.latestFileFd)
+		fm.latestFileSize, err = fileutils.FileSize(fm.latestFileFd)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("fm.fileSize failed, error is %s, fm.latestFileId is %d", err, fm.latestFileId))
 		}
-	} else if err = fm.moveOneForward(); err != nil {
-		return nil, errors.New(fmt.Sprintf("fm.moveOneForward failed, error is %s", err))
+	} else if err = fm.moveToNext(); err != nil {
+		return nil, errors.New(fmt.Sprintf("fm.moveToNext failed, error is %s", err))
 	}
 	return fm, nil
 }
@@ -143,7 +139,7 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 	bufSize := int64(len(buf))
 
 	if fm.latestFileSize+bufSize > fm.maxFileSize {
-		fm.moveOneForward()
+		fm.moveToNext()
 	}
 
 	if _, err := fm.latestFileFd.Write(buf); err != nil {
@@ -162,14 +158,15 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 	startFileId := startLocation.FileId()
 
-	var endLocationOffset int64
 	var endFileId uint64
+	var endLocationOffset int64
+
 	if endLocation != nil {
 		endFileId = endLocation.FileId()
-		endLocationOffset = int64(endLocation.Offset())
+		endLocationOffset = endLocation.Offset()
 	} else {
-		endLocationOffset = fm.latestFileSize
 		endFileId = fm.latestFileId
+		endLocationOffset = fm.latestFileSize
 	}
 
 	for i := startFileId; i <= endFileId; i++ {
@@ -181,9 +178,7 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 			return
 		}
 		if fd == nil {
-
 			bfp.WriteErr(errors.New(fmt.Sprintf("fd is nil, fileId is %d", i)))
-
 			fd.Close()
 			return
 		}
@@ -202,7 +197,7 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 				fd.Close()
 				return
 			}
-			endOffset += int64(size)
+			endOffset += size
 		}
 
 		buf, err := fm.readFile(fd, i, startOffset, endOffset)
@@ -219,24 +214,29 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 }
 
 func (fm *fileManager) DeleteTo(location *Location) error {
-	startOffset := int64(location.Offset())
-
-	for i := location.FileId(); i <= fm.latestFileId; i++ {
-		if err := fm.deleteFile(i, startOffset); err != nil {
+	// remove
+	for i := fm.latestFileId; i > location.FileId()+1; i-- {
+		if err := os.Remove(fm.fileIdToAbsoluteFilename(i)); err != nil {
 			return err
 		}
-		startOffset = 0
+
 	}
-	if fm.latestFileId < location.fileId {
-		fm.latestFileId = location.fileId
+	// Truncate
+	if fm.latestFileId > location.FileId() {
 		fm.latestFileFd.Close()
 
+		fm.latestFileId = location.FileId()
 		var err error
-		if fm.latestFileFd, err = fm.getFileFd(fm.latestFileId); err != nil {
+		fm.latestFileFd, err = fm.getFileFd(fm.latestFileId)
+		if err != nil {
 			return err
 		}
 	}
-	fm.latestFileSize = startOffset
+	fm.latestFileSize = location.Offset()
+
+	if err := fm.latestFileFd.Truncate(fm.latestFileSize); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -244,10 +244,37 @@ func (fm *fileManager) DeleteTo(location *Location) error {
 func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser) {
 	defer bfp.Close()
 
+	fdList := make([]*os.File, 0, fm.latestFileId-location.FileId()+1)
+
 	startOffset := int64(location.Offset())
 
 	for i := location.FileId(); i <= fm.latestFileId; i++ {
-		buf, err := fm.deleteAndReadFile(i, startOffset)
+		var fd *os.File
+		if i == fm.latestFileId {
+
+			fd = fm.latestFileFd
+
+		} else {
+			var err error
+			fd, err = fm.getFileFd(i)
+			if err != nil {
+				bfp.WriteErr(err)
+				return
+			}
+		}
+
+		if i == location.FileId() {
+			size, err := fm.readDataSize(fd, startOffset)
+			if err != nil {
+				bfp.WriteErr(err)
+				return
+			}
+			startOffset += size
+		}
+
+		fdList = append(fdList, fd)
+
+		buf, err := fm.readFile(fd, i, startOffset, 0)
 		if err != nil {
 			bfp.WriteErr(err)
 			return
@@ -257,17 +284,27 @@ func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser)
 		startOffset = 0
 	}
 
-	if fm.latestFileId < location.fileId {
-		fm.latestFileId = location.fileId
-		fm.latestFileFd.Close()
+	for i := len(fdList) - 1; i > 1; i-- {
+		// delete
+		fd := fdList[i]
+		filename := fd.Name()
+		fd.Close()
 
-		var err error
-		if fm.latestFileFd, err = fm.getFileFd(fm.latestFileId); err != nil {
+		if err := os.Remove(filename); err != nil {
 			bfp.WriteErr(err)
 			return
 		}
 	}
-	fm.latestFileSize = startOffset
+
+	// truncate
+	fm.latestFileId = location.FileId()
+	fm.latestFileFd = fdList[0]
+	fm.latestFileSize = location.Offset()
+
+	if err := fm.latestFileFd.Truncate(fm.latestFileSize); err != nil {
+		bfp.WriteErr(err)
+		return
+	}
 
 	return
 }
@@ -276,7 +313,7 @@ func (fm *fileManager) GetFd(location *Location) (*os.File, error) {
 	return fm.getFileFd(location.FileId())
 }
 
-func (fm *fileManager) readDataSize(fd *os.File, offset int64) (uint32, error) {
+func (fm *fileManager) readDataSize(fd *os.File, offset int64) (int64, error) {
 	dataSize := make([]byte, 4)
 	readN, rErr := fd.ReadAt(dataSize, offset)
 
@@ -287,7 +324,7 @@ func (fm *fileManager) readDataSize(fd *os.File, offset int64) (uint32, error) {
 		return 0, nil
 	}
 
-	return binary.BigEndian.Uint32(dataSize), nil
+	return int64(binary.BigEndian.Uint32(dataSize)), nil
 
 }
 func (fm *fileManager) readFile(fd *os.File, fileId uint64, startOffset, endOffset int64) ([]byte, error) {
@@ -309,77 +346,6 @@ func (fm *fileManager) readFile(fd *os.File, fileId uint64, startOffset, endOffs
 	}
 
 	return buf[:readN], nil
-}
-
-func (fm *fileManager) deleteFile(fileId uint64, startOffset int64) error {
-	fd, err := fm.getFileFd(fileId)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-
-	if startOffset <= 0 {
-		if err := os.Remove(fd.Name()); err != nil {
-			return err
-		}
-	} else {
-		fd.Truncate(startOffset)
-	}
-
-	return nil
-}
-
-func (fm *fileManager) deleteAndReadFile(fileId uint64, toOffset int64) ([]byte, error) {
-	fd, err := fm.getFileFd(fileId)
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-
-	var buf []byte
-	if fileId == fm.latestFileId {
-		buf = make([]byte, fm.latestFileSize-toOffset)
-	} else {
-		buf = make([]byte, fm.maxFileSize-toOffset)
-	}
-
-	readN, rErr := fd.ReadAt(buf, toOffset)
-
-	if rErr != nil && rErr != io.EOF {
-		return nil, rErr
-	}
-
-	if toOffset <= 0 {
-		if err := os.Remove(fd.Name()); err != nil {
-			return nil, err
-		}
-	} else {
-		fd.Truncate(toOffset)
-	}
-
-	return buf[:readN], nil
-}
-
-func (fm *fileManager) newDirFd(dirName string) (*os.File, error) {
-	var dirFd *os.File
-	for dirFd == nil {
-		var openErr error
-		dirFd, openErr = os.Open(dirName)
-		if openErr != nil {
-			if os.IsNotExist(openErr) {
-				var cErr error
-				cErr = os.Mkdir(dirName, 0744)
-
-				if cErr != nil {
-					return nil, errors.New(fmt.Sprintf("Create %s failed, error is %s", dirName, cErr.Error()))
-				}
-			} else {
-				return nil, errors.New(fmt.Sprintf("os.Open %s failed, error is %s", dirName, openErr.Error()))
-			}
-		}
-	}
-
-	return dirFd, nil
 }
 
 func (fm *fileManager) loadLatestFileId() (uint64, error) {
@@ -433,16 +399,7 @@ func (fm *fileManager) getFileFd(fileId uint64) (*os.File, error) {
 	return file, oErr
 }
 
-func (fm *fileManager) fileSize(fd *os.File) (int64, error) {
-	fileInfo, err := fd.Stat()
-	if err != nil {
-		return 0, errors.New(fmt.Sprintf("fd.Stat() failed, error is %s", err.Error()))
-	}
-
-	return fileInfo.Size(), nil
-}
-
-func (fm *fileManager) moveOneForward() error {
+func (fm *fileManager) moveToNext() error {
 	nextLatestFileId := fm.latestFileId + 1
 
 	fd, err := fm.createNewFile(nextLatestFileId)

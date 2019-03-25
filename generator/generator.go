@@ -161,9 +161,9 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	}
 
 	return &GenResult{
-		//TODO BlockGenList: blockList,
-		IsRetry: isRetry,
-		Err:     err,
+		BlockGenList: blockList,
+		IsRetry:      isRetry,
+		Err:          err,
 	}, nil
 }
 

@@ -48,6 +48,7 @@ func (ql *quotaList) init() error {
 	ql.status = 1
 	return nil
 }
+
 func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	used := ql.used[*addr]
 	if used == nil {

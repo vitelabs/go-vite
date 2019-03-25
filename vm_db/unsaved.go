@@ -18,13 +18,15 @@ type Unsaved struct {
 	logList ledger.VmLogList
 
 	storage     *memdb.DB
-	kvCount     int
 	deletedKeys map[string]struct{}
+	keys        map[string]struct{}
 
 	storageDirty bool
 	storageCache [][2][]byte
 
 	balanceMap map[types.TokenTypeId]*big.Int
+
+	callDepth byte
 }
 
 func NewUnsaved() *Unsaved {
@@ -43,7 +45,6 @@ func (unsaved *Unsaved) Reset() {
 	unsaved.logList = nil
 
 	unsaved.storage.Reset()
-	unsaved.kvCount = 0
 	unsaved.deletedKeys = make(map[string]struct{})
 	unsaved.storageDirty = false
 
@@ -52,19 +53,19 @@ func (unsaved *Unsaved) Reset() {
 	unsaved.balanceMap = make(map[types.TokenTypeId]*big.Int)
 }
 
-func (unsaved *Unsaved) GetStorage() ([][2][]byte, map[string]struct{}) {
+func (unsaved *Unsaved) GetStorage() [][2][]byte {
 	if unsaved.storageDirty {
 		iter := unsaved.storage.NewIterator(nil)
 		defer iter.Release()
 
-		unsaved.storageCache = make([][2][]byte, 0, unsaved.kvCount)
+		unsaved.storageCache = make([][2][]byte, 0, len(unsaved.keys))
 		for iter.Next() {
 			unsaved.storageCache = append(unsaved.storageCache, [2][]byte{iter.Key(), iter.Value()})
 		}
 		unsaved.storageDirty = false
 	}
 
-	return unsaved.storageCache, unsaved.deletedKeys
+	return unsaved.storageCache
 }
 
 func (unsaved *Unsaved) GetBalanceMap() map[types.TokenTypeId]*big.Int {
@@ -81,12 +82,16 @@ func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
 
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
 	unsaved.storageDirty = true
+
+	keyStr := string(key)
+	unsaved.keys[keyStr] = struct{}{}
 	if len(value) <= 0 {
-		unsaved.deletedKeys[string(key)] = struct{}{}
-		unsaved.storage.Delete(key)
-	} else {
-		unsaved.storage.Put(key, value)
+		unsaved.deletedKeys[keyStr] = struct{}{}
+	} else if _, ok := unsaved.deletedKeys[keyStr]; ok {
+		delete(unsaved.deletedKeys, keyStr)
 	}
+
+	unsaved.storage.Put(key, value)
 }
 
 func (unsaved *Unsaved) GetValue(key []byte) ([]byte, bool) {
@@ -125,6 +130,7 @@ func (unsaved *Unsaved) GetLogListHash() *types.Hash {
 func (unsaved *Unsaved) SetContractMeta(contractMeta *ledger.ContractMeta) {
 	unsaved.contractMeta = contractMeta
 }
+
 func (unsaved *Unsaved) SetCode(code []byte) {
 	unsaved.code = code
 }
@@ -136,4 +142,12 @@ func (unsaved *Unsaved) NewStorageIterator(prefix []byte) interfaces.StorageIter
 func (unsaved *Unsaved) ReleaseRuntime() {
 	unsaved.GetStorage()
 	unsaved.storage = nil
+}
+
+func (unsaved *Unsaved) SetCallDepth(callDepth byte) {
+	unsaved.callDepth = callDepth
+}
+
+func (unsaved *Unsaved) GetCallDepth() byte {
+	return unsaved.callDepth
 }

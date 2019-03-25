@@ -25,6 +25,7 @@ func InitContractsConfig(isTestParam bool) {
 }
 
 type SendBlock struct {
+	Block     *ledger.AccountBlock
 	ToAddress types.Address
 	BlockType byte
 	Amount    *big.Int

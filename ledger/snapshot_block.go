@@ -125,8 +125,8 @@ type SnapshotBlock struct {
 
 	Timestamp *time.Time `json:"timestamp"` // 3
 
-	Seed     uint64     `json:Seed`     // 4
-	SeedHash types.Hash `json:SeedHash` // 5
+	Seed     uint64      `json:Seed`     // 4
+	SeedHash *types.Hash `json:SeedHash` // 5
 
 	SnapshotContent SnapshotContent `json:"snapshotContent"` // 6
 }

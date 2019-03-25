@@ -52,6 +52,14 @@ func (ds *dataSet) UnRefDataId(dataId uint64) {
 	}
 }
 
+func (ds *dataSet) UnRefByBlockHash(blockHash *types.Hash) {
+	dataId := ds.blockDataId[*blockHash]
+	if dataId <= 0 {
+		return
+	}
+	ds.UnRefDataId(dataId)
+}
+
 func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) uint64 {
 	if dataId, ok := ds.blockDataId[accountBlock.Hash]; ok {
 		return dataId
@@ -72,6 +80,16 @@ func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) uint64 
 
 	// blockDataId
 	ds.blockDataId[accountBlock.Hash] = newDataId
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		newDataId := ds.newDataId()
+
+		// accountBlockSet
+		ds.accountBlockSet[newDataId] = accountBlock
+
+		// blockDataId
+		ds.blockDataId[sendBlock.Hash] = newDataId
+	}
 
 	return newDataId
 }

@@ -1,17 +1,20 @@
 package sync_cache
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
 	"io"
+
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type ReadCloser interface {
-	Read(from, to uint64, fn func(ablock *ledger.AccountBlock, sblock *ledger.SnapshotBlock, err error))
+	// Read a block, return io.EOF if reach end, the block maybe a accountBlock or a snapshotBlock
+	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
+	// Close the stream
 	Close() error
 }
 
 type SyncCache interface {
 	NewWriter(from, to uint64) (io.WriteCloser, error)
 	Chunks() SegmentList
-	NewReader() (ReadCloser, error)
+	NewReader(from, to uint64) (ReadCloser, error)
 }

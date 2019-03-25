@@ -1,6 +1,6 @@
 package generator
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
 	ErrGetSnapshotOfReferredBlockFailed = errors.New("get snapshotblock of blocks referred failed")

@@ -30,7 +30,7 @@ func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	if len(value) <= 0 {
 		return 0, nil
 	}
-	return chain_utils.DeserializeAccountId(value), nil
+	return chain_utils.BytesToUint64(value), nil
 }
 
 func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) {
@@ -61,7 +61,7 @@ func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) 
 func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 
-	iDB.memDb.Put(blockHash, chain_utils.CreateAccountAddressKey(addr), chain_utils.SerializeAccountId(newAccountId))
+	iDB.memDb.Put(blockHash, chain_utils.CreateAccountAddressKey(addr), chain_utils.Uint64ToBytes(newAccountId))
 	iDB.memDb.Put(blockHash, chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
 	return newAccountId
 
@@ -76,7 +76,7 @@ func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
 
 	var latestAccountId uint64
 	if iter.Last() {
-		latestAccountId = chain_utils.FixedBytesToUint64(iter.Key()[1:])
+		latestAccountId = chain_utils.BytesToUint64(iter.Key()[1:])
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return 0, err
@@ -96,5 +96,5 @@ func (iDB *IndexDB) queryLatestOnRoadId() (uint64, error) {
 	if len(value) <= 0 {
 		return 0, nil
 	}
-	return chain_utils.FixedBytesToUint64(value), nil
+	return chain_utils.BytesToUint64(value), nil
 }

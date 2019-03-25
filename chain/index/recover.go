@@ -10,9 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (iDB *IndexDB) Rollback(endLocation *chain_block.Location) error {
+func (iDB *IndexDB) DeleteTo(endLocation *chain_block.Location) error {
 	batch := new(leveldb.Batch)
-	// rollback account blocks
 
 	iter := iDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateAccountIdPrefixKey()))
 	defer iter.Release()
@@ -36,7 +35,7 @@ func (iDB *IndexDB) Rollback(endLocation *chain_block.Location) error {
 				break
 			}
 
-			height := chain_utils.FixedBytesToUint64(heightIter.Key()[1+types.AddressSize:])
+			height := chain_utils.BytesToUint64(heightIter.Key()[1+types.AddressSize:])
 
 			hash, err := types.BytesToHash(valueBytes[:types.HashSize])
 			if err != nil {
@@ -45,7 +44,7 @@ func (iDB *IndexDB) Rollback(endLocation *chain_block.Location) error {
 			}
 
 			// rollback
-			iDB.rollbackAccountBlock(batch, &addr, &ledger.HashHeight{
+			iDB.deleteAccountBlock(batch, &addr, &ledger.HashHeight{
 				Hash:   hash,
 				Height: height,
 			})
@@ -75,14 +74,14 @@ func (iDB *IndexDB) Rollback(endLocation *chain_block.Location) error {
 			break
 		}
 
-		height := chain_utils.FixedBytesToUint64(iter.Key()[1:])
+		height := chain_utils.BytesToUint64(iter.Key()[1:])
 		hash, err := types.BytesToHash(value[:types.HashSize])
 		if err != nil {
 			return err
 		}
 
 		// rollback
-		iDB.rollbackSnapshotBlock(batch, &ledger.HashHeight{
+		iDB.deleteSnapshotBlock(batch, &ledger.HashHeight{
 			Hash:   hash,
 			Height: height,
 		})
@@ -100,12 +99,12 @@ func (iDB *IndexDB) Rollback(endLocation *chain_block.Location) error {
 	return nil
 }
 
-func (iDB *IndexDB) rollbackSnapshotBlock(batch interfaces.Batch, hashHeight *ledger.HashHeight) {
+func (iDB *IndexDB) deleteSnapshotBlock(batch interfaces.Batch, hashHeight *ledger.HashHeight) {
 	iDB.deleteSnapshotBlockHeight(batch, hashHeight.Height)
 	iDB.deleteSnapshotBlockHash(batch, &hashHeight.Hash)
 }
 
-func (iDB *IndexDB) rollbackAccountBlock(batch interfaces.Batch, addr *types.Address, hashHeight *ledger.HashHeight) {
+func (iDB *IndexDB) deleteAccountBlock(batch interfaces.Batch, addr *types.Address, hashHeight *ledger.HashHeight) {
 	iDB.deleteAccountBlockHash(batch, &hashHeight.Hash)
 
 	iDB.deleteAccountBlockHeight(batch, addr, hashHeight.Height)
@@ -114,5 +113,5 @@ func (iDB *IndexDB) rollbackAccountBlock(batch interfaces.Batch, addr *types.Add
 
 	iDB.deleteOnRoad(batch, &hashHeight.Hash)
 
-	iDB.deleteConfirmHeight(batch, &hashHeight.Hash)
+	iDB.deleteConfirmHeight(batch, addr, hashHeight.Height)
 }

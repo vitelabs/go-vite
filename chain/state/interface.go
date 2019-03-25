@@ -6,13 +6,8 @@ import (
 )
 
 type Chain interface {
-	GetAccountId(address *types.Address) (uint64, error)
+	IsAccountBlockExisted(hash *types.Hash) (bool, error)
 
-	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
-
-	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
-
+	QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-
-	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 }

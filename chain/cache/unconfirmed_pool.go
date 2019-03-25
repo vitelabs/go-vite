@@ -72,10 +72,16 @@ func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (up *UnconfirmedPool) DeleteAllBlocks() {
-
 	for _, insertedDataId := range up.insertedList {
+		// query
+		deleteBlock := up.ds.GetAccountBlock(insertedDataId)
 		// un ref
 		up.ds.UnRefDataId(insertedDataId)
+
+		for _, sendBlock := range deleteBlock.SendBlockList {
+			up.ds.UnRefByBlockHash(&sendBlock.Hash)
+		}
+
 	}
 	up.insertedList = nil
 	up.insertedMap = make(map[types.Address][]uint64)

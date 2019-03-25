@@ -67,7 +67,7 @@ func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
 	return block
 }
 
-// No state hash
+// No state_bak hash
 func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
 	chainInstance := acc.chainInstance
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
@@ -110,7 +110,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	}, nil
 }
 
-// No state hash
+// No state_bak hash
 func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
 
 	UnreceivedBlock := acc.PopUnreceivedBlock()
