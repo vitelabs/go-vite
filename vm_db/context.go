@@ -51,14 +51,14 @@ func (db *vmDb) IsContractAccount() (bool, error) {
 	return db.chain.IsContractAccount(db.address)
 }
 
-func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return db.chain.GetCallDepth(sendBlockHash)
 }
 
-func (db *vmDb) SetCallDepth(callDepth byte) {
+func (db *vmDb) SetCallDepth(callDepth uint16) {
 	db.unsaved.SetCallDepth(callDepth)
 }
-func (db *vmDb) GetUnsavedCallDepth() byte {
+func (db *vmDb) GetUnsavedCallDepth() uint16 {
 	return db.unsaved.GetCallDepth()
 }
 

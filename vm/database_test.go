@@ -60,8 +60,14 @@ func (db *testDatabase) IsContractAccount() (bool, error) {
 	return len(db.codeMap[db.addr]) > 0, nil
 }
 
-func (db *testDatabase) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
+func (db *testDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 	return 0, nil
+}
+func (db *testDatabase) SetCallDepth(uint16) {
+}
+
+func (db *testDatabase) GetUnsavedCallDepth() uint16 {
+	return 0
 }
 
 func (db *testDatabase) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
@@ -131,7 +137,7 @@ func (db *testDatabase) GetValue(key []byte) ([]byte, error) {
 		return []byte{}, nil
 	}
 }
-func (db *testDatabase) SetValue(key []byte, value []byte) {
+func (db *testDatabase) SetValue(key []byte, value []byte) error {
 	if len(value) == 0 {
 		delete(db.storageMap[db.addr], ToKey(key))
 	}
@@ -139,6 +145,7 @@ func (db *testDatabase) SetValue(key []byte, value []byte) {
 		db.storageMap[db.addr] = make(map[string][]byte)
 	}
 	db.storageMap[db.addr][ToKey(key)] = value
+	return nil
 }
 
 func (db *testDatabase) GetOriginalValue(key []byte) ([]byte, error) {
@@ -221,8 +228,8 @@ func (db *testDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIte
 	return &testIterator{-1, items}, nil
 }
 
-func (db *testDatabase) GetUnsavedStorage() ([][2][]byte, map[string]struct{}) {
-	return nil, nil
+func (db *testDatabase) GetUnsavedStorage() [][2][]byte {
+	return nil
 }
 
 func (db *testDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {

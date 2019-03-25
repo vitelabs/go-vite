@@ -93,12 +93,13 @@ func (db *memoryDatabase) GetValue(key []byte) ([]byte, error) {
 		return nil, nil
 	}
 }
-func (db *memoryDatabase) SetValue(key []byte, value []byte) {
+func (db *memoryDatabase) SetValue(key []byte, value []byte) error {
 	if len(value) == 0 {
 		delete(db.storage, hex.EncodeToString(key))
 	} else {
 		db.storage[hex.EncodeToString(key)] = value
 	}
+	return nil
 }
 func (db *memoryDatabase) PrintStorage() string {
 	str := "["
@@ -157,8 +158,8 @@ func (db *memoryDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return sb
 }
 
-func (db *memoryDatabase) GetUnsavedStorage() ([][2][]byte, map[string]struct{}) {
-	return nil, nil
+func (db *memoryDatabase) GetUnsavedStorage() [][2][]byte {
+	return nil
 }
 
 func (db *memoryDatabase) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
@@ -179,8 +180,14 @@ func (db *memoryDatabase) IsContractAccount() (bool, error) {
 	return len(db.storage[getCodeKey(db.addr)]) > 0, nil
 }
 
-func (db *memoryDatabase) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
+func (db *memoryDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 	return 0, nil
+}
+func (db *memoryDatabase) SetCallDepth(uint16) {
+}
+
+func (db *memoryDatabase) GetUnsavedCallDepth() uint16 {
+	return 0
 }
 
 func (db *memoryDatabase) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {

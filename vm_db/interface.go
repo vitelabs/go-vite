@@ -37,7 +37,7 @@ type Chain interface {
 
 	GetValue(addr *types.Address, key []byte) ([]byte, error)
 
-	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
+	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 }
 
 type VmDb interface {
@@ -50,11 +50,11 @@ type VmDb interface {
 
 	IsContractAccount() (bool, error)
 
-	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
+	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
-	SetCallDepth(byte)
+	SetCallDepth(uint16)
 
-	GetUnsavedCallDepth() byte
+	GetUnsavedCallDepth() uint16
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 

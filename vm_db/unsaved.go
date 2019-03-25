@@ -26,7 +26,7 @@ type Unsaved struct {
 
 	balanceMap map[types.TokenTypeId]*big.Int
 
-	callDepth byte
+	callDepth uint16
 }
 
 func NewUnsaved() *Unsaved {
@@ -144,10 +144,10 @@ func (unsaved *Unsaved) ReleaseRuntime() {
 	unsaved.storage = nil
 }
 
-func (unsaved *Unsaved) SetCallDepth(callDepth byte) {
+func (unsaved *Unsaved) SetCallDepth(callDepth uint16) {
 	unsaved.callDepth = callDepth
 }
 
-func (unsaved *Unsaved) GetCallDepth() byte {
+func (unsaved *Unsaved) GetCallDepth() uint16 {
 	return unsaved.callDepth
 }

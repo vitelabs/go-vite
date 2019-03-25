@@ -40,7 +40,7 @@ const (
 	copyGas         uint64 = 3   //
 	memoryGas       uint64 = 3   // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 
-	callDepth  uint64 = 512  // Maximum Depth of call.
+	callDepth  uint16 = 512  // Maximum Depth of call.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
 	getAccountBlockByHeightLimit uint64 = 256

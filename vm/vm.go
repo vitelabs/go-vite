@@ -732,7 +732,7 @@ func calcContractFee(data []byte) (*big.Int, error) {
 }
 
 func checkDepth(db vm_db.VmDb, sendBlock *ledger.AccountBlock) bool {
-	depth, err := db.GetCallDepth(sendBlock)
+	depth, err := db.GetCallDepth(&sendBlock.Hash)
 	util.DealWithErr(err)
 	return depth >= callDepth
 }
