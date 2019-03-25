@@ -62,8 +62,12 @@ func (self *accountPoolBlock) ReferHashes() (keys []types.Hash, accounts []types
 	if self.Height() > types.GenesisHeight {
 		accounts = append(accounts, self.PrevHash())
 	}
-	snapshot = &self.block.SnapshotHash
 	keys = append(keys, self.Hash())
+	if len(self.block.SendBlockList) > 0 {
+		for _, sendB := range self.block.SendBlockList {
+			keys = append(keys, sendB.Hash)
+		}
+	}
 	// todo add send hashes for RS block
 	return keys, accounts, snapshot
 }
