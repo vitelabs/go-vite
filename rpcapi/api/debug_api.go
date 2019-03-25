@@ -34,6 +34,13 @@ func (api DebugApi) PoolSnapshot() map[string]interface{} {
 	return api.v.Pool().Snapshot()
 }
 
+func (api DebugApi) PoolSnapshotBlockDetail(hash types.Hash) map[string]interface{} {
+	info := api.v.Pool().SnapshotBlockInfo(hash)
+	m := make(map[string]interface{})
+	m["block"] = info
+	return m
+}
+
 func (api DebugApi) PoolAccount(addr types.Address) map[string]interface{} {
 	return api.v.Pool().Account(addr)
 }
@@ -44,6 +51,13 @@ func (api DebugApi) PoolSnapshotChainDetail(chainId string) map[string]interface
 
 func (api DebugApi) PoolAccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
 	return api.v.Pool().AccountChainDetail(addr, chainId)
+}
+
+func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) map[string]interface{} {
+	info := api.v.Pool().AccountBlockInfo(addr, hash)
+	m := make(map[string]interface{})
+	m["block"] = info
+	return m
 }
 
 func (api DebugApi) P2pNodes() []string {

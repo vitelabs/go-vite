@@ -347,9 +347,9 @@ type compileResult struct {
 func compile(fileName string) ([]compileResult, error) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("solc", "--bin", "--abi", fileName)
+		cmd = exec.Command("solppc", "--bin", "--abi", fileName)
 	} else {
-		cmd = exec.Command("./solc", "--bin", "--abi", fileName)
+		cmd = exec.Command("./solppc", "--bin", "--abi", fileName)
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -359,22 +359,22 @@ func compile(fileName string) ([]compileResult, error) {
 	codeList := make([]compileResult, 0)
 	for i := 0; i < len(list); i++ {
 		if runtime.GOOS == "windows" {
-			if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && strings.HasPrefix(list[i+1], "Binary: ") && strings.HasPrefix(list[i+3], "Contract JSON ABI") {
-				if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
+			if strings.HasPrefix(list[i], "=======") && i < len(list)-6 && strings.HasPrefix(list[i+1], "Binary: ") && strings.HasPrefix(list[i+5], "Contract JSON ABI") {
+				if len(list[i+2]) == 0 || len(list[i+6]) == 0 {
 					return nil, errors.New("code len is 0")
 				}
 				name := list[i][9+len(fileName) : len(list[i])-9]
-				codeList = append(codeList, compileResult{name, list[i+2][:len(list[i+2])-1], list[i+4][:len(list[i+4])-1]})
-				i = i + 4
+				codeList = append(codeList, compileResult{name, list[i+2][:len(list[i+2])-1], list[i+6][:len(list[i+6])-1]})
+				i = i + 6
 			}
 		} else {
-			if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && list[i+1] == "Binary: " && list[i+3] == "Contract JSON ABI " {
-				if len(list[i+2]) == 0 || len(list[i+4]) == 0 {
+			if strings.HasPrefix(list[i], "=======") && i < len(list)-4 && list[i+1] == "Binary: " && list[i+5] == "Contract JSON ABI " {
+				if len(list[i+2]) == 0 || len(list[i+6]) == 0 {
 					return nil, errors.New("code len is 0")
 				}
 				name := list[i][9+len(fileName) : len(list[i])-8]
-				codeList = append(codeList, compileResult{name, list[i+2], list[i+4]})
-				i = i + 4
+				codeList = append(codeList, compileResult{name, list[i+2], list[i+6]})
+				i = i + 6
 			}
 		}
 	}
