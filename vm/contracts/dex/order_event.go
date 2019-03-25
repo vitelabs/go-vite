@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,6 +13,7 @@ const orderUpdateEventName = "orderUpdateEvent"
 const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
 const newMarketEventName = "newMarketEvent"
+const errEvent = "errEvent"
 
 
 const (
@@ -45,6 +47,10 @@ type NewOrderFailEvent struct {
 
 type NewMarketEvent struct {
 	dexproto.NewMarket
+}
+
+type ErrEvent struct {
+	err error
 }
 
 func (od NewOrderEvent) getTopicId() types.Hash {
@@ -135,6 +141,18 @@ func (me NewMarketEvent) fromBytes(data []byte) interface{} {
 	} else {
 		return event
 	}
+}
+
+func (err ErrEvent) getTopicId() types.Hash {
+	return fromNameToHash(errEvent)
+}
+
+func (err ErrEvent) toDataBytes() []byte {
+	return []byte(err.err.Error())
+}
+
+func (err ErrEvent) fromBytes(data []byte) interface{} {
+	return fmt.Errorf(string(data))
 }
 
 func fromNameToHash(name string) types.Hash {

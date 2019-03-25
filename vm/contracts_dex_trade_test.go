@@ -109,12 +109,12 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 	err := method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "cancel order not own to initiator", err.Error())
+	assert.Equal(t, dex.CancelOrderOwnerInvalidErr, err)
 
 	senderAccBlock.AccountAddress = userAddress2
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH.tokenId, VITE.tokenId, true)
 	err = method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "order status is invalid to cancel", err.Error())
+	assert.Equal(t, dex.CancelOrderInvalidStatusErr, err)
 
 	// executedQuantity = 100,
 	senderAccBlock.AccountAddress = userAddress

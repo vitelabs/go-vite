@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
@@ -78,6 +79,48 @@ var (
 		Code:    -36005,
 	}
 
+	// -37001 ~ -37999 contracts_dex
+	ErrDexInvalidOrderId = JsonRpc2Error{
+		Message: dex.InvalidOrderIdErr.Error(),
+		Code:    -37001,
+	}
+	ErrDexInvalidOrderType = JsonRpc2Error{
+		Message: dex.InvalidOrderTypeErr.Error(),
+		Code:    -37002,
+	}
+	ErrDexInvalidOrderPrice = JsonRpc2Error{
+		Message: dex.InvalidOrderPriceErr.Error(),
+		Code:    -37003,
+	}
+	ErrDexInvalidOrderQuantity = JsonRpc2Error{
+		Message: dex.InvalidOrderQuantityErr.Error(),
+		Code:    -37004,
+	}
+	ErrDexOrderAmountTooSmall = JsonRpc2Error{
+		Message: dex.OrderAmountTooSmallErr.Error(),
+		Code:    -37005,
+	}
+	ErrDexTradeMarketExists = JsonRpc2Error{
+		Message: dex.TradeMarketExistsError.Error(),
+		Code:    -37006,
+	}
+	ErrDexTradeMarketNotExists = JsonRpc2Error{
+		Message: dex.TradeMarketNotExistsError.Error(),
+		Code:    -37007,
+	}
+	ErrDexGetOrderByIdFailed = JsonRpc2Error{
+		Message: dex.GetOrderByIdFailedErr.Error(),
+		Code:    -37008,
+	}
+	ErrDexCancelOrderOwnerInvalid = JsonRpc2Error{
+		Message: dex.CancelOrderOwnerInvalidErr.Error(),
+		Code:    -37009,
+	}
+	ErrDexCancelOrderInvalidStatus = JsonRpc2Error{
+		Message: dex.CancelOrderInvalidStatusErr.Error(),
+		Code:    -37010,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -98,6 +141,17 @@ func init() {
 	concernedErrorMap[ErrVerifySignature.Error()] = ErrVerifySignature
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifySnapshotOfReferredBlock.Error()] = ErrVerifySnapshotOfReferredBlock
+
+	concernedErrorMap[ErrDexInvalidOrderId.Error()] = ErrDexInvalidOrderId
+	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType
+	concernedErrorMap[ErrDexInvalidOrderPrice.Error()] = ErrDexInvalidOrderPrice
+	concernedErrorMap[ErrDexInvalidOrderQuantity.Error()] = ErrDexInvalidOrderQuantity
+	concernedErrorMap[ErrDexOrderAmountTooSmall.Error()] = ErrDexOrderAmountTooSmall
+	concernedErrorMap[ErrDexTradeMarketExists.Error()] = ErrDexTradeMarketExists
+	concernedErrorMap[ErrDexTradeMarketNotExists.Error()] = ErrDexTradeMarketNotExists
+	concernedErrorMap[ErrDexGetOrderByIdFailed.Error()] = ErrDexGetOrderByIdFailed
+	concernedErrorMap[ErrDexCancelOrderOwnerInvalid.Error()] = ErrDexCancelOrderOwnerInvalid
+	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

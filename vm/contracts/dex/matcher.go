@@ -92,7 +92,7 @@ func (mc *Matcher) GetOrderByIdAndBookId(makerBookId SkipListId, orderIdBytes []
 		return nil, err
 	}
 	if pl, _, _, err := book.getByKey(orderId); err != nil {
-		return nil, fmt.Errorf("failed get order by orderId")
+		return nil, GetOrderByIdFailedErr
 	} else {
 		od, _ := (*pl).(Order)
 		return &od, nil
