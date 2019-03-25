@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+func (c *chain) IsGenesisSnapshotBlock(hash *types.Hash) bool {
+	return true
+}
 func (c *chain) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
 	// cache
 	if ok := c.cache.IsSnapshotBlockExisted(hash); ok {
@@ -40,6 +43,23 @@ func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 
 func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return c.cache.GetLatestSnapshotBlock()
+}
+
+func (c *chain) GetSnapshotHeightByHash(hash *types.Hash) (uint64, error) {
+	// cache
+	if header := c.cache.GetSnapshotHeaderByHash(hash); header != nil {
+		return header.Height, nil
+	}
+
+	height, err := c.indexDB.GetSnapshotBlockHeight(hash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed,  hash is %s. Error: %s,",
+			hash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotHeightByHash")
+		return height, cErr
+	}
+
+	return height, nil
 }
 
 // header without snapshot content

@@ -1,13 +1,14 @@
 package chain_state
 
 import (
+	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path"
 )
@@ -19,6 +20,8 @@ type StateDB struct {
 	pending *chain_pending.MemDB
 
 	undoLogger *undoLogger
+
+	log log15.Logger
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -36,6 +39,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 
 	return &StateDB{
 		chain:      chain,
+		log:        log15.New("module", "stateDB"),
 		db:         db,
 		pending:    chain_pending.NewMemDB(),
 		undoLogger: undoLogger,
@@ -148,7 +152,7 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 	return ledger.VmLogListDeserialize(value)
 }
 
-func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	value, err := sDB.db.Get(chain_utils.CreateCallDepthKey(sendBlockHash), nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -160,16 +164,11 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
 	if len(value) <= 0 {
 		return 0, nil
 	}
-	return value[0], nil
-}
 
-func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	//return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKey(addr, prefix)), nil), nil
-	return nil, nil
+	return binary.BigEndian.Uint16(value), nil
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotHash *types.Hash, addr *types.Address, key []byte) ([]byte, error) {
-	//return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKey(addr, prefix)), nil), nil
 	return nil, nil
 }
 

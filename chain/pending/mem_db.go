@@ -14,7 +14,8 @@ import (
 type MemDB struct {
 	mu sync.RWMutex
 
-	storage     *memdb.DB
+	storage *memdb.DB
+
 	deletedKey  map[string]struct{}
 	hashKeyList map[types.Hash][][]byte
 }
@@ -31,8 +32,12 @@ func newStorage() *memdb.DB {
 	return memdb.New(comparer.DefaultComparer, 10*1024*1024)
 }
 
-func (mDb *MemDB) DeletedKeys() map[string]struct{} {
-	return mDb.deletedKey
+func (mDb *MemDB) IsDelete(key []byte) bool {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
+	_, ok := mDb.deletedKey[string(key)]
+	return ok
 }
 
 func (mDb *MemDB) NewIterator(slice *util.Range) iterator.Iterator {

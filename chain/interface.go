@@ -93,7 +93,7 @@ type Chain interface {
 	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-	GetCallDepth(sendBlock *ledger.AccountBlock) (byte, error)
+	GetCallDepth(sendBlock *types.Hash) (uint16, error)
 
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
@@ -102,6 +102,7 @@ type Chain interface {
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 
 	// ====== Query snapshot block ======
+	IsGenesisSnapshotBlock(hash *types.Hash) bool
 
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
@@ -111,6 +112,9 @@ type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+
+	// get height
+	GetSnapshotHeightByHash(hash *types.Hash) (uint64, error)
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -186,7 +190,7 @@ type Chain interface {
 
 	GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error)
 
-	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
 	// total
 	GetPledgeQuota(addr *types.Address) (uint64, error)

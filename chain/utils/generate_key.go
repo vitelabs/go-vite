@@ -111,6 +111,16 @@ func CreateIndexDbLatestLocationKey() []byte {
 
 // ====== state db ======
 
+func CreateStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
+	keySize := 1 + types.AddressSize + len(prefix)
+	key := make([]byte, 0, keySize)
+
+	key = append(key, StorageKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, prefix...)
+	return key
+}
+
 func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
 	keySize := types.AddressSize + 34
 	key := make([]byte, keySize)

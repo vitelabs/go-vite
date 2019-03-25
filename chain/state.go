@@ -59,7 +59,7 @@ func (c *chain) GetContractList(gid *types.Gid) (map[types.Address]*ledger.Contr
 }
 
 func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {
-	totalQuota, err := c.GetPledgeQuota(&c.GetLatestSnapshotBlock().Hash, address)
+	totalQuota, err := c.GetPledgeQuota(address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
@@ -74,13 +74,8 @@ func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCou
 	return c.cache.GetQuotaUsed(address)
 }
 
-func (c *chain) GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	ss, err := c.stateDB.NewStorageIterator(address, prefix)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageIterator failed, address is %s. prefix is %s", address, prefix))
-		c.log.Error(cErr.Error(), "method", "GetStorageIterator")
-		return nil, cErr
-	}
+func (c *chain) GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+	ss := c.stateDB.NewStorageIterator(address, prefix)
 	return ss, nil
 }
 

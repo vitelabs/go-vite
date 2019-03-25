@@ -32,7 +32,7 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(dataDir string) *chain {
+func NewChain(dataDir string) Chain {
 	return &chain{
 		dataDir:  dataDir,
 		chainDir: path.Join(dataDir, "ledger"),
