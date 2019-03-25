@@ -145,7 +145,7 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
-	GetSeed(snapshotHash *types.Hash, n int) uint64
+	GetRandomSeed(snapshotHash *types.Hash, n int) uint64
 
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
@@ -162,12 +162,12 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
 
-	// ===== Query state_bak ======
+	// ===== Query state ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
 	// get confirmed snapshot balance, if history is too old, failed
-	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)
+	GetConfirmedBalanceList(addrList []*types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (map[types.Address]*big.Int, error)
 
 	// get contract code
 	GetContractCode(contractAddr *types.Address) ([]byte, error)

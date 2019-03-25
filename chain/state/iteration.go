@@ -22,10 +22,8 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	slice := util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))
-
 	if *snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		return sDB.db.NewIterator(slice, nil), nil
+		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil
 	}
 
 	height, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
@@ -38,7 +36,7 @@ func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *t
 		return nil, nil
 	}
 
-	return newSnapshotStorageIterator(sDB.db.NewIterator(slice, nil), height), err
+	return newSnapshotStorageIterator(sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)), nil), height), err
 }
 
 type stateStorageIterator struct {

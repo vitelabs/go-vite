@@ -20,14 +20,14 @@ func (c *chain) GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*bi
 }
 
 // get confirmed snapshot balance, if history is too old, failed
-func (c *chain) GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error) {
-	balance, err := c.stateDB.GetSnapshotBalance(addr, tokenId, sbHash)
+func (c *chain) GetConfirmedBalanceList(addrList []*types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (map[types.Address]*big.Int, error) {
+	balances, err := c.stateDB.GetSnapshotBalanceList(sbHash, addrList, tokenId)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetConfirmedBalance")
 		return nil, err
 	}
 
-	return balance, nil
+	return balances, nil
 }
 
 // get contract code

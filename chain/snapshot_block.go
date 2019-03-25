@@ -426,7 +426,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.Snap
 
 	segList, err := c.blockDB.ReadRange(startLocation, endLocation)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed,  startLocation is %+v, endLocation is %+v, . Error: %s,",
+		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed, startLocation is %+v, endLocation is %+v, . Error: %s,",
 			startLocation, endLocation, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
 		return nil, cErr
@@ -434,8 +434,50 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.Snap
 	return segList, nil
 }
 
-func (c *chain) GetSeed(snapshotHash *types.Hash, n int) uint64 {
-	return 0
+func (c *chain) GetRandomSeed(snapshotHash *types.Hash, n int) uint64 {
+	count := uint64(10 * 60)
+
+	headHeight, err := c.GetSnapshotHeightByHash(snapshotHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeightByHash failed, snapshotHash is %s. Error: %s,",
+			snapshotHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetRandomSeed")
+		return 0
+	}
+
+	tailHeight := uint64(1)
+	if headHeight > count {
+		tailHeight = headHeight - count
+	}
+
+	var producerMap map[string]struct{}
+
+	seedCount := 0
+	randomSeed := uint64(0)
+
+	for h := headHeight; h >= tailHeight && seedCount < n; h-- {
+		snapshotHeader := c.cache.GetSnapshotHeaderByHeight(h)
+
+		if snapshotHeader == nil {
+			cErr := errors.New(fmt.Sprintf("c.cache.GetSnapshotHeaderByHeight failed, height is %d. Error: %s,",
+				h, err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
+			return 0
+		}
+		if snapshotHeader.Seed <= 0 {
+			continue
+		}
+
+		publicStr := string(snapshotHeader.PublicKey)
+		if _, ok := producerMap[publicStr]; !ok {
+			randomSeed += snapshotHeader.Seed
+
+			seedCount++
+			producerMap[publicStr] = struct{}{}
+		}
+	}
+
+	return randomSeed
 }
 
 // [startHeight, latestHeight]
@@ -486,14 +528,15 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader boo
 		var block *ledger.SnapshotBlock
 		var err error
 		if onlyHeader {
+			block := c.cache.GetSnapshotHeaderByHeight(currentHeight)
+
+			if block == nil {
+				block, err = c.blockDB.GetSnapshotHeader(locations[index])
+			}
+		} else {
 			block := c.cache.GetSnapshotBlockByHeight(currentHeight)
 			if block == nil {
 				block, err = c.blockDB.GetSnapshotBlock(locations[index])
-			}
-		} else {
-			block := c.cache.GetSnapshotHeaderByHeight(currentHeight)
-			if block == nil {
-				block, err = c.blockDB.GetSnapshotHeader(locations[index])
 			}
 		}
 

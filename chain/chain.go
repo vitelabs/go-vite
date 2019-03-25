@@ -136,13 +136,6 @@ func (c *chain) Init() error {
 		return cErr
 	}
 
-	// init state_bak db
-	if err := c.stateDB.Init(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
 	c.log.Info("Complete initialization", "method", "Init")
 	return nil
 }
