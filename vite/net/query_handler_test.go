@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 	net2 "net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -155,6 +156,18 @@ func mockBlocks(chn chain.Chain, to uint64) {
 
 // mock peer
 type mock_Peer struct {
+}
+
+func (m *mock_Peer) SendMsg(msg *p2p.Msg) (err error) {
+	panic("implement me")
+}
+
+func (m *mock_Peer) Info() PeerInfo {
+	panic("implement me")
+}
+
+func (m *mock_Peer) HasBlock(hash types.Hash) bool {
+	panic("implement me")
 }
 
 func (m *mock_Peer) Head() types.Hash {
@@ -344,4 +357,138 @@ func Test_splitAccountMap_Min(t *testing.T) {
 	}
 
 	fmt.Println(total, total2, total3)
+}
+
+func Test_SplitFiles(t *testing.T) {
+	total := rand.Intn(9999)
+	files := make([]*ledger.CompressedFileMeta, total)
+
+	for i := 0; i < total; i++ {
+		files[i] = &ledger.CompressedFileMeta{
+			StartHeight: uint64(i),
+			EndHeight:   uint64(i),
+		}
+	}
+
+	const batch = 1000
+	filess := splitFiles(files, batch)
+
+	var start uint64
+	var count int
+	for k, fs := range filess {
+		l := len(fs)
+		if k != len(filess)-1 {
+			if l != batch {
+				t.Fatalf("files number should be %d, but get %d", batch, l)
+			}
+		} else {
+			if l > batch {
+				t.Fatalf("files number should small than %d, but get %d", batch, l)
+			}
+		}
+
+		count += l
+
+		for _, f := range fs {
+			if f.StartHeight != start {
+				t.Fatalf("file startHeight should be %d, but get %d", start, f.StartHeight)
+			} else {
+				start++
+			}
+		}
+	}
+
+	if count != total {
+		t.Fatalf("files count should be %d, but get %d", total, count)
+	}
+}
+
+type chain_getSubLedger struct {
+}
+
+func (c *chain_getSubLedger) GetSubLedgerByHeight(start, count uint64, forward bool) (fs []*ledger.CompressedFileMeta, cs [][2]uint64) {
+	end := start + count - 1
+	for i := start; i <= end; i++ {
+		j := i + 3599
+		if j > end {
+			cs = append(cs, [2]uint64{i, end})
+			return
+		} else {
+			fs = append(fs, &ledger.CompressedFileMeta{
+				StartHeight:  i,
+				EndHeight:    j,
+				Filename:     "subgraph_" + strconv.FormatUint(i, 10) + "-" + strconv.FormatUint(j, 10),
+				FileSize:     0,
+				BlockNumbers: 3600,
+			})
+		}
+
+		i = j
+	}
+
+	return
+}
+
+func (c *chain_getSubLedger) GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) (fs []*ledger.CompressedFileMeta, cs [][2]uint64, err error) {
+	return
+}
+
+func Test_getSubLedgerHandler(t *testing.T) {
+	var count = uint64(10000000)
+	var from = uint64(1)
+	var end = from + count - 1
+	const forward = true
+
+	counter := func() func(msgId uint64, payload p2p.Serializable) {
+		var height = from
+		return func(msgId uint64, payload p2p.Serializable) {
+			fileList := payload.(*message.FileList)
+			for _, f := range fileList.Files {
+				if height+1 != f.StartHeight {
+					t.Fatal("file is not continuous")
+				}
+				height = f.EndHeight
+			}
+
+			if len(fileList.Chunks) != 0 {
+				c := fileList.Chunks[0]
+				if height+1 != c[0] {
+					t.Fatal("chunk is not continuous")
+				}
+				height = c[1]
+				if height != (count + from - 1) {
+					t.Fatal("height is too low")
+				}
+			}
+
+			// last fileList
+			if len(fileList.Files) < maxFilesOneTrip && height != end {
+				t.Fatalf("height %d, not end %d\n", height, end)
+			}
+		}
+	}
+
+	mp := NewMockPeer("peer1", 0, types.Hash{})
+	mp.Handlers[FileListCode] = counter()
+
+	handler := &getSubLedgerHandler{
+		chain: &chain_getSubLedger{},
+	}
+
+	msg, err := p2p.PackMsg(0, uint16(GetSubLedgerCode), 0, &message.GetSnapshotBlocks{
+		From: ledger.HashHeight{
+			Height: from,
+		},
+		Count:   count,
+		Forward: forward,
+	})
+
+	if err != nil {
+		t.Fatalf("pack query message error: %v\n", err)
+	}
+
+	err = handler.Handle(msg, mp)
+	if err != nil {
+		t.Fatalf("handle error: %v\n", err)
+	}
 }

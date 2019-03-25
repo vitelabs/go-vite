@@ -68,7 +68,8 @@ type syncer struct {
 	aCount   uint64 // count of snapshot blocks have downloaded
 	sCount   uint64 // count of account blocks have download
 
-	state SyncState
+	state       SyncState
+	syncTimeout time.Duration // chain grow timeout, will syncError
 
 	peers *peerSet
 
@@ -125,15 +126,16 @@ func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) error {
 
 func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, notifier blockNotifier) *syncer {
 	s := &syncer{
-		state:     SyncNotStart,
-		chain:     chain,
-		peers:     peers,
-		fileMap:   make(map[filename]*fileRecord),
-		eventChan: make(chan peerEvent, 1),
-		verifier:  verifier,
-		notifier:  notifier,
-		subs:      make(map[int]SyncStateCallback),
-		log:       log15.New("module", "net/syncer"),
+		state:       SyncNotStart,
+		chain:       chain,
+		peers:       peers,
+		fileMap:     make(map[filename]*fileRecord),
+		eventChan:   make(chan peerEvent, 1),
+		verifier:    verifier,
+		notifier:    notifier,
+		subs:        make(map[int]SyncStateCallback),
+		syncTimeout: 10 * time.Minute,
+		log:         log15.New("module", "net/syncer"),
 	}
 
 	pool := newChunkPool(peers, gid, s)
@@ -188,8 +190,12 @@ func (s *syncer) Stop() {
 		default:
 			close(s.term)
 			s.exec.terminate()
-			s.pool.stop()
-			s.fc.stop()
+			if s.pool != nil {
+				s.pool.stop()
+			}
+			if s.fc != nil {
+				s.fc.stop()
+			}
 			s.clear()
 			s.peers.UnSub(s.eventChan)
 		}
@@ -317,11 +323,17 @@ wait:
 
 			s.log.Info(fmt.Sprintf("sync current: %d, chain speed %d", current.Height, current.Height-s.current))
 
-			if current.Height == s.current && now.Sub(lastCheckTime) > 10*time.Minute {
-				s.setState(Syncerr)
-			} else if s.state == Syncing {
+			if current.Height == s.current {
+				if now.Sub(lastCheckTime) > s.syncTimeout {
+					s.setState(Syncerr)
+					s.log.Error("sync error: timeout")
+				}
+			} else {
 				s.current = current.Height
 				lastCheckTime = now
+			}
+
+			if s.state == Syncing {
 				s.exec.runTo(s.current + 3600)
 			}
 
