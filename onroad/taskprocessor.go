@@ -73,7 +73,7 @@ func (tp *ContractTaskProcessor) Stop() {
 	if tp.status == Start {
 		tp.isCancel = true
 
-		tp.breaker <- struct{}{}
+		//tp.breaker <- struct{}{}
 		close(tp.breaker)
 
 		<-tp.stopListener
@@ -87,7 +87,7 @@ func (tp *ContractTaskProcessor) Stop() {
 }
 
 func (tp *ContractTaskProcessor) WakeUp() {
-	if tp.isSleeping {
+	if tp.isSleeping && !tp.isCancel {
 		tp.wakeup <- struct{}{}
 	}
 }
