@@ -93,11 +93,8 @@ type Chain interface {
 	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-<<<<<<< HEAD
-	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
-=======
+
 	GetCallDepth(sendBlock *types.Hash) (uint16, error)
->>>>>>> pre_mainnet_chain
 
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
