@@ -72,7 +72,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block
 
 func (md *MethodDexFundUserDeposit) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	if account, err := depositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount); err != nil {
-		return handleReceiveErr(db, err)
+		return []*SendBlock{}, err
 	} else {
 		// must do after account updated by deposit
 		if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {

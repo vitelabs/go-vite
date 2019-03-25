@@ -50,7 +50,7 @@ type NewMarketEvent struct {
 }
 
 type ErrEvent struct {
-	err error
+	error
 }
 
 func (od NewOrderEvent) getTopicId() types.Hash {
@@ -148,7 +148,7 @@ func (err ErrEvent) getTopicId() types.Hash {
 }
 
 func (err ErrEvent) toDataBytes() []byte {
-	return []byte(err.err.Error())
+	return []byte(err.Error())
 }
 
 func (err ErrEvent) fromBytes(data []byte) interface{} {
