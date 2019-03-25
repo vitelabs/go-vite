@@ -42,4 +42,8 @@ func (self *TimeoutCond) WaitTimeout(t time.Duration) error {
 
 func (self *TimeoutCond) Broadcast() {
 	self.cd.Broadcast()
+
+}
+func (self *TimeoutCond) Signal() {
+	self.cd.Signal()
 }
