@@ -186,7 +186,7 @@ func normalize(ctx []interface{}) []interface{} {
 //
 // Lazy may also be used in conjunction with chain Logger's New() function
 // to generate chain child logger which always reports the current value of changing
-// state.
+// state_bak.
 //
 // You may wrap any function which takes no arguments to Lazy. It may return any
 // number of values of any type.

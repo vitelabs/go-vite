@@ -16,9 +16,13 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	}
 	// hash -> addr & height
 	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHashKey(blockHash),
-		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToFixedBytes(accountBlock.Height)...))
+		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...))
 
 	if accountBlock.IsReceiveBlock() {
+		if len(accountBlock.SendBlockList) > 0 {
+			chain_utils.CreateCallDepthKey(&accountBlock.Hash)
+		}
+
 		// close send block
 		iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
@@ -29,6 +33,13 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	} else {
 		// insert on road block
 		iDB.insertOnRoad(blockHash, &accountBlock.ToAddress)
+	}
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		// insert on road block
+		if err := iDB.InsertAccountBlock(sendBlock); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -42,7 +53,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 
 	batch := iDB.store.NewBatch()
 
-	heightBytes := chain_utils.Uint64ToFixedBytes(snapshotBlock.Height)
+	heightBytes := chain_utils.Uint64ToBytes(snapshotBlock.Height)
 	// hash -> height
 	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
 
@@ -51,8 +62,8 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 		append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
 
 	// confirm block
-	for _, hashHeight := range snapshotBlock.SnapshotContent {
-		batch.Put(chain_utils.CreateConfirmHeightKey(&hashHeight.Hash), heightBytes)
+	for addr, hashHeight := range snapshotBlock.SnapshotContent {
+		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
 	}
 
 	// flush account block indexes
@@ -65,7 +76,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	}
 
 	// latest on road id
-	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToFixedBytes(iDB.latestOnRoadId))
+	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
 
 	// latest location
 	iDB.setIndexDbLatestLocation(batch, latestLocation)

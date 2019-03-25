@@ -1,15 +1,24 @@
 package chain_utils
 
 import (
+	"encoding/binary"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
 // ====== index db ======
-func CreateAccountAddressKey(addr *types.Address) []byte {
-	addrBytes := addr.Bytes()
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, AccountAddressKeyPrefix)
-	key = append(key, addrBytes...)
+func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, AccountBlockHashKeyPrefix)
+	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
+func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
+
+	key = append(key, AccountBlockHeightKeyPrefix)
+	key = append(key, addr.Bytes()...)
+	key = append(key, Uint64ToBytes(height)...)
 	return key
 }
 
@@ -20,18 +29,34 @@ func CreateReceiveKey(sendBlockHash *types.Hash) []byte {
 	return key
 }
 
+func CreateConfirmHeightKey(addr *types.Address, height uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
+	key = append(key, ConfirmHeightKeyPrefix)
+	key = append(key, addr.Bytes()...)
+	key = append(key, Uint64ToBytes(height)...)
+	return key
+}
+
+func CreateAccountAddressKey(addr *types.Address) []byte {
+	addrBytes := addr.Bytes()
+	key := make([]byte, 0, 1+types.AddressSize)
+	key = append(key, AccountAddressKeyPrefix)
+	key = append(key, addrBytes...)
+	return key
+}
+
 func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
 	key := make([]byte, 0, 1+types.AddressSize+8)
 	key = append(key, OnRoadKeyPrefix)
 	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToFixedBytes(id)...)
+	key = append(key, Uint64ToBytes(id)...)
 	return key
 }
 
-func CreateOnRoadPrefixKey(toAccountId uint64) []byte {
-	key := make([]byte, 0, 9)
+func CreateOnRoadPrefixKey(addr *types.Address) []byte {
+	key := make([]byte, 0, 1+types.AddressSize)
 	key = append(key, OnRoadKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(toAccountId)...)
+	key = append(key, addr.Bytes()...)
 	return key
 }
 
@@ -49,35 +74,13 @@ func CreateLatestOnRoadIdKey() []byte {
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, AccountIdKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, Uint64ToBytes(accountId)...)
 
 	return key
 }
 
 func CreateAccountIdPrefixKey() []byte {
 	return []byte{AccountIdKeyPrefix}
-}
-
-func CreateConfirmHeightKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, ConfirmHeightKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, AccountBlockHashKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-
-func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
-
-	key = append(key, AccountBlockHeightKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToFixedBytes(height)...)
-	return key
 }
 
 func CreateAccountBlockHeightPrefixKey(addr *types.Address) []byte {
@@ -98,7 +101,7 @@ func CreateSnapshotBlockHashKey(snapshotBlockHash *types.Hash) []byte {
 func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, SnapshotBlockHeightKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(snapshotBlockHeight)...)
+	key = append(key, Uint64ToBytes(snapshotBlockHeight)...)
 	return key
 }
 
@@ -108,73 +111,202 @@ func CreateIndexDbLatestLocationKey() []byte {
 
 // ====== state db ======
 
-func CreateKeyIdKey(mvDbKey []byte) []byte {
-	key := make([]byte, 0, 1+len(mvDbKey))
-	key = append(key, KeyIdKeyPrefix)
-	key = append(key, mvDbKey...)
+func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
+	keySize := types.AddressSize + 34
+	key := make([]byte, keySize)
+	key[0] = StorageKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:], storageKey)
+	key[keySize-1] = byte(len(storageKey))
+
 	return key
 }
 
-func CreateValueIdKey(valueId uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, ValueIdKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(valueId)...)
+func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
+	keySize := types.AddressSize + 42
+	key := make([]byte, keySize)
+	key[0] = StorageHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:], storageKey)
+	key[keySize-8] = byte(len(storageKey))
+	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+
 	return key
 }
 
-func CreateLatestValueKey(keyId uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, LatestValueKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(keyId)...)
+func CreateBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId) []byte {
+	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize)
+	key[0] = BalanceKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+
 	return key
 }
 
-func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
-	key = append(key, BalanceKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, tokenTypeId.Bytes()...)
+func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId, snapshotHeight uint64) []byte {
+	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
+
+	key := make([]byte, keySize)
+
+	key[0] = BalanceHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+
+	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+
+	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+
 	return key
 }
 
-func CreateStorageKeyPrefix(addr *types.Address, storageKey []byte) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+len(storageKey))
+func CreateCodeKey(address *types.Address) []byte {
+	keySize := 1 + types.AddressSize
 
-	key = append(key, StorageKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, storageKey...)
+	key := make([]byte, keySize)
+
+	key[0] = CodeKeyPrefix
+
+	copy(key[1:], address.Bytes())
+
 	return key
 }
 
-func CreateCodeKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
+func CreateContractMetaKey(address *types.Address) []byte {
+	keySize := 1 + types.AddressSize
 
-	key = append(key, CodeKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	return key
-}
+	key := make([]byte, keySize)
 
-func CreateContractMetaKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, ContractMetaKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	return key
-}
+	key[0] = ContractMetaKeyPrefix
 
-func CreateStateUndoKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 33)
-	key = append(key, StateUndoKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
+	copy(key[1:], address.Bytes())
+
 	return key
 }
 
 func CreateVmLogListKey(logHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, VmLogListKeyPrefix)
-	key = append(key, logHash.Bytes()...)
+	key := make([]byte, 1+types.HashSize)
+
+	key[0] = VmLogListKeyPrefix
+
+	copy(key[1:], logHash.Bytes())
+
 	return key
 }
 
-func CreateStateDbLatestLocationKey() []byte {
-	return []byte{StateDbLatestLocationKeyPrefix}
+func CreateCallDepthKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, CallDepthKeyPrefix)
+	key = append(key, blockHash.Bytes()...)
+	return key
 }
+
+func CreateUndoLocationKey() []byte {
+	return []byte{UndoLocationKeyPrefix}
+}
+
+func CreateStateDbLocationKey() []byte {
+	return []byte{StateDbLocationKeyPrefix}
+}
+
+//// ====== state_bak db ======
+//
+//func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
+//	key = append(key, BalanceKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	key = append(key, tokenTypeId.Bytes()...)
+//	return key
+//}
+//
+//func CreateStorageKeyPrefix(addr *types.Address, storageKey []byte) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize+len(storageKey))
+//
+//	key = append(key, StorageKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	key = append(key, storageKey...)
+//	return key
+//}
+//
+//func CreateCodeKey(addr *types.Address) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize)
+//
+//	key = append(key, CodeKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	return key
+//}
+//
+//func CreateContractMetaKey(addr *types.Address) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize)
+//	key = append(key, ContractMetaKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	return key
+//}
+//
+//func CreateVmLogListKey(logHash *types.Hash) []byte {
+//	key := make([]byte, 0, 1+types.HashSize)
+//	key = append(key, VmLogListKeyPrefix)
+//	key = append(key, logHash.Bytes()...)
+//	return key
+//}
+//
+//// ====== mv db ======
+//
+//func CreateKeyIdKey(mvDbKey []byte) []byte {
+//	key := make([]byte, 0, 1+len(mvDbKey))
+//	key = append(key, KeyIdKeyPrefix)
+//	key = append(key, mvDbKey...)
+//	return key
+//}
+//
+//func CreateValueIdKey(valueId uint64) []byte {
+//	key := make([]byte, 0, 9)
+//	key = append(key, ValueIdKeyPrefix)
+//	key = append(key, Uint64ToBytes(valueId)...)
+//	return key
+//}
+//
+//func CreateLatestValueKey(keyId uint64) []byte {
+//	key := make([]byte, 0, 9)
+//	key = append(key, LatestValueKeyPrefix)
+//	key = append(key, Uint64ToBytes(keyId)...)
+//	return key
+//}
+//
+//func CreateUndoKey(blockHash *types.Hash) []byte {
+//	key := make([]byte, 0, 33)
+//	key = append(key, UndoKeyPrefix)
+//	key = append(key, blockHash.Bytes()...)
+//	return key
+//}
+//
+//func CreateMvDbLatestLocationKey() []byte {
+//	return []byte{MvDbLatestLocationKeyPrefix}
+//}
+//
+//func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
+//	keySize := types.AddressSize + 34
+//	key := make([]byte, keySize)
+//	key[0] = StorageKeyPrefix
+//
+//	copy(key[1:types.AddressSize+1], address.Bytes())
+//	copy(key[types.AddressSize+1:], storageKey)
+//	key[keySize-1] = byte(len(storageKey))
+//
+//	return key
+//}
+//
+//func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
+//	keySize := types.AddressSize + 42
+//	key := make([]byte, keySize)
+//	key[0] = StorageHistoryKeyPrefix
+//
+//	copy(key[1:types.AddressSize+1], address.Bytes())
+//	copy(key[types.AddressSize+1:], storageKey)
+//	key[keySize-8] = byte(len(storageKey))
+//	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+//
+//	return key
+//}

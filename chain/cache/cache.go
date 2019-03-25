@@ -1,6 +1,7 @@
 package chain_cache
 
 import (
+	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
@@ -20,14 +21,33 @@ type Cache struct {
 func NewCache(chain Chain) (*Cache, error) {
 	ds := NewDataSet()
 	c := &Cache{
-		ds:              ds,
-		chain:           chain,
+		ds:    ds,
+		chain: chain,
+
 		unconfirmedPool: NewUnconfirmedPool(ds),
 		hd:              newHotData(ds),
 		quotaList:       newQuotaList(chain),
 	}
 
 	return c, nil
+}
+func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	// delete all confirmed block
+	cache.unconfirmedPool.DeleteAllBlocks()
+
+	// update latest snapshot block
+	if err := cache.initLatestSnapshotBlock(); err != nil {
+		return err
+	}
+
+	// rollback quota list
+	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ====== Account blocks ======
@@ -50,7 +70,6 @@ func (cache *Cache) InsertAccountBlock(block *ledger.AccountBlock) {
 	cache.quotaList.Add(&block.AccountAddress, block.Quota)
 	dataId := cache.ds.InsertAccountBlock(block)
 	cache.unconfirmedPool.InsertAccountBlock(&block.AccountAddress, dataId)
-
 }
 
 // ====== Unconfirmed blocks ======
@@ -73,13 +92,6 @@ func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*led
 	defer cache.mu.RUnlock()
 
 	return cache.unconfirmedPool.GetBlocksByAddress(address)
-}
-
-func (cache *Cache) CleanUnconfirmedPool() {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	cache.unconfirmedPool.DeleteAllBlocks()
 }
 
 // ====== Snapshot block ======
@@ -129,15 +141,6 @@ func (cache *Cache) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	defer cache.mu.RUnlock()
 
 	return cache.quotaList.GetQuotaUsed(addr)
-}
-
-// ====== Delete ======
-func (cache *Cache) Delete(sbList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	cache.quotaList.Rollback(len(sbList))
-	return cache.initLatestSnapshotBlock()
 }
 
 func (cache *Cache) setLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) uint64 {

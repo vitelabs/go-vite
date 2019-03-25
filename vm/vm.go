@@ -316,7 +316,7 @@ func (vm *VM) receiveCreate(block *vm_context.VmAccountBlock, sendBlock *ledger.
 	// create contract account and add balance
 	block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
 
-	// init contract state and set contract code
+	// init contract state_bak and set contract code
 	initCode := util.GetCodeFromCreateContractData(sendBlock.Data)
 	c := newContract(block.AccountBlock, block.VmContext, sendBlock, initCode, quotaLeft, 0)
 	c.setCallCode(block.AccountBlock.AccountAddress, initCode)

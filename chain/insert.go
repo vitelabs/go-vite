@@ -13,7 +13,6 @@ import (
  *	2.
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
-
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil)
 
@@ -24,15 +23,13 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
-		return cErr
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
 	}
 
-	// write state db
+	// write state_bak db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Write failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Error(cErr.Error(), "method", "InsertAccountBlock")
-		return cErr
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
 	}
 
 	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil)
@@ -55,23 +52,20 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, cErr
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
-	// flush state db
-	if err := c.stateDB.Flush(canBeSnappedBlocks, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
+	// flush state_bak db
+	if err := c.stateDB.Flush(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, cErr
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	// insert index
 	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks,
 		snapshotBlockLocation, abLocationList, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Error(cErr.Error(), "method", "InsertSnapshotBlock")
-		return nil, cErr
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	// update latest snapshot block cache

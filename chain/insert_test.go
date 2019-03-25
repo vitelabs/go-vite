@@ -31,7 +31,6 @@ func InsertSnapshotBlock(chainInstance Chain) error {
 	}
 
 	return nil
-
 }
 
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
