@@ -44,7 +44,7 @@ func NewChain(dataDir string) *chain {
 /*
  * 1. Check and init ledger (check genesis block)
  * 2. Init index database
- * 3. Init state database
+ * 3. Init state_bak database
  * 4. Init block database
  * 5. Init cache
  */
@@ -82,7 +82,7 @@ func (c *chain) Init() error {
 				return err
 			}
 
-			// Init state db
+			// Init state_bak db
 			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
 				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
@@ -136,7 +136,7 @@ func (c *chain) Init() error {
 		return cErr
 	}
 
-	// init state db
+	// init state_bak db
 	if err := c.stateDB.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")

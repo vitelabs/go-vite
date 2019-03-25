@@ -8,6 +8,10 @@ import (
 
 // TODO cache
 func (c *chain) IsContractAccount(address *types.Address) (bool, error) {
+	if ok := types.IsBuiltinContractAddrInUse(*address); ok {
+		return ok, nil
+	}
+
 	result, err := c.stateDB.HasContractMeta(address)
 
 	if err != nil {

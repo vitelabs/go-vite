@@ -23,9 +23,9 @@ type operation struct {
 
 	halts   bool // indicates whether the operation should halt further execution
 	jumps   bool // indicates whether the program counter should not increment
-	writes  bool // determines whether this chain state modifying operation
+	writes  bool // determines whether this chain state_bak modifying operation
 	valid   bool // indication whether the retrieved operation is valid and known
-	reverts bool // determines whether the operation reverts state (implicitly halts)
+	reverts bool // determines whether the operation reverts state_bak (implicitly halts)
 	returns bool // determines whether the operations sets the return data content
 }
 

@@ -6,7 +6,7 @@ import (
 )
 
 type ReadCloser interface {
-	Read(from, to uint64, fn func(ablock *ledger.AccountBlock, sblock *ledger.SnapshotBlock, err error))
+	Read(from, to uint64, fn func(accblock []*ledger.AccountBlock, sblock *ledger.SnapshotBlock, err error))
 	Close() error
 }
 

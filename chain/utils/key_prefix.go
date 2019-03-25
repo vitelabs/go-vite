@@ -27,28 +27,36 @@ const (
 	IndexDbLatestLocationKeyPrefix = byte(12)
 )
 
-// state db
+// state_bak db
 const (
-	BalanceKeyPrefix = byte(1)
+	StorageKeyPrefix = byte(1)
 
-	StorageKeyPrefix = byte(2)
+	StorageHistoryKeyPrefix = byte(2)
 
-	CodeKeyPrefix = byte(3)
+	BalanceKeyPrefix = byte(3)
 
-	ContractMetaKeyPrefix = byte(4)
+	BalanceHistoryKeyPrefix = byte(4)
 
-	VmLogListKeyPrefix = byte(5)
+	CodeKeyPrefix = byte(5)
+
+	ContractMetaKeyPrefix = byte(6)
+
+	VmLogListKeyPrefix = byte(7)
+
+	UndoLocationKeyPrefix = byte(8)
+
+	StateDbLocationKeyPrefix = byte(9)
 )
 
 // mv db
 const (
-	KeyIdKeyPrefix = byte(1)
-
-	ValueIdKeyPrefix = byte(2)
-
-	LatestValueKeyPrefix = byte(3)
-
-	UndoKeyPrefix = byte(4)
-
-	MvDbLatestLocationKeyPrefix = byte(5)
+//KeyIdKeyPrefix = byte(1)
+//
+//ValueIdKeyPrefix = byte(2)
+//
+//LatestValueKeyPrefix = byte(3)
+//
+//UndoKeyPrefix = byte(4)
+//
+//MvDbLatestLocationKeyPrefix = byte(5)
 )

@@ -18,6 +18,10 @@ func (c *chain) checkAndRepair() error {
 	}
 
 	//repair state db
+	if err := c.stateDB.CheckAndRepair(); err != nil {
+		return errors.New(fmt.Sprintf("c.stateDB.CheckAndRepair failed. Error: %s", err))
+	}
+
 	stateDbLatestLocation, err := c.stateDB.QueryLatestLocation()
 
 	if err != nil {

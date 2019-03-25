@@ -234,6 +234,10 @@ func (fm *fileManager) DeleteTo(location *Location) error {
 	}
 	fm.latestFileSize = location.Offset()
 
+	if err := fm.latestFileFd.Truncate(fm.latestFileSize); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -257,6 +261,15 @@ func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser)
 				bfp.WriteErr(err)
 				return
 			}
+		}
+
+		if i == location.FileId() {
+			size, err := fm.readDataSize(fd, startOffset)
+			if err != nil {
+				bfp.WriteErr(err)
+				return
+			}
+			startOffset += size
 		}
 
 		fdList = append(fdList, fd)

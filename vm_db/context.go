@@ -44,9 +44,14 @@ func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 }
 
 func (db *vmDb) IsContractAccount() (bool, error) {
+	if db.address == nil {
+		return false, nil
+	}
+
 	return db.chain.IsContractAccount(db.address)
 }
 
+// TODO
 func (db *vmDb) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
 	return 0, nil
 }

@@ -173,18 +173,17 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 	return segList, nil
 }
 
-func (bDB *BlockDB) Rollback(location *Location, prevLocation *Location) ([]*SnapshotSegment, []*ledger.AccountBlock,
-	*ledger.SnapshotBlock, error) {
+func (bDB *BlockDB) Rollback(prevLocation *Location) ([]*SnapshotSegment, error) {
 
 	// bDB.fm.DeleteAndReadTo(location)
 	bfp := newBlockFileParser()
-	bfp2 := newBlockFileParser()
+	//bfp2 := newBlockFileParser()
 
 	bDB.wg.Add(1)
 	go func() {
 		defer bDB.wg.Done()
-		bDB.fm.DeleteAndReadTo(location, bfp)
-		bDB.fm.ReadRange(prevLocation, location, bfp2)
+		bDB.fm.DeleteAndReadTo(prevLocation, bfp)
+		//bDB.fm.ReadRange(prevLocation, location, bfp2)
 	}()
 
 	var segList []*SnapshotSegment
@@ -200,14 +199,14 @@ func (bDB *BlockDB) Rollback(location *Location, prevLocation *Location) ([]*Sna
 
 		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 
 		if buf.BlockType == BlockTypeSnapshotBlock {
 
 			sb := &ledger.SnapshotBlock{}
 			if err := sb.Deserialize(sBuf); err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 			seg.SnapshotBlock = sb
 			segList = append(segList, seg)
@@ -216,7 +215,7 @@ func (bDB *BlockDB) Rollback(location *Location, prevLocation *Location) ([]*Sna
 
 			ab := &ledger.AccountBlock{}
 			if err := ab.Deserialize(sBuf); err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 			seg.AccountBlocks = append(seg.AccountBlocks, ab)
 		}
@@ -227,38 +226,38 @@ func (bDB *BlockDB) Rollback(location *Location, prevLocation *Location) ([]*Sna
 	}
 
 	if err := bfp.Error(); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	var accountBlockList []*ledger.AccountBlock
-	var newLatestSnapshotBlock *ledger.SnapshotBlock
-	iterator2 := bfp2.Iterator()
-
-	for buf := range iterator2 {
-		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		if buf.BlockType == BlockTypeSnapshotBlock {
-			sb := &ledger.SnapshotBlock{}
-			if err := sb.Deserialize(sBuf); err != nil {
-				return nil, nil, nil, err
-			}
-			newLatestSnapshotBlock = sb
-
-		} else if buf.BlockType == BlockTypeAccountBlock {
-
-			ab := &ledger.AccountBlock{}
-			if err := ab.Deserialize(sBuf); err != nil {
-				return nil, nil, nil, err
-			}
-			accountBlockList = append(accountBlockList, ab)
-		}
-	}
-
-	if err := bfp2.Error(); err != nil {
-		return nil, nil, nil, err
-	}
-	return segList, accountBlockList, newLatestSnapshotBlock, nil
+	//var accountBlockList []*ledger.AccountBlock
+	//var newLatestSnapshotBlock *ledger.SnapshotBlock
+	//iterator2 := bfp2.Iterator()
+	//
+	//for buf := range iterator2 {
+	//	sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
+	//	if err != nil {
+	//		return nil, nil, err
+	//	}
+	//
+	//	if buf.BlockType == BlockTypeSnapshotBlock {
+	//		sb := &ledger.SnapshotBlock{}
+	//		if err := sb.Deserialize(sBuf); err != nil {
+	//			return nil, nil, nil, err
+	//		}
+	//		newLatestSnapshotBlock = sb
+	//
+	//	} else if buf.BlockType == BlockTypeAccountBlock {
+	//
+	//		ab := &ledger.AccountBlock{}
+	//		if err := ab.Deserialize(sBuf); err != nil {
+	//			return nil, nil, nil, err
+	//		}
+	//		accountBlockList = append(accountBlockList, ab)
+	//	}
+	//}
+	//
+	//if err := bfp2.Error(); err != nil {
+	//	return nil, nil, nil, err
+	//}
+	return segList, nil
 }

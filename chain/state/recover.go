@@ -1,49 +1,57 @@
 package chain_state
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/chain/utils"
 )
 
-func (sDB *StateDB) CheckAndDelete(location *chain_block.Location) error {
-	logFileIdList, err := sDB.flushLog.LogFileIdList()
+func (sDB *StateDB) CheckAndDelete(toLocation *chain_block.Location) error {
+
+	snapshotBlock, err := sDB.chain.QueryLatestSnapshotBlock()
 	if err != nil {
 		return err
 	}
 
-	var undoBlockHashList []*types.Hash
-LOOP:
-	for _, logFileId := range logFileIdList {
-		buf, err := sDB.flushLog.ReadFile(logFileId)
+	batch := new(leveldb.Batch)
 
-		if err != nil {
-			return err
-		}
-		currentPointer := len(buf)
-
-		for currentPointer >= types.HashSize {
-			hashBytes := buf[currentPointer-types.HashSize : currentPointer]
-			hash, err := types.BytesToHash(hashBytes)
-			if err != nil {
-				return err
-			}
-
-			ok, err := sDB.chain.IsAccountBlockExisted(&hash)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				undoBlockHashList = append(undoBlockHashList, &hash)
-			} else {
-				break LOOP
-			}
-		}
+	location, err := sDB.undo(batch, snapshotBlock)
+	if err != nil {
+		return err
 	}
-	if len(undoBlockHashList) > 0 {
-		if err := sDB.mvDB.Undo(undoBlockHashList, location); err != nil {
+	if location != nil {
+		sDB.updateUndoLocation(batch, location)
+	}
+	sDB.updateStateDbLocation(batch, toLocation)
+
+	if err := sDB.db.Write(batch, nil); err != nil {
+		return err
+	}
+
+	if location != nil {
+		if err := sDB.undoLogger.DeleteTo(location); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (sDB *StateDB) CheckAndRepair() error {
+	value, err := sDB.db.Get(chain_utils.CreateUndoLocationKey(), nil)
+	if err != nil {
+		return err
+	}
+
+	if len(value) <= 0 {
+		return nil
+	}
+
+	location := chain_utils.DeserializeLocation(value)
+	if sDB.undoLogger.CompareLocation(location) > 0 {
+		if err := sDB.undoLogger.DeleteTo(location); err != nil {
+			return err
+		}
+	}
 	return nil
 }

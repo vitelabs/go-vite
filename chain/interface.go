@@ -160,7 +160,7 @@ type Chain interface {
 
 	GetAccountId(address *types.Address) (uint64, error)
 
-	// ===== Query state ======
+	// ===== Query state_bak ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
@@ -207,7 +207,7 @@ type Chain interface {
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
 	// TODO insert syncCache ledger
-	// TODO query syncCache state
+	// TODO query syncCache state_bak
 
 	// ====== OnRoad ======
 	HasOnRoadBlocks(address *types.Address) (bool, error)

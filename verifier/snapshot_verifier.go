@@ -109,7 +109,7 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 		return err
 	}
 	if *trie.Hash() != block.StateHash {
-		return errors.New("state hash is not equals.")
+		return errors.New("state_bak hash is not equals.")
 	}
 	block.StateTrie = trie
 	return nil
@@ -176,7 +176,7 @@ func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64
 func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
 	defer monitor.LogTime("verify", "snapshotBlock", time.Now())
 	stat := self.newVerifyStat(block)
-	// todo add state check
+	// todo add state_bak check
 	err := self.verifySelf(block, stat)
 	if err != nil {
 		stat.errMsg = err.Error()

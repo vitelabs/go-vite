@@ -40,7 +40,9 @@ type Chain interface {
 type VmDb interface {
 	// ====== Context ======
 	Address() *types.Address
+
 	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+
 	PrevAccountBlock() (*ledger.AccountBlock, error)
 
 	IsContractAccount() (bool, error)
@@ -51,6 +53,7 @@ type VmDb interface {
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash
+
 	Reset()
 
 	// Release memory used in runtime.
@@ -58,13 +61,14 @@ type VmDb interface {
 
 	// ====== Storage ======
 	GetValue(key []byte) ([]byte, error)
+
 	GetOriginalValue(key []byte) ([]byte, error)
 
-	SetValue(key []byte, value []byte)
+	SetValue(key []byte, value []byte) error
 
 	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
 
-	GetUnsavedStorage() ([][2][]byte, map[string]struct{})
+	GetUnsavedStorage() [][2][]byte
 
 	// ====== Balance ======
 	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
@@ -91,9 +95,11 @@ type VmDb interface {
 	SetContractCode(code []byte)
 
 	GetContractCode() ([]byte, error)
+
 	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) // TODO
 
 	GetUnsavedContractMeta() *ledger.ContractMeta
+
 	GetUnsavedContractCode() []byte
 
 	// ====== built-in contract ======

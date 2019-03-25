@@ -1,4 +1,4 @@
-package chain_state
+package chain_state_bak
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var journalLog = log15.New("module", "chain/state/mv_db/journal")
+var journalLog = log15.New("module", "chain/state_bak/mv_db/journal")
 
 const (
 	filenameSuffix       = ".log"

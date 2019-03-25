@@ -22,13 +22,9 @@ func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
 	return iDB.hasValueByPrefix(key)
 }
 
-// TODO
 func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
-	accountId, err := iDB.GetAccountId(address)
-	if err != nil {
-		return nil, err
-	}
-	key := chain_utils.CreateOnRoadPrefixKey(accountId)
+	key := chain_utils.CreateOnRoadPrefixKey(address)
+
 	iter := iDB.NewIterator(util.BytesPrefix(key))
 	defer iter.Release()
 
@@ -38,26 +34,20 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	endIndex := (pageNum + 1) * countPerPage
 
 	index := 0
-	for iter.Next() {
+	for iter.Next() && len(hashList) < countPerPage {
 		if index > endIndex {
 			break
 		}
 
 		if index >= startIndex {
-			result := chain_utils.DeserializeHashList(iter.Value())
+			result, err := types.BytesToHash(iter.Value())
+			if err != nil {
+				return nil, err
+			}
 
-			lackLen := countPerPage - len(hashList)
-
-			hashList = append(hashList, result[:lackLen]...)
-
-			index += len(result)
-		} else {
-			index++
+			hashList = append(hashList, &result)
 		}
-
-		if len(hashList) >= countPerPage {
-			break
-		}
+		index++
 	}
 
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {

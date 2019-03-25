@@ -61,7 +61,7 @@ type SyncStateSubscriber interface {
 	// UnsubscribeSyncStatus, if subId is 0, then ignore
 	UnsubscribeSyncStatus(subId int)
 
-	// SyncState return the latest sync state
+	// SyncState return the latest sync state_bak
 	SyncState() SyncState
 }
 
