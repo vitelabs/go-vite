@@ -1,8 +1,11 @@
 package quota
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"math"
 	"math/big"
 	"testing"
@@ -166,6 +169,218 @@ func getNextBigInt(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float)
 	return bi
 }
 
-func TestCalcQuotaV2(t *testing.T) {
-	// TODO
+type testQuotaDb struct {
+	addr                  types.Address
+	quotaUsed, blockCount uint64
+	unconfirmedBlockList  []*ledger.AccountBlock
+}
+
+func (db *testQuotaDb) Address() *types.Address {
+	return &db.addr
+}
+func (db *testQuotaDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+	return db.quotaUsed, db.blockCount
+}
+func (db *testQuotaDb) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+	return db.unconfirmedBlockList
+}
+
+func TestCalcPoWDifficulty(t *testing.T) {
+	testCases := []struct {
+		quotaRequired uint64
+		q             types.Quota
+		pledgeAmount  *big.Int
+		difficulty    *big.Int
+		err           error
+		name          string
+	}{
+		{1000001, types.NewQuota(100000000, 0, 0), big.NewInt(0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
+		{21000, types.NewQuota(74970001, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached"},
+		{21000, types.NewQuota(74970002, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached2"},
+		{21000, types.NewQuota(0, 0, 0), big.NewInt(0), big.NewInt(67108863), nil, "no_pledge_quota"},
+		{21000, types.NewQuota(21000, 0, 0), big.NewInt(10000), big.NewInt(0), nil, "pledge_quota_enough"},
+		{22000, types.NewQuota(21000, 0, 0), big.NewInt(10000), big.NewInt(67102161), nil, "use_both"},
+		{21000, types.NewQuota(0, 0, 0), big.NewInt(10000), big.NewInt(0), nil, "total_quota_not_exact"},
+		{1000000, types.NewQuota(21000, 21000, 21000), big.NewInt(10000), big.NewInt(3221424933), nil, "total_quota_not_exact"},
+	}
+	InitQuotaConfig(false)
+	for _, testCase := range testCases {
+		difficulty, err := CalcPoWDifficulty(testCase.quotaRequired, testCase.q, testCase.pledgeAmount)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v CalcPoWDifficulty failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && difficulty.Cmp(testCase.difficulty) != 0 {
+			t.Fatalf("%v CalcPoWDifficulty failed, difficulty not match, expected %v, got %v", testCase.name, testCase.difficulty, difficulty)
+		}
+	}
+}
+
+func TestCanPoW(t *testing.T) {
+	testCases := []struct {
+		blockList []*ledger.AccountBlock
+		result    bool
+		name      string
+	}{
+		{[]*ledger.AccountBlock{}, true, "no_blocks"},
+		{[]*ledger.AccountBlock{{Nonce: []byte{1}}}, false, "cannot_calc_pow1"},
+		{[]*ledger.AccountBlock{{}, {Nonce: []byte{1}}}, false, "cannot_calc_pow2"},
+		{[]*ledger.AccountBlock{{}}, true, "can_calc_pow1"},
+		{[]*ledger.AccountBlock{{}, {}}, true, "can_calc_pow2"},
+	}
+	for _, testCase := range testCases {
+		db := &testQuotaDb{types.Address{}, 0, 0, testCase.blockList}
+		result, _ := CanPoW(db)
+		if result != testCase.result {
+			t.Fatalf("%v CanPoW failed, result not match, expected %v, got %v", testCase.name, testCase.result, result)
+		}
+	}
+}
+
+func TestCalcQuotaV3(t *testing.T) {
+	testCases := []struct {
+		addr                                           types.Address
+		pledgeAmount                                   *big.Int
+		difficulty                                     *big.Int
+		usedQuota, blockCount                          uint64
+		unconfirmedBlockList                           []*ledger.AccountBlock
+		quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64
+		err                                            error
+		name                                           string
+	}{
+		{types.Address{}, big.NewInt(0), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			0, 0, 0, 0, nil, "no_quota",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(1),
+			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
+			0, 0, 0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
+			42000, 21000, 21000, 10500, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, 0, 0, nil, "get_quota_by_pledge1",
+		},
+		{types.Address{}, big.NewInt(19999), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			42000, 0, 21000, 21000, nil, "get_quota_by_pledge2",
+		},
+		{types.Address{}, big.NewInt(29998), big.NewInt(0),
+			42001, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 21001}},
+			63000, 0, 42001, 21000, nil, "get_quota_by_pledge3",
+		},
+		{types.Address{}, big.NewInt(10001), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, 0, 0, nil, "get_quota_by_pledge4",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 21000, 0, 0, nil, "get_quota_by_difficulty1",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			42000, 21000, 21000, 21000, nil, "get_quota_by_difficulty2",
+		},
+	}
+	InitQuotaConfig(false)
+	for _, testCase := range testCases {
+		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
+		quotaTotal, quotaAddition, quotaUsed, quotaAvg, err := calcQuotaV3(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && (quotaTotal != testCase.quotaTotal || quotaAddition != testCase.quotaAddition || quotaUsed != testCase.quotaUsed || quotaAvg != testCase.quotaAvg) {
+			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v), got (%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.quotaAddition, testCase.quotaUsed, testCase.quotaAvg, quotaTotal, quotaAddition, quotaUsed, quotaAvg)
+		}
+	}
+}
+func BenchmarkCalcQuotaV3(b *testing.B) {
+	InitQuotaConfig(false)
+	addr := types.Address{}
+	db := &testQuotaDb{addr, 21000, 1, []*ledger.AccountBlock{{Quota: 21000}}}
+	pledgeAmount := big.NewInt(10000)
+	difficulty := big.NewInt(67108863)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		calcQuotaV3(db, addr, pledgeAmount, difficulty)
+	}
+}
+
+func TestCalcQuotaForBlock(t *testing.T) {
+	testCases := []struct {
+		addr                      types.Address
+		pledgeAmount              *big.Int
+		difficulty                *big.Int
+		usedQuota, blockCount     uint64
+		unconfirmedBlockList      []*ledger.AccountBlock
+		quotaTotal, quotaAddition uint64
+		err                       error
+		name                      string
+	}{
+		{types.Address{}, big.NewInt(0), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			0, 0, nil, "no_quota",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(1),
+			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
+			0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
+			21000, 21000, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, nil, "get_quota_by_pledge1",
+		},
+		{types.Address{}, big.NewInt(19999), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			21000, 0, nil, "get_quota_by_pledge2",
+		},
+		{types.Address{}, big.NewInt(29998), big.NewInt(0),
+			42001, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 21001}},
+			20999, 0, nil, "get_quota_by_pledge3",
+		},
+		{types.Address{}, big.NewInt(10001), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, nil, "get_quota_by_pledge4",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 21000, nil, "get_quota_by_difficulty1",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			21000, 21000, nil, "get_quota_by_difficulty2",
+		},
+		{types.Address{}, big.NewInt(1000), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			0, 0, nil, "quota_total_less_than_used",
+		},
+		{types.Address{}, big.NewInt(489982), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			1000000, 0, nil, "block_quota_limit_reached1",
+		},
+		{types.Address{}, big.NewInt(479981), big.NewInt(134217737),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			1000000, 21000, nil, "block_quota_limit_reached2",
+		},
+		{types.Address{}, big.NewInt(479981), big.NewInt(134217737),
+			0, 0, []*ledger.AccountBlock{},
+			1000000, 21000, nil, "block_quota_limit_reached3",
+		},
+	}
+	InitQuotaConfig(false)
+	for _, testCase := range testCases {
+		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
+		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.pledgeAmount, testCase.difficulty)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v TestCalcQuotaForBlock failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && (quotaTotal != testCase.quotaTotal || quotaAddition != testCase.quotaAddition) {
+			t.Fatalf("%v TestCalcQuotaForBlock failed, quota not match, expected (%v,%v), got (%v,%v)", testCase.name, testCase.quotaTotal, testCase.quotaAddition, quotaTotal, quotaAddition)
+		}
+	}
 }

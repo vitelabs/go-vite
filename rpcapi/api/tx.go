@@ -214,7 +214,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	}
 
 	// calc difficulty if current quota is not enough
-	canPoW, err := quota.CanPoW(db, param.SelfAddr)
+	canPoW, err := quota.CanPoW(db)
 	if err != nil {
 		return nil, err
 	}
