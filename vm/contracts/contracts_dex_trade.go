@@ -70,22 +70,24 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 		blocks = []*SendBlock{}
 	)
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
-		return []*SendBlock{}, fmt.Errorf("invalid block source")
+		return handleReceiveErr(db, fmt.Errorf("invalid block source"))
 	}
 	param := new(dex.ParamDexSerializedData)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	orderInfo := &dexproto.OrderInfo{}
 	if err = proto.Unmarshal(param.Data, orderInfo); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	if err = matcher.MatchOrder(dex.TakerOrder{*orderInfo}); err != nil {
-		return []*SendBlock{}, err
+		return handleNewOrderFailed(db, block, orderInfo, err)
 	}
-	blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees())
+	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
+		return handleNewOrderFailed(db, block, orderInfo, err)
+	}
 	return blocks, err
 }
 
@@ -122,10 +124,10 @@ func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, bloc
 		return err
 	}
 	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
-		return fmt.Errorf("cancel order not own to initiator")
+		return dex.CancelOrderOwnerInvalidErr
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return fmt.Errorf("order status is invalid to cancel")
+		return dex.CancelOrderInvalidStatusErr
 	}
 	return nil
 }
@@ -139,17 +141,61 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	var (
 		order *dex.Order
 		err   error
+		blocks = []*SendBlock{}
 	)
 	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return []*SendBlock{}, fmt.Errorf("order status is invalid to cancel")
+		return handleReceiveErr(db, dex.CancelOrderInvalidStatusErr)
 	}
 	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId, param.TradeToken, param.QuoteToken); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
-	return handleSettleActions(block, matcher.GetFundSettles(), nil)
+	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
+		return handleReceiveErr(db, err)
+	} else {
+		return blocks, nil
+	}
+}
+
+func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, orderInfo *dexproto.OrderInfo, inputErr error) ([]*SendBlock, error) {
+	dex.EmitErrLog(db, inputErr)
+	fundSettle := &dexproto.FundSettle{}
+	switch orderInfo.Order.Side {
+	case false: // buy
+		fundSettle.Token = orderInfo.OrderTokenInfo.QuoteToken
+		fundSettle.ReleaseLocked = dex.AddBigInt(orderInfo.Order.Amount, orderInfo.Order.LockedBuyFee)
+	case true: // sell
+		fundSettle.Token = orderInfo.OrderTokenInfo.TradeToken
+		fundSettle.ReleaseLocked = orderInfo.Order.Quantity
+	}
+	userFundSettle := &dexproto.UserFundSettle{}
+	userFundSettle.Address = orderInfo.Order.Address
+	userFundSettle.FundSettles = append(userFundSettle.FundSettles, fundSettle)
+	settleActions := &dexproto.SettleActions{}
+	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
+	var (
+		settleData, dexSettleBlockData []byte
+		newErr error
+	)
+	if settleData, newErr = proto.Marshal(settleActions); newErr != nil {
+		 dex.EmitErrLog(db, newErr)
+		return []*SendBlock{}, newErr
+	}
+	if dexSettleBlockData, newErr = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); newErr != nil {
+		dex.EmitErrLog(db, newErr)
+		return []*SendBlock{}, newErr
+	}
+	return []*SendBlock{
+		{block,
+			types.AddressDexFund,
+			ledger.BlockTypeSendCall,
+			big.NewInt(0),
+			ledger.ViteTokenId, // no need send token
+			dexSettleBlockData,
+		},
+	}, nil
 }
 
 func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*SendBlock, error) {

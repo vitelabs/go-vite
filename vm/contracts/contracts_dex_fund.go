@@ -125,25 +125,25 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vmctxt_interface.VmDatabase, b
 		err     error
 	)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	account, _ := dex.GetAccountByTokeIdFromFund(dexFund, param.Token)
 	available := dex.SubBigInt(account.Available, param.Amount.Bytes())
 	if available.Sign() < 0 {
-		return []*SendBlock{}, fmt.Errorf("withdraw amount exceed fund available")
+		return handleReceiveErr(db, fmt.Errorf("withdraw amount exceed fund available"))
 	}
 	account.Available = available.Bytes()
 	// must do after account updated by withdraw
 	if bytes.Equal(param.Token.Bytes(), dex.VxTokenBytes) {
 		if err = onWithdrawVx(db, sendBlock.AccountAddress, param.Amount, account); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 	}
 	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	return []*SendBlock{
 		{
@@ -197,29 +197,24 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 	)
 	param := new(dex.ParamDexFundNewOrder)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	orderInfo := &dexproto.OrderInfo{}
 	dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress, db.CurrentSnapshotBlock().Timestamp)
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
-		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderGetFundFail)
-		return []*SendBlock{}, err
+		return handleNewOrderFail(db, orderInfo, dex.NewOrderGetFundFail)
 	}
 	if _, err = checkAndLockFundForNewOrder(dexFund, orderInfo); err != nil {
-		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderLockFundFail)
-		return []*SendBlock{}, err
+		return handleNewOrderFail(db, orderInfo, dex.NewOrderLockFundFail)
 	}
 	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
-		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderSaveFundFail)
-		return []*SendBlock{}, err
+		return handleNewOrderFail(db, orderInfo, dex.NewOrderSaveFundFail)
 	}
 	if orderInfoBytes, err = proto.Marshal(orderInfo); err != nil {
-		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderInternalErr)
-		return []*SendBlock{}, err
+		return handleNewOrderFail(db, orderInfo, dex.NewOrderInternalErr)
 	}
 	if tradeBlockData, err = ABIDexTrade.PackMethod(MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
-		dex.EmitOrderFailLog(db, orderInfo, dex.NewOrderInternalErr)
-		return []*SendBlock{}, err
+		return handleNewOrderFail(db, orderInfo, dex.NewOrderInternalErr)
 	}
 	return []*SendBlock{
 		{
@@ -278,24 +273,24 @@ func (md MethodDexFundSettleOrders) DoReceive(db vmctxt_interface.VmDatabase, bl
 	param := new(dex.ParamDexSerializedData)
 	var err error
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundSettleOrders, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	settleActions := &dexproto.SettleActions{}
 	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	for _, fundAction := range settleActions.FundActions {
 		if err = doSettleFund(db, fundAction); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 	}
 	if len(settleActions.FeeActions) > 0 {
 		if err = settleFeeSum(db, settleActions.FeeActions); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 		for _, feeAction := range settleActions.FeeActions {
 			if err = settleUserFees(db, feeAction); err != nil {
-				return []*SendBlock{}, err
+				return handleReceiveErr(db, err)
 			}
 		}
 	}
@@ -343,13 +338,13 @@ func (md MethodDexFundFeeDividend) DoReceive(db vmctxt_interface.VmDatabase, blo
 	)
 	param := new(dex.ParamDexFundDividend)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	if lastDividendId := dex.GetLastFeeDividendIdFromStorage(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
-		return []*SendBlock{}, fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1)
+		return handleReceiveErr(db, fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1))
 	}
 	if err = doDivideFees(db, param.PeriodId); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	} else {
 		dex.SaveLastDividendIdToStorage(db, param.PeriodId)
 	}
@@ -397,25 +392,25 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vmctxt_interface.VmDatabase,
 	)
 	param := new(dex.ParamDexFundDividend)
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundMinedVxDividend, sendBlock.Data); err != nil {
-		return []*SendBlock{}, err
+		return handleReceiveErr(db, err)
 	}
 	if lastMinedVxDividendId := dex.GetLastMinedVxDividendIdFromStorage(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
-		return []*SendBlock{}, fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1)
+		return handleReceiveErr(db, fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
 	}
 	vxTokenId := &types.TokenTypeId{}
 	vxTokenId.SetBytes(dex.VxTokenBytes)
 	vxBalance := db.GetBalance(&types.AddressDexFund, vxTokenId)
 	if amtForFeePerMarket, amtForPledge, amtForViteLabs, success := dex.GetMindedVxAmt(vxBalance); !success {
-		return []*SendBlock{}, fmt.Errorf("no vx available for mine")
+		return handleReceiveErr(db, fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = doDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 		if err = doDivideMinedVxForPledge(db, amtForPledge); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 		if err = doDivideMinedVxForViteLabs(db, amtForViteLabs); err != nil {
-			return []*SendBlock{}, err
+			return handleReceiveErr(db, err)
 		}
 	}
 	dex.SaveLastMinedVxDividendIdToStorage(db, param.PeriodId)
@@ -460,7 +455,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 		return []*SendBlock{}, err
 	}
 	if mi, _ := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); mi != nil {
-		return []*SendBlock{}, dex.MarketExistsError
+		return []*SendBlock{}, dex.TradeMarketExistsError
 	}
 	marketInfo := &dex.MarketInfo{}
 	newMarketEvent := &dex.NewMarketEvent{}
@@ -492,6 +487,16 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 		return []*SendBlock{}, err
 	}
 	dex.AddNewMarketEventLog(db, newMarketEvent)
+	return []*SendBlock{}, nil
+}
+
+func handleNewOrderFail(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) ([]*SendBlock, error) {
+	dex.EmitOrderFailLog(db, orderInfo, errCode)
+	return []*SendBlock{}, nil
+}
+
+func handleReceiveErr(db vmctxt_interface.VmDatabase, err error) ([]*SendBlock, error) {
+	dex.EmitErrLog(db, err)
 	return []*SendBlock{}, nil
 }
 

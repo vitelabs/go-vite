@@ -42,9 +42,6 @@ var (
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 	NewMarketFeeDonateAmount = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
 
-	MarketExistsError = errors.New("market already exists")
-	MarketNotExistsError = errors.New("market not exists")
-
 	bitcoinToken, _ = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
 	ethToken, _     = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
 	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
@@ -178,7 +175,7 @@ func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundN
 		return fmt.Errorf("fee for create market not enough")
 	}
 	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
-		return MarketExistsError
+		return TradeMarketExistsError
 	}
 	return nil
 }
@@ -212,24 +209,24 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 		marketInfo *MarketInfo
 	)
 	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
-		return err
+		return InvalidOrderIdErr
 	}
 	if !orderId.IsNormal() {
-		return fmt.Errorf("invalid order id")
+		return InvalidOrderIdErr
 	}
 	if marketInfo, _ = GetMarketInfo(db, orderParam.TradeToken, orderParam.QuoteToken); marketInfo == nil {
-		return MarketNotExistsError
+		return TradeMarketNotExistsError
 	}
 	if orderParam.Quantity.Sign() <= 0 {
-		return fmt.Errorf("invalid trade quantity for order")
+		return InvalidOrderQuantityErr
 	}
 	// TODO add market order support
 	if orderParam.OrderType != Limited {
-		return fmt.Errorf("invalid order type")
+		return InvalidOrderTypeErr
 	}
 	if orderParam.OrderType == Limited {
 		if !ValidPrice(orderParam.Price) {
-			return fmt.Errorf("invalid format for price")
+			return InvalidOrderPriceErr
 		}
 		amount := CalculateRawAmount(orderParam.Quantity.Bytes(), orderParam.Price, marketInfo.TradeTokenDecimals, marketInfo.QuoteTokenDecimals)
 		if !orderParam.Side { //buy
@@ -237,7 +234,7 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 			amount = AddBigInt(amount, lockedBuyFee)
 		}
 		if new(big.Int).SetBytes(amount).Cmp(QuoteTokenMinAmount[orderParam.QuoteToken]) < 0 {
-			return fmt.Errorf("order amount too small")
+			return OrderAmountTooSmallErr
 		}
 	}
 	return nil
@@ -279,6 +276,14 @@ func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderI
 	orderFail.ErrCode = strconv.Itoa(errCode)
 	event := NewOrderFailEvent{orderFail}
 
+	log := &ledger.VmLog{}
+	log.Topics = append(log.Topics, event.getTopicId())
+	log.Data = event.toDataBytes()
+	db.AddLog(log)
+}
+
+func EmitErrLog(db vmctxt_interface.VmDatabase, err error) {
+	event := ErrEvent{err}
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, event.getTopicId())
 	log.Data = event.toDataBytes()
