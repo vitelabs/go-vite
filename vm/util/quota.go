@@ -25,14 +25,6 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	return quotaLeft, nil
 }
 
-func UseQuotaForData(data []byte, quotaLeft uint64) (uint64, error) {
-	cost, err := DataGasCost(data)
-	if err != nil {
-		return 0, err
-	}
-	return UseQuota(quotaLeft, cost)
-}
-
 func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 	var gas uint64
 	if isCreate {

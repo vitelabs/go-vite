@@ -2,10 +2,11 @@ package vm
 
 import (
 	"bytes"
+	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
@@ -335,7 +336,7 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
 	toAddress, _ := types.BigToAddress(toAddrBig)
 	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
-	cost, err := quota.GetQuotaRequired(util.MakeSendBlock(
+	cost, err := GasRequiredForBlock(util.MakeSendBlock(
 		c.block.AccountAddress,
 		toAddress,
 		ledger.BlockTypeSendCall,
@@ -361,4 +362,38 @@ func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 
 func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	return memoryGasCost(mem, memorySize)
+}
+
+func GasRequiredForBlock(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		return gasNormalSendCall(block)
+	} else if block.BlockType == ledger.BlockTypeReceive {
+		return gasUserReceive(block)
+	} else if block.BlockType == ledger.BlockTypeSendCall {
+		return gasUserSendCall(block)
+	} else {
+		return 0, errors.New("block type not supported")
+	}
+}
+func gasReceiveCreate(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(nil, true)
+}
+
+func gasUserReceive(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(nil, false)
+}
+
+func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
+	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
+		if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
+			return 0, errors.New("built-in contract method not exists")
+		} else {
+			return method.GetSendQuota(block.Data)
+		}
+	} else {
+		return gasNormalSendCall(block)
+	}
+}
+func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(block.Data, false)
 }

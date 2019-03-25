@@ -244,7 +244,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	quotaLeft := quotaTotal
 	quotaRefund := uint64(0)
 	if useQuota {
-		cost, err := util.IntrinsicGasCost(block.Data, false)
+		cost, err := gasNormalSendCall(block)
 		if err != nil {
 			return nil, err
 		}
@@ -307,7 +307,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		return nil, NoRetry, util.ErrAddressCollision
 	}
 	// check can make transaction
-	cost, err := util.IntrinsicGasCost(nil, true)
+	cost, err := gasReceiveCreate(block)
 	if err != nil {
 		return nil, NoRetry, err
 	}
@@ -385,7 +385,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 	} else {
 		block.Fee = helper.Big0
 		if useQuota {
-			cost, err := util.IntrinsicGasCost(block.Data, false)
+			cost, err := gasNormalSendCall(block)
 			if err != nil {
 				return nil, err
 			}
@@ -476,7 +476,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		}
 		quotaLeft := quotaTotal
 		quotaRefund := uint64(0)
-		cost, err := util.IntrinsicGasCost(nil, false)
+		cost, err := gasUserReceive(block)
 		if err != nil {
 			return nil, NoRetry, err
 		}
@@ -599,7 +599,7 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	// check can make transaction
 	quotaLeft := quotaTotal
 	if useQuota {
-		cost, err := util.IntrinsicGasCost(block.Data, false)
+		cost, err := gasNormalSendCall(block)
 		if err != nil {
 			return nil, err
 		}
@@ -621,7 +621,7 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	block.Fee = helper.Big0
 	quotaLeft := quotaTotal
 	if useQuota {
-		cost, err := util.IntrinsicGasCost(block.Data, false)
+		cost, err := gasNormalSendCall(block)
 		if err != nil {
 			return nil, err
 		}
@@ -652,7 +652,7 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	}
 	quotaLeft := quotaTotal
 	quotaRefund := uint64(0)
-	cost, err := util.IntrinsicGasCost(nil, false)
+	cost, err := gasUserReceive(block)
 	if err != nil {
 		return nil, NoRetry, err
 	}
