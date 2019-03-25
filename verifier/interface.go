@@ -7,13 +7,13 @@ import (
 )
 
 type Verifier interface {
-	VerifyNetAccBlock(block ledger.AccountBlock) error
-	VerifyRPCAccBlock(block ledger.AccountBlock, snapshotHash types.Hash) (*vm_db.VmAccountBlock, error)
-	VerifyPoolAccBlock(block ledger.AccountBlock, snapshotHash types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
+	VerifyNetAccBlock(block *ledger.AccountBlock) error
+	VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error)
+	VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
 
-	VerifyAccBlockNonce(block ledger.AccountBlock) error
-	VerifyAccBlockHash(block ledger.AccountBlock) error
-	VerifyAccBlockSignature(block ledger.AccountBlock) error
-	VerifyAccBlockConfirmedTimes(block ledger.AccountBlock) error
-	VerifyAccBlockProducerLegality(block ledger.AccountBlock) error
+	VerifyAccBlockNonce(block *ledger.AccountBlock) error
+	VerifyAccBlockHash(block *ledger.AccountBlock) error
+	VerifyAccBlockSignature(block *ledger.AccountBlock) error
+	VerifyAccBlockConfirmedTimes(block *ledger.AccountBlock) error
+	VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error
 }
