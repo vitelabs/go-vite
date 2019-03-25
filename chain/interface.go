@@ -177,7 +177,7 @@ type Chain interface {
 
 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
 
-	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
+	GetContractList(gid *types.Gid) ([]*types.Address, error)
 
 	GetQuotaUnused(address *types.Address) (uint64, error)
 

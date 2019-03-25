@@ -20,9 +20,20 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	// write unsaved storage
 	unsavedStorage := vmDb.GetUnsavedStorage()
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
+	unsavedCode := vmDb.GetUnsavedContractCode()
+	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
 
 	undoLogSize := types.HashSize +
 		len(unsavedStorage)*(types.AddressSize+34) + len(unsavedBalanceMap)*(1+types.AddressSize+types.TokenTypeIdSize)
+
+	if unsavedCode != nil {
+		undoLogSize += 1 + types.AddressSize
+	}
+
+	if unsavedContractMeta != nil {
+		undoLogSize += 1 + types.AddressSize
+		undoLogSize += 1 + types.GidSize + types.AddressSize
+	}
 
 	undoLog := make([]byte, 0, undoLogSize+4)
 	undoLog = append(undoLog, accountBlock.Hash.Bytes()...)
@@ -56,23 +67,28 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	}
 
-	binary.BigEndian.PutUint32(undoLog[undoLogSize:], uint32(undoLogSize))
-
 	// write unsaved code
-	unsavedCode := vmDb.GetUnsavedContractCode()
 	if unsavedCode != nil {
 		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
 
 		sDB.pending.Put(&accountBlock.Hash, codeKey, unsavedCode)
+
+		undoLog = append(undoLog, codeKey...)
 	}
 
 	// write unsaved contract meta
-	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
 	if unsavedContractMeta != nil {
 		contractKey := chain_utils.CreateContractMetaKey(&accountBlock.AccountAddress)
+		gidContractKey := chain_utils.CreateGidContractKey(unsavedContractMeta.Gid, &accountBlock.AccountAddress)
 
 		sDB.pending.Put(&accountBlock.Hash, contractKey, unsavedContractMeta.Serialize())
+		sDB.pending.Put(&accountBlock.Hash, gidContractKey, nil)
+
+		undoLog = append(undoLog, contractKey...)
+		undoLog = append(undoLog, gidContractKey...)
 	}
+
+	binary.BigEndian.PutUint32(undoLog[undoLogSize:], uint32(undoLogSize))
 
 	// write vm log
 	if accountBlock.LogHash != nil {
@@ -88,8 +104,11 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	// write call depth
 	callDepth := vmDb.GetUnsavedCallDepth()
 	if accountBlock.IsReceiveBlock() && callDepth > 0 {
+		callDepthBytes := make([]byte, 16)
+		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
+
 		for _, sendBlock := range accountBlock.SendBlockList {
-			sDB.pending.Put(&accountBlock.Hash, chain_utils.CreateCallDepthKey(&sendBlock.Hash), []byte{callDepth})
+			sDB.pending.Put(&accountBlock.Hash, chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
 		}
 	}
 

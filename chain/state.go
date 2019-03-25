@@ -52,10 +52,15 @@ func (c *chain) GetContractMeta(contractAddress *types.Address) (*ledger.Contrac
 }
 
 // TODO
-func (c *chain) GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error) {
-	// do something
-	c.stateDB.GetValue(&types.AddressConsensusGroup, gid.Bytes())
-	return nil, nil
+func (c *chain) GetContractList(gid *types.Gid) ([]*types.Address, error) {
+
+	addrList, err := c.stateDB.GetContractList(gid)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractList failed, gid is %s. Error: %s", gid, err))
+		c.log.Error(cErr.Error(), "method", "GetContractList")
+		return nil, cErr
+	}
+	return addrList, nil
 }
 
 func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {

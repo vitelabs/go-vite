@@ -182,21 +182,6 @@ func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTyp
 	return key
 }
 
-func CreateHistoryBalanceKeyByBytes(address *types.Address, tokenTypeId *types.TokenTypeId, snapshotHeightBytes []byte) []byte {
-	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
-
-	key := make([]byte, keySize)
-
-	key[0] = BalanceHistoryKeyPrefix
-
-	copy(key[1:types.AddressSize+1], address.Bytes())
-
-	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
-	copy(key[keySize-7:], snapshotHeightBytes)
-
-	return key
-}
-
 func CreateCodeKey(address *types.Address) []byte {
 	keySize := 1 + types.AddressSize
 
@@ -217,6 +202,26 @@ func CreateContractMetaKey(address *types.Address) []byte {
 	key[0] = ContractMetaKeyPrefix
 
 	copy(key[1:], address.Bytes())
+
+	return key
+}
+func CreateGidContractKey(gid *types.Gid, address *types.Address) []byte {
+	key := make([]byte, 0, 1+types.GidSize+types.AddressSize)
+
+	key[0] = GidContractKeyPrefix
+
+	key = append(key, gid.Bytes()...)
+	key = append(key, address.Bytes()...)
+
+	return key
+}
+
+func CreateGidContractPrefixKey(gid *types.Gid) []byte {
+	key := make([]byte, 0, 1+types.GidSize)
+
+	key[0] = GidContractKeyPrefix
+
+	key = append(key, gid.Bytes()...)
 
 	return key
 }
