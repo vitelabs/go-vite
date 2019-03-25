@@ -64,7 +64,7 @@ func (mvDB *MultiVersionDB) GetKeyId(key []byte) (uint64, error) {
 		}
 	}
 
-	return chain_utils.DeserializeUint64(keyIdBytes), nil
+	return chain_utils.BytesToUint64(keyIdBytes), nil
 }
 
 func (mvDB *MultiVersionDB) GetValueId(keyId uint64) (uint64, error) {
@@ -83,7 +83,7 @@ func (mvDB *MultiVersionDB) GetValueId(keyId uint64) (uint64, error) {
 		}
 	}
 
-	return chain_utils.FixedBytesToUint64(valueIdBytes), nil
+	return chain_utils.BytesToUint64(valueIdBytes), nil
 }
 
 func (mvDB *MultiVersionDB) GetValue(key []byte) ([]byte, error) {
@@ -183,7 +183,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, addr *types.Address, k
 		//if keyId <= 0 {
 		//	keyId = atomic.AddUint64(&mvDB.latestKeyId, 1)
 		//	// insert key id
-		//	mvDB.pending.Put(blockHash, chain_utils.CreateKeyIdKey(key), chain_utils.Uint64ToFixedBytes(keyId))
+		//	mvDB.pending.Put(blockHash, chain_utils.CreateKeyIdKey(key), chain_utils.Uint64ToBytes(keyId))
 		//} else {
 		//	prevValueId, err := mvDB.GetValueId(keyId)
 		//	if err != nil {
@@ -195,7 +195,7 @@ func (mvDB *MultiVersionDB) Insert(blockHash *types.Hash, addr *types.Address, k
 		//valueId := startValueId + uint64(index+1)
 		//
 		//// update latest value index
-		//mvDB.pending.Put(blockHash, chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
+		//mvDB.pending.Put(blockHash, chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToBytes(valueId))
 		//
 		//// insert value
 		//mvDB.pending.Put(blockHash, chain_utils.CreateValueIdKey(valueId), valueList[index])
@@ -259,7 +259,7 @@ func (mvDB *MultiVersionDB) DeletePendingBlock(blockHash *types.Hash) {
 //}
 //
 //func (mvDB *MultiVersionDB) updateLatestValueId(batch *leveldb.Batch, keyId uint64, valueId uint64) {
-//	batch.Put(chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToFixedBytes(valueId))
+//	batch.Put(chain_utils.CreateLatestValueKey(keyId), chain_utils.Uint64ToBytes(valueId))
 //}
 //
 //func (mvDB *MultiVersionDB) deleteValue(batch *leveldb.Batch, valueId uint64) {

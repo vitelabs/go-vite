@@ -85,6 +85,14 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		sDB.pending.Put(&accountBlock.Hash, vmLogListKey, bytes)
 	}
 
+	// write call depth
+	callDepth := vmDb.GetUnsavedCallDepth()
+	if accountBlock.IsReceiveBlock() && callDepth > 0 {
+		for _, sendBlock := range accountBlock.SendBlockList {
+			sDB.pending.Put(&accountBlock.Hash, chain_utils.CreateCallDepthKey(&sendBlock.Hash), []byte{callDepth})
+		}
+	}
+
 	sDB.undoLogger.InsertBlock(&accountBlock.Hash, undoLog)
 
 	return nil

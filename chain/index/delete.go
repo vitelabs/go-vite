@@ -30,7 +30,7 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 			iDB.deleteAccountBlockHeight(batch, &block.AccountAddress, block.Height)
 
 			// delete confirmed index
-			iDB.deleteConfirmHeight(batch, &block.Hash)
+			iDB.deleteConfirmHeight(batch, &block.AccountAddress, block.Height)
 
 			if block.IsReceiveBlock() {
 
@@ -89,6 +89,6 @@ func (iDB *IndexDB) deleteReceive(batch interfaces.Batch, sendBlockHash *types.H
 	batch.Delete(chain_utils.CreateReceiveKey(sendBlockHash))
 }
 
-func (iDB *IndexDB) deleteConfirmHeight(batch interfaces.Batch, hash *types.Hash) {
-	batch.Delete(chain_utils.CreateConfirmHeightKey(hash))
+func (iDB *IndexDB) deleteConfirmHeight(batch interfaces.Batch, addr *types.Address, height uint64) {
+	batch.Delete(chain_utils.CreateConfirmHeightKey(addr, height))
 }

@@ -8,7 +8,6 @@ import (
 )
 
 func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, toLocation *chain_block.Location) error {
-
 	batch := new(leveldb.Batch)
 	//blockHashList := make([]*types.Hash, 0, size)
 
@@ -31,6 +30,13 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 			if accountBlock.Height <= 1 {
 				sDB.deleteCode(batch, &accountBlock.AccountAddress)
 				sDB.deleteContractMeta(batch, &accountBlock.AccountAddress)
+			}
+
+			// delete call depth
+			if accountBlock.IsReceiveBlock() {
+				for _, sendBlock := range accountBlock.SendBlockList {
+					batch.Delete(chain_utils.CreateCallDepthKey(&sendBlock.Hash))
+				}
 			}
 		}
 	}

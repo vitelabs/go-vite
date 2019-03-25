@@ -23,7 +23,6 @@ func (c *chain) IsContractAccount(address *types.Address) (bool, error) {
 	return result, nil
 }
 
-// TODO cache
 func (c *chain) GetAccountId(address *types.Address) (uint64, error) {
 	accountId, err := c.indexDB.GetAccountId(address)
 
@@ -36,7 +35,7 @@ func (c *chain) GetAccountId(address *types.Address) (uint64, error) {
 	return accountId, nil
 }
 
-func (c *chain) getAccountAddress(accountId uint64) (*types.Address, error) {
+func (c *chain) GetAccountAddress(accountId uint64) (*types.Address, error) {
 	addr, err := c.indexDB.GetAccountAddress(accountId)
 
 	if err != nil {

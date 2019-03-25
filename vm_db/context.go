@@ -51,9 +51,15 @@ func (db *vmDb) IsContractAccount() (bool, error) {
 	return db.chain.IsContractAccount(db.address)
 }
 
-// TODO
-func (db *vmDb) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
-	return 0, nil
+func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+	return db.chain.GetCallDepth(sendBlockHash)
+}
+
+func (db *vmDb) SetCallDepth(callDepth byte) {
+	db.unsaved.SetCallDepth(callDepth)
+}
+func (db *vmDb) GetUnsavedCallDepth() byte {
+	return db.unsaved.GetCallDepth()
 }
 
 func (db *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {

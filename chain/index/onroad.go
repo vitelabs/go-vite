@@ -12,14 +12,7 @@ import (
 )
 
 func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
-	accountId, err := iDB.GetAccountId(address)
-	if err != nil {
-		return false, err
-	}
-
-	key := chain_utils.CreateOnRoadPrefixKey(accountId)
-
-	return iDB.hasValueByPrefix(key)
+	return iDB.hasValueByPrefix(chain_utils.CreateOnRoadPrefixKey(address))
 }
 
 func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {

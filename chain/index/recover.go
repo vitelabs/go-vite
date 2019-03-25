@@ -35,7 +35,7 @@ func (iDB *IndexDB) DeleteTo(endLocation *chain_block.Location) error {
 				break
 			}
 
-			height := chain_utils.FixedBytesToUint64(heightIter.Key()[1+types.AddressSize:])
+			height := chain_utils.BytesToUint64(heightIter.Key()[1+types.AddressSize:])
 
 			hash, err := types.BytesToHash(valueBytes[:types.HashSize])
 			if err != nil {
@@ -74,7 +74,7 @@ func (iDB *IndexDB) DeleteTo(endLocation *chain_block.Location) error {
 			break
 		}
 
-		height := chain_utils.FixedBytesToUint64(iter.Key()[1:])
+		height := chain_utils.BytesToUint64(iter.Key()[1:])
 		hash, err := types.BytesToHash(value[:types.HashSize])
 		if err != nil {
 			return err
@@ -113,5 +113,5 @@ func (iDB *IndexDB) deleteAccountBlock(batch interfaces.Batch, addr *types.Addre
 
 	iDB.deleteOnRoad(batch, &hashHeight.Hash)
 
-	iDB.deleteConfirmHeight(batch, &hashHeight.Hash)
+	iDB.deleteConfirmHeight(batch, addr, hashHeight.Height)
 }

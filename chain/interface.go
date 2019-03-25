@@ -93,7 +93,7 @@ type Chain interface {
 	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error)
+	GetCallDepth(sendBlock *ledger.AccountBlock) (byte, error)
 
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
@@ -157,8 +157,6 @@ type Chain interface {
 	// The address is contract address when it's first receive block inserted into the chain.
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
-
-	GetAccountId(address *types.Address) (uint64, error)
 
 	// ===== Query state_bak ======
 	// get balance

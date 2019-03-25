@@ -154,6 +154,21 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 	return ledger.VmLogListDeserialize(value)
 }
 
+func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+	value, err := sDB.db.Get(chain_utils.CreateCallDepthKey(sendBlockHash), nil)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	if len(value) <= 0 {
+		return 0, nil
+	}
+	return value[0], nil
+}
+
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	//return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKey(addr, prefix)), nil), nil
 	return nil, nil

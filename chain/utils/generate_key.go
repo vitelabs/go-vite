@@ -6,11 +6,19 @@ import (
 )
 
 // ====== index db ======
-func CreateAccountAddressKey(addr *types.Address) []byte {
-	addrBytes := addr.Bytes()
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, AccountAddressKeyPrefix)
-	key = append(key, addrBytes...)
+func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, AccountBlockHashKeyPrefix)
+	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
+func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
+
+	key = append(key, AccountBlockHeightKeyPrefix)
+	key = append(key, addr.Bytes()...)
+	key = append(key, Uint64ToBytes(height)...)
 	return key
 }
 
@@ -21,11 +29,27 @@ func CreateReceiveKey(sendBlockHash *types.Hash) []byte {
 	return key
 }
 
+func CreateConfirmHeightKey(addr *types.Address, height uint64) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+8)
+	key = append(key, ConfirmHeightKeyPrefix)
+	key = append(key, addr.Bytes()...)
+	key = append(key, Uint64ToBytes(height)...)
+	return key
+}
+
+func CreateAccountAddressKey(addr *types.Address) []byte {
+	addrBytes := addr.Bytes()
+	key := make([]byte, 0, 1+types.AddressSize)
+	key = append(key, AccountAddressKeyPrefix)
+	key = append(key, addrBytes...)
+	return key
+}
+
 func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
 	key := make([]byte, 0, 1+types.AddressSize+8)
 	key = append(key, OnRoadKeyPrefix)
 	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToFixedBytes(id)...)
+	key = append(key, Uint64ToBytes(id)...)
 	return key
 }
 
@@ -50,35 +74,13 @@ func CreateLatestOnRoadIdKey() []byte {
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, AccountIdKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(accountId)...)
+	key = append(key, Uint64ToBytes(accountId)...)
 
 	return key
 }
 
 func CreateAccountIdPrefixKey() []byte {
 	return []byte{AccountIdKeyPrefix}
-}
-
-func CreateConfirmHeightKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, ConfirmHeightKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, AccountBlockHashKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-
-func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
-
-	key = append(key, AccountBlockHeightKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToFixedBytes(height)...)
-	return key
 }
 
 func CreateAccountBlockHeightPrefixKey(addr *types.Address) []byte {
@@ -99,7 +101,7 @@ func CreateSnapshotBlockHashKey(snapshotBlockHash *types.Hash) []byte {
 func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) []byte {
 	key := make([]byte, 0, 9)
 	key = append(key, SnapshotBlockHeightKeyPrefix)
-	key = append(key, Uint64ToFixedBytes(snapshotBlockHeight)...)
+	key = append(key, Uint64ToBytes(snapshotBlockHeight)...)
 	return key
 }
 
@@ -194,6 +196,13 @@ func CreateVmLogListKey(logHash *types.Hash) []byte {
 	return key
 }
 
+func CreateCallDepthKey(blockHash *types.Hash) []byte {
+	key := make([]byte, 0, 1+types.HashSize)
+	key = append(key, CallDepthKeyPrefix)
+	key = append(key, blockHash.Bytes()...)
+	return key
+}
+
 func CreateUndoLocationKey() []byte {
 	return []byte{UndoLocationKeyPrefix}
 }
@@ -255,14 +264,14 @@ func CreateStateDbLocationKey() []byte {
 //func CreateValueIdKey(valueId uint64) []byte {
 //	key := make([]byte, 0, 9)
 //	key = append(key, ValueIdKeyPrefix)
-//	key = append(key, Uint64ToFixedBytes(valueId)...)
+//	key = append(key, Uint64ToBytes(valueId)...)
 //	return key
 //}
 //
 //func CreateLatestValueKey(keyId uint64) []byte {
 //	key := make([]byte, 0, 9)
 //	key = append(key, LatestValueKeyPrefix)
-//	key = append(key, Uint64ToFixedBytes(keyId)...)
+//	key = append(key, Uint64ToBytes(keyId)...)
 //	return key
 //}
 //

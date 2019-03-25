@@ -89,7 +89,7 @@ func (logger *undoLogger) Flush(snapshotBlockHash *types.Hash, blockHashList []*
 		buf = append(buf, logger.pending[*blockHash]...)
 	}
 	buf = append(buf, snapshotBlockHash.Bytes()...)
-	buf = append(buf, chain_utils.Uint64ToFixedBytes(types.HashSize)...)
+	buf = append(buf, chain_utils.Uint64ToBytes(types.HashSize)...)
 
 	freeSpaceLength := logger.maxFileSize - logger.fileSize
 

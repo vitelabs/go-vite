@@ -22,6 +22,7 @@ type Chain interface {
 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
 
 	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 
 	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
@@ -35,6 +36,8 @@ type Chain interface {
 	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
 	GetValue(addr *types.Address, key []byte) ([]byte, error)
+
+	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
 }
 
 type VmDb interface {
@@ -47,7 +50,11 @@ type VmDb interface {
 
 	IsContractAccount() (bool, error)
 
-	GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) // TODO
+	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
+
+	SetCallDepth(byte)
+
+	GetUnsavedCallDepth() byte
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 

@@ -42,8 +42,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return c.deleteSnapshotBlocksToLocation(prevLocation)
 }
 
-func (c *chain) deleteSnapshotBlocksToLocation(
-	prevLocation *chain_block.Location) ([]*ledger.SnapshotChunk, error) {
+func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_block.Location) ([]*ledger.SnapshotChunk, error) {
 
 	// rollback blocks db
 	deletedSnapshotSegments, err := c.blockDB.Rollback(prevLocation)
@@ -60,7 +59,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(
 	}
 
 	// rollback cache
-	_, err = c.cache.Rollback(deletedSnapshotSegments)
+	err = c.cache.Rollback(deletedSnapshotSegments)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")

@@ -31,23 +31,23 @@ func NewCache(chain Chain) (*Cache, error) {
 
 	return c, nil
 }
-func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) ([]*ledger.AccountBlock, error) {
+func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
 	// delete all confirmed block
-	deleteBlocks := cache.unconfirmedPool.DeleteAllBlocks()
+	cache.unconfirmedPool.DeleteAllBlocks()
 
 	// update latest snapshot block
 	if err := cache.initLatestSnapshotBlock(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// rollback quota list
 	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments)); err != nil {
-		return nil, err
+		return err
 	}
-	return deleteBlocks, nil
+	return nil
 }
 
 // ====== Account blocks ======
@@ -70,7 +70,6 @@ func (cache *Cache) InsertAccountBlock(block *ledger.AccountBlock) {
 	cache.quotaList.Add(&block.AccountAddress, block.Quota)
 	dataId := cache.ds.InsertAccountBlock(block)
 	cache.unconfirmedPool.InsertAccountBlock(&block.AccountAddress, dataId)
-
 }
 
 // ====== Unconfirmed blocks ======
@@ -142,15 +141,6 @@ func (cache *Cache) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	defer cache.mu.RUnlock()
 
 	return cache.quotaList.GetQuotaUsed(addr)
-}
-
-// ====== Delete ======
-func (cache *Cache) Delete(sbList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	cache.quotaList.Rollback(len(sbList))
-	return cache.initLatestSnapshotBlock()
 }
 
 func (cache *Cache) setLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) uint64 {

@@ -25,7 +25,7 @@ func (iDB *IndexDB) GetSnapshotBlockHeight(hash *types.Hash) (uint64, error) {
 	if len(value) <= 0 {
 		return 0, nil
 	}
-	return chain_utils.DeserializeUint64(value), nil
+	return chain_utils.BytesToUint64(value), nil
 
 }
 
@@ -42,7 +42,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_blo
 		return nil, nil
 	}
 
-	return iDB.GetSnapshotBlockLocation(chain_utils.DeserializeUint64(value))
+	return iDB.GetSnapshotBlockLocation(chain_utils.BytesToUint64(value))
 }
 
 func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Location, error) {
@@ -100,7 +100,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher b
 		return nil, [2]uint64{}, err
 
 	}
-	height := chain_utils.DeserializeUint64(value)
+	height := chain_utils.BytesToUint64(value)
 
 	var startHeight, endHeight uint64
 	if higher {
@@ -131,7 +131,7 @@ func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHas
 	if len(startValue) <= 0 {
 		return nil, [2]uint64{}, nil
 	}
-	startHeight := chain_utils.DeserializeUint64(startValue)
+	startHeight := chain_utils.BytesToUint64(startValue)
 
 	endKey := chain_utils.CreateSnapshotBlockHashKey(endHash)
 	endValue, err := iDB.store.Get(endKey)
@@ -144,7 +144,7 @@ func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHas
 	if len(endValue) <= 0 {
 		return nil, [2]uint64{}, nil
 	}
-	endHeight := chain_utils.DeserializeUint64(endValue)
+	endHeight := chain_utils.BytesToUint64(endValue)
 
 	return iDB.getSnapshotBlockLocations(startHeight, endHeight, true)
 }
@@ -162,7 +162,7 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, hig
 	if higher {
 
 		for iter.Next() {
-			height := chain_utils.FixedBytesToUint64(iter.Key()[1:])
+			height := chain_utils.BytesToUint64(iter.Key()[1:])
 			if height < minHeight {
 				minHeight = height
 			}
@@ -175,7 +175,7 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, hig
 	} else {
 		iterOk := iter.Last()
 		for iterOk {
-			height := chain_utils.FixedBytesToUint64(iter.Key()[1:])
+			height := chain_utils.BytesToUint64(iter.Key()[1:])
 			if height < minHeight {
 				minHeight = height
 			}

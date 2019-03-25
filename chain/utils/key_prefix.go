@@ -4,30 +4,30 @@ package chain_utils
 const (
 	AccountBlockHashKeyPrefix = byte(1)
 
-	ReceiveKeyPrefix = byte(2)
+	AccountBlockHeightKeyPrefix = byte(2)
 
-	OnRoadKeyPrefix = byte(3)
+	ReceiveKeyPrefix = byte(3)
 
-	SnapshotBlockHashKeyPrefix = byte(4)
+	ConfirmHeightKeyPrefix = byte(4)
 
-	SnapshotBlockHeightKeyPrefix = byte(5)
+	OnRoadKeyPrefix = byte(5)
 
-	AccountAddressKeyPrefix = byte(6)
+	OnRoadReverseKeyPrefix = byte(6)
 
-	AccountIdKeyPrefix = byte(7)
+	SnapshotBlockHashKeyPrefix = byte(7)
 
-	ConfirmHeightKeyPrefix = byte(8)
+	SnapshotBlockHeightKeyPrefix = byte(8)
 
-	AccountBlockHeightKeyPrefix = byte(9)
+	AccountAddressKeyPrefix = byte(9)
 
-	OnRoadReverseKeyPrefix = byte(10)
+	AccountIdKeyPrefix = byte(10)
 
 	LatestOnRoadIdKeyPrefix = byte(11)
 
 	IndexDbLatestLocationKeyPrefix = byte(12)
 )
 
-// state_bak db
+// state db
 const (
 	StorageKeyPrefix = byte(1)
 
@@ -39,13 +39,19 @@ const (
 
 	CodeKeyPrefix = byte(5)
 
-	ContractMetaKeyPrefix = byte(6)
+	// CodeHistoryKeyPrefix = byte(6)
 
-	VmLogListKeyPrefix = byte(7)
+	ContractMetaKeyPrefix = byte(7)
 
-	UndoLocationKeyPrefix = byte(8)
+	// ContractMetaHistoryKeyPrefix = byte(8)
 
-	StateDbLocationKeyPrefix = byte(9)
+	VmLogListKeyPrefix = byte(9)
+
+	CallDepthKeyPrefix = byte(10)
+
+	UndoLocationKeyPrefix = byte(11)
+
+	StateDbLocationKeyPrefix = byte(12)
 )
 
 // mv db

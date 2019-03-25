@@ -127,8 +127,15 @@ func (iDB *IndexDB) hasValueByPrefix(prefix []byte) (bool, error) {
 
 	iter := iDB.store.NewIterator(util.BytesPrefix(prefix))
 	defer iter.Release()
+	deletedKeys := iDB.memDb.DeletedKeys()
 
-	iter.Next()
+	result := false
+	for iter.Next() {
+		key := iter.Key()
+		if _, ok := deletedKeys[string(key)]; !ok {
+			result = true
+		}
+	}
 
 	if err := iter.Error(); err != nil {
 		if err == leveldb.ErrNotFound {
@@ -136,6 +143,6 @@ func (iDB *IndexDB) hasValueByPrefix(prefix []byte) (bool, error) {
 		}
 		return false, err
 	}
-	return true, nil
+	return result, nil
 
 }

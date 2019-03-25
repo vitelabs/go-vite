@@ -59,34 +59,45 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 }
 
 func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error) {
+	var accountBlock *ledger.AccountBlock
+
 	// cache
 	if block := c.cache.GetAccountBlockByHash(blockHash); block != nil {
-		return block, nil
+		if block.IsReceiveBlock() {
+			return c.rsBlockToSBlock(block, blockHash), nil
+		}
+		accountBlock = block
+	} else {
+		var err error
+		// query location
+		location, err := c.indexDB.GetSnapshotBlockLocationByHash(blockHash)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, error is %s,  hash is %s",
+				err.Error(), blockHash))
+			c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
+			return nil, err
+		}
+
+		if location == nil {
+			return nil, nil
+		}
+
+		// query block
+		accountBlock, err = c.blockDB.GetAccountBlock(location)
+
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, error is %s,  hash is %s, location is %+v",
+				err.Error(), blockHash, location))
+			c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
+			return nil, cErr
+		}
 	}
 
-	// query location
-	location, err := c.indexDB.GetSnapshotBlockLocationByHash(blockHash)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, error is %s,  hash is %s",
-			err.Error(), blockHash))
-		c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
-		return nil, err
+	if accountBlock != nil && accountBlock.IsReceiveBlock() {
+		return c.rsBlockToSBlock(accountBlock, blockHash), nil
 	}
 
-	if location == nil {
-		return nil, nil
-	}
-
-	// query block
-	block, err := c.blockDB.GetAccountBlock(location)
-
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, error is %s,  hash is %s, location is %+v",
-			err.Error(), blockHash, location))
-		c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
-		return nil, cErr
-	}
-	return block, nil
+	return accountBlock, nil
 }
 
 // query receive block of send block
@@ -164,8 +175,15 @@ func (c *chain) GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger
 }
 
 // get call depth
-func (c *chain) GetCallDepth(sendBlock *ledger.AccountBlock) (uint64, error) {
-	return 0, nil
+func (c *chain) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+	callDepth, err := c.stateDB.GetCallDepth(sendBlockHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetCallDepth failed, sendBlockHash is %s. Error: %s",
+			sendBlockHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetConfirmedTimes")
+		return 0, cErr
+	}
+	return callDepth, nil
 }
 
 func (c *chain) GetConfirmedTimes(blockHash *types.Hash) (uint64, error) {
@@ -218,4 +236,17 @@ func (c *chain) GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock
 	}
 
 	return block, nil
+}
+
+func (c *chain) rsBlockToSBlock(rsBlock *ledger.AccountBlock, blockHash *types.Hash) *ledger.AccountBlock {
+	if rsBlock.Hash == *blockHash {
+		return rsBlock
+	}
+	for i := 0; i < len(rsBlock.SendBlockList); i++ {
+		sendBlock := rsBlock.SendBlockList[i]
+		if sendBlock.Hash == *blockHash {
+			return sendBlock
+		}
+	}
+	return nil
 }
