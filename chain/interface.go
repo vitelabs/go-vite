@@ -145,6 +145,8 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
+	GetLastSeedSnapshotHeader(producer *types.Address) (*ledger.SnapshotBlock, error)
+
 	GetRandomSeed(snapshotHash *types.Hash, n int) uint64
 
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)

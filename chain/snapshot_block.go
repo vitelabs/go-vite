@@ -450,7 +450,7 @@ func (c *chain) GetRandomSeed(snapshotHash *types.Hash, n int) uint64 {
 		tailHeight = headHeight - count
 	}
 
-	var producerMap map[string]struct{}
+	var producerMap map[types.Address]struct{}
 
 	seedCount := 0
 	randomSeed := uint64(0)
@@ -459,8 +459,8 @@ func (c *chain) GetRandomSeed(snapshotHash *types.Hash, n int) uint64 {
 		snapshotHeader := c.cache.GetSnapshotHeaderByHeight(h)
 
 		if snapshotHeader == nil {
-			cErr := errors.New(fmt.Sprintf("c.cache.GetSnapshotHeaderByHeight failed, height is %d. Error: %s,",
-				h, err.Error()))
+			cErr := errors.New(fmt.Sprintf("snapshotHeader is nil. height is %d", h))
+
 			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
 			return 0
 		}
@@ -468,16 +468,43 @@ func (c *chain) GetRandomSeed(snapshotHash *types.Hash, n int) uint64 {
 			continue
 		}
 
-		publicStr := string(snapshotHeader.PublicKey)
-		if _, ok := producerMap[publicStr]; !ok {
+		producer := snapshotHeader.Producer()
+		if _, ok := producerMap[producer]; !ok {
 			randomSeed += snapshotHeader.Seed
 
 			seedCount++
-			producerMap[publicStr] = struct{}{}
+			producerMap[producer] = struct{}{}
 		}
 	}
 
 	return randomSeed
+}
+
+func (c *chain) GetLastSeedSnapshotHeader(producer *types.Address) (*ledger.SnapshotBlock, error) {
+	headHeight := c.GetLatestSnapshotBlock().Height
+
+	tailHeight := uint64(1)
+	count := uint64(10 * 60)
+	if headHeight > count {
+		tailHeight = headHeight - count
+	}
+
+	for h := headHeight; h >= tailHeight; h-- {
+		snapshotHeader := c.cache.GetSnapshotHeaderByHeight(h)
+
+		if snapshotHeader == nil {
+			cErr := errors.New(fmt.Sprintf("snapshotHeader is nil. height is %d", h))
+
+			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
+			return nil, nil
+		}
+
+		if snapshotHeader.Producer() == *producer && snapshotHeader.SeedHash != nil {
+			return snapshotHeader, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // [startHeight, latestHeight]
