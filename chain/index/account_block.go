@@ -33,6 +33,17 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 	return height, location, nil
 }
 
+func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain_block.Location, error) {
+	addr, height, err := iDB.GetAddrHeightByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	if addr == nil {
+		return nil, nil
+	}
+	return iDB.GetAccountBlockLocation(addr, height)
+}
+
 func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_block.Location, error) {
 	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
 	value, err := iDB.getValue(key)

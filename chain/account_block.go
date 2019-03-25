@@ -14,6 +14,7 @@ func (c *chain) IsGenesisAccountBlock(hash *types.Hash) bool {
 func (c *chain) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 	// cache
 	if ok := c.cache.IsAccountBlockExisted(hash); ok {
+
 		return ok, nil
 	}
 
@@ -55,6 +56,7 @@ func (c *chain) GetAccountBlockByHeight(addr *types.Address, height uint64) (*le
 		c.log.Error(cErr.Error(), "method", "GetAccountBlockByHeight")
 		return nil, err
 	}
+
 	return block, nil
 }
 
@@ -70,7 +72,7 @@ func (c *chain) GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlo
 	} else {
 		var err error
 		// query location
-		location, err := c.indexDB.GetSnapshotBlockLocationByHash(blockHash)
+		location, err := c.indexDB.GetAccountBlockLocationByHash(blockHash)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, error is %s,  hash is %s",
 				err.Error(), blockHash))
