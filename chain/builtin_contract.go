@@ -65,27 +65,27 @@ func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
 }
 
 // total
-func (c *chain) GetPledgeQuota(addr *types.Address) (uint64, error) {
+func (c *chain) GetPledgeQuota(addr *types.Address) (*types.Quota, error) {
 	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
 	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
 			snapshotHash))
-		return 0, cErr
+		return nil, cErr
 	}
 
 	if ss == nil {
-		return 0, nil
+		return nil, nil
 	}
 	defer ss.Release()
 
 	// do something
-	return 0, nil
+	return nil, nil
 }
 
 // total
-func (c *chain) GetPledgeQuotas(addrList []*types.Address) (map[types.Address]uint64, error) {
+func (c *chain) GetPledgeQuotas(addrList []*types.Address) (map[types.Address]*types.Quota, error) {
 	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
 	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)

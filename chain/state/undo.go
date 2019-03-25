@@ -64,29 +64,43 @@ func (sDB *StateDB) undoKeys(batch *leveldb.Batch, undoKeys map[string]struct{},
 	for undoKeyStr := range undoKeys {
 		undoKey := []byte(undoKeyStr)
 
-		undoKey[0] += 1
+		keyType := undoKey[0]
+		switch keyType {
+		case chain_utils.CodeKeyPrefix:
+			fallthrough
+		case chain_utils.ContractMetaKeyPrefix:
+			fallthrough
+		case chain_utils.GidContractKeyPrefix:
+			batch.Delete(undoKey)
 
-		iter := sDB.db.NewIterator(util.BytesPrefix(undoKey), nil)
-		iterOk := iter.Last()
+		case chain_utils.StorageKeyPrefix:
+			fallthrough
+		case chain_utils.BalanceKeyPrefix:
+			undoKey[0] += 1
 
-		for iterOk {
-			key := iter.Key()
-			height := binary.BigEndian.Uint64(key[len(key)-8:])
-			if height > snapshotHeight {
-				batch.Delete(key)
-			} else {
-				undoKey[0] -= 1
-				batch.Put(undoKey, iter.Value())
+			iter := sDB.db.NewIterator(util.BytesPrefix(undoKey), nil)
+			iterOk := iter.Last()
+
+			for iterOk {
+				key := iter.Key()
+				height := binary.BigEndian.Uint64(key[len(key)-8:])
+				if height > snapshotHeight {
+					batch.Delete(key)
+				} else {
+					undoKey[0] -= 1
+					batch.Put(undoKey, iter.Value())
+				}
+
+				iterOk = iter.Prev()
+			}
+			if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+				iter.Release()
+				return err
 			}
 
-			iterOk = iter.Prev()
-		}
-		if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 			iter.Release()
-			return err
 		}
 
-		iter.Release()
 	}
 	return nil
 }
@@ -94,11 +108,17 @@ func (sDB *StateDB) undoKeys(batch *leveldb.Batch, undoKeys map[string]struct{},
 func parseUndoLogBuffer(undoKeys map[string]struct{}, undoLogBuffer []byte) {
 	currentPointer := 0
 	undoLogBufferLen := len(undoLogBuffer)
-	if currentPointer < undoLogBufferLen {
+	for currentPointer < undoLogBufferLen {
 		keyType := undoLogBuffer[currentPointer+1]
 
 		var nextPointer = 0
 		switch keyType {
+		case chain_utils.CodeKeyPrefix:
+			nextPointer += currentPointer + 1 + types.AddressSize
+		case chain_utils.ContractMetaKeyPrefix:
+			nextPointer += currentPointer + 1 + types.AddressSize
+		case chain_utils.GidContractKeyPrefix:
+			nextPointer += currentPointer + 1 + types.GidSize + types.AddressSize
 		case chain_utils.StorageKeyPrefix:
 			nextPointer = currentPointer + types.AddressSize + 34
 

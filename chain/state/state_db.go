@@ -130,6 +130,26 @@ func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
 	return sDB.db.Has(chain_utils.CreateContractMetaKey(addr), nil)
 }
 
+func (sDB *StateDB) GetContractList(gid *types.Gid) ([]*types.Address, error) {
+	iter := sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)), nil)
+	defer iter.Release()
+
+	var contractList []*types.Address
+	for iter.Next() {
+		key := iter.Key()
+
+		addr, err := types.BytesToAddress(key[len(key)-types.AddressSize:])
+		if err != nil {
+			return nil, err
+		}
+		contractList = append(contractList, &addr)
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+	return contractList, nil
+}
+
 func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
 	value, err := sDB.db.Get(chain_utils.CreateVmLogListKey(logHash), nil)
 	if err != nil {
