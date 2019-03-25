@@ -175,7 +175,7 @@ func (c *chain) GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger
 }
 
 // get call depth
-func (c *chain) GetCallDepth(sendBlockHash *types.Hash) (byte, error) {
+func (c *chain) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	callDepth, err := c.stateDB.GetCallDepth(sendBlockHash)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetCallDepth failed, sendBlockHash is %s. Error: %s",

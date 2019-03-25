@@ -79,6 +79,10 @@ func (unsaved *Unsaved) GetCode() []byte {
 func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
 	return unsaved.contractMeta
 }
+func (unsaved *Unsaved) IsDelete(key []byte) bool {
+	_, ok := unsaved.deletedKeys[string(key)]
+	return ok
+}
 
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
 	unsaved.storageDirty = true

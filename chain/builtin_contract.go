@@ -1,6 +1,8 @@
 package chain
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 )
@@ -9,22 +11,33 @@ import (
 func (c *chain) GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error) {
 	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressConsensusGroup, nil)
 	if err != nil {
-		c.log.Error(err.Error(), "method", "GetRegisterList")
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
+			snapshotHash))
+		return nil, cErr
 	}
+
+	if ss == nil {
+		return nil, nil
+	}
+
 	defer ss.Release()
 
 	// do something
-
 	return nil, nil
 }
 
 func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error) {
 	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressConsensusGroup, nil)
 	if err != nil {
-		c.log.Error(err.Error(), "method", "GetVoteMap")
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
+			snapshotHash))
+		return nil, cErr
 	}
+
+	if ss == nil {
+		return nil, nil
+	}
+
 	defer ss.Release()
 
 	// do something
@@ -33,11 +46,18 @@ func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.V
 }
 
 func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
-	ss, err := c.stateDB.NewStorageIterator(&types.AddressConsensusGroup, nil)
+	snapshotHash := c.GetLatestSnapshotBlock().Hash
+	ss, err := c.stateDB.NewSnapshotStorageIterator(&c.GetLatestSnapshotBlock().Hash, &types.AddressPledge, nil)
 	if err != nil {
-		c.log.Error(err.Error(), "method", "GetPledgeAmount")
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
+			snapshotHash))
+		return nil, cErr
 	}
+
+	if ss == nil {
+		return nil, nil
+	}
+
 	defer ss.Release()
 
 	// do something
@@ -45,28 +65,40 @@ func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
 }
 
 // total
-func (c *chain) GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (uint64, error) {
-	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressPledge, nil)
+func (c *chain) GetPledgeQuota(addr *types.Address) (uint64, error) {
+	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
+	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)
 	if err != nil {
-		c.log.Error(err.Error(), "method", "GetPledgeQuota")
-		return 0, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
+			snapshotHash))
+		return 0, cErr
+	}
+
+	if ss == nil {
+		return 0, nil
 	}
 	defer ss.Release()
 
 	// do something
-
 	return 0, nil
 }
 
 // total
-func (c *chain) GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]uint64, error) {
-	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressPledge, nil)
+func (c *chain) GetPledgeQuotas(addrList []*types.Address) (map[types.Address]uint64, error) {
+	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
+	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)
 	if err != nil {
-		c.log.Error(err.Error(), "method", "GetPledgeQuotas")
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
+			snapshotHash))
+		return nil, cErr
 	}
+
+	if ss == nil {
+		return nil, nil
+	}
+
 	defer ss.Release()
 
 	// do something
