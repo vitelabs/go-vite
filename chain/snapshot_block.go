@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"sort"
 	"time"
 )
@@ -522,4 +523,41 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 	}
 	return c.GetSnapshotHeaderByHeight(start.Height + uint64(i-1))
 
+}
+
+const DefaultSeedRangeCount int = 25
+
+// fixme get seed and snapshot
+func (c *chain) getBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
+	isContract, err := c.IsContractAccount(&block.AccountAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	if block.IsReceiveBlock() && isContract {
+		meta, err := c.GetContractMeta(&block.AccountAddress)
+		if err != nil {
+			return nil, err
+		}
+		timesLimit := uint64(meta.SendConfirmedTimes)
+		firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(&block.FromBlockHash)
+		if err != nil {
+			return nil, err
+		}
+		if firstConfirmedSb == nil {
+			return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+		}
+		limitSbHeight := firstConfirmedSb.Height + timesLimit
+		limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
+		if err != nil {
+			return nil, err
+		}
+		if seed := c.GetSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+			return &util.GlobalStatus{
+				Seed:          seed,
+				SnapshotBlock: limitSb,
+			}, nil
+		}
+	}
+	return nil, nil
 }
