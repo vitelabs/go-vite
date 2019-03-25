@@ -57,7 +57,7 @@ const (
 	BLAKE2B opCode = 0x21
 )
 
-// 0x30 range - closure state.
+// 0x30 range - closure state_bak.
 const (
 	ADDRESS opCode = 0x30 + iota
 	BALANCE
@@ -232,7 +232,7 @@ var opCodeToString = map[opCode]string{
 	// 0x20 range - crypto.
 	BLAKE2B: "BLAKE2B",
 
-	// 0x30 range - closure state.
+	// 0x30 range - closure state_bak.
 	ADDRESS:        "ADDRESS",
 	BALANCE:        "BALANCE",
 	ORIGIN:         "ORIGIN",

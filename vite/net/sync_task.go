@@ -37,7 +37,7 @@ var reqStatus = [...]string{
 
 func (s reqState) String() string {
 	if s > reqCancel {
-		return "unknown request state"
+		return "unknown request state_bak"
 	}
 	return reqStatus[s]
 }

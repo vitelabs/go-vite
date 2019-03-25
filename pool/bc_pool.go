@@ -61,8 +61,8 @@ type BCPool struct {
 }
 
 type blockPool struct {
-	freeBlocks     map[types.Hash]commonBlock // free state
-	compoundBlocks map[types.Hash]commonBlock // compound state
+	freeBlocks     map[types.Hash]commonBlock // free state_bak
+	compoundBlocks map[types.Hash]commonBlock // compound state_bak
 	pendingMu      sync.Mutex
 }
 

@@ -105,7 +105,7 @@ func (manager *Manager) Close() error {
 }
 
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
-	manager.log.Info("receive chain net event", "state", state)
+	manager.log.Info("receive chain net event", "state_bak", state)
 	common.Go(func() {
 		if state == net.Syncdone {
 			manager.resumeContractWorks()

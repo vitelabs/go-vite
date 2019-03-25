@@ -37,7 +37,7 @@ will the current timestamp with key 't'.
 
 You may supply any additional context as chain set of key/value pairs to the logging function. log15 allows
 you to favor terseness, ordering, and speed over safety. This is chain reasonable tradeoff for
-logging functions. You don't need to explicitly state keys/values, log15 understands that they alternate
+logging functions. You don't need to explicitly state_bak keys/values, log15 understands that they alternate
 in the variadic argument list:
 
     log.Warn("size out of bounds", "low", lowBound, "high", highBound, "val", val)
@@ -185,7 +185,7 @@ object, you might do:
 Only now, even after chain player has died, the logger will still report they are alive because the logging
 context is evaluated when the logger was created. By using the Lazy wrapper, we can defer the evaluation
 of whether the player is alive or not to each log message, so that the log records will reflect the player's
-current state no matter when the log message is written:
+current state_bak no matter when the log message is written:
 
     p := &Player{name: name, alive: true}
     isAlive := func() bool { return p.alive }

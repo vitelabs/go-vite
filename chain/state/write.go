@@ -1,112 +1,138 @@
 package chain_state
 
 import (
+	"encoding/binary"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
-	address := &block.AccountBlock.AccountAddress
 	vmDb := block.VmDb
+	accountBlock := block.AccountBlock
 
+	latestSnapshotBlock := sDB.chain.GetLatestSnapshotBlock()
+	nextSnapshotHeight := latestSnapshotBlock.Height + 1
+
+	// write unsaved storage
+	unsavedStorage := vmDb.GetUnsavedStorage()
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
-	unsavedStorage, deletedKeys := vmDb.GetUnsavedStorage()
+
+	undoLogSize := types.HashSize +
+		len(unsavedStorage)*(types.AddressSize+34) + len(unsavedBalanceMap)*(1+types.AddressSize+types.TokenTypeIdSize)
+
+	undoLog := make([]byte, 0, undoLogSize+4)
+	undoLog = append(undoLog, accountBlock.Hash.Bytes()...)
+
+	for _, kv := range unsavedStorage {
+		storageKey := chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0])
+
+		historyStorageKey := chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], nextSnapshotHeight)
+
+		sDB.pending.Put(&accountBlock.Hash, storageKey, kv[1])
+
+		sDB.pending.Put(&accountBlock.Hash, historyStorageKey, kv[1])
+
+		undoLog = append(undoLog, storageKey...)
+	}
+
+	// write unsaved balance
+	for tokenTypeId, balance := range unsavedBalanceMap {
+
+		balanceKey := chain_utils.CreateBalanceKey(&accountBlock.AccountAddress, &tokenTypeId)
+
+		balanceStorageKey := chain_utils.CreateHistoryBalanceKey(&accountBlock.AccountAddress, &tokenTypeId, nextSnapshotHeight)
+
+		balanceBytes := balance.Bytes()
+
+		sDB.pending.Put(&accountBlock.Hash, balanceKey, balanceBytes)
+
+		sDB.pending.Put(&accountBlock.Hash, balanceStorageKey, balanceBytes)
+
+		undoLog = append(undoLog, balanceKey...)
+
+	}
+
+	binary.BigEndian.PutUint32(undoLog[undoLogSize:], uint32(undoLogSize))
+
+	// write unsaved code
 	unsavedCode := vmDb.GetUnsavedContractCode()
+	if unsavedCode != nil {
+		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
+
+		sDB.pending.Put(&accountBlock.Hash, codeKey, unsavedCode)
+	}
+
+	// write unsaved contract meta
 	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
-	unsavedVmLogList := vmDb.GetLogList()
-
-	kvSize := len(unsavedBalanceMap) + len(unsavedStorage) + 3
-	keyList := make([][]byte, 0, kvSize)
-	valueList := make([][]byte, 0, kvSize)
-
-	// write balance
-	balanceKeyList, balanceValueList := sDB.prepareWriteBalance(address, unsavedBalanceMap)
-	keyList = append(keyList, balanceKeyList...)
-	valueList = append(valueList, balanceValueList...)
-
-	// write storage
-	storageKeyList, storageValueList := sDB.prepareWriteStorage(address, unsavedStorage, deletedKeys)
-	keyList = append(keyList, storageKeyList...)
-	valueList = append(valueList, storageValueList...)
-
-	// write code
-	if len(unsavedCode) > 0 {
-		keyList = append(keyList, chain_utils.CreateCodeKey(address))
-		valueList = append(valueList, unsavedCode)
-	}
-
-	// write contract meta
 	if unsavedContractMeta != nil {
-		keyList = append(keyList, chain_utils.CreateContractMetaKey(address))
-		valueList = append(valueList, unsavedContractMeta.Serialize())
+		contractKey := chain_utils.CreateContractMetaKey(&accountBlock.AccountAddress)
+
+		sDB.pending.Put(&accountBlock.Hash, contractKey, unsavedContractMeta.Serialize())
 	}
 
-	// write log list
-	logHash := block.AccountBlock.LogHash
-	if logHash != nil {
-		// insert vm log list
-		keyList = append(keyList, chain_utils.CreateVmLogListKey(logHash))
-		value, err := unsavedVmLogList.Serialize()
+	// write vm log
+	if accountBlock.LogHash != nil {
+		vmLogListKey := chain_utils.CreateVmLogListKey(accountBlock.LogHash)
+
+		bytes, err := vmDb.GetLogList().Serialize()
 		if err != nil {
 			return err
 		}
-		valueList = append(valueList, value)
+		sDB.pending.Put(&accountBlock.Hash, vmLogListKey, bytes)
 	}
 
-	if err := sDB.mvDB.Insert(&block.AccountBlock.Hash, keyList, valueList); err != nil {
-		return err
+	// write call depth
+	callDepth := vmDb.GetUnsavedCallDepth()
+	if accountBlock.IsReceiveBlock() && callDepth > 0 {
+		for _, sendBlock := range accountBlock.SendBlockList {
+			sDB.pending.Put(&accountBlock.Hash, chain_utils.CreateCallDepthKey(&sendBlock.Hash), []byte{callDepth})
+		}
 	}
+
+	sDB.undoLogger.InsertBlock(&accountBlock.Hash, undoLog)
+
 	return nil
 }
 
-func (sDB *StateDB) Flush(blocks []*ledger.AccountBlock, invalidAccountBlocks []*ledger.AccountBlock,
-	latestLocation *chain_block.Location) error {
-
+func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.AccountBlock,
+	invalidAccountBlocks []*ledger.AccountBlock, location *chain_block.Location) error {
+	batch := new(leveldb.Batch)
 	blockHashList := make([]*types.Hash, 0, len(blocks))
-
 	for _, block := range blocks {
 		blockHashList = append(blockHashList, &block.Hash)
 	}
 
-	if err := sDB.mvDB.Flush(blockHashList, latestLocation); err != nil {
+	location, err := sDB.undoLogger.Flush(&snapshotBlock.Hash, blockHashList)
+	if err != nil {
+		return err
+	}
+
+	sDB.updateUndoLocation(batch, location)
+	sDB.pending.FlushList(batch, blockHashList)
+
+	sDB.updateStateDbLocation(batch, location)
+
+	if err := sDB.db.Write(batch, nil); err != nil {
 		return err
 	}
 
 	for _, block := range invalidAccountBlocks {
-		sDB.mvDB.DeletePendingBlock(&block.Hash)
+		sDB.pending.DeleteByBlockHash(&block.Hash)
 	}
 
 	return nil
 }
 
-func (sDB *StateDB) prepareWriteBalance(addr *types.Address, balanceMap map[types.TokenTypeId]*big.Int) ([][]byte, [][]byte) {
-	keyList := make([][]byte, 0, len(balanceMap))
-	valueList := make([][]byte, 0, len(balanceMap))
+func (sDB *StateDB) updateUndoLocation(batch *leveldb.Batch, location *chain_block.Location) {
+	batch.Put(chain_utils.CreateUndoLocationKey(), chain_utils.SerializeLocation(location))
 
-	for tokenTypeId, balance := range balanceMap {
-		keyList = append(keyList, chain_utils.CreateBalanceKey(addr, &tokenTypeId))
-		valueList = append(valueList, balance.Bytes())
-
-	}
-	return keyList, valueList
 }
 
-func (sDB *StateDB) prepareWriteStorage(addr *types.Address, unsavedStorage [][2][]byte, deletedKeys map[string]struct{}) ([][]byte, [][]byte) {
-	keyList := make([][]byte, 0, len(unsavedStorage))
-	valueList := make([][]byte, 0, len(unsavedStorage))
+func (sDB *StateDB) updateStateDbLocation(batch *leveldb.Batch, latestLocation *chain_block.Location) {
+	batch.Put(chain_utils.CreateStateDbLocationKey(), chain_utils.SerializeLocation(latestLocation))
 
-	for _, kv := range unsavedStorage {
-		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(addr, kv[0]))
-		valueList = append(valueList, kv[1])
-	}
-
-	for keyStr := range deletedKeys {
-		keyList = append(keyList, chain_utils.CreateStorageKeyPrefix(addr, []byte(keyStr)))
-		valueList = append(valueList, nil)
-	}
-	return keyList, valueList
 }

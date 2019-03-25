@@ -12,23 +12,12 @@ import (
 )
 
 func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
-	accountId, err := iDB.GetAccountId(address)
-	if err != nil {
-		return false, err
-	}
-
-	key := chain_utils.CreateOnRoadPrefixKey(accountId)
-
-	return iDB.hasValueByPrefix(key)
+	return iDB.hasValueByPrefix(chain_utils.CreateOnRoadPrefixKey(address))
 }
 
-// TODO
 func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
-	accountId, err := iDB.GetAccountId(address)
-	if err != nil {
-		return nil, err
-	}
-	key := chain_utils.CreateOnRoadPrefixKey(accountId)
+	key := chain_utils.CreateOnRoadPrefixKey(address)
+
 	iter := iDB.NewIterator(util.BytesPrefix(key))
 	defer iter.Release()
 
@@ -38,26 +27,20 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	endIndex := (pageNum + 1) * countPerPage
 
 	index := 0
-	for iter.Next() {
+	for iter.Next() && len(hashList) < countPerPage {
 		if index > endIndex {
 			break
 		}
 
 		if index >= startIndex {
-			result := chain_utils.DeserializeHashList(iter.Value())
+			result, err := types.BytesToHash(iter.Value())
+			if err != nil {
+				return nil, err
+			}
 
-			lackLen := countPerPage - len(hashList)
-
-			hashList = append(hashList, result[:lackLen]...)
-
-			index += len(result)
-		} else {
-			index++
+			hashList = append(hashList, &result)
 		}
-
-		if len(hashList) >= countPerPage {
-			break
-		}
+		index++
 	}
 
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
@@ -81,9 +64,13 @@ func (iDB *IndexDB) insertOnRoad(sendBlockHash *types.Hash, addr *types.Address)
 
 func (iDB *IndexDB) receiveOnRoad(receiveBlockHash *types.Hash, sendBlockHash *types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-	key, err := iDB.store.Get(reverseKey)
+	key, err := iDB.getValue(reverseKey)
 	if err != nil {
 		return err
+	}
+	if len(key) <= 0 {
+		return errors.New(fmt.Sprintf("onRoad block is not existed, receiveBlockHash is %s, sendBlockHash is %s",
+			receiveBlockHash, sendBlockHash))
 	}
 
 	iDB.memDb.Delete(receiveBlockHash, reverseKey)

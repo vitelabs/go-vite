@@ -21,17 +21,9 @@ func (c *chain) GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*bi
 
 // get confirmed snapshot balance, if history is too old, failed
 func (c *chain) GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error) {
-	ss, err := c.getStateSnapshot(addr, sbHash)
+	balance, err := c.stateDB.GetSnapshotBalance(addr, tokenId, sbHash)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetConfirmedBalance")
-		return nil, err
-	}
-	defer ss.Release()
-
-	balance, err := ss.GetBalance(tokenId)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("ss.GetBalance failed, addr is %s, tokenId is %s, sbHash is %s", addr, tokenId, sbHash))
-		c.log.Error(cErr.Error(), "method", "GetConfirmedBalance")
 		return nil, err
 	}
 

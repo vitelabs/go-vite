@@ -93,7 +93,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 	}
 	sbStateTrie := chainInstance.GetStateTrie(&sb.StateHash)
 	if sbStateTrie == nil || sbStateTrie.Root == nil {
-		return errors.New(fmt.Sprintf("The state trie of snapshot block is nil, height is %d. "+
+		return errors.New(fmt.Sprintf("The state_bak trie of snapshot block is nil, height is %d. "+
 			"The trie may be garbage collected, please set `--sbHeight` value greater than %d or execute the command `gvite recover --trie` to recover all trie.", sbHeight, chainInstance.TrieGc().RetainMinHeight()))
 	}
 
@@ -136,7 +136,7 @@ func (nodeManager *ExportNodeManager) Start() error {
 
 		accountStateTrie := chainInstance.GetStateTrie(&accountStateHash)
 		if accountStateTrie == nil {
-			return errors.New(fmt.Sprintf("The state trie of account is nil, addr is %s", addr.String()))
+			return errors.New(fmt.Sprintf("The state_bak trie of account is nil, addr is %s", addr.String()))
 		}
 
 		if balanceBytes := accountStateTrie.GetValue(viteBalanceKey); len(balanceBytes) > 0 {

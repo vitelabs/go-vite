@@ -37,7 +37,7 @@ var syncStatus = [...]string{
 
 func (s SyncState) String() string {
 	if s > SyncDownloaded {
-		return "unknown sync state"
+		return "unknown sync state_bak"
 	}
 	return syncStatus[s]
 }
