@@ -176,7 +176,7 @@ type Chain interface {
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
-	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+	GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
 	GetValue(address *types.Address, key []byte) ([]byte, error)
 
@@ -189,10 +189,10 @@ type Chain interface {
 	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (uint64, error)
+	GetPledgeQuota(addr *types.Address) (uint64, error)
 
 	// total
-	GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]uint64, error)
+	GetPledgeQuotas(addrList []*types.Address) (map[types.Address]uint64, error)
 
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 

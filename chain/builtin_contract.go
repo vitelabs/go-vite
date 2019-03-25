@@ -32,8 +32,8 @@ func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.V
 	return nil, nil
 }
 
-func (c *chain) GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error) {
-	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressConsensusGroup, nil)
+func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+	ss, err := c.stateDB.NewStorageIterator(&types.AddressConsensusGroup, nil)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetPledgeAmount")
 		return nil, err
@@ -41,7 +41,6 @@ func (c *chain) GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (
 	defer ss.Release()
 
 	// do something
-
 	return nil, nil
 }
 
