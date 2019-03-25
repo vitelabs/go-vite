@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"errors"
 )
 
 var TimeoutErr = errors.New("timeout")
