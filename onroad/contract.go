@@ -150,7 +150,7 @@ func (w *ContractWorker) Stop() {
 	if w.status == Start {
 		w.isCancel = true
 
-		w.breaker <- struct{}{}
+		// w.breaker <- struct{}{}
 		close(w.breaker)
 
 		w.uBlocksPool.RemoveContractLis(w.gid)
@@ -240,8 +240,8 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 }
 
 func (w *ContractWorker) NewOnroadTxAlarm() {
-	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep)
-	if w.isSleep {
+	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep, "isCancel", w.isCancel)
+	if w.isSleep && !w.isCancel {
 		w.newOnroadTxAlarm <- struct{}{}
 	}
 }
