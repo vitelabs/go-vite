@@ -317,8 +317,10 @@ wait:
 
 			s.log.Info(fmt.Sprintf("sync current: %d, chain speed %d", current.Height, current.Height-s.current))
 
-			if current.Height == s.current && now.Sub(lastCheckTime) > 10*time.Minute {
-				s.setState(Syncerr)
+			if current.Height == s.current {
+				if now.Sub(lastCheckTime) > 10*time.Minute {
+					s.setState(Syncerr)
+				}
 			} else if s.state == Syncing {
 				s.current = current.Height
 				lastCheckTime = now
