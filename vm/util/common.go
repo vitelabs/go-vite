@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
-	"time"
 )
 
 var (
@@ -95,12 +94,11 @@ func GetContractCode(db CommonDb, addr *types.Address, status *GlobalStatus) ([]
 	return nil, nil
 }
 
-func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
+func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.Address {
 	return types.CreateContractAddress(
 		accountAddress.Bytes(),
 		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
+		prevBlockHash.Bytes())
 }
 
 func PrintMap(m map[string][]byte) string {

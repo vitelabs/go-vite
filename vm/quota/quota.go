@@ -33,10 +33,10 @@ func InitQuotaConfig(isTestParam bool) {
 
 type quotaDb interface {
 	Address() *types.Address
-	LatestSnapshotBlock() *ledger.SnapshotBlock
-	PrevAccountBlock() *ledger.AccountBlock
+	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	PrevAccountBlock() (*ledger.AccountBlock, error)
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
-	GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error)
+	GetUnconfirmedBlocks() []*ledger.AccountBlock
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
@@ -182,10 +182,7 @@ func IsPoW(nonce []byte) bool {
 }
 
 func CanPoW(db quotaDb, addr types.Address) (bool, error) {
-	blocks, err := db.GetUnconfirmedBlocks()
-	if err != nil {
-		return false, err
-	}
+	blocks := db.GetUnconfirmedBlocks()
 	for _, b := range blocks {
 		if IsPoW(b.Nonce) {
 			return false, nil

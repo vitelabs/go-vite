@@ -349,9 +349,11 @@ func opAddress(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 func opBalance(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	tokenTypeIdBig := stack.pop()
 	tokenTypeId, _ := types.BigToTokenTypeId(tokenTypeIdBig)
-	stack.push(c.intPool.get().Set(c.db.GetBalance(&tokenTypeId)))
+	b, err := c.db.GetBalance(&tokenTypeId)
+	util.DealWithErr(err)
+	stack.push(c.intPool.get().Set(b))
 
-	c.intPool.put(tokenTypeIdBig)
+	c.intPool.put(tokenTypeIdBig, b)
 	return nil, nil
 }
 
@@ -501,7 +503,9 @@ func opOffchainTokenId(pc *uint64, vm *VM, c *contract, mem *memory, stack *stac
 }
 
 func opAccountHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	stack.push(helper.U256(c.intPool.get().SetUint64(c.db.PrevAccountBlock().Height)))
+	ab, err := c.db.PrevAccountBlock()
+	util.DealWithErr(err)
+	stack.push(helper.U256(c.intPool.get().SetUint64(ab.Height)))
 	return nil, nil
 }
 
@@ -511,7 +515,8 @@ func opOffchainAccountHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack
 }
 
 func opAccountHash(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	prevAccountBlock := c.db.PrevAccountBlock()
+	prevAccountBlock, err := c.db.PrevAccountBlock()
+	util.DealWithErr(err)
 	if prevAccountBlock == nil {
 		stack.push(c.intPool.getZero())
 	} else {
@@ -579,7 +584,8 @@ func opMstore8(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 func opSLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
-	val := c.db.GetValue(locHash.Bytes())
+	val, err := c.db.GetValue(locHash.Bytes())
+	util.DealWithErr(err)
 	loc.SetBytes(val)
 	return nil, nil
 }

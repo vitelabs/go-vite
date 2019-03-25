@@ -7,7 +7,7 @@ import (
 )
 
 // indirect recursively dereferences the value until it either gets the value
-// or finds chain big.Int
+// or finds a big.Int
 func indirect(v reflect.Value) reflect.Value {
 	if v.Kind() == reflect.Ptr && v.Elem().Type() != derefbigT {
 		return indirect(v.Elem())
@@ -43,7 +43,7 @@ func reflectIntKindAndType(unsigned bool, size int) (reflect.Kind, reflect.Type)
 	return reflect.Ptr, bigT
 }
 
-// mustArrayToBytesSlice creates chain new byte slice with the exact same size as value
+// mustArrayToBytesSlice creates a new byte slice with the exact same size as value
 // and copies the bytes in value to the new slice.
 func mustArrayToByteSlice(value reflect.Value) reflect.Value {
 	slice := reflect.MakeSlice(reflect.TypeOf([]byte{}), value.Len(), value.Len())
@@ -53,7 +53,7 @@ func mustArrayToByteSlice(value reflect.Value) reflect.Value {
 
 // set attempts to assign src to dst by either setting, copying or otherwise.
 //
-// set is chain bit more lenient when it comes to assignment and doesn't force an as
+// set is a bit more lenient when it comes to assignment and doesn't force an as
 // strict ruleset as bare `reflect` does.
 func set(dst, src reflect.Value, output Argument) error {
 	dstType := dst.Type()
@@ -71,7 +71,7 @@ func set(dst, src reflect.Value, output Argument) error {
 	return nil
 }
 
-// requireAssignable assures that `dest` is chain pointer and it's not an interface.
+// requireAssignable assures that `dest` is a pointer and it's not an interface.
 func requireAssignable(dst, src reflect.Value) error {
 	if dst.Kind() != reflect.Ptr && dst.Kind() != reflect.Interface {
 		return fmt.Errorf("abi: cannot unmarshal %v into %v", src.Type(), dst.Type())
@@ -97,7 +97,7 @@ func requireUnpackKind(v reflect.Value, t reflect.Type, k reflect.Kind,
 }
 
 // mapAbiToStringField maps abi to struct fields.
-// first round: for each Exportable field that contains chain `abi:""` tag
+// first round: for each Exportable field that contains a `abi:""` tag
 //   and this field name exists in the arguments, pair them together.
 // second round: for each argument field that has not been already linked,
 //   find what variable is expected to be mapped into, if it exists and has not been

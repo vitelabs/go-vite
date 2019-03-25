@@ -14,7 +14,7 @@ func (p *MethodCreateConsensusGroup) GetQuota() uint64 {
 	return CreateConsensusGroupGas
 }
 
-func (p *MethodCreateConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -51,7 +51,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.Account
 		param.VoteConditionParam)
 	return quotaLeft, nil
 }
-func CheckCreateConsensusGroupData(db vm_db.VMDB, param *types.ConsensusGroupInfo) error {
+func CheckCreateConsensusGroupData(db vm_db.VmDb, param *types.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
 		param.Interval < cgIntervalMin || param.Interval > cgIntervalMax ||
 		param.PerCount < cgPerCountMin || param.PerCount > cgPerCountMax ||
@@ -72,7 +72,7 @@ func CheckCreateConsensusGroupData(db vm_db.VMDB, param *types.ConsensusGroupInf
 	}
 	return nil
 }
-func checkCondition(db vm_db.VMDB, conditionId uint8, conditionParam []byte, conditionIdPrefix abi.ConditionCode) error {
+func checkCondition(db vm_db.VmDb, conditionId uint8, conditionParam []byte, conditionIdPrefix abi.ConditionCode) error {
 	condition, ok := getConsensusGroupCondition(conditionId, conditionIdPrefix)
 	if !ok {
 		return errors.New("condition id not exist")
@@ -82,7 +82,7 @@ func checkCondition(db vm_db.VMDB, conditionId uint8, conditionParam []byte, con
 	}
 	return nil
 }
-func (p *MethodCreateConsensusGroup) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(types.ConsensusGroupInfo)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCreateConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(param.Gid)
@@ -125,7 +125,7 @@ func (p *MethodCancelConsensusGroup) GetQuota() uint64 {
 // Cancel consensus group and get pledge back.
 // A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
 // Consensus group name is kept even if canceled.
-func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -142,7 +142,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.Account
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodCancelConsensusGroup) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCancelConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(*gid)
@@ -198,7 +198,7 @@ func (p *MethodReCreateConsensusGroup) GetQuota() uint64 {
 
 // Pledge again for a canceled consensus group.
 // A consensus group will start generate contract blocks after recreate receive block is confirmed.
-func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
 	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
 	if err != nil {
 		return quotaLeft, err
@@ -220,7 +220,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VMDB, block *ledger.Accou
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodReCreateConsensusGroup) DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodReCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameReCreateConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(*gid)
@@ -249,7 +249,7 @@ func (p *MethodReCreateConsensusGroup) DoReceive(db vm_db.VMDB, block *ledger.Ac
 }
 
 type createConsensusGroupCondition interface {
-	checkParam(param []byte, db vm_db.VMDB) bool
+	checkParam(param []byte, db vm_db.VmDb) bool
 }
 
 var SimpleCountingRuleList = map[abi.ConditionCode]createConsensusGroupCondition{
@@ -264,7 +264,7 @@ func getConsensusGroupCondition(conditionId uint8, conditionIdPrefix abi.Conditi
 
 type registerConditionOfPledge struct{}
 
-func (c registerConditionOfPledge) checkParam(param []byte, db vm_db.VMDB) bool {
+func (c registerConditionOfPledge) checkParam(param []byte, db vm_db.VmDb) bool {
 	v := new(abi.VariableConditionRegisterOfPledge)
 	err := abi.ABIConsensusGroup.UnpackVariable(v, abi.VariableNameConditionRegisterOfPledge, param)
 	if err != nil ||
@@ -278,7 +278,7 @@ func (c registerConditionOfPledge) checkParam(param []byte, db vm_db.VMDB) bool 
 
 type voteConditionOfDefault struct{}
 
-func (c voteConditionOfDefault) checkParam(param []byte, db vm_db.VMDB) bool {
+func (c voteConditionOfDefault) checkParam(param []byte, db vm_db.VmDb) bool {
 	if len(param) != 0 {
 		return false
 	}

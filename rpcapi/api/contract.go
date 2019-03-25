@@ -31,12 +31,12 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
-func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash, snapshotHash types.Hash) (*types.Address, error) {
+func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
 	h, err := StringToUint64(heightStr)
 	if err != nil {
 		return nil, err
 	}
-	addr := util.NewContractAddress(selfAddr, h, prevHash, snapshotHash)
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
 	return &addr, nil
 }
 
@@ -112,7 +112,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

@@ -27,10 +27,9 @@ func (m MintageApi) String() string {
 }
 
 type NewTokenIdParams struct {
-	SelfAddr     types.Address
-	Height       string
-	PrevHash     types.Hash
-	SnapshotHash types.Hash
+	SelfAddr types.Address
+	Height   string
+	PrevHash types.Hash
 }
 
 func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, error) {
@@ -38,7 +37,7 @@ func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, err
 	if err != nil {
 		return nil, err
 	}
-	tid := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
+	tid := abi.NewTokenId(param.SelfAddr, h, param.PrevHash)
 	return &tid, nil
 }
 
@@ -46,7 +45,6 @@ type MintageParams struct {
 	SelfAddr      types.Address
 	Height        string
 	PrevHash      types.Hash
-	SnapshotHash  types.Hash
 	TokenName     string
 	TokenSymbol   string
 	TotalSupply   string
@@ -65,7 +63,7 @@ func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
+	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash)
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err
@@ -130,7 +128,7 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +154,7 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +176,7 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressMintage, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

@@ -22,14 +22,13 @@ func TestContractsRefund(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
 
 	addr2 := types.AddressConsensusGroup
 	nodeName := "s1"
 	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
 	registrationDataOld := db.storageMap[addr2][ToKey(locHashRegister.Bytes())]
 	db.addr = addr2
-	contractBalance := db.GetBalance(&ledger.ViteTokenId)
+	contractBalance, _ := db.GetBalance(&ledger.ViteTokenId)
 	// register with an existed super node name, get refund
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, _, _ := types.CreateAddress()
@@ -49,8 +48,6 @@ func TestContractsRefund(t *testing.T) {
 		Fee:            big.NewInt(0),
 		Data:           block13Data,
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	vm := NewVM()
@@ -73,8 +70,6 @@ func TestContractsRefund(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash21,
 	}
 	vm = NewVM()
@@ -82,6 +77,7 @@ func TestContractsRefund(t *testing.T) {
 	db.addr = addr2
 	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
 	contractBalance.Add(contractBalance, block13.Amount)
+	newBalance, _ := db.GetBalance(&ledger.ViteTokenId)
 	if receiveRegisterBlock == nil ||
 		len(receiveRegisterBlock.AccountBlock.SendBlockList) != 1 || isRetry || err == nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
@@ -94,7 +90,7 @@ func TestContractsRefund(t *testing.T) {
 		receiveRegisterBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendCall ||
 		receiveRegisterBlock.AccountBlock.SendBlockList[0].AccountAddress != block13.ToAddress ||
 		receiveRegisterBlock.AccountBlock.SendBlockList[0].ToAddress != block13.AccountAddress ||
-		db.GetBalance(&ledger.ViteTokenId).Cmp(contractBalance) != 0 ||
+		newBalance.Cmp(contractBalance) != 0 ||
 		!bytes.Equal(receiveRegisterBlock.AccountBlock.SendBlockList[0].Data, []byte{1}) {
 		t.Fatalf("receive register transaction error")
 	}
@@ -111,8 +107,6 @@ func TestContractsRefund(t *testing.T) {
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash22,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash14,
 	}
 	vm = NewVM()
@@ -133,7 +127,6 @@ func TestContractsRegister(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, privateKey6, _ := types.CreateAddress()
@@ -155,8 +148,6 @@ func TestContractsRegister(t *testing.T) {
 		Fee:            big.NewInt(0),
 		Data:           block13Data,
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	vm := NewVM()
@@ -179,8 +170,6 @@ func TestContractsRegister(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash21,
 	}
 	vm = NewVM()
@@ -216,8 +205,6 @@ func TestContractsRegister(t *testing.T) {
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash14,
 	}
 	vm = NewVM()
@@ -240,8 +227,6 @@ func TestContractsRegister(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash14,
 		PrevHash:       hash21,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash22,
 	}
 	vm = NewVM()
@@ -290,8 +275,6 @@ func TestContractsRegister(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Data:           block15Data,
-		SnapshotHash:   snapshot5.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash15,
 	}
 	vm = NewVM()
@@ -314,8 +297,6 @@ func TestContractsRegister(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash21,
 		FromBlockHash:  hash15,
-		SnapshotHash:   snapshot5.Hash,
-		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -348,8 +329,6 @@ func TestContractsRegister(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash16,
 		FromBlockHash:  hash23,
-		SnapshotHash:   snapshot5.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash16,
 	}
 	vm = NewVM()
@@ -379,8 +358,6 @@ func TestContractsRegister(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block17Data,
-		SnapshotHash:   snapshot5.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash17,
 	}
 	vm = NewVM()
@@ -403,8 +380,6 @@ func TestContractsRegister(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash24,
 		FromBlockHash:  hash17,
-		SnapshotHash:   snapshot5.Hash,
-		Timestamp:      &blockTime,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -428,7 +403,6 @@ func TestContractsVote(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
 	// vote
 	addr3 := types.AddressConsensusGroup
 	nodeName := "s1"
@@ -444,8 +418,6 @@ func TestContractsVote(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
 		Data:           block13Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	vm := NewVM()
@@ -466,8 +438,6 @@ func TestContractsVote(t *testing.T) {
 		AccountAddress: addr3,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash31,
 	}
 	vm = NewVM()
@@ -502,8 +472,6 @@ func TestContractsVote(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Data:           block14Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash14,
 	}
 	vm = NewVM()
@@ -525,8 +493,6 @@ func TestContractsVote(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash31,
 		FromBlockHash:  hash14,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash32,
 	}
 	vm = NewVM()
@@ -563,8 +529,6 @@ func TestContractsVote(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Data:           block15Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash15,
 	}
 	vm = NewVM()
@@ -586,8 +550,6 @@ func TestContractsVote(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash32,
 		FromBlockHash:  hash15,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash33,
 	}
 	vm = NewVM()
@@ -609,7 +571,6 @@ func TestContractsPledge(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
 	// pledge
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr4, _, _ := types.CreateAddress()
@@ -628,8 +589,6 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash12,
 		Data:           block13Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	vm := NewVM()
@@ -652,8 +611,6 @@ func TestContractsPledge(t *testing.T) {
 		AccountAddress: addr5,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash51,
 	}
 	vm = NewVM()
@@ -688,8 +645,6 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash13,
 		Data:           block14Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash14,
 	}
 	vm = NewVM()
@@ -713,8 +668,6 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash51,
 		FromBlockHash:  hash14,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash52,
 	}
 	vm = NewVM()
@@ -736,7 +689,7 @@ func TestContractsPledge(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressPledge
-	if pledgeAmount, _ := abi.GetPledgeBeneficialAmount(db, addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+	if pledgeAmount, _ := db.GetPledgeAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
 
@@ -768,8 +721,6 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Data:           block15Data,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash15,
 	}
 	vm = NewVM()
@@ -791,8 +742,6 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash52,
 		FromBlockHash:  hash15,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash53,
 	}
 	vm = NewVM()
@@ -826,8 +775,6 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash15,
 		FromBlockHash:  hash54,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash16,
 	}
 	vm = NewVM()
@@ -855,8 +802,6 @@ func TestContractsPledge(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block17Data,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash17,
 	}
 	vm = NewVM()
@@ -878,8 +823,6 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash54,
 		FromBlockHash:  hash17,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash55,
 	}
 	vm = NewVM()
@@ -913,8 +856,6 @@ func TestContractsPledge(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		PrevHash:       hash18,
 		FromBlockHash:  hash56,
-		SnapshotHash:   currentSnapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash18,
 	}
 	vm = NewVM()
@@ -935,7 +876,6 @@ func TestContractsMintageV2(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
 	// mint
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr2 := types.AddressMintage
@@ -946,7 +886,7 @@ func TestContractsMintageV2(t *testing.T) {
 	maxSupply := new(big.Int).Mul(big.NewInt(2), totalSupply)
 	decimals := uint8(3)
 	ownerBurnOnly := true
-	tokenId := abi.NewTokenId(addr1, 3, hash12, snapshot2.Hash)
+	tokenId := abi.NewTokenId(addr1, 3, hash12)
 	//fee := new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite)
 	//pledgeAmount := big.NewInt(0)
 	//withdrawHeight := uint64(0)
@@ -967,8 +907,6 @@ func TestContractsMintageV2(t *testing.T) {
 		Fee:            fee,
 		PrevHash:       hash12,
 		Data:           block13Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	vm := NewVM()
@@ -991,8 +929,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash21,
 	}
 	vm = NewVM()
@@ -1030,8 +966,6 @@ func TestContractsMintageV2(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash22,
 		PrevHash:       hash13,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash14,
 	}
 	vm = NewVM()
@@ -1075,8 +1009,6 @@ func TestContractsMintageV2(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash14,
 		Data:           block15Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash15,
 	}
 	vm = NewVM()
@@ -1098,8 +1030,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash15,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash21,
 		PrevHash:       hash22,
 	}
@@ -1137,8 +1067,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr3,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash24,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash31,
 	}
 	vm = NewVM()
@@ -1167,8 +1095,6 @@ func TestContractsMintageV2(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash15,
 		Data:           block16Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash16,
 	}
 	vm = NewVM()
@@ -1193,8 +1119,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash16,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash25,
 		PrevHash:       hash24,
 	}
@@ -1232,8 +1156,6 @@ func TestContractsMintageV2(t *testing.T) {
 		Fee:            big.NewInt(0),
 		PrevHash:       hash16,
 		Data:           block17Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash17,
 	}
 	vm = NewVM()
@@ -1256,8 +1178,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash17,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash26,
 		PrevHash:       hash25,
 	}
@@ -1302,8 +1222,6 @@ func TestContractsMintageV2(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
 		Data:           block32Data,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash32,
 		PrevHash:       hash31,
 	}
@@ -1325,8 +1243,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash31,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash27,
 		PrevHash:       hash26,
 	}
@@ -1377,8 +1293,6 @@ func TestContractsMintageV2(t *testing.T) {
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
 		Data:           block18Data,
-		SnapshotHash:   latestSb.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash18,
 		PrevHash:       hash17,
 	}
@@ -1400,8 +1314,6 @@ func TestContractsMintageV2(t *testing.T) {
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
 		FromBlockHash:  hash18,
-		SnapshotHash:   latestSb.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash28,
 		PrevHash:       hash27,
 	}

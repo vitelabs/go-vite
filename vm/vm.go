@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
 	"github.com/vitelabs/go-vite/vm_db"
 	"runtime/debug"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type VMConfig struct {
@@ -34,8 +32,8 @@ type VMConfig struct {
 
 type NodeConfig struct {
 	isTest      bool
-	calcQuota   func(db vm_db.VMDB, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
-	canTransfer func(db vm_db.VMDB, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
+	calcQuota   func(db vm_db.VmDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
+	canTransfer func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 
 	interpreterLog log15.Logger
 	log            log15.Logger
@@ -52,28 +50,36 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-			calcQuota: func(db vm_db.VMDB, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+			calcQuota: func(db vm_db.VmDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return 1000000, 0, nil
 			},
-			canTransfer: func(db vm_db.VMDB, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
+			canTransfer: func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
 		}
 	} else {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-			calcQuota: func(db vm_db.VMDB, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
+			calcQuota: func(db vm_db.VmDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
 				return quota.CalcQuotaForBlock(db, pledgeAmount, difficulty)
 			},
-			canTransfer: func(db vm_db.VMDB, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
+			canTransfer: func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
-					return tokenAmount.Cmp(db.GetBalance(&tokenTypeId)) <= 0
+					b, err := db.GetBalance(&tokenTypeId)
+					util.DealWithErr(err)
+					return tokenAmount.Cmp(b) <= 0
 				}
 				if util.IsViteToken(tokenTypeId) {
 					balance := new(big.Int).Add(tokenAmount, feeAmount)
-					return balance.Cmp(db.GetBalance(&tokenTypeId)) <= 0
+					b, err := db.GetBalance(&tokenTypeId)
+					util.DealWithErr(err)
+					return balance.Cmp(b) <= 0
 				}
-				return tokenAmount.Cmp(db.GetBalance(&tokenTypeId)) <= 0 && feeAmount.Cmp(db.GetBalance(&ledger.ViteTokenId)) <= 0
+				amountB, err := db.GetBalance(&tokenTypeId)
+				util.DealWithErr(err)
+				feeB, err := db.GetBalance(&ledger.ViteTokenId)
+				util.DealWithErr(err)
+				return tokenAmount.Cmp(amountB) <= 0 && feeAmount.Cmp(feeB) <= 0
 			},
 		}
 	}
@@ -119,7 +125,7 @@ func NewVM() *VM {
 	return &VM{}
 }
 
-func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_context.VmAccountBlockV2, err error) {
+func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_db.VmAccountBlock, err error) {
 	var str string
 	if result != nil {
 		if result.AccountBlock.IsSendBlock() {
@@ -164,12 +170,7 @@ func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_context.VmAccoun
 	)
 }
 
-// Deprecated: Use RunV2 instead
-func (vm *VM) Run(database vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (result []*vm_context.VmAccountBlockV2, isRetry bool, err error) {
-	return nil, false, nil
-}
-
-func (vm *VM) RunV2(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_context.VmAccountBlockV2, isRetry bool, err error) {
+func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
 		if nodeConfig.IsDebug {
@@ -184,7 +185,9 @@ func (vm *VM) RunV2(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger
 				"fromHash", block.FromBlockHash.String())
 	}
 	blockcopy := block.Copy()
-	vm.i = NewInterpreter(db.LatestSnapshotBlock().Height, false)
+	sb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	vm.i = NewInterpreter(sb.Height, false)
 	vm.globalStatus = status
 	switch block.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
@@ -235,7 +238,7 @@ func (vm *VM) Cancel() {
 }
 
 // send contract create transaction, create address, sub balance and service fee
-func (vm *VM) sendCreate(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlockV2, error) {
+func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCreate"}, time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
@@ -282,24 +285,25 @@ func (vm *VM) sendCreate(db vm_db.VMDB, block *ledger.AccountBlock, useQuota boo
 	contractAddr := util.NewContractAddress(
 		block.AccountAddress,
 		block.Height,
-		block.PrevHash,
-		block.SnapshotHash)
+		block.PrevHash)
 
 	block.ToAddress = contractAddr
 	// sub balance and service fee
-	db.SubBalance(&block.TokenId, block.Amount)
-	db.SubBalance(&ledger.ViteTokenId, block.Fee)
+	util.SubBalance(db, &block.TokenId, block.Amount)
+	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
-	db.SetContractMeta(&ledger.ContractMeta{confirmTime, &gid})
-	return &vm_context.VmAccountBlockV2{block, db}, nil
+	db.SetContractMeta(&ledger.ContractMeta{&gid, confirmTime})
+	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
 // receive contract create transaction, create contract account, run initialization code, set contract code, do send blocks
-func (vm *VM) receiveCreate(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64) (*vm_context.VmAccountBlockV2, bool, error) {
+func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
 
 	quotaLeft := quotaTotal
-	if db.PrevAccountBlock() != nil {
+	prev, err := db.PrevAccountBlock()
+	util.DealWithErr(err)
+	if prev != nil {
 		return nil, NoRetry, util.ErrAddressCollision
 	}
 	// check can make transaction
@@ -313,7 +317,7 @@ func (vm *VM) receiveCreate(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock
 	}
 
 	// create contract account and add balance
-	db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 
 	// init contract state and set contract code
 	initCode := util.GetCodeFromCreateContractData(sendBlock.Data)
@@ -342,12 +346,12 @@ func (vm *VM) receiveCreate(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock
 	return nil, NoRetry, err
 }
 
-func mergeReceiveBlock(db vm_db.VMDB, receiveBlock *ledger.AccountBlock, sendBlockList []*ledger.AccountBlock) *vm_context.VmAccountBlockV2 {
+func mergeReceiveBlock(db vm_db.VmDb, receiveBlock *ledger.AccountBlock, sendBlockList []*ledger.AccountBlock) *vm_db.VmAccountBlock {
 	receiveBlock.SendBlockList = sendBlockList
-	return &vm_context.VmAccountBlockV2{receiveBlock, db}
+	return &vm_db.VmAccountBlock{receiveBlock, db}
 }
 
-func (vm *VM) sendCall(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlockV2, error) {
+func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCall"}, time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
@@ -376,8 +380,8 @@ func (vm *VM) sendCall(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool,
 		if err != nil {
 			return nil, err
 		}
-		db.SubBalance(&block.TokenId, block.Amount)
-		db.SubBalance(&ledger.ViteTokenId, block.Fee)
+		util.SubBalance(db, &block.TokenId, block.Amount)
+		util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 	} else {
 		block.Fee = helper.Big0
 		if useQuota {
@@ -393,11 +397,11 @@ func (vm *VM) sendCall(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool,
 		if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
-		db.SubBalance(&block.TokenId, block.Amount)
+		util.SubBalance(db, &block.TokenId, block.Amount)
 	}
 	quotaUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, 0, nil)
 	vm.updateBlock(db, block, nil, quotaUsed)
-	return &vm_context.VmAccountBlockV2{block, db}, nil
+	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
 var (
@@ -406,7 +410,7 @@ var (
 	ResultDepthErr = byte(2)
 )
 
-func getReceiveCallData(db vm_db.VMDB, err error) []byte {
+func getReceiveCallData(db vm_db.VmDb, err error) []byte {
 	if err == nil {
 		return append(db.GetReceiptHash().Bytes(), ResultSuccess)
 	} else if err == util.ErrDepth {
@@ -416,17 +420,17 @@ func getReceiveCallData(db vm_db.VMDB, err error) []byte {
 	}
 }
 
-func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (*vm_context.VmAccountBlockV2, bool, error) {
+func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCall"}, time.Now())
 
 	if checkDepth(db, sendBlock) {
-		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		block.Data = getReceiveCallData(db, util.ErrDepth)
 		vm.updateBlock(db, block, util.ErrDepth, 0)
-		return &vm_context.VmAccountBlockV2{block, db}, NoRetry, util.ErrDepth
+		return &vm_db.VmAccountBlock{block, db}, NoRetry, util.ErrDepth
 	}
 	if p, ok, _ := contracts.GetBuiltinContract(block.AccountAddress, sendBlock.Data); ok {
-		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm.globalStatus)
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
@@ -460,7 +464,7 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 				return nil, Retry, err
 			}
 		}
-		return &vm_context.VmAccountBlockV2{block, db}, NoRetry, err
+		return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 	} else {
 		// check can make transaction
 		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
@@ -481,13 +485,13 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 			return nil, Retry, err
 		}
 		// add balance, create account if not exist
-		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		isContract, err := db.IsContractAccount()
 		util.DealWithErr(err)
 		// do transfer transaction if account code size is zero
 		if !isContract {
 			vm.updateBlock(db, block, nil, util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
-			return &vm_context.VmAccountBlockV2{block, db}, NoRetry, nil
+			return &vm_db.VmAccountBlock{block, db}, NoRetry, nil
 		}
 		// run code
 		_, code := util.GetContractCode(db, &block.AccountAddress, nil)
@@ -506,8 +510,7 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 		vm.revert(db)
 
 		if err == util.ErrOutOfQuota {
-			unConfirmedList, err := db.GetUnconfirmedBlocks()
-			util.DealWithErr(err)
+			unConfirmedList := db.GetUnconfirmedBlocks()
 			if len(unConfirmedList) > 0 {
 				// Contract receive out of quota, current block is not first unconfirmed block, retry next snapshotBlock
 				return nil, Retry, err
@@ -526,7 +529,7 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 						return nil, Retry, err
 					}
 				}
-				return &vm_context.VmAccountBlockV2{block, db}, NoRetry, err
+				return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 			}
 		}
 
@@ -543,11 +546,11 @@ func (vm *VM) receiveCall(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *
 				return nil, Retry, err
 			}
 		}
-		return &vm_context.VmAccountBlockV2{block, db}, NoRetry, err
+		return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 	}
 }
 
-func doRefund(vm *VM, db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, refundBlockType byte) bool {
+func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, refundBlockType byte) bool {
 	refundFlag := false
 	if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
 		refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
@@ -559,7 +562,7 @@ func doRefund(vm *VM, db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledg
 				refundAmount,
 				ledger.ViteTokenId,
 				refundData))
-		db.AddBalance(&ledger.ViteTokenId, refundAmount)
+		util.AddBalance(db, &ledger.ViteTokenId, refundAmount)
 		refundFlag = true
 	} else {
 		if sendBlock.Amount.Sign() > 0 {
@@ -571,7 +574,7 @@ func doRefund(vm *VM, db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledg
 					new(big.Int).Set(sendBlock.Amount),
 					sendBlock.TokenId,
 					refundData))
-			db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+			util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 			refundFlag = true
 		}
 		if sendBlock.Fee.Sign() > 0 {
@@ -583,14 +586,14 @@ func doRefund(vm *VM, db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledg
 					new(big.Int).Set(sendBlock.Fee),
 					ledger.ViteTokenId,
 					refundData))
-			db.AddBalance(&ledger.ViteTokenId, sendBlock.Fee)
+			util.AddBalance(db, &ledger.ViteTokenId, sendBlock.Fee)
 			refundFlag = true
 		}
 	}
 	return refundFlag
 }
 
-func (vm *VM) sendReward(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlockV2, error) {
+func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendReward"}, time.Now())
 
 	// check can make transaction
@@ -610,10 +613,10 @@ func (vm *VM) sendReward(db vm_db.VMDB, block *ledger.AccountBlock, useQuota boo
 		return nil, errors.New("invalid account address")
 	}
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, 0, nil))
-	return &vm_context.VmAccountBlockV2{block, db}, nil
+	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
-func (vm *VM) sendRefund(db vm_db.VMDB, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_context.VmAccountBlockV2, error) {
+func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendRefund"}, time.Now())
 	block.Fee = helper.Big0
 	quotaLeft := quotaTotal
@@ -630,13 +633,13 @@ func (vm *VM) sendRefund(db vm_db.VMDB, block *ledger.AccountBlock, useQuota boo
 	if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
 		return nil, util.ErrInsufficientBalance
 	}
-	db.SubBalance(&block.TokenId, block.Amount)
+	util.SubBalance(db, &block.TokenId, block.Amount)
 	quotaUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, 0, nil)
 	vm.updateBlock(db, block, nil, quotaUsed)
-	return &vm_context.VmAccountBlockV2{block, db}, nil
+	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
-func (vm *VM) receiveRefund(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (*vm_context.VmAccountBlockV2, bool, error) {
+func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveRefund"}, time.Now())
 
 	// check can make transaction
@@ -657,9 +660,9 @@ func (vm *VM) receiveRefund(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock
 	if err != nil {
 		return nil, Retry, err
 	}
-	db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
-	return &vm_context.VmAccountBlockV2{block, db}, NoRetry, nil
+	return &vm_db.VmAccountBlock{block, db}, NoRetry, nil
 }
 
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
@@ -674,10 +677,9 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 	return nil, nil
 }
 
-func (vm *VM) updateBlock(db vm_db.VMDB, block *ledger.AccountBlock, err error, quotaUsed uint64) {
+func (vm *VM) updateBlock(db vm_db.VmDb, block *ledger.AccountBlock, err error, quotaUsed uint64) {
 	block.Quota = quotaUsed
 	if block.IsReceiveBlock() {
-		block.StateHash = *db.GetReceiptHash()
 		block.LogHash = db.GetLogListHash()
 		if err == util.ErrOutOfQuota {
 			block.BlockType = ledger.BlockTypeReceiveError
@@ -687,12 +689,12 @@ func (vm *VM) updateBlock(db vm_db.VMDB, block *ledger.AccountBlock, err error, 
 	}
 }
 
-func (vm *VM) doSendBlockList(db vm_db.VMDB) (newDb vm_db.VMDB, err error) {
+func (vm *VM) doSendBlockList(db vm_db.VmDb) (newDb vm_db.VmDb, err error) {
 	if len(vm.sendBlockList) == 0 {
 		return db, nil
 	}
 	for i, block := range vm.sendBlockList {
-		var sendBlock *vm_context.VmAccountBlockV2
+		var sendBlock *vm_db.VmAccountBlock
 		switch block.BlockType {
 		case ledger.BlockTypeSendCall:
 			sendBlock, err = vm.sendCall(db, block, false, 0, 0)
@@ -711,12 +713,12 @@ func (vm *VM) doSendBlockList(db vm_db.VMDB) (newDb vm_db.VMDB, err error) {
 			}
 		}
 		vm.sendBlockList[i] = sendBlock.AccountBlock
-		db = sendBlock.VmContext
+		db = sendBlock.VmDb
 	}
 	return db, nil
 }
 
-func (vm *VM) revert(db vm_db.VMDB) {
+func (vm *VM) revert(db vm_db.VmDb) {
 	vm.sendBlockList = nil
 	db.Reset()
 }
@@ -729,33 +731,36 @@ func calcContractFee(data []byte) (*big.Int, error) {
 	return createContractFee, nil
 }
 
-func checkDepth(db vm_db.VMDB, sendBlock *ledger.AccountBlock) bool {
+func checkDepth(db vm_db.VmDb, sendBlock *ledger.AccountBlock) bool {
 	depth, err := db.GetCallDepth(sendBlock)
 	util.DealWithErr(err)
 	return depth >= callDepth
 }
 
-func (vm *VM) OffChainReader(db vm_db.VMDB, code []byte, data []byte) (result []byte, err error) {
+func (vm *VM) OffChainReader(db vm_db.VmDb, code []byte, data []byte) (result []byte, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
 			nodeConfig.log.Error("offchain reader panic",
 				"err", err,
 				"addr", db.Address(),
-				"snapshotHash", db.LatestSnapshotBlock().Hash,
 				"code", hex.EncodeToString(code),
 				"data", hex.EncodeToString(data))
 			result = nil
 			err = errors.New("offchain reader panic")
 		}
 	}()
-	vm.i = NewInterpreter(db.LatestSnapshotBlock().Height, true)
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	vm.i = NewInterpreter(sb.Height, true)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas, 0)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
 }
 
-func getPledgeAmount(db vm_db.VMDB) *big.Int {
+func getPledgeAmount(db vm_db.VmDb) *big.Int {
 	pledgeAmount, err := db.GetPledgeAmount(db.Address())
 	util.DealWithErr(err)
 	return pledgeAmount

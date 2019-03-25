@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-// calculates the memory size required for chain step
+// calculates the memory size required for a step
 func calcMemSize(off, l *big.Int) *big.Int {
 	if l.Sign() == 0 {
 		return helper.Big0

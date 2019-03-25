@@ -51,7 +51,7 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 		return nil, err
 	}
 	if voteInfo != nil {
-		balance, err := v.chain.GetAccountBalanceByTokenId(&addr, &ledger.ViteTokenId)
+		balance, err := tmpChain.GetBalance(&addr, &ledger.ViteTokenId)
 		if err != nil {
 			return nil, err
 		}

@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
@@ -40,31 +40,26 @@ func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryData
 		sb:              sb,
 	}
 }
-func (db *memoryDatabase) GetBalance(tokenTypeId *types.TokenTypeId) *big.Int {
+func (db *memoryDatabase) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
 	if balance, ok := db.storage[getBalanceKey(tokenTypeId)]; ok {
-		return new(big.Int).SetBytes(balance)
+		return new(big.Int).SetBytes(balance), nil
 	} else {
-		return big.NewInt(0)
+		return big.NewInt(0), nil
 	}
 }
-func (db *memoryDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	balance := db.GetBalance(tokenTypeId)
-	if balance.Cmp(amount) >= 0 {
-		db.storage[getBalanceKey(tokenTypeId)] = balance.Sub(balance, amount).Bytes()
+func (db *memoryDatabase) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	if amount == nil {
+		delete(db.storage, getBalanceKey(tokenTypeId))
+	} else {
+		db.storage[getBalanceKey(tokenTypeId)] = amount.Bytes()
 	}
-}
-func (db *memoryDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	balance := db.GetBalance(tokenTypeId)
-	if balance.Sign() == 0 && amount.Sign() == 0 {
-		return
-	}
-	db.storage[getBalanceKey(tokenTypeId)] = balance.Add(balance, amount).Bytes()
 }
 func (db *memoryDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 
-func (db *memoryDatabase) Reset() {}
+func (db *memoryDatabase) Reset()  {}
+func (db *memoryDatabase) Finish() {}
 
 func (db *memoryDatabase) SetContractCode(code []byte) {
 	db.storage[getCodeKey(db.addr)] = code
@@ -83,19 +78,19 @@ func (db *memoryDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, sn
 	return nil, nil
 }
 
-func (db *memoryDatabase) GetOriginalValue(key []byte) []byte {
+func (db *memoryDatabase) GetOriginalValue(key []byte) ([]byte, error) {
 	if data, ok := db.originalStorage[hex.EncodeToString(key)]; ok {
-		return data
+		return data, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
-func (db *memoryDatabase) GetValue(key []byte) []byte {
+func (db *memoryDatabase) GetValue(key []byte) ([]byte, error) {
 	if data, ok := db.storage[hex.EncodeToString(key)]; ok {
-		return data
+		return data, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 func (db *memoryDatabase) SetValue(key []byte, value []byte) {
@@ -139,27 +134,45 @@ func (db *memoryDatabase) GetLogListHash() *types.Hash {
 func (db *memoryDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
 }
+func (db *memoryDatabase) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error) {
+	return nil, nil
+}
 
-func (db *memoryDatabase) NewStorageIterator(prefix []byte) vm_db.StorageIterator {
-	return nil
+func (db *memoryDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+	return nil, nil
 }
 
 func (db *memoryDatabase) Address() *types.Address {
 	return &db.addr
 }
-func (db *memoryDatabase) LatestSnapshotBlock() *ledger.SnapshotBlock {
-	return db.sb
+func (db *memoryDatabase) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+	return db.sb, nil
 }
-func (db *memoryDatabase) PrevAccountBlock() *ledger.AccountBlock {
-	return nil
+func (db *memoryDatabase) PrevAccountBlock() (*ledger.AccountBlock, error) {
+	return nil, nil
 }
 
 func (db *memoryDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return db.LatestSnapshotBlock()
+	sb, _ := db.LatestSnapshotBlock()
+	return sb
 }
 
-func (db *memoryDatabase) DebugGetStorage() map[string][]byte {
-	return db.storage
+func (db *memoryDatabase) GetUnsavedStorage() ([][2][]byte, map[string]struct{}) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
+	return nil
+}
+func (db *memoryDatabase) GetUnsavedContractMeta() *ledger.ContractMeta {
+	return nil
+}
+func (db *memoryDatabase) GetUnsavedContractCode() []byte {
+	return nil
+}
+
+func (db *memoryDatabase) DebugGetStorage() (map[string][]byte, error) {
+	return db.storage, nil
 }
 
 func (db *memoryDatabase) IsContractAccount() (bool, error) {
@@ -178,8 +191,8 @@ func (db *memoryDatabase) DeleteValue(key []byte) {
 	delete(db.storage, hex.EncodeToString(key))
 }
 
-func (db *memoryDatabase) GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error) {
-	return nil, nil
+func (db *memoryDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+	return nil
 }
 
 func (db *memoryDatabase) SetContractMeta(meta *ledger.ContractMeta) {

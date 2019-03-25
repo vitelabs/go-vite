@@ -226,7 +226,7 @@ func createContract(vite *VitePrepared, addr *types.Address, addrPrivKey ed25519
 	}
 	height++
 
-	toAddress := util.NewContractAddress(*addr, height, preHash, latestSb.Hash)
+	toAddress := util.NewContractAddress(*addr, height, preHash)
 
 	im := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCreate,

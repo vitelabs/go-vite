@@ -29,7 +29,7 @@ func (m *memory) len() int {
 	return len(m.store)
 }
 
-// get returns offset + size as chain new slice
+// get returns offset + size as a new slice
 func (m *memory) get(offset, size int64) (cpy []byte) {
 	if size == 0 {
 		return nil

@@ -39,7 +39,7 @@ const jsondata2 = `
 	{ "type" : "function", "name" : "slice", "constant" : false, "inputs" : [ { "name" : "inputs", "type" : "uint32[2]" } ] },
 	{ "type" : "function", "name" : "slice256", "constant" : false, "inputs" : [ { "name" : "inputs", "type" : "uint256[2]" } ] },
 	{ "type" : "function", "name" : "sliceAddress", "constant" : false, "inputs" : [ { "name" : "inputs", "type" : "address[]" } ] },
-	{ "type" : "function", "name" : "sliceMultiAddress", "constant" : false, "inputs" : [ { "name" : "chain", "type" : "address[]" }, { "name" : "b", "type" : "address[]" } ] }
+	{ "type" : "function", "name" : "sliceMultiAddress", "constant" : false, "inputs" : [ { "name" : "a", "type" : "address[]" }, { "name" : "b", "type" : "address[]" } ] }
 ]`
 
 func TestReader(t *testing.T) {
@@ -349,7 +349,7 @@ func TestInputVariableInputLength(t *testing.T) {
 	}
 
 	// test two strings, first > 32, second < 32
-	str1 = strings.Repeat("chain", 33)
+	str1 = strings.Repeat("a", 33)
 	str2pack, err = abi.PackMethod("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
@@ -373,8 +373,8 @@ func TestInputVariableInputLength(t *testing.T) {
 	}
 
 	// test two strings, first > 32, second >32
-	str1 = strings.Repeat("chain", 33)
-	str2 = strings.Repeat("chain", 33)
+	str1 = strings.Repeat("a", 33)
+	str2 = strings.Repeat("a", 33)
 	str2pack, err = abi.PackMethod("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
@@ -740,7 +740,7 @@ func TestUnpackEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(data)%helper.WordSize == 0 {
-		t.Errorf("len(data) is %d, want chain non-multiple of 32", len(data))
+		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
 	}
 
 	type ReceivedEvent struct {
@@ -791,7 +791,7 @@ func TestABI_MethodById(t *testing.T) {
 		{"type":"function","name":"_slice","constant":false,"inputs":[{"name":"inputs","type":"uint32[2]"}]},
 		{"type":"function","name":"__slice256","constant":false,"inputs":[{"name":"inputs","type":"uint256[2]"}]},
 		{"type":"function","name":"sliceAddress","constant":false,"inputs":[{"name":"inputs","type":"address[]"}]},
-		{"type":"function","name":"sliceMultiAddress","constant":false,"inputs":[{"name":"chain","type":"address[]"},{"name":"b","type":"address[]"}]}
+		{"type":"function","name":"sliceMultiAddress","constant":false,"inputs":[{"name":"a","type":"address[]"},{"name":"b","type":"address[]"}]}
 	]
 `
 	abi, err := JSONToABIContract(strings.NewReader(abiJSON))

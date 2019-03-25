@@ -2,12 +2,12 @@ package abi
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
 type StorageDatabase interface {
-	GetValue(key []byte) []byte
-	NewStorageIterator(prefix []byte) vm_db.StorageIterator
+	GetValue(key []byte) ([]byte, error)
+	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
 	Address() *types.Address
 }
 

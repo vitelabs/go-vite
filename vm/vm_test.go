@@ -33,7 +33,6 @@ func TestVmRun(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
 	db, addr1, _, hash12, snapshot, _ := prepareDb(viteTotalSupply)
-	ts := time.Now()
 
 	/*
 	* contract code
@@ -58,10 +57,8 @@ func TestVmRun(t *testing.T) {
 		Amount:         big.NewInt(1e18),
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot.Hash,
 		Data:           data13,
 		Hash:           hash13,
-		Timestamp:      &ts,
 	}
 	vm := NewVM()
 	//vm.Debug = true
@@ -89,9 +86,7 @@ func TestVmRun(t *testing.T) {
 		AccountAddress: addr2,
 		FromBlockHash:  hash13,
 		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot.Hash,
 		Hash:           hash21,
-		Timestamp:      &ts,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -120,10 +115,8 @@ func TestVmRun(t *testing.T) {
 		PrevHash:       hash13,
 		Amount:         big.NewInt(1e18),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot.Hash,
 		Data:           data14,
 		Hash:           hash14,
-		Timestamp:      &ts,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -149,9 +142,7 @@ func TestVmRun(t *testing.T) {
 		FromBlockHash:  hash14,
 		PrevHash:       hash21,
 		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot.Hash,
 		Hash:           hash22,
-		Timestamp:      &ts,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -178,10 +169,8 @@ func TestVmRun(t *testing.T) {
 		PrevHash:       hash14,
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot.Hash,
 		Data:           data15,
 		Hash:           hash15,
-		Timestamp:      &ts,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -201,10 +190,8 @@ func TestVmRun(t *testing.T) {
 		PrevHash:       hash14,
 		Amount:         big.NewInt(50),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot.Hash,
 		Data:           data15,
 		Hash:           hash15,
-		Timestamp:      &ts,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -219,7 +206,6 @@ func TestVmRun(t *testing.T) {
 		FromBlockHash:  hash15,
 		PrevHash:       hash22,
 		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot.Hash,
 	}
 	vm = NewVM()
 	//vm.Debug = true
@@ -254,7 +240,6 @@ func TestDelegateCall(t *testing.T) {
 	addr2, _, _ := types.CreateAddress()
 	code2 := helper.JoinBytes([]byte{1, byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
 	db.codeMap[addr2] = code2
-	blockTime := time.Now()
 
 	vm := NewVM()
 	vm.globalStatus = &util.GlobalStatus{0, &ledger.SnapshotBlock{}}
@@ -271,7 +256,6 @@ func TestDelegateCall(t *testing.T) {
 	receiveCallBlock := &ledger.AccountBlock{
 		AccountAddress: addr2,
 		BlockType:      ledger.BlockTypeReceive,
-		Timestamp:      &blockTime,
 	}
 	c := newContract(
 		receiveCallBlock,
@@ -290,8 +274,7 @@ func TestDelegateCall(t *testing.T) {
 func TestCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
-	db, addr1, _, hash12, snapshot, _ := prepareDb(viteTotalSupply)
-	blockTime := time.Now()
+	db, addr1, _, hash12, _, _ := prepareDb(viteTotalSupply)
 
 	// code2 calls addr1 with data=100 and amount=10
 	addr2, _, _ := types.CreateAddress()
@@ -325,8 +308,6 @@ func TestCall(t *testing.T) {
 		Amount:         big.NewInt(10),
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash13,
 	}
 	db.addr = addr1
@@ -350,8 +331,6 @@ func TestCall(t *testing.T) {
 		AccountAddress: addr2,
 		FromBlockHash:  hash13,
 		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash21,
 	}
 	vm = NewVM()
@@ -386,8 +365,6 @@ func TestCall(t *testing.T) {
 		AccountAddress: addr3,
 		FromBlockHash:  hash22,
 		BlockType:      ledger.BlockTypeReceive,
-		SnapshotHash:   snapshot.Hash,
-		Timestamp:      &blockTime,
 		Hash:           hash31,
 	}
 	vm = NewVM()
@@ -415,8 +392,6 @@ func BenchmarkVMTransfer(b *testing.B) {
 		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
 	}
 
-	blockTime := time.Now()
-
 	// send call
 	b.ResetTimer()
 	prevHash := hash12
@@ -433,8 +408,6 @@ func BenchmarkVMTransfer(b *testing.B) {
 			PrevHash:       prevHash,
 			Amount:         amount,
 			TokenId:        ledger.ViteTokenId,
-			SnapshotHash:   types.DataHash([]byte(strconv.Itoa(i))),
-			Timestamp:      &blockTime,
 			Hash:           hashi,
 		}
 		vm := NewVM()
@@ -449,8 +422,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 
 func TestVmForTest(t *testing.T) {
 	InitVmConfig(true, true, false, "")
-	db, _, _, _, snapshot2, _ := prepareDb(big.NewInt(0))
-	blockTime := time.Now()
+	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()
 	block11 := &ledger.AccountBlock{
@@ -460,8 +432,6 @@ func TestVmForTest(t *testing.T) {
 		Amount:         big.NewInt(0),
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot2.Hash,
-		Timestamp:      &blockTime,
 	}
 	vm := NewVM()
 	//vm.Debug = true
@@ -551,14 +521,10 @@ func TestVm(t *testing.T) {
 				Amount:         new(big.Int).SetBytes(amount),
 				Fee:            big.NewInt(0),
 				TokenId:        testCase.TokenId,
-				SnapshotHash:   sb.Hash,
-				Timestamp:      &sbTime,
 			}
 			receiveCallBlock := &ledger.AccountBlock{
 				AccountAddress: testCase.ToAddress,
 				BlockType:      ledger.BlockTypeReceive,
-				SnapshotHash:   sb.Hash,
-				Timestamp:      &sbTime,
 			}
 			db := NewMemoryDatabase(testCase.ToAddress, &sb)
 			if len(testCase.PreStorage) > 0 {
@@ -577,7 +543,7 @@ func TestVm(t *testing.T) {
 				0)
 			code, _ := hex.DecodeString(testCase.Code)
 			c.setCallCode(testCase.ToAddress, code)
-			db.AddBalance(&sendCallBlock.TokenId, sendCallBlock.Amount)
+			util.AddBalance(db, &sendCallBlock.TokenId, sendCallBlock.Amount)
 			ret, err := c.run(vm)
 			returnData, _ := hex.DecodeString(testCase.ReturnData)
 			if (err == nil && testCase.Err != "") || (err != nil && testCase.Err != err.Error()) {
@@ -602,10 +568,19 @@ func TestVm(t *testing.T) {
 	}
 }
 func checkStorage(got *memoryDatabase, expected map[string]string) string {
-	if len(expected) != len(got.storage) {
+	count := 0
+	for _, v := range got.storage {
+		if len(v) > 0 {
+			count = count + 1
+		}
+	}
+	if len(expected) != count {
 		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.storage))
 	}
 	for k, v := range got.storage {
+		if len(v) == 0 {
+			continue
+		}
 		if sv, ok := expected[k]; !ok || sv != hex.EncodeToString(v) {
 			return "expect " + k + ": " + sv + ", got " + k + ": " + hex.EncodeToString(v)
 		}

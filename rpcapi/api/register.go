@@ -79,7 +79,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Regist
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

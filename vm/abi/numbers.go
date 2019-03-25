@@ -23,7 +23,7 @@ var (
 	tokenIdT  = reflect.TypeOf(types.TokenTypeId{})
 )
 
-// U256 converts chain big Int into chain 256bit VM number.
+// U256 converts a big Int into a 256bit VM number.
 func U256(n *big.Int) []byte {
 	return helper.PaddedBigBytes(helper.U256(n), helper.WordSize)
 }

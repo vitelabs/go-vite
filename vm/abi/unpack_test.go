@@ -386,7 +386,7 @@ func TestMethodMultiReturn(t *testing.T) {
 		&[]interface{}{&bigint, new(string)},
 		&[]interface{}{&expected.Int, &expected.String},
 		"",
-		"Can unpack into chain slice",
+		"Can unpack into a slice",
 	}, {
 		&[2]interface{}{&bigint, new(string)},
 		&[2]interface{}{&expected.Int, &expected.String},
@@ -396,12 +396,12 @@ func TestMethodMultiReturn(t *testing.T) {
 		&[]interface{}{new(int), new(int)},
 		&[]interface{}{&expected.Int, &expected.String},
 		"abi: cannot unmarshal *big.Int in to int",
-		"Can not unpack into chain slice with wrong types",
+		"Can not unpack into a slice with wrong types",
 	}, {
 		&[]interface{}{new(int)},
 		&[]interface{}{},
 		"abi: insufficient number of elements in the list/array for unpack, want 2, got 1",
-		"Can not unpack into chain slice with wrong types",
+		"Can not unpack into a slice with wrong types",
 	}}
 	for _, tc := range testCases {
 		tc := tc
@@ -442,7 +442,7 @@ func TestMultiReturnWithArray(t *testing.T) {
 }
 
 func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
-	// Similar to TestMultiReturnWithArray, but with chain special case in mind:
+	// Similar to TestMultiReturnWithArray, but with a special case in mind:
 	//  values of nested static arrays count towards the size as well, and any element following
 	//  after such nested array argument should be read with the correct offset,
 	//  so that it does not read content from the previous array argument.
@@ -490,8 +490,8 @@ func TestUnmarshal(t *testing.T) {
 	{ "type" : "event", "name" : "multi", "inputs": [ { "type": "bytes" }, { "type": "bytes" } ] },
 	{ "type" : "event", "name" : "intArraySingle", "inputs": [ { "type": "uint256[3]" } ] },
 	{ "type" : "event", "name" : "addressSliceSingle", "inputs": [ { "type": "address[]" } ] },
-	{ "type" : "event", "name" : "addressSliceDouble", "inputs": [ { "name": "chain", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
-	{ "type" : "event", "name" : "mixedBytes", "inputs": [ { "name": "chain", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
+	{ "type" : "event", "name" : "addressSliceDouble", "inputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
+	{ "type" : "event", "name" : "mixedBytes", "inputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
 
 	abi, err := JSONToABIContract(strings.NewReader(definition))
 	if err != nil {

@@ -52,7 +52,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	q, err := p.chain.GetPledgeQuota(*hash, addr)
+	q, err := p.chain.GetPledgeQuota(hash, &addr)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVMDB(tmpChain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

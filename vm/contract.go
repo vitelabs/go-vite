@@ -17,14 +17,14 @@ type contract struct {
 	code                   []byte
 	codeAddr               types.Address
 	block                  *ledger.AccountBlock
-	db                     vm_db.VMDB
+	db                     vm_db.VmDb
 	sendBlock              *ledger.AccountBlock
 	quotaLeft, quotaRefund uint64
 	intPool                *intPool
 	returnData             []byte
 }
 
-func newContract(block *ledger.AccountBlock, db vm_db.VMDB, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
+func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft, quotaRefund uint64) *contract {
 	return &contract{
 		block:       block,
 		db:          db,

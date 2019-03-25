@@ -35,12 +35,12 @@ type SendBlock struct {
 type BuiltinContractMethod interface {
 	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
-	DoSend(db vm_db.VMDB, block *ledger.AccountBlock) error
+	DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 	// quota for doSend block
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
 	// TODO return ledger.AccountBlock instead of SendBlock
-	DoReceive(db vm_db.VMDB, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error)
+	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
 }

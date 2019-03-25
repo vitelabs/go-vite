@@ -97,19 +97,21 @@ func DeleteTokenId(oldIdList []byte, tokenId types.TokenTypeId) []byte {
 	return oldIdList
 }
 
-func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.TokenTypeId {
+func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.TokenTypeId {
 	return types.CreateTokenTypeId(
 		accountAddress.Bytes(),
 		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
+		prevBlockHash.Bytes())
 }
 
 func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) (*types.TokenInfo, error) {
 	if *db.Address() != types.AddressMintage {
 		return nil, util.ErrAddressNotMatch
 	}
-	data := db.GetValue(GetMintageKey(tokenId))
+	data, err := db.GetValue(GetMintageKey(tokenId))
+	if err != nil {
+		return nil, err
+	}
 	if len(data) > 0 {
 		tokenInfo, _ := ParseTokenInfo(data)
 		return tokenInfo, nil
@@ -122,21 +124,20 @@ func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, er
 		return nil, util.ErrAddressNotMatch
 	}
 	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMap"}, time.Now())
-	iterator := db.NewStorageIterator(nil)
-	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
-	if iterator == nil {
-		return tokenInfoMap, nil
+	iterator, err := db.NewStorageIterator(nil)
+	if err != nil {
+		return nil, err
 	}
+	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for {
-		key, value, ok := iterator.Next()
-		if !ok {
+		if !iterator.Next() {
 			break
 		}
-		if !filterKeyValue(key, value, IsMintageKey) {
+		if !filterKeyValue(iterator.Key(), iterator.Value(), IsMintageKey) {
 			continue
 		}
-		tokenId := GetTokenIdFromMintageKey(key)
-		if tokenInfo, err := ParseTokenInfo(value); err == nil {
+		tokenId := GetTokenIdFromMintageKey(iterator.Key())
+		if tokenInfo, err := ParseTokenInfo(iterator.Value()); err == nil {
 			tokenInfoMap[tokenId] = tokenInfo
 		}
 	}
@@ -148,7 +149,10 @@ func GetTokenMapByOwner(db StorageDatabase, owner types.Address) (tokenInfoMap m
 		return nil, util.ErrAddressNotMatch
 	}
 	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMapByOwner"}, time.Now())
-	tokenIdList := db.GetValue(GetOwnerTokenIdListKey(owner))
+	tokenIdList, err := db.GetValue(GetOwnerTokenIdListKey(owner))
+	if err != nil {
+		return nil, err
+	}
 	tokenInfoMap = make(map[types.TokenTypeId]*types.TokenInfo)
 	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {
 		tokenId, _ := types.BytesToTokenTypeId(tokenIdList[i*types.TokenTypeIdSize : (i+1)*types.TokenTypeIdSize])

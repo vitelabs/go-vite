@@ -191,10 +191,10 @@ type Chain interface {
 	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (uint64, error)
+	GetPledgeQuota(snapshotHash *types.Hash, addr *types.Address) (types.Quota, error)
 
 	// total
-	GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]uint64, error)
+	GetPledgeQuotas(snapshotHash *types.Hash, addrList []*types.Address) (map[types.Address]types.Quota, error)
 
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 

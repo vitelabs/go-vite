@@ -79,6 +79,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 			if currentPc < uint64(len(c.code)) {
 				currentCode = hex.EncodeToString(c.code[currentPc:])
 			}
+			storageMap, err := c.db.DebugGetStorage()
+			if err != nil {
+				nodeConfig.interpreterLog.Error("vm step, get storage failed")
+			}
 			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.BlockType,
 				"address", c.block.AccountAddress.String(),
@@ -90,7 +94,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
-				"\nstorage", util.PrintMap(c.db.DebugGetStorage()))
+				"\nstorage", util.PrintMap(storageMap))
 		}
 
 		if operation.returns {

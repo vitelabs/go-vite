@@ -3,7 +3,7 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/interfaces"
 	"math/big"
 	"testing"
 	"time"
@@ -42,11 +42,11 @@ func NewNoDatabase() *testDatabase {
 func (db *testDatabase) Address() *types.Address {
 	return &db.addr
 }
-func (db *testDatabase) LatestSnapshotBlock() *ledger.SnapshotBlock {
-	return db.snapshotBlockList[len(db.snapshotBlockList)-1]
+func (db *testDatabase) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+	return db.snapshotBlockList[len(db.snapshotBlockList)-1], nil
 }
 
-func (db *testDatabase) PrevAccountBlock() *ledger.AccountBlock {
+func (db *testDatabase) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	m := db.accountBlockMap[db.addr]
 	var prevBlock *ledger.AccountBlock
 	for _, b := range m {
@@ -54,7 +54,7 @@ func (db *testDatabase) PrevAccountBlock() *ledger.AccountBlock {
 			prevBlock = b
 		}
 	}
-	return prevBlock
+	return prevBlock, nil
 }
 func (db *testDatabase) IsContractAccount() (bool, error) {
 	return len(db.codeMap[db.addr]) > 0, nil
@@ -72,30 +72,27 @@ func (db *testDatabase) GetReceiptHash() *types.Hash {
 }
 func (db *testDatabase) Reset() {
 }
+func (db *testDatabase) Finish() {
 
-func (db *testDatabase) GetBalance(tokenTypeId *types.TokenTypeId) *big.Int {
+}
+
+func (db *testDatabase) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
 	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
-		return new(big.Int).Set(balance)
+		return new(big.Int).Set(balance), nil
 	} else {
-		return big.NewInt(0)
+		return big.NewInt(0), nil
 	}
 }
-func (db *testDatabase) SubBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	balance, ok := db.balanceMap[db.addr][*tokenTypeId]
-	if ok && balance.Cmp(amount) >= 0 {
-		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Sub(balance, amount)
-	}
-}
-func (db *testDatabase) AddBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
-		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Add(balance, amount)
+func (db *testDatabase) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	if amount == nil {
+		delete(db.balanceMap[db.addr], *tokenTypeId)
 	} else {
 		if _, ok := db.balanceMap[db.addr]; !ok {
 			db.balanceMap[db.addr] = make(map[types.TokenTypeId]*big.Int)
 		}
-		db.balanceMap[db.addr][*tokenTypeId] = amount
-	}
+		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Set(amount)
 
+	}
 }
 func (db *testDatabase) SetContractMeta(meta *ledger.ContractMeta) {
 	db.contractGidMap[db.addr] = meta.Gid
@@ -117,23 +114,35 @@ func (db *testDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snap
 		return nil, nil
 	}
 }
+func (db *testDatabase) GetUnsavedContractMeta() *ledger.ContractMeta {
+	return nil
+}
+func (db *testDatabase) GetUnsavedContractCode() []byte {
+	return nil
+}
+func (db *testDatabase) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
+	return nil
+}
 
-func (db *testDatabase) GetValue(key []byte) []byte {
+func (db *testDatabase) GetValue(key []byte) ([]byte, error) {
 	if data, ok := db.storageMap[db.addr][ToKey(key)]; ok {
-		return data
+		return data, nil
 	} else {
-		return []byte{}
+		return []byte{}, nil
 	}
 }
 func (db *testDatabase) SetValue(key []byte, value []byte) {
+	if len(value) == 0 {
+		delete(db.storageMap[db.addr], ToKey(key))
+	}
 	if _, ok := db.storageMap[db.addr]; !ok {
 		db.storageMap[db.addr] = make(map[string][]byte)
 	}
 	db.storageMap[db.addr][ToKey(key)] = value
 }
 
-func (db *testDatabase) GetOriginalValue(key []byte) []byte {
-	return nil
+func (db *testDatabase) GetOriginalValue(key []byte) ([]byte, error) {
+	return nil, nil
 }
 
 func (db *testDatabase) DeleteValue(key []byte) {
@@ -158,6 +167,9 @@ func (db *testDatabase) AddLog(log *ledger.VmLog) {
 func (db *testDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
+func (db *testDatabase) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error) {
+	return nil, nil
+}
 
 func (db *testDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
@@ -171,16 +183,30 @@ type testIterator struct {
 	items []testIteratorItem
 }
 
-func (i *testIterator) Next() (key, value []byte, ok bool) {
-	if i.index < len(i.items) {
-		item := i.items[i.index]
+func (i *testIterator) Next() (ok bool) {
+	if i.index < len(i.items)-1 {
 		i.index = i.index + 1
-		return item.key, item.value, true
+		return true
 	}
-	return []byte{}, []byte{}, false
+	return false
+}
+func (i *testIterator) Last() bool {
+	return i.index == len(i.items)-1
+}
+func (i *testIterator) Key() []byte {
+	return i.items[i.index].key
+}
+func (i *testIterator) Value() []byte {
+	return i.items[i.index].value
+}
+func (i *testIterator) Error() error {
+	return nil
+}
+func (i *testIterator) Release() {
+
 }
 
-func (db *testDatabase) NewStorageIterator(prefix []byte) vm_db.StorageIterator {
+func (db *testDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
 	storageMap := db.storageMap[db.addr]
 	items := make([]testIteratorItem, 0)
 	for key, value := range storageMap {
@@ -192,15 +218,19 @@ func (db *testDatabase) NewStorageIterator(prefix []byte) vm_db.StorageIterator 
 			items = append(items, testIteratorItem{ToBytes(key), value})
 		}
 	}
-	return &testIterator{0, items}
+	return &testIterator{-1, items}, nil
+}
+
+func (db *testDatabase) GetUnsavedStorage() ([][2][]byte, map[string]struct{}) {
+	return nil, nil
 }
 
 func (db *testDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[0]
 }
 
-func (db *testDatabase) GetUnconfirmedBlocks() ([]*ledger.AccountBlock, error) {
-	return nil, nil
+func (db *testDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+	return nil
 }
 
 func (db *testDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
@@ -213,8 +243,8 @@ func (db *testDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (db *testDatabase) DebugGetStorage() map[string][]byte {
-	return db.storageMap[db.addr]
+func (db *testDatabase) DebugGetStorage() (map[string][]byte, error) {
+	return db.storageMap[db.addr], nil
 }
 
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
@@ -246,7 +276,6 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		Fee:            big.NewInt(0),
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot1.Hash,
 		Hash:           hash11,
 	}
 	db.accountBlockMap[addr1] = make(map[types.Hash]*ledger.AccountBlock)
@@ -261,7 +290,6 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 		PrevHash:       hash11,
 		Amount:         viteTotalSupply,
 		TokenId:        ledger.ViteTokenId,
-		SnapshotHash:   snapshot1.Hash,
 		Hash:           hash12,
 	}
 	db.accountBlockMap[addr1][hash12] = block12
@@ -346,7 +374,8 @@ func TestPrepareDb(t *testing.T) {
 		t.Fatalf("invalid account block info")
 	}
 	db.addr = addr1
-	if db.GetBalance(&ledger.ViteTokenId).Cmp(totalSupply) != 0 {
+	balance, _ := db.GetBalance(&ledger.ViteTokenId)
+	if totalSupply.Cmp(balance) != 0 {
 		t.Fatalf("invalid account balance")
 	}
 	db.addr = types.AddressConsensusGroup
