@@ -128,9 +128,13 @@ func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, er
 	if err != nil {
 		return nil, err
 	}
+	defer iterator.Release()
 	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsMintageKey) {

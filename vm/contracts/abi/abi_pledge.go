@@ -68,9 +68,13 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 	if err != nil {
 		return nil, nil, err
 	}
+	defer iterator.Release()
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsPledgeKey) {

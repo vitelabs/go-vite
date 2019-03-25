@@ -163,9 +163,13 @@ func GetActiveConsensusGroupList(db StorageDatabase) ([]*types.ConsensusGroupInf
 	if err != nil {
 		return nil, err
 	}
+	defer iterator.Release()
 	consensusGroupInfoList := make([]*types.ConsensusGroupInfo, 0)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), isConsensusGroupKey) {
@@ -245,9 +249,13 @@ func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Has
 	if err != nil {
 		return nil, err
 	}
+	defer iterator.Release()
 	registerList := make([]*types.Registration, 0)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsRegisterKey) {
@@ -276,9 +284,13 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 	if err != nil {
 		return nil, err
 	}
+	defer iterator.Release()
 	registerList := make([]*types.Registration, 0)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsRegisterKey) {
@@ -341,9 +353,13 @@ func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) ([
 	if err != nil {
 		return nil, err
 	}
+	defer iterator.Release()
 	voteInfoList := make([]*types.VoteInfo, 0)
 	for {
 		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
 		if !filterKeyValue(iterator.Key(), iterator.Value(), isVoteKey) {
