@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -29,10 +29,10 @@ var (
 	ErrSubscriptionNotFound = errors.New("subscription not found")
 )
 
-// ID defines a pseudo random number that is used to identify RPC subscriptions.
+// ID defines chain pseudo random number that is used to identify RPC subscriptions.
 type ID string
 
-// a Subscription is created by a notifier and tight to that notifier. The client can use
+// chain Subscription is created by chain notifier and tight to that notifier. The client can use
 // this subscription to wait for an unsubscribe request for the client, see Err().
 type Subscription struct {
 	ID        ID
@@ -40,15 +40,15 @@ type Subscription struct {
 	err       chan error // closed on unsubscribe
 }
 
-// Err returns a channel that is closed when the client send an unsubscribe request.
+// Err returns chain channel that is closed when the client send an unsubscribe request.
 func (s *Subscription) Err() <-chan error {
 	return s.err
 }
 
-// notifierKey is used to store a notifier within the connection context.
+// notifierKey is used to store chain notifier within the connection context.
 type notifierKey struct{}
 
-// Notifier is tight to a RPC connection that supports subscriptions.
+// Notifier is tight to chain RPC connection that supports subscriptions.
 // Server callbacks use the notifier to send notifications.
 type Notifier struct {
 	codec    ServerCodec
@@ -57,7 +57,7 @@ type Notifier struct {
 	inactive map[ID]*Subscription
 }
 
-// newNotifier creates a new notifier that can be used to send subscription
+// newNotifier creates chain new notifier that can be used to send subscription
 // notifications to the client.
 func newNotifier(codec ServerCodec) *Notifier {
 	return &Notifier{
@@ -73,7 +73,7 @@ func NotifierFromContext(ctx context.Context) (*Notifier, bool) {
 	return n, ok
 }
 
-// CreateSubscription returns a new subscription that is coupled to the
+// CreateSubscription returns chain new subscription that is coupled to the
 // RPC connection. By default subscriptions are inactive and notifications
 // are dropped until the subscription is marked as active. This is done
 // by the RPC server after the subscription ID is send to the client.
@@ -85,7 +85,7 @@ func (n *Notifier) CreateSubscription() *Subscription {
 	return s
 }
 
-// Notify sends a notification to the client with the given data as payload.
+// Notify sends chain notification to the client with the given data as payload.
 // If an error occurs the RPC connection is closed and the error is returned.
 func (n *Notifier) Notify(id ID, data interface{}) error {
 	n.subMu.RLock()
@@ -102,12 +102,12 @@ func (n *Notifier) Notify(id ID, data interface{}) error {
 	return nil
 }
 
-// Closed returns a channel that is closed when the RPC connection is closed.
+// Closed returns chain channel that is closed when the RPC connection is closed.
 func (n *Notifier) Closed() <-chan interface{} {
 	return n.codec.Closed()
 }
 
-// unsubscribe a subscription.
+// unsubscribe chain subscription.
 // If the subscription could not be found ErrSubscriptionNotFound is returned.
 func (n *Notifier) unsubscribe(id ID) error {
 	n.subMu.Lock()
@@ -120,7 +120,7 @@ func (n *Notifier) unsubscribe(id ID) error {
 	return ErrSubscriptionNotFound
 }
 
-// activate enables a subscription. Until a subscription is enabled all
+// activate enables chain subscription. Until chain subscription is enabled all
 // notifications are dropped. This method is called by the RPC server after
 // the subscription ID was sent to client. This prevents notifications being
 // send to the client before the subscription ID is send to the client.

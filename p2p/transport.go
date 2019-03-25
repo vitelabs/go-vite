@@ -25,7 +25,7 @@ const headerLength = 32
 const maxPayloadSize = ^uint32(0) >> 8 // 15MB
 const shakeTimeout = 10 * time.Second
 
-// head message is the first message in a tcp connection
+// head message is the first message in chain tcp connection
 type headMsg struct {
 	Version P2PVersion
 	NetID   network.ID

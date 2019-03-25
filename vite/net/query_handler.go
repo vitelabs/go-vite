@@ -29,7 +29,7 @@ const (
 	GetSnapshotBlocksCode // get snapshotblocks without content
 	GetSnapshotBlocksContentCode
 	GetFullSnapshotBlocksCode   // get snapshotblocks with content
-	GetSnapshotBlocksByHashCode // a batch of hash
+	GetSnapshotBlocksByHashCode // chain batch of hash
 	GetSnapshotBlocksContentByHashCode
 	GetFullSnapshotBlocksByHashCode
 	GetAccountBlocksCode       // query single AccountChain

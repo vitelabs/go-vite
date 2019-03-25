@@ -5,7 +5,7 @@ import "fmt"
 // opCode is an VM opcode
 type opCode byte
 
-// isPush specifies if an opcode is a PUSH opcode.
+// isPush specifies if an opcode is chain PUSH opcode.
 func (op opCode) isPush() bool {
 	switch op {
 	case PUSH1, PUSH2, PUSH3, PUSH4, PUSH5, PUSH6, PUSH7, PUSH8, PUSH9, PUSH10, PUSH11, PUSH12, PUSH13, PUSH14, PUSH15, PUSH16, PUSH17, PUSH18, PUSH19, PUSH20, PUSH21, PUSH22, PUSH23, PUSH24, PUSH25, PUSH26, PUSH27, PUSH28, PUSH29, PUSH30, PUSH31, PUSH32:
@@ -198,7 +198,7 @@ const (
 	SELFDESTRUCT = 0xff
 )
 
-// Since the opcodes aren't all in order we can't use a regular slice.
+// Since the opcodes aren't all in order we can't use chain regular slice.
 var opCodeToString = map[opCode]string{
 	// 0x0 range - arithmetic ops.
 	STOP:       "STOP",

@@ -44,7 +44,7 @@ func blockPolicy(t time.Time, count int) bool {
 	return true
 }
 
-// Config is the essential configuration to create a p2p.server
+// Config is the essential configuration to create chain p2p.server
 type Config struct {
 	Discovery       bool
 	Name            string

@@ -23,7 +23,7 @@ type list struct {
 	count int
 }
 
-// New create a linked list
+// New create chain linked list
 func New() List {
 	head := &Element{}
 	return &list{

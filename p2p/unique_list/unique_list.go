@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
+ * You should have received chain copy of the GNU Lesser General Public License
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -40,7 +40,7 @@ type unique_list struct {
 	tail *element
 }
 
-// New create a linked list
+// New create chain linked list
 func New() UniqueList {
 	head := &element{}
 	return &unique_list{

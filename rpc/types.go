@@ -17,10 +17,14 @@
 package rpc
 
 import (
+	"fmt"
+	"math"
 	"reflect"
+	"strings"
 	"sync"
 
-	"github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set"
+	"github.com/vitelabs/go-vite/common/hexutil"
 )
 
 // API describes the set of methods offered over the RPC interface
@@ -86,11 +90,6 @@ type rpcRequest struct {
 type Error interface {
 	Error() string  // returns the message
 	ErrorCode() int // returns the code
-}
-
-type ErrorWithId interface {
-	Error
-	Id() interface{}
 }
 
 // ServerCodec implements reading, parsing and writing RPC messages for the server side of

@@ -43,8 +43,8 @@ type PledgeInfo struct {
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {
 	return beneficial.Bytes()
 }
-func GetPledgeKey(addr types.Address, beneficialAddr types.Address) []byte {
-	return append(addr.Bytes(), beneficialAddr.Bytes()...)
+func GetPledgeKey(addr types.Address, pledgeBeneficialKey []byte) []byte {
+	return append(addr.Bytes(), pledgeBeneficialKey...)
 }
 func IsPledgeKey(key []byte) bool {
 	return len(key) == 2*types.AddressSize
@@ -54,42 +54,43 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 	return address
 }
 
+func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
+	address, _ := types.BytesToAddress(key[:types.AddressSize])
+	return address
+}
+
 func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) (*big.Int, error) {
 	if *db.Address() != types.AddressPledge {
 		return nil, util.ErrAddressNotMatch
 	}
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)
-	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetValue(key)); err == nil {
-		return beneficialAmount.Amount, nil
+	if err := ABIPledge.UnpackVariable(beneficialAmount, VariableNamePledgeBeneficial, db.GetStorageBySnapshotHash(&types.AddressPledge, key, nil)); err == nil {
+		return beneficialAmount.Amount
 	}
-	return big.NewInt(0), nil
+	return big.NewInt(0)
 }
 
-func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int, error) {
-	if *db.Address() != types.AddressPledge {
-		return nil, nil, util.ErrAddressNotMatch
-	}
+func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int) {
 	pledgeAmount := big.NewInt(0)
-	iterator := db.NewStorageIterator(addr.Bytes())
+	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressPledge, addr.Bytes(), nil)
 	pledgeInfoList := make([]*PledgeInfo, 0)
 	if iterator == nil {
-		return pledgeInfoList, pledgeAmount, nil
+		return pledgeInfoList, pledgeAmount
 	}
 	for {
 		key, value, ok := iterator.Next()
 		if !ok {
 			break
 		}
-		if !filterKeyValue(key, value, IsPledgeKey) {
-			continue
-		}
-		pledgeInfo := new(PledgeInfo)
-		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
-			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
-			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
-			pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
+		if IsPledgeKey(key) {
+			pledgeInfo := new(PledgeInfo)
+			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
+				pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(key)
+				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+				pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
+			}
 		}
 	}
-	return pledgeInfoList, pledgeAmount, nil
+	return pledgeInfoList, pledgeAmount
 }

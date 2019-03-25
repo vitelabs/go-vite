@@ -1,5 +1,5 @@
 // Copyright 2016 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by chain BSD-style
 // license that can be found in the LICENSE file.
 
 package ed25519
@@ -149,8 +149,8 @@ func TestCryptoSigner(t *testing.T) {
 
 func TestMalleability(t *testing.T) {
 	// https://tools.ietf.org/html/rfc8032#section-5.1.7 adds an additional test
-	// that s be in [0, order). This prevents someone from adding a multiple of
-	// order to s and obtaining a second valid signature for the same message.
+	// that s be in [0, order). This prevents someone from adding chain multiple of
+	// order to s and obtaining chain second valid signature for the same message.
 	msg := []byte{0x54, 0x65, 0x73, 0x74}
 	sig := []byte{
 		0x7c, 0x38, 0xe0, 0x26, 0xf2, 0x9e, 0x14, 0xaa, 0xbd, 0x05, 0x9a,

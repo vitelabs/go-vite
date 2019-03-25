@@ -21,12 +21,15 @@ const (
 )
 
 var (
+	AddressRegister, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	AddressVote, _           = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
 	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 
 	BuiltinContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 	BuiltinContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContractWithSendConfirm      = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 
 func IsBuiltinContractAddr(addr Address) bool {
@@ -36,7 +39,6 @@ func IsBuiltinContractAddr(addr Address) bool {
 	}
 	return false
 }
-
 func IsBuiltinContractAddrInUse(addr Address) bool {
 	for _, cAddr := range BuiltinContractAddrList {
 		if cAddr == addr {
@@ -46,8 +48,17 @@ func IsBuiltinContractAddrInUse(addr Address) bool {
 	return false
 }
 
-func IsBuiltinContractWithoutQuotaAddressInUse(addr Address) bool {
+func IsBuiltinContractAddrInUseWithoutQuota(addr Address) bool {
 	for _, cAddr := range BuiltinContractWithoutQuotaAddrList {
+		if cAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+func IsBuiltinContractAddrInUseWithSendConfirm(addr Address) bool {
+	for _, cAddr := range BuiltinContractWithSendConfirm {
 		if cAddr == addr {
 			return true
 		}

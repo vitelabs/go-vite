@@ -30,13 +30,11 @@ message AccountBlock {
 
     int64 timestamp = 15;
 
-    bytes StateHash = 16;
+    bytes logHash = 16;
 
-    bytes logHash = 17;
+    bytes difficulty = 17;
 
-    bytes difficulty = 18;
+    bytes nonce = 18;
 
-    bytes nonce = 19;
-
-    bytes signature = 20;
+    bytes signature = 19;
 }
