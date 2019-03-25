@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 var (

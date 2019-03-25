@@ -11,11 +11,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type chainDb interface {
-	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
+	InsertAccountBlocks(vmAccountBlocks []*vm_db.VmAccountBlock) error
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
@@ -56,8 +56,8 @@ func (self *accountCh) insertBlock(b commonBlock) error {
 
 	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	block := b.(*accountPoolBlock)
-	accountBlock := &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock}
-	return self.rw.InsertAccountBlocks([]*vm_context.VmAccountBlock{accountBlock})
+	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
+	return self.rw.InsertAccountBlocks([]*vm_db.VmAccountBlock{accountBlock})
 }
 
 func (self *accountCh) head() commonBlock {
@@ -91,11 +91,11 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 }
 
 func (self *accountCh) insertBlocks(bs []commonBlock) error {
-	var blocks []*vm_context.VmAccountBlock
+	var blocks []*vm_db.VmAccountBlock
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
 		fmt.Printf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash())
-		blocks = append(blocks, &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock})
+		blocks = append(blocks, &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock})
 		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}
 

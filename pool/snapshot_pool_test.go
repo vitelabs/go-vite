@@ -2,7 +2,6 @@ package pool
 
 import (
 	"testing"
-
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
@@ -11,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type mockCommonBlock struct {
@@ -82,10 +81,6 @@ func (*mockSnapshotS) IsGenesisAccountBlock(block *ledger.AccountBlock) bool {
 	panic("implement me")
 }
 
-func (*mockSnapshotS) GetSnapshotBlockHeadByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	panic("implement me")
-}
-
 func (*mockSnapshotS) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
 	panic("implement me")
 }
@@ -106,7 +101,7 @@ func (*mockSnapshotS) getBlock(height uint64) commonBlock {
 	panic("implement me")
 }
 
-func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*vm_db.VmAccountBlock) error {
 	panic("implement me")
 }
 

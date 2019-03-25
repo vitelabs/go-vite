@@ -9,26 +9,25 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/helper"
-
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Writer interface {
 	// for normal account
-	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error
+	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
 
 	// for contract account
-	AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error
+	AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error
 }
 
 type SnapshotProducerWriter interface {
@@ -348,7 +347,7 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 
 }
 
-func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context.VmAccountBlock) error {
+func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
 	self.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
 	self.RLock()
@@ -362,7 +361,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_context
 		return err
 	}
 
-	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmContext, self.version, types.Local)
+	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmDb, self.version, types.Local)
 	err = ac.AddDirectBlocks(cBlock, nil)
 	if err != nil {
 		return err
@@ -382,7 +381,7 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 	return nil
 }
 
-func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) error {
+func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error {
 	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
 	self.RLock()
@@ -391,9 +390,9 @@ func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_con
 	// todo
 	var accountPoolBlocks []*accountPoolBlock
 	for _, v := range sendBlocks {
-		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmContext, self.version, types.Local))
+		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmDb, self.version, types.Local))
 	}
-	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmContext, self.version, types.Local), accountPoolBlocks)
+	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmDb, self.version, types.Local), accountPoolBlocks)
 	if err != nil {
 		return err
 	}
@@ -752,28 +751,28 @@ func (self *pool) fetchForTask(task verifyTask) {
 	return
 }
 func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
-	self.log.Debug("try to delete timeout unconfirmed blocks.", "addr", addr)
-	headSnapshot := self.pendingSc.rw.headSnapshot()
-	ac := self.selfPendingAc(addr)
-	firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
-	if firstUnconfirmedBlock == nil {
-		return
-	}
-	self.log.Debug("account block unconfirmed.", "acc", addr, "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
-	referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
-
-	// verify account timeout
-	if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
-		self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
-		self.Lock()
-		defer self.UnLock()
-		err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
-		if err != nil {
-			self.log.Error("rollback account fail.", "err", err)
-		} else {
-			self.selfPendingAc(addr).CurrentModifyToEmpty()
-		}
-	}
+	//self.log.Debug("try to delete timeout unconfirmed blocks.", "addr", addr)
+	//headSnapshot := self.pendingSc.rw.headSnapshot()
+	//ac := self.selfPendingAc(addr)
+	//firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
+	//if firstUnconfirmedBlock == nil {
+	//	return
+	//}
+	//self.log.Debug("account block unconfirmed.", "acc", addr, "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
+	//referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
+	//
+	//// verify account timeout
+	//if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
+	//	self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
+	//	self.Lock()
+	//	defer self.UnLock()
+	//	err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
+	//	if err != nil {
+	//		self.log.Error("rollback account fail.", "err", err)
+	//	} else {
+	//		self.selfPendingAc(addr).CurrentModifyToEmpty()
+	//	}
+	//}
 }
 
 func (self *pool) checkBlock(block *snapshotPoolBlock) bool {

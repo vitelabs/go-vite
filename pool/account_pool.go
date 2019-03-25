@@ -13,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type accountPool struct {
@@ -31,7 +31,7 @@ type accountPool struct {
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
-	vmBlock vmctxt_interface.VmDatabase,
+	vmBlock vm_db.VmDb,
 	version *ForkVersion,
 	source types.BlockSource) *accountPoolBlock {
 	return &accountPoolBlock{
@@ -48,7 +48,7 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 type accountPoolBlock struct {
 	forkBlock
 	block    *ledger.AccountBlock
-	vmBlock  vmctxt_interface.VmDatabase
+	vmBlock  vm_db.VmDb
 	recover  *recoverStat
 	failStat *recoverStat
 	delStat  *recoverStat
@@ -401,7 +401,7 @@ func (self *accountPool) verifyFail(b *accountPoolBlock) error {
 		}
 	} else {
 		if !b.failStat.inc() {
-			byt, _ := b.block.DbSerialize()
+			byt, _ := b.block.Serialize()
 			self.log.Warn("account block verify fail.", "hash", b.Hash(), "height", b.Height(), "byt", base64.StdEncoding.EncodeToString(byt))
 			b.fail = true
 		}
