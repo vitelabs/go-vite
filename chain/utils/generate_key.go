@@ -111,6 +111,16 @@ func CreateIndexDbLatestLocationKey() []byte {
 
 // ====== state db ======
 
+func CreateStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
+	keySize := 1 + types.AddressSize + len(prefix)
+	key := make([]byte, 0, keySize)
+
+	key = append(key, StorageKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, prefix...)
+	return key
+}
+
 func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
 	keySize := types.AddressSize + 34
 	key := make([]byte, keySize)
@@ -136,6 +146,16 @@ func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, sna
 	return key
 }
 
+func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
+	keySize := 1 + types.AddressSize + len(prefix)
+	key := make([]byte, 0, keySize)
+
+	key = append(key, StorageHistoryKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, prefix...)
+	return key
+}
+
 func CreateBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId) []byte {
 	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize)
 	key[0] = BalanceKeyPrefix
@@ -158,6 +178,21 @@ func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTyp
 	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
 
 	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+
+	return key
+}
+
+func CreateHistoryBalanceKeyByBytes(address *types.Address, tokenTypeId *types.TokenTypeId, snapshotHeightBytes []byte) []byte {
+	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
+
+	key := make([]byte, keySize)
+
+	key[0] = BalanceHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+
+	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+	copy(key[keySize-7:], snapshotHeightBytes)
 
 	return key
 }

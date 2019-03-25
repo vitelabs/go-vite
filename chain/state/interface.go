@@ -10,4 +10,6 @@ type Chain interface {
 
 	QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+
+	GetSnapshotHeightByHash(hash *types.Hash) (uint64, error)
 }

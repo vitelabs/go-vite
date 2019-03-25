@@ -32,7 +32,7 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(dataDir string) *chain {
+func NewChain(dataDir string) Chain {
 	return &chain{
 		dataDir:  dataDir,
 		chainDir: path.Join(dataDir, "ledger"),
@@ -132,13 +132,6 @@ func (c *chain) Init() error {
 	// init cache
 	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
-	// init state_bak db
-	if err := c.stateDB.Init(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
 	}

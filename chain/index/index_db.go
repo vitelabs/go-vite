@@ -67,7 +67,7 @@ func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		iDB.memDb.NewIterator(slice),
 		iDB.store.NewIterator(slice),
-	}, iDB.memDb.DeletedKeys())
+	}, iDB.memDb.IsDelete)
 }
 
 func (iDB *IndexDB) QueryLatestLocation() (*chain_block.Location, error) {
@@ -127,13 +127,13 @@ func (iDB *IndexDB) hasValueByPrefix(prefix []byte) (bool, error) {
 
 	iter := iDB.store.NewIterator(util.BytesPrefix(prefix))
 	defer iter.Release()
-	deletedKeys := iDB.memDb.DeletedKeys()
 
 	result := false
 	for iter.Next() {
 		key := iter.Key()
-		if _, ok := deletedKeys[string(key)]; !ok {
+		if ok := iDB.memDb.IsDelete(key); !ok {
 			result = true
+			break
 		}
 	}
 
