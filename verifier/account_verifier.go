@@ -31,8 +31,6 @@ func isAccTypeGeneral(sureAccType AccountType) bool {
 	return true
 }
 
-const DefaultSeedRangeCount int = 25
-
 type AccountVerifier struct {
 	chain     chain.Chain
 	consensus consensus
@@ -357,25 +355,30 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isG
 
 func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (vmBlock *vm_db.VmAccountBlock, err error) {
 	vLog := v.log.New("method", "VerifyforVM")
-	states, err := v.getGlobalStatus(block)
-	if err != nil {
-		return nil, err
-	}
-	gen, err := generator.NewGenerator(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash, states)
-	if err != nil {
-		vLog.Error("new generator error," + err.Error())
-		return nil, ErrVerifyForVmGeneratorFailed
-	}
+
 	var fromBlock *ledger.AccountBlock
+	var states *util.GlobalStatus
+	var recvErr error
 	if block.IsReceiveBlock() {
-		fromBlock, err := v.chain.GetAccountBlockByHash(&block.FromBlockHash)
-		if err != nil {
-			return nil, err
+		fromBlock, recvErr = v.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		if recvErr != recvErr {
+			return nil, recvErr
 		}
 		if fromBlock == nil {
 			return nil, errors.New("failed to find the recvBlock's fromBlock")
 		}
+
+		states, recvErr = v.chain.GetContractRandomGlobalStatus(&block.AccountAddress, &block.FromBlockHash)
+		if recvErr != nil {
+			return nil, recvErr
+		}
 	}
+	gen, err := generator.NewGenerator2(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash, states)
+	if err != nil {
+		vLog.Error("new generator error," + err.Error())
+		return nil, ErrVerifyForVmGeneratorFailed
+	}
+
 	genResult, err := gen.GenerateWithBlock(*block, fromBlock)
 	if err != nil {
 		vLog.Error("generator block error," + err.Error())
@@ -402,41 +405,6 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 
 func (v *AccountVerifier) verifyIsReceivedSucceed(block *ledger.AccountBlock) (bool, error) {
 	return v.chain.IsReceived(&block.FromBlockHash)
-}
-
-// fixme get seed and snapshot
-func (v *AccountVerifier) getGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
-	isContract, err := v.chain.IsContractAccount(&block.AccountAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	if block.IsReceiveBlock() && isContract {
-		meta, err := v.chain.GetContractMeta(&block.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-		timesLimit := uint64(meta.SendConfirmedTimes)
-		firstConfirmedSb, err := v.chain.GetConfirmSnapshotHeaderByAbHash(&block.FromBlockHash)
-		if err != nil {
-			return nil, err
-		}
-		if firstConfirmedSb == nil {
-			return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
-		}
-		limitSbHeight := firstConfirmedSb.Height + timesLimit
-		limitSb, err := v.chain.GetSnapshotBlockByHeight(limitSbHeight)
-		if err != nil {
-			return nil, err
-		}
-		if seed := v.chain.GetSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
-			return &util.GlobalStatus{
-				Seed:          seed,
-				SnapshotBlock: limitSb,
-			}, nil
-		}
-	}
-	return nil, nil
 }
 
 type AccBlockPendingTask struct {
