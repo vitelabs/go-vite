@@ -205,7 +205,7 @@ func Test_getSubLedgerHandler(t *testing.T) {
 		}
 	}
 
-	mp := NewMockPeer()
+	mp := NewMockPeer("peer1", 0, types.Hash{})
 	mp.Handlers[FileListCode] = counter()
 
 	handler := &getSubLedgerHandler{
