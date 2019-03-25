@@ -528,7 +528,7 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 const DefaultSeedRangeCount int = 25
 
 // fixme get seed and snapshot
-func (c *chain) getBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
+func (c *chain) GetBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
 	isContract, err := c.IsContractAccount(&block.AccountAddress)
 	if err != nil {
 		return nil, err
