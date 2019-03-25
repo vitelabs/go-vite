@@ -10,7 +10,12 @@ import (
 var TimeoutErr = errors.New("timeout")
 
 type TimeoutCond struct {
-	cd sync.Cond
+	cd *sync.Cond
+}
+
+func NewTimeoutCond() *TimeoutCond {
+	mutex := &sync.Mutex{}
+	return &TimeoutCond{cd: sync.NewCond(mutex)}
 }
 
 func (self *TimeoutCond) Wait() {
