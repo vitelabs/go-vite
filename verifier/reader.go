@@ -1,7 +1,7 @@
-package pmverifier
+package verifier
 
 import "github.com/vitelabs/go-vite/ledger"
 
-type Consensus interface {
+type consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 }

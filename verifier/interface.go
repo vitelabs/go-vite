@@ -1,17 +1,15 @@
-package pmverifier
+package verifier
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type Verifier interface {
 	VerifyNetAccBlock(block ledger.AccountBlock) error
-	VerifyRPCAccBlock(block ledger.AccountBlock) (*vm_context.VmAccountBlock, error)
-	VerifyPoolAccBlock(block ledger.AccountBlock) (*AccBlockPendingTask, *vm_context.VmAccountBlock, error)
-
-	VerifyReferred(block ledger.AccountBlock) (VerifyResult, *AccBlockPendingTask, error)
-	VerifyVM(block ledger.AccountBlock) (*vm_context.VmAccountBlock, error)
+	VerifyRPCAccBlock(block ledger.AccountBlock, snapshotHash types.Hash) (*vm_db.VmAccountBlock, error)
+	VerifyPoolAccBlock(block ledger.AccountBlock, snapshotHash types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
 
 	VerifyAccBlockNonce(block ledger.AccountBlock) error
 	VerifyAccBlockHash(block ledger.AccountBlock) error

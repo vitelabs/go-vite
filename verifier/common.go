@@ -1,4 +1,4 @@
-package pmverifier
+package verifier
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
