@@ -78,7 +78,7 @@ func (c *chain) GetStateIterator(address *types.Address, prefix []byte) (interfa
 	ss, err := c.stateDB.NewStorageIterator(address, prefix)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageIterator failed, address is %s. prefix is %s", address, prefix))
-		c.log.Error(cErr.Error(), "method", "GetStateIterator")
+		c.log.Error(cErr.Error(), "method", "GetStorageIterator")
 		return nil, cErr
 	}
 	return ss, nil

@@ -2,7 +2,6 @@ package chain_state
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -83,11 +82,6 @@ func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	return value, nil
-}
-
-// TODO
-func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKey(addr, prefix)), nil), nil
 }
 
 func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
