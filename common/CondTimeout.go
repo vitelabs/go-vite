@@ -14,6 +14,8 @@ type TimeoutCond struct {
 }
 
 func (self *TimeoutCond) Wait() {
+	self.cd.L.Lock()
+	defer self.cd.L.Unlock()
 	self.cd.Wait()
 }
 
