@@ -642,7 +642,7 @@ func (c *chain) GetBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.Gl
 		if err != nil {
 			return nil, err
 		}
-		if seed := c.GetSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+		if seed := c.GetRandomSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
 			return &util.GlobalStatus{
 				Seed:          seed,
 				SnapshotBlock: limitSb,
