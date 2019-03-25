@@ -27,7 +27,7 @@ type Writer interface {
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
 
 	// for contract account
-	AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error
+	//AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error
 }
 
 type SnapshotProducerWriter interface {
@@ -110,7 +110,7 @@ type pool struct {
 	wt   *wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
-	accountVerifier  *verifier.AccountVerifier
+	accountVerifier  verifier.Verifier
 
 	accountSubId  int
 	snapshotSubId int
@@ -196,7 +196,7 @@ func NewPool(bc chainDb) (*pool, error) {
 func (self *pool) Init(s syncer,
 	wt *wallet.Manager,
 	snapshotV *verifier.SnapshotVerifier,
-	accountV *verifier.AccountVerifier) {
+	accountV verifier.Verifier) {
 	self.sync = s
 	self.wt = wt
 	rw := &snapshotCh{version: self.version, bc: self.bc, newBc: &preMainNetChainImpl{bc: self.bc}, log: self.log}
@@ -362,7 +362,7 @@ func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAc
 	}
 
 	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmDb, self.version, types.Local)
-	err = ac.AddDirectBlocks(cBlock, nil)
+	err = ac.AddDirectBlocks(cBlock)
 	if err != nil {
 		return err
 	}
@@ -381,26 +381,26 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 	return nil
 }
 
-func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error {
-	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
-	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
-	self.RLock()
-	defer self.RUnLock()
-	ac := self.selfPendingAc(address)
-	// todo
-	var accountPoolBlocks []*accountPoolBlock
-	for _, v := range sendBlocks {
-		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmDb, self.version, types.Local))
-	}
-	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmDb, self.version, types.Local), accountPoolBlocks)
-	if err != nil {
-		return err
-	}
-	ac.f.broadcastReceivedBlocks(received, sendBlocks)
-
-	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
-	return nil
-}
+//func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error {
+//	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
+//	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
+//	self.RLock()
+//	defer self.RUnLock()
+//	ac := self.selfPendingAc(address)
+//	// todo
+//	var accountPoolBlocks []*accountPoolBlock
+//	for _, v := range sendBlocks {
+//		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmDb, self.version, types.Local))
+//	}
+//	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmDb, self.version, types.Local), accountPoolBlocks)
+//	if err != nil {
+//		return err
+//	}
+//	ac.f.broadcastReceivedBlocks(received, sendBlocks)
+//
+//	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
+//	return nil
+//}
 
 func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
 	return self.selfPendingAc(address).ExistInCurrent(requestHash)
@@ -534,59 +534,60 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	chain, _ = self.pendingAc.LoadOrStore(addr, p)
 	return chain.(*accountPool)
 }
-func (self *pool) loopTryInsert() {
-	defer self.poolRecover()
-	self.wg.Add(1)
-	defer self.wg.Done()
 
-	t := time.NewTicker(time.Millisecond * 100)
-	t2 := time.NewTicker(time.Millisecond * 40)
-	defer t.Stop()
-	sum := 0
-	for {
-		select {
-		case <-self.closed:
-			return
-		case <-t.C:
-			if sum == 0 {
-				time.Sleep(100 * time.Millisecond)
-				monitor.LogEvent("pool", "tryInsertSleep100")
-			}
-			sum = 0
-			sum += self.accountsTryInsert()
-		case <-t2.C:
-			if sum == 0 {
-				time.Sleep(20 * time.Millisecond)
-				monitor.LogEvent("pool", "tryInsertSleep20")
-			}
-			sum = 0
-			sum += self.accountsTryInsert()
-		default:
-			sum += self.accountsTryInsert()
-		}
-	}
-}
+//func (self *pool) loopTryInsert() {
+//	defer self.poolRecover()
+//	self.wg.Add(1)
+//	defer self.wg.Done()
+//
+//	t := time.NewTicker(time.Millisecond * 100)
+//	t2 := time.NewTicker(time.Millisecond * 40)
+//	defer t.Stop()
+//	sum := 0
+//	for {
+//		select {
+//		case <-self.closed:
+//			return
+//		case <-t.C:
+//			if sum == 0 {
+//				time.Sleep(100 * time.Millisecond)
+//				monitor.LogEvent("pool", "tryInsertSleep100")
+//			}
+//			sum = 0
+//			sum += self.accountsTryInsert()
+//		case <-t2.C:
+//			if sum == 0 {
+//				time.Sleep(20 * time.Millisecond)
+//				monitor.LogEvent("pool", "tryInsertSleep20")
+//			}
+//			sum = 0
+//			sum += self.accountsTryInsert()
+//		default:
+//			sum += self.accountsTryInsert()
+//		}
+//	}
+//}
 
-func (self *pool) accountsTryInsert() int {
-	monitor.LogEvent("pool", "tryInsert")
-	sum := 0
-	var pending []*accountPool
-	self.pendingAc.Range(func(_, v interface{}) bool {
-		p := v.(*accountPool)
-		pending = append(pending, p)
-		return true
-	})
-	var tasks []verifyTask
-	for _, p := range pending {
-		task := p.TryInsert()
-		if task != nil {
-			self.fetchForTask(task)
-			tasks = append(tasks, task)
-			sum = sum + 1
-		}
-	}
-	return sum
-}
+//func (self *pool) accountsTryInsert() int {
+//	monitor.LogEvent("pool", "tryInsert")
+//	sum := 0
+//	var pending []*accountPool
+//	self.pendingAc.Range(func(_, v interface{}) bool {
+//		p := v.(*accountPool)
+//		pending = append(pending, p)
+//		return true
+//	})
+//	var tasks []verifyTask
+//	for _, p := range pending {
+//		task := p.TryInsert()
+//		if task != nil {
+//			self.fetchForTask(task)
+//			tasks = append(tasks, task)
+//			sum = sum + 1
+//		}
+//	}
+//	return sum
+//}
 
 func (self *pool) loopCompact() {
 	defer self.poolRecover()

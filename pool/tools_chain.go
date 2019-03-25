@@ -123,6 +123,11 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
 	return self.rw.GetUnConfirmAccountBlocks(&self.address)
 }
+
+func (self *accountCh) getLatestSnapshotBlock() *ledger.SnapshotBlock {
+	return self.rw.GetLatestSnapshotBlock()
+}
+
 func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *ledger.AccountBlock {
 	block, e := self.rw.GetFirstConfirmedAccountBlockBySbHeight(head.Height+1, &self.address)
 	if e != nil {

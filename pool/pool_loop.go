@@ -260,7 +260,8 @@ func (self *pool) insertQueue(q Package) error {
 }
 
 func (self *pool) insertAccountBucket(bucket Bucket) error {
-	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items())
+	latestSb := self.bc.GetLatestSnapshotBlock()
+	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items(), latestSb)
 	if err != nil {
 		return err
 	}

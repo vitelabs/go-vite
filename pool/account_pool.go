@@ -182,41 +182,41 @@ func (self *accountPool) UnLockForInsert() {
 	self.rMu.Unlock()
 }
 
-/**
-try insert block to real chain.
-*/
-func (self *accountPool) TryInsert() verifyTask {
-	// if current size is empty, do nothing.
-	if self.chainpool.current.size() <= 0 {
-		return nil
-	}
-
-	// if an compact operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
-		return nil
-	} else {
-		defer self.compactLock.UnLock()
-	}
-
-	// if last verify task has not done
-	if self.verifyTask != nil && !self.verifyTask.done(self.rw.rw) {
-		return nil
-	}
-	// lock other chain insert
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-
-	// try insert block to real chain
-	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
-
-	task := self.tryInsert()
-	self.verifyTask = task
-	if task != nil {
-		return task
-	} else {
-		return nil
-	}
-}
+///**
+//try insert block to real chain.
+//*/
+//func (self *accountPool) TryInsert() verifyTask {
+//	// if current size is empty, do nothing.
+//	if self.chainpool.current.size() <= 0 {
+//		return nil
+//	}
+//
+//	// if an compact operation is in progress, do nothing.
+//	if !self.compactLock.TryLock() {
+//		return nil
+//	} else {
+//		defer self.compactLock.UnLock()
+//	}
+//
+//	// if last verify task has not done
+//	if self.verifyTask != nil && !self.verifyTask.done(self.rw.rw) {
+//		return nil
+//	}
+//	// lock other chain insert
+//	self.pool.RLock()
+//	defer self.pool.RUnLock()
+//
+//	// try insert block to real chain
+//	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
+//
+//	task := self.tryInsert()
+//	self.verifyTask = task
+//	if task != nil {
+//		return task
+//	} else {
+//		return nil
+//	}
+//}
 
 /**
 try insert block to real chain.
@@ -268,99 +268,99 @@ pending:
 success:
 	really insert to chain.
 */
-func (self *accountPool) tryInsert() verifyTask {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	//// recover logic
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		var e error
-	//		switch t := err.(type) {
-	//		case error:
-	//			e = errors.WithStack(t)
-	//		case string:
-	//			e = errors.New(t)
-	//		default:
-	//			e = errors.Errorf("unknown type, %+v", err)
-	//		}
-	//		self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
-	//		fmt.Printf("%+v", e)
-	//		defer self.log.Warn("tryInsert end recover.")
-	//		self.initPool()
-	//	}
-	//}()
-
-	cp := self.chainpool
-	current := cp.current
-	minH := current.tailHeight + 1
-	headH := current.headHeight
-	n := 0
-	for i := minH; i <= headH; {
-		block := self.getCurrentBlock(i)
-		if block == nil {
-			return self.v.newSuccessTask()
-		}
-
-		block.resetForkVersion()
-		n++
-		stat := self.v.verifyAccount(block)
-		if !block.checkForkVersion() {
-			block.resetForkVersion()
-			self.log.Warn("snapshot fork happen. account should verify again.", "blockHash", block.Hash(), "blockHeight", block.Height())
-			return self.v.newSuccessTask()
-		}
-		result := stat.verifyResult()
-		switch result {
-		case verifier.PENDING:
-			monitor.LogEvent("pool", "AccountPending")
-			t := stat.task()
-			if t == nil || len(t.requests()) == 0 {
-				monitor.LogEvent("pool", "AccountPendingNotFound")
-			}
-
-			err := self.verifyPending(block)
-			if err != nil {
-				self.log.Error("account pending fail. ",
-					"hash", block.Hash(), "height", block.Height(), "err", err)
-			}
-			return t
-		case verifier.FAIL:
-			monitor.LogEvent("pool", "AccountFail")
-			err := self.verifyFail(block)
-			self.log.Error("account block verify fail. ",
-				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg(), "err2", err)
-			return self.v.newFailTask()
-		case verifier.SUCCESS:
-			monitor.LogEvent("pool", "AccountSuccess")
-
-			if len(stat.blocks) == 0 {
-				self.log.Error("account block fail. ",
-					"hash", block.Hash(), "height", block.Height(), "error", "stat.blocks is empty.")
-				return self.v.newFailTask()
-			}
-			if block.Height() == current.tailHeight+1 {
-				err, cnt := self.verifySuccess(stat.blocks)
-				if err != nil {
-					self.log.Error("account block write fail. ",
-						"hash", block.Hash(), "height", block.Height(), "error", err)
-					return self.v.newFailTask()
-				}
-				i = i + cnt
-			} else {
-				self.log.Error("account block forked", "height", block.Height())
-				return self.v.newSuccessTask()
-			}
-		default:
-			// shutdown process
-			self.log.Crit("Unexpected things happened.",
-				"hash", block.Hash(), "height", block.Height(), "result", result)
-			return self.v.newFailTask()
-		}
-	}
-
-	return self.v.newSuccessTask()
-}
+//func (self *accountPool) tryInsert() verifyTask {
+//	self.rMu.Lock()
+//	defer self.rMu.Unlock()
+//
+//	//// recover logic
+//	//defer func() {
+//	//	if err := recover(); err != nil {
+//	//		var e error
+//	//		switch t := err.(type) {
+//	//		case error:
+//	//			e = errors.WithStack(t)
+//	//		case string:
+//	//			e = errors.New(t)
+//	//		default:
+//	//			e = errors.Errorf("unknown type, %+v", err)
+//	//		}
+//	//		self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
+//	//		fmt.Printf("%+v", e)
+//	//		defer self.log.Warn("tryInsert end recover.")
+//	//		self.initPool()
+//	//	}
+//	//}()
+//
+//	cp := self.chainpool
+//	current := cp.current
+//	minH := current.tailHeight + 1
+//	headH := current.headHeight
+//	n := 0
+//	for i := minH; i <= headH; {
+//		block := self.getCurrentBlock(i)
+//		if block == nil {
+//			return self.v.newSuccessTask()
+//		}
+//
+//		block.resetForkVersion()
+//		n++
+//		stat := self.v.verifyAccount(block)
+//		if !block.checkForkVersion() {
+//			block.resetForkVersion()
+//			self.log.Warn("snapshot fork happen. account should verify again.", "blockHash", block.Hash(), "blockHeight", block.Height())
+//			return self.v.newSuccessTask()
+//		}
+//		result := stat.verifyResult()
+//		switch result {
+//		case verifier.PENDING:
+//			monitor.LogEvent("pool", "AccountPending")
+//			t := stat.task()
+//			if t == nil || len(t.requests()) == 0 {
+//				monitor.LogEvent("pool", "AccountPendingNotFound")
+//			}
+//
+//			err := self.verifyPending(block)
+//			if err != nil {
+//				self.log.Error("account pending fail. ",
+//					"hash", block.Hash(), "height", block.Height(), "err", err)
+//			}
+//			return t
+//		case verifier.FAIL:
+//			monitor.LogEvent("pool", "AccountFail")
+//			err := self.verifyFail(block)
+//			self.log.Error("account block verify fail. ",
+//				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg(), "err2", err)
+//			return self.v.newFailTask()
+//		case verifier.SUCCESS:
+//			monitor.LogEvent("pool", "AccountSuccess")
+//
+//			if len(stat.blocks) == 0 {
+//				self.log.Error("account block fail. ",
+//					"hash", block.Hash(), "height", block.Height(), "error", "stat.blocks is empty.")
+//				return self.v.newFailTask()
+//			}
+//			if block.Height() == current.tailHeight+1 {
+//				err, cnt := self.verifySuccess(stat.blocks)
+//				if err != nil {
+//					self.log.Error("account block write fail. ",
+//						"hash", block.Hash(), "height", block.Height(), "error", err)
+//					return self.v.newFailTask()
+//				}
+//				i = i + cnt
+//			} else {
+//				self.log.Error("account block forked", "height", block.Height())
+//				return self.v.newSuccessTask()
+//			}
+//		default:
+//			// shutdown process
+//			self.log.Crit("Unexpected things happened.",
+//				"hash", block.Hash(), "height", block.Height(), "result", result)
+//			return self.v.newFailTask()
+//		}
+//	}
+//
+//	return self.v.newSuccessTask()
+//}
 func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 	cp := self.chainpool
 
@@ -510,7 +510,8 @@ func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk boo
 	return nil
 }
 
-func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks []*accountPoolBlock) error {
+func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
+	latestSb := self.rw.getLatestSnapshotBlock()
 	//self.rMu.Lock()
 	//defer self.rMu.Unlock()
 	self.chainHeadMu.Lock()
@@ -519,13 +520,17 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 
-	stat := self.v.verifyDirectAccount(received, sendBlocks)
+	stat := self.v.verifyDirectAccount(received, latestSb)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
-		return errors.New("pending for something")
+		msg := fmt.Sprintf("pending for directly adding account block[%s-%s-%d].", received.block.AccountAddress, received.Hash(), received.Height())
+		return errors.New(msg)
 	case verifier.FAIL:
-		return errors.New(stat.errMsg())
+		if stat.err != nil {
+			return stat.err
+		}
+		return errors.Errorf("directly adding account block[%s-%s-%d] fail.", received.block.AccountAddress, received.Hash(), received.Height())
 	case verifier.SUCCESS:
 		fchain, blocks, err := self.genDirectBlocks(stat.blocks)
 		if err != nil {
@@ -671,7 +676,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(items []*Item) error {
+func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
 		return errors.New("empty chainpool")
@@ -700,7 +705,7 @@ func (self *accountPool) tryInsertItems(items []*Item) error {
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
-			stat := self.v.verifyAccount(block.(*accountPoolBlock))
+			stat := self.v.verifyAccount(block.(*accountPoolBlock), latestSb)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return errors.New("new fork version")
