@@ -112,7 +112,7 @@ func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*ty
 
 func (c *chain) GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error) {
 	// do something
-	c.stateDB.GetValue(&types.AddressMintage, tokenId.Bytes())
+	c.stateDB.GetStorageValue(&types.AddressMintage, tokenId.Bytes())
 	return nil, nil
 }
 

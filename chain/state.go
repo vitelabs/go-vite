@@ -19,6 +19,7 @@ func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.
 	return result, nil
 }
 func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
+
 	return nil, nil
 }
 
@@ -86,10 +87,10 @@ func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interf
 }
 
 func (c *chain) GetValue(address types.Address, key []byte) ([]byte, error) {
-	value, err := c.stateDB.GetValue(&address, key)
+	value, err := c.stateDB.GetStorageValue(&address, key)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetValue failed, address is %s. key is %s", address, key))
-		c.log.Error(cErr.Error(), "method", "GetValue")
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetStorageValue failed, address is %s. key is %s", address, key))
+		c.log.Error(cErr.Error(), "method", "GetStorageValue")
 		return nil, cErr
 	}
 	return value, err

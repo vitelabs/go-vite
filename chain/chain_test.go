@@ -50,7 +50,7 @@ func homeDir() string {
 	return ""
 }
 
-func TestChain_AccountBlock(t *testing.T) {
+func TestChain(t *testing.T) {
 
 	const accountNum = 1000
 	chainInstance, err := NewChainInstance("unit_test", true)
@@ -58,7 +58,7 @@ func TestChain_AccountBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println("InsertAccountBlock")
-	accounts, hashList, addrList, heightList := InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
+	accounts, hashList, addrList, heightList, snapshotBlockList := InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
 
 	accountIdList := make([]uint64, len(addrList))
 	maxAccountId := uint64(0)
@@ -81,9 +81,9 @@ func TestChain_AccountBlock(t *testing.T) {
 
 	fmt.Println("Complete InsertAccountBlock")
 
-	fmt.Println("GetAccountBlockByHash")
-	GetAccountBlockByHash(t, chainInstance, hashList)
-	fmt.Println("Complete GetAccountBlockByHash")
+	t.Run("GetAccountBlockByHash", func(t *testing.T) {
+		GetAccountBlockByHash(t, chainInstance, hashList)
+	})
 
 	fmt.Println("GetAccountBlockByHeight")
 	GetAccountBlockByHeight(t, chainInstance, addrList, heightList)
@@ -97,6 +97,10 @@ func TestChain_AccountBlock(t *testing.T) {
 	GetAccountId(t, chainInstance, addrList, accountIdList)
 	fmt.Println("Complete GetAccountId")
 
+	fmt.Println("GetAccountAddress")
+	GetAccountAddress(t, chainInstance, addrList, accountIdList)
+	fmt.Println("Complete GetAccountAddress")
+
 	fmt.Println("IsReceived")
 	IsReceived(t, chainInstance, accounts, hashList)
 	fmt.Println("Complete IsReceived")
@@ -104,10 +108,6 @@ func TestChain_AccountBlock(t *testing.T) {
 	fmt.Println("GetReceiveAbBySendAb")
 	GetReceiveAbBySendAb(t, chainInstance, accounts, hashList)
 	fmt.Println("Complete GetReceiveAbBySendAb")
-
-	fmt.Println("GetAccountAddress")
-	GetAccountAddress(t, chainInstance, addrList, accountIdList)
-	fmt.Println("Complete GetAccountAddress")
 
 	fmt.Println("GetConfirmedTimes")
 	GetConfirmedTimes(t, chainInstance, accounts, hashList)
@@ -121,6 +121,47 @@ func TestChain_AccountBlock(t *testing.T) {
 	GetLatestAccountHeight(t, chainInstance, accounts, addrList)
 	fmt.Println("Complete GetLatestAccountHeight")
 
+	t.Run("HasOnRoadBlocks", func(t *testing.T) {
+		HasOnRoadBlocks(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
+		GetOnRoadBlocksHashList(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("IsSnapshotBlockExisted", func(t *testing.T) {
+		IsSnapshotBlockExisted(t, chainInstance, snapshotBlockList)
+	})
+	t.Run("GetGenesisSnapshotBlock", func(t *testing.T) {
+		GetGenesisSnapshotBlock(t, chainInstance)
+	})
+	t.Run("GetLatestSnapshotBlock", func(t *testing.T) {
+		GetLatestSnapshotBlock(t, chainInstance)
+	})
+	t.Run("GetSnapshotHeightByHash", func(t *testing.T) {
+		GetSnapshotHeightByHash(t, chainInstance, snapshotBlockList)
+	})
+	t.Run("GetSnapshotHeaderByHeight", func(t *testing.T) {
+		GetSnapshotHeaderByHeight(t, chainInstance, snapshotBlockList)
+	})
+	t.Run("GetSnapshotBlockByHeight", func(t *testing.T) {
+		GetSnapshotBlockByHeight(t, chainInstance, snapshotBlockList)
+	})
+
+	t.Run("GetSnapshotHeaderByHash", func(t *testing.T) {
+		GetSnapshotHeaderByHash(t, chainInstance, snapshotBlockList)
+	})
+
+	t.Run("GetSnapshotBlockByHash", func(t *testing.T) {
+		GetSnapshotBlockByHash(t, chainInstance, snapshotBlockList)
+	})
+	t.Run("GetRangeSnapshotHeaders", func(t *testing.T) {
+		GetRangeSnapshotHeaders(t, chainInstance, snapshotBlockList)
+	})
+
+	t.Run("GetRangeSnapshotBlocks", func(t *testing.T) {
+		GetRangeSnapshotBlocks(t, chainInstance, snapshotBlockList)
+	})
 	fmt.Println("GetAccountBlocks")
 	GetAccountBlocks(t, chainInstance, accounts, addrList)
 	fmt.Println("Complete GetAccountBlocks")

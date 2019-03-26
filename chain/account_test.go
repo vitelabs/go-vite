@@ -16,7 +16,7 @@ type Account struct {
 	privateKey ed25519.PrivateKey
 	publicKey  ed25519.PublicKey
 
-	unreceivedBlocks []*ledger.AccountBlock
+	UnreceivedBlocks []*ledger.AccountBlock
 
 	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
 	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
@@ -52,14 +52,14 @@ func (acc *Account) Hash() types.Hash {
 }
 
 func (acc *Account) HasUnreceivedBlock() bool {
-	return len(acc.unreceivedBlocks) > 0
+	return len(acc.UnreceivedBlocks) > 0
 }
 
 func (acc *Account) AddUnreceivedBlock(block *ledger.AccountBlock) {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
-	acc.unreceivedBlocks = append(acc.unreceivedBlocks, block)
+	acc.UnreceivedBlocks = append(acc.UnreceivedBlocks, block)
 }
 
 func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
@@ -79,12 +79,12 @@ func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
-	if len(acc.unreceivedBlocks) <= 0 {
+	if len(acc.UnreceivedBlocks) <= 0 {
 		return nil
 	}
 
-	block := acc.unreceivedBlocks[0]
-	acc.unreceivedBlocks = acc.unreceivedBlocks[1:]
+	block := acc.UnreceivedBlocks[0]
+	acc.UnreceivedBlocks = acc.UnreceivedBlocks[1:]
 	return block
 }
 

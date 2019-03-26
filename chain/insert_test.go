@@ -117,7 +117,8 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	//})
 }
 
-func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain, txCount int, snapshotPerBlockNum int) (map[types.Address]*Account, []types.Hash, []types.Address, []uint64) {
+func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
+	txCount int, snapshotPerBlockNum int) (map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
 	accounts, addrList := MakeAccounts(accountNumber, chainInstance)
 
 	fmt.Printf("Account number is %d\n", accountNumber)
@@ -127,6 +128,7 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain, tx
 	}
 
 	var err error
+	snapshotBlockList := make([]*ledger.SnapshotBlock, 0)
 	hashList := make([]types.Hash, 0, txCount)
 
 	returnAddrList := make([]types.Address, 0, txCount)
@@ -170,6 +172,7 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain, tx
 				account := accounts[addr]
 				account.Snapshot(sb.Hash)
 			}
+			snapshotBlockList = append(snapshotBlockList, sb)
 		}
 
 		hashList = append(hashList, tx.AccountBlock.Hash)
@@ -178,5 +181,5 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain, tx
 		heightList = append(heightList, tx.AccountBlock.Height)
 
 	}
-	return accounts, hashList, returnAddrList, heightList
+	return accounts, hashList, returnAddrList, heightList, snapshotBlockList
 }
