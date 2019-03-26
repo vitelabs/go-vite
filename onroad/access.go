@@ -7,6 +7,48 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
+func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCount uint64) ([]*ledger.AccountBlock, error) {
+	log := manager.log.New("method", "newSignalToWorker", "addr", addr)
+	blocks := make([]*ledger.AccountBlock, 0)
+	hashList, err := manager.chain.GetOnRoadBlocksHashList(*addr, int(pageNum), int(pageCount))
+	if err != nil {
+		log.Error(fmt.Sprintf("GetOnRoadBlocksHashList failed, err:%v", err))
+		return nil, err
+	}
+	if hashList == nil {
+		return nil, nil
+	}
+	for _, v := range hashList {
+		onroad, err := manager.chain.GetAccountBlockByHash(v)
+		if err != nil {
+			log.Error(fmt.Sprintf("GetAccountBlockByHash failed, err:%v", err))
+		}
+		blocks = append(blocks, onroad)
+	}
+	return blocks, nil
+}
+
+func (manager *Manager) NewBlockSignal(blocks []*vm_db.VmAccountBlock) error {
+	for _, v := range blocks {
+		if v.AccountBlock.IsSendBlock() {
+			manager.newSignalToWorker(v.AccountBlock)
+		}
+	}
+	return nil
+}
+
+func (manager *Manager) addContractLis(gid types.Gid, f func(address types.Address)) {
+	manager.contractListenerMutex.Lock()
+	defer manager.contractListenerMutex.Unlock()
+	manager.newContractListener[gid] = f
+}
+
+func (manager *Manager) removeContractLis(gid types.Gid) {
+	manager.contractListenerMutex.Lock()
+	defer manager.contractListenerMutex.Unlock()
+	delete(manager.newContractListener, gid)
+}
+
 func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
@@ -15,48 +57,13 @@ func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types
 	return manager.pool.ExistInPool(addr, fromBlockHash)
 }
 
-func (manager *Manager) getOnRoadBlockByAddr(addr *types.Address) (*ledger.AccountBlock, error) {
-	hashList, err := manager.chain.GetOnRoadBlocksHashList(*addr, 1, 1)
-	if err != nil {
-		return nil, err
-	}
-	if len(hashList) > 0 {
-		onroad, err := manager.chain.GetAccountBlockByHash(hashList[0])
-		if err != nil {
-			return nil, err
-		}
-		return onroad, nil
-	}
-	return nil, nil
-}
-
 func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 	return manager.chain.HasOnRoadBlocks(*addr)
 }
 
-func (manager *Manager) DeleteDirect(sendBlock *ledger.AccountBlock) error {
+//todo @chain-interface
+func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
 	//p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
-	return nil
-}
-
-func (manager *Manager) AddContractLis(gid types.Gid, f func(address types.Address)) {
-	manager.contractListenerMutex.Lock()
-	defer manager.contractListenerMutex.Unlock()
-	manager.newContractListener[gid] = f
-}
-
-func (manager *Manager) RemoveContractLis(gid types.Gid) {
-	manager.contractListenerMutex.Lock()
-	defer manager.contractListenerMutex.Unlock()
-	delete(manager.newContractListener, gid)
-}
-
-func (manager *Manager) NewOnroad(blocks []*vm_db.VmAccountBlock) error {
-	for _, v := range blocks {
-		if v.AccountBlock.IsSendBlock() {
-			manager.newSignalToWorker(v.AccountBlock)
-		}
-	}
 	return nil
 }
 

@@ -102,8 +102,8 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
-		w.manager.AddContractLis(w.gid, func(address types.Address) {
-			if w.isInBlackList(address) {
+		w.manager.addContractLis(w.gid, func(address types.Address) {
+			if w.isContractInBlackList(address) {
 				return
 			}
 
@@ -139,13 +139,13 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
-		w.manager.RemoveContractLis(w.gid)
+		w.manager.removeContractLis(w.gid)
 
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
 		//w.uBlocksPool.DeleteContractCache(w.gid)
-		w.clearBlackList()
+		w.clearContractBlackList()
 
 		w.log.Info("stop all task")
 		w.wg.Wait()
@@ -198,26 +198,26 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
-func (w *ContractWorker) clearBlackList() {
+func (w *ContractWorker) clearContractBlackList() {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList = make(map[types.Address]bool)
 }
 
 // Don't deal with it for this around of blocks-generating period
-func (w *ContractWorker) addIntoBlackList(addr types.Address) {
+func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
 	//w.uBlocksPool.ReleaseContractCache(addr)
 }
 
-func (w *ContractWorker) isInBlackList(addr types.Address) bool {
+func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
 	_, ok := w.blackList[addr]
 	if ok {
-		w.log.Info("isInBlackList", "addr", addr, "in", ok)
+		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
 }

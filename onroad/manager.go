@@ -62,7 +62,7 @@ func (manager *Manager) Start() {
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
-	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.NewOnroad)
+	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.NewBlockSignal)
 	//manager.writeSnapshotLid = manager.Chain().RegisterInsertSnapshotBlocks(manager.NewSnapshot)
 }
 
