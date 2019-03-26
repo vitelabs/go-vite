@@ -38,17 +38,11 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	if err != nil {
 		return nil, err
 	}
-	trie, err := self.chain.GenStateTrie(head.StateHash, accounts)
-	if err != nil {
-		return nil, err
-	}
 
 	block := &ledger.SnapshotBlock{
 		PrevHash:        head.Hash,
 		Height:          head.Height + 1,
 		Timestamp:       &e.Timestamp,
-		StateTrie:       trie,
-		StateHash:       *trie.Hash(),
 		SnapshotContent: accounts,
 	}
 	if fork.IsMintFork(block.Height) {
@@ -107,88 +101,31 @@ func (self *tools) checkAddressLock(address types.Address, coinbase *AddressCont
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
-
-	needSnapshotAccounts := self.chain.GetNeedSnapshotContent()
-
 	// todo get block
-	for k, b := range needSnapshotAccounts {
-		hashH, err := self.sVerifier.VerifyAccountTimeout(k, b, head.Height+1)
-		if err != nil {
-			self.log.Error("account verify timeout.", "addr", k, "accHash", b.Hash, "accHeight", b.Height, "err", err)
-			if hashH != nil {
-				err := self.pool.RollbackAccountTo(k, hashH.Hash, hashH.Height)
-				if err != nil {
-					self.log.Error("account rollback err1.", "addr", k, "accHash", hashH.Hash, "accHeight", hashH.Height, "err", err)
-					return nil, err
-				}
-			} else {
-				err := self.pool.RollbackAccountTo(k, b.Hash, b.Height)
-				if err != nil {
-					self.log.Error("account rollback err2.", "addr", k, "accHash", b.Hash, "accHeight", b.Height, "err", err)
-					return nil, err
-				}
-			}
-		}
-	}
+	needSnapshotAccounts := self.chain.GetContentNeedSnapshot()
 
-	// todo get block
-	needSnapshotAccounts = self.chain.GetNeedSnapshotContent()
+	//var finalAccounts = make(map[types.Address]*ledger.HashHeight)
 
-	var finalAccounts = make(map[types.Address]*ledger.HashHeight)
-
-	for k, b := range needSnapshotAccounts {
-
-		errB := b
-		hashH, err := self.sVerifier.VerifyAccountTimeout(k, b, head.Height+1)
-		if hashH != nil {
-			errB = hashH
-		}
-		if err != nil {
-			return nil, errors.Errorf(
-				"error account block, account:%s, blockHash:%s, blockHeight:%d, err:%s",
-				k.String(),
-				errB.Hash.String(),
-				errB.Height,
-				err)
-		}
-		finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
-	}
-	return finalAccounts, nil
+	//for k, b := range needSnapshotAccounts {
+	//
+	//	errB := b
+	//	hashH, err := self.sVerifier.VerifyAccountTimeout(k, b, head.Height+1)
+	//	if hashH != nil {
+	//		errB = hashH
+	//	}
+	//	if err != nil {
+	//		return nil, errors.Errorf(
+	//			"error account block, account:%s, blockHash:%s, blockHeight:%d, err:%s",
+	//			k.String(),
+	//			errB.Hash.String(),
+	//			errB.Height,
+	//			err)
+	//	}
+	//	finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
+	//}
+	return needSnapshotAccounts, nil
 }
-
-const seedDuration = time.Minute * 10
 
 func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
-	t := head.Timestamp.Add(-seedDuration)
-	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(head.Height, &t, &e.Address)
-	if err != nil {
-		return nil
-	}
-	for _, v := range blocks {
-		var seedHash = v.SeedHash
-		if seedHash != nil {
-			return v
-		}
-	}
-
 	return nil
-}
-
-func (self *tools) generateSeed(e *consensus.Event, head *ledger.SnapshotBlock, fn func(*types.Hash) uint64) uint64 {
-	t := e.SnapshotTimeStamp.Add(-seedDuration)
-	blocks, err := self.chain.GetSnapshotBlocksAfterAndEqualTime(e.SnapshotHeight, &t, &e.Address)
-	if err != nil {
-		return 0
-	}
-	for _, v := range blocks {
-		var seedHash = v.SeedHash
-		if seedHash != nil {
-			if e.PeriodStime.Before(*v.Timestamp) {
-				return 0
-			}
-			return fn(seedHash)
-		}
-	}
-
-	return 0
 }
