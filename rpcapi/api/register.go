@@ -75,7 +75,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	snapshotBlock := r.chain.GetLatestSnapshotBlock()
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
+	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
+	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	}
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
+	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}

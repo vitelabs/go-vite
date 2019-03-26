@@ -124,7 +124,7 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 	snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(m.chain, &types.AddressMintage)
+	prevHash, err := getPrevBlockHash(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(m.chain, &types.AddressMintage)
+	prevHash, err := getPrevBlockHash(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	snapshotBlock := m.chain.GetLatestSnapshotBlock()
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(m.chain, &types.AddressMintage)
+	prevHash, err := getPrevBlockHash(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}

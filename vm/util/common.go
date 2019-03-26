@@ -131,3 +131,10 @@ func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog
 	topics, data, _ := c.PackEvent(name, params...)
 	return &ledger.VmLog{Topics: topics, Data: data}
 }
+
+func IsRetryAfterLatestSnapshotBlockChanged(block *ledger.AccountBlock, useGlobalStatus bool) bool {
+	if useGlobalStatus || IsPoW(block) || block.BlockType == ledger.BlockTypeReceiveError {
+		return true
+	}
+	return false
+}
