@@ -22,8 +22,8 @@ var (
 type Manager struct {
 	pool     Pool
 	net      Net
-	chain    chain.Chain
 	producer Producer
+	chain    chain.Chain
 	wallet   *wallet.Manager
 
 	contractWorkers       map[types.Gid]*ContractWorker

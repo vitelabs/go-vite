@@ -619,12 +619,12 @@ const DefaultSeedRangeCount = 25
 
 // fixme get seed and snapshot
 func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
-	meta, err := c.GetContractMeta(contractAddr)
+	meta, err := c.GetContractMeta(*contractAddr)
 	if err != nil {
 		return nil, err
 	}
 	timesLimit := uint64(meta.SendConfirmedTimes)
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
 	if err != nil {
 		return nil, err
 	}
@@ -636,7 +636,7 @@ func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromH
 	if err != nil {
 		return nil, err
 	}
-	if seed := c.GetRandomSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+	if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
 		return &util.GlobalStatus{
 			Seed:          seed,
 			SnapshotBlock: limitSb,
