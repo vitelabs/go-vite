@@ -1,7 +1,6 @@
 package onroad
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"runtime"
 )
 
@@ -22,5 +21,3 @@ var (
 	POMAXPROCS                = runtime.NumCPU()
 	ContractTaskProcessorSize = 2 * POMAXPROCS
 )
-
-type subBlackList map[types.Address]bool
