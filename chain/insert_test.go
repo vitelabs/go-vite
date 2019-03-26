@@ -97,19 +97,19 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 1)
+		BmInsertAccountBlock(b, 10, 1000)
 	})
 	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 1)
+		BmInsertAccountBlock(b, 100, 1000)
 	})
 	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 1)
+		BmInsertAccountBlock(b, 1000, 1000)
 	})
 	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 1)
+		BmInsertAccountBlock(b, 10000, 1000)
 	})
 	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 1)
+		BmInsertAccountBlock(b, 100000, 1000)
 	})
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
@@ -117,7 +117,7 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 }
 
 func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
-	txCount int, snapshotPerBlockNum int) ([]*types.Hash, []*types.Address, []uint64) {
+	txCount int, snapshotPerBlockNum int) ([]types.Hash, []types.Address, []uint64) {
 	accounts := MakeAccounts(accountNumber, chainInstance)
 
 	fmt.Printf("Account number is %d\n", accountNumber)
@@ -127,8 +127,8 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 	}
 
 	var err error
-	hashList := make([]*types.Hash, 0, txCount)
-	addrList := make([]*types.Address, 0, txCount)
+	hashList := make([]types.Hash, 0, txCount)
+	addrList := make([]types.Address, 0, txCount)
 	heightList := make([]uint64, 0, txCount)
 
 	for i := 0; i < txCount; i++ {
@@ -166,8 +166,8 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 			t.Fatal(err)
 		}
 
-		hashList = append(hashList, &tx.AccountBlock.Hash)
-		addrList = append(addrList, &tx.AccountBlock.AccountAddress)
+		hashList = append(hashList, tx.AccountBlock.Hash)
+		addrList = append(addrList, tx.AccountBlock.AccountAddress)
 
 		heightList = append(heightList, tx.AccountBlock.Height)
 

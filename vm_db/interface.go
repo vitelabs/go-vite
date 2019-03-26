@@ -25,7 +25,7 @@ type Chain interface {
 
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
-	GetVmLogList(logHash types.Hash) (ledger.VmLogList, error)
+	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
 
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 

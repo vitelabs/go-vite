@@ -18,6 +18,9 @@ func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.
 	}
 	return result, nil
 }
+func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
+	return nil, nil
+}
 
 // get confirmed snapshot balance, if history is too old, failed
 func (c *chain) GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) {
