@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/aead/ecdh"
 	"testing"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
@@ -223,4 +224,21 @@ func TestPrivateKey_Clear(t *testing.T) {
 			t.Fatal()
 		}
 	}
+
+}
+
+func TestX25519Exchange(t *testing.T) {
+	pub1, priv1, _ := GenerateKey(nil)
+	xpub1 := pub1.ToX25519Pk()
+	println(hex.EncodeToString(xpub1))
+	xpriv1 := priv1.ToX25519Sk()
+	println(hex.EncodeToString(xpriv1))
+
+	pub2, priv2, _ := GenerateKey(nil)
+	xpub2 := pub2.ToX25519Pk()
+	xpriv2 := priv2.ToX25519Sk()
+
+	println(hex.EncodeToString(ecdh.X25519().ComputeSecret(&xpriv1, &xpub2)))
+
+	println(hex.EncodeToString(ecdh.X25519().ComputeSecret(&xpriv2, &xpub1)))
 }

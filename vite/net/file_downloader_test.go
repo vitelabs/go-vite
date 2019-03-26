@@ -2,11 +2,8 @@ package net
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
-	net2 "net"
 	"testing"
-	"time"
 )
 
 func Test_wait(t *testing.T) {
@@ -75,35 +72,4 @@ func Test_wait_all(t *testing.T) {
 			t.Fail()
 		}
 	}
-}
-
-func Test_File_Server(t *testing.T) {
-	const addr = "localhost:8484"
-	fs := newFileServer(addr, nil)
-
-	if err := fs.start(); err != nil {
-		log.Fatal(err)
-	}
-
-	for i := 0; i < 100; i++ {
-		go func() {
-			conn, err := net2.Dial("tcp", addr)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if rand.Intn(10) > 5 {
-				time.Sleep(time.Second)
-				conn.Close()
-			}
-		}()
-	}
-
-	time.Sleep(3 * time.Second)
-
-	fmt.Println(len(fs.conns))
-
-	fs.stop()
-
-	fmt.Println(len(fs.conns))
 }

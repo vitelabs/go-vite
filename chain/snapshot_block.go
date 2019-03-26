@@ -617,36 +617,30 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
-	isContract, err := c.IsContractAccount(block.AccountAddress)
+// fixme get seed and snapshot
+func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
+	meta, err := c.GetContractMeta(contractAddr)
 	if err != nil {
 		return nil, err
 	}
-
-	if block.IsReceiveBlock() && isContract {
-		meta, err := c.GetContractMeta(block.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-		timesLimit := uint64(meta.SendConfirmedTimes)
-		firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(block.FromBlockHash)
-		if err != nil {
-			return nil, err
-		}
-		if firstConfirmedSb == nil {
-			return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
-		}
-		limitSbHeight := firstConfirmedSb.Height + timesLimit
-		limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
-		if err != nil {
-			return nil, err
-		}
-		if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
-			return &util.GlobalStatus{
-				Seed:          seed,
-				SnapshotBlock: limitSb,
-			}, nil
-		}
+	timesLimit := uint64(meta.SendConfirmedTimes)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
+	if err != nil {
+		return nil, err
+	}
+	if firstConfirmedSb == nil {
+		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+	}
+	limitSbHeight := firstConfirmedSb.Height + timesLimit
+	limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
+	if err != nil {
+		return nil, err
+	}
+	if seed := c.GetRandomSeed(&limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+		return &util.GlobalStatus{
+			Seed:          seed,
+			SnapshotBlock: limitSb,
+		}, nil
 	}
 	return nil, nil
 }

@@ -99,6 +99,10 @@ func (p *fp) snapshotTarget(height uint64) Peer {
 	}
 
 	ps := p.peers.Pick(height)
+	if len(ps) == 0 {
+		return nil
+	}
+
 	i := rand.Intn(len(ps))
 	return ps[i]
 }
