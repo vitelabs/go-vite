@@ -52,16 +52,16 @@ func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHas
 	return gen, nil
 }
 
-func (gen *Generator) GenerateWithBlock(block ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*GenResult, error) {
-	genResult, err := gen.generateBlock(&block, fromBlock, nil, nil)
+func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*GenResult, error) {
+	genResult, err := gen.generateBlock(block, fromBlock, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	return genResult, nil
 }
 
-func (gen *Generator) GenerateWithMessage(message IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error) {
-	block, err := IncomingMessageToBlock(gen.vmDb, &message)
+func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error) {
+	block, err := IncomingMessageToBlock(gen.vmDb, message)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +78,12 @@ func (gen *Generator) GenerateWithMessage(message IncomingMessage, producer *typ
 	return gen.generateBlock(block, nil, producer, signFunc)
 }
 
-func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
-	block, err := gen.packReceiveBlockWithSend(&sendBlock, difficulty)
+func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
+	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
 		return nil, err
 	}
-	genResult, err := gen.generateBlock(block, &sendBlock, producer, signFunc)
+	genResult, err := gen.generateBlock(block, sendBlock, producer, signFunc)
 	if err != nil {
 		return nil, err
 	}

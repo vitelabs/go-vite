@@ -379,7 +379,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 
-	genResult, err := gen.GenerateWithBlock(*block, fromBlock)
+	genResult, err := gen.GenerateWithBlock(block, fromBlock)
 	if err != nil {
 		vLog.Error("generator block error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed

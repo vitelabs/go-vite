@@ -44,16 +44,19 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	//	return ErrorNotSupportRecvAddNote
 	//}
 
-	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
-
-	blocks, err := v.VerifyforRPC(lb)
+	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
+	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
+	if latestSb == nil {
+		return errors.New("failed to get latest snapshotBlock")
+	}
+	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
 	if err != nil {
 		newerr, _ := TryMakeConcernedError(err)
 		return newerr
 	}
 
-	if len(blocks) > 0 && blocks[0] != nil {
-		return t.vite.Pool().AddDirectAccountBlock(block.AccountAddress, blocks[0])
+	if result != nil {
+		return t.vite.Pool().AddDirectAccountBlock(result.AccountBlock.AccountAddress, result)
 	} else {
 		return errors.New("generator gen an empty block")
 	}
@@ -91,12 +94,14 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
+
 	var blockType byte
 	if param.BlockType > 0 {
 		blockType = param.BlockType
 	} else {
 		blockType = ledger.BlockTypeSendCall
 	}
+
 	msg := &generator.IncomingMessage{
 		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
@@ -107,15 +112,16 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, false)
+
+	addrState, err := generator.GetAddressStateForGenerator(t.vite.Chain(), &msg.AccountAddress)
 	if err != nil {
 		return nil, err
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
+	g, e := generator.NewGenerator2(t.vite.Chain(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash, nil)
 	if e != nil {
 		return nil, e
 	}
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		var privkey ed25519.PrivateKey
 		privkey, e := ed25519.HexToPrivateKey(*param.PrivateKey)
 		if e != nil {
@@ -133,16 +139,14 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		newerr, _ := TryMakeConcernedError(result.Err)
 		return nil, newerr
 	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		if err := t.vite.Pool().AddDirectAccountBlock(*param.SelfAddr, result.BlockGenList[0]); err != nil {
+	if result.VmBlock != nil {
+		if err := t.vite.Pool().AddDirectAccountBlock(msg.AccountAddress, result.VmBlock); err != nil {
 			return nil, err
 		}
-		return ledgerToRpcBlock(result.BlockGenList[0].AccountBlock, t.vite.Chain())
-
+		return ledgerToRpcBlock(result.VmBlock.AccountBlock, t.vite.Chain())
 	} else {
 		return nil, errors.New("generator gen an empty block")
 	}
-
 }
 
 type SendTxWithPrivateKeyParam struct {
@@ -199,7 +203,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	pledgeAmount, err := t.vite.Chain().GetPledgeAmount(&sb.Hash, &param.SelfAddr)
+	pledgeAmount, err := t.vite.Chain().GetPledgeAmount(&param.SelfAddr)
 	if err != nil {
 		return nil, err
 	}

@@ -82,33 +82,27 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
-	latestSb := tp.worker.manager.Chain().GetLatestSnapshotBlock()
-	if latestSb == nil {
-		plog.Error("failed to get latestSnapshotBlock")
-		return
-	}
-	var prevHash types.Hash
-	prevAb, err := tp.worker.manager.Chain().GetLatestAccountBlock(&task.Addr)
-	if err != nil {
-		plog.Error(fmt.Sprintf("failed to get prevAccountBlock,err:%v", err))
-		return
-	}
-	if prevAb != nil {
-		prevHash = prevAb.Hash
-	}
-	states, err := tp.worker.manager.Chain().GetContractRandomGlobalStatus(&task.Addr, &sBlock.Hash)
+	// todo: check confirmedTimes
+	randomSeedStates, err := tp.worker.manager.Chain().GetContractRandomGlobalStatus(&task.Addr, &sBlock.Hash)
 	if err != nil {
 		plog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
 		return
 	}
-	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr, &latestSb.Hash, &prevHash, states)
+	addrState, err := generator.GetAddressStateForGenerator(tp.worker.manager.Chain(), &task.Addr)
+	if err != nil {
+		plog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
+		return
+	}
+	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr,
+		addrState.LatestSnapshotHash, addrState.LatestAccountHash,
+		randomSeedStates)
 	if err != nil {
 		plog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
-	genResult, err := gen.GenerateWithOnroad(*sBlock, &task.Addr,
+	genResult, err := gen.GenerateWithOnroad(sBlock, &task.Addr,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
 			if err != nil {
