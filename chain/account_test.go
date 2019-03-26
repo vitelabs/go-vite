@@ -98,7 +98,6 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	if err != nil {
 		return nil, err
 	}
-	vmDb.SetBalance(&ledger.ViteTokenId, big.NewInt(100))
 	vmDb.Finish()
 
 	tx := &ledger.AccountBlock{
@@ -107,7 +106,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		ToAddress:      toAccount.addr,
 		Height:         acc.Height() + 1,
 		PrevHash:       prevHash,
-		Amount:         big.NewInt(rand.Int63n(100000000000000000)),
+		Amount:         big.NewInt(rand.Int63n(100)),
 		TokenId:        ledger.ViteTokenId,
 		PublicKey:      acc.publicKey,
 		Quota:          options.Quota,
@@ -143,7 +142,6 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		return nil, nil
 	}
 	chainInstance := acc.chainInstance
-
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
 	prevHash := acc.Hash()
@@ -151,6 +149,14 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	if err != nil {
 		return nil, err
 	}
+
+	balance, err := vmDb.GetBalance(&ledger.ViteTokenId)
+	if err != nil {
+		return nil, err
+	}
+
+	vmDb.SetBalance(&ledger.ViteTokenId, balance.Add(balance, big.NewInt(100)))
+	vmDb.Finish()
 
 	receiveTx := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,

@@ -162,6 +162,13 @@ func TestChain(t *testing.T) {
 	t.Run("GetRangeSnapshotBlocks", func(t *testing.T) {
 		GetRangeSnapshotBlocks(t, chainInstance, snapshotBlockList)
 	})
+	t.Run("GetBalance", func(t *testing.T) {
+		GetBalance(t, chainInstance, accounts)
+	})
+	t.Run("GetBalanceMap", func(t *testing.T) {
+		GetBalanceMap(t, chainInstance, accounts)
+	})
+
 	fmt.Println("GetAccountBlocks")
 	GetAccountBlocks(t, chainInstance, accounts, addrList)
 	fmt.Println("Complete GetAccountBlocks")

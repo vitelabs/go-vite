@@ -12,15 +12,20 @@ import (
 func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error) {
 	result, err := c.stateDB.GetBalance(&addr, &tokenId)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, error is %s, addr is %s, tokenId is %s", err, addr, tokenId))
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, addr is %s, tokenId is %s. Error: %s", addr, tokenId, err))
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
 	return result, nil
 }
 func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
-
-	return nil, nil
+	result, err := c.stateDB.GetBalanceMap(&addr)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalanceMap failed, addr is %s. Error: %s,", addr, err))
+		c.log.Error(cErr.Error(), "method", "GetBalance")
+		return nil, cErr
+	}
+	return result, nil
 }
 
 // get confirmed snapshot balance, if history is too old, failed
