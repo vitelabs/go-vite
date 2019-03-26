@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"runtime"
 )
 
@@ -19,7 +20,7 @@ type Worker interface {
 
 var (
 	POMAXPROCS                = runtime.NumCPU()
-	CommonFetchSize           = 4 * POMAXPROCS
 	ContractTaskProcessorSize = 2 * POMAXPROCS
-	ContractFetchSize         = 2 * POMAXPROCS
 )
+
+type subBlackList map[types.Address]bool

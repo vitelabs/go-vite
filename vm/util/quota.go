@@ -3,6 +3,7 @@ package util
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 var (
@@ -81,4 +82,8 @@ func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft, quotaRef
 			return quotaTotal - quotaLeft - quotaAddition - helper.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
 		}
 	}
+}
+
+func IsPoW(block *ledger.AccountBlock) bool {
+	return len(block.Nonce) > 0
 }

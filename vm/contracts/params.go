@@ -69,7 +69,7 @@ var (
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
 		GetRewardTimeLimit:               75,
-		RewardTimeUnit:                   75,
+		RewardTimeUnit:                   75 * 2,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,

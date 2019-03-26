@@ -48,11 +48,7 @@ type QuotaAndTxNum struct {
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
-	hash, err := p.ledgerApi.GetFittestSnapshotHash(&addr, nil)
-	if err != nil {
-		return nil, err
-	}
-	q, err := p.chain.GetPledgeQuota(hash, &addr)
+	q, err := p.chain.GetPledgeQuota(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +81,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	snapshotBlock := p.chain.GetLatestSnapshotBlock()
 	// TODO tmpchain
 	var tmpChain vm_db.Chain
-	prevHash, err := getPrevBlockHash(p.chain, &types.AddressPledge)
+	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}

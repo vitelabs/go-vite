@@ -275,8 +275,8 @@ func checkRewardDrained(db vm_db.VmDb, groupInfo *types.ConsensusGroupInfo, rewa
 		return true
 	}
 	// old is not active, check old reward drained
-	reader := newConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	if reader.timeToRewardEndDayTime(cancelTime) == reader.timeToRewardEndDayTime(rewardTime) {
+	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
+	if reader.TimeToRewardEndDayTime(cancelTime) == reader.TimeToRewardEndDayTime(rewardTime) {
 		return true
 	}
 	return false
@@ -291,34 +291,34 @@ func CalcReward(db vm_db.VmDb, old *types.Registration, gid types.Gid, current *
 	}()
 	groupInfo, err := abi.GetConsensusGroup(db, gid)
 	util.DealWithErr(err)
-	reader := newConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	return calcReward(old, current, reader, groupInfo)
+	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
+	return calcReward(old, current, reader)
 }
 
-func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader *consensusReader, groupInfo *types.ConsensusGroupInfo) (startTime int64, endTime int64, reward *big.Int, err error) {
-	if old.RewardTime < reader.genesisTime {
-		startTime = reader.timeToRewardStartDayTime(reader.genesisTime)
+func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader consensusReader) (startTime int64, endTime int64, reward *big.Int, err error) {
+	if old.RewardTime < reader.GenesisTime() {
+		startTime = reader.TimeToRewardStartDayTime(reader.GenesisTime())
 	} else {
-		startTime = reader.timeToRewardStartDayTime(old.RewardTime)
+		startTime = reader.TimeToRewardStartDayTime(old.RewardTime)
 	}
 	if !old.IsActive() {
-		endTime = reader.timeToRewardEndDayTime(old.CancelTime)
+		endTime = reader.TimeToRewardEndDayTime(old.CancelTime)
 	} else {
-		endTime = reader.timeToRewardEndDayTime(current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit)
+		endTime = reader.TimeToRewardEndDayTime(current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit)
 	}
-	if startTime == endTime {
+	if startTime >= endTime {
 		// reward drained
-		return startTime, endTime, nil, nil
+		return startTime, endTime, big.NewInt(0), nil
 	}
-	indexInDay := reader.getIndexInDay()
-	startIndex := reader.timeToPeriodIndex(time.Unix(startTime, 0))
-	endIndex := reader.timeToPeriodIndex(time.Unix(endTime, 0))
+	indexInDay := reader.GetIndexInDay()
+	startIndex := reader.TimeToPeriodIndex(time.Unix(startTime, 0))
+	endIndex := reader.TimeToPeriodIndex(time.Unix(endTime, 0))
 	reward = big.NewInt(0)
 	tmp1 := big.NewInt(0)
 	tmp2 := big.NewInt(0)
-	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
+	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
 	for startIndex < endIndex {
-		detailMap, summary := reader.getConsensusDetailByDay(startIndex, endIndex)
+		detailMap, summary := reader.GetConsensusDetailByDay(startIndex, startIndex+indexInDay)
 		reward.Add(reward, calcRewardByDay(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
 		startIndex = startIndex + indexInDay
 	}
@@ -340,12 +340,14 @@ func calcRewardByDay(detailMap map[string]*consensusDetail, summary *consensusDe
 	tmp1.Mul(tmp1, tmp2)
 	tmp1.Mul(tmp1, helper.Big50)
 	tmp1.Mul(tmp1, rewardPerBlock)
+	tmp2.SetUint64(selfDetail.blockNum)
 	tmp1.Mul(tmp1, tmp2)
 
 	tmp2.SetInt64(int64(len(detailMap)))
 	tmp2.Mul(tmp2, pledgeAmount)
-	tmp2.Add(tmp2, selfDetail.voteCount)
+	tmp2.Add(tmp2, summary.voteCount)
 	tmp1.Quo(tmp1, tmp2)
+
 	tmp2.SetUint64(selfDetail.expectedBlockNum)
 	tmp1.Quo(tmp1, tmp2)
 
