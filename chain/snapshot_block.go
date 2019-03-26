@@ -109,8 +109,8 @@ func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 	// query location
 	location, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, height is %d",
-			err.Error(), height))
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, height is %d. Error:  %s, ",
+			height, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, cErr
 	}
@@ -118,8 +118,8 @@ func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 	// query block
 	snapshotBlock, err := c.blockDB.GetSnapshotBlock(location)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetSnapshotBlock failed, error is %s, height is %d, location is %+v",
-			err.Error(), height, location))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.GetSnapshotBlock failed, height is %d, location is %+v. Error: %s",
+			height, location, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, cErr
 	}
@@ -185,7 +185,7 @@ func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, 
 func (c *chain) GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
-	}, true)
+	}, true, true)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, startHash is %s, endHash is %s",
@@ -200,7 +200,7 @@ func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash)
 
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
-	}, false)
+	}, true, false)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, startHash is %s, endHash is %s",
@@ -215,7 +215,7 @@ func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash)
 func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
-	}, true)
+	}, higher, true)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, blockHash is %s, higher is %+v, count is %d",
@@ -230,7 +230,7 @@ func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint
 func (c *chain) GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
-	}, false)
+	}, higher, false)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, blockHash is %s, higher is %+v, count is %d",
@@ -534,7 +534,7 @@ func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotS
 
 type getSnapshotListFunc func() ([]*chain_block.Location, [2]uint64, error)
 
-func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
+func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, higher bool, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
 	locations, heightRange, err := getList()
 
 	if err != nil {
@@ -549,10 +549,16 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader boo
 	startHeight := heightRange[0]
 	endHeight := heightRange[1]
 
-	currentHeight := startHeight
+	currentHeight := endHeight
+	if higher {
+		currentHeight = startHeight
+	}
 	index := 0
 
-	for currentHeight <= endHeight {
+	for {
+		if (higher && currentHeight > endHeight) || (!higher && currentHeight < startHeight) {
+			break
+		}
 		var block *ledger.SnapshotBlock
 		var err error
 		if onlyHeader {
@@ -574,7 +580,11 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader boo
 
 		blocks[index] = block
 		index++
-		currentHeight++
+		if higher {
+			currentHeight++
+		} else {
+			currentHeight--
+		}
 	}
 
 	return blocks, nil
