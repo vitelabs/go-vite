@@ -93,7 +93,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifierConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
 		plog.Info(fmt.Sprintf("VerifierConfirmedTimes failed, err%v:", err))
-		tp.pendingMap.addCallerIntoBlackList(&sBlock.AccountAddress)
+		tp.pendingMap.addCallerIntoRetryList(&sBlock.AccountAddress)
 		return
 	}
 	randomSeedStates, err := tp.worker.manager.Chain().GetContractRandomGlobalStatus(&task.Addr, &sBlock.Hash)
@@ -186,7 +186,7 @@ func (tp *ContractTaskProcessor) acquireNewOnroad(contractAddr *types.Address) *
 			break
 		}
 		for _, v := range blocks {
-			if !tp.pendingMap.existInBlackList(&v.AccountAddress) {
+			if !tp.pendingMap.existInInferiorList(&v.AccountAddress) {
 				tp.pendingMap.addPendingMap(v)
 			}
 		}

@@ -5,16 +5,22 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+type inferiorState int
+
+const (
+	retry inferiorState = iota
+	out
+)
+
 type callerPendingMap struct {
-	taskAddr  *types.Address
-	pmap      map[*types.Address][]*ledger.AccountBlock
-	blackList map[*types.Address]bool
+	pmap         map[*types.Address][]*ledger.AccountBlock
+	InferiorList map[*types.Address]inferiorState
 }
 
 func newCallerPendingMap() *callerPendingMap {
 	return &callerPendingMap{
-		pmap:      make(map[*types.Address][]*ledger.AccountBlock, 0),
-		blackList: make(map[*types.Address]bool, 0),
+		pmap:         make(map[*types.Address][]*ledger.AccountBlock, 0),
+		InferiorList: make(map[*types.Address]inferiorState, 0),
 	}
 }
 
@@ -64,12 +70,28 @@ func (p *callerPendingMap) deletePendingMap(caller *types.Address, sendHash *typ
 }
 
 func (p *callerPendingMap) addCallerIntoBlackList(caller *types.Address) {
-	p.blackList[caller] = true
+	p.InferiorList[caller] = out
+	delete(p.pmap, caller)
 }
 
-func (p *callerPendingMap) existInBlackList(caller *types.Address) bool {
-	if isExist, ok := p.blackList[caller]; ok {
-		return isExist
+func (p *callerPendingMap) addCallerIntoRetryList(caller *types.Address) {
+	p.InferiorList[caller] = retry
+}
+
+func (p *callerPendingMap) existInInferiorList(caller *types.Address) bool {
+	if _, ok := p.InferiorList[caller]; ok {
+		return true
+	}
+	return false
+}
+
+func (p *callerPendingMap) removeCallerFromInferiorList(caller *types.Address) {
+	delete(p.InferiorList, caller)
+}
+
+func (p *callerPendingMap) shallRetry(caller *types.Address) bool {
+	if state, ok := p.InferiorList[caller]; ok && state == retry {
+		return true
 	}
 	return false
 }
