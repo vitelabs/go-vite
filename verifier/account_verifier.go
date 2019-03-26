@@ -124,7 +124,7 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 
 // Block itself coming into Verifier indicate that it referr to a snapshot, which maybe confimed >=0;
 // Contarct.recv's must check its send whether is satisfied confirmed over custom times at least;
-func (v *AccountVerifier) VerifyComfirmedTimes(recvBlock *ledger.AccountBlock, isGeneralAddr bool) error {
+func (v *AccountVerifier) verifyComfirmedTimes(recvBlock *ledger.AccountBlock, isGeneralAddr bool) error {
 	mLog := v.log.New("method", "verfiySnapshotLimit")
 	var timesLimit uint64 = 0
 	if !isGeneralAddr {
@@ -200,12 +200,12 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if isReceived {
 			return FAIL, errors.New("block is already received successfully")
 		}
+
+		if err := v.verifyComfirmedTimes(block, isGeneralAddr); err != nil {
+			return FAIL, err
+		}
 	}
-	// check whether it's the available time the block can be snapshoted,
-	// now specially for the block's confirmedTimes which it relay on.
-	if err := v.VerifyComfirmedTimes(block, isGeneralAddr); err != nil {
-		return FAIL, err
-	}
+
 	// check whether the prev is snapshoted
 	prevBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
 	if err != nil {
