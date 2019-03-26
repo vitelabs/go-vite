@@ -180,3 +180,7 @@ func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 
 	return recvBlock, nil
 }
+
+func (gen *Generator) GetVmDb() vm_db.VmDb {
+	return gen.vmDb
+}
