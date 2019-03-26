@@ -16,15 +16,15 @@ type MemDB struct {
 
 	storage *memdb.DB
 
-	deletedKey  map[string]struct{}
-	hashKeyList map[types.Hash][][]byte
+	deletedKey map[string]struct{}
+	hashKeyMap map[types.Hash]map[string]struct{}
 }
 
 func NewMemDB() *MemDB {
 	return &MemDB{
-		storage:     newStorage(),
-		deletedKey:  make(map[string]struct{}),
-		hashKeyList: make(map[types.Hash][][]byte),
+		storage:    newStorage(),
+		deletedKey: make(map[string]struct{}),
+		hashKeyMap: make(map[types.Hash]map[string]struct{}),
 	}
 }
 
@@ -61,8 +61,11 @@ func (mDb *MemDB) Delete(blockHash *types.Hash, key []byte) {
 	defer mDb.mu.Unlock()
 
 	mDb.storage.Delete(key)
+
+	strKey := string(key)
+
 	mDb.deletedKey[string(key)] = struct{}{}
-	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
+	delete(mDb.hashKeyMap[*blockHash], strKey)
 }
 
 func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
@@ -92,10 +95,11 @@ func (mDb *MemDB) FlushList(batch interfaces.Batch, blockHashList []*types.Hash)
 	defer mDb.mu.Unlock()
 
 	for _, blockHash := range blockHashList {
-		keyList := mDb.hashKeyList[*blockHash]
-		for _, key := range keyList {
-			if _, ok := mDb.deletedKey[string(key)]; ok {
-				delete(mDb.deletedKey, string(key))
+		keyMap := mDb.hashKeyMap[*blockHash]
+		for keyStr := range keyMap {
+			key := []byte(keyStr)
+			if _, ok := mDb.deletedKey[keyStr]; ok {
+				delete(mDb.deletedKey, keyStr)
 				batch.Delete(key)
 			} else {
 				value, ok := mDb.get(key)
@@ -114,10 +118,11 @@ func (mDb *MemDB) Flush(batch interfaces.Batch, blockHash *types.Hash) {
 	mDb.mu.Lock()
 	defer mDb.mu.Unlock()
 
-	keyList := mDb.hashKeyList[*blockHash]
-	for _, key := range keyList {
-		if _, ok := mDb.deletedKey[string(key)]; ok {
-			delete(mDb.deletedKey, string(key))
+	keyMap := mDb.hashKeyMap[*blockHash]
+	for keyStr := range keyMap {
+		key := []byte(keyStr)
+		if _, ok := mDb.deletedKey[keyStr]; ok {
+			delete(mDb.deletedKey, keyStr)
 			batch.Delete(key)
 		} else {
 			value, ok := mDb.get(key)
@@ -155,7 +160,7 @@ func (mDb *MemDB) Clean() {
 
 	mDb.deletedKey = make(map[string]struct{})
 
-	mDb.hashKeyList = make(map[types.Hash][][]byte)
+	mDb.hashKeyMap = make(map[types.Hash]map[string]struct{})
 }
 
 func (mDb *MemDB) get(key []byte) ([]byte, bool) {
@@ -171,22 +176,28 @@ func (mDb *MemDB) get(key []byte) ([]byte, bool) {
 }
 
 func (mDb *MemDB) put(blockHash *types.Hash, key, value []byte) {
-	if _, ok := mDb.deletedKey[string(key)]; ok {
-		delete(mDb.deletedKey, string(key))
+	keyStr := string(key)
+	if _, ok := mDb.deletedKey[keyStr]; ok {
+		delete(mDb.deletedKey, keyStr)
+	}
+	if _, ok := mDb.hashKeyMap[*blockHash]; !ok {
+		mDb.hashKeyMap[*blockHash] = make(map[string]struct{})
 	}
 	mDb.storage.Put(key, value)
-	mDb.hashKeyList[*blockHash] = append(mDb.hashKeyList[*blockHash], key)
+
+	mDb.hashKeyMap[*blockHash][keyStr] = struct{}{}
 }
 
 func (mDb *MemDB) deleteByBlockHash(blockHash *types.Hash) {
-	keyList := mDb.hashKeyList[*blockHash]
-	if len(keyList) <= 0 {
+	keyList, ok := mDb.hashKeyMap[*blockHash]
+
+	if !ok {
 		return
 	}
 
-	for _, key := range keyList {
-		delete(mDb.deletedKey, string(key))
-		mDb.storage.Delete(key)
+	for keyStr := range keyList {
+		delete(mDb.deletedKey, keyStr)
+		mDb.storage.Delete([]byte(keyStr))
 	}
-	delete(mDb.hashKeyList, *blockHash)
+	delete(mDb.hashKeyMap, *blockHash)
 }

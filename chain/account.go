@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-// TODO cache
+// TODO cache, unit_test
 func (c *chain) IsContractAccount(address types.Address) (bool, error) {
 	if ok := types.IsBuiltinContractAddrInUse(address); ok {
 		return ok, nil

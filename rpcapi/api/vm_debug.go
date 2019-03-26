@@ -60,7 +60,7 @@ type AccountInfo struct {
 
 func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	// check genesis account status
-	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(ledger.GenesisAccountAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func (v *VmDebugApi) ClearData() error {
 
 func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, error) {
 	sb := v.vite.Chain().GetLatestSnapshotBlock()
-	prev, err := v.vite.Chain().GetLatestAccountBlock(&addr)
+	prev, err := v.vite.Chain().GetLatestAccountBlock(addr)
 	if err != nil {
 		return nil, err
 	}

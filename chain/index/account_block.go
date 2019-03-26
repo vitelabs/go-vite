@@ -14,7 +14,6 @@ func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 }
 
 func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_block.Location, error) {
-
 	startKey := chain_utils.CreateAccountBlockHeightKey(addr, 1)
 	endKey := chain_utils.CreateAccountBlockHeightKey(addr, helper.MaxUint64)
 
@@ -28,8 +27,14 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 		return 0, nil, nil
 	}
 
-	height := chain_utils.BytesToUint64(iter.Key()[9:])
-	location := chain_utils.DeserializeLocation(iter.Value()[types.HashSize:])
+	height := chain_utils.BytesToUint64(iter.Key()[1+types.AddressSize:])
+	var location *chain_block.Location
+
+	value := iter.Value()
+	if len(value) > types.HashSize {
+		location = chain_utils.DeserializeLocation(value[types.HashSize:])
+	}
+
 	return height, location, nil
 }
 
@@ -51,7 +56,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 		return nil, err
 	}
 
-	if len(value) <= 0 {
+	if len(value) <= types.HashSize {
 		return nil, nil
 	}
 	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
@@ -68,7 +73,7 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	startKey := chain_utils.CreateAccountBlockHeightKey(&addr, startHeight)
 	endKey := chain_utils.CreateAccountBlockHeightKey(&addr, endHeight+1)
 
-	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
+	iter := iDB.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
 	locationList := make([]*chain_block.Location, 0, endHeight+1-startHeight)
@@ -77,15 +82,20 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 
 	iterOk := iter.Last()
 	for iterOk {
-		height := chain_utils.BytesToUint64(iter.Key()[1:])
-		if height < minHeight {
+		height := chain_utils.BytesToUint64(iter.Key()[1+types.AddressSize:])
+		if height < minHeight || minHeight == 0 {
 			minHeight = height
 		}
 		if height > maxHeight {
 			maxHeight = height
 		}
+		value := iter.Value()
+		if len(value) > types.HashSize {
+			locationList = append(locationList, chain_utils.DeserializeLocation(value[types.HashSize:]))
+		} else {
+			locationList = append(locationList, nil)
+		}
 
-		locationList = append(locationList, chain_utils.DeserializeLocation(iter.Value()[types.HashSize:]))
 		iterOk = iter.Prev()
 	}
 
@@ -165,11 +175,8 @@ func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, uint64, error) {
 
 	key := chain_utils.CreateAccountBlockHashKey(blockHash)
-	value, err := iDB.store.Get(key)
+	value, err := iDB.getValue(key)
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, 0, nil
-		}
 		return nil, 0, err
 
 	}

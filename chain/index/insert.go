@@ -18,6 +18,8 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHashKey(blockHash),
 		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...))
 
+	// height -> hash
+	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
 	if accountBlock.IsReceiveBlock() {
 		if len(accountBlock.SendBlockList) > 0 {
 			chain_utils.CreateCallDepthKey(&accountBlock.Hash)
@@ -69,8 +71,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
-		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height),
-			append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
+		iDB.memDb.Put(&block.Hash, chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
 
 		iDB.memDb.Flush(batch, &block.Hash)
 	}

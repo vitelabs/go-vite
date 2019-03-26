@@ -177,14 +177,10 @@ func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
 	}
 }
 
-func IsPoW(nonce []byte) bool {
-	return len(nonce) > 0
-}
-
 func CanPoW(db quotaDb) (bool, error) {
 	blocks := db.GetUnconfirmedBlocks()
 	for _, b := range blocks {
-		if IsPoW(b.Nonce) {
+		if util.IsPoW(b) {
 			return false, nil
 		}
 	}
