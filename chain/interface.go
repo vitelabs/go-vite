@@ -93,7 +93,8 @@ type Chain interface {
 	GetAccountBlocks(blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-	GetCallDepth(sendBlock *ledger.AccountBlock) (byte, error)
+
+	GetCallDepth(sendBlock *types.Hash) (uint16, error)
 
 	// get confirmed times
 	GetConfirmedTimes(blockHash *types.Hash) (uint64, error)
@@ -102,6 +103,7 @@ type Chain interface {
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 
 	// ====== Query snapshot block ======
+	IsGenesisSnapshotBlock(hash *types.Hash) bool
 
 	IsSnapshotBlockExisted(hash *types.Hash) (bool, error) // ok
 
@@ -111,6 +113,9 @@ type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+
+	// get height
+	GetSnapshotHeightByHash(hash *types.Hash) (uint64, error)
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -141,7 +146,9 @@ type Chain interface {
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 
-	GetSeed(snapshotHash *types.Hash, n int) uint64
+	GetLastSeedSnapshotHeader(producer *types.Address) (*ledger.SnapshotBlock, error)
+
+	GetRandomSeed(snapshotHash *types.Hash, n int) uint64
 
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
@@ -158,19 +165,19 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address *types.Address) (bool, error)
 
-	// ===== Query state_bak ======
+	// ===== Query state ======
 	// get balance
 	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
 
 	// get confirmed snapshot balance, if history is too old, failed
-	GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error)
+	GetConfirmedBalanceList(addrList []*types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (map[types.Address]*big.Int, error)
 
 	// get contract code
 	GetContractCode(contractAddr *types.Address) ([]byte, error)
 
 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
 
-	GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error)
+	GetContractList(gid *types.Gid) ([]*types.Address, error)
 
 	GetQuotaUnused(address *types.Address) (uint64, error)
 
@@ -186,13 +193,13 @@ type Chain interface {
 
 	GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error)
 
-	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(addr *types.Address) (uint64, error)
+	GetPledgeQuota(addr *types.Address) (*types.Quota, error)
 
 	// total
-	GetPledgeQuotas(addrList []*types.Address) (map[types.Address]uint64, error)
+	GetPledgeQuotas(addrList []*types.Address) (map[types.Address]*types.Quota, error)
 
 	GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error)
 
@@ -205,7 +212,7 @@ type Chain interface {
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
 	// TODO insert syncCache ledger
-	// TODO query syncCache state_bak
+	// TODO query syncCache state
 
 	// ====== OnRoad ======
 	HasOnRoadBlocks(address *types.Address) (bool, error)

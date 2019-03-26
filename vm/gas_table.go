@@ -2,9 +2,11 @@ package vm
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/fork"
+	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
@@ -15,9 +17,9 @@ func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
 	if newMemSize == 0 {
 		return 0, nil
 	}
-	// The maximum that will fit in chain uint64 is max_word_count - 1
+	// The maximum that will fit in a uint64 is max_word_count - 1
 	// anything above that will result in an overflow.
-	// Additionally, chain newMemSize which results in chain
+	// Additionally, a newMemSize which results in a
 	// newMemSizeWords larger than 0x7ffffffff will cause the square operation
 	// to overflow.
 	// The constant ç is the highest number that can be used without
@@ -226,29 +228,18 @@ func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint6
 
 func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	var (
-		newValue     = stack.back(1)
-		loc          = stack.back(0)
-		locHash, _   = types.BigToHash(loc)
-		currentValue = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
+		newValue   = stack.back(1)
+		loc        = stack.back(0)
+		locHash, _ = types.BigToHash(loc)
 	)
-	if !fork.IsMintFork(c.db.CurrentSnapshotBlock().Height) {
-		if len(currentValue) == 0 && newValue.Sign() != 0 {
-			// zero value to non-zero value, charge 20000
-			return sstoreSetGas, nil
-		} else if len(currentValue) > 0 && newValue.Sign() == 0 {
-			// non-zero value to zero value, charge 5000 with 15000 refund
-			c.quotaRefund = c.quotaRefund + sstoreRefundGas
-			return sstoreClearGas, nil
-		} else {
-			// non-zero value to non-zero value or zero value to zero value, charge 5000
-			return sstoreResetGas, nil
-		}
-	}
+	currentValue, err := c.db.GetValue(locHash.Bytes())
+	util.DealWithErr(err)
 	if bytes.Equal(currentValue, newValue.Bytes()) {
 		// no change, charge 200
 		return sstoreNoopGas, nil
 	}
-	originalValue := c.db.GetOriginalStorage(locHash.Bytes())
+	originalValue, err := c.db.GetOriginalValue(locHash.Bytes())
+	util.DealWithErr(err)
 	if bytes.Equal(originalValue, currentValue) {
 		if len(originalValue) == 0 {
 			// zero value to non-zero value, charge 20000
@@ -276,7 +267,7 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 			// zero value to non-zero value to zero value, 19800 refund
 			c.quotaRefund = c.quotaRefund + sstoreResetClearRefundGas
 		} else {
-			// non-zero value chain to non-zero value b to non-zero value chain,4800 refund for first sstore
+			// non-zero value a to non-zero value b to non-zero value a,4800 refund for first sstore
 			c.quotaRefund = c.quotaRefund + sstoreResetRefundGas
 		}
 	}
@@ -331,7 +322,7 @@ func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize 
 		return 0, err
 	}
 	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
+	if gas, overflow = helper.SafeAdd(gas, delegateCallGas); overflow {
 		return 0, util.ErrGasUintOverflow
 	}
 	return gas, nil
@@ -342,9 +333,25 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 	if err != nil {
 		return 0, err
 	}
-	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
-		return 0, util.ErrGasUintOverflow
+	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
+	cost, err := GasRequiredForBlock(util.MakeSendBlock(
+		c.block.AccountAddress,
+		toAddress,
+		ledger.BlockTypeSendCall,
+		amount,
+		tokenId,
+		mem.get(inOffset.Int64(), inSize.Int64())))
+	if err != nil {
+		return 0, err
+	}
+	if cost > callMinusGas {
+		cost = cost - callMinusGas
+		var overflow bool
+		if gas, overflow = helper.SafeAdd(gas, cost); overflow {
+			return 0, util.ErrGasUintOverflow
+		}
 	}
 	return gas, nil
 }
@@ -355,4 +362,38 @@ func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 
 func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
 	return memoryGasCost(mem, memorySize)
+}
+
+func GasRequiredForBlock(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		return gasNormalSendCall(block)
+	} else if block.BlockType == ledger.BlockTypeReceive {
+		return gasUserReceive(block)
+	} else if block.BlockType == ledger.BlockTypeSendCall {
+		return gasUserSendCall(block)
+	} else {
+		return 0, errors.New("block type not supported")
+	}
+}
+func gasReceiveCreate(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(nil, true)
+}
+
+func gasUserReceive(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(nil, false)
+}
+
+func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
+	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
+		if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
+			return 0, errors.New("built-in contract method not exists")
+		} else {
+			return method.GetSendQuota(block.Data)
+		}
+	} else {
+		return gasNormalSendCall(block)
+	}
+}
+func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(block.Data, false)
 }

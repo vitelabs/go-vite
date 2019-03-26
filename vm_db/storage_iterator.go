@@ -6,7 +6,7 @@ import (
 )
 
 func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
-	iter, err := db.chain.GetStateIterator(db.address, prefix)
+	iter, err := db.chain.GetStorageIterator(db.address, prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -15,5 +15,5 @@ func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, e
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		unsavedIter,
 		iter,
-	}, db.unsaved.deletedKeys), nil
+	}, db.unsaved.IsDelete), nil
 }

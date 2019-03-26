@@ -45,13 +45,15 @@ const (
 
 	// ContractMetaHistoryKeyPrefix = byte(8)
 
-	VmLogListKeyPrefix = byte(9)
+	GidContractKeyPrefix = byte(9)
 
-	CallDepthKeyPrefix = byte(10)
+	VmLogListKeyPrefix = byte(10)
 
-	UndoLocationKeyPrefix = byte(11)
+	CallDepthKeyPrefix = byte(11)
 
-	StateDbLocationKeyPrefix = byte(12)
+	UndoLocationKeyPrefix = byte(12)
+
+	StateDbLocationKeyPrefix = byte(13)
 )
 
 // mv db

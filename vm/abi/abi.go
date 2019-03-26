@@ -13,7 +13,7 @@ const (
 	MethodTypeOffChain string = "offchain"
 )
 
-// The ABIContract holds information about chain contract's context and available
+// The ABIContract holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.
 type ABIContract struct {
@@ -24,7 +24,7 @@ type ABIContract struct {
 	Variables   map[string]Variable
 }
 
-// JSONToABIContract returns chain parsed ABI interface and error if it failed.
+// JSONToABIContract returns a parsed ABI interface and error if it failed.
 func JSONToABIContract(reader io.Reader) (ABIContract, error) {
 	dec := json.NewDecoder(reader)
 
@@ -71,7 +71,7 @@ func (abi ABIContract) packMethod(method Method, name string, args ...interface{
 	if err != nil {
 		return nil, err
 	}
-	// Pack up the method ID too if not chain constructor and return
+	// Pack up the method ID too if not a constructor and return
 	return append(method.Id(), arguments...), nil
 }
 
@@ -185,7 +185,7 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MethodById looks up chain method by the 4-byte id
+// MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
 	if len(sigdata) < 4 {

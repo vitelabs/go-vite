@@ -200,7 +200,7 @@ func TestVariableTuple(t *testing.T) {
 		&BadVariableTransferWithSameFieldAndTag{},
 		jsonVariableTransfer,
 		"abi: multiple variables maps to the same abi field 'value'",
-		"Can not unpack ERC20 Transfer variable with chain field and chain tag mapping to the same abi variable",
+		"Can not unpack ERC20 Transfer variable with a field and a tag mapping to the same abi variable",
 	}, {
 		variableTransferData1,
 		&BadVariableTransferWithEmptyTag{},
@@ -296,7 +296,7 @@ func TestVariableTuple(t *testing.T) {
 
 func unpackTestVariableData(dest interface{}, hexData string, jsonVariable []byte, assert *assert.Assertions) error {
 	data, err := hex.DecodeString(hexData)
-	assert.NoError(err, "Hex data should be chain correct hex-string")
+	assert.NoError(err, "Hex data should be a correct hex-string")
 	var e Variable
 	assert.NoError(json.Unmarshal(jsonVariable, &e), "Should be able to unmarshal variable ABI")
 	a := ABIContract{Variables: map[string]Variable{"e": e}}

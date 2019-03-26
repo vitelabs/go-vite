@@ -11,12 +11,10 @@ var (
 )
 
 const (
-	txDataZeroGas               uint64 = 4     // Per byte of data attached to chain transaction that equals zero.
-	txDataNonZeroGas            uint64 = 68    // Per byte of data attached to chain transaction that is not equal to zero.
-	TxGas                       uint64 = 21000 // Per transaction not creating chain contract.
-	PrecompiledContractsSendGas uint64 = 21068
-	RefundGas                   uint64 = 21000
-	txContractCreationGas       uint64 = 53000 // Per transaction that creates chain contract.
+	txDataZeroGas         uint64 = 4     // Per byte of data attached to a transaction that equals zero.
+	txDataNonZeroGas      uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
+	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
+	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
 )
 
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {
@@ -25,14 +23,6 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	}
 	quotaLeft = quotaLeft - cost
 	return quotaLeft, nil
-}
-
-func UseQuotaForData(data []byte, quotaLeft uint64) (uint64, error) {
-	cost, err := DataGasCost(data)
-	if err != nil {
-		return 0, err
-	}
-	return UseQuota(quotaLeft, cost)
 }
 
 func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
@@ -72,7 +62,10 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
-func CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+	if !useQuota {
+		return 0
+	}
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
 	} else if err != nil {

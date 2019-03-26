@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -173,7 +173,7 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 	for _, c := range compileResultList {
 		txParam := param.Params[c.name]
 		// send create contract tx
-		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, c.code, c.abiJson, txParam.Params)
+		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, 1, c.code, c.abiJson, txParam.Params)
 		if err != nil {
 			return nil, err
 		}
@@ -314,22 +314,26 @@ func (v *VmDebugApi) ClearData() error {
 }
 
 func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, error) {
-	db, err := vm_context.NewVmContext(v.vite.Chain(), nil, nil, &addr)
+	sb := v.vite.Chain().GetLatestSnapshotBlock()
+	prev, err := v.vite.Chain().GetLatestAccountBlock(&addr)
 	if err != nil {
 		return nil, err
 	}
-	iter := db.NewStorageIterator(&addr, nil)
-	if iter == nil {
-		return nil, nil
+	db, err := vm_db.NewVmDb(v.vite.Chain(), &addr, &sb.Hash, &prev.Hash)
+	if err != nil {
+		return nil, err
+	}
+	iter, err := db.NewStorageIterator(nil)
+	if err != nil {
+		return nil, err
 	}
 	m := make(map[string]string)
 	for {
-		key, value, ok := iter.Next()
-		if !ok {
+		if !iter.Next() {
 			return m, nil
 		}
-		if !bytes.HasPrefix(key, []byte("$code")) && !bytes.HasPrefix(key, []byte("$balance")) {
-			m["0x"+hex.EncodeToString(key)] = "0x" + hex.EncodeToString(value)
+		if !bytes.HasPrefix(iter.Key(), []byte("$code")) && !bytes.HasPrefix(iter.Key(), []byte("$balance")) {
+			m["0x"+hex.EncodeToString(iter.Key())] = "0x" + hex.EncodeToString(iter.Value())
 		}
 	}
 }

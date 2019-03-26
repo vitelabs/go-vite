@@ -63,7 +63,7 @@
     "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600260000307600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94980,
+    "quotaLeft": 99780,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -80,7 +80,7 @@
     "code": "6000600260000307600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94980,
+    "quotaLeft": 99780,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -97,7 +97,7 @@
     "code": "7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60000307600055",
     "returnData": "",
     "quotaTotal": 10000,
-    "quotaLeft": 4980,
+    "quotaLeft": 9780,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -132,7 +132,7 @@
     "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60000307600055",
     "returnData": "",
     "quotaTotal": 10000,
-    "quotaLeft": 4980,
+    "quotaLeft": 9780,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -167,7 +167,7 @@
     "code": "60016000037f800000000000000000000000000000000000000000000000000000000000000060000307600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94974,
+    "quotaLeft": 99774,
     "quotaRefund": 0,
     "err": "",
     "storage": {

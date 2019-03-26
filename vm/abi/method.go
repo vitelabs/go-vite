@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// Method represents chain callable given chain `Names` and whether the method is chain constant.
+// Method represents a callable given a `Names` and whether the method is a constant.
 // If the method is `Const` no transaction needs to be created for this
-// particular Method call. It can easily be simulated using chain local VM.
-// For example chain `Balance()` method only needs to retrieve something
+// particular Method call. It can easily be simulated using a local VM.
+// For example a `Balance()` method only needs to retrieve something
 // from the storage and therefor requires no Tx to be send to the
-// network. A method such as `Transact` does require chain Tx and thus will
+// network. A method such as `Transact` does require a Tx and thus will
 // be flagged `true`.
 // Input specifies the required input parameters for this gives method.
 type Method struct {
@@ -24,7 +24,7 @@ type Method struct {
 //
 // Example
 //
-//     function foo(uint32 chain, int b)    =    "foo(uint32,int256)"
+//     function foo(uint32 a, int b)    =    "foo(uint32,int256)"
 //
 // Please note that "int" is substitute for its canonical representation "int256"
 func (method Method) Sig() string {

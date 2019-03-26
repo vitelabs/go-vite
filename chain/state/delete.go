@@ -26,11 +26,6 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 			if accountBlock.LogHash != nil {
 				batch.Delete(chain_utils.CreateVmLogListKey(accountBlock.LogHash))
 			}
-			// delete code and contract meta
-			if accountBlock.Height <= 1 {
-				sDB.deleteCode(batch, &accountBlock.AccountAddress)
-				sDB.deleteContractMeta(batch, &accountBlock.AccountAddress)
-			}
 
 			// delete call depth
 			if accountBlock.IsReceiveBlock() {

@@ -12,7 +12,7 @@ var (
 )
 
 // formatSliceString formats the reflection kind with the given slice size
-// and returns chain formatted string representation.
+// and returns a formatted string representation.
 func formatSliceString(kind reflect.Kind, sliceSize int) string {
 	if sliceSize == -1 {
 		return fmt.Sprintf("[]%v", kind)
@@ -66,7 +66,7 @@ func typeCheck(t Type, value reflect.Value) error {
 
 }
 
-// typeErr returns chain formatted type casting error.
+// typeErr returns a formatted type casting error.
 func typeErr(expected, got interface{}) error {
 	return fmt.Errorf("abi: cannot use %v as type %v as argument", got, expected)
 }

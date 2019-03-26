@@ -26,7 +26,7 @@ type Unsaved struct {
 
 	balanceMap map[types.TokenTypeId]*big.Int
 
-	callDepth byte
+	callDepth uint16
 }
 
 func NewUnsaved() *Unsaved {
@@ -78,6 +78,10 @@ func (unsaved *Unsaved) GetCode() []byte {
 
 func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
 	return unsaved.contractMeta
+}
+func (unsaved *Unsaved) IsDelete(key []byte) bool {
+	_, ok := unsaved.deletedKeys[string(key)]
+	return ok
 }
 
 func (unsaved *Unsaved) SetValue(key []byte, value []byte) {
@@ -144,10 +148,10 @@ func (unsaved *Unsaved) ReleaseRuntime() {
 	unsaved.storage = nil
 }
 
-func (unsaved *Unsaved) SetCallDepth(callDepth byte) {
+func (unsaved *Unsaved) SetCallDepth(callDepth uint16) {
 	unsaved.callDepth = callDepth
 }
 
-func (unsaved *Unsaved) GetCallDepth() byte {
+func (unsaved *Unsaved) GetCallDepth() uint16 {
 	return unsaved.callDepth
 }

@@ -31,13 +31,13 @@ type Chain interface {
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetPledgeAmount(snapshotHash *types.Hash, addr *types.Address) (*big.Int, error)
+	GetPledgeAmount(addr *types.Address) (*big.Int, error)
 
-	GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+	GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
 	GetValue(addr *types.Address, key []byte) ([]byte, error)
 
-	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
+	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 }
 
 type VmDb interface {
@@ -50,11 +50,11 @@ type VmDb interface {
 
 	IsContractAccount() (bool, error)
 
-	GetCallDepth(sendBlockHash *types.Hash) (byte, error)
+	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
-	SetCallDepth(byte)
+	SetCallDepth(uint16)
 
-	GetUnsavedCallDepth() byte
+	GetUnsavedCallDepth() uint16
 
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 

@@ -8,8 +8,8 @@ import (
 )
 
 type MergedIterator struct {
-	cmp         comparer.BasicComparer
-	deletedKeys map[string]struct{}
+	cmp      comparer.BasicComparer
+	isDelete func([]byte) bool
 
 	iters      []interfaces.StorageIterator
 	iterIsLast []byte
@@ -23,13 +23,13 @@ type MergedIterator struct {
 	err error
 }
 
-func NewMergedIterator(iters []interfaces.StorageIterator, deletedKeys map[string]struct{}) interfaces.StorageIterator {
+func NewMergedIterator(iters []interfaces.StorageIterator, isDelete func([]byte) bool) interfaces.StorageIterator {
 	return &MergedIterator{
-		cmp:         comparer.DefaultComparer,
-		deletedKeys: deletedKeys,
-		iters:       iters,
-		iterIsLast:  make([]byte, len(iters)),
-		keys:        make([][]byte, len(iters)),
+		cmp:        comparer.DefaultComparer,
+		isDelete:   isDelete,
+		iters:      iters,
+		iterIsLast: make([]byte, len(iters)),
+		keys:       make([][]byte, len(iters)),
 	}
 }
 
@@ -102,12 +102,12 @@ func (mi *MergedIterator) Next() bool {
 				key = iter.Key()
 			}
 
-			if mi.deletedKeys != nil {
-				if _, ok := mi.deletedKeys[string(key)]; ok {
-					key = nil
-					mi.keys[i] = nil
-					continue
-				}
+			if mi.isDelete != nil && mi.isDelete(key) {
+
+				key = nil
+				mi.keys[i] = nil
+				continue
+
 			}
 
 			if bytes.Equal(key, mi.prevKey) {

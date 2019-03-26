@@ -292,15 +292,6 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	return l.ledgerBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetTokenMintage(tti types.TokenTypeId) (*RpcTokenInfo, error) {
-	l.log.Info("GetTokenMintage")
-	if t, err := l.chain.GetTokenInfoById(&tti); err != nil {
-		return nil, err
-	} else {
-		return RawTokenInfoToRpc(t, tti), nil
-	}
-}
-
 func (l *LedgerApi) GetSenderInfo() (*KafkaSendInfo, error) {
 	l.log.Info("GetSenderInfo")
 	if l.chain.KafkaSender() == nil {
@@ -363,7 +354,7 @@ func (l *LedgerApi) GetFittestSnapshotHash(accAddr *types.Address, sendBlockHash
 	if err != nil {
 		return nil, err
 	}
-	if prevQuota <= fittestQuota {
+	if prevQuota.Current() <= fittestQuota.Current() {
 		return fittestHash, nil
 	} else {
 		ok, err := calculatedPoW(l.chain, accAddr, *prevHash)

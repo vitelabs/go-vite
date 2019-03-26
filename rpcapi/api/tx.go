@@ -2,8 +2,6 @@ package api
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
@@ -11,12 +9,10 @@ import (
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
-	"time"
 )
 
 type Tx struct {
@@ -40,7 +36,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return err
 	}
 	// need to remove Later
-	//if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
+	//if len(lb.Data) != 0 && !isBuiltinContracts(lb.ToAddress) {
 	//	return ErrorNotSupportAddNot
 	//}
 	//
@@ -162,9 +158,8 @@ type SendTxWithPrivateKeyParam struct {
 }
 
 type CalcPoWDifficultyParam struct {
-	SelfAddr     types.Address `json:"selfAddr"`
-	PrevHash     types.Hash    `json:"prevHash"`
-	SnapshotHash types.Hash    `json:"snapshotHash"`
+	SelfAddr types.Address `json:"selfAddr"`
+	PrevHash types.Hash    `json:"prevHash"`
 
 	BlockType byte           `json:"blockType"`
 	ToAddr    *types.Address `json:"toAddr"`
@@ -173,91 +168,64 @@ type CalcPoWDifficultyParam struct {
 	UsePledgeQuota bool `json:"usePledgeQuota"`
 }
 
-func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, err error) {
-	var quotaRequired uint64
-	if param.BlockType == ledger.BlockTypeSendCreate {
-		quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
-	} else if param.BlockType == ledger.BlockTypeReceive {
-		quotaRequired, _ = util.IntrinsicGasCost(nil, false)
+type CalcPoWDifficultyResult struct {
+	quotaRequired uint64 `json:"quota"`
+	difficulty    string `json:"difficulty"`
+}
+
+func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	// get quota required
+	block := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		AccountAddress: param.SelfAddr,
+		PrevHash:       param.PrevHash,
+		Data:           param.Data,
+	}
+	if param.ToAddr != nil {
+		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		if param.ToAddr == nil {
-			return "", errors.New("toAddr is nil")
-		}
-		if types.IsBuiltinContractAddr(*param.ToAddr) {
-			if method, ok, err := vm.GetPrecompiledContract(*param.ToAddr, param.Data); !ok || err != nil {
-				return "", errors.New("precompiled contract method not exists")
-			} else {
-				quotaRequired = method.GetQuota()
-			}
-		} else {
-			quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
-		}
-	} else {
-		return "", errors.New("block type not supported")
+		return nil, errors.New("toAddr is nil")
+	}
+	quotaRequired, err := vm.GasRequiredForBlock(block)
+	if err != nil {
+		return nil, err
 	}
 
-	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, &param.PrevHash, &param.SelfAddr)
+	// get current quota
+	sb := t.vite.Chain().GetLatestSnapshotBlock()
+	// TODO tmpchain
+	var tmpchain vm_db.Chain
+	db, err := vm_db.NewVmDb(tmpchain, &param.SelfAddr, &sb.Hash, &param.PrevHash)
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	pledgeAmount, err := t.vite.Chain().GetPledgeAmount(&sb.Hash, &param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+	if err != nil {
+		return nil, err
 	}
 	if param.UsePledgeQuota {
-		pledgeAmount := abi.GetPledgeBeneficialAmount(db, param.SelfAddr)
-		quotaLeft, _, err := quota.CalcQuotaV2(db, param.SelfAddr, pledgeAmount, helper.Big0)
-		if err != nil {
-			return "", err
-		}
-		if quotaLeft >= quotaRequired {
-			return "0", nil
+		if q.Current() >= quotaRequired {
+			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
 		}
 	}
 
-	if !quota.CanPoW(db, param.SelfAddr) {
-		return "", util.ErrCalcPoWTwice
-	}
-	// TODO optimize part use quota left
-	d := quota.CalcPoWDifficulty(quotaRequired)
-	return d.String(), nil
-}
-
-const (
-	day           = 24 * time.Hour
-	powTimesLimit = 10
-)
-
-// A single account is limited to send 10 tx with PoW in one day
-func checkPoWLimit(c chain.Chain, addr types.Address, prevHash *types.Hash, snapshotHash types.Hash, nonce []byte) (bool, error) {
-	if prevHash == nil || !isPoW(nonce) {
-		return false, nil
-	}
-	powtimes := 1
-	currentSb, err := c.GetSnapshotBlockByHash(&snapshotHash)
+	// calc difficulty if current quota is not enough
+	canPoW, err := quota.CanPoW(db)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	startTime := getTodayStartTime(currentSb.Timestamp, *c.GetGenesisSnapshotBlock().Timestamp)
-	prevBlockHash := *prevHash
-	for {
-		prevBlock, err := c.GetAccountBlockByHash(&prevBlockHash)
-		if err != nil {
-			return false, err
-		}
-		if prevBlock == nil || prevBlock.Timestamp.Before(*startTime) {
-			return false, nil
-		}
-		if isPoW(prevBlock.Nonce) {
-			powtimes = powtimes + 1
-			if powtimes > powTimesLimit {
-				return true, nil
-			}
-		}
-		prevBlockHash = prevBlock.PrevHash
+	if !canPoW {
+		return nil, util.ErrCalcPoWTwice
 	}
-	return false, err
-}
-
-func getTodayStartTime(currentTime *time.Time, genesisTime time.Time) *time.Time {
-	startTime := genesisTime.Add(currentTime.Sub(genesisTime).Round(day))
-	return &startTime
+	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
+	if err != nil {
+		return nil, err
+	}
+	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
 }
 
 func isPoW(nonce []byte) bool {

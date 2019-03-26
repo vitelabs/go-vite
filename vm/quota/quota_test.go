@@ -1,237 +1,386 @@
 package quota
 
 import (
+	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"math"
 	"math/big"
 	"testing"
 )
 
-// quota = Qm * (1 - 2 / (1 + e**(paramPledge * Hgap * pledgeAmount + paramPoW * difficulty)))
-// Qm is decided by total quota used during past 3600 snapshot blocks,
-// using 1 million for the sake of simplicity in test net.
-// Default difficulty is 0xffffffc000000000.
-func TestCalcLogisticQuotaParam(t *testing.T) {
-	InitQuotaConfig(false)
-	quotaLimit := 1000000.0
-	defaultSection := nodeConfig.sectionList[1]
-
-	// Pledge minimum amount of Vite Token, calc no PoW, wait for longest block height, gets quota for chain pure transfer transaction
-	// maxHeightGap := 86400.0
-	// Pledge minimum amount of Vite Token, calc no PoW, wait for one snapshot block, gets quota for chain pure transfer transaction
-	maxHeightGap, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0")
-	minPledgeAmount, _ := new(big.Float).SetPrec(precForFloat).SetString("1.0e22")
-	floatTmp := new(big.Float).SetPrec(precForFloat)
-	floatTmp.Quo(defaultSection, maxHeightGap)
-	floatTmp.Quo(floatTmp, minPledgeAmount)
-	fmt.Printf("paramA      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", floatTmp.String())
-	// Pledge no Vite Token, calc PoW for default difficulty, gets quota for chain pure transfer transaction
-	//defaultDifficulty, _ := new(big.Float).SetPrec(precForFloat).SetString("0x000000000000FFFF")
-	defaultDifficulty := new(big.Float).SetPrec(precForFloat).SetUint64(67108863)
-	floatTmp.Quo(defaultSection, defaultDifficulty)
-	fmt.Printf("paramB      = new(big.Float).SetPrec(precForFloat).SetFloat64(%v)\n", floatTmp.String())
-
-	fmt.Printf("sectionList = []*big.Float{ // Section list of x value in e**x\nnew(big.Float).SetPrec(precForFloat).SetFloat64(0.0),\n")
+func TestCalcParamAndSectionList(t *testing.T) {
+	quotaLimit := 75 * 1000000.0
+	sectionList := make([]*big.Float, 0)
+	fmt.Printf("sectionStrList = []string{\n")
 	q := 0.0
 	index := 0
+	wapperIndex := 0
 	for {
-		index = index + 1
-		q = q + 21000.0
 		if q >= quotaLimit {
 			break
 		}
 		gapLow := math.Log(2.0/(1.0-q/quotaLimit) - 1.0)
-		fmt.Printf("new(big.Float).SetPrec(precForFloat).SetFloat64(%v),\n", gapLow)
+
+		fmt.Printf("\t\"%v\", ", gapLow)
+		wapperIndex = wapperIndex + 1
+		if wapperIndex == 75 {
+			fmt.Printf("\n")
+			wapperIndex = 0
+		}
+		sectionList = append(sectionList, new(big.Float).SetPrec(precForFloat).SetFloat64(gapLow))
+		index = index + 1
+		q = q + 21000.0
+	}
+	fmt.Printf("}\n")
+
+	defaultSection := sectionList[1]
+
+	floatTmp := new(big.Float).SetPrec(precForFloat)
+
+	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
+	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsMainnet)
+	paramaForMainnet := floatTmp.String()
+
+	defaultDifficultyForMainnet := new(big.Float).SetPrec(precForFloat).SetUint64(67108862)
+	floatTmp.Quo(defaultSection, defaultDifficultyForMainnet)
+	parambForMainnet := floatTmp.String()
+
+	fmt.Printf("QuotaParamMainnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
+
+	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10")
+	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsTestnet)
+	paramaForTestnet := floatTmp.String()
+
+	defaultDifficultyForTestnet := new(big.Float).SetPrec(precForFloat).SetUint64(65534)
+	floatTmp.Quo(defaultSection, defaultDifficultyForTestnet)
+	parambForTestnet := floatTmp.String()
+
+	fmt.Printf("QuotaParamTestnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForTestnet, parambForTestnet)
+}
+
+func TestCalcPledgeAmountSection(t *testing.T) {
+	tmpFloat := new(big.Float).SetPrec(precForFloat)
+	tmpFloatForCalc := new(big.Float).SetPrec(precForFloat)
+
+	InitQuotaConfig(false)
+	p := nodeConfig.paramA
+	fmt.Printf("pledgeAmountListMainnet = []*big.Int{\n")
+	wapperIndex := 0
+	for _, sec := range nodeConfig.sectionList {
+		tmpFloat = tmpFloat.Quo(sec, p)
+		amount, _ := tmpFloat.Int(nil)
+		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("big.NewInt(%v), ", amount.String())
+		if wapperIndex == 75 {
+			fmt.Printf("\n")
+			wapperIndex = 0
+		} else {
+			wapperIndex = wapperIndex + 1
+		}
+	}
+	fmt.Printf("}\n")
+
+	InitQuotaConfig(true)
+	p = nodeConfig.paramA
+	fmt.Printf("pledgeAmountListTestnet = []*big.Int{\n")
+	wapperIndex = 0
+	for _, sec := range nodeConfig.sectionList {
+		tmpFloat = tmpFloat.Quo(sec, p)
+		amount, _ := tmpFloat.Int(nil)
+		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("big.NewInt(%v), ", amount.String())
+		if wapperIndex == 75 {
+			fmt.Printf("\n")
+			wapperIndex = 0
+		} else {
+			wapperIndex = wapperIndex + 1
+		}
 	}
 	fmt.Printf("}\n")
 }
 
-func TestCalcQuotaForPoWTest(t *testing.T) {
-	InitQuotaConfig(true)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	difficulty := float64(0x000000000000FFFF)
-	tmpFLoat.SetFloat64(difficulty)
-	tmpFLoat.Mul(tmpFLoat, QuotaParamTest.paramB)
-	x.Add(x, tmpFLoat)
-	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaTotal != util.TxGas {
-		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaTotal)
-	}
-}
+func TestCalcDifficultySection(t *testing.T) {
+	tmpFloat := new(big.Float).SetPrec(precForFloat)
+	tmpFloatForCalc := new(big.Float).SetPrec(precForFloat)
 
-func TestCalcQuotaForMinPledgeTest(t *testing.T) {
-	InitQuotaConfig(true)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.SetUint64(1)
-	x.Mul(tmpFLoat, QuotaParamTest.paramA)
-	tmpFLoat.SetInt(new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)))
-	x.Mul(tmpFLoat, x)
-	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaWithoutPoW != util.TxGas {
-		t.Fatalf("gain quota pledge minimum Vite Token not enough to create chain transaction, got %v", quotaWithoutPoW)
-	}
-}
-
-func TestCalcQuotaForMaxPledgeTest(t *testing.T) {
-	InitQuotaConfig(true)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.SetUint64(1)
-	x.Mul(tmpFLoat, QuotaParamTest.paramA)
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	tmpFLoat.SetInt(viteTotalSupply)
-	x.Mul(tmpFLoat, x)
-	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaWithoutPoW != util.TxGas*uint64(len(nodeConfig.sectionList)-1) {
-		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaWithoutPoW)
-	}
-}
-
-func TestCalcQuotaForPoWMainNet(t *testing.T) {
 	InitQuotaConfig(false)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	difficulty := float64(67108863)
-	tmpFLoat.SetFloat64(difficulty)
-	tmpFLoat.Mul(tmpFLoat, QuotaParamMainNet.paramB)
-	x.Add(x, tmpFLoat)
-	quotaTotal := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaTotal != util.TxGas {
-		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaTotal)
+	p := nodeConfig.paramB
+	fmt.Printf("difficultyListMainnet = []*big.Int{\n")
+	wapperIndex := 0
+	for _, sec := range nodeConfig.sectionList {
+		tmpFloat = tmpFloat.Quo(sec, p)
+		amount, _ := tmpFloat.Int(nil)
+		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("big.NewInt(%v), ", amount.String())
+		if wapperIndex == 75 {
+			fmt.Printf("\n")
+			wapperIndex = 0
+		} else {
+			wapperIndex = wapperIndex + 1
+		}
 	}
-}
+	fmt.Printf("}\n")
 
-func TestCalcQuotaForMinPledgeMainNet(t *testing.T) {
-	InitQuotaConfig(false)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.SetUint64(1)
-	x.Mul(tmpFLoat, QuotaParamMainNet.paramA)
-	tmpFLoat.SetInt(new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18)))
-	x.Mul(tmpFLoat, x)
-	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaWithoutPoW != util.TxGas {
-		t.Fatalf("gain quota pledge minimum Vite Token not enough to create chain transaction, got %v", quotaWithoutPoW)
-	}
-}
-
-func TestCalcQuotaForMaxPledgeMainNet(t *testing.T) {
-	InitQuotaConfig(false)
-	x := new(big.Float).SetPrec(precForFloat).SetUint64(0)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	tmpFLoat.SetUint64(1)
-	x.Mul(tmpFLoat, QuotaParamMainNet.paramA)
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	tmpFLoat.SetInt(viteTotalSupply)
-	x.Mul(tmpFLoat, x)
-	quotaWithoutPoW := uint64(getIndexInSection(x)) * quotaForSection
-	if quotaWithoutPoW != util.TxGas*uint64(len(nodeConfig.sectionList)-1) {
-		t.Fatalf("gain quota by calc PoW not enough to create chain transaction, got %v", quotaWithoutPoW)
-	}
-}
-
-func TestPledgeWaitHeightSection(t *testing.T) {
-	InitQuotaConfig(false)
-	x := new(big.Float).SetPrec(precForFloat)
-	pledgeMin := new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e18))
-	for i := 0; i < len(nodeConfig.sectionList); i++ {
-		x.SetInt(pledgeMin)
-		x.Mul(x, nodeConfig.paramA)
-		x.Quo(nodeConfig.sectionList[i], x)
-		f, _ := x.Float64()
-		fmt.Printf("pledgeAmount:10000 vite, wait time: %v, quotaForTx: %v\n", math.Ceil(f), i)
-	}
-}
-
-func TestPledgeAmountSection(t *testing.T) {
 	InitQuotaConfig(true)
-	x := new(big.Float).SetPrec(precForFloat)
-	unit := new(big.Float).SetInt64(1e18)
-	for i := 0; i < len(nodeConfig.sectionList); i++ {
-		x.Set(nodeConfig.paramA)
-		x.Quo(nodeConfig.sectionList[i], x)
-		x.Quo(x, unit)
-		f, _ := x.Float64()
-		fmt.Printf("\"%v\",", int(math.Ceil(f)))
+	p = nodeConfig.paramB
+	fmt.Printf("difficultyListTestnet = []*big.Int{\n")
+	wapperIndex = 0
+	for _, sec := range nodeConfig.sectionList {
+		tmpFloat = tmpFloat.Quo(sec, p)
+		amount, _ := tmpFloat.Int(nil)
+		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("big.NewInt(%v), ", amount.String())
+		if wapperIndex == 75 {
+			fmt.Printf("\n")
+			wapperIndex = 0
+		} else {
+			wapperIndex = wapperIndex + 1
+		}
+	}
+	fmt.Printf("}\n")
+}
+
+func TestCheckNodeConfig(t *testing.T) {
+	InitQuotaConfig(false)
+	l := len(nodeConfig.sectionList)
+	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
+		t.Fatalf("main net node config param error")
+	}
+	InitQuotaConfig(true)
+	l = len(nodeConfig.sectionList)
+	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
+		t.Fatalf("main net node config param error")
 	}
 }
 
-func TestPledgeQuota(t *testing.T) {
-	/*InitQuotaConfig(false)
-	list := []string{"0", "10000", "20009", "30036", "40089", "50178", "60312", "70501", "80754", "91082", "101495", "112005", "122623", "133362", "144235", "155256", "166440", "177804", "189364", "201141", "213156", "225428", "237989", "250862", "264082", "277682", "291702", "306188", "321192", "336772", "353004", "369958", "387743", "406468", "426270", "447322", "469840", "494096", "520436", "549332", "581427", "617620", "659288", "708576", "769276", "848844", "965904", "1197301"}
-	*/
-	InitQuotaConfig(true)
-	list := []string{"0", "11", "21", "31", "41", "51", "61", "71", "81", "92", "102", "113", "123", "134", "145", "156", "167", "178", "190", "202", "214", "226", "238", "251", "265", "278", "292", "307", "322", "337", "354", "370", "388", "407", "427", "448", "470", "495", "521", "550", "582", "618", "660", "709", "770", "849", "966", "1198"}
-	x := new(big.Float).SetPrec(precForFloat)
-	unit := new(big.Float).SetInt64(1e18)
-	for i, str := range list {
-		pledgeAmount, _ := new(big.Int).SetString(str, 10)
-		x.SetInt(pledgeAmount)
-		x.Mul(x, unit)
-		x.Mul(x, nodeConfig.paramA)
-		if got := getIndexInSection(x); got != i {
-			fmt.Printf("get quota by pledge failed, pledgeAmount = %v, expected %v, got %v， section: %v\n", str, i, got, sectionStrList[i])
+func getNextBigInt(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float) *big.Int {
+	for {
+		tmp = tmp.SetInt(bi)
+		tmp = tmp.Mul(tmp, p)
+		if tmp.Cmp(target) < 0 {
+			bi = bi.Add(bi, helper.Big1)
+		} else {
+			break
+		}
+	}
+	return bi
+}
+
+type testQuotaDb struct {
+	addr                  types.Address
+	quotaUsed, blockCount uint64
+	unconfirmedBlockList  []*ledger.AccountBlock
+}
+
+func (db *testQuotaDb) Address() *types.Address {
+	return &db.addr
+}
+func (db *testQuotaDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+	return db.quotaUsed, db.blockCount
+}
+func (db *testQuotaDb) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+	return db.unconfirmedBlockList
+}
+
+func TestCalcPoWDifficulty(t *testing.T) {
+	testCases := []struct {
+		quotaRequired uint64
+		q             types.Quota
+		pledgeAmount  *big.Int
+		difficulty    *big.Int
+		err           error
+		name          string
+	}{
+		{1000001, types.NewQuota(100000000, 0, 0), big.NewInt(0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
+		{21000, types.NewQuota(74970001, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached"},
+		{21000, types.NewQuota(74970002, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached2"},
+		{21000, types.NewQuota(0, 0, 0), big.NewInt(0), big.NewInt(67108863), nil, "no_pledge_quota"},
+		{21000, types.NewQuota(21000, 0, 0), big.NewInt(10000), big.NewInt(0), nil, "pledge_quota_enough"},
+		{22000, types.NewQuota(21000, 0, 0), big.NewInt(10000), big.NewInt(67102161), nil, "use_both"},
+		{21000, types.NewQuota(0, 0, 0), big.NewInt(10000), big.NewInt(0), nil, "total_quota_not_exact"},
+		{1000000, types.NewQuota(21000, 21000, 21000), big.NewInt(10000), big.NewInt(3221424933), nil, "total_quota_not_exact"},
+	}
+	InitQuotaConfig(false)
+	for _, testCase := range testCases {
+		difficulty, err := CalcPoWDifficulty(testCase.quotaRequired, testCase.q, testCase.pledgeAmount)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v CalcPoWDifficulty failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && difficulty.Cmp(testCase.difficulty) != 0 {
+			t.Fatalf("%v CalcPoWDifficulty failed, difficulty not match, expected %v, got %v", testCase.name, testCase.difficulty, difficulty)
 		}
 	}
 }
 
-func TestPoWQuotaSection(t *testing.T) {
-	InitQuotaConfig(true)
-	x := new(big.Float).SetPrec(100)
-	for i := 0; i < len(nodeConfig.sectionList); i++ {
-		x.Set(nodeConfig.paramB)
-		x.Quo(nodeConfig.sectionList[i], x)
-		f, _ := x.Float64()
-		fmt.Println(int(math.Ceil(f)))
-		//difficulty, _ := new(big.Int).SetString(x.Text('f', 0), 10)
-		//target := pow.DifficultyToTarget(difficulty)
-		//fmt.Printf("pow difficulty: %v, quota: %v\n", difficulty, i*21000)
-		//fmt.Printf("%v\n", difficulty)
+func TestCanPoW(t *testing.T) {
+	testCases := []struct {
+		blockList []*ledger.AccountBlock
+		result    bool
+		name      string
+	}{
+		{[]*ledger.AccountBlock{}, true, "no_blocks"},
+		{[]*ledger.AccountBlock{{Nonce: []byte{1}}}, false, "cannot_calc_pow1"},
+		{[]*ledger.AccountBlock{{}, {Nonce: []byte{1}}}, false, "cannot_calc_pow2"},
+		{[]*ledger.AccountBlock{{}}, true, "can_calc_pow1"},
+		{[]*ledger.AccountBlock{{}, {}}, true, "can_calc_pow2"},
 	}
-}
-
-func TestPoWQuota(t *testing.T) {
-	InitQuotaConfig(false)
-	list := []string{"0", "67108864", "134276096", "201564160", "269029376", "336736256", "404742144", "473120768", "541929472", "611241984", "681119744", "751652864", "822910976", "894976000", "967946240", "1041903616", "1116962816", "1193222144", "1270800384", "1349836800", "1430462464", "1512824832", "1597120512", "1683513344", "1772216320", "1863491584", "1957568512", "2054791168", "2155479040", "2260041728", "2368962560", "2482757632", "2602090496", "2727755776", "2860646400", "3001933824", "3153051648", "3315826688", "3492593664", "3686514688", "3901882368", "4144775168", "4424400896", "4755193856", "5162500096", "5696520192", "6482067456", "8034975744"}
-	/*
-		InitQuotaConfig(true)
-		list := []string{"0", "65535", "131127", "196836", "262720", "328838", "395250", "462024", "529220", "596904", "665147", "734024", "803612", "873984", "945240", "1017468", "1090768", "1165237", "1241000", "1318176", "1396912", "1477344", "1559656", "1644024", "1730656", "1819784", "1911656", "2006592", "2104928", "2207040", "2313408", "2424528", "2541072", "2663776", "2793552", "2931520", "3079104", "3238064", "3410672", "3600048", "3810368", "4047568", "4320608", "4643648", "5041440", "5562912", "6330048", "7846496"}
-	*/
-	x := new(big.Float).SetPrec(precForFloat)
-	for i, str := range list {
-		difficulty, _ := new(big.Int).SetString(str, 10)
-		x.SetInt(difficulty)
-		x.Mul(x, nodeConfig.paramB)
-		if got := getIndexInSection(x); got != i {
-			fmt.Printf("get quota by pow failed, difficulty = %v, expected %v, got %v， section: %v\n", str, i, got, sectionStrList[i])
+	for _, testCase := range testCases {
+		db := &testQuotaDb{types.Address{}, 0, 0, testCase.blockList}
+		result, _ := CanPoW(db)
+		if result != testCase.result {
+			t.Fatalf("%v CanPoW failed, result not match, expected %v, got %v", testCase.name, testCase.result, result)
 		}
 	}
 }
 
-func TestCalcPoWDifficultyMainNet(t *testing.T) {
+func TestCalcQuotaV3(t *testing.T) {
+	testCases := []struct {
+		addr                                           types.Address
+		pledgeAmount                                   *big.Int
+		difficulty                                     *big.Int
+		usedQuota, blockCount                          uint64
+		unconfirmedBlockList                           []*ledger.AccountBlock
+		quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64
+		err                                            error
+		name                                           string
+	}{
+		{types.Address{}, big.NewInt(0), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			0, 0, 0, 0, nil, "no_quota",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(1),
+			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
+			0, 0, 0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
+			42000, 21000, 21000, 10500, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, 0, 0, nil, "get_quota_by_pledge1",
+		},
+		{types.Address{}, big.NewInt(19999), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			42000, 0, 21000, 21000, nil, "get_quota_by_pledge2",
+		},
+		{types.Address{}, big.NewInt(29998), big.NewInt(0),
+			42001, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 21001}},
+			63000, 0, 42001, 21000, nil, "get_quota_by_pledge3",
+		},
+		{types.Address{}, big.NewInt(10001), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, 0, 0, nil, "get_quota_by_pledge4",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 21000, 0, 0, nil, "get_quota_by_difficulty1",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			42000, 21000, 21000, 21000, nil, "get_quota_by_difficulty2",
+		},
+	}
 	InitQuotaConfig(false)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	for i, difficulty := range difficultyListMainNet {
-		tmpFLoat.SetInt(difficulty)
-		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
-		q := calcQuotaInSection(tmpFLoat)
-		if q != uint64(i)*quotaForSection {
-			t.Fatalf("calc pow difficulty of main net failed, %v: %v", i, difficulty)
+	for _, testCase := range testCases {
+		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
+		quotaTotal, quotaAddition, quotaUsed, quotaAvg, err := calcQuotaV3(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && (quotaTotal != testCase.quotaTotal || quotaAddition != testCase.quotaAddition || quotaUsed != testCase.quotaUsed || quotaAvg != testCase.quotaAvg) {
+			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v), got (%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.quotaAddition, testCase.quotaUsed, testCase.quotaAvg, quotaTotal, quotaAddition, quotaUsed, quotaAvg)
 		}
 	}
 }
-func TestCalcPoWDifficultyTest(t *testing.T) {
-	InitQuotaConfig(true)
-	tmpFLoat := new(big.Float).SetPrec(precForFloat)
-	for i, difficulty := range difficultyListTest {
-		tmpFLoat.SetInt(difficulty)
-		tmpFLoat.Mul(tmpFLoat, nodeConfig.paramB)
-		q := calcQuotaInSection(tmpFLoat)
-		if q != uint64(i)*quotaForSection {
-			t.Fatalf("calc pow difficulty of main net failed, %v: %v", i, difficulty)
+func BenchmarkCalcQuotaV3(b *testing.B) {
+	InitQuotaConfig(false)
+	addr := types.Address{}
+	db := &testQuotaDb{addr, 21000, 1, []*ledger.AccountBlock{{Quota: 21000}}}
+	pledgeAmount := big.NewInt(10000)
+	difficulty := big.NewInt(67108863)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		calcQuotaV3(db, addr, pledgeAmount, difficulty)
+	}
+}
+
+func TestCalcQuotaForBlock(t *testing.T) {
+	testCases := []struct {
+		addr                      types.Address
+		pledgeAmount              *big.Int
+		difficulty                *big.Int
+		usedQuota, blockCount     uint64
+		unconfirmedBlockList      []*ledger.AccountBlock
+		quotaTotal, quotaAddition uint64
+		err                       error
+		name                      string
+	}{
+		{types.Address{}, big.NewInt(0), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			0, 0, nil, "no_quota",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(1),
+			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
+			0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
+			21000, 21000, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, nil, "get_quota_by_pledge1",
+		},
+		{types.Address{}, big.NewInt(19999), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			21000, 0, nil, "get_quota_by_pledge2",
+		},
+		{types.Address{}, big.NewInt(29998), big.NewInt(0),
+			42001, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 21001}},
+			20999, 0, nil, "get_quota_by_pledge3",
+		},
+		{types.Address{}, big.NewInt(10001), big.NewInt(0),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 0, nil, "get_quota_by_pledge4",
+		},
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
+			0, 0, []*ledger.AccountBlock{},
+			21000, 21000, nil, "get_quota_by_difficulty1",
+		},
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			21000, 21000, nil, "get_quota_by_difficulty2",
+		},
+		{types.Address{}, big.NewInt(1000), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			0, 0, nil, "quota_total_less_than_used",
+		},
+		{types.Address{}, big.NewInt(489982), big.NewInt(0),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			1000000, 0, nil, "block_quota_limit_reached1",
+		},
+		{types.Address{}, big.NewInt(479981), big.NewInt(134217737),
+			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
+			1000000, 21000, nil, "block_quota_limit_reached2",
+		},
+		{types.Address{}, big.NewInt(479981), big.NewInt(134217737),
+			0, 0, []*ledger.AccountBlock{},
+			1000000, 21000, nil, "block_quota_limit_reached3",
+		},
+	}
+	InitQuotaConfig(false)
+	for _, testCase := range testCases {
+		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
+		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.pledgeAmount, testCase.difficulty)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v TestCalcQuotaForBlock failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil && (quotaTotal != testCase.quotaTotal || quotaAddition != testCase.quotaAddition) {
+			t.Fatalf("%v TestCalcQuotaForBlock failed, quota not match, expected (%v,%v), got (%v,%v)", testCase.name, testCase.quotaTotal, testCase.quotaAddition, quotaTotal, quotaAddition)
 		}
 	}
 }

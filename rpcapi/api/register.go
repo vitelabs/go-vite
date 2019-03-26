@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 	"time"
 
@@ -10,7 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type RegisterApi struct {
@@ -32,16 +33,16 @@ func (r RegisterApi) String() string {
 }
 
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister, gid, name)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
 
 type RegistrationInfo struct {
@@ -51,7 +52,8 @@ type RegistrationInfo struct {
 	PledgeAmount   string        `json:"pledgeAmount"`
 	WithdrawHeight string        `json:"withdrawHeight"`
 	WithdrawTime   int64         `json:"withdrawTime"`
-	CancelHeight   string        `json:"cancelHeight"`
+	CancelTime     int64         `json:"cancelTime"`
+	Reward         string        `json:"reward"`
 }
 
 type byRegistrationWithdrawHeight []*types.Registration
@@ -60,22 +62,39 @@ func (a byRegistrationWithdrawHeight) Len() int      { return len(a) }
 func (a byRegistrationWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 	if a[i].WithdrawHeight == a[j].WithdrawHeight {
-		return a[i].CancelHeight > a[j].CancelHeight
+		if a[i].CancelTime == a[j].CancelTime {
+			return a[i].Name > a[j].Name
+		} else {
+			return a[i].CancelTime > a[j].CancelTime
+		}
 	}
 	return a[i].WithdrawHeight > a[j].WithdrawHeight
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
 	snapshotBlock := r.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	list, err := abi.GetRegistrationList(db, gid, pledgeAddr)
+	if err != nil {
+		return nil, err
+	}
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
+			_, _, reward, err := contracts.CalcReward(db, info, gid, snapshotBlock)
+			if err != nil {
+				return nil, err
+			}
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
 				NodeAddr:       info.NodeAddr,
@@ -83,7 +102,8 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				PledgeAmount:   *bigIntToString(info.Amount),
 				WithdrawHeight: uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-				CancelHeight:   uint64ToString(info.CancelHeight),
+				CancelTime:     info.CancelTime,
+				Reward:         *bigIntToString(reward),
 			}
 		}
 	}
@@ -91,29 +111,17 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	return abi.GetRegistration(vmContext, gid, name), nil
-}
-
-// Deprecated: Use GetRegistration instead
-func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types.Address, error) {
-	var g types.Gid
-	if gid == nil || *gid == types.DELEGATE_GID {
-		g = types.SNAPSHOT_GID
-	} else {
-		g = *gid
-	}
-	registration, err := r.GetRegistration(name, g)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
-	if registration != nil {
-		return &registration.PledgeAddr, nil
-	}
-	return nil, nil
+	return abi.GetRegistration(db, gid, name)
 }
 
 type RegistParam struct {
@@ -125,17 +133,30 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if len(paramList) == 0 {
 		return nil, nil
 	}
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(r.chain, &types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
 	addrList := make([]*types.Address, len(paramList))
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	for k, v := range paramList {
 		var r *types.Registration
 		if v.Gid == nil || *v.Gid == types.DELEGATE_GID {
-			r = abi.GetRegistration(vmContext, types.SNAPSHOT_GID, v.Name)
+			if r, err = abi.GetRegistration(db, types.SNAPSHOT_GID, v.Name); err != nil {
+				return nil, err
+			}
 		} else {
-			r = abi.GetRegistration(vmContext, *v.Gid, v.Name)
+			if r, err = abi.GetRegistration(db, *v.Gid, v.Name); err != nil {
+			}
+			return nil, err
 		}
 		if r != nil {
 			addrList[k] = &r.PledgeAddr
@@ -152,6 +173,7 @@ type CandidateInfo struct {
 
 // @deprecated gid
 func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
+	// TODO
 	head := r.chain.GetLatestSnapshotBlock()
 	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
 	if err != nil {

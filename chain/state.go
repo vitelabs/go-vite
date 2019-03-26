@@ -20,14 +20,14 @@ func (c *chain) GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*bi
 }
 
 // get confirmed snapshot balance, if history is too old, failed
-func (c *chain) GetConfirmedBalance(addr *types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (*big.Int, error) {
-	balance, err := c.stateDB.GetSnapshotBalance(addr, tokenId, sbHash)
+func (c *chain) GetConfirmedBalanceList(addrList []*types.Address, tokenId *types.TokenTypeId, sbHash *types.Hash) (map[types.Address]*big.Int, error) {
+	balances, err := c.stateDB.GetSnapshotBalanceList(sbHash, addrList, tokenId)
 	if err != nil {
 		c.log.Error(err.Error(), "method", "GetConfirmedBalance")
 		return nil, err
 	}
 
-	return balance, nil
+	return balances, nil
 }
 
 // get contract code
@@ -51,36 +51,34 @@ func (c *chain) GetContractMeta(contractAddress *types.Address) (*ledger.Contrac
 	return meta, nil
 }
 
-// TODO
-func (c *chain) GetContractList(gid *types.Gid) (map[types.Address]*ledger.ContractMeta, error) {
-	// do something
-	c.stateDB.GetValue(&types.AddressConsensusGroup, gid.Bytes())
-	return nil, nil
+func (c *chain) GetContractList(gid *types.Gid) ([]*types.Address, error) {
+
+	addrList, err := c.stateDB.GetContractList(gid)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractList failed, gid is %s. Error: %s", gid, err))
+		c.log.Error(cErr.Error(), "method", "GetContractList")
+		return nil, cErr
+	}
+	return addrList, nil
 }
 
 func (c *chain) GetQuotaUnused(address *types.Address) (uint64, error) {
-	totalQuota, err := c.GetPledgeQuota(&c.GetLatestSnapshotBlock().Hash, address)
+	quotaInfo, err := c.GetPledgeQuota(address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
 		return 0, cErr
 	}
 
-	quotaUsed, _ := c.GetQuotaUsed(address)
-	return totalQuota - quotaUsed, nil
+	return quotaInfo.Total() - quotaInfo.Used(), nil
 }
 
 func (c *chain) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
 	return c.cache.GetQuotaUsed(address)
 }
 
-func (c *chain) GetStateIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	ss, err := c.stateDB.NewStorageIterator(address, prefix)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageIterator failed, address is %s. prefix is %s", address, prefix))
-		c.log.Error(cErr.Error(), "method", "GetStorageIterator")
-		return nil, cErr
-	}
+func (c *chain) GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+	ss := c.stateDB.NewStorageIterator(address, prefix)
 	return ss, nil
 }
 

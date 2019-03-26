@@ -56,6 +56,11 @@ var (
 		Code:    -35006,
 	}
 
+	ErrVmInvalidConfirmTime = JsonRpc2Error{
+		Message: util.ErrInvalidConfirmTime.Error(),
+		Code:    -35007,
+	}
+
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
 		Message: verifier.ErrVerifyAccountAddrFailed.Error(),
@@ -92,6 +97,7 @@ func init() {
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
+	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash

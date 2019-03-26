@@ -62,7 +62,7 @@
     "code": "6018601704600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94986,
+    "quotaLeft": 99786,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -79,7 +79,7 @@
     "code": "6018600004600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94986,
+    "quotaLeft": 99786,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -114,7 +114,7 @@
     "code": "6000600204600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94986,
+    "quotaLeft": 99786,
     "quotaRefund": 0,
     "err": "",
     "storage": {

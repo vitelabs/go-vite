@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 )
 
@@ -42,8 +42,9 @@ func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount str
 }
 
 type QuotaAndTxNum struct {
-	Quota string `json:"quota"`
-	TxNum string `json:"txNum"`
+	TotalQuota   string `json:"total"`
+	CurrentQuota string `json:"current"`
+	CurrentTxNum string `json:"txNum"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
@@ -51,11 +52,11 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	q, err := p.chain.GetPledgeQuota(*hash, addr)
+	q, err := p.chain.GetPledgeQuota(hash, &addr)
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}, nil
+	return &QuotaAndTxNum{uint64ToString(q.Total()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas)}, nil
 }
 
 type PledgeInfoList struct {
@@ -82,11 +83,20 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
 	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(p.chain, &snapshotBlock.Hash, nil, nil)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(p.chain, &types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
-	list, amount := abi.GetPledgeInfoList(vmContext, addr)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	list, amount, err := abi.GetPledgeInfoList(db, addr)
+	if err != nil {
+		return nil, err
+	}
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {

@@ -111,6 +111,16 @@ func CreateIndexDbLatestLocationKey() []byte {
 
 // ====== state db ======
 
+func CreateStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
+	keySize := 1 + types.AddressSize + len(prefix)
+	key := make([]byte, 0, keySize)
+
+	key = append(key, StorageKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, prefix...)
+	return key
+}
+
 func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
 	keySize := types.AddressSize + 34
 	key := make([]byte, keySize)
@@ -133,6 +143,16 @@ func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, sna
 	key[keySize-8] = byte(len(storageKey))
 	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
 
+	return key
+}
+
+func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
+	keySize := 1 + types.AddressSize + len(prefix)
+	key := make([]byte, 0, keySize)
+
+	key = append(key, StorageHistoryKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, prefix...)
 	return key
 }
 
@@ -182,6 +202,26 @@ func CreateContractMetaKey(address *types.Address) []byte {
 	key[0] = ContractMetaKeyPrefix
 
 	copy(key[1:], address.Bytes())
+
+	return key
+}
+func CreateGidContractKey(gid *types.Gid, address *types.Address) []byte {
+	key := make([]byte, 0, 1+types.GidSize+types.AddressSize)
+
+	key[0] = GidContractKeyPrefix
+
+	key = append(key, gid.Bytes()...)
+	key = append(key, address.Bytes()...)
+
+	return key
+}
+
+func CreateGidContractPrefixKey(gid *types.Gid) []byte {
+	key := make([]byte, 0, 1+types.GidSize)
+
+	key[0] = GidContractKeyPrefix
+
+	key = append(key, gid.Bytes()...)
 
 	return key
 }

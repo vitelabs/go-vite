@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type VoteApi struct {
@@ -27,10 +27,10 @@ func (v VoteApi) String() string {
 }
 
 func (v *VoteApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIVote.PackMethod(abi.MethodNameVote, gid, name)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, gid, name)
 }
 func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
-	return abi.ABIVote.PackMethod(abi.MethodNameCancelVote, gid)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, gid)
 }
 
 var (
@@ -45,16 +45,30 @@ type VoteInfo struct {
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	vmContext, err := vm_context.NewVmContext(v.chain, nil, nil, nil)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(v.chain, &types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	if voteInfo := abi.GetVote(vmContext, gid, addr); voteInfo != nil {
-		balance, err := v.chain.GetAccountBalanceByTokenId(&addr, &ledger.ViteTokenId)
+	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	voteInfo, err := abi.GetVote(db, gid, addr)
+	if err != nil {
+		return nil, err
+	}
+	if voteInfo != nil {
+		balance, err := tmpChain.GetBalance(&addr, &ledger.ViteTokenId)
 		if err != nil {
 			return nil, err
 		}
-		if abi.IsActiveRegistration(vmContext, voteInfo.NodeName, gid) {
+		active, err := abi.IsActiveRegistration(db, voteInfo.NodeName, gid)
+		if err != nil {
+			return nil, err
+		}
+		if active {
 			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
 		} else {
 			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil

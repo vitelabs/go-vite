@@ -11,7 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"strings"
 )
 
@@ -31,16 +31,16 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
-func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash, snapshotHash types.Hash) (*types.Address, error) {
-	h, err := stringToUint64(heightStr)
+func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
+	h, err := StringToUint64(heightStr)
 	if err != nil {
 		return nil, err
 	}
-	addr := util.NewContractAddress(selfAddr, h, prevHash, snapshotHash)
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
 	return &addr, nil
 }
 
-func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiStr string, params []string) ([]byte, error) {
+func (c *ContractApi) GetCreateContractData(gid types.Gid, confirmTime uint8, hexCode string, abiStr string, params []string) ([]byte, error) {
 	code, err := hex.DecodeString(hexCode)
 	if err != nil {
 		return nil, err
@@ -58,10 +58,10 @@ func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiSt
 		if err != nil {
 			return nil, err
 		}
-		data := util.GetCreateContractData(helper.JoinBytes(code, constructorParams), util.SolidityPPContractType, gid)
+		data := util.GetCreateContractData(helper.JoinBytes(code, constructorParams), util.SolidityPPContractType, confirmTime, gid)
 		return data, nil
 	} else {
-		data := util.GetCreateContractData(code, util.SolidityPPContractType, gid)
+		data := util.GetCreateContractData(code, util.SolidityPPContractType, confirmTime, gid)
 		return data, nil
 	}
 }
@@ -106,7 +106,13 @@ type CallOffChainMethodParam struct {
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
+	// TODO tmpchain
+	var tmpChain vm_db.Chain
+	prevHash, err := getPrevBlockHash(c.chain, &types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(tmpChain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

@@ -43,7 +43,7 @@ func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gi
 	var addrList []types.Address
 	var err error
 
-	if gid == types.DELEGATE_GID && types.IsBuiltinContractAddr(address) {
+	if gid == types.DELEGATE_GID && types.IsBuiltinContractAddrInUse(address) {
 		return nil
 	}
 

@@ -31,7 +31,7 @@ func isAccTypeGeneral(sureAccType AccountType) bool {
 	return true
 }
 
-const DefaultSeedRangeCount int = 10
+const DefaultSeedRangeCount int = 25
 
 type AccountVerifier struct {
 	chain     chain.Chain
@@ -49,10 +49,10 @@ func NewAccountVerifier(chain chain.Chain, consensus consensus) *AccountVerifier
 	}
 }
 
-func (v *AccountVerifier) verifyReferred(block ledger.AccountBlock) (VerifyResult, *AccBlockPendingTask, error) {
+func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccBlockPendingTask, error) {
 	pendingTask := &AccBlockPendingTask{}
 
-	accType, err := v.verifyAccAddress(&block)
+	accType, err := v.verifyAccAddress(block)
 	if err != nil {
 		return FAIL, pendingTask, err
 	}
@@ -63,11 +63,11 @@ func (v *AccountVerifier) verifyReferred(block ledger.AccountBlock) (VerifyResul
 	}
 	isGeneralAddr := isAccTypeGeneral(accType)
 
-	if err := v.verifySelf(&block, isGeneralAddr); err != nil {
+	if err := v.verifySelf(block, isGeneralAddr); err != nil {
 		return FAIL, pendingTask, err
 	}
 
-	verifyDependencyResult, err := v.verifyDependency(pendingTask, &block, isGeneralAddr)
+	verifyDependencyResult, err := v.verifyDependency(pendingTask, block, isGeneralAddr)
 	if verifyDependencyResult != SUCCESS {
 		return verifyDependencyResult, pendingTask, err
 	}

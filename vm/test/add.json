@@ -44,7 +44,7 @@
     "code": "60017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94988,
+    "quotaLeft": 99788,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -60,7 +60,7 @@
     "code": "6000600001600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94988,
+    "quotaLeft": 99788,
     "quotaRefund": 0,
     "err": "",
     "storage": {
@@ -76,7 +76,7 @@
     "code": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600101600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 94988,
+    "quotaLeft": 99788,
     "quotaRefund": 0,
     "err": "",
     "storage": {
