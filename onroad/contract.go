@@ -2,23 +2,18 @@ package onroad
 
 import (
 	"container/heap"
-	"strconv"
-	"sync"
-
-	"go.uber.org/atomic"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"go.uber.org/atomic"
+	"strconv"
+	"sync"
 )
 
 type ContractWorker struct {
 	manager *Manager
-
-	uBlocksPool *model.OnroadBlocksPool
 
 	gid                 types.Gid
 	address             types.Address
@@ -34,7 +29,7 @@ type ContractWorker struct {
 	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []types.Address
+	contractAddressList    []*types.Address
 
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
@@ -47,8 +42,7 @@ type ContractWorker struct {
 
 func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
-		manager:     manager,
-		uBlocksPool: manager.onroadBlocksPool,
+		manager: manager,
 
 		status:       Create,
 		isCancel:     atomic.NewBool(false),
@@ -90,7 +84,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
+		addressList, err := w.manager.chain.GetContractList(&w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -106,7 +100,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
-		w.uBlocksPool.AddContractLis(w.gid, func(address types.Address) {
+		w.manager.AddContractLis(w.gid, func(address types.Address) {
 			if w.isInBlackList(address) {
 				return
 			}
@@ -143,12 +137,12 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
-		w.uBlocksPool.RemoveContractLis(w.gid)
+		w.manager.RemoveContractLis(w.gid)
 
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
-		w.uBlocksPool.DeleteContractCache(w.gid)
+		//w.uBlocksPool.DeleteContractCache(w.gid)
 		w.clearBlackList()
 
 		w.log.Info("stop all task")
@@ -213,7 +207,7 @@ func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
-	w.uBlocksPool.ReleaseContractCache(addr)
+	//w.uBlocksPool.ReleaseContractCache(addr)
 }
 
 func (w *ContractWorker) isInBlackList(addr types.Address) bool {
@@ -238,28 +232,28 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
+	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
+	quota, err := w.manager.Chain().GetPledgeQuota(&addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuotas err", "error", err)
 	}
 	return quota.Current()
 }
 
-func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
+func (w *ContractWorker) GetPledgeQuotas(beneficialList []*types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
 	if w.gid == types.DELEGATE_GID {
-		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
+		commonContractAddressList := make([]*types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
-				quotas[addr] = math.MaxUint64
+			if types.IsBuiltinContractAddrInUseWithoutQuota(*addr) {
+				quotas[*addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)
 			}
 		}
-		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, commonContractAddressList)
+		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(commonContractAddressList)
 		if err != nil {
 			w.log.Error("GetPledgeQuotas err", "error", err)
 		} else {
@@ -269,8 +263,8 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		}
 	} else {
 		var qRrr error
-		// TODO
-		_, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
+		// todo
+		_, qRrr = w.manager.Chain().GetPledgeQuotas(beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)
 		}

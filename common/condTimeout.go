@@ -1,10 +1,9 @@
 package common
 
 import (
+	"github.com/pkg/errors"
 	"sync"
 	"time"
-
-	"github.com/go-errors/errors"
 )
 
 var TimeoutErr = errors.New("timeout")
