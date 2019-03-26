@@ -360,6 +360,10 @@ func (context *VmContext) GetLogListHash() *types.Hash {
 	return context.unsavedCache.logList.Hash()
 }
 
+func (context *VmContext) GetLogList() ledger.VmLogList {
+	return context.unsavedCache.logList
+}
+
 func (context *VmContext) GetOneHourQuota() (uint64, error) {
 	quota, err := context.chain.SaList().GetAggregateQuota(context.currentSnapshotBlock)
 	if err != nil {
