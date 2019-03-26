@@ -2,21 +2,18 @@ package onroad
 
 import (
 	"container/heap"
-	"strconv"
-	"sync"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
+	"go.uber.org/atomic"
+	"strconv"
+	"sync"
 )
 
 type ContractWorker struct {
 	manager *Manager
-
-	uBlocksPool *model.OnroadBlocksPool
 
 	gid                 types.Gid
 	address             types.Address
@@ -26,14 +23,13 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	isSleep                bool
-	isCancel               bool
-	newOnroadTxAlarm       chan struct{}
-	breaker                chan struct{}
-	stopDispatcherListener chan struct{}
+	isCancel *atomic.Bool
+
+	newBlockCond *common.TimeoutCond
+	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []types.Address
+	contractAddressList    []*types.Address
 
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
@@ -46,12 +42,11 @@ type ContractWorker struct {
 
 func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
-		manager:     manager,
-		uBlocksPool: manager.onroadBlocksPool,
+		manager: manager,
 
-		status:   Create,
-		isSleep:  false,
-		isCancel: false,
+		status:       Create,
+		isCancel:     atomic.NewBool(false),
+		newBlockCond: common.NewTimeoutCond(),
 
 		blackList: make(map[types.Address]bool),
 		log:       slog.New("worker", "c"),
@@ -86,10 +81,10 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
-		w.isCancel = false
+		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
+		addressList, err := w.manager.chain.GetContractList(&w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -105,12 +100,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
-		// 3. init some local variables
-		w.newOnroadTxAlarm = make(chan struct{})
-		w.breaker = make(chan struct{})
-		w.stopDispatcherListener = make(chan struct{})
-
-		w.uBlocksPool.AddContractLis(w.gid, func(address types.Address) {
+		w.manager.AddContractLis(w.gid, func(address types.Address) {
 			if w.isInBlackList(address) {
 				return
 			}
@@ -125,20 +115,19 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			heap.Push(&w.contractTaskPQueue, c)
 			w.ctpMutex.Unlock()
 
-			w.NewOnroadTxAlarm()
+			w.WakeupOneTp()
 		})
 
 		log.Info("start all tp")
 		for _, v := range w.contractTaskProcessors {
-			v.Start()
+			common.Go(v.work)
 		}
 		log.Info("end start all tp")
-		common.Go(w.waitingNewBlock)
 
 		w.status = Start
 	} else {
 		// awake it in order to run at least once
-		w.NewOnroadTxAlarm()
+		w.WakeupAllTps()
 	}
 	w.log.Info("end start")
 }
@@ -148,77 +137,20 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
-		w.isCancel = true
+		w.manager.RemoveContractLis(w.gid)
 
-		w.breaker <- struct{}{}
-		close(w.breaker)
+		w.isCancel.Store(true)
+		w.newBlockCond.Broadcast()
 
-		w.uBlocksPool.RemoveContractLis(w.gid)
-		w.isSleep = true
-		close(w.newOnroadTxAlarm)
-
-		<-w.stopDispatcherListener
-		close(w.stopDispatcherListener)
-
-		w.uBlocksPool.DeleteContractCache(w.gid)
+		//w.uBlocksPool.DeleteContractCache(w.gid)
 		w.clearBlackList()
 
 		w.log.Info("stop all task")
-		wg := new(sync.WaitGroup)
-		for _, v := range w.contractTaskProcessors {
-			wg.Add(1)
-			common.Go(func() {
-				v.Stop()
-				wg.Done()
-			})
-		}
-		wg.Wait()
+		w.wg.Wait()
 		w.log.Info("end stop all task")
 		w.status = Stop
 	}
 	w.log.Info("stopped")
-}
-
-func (w *ContractWorker) waitingNewBlock() {
-	mlog := w.log.New("method", "waitingNewBlock")
-	mlog.Info("im in work")
-LOOP:
-	for {
-		w.isSleep = false
-		if w.isCancel {
-			mlog.Info("found cancel true")
-			break
-		}
-		w.ctpMutex.RLock()
-		if w.contractTaskPQueue.Len() == 0 {
-			w.ctpMutex.RUnlock()
-		} else {
-			w.ctpMutex.RUnlock()
-			for _, v := range w.contractTaskProcessors {
-				if v == nil {
-					mlog.Error("tp is nil. wakeup")
-					continue
-				}
-				mlog.Debug("before WakeUp")
-				v.WakeUp()
-				mlog.Debug("after WakeUp")
-			}
-		}
-
-		w.isSleep = true
-		mlog.Info("start sleep c")
-		select {
-		case <-w.newOnroadTxAlarm:
-			mlog.Info("newOnroadTxAlarm start awake")
-		case <-w.breaker:
-			mlog.Info("worker broken")
-			break LOOP
-		}
-	}
-
-	mlog.Info("end called")
-	w.stopDispatcherListener <- struct{}{}
-	mlog.Info("end")
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
@@ -239,11 +171,14 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 	heap.Init(&w.contractTaskPQueue)
 }
 
-func (w *ContractWorker) NewOnroadTxAlarm() {
-	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep)
-	if w.isSleep {
-		w.newOnroadTxAlarm <- struct{}{}
-	}
+func (w *ContractWorker) WakeupOneTp() {
+	w.log.Info("WakeupOneTp")
+	w.newBlockCond.Signal()
+}
+
+func (w *ContractWorker) WakeupAllTps() {
+	w.log.Info("WakeupAllTPs")
+	w.newBlockCond.Broadcast()
 }
 
 func (w *ContractWorker) pushContractTask(t *contractTask) {
@@ -272,7 +207,7 @@ func (w *ContractWorker) addIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
-	w.uBlocksPool.ReleaseContractCache(addr)
+	//w.uBlocksPool.ReleaseContractCache(addr)
 }
 
 func (w *ContractWorker) isInBlackList(addr types.Address) bool {
@@ -297,28 +232,28 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
+	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
+	quota, err := w.manager.Chain().GetPledgeQuota(&addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuotas err", "error", err)
 	}
 	return quota.Current()
 }
 
-func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
+func (w *ContractWorker) GetPledgeQuotas(beneficialList []*types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
 	if w.gid == types.DELEGATE_GID {
-		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
+		commonContractAddressList := make([]*types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsBuiltinContractWithoutQuotaAddressInUse(addr) {
-				quotas[addr] = math.MaxUint64
+			if types.IsBuiltinContractAddrInUseWithoutQuota(*addr) {
+				quotas[*addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)
 			}
 		}
-		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, commonContractAddressList)
+		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(commonContractAddressList)
 		if err != nil {
 			w.log.Error("GetPledgeQuotas err", "error", err)
 		} else {
@@ -328,8 +263,8 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		}
 	} else {
 		var qRrr error
-		// TODO
-		_, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
+		// todo
+		_, qRrr = w.manager.Chain().GetPledgeQuotas(beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)
 		}
