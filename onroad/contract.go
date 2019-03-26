@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"strconv"
 	"sync"
 
 	"github.com/vitelabs/go-vite/common"
@@ -10,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"strconv"
 )
 
 type ContractWorker struct {
@@ -161,6 +161,7 @@ func (w *ContractWorker) Stop() {
 		close(w.stopDispatcherListener)
 
 		w.uBlocksPool.DeleteContractCache(w.gid)
+		w.clearBlackList()
 
 		w.log.Info("stop all task")
 		wg := new(sync.WaitGroup)
@@ -258,6 +259,12 @@ func (w *ContractWorker) popContractTask() *contractTask {
 		return heap.Pop(&w.contractTaskPQueue).(*contractTask)
 	}
 	return nil
+}
+
+func (w *ContractWorker) clearBlackList() {
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	w.blackList = make(map[types.Address]bool)
 }
 
 // Don't deal with it for this around of blocks-generating period

@@ -37,6 +37,8 @@ const (
 	// SignatureSize is the size, in bytes, of signatures generated and verified by this package.
 	SignatureSize = 64
 
+	X25519SkSize = 32
+
 	dummyMessage = "vite is best"
 )
 
@@ -58,12 +60,69 @@ func (priv PrivateKey) PubByte() []byte {
 	return publicKey
 }
 
+// Public returns the PublicKey in []byte type corresponding to priv.
+func (priv PrivateKey) ToX25519Sk() []byte {
+	digest := blake2b.Sum512(priv[:32])
+	digest[0] &= 248
+	digest[31] &= 127
+	digest[31] |= 64
+
+	return digest[:32]
+}
+
 func (priv PrivateKey) Hex() string {
 	return hex.EncodeToString(priv)
 }
+
 func (pub PublicKey) Hex() string {
 	return hex.EncodeToString(pub)
 }
+
+func (pub PublicKey) ToX25519Pk() []byte {
+	/**
+		ge25519_p3 A;
+		fe25519    x;
+		fe25519    one_minus_y;
+
+		if (ge25519_has_small_order(ed25519_pk) != 0 ||
+			ge25519_frombytes_negate_vartime(&A, ed25519_pk) != 0 ||
+			ge25519_is_on_main_subgroup(&A) == 0) {
+			return -1;
+		}
+		fe25519_1(one_minus_y);
+		fe25519_sub(one_minus_y, one_minus_y, A.Y);
+		fe25519_1(x);
+		fe25519_add(x, x, A.Y);
+		fe25519_invert(one_minus_y, one_minus_y);
+		fe25519_mul(x, x, one_minus_y);
+		fe25519_tobytes(curve25519_pk, x);
+
+		return 0;
+	 */
+
+	var A edwards25519.ExtendedGroupElement
+	var x edwards25519.FieldElement
+	var one_minus_y edwards25519.FieldElement
+
+	var p32 [32]byte
+	copy(p32[:], pub)
+	A.FromBytes(&p32)
+
+	edwards25519.FeOne(&one_minus_y)
+	edwards25519.FeSub(&one_minus_y, &one_minus_y, &A.Y)
+	edwards25519.FeOne(&x)
+	edwards25519.FeAdd(&x, &x, &A.Y)
+	edwards25519.FeInvert(&one_minus_y, &one_minus_y)
+	edwards25519.FeMul(&x, &x, &one_minus_y)
+
+	var s [32]byte
+	edwards25519.FeToBytes(&s, &x)
+	return s[:]
+}
+
+
+
+
 func HexToPublicKey(hexstr string) (PublicKey, error) {
 	b, e := hex.DecodeString(hexstr)
 	if e != nil {
