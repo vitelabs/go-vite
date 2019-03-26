@@ -16,6 +16,7 @@ const (
 	PartialExecuted
 	FullyExecuted
 	Cancelled
+	NewFailed
 )
 
 const (

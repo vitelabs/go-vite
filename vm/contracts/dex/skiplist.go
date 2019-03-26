@@ -460,9 +460,6 @@ func (skl *skiplist) updatePayload(key nodeKeyType, pl *nodePayload) error {
 func (skl *skiplist) adjustLevel() {
 	if skl.length == 0 {
 		skl.level = 1
-		// TODO maker sure can be delete
-		//skl.header = (*skl.protocol).getNilKey()
-		//skl.tail = (*skl.protocol).getNilKey()
 	} else {
 		var i int8 = 1
 		for ; i <= skl.level; i++ {
