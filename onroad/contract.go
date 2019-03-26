@@ -2,6 +2,8 @@ package onroad
 
 import (
 	"container/heap"
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
@@ -29,7 +31,7 @@ type ContractWorker struct {
 	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []*types.Address
+	contractAddressList    []types.Address
 
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
@@ -84,7 +86,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.chain.GetContractList(&w.gid)
+		addressList, err := w.manager.chain.GetContractList(w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -235,20 +237,20 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	quota, err := w.manager.Chain().GetPledgeQuota(&addr)
+	quota, err := w.manager.Chain().GetPledgeQuota(addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuotas err", "error", err)
 	}
 	return quota.Current()
 }
 
-func (w *ContractWorker) GetPledgeQuotas(beneficialList []*types.Address) map[types.Address]uint64 {
+func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
 	if w.gid == types.DELEGATE_GID {
-		commonContractAddressList := make([]*types.Address, 0, len(beneficialList))
+		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsBuiltinContractAddrInUseWithoutQuota(*addr) {
-				quotas[*addr] = math.MaxUint64
+			if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
+				quotas[addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)
 			}
@@ -270,4 +272,24 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []*types.Address) map[ty
 		}
 	}
 	return quotas
+}
+
+func (w *ContractWorker) VerifierConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
+	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
+	if err != nil {
+		return err
+	}
+	timesLimit := uint64(meta.SendConfirmedTimes)
+	if timesLimit <= 0 {
+		return nil
+	}
+	sendConfirmedTimes, err := w.manager.chain.GetConfirmedTimes(*fromHash)
+	if err != nil {
+		return err
+	}
+	if sendConfirmedTimes < timesLimit {
+		w.log.Error(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, timesLimit, fromHash, sendConfirmedTimes))
+		return errors.New("sendBlock is not ready")
+	}
+	return nil
 }

@@ -78,7 +78,7 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 	if block.Height < 1 {
 		return AccountTypeNotSure, errors.New("block.Height mustn't be lower than 1")
 	}
-	isContract1stCheck, err := v.chain.IsContractAccount(&block.AccountAddress)
+	isContract1stCheck, err := v.chain.IsContractAccount(block.AccountAddress)
 	if err != nil {
 		mLog.Error("1st check IsContractAccount, err" + err.Error())
 		return AccountTypeNotSure, err
@@ -87,8 +87,8 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 		return AccountTypeContract, nil
 	}
 	if block.Height > 1 {
-		if firstBlock, _ := v.chain.GetAccountBlockByHeight(&block.AccountAddress, 1); firstBlock != nil {
-			isContract, err := v.chain.IsContractAccount(&block.AccountAddress)
+		if firstBlock, _ := v.chain.GetAccountBlockByHeight(block.AccountAddress, 1); firstBlock != nil {
+			isContract, err := v.chain.IsContractAccount(block.AccountAddress)
 			if err != nil {
 				mLog.Error("check firstBlock IsContractAccount, err" + err.Error())
 				return AccountTypeNotSure, err
@@ -100,12 +100,12 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 		}
 	} else {
 		if block.IsReceiveBlock() {
-			sendBlock, sErr := v.chain.GetAccountBlockByHash(&block.Hash)
+			sendBlock, sErr := v.chain.GetAccountBlockByHash(block.Hash)
 			if sErr != nil {
 				mLog.Error(sErr.Error())
 			}
 			if sendBlock != nil {
-				isContract2ndCheck, err := v.chain.IsContractAccount(&block.AccountAddress)
+				isContract2ndCheck, err := v.chain.IsContractAccount(block.AccountAddress)
 				if err != nil {
 					mLog.Error("2nd check IsContractAccount, err" + err.Error())
 					return AccountTypeNotSure, err
@@ -124,30 +124,28 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 
 // Block itself coming into Verifier indicate that it referr to a snapshot, which maybe confimed >=0;
 // Contarct.recv's must check its send whether is satisfied confirmed over custom times at least;
-func (v *AccountVerifier) verifyComfirmedTimes(block *ledger.AccountBlock, isGeneralAddr bool) error {
+func (v *AccountVerifier) VerifyComfirmedTimes(recvBlock *ledger.AccountBlock, isGeneralAddr bool) error {
 	mLog := v.log.New("method", "verfiySnapshotLimit")
 	var timesLimit uint64 = 0
-	if block.IsReceiveBlock() {
-		if !isGeneralAddr {
-			meta, err := v.chain.GetContractMeta(&block.AccountAddress)
-			if err != nil {
-				mLog.Error(err.Error(), "call", "GetContractMeta")
-				return err
-			}
-			timesLimit = uint64(meta.SendConfirmedTimes)
-			if timesLimit <= 0 {
-				return nil
-			}
-			sendConfirmedTimes, err := v.chain.GetConfirmedTimes(&block.FromBlockHash)
-			if err != nil {
-				mLog.Error(err.Error(), "call", "GetConfirmedTimes")
-				return err
-			}
-			if sendConfirmedTimes < timesLimit {
-				mLog.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
-					ErrVerifyConfirmedTimesNotEnough.Error(), block.AccountAddress, timesLimit, block.FromBlockHash, sendConfirmedTimes))
-				return ErrVerifyConfirmedTimesNotEnough
-			}
+	if !isGeneralAddr {
+		meta, err := v.chain.GetContractMeta(recvBlock.AccountAddress)
+		if err != nil {
+			mLog.Error(err.Error(), "call", "GetContractMeta")
+			return err
+		}
+		timesLimit = uint64(meta.SendConfirmedTimes)
+		if timesLimit <= 0 {
+			return nil
+		}
+		sendConfirmedTimes, err := v.chain.GetConfirmedTimes(recvBlock.FromBlockHash)
+		if err != nil {
+			mLog.Error(err.Error(), "call", "GetConfirmedTimes")
+			return err
+		}
+		if sendConfirmedTimes < timesLimit {
+			mLog.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
+				ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, timesLimit, recvBlock.FromBlockHash, sendConfirmedTimes))
+			return ErrVerifyConfirmedTimesNotEnough
 		}
 	}
 	return nil
@@ -183,7 +181,7 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr b
 func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock, isGeneralAddr bool) (VerifyResult, error) {
 	if block.IsReceiveBlock() {
 		// check the existence of recvBlock's send
-		sendBlock, err := v.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		sendBlock, err := v.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return FAIL, err
 		}
@@ -195,7 +193,7 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			return PENDING, nil
 		}
 		// check whether is already received
-		isReceived, err := v.chain.IsReceived(&block.FromBlockHash)
+		isReceived, err := v.chain.IsReceived(block.FromBlockHash)
 		if err != nil {
 			return FAIL, err
 		}
@@ -205,11 +203,11 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	}
 	// check whether it's the available time the block can be snapshoted,
 	// now specially for the block's confirmedTimes which it relay on.
-	if err := v.verifyComfirmedTimes(block, isGeneralAddr); err != nil {
+	if err := v.VerifyComfirmedTimes(block, isGeneralAddr); err != nil {
 		return FAIL, err
 	}
 	// check whether the prev is snapshoted
-	prevBlock, err := v.chain.GetAccountBlockByHash(&block.PrevHash)
+	prevBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
 	if err != nil {
 		return FAIL, err
 	}
@@ -360,7 +358,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 	var states *util.GlobalStatus
 	var recvErr error
 	if block.IsReceiveBlock() {
-		fromBlock, recvErr = v.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		fromBlock, recvErr = v.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if recvErr != recvErr {
 			return nil, recvErr
 		}
@@ -404,7 +402,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 }
 
 func (v *AccountVerifier) verifyIsReceivedSucceed(block *ledger.AccountBlock) (bool, error) {
-	return v.chain.IsReceived(&block.FromBlockHash)
+	return v.chain.IsReceived(block.FromBlockHash)
 }
 
 type AccBlockPendingTask struct {

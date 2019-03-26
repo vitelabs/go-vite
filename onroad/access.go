@@ -16,7 +16,7 @@ func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types
 }
 
 func (manager *Manager) getOnRoadBlockByAddr(addr *types.Address) (*ledger.AccountBlock, error) {
-	hashList, err := manager.chain.GetOnRoadBlocksHashList(addr, 1, 1)
+	hashList, err := manager.chain.GetOnRoadBlocksHashList(*addr, 1, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (manager *Manager) getOnRoadBlockByAddr(addr *types.Address) (*ledger.Accou
 }
 
 func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
-	return manager.chain.HasOnRoadBlocks(addr)
+	return manager.chain.HasOnRoadBlocks(*addr)
 }
 
 func (manager *Manager) DeleteDirect(sendBlock *ledger.AccountBlock) error {
@@ -62,13 +62,13 @@ func (manager *Manager) NewOnroad(blocks []*vm_db.VmAccountBlock) error {
 
 func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 	newLog := manager.log.New("method", "newSignalToWorker", "Hash", block.Hash)
-	isContract, err := manager.chain.IsContractAccount(&block.AccountAddress)
+	isContract, err := manager.chain.IsContractAccount(block.AccountAddress)
 	if err != nil {
 		newLog.Error(fmt.Sprintf("IsContractAccount, err:%v", err))
 		return
 	}
 	if isContract {
-		meta, err := manager.chain.GetContractMeta(&block.AccountAddress)
+		meta, err := manager.chain.GetContractMeta(block.AccountAddress)
 		if err != nil {
 			newLog.Error(fmt.Sprintf("GetContractMeta, err:%v", err))
 			return

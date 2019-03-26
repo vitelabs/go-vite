@@ -21,11 +21,11 @@ func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
 	}
 }
 
-func (v *verifier) VerifyNetSnapshotBlock(block *ledger.SnapshotBlock) error {
+func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 	return v.Sv.VerifyNetSb(block)
 }
 
-func (v *verifier) VerifyNetAccBlock(block *ledger.AccountBlock) error {
+func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	//todo 1. makesure genesis and initial-balance blocks don't need to check, return nil
 	//todo 2. block referred snapshot not arrive yet, return error
 	//3. VerifyHash
@@ -104,17 +104,6 @@ func (v *verifier) VerifyAccBlockNonce(block *ledger.AccountBlock) error {
 		return ErrVerifyAccountTypeNotSure
 	}
 	return v.Av.verifyNonce(block, isAccTypeGeneral(accType))
-}
-
-func (v *verifier) VerifyAccBlockConfirmedTimes(block *ledger.AccountBlock) error {
-	accType, err := v.Av.verifyAccAddress(block)
-	if err != nil {
-		return err
-	}
-	if accType == AccountTypeNotSure {
-		return ErrVerifyAccountTypeNotSure
-	}
-	return v.Av.verifyComfirmedTimes(block, isAccTypeGeneral(accType))
 }
 
 func (v *verifier) VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error {

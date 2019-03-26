@@ -75,14 +75,20 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 	plog.Info(fmt.Sprintf("onroad processing: addr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
-
-	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
+	//fixme @shan
+	/*	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
 		return
+	}*/
+
+	if err := tp.worker.VerifierConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
+		plog.Info(fmt.Sprintf("VerifierConfirmedTimes failed, err%v:", err))
+		// fixme: check confirmedTimes, consider sb trigger, consider general blackList
+		//tp.worker.addIntoBlackList(task.Addr)
+		return
 	}
-	// todo: check confirmedTimes
 	randomSeedStates, err := tp.worker.manager.Chain().GetContractRandomGlobalStatus(&task.Addr, &sBlock.Hash)
 	if err != nil {
 		plog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
@@ -98,7 +104,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		randomSeedStates)
 	if err != nil {
 		plog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
-		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
@@ -116,7 +121,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	}
 	if genResult == nil {
 		plog.Error("result of generator is nil")
-		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 	if genResult.Err != nil {
@@ -125,7 +129,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	if genResult.VmBlock != nil {
 		if err := tp.worker.manager.insertBlockToPool(genResult.VmBlock); err != nil {
 			plog.Error(fmt.Sprintf("insertContractBlocksToPool, err:%v", err))
-			tp.worker.addIntoBlackList(task.Addr)
+			// fixme @shan consider the err situation
+			//tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
 		if genResult.IsRetry {
@@ -136,22 +141,23 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	} else {
 		if genResult.IsRetry {
 			// retry it in next turn
-			plog.Error("genResult.IsRetry true")
-			// fixme: optimize the quota utilization
-			q, err := tp.worker.manager.Chain().GetPledgeQuota(&task.Addr)
-			if err != nil {
-				plog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
-				return
-			}
-			if q == nil {
-				plog.Error("pledge quota is nil, failed to judge next round")
-				tp.worker.addIntoBlackList(task.Addr)
-				return
-			}
-			if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), task.Addr, *q); !canRetryDuringNextSnapshot {
-				plog.Info("Check quota is gone to be insufficient")
-				tp.worker.addIntoBlackList(task.Addr)
-				return
+			plog.Info("genResult.IsRetry true")
+			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
+				q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
+				if err != nil {
+					plog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
+					return
+				}
+				if q == nil {
+					plog.Error("pledge quota is nil, failed to judge next round")
+					tp.worker.addIntoBlackList(task.Addr)
+					return
+				}
+				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), task.Addr, *q); !canRetryDuringNextSnapshot {
+					plog.Info("Check quota is gone to be insufficient")
+					tp.worker.addIntoBlackList(task.Addr)
+					return
+				}
 			}
 		} else {
 			// no block no retry in condition that fail to create contract

@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"time"
@@ -231,4 +232,5 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
+	GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 }
