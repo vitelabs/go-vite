@@ -26,7 +26,7 @@ func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *t
 		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil
 	}
 
-	height, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
+	height, err := sDB.chain.GetSnapshotHeightByHash(*snapshotHash)
 	if err != nil {
 		sErr := errors.New(fmt.Sprintf("sDB.chain.GetSnapshotHeightByHash failed, hash is %s. Error: %s", snapshotHash, err))
 		return nil, sErr

@@ -9,7 +9,7 @@ func (db *vmDb) GetValue(key []byte) ([]byte, error) {
 	return db.GetOriginalValue(key)
 }
 func (db *vmDb) GetOriginalValue(key []byte) ([]byte, error) {
-	return db.chain.GetValue(db.address, key)
+	return db.chain.GetValue(*db.address, key)
 }
 
 func (db *vmDb) SetValue(key []byte, value []byte) error {

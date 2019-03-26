@@ -14,7 +14,7 @@ func (db *vmDb) GetLogList() ledger.VmLogList {
 }
 
 func (db *vmDb) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error) {
-	return db.chain.GetVmLogList(logHash)
+	return db.chain.GetVmLogList(*logHash)
 }
 
 func (db *vmDb) GetLogListHash() *types.Hash {

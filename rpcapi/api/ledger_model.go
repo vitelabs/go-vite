@@ -3,12 +3,10 @@ package api
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/sender"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"strconv"
-	"time"
 )
 
 type AccountBlock struct {
@@ -31,6 +29,7 @@ type AccountBlock struct {
 	ReceiveBlockHeights []string `json:"receiveBlockHeights"`
 }
 
+// TODO set timestamp
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	lAb := ab.AccountBlock
 	if lAb == nil {
@@ -74,9 +73,9 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 			lAb.Difficulty = setString
 		}
 	}
-
-	t := time.Unix(ab.Timestamp, 0)
-	lAb.Timestamp = &t
+	//
+	//t := time.Unix(ab.Timestamp, 0)
+	//lAb.Timestamp = &t
 
 	return lAb, nil
 }
@@ -102,9 +101,9 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		ab.Difficulty = &difficulty
 	}
 
-	if ledgerBlock.Timestamp != nil {
-		ab.Timestamp = ledgerBlock.Timestamp.Unix()
-	}
+	//if ledgerBlock.Timestamp != nil {
+	//	ab.Timestamp = ledgerBlock.Timestamp.Unix()
+	//}
 
 	if token != nil {
 		ab.TokenInfo = RawTokenInfoToRpc(token, ledgerBlock.TokenId)
@@ -180,42 +179,8 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 	return rt
 }
 
-type KafkaSendInfo struct {
-	Producers    []*KafkaProducerInfo `json:"producers"`
-	RunProducers []*KafkaProducerInfo `json:"runProducers"`
-	TotalEvent   uint64               `json:"totalEvent"`
-}
-
-type KafkaProducerInfo struct {
-	ProducerId uint8    `json:"producerId"`
-	BrokerList []string `json:"brokerList"`
-	Topic      string   `json:"topic"`
-	HasSend    uint64   `json:"hasSend"`
-	Status     string   `json:"status"`
-}
-
-func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
-	status := "unknown"
-	switch producer.Status() {
-	case sender.STOPPED:
-		status = "stopped"
-	case sender.RUNNING:
-		status = "running"
-	}
-
-	producerInfo := &KafkaProducerInfo{
-		ProducerId: producer.ProducerId(),
-		BrokerList: producer.BrokerList(),
-		Topic:      producer.Topic(),
-		HasSend:    producer.HasSend(),
-		Status:     status,
-	}
-
-	return producerInfo
-}
-
 func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBlock, error) {
-	confirmTimes, err := chain.GetConfirmTimes(&block.Hash)
+	confirmTimes, err := chain.GetConfirmedTimes(block.Hash)
 
 	if err != nil {
 		return nil, err
@@ -224,7 +189,7 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	var fromAddress, toAddress types.Address
 	if block.IsReceiveBlock() {
 		toAddress = block.AccountAddress
-		sendBlock, err := chain.GetAccountBlockByHash(&block.FromBlockHash)
+		sendBlock, err := chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -240,25 +205,17 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 		toAddress = block.ToAddress
 	}
 
-	token, _ := chain.GetTokenInfoById(&block.TokenId)
+	token, _ := chain.GetTokenInfoById(block.TokenId)
 	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
 
 	if block.IsSendBlock() {
-		if block.Meta == nil {
-			var err error
-			block.Meta, err = chain.ChainDb().Ac.GetBlockMeta(&block.Hash)
-			if err != nil {
-				return nil, err
-			}
+		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
+		if err != nil {
+			return nil, err
 		}
-
-		if block.Meta != nil {
-			for _, receiveBlockHeight := range block.Meta.ReceiveBlockHeights {
-				rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlockHeight, 10))
-			}
-		}
+		rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlock.Height, 10))
 	}
 	return rpcAccountBlock, nil
 }

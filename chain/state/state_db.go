@@ -130,11 +130,11 @@ func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
 	return sDB.db.Has(chain_utils.CreateContractMetaKey(addr), nil)
 }
 
-func (sDB *StateDB) GetContractList(gid *types.Gid) ([]*types.Address, error) {
+func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
 	iter := sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)), nil)
 	defer iter.Release()
 
-	var contractList []*types.Address
+	var contractList []types.Address
 	for iter.Next() {
 		key := iter.Key()
 
@@ -142,7 +142,7 @@ func (sDB *StateDB) GetContractList(gid *types.Gid) ([]*types.Address, error) {
 		if err != nil {
 			return nil, err
 		}
-		contractList = append(contractList, &addr)
+		contractList = append(contractList, addr)
 	}
 	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
 		return nil, err
@@ -183,12 +183,12 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 
 // TODO
 
-func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash *types.Hash, addrList []*types.Address, tokenId *types.TokenTypeId) (map[types.Address]*big.Int, error) {
+func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
 	var iter iterator.Iterator
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
 	prefix := chain_utils.BalanceHistoryKeyPrefix
-	if *snapshotBlockHash == sDB.chain.GetLatestSnapshotBlock().Hash {
+	if snapshotBlockHash == sDB.chain.GetLatestSnapshotBlock().Hash {
 		prefix = chain_utils.BalanceKeyPrefix
 	}
 
@@ -215,7 +215,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash *types.Hash, addrLi
 
 		key := iter.Key()
 		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
-			balanceMap[*addr] = big.NewInt(0).SetBytes(iter.Value())
+			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
 		}
 
 	}

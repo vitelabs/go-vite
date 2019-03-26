@@ -6,10 +6,10 @@ import (
 )
 
 type Chain interface {
-	IsAccountBlockExisted(hash *types.Hash) (bool, error)
+	IsAccountBlockExisted(hash types.Hash) (bool, error)
 
 	QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
-	GetSnapshotHeightByHash(hash *types.Hash) (uint64, error)
+	GetSnapshotHeightByHash(hash types.Hash) (uint64, error)
 }

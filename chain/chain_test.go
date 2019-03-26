@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"os"
 	"os/user"
 	"path"

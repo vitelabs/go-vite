@@ -13,31 +13,31 @@ type VmAccountBlock struct {
 }
 
 type Chain interface {
-	IsContractAccount(address *types.Address) (bool, error)
-	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+	IsContractAccount(address types.Address) (bool, error)
+	GetQuotaUsed(address types.Address) (quotaUsed uint64, blockCount uint64)
 
-	GetBalance(addr *types.Address, tokenId *types.TokenTypeId) (*big.Int, error)
+	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
-	GetContractCode(contractAddr *types.Address) ([]byte, error)
-	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+	GetContractCode(contractAddr types.Address) ([]byte, error)
+	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 
-	GetSnapshotHeaderByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
-	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
+	GetVmLogList(logHash types.Hash) (ledger.VmLogList, error)
 
-	GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock
+	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetPledgeAmount(addr *types.Address) (*big.Int, error)
+	GetPledgeAmount(addr types.Address) (*big.Int, error)
 
-	GetStorageIterator(address *types.Address, prefix []byte) (interfaces.StorageIterator, error)
+	GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
-	GetValue(addr *types.Address, key []byte) ([]byte, error)
+	GetValue(addr types.Address, key []byte) ([]byte, error)
 
-	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
 }
 
 type VmDb interface {
