@@ -190,7 +190,7 @@ func checkBlocks(t *testing.T, latestBlock *ledger.AccountBlock, count uint64, b
 }
 func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, hashList []types.Hash) {
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
-	for index, hash := range hashList {
+	for _, hash := range hashList {
 		times, err := chainInstance.GetConfirmedTimes(hash)
 		if err != nil {
 			t.Fatal(err)
