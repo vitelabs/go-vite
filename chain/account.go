@@ -7,12 +7,12 @@ import (
 )
 
 // TODO cache
-func (c *chain) IsContractAccount(address *types.Address) (bool, error) {
-	if ok := types.IsBuiltinContractAddrInUse(*address); ok {
+func (c *chain) IsContractAccount(address types.Address) (bool, error) {
+	if ok := types.IsBuiltinContractAddrInUse(address); ok {
 		return ok, nil
 	}
 
-	result, err := c.stateDB.HasContractMeta(address)
+	result, err := c.stateDB.HasContractMeta(&address)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.HasContractMeta failed, error is %s, address is %s", err.Error(), address))
@@ -23,8 +23,8 @@ func (c *chain) IsContractAccount(address *types.Address) (bool, error) {
 	return result, nil
 }
 
-func (c *chain) GetAccountId(address *types.Address) (uint64, error) {
-	accountId, err := c.indexDB.GetAccountId(address)
+func (c *chain) GetAccountId(address types.Address) (uint64, error) {
+	accountId, err := c.indexDB.GetAccountId(&address)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountId failed, error is %s, address is %s", err.Error(), address))

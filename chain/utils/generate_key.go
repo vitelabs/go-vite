@@ -177,7 +177,7 @@ func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTyp
 
 	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
 
-	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
 
 	return key
 }

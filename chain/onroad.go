@@ -6,8 +6,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func (c *chain) HasOnRoadBlocks(address *types.Address) (bool, error) {
-	result, err := c.indexDB.HasOnRoadBlocks(address)
+func (c *chain) HasOnRoadBlocks(address types.Address) (bool, error) {
+	result, err := c.indexDB.HasOnRoadBlocks(&address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.HasOnRoadBlocks failed, error is %s, address is %s", err, address))
 		c.log.Error(cErr.Error(), "method", "HasOnRoadBlocks")
@@ -16,8 +16,8 @@ func (c *chain) HasOnRoadBlocks(address *types.Address) (bool, error) {
 	return result, nil
 }
 
-func (c *chain) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
-	result, err := c.indexDB.GetOnRoadBlocksHashList(address, pageNum, countPerPage)
+func (c *chain) GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error) {
+	result, err := c.indexDB.GetOnRoadBlocksHashList(&address, pageNum, countPerPage)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetOnRoadBlocksHashList failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
 			err, address, pageNum, countPerPage))

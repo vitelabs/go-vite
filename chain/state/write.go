@@ -88,6 +88,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		undoLog = append(undoLog, gidContractKey...)
 	}
 
+	undoLog = append(undoLog, make([]byte, 4)...)
 	binary.BigEndian.PutUint32(undoLog[undoLogSize:], uint32(undoLogSize))
 
 	// write vm log

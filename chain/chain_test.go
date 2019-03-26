@@ -1,11 +1,13 @@
 package chain
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
+	"testing"
 )
 
 func NewChainInstance(dirName string, clear bool) (*chain, error) {
@@ -46,4 +48,26 @@ func homeDir() string {
 		return usr.HomeDir
 	}
 	return ""
+}
+
+func TestChain_AccountBlock(t *testing.T) {
+	chainInstance, err := NewChainInstance("unit_test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("InsertAccountBlock")
+	hashList, addrList, heightList := InsertAccountBlock(t, 10000, chainInstance, 10000, 333)
+	fmt.Println("Complete InsertAccountBlock")
+
+	fmt.Println("GetAccountBlocksByHash")
+	GetAccountBlocksByHash(t, chainInstance, hashList)
+	fmt.Println("Complete GetAccountBlocksByHash")
+
+	fmt.Println("GetAccountBlocksByHeight")
+	GetAccountBlocksByHeight(t, chainInstance, addrList, heightList)
+	fmt.Println("Complete GetAccountBlocksByHeight")
+
+	fmt.Println("IsAccountBlockExisted")
+	IsAccountBlockExisted(t, chainInstance, hashList)
+	fmt.Println("Complete IsAccountBlockExisted")
 }
