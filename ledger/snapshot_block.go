@@ -188,7 +188,11 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	source = append(source, seedBytes...)
 
 	// Seed Hash
-	source = append(source, sb.SeedHash.Bytes()...)
+	if sb.SeedHash != nil {
+		source = append(source, sb.SeedHash.Bytes()...)
+	} else {
+		source = append(source, make([]byte, 32)...)
+	}
 
 	// Snapshot Content
 	scBytesList := sb.SnapshotContent.bytesList()

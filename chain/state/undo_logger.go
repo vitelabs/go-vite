@@ -23,10 +23,11 @@ const (
 )
 
 type undoLogger struct {
-	pending     map[types.Hash][]byte
-	dirFd       *os.File
-	dirName     string
-	maxFileSize int64
+	pending             map[types.Hash][]byte
+	dirFd               *os.File
+	dirName             string
+	maxFileSize         int64
+	maxFlushSizePerTime int
 
 	logFileNum uint64
 
@@ -47,10 +48,13 @@ func newUndoLogger(chainDir string) (*undoLogger, error) {
 	}
 
 	logger := &undoLogger{
-		dirName:     dirName,
-		dirFd:       dirFd,
-		logFileNum:  50,
-		maxFileSize: 10 * 1024 * 1024,
+		pending: make(map[types.Hash][]byte),
+		dirName: dirName,
+
+		dirFd:               dirFd,
+		logFileNum:          50,
+		maxFileSize:         10 * 1024 * 1024,
+		maxFlushSizePerTime: 2 * 1024 * 1024,
 	}
 
 	if err = logger.loadFileId(); err != nil {
@@ -78,31 +82,47 @@ func (logger *undoLogger) InsertBlock(blockHash *types.Hash, log []byte) {
 }
 
 func (logger *undoLogger) Flush(snapshotBlockHash *types.Hash, blockHashList []*types.Hash) (*chain_block.Location, error) {
-	bufSize := 0
-	for _, blockHash := range blockHashList {
-		bufSize += len(logger.pending[*blockHash])
-	}
+	i := 0
+	blockHashListLen := len(blockHashList)
 
-	buf := make([]byte, 0, bufSize+types.HashSize+4)
+	for i < blockHashListLen {
+		bufSize := 0
 
-	for _, blockHash := range blockHashList {
-		buf = append(buf, logger.pending[*blockHash]...)
-	}
-	buf = append(buf, snapshotBlockHash.Bytes()...)
-	buf = append(buf, chain_utils.Uint64ToBytes(types.HashSize)...)
+		j := i
+		for ; j < blockHashListLen; j++ {
+			newBufSize := len(logger.pending[*blockHashList[j]]) + bufSize
+			if logger.maxFlushSizePerTime < newBufSize {
+				break
+			}
+			bufSize = newBufSize
 
-	freeSpaceLength := logger.maxFileSize - logger.fileSize
-
-	if freeSpaceLength > 0 {
-		if _, err := logger.fd.Write(buf[:freeSpaceLength]); err != nil {
-			return nil, errors.New(fmt.Sprintf("logger.fd.Write failed, error is %s", err.Error()))
+			j++
 		}
-	}
 
-	if freeSpaceLength < int64(len(buf)) {
-		logger.moveToNext()
+		if j >= blockHashListLen {
+			bufSize += types.HashSize + 4
+		}
+		buf := make([]byte, 0, bufSize+types.HashSize+4)
 
-		if _, err := logger.fd.Write(buf[freeSpaceLength:]); err != nil {
+		for k := i; k < j; k++ {
+			buf = append(buf, logger.pending[*blockHashList[k]]...)
+			k++
+		}
+
+		i = j
+
+		if j >= blockHashListLen {
+			buf = append(buf, snapshotBlockHash.Bytes()...)
+			buf = append(buf, chain_utils.Uint64ToBytes(types.HashSize)...)
+		}
+
+		freeSpaceLength := int(logger.maxFileSize - logger.fileSize)
+
+		if freeSpaceLength+types.HashSize+4 < bufSize {
+			logger.moveToNext()
+		}
+
+		if _, err := logger.fd.Write(buf[:]); err != nil {
 			return nil, errors.New(fmt.Sprintf("logger.fd.Write failed, error is %s", err.Error()))
 		}
 	}

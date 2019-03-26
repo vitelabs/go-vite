@@ -55,7 +55,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
-	// flush state_bak db
+	// flush state db
 	if err := c.stateDB.Flush(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")

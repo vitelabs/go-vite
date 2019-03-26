@@ -5,8 +5,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) GetUnconfirmedBlocks(addr *types.Address) []*ledger.AccountBlock {
-	return c.cache.GetUnconfirmedBlocksByAddress(addr)
+func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
+	return c.cache.GetUnconfirmedBlocksByAddress(&addr)
 }
 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {

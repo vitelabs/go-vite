@@ -15,13 +15,13 @@ func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
 	return iDB.hasValueByPrefix(chain_utils.CreateOnRoadPrefixKey(address))
 }
 
-func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]*types.Hash, error) {
+func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]types.Hash, error) {
 	key := chain_utils.CreateOnRoadPrefixKey(address)
 
 	iter := iDB.NewIterator(util.BytesPrefix(key))
 	defer iter.Release()
 
-	hashList := make([]*types.Hash, 0, countPerPage)
+	hashList := make([]types.Hash, 0, countPerPage)
 
 	startIndex := pageNum * countPerPage
 	endIndex := (pageNum + 1) * countPerPage
@@ -38,7 +38,7 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 				return nil, err
 			}
 
-			hashList = append(hashList, &result)
+			hashList = append(hashList, result)
 		}
 		index++
 	}
