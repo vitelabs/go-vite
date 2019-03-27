@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 var logger = log15.New("module", "pool/mock")
@@ -75,7 +75,7 @@ func (*MockSyncer) UnsubscribeSyncStatus(subId int) {
 type MockChain struct {
 }
 
-func (*MockChain) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+func (*MockChain) InsertAccountBlocks(vmAccountBlocks []*vm_db.VmDb) error {
 	logger.Info("InsertAccountBlocks")
 	return nil
 }

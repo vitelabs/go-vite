@@ -109,17 +109,20 @@ func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 	// query location
 	location, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, height is %d",
-			err.Error(), height))
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, height is %d. Error:  %s, ",
+			height, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, cErr
+	}
+	if location == nil {
+		return nil, nil
 	}
 
 	// query block
 	snapshotBlock, err := c.blockDB.GetSnapshotBlock(location)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetSnapshotBlock failed, error is %s, height is %d, location is %+v",
-			err.Error(), height, location))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.GetSnapshotBlock failed, height is %d, location is %+v. Error: %s",
+			height, location, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, cErr
 	}
@@ -139,6 +142,10 @@ func (c *chain) GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock,
 		c.log.Error(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocationByHash failed, error is %s, hash is %s",
 			err.Error(), hash), "method", "GetSnapshotHeaderByHash")
 		return nil, err
+	}
+
+	if location == nil {
+		return nil, nil
 	}
 
 	// query block
@@ -168,6 +175,9 @@ func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, 
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHash")
 		return nil, cErr
 	}
+	if location == nil {
+		return nil, nil
+	}
 
 	// query block
 	snapshotBlock, err := c.blockDB.GetSnapshotBlock(location)
@@ -185,7 +195,7 @@ func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, 
 func (c *chain) GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
-	}, true)
+	}, true, true)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, startHash is %s, endHash is %s",
@@ -200,7 +210,7 @@ func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash)
 
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
-	}, false)
+	}, true, false)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, startHash is %s, endHash is %s",
@@ -215,7 +225,7 @@ func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash)
 func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
-	}, true)
+	}, higher, true)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, blockHash is %s, higher is %+v, count is %d",
@@ -230,7 +240,7 @@ func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint
 func (c *chain) GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
 	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
-	}, false)
+	}, higher, false)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, error is %s, blockHash is %s, higher is %+v, count is %d",
@@ -534,7 +544,7 @@ func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotS
 
 type getSnapshotListFunc func() ([]*chain_block.Location, [2]uint64, error)
 
-func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
+func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, higher bool, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
 	locations, heightRange, err := getList()
 
 	if err != nil {
@@ -549,10 +559,16 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader boo
 	startHeight := heightRange[0]
 	endHeight := heightRange[1]
 
-	currentHeight := startHeight
+	currentHeight := endHeight
+	if higher {
+		currentHeight = startHeight
+	}
 	index := 0
 
-	for currentHeight <= endHeight {
+	for {
+		if (higher && currentHeight > endHeight) || (!higher && currentHeight < startHeight) {
+			break
+		}
 		var block *ledger.SnapshotBlock
 		var err error
 		if onlyHeader {
@@ -574,7 +590,11 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, onlyHeader boo
 
 		blocks[index] = block
 		index++
-		currentHeight++
+		if higher {
+			currentHeight++
+		} else {
+			currentHeight--
+		}
 	}
 
 	return blocks, nil
@@ -617,36 +637,30 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetBlockRandomGlobalStatus(block *ledger.AccountBlock) (*util.GlobalStatus, error) {
-	isContract, err := c.IsContractAccount(block.AccountAddress)
+// fixme get seed and snapshot
+func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
+	meta, err := c.GetContractMeta(*contractAddr)
 	if err != nil {
 		return nil, err
 	}
-
-	if block.IsReceiveBlock() && isContract {
-		meta, err := c.GetContractMeta(block.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-		timesLimit := uint64(meta.SendConfirmedTimes)
-		firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(block.FromBlockHash)
-		if err != nil {
-			return nil, err
-		}
-		if firstConfirmedSb == nil {
-			return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
-		}
-		limitSbHeight := firstConfirmedSb.Height + timesLimit
-		limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
-		if err != nil {
-			return nil, err
-		}
-		if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
-			return &util.GlobalStatus{
-				Seed:          seed,
-				SnapshotBlock: limitSb,
-			}, nil
-		}
+	timesLimit := uint64(meta.SendConfirmedTimes)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	if err != nil {
+		return nil, err
+	}
+	if firstConfirmedSb == nil {
+		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+	}
+	limitSbHeight := firstConfirmedSb.Height + timesLimit
+	limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
+	if err != nil {
+		return nil, err
+	}
+	if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+		return &util.GlobalStatus{
+			Seed:          seed,
+			SnapshotBlock: limitSb,
+		}, nil
 	}
 	return nil, nil
 }

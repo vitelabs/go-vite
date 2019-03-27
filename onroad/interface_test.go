@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
 	"time"
 )
@@ -82,12 +82,12 @@ func (testPool) ExistInPool(address types.Address, fromBlockHash types.Hash) boo
 	return false
 }
 
-func (testPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error {
+func (testPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-func (testPool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock,
-	sendBlocks []*vm_context.VmAccountBlock) error {
+func (testPool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock,
+	sendBlocks []*vm_db.VmAccountBlock) error {
 	return nil
 }
 

@@ -15,7 +15,6 @@ func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {
 func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
 	// cache
 	if ok := c.cache.IsAccountBlockExisted(&hash); ok {
-
 		return ok, nil
 	}
 
@@ -113,6 +112,9 @@ func (c *chain) GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountB
 		c.log.Error(cErr.Error(), "method", "GetReceiveAbBySendAb")
 		return nil, cErr
 	}
+	if receiveBlockHash == nil {
+		return nil, nil
+	}
 
 	block, err := c.GetAccountBlockByHash(*receiveBlockHash)
 	if err != nil {
@@ -138,6 +140,9 @@ func (c *chain) IsReceived(sendBlockHash types.Hash) (bool, error) {
 
 // high to low, contains the block that has the blockHash
 func (c *chain) GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error) {
+	if count <= 0 {
+		return nil, nil
+	}
 	addr, locations, heightRange, err := c.indexDB.GetAccountBlockLocationList(&blockHash, count)
 
 	if err != nil {
@@ -154,6 +159,9 @@ func (c *chain) GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.
 
 // high to low, contains the block that has the blockHash
 func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error) {
+	if count <= 0 {
+		return nil, nil
+	}
 	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByHeight(addr, height, count)
 
 	if err != nil {
@@ -220,6 +228,9 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 		return block, nil
 	}
 
+	if location == nil {
+		return nil, nil
+	}
 	// query block
 	block, err := c.blockDB.GetAccountBlock(location)
 
@@ -253,11 +264,16 @@ func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_block.Lo
 
 	startHeight := heightRange[0]
 	endHeight := heightRange[1]
-	currentHeight := startHeight
+	currentHeight := endHeight
+
 	index := 0
-	for currentHeight <= endHeight {
+
+	for currentHeight >= startHeight {
 		block := c.cache.GetAccountBlockByHeight(&addr, currentHeight)
-		if block != nil {
+		if block == nil {
+			if locations[index] == nil {
+				return nil, nil
+			}
 			var err error
 			block, err = c.blockDB.GetAccountBlock(locations[index])
 			if err != nil {
@@ -270,7 +286,7 @@ func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_block.Lo
 
 		blocks[index] = block
 		index++
-		currentHeight++
+		currentHeight--
 	}
 
 	return blocks, nil

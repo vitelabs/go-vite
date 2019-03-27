@@ -51,23 +51,24 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	chain := chain.NewChain(cfg)
 
 	// pool
-	pl := pool.NewPool(chain)
-	genesis := chain.GetGenesisSnapshotBlock()
-
+	pl, err := pool.NewPool(chain)
+	if err != nil {
+		return nil, err
+	}
 	// consensus
-	cs := consensus.NewConsensus(*genesis.Timestamp, chain)
+	cs := consensus.NewConsensus(chain)
 
 	// sb verifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
 
 	// net
-	netVerifier := verifier.NewNetVerifier(sbVerifier, aVerifier)
+	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	net := net.New(&net.Config{
 		Single:      cfg.Single,
 		FileAddress: cfg.FileAddress,
 		Chain:       chain,
-		Verifier:    netVerifier,
+		Verifier:    verifier,
 	})
 
 	// vite

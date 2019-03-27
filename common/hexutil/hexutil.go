@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received chain copy of the GNU Lesser General Public License
+// You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 /*
@@ -56,7 +56,7 @@ type decError struct{ msg string }
 
 func (err decError) Error() string { return err.msg }
 
-// Decode decodes chain hex string with 0x prefix.
+// Decode decodes a hex string with 0x prefix.
 func Decode(input string) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, ErrEmptyString
@@ -71,7 +71,7 @@ func Decode(input string) ([]byte, error) {
 	return b, err
 }
 
-// MustDecode decodes chain hex string with 0x prefix. It panics for invalid input.
+// MustDecode decodes a hex string with 0x prefix. It panics for invalid input.
 func MustDecode(input string) []byte {
 	dec, err := Decode(input)
 	if err != nil {
@@ -80,7 +80,7 @@ func MustDecode(input string) []byte {
 	return dec
 }
 
-// Encode encodes b as chain hex string with 0x prefix.
+// Encode encodes b as a hex string with 0x prefix.
 func Encode(b []byte) string {
 	enc := make([]byte, len(b)*2+2)
 	copy(enc, "0x")
@@ -88,7 +88,7 @@ func Encode(b []byte) string {
 	return string(enc)
 }
 
-// DecodeUint64 decodes chain hex string with 0x prefix as chain quantity.
+// DecodeUint64 decodes a hex string with 0x prefix as chain quantity.
 func DecodeUint64(input string) (uint64, error) {
 	raw, err := checkNumber(input)
 	if err != nil {
@@ -101,7 +101,7 @@ func DecodeUint64(input string) (uint64, error) {
 	return dec, err
 }
 
-// MustDecodeUint64 decodes chain hex string with 0x prefix as chain quantity.
+// MustDecodeUint64 decodes a hex string with 0x prefix as chain quantity.
 // It panics for invalid input.
 func MustDecodeUint64(input string) uint64 {
 	dec, err := DecodeUint64(input)
@@ -111,7 +111,7 @@ func MustDecodeUint64(input string) uint64 {
 	return dec
 }
 
-// EncodeUint64 encodes i as chain hex string with 0x prefix.
+// EncodeUint64 encodes i as a hex string with 0x prefix.
 func EncodeUint64(i uint64) string {
 	enc := make([]byte, 2, 10)
 	copy(enc, "0x")
@@ -121,7 +121,7 @@ func EncodeUint64(i uint64) string {
 var bigWordNibbles int
 
 func init() {
-	// This is chain weird way to compute the number of nibbles required for big.Word.
+	// This is a weird way to compute the number of nibbles required for big.Word.
 	// The usual way would be to use constant arithmetic but go vet can't handle that.
 	b, _ := new(big.Int).SetString("FFFFFFFFFF", 16)
 	switch len(b.Bits()) {
@@ -134,7 +134,7 @@ func init() {
 	}
 }
 
-// DecodeBig decodes chain hex string with 0x prefix as chain quantity.
+// DecodeBig decodes a hex string with 0x prefix as chain quantity.
 // Numbers larger than 256 bits are not accepted.
 func DecodeBig(input string) (*big.Int, error) {
 	raw, err := checkNumber(input)
@@ -165,7 +165,7 @@ func DecodeBig(input string) (*big.Int, error) {
 	return dec, nil
 }
 
-// MustDecodeBig decodes chain hex string with 0x prefix as chain quantity.
+// MustDecodeBig decodes a hex string with 0x prefix as chain quantity.
 // It panics for invalid input.
 func MustDecodeBig(input string) *big.Int {
 	dec, err := DecodeBig(input)
@@ -175,7 +175,7 @@ func MustDecodeBig(input string) *big.Int {
 	return dec
 }
 
-// EncodeBig encodes bigint as chain hex string with 0x prefix.
+// EncodeBig encodes bigint as a hex string with 0x prefix.
 // The sign of the integer is ignored.
 func EncodeBig(bigint *big.Int) string {
 	nbits := bigint.BitLen()
@@ -214,8 +214,8 @@ func decodeNibble(in byte) uint64 {
 		return uint64(in - '0')
 	case in >= 'A' && in <= 'F':
 		return uint64(in - 'A' + 10)
-	case in >= 'chain' && in <= 'f':
-		return uint64(in - 'chain' + 10)
+	case in >= 'a' && in <= 'f':
+		return uint64(in - 'a' + 10)
 	default:
 		return badNibble
 	}

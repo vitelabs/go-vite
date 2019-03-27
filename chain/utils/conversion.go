@@ -7,9 +7,9 @@ import (
 
 func SerializeLocation(location *chain_block.Location) []byte {
 	bytes := make([]byte, 12)
-	binary.BigEndian.PutUint64(bytes, location.FileId())
+	binary.BigEndian.PutUint64(bytes, location.FileId)
 
-	binary.BigEndian.PutUint32(bytes[8:], uint32(location.Offset()))
+	binary.BigEndian.PutUint32(bytes[8:], uint32(location.Offset))
 
 	return bytes
 }

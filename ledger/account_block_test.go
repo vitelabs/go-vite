@@ -62,19 +62,19 @@ func BenchmarkAccountBlock_Proto(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		block.proto()
+		block.Proto()
 	}
 }
 
 func BenchmarkAccountBlock_DeProto(b *testing.B) {
 	b.StopTimer()
 	block := createBlock()
-	pb := block.proto()
+	pb := block.Proto()
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
 		newBlock := &AccountBlock{}
-		if err := newBlock.deProto(pb); err != nil {
+		if err := newBlock.DeProto(pb); err != nil {
 			b.Fatal(err)
 		}
 	}

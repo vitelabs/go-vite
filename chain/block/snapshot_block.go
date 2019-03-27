@@ -13,7 +13,7 @@ func (bDB *BlockDB) GetSnapshotBlock(location *Location) (*ledger.SnapshotBlock,
 	}
 	sb := &ledger.SnapshotBlock{}
 	if err := sb.Deserialize(buf); err != nil {
-		return nil, errors.New(fmt.Sprintf("sb.Deserialize failed, [Error] %s", err.Error()))
+		return nil, errors.New(fmt.Sprintf("sb.Deserialize failed, Error: %s", err.Error()))
 	}
 
 	return sb, nil
