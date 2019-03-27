@@ -42,6 +42,9 @@ type ContractWorker struct {
 	blackList      map[types.Address]bool
 	blackListMutex sync.RWMutex
 
+	workingAddrList      map[types.Address]bool
+	workingAddrListMutex sync.RWMutex
+
 	log log15.Logger
 }
 
@@ -54,7 +57,9 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList: make(map[types.Address]bool),
+		blackList:       make(map[types.Address]bool),
+		workingAddrList: make(map[types.Address]bool),
+
 		log:       slog.New("worker", "c"),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
@@ -150,6 +155,7 @@ func (w *ContractWorker) Stop() {
 
 		w.uBlocksPool.DeleteContractCache(w.gid)
 		w.clearBlackList()
+		w.clearWorkingAddrList()
 
 		w.log.Info("stop all task")
 		w.wg.Wait()
@@ -196,16 +202,41 @@ func (w *ContractWorker) pushContractTask(t *contractTask) {
 func (w *ContractWorker) popContractTask() *contractTask {
 	w.ctpMutex.Lock()
 	defer w.ctpMutex.Unlock()
+	var task *contractTask
 	if w.contractTaskPQueue.Len() > 0 {
-		return heap.Pop(&w.contractTaskPQueue).(*contractTask)
+		task = heap.Pop(&w.contractTaskPQueue).(*contractTask)
 	}
-	return nil
+	return task
 }
 
 func (w *ContractWorker) clearBlackList() {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList = make(map[types.Address]bool)
+}
+
+func (w *ContractWorker) clearWorkingAddrList() {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	w.workingAddrList = make(map[types.Address]bool)
+}
+
+// Don't deal with it for this around of blocks-generating period
+func (w *ContractWorker) addIntoWorkingList(addr types.Address) bool {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	result, ok := w.workingAddrList[addr]
+	if result && ok {
+		return false
+	}
+	w.workingAddrList[addr] = true
+	return true
+}
+
+func (w *ContractWorker) removeFromWorkingList(addr types.Address) {
+	w.workingAddrListMutex.RLock()
+	defer w.workingAddrListMutex.RUnlock()
+	w.workingAddrList[addr] = false
 }
 
 // Don't deal with it for this around of blocks-generating period

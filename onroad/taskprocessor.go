@@ -50,10 +50,14 @@ func (tp *ContractTaskProcessor) work() {
 		tp.log.Debug("after popContractTask")
 
 		if task != nil {
+			result := tp.worker.addIntoWorkingList(task.Addr)
+			if !result {
+				continue
+			}
 			tp.worker.uBlocksPool.AcquireOnroadSortedContractCache(task.Addr)
-
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
+			tp.worker.removeFromWorkingList(task.Addr)
 			tp.log.Debug("after processOneAddress " + task.Addr.String())
 			continue
 		}
@@ -85,6 +89,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		plog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
+		return
+	}
+
+	if tp.worker.manager.chain.IsSuccessReceived(&sBlock.ToAddress, &sBlock.Hash) {
+		plog.Error("had receive for account block", "addr", sBlock.AccountAddress, "hash", sBlock.Hash)
 		return
 	}
 
