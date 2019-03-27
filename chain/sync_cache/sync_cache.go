@@ -3,10 +3,14 @@ package sync_cache
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
 	"sort"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 type syncCache struct {
@@ -16,15 +20,16 @@ type syncCache struct {
 
 	maxFileSize int64
 
-	segments SegmentList
+	segments interfaces.SegmentList
+	segMu    sync.RWMutex
 }
 
-func NewSyncCache(dataDir string) (SyncCache, error) {
+func NewSyncCache(dataDir string) (interfaces.SyncCache, error) {
 	dirName := path.Join(dataDir, "sync_cache")
 
 	var err error
 	cache := &syncCache{
-		log:         log15.New("module", "synccache"),
+		log:         log15.New("module", "sync_cache"),
 		dirName:     dirName,
 		maxFileSize: 20 * 1024 * 1024,
 	}
@@ -47,7 +52,35 @@ func NewSyncCache(dataDir string) (SyncCache, error) {
 	return cache, nil
 }
 
-func (cache *syncCache) Chunks() SegmentList {
+func (cache *syncCache) AddSeg(from, to uint64) {
+	cache.segMu.Lock()
+	defer cache.segMu.Unlock()
+
+	seg := interfaces.Segment{from, to}
+	if ok, overlappedSegment := cache.checkNoOverlap(seg); ok {
+		cache.log.Error(fmt.Sprintf("segments is overlapped, from_to is %d_%d, overlapped segment is %d_%d", from, to, overlappedSegment[0], overlappedSegment[1]), "method", "AddSeg")
+	}
+
+	cache.segments = append(cache.segments, seg)
+	sort.Sort(cache.segments)
+}
+
+func (cache *syncCache) DeleteSeg(from, to uint64) {
+	cache.segMu.Lock()
+	defer cache.segMu.Unlock()
+
+	for index, seg := range cache.segments {
+		if seg[0] == from && seg[1] == to {
+			cache.segments = append(cache.segments[:index], cache.segments[index+1:]...)
+			return
+		}
+	}
+
+}
+func (cache *syncCache) Chunks() interfaces.SegmentList {
+	cache.segMu.RLock()
+	defer cache.segMu.RUnlock()
+
 	return cache.segments
 }
 
@@ -73,7 +106,7 @@ func (cache *syncCache) newDirFd(dirName string) (*os.File, error) {
 	return dirFd, nil
 }
 
-func (cache *syncCache) loadAllSegments() (SegmentList, error) {
+func (cache *syncCache) loadAllSegments() (interfaces.SegmentList, error) {
 	allFilename, readErr := cache.dirFd.Readdirnames(0)
 	if readErr != nil {
 		return nil, errors.New(fmt.Sprintf("cache.dirFd.Readdirnames(0) failed, error is %s", readErr.Error()))
@@ -84,7 +117,11 @@ func (cache *syncCache) loadAllSegments() (SegmentList, error) {
 			continue
 		}
 
-		segment := newSegmentByFilename(filename)
+		segment, err := newSegmentByFilename(filename)
+		if err != nil {
+			cache.log.Error("newSegmentByFilename failed, error is %s", err)
+			continue
+		}
 		cache.segments = append(cache.segments, segment)
 	}
 
@@ -93,5 +130,9 @@ func (cache *syncCache) loadAllSegments() (SegmentList, error) {
 }
 
 func (cache *syncCache) isCorrectFile(filename string) bool {
-	return true
+	return strings.HasPrefix(filename, "f_")
+}
+
+func (cache *syncCache) toAbsoluteFileName(from, to uint64) string {
+	return path.Join(cache.dirName, "f_"+strconv.FormatUint(from, 10)+"_"+strconv.FormatUint(to, 10))
 }

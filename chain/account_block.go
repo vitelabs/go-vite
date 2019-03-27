@@ -3,7 +3,7 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -259,7 +259,7 @@ func (c *chain) GetLatestAccountHeight(addr types.Address) (uint64, error) {
 	return height, nil
 }
 
-func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_block.Location, heightRange [2]uint64) ([]*ledger.AccountBlock, error) {
+func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_file_manager.Location, heightRange [2]uint64) ([]*ledger.AccountBlock, error) {
 	blocks := make([]*ledger.AccountBlock, len(locations))
 
 	startHeight := heightRange[0]

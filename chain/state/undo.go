@@ -5,13 +5,13 @@ import (
 	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (sDB *StateDB) undo(batch *leveldb.Batch, latestSnapshotBlock *ledger.SnapshotBlock) (*chain_block.Location, error) {
+func (sDB *StateDB) undo(batch *leveldb.Batch, latestSnapshotBlock *ledger.SnapshotBlock) (*chain_file_manager.Location, error) {
 	logFileIdList, err := sDB.undoLogger.LogFileIdList()
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func (sDB *StateDB) undo(batch *leveldb.Batch, latestSnapshotBlock *ledger.Snaps
 
 	//	var undoBlockHashList []*types.Hash
 	undoKeyMap := make(map[string]struct{})
-	var location *chain_block.Location
+	var location *chain_file_manager.Location
 	toHash := latestSnapshotBlock.Hash
 
 LOOP:
@@ -40,7 +40,7 @@ LOOP:
 
 			if bytes.Equal(toHash.Bytes(), undoLogBuffer[:types.HashSize]) {
 
-				location = chain_block.NewLocation(logFileId, int64(currentPointer))
+				location = chain_file_manager.NewLocation(logFileId, int64(currentPointer))
 
 				break LOOP
 			}

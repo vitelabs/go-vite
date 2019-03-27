@@ -3,7 +3,7 @@ package chain_index
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -29,7 +29,7 @@ func (iDB *IndexDB) GetSnapshotBlockHeight(hash *types.Hash) (uint64, error) {
 
 }
 
-func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_block.Location, error) {
+func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateSnapshotBlockHashKey(hash)
 	value, err := iDB.store.Get(key)
 	if err != nil {
@@ -45,7 +45,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_blo
 	return iDB.GetSnapshotBlockLocation(chain_utils.BytesToUint64(value))
 }
 
-func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Location, error) {
+func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateSnapshotBlockHeightKey(height)
 
 	value, err := iDB.store.Get(key)
@@ -64,14 +64,14 @@ func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_block.Locati
 }
 
 // only in disk
-func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, error) {
+func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_file_manager.Location, error) {
 	startKey := chain_utils.CreateSnapshotBlockHeightKey(1)
 	endKey := chain_utils.CreateSnapshotBlockHeightKey(helper.MaxUint64)
 
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
-	var location *chain_block.Location
+	var location *chain_file_manager.Location
 	if iter.Last() {
 		location = chain_utils.DeserializeLocation(iter.Value()[types.HashSize:])
 	}
@@ -82,7 +82,7 @@ func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_block.Location, err
 	return location, nil
 }
 
-func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher bool, count uint64) ([]*chain_block.Location, [2]uint64, error) {
+func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher bool, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
 	if count <= 0 {
 		return nil, [2]uint64{}, nil
 	}
@@ -118,7 +118,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher b
 	return iDB.getSnapshotBlockLocations(startHeight, endHeight, higher)
 }
 
-func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHash *types.Hash) ([]*chain_block.Location, [2]uint64, error) {
+func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHash *types.Hash) ([]*chain_file_manager.Location, [2]uint64, error) {
 
 	startKey := chain_utils.CreateSnapshotBlockHashKey(startHash)
 	startValue, err := iDB.store.Get(startKey)
@@ -149,14 +149,14 @@ func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHas
 	return iDB.getSnapshotBlockLocations(startHeight, endHeight, true)
 }
 
-func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, higher bool) ([]*chain_block.Location, [2]uint64, error) {
+func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, higher bool) ([]*chain_file_manager.Location, [2]uint64, error) {
 	startKey := chain_utils.CreateSnapshotBlockHeightKey(startHeight)
 	endKey := chain_utils.CreateSnapshotBlockHeightKey(endHeight + 1)
 
 	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
-	locationList := make([]*chain_block.Location, 0, endHeight+1-startHeight)
+	locationList := make([]*chain_file_manager.Location, 0, endHeight+1-startHeight)
 
 	var minHeight, maxHeight uint64
 	if higher {

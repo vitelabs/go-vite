@@ -3,7 +3,7 @@ package chain_state
 import (
 	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -119,7 +119,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 }
 
 func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.AccountBlock,
-	invalidAccountBlocks []*ledger.AccountBlock, location *chain_block.Location) error {
+	invalidAccountBlocks []*ledger.AccountBlock, location *chain_file_manager.Location) error {
 	batch := new(leveldb.Batch)
 	blockHashList := make([]*types.Hash, 0, len(blocks))
 	for _, block := range blocks {
@@ -147,12 +147,12 @@ func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.
 	return nil
 }
 
-func (sDB *StateDB) updateUndoLocation(batch *leveldb.Batch, location *chain_block.Location) {
+func (sDB *StateDB) updateUndoLocation(batch *leveldb.Batch, location *chain_file_manager.Location) {
 	batch.Put(chain_utils.CreateUndoLocationKey(), chain_utils.SerializeLocation(location))
 
 }
 
-func (sDB *StateDB) updateStateDbLocation(batch *leveldb.Batch, latestLocation *chain_block.Location) {
+func (sDB *StateDB) updateStateDbLocation(batch *leveldb.Batch, latestLocation *chain_file_manager.Location) {
 	batch.Put(chain_utils.CreateStateDbLocationKey(), chain_utils.SerializeLocation(latestLocation))
 
 }

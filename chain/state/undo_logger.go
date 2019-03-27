@@ -3,7 +3,7 @@ package chain_state
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/fileutils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -81,7 +81,7 @@ func (logger *undoLogger) InsertBlock(blockHash *types.Hash, log []byte) {
 	logger.pending[*blockHash] = log
 }
 
-func (logger *undoLogger) Flush(snapshotBlockHash *types.Hash, blockHashList []*types.Hash) (*chain_block.Location, error) {
+func (logger *undoLogger) Flush(snapshotBlockHash *types.Hash, blockHashList []*types.Hash) (*chain_file_manager.Location, error) {
 	i := 0
 	blockHashListLen := len(blockHashList)
 
@@ -127,7 +127,7 @@ func (logger *undoLogger) Flush(snapshotBlockHash *types.Hash, blockHashList []*
 		}
 	}
 
-	return chain_block.NewLocation(logger.fileId, logger.fileSize), nil
+	return chain_file_manager.NewLocation(logger.fileId, logger.fileSize), nil
 }
 
 type Uint64Slice []uint64
@@ -182,11 +182,11 @@ func (logger *undoLogger) ReadFile(fileId uint64) ([]byte, error) {
 	return readBuf[:readN], nil
 }
 
-func (logger *undoLogger) CompareLocation(location *chain_block.Location) int {
-	return chain_block.NewLocation(logger.fileId, logger.fileSize).Compare(location)
+func (logger *undoLogger) CompareLocation(location *chain_file_manager.Location) int {
+	return chain_file_manager.NewLocation(logger.fileId, logger.fileSize).Compare(location)
 }
 
-func (logger *undoLogger) DeleteTo(location *chain_block.Location) error {
+func (logger *undoLogger) DeleteTo(location *chain_file_manager.Location) error {
 	// remove
 	for i := logger.fileId; i > location.FileId+1; i-- {
 		if err := os.Remove(logger.fileIdToAbsoluteFilename(i)); err != nil {

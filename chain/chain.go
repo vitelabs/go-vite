@@ -9,6 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/chain/genesis"
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/state"
+	"github.com/vitelabs/go-vite/chain/sync_cache"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"path"
 )
@@ -28,6 +30,8 @@ type chain struct {
 	blockDB *chain_block.BlockDB
 
 	stateDB *chain_state.StateDB
+
+	syncCache interfaces.SyncCache
 }
 
 /*
@@ -133,6 +137,15 @@ func (c *chain) Init() error {
 	// init cache
 	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
+	}
+
+	// init sync cache
+	var err error
+	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
 	}

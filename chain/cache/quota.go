@@ -112,8 +112,11 @@ func (ql *quotaList) Rollback(n int) error {
 	return ql.build()
 }
 
-func (ql *quotaList) build() error {
+func (ql *quotaList) build() (returnError error) {
 	defer func() {
+		if returnError != nil {
+			return
+		}
 		ql.backElement = ql.list.Back().Value.(map[types.Address]*item)
 
 		ql.resetAccumulationStart()
