@@ -232,5 +232,5 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
-	GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 }

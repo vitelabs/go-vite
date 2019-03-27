@@ -637,13 +637,14 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 
 const DefaultSeedRangeCount = 25
 
-// fixme get seed and snapshot
-func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
-	meta, err := c.GetContractMeta(*contractAddr)
+func (c *chain) GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
+	meta, err := c.GetContractMeta(*addr)
 	if err != nil {
 		return nil, err
 	}
-	timesLimit := uint64(meta.SendConfirmedTimes)
+	if meta == nil || meta.SendConfirmedTimes == 0 {
+		return nil, nil
+	}
 	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
 	if err != nil {
 		return nil, err
@@ -651,8 +652,7 @@ func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromH
 	if firstConfirmedSb == nil {
 		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
 	}
-	limitSbHeight := firstConfirmedSb.Height + timesLimit
-	limitSb, err := c.GetSnapshotBlockByHeight(limitSbHeight)
+	limitSb, err := c.GetSnapshotBlockByHeight(firstConfirmedSb.Height + uint64(meta.SendConfirmedTimes) - 1)
 	if err != nil {
 		return nil, err
 	}
@@ -662,5 +662,5 @@ func (c *chain) GetContractRandomGlobalStatus(contractAddr *types.Address, fromH
 			SnapshotBlock: limitSb,
 		}, nil
 	}
-	return nil, nil
+	return nil, errors.New("GetRandomSeed failed")
 }

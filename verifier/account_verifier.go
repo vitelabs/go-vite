@@ -74,79 +74,68 @@ func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResu
 
 // check address's existence and validity（Height can't be lower than 1 and sendBlock can't stand at 1)
 func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountType, error) {
-	mLog := v.log.New("method", "verifyAccAddress")
 	if block.Height < 1 {
 		return AccountTypeNotSure, errors.New("block.Height mustn't be lower than 1")
 	}
 	isContract1stCheck, err := v.chain.IsContractAccount(block.AccountAddress)
 	if err != nil {
-		mLog.Error("1st check IsContractAccount, err" + err.Error())
-		return AccountTypeNotSure, err
+		return AccountTypeNotSure, errors.New("1st check IsContractAccount," + err.Error())
 	}
 	if isContract1stCheck {
 		return AccountTypeContract, nil
 	}
 	if block.Height > 1 {
-		if firstBlock, _ := v.chain.GetAccountBlockByHeight(block.AccountAddress, 1); firstBlock != nil {
-			isContract, err := v.chain.IsContractAccount(block.AccountAddress)
-			if err != nil {
-				mLog.Error("check firstBlock IsContractAccount, err" + err.Error())
-				return AccountTypeNotSure, err
-			}
-			if isContract {
-				return AccountTypeContract, nil
-			}
-			return AccountTypeGeneral, nil
+		firstBlock, _ := v.chain.GetAccountBlockByHeight(block.AccountAddress, 1)
+		if firstBlock == nil {
+			return AccountTypeNotSure, nil
 		}
 	} else {
-		if block.IsReceiveBlock() {
-			sendBlock, sErr := v.chain.GetAccountBlockByHash(block.Hash)
-			if sErr != nil {
-				mLog.Error(sErr.Error())
-			}
-			if sendBlock != nil {
-				isContract2ndCheck, err := v.chain.IsContractAccount(block.AccountAddress)
-				if err != nil {
-					mLog.Error("2nd check IsContractAccount, err" + err.Error())
-					return AccountTypeNotSure, err
-				}
-				if isContract2ndCheck {
-					return AccountTypeContract, nil
-				}
-				return AccountTypeGeneral, nil
-			}
-		} else {
+		if block.IsSendBlock() {
 			return AccountTypeNotSure, errors.New("fatal: sendblock.height can't be 1")
 		}
+		sendBlock, sErr := v.chain.GetAccountBlockByHash(block.Hash)
+		if sErr != nil {
+			return AccountTypeNotSure, errors.New("GetAccountBlockByHash failed, " + sErr.Error())
+		}
+		if sendBlock == nil {
+			return AccountTypeNotSure, nil
+		}
 	}
-	return AccountTypeNotSure, nil
+	isContract2ndCheck, err := v.chain.IsContractAccount(block.AccountAddress)
+	if err != nil {
+		return AccountTypeNotSure, errors.New("2nd check IsContractAccount," + err.Error())
+	}
+	if isContract2ndCheck {
+		return AccountTypeContract, nil
+	}
+	return AccountTypeGeneral, nil
 }
 
 // Block itself coming into Verifier indicate that it referr to a snapshot, which maybe confimed >=0;
 // Contarct.recv's must check its send whether is satisfied confirmed over custom times at least;
 func (v *AccountVerifier) verifyComfirmedTimes(recvBlock *ledger.AccountBlock, isGeneralAddr bool) error {
-	mLog := v.log.New("method", "verfiySnapshotLimit")
-	var timesLimit uint64 = 0
-	if !isGeneralAddr {
-		meta, err := v.chain.GetContractMeta(recvBlock.AccountAddress)
-		if err != nil {
-			mLog.Error(err.Error(), "call", "GetContractMeta")
-			return err
-		}
-		timesLimit = uint64(meta.SendConfirmedTimes)
-		if timesLimit <= 0 {
-			return nil
-		}
-		sendConfirmedTimes, err := v.chain.GetConfirmedTimes(recvBlock.FromBlockHash)
-		if err != nil {
-			mLog.Error(err.Error(), "call", "GetConfirmedTimes")
-			return err
-		}
-		if sendConfirmedTimes < timesLimit {
-			mLog.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
-				ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, timesLimit, recvBlock.FromBlockHash, sendConfirmedTimes))
-			return ErrVerifyConfirmedTimesNotEnough
-		}
+	if isGeneralAddr {
+		return nil
+	}
+	meta, err := v.chain.GetContractMeta(recvBlock.AccountAddress)
+	if err != nil {
+		return errors.New("call GetContractMeta failed," + err.Error())
+	}
+	if meta == nil {
+		return errors.New("contract meta is nil")
+	}
+	if meta.SendConfirmedTimes == 0 {
+		return nil
+	}
+	sendConfirmedTimes, err := v.chain.GetConfirmedTimes(recvBlock.FromBlockHash)
+	if err != nil {
+		return errors.New("call GetConfirmedTimes failed," + err.Error())
+	}
+	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
+		v.log.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
+			ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, meta.SendConfirmedTimes, recvBlock.FromBlockHash, sendConfirmedTimes),
+			"method", "verifyComfirmedTimes")
+		return ErrVerifyConfirmedTimesNotEnough
 	}
 	return nil
 }
@@ -188,8 +177,7 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if sendBlock == nil {
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash},
-				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash},
-			)
+				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
 			return PENDING, nil
 		}
 		// check whether is already received
@@ -214,8 +202,7 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	if prevBlock == nil {
 		pendingTask.AccountTask = append(pendingTask.AccountTask,
 			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash},
-			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash},
-		)
+			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
 		return PENDING, nil
 	}
 	return SUCCESS, nil
@@ -258,7 +245,6 @@ func (v *AccountVerifier) verifySendBlockIntergrity(block *ledger.AccountBlock, 
 }
 
 func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
-	mLog := v.log.New("method", "verifyRecvBlockIntergrity")
 	if block.TokenId != types.ZERO_TOKENID {
 		return errors.New("recvBlock.TokenId must be ZERO_TOKENID")
 	}
@@ -274,8 +260,8 @@ func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, 
 	if !isGeneralAddr && block.SendBlockList != nil {
 		for _, sendBlock := range block.SendBlockList {
 			if err := v.verifySendBlockIntergrity(sendBlock, true); err != nil {
-				mLog.Error(fmt.Sprintf("err:%v, contractAddr:%v, recv-subSends(%v, %v)",
-					err.Error(), block.AccountAddress, block.Hash, sendBlock.Hash))
+				v.log.Error(fmt.Sprintf("err:%v, contractAddr:%v, recv-subSends(%v, %v)",
+					err.Error(), block.AccountAddress, block.Hash, sendBlock.Hash), "method", "verifyRecvBlockIntergrity")
 				return err
 			}
 		}
@@ -352,8 +338,6 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isG
 }
 
 func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (vmBlock *vm_db.VmAccountBlock, err error) {
-	vLog := v.log.New("method", "VerifyforVM")
-
 	var fromBlock *ledger.AccountBlock
 	var states *util.GlobalStatus
 	var recvErr error
@@ -366,29 +350,25 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 			return nil, errors.New("failed to find the recvBlock's fromBlock")
 		}
 
-		states, recvErr = v.chain.GetContractRandomGlobalStatus(&block.AccountAddress, &block.FromBlockHash)
+		states, recvErr = v.chain.GetRandomGlobalStatus(&block.AccountAddress, &block.FromBlockHash)
 		if recvErr != nil {
 			return nil, recvErr
 		}
 	}
 	gen, err := generator.NewGenerator2(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash, states)
 	if err != nil {
-		vLog.Error("new generator error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
 
 	genResult, err := gen.GenerateWithBlock(block, fromBlock)
 	if err != nil {
-		vLog.Error("generator block error," + err.Error())
 		return nil, ErrVerifyForVmGeneratorFailed
+	}
+	if genResult == nil {
+		return nil, errors.New("genResult is nil")
 	}
 	if genResult.VmBlock == nil {
 		if genResult.Err != nil {
-			errInf := fmt.Sprintf("sbHash %v, addr %v,", states.SnapshotBlock.Hash, block.AccountAddress)
-			if block.IsReceiveBlock() {
-				errInf += fmt.Sprintf("fromHash %v", block.FromBlockHash)
-			}
-			vLog.Error(genResult.Err.Error(), "detail", errInf)
 			return nil, genResult.Err
 		}
 		return nil, errors.New("vm failed, blockList is empty")

@@ -279,16 +279,18 @@ func (w *ContractWorker) VerifierConfirmedTimes(contractAddr *types.Address, fro
 	if err != nil {
 		return err
 	}
-	timesLimit := uint64(meta.SendConfirmedTimes)
-	if timesLimit <= 0 {
+	if meta == nil {
+		return errors.New("contract meta is nil")
+	}
+	if meta.SendConfirmedTimes == 0 {
 		return nil
 	}
 	sendConfirmedTimes, err := w.manager.chain.GetConfirmedTimes(*fromHash)
 	if err != nil {
 		return err
 	}
-	if sendConfirmedTimes < timesLimit {
-		w.log.Error(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, timesLimit, fromHash, sendConfirmedTimes))
+	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
+		w.log.Error(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
 		return errors.New("sendBlock is not ready")
 	}
 	return nil
