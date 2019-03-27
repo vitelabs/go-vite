@@ -63,12 +63,12 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
 
 	// net
-	netVerifier := verifier.NewNetVerifier(sbVerifier, aVerifier)
+	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	net := net.New(&net.Config{
 		Single:      cfg.Single,
 		FileAddress: cfg.FileAddress,
 		Chain:       chain,
-		Verifier:    netVerifier,
+		Verifier:    verifier,
 	})
 
 	// vite

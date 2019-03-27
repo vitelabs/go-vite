@@ -17,7 +17,7 @@ func (db *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 			return nil, errors.New("No context, db.latestSnapshotBlockHash is nil")
 		}
 		var err error
-		db.latestSnapshotBlock, err = db.chain.GetSnapshotHeaderByHash(db.latestSnapshotBlockHash)
+		db.latestSnapshotBlock, err = db.chain.GetSnapshotHeaderByHash(*db.latestSnapshotBlockHash)
 		if err != nil {
 			return nil, err
 		} else if db.latestSnapshotBlock == nil {
@@ -33,7 +33,7 @@ func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 			return nil, errors.New("No context, db.prevAccountBlockHash is nil")
 		}
 		var err error
-		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(db.prevAccountBlockHash)
+		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(*db.prevAccountBlockHash)
 		if err != nil {
 			return nil, err
 		} else if db.prevAccountBlock == nil {
@@ -48,11 +48,11 @@ func (db *vmDb) IsContractAccount() (bool, error) {
 		return false, nil
 	}
 
-	return db.chain.IsContractAccount(db.address)
+	return db.chain.IsContractAccount(*db.address)
 }
 
 func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	return db.chain.GetCallDepth(sendBlockHash)
+	return db.chain.GetCallDepth(*sendBlockHash)
 }
 
 func (db *vmDb) SetCallDepth(callDepth uint16) {
@@ -63,5 +63,5 @@ func (db *vmDb) GetUnsavedCallDepth() uint16 {
 }
 
 func (db *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
-	return db.chain.GetQuotaUsed(db.address)
+	return db.chain.GetQuotaUsed(*db.address)
 }

@@ -8,8 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) DeleteSnapshotBlocks(toHash *types.Hash) ([]*ledger.SnapshotChunk, error) {
-	height, err := c.indexDB.GetSnapshotBlockHeight(toHash)
+func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk, error) {
+	height, err := c.indexDB.GetSnapshotBlockHeight(&toHash)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed, error is %s, snapshotHash is %s", err.Error(), toHash))

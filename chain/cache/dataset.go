@@ -37,9 +37,7 @@ func NewDataSet() *dataSet {
 }
 
 func (ds *dataSet) RefDataId(dataId uint64) {
-	if refCount, ok := ds.dataRefCount[dataId]; ok {
-		ds.dataRefCount[dataId] = refCount + 1
-	}
+	ds.dataRefCount[dataId] += 1
 }
 func (ds *dataSet) UnRefDataId(dataId uint64) {
 	if refCount, ok := ds.dataRefCount[dataId]; ok {
@@ -164,7 +162,7 @@ func (ds *dataSet) gc(dataId uint64) {
 	if ok {
 		delete(ds.blockDataId, ab.Hash)
 		delete(ds.accountBlockSet, dataId)
-		delete(ds.abHeightIndexes[ab.AccountAddress], dataId)
+		delete(ds.abHeightIndexes[ab.AccountAddress], ab.Height)
 		return
 	}
 
@@ -172,7 +170,7 @@ func (ds *dataSet) gc(dataId uint64) {
 	if ok {
 		delete(ds.blockDataId, sb.Hash)
 		delete(ds.snapshotBlockSet, dataId)
-		delete(ds.sbHeightIndexes, dataId)
+		delete(ds.sbHeightIndexes, sb.Height)
 		return
 	}
 }

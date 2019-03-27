@@ -18,7 +18,7 @@ func (db *vmDb) GetContractCode() ([]byte, error) {
 		return code, nil
 	}
 
-	return db.chain.GetContractCode(db.address)
+	return db.chain.GetContractCode(*db.address)
 }
 func (db *vmDb) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	return nil, nil

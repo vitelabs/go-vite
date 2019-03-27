@@ -95,10 +95,8 @@ func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*led
 }
 
 // ====== Snapshot block ======
-func (cache *Cache) InsertSnapshotBlock(
-	snapshotBlock *ledger.SnapshotBlock,
-	confirmedBlocks []*ledger.AccountBlock,
-	invalidBlocks []*ledger.AccountBlock) {
+func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
+	confirmedBlocks []*ledger.AccountBlock, invalidBlocks []*ledger.AccountBlock) {
 
 	cache.mu.Lock()
 	defer cache.mu.Unlock()

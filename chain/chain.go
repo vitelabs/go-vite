@@ -3,6 +3,7 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/cache"
 	"github.com/vitelabs/go-vite/chain/genesis"
@@ -182,4 +183,14 @@ func (c *chain) Destroy() error {
 	c.log.Info("Complete destruction", "method", "Destroy")
 
 	return nil
+}
+
+func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
+	absoluteDirName := path.Join(c.chainDir, dirName)
+	db, err := leveldb.OpenFile(absoluteDirName, nil)
+
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

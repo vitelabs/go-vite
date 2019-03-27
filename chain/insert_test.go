@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/rand"
@@ -24,13 +25,13 @@ func createSnapshotBlock(chainInstance Chain) *ledger.SnapshotBlock {
 
 }
 
-func InsertSnapshotBlock(chainInstance Chain) error {
+func InsertSnapshotBlock(chainInstance Chain) (*ledger.SnapshotBlock, error) {
 	sb := createSnapshotBlock(chainInstance)
 	if _, err := chainInstance.InsertSnapshotBlock(sb); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return sb, nil
 }
 
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
@@ -42,7 +43,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 	if err != nil {
 		b.Fatal(err)
 	}
-	accounts := MakeAccounts(accountNumber, chainInstance)
+	accounts, addrList := MakeAccounts(accountNumber, chainInstance)
 
 	fmt.Printf("Account number is %d\n", accountNumber)
 
@@ -51,7 +52,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 	}
 
 	for i := 0; i < b.N; i++ {
-		account := accounts[rand.Intn(accountNumber)]
+		account := accounts[addrList[rand.Intn(accountNumber)]]
 		createRequestTx := true
 
 		if account.HasUnreceivedBlock() {
@@ -63,7 +64,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 		var tx *vm_db.VmAccountBlock
 		if createRequestTx {
-			toAccount := accounts[rand.Intn(accountNumber)]
+			toAccount := accounts[addrList[rand.Intn(accountNumber)]]
 			tx, err = account.CreateRequestTx(toAccount, cTxOptions)
 			if err != nil {
 				b.Fatal(err)
@@ -77,7 +78,8 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 		b.StartTimer()
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			if err := InsertSnapshotBlock(chainInstance); err != nil {
+			_, err := InsertSnapshotBlock(chainInstance)
+			if err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -96,22 +98,85 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 10000)
+		BmInsertAccountBlock(b, 10, 1000)
 	})
 	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 10000)
+		BmInsertAccountBlock(b, 100, 1000)
 	})
 	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 10000)
+		BmInsertAccountBlock(b, 1000, 1000)
 	})
 	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 10000)
+		BmInsertAccountBlock(b, 10000, 1000)
 	})
 	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 10000)
+		BmInsertAccountBlock(b, 100000, 1000)
 	})
-
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
 	//})
+}
+
+func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain, txCount int, snapshotPerBlockNum int) (map[types.Address]*Account, []types.Hash, []types.Address, []uint64) {
+	accounts, addrList := MakeAccounts(accountNumber, chainInstance)
+
+	fmt.Printf("Account number is %d\n", accountNumber)
+
+	cTxOptions := &CreateTxOptions{
+		MockSignature: true,
+	}
+
+	var err error
+	hashList := make([]types.Hash, 0, txCount)
+
+	returnAddrList := make([]types.Address, 0, txCount)
+	heightList := make([]uint64, 0, txCount)
+
+	for i := 0; i < txCount; i++ {
+		account := accounts[addrList[rand.Intn(accountNumber)]]
+		createRequestTx := true
+
+		if account.HasUnreceivedBlock() {
+			randNum := rand.Intn(100)
+			if randNum > 50 {
+				createRequestTx = false
+			}
+		}
+
+		var tx *vm_db.VmAccountBlock
+		if createRequestTx {
+			toAccount := accounts[addrList[rand.Intn(accountNumber)]]
+			tx, err = account.CreateRequestTx(toAccount, cTxOptions)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			tx, err = account.CreateResponseTx(cTxOptions)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if err := chainInstance.InsertAccountBlock(tx); err != nil {
+			t.Fatal(err)
+		}
+
+		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
+			sb, err := InsertSnapshotBlock(chainInstance)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for addr := range sb.SnapshotContent {
+				account := accounts[addr]
+				account.Snapshot(sb.Hash)
+			}
+		}
+
+		hashList = append(hashList, tx.AccountBlock.Hash)
+		returnAddrList = append(returnAddrList, account.addr)
+
+		heightList = append(heightList, tx.AccountBlock.Height)
+
+	}
+	return accounts, hashList, returnAddrList, heightList
 }

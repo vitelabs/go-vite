@@ -139,7 +139,7 @@ func getRange(index, count, listLen int) (int, int) {
 	return start, end
 }
 
-func getPrevBlockHash(c chain.Chain, addr *types.Address) (*types.Hash, error) {
+func getPrevBlockHash(c chain.Chain, addr types.Address) (*types.Hash, error) {
 	b, err := c.GetLatestAccountBlock(addr)
 	if err != nil {
 		return nil, err

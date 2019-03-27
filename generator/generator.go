@@ -3,275 +3,184 @@ package generator
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm_context"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
-	"time"
 )
-
-const DefaultHeightDifference uint64 = 10
 
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	vmContext vmctxt_interface.VmDatabase
-	vm        vm.VM
-	sbHeight  uint64
+	chain chainReader
+
+	vmDb   vm_db.VmDb
+	vm     *vm.VM
+	states *util.GlobalStatus
 
 	log log15.Logger
 }
 
 type GenResult struct {
-	BlockGenList []*vm_context.VmAccountBlock
-	IsRetry      bool
-	Err          error
+	VmBlock *vm_db.VmAccountBlock
+	IsRetry bool
+	Err     error
 }
 
-func NewGenerator(chain vm_context.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+func NewGenerator(chain vm_db.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
+	return nil, nil
+}
+
+func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash, states *util.GlobalStatus) (*Generator, error) {
 	gen := &Generator{
-		log:      log15.New("module", "Generator"),
-		sbHeight: 2,
+		log: log15.New("module", "Generator"),
 	}
+	gen.chain = NewChain(chain)
+	gen.vm = vm.NewVM()
 
-	gen.vm = *vm.NewVM()
-
-	vmContext, err := vm_context.NewVmContext(chain, snapshotBlockHash, prevBlockHash, addr)
+	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {
 		return nil, err
 	}
-	gen.vmContext = vmContext
+	gen.vmDb = vmDb
+	gen.states = states
 
-	if sb := gen.vmContext.CurrentSnapshotBlock(); sb != nil {
-		gen.sbHeight = sb.Height
-	} else {
-		return nil, errors.New("failed to new generator, cause current snapshotblock is nil")
-	}
 	return gen, nil
 }
 
-func (gen *Generator) GenerateWithMessage(message *IncomingMessage, signFunc SignFunc) (*GenResult, error) {
-	var genResult *GenResult
-	var errGenMsg error
+func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*GenResult, error) {
+	genResult, err := gen.generateBlock(block, fromBlock, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return genResult, nil
+}
 
-	switch message.BlockType {
-	case ledger.BlockTypeReceiveError:
-		return nil, errors.New("block type error")
-	case ledger.BlockTypeReceive:
-		if message.FromBlockHash == nil {
-			return nil, errors.New("fromblockhash can't be nil when create receive block")
-		}
-		sendBlock := gen.vmContext.GetAccountBlockByHash(message.FromBlockHash)
-		if sendBlock == nil {
-			return nil, ErrGetVmContextValueFailed
-		}
-		//genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
-		genResult, errGenMsg = gen.GenerateWithOnroad(*sendBlock, nil, signFunc, message.Difficulty)
-	default:
-		block, err := gen.packSendBlockWithMessage(message)
+func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error) {
+	block, err := IncomingMessageToBlock(gen.vmDb, message)
+	if err != nil {
+		return nil, err
+	}
+	if block.IsReceiveBlock() {
+		fromBlock, err := gen.chain.GetAccountBlockByHash(&block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
-		genResult, errGenMsg = gen.generateBlock(block, nil, block.AccountAddress, signFunc)
-	}
-	if errGenMsg != nil {
-		return nil, errGenMsg
-	}
-	return genResult, nil
-}
-
-func (gen *Generator) GenerateWithOnroad(sendBlock ledger.AccountBlock, consensusMsg *ConsensusMessage, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
-	var producer types.Address
-	if consensusMsg == nil {
-		producer = sendBlock.ToAddress
-	} else {
-		producer = consensusMsg.Producer
-	}
-
-	block, err := gen.packBlockWithSendBlock(&sendBlock, consensusMsg, difficulty)
-	if err != nil {
-		return nil, err
-	}
-	genResult, err := gen.generateBlock(block, &sendBlock, producer, signFunc)
-	if err != nil {
-		return nil, err
-	}
-	return genResult, nil
-}
-
-func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, signFunc SignFunc) (*GenResult, error) {
-	var sendBlock *ledger.AccountBlock = nil
-	if block.IsReceiveBlock() {
-		if sendBlock = gen.vmContext.GetAccountBlockByHash(&block.FromBlockHash); sendBlock == nil {
-			return nil, ErrGetVmContextValueFailed
+		if fromBlock == nil {
+			return nil, errors.New("generate recvBlock failed, cause failed to find its sendBlock")
 		}
+		gen.generateBlock(block, fromBlock, producer, signFunc)
 	}
-	genResult, err := gen.generateBlock(block, sendBlock, block.AccountAddress, signFunc)
+	return gen.generateBlock(block, nil, producer, signFunc)
+}
+
+func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
+	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
+	if err != nil {
+		return nil, err
+	}
+	genResult, err := gen.generateBlock(block, sendBlock, producer, signFunc)
 	if err != nil {
 		return nil, err
 	}
 	return genResult, nil
 }
 
-func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, producer types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
-	var oLog = gen.log.New("method", "generateBlock")
+func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
-			if sendBlock != nil {
-				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v) ", block.AccountAddress, block.PrevHash)
+			if fromBlock != nil {
+				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
 			}
 
-			oLog.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
+			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
 
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}
 	}()
 
-	blockList, isRetry, err := gen.vm.Run(gen.vmContext, block, sendBlock)
-	if len(blockList) > 0 {
-		for k, v := range blockList {
-			if k == 0 {
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
-				if signFunc != nil {
-					signature, publicKey, e := signFunc(producer, v.AccountBlock.Hash.Bytes())
-					if e != nil {
-						return nil, e
-					}
-					v.AccountBlock.Signature = signature
-					v.AccountBlock.PublicKey = publicKey
-				}
-			} else {
-				if v.AccountBlock.Height != blockList[k-1].AccountBlock.Height+1 {
-					oLog.Error(fmt.Sprintf("recv(%v,%v), vmsend[%v]=%v",
-						blockList[0].AccountBlock.Hash, blockList[0].AccountBlock.Height, k-1, v.AccountBlock.Height), "err", "vm result height conflict")
-					v.AccountBlock.Height = blockList[k-1].AccountBlock.Height + 1
-				}
-				v.AccountBlock.PrevHash = blockList[k-1].AccountBlock.Hash
-				v.AccountBlock.Hash = v.AccountBlock.ComputeHash()
+	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, gen.states)
+	if vmBlock != nil {
+		vb := vmBlock.AccountBlock
+		vb.Hash = vb.ComputeHash()
+		if signFunc != nil {
+			if producer == nil {
+				return nil, errors.New("producer address is uncertain, can't sign")
+			}
+			signature, publicKey, e := signFunc(*producer, vb.Hash.Bytes())
+			if e != nil {
+				return nil, e
+			}
+			vb.Signature = signature
+			vb.PublicKey = publicKey
+		}
+		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
+			for _, v := range vb.SendBlockList {
+				v.Hash = v.ComputeHash()
 			}
 		}
 	}
 
 	return &GenResult{
-		BlockGenList: blockList,
-		IsRetry:      isRetry,
-		Err:          err,
+		VmBlock: vmBlock,
+		IsRetry: isRetry,
+		Err:     err,
 	}, nil
 }
 
-func (gen *Generator) packSendBlockWithMessage(message *IncomingMessage) (blockPacked *ledger.AccountBlock, err error) {
-	latestBlock := gen.vmContext.PrevAccountBlock()
-	if latestBlock == nil {
-		return nil, errors.New("account address doesn't exist")
-	}
+func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, difficulty *big.Int) (*ledger.AccountBlock, error) {
+	recvBlock := &ledger.AccountBlock{
+		BlockType:      ledger.BlockTypeReceive,
+		AccountAddress: sendBlock.ToAddress,
+		FromBlockHash:  sendBlock.Hash,
 
-	blockPacked, err = message.ToSendBlock()
+		/*	//recv don't need
+			ToAddress: types.Address{},
+			TokenId:   types.TokenTypeId{},
+			Amount:    nil,
+			Fee:       nil,
+
+			// after vm
+			Data:          nil,
+			Quota:         0,
+			SendBlockList: nil,
+			LogHash:       nil,
+			PublicKey:     nil,
+			Signature:     nil,
+			Hash:          types.Hash{},*/
+	}
+	// PrevHash, Height, Nonce, Difficulty
+	prevBlock, err := gen.vmDb.PrevAccountBlock()
 	if err != nil {
 		return nil, err
 	}
-
-	if latestBlock == nil {
-		blockPacked.Height = 1
-		blockPacked.PrevHash = types.ZERO_HASH
-	} else {
-		blockPacked.Height = latestBlock.Height + 1
-		blockPacked.PrevHash = latestBlock.Hash
+	var prevHash types.Hash
+	var preHeight uint64 = 0
+	if prevBlock != nil {
+		prevHash = prevBlock.Hash
+		preHeight = prevBlock.Height
 	}
+	recvBlock.PrevHash = prevHash
+	recvBlock.Height = preHeight + 1
 
-	if message.Difficulty != nil {
-		// currently, default mode of GenerateWithOnroad is to calc pow
-		nonce, err := pow.GetPowNonce(message.Difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
+	if difficulty != nil {
+		nonce, err := pow.GetPowNonce(difficulty, types.DataHash(append(sendBlock.ToAddress.Bytes(), prevHash.Bytes()...)))
 		if err != nil {
 			return nil, err
 		}
-		blockPacked.Nonce = nonce[:]
-		blockPacked.Difficulty = message.Difficulty
+		recvBlock.Nonce = nonce
+		recvBlock.Difficulty = difficulty
 	}
 
-	latestSnapshotBlock := gen.vmContext.CurrentSnapshotBlock()
-	blockPacked.SnapshotHash = latestSnapshotBlock.Hash
-	st := time.Now()
-	blockPacked.Timestamp = &st
-
-	return blockPacked, nil
+	return recvBlock, nil
 }
 
-func (gen *Generator) packBlockWithSendBlock(sendBlock *ledger.AccountBlock, consensusMsg *ConsensusMessage, difficulty *big.Int) (blockPacked *ledger.AccountBlock, err error) {
-	gen.log.Info("PackReceiveBlock", "sendBlock.Hash", sendBlock.Hash, "sendBlock.To", sendBlock.ToAddress)
-
-	blockPacked = &ledger.AccountBlock{BlockType: ledger.BlockTypeReceive}
-
-	gen.getDatasFromSendBlock(blockPacked, sendBlock)
-
-	preBlockReferredSbHeight := uint64(0)
-	preBlock := gen.vmContext.PrevAccountBlock()
-	if preBlock == nil {
-		blockPacked.Height = 1
-		blockPacked.PrevHash = types.ZERO_HASH
-	} else {
-		blockPacked.PrevHash = preBlock.Hash
-		blockPacked.Height = preBlock.Height + 1
-		if sb := gen.vmContext.GetSnapshotBlockByHash(&preBlock.SnapshotHash); sb == nil {
-			return nil, ErrGetVmContextValueFailed
-		} else {
-			preBlockReferredSbHeight = sb.Height
-		}
-	}
-
-	if consensusMsg == nil {
-		st := time.Now()
-		blockPacked.Timestamp = &st
-
-		snapshotBlock := gen.vmContext.CurrentSnapshotBlock()
-		if snapshotBlock == nil {
-			return nil, errors.New("current snapshotblock can't be nil")
-		}
-		if snapshotBlock.Height > preBlockReferredSbHeight && difficulty != nil {
-			// currently, default mode of GenerateWithOnroad is to calc pow
-			//difficulty = pow.defaultDifficulty
-			nonce, err := pow.GetPowNonce(difficulty, types.DataHash(append(blockPacked.AccountAddress.Bytes(), blockPacked.PrevHash.Bytes()...)))
-			if err != nil {
-				return nil, err
-			}
-			blockPacked.Nonce = nonce[:]
-			blockPacked.Difficulty = difficulty
-		}
-		blockPacked.SnapshotHash = snapshotBlock.Hash
-	} else {
-		blockPacked.Timestamp = &consensusMsg.Timestamp
-		blockPacked.SnapshotHash = consensusMsg.SnapshotHash
-	}
-	return blockPacked, nil
-}
-
-// includes fork logic
-func (gen *Generator) getDatasFromSendBlock(blockPacked, sendBlock *ledger.AccountBlock) {
-	blockPacked.AccountAddress = sendBlock.ToAddress
-	blockPacked.FromBlockHash = sendBlock.Hash
-	if fork.IsSmartFork(gen.sbHeight) {
-		blockPacked.Amount = big.NewInt(0)
-		blockPacked.Fee = big.NewInt(0)
-		blockPacked.TokenId = types.ZERO_TOKENID
-		return
-	}
-	if sendBlock.Amount == nil {
-		blockPacked.Amount = big.NewInt(0)
-	} else {
-		blockPacked.Amount = sendBlock.Amount
-	}
-	blockPacked.TokenId = sendBlock.TokenId
-
-	if sendBlock.Fee == nil {
-		blockPacked.Fee = big.NewInt(0)
-	} else {
-		blockPacked.Fee = sendBlock.Fee
-	}
+func (gen *Generator) GetVmDb() vm_db.VmDb {
+	return gen.vmDb
 }

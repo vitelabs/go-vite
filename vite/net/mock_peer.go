@@ -36,6 +36,20 @@ type MockPeer struct {
 	faddr    *net2.TCPAddr
 }
 
+func (mp *MockPeer) Info() PeerInfo {
+	return PeerInfo{
+		ID:      "",
+		Addr:    "",
+		Head:    "",
+		Height:  0,
+		Created: "",
+	}
+}
+
+func (mp *MockPeer) HasBlock(hash types.Hash) bool {
+	return false
+}
+
 func NewMockPeer() *MockPeer {
 	mp := &MockPeer{
 		Handlers: make(map[ViteCmd]Handler),

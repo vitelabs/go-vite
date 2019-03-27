@@ -22,6 +22,7 @@ func (hd *hotData) UpdateLatestSnapshotBlock(latestSbDataId uint64) {
 
 	hd.latestSbDataId = latestSbDataId
 	hd.ds.RefDataId(latestSbDataId)
+
 }
 
 func (hd *hotData) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
@@ -34,6 +35,7 @@ func (hd *hotData) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 
 func (hd *hotData) SetGenesisSnapshotBlock(dataId uint64) {
 	hd.genesisSbDataId = dataId
+	hd.ds.RefDataId(dataId)
 }
 
 func (hd *hotData) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {

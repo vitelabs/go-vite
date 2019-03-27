@@ -5,11 +5,9 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/wallet"
 	"testing"
-	"time"
 )
 
 var twallet = wallet.New(&wallet.Config{
@@ -28,10 +26,7 @@ func generateAddress() types.Address {
 func startManager() (*onroad.Manager, types.Address) {
 	addr := generateAddress()
 
-	c := chain.NewChain(&config.Config{
-		Net:     nil,
-		DataDir: common.GoViteTestDataDir(),
-	})
+	c := chain.NewChain(common.GoViteTestDataDir())
 	c.Init()
 
 	prod := new(testProducer)
@@ -50,7 +45,7 @@ func startManager() (*onroad.Manager, types.Address) {
 	return manager, addr
 }
 
-func TestManager_StartAutoReceiveWorker(t *testing.T) {
+/*func TestManager_StartAutoReceiveWorker(t *testing.T) {
 
 	manager, addr := startManager()
 	fmt.Println("test chain stop1 ")
@@ -78,7 +73,7 @@ func TestManager_StartAutoReceiveWorker(t *testing.T) {
 
 	time.Sleep(3 * time.Minute)
 
-}
+}*/
 
 func TestManager_ContractWorker(t *testing.T) {
 	//addr := generateAddress()

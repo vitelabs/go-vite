@@ -8,8 +8,8 @@ import (
 )
 
 // sb height
-func (c *chain) GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*types.Registration, error) {
-	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressConsensusGroup, nil)
+func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
+	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressConsensusGroup, nil)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
 			snapshotHash))
@@ -26,8 +26,12 @@ func (c *chain) GetRegisterList(snapshotHash *types.Hash, gid *types.Gid) ([]*ty
 	return nil, nil
 }
 
-func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.VoteInfo, error) {
-	ss, err := c.stateDB.NewSnapshotStorageIterator(snapshotHash, &types.AddressConsensusGroup, nil)
+func (c *chain) GetConsensusGroupList(snapshotHash types.Hash, addr types.Address) ([]types.Gid, error) {
+	return nil, nil
+}
+
+func (c *chain) GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
+	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressConsensusGroup, nil)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHash is %s",
 			snapshotHash))
@@ -45,7 +49,7 @@ func (c *chain) GetVoteMap(snapshotHash *types.Hash, gid *types.Gid) ([]*types.V
 	return nil, nil
 }
 
-func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+func (c *chain) GetPledgeAmount(addr types.Address) (*big.Int, error) {
 	snapshotHash := c.GetLatestSnapshotBlock().Hash
 	ss, err := c.stateDB.NewSnapshotStorageIterator(&c.GetLatestSnapshotBlock().Hash, &types.AddressPledge, nil)
 	if err != nil {
@@ -65,7 +69,7 @@ func (c *chain) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
 }
 
 // total
-func (c *chain) GetPledgeQuota(addr *types.Address) (*types.Quota, error) {
+func (c *chain) GetPledgeQuota(addr types.Address) (*types.Quota, error) {
 	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
 	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)
@@ -85,7 +89,7 @@ func (c *chain) GetPledgeQuota(addr *types.Address) (*types.Quota, error) {
 }
 
 // total
-func (c *chain) GetPledgeQuotas(addrList []*types.Address) (map[types.Address]*types.Quota, error) {
+func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
 	snapshotHash := c.GetLatestSnapshotBlock().Hash
 
 	ss, err := c.stateDB.NewSnapshotStorageIterator(&snapshotHash, &types.AddressPledge, nil)
@@ -106,7 +110,7 @@ func (c *chain) GetPledgeQuotas(addrList []*types.Address) (map[types.Address]*t
 	return nil, nil
 }
 
-func (c *chain) GetTokenInfoById(tokenId *types.TokenTypeId) (*types.TokenInfo, error) {
+func (c *chain) GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error) {
 	// do something
 	c.stateDB.GetValue(&types.AddressMintage, tokenId.Bytes())
 	return nil, nil

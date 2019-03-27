@@ -41,17 +41,17 @@ func scItemToBytes(addr *types.Address, hashHeight *HashHeight) []byte {
 func bytesToScItem(buf []byte) (*types.Address, *HashHeight, error) {
 
 	// Address
-	addr, err := types.BytesToAddress(buf[:types.AddressSize+1])
+	addr, err := types.BytesToAddress(buf[:types.AddressSize])
 	if err != nil {
 		return nil, nil, err
 	}
 	// Hash
-	blockHash, err := types.BytesToHash(buf[types.AddressSize+1 : types.AddressSize+types.HashSize+1])
+	blockHash, err := types.BytesToHash(buf[types.AddressSize : types.AddressSize+types.HashSize])
 	if err != nil {
 		return nil, nil, err
 	}
 
-	height := binary.BigEndian.Uint64(buf[types.AddressSize+types.HashSize+1:])
+	height := binary.BigEndian.Uint64(buf[types.AddressSize+types.HashSize:])
 
 	return &addr, &HashHeight{
 		Height: height,
@@ -96,11 +96,11 @@ func (sc SnapshotContent) proto() []byte {
 func (sc SnapshotContent) deProto(pb []byte) error {
 	lenPb := len(pb)
 	if lenPb%ScItemBytesLen != 0 {
-		return errors.New(fmt.Sprintf("The length of pb is %d, %d % %d != 0", lenPb, lenPb, ScItemBytesLen))
+		return errors.New(fmt.Sprintf("The length of pb is %d, %d / %d != 0", lenPb, lenPb, ScItemBytesLen))
 	}
 	currentPointer := 0
 	for currentPointer < lenPb {
-		nextPointer := currentPointer + ScItemBytesLen + 1
+		nextPointer := currentPointer + ScItemBytesLen
 		if addr, hashHeight, err := bytesToScItem(pb[currentPointer:nextPointer]); err != nil {
 			return err
 		} else {
@@ -188,7 +188,11 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	source = append(source, seedBytes...)
 
 	// Seed Hash
-	source = append(source, sb.SeedHash.Bytes()...)
+	if sb.SeedHash != nil {
+		source = append(source, sb.SeedHash.Bytes()...)
+	} else {
+		source = append(source, make([]byte, 32)...)
+	}
 
 	// Snapshot Content
 	scBytesList := sb.SnapshotContent.bytesList()
@@ -294,7 +298,9 @@ func (sb *SnapshotBlock) Deserialize(buf []byte) error {
 		return unmarshalErr
 	}
 
-	sb.deProto(pb)
+	if err := sb.deProto(pb); err != nil {
+		return err
+	}
 
 	return nil
 }
