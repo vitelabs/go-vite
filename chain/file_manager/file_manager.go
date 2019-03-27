@@ -58,12 +58,14 @@ func (fm *fileManager) Read(location *Location) ([]byte, error) {
 }
 
 func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location, parser DataParser) {
-	if endLocation == nil {
-		endLocation = fm.location
+
+	realEndLocation := endLocation
+	if realEndLocation == nil {
+		realEndLocation = fm.location
 	}
 
 	currentLocation := startLocation
-	for currentLocation.FileId <= endLocation.FileId {
+	for currentLocation.FileId <= realEndLocation.FileId {
 		fd, err := fm.fdSet.GetFd(startLocation)
 		if err != nil {
 			parser.WriteError(errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", currentLocation.FileId, err.Error())))
@@ -79,12 +81,31 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 		}
 
 		parser.Write(buf, currentLocation)
-
 	}
 
 }
 
 func (fm *fileManager) DeleteTo(location *Location) error {
+	for i := fm.location.FileId; i > location.FileId; i-- {
+		if err := fm.fdSet.RemoveFile(i); err != nil {
+			return err
+		}
+	}
+
+	// Truncate
+
+	fd, err := fm.fdSet.GetFd(location)
+	if err != nil {
+		return err
+	}
+	defer fm.fdSet.ReleaseFd(fd)
+
+	if err := fd.Truncate(location.Offset); err != nil {
+		return err
+	}
+
+	fm.location = location
+
 	return nil
 }
 func (fm *fileManager) DeleteAndReadTo(toLocation *Location, parser *DataParser) error {
@@ -99,6 +120,24 @@ func (fm *fileManager) Close() error {
 	return nil
 }
 
+func (fm *fileManager) readFile(fd *os.File, location *Location) ([]byte, error) {
+	startOffset := location.Offset
+
+	if location.FileId == fm.location.FileId {
+		// TODO
+		return fm.writeBuffer[startOffset:fm.writeBufferPointer], nil
+	}
+
+	buf := make([]byte, fm.maxFileSize-startOffset)
+
+	readN, rErr := fd.ReadAt(buf, startOffset)
+
+	if rErr != nil && rErr != io.EOF {
+		return nil, rErr
+	}
+
+	return buf[:readN], nil
+}
 func (fm *fileManager) write(buf []byte) (int, error) {
 	bufLen := len(buf)
 	freeSpaceLength := fm.writeBufferSize - fm.writeBufferPointer
@@ -136,23 +175,4 @@ func (fm *fileManager) write(buf []byte) (int, error) {
 	}
 
 	return count, nil
-}
-
-func (fm *fileManager) readFile(fd *os.File, location *Location) ([]byte, error) {
-	startOffset := location.Offset
-
-	if location.FileId == fm.location.FileId {
-		// TODO
-		return fm.writeBuffer[startOffset:fm.writeBufferPointer], nil
-	}
-
-	buf := make([]byte, fm.maxFileSize-startOffset)
-
-	readN, rErr := fd.ReadAt(buf, startOffset)
-
-	if rErr != nil && rErr != io.EOF {
-		return nil, rErr
-	}
-
-	return buf[:readN], nil
 }

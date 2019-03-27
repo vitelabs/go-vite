@@ -208,10 +208,10 @@ func (ab *AccountBlock) VerifySignature() bool {
 	return isVerified
 }
 
-func (ab *AccountBlock) proto() *vitepb.PMAccountBlock {
-	pb := &vitepb.PMAccountBlock{}
+func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
+	pb := &vitepb.AccountBlock{}
 	// 1
-	pb.BlockType = vitepb.PMAccountBlock_BlockType(ab.BlockType)
+	pb.BlockType = vitepb.AccountBlock_BlockType(ab.BlockType)
 	// 2
 	pb.Hash = ab.Hash.Bytes()
 	// 3
@@ -259,16 +259,16 @@ func (ab *AccountBlock) proto() *vitepb.PMAccountBlock {
 	// 16
 	pb.Nonce = ab.Nonce
 	// 17
-	pb.SendBlockList = make([]*vitepb.PMAccountBlock, 0, len(ab.SendBlockList))
+	pb.SendBlockList = make([]*vitepb.AccountBlock, 0, len(ab.SendBlockList))
 	for _, sendBlock := range ab.SendBlockList {
-		pb.SendBlockList = append(pb.SendBlockList, sendBlock.proto())
+		pb.SendBlockList = append(pb.SendBlockList, sendBlock.Proto())
 	}
 	// 18
 	pb.Signature = ab.Signature
 	return pb
 }
 
-func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
+func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 	var err error
 	// 1
 	ab.BlockType = byte(pb.BlockType)
@@ -343,7 +343,7 @@ func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
 	ab.SendBlockList = make([]*AccountBlock, 0, len(pb.SendBlockList))
 	for _, pbSendBlock := range pb.SendBlockList {
 		sendBlock := &AccountBlock{}
-		if err := sendBlock.deProto(pbSendBlock); err != nil {
+		if err := sendBlock.DeProto(pbSendBlock); err != nil {
 			return err
 		}
 		ab.SendBlockList = append(ab.SendBlockList, sendBlock)
@@ -354,15 +354,15 @@ func (ab *AccountBlock) deProto(pb *vitepb.PMAccountBlock) error {
 }
 
 func (ab *AccountBlock) Serialize() ([]byte, error) {
-	return proto.Marshal(ab.proto())
+	return proto.Marshal(ab.Proto())
 }
 
 func (ab *AccountBlock) Deserialize(buf []byte) error {
-	pb := &vitepb.PMAccountBlock{}
+	pb := &vitepb.AccountBlock{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return err
 	}
-	ab.deProto(pb)
+	ab.DeProto(pb)
 	return nil
 }
 

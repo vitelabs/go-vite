@@ -25,6 +25,10 @@ func (fdSet *fdManager) ReleaseFd(fd *os.File) {
 
 }
 
+func (fdSet *fdManager) RemoveFile(fileId uint64) error {
+	return nil
+}
+
 func (fdSet *fdManager) NextFd(location *Location) (*os.File, *Location, error) {
 	nextLocation := NewLocation(location.FileId+1, 0)
 	var fd *os.File

@@ -12,7 +12,7 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is chain compile-time assertion to ensure that this generated file
+// This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
@@ -613,7 +613,7 @@ func init() {
 func init() { proto.RegisterFile("vitepb/message.proto", fileDescriptor_message_ab411b0053a36526) }
 
 var fileDescriptor_message_ab411b0053a36526 = []byte{
-	// 548 bytes of chain gzipped FileDescriptorProto
+	// 548 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x94, 0x4d, 0x6f, 0xd3, 0x4c,
 	0x10, 0xc7, 0xe5, 0xd8, 0x79, 0x9b, 0xa4, 0xcf, 0x53, 0x56, 0x01, 0x59, 0x81, 0x83, 0x65, 0x2e,
 	0x39, 0x40, 0x8a, 0x82, 0xe0, 0x86, 0x50, 0x08, 0x4d, 0x82, 0x54, 0x2a, 0xb4, 0xfe, 0x00, 0x68,
