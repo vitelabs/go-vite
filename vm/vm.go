@@ -342,7 +342,7 @@ func (vm *VM) sendCall(block *vm_context.VmAccountBlock, quotaTotal, quotaAdditi
 
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
+	if p, ok, _, err := GetPrecompiledContract(block.AccountBlock.ToAddress, block.AccountBlock.Data); ok {
 		if err != nil {
 			return nil, err
 		}
