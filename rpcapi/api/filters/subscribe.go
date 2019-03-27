@@ -1,18 +1,21 @@
 package filters
 
 import (
-	"context"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
-	"sync"
-	"time"
 )
 
+type SubscribeApi struct {
+	vite *vite.Vite
+}
+
+func NewSubscribeApi(vite *vite.Vite) *SubscribeApi {
+	s := &SubscribeApi{
+		vite: vite,
+	}
+	return s
+}
+
+/*
 var (
 	deadline = 5 * time.Minute // consider a filter inactive if it has not been polled for within deadline
 )
@@ -372,3 +375,4 @@ func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool
 	}
 	return start, count, false
 }
+*/

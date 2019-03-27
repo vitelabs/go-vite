@@ -1,6 +1,30 @@
 package filters
 
 import (
+	"github.com/vitelabs/go-vite/vite"
+)
+
+var Es *EventSystem
+
+type EventSystem struct {
+	vite *vite.Vite
+}
+
+func NewEventSystem(v *vite.Vite) *EventSystem {
+	es := &EventSystem{
+		vite: v,
+	}
+	return es
+}
+
+func (es *EventSystem) Start() {
+}
+
+func (es *EventSystem) Stop() {
+}
+
+/*
+import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -243,3 +267,4 @@ func (es *EventSystem) subscribe(s *subscription) *RpcSubscription {
 	<-s.installed
 	return &RpcSubscription{ID: s.id, sub: s, es: es}
 }
+*/
