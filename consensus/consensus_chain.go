@@ -209,7 +209,7 @@ func (self *periodLinkedArray) NextHeight(height uint64) uint64 {
 func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) {
 	stime, etime := self.snapshot.index2Time(height)
 	// todo opt
-	endSnapshotBlock, err := self.rw.GetSnapshotBlockBeforeTime(&etime)
+	endSnapshotBlock, err := self.rw.GetSnapshotHeaderBeforeTime(&etime)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 
-	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock) {
+	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock.Hash) {
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 
@@ -225,7 +225,7 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 
-	blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(endSnapshotBlock.Height, &stime, nil)
+	blocks, err := self.rw.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: endSnapshotBlock.Hash, Height: endSnapshotBlock.Height}, &stime, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
 	proof := point.proof
 	if proof != nil {
-		block, _ := self.rw.GetSnapshotBlockByHash(&proof.Hash)
+		block, _ := self.rw.GetSnapshotBlockByHash(proof.Hash)
 		if block == nil {
 			return false
 		} else {
@@ -259,7 +259,7 @@ func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
 		if point.etime == nil {
 			panic("etime is nil")
 		}
-		block, _ := self.rw.GetSnapshotBlockBeforeTime(point.etime)
+		block, _ := self.rw.GetSnapshotHeaderBeforeTime(point.etime)
 		if block != nil && block.Hash == proof2.Hash {
 			return true
 		} else {

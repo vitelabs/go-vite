@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/monitor"
 )
 
 type Detail struct {
@@ -138,41 +137,42 @@ func (self *reader) voteDetail(index uint64,
 }
 
 func (self *reader) actualSnapshotBlockNum(index uint64, register *types.Registration, r stateCh) (uint64, uint64, error) {
-	monitor.LogTime("snapshotdd", "ddd", time.Now())
-	result := uint64(0)
-	memResult := uint64(0)
-	sTime := self.info.GenSTime(index)
-	eTime := self.info.GenSTime(index + 1)
-	first, err := r.GetSnapshotBlockBeforeTime(&eTime)
-	if err != nil {
-		return 0, 0, err
-	}
-	m := make(map[types.Address]bool)
-	addr := register.HisAddrList
-	for _, v := range addr {
-		m[v] = true
-	}
-
-	tmp := first
-	for !tmp.Timestamp.Before(sTime) {
-		result++
-		_, ok := m[tmp.Producer()]
-		if ok {
-			memResult++
-		}
-		if tmp.Height <= types.GenesisHeight {
-			break
-		}
-		tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
-		if err != nil {
-			return 0, 0, nil
-		}
-		if tmp == nil {
-			break
-		}
-
-	}
-	return result, memResult, nil
+	//monitor.LogTime("snapshotdd", "ddd", time.Now())
+	//result := uint64(0)
+	//memResult := uint64(0)
+	//sTime := self.info.GenSTime(index)
+	//eTime := self.info.GenSTime(index + 1)
+	//first, err := r.GetSnapshotBlockBeforeTime(&eTime)
+	//if err != nil {
+	//	return 0, 0, err
+	//}
+	//m := make(map[types.Address]bool)
+	//addr := register.HisAddrList
+	//for _, v := range addr {
+	//	m[v] = true
+	//}
+	//
+	//tmp := first
+	//for !tmp.Timestamp.Before(sTime) {
+	//	result++
+	//	_, ok := m[tmp.Producer()]
+	//	if ok {
+	//		memResult++
+	//	}
+	//	if tmp.Height <= types.GenesisHeight {
+	//		break
+	//	}
+	//	tmp, err = r.GetSnapshotBlockByHeight(tmp.Height - 1)
+	//	if err != nil {
+	//		return 0, 0, nil
+	//	}
+	//	if tmp == nil {
+	//		break
+	//	}
+	//
+	//}
+	//return result, memResult, nil
+	return 0, 0, nil
 }
 
 func ConvertVoteToAddress(votes []*Vote) []types.Address {

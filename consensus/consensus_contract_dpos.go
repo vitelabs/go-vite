@@ -128,10 +128,10 @@ func (self *contractDposCs) VerifyAccountProducer(accountBlock *ledger.AccountBl
 	if err != nil {
 		return false, err
 	}
-	return self.verifyProducer(*accountBlock.Timestamp, accountBlock.Producer(), electionResult), nil
+	return self.verifyProducer(accountBlock.Producer(), electionResult), nil
 }
 
-func (self *contractDposCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
+func (self *contractDposCs) verifyProducer(address types.Address, result *electionResult) bool {
 	if result == nil {
 		return false
 	}
@@ -139,9 +139,6 @@ func (self *contractDposCs) verifyProducer(t time.Time, address types.Address, r
 	for _, plan := range result.Plans {
 		if plan.Member == address {
 			if self.info.CheckLevel == 1 {
-				return true
-			}
-			if plan.STime == t {
 				return true
 			}
 		}
