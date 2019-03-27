@@ -42,9 +42,9 @@ func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount str
 }
 
 type QuotaAndTxNum struct {
-	TotalQuota   string `json:"total"`
-	CurrentQuota string `json:"current"`
-	CurrentTxNum string `json:"txNum"`
+	TotalQuota         string `json:"total"`
+	CurrentQuota       string `json:"current"`
+	CurrentTxNumPerSec string `json:"utps"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
@@ -52,7 +52,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{uint64ToString(q.Total()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas)}, nil
+	return &QuotaAndTxNum{uint64ToString(q.Total()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas / util.QuotaRange)}, nil
 }
 
 type PledgeInfoList struct {
