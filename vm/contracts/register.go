@@ -319,13 +319,42 @@ func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader c
 	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
 	for startIndex < endIndex {
 		detailMap, summary := reader.GetConsensusDetailByDay(startIndex, startIndex+indexInDay)
-		reward.Add(reward, calcRewardByDay(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
+		reward.Add(reward, calcRewardByDaySingle(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
 		startIndex = startIndex + indexInDay
 	}
 	return startTime, endTime, reward, nil
 }
 
-func calcRewardByDay(detailMap map[string]*consensusDetail, summary *consensusDetail, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
+func CalcRewardByDay(db vm_db.VmDb, gid types.Gid, timestamp int64) (m map[string]*big.Int, err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			debug.PrintStack()
+			err = errors.New("calc reward panic")
+		}
+	}()
+	groupInfo, err := abi.GetConsensusGroup(db, gid)
+	if err != nil {
+		return nil, err
+	}
+	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
+	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
+	return calcRewardByDay(reader, timestamp, pledgeParam.PledgeAmount)
+}
+
+func calcRewardByDay(reader consensusReader, timestamp int64, pledgeAmount *big.Int) (m map[string]*big.Int, err error) {
+	startIndex := reader.TimeToRewardStartIndex(timestamp)
+	endIndex := startIndex + reader.GetIndexInDay()
+	detailMap, summary := reader.GetConsensusDetailByDay(startIndex, endIndex)
+	tmp1 := big.NewInt(0)
+	tmp2 := big.NewInt(0)
+	rewardMap := make(map[string]*big.Int, len(detailMap))
+	for name, _ := range detailMap {
+		rewardMap[name] = calcRewardByDaySingle(detailMap, summary, name, pledgeAmount, tmp1, tmp2)
+	}
+	return rewardMap, nil
+}
+
+func calcRewardByDaySingle(detailMap map[string]*consensusDetail, summary *consensusDetail, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
 	reward := big.NewInt(0)
 	selfDetail, ok := detailMap[name]
 	if !ok {

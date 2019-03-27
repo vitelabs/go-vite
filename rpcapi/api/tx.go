@@ -197,9 +197,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 
 	// get current quota
 	sb := t.vite.Chain().GetLatestSnapshotBlock()
-	// TODO tmpchain
-	var tmpchain vm_db.Chain
-	db, err := vm_db.NewVmDb(tmpchain, &param.SelfAddr, &sb.Hash, &param.PrevHash)
+	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &param.PrevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +228,4 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		return nil, err
 	}
 	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
-}
-
-func isPoW(nonce []byte) bool {
-	return len(nonce) > 0
 }

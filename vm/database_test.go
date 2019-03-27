@@ -197,6 +197,9 @@ func (i *testIterator) Next() (ok bool) {
 	}
 	return false
 }
+func (i *testIterator) Prev() bool {
+	return i.index <= 0
+}
 func (i *testIterator) Last() bool {
 	return i.index == len(i.items)-1
 }

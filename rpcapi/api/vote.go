@@ -45,13 +45,11 @@ type VoteInfo struct {
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(v.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(v.chain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +58,7 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 		return nil, err
 	}
 	if voteInfo != nil {
-		balance, err := tmpChain.GetBalance(addr, ledger.ViteTokenId)
+		balance, err := v.chain.GetBalance(addr, ledger.ViteTokenId)
 		if err != nil {
 			return nil, err
 		}

@@ -106,13 +106,11 @@ type CallOffChainMethodParam struct {
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(c.chain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
