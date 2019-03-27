@@ -2,7 +2,6 @@ package pool
 
 import (
 	"testing"
-
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
@@ -11,13 +10,17 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type mockCommonBlock struct {
 	height   uint64
 	hash     types.Hash
 	prevHash types.Hash
+}
+
+func (self *mockCommonBlock) ReferHashes() ([]types.Hash, []types.Hash, *types.Hash) {
+	panic("implement me")
 }
 
 func (self *mockCommonBlock) Source() types.BlockSource {
@@ -98,7 +101,7 @@ func (*mockSnapshotS) getBlock(height uint64) commonBlock {
 	panic("implement me")
 }
 
-func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error {
+func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*vm_db.VmAccountBlock) error {
 	panic("implement me")
 }
 
@@ -214,7 +217,8 @@ func TestNewSnapshotPool(t *testing.T) {
 	v := &ForkVersion{}
 	mock := &mockSnapshotS{}
 	l := log15.New("module", "mock")
-	p := newSnapshotPool("snapshot", v, &snapshotVerifier{v: mock}, &snapshotSyncer{fetcher: mock, log: l}, &snapshotCh{bc: mock, version: v}, l)
+	blacklist, _ := NewBlacklist()
+	p := newSnapshotPool("snapshot", v, &snapshotVerifier{v: mock}, &snapshotSyncer{fetcher: mock, log: l}, &snapshotCh{bc: mock, version: v}, blacklist, l)
 	po := &pool{}
 	p.init(&tools{rw: mock}, po)
 	p.Start()

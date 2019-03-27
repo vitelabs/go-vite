@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type commonSyncer interface {
@@ -24,7 +24,7 @@ func (self *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
 	self.fetcher.BroadcastAccountBlocks(blocks)
 }
 
-func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) {
+func (self *accountSyncer) broadcastReceivedBlocks(received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) {
 	var blocks []*ledger.AccountBlock
 
 	blocks = append(blocks, received.AccountBlock)
