@@ -2,22 +2,26 @@ package verifier
 
 import (
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type VerifyResult int
 
 type verifier struct {
-	Sv *SnapshotVerifier
-	Av *AccountVerifier
+	Sv  *SnapshotVerifier
+	Av  *AccountVerifier
+	log log15.Logger
 }
 
 func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
 	return &verifier{
-		Sv: sv,
-		Av: av,
+		Sv:  sv,
+		Av:  av,
+		log: log15.New("module", "verifier"),
 	}
 }
 
@@ -42,13 +46,23 @@ func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 }
 
 func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
+	eLog := v.log.New("method", "VerifyPoolAccBlock")
+	detail := fmt.Sprintf("(sbHash %v, addr %v,", snapshotHash, block.AccountAddress)
+	if block.IsReceiveBlock() {
+		detail += fmt.Sprintf("fromH %v)", block.FromBlockHash)
+	}
+
 	verifyResult, task, err := v.Av.verifyReferred(block)
+	if err != nil {
+		eLog.Error(err.Error(), "d", detail)
+	}
 	switch verifyResult {
 	case PENDING:
 		return task, nil, nil
 	case SUCCESS:
 		blocks, err := v.Av.vmVerify(block, snapshotHash)
 		if err != nil {
+			eLog.Error(err.Error(), "d", detail)
 			return nil, nil, err
 		}
 		return nil, blocks, nil
@@ -58,13 +72,26 @@ func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *
 }
 
 func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
+	log := v.log.New("method", "VerifyRPCAccBlock")
+	detail := fmt.Sprintf("(sbHash %v, addr %v,", snapshotHash, block.AccountAddress)
+	if block.IsReceiveBlock() {
+		detail += fmt.Sprintf("fromH %v)", block.FromBlockHash)
+	}
+
 	if verifyResult, task, err := v.Av.verifyReferred(block); verifyResult != SUCCESS {
 		if err != nil {
+			log.Error(err.Error(), "d", detail)
 			return nil, err
 		}
 		return nil, errors.New("verify block failed, pending for:" + task.pendingHashListToStr())
 	}
-	return v.Av.vmVerify(block, snapshotHash)
+
+	vmBlock, err := v.Av.vmVerify(block, snapshotHash)
+	if err != nil {
+		log.Error(err.Error(), "d", detail)
+		return nil, err
+	}
+	return vmBlock, nil
 }
 
 func (v *verifier) VerifyAccBlockHash(block *ledger.AccountBlock) error {

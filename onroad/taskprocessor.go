@@ -82,21 +82,13 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		return
 	}
 	plog.Info(fmt.Sprintf("onroad processing: addr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
-	//fixme @shan
-	/*	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
-		plog.Info("checkExistInPool true")
-		// Don't deal with it for the time being
-		tp.worker.addCallerIntoBlackList(task.Addr)
-		return
-	}*/
-
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifierConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
 		plog.Info(fmt.Sprintf("VerifierConfirmedTimes failed, err%v:", err))
 		tp.pendingMap.addCallerIntoRetryList(&sBlock.AccountAddress)
 		return
 	}
-	randomSeedStates, err := tp.worker.manager.Chain().GetContractRandomGlobalStatus(&task.Addr, &sBlock.Hash)
+	randomSeedStates, err := tp.worker.manager.Chain().GetRandomGlobalStatus(&task.Addr, &sBlock.Hash)
 	if err != nil {
 		plog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
 		return
