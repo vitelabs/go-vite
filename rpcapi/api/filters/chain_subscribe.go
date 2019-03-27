@@ -1,5 +1,6 @@
 package filters
 
+/*
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -69,3 +70,4 @@ func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*led
 	c.preDeleteAccountBlocks = nil
 	c.es.acDelCh <- deletedBlocks
 }
+*/
