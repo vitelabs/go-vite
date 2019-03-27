@@ -26,7 +26,7 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*type
 	return nil, nil
 }
 
-func (c *chain) GetConsensusGroupList(snapshotHash types.Hash, addr types.Address) ([]types.Gid, error) {
+func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]types.Gid, error) {
 	return nil, nil
 }
 
