@@ -416,7 +416,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		vm.updateBlock(block, util.ErrDepth, 0)
 		return vm.blockList, NoRetry, util.ErrDepth
 	}
-	if p, ok, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
+	if p, ok, method, _ := GetPrecompiledContract(block.AccountBlock.AccountAddress, sendBlock.Data); ok {
 		// check quota
 		qutoaUsed := p.GetReceiveQuota()
 		if qutoaUsed > 0 {
@@ -435,7 +435,9 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		}
 		vm.blockList = []*vm_context.VmAccountBlock{block}
 		block.VmContext.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+		start := time.Now().UnixNano()
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
+		nodeConfig.log.Info("Vm receiveCall cost", "contract", block.AccountBlock.AccountAddress, "method", method.Name, "ms", (time.Now().UnixNano() - start)/ 1e6)
 		if err == nil {
 			block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
 			vm.updateBlock(block, err, 0)
