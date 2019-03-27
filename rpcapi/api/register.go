@@ -73,13 +73,11 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
 	snapshotBlock := r.chain.GetLatestSnapshotBlock()
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -110,14 +108,25 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	return targetList, nil
 }
 
+func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]string, error) {
+	vmDb := vm_db.NewNoContextVmDb(r.chain)
+	m, err := contracts.CalcRewardByDay(vmDb, gid, timestamp)
+	if err != nil {
+		return nil, err
+	}
+	rewardMap := make(map[string]string, len(m))
+	for name, reward := range m {
+		rewardMap[name] = *bigIntToString(reward)
+	}
+	return rewardMap, nil
+}
+
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +142,11 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if len(paramList) == 0 {
 		return nil, nil
 	}
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

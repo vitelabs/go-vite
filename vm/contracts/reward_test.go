@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	genesisTime           = int64(1)
+	genesisTime           = int64(1546275661)
 	oneDay                = int64(150)
 	limit                 = int64(75)
 	oneDayTime            = time.Unix(genesisTime+oneDay+limit, 0)
@@ -19,10 +19,10 @@ var (
 	twoDayTime            = time.Unix(genesisTime+oneDay*2+limit, 0)
 	firstDayIndex         = "0-2"
 	secondDayIndex        = "2-4"
+	pledgeAmountForTest   = big.NewInt(100)
 )
 
 func TestCalcReward(t *testing.T) {
-	// TODO
 	testCases := []struct {
 		registration       *types.Registration
 		detailMap          map[string]map[string]*consensusDetail
@@ -114,7 +114,7 @@ func TestCalcReward(t *testing.T) {
 		},
 	}
 	InitContractsConfig(true)
-	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, big.NewInt(100), ledger.ViteTokenId, uint64(75*2))
+	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, pledgeAmountForTest, ledger.ViteTokenId, uint64(75*2))
 	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
 	for _, testCase := range testCases {
 		reader := newConsensusReaderTest(genesisTime, groupInfo, testCase.detailMap)
@@ -125,8 +125,78 @@ func TestCalcReward(t *testing.T) {
 		if err == nil && (startTime != testCase.startTime || endTime != testCase.endTime || testCase.reward.Cmp(reward) != 0) {
 			t.Fatalf("%v CalcReward failed, result not match, expected (%v,%v,%v), got (%v,%v,%v)", testCase.name, testCase.startTime, testCase.endTime, testCase.reward, startTime, endTime, reward)
 		}
-
 	}
+}
+
+func TestCalcRewardByDay(t *testing.T) {
+	testCases := []struct {
+		detailMap map[string]map[string]*consensusDetail
+		day       int64
+		rewardMap map[string]*big.Int
+		err       error
+		name      string
+	}{
+		{
+			map[string]map[string]*consensusDetail{
+				firstDayIndex: {
+					"s1": {200, 400, big.NewInt(100)},
+					"s2": {600, 800, big.NewInt(500)},
+				},
+				secondDayIndex: {
+					"s1": {600, 800, big.NewInt(500)},
+					"s2": {200, 400, big.NewInt(100)},
+				},
+			},
+			genesisTime,
+			map[string]*big.Int{
+				"s1": new(big.Int).Mul(rewardPerBlock, big.NewInt(150)),
+				"s2": new(big.Int).Mul(rewardPerBlock, big.NewInt(525)),
+			},
+			nil,
+			"first_day",
+		},
+		{
+			map[string]map[string]*consensusDetail{
+				firstDayIndex: {
+					"s1": {200, 400, big.NewInt(100)},
+					"s2": {600, 800, big.NewInt(500)},
+				},
+				secondDayIndex: {
+					"s1": {600, 800, big.NewInt(500)},
+					"s2": {200, 400, big.NewInt(100)},
+				},
+			},
+			genesisTime + oneDay,
+			map[string]*big.Int{
+				"s1": new(big.Int).Mul(rewardPerBlock, big.NewInt(525)),
+				"s2": new(big.Int).Mul(rewardPerBlock, big.NewInt(150)),
+			},
+			nil,
+			"second_day",
+		},
+	}
+	InitContractsConfig(true)
+	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, pledgeAmountForTest, ledger.ViteTokenId, uint64(75*2))
+	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
+	for _, testCase := range testCases {
+		reader := newConsensusReaderTest(genesisTime, groupInfo, testCase.detailMap)
+		rewardMap, err := calcRewardByDay(reader, testCase.day, pledgeAmountForTest)
+		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
+			t.Fatalf("%v CalcRewardByDay failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+		}
+		if err == nil {
+			if len(rewardMap) != len(testCase.rewardMap) {
+				t.Fatalf("%v CalcRewardByDay failed, rewardMap len not match, expected %v, got %v", testCase.name, len(testCase.rewardMap), len(rewardMap))
+			} else {
+				for k, v := range rewardMap {
+					if expectedV, ok := testCase.rewardMap[k]; !ok || v.Cmp(expectedV) != 0 {
+						t.Fatalf("%v CalcRewardByDay failed, rewardMap not match, expected %v:%v, got %v:%v", testCase.name, k, expectedV, k, v)
+					}
+				}
+			}
+		}
+	}
+
 }
 
 type consensusReaderTest struct {
