@@ -156,6 +156,13 @@ func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) [
 	return key
 }
 
+func CreateBalanceKeyPrefix(address *types.Address) []byte {
+	key := make([]byte, 1+types.AddressSize)
+	key[0] = BalanceKeyPrefix
+	copy(key[1:types.AddressSize+1], address.Bytes())
+
+	return key
+}
 func CreateBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId) []byte {
 	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize)
 	key[0] = BalanceKeyPrefix

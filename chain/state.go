@@ -12,14 +12,20 @@ import (
 func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error) {
 	result, err := c.stateDB.GetBalance(&addr, &tokenId)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, error is %s, addr is %s, tokenId is %s", err, addr, tokenId))
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, addr is %s, tokenId is %s. Error: %s", addr, tokenId, err))
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
 	return result, nil
 }
 func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
-	return nil, nil
+	result, err := c.stateDB.GetBalanceMap(&addr)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalanceMap failed, addr is %s. Error: %s,", addr, err))
+		c.log.Error(cErr.Error(), "method", "GetBalance")
+		return nil, cErr
+	}
+	return result, nil
 }
 
 // get confirmed snapshot balance, if history is too old, failed
@@ -86,10 +92,10 @@ func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interf
 }
 
 func (c *chain) GetValue(address types.Address, key []byte) ([]byte, error) {
-	value, err := c.stateDB.GetValue(&address, key)
+	value, err := c.stateDB.GetStorageValue(&address, key)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetValue failed, address is %s. key is %s", address, key))
-		c.log.Error(cErr.Error(), "method", "GetValue")
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetStorageValue failed, address is %s. key is %s", address, key))
+		c.log.Error(cErr.Error(), "method", "GetStorageValue")
 		return nil, cErr
 	}
 	return value, err

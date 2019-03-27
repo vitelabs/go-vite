@@ -228,6 +228,9 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 		return block, nil
 	}
 
+	if location == nil {
+		return nil, nil
+	}
 	// query block
 	block, err := c.blockDB.GetAccountBlock(location)
 
