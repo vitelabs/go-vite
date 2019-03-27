@@ -84,7 +84,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	if sBlock == nil {
 		return
 	}
-	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
+	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v,remainQuota=%d", sBlock.AccountAddress, sBlock.Height, sBlock.Hash, task.Quota))
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")
@@ -166,7 +166,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 		for _, v := range genResult.BlockGenList {
 			if v != nil && v.AccountBlock != nil {
-				if task.Quota < v.AccountBlock.Quota {
+				if task.Quota <= v.AccountBlock.Quota {
 					plog.Error(fmt.Sprintf("addr %v out of quota expected during snapshotTime %v.", task.Addr, tp.worker.currentSnapshotHash))
 					tp.worker.addIntoBlackList(task.Addr)
 					return
