@@ -93,9 +93,9 @@ func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, produce
 func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v) ", block.AccountAddress, block.PrevHash)
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v)", block.AccountAddress, block.PrevHash)
 			if fromBlock != nil {
-				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
 			}
 
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
