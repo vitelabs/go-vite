@@ -118,7 +118,7 @@ func (fm *fileManager) Read(location *Location) ([]byte, error) {
 	}
 	defer fd.Close()
 
-	if _, err := fd.Seek(int64(location.Offset()), 0); err != nil {
+	if _, err := fd.Seek(location.Offset, 0); err != nil {
 		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
 	}
 
@@ -156,14 +156,14 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location, bfp *blockFileParser) {
 	defer bfp.Close()
 
-	startFileId := startLocation.FileId()
+	startFileId := startLocation.FileId
 
 	var endFileId uint64
 	var endLocationOffset int64
 
 	if endLocation != nil {
-		endFileId = endLocation.FileId()
-		endLocationOffset = endLocation.Offset()
+		endFileId = endLocation.FileId
+		endLocationOffset = endLocation.Offset
 	} else {
 		endFileId = fm.latestFileId
 		endLocationOffset = fm.latestFileSize
@@ -186,7 +186,7 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 		startOffset := int64(0)
 		endOffset := int64(0)
 		if i == startFileId {
-			startOffset = int64(startLocation.Offset())
+			startOffset = startLocation.Offset
 		}
 		if i == endFileId {
 			endOffset = endLocationOffset
@@ -215,24 +215,24 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 func (fm *fileManager) DeleteTo(location *Location) error {
 	// remove
-	for i := fm.latestFileId; i > location.FileId()+1; i-- {
+	for i := fm.latestFileId; i > location.FileId+1; i-- {
 		if err := os.Remove(fm.fileIdToAbsoluteFilename(i)); err != nil {
 			return err
 		}
 
 	}
 	// Truncate
-	if fm.latestFileId > location.FileId() {
+	if fm.latestFileId > location.FileId {
 		fm.latestFileFd.Close()
 
-		fm.latestFileId = location.FileId()
+		fm.latestFileId = location.FileId
 		var err error
 		fm.latestFileFd, err = fm.getFileFd(fm.latestFileId)
 		if err != nil {
 			return err
 		}
 	}
-	fm.latestFileSize = location.Offset()
+	fm.latestFileSize = location.Offset
 
 	if err := fm.latestFileFd.Truncate(fm.latestFileSize); err != nil {
 		return err
@@ -244,11 +244,11 @@ func (fm *fileManager) DeleteTo(location *Location) error {
 func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser) {
 	defer bfp.Close()
 
-	fdList := make([]*os.File, 0, fm.latestFileId-location.FileId()+1)
+	fdList := make([]*os.File, 0, fm.latestFileId-location.FileId+1)
 
-	startOffset := int64(location.Offset())
+	startOffset := int64(location.Offset)
 
-	for i := location.FileId(); i <= fm.latestFileId; i++ {
+	for i := location.FileId; i <= fm.latestFileId; i++ {
 		var fd *os.File
 		if i == fm.latestFileId {
 
@@ -263,7 +263,7 @@ func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser)
 			}
 		}
 
-		if i == location.FileId() {
+		if i == location.FileId {
 			size, err := fm.readDataSize(fd, startOffset)
 			if err != nil {
 				bfp.WriteErr(err)
@@ -297,9 +297,9 @@ func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser)
 	}
 
 	// truncate
-	fm.latestFileId = location.FileId()
+	fm.latestFileId = location.FileId
 	fm.latestFileFd = fdList[0]
-	fm.latestFileSize = location.Offset()
+	fm.latestFileSize = location.Offset
 
 	if err := fm.latestFileFd.Truncate(fm.latestFileSize); err != nil {
 		bfp.WriteErr(err)
@@ -310,7 +310,7 @@ func (fm *fileManager) DeleteAndReadTo(location *Location, bfp *blockFileParser)
 }
 
 func (fm *fileManager) GetFd(location *Location) (*os.File, error) {
-	return fm.getFileFd(location.FileId())
+	return fm.getFileFd(location.FileId)
 }
 
 func (fm *fileManager) readDataSize(fd *os.File, offset int64) (int64, error) {

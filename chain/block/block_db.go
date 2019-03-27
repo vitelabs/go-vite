@@ -123,8 +123,8 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 
 		if buf.FileId != currentFileId {
 			currentFileId = buf.FileId
-			if buf.FileId == startLocation.FileId() {
-				currentOffset = startLocation.Offset()
+			if buf.FileId == startLocation.FileId {
+				currentOffset = startLocation.Offset
 			} else {
 				currentOffset = 0
 			}
