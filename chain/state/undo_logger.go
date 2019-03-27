@@ -188,24 +188,24 @@ func (logger *undoLogger) CompareLocation(location *chain_block.Location) int {
 
 func (logger *undoLogger) DeleteTo(location *chain_block.Location) error {
 	// remove
-	for i := logger.fileId; i > location.FileId()+1; i-- {
+	for i := logger.fileId; i > location.FileId+1; i-- {
 		if err := os.Remove(logger.fileIdToAbsoluteFilename(i)); err != nil {
 			return err
 		}
 
 	}
 	// Truncate
-	if logger.fileId > location.FileId() {
+	if logger.fileId > location.FileId {
 		logger.fd.Close()
 
-		logger.fileId = location.FileId()
+		logger.fileId = location.FileId
 		var err error
 		logger.fd, err = logger.getFileFd(logger.fileId)
 		if err != nil {
 			return err
 		}
 	}
-	logger.fileSize = location.Offset()
+	logger.fileSize = location.Offset
 
 	if err := logger.fd.Truncate(logger.fileSize); err != nil {
 		return err
