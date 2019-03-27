@@ -7,7 +7,7 @@ import (
 
 func (bDB *BlockDB) CheckAndRepair() error {
 	latestLocation := bDB.fm.LatestLocation()
-	startLocation := NewLocation(latestLocation.FileId(), 0)
+	startLocation := NewLocation(latestLocation.FileId, 0)
 	bfp := newBlockFileParser()
 
 	bDB.wg.Add(1)
@@ -46,8 +46,8 @@ func (bDB *BlockDB) CheckAndRepair() error {
 		currentOffset += buf.Size
 	}
 
-	if currentOffset < latestLocation.Offset() {
-		if err := bDB.fm.DeleteTo(NewLocation(startLocation.FileId(), currentOffset)); err != nil {
+	if currentOffset < latestLocation.Offset {
+		if err := bDB.fm.DeleteTo(NewLocation(startLocation.FileId, currentOffset)); err != nil {
 			return err
 		}
 	}

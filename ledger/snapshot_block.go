@@ -227,7 +227,7 @@ func (sb *SnapshotBlock) VerifySignature() bool {
 	return isVerified
 }
 
-func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
+func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
 	pb := &vitepb.SnapshotBlock{}
 	// 1
 	pb.Hash = sb.Hash.Bytes()
@@ -248,7 +248,7 @@ func (sb *SnapshotBlock) proto() *vitepb.SnapshotBlock {
 	return pb
 }
 
-func (sb *SnapshotBlock) deProto(pb *vitepb.SnapshotBlock) error {
+func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) error {
 	// 1
 	var err error
 	if sb.Hash, err = types.BytesToHash(pb.Hash); err != nil {
@@ -283,7 +283,7 @@ func (sb *SnapshotBlock) deProto(pb *vitepb.SnapshotBlock) error {
 }
 
 func (sb *SnapshotBlock) Serialize() ([]byte, error) {
-	pb := sb.proto()
+	pb := sb.Proto()
 	buf, err := proto.Marshal(pb)
 	if err != nil {
 		return nil, err
@@ -298,7 +298,7 @@ func (sb *SnapshotBlock) Deserialize(buf []byte) error {
 		return unmarshalErr
 	}
 
-	if err := sb.deProto(pb); err != nil {
+	if err := sb.DeProto(pb); err != nil {
 		return err
 	}
 

@@ -48,6 +48,11 @@ type BCPool struct {
 	version *ForkVersion
 	rMu     sync.Mutex // direct add and loop insert
 
+	// 1. protecting the tail(hash && height) of current chain.
+	// 2. protecting the modification for the current chain (which is the current chain?).
+	chainTailMu sync.Mutex
+	chainHeadMu sync.Mutex
+
 	compactLock       *common.NonBlockLock // snippet,chain
 	LIMIT_HEIGHT      uint64
 	LIMIT_LONGEST_NUM uint64
@@ -439,7 +444,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return nil
 	}
 	cur := self.chainpool.current
-	self.log.Debug("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
+	self.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
 		"currentId", cur.id())
 
 	// from small to big
@@ -484,14 +489,21 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	return nil
 }
 
-// check blocks is chain chain
+// check blocks is a chain
 func (self *BCPool) checkChain(blocks []commonBlock) error {
-	smalletHeight := blocks[0].Height()
-
-	for i, b := range blocks {
-		if b.Height() != smalletHeight+uint64(i) {
-			return errors.New("not chain chain")
+	var prev commonBlock
+	for _, b := range blocks {
+		if prev == nil {
+			prev = b
+			continue
 		}
+		if b.PrevHash() != prev.Hash() {
+			return errors.New("not a chain")
+		}
+		if b.Height()-1 != prev.Height() {
+			return errors.New("not a chain")
+		}
+		prev = b
 	}
 	return nil
 }
@@ -832,7 +844,11 @@ func (self *BCPool) CurrentModifyToChain(target *forkedChain, hashH *ledger.Hash
 	self.log.Debug("CurrentModifyToChain", "id", target.id(), "TailHeight", target.tailHeight, "HeadHeight", target.headHeight)
 	return self.chainpool.currentModifyToChain(target)
 }
-func clearChainBase(target *forkedChain) []commonBlock {
+
+/**
+If a block exists in chain and refer's chain at the same time, reduce the chain.
+*/
+func reduceChainByRefer(target *forkedChain) []commonBlock {
 	var r []commonBlock
 	tailH := target.tailHeight
 	base := target.referChain
@@ -852,6 +868,10 @@ func (self *BCPool) CurrentModifyToEmpty() error {
 		return nil
 	}
 	head := self.chainpool.diskChain.Head()
+	emptyChain := self.chainpool.findEmptyForHead(head)
+	if emptyChain != nil {
+		self.chainpool.currentModifyToChain(emptyChain)
+	}
 	self.chainpool.currentModify(head)
 	return nil
 }

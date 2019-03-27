@@ -16,6 +16,7 @@ const (
 	txDataNonZeroGas      uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
+	QuotaRange            uint64 = 75
 )
 
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {

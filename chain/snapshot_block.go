@@ -114,6 +114,9 @@ func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
 		return nil, cErr
 	}
+	if location == nil {
+		return nil, nil
+	}
 
 	// query block
 	snapshotBlock, err := c.blockDB.GetSnapshotBlock(location)
@@ -139,6 +142,10 @@ func (c *chain) GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock,
 		c.log.Error(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocationByHash failed, error is %s, hash is %s",
 			err.Error(), hash), "method", "GetSnapshotHeaderByHash")
 		return nil, err
+	}
+
+	if location == nil {
+		return nil, nil
 	}
 
 	// query block
@@ -167,6 +174,9 @@ func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, 
 			err.Error(), hash))
 		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHash")
 		return nil, cErr
+	}
+	if location == nil {
+		return nil, nil
 	}
 
 	// query block

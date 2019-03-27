@@ -6,10 +6,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
+	css "github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
@@ -17,10 +19,10 @@ import (
 
 type SnapshotVerifier struct {
 	reader chain.Chain
-	cs     consensus.Verifier
+	cs     css.Verifier
 }
 
-func NewSnapshotVerifier(ch chain.Chain, cs consensus.Verifier) *SnapshotVerifier {
+func NewSnapshotVerifier(ch chain.Chain, cs css.Verifier) *SnapshotVerifier {
 	verifier := &SnapshotVerifier{reader: ch, cs: cs}
 	return verifier
 }
@@ -52,7 +54,7 @@ func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) er
 		return ErrVerifyHashFailed
 	}
 
-	if self.reader.IsGenesisSnapshotBlock(block) {
+	if self.reader.IsGenesisSnapshotBlock(&block.Hash) {
 		return nil
 	}
 
@@ -76,6 +78,17 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 			return errors.New("genesis block error.")
 		}
 	}
+	if fork.IsMintFork(block.Height) {
+		if block.Seed != 0 {
+			seedBlock := self.getLastSeedBlock(block)
+			if seedBlock != nil {
+				hash := ledger.ComputeSeedHash(block.Seed, seedBlock.PrevHash, seedBlock.Timestamp)
+				if hash != *seedBlock.SeedHash {
+					return errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -83,13 +96,14 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 	defer monitor.LogTime("verify", "snapshotAccounts", time.Now())
 
 	for addr, b := range block.SnapshotContent {
-		hash, e := self.reader.GetAccountBlockHashByHeight(&addr, b.Height)
+		ab, e := self.reader.GetAccountBlockByHeight(&addr, b.Height)
 		if e != nil {
 			return e
 		}
-		if hash == nil {
+		if ab == nil {
+			fmt.Printf("snapshot:[%s], account[%s] hash:[%d]-[%s] not exist.\n", block.Hash, addr, b.Height, b.Hash)
 			stat.results[addr] = PENDING
-		} else if *hash == b.Hash {
+		} else if ab.Hash == b.Hash {
 			stat.results[addr] = SUCCESS
 		} else {
 			stat.results[addr] = FAIL
@@ -103,15 +117,6 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 			return nil
 		}
 	}
-
-	trie, err := self.reader.GenStateTrie(prev.StateHash, block.SnapshotContent)
-	if err != nil {
-		return err
-	}
-	if *trie.Hash() != block.StateHash {
-		return errors.New("state_bak hash is not equals.")
-	}
-	block.StateTrie = trie
 	return nil
 }
 
@@ -125,46 +130,46 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 		return errors.New(fmt.Sprintf("block is not next. prevHash:%s, headHash:%s", block.PrevHash, head.Hash))
 	}
 
-	for addr, hashH := range block.SnapshotContent {
-		_, err := self.VerifyAccountTimeout(addr, hashH, block.Height)
-		if err != nil {
-			stat.result = FAIL
-			return err
-		}
-	}
+	//for addr, hashH := range block.SnapshotContent {
+	//	_, err := self.VerifyAccountTimeout(addr, hashH, block.Height)
+	//	if err != nil {
+	//		stat.result = FAIL
+	//		return err
+	//	}
+	//}
 	return nil
 }
 
-func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, hashH *ledger.HashHeight, snapshotHeight uint64) (*ledger.HashHeight, error) {
-
-	defer monitor.LogTime("verify", "accountTimeout", time.Now())
-
-	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
-	if e != nil {
-		return nil, e
-	}
-
-	if first == nil {
-		if hashH != nil {
-			return nil, errors.Errorf("account block[%s:%d:%s] is nil.", addr, hashH.Height, hashH.Hash)
-		}
-		return nil, errors.New("account block is nil.")
-	}
-	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
-
-	if e != nil {
-		return nil, e
-	}
-	if refer == nil {
-		return nil, errors.New("snapshot block is nil.")
-	}
-
-	ok := self.VerifyTimeout(snapshotHeight, refer.Height)
-	if !ok {
-		return &ledger.HashHeight{Height: first.Height, Hash: first.Hash}, errors.New("snapshot account block timeout.")
-	}
-	return nil, nil
-}
+//func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, hashH *ledger.HashHeight, snapshotHeight uint64) (*ledger.HashHeight, error) {
+//
+//	defer monitor.LogTime("verify", "accountTimeout", time.Now())
+//
+//	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
+//	if e != nil {
+//		return nil, e
+//	}
+//
+//	if first == nil {
+//		if hashH != nil {
+//			return nil, errors.Errorf("account block[%s:%d:%s] is nil.", addr, hashH.Height, hashH.Hash)
+//		}
+//		return nil, errors.New("account block is nil.")
+//	}
+//	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
+//
+//	if e != nil {
+//		return nil, e
+//	}
+//	if refer == nil {
+//		return nil, errors.New("snapshot block is nil.")
+//	}
+//
+//	ok := self.VerifyTimeout(snapshotHeight, refer.Height)
+//	if !ok {
+//		return &ledger.HashHeight{Height: first.Height, Hash: first.Hash}, errors.New("snapshot account block timeout.")
+//	}
+//	return nil, nil
+//}
 
 func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64) bool {
 	if nowHeight-referHeight > types.AccountLimitSnapshotHeight {
@@ -225,6 +230,26 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 	}
 	stat.result = SUCCESS
 	return stat
+}
+
+const seedDuration = time.Minute * 10
+
+func (self *SnapshotVerifier) getLastSeedBlock(head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
+	// todo
+	//t := head.Timestamp.Add(-seedDuration)
+	//addr := head.Producer()
+	//blocks, err := self.reader.GetSnapshotBlocksAfterAndEqualTime(head.Height, &t, &addr)
+	//if err != nil {
+	//	return nil
+	//}
+	//for _, v := range blocks {
+	//	var seedHash = v.SeedHash
+	//	if seedHash != nil {
+	//		return v
+	//	}
+	//}
+
+	return nil
 }
 
 //func (self *SnapshotVerifier) VerifyProducer(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {

@@ -9,7 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -49,13 +51,46 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	}, nil
 }
 
-func (sDB *StateDB) QueryLatestLocation() (*chain_block.Location, error) {
-	value, err := sDB.db.Get(chain_utils.CreateStateDbLocationKey(), nil)
+func (sDB *StateDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
+	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
+		sDB.pending.NewIterator(slice),
+		sDB.db.NewIterator(slice, nil),
+	}, sDB.pending.IsDelete)
+}
+
+func (sDB *StateDB) GetValue(key []byte) ([]byte, error) {
+	if value, ok := sDB.pending.Get(key); ok {
+		return value, nil
+	}
+
+	value, err := sDB.db.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
+	}
+	return value, nil
+}
+
+func (sDB *StateDB) hasValue(key []byte) (bool, error) {
+	if ok, deleted := sDB.pending.Has(key); ok {
+		return ok, nil
+	} else if deleted {
+		return false, nil
+
+	}
+
+	return sDB.db.Has(key, nil)
+}
+
+func (sDB *StateDB) QueryLatestLocation() (*chain_block.Location, error) {
+	value, err := sDB.GetValue(chain_utils.CreateStateDbLocationKey())
+	if err != nil {
+		return nil, err
+	}
+	if len(value) <= 0 {
+		return nil, nil
 	}
 
 	return chain_utils.DeserializeLocation(value), nil
@@ -70,35 +105,46 @@ func (sDB *StateDB) Destroy() error {
 	return nil
 }
 
-func (sDB *StateDB) GetValue(addr *types.Address, key []byte) ([]byte, error) {
-	value, err := sDB.db.Get(chain_utils.CreateStorageValueKey(addr, key), nil)
+func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, error) {
+	value, err := sDB.GetValue(chain_utils.CreateStorageValueKey(addr, key))
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return value, nil
 }
 
 func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	value, err := sDB.db.Get(chain_utils.CreateBalanceKey(addr, tokenTypeId), nil)
+	value, err := sDB.GetValue(chain_utils.CreateBalanceKey(addr, tokenTypeId))
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	balance := big.NewInt(0).SetBytes(value)
 	return balance, nil
 }
 
-func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
-	code, err := sDB.db.Get(chain_utils.CreateCodeKey(addr), nil)
-	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
+func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
+	balanceMap := make(map[types.TokenTypeId]*big.Int)
+	iter := sDB.NewIterator(util.BytesPrefix(chain_utils.CreateBalanceKeyPrefix(addr)))
+	defer iter.Release()
+	for iter.Next() {
+		key := iter.Key()
+		tokenTypeIdBytes := key[1+types.AddressSize : 1+types.AddressSize+types.TokenTypeIdSize]
+		tokenTypeId, err := types.BytesToTokenTypeId(tokenTypeIdBytes)
+		if err != nil {
+			return nil, err
 		}
+		balanceMap[tokenTypeId] = big.NewInt(0).SetBytes(iter.Value())
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return balanceMap, nil
+}
+
+func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
+	code, err := sDB.GetValue(chain_utils.CreateCodeKey(addr))
+	if err != nil {
 		return nil, err
 	}
 
@@ -107,11 +153,8 @@ func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
 
 //
 func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
-	value, err := sDB.db.Get(chain_utils.CreateContractMetaKey(addr), nil)
+	value, err := sDB.GetValue(chain_utils.CreateContractMetaKey(addr))
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -127,11 +170,11 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 }
 
 func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
-	return sDB.db.Has(chain_utils.CreateContractMetaKey(addr), nil)
+	return sDB.hasValue(chain_utils.CreateContractMetaKey(addr))
 }
 
 func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
-	iter := sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)), nil)
+	iter := sDB.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)))
 	defer iter.Release()
 
 	var contractList []types.Address
@@ -151,11 +194,8 @@ func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
 }
 
 func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
-	value, err := sDB.db.Get(chain_utils.CreateVmLogListKey(logHash), nil)
+	value, err := sDB.GetValue(chain_utils.CreateVmLogListKey(logHash))
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -166,11 +206,8 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	value, err := sDB.db.Get(chain_utils.CreateCallDepthKey(sendBlockHash), nil)
+	value, err := sDB.GetValue(chain_utils.CreateCallDepthKey(sendBlockHash))
 	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return 0, nil
-		}
 		return 0, err
 	}
 
@@ -182,7 +219,6 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 }
 
 // TODO
-
 func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
 	var iter iterator.Iterator
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))

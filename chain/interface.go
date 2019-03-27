@@ -200,7 +200,7 @@ type Chain interface {
 
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
 
-	GetConsensusGroupList(snapshotHash types.Hash, addr types.Address) ([]types.Gid, error)
+	GetConsensusGroupList(snapshotHash types.Hash) ([]types.ConsensusGroupInfo, error)
 
 	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 

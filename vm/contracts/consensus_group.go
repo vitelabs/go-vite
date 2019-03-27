@@ -86,7 +86,7 @@ func (p *MethodCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	param := new(types.ConsensusGroupInfo)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCreateConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(param.Gid)
-	if len(db.GetValue(key)) > 0 {
+	if len(db.GetStorageValue(key)) > 0 {
 		return nil, util.ErrIdCollision
 	}
 	groupInfo, _ := abi.ABIConsensusGroup.PackVariable(

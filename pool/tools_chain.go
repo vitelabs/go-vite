@@ -1,20 +1,21 @@
 package pool
 
 import (
+	"fmt"
 	"strconv"
-
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type chainDb interface {
-	InsertAccountBlocks(vmAccountBlocks []*vm_context.VmAccountBlock) error
+	InsertAccountBlocks(vmAccountBlocks []*vm_db.VmAccountBlock) error
 	GetLatestAccountBlock(addr *types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
 	DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
@@ -29,6 +30,9 @@ type chainDb interface {
 	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
 	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
 	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
+}
+type preMainNetChain interface {
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error)
 }
 
 type chainRw interface {
@@ -49,10 +53,11 @@ func (self *accountCh) insertBlock(b commonBlock) error {
 	if !b.checkForkVersion() {
 		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(b.forkVersion()), 10))
 	}
+
 	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	block := b.(*accountPoolBlock)
-	accountBlock := &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock}
-	return self.rw.InsertAccountBlocks([]*vm_context.VmAccountBlock{accountBlock})
+	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
+	return self.rw.InsertAccountBlocks([]*vm_db.VmAccountBlock{accountBlock})
 }
 
 func (self *accountCh) head() commonBlock {
@@ -86,10 +91,11 @@ func (self *accountCh) getBlock(height uint64) commonBlock {
 }
 
 func (self *accountCh) insertBlocks(bs []commonBlock) error {
-	var blocks []*vm_context.VmAccountBlock
+	var blocks []*vm_db.VmAccountBlock
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
-		blocks = append(blocks, &vm_context.VmAccountBlock{AccountBlock: block.block, VmContext: block.vmBlock})
+		fmt.Printf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash())
+		blocks = append(blocks, &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock})
 		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}
 
@@ -117,6 +123,11 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
 	return self.rw.GetUnConfirmAccountBlocks(&self.address)
 }
+
+func (self *accountCh) getLatestSnapshotBlock() *ledger.SnapshotBlock {
+	return self.rw.GetLatestSnapshotBlock()
+}
+
 func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *ledger.AccountBlock {
 	block, e := self.rw.GetFirstConfirmedAccountBlockBySbHeight(head.Height+1, &self.address)
 	if e != nil {
@@ -127,9 +138,23 @@ func (self *accountCh) getFirstUnconfirmedBlock(head *ledger.SnapshotBlock) *led
 	}
 	return block
 }
+func (self *accountCh) getQuotaUnused() uint64 {
+	// todo
+	return uint64(helper.MaxUint64)
+}
+func (self *accountCh) getConfirmedTimes(abHash *types.Hash) (uint64, error) {
+	// todo
+	return 0, nil
+}
+func (self *accountCh) needSnapshot(addr *types.Address) uint8 {
+	// todo
+	// 	GetContractMeta(contractAddress *types.Address) (meta *ledger.ContractMeta, err error)
+	return uint8(0)
+}
 
 type snapshotCh struct {
 	bc      chainDb
+	newBc   preMainNetChain
 	version *ForkVersion
 	log     log15.Logger
 }
@@ -203,6 +228,24 @@ func (self *snapshotCh) insertBlock(block commonBlock) error {
 	return self.bc.InsertSnapshotBlock(b.block)
 }
 
+func (self *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+	if b.Source() == types.QueryChain {
+		self.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
+	}
+	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
+	bm, err := self.newBc.InsertSnapshotBlock(b.block)
+
+	results := make(map[types.Address][]commonBlock)
+	for addr, bs := range bm {
+		var r []commonBlock
+		for _, b := range bs {
+			r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
+		}
+		results[addr] = r
+	}
+	return results, err
+}
+
 func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
 	monitor.LogEvent("pool", "NonSnapshot")
 	for _, b := range bs {
@@ -213,4 +256,12 @@ func (self *snapshotCh) insertBlocks(bs []commonBlock) error {
 		}
 	}
 	return nil
+}
+
+type preMainNetChainImpl struct {
+	bc chainDb
+}
+
+func (self *preMainNetChainImpl) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error) {
+	return nil, self.bc.InsertSnapshotBlock(snapshotBlock)
 }
