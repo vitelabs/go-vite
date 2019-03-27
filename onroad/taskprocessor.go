@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -41,7 +42,7 @@ func (tp *ContractTaskProcessor) work() {
 
 	for {
 		//tp.isSleeping = false
-		if tp.worker.isCancel.Load() {
+		if atomic.LoadUint32(&tp.worker.isCancel) == 1 {
 			tp.log.Info("found cancel true")
 			break
 		}
@@ -62,7 +63,7 @@ func (tp *ContractTaskProcessor) work() {
 			continue
 		}
 		//tp.isSleeping = false
-		if tp.worker.isCancel.Load() {
+		if atomic.LoadUint32(&tp.worker.isCancel) == 1 {
 			tp.log.Info("found cancel true")
 			break
 		}
