@@ -1,7 +1,7 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -48,10 +48,10 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	confirmedBlocks []*ledger.AccountBlock,
-	snapshotBlockLocation *chain_block.Location,
-	abLocationsList []*chain_block.Location,
+	snapshotBlockLocation *chain_file_manager.Location,
+	abLocationsList []*chain_file_manager.Location,
 	invalidBlocks []*ledger.AccountBlock,
-	latestLocation *chain_block.Location) error {
+	latestLocation *chain_file_manager.Location) error {
 
 	batch := iDB.store.NewBatch()
 

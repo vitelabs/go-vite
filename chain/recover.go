@@ -3,7 +3,7 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 )
 
 func (c *chain) checkAndRepair() error {
@@ -47,7 +47,7 @@ func (c *chain) checkAndRepair() error {
 	return nil
 }
 
-func (c *chain) checkAndRepairIndexDb(latestLocation *chain_block.Location) error {
+func (c *chain) checkAndRepairIndexDb(latestLocation *chain_file_manager.Location) error {
 	indexDbLatestLocation, err := c.indexDB.QueryLatestLocation()
 	if err != nil {
 		return errors.New(fmt.Sprintf("c.indexDB.QueryLatestLocation failed. Error: %s", err))

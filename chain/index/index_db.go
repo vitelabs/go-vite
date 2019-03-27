@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/dbutils"
@@ -70,7 +70,7 @@ func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	}, iDB.memDb.IsDelete)
 }
 
-func (iDB *IndexDB) QueryLatestLocation() (*chain_block.Location, error) {
+func (iDB *IndexDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
 	value, err := iDB.store.Get(chain_utils.CreateIndexDbLatestLocationKey())
 	if err != nil {
 		if err == leveldb.ErrNotFound {

@@ -1,27 +1,40 @@
-package chain_block
+package chain_file_manager
 
 import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
-	"os"
 )
 
-type fileManager struct {
+type FileManager struct {
 	maxFileSize int64
 
 	fdSet    *fdManager
 	location *Location
-
-	writeBuffer        []byte
-	writeBufferPointer int
-	writeBufferSize    int
 }
 
-func (fm *fileManager) Write(buf []byte) (*Location, error) {
+func NewFileManager(dirName string, maxFileSize int64) (*FileManager, error) {
+	fm := &FileManager{
+		maxFileSize: maxFileSize,
+	}
+
+	fdSet, err := newFdManager(dirName, int(maxFileSize), 10)
+	if err != nil {
+		return nil, err
+	}
+	fm.fdSet = fdSet
+
+	return fm, nil
+}
+func (fm *FileManager) LatestLocation() *Location {
+	return fm.fdSet.LatestLocation()
+}
+
+func (fm *FileManager) Write(buf []byte) (*Location, error) {
 	bufSize := len(buf)
 
+	location := fm.fdSet.LatestLocation()
 	n := 0
 	for n < bufSize {
 		count, err := fm.write(buf[n:])
@@ -30,17 +43,19 @@ func (fm *fileManager) Write(buf []byte) (*Location, error) {
 		}
 		n += count
 	}
-	return fm.location, nil
+	return location, nil
 }
 
-func (fm *fileManager) Read(location *Location) ([]byte, error) {
+func (fm *FileManager) Read(location *Location) ([]byte, error) {
 	fd, err := fm.fdSet.GetFd(location)
 	if err != nil {
 		return nil, err
 	}
-	defer fm.fdSet.ReleaseFd(fd)
+	if fd == nil {
+		return nil, errors.New(fmt.Sprintf("fd is nil, location is %+v\n", location))
+	}
 
-	if _, err := fd.Seek(location.Offset, 0); err != nil {
+	if _, err := fd.Seek(location.Offset); err != nil {
 		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
 	}
 
@@ -57,11 +72,10 @@ func (fm *fileManager) Read(location *Location) ([]byte, error) {
 	return buf, nil
 }
 
-func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location, parser DataParser) {
-
+func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location, parser DataParser) {
 	realEndLocation := endLocation
 	if realEndLocation == nil {
-		realEndLocation = fm.location
+		realEndLocation = fm.LatestLocation()
 	}
 
 	currentLocation := startLocation
@@ -69,109 +83,85 @@ func (fm *fileManager) ReadRange(startLocation *Location, endLocation *Location,
 		fd, err := fm.fdSet.GetFd(startLocation)
 		if err != nil {
 			parser.WriteError(errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", currentLocation.FileId, err.Error())))
-			fm.fdSet.ReleaseFd(fd)
+			return
+		}
+		if fd == nil {
+			parser.WriteError(errors.New(fmt.Sprintf("fd is nil, location is %+v\n", currentLocation)))
 			return
 		}
 
-		buf, err := fm.readFile(fd, currentLocation)
+		var toLocation *Location
+		if currentLocation.FileId == realEndLocation.FileId {
+			toLocation = realEndLocation
+		}
+
+		buf, err := fm.readFile(fd, currentLocation, toLocation)
 		if err != nil {
 			parser.WriteError(err)
-			fm.fdSet.ReleaseFd(fd)
 			return
 		}
 
-		parser.Write(buf, currentLocation)
-	}
-
-}
-
-func (fm *fileManager) DeleteTo(location *Location) error {
-	for i := fm.location.FileId; i > location.FileId; i-- {
-		if err := fm.fdSet.RemoveFile(i); err != nil {
-			return err
+		if err := parser.Write(buf, currentLocation); err != nil {
+			return
 		}
+
+		currentLocation = NewLocation(currentLocation.FileId+1, 0)
 	}
 
-	// Truncate
+}
 
-	fd, err := fm.fdSet.GetFd(location)
-	if err != nil {
+func (fm *FileManager) DeleteTo(location *Location) error {
+	return fm.fdSet.DeleteTo(location)
+}
+
+func (fm *FileManager) RemoveAllFile() error {
+	if err := fm.fdSet.RemoveAllFiles(); err != nil {
 		return err
 	}
-	defer fm.fdSet.ReleaseFd(fd)
 
-	if err := fd.Truncate(location.Offset); err != nil {
-		return err
+	return nil
+}
+
+func (fm *FileManager) Close() error {
+	if err := fm.fdSet.Close(); err != nil {
+		return nil
 	}
 
-	fm.location = location
-
-	return nil
-}
-func (fm *fileManager) DeleteAndReadTo(toLocation *Location, parser *DataParser) error {
 	return nil
 }
 
-func (fm *fileManager) RemoveAllFile() error {
-	return nil
-}
-
-func (fm *fileManager) Close() error {
-	return nil
-}
-
-func (fm *fileManager) readFile(fd *os.File, location *Location) ([]byte, error) {
-	startOffset := location.Offset
-
-	if location.FileId == fm.location.FileId {
-		// TODO
-		return fm.writeBuffer[startOffset:fm.writeBufferPointer], nil
+func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toLocation *Location) ([]byte, error) {
+	startOffset := fromLocation.Offset
+	var buf []byte
+	if toLocation == nil {
+		buf = make([]byte, fm.maxFileSize-startOffset)
+	} else {
+		buf = make([]byte, toLocation.Offset-fromLocation.Offset)
 	}
-
-	buf := make([]byte, fm.maxFileSize-startOffset)
 
 	readN, rErr := fd.ReadAt(buf, startOffset)
 
 	if rErr != nil && rErr != io.EOF {
 		return nil, rErr
 	}
-
 	return buf[:readN], nil
-}
-func (fm *fileManager) write(buf []byte) (int, error) {
-	bufLen := len(buf)
-	freeSpaceLength := fm.writeBufferSize - fm.writeBufferPointer
-	nextPointer := 0
 
-	if freeSpaceLength < bufLen {
-		nextPointer = freeSpaceLength + fm.writeBufferPointer
-	} else {
-		nextPointer = bufLen + fm.writeBufferPointer
+}
+
+func (fm *FileManager) write(buf []byte) (int, error) {
+	bufLen := len(buf)
+
+	fd := fm.fdSet.GetWriteFd()
+	count, err := fd.Write(buf)
+
+	if err != nil {
+		return 0, err
 	}
 
-	copy(fm.writeBuffer[fm.writeBufferPointer:nextPointer], buf)
-
-	count := nextPointer - fm.writeBufferPointer
-	fm.writeBufferPointer = nextPointer
-
 	if count < bufLen {
-		fd, err := fm.fdSet.GetFd(fm.location)
-		defer fm.fdSet.ReleaseFd(fd)
-		if err != nil {
-			return 0, err
+		if _, err := fm.fdSet.CreateNextFd(); err != nil {
+			return count, errors.New(fmt.Sprintf("fm.Write failed, error is %s", err.Error()))
 		}
-
-		if _, err := fd.Write(fm.writeBuffer); err != nil {
-			return 0, errors.New(fmt.Sprintf("fm.Write failed, error is %s", err.Error()))
-		}
-
-		fm.writeBufferPointer = 0
-		if _, nextLocation, err := fm.fdSet.NextFd(fm.location); err != nil {
-			return 0, errors.New(fmt.Sprintf("fm.Write failed, error is %s", err.Error()))
-		} else {
-			fm.location = nextLocation
-		}
-
 	}
 
 	return count, nil

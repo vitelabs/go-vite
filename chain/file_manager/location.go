@@ -1,4 +1,4 @@
-package chain_block
+package chain_file_manager
 
 const (
 	LocationSize = 12

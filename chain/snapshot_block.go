@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -193,7 +194,7 @@ func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, 
 
 // contains start snapshot block and end snapshot block
 func (c *chain) GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash) ([]*ledger.SnapshotBlock, error) {
-	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
 	}, true, true)
 
@@ -208,7 +209,7 @@ func (c *chain) GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash
 
 func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash) ([]*ledger.SnapshotBlock, error) {
 
-	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
 		return c.indexDB.GetRangeSnapshotBlockLocations(&startHash, &endHash)
 	}, true, false)
 
@@ -223,7 +224,7 @@ func (c *chain) GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash)
 
 // contains the snapshot header that has the blockHash
 func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
-	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
 	}, higher, true)
 
@@ -238,7 +239,7 @@ func (c *chain) GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint
 
 // contains the snapshot block that has the blockHash
 func (c *chain) GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
-	blocks, err := c.getSnapshotBlockList(func() ([]*chain_block.Location, [2]uint64, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
 		return c.indexDB.GetSnapshotBlockLocationList(&blockHash, higher, count)
 	}, higher, false)
 
@@ -542,7 +543,7 @@ func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotS
 	return segList, nil
 }
 
-type getSnapshotListFunc func() ([]*chain_block.Location, [2]uint64, error)
+type getSnapshotListFunc func() ([]*chain_file_manager.Location, [2]uint64, error)
 
 func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, higher bool, onlyHeader bool) ([]*ledger.SnapshotBlock, error) {
 	locations, heightRange, err := getList()

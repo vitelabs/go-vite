@@ -3,7 +3,7 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -42,7 +42,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return c.deleteSnapshotBlocksToLocation(prevLocation)
 }
 
-func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_block.Location) ([]*ledger.SnapshotChunk, error) {
+func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 
 	// rollback blocks db
 	deletedSnapshotSegments, err := c.blockDB.Rollback(prevLocation)

@@ -3,14 +3,14 @@ package chain_index
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (iDB *IndexDB) DeleteTo(endLocation *chain_block.Location) error {
+func (iDB *IndexDB) DeleteTo(endLocation *chain_file_manager.Location) error {
 	batch := new(leveldb.Batch)
 
 	iter := iDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateAccountIdPrefixKey()))
