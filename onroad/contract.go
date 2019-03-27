@@ -4,8 +4,7 @@ import (
 	"container/heap"
 	"strconv"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
@@ -28,7 +27,8 @@ type ContractWorker struct {
 	status      int
 	statusMutex sync.Mutex
 
-	isCancel *atomic.Bool
+	// 0:false 1:true
+	isCancel uint32
 
 	newBlockCond *common.TimeoutCond
 	wg           sync.WaitGroup
@@ -54,13 +54,13 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		uBlocksPool: manager.onroadBlocksPool,
 
 		status:       Create,
-		isCancel:     atomic.NewBool(false),
+		isCancel:     0,
 		newBlockCond: common.NewTimeoutCond(),
 
 		blackList:       make(map[types.Address]bool),
 		workingAddrList: make(map[types.Address]bool),
 
-		log:       slog.New("worker", "c"),
+		log: slog.New("worker", "c"),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
@@ -92,7 +92,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
-		w.isCancel.Store(false)
+		atomic.SwapUint32(&w.isCancel, 0)
 
 		// 1. get gid`s all contract address if error happened return immediately
 		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
@@ -150,7 +150,7 @@ func (w *ContractWorker) Stop() {
 	if w.status == Start {
 		w.uBlocksPool.RemoveContractLis(w.gid)
 
-		w.isCancel.Store(true)
+		atomic.SwapUint32(&w.isCancel, 1)
 		w.newBlockCond.Broadcast()
 
 		w.uBlocksPool.DeleteContractCache(w.gid)
