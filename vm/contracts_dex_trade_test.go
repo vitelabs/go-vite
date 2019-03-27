@@ -96,6 +96,23 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 			}
 		}
 	}
+
+	duplicateOrder := getNewOrderData(102, buyAddress0, ETH, VITE, false, "100", 10)
+	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, duplicateOrder)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 1, len(appendedBlocks))
+	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
+	assert.Equal(t, nil, err)
+	err = proto.Unmarshal(param.Data, actions)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 1, len(actions.FundActions))
+	userFundSettle := actions.FundActions[0]
+	assert.Equal(t, buyAddress0.Bytes(), userFundSettle.Address)
+	assert.Equal(t, 1, len(userFundSettle.FundSettles))
+	fundSettle := userFundSettle.FundSettles[0]
+	assert.Equal(t, VITE.tokenId.Bytes(), fundSettle.Token)
+	assert.True(t, CheckBigEqualToInt(100100, fundSettle.ReleaseLocked))
 }
 
 func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
