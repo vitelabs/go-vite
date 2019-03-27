@@ -1,21 +1,18 @@
 package filters
 
 import (
+	"context"
+	"errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
+	"sync"
+	"time"
 )
 
-type SubscribeApi struct {
-	vite *vite.Vite
-}
-
-func NewSubscribeApi(vite *vite.Vite) *SubscribeApi {
-	s := &SubscribeApi{
-		vite: vite,
-	}
-	return s
-}
-
-/*
 var (
 	deadline = 5 * time.Minute // consider a filter inactive if it has not been polled for within deadline
 )
@@ -328,7 +325,7 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 	for addr, hr := range filterParam.addrRange {
 		startHeight := hr.fromHeight
 		endHeight := hr.toHeight
-		acc, err := s.vite.Chain().GetLatestAccountBlock(&addr)
+		acc, err := s.vite.Chain().GetLatestAccountBlock(addr)
 		if err != nil {
 			return nil, err
 		}
@@ -339,11 +336,11 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			endHeight = acc.Height
 		}
 		for {
-			start, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
+			end, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
 			if count == 0 {
 				break
 			}
-			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, start, count, true)
+			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, end, count)
 			if err != nil {
 				return nil, err
 			}
@@ -371,8 +368,7 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 
 func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
 	if end < count || end-count <= start {
-		return start, end - start, true
+		return end, end - start, true
 	}
-	return start, count, false
+	return end, count, false
 }
-*/

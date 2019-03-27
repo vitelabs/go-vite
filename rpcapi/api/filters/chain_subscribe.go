@@ -1,12 +1,10 @@
 package filters
 
-/*
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type AccountChainEvent struct {
@@ -26,9 +24,9 @@ type ChainSubscribe struct {
 func NewChainSubscribe(v *vite.Vite, e *EventSystem) *ChainSubscribe {
 	c := &ChainSubscribe{vite: v, es: e}
 	list := make([]uint64, 0, 3)
-	list = append(list, v.Chain().RegisterInsertAccountBlocksSuccess(c.InsertedAccountBlocks))
-	list = append(list, v.Chain().RegisterDeleteAccountBlocks(c.PreDeleteAccountBlocks))
-	list = append(list, v.Chain().RegisterDeleteAccountBlocksSuccess(c.DeletedAccountBlocks))
+	list = append(list, v.Chain().RegisterInsertAccountBlocks(c.InsertedAccountBlocks))
+	list = append(list, v.Chain().RegisterPrepareDeleteAccountBlocks(c.PreDeleteAccountBlocks))
+	list = append(list, v.Chain().RegisterDeleteAccountBlocks(c.DeletedAccountBlocks))
 	c.listenIdList = list
 	return c
 }
@@ -39,15 +37,16 @@ func (c *ChainSubscribe) Stop() {
 	}
 }
 
-func (c *ChainSubscribe) InsertedAccountBlocks(blocks []*vm_context.VmAccountBlock) {
+func (c *ChainSubscribe) InsertedAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	acEvents := make([]*AccountChainEvent, len(blocks))
 	for i, b := range blocks {
-		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmContext.GetLogList()}
+		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmDb.GetLogList()}
 	}
 	c.es.acCh <- acEvents
+	return nil
 }
 
-func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+func (c *ChainSubscribe) PreDeleteAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) error {
 	acEvents := make([]*AccountChainEvent, 0)
 	for addr, blocks := range subLedger {
 		for _, b := range blocks {
@@ -65,9 +64,9 @@ func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger 
 	c.preDeleteAccountBlocks = append(c.preDeleteAccountBlocks, acEvents...)
 	return nil
 }
-func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) {
+func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) error {
 	deletedBlocks := c.preDeleteAccountBlocks
 	c.preDeleteAccountBlocks = nil
 	c.es.acDelCh <- deletedBlocks
+	return nil
 }
-*/
