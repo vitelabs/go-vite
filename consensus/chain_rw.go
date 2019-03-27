@@ -5,15 +5,15 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
+
 	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/hashicorp/golang-lru"
-	"github.com/vitelabs/go-vite/consensus/consensus_db"
-
 	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/consensus_db"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -22,17 +22,20 @@ type ch interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                                  // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                           // Get the candidate's vote
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) // Get balance for addressList
-	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+	// todo
+	GetConsensusGroupList(snapshotHash types.Hash) ([]types.ConsensusGroupInfo, error)                                                  // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
+	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                       // Get the candidate's vote
+	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 
-	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
+	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlocksAfterAndEqualTime(endHeight uint64, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
-	IsGenesisSnapshotBlock(block *ledger.SnapshotBlock) bool
+	GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+	IsGenesisSnapshotBlock(hash types.Hash) bool
+	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 	NewDb(dbDir string) (*leveldb.DB, error)
 }
 
@@ -94,7 +97,7 @@ func (a ByBalance) Less(i, j int) bool {
 
 func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
 	// todo if t < genesisTime, return genesis block
-	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
+	block, e := self.rw.GetSnapshotHeaderBeforeTime(&t)
 
 	if e != nil {
 		return nil, e
@@ -105,51 +108,9 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 	}
 	return block, nil
 }
-func (self *chainRw) GetSeedsByHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration, num int) (map[types.Address]uint64, error) {
-	return self.GetSeedsBeforeHashH(lastBlock, dur)
-}
 
-func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock, dur time.Duration) (map[types.Address]uint64, error) {
-	startT := lastBlock.Timestamp.Add(-dur)
-	//blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(&ledger.HashHeight{Hash: lastBlock.Hash, Height: lastBlock.Height}, &startT)
-	blocks, err := self.rw.GetSnapshotBlocksAfterAndEqualTime(lastBlock.Height, &startT, nil)
-	if err != nil {
-		return nil, err
-	}
-	snapshots, _ := self.groupSnapshotBySeedExist(blocks)
-
-	m := make(map[types.Address][]*ledger.SnapshotBlock)
-	for _, block := range snapshots {
-		if block.SeedHash == nil {
-			continue
-		}
-		producer := block.Producer()
-		bs, ok := m[producer]
-		if len(bs) >= 2 {
-			continue
-		}
-		if ok {
-			m[producer] = append(m[producer], block)
-		} else {
-			var arr []*ledger.SnapshotBlock
-			arr = append(arr, block)
-			m[producer] = arr
-		}
-	}
-
-	seedM := make(map[types.Address]uint64)
-	for k, v := range m {
-		if len(v) != 2 {
-			continue
-		}
-
-		seed := self.getSeed(v[0], v[1])
-		if seed != 0 {
-			seedM[k] = seed
-		}
-	}
-
-	return seedM, nil
+func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock) uint64 {
+	return self.rw.GetRandomSeed(lastBlock.Hash, 25)
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
@@ -179,7 +140,7 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
-	balanceMap, _ := self.rw.GetBalanceList(snapshotHash, id, addrs)
+	balanceMap, _ := self.rw.GetConfirmedBalanceList(addrs, id, snapshotHash)
 	balanceTotal := big.NewInt(0)
 	for _, v := range balanceMap {
 		balanceTotal.Add(balanceTotal, v)
@@ -206,7 +167,7 @@ func (self *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 	}
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = core.NewGroupInfo(self.genesisTime, *v)
+			result = core.NewGroupInfo(self.genesisTime, v)
 		}
 	}
 	if result == nil {
@@ -216,9 +177,12 @@ func (self *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 	return result, nil
 }
 
-func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
-	gid, e := self.rw.GetContractGidByAccountBlock(block)
-	return *gid, e
+func (self *chainRw) getGid(block *ledger.AccountBlock) (*types.Gid, error) {
+	meta, e := self.rw.GetContractMeta(block.AccountAddress)
+	if e != nil {
+		return nil, e
+	}
+	return meta.Gid, nil
 }
 func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()
@@ -227,14 +191,14 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	if startHash == actual {
 		return nil
 	}
-	startB, e := self.rw.GetSnapshotBlockByHash(&startHash)
+	startB, e := self.rw.GetSnapshotBlockByHash(startHash)
 	if e != nil {
 		return e
 	}
 	if startB == nil {
 		return errors.Errorf("start snapshot block is nil. hashH:%s-%d", startHash, startHeight)
 	}
-	actualB, e := self.rw.GetSnapshotBlockByHash(&actual)
+	actualB, e := self.rw.GetSnapshotBlockByHash(actual)
 	if e != nil {
 		return e
 	}

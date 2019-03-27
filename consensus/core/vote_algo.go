@@ -36,14 +36,11 @@ type Algo interface {
 }
 
 type SeedInfo struct {
-	seeds map[types.Address]uint64
+	seeds uint64
 }
 
-func NewSeedInfo(ss map[types.Address]uint64) *SeedInfo {
-	if ss == nil {
-		return &SeedInfo{seeds: make(map[types.Address]uint64)}
-	}
-	return &SeedInfo{seeds: ss}
+func NewSeedInfo(seed uint64) *SeedInfo {
+	return &SeedInfo{seeds: seed}
 }
 
 type algo struct {
@@ -57,7 +54,7 @@ func NewAlgo(info *GroupInfo) *algo {
 // balance + snapshotHeight + gid
 func (self *algo) findSeed(votes []*Vote, sheight uint64, info *SeedInfo) int64 {
 	seeds := info.seeds
-	if seeds == nil || len(seeds) == 0 {
+	if seeds == 0 {
 		result := big.NewInt(0)
 		for _, v := range votes {
 			result.Add(result, v.Balance)
@@ -67,9 +64,7 @@ func (self *algo) findSeed(votes []*Vote, sheight uint64, info *SeedInfo) int64 
 	}
 
 	result := big.NewInt(0)
-	for _, v := range seeds {
-		result.Add(result, big.NewInt(0).SetUint64(v))
-	}
+	result.Add(result, big.NewInt(0).SetUint64(seeds))
 	result.Add(result, new(big.Int).SetUint64(sheight))
 	return result.Add(result, self.info.seed).Int64()
 }

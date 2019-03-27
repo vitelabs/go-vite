@@ -54,7 +54,7 @@ func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) er
 		return ErrVerifyHashFailed
 	}
 
-	if self.reader.IsGenesisSnapshotBlock(block) {
+	if self.reader.IsGenesisSnapshotBlock(&block.Hash) {
 		return nil
 	}
 

@@ -71,11 +71,8 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 		return nil, err
 	}
 
-	seeds, err := self.rw.GetSeedsByHashH(block, seedDuration, 25)
-	if err != nil {
-		return nil, err
-	}
-	seed := core.NewSeedInfo(seeds)
+	randomSeed := self.rw.GetSeedsBeforeHashH(block)
+	seed := core.NewSeedInfo(randomSeed)
 
 	context := core.NewVoteAlgoContext(votes, &hashH, nil, seed)
 	// filter size of members

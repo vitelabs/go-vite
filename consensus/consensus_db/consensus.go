@@ -5,7 +5,6 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain_db/database"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -42,14 +41,6 @@ type ConsensusDB struct {
 	db *leveldb.DB
 }
 
-func NewConsensusDBByDir(dir string) *ConsensusDB {
-	db, err := database.NewLevelDb(dir)
-	if err != nil {
-		panic(err)
-	}
-	return NewConsensusDB(db)
-}
-
 func NewConsensusDB(db *leveldb.DB) *ConsensusDB {
 	return &ConsensusDB{
 		db: db,
@@ -57,7 +48,7 @@ func NewConsensusDB(db *leveldb.DB) *ConsensusDB {
 }
 
 func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]byte, error) {
-	key, _ := database.EncodeKey(INDEX_ElectionResult, hash.Bytes())
+	key := CreateElectionResultKey(hash)
 	value, err := self.db.Get(key, nil)
 
 	if err != nil {
@@ -71,16 +62,13 @@ func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]byte, error
 }
 
 func (self *ConsensusDB) StoreElectionResultByHash(hash types.Hash, data []byte) error {
-	key, _ := database.EncodeKey(INDEX_ElectionResult, hash.Bytes())
+	key := CreateElectionResultKey(hash)
 	return self.db.Put(key, data, nil)
 }
 
 func (self *ConsensusDB) Check() {
 	db := self.db
-	key, err := database.EncodeKey(INDEX_ElectionResult)
-	if err != nil {
-		panic(err)
-	}
+	key := CreateElectionResultPrefixKey()
 	iter := db.NewIterator(util.BytesPrefix(key), nil)
 	i := uint64(0)
 	for ; iter.Next(); i++ {
@@ -92,4 +80,19 @@ func (self *ConsensusDB) Check() {
 		}
 		fmt.Println(hash)
 	}
+}
+
+func CreateElectionResultPrefixKey() []byte {
+	key := make([]byte, 1)
+	key[0] = INDEX_ElectionResult
+	return key
+}
+
+func CreateElectionResultKey(hash types.Hash) []byte {
+	key := make([]byte, 1+types.HashSize)
+	key[0] = INDEX_ElectionResult
+
+	copy(key[1:types.HashSize+1], hash.Bytes())
+
+	return key
 }

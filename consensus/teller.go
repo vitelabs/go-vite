@@ -71,10 +71,7 @@ func (self *teller) electionIndex(index uint64) (*electionResult, error) {
 	}
 	// todo
 	self.mLog.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
-	seeds, err := self.rw.GetSeedsBeforeHashH(block, seedDuration)
-	if err != nil {
-		return nil, err
-	}
+	seeds := self.rw.GetSeedsBeforeHashH(block)
 	seed := core.NewSeedInfo(seeds)
 	voteResults, err := self.voteResults(block, seed, voteIndex)
 	if err != nil {

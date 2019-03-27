@@ -52,10 +52,7 @@ func (self *snapshotCs) electionIndex(index uint64) (*electionResult, error) {
 	}
 	// todo
 	self.log.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
-	seeds, err := self.rw.GetSeedsBeforeHashH(block, seedDuration)
-	if err != nil {
-		return nil, err
-	}
+	seeds := self.rw.GetSeedsBeforeHashH(block)
 	seed := core.NewSeedInfo(seeds)
 	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, voteIndex)
 	if err != nil {

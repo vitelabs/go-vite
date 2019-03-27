@@ -87,7 +87,7 @@ func (self *committee) VerifyAccountProducer(accountBlock *ledger.AccountBlock) 
 	if err != nil {
 		return false, err
 	}
-	tel, err := self.contracts.getOrLoadGid(gid)
+	tel, err := self.contracts.getOrLoadGid(*gid)
 
 	if err != nil {
 		return false, err
