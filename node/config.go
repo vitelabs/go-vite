@@ -228,12 +228,6 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 		forkPoints = genesisConfig.ForkPoints
 	}
 
-	if forkPoints.Mint == nil {
-		forkPoints.Mint = &config.ForkPoint{
-			Height: 9453262,
-		}
-	}
-
 	return forkPoints
 }
 

@@ -38,10 +38,6 @@ func SetForkPoints(points *config.ForkPoints) {
 	sort.Sort(forkPointList)
 }
 
-func IsMintFork(blockHeight uint64) bool {
-	return forkPoints.Mint.Height > 0 && blockHeight >= forkPoints.Mint.Height
-}
-
 func GetForkPoints() config.ForkPoints {
 	return forkPoints
 }
