@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"math/big"
-	"strings"
 )
 
 const (
@@ -26,9 +27,11 @@ var (
 	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
+	AddressDexFund, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6})
+	AddressDexTrade, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7})
 
-	PrecompiledContractAddressList             = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
-	PrecompiledContractWithoutQuotaAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	PrecompiledContractAddressList             = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexFund, AddressDexTrade}
+	PrecompiledContractWithoutQuotaAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexTrade}
 )
 
 func IsPrecompiledContractAddress(addr Address) bool {

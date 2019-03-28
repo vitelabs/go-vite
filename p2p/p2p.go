@@ -135,7 +135,7 @@ func New(cfg *Config) (Server, error) {
 		config:      cfg,
 		addr:        tcpAddr,
 		staticNodes: parseNodes(cfg.StaticNodes),
-		peers:       NewPeerSet(),
+		peers:       NewPeerSet(DefaultMinPeers),
 		pending:     make(chan struct{}, cfg.MaxPendingPeers),
 		addPeer:     make(chan *transport, 5),
 		delPeer:     make(chan *Peer, 5),
@@ -353,6 +353,9 @@ func (svr *server) dialLoop() {
 				break
 			}
 
+			// will be blocked if has enough peers
+			svr.peers.CheckWait()
+
 			dialing[node.ID] = struct{}{}
 			svr.dial(node.ID, node.TCPAddr(), outbound, dialDone)
 
@@ -565,7 +568,7 @@ func (svr *server) loop() {
 	defer svr.wg.Done()
 
 	var peersCount int
-	var checkTicker = time.NewTicker(30 * time.Second)
+	var checkTicker = time.NewTicker(10 * time.Second)
 	defer checkTicker.Stop()
 	run := func() {
 		svr.dialStatic()
@@ -585,8 +588,7 @@ loop:
 			if err == nil {
 				var p *Peer
 				if p, err = NewPeer(c, svr.config.Protocols); err == nil {
-					svr.peers.Add(p)
-					peersCount = svr.peers.Size()
+					peersCount = svr.peers.Add(p)
 					svr.log.Info(fmt.Sprintf("create new peer %s, total: %d", p, peersCount))
 
 					monitor.LogDuration("p2p/peer", "count", int64(peersCount))
@@ -606,16 +608,11 @@ loop:
 
 		case p := <-svr.delPeer:
 			svr.unblock(p.ID(), p.ts.remoteIP)
-			svr.peers.Del(p)
-			peersCount = svr.peers.Size()
+			peersCount = svr.peers.Del(p)
 			svr.log.Error(fmt.Sprintf("delete peer %s, total: %d", p, peersCount))
 
 			monitor.LogDuration("p2p/peer", "count", int64(peersCount))
 			monitor.LogEvent("p2p/peer", "delete")
-
-			if p.ts.is(static) {
-				svr.dial(p.ID(), p.RemoteAddr(), static, nil)
-			}
 
 		case <-checkTicker.C:
 			if peersCount < DefaultMinPeers {
@@ -625,19 +622,19 @@ loop:
 		}
 	}
 
-	svr.peers.DisconnectAll()
-
 	svr.markPeers()
+
+	svr.peers.DisconnectAll()
 }
 
 func (svr *server) markPeers() {
 	if svr.discv != nil {
 		now := time.Now()
-		svr.peers.mu.Lock()
-		defer svr.peers.mu.Unlock()
-		for id, p := range svr.peers.m {
+
+		svr.peers.Range(func(id discovery.NodeID, p *Peer) bool {
 			svr.discv.Mark(id, now.Sub(p.Created).Nanoseconds())
-		}
+			return true
+		})
 	}
 }
 

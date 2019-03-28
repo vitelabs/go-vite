@@ -443,21 +443,27 @@ func (p *Peer) Info() *PeerInfo {
 	}
 }
 
-// @section PeerSet
+// PeerSet use to manager peers
 type PeerSet struct {
 	mu       sync.Mutex
+	cond     *sync.Cond
 	m        map[discovery.NodeID]*Peer
+	minPeers int
 	inbound  int
 	outbound int
 }
 
-func NewPeerSet() *PeerSet {
-	return &PeerSet{
-		m: make(map[discovery.NodeID]*Peer),
+func NewPeerSet(minPeers int) *PeerSet {
+	ps := &PeerSet{
+		m:        make(map[discovery.NodeID]*Peer),
+		minPeers: minPeers,
 	}
+	ps.cond = sync.NewCond(&ps.mu)
+
+	return ps
 }
 
-func (s *PeerSet) Add(p *Peer) {
+func (s *PeerSet) Add(p *Peer) (count int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -467,9 +473,11 @@ func (s *PeerSet) Add(p *Peer) {
 	} else {
 		s.outbound++
 	}
+
+	return len(s.m)
 }
 
-func (s *PeerSet) Del(p *Peer) {
+func (s *PeerSet) Del(p *Peer) (count int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -479,6 +487,22 @@ func (s *PeerSet) Del(p *Peer) {
 		s.inbound--
 	} else {
 		s.outbound--
+	}
+
+	if len(s.m) < s.minPeers {
+		s.cond.Signal()
+	}
+
+	return len(s.m)
+}
+
+// CheckWait will be blocked if peers number is larger than s.minPeers
+func (s *PeerSet) CheckWait() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for len(s.m) > s.minPeers {
+		s.cond.Wait()
 	}
 }
 
@@ -518,9 +542,22 @@ func (s *PeerSet) DisconnectAll() {
 		peer.Disconnect(DiscQuitting)
 		delete(s.m, id)
 	}
+
+	s.cond.Signal()
 }
 
-// @section PeerInfo
+func (s *PeerSet) Range(fn func(id discovery.NodeID, p *Peer) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for id, p := range s.m {
+		if !fn(id, p) {
+			break
+		}
+	}
+}
+
+// PeerInfo
 type PeerInfo struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
@@ -529,7 +566,7 @@ type PeerInfo struct {
 	Inbound bool     `json:"inbound"`
 }
 
-// @section ConnProperty
+// ConnProperty
 type ConnProperty struct {
 	LocalID    string `json:"localID"`
 	LocalIP    net.IP `json:"localIP"`

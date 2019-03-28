@@ -22,31 +22,31 @@ func (p *MethodCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodCreateConsensusGroup) GetQuota() uint64 {
-	return CreateConsensusGroupGas
+func (p *MethodCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
+	return CreateConsensusGroupGas, nil
 }
 
-func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
+}
+
+func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!util.IsViteToken(block.TokenId) ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	param := new(types.ConsensusGroupInfo)
-	err = cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCreateConsensusGroup, block.Data)
+	err := cabi.ABIConsensusGroup.UnpackMethod(param, cabi.MethodNameCreateConsensusGroup, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if err := CheckCreateConsensusGroupData(db, param); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	gid := cabi.NewGid(block.AccountAddress, block.Height, block.PrevHash, block.SnapshotHash)
 	if IsExistGid(db, gid) {
-		return quotaLeft, errors.New("consensus group id already exists")
+		return errors.New("consensus group id already exists")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(
 		cabi.MethodNameCreateConsensusGroup,
@@ -61,7 +61,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, bloc
 		param.RegisterConditionParam,
 		param.VoteConditionId,
 		param.VoteConditionParam)
-	return quotaLeft, nil
+	return nil
 }
 func CheckCreateConsensusGroupData(db vmctxt_interface.VmDatabase, param *types.ConsensusGroupInfo) error {
 	if param.NodeCount < cgNodeCountMin || param.NodeCount > cgNodeCountMax ||
@@ -130,36 +130,36 @@ func (p *MethodCancelConsensusGroup) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodCancelConsensusGroup) GetQuota() uint64 {
-	return CancelConsensusGroupGas
+func (p *MethodCancelConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
+	return CancelConsensusGroupGas, nil
+}
+
+func (p *MethodCancelConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Cancel consensus group and get pledge back.
 // A canceled consensus group(no-active) will not generate contract blocks after cancel receive block is confirmed.
 // Consensus group name is kept even if canceled.
-func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodCancelConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
-	err = cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelConsensusGroup, block.Data)
+	err := cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameCancelConsensusGroup, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	groupInfo := cabi.GetConsensusGroup(db, *gid)
 	if groupInfo == nil ||
 		block.AccountAddress != groupInfo.Owner ||
 		!groupInfo.IsActive() ||
 		groupInfo.WithdrawHeight > db.CurrentSnapshotBlock().Height {
-		return quotaLeft, errors.New("invalid group or owner or not due yet")
+		return errors.New("invalid group or owner or not due yet")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameCancelConsensusGroup, *gid)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodCancelConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	gid := new(types.Gid)
@@ -212,33 +212,33 @@ func (p *MethodReCreateConsensusGroup) GetRefundData() []byte {
 	return []byte{3}
 }
 
-func (p *MethodReCreateConsensusGroup) GetQuota() uint64 {
-	return ReCreateConsensusGroupGas
+func (p *MethodReCreateConsensusGroup) GetSendQuota(data []byte) (uint64, error) {
+	return ReCreateConsensusGroupGas, nil
+}
+
+func (p *MethodReCreateConsensusGroup) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // Pledge again for a canceled consensus group.
 // A consensus group will start generate contract blocks after recreate receive block is confirmed.
-func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodReCreateConsensusGroup) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
 		!util.IsViteToken(block.TokenId) ||
 		!util.IsUserAccount(db, block.AccountAddress) {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
-	if err = cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameReCreateConsensusGroup, block.Data); err != nil {
-		return quotaLeft, err
+	if err := cabi.ABIConsensusGroup.UnpackMethod(gid, cabi.MethodNameReCreateConsensusGroup, block.Data); err != nil {
+		return err
 	}
 	if groupInfo := cabi.GetConsensusGroup(db, *gid); groupInfo == nil ||
 		block.AccountAddress != groupInfo.Owner ||
 		groupInfo.IsActive() {
-		return quotaLeft, errors.New("invalid group info or owner or status")
+		return errors.New("invalid group info or owner or status")
 	}
 	block.Data, _ = cabi.ABIConsensusGroup.PackMethod(cabi.MethodNameReCreateConsensusGroup, *gid)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodReCreateConsensusGroup) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	gid := new(types.Gid)

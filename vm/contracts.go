@@ -58,17 +58,40 @@ var simpleContracts = map[types.Address]*precompiledContract{
 		},
 		cabi.ABIMintage,
 	},
+	types.AddressDexFund: {
+		map[string]contracts.PrecompiledContractMethod{
+			contracts.MethodNameDexFundUserDeposit:             &contracts.MethodDexFundUserDeposit{},
+			contracts.MethodNameDexFundUserWithdraw:             &contracts.MethodDexFundUserWithdraw{},
+			contracts.MethodNameDexFundNewOrder:             &contracts.MethodDexFundNewOrder{},
+			contracts.MethodNameDexFundSettleOrders:             &contracts.MethodDexFundSettleOrders{},
+			contracts.MethodNameDexFundFeeDividend:             &contracts.MethodDexFundFeeDividend{},
+			contracts.MethodNameDexFundMinedVxDividend:             &contracts.MethodDexFundMinedVxDividend{},
+			contracts.MethodNameDexFundNewMarket:             &contracts.MethodDexFundNewMarket{},
+		},
+		contracts.ABIDexFund,
+	},
+	types.AddressDexTrade: {
+		map[string]contracts.PrecompiledContractMethod{
+			contracts.MethodNameDexTradeNewOrder:             &contracts.MethodDexTradeNewOrder{},
+			contracts.MethodNameDexTradeCancelOrder:             &contracts.MethodDexTradeCancelOrder{},
+		},
+		contracts.ABIDexTrade,
+	},
 }
 
-func GetPrecompiledContract(addr types.Address, methodSelector []byte) (contracts.PrecompiledContractMethod, bool, error) {
+func GetPrecompiledContract(addr types.Address, methodSelector []byte) (contracts.PrecompiledContractMethod, bool, *abi.Method, error) {
+	var (
+		method *abi.Method
+		err error
+	)
 	p, ok := simpleContracts[addr]
 	if ok {
-		if method, err := p.abi.MethodById(methodSelector); err == nil {
+		if method, err = p.abi.MethodById(methodSelector); err == nil {
 			c, ok := p.m[method.Name]
-			return c, ok, nil
+			return c, ok, method, nil
 		} else {
-			return nil, ok, util.ErrAbiMethodNotFound
+			return nil, ok, nil, util.ErrAbiMethodNotFound
 		}
 	}
-	return nil, ok, nil
+	return nil, ok, nil, nil
 }

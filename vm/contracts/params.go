@@ -19,11 +19,29 @@ const (
 	ReCreateConsensusGroupGas uint64 = 62200
 	MintageGas                uint64 = 83200
 	MintageCancelPledgeGas    uint64 = 83200
-	MintGas                   uint64 = 104525
-	IssueGas                  uint64 = 69325
-	BurnGas                   uint64 = 48837
-	TransferOwnerGas          uint64 = 58981
-	ChangeTokenTypeGas        uint64 = 63125
+
+	dexFundDepositGas                uint64 = 300
+	dexFundDepositReceiveGas         uint64 = 1
+	dexFundWithdrawGas               uint64 = 300
+	dexFundWithdrawReceiveGas        uint64 = 1
+	dexFundNewOrderGas               uint64 = 300
+	dexFundNewOrderReceiveGas        uint64 = 1
+	dexFundSettleOrdersGas           uint64 = 300
+	dexFundSettleOrdersReceiveGas    uint64 = 1
+	dexFundFeeDividendGas            uint64 = 300
+	dexFundFeeDividendReceiveGas     uint64 = 1
+	dexFundMinedVxDividendGas        uint64 = 300
+	dexFundMinedVxDividendReceiveGas uint64 = 1
+	dexFundNewMarketGas              uint64 = 300
+	dexFundNewMarketReceiveGas       uint64 = 1
+	dexTradeNewOrderGas              uint64 = 300
+	dexTradeCancelOrderGas           uint64 = 300
+
+	MintGas            uint64 = 104525
+	IssueGas           uint64 = 69325
+	BurnGas            uint64 = 48837
+	TransferOwnerGas   uint64 = 58981
+	ChangeTokenTypeGas uint64 = 63125
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group

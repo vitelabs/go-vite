@@ -2,6 +2,10 @@ package generator
 
 import (
 	"fmt"
+	"math/rand"
+	"runtime/debug"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,9 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
-	"math/rand"
-	"runtime/debug"
-	"time"
 )
 
 func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Address,
@@ -86,10 +87,13 @@ func GetFittestGeneratorSnapshotHash(chain vm_context.Chain, accAddr *types.Addr
 }
 
 func measureGapToLatest(referredGap, defaultGap uint64) (minGap, randomGap uint64) {
+	var minConfirmedHeight uint64
 	if referredGap <= defaultGap {
-		return referredGap, uint64(0) + getRandomHeight(referredGap)
+		minConfirmedHeight = 0
+		return referredGap, minConfirmedHeight + getRandomHeight(referredGap)
 	} else {
-		return defaultGap, defaultGap + getRandomHeight(referredGap-defaultGap)
+		minConfirmedHeight = defaultGap
+		return defaultGap, minConfirmedHeight + getRandomHeight(referredGap-defaultGap)
 	}
 }
 

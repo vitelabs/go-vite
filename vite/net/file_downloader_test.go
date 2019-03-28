@@ -19,10 +19,10 @@ func Test_wait(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		find := rand.Intn(total)
 
-		for i, n := range wait {
+		for j, n := range wait {
 			if n == find {
-				if i != len(wait)-1 {
-					copy(wait[i:], wait[i+1:])
+				if j != len(wait)-1 {
+					copy(wait[j:], wait[j+1:])
 				}
 				wait = wait[:len(wait)-1]
 			}

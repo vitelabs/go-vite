@@ -69,6 +69,7 @@
     "mintage",
     "consensusGroup",
     "tx",
+    "dextrade",
     "dashboard"
   ],
   "Miner": false,

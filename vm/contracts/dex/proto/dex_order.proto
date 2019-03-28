@@ -1,0 +1,97 @@
+syntax="proto3";
+
+package proto;
+
+message Order {
+    bytes Id = 1;
+    bytes Address = 2;
+    bool  Side = 3; // false buy, true sell
+    int32 Type = 4; // 0 limit order, 1 market order
+    string Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7; // QuoteAmount
+    bytes LockedBuyFee = 8; // fee locked ahead for buy
+    int32 Status = 9;
+    int32 CancelReason = 10;
+    bytes ExecutedQuantity = 11;
+    bytes ExecutedAmount = 12;
+    bytes ExecutedFee = 13; // fee actually executed
+    bytes RefundToken = 14;
+    bytes RefundQuantity = 15; //refund trade/quote token
+}
+
+message OrderTokenInfo {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    int32 TradeTokenDecimals = 3; // will not be set in case cancel order
+    int32 QuoteTokenDecimals = 4; // will not be set in case cancel order
+}
+
+message OrderInfo {
+    Order Order = 1;
+    OrderTokenInfo OrderTokenInfo = 2;
+}
+
+message OrderUpdateInfo {
+    bytes Id = 1;
+    int32 Status = 2;
+    int32 CancelReason = 3;
+    bytes ExecutedQuantity = 4;
+    bytes ExecutedAmount = 5;
+    bytes ExecutedFee = 6; // fee actually executed
+    bytes RefundToken = 7;
+    bytes RefundQuantity = 8; //refund trade/quote token
+    OrderTokenInfo OrderTokenInfo = 9;
+}
+
+message OrderNode {
+    Order Order = 1;
+    repeated bytes ForwardOnLevel = 2;
+    repeated bytes BackwardOnLevel = 3;
+}
+
+message OrderListMeta {
+    bytes Header = 1;
+    bytes Tail = 2;
+    int32 Length = 3;
+    int32 Level = 4;
+    repeated bytes ForwardOnLevel = 5;
+}
+
+message OrderBook {
+    repeated string MarketSide = 1; //format : TradeToken|QuoteToken|Side
+}
+
+message Transaction {
+    bytes Id = 1;
+    bool TakerSide = 2;
+    bytes TakerId = 3;
+    bytes MakerId = 4;
+    string Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7;
+    bytes TakerFee = 8;
+    bytes MakerFee = 9;
+}
+
+message OrderFail {
+    OrderInfo OrderInfo = 1;
+    string ErrCode = 2;
+}
+
+message MarketInfo {
+    int32 TradeTokenDecimals = 1;
+    int32 QuoteTokenDecimals = 2;
+    bytes Creator    = 3; //creator address
+}
+
+message NewMarket {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    string TradeTokenSymbol = 3;
+    string QuoteTokenSymbol = 4;
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bytes Creator    = 7; //creator address
+}
+
