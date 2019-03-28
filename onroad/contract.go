@@ -86,7 +86,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.currentSnapshotHash = w.accEvent.SnapshotHash
 	}
 
-	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
+	w.log = slog.New("worker", "c", "gid", accEvent.Gid, "producer", accEvent.Address)
 
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
@@ -272,6 +272,9 @@ func (w ContractWorker) Status() int {
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
 		return math.MaxUint64
+	}
+	if latestSb := w.manager.chain.GetLatestSnapshotBlock(); latestSb != nil {
+		w.log.Info("latestSb(%v %v) at newSignal, currentSb %v", latestSb.Height, latestSb.Hash, w.currentSnapshotHash)
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
 	if err != nil {
