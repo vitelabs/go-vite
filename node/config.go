@@ -36,7 +36,6 @@ type Config struct {
 	KafkaProducers []string `json:"KafkaProducers"`
 
 	// chain
-	OpenBlackBlock       bool   `json:"OpenBlackBlock"`
 	LedgerGcRetain       uint64 `json:"LedgerGcRetain"`
 	LedgerGc             *bool  `json:"LedgerGc"`
 	OpenFilterTokenIndex *bool  `json:"OpenFilterTokenIndex"`
@@ -227,15 +226,6 @@ func (c *Config) makeForkPointsConfig(genesisConfig *config.Genesis) *config.For
 
 	if genesisConfig != nil && genesisConfig.ForkPoints != nil {
 		forkPoints = genesisConfig.ForkPoints
-	}
-
-	if forkPoints.Smart == nil {
-		forkHash, _ := types.HexToHash("41f9c0ff86f3a57f43c70e109d44c66769cc63334f1530c99576211b1e625570")
-
-		forkPoints.Smart = &config.ForkPoint{
-			Height: 5788912,
-			Hash:   &forkHash,
-		}
 	}
 
 	if forkPoints.Mint == nil {
