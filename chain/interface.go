@@ -156,6 +156,8 @@ type Chain interface {
 
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
+	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
 	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
@@ -233,5 +235,4 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 }

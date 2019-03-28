@@ -15,6 +15,8 @@ type BlockDB struct {
 
 	snappyWriteBuffer []byte
 	wg                sync.WaitGroup
+
+	fileSize int64
 }
 
 type SnapshotSegment struct {
@@ -28,20 +30,24 @@ type SnapshotSegment struct {
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
-	maxFileSize := int64(20 * 1024 * 1024)
-	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), maxFileSize)
+	fileSize := int64(20 * 1024 * 1024)
+	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BlockDB{
 		fm:                fm,
-		snappyWriteBuffer: make([]byte, maxFileSize),
+		fileSize:          fileSize,
+		snappyWriteBuffer: make([]byte, fileSize),
 	}, nil
 }
 
 func (bDB *BlockDB) Stop() {
 	bDB.wg.Wait()
+}
+func (bDB *BlockDB) FileSize() int64 {
+	return bDB.fileSize
 }
 
 func (bDB *BlockDB) CleanAllData() error {
@@ -100,6 +106,10 @@ func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) 
 		return nil, err
 	}
 	return sBuf, nil
+}
+
+func (bDB *BlockDB) ReadRaw(startLocation *chain_file_manager.Location, buf []byte) (*chain_file_manager.Location, int, error) {
+	return bDB.fm.ReadRaw(startLocation, buf)
 }
 
 func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*SnapshotSegment, error) {

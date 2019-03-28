@@ -8,18 +8,18 @@ import (
 )
 
 type FileManager struct {
-	maxFileSize int64
+	fileSize int64
 
 	fdSet    *fdManager
 	location *Location
 }
 
-func NewFileManager(dirName string, maxFileSize int64) (*FileManager, error) {
+func NewFileManager(dirName string, fileSize int64) (*FileManager, error) {
 	fm := &FileManager{
-		maxFileSize: maxFileSize,
+		fileSize: fileSize,
 	}
 
-	fdSet, err := newFdManager(dirName, int(maxFileSize), 10)
+	fdSet, err := newFdManager(dirName, int(fileSize), 10)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +72,45 @@ func (fm *FileManager) Read(location *Location) ([]byte, error) {
 	return buf, nil
 }
 
+func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, int, error) {
+	fileSize := fm.fileSize
+	readLen := len(buf)
+
+	i := 0
+	currentLocation := startLocation
+	for i < readLen {
+		readSize := readLen - i
+		freeSize := int(fileSize - currentLocation.Offset)
+		if readSize > freeSize {
+			readSize = freeSize
+		}
+
+		fd, err := fm.fdSet.GetFd(currentLocation)
+		if err != nil {
+			return currentLocation, 0, err
+		}
+		if fd == nil {
+			return currentLocation, i, io.EOF
+		}
+
+		readN, rErr := fd.ReadAt(buf[i:i+readSize], currentLocation.Offset)
+		i += readN
+
+		nextOffset := currentLocation.Offset + int64(readN)
+
+		if nextOffset >= fileSize {
+			currentLocation = NewLocation(currentLocation.FileId+1, 0)
+		} else {
+			currentLocation = NewLocation(currentLocation.FileId, nextOffset)
+		}
+
+		if rErr != nil {
+			return currentLocation, i, rErr
+		}
+	}
+	return currentLocation, i, nil
+}
+
 func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location, parser DataParser) {
 	realEndLocation := endLocation
 	if realEndLocation == nil {
@@ -107,7 +146,6 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 		currentLocation = NewLocation(currentLocation.FileId+1, 0)
 	}
-
 }
 
 func (fm *FileManager) DeleteTo(location *Location) error {
@@ -134,7 +172,7 @@ func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toL
 	startOffset := fromLocation.Offset
 	var buf []byte
 	if toLocation == nil {
-		buf = make([]byte, fm.maxFileSize-startOffset)
+		buf = make([]byte, fm.fileSize-startOffset)
 	} else {
 		buf = make([]byte, toLocation.Offset-fromLocation.Offset)
 	}

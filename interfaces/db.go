@@ -43,14 +43,7 @@ type Store interface {
 type LedgerReader interface {
 	Bound() (from, to uint64)
 	Size() int
-	Stream() io.ReadCloser
-}
-
-type ReadCloser interface {
-	// Read a block, return io.EOF if reach end, the block maybe a accountBlock or a snapshotBlock
-	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
-	// Close the stream
-	Close() error
+	io.ReadCloser
 }
 
 type Segment [2]uint64
@@ -62,6 +55,13 @@ func (list SegmentList) Swap(i, j int) {
 }
 func (list SegmentList) Less(i, j int) bool {
 	return list[i][0] < list[j][1]
+}
+
+type ReadCloser interface {
+	// Read a block, return io.EOF if reach end, the block maybe a accountBlock or a snapshotBlock
+	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
+	// Close the stream
+	Close() error
 }
 
 type SyncCache interface {
