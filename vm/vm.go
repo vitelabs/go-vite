@@ -176,8 +176,9 @@ func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
 	if !ok {
 		return nil
 	}
-	// TODO get contract meta
-	return &ledger.ContractMeta{&types.Gid{}, 0}
+	meta, err := db.GetContractMeta()
+	util.DealWithErr(err)
+	return meta
 }
 
 func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
@@ -303,7 +304,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	util.SubBalance(db, &block.TokenId, block.Amount)
 	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
-	db.SetContractMeta(&ledger.ContractMeta{&gid, confirmTime})
+	db.SetContractMeta(contractAddr, &ledger.ContractMeta{&gid, confirmTime})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
