@@ -66,7 +66,7 @@ func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	var (
-		err error
+		err    error
 		blocks = []*SendBlock{}
 	)
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
@@ -139,8 +139,8 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	storage, _ := db.(dex.BaseStorage)
 	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
 	var (
-		order *dex.Order
-		err   error
+		order  *dex.Order
+		err    error
 		blocks = []*SendBlock{}
 	)
 	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
@@ -177,10 +177,10 @@ func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
 	var (
 		settleData, dexSettleBlockData []byte
-		newErr error
+		newErr                         error
 	)
 	if settleData, newErr = proto.Marshal(settleActions); newErr != nil {
-		 dex.EmitErrLog(db, newErr)
+		dex.EmitErrLog(db, newErr)
 		return []*SendBlock{}, newErr
 	}
 	if dexSettleBlockData, newErr = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); newErr != nil {

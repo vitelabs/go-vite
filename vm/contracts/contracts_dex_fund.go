@@ -57,7 +57,7 @@ func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundDepositReceiveGas
 }
 
 func (md *MethodDexFundUserDeposit) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -100,7 +100,7 @@ func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundWithdrawReceiveGas
 }
 
 func (md *MethodDexFundUserWithdraw) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -173,7 +173,7 @@ func (md *MethodDexFundNewOrder) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundNewOrderReceiveGas
 }
 
 func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -244,7 +244,7 @@ func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundSettleOrdersReceiveGas
 }
 
 func (md *MethodDexFundSettleOrders) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -313,7 +313,7 @@ func (md *MethodDexFundFeeDividend) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundFeeDividendReceiveGas
 }
 
 func (md *MethodDexFundFeeDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -367,7 +367,7 @@ func (md *MethodDexFundMinedVxDividend) GetSendQuota(data []byte) (uint64, error
 }
 
 func (md *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundMinedVxDividendReceiveGas
 }
 
 func (md *MethodDexFundMinedVxDividend) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -433,7 +433,7 @@ func (md *MethodDexFundNewMarket) GetSendQuota(data []byte) (uint64, error) {
 }
 
 func (md *MethodDexFundNewMarket) GetReceiveQuota() uint64 {
-	return 0
+	return dexFundNewMarketReceiveGas
 }
 
 func (md *MethodDexFundNewMarket) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
@@ -491,6 +491,8 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 }
 
 func handleNewOrderFail(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) ([]*SendBlock, error) {
+	//TODO enable status setting on new order failed
+	//orderInfo.Order.Status = dex.NewFailed
 	dex.EmitOrderFailLog(db, orderInfo, errCode)
 	return []*SendBlock{}, nil
 }
