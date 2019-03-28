@@ -31,6 +31,10 @@ type Verifier interface {
 	VerifyNetAb(block *ledger.AccountBlock) error
 }
 
+type Producer interface {
+	IsProducer(address types.Address) bool
+}
+
 // source is use to statistic where the block come from, broadcast, sync or fetch
 type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.BlockSource)
 type AccountblockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
