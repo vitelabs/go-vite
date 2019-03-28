@@ -14,12 +14,12 @@ type FileManager struct {
 	location *Location
 }
 
-func NewFileManager(dirName string, fileSize int64) (*FileManager, error) {
+func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManager, error) {
 	fm := &FileManager{
 		fileSize: fileSize,
 	}
 
-	fdSet, err := newFdManager(dirName, int(fileSize), 10)
+	fdSet, err := newFdManager(dirName, int(fileSize), cacheCount)
 	if err != nil {
 		return nil, err
 	}

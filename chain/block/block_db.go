@@ -30,8 +30,8 @@ type SnapshotSegment struct {
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
-	fileSize := int64(20 * 1024 * 1024)
-	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize)
+	fileSize := int64(10 * 1024 * 1024)
+	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize, 10)
 	if err != nil {
 		return nil, err
 	}
