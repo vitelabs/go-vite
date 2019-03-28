@@ -155,6 +155,7 @@ func TestChain(t *testing.T) {
 	t.Run("GetSnapshotBlockByHash", func(t *testing.T) {
 		GetSnapshotBlockByHash(t, chainInstance, snapshotBlockList)
 	})
+
 	t.Run("GetRangeSnapshotHeaders", func(t *testing.T) {
 		GetRangeSnapshotHeaders(t, chainInstance, snapshotBlockList)
 	})
@@ -162,19 +163,20 @@ func TestChain(t *testing.T) {
 	t.Run("GetRangeSnapshotBlocks", func(t *testing.T) {
 		GetRangeSnapshotBlocks(t, chainInstance, snapshotBlockList)
 	})
+
 	t.Run("GetBalance", func(t *testing.T) {
 		GetBalance(t, chainInstance, accounts)
 	})
+
 	t.Run("GetBalanceMap", func(t *testing.T) {
 		GetBalanceMap(t, chainInstance, accounts)
 	})
 
-	fmt.Println("GetAccountBlocks")
-	GetAccountBlocks(t, chainInstance, accounts, addrList)
-	fmt.Println("Complete GetAccountBlocks")
+	t.Run("GetAccountBlocks", func(t *testing.T) {
+		GetAccountBlocks(t, chainInstance, accounts, addrList)
+	})
 
-	fmt.Println("GetAccountBlocksByHeight")
-	GetAccountBlocksByHeight(t, chainInstance, accounts, addrList)
-	fmt.Println("Complete GetAccountBlocksByHeight")
-
+	t.Run("GetAccountBlocksByHeight", func(t *testing.T) {
+		GetAccountBlocksByHeight(t, chainInstance, accounts, addrList)
+	})
 }

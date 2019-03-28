@@ -2,12 +2,13 @@ package chain_block
 
 import (
 	"github.com/golang/snappy"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
 func (bDB *BlockDB) CheckAndRepair() error {
 	latestLocation := bDB.fm.LatestLocation()
-	startLocation := NewLocation(latestLocation.FileId, 0)
+	startLocation := chain_file_manager.NewLocation(latestLocation.FileId, 0)
 	bfp := newBlockFileParser()
 
 	bDB.wg.Add(1)
@@ -47,7 +48,7 @@ func (bDB *BlockDB) CheckAndRepair() error {
 	}
 
 	if currentOffset < latestLocation.Offset {
-		if err := bDB.fm.DeleteTo(NewLocation(startLocation.FileId, currentOffset)); err != nil {
+		if err := bDB.fm.DeleteTo(chain_file_manager.NewLocation(startLocation.FileId, currentOffset)); err != nil {
 			return err
 		}
 	}
@@ -55,6 +56,6 @@ func (bDB *BlockDB) CheckAndRepair() error {
 
 }
 
-func (bDB *BlockDB) DeleteTo(location *Location) error {
+func (bDB *BlockDB) DeleteTo(location *chain_file_manager.Location) error {
 	return bDB.fm.DeleteTo(location)
 }

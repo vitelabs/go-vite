@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/ledger"
 	"path"
 	"sync"
 )
 
 type BlockDB struct {
-	fm *fileManager
+	fm *chain_file_manager.FileManager
 
 	snappyWriteBuffer []byte
 	wg                sync.WaitGroup
@@ -18,23 +19,24 @@ type BlockDB struct {
 
 type SnapshotSegment struct {
 	SnapshotBlock         *ledger.SnapshotBlock
-	SnapshotBlockLocation *Location // optional
+	SnapshotBlockLocation *chain_file_manager.Location // optional
 
 	AccountBlocks         []*ledger.AccountBlock
-	AccountBlocksLocation []*Location // optional
+	AccountBlocksLocation []*chain_file_manager.Location // optional
 
-	RightBoundary *Location // optional
+	RightBoundary *chain_file_manager.Location // optional
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
-	fm, err := newFileManager(path.Join(chainDir, "blocks"))
+	maxFileSize := int64(20 * 1024 * 1024)
+	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), maxFileSize)
 	if err != nil {
 		return nil, err
 	}
 
 	return &BlockDB{
 		fm:                fm,
-		snappyWriteBuffer: make([]byte, 10*1024*1024),
+		snappyWriteBuffer: make([]byte, maxFileSize),
 	}, nil
 }
 
@@ -55,12 +57,12 @@ func (bDB *BlockDB) Destroy() error {
 	return nil
 }
 
-func (bDB *BlockDB) LatestLocation() *Location {
+func (bDB *BlockDB) LatestLocation() *chain_file_manager.Location {
 	return bDB.fm.LatestLocation()
 }
 
-func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
-	accountBlocksLocation := make([]*Location, 0, len(ss.AccountBlocks))
+func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*chain_file_manager.Location, *chain_file_manager.Location, error) {
+	accountBlocksLocation := make([]*chain_file_manager.Location, 0, len(ss.AccountBlocks))
 
 	for _, accountBlock := range ss.AccountBlocks {
 		buf, err := accountBlock.Serialize()
@@ -88,7 +90,7 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*Location, *Location, error) {
 	return accountBlocksLocation, snapshotBlockLocation, nil
 }
 
-func (bDB *BlockDB) Read(location *Location) ([]byte, error) {
+func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) {
 	buf, err := bDB.fm.Read(location)
 	if err != nil {
 		return nil, err
@@ -100,17 +102,27 @@ func (bDB *BlockDB) Read(location *Location) ([]byte, error) {
 	return sBuf, nil
 }
 
-func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*SnapshotSegment, error) {
 	bfp := newBlockFileParser()
 	bDB.wg.Add(1)
 	go func() {
 		defer bDB.wg.Done()
 		bDB.fm.ReadRange(startLocation, endLocation, bfp)
+		if endLocation != nil {
+			buf, err := bDB.fm.Read(endLocation)
+			if err != nil {
+				bfp.WriteError(err)
+				return
+			}
+			bfp.Write(buf, endLocation)
+		}
+		bfp.Close()
 	}()
 
 	var segList []*SnapshotSegment
 	var seg *SnapshotSegment
-	var snappyReadBuffer = make([]byte, 0, 1024*1024) // 1M
+
+	var snappyReadBuffer = make([]byte, 0, 8*1024) // 8KB
 	iterator := bfp.Iterator()
 
 	currentFileId := uint64(0)
@@ -135,7 +147,7 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 			return nil, err
 		}
 
-		location := NewLocation(currentFileId, currentOffset)
+		location := chain_file_manager.NewLocation(currentFileId, currentOffset)
 		if buf.BlockType == BlockTypeSnapshotBlock {
 
 			sb := &ledger.SnapshotBlock{}
@@ -144,7 +156,7 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 			}
 			seg.SnapshotBlock = sb
 			seg.SnapshotBlockLocation = location
-			seg.RightBoundary = NewLocation(currentFileId, currentOffset+buf.Size)
+			seg.RightBoundary = chain_file_manager.NewLocation(currentFileId, currentOffset+buf.Size)
 
 			segList = append(segList, seg)
 
@@ -161,19 +173,19 @@ func (bDB *BlockDB) ReadRange(startLocation *Location, endLocation *Location) ([
 		currentOffset += buf.Size
 	}
 
-	if seg != nil {
-		seg.RightBoundary = NewLocation(currentFileId, currentOffset)
-		segList = append(segList, seg)
-	}
-
 	if err := bfp.Error(); err != nil {
 		return nil, err
+	}
+
+	if seg != nil {
+		seg.RightBoundary = chain_file_manager.NewLocation(currentFileId, currentOffset)
+		segList = append(segList, seg)
 	}
 
 	return segList, nil
 }
 
-func (bDB *BlockDB) Rollback(prevLocation *Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) Rollback(prevLocation *chain_file_manager.Location) ([]*SnapshotSegment, error) {
 
 	// bDB.fm.DeleteAndReadTo(location)
 	bfp := newBlockFileParser()
@@ -182,8 +194,10 @@ func (bDB *BlockDB) Rollback(prevLocation *Location) ([]*SnapshotSegment, error)
 	bDB.wg.Add(1)
 	go func() {
 		defer bDB.wg.Done()
-		bDB.fm.DeleteAndReadTo(prevLocation, bfp)
-		//bDB.fm.ReadRange(prevLocation, location, bfp2)
+		bDB.fm.ReadRange(prevLocation, nil, bfp)
+		bfp.Close()
+
+		bDB.fm.DeleteTo(prevLocation)
 	}()
 
 	var segList []*SnapshotSegment
@@ -229,35 +243,5 @@ func (bDB *BlockDB) Rollback(prevLocation *Location) ([]*SnapshotSegment, error)
 		return nil, err
 	}
 
-	//var accountBlockList []*ledger.AccountBlock
-	//var newLatestSnapshotBlock *ledger.SnapshotBlock
-	//iterator2 := bfp2.Iterator()
-	//
-	//for buf := range iterator2 {
-	//	sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
-	//	if err != nil {
-	//		return nil, nil, err
-	//	}
-	//
-	//	if buf.BlockType == BlockTypeSnapshotBlock {
-	//		sb := &ledger.SnapshotBlock{}
-	//		if err := sb.Deserialize(sBuf); err != nil {
-	//			return nil, nil, nil, err
-	//		}
-	//		newLatestSnapshotBlock = sb
-	//
-	//	} else if buf.BlockType == BlockTypeAccountBlock {
-	//
-	//		ab := &ledger.AccountBlock{}
-	//		if err := ab.Deserialize(sBuf); err != nil {
-	//			return nil, nil, nil, err
-	//		}
-	//		accountBlockList = append(accountBlockList, ab)
-	//	}
-	//}
-	//
-	//if err := bfp2.Error(); err != nil {
-	//	return nil, nil, nil, err
-	//}
 	return segList, nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"go.uber.org/atomic"
@@ -31,13 +32,19 @@ type ContractWorker struct {
 	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []types.Address
+
+	contractAddressList []types.Address
+
+	blackList      map[types.Address]bool
+	blackListMutex sync.RWMutex
+
+	workingAddrList      map[types.Address]bool
+	workingAddrListMutex sync.RWMutex
 
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	blackList      map[types.Address]bool
-	blackListMutex sync.RWMutex
+	selectivePendingCache map[types.Address]*callerPendingMap
 
 	log log15.Logger
 }
@@ -50,8 +57,11 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList: make(map[types.Address]bool),
-		log:       slog.New("worker", "c"),
+		blackList:             make(map[types.Address]bool),
+		workingAddrList:       make(map[types.Address]bool),
+		selectivePendingCache: make(map[types.Address]*callerPendingMap),
+
+		log: slog.New("worker", "c"),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
@@ -144,8 +154,9 @@ func (w *ContractWorker) Stop() {
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
-		//w.uBlocksPool.DeleteContractCache(w.gid)
+		w.clearSelectiveBlocksCache()
 		w.clearContractBlackList()
+		w.clearWorkingAddrList()
 
 		w.log.Info("stop all task")
 		w.wg.Wait()
@@ -153,6 +164,17 @@ func (w *ContractWorker) Stop() {
 		w.status = Stop
 	}
 	w.log.Info("stopped")
+}
+
+func (w *ContractWorker) Close() error {
+	w.Stop()
+	return nil
+}
+
+func (w ContractWorker) Status() int {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+	return w.status
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
@@ -198,6 +220,30 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
+func (w *ContractWorker) clearWorkingAddrList() {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	w.workingAddrList = make(map[types.Address]bool)
+}
+
+// Don't deal with it for this around of blocks-generating period
+func (w *ContractWorker) addContractIntoWorkingList(addr types.Address) bool {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	result, ok := w.workingAddrList[addr]
+	if result && ok {
+		return false
+	}
+	w.workingAddrList[addr] = true
+	return true
+}
+
+func (w *ContractWorker) removeContractFromWorkingList(addr types.Address) {
+	w.workingAddrListMutex.RLock()
+	defer w.workingAddrListMutex.RUnlock()
+	w.workingAddrList[addr] = false
+}
+
 func (w *ContractWorker) clearContractBlackList() {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
@@ -209,7 +255,7 @@ func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
-	//w.uBlocksPool.ReleaseContractCache(addr)
+	delete(w.selectivePendingCache, addr)
 }
 
 func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
@@ -222,15 +268,72 @@ func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 	return ok
 }
 
-func (w *ContractWorker) Close() error {
-	w.Stop()
+func (w *ContractWorker) clearSelectiveBlocksCache() {
+	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
+}
+
+func (w *ContractWorker) getPendingOnroadBlock(contractAddr *types.Address) *ledger.AccountBlock {
+	if pendingCache, ok := w.selectivePendingCache[*contractAddr]; ok && pendingCache != nil {
+		return pendingCache.getPendingOnroad()
+	}
 	return nil
 }
 
-func (w ContractWorker) Status() int {
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-	return w.status
+func (w *ContractWorker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
+		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
+		if success && pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
+			pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
+		}
+	}
+}
+
+func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) {
+	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
+		var pageNum uint8 = 0
+		for pendingMap.isPendingMapNotSufficient() {
+			pageNum++
+			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum)-1, uint64(DefaultPullCount))
+			if blocks == nil {
+				break
+			}
+			for _, v := range blocks {
+				if !pendingMap.existInInferiorList(v.AccountAddress) {
+					pendingMap.addPendingMap(v)
+				}
+			}
+		}
+	} else {
+		callerMap := newCallerPendingMap()
+		blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, 0, uint64(DefaultPullCount))
+		if blocks == nil {
+			return
+		}
+		for _, v := range blocks {
+			callerMap.addPendingMap(v)
+		}
+		w.selectivePendingCache[*contractAddr] = callerMap
+	}
+}
+
+func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		pendingCache.addCallerIntoInferiorList(*caller, state)
+	}
+}
+
+func (w *ContractWorker) isContractCallerInferiorRetry(contract, caller *types.Address) bool {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		return pendingCache.isInferiorStateRetry(*caller)
+	}
+	return false
+}
+
+func (w *ContractWorker) isContractCallerInferiorOut(contract, caller *types.Address) bool {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		return pendingCache.isInferiorStateOut(*caller)
+	}
+	return false
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
@@ -274,7 +377,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	return quotas
 }
 
-func (w *ContractWorker) VerifierConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
+func (w *ContractWorker) VerifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
 	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
 	if err != nil {
 		return err

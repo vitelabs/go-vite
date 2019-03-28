@@ -222,6 +222,7 @@ type Chain interface {
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
+	GetSyncCache() interfaces.SyncCache
 	// TODO insert syncCache ledger
 	// TODO query syncCache state
 

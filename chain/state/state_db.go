@@ -6,7 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/dbutils"
@@ -84,7 +84,7 @@ func (sDB *StateDB) hasValue(key []byte) (bool, error) {
 	return sDB.db.Has(key, nil)
 }
 
-func (sDB *StateDB) QueryLatestLocation() (*chain_block.Location, error) {
+func (sDB *StateDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
 	value, err := sDB.GetValue(chain_utils.CreateStateDbLocationKey())
 	if err != nil {
 		return nil, err

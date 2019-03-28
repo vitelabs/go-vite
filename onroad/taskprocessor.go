@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -17,17 +16,13 @@ type ContractTaskProcessor struct {
 	taskId int
 	worker *ContractWorker
 
-	currentTaskAddr *types.Address
-	pendingMap      *callerPendingMap
-
 	log log15.Logger
 }
 
 func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	return &ContractTaskProcessor{
-		taskId:     index,
-		worker:     worker,
-		pendingMap: newCallerPendingMap(),
+		taskId: index,
+		worker: worker,
 
 		log: slog.New("tp", index),
 	}
@@ -46,15 +41,17 @@ func (tp *ContractTaskProcessor) work() {
 		}
 		tp.log.Debug("pre popContractTask")
 		task := tp.worker.popContractTask()
-		if tp.currentTaskAddr == nil || *tp.currentTaskAddr != task.Addr {
-			tp.ResetPendingMap()
-		}
+
 		tp.log.Debug("after popContractTask")
 
 		if task != nil {
-			// tp.worker.uBlocksPool.AcquireOnroadSortedContractCache(task.Addr)
+			if result := tp.worker.addContractIntoWorkingList(task.Addr); !result {
+				continue
+			}
+			tp.worker.acquireNewOnroadBlocks(&task.Addr)
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
+			tp.worker.removeContractFromWorkingList(task.Addr)
 			tp.log.Debug("after processOneAddress " + task.Addr.String())
 			continue
 		}
@@ -65,7 +62,6 @@ func (tp *ContractTaskProcessor) work() {
 		}
 		tp.worker.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskId*2+500))
 	}
-	tp.ClearPendingMap()
 	tp.log.Info("work end t")
 }
 
@@ -74,18 +70,19 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
-	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
+	plog := tp.log.New("method", "processOneAddress", "contract", task.Addr, "quota", task.Quota)
 
-	//sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
-	sBlock := tp.acquireNewOnroad(&task.Addr)
+	sBlock := tp.worker.getPendingOnroadBlock(&task.Addr)
 	if sBlock == nil {
 		return
 	}
-	plog.Info(fmt.Sprintf("onroad processing: addr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
+	//fixme checkReceivedSuccess??
+
+	plog.Info(fmt.Sprintf("onroad processing(caller:%v, height:%v, hash:%v)", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
 	// fixme: check confirmedTimes, consider sb trigger
-	if err := tp.worker.VerifierConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
-		plog.Info(fmt.Sprintf("VerifierConfirmedTimes failed, err%v:", err))
-		tp.pendingMap.addCallerIntoRetryList(&sBlock.AccountAddress)
+	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
+		plog.Error(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
+		tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return
 	}
 	randomSeedStates, err := tp.worker.manager.Chain().GetRandomGlobalStatus(&task.Addr, &sBlock.Hash)
@@ -128,19 +125,20 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	if genResult.VmBlock != nil {
 		if err := tp.worker.manager.insertBlockToPool(genResult.VmBlock); err != nil {
 			plog.Error(fmt.Sprintf("insertContractBlocksToPool, err:%v", err))
-			// fixme @shan consider the err situation
-			tp.pendingMap.addCallerIntoBlackList(&sBlock.AccountAddress)
+			tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, OUT)
 			return
 		}
-		tp.succeedHandleOnroad(genResult.VmBlock.AccountBlock)
+		// succeed in handling a onroad block, if it's a inferior-caller,than set it free.
+		tp.worker.deletePendingOnroadBlock(&task.Addr, genResult.VmBlock.AccountBlock)
+
 		if genResult.IsRetry {
-			plog.Error("impossible situation: block and retry")
+			plog.Error("impossible situation: vmBlock and vmRetry")
 			tp.worker.addContractIntoBlackList(task.Addr)
 			return
 		}
 	} else {
 		if genResult.IsRetry {
-			// retry it in next turn
+			// vmRetry it in next turn
 			plog.Info("genResult.IsRetry true")
 			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
 				q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
@@ -149,7 +147,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 					return
 				}
 				if q == nil {
-					plog.Error("pledge quota is nil, failed to judge next round")
+					plog.Error("pledge quota is nil, to judge it in next round")
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return
 				}
@@ -160,7 +158,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 				}
 			}
 		} else {
-			// no block no retry in condition that fail to create contract
+			// no vmBlock no vmRetry in condition that fail to create contract
 			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
 				plog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
 				tp.worker.addContractIntoBlackList(task.Addr)
@@ -168,34 +166,4 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 			}
 		}
 	}
-}
-
-func (tp *ContractTaskProcessor) acquireNewOnroad(contractAddr *types.Address) *ledger.AccountBlock {
-	var pageNum uint8 = 1
-	for tp.pendingMap.isPendingMapNotSufficient() {
-		blocks, _ := tp.worker.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum), uint64(DefaultPullCount))
-		if blocks == nil {
-			break
-		}
-		for _, v := range blocks {
-			if !tp.pendingMap.existInInferiorList(&v.AccountAddress) {
-				tp.pendingMap.addPendingMap(v)
-			}
-		}
-		pageNum++
-	}
-	return tp.pendingMap.getPendingOnroad()
-}
-
-func (tp *ContractTaskProcessor) succeedHandleOnroad(sendBlock *ledger.AccountBlock) {
-	tp.pendingMap.deletePendingMap(&sendBlock.AccountAddress, &sendBlock.Hash)
-}
-
-func (tp *ContractTaskProcessor) ResetPendingMap() {
-	tp.pendingMap = newCallerPendingMap()
-}
-
-func (tp *ContractTaskProcessor) ClearPendingMap() {
-	tp.pendingMap = nil
-	tp.currentTaskAddr = nil
 }
