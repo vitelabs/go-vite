@@ -273,11 +273,11 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
 		return math.MaxUint64
 	}
-	if latestSb := w.manager.chain.GetLatestSnapshotBlock(); latestSb != nil {
-		w.log.Info("latestSb(%v %v) at newSignal, currentSb %v", latestSb.Height, latestSb.Hash, w.currentSnapshotHash)
-	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
 	if err != nil {
+		if latestSb := w.manager.chain.GetLatestSnapshotBlock(); latestSb != nil {
+			w.log.Info("latestSb(%v %v) at newSignal, currentSb %v", latestSb.Height, latestSb.Hash, w.currentSnapshotHash)
+		}
 		w.log.Error(fmt.Sprintf("GetPledgeQuota err:%v,sbHash:%v,contract:%v", err, w.currentSnapshotHash, addr))
 	}
 	return quota

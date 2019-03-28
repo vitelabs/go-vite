@@ -78,17 +78,17 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
-	plog := tp.log.New("processAddr", task.Addr, "quota", fmt.Sprintf("(remain:%v,sbHash:%v)", task.Quota, tp.worker.currentSnapshotHash))
 
 	sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
 	if sBlock == nil {
 		return
 	}
-	blog := plog.New("caller", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
+	plog := tp.log.New("processAddr", task.Addr, "remainQuota", task.Quota, "sbHash", tp.worker.currentSnapshotHash)
 	if latestBlock, _ := tp.worker.manager.Chain().GetLatestAccountBlock(&task.Addr); latestBlock != nil {
-		blog.Info(fmt.Sprintf("contract-prev(hash=%v,height=%v,sbHash:%v)", latestBlock.Hash, latestBlock.Height, latestBlock.SnapshotHash))
+		plog.Info(fmt.Sprintf("contract-prev: hash=%v,height=%v,sbHash:%v", latestBlock.Hash, latestBlock.Height, latestBlock.SnapshotHash))
 	}
 
+	blog := plog.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress)
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		blog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
@@ -126,7 +126,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		blog.Info("packConsensusMessage failed", "error", err)
 		return
 	}
-	blog.Info("fittestSbHash:%v", consensusMessage.SnapshotHash)
+	blog.Info(fmt.Sprintf("fittestSbHash:%v", consensusMessage.SnapshotHash))
 	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &consensusMessage.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
 		blog.Error("NewGenerator failed", "error", err)
