@@ -7,11 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
@@ -48,6 +49,8 @@ const minHeightDifference = 3600
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 3
 const chainGrowInterval = time.Second
+const maxDownloadTask = 24 * 7 // one week
+const downloadTaskSize = 3600
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
@@ -57,25 +60,38 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
-type fileRecord struct {
-	File
-	add bool
+func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
+	// chunks may be only one block, then from == to
+	if from > to || to == 0 {
+		return
+	}
+
+	total := (to-from)/chunk + 1
+	chunks = make([][2]uint64, total)
+
+	var cTo uint64
+	var i int
+	for from <= to {
+		if cTo = from + chunk - 1; cTo > to {
+			cTo = to
+		}
+
+		chunks[i] = [2]uint64{from, cTo}
+
+		from = cTo + 1
+		i++
+	}
+
+	return chunks[:i]
 }
 
 type syncer struct {
 	from, to uint64
 	current  uint64 // current height
-	aCount   uint64 // count of snapshot blocks have downloaded
-	sCount   uint64 // count of account blocks have download
 
 	state SyncState
 
 	peers *peerSet
-
-	pending   int // pending count of FileList msg
-	responsed int // number of FileList msg received
-	mu        sync.Mutex
-	fileMap   map[filename]*fileRecord
 
 	// query current block and height
 	chain Chain
@@ -88,13 +104,15 @@ type syncer struct {
 	notifier blockNotifier
 
 	// for sync tasks
-	fc   *fileClient
-	pool *chunkPool
+	downloader chunkDownloader
+
 	exec syncTaskExecutor
 
 	// for subscribe
 	curSubId int
 	subs     map[int]SyncStateCallback
+
+	mu sync.Mutex
 
 	running int32
 	term    chan struct{}
@@ -108,7 +126,6 @@ func (s *syncer) receiveAccountBlock(block *ledger.AccountBlock) error {
 	}
 
 	s.notifier.notifyAccountBlock(block, types.RemoteSync)
-	atomic.AddUint64(&s.aCount, 1)
 	return nil
 }
 
@@ -119,29 +136,23 @@ func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) error {
 	}
 
 	s.notifier.notifySnapshotBlock(block, types.RemoteSync)
-	atomic.AddUint64(&s.sCount, 1)
 	return nil
 }
 
-func newSyncer(chain Chain, peers *peerSet, verifier Verifier, gid MsgIder, notifier blockNotifier) *syncer {
+func newSyncer(chain Chain, peers *peerSet, verifier Verifier, downloader chunkDownloader, notifier blockNotifier) *syncer {
 	s := &syncer{
-		state:     SyncNotStart,
-		chain:     chain,
-		peers:     peers,
-		fileMap:   make(map[filename]*fileRecord),
-		eventChan: make(chan peerEvent, 1),
-		verifier:  verifier,
-		notifier:  notifier,
-		subs:      make(map[int]SyncStateCallback),
-		log:       log15.New("module", "net/syncer"),
+		state:      SyncNotStart,
+		chain:      chain,
+		peers:      peers,
+		eventChan:  make(chan peerEvent, 1),
+		downloader: downloader,
+		verifier:   verifier,
+		notifier:   notifier,
+		subs:       make(map[int]SyncStateCallback),
+		log:        log15.New("module", "net/syncer"),
 	}
 
-	pool := newChunkPool(peers, gid, s)
-	fc := newFileClient(chain, s, peers)
 	s.exec = newExecutor(s)
-
-	s.pool = pool
-	s.fc = fc
 
 	return s
 }
@@ -188,22 +199,9 @@ func (s *syncer) Stop() {
 		default:
 			close(s.term)
 			s.exec.terminate()
-			s.pool.stop()
-			s.fc.stop()
-			s.clear()
 			s.peers.UnSub(s.eventChan)
 		}
 	}
-}
-
-func (s *syncer) clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.aCount = 0
-	s.sCount = 0
-	s.pending = 0
-	s.fileMap = make(map[filename]*fileRecord)
 }
 
 func (s *syncer) Start() {
@@ -238,6 +236,7 @@ wait:
 
 	start.Stop()
 
+PREPARE:
 	// for now syncState is SyncNotStart
 	syncPeer := s.peers.SyncPeer()
 	if syncPeer == nil {
@@ -253,11 +252,17 @@ wait:
 	// p is not all enough, no need to sync
 	if current.Height+minHeightDifference > syncPeerHeight {
 		if current.Height < syncPeerHeight {
-			syncPeer.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
+			err := syncPeer.Send(GetSnapshotBlocksCode, 0, &message.GetSnapshotBlocks{
 				From:    ledger.HashHeight{Height: syncPeerHeight},
 				Count:   1,
 				Forward: true,
 			})
+
+			if err != nil {
+				syncPeer.Report(err)
+
+				goto PREPARE
+			}
 		}
 
 		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.RemoteAddr(), syncPeerHeight, current.Height))
@@ -270,7 +275,7 @@ wait:
 	s.to = syncPeerHeight
 	s.current = current.Height
 	s.setState(Syncing)
-	s.getSubLedgerFromAll()
+	s.downloadLedger(s.from, s.to)
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -279,31 +284,22 @@ wait:
 
 	for {
 		select {
-		case e := <-s.eventChan:
-			if e.code == delPeer {
-				// chain taller peer is disconnected, maybe is the peer we syncing to
-				// because peer`s height is growing
-				if e.peer.Height() >= s.to {
-					if syncPeer = s.peers.SyncPeer(); syncPeer != nil {
-						syncPeerHeight = syncPeer.Height()
-						if shouldSync(current.Height, syncPeerHeight) {
-							s.setTarget(syncPeerHeight)
-						} else {
-							// no need sync
-							s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", syncPeer, syncPeerHeight, current.Height))
-							s.setState(Syncdone)
-							return
-						}
-					} else {
-						// have no peers
-						s.log.Error("sync error: no peers")
-						s.setState(Syncerr)
-						// no peers, then quit
-						return
-					}
+		case <-s.eventChan:
+			if syncPeer = s.peers.SyncPeer(); syncPeer != nil {
+				syncPeerHeight = syncPeer.Height()
+				if shouldSync(current.Height, syncPeerHeight) {
+					s.setTarget(syncPeerHeight)
+				} else {
+					// no need sync
+					s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", syncPeer, syncPeerHeight, current.Height))
+					s.setState(Syncdone)
+					return
 				}
-			} else if shouldSync(current.Height, e.peer.Height()) {
-				s.getSubLedgerFrom(e.peer)
+			} else {
+				s.log.Error("sync error: no peers")
+				s.setState(Syncerr)
+				// no peers, then quit
+				return
 			}
 
 		case now := <-checkChainTicker.C:
@@ -338,145 +334,77 @@ func (s *syncer) setTarget(to uint64) {
 	atomic.StoreUint64(&s.to, to)
 }
 
-func (s *syncer) getSubLedgerFromAll() {
-	l := s.peers.Pick(s.from + 1)
+func (s *syncer) readCacheLoop() {
+	for {
+		if s.state == Syncdone {
+			return
+		}
 
-	s.mu.Lock()
-	s.pending = len(l)
-	s.mu.Unlock()
+		cacher := s.chain.GetSyncCache()
+		cs := cacher.Chunks()
 
-	for _, p := range l {
-		s.getSubLedgerFrom(p)
-	}
-}
-
-func (s *syncer) getSubLedgerFrom(p Peer) {
-	from, to := s.from, s.to
-	pTo := p.Height()
-	if pTo > to {
-		pTo = to
-	}
-
-	msg := &message.GetSubLedger{
-		From:    ledger.HashHeight{Height: from},
-		Count:   pTo - from + 1,
-		Forward: true,
-	}
-
-	if err := p.Send(GetSubLedgerCode, 0, msg); err != nil {
-		p.Report(err)
-		return
-	} else {
-		s.log.Info(fmt.Sprintf("get subledger from %d to %d to %s at %d", from, pTo, p.RemoteAddr(), p.Height()))
-	}
-}
-
-func (s *syncer) receiveFileList(msg *message.FileList) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, file := range msg.Files {
-		if _, ok := s.fileMap[file.Filename]; ok {
+		if len(cs) == 0 {
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		s.fileMap[file.Filename] = &fileRecord{file, false}
-	}
+		sort.Sort(cs)
 
-	s.responsed++
-
-	if s.responsed*2 > s.pending || s.responsed > 3 {
-		// prepare tasks
-		if len(s.fileMap) > 0 {
-			s.fc.start()
-
-			// has new file to download
-			files := make(Files, len(s.fileMap))
-			i := 0
-			for _, r := range s.fileMap {
-				if !r.add {
-					files[i] = r.File
-					i++
-					r.add = true
+		var err error
+		var reader interfaces.ReadCloser
+		for _, c := range cs {
+			if c[1] > s.current && c[1] < s.current+downloadTaskSize {
+				reader, err = cacher.NewReader(c[0], c[1])
+				if err != nil {
+					panic(err)
 				}
-			}
 
-			if files = files[:i]; len(files) > 0 {
-				sort.Sort(files)
-				start := files[0].StartHeight
-
-				// delete following tasks
-				start = s.exec.deleteFrom(start)
-
-				// add new tasks
-				for _, file := range files {
-					if file.EndHeight >= start {
-						s.exec.add(&syncTask{
-							task: &fileTask{
-								file:       file,
-								downloader: s.fc,
-							},
-							typ: syncFileTask,
-						})
+				for {
+					var ab *ledger.AccountBlock
+					var sb *ledger.SnapshotBlock
+					ab, sb, err = reader.Read()
+					if err != nil {
+						s.log.Error(fmt.Sprintf("read chunk %d-%d from cache error: %v", c[0], c[1], err))
+						break
+					} else if ab != nil {
+						err = s.receiveAccountBlock(ab)
+						if err != nil {
+							s.log.Error(fmt.Sprintf("handle account block %s from cache error: %v", ab.Hash, err))
+						}
+						break
+					} else if sb != nil {
+						err = s.receiveSnapshotBlock(sb)
+						if err != nil {
+							s.log.Error(fmt.Sprintf("handle snapshot block %s from cache error: %v", sb.Hash, err))
+						}
+						break
 					}
 				}
-			}
-		} else {
-			to, _ := s.exec.end()
-			// no tasks, then use chunk
-			if to == 0 {
-				s.pool.start()
 
-				cks := splitChunk(s.from, s.to, 3600)
-				for _, ck := range cks {
-					s.exec.add(&syncTask{
-						task: &chunkTask{
-							from:       ck[0],
-							to:         ck[1],
-							downloader: s.pool,
-						},
-						typ: syncChunkTask,
-					})
-				}
+				_ = reader.Close()
 			}
 		}
 	}
 }
 
-func (s *syncer) ID() string {
-	return "syncer"
-}
-
-func (s *syncer) Cmds() []ViteCmd {
-	return []ViteCmd{FileListCode, SubLedgerCode}
-}
-
-func (s *syncer) Handle(msg *p2p.Msg, sender Peer) (err error) {
-	switch ViteCmd(msg.Cmd) {
-	case FileListCode:
-		res := new(message.FileList)
-		if err = res.Deserialize(msg.Payload); err != nil {
-			return err
-		}
-
-		s.log.Info(fmt.Sprintf("receive %s from %s", res, sender.RemoteAddr()))
-
-		if len(res.Files) > 0 {
-			names := make([]filename, len(res.Files))
-			for i, file := range res.Files {
-				names[i] = file.Filename
-			}
-			s.fc.addFilePeer(names, sender)
-		}
-
-		s.receiveFileList(res)
-
-	case SubLedgerCode:
-		s.log.Info(fmt.Sprintf("receive %s from %s", SubLedgerCode, sender.RemoteAddr()))
-		return s.pool.Handle(msg, sender)
+func (s *syncer) downloadLedger(from, to uint64) {
+	to2 := from + maxDownloadTask*downloadTaskSize - 1
+	if to2 > to {
+		to2 = to
 	}
 
-	return nil
+	cs := splitChunk(from, to2, downloadTaskSize)
+
+	for _, c := range cs {
+		s.exec.add(&syncTask{
+			task: &chunkTask{
+				from:       c[0],
+				to:         c[1],
+				downloader: s.downloader,
+			},
+			typ: syncChunkTask,
+		})
+	}
 }
 
 func (s *syncer) taskDone(t *syncTask, err error) {
@@ -506,20 +434,8 @@ func (s *syncer) allTaskDone(last *syncTask) {
 		return
 	}
 
-	// use chunk
-	cks := splitChunk(to+1, target, 3600)
-	for _, ck := range cks {
-		s.exec.add(&syncTask{
-			task: &chunkTask{
-				from:       ck[0],
-				to:         ck[1],
-				downloader: s.pool,
-			},
-			typ: syncChunkTask,
-		})
-	}
-
-	s.pool.start()
+	// download next batch
+	s.downloadLedger(to+1, s.to)
 }
 
 type SyncStatus struct {
@@ -534,26 +450,21 @@ func (s *syncer) Status() SyncStatus {
 	current := s.chain.GetLatestSnapshotBlock()
 
 	return SyncStatus{
-		From:     s.from,
-		To:       s.to,
-		Current:  current.Height,
-		Received: s.sCount,
-		State:    s.state,
+		From:    s.from,
+		To:      s.to,
+		Current: current.Height,
+		State:   s.state,
 	}
 }
 
 type SyncDetail struct {
 	SyncStatus
 	ExecutorStatus
-	FileClientStatus
-	ChunkPoolStatus
 }
 
 func (s *syncer) Detail() SyncDetail {
 	return SyncDetail{
-		SyncStatus:       s.Status(),
-		ExecutorStatus:   s.exec.status(),
-		FileClientStatus: s.fc.status(),
-		ChunkPoolStatus:  s.pool.status(),
+		SyncStatus:     s.Status(),
+		ExecutorStatus: s.exec.status(),
 	}
 }
