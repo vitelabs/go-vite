@@ -171,7 +171,8 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 
 		for _, name := range req.Names {
 			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-			reader, err := s.chain.Compressor().FileReader(name)
+			// todo
+			reader, err := s.chain.GetLedgerReaderByHeight(1, 10)
 			if err != nil {
 				s.log.Error(fmt.Sprintf("read file %s to %s error: %v", name, conn.RemoteAddr(), err))
 				return

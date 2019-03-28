@@ -136,10 +136,10 @@ func newQueryHandler(chain Chain) *queryHandler {
 		queue:    list.New(),
 	}
 
-	q.addHandler(&getSubLedgerHandler{chain})
+	//q.addHandler(&getSubLedgerHandler{chain})
 	q.addHandler(&getSnapshotBlocksHandler{chain})
 	q.addHandler(&getAccountBlocksHandler{chain})
-	q.addHandler(&getChunkHandler{chain})
+	//q.addHandler(&getChunkHandler{chain})
 
 	return q
 }
@@ -356,9 +356,9 @@ func splitFiles(fs []*ledger.CompressedFileMeta, batch int) (fss [][]*ledger.Com
 type getSnapshotBlocksHandler struct {
 	chain interface {
 		GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-		GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
-		GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
-		GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
+		GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+		GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+		GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
 	}
 }
 
@@ -383,7 +383,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 
 	var block *ledger.SnapshotBlock
 	if req.From.Hash != types.ZERO_HASH {
-		block, err = s.chain.GetSnapshotBlockByHash(&req.From.Hash)
+		block, err = s.chain.GetSnapshotBlockByHash(req.From.Hash)
 	} else {
 		block, err = s.chain.GetSnapshotBlockByHeight(req.From.Height)
 	}
@@ -410,7 +410,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 
 	var blocks []*ledger.SnapshotBlock
 	for _, c := range chunks {
-		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], c[1]-c[0]+1, true, true)
+		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], true, c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetSnapshotBlocks_Fail")
@@ -432,10 +432,10 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 // @section get account blocks
 type getAccountBlocksHandler struct {
 	chain interface {
-		GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-		GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
-		GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-		GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
+		GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
+		GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+		GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
+		GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 	}
 }
 
@@ -464,13 +464,13 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 	var block *ledger.AccountBlock
 	if req.From.Hash != types.ZERO_HASH {
 		// only need hash
-		block, err = a.chain.GetAccountBlockByHash(&req.From.Hash)
+		block, err = a.chain.GetAccountBlockByHash(req.From.Hash)
 	} else if req.Address == NULL_ADDRESS {
 		// missing start hash and address, so we can`t handle it
 		return errGetABlocksMissingParam
 	} else {
 		// address and height
-		block, err = a.chain.GetAccountBlockByHeight(&req.Address, req.From.Height)
+		block, err = a.chain.GetAccountBlockByHeight(req.Address, req.From.Height)
 	}
 
 	if err != nil || block == nil {
@@ -499,7 +499,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 
 	var blocks []*ledger.AccountBlock
 	for _, c := range chunks {
-		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[0], c[1]-c[0]+1, true)
+		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[0], c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.RemoteAddr(), err))
 			monitor.LogEvent("net/handle", "GetAccountBlocks_Fail")

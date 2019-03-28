@@ -661,7 +661,8 @@ func (fc *fileClient) createConn(p *filePeer) (c *fileConn, err error) {
 		return nil, err
 	}
 
-	c = newFileConn(tcp, p.id, fc.chain.Compressor(), fc.log)
+	// todo
+	c = newFileConn(tcp, p.id, nil, fc.log)
 
 	err = fc.pool.addConn(c)
 	if err != nil {

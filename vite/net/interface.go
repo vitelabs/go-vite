@@ -2,34 +2,28 @@ package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/compress"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
 )
 
 type Chain interface {
-	GetSubLedgerByHeight(start, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64)
-	GetSubLedgerByHash(origin *types.Hash, count uint64, forward bool) ([]*ledger.CompressedFileMeta, [][2]uint64, error)
-
-	GetConfirmSubLedger(start, end uint64) ([]*ledger.SnapshotBlock, map[types.Address][]*ledger.AccountBlock, error)
-
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
 
-	GetSnapshotBlocksByHash(origin *types.Hash, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
-	GetSnapshotBlocksByHeight(height, count uint64, forward, content bool) ([]*ledger.SnapshotBlock, error)
-
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-	GetAccountBlockByHeight(addr *types.Address, height uint64) (*ledger.AccountBlock, error)
-
-	GetAccountBlocksByHash(addr types.Address, origin *types.Hash, count uint64, forward bool) ([]*ledger.AccountBlock, error)
-	GetAccountBlocksByHeight(addr types.Address, start, count uint64, forward bool) ([]*ledger.AccountBlock, error)
+	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+	GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
+	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	// Compressor could compress/uncompress chain file
-	Compressor() *compress.Compressor
+	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
+
+	GetSyncCache() interfaces.SyncCache
 }
 
 type Verifier interface {
