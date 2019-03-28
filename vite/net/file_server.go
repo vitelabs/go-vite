@@ -148,7 +148,6 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 	defer s.deleteConn(conn)
 
 	for {
-		//conn.SetReadDeadline(time.Now().Add(fReadTimeout))
 		msg, err := p2p.ReadMsg(conn)
 		if err != nil {
 			s.log.Warn(fmt.Sprintf("read message from %s error: %v", conn.RemoteAddr(), err))
@@ -156,12 +155,12 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 		}
 
 		code := ViteCmd(msg.Cmd)
-		if code != GetFilesCode {
-			s.log.Error(fmt.Sprintf("got %d, need %d", code, GetFilesCode))
+		if code != GetChunkCode {
+			s.log.Error(fmt.Sprintf("message code is %d but not %d", code, GetChunkCode))
 			return
 		}
 
-		req := new(message.GetFiles)
+		req := new(message.GetChunk)
 		if err = req.Deserialize(msg.Payload); err != nil {
 			s.log.Error(fmt.Sprintf("parse message %s from %s error: %v", code, conn.RemoteAddr(), err))
 			return
@@ -169,23 +168,19 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 
 		s.log.Info(fmt.Sprintf("receive %s from %s", req, conn.RemoteAddr()))
 
-		for _, name := range req.Names {
-			conn.SetWriteDeadline(time.Now().Add(fileTimeout))
-			// todo
-			reader, err := s.chain.GetLedgerReaderByHeight(1, 10)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("read file %s to %s error: %v", name, conn.RemoteAddr(), err))
-				return
-			}
+		reader, err := s.chain.GetLedgerReaderByHeight(req.Start, req.End)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("read chunk %d-%d error: %v", req.Start, req.End, err))
+		}
 
-			_, err = io.Copy(conn, reader)
+		_, err = io.Copy(conn, reader)
+		_ = reader.Close()
 
-			if err != nil {
-				s.log.Error(fmt.Sprintf("send file<%s> to %s error: %v", name, conn.RemoteAddr(), err))
-				return
-			} else {
-				s.log.Info(fmt.Sprintf("send file<%s> to %s done", name, conn.RemoteAddr()))
-			}
+		if err != nil {
+			s.log.Error(fmt.Sprintf("send chunk<%d-%d> to %s error: %v", req.Start, req.End, conn.RemoteAddr(), err))
+			return
+		} else {
+			s.log.Info(fmt.Sprintf("send chunk<%d-%d> to %s done", req.Start, req.End, conn.RemoteAddr()))
 		}
 	}
 }
