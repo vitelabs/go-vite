@@ -144,6 +144,12 @@ type Chain interface {
 	// contains the snapshot block that has the blockHash
 	GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
 
+	// contains the snapshot block that has the blockHash
+	GetSnapshotHeadersByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+
+	// contains the snapshot block that has the blockHash
+	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+
 	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetConfirmSnapshotBlockByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error)
@@ -155,6 +161,8 @@ type Chain interface {
 	GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error)
 
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
+
+	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 
 	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
@@ -223,8 +231,6 @@ type Chain interface {
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
 	GetSyncCache() interfaces.SyncCache
-	// TODO insert syncCache ledger
-	// TODO query syncCache state
 
 	// ====== OnRoad ======
 	HasOnRoadBlocks(address types.Address) (bool, error)
@@ -233,5 +239,4 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 }
