@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/consensus_db"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -44,11 +45,11 @@ type chainRw struct {
 	genesisTime time.Time
 	rw          ch
 
-	hourPoints   PointLinkedArray
-	dayPoints    PointLinkedArray
-	periodPoints PointLinkedArray
+	//hourPoints   PointLinkedArray
+	//dayPoints    PointLinkedArray
+	periodPoints *periodLinkedArray
 
-	dbCache  *DbCache
+	dbCache  *consensus_db.ConsensusDB
 	lruCache *lru.Cache
 
 	log log15.Logger
@@ -57,14 +58,13 @@ type chainRw struct {
 func newChainRw(rw ch, log log15.Logger) *chainRw {
 	self := &chainRw{rw: rw}
 
-	self.periodPoints = newPeriodPointArray(rw)
 	self.genesisTime = *rw.GetGenesisSnapshotBlock().Timestamp
 
 	db, err := rw.NewDb("consensus")
 	if err != nil {
 		panic(err)
 	}
-	self.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
+	self.dbCache = consensus_db.NewConsensusDB(db)
 	cache, err := lru.New(1024 * 10)
 	if err != nil {
 		panic(err)
@@ -73,6 +73,10 @@ func newChainRw(rw ch, log log15.Logger) *chainRw {
 	self.log = log
 	return self
 
+}
+
+func (self *chainRw) initArray(cs *snapshotCs) {
+	self.periodPoints = newPeriodPointArray(self.rw, cs)
 }
 
 type VoteDetails struct {
@@ -248,7 +252,7 @@ func (self *chainRw) getSeed(top *ledger.SnapshotBlock, prev *ledger.SnapshotBlo
 // an hour = 48 * period
 func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
 	result := make(map[types.Address]int32)
-	hourInfos := NewSBPInfos()
+	hourInfos := make(map[types.Address]*consensus_db.Content)
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break
@@ -258,10 +262,14 @@ func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32
 		if err != nil {
 			return nil, err
 		}
-		point := p.(*periodPoint)
-		infos := point.GetSBPInfos()
+		infos := p.Sbps
 		for k, v := range infos {
-			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+			c, ok := hourInfos[k]
+			if !ok {
+				hourInfos[k] = v.Copy()
+			} else {
+				c.Merge(v)
+			}
 		}
 	}
 
@@ -272,8 +280,8 @@ func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32
 }
 
 // an hour = 48 * period
-func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
-	hourInfos := NewSBPInfos()
+func (self *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*consensus_db.Content, error) {
+	hourInfos := make(map[types.Address]*consensus_db.Content)
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break
@@ -283,29 +291,46 @@ func (self *chainRw) GetSuccessRateByHour2(index uint64) (SBPInfos, error) {
 		if err != nil {
 			return nil, err
 		}
-		point := p.(*periodPoint)
-		infos := point.GetSBPInfos()
+		infos := p.Sbps
 		for k, v := range infos {
-			hourInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
+			c, ok := hourInfos[k]
+			if !ok {
+				hourInfos[k] = v.Copy()
+			} else {
+				c.Merge(v)
+			}
 		}
 	}
 
 	return hourInfos, nil
 }
 func (self *chainRw) getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bool) {
-	// todo
-	return nil, false
+	result, b := self.dbCache.GetElectionResultByHash(hashes)
+	if b != nil {
+		return nil, false
+	}
+	return result, true
 }
 func (self *chainRw) updateSnapshotVoteCache(hashes types.Hash, addresses []types.Address) {
-	// todo
+	self.dbCache.StoreElectionResultByHash(hashes, addresses)
 }
 
 func (self *chainRw) getContractVoteCache(hashes types.Hash) ([]types.Address, bool) {
-	// todo
-	return nil, false
+	if self.lruCache == nil {
+		return nil, false
+	}
+	value, ok := self.lruCache.Get(hashes)
+	if ok {
+		return value.([]types.Address), ok
+	}
+	return nil, ok
 }
-func (self *chainRw) updateContractVoteCache(hashes types.Hash, addresses []types.Address) {
-	// todo
+
+func (self *chainRw) updateContractVoteCache(hashes types.Hash, addrArr []types.Address) {
+	if self.lruCache != nil {
+		self.log.Info(fmt.Sprintf("store election result %s, %+v\n", hashes, addrArr))
+		self.lruCache.Add(hashes, addrArr)
+	}
 }
 
 // a day = 23 * hour + LatestHour

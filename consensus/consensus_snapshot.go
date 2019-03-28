@@ -37,6 +37,12 @@ func (self *snapshotCs) time2Index(t time.Time) uint64 {
 	return self.info.Time2Index(t)
 }
 
+func (self *snapshotCs) index2Time(i uint64) (time.Time, time.Time) {
+	sTime := self.info.GenSTime(i)
+	eTime := self.info.GenETime(i)
+	return sTime, eTime
+}
+
 func (self *snapshotCs) electionTime(t time.Time) (*electionResult, error) {
 	index := self.info.Time2Index(t)
 	return self.electionIndex(index)

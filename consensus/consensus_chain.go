@@ -1,8 +1,9 @@
 package consensus
 
 import (
-	"math/big"
 	"time"
+
+	"github.com/vitelabs/go-vite/consensus/db"
 
 	"github.com/vitelabs/go-vite/common/fork"
 
@@ -12,123 +13,85 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-type Point interface {
-	PrevHash() *types.Hash
-	NextHash() *types.Hash
-	Height() uint64
+func newDayLinkedArray(hour *linkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+	day := &linkedArray{}
+	day.rate = DAY_TO_HOUR
+	day.prefix = consensus_db.INDEX_Point_DAY
+	day.lowerArr = hour
+	day.db = db
+	return day
 }
 
-type PointLinkedArray interface {
-	GetByHeight(height uint64) (Point, error)
-	Append(block Point) error
-	NextHeight(height uint64) uint64
+func newHourLinkedArray(period *periodLinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+	hourArr := &linkedArray{}
+	hourArr.rate = HOUR_TO_PERIOD
+	hourArr.prefix = consensus_db.INDEX_Point_HOUR
+	hourArr.lowerArr = period
+	hourArr.db = db
+	return hourArr
 }
 
-type hashPoint struct {
-	prevHash *types.Hash
-	nextHash *types.Hash
-	height   uint64
+func newPeriodLinkedArray() {
+
 }
 
-func (self *hashPoint) PrevHash() *types.Hash {
-	return self.prevHash
+type LinkedArray interface {
+	GetByHeight(height uint64) (*consensus_db.Point, error)
 }
 
-func (self *hashPoint) NextHash() *types.Hash {
-	return self.nextHash
+type linkedArray struct {
+	prefix   byte
+	rate     uint64
+	db       *consensus_db.ConsensusDB
+	lowerArr LinkedArray
 }
 
-func (self *hashPoint) Height() uint64 {
-	return self.height
-}
-
-type hourLinkedArray struct {
-	hours map[uint64]*hourPoint
-}
-
-func (self *hourLinkedArray) GetByHeight(height uint64) (Point, error) {
-	panic("implement me")
-}
-
-func (self *hourLinkedArray) Append(block Point) error {
-	panic("implement me")
-}
-
-func (self *hourLinkedArray) NextHeight(height uint64) uint64 {
-	panic("implement me")
-}
-
-// hour = 48 * period
-type hourPoint struct {
-	hashPoint
-}
-
-type SBPInfos map[types.Address]*SBPInfo
-
-func (self SBPInfos) Get(address types.Address) *SBPInfo {
-	info, ok := self[address]
-	if ok {
-		return info
+func (self *linkedArray) GetByHeight(height uint64) (*consensus_db.Point, error) {
+	point, err := self.db.GetPointByHeight(self.prefix, height)
+	if err != nil {
+		return nil, err
+	}
+	if point != nil {
+		return point, nil
 	}
 
-	tmp := &SBPInfo{}
-	self[address] = tmp
-	return tmp
+	return self.getByHeight(height)
 }
 
-func NewSBPInfos() SBPInfos {
-	return make(map[types.Address]*SBPInfo)
+func (self *linkedArray) getByHeight(height uint64) (*consensus_db.Point, error) {
+	result := &consensus_db.Point{}
+	start := height * self.rate
+	end := start + self.rate
+	for i := start; i < end; i++ {
+		p, err := self.lowerArr.GetByHeight(i)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := result.Append(p); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
+
+var HOUR_TO_PERIOD = uint64(48)
+var DAY_TO_HOUR = uint64(24)
+var DAY_TO_PERIOD = uint64(24 * 48)
+
+//// hour = 48 * period
+//type hourPoint struct {
+//	hashPoint
+//}
 
 type SBPInfo struct {
 	ExpectedNum int32
 	FactualNum  int32
 }
 
-func (self *SBPInfo) AddNum(expectedNum int32, factualNum int32) *SBPInfo {
-	self.ExpectedNum = self.ExpectedNum + expectedNum
-	self.FactualNum = self.FactualNum + factualNum
-	return self
-}
-func (self *SBPInfo) Rate() int32 {
-	if self.ExpectedNum == 0 {
-		return -1
-	}
-	if self.FactualNum == 0 {
-		return 0
-	}
-	result := big.NewInt(0).Div(big.NewInt(int64(self.FactualNum*1000000)), big.NewInt(int64(self.ExpectedNum)))
-	return int32(result.Int64())
-}
-
-func (self *hourPoint) GetSBPInfos() SBPInfos {
-	panic("implement me")
-}
-
-// day = 24 * hour = 24 * 48 * period
-type dayPoint struct {
-	hashPoint
-}
-
-type dayLinkedArray struct {
-	hours map[uint64]*hourPoint
-}
-
-func (self *dayLinkedArray) GetByHeight(height uint64) (Point, error) {
-	panic("implement me")
-}
-
-func (self *dayLinkedArray) Append(block Point) error {
-	panic("implement me")
-}
-
-func (self *dayLinkedArray) NextHeight(height uint64) uint64 {
-	panic("implement me")
-}
-
 // period = 75s
 type periodPoint struct {
-	hashPoint
+	*consensus_db.Point
 	empty bool
 	// hash exist
 	proof *ledger.HashHeight
@@ -136,34 +99,24 @@ type periodPoint struct {
 	proof2 *ledger.HashHeight
 	stime  *time.Time
 	etime  *time.Time
-	sbps   map[types.Address]*SBPInfo
-}
-
-var empty = make(map[types.Address]*SBPInfo)
-
-func (self *periodPoint) GetSBPInfos() SBPInfos {
-	if self.empty {
-		return empty
-	}
-	return self.sbps
 }
 
 type periodLinkedArray struct {
 	//periods map[uint64]*periodPoint
 	periods  *lru.Cache
 	rw       ch
-	snapshot *teller
+	snapshot *snapshotCs
 }
 
-func newPeriodPointArray(rw ch) *periodLinkedArray {
+func newPeriodPointArray(rw ch, cs *snapshotCs) *periodLinkedArray {
 	cache, err := lru.New(4 * 24 * 60)
 	if err != nil {
 		panic(err)
 	}
-	return &periodLinkedArray{rw: rw, periods: cache}
+	return &periodLinkedArray{rw: rw, periods: cache, snapshot: cs}
 }
 
-func (self *periodLinkedArray) GetByHeight(height uint64) (Point, error) {
+func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, error) {
 	value, ok := self.periods.Get(height)
 	if !ok || value == nil {
 		result, err := self.getByHeight(height)
@@ -171,8 +124,8 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (Point, error) {
 			return nil, err
 		}
 		if result != nil {
-			self.Append(result)
-			return result, nil
+			self.Set(height, result)
+			return result.Point, nil
 		} else {
 			return nil, nil
 		}
@@ -185,20 +138,17 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (Point, error) {
 			return nil, err
 		}
 		if result != nil {
-			self.Append(result)
-			return result, nil
+			self.Set(height, result)
+			return result.Point, nil
 		} else {
 			return nil, nil
 		}
 	}
-	return point, nil
+	return point.Point, nil
 }
 
-func (self *periodLinkedArray) Append(block Point) error {
-	if block.(*periodPoint).etime == nil {
-		panic("nilnilnil")
-	}
-	self.periods.Add(block.Height(), block)
+func (self *periodLinkedArray) Set(height uint64, block *periodPoint) error {
+	self.periods.Add(height, block)
 	return nil
 }
 
@@ -271,7 +221,6 @@ func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
 
 func (self *periodLinkedArray) emptyPoint(height uint64, stime, etime *time.Time, endSnapshotBlock *ledger.SnapshotBlock) (*periodPoint, error) {
 	point := &periodPoint{}
-	point.height = height
 	point.stime = stime
 	point.etime = etime
 	point.empty = true
@@ -289,7 +238,6 @@ func (self *periodLinkedArray) emptyPoint(height uint64, stime, etime *time.Time
 }
 func (self *periodLinkedArray) genPeriodPoint(height uint64, stime *time.Time, etime *time.Time, endSnapshot *ledger.SnapshotBlock, blocks []*ledger.SnapshotBlock, result *electionResult) (*periodPoint, error) {
 	point := &periodPoint{}
-	point.height = height
 	point.stime = stime
 	point.etime = etime
 	point.empty = false
@@ -300,17 +248,17 @@ func (self *periodLinkedArray) genPeriodPoint(height uint64, stime *time.Time, e
 	}
 	if block != nil && (block.Timestamp.Nanosecond() >= etime.Nanosecond()) {
 		point.proof = &ledger.HashHeight{Hash: block.Hash, Height: block.Height}
-		point.nextHash = &block.Hash
+		point.Hash = &block.Hash
 	} else {
 		point.proof2 = &ledger.HashHeight{Hash: endSnapshot.Hash, Height: endSnapshot.Height}
 	}
-	point.prevHash = &blocks[len(blocks)-1].Hash
+	point.PrevHash = &blocks[len(blocks)-1].Hash
 
-	sbps := make(map[types.Address]*SBPInfo)
+	sbps := make(map[types.Address]*consensus_db.Content)
 	for _, v := range blocks {
 		sbp, ok := sbps[v.Producer()]
 		if !ok {
-			sbps[v.Producer()] = &SBPInfo{FactualNum: 1, ExpectedNum: 0}
+			sbps[v.Producer()] = &consensus_db.Content{FactualNum: 1, ExpectedNum: 0}
 		} else {
 			sbp.AddNum(0, 1)
 		}
@@ -319,11 +267,11 @@ func (self *periodLinkedArray) genPeriodPoint(height uint64, stime *time.Time, e
 	for _, v := range result.Plans {
 		sbp, ok := sbps[v.Member]
 		if !ok {
-			sbps[v.Member] = &SBPInfo{FactualNum: 0, ExpectedNum: 1}
+			sbps[v.Member] = &consensus_db.Content{FactualNum: 0, ExpectedNum: 1}
 		} else {
 			sbp.AddNum(1, 0)
 		}
 	}
-	point.sbps = sbps
+	point.Sbps = sbps
 	return point, nil
 }
