@@ -47,9 +47,10 @@ func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 
 func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
 	eLog := v.log.New("method", "VerifyPoolAccBlock")
-	detail := fmt.Sprintf("(sbHash %v, addr %v,", snapshotHash, block.AccountAddress)
+
+	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v", snapshotHash, block.AccountAddress, block.Height)
 	if block.IsReceiveBlock() {
-		detail += fmt.Sprintf("fromH %v)", block.FromBlockHash)
+		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
 
 	verifyResult, task, err := v.Av.verifyReferred(block)
@@ -73,9 +74,10 @@ func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *
 
 func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
 	log := v.log.New("method", "VerifyRPCAccBlock")
-	detail := fmt.Sprintf("(sbHash %v, addr %v,", snapshotHash, block.AccountAddress)
+
+	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v", snapshotHash, block.AccountAddress, block.Height)
 	if block.IsReceiveBlock() {
-		detail += fmt.Sprintf("fromH %v)", block.FromBlockHash)
+		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
 
 	if verifyResult, task, err := v.Av.verifyReferred(block); verifyResult != SUCCESS {
