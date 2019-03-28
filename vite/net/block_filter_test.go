@@ -1,98 +1,71 @@
 package net
 
 import (
-	"crypto/rand"
-	"io"
-	mrand "math/rand"
 	"testing"
+
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-func TestFilter_record(t *testing.T) {
-	filter := newBlockFilter(1000)
+func TestHold(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
+	}
 
-	count := mrand.Intn(100000)
-	m := make(map[types.Hash]struct{}, count)
+	f := newFilter()
 
-	for i := 0; i < count; i++ {
-		var hash types.Hash
-		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
-			continue
-		}
+	// first time, should not hold
+	if f.hold(hash) {
+		t.Fail()
+	}
 
-		m[hash] = struct{}{}
-
-		filter.record(hash[:])
-
-		if !filter.has(hash[:]) {
+	// have`nt done, then hold 2*timeThreshold and maxMark*2 times
+	for i := 0; i < maxMark*2; i++ {
+		if !f.hold(hash) {
 			t.Fail()
 		}
 	}
+
+	time.Sleep(time.Duration(timeThreshold))
+	if !f.hold(hash) {
+		t.Fail()
+	}
+
+	// have wait exceed 2 * timeThreshold and maxMark times from add
+	time.Sleep(time.Duration(timeThreshold))
+
+	if f.hold(hash) {
+		t.Fail()
+	}
 }
 
-func TestFilter_has(t *testing.T) {
-	filter := newBlockFilter(1000)
-
-	count := mrand.Intn(100000)
-	m := make(map[types.Hash]struct{}, count)
-
-	for i := 0; i < count; i++ {
-		var hash types.Hash
-		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
-			continue
-		}
-
-		m[hash] = struct{}{}
-
-		filter.record(hash[:])
+func TestDone(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
 	}
 
-	count = mrand.Intn(100000)
-	var failed int
-	for i := 0; i < count; i++ {
-		var hash types.Hash
-		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
-			continue
-		}
-		if _, ok := m[hash]; ok {
-			continue
-		}
-		if filter.has(hash[:]) {
-			failed++
+	f := newFilter()
+
+	// first time, should hold
+	if f.hold(hash) {
+		t.Fail()
+	}
+
+	f.done(hash)
+
+	// task done, then hold maxMark times and timeThreshold
+	for i := 0; i < maxMark; i++ {
+		if !f.hold(hash) {
+			t.Fail()
 		}
 	}
 
-	t.Logf("failed: %d, count: %d\n", failed, count)
-}
-
-func TestFilter_LookAndRecord(t *testing.T) {
-	filter := newBlockFilter(1000)
-
-	count := mrand.Intn(100000)
-	m := make(map[types.Hash]struct{}, count)
-
-	var failed int
-	for i := 0; i < count; i++ {
-		var hash types.Hash
-		if _, err := io.ReadFull(rand.Reader, hash[:]); err != nil {
-			continue
-		}
-		if _, ok := m[hash]; ok {
-			continue
-		}
-		m[hash] = struct{}{}
-
-		exist := filter.lookAndRecord(hash[:])
-		if exist {
-			failed++
-		}
-
-		exist = filter.lookAndRecord(hash[:])
-		if !exist {
-			failed++
-		}
+	// have done, then hold timeThreshold
+	time.Sleep(time.Duration(timeThreshold))
+	if f.hold(hash) {
+		t.Fail()
 	}
-
-	t.Logf("failed %d, count: %d", failed, count)
 }

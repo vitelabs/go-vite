@@ -293,7 +293,7 @@ func (m *peerSet) SyncPeer() Peer {
 	return l[mid]
 }
 
-func (m *peerSet) Add(peer *peer) error {
+func (m *peerSet) Add(peer Peer) error {
 	if peer == nil {
 		return errNilPeer
 	}
@@ -315,7 +315,7 @@ func (m *peerSet) Add(peer *peer) error {
 	return nil
 }
 
-func (m *peerSet) Del(peer *peer) {
+func (m *peerSet) Del(peer Peer) {
 	if peer == nil {
 		return
 	}
@@ -323,7 +323,7 @@ func (m *peerSet) Del(peer *peer) {
 	m.prw.Lock()
 	defer m.prw.Unlock()
 
-	delete(m.m, peer.id)
+	delete(m.m, peer.ID())
 
 	go m.Notify(peerEvent{
 		code:  delPeer,

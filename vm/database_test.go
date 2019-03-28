@@ -39,7 +39,7 @@ func NewNoDatabase() *testDatabase {
 }
 
 func (db *testDatabase) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) *big.Int {
-	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
+	if balance, ok := db.balanceMap[*addr][*tokenTypeId]; ok {
 		return new(big.Int).Set(balance)
 	} else {
 		return big.NewInt(0)
@@ -167,6 +167,10 @@ func (db *testDatabase) GetLogListHash() *types.Hash {
 	return &types.Hash{}
 }
 
+func (db *testDatabase) GetLogList() ledger.VmLogList {
+	return db.logList
+}
+
 type testIteratorItem struct {
 	key, value []byte
 }
@@ -254,7 +258,7 @@ func (db *testDatabase) GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledge
 }
 
 func (db *testDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return db.CurrentSnapshotBlock()
+	return db.snapshotBlockList[0]
 }
 
 func (db *testDatabase) DebugGetStorage() map[string][]byte {

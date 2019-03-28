@@ -30,29 +30,27 @@ func (p *MethodMintage) GetRefundData() []byte {
 	return []byte{1}
 }
 
-func (p *MethodMintage) GetQuota() uint64 {
-	return MintageGas
+func (p *MethodMintage) GetSendQuota(data []byte) (uint64, error) {
+	return MintageGas, nil
 }
-
-func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodMintage) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	param := new(cabi.ParamMintage)
-	err = cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMintage, block.Data)
+	err := cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMintage, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if err = CheckToken(*param); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	tokenId := cabi.NewTokenId(block.AccountAddress, block.Height, block.PrevHash, block.SnapshotHash)
 	if cabi.GetTokenById(db, tokenId) != nil {
-		return quotaLeft, util.ErrIdCollision
+		return util.ErrIdCollision
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(
 		cabi.MethodNameMintage,
@@ -61,7 +59,7 @@ func (p *MethodMintage) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Acc
 		param.TokenSymbol,
 		param.TotalSupply,
 		param.Decimals)
-	return quotaLeft, nil
+	return nil
 }
 func CheckToken(param cabi.ParamMintage) error {
 	if param.TotalSupply.Sign() <= 0 ||
@@ -131,24 +129,22 @@ func (p *MethodMintageCancelPledge) GetRefundData() []byte {
 	return []byte{2}
 }
 
-func (p *MethodMintageCancelPledge) GetQuota() uint64 {
-	return MintageCancelPledgeGas
+func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
+	return MintageCancelPledgeGas, nil
 }
-
-func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
-	}
+func (p *MethodMintageCancelPledge) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodMintageCancelPledge) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
-		return quotaLeft, errors.New("invalid block data")
+		return errors.New("invalid block data")
 	}
 	tokenId := new(types.TokenTypeId)
-	if err = cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, block.Data); err != nil {
-		return quotaLeft, util.ErrInvalidMethodParam
+	if err := cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameMintageCancelPledge, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameMintageCancelPledge, *tokenId)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodMintageCancelPledge) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)
@@ -214,28 +210,27 @@ func (p *MethodMint) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 func (p *MethodMint) GetRefundData() []byte {
 	return []byte{3}
 }
-func (p *MethodMint) GetQuota() uint64 {
-	return MintGas
+func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
+	return MintGas, nil
 }
-func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodMint) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	param := new(cabi.ParamMintage)
-	err = cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMint, block.Data)
+	err := cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameMint, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if err = CheckMintToken(*param); err != nil {
-		return quotaLeft, err
+		return err
 	}
 	tokenId := cabi.NewTokenId(block.AccountAddress, block.Height, block.PrevHash, block.SnapshotHash)
 	if cabi.GetTokenById(db, tokenId) != nil {
-		return quotaLeft, util.ErrIdCollision
+		return util.ErrIdCollision
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(
 		cabi.MethodNameMint,
@@ -247,7 +242,7 @@ func (p *MethodMint) DoSend(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 		param.Decimals,
 		param.MaxSupply,
 		param.OwnerBurnOnly)
-	return quotaLeft, nil
+	return nil
 }
 func CheckMintToken(param cabi.ParamMintage) error {
 	if err := CheckToken(param); err != nil {
@@ -326,32 +321,31 @@ func (p *MethodIssue) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accou
 func (p *MethodIssue) GetRefundData() []byte {
 	return []byte{4}
 }
-func (p *MethodIssue) GetQuota() uint64 {
-	return IssueGas
+func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
+	return IssueGas, nil
 }
-func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodIssue) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodIssue) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	param := new(cabi.ParamIssue)
-	err = cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameIssue, block.Data)
+	err := cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameIssue, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if param.Amount.Sign() <= 0 || block.Amount.Sign() > 0 {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	tokenInfo := cabi.GetTokenById(db, param.TokenId)
 	if tokenInfo == nil || !tokenInfo.IsReIssuable || tokenInfo.Owner != block.AccountAddress ||
 		new(big.Int).Sub(tokenInfo.MaxSupply, tokenInfo.TotalSupply).Cmp(param.Amount) < 0 {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameIssue, param.TokenId, param.Amount, param.Beneficial)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodIssue) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamIssue)
@@ -397,27 +391,26 @@ func (p *MethodBurn) GetFee(db vmctxt_interface.VmDatabase, block *ledger.Accoun
 func (p *MethodBurn) GetRefundData() []byte {
 	return []byte{5}
 }
-func (p *MethodBurn) GetQuota() uint64 {
-	return BurnGas
+func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
+	return BurnGas, nil
 }
-func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodBurn) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodBurn) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	if block.Amount.Sign() <= 0 {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	tokenInfo := cabi.GetTokenById(db, block.TokenId)
 	if tokenInfo == nil || !tokenInfo.IsReIssuable ||
 		(tokenInfo.OwnerBurnOnly && tokenInfo.Owner != block.AccountAddress) {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameBurn)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodBurn) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	oldTokenInfo := cabi.GetTokenById(db, sendBlock.TokenId)
@@ -453,34 +446,33 @@ func (p *MethodTransferOwner) GetFee(db vmctxt_interface.VmDatabase, block *ledg
 func (p *MethodTransferOwner) GetRefundData() []byte {
 	return []byte{6}
 }
-func (p *MethodTransferOwner) GetQuota() uint64 {
-	return TransferOwnerGas
+func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
+	return TransferOwnerGas, nil
 }
-func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodTransferOwner) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodTransferOwner) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	if block.Amount.Sign() > 0 {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	param := new(cabi.ParamTransferOwner)
-	err = cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameTransferOwner, block.Data)
+	err := cabi.ABIMintage.UnpackMethod(param, cabi.MethodNameTransferOwner, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if param.NewOwner == block.AccountAddress {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	tokenInfo := cabi.GetTokenById(db, param.TokenId)
 	if tokenInfo == nil || !tokenInfo.IsReIssuable || tokenInfo.Owner != block.AccountAddress {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodTransferOwner) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	param := new(cabi.ParamTransferOwner)
@@ -523,31 +515,30 @@ func (p *MethodChangeTokenType) GetFee(db vmctxt_interface.VmDatabase, block *le
 func (p *MethodChangeTokenType) GetRefundData() []byte {
 	return []byte{7}
 }
-func (p *MethodChangeTokenType) GetQuota() uint64 {
-	return ChangeTokenTypeGas
+func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
+	return ChangeTokenTypeGas, nil
 }
-func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, quotaLeft uint64) (uint64, error) {
+func (p *MethodChangeTokenType) GetReceiveQuota() uint64 {
+	return 0
+}
+func (p *MethodChangeTokenType) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	if !fork.IsMintFork(db.CurrentSnapshotBlock().Height) {
-		return quotaLeft, util.ErrVersionNotSupport
-	}
-	quotaLeft, err := util.UseQuota(quotaLeft, p.GetQuota())
-	if err != nil {
-		return quotaLeft, err
+		return util.ErrVersionNotSupport
 	}
 	tokenId := new(types.TokenTypeId)
-	err = cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameChangeTokenType, block.Data)
+	err := cabi.ABIMintage.UnpackMethod(tokenId, cabi.MethodNameChangeTokenType, block.Data)
 	if err != nil {
-		return quotaLeft, err
+		return err
 	}
 	if tokenId == nil || block.Amount.Sign() > 0 {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	tokenInfo := cabi.GetTokenById(db, *tokenId)
 	if tokenInfo == nil || !tokenInfo.IsReIssuable || tokenInfo.Owner != block.AccountAddress {
-		return quotaLeft, util.ErrInvalidMethodParam
+		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = cabi.ABIMintage.PackMethod(cabi.MethodNameChangeTokenType, &tokenId)
-	return quotaLeft, nil
+	return nil
 }
 func (p *MethodChangeTokenType) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	tokenId := new(types.TokenTypeId)

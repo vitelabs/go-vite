@@ -163,6 +163,11 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.VMDebug = ctx.GlobalBool(utils.VMDebugFlag.Name)
 	}
 
+	// Subscribe
+	if ctx.GlobalIsSet(utils.SubscribeFlag.Name) {
+		cfg.SubscribeEnabled = ctx.GlobalBool(utils.SubscribeFlag.Name)
+	}
+
 	//Net
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
 		cfg.Single = ctx.GlobalBool(utils.SingleFlag.Name)

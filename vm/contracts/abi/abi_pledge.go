@@ -1,10 +1,11 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
 )
 
 const (
@@ -37,6 +38,7 @@ type PledgeInfo struct {
 	Amount         *big.Int
 	WithdrawHeight uint64
 	BeneficialAddr types.Address
+	PledgeAddr     *types.Address
 }
 
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {
@@ -52,7 +54,6 @@ func GetBeneficialFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[types.AddressSize:])
 	return address
 }
-
 func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[:types.AddressSize])
 	return address
@@ -89,4 +90,31 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 		}
 	}
 	return pledgeInfoList, pledgeAmount
+}
+
+// get pledge info list for dex fund precompiled contract
+func GetPledgeInfoListByBeneficial(db StorageDatabase, beneficial types.Address, snapshotHash *types.Hash) []*PledgeInfo {
+	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressPledge, nil, snapshotHash)
+	pledgeInfoList := make([]*PledgeInfo, 0)
+	if iterator == nil {
+		return pledgeInfoList
+	}
+	for {
+		key, value, ok := iterator.Next()
+		if !ok {
+			break
+		}
+		if IsPledgeKey(key) {
+			if GetBeneficialFromPledgeKey(key) != beneficial {
+				continue
+			}
+			pledgeInfo := new(PledgeInfo)
+			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
+				pledgeAddr := GetPledgeAddrFromPledgeKey(key)
+				pledgeInfo.PledgeAddr = &pledgeAddr
+				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+			}
+		}
+	}
+	return pledgeInfoList
 }
