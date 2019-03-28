@@ -78,13 +78,16 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
-	plog := tp.log.New("method", "processOneAddress", "worker", task.Addr)
+	plog := tp.log.New("method", "processOneAddress", "contract", task.Addr)
 
 	sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
 	if sBlock == nil {
 		return
 	}
 	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v,remainQuota=%d", sBlock.AccountAddress, sBlock.Height, sBlock.Hash, task.Quota))
+	if latestBlock, _ := tp.worker.manager.Chain().GetLatestAccountBlock(&task.Addr); latestBlock != nil {
+		plog.Info(fmt.Sprintf("prev contractBlock: hash=%v,height=%v,snHash:%v", latestBlock.Hash, latestBlock.Height, latestBlock.SnapshotHash))
+	}
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")

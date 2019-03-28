@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -274,7 +275,7 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
 	if err != nil {
-		w.log.Error("GetPledgeQuotas err", "error", err)
+		w.log.Error(fmt.Sprintf("GetPledgeQuota err:%v,sbHash:%v,contract:%v", err, w.currentSnapshotHash, addr))
 	}
 	return quota
 }
@@ -292,7 +293,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		}
 		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, commonContractAddressList)
 		if err != nil {
-			w.log.Error("GetPledgeQuotas err", "error", err)
+			w.log.Error(fmt.Sprintf("GetPledgeQuotas err:%v, sbHash:%v", err, w.currentSnapshotHash))
 		} else {
 			for k, v := range commonQuotas {
 				quotas[k] = v
@@ -302,7 +303,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		var qRrr error
 		quotas, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
 		if qRrr != nil {
-			w.log.Error("GetPledgeQuotas err", "error", qRrr)
+			w.log.Error(fmt.Sprintf("GetPledgeQuotas err:%v, sbHash:%v", qRrr, w.currentSnapshotHash))
 		}
 	}
 	return quotas
