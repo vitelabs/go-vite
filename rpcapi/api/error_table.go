@@ -63,7 +63,7 @@ var (
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
-		Message: verifier.ErrVerifyAccountAddrFailed.Error(),
+		Message: verifier.ErrVerifyAccountTypeNotSure.Error(),
 		Code:    -36001,
 	}
 	ErrVerifyHash = JsonRpc2Error{
@@ -81,6 +81,14 @@ var (
 	ErrVerifySnapshotOfReferredBlock = JsonRpc2Error{
 		Message: verifier.ErrVerifySnapshotOfReferredBlockFailed.Error(),
 		Code:    -36005,
+	}
+	ErrVerifyPrevBlock = JsonRpc2Error{
+		Message: verifier.ErrVerifyPrevBlockFailed.Error(),
+		Code:    -36006,
+	}
+	ErrVerifyRPCBlockIsPending = JsonRpc2Error{
+		Message: verifier.ErrVerifyRPCBlockPendingState.Error(),
+		Code:    -36007,
 	}
 
 	concernedErrorMap map[string]JsonRpc2Error
@@ -104,6 +112,8 @@ func init() {
 	concernedErrorMap[ErrVerifySignature.Error()] = ErrVerifySignature
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifySnapshotOfReferredBlock.Error()] = ErrVerifySnapshotOfReferredBlock
+	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
+	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

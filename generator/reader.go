@@ -7,7 +7,7 @@ import (
 )
 
 type chainReader interface {
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 }
 
 func NewChain(c vm_db.Chain) chainReader {

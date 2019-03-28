@@ -37,10 +37,7 @@ type ForkPoint struct {
 	Hash   *types.Hash
 }
 
-type ForkPoints struct {
-	Smart *ForkPoint
-	Mint  *ForkPoint
-}
+type ForkPoints struct{}
 
 type Genesis struct {
 	GenesisAccountAddress  types.Address

@@ -66,7 +66,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 		return nil, err
 	}
 	if block.IsReceiveBlock() {
-		fromBlock, err := gen.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		fromBlock, err := gen.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}

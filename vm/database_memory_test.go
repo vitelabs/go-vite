@@ -165,7 +165,7 @@ func (db *memoryDatabase) GetUnsavedStorage() [][2][]byte {
 func (db *memoryDatabase) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
 	return nil
 }
-func (db *memoryDatabase) GetUnsavedContractMeta() *ledger.ContractMeta {
+func (db *memoryDatabase) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {
 	return nil
 }
 func (db *memoryDatabase) GetUnsavedContractCode() []byte {
@@ -202,7 +202,10 @@ func (db *memoryDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
 	return nil
 }
 
-func (db *memoryDatabase) SetContractMeta(meta *ledger.ContractMeta) {
+func (db *memoryDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
+}
+func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
+	return &ledger.ContractMeta{&types.DELEGATE_GID, 0}, nil
 }
 
 func (db *memoryDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
