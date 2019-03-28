@@ -81,10 +81,11 @@ func (reader *ledgerReader) Read(p []byte) (n int, err error) {
 		readN = len(p)
 	}
 	currentLocation, n, err := reader.chain.blockDB.ReadRaw(reader.currentLocation, p[:readN])
+
+	reader.currentLocation = currentLocation
 	if err != nil {
 		return n, err
 	}
-	reader.currentLocation = currentLocation
 
 	if isEnd {
 		err = io.EOF

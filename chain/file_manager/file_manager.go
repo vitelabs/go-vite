@@ -47,28 +47,19 @@ func (fm *FileManager) Write(buf []byte) (*Location, error) {
 }
 
 func (fm *FileManager) Read(location *Location) ([]byte, error) {
-	fd, err := fm.fdSet.GetFd(location)
+	bufSizeBytes := make([]byte, 4)
+	nextLocation, _, err := fm.ReadRaw(location, bufSizeBytes)
 	if err != nil {
 		return nil, err
 	}
-	if fd == nil {
-		return nil, errors.New(fmt.Sprintf("fd is nil, location is %+v\n", location))
-	}
 
-	if _, err := fd.Seek(location.Offset); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
-	}
-
-	bufSizeBytes := make([]byte, 4)
-	if _, err := fd.Read(bufSizeBytes); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
-	}
 	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
 	buf := make([]byte, bufSize)
-	if _, err := fd.Read(buf); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil {
+		return nil, err
 	}
+
 	return buf, nil
 }
 
@@ -94,6 +85,8 @@ func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, 
 		}
 
 		readN, rErr := fd.ReadAt(buf[i:i+readSize], currentLocation.Offset)
+		fd.Close()
+
 		i += readN
 
 		nextOffset := currentLocation.Offset + int64(readN)
@@ -135,6 +128,8 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 		}
 
 		buf, err := fm.readFile(fd, currentLocation, toLocation)
+		fd.Close()
+
 		if err != nil {
 			parser.WriteError(err)
 			return

@@ -282,6 +282,14 @@ func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlo
 	return block, err
 }
 
+func (l *LedgerApi) GetSnapshotBlocks(height uint64, count int) ([]*ledger.SnapshotBlock, error) {
+	blocks, err := l.chain.GetSnapshotBlocksByHeight(height, false, uint64(count))
+	if err != nil {
+		l.log.Error("GetSnapshotBlocksByHeight failed, error is "+err.Error(), "method", "GetSnapshotBlocks")
+	}
+	return blocks, nil
+}
+
 func (l *LedgerApi) GetSnapshotChainHeight() string {
 	l.log.Info("GetLatestSnapshotChainHeight")
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)

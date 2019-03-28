@@ -130,6 +130,7 @@ func (fd *fileDescription) Flush() error {
 	if _, err := fd.file.Write(fd.cacheItem.Buffer[:fd.writePointer]); err != nil {
 		return err
 	}
+	fd.Close()
 	return nil
 }
 
