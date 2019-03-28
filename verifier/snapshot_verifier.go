@@ -54,7 +54,7 @@ func (self *SnapshotVerifier) verifyDataValidity(block *ledger.SnapshotBlock) er
 		return ErrVerifyHashFailed
 	}
 
-	if self.reader.IsGenesisSnapshotBlock(&block.Hash) {
+	if self.reader.IsGenesisSnapshotBlock(block.Hash) {
 		return nil
 	}
 
@@ -96,7 +96,7 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 	defer monitor.LogTime("verify", "snapshotAccounts", time.Now())
 
 	for addr, b := range block.SnapshotContent {
-		ab, e := self.reader.GetAccountBlockByHeight(&addr, b.Height)
+		ab, e := self.reader.GetAccountBlockByHeight(addr, b.Height)
 		if e != nil {
 			return e
 		}

@@ -30,8 +30,8 @@ func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 }
 
 func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
-	//todo 1. makesure genesis and initial-balance blocks don't need to check, return nil
-	//todo 2. block referred snapshot not arrive yet, return error
+	//fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
+	//fixme 2. block referred snapshot not arrive yet, return error
 	//3. VerifyHash
 	if err := v.Av.verifyHash(block); err != nil {
 		return err
