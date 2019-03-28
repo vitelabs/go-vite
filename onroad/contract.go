@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -274,7 +275,10 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
 	if err != nil {
-		w.log.Error("GetPledgeQuotas err", "error", err)
+		if latestSb := w.manager.chain.GetLatestSnapshotBlock(); latestSb != nil {
+			w.log.Info("latestSb(%v %v) at newSignal, currentSb %v", latestSb.Height, latestSb.Hash, w.currentSnapshotHash)
+		}
+		w.log.Error(fmt.Sprintf("GetPledgeQuota err:%v,sbHash:%v,contract:%v", err, w.currentSnapshotHash, addr))
 	}
 	return quota
 }
