@@ -67,6 +67,9 @@ func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResu
 
 	verifyDependencyResult, err := v.verifyDependency(pendingTask, block, isGeneralAddr)
 	if verifyDependencyResult != SUCCESS {
+		if verifyDependencyResult == PENDING {
+			pendingTask.AccountTask = append(pendingTask.AccountTask, &AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
+		}
 		return verifyDependencyResult, pendingTask, err
 	}
 	return SUCCESS, nil, nil
@@ -168,6 +171,30 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr b
 }
 
 func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock, isGeneralAddr bool) (VerifyResult, error) {
+	// check whether the prev is snapshoted
+	if block.Height == 1 && (!block.PrevHash.IsZero()) {
+		return FAIL, errors.New("account first block's prevHash error")
+	}
+	latestBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
+	if err != nil {
+		return FAIL, err
+	}
+	if latestBlock == nil {
+		pendingTask.AccountTask = append(pendingTask.AccountTask,
+			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
+	} else {
+		switch {
+		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
+			break
+		case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
+			pendingTask.AccountTask = append(pendingTask.AccountTask,
+				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
+			break
+		default:
+			return FAIL, ErrVerifyPrevBlockFailed
+		}
+	}
+
 	if block.IsReceiveBlock() {
 		// check the existence of recvBlock's send
 		sendBlock, err := v.chain.GetAccountBlockByHash(block.FromBlockHash)
@@ -176,8 +203,7 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		}
 		if sendBlock == nil {
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
-				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash},
-				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
+				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
 			return PENDING, nil
 		}
 		// check whether is already received
@@ -192,18 +218,6 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if err := v.verifyComfirmedTimes(block, isGeneralAddr); err != nil {
 			return FAIL, err
 		}
-	}
-
-	// check whether the prev is snapshoted
-	prevBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
-	if err != nil {
-		return FAIL, err
-	}
-	if prevBlock == nil {
-		pendingTask.AccountTask = append(pendingTask.AccountTask,
-			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash},
-			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
-		return PENDING, nil
 	}
 	return SUCCESS, nil
 }
