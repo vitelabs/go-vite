@@ -102,6 +102,14 @@ func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher b
 	}
 	height := chain_utils.BytesToUint64(value)
 
+	return iDB.GetSnapshotBlockLocationListByHeight(height, higher, count)
+}
+
+func (iDB *IndexDB) GetSnapshotBlockLocationListByHeight(height uint64, higher bool, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
+	if count <= 0 {
+		return nil, [2]uint64{}, nil
+	}
+
 	var startHeight, endHeight uint64
 	if higher {
 		startHeight = height

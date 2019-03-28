@@ -11,7 +11,7 @@ import (
 )
 
 type Unsaved struct {
-	contractMeta *ledger.ContractMeta
+	contractMetaMap map[types.Address]*ledger.ContractMeta
 
 	code []byte
 
@@ -39,7 +39,7 @@ func NewUnsaved() *Unsaved {
 	}
 }
 func (unsaved *Unsaved) Reset() {
-	unsaved.contractMeta = nil
+	unsaved.contractMetaMap = make(map[types.Address]*ledger.ContractMeta)
 	unsaved.code = nil
 
 	unsaved.logList = nil
@@ -76,8 +76,8 @@ func (unsaved *Unsaved) GetCode() []byte {
 	return unsaved.code
 }
 
-func (unsaved *Unsaved) GetContractMeta() *ledger.ContractMeta {
-	return unsaved.contractMeta
+func (unsaved *Unsaved) GetContractMeta(addr types.Address) *ledger.ContractMeta {
+	return unsaved.contractMetaMap[addr]
 }
 func (unsaved *Unsaved) IsDelete(key []byte) bool {
 	_, ok := unsaved.deletedKeys[string(key)]
@@ -131,8 +131,8 @@ func (unsaved *Unsaved) GetLogListHash() *types.Hash {
 	return unsaved.logList.Hash()
 }
 
-func (unsaved *Unsaved) SetContractMeta(contractMeta *ledger.ContractMeta) {
-	unsaved.contractMeta = contractMeta
+func (unsaved *Unsaved) SetContractMeta(addr types.Address, contractMeta *ledger.ContractMeta) {
+	unsaved.contractMetaMap[addr] = contractMeta
 }
 
 func (unsaved *Unsaved) SetCode(code []byte) {

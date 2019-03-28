@@ -30,9 +30,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		undoLogSize += 1 + types.AddressSize
 	}
 
-	if unsavedContractMeta != nil {
-		undoLogSize += 1 + types.AddressSize
-		undoLogSize += 1 + types.GidSize + types.AddressSize
+	if len(unsavedContractMeta) > 0 {
+		undoLogSize += len(unsavedContractMeta) * (1 + types.AddressSize + 1 + types.GidSize + types.AddressSize)
 	}
 
 	undoLog := make([]byte, 0, undoLogSize+4)
@@ -77,15 +76,18 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	}
 
 	// write unsaved contract meta
-	if unsavedContractMeta != nil {
-		contractKey := chain_utils.CreateContractMetaKey(&accountBlock.AccountAddress)
-		gidContractKey := chain_utils.CreateGidContractKey(unsavedContractMeta.Gid, &accountBlock.AccountAddress)
+	if len(unsavedContractMeta) > 0 {
+		for addr, meta := range unsavedContractMeta {
+			contractKey := chain_utils.CreateContractMetaKey(&addr)
+			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
-		sDB.pending.Put(&accountBlock.Hash, contractKey, unsavedContractMeta.Serialize())
-		sDB.pending.Put(&accountBlock.Hash, gidContractKey, nil)
+			sDB.pending.Put(&accountBlock.Hash, contractKey, meta.Serialize())
+			sDB.pending.Put(&accountBlock.Hash, gidContractKey, nil)
 
-		undoLog = append(undoLog, contractKey...)
-		undoLog = append(undoLog, gidContractKey...)
+			undoLog = append(undoLog, contractKey...)
+			undoLog = append(undoLog, gidContractKey...)
+		}
+
 	}
 
 	undoLog = append(undoLog, make([]byte, 4)...)

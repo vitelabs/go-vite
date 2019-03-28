@@ -336,7 +336,7 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
 	toAddress, _ := types.BigToAddress(toAddrBig)
 	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
-	cost, err := GasRequiredForBlock(util.MakeSendBlock(
+	cost, err := GasRequiredForSendBlock(util.MakeSendBlock(
 		c.block.AccountAddress,
 		toAddress,
 		ledger.BlockTypeSendCall,
@@ -365,22 +365,37 @@ func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 }
 
 func GasRequiredForBlock(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeReceive {
+		return gasReceive(block, nil)
+	} else {
+		return GasRequiredForSendBlock(block)
+	}
+}
+
+func GasRequiredForSendBlock(block *ledger.AccountBlock) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeSendCreate {
 		return gasNormalSendCall(block)
-	} else if block.BlockType == ledger.BlockTypeReceive {
-		return gasUserReceive(block)
 	} else if block.BlockType == ledger.BlockTypeSendCall {
 		return gasUserSendCall(block)
 	} else {
 		return 0, errors.New("block type not supported")
 	}
 }
-func gasReceiveCreate(block *ledger.AccountBlock) (uint64, error) {
-	return util.IntrinsicGasCost(nil, true)
+
+func gasReceiveCreate(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, error) {
+	confirmTime := uint8(0)
+	if meta != nil {
+		confirmTime = meta.SendConfirmedTimes
+	}
+	return util.IntrinsicGasCost(nil, true, confirmTime)
 }
 
-func gasUserReceive(block *ledger.AccountBlock) (uint64, error) {
-	return util.IntrinsicGasCost(nil, false)
+func gasReceive(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, error) {
+	confirmTime := uint8(0)
+	if meta != nil {
+		confirmTime = meta.SendConfirmedTimes
+	}
+	return util.IntrinsicGasCost(nil, false, confirmTime)
 }
 
 func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
@@ -395,5 +410,5 @@ func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
 	}
 }
 func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
-	return util.IntrinsicGasCost(block.Data, false)
+	return util.IntrinsicGasCost(block.Data, false, 0)
 }

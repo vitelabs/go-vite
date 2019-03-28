@@ -76,13 +76,13 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 			}
 		}
 
+		b.StartTimer()
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 			_, err := InsertSnapshotBlock(chainInstance)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
-		b.StartTimer()
 
 		if err := chainInstance.InsertAccountBlock(tx); err != nil {
 			b.Fatal(err)
@@ -98,19 +98,19 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 1)
+		BmInsertAccountBlock(b, 10, 2)
 	})
 	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 1)
+		BmInsertAccountBlock(b, 100, 2)
 	})
 	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 1)
+		BmInsertAccountBlock(b, 1000, 2)
 	})
 	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 1)
+		BmInsertAccountBlock(b, 10000, 2)
 	})
 	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 1)
+		BmInsertAccountBlock(b, 100000, 2)
 	})
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)

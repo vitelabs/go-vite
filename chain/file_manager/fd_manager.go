@@ -108,8 +108,11 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 		if err := os.Remove(fdSet.fileIdToAbsoluteFilename(i)); err != nil {
 			return err
 		}
+		if fdSet.writeFd != nil {
+			fdSet.writeFd.Close()
+			fdSet.writeFd = nil
+		}
 
-		fdSet.writeFd = nil
 		fileCacheItem := fdSet.getCacheItem(location.FileId)
 		if fileCacheItem != nil {
 			fileCacheItem.Mu.Lock()

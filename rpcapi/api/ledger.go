@@ -136,29 +136,6 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 //	return l.ledgerBlocksToRpcBlocks(blockList)
 //}
 
-//type Statistics struct {
-//	SnapshotBlockCount uint64 `json:"snapshotBlockCount"`
-//	AccountBlockCount  uint64 `json:"accountBlockCount"`
-//}
-//
-//func (l *LedgerApi) GetStatistics() (*Statistics, error) {
-//	latestSnapshotBlock := l.chain.GetLatestSnapshotBlock()
-//	allLatestAccountBlock, err := l.chain.GetAllLatestAccountBlock()
-//
-//	if err != nil {
-//		return nil, err
-//	}
-//	var accountBlockCount uint64
-//	for _, block := range allLatestAccountBlock {
-//		accountBlockCount += block.Height
-//	}
-//
-//	return &Statistics{
-//		SnapshotBlockCount: latestSnapshotBlock.Height,
-//		AccountBlockCount:  accountBlockCount,
-//	}, nil
-//}
-
 func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
 	logList, err := l.chain.GetVmLogList(&logHash)
 	if err != nil {
@@ -280,6 +257,14 @@ func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlo
 		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
 	}
 	return block, err
+}
+
+func (l *LedgerApi) GetSnapshotBlocks(height uint64, count int) ([]*ledger.SnapshotBlock, error) {
+	blocks, err := l.chain.GetSnapshotBlocksByHeight(height, false, uint64(count))
+	if err != nil {
+		l.log.Error("GetSnapshotBlocksByHeight failed, error is "+err.Error(), "method", "GetSnapshotBlocks")
+	}
+	return blocks, nil
 }
 
 func (l *LedgerApi) GetSnapshotChainHeight() string {

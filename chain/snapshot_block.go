@@ -252,6 +252,36 @@ func (c *chain) GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint6
 	return blocks, nil
 }
 
+// contains the snapshot header that has the blockHash
+func (c *chain) GetSnapshotHeadersByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
+		return c.indexDB.GetSnapshotBlockLocationListByHeight(height, higher, count)
+	}, higher, true)
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, height is %d, higher is %+v, count is %d. Error: %s",
+			height, higher, count, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotHeadersByHeight")
+		return nil, cErr
+	}
+	return blocks, nil
+}
+
+// contains the snapshot block that has the blockHash
+func (c *chain) GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
+	blocks, err := c.getSnapshotBlockList(func() ([]*chain_file_manager.Location, [2]uint64, error) {
+		return c.indexDB.GetSnapshotBlockLocationListByHeight(height, higher, count)
+	}, higher, false)
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.getSnapshotBlockList failed, height is %d, higher is %+v, count is %d. Error: %s, ",
+			height, higher, count, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotBlocksByHeight")
+		return nil, cErr
+	}
+	return blocks, nil
+}
+
 func (c *chain) GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error) {
 	confirmHeight, err := c.indexDB.GetConfirmHeightByHash(&abHash)
 	if err != nil {

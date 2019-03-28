@@ -19,6 +19,7 @@ type Chain interface {
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
+
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
@@ -97,7 +98,9 @@ type VmDb interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	// ====== Meta & Code ======
-	SetContractMeta(meta *ledger.ContractMeta)
+	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)
+
+	GetContractMeta() (*ledger.ContractMeta, error)
 
 	SetContractCode(code []byte)
 
@@ -105,7 +108,7 @@ type VmDb interface {
 
 	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) // TODO
 
-	GetUnsavedContractMeta() *ledger.ContractMeta
+	GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta
 
 	GetUnsavedContractCode() []byte
 

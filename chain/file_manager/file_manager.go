@@ -8,18 +8,18 @@ import (
 )
 
 type FileManager struct {
-	maxFileSize int64
+	fileSize int64
 
 	fdSet    *fdManager
 	location *Location
 }
 
-func NewFileManager(dirName string, maxFileSize int64) (*FileManager, error) {
+func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManager, error) {
 	fm := &FileManager{
-		maxFileSize: maxFileSize,
+		fileSize: fileSize,
 	}
 
-	fdSet, err := newFdManager(dirName, int(maxFileSize), 10)
+	fdSet, err := newFdManager(dirName, int(fileSize), cacheCount)
 	if err != nil {
 		return nil, err
 	}
@@ -47,29 +47,61 @@ func (fm *FileManager) Write(buf []byte) (*Location, error) {
 }
 
 func (fm *FileManager) Read(location *Location) ([]byte, error) {
-	fd, err := fm.fdSet.GetFd(location)
+	bufSizeBytes := make([]byte, 4)
+	nextLocation, _, err := fm.ReadRaw(location, bufSizeBytes)
 	if err != nil {
 		return nil, err
 	}
-	if fd == nil {
-		return nil, errors.New(fmt.Sprintf("fd is nil, location is %+v\n", location))
-	}
 
-	if _, err := fd.Seek(location.Offset); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Seek failed, [Error] %s, location is %+v", err.Error(), location))
-	}
-
-	bufSizeBytes := make([]byte, 4)
-	if _, err := fd.Read(bufSizeBytes); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
-	}
 	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
 	buf := make([]byte, bufSize)
-	if _, err := fd.Read(buf); err != nil {
-		return nil, errors.New(fmt.Sprintf("fd.Read failed, [Error] %s", err.Error()))
+	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil {
+		return nil, err
 	}
+
 	return buf, nil
+}
+
+func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, int, error) {
+	fileSize := fm.fileSize
+	readLen := len(buf)
+
+	i := 0
+	currentLocation := startLocation
+	for i < readLen {
+		readSize := readLen - i
+		freeSize := int(fileSize - currentLocation.Offset)
+		if readSize > freeSize {
+			readSize = freeSize
+		}
+
+		fd, err := fm.fdSet.GetFd(currentLocation)
+		if err != nil {
+			return currentLocation, 0, err
+		}
+		if fd == nil {
+			return currentLocation, i, io.EOF
+		}
+
+		readN, rErr := fd.ReadAt(buf[i:i+readSize], currentLocation.Offset)
+		fd.Close()
+
+		i += readN
+
+		nextOffset := currentLocation.Offset + int64(readN)
+
+		if nextOffset >= fileSize {
+			currentLocation = NewLocation(currentLocation.FileId+1, 0)
+		} else {
+			currentLocation = NewLocation(currentLocation.FileId, nextOffset)
+		}
+
+		if rErr != nil {
+			return currentLocation, i, rErr
+		}
+	}
+	return currentLocation, i, nil
 }
 
 func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location, parser DataParser) {
@@ -96,6 +128,8 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 		}
 
 		buf, err := fm.readFile(fd, currentLocation, toLocation)
+		fd.Close()
+
 		if err != nil {
 			parser.WriteError(err)
 			return
@@ -107,7 +141,6 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 		currentLocation = NewLocation(currentLocation.FileId+1, 0)
 	}
-
 }
 
 func (fm *FileManager) DeleteTo(location *Location) error {
@@ -134,7 +167,7 @@ func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toL
 	startOffset := fromLocation.Offset
 	var buf []byte
 	if toLocation == nil {
-		buf = make([]byte, fm.maxFileSize-startOffset)
+		buf = make([]byte, fm.fileSize-startOffset)
 	} else {
 		buf = make([]byte, toLocation.Offset-fromLocation.Offset)
 	}

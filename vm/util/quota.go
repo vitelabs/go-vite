@@ -17,6 +17,7 @@ const (
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
 	QuotaRange            uint64 = 75
+	ConfirmGas            uint64 = 200
 )
 
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {
@@ -27,7 +28,7 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	return quotaLeft, nil
 }
 
-func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
+func IntrinsicGasCost(data []byte, isCreate bool, confirmTime uint8) (uint64, error) {
 	var gas uint64
 	if isCreate {
 		gas = txContractCreationGas
@@ -38,7 +39,15 @@ func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 	if err != nil || helper.MaxUint64-gas < gasData {
 		return 0, errGasUintOverflow
 	}
-	return gas + gasData, nil
+	gas = gas + gasData
+	if confirmTime == 0 {
+		return gas, nil
+	}
+	confirmGas := uint64(confirmTime) * ConfirmGas
+	if helper.MaxUint64-gas < confirmGas {
+		return 0, errGasUintOverflow
+	}
+	return gas + confirmGas, nil
 }
 
 func DataGasCost(data []byte) (uint64, error) {

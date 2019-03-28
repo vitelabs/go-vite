@@ -59,6 +59,9 @@ func (bfp *blockFileParser) Close() error {
 
 func (bfp *blockFileParser) WriteError(err error) {
 	bfp.err = err
+	if !bfp.closed {
+		bfp.Close()
+	}
 }
 
 func (bfp *blockFileParser) Write(buf []byte, location *chain_file_manager.Location) error {
