@@ -17,11 +17,11 @@ var (
 	ErrDepth                       = errors.New("max call depth exceeded")
 	ErrInvalidConfirmTime          = errors.New("invalid confirm time")
 
-	ErrAddressNotMatch            = errors.New("current address not match")
-	ErrForked                     = errors.New("chain forked")
-	ErrCalcPoWLimitReached        = errors.New("can not calc PoW in this block")
-	ErrContractSendBlockRunFailed = errors.New("contract send block run failed")
-	ErrVersionNotSupport          = errors.New("feature not supported in current snapshot height")
+	ErrAddressNotMatch           = errors.New("current address not match")
+	ErrForked                    = errors.New("chain forked")
+	ErrCalcPoWLimitReached       = errors.New("can not calc PoW in this block")
+	ErrTransactionTypeNotSupport = errors.New("transaction type not supported")
+	ErrVersionNotSupport         = errors.New("feature not supported in current snapshot height")
 )
 
 func DealWithErr(v interface{}) {
