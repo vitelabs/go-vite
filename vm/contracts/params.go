@@ -20,15 +20,22 @@ const (
 	MintageGas                uint64 = 83200
 	MintageCancelPledgeGas    uint64 = 83200
 
-	dexFundDepositGas         uint64 = 300
-	dexFundWithdrawGas        uint64 = 300
-	dexFundNewOrderGas        uint64 = 300
-	dexFundSettleOrdersGas    uint64 = 300
-	dexFundFeeDividendGas     uint64 = 300
-	dexFundMinedVxDividendGas uint64 = 300
-	dexFundNewMarketGas 	  uint64 = 300
-	dexTradeNewOrderGas       uint64 = 300
-	dexTradeCancelOrderGas    uint64 = 300
+	dexFundDepositGas                uint64 = 300
+	dexFundDepositReceiveGas         uint64 = 1
+	dexFundWithdrawGas               uint64 = 300
+	dexFundWithdrawReceiveGas        uint64 = 1
+	dexFundNewOrderGas               uint64 = 300
+	dexFundNewOrderReceiveGas        uint64 = 1
+	dexFundSettleOrdersGas           uint64 = 300
+	dexFundSettleOrdersReceiveGas    uint64 = 1
+	dexFundFeeDividendGas            uint64 = 300
+	dexFundFeeDividendReceiveGas     uint64 = 1
+	dexFundMinedVxDividendGas        uint64 = 300
+	dexFundMinedVxDividendReceiveGas uint64 = 1
+	dexFundNewMarketGas              uint64 = 300
+	dexFundNewMarketReceiveGas       uint64 = 1
+	dexTradeNewOrderGas              uint64 = 300
+	dexTradeCancelOrderGas           uint64 = 300
 
 	MintGas            uint64 = 104525
 	IssueGas           uint64 = 69325
