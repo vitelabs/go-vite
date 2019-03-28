@@ -438,7 +438,7 @@ func (vm *VM) receiveCall(block *vm_context.VmAccountBlock, sendBlock *ledger.Ac
 		blockListToSend, err := p.DoReceive(block.VmContext, block.AccountBlock, sendBlock)
 		if err == nil {
 			block.AccountBlock.Data = getReceiveCallData(block.VmContext, err)
-			vm.updateBlock(block, err, 0)
+			vm.updateBlock(block, err, qutoaUsed)
 			for _, blockToSend := range blockListToSend {
 				vm.VmContext.AppendBlock(
 					&vm_context.VmAccountBlock{
