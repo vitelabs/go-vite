@@ -29,7 +29,7 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		worker:     worker,
 		blocksPool: worker.uBlocksPool,
 
-		log: slog.New("tp", index),
+		log: worker.log.New("tp", index),
 	}
 
 	return task
@@ -78,46 +78,44 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	defer monitor.LogTime("onroad", "processOneAddress", time.Now())
-	plog := tp.log.New("method", "processOneAddress", "contract", task.Addr)
+	plog := tp.log.New("processAddr", task.Addr, "quota", fmt.Sprintf("(remain:%v,sbHash:%v)", task.Quota, tp.worker.currentSnapshotHash))
 
 	sBlock := tp.worker.uBlocksPool.GetNextContractTx(task.Addr)
 	if sBlock == nil {
 		return
 	}
-	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v,remainQuota=%d", sBlock.AccountAddress, sBlock.Height, sBlock.Hash, task.Quota))
+	blog := plog.New("caller", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
 	if latestBlock, _ := tp.worker.manager.Chain().GetLatestAccountBlock(&task.Addr); latestBlock != nil {
-		plog.Info(fmt.Sprintf("prev contractBlock: hash=%v,height=%v,snHash:%v", latestBlock.Hash, latestBlock.Height, latestBlock.SnapshotHash))
+		blog.Info(fmt.Sprintf("contract-prev(hash=%v,height=%v,sbHash:%v)", latestBlock.Hash, latestBlock.Height, latestBlock.SnapshotHash))
 	}
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
-		plog.Info("checkExistInPool true")
+		blog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
 
 	if tp.worker.manager.chain.IsSuccessReceived(&sBlock.ToAddress, &sBlock.Hash) {
-		plog.Error("had receive for account block", "addr", sBlock.AccountAddress, "hash", sBlock.Hash)
+		blog.Info("had receive for account block")
 		return
 	}
 
 	receiveErrHeightList, err := tp.worker.manager.chain.GetReceiveBlockHeights(&sBlock.Hash)
 	if err != nil {
-		plog.Info("GetReceiveBlockHeights failed", "error", err)
+		blog.Error(fmt.Sprintf("GetReceiveBlockHeights failed,err %v", err))
 		return
 	}
 	if len(receiveErrHeightList) > 0 {
 		highestHeight := receiveErrHeightList[len(receiveErrHeightList)-1]
-
-		plog.Info(fmt.Sprintf("receiveErrBlock highest height %v", highestHeight))
-
+		blog.Info(fmt.Sprintf("receiveErrBlock highest height %v", highestHeight))
 		receiveErrBlock, hErr := tp.worker.manager.chain.GetAccountBlockByHeight(&sBlock.ToAddress, highestHeight)
 		if hErr != nil || receiveErrBlock == nil {
-			plog.Info(fmt.Sprintf("GetAccountBlockByHeight failed, err:%v", hErr))
+			blog.Error(fmt.Sprintf("GetAccountBlockByHeight failed, err:%v", hErr))
 			return
 		}
 		if task.Quota < receiveErrBlock.Quota {
-			plog.Info("contractAddr still out of quota")
+			blog.Info("contractAddr still out of quota")
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
@@ -125,13 +123,13 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 	consensusMessage, err := tp.packConsensusMessage(sBlock)
 	if err != nil {
-		plog.Info("packConsensusMessage failed", "error", err)
+		blog.Info("packConsensusMessage failed", "error", err)
 		return
 	}
-
+	blog.Info("fittestSbHash:%v", consensusMessage.SnapshotHash)
 	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), &consensusMessage.SnapshotHash, nil, &sBlock.ToAddress)
 	if err != nil {
-		plog.Error("NewGenerator failed", "error", err)
+		blog.Error("NewGenerator failed", "error", err)
 		tp.worker.addIntoBlackList(task.Addr)
 		return
 	}
@@ -145,24 +143,24 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 			return key.SignData(data)
 		}, nil)
 	if err != nil {
-		plog.Error("GenerateWithOnroad failed", "error", err)
+		blog.Error("GenerateWithOnroad failed", "error", err)
 		return
 	}
 
 	if genResult.Err != nil {
-		plog.Error("vm.Run error, ignore", "error", genResult.Err)
+		blog.Error("vm.Run error, ignore", "error", genResult.Err)
 	}
 
-	plog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(genResult.BlockGenList)))
+	blog.Info(fmt.Sprintf("len(genResult.BlockGenList) = %v", len(genResult.BlockGenList)))
 	if len(genResult.BlockGenList) > 0 {
 		if err := tp.worker.manager.insertContractBlocksToPool(genResult.BlockGenList); err != nil {
-			plog.Error("insertContractBlocksToPool", "error", err)
+			blog.Error("insertContractBlocksToPool", "error", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
 
 		if genResult.IsRetry {
-			plog.Error("genResult.IsRetry true")
+			blog.Info("genResult.IsRetry true")
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
@@ -170,7 +168,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		for _, v := range genResult.BlockGenList {
 			if v != nil && v.AccountBlock != nil {
 				if task.Quota <= v.AccountBlock.Quota {
-					plog.Error(fmt.Sprintf("addr %v out of quota expected during snapshotTime %v.", task.Addr, tp.worker.currentSnapshotHash))
+					blog.Info(fmt.Sprintf("addr %v out of quota expected during snapshotTime %v.", task.Addr, tp.worker.currentSnapshotHash))
 					tp.worker.addIntoBlackList(task.Addr)
 					return
 				}
@@ -179,20 +177,20 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		}
 
 		if task.Quota > 0 {
-			plog.Info(fmt.Sprintf("task.Quota remain %v", task.Quota))
+			blog.Info(fmt.Sprintf("task.Quota remain %v", task.Quota))
 			tp.worker.pushContractTask(task)
 		}
 
 	} else {
 		if genResult.IsRetry {
 			// retry it in next turn
-			plog.Error("genResult.IsRetry true")
+			blog.Info("genResult.IsRetry true")
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
 
 		if err := tp.blocksPool.DeleteDirect(sBlock); err != nil {
-			plog.Error("blocksPool.DeleteDirect", "error", err)
+			blog.Error("blocksPool.DeleteDirect", "error", err)
 			tp.worker.addIntoBlackList(task.Addr)
 			return
 		}
