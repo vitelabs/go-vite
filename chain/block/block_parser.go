@@ -3,6 +3,7 @@ package chain_block
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 )
 
 const (
@@ -56,13 +57,13 @@ func (bfp *blockFileParser) Close() error {
 	return nil
 }
 
-func (bfp *blockFileParser) WriteErr(err error) {
+func (bfp *blockFileParser) WriteError(err error) {
 	bfp.err = err
 }
 
-func (bfp *blockFileParser) Write(fileId uint64, buf []byte) (int, error) {
+func (bfp *blockFileParser) Write(buf []byte, location *chain_file_manager.Location) error {
 	if bfp.closed {
-		return 0, ClosedErr
+		return ClosedErr
 	}
 
 	readPointer := 0
@@ -86,7 +87,7 @@ func (bfp *blockFileParser) Write(fileId uint64, buf []byte) (int, error) {
 			bfp.blockSizeBufferPointer += readNumbers
 
 			if bfp.blockSizeBufferPointer >= 4 {
-				bfp.blockSize = int64(binary.BigEndian.Uint32(bfp.blockSizeBuffer) - 5)
+				bfp.blockSize = int64(binary.BigEndian.Uint32(bfp.blockSizeBuffer) - 1)
 			}
 		} else if bfp.blockType == BlockTypeUnknown {
 
@@ -111,14 +112,14 @@ func (bfp *blockFileParser) Write(fileId uint64, buf []byte) (int, error) {
 						BlockType: bfp.blockType,
 						Buffer:    buf[readPointer:nextPointer],
 						Size:      bfp.blockSize + 5,
-						FileId:    fileId,
+						FileId:    location.FileId,
 					}
 				} else {
 					bfp.bytesBuffer <- &byteBuffer{
 						BlockType: bfp.blockType,
 						Buffer:    append(bfp.blockBuffer, buf[readPointer:nextPointer]...),
 						Size:      bfp.blockSize + 5,
-						FileId:    fileId,
+						FileId:    location.FileId,
 					}
 				}
 
@@ -132,7 +133,7 @@ func (bfp *blockFileParser) Write(fileId uint64, buf []byte) (int, error) {
 			}
 		}
 	}
-	return bufLen, nil
+	return nil
 }
 func (bfp *blockFileParser) Iterator() <-chan *byteBuffer {
 	return bfp.bytesBuffer

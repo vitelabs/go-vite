@@ -3,7 +3,7 @@ package chain_index
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -13,7 +13,7 @@ func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
 	return iDB.hasValue(chain_utils.CreateAccountBlockHashKey(hash))
 }
 
-func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_block.Location, error) {
+func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_file_manager.Location, error) {
 	startKey := chain_utils.CreateAccountBlockHeightKey(addr, 1)
 	endKey := chain_utils.CreateAccountBlockHeightKey(addr, helper.MaxUint64)
 
@@ -28,7 +28,7 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 	}
 
 	height := chain_utils.BytesToUint64(iter.Key()[1+types.AddressSize:])
-	var location *chain_block.Location
+	var location *chain_file_manager.Location
 
 	value := iter.Value()
 	if len(value) > types.HashSize {
@@ -38,7 +38,7 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_b
 	return height, location, nil
 }
 
-func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain_block.Location, error) {
+func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain_file_manager.Location, error) {
 	addr, height, err := iDB.GetAddrHeightByHash(blockHash)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain
 	return iDB.GetAccountBlockLocation(addr, height)
 }
 
-func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_block.Location, error) {
+func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
 	value, err := iDB.getValue(key)
 	if err != nil {
@@ -62,7 +62,7 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
-func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*chain_block.Location, [2]uint64, error) {
+func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
 	startHeight := uint64(1)
 
 	endHeight := height
@@ -76,7 +76,7 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	iter := iDB.NewIterator(&util.Range{Start: startKey, Limit: endKey})
 	defer iter.Release()
 
-	locationList := make([]*chain_block.Location, 0, endHeight+1-startHeight)
+	locationList := make([]*chain_file_manager.Location, 0, endHeight+1-startHeight)
 
 	var minHeight, maxHeight uint64
 
@@ -106,7 +106,7 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	return locationList, [2]uint64{minHeight, maxHeight}, nil
 
 }
-func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*chain_block.Location, [2]uint64, error) {
+func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*chain_file_manager.Location, [2]uint64, error) {
 	if count <= 0 {
 		return nil, nil, [2]uint64{}, nil
 	}

@@ -228,7 +228,7 @@ func TestVmRun(t *testing.T) {
 	db.accountBlockMap[addr2][hash23] = receiveCallBlock2.AccountBlock
 }
 
-func TestDelegateCall(t *testing.T) {
+/*func TestDelegateCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
 	db := NewNoDatabase()
 	// code1 return 1+2
@@ -269,7 +269,7 @@ func TestDelegateCall(t *testing.T) {
 	if err != nil || !bytes.Equal(ret, helper.LeftPadBytes([]byte{3}, 32)) {
 		t.Fatalf("delegate call error")
 	}
-}
+}*/
 
 func TestCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code

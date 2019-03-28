@@ -494,7 +494,7 @@ func newBaseInstructionSet() [256]operation {
 			memorySize:    memoryCodeCopy,
 			valid:         true,
 		},
-		EXTCODESIZE: {
+		/*EXTCODESIZE: {
 			execute:       opExtCodeSize,
 			gasCost:       constGasFunc(extCodeSizeGas),
 			validateStack: makeStackFunc(1, 1),
@@ -506,7 +506,7 @@ func newBaseInstructionSet() [256]operation {
 			validateStack: makeStackFunc(4, 0),
 			memorySize:    memoryExtCodeCopy,
 			valid:         true,
-		},
+		},*/
 		RETURNDATASIZE: {
 			execute:       opReturnDataSize,
 			gasCost:       constGasFunc(quickStepGas),
@@ -977,13 +977,13 @@ func newBaseInstructionSet() [256]operation {
 			halts:         true,
 			valid:         true,
 		},
-		DELEGATECALL: {
+		/*DELEGATECALL: {
 			execute:       opDelegateCall,
 			gasCost:       gasDelegateCall,
 			validateStack: makeStackFunc(5, 1),
 			memorySize:    memoryDelegateCall,
 			valid:         true,
 			returns:       true,
-		},
+		},*/
 	}
 }

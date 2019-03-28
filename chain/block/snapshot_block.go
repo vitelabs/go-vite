@@ -3,10 +3,11 @@ package chain_block
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (bDB *BlockDB) GetSnapshotBlock(location *Location) (*ledger.SnapshotBlock, error) {
+func (bDB *BlockDB) GetSnapshotBlock(location *chain_file_manager.Location) (*ledger.SnapshotBlock, error) {
 	buf, err := bDB.Read(location)
 	if err != nil {
 		return nil, err
@@ -20,7 +21,7 @@ func (bDB *BlockDB) GetSnapshotBlock(location *Location) (*ledger.SnapshotBlock,
 }
 
 // TODO optimize
-func (bDB *BlockDB) GetSnapshotHeader(location *Location) (*ledger.SnapshotBlock, error) {
+func (bDB *BlockDB) GetSnapshotHeader(location *chain_file_manager.Location) (*ledger.SnapshotBlock, error) {
 	sb, err := bDB.GetSnapshotBlock(location)
 	if err != nil {
 		return nil, err

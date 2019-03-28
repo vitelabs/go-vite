@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -9,7 +10,7 @@ import (
 
 // TODO
 func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment,
-	location *chain_block.Location) error {
+	location *chain_file_manager.Location) error {
 	// clean mem
 	iDB.memDb.Clean()
 
@@ -64,7 +65,7 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 	return nil
 }
 
-func (iDB *IndexDB) setIndexDbLatestLocation(batch interfaces.Batch, latestLocation *chain_block.Location) {
+func (iDB *IndexDB) setIndexDbLatestLocation(batch interfaces.Batch, latestLocation *chain_file_manager.Location) {
 	batch.Put(chain_utils.CreateIndexDbLatestLocationKey(), chain_utils.SerializeLocation(latestLocation))
 
 }

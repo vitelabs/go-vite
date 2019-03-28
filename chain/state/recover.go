@@ -2,11 +2,11 @@ package chain_state
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 )
 
-func (sDB *StateDB) CheckAndDelete(toLocation *chain_block.Location) error {
+func (sDB *StateDB) CheckAndDelete(toLocation *chain_file_manager.Location) error {
 
 	snapshotBlock, err := sDB.chain.QueryLatestSnapshotBlock()
 	if err != nil {

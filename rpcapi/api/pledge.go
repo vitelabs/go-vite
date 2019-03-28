@@ -79,13 +79,11 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
 	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	// TODO tmpchain
-	var tmpChain vm_db.Chain
 	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(tmpChain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	db, err := vm_db.NewVmDb(p.chain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}

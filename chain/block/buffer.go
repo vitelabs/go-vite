@@ -6,11 +6,12 @@ import (
 )
 
 func makeWriteBytes(buf []byte, dataType byte, data []byte) []byte {
+
 	buf[4] = dataType
 	sBuf := snappy.Encode(buf[5:], data)
+	sBufLen := len(sBuf)
 
-	bufSize := 5 + len(sBuf)
-	binary.BigEndian.PutUint32(buf, uint32(bufSize))
+	binary.BigEndian.PutUint32(buf, uint32(sBufLen+1))
 
-	return buf[:bufSize]
+	return buf[:5+sBufLen]
 }
