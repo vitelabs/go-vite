@@ -239,9 +239,9 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			return vmAccountBlock, NoRetry, nil
 		}
 	case ledger.BlockTypeSendReward, ledger.BlockTypeSendRefund:
-		return nil, NoRetry, util.ErrContractSendBlockRunFailed
+		return nil, NoRetry, util.ErrTransactionTypeNotSupport
 	}
-	return nil, NoRetry, errors.New("transaction type not supported")
+	return nil, NoRetry, util.ErrTransactionTypeNotSupport
 }
 
 func (vm *VM) Cancel() {
