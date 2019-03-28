@@ -491,8 +491,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vmctxt_interface.VmDatabase, block
 }
 
 func handleNewOrderFail(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) ([]*SendBlock, error) {
-	//TODO enable status setting on new order failed
-	//orderInfo.Order.Status = dex.NewFailed
+	orderInfo.Order.Status = dex.NewFailed
 	dex.EmitOrderFailLog(db, orderInfo, errCode)
 	return []*SendBlock{}, nil
 }
