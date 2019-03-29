@@ -140,8 +140,9 @@ func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, sna
 
 	copy(key[1:types.AddressSize+1], address.Bytes())
 	copy(key[types.AddressSize+1:], storageKey)
-	key[keySize-8] = byte(len(storageKey))
-	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
+	key[keySize-9] = byte(len(storageKey))
+
+	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
 
 	return key
 }
