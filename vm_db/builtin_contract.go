@@ -6,7 +6,7 @@ import (
 	"math/big"
 )
 
-func (db *vmDb) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+func (db *vmDb) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	if db.latestSnapshotBlockHash == nil {
 		return nil, errors.New("no context, db.latestSnapshotBlockHash is nil")
 	}

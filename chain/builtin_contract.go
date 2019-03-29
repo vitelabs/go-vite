@@ -54,7 +54,7 @@ func (c *chain) GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error) 
 
 	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressPledge)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed")
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
 		c.log.Error(cErr.Error(), "method", "GetPledgeBeneficialAmount")
 		return nil, cErr
 	}
@@ -123,7 +123,6 @@ func (c *chain) GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, e
 	}
 	return abi.GetTokenById(sd, tokenId)
 }
-
 
 func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error) {
 	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressMintage)
