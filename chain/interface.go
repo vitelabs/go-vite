@@ -164,7 +164,7 @@ type Chain interface {
 
 	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 
-	GetSubLedger(endHeight, startHeight uint64) ([]*chain_block.SnapshotSegment, error)
+	GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error)
 
 	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
 
@@ -210,7 +210,7 @@ type Chain interface {
 
 	GetConsensusGroupList(snapshotHash types.Hash) ([]types.ConsensusGroupInfo, error)
 
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
+	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 
 	GetPledgeAmount(addr types.Address) (*big.Int, error)
 
@@ -222,7 +222,7 @@ type Chain interface {
 
 	GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
 
-	GetAllTokenInfo() ([]*types.TokenInfo, error)
+	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
 
 	// ====== Query vm log list ======`
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
