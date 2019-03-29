@@ -70,39 +70,45 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
-	plog := tp.log.New("method", "processOneAddress", "contract", task.Addr, "quota", task.Quota)
+	plog := tp.log.New("processAddr", task.Addr)
 
 	sBlock := tp.worker.getPendingOnroadBlock(&task.Addr)
 	if sBlock == nil {
 		return
 	}
-	//fixme checkReceivedSuccess??
+	blog := plog.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress)
 
-	plog.Info(fmt.Sprintf("onroad processing(caller:%v, height:%v, hash:%v)", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
+	//fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
-		plog.Error(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
+		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
 		tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return
 	}
+
 	randomSeedStates, err := tp.worker.manager.Chain().GetRandomGlobalStatus(&task.Addr, &sBlock.Hash)
 	if err != nil {
-		plog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
+		blog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
 		return
 	}
+	if randomSeedStates != nil {
+		blog.Info(fmt.Sprintf("seed=%v sb(%v,%v)", randomSeedStates.Seed, randomSeedStates.SnapshotBlock.Height, randomSeedStates.SnapshotBlock.Hash))
+	}
+
 	addrState, err := generator.GetAddressStateForGenerator(tp.worker.manager.Chain(), &task.Addr)
-	if err != nil {
-		plog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
+	if err != nil || addrState == nil {
+		blog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
 		return
 	}
+	plog.Info(fmt.Sprintf("contract-prev: hash=%v height=%v", addrState.LatestAccountHash, addrState.LatestAccountHeight))
+
 	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr,
 		addrState.LatestSnapshotHash, addrState.LatestAccountHash,
 		randomSeedStates)
 	if err != nil {
-		plog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
+		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return
 	}
-
 	genResult, err := gen.GenerateWithOnroad(sBlock, &task.Addr,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
@@ -112,19 +118,19 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 			return key.SignData(data)
 		}, nil)
 	if err != nil {
-		plog.Error(fmt.Sprintf("GenerateWithOnroad failed, err:%v", err))
+		blog.Error(fmt.Sprintf("GenerateWithOnroad failed, err:%v", err))
 		return
 	}
 	if genResult == nil {
-		plog.Error("result of generator is nil")
+		blog.Info("result of generator is nil")
 		return
 	}
 	if genResult.Err != nil {
-		plog.Error(fmt.Sprintf("vm.Run error, can ignore, err:%v", genResult.Err))
+		blog.Info(fmt.Sprintf("vm.Run error, can ignore, err:%v", genResult.Err))
 	}
 	if genResult.VmBlock != nil {
 		if err := tp.worker.manager.insertBlockToPool(genResult.VmBlock); err != nil {
-			plog.Error(fmt.Sprintf("insertContractBlocksToPool, err:%v", err))
+			blog.Error(fmt.Sprintf("insertContractBlocksToPool failed, err:%v", err))
 			tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, OUT)
 			return
 		}
@@ -132,27 +138,28 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		tp.worker.deletePendingOnroadBlock(&task.Addr, genResult.VmBlock.AccountBlock)
 
 		if genResult.IsRetry {
-			plog.Error("impossible situation: vmBlock and vmRetry")
+			blog.Info("impossible situation: vmBlock and vmRetry")
 			tp.worker.addContractIntoBlackList(task.Addr)
 			return
 		}
 	} else {
 		if genResult.IsRetry {
 			// vmRetry it in next turn
-			plog.Info("genResult.IsRetry true")
+			blog.Info("genResult.IsRetry true")
 			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
 				q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
 				if err != nil {
-					plog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
+					blog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
 					return
 				}
 				if q == nil {
-					plog.Error("pledge quota is nil, to judge it in next round")
+					blog.Info("pledge quota is nil, to judge it in next round")
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return
 				}
 				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), task.Addr, *q); !canRetryDuringNextSnapshot {
-					plog.Info("Check quota is gone to be insufficient")
+					blog.Info("Check quota is gone to be insufficient",
+						"quota", fmt.Sprintf("(u:%v c:%v t:%v sb:%v)", q.Used(), q.Current(), q.Total(), addrState.LatestSnapshotHash))
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return
 				}
@@ -160,7 +167,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		} else {
 			// no vmBlock no vmRetry in condition that fail to create contract
 			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
-				plog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
+				blog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
 				tp.worker.addContractIntoBlackList(task.Addr)
 				return
 			}

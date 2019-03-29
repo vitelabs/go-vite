@@ -11,7 +11,7 @@ import (
 )
 
 type snapshotCs struct {
-	info *core.GroupInfo
+	consensusDpos
 	//voteCache map[int32]*electionResult
 	//voteCache *lru.Cache
 	rw   *chainRw
@@ -32,23 +32,14 @@ func newSnapshotCs(rw *chainRw, log log15.Logger) *snapshotCs {
 	cs.info = info
 	return cs
 }
-func (self *snapshotCs) time2Index(t time.Time) uint64 {
-	return self.info.Time2Index(t)
+
+func (self *snapshotCs) ElectionTime(t time.Time) (*electionResult, error) {
+	index := self.Time2Index(t)
+	return self.ElectionIndex(index)
 }
 
-func (self *snapshotCs) index2Time(i uint64) (time.Time, time.Time) {
-	sTime := self.info.GenSTime(i)
-	eTime := self.info.GenETime(i)
-	return sTime, eTime
-}
-
-func (self *snapshotCs) electionTime(t time.Time) (*electionResult, error) {
-	index := self.info.Time2Index(t)
-	return self.electionIndex(index)
-}
-
-func (self *snapshotCs) electionIndex(index uint64) (*electionResult, error) {
-	sTime, voteIndex := self.GenVoteTime(index)
+func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
+	sTime, voteIndex := self.genSnapshotVoteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -64,7 +55,7 @@ func (self *snapshotCs) electionIndex(index uint64) (*electionResult, error) {
 		return nil, err
 	}
 
-	plans := genElectionResult(self.info, index, voteResults, block)
+	plans := genElectionResult(self.info, index, voteResults)
 	return plans, nil
 }
 
@@ -111,7 +102,12 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 }
 
 // generate the vote time for snapshot consensus group
-func (self *snapshotCs) GenVoteTime(idx uint64) (time.Time, uint64) {
+func (self *snapshotCs) GenVoteTime(idx uint64) time.Time {
+	voteTime, _ := self.genSnapshotVoteTime(idx)
+	return voteTime
+}
+
+func (self *snapshotCs) genSnapshotVoteTime(idx uint64) (time.Time, uint64) {
 	return self.info.GenSTime(idx - 1), idx - 2
 }
 
@@ -128,7 +124,7 @@ func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *led
 }
 
 func (self *snapshotCs) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	electionResult, err := self.electionTime(*header.Timestamp)
+	electionResult, err := self.ElectionTime(*header.Timestamp)
 	if err != nil {
 		return false, err
 	}

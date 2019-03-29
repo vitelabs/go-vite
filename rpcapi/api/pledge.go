@@ -109,3 +109,11 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
+
+func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error) {
+	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
+	if err != nil {
+		return "", err
+	}
+	return *bigIntToString(amount), nil
+}

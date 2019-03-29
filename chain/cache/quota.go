@@ -32,6 +32,8 @@ func newQuotaList(chain Chain) *quotaList {
 		chain: chain,
 		used:  make(map[types.Address]*item),
 
+		backElement: make(map[types.Address]*item),
+
 		list:               list.New(),
 		listMaxLength:      600,
 		accumulationHeight: 75,
@@ -248,6 +250,9 @@ func (ql *quotaList) calculateUsed() {
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*item)
 		for addr, tmpItem := range tmpUsed {
+			if used[addr] == nil {
+				used[addr] = &item{}
+			}
 
 			used[addr].BlockCount += tmpItem.BlockCount
 			used[addr].Quota += tmpItem.Quota

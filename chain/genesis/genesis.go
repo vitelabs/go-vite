@@ -9,6 +9,14 @@ const (
 
 func InitLedger(chain Chain) error {
 	// insert genesis account blocks
+	// TODO fixme
+	genesisAccountBlockList := NewGenesisAccountBlocks()
+	for _, ab := range genesisAccountBlockList {
+		err := chain.InsertAccountBlock(ab)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	// init genesis snapshot block
 	genesisSnapshotBlock := NewGenesisSnapshotBlock()

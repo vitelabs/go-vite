@@ -36,13 +36,23 @@ func NewGroupInfo(genesisTime time.Time, info types.ConsensusGroupInfo) *GroupIn
 		ConsensusGroupInfo: info,
 		genesisTime:        genesisTime,
 		seed:               new(big.Int).SetBytes(info.Gid.Bytes()),
-		PlanInterval:       planInterval(&info),
 	}
+
+	if info.Gid == types.DELEGATE_GID {
+		groupInfo.Repeat = 48
+		groupInfo.CheckLevel = 1
+	}
+
+	if info.Gid == types.SNAPSHOT_GID {
+		groupInfo.Repeat = 1
+		groupInfo.CheckLevel = 0
+	}
+	groupInfo.PlanInterval = planInterval(groupInfo)
 	return groupInfo
 }
 
-func planInterval(info *types.ConsensusGroupInfo) uint64 {
-	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount) * uint64(1)
+func planInterval(info *GroupInfo) uint64 {
+	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount) * uint64(info.Repeat)
 }
 
 func (self *GroupInfo) Time2Index(t time.Time) uint64 {
@@ -91,12 +101,15 @@ func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
 func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
-	for _, member := range members {
-		for i := int64(0); i < self.PerCount; i++ {
-			etime := sTime.Add(time.Duration(self.Interval) * time.Second)
-			plan := MemberPlan{STime: sTime, ETime: etime, Member: member}
-			plans = append(plans, &plan)
-			sTime = etime
+
+	for j := int32(0); j < self.Repeat; j++ {
+		for _, member := range members {
+			for i := int64(0); i < self.PerCount; i++ {
+				etime := sTime.Add(time.Duration(self.Interval) * time.Second)
+				plan := MemberPlan{STime: sTime, ETime: etime, Member: member}
+				plans = append(plans, &plan)
+				sTime = etime
+			}
 		}
 	}
 	return plans

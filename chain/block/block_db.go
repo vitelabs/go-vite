@@ -50,11 +50,7 @@ func (bDB *BlockDB) FileSize() int64 {
 	return bDB.fileSize
 }
 
-func (bDB *BlockDB) CleanAllData() error {
-	return bDB.fm.RemoveAllFile()
-}
-
-func (bDB *BlockDB) Destroy() error {
+func (bDB *BlockDB) Close() error {
 	if err := bDB.fm.Close(); err != nil {
 		return errors.New(fmt.Sprintf("bDB.fm.Close failed, error is %s", err))
 	}
@@ -100,6 +96,9 @@ func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) 
 	buf, err := bDB.fm.Read(location)
 	if err != nil {
 		return nil, err
+	}
+	if len(buf) <= 0 {
+		return nil, nil
 	}
 	sBuf, err := snappy.Decode(nil, buf[1:])
 	if err != nil {

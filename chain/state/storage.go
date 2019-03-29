@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -46,7 +47,7 @@ func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.Storage
 	if ss == nil {
 		return nil, nil
 	}
-	return nil, nil
+	return ss, nil
 }
 
 func (sd *StorageDatabase) Address() *types.Address {

@@ -70,7 +70,7 @@ func (iDB *IndexDB) QueryLatestLocation() (*chain_file_manager.Location, error) 
 	return chain_utils.DeserializeLocation(value), nil
 }
 
-func (iDB *IndexDB) Destroy() error {
+func (iDB *IndexDB) Close() error {
 	if err := iDB.store.Close(); err != nil {
 		return errors.New(fmt.Sprintf("iDB.store.Close failed, error is %s", err.Error()))
 	}

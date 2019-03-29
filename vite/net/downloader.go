@@ -137,26 +137,24 @@ func (f *fileConn) download(from, to uint64) (err error) {
 		return err
 	}
 
+	defer writer.Close()
+
 	start := time.Now()
 	var nr, nw, total int
+	var werr error
 	for {
 		_ = f.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		nr, err = f.Conn.Read(f.buf)
 		total += nr
 
+		nw, werr = writer.Write(f.buf[:nr])
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return err
-		} else {
-			nw, err = writer.Write(f.buf[:nr])
-			if err != nil {
-				return err
-			}
-			if nw != nr {
-				return errors.New("write too short")
-			}
+		} else if werr != nil || nw != nr {
+			return errors.New("write too short")
 		}
 	}
 

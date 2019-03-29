@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -313,8 +314,8 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	}
 
 	addrState, err := generator.GetAddressStateForGenerator(m.chain, &msg.AccountAddress)
-	if err != nil {
-		return nil, err
+	if err != nil || addrState == nil {
+		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
 	g, e := generator.NewGenerator2(m.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash, nil)
 	if e != nil {

@@ -62,6 +62,7 @@ func (iDB *IndexDB) insertOnRoad(sendBlockHash types.Hash, toAddr types.Address)
 }
 
 func (iDB *IndexDB) receiveOnRoad(sendBlockHash *types.Hash) error {
+
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
 	key, err := iDB.store.Get(reverseKey)
 	if err != nil {

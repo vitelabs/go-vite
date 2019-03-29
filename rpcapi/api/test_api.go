@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -88,8 +89,8 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	}
 
 	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
-	if err != nil {
-		return err
+	if err != nil || addrState == nil {
+		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
 	g, e := generator.NewGenerator2(t.walletApi.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash, nil)
 	if e != nil {
@@ -166,8 +167,8 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	}
 
 	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
-	if err != nil {
-		return err
+	if err != nil || addrState == nil {
+		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
 	g, e := generator.NewGenerator2(t.walletApi.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash, nil)
 	if e != nil {

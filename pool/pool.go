@@ -343,11 +343,21 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 		return err
 	}
 	cBlock := newSnapshotPoolBlock(block, self.version, types.Local)
-	err = self.pendingSc.AddDirectBlock(cBlock)
+	abs, err := self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
 	}
 	self.pendingSc.f.broadcastBlock(block)
+	if abs == nil || len(abs) == 0 {
+		return nil
+	}
+
+	for k, v := range abs {
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

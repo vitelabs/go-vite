@@ -172,7 +172,7 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr b
 
 func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock, isGeneralAddr bool) (VerifyResult, error) {
 	// check whether the prev is snapshoted
-	if block.Height == 1 && (!block.PrevHash.IsZero()) {
+	if block.Height == 1 && !block.PrevHash.IsZero() {
 		return FAIL, errors.New("account first block's prevHash error")
 	}
 	latestBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)

@@ -11,7 +11,7 @@ import (
 )
 
 type contractDposCs struct {
-	info *core.GroupInfo
+	consensusDpos
 	rw   *chainRw
 	algo core.Algo
 
@@ -29,15 +29,15 @@ func newContractDposCs(info *core.GroupInfo, rw *chainRw, log log15.Logger) *con
 
 func (self *contractDposCs) electionTime(t time.Time) (*electionResult, error) {
 	index := self.info.Time2Index(t)
-	return self.electionIndex(index)
+	return self.ElectionIndex(index)
 }
 
-func (self *contractDposCs) electionIndex(index uint64) (*electionResult, error) {
-	voteResults, block, err := self.electionAddrsIndex(index)
+func (self *contractDposCs) ElectionIndex(index uint64) (*electionResult, error) {
+	voteResults, _, err := self.electionAddrsIndex(index)
 	if err != nil {
 		return nil, err
 	}
-	plans := genElectionResult(self.info, index, voteResults, block)
+	plans := genElectionResult(self.info, index, voteResults)
 	return plans, nil
 }
 
@@ -93,14 +93,10 @@ func (self *contractDposCs) GenVoteTime(idx uint64) time.Time {
 	return sTime.Add(-time.Second * 75)
 }
 
-func (self *contractDposCs) time2Index(t time.Time) uint64 {
-	return self.info.Time2Index(t)
-}
-
 func (self *contractDposCs) verifyAccountsProducer(accountBlocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	head := self.rw.GetLatestSnapshotBlock()
 
-	index := self.time2Index(*head.Timestamp)
+	index := self.Time2Index(*head.Timestamp)
 	result, _, err := self.electionAddrsIndex(index)
 	if err != nil {
 		return nil, err

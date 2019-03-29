@@ -52,3 +52,11 @@ func NewVmDbByAddr(chain Chain, address *types.Address) VmDb {
 		address: address,
 	}
 }
+
+func NewEmptyVmDB(address *types.Address) VmDb {
+	// fixme
+	return &vmDb{
+		unsaved: NewUnsaved(),
+		address: address,
+	}
+}

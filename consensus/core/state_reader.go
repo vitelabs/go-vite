@@ -11,7 +11,7 @@ import (
 type stateCh interface {
 	//GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                    // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                       // Get the candidate's vote
+	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
 	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -21,7 +21,7 @@ func CalVotes(info *GroupInfo, block ledger.HashHeight, rw stateCh) ([]*Vote, er
 	// query register info
 	registerList, _ := rw.GetRegisterList(block.Hash, info.Gid)
 	// query vote info
-	votes, _ := rw.GetVoteMap(block.Hash, info.Gid)
+	votes, _ := rw.GetVoteList(block.Hash, info.Gid)
 
 	var registers []*Vote
 
