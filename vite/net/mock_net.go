@@ -42,20 +42,13 @@ func mock(cfg *Config) Net {
 		from:      0,
 		to:        0,
 		current:   0,
-		aCount:    0,
-		sCount:    0,
 		state:     Syncdone,
 		peers:     peers,
-		pending:   0,
-		responsed: 0,
 		mu:        sync.Mutex{},
-		fileMap:   make(map[filename]*fileRecord),
 		chain:     cfg.Chain,
 		eventChan: make(chan peerEvent),
 		verifier:  cfg.Verifier,
 		notifier:  feed,
-		fc:        nil,
-		pool:      nil,
 		exec:      nil,
 		curSubId:  0,
 		subs:      make(map[int]SyncStateCallback),
@@ -64,8 +57,6 @@ func mock(cfg *Config) Net {
 		log:       log15.New("module", "net/syncer"),
 	}
 	syncer.exec = newExecutor(syncer)
-	syncer.fc = newFileClient(cfg.Chain, syncer, peers)
-	syncer.pool = newChunkPool(peers, new(gid), syncer)
 
 	return &mockNet{
 		Config: &Config{

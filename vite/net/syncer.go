@@ -139,19 +139,19 @@ func (s *syncer) receiveSnapshotBlock(block *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func newSyncer(chain Chain, peers *peerSet, verifier Verifier, downloader chunkDownloader, notifier blockNotifier) *syncer {
+func newSyncer(chain Chain, peers *peerSet, verifier Verifier, notifier blockNotifier) *syncer {
 	s := &syncer{
-		state:      SyncNotStart,
-		chain:      chain,
-		peers:      peers,
-		eventChan:  make(chan peerEvent, 1),
-		downloader: downloader,
-		verifier:   verifier,
-		notifier:   notifier,
-		subs:       make(map[int]SyncStateCallback),
-		log:        log15.New("module", "net/syncer"),
+		state:     SyncNotStart,
+		chain:     chain,
+		peers:     peers,
+		eventChan: make(chan peerEvent, 1),
+		verifier:  verifier,
+		notifier:  notifier,
+		subs:      make(map[int]SyncStateCallback),
+		log:       log15.New("module", "net/syncer"),
 	}
 
+	s.downloader = newFileClient(chain, s, peers)
 	s.exec = newExecutor(s)
 
 	return s

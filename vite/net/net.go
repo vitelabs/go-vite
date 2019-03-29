@@ -58,7 +58,7 @@ func New(cfg *Config) Net {
 	feed := newBlockFeeder()
 
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000))
-	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, g, feed)
+	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, feed)
 	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)     // subscribe sync status

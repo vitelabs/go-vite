@@ -266,6 +266,7 @@ type getSubLedgerHandler struct {
 	}
 }
 
+/*
 func (s *getSubLedgerHandler) ID() string {
 	return "GetSubLedger Handler"
 }
@@ -352,7 +353,7 @@ func splitFiles(fs []*ledger.CompressedFileMeta, batch int) (fss [][]*ledger.Com
 
 	return
 }
-
+*/
 type getSnapshotBlocksHandler struct {
 	chain interface {
 		GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -406,7 +407,7 @@ func (s *getSnapshotBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error)
 			from = 0
 		}
 	}
-	chunks := splitChunk(from, to, maxBlocksOneTrip)
+	chunks := splitChunk(from, to, downloadTaskSize)
 
 	var blocks []*ledger.SnapshotBlock
 	for _, c := range chunks {
@@ -495,7 +496,7 @@ func (a *getAccountBlocksHandler) Handle(msg *p2p.Msg, sender Peer) (err error) 
 		}
 	}
 
-	chunks := splitChunk(from, to, maxBlocksOneTrip)
+	chunks := splitChunk(from, to, downloadTaskSize)
 
 	var blocks []*ledger.AccountBlock
 	for _, c := range chunks {
