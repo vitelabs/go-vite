@@ -20,7 +20,7 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
-		return sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))), nil
+		return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)))), nil
 	}
 
 	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
@@ -31,7 +31,7 @@ func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, ad
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	if *snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		return sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))), nil
+		return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)))), nil
 	}
 
 	height, err := sDB.chain.GetSnapshotHeightByHash(*snapshotHash)
