@@ -1,6 +1,8 @@
 package onroad_test
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
-	"time"
 )
 
 type testNet struct {
@@ -38,13 +39,10 @@ type testPool struct {
 
 func (t testProducer) produceEvent(duration time.Duration) {
 	t.f(producerevent.AccountStartEvent{
-		Gid:            types.SNAPSHOT_GID,
-		Address:        t.Addr,
-		Stime:          time.Now(),
-		Etime:          time.Now().Add(duration),
-		Timestamp:      time.Now(),
-		SnapshotHash:   types.Hash{},
-		SnapshotHeight: 0,
+		Gid:     types.SNAPSHOT_GID,
+		Address: t.Addr,
+		Stime:   time.Now(),
+		Etime:   time.Now().Add(duration),
 	})
 }
 

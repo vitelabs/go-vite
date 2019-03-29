@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"time"
 
 	"strconv"
@@ -24,33 +23,6 @@ type producerSubscribeEvent struct {
 	gid types.Gid
 	fn  func(ProducersEvent)
 }
-
-// update committee result
-//type committee struct {
-//	common.LifecycleStatus
-//
-//	mLog log15.Logger
-//
-//	genesis  time.Time
-//	rw       *chainRw
-//	periods  *periodLinkedArray
-//	snapshot *teller
-//	contract *teller
-//	tellers  sync.Map
-//	signer   types.Address
-//
-//	whiteProducers map[string]bool
-//
-//	// subscribes map[types.Gid]map[string]*subscribeEvent
-//	subscribes sync.Map
-//
-//	lruCache *lru.Cache
-//	dbCache  *DbCache
-//	dbDir    string
-//
-//	wg     sync.WaitGroup
-//	closed chan struct{}
-//}
 
 func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
 	return self.snapshot.VerifySnapshotProducer(header)
@@ -99,22 +71,19 @@ func (self *committee) VerifyAccountProducer(accountBlock *ledger.AccountBlock) 
 }
 
 func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error) {
-	var eResult *electionResult
-	var err error
-	if gid == types.SNAPSHOT_GID {
-		eResult, err = self.snapshot.electionIndex(index)
-	} else {
-		cs, e := self.contracts.getOrLoadGid(gid)
-		if e != nil {
-			return nil, 0, e
-		}
-		eResult, err = cs.electionIndex(index)
-	}
+	// load from dpos wrapper
+	reader, err := self.dposWrapper.getDposConsensus(gid)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	voteTime, _ := self.snapshot.GenVoteTime(index)
+	// cal votes
+	eResult, err := reader.ElectionIndex(index)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	voteTime := self.snapshot.GenVoteTime(index)
 	var result []*Event
 	for _, p := range eResult.Plans {
 		e := newConsensusEvent(eResult, p, gid, voteTime)
@@ -124,28 +93,21 @@ func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint6
 }
 
 func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
-	if gid == types.SNAPSHOT_GID {
-		return self.snapshot.time2Index(t2), nil
-	} else {
-		cs, e := self.contracts.getOrLoadGid(gid)
-		if e != nil {
-			return 0, e
-		}
-		return cs.time2Index(t2), nil
+	// load from dpos wrapper
+	reader, err := self.dposWrapper.getDposConsensus(gid)
+	if err != nil {
+		return 0, err
 	}
+	return reader.Time2Index(t2), nil
 }
 
 func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error) {
-	var info *core.GroupInfo
-	if gid == types.SNAPSHOT_GID {
-		info = self.snapshot.info
-	} else {
-		cs, e := self.contracts.getOrLoadGid(gid)
-		if e != nil {
-			return nil, nil, e
-		}
-		info = cs.info
+	// load from dpos wrapper
+	reader, err := self.dposWrapper.getDposConsensus(gid)
+	if err != nil {
+		return nil, nil, errors.Errorf("consensus group[%s] not exist", gid)
 	}
+	info := reader.GetInfo()
 
 	if info == nil {
 		return nil, nil, errors.Errorf("consensus group[%s] not exist", gid)
@@ -154,28 +116,6 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 	st, et := info.Index2Time(i)
 	return &st, &et, nil
 }
-
-//func NewConsensus(genesisTime time.Time, ch ch) *committee {
-//	points, err := newPeriodPointArray(ch)
-//	if err != nil {
-//		panic(errors.Wrap(err, "create period point fail."))
-//	}
-//
-//	rw := &chainRw{rw: ch, periodPoints: points}
-//	committee := &committee{rw: rw, periods: points, genesis: genesisTime, whiteProducers: make(map[string]bool)}
-//	committee.mLog = log15.New("module", "consensus/committee")
-//	db, err := ch.NewDb("consensus")
-//	if err != nil {
-//		panic(err)
-//	}
-//	committee.dbCache = &DbCache{db: consensus_db.NewConsensusDB(db)}
-//	cache, err := lru.New(1024 * 10)
-//	if err != nil {
-//		panic(err)
-//	}
-//	committee.lruCache = cache
-//	return committee
-//}
 
 func (self *committee) Init() error {
 	if !self.PreInit() {
@@ -192,6 +132,7 @@ func (self *committee) Init() error {
 	if err != nil {
 		panic(err)
 	}
+	self.dposWrapper = &dposReader{self.snapshot, self.contracts, self.mLog}
 	self.api = &ApiSnapshot{snapshot: self.snapshot}
 	return nil
 }
@@ -201,21 +142,24 @@ func (self *committee) Start() {
 	defer self.PostStart()
 	self.closed = make(chan struct{})
 
-	self.wg.Add(1)
 	snapshotSubs, _ := self.subscribes.LoadOrStore(types.SNAPSHOT_GID, &sync.Map{})
 
-	wrapper := dposReader{self.snapshot, self.contracts, self.mLog}
 	common.Go(func() {
+		self.wg.Add(1)
 		defer self.wg.Done()
-		self.update(types.SNAPSHOT_GID, wrapper, snapshotSubs.(*sync.Map))
+		self.update(types.SNAPSHOT_GID, self.snapshot, snapshotSubs.(*sync.Map))
 	})
 
-	self.wg.Add(1)
 	contractSubs, _ := self.subscribes.LoadOrStore(types.DELEGATE_GID, &sync.Map{})
+	reader, err := self.dposWrapper.getDposConsensus(types.DELEGATE_GID)
+	if err != nil {
+		panic(err)
+	}
 
 	common.Go(func() {
+		self.wg.Add(1)
 		defer self.wg.Done()
-		self.update(types.SNAPSHOT_GID, wrapper, contractSubs.(*sync.Map))
+		self.update(types.DELEGATE_GID, reader, contractSubs.(*sync.Map))
 	})
 }
 
@@ -253,15 +197,11 @@ func (self *committee) SubscribeProducers(gid types.Gid, id string, fn func(even
 	v.Store(id, &producerSubscribeEvent{fn: fn, gid: gid})
 }
 
-func (self *committee) update(gid types.Gid, t dposReader, m *sync.Map) {
-	index, err := t.Time2Index(gid, time.Now())
-	if err != nil {
-		self.mLog.Error(fmt.Sprintf("vote time to index fail, gid:%s", gid), "err", err)
-		return
-	}
+func (self *committee) update(gid types.Gid, t DposReader, m *sync.Map) {
+	index := t.Time2Index(time.Now())
 	for !self.Stopped() {
 		//var current *memberPlan = nil
-		electionResult, err := t.ElectionIndex(gid, index)
+		electionResult, err := t.ElectionIndex(index)
 
 		if err != nil {
 			self.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
@@ -272,11 +212,7 @@ func (self *committee) update(gid types.Gid, t dposReader, m *sync.Map) {
 
 		if electionResult.Index != index {
 			self.mLog.Error("can't get Index election result. Index is " + strconv.FormatInt(int64(index), 10))
-			index, err = t.Time2Index(gid, time.Now())
-			if err != nil {
-				self.mLog.Error(fmt.Sprintf("can't get index by time, gid:%s", gid))
-				return
-			}
+			index = t.Time2Index(time.Now())
 			continue
 		}
 		subs1, subs2 := copyMap(m)
@@ -295,7 +231,7 @@ func (self *committee) update(gid types.Gid, t dposReader, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.event(tmpV, tmpResult, t.GenVoteTime(gid, index))
+				self.event(tmpV, tmpResult, t.GenVoteTime(index))
 			})
 		}
 
@@ -303,7 +239,7 @@ func (self *committee) update(gid types.Gid, t dposReader, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.eventProducer(tmpV, tmpResult, t.GenVoteTime(gid, index))
+				self.eventProducer(tmpV, tmpResult, t.GenVoteTime(index))
 			})
 		}
 
@@ -384,16 +320,13 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, vote
 
 func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, voteTime time.Time) Event {
 	return Event{
-		Gid:               gid,
-		Address:           p.Member,
-		Stime:             p.STime,
-		Etime:             p.ETime,
-		Timestamp:         p.STime,
-		SnapshotHash:      r.Hash,
-		SnapshotHeight:    r.Height,
-		SnapshotTimeStamp: r.Timestamp,
-		VoteTime:          voteTime,
-		PeriodStime:       r.STime,
-		PeriodEtime:       r.ETime,
+		Gid:         gid,
+		Address:     p.Member,
+		Stime:       p.STime,
+		Etime:       p.ETime,
+		Timestamp:   p.STime,
+		VoteTime:    voteTime,
+		PeriodStime: r.STime,
+		PeriodEtime: r.ETime,
 	}
 }

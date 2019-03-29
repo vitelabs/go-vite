@@ -1,11 +1,10 @@
 package consensus
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -197,33 +196,52 @@ type dposReader struct {
 	log log15.Logger
 }
 
-func (self *dposReader) ElectionIndex(gid types.Gid, index uint64) (*electionResult, error) {
+//func (self *dposReader) ElectionIndex(gid types.Gid, index uint64) (*electionResult, error) {
+//	if gid == types.SNAPSHOT_GID {
+//		return self.snapshot.ElectionIndex(index)
+//	}
+//	return self.contracts.ElectionIndex(gid, index)
+//}
+//func (self *dposReader) Time2Index(gid types.Gid, t time.Time) (uint64, error) {
+//	if gid == types.SNAPSHOT_GID {
+//		return self.snapshot.Time2Index(t), nil
+//	}
+//	cs, err := self.contracts.getOrLoadGid(gid)
+//	if err != nil {
+//		return 0, errors.Errorf("can't get consensus group for gid:[%s]", gid)
+//	}
+//	return cs.Time2Index(t), nil
+//}
+//
+//func (self *dposReader) GenVoteTime(gid types.Gid, t uint64) time.Time {
+//	if gid == types.SNAPSHOT_GID {
+//		voteTime, _ := self.snapshot.GenVoteTime(t)
+//		return voteTime
+//	}
+//	cs, err := self.contracts.getOrLoadGid(gid)
+//	if err != nil {
+//		self.log.Error(fmt.Sprintf("can't get consensus group for gid:[%s]", gid))
+//		return time.Now()
+//	}
+//	voteTime := cs.GenVoteTime(t)
+//	return voteTime
+//}
+//
+//func (self *dposReader) GetInfo(gid types.Gid) {
+//
+//}
+
+func (self *dposReader) getDposConsensus(gid types.Gid) (DposReader, error) {
 	if gid == types.SNAPSHOT_GID {
-		return self.snapshot.electionIndex(index)
+		return self.snapshot, nil
 	}
-	return self.contracts.ElectionIndex(gid, index)
-}
-func (self *dposReader) Time2Index(gid types.Gid, t time.Time) (uint64, error) {
-	if gid == types.SNAPSHOT_GID {
-		return self.snapshot.time2Index(t), nil
-	}
-	cs, err := self.contracts.getOrLoadGid(gid)
-	if err != nil {
-		return 0, errors.Errorf("can't get consensus group for gid:[%s]", gid)
-	}
-	return cs.time2Index(t), nil
+
+	return self.contracts.getOrLoadGid(gid)
 }
 
-func (self *dposReader) GenVoteTime(gid types.Gid, t uint64) time.Time {
-	if gid == types.SNAPSHOT_GID {
-		voteTime, _ := self.snapshot.GenVoteTime(t)
-		return voteTime
-	}
-	cs, err := self.contracts.getOrLoadGid(gid)
-	if err != nil {
-		self.log.Error(fmt.Sprintf("can't get consensus group for gid:[%s]", gid))
-		return time.Now()
-	}
-	voteTime := cs.GenVoteTime(t)
-	return voteTime
+type DposReader interface {
+	ElectionIndex(index uint64) (*electionResult, error)
+	GetInfo() *core.GroupInfo
+	Time2Index(t time.Time) uint64
+	GenVoteTime(t uint64) time.Time
 }
