@@ -359,7 +359,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 	InitQuotaConfig(false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
-		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.pledgeAmount, testCase.difficulty)
+		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v TestCalcQuotaForBlock failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}

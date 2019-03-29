@@ -31,7 +31,6 @@ func InitQuotaConfig(isTestParam bool) {
 }
 
 type quotaDb interface {
-	Address() *types.Address
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 	GetUnconfirmedBlocks() []*ledger.AccountBlock
 }
@@ -41,8 +40,8 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
 }
 
-func CalcQuotaForBlock(db quotaDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, *db.Address(), pledgeAmount, difficulty)
+func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
+	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, addr, pledgeAmount, difficulty)
 	if err != nil {
 		return 0, 0, err
 	}

@@ -93,6 +93,9 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 }
 
 func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address) (*big.Int, error) {
+	if *db.Address() != types.AddressPledge {
+		return nil, util.ErrAddressNotMatch
+	}
 	v, err := db.GetValue(GetPledgeBeneficialKey(beneficialAddr))
 	if err != nil {
 		return nil, err
