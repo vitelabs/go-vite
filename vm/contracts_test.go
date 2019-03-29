@@ -512,7 +512,7 @@ func TestContractsVote(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressConsensusGroup
-	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID, nil); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
+	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
 		t.Fatalf("get vote list failed")
 	}
 

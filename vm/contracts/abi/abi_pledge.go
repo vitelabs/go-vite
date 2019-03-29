@@ -59,7 +59,7 @@ func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
 	return address
 }
 
-func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *big.Int, error) {
+func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressPledge {
 		return nil, nil, util.ErrAddressNotMatch
 	}
@@ -81,11 +81,26 @@ func GetPledgeInfoList(db StorageDatabase, addr types.Address) ([]*PledgeInfo, *
 			continue
 		}
 		pledgeInfo := new(PledgeInfo)
-		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil ||
+			pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 ||
+			GetPledgeAddrFromPledgeKey(iterator.Key()) != pledgeAddr {
 			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(iterator.Key())
 			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
 			pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
 		}
 	}
 	return pledgeInfoList, pledgeAmount, nil
+}
+
+func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address) (*big.Int, error) {
+	v, err := db.GetValue(GetPledgeBeneficialKey(beneficialAddr))
+	if err != nil {
+		return nil, err
+	}
+	if len(v) == 0 {
+		return big.NewInt(0), nil
+	}
+	amount := new(VariablePledgeBeneficial)
+	ABIPledge.UnpackVariable(amount, VariableNamePledgeBeneficial, v)
+	return amount.Amount, nil
 }

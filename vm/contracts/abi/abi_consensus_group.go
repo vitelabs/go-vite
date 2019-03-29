@@ -338,7 +338,7 @@ func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) (*types.Vote
 	return nil, nil
 }
 
-func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) ([]*types.VoteInfo, error) {
+func GetVoteList(db StorageDatabase, gid types.Gid) ([]*types.VoteInfo, error) {
 	if *db.Address() != types.AddressConsensusGroup {
 		return nil, util.ErrAddressNotMatch
 	}
