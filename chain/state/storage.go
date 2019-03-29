@@ -32,7 +32,7 @@ func NewStorageDatabase(stateDb *StateDB, snapshotHeight uint64, addr types.Addr
 }
 
 func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
-	sd.stateDb.GetSnapshotValue(sd.snapshotHeight, sd.addr, key)
+	return sd.stateDb.GetSnapshotValue(sd.snapshotHeight, sd.addr, key)
 }
 
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
@@ -49,6 +49,6 @@ func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.Storage
 	return nil, nil
 }
 
-func (sd *StorageDatabase) Address() types.Address {
-	return sd.addr
+func (sd *StorageDatabase) Address() *types.Address {
+	return &sd.addr
 }

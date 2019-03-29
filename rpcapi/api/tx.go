@@ -201,7 +201,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	pledgeAmount, err := t.vite.Chain().GetPledgeAmount(param.SelfAddr)
+	pledgeAmount, err := t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
 	if err != nil {
 		return nil, err
 	}

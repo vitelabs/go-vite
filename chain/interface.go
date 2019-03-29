@@ -212,7 +212,7 @@ type Chain interface {
 
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 
-	GetPledgeAmount(addr types.Address) (*big.Int, error)
+	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	// total
 	GetPledgeQuota(addr types.Address) (*types.Quota, error)
