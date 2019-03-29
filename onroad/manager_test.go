@@ -76,17 +76,17 @@ func startManager() (*onroad.Manager, types.Address) {
 }*/
 
 func TestManager_ContractWorker(t *testing.T) {
-	//addr := generateAddress()
-	//
-	//vite.Producer().(*testProducer).Addr = addr
-	//
-	//manager := onroad.NewManager(vite)
-	//manager.Init()
-	//
-	//time.AfterFunc(5*time.Second, func() {
-	//	fmt.Println("test c produceEvent ")
-	//	vite.Producer().(*testProducer).produceEvent(15 * time.Second)
-	//})
-	//
-	//time.Sleep(3 * time.Minute)
+	/*	addr := generateAddress()
+
+		vite.Producer().(*testProducer).Addr = addr
+
+		manager := onroad.NewManager(vite)
+		manager.Init()
+
+		time.AfterFunc(5*time.Second, func() {
+			fmt.Println("test c produceEvent ")
+			vite.Producer().(*testProducer).produceEvent(15 * time.Second)
+		})
+
+		time.Sleep(3 * time.Minute)*/
 }
