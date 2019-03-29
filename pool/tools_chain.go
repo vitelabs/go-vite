@@ -35,9 +35,6 @@ type chainDb interface {
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 }
-type preMainNetChain interface {
-	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (subLedger map[types.Address][]*ledger.AccountBlock, err error)
-}
 
 type chainRw interface {
 	insertBlock(block commonBlock) error
