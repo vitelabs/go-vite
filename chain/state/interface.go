@@ -12,4 +12,6 @@ type Chain interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
 	GetSnapshotHeightByHash(hash types.Hash) (uint64, error)
+
+	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 }

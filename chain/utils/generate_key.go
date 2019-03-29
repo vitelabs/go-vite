@@ -157,14 +157,14 @@ func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, sna
 	return key
 }
 
-func CreateBalanceKeyPrefix(address *types.Address) []byte {
+func CreateBalanceKeyPrefix(address types.Address) []byte {
 	key := make([]byte, 1+types.AddressSize)
 	key[0] = BalanceKeyPrefix
 	copy(key[1:types.AddressSize+1], address.Bytes())
 
 	return key
 }
-func CreateBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId) []byte {
+func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) []byte {
 	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize)
 	key[0] = BalanceKeyPrefix
 
@@ -174,23 +174,40 @@ func CreateBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId) []
 	return key
 }
 
-func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId, snapshotHeight uint64) []byte {
-	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
+func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotBlockHeight uint64, offset uint16) []byte {
+	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8 + 2
 
-	key := make([]byte, keySize)
+	key := make([]byte, 0, keySize)
 
-	key[0] = BalanceHistoryKeyPrefix
+	key = append(key, BalanceHistoryKeyPrefix)
+	key = append(key, address.Bytes()...)
+	key = append(key, tokenTypeId.Bytes()...)
+	key = append(key, Uint64ToBytes(snapshotBlockHeight)...)
 
-	copy(key[1:types.AddressSize+1], address.Bytes())
-
-	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
-
-	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
+	offsetBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(offsetBytes, offset)
+	key = append(key, offsetBytes...)
 
 	return key
 }
 
-func CreateCodeKey(address *types.Address) []byte {
+//func CreateHistoryBalanceKey(address *types.Address, tokenTypeId *types.TokenTypeId, snapshotHeight uint64) []byte {
+//	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
+//
+//	key := make([]byte, keySize)
+//
+//	key[0] = BalanceHistoryKeyPrefix
+//
+//	copy(key[1:types.AddressSize+1], address.Bytes())
+//
+//	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+//
+//	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
+//
+//	return key
+//}
+
+func CreateCodeKey(address types.Address) []byte {
 	keySize := 1 + types.AddressSize
 
 	key := make([]byte, keySize)
@@ -202,7 +219,7 @@ func CreateCodeKey(address *types.Address) []byte {
 	return key
 }
 
-func CreateContractMetaKey(address *types.Address) []byte {
+func CreateContractMetaKey(address types.Address) []byte {
 	keySize := 1 + types.AddressSize
 
 	key := make([]byte, keySize)
@@ -250,107 +267,3 @@ func CreateCallDepthKey(blockHash *types.Hash) []byte {
 	key = append(key, blockHash.Bytes()...)
 	return key
 }
-
-func CreateUndoLocationKey() []byte {
-	return []byte{UndoLocationKeyPrefix}
-}
-
-//// ====== state_bak db ======
-//
-//func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {
-//	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
-//	key = append(key, BalanceKeyPrefix)
-//	key = append(key, addr.Bytes()...)
-//	key = append(key, tokenTypeId.Bytes()...)
-//	return key
-//}
-//
-//func CreateStorageKeyPrefix(addr *types.Address, storageKey []byte) []byte {
-//	key := make([]byte, 0, 1+types.AddressSize+len(storageKey))
-//
-//	key = append(key, StorageKeyPrefix)
-//	key = append(key, addr.Bytes()...)
-//	key = append(key, storageKey...)
-//	return key
-//}
-//
-//func CreateCodeKey(addr *types.Address) []byte {
-//	key := make([]byte, 0, 1+types.AddressSize)
-//
-//	key = append(key, CodeKeyPrefix)
-//	key = append(key, addr.Bytes()...)
-//	return key
-//}
-//
-//func CreateContractMetaKey(addr *types.Address) []byte {
-//	key := make([]byte, 0, 1+types.AddressSize)
-//	key = append(key, ContractMetaKeyPrefix)
-//	key = append(key, addr.Bytes()...)
-//	return key
-//}
-//
-//func CreateVmLogListKey(logHash *types.Hash) []byte {
-//	key := make([]byte, 0, 1+types.HashSize)
-//	key = append(key, VmLogListKeyPrefix)
-//	key = append(key, logHash.Bytes()...)
-//	return key
-//}
-//
-//// ====== mv db ======
-//
-//func CreateKeyIdKey(mvDbKey []byte) []byte {
-//	key := make([]byte, 0, 1+len(mvDbKey))
-//	key = append(key, KeyIdKeyPrefix)
-//	key = append(key, mvDbKey...)
-//	return key
-//}
-//
-//func CreateValueIdKey(valueId uint64) []byte {
-//	key := make([]byte, 0, 9)
-//	key = append(key, ValueIdKeyPrefix)
-//	key = append(key, Uint64ToBytes(valueId)...)
-//	return key
-//}
-//
-//func CreateLatestValueKey(keyId uint64) []byte {
-//	key := make([]byte, 0, 9)
-//	key = append(key, LatestValueKeyPrefix)
-//	key = append(key, Uint64ToBytes(keyId)...)
-//	return key
-//}
-//
-//func CreateUndoKey(blockHash *types.Hash) []byte {
-//	key := make([]byte, 0, 33)
-//	key = append(key, UndoKeyPrefix)
-//	key = append(key, blockHash.Bytes()...)
-//	return key
-//}
-//
-//func CreateMvDbLatestLocationKey() []byte {
-//	return []byte{MvDbLatestLocationKeyPrefix}
-//}
-//
-//func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
-//	keySize := types.AddressSize + 34
-//	key := make([]byte, keySize)
-//	key[0] = StorageKeyPrefix
-//
-//	copy(key[1:types.AddressSize+1], address.Bytes())
-//	copy(key[types.AddressSize+1:], storageKey)
-//	key[keySize-1] = byte(len(storageKey))
-//
-//	return key
-//}
-//
-//func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
-//	keySize := types.AddressSize + 42
-//	key := make([]byte, keySize)
-//	key[0] = StorageHistoryKeyPrefix
-//
-//	copy(key[1:types.AddressSize+1], address.Bytes())
-//	copy(key[types.AddressSize+1:], storageKey)
-//	key[keySize-8] = byte(len(storageKey))
-//	binary.BigEndian.PutUint64(key[keySize-7:], snapshotHeight)
-//
-//	return key
-//}

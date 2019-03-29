@@ -50,6 +50,4 @@ const (
 	VmLogListKeyPrefix = byte(10)
 
 	CallDepthKeyPrefix = byte(11)
-
-	UndoLocationKeyPrefix = byte(12)
 )

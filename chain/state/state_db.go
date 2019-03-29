@@ -18,24 +18,20 @@ type StateDB struct {
 	chain Chain
 	store *chain_db.Store
 
-	undoLogger *undoLogger
-
 	log log15.Logger
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0)
 
-	undoLogger, err := newUndoLogger(chainDir)
 	if err != nil {
 		return nil, err
 	}
 
 	return &StateDB{
-		chain:      chain,
-		log:        log15.New("module", "stateDB"),
-		store:      store,
-		undoLogger: undoLogger,
+		chain: chain,
+		log:   log15.New("module", "stateDB"),
+		store: store,
 	}, nil
 }
 
@@ -56,7 +52,7 @@ func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, er
 	return value, nil
 }
 
-func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
+func (sDB *StateDB) GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error) {
 	value, err := sDB.store.Get(chain_utils.CreateBalanceKey(addr, tokenTypeId))
 	if err != nil {
 		return nil, err
@@ -65,10 +61,11 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 	return balance, nil
 }
 
-func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
+func (sDB *StateDB) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
 	iter := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateBalanceKeyPrefix(addr)))
 	defer iter.Release()
+
 	for iter.Next() {
 		key := iter.Key()
 		tokenTypeIdBytes := key[1+types.AddressSize : 1+types.AddressSize+types.TokenTypeIdSize]
@@ -85,7 +82,7 @@ func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*b
 	return balanceMap, nil
 }
 
-func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
+func (sDB *StateDB) GetCode(addr types.Address) ([]byte, error) {
 	code, err := sDB.store.Get(chain_utils.CreateCodeKey(addr))
 	if err != nil {
 		return nil, err
@@ -95,7 +92,7 @@ func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
 }
 
 //
-func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
+func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, error) {
 	value, err := sDB.store.Get(chain_utils.CreateContractMetaKey(addr))
 	if err != nil {
 		return nil, err
@@ -112,7 +109,7 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 	return meta, nil
 }
 
-func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
+func (sDB *StateDB) HasContractMeta(addr types.Address) (bool, error) {
 	return sDB.store.Has(chain_utils.CreateContractMetaKey(addr))
 }
 
@@ -165,9 +162,6 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
 	prefix := chain_utils.BalanceHistoryKeyPrefix
-	if snapshotBlockHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		prefix = chain_utils.BalanceKeyPrefix
-	}
 
 	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
@@ -177,15 +171,17 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		return nil, err
 	}
 
-	seekKey := make([]byte, types.AddressSize+42)
+	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
 	seekKey[0] = prefix
-	binary.BigEndian.PutUint64(seekKey[len(seekKey)-8:], snapshotHeight)
+	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:1+types.AddressSize+types.TokenTypeIdSize+8], snapshotHeight+1)
 
 	for _, addr := range addrList {
 		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
-		copy(seekKey[2+types.AddressSize:2+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
+		copy(seekKey[1+types.AddressSize:1+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
 
-		ok := iter.Seek(seekKey)
+		iter.Seek(seekKey)
+
+		ok := iter.Prev()
 		if !ok {
 			continue
 		}

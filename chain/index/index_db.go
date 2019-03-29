@@ -8,15 +8,14 @@ import (
 )
 
 type IndexDB struct {
-	chain Chain
-
 	store *chain_db.Store
 
 	latestAccountId uint64
 	latestOnRoadId  uint64
 }
 
-func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
+func NewIndexDB(chainDir string) (*IndexDB, error) {
+
 	var err error
 
 	store, err := chain_db.NewStore(path.Join(chainDir, "index"), 0)
@@ -25,7 +24,6 @@ func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
 	}
 
 	iDB := &IndexDB{
-		chain: chain,
 		store: store,
 	}
 

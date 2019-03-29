@@ -2,10 +2,7 @@ package chain_state
 
 import (
 	"encoding/binary"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -21,26 +18,11 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		nextSnapshotHeight = latestSnapshotBlock.Height + 1
 	}
 
+	unconfirmedBlocks := sDB.chain.GetUnconfirmedBlocks(accountBlock.AccountAddress)
+	offset := uint16(len(unconfirmedBlocks)) + 1
+
 	// write unsaved storage
 	unsavedStorage := vmDb.GetUnsavedStorage()
-	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
-	unsavedCode := vmDb.GetUnsavedContractCode()
-	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
-
-	undoLogSize := types.HashSize +
-		len(unsavedStorage)*(types.AddressSize+34) + len(unsavedBalanceMap)*(1+types.AddressSize+types.TokenTypeIdSize)
-
-	if unsavedCode != nil {
-		undoLogSize += 1 + types.AddressSize
-	}
-
-	if len(unsavedContractMeta) > 0 {
-		undoLogSize += len(unsavedContractMeta) * (1 + types.AddressSize + 1 + types.GidSize + types.AddressSize)
-	}
-
-	undoLog := make([]byte, 0, undoLogSize+4)
-	undoLog = append(undoLog, accountBlock.Hash.Bytes()...)
-
 	for _, kv := range unsavedStorage {
 		storageKey := chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0])
 
@@ -49,16 +31,15 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		batch.Put(storageKey, kv[1])
 
 		batch.Put(historyStorageKey, kv[1])
-
-		undoLog = append(undoLog, storageKey...)
 	}
 
 	// write unsaved balance
+	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
 	for tokenTypeId, balance := range unsavedBalanceMap {
 
-		balanceKey := chain_utils.CreateBalanceKey(&accountBlock.AccountAddress, &tokenTypeId)
+		balanceKey := chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId)
 
-		balanceStorageKey := chain_utils.CreateHistoryBalanceKey(&accountBlock.AccountAddress, &tokenTypeId, nextSnapshotHeight)
+		balanceStorageKey := chain_utils.CreateHistoryBalanceKey(accountBlock.AccountAddress, tokenTypeId, nextSnapshotHeight, offset)
 
 		balanceBytes := balance.Bytes()
 
@@ -66,36 +47,29 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		batch.Put(balanceStorageKey, balanceBytes)
 
-		undoLog = append(undoLog, balanceKey...)
-
 	}
 
 	// write unsaved code
+	unsavedCode := vmDb.GetUnsavedContractCode()
 	if unsavedCode != nil {
-		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
+		codeKey := chain_utils.CreateCodeKey(accountBlock.AccountAddress)
 
 		batch.Put(codeKey, unsavedCode)
 
-		undoLog = append(undoLog, codeKey...)
 	}
 
 	// write unsaved contract meta
+	unsavedContractMeta := vmDb.GetUnsavedContractMeta()
 	if len(unsavedContractMeta) > 0 {
 		for addr, meta := range unsavedContractMeta {
-			contractKey := chain_utils.CreateContractMetaKey(&addr)
+			contractKey := chain_utils.CreateContractMetaKey(addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
 			batch.Put(contractKey, meta.Serialize())
 			batch.Put(gidContractKey, nil)
-
-			undoLog = append(undoLog, contractKey...)
-			undoLog = append(undoLog, gidContractKey...)
 		}
 
 	}
-
-	undoLog = append(undoLog, make([]byte, 4)...)
-	binary.BigEndian.PutUint32(undoLog[undoLogSize:], uint32(undoLogSize))
 
 	// write vm log
 	if accountBlock.LogHash != nil {
@@ -111,7 +85,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	// write call depth
 	callDepth := vmDb.GetUnsavedCallDepth()
 	if accountBlock.IsReceiveBlock() && callDepth > 0 {
-		callDepthBytes := make([]byte, 16)
+		callDepthBytes := make([]byte, 2)
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 
 		for _, sendBlock := range accountBlock.SendBlockList {
@@ -119,7 +93,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		}
 	}
 
-	sDB.undoLogger.InsertBlock(&accountBlock.Hash, undoLog)
+	sDB.store.Write(batch)
 
 	return nil
 }
@@ -148,9 +122,4 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, blo
 	//}
 
 	return nil
-}
-
-func (sDB *StateDB) updateUndoLocation(batch *leveldb.Batch, location *chain_file_manager.Location) {
-	batch.Put(chain_utils.CreateUndoLocationKey(), chain_utils.SerializeLocation(location))
-
 }

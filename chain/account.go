@@ -12,7 +12,7 @@ func (c *chain) IsContractAccount(address types.Address) (bool, error) {
 		return ok, nil
 	}
 
-	result, err := c.stateDB.HasContractMeta(&address)
+	result, err := c.stateDB.HasContractMeta(address)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.HasContractMeta failed, error is %s, address is %s", err.Error(), address))

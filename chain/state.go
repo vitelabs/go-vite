@@ -10,7 +10,7 @@ import (
 )
 
 func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error) {
-	result, err := c.stateDB.GetBalance(&addr, &tokenId)
+	result, err := c.stateDB.GetBalance(addr, tokenId)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, addr is %s, tokenId is %s. Error: %s", addr, tokenId, err))
 		c.log.Error(cErr.Error(), "method", "GetBalance")
@@ -19,7 +19,7 @@ func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.
 	return result, nil
 }
 func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
-	result, err := c.stateDB.GetBalanceMap(&addr)
+	result, err := c.stateDB.GetBalanceMap(addr)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalanceMap failed, addr is %s. Error: %s,", addr, err))
 		c.log.Error(cErr.Error(), "method", "GetBalance")
@@ -41,7 +41,7 @@ func (c *chain) GetConfirmedBalanceList(addrList []types.Address, tokenId types.
 
 // get contract code
 func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
-	code, err := c.stateDB.GetCode(&contractAddress)
+	code, err := c.stateDB.GetCode(contractAddress)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetCode failed, error is %s, addr is %s", err, contractAddress))
 		c.log.Error(cErr.Error(), "method", "GetBalance")
@@ -51,7 +51,7 @@ func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
 }
 
 func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.ContractMeta, error) {
-	meta, err := c.stateDB.GetContractMeta(&contractAddress)
+	meta, err := c.stateDB.GetContractMeta(contractAddress)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractMeta failed, error is %s, addr is %s", err, contractAddress))
 		c.log.Error(cErr.Error(), "method", "GetBalance")

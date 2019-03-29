@@ -1,28 +1,37 @@
 package chain_state
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
+// TODO
 func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, toLocation *chain_file_manager.Location) error {
 	batch := sDB.store.NewBatch()
 	//blockHashList := make([]*types.Hash, 0, size)
 
-	// undo balance and storage
-
-	location, err := sDB.undo(batch, sDB.chain.GetLatestSnapshotBlock())
-	if err != nil {
-		return err
+	var firstSb = deletedSnapshotSegments[0].SnapshotBlock
+	if firstSb == nil {
+		firstSb = sDB.chain.GetLatestSnapshotBlock()
 	}
-
-	sDB.updateUndoLocation(batch, location)
-
 	for _, seg := range deletedSnapshotSegments {
+		if seg.SnapshotBlock != nil {
+
+		}
 		for _, accountBlock := range seg.AccountBlocks {
+
+			// delete code
+			if accountBlock.Height <= 1 {
+				batch.Delete(chain_utils.CreateCodeKey(accountBlock.AccountAddress))
+			}
+
+			// delete contract meta
+			if accountBlock.BlockType == ledger.BlockTypeSendCreate {
+				batch.Delete(chain_utils.CreateContractMetaKey(accountBlock.AccountAddress))
+			}
+
 			// delete log hash
 			if accountBlock.LogHash != nil {
 				batch.Delete(chain_utils.CreateVmLogListKey(accountBlock.LogHash))
@@ -49,16 +58,4 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 
 	sDB.store.Write(batch)
 	return nil
-}
-
-func (sDB *StateDB) deleteVmLogList(batch *leveldb.Batch, logHash *types.Hash) {
-	batch.Delete(chain_utils.CreateVmLogListKey(logHash))
-}
-
-func (sDB *StateDB) deleteCode(batch *leveldb.Batch, addr *types.Address) {
-	batch.Delete(chain_utils.CreateCodeKey(addr))
-}
-
-func (sDB *StateDB) deleteContractMeta(batch *leveldb.Batch, addr *types.Address) {
-	batch.Delete(chain_utils.CreateContractMetaKey(addr))
 }
