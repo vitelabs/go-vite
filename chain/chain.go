@@ -104,11 +104,11 @@ func (c *chain) Init() error {
 				}
 			} else {
 				// Check and repair
-				if err = c.checkAndRepair(); err != nil {
-					cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
-					c.log.Error(cErr.Error(), "method", "Init")
-					return err
-				}
+				//if err = c.checkAndRepair(); err != nil {
+				//	cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
+				//	c.log.Error(cErr.Error(), "method", "Init")
+				//	return err
+				//}
 			}
 
 			break

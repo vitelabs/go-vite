@@ -3,7 +3,6 @@ package chain_index
 import (
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -12,29 +11,25 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	if ok, err := iDB.HasAccount(&accountBlock.AccountAddress); err != nil {
 		return err
 	} else if !ok {
-		iDB.createAccount(blockHash, &accountBlock.AccountAddress)
+		iDB.createAccount(&accountBlock.AccountAddress)
 	}
 	// hash -> addr & height
-	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHashKey(blockHash),
+	iDB.store.Put(chain_utils.CreateAccountBlockHashKey(blockHash),
 		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...))
 
 	// height -> hash
-	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
+	iDB.store.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
 	if accountBlock.IsReceiveBlock() {
-		if len(accountBlock.SendBlockList) > 0 {
-			chain_utils.CreateCallDepthKey(&accountBlock.Hash)
-		}
-
 		// close send block
-		iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
+		iDB.store.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
 		// receive on road
-		if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
+		if err := iDB.receiveOnRoad(&accountBlock.FromBlockHash); err != nil {
 			return err
 		}
 	} else {
 		// insert on road block
-		iDB.insertOnRoad(blockHash, &accountBlock.ToAddress)
+		iDB.insertOnRoad(accountBlock.Hash, accountBlock.ToAddress)
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
@@ -53,58 +48,49 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
 	invalidBlocks []*ledger.AccountBlock,
 	latestLocation *chain_file_manager.Location) error {
 
-	batch := iDB.store.NewBatch()
-
 	heightBytes := chain_utils.Uint64ToBytes(snapshotBlock.Height)
 	// hash -> height
-	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
+	iDB.store.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
 
 	// height -> location
-	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height),
+	iDB.store.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height),
 		append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
 
 	// confirm block
 	for addr, hashHeight := range snapshotBlock.SnapshotContent {
-		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
+		iDB.store.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
 	}
 
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
-		iDB.memDb.Put(&block.Hash, chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
+		iDB.store.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
 
-		iDB.memDb.Flush(batch, &block.Hash)
+		//iDB.store.Flush(batch, &block.Hash)
 	}
 
 	// latest on road id
-	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
+	iDB.store.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
 
-	// latest location
-	iDB.setIndexDbLatestLocation(batch, latestLocation)
+	// delete invalid blocks
+	for i := len(invalidBlocks) - 1; i >= 0; i-- {
+		invalidBlock := invalidBlocks[i]
+		iDB.deleteAccountBlockHash(invalidBlock.Hash)
 
-	// write index db
-	if err := iDB.store.Write(batch); err != nil {
-		return err
+		iDB.deleteAccountBlockHeight(invalidBlock.AccountAddress, invalidBlock.Height)
+
+		if invalidBlock.IsReceiveBlock() {
+			// delete receive
+			iDB.deleteReceive(invalidBlock.FromBlockHash)
+
+			// insert on road
+			iDB.insertOnRoad(invalidBlock.FromBlockHash, invalidBlock.AccountAddress)
+		} else {
+			// delete on road
+			iDB.deleteOnRoad(invalidBlock.Hash)
+		}
+
 	}
 
-	// clean mem store
-	for _, accountBlock := range invalidBlocks {
-		iDB.memDb.DeleteByBlockHash(&accountBlock.Hash)
-	}
-
-	for _, block := range confirmedBlocks {
-		iDB.memDb.DeleteByBlockHash(&block.Hash)
-	}
-
-	return nil
-}
-
-func (iDB *IndexDB) insertVmLogList(blockHash *types.Hash, logHash *types.Hash, logList ledger.VmLogList) error {
-	value, err := logList.Serialize()
-
-	if err != nil {
-		return err
-	}
-	iDB.memDb.Put(blockHash, chain_utils.CreateVmLogListKey(logHash), value)
 	return nil
 }

@@ -10,21 +10,14 @@ import (
 )
 
 func (iDB *IndexDB) HasAccount(addr *types.Address) (bool, error) {
-	return iDB.hasValue(chain_utils.CreateAccountAddressKey(addr))
+	return iDB.store.Has(chain_utils.CreateAccountAddressKey(addr))
 }
 
 func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 	key := chain_utils.CreateAccountAddressKey(addr)
-	value, ok := iDB.memDb.Get(key)
-	if !ok {
-		var err error
-		value, err = iDB.store.Get(key)
-		if err != nil {
-			if err == leveldb.ErrNotFound {
-				return 0, nil
-			}
-			return 0, err
-		}
+	value, err := iDB.store.Get(key)
+	if err != nil {
+		return 0, err
 	}
 
 	if len(value) <= 0 {
@@ -35,18 +28,11 @@ func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
 
 func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) {
 	key := chain_utils.CreateAccountIdKey(accountId)
-	value, ok := iDB.memDb.Get(key)
-	if !ok {
-		var err error
-		value, err = iDB.store.Get(key)
-		if err != nil {
-			if err == leveldb.ErrNotFound {
-				return nil, nil
-			}
-			return nil, err
-		}
-	}
+	value, err := iDB.store.Get(key)
 
+	if err != nil {
+		return nil, err
+	}
 	if len(value) <= 0 {
 		return nil, nil
 	}
@@ -58,13 +44,12 @@ func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) 
 	return &addr, nil
 }
 
-func (iDB *IndexDB) createAccount(blockHash *types.Hash, addr *types.Address) uint64 {
+func (iDB *IndexDB) createAccount(addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 
-	iDB.memDb.Put(blockHash, chain_utils.CreateAccountAddressKey(addr), chain_utils.Uint64ToBytes(newAccountId))
-	iDB.memDb.Put(blockHash, chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
+	iDB.store.Put(chain_utils.CreateAccountAddressKey(addr), chain_utils.Uint64ToBytes(newAccountId))
+	iDB.store.Put(chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
 	return newAccountId
-
 }
 
 func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
@@ -78,7 +63,7 @@ func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
 	if iter.Last() {
 		latestAccountId = chain_utils.BytesToUint64(iter.Key()[1:])
 	}
-	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+	if err := iter.Error(); err != nil {
 		return 0, err
 	}
 

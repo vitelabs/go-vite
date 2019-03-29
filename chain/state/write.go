@@ -42,9 +42,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		historyStorageKey := chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], nextSnapshotHeight)
 
-		sDB.pending.Put(&accountBlock.Hash, storageKey, kv[1])
+		sDB.pending.Put(storageKey, kv[1])
 
-		sDB.pending.Put(&accountBlock.Hash, historyStorageKey, kv[1])
+		sDB.pending.Put(historyStorageKey, kv[1])
 
 		undoLog = append(undoLog, storageKey...)
 	}
@@ -58,9 +58,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		balanceBytes := balance.Bytes()
 
-		sDB.pending.Put(&accountBlock.Hash, balanceKey, balanceBytes)
+		sDB.pending.Put(balanceKey, balanceBytes)
 
-		sDB.pending.Put(&accountBlock.Hash, balanceStorageKey, balanceBytes)
+		sDB.pending.Put(balanceStorageKey, balanceBytes)
 
 		undoLog = append(undoLog, balanceKey...)
 
@@ -70,7 +70,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if unsavedCode != nil {
 		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
 
-		sDB.pending.Put(&accountBlock.Hash, codeKey, unsavedCode)
+		sDB.pending.Put(codeKey, unsavedCode)
 
 		undoLog = append(undoLog, codeKey...)
 	}
@@ -81,8 +81,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			contractKey := chain_utils.CreateContractMetaKey(&addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
-			sDB.pending.Put(&accountBlock.Hash, contractKey, meta.Serialize())
-			sDB.pending.Put(&accountBlock.Hash, gidContractKey, nil)
+			sDB.pending.Put(contractKey, meta.Serialize())
+			sDB.pending.Put(gidContractKey, nil)
 
 			undoLog = append(undoLog, contractKey...)
 			undoLog = append(undoLog, gidContractKey...)
@@ -101,7 +101,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		if err != nil {
 			return err
 		}
-		sDB.pending.Put(&accountBlock.Hash, vmLogListKey, bytes)
+		sDB.pending.Put(vmLogListKey, bytes)
 	}
 
 	// write call depth
@@ -111,7 +111,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 
 		for _, sendBlock := range accountBlock.SendBlockList {
-			sDB.pending.Put(&accountBlock.Hash, chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
+			sDB.pending.Put(chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
 		}
 	}
 
@@ -134,7 +134,7 @@ func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.
 	}
 
 	sDB.updateUndoLocation(batch, location)
-	sDB.pending.FlushList(batch, blockHashList)
+	sDB.pending.Flush(batch)
 
 	sDB.updateStateDbLocation(batch, location)
 
@@ -142,9 +142,9 @@ func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.
 		return err
 	}
 
-	for _, block := range invalidAccountBlocks {
-		sDB.pending.DeleteByBlockHash(&block.Hash)
-	}
+	//for _, block := range invalidAccountBlocks {
+	//	sDB.pending.DeleteByBlockHash(&block.Hash)
+	//}
 
 	return nil
 }

@@ -145,7 +145,7 @@ func ephemeralConsoleAction(ctx *cli.Context) error {
 			log.Error(fmt.Sprintf("Failed to execute %s: %v", file, err))
 		}
 	}
-	// Wait for pending callbacks, but stop for Ctrl-C.
+	// Wait for db callbacks, but stop for Ctrl-C.
 	abort := make(chan os.Signal, 1)
 	signal.Notify(abort, syscall.SIGINT, syscall.SIGTERM)
 

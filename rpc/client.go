@@ -612,7 +612,7 @@ func (c *Client) dispatch(conn net.Conn) {
 	}
 }
 
-// closeRequestOps unblocks pending send ops and active subscriptions.
+// closeRequestOps unblocks db send ops and active subscriptions.
 func (c *Client) closeRequestOps(err error) {
 	didClose := make(map[*requestOp]bool)
 

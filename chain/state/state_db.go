@@ -6,8 +6,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/file_manager"
-	"github.com/vitelabs/go-vite/chain/pending"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -22,7 +22,7 @@ type StateDB struct {
 	chain Chain
 	db    *leveldb.DB
 
-	pending *chain_pending.MemDB
+	pending *chain_db.MemDB
 
 	undoLogger *undoLogger
 
@@ -46,7 +46,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		chain:      chain,
 		log:        log15.New("module", "stateDB"),
 		db:         db,
-		pending:    chain_pending.NewMemDB(),
+		pending:    chain_db.NewMemDB(),
 		undoLogger: undoLogger,
 	}, nil
 }

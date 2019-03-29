@@ -119,7 +119,7 @@ func (self *accountPool) Compact() int {
 	//if !self.compactLock.TryLock() {
 	//	return 0
 	//} else {
-	//	defer self.compactLock.UnLock()
+	//	defer self.compactLock.Unlock()
 	//}
 
 	//defer func() {
@@ -195,7 +195,7 @@ func (self *accountPool) UnLockForInsert() {
 //	if !self.compactLock.TryLock() {
 //		return nil
 //	} else {
-//		defer self.compactLock.UnLock()
+//		defer self.compactLock.Unlock()
 //	}
 //
 //	// if last verify task has not done
@@ -254,17 +254,17 @@ func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) 
 
 /**
 1. fail    something is wrong.
-2. pending
-	2.1 pending for snapshot
-	2.2 pending for other account chain(specific block height)
+2. db
+	2.1 db for snapshot
+	2.2 db for other account chain(specific block height)
 3. success
 
 
 
 fail: If no fork version increase, don't do anything.
-pending:
-	pending(2.1): If snapshot height is not reached, fetch snapshot block, and wait..
-	pending(2.2): If other account chain height is not reached, fetch other account block, and wait.
+db:
+	db(2.1): If snapshot height is not reached, fetch snapshot block, and wait..
+	db(2.2): If other account chain height is not reached, fetch other account block, and wait.
 success:
 	really insert to chain.
 */
@@ -321,7 +321,7 @@ success:
 //
 //			err := self.verifyPending(block)
 //			if err != nil {
-//				self.log.Error("account pending fail. ",
+//				self.log.Error("account db fail. ",
 //					"hash", block.Hash(), "height", block.Height(), "err", err)
 //			}
 //			return t
@@ -524,7 +524,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
-		msg := fmt.Sprintf("pending for directly adding account block[%s-%s-%d].", received.block.AccountAddress, received.Hash(), received.Height())
+		msg := fmt.Sprintf("db for directly adding account block[%s-%s-%d].", received.block.AccountAddress, received.Hash(), received.Height())
 		return errors.New(msg)
 	case verifier.FAIL:
 		if stat.err != nil {
@@ -706,8 +706,8 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
-				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
-				return errors.Wrap(stat.err, "fail verifier pending.")
+				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
+				return errors.Wrap(stat.err, "fail verifier db.")
 			}
 			err, num := self.verifySuccess(stat.blocks)
 			if err != nil {
