@@ -64,7 +64,6 @@ func (mi *MergedIterator) Last() bool {
 		} else {
 			mi.iterStatus[i] = iterPointHead
 		}
-
 	}
 
 	return mi.Prev()
@@ -74,6 +73,25 @@ func (mi *MergedIterator) Prev() bool {
 }
 func (mi *MergedIterator) Next() bool {
 	return mi.step(true)
+}
+
+// TODO
+func (mi *MergedIterator) Seek(key []byte) bool {
+
+	mi.reset()
+	isOk := false
+	mi.directionToNext = true
+
+	for i := 0; i < len(mi.iters); i++ {
+		iter := mi.iters[i]
+		if iter.Seek(key) {
+			isOk = true
+		}
+
+		key = iter.Key()
+	}
+
+	return isOk
 }
 
 func (mi *MergedIterator) Key() []byte {

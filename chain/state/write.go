@@ -45,9 +45,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		historyStorageKey := chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], nextSnapshotHeight)
 
-		sDB.pending.Put(storageKey, kv[1])
+		sDB.store.Put(storageKey, kv[1])
 
-		sDB.pending.Put(historyStorageKey, kv[1])
+		sDB.store.Put(historyStorageKey, kv[1])
 
 		undoLog = append(undoLog, storageKey...)
 	}
@@ -61,9 +61,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		balanceBytes := balance.Bytes()
 
-		sDB.pending.Put(balanceKey, balanceBytes)
+		sDB.store.Put(balanceKey, balanceBytes)
 
-		sDB.pending.Put(balanceStorageKey, balanceBytes)
+		sDB.store.Put(balanceStorageKey, balanceBytes)
 
 		undoLog = append(undoLog, balanceKey...)
 
@@ -73,7 +73,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if unsavedCode != nil {
 		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
 
-		sDB.pending.Put(codeKey, unsavedCode)
+		sDB.store.Put(codeKey, unsavedCode)
 
 		undoLog = append(undoLog, codeKey...)
 	}
@@ -84,8 +84,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			contractKey := chain_utils.CreateContractMetaKey(&addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
-			sDB.pending.Put(contractKey, meta.Serialize())
-			sDB.pending.Put(gidContractKey, nil)
+			sDB.store.Put(contractKey, meta.Serialize())
+			sDB.store.Put(gidContractKey, nil)
 
 			undoLog = append(undoLog, contractKey...)
 			undoLog = append(undoLog, gidContractKey...)
@@ -104,7 +104,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		if err != nil {
 			return err
 		}
-		sDB.pending.Put(vmLogListKey, bytes)
+		sDB.store.Put(vmLogListKey, bytes)
 	}
 
 	// write call depth
@@ -114,7 +114,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 
 		for _, sendBlock := range accountBlock.SendBlockList {
-			sDB.pending.Put(chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
+			sDB.store.Put(chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
 		}
 	}
 
@@ -137,16 +137,16 @@ func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.
 	}
 
 	sDB.updateUndoLocation(batch, location)
-	sDB.pending.Flush(batch)
+	//sDB.store.Flush(batch)
 
 	sDB.updateStateDbLocation(batch, location)
 
-	if err := sDB.db.Write(batch, nil); err != nil {
-		return err
-	}
+	//if err := sDB.store.Write(batch, nil); err != nil {
+	//	return err
+	//}
 
 	//for _, block := range invalidAccountBlocks {
-	//	sDB.pending.DeleteByBlockHash(&block.Hash)
+	//	sDB.store.DeleteByBlockHash(&block.Hash)
 	//}
 
 	return nil

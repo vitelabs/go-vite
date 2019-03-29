@@ -10,6 +10,8 @@ import (
 type StorageIterator interface {
 	Last() bool
 	Prev() bool
+	Seek(key []byte) bool
+
 	Next() bool
 
 	Key() []byte

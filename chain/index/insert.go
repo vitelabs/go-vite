@@ -20,13 +20,16 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	// height -> hash
 	iDB.store.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
 	if accountBlock.IsReceiveBlock() {
-		// close send block
-		iDB.store.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
+		if accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
+			// close send block
+			iDB.store.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
-		// receive on road
-		if err := iDB.receiveOnRoad(&accountBlock.FromBlockHash); err != nil {
-			return err
+			// receive on road
+			if err := iDB.receiveOnRoad(&accountBlock.FromBlockHash); err != nil {
+				return err
+			}
 		}
+
 	} else {
 		// insert on road block
 		iDB.insertOnRoad(accountBlock.Hash, accountBlock.ToAddress)

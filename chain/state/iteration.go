@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -17,24 +15,23 @@ import (
 
 func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator {
 	slice := util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))
-	return newStateStorageIterator(dbutils.NewMergedIterator([]interfaces.StorageIterator{
-		sDB.pending.NewIterator(slice),
-		sDB.db.NewIterator(slice, nil),
-	}, sDB.pending.IsDelete))
+	return newStateStorageIterator(sDB.store.NewIterator(slice))
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
-		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil
+		return sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))), nil
 	}
 
-	iterator := newStateStorageIterator(newSnapshotStorageIterator(sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)), nil), snapshotHeight))
+	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
+	iterator := newStateStorageIterator(newSnapshotStorageIterator(storeIterator, snapshotHeight))
+
 	return iterator, nil
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	if *snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil
+		return sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))), nil
 	}
 
 	height, err := sDB.chain.GetSnapshotHeightByHash(*snapshotHash)
@@ -47,7 +44,9 @@ func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *t
 		return nil, nil
 	}
 
-	iterator := newStateStorageIterator(newSnapshotStorageIterator(sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)), nil), height))
+	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
+
+	iterator := newStateStorageIterator(newSnapshotStorageIterator(storeIterator, height))
 	return iterator, nil
 }
 
@@ -68,6 +67,10 @@ func (iterator *stateStorageIterator) Last() bool {
 
 func (iterator *stateStorageIterator) Prev() bool {
 	return iterator.iter.Prev()
+}
+
+func (iterator *stateStorageIterator) Seek(key []byte) bool {
+	return iterator.iter.Seek(key)
 }
 
 func (iterator *stateStorageIterator) Next() bool {
@@ -101,7 +104,7 @@ func (iterator *stateStorageIterator) Release() {
 }
 
 type snapshotStorageIterator struct {
-	iter   iterator.Iterator
+	iter   interfaces.StorageIterator
 	iterOk bool
 
 	snapshotHeight uint64
@@ -109,7 +112,7 @@ type snapshotStorageIterator struct {
 	lastKey []byte
 }
 
-func newSnapshotStorageIterator(iter iterator.Iterator, height uint64) interfaces.StorageIterator {
+func newSnapshotStorageIterator(iter interfaces.StorageIterator, height uint64) interfaces.StorageIterator {
 	sIterator := &snapshotStorageIterator{
 		iter:           iter,
 		snapshotHeight: height,
@@ -132,6 +135,9 @@ func (sIterator *snapshotStorageIterator) Prev() bool {
 
 func (sIterator *snapshotStorageIterator) Next() bool {
 	return sIterator.step(true)
+}
+func (sIterator *snapshotStorageIterator) Seek(key []byte) bool {
+	return sIterator.Seek(key)
 }
 
 func (sIterator *snapshotStorageIterator) Key() []byte {

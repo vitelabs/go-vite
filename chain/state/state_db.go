@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -20,9 +17,7 @@ import (
 
 type StateDB struct {
 	chain Chain
-	db    *leveldb.DB
-
-	pending *chain_db.MemDB
+	store *chain_db.Store
 
 	undoLogger *undoLogger
 
@@ -30,12 +25,12 @@ type StateDB struct {
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
-	dbDir := path.Join(chainDir, "state")
-
-	db, err := leveldb.OpenFile(dbDir, nil)
-	if err != nil {
-		return nil, err
-	}
+	//
+	//db, err := leveldb.OpenFile(dbDir, nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0)
 
 	undoLogger, err := newUndoLogger(chainDir)
 	if err != nil {
@@ -45,47 +40,13 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	return &StateDB{
 		chain:      chain,
 		log:        log15.New("module", "stateDB"),
-		db:         db,
-		pending:    chain_db.NewMemDB(),
+		store:      store,
 		undoLogger: undoLogger,
 	}, nil
 }
 
-func (sDB *StateDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
-	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
-		sDB.pending.NewIterator(slice),
-		sDB.db.NewIterator(slice, nil),
-	}, sDB.pending.IsDelete)
-}
-
-func (sDB *StateDB) GetValue(key []byte) ([]byte, error) {
-	if value, ok := sDB.pending.Get(key); ok {
-		return value, nil
-	}
-
-	value, err := sDB.db.Get(key, nil)
-	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return value, nil
-}
-
-func (sDB *StateDB) hasValue(key []byte) (bool, error) {
-	if ok, deleted := sDB.pending.Has(key); ok {
-		return ok, nil
-	} else if deleted {
-		return false, nil
-
-	}
-
-	return sDB.db.Has(key, nil)
-}
-
 func (sDB *StateDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
-	value, err := sDB.GetValue(chain_utils.CreateStateDbLocationKey())
+	value, err := sDB.store.Get(chain_utils.CreateStateDbLocationKey())
 	if err != nil {
 		return nil, err
 	}
@@ -97,16 +58,16 @@ func (sDB *StateDB) QueryLatestLocation() (*chain_file_manager.Location, error) 
 }
 
 func (sDB *StateDB) Destroy() error {
-	if err := sDB.db.Close(); err != nil {
+	if err := sDB.store.Close(); err != nil {
 		return err
 	}
 
-	sDB.db = nil
+	sDB.store = nil
 	return nil
 }
 
 func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, error) {
-	value, err := sDB.GetValue(chain_utils.CreateStorageValueKey(addr, key))
+	value, err := sDB.store.Get(chain_utils.CreateStorageValueKey(addr, key))
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +75,7 @@ func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, er
 }
 
 func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	value, err := sDB.GetValue(chain_utils.CreateBalanceKey(addr, tokenTypeId))
+	value, err := sDB.store.Get(chain_utils.CreateBalanceKey(addr, tokenTypeId))
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +85,7 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 
 func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
-	iter := sDB.NewIterator(util.BytesPrefix(chain_utils.CreateBalanceKeyPrefix(addr)))
+	iter := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateBalanceKeyPrefix(addr)))
 	defer iter.Release()
 	for iter.Next() {
 		key := iter.Key()
@@ -143,7 +104,7 @@ func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*b
 }
 
 func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
-	code, err := sDB.GetValue(chain_utils.CreateCodeKey(addr))
+	code, err := sDB.store.Get(chain_utils.CreateCodeKey(addr))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +114,7 @@ func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
 
 //
 func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
-	value, err := sDB.GetValue(chain_utils.CreateContractMetaKey(addr))
+	value, err := sDB.store.Get(chain_utils.CreateContractMetaKey(addr))
 	if err != nil {
 		return nil, err
 	}
@@ -170,11 +131,11 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 }
 
 func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
-	return sDB.hasValue(chain_utils.CreateContractMetaKey(addr))
+	return sDB.store.Has(chain_utils.CreateContractMetaKey(addr))
 }
 
 func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
-	iter := sDB.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)))
+	iter := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateGidContractPrefixKey(gid)))
 	defer iter.Release()
 
 	var contractList []types.Address
@@ -194,7 +155,7 @@ func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
 }
 
 func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) {
-	value, err := sDB.GetValue(chain_utils.CreateVmLogListKey(logHash))
+	value, err := sDB.store.Get(chain_utils.CreateVmLogListKey(logHash))
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +167,7 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	value, err := sDB.GetValue(chain_utils.CreateCallDepthKey(sendBlockHash))
+	value, err := sDB.store.Get(chain_utils.CreateCallDepthKey(sendBlockHash))
 	if err != nil {
 		return 0, err
 	}
@@ -220,7 +181,6 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 
 // TODO
 func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
-	var iter iterator.Iterator
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
 	prefix := chain_utils.BalanceHistoryKeyPrefix
@@ -228,7 +188,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		prefix = chain_utils.BalanceKeyPrefix
 	}
 
-	iter = sDB.db.NewIterator(util.BytesPrefix([]byte{prefix}), nil)
+	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
 
 	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
@@ -260,12 +220,11 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 
 // TODO
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
-	var iter iterator.Iterator
 
 	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)
 	endHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, snapshotBlockHeight+1)
 
-	iter = sDB.db.NewIterator(&util.Range{Start: startHistoryStorageKey, Limit: endHistoryStorageKey}, nil)
+	iter := sDB.store.NewIterator(&util.Range{Start: startHistoryStorageKey, Limit: endHistoryStorageKey})
 	defer iter.Release()
 
 	if iter.Last() {

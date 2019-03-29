@@ -69,6 +69,8 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 		return nil, errors.New(fmt.Sprintf("fdSet.resetWriteFd failed. Error %s", err))
 	}
 
+	fmt.Println(fdSet.LatestLocation())
+
 	return fdSet, nil
 }
 
@@ -234,6 +236,10 @@ func (fdSet *fdManager) resetWriteFd() error {
 				return err
 			}
 			newItem.BufferLen = fileSize
+
+			if _, err := fd.Seek(0, 2); err != nil {
+				return err
+			}
 
 			fdSet.writeFd = NewWriteFd(fd, newItem)
 		}
