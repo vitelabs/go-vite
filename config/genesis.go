@@ -40,10 +40,13 @@ type ForkPoint struct {
 type ForkPoints struct{}
 
 type Genesis struct {
-	GenesisAccountAddress  types.Address
-	BlockProducers         []types.Address
-	SnapshotConsensusGroup *ConsensusGroupInfo
-	CommonConsensusGroup   *ConsensusGroupInfo
-
-	ForkPoints *ForkPoints
+	GenesisAccountAddress *types.Address
+	ForkPoints            *ForkPoints
+	ContractStorageMap    map[string]map[string]string
+	ContractLogsMap       map[string][]GenesisVmLog
+	AccountBalanceMap     map[string]map[string]*big.Int
+}
+type GenesisVmLog struct {
+	Data   string
+	Topics []types.Hash
 }

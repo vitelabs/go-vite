@@ -1,5 +1,7 @@
 package chain_genesis
 
+import "github.com/vitelabs/go-vite/config"
+
 const (
 	LedgerUnknown = byte(0)
 	LedgerEmpty   = byte(1)
@@ -7,10 +9,10 @@ const (
 	LedgerInvalid = byte(3)
 )
 
-func InitLedger(chain Chain) error {
+func InitLedger(chain Chain, cfg *config.Config) error {
 	// insert genesis account blocks
 	// TODO fixme
-	genesisAccountBlockList := NewGenesisAccountBlocks()
+	genesisAccountBlockList := NewGenesisAccountBlocks(cfg)
 	for _, ab := range genesisAccountBlockList {
 		err := chain.InsertAccountBlock(ab)
 		if err != nil {

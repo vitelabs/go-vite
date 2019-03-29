@@ -11,6 +11,8 @@ type ConsensusGroupInfo struct {
 	PerCount               int64       // Continuous block generation interval count
 	RandCount              uint8       // Random miner count
 	RandRank               uint8       // Chose random miner with chain rank limit of vote
+	Repeat                 uint16      // reuse consensus info to produce blocks within repeat times
+	CheckLevel             uint8       // consensus check param, 0-check address and sequence, 1-check address only
 	CountingTokenId        TokenTypeId // Token id for selecting miner through vote
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte
