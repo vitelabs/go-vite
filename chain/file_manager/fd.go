@@ -44,9 +44,10 @@ func NewFdByBuffer(fdSet *fdManager, cacheItem *fileCacheItem) *fileDescription 
 }
 func NewWriteFd(file *os.File, cacheItem *fileCacheItem) *fileDescription {
 	return &fileDescription{
-		file:         file,
-		cacheItem:    cacheItem,
-		writePointer: cacheItem.BufferLen,
+		file:             file,
+		cacheItem:        cacheItem,
+		prevFlushPointer: cacheItem.BufferLen,
+		writePointer:     cacheItem.BufferLen,
 
 		writeMaxSize: int64(len(cacheItem.Buffer)),
 		writePerm:    true,

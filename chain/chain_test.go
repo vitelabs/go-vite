@@ -58,7 +58,7 @@ func TestChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println("InsertAccountBlock")
-	accounts, hashList, addrList, heightList, snapshotBlockList := InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
+	accounts, hashList, addrList, heightList, snapshotBlockList := InsertAccountBlock(t, accountNum, chainInstance, 1000, 198)
 
 	accountIdList := make([]uint64, len(addrList))
 	maxAccountId := uint64(0)
