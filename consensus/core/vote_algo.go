@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -216,9 +215,6 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 }
 func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.HashHeight, successRate map[types.Address]int32) ([]*Vote, []*Vote) {
 	if len(groupB) == 0 {
-		return groupA, groupB
-	}
-	if !fork.IsMintFork(height.Height) {
 		return groupA, groupB
 	}
 

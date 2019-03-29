@@ -12,7 +12,6 @@ import (
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/consensus/db"
@@ -209,11 +208,10 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	if actualB == nil {
 		return errors.Errorf("refer snapshot block is nil. hashH:%s", actual)
 	}
-	if fork.IsMintFork(actualB.Height) {
-		header := self.rw.GetLatestSnapshotBlock()
-		if header.Timestamp.Before(voteTime) {
-			return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
-		}
+
+	header := self.rw.GetLatestSnapshotBlock()
+	if header.Timestamp.Before(voteTime) {
+		return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
 	}
 
 	if actualB.Height < startB.Height {

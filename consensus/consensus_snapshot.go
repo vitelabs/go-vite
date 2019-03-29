@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -83,13 +82,11 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 	}
 
 	var successRate map[types.Address]int32
-	if fork.IsMintFork(hashH.Height) {
-		successRate, err = self.rw.GetSuccessRateByHour(voteIndex)
-		if err != nil {
-			return nil, err
-		}
-		self.log.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
+	successRate, err = self.rw.GetSuccessRateByHour(voteIndex)
+	if err != nil {
+		return nil, err
 	}
+	self.log.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
 
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members

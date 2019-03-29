@@ -67,7 +67,7 @@ type BlockPool interface {
 	Init(s syncer,
 		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
-		accountV *verifier.AccountVerifier)
+		accountV verifier.Verifier)
 	Details(addr *types.Address, hash types.Hash) string
 }
 
@@ -201,7 +201,7 @@ func (self *pool) Init(s syncer,
 	accountV verifier.Verifier) {
 	self.sync = s
 	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc, newBc: &preMainNetChainImpl{bc: self.bc}, log: self.log}
+	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
@@ -325,7 +325,7 @@ func (self *pool) Restart() {
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
 	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
-	if self.bc.IsGenesisSnapshotBlock(block) {
+	if self.bc.IsGenesisSnapshotBlock(block.Hash) {
 		return
 	}
 
@@ -353,7 +353,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 
 func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
 	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
-	if self.bc.IsGenesisAccountBlock(block) {
+	if self.bc.IsGenesisAccountBlock(block.Hash) {
 		return
 	}
 	ac := self.selfPendingAc(address)
@@ -545,7 +545,7 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	}
 
 	// lazy load
-	rw := &accountCh{address: addr, rw: self.bc, version: self.version}
+	rw := &accountCh{address: addr, rw: self.bc, version: self.version, log: self.log.New("account", addr)}
 	f := &accountSyncer{address: addr, fetcher: self.sync, log: self.log.New()}
 	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
 	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.hashBlacklist, self.log)

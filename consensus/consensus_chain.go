@@ -5,8 +5,6 @@ import (
 
 	"github.com/vitelabs/go-vite/consensus/db"
 
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/hashicorp/golang-lru"
@@ -168,10 +166,6 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 	}
 
 	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock.Hash) {
-		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
-	}
-
-	if !fork.IsMintFork(endSnapshotBlock.Height) {
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 
