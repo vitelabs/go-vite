@@ -17,4 +17,6 @@ type Verifier interface {
 	VerifyAccBlockHash(block *ledger.AccountBlock) error
 	VerifyAccBlockSignature(block *ledger.AccountBlock) error
 	VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error
+
+	GetSnapshotVerifier() *SnapshotVerifier
 }

@@ -3,6 +3,7 @@ package verifier
 import (
 	"errors"
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -145,4 +146,8 @@ func (v *verifier) VerifyAccBlockProducerLegality(block *ledger.AccountBlock) er
 		return ErrVerifyAccountTypeNotSure
 	}
 	return v.Av.verifyProducerLegality(block, isAccTypeGeneral(accType))
+}
+
+func (v *verifier) GetSnapshotVerifier() *SnapshotVerifier {
+	return v.Sv
 }

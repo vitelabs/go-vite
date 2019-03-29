@@ -131,7 +131,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	chain := t.walletApi.chain
 	pool := t.walletApi.pool
 
-	isContract, err := t.walletApi.chain.IsContractAccount(&params.SelfAddr)
+	isContract, err := t.walletApi.chain.IsContractAccount(params.SelfAddr)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if msg.FromBlockHash == nil {
 		return errors.New("params fromblockhash can't be nil")
 	}
-	fromBlock, err := chain.GetAccountBlockByHash(msg.FromBlockHash)
+	fromBlock, err := chain.GetAccountBlockByHash(*msg.FromBlockHash)
 	if fromBlock == nil {
 		if err != nil {
 			return err
