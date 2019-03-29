@@ -84,8 +84,8 @@ func (iterator *stateStorageIterator) Key() []byte {
 		return nil
 	}
 
-	keySize := key[34]
-	return key[1 : 1+keySize]
+	keySize := key[1+types.AddressSize+types.HashSize+1]
+	return key[1+types.AddressSize : 1+types.AddressSize+keySize]
 }
 
 func (iterator *stateStorageIterator) Value() []byte {
