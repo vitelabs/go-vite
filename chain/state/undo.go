@@ -78,7 +78,7 @@ func (sDB *StateDB) undoKeys(batch *leveldb.Batch, undoKeys map[string]struct{},
 		case chain_utils.BalanceKeyPrefix:
 			undoKey[0] += 1
 
-			iter := sDB.db.NewIterator(util.BytesPrefix(undoKey), nil)
+			iter := sDB.store.NewIterator(util.BytesPrefix(undoKey))
 			iterOk := iter.Last()
 
 			for iterOk {

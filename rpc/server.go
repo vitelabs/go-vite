@@ -227,8 +227,8 @@ func (s *Server) ServeSingleRequest(ctx context.Context, codec ServerCodec, opti
 	s.serveRequest(ctx, codec, true, options)
 }
 
-// Stop will stop reading new requests, wait for stopPendingRequestTimeout to allow pending requests to finish,
-// close all codecs which will cancel pending requests/subscriptions.
+// Stop will stop reading new requests, wait for stopPendingRequestTimeout to allow db requests to finish,
+// close all codecs which will cancel db requests/subscriptions.
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
 		log.Debug("RPC Server shutdown initiatied")

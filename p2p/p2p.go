@@ -438,7 +438,7 @@ func (svr *server) listenLoop() {
 			if addr := conn.RemoteAddr().(*net.TCPAddr); svr.blocked(addr.IP) {
 				svr.log.Warn(fmt.Sprintf("%s has been blocked, will not setup", addr))
 				conn.Close()
-				// next pending
+				// next db
 				<-svr.pending
 			} else {
 				common.Go(func() {

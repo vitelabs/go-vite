@@ -151,8 +151,11 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 }
 
 func (fm *FileManager) Close() error {
-	if err := fm.fdSet.writeFd.Flush(); err != nil {
-		return err
+	writeFd := fm.fdSet.GetWriteFd()
+	if writeFd != nil {
+		if err := writeFd.Flush(); err != nil {
+			return err
+		}
 	}
 
 	if err := fm.fdSet.Close(); err != nil {

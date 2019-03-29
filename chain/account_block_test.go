@@ -21,6 +21,7 @@ func GetAccountBlockByHash(t *testing.T, chainInstance Chain, hashList []types.H
 
 func GetAccountBlockByHeight(t *testing.T, chainInstance Chain, addrList []types.Address, heightList []uint64) {
 	for index, height := range heightList {
+		//fmt.Println(addrList[index], height)
 		block, err := chainInstance.GetAccountBlockByHeight(addrList[index], height)
 		if err != nil {
 			t.Fatal(err)

@@ -24,9 +24,9 @@ func (sDB *StateDB) CheckAndDelete(toLocation *chain_file_manager.Location) erro
 	}
 	sDB.updateStateDbLocation(batch, toLocation)
 
-	if err := sDB.db.Write(batch, nil); err != nil {
-		return err
-	}
+	//if err := sDB.store.Write(batch, nil); err != nil {
+	//	return err
+	//}
 
 	if location != nil {
 		if err := sDB.undoLogger.DeleteTo(location); err != nil {
@@ -38,7 +38,7 @@ func (sDB *StateDB) CheckAndDelete(toLocation *chain_file_manager.Location) erro
 }
 
 func (sDB *StateDB) CheckAndRepair() error {
-	value, err := sDB.db.Get(chain_utils.CreateUndoLocationKey(), nil)
+	value, err := sDB.store.Get(chain_utils.CreateUndoLocationKey())
 	if err != nil {
 		return err
 	}

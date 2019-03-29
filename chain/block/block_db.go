@@ -131,7 +131,7 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 	var segList []*SnapshotSegment
 	var seg *SnapshotSegment
 
-	var snappyReadBuffer = make([]byte, 0, 8*1024) // 8KB
+	var snappyReadBuffer = make([]byte, 0, 8*1024) // 8kb
 	iterator := bfp.Iterator()
 
 	currentFileId := uint64(0)

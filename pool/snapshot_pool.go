@@ -122,7 +122,7 @@ func (self *snapshotPool) loopCheckFork() {
 	//		fmt.Printf("%+v", e)
 	//		defer self.log.Warn("loopCheckFork end recover.")
 	//		self.pool.Lock()
-	//		defer self.pool.UnLock()
+	//		defer self.pool.Unlock()
 	//		self.initPool()
 	//		if self.rstat.inc() {
 	//			common.Go(self.loopCheckFork)
@@ -255,7 +255,7 @@ func (self *snapshotPool) loop() {
 	//		fmt.Printf("%+v", e)
 	//		defer self.log.Warn("snapshot loop end recover.")
 	//		self.pool.Lock()
-	//		defer self.pool.UnLock()
+	//		defer self.pool.Unlock()
 	//		self.initPool()
 	//		if self.rstat.inc() {
 	//			common.Go(self.loop)
@@ -361,8 +361,8 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
 				return nil, item, errors.New("fail verifier")
 			case verifier.PENDING:
-				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
-				return nil, item, errors.New("fail verifier pending.")
+				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
+				return nil, item, errors.New("fail verifier db.")
 			}
 			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))
 			if err != nil {
@@ -455,11 +455,11 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		result := results[k]
 		if result == verifier.PENDING {
 			monitor.LogEvent("pool", "snapshotPending")
-			self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+			self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 			hashH, e := self.pool.PendingAccountTo(k, account, b.Height())
 			self.fetchAccounts(accounts, b.Height())
 			if e != nil {
-				self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
+				self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 			}
 			if hashH != nil {
 				accounts[k] = account
