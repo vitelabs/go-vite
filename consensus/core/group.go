@@ -19,7 +19,7 @@ type GroupInfo struct {
 	types.ConsensusGroupInfo
 
 	// todo
-	Repeat int32
+	Repeat uint16
 	// checkLevel = 0  check all info
 	// checkLevel = 1  Just check if it is in the producer collection
 	// todo
@@ -102,7 +102,7 @@ func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) [
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
 
-	for j := int32(0); j < self.Repeat; j++ {
+	for j := uint16(0); j < self.Repeat; j++ {
 		for _, member := range members {
 			for i := int64(0); i < self.PerCount; i++ {
 				etime := sTime.Add(time.Duration(self.Interval) * time.Second)

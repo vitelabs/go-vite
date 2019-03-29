@@ -9,6 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
+var simpleGenesis = time.Unix(1553849738, 0)
+
 type simpleCs struct {
 	consensusDpos
 	algo core.Algo
@@ -20,16 +22,12 @@ func newSimpleCs(log log15.Logger) *simpleCs {
 	cs := &simpleCs{}
 	cs.log = log.New("gid", "snapshot")
 
-	cs.info = newSimpleAccountInfo()
+	cs.info = newSimpleInfo()
 	cs.algo = core.NewAlgo(cs.info)
 	return cs
 }
 
 func newSimpleInfo() *core.GroupInfo {
-	t, err := time.Parse("2016-01-02 15:04:05", "2019-03-26 12:00:03")
-	if err != nil {
-		panic(err)
-	}
 
 	group := types.ConsensusGroupInfo{
 		Gid:                    types.Gid{},
@@ -48,19 +46,7 @@ func newSimpleInfo() *core.GroupInfo {
 		WithdrawHeight:         0,
 	}
 
-	info := core.NewGroupInfo(t, group)
-	return info
-}
-
-func newSimpleAccountInfo() *core.GroupInfo {
-	t, err := time.Parse("2016-01-02 15:04:05", "2019-03-26 12:00:03")
-	if err != nil {
-		panic(err)
-	}
-
-	group := types.ConsensusGroupInfo{}
-
-	info := core.NewGroupInfo(t, group)
+	info := core.NewGroupInfo(simpleGenesis, group)
 	return info
 }
 
