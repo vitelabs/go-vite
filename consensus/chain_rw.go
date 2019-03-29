@@ -23,9 +23,9 @@ type ch interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
 	// todo
-	GetConsensusGroupList(snapshotHash types.Hash) ([]types.ConsensusGroupInfo, error)                                                  // Get all consensus group
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                       // Get the candidate's vote
+	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
 	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 
@@ -124,7 +124,7 @@ func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block l
 	// query register info
 	registerList, _ := self.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
-	votes, _ := self.rw.GetVoteMap(block.Hash, gid)
+	votes, _ := self.rw.GetVoteList(block.Hash, gid)
 
 	var registers []*VoteDetails
 
@@ -170,7 +170,7 @@ func (self *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 	}
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = core.NewGroupInfo(self.genesisTime, v)
+			result = core.NewGroupInfo(self.genesisTime, *v)
 		}
 	}
 	if result == nil {
