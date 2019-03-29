@@ -32,6 +32,8 @@ func newQuotaList(chain Chain) *quotaList {
 		chain: chain,
 		used:  make(map[types.Address]*item),
 
+		backElement: make(map[types.Address]*item),
+
 		list:               list.New(),
 		listMaxLength:      600,
 		accumulationHeight: 75,

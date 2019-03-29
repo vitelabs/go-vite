@@ -32,6 +32,7 @@ type Unsaved struct {
 func NewUnsaved() *Unsaved {
 	return &Unsaved{
 		logList:      make(ledger.VmLogList, 0),
+		keys:         make(map[string]struct{}),
 		deletedKeys:  make(map[string]struct{}),
 		storage:      memdb.New(comparer.DefaultComparer, 16*1024),
 		storageDirty: false,
