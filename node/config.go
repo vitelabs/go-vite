@@ -3,13 +3,14 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/metrics"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vitelabs/go-vite/metrics"
 
 	"github.com/vitelabs/go-vite/config/biz"
 
@@ -373,7 +374,6 @@ func (c *Config) makeChainConfig() *config.Chain {
 
 	return &config.Chain{
 		KafkaProducers:       kafkaProducers,
-		OpenBlackBlock:       c.OpenBlackBlock,
 		LedgerGcRetain:       c.LedgerGcRetain,
 		LedgerGc:             ledgerGc,
 		OpenFilterTokenIndex: openFilterTokenIndex,
