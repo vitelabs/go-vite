@@ -8,8 +8,9 @@ import (
 )
 
 type EnvPrepareForGenerator struct {
-	LatestSnapshotHash *types.Hash
-	LatestAccountHash  *types.Hash
+	LatestSnapshotHash  *types.Hash
+	LatestAccountHash   *types.Hash
+	LatestAccountHeight uint64
 }
 
 func GetAddressStateForGenerator(chain chain.Chain, addr *types.Address) (*EnvPrepareForGenerator, error) {
@@ -18,16 +19,19 @@ func GetAddressStateForGenerator(chain chain.Chain, addr *types.Address) (*EnvPr
 		return nil, ErrGetLatestSnapshotBlock
 	}
 	var prevAccHash types.Hash
+	var prevAccHeight uint64 = 0
 	prevAccountBlock, err := chain.GetLatestAccountBlock(*addr)
 	if err != nil {
 		return nil, ErrGetLatestAccountBlock
 	}
 	if prevAccountBlock != nil {
 		prevAccHash = prevAccountBlock.Hash
+		prevAccHeight = prevAccountBlock.Height
 	}
 	return &EnvPrepareForGenerator{
-		LatestSnapshotHash: &latestSnapshot.Hash,
-		LatestAccountHash:  &prevAccHash,
+		LatestSnapshotHash:  &latestSnapshot.Hash,
+		LatestAccountHash:   &prevAccHash,
+		LatestAccountHeight: prevAccHeight,
 	}, nil
 }
 
