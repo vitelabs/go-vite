@@ -3,14 +3,15 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -282,8 +283,7 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 		return err
 	}
 
-	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
-	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+	log.Crit(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
 	return nil
 }
 
