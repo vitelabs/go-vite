@@ -127,22 +127,8 @@ func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
 	key[0] = StorageKeyPrefix
 
 	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:], storageKey)
+	copy(key[types.AddressSize+1:types.AddressSize+types.HashSize+1], storageKey)
 	key[keySize-1] = byte(len(storageKey))
-
-	return key
-}
-
-func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
-	keySize := types.AddressSize + 42
-	key := make([]byte, keySize)
-	key[0] = StorageHistoryKeyPrefix
-
-	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:], storageKey)
-	key[keySize-9] = byte(len(storageKey))
-
-	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
 
 	return key
 }
@@ -154,6 +140,20 @@ func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) [
 	key = append(key, StorageHistoryKeyPrefix)
 	key = append(key, address.Bytes()...)
 	key = append(key, prefix...)
+	return key
+}
+
+func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
+	keySize := types.AddressSize + 42
+	key := make([]byte, keySize)
+	key[0] = StorageHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:types.AddressSize+types.HashSize+1], storageKey)
+	key[keySize-9] = byte(len(storageKey))
+
+	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
+
 	return key
 }
 
