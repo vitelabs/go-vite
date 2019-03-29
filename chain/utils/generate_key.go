@@ -255,10 +255,6 @@ func CreateUndoLocationKey() []byte {
 	return []byte{UndoLocationKeyPrefix}
 }
 
-func CreateStateDbLocationKey() []byte {
-	return []byte{StateDbLocationKeyPrefix}
-}
-
 //// ====== state_bak db ======
 //
 //func CreateBalanceKey(addr *types.Address, tokenTypeId *types.TokenTypeId) []byte {

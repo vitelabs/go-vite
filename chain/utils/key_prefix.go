@@ -52,19 +52,4 @@ const (
 	CallDepthKeyPrefix = byte(11)
 
 	UndoLocationKeyPrefix = byte(12)
-
-	StateDbLocationKeyPrefix = byte(13)
-)
-
-// mv db
-const (
-//KeyIdKeyPrefix = byte(1)
-//
-//ValueIdKeyPrefix = byte(2)
-//
-//LatestValueKeyPrefix = byte(3)
-//
-//UndoKeyPrefix = byte(4)
-//
-//MvDbLatestLocationKeyPrefix = byte(5)
 )

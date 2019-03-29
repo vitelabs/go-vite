@@ -3,10 +3,7 @@ package chain_index
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/chain/file_manager"
-	"github.com/vitelabs/go-vite/chain/utils"
 	"path"
 )
 
@@ -49,6 +46,9 @@ func (iDB *IndexDB) CleanAllData() error {
 	// clean latestAccountId
 	iDB.latestAccountId = 0
 
+	// clean latestOnRoadId
+	iDB.latestOnRoadId = 0
+
 	// clean store
 	if err := iDB.store.Clean(); err != nil {
 		return errors.New(fmt.Sprintf("iDB.store.Clean failed, error is %s", err.Error()))
@@ -56,18 +56,8 @@ func (iDB *IndexDB) CleanAllData() error {
 	return nil
 }
 
-func (iDB *IndexDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
-	value, err := iDB.store.Get(chain_utils.CreateIndexDbLatestLocationKey())
-	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(value) <= 0 {
-		return nil, nil
-	}
-	return chain_utils.DeserializeLocation(value), nil
+func (iDB *IndexDB) Store() *chain_db.Store {
+	return iDB.store
 }
 
 func (iDB *IndexDB) Close() error {

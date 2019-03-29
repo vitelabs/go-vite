@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -25,11 +24,6 @@ type StateDB struct {
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
-	//
-	//db, err := leveldb.OpenFile(dbDir, nil)
-	//if err != nil {
-	//	return nil, err
-	//}
 	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0)
 
 	undoLogger, err := newUndoLogger(chainDir)
@@ -43,18 +37,6 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		store:      store,
 		undoLogger: undoLogger,
 	}, nil
-}
-
-func (sDB *StateDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
-	value, err := sDB.store.Get(chain_utils.CreateStateDbLocationKey())
-	if err != nil {
-		return nil, err
-	}
-	if len(value) <= 0 {
-		return nil, nil
-	}
-
-	return chain_utils.DeserializeLocation(value), nil
 }
 
 func (sDB *StateDB) Destroy() error {
@@ -179,7 +161,6 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return binary.BigEndian.Uint16(value), nil
 }
 
-// TODO
 func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
@@ -218,7 +199,6 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 	return balanceMap, nil
 }
 
-// TODO
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
 
 	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)
@@ -236,4 +216,8 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 	}
 
 	return nil, nil
+}
+
+func (sDB *StateDB) Store() *chain_db.Store {
+	return sDB.store
 }

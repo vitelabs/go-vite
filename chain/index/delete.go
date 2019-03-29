@@ -1,6 +1,7 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -13,22 +14,24 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 		return nil
 	}
 
+	batch := iDB.store.NewBatch()
+
 	openSendBlockHashMap := make(map[types.Hash]struct{})
 
 	for _, seg := range deletedSnapshotSegments {
 		snapshotBlock := seg.SnapshotBlock
-		iDB.deleteSnapshotBlockHash(snapshotBlock.Hash)
-		iDB.deleteSnapshotBlockHeight(snapshotBlock.Height)
+		iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
+		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
 
 		for _, block := range seg.AccountBlocks {
 			// delete account block hash index
-			iDB.deleteAccountBlockHash(block.Hash)
+			iDB.deleteAccountBlockHash(batch, block.Hash)
 
 			// delete account block height index
-			iDB.deleteAccountBlockHeight(block.AccountAddress, block.Height)
+			iDB.deleteAccountBlockHeight(batch, block.AccountAddress, block.Height)
 
 			// delete confirmed index
-			iDB.deleteConfirmHeight(block.AccountAddress, block.Height)
+			iDB.deleteConfirmHeight(batch, block.AccountAddress, block.Height)
 
 			if block.IsReceiveBlock() {
 
@@ -36,10 +39,10 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 					delete(openSendBlockHashMap, block.FromBlockHash)
 
 					// delete receive index
-					iDB.deleteReceive(block.FromBlockHash)
+					iDB.deleteReceive(batch, block.FromBlockHash)
 
 					// insert onRoad
-					iDB.insertOnRoad(block.FromBlockHash, block.AccountAddress)
+					iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress)
 				}
 			} else {
 				openSendBlockHashMap[block.Hash] = struct{}{}
@@ -48,34 +51,35 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 	}
 
 	for sendBlockHash := range openSendBlockHashMap {
-		if err := iDB.deleteOnRoad(sendBlockHash); err != nil {
+		if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
 			return err
 		}
 	}
 
+	iDB.store.Write(batch)
 	return nil
 }
 
-func (iDB *IndexDB) deleteSnapshotBlockHash(snapshotBlockHash types.Hash) {
-	iDB.store.Delete(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlockHash))
+func (iDB *IndexDB) deleteSnapshotBlockHash(batch *leveldb.Batch, snapshotBlockHash types.Hash) {
+	batch.Delete(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlockHash))
 }
 
-func (iDB *IndexDB) deleteSnapshotBlockHeight(snapshotBlockHeight uint64) {
-	iDB.store.Delete(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight))
+func (iDB *IndexDB) deleteSnapshotBlockHeight(batch *leveldb.Batch, snapshotBlockHeight uint64) {
+	batch.Delete(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight))
 }
 
-func (iDB *IndexDB) deleteAccountBlockHash(accountBlockHash types.Hash) {
-	iDB.store.Delete(chain_utils.CreateAccountBlockHashKey(&accountBlockHash))
+func (iDB *IndexDB) deleteAccountBlockHash(batch *leveldb.Batch, accountBlockHash types.Hash) {
+	batch.Delete(chain_utils.CreateAccountBlockHashKey(&accountBlockHash))
 }
 
-func (iDB *IndexDB) deleteAccountBlockHeight(addr types.Address, height uint64) {
-	iDB.store.Delete(chain_utils.CreateAccountBlockHeightKey(&addr, height))
+func (iDB *IndexDB) deleteAccountBlockHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
+	batch.Delete(chain_utils.CreateAccountBlockHeightKey(&addr, height))
 }
 
-func (iDB *IndexDB) deleteReceive(sendBlockHash types.Hash) {
-	iDB.store.Delete(chain_utils.CreateReceiveKey(&sendBlockHash))
+func (iDB *IndexDB) deleteReceive(batch *leveldb.Batch, sendBlockHash types.Hash) {
+	batch.Delete(chain_utils.CreateReceiveKey(&sendBlockHash))
 }
 
-func (iDB *IndexDB) deleteConfirmHeight(addr types.Address, height uint64) {
-	iDB.store.Delete(chain_utils.CreateConfirmHeightKey(&addr, height))
+func (iDB *IndexDB) deleteConfirmHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
+	batch.Delete(chain_utils.CreateConfirmHeightKey(&addr, height))
 }

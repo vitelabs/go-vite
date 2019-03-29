@@ -189,6 +189,7 @@ func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, 
 	if err != nil {
 		return nil, 0, err
 	}
+
 	height := chain_utils.BytesToUint64(value[types.AddressSize:])
 	return &addr, height, nil
 }

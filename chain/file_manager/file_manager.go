@@ -115,7 +115,7 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 	currentLocation := startLocation
 	for currentLocation.FileId <= realEndLocation.FileId {
-		fd, err := fm.fdSet.GetFd(startLocation)
+		fd, err := fm.fdSet.GetFd(currentLocation)
 		if err != nil {
 			parser.WriteError(errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", currentLocation.FileId, err.Error())))
 			return
@@ -138,7 +138,7 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 			return
 		}
 
-		if err := parser.Write(buf, currentLocation); err != nil {
+		if err := parser.Write(buf); err != nil {
 			return
 		}
 

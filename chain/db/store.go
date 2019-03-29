@@ -12,15 +12,13 @@ import (
 )
 
 type Store struct {
+	mu    sync.RWMutex
 	memDb *MemDB
 
 	dbDir string
 	db    *leveldb.DB
 
-	flushInterval time.Duration
-	wg            sync.WaitGroup
-
-	stopped chan struct{}
+	flushingBatch *leveldb.Batch
 }
 
 func NewStore(dataDir string, flushInterval time.Duration) (*Store, error) {
@@ -35,41 +33,39 @@ func NewStore(dataDir string, flushInterval time.Duration) (*Store, error) {
 	}
 
 	store := &Store{
-		flushInterval: flushInterval,
 		memDb:         NewMemDB(),
-
-		dbDir: dataDir,
-		db:    db,
+		flushingBatch: new(leveldb.Batch),
+		dbDir:         dataDir,
+		db:            db,
 	}
-	//
-	//store.wg.Add(1)
-	//go func() {
-	//	defer store.wg.Done()
-	//	for {
-	//		select {
-	//		case <-store.stopped:
-	//			store.Flush()
-	//			return
-	//		default:
-	//			store.Flush()
-	//			time.Sleep(flushInterval)
-	//		}
-	//
-	//	}
-	//
-	//}()
+
 	return store, nil
 }
 
-func (store *Store) Put(key, value []byte) {
-	store.db.Put(key, value, nil)
+func (store *Store) NewBatch() *leveldb.Batch {
+	return new(leveldb.Batch)
 }
 
-func (store *Store) Delete(key []byte) {
-	store.db.Delete(key, nil)
+func (store *Store) Write(batch *leveldb.Batch) {
+	//return store.db.Write(batch, nil)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	batch.Replay(store.memDb)
 }
+
+//func (store *Store) Put(key, value []byte) {
+//	store.memDb.Put(key, value)
+//}
+//
+//func (store *Store) Delete(key []byte) {
+//	store.memDb.Delete(key)
+//}
 
 func (store *Store) Get(key []byte) ([]byte, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	value, ok := store.memDb.Get(key)
 	if !ok {
 		var err error
@@ -86,6 +82,9 @@ func (store *Store) Get(key []byte) ([]byte, error) {
 }
 
 func (store *Store) Has(key []byte) (bool, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if ok, deleted := store.memDb.Has(key); ok {
 		return ok, nil
 
@@ -98,6 +97,9 @@ func (store *Store) Has(key []byte) (bool, error) {
 }
 
 func (store *Store) HasPrefix(prefix []byte) (bool, error) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	if ok := store.memDb.HasByPrefix(prefix); ok {
 		return ok, nil
 	}
@@ -124,17 +126,13 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 }
 
 //func (store *Store) Flush() error {
-//	store.memDb.Lock()
-//	defer store.memDb.Unlock()
-//
 //	batch := new(leveldb.Batch)
 //
 //	store.memDb.Flush(batch)
 //	if err := store.db.Write(batch, nil); err != nil {
 //		return err
 //	}
-//
-//	store.memDb.Clean()
+//	store.memDb = NewMemDB()
 //
 //	return nil
 //}
@@ -147,14 +145,17 @@ func (store *Store) NewIterator(slice *util.Range) interfaces.StorageIterator {
 }
 
 func (store *Store) Close() error {
-	close(store.stopped)
-	store.wg.Wait()
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
 	store.memDb = nil
 	return store.db.Close()
 }
 
 func (store *Store) Clean() error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	if err := store.Close(); err != nil {
 		return err
 	}
@@ -166,6 +167,51 @@ func (store *Store) Clean() error {
 	store.db = nil
 
 	return nil
+}
+
+func (store *Store) Prepare() {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	store.flushingBatch.Reset()
+	store.memDb.Flush(store.flushingBatch)
+}
+
+func (store *Store) CancelPrepare() {
+	store.flushingBatch.Reset()
+}
+
+func (store *Store) RedoLog() []byte {
+	return store.flushingBatch.Dump()
+}
+
+func (store *Store) Commit() error {
+	if err := store.db.Write(store.flushingBatch, nil); err != nil {
+		return err
+	}
+	store.flushingBatch.Reset()
+
+	store.resetMemDB()
+	return nil
+}
+
+func (store *Store) PatchRedoLog(redoLog []byte) error {
+
+	batch := new(leveldb.Batch)
+	batch.Load(redoLog)
+
+	if err := store.db.Write(batch, nil); err != nil {
+		return err
+	}
+
+	store.resetMemDB()
+	return nil
+}
+
+func (store *Store) resetMemDB() {
+	store.mu.Lock()
+	store.memDb = NewMemDB()
+	store.mu.Unlock()
 }
 
 //func (store *Store) Put(key, value []byte) {

@@ -9,7 +9,7 @@ import (
 )
 
 func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, toLocation *chain_file_manager.Location) error {
-	batch := new(leveldb.Batch)
+	batch := sDB.store.NewBatch()
 	//blockHashList := make([]*types.Hash, 0, size)
 
 	// undo balance and storage
@@ -37,16 +37,17 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 		}
 	}
 
-	sDB.updateStateDbLocation(batch, location)
+	//sDB.updateStateDbLocation(batch, location)
 
 	//if err := sDB.store.Write(batch, nil); err != nil {
 	//	return err
 	//}
+	//
+	//if err := sDB.undoLogger.DeleteTo(location); err != nil {
+	//	return err
+	//}
 
-	if err := sDB.undoLogger.DeleteTo(location); err != nil {
-		return err
-	}
-
+	sDB.store.Write(batch)
 	return nil
 }
 

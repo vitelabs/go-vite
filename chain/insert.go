@@ -13,6 +13,9 @@ import (
  *	2.
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil)
 
@@ -38,6 +41,9 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
@@ -56,17 +62,13 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	}
 
 	// flush state db
-	if err := c.stateDB.Flush(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
+	if err := c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	// insert index
-	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks,
-		snapshotBlockLocation, abLocationList, invalidAccountBlocks, c.blockDB.LatestLocation()); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
-	}
+	c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList, invalidAccountBlocks)
 
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)

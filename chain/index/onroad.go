@@ -7,6 +7,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"sync/atomic"
 )
 
@@ -49,19 +50,19 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	return hashList, nil
 }
 
-func (iDB *IndexDB) insertOnRoad(sendBlockHash types.Hash, toAddr types.Address) {
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) {
 	onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
 	key := chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
 	value := sendBlockHash.Bytes()
 
 	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
 
-	iDB.store.Put(key, value)
-	iDB.store.Put(reverseKey, key)
+	batch.Put(key, value)
+	batch.Put(reverseKey, key)
 
 }
 
-func (iDB *IndexDB) receiveOnRoad(sendBlockHash *types.Hash) error {
+func (iDB *IndexDB) receiveOnRoad(batch interfaces.Batch, sendBlockHash *types.Hash) error {
 
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
 	key, err := iDB.store.Get(reverseKey)
@@ -74,13 +75,13 @@ func (iDB *IndexDB) receiveOnRoad(sendBlockHash *types.Hash) error {
 			sendBlockHash))
 	}
 
-	iDB.store.Delete(reverseKey)
-	iDB.store.Delete(key)
+	batch.Delete(reverseKey)
+	batch.Delete(key)
 
 	return nil
 }
 
-func (iDB *IndexDB) deleteOnRoad(sendBlockHash types.Hash) error {
+func (iDB *IndexDB) deleteOnRoad(batch *leveldb.Batch, sendBlockHash types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
 	value, err := iDB.store.Get(reverseKey)
 	if err != nil {
@@ -90,8 +91,8 @@ func (iDB *IndexDB) deleteOnRoad(sendBlockHash types.Hash) error {
 		return errors.New(fmt.Sprintf("onRoad block is not exsited, block hash is %s", sendBlockHash))
 	}
 
-	iDB.store.Delete(reverseKey)
-	iDB.store.Delete(value)
+	batch.Delete(reverseKey)
+	batch.Delete(value)
 
 	return nil
 }

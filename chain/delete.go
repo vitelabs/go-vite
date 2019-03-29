@@ -9,6 +9,9 @@ import (
 )
 
 func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk, error) {
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
 	height, err := c.indexDB.GetSnapshotBlockHeight(&toHash)
 
 	if err != nil {
@@ -26,6 +29,9 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 }
 
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
 	//location, err := c.indexDB.GetSnapshotBlockLocation(toHeight)
 	//if err != nil {
 	//	cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, snapshotHeight is %d", err.Error(), toHeight))

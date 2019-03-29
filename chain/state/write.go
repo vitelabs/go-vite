@@ -11,6 +11,7 @@ import (
 )
 
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
+	batch := sDB.store.NewBatch()
 	vmDb := block.VmDb
 	accountBlock := block.AccountBlock
 
@@ -45,9 +46,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		historyStorageKey := chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], nextSnapshotHeight)
 
-		sDB.store.Put(storageKey, kv[1])
+		batch.Put(storageKey, kv[1])
 
-		sDB.store.Put(historyStorageKey, kv[1])
+		batch.Put(historyStorageKey, kv[1])
 
 		undoLog = append(undoLog, storageKey...)
 	}
@@ -61,9 +62,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		balanceBytes := balance.Bytes()
 
-		sDB.store.Put(balanceKey, balanceBytes)
+		batch.Put(balanceKey, balanceBytes)
 
-		sDB.store.Put(balanceStorageKey, balanceBytes)
+		batch.Put(balanceStorageKey, balanceBytes)
 
 		undoLog = append(undoLog, balanceKey...)
 
@@ -73,7 +74,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if unsavedCode != nil {
 		codeKey := chain_utils.CreateCodeKey(&accountBlock.AccountAddress)
 
-		sDB.store.Put(codeKey, unsavedCode)
+		batch.Put(codeKey, unsavedCode)
 
 		undoLog = append(undoLog, codeKey...)
 	}
@@ -84,8 +85,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			contractKey := chain_utils.CreateContractMetaKey(&addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
-			sDB.store.Put(contractKey, meta.Serialize())
-			sDB.store.Put(gidContractKey, nil)
+			batch.Put(contractKey, meta.Serialize())
+			batch.Put(gidContractKey, nil)
 
 			undoLog = append(undoLog, contractKey...)
 			undoLog = append(undoLog, gidContractKey...)
@@ -104,7 +105,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		if err != nil {
 			return err
 		}
-		sDB.store.Put(vmLogListKey, bytes)
+		batch.Put(vmLogListKey, bytes)
 	}
 
 	// write call depth
@@ -114,7 +115,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 
 		for _, sendBlock := range accountBlock.SendBlockList {
-			sDB.store.Put(chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
+			batch.Put(chain_utils.CreateCallDepthKey(&sendBlock.Hash), callDepthBytes)
 		}
 	}
 
@@ -123,23 +124,20 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.AccountBlock,
-	invalidAccountBlocks []*ledger.AccountBlock, location *chain_file_manager.Location) error {
-	batch := new(leveldb.Batch)
-	blockHashList := make([]*types.Hash, 0, len(blocks))
-	for _, block := range blocks {
-		blockHashList = append(blockHashList, &block.Hash)
-	}
+func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.AccountBlock, invalidAccountBlocks []*ledger.AccountBlock) error {
+	//batch := new(leveldb.Batch)
+	//blockHashList := make([]*types.Hash, 0, len(blocks))
+	//for _, block := range blocks {
+	//	blockHashList = append(blockHashList, &block.Hash)
+	//}
 
-	location, err := sDB.undoLogger.Flush(&snapshotBlock.Hash, blockHashList)
-	if err != nil {
-		return err
-	}
+	//location, err := sDB.undoLogger.Flush(&snapshotBlock.Hash, blockHashList)
+	//if err != nil {
+	//	return err
+	//}
 
-	sDB.updateUndoLocation(batch, location)
+	//sDB.updateUndoLocation(batch, location)
 	//sDB.store.Flush(batch)
-
-	sDB.updateStateDbLocation(batch, location)
 
 	//if err := sDB.store.Write(batch, nil); err != nil {
 	//	return err
@@ -154,10 +152,5 @@ func (sDB *StateDB) Flush(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.
 
 func (sDB *StateDB) updateUndoLocation(batch *leveldb.Batch, location *chain_file_manager.Location) {
 	batch.Put(chain_utils.CreateUndoLocationKey(), chain_utils.SerializeLocation(location))
-
-}
-
-func (sDB *StateDB) updateStateDbLocation(batch *leveldb.Batch, latestLocation *chain_file_manager.Location) {
-	batch.Put(chain_utils.CreateStateDbLocationKey(), chain_utils.SerializeLocation(latestLocation))
 
 }
