@@ -1,48 +1,47 @@
 package consensus
 
 import (
+	"os"
 	"testing"
 
-	"sync"
+	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
 )
 
-func Test(t *testing.T) {
+func testDataDir() string {
+	return "testdata-consensus"
+}
 
-	c := chain.NewChain(&config.Config{DataDir: common.DefaultDataDir()})
-	c.Init()
-	c.Start()
-
-	rw := chainRw{rw: c}
-
-	wg := sync.WaitGroup{}
-
-	closed := false
-
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for !closed {
-				addr, _ := types.HexToHash("fc08446111289c671fe1547f634afcde92fab289c11fe16380958305b2f379ad")
-				list, _ := rw.rw.GetRegisterList(addr, types.SNAPSHOT_GID)
-				r := make(map[types.Address]bool)
-				for _, v := range list {
-					if r[v.NodeAddr] || v.NodeAddr.String() == "vite_0000000000000000000000000000000000000000a4f3a0cb58" {
-						t.Error(v.NodeAddr)
-						closed = true
-						return
-					}
-					r[v.NodeAddr] = true
-				}
-			}
-
-		}()
+func prepareChain() chain.Chain {
+	clearChain(nil)
+	c := chain.NewChain(testDataDir())
+	err := c.Init()
+	if err != nil {
+		panic(err)
 	}
+	err = c.Start()
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
 
-	wg.Wait()
+func clearChain(c chain.Chain) {
+	if c != nil {
+		c.Stop()
+	}
+	err := os.RemoveAll(testDataDir())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Test_chainRw(t *testing.T) {
+	c := prepareChain()
+	defer clearChain(c)
+
+	log := log15.New("unittest", "chainrw")
+	rw := newChainRw(c, log)
+	rw.initArray(nil)
 }

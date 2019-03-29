@@ -75,6 +75,9 @@ func newChainRw(rw ch, log log15.Logger) *chainRw {
 }
 
 func (self *chainRw) initArray(cs *snapshotCs) {
+	if cs == nil {
+		panic("snapshot cs is nil.")
+	}
 	self.periodPoints = newPeriodPointArray(self.rw, cs)
 }
 

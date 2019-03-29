@@ -336,75 +336,6 @@ func (self *snapshotPool) loopCompactSnapshot() {
 	}
 }
 
-func (self *snapshotPool) loopCheckCurrentInsert() {
-	if self.chainpool.current.size() == 0 {
-		return
-	}
-	defer monitor.LogTime("pool", "loopCheckCurrentInsert", time.Now())
-	stat, block := self.snapshotTryInsert()
-
-	if stat != nil {
-		if stat.verifyResult() == verifier.FAIL {
-			self.insertVerifyFail(block.(*snapshotPoolBlock), stat)
-		} else if stat.verifyResult() == verifier.PENDING {
-			self.insertVerifyPending(block.(*snapshotPoolBlock), stat)
-		}
-	}
-}
-
-func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
-	defer monitor.LogTime("pool", "snapshotTryInsert", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "snapshotTryInsertRMu", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	pool := self.chainpool
-	current := pool.current
-	minH := current.tailHeight + 1
-	headH := current.headHeight
-L:
-	for i := minH; i <= headH; i++ {
-		block := current.getBlock(i, false)
-
-		if !block.checkForkVersion() {
-			block.resetForkVersion()
-		}
-		stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
-		if !block.checkForkVersion() {
-			block.resetForkVersion()
-			continue
-		}
-		result := stat.verifyResult()
-		switch result {
-		case verifier.PENDING:
-			return stat, block
-		case verifier.FAIL:
-			self.log.Error("snapshot verify fail."+stat.errMsg(),
-				"hash", block.Hash(), "height", block.Height())
-			return stat, block
-		case verifier.SUCCESS:
-			if block.Height() == current.tailHeight+1 {
-				err := pool.writeToChain(current, block)
-				if err != nil {
-					self.log.Error("insert snapshot chain fail.",
-						"hash", block.Hash(), "height", block.Height(), "err", err)
-					break L
-				} else {
-					self.blockpool.afterInsert(block)
-				}
-			} else {
-				break L
-			}
-		default:
-			self.log.Crit("Unexpected things happened. ",
-				"result", result, "hash", block.Hash(), "height", block.Height())
-			break L
-		}
-	}
-	return nil, nil
-}
 func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
@@ -446,49 +377,6 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 		}
 	}
 	return nil, nil, nil
-}
-
-func (self *snapshotPool) snapshotTryInsertItems(items []*Item) error {
-	defer monitor.LogTime("pool", "snapshotTryInsertItems", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "snapshotTryInsertItemsRMu", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	pool := self.chainpool
-	current := pool.current
-
-	for _, item := range items {
-		block := item.commonBlock
-
-		if block.Height() == current.tailHeight+1 &&
-			block.PrevHash() == current.tailHash {
-			block.resetForkVersion()
-			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
-			if !block.checkForkVersion() {
-				block.resetForkVersion()
-				return errors.New("new fork version")
-			}
-			switch stat.verifyResult() {
-			case verifier.FAIL:
-				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
-				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
-				return errors.New("fail verifier")
-			case verifier.PENDING:
-				self.log.Error("snapshot pending.", "hash", block.Hash(), "height", block.Height())
-				return errors.New("fail verifier pending.")
-			}
-			err := pool.writeToChain(current, block)
-			if err != nil {
-				return err
-			}
-			self.blockpool.afterInsert(block)
-		} else {
-			return errors.New("tail not match")
-		}
-	}
-	return nil
 }
 
 func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
