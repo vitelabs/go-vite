@@ -4,6 +4,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -28,7 +29,7 @@ type Chain interface {
 	/*
 	 *	Lifecycle
 	 */
-	Init() error
+	Init(*config.Config) error
 
 	Start() error
 

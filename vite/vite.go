@@ -49,7 +49,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// chain
 	chain := chain.NewChain(cfg.DataDir)
 
-	err = chain.Init()
+	err = chain.Init(cfg)
 	if err != nil {
 		return nil, err
 	}

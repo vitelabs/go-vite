@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/chain/sync_cache"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"path"
@@ -53,7 +54,7 @@ func NewChain(dataDir string) *chain {
  * 4. Init block database
  * 5. Init cache
  */
-func (c *chain) Init() error {
+func (c *chain) Init(cfg *config.Config) error {
 	c.log.Info("Begin initializing", "method", "Init")
 	for {
 		var err error
@@ -97,7 +98,7 @@ func (c *chain) Init() error {
 
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
-				if err = chain_genesis.InitLedger(c); err != nil {
+				if err = chain_genesis.InitLedger(c, cfg); err != nil {
 					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
