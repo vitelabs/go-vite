@@ -15,7 +15,10 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	accountBlock := block.AccountBlock
 
 	latestSnapshotBlock := sDB.chain.GetLatestSnapshotBlock()
-	nextSnapshotHeight := latestSnapshotBlock.Height + 1
+	nextSnapshotHeight := uint64(1)
+	if latestSnapshotBlock == nil {
+		nextSnapshotHeight = latestSnapshotBlock.Height + 1
+	}
 
 	// write unsaved storage
 	unsavedStorage := vmDb.GetUnsavedStorage()
