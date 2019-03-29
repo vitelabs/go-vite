@@ -684,16 +684,6 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
-	// if an compact operation is in progress, do nothing.
-	//self.compactLock.Lock()
-	//defer self.compactLock.UnLock()
-
-	// lock other chain insert
-	//self.pool.RLock()
-	//defer self.pool.RUnLock()
-
-	//self.rMu.Lock()
-	//defer self.rMu.Unlock()
 
 	cp := self.chainpool
 	current := cp.current

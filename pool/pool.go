@@ -664,29 +664,18 @@ func (self *pool) loopBroadcastAndDel() {
 	defer self.wg.Done()
 
 	broadcastT := time.NewTicker(time.Second * 30)
-	delT := time.NewTicker(time.Minute * 2)
 	delUselessChainT := time.NewTicker(time.Minute)
 
 	defer broadcastT.Stop()
-	defer delT.Stop()
 	for {
 		select {
 		case <-self.closed:
 			return
 		case <-broadcastT.C:
 			addrList := self.listPoolRelAddr()
+			// todo all unconfirmed
 			for _, addr := range addrList {
 				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
-			}
-		case <-delT.C:
-			var addrList []types.Address
-			self.pendingAc.Range(func(_, v interface{}) bool {
-				p := v.(*accountPool)
-				addrList = append(addrList, p.address)
-				return true
-			})
-			for _, addr := range addrList {
-				self.delTimeoutUnConfirmedBlocks(addr)
 			}
 		case <-delUselessChainT.C:
 			// del some useless chain in pool

@@ -49,7 +49,10 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// chain
 	chain := chain.NewChain(cfg.DataDir)
 
-	chain.Init()
+	err = chain.Init()
+	if err != nil {
+		return nil, err
+	}
 	// pool
 	pl, err := pool.NewPool(chain)
 	if err != nil {
