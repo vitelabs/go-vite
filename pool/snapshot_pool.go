@@ -584,7 +584,7 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 	}
 }
 
-func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
+func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
@@ -592,20 +592,20 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
-		return errors.New("pending for something")
+		return nil, errors.New("pending for something")
 	case verifier.FAIL:
-		return errors.New(stat.errMsg())
+		return nil, errors.New(stat.errMsg())
 	case verifier.SUCCESS:
-		err := self.chainpool.diskChain.rw.insertBlock(block)
+		abs, err := self.rw.insertSnapshotBlock(block)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		head := self.chainpool.diskChain.Head()
 		self.chainpool.insertNotify(head)
-		return nil
+		return abs, nil
 	default:
 		self.log.Crit("verify unexpected.")
-		return errors.New("verify unexpected")
+		return nil, errors.New("verify unexpected")
 	}
 }
 func (self *snapshotPool) loopFetchForSnapshot() {
