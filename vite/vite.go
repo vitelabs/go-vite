@@ -31,16 +31,15 @@ var (
 type Vite struct {
 	config *config.Config
 
-	walletManager    *wallet.Manager
-	snapshotVerifier *verifier.SnapshotVerifier
-	accountVerifier  *verifier.AccountVerifier
-	chain            chain.Chain
-	producer         producer.Producer
-	net              net.Net
-	pool             pool.BlockPool
-	consensus        consensus.Consensus
-	onRoad           *onroad.Manager
-	p2p              p2p.Server
+	walletManager   *wallet.Manager
+	accountVerifier verifier.Verifier
+	chain           chain.Chain
+	producer        producer.Producer
+	net             net.Net
+	pool            pool.BlockPool
+	consensus       consensus.Consensus
+	onRoad          *onroad.Manager
+	p2p             p2p.Server
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -48,8 +47,9 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain
-	chain := chain.NewChain(cfg)
+	chain := chain.NewChain(cfg.DataDir)
 
+	chain.Init()
 	// pool
 	pl, err := pool.NewPool(chain)
 	if err != nil {
@@ -62,8 +62,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
 
-	// net
 	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
+	// net
 	net := net.New(&net.Config{
 		Single:      cfg.Single,
 		FileAddress: cfg.FileAddress,
@@ -73,14 +73,13 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	// vite
 	vite = &Vite{
-		config:           cfg,
-		walletManager:    walletManager,
-		net:              net,
-		chain:            chain,
-		pool:             pl,
-		consensus:        cs,
-		snapshotVerifier: sbVerifier,
-		accountVerifier:  aVerifier,
+		config:          cfg,
+		walletManager:   walletManager,
+		net:             net,
+		chain:           chain,
+		pool:            pl,
+		consensus:       cs,
+		accountVerifier: verifier,
 	}
 
 	// producer
@@ -118,7 +117,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 func (v *Vite) Init() (err error) {
 	vm.InitVmConfig(v.config.IsVmTest, v.config.IsUseVmTestParam, v.config.IsVmDebug, v.config.DataDir)
 
-	v.chain.Init()
+	//v.chain.Init()
 	if v.producer != nil {
 		if err := v.producer.Init(); err != nil {
 			log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
@@ -143,7 +142,7 @@ func (v *Vite) Start(p2p p2p.Server) (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
+	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier)
 
 	v.consensus.Start()
 

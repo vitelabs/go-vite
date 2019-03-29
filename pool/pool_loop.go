@@ -292,7 +292,7 @@ func (self *pool) insertSnapshotBucket(bucket Bucket) error {
 var NotFound = errors.New("Not Found")
 
 func (self *pool) accountExists(hash types.Hash) error {
-	ab, err := self.bc.GetAccountBlockByHash(&hash)
+	ab, err := self.bc.GetAccountBlockByHash(hash)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func (self *pool) accountBlockCheckAndFetch(snapshot *snapshotPoolBlock, hashH *
 	return hashHeight, err
 }
 func (self *pool) snapshotExists(hash types.Hash) error {
-	sb, err := self.bc.GetSnapshotBlockByHash(&hash)
+	sb, err := self.bc.GetSnapshotHeaderByHash(hash)
 	if err != nil {
 		return err
 	}

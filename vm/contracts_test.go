@@ -248,7 +248,7 @@ func TestContractsRegister(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressConsensusGroup
-	if registerList, _ := abi.GetCandidateList(db, types.SNAPSHOT_GID, nil); len(registerList) != 3 || len(registerList[0].Name) == 0 {
+	if registerList, _ := abi.GetCandidateList(db, types.SNAPSHOT_GID); len(registerList) != 3 || len(registerList[0].Name) == 0 {
 		t.Fatalf("get register list failed")
 	}
 
@@ -512,7 +512,7 @@ func TestContractsVote(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressConsensusGroup
-	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID, nil); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
+	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
 		t.Fatalf("get vote list failed")
 	}
 

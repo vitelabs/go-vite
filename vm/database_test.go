@@ -20,7 +20,7 @@ type testDatabase struct {
 	balanceMap        map[types.Address]map[types.TokenTypeId]*big.Int
 	storageMap        map[types.Address]map[string][]byte
 	codeMap           map[types.Address][]byte
-	contractGidMap    map[types.Address]*types.Gid
+	contractMetaMap   map[types.Address]*ledger.ContractMeta
 	logList           []*ledger.VmLog
 	snapshotBlockList []*ledger.SnapshotBlock
 	accountBlockMap   map[types.Address]map[types.Hash]*ledger.AccountBlock
@@ -32,7 +32,7 @@ func NewNoDatabase() *testDatabase {
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[string][]byte),
 		codeMap:           make(map[types.Address][]byte),
-		contractGidMap:    make(map[types.Address]*types.Gid),
+		contractMetaMap:   make(map[types.Address]*ledger.ContractMeta),
 		logList:           make([]*ledger.VmLog, 0),
 		snapshotBlockList: make([]*ledger.SnapshotBlock, 0),
 		accountBlockMap:   make(map[types.Address]map[types.Hash]*ledger.AccountBlock),
@@ -100,8 +100,11 @@ func (db *testDatabase) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.I
 
 	}
 }
-func (db *testDatabase) SetContractMeta(meta *ledger.ContractMeta) {
-	db.contractGidMap[db.addr] = meta.Gid
+func (db *testDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
+	db.contractMetaMap[toAddr] = meta
+}
+func (db *testDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
+	return db.contractMetaMap[db.addr], nil
 }
 func (db *testDatabase) SetContractCode(code []byte) {
 	db.codeMap[db.addr] = code
@@ -120,7 +123,7 @@ func (db *testDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snap
 		return nil, nil
 	}
 }
-func (db *testDatabase) GetUnsavedContractMeta() *ledger.ContractMeta {
+func (db *testDatabase) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {
 	return nil
 }
 func (db *testDatabase) GetUnsavedContractCode() []byte {

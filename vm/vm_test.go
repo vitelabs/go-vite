@@ -26,7 +26,7 @@ func init() {
 }
 
 func initFork() {
-	fork.SetForkPoints(&config.ForkPoints{Smart: &config.ForkPoint{Height: 2}, Mint: &config.ForkPoint{Height: 20}})
+	fork.SetForkPoints(&config.ForkPoints{})
 }
 
 func TestVmRun(t *testing.T) {
@@ -96,7 +96,8 @@ func TestVmRun(t *testing.T) {
 	if receiveCreateBlockList == nil ||
 		len(receiveCreateBlockList.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		receiveCreateBlockList.AccountBlock.Quota != 0 ||
-		*db.contractGidMap[addr1] != types.DELEGATE_GID ||
+		db.contractMetaMap[addr2] == nil ||
+		*db.contractMetaMap[addr2].Gid != types.DELEGATE_GID ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}
@@ -151,7 +152,7 @@ func TestVmRun(t *testing.T) {
 	balance2.Add(balance2, block14.Amount)
 	if receiveCallBlock == nil ||
 		len(receiveCallBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		receiveCallBlock.AccountBlock.Quota != 41330 ||
+		receiveCallBlock.AccountBlock.Quota != 41530 ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(big.NewInt(2e18)) != 0 {
 		t.Fatalf("receive call transaction error")
 	}
@@ -213,7 +214,7 @@ func TestVmRun(t *testing.T) {
 	receiveCallBlock2, isRetry, err := vm.RunV2(db, block23, sendCallBlock2.AccountBlock, nil)
 	if receiveCallBlock2 == nil ||
 		len(receiveCallBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != util.ErrExecutionReverted ||
-		receiveCallBlock2.AccountBlock.Quota != 21046 ||
+		receiveCallBlock2.AccountBlock.Quota != 21246 ||
 		len(receiveCallBlock2.AccountBlock.Data) != 33 ||
 		receiveCallBlock2.AccountBlock.Data[32] != 1 ||
 		receiveCallBlock2.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendRefund ||
@@ -283,11 +284,13 @@ func TestCall(t *testing.T) {
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
 		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
+	db.contractMetaMap[addr2] = &ledger.ContractMeta{&types.DELEGATE_GID, 1}
 
 	// code3 return amount+data
 	addr3 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 	code3 := []byte{1, byte(CALLVALUE), byte(PUSH1), 0, byte(CALLDATALOAD), byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
 	db.codeMap[addr3] = code3
+	db.contractMetaMap[addr3] = &ledger.ContractMeta{&types.DELEGATE_GID, 2}
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
@@ -339,7 +342,7 @@ func TestCall(t *testing.T) {
 	receiveCallBlock, isRetry, err := vm.RunV2(db, block21, sendCallBlock.AccountBlock, nil)
 	if receiveCallBlock == nil ||
 		len(receiveCallBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
-		receiveCallBlock.AccountBlock.Quota != 32225 ||
+		receiveCallBlock.AccountBlock.Quota != 32425 ||
 		len(receiveCallBlock.AccountBlock.Data) != 33 ||
 		receiveCallBlock.AccountBlock.Data[32] != 0 ||
 		receiveCallBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendCall ||
@@ -373,7 +376,7 @@ func TestCall(t *testing.T) {
 	receiveCallBlock2, isRetry, err := vm.RunV2(db, block31, receiveCallBlock.AccountBlock.SendBlockList[0], nil)
 	if receiveCallBlock2 == nil ||
 		len(receiveCallBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		receiveCallBlock2.AccountBlock.Quota != 21038 ||
+		receiveCallBlock2.AccountBlock.Quota != 21438 ||
 		len(receiveCallBlock2.AccountBlock.Data) != 33 ||
 		receiveCallBlock2.AccountBlock.Data[32] != 0 ||
 		db.balanceMap[addr3][ledger.ViteTokenId].Cmp(balance3) != 0 {

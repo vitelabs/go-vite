@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/db"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -52,7 +54,7 @@ type Reader interface {
 
 type APIReader interface {
 	ReadVoteMap(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
-	ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error)
+	ReadSuccessRateForAPI(start, end uint64) ([]map[types.Address]*consensus_db.Content, error)
 }
 
 type innerReader interface {

@@ -3,8 +3,6 @@ package producer
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -45,21 +43,18 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		Timestamp:       &e.Timestamp,
 		SnapshotContent: accounts,
 	}
-	if fork.IsMintFork(block.Height) {
-		lastBlock := self.getLastSeedBlock(e, head)
-		if lastBlock != nil {
-			if lastBlock.Timestamp.Before(e.PeriodStime) {
-				lastSeed := fn(lastBlock.SeedHash)
-				seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
-				block.SeedHash = &seedHash
-				block.Seed = lastSeed
-			}
-		} else {
+	lastBlock := self.getLastSeedBlock(e, head)
+	if lastBlock != nil {
+		if lastBlock.Timestamp.Before(e.PeriodStime) {
+			lastSeed := fn(lastBlock.SeedHash)
 			seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
 			block.SeedHash = &seedHash
-			block.Seed = 0
+			block.Seed = lastSeed
 		}
-
+	} else {
+		seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
+		block.SeedHash = &seedHash
+		block.Seed = 0
 	}
 
 	block.Hash = block.ComputeHash()

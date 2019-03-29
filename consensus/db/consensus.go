@@ -1,7 +1,10 @@
 package consensus_db
 
 import (
+	"encoding/binary"
 	"fmt"
+
+	"github.com/go-errors/errors"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -10,6 +13,9 @@ import (
 
 const (
 	INDEX_ElectionResult = byte(0)
+	INDEX_Point_PERIOD   = byte(1)
+	INDEX_Point_HOUR     = byte(2)
+	INDEX_Point_DAY      = byte(3)
 )
 
 type AddrArr []types.Address
@@ -47,7 +53,34 @@ func NewConsensusDB(db *leveldb.DB) *ConsensusDB {
 	}
 }
 
-func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]byte, error) {
+func (self *ConsensusDB) GetPointByHeight(prefix byte, height uint64) (*Point, error) {
+	key := CreatePointKey(prefix, height)
+	value, err := self.db.Get(key, nil)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	result := &Point{}
+	err = result.Unmarshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (self *ConsensusDB) StorePointByHeight(prefix byte, height uint64, p *Point) error {
+	key := CreatePointKey(prefix, height)
+	byt, err := p.Marshal()
+	if err != nil {
+		return err
+	}
+	return self.db.Put(key, byt, nil)
+}
+
+func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]types.Address, error) {
 	key := CreateElectionResultKey(hash)
 	value, err := self.db.Get(key, nil)
 
@@ -58,10 +91,16 @@ func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]byte, error
 		return nil, err
 	}
 
-	return value, nil
+	var result AddrArr
+	result, err = result.SetBytes(value)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("parse fail. %s, %s\n", err.Error(), string(value)))
+	}
+	return []types.Address(result), nil
 }
 
-func (self *ConsensusDB) StoreElectionResultByHash(hash types.Hash, data []byte) error {
+func (self *ConsensusDB) StoreElectionResultByHash(hash types.Hash, addrArr []types.Address) error {
+	data := AddrArr(addrArr).Bytes()
 	key := CreateElectionResultKey(hash)
 	return self.db.Put(key, data, nil)
 }
@@ -94,5 +133,13 @@ func CreateElectionResultKey(hash types.Hash) []byte {
 
 	copy(key[1:types.HashSize+1], hash.Bytes())
 
+	return key
+}
+
+func CreatePointKey(prefix byte, height uint64) []byte {
+	key := make([]byte, 1+8)
+	key[0] = prefix
+
+	binary.BigEndian.PutUint64(key[1:9], height)
 	return key
 }

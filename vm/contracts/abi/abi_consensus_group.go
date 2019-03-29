@@ -234,7 +234,7 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) (bool,
 	return false, errors.New("registration not exists")
 }
 
-func GetCandidateList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) ([]*types.Registration, error) {
+func GetCandidateList(db StorageDatabase, gid types.Gid) ([]*types.Registration, error) {
 	if *db.Address() != types.AddressConsensusGroup {
 		return nil, util.ErrAddressNotMatch
 	}
@@ -338,7 +338,7 @@ func GetVote(db StorageDatabase, gid types.Gid, addr types.Address) (*types.Vote
 	return nil, nil
 }
 
-func GetVoteList(db StorageDatabase, gid types.Gid, snapshotHash *types.Hash) ([]*types.VoteInfo, error) {
+func GetVoteList(db StorageDatabase, gid types.Gid) ([]*types.VoteInfo, error) {
 	if *db.Address() != types.AddressConsensusGroup {
 		return nil, util.ErrAddressNotMatch
 	}

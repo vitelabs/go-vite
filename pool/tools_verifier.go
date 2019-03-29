@@ -66,7 +66,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.S
 	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
 
-	task, blocks, err := self.v.VerifyPoolAccBlock(b.block, latest.Hash)
+	task, blocks, err := self.v.VerifyPoolAccBlock(b.block, &latest.Hash)
 	if err != nil {
 		result.err = err
 		result.result = verifier.FAIL
@@ -136,13 +136,6 @@ type poolAccountVerifyStat struct {
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
 }
-func (self *poolAccountVerifyStat) errMsg() string {
-
-	if self.err != nil {
-		return self.err.Error()
-	}
-
-}
 
 var successT = &successTask{}
 
@@ -183,12 +176,12 @@ func (self *accountTask) done(c chainDb) bool {
 	}
 	for _, v := range self.result {
 		if v.snapshot {
-			block, _ := c.GetSnapshotBlockByHash(&v.hash)
+			block, _ := c.GetSnapshotHeaderByHash(v.hash)
 			if block == nil {
 				return false
 			}
 		} else {
-			block, _ := c.GetAccountBlockByHash(&v.hash)
+			block, _ := c.GetAccountBlockByHash(v.hash)
 			if block == nil {
 				return false
 			}

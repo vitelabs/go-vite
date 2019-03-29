@@ -18,7 +18,7 @@ func GetAddressStateForGenerator(chain chain.Chain, addr *types.Address) (*EnvPr
 		return nil, ErrGetLatestSnapshotBlock
 	}
 	var prevAccHash types.Hash
-	prevAccountBlock, err := chain.GetLatestAccountBlock(addr)
+	prevAccountBlock, err := chain.GetLatestAccountBlock(*addr)
 	if err != nil {
 		return nil, ErrGetLatestAccountBlock
 	}

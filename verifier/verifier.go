@@ -3,6 +3,7 @@ package verifier
 import (
 	"errors"
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -30,8 +31,8 @@ func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 }
 
 func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
-	//todo 1. makesure genesis and initial-balance blocks don't need to check, return nil
-	//todo 2. block referred snapshot not arrive yet, return error
+	//fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
+	//fixme 2. block referred snapshot not arrive yet, return error
 	//3. VerifyHash
 	if err := v.Av.verifyHash(block); err != nil {
 		return err
@@ -85,7 +86,8 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *t
 			log.Error(err.Error(), "d", detail)
 			return nil, err
 		}
-		return nil, errors.New("verify block failed, pending for:" + task.pendingHashListToStr())
+		log.Error("verify block failed, pending for:" + task.pendingHashListToStr())
+		return nil, ErrVerifyRPCBlockPendingState
 	}
 
 	vmBlock, err := v.Av.vmVerify(block, snapshotHash)
@@ -144,4 +146,8 @@ func (v *verifier) VerifyAccBlockProducerLegality(block *ledger.AccountBlock) er
 		return ErrVerifyAccountTypeNotSure
 	}
 	return v.Av.verifyProducerLegality(block, isAccTypeGeneral(accType))
+}
+
+func (v *verifier) GetSnapshotVerifier() *SnapshotVerifier {
+	return v.Sv
 }
