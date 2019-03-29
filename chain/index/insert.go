@@ -21,16 +21,18 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	// height -> hash
 	iDB.memDb.Put(blockHash, chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
 	if accountBlock.IsReceiveBlock() {
-		if len(accountBlock.SendBlockList) > 0 {
-			chain_utils.CreateCallDepthKey(&accountBlock.Hash)
-		}
+		if accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
+			if len(accountBlock.SendBlockList) > 0 {
+				chain_utils.CreateCallDepthKey(&accountBlock.Hash)
+			}
 
-		// close send block
-		iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
+			// close send block
+			iDB.memDb.Put(blockHash, chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
-		// receive on road
-		if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
-			return err
+			// receive on road
+			if err := iDB.receiveOnRoad(blockHash, &accountBlock.FromBlockHash); err != nil {
+				return err
+			}
 		}
 	} else {
 		// insert on road block

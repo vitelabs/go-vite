@@ -250,6 +250,9 @@ func (ql *quotaList) calculateUsed() {
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*item)
 		for addr, tmpItem := range tmpUsed {
+			if used[addr] == nil {
+				used[addr] = &item{}
+			}
 
 			used[addr].BlockCount += tmpItem.BlockCount
 			used[addr].Quota += tmpItem.Quota

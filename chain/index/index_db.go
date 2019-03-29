@@ -49,20 +49,6 @@ func NewIndexDB(chain Chain, chainDir string) (*IndexDB, error) {
 	return iDB, nil
 }
 
-func (iDB *IndexDB) CleanAllData() error {
-	// clean memory
-	iDB.memDb.Clean()
-
-	// clean latestAccountId
-	iDB.latestAccountId = 0
-
-	// clean store
-	if err := iDB.store.Clean(); err != nil {
-		return errors.New(fmt.Sprintf("iDB.store.Clean failed, error is %s", err.Error()))
-	}
-	return nil
-}
-
 func (iDB *IndexDB) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		iDB.memDb.NewIterator(slice),
@@ -84,7 +70,7 @@ func (iDB *IndexDB) QueryLatestLocation() (*chain_file_manager.Location, error) 
 	return chain_utils.DeserializeLocation(value), nil
 }
 
-func (iDB *IndexDB) Destroy() error {
+func (iDB *IndexDB) Close() error {
 	iDB.memDb = nil
 	if err := iDB.store.Close(); err != nil {
 		return errors.New(fmt.Sprintf("iDB.store.Close failed, error is %s", err.Error()))

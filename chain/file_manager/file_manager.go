@@ -50,13 +50,16 @@ func (fm *FileManager) Read(location *Location) ([]byte, error) {
 	bufSizeBytes := make([]byte, 4)
 	nextLocation, _, err := fm.ReadRaw(location, bufSizeBytes)
 	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
 		return nil, err
 	}
 
 	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
 	buf := make([]byte, bufSize)
-	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil {
+	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil && err != io.EOF {
 		return nil, err
 	}
 
@@ -147,15 +150,11 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 	return fm.fdSet.DeleteTo(location)
 }
 
-func (fm *FileManager) RemoveAllFile() error {
-	if err := fm.fdSet.RemoveAllFiles(); err != nil {
+func (fm *FileManager) Close() error {
+	if err := fm.fdSet.writeFd.Flush(); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (fm *FileManager) Close() error {
 	if err := fm.fdSet.Close(); err != nil {
 		return nil
 	}

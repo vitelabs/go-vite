@@ -16,7 +16,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	latestSnapshotBlock := sDB.chain.GetLatestSnapshotBlock()
 	nextSnapshotHeight := uint64(1)
-	if latestSnapshotBlock == nil {
+	if latestSnapshotBlock != nil {
 		nextSnapshotHeight = latestSnapshotBlock.Height + 1
 	}
 
