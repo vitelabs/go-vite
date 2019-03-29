@@ -2,21 +2,22 @@ package chain_genesis
 
 import (
 	"encoding/hex"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
-func NewGenesisAccountBlocks(cfg *config.Config) []*vm_db.VmAccountBlock {
+func NewGenesisAccountBlocks(cfg *config.Genesis) []*vm_db.VmAccountBlock {
 	list := make([]*vm_db.VmAccountBlock, 0)
 	list = newGenesisContractAccountBlocks(cfg, list)
 	list = newGenesisNormalAccountBlocks(cfg, list)
 	return list
 }
 
-func newGenesisContractAccountBlocks(cfg *config.Config, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func newGenesisContractAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
 	for addrStr, storageMap := range cfg.ContractStorageMap {
 		addr, err := types.HexToAddress(addrStr)
 		if err != nil {
@@ -61,7 +62,7 @@ func newGenesisContractAccountBlocks(cfg *config.Config, list []*vm_db.VmAccount
 	return list
 }
 
-func newGenesisNormalAccountBlocks(cfg *config.Config, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
 	for addrStr, balanceMap := range cfg.AccountBalanceMap {
 		addr, err := types.HexToAddress(addrStr)
 		if err != nil {

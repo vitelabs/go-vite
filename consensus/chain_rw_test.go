@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/config/gen"
 
 	"github.com/vitelabs/go-vite/chain"
 )
@@ -15,7 +15,8 @@ func testDataDir() string {
 
 func prepareChain() chain.Chain {
 	clearChain(nil)
-	c := chain.NewChain(testDataDir())
+	c := chain.NewChain(testDataDir(), nil, config_gen.MakeGenesisConfig(""))
+
 	err := c.Init()
 	if err != nil {
 		panic(err)
@@ -41,7 +42,7 @@ func Test_chainRw(t *testing.T) {
 	c := prepareChain()
 	defer clearChain(c)
 
-	log := log15.New("unittest", "chainrw")
-	rw := newChainRw(c, log)
-	rw.initArray(nil)
+	//log := log15.New("unittest", "chainrw")
+	//rw := newChainRw(c, log)
+	//rw.initArray(nil)
 }

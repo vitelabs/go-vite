@@ -2,6 +2,9 @@ package chain
 
 import (
 	"fmt"
+	"os"
+	"path"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
@@ -13,12 +16,10 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
-	"os"
-	"path"
 )
 
 type chain struct {
-	cfg      *config.Config
+	cfg      *config.Genesis
 	dataDir  string
 	chainDir string
 
@@ -40,11 +41,11 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(cfg *config.Config) *chain {
+func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
 	return &chain{
-		cfg:      cfg,
-		dataDir:  cfg.DataDir,
-		chainDir: path.Join(cfg.DataDir, "ledger"),
+		cfg:      genesisCfg,
+		dataDir:  dir,
+		chainDir: path.Join(dir, "ledger"),
 		log:      log15.New("module", "chain"),
 		em:       newEventManager(),
 	}
