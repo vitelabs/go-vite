@@ -204,9 +204,9 @@ func (w *ContractWorker) pushContractTask(t *contractTask) {
 	// be careful duplicates
 	for _, v := range w.contractTaskPQueue {
 		if v.Addr == t.Addr {
+			//w.log.Info(fmt.Sprintf("heap fix, pre-idx=%v, addr=%v, quota=%v\n", v.Index, t.Addr, t.Quota))
 			v.Quota = t.Quota
 			heap.Fix(&w.contractTaskPQueue, v.Index)
-			w.log.Info("heap fix", "addr", t.Addr)
 			return
 		}
 	}
@@ -296,7 +296,7 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) {
 		for pendingMap.isPendingMapNotSufficient() {
 			pageNum++
 			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum)-1, uint64(DefaultPullCount))
-			if blocks == nil {
+			if len(blocks) <= 0 {
 				break
 			}
 			for _, v := range blocks {
@@ -308,7 +308,7 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) {
 	} else {
 		callerMap := newCallerPendingMap()
 		blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, 0, uint64(DefaultPullCount))
-		if blocks == nil {
+		if len(blocks) <= 0 {
 			return
 		}
 		for _, v := range blocks {
