@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -78,14 +76,12 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 			return errors.New("genesis block error.")
 		}
 	}
-	if fork.IsMintFork(block.Height) {
-		if block.Seed != 0 {
-			seedBlock := self.getLastSeedBlock(block)
-			if seedBlock != nil {
-				hash := ledger.ComputeSeedHash(block.Seed, seedBlock.PrevHash, seedBlock.Timestamp)
-				if hash != *seedBlock.SeedHash {
-					return errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
-				}
+	if block.Seed != 0 {
+		seedBlock := self.getLastSeedBlock(block)
+		if seedBlock != nil {
+			hash := ledger.ComputeSeedHash(block.Seed, seedBlock.PrevHash, seedBlock.Timestamp)
+			if hash != *seedBlock.SeedHash {
+				return errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
 			}
 		}
 	}

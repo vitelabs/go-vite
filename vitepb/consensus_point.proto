@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package vitepb;
+
+
+message PointContent {
+    bytes address = 1;
+    fixed32 fNum = 2;
+    fixed32 eNum = 3;
+}
+
+message ConsensusPoint {
+    bytes prevHash   = 1;
+    bytes hash  = 2;
+
+    repeated PointContent contents  = 7;
+}
+
+

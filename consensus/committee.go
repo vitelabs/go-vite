@@ -184,6 +184,7 @@ func (self *committee) Init() error {
 	defer self.PostInit()
 
 	self.snapshot = newSnapshotCs(self.rw, self.mLog)
+	self.rw.initArray(self.snapshot)
 
 	self.contracts = newContractCs(self.rw, self.mLog)
 	err := self.contracts.LoadGid(types.DELEGATE_GID)

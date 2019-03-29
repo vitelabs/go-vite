@@ -3,6 +3,9 @@ package consensus
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/db"
+
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -32,8 +35,8 @@ func (self *ApiSnapshot) ReadVoteMap(ti time.Time) ([]*VoteDetails, *ledger.Hash
 	return self.snapshot.voteDetailsBeforeTime(ti)
 }
 
-func (self *ApiSnapshot) ReadSuccessRateForAPI(start, end uint64) ([]SBPInfos, error) {
-	var result []SBPInfos
+func (self *ApiSnapshot) ReadSuccessRateForAPI(start, end uint64) ([]map[types.Address]*consensus_db.Content, error) {
+	var result []map[types.Address]*consensus_db.Content
 	for i := start; i < end; i++ {
 		rateByHour, err := self.snapshot.rw.GetSuccessRateByHour2(i)
 		if err != nil {

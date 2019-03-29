@@ -33,7 +33,7 @@ type Vite struct {
 
 	walletManager    *wallet.Manager
 	snapshotVerifier *verifier.SnapshotVerifier
-	accountVerifier  *verifier.AccountVerifier
+	accountVerifier  verifier.Verifier
 	chain            chain.Chain
 	producer         producer.Producer
 	net              net.Net

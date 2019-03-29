@@ -736,8 +736,12 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 }
 func (self *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
 	if block.block.IsReceiveBlock() {
-		if num := self.rw.needSnapshot(&block.block.ToAddress); num > 0 {
-			b, err := self.rw.getConfirmedTimes(&block.block.FromBlockHash)
+		num, e := self.rw.needSnapshot(block.block.ToAddress)
+		if e != nil {
+			return e
+		}
+		if num > 0 {
+			b, err := self.rw.getConfirmedTimes(block.block.FromBlockHash)
 			if err != nil {
 				return err
 			}

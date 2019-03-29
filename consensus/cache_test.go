@@ -6,7 +6,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 
-	"github.com/vitelabs/go-vite/consensus/consensus_db"
+	"github.com/vitelabs/go-vite/consensus/db"
 )
 
 func TestPut(t *testing.T) {
