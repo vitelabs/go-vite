@@ -208,6 +208,6 @@ func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
 	return &ledger.ContractMeta{&types.DELEGATE_GID, 0}, nil
 }
 
-func (db *memoryDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+func (db *memoryDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	return big.NewInt(0), nil
 }

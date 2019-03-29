@@ -689,11 +689,11 @@ func TestContractsPledge(t *testing.T) {
 
 	// get contracts data
 	db.addr = types.AddressPledge
-	if pledgeAmount, _ := db.GetPledgeAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
 
-	if pledgeAmount, _ := db.GetPledgeAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
+	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
 

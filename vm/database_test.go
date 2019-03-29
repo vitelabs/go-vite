@@ -246,7 +246,7 @@ func (db *testDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
 	return nil
 }
 
-func (db *testDatabase) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
+func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	data := db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(*addr))]
 	if len(data) > 0 {
 		amount := new(abi.VariablePledgeBeneficial)
@@ -397,7 +397,7 @@ func TestPrepareDb(t *testing.T) {
 		t.Fatalf("invalid consensus group info")
 	}
 	db.addr = addr1
-	if pledgeAmount, _ := db.GetPledgeAmount(&addr1); pledgeAmount == nil || pledgeAmount.Sign() < 0 {
+	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr1); pledgeAmount == nil || pledgeAmount.Sign() < 0 {
 		t.Fatalf("invalid pledge amount")
 	}
 	db.addr = types.AddressConsensusGroup
