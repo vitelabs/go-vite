@@ -47,9 +47,9 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain
-	chain := chain.NewChain(cfg.DataDir)
+	chain := chain.NewChain(cfg)
 
-	err = chain.Init(cfg)
+	err = chain.Init()
 	if err != nil {
 		return nil, err
 	}

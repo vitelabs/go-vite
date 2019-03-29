@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/config"
 	"os"
 	"os/user"
 	"path"
@@ -16,7 +17,9 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 		os.RemoveAll(dataDir)
 	}
 
-	chainInstance := NewChain(dataDir)
+	chainInstance := NewChain(&config.Config{
+		DataDir: dataDir,
+	})
 
 	if err := chainInstance.Init(); err != nil {
 		return nil, err
