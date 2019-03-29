@@ -18,10 +18,9 @@ import (
 type ContractWorker struct {
 	manager *Manager
 
-	gid                 types.Gid
-	address             types.Address
-	accEvent            producerevent.AccountStartEvent
-	currentSnapshotHash types.Hash
+	gid      types.Gid
+	address  types.Address
+	accEvent producerevent.AccountStartEvent
 
 	status      int
 	statusMutex sync.Mutex
@@ -80,11 +79,6 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
 	w.accEvent = accEvent
-	if sb := w.manager.chain.GetLatestSnapshotBlock(); sb != nil {
-		w.currentSnapshotHash = sb.Hash
-	} else {
-		w.currentSnapshotHash = w.accEvent.SnapshotHash
-	}
 
 	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
 
@@ -122,10 +116,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				Addr:  address,
 				Quota: q,
 			}
-
-			w.ctpMutex.Lock()
-			heap.Push(&w.contractTaskPQueue, c)
-			w.ctpMutex.Unlock()
+			w.pushContractTask(c)
 
 			w.WakeupOneTp()
 		})
@@ -154,13 +145,15 @@ func (w *ContractWorker) Stop() {
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
-		w.clearSelectiveBlocksCache()
 		w.clearContractBlackList()
 		w.clearWorkingAddrList()
 
 		w.log.Info("stop all task")
 		w.wg.Wait()
 		w.log.Info("end stop all task")
+
+		w.clearSelectiveBlocksCache()
+
 		w.status = Stop
 	}
 	w.log.Info("stopped")
@@ -208,6 +201,15 @@ func (w *ContractWorker) WakeupAllTps() {
 func (w *ContractWorker) pushContractTask(t *contractTask) {
 	w.ctpMutex.Lock()
 	defer w.ctpMutex.Unlock()
+	// be careful duplicates
+	for _, v := range w.contractTaskPQueue {
+		if v.Addr == t.Addr {
+			v.Quota = t.Quota
+			heap.Fix(&w.contractTaskPQueue, v.Index)
+			w.log.Info("heap fix", "addr", t.Addr)
+			return
+		}
+	}
 	heap.Push(&w.contractTaskPQueue, t)
 }
 
@@ -368,7 +370,6 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		}
 	} else {
 		var qRrr error
-		// todo
 		_, qRrr = w.manager.Chain().GetPledgeQuotas(beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)

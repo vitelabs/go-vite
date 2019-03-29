@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
@@ -114,8 +115,8 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	}
 
 	addrState, err := generator.GetAddressStateForGenerator(t.vite.Chain(), &msg.AccountAddress)
-	if err != nil {
-		return nil, err
+	if err != nil || addrState == nil {
+		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
 	g, e := generator.NewGenerator2(t.vite.Chain(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash, nil)
 	if e != nil {
