@@ -18,6 +18,7 @@ import (
 )
 
 type chain struct {
+	cfg      *config.Config
 	dataDir  string
 	chainDir string
 
@@ -39,10 +40,11 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(dataDir string) *chain {
+func NewChain(cfg *config.Config) *chain {
 	return &chain{
-		dataDir:  dataDir,
-		chainDir: path.Join(dataDir, "ledger"),
+		cfg:      cfg,
+		dataDir:  cfg.DataDir,
+		chainDir: path.Join(cfg.DataDir, "ledger"),
 		log:      log15.New("module", "chain"),
 		em:       newEventManager(),
 	}
@@ -55,7 +57,7 @@ func NewChain(dataDir string) *chain {
  * 4. Init block database
  * 5. Init cache
  */
-func (c *chain) Init(cfg *config.Config) error {
+func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	for {
 		var err error
@@ -99,7 +101,7 @@ func (c *chain) Init(cfg *config.Config) error {
 
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
-				if err = chain_genesis.InitLedger(c, cfg); err != nil {
+				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
 					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
