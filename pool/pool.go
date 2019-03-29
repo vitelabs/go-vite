@@ -343,11 +343,21 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 		return err
 	}
 	cBlock := newSnapshotPoolBlock(block, self.version, types.Local)
-	err = self.pendingSc.AddDirectBlock(cBlock)
+	abs, err := self.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
 	}
 	self.pendingSc.f.broadcastBlock(block)
+	if abs == nil || len(abs) == 0 {
+		return nil
+	}
+
+	for k, v := range abs {
+		err := self.selfPendingAc(k).rollbackCurrent(v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -592,14 +602,14 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 //func (self *pool) accountsTryInsert() int {
 //	monitor.LogEvent("pool", "tryInsert")
 //	sum := 0
-//	var pending []*accountPool
+//	var db []*accountPool
 //	self.pendingAc.Range(func(_, v interface{}) bool {
 //		p := v.(*accountPool)
-//		pending = append(pending, p)
+//		db = append(db, p)
 //		return true
 //	})
 //	var tasks []verifyTask
-//	for _, p := range pending {
+//	for _, p := range db {
 //		task := p.TryInsert()
 //		if task != nil {
 //			self.fetchForTask(task)
@@ -776,7 +786,7 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 	//if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
 	//	self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
 	//	self.Lock()
-	//	defer self.UnLock()
+	//	defer self.Unlock()
 	//	err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
 	//	if err != nil {
 	//		self.log.Error("rollback account fail.", "err", err)
@@ -947,12 +957,12 @@ func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types
 
 	for k, account := range accs {
 		monitor.LogEvent("pool", "snapshotPending")
-		self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
 		self.fetchAccounts(accounts, snapshot.Height)
 		if e != nil {
-			self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
+			self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 		}
 		if hashH != nil {
 			accounts[k] = account

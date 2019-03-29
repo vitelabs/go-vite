@@ -57,9 +57,9 @@ func (self *contractsCs) ElectionIndex(gid types.Gid, index uint64) (*electionRe
 		return nil, err
 	}
 	if result == nil {
-		return nil, errors.Errorf("can't load contract group for gid:%s, index:%s", gid, index)
+		return nil, errors.Errorf("can't load contract group for gid:%s, index:%d", gid, index)
 	}
-	return result.electionIndex(index)
+	return result.ElectionIndex(index)
 }
 
 func (self *contractsCs) getOrLoadGid(gid types.Gid) (*contractDposCs, error) {

@@ -12,6 +12,9 @@ func (bDB *BlockDB) GetSnapshotBlock(location *chain_file_manager.Location) (*le
 	if err != nil {
 		return nil, err
 	}
+	if len(buf) <= 0 {
+		return nil, nil
+	}
 	sb := &ledger.SnapshotBlock{}
 	if err := sb.Deserialize(buf); err != nil {
 		return nil, errors.New(fmt.Sprintf("sb.Deserialize failed, Error: %s", err.Error()))
@@ -25,6 +28,9 @@ func (bDB *BlockDB) GetSnapshotHeader(location *chain_file_manager.Location) (*l
 	sb, err := bDB.GetSnapshotBlock(location)
 	if err != nil {
 		return nil, err
+	}
+	if sb == nil {
+		return nil, nil
 	}
 	sb.SnapshotContent = nil
 	return sb, nil

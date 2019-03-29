@@ -120,7 +120,7 @@ func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock,
 	defer monitor.LogTime("verify", "snapshotAccountsTimeout", time.Now())
 	head := self.reader.GetLatestSnapshotBlock()
 	if head.Height != block.Height-1 {
-		return errors.New("snapshot pending for height:" + strconv.FormatUint(head.Height, 10))
+		return errors.New("snapshot db for height:" + strconv.FormatUint(head.Height, 10))
 	}
 	if head.Hash != block.PrevHash {
 		return errors.New(fmt.Sprintf("block is not next. prevHash:%s, headHash:%s", block.PrevHash, head.Hash))

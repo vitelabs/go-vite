@@ -39,9 +39,9 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 
 	sDB.updateStateDbLocation(batch, location)
 
-	if err := sDB.db.Write(batch, nil); err != nil {
-		return err
-	}
+	//if err := sDB.store.Write(batch, nil); err != nil {
+	//	return err
+	//}
 
 	if err := sDB.undoLogger.DeleteTo(location); err != nil {
 		return err

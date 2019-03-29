@@ -59,7 +59,7 @@ func cli() {
 			fmt.Println("sub", n)
 		}
 	} else {
-		fmt.Println("pending")
+		fmt.Println("db")
 		pending := make(chan struct{})
 		pending <- struct{}{}
 	}

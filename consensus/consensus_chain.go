@@ -103,10 +103,10 @@ type periodLinkedArray struct {
 	//periods map[uint64]*periodPoint
 	periods  *lru.Cache
 	rw       ch
-	snapshot *snapshotCs
+	snapshot DposReader
 }
 
-func newPeriodPointArray(rw ch, cs *snapshotCs) *periodLinkedArray {
+func newPeriodPointArray(rw ch, cs DposReader) *periodLinkedArray {
 	cache, err := lru.New(4 * 24 * 60)
 	if err != nil {
 		panic(err)
@@ -155,7 +155,7 @@ func (self *periodLinkedArray) NextHeight(height uint64) uint64 {
 }
 
 func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) {
-	stime, etime := self.snapshot.index2Time(height)
+	stime, etime := self.snapshot.Index2Time(height)
 	// todo opt
 	endSnapshotBlock, err := self.rw.GetSnapshotHeaderBeforeTime(&etime)
 	if err != nil {
@@ -179,7 +179,7 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
 	}
 
-	result, err := self.snapshot.electionIndex(height)
+	result, err := self.snapshot.ElectionIndex(height)
 	if err != nil {
 		return nil, err
 	}

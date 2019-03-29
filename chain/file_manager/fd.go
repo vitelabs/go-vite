@@ -21,6 +21,8 @@ type fileDescription struct {
 	writeMaxSize int64
 	writePointer int64
 	writePerm    bool
+
+	prevFlushPointer int64
 }
 
 func NewFdByFile(file *os.File) *fileDescription {
@@ -41,9 +43,14 @@ func NewFdByBuffer(fdSet *fdManager, cacheItem *fileCacheItem) *fileDescription 
 	}
 }
 func NewWriteFd(file *os.File, cacheItem *fileCacheItem) *fileDescription {
+
+	writePointer := cacheItem.BufferLen
+
 	return &fileDescription{
-		file:      file,
-		cacheItem: cacheItem,
+		file:             file,
+		cacheItem:        cacheItem,
+		prevFlushPointer: writePointer,
+		writePointer:     writePointer,
 
 		writeMaxSize: int64(len(cacheItem.Buffer)),
 		writePerm:    true,
@@ -118,6 +125,10 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 
 	fd.cacheItem.BufferLen += int64(count)
 	fd.writePointer = nextPointer
+	// todo
+	if err := fd.Flush(); err != nil {
+		return count, err
+	}
 
 	return count, nil
 }
@@ -127,10 +138,16 @@ func (fd *fileDescription) Flush() error {
 		return errors.New("file is deleted")
 	}
 
-	if _, err := fd.file.Write(fd.cacheItem.Buffer[:fd.writePointer]); err != nil {
+	if _, err := fd.file.Write(fd.cacheItem.Buffer[fd.prevFlushPointer:fd.writePointer]); err != nil {
 		return err
 	}
-	fd.Close()
+
+	fd.prevFlushPointer = fd.writePointer
+
+	if fd.writePointer >= fd.writeMaxSize {
+		fd.Close()
+	}
+
 	return nil
 }
 

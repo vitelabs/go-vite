@@ -10,12 +10,15 @@ import (
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/chain/sync_cache"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
+	"os"
 	"path"
 )
 
 type chain struct {
+	cfg      *config.Config
 	dataDir  string
 	chainDir string
 
@@ -37,10 +40,11 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(dataDir string) *chain {
+func NewChain(cfg *config.Config) *chain {
 	return &chain{
-		dataDir:  dataDir,
-		chainDir: path.Join(dataDir, "ledger"),
+		cfg:      cfg,
+		dataDir:  cfg.DataDir,
+		chainDir: path.Join(cfg.DataDir, "ledger"),
 		log:      log15.New("module", "chain"),
 		em:       newEventManager(),
 	}
@@ -87,7 +91,7 @@ func (c *chain) Init() error {
 				return err
 			}
 
-			// Init state_bak db
+			// Init state  db
 			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
 				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
@@ -97,18 +101,18 @@ func (c *chain) Init() error {
 
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
-				if err = chain_genesis.InitLedger(c); err != nil {
+				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
 					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
 				}
 			} else {
 				// Check and repair
-				if err = c.checkAndRepair(); err != nil {
-					cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
-					c.log.Error(cErr.Error(), "method", "Init")
-					return err
-				}
+				//if err = c.checkAndRepair(); err != nil {
+				//	cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
+				//	c.log.Error(cErr.Error(), "method", "Init")
+				//	return err
+				//}
 			}
 
 			break
@@ -116,22 +120,25 @@ func (c *chain) Init() error {
 		}
 
 		// clean
-		if err = c.indexDB.CleanAllData(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.CleanAllData failed. Error: %s", err))
+		if err = c.indexDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
 
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
-		if err = c.blockDB.CleanAllData(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.blockDB.CleanAllData failed. Error: %s", err))
+		if err = c.blockDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
 
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
 
-		// destroy
-		c.indexDB.Destroy()
-		c.blockDB.Destroy()
+		if err = c.cleanAllData(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
 	}
 
 	// init cache
@@ -174,15 +181,15 @@ func (c *chain) Destroy() error {
 	}
 	c.log.Info("Destroy stateDB", "method", "Destroy")
 
-	if err := c.indexDB.Destroy(); err != nil {
+	if err := c.indexDB.Close(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Destroy failed, error is %s", err))
 		c.log.Error(cErr.Error(), "method", "Destroy")
 		return cErr
 	}
 	c.log.Info("Destroy indexDB", "method", "Destroy")
 
-	if err := c.blockDB.Destroy(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.Destroy failed, error is %s", err))
+	if err := c.blockDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed, error is %s", err))
 		c.log.Error(cErr.Error(), "method", "Destroy")
 		return cErr
 	}
@@ -206,4 +213,8 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func (c *chain) cleanAllData() error {
+	return os.RemoveAll(c.chainDir)
 }

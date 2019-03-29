@@ -24,10 +24,8 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp         time.Time  // add to block
-	SnapshotHash      types.Hash // add to block
-	SnapshotHeight    uint64     // add to block
-	SnapshotTimeStamp time.Time  // add to block
+	Timestamp         time.Time // add to block
+	SnapshotTimeStamp time.Time // add to block
 
 	VoteTime    time.Time // voteTime
 	PeriodStime time.Time // start time for period
@@ -88,6 +86,8 @@ type committee struct {
 
 	snapshot  *snapshotCs
 	contracts *contractsCs
+
+	dposWrapper *dposReader
 
 	// subscribes map[types.Gid]map[string]*subscribeEvent
 	subscribes sync.Map

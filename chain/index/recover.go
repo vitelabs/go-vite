@@ -6,12 +6,9 @@ import (
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
 )
 
 func (iDB *IndexDB) DeleteTo(endLocation *chain_file_manager.Location) error {
-	batch := new(leveldb.Batch)
 
 	iter := iDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateAccountIdPrefixKey()))
 	defer iter.Release()
@@ -44,10 +41,7 @@ func (iDB *IndexDB) DeleteTo(endLocation *chain_file_manager.Location) error {
 			}
 
 			// rollback
-			iDB.deleteAccountBlock(batch, &addr, &ledger.HashHeight{
-				Hash:   hash,
-				Height: height,
-			})
+			iDB.deleteAccountBlock(addr, hash, height)
 
 			iterOk = heightIter.Prev()
 		}
@@ -81,37 +75,29 @@ func (iDB *IndexDB) DeleteTo(endLocation *chain_file_manager.Location) error {
 		}
 
 		// rollback
-		iDB.deleteSnapshotBlock(batch, &ledger.HashHeight{
-			Hash:   hash,
-			Height: height,
-		})
+		iDB.deleteSnapshotBlock(hash, height)
 	}
 
 	if err := iter2.Error(); err != nil && err != leveldb.ErrNotFound {
 		return err
 	}
 
-	iDB.setIndexDbLatestLocation(batch, endLocation)
-	// write index db
-	if err := iDB.store.Write(batch); err != nil {
-		return err
-	}
 	return nil
 }
 
-func (iDB *IndexDB) deleteSnapshotBlock(batch interfaces.Batch, hashHeight *ledger.HashHeight) {
-	iDB.deleteSnapshotBlockHeight(batch, hashHeight.Height)
-	iDB.deleteSnapshotBlockHash(batch, &hashHeight.Hash)
+func (iDB *IndexDB) deleteSnapshotBlock(hash types.Hash, height uint64) {
+	iDB.deleteSnapshotBlockHeight(height)
+	iDB.deleteSnapshotBlockHash(hash)
 }
 
-func (iDB *IndexDB) deleteAccountBlock(batch interfaces.Batch, addr *types.Address, hashHeight *ledger.HashHeight) {
-	iDB.deleteAccountBlockHash(batch, &hashHeight.Hash)
+func (iDB *IndexDB) deleteAccountBlock(addr types.Address, hash types.Hash, height uint64) {
+	iDB.deleteAccountBlockHash(hash)
 
-	iDB.deleteAccountBlockHeight(batch, addr, hashHeight.Height)
+	iDB.deleteAccountBlockHeight(addr, height)
 
-	iDB.deleteReceive(batch, &hashHeight.Hash)
+	iDB.deleteReceive(hash)
 
-	iDB.deleteOnRoad(batch, &hashHeight.Hash)
+	iDB.deleteOnRoad(hash)
 
-	iDB.deleteConfirmHeight(batch, addr, hashHeight.Height)
+	iDB.deleteConfirmHeight(addr, height)
 }

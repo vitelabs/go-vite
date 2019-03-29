@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// TODO
 func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {
 	return false
 }

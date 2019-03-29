@@ -63,14 +63,13 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("fdSet.loadLatestFileId failed. Error: %s", err))
 	}
+	fdSet.maxFileId = location.FileId
 
-	if location.FileId <= 0 {
-		if location, err = fdSet.CreateNextFd(); err != nil {
-			return nil, errors.New(fmt.Sprintf("fdSet.NextFd failed. Error %s", err))
-		}
+	if err = fdSet.resetWriteFd(); err != nil {
+		return nil, errors.New(fmt.Sprintf("fdSet.resetWriteFd failed. Error %s", err))
 	}
 
-	fdSet.maxFileId = location.FileId
+	fmt.Println(fdSet.LatestLocation())
 
 	return fdSet, nil
 }
@@ -128,29 +127,8 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 	}
 
 	// recover write fd
-	if fdSet.writeFd == nil {
-		fd, err := fdSet.getFileFd(fdSet.maxFileId)
-		if err != nil {
-			return err
-		}
-		if fd == nil {
-			if _, err = fdSet.CreateNextFd(); err != nil {
-				return errors.New(fmt.Sprintf("fdSet.NextFd failed. Error %s", err))
-			}
-		} else {
-			newItem := &fileCacheItem{
-				Buffer:   make([]byte, fdSet.fileSize),
-				FileId:   fdSet.maxFileId,
-				IsDelete: false,
-			}
-			fileSize, err := fileutils.FileSize(fd)
-			if err != nil {
-				return err
-			}
-			newItem.BufferLen = fileSize
-
-			fdSet.writeFd = NewWriteFd(fd, newItem)
-		}
+	if err := fdSet.resetWriteFd(); err != nil {
+		return err
 	}
 
 	// truncate
@@ -237,6 +215,39 @@ func (fdSet *fdManager) Close() error {
 }
 
 // tools
+func (fdSet *fdManager) resetWriteFd() error {
+	if fdSet.writeFd == nil {
+		fd, err := fdSet.getFileFd(fdSet.maxFileId)
+		if err != nil {
+			return err
+		}
+		if fd == nil {
+			if _, err = fdSet.CreateNextFd(); err != nil {
+				return errors.New(fmt.Sprintf("fdSet.NextFd failed. Error %s", err))
+			}
+		} else {
+			newItem := &fileCacheItem{
+				Buffer:   make([]byte, fdSet.fileSize),
+				FileId:   fdSet.maxFileId,
+				IsDelete: false,
+			}
+			fileSize, err := fileutils.FileSize(fd)
+			if err != nil {
+				return err
+			}
+			newItem.BufferLen = fileSize
+
+			if _, err := fd.Seek(0, 2); err != nil {
+				return err
+			}
+
+			fdSet.writeFd = NewWriteFd(fd, newItem)
+		}
+	}
+
+	return nil
+}
+
 func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
 	allFilename, readErr := fdSet.dirFd.Readdirnames(0)
 	if readErr != nil {

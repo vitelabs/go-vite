@@ -58,7 +58,7 @@ var (
 	}
 	MaxPendingPeersFlag = cli.UintFlag{
 		Name:  "maxpendpeers", //mapping:p2p.MaxPendingPeers
-		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
+		Usage: "Maximum number of db connection attempts (defaults used if set to 0)",
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr

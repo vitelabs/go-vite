@@ -14,5 +14,5 @@ var (
 	ErrVerifyNonceFailed                   = errors.New("check pow nonce failed")
 	ErrVerifySnapshotOfReferredBlockFailed = errors.New("verify snapshotBlock of the referredBlock failed")
 	ErrVerifyPrevBlockFailed               = errors.New("verify prevBlock failed, incorrect use of prevHash or fork happened")
-	ErrVerifyRPCBlockPendingState          = errors.New("verify referred block failed, pending for something")
+	ErrVerifyRPCBlockPendingState          = errors.New("verify referred block failed, db for something")
 )

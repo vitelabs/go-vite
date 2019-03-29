@@ -35,6 +35,8 @@ type CreateConsensusGroupParam struct {
 	PerCount               int64
 	RandCount              uint8
 	RandRank               uint8
+	Repeat                 uint16
+	CheckLevel             uint8
 	CountingTokenId        types.TokenTypeId
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte
@@ -61,6 +63,8 @@ func (c *ConsensusGroupApi) GetCreateConsensusGroupData(param CreateConsensusGro
 		param.PerCount,
 		param.RandCount,
 		param.RandRank,
+		param.Repeat,
+		param.CheckLevel,
 		param.CountingTokenId,
 		param.RegisterConditionId,
 		param.RegisterConditionParam,

@@ -175,7 +175,7 @@ type snapshotCh struct {
 
 func (self *snapshotCh) getBlock(height uint64) commonBlock {
 	defer monitor.LogTime("pool", "getSnapshotBlock", time.Now())
-	block, e := self.bc.GetSnapshotBlockByHeight(height)
+	block, e := self.bc.GetSnapshotHeaderByHeight(height)
 	if e != nil {
 		return nil
 	}
@@ -220,14 +220,16 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	}
 
 	accountResults := make(map[types.Address][]commonBlock)
-	// todo
-	//for _, bs := range schunk {
-	//	var r []commonBlock
-	//	for _, b := range bs.AccountBlocks {
-	//		r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
-	//	}
-	//	accountResults[addr] = r
-	//}
+	for _, bs := range schunk {
+		for _, b := range bs.AccountBlocks {
+			blocks, ok := accountResults[b.AccountAddress]
+			if !ok {
+				var r []commonBlock
+				blocks = r
+			}
+			accountResults[b.AccountAddress] = append(blocks, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
+		}
+	}
 	var snapshotResults []commonBlock
 	for _, s := range schunk {
 		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s.SnapshotBlock, self.version, types.RollbackChain))

@@ -3,8 +3,9 @@ package chain_plugins
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/memdb"
+	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -28,7 +29,8 @@ const (
 const heightRange = 256
 
 type FilterTokenIndex struct {
-	db          *leveldb.DB
+	db *leveldb.DB
+
 	dataDirName string
 
 	log   log15.Logger
@@ -39,9 +41,10 @@ type FilterTokenIndex struct {
 
 	stopChannel chan struct{}
 
-	ticker *time.Ticker
+	wg sync.WaitGroup
 
-	wg        sync.WaitGroup
+	pending *chain_db.MemDB
+
 	buildLock sync.Mutex
 }
 
@@ -50,9 +53,9 @@ func NewFilterTokenIndex(chainDir string, chain Chain) (*FilterTokenIndex, error
 	fti := &FilterTokenIndex{
 		log:         log15.New("module", "filter_token"),
 		dataDirName: filepath.Join(chainDir, "filter_token"),
-
-		chain:  chain,
-		status: stop,
+		pending:     chain_db.NewMemDB(),
+		chain:       chain,
+		status:      stop,
 	}
 
 	err := fti.initDb()
@@ -130,6 +133,22 @@ func (fti *FilterTokenIndex) initDb() error {
 	return nil
 }
 
+func (fti *FilterTokenIndex) getValue(key []byte) ([]byte, error) {
+	value, ok := fti.memDb.Get(key)
+	if !ok {
+		var err error
+		value, err = iDB.store.Get(key)
+		if err != nil {
+			if err == leveldb.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+
+	return value, nil
+}
+
 //func (fti *FilterTokenIndex) checkAndInitData() error {
 //	if isConsistency, err := fti.checkConsistency(); err != nil {
 //		fti.log.Error("checkConsistency failed, error is "+err.Error(), "method", "initDb")
@@ -184,14 +203,32 @@ func (fti *FilterTokenIndex) updateHead(batch *leveldb.Batch, height uint64, has
 	batch.Put([]byte{headKeyPrefix}, value)
 }
 
-func (fti *FilterTokenIndex) insertHeight(batch *leveldb.Batch, valueMap map[string][]byte, addr types.Address, tokenTypeID types.TokenTypeId, height uint64) {
+func (fti *FilterTokenIndex) insertHeight(blockHash types.Hash, addr types.Address, tokenTypeID types.TokenTypeId, height uint64) error {
 	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
 	key[0] = heightKeyPrefix
 	copy(key[1:], addr.Bytes())
 	copy(key[1+types.AddressSize:], tokenTypeID.Bytes())
 	binary.BigEndian.PutUint64(key[1+types.AddressSize+types.TokenTypeIdSize:], (height-1)/heightRange)
 
-	// value := fti.db.Get(key, nil)
+	value, err := fti.db.Get(key, nil)
+	if err != nil {
+		return err
+	}
+	// value := valueMap[string(key)]
+	//value = append(value, byte((height-1)%heightRange))
+}
+
+func (fti *FilterTokenIndex) flush(batch *leveldb.Batch, addr types.Address, tokenTypeID types.TokenTypeId, height uint64) error {
+	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+	key[0] = heightKeyPrefix
+	copy(key[1:], addr.Bytes())
+	copy(key[1+types.AddressSize:], tokenTypeID.Bytes())
+	binary.BigEndian.PutUint64(key[1+types.AddressSize+types.TokenTypeIdSize:], (height-1)/heightRange)
+
+	value, err := fti.db.Get(key, nil)
+	if err != nil {
+		return err
+	}
 	// value := valueMap[string(key)]
 	//value = append(value, byte((height-1)%heightRange))
 }
