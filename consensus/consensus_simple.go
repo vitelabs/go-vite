@@ -10,9 +10,7 @@ import (
 )
 
 type simpleCs struct {
-	info *core.GroupInfo
-	//voteCache map[int32]*electionResult
-	//voteCache *lru.Cache
+	consensusDpos
 	algo core.Algo
 
 	log log15.Logger
@@ -66,24 +64,18 @@ func newSimpleAccountInfo() *core.GroupInfo {
 	return info
 }
 
-func (self *simpleCs) time2Index(t time.Time) uint64 {
-	return self.info.Time2Index(t)
+func (self *simpleCs) GenVoteTime(h uint64) time.Time {
+	_, end := self.info.Index2Time(h)
+	return end
 }
 
-func (self *simpleCs) index2Time(i uint64) (time.Time, time.Time) {
-	sTime := self.info.GenSTime(i)
-	eTime := self.info.GenETime(i)
-	return sTime, eTime
-}
-
-func (self *simpleCs) electionTime(t time.Time) (*electionResult, error) {
+func (self *simpleCs) ElectionTime(t time.Time) (*electionResult, error) {
 	index := self.info.Time2Index(t)
-	return self.electionIndex(index)
+	return self.ElectionIndex(index)
 }
 
-func (self *simpleCs) electionIndex(index uint64) (*electionResult, error) {
+func (self *simpleCs) ElectionIndex(index uint64) (*electionResult, error) {
 	var voteResults []types.Address
-
 	addrs := []string{"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
 		"vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25",
 		"vite_40996a2ba285ad38930e09a43ee1bd0d84f756f65318e8073a",
@@ -103,7 +95,7 @@ func (self *simpleCs) electionIndex(index uint64) (*electionResult, error) {
 }
 
 func (self *simpleCs) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	electionResult, err := self.electionTime(*header.Timestamp)
+	electionResult, err := self.ElectionTime(*header.Timestamp)
 	if err != nil {
 		return false, err
 	}

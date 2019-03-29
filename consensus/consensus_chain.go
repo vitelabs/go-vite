@@ -103,10 +103,10 @@ type periodLinkedArray struct {
 	//periods map[uint64]*periodPoint
 	periods  *lru.Cache
 	rw       ch
-	snapshot *snapshotCs
+	snapshot DposReader
 }
 
-func newPeriodPointArray(rw ch, cs *snapshotCs) *periodLinkedArray {
+func newPeriodPointArray(rw ch, cs DposReader) *periodLinkedArray {
 	cache, err := lru.New(4 * 24 * 60)
 	if err != nil {
 		panic(err)

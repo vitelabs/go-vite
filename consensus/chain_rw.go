@@ -74,7 +74,7 @@ func newChainRw(rw ch, log log15.Logger) *chainRw {
 
 }
 
-func (self *chainRw) initArray(cs *snapshotCs) {
+func (self *chainRw) initArray(cs DposReader) {
 	if cs == nil {
 		panic("snapshot cs is nil.")
 	}
