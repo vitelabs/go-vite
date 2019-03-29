@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -23,5 +22,4 @@ func TestSimpleCs(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Log(result)
-
 }
