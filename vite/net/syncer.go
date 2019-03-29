@@ -2,7 +2,7 @@ package net
 
 import (
 	"fmt"
-	"sort"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -335,6 +335,7 @@ func (s *syncer) setTarget(to uint64) {
 }
 
 func (s *syncer) readCacheLoop() {
+Loop:
 	for {
 		if s.state == Syncdone {
 			return
@@ -344,45 +345,47 @@ func (s *syncer) readCacheLoop() {
 		cs := cacher.Chunks()
 
 		if len(cs) == 0 {
-			time.Sleep(5 * time.Second)
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
-		sort.Sort(cs)
-
 		var err error
 		var reader interfaces.ReadCloser
-		for _, c := range cs {
-			if c[1] > s.current && c[1] < s.current+downloadTaskSize {
-				reader, err = cacher.NewReader(c[0], c[1])
-				if err != nil {
-					panic(err)
-				}
 
-				for {
-					var ab *ledger.AccountBlock
-					var sb *ledger.SnapshotBlock
-					ab, sb, err = reader.Read()
-					if err != nil {
-						s.log.Error(fmt.Sprintf("read chunk %d-%d from cache error: %v", c[0], c[1], err))
-						break
-					} else if ab != nil {
-						err = s.receiveAccountBlock(ab)
-						if err != nil {
-							s.log.Error(fmt.Sprintf("handle account block %s from cache error: %v", ab.Hash, err))
-						}
-						break
-					} else if sb != nil {
-						err = s.receiveSnapshotBlock(sb)
-						if err != nil {
-							s.log.Error(fmt.Sprintf("handle snapshot block %s from cache error: %v", sb.Hash, err))
-						}
+		c := cs[0]
+		if c[1] > s.current && c[1] < s.current+downloadTaskSize {
+			reader, err = cacher.NewReader(c[0], c[1])
+			if err != nil {
+				s.log.Error(fmt.Sprintf("read chunk %d-%d from cache error: %v", c[0], c[1], err))
+				goto Loop
+			}
+
+			for {
+				var ab *ledger.AccountBlock
+				var sb *ledger.SnapshotBlock
+				ab, sb, err = reader.Read()
+				if err != nil {
+					if err == io.EOF {
 						break
 					}
+					s.log.Error(fmt.Sprintf("read chunk %d-%d from cache error: %v", c[0], c[1], err))
+					break
+				} else if ab != nil {
+					err = s.receiveAccountBlock(ab)
+					if err != nil {
+						s.log.Error(fmt.Sprintf("handle account block %s from cache error: %v", ab.Hash, err))
+					}
+					break
+				} else if sb != nil {
+					err = s.receiveSnapshotBlock(sb)
+					if err != nil {
+						s.log.Error(fmt.Sprintf("handle snapshot block %s from cache error: %v", sb.Hash, err))
+					}
+					break
 				}
-
-				_ = reader.Close()
 			}
+
+			_ = reader.Close()
 		}
 	}
 }
