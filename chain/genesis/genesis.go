@@ -9,7 +9,7 @@ const (
 	LedgerInvalid = byte(3)
 )
 
-func InitLedger(chain Chain, cfg *config.Config) error {
+func InitLedger(chain Chain, cfg *config.Genesis) error {
 	// insert genesis account blocks
 	// TODO fixme
 	genesisAccountBlockList := NewGenesisAccountBlocks(cfg)

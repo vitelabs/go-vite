@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
@@ -26,7 +27,7 @@ const (
 )
 
 type chain struct {
-	cfg      *config.Config
+	cfg      *config.Genesis
 	dataDir  string
 	chainDir string
 
@@ -54,11 +55,11 @@ type chain struct {
 /*
  * Init chain config
  */
-func NewChain(cfg *config.Config) *chain {
+func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
 	return &chain{
-		cfg:      cfg,
-		dataDir:  cfg.DataDir,
-		chainDir: path.Join(cfg.DataDir, "ledger"),
+		cfg:      genesisCfg,
+		dataDir:  dir,
+		chainDir: path.Join(dir, "ledger"),
 		log:      log15.New("module", "chain"),
 		em:       newEventManager(),
 	}
@@ -230,6 +231,7 @@ func (c *chain) Destroy() error {
 	}
 	c.log.Info("Destroy blockDB", "method", "Destroy")
 
+	c.flusher = nil
 	c.cache = nil
 	c.stateDB = nil
 	c.indexDB = nil

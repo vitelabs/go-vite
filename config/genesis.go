@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type ForkPoint struct {

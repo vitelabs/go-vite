@@ -23,7 +23,7 @@ func NewMemDB() *MemDB {
 }
 
 func newStorage() *memdb.DB {
-	return memdb.New(comparer.DefaultComparer, 10*1024*1024)
+	return memdb.New(comparer.DefaultComparer, 0)
 }
 
 func (mDb *MemDB) IsDelete(key []byte) bool {
@@ -69,6 +69,7 @@ func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
 
 func (mDb *MemDB) Flush(batch *leveldb.Batch) error {
 	iter := mDb.storage.NewIterator(nil)
+	defer iter.Release()
 	for iter.Next() {
 		batch.Put(iter.Key(), iter.Value())
 	}

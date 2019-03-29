@@ -91,6 +91,10 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		b.StopTimer()
 	}
 
+	if err := chainInstance.Stop(); err != nil {
+		b.Fatal(err)
+	}
+
 	if err := chainInstance.Destroy(); err != nil {
 		b.Fatal(err)
 	}

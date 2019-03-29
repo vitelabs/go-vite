@@ -22,10 +22,7 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	genesisConfig := &config.Genesis{}
 	json.Unmarshal([]byte(genesisConfigJson), genesisConfig)
 
-	chainInstance := NewChain(&config.Config{
-		DataDir: dataDir,
-		Genesis: genesisConfig,
-	})
+	chainInstance := NewChain(dataDir, &config.Chain{}, genesisConfig)
 
 	if err := chainInstance.Init(); err != nil {
 		return nil, err
