@@ -348,7 +348,7 @@ func TestReader3(t *testing.T) {
 
 	now = time.Now()
 	for i := 0; i < 10000; i++ {
-		ch.GetVoteMap(block.Hash, info.Gid)
+		ch.GetVoteList(block.Hash, info.Gid)
 	}
 	t.Log("getVoteMap", time.Now().Sub(now))
 

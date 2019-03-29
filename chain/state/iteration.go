@@ -23,6 +23,15 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 	}, sDB.pending.IsDelete))
 }
 
+func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+	if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
+		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil
+	}
+
+	iterator := newStateStorageIterator(newSnapshotStorageIterator(sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)), nil), snapshotHeight))
+	return iterator, nil
+}
+
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash *types.Hash, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	if *snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
 		return sDB.db.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)), nil), nil

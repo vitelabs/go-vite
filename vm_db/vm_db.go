@@ -45,3 +45,10 @@ func NewNoContextVmDb(chain Chain) VmDb {
 		chain: chain,
 	}
 }
+
+func NewVmDbByAddr(chain Chain, address *types.Address) VmDb {
+	return &vmDb{
+		chain:   chain,
+		address: address,
+	}
+}

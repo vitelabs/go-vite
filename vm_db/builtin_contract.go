@@ -11,5 +11,5 @@ func (db *vmDb) GetPledgeAmount(addr *types.Address) (*big.Int, error) {
 		return nil, errors.New("no context, db.latestSnapshotBlockHash is nil")
 	}
 
-	return db.chain.GetPledgeAmount(*addr)
+	return db.chain.GetPledgeBeneficialAmount(*addr)
 }

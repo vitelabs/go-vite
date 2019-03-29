@@ -257,3 +257,24 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 	}
 	return balanceMap, nil
 }
+
+// TODO
+func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
+	var iter iterator.Iterator
+
+	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)
+	endHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, snapshotBlockHeight+1)
+
+	iter = sDB.db.NewIterator(&util.Range{Start: startHistoryStorageKey, Limit: endHistoryStorageKey}, nil)
+	defer iter.Release()
+
+	if iter.Last() {
+		return iter.Value(), nil
+	}
+
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+
+	return nil, nil
+}

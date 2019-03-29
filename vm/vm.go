@@ -774,7 +774,7 @@ func (vm *VM) OffChainReader(db vm_db.VmDb, code []byte, data []byte) (result []
 }
 
 func getPledgeAmount(db vm_db.VmDb) *big.Int {
-	pledgeAmount, err := db.GetPledgeAmount(db.Address())
+	pledgeAmount, err := db.GetPledgeBeneficialAmount(db.Address())
 	util.DealWithErr(err)
 	return pledgeAmount
 }
