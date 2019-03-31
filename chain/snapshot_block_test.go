@@ -428,6 +428,24 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 					}
 				}
 			}
+
+			if len(blockHashMap) > 0 {
+				for hash := range blockHashMap {
+					block, err := chainInstance.GetAccountBlockByHash(hash)
+					if err != nil {
+						t.Fatal(err)
+					}
+					fmt.Printf("account block: %+v\n", block)
+
+					confirmSnapshotBlock, err := chainInstance.GetConfirmSnapshotBlockByAbHash(hash)
+					if err != nil {
+						t.Fatal(err)
+					}
+					fmt.Printf("confirm snapshot block: %+v\n", confirmSnapshotBlock)
+				}
+
+				t.Fatal(fmt.Sprintf("blockHashMap: %+v\n snapshotBlock: %+v\n", blockHashMap, snapshotBlock))
+			}
 		}
 	}
 }
