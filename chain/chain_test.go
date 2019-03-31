@@ -3,7 +3,9 @@ package chain
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -60,144 +62,55 @@ func homeDir() string {
 	return ""
 }
 
+func SetUp(t *testing.T) (*chain, map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
+	const accountNum = 1000
+	chainInstance, err := NewChainInstance("unit_test", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("Insert Blocks")
+
+	var accounts map[types.Address]*Account
+	var hashList []types.Hash
+	var addrList []types.Address
+	var heightList []uint64
+	var snapshotBlockList []*ledger.SnapshotBlock
+
+	t.Run("InsertBlocks", func(t *testing.T) {
+		accounts, hashList, addrList, heightList, snapshotBlockList = InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
+	})
+
+	return chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList
+}
+
+func TearDown(chainInstance *chain) {
+	chainInstance.Stop()
+	chainInstance.Destroy()
+}
+
 func TestChain(t *testing.T) {
 
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	const accountNum = 1000
-	chainInstance, err := NewChainInstance("unit_test", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("InsertAccountBlock")
+	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t)
 
-	accounts, hashList, addrList, heightList, snapshotBlockList := InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
+	// account
+	testAccount(t, chainInstance, addrList)
 
-	accountIdList := make([]uint64, len(addrList))
-	maxAccountId := uint64(0)
-	for index, addr := range addrList {
-		accountId, err := chainInstance.GetAccountId(addr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if accountId <= 0 {
-			t.Fatal("accountId <= 0")
-		} else if accountId > maxAccountId {
-			maxAccountId = accountId
-		}
+	// account block
+	testAccountBlock(t, chainInstance, accounts, hashList, addrList, heightList)
 
-		accountIdList[index] = accountId
-	}
-	//if maxAccountId > accountNum {
-	//	t.Fatal("error!")
-	//}
+	// on road
+	testOnRoad(t, chainInstance, accounts, addrList)
 
-	fmt.Println("Complete InsertAccountBlock")
+	// snapshot block
+	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 
-	t.Run("GetAccountBlockByHash", func(t *testing.T) {
-		GetAccountBlockByHash(t, chainInstance, hashList)
-	})
+	// state
+	testState(t, chainInstance, accounts)
 
-	t.Run("GetAccountBlockByHeight", func(t *testing.T) {
-		GetAccountBlockByHeight(t, chainInstance, addrList, heightList)
-	})
+	TearDown(chainInstance)
 
-	t.Run("IsAccountBlockExisted", func(t *testing.T) {
-		IsAccountBlockExisted(t, chainInstance, hashList)
-	})
-
-	t.Run("GetAccountId", func(t *testing.T) {
-		GetAccountId(t, chainInstance, addrList, accountIdList)
-	})
-
-	t.Run("GetAccountAddress", func(t *testing.T) {
-		GetAccountAddress(t, chainInstance, addrList, accountIdList)
-	})
-
-	t.Run("IsReceived", func(t *testing.T) {
-		IsReceived(t, chainInstance, accounts, hashList)
-	})
-
-	t.Run("GetReceiveAbBySendAb", func(t *testing.T) {
-		GetReceiveAbBySendAb(t, chainInstance, accounts, hashList)
-	})
-
-	t.Run("GetConfirmedTimes", func(t *testing.T) {
-		GetConfirmedTimes(t, chainInstance, accounts, hashList)
-	})
-
-	t.Run("GetLatestAccountBlock", func(t *testing.T) {
-		GetLatestAccountBlock(t, chainInstance, accounts, addrList)
-	})
-
-	t.Run("GetLatestAccountHeight", func(t *testing.T) {
-		GetLatestAccountHeight(t, chainInstance, accounts, addrList)
-	})
-
-	t.Run("HasOnRoadBlocks", func(t *testing.T) {
-		HasOnRoadBlocks(t, chainInstance, accounts, addrList)
-	})
-
-	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
-		GetOnRoadBlocksHashList(t, chainInstance, accounts, addrList)
-	})
-
-	t.Run("IsSnapshotBlockExisted", func(t *testing.T) {
-		IsSnapshotBlockExisted(t, chainInstance, snapshotBlockList)
-	})
-	t.Run("GetGenesisSnapshotBlock", func(t *testing.T) {
-		GetGenesisSnapshotBlock(t, chainInstance)
-	})
-	t.Run("GetLatestSnapshotBlock", func(t *testing.T) {
-		GetLatestSnapshotBlock(t, chainInstance)
-	})
-	t.Run("GetSnapshotHeightByHash", func(t *testing.T) {
-		GetSnapshotHeightByHash(t, chainInstance, snapshotBlockList)
-	})
-	t.Run("GetSnapshotHeaderByHeight", func(t *testing.T) {
-		GetSnapshotHeaderByHeight(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetSnapshotBlockByHeight", func(t *testing.T) {
-		GetSnapshotBlockByHeight(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetSnapshotHeaderByHash", func(t *testing.T) {
-		GetSnapshotHeaderByHash(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetSnapshotBlockByHash", func(t *testing.T) {
-		GetSnapshotBlockByHash(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetRangeSnapshotHeaders", func(t *testing.T) {
-		GetRangeSnapshotHeaders(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetRangeSnapshotBlocks", func(t *testing.T) {
-		GetRangeSnapshotBlocks(t, chainInstance, snapshotBlockList)
-	})
-
-	t.Run("GetBalance", func(t *testing.T) {
-		GetBalance(t, chainInstance, accounts)
-	})
-
-	t.Run("GetBalanceMap", func(t *testing.T) {
-		GetBalanceMap(t, chainInstance, accounts)
-	})
-	t.Run("GetConfirmedBalanceList", func(t *testing.T) {
-		GetConfirmedBalanceList(t, chainInstance, accounts)
-	})
-
-	chainInstance.Stop()
-	chainInstance.Destroy()
-	//t.Run("GetAccountBlocks", func(t *testing.T) {
-	//	GetAccountBlocks(t, chainInstance, accounts, addrList)
-	//})
-	//
-	//t.Run("GetAccountBlocksByHeight", func(t *testing.T) {
-	//	GetAccountBlocksByHeight(t, chainInstance, accounts, addrList)
-	//})
 }

@@ -8,6 +8,28 @@ import (
 	"testing"
 )
 
+func TestChain_State(t *testing.T) {
+
+	chainInstance, accounts, _, _, _, _ := SetUp(t)
+
+	testState(t, chainInstance, accounts)
+	TearDown(chainInstance)
+}
+
+func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
+
+	t.Run("GetBalance", func(t *testing.T) {
+		GetBalance(t, chainInstance, accounts)
+	})
+
+	t.Run("GetBalanceMap", func(t *testing.T) {
+		GetBalanceMap(t, chainInstance, accounts)
+	})
+	t.Run("GetConfirmedBalanceList", func(t *testing.T) {
+		GetConfirmedBalanceList(t, chainInstance, accounts)
+	})
+}
+
 func GetBalance(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
 		balance, err := chainInstance.GetBalance(addr, ledger.ViteTokenId)

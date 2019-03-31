@@ -89,7 +89,7 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*chain_file_manager.Location, 
 }
 
 func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) {
-	buf, err := bDB.fm.Read(location)
+	buf, _, err := bDB.fm.Read(location)
 	if err != nil {
 		return nil, err
 	}
@@ -114,11 +114,13 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 		defer bDB.wg.Done()
 		bDB.fm.ReadRange(startLocation, endLocation, bfp)
 		if endLocation != nil {
-			buf, err := bDB.fm.Read(endLocation)
+			buf, bufSizeBytes, err := bDB.fm.Read(endLocation)
 			if err != nil {
 				bfp.WriteError(err)
 				return
 			}
+
+			bfp.Write(bufSizeBytes)
 			bfp.Write(buf)
 		}
 		bfp.Close()

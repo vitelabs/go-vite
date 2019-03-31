@@ -5,6 +5,24 @@ import (
 	"testing"
 )
 
+func TestChain_OnRoad(t *testing.T) {
+
+	chainInstance, accounts, _, addrList, _, _ := SetUp(t)
+
+	testOnRoad(t, chainInstance, accounts, addrList)
+	TearDown(chainInstance)
+}
+
+func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, addrList []types.Address) {
+	t.Run("HasOnRoadBlocks", func(t *testing.T) {
+		HasOnRoadBlocks(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
+		GetOnRoadBlocksHashList(t, chainInstance, accounts, addrList)
+	})
+}
+
 func HasOnRoadBlocks(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, addrList []types.Address) {
 	for _, addr := range addrList {
 		result, err := chainInstance.HasOnRoadBlocks(addr)

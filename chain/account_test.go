@@ -11,6 +11,39 @@ import (
 	"testing"
 )
 
+func TestChain_Account(t *testing.T) {
+
+	chainInstance, _, _, addrList, _, _ := SetUp(t)
+
+	testAccount(t, chainInstance, addrList)
+	TearDown(chainInstance)
+}
+
+func testAccount(t *testing.T, chainInstance *chain, addrList []types.Address) {
+
+	accountIdList := make([]uint64, len(addrList))
+
+	for index, addr := range addrList {
+		accountId, err := chainInstance.GetAccountId(addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if accountId <= 0 {
+			t.Fatal("accountId <= 0")
+		}
+
+		accountIdList[index] = accountId
+	}
+
+	t.Run("GetAccountId", func(t *testing.T) {
+		GetAccountId(t, chainInstance, addrList, accountIdList)
+	})
+
+	t.Run("GetAccountAddress", func(t *testing.T) {
+		GetAccountAddress(t, chainInstance, addrList, accountIdList)
+	})
+}
+
 func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []types.Address) {
 	accountMap := make(map[types.Address]*Account, num)
 	addrList := make([]types.Address, 0, num)

@@ -434,48 +434,6 @@ func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
-// [startHeight, latestHeight]
-func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error) {
-	if startHeight <= 0 {
-		startHeight = 1
-	}
-	latestSb := c.GetLatestSnapshotBlock()
-	if endHeight > latestSb.Height {
-		endHeight = latestSb.Height
-	}
-	// query location
-	startLocation, err := c.indexDB.GetSnapshotBlockLocation(startHeight)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
-			startHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
-		return nil, cErr
-	}
-	if startLocation == nil {
-		return nil, nil
-	}
-
-	endLocation, err := c.indexDB.GetSnapshotBlockLocation(endHeight)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
-			endHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
-		return nil, cErr
-	}
-	if endLocation == nil {
-		return nil, nil
-	}
-
-	segList, err := c.blockDB.ReadRange(startLocation, endLocation)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed, startLocation is %+v, endLocation is %+v, . Error: %s,",
-			startLocation, endLocation, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
-		return nil, cErr
-	}
-	return segList, nil
-}
-
 func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	count := uint64(10 * 60)
 
@@ -522,6 +480,36 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	return randomSeed
 }
 
+const DefaultSeedRangeCount = 25
+
+func (c *chain) GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
+	meta, err := c.GetContractMeta(*addr)
+	if err != nil {
+		return nil, err
+	}
+	if meta == nil || meta.SendConfirmedTimes == 0 {
+		return nil, nil
+	}
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	if err != nil {
+		return nil, err
+	}
+	if firstConfirmedSb == nil {
+		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+	}
+	limitSb, err := c.GetSnapshotBlockByHeight(firstConfirmedSb.Height + uint64(meta.SendConfirmedTimes) - 1)
+	if err != nil {
+		return nil, err
+	}
+	if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
+		return &util.GlobalStatus{
+			Seed:          seed,
+			SnapshotBlock: limitSb,
+		}, nil
+	}
+	return nil, errors.New("GetRandomSeed failed")
+}
+
 func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error) {
 	headHeight := c.GetLatestSnapshotBlock().Height
 
@@ -547,6 +535,48 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 	}
 
 	return nil, nil
+}
+
+// [snapshotBlock(startHeight), ...blocks... , snapshotBlock(endHeight)]
+func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error) {
+	if startHeight <= 0 {
+		startHeight = 1
+	}
+	latestSb := c.GetLatestSnapshotBlock()
+	if endHeight > latestSb.Height {
+		endHeight = latestSb.Height
+	}
+	// query location
+	startLocation, err := c.indexDB.GetSnapshotBlockLocation(startHeight)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			startHeight, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	if startLocation == nil {
+		return nil, nil
+	}
+
+	endLocation, err := c.indexDB.GetSnapshotBlockLocation(endHeight)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
+			endHeight, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	if endLocation == nil {
+		return nil, nil
+	}
+
+	segList, err := c.blockDB.ReadRange(startLocation, endLocation)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed, startLocation is %+v, endLocation is %+v, . Error: %s,",
+			startLocation, endLocation, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		return nil, cErr
+	}
+	return segList, nil
 }
 
 // [startHeight, latestHeight]
@@ -664,34 +694,4 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 	}
 	return c.GetSnapshotHeaderByHeight(start.Height + uint64(i-1))
 
-}
-
-const DefaultSeedRangeCount = 25
-
-func (c *chain) GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
-	meta, err := c.GetContractMeta(*addr)
-	if err != nil {
-		return nil, err
-	}
-	if meta == nil || meta.SendConfirmedTimes == 0 {
-		return nil, nil
-	}
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
-	if err != nil {
-		return nil, err
-	}
-	if firstConfirmedSb == nil {
-		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
-	}
-	limitSb, err := c.GetSnapshotBlockByHeight(firstConfirmedSb.Height + uint64(meta.SendConfirmedTimes) - 1)
-	if err != nil {
-		return nil, err
-	}
-	if seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount); seed > 0 {
-		return &util.GlobalStatus{
-			Seed:          seed,
-			SnapshotBlock: limitSb,
-		}, nil
-	}
-	return nil, errors.New("GetRandomSeed failed")
 }

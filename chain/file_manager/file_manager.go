@@ -46,24 +46,24 @@ func (fm *FileManager) Write(buf []byte) (*Location, error) {
 	return location, nil
 }
 
-func (fm *FileManager) Read(location *Location) ([]byte, error) {
+func (fm *FileManager) Read(location *Location) ([]byte, []byte, error) {
 	bufSizeBytes := make([]byte, 4)
 	nextLocation, _, err := fm.ReadRaw(location, bufSizeBytes)
 	if err != nil {
 		if err == io.EOF {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
 	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
 	buf := make([]byte, bufSize)
 	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil && err != io.EOF {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return buf, nil
+	return buf, bufSizeBytes, nil
 }
 
 func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, int, error) {
