@@ -11,6 +11,54 @@ import (
 	"testing"
 )
 
+func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []types.Address) {
+	accountMap := make(map[types.Address]*Account, num)
+	addrList := make([]types.Address, 0, num)
+
+	for i := 0; i < num; i++ {
+		addr, privateKey, _ := types.CreateAddress()
+
+		accountMap[addr] = &Account{
+			addr:          addr,
+			privateKey:    privateKey,
+			publicKey:     privateKey.PubByte(),
+			chainInstance: chainInstance,
+
+			SendBlocksMap:     make(map[types.Hash]*vm_db.VmAccountBlock),
+			ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
+			BalanceMap:        make(map[types.Hash]*big.Int),
+			ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
+
+			unconfirmedBlocks: make(map[types.Hash]struct{}),
+		}
+		addrList = append(addrList, addr)
+	}
+	return accountMap, addrList
+}
+
+func GetAccountId(t *testing.T, chainInstance *chain, addrList []types.Address, accountIdList []uint64) {
+	for index, addr := range addrList {
+		accountId, err := chainInstance.GetAccountId(addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if accountIdList[index] != accountId {
+			t.Fatal("error")
+		}
+	}
+}
+func GetAccountAddress(t *testing.T, chainInstance *chain, addrList []types.Address, accountIdList []uint64) {
+	for index, accountId := range accountIdList {
+		addr, err := chainInstance.GetAccountAddress(accountId)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if addrList[index] != *addr {
+			t.Fatal("error")
+		}
+	}
+}
+
 type Account struct {
 	addr       types.Address
 	privateKey ed25519.PrivateKey
@@ -21,6 +69,7 @@ type Account struct {
 	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
 	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
 	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
+	BalanceMap        map[types.Hash]*big.Int
 
 	unconfirmedBlocks map[types.Hash]struct{}
 
@@ -62,14 +111,6 @@ func (acc *Account) AddUnreceivedBlock(block *ledger.AccountBlock) {
 	acc.UnreceivedBlocks = append(acc.UnreceivedBlocks, block)
 }
 
-func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
-	acc.SendBlocksMap[block.AccountBlock.Hash] = block
-	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
-}
-func (acc *Account) addReceiveBlock(block *vm_db.VmAccountBlock) {
-	acc.ReceiveBlocksMap[block.AccountBlock.Hash] = block
-	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
-}
 func (acc *Account) Snapshot(snapshotHash types.Hash) {
 	acc.ConfirmedBlockMap[snapshotHash] = acc.unconfirmedBlocks
 	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
@@ -98,6 +139,12 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	if err != nil {
 		return nil, err
 	}
+	balance, err := vmDb.GetBalance(&ledger.ViteTokenId)
+	if err != nil {
+		return nil, err
+	}
+	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Sub(balance, big.NewInt(100))))
+
 	vmDb.Finish()
 
 	tx := &ledger.AccountBlock{
@@ -130,6 +177,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		VmDb:         vmDb,
 	}
 
+	acc.BalanceMap[tx.Hash] = balance
 	acc.addSendBlock(vmTx)
 	return vmTx, nil
 }
@@ -155,7 +203,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		return nil, err
 	}
 
-	vmDb.SetBalance(&ledger.ViteTokenId, balance.Add(balance, big.NewInt(100)))
+	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Add(balance, big.NewInt(100))))
 	vmDb.Finish()
 
 	receiveTx := &ledger.AccountBlock{
@@ -184,54 +232,18 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		AccountBlock: receiveTx,
 		VmDb:         vmDb,
 	}
+
+	acc.BalanceMap[receiveTx.Hash] = balance
 	acc.addReceiveBlock(vmTx)
 
 	return vmTx, nil
 }
 
-func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []types.Address) {
-	accountMap := make(map[types.Address]*Account, num)
-	addrList := make([]types.Address, 0, num)
-
-	for i := 0; i < num; i++ {
-		addr, privateKey, _ := types.CreateAddress()
-
-		accountMap[addr] = &Account{
-			addr:          addr,
-			privateKey:    privateKey,
-			publicKey:     privateKey.PubByte(),
-			chainInstance: chainInstance,
-
-			SendBlocksMap:     make(map[types.Hash]*vm_db.VmAccountBlock),
-			ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
-			ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
-
-			unconfirmedBlocks: make(map[types.Hash]struct{}),
-		}
-		addrList = append(addrList, addr)
-	}
-	return accountMap, addrList
+func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
+	acc.SendBlocksMap[block.AccountBlock.Hash] = block
+	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }
-
-func GetAccountId(t *testing.T, chainInstance *chain, addrList []types.Address, accountIdList []uint64) {
-	for index, addr := range addrList {
-		accountId, err := chainInstance.GetAccountId(addr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if accountIdList[index] != accountId {
-			t.Fatal("error")
-		}
-	}
-}
-func GetAccountAddress(t *testing.T, chainInstance *chain, addrList []types.Address, accountIdList []uint64) {
-	for index, accountId := range accountIdList {
-		addr, err := chainInstance.GetAccountAddress(accountId)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if addrList[index] != *addr {
-			t.Fatal("error")
-		}
-	}
+func (acc *Account) addReceiveBlock(block *vm_db.VmAccountBlock) {
+	acc.ReceiveBlocksMap[block.AccountBlock.Hash] = block
+	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }

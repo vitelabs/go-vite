@@ -166,7 +166,9 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64, hig
 
 	locationList := make([]*chain_file_manager.Location, 0, endHeight+1-startHeight)
 
-	var minHeight, maxHeight uint64
+	minHeight := endHeight
+	maxHeight := startHeight
+
 	if higher {
 
 		for iter.Next() {

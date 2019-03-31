@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/config"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/user"
 	"path"
@@ -58,6 +61,11 @@ func homeDir() string {
 }
 
 func TestChain(t *testing.T) {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	const accountNum = 1000
 	chainInstance, err := NewChainInstance("unit_test", false)
 	if err != nil {
@@ -178,6 +186,9 @@ func TestChain(t *testing.T) {
 
 	t.Run("GetBalanceMap", func(t *testing.T) {
 		GetBalanceMap(t, chainInstance, accounts)
+	})
+	t.Run("GetConfirmedBalanceList", func(t *testing.T) {
+		GetConfirmedBalanceList(t, chainInstance, accounts)
 	})
 
 	chainInstance.Stop()

@@ -18,9 +18,6 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		nextSnapshotHeight = latestSnapshotBlock.Height + 1
 	}
 
-	unconfirmedBlocks := sDB.chain.GetUnconfirmedBlocks(accountBlock.AccountAddress)
-	offset := uint16(len(unconfirmedBlocks)) + 1
-
 	// write unsaved storage
 	unsavedStorage := vmDb.GetUnsavedStorage()
 	for _, kv := range unsavedStorage {
@@ -39,7 +36,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		balanceKey := chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId)
 
-		balanceStorageKey := chain_utils.CreateHistoryBalanceKey(accountBlock.AccountAddress, tokenTypeId, nextSnapshotHeight, offset)
+		balanceStorageKey := chain_utils.CreateHistoryBalanceKey(accountBlock.AccountAddress, tokenTypeId, nextSnapshotHeight)
 
 		balanceBytes := balance.Bytes()
 

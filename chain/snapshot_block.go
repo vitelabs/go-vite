@@ -603,13 +603,13 @@ func (c *chain) getSnapshotBlockList(getList getSnapshotListFunc, higher bool, o
 		var block *ledger.SnapshotBlock
 		var err error
 		if onlyHeader {
-			block := c.cache.GetSnapshotHeaderByHeight(currentHeight)
+			block = c.cache.GetSnapshotHeaderByHeight(currentHeight)
 
 			if block == nil {
 				block, err = c.blockDB.GetSnapshotHeader(locations[index])
 			}
 		} else {
-			block := c.cache.GetSnapshotBlockByHeight(currentHeight)
+			block = c.cache.GetSnapshotBlockByHeight(currentHeight)
 			if block == nil {
 				block, err = c.blockDB.GetSnapshotBlock(locations[index])
 			}

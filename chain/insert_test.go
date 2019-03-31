@@ -99,7 +99,9 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		b.Fatal(err)
 	}
 }
+func BenchmarkChain_InsertStateDB(b *testing.B) {
 
+}
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	b.Run("10 accounts", func(b *testing.B) {
 		BmInsertAccountBlock(b, 10, 1)

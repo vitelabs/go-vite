@@ -174,8 +174,8 @@ func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) []by
 	return key
 }
 
-func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotBlockHeight uint64, offset uint16) []byte {
-	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8 + 2
+func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotBlockHeight uint64) []byte {
+	keySize := 1 + types.AddressSize + types.TokenTypeIdSize + 8
 
 	key := make([]byte, 0, keySize)
 
@@ -183,10 +183,6 @@ func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeI
 	key = append(key, address.Bytes()...)
 	key = append(key, tokenTypeId.Bytes()...)
 	key = append(key, Uint64ToBytes(snapshotBlockHeight)...)
-
-	offsetBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(offsetBytes, offset)
-	key = append(key, offsetBytes...)
 
 	return key
 }
