@@ -3,7 +3,7 @@ package ledger
 import "github.com/vitelabs/go-vite/common/types"
 
 type ContractMeta struct {
-	Gid                *types.Gid
+	Gid                types.Gid
 	SendConfirmedTimes uint8
 }
 
@@ -17,7 +17,7 @@ func (cm *ContractMeta) Deserialize(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	cm.Gid = &gid
+	cm.Gid = gid
 	cm.SendConfirmedTimes = buf[types.GidSize:][0]
 	return nil
 }

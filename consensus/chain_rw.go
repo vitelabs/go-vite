@@ -186,7 +186,7 @@ func (self *chainRw) getGid(block *ledger.AccountBlock) (*types.Gid, error) {
 	if e != nil {
 		return nil, e
 	}
-	return meta.Gid, nil
+	return &meta.Gid, nil
 }
 func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()

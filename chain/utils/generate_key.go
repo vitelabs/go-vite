@@ -226,10 +226,10 @@ func CreateContractMetaKey(address types.Address) []byte {
 
 	return key
 }
-func CreateGidContractKey(gid *types.Gid, address *types.Address) []byte {
+func CreateGidContractKey(gid types.Gid, address *types.Address) []byte {
 	key := make([]byte, 0, 1+types.GidSize+types.AddressSize)
 
-	key[0] = GidContractKeyPrefix
+	key = append(key, GidContractKeyPrefix)
 
 	key = append(key, gid.Bytes()...)
 	key = append(key, address.Bytes()...)
@@ -240,8 +240,7 @@ func CreateGidContractKey(gid *types.Gid, address *types.Address) []byte {
 func CreateGidContractPrefixKey(gid *types.Gid) []byte {
 	key := make([]byte, 0, 1+types.GidSize)
 
-	key[0] = GidContractKeyPrefix
-
+	key = append(key, GidContractKeyPrefix)
 	key = append(key, gid.Bytes()...)
 
 	return key

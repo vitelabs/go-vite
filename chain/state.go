@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -61,14 +62,30 @@ func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.Contract
 }
 
 func (c *chain) GetContractList(gid types.Gid) ([]types.Address, error) {
-
 	addrList, err := c.stateDB.GetContractList(&gid)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractList failed, gid is %s. Error: %s", gid, err))
 		c.log.Error(cErr.Error(), "method", "GetContractList")
 		return nil, cErr
 	}
+	if util.IsDelegateGid(gid) {
+		addrList = append(addrList, types.BuiltinContractAddrList...)
+	}
 	return addrList, nil
+}
+
+func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) {
+	if logListHash == nil {
+		return nil, nil
+	}
+
+	logList, err := c.stateDB.GetVmLogList(logListHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetVmLogList failed, error is %s, logListHash is %s", err, logListHash))
+		c.log.Error(cErr.Error(), "method", "GetVmLogList")
+		return nil, cErr
+	}
+	return logList, nil
 }
 
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {

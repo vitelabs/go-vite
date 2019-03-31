@@ -318,15 +318,15 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 	latest := c.GetLatestSnapshotBlock()
 
 	timeNanosecond := timestamp.UnixNano()
-	if genesis.Timestamp.UnixNano() < timeNanosecond {
-		return genesis, nil
-	}
-	if latest.Timestamp.UnixNano() > timeNanosecond {
+	if genesis.Timestamp.UnixNano() >= timeNanosecond {
 		return nil, nil
 	}
+	if latest.Timestamp.UnixNano() < timeNanosecond {
+		return latest, nil
+	}
 
-	endSec := latest.Timestamp.Second()
-	timeSec := timestamp.Second()
+	endSec := latest.Timestamp.Unix()
+	timeSec := timestamp.Unix()
 
 	estimateHeight := latest.Height - uint64(endSec-timeSec)
 	var highBoundary, lowBoundary *ledger.SnapshotBlock
@@ -349,8 +349,9 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 
 		if blockHeader.Timestamp.UnixNano() >= timeNanosecond {
 			highBoundary = blockHeader
-			gap := uint64(blockHeader.Timestamp.Second() - timeSec)
+			gap := uint64(blockHeader.Timestamp.Unix() - timeSec)
 			if blockHeader.Height <= gap {
+				lowBoundary = genesis
 				break
 			}
 
@@ -361,7 +362,7 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 
 		} else {
 			lowBoundary = blockHeader
-			estimateHeight = blockHeader.Height + uint64(timeSec-blockHeader.Timestamp.Second())
+			estimateHeight = blockHeader.Height + uint64(timeSec-blockHeader.Timestamp.Unix())
 		}
 	}
 
@@ -396,7 +397,7 @@ func (c *chain) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHei
 		return nil, err
 	}
 	if producer != nil {
-		var result = make([]*ledger.SnapshotBlock, 0, 9)
+		var result = make([]*ledger.SnapshotBlock, 0, len(snapshotHeaders)/75+3)
 		for _, snapshotHeader := range snapshotHeaders {
 			if snapshotHeader.Producer() == *producer {
 				result = append(result)

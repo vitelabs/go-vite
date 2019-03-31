@@ -62,8 +62,7 @@ func homeDir() string {
 	return ""
 }
 
-func SetUp(t *testing.T) (*chain, map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
-	const accountNum = 1000
+func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
 	chainInstance, err := NewChainInstance("unit_test", false)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +76,7 @@ func SetUp(t *testing.T) (*chain, map[types.Address]*Account, []types.Hash, []ty
 	var snapshotBlockList []*ledger.SnapshotBlock
 
 	t.Run("InsertBlocks", func(t *testing.T) {
-		accounts, hashList, addrList, heightList, snapshotBlockList = InsertAccountBlock(t, accountNum, chainInstance, 10000, 198)
+		accounts, hashList, addrList, heightList, snapshotBlockList = InsertAccountBlock(t, accountNum, chainInstance, txCount, snapshotPerBlockNum)
 	})
 
 	return chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList
@@ -94,7 +93,7 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t)
+	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 1000, 30000, 198)
 
 	// account
 	testAccount(t, chainInstance, addrList)

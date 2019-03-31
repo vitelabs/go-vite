@@ -7,7 +7,7 @@ import (
 
 func TestChain_OnRoad(t *testing.T) {
 
-	chainInstance, accounts, _, addrList, _, _ := SetUp(t)
+	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 1000, 38989, 187)
 
 	testOnRoad(t, chainInstance, accounts, addrList)
 	TearDown(chainInstance)
@@ -70,7 +70,7 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 				hashSet[hash] = struct{}{}
 				hasUnReceive := false
 				for _, unReceiveBlock := range account.UnreceivedBlocks {
-					if unReceiveBlock.Hash == hash {
+					if unReceiveBlock.AccountBlock.Hash == hash {
 						hasUnReceive = true
 						break
 					}

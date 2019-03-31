@@ -9,10 +9,11 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"testing"
+	"time"
 )
 
 func TestChain_SnapshotBlock(t *testing.T) {
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t)
+	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 1000, 12345, 7)
 
 	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -247,6 +248,35 @@ func QueryLatestSnapshotBlock(t *testing.T, chainInstance *chain) {
 		checkSnapshotBlock(t, nil, func() (*ledger.SnapshotBlock, error) {
 			return chainInstance.GetSnapshotBlockByHeight(h)
 		}, false)
+	}
+}
+
+func GetSnapshotHeaderBeforeTime(t *testing.T, chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
+	for _, snapshotBlock := range snapshotBlockList {
+		checkSnapshotBlock(t, snapshotBlock, func() (*ledger.SnapshotBlock, error) {
+			time := snapshotBlock.Timestamp.Add(time.Second)
+			return chainInstance.GetSnapshotHeaderBeforeTime(&time)
+		}, true)
+	}
+}
+
+func GetSnapshotHeadersAfterOrEqualTime(t *testing.T, chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
+	lastSnapshotBlock := snapshotBlockList[len(snapshotBlockList)-1]
+	for _, snapshotBlock := range snapshotBlockList {
+
+		snapshotBlocks, err := chainInstance.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{
+			Height: lastSnapshotBlock.Height,
+			Hash:   lastSnapshotBlock.Hash,
+		}, snapshotBlock.Timestamp, nil)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, querySnapshotBlock := range snapshotBlocks {
+			if querySnapshotBlock.Hash != snapshotBlockList[len(snapshotBlockList)-1-i].Hash {
+				t.Fatal("error")
+			}
+		}
 	}
 }
 
@@ -512,6 +542,14 @@ func testSnapshotBlock(t *testing.T, chainInstance *chain, accounts map[types.Ad
 	})
 	t.Run("QueryLatestSnapshotBlock", func(t *testing.T) {
 		QueryLatestSnapshotBlock(t, chainInstance)
+	})
+
+	t.Run("GetSnapshotHeaderBeforeTime", func(t *testing.T) {
+		GetSnapshotHeaderBeforeTime(t, chainInstance, snapshotBlockList)
+	})
+
+	t.Run("GetSnapshotHeadersAfterOrEqualTime", func(t *testing.T) {
+		GetSnapshotHeadersAfterOrEqualTime(t, chainInstance, snapshotBlockList)
 	})
 
 	t.Run("GetSubLedger", func(t *testing.T) {

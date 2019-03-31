@@ -97,7 +97,7 @@ func TestVmRun(t *testing.T) {
 		len(receiveCreateBlockList.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		receiveCreateBlockList.AccountBlock.Quota != 0 ||
 		db.contractMetaMap[addr2] == nil ||
-		*db.contractMetaMap[addr2].Gid != types.DELEGATE_GID ||
+		db.contractMetaMap[addr2].Gid != types.DELEGATE_GID ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(balance2) != 0 {
 		t.Fatalf("receive create transaction error")
 	}

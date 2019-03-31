@@ -1,7 +1,9 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -9,11 +11,12 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestChain_Account(t *testing.T) {
 
-	chainInstance, _, _, addrList, _, _ := SetUp(t)
+	chainInstance, _, _, addrList, _, _ := SetUp(t, 1000, 1000, 8)
 
 	testAccount(t, chainInstance, addrList)
 	TearDown(chainInstance)
@@ -61,6 +64,8 @@ func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []t
 			ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
 			BalanceMap:        make(map[types.Hash]*big.Int),
 			ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
+			LogListMap:        make(map[types.Hash]ledger.VmLogList),
+			KeyValue:          make(map[string][]byte),
 
 			unconfirmedBlocks: make(map[types.Hash]struct{}),
 		}
@@ -97,12 +102,17 @@ type Account struct {
 	privateKey ed25519.PrivateKey
 	publicKey  ed25519.PublicKey
 
-	UnreceivedBlocks []*ledger.AccountBlock
+	UnreceivedBlocks []*vm_db.VmAccountBlock
 
 	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
 	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
 	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
 	BalanceMap        map[types.Hash]*big.Int
+
+	ContractMeta *ledger.ContractMeta
+	Code         []byte
+	LogListMap   map[types.Hash]ledger.VmLogList
+	KeyValue     map[string][]byte
 
 	unconfirmedBlocks map[types.Hash]struct{}
 
@@ -117,6 +127,10 @@ type CreateTxOptions struct {
 	MockVmContext bool
 	MockSignature bool
 	Quota         uint64
+	ContractMeta  *ledger.ContractMeta
+	VmLogList     ledger.VmLogList
+
+	KeyValue map[string][]byte
 }
 
 func (acc *Account) Height() uint64 {
@@ -137,7 +151,7 @@ func (acc *Account) HasUnreceivedBlock() bool {
 	return len(acc.UnreceivedBlocks) > 0
 }
 
-func (acc *Account) AddUnreceivedBlock(block *ledger.AccountBlock) {
+func (acc *Account) AddUnreceivedBlock(block *vm_db.VmAccountBlock) {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
@@ -149,7 +163,7 @@ func (acc *Account) Snapshot(snapshotHash types.Hash) {
 	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
 }
 
-func (acc *Account) PopUnreceivedBlock() *ledger.AccountBlock {
+func (acc *Account) PopUnreceivedBlock() *vm_db.VmAccountBlock {
 	acc.unreceivedLock.Lock()
 	defer acc.unreceivedLock.Unlock()
 
@@ -177,7 +191,27 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		return nil, err
 	}
 	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Sub(balance, big.NewInt(100))))
+	if options.ContractMeta != nil {
+		vmDb.SetContractMeta(toAccount.addr, options.ContractMeta)
+		toAccount.ContractMeta = options.ContractMeta
+	}
+	var logHash *types.Hash
+	if len(options.VmLogList) > 0 {
+		for _, vmLog := range options.VmLogList {
+			vmDb.AddLog(vmLog)
+		}
+		logHash = vmDb.GetLogListHash()
+		acc.LogListMap[*logHash] = vmDb.GetLogList()
+	}
+	if len(options.KeyValue) > 0 {
+		for key, value := range options.KeyValue {
+			if err := vmDb.SetValue([]byte(key), value); err != nil {
+				return nil, err
+			}
+			acc.KeyValue[string(key)] = value
 
+		}
+	}
 	vmDb.Finish()
 
 	tx := &ledger.AccountBlock{
@@ -190,6 +224,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		TokenId:        ledger.ViteTokenId,
 		PublicKey:      acc.publicKey,
 		Quota:          options.Quota,
+		LogHash:        logHash,
 	}
 
 	// compute hash
@@ -204,11 +239,11 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 
 	acc.latestBlock = tx
 
-	toAccount.AddUnreceivedBlock(tx)
 	vmTx := &vm_db.VmAccountBlock{
 		AccountBlock: tx,
 		VmDb:         vmDb,
 	}
+	toAccount.AddUnreceivedBlock(vmTx)
 
 	acc.BalanceMap[tx.Hash] = balance
 	acc.addSendBlock(vmTx)
@@ -237,17 +272,42 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	}
 
 	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Add(balance, big.NewInt(100))))
+	if UnreceivedBlock.VmDb.GetUnsavedContractMeta() != nil {
+		code := crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())))
+
+		vmDb.SetContractCode(code)
+		acc.Code = code
+	}
+
+	var logHash *types.Hash
+
+	if len(options.VmLogList) > 0 {
+		for _, vmLog := range options.VmLogList {
+			vmDb.AddLog(vmLog)
+		}
+		logHash = vmDb.GetLogListHash()
+		acc.LogListMap[*logHash] = vmDb.GetLogList()
+	}
+
+	if len(options.KeyValue) > 0 {
+		for key, value := range options.KeyValue {
+			vmDb.SetValue([]byte(key), value)
+			acc.KeyValue[string(key)] = value
+		}
+	}
+
 	vmDb.Finish()
 
 	receiveTx := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: acc.addr,
-		FromBlockHash:  UnreceivedBlock.Hash,
+		FromBlockHash:  UnreceivedBlock.AccountBlock.Hash,
 		Height:         acc.Height() + 1,
 		PrevHash:       prevHash,
 		PublicKey:      acc.publicKey,
 
-		Quota: options.Quota,
+		Quota:   options.Quota,
+		LogHash: logHash,
 	}
 
 	// compute hash

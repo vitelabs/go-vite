@@ -204,6 +204,8 @@ type Chain interface {
 
 	GetValue(address types.Address, key []byte) ([]byte, error)
 
+	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
+
 	// ====== Query built-in contract storage ======
 
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
@@ -223,9 +225,6 @@ type Chain interface {
 	GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
 
 	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
-
-	// ====== Query vm log list ======`
-	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
 
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
