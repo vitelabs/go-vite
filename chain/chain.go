@@ -89,7 +89,7 @@ func (c *chain) Init() error {
 			return err
 		}
 
-		status, err := chain_genesis.CheckLedger(c)
+		status, err := chain_genesis.CheckLedger(c, c.cfg)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
 

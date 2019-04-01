@@ -40,7 +40,6 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 		for _, register := range registerList {
 			fmt.Println(register)
 		}
-
 	}
 }
 

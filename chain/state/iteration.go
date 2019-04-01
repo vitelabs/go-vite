@@ -127,8 +127,13 @@ func (sIterator *snapshotStorageIterator) Last() bool {
 	sIterator.iterOk = iter.Last()
 
 	if sIterator.iterOk {
-		sIterator.lastKey = iter.Key()
+		key := iter.Key()
+		sIterator.lastKey = key
+		if !sIterator.setCorrectPointer(key) {
+			return sIterator.Prev()
+		}
 	}
+
 	return sIterator.iterOk
 }
 
@@ -140,7 +145,19 @@ func (sIterator *snapshotStorageIterator) Next() bool {
 	return sIterator.step(true)
 }
 func (sIterator *snapshotStorageIterator) Seek(key []byte) bool {
-	return sIterator.Seek(key)
+	iter := sIterator.iter
+	sIterator.iterOk = iter.Seek(key)
+
+	if sIterator.iterOk {
+		key := iter.Key()
+		sIterator.lastKey = key
+
+		if !sIterator.setCorrectPointer(key) {
+			return sIterator.Next()
+		}
+	}
+
+	return sIterator.iterOk
 }
 
 func (sIterator *snapshotStorageIterator) Key() []byte {
@@ -172,7 +189,6 @@ func (sIterator *snapshotStorageIterator) step(isNext bool) bool {
 					sIterator.iterOk = iter.Prev()
 				}
 			}
-
 		} else {
 			if isNext {
 				sIterator.iterOk = iter.Next()
@@ -185,39 +201,50 @@ func (sIterator *snapshotStorageIterator) step(isNext bool) bool {
 			break
 		}
 
-		key := make([]byte, len(iter.Key()))
-		// important
-		copy(key, iter.Key())
+		// copy is important
+		iterKeyLen := len(iter.Key())
+		if len(sIterator.lastKey) < iterKeyLen {
+			sIterator.lastKey = make([]byte, iterKeyLen)
+		}
+		copy(sIterator.lastKey, iter.Key())
 
-		sIterator.lastKey = key
-
-		sIterator.iterOk = iter.Seek(append(key[:len(key)-8], chain_utils.Uint64ToBytes(sIterator.snapshotHeight)...))
-
-		if sIterator.iterOk {
-			seekKey := iter.Key()
-
-			if bytes.Equal(seekKey[:len(seekKey)-8], key[:len(key)-8]) &&
-				binary.BigEndian.Uint64(seekKey[len(seekKey)-8:]) <= sIterator.snapshotHeight {
-				break
-			}
-
-			if iter.Prev() {
-				prevKey := iter.Key()
-
-				if bytes.Equal(prevKey[:len(prevKey)-8], key[:len(key)-8]) {
-					break
-				}
-
-			}
-		} else if isNext {
-			if sIterator.iterOk = iter.Last(); sIterator.iterOk {
-				lastKey := iter.Key()
-				if bytes.Equal(lastKey[:len(lastKey)-8], key[:len(key)-8]) {
-					break
-				}
-			}
+		if sIterator.setCorrectPointer(sIterator.lastKey) {
+			break
 		}
 	}
 
 	return sIterator.iterOk
+}
+
+func (sIterator *snapshotStorageIterator) setCorrectPointer(key []byte) bool {
+	iter := sIterator.iter
+
+	if iter.Seek(append(key[:len(key)-8], chain_utils.Uint64ToBytes(sIterator.snapshotHeight)...)) {
+		seekKey := iter.Key()
+
+		if bytes.Equal(seekKey[:len(seekKey)-8], key[:len(key)-8]) &&
+			sIterator.isBeforeOrEqualHeight(seekKey) {
+			return true
+		}
+
+		if iter.Prev() {
+			prevKey := iter.Key()
+
+			if bytes.Equal(prevKey[:len(prevKey)-8], key[:len(key)-8]) {
+				return true
+			}
+
+		}
+	} else if iter.Last() {
+		lastKey := iter.Key()
+
+		if bytes.Equal(lastKey[:len(lastKey)-8], key[:len(key)-8]) {
+			return true
+		}
+	}
+	return false
+
+}
+func (sIterator *snapshotStorageIterator) isBeforeOrEqualHeight(key []byte) bool {
+	return binary.BigEndian.Uint64(key[len(key)-8:]) <= sIterator.snapshotHeight
 }

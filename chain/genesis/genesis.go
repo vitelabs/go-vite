@@ -20,14 +20,14 @@ func InitLedger(chain Chain, cfg *config.Genesis) error {
 	}
 
 	// init genesis snapshot block
-	genesisSnapshotBlock := NewGenesisSnapshotBlock()
+	genesisSnapshotBlock := NewGenesisSnapshotBlock(genesisAccountBlockList)
 
 	// insert
 	chain.InsertSnapshotBlock(genesisSnapshotBlock)
 	return nil
 }
 
-func CheckLedger(chain Chain) (byte, error) {
+func CheckLedger(chain Chain, cfg *config.Genesis) (byte, error) {
 	firstSb, err := chain.GetSnapshotHeaderByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
@@ -36,7 +36,7 @@ func CheckLedger(chain Chain) (byte, error) {
 		return LedgerEmpty, nil
 	}
 
-	genesisSnapshotBlock := NewGenesisSnapshotBlock()
+	genesisSnapshotBlock := NewGenesisSnapshotBlock(NewGenesisAccountBlocks(cfg))
 
 	if firstSb.Hash == genesisSnapshotBlock.Hash {
 		return LedgerValid, nil

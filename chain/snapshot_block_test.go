@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/block"
-	"github.com/vitelabs/go-vite/chain/genesis"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -68,7 +67,11 @@ func IsGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
 func GetGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
 	genesisSnapshotBlock := chainInstance.GetGenesisSnapshotBlock()
 
-	correctFirstSb := chain_genesis.NewGenesisSnapshotBlock()
+	correctFirstSb, err := chainInstance.GetSnapshotBlockByHeight(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if genesisSnapshotBlock.Hash != correctFirstSb.Hash {
 		t.Fatal("error")
 	}
