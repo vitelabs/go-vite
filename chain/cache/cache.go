@@ -50,6 +50,16 @@ func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 	return nil
 }
 
+func (cache *Cache) RecoverAccountBlocks(accountBlocks []*ledger.AccountBlock) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	for _, accountBlock := range accountBlocks {
+		dataId := cache.ds.InsertAccountBlock(accountBlock)
+		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)
+	}
+
+}
+
 // ====== Account blocks ======
 func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
 	cache.mu.RLock()

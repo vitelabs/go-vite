@@ -28,12 +28,13 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 	return c.DeleteSnapshotBlocksToHeight(height)
 }
 
+// delete and recover unconfirmed cache
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
 	c.flusherMu.RLock()
 	defer c.flusherMu.RUnlock()
 
 	latestHeight := c.GetLatestSnapshotBlock().Height
-	if toHeight > latestHeight {
+	if toHeight > latestHeight || toHeight <= 1 {
 		return nil, nil
 	}
 
@@ -68,12 +69,11 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 
 		snapshotChunkList = append(snapshotChunkList, chunkList...)
-		//prevLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
-		//if err != nil {
-		//	cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, (snapshotHeight -1) is %d", err.Error(), toHeight-1))
-		//	c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-		//	return nil, cErr
-		//}
+	}
+
+	// rebuild unconfirmed cache
+	if err := c.recoverUnconfirmedCache(); err != nil {
+		return nil, err
 	}
 
 	return snapshotChunkList, nil
@@ -102,7 +102,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	// rollback state db
+	// rollback state db, todo
 	if err := c.stateDB.Rollback(deletedSnapshotSegments); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")

@@ -1,5 +1,35 @@
 package chain
 
+import (
+	"errors"
+	"fmt"
+)
+
+func (c *chain) recoverUnconfirmedCache() error {
+	// rebuild unconfirmed cache
+	height := c.GetLatestSnapshotBlock().Height
+	chunks, err := c.GetSubLedgerAfterHeight(height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.GetSubLedgerAfterHeight failed, Height is %d. Error: %s", height, err.Error()))
+		c.log.Error(cErr.Error(), "method", "recoverUnconfirmedCache")
+		return cErr
+	}
+	if len(chunks) <= 0 {
+		return nil
+	}
+
+	for _, chunk := range chunks {
+		if chunk.SnapshotBlock != nil {
+			continue
+		}
+		if len(chunk.AccountBlocks) > 0 {
+			// recover unconfirmed pool
+			c.cache.RecoverAccountBlocks(chunk.AccountBlocks)
+		}
+	}
+	return nil
+}
+
 //func (c *chain) checkAndRepair() error {
 //	// repair block db
 //	if err := c.blockDB.CheckAndRepair(); err != nil {
