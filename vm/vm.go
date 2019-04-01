@@ -6,16 +6,18 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/vm_db"
 	"runtime/debug"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/vm_db"
+
 	"math/big"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -306,7 +308,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	util.SubBalance(db, &block.TokenId, block.Amount)
 	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, quotaRefund, nil))
-	db.SetContractMeta(contractAddr, &ledger.ContractMeta{&gid, confirmTime})
+	db.SetContractMeta(contractAddr, &ledger.ContractMeta{gid, confirmTime})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 

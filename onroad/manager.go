@@ -43,12 +43,13 @@ type Manager struct {
 
 func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		pool:            pool,
-		net:             net,
-		producer:        producer,
-		wallet:          wallet,
-		contractWorkers: make(map[types.Gid]*ContractWorker),
-		log:             slog.New("w", "manager"),
+		pool:                pool,
+		net:                 net,
+		producer:            producer,
+		wallet:              wallet,
+		contractWorkers:     make(map[types.Gid]*ContractWorker),
+		newContractListener: make(map[types.Gid]func(address types.Address)),
+		log:                 slog.New("w", "manager"),
 	}
 	return m
 }
