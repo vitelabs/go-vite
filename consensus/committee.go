@@ -25,7 +25,7 @@ type producerSubscribeEvent struct {
 }
 
 func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	return self.snapshot.VerifySnapshotProducer(header)
+	return self.snapshot.VerifyProducer(header.Producer(), *header.Timestamp)
 }
 
 func (self *committee) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
@@ -123,7 +123,8 @@ func (self *committee) Init() error {
 	}
 	defer self.PostInit()
 
-	self.snapshot = newSnapshotCs(self.rw, self.mLog)
+	snapshot := newSnapshotCs(self.rw, self.mLog)
+	self.snapshot = snapshot
 	self.rw.initArray(self.snapshot)
 
 	self.contracts = newContractCs(self.rw, self.mLog)
@@ -132,8 +133,8 @@ func (self *committee) Init() error {
 	if err != nil {
 		panic(err)
 	}
-	self.dposWrapper = &dposReader{self.snapshot, self.contracts, self.mLog}
-	self.api = &ApiSnapshot{snapshot: self.snapshot}
+	self.dposWrapper = &dposReader{snapshot, self.contracts, self.mLog}
+	self.api = &ApiSnapshot{snapshot: snapshot}
 	return nil
 }
 

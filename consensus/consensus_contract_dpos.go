@@ -127,6 +127,15 @@ func (self *contractDposCs) VerifyAccountProducer(accountBlock *ledger.AccountBl
 	return self.verifyProducer(accountBlock.Producer(), electionResult), nil
 }
 
+func (self *contractDposCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {
+	electionResult, err := self.electionTime(t)
+	if err != nil {
+		return false, err
+	}
+
+	return self.verifyProducer(address, electionResult), nil
+}
+
 func (self *contractDposCs) verifyProducer(address types.Address, result *electionResult) bool {
 	if result == nil {
 		return false

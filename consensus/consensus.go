@@ -84,7 +84,7 @@ type committee struct {
 
 	rw *chainRw
 
-	snapshot  *snapshotCs
+	snapshot  DposReader
 	contracts *contractsCs
 
 	dposWrapper *dposReader
