@@ -123,8 +123,12 @@ func newSnapshotStorageIterator(iter interfaces.StorageIterator, height uint64) 
 }
 
 func (sIterator *snapshotStorageIterator) Last() bool {
-	sIterator.iterOk = sIterator.iter.Last()
-	sIterator.lastKey = nil
+	iter := sIterator.iter
+	sIterator.iterOk = iter.Last()
+
+	if sIterator.iterOk {
+		sIterator.lastKey = iter.Key()
+	}
 	return sIterator.iterOk
 }
 
@@ -187,22 +191,31 @@ func (sIterator *snapshotStorageIterator) step(isNext bool) bool {
 
 		sIterator.lastKey = key
 
-		binary.BigEndian.PutUint64(key[len(key)-8:], sIterator.snapshotHeight)
-		sIterator.iterOk = iter.Seek(key)
+		sIterator.iterOk = iter.Seek(append(key[:len(key)-8], chain_utils.Uint64ToBytes(sIterator.snapshotHeight)...))
 
 		if sIterator.iterOk {
 			seekKey := iter.Key()
-			height := binary.BigEndian.Uint64(seekKey[len(seekKey)-8:])
-			if height <= sIterator.snapshotHeight {
+
+			if bytes.Equal(seekKey[:len(seekKey)-8], key[:len(key)-8]) &&
+				binary.BigEndian.Uint64(seekKey[len(seekKey)-8:]) <= sIterator.snapshotHeight {
 				break
 			}
+
 			if iter.Prev() {
 				prevKey := iter.Key()
+
 				if bytes.Equal(prevKey[:len(prevKey)-8], key[:len(key)-8]) {
 					break
 				}
-			}
 
+			}
+		} else if isNext {
+			if sIterator.iterOk = iter.Last(); sIterator.iterOk {
+				lastKey := iter.Key()
+				if bytes.Equal(lastKey[:len(lastKey)-8], key[:len(key)-8]) {
+					break
+				}
+			}
 		}
 	}
 

@@ -66,6 +66,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 			return nil, cErr
 		}
+
 		snapshotChunkList = append(snapshotChunkList, chunkList...)
 		//prevLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
 		//if err != nil {

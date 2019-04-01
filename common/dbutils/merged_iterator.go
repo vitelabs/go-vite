@@ -45,6 +45,10 @@ func NewMergedIterator(iters []interfaces.StorageIterator, isDelete func([]byte)
 
 func (mi *MergedIterator) reset() {
 	mi.iterStatus = make([]byte, len(mi.iters))
+	for i := range mi.iterStatus {
+		mi.iterStatus[i] = iterPointerMiddle
+	}
+
 	mi.index = -1
 
 	mi.keys = make([][]byte, len(mi.iters))

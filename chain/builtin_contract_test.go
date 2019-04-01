@@ -10,7 +10,7 @@ import (
 )
 
 func TestChain_builtInContract(t *testing.T) {
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 5, 138, 7)
+	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 0, 0, 0)
 
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -20,6 +20,28 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 	t.Run("NewStorageDatabase", func(t *testing.T) {
 		NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 	})
+	t.Run("GetRegisterList", func(t *testing.T) {
+		GetRegisterList(t, chainInstance)
+	})
+}
+func GetRegisterList(t *testing.T, chainInstance *chain) {
+	latestSnapshot := chainInstance.GetLatestSnapshotBlock()
+	for i := uint64(1); i < latestSnapshot.Height; i++ {
+		snapshotBlock, err := chainInstance.GetSnapshotHeaderByHeight(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		registerList, err := chainInstance.GetRegisterList(snapshotBlock.Hash, types.SNAPSHOT_GID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, register := range registerList {
+			fmt.Println(register)
+		}
+
+	}
 }
 
 func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
