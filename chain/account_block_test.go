@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+func TestChain_AccountBlock(t *testing.T) {
+	chainInstance, accounts, hashList, addrList, heightList, _ := SetUp(t, 1000, 10000, 18)
+
+	testAccountBlock(t, chainInstance, accounts, hashList, addrList, heightList)
+	TearDown(chainInstance)
+}
+
 func GetAccountBlockByHash(t *testing.T, chainInstance Chain, hashList []types.Hash) {
 	for _, hash := range hashList {
 		block, err := chainInstance.GetAccountBlockByHash(hash)
@@ -253,8 +260,45 @@ func GetLatestAccountHeight(t *testing.T, chainInstance Chain, accounts map[type
 	}
 }
 
-//func GetAccountBlocks(t *testing.T, chainInstance Chain, map[types.Address]*Account, addrList []types.Address)  {
-//	for _, addr := range addrList {
-//		blocks :=
-//	}
-//}
+func testAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, hashList []types.Hash, addrList []types.Address, heightList []uint64) {
+
+	t.Run("GetAccountBlockByHash", func(t *testing.T) {
+		GetAccountBlockByHash(t, chainInstance, hashList)
+	})
+
+	t.Run("GetAccountBlockByHeight", func(t *testing.T) {
+		GetAccountBlockByHeight(t, chainInstance, addrList, heightList)
+	})
+
+	t.Run("IsAccountBlockExisted", func(t *testing.T) {
+		IsAccountBlockExisted(t, chainInstance, hashList)
+	})
+
+	t.Run("IsReceived", func(t *testing.T) {
+		IsReceived(t, chainInstance, accounts, hashList)
+	})
+
+	t.Run("GetReceiveAbBySendAb", func(t *testing.T) {
+		GetReceiveAbBySendAb(t, chainInstance, accounts, hashList)
+	})
+
+	t.Run("GetConfirmedTimes", func(t *testing.T) {
+		GetConfirmedTimes(t, chainInstance, accounts, hashList)
+	})
+
+	t.Run("GetLatestAccountBlock", func(t *testing.T) {
+		GetLatestAccountBlock(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("GetLatestAccountHeight", func(t *testing.T) {
+		GetLatestAccountHeight(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("GetAccountBlocks", func(t *testing.T) {
+		GetAccountBlocks(t, chainInstance, accounts, addrList)
+	})
+
+	t.Run("GetAccountBlocksByHeight", func(t *testing.T) {
+		GetAccountBlocksByHeight(t, chainInstance, accounts, addrList)
+	})
+}

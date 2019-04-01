@@ -85,7 +85,7 @@ func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 		}
 		manager.contractListenerMutex.RLock()
 		defer manager.contractListenerMutex.RUnlock()
-		if f, ok := manager.newContractListener[*meta.Gid]; ok {
+		if f, ok := manager.newContractListener[meta.Gid]; ok {
 			f(block.ToAddress)
 		}
 	}

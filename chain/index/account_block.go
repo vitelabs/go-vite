@@ -78,12 +78,13 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 
 	locationList := make([]*chain_file_manager.Location, 0, endHeight+1-startHeight)
 
-	var minHeight, maxHeight uint64
+	minHeight := endHeight
+	maxHeight := startHeight
 
 	iterOk := iter.Last()
 	for iterOk {
 		height := chain_utils.BytesToUint64(iter.Key()[1+types.AddressSize:])
-		if height < minHeight || minHeight == 0 {
+		if height < minHeight {
 			minHeight = height
 		}
 		if height > maxHeight {
@@ -189,6 +190,7 @@ func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, 
 	if err != nil {
 		return nil, 0, err
 	}
+
 	height := chain_utils.BytesToUint64(value[types.AddressSize:])
 	return &addr, height, nil
 }

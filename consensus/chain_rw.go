@@ -6,16 +6,14 @@ import (
 	"sort"
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb"
-
-	"github.com/vitelabs/go-vite/log15"
-
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type ch interface {
@@ -188,7 +186,7 @@ func (self *chainRw) getGid(block *ledger.AccountBlock) (*types.Gid, error) {
 	if e != nil {
 		return nil, e
 	}
-	return meta.Gid, nil
+	return &meta.Gid, nil
 }
 func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return self.rw.GetLatestSnapshotBlock()
@@ -263,6 +261,9 @@ func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32
 		if err != nil {
 			return nil, err
 		}
+		if p == nil {
+			continue
+		}
 		infos := p.Sbps
 		for k, v := range infos {
 			c, ok := hourInfos[k]
@@ -308,6 +309,9 @@ func (self *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*con
 func (self *chainRw) getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bool) {
 	result, b := self.dbCache.GetElectionResultByHash(hashes)
 	if b != nil {
+		return nil, false
+	}
+	if result == nil {
 		return nil, false
 	}
 	return result, true

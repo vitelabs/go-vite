@@ -3,7 +3,6 @@ package chain_block
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 )
 
 const (
@@ -18,11 +17,11 @@ type byteBuffer struct {
 	BlockType byte
 	Buffer    []byte
 	Size      int64
-	FileId    uint64
 }
 
 type blockFileParser struct {
-	blockSize              int64
+	blockSize int64
+
 	blockSizeBuffer        []byte
 	blockSizeBufferPointer int
 
@@ -64,7 +63,7 @@ func (bfp *blockFileParser) WriteError(err error) {
 	}
 }
 
-func (bfp *blockFileParser) Write(buf []byte, location *chain_file_manager.Location) error {
+func (bfp *blockFileParser) Write(buf []byte) error {
 	if bfp.closed {
 		return ClosedErr
 	}
@@ -115,14 +114,12 @@ func (bfp *blockFileParser) Write(buf []byte, location *chain_file_manager.Locat
 						BlockType: bfp.blockType,
 						Buffer:    buf[readPointer:nextPointer],
 						Size:      bfp.blockSize + 5,
-						FileId:    location.FileId,
 					}
 				} else {
 					bfp.bytesBuffer <- &byteBuffer{
 						BlockType: bfp.blockType,
 						Buffer:    append(bfp.blockBuffer, buf[readPointer:nextPointer]...),
 						Size:      bfp.blockSize + 5,
-						FileId:    location.FileId,
 					}
 				}
 
@@ -133,6 +130,7 @@ func (bfp *blockFileParser) Write(buf []byte, location *chain_file_manager.Locat
 
 				bfp.blockBufferPointer = 0
 				bfp.blockBuffer = nil
+
 			}
 		}
 	}

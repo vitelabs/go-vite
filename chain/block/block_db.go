@@ -20,13 +20,9 @@ type BlockDB struct {
 }
 
 type SnapshotSegment struct {
-	SnapshotBlock         *ledger.SnapshotBlock
-	SnapshotBlockLocation *chain_file_manager.Location // optional
+	SnapshotBlock *ledger.SnapshotBlock
 
-	AccountBlocks         []*ledger.AccountBlock
-	AccountBlocksLocation []*chain_file_manager.Location // optional
-
-	RightBoundary *chain_file_manager.Location // optional
+	AccountBlocks []*ledger.AccountBlock
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
@@ -93,7 +89,7 @@ func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*chain_file_manager.Location, 
 }
 
 func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) {
-	buf, err := bDB.fm.Read(location)
+	buf, _, err := bDB.fm.Read(location)
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +114,14 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 		defer bDB.wg.Done()
 		bDB.fm.ReadRange(startLocation, endLocation, bfp)
 		if endLocation != nil {
-			buf, err := bDB.fm.Read(endLocation)
+			buf, bufSizeBytes, err := bDB.fm.Read(endLocation)
 			if err != nil {
 				bfp.WriteError(err)
 				return
 			}
-			bfp.Write(buf, endLocation)
+
+			bfp.Write(bufSizeBytes)
+			bfp.Write(buf)
 		}
 		bfp.Close()
 	}()
@@ -134,21 +132,9 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 	var snappyReadBuffer = make([]byte, 0, 8*1024) // 8kb
 	iterator := bfp.Iterator()
 
-	currentFileId := uint64(0)
-	currentOffset := int64(0)
-
 	for buf := range iterator {
 		if seg == nil {
 			seg = &SnapshotSegment{}
-		}
-
-		if buf.FileId != currentFileId {
-			currentFileId = buf.FileId
-			if buf.FileId == startLocation.FileId {
-				currentOffset = startLocation.Offset
-			} else {
-				currentOffset = 0
-			}
 		}
 
 		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
@@ -156,7 +142,6 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 			return nil, err
 		}
 
-		location := chain_file_manager.NewLocation(currentFileId, currentOffset)
 		if buf.BlockType == BlockTypeSnapshotBlock {
 
 			sb := &ledger.SnapshotBlock{}
@@ -164,11 +149,7 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 				return nil, err
 			}
 			seg.SnapshotBlock = sb
-			seg.SnapshotBlockLocation = location
-			seg.RightBoundary = chain_file_manager.NewLocation(currentFileId, currentOffset+buf.Size)
-
 			segList = append(segList, seg)
-
 			seg = nil
 		} else if buf.BlockType == BlockTypeAccountBlock {
 			ab := &ledger.AccountBlock{}
@@ -176,10 +157,7 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 				return nil, err
 			}
 			seg.AccountBlocks = append(seg.AccountBlocks, ab)
-			seg.AccountBlocksLocation = append(seg.AccountBlocksLocation, location)
 		}
-
-		currentOffset += buf.Size
 	}
 
 	if err := bfp.Error(); err != nil {
@@ -187,7 +165,6 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 	}
 
 	if seg != nil {
-		seg.RightBoundary = chain_file_manager.NewLocation(currentFileId, currentOffset)
 		segList = append(segList, seg)
 	}
 

@@ -1,7 +1,7 @@
 package chain_file_manager
 
 type DataParser interface {
-	Write([]byte, *Location) error
+	Write([]byte) error
 	WriteError(err error)
 	Close() error
 }

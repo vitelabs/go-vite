@@ -77,32 +77,62 @@ func (mi *MergedIterator) Next() bool {
 
 // TODO
 func (mi *MergedIterator) Seek(key []byte) bool {
-
 	mi.reset()
-	isOk := false
 	mi.directionToNext = true
+
+	fitKeyIndex := -1
+	var fitKey []byte
 
 	for i := 0; i < len(mi.iters); i++ {
 		iter := mi.iters[i]
-		if iter.Seek(key) {
-			isOk = true
+		iterOk := iter.Seek(key)
+		if !iterOk {
+			mi.iterStatus[i] = iterPointTail
+			continue
 		}
 
-		key = iter.Key()
+		for iterOk {
+			if mi.isDelete == nil || !mi.isDelete(iter.Key()) {
+				break
+			}
+			iterOk = iter.Next()
+		}
+
+		if !iterOk {
+			mi.iterStatus[i] = iterPointTail
+			continue
+		} else {
+			mi.keys[i] = key
+
+			compareResult := mi.cmp.Compare(key, fitKey)
+			if compareResult < 0 || len(fitKey) <= 0 {
+				fitKey = key
+				fitKeyIndex = i
+			}
+		}
+
 	}
 
-	return isOk
+	if fitKeyIndex < 0 {
+		mi.prevKey = nil
+		return false
+	}
+
+	mi.index = fitKeyIndex
+	mi.prevKey = fitKey
+
+	return true
 }
 
 func (mi *MergedIterator) Key() []byte {
-	if mi.err != nil {
+	if mi.err != nil || mi.index < 0 {
 		return nil
 	}
 	return mi.keys[mi.index]
 }
 
 func (mi *MergedIterator) Value() []byte {
-	if len(mi.keys[mi.index]) <= 0 || mi.err != nil {
+	if mi.index < 0 || len(mi.keys[mi.index]) <= 0 || mi.err != nil {
 		return nil
 	}
 
@@ -130,6 +160,7 @@ func (mi *MergedIterator) step(toNext bool) bool {
 
 	if mi.index >= 0 {
 		mi.keys[mi.index] = nil
+		mi.index = -1
 	}
 
 	fitKeyIndex := -1
@@ -189,6 +220,7 @@ func (mi *MergedIterator) step(toNext bool) bool {
 	}
 
 	if fitKeyIndex < 0 {
+		mi.prevKey = nil
 		return false
 	}
 

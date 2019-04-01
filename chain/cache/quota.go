@@ -56,7 +56,7 @@ func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	if used == nil {
 		return 0, 0
 	}
-	return used.BlockCount, used.Quota
+	return used.Quota, used.BlockCount
 }
 
 func (ql *quotaList) Add(addr *types.Address, quota uint64) {

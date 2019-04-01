@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"sync/atomic"
 )
 
@@ -44,11 +45,11 @@ func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) 
 	return &addr, nil
 }
 
-func (iDB *IndexDB) createAccount(addr *types.Address) uint64 {
+func (iDB *IndexDB) createAccount(batch interfaces.Batch, addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 
-	iDB.store.Put(chain_utils.CreateAccountAddressKey(addr), chain_utils.Uint64ToBytes(newAccountId))
-	iDB.store.Put(chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
+	batch.Put(chain_utils.CreateAccountAddressKey(addr), chain_utils.Uint64ToBytes(newAccountId))
+	batch.Put(chain_utils.CreateAccountIdKey(newAccountId), addr.Bytes())
 	return newAccountId
 }
 

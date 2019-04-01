@@ -23,6 +23,7 @@ type fileDescription struct {
 	writePerm    bool
 
 	prevFlushPointer int64
+	closed           bool
 }
 
 func NewFdByFile(file *os.File) *fileDescription {
@@ -134,6 +135,14 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 }
 
 func (fd *fileDescription) Flush() error {
+	if fd.closed {
+		return nil
+	}
+
+	if fd.prevFlushPointer >= fd.writePointer {
+		return nil
+	}
+
 	if fd.cacheItem.IsDelete {
 		return errors.New("file is deleted")
 	}
@@ -164,6 +173,9 @@ func (fd *fileDescription) Truncate(size int64) error {
 }
 
 func (fd *fileDescription) Close() {
+	if fd.closed {
+		return
+	}
 	if fd.file != nil {
 		fd.file.Close()
 	}

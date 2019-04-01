@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,42 +18,21 @@ type StateDB struct {
 	chain Chain
 	store *chain_db.Store
 
-	undoLogger *undoLogger
-
 	log log15.Logger
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
-	//
-	//db, err := leveldb.OpenFile(dbDir, nil)
-	//if err != nil {
-	//	return nil, err
-	//}
 	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0)
 
-	undoLogger, err := newUndoLogger(chainDir)
 	if err != nil {
 		return nil, err
 	}
 
 	return &StateDB{
-		chain:      chain,
-		log:        log15.New("module", "stateDB"),
-		store:      store,
-		undoLogger: undoLogger,
+		chain: chain,
+		log:   log15.New("module", "stateDB"),
+		store: store,
 	}, nil
-}
-
-func (sDB *StateDB) QueryLatestLocation() (*chain_file_manager.Location, error) {
-	value, err := sDB.store.Get(chain_utils.CreateStateDbLocationKey())
-	if err != nil {
-		return nil, err
-	}
-	if len(value) <= 0 {
-		return nil, nil
-	}
-
-	return chain_utils.DeserializeLocation(value), nil
 }
 
 func (sDB *StateDB) Destroy() error {
@@ -74,7 +52,7 @@ func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, er
 	return value, nil
 }
 
-func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenTypeId) (*big.Int, error) {
+func (sDB *StateDB) GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error) {
 	value, err := sDB.store.Get(chain_utils.CreateBalanceKey(addr, tokenTypeId))
 	if err != nil {
 		return nil, err
@@ -83,10 +61,11 @@ func (sDB *StateDB) GetBalance(addr *types.Address, tokenTypeId *types.TokenType
 	return balance, nil
 }
 
-func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*big.Int, error) {
+func (sDB *StateDB) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
 	iter := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateBalanceKeyPrefix(addr)))
 	defer iter.Release()
+
 	for iter.Next() {
 		key := iter.Key()
 		tokenTypeIdBytes := key[1+types.AddressSize : 1+types.AddressSize+types.TokenTypeIdSize]
@@ -103,7 +82,7 @@ func (sDB *StateDB) GetBalanceMap(addr *types.Address) (map[types.TokenTypeId]*b
 	return balanceMap, nil
 }
 
-func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
+func (sDB *StateDB) GetCode(addr types.Address) ([]byte, error) {
 	code, err := sDB.store.Get(chain_utils.CreateCodeKey(addr))
 	if err != nil {
 		return nil, err
@@ -113,7 +92,7 @@ func (sDB *StateDB) GetCode(addr *types.Address) ([]byte, error) {
 }
 
 //
-func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, error) {
+func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, error) {
 	value, err := sDB.store.Get(chain_utils.CreateContractMetaKey(addr))
 	if err != nil {
 		return nil, err
@@ -130,7 +109,7 @@ func (sDB *StateDB) GetContractMeta(addr *types.Address) (*ledger.ContractMeta, 
 	return meta, nil
 }
 
-func (sDB *StateDB) HasContractMeta(addr *types.Address) (bool, error) {
+func (sDB *StateDB) HasContractMeta(addr types.Address) (bool, error) {
 	return sDB.store.Has(chain_utils.CreateContractMetaKey(addr))
 }
 
@@ -179,14 +158,10 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return binary.BigEndian.Uint16(value), nil
 }
 
-// TODO
 func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
 	prefix := chain_utils.BalanceHistoryKeyPrefix
-	if snapshotBlockHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		prefix = chain_utils.BalanceKeyPrefix
-	}
 
 	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
@@ -196,15 +171,17 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		return nil, err
 	}
 
-	seekKey := make([]byte, types.AddressSize+42)
+	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
 	seekKey[0] = prefix
-	binary.BigEndian.PutUint64(seekKey[len(seekKey)-8:], snapshotHeight)
+	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:1+types.AddressSize+types.TokenTypeIdSize+8], snapshotHeight+1)
 
 	for _, addr := range addrList {
 		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
-		copy(seekKey[2+types.AddressSize:2+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
+		copy(seekKey[1+types.AddressSize:1+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
 
-		ok := iter.Seek(seekKey)
+		iter.Seek(seekKey)
+
+		ok := iter.Prev()
 		if !ok {
 			continue
 		}
@@ -218,7 +195,6 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 	return balanceMap, nil
 }
 
-// TODO
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
 
 	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)
@@ -236,4 +212,8 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 	}
 
 	return nil, nil
+}
+
+func (sDB *StateDB) Store() *chain_db.Store {
+	return sDB.store
 }

@@ -65,11 +65,13 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 	}
 	fdSet.maxFileId = location.FileId
 
+	if fdSet.maxFileId <= 0 {
+		fdSet.maxFileId = 1
+	}
+
 	if err = fdSet.resetWriteFd(); err != nil {
 		return nil, errors.New(fmt.Sprintf("fdSet.resetWriteFd failed. Error %s", err))
 	}
-
-	fmt.Println(fdSet.LatestLocation())
 
 	return fdSet, nil
 }
@@ -101,9 +103,8 @@ func (fdSet *fdManager) GetWriteFd() *fileDescription {
 }
 
 func (fdSet *fdManager) DeleteTo(location *Location) error {
-	latestLocation := fdSet.LatestLocation()
 	// remove files
-	for i := latestLocation.FileId; i > location.FileId; i-- {
+	for i := fdSet.maxFileId; i > location.FileId; i-- {
 		if err := os.Remove(fdSet.fileIdToAbsoluteFilename(i)); err != nil {
 			return err
 		}
@@ -140,46 +141,25 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 }
 
 func (fdSet *fdManager) CreateNextFd() (*Location, error) {
-	nextLocation := NewLocation(fdSet.maxFileId+1, 0)
-
-	fd, err := fdSet.createNewFile(nextLocation.FileId)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("fdSet.createNewFile failed, nextFileId is %d. Error: %s,", nextLocation.FileId, err))
-	}
-
 	// write file
 	if fdSet.writeFd != nil {
 		if err := fdSet.writeFd.Flush(); err != nil {
 			return nil, errors.New(fmt.Sprintf("fm.latestFileFd.Write failed, error is %s", err.Error()))
 		}
+		fdSet.writeFd = nil
 	}
+
+	nextLocation := NewLocation(fdSet.maxFileId+1, 0)
 
 	// update maxFileId
 	fdSet.maxFileId = nextLocation.FileId
 
-	// update cache
-	var newItem *fileCacheItem
-	if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
-		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
-
-		newItem.Mu.Lock()
-		newItem.BufferLen = 0
-		newItem.FileId = nextLocation.FileId
-		newItem.Mu.Unlock()
-
-		fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
-
-	} else {
-		newItem = &fileCacheItem{
-			Buffer:   make([]byte, fdSet.fileSize),
-			FileId:   nextLocation.FileId,
-			IsDelete: false,
-		}
-		fdSet.fileCache.PushBack(newItem)
+	// update file cache
+	if err := fdSet.resetWriteFd(); err != nil {
+		return nil, err
 	}
 
 	// set write fd
-	fdSet.writeFd = NewWriteFd(fd, newItem)
 	return nextLocation, nil
 
 }
@@ -216,34 +196,60 @@ func (fdSet *fdManager) Close() error {
 
 // tools
 func (fdSet *fdManager) resetWriteFd() error {
-	if fdSet.writeFd == nil {
-		fd, err := fdSet.getFileFd(fdSet.maxFileId)
+	if fdSet.writeFd != nil {
+		return nil
+	}
+	fileId := fdSet.maxFileId
+
+	fd, err := fdSet.getFileFd(fileId)
+	if err != nil {
+		return err
+	}
+	if fd == nil {
+		var err error
+		fd, err = fdSet.createNewFile(fileId)
 		if err != nil {
-			return err
-		}
-		if fd == nil {
-			if _, err = fdSet.CreateNextFd(); err != nil {
-				return errors.New(fmt.Sprintf("fdSet.NextFd failed. Error %s", err))
-			}
-		} else {
-			newItem := &fileCacheItem{
-				Buffer:   make([]byte, fdSet.fileSize),
-				FileId:   fdSet.maxFileId,
-				IsDelete: false,
-			}
-			fileSize, err := fileutils.FileSize(fd)
-			if err != nil {
-				return err
-			}
-			newItem.BufferLen = fileSize
-
-			if _, err := fd.Seek(0, 2); err != nil {
-				return err
-			}
-
-			fdSet.writeFd = NewWriteFd(fd, newItem)
+			return errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", fileId, err))
 		}
 	}
+
+	fileSize, err := fileutils.FileSize(fd)
+	if err != nil {
+		return err
+	}
+
+	var newItem *fileCacheItem
+	if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
+		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
+
+		newItem.Mu.Lock()
+		newItem.BufferLen = fileSize
+		newItem.FileId = fileId
+		newItem.Mu.Unlock()
+
+		fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
+	} else {
+		newItem = &fileCacheItem{
+			Buffer:    make([]byte, fdSet.fileSize),
+			BufferLen: fileSize,
+			FileId:    fileId,
+			IsDelete:  false,
+		}
+		fdSet.fileCache.PushBack(newItem)
+	}
+
+	if fileSize > 0 {
+		if _, err := fd.Read(newItem.Buffer[:fileSize]); err != nil {
+			return err
+		}
+	}
+
+	// seek to end
+	if _, err := fd.Seek(0, 2); err != nil {
+		return err
+	}
+
+	fdSet.writeFd = NewWriteFd(fd, newItem)
 
 	return nil
 }

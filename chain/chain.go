@@ -2,10 +2,12 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/chain/genesis"
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/state"
@@ -15,10 +17,17 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
+	"sync"
+	"sync/atomic"
+)
+
+const (
+	stop  = 0
+	start = 1
 )
 
 type chain struct {
-	cfg      *config.Config
+	cfg      *config.Genesis
 	dataDir  string
 	chainDir string
 
@@ -35,16 +44,22 @@ type chain struct {
 	stateDB *chain_state.StateDB
 
 	syncCache interfaces.SyncCache
+
+	flusher *chain_flusher.Flusher
+
+	flusherMu sync.RWMutex
+
+	status uint32
 }
 
 /*
  * Init chain config
  */
-func NewChain(cfg *config.Config) *chain {
+func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
 	return &chain{
-		cfg:      cfg,
-		dataDir:  cfg.DataDir,
-		chainDir: path.Join(cfg.DataDir, "ledger"),
+		cfg:      genesisCfg,
+		dataDir:  dir,
+		chainDir: path.Join(dir, "ledger"),
 		log:      log15.New("module", "chain"),
 		em:       newEventManager(),
 	}
@@ -62,7 +77,7 @@ func (c *chain) Init() error {
 	for {
 		var err error
 		// Init ledger
-		c.indexDB, err = chain_index.NewIndexDB(c, c.chainDir)
+		c.indexDB, err = chain_index.NewIndexDB(c.chainDir)
 		if err != nil {
 			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 			return err
@@ -106,13 +121,20 @@ func (c *chain) Init() error {
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
 				}
-			} else {
-				// Check and repair
-				//if err = c.checkAndRepair(); err != nil {
-				//	cErr := errors.New(fmt.Sprintf("c.checkAndRepair failed, error is %s", err))
-				//	c.log.Error(cErr.Error(), "method", "Init")
-				//	return err
-				//}
+			}
+
+			// init flusher
+			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, []chain_flusher.Storage{c.stateDB.Store(), c.indexDB.Store()}, c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+				c.log.Error(cErr.Error(), "method", "Init")
+				return cErr
+			}
+
+			// check and repair
+			if err := c.flusher.Recover(); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
+				c.log.Error(cErr.Error(), "method", "Init")
+				return cErr
 			}
 
 			break
@@ -162,9 +184,23 @@ func (c *chain) Init() error {
 }
 
 func (c *chain) Start() error {
+	if !atomic.CompareAndSwapUint32(&c.status, stop, start) {
+		return nil
+	}
+
+	c.flusher.Start()
+	c.log.Info("Start flusher", "method", "Start")
 	return nil
 }
+
 func (c *chain) Stop() error {
+	if !atomic.CompareAndSwapUint32(&c.status, start, stop) {
+		return nil
+	}
+
+	c.flusher.Stop()
+	c.log.Info("Stop flusher", "method", "Stop")
+
 	return nil
 }
 
@@ -195,6 +231,7 @@ func (c *chain) Destroy() error {
 	}
 	c.log.Info("Destroy blockDB", "method", "Destroy")
 
+	c.flusher = nil
 	c.cache = nil
 	c.stateDB = nil
 	c.indexDB = nil
