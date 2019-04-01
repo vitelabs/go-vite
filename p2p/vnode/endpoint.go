@@ -17,25 +17,22 @@ type EndPoint struct {
 	Typ  HostType
 }
 
-/*
- * EndPoint serialize will not use ProtoBuffers is because we should ensure the neighbors message is short than 1200 bytes
- * but PB is variable-length-encode, the length of encoded []byte is unknown before encode.
- *
- * EndPoint serialize structure
- * +----------+----------------------+-------------+
- * |   Meta   |         Host         |  Port(opt)  |
- * |  1 byte  |      0 ~ 63 bytes    |   2 bytes   |
- * +----------+----------------------+-------------+
- * Meta structure
- * +---------------------+--------+--------+
- * |     Host Length     |  Host  |  Port  |
- * |       6 bits        |  1 bit |  1 bit |
- * +---------------------+--------+--------+
- * Host Length is the byte-count of Host
- * Host: 0 IP. 1 Domain
- * Port: 0 no IP, mean DefaultPort. 1 has 2 bytes Port
- */
-
+// Serialize not use ProtoBuffers, because we should ensure the neighbors message is short than 1200 bytes
+// but PB is variable-length-encode, the length of encoded []byte is unknown before encode.
+//
+// EndPoint serialize structure
+// +----------+----------------------+-------------+
+// |   Meta   |         Host         |  Port(opt)  |
+// |  1 byte  |      0 ~ 63 bytes    |   2 bytes   |
+// +----------+----------------------+-------------+
+// Meta structure
+// +---------------------+--------+--------+
+// |     Host Length     |  Host  |  Port  |
+// |       6 bits        |  1 bit |  1 bit |
+// +---------------------+--------+--------+
+// Host Length is the byte-count of Host
+// Host: 0 IP. 1 Domain
+// Port: 0 no IP, mean DefaultPort. 1 has 2 bytes Port
 func (e EndPoint) Serialize() (buf []byte, err error) {
 	hLen := len(e.Host)
 	if hLen == 0 {
@@ -67,6 +64,7 @@ func (e EndPoint) Serialize() (buf []byte, err error) {
 	return
 }
 
+// Deserialize parse []byte to EndPoint, the memory EndPoint should be allocate before.
 func (e *EndPoint) Deserialize(buf []byte) (err error) {
 	if len(buf) == 0 {
 		err = errInvalidHost
@@ -109,6 +107,7 @@ func (e *EndPoint) Deserialize(buf []byte) (err error) {
 	return
 }
 
+// Length return the serialized []byte length
 func (e EndPoint) Length() (n int) {
 	// meta
 	n++
@@ -124,10 +123,12 @@ func (e EndPoint) Length() (n int) {
 	return n
 }
 
+// String return `domain:port` or `[IP]:port`
 func (e EndPoint) String() string {
 	return e.Hostname() + ":" + strconv.FormatInt(int64(e.Port), 10)
 }
 
+// Hostname return domain or [IP.String()]
 func (e EndPoint) Hostname() string {
 	if e.Typ == HostDomain {
 		return string(e.Host)
@@ -208,6 +209,21 @@ func ParseEndPoint(host string) (e EndPoint, err error) {
 			return
 		}
 	}
+
+	return
+}
+
+func FromUDPAddr(addr *net.UDPAddr) (e EndPoint) {
+	var ip = addr.IP
+	if ip4 := ip.To4(); ip4 != nil {
+		e.Host = ip4
+		e.Typ = HostIPv4
+	} else {
+		e.Host = ip
+		e.Typ = HostIPv6
+	}
+
+	e.Port = addr.Port
 
 	return
 }

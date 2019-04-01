@@ -21,6 +21,7 @@ const (
 	PeerUnknownMessage
 	PeerUnmarshalError
 	PeerPayloadTooShort
+	PeerNoPermission
 )
 
 var peerErrStr = [...]string{
@@ -42,6 +43,7 @@ var peerErrStr = [...]string{
 	PeerUnknownMessage:      "unknown message code",
 	PeerUnmarshalError:      "message unmarshal error",
 	PeerPayloadTooShort:     "payload is too short",
+	PeerNoPermission:        "no permission",
 }
 
 func (e PeerError) String() string {
@@ -59,8 +61,4 @@ func (e PeerError) Serialize() ([]byte, error) {
 	return []byte{
 		byte(e),
 	}, nil
-}
-
-func deserialize(buf []byte) PeerError {
-	return PeerError(buf[0])
 }

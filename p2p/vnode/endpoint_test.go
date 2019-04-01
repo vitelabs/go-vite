@@ -8,8 +8,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/vitelabs/go-vite/p2p2/vnode/protos"
+	"github.com/vitelabs/go-vite/p2p/vnode/protos"
 )
 
 func TestEndPoint_Serialize(t *testing.T) {

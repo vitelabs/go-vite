@@ -1,123 +1,326 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package discovery
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"sync"
+	"sync/atomic"
+	"time"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
-const maxMessageLength = 1200
+var errIncompleteMessage = errors.New("incomplete message")
+var errSocketIsRunning = errors.New("udp socket is listening")
+var errSocketIsNotRunning = errors.New("udp socket is not running")
 
-type Socket interface {
-	Start() error
-	AddFilter(flt filter)
-	WriteToUDP(b []byte, addr *net.UDPAddr) (int, error)
-	Stop() error
+const socketQueueLength = 10
+
+type sender interface {
+	ping(n *Node, ch chan<- *Node) (err error)
+	pong(echo []byte, n *Node) (err error)
+	findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []vnode.EndPoint) (err error)
+	sendNodes(eps []vnode.EndPoint, to *net.UDPAddr) (err error)
 }
 
-type packet struct {
-	payload []byte
-	from    *net.UDPAddr
+type receiver interface {
+	start() error
+	stop() error
 }
 
-type filter = func(data []byte, from *net.UDPAddr) bool
-
-type socket struct {
-	*net.UDPConn
-	addr *net.UDPAddr
-
-	wg sync.WaitGroup
-
-	// return false will interrupt the handle flow
-	filter []filter
-
-	handler func(pkt packet)
-
-	queue chan packet
-
-	log log15.Logger
+type socket interface {
+	sender
+	receiver
 }
 
-func (s *socket) AddFilter(flt filter) {
-	s.filter = append(s.filter, flt)
+type agent struct {
+	self    *vnode.Node
+	socket  *net.UDPConn
+	peerKey ed25519.PrivateKey
+	queue   chan *packet
+	handler func(*packet)
+	pool    pool
+	running int32
+	term    chan struct{}
+	wg      sync.WaitGroup
 }
 
-func (s *socket) Start() (err error) {
-	s.UDPConn, err = net.ListenUDP("udp", s.addr)
+func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, handler func(*packet)) *agent {
+	return &agent{
+		self:    self,
+		peerKey: peerKey,
+		handler: handler,
+		pool:    &wtPool{},
+	}
+}
 
-	if err != nil {
-		return err
+func (a *agent) start() (err error) {
+	if atomic.CompareAndSwapInt32(&a.running, 0, 1) {
+		var udp *net.UDPAddr
+		udp, err = net.ResolveUDPAddr("udp", a.self.Address())
+		if err != nil {
+			return
+		}
+
+		a.socket, err = net.ListenUDP("udp", udp)
+		if err != nil {
+			return
+		}
+
+		a.term = make(chan struct{})
+		a.queue = make(chan *packet, socketQueueLength)
+
+		a.pool.start()
+
+		a.wg.Add(1)
+		go a.readLoop()
+
+		a.wg.Add(1)
+		go a.handleLoop()
+
+		return nil
 	}
 
-	s.queue = make(chan packet, 10)
-
-	s.wg.Add(1)
-	go s.readLoop()
-
-	s.wg.Add(1)
-	go s.handleLoop()
-
-	return nil
+	return errSocketIsRunning
 }
 
-func (s *socket) Stop() (err error) {
-	err = s.UDPConn.Close()
-	s.wg.Wait()
+func (a *agent) stop() (err error) {
+	if atomic.CompareAndSwapInt32(&a.running, 1, 0) {
+		err = a.socket.Close()
+		close(a.term)
+		a.wg.Wait()
+	}
+
+	return errSocketIsNotRunning
+}
+
+func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
+	now := time.Now()
+	hash, err := a.write(message{
+		c:  codePing,
+		id: a.self.ID,
+		body: &ping{
+			from: &a.self.EndPoint,
+			to:   &n.EndPoint,
+			net:  a.self.Net,
+			ext:  a.self.Ext,
+			time: now,
+		},
+	}, n.udpAddr())
+
+	if err != nil {
+		if ch != nil {
+			ch <- nil
+		}
+		return
+	}
+
+	a.pool.add(&wait{
+		expectAddr: n.udpAddr(),
+		expectCode: codePong,
+		handler: &pingWait{
+			hash: hash,
+			done: ch,
+		},
+		expiration: now.Add(expiration),
+	})
 
 	return
 }
 
-func (s *socket) readLoop() {
-	var n int
-	var from *net.UDPAddr
-	var err error
+func (a *agent) pong(echo []byte, n *Node) (err error) {
+	_, err = a.write(message{
+		c:  codePong,
+		id: a.self.ID,
+		body: &pong{
+			from: &a.self.EndPoint,
+			to:   &n.EndPoint,
+			net:  a.self.Net,
+			ext:  a.self.Ext,
+			echo: echo,
+			time: time.Now(),
+		},
+	}, n.udpAddr())
 
-	defer s.wg.Done()
+	return
+}
 
-	defer close(s.queue)
+func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []vnode.EndPoint) (err error) {
+	_, err = a.write(message{
+		c:  codeFindnode,
+		id: a.self.ID,
+		body: &findnode{
+			target: target,
+			count:  count,
+			time:   time.Now(),
+		},
+	}, n.udpAddr())
 
-Loop:
+	if err != nil {
+		ch <- nil
+		return
+	}
+
+	a.pool.add(&wait{
+		expectID:   n.ID,
+		expectAddr: n.udpAddr().String(),
+		expectCode: codeNeighbors,
+		handler: &findnodeWait{
+			count: count,
+			rec:   nil,
+			ch:    ch,
+		},
+		expiration: time.Now().Add(expiration),
+	})
+
+	return
+}
+
+func (a *agent) sendNodes(eps []vnode.EndPoint, to *net.UDPAddr) (err error) {
+	var msg = message{
+		c:  codeNeighbors,
+		id: a.self.ID,
+	}
+
+	n := &neighbors{
+		endpoints: nil,
+		last:      false,
+		time:      time.Now(),
+	}
+	msg.body = n
+
+	var mark, bytes int
+	for i, ep := range eps {
+		bytes += ep.Length()
+
+		if bytes+20 > maxPayloadLength {
+			mark = i
+			n.endpoints = append(eps[mark:i])
+			bytes = 0
+
+			_, err = a.write(msg, to)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	n.endpoints = eps[mark:]
+	_, err = a.write(msg, to)
+
+	return
+}
+
+func (a *agent) readLoop() {
+	defer a.wg.Done()
+	defer close(a.queue)
+
+	buf := make([]byte, maxPacketLength)
+
+	var tempDelay time.Duration
+	var maxDelay = time.Second
+
 	for {
-		var data = make([]byte, maxMessageLength)
-
-		n, from, err = s.UDPConn.ReadFromUDP(data)
+		n, addr, err := a.socket.ReadFromUDP(buf)
 
 		if err != nil {
-			s.log.Error(fmt.Sprintf("Failed to read from UDP socket: %v", err))
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+
+				if tempDelay > maxDelay {
+					tempDelay = maxDelay
+				}
+
+				time.Sleep(tempDelay)
+
+				continue
+			}
 			return
 		}
 
-		for _, flt := range s.filter {
-			if !flt(data[:n], from) {
-				continue Loop
-			}
+		tempDelay = 0
+
+		if n == 0 {
+			continue
 		}
 
-		s.queue <- packet{data[:n], from}
+		p, err := unPacket(buf[:n])
+		if err != nil {
+			continue
+		}
+
+		if p.expired() {
+			continue
+		}
+
+		p.from = addr
+
+		want := true
+		if p.c == codePong || p.c == codeNeighbors {
+			want = a.pool.rec(p)
+		}
+
+		if want {
+			a.handler(p)
+		}
 	}
 }
 
-func (s *socket) handleLoop() {
-	defer s.wg.Done()
+func (a *agent) handleLoop() {
+	defer a.wg.Done()
 
-	for pkt := range s.queue {
-		s.handler(pkt)
+	var pkt *packet
+	for {
+		select {
+		case <-a.term:
+			return
+		case pkt = <-a.queue:
+			a.handler(pkt)
+		}
 	}
 }
 
-func newSocket(listenAddress string, handler func(pkt packet), log log15.Logger) (Socket, error) {
-	udpAddr, err := net.ResolveUDPAddr("udp", listenAddress)
+func (a *agent) write(msg message, addr *net.UDPAddr) (hash []byte, err error) {
+	data, hash, err := msg.pack(a.peerKey)
+
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	var s = socket{
-		addr:    udpAddr,
-		handler: handler,
-		log:     log,
+	n, err := a.socket.WriteToUDP(data, addr)
+
+	if err != nil {
+		return
 	}
 
-	return &s, nil
+	if n != len(data) {
+		err = errIncompleteMessage
+		return
+	}
+
+	return
 }

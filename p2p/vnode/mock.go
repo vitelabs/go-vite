@@ -35,8 +35,8 @@ func mockRest() (ext []byte) {
 	return
 }
 
-func mockNet() int {
-	return mrand.Intn(1000)
+func mockNet() uint32 {
+	return uint32(mrand.Intn(1000))
 }
 
 func MockNode(domain bool, ext bool) *Node {

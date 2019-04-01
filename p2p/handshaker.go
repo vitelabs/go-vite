@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"errors"
 	"net"
 	"time"
 
@@ -21,7 +20,7 @@ const (
 	baseEncRequest  = 1
 	baseEncResponse = 2
 	baseHandshake   = 3
-	baseDisconnect  = 4
+	baseDisconnect  = 4 // body is struct Error
 	baseTooManyMsg  = 5
 	baseHeartBeat   = 6
 )
@@ -31,19 +30,6 @@ const handshakeTimeout = 3 * time.Second
 
 const nonceLen = 32
 const signatureLen = 64
-
-var (
-	errNotBaseProtocolMsg = errors.New("not base protocol message")
-	errNotHandshakeMsg    = errors.New("not handshake message")
-	errInvalidSign        = errors.New("invalid signature")
-	errReadTooShort       = errors.New("read too short")
-	errDifferentNetwork   = errors.New("different network")
-)
-
-type protoData struct {
-	id   ProtocolID
-	data []byte
-}
 
 type protoDataList []*protos.Protocol
 
@@ -123,13 +109,7 @@ type handshaker struct {
 }
 
 func (h *handshaker) catch(codec Codec, err *Error) {
-	buf, _ := err.Serialize()
-	_ = codec.WriteMsg(Msg{
-		Pid:     0,
-		Code:    baseDisconnect,
-		Payload: buf,
-	})
-
+	_ = Disconnect(codec, err)
 	_ = codec.Close()
 }
 
@@ -172,7 +152,7 @@ func (h *handshaker) sendHandshake(codec Codec) (err error) {
 	return nil
 }
 
-func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, e error) {
+func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error) {
 	codec.SetReadTimeout(handshakeTimeout)
 	msg, err := codec.ReadMsg()
 	if err != nil {
@@ -184,8 +164,13 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, e error) {
 	}
 
 	if msg.Code == baseDisconnect {
-		err = deserialize(msg.Payload)
-		return
+		var e = new(Error)
+		err = e.Deserialize(msg.Payload)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, e
 	}
 
 	if msg.Code != baseHandshake {

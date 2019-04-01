@@ -299,12 +299,7 @@ func (p *peerMux) handleLoop() (err error) {
 func (p *peerMux) Close(err PeerError) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 
-		buf, _ := err.Serialize()
-		err2 = p.WriteMsg(Msg{
-			Pid:     baseProtocolID,
-			Code:    baseDisconnect,
-			Payload: buf,
-		})
+		_ = Disconnect(p, err)
 
 		atomic.StoreInt32(&p.writable, 0)
 

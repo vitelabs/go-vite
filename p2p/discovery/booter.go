@@ -5,17 +5,21 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p2/vnode"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
+// booter can supply bootNodes
 type booter interface {
+	// getBootNodes return count nodes
 	getBootNodes(count int) []*Node
 }
 
+// booterDB can retrieve bootNodes
 type booterDB interface {
-	readNodes(count int, maxAge time.Duration) []*Node
+	ReadNodes(count int, maxAge time.Duration) []*Node
 }
 
+// dbBooter supply bootNodes from database
 type dbBooter struct {
 	db booterDB
 }
@@ -27,9 +31,10 @@ func newDBBooter(db booterDB) booter {
 }
 
 func (d *dbBooter) getBootNodes(count int) []*Node {
-	return d.db.readNodes(count, maxSeedAge)
+	return d.db.ReadNodes(count, seedMaxAge)
 }
 
+// cfgBooter supply bootNodes from config
 type cfgBooter struct {
 	bootNodes []*Node
 }
@@ -72,6 +77,7 @@ func (c *cfgBooter) getBootNodes(count int) []*Node {
 	return c.bootNodes
 }
 
+// netBooter supply bootNodes from service, eg. HTTP request.
 type netBooter struct {
 	self  *vnode.Node
 	seeds []string

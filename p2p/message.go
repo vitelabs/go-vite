@@ -66,3 +66,37 @@ func (e *Error) Deserialize(data []byte) (err error) {
 
 	return nil
 }
+
+func Disconnect(w MsgWriter, err error) (e2 error) {
+	var msg = Msg{
+		Pid:  baseProtocolID,
+		Code: baseDisconnect,
+	}
+
+	if err != nil {
+		var e *Error
+		if pe, ok := err.(PeerError); ok {
+			e = &Error{
+				Code:    uint32(pe),
+				Message: pe.Error(),
+			}
+		} else if e, ok = err.(*Error); ok {
+			// do nothing
+		} else {
+			e = &Error{
+				Message: err.Error(),
+			}
+		}
+
+		msg.Payload, e2 = e.Serialize()
+		if e2 != nil {
+			return e2
+		}
+
+		return
+	}
+
+	e2 = w.WriteMsg(msg)
+
+	return nil
+}

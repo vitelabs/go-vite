@@ -124,7 +124,7 @@ type p2p struct {
 	// condition for loop find, if number of peers is little than cfg.minPeers
 	cond *sync.Cond
 	dialer
-	staticNodes []vnode.Node
+	staticNodes []*vnode.Node
 
 	ptMap map[ProtocolID]Protocol
 
@@ -148,14 +148,25 @@ type p2p struct {
 func New(cfg Config) P2P {
 	cfg.ensure()
 
+	staticNodes := make([]*vnode.Node, 0, len(cfg.StaticNodes))
+	for _, u := range cfg.StaticNodes {
+		n, err := vnode.ParseNode(u)
+		if err != nil {
+			panic(err)
+		}
+
+		staticNodes = append(staticNodes, n)
+	}
+
 	log := log15.New("module", "p2p")
 
 	ptMap := make(map[ProtocolID]Protocol)
 	var p = &p2p{
-		cfg:       cfg,
-		ptMap:     ptMap,
-		peerMap:   make(map[vnode.NodeID]PeerMux),
-		peerLevel: make(map[Level][]PeerMux),
+		cfg:         cfg,
+		staticNodes: staticNodes,
+		ptMap:       ptMap,
+		peerMap:     make(map[vnode.NodeID]PeerMux),
+		peerLevel:   make(map[Level][]PeerMux),
 		handshaker: &handshaker{
 			version: version,
 			netId:   cfg.NetID,
@@ -211,12 +222,17 @@ func (p *p2p) Start() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
 		p.term = make(chan struct{})
 
+		// connect static nodes
+		p.dialStatic()
+
 		if err = p.server.Start(); err != nil {
 			return err
 		}
 
-		if err = p.discv.Start(); err != nil {
-			return err
+		if p.cfg.Discovery {
+			if err = p.discv.Start(); err != nil {
+				return err
+			}
 		}
 
 		p.wg.Add(1)
@@ -229,7 +245,7 @@ func (p *p2p) Start() (err error) {
 	return errP2PAlreadyRunning
 }
 
-func (p *p2p) Stop() error {
+func (p *p2p) Stop() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		close(p.term)
 
@@ -240,6 +256,14 @@ func (p *p2p) Stop() error {
 		p.rw.RUnlock()
 
 		p.wg.Wait()
+
+		if p.cfg.Discovery {
+			err = p.discv.Stop()
+		}
+
+		err = p.server.Stop()
+
+		return
 	}
 
 	return errP2PNotRunning
@@ -424,6 +448,12 @@ func (p *p2p) count() int {
 	defer p.rw.RUnlock()
 
 	return len(p.peerMap)
+}
+
+func (p *p2p) dialStatic() {
+	for _, n := range p.staticNodes {
+		p.connect(n)
+	}
 }
 
 func (p *p2p) findLoop() {
