@@ -32,7 +32,8 @@ func (tp *testProcessor) work() {
 		}
 		task := tp.w.popContractTask()
 		if task != nil {
-			if result := tp.w.addContractIntoWorkingList(&task.Addr); !result {
+			signal.Info(fmt.Sprintf("tp %v wakeup addr %v quota %v", tp.taskId, task.Addr, task.Quota))
+			if tp.w.isContractInBlackList(&task.Addr) || !tp.w.addContractIntoWorkingList(&task.Addr) {
 				continue
 			}
 			tp.w.acquireNewOnroadBlocks(&task.Addr)
@@ -45,23 +46,19 @@ func (tp *testProcessor) work() {
 		if tp.w.isCancel.Load() {
 			break
 		}
-		//tp.log.Info(fmt.Sprintf("tp %v start to sleep", tp.taskId))
 		tp.w.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskId*2+500))
-		//tp.log.Info(fmt.Sprintf("tp %v start to wakeup", tp.taskId))
 	}
 	tp.log.Info("tp end work")
 }
 
 func (tp *testProcessor) process(task *contractTask) {
-	tp.log.Info("process start")
-	tplog := tp.log.New("contract", &task.Addr)
-	tplog.Info(fmt.Sprintf("current quota %v", task.Quota))
+	tp.log.Info("process start", "contract", &task.Addr)
 	rand.Seed(time.Now().UnixNano())
 	sBlock := tp.w.getPendingOnroadBlock(&task.Addr)
 	if sBlock == nil {
 		return
 	}
-	blog := tplog.New("onroad", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
+	blog := tp.log.New("onroad", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
 
 	if err := tp.w.chain.InsertIntoChain(&task.Addr, &sBlock.Hash); err != nil {
 		tp.w.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
@@ -73,7 +70,7 @@ func (tp *testProcessor) process(task *contractTask) {
 
 	if !tp.w.chain.CheckQuota(&task.Addr) {
 		tp.w.addContractIntoBlackList(&task.Addr)
-		blog.Info("addContractCallerToInferiorList, cause quota is sufficient")
+		blog.Info("addContractIntoBlackList, cause quota is sufficient")
 		return
 	}
 	tp.log.Info("process end")

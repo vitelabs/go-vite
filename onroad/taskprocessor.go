@@ -45,7 +45,7 @@ func (tp *ContractTaskProcessor) work() {
 		tp.log.Debug("after popContractTask")
 
 		if task != nil {
-			if result := tp.worker.addContractIntoWorkingList(task.Addr); !result {
+			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}
 			tp.worker.acquireNewOnroadBlocks(&task.Addr)
