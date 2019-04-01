@@ -369,6 +369,9 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 		} else {
 			lowBoundary = blockHeader
 			estimateHeight = blockHeader.Height + uint64(timeSec-blockHeader.Timestamp.Unix())
+			if estimateHeight > latest.Height {
+				highBoundary = latest
+			}
 		}
 	}
 
