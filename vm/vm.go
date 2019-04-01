@@ -33,10 +33,8 @@ type VMConfig struct {
 }
 
 type NodeConfig struct {
-	isTest      bool
-	calcQuota   func(db vm_db.VmDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
-	canTransfer func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
-
+	isTest         bool
+	canTransfer    func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 	interpreterLog log15.Logger
 	log            log15.Logger
 	IsDebug        bool
@@ -52,9 +50,6 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-			calcQuota: func(db vm_db.VmDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-				return 1000000, 0, nil
-			},
 			canTransfer: func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
@@ -62,9 +57,6 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	} else {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
-			calcQuota: func(db vm_db.VmDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-				return quota.CalcQuotaForBlock(db, addr, pledgeAmount, difficulty)
-			},
 			canTransfer: func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
 					b, err := db.GetBalance(&tokenTypeId)
@@ -88,7 +80,7 @@ func InitVmConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	nodeConfig.log = log15.New("module", "vm")
 	nodeConfig.interpreterLog = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
-	quota.InitQuotaConfig(isTestParam)
+	quota.InitQuotaConfig(isTest, isTestParam)
 	nodeConfig.IsDebug = isDebug
 	if isDebug {
 		InitLog(datadir, "dbug")
@@ -214,7 +206,7 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			return vm.receiveRefund(db, blockcopy, sendBlock, contractMeta)
 		}
 	case ledger.BlockTypeSendCreate:
-		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 			db,
 			block.AccountAddress,
 			getPledgeAmount(db),
@@ -229,7 +221,7 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			return vmAccountBlock, NoRetry, nil
 		}
 	case ledger.BlockTypeSendCall:
-		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 			db,
 			block.AccountAddress,
 			getPledgeAmount(db),
@@ -483,7 +475,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 	} else {
 		// check can make transaction
-		quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
+		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 			db,
 			block.AccountAddress,
 			getPledgeAmount(db),
@@ -657,7 +649,7 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveRefund"}, time.Now())
 	// check can make transaction
-	quotaTotal, quotaAddition, err := nodeConfig.calcQuota(
+	quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 		db,
 		block.AccountAddress,
 		getPledgeAmount(db),
