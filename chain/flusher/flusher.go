@@ -19,7 +19,7 @@ type Storage interface {
 
 	CancelPrepare()
 
-	RedoLog() []byte
+	RedoLog() ([]byte, error)
 
 	Commit() error
 
@@ -82,7 +82,11 @@ func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flushe
 
 func (flusher *Flusher) Flush() {
 	flusher.mu.Lock()
-	defer flusher.mu.Unlock()
+	defer func() {
+		flusher.cleanRedoLog()
+		flusher.mu.Unlock()
+
+	}()
 
 	// prepare
 	for _, store := range flusher.storeList {
@@ -98,7 +102,12 @@ func (flusher *Flusher) Flush() {
 
 	for _, store := range flusher.storeList {
 
-		redoLog := store.RedoLog()
+		redoLog, err := store.RedoLog()
+		if err != nil {
+			flusher.log.Error(fmt.Sprintf("store.RedoLog failed. Error: %s", err.Error()), "method", "Flush")
+			return
+		}
+
 		redoLogLength := uint32(len(redoLog))
 
 		if redoLogLength <= 0 {
@@ -137,7 +146,8 @@ func (flusher *Flusher) Flush() {
 
 		// clean redo log failed
 		if err := flusher.cleanRedoLog(); err != nil {
-			flusher.log.Crit(err.Error(), "method", "Flush")
+			flusher.log.Error(err.Error(), "method", "Flush")
+			return
 		}
 
 		flusher.log.Error(fmt.Sprintf("sync failed. Error: %s", err.Error()), "method", "Flush")
@@ -148,30 +158,17 @@ func (flusher *Flusher) Flush() {
 	for _, store := range flusher.storeList {
 		if err := store.Commit(); err != nil {
 
-			if err := flusher.Redo(); err != nil {
+			// redo
+			if err := flusher.commitRedo(); err != nil {
 				panic(err)
+			} else {
+				break
 			}
 
 			flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", err.Error()), "method", "Flush")
 		}
 
 	}
-
-	// clean flush log
-	flusher.cleanRedoLog()
-}
-
-func (flusher *Flusher) Redo() error {
-	flusher.mu.Lock()
-	defer flusher.mu.Unlock()
-
-	redoLogList, stores, err := flusher.loadRedo()
-	if err != nil {
-		panic(err)
-	}
-
-	return flusher.redo(stores, redoLogList)
-
 }
 
 func (flusher *Flusher) Recover() error {
@@ -213,6 +210,19 @@ func (flusher *Flusher) Recover() error {
 //	close(flusher.stopped)
 //	flusher.wg.Wait()
 //}
+
+func (flusher *Flusher) commitRedo() error {
+	flusher.mu.Lock()
+	defer flusher.mu.Unlock()
+
+	redoLogList, stores, err := flusher.loadRedo()
+	if err != nil {
+		panic(err)
+	}
+
+	return flusher.redo(stores, redoLogList)
+
+}
 
 func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
 	fileSize, err := fileutils.FileSize(flusher.fd)

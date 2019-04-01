@@ -17,6 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
+	"sync"
 	"sync/atomic"
 )
 
@@ -45,6 +46,8 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
+
+	flusherMu sync.RWMutex
 
 	status uint32
 }
@@ -111,6 +114,13 @@ func (c *chain) Init() error {
 				return err
 			}
 
+			// init flusher
+			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.indexDB.Store()}, c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+				c.log.Error(cErr.Error(), "method", "Init")
+				return cErr
+			}
+
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
 				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
@@ -118,13 +128,6 @@ func (c *chain) Init() error {
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err
 				}
-			}
-
-			// init flusher
-			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, []chain_flusher.Storage{c.stateDB.Store(), c.indexDB.Store()}, c.chainDir); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
-				c.log.Error(cErr.Error(), "method", "Init")
-				return cErr
 			}
 
 			// check and repair
@@ -202,8 +205,8 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
-	//c.flusher.Stop()
-	c.log.Info("Stop flusher", "method", "Stop")
+	c.blockDB.Stop()
+	c.log.Info("Stop block db", "method", "Stop")
 
 	return nil
 }

@@ -58,12 +58,12 @@ type Account struct {
 	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
 	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
 	BalanceMap        map[types.Hash]*big.Int
+	KvMap             map[types.Hash]map[string][]byte
 
-	ContractMeta     *ledger.ContractMeta
-	Code             []byte
-	LogListMap       map[types.Hash]ledger.VmLogList
-	KeyValue         map[string][]byte
-	SnapshotKeyValue map[types.Hash]map[string][]byte
+	ContractMeta *ledger.ContractMeta
+	Code         []byte
+	LogListMap   map[types.Hash]ledger.VmLogList
+	KeyValue     map[string][]byte
 
 	unconfirmedBlocks map[types.Hash]struct{}
 
@@ -104,7 +104,8 @@ func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []t
 			LogListMap:        make(map[types.Hash]ledger.VmLogList),
 			KeyValue:          make(map[string][]byte),
 
-			SnapshotKeyValue:  make(map[types.Hash]map[string][]byte),
+			KvMap: make(map[types.Hash]map[string][]byte),
+
 			unconfirmedBlocks: make(map[types.Hash]struct{}),
 		}
 		addrList = append(addrList, addr)
@@ -160,18 +161,7 @@ func (acc *Account) AddUnreceivedBlock(block *vm_db.VmAccountBlock) {
 	acc.UnreceivedBlocks = append(acc.UnreceivedBlocks, block)
 }
 
-func (acc *Account) Snapshot(snapshotHash types.Hash, prevSnapshotHash types.Hash) {
-	if len(acc.unconfirmedBlocks) <= 0 {
-		acc.SnapshotKeyValue[snapshotHash] = acc.SnapshotKeyValue[prevSnapshotHash]
-	} else {
-		snapshotKeyValue := make(map[string][]byte, len(acc.KeyValue))
-		for key, value := range acc.KeyValue {
-			snapshotKeyValue[key] = value
-		}
-
-		acc.SnapshotKeyValue[snapshotHash] = snapshotKeyValue
-	}
-
+func (acc *Account) Snapshot(snapshotHash types.Hash) {
 	acc.ConfirmedBlockMap[snapshotHash] = acc.unconfirmedBlocks
 	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
 }
@@ -203,7 +193,10 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	if err != nil {
 		return nil, err
 	}
-	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Sub(balance, big.NewInt(100))))
+
+	balance.Add(balance, big.NewInt(189))
+
+	vmDb.SetBalance(&ledger.ViteTokenId, balance)
 	if options.ContractMeta != nil {
 		vmDb.SetContractMeta(toAccount.addr, options.ContractMeta)
 		toAccount.ContractMeta = options.ContractMeta
@@ -216,15 +209,6 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		logHash = vmDb.GetLogListHash()
 		acc.LogListMap[*logHash] = vmDb.GetLogList()
 	}
-	if len(options.KeyValue) > 0 {
-		for key, value := range options.KeyValue {
-			if err := vmDb.SetValue([]byte(key), value); err != nil {
-				return nil, err
-			}
-			acc.KeyValue[string(key)] = value
-		}
-	}
-	vmDb.Finish()
 
 	tx := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
@@ -241,6 +225,18 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 
 	// compute hash
 	tx.Hash = tx.ComputeHash()
+
+	if len(options.KeyValue) > 0 {
+		acc.KvMap[tx.Hash] = make(map[string][]byte)
+		for key, value := range options.KeyValue {
+			if err := vmDb.SetValue([]byte(key), value); err != nil {
+				return nil, err
+			}
+			acc.KeyValue[string(key)] = value
+			acc.KvMap[tx.Hash][string(key)] = value
+		}
+	}
+	vmDb.Finish()
 
 	// sign
 	if options != nil && options.MockSignature {
@@ -279,11 +275,14 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 	}
 
 	balance, err := vmDb.GetBalance(&ledger.ViteTokenId)
+
 	if err != nil {
 		return nil, err
 	}
 
-	vmDb.SetBalance(&ledger.ViteTokenId, balance.Abs(balance.Add(balance, big.NewInt(100))))
+	balance.Add(balance, big.NewInt(126))
+
+	vmDb.SetBalance(&ledger.ViteTokenId, balance)
 	if UnreceivedBlock.VmDb.GetUnsavedContractMeta() != nil {
 		code := crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())))
 
@@ -301,15 +300,6 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		acc.LogListMap[*logHash] = vmDb.GetLogList()
 	}
 
-	if len(options.KeyValue) > 0 {
-		for key, value := range options.KeyValue {
-			vmDb.SetValue([]byte(key), value)
-			acc.KeyValue[string(key)] = value
-		}
-	}
-
-	vmDb.Finish()
-
 	receiveTx := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: acc.addr,
@@ -324,6 +314,18 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 
 	// compute hash
 	receiveTx.Hash = receiveTx.ComputeHash()
+
+	if len(options.KeyValue) > 0 {
+		acc.KvMap[receiveTx.Hash] = make(map[string][]byte)
+		for key, value := range options.KeyValue {
+			if err := vmDb.SetValue([]byte(key), value); err != nil {
+				return nil, err
+			}
+			acc.KeyValue[string(key)] = value
+			acc.KvMap[receiveTx.Hash][string(key)] = value
+		}
+	}
+	vmDb.Finish()
 
 	// sign
 	if options != nil && options.MockSignature {

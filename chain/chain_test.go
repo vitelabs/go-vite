@@ -93,7 +93,7 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 1000, 200000, 198)
+	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 432, 20000, 198)
 
 	// account
 	testAccount(t, chainInstance, addrList)
@@ -108,10 +108,10 @@ func TestChain(t *testing.T) {
 	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 
 	// state
-	testState(t, chainInstance, accounts)
+	testState(t, chainInstance, accounts, snapshotBlockList)
 
 	// built-in contract
-	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
+	//testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 
 	TearDown(chainInstance)
 

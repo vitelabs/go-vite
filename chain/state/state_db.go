@@ -177,11 +177,12 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 
 	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
 	seekKey[0] = prefix
-	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:1+types.AddressSize+types.TokenTypeIdSize+8], snapshotHeight+1)
+
+	copy(seekKey[1+types.AddressSize:1+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
+	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
 
 	for _, addr := range addrList {
 		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
-		copy(seekKey[1+types.AddressSize:1+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
 
 		iter.Seek(seekKey)
 

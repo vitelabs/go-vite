@@ -168,8 +168,8 @@ func (store *Store) CancelPrepare() {
 	store.flushingBatch.Reset()
 }
 
-func (store *Store) RedoLog() []byte {
-	return store.flushingBatch.Dump()
+func (store *Store) RedoLog() ([]byte, error) {
+	return store.flushingBatch.Dump(), nil
 }
 
 func (store *Store) Commit() error {

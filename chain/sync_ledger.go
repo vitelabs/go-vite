@@ -69,11 +69,11 @@ func (reader *ledgerReader) Bound() (from, to uint64) {
 }
 
 func (reader *ledgerReader) Size() int {
-	return reader.size(reader.fromLocation, reader.toLocation)
+	return int(reader.fromLocation.Distance(reader.chain.blockDB.FileSize(), reader.toLocation))
 }
 
 func (reader *ledgerReader) Read(p []byte) (n int, err error) {
-	readN := reader.size(reader.currentLocation, reader.toLocation)
+	readN := int(reader.currentLocation.Distance(reader.chain.blockDB.FileSize(), reader.toLocation))
 	isEnd := false
 	if readN <= len(p) {
 		isEnd = true
@@ -97,9 +97,4 @@ func (reader *ledgerReader) Read(p []byte) (n int, err error) {
 func (reader *ledgerReader) Close() error {
 	reader.currentLocation = reader.toLocation
 	return nil
-}
-
-func (reader *ledgerReader) size(frontLocation, backLocation *chain_file_manager.Location) int {
-	return int(backLocation.FileId-frontLocation.FileId)*int(reader.chain.blockDB.FileSize()) +
-		int(backLocation.Offset-frontLocation.Offset)
 }

@@ -97,6 +97,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 }
 
 func (sDB *StateDB) InsertSnapshotBlock(invalidAccountBlocks []*ledger.AccountBlock) error {
+	if len(invalidAccountBlocks) <= 0 {
+		return nil
+	}
 	return sDB.Rollback([]*chain_block.SnapshotSegment{{
 		AccountBlocks: invalidAccountBlocks,
 	}})

@@ -33,12 +33,12 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	}
 
 	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil)
+
 	return nil
 }
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
-
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
@@ -71,5 +71,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
 
 	c.flusher.Flush()
+
 	return invalidAccountBlocks, nil
 }

@@ -13,13 +13,13 @@ import (
 
 func TestChain_State(t *testing.T) {
 
-	chainInstance, accounts, _, _, _, _ := SetUp(t, 27, 12348, 101)
+	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 18, 910, 3)
 
-	testState(t, chainInstance, accounts)
+	testState(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
 }
 
-func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
+func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
 	t.Run("GetValue", func(t *testing.T) {
 		GetValue(t, chainInstance, accounts)
 	})
@@ -36,7 +36,7 @@ func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*A
 		GetBalanceMap(t, chainInstance, accounts)
 	})
 	t.Run("GetConfirmedBalanceList", func(t *testing.T) {
-		GetConfirmedBalanceList(t, chainInstance, accounts)
+		GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlocks)
 	})
 
 	t.Run("GetContractMeta", func(t *testing.T) {
@@ -90,40 +90,43 @@ func GetBalanceMap(t *testing.T, chainInstance *chain, accounts map[types.Addres
 	}
 }
 
-func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
+func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
 
-	latestSb := chainInstance.GetLatestSnapshotBlock()
-	snapshotBlocks, err := chainInstance.GetSnapshotBlocks(latestSb.Hash, false, 20)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, snapshotBlock := range snapshotBlocks {
+	for index, snapshotBlock := range snapshotBlocks {
 
 		var addrList []types.Address
 		balanceMap := make(map[types.Address]*big.Int)
+		var highBlock *ledger.AccountBlock
 
 		for _, account := range accounts {
 			addrList = append(addrList, account.addr)
+			highBlock = nil
 
-			confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlock.Hash]
-			var highBlock *ledger.AccountBlock
+			for i := index; i >= 0; i-- {
+				confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlocks[i].Hash]
 
-			for hash := range confirmedBlockHashMap {
-				block, err := chainInstance.GetAccountBlockByHash(hash)
-				if err != nil {
-					t.Fatal(err)
+				for hash := range confirmedBlockHashMap {
+					block, err := chainInstance.GetAccountBlockByHash(hash)
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					if highBlock == nil || block.Height > highBlock.Height {
+						highBlock = block
+					}
+				}
+				if highBlock != nil {
+					break
 				}
 
-				if highBlock == nil || block.Height > highBlock.Height {
-					highBlock = block
-				}
 			}
+
 			if highBlock != nil {
 				balanceMap[account.addr] = account.BalanceMap[highBlock.Hash]
 			} else {
 				balanceMap[account.addr] = big.NewInt(0)
 			}
+
 		}
 		queryBalanceMap, err := chainInstance.GetConfirmedBalanceList(addrList, ledger.ViteTokenId, snapshotBlock.Hash)
 		if err != nil {
@@ -131,9 +134,7 @@ func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[ty
 		}
 		for addr, balance := range queryBalanceMap {
 			if balance.Cmp(balanceMap[addr]) != 0 {
-				t.Fatal("error")
-			} else {
-				fmt.Println(balance)
+				t.Fatal(fmt.Sprintf("snapshotBlock %+v, content %+v, addr: %d, Balance: %d, Balance2: %d", snapshotBlock, snapshotBlock.SnapshotContent, addr.Bytes(), balance, balanceMap[addr]))
 			}
 		}
 	}
@@ -328,7 +329,8 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 		key := iter.Key()
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			return errors.New(fmt.Sprintf("key: %d, kvValue:%d, value: %d", key, kvSet[string(key)], value))
+			fmt.Println(string(key))
+			return errors.New(fmt.Sprintf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value))
 		}
 		iterOk = iter.Prev()
 	}

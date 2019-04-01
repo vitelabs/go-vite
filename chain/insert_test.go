@@ -146,7 +146,7 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 	returnAddrList := make([]types.Address, 0, txCount)
 	heightList := make([]uint64, 0, txCount)
 
-	for i := 0; i < txCount; i++ {
+	for i := 1; i <= txCount; i++ {
 		account := accounts[addrList[rand.Intn(accountNumber)]]
 		tx, err := createVmBlock(account, accounts, addrList)
 		if err != nil {
@@ -157,14 +157,14 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 		}
 
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			prevSb := chainInstance.GetLatestSnapshotBlock()
+
 			sb, err := InsertSnapshotBlock(chainInstance)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			for _, account := range accounts {
-				account.Snapshot(sb.Hash, prevSb.Hash)
+			for addr := range sb.SnapshotContent {
+				accounts[addr].Snapshot(sb.Hash)
 			}
 			snapshotBlockList = append(snapshotBlockList, sb)
 		}
@@ -200,7 +200,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 	})
 
 	keyValue := make(map[string][]byte, 10)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		keyValue[strconv.FormatUint(uint64(time.Now().UnixNano()), 10)] = chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))
 	}
 	cTxOptions := &CreateTxOptions{

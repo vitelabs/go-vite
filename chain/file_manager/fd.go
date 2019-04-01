@@ -11,75 +11,69 @@ var offsetTooBigErr = errors.New("offset > len(fd.buffer)")
 type fileDescription struct {
 	writePerm bool
 
-	fdSet     *fdManager
-	file      *os.File
-	cacheItem *fileCacheItem
+	fdSet      *fdManager
+	fileReader *os.File
+	cacheItem  *fileCacheItem
 
-	bufferLen int64
-	fileId    uint64
+	fileId uint64
 
 	readPointer int64
 
-	writeMaxSize     int64
-	writePointer     int64
-	prevFlushPointer int64
+	writeMaxSize int64
 
 	closed bool
 }
 
 func NewFdByFile(file *os.File) *fileDescription {
 	return &fileDescription{
-		file:      file,
-		writePerm: false,
+		fileReader: file,
+		writePerm:  false,
 	}
 }
+
 func NewFdByBuffer(fdSet *fdManager, cacheItem *fileCacheItem) *fileDescription {
 	return &fileDescription{
 		fdSet:     fdSet,
 		cacheItem: cacheItem,
 
-		fileId:    cacheItem.FileId,
-		bufferLen: cacheItem.BufferLen,
+		fileId: cacheItem.FileId,
 
 		writePerm: false,
 	}
 }
-func NewWriteFd(file *os.File, cacheItem *fileCacheItem) *fileDescription {
 
-	writePointer := cacheItem.BufferLen
-
+func NewWriteFd(fdSet *fdManager, cacheItem *fileCacheItem, writeMaxSize int64) *fileDescription {
 	return &fileDescription{
-		file:             file,
-		cacheItem:        cacheItem,
-		prevFlushPointer: writePointer,
-		writePointer:     writePointer,
+		fdSet:     fdSet,
+		cacheItem: cacheItem,
 
-		writeMaxSize: int64(len(cacheItem.Buffer)),
+		fileId: cacheItem.FileId,
+
+		writeMaxSize: writeMaxSize,
 		writePerm:    true,
 	}
 }
 
 func (fd *fileDescription) Read(b []byte) (int, error) {
-	if fd.file != nil {
-		return fd.file.Read(b)
+	if fd.fileReader != nil {
+		return fd.fileReader.Read(b)
 	}
 
 	readN, err := fd.readAt(b, fd.readPointer)
 	if err != nil {
 		return readN, err
 	}
+
 	fd.readPointer += int64(readN)
 
 	return readN, nil
 }
 
 func (fd *fileDescription) ReadAt(b []byte, offset int64) (int, error) {
-	if fd.file != nil {
-		return fd.file.ReadAt(b, offset)
+	if fd.fileReader != nil {
+		return fd.fileReader.ReadAt(b, offset)
 	}
-	if offset > fd.bufferLen {
-		return 0, offsetTooBigErr
-	}
+
 	readN, err := fd.readAt(b, offset)
 
 	if err != nil {
@@ -89,19 +83,29 @@ func (fd *fileDescription) ReadAt(b []byte, offset int64) (int, error) {
 }
 
 func (fd *fileDescription) Write(buf []byte) (int, error) {
+	cacheItem := fd.cacheItem
+
+	cacheItem.Mu.Lock()
+	defer cacheItem.Mu.Unlock()
+
 	if !fd.writePerm {
-		return 0, errors.New("no write permission.")
+		return 0, errors.New(fmt.Sprintf("can't write, writePerm is %+v\n", fd.writePerm))
 	}
 
-	if fd.cacheItem.IsDelete {
-		return 0, errors.New("file is deleted")
+	if fd.fileId != cacheItem.FileId {
+		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
+	}
+
+	if cacheItem.BufferLen >= fd.writeMaxSize {
+		return 0, errors.New("can't write, fileReader is full")
+	}
+
+	if cacheItem.File == nil {
+		return 0, errors.New("cacheItem.File == nil")
 	}
 
 	bufLen := len(buf)
-	freeSpaceLength := int(fd.writeMaxSize - fd.writePointer)
-	if freeSpaceLength <= 0 {
-		return 0, nil
-	}
+	freeSpaceLength := int(fd.writeMaxSize - cacheItem.BufferLen)
 
 	count := 0
 	if freeSpaceLength < bufLen {
@@ -109,61 +113,76 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 	} else {
 		count = bufLen
 	}
-	nextPointer := fd.writePointer + int64(count)
-	copy(fd.cacheItem.Buffer[fd.writePointer:nextPointer], buf)
 
-	fd.cacheItem.BufferLen += int64(count)
-	fd.writePointer = nextPointer
-	// todo
-	if err := fd.Flush(); err != nil {
-		return count, err
-	}
+	nextPointer := cacheItem.BufferLen + int64(count)
+	copy(cacheItem.Buffer[cacheItem.BufferLen:nextPointer], buf[:count])
+
+	cacheItem.BufferLen = nextPointer
 
 	return count, nil
 }
 
-func (fd *fileDescription) Flush() error {
+func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
 	if fd.closed {
-		return nil
+		return 0, nil
 	}
 
-	if fd.prevFlushPointer >= fd.writePointer {
-		return nil
+	cacheItem := fd.cacheItem
+
+	if cacheItem == nil {
+		return 0, errors.New("cacheItem is nil")
 	}
 
-	if fd.cacheItem.IsDelete {
-		return errors.New("file is deleted")
+	cacheItem.Mu.Lock()
+	defer cacheItem.Mu.Unlock()
+
+	if fd.fileId != cacheItem.FileId {
+		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
 	}
 
-	if _, err := fd.file.Write(fd.cacheItem.Buffer[fd.prevFlushPointer:fd.writePointer]); err != nil {
-		return err
+	if cacheItem.File == nil {
+		return 0, errors.New("cacheItem.File == nil")
 	}
 
-	fd.prevFlushPointer = fd.writePointer
-
-	if fd.writePointer >= fd.writeMaxSize {
-		fd.Close()
+	if cacheItem.FlushPointer >= cacheItem.BufferLen ||
+		cacheItem.FlushPointer >= targetOffset {
+		return cacheItem.FlushPointer, nil
 	}
 
-	return nil
+	n, err := cacheItem.File.Write(cacheItem.Buffer[cacheItem.FlushPointer:targetOffset])
+	cacheItem.FlushPointer += int64(n)
+
+	if err != nil {
+		return cacheItem.FlushPointer, err
+	}
+	if err := cacheItem.File.Sync(); err != nil {
+		return cacheItem.FlushPointer, err
+	}
+
+	return cacheItem.FlushPointer, nil
 }
 
 func (fd *fileDescription) DeleteTo(size int64) error {
-	fd.cacheItem.Mu.Lock()
-	defer fd.cacheItem.Mu.Unlock()
-	if err := fd.file.Truncate(size); err != nil {
+	cacheItem := fd.cacheItem
+
+	if cacheItem == nil {
+		return errors.New("cacheItem is nil")
+	}
+
+	cacheItem.Mu.Lock()
+	defer cacheItem.Mu.Unlock()
+
+	if err := cacheItem.File.Truncate(size); err != nil {
 		return err
 	}
 
-	if _, err := fd.file.Seek(size, 0); err != nil {
+	if _, err := cacheItem.File.Seek(size, 0); err != nil {
 		return err
 	}
 
-	fd.cacheItem.BufferLen = size
-
+	cacheItem.BufferLen = size
+	cacheItem.FlushPointer = size
 	fd.readPointer = size
-	fd.writePointer = size
-	fd.prevFlushPointer = size
 
 	return nil
 }
@@ -172,39 +191,46 @@ func (fd *fileDescription) Close() {
 	if fd.closed {
 		return
 	}
-	if fd.file != nil {
-		fd.file.Close()
+	if fd.fileReader != nil {
+		fd.fileReader.Close()
 	}
 	fd.cacheItem = nil
 }
 
 func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {
-	fd.cacheItem.Mu.RLock()
-	defer fd.cacheItem.Mu.RUnlock()
-	if fd.cacheItem.FileId != fd.fileId {
-		if fd.cacheItem.IsDelete {
-			fd.bufferLen = 0
-			return 0, errors.New("file is deleted")
+	cacheItem := fd.cacheItem
+
+	cacheItem.Mu.RLock()
+	defer cacheItem.Mu.RUnlock()
+
+	if cacheItem.FileId != fd.fileId {
+		if len(cacheItem.Buffer) <= 0 {
+			return 0, nil
 		}
 		var err error
-		fd.file, err = fd.fdSet.getFileFd(fd.fileId)
+		fd.fileReader, err = fd.fdSet.getFileFd(fd.fileId)
 		if err != nil {
 			return 0, err
 		}
-		if fd.file == nil {
-			return 0, errors.New(fmt.Sprintf("can't open file, file id is %d", fd.fileId))
+		if fd.fileReader == nil {
+			return 0, errors.New(fmt.Sprintf("can't open fileReader, fileReader id is %d", fd.fileId))
 		}
 
-		return fd.file.ReadAt(b, offset)
+		return fd.fileReader.ReadAt(b, offset)
 	}
+
+	if offset > cacheItem.BufferLen {
+		return 0, offsetTooBigErr
+	}
+
 	readN := len(b)
 	offsetInt := int(offset)
-	restLen := int(fd.bufferLen) - offsetInt
+	restLen := int(cacheItem.BufferLen) - offsetInt
 
 	if readN > restLen {
 		readN = restLen
 	}
 
-	copy(b, fd.cacheItem.Buffer[offsetInt:offsetInt+readN])
+	copy(b, cacheItem.Buffer[offsetInt:offsetInt+readN])
 	return readN, nil
 }

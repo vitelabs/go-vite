@@ -31,7 +31,22 @@ func NewCache(chain Chain) (*Cache, error) {
 
 	return c, nil
 }
-func (cache *Cache) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
+
+func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) error {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	// delete all confirmed block
+	cache.unconfirmedPool.DeleteBlocks(accountBlocks)
+
+	// rollback quota list
+	for _, block := range accountBlocks {
+		cache.quotaList.Sub(&block.AccountAddress, block.Quota)
+	}
+
+	return nil
+}
+func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 

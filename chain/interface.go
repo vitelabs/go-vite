@@ -66,6 +66,10 @@ type Chain interface {
 	 *	D(Delete)
 	 */
 
+	DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*ledger.AccountBlock, error)
+
+	DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*ledger.AccountBlock, error)
+
 	// contain the snapshot block of toHash, delete all blocks higher than snapshot line
 	DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk, error)
 

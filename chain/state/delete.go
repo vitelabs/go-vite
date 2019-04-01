@@ -13,11 +13,6 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 	batch := sDB.store.NewBatch()
 	//blockHashList := make([]*types.Hash, 0, size)
 
-	var firstSb = deletedSnapshotSegments[0].SnapshotBlock
-	if firstSb == nil {
-		firstSb = sDB.chain.GetLatestSnapshotBlock()
-	}
-
 	allBalanceMap := make(map[types.Address]map[types.TokenTypeId]*big.Int)
 	getBalance := func(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error) {
 		balanceMap, ok := allBalanceMap[addr]
@@ -75,6 +70,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 
 			}
 			allBalanceMap[addr][tokenId] = balance
+
 			// delete history balance
 			if snapshotBlock != nil {
 				deleteKey[string(chain_utils.CreateHistoryBalanceKey(addr, tokenId, snapshotBlock.Height))] = struct{}{}
@@ -108,27 +104,16 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 		}
 	}
 
-	latestSnapshotBlock := sDB.chain.GetLatestSnapshotBlock()
-
 	// reset index
 	for addr, balanceMap := range allBalanceMap {
 		for tokenTypeId, balance := range balanceMap {
 			balanceBytes := balance.Bytes()
 			batch.Put(chain_utils.CreateBalanceKey(addr, tokenTypeId), balanceBytes)
 			if !isDeleteSnapshotBlock {
-				batch.Put(chain_utils.CreateHistoryBalanceKey(addr, tokenTypeId, latestSnapshotBlock.Height), balanceBytes)
+				batch.Put(chain_utils.CreateHistoryBalanceKey(addr, tokenTypeId, sDB.chain.GetLatestSnapshotBlock().Height+1), balanceBytes)
 			}
 		}
 	}
-	//sDB.updateStateDbLocation(batch, location)
-
-	//if err := sDB.store.Write(batch, nil); err != nil {
-	//	return err
-	//}
-	//
-	//if err := sDB.undoLogger.DeleteTo(location); err != nil {
-	//	return err
-	//}
 
 	sDB.store.Write(batch)
 	return nil

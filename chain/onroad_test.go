@@ -1,13 +1,14 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"testing"
 )
 
 func TestChain_OnRoad(t *testing.T) {
 
-	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 1000, 38989, 187)
+	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 123, 1231, 7)
 
 	testOnRoad(t, chainInstance, accounts, addrList)
 	TearDown(chainInstance)
@@ -15,7 +16,7 @@ func TestChain_OnRoad(t *testing.T) {
 
 func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, addrList []types.Address) {
 	t.Run("HasOnRoadBlocks", func(t *testing.T) {
-		HasOnRoadBlocks(t, chainInstance, accounts, addrList)
+		HasOnRoadBlocks(t, chainInstance, accounts)
 	})
 
 	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
@@ -23,15 +24,17 @@ func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 	})
 }
 
-func HasOnRoadBlocks(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, addrList []types.Address) {
-	for _, addr := range addrList {
+func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
+	for _, account := range accounts {
+		addr := account.addr
 		result, err := chainInstance.HasOnRoadBlocks(addr)
 		if err != nil {
 			t.Fatal(err)
 		}
 		account := accounts[addr]
 		if result && len(account.UnreceivedBlocks) <= 0 {
-			t.Fatal("error")
+			chainInstance.HasOnRoadBlocks(addr)
+			t.Fatal(fmt.Sprintf("%s", addr))
 		}
 		if !result && len(account.UnreceivedBlocks) > 0 {
 			t.Fatal("error")

@@ -31,3 +31,7 @@ func (location *Location) Compare(a *Location) int {
 	}
 	return 0
 }
+
+func (location *Location) Distance(fileSize int64, backLocation *Location) int64 {
+	return int64(backLocation.FileId-location.FileId)*fileSize + (backLocation.Offset - location.Offset)
+}

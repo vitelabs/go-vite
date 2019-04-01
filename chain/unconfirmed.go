@@ -47,3 +47,7 @@ func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.Acco
 	}
 	return blockMap
 }
+
+func (c *chain) findDependencies(accountBlocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+	return nil, nil
+}

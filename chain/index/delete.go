@@ -3,13 +3,11 @@ package chain_index
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-// TODO
-func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, location *chain_file_manager.Location) error {
+func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
 	if len(deletedSnapshotSegments) <= 0 {
 		return nil
 	}
@@ -20,8 +18,10 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 
 	for _, seg := range deletedSnapshotSegments {
 		snapshotBlock := seg.SnapshotBlock
-		iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
-		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
+		if snapshotBlock != nil {
+			iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
+			iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
+		}
 
 		for _, block := range seg.AccountBlocks {
 			// delete account block hash index

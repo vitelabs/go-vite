@@ -19,9 +19,9 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
-		return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)))), nil
-	}
+	//if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
+	//	return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)))), nil
+	//}
 
 	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
 	iterator := newStateStorageIterator(newSnapshotStorageIterator(storeIterator, snapshotHeight))
@@ -30,9 +30,9 @@ func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, ad
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	if snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-		return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(&addr, prefix)))), nil
-	}
+	//if snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
+	//	return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(&addr, prefix)))), nil
+	//}
 
 	height, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
 	if err != nil {
@@ -127,9 +127,10 @@ func (sIterator *snapshotStorageIterator) Last() bool {
 	sIterator.iterOk = iter.Last()
 
 	if sIterator.iterOk {
-		key := iter.Key()
-		sIterator.lastKey = key
-		if !sIterator.setCorrectPointer(key) {
+
+		sIterator.setLastKey(iter.Key())
+
+		if !sIterator.setCorrectPointer(sIterator.lastKey) {
 			return sIterator.Prev()
 		}
 	}
@@ -149,10 +150,9 @@ func (sIterator *snapshotStorageIterator) Seek(key []byte) bool {
 	sIterator.iterOk = iter.Seek(key)
 
 	if sIterator.iterOk {
-		key := iter.Key()
-		sIterator.lastKey = key
+		sIterator.setLastKey(iter.Key())
 
-		if !sIterator.setCorrectPointer(key) {
+		if !sIterator.setCorrectPointer(sIterator.lastKey) {
 			return sIterator.Next()
 		}
 	}
@@ -201,12 +201,7 @@ func (sIterator *snapshotStorageIterator) step(isNext bool) bool {
 			break
 		}
 
-		// copy is important
-		iterKeyLen := len(iter.Key())
-		if len(sIterator.lastKey) < iterKeyLen {
-			sIterator.lastKey = make([]byte, iterKeyLen)
-		}
-		copy(sIterator.lastKey, iter.Key())
+		sIterator.setLastKey(iter.Key())
 
 		if sIterator.setCorrectPointer(sIterator.lastKey) {
 			break
@@ -247,4 +242,14 @@ func (sIterator *snapshotStorageIterator) setCorrectPointer(key []byte) bool {
 }
 func (sIterator *snapshotStorageIterator) isBeforeOrEqualHeight(key []byte) bool {
 	return binary.BigEndian.Uint64(key[len(key)-8:]) <= sIterator.snapshotHeight
+}
+
+func (sIterator *snapshotStorageIterator) setLastKey(key []byte) {
+	// copy is important
+	iterKeyLen := len(key)
+	if len(sIterator.lastKey) != iterKeyLen {
+		sIterator.lastKey = make([]byte, iterKeyLen)
+	}
+	// copy is important
+	copy(sIterator.lastKey, key)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// TODO
 func (c *chain) recoverUnconfirmedCache() error {
 	// rebuild unconfirmed cache
 	height := c.GetLatestSnapshotBlock().Height
@@ -27,6 +28,7 @@ func (c *chain) recoverUnconfirmedCache() error {
 			c.cache.RecoverAccountBlocks(chunk.AccountBlocks)
 		}
 	}
+
 	return nil
 }
 

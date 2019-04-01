@@ -25,8 +25,7 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	return nil
 }
 
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock,
-	snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location,
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location,
 	invalidBlocks []*ledger.AccountBlock) {
 
 	batch := iDB.store.NewBatch()

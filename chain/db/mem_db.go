@@ -46,7 +46,7 @@ func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
 func (mDb *MemDB) Delete(key []byte) {
 	mDb.storage.Delete(key)
 
-	delete(mDb.deletedKey, string(key))
+	mDb.deletedKey[string(key)] = struct{}{}
 }
 
 func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {

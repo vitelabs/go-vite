@@ -1,6 +1,7 @@
 package chain_file_manager
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/fileutils"
@@ -9,16 +10,19 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"container/list"
 )
 
 type fileCacheItem struct {
-	Buffer    []byte
-	BufferLen int64
-	Mu        sync.RWMutex
-	FileId    uint64
-	IsDelete  bool
+	Buffer []byte
+
+	BufferLen    int64
+	FlushPointer int64
+
+	FileId uint64
+
+	Mu sync.RWMutex
+
+	File *os.File
 }
 
 type fdManager struct {
@@ -77,20 +81,21 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 }
 
 func (fdSet *fdManager) LatestLocation() *Location {
-	return NewLocation(fdSet.maxFileId, fdSet.writeFd.writePointer)
+	writeFd := fdSet.GetWriteFd()
+	return NewLocation(writeFd.cacheItem.FileId, writeFd.cacheItem.BufferLen)
 }
-func (fdSet *fdManager) GetFd(location *Location) (*fileDescription, error) {
-	fileId := location.FileId
+func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
+
 	if fileId > fdSet.maxFileId {
 		return nil, nil
 	}
 
-	fileCacheItem := fdSet.getCacheItem(location.FileId)
+	fileCacheItem := fdSet.getCacheItem(fileId)
 	if fileCacheItem != nil {
 		return NewFdByBuffer(fdSet, fileCacheItem), nil
 	}
 
-	fd, err := fdSet.getFileFd(location.FileId)
+	fd, err := fdSet.getFileFd(fileId)
 	if err != nil {
 		return nil, err
 	}
@@ -113,14 +118,19 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 			fdSet.writeFd = nil
 		}
 
-		fileCacheItem := fdSet.getCacheItem(location.FileId)
-		if fileCacheItem != nil {
-			fileCacheItem.Mu.Lock()
-			fileCacheItem.FileId = 0
-			fileCacheItem.Buffer = nil
-			fileCacheItem.BufferLen = 0
-			fileCacheItem.IsDelete = true
-			fileCacheItem.Mu.Unlock()
+		cacheItem := fdSet.fileCache.Back().Value.(*fileCacheItem)
+		if cacheItem != nil {
+			cacheItem.Mu.Lock()
+
+			if err := cacheItem.File.Close(); err != nil {
+				cacheItem.Mu.Unlock()
+				return err
+			}
+
+			cacheItem.FileId = 0
+			cacheItem.Buffer = nil
+			cacheItem.BufferLen = 0
+			cacheItem.Mu.Unlock()
 
 			fdSet.fileCache.Remove(fdSet.fileCache.Back())
 		}
@@ -139,27 +149,20 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 	return nil
 }
 
-func (fdSet *fdManager) CreateNextFd() (*Location, error) {
-	// write file
-	if fdSet.writeFd != nil {
-		if err := fdSet.writeFd.Flush(); err != nil {
-			return nil, errors.New(fmt.Sprintf("fm.latestFileFd.Write failed, error is %s", err.Error()))
-		}
-		fdSet.writeFd = nil
-	}
-
-	nextLocation := NewLocation(fdSet.maxFileId+1, 0)
+func (fdSet *fdManager) CreateNextFd() error {
+	// set write fd
+	fdSet.writeFd = nil
 
 	// update maxFileId
-	fdSet.maxFileId = nextLocation.FileId
+	fdSet.maxFileId += 1
 
-	// update file cache
+	// update fileReader cache
 	if err := fdSet.resetWriteFd(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// set write fd
-	return nextLocation, nil
+	return nil
 
 }
 
@@ -222,17 +225,27 @@ func (fdSet *fdManager) resetWriteFd() error {
 		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
 
 		newItem.Mu.Lock()
+
+		if err := newItem.File.Close(); err != nil {
+			newItem.Mu.Unlock()
+			return err
+		}
+
+		newItem.File = fd
 		newItem.BufferLen = fileSize
+		newItem.FlushPointer = fileSize
 		newItem.FileId = fileId
+
 		newItem.Mu.Unlock()
 
 		fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
 	} else {
 		newItem = &fileCacheItem{
-			Buffer:    make([]byte, fdSet.fileSize),
-			BufferLen: fileSize,
-			FileId:    fileId,
-			IsDelete:  false,
+			Buffer:       make([]byte, fdSet.fileSize),
+			BufferLen:    fileSize,
+			FlushPointer: fileSize,
+			FileId:       fileId,
+			File:         fd,
 		}
 		fdSet.fileCache.PushBack(newItem)
 	}
@@ -248,7 +261,7 @@ func (fdSet *fdManager) resetWriteFd() error {
 		return err
 	}
 
-	fdSet.writeFd = NewWriteFd(fd, newItem)
+	fdSet.writeFd = NewWriteFd(fdSet, newItem, fdSet.fileSize)
 
 	return nil
 }
@@ -329,7 +342,7 @@ func (fdSet *fdManager) createNewFile(fileId uint64) (*os.File, error) {
 	file, cErr := os.Create(absoluteFilename)
 
 	if cErr != nil {
-		return nil, errors.New("Create file failed, error is " + cErr.Error())
+		return nil, errors.New("Create fileReader failed, error is " + cErr.Error())
 	}
 
 	return file, nil
