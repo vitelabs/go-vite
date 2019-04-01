@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/genesis"
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
@@ -47,6 +48,23 @@ func IsSnapshotBlockExisted(t *testing.T, chainInstance *chain, snapshotBlockLis
 	}
 
 }
+
+func IsGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
+	genesisSnapshotBlock := chainInstance.GetGenesisSnapshotBlock()
+	if !chainInstance.IsGenesisSnapshotBlock(genesisSnapshotBlock.Hash) {
+		t.Fatal("error")
+	}
+
+	for i := 0; i < 100; i++ {
+		hash, err := types.BytesToHash(crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))))
+		if err != nil {
+			if chainInstance.IsGenesisSnapshotBlock(hash) {
+				t.Fatal("error")
+			}
+		}
+	}
+}
+
 func GetGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
 	genesisSnapshotBlock := chainInstance.GetGenesisSnapshotBlock()
 
@@ -502,6 +520,9 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 }
 
 func testSnapshotBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+	t.Run("IsGenesisSnapshotBlock", func(t *testing.T) {
+		IsGenesisSnapshotBlock(t, chainInstance)
+	})
 	t.Run("IsSnapshotBlockExisted", func(t *testing.T) {
 		IsSnapshotBlockExisted(t, chainInstance, snapshotBlockList)
 	})

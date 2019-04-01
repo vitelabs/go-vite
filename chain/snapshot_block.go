@@ -14,7 +14,7 @@ import (
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {
 	block := c.GetGenesisSnapshotBlock()
-	if block != nil {
+	if block == nil {
 		var err error
 		block, err = c.GetSnapshotHeaderByHeight(1)
 
