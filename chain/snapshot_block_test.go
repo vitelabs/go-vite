@@ -13,7 +13,7 @@ import (
 )
 
 func TestChain_SnapshotBlock(t *testing.T) {
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 1000, 12345, 7)
+	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 10, 1234, 7)
 
 	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)

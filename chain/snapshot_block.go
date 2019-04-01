@@ -355,15 +355,16 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 		if blockHeader.Timestamp.UnixNano() >= timeNanosecond {
 			highBoundary = blockHeader
 			gap := uint64(blockHeader.Timestamp.Unix() - timeSec)
-			if blockHeader.Height <= gap {
-				lowBoundary = genesis
-				break
-			}
-
 			if gap <= 0 {
 				gap = 1
 			}
-			estimateHeight = blockHeader.Height - gap
+
+			if blockHeader.Height <= gap {
+				lowBoundary = genesis
+				break
+			} else {
+				estimateHeight = blockHeader.Height - gap
+			}
 
 		} else {
 			lowBoundary = blockHeader
@@ -371,9 +372,9 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 		}
 	}
 
-	//if highBoundary.Height == lowBoundary.Height+1 {
-	//	return lowBoundary, nil
-	//}
+	if highBoundary.Height == lowBoundary.Height+1 {
+		return lowBoundary, nil
+	}
 	block, err := c.binarySearchBeforeTime(lowBoundary, highBoundary, timeNanosecond)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.binarySearchBeforeTime failed,  lowBoundary is %+v, highBoundary is %+v, timeNanosecond is %d",
