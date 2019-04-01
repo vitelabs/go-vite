@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"path"
 )
 
@@ -15,10 +17,10 @@ type IndexDB struct {
 }
 
 func NewIndexDB(chainDir string) (*IndexDB, error) {
+	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
 
 	var err error
-
-	store, err := chain_db.NewStore(path.Join(chainDir, "index"), 0)
+	store, err := chain_db.NewStore(path.Join(chainDir, "index"), 0, id)
 	if err != nil {
 		return nil, err
 	}

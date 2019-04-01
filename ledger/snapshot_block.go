@@ -276,6 +276,7 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) error {
 
 	// 7
 	sb.Seed = pb.Seed
+
 	// 8
 	if len(pb.SeedHash) > 0 {
 		seedHash, err := types.BytesToHash(pb.SeedHash)

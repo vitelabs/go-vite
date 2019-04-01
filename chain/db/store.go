@@ -5,6 +5,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/dbutils"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"os"
 	"sync"
@@ -12,6 +13,7 @@ import (
 )
 
 type Store struct {
+	id    types.Hash
 	mu    sync.RWMutex
 	memDb *MemDB
 
@@ -21,7 +23,7 @@ type Store struct {
 	flushingBatch *leveldb.Batch
 }
 
-func NewStore(dataDir string, flushInterval time.Duration) (*Store, error) {
+func NewStore(dataDir string, flushInterval time.Duration, id types.Hash) (*Store, error) {
 	if flushInterval <= 0 {
 		flushInterval = time.Second
 	}
@@ -37,6 +39,7 @@ func NewStore(dataDir string, flushInterval time.Duration) (*Store, error) {
 		flushingBatch: new(leveldb.Batch),
 		dbDir:         dataDir,
 		db:            db,
+		id:            id,
 	}
 
 	return store, nil
@@ -167,6 +170,10 @@ func (store *Store) Clean() error {
 	store.db = nil
 
 	return nil
+}
+
+func (store *Store) Id() types.Hash {
+	return store.id
 }
 
 func (store *Store) Prepare() {

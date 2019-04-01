@@ -13,7 +13,25 @@ import (
 )
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {
-	return true
+	block := c.GetGenesisSnapshotBlock()
+	if block != nil {
+		var err error
+		block, err = c.GetSnapshotHeaderByHeight(1)
+
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err))
+			c.log.Error(cErr.Error(), "method", "IsGenesisSnapshotBlock")
+			return false
+		}
+		if block == nil {
+			cErr := errors.New(fmt.Sprintf("block is nil"))
+			c.log.Error(cErr.Error(), "method", "IsGenesisSnapshotBlock")
+			return false
+		}
+	}
+
+	return block.Hash == hash
+
 }
 func (c *chain) IsSnapshotBlockExisted(hash types.Hash) (bool, error) {
 	// cache

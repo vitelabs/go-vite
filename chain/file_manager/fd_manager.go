@@ -132,11 +132,10 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 		return err
 	}
 
-	// truncate
-	if err := fdSet.writeFd.Truncate(location.Offset); err != nil {
+	// delete
+	if err := fdSet.writeFd.DeleteTo(location.Offset); err != nil {
 		return err
 	}
-
 	return nil
 }
 

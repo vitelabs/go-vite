@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -22,7 +23,10 @@ type StateDB struct {
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
-	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0)
+	id, _ := types.BytesToHash(crypto.Hash256([]byte("stateDb")))
+
+	var err error
+	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0, id)
 
 	if err != nil {
 		return nil, err

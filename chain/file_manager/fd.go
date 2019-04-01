@@ -9,6 +9,8 @@ import (
 var offsetTooBigErr = errors.New("offset > len(fd.buffer)")
 
 type fileDescription struct {
+	writePerm bool
+
 	fdSet     *fdManager
 	file      *os.File
 	cacheItem *fileCacheItem
@@ -18,12 +20,11 @@ type fileDescription struct {
 
 	readPointer int64
 
-	writeMaxSize int64
-	writePointer int64
-	writePerm    bool
-
+	writeMaxSize     int64
+	writePointer     int64
 	prevFlushPointer int64
-	closed           bool
+
+	closed bool
 }
 
 func NewFdByFile(file *os.File) *fileDescription {
@@ -56,19 +57,6 @@ func NewWriteFd(file *os.File, cacheItem *fileCacheItem) *fileDescription {
 		writeMaxSize: int64(len(cacheItem.Buffer)),
 		writePerm:    true,
 	}
-}
-
-func (fd *fileDescription) Seek(offset int64) (int64, error) {
-	if fd.file != nil {
-		return fd.file.Seek(offset, 0)
-	}
-
-	if offset > fd.bufferLen {
-		return fd.readPointer, offsetTooBigErr
-	}
-
-	fd.readPointer = offset
-	return fd.readPointer, nil
 }
 
 func (fd *fileDescription) Read(b []byte) (int, error) {
@@ -160,14 +148,22 @@ func (fd *fileDescription) Flush() error {
 	return nil
 }
 
-func (fd *fileDescription) Truncate(size int64) error {
+func (fd *fileDescription) DeleteTo(size int64) error {
 	fd.cacheItem.Mu.Lock()
 	defer fd.cacheItem.Mu.Unlock()
 	if err := fd.file.Truncate(size); err != nil {
 		return err
 	}
+
+	if _, err := fd.file.Seek(size, 0); err != nil {
+		return err
+	}
+
 	fd.cacheItem.BufferLen = size
+
+	fd.readPointer = size
 	fd.writePointer = size
+	fd.prevFlushPointer = size
 
 	return nil
 }

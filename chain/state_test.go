@@ -301,19 +301,15 @@ func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (in
 		t.Fatal(err)
 	}
 	count := 0
-	fmt.Println(1)
 	for iter.Next() {
-
 		count++
 		key := iter.Key()
-		fmt.Println(string(key))
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
 			t.Fatal(fmt.Sprintf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value))
 		}
 	}
-	fmt.Println(2)
 	if err := iter.Error(); err != nil {
 		t.Fatal(err)
 	}
@@ -323,9 +319,7 @@ func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (in
 
 	iterOk := iter.Last()
 	count2 := 0
-	fmt.Println(3)
 	for iterOk {
-
 		count2++
 		key := iter.Key()
 		value := iter.Value()
@@ -334,7 +328,6 @@ func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (in
 		}
 		iterOk = iter.Prev()
 	}
-	fmt.Println(4)
 	if err := iter.Error(); err != nil {
 		t.Fatal(err)
 	}
