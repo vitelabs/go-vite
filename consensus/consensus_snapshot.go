@@ -132,6 +132,15 @@ func (self *snapshotCs) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bo
 	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
 
+func (self *snapshotCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {
+	electionResult, err := self.ElectionTime(t)
+	if err != nil {
+		return false, err
+	}
+
+	return self.verifyProducer(t, address, electionResult), nil
+}
+
 func (self *snapshotCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
 	if result == nil {
 		return false
