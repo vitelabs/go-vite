@@ -236,14 +236,18 @@ func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
 	// 3
 	pb.Height = sb.Height
 	// 4
-
-	// 5
 	pb.PublicKey = sb.PublicKey
-	// 6
+	// 5
 	pb.Signature = sb.Signature
-	// 7
+	// 6
 	pb.Timestamp = sb.Timestamp.UnixNano()
+	// 7
+	pb.Seed = sb.Seed
 	// 8
+	if sb.SeedHash != nil {
+		pb.SeedHash = sb.SeedHash.Bytes()
+	}
+	// 9
 	pb.SnapshotContent = sb.SnapshotContent.proto()
 	return pb
 }
@@ -271,6 +275,17 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) error {
 	sb.Timestamp = &timestamp
 
 	// 7
+	sb.Seed = pb.Seed
+	// 8
+	if len(pb.SeedHash) > 0 {
+		seedHash, err := types.BytesToHash(pb.SeedHash)
+		if err != nil {
+			return err
+		}
+		sb.SeedHash = &seedHash
+	}
+
+	// 9
 	if len(pb.SnapshotContent) > 0 {
 		sb.SnapshotContent = make(SnapshotContent, len(pb.SnapshotContent)/ScItemBytesLen)
 
