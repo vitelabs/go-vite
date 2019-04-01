@@ -3,6 +3,9 @@ package onroad
 import (
 	"container/heap"
 	"fmt"
+	"strconv"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
@@ -11,8 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"go.uber.org/atomic"
-	"strconv"
-	"sync"
 )
 
 type ContractWorker struct {
@@ -241,8 +242,8 @@ func (w *ContractWorker) addContractIntoWorkingList(addr types.Address) bool {
 }
 
 func (w *ContractWorker) removeContractFromWorkingList(addr types.Address) {
-	w.workingAddrListMutex.RLock()
-	defer w.workingAddrListMutex.RUnlock()
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
 	w.workingAddrList[addr] = false
 }
 
