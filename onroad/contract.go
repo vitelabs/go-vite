@@ -297,7 +297,7 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) {
 			pageNum++
 			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum)-1, uint64(DefaultPullCount))
 			if len(blocks) <= 0 {
-				break
+				return
 			}
 			for _, v := range blocks {
 				if !pendingMap.existInInferiorList(v.AccountAddress) {

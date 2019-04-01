@@ -2,26 +2,10 @@ package onroad
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/math"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"math/rand"
-	"testing"
 	"time"
 )
-
-func TestRangeNil(t *testing.T) {
-	var l []*testProcessor
-	for k, v := range l {
-		t.Log("lalallalalal", "k", k, "v", v)
-	}
-	l2 := make([]*testProcessor, 0)
-	for k, v := range l2 {
-		t.Log("babababababab", "k", k, "v", v)
-	}
-
-	t.Log("heheheh", l2[:0])
-}
 
 type testProcessor struct {
 	taskId int
@@ -52,7 +36,7 @@ func (tp *testProcessor) work() {
 				continue
 			}
 			tp.w.acquireNewOnroadBlocks(&task.Addr)
-			tp.process(&task.Addr)
+			tp.process(task)
 			tp.w.removeContractFromWorkingList(&task.Addr)
 			continue
 		}
@@ -68,28 +52,29 @@ func (tp *testProcessor) work() {
 	tp.log.Info("tp end work")
 }
 
-func (tp *testProcessor) process(addr *types.Address) {
-	tp.log.Info("start process")
-	tplog := tp.log.New("contract", addr)
+func (tp *testProcessor) process(task *contractTask) {
+	tp.log.Info("process start")
+	tplog := tp.log.New("contract", &task.Addr)
+	tplog.Info(fmt.Sprintf("current quota %v", task.Quota))
 	rand.Seed(time.Now().UnixNano())
-	block := tp.w.getPendingOnroadBlock(addr)
-	if block == nil {
+	sBlock := tp.w.getPendingOnroadBlock(&task.Addr)
+	if sBlock == nil {
 		return
 	}
-	blog := tplog.New("onroad", fmt.Sprintf("(%v %v)", block.AccountAddress, block.Hash))
-	switch rand.Intn(math.MaxUint8) % 10 {
-	case 0:
-		tp.w.addContractCallerToInferiorList(addr, &block.AccountAddress, RETRY)
-		blog.Info("addContractCallerToInferiorList")
-	case 1:
-		tp.w.addContractCallerToInferiorList(addr, &block.AccountAddress, OUT)
-		blog.Info("addContractCallerToInferiorList")
-	case 2:
-		tp.w.addContractIntoBlackList(addr)
-		blog.Info("addContractIntoBlackList")
-	default:
-		blog.Info("deletePendingOnroadBlock")
-		tp.w.deletePendingOnroadBlock(addr, block)
+	blog := tplog.New("onroad", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
+
+	if err := tp.w.chain.InsertIntoChain(&task.Addr, &sBlock.Hash); err != nil {
+		tp.w.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
+		blog.Info("addContractCallerToInferiorList, cause InsertIntoChain failed")
+		return
 	}
-	tplog.Info("end process")
+	tp.w.deletePendingOnroadBlock(&task.Addr, sBlock)
+	blog.Info("deletePendingOnroadBlock")
+
+	if !tp.w.chain.CheckQuota(&task.Addr) {
+		tp.w.addContractIntoBlackList(&task.Addr)
+		blog.Info("addContractCallerToInferiorList, cause quota is sufficient")
+		return
+	}
+	tp.log.Info("process end")
 }
