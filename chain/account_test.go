@@ -47,6 +47,43 @@ func testAccount(t *testing.T, chainInstance *chain, addrList []types.Address) {
 	})
 }
 
+type Account struct {
+	addr       types.Address
+	privateKey ed25519.PrivateKey
+	publicKey  ed25519.PublicKey
+
+	UnreceivedBlocks []*vm_db.VmAccountBlock
+
+	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
+	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
+	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
+	BalanceMap        map[types.Hash]*big.Int
+
+	ContractMeta     *ledger.ContractMeta
+	Code             []byte
+	LogListMap       map[types.Hash]ledger.VmLogList
+	KeyValue         map[string][]byte
+	SnapshotKeyValue map[types.Hash]map[string][]byte
+
+	unconfirmedBlocks map[types.Hash]struct{}
+
+	latestBlock *ledger.AccountBlock
+
+	unreceivedLock sync.Mutex
+
+	chainInstance Chain
+}
+
+type CreateTxOptions struct {
+	MockVmContext bool
+	MockSignature bool
+	Quota         uint64
+	ContractMeta  *ledger.ContractMeta
+	VmLogList     ledger.VmLogList
+
+	KeyValue map[string][]byte
+}
+
 func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []types.Address) {
 	accountMap := make(map[types.Address]*Account, num)
 	addrList := make([]types.Address, 0, num)
@@ -67,6 +104,7 @@ func MakeAccounts(num int, chainInstance Chain) (map[types.Address]*Account, []t
 			LogListMap:        make(map[types.Hash]ledger.VmLogList),
 			KeyValue:          make(map[string][]byte),
 
+			SnapshotKeyValue:  make(map[types.Hash]map[string][]byte),
 			unconfirmedBlocks: make(map[types.Hash]struct{}),
 		}
 		addrList = append(addrList, addr)
@@ -97,42 +135,6 @@ func GetAccountAddress(t *testing.T, chainInstance *chain, addrList []types.Addr
 	}
 }
 
-type Account struct {
-	addr       types.Address
-	privateKey ed25519.PrivateKey
-	publicKey  ed25519.PublicKey
-
-	UnreceivedBlocks []*vm_db.VmAccountBlock
-
-	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
-	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
-	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
-	BalanceMap        map[types.Hash]*big.Int
-
-	ContractMeta *ledger.ContractMeta
-	Code         []byte
-	LogListMap   map[types.Hash]ledger.VmLogList
-	KeyValue     map[string][]byte
-
-	unconfirmedBlocks map[types.Hash]struct{}
-
-	latestBlock *ledger.AccountBlock
-
-	unreceivedLock sync.Mutex
-
-	chainInstance Chain
-}
-
-type CreateTxOptions struct {
-	MockVmContext bool
-	MockSignature bool
-	Quota         uint64
-	ContractMeta  *ledger.ContractMeta
-	VmLogList     ledger.VmLogList
-
-	KeyValue map[string][]byte
-}
-
 func (acc *Account) Height() uint64 {
 	if acc.latestBlock != nil {
 		return acc.latestBlock.Height
@@ -158,7 +160,18 @@ func (acc *Account) AddUnreceivedBlock(block *vm_db.VmAccountBlock) {
 	acc.UnreceivedBlocks = append(acc.UnreceivedBlocks, block)
 }
 
-func (acc *Account) Snapshot(snapshotHash types.Hash) {
+func (acc *Account) Snapshot(snapshotHash types.Hash, prevSnapshotHash types.Hash) {
+	if len(acc.unconfirmedBlocks) <= 0 {
+		acc.SnapshotKeyValue[snapshotHash] = acc.SnapshotKeyValue[prevSnapshotHash]
+	} else {
+		snapshotKeyValue := make(map[string][]byte, len(acc.KeyValue))
+		for key, value := range acc.KeyValue {
+			snapshotKeyValue[key] = value
+		}
+
+		acc.SnapshotKeyValue[snapshotHash] = snapshotKeyValue
+	}
+
 	acc.ConfirmedBlockMap[snapshotHash] = acc.unconfirmedBlocks
 	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
 }
@@ -209,7 +222,6 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 				return nil, err
 			}
 			acc.KeyValue[string(key)] = value
-
 		}
 	}
 	vmDb.Finish()

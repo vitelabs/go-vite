@@ -76,7 +76,7 @@ func (mi *MergedIterator) Next() bool {
 }
 
 // TODO
-func (mi *MergedIterator) Seek(key []byte) bool {
+func (mi *MergedIterator) Seek(seeKey []byte) bool {
 	mi.reset()
 	mi.directionToNext = true
 
@@ -84,8 +84,9 @@ func (mi *MergedIterator) Seek(key []byte) bool {
 	var fitKey []byte
 
 	for i := 0; i < len(mi.iters); i++ {
+
 		iter := mi.iters[i]
-		iterOk := iter.Seek(key)
+		iterOk := iter.Seek(seeKey)
 		if !iterOk {
 			mi.iterStatus[i] = iterPointTail
 			continue
@@ -101,14 +102,13 @@ func (mi *MergedIterator) Seek(key []byte) bool {
 		if !iterOk {
 			mi.iterStatus[i] = iterPointTail
 			continue
-		} else {
-			mi.keys[i] = key
+		}
+		mi.keys[i] = iter.Key()
 
-			compareResult := mi.cmp.Compare(key, fitKey)
-			if compareResult < 0 || len(fitKey) <= 0 {
-				fitKey = key
-				fitKeyIndex = i
-			}
+		compareResult := mi.cmp.Compare(mi.keys[i], fitKey)
+		if compareResult < 0 || len(fitKey) <= 0 {
+			fitKey = mi.keys[i]
+			fitKeyIndex = i
 		}
 
 	}

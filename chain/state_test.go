@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"testing"
@@ -288,45 +289,57 @@ func GetValue(t *testing.T, chainInstance *chain, accounts map[types.Address]*Ac
 
 func GetStorageIterator(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-
-		iter, err := chainInstance.GetStorageIterator(account.addr, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		count := 0
-		for iter.Next() {
-			count++
-			key := iter.Key()
-			value := iter.Value()
-			if !bytes.Equal(account.KeyValue[string(key)], value) {
-				t.Fatal("error")
-			}
-		}
-		if err := iter.Error(); err != nil {
-			t.Fatal(err)
-		}
-		if count != len(account.KeyValue) {
-			t.Fatal(err)
-		}
-
-		iterOk := iter.Last()
-		count2 := 0
-		for iterOk {
-
-			count2++
-			key := iter.Key()
-			value := iter.Value()
-			if !bytes.Equal(account.KeyValue[string(key)], value) {
-				t.Fatal("error")
-			}
-			iterOk = iter.Prev()
-		}
-		if err := iter.Error(); err != nil {
-			t.Fatal(err)
-		}
-		if count2 != len(account.KeyValue) {
-			t.Fatal(err)
-		}
-
+		checkIterator(t, account.KeyValue, func() (interfaces.StorageIterator, error) {
+			return chainInstance.GetStorageIterator(account.addr, nil)
+		})
 	}
+}
+
+func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (interfaces.StorageIterator, error)) {
+	iter, err := getIterator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	fmt.Println(1)
+	for iter.Next() {
+
+		count++
+		key := iter.Key()
+		fmt.Println(string(key))
+
+		value := iter.Value()
+		if !bytes.Equal(kvSet[string(key)], value) {
+			t.Fatal(fmt.Sprintf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value))
+		}
+	}
+	fmt.Println(2)
+	if err := iter.Error(); err != nil {
+		t.Fatal(err)
+	}
+	if count != len(kvSet) {
+		t.Fatal(err)
+	}
+
+	iterOk := iter.Last()
+	count2 := 0
+	fmt.Println(3)
+	for iterOk {
+
+		count2++
+		key := iter.Key()
+		value := iter.Value()
+		if !bytes.Equal(kvSet[string(key)], value) {
+			t.Fatal("error")
+		}
+		iterOk = iter.Prev()
+	}
+	fmt.Println(4)
+	if err := iter.Error(); err != nil {
+		t.Fatal(err)
+	}
+	if count2 != len(kvSet) {
+		t.Fatal(err)
+	}
+
 }

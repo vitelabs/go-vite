@@ -157,13 +157,14 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 		}
 
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
+			prevSb := chainInstance.GetLatestSnapshotBlock()
 			sb, err := InsertSnapshotBlock(chainInstance)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for addr := range sb.SnapshotContent {
-				account := accounts[addr]
-				account.Snapshot(sb.Hash)
+
+			for _, account := range accounts {
+				account.Snapshot(sb.Hash, prevSb.Hash)
 			}
 			snapshotBlockList = append(snapshotBlockList, sb)
 		}
