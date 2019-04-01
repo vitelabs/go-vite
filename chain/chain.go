@@ -195,7 +195,7 @@ func (c *chain) Start() error {
 		return nil
 	}
 
-	c.flusher.Start()
+	//c.flusher.Start()
 	c.log.Info("Start flusher", "method", "Start")
 	return nil
 }
@@ -205,7 +205,7 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
-	c.flusher.Stop()
+	//c.flusher.Stop()
 	c.log.Info("Stop flusher", "method", "Stop")
 
 	return nil

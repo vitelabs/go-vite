@@ -60,6 +60,14 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 	return nil
 }
 
+func (iDB *IndexDB) DeleteOnRoad(sendBlockHash types.Hash) error {
+	batch := iDB.store.NewBatch()
+	if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
+		return err
+	}
+	iDB.store.Write(batch)
+	return nil
+}
 func (iDB *IndexDB) deleteSnapshotBlockHash(batch *leveldb.Batch, snapshotBlockHash types.Hash) {
 	batch.Delete(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlockHash))
 }

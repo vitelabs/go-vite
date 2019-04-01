@@ -62,26 +62,7 @@ func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Has
 
 }
 
-func (iDB *IndexDB) receiveOnRoad(batch interfaces.Batch, sendBlockHash *types.Hash) error {
-
-	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-	key, err := iDB.store.Get(reverseKey)
-	if err != nil {
-		return err
-	}
-
-	if len(key) <= 0 {
-		return errors.New(fmt.Sprintf("onRoad block is not existed,  sendBlockHash is %s",
-			sendBlockHash))
-	}
-
-	batch.Delete(reverseKey)
-	batch.Delete(key)
-
-	return nil
-}
-
-func (iDB *IndexDB) deleteOnRoad(batch *leveldb.Batch, sendBlockHash types.Hash) error {
+func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash types.Hash) error {
 	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
 	value, err := iDB.store.Get(reverseKey)
 	if err != nil {

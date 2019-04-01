@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"sync"
-	"time"
 )
 
 type Storage interface {
@@ -35,11 +34,11 @@ type Flusher struct {
 	log log15.Logger
 	fd  *os.File
 
-	mu      *sync.RWMutex
-	wg      sync.WaitGroup
-	stopped chan struct{}
+	mu *sync.RWMutex
+	//wg sync.WaitGroup
+	//stopped chan struct{}
 
-	flushInterval   time.Duration
+	//flushInterval   time.Duration
 	startCommitFlag types.Hash
 }
 
@@ -70,11 +69,11 @@ func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flushe
 		storeList: storeList,
 		idMap:     idMap,
 
-		log:             log15.New("module", "flusher"),
-		fd:              fd,
-		mu:              mu,
-		stopped:         make(chan struct{}),
-		flushInterval:   time.Second,
+		log: log15.New("module", "flusher"),
+		fd:  fd,
+		mu:  mu,
+		//stopped:         make(chan struct{}),
+		//flushInterval:   time.Second,
 		startCommitFlag: startCommitFlag,
 	}
 
@@ -188,32 +187,32 @@ func (flusher *Flusher) Recover() error {
 
 }
 
-func (flusher *Flusher) Start() {
-	flusher.mu.Lock()
-	defer flusher.mu.Unlock()
-
-	flusher.wg.Add(1)
-	go func() {
-		defer flusher.wg.Done()
-		for {
-			select {
-			case <-flusher.stopped:
-				flusher.Flush()
-				return
-			default:
-				time.Sleep(flusher.flushInterval)
-				flusher.Flush()
-			}
-		}
-
-	}()
-}
-
-func (flusher *Flusher) Stop() {
-
-	close(flusher.stopped)
-	flusher.wg.Wait()
-}
+//func (flusher *Flusher) Start() {
+//	flusher.mu.Lock()
+//	defer flusher.mu.Unlock()
+//
+//	flusher.wg.Add(1)
+//	go func() {
+//		defer flusher.wg.Done()
+//		for {
+//			select {
+//			case <-flusher.stopped:
+//				flusher.Flush()
+//				return
+//			default:
+//				time.Sleep(flusher.flushInterval)
+//				flusher.Flush()
+//			}
+//		}
+//
+//	}()
+//}
+//
+//func (flusher *Flusher) Stop() {
+//
+//	close(flusher.stopped)
+//	flusher.wg.Wait()
+//}
 
 func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
 	fileSize, err := fileutils.FileSize(flusher.fd)

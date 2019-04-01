@@ -29,7 +29,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
 	}
 
-	// write state_bak db
+	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Write failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
@@ -75,5 +75,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
 
+	c.flusher.Flush()
 	return invalidAccountBlocks, nil
 }

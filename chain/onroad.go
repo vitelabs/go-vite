@@ -27,3 +27,14 @@ func (c *chain) GetOnRoadBlocksHashList(address types.Address, pageNum, countPer
 	}
 	return result, nil
 }
+
+func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
+	if err := c.indexDB.DeleteOnRoad(sendBlockHash); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.DeleteOnRoad failed, blockHash is %s. Error: %s",
+			sendBlockHash, err))
+
+		c.log.Error(cErr.Error(), "method", "GetOnRoadBlocksHashList")
+		return cErr
+	}
+	return nil
+}

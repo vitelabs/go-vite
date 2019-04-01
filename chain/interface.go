@@ -236,6 +236,8 @@ type Chain interface {
 
 	GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error)
 
+	DeleteOnRoad(sendBlockHash types.Hash) error
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
 }

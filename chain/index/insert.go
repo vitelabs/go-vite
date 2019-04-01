@@ -89,15 +89,17 @@ func (iDB *IndexDB) insertAccountBlock(batch interfaces.Batch, accountBlock *led
 
 	// height -> hash
 	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
+
 	if accountBlock.IsReceiveBlock() {
 		if accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
 			// close send block
 			batch.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
 			// receive on road
-			if err := iDB.receiveOnRoad(batch, &accountBlock.FromBlockHash); err != nil {
+			if err := iDB.deleteOnRoad(batch, accountBlock.FromBlockHash); err != nil {
 				return err
 			}
+
 		}
 
 	} else {
