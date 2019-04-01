@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -50,10 +51,13 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	if len(oldPledgeData) > 0 {
 		oldPledge := new(abi.PledgeInfo)
 		abi.ABIPledge.UnpackVariable(oldPledge, abi.VariableNamePledgeInfo, oldPledgeData)
+		if oldPledge.BeneficialAddr != *beneficialAddr {
+			return nil, errors.New("beneficial address error")
+		}
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, globalStatus.SnapshotBlock.Height+nodeConfig.params.PledgeHeight)
+	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, globalStatus.SnapshotBlock.Height+nodeConfig.params.PledgeHeight, beneficialAddr)
 	db.SetValue(pledgeKey, pledgeInfo)
 
 	beneficialKey := abi.GetPledgeBeneficialKey(*beneficialAddr)
@@ -112,7 +116,7 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	v, err := db.GetValue(pledgeKey)
 	util.DealWithErr(err)
 	err = abi.ABIPledge.UnpackVariable(oldPledge, abi.VariableNamePledgeInfo, v)
-	if err != nil || oldPledge.WithdrawHeight > globalStatus.SnapshotBlock.Height || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	if err != nil || oldPledge.WithdrawHeight > globalStatus.SnapshotBlock.Height || oldPledge.Amount.Cmp(param.Amount) < 0 || oldPledge.BeneficialAddr != param.Beneficial {
 		return nil, util.ErrInvalidMethodParam
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
@@ -133,7 +137,7 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	if oldPledge.Amount.Sign() == 0 {
 		db.SetValue(pledgeKey, nil)
 	} else {
-		pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawHeight)
+		pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, oldPledge.Amount, oldPledge.WithdrawHeight, oldPledge.BeneficialAddr)
 		db.SetValue(pledgeKey, pledgeInfo)
 	}
 

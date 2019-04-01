@@ -77,7 +77,12 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 	if err != nil {
 		return nil, err
 	}
-	self.log.Info(fmt.Sprintf("[%d][%d]success rate log: %+v", hashH.Height, voteIndex, successRate))
+
+	all := ""
+	for _, v := range votes {
+		all += fmt.Sprintf("[%s]", v.Name)
+	}
+	self.log.Info(fmt.Sprintf("[%d][%d]success rate log: %+v, %s", hashH.Height, voteIndex, successRate, all))
 
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members

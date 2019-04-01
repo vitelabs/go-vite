@@ -4,18 +4,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"os"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/config"
-
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func MakeGenesisConfig(genesisFile string) *config.Genesis {
@@ -32,7 +31,7 @@ func MakeGenesisConfig(genesisFile string) *config.Genesis {
 		if err := json.NewDecoder(file).Decode(genesisConfig); err != nil {
 			log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
 		}
-		if genesisConfig == nil || genesisConfig.GenesisAccountAddress == nil || len(genesisConfig.ContractStorageMap) == 0 || len(genesisConfig.AccountBalanceMap) == 0 {
+		if !config.IsCompleteGenesisConfig(genesisConfig) {
 			log.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
 		}
 	} else {
@@ -41,71 +40,30 @@ func MakeGenesisConfig(genesisFile string) *config.Genesis {
 
 	// set fork points
 	genesisConfig.ForkPoints = makeForkPointsConfig(genesisConfig)
-
 	return genesisConfig
 }
 
 func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
-	forkPoints := &config.ForkPoints{}
-
 	if genesisConfig != nil && genesisConfig.ForkPoints != nil {
-		forkPoints = genesisConfig.ForkPoints
+		return genesisConfig.ForkPoints
+	} else {
+		return &config.ForkPoints{}
 	}
-
-	return forkPoints
 }
 
 func makeGenesisAccountConfig() *config.Genesis {
 	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
-
-	contractStorageMap := make(map[string]map[string]string)
-	contractStorageMap[types.AddressConsensusGroup.String()] = make(map[string]string)
-	conditionRegisterData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite), ledger.ViteTokenId, uint64(3600*24*90))
-	if err != nil {
-		panic(err)
+	registrationConditionParam := config.RegisterConditionParam{new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite), ledger.ViteTokenId, 3600 * 24 * 90}
+	voteConditionParam := config.VoteConditionParam{}
+	consensusGroupInfoMap := map[string]config.ConsensusGroupInfo{
+		types.SNAPSHOT_GID.String(): {
+			25, 1, 3, 2, 50, 1, 0, ledger.ViteTokenId,
+			1, registrationConditionParam, 1, voteConditionParam,
+			defaultGenesisAccountAddress, big.NewInt(0), 1},
+		types.DELEGATE_GID.String(): {25, 1, 3, 2, 50, 48, 1, ledger.ViteTokenId,
+			1, registrationConditionParam, 1, voteConditionParam,
+			defaultGenesisAccountAddress, big.NewInt(0), 1},
 	}
-	snapshotConsensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(1),
-		int64(3),
-		uint8(2),
-		uint8(50),
-		uint16(1),
-		uint8(0),
-		ledger.ViteTokenId,
-		uint8(1),
-		conditionRegisterData,
-		uint8(1),
-		[]byte{},
-		defaultGenesisAccountAddress,
-		big.NewInt(0),
-		uint64(1))
-	if err != nil {
-		panic(err)
-	}
-	contractStorageMap[types.AddressConsensusGroup.String()][hex.EncodeToString(abi.GetConsensusGroupKey(types.SNAPSHOT_GID))] = hex.EncodeToString(snapshotConsensusGroupData)
-
-	commonConsensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),
-		int64(3),
-		int64(1),
-		uint8(2),
-		uint8(50),
-		uint16(48),
-		uint8(1),
-		ledger.ViteTokenId,
-		uint8(1),
-		conditionRegisterData,
-		uint8(1),
-		[]byte{},
-		defaultGenesisAccountAddress,
-		big.NewInt(0),
-		uint64(1))
-	if err != nil {
-		panic(err)
-	}
-	contractStorageMap[types.AddressConsensusGroup.String()][hex.EncodeToString(abi.GetConsensusGroupKey(types.DELEGATE_GID))] = hex.EncodeToString(commonConsensusGroupData)
-
 	addrStrList := []string{
 		"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87",
 		"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08",
@@ -133,38 +91,40 @@ func makeGenesisAccountConfig() *config.Genesis {
 		"vite_f53dcf7d40b582cd4b806d2579c6dd7b0b131b96c2b2ab5218",
 		"vite_fac06662d84a7bea269265e78ea2d9151921ba2fae97595608",
 	}
+	snapshotRegistrationInfoMap := make(map[string]config.RegistrationInfo, len(addrStrList))
+	snapshotHisNameMap := make(map[string]string, len(addrStrList))
 	for index, addrStr := range addrStrList {
 		nodeName := "s" + strconv.Itoa(index)
 		addr, _ := types.HexToAddress(addrStr)
-		registerData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr, addr, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr})
-		if err != nil {
-			panic(err)
-		}
-		contractStorageMap[types.AddressConsensusGroup.String()][hex.EncodeToString(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))] = hex.EncodeToString(registerData)
-		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, nodeName)
-		contractStorageMap[types.AddressConsensusGroup.String()][hex.EncodeToString(abi.GetHisNameKey(addr, types.SNAPSHOT_GID))] = hex.EncodeToString(hisNameData)
+		snapshotRegistrationInfoMap[nodeName] = config.RegistrationInfo{addr, addr, helper.Big0, 1, 1, 0, []types.Address{addr}}
+		snapshotHisNameMap[addrStr] = nodeName
 	}
+	consensusGroupContractInfo := &config.ConsensusGroupContractInfo{consensusGroupInfoMap,
+		map[string]map[string]config.RegistrationInfo{types.SNAPSHOT_GID.String(): snapshotRegistrationInfoMap},
+		map[string]map[string]string{types.SNAPSHOT_GID.String(): snapshotHisNameMap},
+		nil}
 
-	contractStorageMap[types.AddressMintage.String()] = make(map[string]string)
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	mintageData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo,
-		"Vite Token", "VITE", viteTotalSupply, uint8(18), defaultGenesisAccountAddress, big.NewInt(0), uint64(0), defaultGenesisAccountAddress, true, helper.Tt256m1, false)
-	contractStorageMap[types.AddressMintage.String()][hex.EncodeToString(abi.GetMintageKey(ledger.ViteTokenId))] = hex.EncodeToString(mintageData)
-
-	contractLogsMap := make(map[string][]config.GenesisVmLog)
 	topics, data, err := abi.ABIMintage.PackEvent(abi.EventNameMint, ledger.ViteTokenId)
 	if err != nil {
 		panic(err)
 	}
-	contractLogsMap[types.AddressMintage.String()] = []config.GenesisVmLog{{Data: hex.EncodeToString(data), Topics: topics}}
+	mintageContractInfo := &config.MintageContractInfo{
+		map[string]config.TokenInfo{
+			ledger.ViteTokenId.String(): {"Vite Token", "VITE", viteTotalSupply, uint8(18),
+				defaultGenesisAccountAddress, big.NewInt(0), defaultGenesisAccountAddress, uint64(0),
+				helper.Tt256m1, false, true},
+		},
+		[]config.GenesisVmLog{{Data: hex.EncodeToString(data), Topics: topics}},
+	}
 
 	accountBalanceMap := make(map[string]map[string]*big.Int, 1)
 	accountBalanceMap[defaultGenesisAccountAddress.String()] = map[string]*big.Int{ledger.ViteTokenId.String(): viteTotalSupply}
-
 	return &config.Genesis{
 		GenesisAccountAddress: &defaultGenesisAccountAddress,
-		ContractStorageMap:    contractStorageMap,
-		ContractLogsMap:       contractLogsMap,
+		ConsensusGroupInfo:    consensusGroupContractInfo,
+		MintageInfo:           mintageContractInfo,
 		AccountBalanceMap:     accountBalanceMap,
+		PledgeInfo:            &config.PledgeContractInfo{},
 	}
 }

@@ -3,12 +3,10 @@ package consensus
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus/db"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/db"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 func newDayLinkedArray(hour *linkedArray, db *consensus_db.ConsensusDB) *linkedArray {
@@ -89,7 +87,7 @@ type SBPInfo struct {
 
 // period = 75s
 type periodPoint struct {
-	*consensus_db.Point
+	consensus_db.Point
 	empty bool
 	// hash exist
 	proof *ledger.HashHeight
@@ -123,7 +121,7 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, 
 		}
 		if result != nil {
 			self.Set(height, result)
-			return result.Point, nil
+			return &result.Point, nil
 		} else {
 			return nil, nil
 		}
@@ -137,12 +135,12 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, 
 		}
 		if result != nil {
 			self.Set(height, result)
-			return result.Point, nil
+			return &result.Point, nil
 		} else {
 			return nil, nil
 		}
 	}
-	return point.Point, nil
+	return &point.Point, nil
 }
 
 func (self *periodLinkedArray) Set(height uint64, block *periodPoint) error {
@@ -240,7 +238,7 @@ func (self *periodLinkedArray) genPeriodPoint(height uint64, stime *time.Time, e
 	if err != nil {
 		return nil, err
 	}
-	if block != nil && (block.Timestamp.Nanosecond() >= etime.Nanosecond()) {
+	if block != nil && (block.Timestamp.UnixNano() >= etime.UnixNano()) {
 		point.proof = &ledger.HashHeight{Hash: block.Hash, Height: block.Height}
 		point.Hash = &block.Hash
 	} else {
