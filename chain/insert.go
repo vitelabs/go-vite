@@ -13,9 +13,6 @@ import (
  *	2.
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
-
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil)
 
@@ -41,8 +38,6 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
 
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)

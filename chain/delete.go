@@ -9,8 +9,6 @@ import (
 )
 
 func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk, error) {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
 
 	height, err := c.indexDB.GetSnapshotBlockHeight(&toHash)
 
@@ -30,8 +28,6 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 
 // delete and recover unconfirmed cache
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
 
 	latestHeight := c.GetLatestSnapshotBlock().Height
 	if toHeight > latestHeight || toHeight <= 1 {

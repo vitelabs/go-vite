@@ -163,6 +163,7 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 	if count <= 0 {
 		return nil, nil
 	}
+
 	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByHeight(addr, height, count)
 
 	if err != nil {

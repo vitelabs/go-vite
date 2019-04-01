@@ -17,7 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
-	"sync"
 	"sync/atomic"
 )
 
@@ -46,8 +45,6 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
-
-	flusherMu sync.RWMutex
 
 	status uint32
 }
