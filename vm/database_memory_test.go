@@ -205,7 +205,7 @@ func (db *memoryDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
 func (db *memoryDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
 }
 func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
-	return &ledger.ContractMeta{&types.DELEGATE_GID, 0}, nil
+	return &ledger.ContractMeta{types.DELEGATE_GID, 0}, nil
 }
 
 func (db *memoryDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {

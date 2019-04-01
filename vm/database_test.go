@@ -218,6 +218,15 @@ func (i *testIterator) Error() error {
 func (i *testIterator) Release() {
 
 }
+func (i *testIterator) Seek(key []byte) bool {
+	for index, item := range i.items {
+		if bytes.Equal(item.key, key) {
+			i.index = index
+			return true
+		}
+	}
+	return false
+}
 
 func (db *testDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
 	storageMap := db.storageMap[db.addr]

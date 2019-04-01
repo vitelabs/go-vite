@@ -13,7 +13,7 @@ const (
 	[
 		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]},
+		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"}]},
 		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
@@ -44,14 +44,10 @@ func GetPledgeBeneficialKey(beneficial types.Address) []byte {
 	return beneficial.Bytes()
 }
 func GetPledgeKey(addr types.Address, beneficial types.Address) []byte {
-	return append(addr.Bytes(), beneficial.Bytes()...)
+	return append(addr.Bytes(), beneficial.Bytes()[:types.HashSize-types.AddressSize]...)
 }
 func IsPledgeKey(key []byte) bool {
-	return len(key) == 2*types.AddressSize
-}
-func GetBeneficialFromPledgeKey(key []byte) types.Address {
-	address, _ := types.BytesToAddress(key[types.AddressSize:])
-	return address
+	return len(key) == types.HashSize
 }
 
 func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
@@ -84,7 +80,6 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil ||
 			pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 ||
 			GetPledgeAddrFromPledgeKey(iterator.Key()) != pledgeAddr {
-			pledgeInfo.BeneficialAddr = GetBeneficialFromPledgeKey(iterator.Key())
 			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
 			pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)
 		}
