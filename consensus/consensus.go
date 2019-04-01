@@ -102,7 +102,7 @@ func (self *committee) API() APIReader {
 	return self.api
 }
 
-func NewConsensus(ch ch) *committee {
+func NewConsensus(ch Chain) *committee {
 	log := log15.New("module", "consensus")
 	rw := newChainRw(ch, log)
 	self := &committee{rw: rw}

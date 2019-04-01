@@ -5,7 +5,6 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -16,10 +15,7 @@ var simpleAddrs = genSimpleAddrs()
 func genSimpleAddrs() []types.Address {
 	var simpleAddrs []types.Address
 	addrs := []string{"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
-		"vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25",
-		"vite_40996a2ba285ad38930e09a43ee1bd0d84f756f65318e8073a",
-		"vite_c8c70c248536117c54d5ffd9724428c58c7fc57f3183508b3d",
-		"vite_50f3ede3d3098ae7236f65bb320578ca13dd52516aafc1a10c"}
+		"vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25"}
 
 	for _, v := range addrs {
 		addr, err := types.HexToAddress(v)
@@ -34,7 +30,7 @@ func genSimpleAddrs() []types.Address {
 func genSimpleInfo() *core.GroupInfo {
 	group := types.ConsensusGroupInfo{
 		Gid:                    types.SNAPSHOT_GID,
-		NodeCount:              5,
+		NodeCount:              2,
 		Interval:               1,
 		PerCount:               3,
 		RandCount:              1,
@@ -84,13 +80,13 @@ func (self *simpleCs) ElectionIndex(index uint64) (*electionResult, error) {
 	return plans, nil
 }
 
-func (self *simpleCs) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	electionResult, err := self.ElectionTime(*header.Timestamp)
+func (self *simpleCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {
+	electionResult, err := self.ElectionTime(t)
 	if err != nil {
 		return false, err
 	}
 
-	return self.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
+	return self.verifyProducer(t, address, electionResult), nil
 }
 
 func (self *simpleCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {

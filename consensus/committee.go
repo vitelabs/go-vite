@@ -125,6 +125,7 @@ func (self *committee) Init() error {
 
 	snapshot := newSnapshotCs(self.rw, self.mLog)
 	self.snapshot = snapshot
+	//self.snapshot = snapshot
 	self.rw.initArray(self.snapshot)
 
 	self.contracts = newContractCs(self.rw, self.mLog)
@@ -133,7 +134,7 @@ func (self *committee) Init() error {
 	if err != nil {
 		panic(err)
 	}
-	self.dposWrapper = &dposReader{snapshot, self.contracts, self.mLog}
+	self.dposWrapper = &dposReader{self.snapshot, self.contracts, self.mLog}
 	self.api = &ApiSnapshot{snapshot: snapshot}
 	return nil
 }
