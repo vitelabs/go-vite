@@ -469,7 +469,7 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetSnapshotHeaderByHeight")
+			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
 			return 0
 		}
 
@@ -535,7 +535,13 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 	}
 
 	for h := headHeight; h >= tailHeight; h-- {
-		snapshotHeader := c.cache.GetSnapshotHeaderByHeight(h)
+
+		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetLastSeedSnapshotHeader")
+			return nil, nil
+		}
 
 		if snapshotHeader == nil {
 			cErr := errors.New(fmt.Sprintf("snapshotHeader is nil. height is %d", h))
