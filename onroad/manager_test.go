@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/wallet"
 	"testing"
@@ -26,7 +27,10 @@ func generateAddress() types.Address {
 func startManager() (*onroad.Manager, types.Address) {
 	addr := generateAddress()
 
-	c := chain.NewChain(common.GoViteTestDataDir())
+	c := chain.NewChain(&config.Config{
+		Net:     nil,
+		DataDir: common.GoViteTestDataDir(),
+	})
 	c.Init()
 
 	prod := new(testProducer)
