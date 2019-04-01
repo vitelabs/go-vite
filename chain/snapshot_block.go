@@ -328,7 +328,12 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 	endSec := latest.Timestamp.Unix()
 	timeSec := timestamp.Unix()
 
-	estimateHeight := latest.Height - uint64(endSec-timeSec)
+	gap := uint64(endSec - timeSec)
+	estimateHeight := uint64(1)
+	if latest.Height > gap {
+		estimateHeight = latest.Height - gap
+	}
+
 	var highBoundary, lowBoundary *ledger.SnapshotBlock
 
 	for highBoundary == nil || lowBoundary == nil {
@@ -366,9 +371,9 @@ func (c *chain) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.Snaps
 		}
 	}
 
-	if highBoundary.Height == lowBoundary.Height+1 {
-		return lowBoundary, nil
-	}
+	//if highBoundary.Height == lowBoundary.Height+1 {
+	//	return lowBoundary, nil
+	//}
 	block, err := c.binarySearchBeforeTime(lowBoundary, highBoundary, timeNanosecond)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.binarySearchBeforeTime failed,  lowBoundary is %+v, highBoundary is %+v, timeNanosecond is %d",
