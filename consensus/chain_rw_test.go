@@ -6,9 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magiconair/properties/assert"
-
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -171,9 +170,7 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 	block := rw.GetLatestSnapshotBlock()
 	assert.Equal(t, genesisBlock.Timestamp, block.Timestamp)
 	groupInfo, err := rw.GetMemberInfo(types.SNAPSHOT_GID)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	assert.Nil(t, err)
 	assert.Equal(t, groupInfo.PlanInterval, uint64(30))
+	assert.Equal(t, groupInfo.GenSTime(0), simpleGenesis)
 }
