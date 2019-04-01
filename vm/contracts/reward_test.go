@@ -115,7 +115,7 @@ func TestCalcReward(t *testing.T) {
 	}
 	InitContractsConfig(true)
 	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, pledgeAmountForTest, ledger.ViteTokenId, uint64(75*2))
-	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
+	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, 1, 0, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
 	for _, testCase := range testCases {
 		reader := newConsensusReaderTest(genesisTime, groupInfo, testCase.detailMap)
 		startTime, endTime, reward, err := calcReward(testCase.registration, testCase.current, reader)
@@ -177,7 +177,7 @@ func TestCalcRewardByDay(t *testing.T) {
 	}
 	InitContractsConfig(true)
 	conditionRegisterData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, pledgeAmountForTest, ledger.ViteTokenId, uint64(75*2))
-	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
+	groupInfo := &types.ConsensusGroupInfo{types.SNAPSHOT_GID, 25, 3, 1, 2, 100, 1, 0, ledger.ViteTokenId, 1, conditionRegisterData, 0, nil, types.Address{}, nil, 0}
 	for _, testCase := range testCases {
 		reader := newConsensusReaderTest(genesisTime, groupInfo, testCase.detailMap)
 		rewardMap, err := calcRewardByDay(reader, testCase.day, pledgeAmountForTest)

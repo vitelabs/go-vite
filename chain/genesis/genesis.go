@@ -11,7 +11,6 @@ const (
 
 func InitLedger(chain Chain, cfg *config.Genesis) error {
 	// insert genesis account blocks
-	// TODO fixme
 	genesisAccountBlockList := NewGenesisAccountBlocks(cfg)
 	for _, ab := range genesisAccountBlockList {
 		err := chain.InsertAccountBlock(ab)
