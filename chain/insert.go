@@ -62,8 +62,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	}
 
 	// flush state db
-	if err := c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewNext failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
+	if err := c.stateDB.InsertSnapshotBlock(invalidAccountBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.InsertSnapshotBlock failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 

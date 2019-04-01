@@ -10,7 +10,7 @@ import (
 )
 
 func TestChain_builtInContract(t *testing.T) {
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 1, 138, 8)
+	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 5, 138, 7)
 
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -33,11 +33,13 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 			if *sd.Address() != account.addr {
 				t.Fatal("error")
 			}
-			fmt.Println(account.SnapshotKeyValue[snapshotBlock.Hash])
-			checkIterator(t, account.SnapshotKeyValue[snapshotBlock.Hash], func() (interfaces.StorageIterator, error) {
 
+			err = checkIterator(account.KeyValue, func() (interfaces.StorageIterator, error) {
 				return sd.NewStorageIterator(nil)
 			})
+			if err != nil {
+				t.Fatal(fmt.Sprintf("snapshotBlock: %+v. account: %d, Error: %s", snapshotBlock, account.addr.Bytes(), err.Error()))
+			}
 
 			for key, value := range account.SnapshotKeyValue[snapshotBlock.Hash] {
 				queryValue, err := sd.GetValue([]byte(key))

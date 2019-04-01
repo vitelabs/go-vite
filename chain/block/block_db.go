@@ -171,7 +171,7 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 	return segList, nil
 }
 
-func (bDB *BlockDB) Rollback(prevLocation *chain_file_manager.Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*SnapshotSegment, error) {
 
 	// bDB.fm.DeleteAndReadTo(location)
 	bfp := newBlockFileParser()
@@ -180,10 +180,10 @@ func (bDB *BlockDB) Rollback(prevLocation *chain_file_manager.Location) ([]*Snap
 	bDB.wg.Add(1)
 	go func() {
 		defer bDB.wg.Done()
-		bDB.fm.ReadRange(prevLocation, nil, bfp)
+		bDB.fm.ReadRange(location, nil, bfp)
 		bfp.Close()
 
-		bDB.fm.DeleteTo(prevLocation)
+		bDB.fm.DeleteTo(location)
 	}()
 
 	var segList []*SnapshotSegment

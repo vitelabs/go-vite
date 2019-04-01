@@ -32,34 +32,64 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	c.flusherMu.RLock()
 	defer c.flusherMu.RUnlock()
 
-	//location, err := c.indexDB.GetSnapshotBlockLocation(toHeight)
-	//if err != nil {
-	//	cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, snapshotHeight is %d", err.Error(), toHeight))
-	//	c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-	//	return nil, cErr
-	//}
-
-	prevLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, (snapshotHeight -1) is %d", err.Error(), toHeight-1))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-		return nil, cErr
+	latestHeight := c.GetLatestSnapshotBlock().Height
+	if toHeight > latestHeight {
+		return nil, nil
 	}
-	return c.deleteSnapshotBlocksToLocation(prevLocation)
+
+	snapshotChunkList := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
+
+	var location *chain_file_manager.Location
+	targetHeight := uint64(1)
+
+	deletePerTime := uint64(1000)
+	for targetHeight > toHeight {
+		currentHeight := c.GetLatestSnapshotBlock().Height
+		if currentHeight > deletePerTime {
+			targetHeight = currentHeight - deletePerTime
+		}
+		if targetHeight < toHeight {
+			targetHeight = toHeight
+		}
+
+		var err error
+		location, err = c.indexDB.GetSnapshotBlockLocation(targetHeight)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, snapshotHeight is %d", err.Error(), toHeight))
+			c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			return nil, cErr
+		}
+
+		chunkList, err := c.deleteSnapshotBlocksToLocation(location)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.deleteSnapshotBlocksToLocation failed, error is %s, toLocation is %+v", err.Error(), location))
+			c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			return nil, cErr
+		}
+		snapshotChunkList = append(snapshotChunkList, chunkList...)
+		//prevLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
+		//if err != nil {
+		//	cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, error is %s, (snapshotHeight -1) is %d", err.Error(), toHeight-1))
+		//	c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		//	return nil, cErr
+		//}
+	}
+
+	return snapshotChunkList, nil
 }
 
-func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
+func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 
 	// rollback blocks db
-	deletedSnapshotSegments, err := c.blockDB.Rollback(prevLocation)
+	deletedSnapshotSegments, err := c.blockDB.Rollback(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteAndReadTo failed, error is %s, location is %d", err.Error(), prevLocation))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteAndReadTo failed, error is %s, location is %d", err.Error(), location))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
 	// rollback index db
-	if err := c.indexDB.Rollback(deletedSnapshotSegments, prevLocation); err != nil {
+	if err := c.indexDB.Rollback(deletedSnapshotSegments, location); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
@@ -72,7 +102,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_file_manager.
 	}
 
 	// rollback state db
-	if err := c.stateDB.Rollback(deletedSnapshotSegments, prevLocation); err != nil {
+	if err := c.stateDB.Rollback(deletedSnapshotSegments); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
@@ -84,6 +114,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(prevLocation *chain_file_manager.
 			AccountBlocks: seg.AccountBlocks,
 		})
 	}
+
 	//if len(deletedUnconfirmedBlocks) > 0 {
 	//	snapshotChunkList = append(snapshotChunkList, &ledger.SnapshotChunk{
 	//		AccountBlocks: deletedUnconfirmedBlocks,

@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"encoding/binary"
+	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -95,28 +96,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, blocks []*ledger.AccountBlock, invalidAccountBlocks []*ledger.AccountBlock) error {
-	//batch := new(leveldb.Batch)
-	//blockHashList := make([]*types.Hash, 0, len(blocks))
-	//for _, block := range blocks {
-	//	blockHashList = append(blockHashList, &block.Hash)
-	//}
-
-	//location, err := sDB.undoLogger.Flush(&snapshotBlock.Hash, blockHashList)
-	//if err != nil {
-	//	return err
-	//}
-
-	//sDB.updateUndoLocation(batch, location)
-	//sDB.store.Flush(batch)
-
-	//if err := sDB.store.Write(batch, nil); err != nil {
-	//	return err
-	//}
-
-	//for _, block := range invalidAccountBlocks {
-	//	sDB.store.DeleteByBlockHash(&block.Hash)
-	//}
-
-	return nil
+func (sDB *StateDB) InsertSnapshotBlock(invalidAccountBlocks []*ledger.AccountBlock) error {
+	return sDB.Rollback([]*chain_block.SnapshotSegment{{
+		AccountBlocks: invalidAccountBlocks,
+	}})
 }

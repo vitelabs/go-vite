@@ -119,7 +119,6 @@ func newSnapshotStorageIterator(iter interfaces.StorageIterator, height uint64) 
 		iterOk:         true,
 	}
 
-	//iterator.iterOk = iter.Last()
 	return sIterator
 }
 
@@ -182,8 +181,10 @@ func (sIterator *snapshotStorageIterator) step(isNext bool) bool {
 			break
 		}
 
-		key := iter.Key()
-		fmt.Println(string(key))
+		key := make([]byte, len(iter.Key()))
+		// important
+		copy(key, iter.Key())
+
 		sIterator.lastKey = key
 
 		binary.BigEndian.PutUint64(key[len(key)-8:], sIterator.snapshotHeight)

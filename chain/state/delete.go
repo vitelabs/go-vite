@@ -2,7 +2,6 @@ package chain_state
 
 import (
 	"github.com/vitelabs/go-vite/chain/block"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,7 +9,7 @@ import (
 )
 
 // TODO
-func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment, toLocation *chain_file_manager.Location) error {
+func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
 	batch := sDB.store.NewBatch()
 	//blockHashList := make([]*types.Hash, 0, size)
 
@@ -50,6 +49,8 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegm
 		deleteKey := make(map[string]struct{})
 
 		for _, accountBlock := range seg.AccountBlocks {
+			// todo rollback key value
+
 			// rollback balance
 			addr := accountBlock.AccountAddress
 			tokenId := accountBlock.TokenId

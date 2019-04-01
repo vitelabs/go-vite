@@ -3,6 +3,7 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -289,16 +290,19 @@ func GetValue(t *testing.T, chainInstance *chain, accounts map[types.Address]*Ac
 
 func GetStorageIterator(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		checkIterator(t, account.KeyValue, func() (interfaces.StorageIterator, error) {
+		err := checkIterator(account.KeyValue, func() (interfaces.StorageIterator, error) {
 			return chainInstance.GetStorageIterator(account.addr, nil)
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
-func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (interfaces.StorageIterator, error)) {
+func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.StorageIterator, error)) error {
 	iter, err := getIterator()
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	count := 0
 	for iter.Next() {
@@ -307,14 +311,14 @@ func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (in
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			t.Fatal(fmt.Sprintf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value))
+			return errors.New(fmt.Sprintf("key: %d, kvValue:%d, value: %d", key, kvSet[string(key)], value))
 		}
 	}
 	if err := iter.Error(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	if count != len(kvSet) {
-		t.Fatal(err)
+		return err
 	}
 
 	iterOk := iter.Last()
@@ -324,15 +328,16 @@ func checkIterator(t *testing.T, kvSet map[string][]byte, getIterator func() (in
 		key := iter.Key()
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			t.Fatal("error")
+			return errors.New(fmt.Sprintf("key: %d, kvValue:%d, value: %d", key, kvSet[string(key)], value))
 		}
 		iterOk = iter.Prev()
 	}
 	if err := iter.Error(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	if count2 != len(kvSet) {
-		t.Fatal(err)
+		return err
 	}
+	return nil
 
 }
