@@ -29,19 +29,23 @@ func newCallerPendingMap() *callerPendingMap {
 func (p *callerPendingMap) isPendingMapNotSufficient() bool {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
+	if p.pmap == nil {
+		return true
+	}
 	var count int = 0
 	for _, v := range p.pmap {
 		count += len(v)
 	}
 	if count < int(DefaultPullCount)/2 {
+		//fmt.Printf("isPendingMapNotSufficient count=%v\n", count)
 		return true
 	}
 	return false
 }
 
 func (p *callerPendingMap) getPendingOnroad() *ledger.AccountBlock {
-	p.addrMutex.RLock()
-	defer p.addrMutex.RUnlock()
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
 	for _, v := range p.pmap {
 		if len(v) > 0 {
 			return v[0]
@@ -53,8 +57,8 @@ func (p *callerPendingMap) getPendingOnroad() *ledger.AccountBlock {
 func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
-	if l, ok := p.pmap[sendBlock.AccountAddress]; ok && l != nil {
-		l = append(l, sendBlock)
+	if _, ok := p.pmap[sendBlock.AccountAddress]; ok {
+		p.pmap[sendBlock.AccountAddress] = append(p.pmap[sendBlock.AccountAddress], sendBlock)
 	} else {
 		new_l := make([]*ledger.AccountBlock, 0)
 		new_l = append(new_l, sendBlock)
@@ -63,15 +67,15 @@ func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) {
 }
 
 func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *types.Hash) bool {
-	p.addrMutex.Lock()
-	defer p.addrMutex.Unlock()
-	if l, ok := p.pmap[caller]; ok && l != nil {
-		for k, v := range l {
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
+	if _, ok := p.pmap[caller]; ok {
+		for k, v := range p.pmap[caller] {
 			if v.Hash == *sendHash {
-				if k >= len(l)-1 {
-					l = l[0:k]
+				if k >= len(p.pmap[caller])-1 {
+					p.pmap[caller] = p.pmap[caller][0:k]
 				} else {
-					l = append(l[0:k], l[k+1:]...)
+					p.pmap[caller] = append(p.pmap[caller][0:k], p.pmap[caller][k+1:]...)
 				}
 				return true
 			}
@@ -81,8 +85,8 @@ func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *type
 }
 
 func (p *callerPendingMap) addCallerIntoInferiorList(caller types.Address, state inferiorState) {
-	p.addrMutex.Lock()
-	defer p.addrMutex.Unlock()
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
 	p.InferiorList[caller] = state
 	delete(p.pmap, caller)
 }
@@ -97,14 +101,14 @@ func (p *callerPendingMap) existInInferiorList(caller types.Address) bool {
 }
 
 func (p *callerPendingMap) removeFromInferiorList(caller types.Address) {
-	p.addrMutex.Lock()
-	defer p.addrMutex.Unlock()
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
 	delete(p.InferiorList, caller)
 }
 
 func (p *callerPendingMap) isInferiorStateRetry(caller types.Address) bool {
-	p.addrMutex.RLock()
-	defer p.addrMutex.RUnlock()
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
 	if state, ok := p.InferiorList[caller]; ok && state == RETRY {
 		return true
 	}
@@ -112,8 +116,8 @@ func (p *callerPendingMap) isInferiorStateRetry(caller types.Address) bool {
 }
 
 func (p *callerPendingMap) isInferiorStateOut(caller types.Address) bool {
-	p.addrMutex.RLock()
-	defer p.addrMutex.RUnlock()
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
 	if state, ok := p.InferiorList[caller]; ok && state == OUT {
 		return true
 	}
