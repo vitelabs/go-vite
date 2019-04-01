@@ -84,13 +84,17 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	iterOk := iter.Last()
 	for iterOk {
 		height := chain_utils.BytesToUint64(iter.Key()[1+types.AddressSize:])
+
 		if height < minHeight {
 			minHeight = height
 		}
+
 		if height > maxHeight {
 			maxHeight = height
 		}
+
 		value := iter.Value()
+
 		if len(value) > types.HashSize {
 			locationList = append(locationList, chain_utils.DeserializeLocation(value[types.HashSize:]))
 		} else {

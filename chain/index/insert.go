@@ -88,7 +88,7 @@ func (iDB *IndexDB) insertAccountBlock(batch interfaces.Batch, accountBlock *led
 		append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...))
 
 	// height -> hash
-	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), append(blockHash.Bytes()))
+	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
 	if accountBlock.IsReceiveBlock() {
 		if accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
 			// close send block

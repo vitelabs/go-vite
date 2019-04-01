@@ -48,7 +48,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
-	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
+	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(snapshotBlock.SnapshotContent, unconfirmedBlocks)
 
 	// write block db
 	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{

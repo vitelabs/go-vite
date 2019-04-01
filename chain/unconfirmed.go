@@ -12,7 +12,7 @@ func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	currentUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
-	needSnapshotBlocks, _ := c.filterCanBeSnapped(currentUnconfirmedBlocks)
+	needSnapshotBlocks, _ := c.filterCanBeSnapped(nil, currentUnconfirmedBlocks)
 
 	sc := make(ledger.SnapshotContent)
 
@@ -33,7 +33,7 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
  * TODO
  * Check quota, consensus, dependencies
  */
-func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock) {
+func (c *chain) filterCanBeSnapped(snapshotContent ledger.SnapshotContent, blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock) {
 	// checkA()
 
 	// checkB()

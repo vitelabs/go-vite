@@ -8,7 +8,7 @@ import (
 )
 
 func TestChain_AccountBlock(t *testing.T) {
-	chainInstance, accounts, hashList, addrList, heightList, _ := SetUp(t, 1000, 10000, 18)
+	chainInstance, accounts, hashList, addrList, heightList, _ := SetUp(t, 10, 187, 4)
 
 	testAccountBlock(t, chainInstance, accounts, hashList, addrList, heightList)
 	TearDown(chainInstance)
@@ -17,9 +17,11 @@ func TestChain_AccountBlock(t *testing.T) {
 func GetAccountBlockByHash(t *testing.T, chainInstance Chain, hashList []types.Hash) {
 	for _, hash := range hashList {
 		block, err := chainInstance.GetAccountBlockByHash(hash)
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if block == nil || block.Hash != hash {
 			t.Fatal(fmt.Sprintf("block is error! block is %+v\n", block))
 		}
@@ -134,7 +136,7 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 	}
 }
 
-func GetAccountBlocks(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, addrList []types.Address) {
+func GetAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, addrList []types.Address) {
 	for _, addr := range addrList {
 		latestBlock := accounts[addr].latestBlock
 		for _, count := range []uint64{0, 10, 100, 1000, 10000} {
@@ -153,7 +155,7 @@ func GetAccountBlocks(t *testing.T, chainInstance Chain, accounts map[types.Addr
 	}
 }
 
-func GetAccountBlocksByHeight(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, addrList []types.Address) {
+func GetAccountBlocksByHeight(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, addrList []types.Address) {
 	for _, addr := range addrList {
 		latestBlock := accounts[addr].latestBlock
 		for _, count := range []uint64{0, 10, 100, 1000, 10000} {

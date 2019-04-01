@@ -119,6 +119,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 			}
 		}
 
+		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
 	}
 	return list
@@ -164,6 +165,7 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 				vmdb.AddLog(&ledger.VmLog{Data: dataBytes, Topics: log.Topics})
 			}
 		}
+		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
 	}
 	return list
@@ -200,7 +202,7 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			err = vmdb.SetValue(abi.GetPledgeBeneficialKey(beneficialAddr), value)
 			dealWithError(err)
 		}
-
+		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
 	}
 	return list
@@ -228,6 +230,7 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 			}
 			vmdb.SetBalance(&tokenId, balance)
 		}
+		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
 	}
 	return list
