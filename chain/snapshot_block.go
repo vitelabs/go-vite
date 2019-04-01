@@ -466,7 +466,12 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	randomSeed := uint64(0)
 
 	for h := headHeight; h >= tailHeight && seedCount < n; h-- {
-		snapshotHeader := c.cache.GetSnapshotHeaderByHeight(h)
+		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetSnapshotHeaderByHeight")
+			return 0
+		}
 
 		if snapshotHeader == nil {
 			cErr := errors.New(fmt.Sprintf("snapshotHeader is nil. height is %d", h))

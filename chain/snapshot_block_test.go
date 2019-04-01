@@ -258,21 +258,27 @@ func GetSnapshotHeaderBeforeTime(t *testing.T, chainInstance *chain, snapshotBlo
 			return chainInstance.GetSnapshotHeaderBeforeTime(&time)
 		}, true)
 	}
+
 	lastSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
-	checkSnapshotBlock(t, lastSnapshotBlock, func() (*ledger.SnapshotBlock, error) {
-		futureTime := lastSnapshotBlock.Timestamp.Add(2 * time.Second)
+	for i := 1; i <= 100; i++ {
+		checkSnapshotBlock(t, lastSnapshotBlock, func() (*ledger.SnapshotBlock, error) {
+			futureTime := lastSnapshotBlock.Timestamp.Add(2 * time.Duration(i) * time.Second)
 
-		return chainInstance.GetSnapshotHeaderBeforeTime(&futureTime)
-	}, true)
+			return chainInstance.GetSnapshotHeaderBeforeTime(&futureTime)
+		}, true)
+	}
 
 	genesisSnapshotBlock := chainInstance.GetGenesisSnapshotBlock()
 
-	checkSnapshotBlock(t, nil, func() (*ledger.SnapshotBlock, error) {
-		pastTime := genesisSnapshotBlock.Timestamp.Add(-2 * time.Second)
+	for i := 1; i <= 100; i++ {
+		checkSnapshotBlock(t, nil, func() (*ledger.SnapshotBlock, error) {
+			pastTime := genesisSnapshotBlock.Timestamp.Add(-2 * time.Duration(i) * time.Second)
 
-		return chainInstance.GetSnapshotHeaderBeforeTime(&pastTime)
-	}, true)
+			return chainInstance.GetSnapshotHeaderBeforeTime(&pastTime)
+		}, true)
+	}
+
 }
 
 func GetSnapshotHeadersAfterOrEqualTime(t *testing.T, chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
