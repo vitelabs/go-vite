@@ -235,8 +235,8 @@ func (w *ContractWorker) addIntoWorkingList(addr types.Address) bool {
 }
 
 func (w *ContractWorker) removeFromWorkingList(addr types.Address) {
-	w.workingAddrListMutex.RLock()
-	defer w.workingAddrListMutex.RUnlock()
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
 	w.workingAddrList[addr] = false
 }
 
