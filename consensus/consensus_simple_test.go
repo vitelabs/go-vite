@@ -16,10 +16,27 @@ func TestSimpleCs(t *testing.T) {
 	// genesis
 	assert.True(t, stime.Unix() == simpleGenesis.Unix())
 	// plan interval
-	assert.True(t, stime.Add(time.Duration(info.PlanInterval)).Equal(etime))
+	assert.Equal(t, stime.Add(time.Duration(info.PlanInterval)*time.Second), etime)
 
 	result, err := cs.ElectionIndex(0)
 	assert.Nil(t, err)
 
-	t.Log(result)
+	for k, v := range result.Plans {
+		assert.Equal(t, simpleAddrs[k/3], v.Member)
+	}
+
+	result, err = cs.ElectionIndex(1)
+	assert.Nil(t, err)
+
+	for k, v := range result.Plans {
+		assert.Equal(t, simpleAddrs[k/3], v.Member)
+	}
+
+	stime, _ = cs.Index2Time(1)
+	eleTime, err := cs.ElectionTime(stime)
+	eleIndex, err := cs.ElectionIndex(1)
+
+	for k, v := range eleIndex.Plans {
+		assert.Equal(t, eleTime.Plans[k], v)
+	}
 }
