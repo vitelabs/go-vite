@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type ch interface {
+type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
@@ -40,7 +40,7 @@ type ch interface {
 type chainRw struct {
 	// todo
 	genesisTime time.Time
-	rw          ch
+	rw          Chain
 
 	//hourPoints   PointLinkedArray
 	//dayPoints    PointLinkedArray
@@ -52,7 +52,7 @@ type chainRw struct {
 	log log15.Logger
 }
 
-func newChainRw(rw ch, log log15.Logger) *chainRw {
+func newChainRw(rw Chain, log log15.Logger) *chainRw {
 	self := &chainRw{rw: rw}
 
 	self.genesisTime = *rw.GetGenesisSnapshotBlock().Timestamp
@@ -131,13 +131,13 @@ func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block l
 
 	// cal candidate
 	for _, v := range registerList {
-		registers = append(registers, self.GenVoteDetails(block.Hash, v, votes, info.CountingTokenId))
+		registers = append(registers, self.genVoteDetails(block.Hash, v, votes, info.CountingTokenId))
 	}
 	sort.Sort(ByBalance(registers))
 	return registers, nil
 }
 
-func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
+func (self *chainRw) genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {

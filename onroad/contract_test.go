@@ -30,31 +30,16 @@ var (
 	testDefaultQuota = uint64(20)
 
 	testlog = log15.New("test", "onroad")
+	signal  = testlog.New("signal", nil)
 )
 
 func TestSelectivePendingCache(t *testing.T) {
 	chain := NewTestChainDb()
 	worker := newTestContractWoker(chain)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	defer wg.Done()
-
 	common.Go(worker.Work)
 
 	chain.Start()
-
-	time.AfterFunc(1*time.Minute, func() {
-		chain.Stop()
-		//worker.stop()
-		var remain = 0
-		for _, v := range chain.db {
-			remain += len(v)
-		}
-		fmt.Printf("hhaghagahgaaghghghghghghgh %v", remain)
-	})
-
-	wg.Wait()
 }
 
 type testChainDb struct {
@@ -74,26 +59,37 @@ func NewTestChainDb() *testChainDb {
 		db:       make(map[types.Address][]*ledger.AccountBlock),
 		quotaMap: make(map[types.Address]uint64, len(ContractList)),
 	}
-	for _, v := range ContractList {
-		chain.quotaMap[*v] = testDefaultQuota
+	for k, v := range ContractList {
+		chain.quotaMap[*v] = testDefaultQuota - uint64(k)
 	}
 	return chain
 }
 
 func (c *testChainDb) Start() {
 	testlog.Info("writeOnroad start")
-
-	c.writeOnroad(false)
-
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(40 * time.Second)
 	defer ticker.Stop()
+
+	doneTicker := time.NewTicker(2 * time.Minute)
+
+	c.writeOnroad()
+
+	time.AfterFunc(2*time.Minute, func() {
+		testlog.Info("call breaker to stop chain")
+		c.breaker <- struct{}{}
+	})
 
 	for {
 		select {
 		case <-ticker.C:
-			c.writeOnroad(true)
-		case <-c.breaker:
-			testlog.Info("chain work stop")
+			c.writeOnroad()
+		case <-doneTicker.C:
+			var remain = 0
+			for _, v := range c.db {
+				remain += len(v)
+			}
+			testlog.Info("chain work stop", "remain", remain)
+			doneTicker.Stop()
 			break
 		}
 	}
@@ -122,8 +118,8 @@ func (c *testChainDb) CheckQuota(addr *types.Address) bool {
 func (w *testChainDb) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCount uint8) ([]*ledger.AccountBlock, error) {
 	blocks := make([]*ledger.AccountBlock, 0)
 	var index uint8 = 0
-	for _, l := range w.db {
-		for _, v := range l {
+	if _, ok := w.db[*addr]; ok {
+		for _, v := range w.db[*addr] {
 			if index >= pageCount*pageNum {
 				if index >= pageCount*(pageNum+1) {
 					return blocks, nil
@@ -136,7 +132,7 @@ func (w *testChainDb) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCou
 	return blocks, nil
 }
 
-func (c *testChainDb) writeOnroad(quotaRandom bool) {
+func (c *testChainDb) writeOnroad() {
 	rand.Seed(time.Now().UnixNano())
 	blocks := make([]*ledger.AccountBlock, 0)
 	for i := 0; i < int(DefaultPullCount); i++ {
@@ -151,7 +147,6 @@ func (c *testChainDb) writeOnroad(quotaRandom bool) {
 		fmt.Printf("height:%v,hash:%v,caller:%v, contract:%v\n", b.Height, b.Hash, b.AccountAddress, b.ToAddress)
 		blocks = append(blocks, b)
 	}
-	fmt.Printf("data to prepared, start Work, len %v\n\n", len(blocks))
 
 	var vCount = 0
 	for _, v := range blocks {
@@ -164,20 +159,22 @@ func (c *testChainDb) writeOnroad(quotaRandom bool) {
 			nl = append(nl, v)
 			c.db[v.ToAddress] = nl
 		}
-		if c.blockFn != nil {
-			fmt.Printf("Signal to %v hash %v\n", v.ToAddress, v.Hash)
-			c.blockFn(&v.ToAddress)
-		}
 	}
 
 	for k, _ := range c.db {
-		if !quotaRandom {
-			c.quotaMap[k] = testDefaultQuota
-		} else {
-			//c.modifyQuotaMap_Add(&k)
+		c.modifyQuotaMap_Add(&k)
+		fmt.Printf("modify quota %v %v\n", k, c.quotaMap[k])
+	}
+	fmt.Printf("prepared new round data, start Work\n")
+
+	for _, l := range c.db {
+		for _, v := range l {
+			if c.blockFn != nil {
+				signal.Info(fmt.Sprintf("signal to %v hash %v", v.ToAddress, v.Hash))
+				c.blockFn(&v.ToAddress)
+			}
 		}
 	}
-
 }
 
 func (c *testChainDb) deleteOnroad(cAddr *types.Address, sHash *types.Hash) error {
@@ -210,7 +207,7 @@ func (c *testChainDb) modifyQuotaMap_Add(addr *types.Address) {
 	c.quotaMutex.RLock()
 	defer c.quotaMutex.RUnlock()
 	rand.Seed(time.Now().UnixNano())
-	quotaCurrent := c.quotaMap[*addr] + uint64(rand.Intn(10)+1)
+	quotaCurrent := c.quotaMap[*addr] + 1 /*uint64(rand.Intn(10)+1)*/
 	c.quotaMap[*addr] = quotaCurrent
 }
 
@@ -295,15 +292,18 @@ func (w *testContractWoker) Work() {
 		w.isCancel.Store(false)
 
 		w.initContractTask()
-
+		for _, v := range w.contractTaskPQueue {
+			fmt.Printf("init task %v %v %v\n", v.Index, v.Addr, v.Quota)
+		}
 		w.chain.SetNewSignal(func(addr *types.Address) {
 			if w.isContractInBlackList(addr) {
 				return
 			}
 			rand.Seed(time.Now().UnixNano())
+			newAddr := ContractList[rand.Intn(100)%len(ContractList)]
 			c := &contractTask{
-				Addr:  *ContractList[rand.Intn(100)%len(ContractList)],
-				Quota: uint64(rand.Intn(10)),
+				Addr:  *newAddr,
+				Quota: w.chain.getQuotaMap(newAddr),
 			}
 			w.pushContractTask(c)
 
@@ -338,11 +338,6 @@ func (w *testContractWoker) initContractTask() {
 		}
 	}
 	heap.Init(&w.contractTaskPQueue)
-
-	fmt.Println("taskpqueue init")
-	for _, t := range w.contractTaskPQueue {
-		fmt.Println("addr", t.Addr, "q", t.Quota, "index", t.Index)
-	}
 }
 
 func (w *testContractWoker) pushContractTask(t *contractTask) {
@@ -351,14 +346,14 @@ func (w *testContractWoker) pushContractTask(t *contractTask) {
 	// be careful duplicates
 	for _, v := range w.contractTaskPQueue {
 		if v.Addr == t.Addr {
-			testlog.Info(fmt.Sprintf("heap fix, pre-idx=%v, addr=%v, quota=%v", v.Index, t.Addr, t.Quota))
 			v.Quota = t.Quota
 			heap.Fix(&w.contractTaskPQueue, v.Index)
+			signal.Info(fmt.Sprintf("heap fix, addr=%v, quota=%v", t.Addr, t.Quota))
 			return
 		}
 	}
 	heap.Push(&w.contractTaskPQueue, t)
-	testlog.Info("pushContractTask new", "addr", t.Addr)
+	signal.Info(fmt.Sprintf("heap push, addr=%v, quota=%v", t.Addr, t.Quota))
 }
 
 func (w *testContractWoker) popContractTask() *contractTask {
@@ -386,15 +381,14 @@ func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address
 		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
 		if success {
 			if pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
-				fmt.Printf("delete before len %v", len(pendingMap.InferiorList))
 				pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
-				fmt.Printf("delete after len %v", len(pendingMap.InferiorList))
 			}
 		}
 	}
 }
 
 func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) {
+	acqlog := testlog.New("acquireNewOnroadBlocks", contractAddr)
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
 		var pageNum uint8 = 0
 		for pendingMap.isPendingMapNotSufficient() {
@@ -403,7 +397,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 			if len(blocks) <= 0 {
 				return
 			}
-			testlog.Info("GetOnRoadBlockByAddr blocks", "len", len(blocks))
+			acqlog.Info(fmt.Sprintf("acquireNewOnroad %v blocks %v", pageNum, len(blocks)))
 			for _, v := range blocks {
 				if !pendingMap.existInInferiorList(v.AccountAddress) {
 					pendingMap.addPendingMap(v)
@@ -416,7 +410,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 		if len(blocks) <= 0 {
 			return
 		}
-		testlog.Info("GetOnRoadBlockByAddr blocks", "len", len(blocks))
+		acqlog.Info(fmt.Sprintf("first acquireNewOnroad blocks %v", len(blocks)))
 		for _, v := range blocks {
 			callerMap.addPendingMap(v)
 		}

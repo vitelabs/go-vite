@@ -2,11 +2,8 @@ package onroad_test
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/wallet"
 	"testing"
 )
@@ -24,30 +21,31 @@ func generateAddress() types.Address {
 	return em.GetPrimaryAddr()
 }
 
+/*
 func startManager() (*onroad.Manager, types.Address) {
 	addr := generateAddress()
 
-	c := chain.NewChain(&config.Config{
-		Net:     nil,
-		DataDir: common.GoViteTestDataDir(),
-	})
-	c.Init()
+		c := chain.NewChain(&config.Config{
+			Net:     nil,
+			DataDir: common.GoViteTestDataDir(),
+		})
+		c.Init()
 
-	prod := new(testProducer)
-	prod.Addr = addr
+		prod := new(testProducer)
+		prod.Addr = addr
 
-	tnet := new(testNet)
+		tnet := new(testNet)
 
-	tpool := new(testPool)
+		tpool := new(testPool)
 
-	manager := onroad.NewManager(tnet, tpool, prod, twallet)
-	manager.Init(c)
+		manager := onroad.NewManager(tnet, tpool, prod, twallet)
+		manager.Init(c)
 
-	manager.Start()
-	c.Start()
+		manager.Start()
+		c.Start()
 
-	return manager, addr
-}
+		return manager, addr
+}*/
 
 /*func TestManager_StartAutoReceiveWorker(t *testing.T) {
 

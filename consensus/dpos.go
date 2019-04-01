@@ -9,7 +9,7 @@ import (
 )
 
 type dposReader struct {
-	snapshot  *snapshotCs
+	snapshot  DposReader
 	contracts *contractsCs
 
 	log log15.Logger
