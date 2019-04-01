@@ -702,7 +702,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			}
 			switch stat.verifyResult() {
 			case verifier.FAIL:
-				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:

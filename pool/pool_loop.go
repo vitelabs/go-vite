@@ -3,7 +3,6 @@ package pool
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/golang-collections/collections/stack"
@@ -30,7 +29,7 @@ func (self *pool) loopQueue() {
 			fmt.Printf("insert queue err:%s\n", err)
 			fmt.Printf("all queue:%s\n", q.Info())
 			time.Sleep(time.Second * 2)
-			os.Exit(0)
+			self.log.Crit("loop pool exit")
 		}
 	}
 }
