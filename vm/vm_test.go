@@ -284,13 +284,13 @@ func TestCall(t *testing.T) {
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
 		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
-	db.contractMetaMap[addr2] = &ledger.ContractMeta{&types.DELEGATE_GID, 1}
+	db.contractMetaMap[addr2] = &ledger.ContractMeta{types.DELEGATE_GID, 1}
 
 	// code3 return amount+data
 	addr3 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 	code3 := []byte{1, byte(CALLVALUE), byte(PUSH1), 0, byte(CALLDATALOAD), byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
 	db.codeMap[addr3] = code3
-	db.contractMetaMap[addr3] = &ledger.ContractMeta{&types.DELEGATE_GID, 2}
+	db.contractMetaMap[addr3] = &ledger.ContractMeta{types.DELEGATE_GID, 2}
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
