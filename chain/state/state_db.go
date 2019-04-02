@@ -33,19 +33,28 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	kvRedo, err := NewStorageRedo(chainDir)
+	storageRedo, err := NewStorageRedo(chainDir)
 	if err != nil {
 		return nil, err
 	}
 
-	kvRedo.SetSnapshot(chain.GetLatestSnapshotBlock().Height, nil)
+	latestSnapshotBlock, err := chain.QueryLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	height := uint64(1)
+	if latestSnapshotBlock != nil {
+		height = latestSnapshotBlock.Height + 1
+	}
+
+	storageRedo.SetSnapshot(height, nil)
 
 	stateDb := &StateDB{
 		chain: chain,
 		log:   log15.New("module", "stateDB"),
 		store: store,
 
-		storageRedo: kvRedo,
+		storageRedo: storageRedo,
 	}
 	return stateDb, nil
 }

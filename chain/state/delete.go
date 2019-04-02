@@ -9,6 +9,9 @@ import (
 
 // TODO
 func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	if len(deletedSnapshotSegments) <= 0 {
+		return nil
+	}
 	batch := sDB.store.NewBatch()
 	//blockHashList := make([]*types.Hash, 0, size)
 
@@ -31,13 +34,17 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 
 		}
 		return balance, nil
-
 	}
+	firstSb := deletedSnapshotSegments[0].SnapshotBlock
 	isDeleteSnapshotBlock := false
+
 	for _, seg := range deletedSnapshotSegments {
 		snapshotBlock := seg.SnapshotBlock
 		if snapshotBlock != nil {
 			isDeleteSnapshotBlock = true
+			if snapshotBlock.Hash != firstSb.Hash {
+				sDB.storageRedo.Rollback(snapshotBlock.Height)
+			}
 		}
 
 		deleteKey := make(map[string]struct{})
