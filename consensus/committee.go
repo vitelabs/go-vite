@@ -207,7 +207,11 @@ func (self *committee) update(gid types.Gid, t DposReader, m *sync.Map) {
 
 		if err != nil {
 			self.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
-			time.Sleep(time.Second)
+			select {
+			case <-self.closed:
+				return
+			case <-time.After(time.Second):
+			}
 			// error handle
 			continue
 		}
@@ -296,11 +300,13 @@ func (self *committee) eventAll(e *subscribeEvent, result *electionResult, voteT
 		if sub+time.Second < 0 {
 			continue
 		}
-
 		if sub > time.Millisecond*10 {
-			time.Sleep(sub)
+			select {
+			case <-self.closed:
+				return
+			case <-time.After(sub):
+			}
 		}
-
 		e.fn(newConsensusEvent(result, p, e.gid, voteTime))
 	}
 }
@@ -313,7 +319,11 @@ func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, vote
 				continue
 			}
 			if sub > time.Millisecond*10 {
-				time.Sleep(sub)
+				select {
+				case <-self.closed:
+					return
+				case <-time.After(sub):
+				}
 			}
 			e.fn(newConsensusEvent(result, p, e.gid, voteTime))
 		}
