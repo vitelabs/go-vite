@@ -32,7 +32,7 @@ func newPeriodLinkedArray() {
 }
 
 type LinkedArray interface {
-	GetByHeight(height uint64) (*consensus_db.Point, error)
+	GetByIndex(index uint64) (*consensus_db.Point, error)
 }
 
 type linkedArray struct {
@@ -42,8 +42,8 @@ type linkedArray struct {
 	lowerArr LinkedArray
 }
 
-func (self *linkedArray) GetByHeight(height uint64) (*consensus_db.Point, error) {
-	point, err := self.db.GetPointByHeight(self.prefix, height)
+func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
+	point, err := self.db.GetPointByHeight(self.prefix, index)
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +51,15 @@ func (self *linkedArray) GetByHeight(height uint64) (*consensus_db.Point, error)
 		return point, nil
 	}
 
-	return self.getByHeight(height)
+	return self.getByIndex(index)
 }
 
-func (self *linkedArray) getByHeight(height uint64) (*consensus_db.Point, error) {
+func (self *linkedArray) getByIndex(index uint64) (*consensus_db.Point, error) {
 	result := &consensus_db.Point{}
-	start := height * self.rate
+	start := index * self.rate
 	end := start + self.rate
 	for i := start; i < end; i++ {
-		p, err := self.lowerArr.GetByHeight(i)
+		p, err := self.lowerArr.GetByIndex(i)
 		if err != nil {
 			return nil, err
 		}
@@ -71,6 +71,7 @@ func (self *linkedArray) getByHeight(height uint64) (*consensus_db.Point, error)
 	return result, nil
 }
 
+var PERIOD_TO_SECS = uint64(75)
 var HOUR_TO_PERIOD = uint64(48)
 var DAY_TO_HOUR = uint64(24)
 var DAY_TO_PERIOD = uint64(24 * 48)
@@ -112,15 +113,15 @@ func newPeriodPointArray(rw Chain, cs DposReader) *periodLinkedArray {
 	return &periodLinkedArray{rw: rw, periods: cache, snapshot: cs}
 }
 
-func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, error) {
-	value, ok := self.periods.Get(height)
+func (self *periodLinkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
+	value, ok := self.periods.Get(index)
 	if !ok || value == nil {
-		result, err := self.getByHeight(height)
+		result, err := self.getByIndex(index)
 		if err != nil {
 			return nil, err
 		}
 		if result != nil {
-			self.Set(height, result)
+			self.Set(index, result)
 			return &result.Point, nil
 		} else {
 			return nil, nil
@@ -129,12 +130,12 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, 
 	point := value.(*periodPoint)
 	valid := self.checkValid(point)
 	if !valid {
-		result, err := self.getByHeight(height)
+		result, err := self.getByIndex(index)
 		if err != nil {
 			return nil, err
 		}
 		if result != nil {
-			self.Set(height, result)
+			self.Set(index, result)
 			return &result.Point, nil
 		} else {
 			return nil, nil
@@ -143,28 +144,24 @@ func (self *periodLinkedArray) GetByHeight(height uint64) (*consensus_db.Point, 
 	return &point.Point, nil
 }
 
-func (self *periodLinkedArray) Set(height uint64, block *periodPoint) error {
-	self.periods.Add(height, block)
+func (self *periodLinkedArray) Set(index uint64, block *periodPoint) error {
+	self.periods.Add(index, block)
 	return nil
 }
 
-func (self *periodLinkedArray) NextHeight(height uint64) uint64 {
-	return height + 1
-}
-
-func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) {
-	stime, etime := self.snapshot.Index2Time(height)
+func (self *periodLinkedArray) getByIndex(index uint64) (*periodPoint, error) {
+	stime, etime := self.snapshot.Index2Time(index)
 	// todo opt
 	endSnapshotBlock, err := self.rw.GetSnapshotHeaderBeforeTime(&etime)
 	if err != nil {
 		return nil, err
 	}
 	if endSnapshotBlock.Timestamp.Before(stime) {
-		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
+		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
 	}
 
 	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock.Hash) {
-		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
+		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
 	}
 
 	blocks, err := self.rw.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: endSnapshotBlock.Hash, Height: endSnapshotBlock.Height}, &stime, nil)
@@ -174,15 +171,15 @@ func (self *periodLinkedArray) getByHeight(height uint64) (*periodPoint, error) 
 
 	// actually no block
 	if len(blocks) == 0 {
-		return self.emptyPoint(height, &stime, &etime, endSnapshotBlock)
+		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
 	}
 
-	result, err := self.snapshot.ElectionIndex(height)
+	result, err := self.snapshot.ElectionIndex(index)
 	if err != nil {
 		return nil, err
 	}
 
-	return self.genPeriodPoint(height, &stime, &etime, endSnapshotBlock, blocks, result)
+	return self.genPeriodPoint(index, &stime, &etime, endSnapshotBlock, blocks, result)
 }
 
 func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
@@ -211,7 +208,7 @@ func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
 	return false
 }
 
-func (self *periodLinkedArray) emptyPoint(height uint64, stime, etime *time.Time, endSnapshotBlock *ledger.SnapshotBlock) (*periodPoint, error) {
+func (self *periodLinkedArray) emptyPoint(index uint64, stime, etime *time.Time, endSnapshotBlock *ledger.SnapshotBlock) (*periodPoint, error) {
 	point := &periodPoint{}
 	point.stime = stime
 	point.etime = etime
@@ -228,7 +225,7 @@ func (self *periodLinkedArray) emptyPoint(height uint64, stime, etime *time.Time
 	}
 	return point, nil
 }
-func (self *periodLinkedArray) genPeriodPoint(height uint64, stime *time.Time, etime *time.Time, endSnapshot *ledger.SnapshotBlock, blocks []*ledger.SnapshotBlock, result *electionResult) (*periodPoint, error) {
+func (self *periodLinkedArray) genPeriodPoint(index uint64, stime *time.Time, etime *time.Time, endSnapshot *ledger.SnapshotBlock, blocks []*ledger.SnapshotBlock, result *electionResult) (*periodPoint, error) {
 	point := &periodPoint{}
 	point.stime = stime
 	point.etime = etime

@@ -163,6 +163,12 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 	if max > self.current {
 		self.current = max
 	}
+	if !b.Snapshot() {
+		err := self.accountExistsF(b.Hash())
+		if err == nil {
+			panic(fmt.Sprintf("panic for account block[%s][%d][%s] exist", b.Hash(), b.Height(), b.ownerWrapper))
+		}
+	}
 	return err
 }
 

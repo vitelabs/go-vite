@@ -17,19 +17,29 @@ loop:
 2. insert for queue
 */
 func (self *pool) loopQueue() {
+	self.wg.Add(1)
+	defer self.wg.Done()
 	for {
-		q := self.makeQueue()
-		size := q.Size()
-		if size == 0 {
-			time.Sleep(20 * time.Millisecond)
-			continue
-		}
-		err := self.insertQueue(q)
-		if err != nil {
-			fmt.Printf("insert queue err:%s\n", err)
-			fmt.Printf("all queue:%s\n", q.Info())
-			time.Sleep(time.Second * 2)
-			self.log.Crit("loop pool exit")
+		select {
+		case <-self.closed:
+			return
+		default:
+			t1 := time.Now()
+			q := self.makeQueue()
+			size := q.Size()
+			if size == 0 {
+				time.Sleep(2 * time.Millisecond)
+				continue
+			}
+			err := self.insertQueue(q)
+			if err != nil {
+				fmt.Printf("insert queue err:%s\n", err)
+				fmt.Printf("all queue:%s\n", q.Info())
+				time.Sleep(time.Second * 2)
+				self.log.Crit("loop pool exit")
+			}
+			t2 := time.Now()
+			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
 		}
 	}
 }

@@ -28,6 +28,13 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	return quotaLeft, nil
 }
 
+func UseQuotaWithFlag(quotaLeft, cost uint64, flag bool) (uint64, error) {
+	if flag {
+		return UseQuota(quotaLeft, cost)
+	}
+	return quotaLeft + cost, nil
+}
+
 func IntrinsicGasCost(data []byte, isCreate bool, confirmTime uint8) (uint64, error) {
 	var gas uint64
 	if isCreate {
@@ -73,23 +80,17 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
-func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) uint64 {
 	if !useQuota {
 		return 0
 	}
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
-	} else if err != nil {
-		if quotaTotal-quotaLeft < quotaAddition {
-			return 0
-		} else {
-			return quotaTotal - quotaAddition - quotaLeft
-		}
 	} else {
 		if quotaTotal-quotaLeft < quotaAddition {
 			return 0
 		} else {
-			return quotaTotal - quotaLeft - quotaAddition - helper.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
+			return quotaTotal - quotaAddition - quotaLeft
 		}
 	}
 }

@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"math/big"
-	"strings"
 )
 
 const (
@@ -83,6 +84,14 @@ func HexToAddress(hexStr string) (Address, error) {
 	} else {
 		return Address{}, fmt.Errorf("not valid hex address %v", hexStr)
 	}
+}
+
+func HexToAddressPanic(hexstr string) Address {
+	h, err := HexToAddress(hexstr)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 func IsValidHexAddress(hexStr string) bool {

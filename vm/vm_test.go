@@ -467,7 +467,6 @@ type TestCase struct {
 	ReturnData    string
 	QuotaTotal    uint64
 	QuotaLeft     uint64
-	QuotaRefund   uint64
 	Err           string
 	Storage       map[string]string
 	PreStorage    map[string]string
@@ -542,8 +541,7 @@ func TestVm(t *testing.T) {
 				db,
 				&sendCallBlock,
 				sendCallBlock.Data,
-				testCase.QuotaTotal,
-				0)
+				testCase.QuotaTotal)
 			code, _ := hex.DecodeString(testCase.Code)
 			c.setCallCode(testCase.ToAddress, code)
 			util.AddBalance(db, &sendCallBlock.TokenId, sendCallBlock.Amount)
@@ -557,8 +555,6 @@ func TestVm(t *testing.T) {
 					t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
 				} else if c.quotaLeft != testCase.QuotaLeft {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
-				} else if c.quotaRefund != testCase.QuotaRefund {
-					t.Fatalf("%v: %v failed, quota refund error, expected %v, got %v", testFile.Name(), k, testCase.QuotaRefund, c.quotaRefund)
 				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
 					t.Fatalf("%v: %v failed, storage error, %v", testFile.Name(), k, checkStorageResult)
 				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {

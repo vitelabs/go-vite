@@ -2,11 +2,12 @@ package api
 
 import (
 	"errors"
+	"math/big"
+	"strconv"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"strconv"
 )
 
 type AccountBlock struct {
@@ -211,11 +212,12 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	rpcAccountBlock.ToAddress = toAddress
 
 	if block.IsSendBlock() {
-		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
-		if err != nil {
-			return nil, err
-		}
-		rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlock.Height, 10))
+		// todo
+		//receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlock.Height, 10))
 	}
 	return rpcAccountBlock, nil
 }

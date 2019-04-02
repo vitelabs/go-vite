@@ -33,6 +33,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		st   = newStack()
 		pc   = uint64(0)
 		cost uint64
+		flag bool
 	)
 
 	for atomic.LoadInt32(&vm.abort) == 0 {
@@ -59,11 +60,11 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 			}
 		}
 
-		cost, err = operation.gasCost(vm, c, st, mem, memorySize)
+		cost, flag, err = operation.gasCost(vm, c, st, mem, memorySize)
 		if err != nil {
 			return nil, err
 		}
-		c.quotaLeft, err = util.UseQuota(c.quotaLeft, cost)
+		c.quotaLeft, err = util.UseQuotaWithFlag(c.quotaLeft, cost, flag)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +92,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 				"\ncurrent code", currentCode,
 				"\nop", opCodeToString[op],
 				"pc", currentPc,
-				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
+				"quotaLeft", c.quotaLeft,
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
 				"\nstorage", util.PrintMap(storageMap))

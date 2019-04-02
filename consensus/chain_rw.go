@@ -221,33 +221,6 @@ func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.
 	return nil
 }
 
-func (self *chainRw) groupSnapshotBySeedExist(blocks []*ledger.SnapshotBlock) ([]*ledger.SnapshotBlock, []*ledger.SnapshotBlock) {
-	var exists []*ledger.SnapshotBlock
-	var notExists []*ledger.SnapshotBlock
-
-	for _, v := range blocks {
-		if v.SeedHash != nil {
-			exists = append(exists, v)
-		} else {
-			notExists = append(notExists, v)
-		}
-	}
-
-	return exists, notExists
-}
-
-func (self *chainRw) getSeed(top *ledger.SnapshotBlock, prev *ledger.SnapshotBlock) uint64 {
-	seedHash := prev.SeedHash
-	if seedHash == nil {
-		return 0
-	}
-	expectedSeedHash := ledger.ComputeSeedHash(top.Seed, prev.PrevHash, prev.Timestamp)
-	if expectedSeedHash == *seedHash {
-		return prev.Seed
-	}
-	return 0
-}
-
 // an hour = 48 * period
 func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
 	result := make(map[types.Address]int32)
@@ -257,7 +230,7 @@ func (self *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32
 			break
 		}
 		tmpIndex := index - i
-		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		p, err := self.periodPoints.GetByIndex(tmpIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +262,7 @@ func (self *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*con
 			break
 		}
 		tmpIndex := index - i
-		p, err := self.periodPoints.GetByHeight(tmpIndex)
+		p, err := self.periodPoints.GetByIndex(tmpIndex)
 		if err != nil {
 			return nil, err
 		}

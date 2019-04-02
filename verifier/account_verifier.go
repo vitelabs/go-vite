@@ -2,6 +2,8 @@ package verifier
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
@@ -13,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 type AccountType int
@@ -387,6 +388,8 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 		}
 		return nil, errors.New("vm failed, blockList is empty")
 	}
+
+	vmBlock = genResult.VmBlock
 
 	// verify vm result block's hash
 	if block.Hash != vmBlock.AccountBlock.Hash {

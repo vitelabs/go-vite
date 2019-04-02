@@ -25,13 +25,11 @@ const (
 	blake2bGas     uint64 = 30  // Once per Blake2b operation.
 	blake2bWordGas uint64 = 6   // Once per word of the Blake2b operation's data.
 
-	sstoreNoopGas             uint64 = 200
-	sstoreInitGas             uint64 = 20000
-	sstoreCleanGas            uint64 = 5000
-	sstoreDirtyGas            uint64 = 200
-	sstoreClearRefundGas      uint64 = 15000
-	sstoreResetClearRefundGas uint64 = 19800
-	sstoreResetRefundGas      uint64 = 4800
+	sstoreNoopGas   uint64 = 200
+	sstoreInitGas   uint64 = 20000
+	sstoreCleanGas  uint64 = 100
+	sstoreResetGas  uint64 = 5000
+	sstoreMemoryGas uint64 = 200
 
 	jumpdestGas     uint64 = 1 // Jumpdest gas cost.
 	delegateCallGas uint64 = 700
