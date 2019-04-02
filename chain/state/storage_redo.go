@@ -55,6 +55,9 @@ func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Ha
 }
 
 func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, error) {
+	if snapshotHeight == redo.snapshotHeight {
+		return redo.logMap, nil
+	}
 	var logMap map[types.Hash][]byte
 
 	err := redo.store.View(func(tx *bolt.Tx) error {
@@ -87,7 +90,12 @@ func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {
 }
 
 func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
-	redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
+	if snapshotHeight != redo.snapshotHeight {
+		redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
+	}
+
+	redo.snapshotHeight = 0
+	redo.logMap = make(map[types.Hash][]byte)
 }
 
 func (redo *StorageRedo) Id() types.Hash {

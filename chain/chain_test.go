@@ -88,7 +88,6 @@ func TearDown(chainInstance *chain) {
 }
 
 func TestChain(t *testing.T) {
-
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()

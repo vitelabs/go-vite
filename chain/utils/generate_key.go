@@ -157,13 +157,6 @@ func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, sna
 	return key
 }
 
-func CreateStorageRedoKey(blockHash types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, StorageRedoKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
-	return key
-}
-
 func CreateBalanceKeyPrefix(address types.Address) []byte {
 	key := make([]byte, 1+types.AddressSize)
 	key[0] = BalanceKeyPrefix

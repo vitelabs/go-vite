@@ -1,6 +1,7 @@
 package chain_state
 
 import (
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -38,20 +39,45 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 	firstSb := deletedSnapshotSegments[0].SnapshotBlock
 	isDeleteSnapshotBlock := false
 
+	//rollbackStorageKeys := make(map[types.Address][]byte)
 	for _, seg := range deletedSnapshotSegments {
 		snapshotBlock := seg.SnapshotBlock
+
+		kvLogMap := make(map[types.Hash][]byte, 0)
 		if snapshotBlock != nil {
 			isDeleteSnapshotBlock = true
 			if snapshotBlock.Hash != firstSb.Hash {
-				sDB.storageRedo.Rollback(snapshotBlock.Height)
+				// rollback record
+				var err error
+				kvLogMap, err = sDB.storageRedo.QueryLog(snapshotBlock.Height)
+				if err != nil {
+					return err
+				}
+				//sDB.storageRedo.Rollback(snapshotBlock.Height)
 			}
 		}
 
-		deleteKey := make(map[string]struct{})
+		deleteHistoryBalanceKeys := make(map[string]struct{})
 
 		for _, accountBlock := range seg.AccountBlocks {
-			// rollback storage redo key
-			batch.Delete(chain_utils.CreateStorageRedoKey(accountBlock.Hash))
+			if kvLog, ok := kvLogMap[accountBlock.Hash]; ok {
+				var kvList [][2]byte
+				if err := rlp.DecodeBytes(kvLog, kvList); err != nil {
+					return err
+				}
+
+				// TODO
+			}
+			//for hash, kvLog := range kvLogMap {
+			//	var kvList [][2]byte
+			//	if err := rlp.DecodeBytes(kvLog, kvList); err != nil {
+			//		return err
+			//	}
+			//
+			//	for  := range kvList {
+			//
+			//	}
+			//}
 
 			// rollback balance
 			addr := accountBlock.AccountAddress
@@ -86,7 +112,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 
 			// delete history balance
 			if snapshotBlock != nil {
-				deleteKey[string(chain_utils.CreateHistoryBalanceKey(addr, tokenId, snapshotBlock.Height))] = struct{}{}
+				deleteHistoryBalanceKeys[string(chain_utils.CreateHistoryBalanceKey(addr, tokenId, snapshotBlock.Height))] = struct{}{}
 			}
 
 			// delete code
@@ -112,7 +138,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 			}
 		}
 
-		for key := range deleteKey {
+		for key := range deleteHistoryBalanceKeys {
 			batch.Delete([]byte(key))
 		}
 	}
