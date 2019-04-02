@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -18,9 +17,8 @@ type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, 
 type Generator struct {
 	chain chainReader
 
-	vmDb   vm_db.VmDb
-	vm     *vm.VM
-	states *util.GlobalStatus
+	vmDb vm_db.VmDb
+	vm   *vm.VM
 
 	log log15.Logger
 }
@@ -35,7 +33,7 @@ func NewGenerator(chain vm_db.Chain, snapshotBlockHash, prevBlockHash *types.Has
 	return nil, nil
 }
 
-func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash, states *util.GlobalStatus) (*Generator, error) {
+func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
 	}
@@ -47,7 +45,6 @@ func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHas
 		return nil, err
 	}
 	gen.vmDb = vmDb
-	gen.states = states
 
 	return gen, nil
 }
@@ -105,7 +102,12 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 	}()
 
-	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, gen.states)
+	randomSeedStates, err := gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", err))
+	}
+
+	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, randomSeedStates)
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
 		vb.Hash = vb.ComputeHash()

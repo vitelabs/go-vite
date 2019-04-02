@@ -122,5 +122,13 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 }
 
 func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
-	return nil
+	block, err := self.chain.GetLastSeedSnapshotHeader(e.Address)
+	if err != nil {
+		return nil
+	}
+	latest := self.chain.GetLatestSnapshotBlock()
+	if latest.Hash != head.Hash {
+		return nil
+	}
+	return block
 }

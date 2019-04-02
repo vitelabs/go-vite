@@ -42,8 +42,8 @@ type chainRw struct {
 	genesisTime time.Time
 	rw          Chain
 
-	//hourPoints   PointLinkedArray
-	//dayPoints    PointLinkedArray
+	hourPoints   LinkedArray
+	dayPoints    LinkedArray
 	periodPoints *periodLinkedArray
 
 	dbCache  *consensus_db.ConsensusDB
@@ -77,6 +77,8 @@ func (self *chainRw) initArray(cs DposReader) {
 		panic("snapshot cs is nil.")
 	}
 	self.periodPoints = newPeriodPointArray(self.rw, cs)
+	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache)
+	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache)
 }
 
 type VoteDetails struct {

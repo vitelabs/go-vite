@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func newDayLinkedArray(hour *linkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
 	day := &linkedArray{}
 	day.rate = DAY_TO_HOUR
 	day.prefix = consensus_db.INDEX_Point_DAY
@@ -25,10 +25,6 @@ func newHourLinkedArray(period *periodLinkedArray, db *consensus_db.ConsensusDB)
 	hourArr.lowerArr = period
 	hourArr.db = db
 	return hourArr
-}
-
-func newPeriodLinkedArray() {
-
 }
 
 type LinkedArray interface {
@@ -241,7 +237,8 @@ func (self *periodLinkedArray) genPeriodPoint(index uint64, stime *time.Time, et
 	} else {
 		point.proof2 = &ledger.HashHeight{Hash: endSnapshot.Hash, Height: endSnapshot.Height}
 	}
-	point.PrevHash = &blocks[len(blocks)-1].Hash
+	point.PrevHash = &blocks[len(blocks)-1].PrevHash
+	point.Hash = &blocks[0].Hash
 
 	sbps := make(map[types.Address]*consensus_db.Content)
 	for _, v := range blocks {

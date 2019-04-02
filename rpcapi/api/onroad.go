@@ -67,6 +67,43 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 }
 
 /*
+func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
+	log.Info("GetAccountOnroadInfo", "addr", address)
+	info, e := o.manager.GetOnroadBlocksPool().GetOnroadAccountInfo(address)
+	if e != nil || info == nil {
+		return nil, e
+	}
+
+	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), *info)
+	return r, nil
+
+}
+
+func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
+	onroadInfo.Mutex.RLock()
+	defer onroadInfo.Mutex.RUnlock()
+
+	var r RpcAccountInfo
+	r.AccountAddress = *onroadInfo.AccountAddress
+	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
+	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+
+	for tti, v := range onroadInfo.TokenBalanceInfoMap {
+		if v != nil {
+			number := strconv.FormatUint(v.Number, 10)
+			tinfo, _ := chain.GetTokenInfoById(&tti)
+			b := &RpcTokenBalanceInfo{
+				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
+				TotalAmount: v.TotalAmount.String(),
+				Number:      &number,
+			}
+			r.TokenBalanceInfoMap[tti] = b
+		}
+	}
+	return &r
+}
+*/
+/*
 func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
 	log.Info("ListWorkingAutoReceiveWorker")
 	return o.manager.ListWorkingAutoReceiveWorker()

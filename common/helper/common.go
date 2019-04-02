@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 )
@@ -111,4 +112,11 @@ func JoinBytes(data ...[]byte) []byte {
 		newData = append(newData, d...)
 	}
 	return newData
+}
+
+func BytesToU64(data []byte) uint64 {
+	if len(data) < 8 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(data)
 }

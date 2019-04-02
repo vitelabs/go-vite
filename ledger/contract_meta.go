@@ -21,3 +21,12 @@ func (cm *ContractMeta) Deserialize(buf []byte) error {
 	cm.SendConfirmedTimes = buf[types.GidSize:][0]
 	return nil
 }
+
+func GetBuiltinContractMeta(addr types.Address) *ContractMeta {
+	if types.IsBuiltinContractAddrInUseWithSendConfirm(addr) {
+		return &ContractMeta{types.DELEGATE_GID, 1}
+	} else if types.IsBuiltinContractAddrInUse(addr) {
+		return &ContractMeta{types.DELEGATE_GID, 0}
+	}
+	return nil
+}

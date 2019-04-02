@@ -33,7 +33,7 @@ func (self *Content) Rate() int32 {
 	result := big.NewInt(0).Div(big.NewInt(int64(self.FactualNum*1000000)), big.NewInt(int64(self.ExpectedNum)))
 	return int32(result.Int64())
 }
-func (self Content) AddNum(ExpectedNum uint32, FactualNum uint32) {
+func (self *Content) AddNum(ExpectedNum uint32, FactualNum uint32) {
 	self.ExpectedNum = self.ExpectedNum + ExpectedNum
 	self.FactualNum = self.FactualNum + FactualNum
 }
