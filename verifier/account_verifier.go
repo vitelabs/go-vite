@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -354,7 +353,6 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isG
 
 func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (vmBlock *vm_db.VmAccountBlock, err error) {
 	var fromBlock *ledger.AccountBlock
-	var states *util.GlobalStatus
 	var recvErr error
 	if block.IsReceiveBlock() {
 		fromBlock, recvErr = v.chain.GetAccountBlockByHash(block.FromBlockHash)
@@ -364,13 +362,8 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 		if fromBlock == nil {
 			return nil, errors.New("failed to find the recvBlock's fromBlock")
 		}
-
-		states, recvErr = v.chain.GetRandomGlobalStatus(&block.AccountAddress, &block.FromBlockHash)
-		if recvErr != nil {
-			return nil, recvErr
-		}
 	}
-	gen, err := generator.NewGenerator2(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash, states)
+	gen, err := generator.NewGenerator2(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash)
 	if err != nil {
 		return nil, ErrVerifyForVmGeneratorFailed
 	}

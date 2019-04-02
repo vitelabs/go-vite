@@ -89,11 +89,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		return true
 	}
 
-	randomSeedStates, err := tp.worker.manager.Chain().GetRandomGlobalStatus(&task.Addr, &sBlock.Hash)
-	if err != nil {
-		blog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
-		return true
-	}
 	addrState, err := generator.GetAddressStateForGenerator(tp.worker.manager.Chain(), &task.Addr)
 	if err != nil || addrState == nil {
 		blog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
@@ -101,9 +96,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	}
 	plog.Info(fmt.Sprintf("contract-prev: hash=%v height=%v", addrState.LatestAccountHash, addrState.LatestAccountHeight))
 
-	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr,
-		addrState.LatestSnapshotHash, addrState.LatestAccountHash,
-		randomSeedStates)
+	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if err != nil {
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true
