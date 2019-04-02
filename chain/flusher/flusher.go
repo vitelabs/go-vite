@@ -40,6 +40,7 @@ type Flusher struct {
 
 	//flushInterval   time.Duration
 	startCommitFlag types.Hash
+	commitWg        sync.WaitGroup
 }
 
 func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flusher, error) {
@@ -155,19 +156,25 @@ func (flusher *Flusher) Flush() {
 	}
 
 	// commit
+	var commitErr error
 	for _, store := range flusher.storeList {
-		if err := store.Commit(); err != nil {
-
-			// redo
-			if err := flusher.commitRedo(); err != nil {
-				panic(err)
-			} else {
-				break
+		flusher.commitWg.Add(1)
+		go func() {
+			defer flusher.commitWg.Done()
+			if commitErr = store.Commit(); commitErr != nil {
+				flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", commitErr.Error()), "method", "Flush")
 			}
+		}()
 
-			flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", err.Error()), "method", "Flush")
+	}
+
+	flusher.commitWg.Wait()
+
+	// redo
+	if commitErr != nil {
+		if err := flusher.commitRedo(); err != nil {
+			panic(err)
 		}
-
 	}
 }
 
