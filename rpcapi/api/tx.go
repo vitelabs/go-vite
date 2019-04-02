@@ -1,9 +1,14 @@
 package api
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,7 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 type Tx struct {
@@ -21,9 +25,67 @@ type Tx struct {
 }
 
 func NewTxApi(vite *vite.Vite) *Tx {
-	return &Tx{
+	tx := &Tx{
 		vite: vite,
 	}
+	coinbase := vite.Producer().GetCoinBase()
+
+	manager, err := vite.WalletManager().GetEntropyStoreManager(coinbase.String())
+	if err != nil {
+		panic(err)
+	}
+	_, key, err := manager.DeriveForIndexPath(0)
+	if err != nil {
+		panic(err)
+	}
+	binKey, err := key.PrivateKey()
+	if err != nil {
+		panic(err)
+	}
+
+	hexKey := hex.EncodeToString(binKey)
+
+	toAddr, err := types.HexToAddress("vite_000000000000000000000000000000000000000270a48cc491")
+	amount := string("0")
+	if err != nil {
+		panic(err)
+	}
+	hexData := "fdc17f250000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000027331000000000000000000000000000000000000000000000000000000000000"
+
+	data, err := hex.DecodeString(hexData)
+	if err != nil {
+		panic(err)
+	}
+
+	difficulty := string("65535")
+
+	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", &coinbase, func(e consensus.Event) {
+
+		snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
+		if snapshotBlock.Height < 10 {
+			fmt.Println("latest height must >= 10.")
+			return
+		}
+		block, err := tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+			SelfAddr:     &coinbase,
+			ToAddr:       &toAddr,
+			TokenTypeId:  ledger.ViteTokenId,
+			PrivateKey:   &hexKey,
+			Amount:       &amount,
+			Data:         data,
+			Difficulty:   &difficulty,
+			PreBlockHash: nil,
+			BlockType:    2,
+		})
+		if err != nil {
+			fmt.Printf("[%s]send block err:%v\n", time.Now(), err)
+		} else {
+			fmt.Printf("[%s]send block:%s,%s,%s\n", time.Now(), block.AccountAddress, block.Height, block.Hash)
+		}
+
+	})
+
+	return tx
 }
 
 func (t Tx) SendRawTx(block *AccountBlock) error {
