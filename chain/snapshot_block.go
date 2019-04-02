@@ -448,9 +448,7 @@ func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	}
 
 	if location == nil {
-		cErr := errors.New("location is nil")
-		c.log.Error(cErr.Error(), "method", "getLatestSnapshotBlock")
-		return nil, cErr
+		return nil, nil
 	}
 
 	sb, err := c.blockDB.GetSnapshotBlock(location)
