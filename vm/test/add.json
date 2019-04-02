@@ -10,7 +10,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79988,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -28,7 +27,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79988,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "0000000000000000000000000000000000000000000000000000000000000000": "03"
@@ -45,7 +43,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99788,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
     }
@@ -61,7 +58,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99788,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
     }
@@ -77,7 +73,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99788,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
     }
@@ -93,7 +88,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000001055",
     "quotaTotal": 1000000,
     "quotaLeft": 999826,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
     }

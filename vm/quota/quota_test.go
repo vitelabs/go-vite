@@ -65,7 +65,7 @@ func TestCalcPledgeAmountSection(t *testing.T) {
 	tmpFloat := new(big.Float).SetPrec(precForFloat)
 	tmpFloatForCalc := new(big.Float).SetPrec(precForFloat)
 
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	p := nodeConfig.paramA
 	fmt.Printf("pledgeAmountListMainnet = []*big.Int{\n")
 	for wrapperIndex, sec := range nodeConfig.sectionList {
@@ -79,7 +79,7 @@ func TestCalcPledgeAmountSection(t *testing.T) {
 	}
 	fmt.Printf("}\n")
 
-	InitQuotaConfig(true)
+	InitQuotaConfig(false, true)
 	p = nodeConfig.paramA
 	fmt.Printf("pledgeAmountListTestnet = []*big.Int{\n")
 	for wrapperIndex, sec := range nodeConfig.sectionList {
@@ -98,7 +98,7 @@ func TestCalcDifficultySection(t *testing.T) {
 	tmpFloat := new(big.Float).SetPrec(precForFloat)
 	tmpFloatForCalc := new(big.Float).SetPrec(precForFloat)
 
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	p := nodeConfig.paramB
 	fmt.Printf("difficultyListMainnet = []*big.Int{\n")
 	for wrapperIndex, sec := range nodeConfig.sectionList {
@@ -112,7 +112,7 @@ func TestCalcDifficultySection(t *testing.T) {
 	}
 	fmt.Printf("}\n")
 
-	InitQuotaConfig(true)
+	InitQuotaConfig(false, true)
 	p = nodeConfig.paramB
 	fmt.Printf("difficultyListTestnet = []*big.Int{\n")
 	for wrapperIndex, sec := range nodeConfig.sectionList {
@@ -128,12 +128,12 @@ func TestCalcDifficultySection(t *testing.T) {
 }
 
 func TestCheckNodeConfig(t *testing.T) {
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	l := len(nodeConfig.sectionList)
 	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
 		t.Fatalf("main net node config param error")
 	}
-	InitQuotaConfig(true)
+	InitQuotaConfig(false, true)
 	l = len(nodeConfig.sectionList)
 	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
 		t.Fatalf("main net node config param error")
@@ -187,7 +187,7 @@ func TestCalcPoWDifficulty(t *testing.T) {
 		{21000, types.NewQuota(0, 0, 0), big.NewInt(134), big.NewInt(0), nil, "total_quota_not_exact"},
 		{1000000, types.NewQuota(21000, 21000, 21000), big.NewInt(134), big.NewInt(42941413), nil, "total_quota_not_exact"},
 	}
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		difficulty, err := CalcPoWDifficulty(testCase.quotaRequired, testCase.q, testCase.pledgeAmount)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
@@ -268,7 +268,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			42000, 21000, 21000, 21000, nil, "get_quota_by_difficulty2",
 		},
 	}
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
 		quotaTotal, quotaAddition, quotaUsed, quotaAvg, err := calcQuotaV3(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
@@ -281,7 +281,7 @@ func TestCalcQuotaV3(t *testing.T) {
 	}
 }
 func BenchmarkCalcQuotaV3(b *testing.B) {
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	addr := types.Address{}
 	db := &testQuotaDb{addr, 21000, 1, []*ledger.AccountBlock{{Quota: 21000}}}
 	pledgeAmount := big.NewInt(10000)
@@ -356,7 +356,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 			1000000, 21000, nil, "block_quota_limit_reached3",
 		},
 	}
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, testCase.usedQuota, testCase.blockCount, testCase.unconfirmedBlockList}
 		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
@@ -370,7 +370,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 }
 
 func TestCalcTPS(t *testing.T) {
-	InitQuotaConfig(false)
+	InitQuotaConfig(false, false)
 	index := 75
 	for {
 		if index >= len(nodeConfig.pledgeAmountList) {

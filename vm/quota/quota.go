@@ -14,19 +14,37 @@ type NodeConfig struct {
 	sectionList      []*big.Float
 	difficultyList   []*big.Int
 	pledgeAmountList []*big.Int
+	calcQuotaFunc    func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64, err error)
 }
 
 var nodeConfig NodeConfig
 
-func InitQuotaConfig(isTestParam bool) {
+func InitQuotaConfig(isTest, isTestParam bool) {
 	sectionList := make([]*big.Float, len(sectionStrList))
 	for i, str := range sectionStrList {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
 	if isTestParam {
-		nodeConfig = NodeConfig{QuotaParamTestnet, sectionList, difficultyListTestnet, pledgeAmountListTestnet}
+		nodeConfig = NodeConfig{
+			QuotaParams:      QuotaParamTestnet,
+			sectionList:      sectionList,
+			difficultyList:   difficultyListTestnet,
+			pledgeAmountList: pledgeAmountListTestnet}
 	} else {
-		nodeConfig = NodeConfig{QuotaParamMainnet, sectionList, difficultyListMainnet, pledgeAmountListMainnet}
+		nodeConfig = NodeConfig{
+			QuotaParams:      QuotaParamMainnet,
+			sectionList:      sectionList,
+			difficultyList:   difficultyListMainnet,
+			pledgeAmountList: pledgeAmountListMainnet}
+	}
+	if isTest {
+		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64, err error) {
+			return 1000000, 0, 0, 0, nil
+		}
+	} else {
+		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition, quotaUsed, quotaAvg uint64, err error) {
+			return calcQuotaV3(db, addr, pledgeAmount, difficulty)
+		}
 	}
 }
 
@@ -36,12 +54,12 @@ type quotaDb interface {
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
-	quotaTotal, _, quotaUsed, quotaAvg, err := calcQuotaV3(db, beneficial, pledgeAmount, big.NewInt(0))
+	quotaTotal, _, quotaUsed, quotaAvg, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0))
 	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
 }
 
 func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, quotaAddition, quotaUsed, _, err := calcQuotaV3(db, addr, pledgeAmount, difficulty)
+	quotaTotal, quotaAddition, quotaUsed, _, err := nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty)
 	if err != nil {
 		return 0, 0, err
 	}
