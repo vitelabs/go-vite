@@ -33,7 +33,6 @@ type Manager struct {
 	unlockLid   int
 	netStateLid int
 
-	writeOnRoadLid uint64
 	// writeSnapshotLid uint64
 
 	lastProducerAccEvent *producerevent.AccountStartEvent
@@ -63,7 +62,8 @@ func (manager *Manager) Start() {
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
-	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.NewBlockSignal)
+	// fixme
+	manager.Chain().Register(manager)
 	//manager.writeSnapshotLid = manager.Chain().RegisterInsertSnapshotBlocks(manager.NewSnapshot)
 }
 
@@ -74,7 +74,7 @@ func (manager *Manager) Stop() {
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}
-	manager.Chain().UnRegister(manager.writeOnRoadLid)
+	manager.Chain().UnRegister(manager)
 	manager.stopAllWorks()
 	manager.log.Info("Close end")
 }
