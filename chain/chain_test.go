@@ -92,7 +92,7 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 432, 20000, 198)
+	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 43, 2000, 198)
 
 	// account
 	testAccount(t, chainInstance, addrList)

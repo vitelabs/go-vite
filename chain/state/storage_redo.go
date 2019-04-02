@@ -89,6 +89,13 @@ func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {
 	redo.logMap[blockHash] = log
 }
 
+func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
+	redo.mu.Lock()
+	defer redo.mu.Unlock()
+
+	delete(redo.logMap, blockHash)
+}
+
 func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
 	if snapshotHeight != redo.snapshotHeight {
 		redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
@@ -103,12 +110,14 @@ func (redo *StorageRedo) Id() types.Hash {
 }
 
 func (redo *StorageRedo) Prepare() {
-	if len(redo.rollbackHeights) <= 0 {
-		redo.flushingBatch.Reset()
-		for blockHash, kvLog := range redo.logMap {
-			redo.flushingBatch.Put(blockHash.Bytes(), kvLog)
-		}
+	if len(redo.rollbackHeights) > 0 {
+		return
 	}
+	redo.flushingBatch.Reset()
+	for blockHash, kvLog := range redo.logMap {
+		redo.flushingBatch.Put(blockHash.Bytes(), kvLog)
+	}
+
 }
 
 func (redo *StorageRedo) CancelPrepare() {

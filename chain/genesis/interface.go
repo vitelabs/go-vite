@@ -8,6 +8,6 @@ import (
 type Chain interface {
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) (invalidAccountBlocks []*ledger.AccountBlock, err error)
 	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
-	GetSnapshotHeaderByHeight(uint64) (*ledger.SnapshotBlock, error)
+	QuerySnapshotBlockByHeight(uint64) (*ledger.SnapshotBlock, error)
 	GetContentNeedSnapshot() ledger.SnapshotContent
 }

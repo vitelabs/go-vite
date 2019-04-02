@@ -48,6 +48,42 @@ func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.Acco
 	return blockMap
 }
 
-func (c *chain) findDependencies(accountBlocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
-	return nil, nil
+func (c *chain) filterDependencies(accountBlocks []*ledger.AccountBlock) []*ledger.AccountBlock {
+	newAccountBlocks := make([]*ledger.AccountBlock, 0, len(accountBlocks))
+	newAccountBlocks = append(newAccountBlocks, accountBlocks[0])
+
+	addrSet := map[types.Address]struct{}{
+		accountBlocks[0].AccountAddress: {},
+	}
+
+	hashSet := map[types.Hash]struct{}{
+		accountBlocks[0].Hash: {},
+	}
+
+	length := len(accountBlocks)
+	for i := 1; i < length; i++ {
+
+		accountBlock := accountBlocks[i]
+		if _, ok := addrSet[accountBlock.AccountAddress]; ok {
+			newAccountBlocks = append(newAccountBlocks, accountBlock)
+			if accountBlock.IsSendBlock() {
+				hashSet[accountBlock.Hash] = struct{}{}
+			}
+			for _, sendBlock := range accountBlock.SendBlockList {
+				hashSet[sendBlock.Hash] = struct{}{}
+			}
+		} else if accountBlock.IsReceiveBlock() {
+			if _, ok := hashSet[accountBlock.FromBlockHash]; ok {
+				newAccountBlocks = append(newAccountBlocks, accountBlock)
+
+				addrSet[accountBlock.AccountAddress] = struct{}{}
+				for _, sendBlock := range accountBlock.SendBlockList {
+					hashSet[sendBlock.Hash] = struct{}{}
+				}
+			}
+		}
+
+	}
+
+	return newAccountBlocks
 }

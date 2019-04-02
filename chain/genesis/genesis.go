@@ -28,7 +28,7 @@ func InitLedger(chain Chain, cfg *config.Genesis) error {
 }
 
 func CheckLedger(chain Chain, cfg *config.Genesis) (byte, error) {
-	firstSb, err := chain.GetSnapshotHeaderByHeight(1)
+	firstSb, err := chain.QuerySnapshotBlockByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
 	}

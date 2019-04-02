@@ -1,8 +1,6 @@
 package chain_index
 
 import (
-	"errors"
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -69,7 +67,7 @@ func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash types.Has
 		return err
 	}
 	if len(value) <= 0 {
-		return errors.New(fmt.Sprintf("onRoad block is not exsited, block hash is %s", sendBlockHash))
+		return nil
 	}
 
 	batch.Delete(reverseKey)

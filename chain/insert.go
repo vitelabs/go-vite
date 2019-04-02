@@ -38,13 +38,14 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
-	sbList := []*ledger.SnapshotBlock{snapshotBlock}
-
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(snapshotBlock.SnapshotContent, unconfirmedBlocks)
 
+	sbList := []*ledger.SnapshotBlock{snapshotBlock}
+
 	c.em.Trigger(prepareDeleteAbsEvent, nil, invalidAccountBlocks, nil, nil)
 	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList, nil)
+
 	// write block db
 	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&ledger.SnapshotChunk{
 		SnapshotBlock: snapshotBlock,
@@ -52,21 +53,24 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	})
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, error is %s, snapshotBlock is %+v", err.Error(), snapshotBlock))
-		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
-	}
-
-	// flush state db
-	if err := c.stateDB.InsertSnapshotBlock(invalidAccountBlocks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.InsertSnapshotBlock failed, error is %s", err.Error()))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	// insert index
-	c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList, invalidAccountBlocks)
+	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList, invalidAccountBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed. Error: %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
+	}
 
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)
+
+	// flush state db
+	if err := c.stateDB.InsertSnapshotBlock(invalidAccountBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.InsertSnapshotBlock failed. Error: %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
+	}
 
 	c.flusher.Flush()
 

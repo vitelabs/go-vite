@@ -17,37 +17,8 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 	openSendBlockHashMap := make(map[types.Hash]struct{})
 
 	for _, seg := range deletedSnapshotSegments {
-		snapshotBlock := seg.SnapshotBlock
-		if snapshotBlock != nil {
-			iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
-			iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
-		}
-
-		for _, block := range seg.AccountBlocks {
-			// delete account block hash index
-			iDB.deleteAccountBlockHash(batch, block.Hash)
-
-			// delete account block height index
-			iDB.deleteAccountBlockHeight(batch, block.AccountAddress, block.Height)
-
-			// delete confirmed index
-			iDB.deleteConfirmHeight(batch, block.AccountAddress, block.Height)
-
-			if block.IsReceiveBlock() {
-
-				if _, ok := openSendBlockHashMap[block.FromBlockHash]; !ok {
-					delete(openSendBlockHashMap, block.FromBlockHash)
-
-					// delete receive index
-					iDB.deleteReceive(batch, block.FromBlockHash)
-
-					// insert onRoad
-					iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress)
-				}
-			} else {
-				openSendBlockHashMap[block.Hash] = struct{}{}
-			}
-		}
+		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
+		iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlockHashMap)
 	}
 
 	for sendBlockHash := range openSendBlockHashMap {
@@ -68,6 +39,51 @@ func (iDB *IndexDB) DeleteOnRoad(sendBlockHash types.Hash) error {
 	iDB.store.Write(batch)
 	return nil
 }
+
+func (iDB *IndexDB) deleteSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock) {
+	if snapshotBlock != nil {
+		iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
+		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
+	}
+}
+
+func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock, openSendBlockHashMap map[types.Hash]struct{}) {
+	for _, block := range blocks {
+		// delete account block hash index
+		iDB.deleteAccountBlockHash(batch, block.Hash)
+
+		// delete account block height index
+		iDB.deleteAccountBlockHeight(batch, block.AccountAddress, block.Height)
+
+		// delete confirmed index
+		iDB.deleteConfirmHeight(batch, block.AccountAddress, block.Height)
+
+		if block.IsReceiveBlock() {
+			// delete receive index
+			iDB.deleteReceive(batch, block.FromBlockHash)
+
+			if _, ok := openSendBlockHashMap[block.FromBlockHash]; !ok {
+
+				delete(openSendBlockHashMap, block.FromBlockHash)
+
+				// insert onRoad
+				iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress)
+			}
+		} else {
+			openSendBlockHashMap[block.Hash] = struct{}{}
+		}
+		for _, sendBlock := range block.SendBlockList {
+			// delete sendBlock hash index
+			iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
+
+			// set open send
+			openSendBlockHashMap[sendBlock.Hash] = struct{}{}
+		}
+
+	}
+
+}
+
 func (iDB *IndexDB) deleteSnapshotBlockHash(batch *leveldb.Batch, snapshotBlockHash types.Hash) {
 	batch.Delete(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlockHash))
 }
