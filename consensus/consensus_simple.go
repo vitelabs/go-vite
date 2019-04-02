@@ -12,6 +12,8 @@ var simpleGenesis = time.Unix(1553849738, 0)
 
 var simpleAddrs = genSimpleAddrs()
 
+// vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a hex public key:3fc5224e59433bff4f48c83c0eb4edea0e4c42ea697e04cdec717d03e50d5200
+// vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25 hex public key:e0de77ffdc2719eb1d8e89139da9747bd413bfe59781c43fc078bb37d8cbd77a
 func genSimpleAddrs() []types.Address {
 	var simpleAddrs []types.Address
 	addrs := []string{"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",

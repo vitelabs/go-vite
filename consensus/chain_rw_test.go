@@ -8,15 +8,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/log15"
-
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/config/gen"
-
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config/gen"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type mock_ch struct {
