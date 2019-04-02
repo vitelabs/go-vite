@@ -83,11 +83,7 @@ func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flushe
 
 func (flusher *Flusher) Flush() {
 	flusher.mu.Lock()
-	defer func() {
-		flusher.cleanRedoLog()
-		flusher.mu.Unlock()
-
-	}()
+	defer flusher.mu.Unlock()
 
 	// prepare
 	for _, store := range flusher.storeList {
@@ -157,11 +153,12 @@ func (flusher *Flusher) Flush() {
 
 	// commit
 	var commitErr error
+	flusher.commitWg.Add(len(flusher.storeList))
 	for _, store := range flusher.storeList {
-		flusher.commitWg.Add(1)
+		commitStore := store
 		go func() {
 			defer flusher.commitWg.Done()
-			if commitErr = store.Commit(); commitErr != nil {
+			if commitErr = commitStore.Commit(); commitErr != nil {
 				flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", commitErr.Error()), "method", "Flush")
 			}
 		}()
@@ -175,6 +172,8 @@ func (flusher *Flusher) Flush() {
 			panic(err)
 		}
 	}
+
+	flusher.cleanRedoLog()
 }
 
 func (flusher *Flusher) Recover() error {
