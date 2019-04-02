@@ -2,7 +2,6 @@ package onroad
 
 import (
 	"container/heap"
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -395,7 +394,7 @@ func (w *ContractWorker) VerifyConfirmedTimes(contractAddr *types.Address, fromH
 		return err
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
-		w.log.Error(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
+		//w.log.Info(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
 		return errors.New("sendBlock is not ready")
 	}
 	return nil

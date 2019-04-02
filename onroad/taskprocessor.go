@@ -109,7 +109,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return
 	}
-	genResult, err := gen.GenerateWithOnroad(sBlock, &task.Addr,
+	genResult, err := gen.GenerateWithOnroad(sBlock, &tp.worker.accEvent.Address,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
 			if err != nil {
