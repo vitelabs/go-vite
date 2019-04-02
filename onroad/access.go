@@ -9,6 +9,13 @@ import (
 
 func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCount uint64) ([]*ledger.AccountBlock, error) {
 	log := manager.log.New("method", "newSignalToWorker", "addr", addr)
+	hasOnroads, err := manager.chain.HasOnRoadBlocks(*addr)
+	if err != nil {
+		return nil, err
+	}
+	if !hasOnroads {
+		return nil, nil
+	}
 	blocks := make([]*ledger.AccountBlock, 0)
 	hashList, err := manager.chain.GetOnRoadBlocksHashList(*addr, int(pageNum), int(pageCount))
 	if err != nil {
