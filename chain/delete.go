@@ -38,7 +38,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	var location *chain_file_manager.Location
 	targetHeight := uint64(1)
 
-	deletePerTime := uint64(1000)
+	deletePerTime := uint64(100)
 	for targetHeight > toHeight {
 		currentHeight := c.GetLatestSnapshotBlock().Height
 		if currentHeight > deletePerTime {
@@ -138,7 +138,6 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 	return blocks, nil
 }
 
-// TODO rollback consistency
 func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 
 	// rollback blocks db

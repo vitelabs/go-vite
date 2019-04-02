@@ -111,7 +111,7 @@ func TestChain(t *testing.T) {
 	testState(t, chainInstance, accounts, snapshotBlockList)
 
 	// built-in contract
-	//testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
+	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 
 	TearDown(chainInstance)
 

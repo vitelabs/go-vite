@@ -88,25 +88,32 @@ func (fm *FileManager) Flush(toLocation *Location) error {
 
 	return nil
 }
+func (fm *FileManager) GetNextLocation(location *Location) (*Location, error) {
+	bufSizeBytes := make([]byte, 4)
+	_, _, err := fm.ReadRaw(location, bufSizeBytes)
+	if err != nil {
+		return nil, err
+	}
+	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
-func (fm *FileManager) Read(location *Location) ([]byte, []byte, error) {
+	offset := location.Offset + int64(bufSize) + 4
+	return NewLocation(location.FileId+uint64(offset/fm.fileSize), offset%fm.fileSize), nil
+}
+
+func (fm *FileManager) Read(location *Location) ([]byte, *Location, error) {
 	bufSizeBytes := make([]byte, 4)
 	nextLocation, _, err := fm.ReadRaw(location, bufSizeBytes)
 	if err != nil {
-		if err == io.EOF {
-			return nil, nil, nil
-		}
-		return nil, nil, err
+		return nil, nextLocation, err
 	}
 
 	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
 
 	buf := make([]byte, bufSize)
-	if _, _, err := fm.ReadRaw(nextLocation, buf); err != nil && err != io.EOF {
-		return nil, nil, err
-	}
 
-	return buf, bufSizeBytes, nil
+	nextLocation, _, err = fm.ReadRaw(nextLocation, buf)
+
+	return buf, nextLocation, err
 }
 
 func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, int, error) {
@@ -146,6 +153,7 @@ func (fm *FileManager) ReadRaw(startLocation *Location, buf []byte) (*Location, 
 		if rErr != nil {
 			return currentLocation, i, rErr
 		}
+
 	}
 	return currentLocation, i, nil
 }
@@ -168,7 +176,7 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 			return
 		}
 
-		var toLocation *Location
+		toLocation := NewLocation(currentLocation.FileId, fm.fileSize)
 		if currentLocation.FileId == realEndLocation.FileId {
 			toLocation = realEndLocation
 		}
@@ -176,12 +184,12 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 		buf, err := fm.readFile(fd, currentLocation, toLocation)
 		fd.Close()
 
-		if err != nil {
-			parser.WriteError(err)
+		if err := parser.Write(buf); err != nil {
 			return
 		}
 
-		if err := parser.Write(buf); err != nil {
+		if err != nil {
+			parser.WriteError(err)
 			return
 		}
 
@@ -198,20 +206,11 @@ func (fm *FileManager) Close() error {
 }
 
 func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toLocation *Location) ([]byte, error) {
-	startOffset := fromLocation.Offset
-	var buf []byte
-	if toLocation == nil {
-		buf = make([]byte, fm.fileSize-startOffset)
-	} else {
-		buf = make([]byte, toLocation.Offset-fromLocation.Offset)
-	}
+	buf := make([]byte, toLocation.Offset-fromLocation.Offset)
 
-	readN, rErr := fd.ReadAt(buf, startOffset)
+	readN, rErr := fd.ReadAt(buf, fromLocation.Offset)
 
-	if rErr != nil && rErr != io.EOF {
-		return nil, rErr
-	}
-	return buf[:readN], nil
+	return buf[:readN], rErr
 
 }
 
