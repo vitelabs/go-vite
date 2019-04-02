@@ -28,6 +28,9 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
 	}
+	if vite.Producer() == nil {
+		return tx
+	}
 	coinbase := vite.Producer().GetCoinBase()
 
 	manager, err := vite.WalletManager().GetEntropyStoreManager(coinbase.String())
