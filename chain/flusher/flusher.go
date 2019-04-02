@@ -40,6 +40,7 @@ type Flusher struct {
 
 	//flushInterval   time.Duration
 	startCommitFlag types.Hash
+	commitWg        sync.WaitGroup
 }
 
 func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flusher, error) {
@@ -82,11 +83,7 @@ func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flushe
 
 func (flusher *Flusher) Flush() {
 	flusher.mu.Lock()
-	defer func() {
-		flusher.cleanRedoLog()
-		flusher.mu.Unlock()
-
-	}()
+	defer flusher.mu.Unlock()
 
 	// prepare
 	for _, store := range flusher.storeList {
@@ -155,20 +152,28 @@ func (flusher *Flusher) Flush() {
 	}
 
 	// commit
+	var commitErr error
+	flusher.commitWg.Add(len(flusher.storeList))
 	for _, store := range flusher.storeList {
-		if err := store.Commit(); err != nil {
-
-			// redo
-			if err := flusher.commitRedo(); err != nil {
-				panic(err)
-			} else {
-				break
+		commitStore := store
+		go func() {
+			defer flusher.commitWg.Done()
+			if commitErr = commitStore.Commit(); commitErr != nil {
+				flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", commitErr.Error()), "method", "Flush")
 			}
-
-			flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", err.Error()), "method", "Flush")
-		}
-
+		}()
 	}
+
+	flusher.commitWg.Wait()
+
+	// redo
+	if commitErr != nil {
+		if err := flusher.commitRedo(); err != nil {
+			panic(err)
+		}
+	}
+
+	flusher.cleanRedoLog()
 }
 
 func (flusher *Flusher) Recover() error {

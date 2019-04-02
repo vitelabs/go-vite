@@ -52,6 +52,10 @@ func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
 }
 
 func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.ContractMeta, error) {
+	// fixme
+	if meta := ledger.GetBuiltinContractMeta(contractAddress); meta != nil {
+		return meta, nil
+	}
 	meta, err := c.stateDB.GetContractMeta(contractAddress)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractMeta failed, error is %s, addr is %s", err, contractAddress))

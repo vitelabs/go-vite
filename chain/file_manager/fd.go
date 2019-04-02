@@ -3,10 +3,9 @@ package chain_file_manager
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"io"
 	"os"
 )
-
-var offsetTooBigErr = errors.New("offset > len(fd.buffer)")
 
 type fileDescription struct {
 	writePerm bool
@@ -60,11 +59,11 @@ func (fd *fileDescription) Read(b []byte) (int, error) {
 	}
 
 	readN, err := fd.readAt(b, fd.readPointer)
+	fd.readPointer += int64(readN)
+
 	if err != nil {
 		return readN, err
 	}
-
-	fd.readPointer += int64(readN)
 
 	return readN, nil
 }
@@ -204,8 +203,9 @@ func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {
 	defer cacheItem.Mu.RUnlock()
 
 	if cacheItem.FileId != fd.fileId {
+		// is delete
 		if len(cacheItem.Buffer) <= 0 {
-			return 0, nil
+			return 0, io.EOF
 		}
 		var err error
 		fd.fileReader, err = fd.fdSet.getFileFd(fd.fileId)
@@ -220,7 +220,7 @@ func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {
 	}
 
 	if offset > cacheItem.BufferLen {
-		return 0, offsetTooBigErr
+		return 0, io.EOF
 	}
 
 	readN := len(b)
@@ -232,5 +232,8 @@ func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {
 	}
 
 	copy(b, cacheItem.Buffer[offsetInt:offsetInt+readN])
+	if readN < len(b) {
+		return readN, io.EOF
+	}
 	return readN, nil
 }
