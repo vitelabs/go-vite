@@ -2,14 +2,15 @@ package chain
 
 import (
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
-	"sort"
-	"time"
 )
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {
@@ -478,7 +479,7 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 		tailHeight = headHeight - count
 	}
 
-	var producerMap map[types.Address]struct{}
+	producerMap := make(map[types.Address]struct{})
 
 	seedCount := 0
 	randomSeed := uint64(0)
