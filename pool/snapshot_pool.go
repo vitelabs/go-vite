@@ -18,16 +18,18 @@ type snapshotPool struct {
 	BCPool
 	//rwMu *sync.RWMutex
 	//consensus consensus.AccountsConsensus
-	closed          chan struct{}
-	wg              sync.WaitGroup
-	pool            *pool
-	rw              *snapshotCh
-	v               *snapshotVerifier
-	f               *snapshotSyncer
-	nextFetchTime   time.Time
-	nextInsertTime  time.Time
-	nextCompactTime time.Time
-	hashBlacklist   Blacklist
+	closed chan struct{}
+	wg     sync.WaitGroup
+	pool   *pool
+	rw     *snapshotCh
+	v      *snapshotVerifier
+	f      *snapshotSyncer
+
+	nextFetchTime        time.Time
+	nextInsertTime       time.Time
+	nextCompactTime      time.Time
+	hashBlacklist        Blacklist
+	newSnapshotBlockCond *common.TimeoutCond
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
@@ -68,10 +70,6 @@ func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 
-func (self *snapshotPoolBlock) Source() types.BlockSource {
-	return self.source
-}
-
 func newSnapshotPool(
 	name string,
 	version *ForkVersion,
@@ -79,6 +77,7 @@ func newSnapshotPool(
 	f *snapshotSyncer,
 	rw *snapshotCh,
 	hashBlacklist Blacklist,
+	cond *common.TimeoutCond,
 	log log15.Logger,
 ) *snapshotPool {
 	pool := &snapshotPool{}
@@ -93,6 +92,7 @@ func newSnapshotPool(
 	pool.nextInsertTime = now
 	pool.nextCompactTime = now
 	pool.hashBlacklist = hashBlacklist
+	pool.newSnapshotBlockCond = cond
 	return pool
 }
 
@@ -305,9 +305,9 @@ func (self *snapshotPool) loop() {
 			s1 := self.nextCompactTime.Sub(n2)
 			s2 := self.nextInsertTime.Sub(n2)
 			if s1 > s2 {
-				time.Sleep(s2)
+				self.newSnapshotBlockCond.WaitTimeout(s2)
 			} else {
-				time.Sleep(s1)
+				self.newSnapshotBlockCond.WaitTimeout(s1)
 			}
 			monitor.LogTime("pool", "snapshotRealSleep", n2)
 			last = time.Now()

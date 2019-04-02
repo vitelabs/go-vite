@@ -79,17 +79,19 @@ type commonBlock interface {
 	resetForkVersion()
 	forkVersion() int
 	Source() types.BlockSource
+	Latency() time.Duration
 	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
 }
 
 func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
-	return &forkBlock{firstV: v.Val(), v: v, source: source}
+	return &forkBlock{firstV: v.Val(), v: v, source: source, nTime: time.Now()}
 }
 
 type forkBlock struct {
 	firstV int
 	v      *ForkVersion
 	source types.BlockSource
+	nTime  time.Time
 }
 
 func (self *forkBlock) forkVersion() int {
@@ -101,6 +103,16 @@ func (self *forkBlock) checkForkVersion() bool {
 func (self *forkBlock) resetForkVersion() {
 	val := self.v.Val()
 	self.firstV = val
+}
+func (self *forkBlock) Latency() time.Duration {
+	if self.Source() == types.RemoteBroadcast || self.Source() == types.RemoteFetch {
+		return time.Now().Sub(self.nTime)
+	}
+	return time.Duration(0)
+}
+
+func (self *forkBlock) Source() types.BlockSource {
+	return self.source
 }
 
 type pool struct {
@@ -116,6 +128,9 @@ type pool struct {
 
 	accountSubId  int
 	snapshotSubId int
+
+	newAccBlockCond      *common.TimeoutCond
+	newSnapshotBlockCond *common.TimeoutCond
 
 	rwMutex sync.RWMutex
 	version *ForkVersion
@@ -189,6 +204,8 @@ func NewPool(bc chainDb) (*pool, error) {
 	self.addrCache = cache
 
 	self.hashBlacklist, err = NewBlacklist()
+	self.newAccBlockCond = common.NewTimeoutCond()
+	self.newSnapshotBlockCond = common.NewTimeoutCond()
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +222,7 @@ func (self *pool) Init(s syncer,
 	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
 	self.accountVerifier = accountV
-	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.hashBlacklist, self.log)
+	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.hashBlacklist, self.newSnapshotBlockCond, self.log)
 	snapshotPool.init(
 		newTools(fe, rw),
 		self)
@@ -335,6 +352,8 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.Blo
 		return
 	}
 	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version, source))
+
+	self.newSnapshotBlockCond.Broadcast()
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
@@ -375,6 +394,7 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 	ac.AddReceivedBlock(block)
 
+	self.newAccBlockCond.Broadcast()
 }
 
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
@@ -408,6 +428,7 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 		self.AddAccountBlock(address, b, source)
 	}
 
+	self.newAccBlockCond.Broadcast()
 	return nil
 }
 
@@ -625,24 +646,16 @@ func (self *pool) loopCompact() {
 	self.wg.Add(1)
 	defer self.wg.Done()
 
-	t := time.NewTicker(time.Millisecond * 40)
-	defer t.Stop()
 	sum := 0
 	for {
 		select {
 		case <-self.closed:
 			return
-		case <-t.C:
+		default:
 			if sum == 0 {
-				//self.accountCond.L.Lock()
-				//self.accountCond.Wait()
-				//self.accountCond.L.Unlock()
-				time.Sleep(200 * time.Millisecond)
+				self.newAccBlockCond.WaitTimeout(30 * time.Millisecond)
 			}
 			sum = 0
-
-			sum += self.accountsCompact()
-		default:
 			sum += self.accountsCompact()
 		}
 	}

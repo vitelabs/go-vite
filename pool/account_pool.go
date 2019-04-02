@@ -628,8 +628,8 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	self.pool.RLock()
 	defer self.pool.RUnLock()
 
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 
 	cp := self.chainpool
 	current := cp.current
@@ -679,7 +679,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
-		return errors.New("empty chainpool")
+		return errors.Errorf("empty chainpool, but item size:%d", len(items))
 	}
 
 	self.chainTailMu.Lock()
@@ -720,7 +720,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
 		}
-		fmt.Printf("try to insert account block[%s]%d-%d success.\n", block.Hash(), i, len(items))
+		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d [latency:%s]success.\n", block.Hash(), i, len(items), block.Latency()))
 	}
 	return nil
 }
