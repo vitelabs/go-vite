@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -39,6 +40,8 @@ type Chain interface {
 	GetValue(addr types.Address, key []byte) ([]byte, error)
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
+
+	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 }
 
 type VmDb interface {
