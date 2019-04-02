@@ -290,32 +290,33 @@ func (w *ContractWorker) deletePendingOnroadBlock(contractAddr *types.Address, s
 	}
 }
 
-func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) {
+func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
 	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
 		var pageNum uint8 = 0
 		for pendingMap.isPendingMapNotSufficient() {
-			pageNum++
-			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum)-1, uint64(DefaultPullCount))
+			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum), uint64(DefaultPullCount))
 			if len(blocks) <= 0 {
-				return
+				break
 			}
 			for _, v := range blocks {
 				if !pendingMap.existInInferiorList(v.AccountAddress) {
 					pendingMap.addPendingMap(v)
 				}
 			}
+			pageNum++
 		}
 	} else {
 		callerMap := newCallerPendingMap()
 		blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, 0, uint64(DefaultPullCount))
 		if len(blocks) <= 0 {
-			return
+			return nil
 		}
 		for _, v := range blocks {
 			callerMap.addPendingMap(v)
 		}
 		w.selectivePendingCache[*contractAddr] = callerMap
 	}
+	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
 }
 
 func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {

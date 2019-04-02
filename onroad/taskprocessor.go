@@ -48,7 +48,6 @@ func (tp *ContractTaskProcessor) work() {
 			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}
-			tp.worker.acquireNewOnroadBlocks(&task.Addr)
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			canContinue := tp.processOneAddress(task)
 			tp.worker.removeContractFromWorkingList(task.Addr)
@@ -76,7 +75,7 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canContinue bool) {
 	plog := tp.log.New("processAddr", task.Addr)
 
-	sBlock := tp.worker.getPendingOnroadBlock(&task.Addr)
+	sBlock := tp.worker.acquireNewOnroadBlocks(&task.Addr)
 	if sBlock == nil {
 		return true
 	}
@@ -95,10 +94,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		blog.Error(fmt.Sprintf("failed to get contract random global status, err:%v", err))
 		return true
 	}
-	if randomSeedStates != nil {
-		blog.Info(fmt.Sprintf("seed=%v sb(%v,%v)", randomSeedStates.Seed, randomSeedStates.SnapshotBlock.Height, randomSeedStates.SnapshotBlock.Hash))
-	}
-
 	addrState, err := generator.GetAddressStateForGenerator(tp.worker.manager.Chain(), &task.Addr)
 	if err != nil || addrState == nil {
 		blog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
@@ -177,4 +172,5 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			}
 		}
 	}
+	return true
 }

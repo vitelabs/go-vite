@@ -57,7 +57,12 @@ func (p *callerPendingMap) getPendingOnroad() *ledger.AccountBlock {
 func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
-	if _, ok := p.pmap[sendBlock.AccountAddress]; ok {
+	if list, ok := p.pmap[sendBlock.AccountAddress]; ok {
+		for _, v := range list {
+			if v.Hash == sendBlock.Hash {
+				return
+			}
+		}
 		p.pmap[sendBlock.AccountAddress] = append(p.pmap[sendBlock.AccountAddress], sendBlock)
 	} else {
 		new_l := make([]*ledger.AccountBlock, 0)
