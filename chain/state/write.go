@@ -2,7 +2,7 @@ package chain_state
 
 import (
 	"encoding/binary"
-	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -22,6 +22,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	// write unsaved storage
 	unsavedStorage := vmDb.GetUnsavedStorage()
 	for _, kv := range unsavedStorage {
+
 		storageKey := chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0])
 
 		historyStorageKey := chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], nextSnapshotHeight)
@@ -30,6 +31,12 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		batch.Put(historyStorageKey, kv[1])
 	}
+
+	kvListBytes, err := rlp.EncodeToBytes(unsavedStorage)
+	if err != nil {
+		return err
+	}
+	sDB.storageRedo.AddLog(accountBlock.Hash, kvListBytes)
 
 	// write unsaved balance
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
@@ -100,7 +107,8 @@ func (sDB *StateDB) InsertSnapshotBlock(invalidAccountBlocks []*ledger.AccountBl
 	if len(invalidAccountBlocks) <= 0 {
 		return nil
 	}
-	return sDB.Rollback([]*chain_block.SnapshotSegment{{
+
+	return sDB.Rollback([]*ledger.SnapshotChunk{{
 		AccountBlocks: invalidAccountBlocks,
 	}})
 }

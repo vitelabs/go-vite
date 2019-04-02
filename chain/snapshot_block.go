@@ -3,7 +3,6 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -577,7 +576,7 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 }
 
 // [snapshotBlock(startHeight), ...blocks... , snapshotBlock(endHeight)]
-func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error) {
+func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error) {
 	if startHeight <= 0 {
 		startHeight = 1
 	}
@@ -619,7 +618,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.Snap
 }
 
 // [startHeight, latestHeight]
-func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error) {
+func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error) {
 	// query location
 	startLocation, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {

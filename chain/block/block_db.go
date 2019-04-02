@@ -35,11 +35,7 @@ type BlockDB struct {
 	prepareRollbackLocation *chain_file_manager.Location
 }
 
-type SnapshotSegment struct {
-	SnapshotBlock *ledger.SnapshotBlock
-
-	AccountBlocks []*ledger.AccountBlock
-}
+//type ledger.SnapshotChunk ledger.SnapshotChunk
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
@@ -179,7 +175,7 @@ func (bDB *BlockDB) LatestLocation() *chain_file_manager.Location {
 	return latestLocation
 }
 
-func (bDB *BlockDB) Write(ss *SnapshotSegment) ([]*chain_file_manager.Location, *chain_file_manager.Location, error) {
+func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Location, *chain_file_manager.Location, error) {
 	if bDB.prepareRollbackLocation != nil {
 		return nil, nil, errors.New("prepare rollback, can't write")
 	}
@@ -245,7 +241,7 @@ func (bDB *BlockDB) ReadRaw(startLocation *chain_file_manager.Location, buf []by
 	return nextLocation, count, err
 }
 
-func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 	bfp := newBlockFileParser()
 
 	endLocation = bDB.maxLocation(endLocation)
@@ -273,15 +269,15 @@ func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLoc
 		bfp.Close()
 	}()
 
-	var segList []*SnapshotSegment
-	var seg *SnapshotSegment
+	var segList []*ledger.SnapshotChunk
+	var seg *ledger.SnapshotChunk
 
 	var snappyReadBuffer = make([]byte, 0, 8*1024) // 8kb
 	iterator := bfp.Iterator()
 
 	for buf := range iterator {
 		if seg == nil {
-			seg = &SnapshotSegment{}
+			seg = &ledger.SnapshotChunk{}
 		}
 
 		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)
@@ -329,7 +325,7 @@ func (bDB *BlockDB) GetNextLocation(location *chain_file_manager.Location) (*cha
 	return nextLocation, nil
 }
 
-func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*SnapshotSegment, error) {
+func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 	bfp := newBlockFileParser()
 
 	bDB.wg.Add(1)
@@ -339,15 +335,15 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*Snapshot
 		bfp.Close()
 	}()
 
-	var segList []*SnapshotSegment
-	var seg *SnapshotSegment
+	var segList []*ledger.SnapshotChunk
+	var seg *ledger.SnapshotChunk
 	var snappyReadBuffer = make([]byte, 0, 512*1024) // 512KB
 
 	iterator := bfp.Iterator()
 
 	for buf := range iterator {
 		if seg == nil {
-			seg = &SnapshotSegment{}
+			seg = &ledger.SnapshotChunk{}
 		}
 
 		sBuf, err := snappy.Decode(snappyReadBuffer, buf.Buffer)

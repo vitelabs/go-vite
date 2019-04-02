@@ -2,7 +2,6 @@ package chain
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -12,17 +11,19 @@ import (
 	"time"
 )
 
-type PrepareInsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
-type InsertAccountBlocksListener func(blocks []*vm_db.VmAccountBlock) error
+type EventListener interface {
+	PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
+	InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
 
-type PrepareInsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
-type InsertSnapshotBlocksListener func(snapshotBlock []*ledger.SnapshotBlock) error
+	PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
+	InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
 
-type PrepareDeleteAccountBlocksListener func(subLedger map[types.Address][]*ledger.AccountBlock) error
-type DeleteAccountBlocksListener func(subLedger map[types.Address][]*ledger.AccountBlock) error
+	PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error
+	DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 
-type PrepareDeleteSnapshotBlocksListener func(snapshotBlockList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error
-type DeleteSnapshotBlocksListener func(snapshotBlockList []*ledger.SnapshotBlock, subLedger map[types.Address][]*ledger.AccountBlock) error
+	PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
+	DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
+}
 
 type Chain interface {
 	/*
@@ -39,19 +40,8 @@ type Chain interface {
 	/*
 	*	Event Manager
 	 */
-	RegisterPrepareInsertAccountBlocks(listener PrepareInsertAccountBlocksListener) (eventHandler uint64)
-	RegisterInsertAccountBlocks(listener InsertAccountBlocksListener) (eventHandler uint64)
-
-	RegisterPrepareInsertSnapshotBlocks(listener PrepareInsertSnapshotBlocksListener) (eventHandler uint64)
-	RegisterInsertSnapshotBlocks(listener InsertSnapshotBlocksListener) (eventHandler uint64)
-
-	RegisterPrepareDeleteAccountBlocks(listener PrepareDeleteAccountBlocksListener) (eventHandler uint64)
-	RegisterDeleteAccountBlocks(listener DeleteAccountBlocksListener) (eventHandler uint64)
-
-	RegisterPrepareDeleteSnapshotBlocks(listener PrepareDeleteSnapshotBlocksListener) (eventHandler uint64)
-	RegisterDeleteSnapshotBlocks(listener DeleteSnapshotBlocksListener) (eventHandler uint64)
-
-	UnRegister(eventHandler uint64)
+	Register(listener EventListener)
+	UnRegister(listener EventListener)
 
 	/*
 	 *	C(Create)
@@ -168,9 +158,9 @@ type Chain interface {
 
 	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
 
-	GetSubLedger(startHeight, endHeight uint64) ([]*chain_block.SnapshotSegment, error)
+	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
 
-	GetSubLedgerAfterHeight(height uint64) ([]*chain_block.SnapshotSegment, error)
+	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
 
 	// ====== Query unconfirmed pool ======
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock

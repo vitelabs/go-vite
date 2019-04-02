@@ -3,7 +3,6 @@ package chain
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -323,13 +322,13 @@ func GetSnapshotHeadersAfterOrEqualTime(t *testing.T, chainInstance *chain, snap
 }
 
 func GetSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
-	checkSubLedger(t, chainInstance, accounts, snapshotBlockList, func(startIndex, endIndex int) ([]*chain_block.SnapshotSegment, error) {
+	checkSubLedger(t, chainInstance, accounts, snapshotBlockList, func(startIndex, endIndex int) ([]*ledger.SnapshotChunk, error) {
 		return chainInstance.GetSubLedger(snapshotBlockList[startIndex].Height, snapshotBlockList[endIndex].Height)
 	})
 }
 
 func GetSubLedgerAfterHeight(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
-	checkSubLedger(t, chainInstance, accounts, snapshotBlockList, func(startIndex, endIndex int) ([]*chain_block.SnapshotSegment, error) {
+	checkSubLedger(t, chainInstance, accounts, snapshotBlockList, func(startIndex, endIndex int) ([]*ledger.SnapshotChunk, error) {
 		return chainInstance.GetSubLedgerAfterHeight(snapshotBlockList[startIndex].Height)
 	})
 
@@ -434,7 +433,7 @@ func checkSnapshotBlocks(t *testing.T, snapshotBlockList []*ledger.SnapshotBlock
 }
 
 func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock,
-	getSubLedger func(startIndex, endIndex int) ([]*chain_block.SnapshotSegment, error)) {
+	getSubLedger func(startIndex, endIndex int) ([]*ledger.SnapshotChunk, error)) {
 
 	var start, end int
 

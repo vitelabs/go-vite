@@ -2,12 +2,12 @@ package chain_index
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
+func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	if len(deletedSnapshotSegments) <= 0 {
 		return nil
 	}

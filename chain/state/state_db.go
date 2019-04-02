@@ -20,6 +20,8 @@ type StateDB struct {
 	store *chain_db.Store
 
 	log log15.Logger
+
+	storageRedo *StorageRedo
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -31,12 +33,21 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	if err != nil {
 		return nil, err
 	}
+	kvRedo, err := NewStorageRedo(chainDir)
+	if err != nil {
+		return nil, err
+	}
 
-	return &StateDB{
+	kvRedo.SetSnapshot(chain.GetLatestSnapshotBlock().Height, nil)
+
+	stateDb := &StateDB{
 		chain: chain,
 		log:   log15.New("module", "stateDB"),
 		store: store,
-	}, nil
+
+		storageRedo: kvRedo,
+	}
+	return stateDb, nil
 }
 
 func (sDB *StateDB) Destroy() error {
@@ -221,4 +232,7 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 
 func (sDB *StateDB) Store() *chain_db.Store {
 	return sDB.store
+}
+func (sDB *StateDB) StorageRedo() *StorageRedo {
+	return sDB.storageRedo
 }

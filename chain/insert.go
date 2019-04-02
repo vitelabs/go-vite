@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -14,7 +13,7 @@ import (
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
-	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil)
+	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil)
 
 	accountBlock := vmAccountBlock.AccountBlock
 	// write unconfirmed pool
@@ -32,7 +31,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
 	}
 
-	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil)
+	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil, nil)
 
 	return nil
 }
@@ -40,13 +39,14 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
-	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList)
 
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(snapshotBlock.SnapshotContent, unconfirmedBlocks)
 
+	c.em.Trigger(prepareDeleteAbsEvent, nil, invalidAccountBlocks, nil, nil)
+	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList, nil)
 	// write block db
-	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&chain_block.SnapshotSegment{
+	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&ledger.SnapshotChunk{
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,
 	})
@@ -68,9 +68,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, invalidAccountBlocks)
 
-	c.em.Trigger(InsertSbsEvent, nil, nil, sbList)
-
 	c.flusher.Flush()
+
+	c.em.Trigger(DeleteAbsEvent, nil, invalidAccountBlocks, nil, nil)
+	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
 
 	return invalidAccountBlocks, nil
 }

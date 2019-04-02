@@ -4,8 +4,8 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type item struct {
@@ -146,7 +146,7 @@ func (ql *quotaList) build() (returnError error) {
 		startSbHeight = endSbHeight - lackListLen
 	}
 
-	var snapshotSegments []*chain_block.SnapshotSegment
+	var snapshotSegments []*ledger.SnapshotChunk
 
 	var err error
 	if listLength <= 0 {

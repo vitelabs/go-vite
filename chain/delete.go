@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -112,9 +111,11 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 		return nil, cErr
 	}
 
-	seg := []*chain_block.SnapshotSegment{{
+	seg := []*ledger.SnapshotChunk{{
 		AccountBlocks: blocks,
 	}}
+
+	c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil)
 
 	// rollback index db
 	if err := c.indexDB.Rollback(seg); err != nil {
@@ -135,13 +136,16 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
+	c.em.Trigger(DeleteAbsEvent, nil, blocks, nil, nil)
 	return blocks, nil
 }
 
 func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 
 	// rollback blocks db
-	deletedSnapshotSegments, err := c.blockDB.Rollback(location)
+	snapshotChunks, err := c.blockDB.Rollback(location)
+
+	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.DeleteAndReadTo failed, error is %s, location is %d", err.Error(), location))
@@ -149,33 +153,27 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 	}
 
 	// rollback index db
-	if err := c.indexDB.Rollback(deletedSnapshotSegments); err != nil {
+	if err := c.indexDB.Rollback(snapshotChunks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
 	// rollback cache
-	err = c.cache.RollbackSnapshotBlocks(deletedSnapshotSegments)
+	err = c.cache.RollbackSnapshotBlocks(snapshotChunks)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
 	// rollback state db
-	if err := c.stateDB.Rollback(deletedSnapshotSegments); err != nil {
+	if err := c.stateDB.Rollback(snapshotChunks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	var snapshotChunkList = make([]*ledger.SnapshotChunk, 0, len(deletedSnapshotSegments))
-	for _, seg := range deletedSnapshotSegments {
-		snapshotChunkList = append(snapshotChunkList, &ledger.SnapshotChunk{
-			SnapshotBlock: seg.SnapshotBlock,
-			AccountBlocks: seg.AccountBlocks,
-		})
-	}
-
 	c.flusher.Flush()
 
-	return snapshotChunkList, nil
+	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
+
+	return snapshotChunks, nil
 }

@@ -1,7 +1,6 @@
 package chain_cache
 
 import (
-	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
@@ -46,7 +45,7 @@ func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 
 	return nil
 }
-func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*chain_block.SnapshotSegment) error {
+func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 

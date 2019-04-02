@@ -115,7 +115,8 @@ func (c *chain) Init() error {
 			}
 
 			// init flusher
-			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.indexDB.Store()}, c.chainDir); err != nil {
+			stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, stores, c.chainDir); err != nil {
 				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 				c.log.Error(cErr.Error(), "method", "Init")
 				return cErr
