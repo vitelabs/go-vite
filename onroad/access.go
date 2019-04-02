@@ -61,10 +61,8 @@ func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 	return manager.chain.HasOnRoadBlocks(*addr)
 }
 
-//todo @chain-interface
 func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
-	//p.dbAccess.store.DeleteMeta(nil, &sendBlock.ToAddress, &sendBlock.Hash)
-	return nil
+	return manager.chain.DeleteOnRoad(sendBlock.Hash)
 }
 
 func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
@@ -91,10 +89,11 @@ func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 	}
 }
 
-func (manager *Manager) NewSnapshot(snapshotBlock []*ledger.SnapshotBlock) error {
+/*func (manager *Manager) NewSnapshot(snapshotBlock []*ledger.SnapshotBlock) error {
 	manager.interruptSignalToAllWorker()
 	return nil
 }
 
 func (manager *Manager) interruptSignalToAllWorker() {
 }
+*/
