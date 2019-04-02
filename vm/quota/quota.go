@@ -64,6 +64,12 @@ func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, di
 		return 0, 0, err
 	}
 	if quotaTotal <= quotaUsed {
+		if quotaAddition > 0 {
+			if quotaAddition > quotaLimitForBlock {
+				return quotaLimitForBlock, quotaLimitForBlock, nil
+			}
+			return quotaAddition, quotaAddition, nil
+		}
 		return 0, 0, nil
 	}
 	current := quotaTotal - quotaUsed
