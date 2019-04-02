@@ -165,7 +165,6 @@ func (flusher *Flusher) Flush() {
 				flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", commitErr.Error()), "method", "Flush")
 			}
 		}()
-
 	}
 
 	flusher.commitWg.Wait()

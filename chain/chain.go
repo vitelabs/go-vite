@@ -171,11 +171,11 @@ func (c *chain) Init() error {
 	}
 
 	// recover unconfirmed cache
-	if err := c.recoverUnconfirmedCache(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.recoverUnconfirmedCache failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
+	//if err := c.recoverUnconfirmedCache(); err != nil {
+	//	cErr := errors.New(fmt.Sprintf("c.recoverUnconfirmedCache failed. Error: %s", err))
+	//	c.log.Error(cErr.Error(), "method", "Init")
+	//	return cErr
+	//}
 
 	// init sync cache
 	var err error
