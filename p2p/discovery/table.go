@@ -19,7 +19,6 @@
 package discovery
 
 import (
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -33,87 +32,10 @@ const bucketSize = 32
 const bucketNum = 32
 const minDistance = vnode.IDBits - bucketNum
 
-var nodePool = sync.Pool{
-	New: func() interface{} {
-		return &Node{
-			Node: vnode.Node{
-				ID:       vnode.ZERO,
-				EndPoint: vnode.EndPoint{},
-				Net:      0,
-				Ext:      nil,
-			},
-			checkAt:  time.Time{},
-			addAt:    time.Time{},
-			activeAt: time.Time{},
-			checking: false,
-			finding:  false,
-			addr:     nil,
-		}
-	},
-}
-
-func newNode() *Node {
-	return nodePool.Get().(*Node)
-}
-
-func putBack(n *Node) {
-	n.ID = vnode.ZERO
-	n.EndPoint = vnode.EndPoint{}
-	n.Net = 0
-	n.Ext = nil
-	n.checkAt = time.Time{}
-	n.addAt = time.Time{}
-	n.activeAt = time.Time{}
-	n.checking = false
-	n.finding = false
-	n.addr = nil
-	nodePool.Put(n)
-}
-
-type Node struct {
-	vnode.Node
-	checkAt  time.Time
-	addAt    time.Time
-	activeAt time.Time
-	checking bool // is in check flow
-	finding  bool // is finding some target from this node
-	addr     *net.UDPAddr
-}
-
-func (n *Node) udpAddr() (*net.UDPAddr, error) {
-	if n.addr != nil {
-		return n.addr, nil
-	}
-
-	var err error
-	n.addr, err = net.ResolveUDPAddr("udp", n.Address())
-	if err != nil {
-		n.addr = nil
-	}
-
-	return n.addr, err
-}
-
-// couldFind return false, if there has a find task
-func (n *Node) couldFind() bool {
-	return !n.finding
-}
-
-// is not checking and last check is too long ago
-func (n *Node) shouldCheck() bool {
-	return !n.checking && time.Now().Sub(n.checkAt) > checkExpiration
-}
-
-func (n *Node) update(n2 *Node) {
-	n.ID = n2.ID
-	n.Ext = n2.Ext
-	n.Net = n2.Net
-	n.EndPoint = n2.EndPoint
-}
-
 type nodeCollector interface {
 	reset()
 	bubble(id vnode.NodeID) bool
+	// bucket cannot avoid duplicate node, table could
 	add(node *Node) (toCheck *Node)
 	remove(id vnode.NodeID) (n *Node)
 	nodes(count int) (nodes []*Node)
@@ -123,10 +45,20 @@ type nodeCollector interface {
 
 type bucket interface {
 	nodeCollector
+	iterate(fn func(*Node)) // for test
 	oldest() *Node
 }
 
-type nodeObserver = func(n *vnode.Node)
+type Observer interface {
+	Receive(n *vnode.Node)
+	Sub(Subscriber)
+	UnSub(Subscriber)
+}
+
+type Subscriber interface {
+	Sub(observer Observer) (subId int)
+	UnSub(subId int)
+}
 
 type nodeStore interface {
 	Store(node *Node) (err error)
@@ -136,8 +68,8 @@ type nodeTable interface {
 	nodeCollector
 	addNodes(nodes []*Node)
 	oldest() []*Node
-	subNode(observer nodeObserver) (subId int)
-	unSub(subId int)
+	Sub(observer Observer) (subId int)
+	UnSub(subId int)
 	findNeighbors(id vnode.NodeID, count int) []*Node
 	store(db nodeStore)
 	resolveAddr(address string) *Node
@@ -163,7 +95,7 @@ type listBucket struct {
 	_size int
 }
 
-func newListBucket(capp int) bucket {
+func newListBucket(max int) bucket {
 	e := &element{
 		next: nil,
 	}
@@ -171,7 +103,13 @@ func newListBucket(capp int) bucket {
 	return &listBucket{
 		head: e,
 		tail: e,
-		cap:  capp,
+		cap:  max,
+	}
+}
+
+func (b *listBucket) iterate(fn func(*Node)) {
+	for c := b.head.next; c != nil; c = c.next {
+		fn(c.Node)
 	}
 }
 
@@ -181,7 +119,7 @@ func (b *listBucket) reset() {
 	b.tail = b.head
 }
 
-// move the node whose NodeID is id to tail
+// move the specific node to tail
 func (b *listBucket) bubble(id vnode.NodeID) bool {
 	if b._size == 0 {
 		return false
@@ -196,8 +134,10 @@ func (b *listBucket) bubble(id vnode.NodeID) bool {
 		if current.ID == id {
 			prev.next = current.next
 			current.next = nil
-			b.tail.next = current
 			current.activeAt = time.Now()
+
+			b.tail.next = current
+			b.tail = current
 			return true
 		}
 	}
@@ -244,6 +184,7 @@ func (b *listBucket) remove(id vnode.NodeID) (n *Node) {
 }
 
 // retrieve count nodes from tail to head, if nodes is not enough, then retrieve them all
+// if count == 0, retrieve all nodes
 func (b *listBucket) nodes(count int) (nodes []*Node) {
 	start := 0
 
@@ -300,7 +241,7 @@ type table struct {
 	self *vnode.Node
 
 	subId     int
-	observers map[int]nodeObserver
+	observers map[int]Observer
 
 	socket pinger
 }
@@ -311,7 +252,7 @@ func newTable(self *vnode.Node, bktSize, bktCount int, fact func(bktSize int) bu
 		buckets:    make([]bucket, bktCount),
 		nodeMap:    make(map[string]*Node),
 		bucketFact: fact,
-		observers:  make(map[int]nodeObserver),
+		observers:  make(map[int]Observer),
 		socket:     socket,
 	}
 
@@ -353,7 +294,10 @@ func (tab *table) nodes(count int) (nodes []*Node) {
 	return
 }
 
-func (tab *table) subNode(observer nodeObserver) (subId int) {
+func (tab *table) Sub(observer Observer) (subId int) {
+	tab.rw.Lock()
+	defer tab.rw.Unlock()
+
 	tab.observers[tab.subId] = observer
 	subId = tab.subId
 	tab.subId++
@@ -361,7 +305,10 @@ func (tab *table) subNode(observer nodeObserver) (subId int) {
 	return
 }
 
-func (tab *table) unSub(subId int) {
+func (tab *table) UnSub(subId int) {
+	tab.rw.Lock()
+	defer tab.rw.Unlock()
+
 	delete(tab.observers, subId)
 }
 
@@ -369,6 +316,8 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 	if node == nil {
 		return nil
 	}
+
+	go tab.notify(&node.Node)
 
 	addr := node.Address()
 
@@ -473,11 +422,9 @@ func (tab *table) findNeighbors(target vnode.NodeID, count int) []*Node {
 	defer tab.rw.RUnlock()
 
 	for _, bkt := range tab.buckets {
-		for _, n := range bkt.nodes(0) {
-			if n.ID != target {
-				nes.push(n)
-			}
-		}
+		bkt.iterate(func(node *Node) {
+			nes.push(node)
+		})
 	}
 
 	return nes.nodes
@@ -491,7 +438,7 @@ func (tab *table) oldest() (nodes []*Node) {
 
 	for _, bkt := range tab.buckets {
 		if n := bkt.oldest(); n != nil {
-			if now.Sub(n.activeAt) > time.Minute {
+			if now.Sub(n.activeAt) > checkExpiration {
 				nodes = append(nodes, n)
 			}
 		}
@@ -502,7 +449,7 @@ func (tab *table) oldest() (nodes []*Node) {
 
 func (tab *table) notify(n *vnode.Node) {
 	for _, ob := range tab.observers {
-		ob(n)
+		ob.Receive(n)
 	}
 }
 
@@ -541,7 +488,7 @@ func (tab *table) store(db nodeStore) {
 
 	for _, n := range nodes {
 		if now.Sub(n.addAt) > stayInTable {
-			db.storeNode(n)
+			_ = db.Store(n)
 		}
 	}
 }

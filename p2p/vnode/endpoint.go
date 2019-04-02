@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-var errInvalidIP = errors.New("invalid IP")
 var errInvalidHost = errors.New("invalid Host")
 
 // EndPoint is the net address format `IP:Port` or `domain:Port`
@@ -123,18 +122,21 @@ func (e EndPoint) Length() (n int) {
 	return n
 }
 
-// String return `domain:port` or `[IP]:port`
+// String return `domain:port` or `IPv4:port` or `[IPv6]:port`
 func (e EndPoint) String() string {
 	return e.Hostname() + ":" + strconv.FormatInt(int64(e.Port), 10)
 }
 
-// Hostname return domain or [IP.String()]
+// Hostname return `domain` or `IPv4` or `[IPv6]`
 func (e EndPoint) Hostname() string {
-	if e.Typ == HostDomain {
+	switch e.Typ {
+	case HostDomain:
 		return string(e.Host)
+	case HostIPv4:
+		return net.IP(e.Host).String()
+	default:
+		return "[" + net.IP(e.Host).String() + "]"
 	}
-
-	return "[" + net.IP(e.Host).String() + "]"
 }
 
 func parseHost(hostname string) (buf []byte, hostType HostType, err error) {
@@ -160,7 +162,13 @@ func parseHost(hostname string) (buf []byte, hostType HostType, err error) {
 		err = errInvalidHost
 		return
 	} else {
-		return []byte(hostname), HostDomain, nil
+		if ip := net.ParseIP(hostname); len(ip) == 0 {
+			return []byte(hostname), HostDomain, nil
+		} else if ip4 := ip.To4(); len(ip4) != 0 {
+			return ip4, HostIPv4, nil
+		} else {
+			return ip, HostIPv6, nil
+		}
 	}
 }
 
@@ -170,6 +178,8 @@ func parseHost(hostname string) (buf []byte, hostType HostType, err error) {
 // 2. [IP]
 // 3. hostname:port
 // 4. hostname
+// 5. IPv4:port
+// 6. IPv4
 func ParseEndPoint(host string) (e EndPoint, err error) {
 	if host == "" {
 		err = errMissHost
@@ -188,11 +198,11 @@ func ParseEndPoint(host string) (e EndPoint, err error) {
 		hostname = host
 		port = ""
 	} else if index = strings.LastIndex(host, ":"); index > 0 {
-		// style 3
+		// style 3 or 5
 		hostname = host[:index]
 		port = host[index+1:]
 	} else {
-		// style 4
+		// style 4 or 6
 		hostname = host
 	}
 
@@ -209,21 +219,6 @@ func ParseEndPoint(host string) (e EndPoint, err error) {
 			return
 		}
 	}
-
-	return
-}
-
-func FromUDPAddr(addr *net.UDPAddr) (e EndPoint) {
-	var ip = addr.IP
-	if ip4 := ip.To4(); ip4 != nil {
-		e.Host = ip4
-		e.Typ = HostIPv4
-	} else {
-		e.Host = ip
-		e.Typ = HostIPv6
-	}
-
-	e.Port = addr.Port
 
 	return
 }

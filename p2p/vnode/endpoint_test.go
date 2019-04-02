@@ -1,6 +1,7 @@
 package vnode
 
 import (
+	"bytes"
 	crand "crypto/rand"
 	"fmt"
 	"math/rand"
@@ -82,6 +83,77 @@ func ExampleParseIP() {
 
 	// Output:
 	// 16
+}
+
+func TestParseEndPoint(t *testing.T) {
+	factor := func(host []byte, typ HostType, port int, str string) func(e EndPoint) error {
+		return func(e EndPoint) error {
+			if !bytes.Equal(e.Host, host) {
+				return fmt.Errorf("different host: %v %v", e.Host, host)
+			}
+			if e.Port != port {
+				return fmt.Errorf("different port: %d %d", e.Port, port)
+			}
+			if e.Typ != typ {
+				return fmt.Errorf("different type: %d %d", e.Typ, typ)
+			}
+			if e.String() != str {
+				return fmt.Errorf("should %s get %s", str, e.String())
+			}
+			return nil
+		}
+	}
+
+	var protocolTests = [...]struct {
+		url    string
+		handle func(e EndPoint) error
+	}{
+		{
+			"vite.org",
+			factor([]byte("vite.org"), HostDomain, DefaultPort, "vite.org:8483"),
+		},
+		{
+			"vite.org:8888",
+			factor([]byte("vite.org"), HostDomain, 8888, "vite.org:8888"),
+		},
+		{
+			"127.0.0.1",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, DefaultPort, "127.0.0.1:8483"),
+		},
+		{
+			"127.0.0.1:8888",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, 8888, "127.0.0.1:8888"),
+		},
+		{
+			"[127.0.0.1]",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, DefaultPort, "127.0.0.1:8483"),
+		},
+		{
+			"[127.0.0.1]:8888",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, 8888, "127.0.0.1:8888"),
+		},
+		{
+			"[2001:db8::ff00:42:8329]",
+			factor([]byte{32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 255, 0, 0, 66, 131, 41}, HostIPv6, DefaultPort, "[2001:db8::ff00:42:8329]:8483"),
+		},
+		{
+			"[2001:db8::ff00:42:8329]:8888",
+			factor([]byte{32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 255, 0, 0, 66, 131, 41}, HostIPv6, 8888, "[2001:db8::ff00:42:8329]:8888"),
+		},
+	}
+
+	var e EndPoint
+	var err error
+	for _, tt := range protocolTests {
+		e, err = ParseEndPoint(tt.url)
+		if err != nil {
+			t.Error(err)
+		} else {
+			if err = tt.handle(e); err != nil {
+				t.Error(tt.url, err)
+			}
+		}
+	}
 }
 
 func BenchmarkEndPoint_Serialize_PB(b *testing.B) {

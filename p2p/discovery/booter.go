@@ -34,7 +34,7 @@ func (d *dbBooter) getBootNodes(count int) []*Node {
 	return d.db.ReadNodes(count, seedMaxAge)
 }
 
-// cfgBooter supply bootNodes from config
+// cfgBooter supply random bootNodes from config
 type cfgBooter struct {
 	bootNodes []*Node
 }
@@ -72,6 +72,8 @@ func (c *cfgBooter) getBootNodes(count int) []*Node {
 		for i := 0; i < count; i++ {
 			nodes[i] = c.bootNodes[indexes[i]]
 		}
+
+		return nodes
 	}
 
 	return c.bootNodes

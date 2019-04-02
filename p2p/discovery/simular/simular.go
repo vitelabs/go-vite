@@ -24,6 +24,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery"
 )
@@ -40,8 +42,8 @@ func main() {
 func cli() {
 	flag.Parse()
 
-	var bootNodes []*discovery.Node
-	node, err := discovery.ParseNode(*bootNode)
+	var bootNodes []*vnode.Node
+	node, err := vnode.ParseNode(*bootNode)
 	if err == nil {
 		bootNodes = append(bootNodes, node)
 	}

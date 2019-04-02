@@ -186,14 +186,6 @@ type pingWait struct {
 	done chan<- *Node
 }
 
-func useFromAddr(from *net.UDPAddr) (e vnode.EndPoint) {
-	e.Host = from.IP
-	e.Port = from.Port
-	e.Typ = vnode.HostIP
-
-	return
-}
-
 func (p *pingWait) handle(msg *packet, err error) bool {
 	if err != nil {
 		if p.done != nil {
@@ -205,28 +197,13 @@ func (p *pingWait) handle(msg *packet, err error) bool {
 	bd := msg.body
 	if png, ok := bd.(*pong); ok {
 		if bytes.Equal(png.echo, p.hash) {
-			var e vnode.EndPoint
-			var addr *net.UDPAddr
-
-			if png.from != nil {
-				// from EndPoint could be unavailable
-				addr, err = net.ResolveUDPAddr("udp", png.from.String())
-				if err != nil {
-					e = useFromAddr(msg.from)
-					addr = msg.from
-				} else {
-					e = *png.from
-				}
-			} else {
-				e = useFromAddr(msg.from)
-				addr = msg.from
-			}
+			e, addr := extractEndPoint(msg.from, png.from)
 
 			if p.done != nil {
 				p.done <- &Node{
 					Node: vnode.Node{
 						ID:       msg.id,
-						EndPoint: e,
+						EndPoint: *e,
 						Net:      png.net,
 						Ext:      png.ext,
 					},

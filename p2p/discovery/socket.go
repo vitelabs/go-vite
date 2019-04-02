@@ -115,6 +115,15 @@ func (a *agent) stop() (err error) {
 }
 
 func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
+	udp, err := n.udpAddr()
+	if err != nil {
+		if ch != nil {
+			ch <- nil
+		}
+
+		return
+	}
+
 	now := time.Now()
 	hash, err := a.write(message{
 		c:  codePing,
@@ -126,7 +135,7 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 			ext:  a.self.Ext,
 			time: now,
 		},
-	}, n.udpAddr())
+	}, udp)
 
 	if err != nil {
 		if ch != nil {
@@ -136,7 +145,7 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 	}
 
 	a.pool.add(&wait{
-		expectAddr: n.udpAddr(),
+		expectAddr: udp.String(),
 		expectCode: codePong,
 		handler: &pingWait{
 			hash: hash,
@@ -149,6 +158,11 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 }
 
 func (a *agent) pong(echo []byte, n *Node) (err error) {
+	udp, err := n.udpAddr()
+	if err != nil {
+		return
+	}
+
 	_, err = a.write(message{
 		c:  codePong,
 		id: a.self.ID,
@@ -160,12 +174,18 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 			echo: echo,
 			time: time.Now(),
 		},
-	}, n.udpAddr())
+	}, udp)
 
 	return
 }
 
 func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []vnode.EndPoint) (err error) {
+	udp, err := n.udpAddr()
+	if err != nil {
+		ch <- nil
+		return
+	}
+
 	_, err = a.write(message{
 		c:  codeFindnode,
 		id: a.self.ID,
@@ -174,7 +194,7 @@ func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- [
 			count:  count,
 			time:   time.Now(),
 		},
-	}, n.udpAddr())
+	}, udp)
 
 	if err != nil {
 		ch <- nil
@@ -183,7 +203,7 @@ func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- [
 
 	a.pool.add(&wait{
 		expectID:   n.ID,
-		expectAddr: n.udpAddr().String(),
+		expectAddr: udp.String(),
 		expectCode: codeNeighbors,
 		handler: &findnodeWait{
 			count: count,

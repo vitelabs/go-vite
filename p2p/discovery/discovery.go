@@ -49,9 +49,10 @@ type Discovery interface {
 	Start() error
 	Stop() error
 	Delete(id vnode.NodeID)
-	GetNodes(count int) []*vnode.Node
+	GetNodes(count int) []vnode.Node
 	Resolve(id vnode.NodeID)
 	Verify(node vnode.Node)
+	SetFinder(f Finder)
 }
 
 type db interface {
@@ -68,6 +69,8 @@ type discovery struct {
 	booters []booter
 
 	table nodeTable
+
+	finder Finder
 
 	// nodes wait to check
 	stage map[string]*Node // key is the communication address, not endpoint
@@ -90,7 +93,7 @@ type discovery struct {
 	log log15.Logger
 }
 
-func (d *discovery) GetNodes(count int) []*vnode.Node {
+func (d *discovery) GetNodes(count int) []vnode.Node {
 	// can NOT use rw.RLock(), will panic
 	d.mu.Lock()
 	for d.refreshing {
@@ -98,9 +101,14 @@ func (d *discovery) GetNodes(count int) []*vnode.Node {
 	}
 	d.mu.Unlock()
 
-	// todo
+	return d.finder.GetNodes(count)
+}
 
-	return nil
+func (d *discovery) SetFinder(f Finder) {
+	d.finder.UnSub(d.table)
+
+	d.finder = f
+	f.Sub(d.table)
 }
 
 func (d *discovery) Delete(id vnode.NodeID) {
@@ -329,8 +337,18 @@ func (d *discovery) checkNode(n *Node) error {
 
 func (d *discovery) init() {
 	var nodes []*Node
+	var failed int
+Load:
 	for _, btr := range d.booters {
 		nodes = append(nodes, btr.getBootNodes(seedCount)...)
+	}
+
+	if len(nodes) == 0 {
+		failed++
+		if failed > 5 {
+			// todo
+		}
+		goto Load
 	}
 
 	for _, n := range nodes {
@@ -421,14 +439,14 @@ Loop:
 }
 
 func (d *discovery) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*Node) {
-	epchan := make(chan []vnode.EndPoint)
-	err := d.socket.findNode(target, count, n, epchan)
+	epChan := make(chan []vnode.EndPoint)
+	err := d.socket.findNode(target, count, n, epChan)
 	if err != nil {
 		ch <- nil
 		return
 	}
 
-	eps := <-epchan
+	eps := <-epChan
 	nch := make(chan *Node)
 	var wg sync.WaitGroup
 	for _, ep := range eps {
