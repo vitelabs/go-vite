@@ -138,9 +138,24 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 		}, nil).Times(1)
 	}
 
-	array := newHourLinkedArray(mockPerids, consensusDB)
+	array := newHourLinkedArray(mockPerids, consensusDB, log15.New())
 
 	point, err := array.GetByIndex(0)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, point)
+
+	assert.Equal(t, 2, len(point.Sbps))
+	assert.Equal(t, sbps[addr1].FactualNum*uint32(num), point.Sbps[addr1].FactualNum)
+	assert.Equal(t, sbps[addr1].ExpectedNum*uint32(num), point.Sbps[addr1].ExpectedNum)
+
+	assert.Equal(t, sbps[addr2].FactualNum*uint32(num), point.Sbps[addr2].FactualNum)
+	assert.Equal(t, sbps[addr2].ExpectedNum*uint32(num), point.Sbps[addr2].ExpectedNum)
+	for k, v := range point.Sbps {
+		t.Log(fmt.Sprintf("key:%s, value:%+v", k, v))
+	}
+
+	point, err = array.GetByIndex(0)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, point)

@@ -77,8 +77,8 @@ func (self *chainRw) initArray(cs DposReader) {
 		panic("snapshot cs is nil.")
 	}
 	self.periodPoints = newPeriodPointArray(self.rw, cs)
-	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache)
-	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache)
+	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, self.log)
+	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, self.log)
 }
 
 type VoteDetails struct {

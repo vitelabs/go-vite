@@ -1,7 +1,10 @@
 package consensus
 
 import (
+	"encoding/json"
 	"time"
+
+	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
@@ -9,21 +12,23 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
-	day := &linkedArray{}
-	day.rate = DAY_TO_HOUR
-	day.prefix = consensus_db.INDEX_Point_DAY
-	day.lowerArr = hour
-	day.db = db
-	return day
+func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB, log log15.Logger) *linkedArray {
+	dayArr := &linkedArray{}
+	dayArr.rate = DAY_TO_HOUR
+	dayArr.prefix = consensus_db.INDEX_Point_DAY
+	dayArr.lowerArr = hour
+	dayArr.db = db
+	dayArr.log = log
+	return dayArr
 }
 
-func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, log log15.Logger) *linkedArray {
 	hourArr := &linkedArray{}
 	hourArr.rate = HOUR_TO_PERIOD
 	hourArr.prefix = consensus_db.INDEX_Point_HOUR
 	hourArr.lowerArr = period
 	hourArr.db = db
+	hourArr.log = log
 	return hourArr
 }
 
@@ -36,6 +41,7 @@ type linkedArray struct {
 	rate     uint64
 	db       *consensus_db.ConsensusDB
 	lowerArr LinkedArray
+	log      log15.Logger
 }
 
 func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
@@ -47,7 +53,15 @@ func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
 		return point, nil
 	}
 
-	return self.getByIndex(index)
+	point, err = self.getByIndex(index)
+	if err == nil {
+		err := self.db.StorePointByHeight(self.prefix, index, point)
+		if err != nil {
+			bytes, _ := json.Marshal(point)
+			self.log.Error("store point by height Fail.", "index", index, "point", string(bytes))
+		}
+	}
+	return point, err
 }
 
 func (self *linkedArray) getByIndex(index uint64) (*consensus_db.Point, error) {
