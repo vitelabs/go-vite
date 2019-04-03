@@ -3,13 +3,11 @@ package consensus
 import (
 	"encoding/hex"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
 
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/consensus/db"
 
 	"github.com/golang/mock/gomock"
@@ -25,6 +23,7 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	defer ctrl.Finish()
 
 	mch := NewMockChain(ctrl)
+	mproof := NewMockRollbackProof(ctrl)
 
 	simple := newSimpleCs(log15.New())
 
@@ -39,10 +38,7 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	fmt.Println(b2.Hash)
 	fmt.Println(b6.Hash)
 
-	eTime := simple.GetInfo().GenETime(0)
-	mch.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&eTime)).Return(b6, nil)
 	mch.EXPECT().IsGenesisSnapshotBlock(gomock.Not(b1.Hash)).Return(false)
-	mch.EXPECT().GetSnapshotBlockByHeight(gomock.Eq(uint64(7))).Return(nil, nil)
 	var r []*ledger.SnapshotBlock
 	r = append(r, b6)
 	r = append(r, b5)
@@ -51,7 +47,13 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	r = append(r, b2)
 	r = append(r, b1)
 	mch.EXPECT().GetSnapshotHeadersAfterOrEqualTime(gomock.Eq(&ledger.HashHeight{Hash: b6.Hash, Height: b6.Height}), gomock.Eq(&simpleGenesis), gomock.Nil()).Return(r, nil)
-	periods := newPeriodPointArray(mch, simple)
+	mch.EXPECT().GetSnapshotBlockByHash(gomock.Eq(b6.Hash)).Return(&ledger.SnapshotBlock{Hash: b6.Hash, Height: b6.Height}, nil)
+
+	stime, etime := simple.Index2Time(0)
+	mproof.EXPECT().ProofEmpty(stime, etime).Return(false, nil).Times(1)
+	mproof.EXPECT().ProofHash(etime).Return(b6.Hash, nil).Times(1)
+
+	periods := newPeriodPointArray(mch, simple, mproof, log15.New())
 
 	point, err := periods.GetByIndex(0)
 	assert.NoError(t, err)
@@ -64,8 +66,8 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	assert.Equal(t, uint32(3), point.Sbps[b1.Producer()].ExpectedNum)
 	assert.Equal(t, uint32(3), point.Sbps[b4.Producer()].FactualNum)
 	assert.Equal(t, uint32(3), point.Sbps[b4.Producer()].ExpectedNum)
-	assert.Equal(t, &types.Hash{}, point.PrevHash)
-	assert.Equal(t, &b6.Hash, point.Hash)
+	assert.Equal(t, types.Hash{}, point.PrevHash)
+	assert.Equal(t, b6.Hash, point.Hash)
 }
 
 func GenSnapshotBlock(height uint64, hexPubKey string, prevHash types.Hash, t time.Time) *ledger.SnapshotBlock {
@@ -90,21 +92,6 @@ func GenSnapshotBlock(height uint64, hexPubKey string, prevHash types.Hash, t ti
 	return block
 }
 
-func prepareConsensusDB() *consensus_db.ConsensusDB {
-	clearConsensusDB(nil)
-	d, err := leveldb.OpenFile("testdata-consensus", nil)
-	if err != nil {
-		panic(err)
-	}
-
-	db := consensus_db.NewConsensusDB(d)
-	return db
-}
-
-func clearConsensusDB(db *consensus_db.ConsensusDB) {
-	os.RemoveAll("testdata-consensus")
-}
-
 func TestHourLinkedArray_GetByIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
@@ -117,6 +104,7 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 	hashArr := genHashArr(num + 1)
 
 	mockPerids := NewMockLinkedArray(ctrl)
+	mockProof := NewMockRollbackProof(ctrl)
 
 	sbps := make(map[types.Address]*consensus_db.Content)
 	addr1 := types.HexToAddressPanic("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
@@ -131,14 +119,18 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 	}
 
 	for i := 0; i < num; i++ {
-		mockPerids.EXPECT().GetByIndex(gomock.Eq(uint64(i))).Return(&consensus_db.Point{
-			PrevHash: &hashArr[i],
-			Hash:     &hashArr[i+1],
+		mockPerids.EXPECT().GetByIndexWithProof(gomock.Eq(uint64(i)), gomock.Any()).Return(&consensus_db.Point{
+			PrevHash: hashArr[i],
+			Hash:     hashArr[i+1],
 			Sbps:     sbps,
 		}, nil).Times(1)
 	}
 
-	array := newHourLinkedArray(mockPerids, consensusDB, log15.New())
+	array := newHourLinkedArray(mockPerids, consensusDB, mockProof, time.Now(), log15.New())
+
+	stime, etime := array.timeIndex.Index2Time(0)
+	mockProof.EXPECT().ProofEmpty(stime, etime).Return(false, nil).Times(1)
+	mockProof.EXPECT().ProofHash(etime).Return(hashArr[num], nil).Times(2)
 
 	point, err := array.GetByIndex(0)
 

@@ -76,9 +76,10 @@ func (self *chainRw) initArray(cs DposReader) {
 	if cs == nil {
 		panic("snapshot cs is nil.")
 	}
-	self.periodPoints = newPeriodPointArray(self.rw, cs)
-	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, self.log)
-	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, self.log)
+	proof := newRollbackProof(self.rw)
+	self.periodPoints = newPeriodPointArray(self.rw, cs, proof, self.log)
+	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, proof, self.genesisTime, self.log)
+	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, proof, self.genesisTime, self.log)
 }
 
 type VoteDetails struct {
