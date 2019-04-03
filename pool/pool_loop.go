@@ -63,6 +63,10 @@ func (self *pool) makeQueue() Package {
 				self.snapshotPendingFix(newOffset, errAcc)
 			} else {
 				self.makeQueueFromAccounts(p)
+				if p.Size() > 0 {
+					// todo remove
+					fmt.Printf("make accounts[%d]\n", p.Size())
+				}
 			}
 			break
 		} else { // snapshot block
@@ -339,13 +343,13 @@ type offsetInfo struct {
 	quotaUnused uint64
 }
 
-func (self offsetInfo) quotaEnough(b commonBlock) bool {
+func (self offsetInfo) quotaEnough(b commonBlock) (uint64, uint64, bool) {
 	accB := b.(*accountPoolBlock)
 	quotaUsed := accB.block.Quota
 	if quotaUsed > self.quotaUnused {
-		return false
+		return quotaUsed, self.quotaUnused, false
 	}
-	return true
+	return quotaUsed, self.quotaUnused, true
 }
 func (self offsetInfo) quotaSub(b commonBlock) {
 	accB := b.(*accountPoolBlock)

@@ -18,7 +18,7 @@ func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB) *linkedAr
 	return day
 }
 
-func newHourLinkedArray(period *periodLinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
 	hourArr := &linkedArray{}
 	hourArr.rate = HOUR_TO_PERIOD
 	hourArr.prefix = consensus_db.INDEX_Point_HOUR

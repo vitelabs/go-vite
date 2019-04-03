@@ -443,6 +443,10 @@ func (e ForkChainError) Error() string {
 	return fmt.Sprintf("%s", e.What)
 }
 func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
+	if self.current.id() == c.id() {
+		// todo remove
+		self.log.Info(fmt.Sprintf("insert to current:[%s-%d]%s", wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+	}
 	if wrapper.Height() == c.headHeight+1 {
 		if c.headHash == wrapper.PrevHash() {
 			c.addHead(wrapper)

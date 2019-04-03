@@ -39,6 +39,12 @@
 			"revisionTime": "2017-10-23T17:51:54Z"
 		},
 		{
+			"checksumSHA1": "20Pind5XCrfZL/F0oibWfd9gotA=",
+			"path": "github.com/boltdb/bolt",
+			"revision": "fd01fc79c553a8e99d512a07e8e0c63d4a3ccfc5",
+			"revisionTime": "2018-03-02T18:00:52Z"
+		},
+		{
 			"checksumSHA1": "CSPbwbyzqA6sfORicn4HFtIhF/c=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "d8f796af33cc11cb798c1aaeb27a4ebc5099927d",
@@ -103,6 +109,12 @@
 			"path": "github.com/ethereum/go-ethereum/crypto/sha3",
 			"revision": "41ac8dd803b646b5fa92354a983ee5df68253e2a",
 			"revisionTime": "2018-09-17T12:18:17Z"
+		},
+		{
+			"checksumSHA1": "KSRJC/V4LkGTakqzakXY/Ces0sw=",
+			"path": "github.com/ethereum/go-ethereum/log",
+			"revision": "ae857e74bfda1f961dc5741441e5b36a2bb9aa93",
+			"revisionTime": "2019-01-07T23:59:00Z"
 		},
 		{
 			"checksumSHA1": "X3WxB77ML6EjA5p0kZsLg2qR57M=",
@@ -362,6 +374,12 @@
 			"path": "github.com/kr/text",
 			"revision": "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f",
 			"revisionTime": "2018-05-06T08:24:08Z"
+		},
+		{
+			"checksumSHA1": "cxWudRxSgBo2pjN0xpRKCKlYxa4=",
+			"path": "github.com/magiconair/properties/assert",
+			"revision": "c2353362d570a7bfa228149c62842019201cfb71",
+			"revisionTime": "2018-05-15T20:40:05Z"
 		},
 		{
 			"checksumSHA1": "SEnjvwVyfuU2xBaOfXfwPD5MZqk=",
@@ -706,10 +724,10 @@
 			"revisionTime": "2018-10-28T19:28:13Z"
 		},
 		{
-			"checksumSHA1": "qFs0grHlbWDk8I7+1+wWvHfmWxA=",
+			"checksumSHA1": "byl77NJm2QiR5tfeBzAf2QpeQUc=",
 			"path": "go.uber.org/atomic",
-			"revision": "5328d69c76a98d1d21c773653a5a78fa28d89921",
-			"revisionTime": "2019-02-26T01:13:05Z"
+			"revision": "8dc6146f7569370a472715e178d8ae31172ee6da",
+			"revisionTime": "2018-10-18T21:50:23Z"GIT
 		},
 		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",

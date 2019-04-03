@@ -7,6 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
+
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/consensus/db"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -18,15 +23,6 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
-
-	dir := "testdata-consensus"
-	db, err := NewDb(dir)
-	assert.NoError(t, err)
-
-	defer func() {
-		os.RemoveAll(dir)
-	}()
-	defer db.Close()
 
 	mch := NewMockChain(ctrl)
 
@@ -92,4 +88,77 @@ func GenSnapshotBlock(height uint64, hexPubKey string, prevHash types.Hash, t ti
 	}
 	block.Hash = block.ComputeHash()
 	return block
+}
+
+func prepareConsensusDB() *consensus_db.ConsensusDB {
+	clearConsensusDB(nil)
+	d, err := leveldb.OpenFile("testdata-consensus", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	db := consensus_db.NewConsensusDB(d)
+	return db
+}
+
+func clearConsensusDB(db *consensus_db.ConsensusDB) {
+	os.RemoveAll("testdata-consensus")
+}
+
+func TestHourLinkedArray_GetByIndex(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	// Assert that Bar() is invoked.
+	defer ctrl.Finish()
+	db := NewDb(t, UnitTestDir)
+	defer ClearDb(t, UnitTestDir)
+	consensusDB := consensus_db.NewConsensusDB(db)
+
+	num := 48
+	hashArr := genHashArr(num + 1)
+
+	mockPerids := NewMockLinkedArray(ctrl)
+
+	sbps := make(map[types.Address]*consensus_db.Content)
+	addr1 := types.HexToAddressPanic("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
+	sbps[addr1] = &consensus_db.Content{
+		ExpectedNum: 10,
+		FactualNum:  8,
+	}
+	addr2 := types.HexToAddressPanic("vite_826a1ab4c85062b239879544dc6b67e3b5ce32d0a1eba21461")
+	sbps[addr2] = &consensus_db.Content{
+		ExpectedNum: 9,
+		FactualNum:  7,
+	}
+
+	for i := 0; i < num; i++ {
+		mockPerids.EXPECT().GetByIndex(gomock.Eq(uint64(i))).Return(&consensus_db.Point{
+			PrevHash: &hashArr[i],
+			Hash:     &hashArr[i+1],
+			Sbps:     sbps,
+		}, nil).Times(1)
+	}
+
+	array := newHourLinkedArray(mockPerids, consensusDB)
+
+	point, err := array.GetByIndex(0)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, point)
+
+	assert.Equal(t, 2, len(point.Sbps))
+	assert.Equal(t, sbps[addr1].FactualNum*uint32(num), point.Sbps[addr1].FactualNum)
+	assert.Equal(t, sbps[addr1].ExpectedNum*uint32(num), point.Sbps[addr1].ExpectedNum)
+
+	assert.Equal(t, sbps[addr2].FactualNum*uint32(num), point.Sbps[addr2].FactualNum)
+	assert.Equal(t, sbps[addr2].ExpectedNum*uint32(num), point.Sbps[addr2].ExpectedNum)
+	for k, v := range point.Sbps {
+		t.Log(fmt.Sprintf("key:%s, value:%+v", k, v))
+	}
+
+}
+func genHashArr(max int) (result []types.Hash) {
+	for i := 0; i < max; i++ {
+		result = append(result, common.MockHash(i))
+	}
+	return
 }
