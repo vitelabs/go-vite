@@ -36,26 +36,27 @@ func TestCalcParamAndSectionList(t *testing.T) {
 	}
 	fmt.Printf("}\n")
 
-	defaultSection := sectionList[75]
+	defaultSectionForPledge := sectionList[75]
+	defaultSectionForPoW := sectionList[1]
 
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 
 	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
-	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsMainnet)
+	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsMainnet)
 	paramaForMainnet := floatTmp.String()
 
 	defaultDifficultyForMainnet := new(big.Float).SetPrec(precForFloat).SetUint64(67108862)
-	floatTmp.Quo(defaultSection, defaultDifficultyForMainnet)
+	floatTmp.Quo(defaultSectionForPoW, defaultDifficultyForMainnet)
 	parambForMainnet := floatTmp.String()
 
 	fmt.Printf("QuotaParamMainnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
 
 	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9")
-	floatTmp.Quo(defaultSection, pledgeAmountForOneTpsTestnet)
+	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsTestnet)
 	paramaForTestnet := floatTmp.String()
 
 	defaultDifficultyForTestnet := new(big.Float).SetPrec(precForFloat).SetUint64(65534)
-	floatTmp.Quo(defaultSection, defaultDifficultyForTestnet)
+	floatTmp.Quo(defaultSectionForPoW, defaultDifficultyForTestnet)
 	parambForTestnet := floatTmp.String()
 
 	fmt.Printf("QuotaParamTestnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForTestnet, parambForTestnet)
@@ -181,11 +182,11 @@ func TestCalcPoWDifficulty(t *testing.T) {
 		{1000001, types.NewQuota(100000000, 0, 0), big.NewInt(0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
 		{21000, types.NewQuota(74970001, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached"},
 		{21000, types.NewQuota(74970002, 74970001, 0), big.NewInt(0), nil, errors.New("quota limit for account reached"), "account_quota_limit_reached2"},
-		{21000, types.NewQuota(0, 0, 0), big.NewInt(0), big.NewInt(894654), nil, "no_pledge_quota"},
+		{21000, types.NewQuota(0, 0, 0), big.NewInt(0), big.NewInt(67108863), nil, "no_pledge_quota"},
 		{21000, types.NewQuota(21000, 0, 0), big.NewInt(134), big.NewInt(0), nil, "pledge_quota_enough"},
-		{22000, types.NewQuota(21000, 0, 0), big.NewInt(134), big.NewInt(889959), nil, "use_both"},
+		{22000, types.NewQuota(21000, 0, 0), big.NewInt(134), big.NewInt(66756667), nil, "use_both"},
 		{21000, types.NewQuota(0, 0, 0), big.NewInt(134), big.NewInt(0), nil, "total_quota_not_exact"},
-		{1000000, types.NewQuota(21000, 21000, 21000), big.NewInt(134), big.NewInt(42941413), nil, "total_quota_not_exact"},
+		{1000000, types.NewQuota(21000, 21000, 21000), big.NewInt(134), big.NewInt(3221079439), nil, "total_quota_not_exact"},
 	}
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
@@ -239,7 +240,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
 			0, 0, 0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
 		},
-		{types.Address{}, big.NewInt(134), big.NewInt(894654),
+		{types.Address{}, big.NewInt(134), big.NewInt(67108863),
 			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
 			42000, 21000, 21000, 10500, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
 		},
@@ -259,11 +260,11 @@ func TestCalcQuotaV3(t *testing.T) {
 			0, 0, []*ledger.AccountBlock{},
 			21000, 0, 0, 0, nil, "get_quota_by_pledge4",
 		},
-		{types.Address{}, big.NewInt(0), big.NewInt(894654),
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
 			0, 0, []*ledger.AccountBlock{},
 			21000, 21000, 0, 0, nil, "get_quota_by_difficulty1",
 		},
-		{types.Address{}, big.NewInt(134), big.NewInt(894654),
+		{types.Address{}, big.NewInt(134), big.NewInt(67108863),
 			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
 			42000, 21000, 21000, 21000, nil, "get_quota_by_difficulty2",
 		},
@@ -285,7 +286,7 @@ func BenchmarkCalcQuotaV3(b *testing.B) {
 	addr := types.Address{}
 	db := &testQuotaDb{addr, 21000, 1, []*ledger.AccountBlock{{Quota: 21000}}}
 	pledgeAmount := big.NewInt(10000)
-	difficulty := big.NewInt(894654)
+	difficulty := big.NewInt(67108863)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		calcQuotaV3(db, addr, pledgeAmount, difficulty)
@@ -311,7 +312,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 			0, 0, []*ledger.AccountBlock{{Nonce: []byte{1}}},
 			0, 0, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow",
 		},
-		{types.Address{}, big.NewInt(134), big.NewInt(894654),
+		{types.Address{}, big.NewInt(134), big.NewInt(67108863),
 			21000, 2, []*ledger.AccountBlock{{Quota: 21000}, {Quota: 0, Nonce: []byte{1}}},
 			21000, 21000, errors.New("calc PoW twice referring to one snapshot block"), "cannot_pow2",
 		},
@@ -331,27 +332,31 @@ func TestCalcQuotaForBlock(t *testing.T) {
 			0, 0, []*ledger.AccountBlock{},
 			21000, 0, nil, "get_quota_by_pledge4",
 		},
-		{types.Address{}, big.NewInt(0), big.NewInt(894654),
+		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
 			0, 0, []*ledger.AccountBlock{},
 			21000, 21000, nil, "get_quota_by_difficulty1",
 		},
-		{types.Address{}, big.NewInt(134), big.NewInt(894654),
+		{types.Address{}, big.NewInt(134), big.NewInt(67108863),
 			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
 			21000, 21000, nil, "get_quota_by_difficulty2",
 		},
 		{types.Address{}, big.NewInt(10), big.NewInt(0),
 			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
-			0, 0, nil, "quota_total_less_than_used",
+			0, 0, nil, "quota_total_less_than_used1",
+		},
+		{types.Address{}, big.NewInt(134), big.NewInt(67108863),
+			40000, 1, []*ledger.AccountBlock{{Quota: 40000}},
+			21000, 21000, nil, "quota_total_less_than_used2",
 		},
 		{types.Address{}, big.NewInt(10133), big.NewInt(0),
 			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
 			1000000, 0, nil, "block_quota_limit_reached1",
 		},
-		{types.Address{}, big.NewInt(10000), big.NewInt(894654),
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
 			21000, 1, []*ledger.AccountBlock{{Quota: 21000}},
 			1000000, 21000, nil, "block_quota_limit_reached2",
 		},
-		{types.Address{}, big.NewInt(10000), big.NewInt(894654),
+		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
 			0, 0, []*ledger.AccountBlock{},
 			1000000, 21000, nil, "block_quota_limit_reached3",
 		},
@@ -381,7 +386,7 @@ func TestCalcUTPS(t *testing.T) {
 			index*21000,
 			index/75,
 			nodeConfig.pledgeAmountList[index],
-			nodeConfig.difficultyList[index],
+			nodeConfig.difficultyList[index/75],
 		)
 		index += 75
 	}
@@ -398,7 +403,7 @@ func TestCalcQuotaTable(t *testing.T) {
 			index/75*21000,
 			index/75,
 			nodeConfig.pledgeAmountList[index],
-			nodeConfig.difficultyList[index],
+			nodeConfig.difficultyList[index/75],
 		)
 		index += 75
 	}
