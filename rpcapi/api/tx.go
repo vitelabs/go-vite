@@ -284,20 +284,23 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	pledgeAmount, err := t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
-	if err != nil {
-		return nil, err
-	}
-	q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
-	if err != nil {
-		return nil, err
-	}
+	var pledgeAmount *big.Int
+	var q types.Quota
 	if param.UsePledgeQuota {
+		pledgeAmount, err = t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
+		if err != nil {
+			return nil, err
+		}
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		if err != nil {
+			return nil, err
+		}
 		if q.Current() >= quotaRequired {
 			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
+		q = types.NewQuota(0, 0, 0)
 	}
 	// calc difficulty if current quota is not enough
 	canPoW, err := quota.CanPoW(db)
