@@ -17,7 +17,7 @@ func (sDB *StateDB) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.Snapsho
 	return nil
 }
 func (sDB *StateDB) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
-	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height+1, nil)
+	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height+1, nil, true)
 	return nil
 }
 
@@ -33,10 +33,11 @@ func (sDB *StateDB) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) 
 }
 func (sDB *StateDB) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	currentHeight := sDB.chain.GetLatestSnapshotBlock().Height + 1
-	logMap, err := sDB.storageRedo.QueryLog(currentHeight)
+	logMap, hasRedo, err := sDB.storageRedo.QueryLog(currentHeight)
 	if err != nil {
 		panic(err)
 	}
-	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height, logMap)
+
+	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height, logMap, hasRedo)
 	return nil
 }

@@ -47,7 +47,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		height = latestSnapshotBlock.Height + 1
 	}
 
-	storageRedo.SetSnapshot(height, nil)
+	storageRedo.SetSnapshot(height, nil, true)
 
 	stateDb := &StateDB{
 		chain: chain,

@@ -233,6 +233,7 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
 	}
+
 	return list
 }
 

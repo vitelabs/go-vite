@@ -135,6 +135,12 @@
 			"revisionTime": "2018-05-03T02:20:59Z"
 		},
 		{
+			"checksumSHA1": "kxja3mICEw4DKBlGQdK4tmIAkCQ=",
+			"path": "github.com/go-errors/errors",
+			"revision": "d98b870cc4e05f1545532a80e9909be8216095b6",
+			"revisionTime": "2018-08-13T16:29:53Z"
+		},
+		{
 			"checksumSHA1": "O1aY6qwiK2XCiONb+gzcaxNhxdg=",
 			"path": "github.com/go-ole/go-ole",
 			"revision": "ae2e2a20879aabdd3a51104ab6a4328af2773948",
@@ -152,6 +158,18 @@
 			"path": "github.com/go-stack/stack",
 			"revision": "51df1c1f20201b3ba6fba6e874a3c72f5d2a9123",
 			"revisionTime": "2018-07-04T10:40:20Z"
+		},
+		{
+			"checksumSHA1": "06pu4WTqbWBAHCJhCLZaI1droeM=",
+			"path": "github.com/golang-collections/collections/stack",
+			"revision": "604e922904d35e97f98a774db7881f049cd8d970",
+			"revisionTime": "2013-07-29T18:54:59Z"
+		},
+		{
+			"checksumSHA1": "RBaxTzsPJwhrGAw2SDgL2+jLJ68=",
+			"path": "github.com/golang/mock/gomock",
+			"revision": "73dc87cad333b55a02058f4b3d872dbbafddc2b0",
+			"revisionTime": "2019-03-29T18:00:13Z"
 		},
 		{
 			"checksumSHA1": "Y2MOwzNZfl4NRNDbLCZa6sgx7O0=",
@@ -686,6 +704,12 @@
 			"path": "github.com/tylertreat/BoomFilters",
 			"revision": "611b3dbe80e85df3a0a10a43997d4d5784e86245",
 			"revisionTime": "2018-10-28T19:28:13Z"
+		},
+		{
+			"checksumSHA1": "qFs0grHlbWDk8I7+1+wWvHfmWxA=",
+			"path": "go.uber.org/atomic",
+			"revision": "5328d69c76a98d1d21c773653a5a78fa28d89921",
+			"revisionTime": "2019-02-26T01:13:05Z"
 		},
 		{
 			"checksumSHA1": "ejjxT0+wDWWncfh0Rt3lSH4IbXQ=",
