@@ -72,7 +72,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 
 	sBlock := tp.worker.acquireNewOnroadBlocks(&task.Addr)
 	if sBlock == nil {
-		return true
+		return false
 	}
 	blog := tp.log.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
 
@@ -122,7 +122,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return true
 		}
 		// succeed in handling a onroad block, if it's a inferior-caller,than set it free.
-		tp.worker.deletePendingOnroadBlock(&task.Addr, genResult.VmBlock.AccountBlock)
+		tp.worker.deletePendingOnroadBlock(&task.Addr, sBlock)
 
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")
