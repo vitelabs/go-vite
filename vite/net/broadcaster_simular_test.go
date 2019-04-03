@@ -381,8 +381,8 @@ func TestBroadcaster_Reduce(t *testing.T) {
 			PublicKey: initiator.id[:],
 			Signature: nil,
 			Timestamp: &timestamp,
-			StateHash: stateHash,
-			StateTrie: nil,
+			Seed:      0,
+			SeedHash:  &stateHash,
 			SnapshotContent: ledger.SnapshotContent{
 				addr1: {
 					Height: 15,

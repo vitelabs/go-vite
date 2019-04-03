@@ -17,6 +17,18 @@ type mockNet struct {
 	BlockSubscriber
 }
 
+func (n *mockNet) ProtoData() []byte {
+	return nil
+}
+
+func (n *mockNet) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
+	return
+}
+
+func (n *mockNet) Start(svr p2p.P2P) error {
+	return nil
+}
+
 func (n *mockNet) Name() string {
 	return "mock_net"
 }
@@ -42,23 +54,23 @@ func (n *mockNet) State() []byte {
 }
 
 func (n *mockNet) SetState(state []byte, peer p2p.Peer) {
-	panic("implement me")
+	return
 }
 
 func (n *mockNet) OnPeerAdded(peer p2p.Peer) error {
-	panic("implement me")
+	return nil
 }
 
 func (n *mockNet) OnPeerRemoved(peer p2p.Peer) error {
-	panic("implement me")
+	return nil
 }
 
 func (n *mockNet) Info() NodeInfo {
-	return NodeInfo{}
-}
-
-func (n *mockNet) Start(svr p2p.Server) error {
-	return nil
+	return NodeInfo{
+		PeerCount: 0,
+		Latency:   nil,
+		Plugins:   nil,
+	}
 }
 
 func mock(cfg Config) Net {
@@ -71,20 +83,13 @@ func mock(cfg Config) Net {
 		from:      0,
 		to:        0,
 		current:   0,
-		aCount:    0,
-		sCount:    0,
 		state:     Syncdone,
 		peers:     peers,
-		pending:   0,
-		responsed: 0,
 		mu:        sync.Mutex{},
-		fileMap:   make(map[filename]*fileRecord),
 		chain:     cfg.Chain,
 		eventChan: make(chan peerEvent),
 		verifier:  cfg.Verifier,
 		notifier:  feed,
-		fc:        nil,
-		pool:      nil,
 		exec:      nil,
 		curSubId:  0,
 		subs:      make(map[int]SyncStateCallback),
@@ -93,8 +98,6 @@ func mock(cfg Config) Net {
 		log:       log15.New("module", "net/syncer"),
 	}
 	syncer.exec = newExecutor(syncer)
-	syncer.fc = newFileClient(cfg.Chain, syncer, peers)
-	syncer.pool = newChunkPool(peers, new(gid), syncer)
 
 	return &mockNet{
 		Config: &Config{
@@ -114,7 +117,7 @@ func mock(cfg Config) Net {
 			filter:   nil,
 			store:    nil,
 			mu:       sync.Mutex{},
-			statis:   circle.NewList(records_24),
+			statis:   circle.NewList(records24h),
 			log:      log15.New("module", "mocknet/broadcaster"),
 		},
 		BlockSubscriber: feed,

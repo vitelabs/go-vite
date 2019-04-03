@@ -57,6 +57,9 @@ type HandshakeMsg struct {
 	Timestamp int64
 
 	protocols protoDataList
+
+	// NOT send to peer, just to Protocol
+	From string
 }
 
 func (b *HandshakeMsg) Serialize() (data []byte, err error) {
@@ -193,6 +196,7 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerInvalidSignature
 	}
 
+	their.From = codec.Address()
 	return
 }
 

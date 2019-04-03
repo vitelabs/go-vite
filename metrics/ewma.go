@@ -15,27 +15,27 @@ type EWMA interface {
 	Update(int64)
 }
 
-// NewEWMA constructs a new EWMA with the given alpha.
+// NewEWMA constructs chain new EWMA with the given alpha.
 func NewEWMA(alpha float64) EWMA {
 	return &StandardEWMA{alpha: alpha}
 }
 
-// NewEWMA1 constructs a new EWMA for a one-minute moving average.
+// NewEWMA1 constructs chain new EWMA for chain one-minute moving average.
 func NewEWMA1() EWMA {
 	return NewEWMA(1 - math.Exp(-5.0/60.0/1))
 }
 
-// NewEWMA5 constructs a new EWMA for a five-minute moving average.
+// NewEWMA5 constructs chain new EWMA for chain five-minute moving average.
 func NewEWMA5() EWMA {
 	return NewEWMA(1 - math.Exp(-5.0/60.0/5))
 }
 
-// NewEWMA15 constructs a new EWMA for a fifteen-minute moving average.
+// NewEWMA15 constructs chain new EWMA for chain fifteen-minute moving average.
 func NewEWMA15() EWMA {
 	return NewEWMA(1 - math.Exp(-5.0/60.0/15))
 }
 
-// EWMASnapshot is a read-only copy of another EWMA.
+// EWMASnapshot is chain read-only copy of another EWMA.
 type EWMASnapshot float64
 
 // Rate returns the rate of events per second at the time the snapshot was
@@ -55,19 +55,19 @@ func (EWMASnapshot) Update(int64) {
 	panic("Update called on an EWMASnapshot")
 }
 
-// NilEWMA is a no-op EWMA.
+// NilEWMA is chain no-op EWMA.
 type NilEWMA struct{}
 
-// Rate is a no-op.
+// Rate is chain no-op.
 func (NilEWMA) Rate() float64 { return 0.0 }
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilEWMA) Snapshot() EWMA { return NilEWMA{} }
 
-// Tick is a no-op.
+// Tick is chain no-op.
 func (NilEWMA) Tick() {}
 
-// Update is a no-op.
+// Update is chain no-op.
 func (NilEWMA) Update(n int64) {}
 
 // StandardEWMA is the standard implementation of an EWMA and tracks the number
@@ -88,7 +88,7 @@ func (a *StandardEWMA) Rate() float64 {
 	return a.rate * float64(1e9)
 }
 
-// Snapshot returns a read-only copy of the EWMA.
+// Snapshot returns chain read-only copy of the EWMA.
 func (a *StandardEWMA) Snapshot() EWMA {
 	return EWMASnapshot(a.Rate())
 }

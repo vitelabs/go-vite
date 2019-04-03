@@ -2,18 +2,20 @@ package vm
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/fork"
+	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
 // only for the memory region that is expanded, not the total memory.
-func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
+func memoryGasCost(mem *memory, newMemSize uint64) (uint64, bool, error) {
 
 	if newMemSize == 0 {
-		return 0, nil
+		return 0, true, nil
 	}
 	// The maximum that will fit in a uint64 is max_word_count - 1
 	// anything above that will result in an overflow.
@@ -23,7 +25,7 @@ func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
 	// The constant ç is the highest number that can be used without
 	// overflowing the gas calculation
 	if newMemSize > 0xffffffffe0 {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	newMemSizeWords := helper.ToWordSize(newMemSize)
@@ -38,18 +40,18 @@ func memoryGasCost(mem *memory, newMemSize uint64) (uint64, error) {
 		fee := newTotalFee - mem.lastGasCost
 		mem.lastGasCost = newTotalFee
 
-		return fee, nil
+		return fee, true, nil
 	}
-	return 0, nil
+	return 0, true, nil
 }
 
 func constGasFunc(gas uint64) gasFunc {
-	return func(vm *VM, contrac *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-		return gas, nil
+	return func(vm *VM, contrac *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+		return gas, true, nil
 	}
 }
 
-func gasExp(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasExp(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	expByteLen := uint64((stack.back(1).BitLen() + 7) / 8)
 
 	var (
@@ -57,302 +59,351 @@ func gasExp(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (
 		overflow bool
 	)
 	if gas, overflow = helper.SafeAdd(gas, slowStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasBlake2b(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasBlake2b(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	var overflow bool
-	gas, err := memoryGasCost(mem, memorySize)
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 
 	if gas, overflow = helper.SafeAdd(gas, blake2bGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	wordGas, overflow := helper.BigUint64(stack.back(1))
 	if overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), blake2bWordGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasCallDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasCallDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 
 	var overflow bool
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	words, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if words, overflow = helper.SafeMul(helper.ToWordSize(words), copyGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if gas, overflow = helper.SafeAdd(gas, words); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 
 	var overflow bool
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	wordGas, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), copyGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasExtCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasExtCodeCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 
 	var overflow bool
 	if gas, overflow = helper.SafeAdd(gas, extCodeCopyGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	wordGas, overflow := helper.BigUint64(stack.back(3))
 	if overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if wordGas, overflow = helper.SafeMul(helper.ToWordSize(wordGas), copyGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if gas, overflow = helper.SafeAdd(gas, wordGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasReturnDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasReturnDataCopy(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 
 	var overflow bool
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	words, overflow := helper.BigUint64(stack.back(2))
 	if overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if words, overflow = helper.SafeMul(helper.ToWordSize(words), copyGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 
 	if gas, overflow = helper.SafeAdd(gas, words); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasMLoad(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasMLoad(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	var overflow bool
-	gas, err := memoryGasCost(mem, memorySize)
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasMStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasMStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	var overflow bool
-	gas, err := memoryGasCost(mem, memorySize)
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasMStore8(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	var overflow bool
-	gas, err := memoryGasCost(mem, memorySize)
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
 	if gas, overflow = helper.SafeAdd(gas, fastestStepGas); overflow {
-		return 0, util.ErrGasUintOverflow
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	var (
-		newValue     = stack.back(1)
-		loc          = stack.back(0)
-		locHash, _   = types.BigToHash(loc)
-		currentValue = c.db.GetStorage(&c.block.AccountAddress, locHash.Bytes())
+		newValue   = stack.back(1)
+		loc        = stack.back(0)
+		locHash, _ = types.BigToHash(loc)
 	)
-	if !fork.IsMintFork(c.db.CurrentSnapshotBlock().Height) {
-		if len(currentValue) == 0 && newValue.Sign() != 0 {
-			// zero value to non-zero value, charge 20000
-			return sstoreSetGas, nil
-		} else if len(currentValue) > 0 && newValue.Sign() == 0 {
-			// non-zero value to zero value, charge 5000 with 15000 refund
-			c.quotaRefund = c.quotaRefund + sstoreRefundGas
-			return sstoreClearGas, nil
-		} else {
-			// non-zero value to non-zero value or zero value to zero value, charge 5000
-			return sstoreResetGas, nil
-		}
-	}
+	currentValue, err := c.db.GetValue(locHash.Bytes())
+	util.DealWithErr(err)
 	if bytes.Equal(currentValue, newValue.Bytes()) {
-		// no change, charge 200
-		return sstoreNoopGas, nil
+		return sstoreNoopGas, true, nil
 	}
-	originalValue := c.db.GetOriginalStorage(locHash.Bytes())
+	originalValue, err := c.db.GetOriginalValue(locHash.Bytes())
+	util.DealWithErr(err)
 	if bytes.Equal(originalValue, currentValue) {
 		if len(originalValue) == 0 {
-			// zero value to non-zero value, charge 20000
-			return sstoreInitGas, nil
+			return sstoreInitGas, true, nil
 		}
 		if newValue.Sign() == 0 {
-			// non-zero value to zero value, charge 5000 with 15000 refund
-			c.quotaRefund = c.quotaRefund + sstoreClearRefundGas
+			return sstoreCleanGas, true, nil
 		}
-		// non-zero value to non-zero value, charge 5000
-		return sstoreCleanGas, nil
+		return sstoreResetGas, true, nil
 	}
-	// value changed again, charge 200
-	if len(originalValue) > 0 {
-		if len(currentValue) == 0 {
-			// non-zero value to zero value to non-zero value, withdraw 15000 refund
-			c.quotaRefund = c.quotaRefund - sstoreClearRefundGas
-		} else if newValue.Sign() == 0 {
-			// non-zero value to non-zero value to zero value,
-			c.quotaRefund = c.quotaRefund + sstoreClearRefundGas
-		}
-	}
+	// value changed again, charge 200 for first change
 	if bytes.Equal(originalValue, newValue.Bytes()) {
 		if len(originalValue) == 0 {
-			// zero value to non-zero value to zero value, 19800 refund
-			c.quotaRefund = c.quotaRefund + sstoreResetClearRefundGas
-		} else {
-			// non-zero value a to non-zero value b to non-zero value a,4800 refund for first sstore
-			c.quotaRefund = c.quotaRefund + sstoreResetRefundGas
+			return sstoreInitGas - sstoreMemoryGas - sstoreNoopGas, false, nil
+		}
+		if len(currentValue) == 0 {
+			return sstoreNoopGas + sstoreMemoryGas - sstoreCleanGas, true, nil
+		}
+		return sstoreResetGas - sstoreMemoryGas - sstoreNoopGas, false, nil
+	}
+	if len(originalValue) > 0 {
+		if len(currentValue) == 0 && newValue.Sign() > 0 {
+			return sstoreResetGas + sstoreMemoryGas - sstoreCleanGas, true, nil
+		}
+		if len(currentValue) > 0 && newValue.Sign() == 0 {
+			return sstoreResetGas - sstoreMemoryGas - sstoreCleanGas, false, nil
 		}
 	}
-	return sstoreDirtyGas, nil
+	return sstoreMemoryGas, true, nil
 }
 
-func gasPush(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	return fastestStepGas, nil
+func gasPush(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	return fastestStepGas, true, nil
 }
 
-func gasDup(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	return fastestStepGas, nil
+func gasDup(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	return fastestStepGas, true, nil
 }
 
-func gasSwap(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	return fastestStepGas, nil
+func gasSwap(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	return fastestStepGas, true, nil
 }
 
 func makeGasLog(n uint64) gasFunc {
-	return func(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+	return func(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 		requestedSize, overflow := helper.BigUint64(stack.back(1))
 		if overflow {
-			return 0, util.ErrGasUintOverflow
+			return 0, true, util.ErrGasUintOverflow
 		}
 
-		gas, err := memoryGasCost(mem, memorySize)
+		gas, _, err := memoryGasCost(mem, memorySize)
 		if err != nil {
-			return 0, err
+			return 0, true, err
 		}
 
 		if gas, overflow = helper.SafeAdd(gas, logGas); overflow {
-			return 0, util.ErrGasUintOverflow
+			return 0, true, util.ErrGasUintOverflow
 		}
 		if gas, overflow = helper.SafeAdd(gas, n*logTopicGas); overflow {
-			return 0, util.ErrGasUintOverflow
+			return 0, true, util.ErrGasUintOverflow
 		}
 
 		var memorySizeGas uint64
 		if memorySizeGas, overflow = helper.SafeMul(requestedSize, logDataGas); overflow {
-			return 0, util.ErrGasUintOverflow
+			return 0, true, util.ErrGasUintOverflow
 		}
 		if gas, overflow = helper.SafeAdd(gas, memorySizeGas); overflow {
-			return 0, util.ErrGasUintOverflow
+			return 0, true, util.ErrGasUintOverflow
 		}
-		return gas, nil
+		return gas, true, nil
 	}
 }
 
-func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasDelegateCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
 	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
-		return 0, util.ErrGasUintOverflow
+	if gas, overflow = helper.SafeAdd(gas, delegateCallGas); overflow {
+		return 0, true, util.ErrGasUintOverflow
 	}
-	return gas, nil
+	return gas, true, nil
 }
 
-func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
-	gas, err := memoryGasCost(mem, memorySize)
+func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	gas, _, err := memoryGasCost(mem, memorySize)
 	if err != nil {
-		return 0, err
+		return 0, true, err
 	}
-	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, callGas); overflow {
-		return 0, util.ErrGasUintOverflow
+	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
+	cost, err := GasRequiredForSendBlock(util.MakeSendBlock(
+		c.block.AccountAddress,
+		toAddress,
+		ledger.BlockTypeSendCall,
+		amount,
+		tokenId,
+		mem.get(inOffset.Int64(), inSize.Int64())))
+	if err != nil {
+		return 0, true, err
 	}
-	return gas, nil
+	if cost > callMinusGas {
+		cost = cost - callMinusGas
+		var overflow bool
+		if gas, overflow = helper.SafeAdd(gas, cost); overflow {
+			return 0, true, util.ErrGasUintOverflow
+		}
+	}
+	return gas, true, nil
 }
 
-func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	return memoryGasCost(mem, memorySize)
 }
 
-func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, error) {
+func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	return memoryGasCost(mem, memorySize)
+}
+
+func GasRequiredForBlock(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeReceive {
+		return gasReceive(block, nil)
+	} else {
+		return GasRequiredForSendBlock(block)
+	}
+}
+
+func GasRequiredForSendBlock(block *ledger.AccountBlock) (uint64, error) {
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		return gasNormalSendCall(block)
+	} else if block.BlockType == ledger.BlockTypeSendCall {
+		return gasUserSendCall(block)
+	} else {
+		return 0, errors.New("block type not supported")
+	}
+}
+
+func gasReceiveCreate(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, error) {
+	confirmTime := uint8(0)
+	if meta != nil {
+		confirmTime = meta.SendConfirmedTimes
+	}
+	return util.IntrinsicGasCost(nil, true, confirmTime)
+}
+
+func gasReceive(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, error) {
+	confirmTime := uint8(0)
+	if meta != nil {
+		confirmTime = meta.SendConfirmedTimes
+	}
+	return util.IntrinsicGasCost(nil, false, confirmTime)
+}
+
+func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
+	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
+		if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
+			return 0, errors.New("built-in contract method not exists")
+		} else {
+			return method.GetSendQuota(block.Data)
+		}
+	} else {
+		return gasNormalSendCall(block)
+	}
+}
+func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
+	return util.IntrinsicGasCost(block.Data, false, 0)
 }

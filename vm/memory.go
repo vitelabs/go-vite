@@ -3,6 +3,7 @@ package vm
 import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
 )
@@ -65,7 +66,7 @@ func (m *memory) set(offset, size uint64, value []byte) {
 		// length of store may never be less than offset + size.
 		// The store should be resized PRIOR to setting the memory
 		if offset+size > uint64(len(m.store)) {
-			panic("invalid memory: store empty")
+			util.DealWithErr("invalid memory: store empty")
 		}
 		copy(m.store[offset:offset+size], value)
 	}
@@ -77,7 +78,7 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 	// length of store may never be less than offset + size.
 	// The store should be resized PRIOR to setting the memory
 	if offset+32 > uint64(len(m.store)) {
-		panic("invalid memory: store empty")
+		util.DealWithErr("invalid memory: store empty")
 	}
 	// Zero the memory area
 	copy(m.store[offset:offset+32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})

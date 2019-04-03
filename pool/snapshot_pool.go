@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,15 +18,18 @@ type snapshotPool struct {
 	BCPool
 	//rwMu *sync.RWMutex
 	//consensus consensus.AccountsConsensus
-	closed          chan struct{}
-	wg              sync.WaitGroup
-	pool            *pool
-	rw              *snapshotCh
-	v               *snapshotVerifier
-	f               *snapshotSyncer
-	nextFetchTime   time.Time
-	nextInsertTime  time.Time
-	nextCompactTime time.Time
+	closed chan struct{}
+	wg     sync.WaitGroup
+	pool   *pool
+	rw     *snapshotCh
+	v      *snapshotVerifier
+	f      *snapshotSyncer
+
+	nextFetchTime        time.Time
+	nextInsertTime       time.Time
+	nextCompactTime      time.Time
+	hashBlacklist        Blacklist
+	newSnapshotBlockCond *common.TimeoutCond
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
@@ -42,6 +46,18 @@ type snapshotPoolBlock struct {
 	failStat      *failStat
 }
 
+func (self *snapshotPoolBlock) ReferHashes() (keys []types.Hash, accounts []types.Hash, snapshot *types.Hash) {
+	for _, v := range self.block.SnapshotContent {
+		accounts = append(accounts, v.Hash)
+	}
+	if self.Height() > types.GenesisHeight {
+		prev := self.PrevHash()
+		snapshot = &prev
+	}
+	keys = append(keys, self.Hash())
+	return
+}
+
 func (self *snapshotPoolBlock) Height() uint64 {
 	return self.block.Height
 }
@@ -54,16 +70,14 @@ func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 
-func (self *snapshotPoolBlock) Source() types.BlockSource {
-	return self.source
-}
-
 func newSnapshotPool(
 	name string,
 	version *ForkVersion,
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
+	hashBlacklist Blacklist,
+	cond *common.TimeoutCond,
 	log log15.Logger,
 ) *snapshotPool {
 	pool := &snapshotPool{}
@@ -77,6 +91,8 @@ func newSnapshotPool(
 	pool.nextFetchTime = now
 	pool.nextInsertTime = now
 	pool.nextCompactTime = now
+	pool.hashBlacklist = hashBlacklist
+	pool.newSnapshotBlockCond = cond
 	return pool
 }
 
@@ -106,7 +122,7 @@ func (self *snapshotPool) loopCheckFork() {
 	//		fmt.Printf("%+v", e)
 	//		defer self.log.Warn("loopCheckFork end recover.")
 	//		self.pool.Lock()
-	//		defer self.pool.UnLock()
+	//		defer self.pool.Unlock()
 	//		self.initPool()
 	//		if self.rstat.inc() {
 	//			common.Go(self.loopCheckFork)
@@ -239,7 +255,7 @@ func (self *snapshotPool) loop() {
 	//		fmt.Printf("%+v", e)
 	//		defer self.log.Warn("snapshot loop end recover.")
 	//		self.pool.Lock()
-	//		defer self.pool.UnLock()
+	//		defer self.pool.Unlock()
 	//		self.initPool()
 	//		if self.rstat.inc() {
 	//			common.Go(self.loop)
@@ -265,33 +281,33 @@ func (self *snapshotPool) loop() {
 				self.loopCompactSnapshot()
 			}
 
-			if now.After(self.nextInsertTime) {
-				size := self.CurrentChain().size()
-				sleep := 200 * time.Millisecond
-				if size > 10000 {
-					sleep = 2 * time.Millisecond
-					monitor.LogEvent("pool", "trySnapshotInsertSleep2")
-				} else if size > 1000 {
-					sleep = 20 * time.Millisecond
-					monitor.LogEvent("pool", "trySnapshotInsertSleep20")
-				} else if size > 100 {
-					sleep = 50 * time.Millisecond
-					monitor.LogEvent("pool", "trySnapshotInsertSleep50")
-				} else {
-					sleep = 200 * time.Millisecond
-					monitor.LogEvent("pool", "trySnapshotInsertSleep200")
-				}
-
-				self.nextInsertTime = now.Add(sleep)
-				self.loopCheckCurrentInsert()
-			}
+			//if now.After(self.nextInsertTime) {
+			//	size := self.CurrentChain().size()
+			//	sleep := 200 * time.Millisecond
+			//	if size > 10000 {
+			//		sleep = 2 * time.Millisecond
+			//		monitor.LogEvent("pool", "trySnapshotInsertSleep2")
+			//	} else if size > 1000 {
+			//		sleep = 20 * time.Millisecond
+			//		monitor.LogEvent("pool", "trySnapshotInsertSleep20")
+			//	} else if size > 100 {
+			//		sleep = 50 * time.Millisecond
+			//		monitor.LogEvent("pool", "trySnapshotInsertSleep50")
+			//	} else {
+			//		sleep = 200 * time.Millisecond
+			//		monitor.LogEvent("pool", "trySnapshotInsertSleep200")
+			//	}
+			//
+			//	self.nextInsertTime = now.Add(sleep)
+			//	self.loopCheckCurrentInsert()
+			//}
 			n2 := time.Now()
 			s1 := self.nextCompactTime.Sub(n2)
 			s2 := self.nextInsertTime.Sub(n2)
 			if s1 > s2 {
-				time.Sleep(s2)
+				self.newSnapshotBlockCond.WaitTimeout(s2)
 			} else {
-				time.Sleep(s1)
+				self.newSnapshotBlockCond.WaitTimeout(s1)
 			}
 			monitor.LogTime("pool", "snapshotRealSleep", n2)
 			last = time.Now()
@@ -300,12 +316,12 @@ func (self *snapshotPool) loop() {
 }
 
 func (self *snapshotPool) loopCompactSnapshot() {
-	defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	//defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
+	//self.pool.RLock()
+	//defer self.pool.RUnLock()
+	//defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
+	//self.rMu.Lock()
+	//defer self.rMu.Unlock()
 	defer monitor.LogTime("pool", "snapshot_loopGenSnippetChains", time.Now())
 	self.loopGenSnippetChains()
 	defer monitor.LogTime("pool", "snapshot_loopAppendChains", time.Now())
@@ -320,75 +336,63 @@ func (self *snapshotPool) loopCompactSnapshot() {
 	}
 }
 
-func (self *snapshotPool) loopCheckCurrentInsert() {
-	if self.chainpool.current.size() == 0 {
-		return
-	}
-	defer monitor.LogTime("pool", "loopCheckCurrentInsert", time.Now())
-	stat, block := self.snapshotTryInsert()
-
-	if stat != nil {
-		if stat.verifyResult() == verifier.FAIL {
-			self.insertVerifyFail(block.(*snapshotPoolBlock), stat)
-		} else if stat.verifyResult() == verifier.PENDING {
-			self.insertVerifyPending(block.(*snapshotPoolBlock), stat)
-		}
-	}
-}
-
-func (self *snapshotPool) snapshotTryInsert() (*poolSnapshotVerifyStat, commonBlock) {
-	defer monitor.LogTime("pool", "snapshotTryInsert", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "snapshotTryInsertRMu", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
+	// lock current chain tail
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 
 	pool := self.chainpool
 	current := pool.current
-	minH := current.tailHeight + 1
-	headH := current.headHeight
-L:
-	for i := minH; i <= headH; i++ {
-		block := current.getBlock(i, false)
 
-		if !block.checkForkVersion() {
+	for _, item := range items {
+		block := item.commonBlock
+
+		if block.Height() == current.tailHeight+1 &&
+			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
-		}
-		stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
-		if !block.checkForkVersion() {
-			block.resetForkVersion()
-			continue
-		}
-		result := stat.verifyResult()
-		switch result {
-		case verifier.PENDING:
-			return stat, block
-		case verifier.FAIL:
-			self.log.Error("snapshot verify fail."+stat.errMsg(),
-				"hash", block.Hash(), "height", block.Height())
-			return stat, block
-		case verifier.SUCCESS:
-			if block.Height() == current.tailHeight+1 {
-				err := pool.writeToChain(current, block)
-				if err != nil {
-					self.log.Error("insert snapshot chain fail.",
-						"hash", block.Hash(), "height", block.Height(), "err", err)
-					break L
-				} else {
-					self.blockpool.afterInsert(block)
-				}
-			} else {
-				break L
+			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
+			if !block.checkForkVersion() {
+				block.resetForkVersion()
+				return nil, item, errors.New("new fork version")
 			}
-		default:
-			self.log.Crit("Unexpected things happened. ",
-				"result", result, "hash", block.Hash(), "height", block.Height())
-			break L
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return nil, item, errors.New("fail verifier")
+			case verifier.PENDING:
+				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
+				return nil, item, errors.New("fail verifier db.")
+			}
+			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))
+			if err != nil {
+				return nil, item, err
+			}
+			self.blockpool.afterInsert(block)
+			if len(accBlocks) > 0 {
+				return accBlocks, item, err
+			}
+		} else {
+			return nil, item, errors.New("tail not match")
 		}
 	}
-	return nil, nil
+	return nil, nil, nil
 }
+
+func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+	height := block.Height()
+	hash := block.Hash()
+	delAbs, err := self.rw.insertSnapshotBlock(block)
+	if err == nil {
+		current.removeTail(block)
+		//self.fixReferInsert(chain, self.diskChain, height)
+		return delAbs, nil
+	} else {
+		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash))
+		return nil, err
+	}
+}
+
 func (self *snapshotPool) Start() {
 	self.closed = make(chan struct{})
 	common.Go(self.loop)
@@ -419,17 +423,18 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 	if len(accounts) > 0 {
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
 		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
-		self.forkAccounts(b, accounts, b.Height())
+		self.forkAccounts(accounts)
+		self.fetchAccounts(accounts, b.Height())
 	}
 }
 
-func (self *snapshotPool) forkAccounts(b *snapshotPoolBlock, accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
 	self.pool.Lock()
 	defer self.pool.UnLock()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.pool.ForkAccountTo(k, v, sHeight)
+		err := self.pool.ForkAccountTo(k, v)
 		if err != nil {
 			self.log.Error("forkaccountTo err", "err", err)
 		}
@@ -450,10 +455,11 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 		result := results[k]
 		if result == verifier.PENDING {
 			monitor.LogEvent("pool", "snapshotPending")
-			self.log.Debug("pending for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+			self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 			hashH, e := self.pool.PendingAccountTo(k, account, b.Height())
+			self.fetchAccounts(accounts, b.Height())
 			if e != nil {
-				self.log.Error("pending for account fail.", "err", e, "address", k, "hashH", account)
+				self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 			}
 			if hashH != nil {
 				accounts[k] = account
@@ -462,11 +468,11 @@ func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSn
 	}
 	if len(accounts) > 0 {
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccounts(b, accounts, b.Height())
+		self.forkAccounts(accounts)
 	}
 }
 
-func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
+func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	self.rMu.Lock()
 	defer self.rMu.Unlock()
 
@@ -474,20 +480,20 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) error {
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
-		return errors.New("pending for something")
+		return nil, errors.New("pending for something")
 	case verifier.FAIL:
-		return errors.New(stat.errMsg())
+		return nil, errors.New(stat.errMsg())
 	case verifier.SUCCESS:
-		err := self.chainpool.diskChain.rw.insertBlock(block)
+		abs, err := self.rw.insertSnapshotBlock(block)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		head := self.chainpool.diskChain.Head()
 		self.chainpool.insertNotify(head)
-		return nil
+		return abs, nil
 	default:
 		self.log.Crit("verify unexpected.")
-		return errors.New("verify unexpected")
+		return nil, errors.New("verify unexpected")
 	}
 }
 func (self *snapshotPool) loopFetchForSnapshot() {
@@ -500,4 +506,128 @@ func (self *snapshotPool) loopFetchForSnapshot() {
 		self.pool.fetchForSnapshot(v)
 	}
 	return
+}
+func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	if info.offset == nil {
+		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+	} else {
+		block := current.getBlock(info.offset.Height+1, false)
+		if block == nil || block.PrevHash() != info.offset.Hash {
+			return uint64(0), errors.New("current chain modify.")
+		}
+	}
+
+	minH := info.offset.Height + 1
+	headH := current.headHeight
+	for i := minH; i <= headH; i++ {
+		block := self.getCurrentBlock(i)
+		if block == nil {
+			return uint64(i - minH), errors.New("current chain modify")
+		}
+
+		if self.hashBlacklist.Exists(block.Hash()) {
+			return uint64(i - minH), errors.New("block in blacklist")
+		}
+
+		item := NewItem(block, nil)
+
+		err := q.AddItem(item)
+		if err != nil {
+			return uint64(i - minH), err
+		}
+		info.offset.Hash = item.Hash()
+		info.offset.Height = item.Height()
+	}
+
+	return uint64(headH - minH), errors.New("all in")
+
+}
+func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
+	b := self.chainpool.current.getBlock(i, false)
+	if b != nil {
+		return b.(*snapshotPoolBlock)
+	} else {
+		return nil
+	}
+}
+func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
+	begin := self.chainpool.current.tailHeight + 1
+	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
+	err := self.checkChain(blocks)
+	if err != nil {
+		return nil, err
+	}
+
+	return blocks, nil
+}
+func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+	for addr, hashH := range accounts {
+		ac := self.pool.selfPendingAc(addr)
+		if !ac.existInPool(hashH.Hash) {
+			head := ac.chainpool.diskChain.Head()
+			u := uint64(10)
+			if hashH.Height > head.Height() {
+				u = hashH.Height - head.Height()
+			}
+			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+		}
+	}
+
+}
+
+func (self *snapshotPool) makePackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, info *offsetInfo) (*snapshotPackage, error) {
+	self.pool.RLock()
+	defer self.pool.RUnLock()
+	self.rMu.Lock()
+	defer self.rMu.Unlock()
+
+	cp := self.chainpool
+	current := cp.current
+
+	if info.offset == nil {
+		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+	}
+
+	if current.size() == 0 {
+		return NewSnapshotPackage2(snapshotF, accountF, 50, nil), nil
+	}
+	block := current.getBlock(info.offset.Height+1, false)
+	if block == nil || block.PrevHash() != info.offset.Hash {
+		return nil, errors.New("current chain modify.")
+	}
+
+	c := block.(*snapshotPoolBlock)
+	return NewSnapshotPackage2(snapshotF, accountF, 50, c.block), nil
+
+	//minH := info.offset.Height + 1
+	//headH := current.headHeight
+	//for i := minH; i <= headH; i++ {
+	//	block := self.getCurrentBlock(i)
+	//	if block == nil {
+	//		return uint64(i - minH), errors.New("current chain modify")
+	//	}
+	//
+	//	if self.hashBlacklist.Exists(block.Hash()) {
+	//		return uint64(i - minH), errors.New("block in blacklist")
+	//	}
+	//
+	//	item := NewItem(block, nil)
+	//
+	//	err := q.AddItem(item)
+	//	if err != nil {
+	//		return uint64(i - minH), err
+	//	}
+	//	info.offset.Hash = item.Hash()
+	//	info.offset.Height = item.Height()
+	//}
+	//
+	//return uint64(headH - minH), errors.New("all in")
 }

@@ -1,15 +1,20 @@
 package consensus
 
 import (
+	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/db"
+
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type Verifier interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
 	VerifySnapshotProducer(block *ledger.SnapshotBlock) (bool, error)
 }
 
@@ -19,20 +24,12 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp      time.Time  // add to block
-	SnapshotHash   types.Hash // add to block
-	SnapshotHeight uint64     // add to block
+	Timestamp         time.Time // add to block
+	SnapshotTimeStamp time.Time // add to block
 
-	VoteTime time.Time // voteTime
-}
-
-type electionResult struct {
-	Plans  []*core.MemberPlan
-	STime  time.Time
-	ETime  time.Time
-	Index  uint64
-	Hash   types.Hash
-	Height uint64
+	VoteTime    time.Time // voteTime
+	PeriodStime time.Time // start time for period
+	PeriodEtime time.Time // end time for period
 }
 
 type ProducersEvent struct {
@@ -49,12 +46,20 @@ type Subscriber interface {
 
 type Reader interface {
 	ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
-	ReadByTime(gid types.Gid, t time.Time) ([]*Event, uint64, error)
-	ReadVoteMapByTime(gid types.Gid, index uint64) ([]*VoteDetails, *ledger.HashHeight, error)
-	ReadVoteMapForAPI(gid types.Gid, t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
 	VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
 	VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
 }
+
+type APIReader interface {
+	ReadVoteMap(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
+	ReadSuccessRateForAPI(start, end uint64) ([]map[types.Address]*consensus_db.Content, error)
+}
+
+type innerReader interface {
+	Reader
+	GenVoteTime(gid types.Gid, t uint64) (*time.Time, error)
+}
+
 type Life interface {
 	Start()
 	Init() error
@@ -66,4 +71,42 @@ type Consensus interface {
 	Subscriber
 	Reader
 	Life
+	API() APIReader
+}
+
+// update committee result
+type committee struct {
+	common.LifecycleStatus
+
+	mLog log15.Logger
+
+	genesis time.Time
+
+	rw *chainRw
+
+	snapshot  DposReader
+	contracts *contractsCs
+
+	dposWrapper *dposReader
+
+	// subscribes map[types.Gid]map[string]*subscribeEvent
+	subscribes sync.Map
+
+	api APIReader
+
+	wg     sync.WaitGroup
+	closed chan struct{}
+}
+
+func (self *committee) API() APIReader {
+	return self.api
+}
+
+func NewConsensus(ch Chain) *committee {
+	log := log15.New("module", "consensus")
+	rw := newChainRw(ch, log)
+	self := &committee{rw: rw}
+	self.mLog = log
+
+	return self
 }

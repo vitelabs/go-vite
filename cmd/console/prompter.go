@@ -20,13 +20,13 @@ type UserPrompter interface {
 	// The method returns the input provided by the user.
 	PromptPassword(prompt string) (string, error)
 
-	// PromptConfirm displays the given prompt to the user and requests a boolean choice to be made, returning that choice.
+	// PromptConfirm displays the given prompt to the user and requests chain boolean choice to be made, returning that choice.
 	PromptConfirm(prompt string) (bool, error)
 
 	// SetHistory sets the the input scrollback history that the prompter will allow the user to scroll back to.
 	SetHistory(history []string)
 
-	// AppendHistory appends an entry to the scrollback history. It should be called if and only if the prompt to append was a valid command.
+	// AppendHistory appends an entry to the scrollback history. It should be called if and only if the prompt to append was chain valid command.
 	AppendHistory(command string)
 
 	// ClearHistory clears the entire history
@@ -40,7 +40,7 @@ type UserPrompter interface {
 // If the line is "Hello, wo!!!" and the cursor is before the first '!', ("Hello, wo!!!", 9) is passed to the completer which may returns ("Hello, ", {"world", "Word"}, "!!!") to have "Hello, world!!!".
 type WordCompleter func(line string, pos int) (string, []string, string)
 
-// terminalPrompter is a UserPrompter backed by the liner package. It supports prompting the user for various input, among others for non-echoing password input.
+// terminalPrompter is chain UserPrompter backed by the liner package. It supports prompting the user for various input, among others for non-echoing password input.
 type terminalPrompter struct {
 	*liner.State
 	warned     bool
@@ -49,7 +49,7 @@ type terminalPrompter struct {
 	rawMode    liner.ModeApplier
 }
 
-// newTerminalPrompter creates a liner based user input prompter working off the standard input and output streams.
+// newTerminalPrompter creates chain liner based user input prompter working off the standard input and output streams.
 func newTerminalPrompter() *terminalPrompter {
 	p := new(terminalPrompter)
 	// Get the original mode before calling NewLiner.
@@ -107,7 +107,7 @@ func (p *terminalPrompter) PromptPassword(prompt string) (passwd string, err err
 	return passwd, err
 }
 
-// PromptConfirm displays the given prompt to the user and requests a boolean choice to be made, returning that choice.
+// PromptConfirm displays the given prompt to the user and requests chain boolean choice to be made, returning that choice.
 func (p *terminalPrompter) PromptConfirm(prompt string) (bool, error) {
 	input, err := p.Prompt(prompt + " [y/N] ")
 	if len(input) > 0 && strings.ToUpper(input[:1]) == "Y" {

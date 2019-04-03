@@ -149,8 +149,8 @@ func MsgEqual(msg1, msg2 Msg) bool {
 func TestCodec(t *testing.T) {
 	conn1, conn2 := net.Pipe()
 
-	c1 := newTransport(conn1, 100, readMsgTimeout, writeMsgTimeout)
-	c2 := newTransport(conn2, 100, readMsgTimeout, writeMsgTimeout)
+	c1 := NewTransport(conn1, 100, readMsgTimeout, writeMsgTimeout)
+	c2 := NewTransport(conn2, 100, readMsgTimeout, writeMsgTimeout)
 
 	const total = 10000
 	msgChan := make(chan Msg, total)

@@ -22,6 +22,8 @@ import "github.com/vitelabs/go-vite/p2p/config"
 
 const (
 	DefaultNodeName        = "vite-node"
+	DefaultMaxPeers        = 10
+	DefaultMaxInboundRatio = 2
 	DefaultInboundPeers    = 5
 	DefaultOutboundPeers   = 5
 	DefaultSuperiorPeers   = 30
@@ -58,7 +60,6 @@ type Config struct {
 }
 
 func (cfg *Config) ensure() {
-	cfg.Config.Ensure()
 	if cfg.Name == "" {
 		cfg.Name = DefaultNodeName
 	}

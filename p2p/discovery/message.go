@@ -102,26 +102,26 @@ func genNodeFromPing(res *packet) *Node {
 	p := res.body.(*ping)
 
 	var addr *net.UDPAddr
-	var e vnode.EndPoint
+	var e *vnode.EndPoint
 	if p.from != nil {
 		var err error
 		addr, err = net.ResolveUDPAddr("udp", p.from.String())
 		if err != nil {
 			addr = res.from
 			// generate from remote address
-			e = vnode.FromUDPAddr(res.from)
+			e = udpAddrToEndPoint(res.from)
 		} else {
-			e = *p.from
+			e = p.from
 		}
 	} else {
 		addr = res.from
-		e = vnode.FromUDPAddr(res.from)
+		e = udpAddrToEndPoint(res.from)
 	}
 
 	return &Node{
 		Node: vnode.Node{
 			ID:       res.id,
-			EndPoint: e,
+			EndPoint: *e,
 			Net:      p.net,
 			Ext:      p.ext,
 		},

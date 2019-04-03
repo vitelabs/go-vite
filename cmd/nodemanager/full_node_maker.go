@@ -3,14 +3,15 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -80,19 +81,19 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	//Network Config
 	if identity := ctx.GlobalString(utils.IdentityFlag.Name); len(identity) > 0 {
-		cfg.Identity = identity
+		cfg.Name = identity
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
+		cfg.MaxPeers = ctx.GlobalInt(utils.MaxPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
+		cfg.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(utils.ListenPortFlag.Name)
+		cfg.ListenAddress = "0.0.0.0:" + utils.ListenPortFlag.Name
 	}
 
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
@@ -163,13 +164,18 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.VMDebug = ctx.GlobalBool(utils.VMDebugFlag.Name)
 	}
 
+	// Subscribe
+	if ctx.GlobalIsSet(utils.SubscribeFlag.Name) {
+		cfg.SubscribeEnabled = ctx.GlobalBool(utils.SubscribeFlag.Name)
+	}
+
 	//Net
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
 		cfg.Single = ctx.GlobalBool(utils.SingleFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
-		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+		cfg.FileListenAddress = "0.0.0.0:" + utils.FilePortFlag.Name
 	}
 
 	//metrics
@@ -277,8 +283,7 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 		return err
 	}
 
-	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
-	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+	log.Crit(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
 	return nil
 }
 

@@ -10,26 +10,25 @@ import (
 )
 
 var DefaultNodeConfig = Config{
-	Identity:             "nodeServer",
-	IPCPath:              "gvite.ipc",
-	DataDir:              DefaultDataDir(),
-	KeyStoreDir:          DefaultDataDir(),
-	HttpPort:             common.DefaultHTTPPort,
-	WSPort:               common.DefaultWSPort,
-	PrivateKey:           "",
-	MaxPeers:             0,
-	MaxPassivePeersRatio: 0,
-	MaxPendingPeers:      0,
-	BootNodes:            nil,
-	Port:                 8483,
-	NetID:                0,
-	Discovery:            true,
-	LogLevel:             "info",
-	WSOrigins:            []string{"*"},
-	WSExposeAll:          true,
-	HttpExposeAll:        true,
-	TopoEnabled:          false,
-	FilePort:             8484,
+	Name:              "nodeServer",
+	IPCPath:           "gvite.ipc",
+	DataDir:           DefaultDataDir(),
+	KeyStoreDir:       DefaultDataDir(),
+	HttpPort:          common.DefaultHTTPPort,
+	WSPort:            common.DefaultWSPort,
+	PeerKey:           "",
+	MaxPeers:          0,
+	MaxInboundRatio:   0,
+	MaxPendingPeers:   0,
+	BootNodes:         nil,
+	ListenAddress:     "0.0.0.0:8483",
+	NetID:             0,
+	Discovery:         true,
+	LogLevel:          "info",
+	WSOrigins:         []string{"*"},
+	WSExposeAll:       true,
+	HttpExposeAll:     true,
+	FileListenAddress: "0.0.0.0:8484",
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.
@@ -45,7 +44,7 @@ func DefaultDataDir() string {
 			return filepath.Join(home, ".gvite")
 		}
 	}
-	// As we cannot guess a stable location, return empty and handle later
+	// As we cannot guess chain stable location, return empty and handle later
 	return ""
 }
 

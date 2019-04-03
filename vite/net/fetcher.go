@@ -30,37 +30,37 @@ type MsgIder interface {
 	MsgID() p2p.MsgId
 }
 
-// a fetchPolicy implementation can choose suitable peers to fetch blocks
+// chain fetchPolicy implementation can choose suitable peers to fetch blocks
 type fetchPolicy interface {
 	accountTargets(height uint64) (l []Peer)
 	snapshotTarget(height uint64) Peer
 }
 
-// a fp is fetchPolicy implementation
+// chain fp is fetchPolicy implementation
 type fp struct {
 	peers *peerSet
 }
 
-// best peer , random peer, a random taller peer
+// best peer , random peer, chain random taller peer
 func (p *fp) accountTargets(height uint64) []Peer {
 	var l, taller []Peer
 
-	peers := p.peers.peers()
-	total := len(peers)
+	peerList := p.peers.peers()
+	total := len(peerList)
 
 	if total == 0 {
 		return l
 	}
 
 	// best
-	var peer Peer
+	var per Peer
 	var maxHeight uint64
-	for _, p := range peers {
+	for _, p := range peerList {
 		peerHeight := p.height()
 
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
-			peer = p
+			per = p
 		}
 
 		if peerHeight >= height {
@@ -68,26 +68,26 @@ func (p *fp) accountTargets(height uint64) []Peer {
 		}
 	}
 
-	l = append(l, peer)
+	l = append(l, per)
 
 	// random
 	ran := rand.Intn(total)
-	if peer = peers[ran]; peer != l[0] {
-		l = append(l, peer)
+	if per = peerList[ran]; per != l[0] {
+		l = append(l, per)
 	}
 
 	// taller
 	if len(taller) > 0 {
 		ran = rand.Intn(len(taller))
-		peer = taller[ran]
+		per = taller[ran]
 
-		for _, p := range l {
-			if peer == p {
+		for _, per2 := range l {
+			if per == per2 {
 				return l
 			}
 		}
 
-		l = append(l, peer)
+		l = append(l, per)
 	}
 
 	return l
@@ -99,6 +99,10 @@ func (p *fp) snapshotTarget(height uint64) Peer {
 	}
 
 	ps := p.peers.pick(height)
+	if len(ps) == 0 {
+		return nil
+	}
+
 	i := rand.Intn(len(ps))
 	return ps[i]
 }

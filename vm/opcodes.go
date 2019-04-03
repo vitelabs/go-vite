@@ -57,7 +57,7 @@ const (
 	BLAKE2B opCode = 0x21
 )
 
-// 0x30 range - closure state.
+// 0x30 range - closure state_bak.
 const (
 	ADDRESS opCode = 0x30 + iota
 	BALANCE
@@ -87,8 +87,9 @@ const (
 	GASLIMIT
 	TOKENID
 	ACCOUNTHEIGHT
-	ACCOUNTHASH
+	PREVHASH
 	FROMHASH
+	SEED
 )
 
 // 0x50 range - 'storage' and execution.
@@ -232,7 +233,7 @@ var opCodeToString = map[opCode]string{
 	// 0x20 range - crypto.
 	BLAKE2B: "BLAKE2B",
 
-	// 0x30 range - closure state.
+	// 0x30 range - closure state_bak.
 	ADDRESS:        "ADDRESS",
 	BALANCE:        "BALANCE",
 	ORIGIN:         "ORIGIN",
@@ -259,8 +260,9 @@ var opCodeToString = map[opCode]string{
 	GASLIMIT:      "GASLIMIT",
 	TOKENID:       "TOKENID",
 	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
-	ACCOUNTHASH:   "ACCOUNTHASH",
+	PREVHASH:      "PREVHASH",
 	FROMHASH:      "FROMHASH",
+	SEED:          "SEED",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -425,8 +427,9 @@ var stringToOp = map[string]opCode{
 	"GASLIMIT":       GASLIMIT,
 	"TOKENID":        TOKENID,
 	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
-	"ACCOUNTHASH":    ACCOUNTHASH,
+	"PREVHASH":       PREVHASH,
 	"FROMHASH":       FROMHASH,
+	"SEED":           SEED,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,

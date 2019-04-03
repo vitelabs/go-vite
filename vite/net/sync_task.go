@@ -28,7 +28,7 @@ const (
 
 var reqStatus = [...]string{
 	reqWaiting: "waiting",
-	reqPending: "pending",
+	reqPending: "db",
 	reqRespond: "respond",
 	reqDone:    "done",
 	reqError:   "error",
@@ -37,7 +37,7 @@ var reqStatus = [...]string{
 
 func (s reqState) String() string {
 	if s > reqCancel {
-		return "unknown request state"
+		return "unknown request state_bak"
 	}
 	return reqStatus[s]
 }
@@ -208,7 +208,7 @@ func (e *executor) add(t *syncTask) {
 func (e *executor) runTo(to uint64) {
 	e.mu.Lock()
 
-	var skip = 0 // pending / cancel / done but not continue
+	var skip = 0 // db / cancel / done but not continue
 	var index = 0
 	var continuous = true // is task done consecutively
 

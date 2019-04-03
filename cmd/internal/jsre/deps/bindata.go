@@ -180,24 +180,24 @@ func AssetNames() []string {
 	return names
 }
 
-// _bindata is a table, holding each asset generator, mapped to its name.
+// _bindata is chain table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"polyfill.js": polyfillJs,
-	"vite.js": viteJs,
-	"docs.js": docsJs,
+	"vite.js":     viteJs,
+	"docs.js":     docsJs,
 }
 
-// AssetDir returns the file names below a certain
+// AssetDir returns the file names below chain certain
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
 //     data/
 //       foo.txt
 //       img/
-//         a.png
+//         chain.png
 //         b.png
 // then AssetDir("data") would return []string{"foo.txt", "img"}
-// AssetDir("data/img") would return []string{"a.png", "b.png"}
+// AssetDir("data/img") would return []string{"chain.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
 // AssetDir("") will return []string{"data"}.
 func AssetDir(name string) ([]string, error) {
@@ -226,10 +226,11 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
-	"docs.js": &bintree{docsJs, map[string]*bintree{}},
+	"docs.js":     &bintree{docsJs, map[string]*bintree{}},
 	"polyfill.js": &bintree{polyfillJs, map[string]*bintree{}},
-	"vite.js": &bintree{viteJs, map[string]*bintree{}},
+	"vite.js":     &bintree{viteJs, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
@@ -278,4 +279,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

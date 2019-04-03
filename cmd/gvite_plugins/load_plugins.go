@@ -120,6 +120,12 @@ var (
 	// Ledger
 	ledgerFlags = []cli.Flag{
 		utils.LedgerDeleteToHeight,
+		utils.RecoverTrieFlag,
+	}
+
+	// Export
+	exportFlags = []cli.Flag{
+		utils.ExportSbHeightFlags,
 	}
 )
 
@@ -146,11 +152,14 @@ func init() {
 		consoleCommand,
 		attachCommand,
 		ledgerRecoverCommand,
+		exportCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
+		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
+		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags)
 
 	app.Before = beforeAction
 	app.Action = action
@@ -178,7 +187,7 @@ func beforeAction(ctx *cli.Context) error {
 		var visitAddress = fmt.Sprintf("http://localhost:%d/debug/pprof", pprofPort)
 
 		go func() {
-			log.Info("Enable a performance analysis tool, you can visit the address of `" + visitAddress + "`")
+			log.Info("Enable chain performance analysis tool, you can visit the address of `" + visitAddress + "`")
 			http.ListenAndServe(listenAddress, nil)
 		}()
 	}

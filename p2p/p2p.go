@@ -119,7 +119,7 @@ type p2p struct {
 
 	rw sync.RWMutex
 
-	discv discovery.Discover
+	discv discovery.Discovery
 
 	// condition for loop find, if number of peers is little than cfg.minPeers
 	cond *sync.Cond
@@ -169,10 +169,10 @@ func New(cfg Config) P2P {
 		peerLevel:   make(map[Level][]PeerMux),
 		handshaker: &handshaker{
 			version: version,
-			netId:   cfg.NetID,
+			netId:   uint32(cfg.NetID),
 			name:    cfg.Name,
 			id:      cfg.Node.ID,
-			priv:    cfg.PeerKey,
+			priv:    cfg.PrivateKey,
 			codecFactory: &transportFactory{
 				minCompressLength: 100,
 				readTimeout:       readMsgTimeout,
@@ -181,6 +181,7 @@ func New(cfg Config) P2P {
 			ptMap: ptMap,
 			log:   log.New("module", "handshaker"),
 		},
+		log: log,
 	}
 
 	if cfg.Discovery {
@@ -233,13 +234,15 @@ func (p *p2p) Start() (err error) {
 			if err = p.discv.Start(); err != nil {
 				return err
 			}
+
+			p.wg.Add(1)
+			go p.findLoop()
 		}
 
 		p.wg.Add(1)
-		go p.findLoop()
-
-		p.wg.Add(1)
 		go p.beatLoop()
+
+		return nil
 	}
 
 	return errP2PAlreadyRunning
@@ -459,6 +462,8 @@ func (p *p2p) dialStatic() {
 func (p *p2p) findLoop() {
 	defer p.wg.Done()
 
+	need := p.cfg.MinPeers
+
 	for {
 		p.rw.RLock()
 		for len(p.peerMap) >= p.cfg.MinPeers {
@@ -470,9 +475,10 @@ func (p *p2p) findLoop() {
 			return
 		}
 
-		nodes := p.discv.GetNodes()
+		need *= 2
+		nodes := p.discv.GetNodes(need)
 		for _, n := range nodes {
-			p.connect(n)
+			p.connect(&n)
 		}
 	}
 }
@@ -486,127 +492,3 @@ func (p *p2p) connect(node *vnode.Node) {
 		go p.register(peer)
 	}
 }
-
-/*
-func New(cfg *Config) (Server, error) {
-	cfg = EnsureConfig(cfg)
-
-	// tcp listener
-	tcpAddr, err := net.ResolveTCPAddr("tcp", cfg.Addr)
-	if err != nil {
-		return nil, err
-	}
-
-	ID, err := discovery.Priv2NodeID(cfg.PeerKey)
-	if err != nil {
-		return nil, err
-	}
-
-	node := &discovery.Node{
-		ID:  ID,
-		IP:  tcpAddr.IP,
-		UDP: uint16(tcpAddr.Port),
-		TCP: uint16(tcpAddr.Port),
-		Net: cfg.NetID,
-		Ext: cfg.ExtNodeData,
-	}
-
-	svr := &server{
-		config:      cfg,
-		addr:        tcpAddr,
-		staticNodes: parseNodes(cfg.StaticNodes),
-		peers:       NewPeerSet(),
-		pending:     make(chan struct{}, cfg.MaxPendingPeers),
-		addPeer:     make(chan *transport, 5),
-		delPeer:     make(chan *Peer, 5),
-		blockUtil:   block.New(blockPolicy),
-		self:        node,
-		nodeChan:    make(chan *discovery.Node, cfg.MaxPendingPeers),
-		log:         log15.New("module", "p2p/server"),
-		dialer: &net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 10 * time.Second,
-		},
-	}
-
-	if cfg.Discovery {
-		svr.discv = discovery.New(&discovery.Config{
-			PeerKey:   cfg.PeerKey,
-			DBPath:    cfg.DataDir,
-			BootNodes: parseNodes(cfg.BootNodes),
-			Addr:      cfg.Addr,
-			Self:      node,
-			NetID:     cfg.NetID,
-		})
-	}
-
-	return svr, nil
-}
-
-func (svr *server) Start() error {
-	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
-		return errSvrStarted
-	}
-
-	svr.term = make(chan struct{})
-
-	// setHandshake in method Start, because svr.Protocols may be modified
-	svr.setHandshake()
-
-	listener, err := net.ListenTCP("tcp", svr.addr)
-	if err != nil {
-		return err
-	}
-	svr.log.Info(fmt.Sprintf("tcp listen at %s", svr.addr))
-	svr.ln = listener
-
-	svr.term = make(chan struct{})
-
-	svr.log.Info("p2p server start")
-
-	// mapping tcp
-	svr.wg.Add(1)
-	common.Go(func() {
-		nat.Map(svr.term, "tcp", int(svr.self.TCP), int(svr.self.TCP), "vite p2p tcp", 0, svr.updateNode)
-		svr.wg.Done()
-	})
-
-	// discovery
-	if svr.config.Discovery {
-		// mapping udp
-		svr.wg.Add(1)
-		common.Go(func() {
-			nat.Map(svr.term, "udp", int(svr.self.UDP), int(svr.self.UDP), "vite p2p udp", 0, svr.updateNode)
-			svr.wg.Done()
-		})
-
-		// subscribe nodes
-		svr.discv.SubNodes(svr.nodeChan, true)
-
-		err = svr.discv.Start()
-		if err != nil {
-			svr.ln.Close()
-			return err
-		}
-	}
-
-	err = svr.startPlugins()
-	if err != nil {
-		return err
-	}
-
-	svr.wg.Add(1)
-	common.Go(svr.dialLoop)
-
-	// tcp listener
-	svr.wg.Add(1)
-	common.Go(svr.listenLoop)
-
-	// peer manager
-	svr.wg.Add(1)
-	common.Go(svr.loop)
-
-	svr.log.Info("p2p server started")
-	return nil
-}
-*/

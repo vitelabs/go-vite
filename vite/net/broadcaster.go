@@ -232,7 +232,7 @@ func newBroadcaster(peers broadcastPeerSet, verifier Verifier, feed blockNotifie
 	log log15.Logger) *broadcaster {
 	return &broadcaster{
 		peers:    peers,
-		statis:   circle.NewList(records_24),
+		statis:   circle.NewList(records24h),
 		verifier: verifier,
 		feed:     feed,
 		store:    store,
@@ -251,7 +251,7 @@ func (b *broadcaster) Cmds() []code {
 	return []code{NewAccountBlockCode, NewSnapshotBlockCode}
 }
 
-func (b *broadcaster) Handle(msg p2p.Msg, sender broadcastPeer) (err error) {
+func (b *broadcaster) Handle(msg p2p.Msg, sender Peer) (err error) {
 	switch code(msg.Code) {
 	case NewSnapshotBlockCode:
 		nb := new(message.NewSnapshotBlock)
@@ -357,23 +357,23 @@ func (b *broadcaster) Handle(msg p2p.Msg, sender broadcastPeer) (err error) {
 	return nil
 }
 
-const records_1 = 3600
-const records_12 = 12 * records_1
-const records_24 = 24 * records_1
+const records1h = 3600
+const records12h = 12 * records1h
+const records24h = 24 * records1h
 
 func (b *broadcaster) Statistic() []int64 {
 	ret := make([]int64, 4)
 	var t1, t12, t24 float64
 	first := true
 	var i int
-	records_1f, records_12f := float64(records_1), float64(records_12)
+	records1hf, records12hf := float64(records1h), float64(records12h)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	count := int64(b.statis.Size())
-	count_f := float64(count)
-	var v_f float64
+	countF := float64(count)
+	var vf float64
 	b.statis.TraverseR(func(key circle.Key) bool {
 		v, ok := key.(int64)
 		if !ok {
@@ -385,23 +385,23 @@ func (b *broadcaster) Statistic() []int64 {
 			first = false
 		}
 
-		v_f = float64(v)
-		if count < records_1 {
-			t1 += v_f / count_f
-		} else if count < records_12 {
-			t12 += v_f / count_f
+		vf = float64(v)
+		if count < records1h {
+			t1 += vf / countF
+		} else if count < records12h {
+			t12 += vf / countF
 
-			if i < records_1 {
-				t1 += v_f / records_1f
+			if i < records1h {
+				t1 += vf / records1hf
 			}
 		} else {
-			t24 += v_f / count_f
+			t24 += vf / countF
 
-			if i < records_1 {
-				t1 += v_f / records_1f
+			if i < records1h {
+				t1 += vf / records1hf
 			}
-			if i < records_12 {
-				t12 += v_f / records_12f
+			if i < records12h {
+				t12 += vf / records12hf
 			}
 		}
 

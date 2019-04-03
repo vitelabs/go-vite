@@ -21,3 +21,12 @@ message ProtocolState {
 
     int64 Timestamp = 10;
 }
+
+message ViteHandshake {
+    bytes Genesis = 1;
+    bytes Head = 2;
+    uint64 Height = 3;
+    bytes Key = 4;
+    bytes Signature = 5;
+    bytes FileAddress = 6;
+}

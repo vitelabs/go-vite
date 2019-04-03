@@ -121,7 +121,10 @@ func (d *discovery) Resolve(id vnode.NodeID) {
 }
 
 func (d *discovery) Verify(node vnode.Node) {
-
+	n := d.table.resolve(node.ID)
+	if n != nil {
+		_ = d.ping(n)
+	}
 }
 
 // New create a Discovery implementation
@@ -134,7 +137,7 @@ func New(cfg config.Config) Discovery {
 
 	d.cond = sync.NewCond(&d.mu)
 
-	d.socket = newAgent(cfg.PeerKey, &cfg.Node, d.handle)
+	d.socket = newAgent(cfg.PrivateKey, &cfg.Node, d.handle)
 
 	d.table = newTable(&cfg.Node, bucketSize, bucketNum, newListBucket, d)
 

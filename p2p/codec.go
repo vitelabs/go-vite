@@ -121,10 +121,10 @@ type transportFactory struct {
 }
 
 func (tf *transportFactory) CreateCodec(conn net.Conn) Codec {
-	return newTransport(conn, tf.minCompressLength, tf.readTimeout, tf.writeTimeout)
+	return NewTransport(conn, tf.minCompressLength, tf.readTimeout, tf.writeTimeout)
 }
 
-func newTransport(conn net.Conn, minCompressLength int, readTimeout, writeTimeout time.Duration) Codec {
+func NewTransport(conn net.Conn, minCompressLength int, readTimeout, writeTimeout time.Duration) Codec {
 	return &transport{
 		Conn:              conn,
 		minCompressLength: minCompressLength,

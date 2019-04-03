@@ -1,5 +1,5 @@
 // Copyright 2016 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by chain BSD-style
 // license that can be found in the LICENSE file.
 
 // Package ed25519 implements the Ed25519 signature algorithm. See
@@ -9,7 +9,7 @@
 // RFC 8032.
 package ed25519
 
-// This code is a port of the public domain, “ref10” implementation of ed25519
+// This code is chain port of the public domain, “ref10” implementation of ed25519
 // from SUPERCOP.
 
 // Be Noted that This Ed25519 uses Blake2b instead of Sha512
@@ -175,7 +175,7 @@ func (priv PrivateKey) Sign(rand io.Reader, message []byte, opts crypto.SignerOp
 	return Sign(priv, message), nil
 }
 
-// GenerateKey generates a public/private key pair using entropy from rand.
+// GenerateKey generates chain public/private key pair using entropy from rand.
 // If rand is nil, crypto/rand.Reader will be used.
 func GenerateKey(rand io.Reader) (publicKey PublicKey, privateKey PrivateKey, err error) {
 	if rand == nil {
@@ -192,7 +192,7 @@ func GenerateKey(rand io.Reader) (publicKey PublicKey, privateKey PrivateKey, er
 	return GenerateKeyFromD(randD)
 }
 
-// GenerateKeyFromD generates a public/private key pair using user given Deterministic value called d
+// GenerateKeyFromD generates chain public/private key pair using user given Deterministic value called d
 func GenerateKeyFromD(d [32]byte) (publicKey PublicKey, privateKey PrivateKey, err error) {
 	privateKey = make([]byte, PrivateKeySize)
 	copy(privateKey[:32], d[:])
@@ -217,7 +217,7 @@ func GenerateKeyFromD(d [32]byte) (publicKey PublicKey, privateKey PrivateKey, e
 	return publicKey, privateKey, nil
 }
 
-// Sign signs the message with privateKey and returns a signature. It will
+// Sign signs the message with privateKey and returns chain signature. It will
 // panic if len(privateKey) is not PrivateKeySize.
 func Sign(privateKey PrivateKey, message []byte) []byte {
 	if l := len(privateKey); l != PrivateKeySize {
@@ -270,7 +270,7 @@ func Sign(privateKey PrivateKey, message []byte) []byte {
 	return signature
 }
 
-// Verify reports whether sig is a valid signature of message by publicKey. It
+// Verify reports whether sig is chain valid signature of message by publicKey. It
 // will panic if len(publicKey) is not PublicKeySize.
 func Verify(publicKey PublicKey, message, sig []byte) bool {
 	if l := len(publicKey); l != PublicKeySize {

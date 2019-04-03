@@ -2,59 +2,65 @@ package onroad
 
 import (
 	"container/heap"
+	"strconv"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad/model"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"strconv"
+	"go.uber.org/atomic"
 )
 
 type ContractWorker struct {
 	manager *Manager
 
-	uBlocksPool *model.OnroadBlocksPool
-
-	gid                 types.Gid
-	address             types.Address
-	accEvent            producerevent.AccountStartEvent
-	currentSnapshotHash types.Hash
+	gid      types.Gid
+	address  types.Address
+	accEvent producerevent.AccountStartEvent
 
 	status      int
 	statusMutex sync.Mutex
 
-	isSleep                bool
-	isCancel               bool
-	newOnroadTxAlarm       chan struct{}
-	breaker                chan struct{}
-	stopDispatcherListener chan struct{}
+	isCancel *atomic.Bool
+
+	newBlockCond *common.TimeoutCond
+	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-	contractAddressList    []types.Address
+
+	contractAddressList []types.Address
+
+	blackList      map[types.Address]bool
+	blackListMutex sync.RWMutex
+
+	workingAddrList      map[types.Address]bool
+	workingAddrListMutex sync.RWMutex
 
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	blackList      map[types.Address]bool
-	blackListMutex sync.RWMutex
+	selectivePendingCache map[types.Address]*callerPendingMap
 
 	log log15.Logger
 }
 
 func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
-		manager:     manager,
-		uBlocksPool: manager.onroadBlocksPool,
+		manager: manager,
 
-		status:   Create,
-		isSleep:  false,
-		isCancel: false,
+		status:       Create,
+		isCancel:     atomic.NewBool(false),
+		newBlockCond: common.NewTimeoutCond(),
 
-		blackList: make(map[types.Address]bool),
-		log:       slog.New("worker", "c"),
+		blackList:             make(map[types.Address]bool),
+		workingAddrList:       make(map[types.Address]bool),
+		selectivePendingCache: make(map[types.Address]*callerPendingMap),
+
+		log: slog.New("worker", "c"),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
@@ -73,11 +79,6 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
 	w.accEvent = accEvent
-	if sb := w.manager.chain.GetLatestSnapshotBlock(); sb != nil {
-		w.currentSnapshotHash = sb.Hash
-	} else {
-		w.currentSnapshotHash = w.accEvent.SnapshotHash
-	}
 
 	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
 
@@ -86,10 +87,10 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != Start {
-		w.isCancel = false
+		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.uAccess.GetContractAddrListByGid(&w.gid)
+		addressList, err := w.manager.chain.GetContractList(w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -105,13 +106,8 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
-		// 3. init some local variables
-		w.newOnroadTxAlarm = make(chan struct{})
-		w.breaker = make(chan struct{})
-		w.stopDispatcherListener = make(chan struct{})
-
-		w.uBlocksPool.AddContractLis(w.gid, func(address types.Address) {
-			if w.isInBlackList(address) {
+		w.manager.addContractLis(w.gid, func(address types.Address) {
+			if w.isContractInBlackList(address) {
 				return
 			}
 
@@ -120,25 +116,21 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				Addr:  address,
 				Quota: q,
 			}
+			w.pushContractTask(c)
 
-			w.ctpMutex.Lock()
-			heap.Push(&w.contractTaskPQueue, c)
-			w.ctpMutex.Unlock()
-
-			w.NewOnroadTxAlarm()
+			w.WakeupOneTp()
 		})
 
 		log.Info("start all tp")
 		for _, v := range w.contractTaskProcessors {
-			v.Start()
+			common.Go(v.work)
 		}
 		log.Info("end start all tp")
-		common.Go(w.waitingNewBlock)
 
 		w.status = Start
 	} else {
 		// awake it in order to run at least once
-		w.NewOnroadTxAlarm()
+		w.WakeupAllTps()
 	}
 	w.log.Info("end start")
 }
@@ -148,76 +140,34 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == Start {
-		w.isCancel = true
+		w.manager.removeContractLis(w.gid)
 
-		w.breaker <- struct{}{}
-		close(w.breaker)
+		w.isCancel.Store(true)
+		w.newBlockCond.Broadcast()
 
-		w.uBlocksPool.RemoveContractLis(w.gid)
-		w.isSleep = true
-		close(w.newOnroadTxAlarm)
-
-		<-w.stopDispatcherListener
-		close(w.stopDispatcherListener)
-
-		w.uBlocksPool.DeleteContractCache(w.gid)
+		w.clearContractBlackList()
+		w.clearWorkingAddrList()
 
 		w.log.Info("stop all task")
-		wg := new(sync.WaitGroup)
-		for _, v := range w.contractTaskProcessors {
-			wg.Add(1)
-			common.Go(func() {
-				v.Stop()
-				wg.Done()
-			})
-		}
-		wg.Wait()
+		w.wg.Wait()
 		w.log.Info("end stop all task")
+
+		w.clearSelectiveBlocksCache()
+
 		w.status = Stop
 	}
 	w.log.Info("stopped")
 }
 
-func (w *ContractWorker) waitingNewBlock() {
-	mlog := w.log.New("method", "waitingNewBlock")
-	mlog.Info("im in work")
-LOOP:
-	for {
-		w.isSleep = false
-		if w.isCancel {
-			mlog.Info("found cancel true")
-			break
-		}
-		w.ctpMutex.RLock()
-		if w.contractTaskPQueue.Len() == 0 {
-			w.ctpMutex.RUnlock()
-		} else {
-			w.ctpMutex.RUnlock()
-			for _, v := range w.contractTaskProcessors {
-				if v == nil {
-					mlog.Error("tp is nil. wakeup")
-					continue
-				}
-				mlog.Debug("before WakeUp")
-				v.WakeUp()
-				mlog.Debug("after WakeUp")
-			}
-		}
+func (w *ContractWorker) Close() error {
+	w.Stop()
+	return nil
+}
 
-		w.isSleep = true
-		mlog.Info("start sleep c")
-		select {
-		case <-w.newOnroadTxAlarm:
-			mlog.Info("newOnroadTxAlarm start awake")
-		case <-w.breaker:
-			mlog.Info("worker broken")
-			break LOOP
-		}
-	}
-
-	mlog.Info("end called")
-	w.stopDispatcherListener <- struct{}{}
-	mlog.Info("end")
+func (w ContractWorker) Status() int {
+	w.statusMutex.Lock()
+	defer w.statusMutex.Unlock()
+	return w.status
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
@@ -238,16 +188,28 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 	heap.Init(&w.contractTaskPQueue)
 }
 
-func (w *ContractWorker) NewOnroadTxAlarm() {
-	w.log.Info("NewOnroadTxAlarm", "isSleep", w.isSleep)
-	if w.isSleep {
-		w.newOnroadTxAlarm <- struct{}{}
-	}
+func (w *ContractWorker) WakeupOneTp() {
+	w.log.Info("WakeupOneTp")
+	w.newBlockCond.Signal()
+}
+
+func (w *ContractWorker) WakeupAllTps() {
+	w.log.Info("WakeupAllTPs")
+	w.newBlockCond.Broadcast()
 }
 
 func (w *ContractWorker) pushContractTask(t *contractTask) {
 	w.ctpMutex.Lock()
 	defer w.ctpMutex.Unlock()
+	// be careful duplicates
+	for _, v := range w.contractTaskPQueue {
+		if v.Addr == t.Addr {
+			//w.log.Info(fmt.Sprintf("heap fix, pre-idx=%v, addr=%v, quota=%v\n", v.Index, t.Addr, t.Quota))
+			v.Quota = t.Quota
+			heap.Fix(&w.contractTaskPQueue, v.Index)
+			return
+		}
+	}
 	heap.Push(&w.contractTaskPQueue, t)
 }
 
@@ -260,44 +222,132 @@ func (w *ContractWorker) popContractTask() *contractTask {
 	return nil
 }
 
+func (w *ContractWorker) clearWorkingAddrList() {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	w.workingAddrList = make(map[types.Address]bool)
+}
+
 // Don't deal with it for this around of blocks-generating period
-func (w *ContractWorker) addIntoBlackList(addr types.Address) {
+func (w *ContractWorker) addContractIntoWorkingList(addr types.Address) bool {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	result, ok := w.workingAddrList[addr]
+	if result && ok {
+		return false
+	}
+	w.workingAddrList[addr] = true
+	return true
+}
+
+func (w *ContractWorker) removeContractFromWorkingList(addr types.Address) {
+	w.workingAddrListMutex.Lock()
+	defer w.workingAddrListMutex.Unlock()
+	w.workingAddrList[addr] = false
+}
+
+func (w *ContractWorker) clearContractBlackList() {
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	w.blackList = make(map[types.Address]bool)
+}
+
+// Don't deal with it for this around of blocks-generating period
+func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
-	w.uBlocksPool.ReleaseContractCache(addr)
+	delete(w.selectivePendingCache, addr)
 }
 
-func (w *ContractWorker) isInBlackList(addr types.Address) bool {
+func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
 	_, ok := w.blackList[addr]
 	if ok {
-		w.log.Info("isInBlackList", "addr", addr, "in", ok)
+		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
 }
 
-func (w *ContractWorker) Close() error {
-	w.Stop()
+func (w *ContractWorker) clearSelectiveBlocksCache() {
+	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
+}
+
+func (w *ContractWorker) getPendingOnroadBlock(contractAddr *types.Address) *ledger.AccountBlock {
+	if pendingCache, ok := w.selectivePendingCache[*contractAddr]; ok && pendingCache != nil {
+		return pendingCache.getPendingOnroad()
+	}
 	return nil
 }
 
-func (w ContractWorker) Status() int {
-	w.statusMutex.Lock()
-	defer w.statusMutex.Unlock()
-	return w.status
+func (w *ContractWorker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
+		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
+		if success && pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
+			pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
+		}
+	}
+}
+
+func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
+	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
+		var pageNum uint8 = 0
+		for pendingMap.isPendingMapNotSufficient() {
+			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum), uint64(DefaultPullCount))
+			if len(blocks) <= 0 {
+				break
+			}
+			for _, v := range blocks {
+				if !pendingMap.existInInferiorList(v.AccountAddress) {
+					pendingMap.addPendingMap(v)
+				}
+			}
+			pageNum++
+		}
+	} else {
+		callerMap := newCallerPendingMap()
+		blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, 0, uint64(DefaultPullCount))
+		if len(blocks) <= 0 {
+			return nil
+		}
+		for _, v := range blocks {
+			callerMap.addPendingMap(v)
+		}
+		w.selectivePendingCache[*contractAddr] = callerMap
+	}
+	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
+}
+
+func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		pendingCache.addCallerIntoInferiorList(*caller, state)
+	}
+}
+
+func (w *ContractWorker) isContractCallerInferiorRetry(contract, caller *types.Address) bool {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		return pendingCache.isInferiorStateRetry(*caller)
+	}
+	return false
+}
+
+func (w *ContractWorker) isContractCallerInferiorOut(contract, caller *types.Address) bool {
+	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
+		return pendingCache.isInferiorStateOut(*caller)
+	}
+	return false
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
-	if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	quota, err := w.manager.Chain().GetPledgeQuota(w.currentSnapshotHash, addr)
+	quota, err := w.manager.Chain().GetPledgeQuota(addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuotas err", "error", err)
 	}
-	return quota
+	return quota.Current()
 }
 
 func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
@@ -305,26 +355,48 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	if w.gid == types.DELEGATE_GID {
 		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
 		for _, addr := range beneficialList {
-			if types.IsPrecompiledContractWithoutQuotaAddress(addr) {
+			if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 				quotas[addr] = math.MaxUint64
 			} else {
 				commonContractAddressList = append(commonContractAddressList, addr)
 			}
 		}
-		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, commonContractAddressList)
+		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(commonContractAddressList)
 		if err != nil {
 			w.log.Error("GetPledgeQuotas err", "error", err)
 		} else {
 			for k, v := range commonQuotas {
-				quotas[k] = v
+				quotas[k] = v.Current()
 			}
 		}
 	} else {
 		var qRrr error
-		quotas, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
+		_, qRrr = w.manager.Chain().GetPledgeQuotas(beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)
 		}
 	}
 	return quotas
+}
+
+func (w *ContractWorker) VerifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
+	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
+	if err != nil {
+		return err
+	}
+	if meta == nil {
+		return errors.New("contract meta is nil")
+	}
+	if meta.SendConfirmedTimes == 0 {
+		return nil
+	}
+	sendConfirmedTimes, err := w.manager.chain.GetConfirmedTimes(*fromHash)
+	if err != nil {
+		return err
+	}
+	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
+		//w.log.Info(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
+		return errors.New("sendBlock is not ready")
+	}
+	return nil
 }

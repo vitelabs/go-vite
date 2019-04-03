@@ -1,160 +1,117 @@
 package chain
 
 import (
-	"path/filepath"
-
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"math/big"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"os/user"
+	"path"
+	"path/filepath"
+	"runtime"
+	"testing"
 )
 
-var innerChainInstance Chain
+var genesisConfigJson = "{  \"GenesisAccountAddress\": \"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",  \"ForkPoints\": {  },  \"ConsensusGroupInfo\": {    \"ConsensusGroupInfoMap\":{      \"00000000000000000001\":{        \"NodeCount\":25,        \"Interval\":1,        \"PerCount\":3,        \"RandCount\":2,        \"RandRank\":100,        \"Repeat\":1,        \"CheckLevel\":0,        \"CountingTokenId\":\"tti_5649544520544f4b454e6e40\",        \"RegisterConditionId\":1,        \"RegisterConditionParam\":{          \"PledgeAmount\": 100000000000000000000000,          \"PledgeHeight\": 1,          \"PledgeToken\": \"tti_5649544520544f4b454e6e40\"        },        \"VoteConditionId\":1,        \"VoteConditionParam\":{},        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"WithdrawHeight\":1      },      \"00000000000000000002\":{        \"NodeCount\":25,        \"Interval\":3,        \"PerCount\":1,        \"RandCount\":2,        \"RandRank\":100,        \"Repeat\":48,        \"CheckLevel\":1,        \"CountingTokenId\":\"tti_5649544520544f4b454e6e40\",        \"RegisterConditionId\":1,        \"RegisterConditionParam\":{          \"PledgeAmount\": 100000000000000000000000,          \"PledgeHeight\": 1,          \"PledgeToken\": \"tti_5649544520544f4b454e6e40\"        },        \"VoteConditionId\":1,        \"VoteConditionParam\":{},        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"WithdrawHeight\":1      }    },    \"RegistrationInfoMap\":{      \"00000000000000000001\":{        \"s1\":{          \"NodeAddr\":\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\",          \"PledgeAddr\":\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\",          \"Amount\":100000000000000000000000,          \"WithdrawHeight\":7776000,          \"RewardTime\":1,          \"CancelTime\":0,          \"HisAddrList\":[\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\"]        },        \"s2\":{          \"NodeAddr\":\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\",          \"PledgeAddr\":\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\",          \"Amount\":100000000000000000000000,          \"WithdrawHeight\":7776000,          \"RewardTime\":1,          \"CancelTime\":0,          \"HisAddrList\":[\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\"]        }      }    }  },  \"MintageInfo\":{    \"TokenInfoMap\":{      \"tti_5649544520544f4b454e6e40\":{        \"TokenName\":\"Vite Token\",        \"TokenSymbol\":\"VITE\",        \"TotalSupply\":1000000000000000000000000000,        \"Decimals\":18,        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"PledgeAddr\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"WithdrawHeight\":0,        \"MaxSupply\":115792089237316195423570985008687907853269984665640564039457584007913129639935,        \"OwnerBurnOnly\":false,        \"IsReIssuable\":true      }    },    \"LogList\": [        {          \"Data\": \"\",          \"Topics\": [            \"3f9dcc00d5e929040142c3fb2b67a3be1b0e91e98dac18d5bc2b7817a4cfecb6\",            \"000000000000000000000000000000000000000000005649544520544f4b454e\"          ]        }      ]  },  \"AccountBalanceMap\": {    \"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\": {      \"tti_5649544520544f4b454e6e40\":899999000000000000000000000    },    \"vite_56fd05b23ff26cd7b0a40957fb77bde60c9fd6ebc35f809c23\": {      \"tti_5649544520544f4b454e6e40\":100000000000000000000000000    }  }}"
 
-func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
-	forkPoints := &config.ForkPoints{}
-
-	if genesisConfig != nil && genesisConfig.ForkPoints != nil {
-		forkPoints = genesisConfig.ForkPoints
+func NewChainInstance(dirName string, clear bool) (*chain, error) {
+	dataDir := path.Join(defaultDataDir(), dirName)
+	if clear {
+		os.RemoveAll(dataDir)
 	}
+	genesisConfig := &config.Genesis{}
+	json.Unmarshal([]byte(genesisConfigJson), genesisConfig)
 
-	if forkPoints.Smart == nil {
-		forkPoints.Smart = &config.ForkPoint{}
+	chainInstance := NewChain(dataDir, &config.Chain{}, genesisConfig)
+
+	if err := chainInstance.Init(); err != nil {
+		return nil, err
 	}
-
-	return forkPoints
+	chainInstance.Start()
+	return chainInstance, nil
 }
 
-func makeChainConfig(genesisFile string) *config.Genesis {
-	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
-	var defaultBlockProducers []types.Address
-	addrStrList := []string{
-		"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87",
-		"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08",
-		"vite_1630f8c0cf5eda3ce64bd49a0523b826f67b19a33bc2a5dcfb",
-		"vite_1b1dfa00323aea69465366d839703547fec5359d6c795c8cef",
-		"vite_27a258dd1ed0ce0de3f4abd019adacd1b4b163b879389d3eca",
-		"vite_31a02e4f4b536e2d6d9bde23910cdffe72d3369ef6fe9b9239",
-		"vite_383fedcbd5e3f52196a4e8a1392ed3ddc4d4360e4da9b8494e",
-		"vite_41ba695ff63caafd5460dcf914387e95ca3a900f708ac91f06",
-		"vite_545c8e4c74e7bb6911165e34cbfb83bc513bde3623b342d988",
-		"vite_5a1b5ece654138d035bdd9873c1892fb5817548aac2072992e",
-		"vite_70cfd586185e552635d11f398232344f97fc524fa15952006d",
-		"vite_76df2a0560694933d764497e1b9b11f9ffa1524b170f55dda0",
-		"vite_7b76ca2433c7ddb5a5fa315ca861e861d432b8b05232526767",
-		"vite_7caaee1d51abad4047a58f629f3e8e591247250dad8525998a",
-		"vite_826a1ab4c85062b239879544dc6b67e3b5ce32d0a1eba21461",
-		"vite_89007189ad81c6ee5cdcdc2600a0f0b6846e0a1aa9a58e5410",
-		"vite_9abcb7324b8d9029e4f9effe76f7336bfd28ed33cb5b877c8d",
-		"vite_af60cf485b6cc2280a12faac6beccfef149597ea518696dcf3",
-		"vite_c1090802f735dfc279a6c24aacff0e3e4c727934e547c24e5e",
-		"vite_c10ae7a14649800b85a7eaaa8bd98c99388712412b41908cc0",
-		"vite_d45ac37f6fcdb1c362a33abae4a7d324a028aa49aeea7e01cb",
-		"vite_d8974670af8e1f3c4378d01d457be640c58644bc0fa87e3c30",
-		"vite_e289d98f33c3ef5f1b41048c2cb8b389142f033d1df9383818",
-		"vite_f53dcf7d40b582cd4b806d2579c6dd7b0b131b96c2b2ab5218",
-		"vite_fac06662d84a7bea269265e78ea2d9151921ba2fae97595608",
-	}
-
-	for _, addrStr := range addrStrList {
-		addr, _ := types.HexToAddress(addrStr)
-		defaultBlockProducers = append(defaultBlockProducers, addr)
-	}
-
-	defaultSnapshotConsensusGroup := config.ConsensusGroupInfo{
-		NodeCount:           25,
-		Interval:            1,
-		PerCount:            3,
-		RandCount:           2,
-		RandRank:            100,
-		CountingTokenId:     ledger.ViteTokenId,
-		RegisterConditionId: 1,
-		RegisterConditionParam: config.ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
-			PledgeHeight: uint64(3600 * 24 * 90),
-			PledgeToken:  ledger.ViteTokenId,
-		},
-		VoteConditionId: 1,
-		Owner:           defaultGenesisAccountAddress,
-		PledgeAmount:    big.NewInt(0),
-		WithdrawHeight:  1,
-	}
-	defaultCommonConsensusGroup := config.ConsensusGroupInfo{
-		NodeCount:           25,
-		Interval:            3,
-		PerCount:            1,
-		RandCount:           2,
-		RandRank:            100,
-		CountingTokenId:     ledger.ViteTokenId,
-		RegisterConditionId: 1,
-		RegisterConditionParam: config.ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
-			PledgeHeight: uint64(3600 * 24 * 90),
-			PledgeToken:  ledger.ViteTokenId,
-		},
-		VoteConditionId: 1,
-		Owner:           defaultGenesisAccountAddress,
-		PledgeAmount:    big.NewInt(0),
-		WithdrawHeight:  1,
-	}
-
-	genesisConfig := &config.Genesis{
-		GenesisAccountAddress: defaultGenesisAccountAddress,
-		BlockProducers:        defaultBlockProducers,
-	}
-
-	if len(genesisFile) > 0 {
-		file, err := os.Open(genesisFile)
-		if err != nil {
-
-			log15.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
-		}
-		defer file.Close()
-
-		genesisConfig = new(config.Genesis)
-		if err := json.NewDecoder(file).Decode(genesisConfig); err != nil {
-			log15.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
+func defaultDataDir() string {
+	// Try to place the data folder in the user's home dir
+	home := homeDir()
+	if home != "" {
+		if runtime.GOOS == "darwin" {
+			return filepath.Join(home, "Library", "GVite")
+		} else if runtime.GOOS == "windows" {
+			return filepath.Join(home, "AppData", "Roaming", "GVite")
+		} else {
+			return filepath.Join(home, ".gvite")
 		}
 	}
-
-	if genesisConfig.SnapshotConsensusGroup == nil {
-		genesisConfig.SnapshotConsensusGroup = &defaultSnapshotConsensusGroup
-	}
-
-	if genesisConfig.CommonConsensusGroup == nil {
-		genesisConfig.CommonConsensusGroup = &defaultCommonConsensusGroup
-	}
-
-	// set fork points
-	genesisConfig.ForkPoints = makeForkPointsConfig(genesisConfig)
-
-	return genesisConfig
+	// As we cannot guess chain stable location, return empty and handle later
+	return ""
 }
 
-func getChainInstance() Chain {
-	if innerChainInstance == nil {
-		//home := common.HomeDir()
-
-		innerChainInstance = NewChain(&config.Config{
-			DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
-
-			//DataDir: filepath.Join(common.HomeDir(), "Library/GVite/devdata"),
-			//Chain: &config.Chain{
-			//	KafkaProducers: []*config.KafkaProducer{{
-			//		Topic:      "test003",
-			//		BrokerList: []string{"ckafka-r3rbhht9.ap-guangzhou.ckafka.tencentcloudmq.com:6061"},
-			//	}},
-			//},
-			Genesis: makeChainConfig("/Users/liyanda/go/src/github.com/vitelabs/go-vite/genesis_fork.json"),
-		})
-		innerChainInstance.Init()
-		innerChainInstance.Start()
+func homeDir() string {
+	if home := os.Getenv("HOME"); home != "" {
+		return home
 	}
+	if usr, err := user.Current(); err == nil {
+		return usr.HomeDir
+	}
+	return ""
+}
 
-	return innerChainInstance
+func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
+	chainInstance, err := NewChainInstance("unit_test", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("Insert Blocks")
+
+	var accounts map[types.Address]*Account
+	var hashList []types.Hash
+	var addrList []types.Address
+	var heightList []uint64
+	var snapshotBlockList []*ledger.SnapshotBlock
+
+	t.Run("InsertBlocks", func(t *testing.T) {
+		accounts, hashList, addrList, heightList, snapshotBlockList = InsertAccountBlock(t, accountNum, chainInstance, txCount, snapshotPerBlockNum)
+	})
+
+	return chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList
+}
+
+func TearDown(chainInstance *chain) {
+	chainInstance.Stop()
+	chainInstance.Destroy()
+}
+
+func TestChain(t *testing.T) {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 43, 2000, 198)
+
+	// account
+	testAccount(t, chainInstance, addrList)
+
+	// account block
+	testAccountBlock(t, chainInstance, accounts, hashList, addrList, heightList)
+
+	// on road
+	testOnRoad(t, chainInstance, accounts, addrList)
+
+	// snapshot block
+	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
+
+	// state
+	testState(t, chainInstance, accounts, snapshotBlockList)
+
+	// built-in contract
+	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
+
+	TearDown(chainInstance)
+
 }

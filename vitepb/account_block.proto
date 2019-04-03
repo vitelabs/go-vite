@@ -3,40 +3,50 @@ syntax = "proto3";
 package vitepb;
 
 message AccountBlock {
-    uint32 blockType = 1;
-    bytes hash = 2;
-    uint64 height = 3;
-    bytes prevHash = 4;
+	enum BlockType {
+		Unknown = 0;
+		SendCreate   = 1;
+		SendCall     = 2;
+		SendReward   = 3;
+		Receive      = 4;
+		ReceiveError = 5;
+		SendRefund   = 6;
 
-    bytes accountAddress = 5;
+		GenesisReceive = 7;
+	}
 
-    bytes publicKey = 6;
+	BlockType blockType = 1;
+	bytes hash = 2;
+	uint64 height = 3;
+	bytes prevHash = 4;
 
-    bytes toAddress = 7;
+	bytes accountAddress = 5;
 
-    bytes fromBlockHash = 8;
+	bytes publicKey = 6;
 
-    bytes amount = 9;
+	bytes toAddress = 7;
 
-    bytes tokenId = 10;
+	bytes amount = 8;
 
-    uint64 quota = 11;
+	bytes tokenId = 9;
 
-    bytes fee = 12;
+	bytes fromBlockHash = 10;
 
-    bytes snapshotHash = 13;
+	bytes data = 11;
 
-    bytes data = 14;
+	uint64 quota = 12;
 
-    int64 timestamp = 15;
+	bytes fee = 13;
 
-    bytes StateHash = 16;
+	bytes StateHash = 14;
 
-    bytes logHash = 17;
+	bytes logHash = 15;
 
-    bytes difficulty = 18;
+	bytes difficulty = 16;
 
-    bytes nonce = 19;
+	bytes nonce = 17;
 
-    bytes signature = 20;
+	repeated AccountBlock SendBlockList = 18;
+
+	bytes signature = 19;
 }

@@ -19,7 +19,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -46,9 +45,14 @@ type Config struct {
 	DataDir string
 
 	// PeerKey is to encrypt message, the corresponding public key use for NodeID, MUST NOT be revealed
-	PeerKey ed25519.PrivateKey
+	PeerKey string
+
+	// PrivateKey is derived from PeerKey or read from file, or generate randomly
+	// should NOT assign from config
+	PrivateKey ed25519.PrivateKey
 
 	// Node represent our endpoint, NodeID is derived from PeerKey
+	// should NOT assign from config
 	Node vnode.Node
 
 	// BootNodes are roles as network entrance. Node can discovery more other nodes by send UDP query BootNodes,
@@ -59,7 +63,7 @@ type Config struct {
 	BootSeed []string
 
 	// NetID is to mark which network our node in, nodes from different network can`t connect each other
-	NetID uint32
+	NetID int
 }
 
 func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
@@ -97,7 +101,7 @@ func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
 
 // Ensure will set default value to fields missing value of Config.
 // will random a PeerKey and store in local file, usually `DataDir/peer.key`, if missing one.
-func (cfg *Config) Ensure() {
+func (cfg *Config) Ensure() (err error) {
 	if cfg.NetID == 0 {
 		cfg.NetID = DefaultNetID
 	}
@@ -106,36 +110,40 @@ func (cfg *Config) Ensure() {
 		cfg.ListenAddress = DefaultListenAddress
 	}
 
-	var err error
-	if len(cfg.PeerKey) == 0 {
+	if cfg.PeerKey == "" {
 		if cfg.DataDir == "" {
-			_, cfg.PeerKey, err = ed25519.GenerateKey(nil)
+			_, cfg.PrivateKey, err = ed25519.GenerateKey(nil)
 		} else {
 			keyFile := filepath.Join(cfg.DataDir, PrivKeyFileName)
-			cfg.PeerKey, err = getPeerKey(keyFile)
+			cfg.PrivateKey, err = getPeerKey(keyFile)
 		}
 
 		if err != nil {
-			fmt.Println("Failed to generate peerKey")
-			panic(err)
+			return
+		}
+	} else {
+		cfg.PrivateKey, err = ed25519.HexToPrivateKey(cfg.PeerKey)
+		if err != nil {
+			return
 		}
 	}
 
-	id, _ := vnode.Bytes2NodeID(cfg.PeerKey.PubByte())
+	id, _ := vnode.Bytes2NodeID(cfg.PrivateKey.PubByte())
 
 	var e vnode.EndPoint
 	if cfg.PublicAddress != "" {
 		e, err = vnode.ParseEndPoint(cfg.PublicAddress)
 		if err != nil {
-			fmt.Println("Failed to parse PublicAddress")
-			panic(err)
+			return
 		}
 	}
 
 	cfg.Node = vnode.Node{
 		ID:       id,
 		EndPoint: e,
-		Net:      cfg.NetID,
+		Net:      uint32(cfg.NetID),
 		Ext:      nil,
 	}
+
+	return nil
 }

@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 )
@@ -8,11 +9,11 @@ import (
 const (
 	MaxUint64 = uint64(1<<64 - 1)
 
-	// number of bits in a big.Word
+	// number of bits in chain big.Word
 	WordBits = 32 << (uint64(^big.Word(0)) >> 63)
-	// number of bytes in a big.Word
+	// number of bytes in chain big.Word
 	WordBytes = WordBits / 8
-	// number of bytes in a vm word
+	// number of bytes in chain vm word
 	WordSize = 32
 )
 
@@ -23,6 +24,8 @@ var (
 	Big10  = big.NewInt(10)
 	Big31  = big.NewInt(31)
 	Big32  = big.NewInt(32)
+	Big50  = big.NewInt(50)
+	Big100 = big.NewInt(100)
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 
@@ -40,7 +43,7 @@ func ToWordSize(size uint64) uint64 {
 	return (size + WordSize - 1) / WordSize
 }
 
-// BigUint64 returns the integer casted to a uint64 and returns whether it
+// BigUint64 returns the integer casted to chain uint64 and returns whether it
 // overflowed in the process.
 func BigUint64(v *big.Int) (uint64, bool) {
 	return v.Uint64(), v.BitLen() > 64
@@ -70,7 +73,7 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	return padded
 }
 
-// GetDataBig returns a slice from the data based on the start and size and pads
+// GetDataBig returns chain slice from the data based on the start and size and pads
 // up to size with zero's. This function is overflow safe.
 func GetDataBig(data []byte, start *big.Int, size *big.Int) []byte {
 	dlen := big.NewInt(int64(len(data)))
@@ -109,4 +112,11 @@ func JoinBytes(data ...[]byte) []byte {
 		newData = append(newData, d...)
 	}
 	return newData
+}
+
+func BytesToU64(data []byte) uint64 {
+	if len(data) < 8 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(data)
 }

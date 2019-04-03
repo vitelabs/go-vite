@@ -76,7 +76,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	if id != nil {
 		result["reqId"] = id
 	}
-	result["peersNum"] = len(api.v.Net().Info().Peers)
+	result["peersNum"] = len(api.v.P2P().Info().Peers)
 	result["snapshotPendingNum"] = api.v.Pool().SnapshotPendingNum()
 	result["accountPendingNum"] = api.v.Pool().AccountPendingNum().String()
 	head := api.v.Chain().GetLatestSnapshotBlock()
@@ -86,7 +86,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	if api.v.Producer() != nil {
 		result["producer"] = api.v.Producer().GetCoinBase().String()
 	}
-	priKey := api.v.P2P().Config().PeerKey
+	priKey := api.v.P2P().Config().PrivateKey
 	sign := ed25519.Sign(priKey, head.Hash.Bytes())
 	result["signData"] = hexutil.Encode(sign)
 	return result

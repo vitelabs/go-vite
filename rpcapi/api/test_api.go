@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -86,15 +87,16 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		Data:           params.Data,
 		Difficulty:     params.Difficulty,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, nil, true)
-	if err != nil {
-		return err
+
+	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
+	if err != nil || addrState == nil {
+		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator(t.walletApi.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator2(t.walletApi.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return e
 	}
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		var privkey ed25519.PrivateKey
 		privkey, e := ed25519.HexToPrivateKey(params.PrivateKey)
 		if e != nil {
@@ -112,12 +114,11 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		newerr, _ := TryMakeConcernedError(result.Err)
 		return newerr
 	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return t.walletApi.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	if result.VmBlock != nil {
+		return t.walletApi.pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)
 	} else {
 		return errors.New("generator gen an empty block")
 	}
-
 }
 
 type CreateReceiveTxParms struct {
@@ -131,18 +132,19 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	chain := t.walletApi.chain
 	pool := t.walletApi.pool
 
-	code, err := chain.AccountType(&params.SelfAddr)
+	isContract, err := t.walletApi.chain.IsContractAccount(params.SelfAddr)
 	if err != nil {
 		return err
 	}
+	if isContract {
+		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
+	}
+
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,
 		Difficulty:     params.Difficulty,
-	}
-	if code == ledger.AccountTypeContract && msg.BlockType == ledger.BlockTypeReceive {
-		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
 	privKey, err := ed25519.HexToPrivateKey(params.PrivKeyStr)
 	if err != nil {
@@ -153,31 +155,29 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if msg.FromBlockHash == nil {
 		return errors.New("params fromblockhash can't be nil")
 	}
-	fromBlock, err := t.walletApi.chain.GetAccountBlockByHash(msg.FromBlockHash)
+	fromBlock, err := chain.GetAccountBlockByHash(*msg.FromBlockHash)
 	if fromBlock == nil {
 		if err != nil {
 			return err
 		}
 		return errors.New("get sendblock by hash failed")
 	}
-
-	if fromBlock.ToAddress != params.SelfAddr {
+	if fromBlock.ToAddress != msg.AccountAddress {
 		return errors.New("can't receive other address's block")
 	}
 
-	var referredSnapshotHashList []types.Hash
-	referredSnapshotHashList = append(referredSnapshotHashList, fromBlock.SnapshotHash)
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.walletApi.chain, &msg.AccountAddress, referredSnapshotHashList, true)
-	if err != nil {
-		return err
+	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
+	if err != nil || addrState == nil {
+		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator(chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator2(t.walletApi.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return e
 	}
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		return ed25519.Sign(privKey, data), pubKey, nil
-	})
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress,
+		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+			return ed25519.Sign(privKey, data), pubKey, nil
+		})
 	if e != nil {
 		newerr, _ := TryMakeConcernedError(e)
 		return newerr
@@ -186,8 +186,8 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		newerr, _ := TryMakeConcernedError(result.Err)
 		return newerr
 	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	if result.VmBlock != nil {
+		return pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)
 	} else {
 		return errors.New("generator gen an empty block")
 	}

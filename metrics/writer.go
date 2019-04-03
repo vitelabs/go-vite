@@ -88,7 +88,7 @@ type namedMetric struct {
 	m    interface{}
 }
 
-// namedMetricSlice is a slice of namedMetrics that implements sort.Interface.
+// namedMetricSlice is chain slice of namedMetrics that implements sort.Interface.
 type namedMetricSlice []namedMetric
 
 func (nms namedMetricSlice) Len() int { return len(nms) }

@@ -1,17 +1,15 @@
 package chain_cache
 
 import (
-	"github.com/vitelabs/go-vite/chain_db"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
 type Chain interface {
-	GetUnConfirmedSubLedger() (map[types.Address][]*ledger.AccountBlock, error)
-	GetUnConfirmedPartSubLedger(addrList []types.Address) (map[types.Address][]*ledger.AccountBlock, error)
+	QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	GetConfirmSubLedgerBySnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) (map[types.Address][]*ledger.AccountBlock, error)
-	GetSnapshotBlocksByHeight(height uint64, count uint64, forward, containSnapshotContent bool) ([]*ledger.SnapshotBlock, error)
 
-	ChainDb() *chain_db.ChainDb
+	GetSubLedger(endHeight, startHeight uint64) ([]*ledger.SnapshotChunk, error)
+
+	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
 }

@@ -16,19 +16,19 @@ type blockNotifier interface {
 }
 
 type blockFeed struct {
-	aSubs     map[int]AccountblockCallback
+	aSubs     map[int]AccountBlockCallback
 	bSubs     map[int]SnapshotBlockCallback
 	currentId int
 }
 
 func newBlockFeeder() blockFeeder {
 	return &blockFeed{
-		aSubs: make(map[int]AccountblockCallback),
+		aSubs: make(map[int]AccountBlockCallback),
 		bSubs: make(map[int]SnapshotBlockCallback),
 	}
 }
 
-func (bf *blockFeed) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
+func (bf *blockFeed) SubscribeAccountBlock(fn AccountBlockCallback) (subId int) {
 	bf.currentId++
 	bf.aSubs[bf.currentId] = fn
 	return bf.currentId

@@ -27,7 +27,7 @@ type Timer interface {
 	Variance() float64
 }
 
-// GetOrRegisterTimer returns an existing Timer or constructs and registers a
+// GetOrRegisterTimer returns an existing Timer or constructs and registers chain
 // new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
@@ -38,7 +38,7 @@ func GetOrRegisterTimer(name string, r Registry) Timer {
 	return r.GetOrRegister(name, NewTimer).(Timer)
 }
 
-// NewCustomTimer constructs a new StandardTimer from a Histogram and a Meter.
+// NewCustomTimer constructs chain new StandardTimer from chain Histogram and chain Meter.
 // Be sure to call Stop() once the timer is of no use to allow for garbage collection.
 func NewCustomTimer(h Histogram, m Meter) Timer {
 	if !MetricsEnabled {
@@ -50,7 +50,7 @@ func NewCustomTimer(h Histogram, m Meter) Timer {
 	}
 }
 
-// NewRegisteredTimer constructs and registers a new StandardTimer.
+// NewRegisteredTimer constructs and registers chain new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredTimer(name string, r Registry) Timer {
@@ -62,7 +62,7 @@ func NewRegisteredTimer(name string, r Registry) Timer {
 	return c
 }
 
-// NewTimer constructs a new StandardTimer using an exponentially-decaying
+// NewTimer constructs chain new StandardTimer using an exponentially-decaying
 // sample with the same reservoir size and alpha as UNIX load averages.
 // Be sure to call Stop() once the timer is of no use to allow for garbage collection.
 func NewTimer() Timer {
@@ -75,69 +75,69 @@ func NewTimer() Timer {
 	}
 }
 
-// NilTimer is a no-op Timer.
+// NilTimer is chain no-op Timer.
 type NilTimer struct {
 	h Histogram
 	m Meter
 }
 
-// Count is a no-op.
+// Count is chain no-op.
 func (NilTimer) Count() int64 { return 0 }
 
-// Max is a no-op.
+// Max is chain no-op.
 func (NilTimer) Max() int64 { return 0 }
 
-// Mean is a no-op.
+// Mean is chain no-op.
 func (NilTimer) Mean() float64 { return 0.0 }
 
-// Min is a no-op.
+// Min is chain no-op.
 func (NilTimer) Min() int64 { return 0 }
 
-// Percentile is a no-op.
+// Percentile is chain no-op.
 func (NilTimer) Percentile(p float64) float64 { return 0.0 }
 
-// Percentiles is a no-op.
+// Percentiles is chain no-op.
 func (NilTimer) Percentiles(ps []float64) []float64 {
 	return make([]float64, len(ps))
 }
 
-// Rate1 is a no-op.
+// Rate1 is chain no-op.
 func (NilTimer) Rate1() float64 { return 0.0 }
 
-// Rate5 is a no-op.
+// Rate5 is chain no-op.
 func (NilTimer) Rate5() float64 { return 0.0 }
 
-// Rate15 is a no-op.
+// Rate15 is chain no-op.
 func (NilTimer) Rate15() float64 { return 0.0 }
 
-// RateMean is a no-op.
+// RateMean is chain no-op.
 func (NilTimer) RateMean() float64 { return 0.0 }
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilTimer) Snapshot() Timer { return NilTimer{} }
 
-// StdDev is a no-op.
+// StdDev is chain no-op.
 func (NilTimer) StdDev() float64 { return 0.0 }
 
-// Stop is a no-op.
+// Stop is chain no-op.
 func (NilTimer) Stop() {}
 
-// Sum is a no-op.
+// Sum is chain no-op.
 func (NilTimer) Sum() int64 { return 0 }
 
-// Time is a no-op.
+// Time is chain no-op.
 func (NilTimer) Time(func()) {}
 
-// Update is a no-op.
+// Update is chain no-op.
 func (NilTimer) Update(time.Duration) {}
 
-// UpdateSince is a no-op.
+// UpdateSince is chain no-op.
 func (NilTimer) UpdateSince(time.Time) {}
 
-// Variance is a no-op.
+// Variance is chain no-op.
 func (NilTimer) Variance() float64 { return 0.0 }
 
-// StandardTimer is the standard implementation of a Timer and uses a Histogram
+// StandardTimer is the standard implementation of chain Timer and uses chain Histogram
 // and Meter.
 type StandardTimer struct {
 	histogram Histogram
@@ -170,7 +170,7 @@ func (t *StandardTimer) Percentile(p float64) float64 {
 	return t.histogram.Percentile(p)
 }
 
-// Percentiles returns a slice of arbitrary percentiles of the values in the
+// Percentiles returns chain slice of arbitrary percentiles of the values in the
 // sample.
 func (t *StandardTimer) Percentiles(ps []float64) []float64 {
 	return t.histogram.Percentiles(ps)
@@ -196,7 +196,7 @@ func (t *StandardTimer) RateMean() float64 {
 	return t.meter.RateMean()
 }
 
-// Snapshot returns a read-only copy of the timer.
+// Snapshot returns chain read-only copy of the timer.
 func (t *StandardTimer) Snapshot() Timer {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -236,7 +236,7 @@ func (t *StandardTimer) Update(d time.Duration) {
 	t.meter.Mark(1)
 }
 
-// Record the duration of an event that started at a time and ends now.
+// Record the duration of an event that started at chain time and ends now.
 func (t *StandardTimer) UpdateSince(ts time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -249,7 +249,7 @@ func (t *StandardTimer) Variance() float64 {
 	return t.histogram.Variance()
 }
 
-// TimerSnapshot is a read-only copy of another Timer.
+// TimerSnapshot is chain read-only copy of another Timer.
 type TimerSnapshot struct {
 	histogram *HistogramSnapshot
 	meter     *MeterSnapshot
@@ -274,7 +274,7 @@ func (t *TimerSnapshot) Percentile(p float64) float64 {
 	return t.histogram.Percentile(p)
 }
 
-// Percentiles returns a slice of arbitrary percentiles of sampled values at
+// Percentiles returns chain slice of arbitrary percentiles of sampled values at
 // the time the snapshot was taken.
 func (t *TimerSnapshot) Percentiles(ps []float64) []float64 {
 	return t.histogram.Percentiles(ps)
@@ -303,7 +303,7 @@ func (t *TimerSnapshot) Snapshot() Timer { return t }
 // was taken.
 func (t *TimerSnapshot) StdDev() float64 { return t.histogram.StdDev() }
 
-// Stop is a no-op.
+// Stop is chain no-op.
 func (t *TimerSnapshot) Stop() {}
 
 // Sum returns the sum at the time the snapshot was taken.
@@ -311,17 +311,17 @@ func (t *TimerSnapshot) Sum() int64 { return t.histogram.Sum() }
 
 // Time panics.
 func (*TimerSnapshot) Time(func()) {
-	panic("Time called on a TimerSnapshot")
+	panic("Time called on chain TimerSnapshot")
 }
 
 // Update panics.
 func (*TimerSnapshot) Update(time.Duration) {
-	panic("Update called on a TimerSnapshot")
+	panic("Update called on chain TimerSnapshot")
 }
 
 // UpdateSince panics.
 func (*TimerSnapshot) UpdateSince(time.Time) {
-	panic("UpdateSince called on a TimerSnapshot")
+	panic("UpdateSince called on chain TimerSnapshot")
 }
 
 // Variance returns the variance of the values at the time the snapshot was
