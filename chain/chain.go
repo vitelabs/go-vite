@@ -27,9 +27,10 @@ const (
 )
 
 type chain struct {
-	cfg      *config.Genesis
-	dataDir  string
-	chainDir string
+	cfg       *config.Genesis
+	dataDir   string
+	chainDir  string
+	consensus Consensus
 
 	log log15.Logger
 
@@ -258,6 +259,9 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+func (c *chain) SetConsensus(cs Consensus) {
+	c.consensus = cs
 }
 
 func (c *chain) cleanAllData() error {

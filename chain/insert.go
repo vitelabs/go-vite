@@ -38,8 +38,10 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
+
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
-	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(snapshotBlock.SnapshotContent, unconfirmedBlocks)
+
+	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
 
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 
