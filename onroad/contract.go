@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"go.uber.org/atomic"
 )
+
+var signalLog = slog.New("signal", "contract")
 
 type ContractWorker struct {
 	manager *Manager
@@ -117,7 +120,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				Quota: q,
 			}
 			w.pushContractTask(c)
-
+			signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
 			w.WakeupOneTp()
 		})
 
@@ -189,7 +192,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 }
 
 func (w *ContractWorker) WakeupOneTp() {
-	w.log.Info("WakeupOneTp")
+	//w.log.Info("WakeupOneTp")
 	w.newBlockCond.Signal()
 }
 
@@ -316,6 +319,7 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *le
 		}
 		w.selectivePendingCache[*contractAddr] = callerMap
 	}
+
 	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
 }
 

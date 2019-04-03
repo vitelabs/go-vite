@@ -39,23 +39,18 @@ func (tp *ContractTaskProcessor) work() {
 			tp.log.Info("found cancel true")
 			break
 		}
-		tp.log.Debug("pre popContractTask")
 		task := tp.worker.popContractTask()
-
-		tp.log.Debug("after popContractTask")
-
 		if task != nil {
+			signalLog.Info(fmt.Sprintf("tp %v wakeup, pop addr %v quota %v", tp.taskId, task.Addr, task.Quota))
 			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}
-			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			canContinue := tp.processOneAddress(task)
 			tp.worker.removeContractFromWorkingList(task.Addr)
 			if canContinue {
 				task.Quota = tp.worker.GetPledgeQuota(task.Addr)
 				tp.worker.pushContractTask(task)
 			}
-			tp.log.Debug("after processOneAddress " + task.Addr.String())
 			continue
 		}
 		//tp.isSleeping = false
@@ -73,15 +68,15 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 }
 
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canContinue bool) {
-	plog := tp.log.New("processAddr", task.Addr)
+	tp.log.Info("process", "contract", &task.Addr)
 
 	sBlock := tp.worker.acquireNewOnroadBlocks(&task.Addr)
 	if sBlock == nil {
 		return true
 	}
-	blog := plog.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress)
+	blog := tp.log.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
 
-	//fixme checkReceivedSuccess
+	// fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
 		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
@@ -94,7 +89,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		blog.Error(fmt.Sprintf("failed to get contract state for generator, err:%v", err))
 		return true
 	}
-	plog.Info(fmt.Sprintf("contract-prev: hash=%v height=%v", addrState.LatestAccountHash, addrState.LatestAccountHeight))
+	tp.log.Info(fmt.Sprintf("contract-prev: addr=%v hash=%v height=%v", task.Addr, addrState.LatestAccountHash, addrState.LatestAccountHeight))
 
 	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if err != nil {
