@@ -369,7 +369,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 	}
 }
 
-func TestCalcTPS(t *testing.T) {
+func TestCalcUTPS(t *testing.T) {
 	InitQuotaConfig(false, false)
 	index := 75
 	for {
@@ -379,6 +379,23 @@ func TestCalcTPS(t *testing.T) {
 		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v |\n",
 			nodeConfig.sectionList[index-75], nodeConfig.sectionList[index],
 			index*21000,
+			index/75,
+			nodeConfig.pledgeAmountList[index],
+			nodeConfig.difficultyList[index],
+		)
+		index += 75
+	}
+}
+
+func TestCalcQuotaTable(t *testing.T) {
+	InitQuotaConfig(false, true)
+	index := 75
+	for {
+		if index >= len(nodeConfig.pledgeAmountList) {
+			break
+		}
+		fmt.Printf("%v\t%v\t%v\t%v\n",
+			index/75*21000,
 			index/75,
 			nodeConfig.pledgeAmountList[index],
 			nodeConfig.difficultyList[index],
