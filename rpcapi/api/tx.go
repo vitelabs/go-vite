@@ -256,8 +256,8 @@ type CalcPoWDifficultyParam struct {
 }
 
 type CalcPoWDifficultyResult struct {
-	quotaRequired uint64 `json:"quota"`
-	difficulty    string `json:"difficulty"`
+	QuotaRequired uint64 `json:"quota"`
+	Difficulty    string `json:"difficulty"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
