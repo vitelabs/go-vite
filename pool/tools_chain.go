@@ -164,6 +164,10 @@ func (self *accountCh) needSnapshot(addr types.Address) (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
+	if meta == nil {
+		self.log.Warn("meta info is nil.", "addr", addr)
+		return 0, nil
+	}
 	return meta.SendConfirmedTimes, nil
 }
 

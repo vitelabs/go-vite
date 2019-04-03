@@ -163,12 +163,6 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 	if max > self.current {
 		self.current = max
 	}
-	if !b.Snapshot() {
-		err := self.accountExistsF(b.Hash())
-		if err == nil {
-			panic(fmt.Sprintf("panic for account block[%s][%d][%s] exist", b.Hash(), b.Height(), b.ownerWrapper))
-		}
-	}
 	return err
 }
 
@@ -179,7 +173,10 @@ func (self *snapshotPackage) print() {
 	}
 }
 func (self *snapshotPackage) addToAll(b *Item, l *ownerLevel) {
+	// todo remove
 	fmt.Println("------max:", l.level)
+
+	fmt.Printf("add to item:[%s-%s-%d]%s\n", b.ownerWrapper, b.commonBlock.Hash(), b.commonBlock.Height(), b.commonBlock.Latency())
 	for _, v := range b.Keys() {
 		self.all[v] = l
 	}
