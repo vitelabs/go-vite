@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -101,13 +102,19 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			resultErr = errors.New("generator_vm panic error")
 		}
 	}()
-
-	randomSeedStates, err := gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", err))
+	var state *util.GlobalStatus
+	if block.IsReceiveBlock() {
+		if fromBlock == nil {
+			return nil, errors.New("need to pass in sendBlock when generate receiveBlock")
+		}
+		var stateErr error
+		state, stateErr = gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
+		if stateErr != nil {
+			return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", stateErr))
+		}
 	}
 
-	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, randomSeedStates)
+	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
 		vb.Hash = vb.ComputeHash()
