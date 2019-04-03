@@ -319,7 +319,16 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *le
 		}
 		w.selectivePendingCache[*contractAddr] = callerMap
 	}
-
+	/*	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
+			listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
+			for k, v := range l {
+				listStr += strconv.FormatUint(v.Height, 10)
+				if k < len(l)-1 {
+					listStr += ","
+				}
+			}
+			w.log.Info("acquireNewOnroadBlocks detail: " + listStr)
+		}*/
 	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
 }
 
