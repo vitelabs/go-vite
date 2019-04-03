@@ -387,15 +387,14 @@ func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address
 	}
 }
 
-func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) {
+func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
 	acqlog := testlog.New("acquireNewOnroadBlocks", contractAddr)
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
 		var pageNum uint8 = 0
 		for pendingMap.isPendingMapNotSufficient() {
-			pageNum++
-			blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, pageNum-1, DefaultPullCount)
+			blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, pageNum, DefaultPullCount)
 			if len(blocks) <= 0 {
-				return
+				break
 			}
 			acqlog.Info(fmt.Sprintf("acquireNewOnroad %v blocks %v", pageNum, len(blocks)))
 			for _, v := range blocks {
@@ -403,12 +402,13 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 					pendingMap.addPendingMap(v)
 				}
 			}
+			pageNum++
 		}
 	} else {
 		callerMap := newCallerPendingMap()
 		blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, 0, DefaultPullCount)
 		if len(blocks) <= 0 {
-			return
+			return nil
 		}
 		acqlog.Info(fmt.Sprintf("first acquireNewOnroad blocks %v", len(blocks)))
 		for _, v := range blocks {
@@ -416,6 +416,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 		}
 		w.testPendingCache[*contractAddr] = callerMap
 	}
+	return w.testPendingCache[*contractAddr].getPendingOnroad()
 }
 
 func (w *testContractWoker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
