@@ -46,9 +46,16 @@ func NewTxApi(vite *vite.Vite) *Tx {
 		panic(err)
 	}
 
+	pubKey, err := key.PublicKey()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s hex public key:%s\n", coinbase, hex.EncodeToString(pubKey))
+
 	hexKey := hex.EncodeToString(binKey)
 
-	toAddr, err := types.HexToAddress("vite_000000000000000000000000000000000000000270a48cc491")
+	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
 	amount := string("0")
 	if err != nil {
 		panic(err)
