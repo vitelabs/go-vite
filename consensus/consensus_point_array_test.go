@@ -155,6 +155,7 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 		t.Log(fmt.Sprintf("key:%s, value:%+v", k, v))
 	}
 
+	// test for db cache
 	point, err = array.GetByIndex(0)
 
 	assert.NoError(t, err)
