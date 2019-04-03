@@ -41,7 +41,10 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
-	canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
+	//canBeSnappedBlocks, invalidAccountBlocks := c.filterCanBeSnapped(unconfirmedBlocks)
+	// TODO
+	canBeSnappedBlocks := unconfirmedBlocks
+	var invalidAccountBlocks []*ledger.AccountBlock
 
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 

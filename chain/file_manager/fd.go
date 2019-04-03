@@ -100,10 +100,6 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 		return 0, errors.New("can't write, fileReader is full")
 	}
 
-	if cacheItem.FileWriter == nil {
-		return 0, errors.New("cacheItem.FileWriter == nil")
-	}
-
 	bufLen := len(buf)
 	freeSpaceLength := int(fd.writeMaxSize - cacheItem.BufferLen)
 
