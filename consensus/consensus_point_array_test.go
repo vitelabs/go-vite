@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/consensus/db"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -18,15 +21,6 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
-
-	dir := "testdata-consensus"
-	db, err := NewDb(dir)
-	assert.NoError(t, err)
-
-	defer func() {
-		os.RemoveAll(dir)
-	}()
-	defer db.Close()
 
 	mch := NewMockChain(ctrl)
 
@@ -92,4 +86,28 @@ func GenSnapshotBlock(height uint64, hexPubKey string, prevHash types.Hash, t ti
 	}
 	block.Hash = block.ComputeHash()
 	return block
+}
+
+func prepareConsensusDB() *consensus_db.ConsensusDB {
+	clearConsensusDB(nil)
+	d, err := leveldb.OpenFile("testdata-consensus", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	db := consensus_db.NewConsensusDB(d)
+	return db
+}
+
+func clearConsensusDB(db *consensus_db.ConsensusDB) {
+	os.RemoveAll("testdata-consensus")
+}
+
+func TestHourLinkedArray_GetByIndex(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	// Assert that Bar() is invoked.
+	defer ctrl.Finish()
+
+	//perids := NewMockLinkedArray(ctrl)
+
 }
