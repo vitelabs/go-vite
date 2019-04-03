@@ -123,26 +123,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	// Save snapshot content
 	for _, accountBlockHashHeight := range snapshotBlock.SnapshotContent {
-		accountBlockMeta, blockMetaErr := c.chainDb.Ac.GetBlockMeta(&accountBlockHashHeight.Hash)
-		if blockMetaErr != nil {
-			c.log.Error("GetBlockMeta failed, error is "+blockMetaErr.Error(), "method", "InsertSnapshotBlock")
-			return blockMetaErr
-		}
-
-		if accountBlockMeta == nil {
-			err := errors.New("AccountBlockMeta is nil")
-			c.log.Error(err.Error(), "method", "InsertSnapshotBlock")
-			return err
-		}
-
-		if saveSendBlockMetaErr := c.chainDb.Ac.WriteBlockMeta(batch, &accountBlockHashHeight.Hash, accountBlockMeta); saveSendBlockMetaErr != nil {
-			c.log.Error("SaveBlockMeta failed, error is "+saveSendBlockMetaErr.Error(), "method", "InsertSnapshotBlock")
-			return blockMetaErr
-		}
-
 		if saveBeSnapshotErr := c.chainDb.Ac.WriteBeSnapshot(batch, &accountBlockHashHeight.Hash, snapshotBlock.Height); saveBeSnapshotErr != nil {
 			c.log.Error("SaveBeSnapshot failed, error is "+saveBeSnapshotErr.Error(), "method", "InsertSnapshotBlock")
-			return blockMetaErr
+			return saveBeSnapshotErr
 		}
 	}
 

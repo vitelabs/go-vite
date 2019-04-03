@@ -72,7 +72,7 @@ func (verifier *AccountVerifier) VerifyforRPC(block *ledger.AccountBlock) (block
 		if stat.errMsg != "" {
 			return nil, errors.New(stat.errMsg)
 		}
-		return nil, errors.New("verify referred block failed")
+		return nil, ErrVerifyRPCBlockPendingState
 	}
 
 	return verifier.VerifyforVM(block)
@@ -420,7 +420,7 @@ func (verifier *AccountVerifier) verifySelfPrev(bs *BlockState) VerifyResult {
 			bs.vStat.referredSelfResult = PENDING
 			return PENDING
 		default:
-			bs.vStat.errMsg += "preHash or sbHeight is invalid"
+			bs.vStat.errMsg += ErrVerifyPrevBlockFailed.Error()
 			bs.vStat.referredSelfResult = FAIL
 			return FAIL
 		}

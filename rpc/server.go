@@ -162,7 +162,11 @@ func (s *Server) serveRequest(ctx context.Context, codec ServerCodec, singleShot
 			// If a parsing error occurred, send an error
 			if err.Error() != "EOF" {
 				log.Debug(fmt.Sprintf("read error %v\n", err))
-				codec.Write(codec.CreateErrorResponse(nil, err))
+				if errWithType, ok := err.(ErrorWithId); ok {
+					codec.Write(codec.CreateErrorResponse(errWithType.Id(), err))
+				} else {
+					codec.Write(codec.CreateErrorResponse(nil, err))
+				}
 			}
 			// Error or end of stream, wait for requests and tear down
 			pend.Wait()
@@ -406,7 +410,7 @@ func (s *Server) readRequest(codec ServerCodec) ([]*serverRequest, bool, Error) 
 		}
 
 		if svc, ok = s.services[r.service]; !ok { // rpc method isn't available
-			requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method}}
+			requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method, nil}}
 			continue
 		}
 
@@ -423,7 +427,7 @@ func (s *Server) readRequest(codec ServerCodec) ([]*serverRequest, bool, Error) 
 					}
 				}
 			} else {
-				requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method}}
+				requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method, nil}}
 			}
 			continue
 		}
@@ -440,7 +444,7 @@ func (s *Server) readRequest(codec ServerCodec) ([]*serverRequest, bool, Error) 
 			continue
 		}
 
-		requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method}}
+		requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.service, r.method, nil}}
 	}
 
 	return requests, batch, nil
