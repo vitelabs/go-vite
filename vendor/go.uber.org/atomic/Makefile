@@ -37,6 +37,7 @@ install_ci: install
 	go get github.com/wadey/gocovmerge
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cmd/cover
+
 ifdef SHOULD_LINT
 	go get github.com/golang/lint/golint
 endif
@@ -44,6 +45,7 @@ endif
 .PHONY: lint
 lint:
 ifdef SHOULD_LINT
+
 	@rm -rf lint.log
 	@echo "Checking formatting..."
 	@gofmt -d -s $(PACKAGE_FILES) 2>&1 | tee lint.log
@@ -54,9 +56,11 @@ ifdef SHOULD_LINT
 	@echo "Checking for unresolved FIXMEs..."
 	@git grep -i fixme | grep -v -e vendor -e Makefile | tee -a lint.log
 	@[ ! -s lint.log ]
+
 else
 	@echo "Skipping linters on" $(GO_VERSION)
 endif
+
 
 
 .PHONY: test_ci

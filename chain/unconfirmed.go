@@ -48,7 +48,7 @@ func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.Acco
 	return blockMap
 }
 
-func (c *chain) filterDependencies(accountBlocks []*ledger.AccountBlock) []*ledger.AccountBlock {
+func (c *chain) computeDependencies(accountBlocks []*ledger.AccountBlock) []*ledger.AccountBlock {
 	newAccountBlocks := make([]*ledger.AccountBlock, 0, len(accountBlocks))
 	newAccountBlocks = append(newAccountBlocks, accountBlocks[0])
 

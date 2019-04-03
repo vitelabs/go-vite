@@ -36,9 +36,13 @@ func (tp *testProcessor) work() {
 			if tp.w.isContractInBlackList(&task.Addr) || !tp.w.addContractIntoWorkingList(&task.Addr) {
 				continue
 			}
-			tp.w.acquireNewOnroadBlocks(&task.Addr)
-			tp.process(task)
+
+			canContinue := tp.processOneAddress(task)
 			tp.w.removeContractFromWorkingList(&task.Addr)
+			if canContinue {
+				task.Quota = tp.w.chain.getQuotaMap(&task.Addr)
+				tp.w.pushContractTask(task)
+			}
 			continue
 		}
 
@@ -51,19 +55,19 @@ func (tp *testProcessor) work() {
 	tp.log.Info("tp end work")
 }
 
-func (tp *testProcessor) process(task *contractTask) {
-	tp.log.Info("process start", "contract", &task.Addr)
+func (tp *testProcessor) processOneAddress(task *contractTask) (canContinue bool) {
+	tp.log.Info("process", "contract", &task.Addr)
 	rand.Seed(time.Now().UnixNano())
-	sBlock := tp.w.getPendingOnroadBlock(&task.Addr)
+	sBlock := tp.w.acquireNewOnroadBlocks(&task.Addr)
 	if sBlock == nil {
-		return
+		return true
 	}
 	blog := tp.log.New("onroad", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
 
 	if err := tp.w.chain.InsertIntoChain(&task.Addr, &sBlock.Hash); err != nil {
 		tp.w.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		blog.Info("addContractCallerToInferiorList, cause InsertIntoChain failed")
-		return
+		return true
 	}
 	tp.w.deletePendingOnroadBlock(&task.Addr, sBlock)
 	blog.Info("deletePendingOnroadBlock")
@@ -71,7 +75,7 @@ func (tp *testProcessor) process(task *contractTask) {
 	if !tp.w.chain.CheckQuota(&task.Addr) {
 		tp.w.addContractIntoBlackList(&task.Addr)
 		blog.Info("addContractIntoBlackList, cause quota is sufficient")
-		return
+		return false
 	}
-	tp.log.Info("process end")
+	return true
 }

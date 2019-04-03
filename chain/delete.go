@@ -139,7 +139,7 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 		return nil, cErr
 	}
 
-	needDeleteBlocks := c.filterDependencies(planDeleteBlocks)
+	needDeleteBlocks := c.computeDependencies(planDeleteBlocks)
 
 	seg := []*ledger.SnapshotChunk{{
 		AccountBlocks: needDeleteBlocks,
