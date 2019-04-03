@@ -33,8 +33,6 @@ type Manager struct {
 	unlockLid   int
 	netStateLid int
 
-	// writeSnapshotLid uint64
-
 	lastProducerAccEvent *producerevent.AccountStartEvent
 
 	log log15.Logger
@@ -64,7 +62,6 @@ func (manager *Manager) Start() {
 	}
 	// fixme
 	manager.Chain().Register(manager)
-	//manager.writeSnapshotLid = manager.Chain().RegisterInsertSnapshotBlocks(manager.NewSnapshot)
 }
 
 func (manager *Manager) Stop() {

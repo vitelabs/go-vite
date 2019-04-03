@@ -5,16 +5,16 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-	return nil
-}
-
 func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	for _, v := range blocks {
 		if v.AccountBlock.IsSendBlock() {
 			manager.newSignalToWorker(v.AccountBlock)
 		}
 	}
+	return nil
+}
+
+func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	return nil
 }
 
