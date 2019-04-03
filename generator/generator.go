@@ -63,17 +63,18 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 	if err != nil {
 		return nil, err
 	}
+	var fromBlock *ledger.AccountBlock
 	if block.IsReceiveBlock() {
-		fromBlock, err := gen.chain.GetAccountBlockByHash(block.FromBlockHash)
-		if err != nil {
-			return nil, err
+		var fromErr error
+		fromBlock, fromErr = gen.chain.GetAccountBlockByHash(block.FromBlockHash)
+		if fromErr != nil {
+			return nil, fromErr
 		}
 		if fromBlock == nil {
 			return nil, errors.New("generate recvBlock failed, cause failed to find its sendBlock")
 		}
-		gen.generateBlock(block, fromBlock, producer, signFunc)
 	}
-	return gen.generateBlock(block, nil, producer, signFunc)
+	return gen.generateBlock(block, fromBlock, producer, signFunc)
 }
 
 func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
