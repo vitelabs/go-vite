@@ -33,10 +33,8 @@ func (self *pool) loopQueue() {
 			}
 			err := self.insertQueue(q)
 			if err != nil {
-				fmt.Printf("insert queue err:%s\n", err)
-				fmt.Printf("all queue:%s\n", q.Info())
-				time.Sleep(time.Second * 2)
-				self.log.Crit("loop pool exit")
+				self.log.Info(fmt.Sprintf("insert queue err:%s\n", err))
+				self.log.Info(fmt.Sprintf("all queue:%s\n", q.Info()))
 			}
 			t2 := time.Now()
 			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
