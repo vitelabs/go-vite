@@ -62,11 +62,13 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 	}
 	var logMap map[types.Hash][]byte
 
+	hasRedo := false
 	err := redo.store.View(func(tx *bolt.Tx) error {
 		bu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight))
 		if bu == nil {
 			return nil
 		}
+		hasRedo = true
 
 		c := bu.Cursor()
 
@@ -81,7 +83,11 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 		return nil
 	})
 
-	return logMap, true, err
+	return logMap, hasRedo, err
+}
+
+func (redo *StorageRedo) HasRedo() bool {
+	return redo.hasRedo
 }
 
 func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {

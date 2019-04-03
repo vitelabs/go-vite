@@ -71,7 +71,6 @@ func (cache *Cache) RecoverAccountBlocks(accountBlocks []*ledger.AccountBlock) {
 		dataId := cache.ds.InsertAccountBlock(accountBlock)
 		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)
 	}
-
 }
 
 // ====== Account blocks ======

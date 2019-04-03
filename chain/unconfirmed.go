@@ -12,7 +12,11 @@ func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	currentUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
-	needSnapshotBlocks, _ := c.filterCanBeSnapped(nil, currentUnconfirmedBlocks)
+	// TODO
+	needSnapshotBlocks, _, err := c.filterCanBeSnapped(currentUnconfirmedBlocks)
+	if err != nil {
+		return nil
+	}
 
 	sc := make(ledger.SnapshotContent)
 
@@ -33,11 +37,51 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
  * TODO
  * Check quota, consensus, dependencies
  */
-func (c *chain) filterCanBeSnapped(snapshotContent ledger.SnapshotContent, blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock) {
+func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock, error) {
 	// checkA()
+	//tmpBlocks := make([]*ledger.AccountBlock, 0, len(blocks))
+	//if snapshotContent != nil {
+	//	for _, block := range blocks {
+	//		if hashHeight, ok := snapshotContent[block.AccountAddress]; ok && hashHeight.Height >= block.Height {
+	//			continue
+	//		}
+	//		tmpBlocks = append(tmpBlocks, block)
+	//	}
+	//}
+	//
+	invalidHashSet := make(map[types.Hash]struct{})
+	invalidBlock := make([]*ledger.AccountBlock, 0)
 
+	for _, block := range blocks {
+		// consensus
+		if c.consensus != nil {
+			if ok, err := c.consensus.VerifyAccountProducer(block); err != nil {
+				return nil, nil, err
+			} else if !ok {
+				invalidBlock = append(invalidBlock, block)
+				invalidHashSet[block.Hash] = struct{}{}
+				continue
+			}
+
+		}
+
+		// dependencies
+		if block.IsReceiveBlock() {
+
+		}
+
+	}
+
+	//for _, tmpBlock := range tmpBlocks {
+	//
+	//}
+	//quotaCache := map[types.Address]uint64{}
+	//
+	//for _, block := range blocks {
+	//
+	//}
 	// checkB()
-	return blocks, nil
+	return blocks, nil, nil
 }
 
 func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {

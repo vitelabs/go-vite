@@ -1,18 +1,19 @@
 package chain_db
 
 import (
-	"bytes"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"sync"
 )
 
 type MemDB struct {
 	storage *memdb.DB
 
-	deletedKey map[string]struct{}
+	deletedKey map[string]struct{} // for deleted key
+	mu         sync.RWMutex
 }
 
 func NewMemDB() *MemDB {
@@ -27,6 +28,9 @@ func newStorage() *memdb.DB {
 }
 
 func (mDb *MemDB) IsDelete(key []byte) bool {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
 	_, ok := mDb.deletedKey[string(key)]
 	return ok
 }
@@ -36,20 +40,32 @@ func (mDb *MemDB) NewIterator(slice *util.Range) iterator.Iterator {
 }
 
 func (mDb *MemDB) Put(key, value []byte) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+
 	mDb.put(key, value)
 }
 
 func (mDb *MemDB) Get(key []byte) ([]byte, bool) {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
 	return mDb.get(key)
 }
 
 func (mDb *MemDB) Delete(key []byte) {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
+
 	mDb.storage.Delete(key)
 
 	mDb.deletedKey[string(key)] = struct{}{}
 }
 
 func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
 	if _, ok := mDb.deletedKey[string(key)]; ok {
 		return false, true
 	}
@@ -57,17 +73,11 @@ func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
 	return mDb.storage.Contains(key), false
 }
 
-func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
-
-	key, _, errNotFound := mDb.storage.Find(prefixKey)
-	if errNotFound != nil {
-		return false
-	}
-
-	return bytes.HasPrefix(key, prefixKey)
-}
 
 func (mDb *MemDB) Flush(batch *leveldb.Batch) error {
+	mDb.mu.RLock()
+	defer mDb.mu.RUnlock()
+
 	iter := mDb.storage.NewIterator(nil)
 	defer iter.Release()
 	for iter.Next() {
@@ -86,10 +96,13 @@ func (mDb *MemDB) Flush(batch *leveldb.Batch) error {
 }
 
 func (mDb *MemDB) Clean() {
+	mDb.mu.Lock()
+	defer mDb.mu.Unlock()
 	mDb.deletedKey = make(map[string]struct{})
 }
 
 func (mDb *MemDB) get(key []byte) ([]byte, bool) {
+
 	if _, ok := mDb.deletedKey[string(key)]; ok {
 		return nil, true
 	}

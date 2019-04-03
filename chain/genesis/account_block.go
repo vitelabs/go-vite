@@ -13,14 +13,28 @@ import (
 
 func NewGenesisAccountBlocks(cfg *config.Genesis) []*vm_db.VmAccountBlock {
 	list := make([]*vm_db.VmAccountBlock, 0)
-	list = newGenesisConsensusGroupContractBlocks(cfg, list)
-	list = newGenesisMintageContractBlocks(cfg, list)
-	list = newGenesisPledgeContractBlocks(cfg, list)
-	list = newGenesisNormalAccountBlocks(cfg, list)
+	addrSet := make(map[types.Address]interface{})
+	list, addrSet = newGenesisConsensusGroupContractBlocks(cfg, list, addrSet)
+	list, addrSet = newGenesisMintageContractBlocks(cfg, list, addrSet)
+	list, addrSet = newGenesisPledgeContractBlocks(cfg, list, addrSet)
+	list = newGenesisNormalAccountBlocks(cfg, list, addrSet)
 	return list
 }
 
-func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb vm_db.VmDb) {
+	if len(cfg.AccountBalanceMap) == 0 {
+		return
+	}
+	for tokenIdStr, balance := range cfg.AccountBalanceMap[addr.String()] {
+		tokenId, err := types.HexToTokenTypeId(tokenIdStr)
+		if err != nil {
+			panic(err)
+		}
+		vmdb.SetBalance(&tokenId, balance)
+	}
+}
+
+func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.ConsensusGroupInfo != nil {
 		contractAddr := types.AddressConsensusGroup
 		block := ledger.AccountBlock{
@@ -119,13 +133,16 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 			}
 		}
 
+		updateAccountBalanceMap(cfg, contractAddr, vmdb)
+
 		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		addrSet[contractAddr] = struct{}{}
 	}
-	return list
+	return list, addrSet
 }
 
-func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.MintageInfo != nil {
 		contractAddr := types.AddressMintage
 		block := ledger.AccountBlock{
@@ -165,13 +182,16 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 				vmdb.AddLog(&ledger.VmLog{Data: dataBytes, Topics: log.Topics})
 			}
 		}
+		block.LogHash = vmdb.GetLogListHash()
+		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		addrSet[contractAddr] = struct{}{}
 	}
-	return list
+	return list, addrSet
 }
 
-func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.PledgeInfo != nil {
 		contractAddr := types.AddressPledge
 		block := ledger.AccountBlock{
@@ -182,16 +202,18 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			Fee:            big.NewInt(0),
 		}
 		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
-		for pledgeAddrStr, pledgeInfo := range cfg.PledgeInfo.PledgeInfoMap {
+		for pledgeAddrStr, pledgeInfoList := range cfg.PledgeInfo.PledgeInfoMap {
 			pledgeAddr, err := types.HexToAddress(pledgeAddrStr)
 			dealWithError(err)
-			value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo,
-				pledgeInfo.Amount,
-				pledgeInfo.WithdrawHeight,
-				pledgeInfo.BeneficialAddr)
-			dealWithError(err)
-			err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, pledgeInfo.BeneficialAddr), value)
-			dealWithError(err)
+			for _, pledgeInfo := range pledgeInfoList {
+				value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo,
+					pledgeInfo.Amount,
+					pledgeInfo.WithdrawHeight,
+					pledgeInfo.BeneficialAddr)
+				dealWithError(err)
+				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, pledgeInfo.BeneficialAddr), value)
+				dealWithError(err)
+			}
 		}
 
 		for beneficialAddrStr, amount := range cfg.PledgeInfo.PledgeBeneficialMap {
@@ -202,17 +224,22 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			err = vmdb.SetValue(abi.GetPledgeBeneficialKey(beneficialAddr), value)
 			dealWithError(err)
 		}
+		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 		block.Hash = block.ComputeHash()
 		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		addrSet[contractAddr] = struct{}{}
 	}
-	return list
+	return list, addrSet
 }
 
-func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock) []*vm_db.VmAccountBlock {
+func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) []*vm_db.VmAccountBlock {
 	for addrStr, balanceMap := range cfg.AccountBalanceMap {
 		addr, err := types.HexToAddress(addrStr)
 		if err != nil {
 			panic(err)
+		}
+		if _, ok := addrSet[addr]; ok {
+			continue
 		}
 		block := ledger.AccountBlock{
 			BlockType:      ledger.BlockTypeGenesisReceive,
@@ -221,7 +248,6 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 			Amount:         big.NewInt(0),
 			Fee:            big.NewInt(0),
 		}
-
 		vmdb := vm_db.NewEmptyVmDB(&addr)
 		for tokenIdStr, balance := range balanceMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)

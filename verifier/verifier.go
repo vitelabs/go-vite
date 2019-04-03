@@ -49,7 +49,7 @@ func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
 	eLog := v.log.New("method", "VerifyPoolAccBlock")
 
-	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v", snapshotHash, block.AccountAddress, block.Height)
+	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v, hash:%v", snapshotHash, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}

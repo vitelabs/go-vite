@@ -95,20 +95,12 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
-	if ok := store.memDb.HasByPrefix(prefix); ok {
-		return ok, nil
-	}
-
-	iter := store.db.NewIterator(util.BytesPrefix(prefix), nil)
+	iter := store.NewIterator(util.BytesPrefix(prefix))
 	defer iter.Release()
 
 	result := false
 	for iter.Next() {
-		key := iter.Key()
-		if ok := store.memDb.IsDelete(key); !ok {
-			result = true
-			break
-		}
+		result = true
 	}
 
 	if err := iter.Error(); err != nil {
