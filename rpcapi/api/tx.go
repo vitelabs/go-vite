@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -69,8 +71,16 @@ func NewTxApi(vite *vite.Vite) *Tx {
 
 	difficulty := string("65535")
 
+	num := atomic.NewUint32(0)
+
 	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", &coinbase, func(e consensus.Event) {
 
+		if num.Load() > 0 {
+			fmt.Printf("something is loading[return].%s\n", time.Now())
+			return
+		}
+		num.Add(1)
+		defer num.Sub(1)
 		snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
 		if snapshotBlock.Height < 10 {
 			fmt.Println("latest height must >= 10.")
