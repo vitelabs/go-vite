@@ -182,16 +182,18 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			Fee:            big.NewInt(0),
 		}
 		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
-		for pledgeAddrStr, pledgeInfo := range cfg.PledgeInfo.PledgeInfoMap {
+		for pledgeAddrStr, pledgeInfoList := range cfg.PledgeInfo.PledgeInfoMap {
 			pledgeAddr, err := types.HexToAddress(pledgeAddrStr)
 			dealWithError(err)
-			value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo,
-				pledgeInfo.Amount,
-				pledgeInfo.WithdrawHeight,
-				pledgeInfo.BeneficialAddr)
-			dealWithError(err)
-			err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, pledgeInfo.BeneficialAddr), value)
-			dealWithError(err)
+			for _, pledgeInfo := range pledgeInfoList {
+				value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo,
+					pledgeInfo.Amount,
+					pledgeInfo.WithdrawHeight,
+					pledgeInfo.BeneficialAddr)
+				dealWithError(err)
+				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, pledgeInfo.BeneficialAddr), value)
+				dealWithError(err)
+			}
 		}
 
 		for beneficialAddrStr, amount := range cfg.PledgeInfo.PledgeBeneficialMap {
