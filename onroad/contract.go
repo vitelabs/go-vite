@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"container/heap"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"go.uber.org/atomic"
 )
+
+var signalLog = slog.New("signal", "contract")
 
 type ContractWorker struct {
 	manager *Manager
@@ -117,7 +120,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				Quota: q,
 			}
 			w.pushContractTask(c)
-
+			signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
 			w.WakeupOneTp()
 		})
 
@@ -189,7 +192,7 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 }
 
 func (w *ContractWorker) WakeupOneTp() {
-	w.log.Info("WakeupOneTp")
+	//w.log.Info("WakeupOneTp")
 	w.newBlockCond.Signal()
 }
 
@@ -315,6 +318,17 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *le
 			callerMap.addPendingMap(v)
 		}
 		w.selectivePendingCache[*contractAddr] = callerMap
+	}
+
+	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
+		listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
+		for k, v := range l {
+			listStr += strconv.FormatUint(v.Height, 10)
+			if k < len(l)-1 {
+				listStr += ","
+			}
+		}
+		w.log.Info("acquireNewOnroadBlocks detail:" + listStr)
 	}
 	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
 }
