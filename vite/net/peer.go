@@ -15,9 +15,10 @@ import (
 	"github.com/vitelabs/go-vite/p2p"
 )
 
-var errDiffGenesisBlock = errors.New("different genesis block")
 var errPeerExisted = errors.New("peer has existed")
 var errPeerNotExist = errors.New("peer not exist")
+
+type peerId = vnode.NodeID
 
 type peerConn struct {
 	id  []byte
@@ -215,15 +216,31 @@ type peerEvent struct {
 }
 
 type peerSet struct {
-	m   map[vnode.NodeID]Peer
+	m   map[peerId]Peer
 	prw sync.RWMutex
 
 	subs []chan<- peerEvent
 }
 
+// pickDownloadPeers implement downloadPeerSet
+func (m *peerSet) pickDownloadPeers(height uint64) (m2 map[peerId]downloadPeer) {
+	m2 = make(map[peerId]downloadPeer)
+
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for id, p := range m.m {
+		if p.height() >= height {
+			m2[id] = p
+		}
+	}
+
+	return
+}
+
 func newPeerSet() *peerSet {
 	return &peerSet{
-		m: make(map[vnode.NodeID]Peer),
+		m: make(map[peerId]Peer),
 	}
 }
 
@@ -305,7 +322,7 @@ func (m *peerSet) add(peer Peer) error {
 }
 
 // remove and return the specific peer, err is not nil if cannot find the peer
-func (m *peerSet) remove(id vnode.NodeID) (p Peer, err error) {
+func (m *peerSet) remove(id peerId) (p Peer, err error) {
 	m.prw.Lock()
 
 	p, ok := m.m[id]
@@ -393,11 +410,11 @@ func (m *peerSet) broadcastPeers() (l []broadcastPeer) {
 }
 
 // idMap generate a map of peers ID, to heartbeat
-func (m *peerSet) idMap() map[vnode.NodeID]struct{} {
+func (m *peerSet) idMap() map[peerId]struct{} {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 
-	mp := make(map[vnode.NodeID]struct{}, len(m.m))
+	mp := make(map[peerId]struct{}, len(m.m))
 
 	for id := range m.m {
 		mp[id] = struct{}{}
@@ -407,7 +424,7 @@ func (m *peerSet) idMap() map[vnode.NodeID]struct{} {
 }
 
 // get the specific peer
-func (m *peerSet) get(id vnode.NodeID) Peer {
+func (m *peerSet) get(id peerId) Peer {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 
@@ -429,7 +446,7 @@ func (s peers) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s peers) delete(id vnode.NodeID) peers {
+func (s peers) delete(id peerId) peers {
 	for i, p := range s {
 		if p.ID() == id {
 			last := len(s) - 1

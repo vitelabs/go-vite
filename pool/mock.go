@@ -18,7 +18,7 @@ func (*MockSyncer) FetchAccountBlocksWithHeight(start types.Hash, count uint64, 
 }
 
 func (*MockSyncer) SyncState() net.SyncState {
-	return net.Syncdone
+	return net.SyncDone
 }
 
 func (*MockSyncer) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {

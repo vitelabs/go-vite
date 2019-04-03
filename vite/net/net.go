@@ -19,6 +19,7 @@ import (
 
 var netLog = log15.New("module", "vite/net")
 var errInvalidSignature = errors.New("invalid signature")
+var errDiffGenesisBlock = errors.New("different genesis block")
 
 type Config struct {
 	Single            bool
@@ -40,13 +41,14 @@ type net struct {
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
+	reader syncCacheReader
 	BlockSubscriber
 	query         *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	term          chan struct{}
 	log           log15.Logger
 	wg            sync.WaitGroup
 	fs            *fileServer
-	handlers      map[code]MsgHandler
+	handlers      map[code]msgHandler
 	hb            *heartBeater
 	handshakeData []byte
 }
@@ -117,9 +119,15 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 		}
 
 		addr := types.PubkeyToAddress(pb.Key)
-		if n.Producer.IsProducer(addr) {
+		if n.Producer != nil && n.Producer.IsProducer(addr) {
 			level = p2p.Superior
 		}
+	}
+
+	genesis := n.Chain.GetGenesisSnapshotBlock()
+	if !bytes.Equal(pb.Genesis, genesis.Hash.Bytes()) {
+		err = errDiffGenesisBlock
+		return
 	}
 
 	var hash types.Hash
@@ -230,44 +238,55 @@ func (n *net) OnPeerRemoved(peer p2p.Peer) (err error) {
 
 func New(cfg Config) Net {
 	// wraper_verifier
-	cfg.Verifier = newVerifier(cfg.Verifier)
+	//cfg.Verifier = newVerifier(cfg.Verifier)
 
 	// for test
 	if cfg.Single {
 		return mock(cfg)
 	}
 
-	g := new(gid)
 	peers := newPeerSet()
 
 	feed := newBlockFeeder()
 
 	forward := newRedForwardStrategy(peers, 3, 30)
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, netLog.New("module", "broadcast"))
-	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, feed)
-	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
 
-	syncer.SubscribeSyncStatus(fetcher.subSyncState)     // subscribe sync status
-	syncer.SubscribeSyncStatus(broadcaster.subSyncState) // subscribe sync status
+	receiver := &safeBlockNotifier{
+		blockFeeder: feed,
+		Verifier:    cfg.Verifier,
+	}
+
+	syncConnFac := &defaultSyncConnectionFactory{
+		chain: cfg.Chain,
+		peers: peers,
+	}
+
+	downloader := newBatchDownloader(peers, syncConnFac)
+	syncer := newSyncer(cfg.Chain, peers, downloader)
+	reader := newCacheReader(cfg.Chain, receiver, downloader)
+
+	fetcher := newFetcher(peers, receiver)
+
+	syncer.SubscribeSyncStatus(fetcher.subSyncState)
+	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
+	syncer.SubscribeSyncStatus(reader.subSyncState)
 
 	n := &net{
 		Config:          cfg,
 		BlockSubscriber: feed,
 		peers:           peers,
 		syncer:          syncer,
+		reader:          reader,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
-		fs: newFileServer(cfg.FileListenAddress, cfg.Chain, func(conn net2.Conn) syncConnection {
-			return &syncConn{
-				Conn: conn,
-			}
-		}),
-		handlers: make(map[code]MsgHandler),
-		log:      netLog,
-		hb:       newHeartBeater(peers, netLog.New("module", "heartbeat")),
+		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
+		handlers:        make(map[code]msgHandler),
+		log:             netLog,
+		hb:              newHeartBeater(peers, netLog.New("module", "heartbeat")),
 	}
 
-	n.addHandler(_statusHandler(statusHandler))
+	//n.addHandler(_statusHandler(statusHandler))
 	n.query = newQueryHandler(cfg.Chain)
 
 	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
@@ -340,8 +359,8 @@ func (n *net) State() []byte {
 	return n.hb.state()
 }
 
-func (n *net) addHandler(handler MsgHandler) {
-	for _, cmd := range handler.Cmds() {
+func (n *net) addHandler(handler msgHandler) {
+	for _, cmd := range handler.Codes() {
 		n.handlers[cmd] = handler
 	}
 }
@@ -349,13 +368,20 @@ func (n *net) addHandler(handler MsgHandler) {
 func (n *net) Start(svr p2p.P2P) (err error) {
 	n.nodeID = svr.Config().Node.ID
 
+	if n.Producer != nil && n.MinePrivateKey != nil {
+		if n.Producer.IsProducer(types.PubkeyToAddress(n.MinePrivateKey.PubByte())) {
+			// is producer
+			svr.SetMaxPeers(p2p.Superior, 30)
+		}
+	}
+
 	n.term = make(chan struct{})
 
 	if err = n.fs.start(); err != nil {
 		return
 	}
 
-	go n.syncer.readCacheLoop()
+	n.reader.start()
 
 	n.query.start()
 
@@ -373,6 +399,8 @@ func (n *net) Stop() {
 	case <-n.term:
 	default:
 		close(n.term)
+
+		n.reader.stop()
 
 		n.syncer.Stop()
 

@@ -23,44 +23,45 @@ var errFileServerIsRunning = errors.New("file server is running")
 var errFileServerNotRunning = errors.New("file server is not running")
 
 type FileServerStatus struct {
-	Conns []string
+	Connections []FileConnStatus
 }
 
 type fileServer struct {
-	addr    string
-	ln      net2.Listener
-	mu      sync.Mutex
-	conns   map[string]syncConnection // key is addr
-	chain   ledgerReader
-	fac     func(net2.Conn) syncConnection
-	running int32
-	wg      sync.WaitGroup
-	log     log15.Logger
+	addr     string
+	ln       net2.Listener
+	mu       sync.Mutex
+	sconnMap map[peerId]syncConnection // key is addr
+	chain    ledgerReader
+	factory  syncConnReceiver
+	running  int32
+	wg       sync.WaitGroup
+	log      log15.Logger
 }
 
-func newFileServer(addr string, chain ledgerReader, fac func(net2.Conn) syncConnection) *fileServer {
+func newFileServer(addr string, chain ledgerReader, factory syncConnReceiver) *fileServer {
 	return &fileServer{
-		addr:  addr,
-		conns: make(map[string]syncConnection),
-		chain: chain,
-		fac:   fac,
-		log:   log15.New("module", "net/fileServer"),
+		addr:     addr,
+		sconnMap: make(map[peerId]syncConnection),
+		chain:    chain,
+		factory:  factory,
+		log:      log15.New("module", "net/fileServer"),
 	}
 }
 
 func (s *fileServer) status() FileServerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	conns := make([]string, len(s.conns))
+
+	connStates := make([]FileConnStatus, len(s.sconnMap))
 
 	i := 0
-	for addr := range s.conns {
-		conns[i] = addr
+	for _, c := range s.sconnMap {
+		connStates[i] = c.status()
 		i++
 	}
 
 	return FileServerStatus{
-		Conns: conns,
+		Connections: connStates,
 	}
 }
 
@@ -87,9 +88,9 @@ func (s *fileServer) stop() (err error) {
 			err = s.ln.Close()
 		}
 
-		for id, c := range s.conns {
+		for id, c := range s.sconnMap {
 			_ = c.Close()
-			delete(s.conns, id)
+			delete(s.sconnMap, id)
 		}
 
 		s.wg.Wait()
@@ -124,7 +125,7 @@ func (s *fileServer) deleteConn(c syncConnection) {
 	// is running
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		delete(s.conns, c.RemoteAddr().String())
+		delete(s.sconnMap, c.ID())
 		s.mu.Unlock()
 	}
 }
@@ -132,7 +133,7 @@ func (s *fileServer) deleteConn(c syncConnection) {
 func (s *fileServer) addConn(c syncConnection) {
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		s.conns[c.RemoteAddr().String()] = c
+		s.sconnMap[c.ID()] = c
 		s.mu.Unlock()
 	}
 }
@@ -140,8 +141,7 @@ func (s *fileServer) addConn(c syncConnection) {
 func (s *fileServer) handleConn(conn net2.Conn) {
 	defer s.wg.Done()
 
-	sconn := s.fac(conn)
-	err := sconn.handshake()
+	sconn, err := s.factory.receive(conn)
 	if err != nil {
 		return
 	}
@@ -167,7 +167,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				s.log.Error(fmt.Sprintf("read chunk %d-%d error: %v", chunk.Start, chunk.End, err))
 
 				_ = sconn.write(syncMsg{
-					code: syncError,
+					code: syncServerError,
 				})
 
 				return

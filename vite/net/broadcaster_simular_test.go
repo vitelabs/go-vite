@@ -9,10 +9,6 @@ import (
 
 	"github.com/vitelabs/go-vite/log15"
 
-	"github.com/vitelabs/go-vite/node/unittest"
-
-	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -202,21 +198,21 @@ func (mp *mockBroadcastNet) loop(wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
 
-	var senderId vnode.NodeID
-	var sender broadcastPeer
+	//var senderId vnode.NodeID
+	//var sender broadcastPeer
 
 	for {
 		select {
 		case <-mp.term:
 			return
-		case msg := <-mp.transport:
-			senderId = msg.sender
+			//case msg := <-mp.transport:
+			//senderId = msg.sender
 
-			mp.rw.RLock()
-			sender = mp.peerSet[senderId]
-			mp.rw.RUnlock()
+			//mp.rw.RLock()
+			//sender = mp.peerSet[senderId]
+			//mp.rw.RUnlock()
 
-			go mp.broadcaster.Handle(msg.Msg, sender)
+			//go mp.broadcaster.Handle(msg.Msg, sender)
 		}
 	}
 }
@@ -273,7 +269,7 @@ func newMockBroadcastNet(id vnode.NodeID, priv ed25519.PrivateKey) *mockBroadcas
 	log := log15.New("broadcast", id.String()[:8])
 
 	b := newBroadcaster(set, mockVerifier{}, mockBlockNotifier{}, nil, str, globalMockNewBlockListener, log)
-	b.st = Syncdone
+	b.st = SyncDone
 
 	mp.broadcaster = b
 
@@ -360,8 +356,6 @@ func TestBroadcaster_Reduce(t *testing.T) {
 	for _, p := range allNets {
 		go p.loop(&wg)
 	}
-
-	fork.SetForkPoints(node_unittest.MakeTestNetForkPointsConfig())
 
 	var prevHash types.Hash
 	stateHash, _ := types.HexToHash("cca5fc60c1d1e103127952fffef0994a6e7b3d89310a1423de7ae223ec639bab")

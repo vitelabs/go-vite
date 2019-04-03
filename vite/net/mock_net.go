@@ -75,29 +75,23 @@ func (n *mockNet) Info() NodeInfo {
 
 func mock(cfg Config) Net {
 	peers := newPeerSet()
-	pool := &gid{}
 
 	feed := newBlockFeeder()
 
 	syncer := &syncer{
 		from:      0,
 		to:        0,
-		current:   0,
-		state:     Syncdone,
 		peers:     peers,
 		mu:        sync.Mutex{},
 		chain:     cfg.Chain,
 		eventChan: make(chan peerEvent),
-		verifier:  cfg.Verifier,
-		notifier:  feed,
-		exec:      nil,
 		curSubId:  0,
 		subs:      make(map[int]SyncStateCallback),
 		running:   1,
 		term:      make(chan struct{}),
 		log:       log15.New("module", "net/syncer"),
 	}
-	syncer.exec = newExecutor(syncer)
+	syncer.state = syncStateWait{syncer}
 
 	return &mockNet{
 		Config: &Config{
@@ -107,11 +101,11 @@ func mock(cfg Config) Net {
 		syncer: syncer,
 		fetcher: &fetcher{
 			policy: &fp{peers},
-			pool:   pool,
+			idGen:  new(gid),
 		},
 		broadcaster: &broadcaster{
 			peers:    peers,
-			st:       Syncdone,
+			st:       SyncDone,
 			verifier: cfg.Verifier,
 			feed:     feed,
 			filter:   nil,

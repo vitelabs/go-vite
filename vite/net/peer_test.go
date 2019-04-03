@@ -4,41 +4,26 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
 var peerMap = newPeerSet()
 
-//func mockPeer() *peer {
-//	var id [32]byte
-//
-//	crand.Read(id[:])
-//
-//	return &peer{
-//		Peer:        nil,
-//		peerMap:     sync.Map{},
-//		knownBlocks: nil,
-//		errChan:     nil,
-//		once:        sync.Once{},
-//		log:         nil,
-//	}
-//}
+func mockPeer() *peer {
+	return &peer{}
+}
 
 func TestPeerSet_Add(t *testing.T) {
 	var m = newPeerSet()
 	var p *peer
 	// should have error
-	if m.Add(p) == nil {
-		t.Fail()
-	}
-	if m.Count() != 0 {
+	if m.add(p) == nil {
 		t.Fail()
 	}
 
 	p = mockPeer()
-	if m.Add(p) != nil {
-		t.Fail()
-	}
-	if m.Count() != 1 {
+	if m.add(p) != nil {
 		t.Fail()
 	}
 }
@@ -48,17 +33,14 @@ func TestPeerSet_Del(t *testing.T) {
 	var p = mockPeer()
 
 	// should have no error
-	if m.Add(p) != nil {
+	if m.add(p) != nil {
 		t.Fail()
 	}
 
-	m.Del(p)
+	m.remove(p.ID())
 
 	var p2 Peer
-	if p2 = m.Get(p.id); p2 != nil {
-		t.Fail()
-	}
-	if m.Count() != 0 {
+	if p2 = m.get(p.ID()); p2 != nil {
 		t.Fail()
 	}
 }
@@ -109,27 +91,27 @@ func TestPeerSet_Pick(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		p2 := mockPeer()
-		m.Add(p2)
-		hs = append(hs, p2.height)
+		m.add(p2)
+		hs = append(hs, p2.height())
 	}
 
 	sort.Sort(hs)
 
 	height := hs[len(hs)-1]
-	if ps := m.Pick(height); len(ps) != 1 {
+	if ps := m.pick(height); len(ps) != 1 {
 		t.Fail()
 	}
 
 	mid := len(hs) / 2
 	height = hs[mid]
-	if ps := m.Pick(height); len(ps) != len(hs)-mid {
+	if ps := m.pick(height); len(ps) != len(hs)-mid {
 		t.Fail()
 	}
 }
 
 func ExamplePeerSet_Get() {
 	var m1 = newPeerSet()
-	var p1 = m1.Get("hello")
+	var p1 = m1.get(vnode.ZERO)
 
 	var m2 = make(map[string]Peer)
 	var p2 = m2["hello"]

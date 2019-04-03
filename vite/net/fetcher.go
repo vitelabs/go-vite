@@ -209,24 +209,22 @@ type fetcher struct {
 	filter *filter
 
 	st       SyncState
-	verifier Verifier
-	notifier blockNotifier
+	receiver blockReceiver
 
 	policy fetchPolicy
-	pool   MsgIder
+	idGen  MsgIder
 
 	log log15.Logger
 
 	term chan struct{}
 }
 
-func newFetcher(peers *peerSet, pool MsgIder, verifier Verifier, notifier blockNotifier) *fetcher {
+func newFetcher(peers *peerSet, receiver blockReceiver) *fetcher {
 	return &fetcher{
 		filter:   newFilter(),
 		policy:   &fp{peers},
-		pool:     pool,
-		notifier: notifier,
-		verifier: verifier,
+		idGen:    new(gid),
+		receiver: receiver,
 		log:      log15.New("module", "net/fetcher"),
 	}
 }
@@ -267,14 +265,14 @@ func (f *fetcher) subSyncState(st SyncState) {
 }
 
 func (f *fetcher) canFetch() bool {
-	return f.st == Syncdone || f.st == Syncerr
+	return f.st == SyncDone || f.st == SyncError
 }
 
 func (f *fetcher) ID() string {
 	return "fetcher"
 }
 
-func (f *fetcher) Cmds() []code {
+func (f *fetcher) Codes() []code {
 	return []code{SnapshotBlocksCode, AccountBlocksCode}
 }
 
@@ -287,11 +285,9 @@ func (f *fetcher) Handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		for _, block := range bs.Blocks {
-			if err = f.verifier.VerifyNetSb(block); err != nil {
+			if err = f.receiver.receiveSnapshotBlock(block, types.RemoteFetch); err != nil {
 				return err
 			}
-
-			f.notifier.notifySnapshotBlock(block, types.RemoteFetch)
 		}
 
 		if len(bs.Blocks) > 0 {
@@ -305,11 +301,9 @@ func (f *fetcher) Handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		for _, block := range bs.Blocks {
-			if err = f.verifier.VerifyNetAb(block); err != nil {
+			if err = f.receiver.receiveAccountBlock(block, types.RemoteFetch); err != nil {
 				return err
 			}
-
-			f.notifier.notifyAccountBlock(block, types.RemoteFetch)
 		}
 
 		if len(bs.Blocks) > 0 {
@@ -341,7 +335,7 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 			Forward: false,
 		}
 
-		id := f.pool.MsgID()
+		id := f.idGen.MsgID()
 
 		if err := p.send(GetSnapshotBlocksCode, id, m); err != nil {
 			f.log.Error(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
@@ -369,7 +363,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 	}
 
 	if peerList := f.policy.accountTargets(0); len(peerList) != 0 {
-		addr := NULL_ADDRESS
+		addr := nilAddress
 		if address != nil {
 			addr = *address
 		}
@@ -382,7 +376,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			Forward: false,
 		}
 
-		id := f.pool.MsgID()
+		id := f.idGen.MsgID()
 
 		for _, p := range peerList {
 			if err := p.send(GetAccountBlocksCode, id, m); err != nil {
@@ -412,7 +406,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 	}
 
 	if peerList := f.policy.accountTargets(sHeight); len(peerList) != 0 {
-		addr := NULL_ADDRESS
+		addr := nilAddress
 		if address != nil {
 			addr = *address
 		}
@@ -425,7 +419,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 			Forward: false,
 		}
 
-		id := f.pool.MsgID()
+		id := f.idGen.MsgID()
 
 		for _, p := range peerList {
 			if err := p.send(GetAccountBlocksCode, id, m); err != nil {

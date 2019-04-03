@@ -2,15 +2,16 @@ package chain
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func createSnapshotBlock(chainInstance Chain) *ledger.SnapshotBlock {
@@ -152,6 +153,7 @@ func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if err := chainInstance.InsertAccountBlock(tx); err != nil {
 			t.Fatal(err)
 		}

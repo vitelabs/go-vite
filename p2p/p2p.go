@@ -73,6 +73,7 @@ type P2P interface {
 	Unban(ip net.IP)
 	Info() NodeInfo
 	Register(pt Protocol) error
+	SetMaxPeers(level Level, max int)
 }
 
 type netutils interface {
@@ -193,6 +194,10 @@ func New(cfg Config) P2P {
 	p.server = newServer(retryStartDuration, retryStartCount, cfg.MaxPeers[Inbound], cfg.MaxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
 
 	return p
+}
+
+func (p *p2p) SetMaxPeers(level Level, max int) {
+	p.cfg.MaxPeers[level] = max
 }
 
 func (p *p2p) check(peer PeerMux) error {

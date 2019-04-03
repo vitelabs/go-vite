@@ -26,7 +26,7 @@ func (testNet) UnsubscribeSyncStatus(subId int) {
 }
 
 func (testNet) SyncState() net.SyncState {
-	return net.Syncdone
+	return net.SyncDone
 }
 
 type testProducer struct {

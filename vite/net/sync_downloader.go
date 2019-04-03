@@ -4,19 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	net2 "net"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/vnode"
-
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 )
 
-var errNoSuitablePeers = errors.New("no suitable peers")
 var errFileConnExist = errors.New("fileConn has exist")
 var errFileConnClosed = errors.New("file connection has closed")
 var errPeerDialing = errors.New("peer is dialing")
@@ -30,107 +27,82 @@ const (
 	fileConnStateClosed
 )
 
-type downloadErrorCode byte
+type connections []syncConnection
 
-const (
-	downloadIncompleteErr downloadErrorCode = iota + 1
-	downloadPackMsgErr
-	downloadSendErr
-	downloadReceiveErr
-	downloadParseErr
-	downloadOtherErr
-)
-
-type downloadError struct {
-	code downloadErrorCode
-	err  string
-}
-
-func (e downloadError) Fatal() bool {
-	return e.code == downloadReceiveErr
-}
-
-func (e downloadError) Error() string {
-	return e.err
-}
-
-type fileConns []*syncConn
-
-func (fl fileConns) Len() int {
+func (fl connections) Len() int {
 	return len(fl)
 }
 
-func (fl fileConns) Less(i, j int) bool {
-	return fl[i].speed > fl[j].speed
+func (fl connections) Less(i, j int) bool {
+	return fl[i].speed() > fl[j].speed()
 }
 
-func (fl fileConns) Swap(i, j int) {
+func (fl connections) Swap(i, j int) {
 	fl[i], fl[j] = fl[j], fl[i]
 }
 
-func (fl fileConns) del(i int) fileConns {
+func (fl connections) del(i int) connections {
 	total := len(fl)
 	if i < total {
-		fl[i].close()
-
-		if i != total-1 {
-			copy(fl[i:], fl[i+1:])
-		}
+		copy(fl[i:], fl[i+1:])
 		return fl[:total-1]
 	}
 
 	return fl
 }
 
-type filePeer struct {
-	id   peerId
-	addr string
-	fail int32
-}
-
 type FilePoolStatus struct {
-	Conns []FileConnStatus
+	Connections []FileConnStatus
 }
 
-type filePeerPool struct {
-	mu sync.Mutex
-
-	peers *peerSet
-
-	mi map[vnode.NodeID]int // manage fileConns, corresponding value is the index of `filePeerPool.l`
-	l  fileConns            // fileConns sort by speed, from fast to slow
+type downloadPeer interface {
+	ID() peerId
+	height() uint64
+	fileAddress() string
 }
 
-func newPool() *filePeerPool {
-	return &filePeerPool{
-		mi: make(map[vnode.NodeID]int),
+type downloadPeerSet interface {
+	pickDownloadPeers(height uint64) (m map[peerId]downloadPeer)
+}
+
+type connPoolImpl struct {
+	mu    sync.Mutex
+	peers downloadPeerSet
+	mi    map[peerId]int // value is the index of `connPoolImpl.l`
+	l     connections    // connections sort by speed, from fast to slow
+}
+
+func newPool(peers downloadPeerSet) *connPoolImpl {
+	return &connPoolImpl{
+		mi:    make(map[peerId]int),
+		peers: peers,
 	}
 }
 
-func (fp *filePeerPool) status() FilePoolStatus {
+func (fp *connPoolImpl) status() FilePoolStatus {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	conns := make([]FileConnStatus, len(fp.l))
+	cs := make([]FileConnStatus, len(fp.l))
 
 	for i := 0; i < len(fp.l); i++ {
-		conns[i] = fp.l[i].status()
+		cs[i] = fp.l[i].status()
 	}
 
 	return FilePoolStatus{
-		Conns: conns,
+		Connections: cs,
 	}
 }
 
 // delete filePeer and connection
-func (fp *filePeerPool) delPeer(id vnode.NodeID) {
+func (fp *connPoolImpl) delPeer(id peerId) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
 	fp.delPeerLocked(id)
 }
 
-func (fp *filePeerPool) delPeerLocked(id vnode.NodeID) {
+func (fp *connPoolImpl) delPeerLocked(id peerId) {
 	if i, ok := fp.mi[id]; ok {
 		delete(fp.mi, id)
 
@@ -138,117 +110,128 @@ func (fp *filePeerPool) delPeerLocked(id vnode.NodeID) {
 	}
 }
 
-func (fp *filePeerPool) addConn(c *syncConn) error {
+func (fp *connPoolImpl) addConn(c syncConnection) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if _, ok := fp.mi[c.id]; ok {
+	if _, ok := fp.mi[c.ID()]; ok {
 		return errFileConnExist
 	}
 
 	fp.l = append(fp.l, c)
-	fp.mi[c.id] = len(fp.l) - 1
+	fp.mi[c.ID()] = len(fp.l) - 1
 	return nil
 }
 
-func (fp *filePeerPool) catch(id vnode.NodeID) {
+func (fp *connPoolImpl) catch(c syncConnection) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.delPeerLocked(id)
+	fp.delPeerLocked(c.ID())
 }
 
 // sort list, and update index to map
-func (fp *filePeerPool) sort() {
+func (fp *connPoolImpl) sort() {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
 	fp.sortLocked()
 }
 
-func (fp *filePeerPool) sortLocked() {
+func (fp *connPoolImpl) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
-		fp.mi[c.id] = i
+		fp.mi[c.ID()] = i
 	}
 }
 
 // choose chain fast fileConn, or create chain new conn randomly
-func (fp *filePeerPool) chooseSource(from, to uint64) (*filePeer, *syncConn, error) {
-	peers := fp.peers.pick(to)
+func (fp *connPoolImpl) chooseSource(from, to uint64) (downloadPeer, syncConnection, error) {
+	peerMap := fp.peers.pickDownloadPeers(to)
 
-	if len(peers) == 0 {
-		return nil, nil, errors.New("no suitable peers")
+	if len(peerMap) == 0 {
+		return nil, nil, errNoSuitablePeer
 	}
 
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	var id vnode.NodeID
-	var c *syncConn
-	for _, p := range peers {
-		id = p.ID()
-		if index, ok := fp.mi[id]; ok {
-			c = fp.l[index]
-			if c.isBusy() {
-				continue
-			}
+	fp.sortLocked()
+	for _, c := range fp.l {
+		delete(peerMap, c.ID())
+	}
+
+	var createNew bool
+	if len(peerMap) > 0 {
+		createNew = rand.Intn(10) > 5
+	}
+	for i, c := range fp.l {
+		if c.isBusy() || c.height() < to {
+			continue
+		}
+
+		if len(fp.l)+1 > 3*(i+1) {
+			// very fast
 			return nil, c, nil
+		}
+
+		// if createNew is true, there must has new available peers
+		if createNew {
+			for _, p := range peerMap {
+				return p, nil, nil
+			}
 		}
 	}
 
 	return nil, nil, nil
 }
 
-func (fp *filePeerPool) reset() {
+func (fp *connPoolImpl) reset() {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.mi = make(map[vnode.NodeID]int)
+	fp.mi = make(map[peerId]int)
 
 	for _, c := range fp.l {
-		_ = c.close()
+		_ = c.Close()
 	}
 
 	fp.l = nil
 }
 
-type asyncFileTask struct {
+type downloadTask struct {
 	from, to uint64
 	ch       chan error
 	ctx      context.Context
 }
-type asyncFileTasks []asyncFileTask
+type downloadTasks []downloadTask
 
-func (l asyncFileTasks) Len() int {
+func (l downloadTasks) Len() int {
 	return len(l)
 }
 
-func (l asyncFileTasks) Less(i, j int) bool {
+func (l downloadTasks) Less(i, j int) bool {
 	return l[i].from < l[j].from
 }
 
-func (l asyncFileTasks) Swap(i, j int) {
+func (l downloadTasks) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
-type peerId = vnode.NodeID
+type connPool interface {
+	addConn(c syncConnection) error
+	catch(c syncConnection)
+	chooseSource(from, to uint64) (downloadPeer, syncConnection, error)
+	reset()
+}
 
-type fileClient struct {
-	fqueue asyncFileTasks // wait to download
-
-	cacher syncCacher
-
-	rec blockReceiver
-
-	peers *peerSet
-
-	pool *filePeerPool
-
+type downloader struct {
 	mu      sync.Mutex
+	queue   downloadTasks // wait to download
+	pool    connPool
+	factory syncConnInitiator
 	dialing map[string]struct{}
-
-	dialer *net2.Dialer
+	dialer  *net2.Dialer
 
 	term    chan struct{}
 	wg      sync.WaitGroup
@@ -257,24 +240,22 @@ type fileClient struct {
 	log log15.Logger
 }
 
-func newFileClient(cacher syncCacher, rec blockReceiver, peers *peerSet) *fileClient {
-	return &fileClient{
-		cacher:  cacher,
-		peers:   peers,
-		pool:    newPool(),
-		dialer:  &net2.Dialer{Timeout: 5 * time.Second},
+func newDownloader(pool connPool, factory syncConnInitiator) *downloader {
+	return &downloader{
+		pool:    pool,
+		factory: factory,
 		dialing: make(map[string]struct{}),
-		rec:     rec,
+		dialer:  &net2.Dialer{Timeout: 5 * time.Second},
 		log:     log15.New("module", "net/fileClient"),
 	}
 }
 
-func (fc *fileClient) download(ctx context.Context, from, to uint64) <-chan error {
+func (fc *downloader) download(ctx context.Context, from, to uint64) <-chan error {
 	ch := make(chan error, 1)
 
 	wait, err := fc.downloadChunk(from, to)
 	if wait {
-		fc.wait(asyncFileTask{
+		fc.wait(downloadTask{
 			from: from,
 			to:   to,
 			ch:   ch,
@@ -287,7 +268,7 @@ func (fc *fileClient) download(ctx context.Context, from, to uint64) <-chan erro
 	return ch
 }
 
-func (fc *fileClient) runTask(t asyncFileTask) {
+func (fc *downloader) runTask(t downloadTask) {
 	select {
 	case <-t.ctx.Done():
 		t.ch <- nil
@@ -304,11 +285,10 @@ func (fc *fileClient) runTask(t asyncFileTask) {
 	}
 }
 
-func (fc *fileClient) downloadChunk(from, to uint64) (wait bool, err error) {
-	var p *filePeer
-	var c *syncConn
+func (fc *downloader) downloadChunk(from, to uint64) (wait bool, err error) {
+	var p downloadPeer
+	var c syncConnection
 	if p, c, err = fc.pool.chooseSource(from, to); err != nil {
-		fc.log.Error(fmt.Sprintf("no suitable peers to download chunk %d-%d", from, to))
 		// no peers
 		return false, err
 	} else if c != nil {
@@ -328,19 +308,21 @@ func (fc *fileClient) downloadChunk(from, to uint64) (wait bool, err error) {
 	return true, err
 }
 
-func (fc *fileClient) wait(t asyncFileTask) {
+func (fc *downloader) wait(t downloadTask) {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 
-	fc.fqueue = append(fc.fqueue, t)
-	sort.Sort(fc.fqueue)
+	fc.queue = append(fc.queue, t)
+	sort.Sort(fc.queue)
 }
 
-func (fc *fileClient) doJob(c *syncConn, from, to uint64) error {
+func (fc *downloader) doJob(c syncConnection, from, to uint64) error {
 	start := time.Now()
 
+	fc.log.Info(fmt.Sprintf("begin download chunk %d-%d from %s", from, to, c.RemoteAddr()))
+
 	if err := c.download(from, to); err != nil {
-		fc.pool.catch(c.id)
+		fc.pool.catch(c)
 		fc.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
@@ -351,38 +333,23 @@ func (fc *fileClient) doJob(c *syncConn, from, to uint64) error {
 	return nil
 }
 
-func (fc *fileClient) fatalPeer(id vnode.NodeID, err error) {
-	fc.pool.delPeer(id)
-	//if p := fc.peers.get(id); p != nil {
-	//	p.catch(err)
-	//}
-}
-
-func (fc *fileClient) start() {
+func (fc *downloader) start() {
 	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
 		fc.term = make(chan struct{})
 
 		fc.wg.Add(1)
-		common.Go(fc.loop)
+		go fc.loop()
 	}
 }
 
-func (fc *fileClient) stop() {
+func (fc *downloader) stop() {
 	if atomic.CompareAndSwapInt32(&fc.running, 1, 0) {
-		if fc.term == nil {
-			return
-		}
-
-		select {
-		case <-fc.term:
-		default:
-			close(fc.term)
-			fc.wg.Wait()
-		}
+		close(fc.term)
+		fc.wg.Wait()
 	}
 }
 
-func (fc *fileClient) loop() {
+func (fc *downloader) loop() {
 	defer fc.wg.Done()
 
 	ticker := time.NewTicker(500 * time.Microsecond)
@@ -394,11 +361,11 @@ Loop:
 		case <-fc.term:
 			break Loop
 		case <-ticker.C:
-			var t asyncFileTask
+			var t downloadTask
 			fc.mu.Lock()
-			if len(fc.fqueue) > 0 {
-				t = fc.fqueue[0]
-				fc.fqueue = fc.fqueue[1:]
+			if len(fc.queue) > 0 {
+				t = fc.queue[0]
+				fc.queue = fc.queue[1:]
 			}
 			fc.mu.Unlock()
 
@@ -409,15 +376,8 @@ Loop:
 	fc.pool.reset()
 }
 
-func (fc *fileClient) dialed(addr string) {
-	fc.mu.Lock()
-	delete(fc.dialing, addr)
-	fc.mu.Unlock()
-}
-
-// tcp dial error
-func (fc *fileClient) createConn(p *filePeer) (c *syncConn, err error) {
-	addr := p.addr
+func (fc *downloader) createConn(p downloadPeer) (c syncConnection, err error) {
+	addr := p.fileAddress()
 
 	fc.mu.Lock()
 	if _, ok := fc.dialing[addr]; ok {
@@ -428,20 +388,18 @@ func (fc *fileClient) createConn(p *filePeer) (c *syncConn, err error) {
 	fc.mu.Unlock()
 
 	tcp, err := fc.dialer.Dial("tcp", addr)
-	fc.dialed(addr)
+
+	fc.mu.Lock()
+	delete(fc.dialing, addr)
+	fc.mu.Unlock()
 
 	if err != nil {
-		fc.pool.catch(p.id)
 		return nil, err
 	}
 
-	c = newFileConn(tcp, p.id, fc.cacher, fc.log)
+	c, err = fc.factory.initiate(tcp, p)
 
 	err = fc.pool.addConn(c)
-	if err != nil {
-		// already exist chain file connection
-		_ = c.close()
-	}
 
 	return
 }

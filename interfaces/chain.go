@@ -1,10 +1,11 @@
 package interfaces
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"io"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type StorageIterator interface {
@@ -70,4 +71,5 @@ type SyncCache interface {
 	NewWriter(from, to uint64) (io.WriteCloser, error)
 	Chunks() SegmentList
 	NewReader(from, to uint64) (ReadCloser, error)
+	Delete(seg Segment) error
 }

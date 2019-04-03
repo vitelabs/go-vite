@@ -3,14 +3,15 @@ package sync_cache
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type syncCache struct {
@@ -52,31 +53,16 @@ func NewSyncCache(dataDir string) (interfaces.SyncCache, error) {
 	return cache, nil
 }
 
-func (cache *syncCache) AddSeg(from, to uint64) {
-	cache.segMu.Lock()
-	defer cache.segMu.Unlock()
+func (cache *syncCache) Delete(seg interfaces.Segment) error {
+	filename := cache.toAbsoluteFileName(seg[0], seg[1])
 
-	seg := interfaces.Segment{from, to}
-	if ok, overlappedSegment := cache.checkNoOverlap(seg); ok {
-		cache.log.Error(fmt.Sprintf("segments is overlapped, from_to is %d_%d, overlapped segment is %d_%d", from, to, overlappedSegment[0], overlappedSegment[1]), "method", "AddSeg")
+	if err := os.Remove(filename); err != nil {
+		return err
 	}
-
-	cache.segments = append(cache.segments, seg)
-	sort.Sort(cache.segments)
+	cache.deleteSeg(seg[0], seg[1])
+	return nil
 }
 
-func (cache *syncCache) DeleteSeg(from, to uint64) {
-	cache.segMu.Lock()
-	defer cache.segMu.Unlock()
-
-	for index, seg := range cache.segments {
-		if seg[0] == from && seg[1] == to {
-			cache.segments = append(cache.segments[:index], cache.segments[index+1:]...)
-			return
-		}
-	}
-
-}
 func (cache *syncCache) Chunks() interfaces.SegmentList {
 	cache.segMu.RLock()
 	defer cache.segMu.RUnlock()

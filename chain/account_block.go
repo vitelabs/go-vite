@@ -3,6 +3,7 @@ package chain
 import (
 	"errors"
 	"fmt"
+
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -167,7 +168,7 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByHeight(addr, height, count)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, addr is %s,  height is %s, count is %d.Error: %s",
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, addr is %s,  height is %d, count is %d.Error: %s",
 			addr, height, count, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, err

@@ -6,6 +6,23 @@ import (
 	"testing"
 )
 
+func Test_FileConns_Del(t *testing.T) {
+	var fs = make(connections, 0, 1)
+	fs = fs.del(0)
+	fs = fs.del(1)
+
+	fs = append(fs, &syncConn{})
+	fs = fs.del(0)
+	if len(fs) != 0 {
+		t.Fail()
+	}
+
+	fs = fs.del(0)
+	if len(fs) != 0 {
+		t.Fail()
+	}
+}
+
 func Test_wait(t *testing.T) {
 	const total = 10
 	wait := make([]int, 0, total)

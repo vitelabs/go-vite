@@ -35,3 +35,6 @@ node_config_*.json
 
 genesis.json
 genesis_*.json
+
+.mock1
+.mock2

@@ -247,7 +247,7 @@ func (b *broadcaster) ID() string {
 	return "broadcaster"
 }
 
-func (b *broadcaster) Cmds() []code {
+func (b *broadcaster) Codes() []code {
 	return []code{NewAccountBlockCode, NewSnapshotBlockCode}
 }
 
@@ -428,7 +428,7 @@ func (b *broadcaster) subSyncState(st SyncState) {
 }
 
 func (b *broadcaster) canNotify() bool {
-	return b.st != Syncing && b.st != SyncNotStart
+	return b.st != Syncing && b.st != SyncWait
 }
 
 func (b *broadcaster) setHeight(height uint64) {

@@ -3,17 +3,16 @@ package net
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	net2 "net"
 	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/vite/net/message"
-
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p/vnode"
 )
+
+var errReadTooShort = errors.New("read too short")
+var errWriteTooShort = errors.New("write too short")
 
 type syncCode byte
 
@@ -22,10 +21,10 @@ const (
 	syncHandshakeDone
 	syncHandshakeErr
 	syncRequest
-	syncReady
+	syncReady // server begin transmit data
 	syncMissing
 	syncNoAuth
-	syncError
+	syncServerError // server error, like open reader failed
 	syncQuit
 )
 
@@ -36,10 +35,92 @@ type syncMsg struct {
 
 type syncConnection interface {
 	net2.Conn
-	handshake() error
+	ID() peerId
 	download(from, to uint64) (err error)
 	read() (syncMsg, error)
 	write(syncMsg) error
+	speed() float64
+	status() FileConnStatus
+	isBusy() bool
+	height() uint64
+}
+
+type syncConnectionFactory interface {
+	syncConnInitiator
+	syncConnReceiver
+}
+
+type syncConnReceiver interface {
+	receive(conn net2.Conn) (syncConnection, error)
+}
+
+type syncConnInitiator interface {
+	initiate(conn net2.Conn, peer downloadPeer) (syncConnection, error)
+}
+
+type defaultSyncConnectionFactory struct {
+	// todo handshake and codec
+	chain syncCacher
+	peers *peerSet
+}
+
+func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer downloadPeer) (syncConnection, error) {
+	buf := make([]byte, 1+len(peerId{}))
+
+	buf[0] = byte(syncHandshake)
+	copy(buf[1:], peer.ID().Bytes())
+
+	_, err := conn.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Read(buf[:1])
+	if err != nil {
+		return nil, err
+	}
+
+	if buf[0] != byte(syncHandshakeDone) {
+		return nil, errors.New("handshake error")
+	}
+
+	return &syncConn{
+		Conn:         conn,
+		downloadPeer: peer,
+		cacher:       d.chain,
+		buf:          make([]byte, 1024),
+	}, nil
+}
+
+func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, error) {
+	var id peerId
+	buf := make([]byte, 1+len(id))
+
+	_, err := conn.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if buf[0] != byte(syncHandshake) {
+		return nil, errors.New("not handshake message")
+	}
+
+	_, err = conn.Write([]byte{byte(syncHandshakeDone)})
+	if err != nil {
+		return nil, err
+	}
+
+	copy(id[:], buf[1:])
+
+	p := d.peers.get(id)
+	if p == nil {
+		return nil, errors.New("no auth")
+	}
+
+	return &syncConn{
+		Conn:         conn,
+		downloadPeer: p,
+	}, nil
 }
 
 type FileConnStatus struct {
@@ -50,18 +131,17 @@ type FileConnStatus struct {
 
 type syncConn struct {
 	net2.Conn
-	id     vnode.NodeID
+	downloadPeer
 	busy   int32   // atomic
 	t      int64   // timestamp
-	speed  float64 // download speed, byte/s
+	_speed float64 // download speed, byte/s
 	closed int32
 	cacher syncCacher
 	buf    []byte
-	log    log15.Logger
 }
 
-func (f *syncConn) handshake() error {
-	return nil
+func (f *syncConn) speed() float64 {
+	return f._speed
 }
 
 func (f *syncConn) read() (msg syncMsg, err error) {
@@ -71,7 +151,7 @@ func (f *syncConn) read() (msg syncMsg, err error) {
 		return
 	}
 	if n < 20 {
-		err = errors.New("too short")
+		err = errReadTooShort
 		return
 	}
 
@@ -99,21 +179,11 @@ func (f *syncConn) write(msg syncMsg) error {
 	return err
 }
 
-func newFileConn(conn net2.Conn, id vnode.NodeID, cacher syncCacher, log log15.Logger) *syncConn {
-	return &syncConn{
-		Conn:   conn,
-		id:     id,
-		cacher: cacher,
-		buf:    make([]byte, 1024),
-		log:    log,
-	}
-}
-
 func (f *syncConn) status() FileConnStatus {
 	return FileConnStatus{
-		Id:    f.id.String(),
+		Id:    f.ID().String(),
 		Addr:  f.RemoteAddr().String(),
-		Speed: f.speed,
+		Speed: f._speed,
 	}
 }
 
@@ -125,8 +195,6 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	f.setBusy()
 	defer f.idle()
 
-	f.log.Info(fmt.Sprintf("begin download chunk %d-%d from %s", from, to, f.RemoteAddr()))
-
 	err = f.write(syncMsg{
 		code: syncRequest,
 		payload: message.GetChunk{
@@ -136,11 +204,7 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	})
 
 	if err != nil {
-		f.log.Error(fmt.Sprintf("pack get chunk %d-%d to %s error: %v", from, to, f.RemoteAddr(), err))
-		return &downloadError{
-			code: downloadPackMsgErr,
-			err:  err.Error(),
-		}
+		return err
 	}
 
 	var msg syncMsg
@@ -176,11 +240,11 @@ func (f *syncConn) download(from, to uint64) (err error) {
 			}
 			return err
 		} else if werr != nil || nw != nr {
-			return errors.New("write too short")
+			return errWriteTooShort
 		}
 	}
 
-	f.speed = float64(total) / (time.Now().Sub(start).Seconds() + 1)
+	f._speed = float64(total) / (time.Now().Sub(start).Seconds() + 1)
 
 	return nil
 }

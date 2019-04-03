@@ -2,13 +2,14 @@ package chain_state
 
 import (
 	"encoding/binary"
+	"path"
+	"sync"
+
 	"github.com/boltdb/bolt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"path"
-	"sync"
 )
 
 const (
@@ -152,19 +153,19 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 }
 
 func (redo *StorageRedo) Commit() error {
-	if len(redo.rollbackHeights) > 0 {
-		defer func() {
-			redo.rollbackHeights = nil
-		}()
-
-		return redo.delete(redo.rollbackHeights)
-	} else if redo.flushingBatch.Len() > 0 {
-		defer func() {
-			redo.flushingBatch.Reset()
-		}()
-
-		return redo.flush(redo.snapshotHeight, redo.flushingBatch)
-	}
+	//if len(redo.rollbackHeights) > 0 {
+	//	defer func() {
+	//		redo.rollbackHeights = nil
+	//	}()
+	//
+	//	return redo.delete(redo.rollbackHeights)
+	//} else if redo.flushingBatch.Len() > 0 {
+	//	defer func() {
+	//		redo.flushingBatch.Reset()
+	//	}()
+	//
+	//	return redo.flush(redo.snapshotHeight, redo.flushingBatch)
+	//}
 
 	return nil
 }

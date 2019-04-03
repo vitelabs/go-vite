@@ -2,18 +2,19 @@ package chain
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/interfaces"
-	"io"
 )
 
 func (c *chain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
 	if startHeight <= 0 {
 		return nil, errors.New("startHeight is 0")
 	}
-	if startHeight < endHeight {
-		return nil, errors.New(fmt.Sprintf("startHeight < endHeight, startHeight is %d, endHeight is %d", startHeight, endHeight))
+	if startHeight > endHeight {
+		return nil, errors.New(fmt.Sprintf("startHeight > endHeight, startHeight is %d, endHeight is %d", startHeight, endHeight))
 	}
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 	if endHeight > latestSnapshotBlock.Height {
@@ -57,11 +58,12 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", to))
 	}
 	return &ledgerReader{
-		chain:        chain,
-		from:         from,
-		to:           to,
-		fromLocation: fromLocation,
-		toLocation:   toLocation,
+		chain:           chain,
+		from:            from,
+		to:              to,
+		fromLocation:    fromLocation,
+		currentLocation: fromLocation,
+		toLocation:      toLocation,
 	}, nil
 }
 func (reader *ledgerReader) Bound() (from, to uint64) {

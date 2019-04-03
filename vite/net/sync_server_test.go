@@ -10,7 +10,7 @@ import (
 
 func Test_File_Server(t *testing.T) {
 	const addr = "localhost:8484"
-	fs := newFileServer(addr, nil)
+	fs := newFileServer(addr, nil, nil)
 
 	if err := fs.start(); err != nil {
 		t.Fatal(err)
@@ -36,13 +36,13 @@ func Test_File_Server(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	if len(fs.conns) != int(conns) {
+	if len(fs.sconnMap) != int(conns) {
 		t.Fail()
 	}
 
 	fs.stop()
 
-	if len(fs.conns) != 0 {
+	if len(fs.sconnMap) != 0 {
 		t.Fail()
 	}
 }
