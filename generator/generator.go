@@ -123,9 +123,9 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, sendBlock *ledge
 	var oLog = gen.log.New("method", "generateBlock")
 	defer func() {
 		if err := recover(); err != nil {
-			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.SnapshotHash)
+			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v height:%v sbHash:%v )", block.AccountAddress, block.PrevHash, block.Height, block.SnapshotHash)
 			if sendBlock != nil {
-				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", block.AccountAddress, block.Hash)
+				errDetail += fmt.Sprintf("sendBlock(addr:%v hash:%v)", sendBlock.AccountAddress, sendBlock.Hash)
 			}
 
 			oLog.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)

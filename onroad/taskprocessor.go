@@ -2,10 +2,9 @@ package onroad
 
 import (
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -21,15 +20,6 @@ type ContractTaskProcessor struct {
 
 	blocksPool *model.OnroadBlocksPool
 
-	status      int
-	statusMutex sync.Mutex
-
-	isSleeping   bool
-	isCancel     bool
-	wakeup       chan struct{}
-	breaker      chan struct{}
-	stopListener chan struct{}
-
 	log log15.Logger
 }
 
@@ -38,66 +28,21 @@ func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskPr
 		taskId:     index,
 		worker:     worker,
 		blocksPool: worker.uBlocksPool,
-		status:     Create,
-		isCancel:   false,
-		isSleeping: false,
-		log:        slog.New("tp", index),
+
+		log: slog.New("tp", index),
 	}
 
 	return task
 }
 
-func (tp *ContractTaskProcessor) Start() {
-	tp.log.Info("Start() t", "current status", tp.status)
-	tp.statusMutex.Lock()
-	defer tp.statusMutex.Unlock()
-	if tp.status != Start {
-		tp.isCancel = false
-		tp.stopListener = make(chan struct{})
-		tp.breaker = make(chan struct{})
-		tp.wakeup = make(chan struct{})
-
-		tp.isSleeping = false
-
-		common.Go(tp.work)
-
-		tp.status = Start
-	}
-	tp.log.Info("end start t")
-}
-
-func (tp *ContractTaskProcessor) Stop() {
-	tp.log.Info("Stop() t", "current status", tp.status)
-	tp.statusMutex.Lock()
-	defer tp.statusMutex.Unlock()
-	if tp.status == Start {
-		tp.isCancel = true
-
-		tp.breaker <- struct{}{}
-		close(tp.breaker)
-
-		<-tp.stopListener
-		close(tp.stopListener)
-
-		close(tp.wakeup)
-
-		tp.status = Stop
-	}
-	tp.log.Info("stopped t")
-}
-
-func (tp *ContractTaskProcessor) WakeUp() {
-	if tp.isSleeping {
-		tp.wakeup <- struct{}{}
-	}
-}
-
 func (tp *ContractTaskProcessor) work() {
+	tp.worker.wg.Add(1)
+	defer tp.worker.wg.Done()
 	tp.log.Info("work() t")
-LOOP:
+
 	for {
-		tp.isSleeping = false
-		if tp.isCancel {
+		//tp.isSleeping = false
+		if atomic.LoadUint32(&tp.worker.isCancel) == 1 {
 			tp.log.Info("found cancel true")
 			break
 		}
@@ -106,27 +51,24 @@ LOOP:
 		tp.log.Debug("after popContractTask")
 
 		if task != nil {
+			result := tp.worker.addIntoWorkingList(task.Addr)
+			if !result {
+				continue
+			}
 			tp.worker.uBlocksPool.AcquireOnroadSortedContractCache(task.Addr)
-
 			tp.log.Debug("pre processOneAddress " + task.Addr.String())
 			tp.processOneAddress(task)
+			tp.worker.removeFromWorkingList(task.Addr)
 			tp.log.Debug("after processOneAddress " + task.Addr.String())
 			continue
 		}
-
-		tp.isSleeping = true
-		tp.log.Debug("start sleep t")
-		select {
-		case <-tp.wakeup:
-			tp.log.Info("start awake t")
-		case <-tp.breaker:
-			tp.log.Info("worker broken t")
-			break LOOP
+		//tp.isSleeping = false
+		if atomic.LoadUint32(&tp.worker.isCancel) == 1 {
+			tp.log.Info("found cancel true")
+			break
 		}
+		tp.worker.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskId*2+500))
 	}
-
-	tp.log.Info("work end called t ")
-	tp.stopListener <- struct{}{}
 	tp.log.Info("work end t")
 }
 
@@ -142,12 +84,17 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 	if sBlock == nil {
 		return
 	}
-	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v", sBlock.AccountAddress, sBlock.Height, sBlock.Hash))
+	plog.Info(fmt.Sprintf("block processing: accAddr=%v,height=%v,hash=%v,remainQuota=%d", sBlock.AccountAddress, sBlock.Height, sBlock.Hash, task.Quota))
 
 	if tp.worker.manager.checkExistInPool(sBlock.ToAddress, sBlock.Hash) {
 		plog.Info("checkExistInPool true")
 		// Don't deal with it for the time being
 		tp.worker.addIntoBlackList(task.Addr)
+		return
+	}
+
+	if tp.worker.manager.chain.IsSuccessReceived(&sBlock.ToAddress, &sBlock.Hash) {
+		plog.Error("had receive for account block", "addr", sBlock.AccountAddress, "hash", sBlock.Hash)
 		return
 	}
 
@@ -219,7 +166,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 
 		for _, v := range genResult.BlockGenList {
 			if v != nil && v.AccountBlock != nil {
-				if task.Quota < v.AccountBlock.Quota {
+				if task.Quota <= v.AccountBlock.Quota {
 					plog.Error(fmt.Sprintf("addr %v out of quota expected during snapshotTime %v.", task.Addr, tp.worker.currentSnapshotHash))
 					tp.worker.addIntoBlackList(task.Addr)
 					return
@@ -248,17 +195,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) {
 		}
 	}
 
-}
-
-func (tp *ContractTaskProcessor) Close() error {
-	tp.Stop()
-	return nil
-}
-
-func (tp *ContractTaskProcessor) Status() int {
-	tp.statusMutex.Lock()
-	defer tp.statusMutex.Unlock()
-	return tp.status
 }
 
 func (tp *ContractTaskProcessor) packConsensusMessage(sendBlock *ledger.AccountBlock) (*generator.ConsensusMessage, error) {
