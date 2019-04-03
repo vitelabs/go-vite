@@ -141,6 +141,19 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 
 	needDeleteBlocks := c.computeDependencies(planDeleteBlocks)
 
+	if !c.stateDB.StorageRedo().HasRedo() {
+		for _, block := range needDeleteBlocks {
+			if ok, err := c.IsContractAccount(block.AccountAddress); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, addr is %s", block.AccountAddress))
+				c.log.Error(cErr.Error(), "method", "deleteAccountBlocks")
+				return nil, cErr
+			} else if ok {
+				// clean all, temporary implementation
+				needDeleteBlocks = unconfirmedBlocks
+				break
+			}
+		}
+	}
 	seg := []*ledger.SnapshotChunk{{
 		AccountBlocks: needDeleteBlocks,
 	}}

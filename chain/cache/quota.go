@@ -15,14 +15,14 @@ type item struct {
 type quotaList struct {
 	chain Chain
 
-	backElement       map[types.Address]*item
-	accumulationStart *list.Element
+	backElement map[types.Address]*item
 
-	used map[types.Address]*item
+	used                 map[types.Address]*item
+	usedStart            *list.Element
+	usedAccumulateHeight uint64
 
-	list               *list.List
-	listMaxLength      int
-	accumulationHeight uint64
+	list          *list.List
+	listMaxLength int
 
 	status byte
 }
@@ -34,9 +34,9 @@ func newQuotaList(chain Chain) *quotaList {
 
 		backElement: make(map[types.Address]*item),
 
-		list:               list.New(),
-		listMaxLength:      600,
-		accumulationHeight: 75,
+		list:                 list.New(),
+		listMaxLength:        600,
+		usedAccumulateHeight: 75,
 	}
 
 	return ql
@@ -89,14 +89,14 @@ func (ql *quotaList) NewNext() {
 	ql.backElement = make(map[types.Address]*item)
 	ql.list.PushBack(ql.backElement)
 
-	quotaUsed := ql.accumulationStart.Value.(map[types.Address]*item)
+	quotaUsed := ql.usedStart.Value.(map[types.Address]*item)
 	for addr, usedItem := range quotaUsed {
 		if usedItem == nil {
 			continue
 		}
 		ql.subUsed(&addr, usedItem.BlockCount, usedItem.Quota)
 	}
-	ql.accumulationStart = ql.accumulationStart.Next()
+	ql.usedStart = ql.usedStart.Next()
 }
 
 func (ql *quotaList) Rollback(n int) error {
@@ -121,14 +121,14 @@ func (ql *quotaList) build() (returnError error) {
 		}
 		ql.backElement = ql.list.Back().Value.(map[types.Address]*item)
 
-		ql.resetAccumulationStart()
+		ql.resetUsedStart()
 
 		ql.calculateUsed()
 	}()
 
 	listLength := uint64(ql.list.Len())
 
-	if listLength >= ql.accumulationHeight {
+	if listLength >= ql.usedAccumulateHeight {
 		return nil
 	}
 
@@ -246,7 +246,7 @@ func (ql *quotaList) subUsed(addr *types.Address, blockCount, quota uint64) {
 func (ql *quotaList) calculateUsed() {
 	used := make(map[types.Address]*item)
 
-	pointer := ql.accumulationStart
+	pointer := ql.usedStart
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*item)
 		for addr, tmpItem := range tmpUsed {
@@ -263,14 +263,14 @@ func (ql *quotaList) calculateUsed() {
 	ql.used = used
 }
 
-func (ql *quotaList) resetAccumulationStart() {
-	ql.accumulationStart = ql.list.Back()
-	for i := uint64(1); i < ql.accumulationHeight; i++ {
-		prev := ql.accumulationStart.Prev()
+func (ql *quotaList) resetUsedStart() {
+	ql.usedStart = ql.list.Back()
+	for i := uint64(1); i < ql.usedAccumulateHeight; i++ {
+		prev := ql.usedStart.Prev()
 		if prev == nil {
 			break
 		}
-		ql.accumulationStart = prev
+		ql.usedStart = prev
 
 	}
 }

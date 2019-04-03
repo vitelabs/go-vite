@@ -22,7 +22,7 @@ type fileCacheItem struct {
 
 	Mu sync.RWMutex
 
-	File *os.File
+	FileWriter *os.File
 }
 
 type fdManager struct {
@@ -36,10 +36,7 @@ type fdManager struct {
 	fileCacheLength int
 
 	fileSize int64
-
-	maxFileId uint64
-
-	writeFd *fileDescription
+	writeFd  *fileDescription
 }
 
 func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, error) {
@@ -67,13 +64,11 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("fdSet.loadLatestFileId failed. Error: %s", err))
 	}
-	fdSet.maxFileId = location.FileId
 
-	if fdSet.maxFileId <= 0 {
-		fdSet.maxFileId = 1
+	if location == nil {
+		location = NewLocation(1, 0)
 	}
-
-	if err = fdSet.resetWriteFd(); err != nil {
+	if err = fdSet.resetWriteFd(location); err != nil {
 		return nil, errors.New(fmt.Sprintf("fdSet.resetWriteFd failed. Error %s", err))
 	}
 
@@ -84,9 +79,14 @@ func (fdSet *fdManager) LatestLocation() *Location {
 	writeFd := fdSet.GetWriteFd()
 	return NewLocation(writeFd.cacheItem.FileId, writeFd.cacheItem.BufferLen)
 }
+
+func (fdSet *fdManager) LatestFileId() uint64 {
+	return fdSet.writeFd.cacheItem.FileId
+}
+
 func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
 
-	if fileId > fdSet.maxFileId {
+	if fileId > fdSet.LatestFileId() {
 		return nil, nil
 	}
 
@@ -108,13 +108,11 @@ func (fdSet *fdManager) GetWriteFd() *fileDescription {
 }
 
 func (fdSet *fdManager) DeleteTo(location *Location) error {
-	// remove files
-	for i := fdSet.maxFileId; i > location.FileId; i-- {
-		if err := os.Remove(fdSet.fileIdToAbsoluteFilename(i)); err != nil {
-			return err
-		}
+	for i := fdSet.LatestFileId(); i > location.FileId; i-- {
 		if fdSet.writeFd != nil {
+			fdSet.writeFd.cacheItem.FileWriter.Close()
 			fdSet.writeFd.Close()
+
 			fdSet.writeFd = nil
 		}
 
@@ -122,11 +120,7 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 		if cacheItem != nil {
 			cacheItem.Mu.Lock()
 
-			if err := cacheItem.File.Close(); err != nil {
-				cacheItem.Mu.Unlock()
-				return err
-			}
-
+			cacheItem.FileWriter.Close()
 			cacheItem.FileId = 0
 			cacheItem.Buffer = nil
 			cacheItem.BufferLen = 0
@@ -134,30 +128,47 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 
 			fdSet.fileCache.Remove(fdSet.fileCache.Back())
 		}
-		fdSet.maxFileId = i - 1
 	}
 
 	// recover write fd
-	if err := fdSet.resetWriteFd(); err != nil {
+	if err := fdSet.resetWriteFd(location); err != nil {
 		return err
 	}
 
-	// delete
-	if err := fdSet.writeFd.DeleteTo(location.Offset); err != nil {
+	return nil
+}
+
+func (fdSet *fdManager) DiskDelete(topLocation *Location, lowLocation *Location) error {
+	for i := topLocation.FileId; i > lowLocation.FileId; i-- {
+		if err := os.Remove(fdSet.fileIdToAbsoluteFilename(i)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	fd, err := fdSet.getFileFd(lowLocation.FileId)
+	defer fd.Close()
+	if err != nil {
+		return err
+	}
+
+	if fd == nil {
+		return nil
+	}
+	if err := fd.Truncate(lowLocation.Offset); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (fdSet *fdManager) CreateNextFd() error {
+	// new location
+	newLocation := NewLocation(fdSet.LatestFileId()+1, 0)
+
 	// set write fd
 	fdSet.writeFd = nil
 
-	// update maxFileId
-	fdSet.maxFileId += 1
-
 	// update fileReader cache
-	if err := fdSet.resetWriteFd(); err != nil {
+	if err := fdSet.resetWriteFd(newLocation); err != nil {
 		return err
 	}
 
@@ -197,68 +208,61 @@ func (fdSet *fdManager) Close() error {
 }
 
 // tools
-func (fdSet *fdManager) resetWriteFd() error {
+func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	if fdSet.writeFd != nil {
 		return nil
 	}
-	fileId := fdSet.maxFileId
+	fileId := location.FileId
 
-	fd, err := fdSet.getFileFd(fileId)
-	if err != nil {
-		return err
-	}
-	if fd == nil {
-		var err error
-		fd, err = fdSet.createNewFile(fileId)
+	var fd *os.File
+	var err error
+	if location.Offset > 0 {
+		fd, err = fdSet.getFileFd(fileId)
 		if err != nil {
-			return errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", fileId, err))
+			return err
 		}
-	}
 
-	fileSize, err := fileutils.FileSize(fd)
-	if err != nil {
-		return err
+		if fd == nil {
+			return errors.New(fmt.Sprintf("fd is nil, fileId is %d, location is %+v\n", fileId, location))
+
+		}
 	}
 
 	var newItem *fileCacheItem
 	if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
 		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
-
-		newItem.Mu.Lock()
-
-		if err := newItem.File.Close(); err != nil {
-			newItem.Mu.Unlock()
-			return err
+		if newItem.FlushPointer >= fdSet.fileSize {
+			fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
+		} else {
+			newItem = nil
 		}
+	}
 
-		newItem.File = fd
-		newItem.BufferLen = fileSize
-		newItem.FlushPointer = fileSize
-		newItem.FileId = fileId
-
-		newItem.Mu.Unlock()
-
-		fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
-	} else {
+	if newItem == nil {
 		newItem = &fileCacheItem{
-			Buffer:       make([]byte, fdSet.fileSize),
-			BufferLen:    fileSize,
-			FlushPointer: fileSize,
-			FileId:       fileId,
-			File:         fd,
+			Buffer: make([]byte, fdSet.fileSize),
 		}
 		fdSet.fileCache.PushBack(newItem)
 	}
 
-	if fileSize > 0 {
-		if _, err := fd.Read(newItem.Buffer[:fileSize]); err != nil {
-			return err
-		}
+	newItem.Mu.Lock()
+
+	if newItem.FileWriter != nil {
+		newItem.FileWriter.Close()
 	}
 
-	// seek to end
-	if _, err := fd.Seek(0, 2); err != nil {
-		return err
+	bufferLen := location.Offset
+
+	newItem.FileWriter = fd
+	newItem.FileId = fileId
+	newItem.BufferLen = bufferLen
+	newItem.FlushPointer = bufferLen
+
+	newItem.Mu.Unlock()
+	if bufferLen > 0 && fd != nil {
+		if _, err := fd.Read(newItem.Buffer[:bufferLen]); err != nil {
+			return err
+		}
 	}
 
 	fdSet.writeFd = NewWriteFd(fdSet, newItem, fdSet.fileSize)
@@ -288,12 +292,35 @@ func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
 		}
 	}
 
-	return NewLocation(maxFileId, 0), nil
+	fd, err := fdSet.getFileFd(maxFileId)
+	if err != nil {
+		return nil, err
+	}
+	if fd == nil {
+		return nil, nil
+	}
+
+	fileSize, err := fileutils.FileSize(fd)
+	if err != nil {
+		return nil, err
+	}
+	return NewLocation(maxFileId, fileSize), nil
 }
 
 func (fdSet *fdManager) reset() {
-	fdSet.fileCache = list.New()
-	fdSet.maxFileId = 0
+	if fdSet.writeFd != nil {
+		fdSet.writeFd.Close()
+	}
+
+	back := fdSet.fileCache.Back()
+	for back != nil {
+		backValue := back.Value.(*fileCacheItem)
+
+		backValue.Mu.Lock()
+		backValue.FileWriter.Close()
+		backValue.Mu.Unlock()
+		back = back.Prev()
+	}
 }
 
 func (fdSet *fdManager) getCacheItem(fileId uint64) *fileCacheItem {
