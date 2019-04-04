@@ -6,13 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-
-	"github.com/vitelabs/go-vite/consensus/db"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
