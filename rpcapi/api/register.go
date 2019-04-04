@@ -162,8 +162,8 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 			}
 		} else {
 			if r, err = abi.GetRegistration(db, *v.Gid, v.Name); err != nil {
+				return nil, err
 			}
-			return nil, err
 		}
 		if r != nil {
 			addrList[k] = &r.PledgeAddr
