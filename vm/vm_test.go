@@ -511,7 +511,7 @@ func TestVm(t *testing.T) {
 			}
 			vm := NewVM()
 			vm.i = NewInterpreter(1, false)
-			vm.globalStatus = &util.GlobalStatus{0, &sb}
+			vm.globalStatus = NewTestGlobalStatus(0, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
@@ -661,4 +661,19 @@ func TestOffChainReader(t *testing.T) {
 			t.Fatalf("%v return data not match, expected %v, got %v", k, testCase.ReturnData, hex.EncodeToString(returndata))
 		}
 	}
+}
+
+type TestGlobalStatus struct {
+	seed          uint64
+	snapshotBlock *ledger.SnapshotBlock
+}
+
+func NewTestGlobalStatus(seed uint64, snapshotBlock *ledger.SnapshotBlock) *TestGlobalStatus {
+	return &TestGlobalStatus{seed, snapshotBlock}
+}
+func (g *TestGlobalStatus) Seed() (uint64, error) {
+	return g.seed, nil
+}
+func (g *TestGlobalStatus) SnapshotBlock() *ledger.SnapshotBlock {
+	return g.snapshotBlock
 }

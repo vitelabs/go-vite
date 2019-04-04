@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -41,7 +40,8 @@ type Chain interface {
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
 
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 
 type VmDb interface {
