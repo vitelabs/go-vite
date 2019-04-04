@@ -116,3 +116,27 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	}
 	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
 }
+
+func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
+	var prefixBytes []byte
+	if len(prefix) > 0 {
+		var err error
+		prefixBytes, err = hex.DecodeString(prefix)
+		if err != nil {
+			return nil, err
+		}
+	}
+	iter, err := c.chain.GetStorageIterator(addr, prefixBytes)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string)
+	for {
+		if !iter.Next() {
+			return m, nil
+		}
+		if len(iter.Key()) > 0 && len(iter.Value()) > 0 {
+			m["0x"+hex.EncodeToString(iter.Key())] = "0x" + hex.EncodeToString(iter.Value())
+		}
+	}
+}

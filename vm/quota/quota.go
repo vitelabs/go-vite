@@ -63,7 +63,8 @@ func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, di
 	if err != nil {
 		return 0, 0, err
 	}
-	if quotaTotal <= quotaUsed {
+	if quotaTotal-quotaAddition <= quotaUsed {
+		// pledge amount changed in past 75 snapshot blocks, use PoW quota for new block only
 		if quotaAddition > 0 {
 			if quotaAddition > quotaLimitForBlock {
 				return quotaLimitForBlock, quotaLimitForBlock, nil

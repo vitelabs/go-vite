@@ -132,34 +132,21 @@ func Test_chainRw(t *testing.T) {
 	//rw.initArray(nil)
 }
 
-func NewDb(dirName string) (*leveldb.DB, error) {
-	db, err := leveldb.OpenFile(dirName, nil)
-
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
 func TestChainRw_GetMemberInfo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
 
 	dir := "testdata-consensus"
-	db, e := NewDb(dir)
-
-	defer func() {
-		os.RemoveAll(dir)
-	}()
-	defer db.Close()
+	db := NewDb(t, dir)
+	defer ClearDb(t, dir)
 
 	mch := NewMockChain(ctrl)
 	genesisBlock := &ledger.SnapshotBlock{Height: uint64(1), Timestamp: &simpleGenesis}
 	genesisBlock.ComputeHash()
 	mch.EXPECT().GetLatestSnapshotBlock().Return(genesisBlock).AnyTimes()
 	mch.EXPECT().GetGenesisSnapshotBlock().Return(genesisBlock).AnyTimes()
-	mch.EXPECT().NewDb(gomock.Any()).Return(db, e).MaxTimes(1)
+	mch.EXPECT().NewDb(gomock.Any()).Return(db, nil).MaxTimes(1)
 	infos, err := GetConsensusGroupList()
 	mch.EXPECT().GetConsensusGroupList(genesisBlock.Hash).Return(infos, err).MaxTimes(1)
 

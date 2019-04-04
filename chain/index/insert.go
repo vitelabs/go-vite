@@ -3,7 +3,6 @@ package chain_index
 import (
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -52,8 +51,7 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	return nil
 }
 
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location,
-	invalidBlocks []*ledger.AccountBlock) error {
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) error {
 
 	batch := iDB.store.NewBatch()
 
@@ -77,15 +75,6 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	// latest on road id
 	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
-
-	// delete invalid blocks
-	openSendBlockHashMap := make(map[types.Hash]struct{})
-	iDB.deleteAccountBlocks(batch, invalidBlocks, openSendBlockHashMap)
-	for sendBlockHash := range openSendBlockHashMap {
-		if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
-			return err
-		}
-	}
 
 	iDB.store.Write(batch)
 	return nil

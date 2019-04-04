@@ -8,7 +8,7 @@ import (
 func (db *vmDb) GetReceiptHash() *types.Hash {
 	kvList := db.unsaved.GetStorage()
 	if len(kvList) <= 0 {
-		return nil
+		return &types.Hash{}
 	}
 
 	size := 0

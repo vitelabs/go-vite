@@ -655,7 +655,9 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 			return uint64(i - minH), errors.New("block in blacklist")
 		}
 		// check quota
-		if info.quotaEnough(block) {
+		if used, unused, enought := info.quotaEnough(block); !enought {
+			// todo remove
+			self.log.Info(fmt.Sprintf("[%s][%d][%s]quota not enough[used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 			return uint64(i - minH), errors.New("block quota not enough.")
 		}
 		// check request block confirmed time for response block
@@ -726,7 +728,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 }
 func (self *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
 	if block.block.IsReceiveBlock() {
-		num, e := self.rw.needSnapshot(block.block.ToAddress)
+		num, e := self.rw.needSnapshot(block.block.AccountAddress)
 		if e != nil {
 			return e
 		}

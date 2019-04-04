@@ -318,6 +318,7 @@ func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader c
 	tmp2 := big.NewInt(0)
 	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
 	for startIndex < endIndex {
+		// TODO batch fetch data of days
 		detailMap, summary := reader.GetConsensusDetailByDay(startIndex, startIndex+indexInDay)
 		reward.Add(reward, calcRewardByDaySingle(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
 		startIndex = startIndex + indexInDay

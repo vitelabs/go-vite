@@ -46,7 +46,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 		}
 
 		var err error
-		kvLogMap, err := sDB.storageRedo.QueryLog(snapshotHeight)
+		kvLogMap, _, err := sDB.storageRedo.QueryLog(snapshotHeight)
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet map[types.Address]map[string]struct{}, onlyDeleteAbs bool) error {
 	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
 	if onlyDeleteAbs {
-		kvLogMap, err := sDB.storageRedo.QueryLog(latestHeight + 1)
+		kvLogMap, _, err := sDB.storageRedo.QueryLog(latestHeight + 1)
 		if err != nil {
 			return err
 		}

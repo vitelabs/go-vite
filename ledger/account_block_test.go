@@ -47,6 +47,46 @@ func createBlock() *AccountBlock {
 	}
 }
 
+func TestAccountBlock_ComputeHash(t *testing.T) {
+	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
+	fromBlockHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is fromBlockHash")))
+	logHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is logHash")))
+
+	addr1, _ := types.HexToAddress("vite_40ecd068e6919694d989866e3362c557984fd2637671219def")
+	addr2, _ := types.HexToAddress("vite_aa01c78289d51862026d93c98115e4b540b800a877aa98a76b")
+
+	publicKey := []byte{146, 4, 102, 210, 240, 121, 18, 183, 101, 145, 74, 10, 42, 214, 120,
+		193, 131, 136, 161, 34, 13, 13, 167, 76, 142, 211, 246, 186, 111, 200, 217, 69}
+
+	block := &AccountBlock{
+		BlockType: BlockTypeSendCall,
+		PrevHash:  prevHash,
+		Height:    123,
+
+		AccountAddress: addr1,
+		PublicKey:      publicKey,
+		ToAddress:      addr2,
+
+		Amount:        big.NewInt(1000),
+		TokenId:       ViteTokenId,
+		FromBlockHash: fromBlockHash,
+
+		Data: []byte("test data test data"),
+
+		Quota:   1234,
+		Fee:     big.NewInt(10),
+		LogHash: &logHash,
+
+		Difficulty: big.NewInt(10),
+		Nonce:      []byte("test nonce test nonce"),
+	}
+
+	if block.ComputeHash().String() != "1e25ac8dac6945afc84e3361d2d011046d9966603981fd8d1a78eeb32cef34f5" {
+		t.Fatal("error")
+	}
+
+}
+
 func BenchmarkAccountBlock_ComputeHash(b *testing.B) {
 	b.StopTimer()
 	block := createBlock()

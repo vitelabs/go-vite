@@ -33,10 +33,8 @@ func (self *pool) loopQueue() {
 			}
 			err := self.insertQueue(q)
 			if err != nil {
-				fmt.Printf("insert queue err:%s\n", err)
-				fmt.Printf("all queue:%s\n", q.Info())
-				time.Sleep(time.Second * 2)
-				self.log.Crit("loop pool exit")
+				self.log.Info(fmt.Sprintf("insert queue err:%s\n", err))
+				self.log.Info(fmt.Sprintf("all queue:%s\n", q.Info()))
 			}
 			t2 := time.Now()
 			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
@@ -63,6 +61,10 @@ func (self *pool) makeQueue() Package {
 				self.snapshotPendingFix(newOffset, errAcc)
 			} else {
 				self.makeQueueFromAccounts(p)
+				if p.Size() > 0 {
+					// todo remove
+					fmt.Printf("make accounts[%d]\n", p.Size())
+				}
 			}
 			break
 		} else { // snapshot block
@@ -339,13 +341,13 @@ type offsetInfo struct {
 	quotaUnused uint64
 }
 
-func (self offsetInfo) quotaEnough(b commonBlock) bool {
+func (self offsetInfo) quotaEnough(b commonBlock) (uint64, uint64, bool) {
 	accB := b.(*accountPoolBlock)
 	quotaUsed := accB.block.Quota
 	if quotaUsed > self.quotaUnused {
-		return false
+		return quotaUsed, self.quotaUnused, false
 	}
-	return true
+	return quotaUsed, self.quotaUnused, true
 }
 func (self offsetInfo) quotaSub(b commonBlock) {
 	accB := b.(*accountPoolBlock)

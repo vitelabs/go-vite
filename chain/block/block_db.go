@@ -15,11 +15,6 @@ import (
 	"sync"
 )
 
-const (
-	optFlush    = 1
-	optRollback = 2
-)
-
 type BlockDB struct {
 	fm *chain_file_manager.FileManager
 
@@ -30,17 +25,13 @@ type BlockDB struct {
 	id       types.Hash
 
 	flushStartLocation  *chain_file_manager.Location
-	targetFlushLocation *chain_file_manager.Location
-
-	prepareRollbackLocation *chain_file_manager.Location
+	flushTargetLocation *chain_file_manager.Location
 }
-
-//type ledger.SnapshotChunk ledger.SnapshotChunk
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
 
-	fileSize := int64(10 * 1024 * 1024)
+	fileSize := int64(10 * 1024 * 1024) // 10M
 	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize, 10)
 	if err != nil {
 		return nil, err
@@ -59,94 +50,71 @@ func (bDB *BlockDB) Id() types.Hash {
 }
 
 func (bDB *BlockDB) Prepare() {
-	if bDB.prepareRollbackLocation == nil {
-		bDB.targetFlushLocation = bDB.fm.LatestLocation()
-	}
+	bDB.flushStartLocation = bDB.fm.NextFlushStartLocation()
+	bDB.flushTargetLocation = bDB.fm.LatestLocation()
+	bDB.fm.LockDelete()
+
 }
 
 func (bDB *BlockDB) CancelPrepare() {
-	bDB.prepareRollbackLocation = nil
-	bDB.targetFlushLocation = nil
+	bDB.flushStartLocation = nil
+	bDB.flushTargetLocation = nil
+	bDB.fm.UnlockDelete()
 }
 
 func (bDB *BlockDB) RedoLog() ([]byte, error) {
 	var redoLog []byte
-	if bDB.prepareRollbackLocation != nil {
-		redoLog = make([]byte, 0, 13)
-		redoLog = append(redoLog, optRollback)
-		redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.prepareRollbackLocation)...)
 
-	} else if bDB.targetFlushLocation != nil && bDB.targetFlushLocation.Compare(bDB.fm.FlushLocation()) > 0 {
-		bfp := newBlockFileParser()
-		startLocation := bDB.fm.FlushLocation()
-		targetLocation := bDB.targetFlushLocation
-		bDB.wg.Add(1)
-		go func() {
-			defer bDB.wg.Done()
-			bDB.fm.ReadRange(startLocation, targetLocation, bfp)
-			bfp.Close()
-		}()
-		iterator := bfp.Iterator()
+	bfp := newBlockFileParser()
+	bDB.wg.Add(1)
+	go func() {
+		defer bDB.wg.Done()
+		bDB.fm.ReadRange(bDB.flushStartLocation, bDB.flushTargetLocation, bfp)
+		bfp.Close()
+	}()
 
-		redoLog = make([]byte, 0, startLocation.Distance(bDB.fileSize, targetLocation)+13)
-		redoLog = append(redoLog, optFlush)
-		redoLog = append(redoLog, chain_utils.SerializeLocation(startLocation)...)
+	iterator := bfp.Iterator()
 
-		for buf := range iterator {
-			redoLog = append(redoLog, buf.Buffer...)
-		}
-		if err := bfp.Error(); err != nil {
-			return nil, err
-		}
+	redoLog = make([]byte, 0, 24+bDB.flushStartLocation.Distance(bDB.fileSize, bDB.flushTargetLocation))
+
+	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushStartLocation)...)
+	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushTargetLocation)...)
+
+	for buf := range iterator {
+		redoLog = append(redoLog, buf.Buffer...)
 	}
+	if err := bfp.Error(); err != nil {
+		return nil, err
+	}
+
 	return redoLog, nil
 
 }
 
 func (bDB *BlockDB) Commit() error {
 	defer func() {
-		bDB.targetFlushLocation = nil
-		bDB.prepareRollbackLocation = nil
+		bDB.flushStartLocation = nil
+		bDB.flushTargetLocation = nil
+		bDB.fm.UnlockDelete()
 	}()
 
-	if bDB.prepareRollbackLocation != nil {
-		return bDB.DeleteTo(bDB.prepareRollbackLocation)
-
-	}
-	return bDB.fm.Flush(bDB.targetFlushLocation)
+	return bDB.fm.Flush(bDB.flushStartLocation, bDB.flushTargetLocation)
 
 }
 
 func (bDB *BlockDB) PatchRedoLog(redoLog []byte) error {
-	switch redoLog[0] {
-	case optFlush:
-		startLocation := chain_utils.DeserializeLocation(redoLog[1:13])
+	flushStartLocation := chain_utils.DeserializeLocation(redoLog[:12])
+	flushTargetLocation := chain_utils.DeserializeLocation(redoLog[12:24])
 
-		if err := bDB.DeleteTo(startLocation); err != nil {
-			return err
-		}
-
-		toLocation, err := bDB.writeRaw(redoLog[13:])
-		if err != nil {
-			return err
-		}
-
-		if err := bDB.fm.Flush(toLocation); err != nil {
-			return err
-		}
-
-		bDB.targetFlushLocation = nil
-
-	case optRollback:
-		rollbackTargetLocation := chain_utils.DeserializeLocation(redoLog[1:13])
-		if err := bDB.DeleteTo(rollbackTargetLocation); err != nil {
-			return err
-		}
-
-		bDB.prepareRollbackLocation = nil
+	if err := bDB.fm.DeleteTo(flushStartLocation); err != nil {
+		return err
 	}
 
-	return nil
+	if _, err := bDB.fm.Write(redoLog[24:]); err != nil {
+		return err
+	}
+
+	return bDB.fm.Flush(flushStartLocation, flushTargetLocation)
 }
 
 func (bDB *BlockDB) Stop() {
@@ -166,19 +134,7 @@ func (bDB *BlockDB) Close() error {
 	return nil
 }
 
-func (bDB *BlockDB) LatestLocation() *chain_file_manager.Location {
-	latestLocation := bDB.fm.LatestLocation()
-	if bDB.prepareRollbackLocation != nil && latestLocation.Compare(bDB.prepareRollbackLocation) > 0 {
-		return bDB.prepareRollbackLocation
-	}
-
-	return latestLocation
-}
-
 func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Location, *chain_file_manager.Location, error) {
-	if bDB.prepareRollbackLocation != nil {
-		return nil, nil, errors.New("prepare rollback, can't write")
-	}
 
 	accountBlocksLocation := make([]*chain_file_manager.Location, 0, len(ss.AccountBlocks))
 
@@ -209,9 +165,6 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Locat
 }
 
 func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) {
-	if bDB.prepareRollbackLocation != nil && bDB.prepareRollbackLocation.Compare(location) <= 0 {
-		return nil, nil
-	}
 	buf, _, err := bDB.fm.Read(location)
 	if err != nil {
 		return nil, err
@@ -228,17 +181,7 @@ func (bDB *BlockDB) Read(location *chain_file_manager.Location) ([]byte, error) 
 }
 
 func (bDB *BlockDB) ReadRaw(startLocation *chain_file_manager.Location, buf []byte) (*chain_file_manager.Location, int, error) {
-	if bDB.prepareRollbackLocation != nil && bDB.prepareRollbackLocation.Compare(startLocation) <= 0 {
-		return nil, 0, nil
-	}
-
-	nextLocation, count, err := bDB.fm.ReadRaw(startLocation, buf)
-	if bDB.prepareRollbackLocation != nil && bDB.prepareRollbackLocation.Compare(nextLocation) <= 0 {
-		size := bDB.prepareRollbackLocation.Distance(bDB.fileSize, startLocation)
-
-		return bDB.prepareRollbackLocation, int(size), err
-	}
-	return nextLocation, count, err
+	return bDB.fm.ReadRaw(startLocation, buf)
 }
 
 func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
@@ -378,22 +321,13 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 		return nil, err
 	}
 
-	if len(segList) > 0 {
-		bDB.prepareRollbackLocation = location
-	}
-
 	return segList, nil
 
 }
 
-func (bDB *BlockDB) writeRaw(buf []byte) (*chain_file_manager.Location, error) {
-
-	return bDB.fm.Write(buf)
-}
-
 func (bDB *BlockDB) maxLocation(location *chain_file_manager.Location) *chain_file_manager.Location {
+	latestLocation := bDB.fm.LatestLocation()
 
-	latestLocation := bDB.LatestLocation()
 	if location == nil || (latestLocation != nil && location.Compare(latestLocation) > 0) {
 		return latestLocation
 	}

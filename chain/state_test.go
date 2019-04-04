@@ -13,7 +13,7 @@ import (
 
 func TestChain_State(t *testing.T) {
 
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 18, 910, 3)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 910, 3)
 
 	testState(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -159,22 +159,24 @@ func GetContractMeta(t *testing.T, chainInstance *chain, accounts map[types.Addr
 			t.Fatal(err)
 		}
 
+		contractMeta := account.ContractMeta()
 		if meta == nil {
-			if account.ContractMeta == nil {
+			if contractMeta == nil {
 				continue
 			}
 			t.Fatal("error")
 		}
-		if meta.Gid != account.ContractMeta.Gid || meta.SendConfirmedTimes != account.ContractMeta.SendConfirmedTimes {
-			t.Fatal(fmt.Sprintf("%+v\n%+v\n", meta, account.ContractMeta))
+		if meta.Gid != contractMeta.Gid || meta.SendConfirmedTimes != contractMeta.SendConfirmedTimes {
+			t.Fatal(fmt.Sprintf("%+v\n%+v\n", meta, contractMeta))
 		}
 	}
 }
 
 func GetContractList(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		if account.ContractMeta != nil {
-			gid := account.ContractMeta.Gid
+		contractMeta := account.ContractMeta()
+		if contractMeta != nil {
+			gid := contractMeta.Gid
 
 			contractList, err := chainInstance.GetContractList(gid)
 			if err != nil {
@@ -277,7 +279,8 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 
 func GetValue(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		for key, value := range account.KeyValue {
+		keyValue := account.KeyValue()
+		for key, value := range keyValue {
 			queryValue, err := chainInstance.GetValue(account.addr, []byte(key))
 			if err != nil {
 				t.Fatal(err)
@@ -291,7 +294,8 @@ func GetValue(t *testing.T, chainInstance *chain, accounts map[types.Address]*Ac
 
 func GetStorageIterator(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		err := checkIterator(account.KeyValue, func() (interfaces.StorageIterator, error) {
+		keyValue := account.KeyValue()
+		err := checkIterator(keyValue, func() (interfaces.StorageIterator, error) {
 			return chainInstance.GetStorageIterator(account.addr, nil)
 		})
 		if err != nil {

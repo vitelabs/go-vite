@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -46,9 +48,16 @@ func NewTxApi(vite *vite.Vite) *Tx {
 		panic(err)
 	}
 
+	pubKey, err := key.PublicKey()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s hex public key:%s\n", coinbase, hex.EncodeToString(pubKey))
+
 	hexKey := hex.EncodeToString(binKey)
 
-	toAddr, err := types.HexToAddress("vite_000000000000000000000000000000000000000270a48cc491")
+	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
 	amount := string("0")
 	if err != nil {
 		panic(err)
@@ -62,8 +71,16 @@ func NewTxApi(vite *vite.Vite) *Tx {
 
 	difficulty := string("65535")
 
+	num := atomic.NewUint32(0)
+
 	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", &coinbase, func(e consensus.Event) {
 
+		if num.Load() > 0 {
+			fmt.Printf("something is loading[return].%s\n", time.Now())
+			return
+		}
+		num.Add(1)
+		defer num.Sub(1)
 		snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
 		if snapshotBlock.Height < 10 {
 			fmt.Println("latest height must >= 10.")
@@ -239,8 +256,8 @@ type CalcPoWDifficultyParam struct {
 }
 
 type CalcPoWDifficultyResult struct {
-	quotaRequired uint64 `json:"quota"`
-	difficulty    string `json:"difficulty"`
+	QuotaRequired uint64 `json:"quota"`
+	Difficulty    string `json:"difficulty"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -267,20 +284,24 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	pledgeAmount, err := t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
-	if err != nil {
-		return nil, err
-	}
-	q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
-	if err != nil {
-		return nil, err
-	}
+	var pledgeAmount *big.Int
+	var q types.Quota
 	if param.UsePledgeQuota {
+		pledgeAmount, err = t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
+		if err != nil {
+			return nil, err
+		}
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		if err != nil {
+			return nil, err
+		}
 		if q.Current() >= quotaRequired {
 			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
 		}
+	} else {
+		pledgeAmount = big.NewInt(0)
+		q = types.NewQuota(0, 0, 0)
 	}
-
 	// calc difficulty if current quota is not enough
 	canPoW, err := quota.CanPoW(db)
 	if err != nil {

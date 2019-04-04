@@ -22,6 +22,7 @@ type StorageRedo struct {
 	logMap         map[types.Hash][]byte
 	snapshotHeight uint64
 	retainHeight   uint64
+	hasRedo        bool
 
 	id types.Hash
 	mu sync.RWMutex
@@ -47,25 +48,28 @@ func NewStorageRedo(chainDir string) (*StorageRedo, error) {
 	}, nil
 }
 
-func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte) {
+func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
 	redo.logMap = redoLog
 	if redo.logMap == nil {
 		redo.logMap = make(map[types.Hash][]byte)
 	}
 	redo.snapshotHeight = snapshotHeight
+	redo.hasRedo = hasRedo
 }
 
-func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, error) {
+func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, bool, error) {
 	if snapshotHeight == redo.snapshotHeight {
-		return redo.logMap, nil
+		return redo.logMap, true, nil
 	}
 	var logMap map[types.Hash][]byte
 
+	hasRedo := false
 	err := redo.store.View(func(tx *bolt.Tx) error {
 		bu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight))
 		if bu == nil {
 			return nil
 		}
+		hasRedo = true
 
 		c := bu.Cursor()
 
@@ -80,7 +84,11 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 		return nil
 	})
 
-	return logMap, err
+	return logMap, hasRedo, err
+}
+
+func (redo *StorageRedo) HasRedo() bool {
+	return redo.hasRedo
 }
 
 func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {

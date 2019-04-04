@@ -26,6 +26,14 @@ func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageC
 		return nil, nil
 	}
 	for _, v := range hashList {
+		/*		isReceive, err := manager.chain.IsReceived(v)
+				if err != nil {
+					return nil, err
+				}
+				if isReceive {
+					log.Error("get find err, already exist")
+					continue
+				}*/
 		onroad, err := manager.chain.GetAccountBlockByHash(v)
 		if err != nil {
 			log.Error(fmt.Sprintf("GetAccountBlockByHash failed, err:%v", err))
@@ -33,41 +41,6 @@ func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageC
 		blocks = append(blocks, onroad)
 	}
 	return blocks, nil
-}
-
-// fixme
-func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-	for _, v := range blocks {
-		if v.AccountBlock.IsSendBlock() {
-			manager.newSignalToWorker(v.AccountBlock)
-		}
-	}
-	return nil
-}
-
-func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-	return nil
-}
-
-func (manager *Manager) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
-	return nil
-}
-func (manager *Manager) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
-	return nil
-}
-
-func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
-	return nil
-}
-func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
-	return nil
-}
-
-func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	return nil
-}
-func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	return nil
 }
 
 func (manager *Manager) addContractLis(gid types.Gid, f func(address types.Address)) {

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -62,17 +63,18 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 	if err != nil {
 		return nil, err
 	}
+	var fromBlock *ledger.AccountBlock
 	if block.IsReceiveBlock() {
-		fromBlock, err := gen.chain.GetAccountBlockByHash(block.FromBlockHash)
-		if err != nil {
-			return nil, err
+		var fromErr error
+		fromBlock, fromErr = gen.chain.GetAccountBlockByHash(block.FromBlockHash)
+		if fromErr != nil {
+			return nil, fromErr
 		}
 		if fromBlock == nil {
 			return nil, errors.New("generate recvBlock failed, cause failed to find its sendBlock")
 		}
-		gen.generateBlock(block, fromBlock, producer, signFunc)
 	}
-	return gen.generateBlock(block, nil, producer, signFunc)
+	return gen.generateBlock(block, fromBlock, producer, signFunc)
 }
 
 func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
@@ -101,15 +103,26 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			resultErr = errors.New("generator_vm panic error")
 		}
 	}()
-
-	randomSeedStates, err := gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", err))
+	var state *util.GlobalStatus
+	if block.IsReceiveBlock() {
+		if fromBlock == nil {
+			return nil, errors.New("need to pass in sendBlock when generate receiveBlock")
+		}
+		var stateErr error
+		state, stateErr = gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
+		if stateErr != nil {
+			return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", stateErr))
+		}
 	}
 
-	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, randomSeedStates)
+	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
+		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
+			for _, v := range vb.SendBlockList {
+				v.Hash = v.ComputeHash()
+			}
+		}
 		vb.Hash = vb.ComputeHash()
 		if signFunc != nil {
 			if producer == nil {
@@ -121,11 +134,6 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			}
 			vb.Signature = signature
 			vb.PublicKey = publicKey
-		}
-		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
-			for _, v := range vb.SendBlockList {
-				v.Hash = v.ComputeHash()
-			}
 		}
 	}
 

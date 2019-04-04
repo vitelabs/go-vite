@@ -25,6 +25,10 @@ type EventListener interface {
 	DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
 }
 
+type Consensus interface {
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+}
+
 type Chain interface {
 	/*
 	 *	Lifecycle
@@ -234,4 +238,6 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
+
+	SetConsensus(cs Consensus)
 }

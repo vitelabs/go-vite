@@ -87,31 +87,39 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 	if isContract1stCheck {
 		return AccountTypeContract, nil
 	}
+	// only (notsure + general)
 	if block.Height > 1 {
 		firstBlock, _ := v.chain.GetAccountBlockByHeight(block.AccountAddress, 1)
 		if firstBlock == nil {
 			return AccountTypeNotSure, nil
 		}
+		return AccountTypeGeneral, nil
 	} else {
 		if block.IsSendBlock() {
 			return AccountTypeNotSure, errors.New("fatal: sendblock.height can't be 1")
 		}
-		sendBlock, sErr := v.chain.GetAccountBlockByHash(block.Hash)
+		sendBlock, sErr := v.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if sErr != nil {
 			return AccountTypeNotSure, errors.New("GetAccountBlockByHash failed, " + sErr.Error())
 		}
 		if sendBlock == nil {
 			return AccountTypeNotSure, nil
 		}
+		// send exist means the gid-address exist
+		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+			return AccountTypeContract, nil
+		}
+		return AccountTypeGeneral, nil
 	}
-	isContract2ndCheck, err := v.chain.IsContractAccount(block.AccountAddress)
-	if err != nil {
-		return AccountTypeNotSure, errors.New("2nd check IsContractAccount," + err.Error())
-	}
-	if isContract2ndCheck {
-		return AccountTypeContract, nil
-	}
-	return AccountTypeGeneral, nil
+	/*	isContract2ndCheck, err := v.chain.IsContractAccount(block.AccountAddress)
+		if err != nil {
+			return AccountTypeNotSure, errors.New("2nd check IsContractAccount," + err.Error())
+		}
+		if isContract2ndCheck {
+			return AccountTypeContract, nil
+		}
+		return AccountTypeGeneral, nil*/
+	return AccountTypeNotSure, nil
 }
 
 // Block itself coming into Verifier indicate that it referr to a snapshot, which maybe confimed >=0;
@@ -135,9 +143,9 @@ func (v *AccountVerifier) verifyComfirmedTimes(recvBlock *ledger.AccountBlock, i
 		return errors.New("call GetConfirmedTimes failed," + err.Error())
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
-		v.log.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
-			ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, meta.SendConfirmedTimes, recvBlock.FromBlockHash, sendConfirmedTimes),
-			"method", "verifyComfirmedTimes")
+		/*		v.log.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
+				ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, meta.SendConfirmedTimes, recvBlock.FromBlockHash, sendConfirmedTimes),
+				"method", "verifyComfirmedTimes")*/
 		return ErrVerifyConfirmedTimesNotEnough
 	}
 	return nil
@@ -273,7 +281,7 @@ func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, 
 	}
 	if !isGeneralAddr && block.SendBlockList != nil {
 		for _, sendBlock := range block.SendBlockList {
-			if err := v.verifySendBlockIntergrity(sendBlock, true); err != nil {
+			if err := v.verifySendBlockIntergrity(sendBlock, isGeneralAddr); err != nil {
 				v.log.Error(fmt.Sprintf("err:%v, contractAddr:%v, recv-subSends(%v, %v)",
 					err.Error(), block.AccountAddress, block.Hash, sendBlock.Hash), "method", "verifyRecvBlockIntergrity")
 				return err

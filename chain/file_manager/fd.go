@@ -12,7 +12,8 @@ type fileDescription struct {
 
 	fdSet      *fdManager
 	fileReader *os.File
-	cacheItem  *fileCacheItem
+
+	cacheItem *fileCacheItem
 
 	fileId uint64
 
@@ -99,10 +100,6 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 		return 0, errors.New("can't write, fileReader is full")
 	}
 
-	if cacheItem.File == nil {
-		return 0, errors.New("cacheItem.File == nil")
-	}
-
 	bufLen := len(buf)
 	freeSpaceLength := int(fd.writeMaxSize - cacheItem.BufferLen)
 
@@ -139,29 +136,39 @@ func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
 		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
 	}
 
-	if cacheItem.File == nil {
-		return 0, errors.New("cacheItem.File == nil")
+	if cacheItem.FileWriter == nil {
+		fd, err := fd.fdSet.createNewFile(cacheItem.FileId)
+		if err != nil {
+			return cacheItem.FlushPointer, errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err))
+		}
+		if fd == nil {
+			return cacheItem.FlushPointer, errors.New("fd is nil")
+		}
+		cacheItem.FileWriter = fd
 	}
+
+	file := cacheItem.FileWriter
 
 	if cacheItem.FlushPointer >= cacheItem.BufferLen ||
 		cacheItem.FlushPointer >= targetOffset {
 		return cacheItem.FlushPointer, nil
 	}
 
-	n, err := cacheItem.File.Write(cacheItem.Buffer[cacheItem.FlushPointer:targetOffset])
+	if _, err := file.Seek(cacheItem.FlushPointer, 0); err != nil {
+		return cacheItem.FlushPointer, err
+	}
+
+	n, err := file.Write(cacheItem.Buffer[cacheItem.FlushPointer:targetOffset])
 	cacheItem.FlushPointer += int64(n)
 
 	if err != nil {
-		return cacheItem.FlushPointer, err
-	}
-	if err := cacheItem.File.Sync(); err != nil {
 		return cacheItem.FlushPointer, err
 	}
 
 	return cacheItem.FlushPointer, nil
 }
 
-func (fd *fileDescription) DeleteTo(size int64) error {
+func (fd *fileDescription) Sync() error {
 	cacheItem := fd.cacheItem
 
 	if cacheItem == nil {
@@ -171,17 +178,16 @@ func (fd *fileDescription) DeleteTo(size int64) error {
 	cacheItem.Mu.Lock()
 	defer cacheItem.Mu.Unlock()
 
-	if err := cacheItem.File.Truncate(size); err != nil {
-		return err
+	if fd.fileId != cacheItem.FileId {
+		return errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
 	}
 
-	if _, err := cacheItem.File.Seek(size, 0); err != nil {
+	if cacheItem.FileWriter == nil {
+		return errors.New("cacheItem.FileWriter is nil")
+	}
+	if err := cacheItem.FileWriter.Sync(); err != nil {
 		return err
 	}
-
-	cacheItem.BufferLen = size
-	cacheItem.FlushPointer = size
-	fd.readPointer = size
 
 	return nil
 }
@@ -193,6 +199,7 @@ func (fd *fileDescription) Close() {
 	if fd.fileReader != nil {
 		fd.fileReader.Close()
 	}
+
 	fd.cacheItem = nil
 }
 

@@ -63,24 +63,22 @@ func homeDir() string {
 	return ""
 }
 
-func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []types.Hash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
+func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	chainInstance, err := NewChainInstance("unit_test", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fmt.Println("Insert Blocks")
 
-	var accounts map[types.Address]*Account
-	var hashList []types.Hash
-	var addrList []types.Address
-	var heightList []uint64
+	accounts := MakeAccounts(accountNum, chainInstance)
 	var snapshotBlockList []*ledger.SnapshotBlock
 
 	t.Run("InsertBlocks", func(t *testing.T) {
-		accounts, hashList, addrList, heightList, snapshotBlockList = InsertAccountBlock(t, accountNum, chainInstance, txCount, snapshotPerBlockNum)
+		//InsertAccountBlock(t, chainInstance, accounts, txCount, snapshotPerBlockNum)
+		snapshotBlockList = InsertAccountBlock(t, chainInstance, accounts, txCount, snapshotPerBlockNum)
 	})
 
-	return chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList
+	return chainInstance, accounts, snapshotBlockList
 }
 
 func TearDown(chainInstance *chain) {
@@ -97,16 +95,24 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, hashList, addrList, heightList, snapshotBlockList := SetUp(t, 43, 2000, 198)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 1200, 1)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 1232, 5)...)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+
+	TearDown(chainInstance)
+}
+
+func testChainAll(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	// account
-	testAccount(t, chainInstance, addrList)
+	testAccount(t, chainInstance, accounts)
 
 	// account block
-	testAccountBlock(t, chainInstance, accounts, hashList, addrList, heightList)
+	testAccountBlock(t, chainInstance, accounts)
 
 	// on road
-	testOnRoad(t, chainInstance, accounts, addrList)
+	testOnRoad(t, chainInstance, accounts)
 
 	// snapshot block
 	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
@@ -116,7 +122,4 @@ func TestChain(t *testing.T) {
 
 	// built-in contract
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
-
-	TearDown(chainInstance)
-
 }
