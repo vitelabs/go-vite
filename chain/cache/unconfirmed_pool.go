@@ -55,17 +55,17 @@ func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
 	newInsertedList := make([]uint64, 0, len(up.insertedList)-len(blocks))
 	newInsertedMap := make(map[types.Address][]uint64)
 
-	deletedDataIdMap := make(map[uint64]*ledger.AccountBlock, len(blocks))
+	deletedDataIdMap := make(map[uint64]bool, len(blocks))
 	for _, block := range blocks {
 		dataId := up.ds.GetDataId(&block.Hash)
-		deletedDataIdMap[dataId] = block
+		deletedDataIdMap[dataId] = true
 	}
 	for _, insertedDataId := range up.insertedList {
-		if block, ok := deletedDataIdMap[insertedDataId]; ok {
+		if _, ok := deletedDataIdMap[insertedDataId]; ok {
 			// un ref
-
 			up.ds.UnRefDataId(insertedDataId)
 		} else {
+			block := up.ds.GetAccountBlock(insertedDataId)
 			newInsertedList = append(newInsertedList, insertedDataId)
 			newInsertedMap[block.AccountAddress] = append(newInsertedMap[block.AccountAddress], insertedDataId)
 		}

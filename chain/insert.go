@@ -3,9 +3,10 @@ package chain
 import (
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"strconv"
 )
 
 /*
@@ -101,7 +102,7 @@ func (c *chain) getBlocksToBeConfirmed(sc ledger.SnapshotContent) ([]*ledger.Acc
 			}
 		}
 		if finishCount >= scLen {
-			return blocks, nil
+			return blocksToBeConfirmed, nil
 		}
 	}
 

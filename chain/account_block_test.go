@@ -2,9 +2,10 @@ package chain
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"testing"
 )
 
 func TestChain_AccountBlock(t *testing.T) {
