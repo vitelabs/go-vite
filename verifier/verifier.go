@@ -86,7 +86,7 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *t
 			log.Error(err.Error(), "d", detail)
 			return nil, err
 		}
-		log.Error("verify block failed, db for:" + task.pendingHashListToStr())
+		log.Error("verify block failed, pending for:" + task.pendingHashListToStr())
 		return nil, ErrVerifyRPCBlockPendingState
 	}
 
