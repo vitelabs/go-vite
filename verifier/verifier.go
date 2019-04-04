@@ -76,7 +76,7 @@ func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *
 func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
 	log := v.log.New("method", "VerifyRPCAccBlock")
 
-	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v", snapshotHash, block.AccountAddress, block.Height)
+	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v, hash:%v", snapshotHash, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
@@ -86,7 +86,7 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *t
 			log.Error(err.Error(), "d", detail)
 			return nil, err
 		}
-		log.Error("verify block failed, pending for:" + task.pendingHashListToStr())
+		log.Error("verify block failed, pending for:"+task.pendingHashListToStr(), "d", detail)
 		return nil, ErrVerifyRPCBlockPendingState
 	}
 
