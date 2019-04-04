@@ -118,6 +118,12 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
+		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
+			for _, v := range vb.SendBlockList {
+				v.Hash = v.ComputeHash()
+			}
+		}
+		vb.Hash = vb.ComputeHash()
 		if signFunc != nil {
 			if producer == nil {
 				return nil, errors.New("producer address is uncertain, can't sign")
@@ -129,12 +135,6 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			vb.Signature = signature
 			vb.PublicKey = publicKey
 		}
-		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
-			for _, v := range vb.SendBlockList {
-				v.Hash = v.ComputeHash()
-			}
-		}
-		vb.Hash = vb.ComputeHash()
 	}
 
 	return &GenResult{
