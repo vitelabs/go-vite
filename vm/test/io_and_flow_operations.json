@@ -10,7 +10,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 999",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -27,7 +26,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -44,7 +42,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 10",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -61,7 +58,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 13",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -78,7 +74,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "err": "out of quota",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -95,7 +90,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79977,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -113,7 +107,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79972,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -131,7 +124,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -148,7 +140,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 2097152",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -165,7 +156,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 11",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -182,7 +172,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79970,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -200,7 +189,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 12",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -217,7 +205,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79972,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -235,7 +222,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 8",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -252,7 +238,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -269,7 +254,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 6",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -286,7 +270,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 7",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -303,7 +286,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639922",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -319,8 +301,7 @@
     "code": "7f112233445566778899001122334455667788990011223344556677889900aabb60001a6000557f112233445566778899001122334455667788990011223344556677889900aabb60011a6001557f112233445566778899001122334455667788990011223344556677889900aabb60021a6002557f112233445566778899001122334455667788990011223344556677889900aabb60031a6003557f112233445566778899001122334455667788990011223344556677889900aabb60041a6004557f112233445566778899001122334455667788990011223344556677889900aabb60051a6005557f112233445566778899001122334455667788990011223344556677889900aabb60061a6006557f112233445566778899001122334455667788990011223344556677889900aabb60071a6007557f112233445566778899001122334455667788990011223344556677889900aabb60081a6008557f112233445566778899001122334455667788990011223344556677889900aabb60091a6009557f112233445566778899001122334455667788990011223344556677889900aabb600a1a600a557f112233445566778899001122334455667788990011223344556677889900aabb600b1a600b557f112233445566778899001122334455667788990011223344556677889900aabb600c1a600c557f112233445566778899001122334455667788990011223344556677889900aabb600d1a600d557f112233445566778899001122334455667788990011223344556677889900aabb600e1a600e557f112233445566778899001122334455667788990011223344556677889900aabb600f1a600f557f112233445566778899001122334455667788990011223344556677889900aabb60101a6010557f112233445566778899001122334455667788990011223344556677889900aabb60111a6011557f112233445566778899001122334455667788990011223344556677889900aabb60121a6012557f112233445566778899001122334455667788990011223344556677889900aabb60131a6013557f112233445566778899001122334455667788990011223344556677889900aabb60141a6014557f112233445566778899001122334455667788990011223344556677889900aabb60151a6015557f112233445566778899001122334455667788990011223344556677889900aabb60161a6016557f112233445566778899001122334455667788990011223344556677889900aabb60171a6017557f112233445566778899001122334455667788990011223344556677889900aabb60181a6018557f112233445566778899001122334455667788990011223344556677889900aabb60191a6019557f112233445566778899001122334455667788990011223344556677889900aabb601a1a601a557f112233445566778899001122334455667788990011223344556677889900aabb601b1a601b557f112233445566778899001122334455667788990011223344556677889900aabb601c1a601c557f112233445566778899001122334455667788990011223344556677889900aabb601d1a601d557f112233445566778899001122334455667788990011223344556677889900aabb601e1a601e557f112233445566778899001122334455667788990011223344556677889900aabb601f1a601f557f112233445566778899001122334455667788990011223344556677889900aabb60201a6020557f112233445566778899001122334455667788990011223344556677889900aabb6107de1a6107de55",
     "returnData": "",
     "quotaTotal": 1000000,
-    "quotaLeft": 394592,
-    "quotaRefund": 0,
+    "quotaLeft": 418592,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -366,7 +347,6 @@
     "returnData": "",
     "quotaTotal": 100000000,
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "err": "out of quota",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -383,7 +363,6 @@
     "returnData": "",
     "quotaTotal": 100000000,
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "err": "out of quota",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -400,7 +379,6 @@
     "returnData": "0100000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000,
     "quotaLeft": 99983,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -417,7 +395,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79985,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -435,7 +412,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 11",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -455,7 +431,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 11",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -472,7 +447,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 14",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -489,7 +463,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "out of quota",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -506,7 +479,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -524,7 +496,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79971,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -542,7 +513,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 10",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -559,7 +529,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 2097153",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -576,7 +545,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
     "quotaTotal": 100000,
     "quotaLeft": 99962,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "08"
@@ -593,7 +561,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000002",
     "quotaTotal": 100000,
     "quotaLeft": 99964,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "12"
@@ -610,7 +577,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000003",
     "quotaTotal": 100000,
     "quotaLeft": 99966,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -627,7 +593,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "stack underflow (1 <=> 2)",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -644,7 +609,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -662,7 +626,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 12",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -679,7 +642,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79969,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -697,7 +659,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 13",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -714,7 +675,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79971,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -732,7 +692,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -749,7 +708,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 10",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -766,7 +724,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 7",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -783,7 +740,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 8",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -800,7 +756,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639923",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -817,7 +772,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (ADD) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -834,7 +788,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79966,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -852,7 +805,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79965,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -870,7 +822,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 16",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -887,7 +838,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 4",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -904,7 +854,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 7",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -920,8 +869,7 @@
     "code": "5b586000555960115758600052596000575b58600055",
     "returnData": "",
     "quotaTotal": 100000,
-    "quotaLeft": 69926,
-    "quotaRefund": 0,
+    "quotaLeft": 79526,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b",
@@ -939,7 +887,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99153,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -956,7 +903,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99153,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -973,7 +919,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 18446744073709551638",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
@@ -990,7 +935,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
     "quotaTotal": 100000,
     "quotaLeft": 99965,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1007,7 +951,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000002",
     "quotaTotal": 100000,
     "quotaLeft": 99965,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1024,7 +967,6 @@
     "returnData": "0000000000000000000000000000000000000000000000000000000000000001",
     "quotaTotal": 100000,
     "quotaLeft": 99960,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1041,7 +983,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 99966,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1058,7 +999,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 12",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1078,7 +1018,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 15",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1098,7 +1037,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "out of quota",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1118,7 +1056,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79776,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -1140,7 +1077,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79771,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -1162,7 +1098,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 11",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1182,7 +1117,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 2097154",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1202,7 +1136,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 13",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1222,7 +1155,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79769,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -1244,7 +1176,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (PUSH1) 14",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1264,7 +1195,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 79771,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -1286,7 +1216,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 10",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1306,7 +1235,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 11",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1326,7 +1254,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (JUMPDEST) 8",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1346,7 +1273,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (SELFDESTRUCT) 9",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1366,7 +1292,6 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "quotaRefund": 0,
     "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639924",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -1381,7 +1306,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79982,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1397,7 +1321,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79982,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1412,8 +1335,7 @@
     "code": "60ff60005560ee600a55606454601455",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaLeft": 54782,
-    "quotaRefund": 0,
+    "quotaLeft": 59582,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1430,7 +1352,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 61212,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1445,7 +1366,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79983,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1462,7 +1382,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1477,7 +1396,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1494,7 +1412,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1510,7 +1427,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1526,7 +1442,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 8390000,
     "sBHeight": 1,
     "storage": {
@@ -1542,7 +1457,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1558,7 +1472,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1573,7 +1486,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79983,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1590,7 +1502,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1606,7 +1517,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1621,7 +1531,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 39782,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1640,7 +1549,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 10000,
     "sBHeight": 1,
     "storage": {
@@ -1655,7 +1563,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1672,7 +1579,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1688,7 +1594,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1704,7 +1609,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1719,7 +1623,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79975,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1736,7 +1639,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1750,8 +1652,7 @@
     "code": "600051600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaLeft": 94988,
-    "quotaRefund": 0,
+    "quotaLeft": 99788,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1765,8 +1666,7 @@
     "code": "6017600152600051600155",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaLeft": 94976,
-    "quotaRefund": 0,
+    "quotaLeft": 99776,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1782,7 +1682,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1798,7 +1697,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1814,7 +1712,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 10000,
     "sBHeight": 1,
     "storage": {
@@ -1830,7 +1727,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1845,7 +1741,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79970,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1862,7 +1757,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1878,7 +1772,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1893,7 +1786,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1910,7 +1802,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1926,7 +1817,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1941,7 +1831,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99949,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "returnData": "02030503000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "sBHeight": 1,
@@ -1958,7 +1847,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1974,7 +1862,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -1989,7 +1876,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79965,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "returnData": "604554331415602c575b366080511015602b576020608051013560805135556040608051016080526009565b5b",
     "sBHeight": 1,
@@ -2006,7 +1892,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99999905,
-    "quotaRefund": 0,
     "quotaTotal": 100000000,
     "sBHeight": 1,
     "storage": {
@@ -2021,7 +1906,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99938,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "returnData": "0000000000000000000000000000000000000000000000000000000000000000",
     "sBHeight": 1,
@@ -2038,7 +1922,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 10000,
     "sBHeight": 1,
     "storage": {
@@ -2054,7 +1937,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2069,7 +1951,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79970,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2085,7 +1966,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99964,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "returnData": "0000000000000000000000000000000000000000000000000000000000000003",
     "sBHeight": 1,
@@ -2102,7 +1982,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2117,7 +1996,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79971,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2133,7 +2011,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79976,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2150,7 +2027,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2166,7 +2042,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2181,7 +2056,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79977,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2198,7 +2072,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2213,7 +2086,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99935,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "returnData": "0000000000000000000000000000000000000000000000000000000000000027",
     "sBHeight": 1,
@@ -2230,7 +2102,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2246,7 +2117,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 8390000,
     "sBHeight": 1,
     "storage": {
@@ -2261,7 +2131,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 608,
-    "quotaRefund": 0,
     "quotaTotal": 1000,
     "sBHeight": 1,
     "storage": {
@@ -2275,8 +2144,7 @@
     "code": "58600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaLeft": 94995,
-    "quotaRefund": 0,
+    "quotaLeft": 99795,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2291,7 +2159,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 99950,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2305,8 +2172,7 @@
     "code": "60ff60005558600055",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaLeft": 74989,
-    "quotaRefund": 0,
+    "quotaLeft": 79789,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2322,7 +2188,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79977,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2338,7 +2203,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79979,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2355,7 +2219,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2370,7 +2233,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79965,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2386,7 +2248,6 @@
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 79989,
-    "quotaRefund": 0,
     "quotaTotal": 100000,
     "sBHeight": 1,
     "storage": {
@@ -2401,7 +2262,6 @@
     "code": "60ff60ff630fffffffa1",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaRefund": 0,
     "quotaTotal": 8390000000,
     "sBHeight": 1,
     "storage": {
@@ -2416,7 +2276,6 @@
     "code": "60f1630fffffff52",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaRefund": 0,
     "quotaTotal": 8390000000,
     "sBHeight": 1,
     "storage": {
@@ -2431,7 +2290,6 @@
     "code": "60ff630fffffff21",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
-    "quotaRefund": 0,
     "quotaTotal": 8390000000,
     "sBHeight": 1,
     "storage": {

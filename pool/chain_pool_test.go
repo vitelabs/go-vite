@@ -114,7 +114,7 @@ func TestBCPool_CurrentModifyToChain(t *testing.T) {
 	cp.writeToChain(cp.current, cp.current.GetBlock(13))
 	cp.writeToChain(cp.current, cp.current.GetBlock(14))
 
-	clearChainBase(c4)
+	reduceChainByRefer(c4)
 	err := cp.currentModifyToChain(c4)
 	if err != nil {
 		t.Error(err)

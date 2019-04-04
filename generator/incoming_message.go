@@ -1,14 +1,122 @@
 package generator
 
 import (
-	"math/big"
-	"time"
-
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 )
+
+func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.AccountBlock, error) {
+	block := &ledger.AccountBlock{
+		BlockType:      im.BlockType,
+		AccountAddress: im.AccountAddress,
+		// after vm
+		Quota:         0,
+		SendBlockList: nil,
+		LogHash:       nil,
+		Hash:          types.Hash{},
+		Signature:     nil,
+		PublicKey:     nil,
+	}
+	switch im.BlockType {
+	case ledger.BlockTypeSendCreate, ledger.BlockTypeSendRefund, ledger.BlockTypeSendReward, ledger.BlockTypeSendCall:
+		block.Data = im.Data
+
+		block.FromBlockHash = types.Hash{}
+		if im.ToAddress != nil {
+			block.ToAddress = *im.ToAddress
+		} else {
+			return nil, errors.New("pack sendBlock failed, toAddress can't be nil")
+		}
+
+		if im.Amount == nil {
+			block.Amount = big.NewInt(0)
+		} else {
+			if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
+				return nil, errors.New("pack sendBlock failed, amount out of bounds")
+			}
+			block.Amount = im.Amount
+		}
+
+		if im.TokenId != nil {
+			block.TokenId = *im.TokenId
+		} else {
+			return nil, errors.New("pack sendBlock failed, cause tokenId is invaild")
+		}
+
+		if im.Fee == nil {
+			block.Fee = big.NewInt(0)
+		} else {
+			if im.Fee.Sign() < 0 || im.Fee.BitLen() > math.MaxBigIntLen {
+				return nil, errors.New("pack sendBlock failed, fee out of bounds")
+			}
+			block.Fee = im.Fee
+		}
+		// PrevHash, Height
+		prevBlock, err := vmDb.PrevAccountBlock()
+		if err != nil {
+			return nil, err
+		}
+		if prevBlock == nil {
+			return nil, errors.New("account address doesn't exist")
+		}
+
+		block.Height = prevBlock.Height + 1
+		block.PrevHash = prevBlock.Hash
+	case ledger.BlockTypeReceive:
+		block.Data = nil
+
+		block.ToAddress = types.Address{}
+		if im.FromBlockHash != nil && *im.FromBlockHash != types.ZERO_HASH {
+			block.FromBlockHash = *im.FromBlockHash
+		} else {
+			return nil, errors.New("pack recvBlock failed, cause sendBlock.Hash is invaild")
+		}
+
+		if im.Amount != nil && im.Amount.Cmp(big.NewInt(0)) != 0 {
+			return nil, errors.New("pack recvBlock failed, amount is invalid")
+		}
+		if im.TokenId != nil && *im.TokenId != types.ZERO_TOKENID {
+			return nil, errors.New("pack recvBlock failed, cause tokenId is invaild")
+		}
+		if im.Fee != nil && im.Fee.Cmp(big.NewInt(0)) != 0 {
+			return nil, errors.New("pack recvBlock failed, fee is invalid")
+		}
+
+		// PrevHash, Height
+		prevBlock, err := vmDb.PrevAccountBlock()
+		if err != nil {
+			return nil, err
+		}
+		var prevHash types.Hash
+		var preHeight uint64 = 0
+		if prevBlock != nil {
+			prevHash = prevBlock.Hash
+			preHeight = prevBlock.Height
+		}
+		block.PrevHash = prevHash
+		block.Height = preHeight + 1
+
+	default:
+		//ledger.BlockTypeReceiveError:
+		return nil, errors.New("generator can't solve this block type " + string(im.BlockType))
+	}
+	// Difficulty,Nonce
+	if im.Difficulty != nil {
+		// currently, default mode of GenerateWithOnroad is to calc pow
+		nonce, err := pow.GetPowNonce(im.Difficulty, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
+		if err != nil {
+			return nil, err
+		}
+		block.Nonce = nonce[:]
+		block.Difficulty = im.Difficulty
+	}
+	return block, nil
+}
 
 type IncomingMessage struct {
 	BlockType byte
@@ -23,96 +131,4 @@ type IncomingMessage struct {
 	Data    []byte
 
 	Difficulty *big.Int
-}
-
-func (im *IncomingMessage) ToSendBlock() (*ledger.AccountBlock, error) {
-	block := &ledger.AccountBlock{}
-	block.AccountAddress = im.AccountAddress
-	switch im.BlockType {
-	case ledger.BlockTypeSendCall:
-		block.AccountAddress = im.AccountAddress
-		block.BlockType = im.BlockType
-		block.FromBlockHash = types.Hash{}
-
-		block.Data = im.Data
-
-		if im.ToAddress != nil {
-			block.ToAddress = *im.ToAddress
-		} else {
-			return nil, errors.New("block toaddress can't be nil")
-		}
-
-		if im.Amount == nil {
-			block.Amount = big.NewInt(0)
-		} else {
-			if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
-				return nil, errors.New("block amount out of bounds")
-			}
-			block.Amount = im.Amount
-		}
-
-		if im.TokenId != nil {
-			block.TokenId = *im.TokenId
-		} else {
-			return nil, errors.New("block tokenid can't be nil")
-		}
-
-		if im.Fee == nil {
-			block.Fee = big.NewInt(0)
-		} else {
-			if im.Fee.Sign() < 0 || im.Fee.BitLen() > math.MaxBigIntLen {
-				return nil, errors.New("block fee out of bounds")
-			}
-			block.Fee = im.Fee
-		}
-
-	case ledger.BlockTypeSendCreate:
-		block.AccountAddress = im.AccountAddress
-		block.BlockType = im.BlockType
-		block.FromBlockHash = types.Hash{}
-
-		if im.ToAddress != nil {
-			block.ToAddress = *im.ToAddress
-		}
-
-		if im.Amount == nil {
-			block.Amount = big.NewInt(0)
-		} else {
-			if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
-				return nil, errors.New("block amount out of bounds")
-			}
-			block.Amount = im.Amount
-		}
-
-		if im.TokenId != nil {
-			block.TokenId = *im.TokenId
-		} else {
-			return nil, errors.New("block tokenid can't be nil")
-		}
-
-		if im.Fee == nil {
-			block.Fee = big.NewInt(0)
-		} else {
-			if im.Fee.Sign() < 0 || im.Fee.BitLen() > math.MaxBigIntLen {
-				return nil, errors.New("block fee out of bounds")
-			}
-			block.Fee = im.Fee
-		}
-
-		if len(im.Data) > 0 {
-			block.Data = im.Data
-		} else {
-			return nil, errors.New("block data can't be nil")
-		}
-
-	default:
-		return nil, errors.New("receive tx can't use func ToSendBlock")
-	}
-	return block, nil
-}
-
-type ConsensusMessage struct {
-	SnapshotHash types.Hash
-	Timestamp    time.Time
-	Producer     types.Address
 }

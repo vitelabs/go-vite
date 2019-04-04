@@ -19,7 +19,5 @@ type Worker interface {
 
 var (
 	POMAXPROCS                = runtime.NumCPU()
-	CommonFetchSize           = 4 * POMAXPROCS
 	ContractTaskProcessorSize = 2 * POMAXPROCS
-	ContractFetchSize         = 2 * POMAXPROCS
 )

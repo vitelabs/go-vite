@@ -6,23 +6,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"runtime"
-	"github.com/vitelabs/go-vite/log15"
+	"strings"
 )
 
-// it it return false it must not be a valid seedstore file
-// if it return a true it only means that might be true
+// it it return false it must not be chain valid seedstore file
+// if it return chain true it only means that might be true
 func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
 	}
 
-	// out keystore file size is about 500 so if a file is very large it must not be a keystore file
+	// out keystore file size is about 500 so if chain file is very large it must not be chain keystore file
 	if fi.Size() > 2*1024 {
 		return false, nil, nil
 	}
@@ -82,7 +82,6 @@ func readAndFixAddressFile(path string) (*types.Address, *entropyJSON) {
 	return &addr, &keyJSON
 
 }
-
 
 func addressFromKeyPath(keyfile string) (types.Address, error) {
 	_, filename := filepath.Split(keyfile)

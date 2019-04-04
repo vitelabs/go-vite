@@ -58,7 +58,7 @@ func New(cfg *Config) Net {
 	feed := newBlockFeeder()
 
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000))
-	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, g, feed)
+	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, feed)
 	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)     // subscribe sync status
@@ -79,7 +79,6 @@ func New(cfg *Config) Net {
 	n.addHandler(_statusHandler(statusHandler))
 	n.query = newQueryHandler(cfg.Chain)
 	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
-	n.addHandler(syncer)      // FileListCode, SubLedgerCode
 	n.addHandler(broadcaster) // NewSnapshotBlockCode, NewAccountBlockCode
 	n.addHandler(fetcher)     // SnapshotBlocksCode, AccountBlocksCode
 
@@ -132,6 +131,8 @@ func (n *net) Start(svr p2p.Server) (err error) {
 
 	n.wg.Add(1)
 	common.Go(n.heartbeat)
+
+	go n.syncer.readCacheLoop()
 
 	n.query.start()
 

@@ -10,7 +10,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999979973,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -28,7 +27,6 @@
     "returnData": "3456000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999979968,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -46,7 +44,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999979973,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -64,7 +61,6 @@
     "returnData": "3400000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999979968,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -81,8 +77,7 @@
     "code": "60006001600037600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994976,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999776,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -98,8 +93,7 @@
     "code": "60006001600037600051600055596000f3",
     "returnData": "0000000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994971,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999771,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -115,8 +109,7 @@
     "code": "60ff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa600037600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994931,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999731,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -132,8 +125,7 @@
     "code": "60ff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa600037600051600055596000f3",
     "returnData": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994926,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999726,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -149,8 +141,7 @@
     "code": "60097ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa600037600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994973,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999773,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -166,8 +157,7 @@
     "code": "60097ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa600037600051600055596000f3",
     "returnData": "0000000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994968,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999768,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -184,7 +174,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999979876,
-    "quotaRefund": 0,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000",
@@ -202,7 +191,6 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "quotaRefund": 0,
     "err": "stack underflow (2 <=> 3)",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -218,8 +206,7 @@
     "code": "60006000600037600051600055",
     "returnData": "",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994976,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999776,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
@@ -235,8 +222,7 @@
     "code": "60006000600037600051600055596000f3",
     "returnData": "0000000000000000000000000000000000000000000000000000000000000000",
     "quotaTotal": 100000000000,
-    "quotaLeft": 99999994971,
-    "quotaRefund": 0,
+    "quotaLeft": 99999999771,
     "err": "",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"

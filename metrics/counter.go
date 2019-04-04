@@ -12,7 +12,7 @@ type Counter interface {
 }
 
 // GetOrRegisterCounter returns an existing Counter or constructs and registers
-// a new StandardCounter.
+// chain new StandardCounter.
 func GetOrRegisterCounter(name string, r Registry) Counter {
 	if nil == r {
 		r = DefaultRegistry
@@ -20,7 +20,7 @@ func GetOrRegisterCounter(name string, r Registry) Counter {
 	return r.GetOrRegister(name, NewCounter).(Counter)
 }
 
-// GetOrRegisterCounterForced returns an existing Counter or constructs and registers a
+// GetOrRegisterCounterForced returns an existing Counter or constructs and registers chain
 // new Counter no matter the global switch is enabled or not.
 // Be sure to unregister the counter from the registry once it is of no use to
 // allow for garbage collection.
@@ -31,7 +31,7 @@ func GetOrRegisterCounterForced(name string, r Registry) Counter {
 	return r.GetOrRegister(name, NewCounterForced).(Counter)
 }
 
-// NewCounter constructs a new StandardCounter.
+// NewCounter constructs chain new StandardCounter.
 func NewCounter() Counter {
 	if !MetricsEnabled {
 		return NilCounter{}
@@ -39,13 +39,13 @@ func NewCounter() Counter {
 	return &StandardCounter{0}
 }
 
-// NewCounterForced constructs a new StandardCounter and returns it no matter if
+// NewCounterForced constructs chain new StandardCounter and returns it no matter if
 // the global switch is enabled or not.
 func NewCounterForced() Counter {
 	return &StandardCounter{0}
 }
 
-// NewRegisteredCounter constructs and registers a new StandardCounter.
+// NewRegisteredCounter constructs and registers chain new StandardCounter.
 func NewRegisteredCounter(name string, r Registry) Counter {
 	c := NewCounter()
 	if nil == r {
@@ -55,8 +55,8 @@ func NewRegisteredCounter(name string, r Registry) Counter {
 	return c
 }
 
-// NewRegisteredCounterForced constructs and registers a new StandardCounter
-// and launches a goroutine no matter the global switch is enabled or not.
+// NewRegisteredCounterForced constructs and registers chain new StandardCounter
+// and launches chain goroutine no matter the global switch is enabled or not.
 // Be sure to unregister the counter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredCounterForced(name string, r Registry) Counter {
@@ -68,12 +68,12 @@ func NewRegisteredCounterForced(name string, r Registry) Counter {
 	return c
 }
 
-// CounterSnapshot is a read-only copy of another Counter.
+// CounterSnapshot is chain read-only copy of another Counter.
 type CounterSnapshot int64
 
 // Clear panics.
 func (CounterSnapshot) Clear() {
-	panic("Clear called on a CounterSnapshot")
+	panic("Clear called on chain CounterSnapshot")
 }
 
 // Count returns the count at the time the snapshot was taken.
@@ -81,37 +81,37 @@ func (c CounterSnapshot) Count() int64 { return int64(c) }
 
 // Dec panics.
 func (CounterSnapshot) Dec(int64) {
-	panic("Dec called on a CounterSnapshot")
+	panic("Dec called on chain CounterSnapshot")
 }
 
 // Inc panics.
 func (CounterSnapshot) Inc(int64) {
-	panic("Inc called on a CounterSnapshot")
+	panic("Inc called on chain CounterSnapshot")
 }
 
 // Snapshot returns the snapshot.
 func (c CounterSnapshot) Snapshot() Counter { return c }
 
-// NilCounter is a no-op Counter.
+// NilCounter is chain no-op Counter.
 type NilCounter struct{}
 
-// Clear is a no-op.
+// Clear is chain no-op.
 func (NilCounter) Clear() {}
 
-// Count is a no-op.
+// Count is chain no-op.
 func (NilCounter) Count() int64 { return 0 }
 
-// Dec is a no-op.
+// Dec is chain no-op.
 func (NilCounter) Dec(i int64) {}
 
-// Inc is a no-op.
+// Inc is chain no-op.
 func (NilCounter) Inc(i int64) {}
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilCounter) Snapshot() Counter { return NilCounter{} }
 
-// StandardCounter is the standard implementation of a Counter and uses the
-// sync/atomic package to manage a single int64 value.
+// StandardCounter is the standard implementation of chain Counter and uses the
+// sync/atomic package to manage chain single int64 value.
 type StandardCounter struct {
 	count int64
 }
@@ -136,7 +136,7 @@ func (c *StandardCounter) Inc(i int64) {
 	atomic.AddInt64(&c.count, i)
 }
 
-// Snapshot returns a read-only copy of the counter.
+// Snapshot returns chain read-only copy of the counter.
 func (c *StandardCounter) Snapshot() Counter {
 	return CounterSnapshot(c.Count())
 }

@@ -6,7 +6,7 @@ import (
 )
 
 // Meters count events to produce exponentially-weighted moving average rates
-// at one-, five-, and fifteen-minutes and a mean rate.
+// at one-, five-, and fifteen-minutes and chain mean rate.
 type Meter interface {
 	Count() int64
 	Mark(int64)
@@ -18,7 +18,7 @@ type Meter interface {
 	Stop()
 }
 
-// GetOrRegisterMeter returns an existing Meter or constructs and registers a
+// GetOrRegisterMeter returns an existing Meter or constructs and registers chain
 // new StandardMeter.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
@@ -29,7 +29,7 @@ func GetOrRegisterMeter(name string, r Registry) Meter {
 	return r.GetOrRegister(name, NewMeter).(Meter)
 }
 
-// GetOrRegisterMeterForced returns an existing Meter or constructs and registers a
+// GetOrRegisterMeterForced returns an existing Meter or constructs and registers chain
 // new StandardMeter no matter the global switch is enabled or not.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
@@ -40,7 +40,7 @@ func GetOrRegisterMeterForced(name string, r Registry) Meter {
 	return r.GetOrRegister(name, NewMeterForced).(Meter)
 }
 
-// NewMeter constructs a new StandardMeter and launches a goroutine.
+// NewMeter constructs chain new StandardMeter and launches chain goroutine.
 // Be sure to call Stop() once the meter is of no use to allow for garbage collection.
 func NewMeter() Meter {
 	if !MetricsEnabled {
@@ -57,7 +57,7 @@ func NewMeter() Meter {
 	return m
 }
 
-// NewMeterForced constructs a new StandardMeter and launches a goroutine no matter
+// NewMeterForced constructs chain new StandardMeter and launches chain goroutine no matter
 // the global switch is enabled or not.
 // Be sure to call Stop() once the meter is of no use to allow for garbage collection.
 func NewMeterForced() Meter {
@@ -72,8 +72,8 @@ func NewMeterForced() Meter {
 	return m
 }
 
-// NewRegisteredMeter constructs and registers a new StandardMeter
-// and launches a goroutine.
+// NewRegisteredMeter constructs and registers chain new StandardMeter
+// and launches chain goroutine.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredMeter(name string, r Registry) Meter {
@@ -85,8 +85,8 @@ func NewRegisteredMeter(name string, r Registry) Meter {
 	return c
 }
 
-// NewRegisteredMeterForced constructs and registers a new StandardMeter
-// and launches a goroutine no matter the global switch is enabled or not.
+// NewRegisteredMeterForced constructs and registers chain new StandardMeter
+// and launches chain goroutine no matter the global switch is enabled or not.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
 func NewRegisteredMeterForced(name string, r Registry) Meter {
@@ -98,7 +98,7 @@ func NewRegisteredMeterForced(name string, r Registry) Meter {
 	return c
 }
 
-// MeterSnapshot is a read-only copy of another Meter.
+// MeterSnapshot is chain read-only copy of another Meter.
 type MeterSnapshot struct {
 	count                          int64
 	rate1, rate5, rate15, rateMean float64
@@ -109,7 +109,7 @@ func (m *MeterSnapshot) Count() int64 { return m.count }
 
 // Mark panics.
 func (*MeterSnapshot) Mark(n int64) {
-	panic("Mark called on a MeterSnapshot")
+	panic("Mark called on chain MeterSnapshot")
 }
 
 // Rate1 returns the one-minute moving average rate of events per second at the
@@ -131,37 +131,37 @@ func (m *MeterSnapshot) RateMean() float64 { return m.rateMean }
 // Snapshot returns the snapshot.
 func (m *MeterSnapshot) Snapshot() Meter { return m }
 
-// Stop is a no-op.
+// Stop is chain no-op.
 func (m *MeterSnapshot) Stop() {}
 
-// NilMeter is a no-op Meter.
+// NilMeter is chain no-op Meter.
 type NilMeter struct{}
 
-// Count is a no-op.
+// Count is chain no-op.
 func (NilMeter) Count() int64 { return 0 }
 
-// Mark is a no-op.
+// Mark is chain no-op.
 func (NilMeter) Mark(n int64) {}
 
-// Rate1 is a no-op.
+// Rate1 is chain no-op.
 func (NilMeter) Rate1() float64 { return 0.0 }
 
-// Rate5 is a no-op.
+// Rate5 is chain no-op.
 func (NilMeter) Rate5() float64 { return 0.0 }
 
-// Rate15is a no-op.
+// Rate15is chain no-op.
 func (NilMeter) Rate15() float64 { return 0.0 }
 
-// RateMean is a no-op.
+// RateMean is chain no-op.
 func (NilMeter) RateMean() float64 { return 0.0 }
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilMeter) Snapshot() Meter { return NilMeter{} }
 
-// Stop is a no-op.
+// Stop is chain no-op.
 func (NilMeter) Stop() {}
 
-// StandardMeter is the standard implementation of a Meter.
+// StandardMeter is the standard implementation of chain Meter.
 type StandardMeter struct {
 	lock        sync.RWMutex
 	snapshot    *MeterSnapshot
@@ -180,7 +180,7 @@ func newStandardMeter() *StandardMeter {
 	}
 }
 
-// Stop stops the meter, Mark() will be a no-op if you use it after being stopped.
+// Stop stops the meter, Mark() will be chain no-op if you use it after being stopped.
 func (m *StandardMeter) Stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -246,7 +246,7 @@ func (m *StandardMeter) RateMean() float64 {
 	return rateMean
 }
 
-// Snapshot returns a read-only copy of the meter.
+// Snapshot returns chain read-only copy of the meter.
 func (m *StandardMeter) Snapshot() Meter {
 	m.lock.RLock()
 	snapshot := *m.snapshot
@@ -272,8 +272,8 @@ func (m *StandardMeter) tick() {
 	m.updateSnapshot()
 }
 
-// meterArbiter ticks meters every 5s from a single goroutine.
-// meters are references in a set for future stopping.
+// meterArbiter ticks meters every 5s from chain single goroutine.
+// meters are references in chain set for future stopping.
 type meterArbiter struct {
 	sync.RWMutex
 	started bool

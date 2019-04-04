@@ -2,417 +2,268 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/flusher"
+	"github.com/vitelabs/go-vite/chain/genesis"
 	"github.com/vitelabs/go-vite/chain/index"
-	"github.com/vitelabs/go-vite/chain/sender"
-	"github.com/vitelabs/go-vite/chain/trie_gc"
-	"github.com/vitelabs/go-vite/chain_db"
-	"github.com/vitelabs/go-vite/compress"
+	"github.com/vitelabs/go-vite/chain/state"
+	"github.com/vitelabs/go-vite/chain/sync_cache"
 	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm_context"
-	"path/filepath"
-	"reflect"
+	"os"
+	"path"
 	"sync"
+	"sync/atomic"
+)
+
+const (
+	stop  = 0
+	start = 1
 )
 
 type chain struct {
-	log        log15.Logger
-	blackBlock *blackBlock
+	cfg       *config.Genesis
+	dataDir   string
+	chainDir  string
+	consensus Consensus
 
-	chainDb    *chain_db.ChainDb
-	compressor *compress.Compressor
-
-	trieNodePool  *trie.TrieNodePool
-	stateTriePool *StateTriePool
-
-	createAccountLock sync.Mutex
-
-	needSnapshotCache *chain_cache.NeedSnapshotCache
-
-	genesisSnapshotBlock *ledger.SnapshotBlock
-	latestSnapshotBlock  *ledger.SnapshotBlock
-
-	dataDir       string
-	ledgerDirName string
+	log log15.Logger
 
 	em *eventManager
 
-	cfg         *config.Chain
-	globalCfg   *config.Config
-	kafkaSender *sender.KafkaSender
-	trieGc      trie_gc.Collector
+	cache *chain_cache.Cache
 
-	saveTrieLock sync.RWMutex
+	indexDB *chain_index.IndexDB
 
-	saveTrieStatus     uint8
-	saveTrieStatusLock sync.Mutex
+	blockDB *chain_block.BlockDB
 
-	saList *chain_cache.AdditionList
-	fti    *chain_index.FilterTokenIndex
+	stateDB *chain_state.StateDB
+
+	syncCache interfaces.SyncCache
+
+	flusher *chain_flusher.Flusher
+
+	flusherMu sync.RWMutex
+
+	status uint32
 }
 
-func NewChain(cfg *config.Config) Chain {
-	chain := &chain{
-		log:                  log15.New("module", "chain"),
-		ledgerDirName:        "ledger",
-		genesisSnapshotBlock: &GenesisSnapshotBlock,
-		dataDir:              cfg.DataDir,
-		cfg:                  cfg.Chain,
-		globalCfg:            cfg,
+/*
+ * Init chain config
+ */
+func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
+	return &chain{
+		cfg:      genesisCfg,
+		dataDir:  dir,
+		chainDir: path.Join(dir, "ledger"),
+		log:      log15.New("module", "chain"),
+		em:       newEventManager(),
 	}
+}
 
-	if chain.cfg == nil {
-		chain.cfg = &config.Chain{}
-	}
-
-	if chain.cfg.OpenFilterTokenIndex {
+/*
+ * 1. Check and init ledger (check genesis block)
+ * 2. Init index database
+ * 3. Init state_bak database
+ * 4. Init block database
+ * 5. Init cache
+ */
+func (c *chain) Init() error {
+	c.log.Info("Begin initializing", "method", "Init")
+	for {
 		var err error
-		chain.fti, err = chain_index.NewFilterTokenIndex(cfg, chain)
+		// Init ledger
+		c.indexDB, err = chain_index.NewIndexDB(c.chainDir)
 		if err != nil {
-			chain.log.Crit("NewFilterTokenIndex failed, error is "+err.Error(), "method", "NewChain")
-			return nil
+			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+			return err
+		}
+
+		c.blockDB, err = chain_block.NewBlockDB(c.chainDir)
+		if err != nil {
+			c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+			return err
+		}
+
+		status, err := chain_genesis.CheckLedger(c, c.cfg)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+		if status != chain_genesis.LedgerInvalid {
+			// valid or empty
+			// Init cache
+			if c.cache, err = chain_cache.NewCache(c); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
+				return err
+			}
+
+			// Init state  db
+			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
+
+				c.log.Error(cErr.Error(), "method", "Init")
+				return err
+			}
+
+			// init flusher
+			stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, stores, c.chainDir); err != nil {
+				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+				c.log.Error(cErr.Error(), "method", "Init")
+				return cErr
+			}
+
+			if status == chain_genesis.LedgerEmpty {
+				// Init Ledger
+				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
+					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
+					c.log.Error(cErr.Error(), "method", "Init")
+					return err
+				}
+			}
+
+			// check and repair
+			if err := c.flusher.Recover(); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
+				c.log.Error(cErr.Error(), "method", "Init")
+				return cErr
+			}
+
+			break
+
+		}
+
+		// clean
+		if err = c.indexDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+		if err = c.blockDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		if err = c.cleanAllData(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
 		}
 	}
 
-	chain.needSnapshotCache = chain_cache.NewNeedSnapshotCache(chain)
-	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
-
-	// set ledger GenesisAccountAddress
-	ledger.GenesisAccountAddress = cfg.Genesis.GenesisAccountAddress
-
-	initGenesis(cfg.Genesis)
-	return chain
-}
-
-func (c *chain) Init() {
-	// Start initialize
-	c.log.Info("Init chain module")
-
-	// stateTriePool
-	c.stateTriePool = NewStateTriePool(c)
-
-	// eventManager
-	c.em = newEventManager()
-
-	// chainDb
-	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, c.ledgerDirName))
-	if chainDb == nil {
-		c.log.Crit("NewChain failed, db init failed", "method", "Init")
+	// init cache
+	if err := c.cache.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
 	}
-	c.chainDb = chainDb
 
-	// cache
-	c.initCache()
+	// recover unconfirmed cache
+	if err := c.recoverUnconfirmedCache(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.recoverUnconfirmedCache failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
+	}
 
-	// saList
+	// init sync cache
 	var err error
-	c.saList, err = chain_cache.NewAdditionList(c)
+	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
 	if err != nil {
-		c.log.Crit("chain_cache.NewAdditionList failed, error is "+err.Error(), "method", "Init")
+		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
 	}
 
-	// trie gc
-	c.trieGc = trie_gc.NewCollector(c, c.cfg.LedgerGcRetain)
-
-	// compressor
-	compressor := compress.NewCompressor(c, c.dataDir)
-	c.compressor = compressor
-
-	// kafka sender
-	if len(c.cfg.KafkaProducers) > 0 {
-		var newKafkaErr error
-		c.kafkaSender, newKafkaErr = sender.NewKafkaSender(c, filepath.Join(c.dataDir, "ledger_mq"))
-		if newKafkaErr != nil {
-			c.log.Crit("NewKafkaSender failed, error is " + newKafkaErr.Error())
-		}
-	}
-	// Finish initialize
-	c.log.Info("Chain module initialized")
+	c.log.Info("Complete initialization", "method", "Init")
+	return nil
 }
 
-func (c *chain) KafkaSender() *sender.KafkaSender {
-	return c.kafkaSender
+func (c *chain) Start() error {
+	if !atomic.CompareAndSwapUint32(&c.status, stop, start) {
+		return nil
+	}
+
+	//c.flusher.Start()
+	c.log.Info("Start flusher", "method", "Start")
+	return nil
 }
 
-func (c *chain) checkData() bool {
-	sb := c.genesisSnapshotBlock
-	sb2 := SecondSnapshotBlock
-
-	dbSb, err := c.GetSnapshotBlockByHeight(1)
-	dbSb2, err2 := c.GetSnapshotBlockByHeight(2)
-
-	if err != nil || dbSb == nil || sb.Hash != dbSb.Hash ||
-		err2 != nil || dbSb2 == nil || sb2.Hash != dbSb2.Hash {
-		if err != nil {
-			c.log.Crit("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "CheckAndInitDb")
-		}
-
-		if err2 != nil {
-			c.log.Crit("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
-		}
-		return false
+func (c *chain) Stop() error {
+	if !atomic.CompareAndSwapUint32(&c.status, start, stop) {
+		return nil
 	}
 
-	return true
+	c.blockDB.Stop()
+	c.log.Info("Stop block db", "method", "Stop")
+
+	return nil
 }
 
-func (c *chain) checkForkPoints() (bool, *config.ForkPoint, error) {
-	if c.globalCfg.ForkPoints == nil {
-		return true, nil, nil
+func (c *chain) Destroy() error {
+	c.log.Info("Begin to destroy", "method", "Destroy")
+
+	c.cache.Destroy()
+	c.log.Info("Destroy cache", "method", "Destroy")
+
+	if err := c.stateDB.Destroy(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Destroy failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Destroy")
+		return cErr
 	}
+	c.log.Info("Destroy stateDB", "method", "Destroy")
 
-	latestSnapshotHeight := c.GetLatestSnapshotBlock().Height
-
-	t := reflect.TypeOf(c.globalCfg.Genesis.ForkPoints).Elem()
-	v := reflect.ValueOf(c.globalCfg.Genesis.ForkPoints).Elem()
-
-	for k := 0; k < t.NumField(); k++ {
-		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
-		if forkPoint.Height > 0 && forkPoint.Hash != nil && forkPoint.Height <= latestSnapshotHeight {
-			blockPoint, err := c.GetSnapshotBlockByHash(forkPoint.Hash)
-			if err != nil {
-				return false, nil, err
-			}
-			if blockPoint == nil {
-				return false, forkPoint, nil
-			}
-		}
+	if err := c.indexDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Destroy failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Destroy")
+		return cErr
 	}
+	c.log.Info("Destroy indexDB", "method", "Destroy")
 
-	return true, nil, nil
+	if err := c.blockDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Destroy")
+		return cErr
+	}
+	c.log.Info("Destroy blockDB", "method", "Destroy")
+
+	c.flusher = nil
+	c.cache = nil
+	c.stateDB = nil
+	c.indexDB = nil
+	c.blockDB = nil
+
+	c.log.Info("Complete destruction", "method", "Destroy")
+
+	return nil
 }
 
-func (c *chain) checkAndInitData() {
-	if !c.checkData() {
-		// clear data
-		c.clearData()
-		// init data
-		c.initData()
-		// init cache
-		c.initCache()
-	}
-
-	noFork, forkPoint, err := c.checkForkPoints()
+func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
+	absoluteDirName := path.Join(c.chainDir, dirName)
+	db, err := leveldb.OpenFile(absoluteDirName, nil)
 
 	if err != nil {
-		c.log.Crit("checkForkPoints failed, error is "+err.Error(), "method", "checkAndInitData")
+		return nil, err
 	}
-
-	// is fork
-	if !noFork {
-		latestSb := c.GetLatestSnapshotBlock()
-		latestHeight := latestSb.Height
-
-		// delete to forkPoint.Height - 1
-		_, _, err := c.DeleteSnapshotBlocksToHeight(forkPoint.Height)
-		if err != nil {
-			c.log.Crit("DeleteSnapshotBlocksToHeight failed, error is "+err.Error(), "method", "checkAndInitData")
-		}
-
-		if c.cfg.LedgerGc && forkPoint.Height+1800 < latestHeight {
-			// recover trie
-			c.TrieGc().Recover()
-		}
-	}
-
+	return db, nil
+}
+func (c *chain) SetConsensus(cs Consensus) {
+	c.consensus = cs
 }
 
-func (c *chain) clearData() {
-	// compressor clear
-	err1 := c.compressor.ClearData()
-	if err1 != nil {
-		c.log.Crit("Compressor clear data failed, error is " + err1.Error())
-	}
-	// db clear
-	err2 := c.chainDb.ClearData()
-	if err2 != nil {
-		c.log.Crit("ChainDb clear data failed, error is " + err2.Error())
-	}
-}
-
-func (c *chain) initData() {
-	// Write genesis snapshot block
-	var err error
-	// Insert snapshot block
-	err = c.InsertSnapshotBlock(&GenesisSnapshotBlock)
-	if err != nil {
-		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
-
-	}
-
-	// Insert mintage block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisMintageBlock,
-		VmContext:    GenesisMintageBlockVC,
-	}, {
-		AccountBlock: &GenesisMintageSendBlock,
-		VmContext:    GenesisMintageSendBlockVC,
-	}})
-	if err != nil {
-		c.log.Crit("InsertGenesisMintageBlock failed, error is "+err.Error(), "method", "initData")
-	}
-
-	// Insert consensus group block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisConsensusGroupBlock,
-		VmContext:    GenesisConsensusGroupBlockVC,
-	}})
-
-	if err != nil {
-		c.log.Crit("InsertGenesisConsensusGroupBlock failed, error is "+err.Error(), "method", "initData")
-	}
-
-	// Insert register block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisRegisterBlock,
-		VmContext:    GenesisRegisterBlockVC,
-	}})
-	if err != nil {
-		c.log.Crit("InsertGenesisRegisterBlock failed, error is "+err.Error(), "method", "initData")
-	}
-
-	// Insert second snapshot block
-	err = c.InsertSnapshotBlock(&SecondSnapshotBlock)
-	if err != nil {
-		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
-	}
-}
-
-func (c *chain) initCache() {
-	// latestSnapshotBlock
-	var getLatestBlockErr error
-	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
-	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
-	}
-
-	// needSnapshotCache
-	c.needSnapshotCache.Build()
-
-	// trieNodePool
-	c.trieNodePool = trie.NewTrieNodePool()
-}
-
-func (c *chain) Compressor() *compress.Compressor {
-	return c.compressor
-}
-
-func (c *chain) ChainDb() *chain_db.ChainDb {
-	return c.chainDb
-}
-
-func (c *chain) SaList() *chain_cache.AdditionList {
-	return c.saList
-}
-
-func (c *chain) Fti() *chain_index.FilterTokenIndex {
-	return c.fti
-}
-
-func (c *chain) Start() {
-	// saList start
-	c.saList.Start()
-
-	// Start compress in the background
-	c.log.Info("Start chain module")
-
-	// check
-	c.checkAndInitData()
-
-	// start compressor
-	c.compressor.Start()
-
-	// start kafka sender
-	if c.kafkaSender != nil {
-		for _, producer := range c.cfg.KafkaProducers {
-			startErr := c.kafkaSender.Start(producer.BrokerList, producer.Topic)
-			if startErr != nil {
-				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
-			}
-		}
-	}
-
-	// check trie
-	if result, err := c.TrieGc().Check(); err != nil {
-		panic(errors.New("c.TrieGc().Check() failed when start chain, error is " + err.Error()))
-	} else if !result {
-		c.TrieGc().Recover()
-	}
-
-	// trie gc
-	if c.cfg.LedgerGc {
-		c.TrieGc().Start()
-	}
-
-	// start build filter token index
-	if c.fti != nil {
-		fmt.Printf("FilterTokenIndex is being initialized...\n")
-		c.fti.Start()
-		fmt.Printf("FilterTokenIndex initialization complete\n")
-	}
-
-	c.log.Info("Chain module started")
-}
-
-func (c *chain) Stop() {
-	// stop build filter token index
-	if c.fti != nil {
-		c.fti.Stop()
-	}
-
-	// saList top
-	c.saList.Stop()
-
-	// trie gc
-	if c.cfg.LedgerGc {
-		c.TrieGc().Stop()
-	}
-	// Stop compress
-	c.log.Info("Stop chain module")
-
-	// stop compressor
-	c.compressor.Stop()
-
-	// stop kafka sender
-	if c.kafkaSender != nil {
-		c.kafkaSender.StopAll()
-	}
-
-	c.log.Info("Chain module stopped")
-}
-
-func (c *chain) Destroy() {
-	c.log.Info("Destroy chain module")
-	// stateTriePool
-	c.stateTriePool = nil
-
-	// close db
-	c.chainDb.Db().Close()
-	c.chainDb = nil
-
-	// compressor
-	c.compressor = nil
-
-	// trieNodePool
-	c.trieNodePool = nil
-
-	// needSnapshotCache
-	c.needSnapshotCache = nil
-
-	// kafka sender
-	c.kafkaSender = nil
-
-	c.log.Info("Chain module destroyed")
-}
-func (c *chain) TrieGc() trie_gc.Collector {
-	return c.trieGc
-}
-
-func (c *chain) TrieDb() *leveldb.DB {
-	return c.ChainDb().Db()
+func (c *chain) cleanAllData() error {
+	return os.RemoveAll(c.chainDir)
 }

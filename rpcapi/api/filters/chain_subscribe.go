@@ -1,11 +1,10 @@
 package filters
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type AccountChainEvent struct {
@@ -24,48 +23,58 @@ type ChainSubscribe struct {
 
 func NewChainSubscribe(v *vite.Vite, e *EventSystem) *ChainSubscribe {
 	c := &ChainSubscribe{vite: v, es: e}
-	list := make([]uint64, 0, 3)
-	list = append(list, v.Chain().RegisterInsertAccountBlocksSuccess(c.InsertedAccountBlocks))
-	list = append(list, v.Chain().RegisterDeleteAccountBlocks(c.PreDeleteAccountBlocks))
-	list = append(list, v.Chain().RegisterDeleteAccountBlocksSuccess(c.DeletedAccountBlocks))
-	c.listenIdList = list
+	v.Chain().Register(c)
 	return c
 }
 
 func (c *ChainSubscribe) Stop() {
-	for _, id := range c.listenIdList {
-		c.vite.Chain().UnRegister(id)
-	}
+	c.vite.Chain().UnRegister(c)
 }
 
-func (c *ChainSubscribe) InsertedAccountBlocks(blocks []*vm_context.VmAccountBlock) {
+func (c *ChainSubscribe) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+	return nil
+}
+
+func (c *ChainSubscribe) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	acEvents := make([]*AccountChainEvent, len(blocks))
 	for i, b := range blocks {
-		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmContext.GetLogList()}
+		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmDb.GetLogList()}
 	}
 	c.es.acCh <- acEvents
+	return nil
 }
 
-func (c *ChainSubscribe) PreDeleteAccountBlocks(batch *leveldb.Batch, subLedger map[types.Address][]*ledger.AccountBlock) error {
+func (c *ChainSubscribe) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	return nil
+}
+func (c *ChainSubscribe) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	return nil
+}
+func (c *ChainSubscribe) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	acEvents := make([]*AccountChainEvent, 0)
-	for addr, blocks := range subLedger {
-		for _, b := range blocks {
-			if b.LogHash != nil {
-				logList, err := c.vite.Chain().GetVmLogList(b.LogHash)
-				if err != nil {
-					c.es.log.Error("get log list failed when preDeleteAccountBlocks", "addr", addr, "hash", b.Hash, "height", b.Height, "err", err)
-				}
-				acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, addr, logList})
-			} else {
-				acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, addr, nil})
+	for _, b := range blocks {
+		if b.LogHash != nil {
+			logList, err := c.vite.Chain().GetVmLogList(b.LogHash)
+			if err != nil {
+				c.es.log.Error("get log list failed when preDeleteAccountBlocks", "addr", b.AccountAddress, "hash", b.Hash, "height", b.Height, "err", err)
 			}
+			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, logList})
+		} else {
+			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, nil})
 		}
 	}
 	c.preDeleteAccountBlocks = append(c.preDeleteAccountBlocks, acEvents...)
 	return nil
 }
-func (c *ChainSubscribe) DeletedAccountBlocks(subLedger map[types.Address][]*ledger.AccountBlock) {
+func (c *ChainSubscribe) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	deletedBlocks := c.preDeleteAccountBlocks
 	c.preDeleteAccountBlocks = nil
 	c.es.acDelCh <- deletedBlocks
+	return nil
+}
+func (c *ChainSubscribe) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	return nil
+}
+func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	return nil
 }

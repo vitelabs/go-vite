@@ -44,7 +44,7 @@ func blockPolicy(t time.Time, count int) bool {
 	return true
 }
 
-// Config is the essential configuration to create a p2p.server
+// Config is the essential configuration to create chain p2p.server
 type Config struct {
 	Discovery       bool
 	Name            string
@@ -438,7 +438,7 @@ func (svr *server) listenLoop() {
 			if addr := conn.RemoteAddr().(*net.TCPAddr); svr.blocked(addr.IP) {
 				svr.log.Warn(fmt.Sprintf("%s has been blocked, will not setup", addr))
 				conn.Close()
-				// next pending
+				// next db
 				<-svr.pending
 			} else {
 				common.Go(func() {

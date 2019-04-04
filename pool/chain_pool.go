@@ -81,49 +81,30 @@ func (self *chainPool) init() {
 	self.addChain(self.current)
 }
 
+/** constrained condition:
+disk header block can be found in chain.
+*/
 func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	if chain.id() == self.current.id() {
 		return nil
 	}
-	head := self.diskChain.Head()
-	w := chain.getBlock(head.Height(), true)
-	if w == nil ||
-		w.Hash() != head.Hash() {
-		return errors.New("chain can't refer to disk head")
-	}
-	chain.getBlock(self.current.tailHeight, true)
-	if w == nil || w.Hash() != self.current.tailHash {
-		return errors.New(fmt.Sprintf("chain tail height error. tailHeight:%d, headHeight:%d", self.current.tailHeight, head.Height()))
+
+	err := self.checkAncestor(chain, self.diskChain)
+	if err != nil {
+		return err
 	}
 
 	e := self.check()
 	if e != nil {
 		self.log.Error("---------[1]", "err", e)
 	}
-	//// todo other chain refer to current ???
+
 	for chain.referChain.id() != self.diskChain.id() {
 		fromChain := chain.referChain.(*forkedChain)
-		if fromChain.size() == 0 {
-			r := clearChainBase(chain)
-			if len(r) > 0 {
-				self.log.Info("currentModifyToChain[3]-clearChainBase", "chainId", chain.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
-			}
-			self.log.Error("modify refer[6]", "from", fromChain.id(), "to", chain.id(),
-				"fromTailHeight", fromChain.tailHeight, "fromHeadHeight", fromChain.headHeight,
-				"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-			chain.referChain = fromChain.referChain
-			self.modifyChainRefer2(fromChain, chain, chain)
-			self.delChain(fromChain.id())
-			continue
-		}
-		e := self.modifyRefer(fromChain, chain)
-		if e != nil {
-			self.log.Error(e.Error())
-			break
-		}
-		r := clearChainBase(chain)
-		if len(r) > 0 {
-			self.log.Debug("currentModifyToChain[2]-clearChainBase", "chainId", chain.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+
+		err := self.exchangeRefer(fromChain, chain)
+		if err != nil {
+			return err
 		}
 	}
 	self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
@@ -139,9 +120,9 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 }
 
 func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
-	r := clearChainBase(to)
+	r := reduceChainByRefer(to)
 	if len(r) > 0 {
-		self.log.Debug("modifyRefer-clearChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		self.log.Debug("modifyRefer-clear ChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
 	}
 	// from.tailHeight <= to.tailHeight  && from.headHeight > to.tail.Height
 	toTailHeight := to.tailHeight
@@ -164,18 +145,19 @@ func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
 		to.referChain = from.referChain
 		from.referChain = to
 
-		e := self.modifyChainRefer2(from, to, to)
+		e := self.modifyReferForChainExchange(from, to, to)
+
 		self.log.Info("modify refer", "from", from.id(), "to", to.id(),
 			"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
 			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight, "err", e)
-		return nil
+		return e
 	} else {
 		return errors.Errorf("err for modifyRefer.from:%s, to:%s, fromTailHeight:%d, fromHeadHeight:%d, toTailHeight:%d, toHeadHeight:%d",
 			from.id(), to.id(), fromTailHeight, fromHeadHeight, toTailHeight, to.headHeight)
 
 	}
 }
-func (self *chainPool) modifyChainRefer2(from *forkedChain, to *forkedChain, diskInstead *forkedChain) error {
+func (self *chainPool) modifyReferForChainExchange(from *forkedChain, to *forkedChain, diskInstead *forkedChain) error {
 	toTailHeight := to.tailHeight
 	fromTailHeight := from.tailHeight
 	fromHeadHeight := from.headHeight
@@ -273,7 +255,7 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	c := self.current
 	c.referChain = new
 	self.current = new
-	self.modifyChainRefer2(c, new, new)
+	self.modifyReferForChainExchange(c, new, new)
 }
 func (self *chainPool) fork2(snippet *snippetChain, chains []*forkedChain) (bool, bool, *forkedChain, error) {
 
@@ -461,6 +443,10 @@ func (e ForkChainError) Error() string {
 	return fmt.Sprintf("%s", e.What)
 }
 func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
+	if self.current.id() == c.id() {
+		// todo remove
+		self.log.Info(fmt.Sprintf("insert to current:[%s-%d]%s", wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+	}
 	if wrapper.Height() == c.headHeight+1 {
 		if c.headHash == wrapper.PrevHash() {
 			c.addHead(wrapper)
@@ -634,4 +620,79 @@ func (self *chainPool) findOtherChainsByTail(cur *forkedChain, hash types.Hash, 
 		}
 	}
 	return result
+}
+func (self *chainPool) findEmptyForHead(head commonBlock) *forkedChain {
+	for _, c := range self.chains {
+		if c.size() == uint64(0) && c.headHash == head.Hash() {
+			return c
+		}
+	}
+	return nil
+}
+func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader) error {
+	head := ancestor.Head()
+	ancestorBlock := c.getBlock(head.Height(), true)
+	if ancestorBlock == nil || ancestorBlock.Hash() != head.Hash() {
+		return errors.New("check ancestor fail")
+	}
+	return nil
+}
+func (self *chainPool) exchangeRefer(from *forkedChain, to *forkedChain) error {
+	err := self.checkExchangeRefer(from, to)
+	if err != nil {
+		return err
+	}
+	if from.size() == 0 {
+		r := reduceChainByRefer(to)
+		if len(r) > 0 {
+			self.log.Info("currentModifyToChain[3]-clear ChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		}
+		self.log.Error("modify refer[6]", "from", from.id(), "to", to.id(),
+			"fromTailHeight", from.tailHeight, "fromHeadHeight", from.headHeight,
+			"toTailHeight", to.tailHeight, "toHeadHeight", to.headHeight)
+		to.referChain = from.referChain
+		err := self.modifyReferForChainExchange(from, to, to)
+		if err != nil {
+			return err
+		}
+		self.delChain(from.id())
+		return nil
+	} else {
+		err := self.modifyRefer(from, to)
+		if err != nil {
+			return err
+		}
+	}
+
+	r := reduceChainByRefer(to)
+	if len(r) > 0 {
+		self.log.Debug("currentModifyToChain[2]-clear ChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+	}
+	return nil
+}
+func (self *chainPool) checkExchangeRefer(from *forkedChain, to *forkedChain) error {
+	if to.tailHash == from.tailHash {
+		return nil
+	}
+
+	tailBlock := from.getBlock(to.tailHeight, false)
+	if tailBlock == nil {
+		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty]",
+			to.id(), from.id(), to.tailHeight, to.tailHash)
+	}
+	if tailBlock.Hash() == to.tailHash {
+		return nil
+	} else {
+		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s]",
+			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash())
+	}
+}
+func (self *chainPool) getCurrentBlocks(begin uint64, end uint64) (blocks []commonBlock) {
+	for i := begin; i <= end; i++ {
+		block := self.current.getBlock(i, true)
+		if block == nil {
+			return
+		}
+	}
+	return blocks
 }

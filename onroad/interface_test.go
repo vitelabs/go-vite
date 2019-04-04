@@ -1,15 +1,16 @@
 package onroad_test
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
-	"time"
 )
 
 type testNet struct {
@@ -38,13 +39,10 @@ type testPool struct {
 
 func (t testProducer) produceEvent(duration time.Duration) {
 	t.f(producerevent.AccountStartEvent{
-		Gid:            types.SNAPSHOT_GID,
-		Address:        t.Addr,
-		Stime:          time.Now(),
-		Etime:          time.Now().Add(duration),
-		Timestamp:      time.Now(),
-		SnapshotHash:   types.Hash{},
-		SnapshotHeight: 0,
+		Gid:     types.SNAPSHOT_GID,
+		Address: t.Addr,
+		Stime:   time.Now(),
+		Etime:   time.Now().Add(duration),
 	})
 }
 
@@ -82,12 +80,12 @@ func (testPool) ExistInPool(address types.Address, fromBlockHash types.Hash) boo
 	return false
 }
 
-func (testPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_context.VmAccountBlock) error {
+func (testPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-func (testPool) AddDirectAccountBlocks(address types.Address, received *vm_context.VmAccountBlock,
-	sendBlocks []*vm_context.VmAccountBlock) error {
+func (testPool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock,
+	sendBlocks []*vm_db.VmAccountBlock) error {
 	return nil
 }
 

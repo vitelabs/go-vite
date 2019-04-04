@@ -30,18 +30,18 @@ type MsgIder interface {
 	MsgID() uint64
 }
 
-// a fetchPolicy implementation can choose suitable peers to fetch blocks
+// chain fetchPolicy implementation can choose suitable peers to fetch blocks
 type fetchPolicy interface {
 	accountTargets(height uint64) (l []Peer)
 	snapshotTarget(height uint64) Peer
 }
 
-// a fp is fetchPolicy implementation
+// chain fp is fetchPolicy implementation
 type fp struct {
 	peers *peerSet
 }
 
-// best peer , random peer, a random taller peer
+// best peer , random peer, chain random taller peer
 func (p *fp) accountTargets(height uint64) []Peer {
 	var l, taller []Peer
 

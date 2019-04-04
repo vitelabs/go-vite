@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"math/big"
-	"strings"
 )
 
 const (
@@ -21,18 +22,24 @@ const (
 )
 
 var (
-	AddressRegister, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
-	AddressVote, _           = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2})
 	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3})
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})
 
-	PrecompiledContractAddressList             = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
-	PrecompiledContractWithoutQuotaAddressList = []Address{AddressRegister, AddressVote, AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContractWithSendConfirm      = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 
-func IsPrecompiledContractAddress(addr Address) bool {
-	for _, cAddr := range PrecompiledContractAddressList {
+func IsBuiltinContractAddr(addr Address) bool {
+	addrBytes := addr.Bytes()
+	if helper.AllZero(addrBytes[:AddressSize-1]) && addrBytes[AddressSize-1] != byte(0) {
+		return true
+	}
+	return false
+}
+func IsBuiltinContractAddrInUse(addr Address) bool {
+	for _, cAddr := range BuiltinContractAddrList {
 		if cAddr == addr {
 			return true
 		}
@@ -40,8 +47,17 @@ func IsPrecompiledContractAddress(addr Address) bool {
 	return false
 }
 
-func IsPrecompiledContractWithoutQuotaAddress(addr Address) bool {
-	for _, cAddr := range PrecompiledContractWithoutQuotaAddressList {
+func IsBuiltinContractAddrInUseWithoutQuota(addr Address) bool {
+	for _, cAddr := range BuiltinContractWithoutQuotaAddrList {
+		if cAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+func IsBuiltinContractAddrInUseWithSendConfirm(addr Address) bool {
+	for _, cAddr := range BuiltinContractWithSendConfirm {
 		if cAddr == addr {
 			return true
 		}
@@ -68,6 +84,14 @@ func HexToAddress(hexStr string) (Address, error) {
 	} else {
 		return Address{}, fmt.Errorf("not valid hex address %v", hexStr)
 	}
+}
+
+func HexToAddressPanic(hexstr string) Address {
+	h, err := HexToAddress(hexstr)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 func IsValidHexAddress(hexStr string) bool {

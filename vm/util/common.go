@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
-	"time"
 )
 
 var (
@@ -22,30 +21,30 @@ func IsViteToken(tokenId types.TokenTypeId) bool {
 func IsSnapshotGid(gid types.Gid) bool {
 	return gid == types.SNAPSHOT_GID
 }
+func IsDelegateGid(gid types.Gid) bool {
+	return gid == types.DELEGATE_GID
+}
 
-func MakeSendBlock(block *ledger.AccountBlock, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, height uint64, data []byte) *ledger.AccountBlock {
-	newTimestamp := time.Unix(0, block.Timestamp.UnixNano())
+func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, data []byte) *ledger.AccountBlock {
 	return &ledger.AccountBlock{
-		AccountAddress: block.AccountAddress,
+		AccountAddress: fromAddress,
 		ToAddress:      toAddress,
 		BlockType:      blockType,
 		Amount:         amount,
 		TokenId:        tokenId,
-		Height:         height,
-		SnapshotHash:   block.SnapshotHash,
 		Data:           data,
 		Fee:            big.NewInt(0),
-		Timestamp:      &newTimestamp,
 	}
 }
 
 var (
 	SolidityPPContractType = []byte{1}
 	contractTypeSize       = 1
+	confirmTimeSize        = 1
 )
 
-func GetCreateContractData(bytecode []byte, contractType []byte, gid types.Gid) []byte {
-	return helper.JoinBytes(gid.Bytes(), contractType, bytecode)
+func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, bytecode)
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -54,7 +53,7 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 }
 
 func GetCodeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize+contractTypeSize:]
+	return data[types.GidSize+contractTypeSize+confirmTimeSize:]
 }
 func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
@@ -65,29 +64,41 @@ func IsExistContractType(contractType []byte) bool {
 	}
 	return false
 }
+func GetConfirmTimeFromCreateContractData(data []byte) uint8 {
+	return uint8(data[types.GidSize+contractTypeSize])
+}
 
 func PackContractCode(contractType, code []byte) []byte {
 	return helper.JoinBytes(contractType, code)
 }
 
 type CommonDb interface {
-	GetContractCode(addr *types.Address) []byte
+	Address() *types.Address
+	IsContractAccount() (bool, error)
+	GetContractCode() ([]byte, error)
+	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error)
 }
 
-func GetContractCode(db CommonDb, addr *types.Address) ([]byte, []byte) {
-	code := db.GetContractCode(addr)
+func GetContractCode(db CommonDb, addr *types.Address, status *GlobalStatus) ([]byte, []byte) {
+	var code []byte
+	var err error
+	if *db.Address() == *addr {
+		code, err = db.GetContractCode()
+	} else {
+		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock)
+	}
+	DealWithErr(err)
 	if len(code) > 0 {
 		return code[:contractTypeSize], code[contractTypeSize:]
 	}
 	return nil, nil
 }
 
-func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.Address {
+func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.Address {
 	return types.CreateContractAddress(
 		accountAddress.Bytes(),
 		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
+		prevBlockHash.Bytes())
 }
 
 func PrintMap(m map[string][]byte) string {
@@ -106,15 +117,24 @@ func PrintMap(m map[string][]byte) string {
 	return result
 }
 
-func IsUserAccount(db CommonDb, addr types.Address) bool {
-	if types.IsPrecompiledContractAddress(addr) {
+func IsUserAccount(db CommonDb) bool {
+	// TODO check this method
+	if types.IsBuiltinContractAddr(*db.Address()) {
 		return false
 	}
-	_, code := GetContractCode(db, &addr)
-	return len(code) == 0
+	ok, err := db.IsContractAccount()
+	DealWithErr(err)
+	return !ok
 }
 
 func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
 	topics, data, _ := c.PackEvent(name, params...)
 	return &ledger.VmLog{Topics: topics, Data: data}
+}
+
+func IsRetryAfterLatestSnapshotBlockChanged(block *ledger.AccountBlock, useGlobalStatus bool) bool {
+	if useGlobalStatus || IsPoW(block) || block.BlockType == ledger.BlockTypeReceiveError {
+		return true
+	}
+	return false
 }

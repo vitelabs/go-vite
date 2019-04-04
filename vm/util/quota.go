@@ -3,6 +3,7 @@ package util
 import (
 	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 var (
@@ -11,12 +12,12 @@ var (
 )
 
 const (
-	txDataZeroGas               uint64 = 4     // Per byte of data attached to a transaction that equals zero.
-	txDataNonZeroGas            uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
-	TxGas                       uint64 = 21000 // Per transaction not creating a contract.
-	PrecompiledContractsSendGas uint64 = 21068
-	RefundGas                   uint64 = 21000
-	txContractCreationGas       uint64 = 53000 // Per transaction that creates a contract.
+	txDataZeroGas         uint64 = 4     // Per byte of data attached to a transaction that equals zero.
+	txDataNonZeroGas      uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
+	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
+	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
+	QuotaRange            uint64 = 75
+	ConfirmGas            uint64 = 200
 )
 
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {
@@ -27,15 +28,14 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	return quotaLeft, nil
 }
 
-func UseQuotaForData(data []byte, quotaLeft uint64) (uint64, error) {
-	cost, err := DataGasCost(data)
-	if err != nil {
-		return 0, err
+func UseQuotaWithFlag(quotaLeft, cost uint64, flag bool) (uint64, error) {
+	if flag {
+		return UseQuota(quotaLeft, cost)
 	}
-	return UseQuota(quotaLeft, cost)
+	return quotaLeft + cost, nil
 }
 
-func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
+func IntrinsicGasCost(data []byte, isCreate bool, confirmTime uint8) (uint64, error) {
 	var gas uint64
 	if isCreate {
 		gas = txContractCreationGas
@@ -46,7 +46,15 @@ func IntrinsicGasCost(data []byte, isCreate bool) (uint64, error) {
 	if err != nil || helper.MaxUint64-gas < gasData {
 		return 0, errGasUintOverflow
 	}
-	return gas + gasData, nil
+	gas = gas + gasData
+	if confirmTime == 0 {
+		return gas, nil
+	}
+	confirmGas := uint64(confirmTime) * ConfirmGas
+	if helper.MaxUint64-gas < confirmGas {
+		return 0, errGasUintOverflow
+	}
+	return gas + confirmGas, nil
 }
 
 func DataGasCost(data []byte) (uint64, error) {
@@ -72,20 +80,21 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
-func CalcQuotaUsed(quotaTotal, quotaAddition, quotaLeft, quotaRefund uint64, err error) uint64 {
+func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) uint64 {
+	if !useQuota {
+		return 0
+	}
 	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition
-	} else if err != nil {
+	} else {
 		if quotaTotal-quotaLeft < quotaAddition {
 			return 0
 		} else {
 			return quotaTotal - quotaAddition - quotaLeft
 		}
-	} else {
-		if quotaTotal-quotaLeft < quotaAddition {
-			return 0
-		} else {
-			return quotaTotal - quotaLeft - quotaAddition - helper.Min(quotaRefund, (quotaTotal-quotaAddition-quotaLeft)/2)
-		}
 	}
+}
+
+func IsPoW(block *ledger.AccountBlock) bool {
+	return len(block.Nonce) > 0
 }

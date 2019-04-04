@@ -3,37 +3,40 @@ package monitor
 import (
 	"encoding/json"
 	"github.com/vitelabs/go-vite/metrics"
+	"fmt"
+	"math/rand"
+	"os"
+	"os/user"
+	"path"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"strings"
-
 	"github.com/vitelabs/go-vite/log15"
 )
 
 func init() {
-	//usr, e := user.Current()
-	//if e != nil {
-	//	log15.Root().Error("can't get current user.", "err", e)
-	//}
-	//PID := strconv.Itoa(os.Getpid())
-	////设置日志文件地址
-	//dir := path.Join(usr.HomeDir, "go-vite", "backend-log")
-	//os.MkdirAll(dir, os.ModePerm)
-	//
-	//rand.Seed(time.Now().Unix())
-	//fileName := path.Join(dir, "backend.log."+PID)
-	//
-	//log15.Info("", "monitor-log", fileName)
-	//
-	//logger = log15.New("logtype", "1", "appkey", "govite", "PID", PID)
-	//logger.SetHandler(
-	//	log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.JsonFormat())),
-	//)
-	//m = &monitor{r: newRing(60)}
-	//go loop()
+	usr, e := user.Current()
+	if e != nil {
+		log15.Root().Error("can't get current user.", "err", e)
+	}
+	PID := strconv.Itoa(os.Getpid())
+	//设置日志文件地址
+	dir := path.Join(usr.HomeDir, "go-vite", "backend-log")
+	os.MkdirAll(dir, os.ModePerm)
+
+	rand.Seed(time.Now().Unix())
+	fileName := path.Join(dir, "backend.log."+"test") // TODO fix
+
+	log15.Info("", "monitor-log", fileName)
+
+	logger = log15.New("logtype", "1", "appkey", "govite", "PID", PID)
+	logger.SetHandler(
+		log15.LvlFilterHandler(log15.LvlInfo, log15.Must.FileHandler(fileName, log15.JsonFormat())),
+	)
+	m = &monitor{r: newRing(60)}
+	go loop()
 }
 
 var m *monitor
@@ -97,13 +100,14 @@ func LogDuration(t string, name string, duration int64) {
 }
 
 func log(t string, name string, i int64) {
-	//k := key(t, name)
-	//value, ok := m.ms.Load(k)
-	//if ok {
-	//	value.(*Msg).add(i)
-	//} else {
-	//	m.ms.Store(k, newMsg().add(i))
-	//}
+	// TODO fix
+	k := key(t, name)
+	value, ok := m.ms.Load(k)
+	if ok {
+		value.(*Msg).add(i)
+	} else {
+		m.ms.Store(k, newMsg().add(i))
+	}
 }
 
 type stat struct {
@@ -167,13 +171,24 @@ func loop() {
 				s := tmpM.Sum
 				key := k.(string)
 				// groupName  and metricName
-				groupAndName := strings.Split(key, "-")
-				if len(groupAndName) == 2 {
-					logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
+				//groupAndName := strings.Split(key, "-")
+				//if len(groupAndName) == 2 {
+				//	logger.Info("", "group", groupAndName[0], "interval", 1, "name", groupAndName[1],
+				//		"metric-cnt", c,
+				//		"metric-sum", s,
+				//	)
+				//} else {
+				//	logger.Info("", "group", key, "interval", 1, "name", key,
+				//		"metric-cnt", c,
+				//		"metric-sum", s,
+				//	)
+				//}
+				// todo FIX
+				if key == "chain-insert" {
+					fmt.Println("group", key, "interval", 1, "name", key,
 						"metric-cnt", c,
 						"metric-sum", s,
 					)
-				} else {
 					logger.Info("", "group", key, "interval", 1, "name", key,
 						"metric-cnt", c,
 						"metric-sum", s,
