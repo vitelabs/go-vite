@@ -144,7 +144,7 @@ func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash t
 			continue
 		}
 		tmpProofHash = p.PrevHash
-		if err := result.Append(p); err != nil {
+		if err := result.LeftAppend(p); err != nil {
 			return nil, err
 		}
 	}

@@ -95,7 +95,7 @@ func (self *Point) Unmarshal(buf []byte) error {
 	}
 	return nil
 }
-func (self *Point) Append(p *Point) error {
+func (self *Point) LeftAppend(p *Point) error {
 	if self.Hash == self.PrevHash {
 		self.Hash = p.Hash
 		self.PrevHash = p.PrevHash
@@ -108,6 +108,22 @@ func (self *Point) Append(p *Point) error {
 	}
 
 	self.PrevHash = p.PrevHash
+	self.Sbps = mergeMap(self.Sbps, p.Sbps)
+	return nil
+}
+func (self *Point) RightAppend(p *Point) error {
+	if self.Hash == self.PrevHash {
+		self.Hash = p.Hash
+		self.PrevHash = p.PrevHash
+		self.Sbps = p.Sbps
+		return nil
+	}
+
+	if self.Hash != p.PrevHash {
+		return errors.Errorf("hash[%s] and prev[%s] hash can't match", self.Hash, p.PrevHash)
+	}
+
+	self.Hash = p.Hash
 	self.Sbps = mergeMap(self.Sbps, p.Sbps)
 	return nil
 }
