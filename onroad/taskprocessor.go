@@ -72,14 +72,14 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 
 	sBlock := tp.worker.acquireNewOnroadBlocks(&task.Addr)
 	if sBlock == nil {
-		return true
+		return false
 	}
 	blog := tp.log.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
 
 	// fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
-		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
+		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err:%v", err))
 		tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return true
 	}
@@ -122,7 +122,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return true
 		}
 		// succeed in handling a onroad block, if it's a inferior-caller,than set it free.
-		tp.worker.deletePendingOnroadBlock(&task.Addr, genResult.VmBlock.AccountBlock)
+		tp.worker.deletePendingOnroadBlock(&task.Addr, sBlock)
 
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")

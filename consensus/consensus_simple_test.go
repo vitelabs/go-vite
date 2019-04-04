@@ -39,4 +39,6 @@ func TestSimpleCs(t *testing.T) {
 	for k, v := range eleIndex.Plans {
 		assert.Equal(t, eleTime.Plans[k], v)
 	}
+
+	assert.Equal(t, uint64(0), cs.Time2Index(simpleGenesis.Add(time.Second)))
 }

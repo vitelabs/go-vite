@@ -25,7 +25,7 @@ type GroupInfo struct {
 	// todo
 	CheckLevel uint8
 
-	genesisTime  time.Time
+	GenesisTime  time.Time
 	seed         *big.Int
 	PlanInterval uint64
 	//countingTokenId types.TokenTypeId
@@ -34,7 +34,7 @@ type GroupInfo struct {
 func NewGroupInfo(genesisTime time.Time, info types.ConsensusGroupInfo) *GroupInfo {
 	groupInfo := &GroupInfo{
 		ConsensusGroupInfo: info,
-		genesisTime:        genesisTime,
+		GenesisTime:        genesisTime,
 		seed:               new(big.Int).SetBytes(info.Gid.Bytes()),
 	}
 
@@ -56,19 +56,19 @@ func planInterval(info *GroupInfo) uint64 {
 }
 
 func (self *GroupInfo) Time2Index(t time.Time) uint64 {
-	subSec := int64(t.Sub(self.genesisTime).Seconds())
+	subSec := int64(t.Sub(self.GenesisTime).Seconds())
 
 	i := uint64(subSec) / self.PlanInterval
 	return i
 }
 func (self *GroupInfo) GenSTime(index uint64) time.Time {
 	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*index) * time.Second)
+	return self.GenesisTime.Add(time.Duration(planInterval*index) * time.Second)
 }
 
 func (self *GroupInfo) GenETime(index uint64) time.Time {
 	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
+	return self.GenesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
 
 func (self *GroupInfo) Index2Time(index uint64) (time.Time, time.Time) {
@@ -82,7 +82,7 @@ func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
 		index = 2
 	}
 	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*(index-1)) * time.Second)
+	return self.GenesisTime.Add(time.Duration(planInterval*(index-1)) * time.Second)
 }
 
 func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
@@ -117,6 +117,6 @@ func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) [
 
 func (self *GroupInfo) String() string {
 	return fmt.Sprintf("genesisTime:%s, memberCnt:%d, interval:%d, perCnt:%d, randCnt:%d, randRange:%d, seed:%s, countingTokenId:%s",
-		self.genesisTime.String(), self.NodeCount, self.Interval, self.PerCount, self.RandCount, self.RandRank, self.seed, self.CountingTokenId.String())
+		self.GenesisTime.String(), self.NodeCount, self.Interval, self.PerCount, self.RandCount, self.RandRank, self.seed, self.CountingTokenId.String())
 
 }
