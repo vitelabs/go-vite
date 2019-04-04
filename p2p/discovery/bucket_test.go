@@ -1,7 +1,6 @@
 package discovery
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
@@ -26,6 +25,15 @@ func TestBuck_add(t *testing.T) {
 		}
 	}
 
+	// node in bucket, return it to check
+	if bkt.add(node) != node {
+		t.Fail()
+	}
+
+	// node not in bucket, return the first element to check
+	node = &Node{
+		Node: *vnode.MockNode(false, false),
+	}
 	if bkt.add(node) != first {
 		t.Fail()
 	}
@@ -91,10 +99,6 @@ func TestBuck_bubble(t *testing.T) {
 		}
 
 		nodes[i] = node
-	}
-
-	for _, node = range nodes {
-		fmt.Println(node.ID)
 	}
 
 	for i, node = range nodes {
@@ -210,7 +214,7 @@ func TestBuck_nodes(t *testing.T) {
 		}
 	}
 
-	nodes2 = bkt.nodes(total + 1)
+	nodes2 = bkt.nodes(total + 10)
 	if len(nodes2) != total {
 		t.Fail()
 	}

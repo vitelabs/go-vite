@@ -94,14 +94,14 @@ func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
 	return
 }
 
-func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
-	meta |= putIdSize(isize << 6)
-	meta |= lsize << 4
-	if compressed {
-		meta |= 8
-	}
-	return
-}
+//func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
+//	meta |= putIdSize(isize << 6)
+//	meta |= lsize << 4
+//	if compressed {
+//		meta |= 8
+//	}
+//	return
+//}
 
 type transport struct {
 	net.Conn
@@ -157,7 +157,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 	}
 
 	meta := buf[0]
-	msg.Pid = buf[1]
+	msg.pid = buf[1]
 	msg.Code = buf[2]
 	msg.ReceivedAt = time.Now()
 
@@ -205,7 +205,7 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := make([]byte, headLength+maxIdLength+maxPayloadLength)
-	head[1] = msg.Pid
+	head[1] = msg.pid
 	head[2] = msg.Code
 
 	var headLen = 3

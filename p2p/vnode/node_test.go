@@ -21,8 +21,8 @@ package vnode
 import (
 	"bytes"
 	crand "crypto/rand"
+	"errors"
 	"fmt"
-	"math/rand"
 	"testing"
 )
 
@@ -103,7 +103,13 @@ func TestParseNode_Net(t *testing.T) {
 	}
 }
 
-func TestDistance(t *testing.T) {
+func TestCommonBits(t *testing.T) {
+	var id, id2 NodeID
+
+	if commonBits(id, id2) != IDBits {
+		t.Error("not equal")
+	}
+
 	for i := uint(0); i < IDBits; i++ {
 		var a, b NodeID
 
@@ -113,34 +119,201 @@ func TestDistance(t *testing.T) {
 		// set i bit to 1
 		a[byt] = a[byt] | (1 << (7 - bit))
 
-		fmt.Printf("%b\n", a)
-		fmt.Printf("%b\n", b)
+		if commonBits(a, b) != i {
+			t.Errorf("commonBits should equal %d, but get %d", i, commonBits(a, b))
+		}
+	}
+}
 
-		fmt.Println()
+func TestCommonNBits(t *testing.T) {
+	var id = RandomNodeID()
+
+	for i := uint(0); i <= IDBits; i++ {
+		id2 := commonNBits(id, i)
+		if commonBits(id, id2) != i {
+			commonNBits(id, i)
+			t.Errorf(fmt.Sprintf("commonBits should equal %d, but get %d", i, commonBits(id, id2)))
+		}
+	}
+}
+
+func TestDistance(t *testing.T) {
+	var a, b NodeID
+	if Distance(a, b) != 0 {
+		t.Errorf("distance should equal %d, but get %d", 0, Distance(a, b))
+	}
+
+	for i := uint(0); i < IDBits; i++ {
+		var a, b NodeID
+
+		byt := i / 8
+		bit := i % 8
+
+		// set i bit to 1
+		a[byt] = a[byt] | (1 << (7 - bit))
 
 		if Distance(a, b) != IDBits-i {
-			fmt.Printf("%b\n", a)
-			fmt.Printf("%b\n", b)
-
 			t.Errorf("distance should equal %d, but get %d", i, Distance(a, b))
 		}
 	}
 }
 
 func TestRandFromDistance(t *testing.T) {
-	var id, id2 NodeID
-	var d uint
+	for i := 0; i < 1000; i++ {
+		var id NodeID
+		_, err := crand.Read(id[:])
+		if err != nil {
+			t.Error(err)
+		}
 
-	for i := 0; i < 1000000; i++ {
-		crand.Read(id[:])
-		d = uint(rand.Intn(IDBits))
-		id2 = RandFromDistance(id, d)
+		for d := uint(0); d <= idBytes; d++ {
+			id2 := RandFromDistance(id, d)
+			if Distance(id, id2) != d {
+				t.Errorf("distance should equal %d, but get %d", d, Distance(id, id2))
+			}
+		}
+	}
+}
 
-		if Distance(id, id2) != d {
-			fmt.Printf("%b\n", id)
-			fmt.Printf("%b\n", id2)
-			fmt.Println(Distance(id, id2), d)
-			t.Fatal()
+func TestParseNode(t *testing.T) {
+	type sample struct {
+		url   string
+		equal func(n *Node, err error) error
+	}
+
+	var samples = []sample{
+		{
+			"vite.org",
+			func(n *Node, err error) error {
+				if err != nil {
+					return errors.New("error should be nil")
+				}
+				if n.ID != ZERO {
+					return fmt.Errorf("id should be zero, not %s", n.ID.String())
+				}
+				if n.EndPoint.String() != "vite.org:8483" {
+					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
+				}
+				if n.Typ != HostDomain {
+					return fmt.Errorf("host type should not be %d", n.Typ)
+				}
+				if n.Net != 0 {
+					return fmt.Errorf("net should not be %d", n.Net)
+				}
+				if n.String() != "0000000000000000000000000000000000000000000000000000000000000000@vite.org" {
+					return fmt.Errorf("wrong string")
+				}
+				return nil
+			},
+		},
+		{
+			"0000000000000000000000000000000000000000000000000000000000000000@vite.org",
+			func(n *Node, err error) error {
+				if err != nil {
+					return errors.New("error should be nil")
+				}
+				if n.ID != ZERO {
+					return fmt.Errorf("id should be zero, not %s", n.ID.String())
+				}
+				if n.EndPoint.String() != "vite.org:8483" {
+					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
+				}
+				if n.Typ != HostDomain {
+					return fmt.Errorf("host type should not be %d", n.Typ)
+				}
+				if n.Net != 0 {
+					return fmt.Errorf("net should not be %d", n.Net)
+				}
+				if n.String() != "0000000000000000000000000000000000000000000000000000000000000000@vite.org" {
+					return fmt.Errorf("wrong string")
+				}
+				return nil
+			},
+		},
+		{
+			"0000000000000000000000000000000000000000000000000000000000000001@127.0.0.1/2",
+			func(n *Node, err error) error {
+				if err != nil {
+					return errors.New("error should be nil")
+				}
+				var id NodeID
+				id[len(id)-1] = 1
+				if n.ID != id {
+					return fmt.Errorf("id should not be %s", n.ID.String())
+				}
+				if n.EndPoint.String() != "127.0.0.1:8483" {
+					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
+				}
+				if n.Typ != HostIPv4 {
+					return fmt.Errorf("host type should not be %d", n.Typ)
+				}
+				if n.Net != 2 {
+					return fmt.Errorf("net should not be %d", n.Net)
+				}
+				if n.String() != "0000000000000000000000000000000000000000000000000000000000000001@127.0.0.1/2" {
+					return fmt.Errorf("wrong string")
+				}
+				return nil
+			},
+		},
+		{
+			"0000000000000000000000000000000000000000000000000000000000000001@127.0.0.1:8484/2",
+			func(n *Node, err error) error {
+				if err != nil {
+					return errors.New("error should be nil")
+				}
+				var id NodeID
+				id[len(id)-1] = 1
+				if n.ID != id {
+					return fmt.Errorf("id should not be %s", n.ID.String())
+				}
+				if n.EndPoint.String() != "127.0.0.1:8484" {
+					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
+				}
+				if n.Typ != HostIPv4 {
+					return fmt.Errorf("host type should not be %d", n.Typ)
+				}
+				if n.Net != 2 {
+					return fmt.Errorf("net should not be %d", n.Net)
+				}
+				if n.String() != "0000000000000000000000000000000000000000000000000000000000000001@127.0.0.1:8484/2" {
+					return fmt.Errorf("wrong string")
+				}
+				return nil
+			},
+		},
+		{
+			"0000000000000000000000000000000000000000000000000000000000000001@[::1]/4",
+			func(n *Node, err error) error {
+				if err != nil {
+					return errors.New("error should be nil")
+				}
+				var id NodeID
+				id[len(id)-1] = 1
+				if n.ID != id {
+					return fmt.Errorf("id should not be %s", n.ID.String())
+				}
+				if n.EndPoint.String() != "[::1]:8483" {
+					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
+				}
+				if n.Typ != HostIPv6 {
+					return fmt.Errorf("host type should not be %d", n.Typ)
+				}
+				if n.Net != 4 {
+					return fmt.Errorf("net should not be %d", n.Net)
+				}
+				if n.String() != "0000000000000000000000000000000000000000000000000000000000000001@[::1]/4" {
+					return fmt.Errorf("wrong string")
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, samp := range samples {
+		n, err := ParseNode(samp.url)
+		if err = samp.equal(n, err); err != nil {
+			t.Error(err)
 		}
 	}
 }

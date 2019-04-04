@@ -88,7 +88,7 @@ func (l *list) Traverse(handler func(value interface{}) bool) {
 	}
 }
 
-// Filter, if filter return true, will remove those elements
+// Filter if filter return true, will remove those elements
 func (l *list) Filter(filter func(value interface{}) bool) {
 	for prev, current := l.head, l.head.next; current != nil; {
 		if filter(current.Value) {

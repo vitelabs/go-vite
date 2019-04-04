@@ -75,6 +75,45 @@ func TestEndPoint_Serialize(t *testing.T) {
 	}
 }
 
+func TestEndPoint_Deserialize(t *testing.T) {
+	endpoints := []*EndPoint{{
+		Host: []byte{0, 0, 0, 0},
+		Port: 8888,
+		Typ:  HostIPv4,
+	}, {
+		Host: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		Port: 8889,
+		Typ:  HostIPv6,
+	}, {
+		Host: []byte("vite.org"),
+		Port: 9000,
+		Typ:  HostDomain,
+	}, {
+		Host: []byte("vite.org"),
+		Port: 8483,
+		Typ:  HostDomain,
+	}}
+
+	var data [][]byte
+	for _, ep := range endpoints {
+		if buf, err := ep.Serialize(); err != nil {
+			t.Error(err)
+		} else {
+			data = append(data, buf)
+		}
+	}
+
+	for i, buf := range data {
+		var e = new(EndPoint)
+		if err := e.Deserialize(buf); err != nil {
+			t.Error(err)
+		}
+		if !endpoints[i].Equal(e) {
+			t.Error("not equal")
+		}
+	}
+}
+
 func ExampleParseIP() {
 	// even if ip is v4, the parsed IP is 16 bytes
 	ip := net.ParseIP("127.0.0.1")

@@ -20,17 +20,14 @@ package discovery
 
 import (
 	"errors"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p/config"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-const seedCount = 50
 const seedMaxAge = 7 * 24 * time.Hour
 const tRefresh = 24 * time.Hour        // refresh the node table at tRefresh intervals
 const storeInterval = 15 * time.Minute // store nodes in table to db at storeDuration intervals
@@ -42,7 +39,7 @@ const dbCleanInterval = time.Hour
 var errDiscoveryIsRunning = errors.New("discovery is running")
 var errDiscoveryIsStopped = errors.New("discovery is stopped")
 var errDifferentNet = errors.New("different net")
-var errPingNotFailed = errors.New("failed to ping node")
+var errPingFailed = errors.New("failed to ping node")
 
 // Discovery is the interface to discovery other node
 type Discovery interface {
@@ -53,6 +50,7 @@ type Discovery interface {
 	Resolve(id vnode.NodeID)
 	Verify(node vnode.Node)
 	SetFinder(f Finder)
+	AllNodes() []*vnode.Node
 }
 
 type db interface {
@@ -64,7 +62,8 @@ type db interface {
 }
 
 type discovery struct {
-	config.Config
+	*Config
+	node *vnode.Node
 
 	booters []booter
 
@@ -105,10 +104,12 @@ func (d *discovery) GetNodes(count int) []vnode.Node {
 }
 
 func (d *discovery) SetFinder(f Finder) {
-	d.finder.UnSub(d.table)
+	if d.finder != nil {
+		d.finder.UnSub(d.table)
+	}
 
 	d.finder = f
-	f.Sub(d.table)
+	d.finder.Sub(d.table)
 }
 
 func (d *discovery) Delete(id vnode.NodeID) {
@@ -128,7 +129,7 @@ func (d *discovery) Verify(node vnode.Node) {
 }
 
 // New create a Discovery implementation
-func New(cfg config.Config) Discovery {
+func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config: cfg,
 		stage:  make(map[string]*Node),
@@ -137,9 +138,13 @@ func New(cfg config.Config) Discovery {
 
 	d.cond = sync.NewCond(&d.mu)
 
-	d.socket = newAgent(cfg.PrivateKey, &cfg.Node, d.handle)
+	d.node = cfg.Node()
 
-	d.table = newTable(&cfg.Node, bucketSize, bucketNum, newListBucket, d)
+	d.socket = newAgent(cfg.PrivateKey(), d.node, d.handle)
+
+	d.table = newTable(d.node.ID, bucketSize, bucketNum, newListBucket, d)
+
+	d.SetFinder(&closetFinder{table: d.table})
 
 	return d
 }
@@ -149,15 +154,16 @@ func (d *discovery) Start() (err error) {
 		return errDiscoveryIsRunning
 	}
 
-	ndb, err := newDB(d.Config.DataDir, 3, d.Node.ID)
+	// open database
+	d.db, err = newDB(d.Config.DataDir, 3, d.node.ID)
 	if err != nil {
 		return
 	}
-	d.db = ndb
 
+	// retrieve boot nodes
 	d.booters = append(d.booters, newDBBooter(d.db))
-	if len(d.BootSeed) > 0 {
-		d.booters = append(d.booters, newNetBooter(&d.Node, d.BootSeed))
+	if len(d.BootSeeds) > 0 {
+		d.booters = append(d.booters, newNetBooter(d.node, d.BootSeeds))
 	}
 	if len(d.BootNodes) > 0 {
 		var bt booter
@@ -168,6 +174,7 @@ func (d *discovery) Start() (err error) {
 		d.booters = append(d.booters, bt)
 	}
 
+	// open socket
 	err = d.socket.start()
 	if err != nil {
 		return
@@ -175,6 +182,7 @@ func (d *discovery) Start() (err error) {
 
 	d.term = make(chan struct{})
 
+	// maintain node table
 	d.wg.Add(1)
 	go d.tableLoop()
 
@@ -184,9 +192,10 @@ func (d *discovery) Start() (err error) {
 func (d *discovery) Stop() (err error) {
 	if atomic.CompareAndSwapInt32(&d.running, 1, 0) {
 		close(d.term)
+		d.wg.Wait()
+
 		err = d.socket.stop()
 		err = d.db.Close()
-		d.wg.Wait()
 
 		return
 	}
@@ -194,7 +203,17 @@ func (d *discovery) Stop() (err error) {
 	return errDiscoveryIsStopped
 }
 
-// ping and update n, block
+func (d *discovery) AllNodes() []*vnode.Node {
+	nodes := d.table.nodes(0)
+	vnodes := make([]*vnode.Node, len(nodes))
+	for i, n := range nodes {
+		vnodes[i] = &n.Node
+	}
+
+	return vnodes
+}
+
+// ping and update a node, will be blocked, so should invoked by goroutine
 func (d *discovery) ping(n *Node) error {
 	n.checking = true
 	ch := make(chan *Node, 1)
@@ -208,15 +227,21 @@ func (d *discovery) ping(n *Node) error {
 	n2 := <-ch
 	n.checking = false
 	if n2 == nil {
-		return errPingNotFailed
+		return errPingFailed
 	}
 
-	if n2.Net != d.Node.Net {
+	if n2.Net != d.node.Net {
 		return errDifferentNet
 	}
 
 	n.update(n2)
 	return nil
+}
+
+func (d *discovery) pingDelete(n *Node) {
+	if d.ping(n) != nil {
+		d.table.resolve(n.ID)
+	}
 }
 
 func (d *discovery) tableLoop() {
@@ -242,7 +267,12 @@ Loop:
 		case <-checkTicker.C:
 			nodes := d.table.oldest()
 			for _, node := range nodes {
-				go d.ping(node)
+				go d.pingDelete(node)
+			}
+
+			// todo
+			if d.table.size() < d.table.max()/10 {
+				d.init()
 			}
 
 		case <-refreshTicker.C:
@@ -259,49 +289,56 @@ Loop:
 	d.table.store(d.db)
 }
 
-func (d *discovery) handle(res *packet) {
-	switch res.c {
+func (d *discovery) handle(pkt *packet) {
+	d.table.bubble(pkt.id)
+
+	switch pkt.c {
 	case codePing:
-		n := genNodeFromPing(res)
+		n := nodeFromPing(pkt)
 		n2 := d.table.resolveAddr(n.Address())
 
 		if n2 != nil {
-			if n.Net != d.Node.Net {
-				d.table.remove(res.id)
+			if n.Net != d.node.Net {
+				d.table.remove(pkt.id)
 			} else {
 				n2.update(n)
 				d.table.bubble(n2.ID)
-				_ = d.socket.pong(res.hash.Bytes(), n)
+				_ = d.socket.pong(pkt.hash, n)
 			}
 		} else {
-			if n.Net != d.Node.Net {
+			if n.Net != d.node.Net {
 				return
 			}
 			// add to table
 			d.table.add(n)
-			_ = d.socket.pong(res.hash.Bytes(), n)
+			_ = d.socket.pong(pkt.hash, n)
 		}
 
 	case codePong:
 		// nothing
+		// pong will be handle by requestPool
 	case codeFindnode:
-		find := res.body.(*findnode)
+		find := pkt.body.(*findnode)
 		nodes := d.table.findNeighbors(find.target, int(find.count))
-		eps := make([]vnode.EndPoint, len(nodes))
+		eps := make([]*vnode.EndPoint, len(nodes))
 		for i, n := range nodes {
-			eps[i] = n.EndPoint
+			eps[i] = &n.EndPoint
 		}
-		_ = d.socket.sendNodes(eps, res.from)
+		_ = d.socket.sendNodes(eps, pkt.from)
 
 	case codeNeighbors:
-		d.table.bubble(res.id)
+		// nothing
 	}
 }
 
-// seeNewNode will check a new node
-func (d *discovery) seeNewNode(n *Node) error {
-	if n.Net != d.Node.Net {
+// receiveNode get from bootNodes or ping message, check and put into table
+func (d *discovery) receiveNode(n *Node) error {
+	if n.Net != d.node.Net {
 		return errDifferentNet
+	}
+
+	if d.table.resolve(n.ID) != nil {
+		return nil
 	}
 
 	if n.shouldCheck() {
@@ -313,16 +350,38 @@ func (d *discovery) seeNewNode(n *Node) error {
 	return nil
 }
 
+// receiveEndPoint from neighbors message
+func (d *discovery) receiveEndPoint(e vnode.EndPoint) (n *Node, err error) {
+	addr := e.String()
+	if n = d.table.resolveAddr(addr); n != nil {
+		return
+	}
+
+	n, err = nodeFromEndPoint(e)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.ping(n)
+	if err != nil {
+		return nil, err
+	}
+
+	return n, nil
+}
+
 func (d *discovery) checkNode(n *Node) error {
 	addr, err := n.udpAddr()
 	if err != nil {
 		return err
 	}
 
+	// add to stage first
 	d.mu.Lock()
 	d.stage[addr.String()] = n
 	d.mu.Unlock()
 
+	// ping
 	err = d.ping(n)
 
 	d.mu.Lock()
@@ -333,29 +392,36 @@ func (d *discovery) checkNode(n *Node) error {
 		return err
 	}
 
+	// if ping success, then add to table
 	d.table.add(n)
 
 	return nil
 }
 
-func (d *discovery) init() {
-	var nodes []*Node
-	var failed int
-Load:
+func (d *discovery) getBootNodes(num int) (bootNodes []*Node) {
 	for _, btr := range d.booters {
-		nodes = append(nodes, btr.getBootNodes(seedCount)...)
+		bootNodes = append(bootNodes, btr.getBootNodes(num)...)
 	}
 
-	if len(nodes) == 0 {
+	return
+}
+
+func (d *discovery) init() {
+	var failed int
+Load:
+	bootNodes := d.getBootNodes(bucketSize)
+
+	if len(bootNodes) == 0 {
 		failed++
 		if failed > 5 {
 			// todo
+			return
 		}
 		goto Load
 	}
 
-	for _, n := range nodes {
-		_ = d.seeNewNode(n)
+	for _, n := range bootNodes {
+		_ = d.receiveNode(n)
 	}
 
 	d.refresh()
@@ -371,7 +437,7 @@ func (d *discovery) refresh() {
 	d.mu.Unlock()
 
 	for i := uint(0); i < vnode.IDBits; i++ {
-		id := vnode.RandFromDistance(d.Node.ID, i)
+		id := vnode.RandFromDistance(d.node.ID, i)
 		nodes := d.lookup(id, bucketSize)
 		d.table.addNodes(nodes)
 	}
@@ -398,12 +464,12 @@ func (d *discovery) lookup(target vnode.NodeID, count uint32) []*Node {
 	}
 
 	asked := make(map[vnode.NodeID]struct{}) // nodes has sent findnode message
-	asked[d.Node.ID] = struct{}{}
+	asked[d.node.ID] = struct{}{}
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	seen := make(map[vnode.NodeID]struct{})
 	seen[target] = struct{}{}
 
-	const alpha = 10
+	const alpha = 3
 	reply := make(chan []*Node, alpha)
 	queries := 0
 
@@ -413,7 +479,7 @@ Loop:
 			n := result.nodes[i]
 			if _, ok := asked[n.ID]; !ok && n.couldFind() {
 				asked[n.ID] = struct{}{}
-				d.findNode(target, count, n, reply)
+				go d.findNode(target, count, n, reply)
 				queries++
 			}
 		}
@@ -428,7 +494,7 @@ Loop:
 		case nodes := <-reply:
 			queries--
 			for _, n := range nodes {
-				if n != nil && n.Net == d.Node.Net {
+				if n != nil && n.Net == d.node.Net {
 					if _, ok := seen[n.ID]; !ok {
 						seen[n.ID] = struct{}{}
 						result.push(n)
@@ -442,7 +508,7 @@ Loop:
 }
 
 func (d *discovery) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*Node) {
-	epChan := make(chan []vnode.EndPoint)
+	epChan := make(chan []*vnode.EndPoint)
 	err := d.socket.findNode(target, count, n, epChan)
 	if err != nil {
 		ch <- nil
@@ -450,31 +516,23 @@ func (d *discovery) findNode(target vnode.NodeID, count uint32, n *Node, ch chan
 	}
 
 	eps := <-epChan
+	curr := make(chan struct{}, 10)
 	nch := make(chan *Node)
 	var wg sync.WaitGroup
 	for _, ep := range eps {
-		if n = d.table.resolveAddr(ep.String()); n != nil {
-			nch <- n
-		} else {
-			wg.Add(1)
-			go func(ep vnode.EndPoint) {
-				defer wg.Done()
-
-				udp, e := net.ResolveUDPAddr("udp", ep.String())
-				if e != nil {
-					return
-				}
-
-				var node = &Node{
-					Node: vnode.Node{
-						EndPoint: ep,
-					},
-					addr: udp,
-				}
-
-				_ = d.socket.ping(node, nch)
-			}(ep)
-		}
+		wg.Add(1)
+		go func(ep *vnode.EndPoint) {
+			defer wg.Done()
+			curr <- struct{}{}
+			defer func() {
+				<-curr
+			}()
+			node, e := d.receiveEndPoint(*ep)
+			if e != nil {
+				return
+			}
+			nch <- node
+		}(ep)
 	}
 
 	go func() {

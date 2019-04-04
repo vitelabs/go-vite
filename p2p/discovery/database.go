@@ -43,27 +43,27 @@ func newDB(path string, version int, id vnode.NodeID) (db *nodeDB, err error) {
 	}
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return
 }
 
 func newMemDB(id vnode.NodeID) (*nodeDB, error) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		return nil, err
 	}
 	return &nodeDB{
-		DB: db,
+		DB: ldb,
 		id: id,
 	}, nil
 }
 
 func newFileDB(path string, version int, id vnode.NodeID) (*nodeDB, error) {
-	db, err := leveldb.OpenFile(path, nil)
+	ldb, err := leveldb.OpenFile(path, nil)
 	if _, ok := err.(*errors.ErrCorrupted); ok {
-		db, err = leveldb.RecoverFile(path, nil)
+		ldb, err = leveldb.RecoverFile(path, nil)
 	}
 
 	if err != nil {
@@ -71,28 +71,28 @@ func newFileDB(path string, version int, id vnode.NodeID) (*nodeDB, error) {
 	}
 
 	vBytes := encodeVarint(int64(version))
-	oldVBytes, err := db.Get(versionKey, nil)
+	oldVBytes, err := ldb.Get(versionKey, nil)
 
 	if err == leveldb.ErrNotFound {
-		err = db.Put(versionKey, vBytes, nil)
+		err = ldb.Put(versionKey, vBytes, nil)
 
 		if err != nil {
-			_ = db.Close()
+			_ = ldb.Close()
 			return nil, err
 		}
 		return &nodeDB{
-			DB: db,
+			DB: ldb,
 			id: id,
 		}, nil
 	} else if err == nil {
 		if bytes.Equal(oldVBytes, vBytes) {
 			return &nodeDB{
-				DB: db,
+				DB: ldb,
 				id: id,
 			}, err
 		}
 
-		_ = db.Close()
+		_ = ldb.Close()
 		err = os.RemoveAll(path)
 		if err != nil {
 			return nil, err
@@ -253,7 +253,7 @@ func (db *nodeDB) Clean(expiration time.Duration) {
 	}
 }
 
-// MarkNode, larger weight, more frontly
+// MarkNode larger weight, more front
 func (db *nodeDB) MarkNode(id vnode.NodeID, weight int64) {
 	key := append(nodeMarkPrefix, id.Bytes()...)
 	_ = db.storeInt64(key, weight)

@@ -23,7 +23,7 @@ func TestPutUint24(t *testing.T) {
 
 	i = 1
 	for offset := uint(0); offset < maxLen*8; offset++ {
-		i = i << offset
+		i = 1 << offset
 
 		length := int(offset/8 + 1)
 
@@ -48,7 +48,7 @@ func TestUint24(t *testing.T) {
 
 	i = 1
 	for offset := uint(0); offset < maxLen*8; offset++ {
-		i = i << offset
+		i = 1 << offset
 
 		length := int(offset/8 + 1)
 

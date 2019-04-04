@@ -366,7 +366,7 @@ func (n *net) addHandler(handler msgHandler) {
 }
 
 func (n *net) Start(svr p2p.P2P) (err error) {
-	n.nodeID = svr.Config().Node.ID
+	n.nodeID = svr.Config().Node().ID
 
 	if n.Producer != nil && n.MinePrivateKey != nil {
 		if n.Producer.IsProducer(types.PubkeyToAddress(n.MinePrivateKey.PubByte())) {

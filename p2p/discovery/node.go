@@ -109,6 +109,21 @@ func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint
 	return
 }
 
+func nodeFromEndPoint(e vnode.EndPoint) (n *Node, err error) {
+	udp, err := net.ResolveUDPAddr("udp", e.String())
+	if err != nil {
+		return
+	}
+
+	return &Node{
+		Node: vnode.Node{
+			EndPoint: e,
+		},
+		addr:    udp,
+		parseAt: time.Now(),
+	}, nil
+}
+
 func udpAddrToEndPoint(addr *net.UDPAddr) (e *vnode.EndPoint) {
 	e = new(vnode.EndPoint)
 	if ip4 := addr.IP.To4(); len(ip4) != 0 {
@@ -121,4 +136,37 @@ func udpAddrToEndPoint(addr *net.UDPAddr) (e *vnode.EndPoint) {
 	e.Port = addr.Port
 
 	return
+}
+
+func nodeFromPing(res *packet) *Node {
+	p := res.body.(*ping)
+
+	var addr *net.UDPAddr
+	var e *vnode.EndPoint
+	if p.from != nil {
+		var err error
+		addr, err = net.ResolveUDPAddr("udp", p.from.String())
+		if err != nil {
+			addr = res.from
+			// generate from remote address
+			e = udpAddrToEndPoint(res.from)
+		} else {
+			e = p.from
+		}
+	} else {
+		addr = res.from
+		e = udpAddrToEndPoint(res.from)
+	}
+
+	return &Node{
+		Node: vnode.Node{
+			ID:       res.id,
+			EndPoint: *e,
+			Net:      p.net,
+			Ext:      p.ext,
+		},
+		addAt:    time.Now(),
+		activeAt: time.Now(),
+		addr:     addr,
+	}
 }

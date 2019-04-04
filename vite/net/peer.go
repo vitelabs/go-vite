@@ -155,7 +155,6 @@ func (p *peer) send(c code, id p2p.MsgId, data p2p.Serializable) error {
 	}
 
 	var msg = p2p.Msg{
-		Pid:     ID,
 		Code:    p2p.Code(c),
 		Id:      id,
 		Payload: buf,

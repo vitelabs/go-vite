@@ -5,10 +5,11 @@ package protos;
 message node {
     bytes id = 1;
     bytes endpoint = 2;
-    bytes ext = 3;
+    uint32 net = 3;
+    bytes ext = 4;
 
-    int64 activeAt = 4;
-    int64 checkAt = 5;
+    int64 activeAt = 5;
+    int64 checkAt = 6;
 }
 
 message ping {

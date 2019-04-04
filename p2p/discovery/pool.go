@@ -21,12 +21,10 @@ package discovery
 import (
 	"bytes"
 	"errors"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 	"github.com/vitelabs/go-vite/tools/list"
 )
@@ -34,33 +32,32 @@ import (
 var errStopped = errors.New("discovery server has stopped")
 var errWaitOvertime = errors.New("wait for response timeout")
 
-type waitHandler interface {
-	handle(pkt *packet, err error) bool
-}
-
-type wait struct {
-	expectAddr string
+// request expect a response, eg. ping, findNode
+type request struct {
+	expectFrom string
 	expectID   vnode.NodeID
 	expectCode code
-	hash       []byte
-	handler    waitHandler
-	expiration time.Time
+	handler    interface {
+		// handle return true, then this wait will be removed from pool
+		handle(pkt *packet, err error) bool
+	}
+	expiration time.Time // response timeout
 }
 
-type packet struct {
-	message
-	from *net.UDPAddr
-	hash types.Hash
-}
-
-type pool interface {
+// requestPool is the interface can hold pending request
+type requestPool interface {
 	start()
 	stop()
-	add(wt *wait) bool
-	rec(res *packet) bool
+	// add return true mean operation success, return false if pool is not running
+	add(req *request) bool
+	// rec return true mean the response is expected, else return false
+	rec(pkt *packet) bool
+	// size is the count of pending request
+	size() int
 }
 
-type wtPool struct {
+type requestPoolImpl struct {
+	// every address hash a request list
 	pending map[string]list.List
 	mu      sync.Mutex
 
@@ -69,7 +66,24 @@ type wtPool struct {
 	wg      sync.WaitGroup
 }
 
-func (p *wtPool) start() {
+func newRequestPool() requestPool {
+	return &requestPoolImpl{
+		pending: make(map[string]list.List),
+	}
+}
+
+func (p *requestPoolImpl) size() (n int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for _, l := range p.pending {
+		n += l.Size()
+	}
+
+	return
+}
+
+func (p *requestPoolImpl) start() {
 	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
 		p.term = make(chan struct{})
 		p.pending = make(map[string]list.List)
@@ -79,43 +93,43 @@ func (p *wtPool) start() {
 	}
 }
 
-func (p *wtPool) stop() {
+func (p *requestPoolImpl) stop() {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		close(p.term)
 		p.wg.Wait()
 	}
 }
 
-func (p *wtPool) add(wt *wait) bool {
+func (p *requestPoolImpl) add(req *request) bool {
 	if atomic.LoadInt32(&p.running) == 0 {
 		return false
 	}
 
 	p.mu.Lock()
-	l, ok := p.pending[wt.expectAddr]
+	l, ok := p.pending[req.expectFrom]
 	if !ok {
 		l = list.New()
-		p.pending[wt.expectAddr] = l
+		p.pending[req.expectFrom] = l
 	}
-	l.Append(wt)
+	l.Append(req)
 	p.mu.Unlock()
 
 	return true
 }
 
-func (p *wtPool) rec(res *packet) bool {
+func (p *requestPoolImpl) rec(pkt *packet) bool {
 	want := false
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	addr := res.from.String()
+	addr := pkt.from.String()
 	if l, ok := p.pending[addr]; ok {
 		l.Filter(func(v interface{}) bool {
-			wt := v.(*wait)
-			if wt.expectCode == res.c {
+			wt := v.(*request)
+			if wt.expectCode == pkt.c {
 				want = true
-				return wt.handler.handle(res, nil)
+				return wt.handler.handle(pkt, nil)
 			}
 			return false
 		})
@@ -124,7 +138,7 @@ func (p *wtPool) rec(res *packet) bool {
 	return want
 }
 
-func (p *wtPool) loop() {
+func (p *requestPoolImpl) loop() {
 	defer p.wg.Done()
 
 	checkTicker := time.NewTicker(expiration / 2)
@@ -146,13 +160,13 @@ Loop:
 	return
 }
 
-func (p *wtPool) clean(now time.Time) {
+func (p *requestPoolImpl) clean(now time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	for addr, l := range p.pending {
 		l.Filter(func(value interface{}) bool {
-			wt := value.(*wait)
+			wt := value.(*request)
 			if wt.expiration.Before(now) {
 				wt.handler.handle(nil, errWaitOvertime)
 				return true
@@ -160,20 +174,21 @@ func (p *wtPool) clean(now time.Time) {
 			return false
 		})
 
+		// delete nil list
 		if l.Size() == 0 {
 			delete(p.pending, addr)
 		}
 	}
 }
 
-func (p *wtPool) release() {
+func (p *requestPoolImpl) release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	for _, l := range p.pending {
 		l.Filter(func(value interface{}) bool {
-			wt := value.(*wait)
-			wt.handler.handle(nil, errWaitOvertime)
+			wt := value.(*request)
+			wt.handler.handle(nil, errStopped)
 			return true
 		})
 	}
@@ -181,38 +196,21 @@ func (p *wtPool) release() {
 	p.pending = nil
 }
 
-type pingWait struct {
+type pingRequest struct {
 	hash []byte
 	done chan<- *Node
 }
 
-func (p *pingWait) handle(msg *packet, err error) bool {
+func (p *pingRequest) handle(pkt *packet, err error) bool {
 	if err != nil {
-		if p.done != nil {
-			p.done <- nil
-		}
+		go pingnil(p.done)
 		return true
 	}
 
-	bd := msg.body
+	bd := pkt.body
 	if png, ok := bd.(*pong); ok {
 		if bytes.Equal(png.echo, p.hash) {
-			e, addr := extractEndPoint(msg.from, png.from)
-
-			if p.done != nil {
-				p.done <- &Node{
-					Node: vnode.Node{
-						ID:       msg.id,
-						EndPoint: *e,
-						Net:      png.net,
-						Ext:      png.ext,
-					},
-					checkAt:  time.Now(),
-					checking: false,
-					finding:  false,
-					addr:     addr,
-				}
-			}
+			go p.receivePong(pkt, png)
 
 			return true
 		}
@@ -221,27 +219,47 @@ func (p *pingWait) handle(msg *packet, err error) bool {
 	return false
 }
 
-type findnodeWait struct {
-	count uint32
-	rec   []vnode.EndPoint
-	ch    chan<- []vnode.EndPoint
+func (p *pingRequest) receivePong(pkt *packet, png *pong) {
+	if p.done != nil {
+		e, addr := extractEndPoint(pkt.from, png.from)
+		p.done <- &Node{
+			Node: vnode.Node{
+				ID:       pkt.id,
+				EndPoint: *e,
+				Net:      png.net,
+				Ext:      png.ext,
+			},
+			addr: addr,
+		}
+	}
 }
 
-func (f *findnodeWait) handle(msg *packet, err error) bool {
+type findNodeRequest struct {
+	count uint32
+	rec   []*vnode.EndPoint
+	ch    chan<- []*vnode.EndPoint
+}
+
+func (f *findNodeRequest) handle(pkt *packet, err error) bool {
 	if err != nil {
-		f.ch <- f.rec
+		go f.done()
 		return true
 	}
 
-	bd := msg.body
+	bd := pkt.body
 	if n, ok := bd.(*neighbors); ok {
 		f.rec = append(f.rec, n.endpoints...)
 
-		if n.last {
-			f.ch <- f.rec
+		// the last packet maybe received first
+		if len(f.rec) >= int(f.count) || n.last {
+			go f.done()
 			return true
 		}
 	}
 
 	return false
+}
+
+func (f *findNodeRequest) done() {
+	f.ch <- f.rec
 }

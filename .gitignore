@@ -4,9 +4,12 @@
 *.dll
 *.so
 *.dylib
-.idea
+
 .DS_Store
 gvite
+!gvite/
+
+# vscode
 .vscode
 
 # Test binary, build with `go test -c`
@@ -32,9 +35,12 @@ build/
 # config files for test
 node_config.json
 node_config_*.json
+!/node_config.json
 
 genesis.json
 genesis_*.json
 
-.mock1
-.mock2
+**/p2p/**/.mock*
+**/net/**/.mock*
+**/simular/discovery_simular
+**/simular/p2p_simular

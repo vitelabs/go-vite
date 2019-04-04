@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
@@ -38,8 +37,8 @@ const expiration = 4 * time.Second
 const maxPacketLength = 1200
 const signatureLength = 64
 const packetHeadLength = 1 + 1 + len(vnode.ZERO)
-const minPacketLength = packetHeadLength + signatureLength
-const maxPayloadLength = maxPacketLength - minPacketLength
+const minPacketLength = packetHeadLength + signatureLength // 98
+const maxPayloadLength = maxPacketLength - minPacketLength // 1102
 
 type code = byte
 
@@ -68,12 +67,12 @@ type message struct {
 }
 
 func (m message) pack(key ed25519.PrivateKey) (data, hash []byte, err error) {
-	data, err = m.body.serialize()
+	payload, err := m.body.serialize()
 	if err != nil {
 		return
 	}
 
-	data, hash = pack(key, m.c, data)
+	data, hash = pack(key, m.c, payload)
 	return
 }
 
@@ -84,55 +83,37 @@ type ping struct {
 	time     time.Time
 }
 
-func (p *ping) serialize() ([]byte, error) {
-	from, _ := p.from.Serialize()
-	to, _ := p.to.Serialize()
-
+func (p *ping) serialize() (data []byte, err error) {
 	pb := &protos.Ping{
-		From: from,
-		To:   to,
 		Net:  p.net,
 		Ext:  p.ext,
 		Time: p.time.Unix(),
 	}
-	return proto.Marshal(pb)
-}
 
-func genNodeFromPing(res *packet) *Node {
-	p := res.body.(*ping)
-
-	var addr *net.UDPAddr
-	var e *vnode.EndPoint
-	if p.from != nil {
-		var err error
-		addr, err = net.ResolveUDPAddr("udp", p.from.String())
-		if err != nil {
-			addr = res.from
-			// generate from remote address
-			e = udpAddrToEndPoint(res.from)
-		} else {
-			e = p.from
-		}
+	var buf []byte
+	if p.from == nil {
+		pb.From = nil
 	} else {
-		addr = res.from
-		e = udpAddrToEndPoint(res.from)
+		buf, err = p.from.Serialize()
+		if err != nil {
+			pb.From = nil
+		} else {
+			pb.From = buf
+		}
 	}
 
-	return &Node{
-		Node: vnode.Node{
-			ID:       res.id,
-			EndPoint: *e,
-			Net:      p.net,
-			Ext:      p.ext,
-		},
-		addAt:    time.Now(),
-		activeAt: time.Now(),
-		addr:     addr,
+	if p.to == nil {
+		pb.To = nil
+	} else {
+		buf, err = p.to.Serialize()
+		if err != nil {
+			pb.To = nil
+		} else {
+			pb.To = buf
+		}
 	}
-}
 
-func updateFromPong(old *Node, res *packet) {
-
+	return proto.Marshal(pb)
 }
 
 func (p *ping) deserialize(buf []byte) error {
@@ -140,6 +121,26 @@ func (p *ping) deserialize(buf []byte) error {
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	p.net = pb.Net
+	p.ext = pb.Ext
+	p.time = time.Unix(pb.Time, 0)
+
+	from := new(vnode.EndPoint)
+	err = from.Deserialize(pb.From)
+	if err != nil {
+		p.from = nil
+	} else {
+		p.from = from
+	}
+
+	to := new(vnode.EndPoint)
+	err = to.Deserialize(pb.To)
+	if err != nil {
+		p.to = nil
+	} else {
+		p.to = to
 	}
 
 	return nil
@@ -157,19 +158,67 @@ type pong struct {
 	time     time.Time
 }
 
-func (p *pong) serialize() ([]byte, error) {
+func (p *pong) serialize() (data []byte, err error) {
 	pb := &protos.Pong{}
+
+	pb.Net = p.net
+	pb.Ext = p.ext
+	pb.Echo = p.echo
+	pb.Time = p.time.Unix()
+
+	var buf []byte
+	if p.from == nil {
+		pb.From = nil
+	} else {
+		buf, err = p.from.Serialize()
+		if err != nil {
+			pb.From = nil
+		} else {
+			pb.From = buf
+		}
+	}
+
+	if p.to == nil {
+		pb.To = nil
+	} else {
+		buf, err = p.to.Serialize()
+		if err != nil {
+			pb.To = nil
+		} else {
+			pb.To = buf
+		}
+	}
+
 	return proto.Marshal(pb)
 }
 
-func (p *pong) deserialize(buf []byte) error {
+func (p *pong) deserialize(data []byte) error {
 	pb := new(protos.Pong)
-	err := proto.Unmarshal(buf, pb)
+	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
 
-	// todo
+	p.net = pb.Net
+	p.ext = pb.Ext
+	p.echo = pb.Echo
+	p.time = time.Unix(pb.Time, 0)
+
+	from := new(vnode.EndPoint)
+	err = from.Deserialize(pb.From)
+	if err != nil {
+		p.from = nil
+	} else {
+		p.from = from
+	}
+
+	to := new(vnode.EndPoint)
+	err = to.Deserialize(pb.To)
+	if err != nil {
+		p.to = nil
+	} else {
+		p.to = to
+	}
 
 	return nil
 }
@@ -185,7 +234,11 @@ type findnode struct {
 }
 
 func (f *findnode) serialize() ([]byte, error) {
-	pb := &protos.Findnode{}
+	pb := &protos.Findnode{
+		Target: f.target.Bytes(),
+		Count:  f.count,
+		Time:   f.time.Unix(),
+	}
 	return proto.Marshal(pb)
 }
 
@@ -196,6 +249,14 @@ func (f *findnode) deserialize(buf []byte) error {
 		return err
 	}
 
+	f.target, err = vnode.Bytes2NodeID(pb.Target)
+	if err != nil {
+		return err
+	}
+
+	f.count = pb.Count
+	f.time = time.Unix(pb.Time, 0)
+
 	return nil
 }
 
@@ -204,13 +265,26 @@ func (f *findnode) expired() bool {
 }
 
 type neighbors struct {
-	endpoints []vnode.EndPoint
+	endpoints []*vnode.EndPoint
 	last      bool
 	time      time.Time
 }
 
 func (n *neighbors) serialize() ([]byte, error) {
-	pb := &protos.Neighbors{}
+	pb := &protos.Neighbors{
+		Last: n.last,
+		Time: n.time.Unix(),
+	}
+
+	pb.Nodes = make([][]byte, 0, len(n.endpoints))
+	for _, ep := range n.endpoints {
+		buf, err := ep.Serialize()
+		if err != nil {
+			continue
+		}
+		pb.Nodes = append(pb.Nodes, buf)
+	}
+
 	return proto.Marshal(pb)
 }
 
@@ -220,6 +294,19 @@ func (n *neighbors) deserialize(buf []byte) (err error) {
 	err = proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	n.last = pb.Last
+	n.time = time.Unix(pb.Time, 0)
+
+	n.endpoints = make([]*vnode.EndPoint, 0, len(pb.Nodes))
+	for _, buf = range pb.Nodes {
+		e := new(vnode.EndPoint)
+		err = e.Deserialize(buf)
+		if err != nil {
+			continue
+		}
+		n.endpoints = append(n.endpoints, e)
 	}
 
 	return nil
@@ -292,6 +379,7 @@ func unPacket(data []byte) (p *packet, err error) {
 			id:   fromId,
 			body: m,
 		},
+		hash: crypto.Hash256(payload),
 	}
 
 	return p, nil

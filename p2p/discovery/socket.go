@@ -36,11 +36,19 @@ var errSocketIsNotRunning = errors.New("udp socket is not running")
 
 const socketQueueLength = 10
 
+// sender return err is not nil if one of the following scene occur:
+// 1. failed to resolve net.UDPAddr of n
+// 2. send message error
 type sender interface {
+	// ping n, extract node from the pong response and put the node, nil if has error, into ch, ch MUST not be nil.
 	ping(n *Node, ch chan<- *Node) (err error)
+	// pong respond the last ping message from n, echo is the hash of ping message payload
 	pong(echo []byte, n *Node) (err error)
-	findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []vnode.EndPoint) (err error)
-	sendNodes(eps []vnode.EndPoint, to *net.UDPAddr) (err error)
+	// findNode find count nodes near the target to n, put the responsive nodes into ch, ch MUST no be nil
+	findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error)
+	// sendNodes to addr, if eps is too many, the response message will be split to multiple message,
+	// every message is small than maxPacketLength.
+	sendNodes(eps []*vnode.EndPoint, addr *net.UDPAddr) (err error)
 }
 
 type receiver interface {
@@ -53,13 +61,20 @@ type socket interface {
 	receiver
 }
 
+// packet is a parsed message received from socket
+type packet struct {
+	message
+	from *net.UDPAddr
+	hash []byte
+}
+
 type agent struct {
 	self    *vnode.Node
 	socket  *net.UDPConn
 	peerKey ed25519.PrivateKey
 	queue   chan *packet
 	handler func(*packet)
-	pool    pool
+	pool    requestPool
 	running int32
 	term    chan struct{}
 	wg      sync.WaitGroup
@@ -70,7 +85,7 @@ func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, handler func(*packet
 		self:    self,
 		peerKey: peerKey,
 		handler: handler,
-		pool:    &wtPool{},
+		pool:    newRequestPool(),
 	}
 }
 
@@ -114,13 +129,14 @@ func (a *agent) stop() (err error) {
 	return errSocketIsNotRunning
 }
 
+func pingnil(ch chan<- *Node) {
+	ch <- nil
+}
+
 func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 	udp, err := n.udpAddr()
 	if err != nil {
-		if ch != nil {
-			ch <- nil
-		}
-
+		go pingnil(ch)
 		return
 	}
 
@@ -138,16 +154,15 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 	}, udp)
 
 	if err != nil {
-		if ch != nil {
-			ch <- nil
-		}
+		go pingnil(ch)
 		return
 	}
 
-	a.pool.add(&wait{
-		expectAddr: udp.String(),
+	a.pool.add(&request{
+		expectFrom: udp.String(),
+		expectID:   n.ID,
 		expectCode: codePong,
-		handler: &pingWait{
+		handler: &pingRequest{
 			hash: hash,
 			done: ch,
 		},
@@ -179,10 +194,13 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 	return
 }
 
-func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []vnode.EndPoint) (err error) {
+func findnodenil(ch chan<- []*vnode.EndPoint) {
+	ch <- nil
+}
+func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
 	udp, err := n.udpAddr()
 	if err != nil {
-		ch <- nil
+		go findnodenil(ch)
 		return
 	}
 
@@ -197,17 +215,16 @@ func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- [
 	}, udp)
 
 	if err != nil {
-		ch <- nil
+		go findnodenil(ch)
 		return
 	}
 
-	a.pool.add(&wait{
+	a.pool.add(&request{
 		expectID:   n.ID,
-		expectAddr: udp.String(),
+		expectFrom: udp.String(),
 		expectCode: codeNeighbors,
-		handler: &findnodeWait{
+		handler: &findNodeRequest{
 			count: count,
-			rec:   nil,
 			ch:    ch,
 		},
 		expiration: time.Now().Add(expiration),
@@ -216,37 +233,48 @@ func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- [
 	return
 }
 
-func (a *agent) sendNodes(eps []vnode.EndPoint, to *net.UDPAddr) (err error) {
-	var msg = message{
-		c:  codeNeighbors,
-		id: a.self.ID,
-	}
-
+func (a *agent) sendNodes(eps []*vnode.EndPoint, to *net.UDPAddr) (err error) {
 	n := &neighbors{
 		endpoints: nil,
 		last:      false,
 		time:      time.Now(),
 	}
-	msg.body = n
 
-	var mark, bytes int
-	for i, ep := range eps {
-		bytes += ep.Length()
+	msg := message{
+		c:    codeNeighbors,
+		id:   a.self.ID,
+		body: n,
+	}
 
-		if bytes+20 > maxPayloadLength {
-			mark = i
-			n.endpoints = append(eps[mark:i])
-			bytes = 0
+	ept := splitEndPoints(eps)
+	for i, epl := range ept {
+		n.endpoints = epl
+		n.last = i == len(ept)-1
 
-			_, err = a.write(msg, to)
-			if err != nil {
-				return
-			}
+		_, err = a.write(msg, to)
+		if err != nil {
+			return
 		}
 	}
 
-	n.endpoints = eps[mark:]
-	_, err = a.write(msg, to)
+	return
+}
+
+func splitEndPoints(eps []*vnode.EndPoint) (ept [][]*vnode.EndPoint) {
+	var sent, bytes int
+	for i, ep := range eps {
+		bytes += ep.Length()
+
+		if bytes+300 > maxPayloadLength {
+			ept = append(ept, eps[sent:i])
+			bytes = 0
+			sent = i
+		}
+	}
+
+	if sent != len(eps) {
+		ept = append(ept, eps[sent:])
+	}
 
 	return
 }
@@ -284,15 +312,11 @@ func (a *agent) readLoop() {
 
 		tempDelay = 0
 
-		if n == 0 {
-			continue
-		}
-
 		p, err := unPacket(buf[:n])
 		if err != nil {
 			continue
 		}
-
+		//fmt.Printf("%s receive packet %d from %s\n", a.self.Address(), p.c, addr.String())
 		if p.expired() {
 			continue
 		}

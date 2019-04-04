@@ -49,7 +49,7 @@ type protoPeer struct {
 }
 
 func (p *protoPeer) WriteMsg(msg Msg) (err error) {
-	msg.Pid = p.Protocol.ID()
+	msg.pid = p.Protocol.ID()
 	return p.peerMux.WriteMsg(msg)
 }
 
@@ -166,9 +166,9 @@ func NewPeer(id vnode.NodeID, name string, version uint32, c Codec, level Level,
 		log:        log15.New("module", "p2p", "peer", id.Brief()),
 	}
 
-	protoMap := make(map[ProtocolID]*protoPeer, len(m))
+	pm.protoMap = make(map[ProtocolID]*protoPeer, len(m))
 	for pid, ppt := range m {
-		protoMap[pid] = &protoPeer{
+		pm.protoMap[pid] = &protoPeer{
 			peerMux:      pm,
 			peerProtocol: ppt,
 		}
@@ -236,7 +236,7 @@ func (p *peerMux) readLoop() (err error) {
 
 		msg.ReceivedAt = time.Now()
 
-		switch msg.Pid {
+		switch msg.pid {
 		case baseProtocolID:
 			switch msg.Code {
 			case baseDisconnect:
@@ -262,7 +262,7 @@ func (p *peerMux) readLoop() (err error) {
 				// nothing
 			}
 		default:
-			if pt, ok := p.protoMap[msg.Pid]; ok {
+			if pt, ok := p.protoMap[msg.pid]; ok {
 				msg.Sender = pt
 				p.readQueue <- msg
 			} else {
@@ -287,7 +287,7 @@ func (p *peerMux) writeLoop() (err error) {
 func (p *peerMux) handleLoop() (err error) {
 	var msg Msg
 	for msg = range p.readQueue {
-		err = p.protoMap[msg.Pid].Handle(msg)
+		err = p.protoMap[msg.pid].Handle(msg)
 		if err != nil {
 			return
 		}
@@ -303,6 +303,8 @@ func (p *peerMux) Close(err PeerError) (err2 error) {
 
 		atomic.StoreInt32(&p.writable, 0)
 
+		// todo could panic: write to closed channel
+		time.Sleep(100 * time.Millisecond)
 		close(p.writeQueue)
 
 		if err3 := p.codec.Close(); err3 != nil {

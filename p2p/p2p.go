@@ -109,12 +109,12 @@ type PeerMux interface {
 }
 
 type peerManager interface {
-	register(p PeerMux) error
+	register(p PeerMux)
 	changeLevel(p PeerMux, old Level) error
 }
 
 type p2p struct {
-	cfg Config
+	cfg *Config
 
 	self vnode.Node
 
@@ -146,11 +146,9 @@ type p2p struct {
 	log log15.Logger
 }
 
-func New(cfg Config) P2P {
-	cfg.ensure()
-
-	staticNodes := make([]*vnode.Node, 0, len(cfg.StaticNodes))
-	for _, u := range cfg.StaticNodes {
+func New(cfg *Config) P2P {
+	staticNodes := make([]*vnode.Node, 0, len(cfg.staticNodes))
+	for _, u := range cfg.staticNodes {
 		n, err := vnode.ParseNode(u)
 		if err != nil {
 			panic(err)
@@ -162,42 +160,48 @@ func New(cfg Config) P2P {
 	log := log15.New("module", "p2p")
 
 	ptMap := make(map[ProtocolID]Protocol)
+	hkr := &handshaker{
+		version: version,
+		netId:   uint32(cfg.NetID),
+		name:    cfg.name,
+		id:      cfg.Node().ID,
+		priv:    cfg.PrivateKey(),
+		codecFactory: &transportFactory{
+			minCompressLength: 100,
+			readTimeout:       readMsgTimeout,
+			writeTimeout:      writeMsgTimeout,
+		},
+		ptMap: ptMap,
+		log:   log.New("module", "handshaker"),
+	}
+
 	var p = &p2p{
 		cfg:         cfg,
 		staticNodes: staticNodes,
 		ptMap:       ptMap,
 		peerMap:     make(map[vnode.NodeID]PeerMux),
 		peerLevel:   make(map[Level][]PeerMux),
-		handshaker: &handshaker{
-			version: version,
-			netId:   uint32(cfg.NetID),
-			name:    cfg.Name,
-			id:      cfg.Node.ID,
-			priv:    cfg.PrivateKey,
-			codecFactory: &transportFactory{
-				minCompressLength: 100,
-				readTimeout:       readMsgTimeout,
-				writeTimeout:      writeMsgTimeout,
-			},
-			ptMap: ptMap,
-			log:   log.New("module", "handshaker"),
-		},
-		log: log,
+		handshaker:  hkr,
+		dialer:      newDialer(5*time.Second, 5, hkr),
+		log:         log,
 	}
 
-	if cfg.Discovery {
+	if cfg.discover {
 		p.discv = discovery.New(cfg.Config)
 	}
 
 	p.cond = sync.NewCond(&p.rw)
 
-	p.server = newServer(retryStartDuration, retryStartCount, cfg.MaxPeers[Inbound], cfg.MaxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
+	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.maxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
 
 	return p
 }
 
 func (p *p2p) SetMaxPeers(level Level, max int) {
-	p.cfg.MaxPeers[level] = max
+	p.rw.Lock()
+	defer p.rw.Unlock()
+
+	p.cfg.maxPeers[level] = max
 }
 
 func (p *p2p) check(peer PeerMux) error {
@@ -215,7 +219,7 @@ func (p *p2p) check(peer PeerMux) error {
 	}
 
 	plevel := peer.Level()
-	if len(p.peerLevel[plevel]) >= p.cfg.MaxPeers[plevel] {
+	if len(p.peerLevel[plevel]) >= p.cfg.maxPeers[plevel] {
 		return PeerTooManyPeers
 	}
 
@@ -235,7 +239,7 @@ func (p *p2p) Start() (err error) {
 			return err
 		}
 
-		if p.cfg.Discovery {
+		if p.cfg.discover {
 			if err = p.discv.Start(); err != nil {
 				return err
 			}
@@ -265,7 +269,7 @@ func (p *p2p) Stop() (err error) {
 
 		p.wg.Wait()
 
-		if p.cfg.Discovery {
+		if p.cfg.discover {
 			err = p.discv.Stop()
 		}
 
@@ -327,32 +331,37 @@ func (p *p2p) Register(pt Protocol) error {
 }
 
 func (p *p2p) Config() Config {
-	return p.cfg
+	return *p.cfg
 }
 
 // register and run peer, blocked, should invoke by goroutine
-func (p *p2p) register(peer PeerMux) (err error) {
+func (p *p2p) register(peer PeerMux) {
+	p.wg.Add(1)
 	defer p.wg.Done()
 
 	peer.setManager(p)
 
+	var err error
 	err = p.check(peer)
 	if err != nil {
 		if pe, ok := err.(PeerError); ok {
 			_ = peer.Close(pe)
 		}
 
-		return err
+		return
 	}
 
 	// run
 	if err = peer.run(); err != nil {
 		p.log.Error(fmt.Sprintf("peer %s run error: %v", peer, err))
 	} else {
-		p.log.Error(fmt.Sprintf("peer %s run done", peer))
+		p.log.Warn(fmt.Sprintf("peer %s run done", peer))
 	}
 
 	err = p.unregister(peer.ID())
+	if err != nil {
+		p.log.Warn(fmt.Sprintf("failed to unregister peer %s: %v", peer, err))
+	}
 
 	// notify findLoop
 	p.cond.Signal()
@@ -443,7 +452,7 @@ func (p *p2p) beatLoop() {
 
 		for _, pe := range p.peerMap {
 			_ = pe.WriteMsg(Msg{
-				Pid:     baseProtocolID,
+				pid:     baseProtocolID,
 				Code:    baseHeartBeat,
 				Payload: data,
 			})
@@ -467,11 +476,11 @@ func (p *p2p) dialStatic() {
 func (p *p2p) findLoop() {
 	defer p.wg.Done()
 
-	need := p.cfg.MinPeers
+	need := p.cfg.minPeers
 
 	for {
 		p.rw.RLock()
-		for len(p.peerMap) >= p.cfg.MinPeers {
+		for len(p.peerMap) >= p.cfg.minPeers {
 			p.cond.Wait()
 		}
 		p.rw.RUnlock()
@@ -481,6 +490,9 @@ func (p *p2p) findLoop() {
 		}
 
 		need *= 2
+		if need > p.maxPeers() {
+			need = p.maxPeers()
+		}
 		nodes := p.discv.GetNodes(need)
 		for _, n := range nodes {
 			p.connect(&n)
@@ -488,12 +500,22 @@ func (p *p2p) findLoop() {
 	}
 }
 
+func (p *p2p) maxPeers() (c int) {
+	p.rw.RLock()
+	defer p.rw.RUnlock()
+
+	for _, n := range p.cfg.maxPeers {
+		c += n
+	}
+
+	return
+}
+
 func (p *p2p) connect(node *vnode.Node) {
 	peer, err := p.dialer.dialNode(node)
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to dail %s: %v", node.String(), err))
 	} else {
-		p.wg.Add(1)
 		go p.register(peer)
 	}
 }

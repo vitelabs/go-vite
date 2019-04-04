@@ -30,48 +30,78 @@ import (
 
 const bucketSize = 32
 const bucketNum = 32
-const minDistance = vnode.IDBits - bucketNum
 
 type nodeCollector interface {
 	reset()
+	// bubble the specific node to the least active position, return true if bubble
+	// return false if cannot find the node
 	bubble(id vnode.NodeID) bool
-	// bucket cannot avoid duplicate node, table could
+	// add node to the least active position, not check duplicate.
 	add(node *Node) (toCheck *Node)
+	// remove and return the specific node, if cannot find in the collector, return nil
 	remove(id vnode.NodeID) (n *Node)
+	// nodes return count nodes from collection, if count == 0 or count > collector.size() will return all nodes
+	// from least active to last active
+	// table return nodes from near to faraway
 	nodes(count int) (nodes []*Node)
+	// resolve return the specific node, if cannot find in the collector, return nil
 	resolve(id vnode.NodeID) *Node
+	// size is the number of nodes in the collector
 	size() int
+	// iterate nodes in collector, fn will be invoked and pass every node into
+	iterate(fn func(*Node))
+	// max is the collector`s capacity
+	max() int
 }
 
+// bucket keep nodes from the same subtree, mean that, nodes have the same distance to the target id
 type bucket interface {
 	nodeCollector
-	iterate(fn func(*Node)) // for test
+	// oldest return the least active node
 	oldest() *Node
+	// replace node has id to n, return true if replace success, return false if cannot find the node
+	replace(id vnode.NodeID, n *Node) bool
 }
 
+// Observer can subscribe node event, like see new node
 type Observer interface {
+	// Receive will be invoked every time when see a new node
 	Receive(n *vnode.Node)
+	// Sub a subscription, the subId returned by Subscriber.Sub should keep
 	Sub(Subscriber)
+	// UnSub a subscription
 	UnSub(Subscriber)
 }
 
+// Subscriber can be subscribed by observer
 type Subscriber interface {
+	// Sub return the unique id
 	Sub(observer Observer) (subId int)
+	// UnSub received the id returned by Sub
 	UnSub(subId int)
 }
 
+// nodeStore is the node database
 type nodeStore interface {
+	// Store node into database, err is not nil if serialized error or database error
 	Store(node *Node) (err error)
 }
 
+// nodeTable has many buckets sorted by distance to self.ID from near to faraway
 type nodeTable interface {
 	nodeCollector
+	Subscriber
+	// getId return the table id
+	getId() vnode.NodeID
+	// addNodes receive a batch of nodes, can reduce lock cost of lock
 	addNodes(nodes []*Node)
+	// oldest return last active nodes from every bucket
 	oldest() []*Node
-	Sub(observer Observer) (subId int)
-	UnSub(subId int)
+	// findNeighbors return count nodes near the id
 	findNeighbors(id vnode.NodeID, count int) []*Node
+	// store will store all nodes to database
 	store(db nodeStore)
+	// resolveAddr find the node match `node.Address() == address`
 	resolveAddr(address string) *Node
 }
 
@@ -92,7 +122,7 @@ type listBucket struct {
 	cap int
 
 	// size is the current number of nodes in list
-	_size int
+	count int
 }
 
 func newListBucket(max int) bucket {
@@ -114,14 +144,25 @@ func (b *listBucket) iterate(fn func(*Node)) {
 }
 
 func (b *listBucket) reset() {
-	b._size = 0
+	b.count = 0
 	b.head.next = nil
 	b.tail = b.head
 }
 
+func (b *listBucket) replace(id vnode.NodeID, n *Node) bool {
+	for current := b.head.next; current != nil; current = current.next {
+		if current.ID == id {
+			current.Node = n
+			return true
+		}
+	}
+
+	return false
+}
+
 // move the specific node to tail
 func (b *listBucket) bubble(id vnode.NodeID) bool {
-	if b._size == 0 {
+	if b.count == 0 {
 		return false
 	}
 
@@ -145,11 +186,18 @@ func (b *listBucket) bubble(id vnode.NodeID) bool {
 	return false
 }
 
-// if bucket is not full, add node at tail, return nil
-// return the first item, wait to ping-pong checked
+// if n has existed in bucket, then return it to check, because address maybe changed.
+// if bucket is not full, add node at tail, return nil.
+// return the first item, wait to ping-pong checked.
 func (b *listBucket) add(n *Node) (toCheck *Node) {
+	for current := b.head.next; current != nil; current = current.next {
+		if current.ID == n.ID {
+			return current.Node
+		}
+	}
+
 	// bucket is not full, add to tail
-	if b._size < b.cap {
+	if b.count < b.cap {
 		n.addAt = time.Now()
 
 		e := &element{
@@ -158,7 +206,7 @@ func (b *listBucket) add(n *Node) (toCheck *Node) {
 		}
 		b.tail.next = e
 		b.tail = e
-		b._size++
+		b.count++
 		return
 	}
 
@@ -175,7 +223,7 @@ func (b *listBucket) remove(id vnode.NodeID) (n *Node) {
 				b.tail = prev
 			}
 
-			b._size--
+			b.count--
 			return
 		}
 	}
@@ -188,10 +236,10 @@ func (b *listBucket) remove(id vnode.NodeID) (n *Node) {
 func (b *listBucket) nodes(count int) (nodes []*Node) {
 	start := 0
 
-	if count == 0 || b._size < count {
-		nodes = make([]*Node, 0, b._size)
+	if count == 0 || b.count < count {
+		nodes = make([]*Node, 0, b.count)
 	} else {
-		start = b._size - count
+		start = b.count - count
 		nodes = make([]*Node, 0, count)
 	}
 
@@ -223,7 +271,11 @@ func (b *listBucket) resolve(id vnode.NodeID) *Node {
 }
 
 func (b *listBucket) size() int {
-	return b._size
+	return b.count
+}
+
+func (b *listBucket) max() int {
+	return b.cap
 }
 
 type pinger interface {
@@ -233,12 +285,15 @@ type pinger interface {
 type table struct {
 	rw sync.RWMutex
 
+	bucketSize, bucketNum int
+	minDistance           uint
+
 	buckets []bucket
 	nodeMap map[string]*Node // key is address
 
 	bucketFact func(capp int) bucket
 
-	self *vnode.Node
+	id vnode.NodeID
 
 	subId     int
 	observers map[int]Observer
@@ -246,14 +301,17 @@ type table struct {
 	socket pinger
 }
 
-func newTable(self *vnode.Node, bktSize, bktCount int, fact func(bktSize int) bucket, socket pinger) nodeTable {
+func newTable(id vnode.NodeID, bktSize, bucketNum int, fact func(bktSize int) bucket, socket pinger) *table {
 	tab := &table{
-		self:       self,
-		buckets:    make([]bucket, bktCount),
-		nodeMap:    make(map[string]*Node),
-		bucketFact: fact,
-		observers:  make(map[int]Observer),
-		socket:     socket,
+		id:          id,
+		bucketSize:  bktSize,
+		bucketNum:   bucketNum,
+		minDistance: vnode.IDBits - uint(bucketNum) + 1,
+		buckets:     make([]bucket, bucketNum),
+		nodeMap:     make(map[string]*Node),
+		bucketFact:  fact,
+		observers:   make(map[int]Observer),
+		socket:      socket,
 	}
 
 	for i := range tab.buckets {
@@ -261,6 +319,10 @@ func newTable(self *vnode.Node, bktSize, bktCount int, fact func(bktSize int) bu
 	}
 
 	return tab
+}
+
+func (tab *table) getId() vnode.NodeID {
+	return tab.id
 }
 
 // reset operation clear all buckets
@@ -278,6 +340,10 @@ func (tab *table) reset() {
 
 // nodes retrieve count nodes from near to far
 func (tab *table) nodes(count int) (nodes []*Node) {
+	if count == 0 {
+		count = tab.bucketNum * tab.bucketSize
+	}
+
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
 
@@ -313,7 +379,7 @@ func (tab *table) UnSub(subId int) {
 }
 
 func (tab *table) add(node *Node) (toCheck *Node) {
-	if node == nil {
+	if node == nil || node.ID == tab.id {
 		return nil
 	}
 
@@ -326,7 +392,6 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 
 	// exist in table
 	if _, ok := tab.nodeMap[addr]; ok {
-		tab.rw.Unlock()
 		return nil
 	}
 
@@ -339,19 +404,21 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 	}
 
 	// ping oldNode
-	go func() {
-		err := tab.socket.ping(toCheck)
-		if err != nil {
-			tab.rw.Lock()
-			tab.removeLocked(toCheck.ID)
-			if bkt.add(node) == nil {
-				tab.nodeMap[addr] = node
-			}
-			tab.rw.Unlock()
-		}
-	}()
+	go tab.checkReplace(bkt, toCheck, node)
 
 	return
+}
+
+func (tab *table) checkReplace(bkt bucket, oldNode, newNode *Node) {
+	err := tab.socket.ping(oldNode)
+	if err != nil {
+		tab.rw.Lock()
+		if bkt.replace(oldNode.ID, newNode) {
+			delete(tab.nodeMap, oldNode.Address())
+			tab.nodeMap[newNode.Address()] = newNode
+		}
+		tab.rw.Unlock()
+	}
 }
 
 func (tab *table) addNodes(nodes []*Node) {
@@ -359,7 +426,7 @@ func (tab *table) addNodes(nodes []*Node) {
 	defer tab.rw.Unlock()
 
 	for _, n := range nodes {
-		if n == nil {
+		if n == nil || n.ID == tab.id {
 			continue
 		}
 
@@ -377,11 +444,11 @@ func (tab *table) addNodes(nodes []*Node) {
 }
 
 func (tab *table) getBucket(id vnode.NodeID) bucket {
-	d := vnode.Distance(tab.self.ID, id)
-	if d <= minDistance {
+	d := vnode.Distance(tab.id, id)
+	if d < tab.minDistance {
 		return tab.buckets[0]
 	}
-	return tab.buckets[d-minDistance-1]
+	return tab.buckets[d-tab.minDistance]
 }
 
 func (tab *table) remove(id vnode.NodeID) (node *Node) {
@@ -465,6 +532,10 @@ func (tab *table) size() int {
 	return count
 }
 
+func (tab *table) max() int {
+	return tab.bucketNum * tab.bucketSize
+}
+
 func (tab *table) resolve(id vnode.NodeID) *Node {
 	bkt := tab.getBucket(id)
 
@@ -490,6 +561,13 @@ func (tab *table) store(db nodeStore) {
 		if now.Sub(n.addAt) > stayInTable {
 			_ = db.Store(n)
 		}
+	}
+}
+
+func (tab *table) iterate(fn func(*Node)) {
+	nodes := tab.nodes(math.MaxInt64)
+	for _, n := range nodes {
+		fn(n)
 	}
 }
 

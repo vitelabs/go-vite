@@ -17,7 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/p2p"
-	config2 "github.com/vitelabs/go-vite/p2p/config"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -47,11 +46,12 @@ type Config struct {
 	MaxInboundRatio int      `json:"MaxInboundRatio"`
 	MaxPendingPeers int      `json:"MaxPendingPeers"`
 	BootNodes       []string `json:"BootNodes"`
+	BootSeeds       []string `json"BootSeeds"`
 	StaticNodes     []string `json:"StaticNodes"`
 	ListenAddress   string   `json:"ListenAddress"`
 	PublicAddress   string   `json:"PublicAddress"`
 	NetID           int      `json:"NetID"`
-	Discovery       bool     `json:"Discovery"`
+	Discover        bool     `json:"Discover"`
 
 	//producer
 	EntropyStorePath     string `json:"EntropyStorePath"`
@@ -198,41 +198,22 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	}
 }
 
-func (c *Config) makeP2PConfig() *p2p.Config {
-	var listenAddress = c.ListenAddress
-	if listenAddress == "" {
-		listenAddress = "0.0.0.0:8483"
-	}
-
-	maxPeers := make(map[p2p.Level]int, 3)
-	var max = c.MaxPeers
-	if max == 0 {
-		max = p2p.DefaultMaxPeers
-	}
-	var ratio = c.MaxInboundRatio
-	if ratio == 0 {
-		ratio = p2p.DefaultMaxInboundRatio
-	}
-	maxPeers[p2p.Inbound] = max / ratio
-	maxPeers[p2p.Outbound] = max - (max / ratio)
-
-	return &p2p.Config{
-		Config: config2.Config{
-			ListenAddress: listenAddress,
-			PublicAddress: c.PublicAddress,
-			DataDir:       filepath.Join(c.DataDir, "p2p"),
-			PeerKey:       c.PeerKey,
-			BootNodes:     c.BootNodes,
-			BootSeed:      nil,
-			NetID:         c.NetID,
-		},
-		Discovery:       c.Discovery,
-		Name:            c.Name,
-		MaxPeers:        maxPeers,
-		MinPeers:        c.MinPeers,
-		MaxPendingPeers: c.MaxPendingPeers,
-		StaticNodes:     c.StaticNodes,
-	}
+func (c *Config) makeP2PConfig() (*p2p.Config, error) {
+	return p2p.NewConfig(
+		c.ListenAddress,
+		c.PublicAddress,
+		c.DataDir,
+		c.PeerKey,
+		c.BootNodes,
+		c.BootSeeds,
+		c.NetID,
+		c.Discover,
+		c.Name,
+		c.MaxPeers,
+		c.MinPeers,
+		c.MaxInboundRatio,
+		c.MaxPendingPeers,
+		c.StaticNodes)
 }
 
 func (c *Config) makeChainConfig() *config.Chain {

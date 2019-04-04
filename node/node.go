@@ -87,10 +87,15 @@ type Node struct {
 }
 
 func New(conf *Config) (*Node, error) {
+	p2pConfig, err := conf.makeP2PConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Node{
 		config:        conf,
 		walletConfig:  conf.makeWalletConfig(),
-		p2pConfig:     conf.makeP2PConfig(),
+		p2pConfig:     p2pConfig,
 		viteConfig:    conf.makeViteConfig(),
 		metricsConfig: conf.makeMetricsConfig(),
 		ipcEndpoint:   conf.IPCEndpoint(),
@@ -179,10 +184,10 @@ func (node *Node) Prepare() (err error) {
 			return
 		}
 		// pub + sign(nodeID)
-		p2pConfig.Node.Ext = append(minePublicKey, ed25519.Sign(minePrivateKey, p2pConfig.Node.ID.Bytes())...)
+		p2pConfig.Node().Ext = append(minePublicKey, ed25519.Sign(minePrivateKey, p2pConfig.Node().ID.Bytes())...)
 	}
 
-	node.p2pServer = p2p.New(*p2pConfig)
+	node.p2pServer = p2p.New(p2pConfig)
 
 	//Initialize the vite server
 	node.viteConfig.MinePrivateKey, node.viteConfig.MinePublicKey = minePrivateKey, minePublicKey
@@ -449,7 +454,7 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.Config().PrivateKey.PubByte())
+		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.Config().PrivateKey().PubByte())
 
 		u, e := url.Parse(targetUrl)
 		if e != nil {

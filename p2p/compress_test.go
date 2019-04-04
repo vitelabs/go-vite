@@ -10,7 +10,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"testing"
-	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -35,6 +34,9 @@ func BenchmarkSnappy_Encode(b *testing.B) {
 		d += len(dest)
 	}
 	fmt.Printf("snappy: %f\n", float64(d)/float64(s))
+
+	//snappy.NewReader()
+	//snappy.NewBufferedWriter()
 }
 
 func BenchmarkSnappy_Decode(b *testing.B) {
@@ -121,8 +123,6 @@ func TestAccountBlock_Snappy(t *testing.T) {
 	accountAddress1, privateKey, _ := types.CreateAddress()
 	accountAddress2, _, _ := types.CreateAddress()
 
-	now := time.Now()
-
 	block := &ledger.AccountBlock{
 		PrevHash:       types.Hash{},
 		BlockType:      ledger.BlockTypeSendCall,
@@ -134,10 +134,7 @@ func TestAccountBlock_Snappy(t *testing.T) {
 		Quota:          1,
 		Fee:            big.NewInt(0),
 		PublicKey:      privateKey.PubByte(),
-		SnapshotHash:   types.Hash{},
-		Timestamp:      &now,
 		Data:           []byte{'a', 'b', 'c', 'd', 'e'},
-		StateHash:      types.Hash{},
 		LogHash:        &types.Hash{},
 		Nonce:          []byte("test nonce test nonce"),
 		Signature:      []byte("test signature test signature test signature"),

@@ -143,7 +143,7 @@ func (h *handshaker) sendHandshake(codec Codec) (err error) {
 
 	codec.SetWriteTimeout(handshakeTimeout)
 	err = codec.WriteMsg(Msg{
-		Pid:     0,
+		pid:     0,
 		Code:    baseHandshake,
 		Payload: hspkt,
 	})
@@ -162,7 +162,7 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerNetworkError
 	}
 
-	if msg.Pid != baseProtocolID {
+	if msg.pid != baseProtocolID {
 		return nil, PeerNotHandshakeMsg
 	}
 

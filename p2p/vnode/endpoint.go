@@ -1,6 +1,7 @@
 package vnode
 
 import (
+	"bytes"
 	"errors"
 	"net"
 	"strconv"
@@ -14,6 +15,20 @@ type EndPoint struct {
 	Host []byte
 	Port int
 	Typ  HostType
+}
+
+func (e *EndPoint) Equal(e2 *EndPoint) bool {
+	if e.Port != e2.Port {
+		return false
+	}
+	if e.Typ != e2.Typ {
+		return false
+	}
+	if !bytes.Equal(e.Host, e2.Host) {
+		return false
+	}
+
+	return true
 }
 
 // Serialize not use ProtoBuffers, because we should ensure the neighbors message is short than 1200 bytes
@@ -70,32 +85,35 @@ func (e *EndPoint) Deserialize(buf []byte) (err error) {
 		return
 	}
 
-	hLen := buf[0] >> 4
+	hLen := buf[0] >> 2
 
 	if hLen == 0 {
 		err = errMissHost
 		return
 	}
 
-	if buf[0]&2 > 0 {
-		e.Typ = HostDomain
-	} else {
-		e.Typ = HostIP
-	}
+	// verify length is right, return error if len(buf) < shouldLength
+	shouldLength := int(hLen) + 1
 
 	hasPort := buf[0]&1 > 0
-
-	decodeLen := int(hLen) + 1
 	if hasPort {
-		decodeLen += PortLength
+		shouldLength += PortLength
 	}
 
-	if len(buf) < decodeLen {
+	if len(buf) < shouldLength {
 		err = errUnmatchedLength
 		return
 	}
 
 	e.Host = buf[1 : 1+hLen]
+
+	if buf[0]&2 > 0 {
+		e.Typ = HostDomain
+	} else if hLen > net.IPv4len {
+		e.Typ = HostIPv6
+	} else {
+		e.Typ = HostIPv4
+	}
 
 	if hasPort {
 		e.Port = int(buf[len(buf)-1]) | (int(buf[len(buf)-2]) << 8)

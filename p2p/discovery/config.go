@@ -16,7 +16,7 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package config
+package discovery
 
 import (
 	"os"
@@ -47,23 +47,51 @@ type Config struct {
 	// PeerKey is to encrypt message, the corresponding public key use for NodeID, MUST NOT be revealed
 	PeerKey string
 
-	// PrivateKey is derived from PeerKey or read from file, or generate randomly
-	// should NOT assign from config
-	PrivateKey ed25519.PrivateKey
+	// privateKey is derived from PeerKey or read from file, or generate randomly
+	privateKey ed25519.PrivateKey
 
-	// Node represent our endpoint, NodeID is derived from PeerKey
-	// should NOT assign from config
-	Node vnode.Node
+	// node represent our endpoint, NodeID is derived from PeerKey
+	node *vnode.Node
 
 	// BootNodes are roles as network entrance. Node can discovery more other nodes by send UDP query BootNodes,
 	// but not create a TCP connection to BootNodes directly
 	BootNodes []string
 
-	// BootSeed is the address where can query BootNodes, is a more flexible option than BootNodes
-	BootSeed []string
+	// BootSeeds are the address where can query BootNodes, is a more flexible option than BootNodes
+	BootSeeds []string
 
 	// NetID is to mark which network our node in, nodes from different network can`t connect each other
 	NetID int
+}
+
+func NewConfig(listenAddress, publicAddress, dataDir, peerKey string, bootNodes, bootSeed []string, netId int) (*Config, error) {
+	cfg := &Config{
+		ListenAddress: listenAddress,
+		PublicAddress: publicAddress,
+		DataDir:       dataDir,
+		PeerKey:       peerKey,
+		privateKey:    nil,
+		node:          nil,
+		BootNodes:     bootNodes,
+		BootSeeds:     bootSeed,
+		NetID:         netId,
+	}
+
+	err := cfg.Ensure()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// Node MUST NOT be invoked before Ensure
+func (cfg *Config) Node() *vnode.Node {
+	return cfg.node
+}
+
+func (cfg *Config) PrivateKey() ed25519.PrivateKey {
+	return cfg.privateKey
 }
 
 func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
@@ -77,10 +105,14 @@ func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
 		}
 
 		if fd, err = os.Create(filename); err == nil {
-			defer fd.Close()
+			defer func() {
+				_ = fd.Close()
+			}()
 		}
 	} else {
-		defer fd.Close()
+		defer func() {
+			_ = fd.Close()
+		}()
 
 		privateKey = make(ed25519.PrivateKey, ed25519.PrivateKeySize)
 		var n int
@@ -99,8 +131,8 @@ func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
 	return
 }
 
-// Ensure will set default value to fields missing value of Config.
-// will random a PeerKey and store in local file, usually `DataDir/peer.key`, if missing one.
+// Ensure will set default value to missing fields and construct node. MUST be invoked before use.
+// Will generate a random PeerKey and store in local file, `${DataDir}/peer.key`, if missing one.
 func (cfg *Config) Ensure() (err error) {
 	if cfg.NetID == 0 {
 		cfg.NetID = DefaultNetID
@@ -112,23 +144,23 @@ func (cfg *Config) Ensure() (err error) {
 
 	if cfg.PeerKey == "" {
 		if cfg.DataDir == "" {
-			_, cfg.PrivateKey, err = ed25519.GenerateKey(nil)
+			_, cfg.privateKey, err = ed25519.GenerateKey(nil)
 		} else {
 			keyFile := filepath.Join(cfg.DataDir, PrivKeyFileName)
-			cfg.PrivateKey, err = getPeerKey(keyFile)
+			cfg.privateKey, err = getPeerKey(keyFile)
 		}
 
 		if err != nil {
 			return
 		}
 	} else {
-		cfg.PrivateKey, err = ed25519.HexToPrivateKey(cfg.PeerKey)
+		cfg.privateKey, err = ed25519.HexToPrivateKey(cfg.PeerKey)
 		if err != nil {
 			return
 		}
 	}
 
-	id, _ := vnode.Bytes2NodeID(cfg.PrivateKey.PubByte())
+	id, _ := vnode.Bytes2NodeID(cfg.privateKey.PubByte())
 
 	var e vnode.EndPoint
 	if cfg.PublicAddress != "" {
@@ -138,7 +170,7 @@ func (cfg *Config) Ensure() (err error) {
 		}
 	}
 
-	cfg.Node = vnode.Node{
+	cfg.node = &vnode.Node{
 		ID:       id,
 		EndPoint: e,
 		Net:      uint32(cfg.NetID),

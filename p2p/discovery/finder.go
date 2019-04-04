@@ -9,13 +9,16 @@ type Finder interface {
 
 type closetFinder struct {
 	table nodeTable
+	subId int
 }
 
-func (f *closetFinder) Sub(Subscriber) {
+func (f *closetFinder) Sub(sub Subscriber) {
+	f.subId = sub.Sub(f)
 	return
 }
 
-func (f *closetFinder) UnSub(Subscriber) {
+func (f *closetFinder) UnSub(sub Subscriber) {
+	sub.UnSub(f.subId)
 	return
 }
 

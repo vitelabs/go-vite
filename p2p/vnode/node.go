@@ -35,7 +35,8 @@ const MaxHostLength = 1<<6 - 1
 
 var errUnmatchedLength = errors.New("needs 64 hex chars")
 
-const IDBits = 32 * 8
+const idBytes = 32
+const IDBits = idBytes * 8
 
 // ZERO is the zero-value of NodeID type
 var ZERO NodeID
@@ -66,44 +67,18 @@ func (id NodeID) IsZero() bool {
 	return true
 }
 
+func RandomNodeID() (id NodeID) {
+	_, _ = rand.Read(id[:])
+	return
+}
+
 // RandFromDistance will generate a random NodeID which satisfy `Distance(id, rid) == d`
 func RandFromDistance(id NodeID, d uint) (rid NodeID) {
-	if d == 0 {
-		return id
-	}
-
 	if d >= IDBits {
 		d = IDBits
 	}
 
-	rand.Read(rid[:])
-
-	n := IDBits - d
-	byt := n / 8
-	bit := n % 8
-
-	for i := uint(0); i < byt; i++ {
-		rid[i] = id[i]
-	}
-
-	// set left bits to the same with id
-	// make rid[i] left bits to zero
-	// make id[i] right (8 - bits) to zero
-	rid[byt] = (rid[byt] << bit >> bit) | (id[byt] >> (8 - bit) << (8 - bit))
-
-	// must set the bits+1 different
-	nextBitFromRight := 7 - bit
-	theSrcBit := id[byt] & (byte(1) << nextBitFromRight)
-
-	if theSrcBit == 1 {
-		// set the bit of rid to 0
-		rid[byt] = rid[byt] & (^(byte(1) << nextBitFromRight))
-	} else {
-		// set the bit of rid to 1
-		rid[byt] = rid[byt] | (byte(1) << nextBitFromRight)
-	}
-
-	return
+	return commonNBits(id, IDBits-d)
 }
 
 // Hex2NodeID parse a hex coded string to NodeID
@@ -126,22 +101,15 @@ func Bytes2NodeID(buf []byte) (id NodeID, err error) {
 	return
 }
 
-// Distance is bit-count minus the common bits between a and b, from left to right continuously, eg:
-// a: 0000 1111
-// b: 0100 0011
-// Distance(a, b) == 8 - 1
-func Distance(a, b NodeID) uint {
-	if a == b {
-		return IDBits
-	}
-
-	var n uint
-
-	// common bytes
-	for n = 0; n < uint(len(a)); n++ {
+func commonBits(a, b NodeID) (n uint) {
+	for n = 0; n < idBytes; n++ {
 		if a[n] != b[n] {
 			break
 		}
+	}
+
+	if n == idBytes {
+		return IDBits
 	}
 
 	// common bits
@@ -154,7 +122,47 @@ func Distance(a, b NodeID) uint {
 		xor <<= 1
 	}
 
-	return IDBits - n
+	return
+}
+
+func commonNBits(a NodeID, n uint) (b NodeID) {
+	if n == IDBits {
+		return a
+	}
+
+	b = RandomNodeID()
+
+	byt := n / 8
+	bit := n % 8
+
+	for i := uint(0); i < byt; i++ {
+		b[i] = a[i]
+	}
+
+	// reset left bit bits
+	b[byt] = b[byt] << bit >> bit
+	// set left bit bits same with a
+	b[byt] |= a[byt] >> (8 - bit) << (8 - bit)
+
+	diffBita := a[byt] << bit >> 7 << (7 - bit)
+	if diffBita > 0 {
+		// set diffBitb to 0
+		b[byt] &= 255 - (1 << (7 - bit))
+	} else {
+		// set diffBitb to 1
+		b[byt] |= 1 << (7 - bit)
+	}
+
+	return
+}
+
+// Distance is bit-count minus the common bits, from left to right continuously, between a and b. eg:
+// a: 0000 1111
+// b: 0100 0011
+// common bits between a and b is 1
+// Distance(a, b) == 8 - 1
+func Distance(a, b NodeID) uint {
+	return IDBits - commonBits(a, b)
 }
 
 var errMissHost = errors.New("missing Host")
@@ -182,9 +190,7 @@ func (n Node) Address() string {
 // <hex_node_id>@[IP]:<port>/net
 // the field `Ext` will not be included in the encoded string
 func (n Node) String() (str string) {
-	if !n.ID.IsZero() {
-		str += n.ID.String()
-	}
+	str = n.ID.String() + "@"
 
 	if n.Port == DefaultPort {
 		str += n.Hostname()

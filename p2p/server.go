@@ -158,9 +158,9 @@ func (srv *server) handle(c net.Conn) {
 	srv.tkt.Return()
 
 	if err != nil {
-		srv.pm.register(p)
-	} else {
 		srv.log.Error(fmt.Sprintf("handshake with peer %s error: %v", c.RemoteAddr(), err))
+	} else {
+		go srv.pm.register(p)
 	}
 }
 

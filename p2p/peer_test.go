@@ -1,60 +1,82 @@
 package p2p
 
 import (
-	"fmt"
-	"net"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-type mockConn struct {
-	w chan []byte
-	r chan []byte
-}
+func TestPeerMux(t *testing.T) {
+	c1, c2 := MockPipe()
 
-func (mc *mockConn) Read(b []byte) (n int, err error) {
-	panic(nil)
-}
+	var m1 = make(map[ProtocolID]peerProtocol)
+	mp1 := &mockProtocol{}
+	m1[mp1.ID()] = peerProtocol{
+		Protocol: mp1,
+	}
 
-func (mc *mockConn) Write(b []byte) (n int, err error) {
-	panic("implement me")
-}
+	p1 := NewPeer(vnode.ZERO, "hello", 1, c1, 1, m1)
 
-func (mc *mockConn) Close() error {
-	panic("implement me")
-}
+	var m2 = make(map[ProtocolID]peerProtocol)
+	mp2 := &mockProtocol{}
+	m2[mp2.ID()] = peerProtocol{
+		Protocol: mp2,
+	}
 
-func (mc *mockConn) LocalAddr() net.Addr {
-	panic("implement me")
-}
+	var id vnode.NodeID
+	id[0] = 1
+	p2 := NewPeer(id, "world", 1, c2, 1, m2)
 
-func (mc *mockConn) RemoteAddr() net.Addr {
-	panic("implement me")
-}
+	go func() {
+		err := p1.WriteMsg(Msg{
+			Pid:     mp1.ID(),
+			Code:    0,
+			Id:      0,
+			Payload: []byte("hello"),
+		})
 
-func (mc *mockConn) SetDeadline(t time.Time) error {
-	panic("implement me")
-}
+		if err != nil {
+			t.Error(err)
+		}
 
-func (mc *mockConn) SetReadDeadline(t time.Time) error {
-	panic("implement me")
-}
+		if err = p1.run(); err != nil {
+			t.Error(err)
+		}
+	}()
 
-func (mc *mockConn) SetWriteDeadline(t time.Time) error {
-	panic("implement me")
-}
+	go func() {
+		if err := p2.run(); err != nil {
+			t.Error(err)
+		}
+	}()
 
-func Benchmark_Atomic(b *testing.B) {
-	var a int32
-	for i := 0; i < b.N; i++ {
-		fmt.Println(atomic.LoadInt32(&a))
+	time.Sleep(time.Second)
+	err := p1.Close(PeerQuitting)
+	if err != nil {
+		t.Error(err)
 	}
 }
 
-func Benchmark_NoAtomic(b *testing.B) {
-	var a int32
-	for i := 0; i < b.N; i++ {
-		fmt.Println(a)
+func TestPeerMux_Close(t *testing.T) {
+	c1, _ := MockPipe()
+
+	var m1 = make(map[ProtocolID]peerProtocol)
+	mp1 := &mockProtocol{}
+	m1[mp1.ID()] = peerProtocol{
+		Protocol: mp1,
+	}
+	p1 := NewPeer(vnode.ZERO, "hello", 1, c1, 1, m1)
+
+	go func() {
+		if err := p1.run(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	time.Sleep(time.Second)
+	err := p1.Close(PeerQuitting)
+	if err != nil {
+		t.Error(err)
 	}
 }
