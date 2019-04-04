@@ -96,7 +96,7 @@ func (v *AccountVerifier) verifyAccAddress(block *ledger.AccountBlock) (AccountT
 		if block.IsSendBlock() {
 			return AccountTypeNotSure, errors.New("fatal: sendblock.height can't be 1")
 		}
-		sendBlock, sErr := v.chain.GetAccountBlockByHash(block.Hash)
+		sendBlock, sErr := v.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if sErr != nil {
 			return AccountTypeNotSure, errors.New("GetAccountBlockByHash failed, " + sErr.Error())
 		}
@@ -273,7 +273,7 @@ func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, 
 	}
 	if !isGeneralAddr && block.SendBlockList != nil {
 		for _, sendBlock := range block.SendBlockList {
-			if err := v.verifySendBlockIntergrity(sendBlock, true); err != nil {
+			if err := v.verifySendBlockIntergrity(sendBlock, isGeneralAddr); err != nil {
 				v.log.Error(fmt.Sprintf("err:%v, contractAddr:%v, recv-subSends(%v, %v)",
 					err.Error(), block.AccountAddress, block.Hash, sendBlock.Hash), "method", "verifyRecvBlockIntergrity")
 				return err
