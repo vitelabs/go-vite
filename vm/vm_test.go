@@ -454,7 +454,10 @@ type TestCaseSendBlock struct {
 	TokenId   types.TokenTypeId
 	Data      string
 }
-
+type TestLog struct {
+	Data   string
+	Topics []string
+}
 type TestCase struct {
 	SBHeight      uint64
 	SBTime        int64
@@ -471,7 +474,9 @@ type TestCase struct {
 	Storage       map[string]string
 	PreStorage    map[string]string
 	LogHash       string
+	LogList       []TestLog
 	SendBlockList []*TestCaseSendBlock
+	Seed          uint64
 }
 
 func TestVm(t *testing.T) {
@@ -484,10 +489,9 @@ func TestVm(t *testing.T) {
 		if testFile.IsDir() {
 			continue
 		}
-		// TODO
-		if testFile.Name() == "contract.json" {
+		/*if testFile.Name() != "contract.json" {
 			continue
-		}
+		}*/
 		file, ok := os.Open(testDir + testFile.Name())
 		if ok != nil {
 			t.Fatalf("open test file failed, %v", ok)
@@ -511,7 +515,7 @@ func TestVm(t *testing.T) {
 			}
 			vm := NewVM()
 			vm.i = NewInterpreter(1, false)
-			vm.globalStatus = NewTestGlobalStatus(0, &sb)
+			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
@@ -557,8 +561,14 @@ func TestVm(t *testing.T) {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
 				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
 					t.Fatalf("%v: %v failed, storage error, %v", testFile.Name(), k, checkStorageResult)
-				} else if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
-					t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
+				} else if len(testCase.LogHash) > 0 {
+					if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
+						t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
+					}
+				} else if len(testCase.LogList) > 0 {
+					if checkLogListResult := checkLogList(testCase.LogList, db); checkLogListResult != "" {
+						t.Fatalf("%v: %v failed, log list error, %v", testFile.Name(), k, checkLogListResult)
+					}
 				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList); checkSendBlockListResult != "" {
 					t.Fatalf("%v: %v failed, send block list error, %v", testFile.Name(), k, checkSendBlockListResult)
 				}
@@ -566,6 +576,27 @@ func TestVm(t *testing.T) {
 		}
 	}
 }
+func checkLogList(expected []TestLog, got *memoryDatabase) string {
+	if len(expected) != len(got.logList) {
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.logList))
+	}
+	for index, lGot := range got.logList {
+		lexpected := expected[index]
+		if len(lexpected.Topics) != len(lGot.Topics) {
+			return strconv.Itoa(index) + "th log topic len not match, expected " + strconv.Itoa(len(lexpected.Topics)) + ", got " + strconv.Itoa(len(lGot.Topics))
+		}
+		if dataStr := hex.EncodeToString(lGot.Data); dataStr != lexpected.Data {
+			return "expected " + strconv.Itoa(index) + "th log data: " + lexpected.Data + ", got: " + dataStr
+		}
+		for topicIndex, t := range lGot.Topics {
+			if topicStr := t.String(); topicStr != lexpected.Topics[topicIndex] {
+				return "expected " + strconv.Itoa(index) + ":" + strconv.Itoa(topicIndex) + "th topic: " + lexpected.Topics[topicIndex] + ", got: " + topicStr
+			}
+		}
+	}
+	return ""
+}
+
 func checkStorage(got *memoryDatabase, expected map[string]string) string {
 	count := 0
 	for _, v := range got.storage {
