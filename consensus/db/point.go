@@ -39,19 +39,15 @@ func (self *Content) AddNum(ExpectedNum uint32, FactualNum uint32) {
 }
 
 type Point struct {
-	PrevHash *types.Hash
-	Hash     *types.Hash
+	PrevHash types.Hash
+	Hash     types.Hash
 	Sbps     map[types.Address]*Content
 }
 
 func (self *Point) Marshal() ([]byte, error) {
 	pb := &vitepb.ConsensusPoint{}
-	if self.Hash != nil {
-		pb.Hash = self.Hash.Bytes()
-	}
-	if self.PrevHash != nil {
-		pb.PrevHash = self.PrevHash.Bytes()
-	}
+	pb.Hash = self.Hash.Bytes()
+	pb.PrevHash = self.PrevHash.Bytes()
 	if len(self.Sbps) > 0 {
 		pb.Contents = make([]*vitepb.PointContent, len(self.Sbps))
 		i := 0
@@ -79,14 +75,12 @@ func (self *Point) Unmarshal(buf []byte) error {
 		return unmarshalErr
 	}
 	if len(pb.Hash) > 0 {
-		self.Hash = &types.Hash{}
 		if err := self.Hash.SetBytes(pb.Hash); err != nil {
 			return err
 		}
 	}
 
 	if len(pb.PrevHash) > 0 {
-		self.PrevHash = &types.Hash{}
 		if err := self.PrevHash.SetBytes(pb.PrevHash); err != nil {
 			return err
 		}
@@ -102,20 +96,30 @@ func (self *Point) Unmarshal(buf []byte) error {
 	return nil
 }
 func (self *Point) Append(p *Point) error {
-	if self.Hash == nil {
+	if self.Hash == self.PrevHash {
 		self.Hash = p.Hash
 		self.PrevHash = p.PrevHash
 		self.Sbps = p.Sbps
 		return nil
 	}
 
-	if self.Hash != p.PrevHash {
-		return errors.New("hash and prev hash can't match")
+	if p.Hash != self.PrevHash {
+		return errors.Errorf("hash[%s] and prev[%s] hash can't match", self.Hash, p.PrevHash)
 	}
 
-	self.Hash = p.Hash
+	self.PrevHash = p.PrevHash
 	self.Sbps = mergeMap(self.Sbps, p.Sbps)
 	return nil
+}
+func (self *Point) IsEmpty() bool {
+	return self.Hash == types.Hash{}
+}
+func NewEmptyPoint() *Point {
+	return &Point{
+		PrevHash: types.Hash{},
+		Hash:     types.Hash{},
+		Sbps:     make(map[types.Address]*Content),
+	}
 }
 
 func mergeMap(m1 map[types.Address]*Content, m2 map[types.Address]*Content) map[types.Address]*Content {

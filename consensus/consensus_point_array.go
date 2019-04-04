@@ -1,34 +1,56 @@
 package consensus
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/go-errors/errors"
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
-func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
-	day := &linkedArray{}
-	day.rate = DAY_TO_HOUR
-	day.prefix = consensus_db.INDEX_Point_DAY
-	day.lowerArr = hour
-	day.db = db
-	return day
+type TimeIndex struct {
+	GenesisTime time.Time
+	// second
+	Interval time.Duration
 }
 
-func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB) *linkedArray {
+func (self *TimeIndex) Index2Time(index uint64) (time.Time, time.Time) {
+	sTime := self.GenesisTime.Add(self.Interval * time.Duration(index))
+	eTime := self.GenesisTime.Add(self.Interval * time.Duration(index+1))
+	return sTime, eTime
+}
+
+func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, genesisTime time.Time, log log15.Logger) *linkedArray {
+	dayArr := &linkedArray{}
+	dayArr.rate = DAY_TO_HOUR
+	dayArr.prefix = consensus_db.INDEX_Point_DAY
+	dayArr.lowerArr = hour
+	dayArr.db = db
+	dayArr.proof = proof
+	dayArr.timeIndex = &TimeIndex{GenesisTime: genesisTime, Interval: time.Duration(DAY_TO_PERIOD*PERIOD_TO_SECS) * time.Second}
+	dayArr.log = log
+	return dayArr
+}
+
+func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, genesisTime time.Time, log log15.Logger) *linkedArray {
 	hourArr := &linkedArray{}
 	hourArr.rate = HOUR_TO_PERIOD
 	hourArr.prefix = consensus_db.INDEX_Point_HOUR
 	hourArr.lowerArr = period
 	hourArr.db = db
+	hourArr.proof = proof
+	hourArr.timeIndex = &TimeIndex{GenesisTime: genesisTime, Interval: time.Duration(HOUR_TO_PERIOD*PERIOD_TO_SECS) * time.Second}
+	hourArr.log = log
 	return hourArr
 }
 
 type LinkedArray interface {
 	GetByIndex(index uint64) (*consensus_db.Point, error)
+	GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error)
 }
 
 type linkedArray struct {
@@ -36,10 +58,28 @@ type linkedArray struct {
 	rate     uint64
 	db       *consensus_db.ConsensusDB
 	lowerArr LinkedArray
+
+	proof RollbackProof
+
+	timeIndex *TimeIndex
+	//genesisTime   time.Time
+	//indexInterval time.Duration
+
+	log log15.Logger
 }
 
 func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
-	point, err := self.db.GetPointByHeight(self.prefix, index)
+	//proofTime := self.genesisTime.Add(self.indexInterval * time.Duration(index))
+	_, etime := self.timeIndex.Index2Time(index)
+	hash, err := self.proof.ProofHash(etime)
+	if err != nil {
+		return nil, err
+	}
+	return self.GetByIndexWithProof(index, hash)
+}
+
+func (self *linkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	point, err := self.getByIndexWithProofFromDb(index, proofHash)
 	if err != nil {
 		return nil, err
 	}
@@ -47,19 +87,63 @@ func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
 		return point, nil
 	}
 
-	return self.getByIndex(index)
+	point, err = self.getByIndexWithProofFromKernel(index, proofHash)
+	if err != nil {
+		return nil, err
+	}
+	if point == nil {
+		return nil, errors.Errorf("index[%d][%d]proof[%s] Get fail", self.prefix, index, proofHash)
+	}
+
+	err = self.db.StorePointByHeight(self.prefix, index, point)
+	if err != nil {
+		bytes, _ := json.Marshal(point)
+		self.log.Error("store point by height Fail.", "index", index, "point", string(bytes))
+	}
+	return point, nil
 }
 
-func (self *linkedArray) getByIndex(index uint64) (*consensus_db.Point, error) {
-	result := &consensus_db.Point{}
-	start := index * self.rate
-	end := start + self.rate
-	for i := start; i < end; i++ {
-		p, err := self.lowerArr.GetByIndex(i)
+// result maybe nil
+func (self *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	// get point info from db
+	point, err := self.db.GetPointByHeight(self.prefix, index)
+	if err != nil {
+		return nil, err
+	}
+	if point == nil {
+		// proof for empty
+		emptyProofResult, err := self.proof.ProofEmpty(self.timeIndex.Index2Time(index))
 		if err != nil {
 			return nil, err
 		}
+		if emptyProofResult {
+			return consensus_db.NewEmptyPoint(), nil
+		}
+	} else {
+		if proofHash == point.Hash {
+			// from db and proof
+			return point, nil
+		}
+	}
+	return nil, nil
+}
 
+// result must not nil
+func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	result := consensus_db.NewEmptyPoint()
+	start := index * self.rate
+	end := start + self.rate
+	tmpProofHash := proofHash
+	for i := end; i > start; i-- {
+		p, err := self.lowerArr.GetByIndexWithProof(i-1, tmpProofHash)
+		if err != nil {
+			return nil, err
+		}
+		if p.IsEmpty() {
+
+			continue
+		}
+		tmpProofHash = p.PrevHash
 		if err := result.Append(p); err != nil {
 			return nil, err
 		}
@@ -82,92 +166,111 @@ type SBPInfo struct {
 	FactualNum  int32
 }
 
-// period = 75s
-type periodPoint struct {
-	consensus_db.Point
-	empty bool
-	// hash exist
-	proof *ledger.HashHeight
-	// beforeTime + hash
-	proof2 *ledger.HashHeight
-	stime  *time.Time
-	etime  *time.Time
-}
-
 type periodLinkedArray struct {
 	//periods map[uint64]*periodPoint
-	periods  *lru.Cache
-	rw       Chain
-	snapshot DposReader
+	periods   *lru.Cache
+	rw        Chain
+	snapshot  DposReader
+	timeIndex *TimeIndex
+	proof     RollbackProof
+	log       log15.Logger
 }
 
-func newPeriodPointArray(rw Chain, cs DposReader) *periodLinkedArray {
+func newPeriodPointArray(rw Chain, cs DposReader, proof RollbackProof, log log15.Logger) *periodLinkedArray {
 	cache, err := lru.New(4 * 24 * 60)
 	if err != nil {
 		panic(err)
 	}
-	return &periodLinkedArray{rw: rw, periods: cache, snapshot: cs}
+	index := &TimeIndex{}
+	index.GenesisTime = cs.GetInfo().GenesisTime
+	index.Interval = time.Second * time.Duration(cs.GetInfo().PlanInterval)
+	return &periodLinkedArray{rw: rw, periods: cache, snapshot: cs, log: log, timeIndex: index, proof: proof}
+}
+
+func (self *periodLinkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	point, err := self.getByIndexWithProofFromDb(index, proofHash)
+	if err != nil {
+		return nil, err
+	}
+	if point != nil {
+		return point, nil
+	}
+
+	point, err = self.getByIndexWithProofFromChain(index, proofHash)
+	if err != nil {
+		return nil, err
+	}
+	if point == nil {
+		return nil, errors.Errorf("period index[%d]proof[%s] Get fail", index, proofHash)
+	}
+	err = self.set(index, point)
+	if err != nil {
+		bytes, _ := json.Marshal(point)
+		self.log.Error("store period point by height Fail.", "index", index, "point", string(bytes))
+	}
+
+	return point, nil
+}
+
+func (self *periodLinkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	// get point info from db
+	value, ok := self.periods.Get(index)
+	if !ok || value == nil {
+		proofEmptyResult, err := self.proof.ProofEmpty(self.timeIndex.Index2Time(index))
+		if err != nil {
+			return nil, err
+		}
+		if proofEmptyResult {
+			return consensus_db.NewEmptyPoint(), nil
+		}
+	} else {
+		point := value.(*consensus_db.Point)
+		if proofHash == point.Hash {
+			// from db and proof
+			return point, nil
+		}
+	}
+	return nil, nil
 }
 
 func (self *periodLinkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
-	value, ok := self.periods.Get(index)
-	if !ok || value == nil {
-		result, err := self.getByIndex(index)
-		if err != nil {
-			return nil, err
-		}
-		if result != nil {
-			self.Set(index, result)
-			return &result.Point, nil
-		} else {
-			return nil, nil
-		}
+	_, etime := self.timeIndex.Index2Time(index)
+
+	proofHash, err := self.proof.ProofHash(etime)
+	if err != nil {
+		return nil, err
 	}
-	point := value.(*periodPoint)
-	valid := self.checkValid(point)
-	if !valid {
-		result, err := self.getByIndex(index)
-		if err != nil {
-			return nil, err
-		}
-		if result != nil {
-			self.Set(index, result)
-			return &result.Point, nil
-		} else {
-			return nil, nil
-		}
-	}
-	return &point.Point, nil
+	return self.GetByIndexWithProof(index, proofHash)
 }
 
-func (self *periodLinkedArray) Set(index uint64, block *periodPoint) error {
+func (self *periodLinkedArray) set(index uint64, block *consensus_db.Point) error {
 	self.periods.Add(index, block)
 	return nil
 }
 
-func (self *periodLinkedArray) getByIndex(index uint64) (*periodPoint, error) {
+func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
 	stime, etime := self.snapshot.Index2Time(index)
-	// todo opt
-	endSnapshotBlock, err := self.rw.GetSnapshotHeaderBeforeTime(&etime)
+
+	if self.rw.IsGenesisSnapshotBlock(proofHash) {
+		return consensus_db.NewEmptyPoint(), nil
+	}
+
+	block, err := self.rw.GetSnapshotBlockByHash(proofHash)
 	if err != nil {
 		return nil, err
 	}
-	if endSnapshotBlock.Timestamp.Before(stime) {
-		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
+	if block == nil {
+		return nil, errors.Errorf("period index[%d] proof[%s] not exist.", index, proofHash)
 	}
 
-	if self.rw.IsGenesisSnapshotBlock(endSnapshotBlock.Hash) {
-		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
-	}
-
-	blocks, err := self.rw.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: endSnapshotBlock.Hash, Height: endSnapshotBlock.Height}, &stime, nil)
+	blocks, err := self.rw.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: block.Hash, Height: block.Height}, &stime, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// actually no block
 	if len(blocks) == 0 {
-		return self.emptyPoint(index, &stime, &etime, endSnapshotBlock)
+		return consensus_db.NewEmptyPoint(), nil
 	}
 
 	result, err := self.snapshot.ElectionIndex(index)
@@ -175,89 +278,30 @@ func (self *periodLinkedArray) getByIndex(index uint64) (*periodPoint, error) {
 		return nil, err
 	}
 
-	return self.genPeriodPoint(index, &stime, &etime, endSnapshotBlock, blocks, result)
+	return self.genPeriodPoint(index, &stime, &etime, proofHash, blocks, result)
 }
 
-func (self *periodLinkedArray) checkValid(point *periodPoint) bool {
-	proof := point.proof
-	if proof != nil {
-		block, _ := self.rw.GetSnapshotBlockByHash(proof.Hash)
-		if block == nil {
-			return false
-		} else {
-			return true
-		}
-	}
+func (self *periodLinkedArray) genPeriodPoint(index uint64, stime *time.Time, etime *time.Time, proofHash types.Hash, blocks []*ledger.SnapshotBlock, result *electionResult) (*consensus_db.Point, error) {
+	point := consensus_db.NewEmptyPoint()
 
-	proof2 := point.proof2
-	if proof2 != nil {
-		if point.etime == nil {
-			panic("etime is nil")
-		}
-		block, _ := self.rw.GetSnapshotHeaderBeforeTime(point.etime)
-		if block != nil && block.Hash == proof2.Hash {
-			return true
-		} else {
-			return false
-		}
-	}
-	return false
-}
-
-func (self *periodLinkedArray) emptyPoint(index uint64, stime, etime *time.Time, endSnapshotBlock *ledger.SnapshotBlock) (*periodPoint, error) {
-	point := &periodPoint{}
-	point.stime = stime
-	point.etime = etime
-	point.empty = true
-
-	block, err := self.rw.GetSnapshotBlockByHeight(endSnapshotBlock.Height + 1)
-	if err != nil {
-		return nil, err
-	}
-	if block != nil && block.Timestamp.After(*etime) {
-		point.proof = &ledger.HashHeight{Hash: block.Hash, Height: block.Height}
-	} else {
-		point.proof2 = &ledger.HashHeight{Hash: endSnapshotBlock.Hash, Height: endSnapshotBlock.Height}
-	}
-	return point, nil
-}
-func (self *periodLinkedArray) genPeriodPoint(index uint64, stime *time.Time, etime *time.Time, endSnapshot *ledger.SnapshotBlock, blocks []*ledger.SnapshotBlock, result *electionResult) (*periodPoint, error) {
-	point := &periodPoint{}
-	point.stime = stime
-	point.etime = etime
-	point.empty = false
-
-	block, err := self.rw.GetSnapshotBlockByHeight(endSnapshot.Height + 1)
-	if err != nil {
-		return nil, err
-	}
-	if block != nil && (block.Timestamp.UnixNano() >= etime.UnixNano()) {
-		point.proof = &ledger.HashHeight{Hash: block.Hash, Height: block.Height}
-		point.Hash = &block.Hash
-	} else {
-		point.proof2 = &ledger.HashHeight{Hash: endSnapshot.Hash, Height: endSnapshot.Height}
-	}
-	point.PrevHash = &blocks[len(blocks)-1].PrevHash
-	point.Hash = &blocks[0].Hash
-
-	sbps := make(map[types.Address]*consensus_db.Content)
+	point.PrevHash = blocks[len(blocks)-1].PrevHash
+	point.Hash = blocks[0].Hash
 	for _, v := range blocks {
-		sbp, ok := sbps[v.Producer()]
+		sbp, ok := point.Sbps[v.Producer()]
 		if !ok {
-			sbps[v.Producer()] = &consensus_db.Content{FactualNum: 1, ExpectedNum: 0}
+			point.Sbps[v.Producer()] = &consensus_db.Content{FactualNum: 1, ExpectedNum: 0}
 		} else {
 			sbp.AddNum(0, 1)
 		}
 	}
 
 	for _, v := range result.Plans {
-		sbp, ok := sbps[v.Member]
+		sbp, ok := point.Sbps[v.Member]
 		if !ok {
-			sbps[v.Member] = &consensus_db.Content{FactualNum: 0, ExpectedNum: 1}
+			point.Sbps[v.Member] = &consensus_db.Content{FactualNum: 0, ExpectedNum: 1}
 		} else {
 			sbp.AddNum(1, 0)
 		}
 	}
-	point.Sbps = sbps
 	return point, nil
 }
