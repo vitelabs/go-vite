@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 //
@@ -708,6 +709,53 @@ func TestChainAcc(t *testing.T) {
 		}
 		fmt.Printf("height:%d, producer:%s, hash:%s\n", block.Height, block.Producer(), block.Hash)
 		//fmt.Printf("%+v\n", block)
+	}
+}
+
+func TestChainAll(t *testing.T) {
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_2/devdata"
+	genesisJson := GenesisJson
+	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	prev := c.GetLatestSnapshotBlock()
+	assert.NotNil(t, prev)
+
+	for i := uint64(1); i <= prev.Height; i++ {
+		block, err := c.GetSnapshotBlockByHeight(i)
+		if err != nil {
+			panic(err)
+		}
+		accM := make(map[types.Address][]*ledger.AccountBlock)
+		for k, v := range block.SnapshotContent {
+			for i := v.Height; i > 0; i-- {
+				tmpAB, err := c.GetAccountBlockByHeight(k, i)
+				assert.NoError(t, err)
+				sb, err := c.GetConfirmSnapshotHeaderByAbHash(tmpAB.Hash)
+				if sb.Hash == block.Hash {
+					accM[k] = append(accM[k], tmpAB)
+				} else {
+					break
+				}
+			}
+		}
+
+		vs := ""
+		vs += fmt.Sprintf("snapshot[%d][%s][%s]\n", block.Height, block.Hash, block.PrevHash)
+		for k, v := range accM {
+			bs := ""
+			detailBs := ""
+			for _, b := range v {
+				bs += fmt.Sprintf("%d,", b.Height)
+				detailBs += fmt.Sprintf("[%d-%s-%t-%s]", b.Height, b.Hash, b.IsReceiveBlock(), b.ToAddress)
+			}
+			vs += fmt.Sprintf("\taccount[%s][%s]\n", k, bs)
+			vs += fmt.Sprintf("\t\tdetails[%s]\n", detailBs)
+		}
+		fmt.Println(vs)
 	}
 }
 

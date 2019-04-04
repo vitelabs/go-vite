@@ -79,7 +79,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	// fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
-		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err%v:", err))
+		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err:%v", err))
 		tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return true
 	}
