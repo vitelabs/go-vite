@@ -52,7 +52,7 @@ type AccountBlock struct {
 	Difficulty *big.Int `json:"difficulty"`
 	Nonce      []byte   `json:"nonce"` // 12 padding 8 bytes
 
-	SendBlockList []*AccountBlock `json:sendBlockList` // 13
+	SendBlockList []*AccountBlock `json:"sendBlockList"` // 13
 
 	Signature []byte `json:"signature"`
 }
