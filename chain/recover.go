@@ -13,7 +13,7 @@ func (c *chain) recoverUnconfirmedCache() error {
 
 	location, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, Height is %d. Error: %s", height, err.Error()))
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, latestHeight is %d. Error: %s", height, err.Error()))
 		c.log.Error(cErr.Error(), "method", "recoverUnconfirmedCache")
 		return cErr
 	}

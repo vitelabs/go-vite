@@ -10,7 +10,7 @@ import (
 )
 
 func TestChain_builtInContract(t *testing.T) {
-	chainInstance, accounts, _, _, _, snapshotBlockList := SetUp(t, 17, 2654, 9)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 17, 2654, 9)
 
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -59,7 +59,7 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 			for i := 0; i <= index; i++ {
 				confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlockList[i].Hash]
 				for hash := range confirmedBlockHashMap {
-					accountKv := account.KvMap[hash]
+					accountKv := account.KvSetMap[hash]
 					for k, v := range accountKv {
 						kv[k] = v
 					}

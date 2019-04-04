@@ -7,33 +7,31 @@ import (
 )
 
 func TestChain_OnRoad(t *testing.T) {
-	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 123, 1231, 12)
+	chainInstance, accounts, _ := SetUp(t, 123, 1231, 12)
 
-	testOnRoad(t, chainInstance, accounts, addrList)
+	testOnRoad(t, chainInstance, accounts)
 
 	TearDown(chainInstance)
 }
 
-func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, addrList []types.Address) {
+func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	t.Run("HasOnRoadBlocks", func(t *testing.T) {
 		HasOnRoadBlocks(t, chainInstance, accounts)
 	})
 
 	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
-		GetOnRoadBlocksHashList(t, chainInstance, accounts, addrList)
+		GetOnRoadBlocksHashList(t, chainInstance, accounts)
 	})
 }
 
 func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
-	for _, account := range accounts {
-		addr := account.addr
+	for addr, account := range accounts {
 		result, err := chainInstance.HasOnRoadBlocks(addr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		account := accounts[addr]
+
 		if result && len(account.UnreceivedBlocks) <= 0 {
-			chainInstance.HasOnRoadBlocks(addr)
 			t.Fatal(fmt.Sprintf("%s", addr))
 		}
 
@@ -43,13 +41,12 @@ func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Addr
 	}
 }
 
-func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, addrList []types.Address) {
+func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
 	countPerPage := 10
 
-	for _, addr := range addrList {
+	for addr, account := range accounts {
 		pageNum := 0
 		hashSet := make(map[types.Hash]struct{})
-		account := accounts[addr]
 
 		for {
 			hashList, err := chainInstance.GetOnRoadBlocksHashList(addr, pageNum, 10)
@@ -72,15 +69,8 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 				}
 
 				hashSet[hash] = struct{}{}
-				hasUnReceive := false
-				for _, unReceiveBlock := range account.UnreceivedBlocks {
-					if unReceiveBlock.AccountBlock.Hash == hash {
-						hasUnReceive = true
-						break
-					}
-				}
 
-				if !hasUnReceive {
+				if _, hasUnReceive := account.UnreceivedBlocks[hash]; !hasUnReceive {
 					t.Fatal("error")
 				}
 			}
