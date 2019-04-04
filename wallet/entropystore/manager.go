@@ -206,6 +206,14 @@ func (km Manager) GetEntropyStoreFile() string {
 	return km.ks.EntropyStoreFilename
 }
 
+func (km Manager) ExtractMnemonic(passphrase string) (string, error) {
+	entropy, err := km.ks.ExtractEntropy(passphrase)
+	if err != nil {
+		return "", err
+	}
+	return bip39.NewMnemonic(entropy)
+}
+
 func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchIndex uint32) (*Manager, error) {
 	entropy, e := bip39.EntropyFromMnemonic(mnemonic)
 	if e != nil {

@@ -29,6 +29,14 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	fmt.Println(mnemonic)
 	fmt.Println(em.GetPrimaryAddr())
 	fmt.Println(em.GetEntropyStoreFile())
+
+	extractMnemonic, err := em.ExtractMnemonic("123456")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("ExtractMnemonic", extractMnemonic)
+	fmt.Println("ExtractMnemonic Boolean", extractMnemonic == mnemonic)
 	//
 	//em2, e := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456")
 	//if e != nil {
@@ -37,7 +45,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	//em2.Unlock("123456")
 	em.Unlock("123456")
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		_, key2, e := em.DeriveForIndexPath(uint32(i))
 		if e != nil {
 			t.Fatal(e)
