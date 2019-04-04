@@ -7,10 +7,10 @@ import (
 )
 
 func TestChain_OnRoad(t *testing.T) {
-
-	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 123, 1231, 7)
+	chainInstance, accounts, _, addrList, _, _ := SetUp(t, 123, 1231, 12)
 
 	testOnRoad(t, chainInstance, accounts, addrList)
+
 	TearDown(chainInstance)
 }
 
@@ -36,6 +36,7 @@ func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Addr
 			chainInstance.HasOnRoadBlocks(addr)
 			t.Fatal(fmt.Sprintf("%s", addr))
 		}
+
 		if !result && len(account.UnreceivedBlocks) > 0 {
 			t.Fatal("error")
 		}

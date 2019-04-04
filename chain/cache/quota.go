@@ -51,6 +51,21 @@ func (ql *quotaList) init() error {
 	return nil
 }
 
+func (ql *quotaList) GetSnapshotQuotaUsed(addr *types.Address) (uint64, uint64) {
+	used := ql.used[*addr]
+	if used == nil {
+		return 0, 0
+	}
+	quota := used.Quota
+	blockCount := used.BlockCount
+	latestUsed := ql.backElement[*addr]
+	if latestUsed != nil {
+		return quota - latestUsed.Quota, blockCount - latestUsed.BlockCount
+	}
+
+	return quota, blockCount
+}
+
 func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	used := ql.used[*addr]
 	if used == nil {

@@ -1,6 +1,8 @@
 package chain
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -10,18 +12,12 @@ func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock 
 }
 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
-	currentUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
-
-	// TODO
-	needSnapshotBlocks, _, err := c.filterCanBeSnapped(currentUnconfirmedBlocks)
-	if err != nil {
-		return nil
-	}
+	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	sc := make(ledger.SnapshotContent)
 
-	for i := len(needSnapshotBlocks) - 1; i >= 0; i-- {
-		block := needSnapshotBlocks[i]
+	for i := len(unconfirmedBlocks) - 1; i >= 0; i-- {
+		block := unconfirmedBlocks[i]
 		if _, ok := sc[block.AccountAddress]; !ok {
 			sc[block.AccountAddress] = &ledger.HashHeight{
 				Hash:   block.Hash,
@@ -33,55 +29,95 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	return sc
 }
 
-/*
- * TODO
- * Check quota, consensus, dependencies
- */
-func (c *chain) filterCanBeSnapped(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, []*ledger.AccountBlock, error) {
-	// checkA()
-	//tmpBlocks := make([]*ledger.AccountBlock, 0, len(blocks))
-	//if snapshotContent != nil {
-	//	for _, block := range blocks {
-	//		if hashHeight, ok := snapshotContent[block.AccountAddress]; ok && hashHeight.Height >= block.Height {
-	//			continue
-	//		}
-	//		tmpBlocks = append(tmpBlocks, block)
-	//	}
-	//}
-	//
+func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBlock {
+	blocks := c.cache.GetUnconfirmedBlocks()
+	if len(blocks) <= 0 {
+		return nil
+	}
+	invalidBlocks := make([]*ledger.AccountBlock, 0)
+
+	invalidAddrSet := make(map[types.Address]struct{})
 	invalidHashSet := make(map[types.Hash]struct{})
-	invalidBlock := make([]*ledger.AccountBlock, 0)
+
+	quotaUsedCache := make(map[types.Address]uint64)
+	quotaTotalCache := make(map[types.Address]uint64)
 
 	for _, block := range blocks {
-		// consensus
-		if c.consensus != nil {
-			if ok, err := c.consensus.VerifyAccountProducer(block); err != nil {
-				return nil, nil, err
-			} else if !ok {
-				invalidBlock = append(invalidBlock, block)
-				invalidHashSet[block.Hash] = struct{}{}
-				continue
-			}
 
+		valid := true
+
+		addr := block.AccountAddress
+		// dependence
+		if _, ok := invalidAddrSet[addr]; ok {
+			valid = false
+			// dependence
+		} else if block.IsReceiveBlock() {
+			if _, ok := invalidHashSet[block.FromBlockHash]; ok {
+				valid = false
+			}
+			// quota
+		} else if enough, err := c.checkQuota(quotaTotalCache, quotaUsedCache, block); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
+			c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
+			return invalidBlocks
+			// quota
+		} else if !enough {
+			valid = false
+			// consensus
+		} else if checkConsensus {
+			if isContract, err := c.IsContractAccount(addr); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
+				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
+				return invalidBlocks
+			} else if isContract {
+				ok, err := c.consensus.VerifyAccountProducer(block)
+				if err != nil {
+					cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
+					c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
+					return invalidBlocks
+				}
+				if !ok {
+					valid = false
+				}
+			}
 		}
 
-		// dependencies
-		if block.IsReceiveBlock() {
-
+		if !valid {
+			invalidAddrSet[block.AccountAddress] = struct{}{}
+			if block.IsSendBlock() {
+				invalidHashSet[block.Hash] = struct{}{}
+			}
+			for _, sendBlock := range block.SendBlockList {
+				invalidHashSet[sendBlock.Hash] = struct{}{}
+			}
+			invalidBlocks = append(invalidBlocks, block)
 		}
 
 	}
 
-	//for _, tmpBlock := range tmpBlocks {
-	//
-	//}
-	//quotaCache := map[types.Address]uint64{}
-	//
-	//for _, block := range blocks {
-	//
-	//}
-	// checkB()
-	return blocks, nil, nil
+	return invalidBlocks
+}
+
+func (c *chain) checkQuota(quotaTotalCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock) (bool, error) {
+	quotaTotal, ok := quotaTotalCache[block.AccountAddress]
+	if !ok {
+		quotaInfo, err := c.GetPledgeQuota(block.AccountAddress)
+		if err != nil {
+			return false, err
+		}
+		quotaTotal = quotaInfo.Total()
+		quotaUsed, _ := c.cache.GetSnapshotQuotaUsed(&block.AccountAddress)
+
+		quotaTotalCache[block.AccountAddress] = quotaTotal
+		quotaUsedCache[block.AccountAddress] = quotaUsed
+	}
+	quotaUsedCache[block.AccountAddress] += block.Quota
+
+	if quotaUsedCache[block.AccountAddress] > quotaTotal {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {

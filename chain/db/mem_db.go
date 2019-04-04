@@ -1,7 +1,6 @@
 package chain_db
 
 import (
-	"bytes"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -72,16 +71,6 @@ func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
 	}
 
 	return mDb.storage.Contains(key), false
-}
-
-func (mDb *MemDB) HasByPrefix(prefixKey []byte) bool {
-
-	key, _, errNotFound := mDb.storage.Find(prefixKey)
-	if errNotFound != nil {
-		return false
-	}
-
-	return bytes.HasPrefix(key, prefixKey)
 }
 
 func (mDb *MemDB) Flush(batch *leveldb.Batch) error {

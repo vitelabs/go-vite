@@ -48,6 +48,9 @@ func (up *UnconfirmedPool) GetBlocksByAddress(addr *types.Address) []*ledger.Acc
 }
 
 func (up *UnconfirmedPool) DeleteBlocks(blocks []*ledger.AccountBlock) {
+	if len(blocks) <= 0 {
+		return
+	}
 
 	newInsertedList := make([]uint64, 0, len(up.insertedList)-len(blocks))
 	newInsertedMap := make(map[types.Address][]uint64)

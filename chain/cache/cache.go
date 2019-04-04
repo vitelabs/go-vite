@@ -118,20 +118,18 @@ func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*led
 }
 
 // ====== Snapshot block ======
-func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock,
-	confirmedBlocks []*ledger.AccountBlock, invalidBlocks []*ledger.AccountBlock) {
+func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) {
 
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
+	// set latest block
 	cache.setLatestSnapshotBlock(snapshotBlock)
 
+	// delete confirmed blocks
 	cache.unconfirmedPool.DeleteBlocks(confirmedBlocks)
-	for _, block := range invalidBlocks {
-		cache.quotaList.Sub(&block.AccountAddress, block.Quota)
-	}
-	cache.unconfirmedPool.DeleteBlocks(invalidBlocks)
 
+	// new quota
 	cache.quotaList.NewNext()
 }
 
@@ -162,6 +160,13 @@ func (cache *Cache) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	defer cache.mu.RUnlock()
 
 	return cache.quotaList.GetQuotaUsed(addr)
+}
+
+func (cache *Cache) GetSnapshotQuotaUsed(addr *types.Address) (uint64, uint64) {
+	cache.mu.RLock()
+	defer cache.mu.RUnlock()
+
+	return cache.quotaList.GetSnapshotQuotaUsed(addr)
 }
 
 func (cache *Cache) setLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) uint64 {

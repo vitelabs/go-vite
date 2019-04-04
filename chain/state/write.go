@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -101,14 +100,4 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	sDB.store.Write(batch)
 
 	return nil
-}
-
-func (sDB *StateDB) InsertSnapshotBlock(invalidAccountBlocks []*ledger.AccountBlock) error {
-	if len(invalidAccountBlocks) <= 0 {
-		return nil
-	}
-
-	return sDB.Rollback([]*ledger.SnapshotChunk{{
-		AccountBlocks: invalidAccountBlocks,
-	}})
 }

@@ -111,18 +111,18 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 }
 
 func (c *chain) DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*ledger.AccountBlock, error) {
-	return c.deleteAccountBlocks(addr, 0, &toHash)
+	return c.deleteAccountBlockByHeightOrHash(addr, 0, &toHash)
 }
 
 func (c *chain) DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
-	return c.deleteAccountBlocks(addr, toHeight, nil)
+	return c.deleteAccountBlockByHeightOrHash(addr, toHeight, nil)
 }
 
-func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash *types.Hash) ([]*ledger.AccountBlock, error) {
+func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight uint64, toHash *types.Hash) ([]*ledger.AccountBlock, error) {
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	if len(unconfirmedBlocks) <= 0 {
 		cErr := errors.New(fmt.Sprintf("blocks is not unconfirmed, addr is %s, toHeight is %d", addr, toHeight))
-		c.log.Error(cErr.Error(), "method", "deleteAccountBlocks")
+		c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 		return nil, cErr
 	}
 	var planDeleteBlocks []*ledger.AccountBlock
@@ -135,7 +135,7 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 	}
 	if len(planDeleteBlocks) <= 0 {
 		cErr := errors.New(fmt.Sprintf("len(planDeleteBlocks) <= 0"))
-		c.log.Error(cErr.Error(), "method", "deleteAccountBlocks")
+		c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 		return nil, cErr
 	}
 
@@ -145,7 +145,7 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 		for _, block := range needDeleteBlocks {
 			if ok, err := c.IsContractAccount(block.AccountAddress); err != nil {
 				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, addr is %s", block.AccountAddress))
-				c.log.Error(cErr.Error(), "method", "deleteAccountBlocks")
+				c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 				return nil, cErr
 			} else if ok {
 				// clean all, temporary implementation
@@ -154,11 +154,18 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 			}
 		}
 	}
+
+	c.deleteAccountBlocks(needDeleteBlocks)
+
+	return needDeleteBlocks, nil
+}
+
+func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
 	seg := []*ledger.SnapshotChunk{{
-		AccountBlocks: needDeleteBlocks,
+		AccountBlocks: blocks,
 	}}
 
-	c.em.Trigger(prepareDeleteAbsEvent, nil, needDeleteBlocks, nil, nil)
+	c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil)
 
 	// rollback index db
 	if err := c.indexDB.Rollback(seg); err != nil {
@@ -167,7 +174,7 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 	}
 
 	// rollback cache
-	if err := c.cache.RollbackAccountBlocks(needDeleteBlocks); err != nil {
+	if err := c.cache.RollbackAccountBlocks(blocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Rollback failed. Error: %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
@@ -178,6 +185,5 @@ func (c *chain) deleteAccountBlocks(addr types.Address, toHeight uint64, toHash 
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
-	c.em.Trigger(DeleteAbsEvent, nil, needDeleteBlocks, nil, nil)
-	return needDeleteBlocks, nil
+	c.em.Trigger(DeleteAbsEvent, nil, blocks, nil, nil)
 }
