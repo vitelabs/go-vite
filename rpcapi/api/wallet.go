@@ -190,6 +190,10 @@ func (m WalletApi) RefreshCache() {
 	m.wallet.RefreshCache()
 }
 
+func (m WalletApi) ExtractMnemonic(entropyStore string, passphrase string) (string, error) {
+	return m.wallet.ExtractMnemonic(entropyStore, passphrase)
+}
+
 func (m WalletApi) Unlock(entropyStore string, passphrase string) error {
 	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
 	if e != nil {
