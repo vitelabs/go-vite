@@ -56,6 +56,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 
 		storageRedo: storageRedo,
 	}
+
 	return stateDb, nil
 }
 

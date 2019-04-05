@@ -158,7 +158,6 @@ func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Ad
 			t.Fatal(err)
 		}
 
-		fmt.Printf("%+v\n", tx.AccountBlock)
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 
 			sb, err := InsertSnapshotBlock(chainInstance)

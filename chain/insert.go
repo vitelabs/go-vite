@@ -82,6 +82,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
 
+	c.stateDB.InsertSnapshotBlocks(sbList)
 	return invalidBlocks, nil
 }
 

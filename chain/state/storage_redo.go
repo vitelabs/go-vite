@@ -49,6 +49,7 @@ func NewStorageRedo(chainDir string) (*StorageRedo, error) {
 
 func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
 	redo.logMap = redoLog
+
 	if redo.logMap == nil {
 		redo.logMap = make(map[types.Hash][]byte)
 	}
@@ -60,7 +61,7 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 	if snapshotHeight == redo.snapshotHeight {
 		return redo.logMap, true, nil
 	}
-	var logMap map[types.Hash][]byte
+	logMap := make(map[types.Hash][]byte)
 
 	hasRedo := false
 	err := redo.store.View(func(tx *bolt.Tx) error {

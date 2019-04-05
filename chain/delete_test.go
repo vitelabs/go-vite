@@ -2,10 +2,17 @@ package chain
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"testing"
 )
 
 func TestChain_DeleteSnapshotBlocks(t *testing.T) {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	chainInstance, accounts, snapshotBlockList := SetUp(t, 5, 24, 2)
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 

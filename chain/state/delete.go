@@ -288,7 +288,7 @@ func (sDB *StateDB) calculateBalance(accountBlock *ledger.AccountBlock, balanceC
 func getKvList(kvLogMap map[types.Hash][]byte, blockHash types.Hash) ([][2][]byte, error) {
 	if kvLog, ok := kvLogMap[blockHash]; ok {
 		var kvList [][2][]byte
-		if err := rlp.DecodeBytes(kvLog, kvList); err != nil {
+		if err := rlp.DecodeBytes(kvLog, &kvList); err != nil {
 			return nil, err
 		}
 		return kvList, nil

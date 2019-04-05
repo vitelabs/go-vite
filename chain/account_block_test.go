@@ -136,6 +136,9 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 		if err != nil {
 			t.Fatal(err)
 		}
+		if block == nil {
+			t.Fatal(fmt.Sprintf("hash is %s"))
+		}
 
 		toAccount := accounts[block.ToAddress]
 		if received {

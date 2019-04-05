@@ -107,6 +107,8 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
+	c.stateDB.DeleteSnapshotBlocks(snapshotChunks)
+
 	return snapshotChunks
 }
 
