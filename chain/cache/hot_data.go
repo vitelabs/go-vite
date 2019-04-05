@@ -16,6 +16,9 @@ func newHotData(ds *dataSet) *hotData {
 }
 
 func (hd *hotData) UpdateLatestSnapshotBlock(latestSbDataId uint64) {
+	if hd.latestSbDataId == latestSbDataId {
+		return
+	}
 	if hd.latestSbDataId > 0 {
 		hd.ds.UnRefDataId(hd.latestSbDataId)
 	}

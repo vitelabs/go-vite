@@ -36,7 +36,7 @@ func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Addr
 		}
 
 		if !result && len(account.UnreceivedBlocks) > 0 {
-			t.Fatal("error")
+			t.Fatal(fmt.Sprintf("%+v\n", account.UnreceivedBlocks))
 		}
 	}
 }
@@ -78,7 +78,7 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 		}
 
 		if len(hashSet) != len(account.UnreceivedBlocks) {
-			t.Fatal("error")
+			t.Fatal(fmt.Sprintf("hashSet: %+v \n account.UnreceivedBlocks: %+v", hashSet, account.UnreceivedBlocks))
 		}
 	}
 }

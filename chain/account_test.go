@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -217,17 +218,19 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		AccountBlock: tx,
 		VmDb:         vmDb,
 	}
-	toAccount.AddUnreceivedBlock(vmTx)
 
 	acc.BalanceMap[tx.Hash] = balance
 	acc.addSendBlock(vmTx)
+
+	toAccount.AddOnRoadBlock(vmTx)
+
 	return vmTx, nil
 }
 
 // No state_bak hash
 func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
 
-	UnreceivedBlock := acc.PopUnreceivedBlock()
+	UnreceivedBlock := acc.PopOnRoadBlock()
 	if UnreceivedBlock == nil {
 		return nil, nil
 	}
@@ -347,21 +350,28 @@ func (acc *Account) SetContractMeta(contractMeta *ledger.ContractMeta) {
 	acc.contractMeta = contractMeta
 }
 
-func (acc *Account) HasUnreceivedBlock() bool {
+func (acc *Account) HasOnRoadBlock() bool {
 	acc.unreceivedMu.RLock()
 	defer acc.unreceivedMu.RUnlock()
 
 	return len(acc.UnreceivedBlocks) > 0
 }
 
-func (acc *Account) AddUnreceivedBlock(block *vm_db.VmAccountBlock) {
+func (acc *Account) AddOnRoadBlock(block *vm_db.VmAccountBlock) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
 	acc.UnreceivedBlocks[block.AccountBlock.Hash] = block
 }
 
-func (acc *Account) PopUnreceivedBlock() *vm_db.VmAccountBlock {
+func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
+	acc.unreceivedMu.Lock()
+	defer acc.unreceivedMu.Unlock()
+
+	delete(acc.UnreceivedBlocks, blockHash)
+}
+
+func (acc *Account) PopOnRoadBlock() *vm_db.VmAccountBlock {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
@@ -370,8 +380,9 @@ func (acc *Account) PopUnreceivedBlock() *vm_db.VmAccountBlock {
 	}
 
 	var unreceivedBlock *vm_db.VmAccountBlock
-	for _, block := range acc.UnreceivedBlocks {
+	for hash, block := range acc.UnreceivedBlocks {
 		unreceivedBlock = block
+		delete(acc.UnreceivedBlocks, hash)
 		break
 	}
 
@@ -410,12 +421,6 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 	acc.resetLatestBlock()
 }
 
-func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
-	acc.unreceivedMu.Lock()
-	defer acc.unreceivedMu.Unlock()
-	delete(acc.UnreceivedBlocks, blockHash)
-}
-
 func (acc *Account) DeleteContractMeta() {
 	acc.contractMetaMu.Lock()
 	defer acc.contractMetaMu.Unlock()
@@ -425,6 +430,7 @@ func (acc *Account) DeleteContractMeta() {
 
 func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, blockHash types.Hash) {
 	accountBlock := acc.BlocksMap[blockHash].AccountBlock
+	fmt.Printf("DA: %+v\n", accountBlock)
 
 	if accountBlock.IsSendBlock() {
 		toAccount := accounts[accountBlock.ToAddress]
@@ -432,6 +438,14 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 
 		if accountBlock.BlockType == ledger.BlockTypeSendCreate {
 			toAccount.DeleteContractMeta()
+		}
+	} else {
+		//acc.AddOnRoadBlock(acc.BlocksMap[blockHash])
+		for _, account := range accounts {
+			if fromBlock, ok := account.BlocksMap[accountBlock.FromBlockHash]; ok && fromBlock != nil {
+				account.AddOnRoadBlock(fromBlock)
+				break
+			}
 		}
 	}
 
@@ -445,6 +459,10 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 	}
 	if accountBlock.LogHash != nil {
 		delete(acc.LogListMap, *accountBlock.LogHash)
+	}
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		acc.deleteAccountBlock(accounts, sendBlock.Hash)
 	}
 }
 

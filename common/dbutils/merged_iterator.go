@@ -198,13 +198,13 @@ func (mi *MergedIterator) step(toNext bool) bool {
 				}
 
 				key = iter.Key()
+			}
+			if mi.isDelete != nil && mi.isDelete(key) {
+				key = nil
+				continue
+			}
 
-				if mi.isDelete != nil && mi.isDelete(key) {
-					key = nil
-					continue
-				}
-
-			} else if bytes.Equal(key, mi.prevKey) {
+			if bytes.Equal(key, mi.prevKey) {
 				key = nil
 				mi.keys[i] = nil
 				continue

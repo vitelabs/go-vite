@@ -71,7 +71,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		account := accounts[addrList[rand.Intn(accountNumber)]]
 		createRequestTx := true
 
-		if account.HasUnreceivedBlock() {
+		if account.HasOnRoadBlock() {
 			randNum := rand.Intn(100)
 			if randNum > requestTxPercent {
 				createRequestTx = false
@@ -158,6 +158,7 @@ func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Ad
 			t.Fatal(err)
 		}
 
+		fmt.Printf("%+v\n", tx.AccountBlock)
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 
 			sb, err := InsertSnapshotBlock(chainInstance)
@@ -174,45 +175,6 @@ func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Ad
 	}
 	return snapshotBlockList
 }
-
-//
-//func InsertAccountBlock(t *testing.T, accountNumber int, chainInstance Chain,
-//	txCount int, snapshotPerBlockNum int) (map[types.Address]*Account, []types.latestHash, []types.Address, []uint64, []*ledger.SnapshotBlock) {
-//	accounts, addrList := MakeAccounts(accountNumber, chainInstance)
-//
-//	fmt.Printf("Account number is %d\n", accountNumber)
-//
-//	for i := 1; i <= txCount; i++ {
-//		account := accounts[addrList[rand.Intn(accountNumber)]]
-//		tx, err := createVmBlock(account, accounts, addrList)
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//		if err := chainInstance.InsertAccountBlock(tx); err != nil {
-//			t.Fatal(err)
-//		}
-//
-//		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-//
-//			sb, err := InsertSnapshotBlock(chainInstance)
-//			if err != nil {
-//				t.Fatal(err)
-//			}
-//
-//			for addr := range sb.SnapshotContent {
-//				accounts[addr].Snapshot(sb.latestHash)
-//			}
-//			snapshotBlockList = append(snapshotBlockList, sb)
-//		}
-//
-//		hashList = append(hashList, tx.AccountBlock.latestHash)
-//		returnAddrList = append(returnAddrList, account.addr)
-//
-//		heightList = append(heightList, tx.AccountBlock.latestHeight)
-//
-//	}
-//	return accounts, hashList, returnAddrList, heightList, snapshotBlockList
-//}
 
 func createVmBlock(account *Account, accounts map[types.Address]*Account, addrList []types.Address) (*vm_db.VmAccountBlock, error) {
 	createRequestTx := true
@@ -246,7 +208,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		Quota:         rand.Uint64() % 10000,
 	}
 
-	if account.HasUnreceivedBlock() {
+	if account.HasOnRoadBlock() {
 		randNum := rand.Intn(100)
 		if randNum > 50 {
 			createRequestTx = false

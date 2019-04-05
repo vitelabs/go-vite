@@ -120,7 +120,7 @@ func (ql *quotaList) Rollback(n int) error {
 	} else {
 		current := ql.list.Back()
 
-		for i := 0; i < n; i++ {
+		for i := 0; i < n && current != nil; i++ {
 			ql.list.Remove(current)
 			current = current.Prev()
 		}

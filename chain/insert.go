@@ -74,7 +74,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// TODO consensus
 	invalidBlocks := c.filterUnconfirmedBlocks(false)
 
-	c.deleteAccountBlocks(invalidBlocks)
+	if len(invalidBlocks) > 0 {
+		c.deleteAccountBlocks(invalidBlocks)
+	}
 
 	c.flusher.Flush()
 
