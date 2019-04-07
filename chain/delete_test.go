@@ -3,6 +3,7 @@ package chain
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"log"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"testing"
@@ -12,15 +13,18 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 168, 24, 2)
 
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 5, 24, 2)
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	for i := 0; i < 10; i++ {
+		InsertAccountBlock(t, chainInstance, accounts, rand.Intn(1000), rand.Intn(12))
+		testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
-	deleteCount := uint64(3)
-	DeleteSnapshotBlocks(t, chainInstance, accounts, deleteCount)
-	snapshotBlockList = snapshotBlockList[:uint64(len(snapshotBlockList))-deleteCount]
-
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+		//deleteCount := rand.Uint64() % 5
+		//DeleteSnapshotBlocks(t, chainInstance, accounts, deleteCount)
+		//snapshotBlockList = snapshotBlockList[:uint64(len(snapshotBlockList))-deleteCount]
+		//
+		//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	}
 
 	TearDown(chainInstance)
 }

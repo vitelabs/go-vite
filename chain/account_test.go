@@ -12,6 +12,7 @@ import (
 	"sort"
 	"sync"
 
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -28,13 +29,16 @@ func testAccount(t *testing.T, chainInstance *chain, accounts map[types.Address]
 	t.Run("GetAccountId_GetAccountAddress", func(t *testing.T) {
 		accountIdList := make([]uint64, 0, len(accounts))
 
-		for addr := range accounts {
+		for addr, account := range accounts {
 			accountId, err := chainInstance.GetAccountId(addr)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if accountId <= 0 {
-				t.Fatal("accountId <= 0")
+				if account.latestBlock == nil {
+					continue
+				}
+				t.Fatal(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.latestBlock))
 			}
 			queryAddr2, err := chainInstance.GetAccountAddress(accountId)
 			if err != nil {
@@ -192,6 +196,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		vmDb.SetContractMeta(toAccount.addr, options.ContractMeta)
 		toAccount.SetContractMeta(options.ContractMeta)
 	}
+
 	var logHash *types.Hash
 	if len(options.VmLogList) > 0 {
 		for _, vmLog := range options.VmLogList {
@@ -535,6 +540,9 @@ func (acc *Account) latestHash() types.Hash {
 
 func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
 	acc.SendBlocksMap[block.AccountBlock.Hash] = block
+	if acc.BlocksMap == nil {
+		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }
