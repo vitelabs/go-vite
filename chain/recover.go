@@ -7,6 +7,7 @@ import (
 
 // TODO
 func (c *chain) recoverUnconfirmedCache() error {
+	c.flusher.Pause()
 
 	// rebuild unconfirmed cache
 	height := c.GetLatestSnapshotBlock().Height

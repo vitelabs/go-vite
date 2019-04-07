@@ -72,7 +72,8 @@ func GetGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
 	}
 
 	if genesisSnapshotBlock.Hash != correctFirstSb.Hash {
-		t.Fatal("error")
+		chainInstance.GetSnapshotBlockByHeight(1)
+		t.Fatal(fmt.Sprintf("%+v. %+v\n", genesisSnapshotBlock, correctFirstSb))
 	}
 }
 

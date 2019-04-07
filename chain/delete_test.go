@@ -15,7 +15,7 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 	}()
 	chainInstance, accounts, snapshotBlockList := SetUp(t, 168, 24, 2)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 6; i++ {
 		InsertAccountBlock(t, chainInstance, accounts, rand.Intn(1000), rand.Intn(12))
 		testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
