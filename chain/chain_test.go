@@ -2,10 +2,10 @@ package chain
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -63,13 +63,32 @@ func homeDir() string {
 }
 
 func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+	// test quota
+	quota.InitQuotaConfig(true, true)
+
 	chainInstance, err := NewChainInstance("unit_test", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("Insert Blocks")
 
-	accounts := MakeAccounts(accountNum, chainInstance)
+	InsertSnapshotBlock(chainInstance)
+
+	accounts := make(map[types.Address]*Account)
+	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
+	for _, accountBlock := range unconfirmedBlocks {
+		if _, ok := accounts[accountBlock.AccountAddress]; !ok {
+			accounts[accountBlock.AccountAddress] = NewAccount(chainInstance, accountBlock.PublicKey, nil)
+		}
+	}
+
+	if len(accounts) < accountNum {
+		lackNum := accountNum - len(accounts)
+		newAccounts := MakeAccounts(chainInstance, lackNum)
+		for addr, account := range newAccounts {
+			accounts[addr] = account
+		}
+
+	}
 	var snapshotBlockList []*ledger.SnapshotBlock
 
 	t.Run("InsertBlocks", func(t *testing.T) {

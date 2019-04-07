@@ -68,8 +68,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, err
 	}
 
-	c.flusher.Flush()
-
 	return snapshotChunkList, nil
 }
 

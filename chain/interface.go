@@ -178,13 +178,13 @@ type Chain interface {
 	IsContractAccount(address types.Address) (bool, error)
 
 	// ===== Query state ======
-	// get balance
+	// get Balance
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
-	// get balance map
+	// get Balance map
 	GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error)
 
-	// get confirmed snapshot balance, if history is too old, failed
+	// get confirmed snapshot Balance, if history is too old, failed
 	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error)
 
 	// get contract code

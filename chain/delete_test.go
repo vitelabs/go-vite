@@ -27,6 +27,7 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 
 func DeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, count uint64) {
 	snapshotBlocksToDelete, err := chainInstance.GetSnapshotBlocks(chainInstance.GetLatestSnapshotBlock().Hash, false, count)
+
 	if err != nil {
 		t.Fatal(err)
 	}

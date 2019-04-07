@@ -48,6 +48,9 @@ func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+	if len(deletedSnapshotSegments) <= 0 {
+		return nil
+	}
 
 	// delete all confirmed block
 	cache.unconfirmedPool.DeleteAllBlocks()
@@ -62,15 +65,6 @@ func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 		return err
 	}
 	return nil
-}
-
-func (cache *Cache) RecoverAccountBlocks(accountBlocks []*ledger.AccountBlock) {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	for _, accountBlock := range accountBlocks {
-		dataId := cache.ds.InsertAccountBlock(accountBlock)
-		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)
-	}
 }
 
 // ====== Account blocks ======
@@ -96,6 +90,16 @@ func (cache *Cache) InsertAccountBlock(block *ledger.AccountBlock) {
 }
 
 // ====== Unconfirmed blocks ======
+
+func (cache *Cache) RecoverUnconfirmedPool(accountBlocks []*ledger.AccountBlock) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	for _, accountBlock := range accountBlocks {
+		dataId := cache.ds.InsertAccountBlock(accountBlock)
+		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)
+	}
+}
+
 func (cache *Cache) SnapshotAccountBlocks(blocks []*ledger.AccountBlock) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
@@ -138,13 +142,6 @@ func (cache *Cache) IsSnapshotBlockExisted(hash *types.Hash) bool {
 	defer cache.mu.RUnlock()
 
 	return cache.ds.IsDataExisted(hash)
-}
-
-func (cache *Cache) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
-	cache.mu.RLock()
-	defer cache.mu.RUnlock()
-
-	return cache.hd.GetLatestSnapshotBlock()
 }
 
 func (cache *Cache) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {

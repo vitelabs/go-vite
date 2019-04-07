@@ -54,7 +54,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 	if err != nil {
 		b.Fatal(err)
 	}
-	accounts := MakeAccounts(accountNumber, chainInstance)
+	accounts := MakeAccounts(chainInstance, accountNumber)
 
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
@@ -115,24 +115,26 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		b.Fatal(err)
 	}
 }
+
 func BenchmarkChain_InsertStateDB(b *testing.B) {
 
 }
+
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 1)
+		BmInsertAccountBlock(b, 10, 10000)
 	})
 	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 1)
+		BmInsertAccountBlock(b, 100, 10000)
 	})
 	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 1)
+		BmInsertAccountBlock(b, 1000, 10000)
 	})
 	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 1)
+		BmInsertAccountBlock(b, 10000, 10000)
 	})
 	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 1)
+		BmInsertAccountBlock(b, 100000, 10000)
 	})
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
@@ -164,9 +166,10 @@ func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Ad
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			for addr := range sb.SnapshotContent {
-				accounts[addr].Snapshot(sb.Hash)
+				if account, ok := accounts[addr]; ok {
+					account.Snapshot(sb.Hash)
+				}
 			}
 			snapshotBlockList = append(snapshotBlockList, sb)
 		}

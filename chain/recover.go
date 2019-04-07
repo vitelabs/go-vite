@@ -41,24 +41,8 @@ func (c *chain) recoverUnconfirmedCache() error {
 		return nil
 	}
 
-	accountBlocks := chunks[0].AccountBlocks
-
-	// rollback index db
-	if err := c.indexDB.Rollback(chunks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.Rollback failed. Error: %s", err.Error()))
-		c.log.Error(cErr.Error(), "method", "recoverUnconfirmedCache")
-		return cErr
-	}
-
-	// recover index db
-	for _, accountBlock := range accountBlocks {
-		c.indexDB.InsertAccountBlock(accountBlock)
-	}
-
-	// insert cache
-	for _, accountBlock := range accountBlocks {
-		c.cache.InsertAccountBlock(accountBlock)
-	}
+	// recover cache
+	c.cache.RecoverUnconfirmedPool(chunks[0].AccountBlocks)
 
 	return nil
 }

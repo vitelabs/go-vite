@@ -321,6 +321,8 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 		return nil, err
 	}
 
+	bDB.fm.DeleteTo(location)
+
 	return segList, nil
 
 }

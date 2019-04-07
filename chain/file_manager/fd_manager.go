@@ -210,6 +210,8 @@ func (fdSet *fdManager) Close() error {
 // tools
 func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	if fdSet.writeFd != nil {
+		fdSet.writeFd.cacheItem.FlushPointer = location.Offset
+		fdSet.writeFd.cacheItem.BufferLen = location.Offset
 		return nil
 	}
 	fileId := location.FileId

@@ -60,18 +60,19 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 			}
 
 			if hashListLen > countPerPage {
-				t.Fatal(err)
+				t.Fatal("error")
 			}
 
 			for _, hash := range hashList {
 				if _, ok := hashSet[hash]; ok {
-					t.Fatal(err)
+					t.Fatal(fmt.Sprintf("Hash set is %+v, hashList is %+v", hashSet, hashList))
 				}
 
 				hashSet[hash] = struct{}{}
 
 				if _, hasUnReceive := account.UnreceivedBlocks[hash]; !hasUnReceive {
-					t.Fatal("error")
+					t.Fatal(fmt.Sprintf("Hash is %s, hashList is %+v，account.UnreceivedBlocks: %+v", hash, hashList, account.UnreceivedBlocks))
+
 				}
 			}
 			pageNum++

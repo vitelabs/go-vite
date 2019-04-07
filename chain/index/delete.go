@@ -18,13 +18,13 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 
 	for _, seg := range deletedSnapshotSegments {
 		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
-		iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlockHashMap)
+		if err := iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlockHashMap); err != nil {
+			return err
+		}
 	}
 
 	for sendBlockHash := range openSendBlockHashMap {
-		if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
-			return err
-		}
+		iDB.deleteOnRoad(batch, sendBlockHash)
 	}
 
 	iDB.store.Write(batch)
@@ -47,7 +47,7 @@ func (iDB *IndexDB) deleteSnapshotBlock(batch *leveldb.Batch, snapshotBlock *led
 	}
 }
 
-func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock, openSendBlockHashMap map[types.Hash]struct{}) {
+func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock, sendBlockHashMap map[types.Hash]struct{}) error {
 	for _, block := range blocks {
 		// delete account block hash index
 		iDB.deleteAccountBlockHash(batch, block.Hash)
@@ -62,25 +62,27 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 			// delete receive index
 			iDB.deleteReceive(batch, block.FromBlockHash)
 
-			if _, ok := openSendBlockHashMap[block.FromBlockHash]; !ok {
-
-				delete(openSendBlockHashMap, block.FromBlockHash)
-
+			if _, ok := sendBlockHashMap[block.FromBlockHash]; ok {
+				delete(sendBlockHashMap, block.FromBlockHash)
+			} else {
 				// insert onRoad
-				iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress)
+				if err := iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress); err != nil {
+					return err
+				}
 			}
 		} else {
-			openSendBlockHashMap[block.Hash] = struct{}{}
+			sendBlockHashMap[block.Hash] = struct{}{}
 		}
 		for _, sendBlock := range block.SendBlockList {
 			// delete sendBlock hash index
 			iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
 
 			// set open send
-			openSendBlockHashMap[sendBlock.Hash] = struct{}{}
+			sendBlockHashMap[sendBlock.Hash] = struct{}{}
 		}
 
 	}
+	return nil
 
 }
 

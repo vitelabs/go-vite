@@ -25,10 +25,7 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	endIndex := (pageNum + 1) * countPerPage
 
 	index := 0
-	for iter.Next() && len(hashList) < countPerPage {
-		if index > endIndex {
-			break
-		}
+	for iter.Next() && index < endIndex {
 
 		if index >= startIndex {
 			result, err := types.BytesToHash(iter.Value())
@@ -48,15 +45,21 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	return hashList, nil
 }
 
-func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) {
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
+	value := sendBlockHash.Bytes()
+	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
+	if ok, err := iDB.store.Has(reverseKey); err != nil {
+		return err
+	} else if ok {
+		return nil
+	}
+
 	onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
 	key := chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
-	value := sendBlockHash.Bytes()
-
-	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
 
 	batch.Put(key, value)
 	batch.Put(reverseKey, key)
+	return nil
 
 }
 

@@ -36,14 +36,18 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 		}
 	} else {
 		// insert on road block
-		iDB.insertOnRoad(batch, accountBlock.Hash, accountBlock.ToAddress)
+		if err := iDB.insertOnRoad(batch, accountBlock.Hash, accountBlock.ToAddress); err != nil {
+			return err
+		}
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
 		// send block hash -> addr & height
 		batch.Put(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash), addrHeightValue)
 		// insert on road block
-		iDB.insertOnRoad(batch, sendBlock.Hash, sendBlock.ToAddress)
+		if err := iDB.insertOnRoad(batch, sendBlock.Hash, sendBlock.ToAddress); err != nil {
+			return err
+		}
 	}
 
 	iDB.store.Write(batch)
