@@ -7,7 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 	"testing"
 	"time"
@@ -121,20 +124,24 @@ func BenchmarkChain_InsertStateDB(b *testing.B) {
 }
 
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 10000)
+		BmInsertAccountBlock(b, 10, 1)
 	})
 	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 10000)
+		BmInsertAccountBlock(b, 100, 1)
 	})
 	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 10000)
+		BmInsertAccountBlock(b, 1000, 1)
 	})
 	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 10000)
+		BmInsertAccountBlock(b, 10000, 1)
 	})
 	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 10000)
+		BmInsertAccountBlock(b, 100000, 1)
 	})
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
