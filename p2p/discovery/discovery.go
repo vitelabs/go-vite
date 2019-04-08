@@ -140,7 +140,7 @@ func New(cfg *Config) Discovery {
 
 	d.node = cfg.Node()
 
-	d.socket = newAgent(cfg.PrivateKey(), d.node, d.handle)
+	d.socket = newAgent(cfg.PrivateKey(), d.node, cfg.ListenAddress, d.handle)
 
 	d.table = newTable(d.node.ID, bucketSize, bucketNum, newListBucket, d)
 
@@ -441,6 +441,10 @@ func (d *discovery) refresh() {
 		nodes := d.lookup(id, bucketSize)
 		d.table.addNodes(nodes)
 	}
+
+	d.mu.Lock()
+	d.refreshing = false
+	d.mu.Unlock()
 
 	d.cond.Signal()
 }
