@@ -11,7 +11,7 @@ import (
 
 func TestBroadcaster_Statistic(t *testing.T) {
 	bdc := &broadcaster{
-		statis: circle.NewList(records_24),
+		statis: circle.NewList(records24h),
 	}
 
 	ret := bdc.Statistic()
@@ -34,13 +34,13 @@ func TestBroadcaster_Statistic(t *testing.T) {
 	bdc.statis.Reset()
 	var t0 int64
 	var t1 float64
-	var total = records_1 + 10
+	var total = records1h + 10
 	for i := 0; i < total; i++ {
 		bdc.statis.Put(int64(i))
 	}
 	ret = bdc.Statistic()
-	for i := total - records_1; i < total; i++ {
-		t1 += float64(i) / float64(records_1)
+	for i := total - records1h; i < total; i++ {
+		t1 += float64(i) / float64(records1h)
 		t0 = int64(i)
 	}
 	fmt.Println(ret, t0, t1)
@@ -57,17 +57,17 @@ func TestBroadcaster_Statistic(t *testing.T) {
 	t0, t1 = 0, 0
 
 	var t12 float64
-	total = records_12 + 10
+	total = records12h + 10
 	for i := 0; i < total; i++ {
 		bdc.statis.Put(int64(i))
 		t0 = int64(i)
 	}
 	ret = bdc.Statistic()
-	for i := total - records_1; i < total; i++ {
-		t1 += float64(i) / float64(records_1)
+	for i := total - records1h; i < total; i++ {
+		t1 += float64(i) / float64(records1h)
 	}
-	for i := total - records_12; i < total; i++ {
-		t12 += float64(i) / float64(records_12)
+	for i := total - records12h; i < total; i++ {
+		t12 += float64(i) / float64(records12h)
 	}
 	fmt.Println(ret, t0, t1, t12)
 	if ret[0] != t0 {
@@ -86,20 +86,20 @@ func TestBroadcaster_Statistic(t *testing.T) {
 	t0, t1, t12 = 0, 0, 0
 
 	var t24 float64
-	total = records_24 + 10
+	total = records24h + 10
 	for i := 0; i < total; i++ {
 		bdc.statis.Put(int64(i))
 		t0 = int64(i)
 	}
 	ret = bdc.Statistic()
-	for i := total - records_1; i < total; i++ {
-		t1 += float64(i) / float64(records_1)
+	for i := total - records1h; i < total; i++ {
+		t1 += float64(i) / float64(records1h)
 	}
-	for i := total - records_12; i < total; i++ {
-		t12 += float64(i) / float64(records_12)
+	for i := total - records12h; i < total; i++ {
+		t12 += float64(i) / float64(records12h)
 	}
-	for i := total - records_24; i < total; i++ {
-		t24 += float64(i) / float64(records_24)
+	for i := total - records24h; i < total; i++ {
+		t24 += float64(i) / float64(records24h)
 	}
 
 	fmt.Println(ret, t0, t1, t12, t24)
@@ -119,10 +119,10 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 func BenchmarkBroadcaster_Statistic(b *testing.B) {
 	bdc := &broadcaster{
-		statis: circle.NewList(records_24),
+		statis: circle.NewList(records24h),
 	}
 
-	for i := int64(0); i < records_24*2; i++ {
+	for i := int64(0); i < records24h*2; i++ {
 		bdc.statis.Put(i)
 	}
 

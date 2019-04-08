@@ -1,291 +1,294 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package discovery
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/network"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery/protos"
 )
 
-const version byte = 2
+const version byte = 0
+const expiration = 4 * time.Second
+const maxPacketLength = 1200
+const signatureLength = 64
+const packetHeadLength = 1 + 1 + len(vnode.ZERO)
+const minPacketLength = packetHeadLength + signatureLength // 98
+const maxPayloadLength = maxPacketLength - minPacketLength // 1102
 
-var expiration = 10 * time.Second
-
-func getExpiration() time.Time {
-	return time.Now().Add(2 * expiration)
-}
-
-func isExpired(t time.Time) bool {
-	return t.Before(time.Now())
-}
-
-// packetCode
-type packetCode byte
+type code = byte
 
 const (
-	pingCode packetCode = iota
-	pongCode
-	findnodeCode
-	neighborsCode
-	exceptionCode
+	codePing code = iota
+	codePong
+	codeFindnode
+	codeNeighbors
+	codeException
 )
 
-var packetStrs = [...]string{
-	"ping",
-	"pong",
-	"findnode",
-	"neighbors",
-	"exception",
-}
+var errDiffVersion = errors.New("different packet version")
+var errPacketTooSmall = errors.New("packet is too small")
+var errInvalidSignature = errors.New("validate discovery packet error: invalid signature")
 
-func (c packetCode) String() string {
-	if c > exceptionCode {
-		return "unknown packet code"
-	}
-	return packetStrs[c]
-}
-
-// the full packet must be little than 1400bytes, consist of:
-// version(1 byte), code(1 byte), checksum(32 bytes), signature(64 bytes), payload
-// consider varint encoding of protobuf, 1 byte origin data maybe take up 2 bytes space after encode.
-// so the payload should small than 1200 bytes.
-const maxPacketLength = 1200 // should small than MTU
-
-var errUnmatchedHash = errors.New("validate discovery packet error: invalid hash")
-var errInvalidSig = errors.New("validate discovery packet error: invalid signature")
-
-type Message interface {
+type body interface {
 	serialize() ([]byte, error)
 	deserialize([]byte) error
-	pack(ed25519.PrivateKey) ([]byte, types.Hash, error)
-	isExpired() bool
-	sender() NodeID
-	String() string
+	expired() bool
 }
 
-type Ping struct {
-	ID         NodeID
-	TCP        uint16
-	Expiration time.Time
-	Net        network.ID
-	Ext        []byte
+type message struct {
+	c  code
+	id vnode.NodeID
+	body
 }
 
-func (p *Ping) sender() NodeID {
-	return p.ID
-}
-
-func (p *Ping) serialize() ([]byte, error) {
-	pb := &protos.Ping{
-		ID:         p.ID[:],
-		TCP:        uint32(p.TCP),
-		Expiration: p.Expiration.Unix(),
-		Net:        uint32(p.Net),
-		Ext:        p.Ext,
+func (m message) pack(key ed25519.PrivateKey) (data, hash []byte, err error) {
+	payload, err := m.body.serialize()
+	if err != nil {
+		return
 	}
+
+	data, hash = pack(key, m.c, payload)
+	return
+}
+
+type ping struct {
+	from, to *vnode.EndPoint
+	net      uint32
+	ext      []byte
+	time     time.Time
+}
+
+func (p *ping) serialize() (data []byte, err error) {
+	pb := &protos.Ping{
+		Net:  p.net,
+		Ext:  p.ext,
+		Time: p.time.Unix(),
+	}
+
+	var buf []byte
+	if p.from == nil {
+		pb.From = nil
+	} else {
+		buf, err = p.from.Serialize()
+		if err != nil {
+			pb.From = nil
+		} else {
+			pb.From = buf
+		}
+	}
+
+	if p.to == nil {
+		pb.To = nil
+	} else {
+		buf, err = p.to.Serialize()
+		if err != nil {
+			pb.To = nil
+		} else {
+			pb.To = buf
+		}
+	}
+
 	return proto.Marshal(pb)
 }
 
-func (p *Ping) deserialize(buf []byte) error {
+func (p *ping) deserialize(buf []byte) error {
 	pb := new(protos.Ping)
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
 	}
 
-	id, err := Bytes2NodeID(pb.ID)
+	p.net = pb.Net
+	p.ext = pb.Ext
+	p.time = time.Unix(pb.Time, 0)
+
+	from := new(vnode.EndPoint)
+	err = from.Deserialize(pb.From)
 	if err != nil {
-		return err
+		p.from = nil
+	} else {
+		p.from = from
 	}
 
-	p.ID = id
-	p.TCP = uint16(pb.TCP)
-	p.Expiration = time.Unix(pb.Expiration, 0)
-	p.Net = network.ID(pb.Net)
-	p.Ext = pb.Ext
+	to := new(vnode.EndPoint)
+	err = to.Deserialize(pb.To)
+	if err != nil {
+		p.to = nil
+	} else {
+		p.to = to
+	}
 
 	return nil
 }
 
-func (p *Ping) pack(key ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
-	payload, err := p.serialize()
-	if err != nil {
-		return
+func (p *ping) expired() bool {
+	return time.Now().Sub(p.time) > expiration
+}
+
+type pong struct {
+	from, to *vnode.EndPoint
+	net      uint32
+	ext      []byte
+	echo     []byte
+	time     time.Time
+}
+
+func (p *pong) serialize() (data []byte, err error) {
+	pb := &protos.Pong{}
+
+	pb.Net = p.net
+	pb.Ext = p.ext
+	pb.Echo = p.echo
+	pb.Time = p.time.Unix()
+
+	var buf []byte
+	if p.from == nil {
+		pb.From = nil
+	} else {
+		buf, err = p.from.Serialize()
+		if err != nil {
+			pb.From = nil
+		} else {
+			pb.From = buf
+		}
 	}
 
-	pkt, hash = composePacket(key, pingCode, payload)
-	return
-}
-
-func (p *Ping) isExpired() bool {
-	return isExpired(p.Expiration)
-}
-
-func (p *Ping) String() string {
-	return "ping"
-}
-
-type Pong struct {
-	ID         NodeID
-	Ping       types.Hash
-	IP         net.IP
-	Expiration time.Time
-}
-
-func (p *Pong) sender() NodeID {
-	return p.ID
-}
-
-func (p *Pong) serialize() ([]byte, error) {
-	pb := &protos.Pong{
-		ID:         p.ID[:],
-		Ping:       p.Ping[:],
-		IP:         p.IP,
-		Expiration: p.Expiration.Unix(),
+	if p.to == nil {
+		pb.To = nil
+	} else {
+		buf, err = p.to.Serialize()
+		if err != nil {
+			pb.To = nil
+		} else {
+			pb.To = buf
+		}
 	}
+
 	return proto.Marshal(pb)
 }
 
-func (p *Pong) deserialize(buf []byte) error {
+func (p *pong) deserialize(data []byte) error {
 	pb := new(protos.Pong)
-	err := proto.Unmarshal(buf, pb)
+	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
 
-	id, err := Bytes2NodeID(pb.ID)
+	p.net = pb.Net
+	p.ext = pb.Ext
+	p.echo = pb.Echo
+	p.time = time.Unix(pb.Time, 0)
+
+	from := new(vnode.EndPoint)
+	err = from.Deserialize(pb.From)
 	if err != nil {
-		return err
+		p.from = nil
+	} else {
+		p.from = from
 	}
 
-	p.ID = id
-	p.IP = pb.IP
-	copy(p.Ping[:], pb.Ping)
-	p.Expiration = time.Unix(pb.Expiration, 0)
+	to := new(vnode.EndPoint)
+	err = to.Deserialize(pb.To)
+	if err != nil {
+		p.to = nil
+	} else {
+		p.to = to
+	}
 
 	return nil
 }
 
-func (p *Pong) pack(key ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
-	payload, err := p.serialize()
-	if err != nil {
-		return
-	}
-
-	pkt, hash = composePacket(key, pongCode, payload)
-
-	return
+func (p *pong) expired() bool {
+	return time.Now().Sub(p.time) > expiration
 }
 
-func (p *Pong) isExpired() bool {
-	return isExpired(p.Expiration)
+type findnode struct {
+	target vnode.NodeID
+	count  uint32
+	time   time.Time
 }
 
-func (p *Pong) String() string {
-	return "pong<" + p.Ping.String() + ">"
-}
-
-type FindNode struct {
-	ID         NodeID
-	Target     NodeID
-	Expiration time.Time
-	N          uint32
-}
-
-func (f *FindNode) sender() NodeID {
-	return f.ID
-}
-
-func (f *FindNode) serialize() ([]byte, error) {
-	pb := &protos.FindNode{
-		ID:         f.ID[:],
-		Target:     f.Target[:],
-		Expiration: f.Expiration.Unix(),
-		N:          f.N,
+func (f *findnode) serialize() ([]byte, error) {
+	pb := &protos.Findnode{
+		Target: f.target.Bytes(),
+		Count:  f.count,
+		Time:   f.time.Unix(),
 	}
 	return proto.Marshal(pb)
 }
 
-func (f *FindNode) deserialize(buf []byte) error {
-	pb := &protos.FindNode{}
+func (f *findnode) deserialize(buf []byte) error {
+	pb := &protos.Findnode{}
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
 	}
 
-	id, err := Bytes2NodeID(pb.ID)
+	f.target, err = vnode.Bytes2NodeID(pb.Target)
 	if err != nil {
 		return err
 	}
 
-	target, err := Bytes2NodeID(pb.Target)
-	if err != nil {
-		return err
-	}
-
-	f.ID = id
-	f.Target = target
-	f.Expiration = time.Unix(pb.Expiration, 0)
-	f.N = pb.N
+	f.count = pb.Count
+	f.time = time.Unix(pb.Time, 0)
 
 	return nil
 }
 
-func (f *FindNode) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
-	payload, err := f.serialize()
-	if err != nil {
-		return
-	}
-
-	pkt, hash = composePacket(priv, findnodeCode, payload)
-
-	return
+func (f *findnode) expired() bool {
+	return time.Now().Sub(f.time) > expiration
 }
 
-func (f *FindNode) isExpired() bool {
-	return isExpired(f.Expiration)
+type neighbors struct {
+	endpoints []*vnode.EndPoint
+	last      bool
+	time      time.Time
 }
 
-func (f *FindNode) String() string {
-	return "findnode<" + f.Target.String() + ">"
-}
-
-type Neighbors struct {
-	ID         NodeID
-	Nodes      []*Node
-	Expiration time.Time
-}
-
-func (n *Neighbors) sender() NodeID {
-	return n.ID
-}
-
-func (n *Neighbors) serialize() ([]byte, error) {
-	npbs := make([]*protos.Node, len(n.Nodes))
-	for i, node := range n.Nodes {
-		npbs[i] = node.proto()
-	}
-
+func (n *neighbors) serialize() ([]byte, error) {
 	pb := &protos.Neighbors{
-		ID:         n.ID[:],
-		Nodes:      npbs,
-		Expiration: n.Expiration.Unix(),
+		Last: n.last,
+		Time: n.time.Unix(),
 	}
+
+	pb.Nodes = make([][]byte, 0, len(n.endpoints))
+	for _, ep := range n.endpoints {
+		buf, err := ep.Serialize()
+		if err != nil {
+			continue
+		}
+		pb.Nodes = append(pb.Nodes, buf)
+	}
+
 	return proto.Marshal(pb)
 }
 
-func (n *Neighbors) deserialize(buf []byte) (err error) {
+func (n *neighbors) deserialize(buf []byte) (err error) {
 	pb := new(protos.Neighbors)
 
 	err = proto.Unmarshal(buf, pb)
@@ -293,195 +296,105 @@ func (n *Neighbors) deserialize(buf []byte) (err error) {
 		return err
 	}
 
-	id, err := Bytes2NodeID(pb.ID)
-	if err != nil {
-		return
-	}
+	n.last = pb.Last
+	n.time = time.Unix(pb.Time, 0)
 
-	nodes := make([]*Node, 0, len(pb.Nodes))
-
-	for _, npb := range pb.Nodes {
-		node, err := protoToNode(npb)
-		if err == nil {
-			nodes = append(nodes, node)
+	n.endpoints = make([]*vnode.EndPoint, 0, len(pb.Nodes))
+	for _, buf = range pb.Nodes {
+		e := new(vnode.EndPoint)
+		err = e.Deserialize(buf)
+		if err != nil {
+			continue
 		}
+		n.endpoints = append(n.endpoints, e)
 	}
-
-	n.ID = id
-	n.Expiration = time.Unix(pb.Expiration, 0)
-	n.Nodes = nodes
 
 	return nil
 }
 
-func (n *Neighbors) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
-	payload, err := n.serialize()
-	if err != nil {
-		return
-	}
-
-	pkt, hash = composePacket(priv, neighborsCode, payload)
-	return
+func (n *neighbors) expired() bool {
+	return time.Now().Sub(n.time) > expiration
 }
 
-func (n *Neighbors) isExpired() bool {
-	return isExpired(n.Expiration)
-}
+// pack a message to []byte, structure as following:
+// +---------+---------+---------------+--------------------------------------+---------------------------+
+// | version |   code  |    nodeID     |              payload                 |         signature         |
+// |  1 byte |  1 byte |    32 bytes   |            0 ~ 1102 bytes            |          64 bytes         |
+// +---------+---------+---------------+--------------------------------------+---------------------------+
+// return the packet []byte, and hash of the payload
+func pack(priv ed25519.PrivateKey, code code, payload []byte) (data, hash []byte) {
+	hash = crypto.Hash256(payload)
 
-func (n *Neighbors) String() string {
-	return "neighbors<" + strconv.Itoa(len(n.Nodes)) + ">"
-}
-
-// @section Exception
-type eCode uint64
-
-const (
-	eCannotUnpack eCode = iota + 1
-	eLowVersion
-	eBlocked
-	eUnKnown
-)
-
-var eMsg = [...]string{
-	eCannotUnpack: "can`t unpack message, maybe not the same discovery version",
-	eLowVersion:   "your version is lower, maybe you should upgrade",
-	eBlocked:      "you are blocked",
-	eUnKnown:      "unknown discovery message",
-}
-
-func (e eCode) String() string {
-	return eMsg[e]
-}
-
-type Exception struct {
-	Code eCode
-}
-
-func (e *Exception) serialize() ([]byte, error) {
-	buf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(buf, uint64(e.Code))
-	return buf[:n], nil
-}
-
-func (e *Exception) deserialize(buf []byte) error {
-	code, n := binary.Varint(buf)
-	if n <= 0 {
-		return errors.New("parse error")
-	}
-	e.Code = eCode(code)
-	return nil
-}
-
-func (e *Exception) pack(priv ed25519.PrivateKey) (pkt []byte, hash types.Hash, err error) {
-	payload, err := e.serialize()
-	if err != nil {
-		return
-	}
-
-	pkt, hash = composePacket(priv, exceptionCode, payload)
-	return
-}
-
-func (e *Exception) isExpired() bool {
-	return false
-}
-
-func (e *Exception) sender() (id NodeID) {
-	return
-}
-
-func (n *Exception) String() string {
-	return "exception<" + n.Code.String() + ">"
-}
-
-// version code checksum signature payload
-func composePacket(priv ed25519.PrivateKey, code packetCode, payload []byte) (data []byte, hash types.Hash) {
-	sig := ed25519.Sign(priv, payload)
-	checksum := crypto.Hash(32, append(sig, payload...))
+	signature := ed25519.Sign(priv, payload)
 
 	chunk := [][]byte{
-		{version, byte(code)},
-		checksum,
-		sig,
+		{version, code},
+		priv.PubByte(),
 		payload,
+		signature,
 	}
 
-	data = bytes.Join(chunk, []byte{})
+	data = bytes.Join(chunk, nil)
 
-	copy(hash[:], checksum)
-	return data, hash
+	return
 }
 
-var errPktSmall = errors.New("packet is too small")
-
+// unPacket []byte to message
 func unPacket(data []byte) (p *packet, err error) {
-	pktVersion := data[0]
-
-	if pktVersion != version {
-		return nil, fmt.Errorf("unmatched discovery packet version: received packet version is %d, but we are %d", pktVersion, version)
+	if len(data) < minPacketLength {
+		return nil, errPacketTooSmall
 	}
 
-	if len(data) < 99 {
-		return nil, errPktSmall
+	if data[0] != version {
+		return nil, errDiffVersion
 	}
 
-	pktCode := packetCode(data[1])
-	pktHash := data[2:34] // 32 bytes
-	payloadWithSig := data[34:]
-	pktSig := data[34:98] // 64 bytes
-	payload := data[98:]
+	c := data[1]
+	id := data[2:packetHeadLength]
+	payload := data[packetHeadLength : len(data)-signatureLength]
+	signature := data[len(data)-signatureLength:]
 
-	// compare checksum
-	reHash := crypto.Hash(32, payloadWithSig)
-	if !bytes.Equal(reHash, pktHash) {
-		return nil, errUnmatchedHash
+	valid, err := crypto.VerifySig(id, payload, signature)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, errInvalidSignature
+	}
+
+	fromId, err := vnode.Bytes2NodeID(id)
+	if err != nil {
+		return nil, err
 	}
 
 	// unpack packet to get content and signature
-	m, err := decode(pktCode, payload)
+	m, err := decode(c, payload)
 	if err != nil {
 		return
 	}
 
-	// verify signature
-	id := m.sender()
-	valid, err := crypto.VerifySig(id[:], payload, pktSig)
-	if err != nil {
-		return
+	p = &packet{
+		message: message{
+			c:    c,
+			id:   fromId,
+			body: m,
+		},
+		hash: crypto.Hash256(payload),
 	}
 
-	if valid {
-		hash := new(types.Hash)
-
-		err = hash.SetBytes(pktHash)
-		if err != nil {
-			return
-		}
-
-		p = &packet{
-			fromID: id,
-			from:   nil,
-			code:   pktCode,
-			hash:   *hash,
-			msg:    m,
-		}
-
-		return p, nil
-	}
-
-	return nil, errInvalidSig
+	return p, nil
 }
 
-func decode(code packetCode, payload []byte) (m Message, err error) {
+func decode(code code, payload []byte) (m body, err error) {
 	switch code {
-	case pingCode:
-		m = new(Ping)
-	case pongCode:
-		m = new(Pong)
-	case findnodeCode:
-		m = new(FindNode)
-	case neighborsCode:
-		m = new(Neighbors)
+	case codePing:
+		m = new(ping)
+	case codePong:
+		m = new(pong)
+	case codeFindnode:
+		m = new(findnode)
+	case codeNeighbors:
+		m = new(neighbors)
 	default:
 		return m, fmt.Errorf("decode packet error: unknown code %d", code)
 	}

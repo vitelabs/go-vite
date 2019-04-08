@@ -15,20 +15,25 @@ type blockNotifier interface {
 	notifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource)
 }
 
+type blockReceiver interface {
+	receiveAccountBlock(block *ledger.AccountBlock, source types.BlockSource) error
+	receiveSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) error
+}
+
 type blockFeed struct {
-	aSubs     map[int]AccountblockCallback
+	aSubs     map[int]AccountBlockCallback
 	bSubs     map[int]SnapshotBlockCallback
 	currentId int
 }
 
 func newBlockFeeder() blockFeeder {
 	return &blockFeed{
-		aSubs: make(map[int]AccountblockCallback),
+		aSubs: make(map[int]AccountBlockCallback),
 		bSubs: make(map[int]SnapshotBlockCallback),
 	}
 }
 
-func (bf *blockFeed) SubscribeAccountBlock(fn AccountblockCallback) (subId int) {
+func (bf *blockFeed) SubscribeAccountBlock(fn AccountBlockCallback) (subId int) {
 	bf.currentId++
 	bf.aSubs[bf.currentId] = fn
 	return bf.currentId
@@ -62,4 +67,29 @@ func (bf *blockFeed) notifyAccountBlock(block *ledger.AccountBlock, source types
 			fn(block.AccountAddress, block, source)
 		}
 	}
+}
+
+type safeBlockNotifier struct {
+	blockFeeder
+	Verifier
+}
+
+func (s *safeBlockNotifier) receiveAccountBlock(block *ledger.AccountBlock, source types.BlockSource) error {
+	err := s.Verifier.VerifyNetAb(block)
+	if err != nil {
+		return err
+	}
+
+	s.blockFeeder.notifyAccountBlock(block, source)
+	return nil
+}
+
+func (s *safeBlockNotifier) receiveSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) error {
+	err := s.Verifier.VerifyNetSb(block)
+	if err != nil {
+		return err
+	}
+
+	s.blockFeeder.notifySnapshotBlock(block, source)
+	return nil
 }

@@ -10,26 +10,18 @@ import (
 )
 
 var DefaultNodeConfig = Config{
-	Identity:             "nodeServer",
-	IPCPath:              "gvite.ipc",
-	DataDir:              DefaultDataDir(),
-	KeyStoreDir:          DefaultDataDir(),
-	HttpPort:             common.DefaultHTTPPort,
-	WSPort:               common.DefaultWSPort,
-	PrivateKey:           "",
-	MaxPeers:             0,
-	MaxPassivePeersRatio: 0,
-	MaxPendingPeers:      0,
-	BootNodes:            nil,
-	Port:                 8483,
-	NetID:                0,
-	Discovery:            true,
-	LogLevel:             "info",
-	WSOrigins:            []string{"*"},
-	WSExposeAll:          true,
-	HttpExposeAll:        true,
-	TopoEnabled:          false,
-	FilePort:             8484,
+	Name:              "nodeServer",
+	IPCPath:           "gvite.ipc",
+	DataDir:           DefaultDataDir(),
+	KeyStoreDir:       DefaultDataDir(),
+	HttpPort:          common.DefaultHTTPPort,
+	WSPort:            common.DefaultWSPort,
+	Discover:          true,
+	LogLevel:          "info",
+	WSOrigins:         []string{"*"},
+	WSExposeAll:       true,
+	HttpExposeAll:     true,
+	FileListenAddress: "0.0.0.0:8484",
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

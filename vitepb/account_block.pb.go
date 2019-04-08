@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type AccountBlock_BlockType int32
 
@@ -41,6 +43,7 @@ var AccountBlock_BlockType_name = map[int32]string{
 	6: "SendRefund",
 	7: "GenesisReceive",
 }
+
 var AccountBlock_BlockType_value = map[string]int32{
 	"Unknown":        0,
 	"SendCreate":     1,
@@ -55,8 +58,9 @@ var AccountBlock_BlockType_value = map[string]int32{
 func (x AccountBlock_BlockType) String() string {
 	return proto.EnumName(AccountBlock_BlockType_name, int32(x))
 }
+
 func (AccountBlock_BlockType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_account_block_13cc3d0a39bd3eb1, []int{0, 0}
+	return fileDescriptor_2bf4766d5344eb21, []int{0, 0}
 }
 
 type AccountBlock struct {
@@ -88,16 +92,17 @@ func (m *AccountBlock) Reset()         { *m = AccountBlock{} }
 func (m *AccountBlock) String() string { return proto.CompactTextString(m) }
 func (*AccountBlock) ProtoMessage()    {}
 func (*AccountBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_account_block_13cc3d0a39bd3eb1, []int{0}
+	return fileDescriptor_2bf4766d5344eb21, []int{0}
 }
+
 func (m *AccountBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountBlock.Unmarshal(m, b)
 }
 func (m *AccountBlock) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountBlock.Marshal(b, m, deterministic)
 }
-func (dst *AccountBlock) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountBlock.Merge(dst, src)
+func (m *AccountBlock) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountBlock.Merge(m, src)
 }
 func (m *AccountBlock) XXX_Size() int {
 	return xxx_messageInfo_AccountBlock.Size(m)
@@ -242,15 +247,13 @@ func (m *AccountBlock) GetSignature() []byte {
 }
 
 func init() {
-	proto.RegisterType((*AccountBlock)(nil), "vitepb.AccountBlock")
 	proto.RegisterEnum("vitepb.AccountBlock_BlockType", AccountBlock_BlockType_name, AccountBlock_BlockType_value)
+	proto.RegisterType((*AccountBlock)(nil), "vitepb.AccountBlock")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/account_block.proto", fileDescriptor_account_block_13cc3d0a39bd3eb1)
-}
+func init() { proto.RegisterFile("vitepb/account_block.proto", fileDescriptor_2bf4766d5344eb21) }
 
-var fileDescriptor_account_block_13cc3d0a39bd3eb1 = []byte{
+var fileDescriptor_2bf4766d5344eb21 = []byte{
 	// 445 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x92, 0x51, 0x6f, 0xd3, 0x30,
 	0x14, 0x85, 0xc9, 0xda, 0xa6, 0xed, 0x6d, 0x1a, 0xcc, 0x65, 0x42, 0xd6, 0x84, 0xa6, 0x6a, 0x42,

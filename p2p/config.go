@@ -1,115 +1,106 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package p2p
 
 import (
-	"os"
-	"path/filepath"
-
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/network"
 )
 
 const (
-	DefaultMaxPeers        uint = 50
-	DefaultMaxPendingPeers uint = 20
-	DefaultMaxInboundRatio uint = 2
-	DefaultPort            uint = 8483
-	DefaultNetID                = network.Aquarius
-	DefaultMinPeers             = 5
+	DefaultNodeName        = "vite-node"
+	DefaultMaxPeers        = 10
+	DefaultMaxInboundRatio = 2
+	DefaultOutboundPeers   = 5
+	DefaultSuperiorPeers   = 30
+	DefaultMinPeers        = DefaultOutboundPeers
+	DefaultMaxPendingPeers = 10
 )
 
-const Dirname = "p2p"
-const privKeyFileName = "priv.key"
-const DefaultAddr = "0.0.0.0:8483"
+// Config is the essential configuration to create a p2p server
+type Config struct {
+	*discovery.Config
 
-func getServerKey(p2pDir string) (priv ed25519.PrivateKey, err error) {
-	privKeyFile := filepath.Join(p2pDir, privKeyFileName)
+	// discover means whether discover other nodes in the networks, default true
+	discover bool
 
-	var fd *os.File
-	fd, err = os.Open(privKeyFile)
+	// name is our node name, NO need to be unique in the whole network, just for readability, default is `vite-node`
+	name string
 
-	// open file error
+	// maxPeers means each level can accept how many peers, default:
+	// Inbound: 5
+	// Outbound: 5
+	// Superior: 30
+	maxPeers map[Level]int
+
+	// minPeers, server will keep finding nodes and try to connect until number of peers is larger than `MinPeers`,
+	// default 5
+	minPeers int
+
+	// maxPendingPeers: how many inbound peers can be connect concurrently, more inbound connection will be blocked
+	// this value is for defend DDOS attack, default 10
+	maxPendingPeers int
+
+	// staticNodes will be connect directly
+	staticNodes []string
+}
+
+func NewConfig(listenAddress, publicAddress, dataDir, peerKey string, bootNodes, bootSeed []string, netId int,
+	discover bool,
+	name string, maxPeers, minPeers, maxInboundRatio, maxPendingPeers int, staticNodes []string) (*Config, error) {
+
+	cfg, err := discovery.NewConfig(listenAddress, publicAddress, dataDir, peerKey, bootNodes, bootSeed, netId)
 	if err != nil {
-		if _, priv, err = ed25519.GenerateKey(nil); err != nil {
-			return
-		}
-
-		if fd, err = os.Create(privKeyFile); err == nil {
-			defer fd.Close()
-		}
-	} else {
-		defer fd.Close()
-
-		priv = make([]byte, 64)
-		var n int
-		if n, err = fd.Read(priv); err != nil || n != len(priv) {
-			// read file error
-			if _, priv, err = ed25519.GenerateKey(nil); err != nil {
-				return
-			}
-		}
+		return nil, err
 	}
 
-	if fd != nil {
-		fd.Write(priv)
+	if name == "" {
+		name = DefaultNodeName
+	}
+	if maxPeers == 0 {
+		maxPeers = DefaultMaxPeers
+	}
+	if minPeers == 0 {
+		minPeers = DefaultMinPeers
+	}
+	if maxPeers < minPeers {
+		maxPeers = minPeers
+	}
+	if maxInboundRatio == 0 {
+		maxInboundRatio = DefaultMaxInboundRatio
+	}
+	if maxPendingPeers == 0 {
+		maxPendingPeers = DefaultMaxPendingPeers
 	}
 
-	return
-}
-
-func EnsureConfig(cfg *Config) *Config {
-	if cfg == nil {
-		cfg = new(Config)
+	p2pConfig := &Config{
+		Config:          cfg,
+		discover:        discover,
+		name:            name,
+		minPeers:        minPeers,
+		maxPendingPeers: maxPendingPeers,
+		staticNodes:     staticNodes,
 	}
 
-	if cfg.NetID == 0 {
-		cfg.NetID = DefaultNetID
-	}
+	p2pConfig.maxPeers = make(map[Level]int)
+	p2pConfig.maxPeers[Inbound] = maxPeers / maxInboundRatio
+	p2pConfig.maxPeers[Outbound] = maxPeers - p2pConfig.maxPeers[Inbound]
+	p2pConfig.maxPeers[Superior] = DefaultSuperiorPeers
 
-	if cfg.MaxPeers == 0 {
-		cfg.MaxPeers = DefaultMaxPeers
-	}
-
-	if cfg.MaxPendingPeers == 0 {
-		cfg.MaxPendingPeers = DefaultMaxPendingPeers
-	}
-
-	if cfg.MaxInboundRatio == 0 {
-		cfg.MaxInboundRatio = DefaultMaxInboundRatio
-	}
-
-	if cfg.Addr == "" {
-		cfg.Addr = DefaultAddr
-	}
-
-	if cfg.DataDir == "" {
-		cfg.DataDir = filepath.Join(common.DefaultDataDir(), Dirname)
-	}
-
-	if cfg.PeerKey == nil {
-		priv, err := getServerKey(cfg.DataDir)
-
-		if err != nil {
-			panic(err)
-		} else {
-			cfg.PeerKey = priv
-		}
-	}
-
-	return cfg
-}
-
-func parseNodes(urls []string) (nodes []*discovery.Node) {
-	nodes = make([]*discovery.Node, len(urls))
-
-	i := 0
-	for _, nodeURL := range urls {
-		if node, err := discovery.ParseNode(nodeURL); err == nil {
-			nodes[i] = node
-			i++
-		}
-	}
-
-	return nodes[:i]
+	return p2pConfig, nil
 }

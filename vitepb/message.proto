@@ -18,34 +18,9 @@ message BlockID {
     uint64 Height = 2;
 }
 
-message CompressedFileMeta {
-    uint64 StartHeight = 1;
-    uint64 EndHeight = 2;
-    string Filename  =3;
-    int64 FileSize = 4;
-    uint64 BlockNumbers = 5;
-}
-
-message FileList {
-    repeated CompressedFileMeta Files = 1;
-    repeated uint64 Chunks = 2;
-    uint64 Nonce = 3;
-}
-
-message GetFiles {
-    repeated string Names = 1;
-    uint64 Nonce = 2;
-}
-
 message GetChunk {
     uint64 Start = 1;
     uint64 End = 2;
-}
-
-message SubLedger {
-    repeated vitepb.SnapshotBlock SBlocks = 1;
-    repeated vitepb.AccountBlock ABlocks = 2;
-    uint64 AblockNum = 3;
 }
 
 message GetSnapshotBlocks {
@@ -67,4 +42,19 @@ message GetAccountBlocks {
 
 message AccountBlocks {
     repeated vitepb.AccountBlock Blocks = 1;
+}
+
+message NewSnapshotBlock {
+    vitepb.SnapshotBlock Block = 1;
+    int32 TTL = 2;
+}
+
+message NewAccountBlock {
+    vitepb.AccountBlock Block = 1;
+    int32 TTL = 2;
+}
+
+message NewAccountBlockBytes {
+    bytes Block = 1;
+    int32 TTL = 2;
 }
