@@ -28,16 +28,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/netool"
-
-	"github.com/vitelabs/go-vite/p2p/discovery"
-
 	"github.com/golang/protobuf/proto"
-
-	"github.com/vitelabs/go-vite/p2p/protos"
-
 	"github.com/vitelabs/go-vite/log15"
-
+	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/netool"
+	"github.com/vitelabs/go-vite/p2p/protos"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
@@ -46,6 +41,7 @@ var errP2PNotRunning = errors.New("p2p is not running")
 var errInvalidProtocolID = errors.New("protocol id must larger than 0")
 var errProtocolExisted = errors.New("protocol has existed")
 var errPeerNotExist = errors.New("peer not exist")
+var errLevelIsFull = errors.New("level is full")
 
 // Authenticator will authenticate all inbound connection whether can access our server
 type Authenticator interface {
@@ -71,11 +67,8 @@ type P2P interface {
 	Start() error
 	Stop() error
 	Connect(node string) error
-	Ban(ip net.IP)
-	Unban(ip net.IP)
 	Info() NodeInfo
 	Register(pt Protocol) error
-	SetMaxPeers(level Level, max int)
 }
 
 type Handshaker interface {
@@ -102,7 +95,7 @@ type Peer interface {
 type PeerMux interface {
 	basePeer
 	run() error
-	setManager(pm peerLeveler)
+	setManager(pm levelManager)
 }
 
 type peerManager interface {
@@ -113,21 +106,17 @@ type peerManager interface {
 type p2p struct {
 	cfg *Config
 
-	self vnode.Node
-
-	rw sync.RWMutex
+	node vnode.Node
 
 	discv discovery.Discovery
 
-	// condition for loop find, if number of peers is little than cfg.minPeers
-	cond *sync.Cond
+	mu sync.Mutex
 	dialer
 	staticNodes []*vnode.Node
 
 	ptMap map[ProtocolID]Protocol
 
-	peerMap   map[vnode.NodeID]PeerMux
-	peerLevel map[Level][]PeerMux
+	*peers
 
 	handshaker Handshaker
 
@@ -194,8 +183,7 @@ func New(cfg *Config) P2P {
 		cfg:         cfg,
 		staticNodes: staticNodes,
 		ptMap:       ptMap,
-		peerMap:     make(map[vnode.NodeID]PeerMux),
-		peerLevel:   make(map[Level][]PeerMux),
+		peers:       newPeers(cfg.maxPeers),
 		handshaker:  hkr,
 		blackList:   netool.NewBlackList(strategy),
 		dialer:      newDialer(5*time.Second, 5, hkr),
@@ -206,50 +194,26 @@ func New(cfg *Config) P2P {
 		p.discv = discovery.New(cfg.Config)
 	}
 
-	p.cond = sync.NewCond(&p.rw)
-
 	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.maxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
 
 	return p
 }
 
-func (p *p2p) SetMaxPeers(level Level, max int) {
-	p.rw.Lock()
-	defer p.rw.Unlock()
-
-	p.cfg.maxPeers[level] = max
-}
-
 func (p *p2p) check(peer PeerMux) error {
-	id := peer.ID()
-
-	if id == p.self.ID {
+	if peer.ID() == p.node.ID {
 		return PeerConnectSelf
 	}
 
-	p.rw.RLock()
-	defer p.rw.RUnlock()
-
-	if _, ok := p.peerMap[id]; ok {
-		return PeerAlreadyConnected
+	if pe, ok := p.peers.add(peer); ok {
+		return nil
+	} else {
+		return pe
 	}
-
-	plevel := peer.Level()
-	if len(p.peerLevel[plevel]) >= p.cfg.maxPeers[plevel] {
-		return PeerTooManyPeers
-	}
-
-	p.peerLevel[plevel] = append(p.peerLevel[plevel], peer)
-
-	return nil
 }
 
 func (p *p2p) Start() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
 		p.term = make(chan struct{})
-
-		// connect static nodes
-		p.dialStatic()
 
 		if err = p.server.Start(); err != nil {
 			return err
@@ -259,10 +223,10 @@ func (p *p2p) Start() (err error) {
 			if err = p.discv.Start(); err != nil {
 				return err
 			}
-
-			p.wg.Add(1)
-			go p.findLoop()
 		}
+
+		p.wg.Add(1)
+		go p.findLoop()
 
 		p.wg.Add(1)
 		go p.beatLoop()
@@ -277,11 +241,7 @@ func (p *p2p) Stop() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		close(p.term)
 
-		p.rw.RLock()
-		for _, peer := range p.peerMap {
-			_ = peer.Close(PeerQuitting)
-		}
-		p.rw.RUnlock()
+		p.peers.close()
 
 		p.wg.Wait()
 
@@ -316,20 +276,25 @@ func (p *p2p) Unban(ip net.IP) {
 }
 
 func (p *p2p) Info() NodeInfo {
+	pts := make([]string, 0, len(p.ptMap))
+	for _, pt := range p.ptMap {
+		pts = append(pts, pt.Name())
+	}
+
 	return NodeInfo{
-		ID:        "",
-		Name:      "",
-		NetID:     0,
-		Version:   0,
-		Address:   "",
-		Protocols: nil,
-		Peers:     nil,
+		ID:        p.cfg.Node().ID.String(),
+		Name:      p.cfg.name,
+		NetID:     p.cfg.NetID,
+		Version:   version,
+		Address:   p.cfg.ListenAddress,
+		Protocols: pts,
+		Peers:     p.peers.info(),
 	}
 }
 
 func (p *p2p) Register(pt Protocol) error {
-	p.rw.Lock()
-	defer p.rw.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	pid := pt.ID()
 
@@ -355,17 +320,17 @@ func (p *p2p) register(peer PeerMux) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
-	peer.setManager(p)
-
 	var err error
-	err = p.check(peer)
-	if err != nil {
+	if err = p.check(peer); err != nil {
 		if pe, ok := err.(PeerError); ok {
 			_ = peer.Close(pe)
 		}
 
+		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", peer, err))
 		return
 	}
+
+	peer.setManager(p.peers)
 
 	// run
 	if err = peer.run(); err != nil {
@@ -374,66 +339,12 @@ func (p *p2p) register(peer PeerMux) {
 		p.log.Warn(fmt.Sprintf("peer %s run done", peer))
 	}
 
-	err = p.unregister(peer.ID())
-	if err != nil {
+	// clean
+	if err = p.peers.remove(peer); err != nil {
 		p.log.Warn(fmt.Sprintf("failed to unregister peer %s: %v", peer, err))
 	}
 
-	// notify findLoop
-	p.cond.Signal()
-
 	return
-}
-
-func (p *p2p) unregister(id vnode.NodeID) (err error) {
-	p.rw.Lock()
-	defer p.rw.Unlock()
-
-	if peer, ok := p.peerMap[id]; ok {
-		delete(p.peerMap, id)
-
-		level := peer.Level()
-		total := len(p.peerLevel[level]) - 1
-		for i, peer2 := range p.peerLevel[level] {
-			if peer2.ID() == id {
-				if i != total {
-					copy(p.peerLevel[level][i:], p.peerLevel[level][i+1:])
-				}
-				p.peerLevel[level] = p.peerLevel[level][:total]
-			}
-		}
-
-		return nil
-	}
-
-	return errPeerNotExist
-}
-
-func (p *p2p) changeLevel(peer PeerMux, oldLevel Level) error {
-	p.rw.Lock()
-	defer p.rw.Unlock()
-
-	level := peer.Level()
-	id := peer.ID()
-	if _, ok := p.peerMap[id]; ok {
-
-		// remove from oldLevel
-		total := len(p.peerLevel[oldLevel]) - 1
-		for i, peer2 := range p.peerLevel[oldLevel] {
-			if peer2.ID() == id {
-				if i != total {
-					copy(p.peerLevel[oldLevel][i:], p.peerLevel[oldLevel][i+1:])
-				}
-				p.peerLevel[oldLevel] = p.peerLevel[oldLevel][:total]
-			}
-		}
-
-		p.peerLevel[level] = append(p.peerLevel[level], peer)
-
-		return nil
-	}
-
-	return errPeerNotExist
 }
 
 func (p *p2p) beatLoop() {
@@ -476,13 +387,6 @@ func (p *p2p) beatLoop() {
 	}
 }
 
-func (p *p2p) count() int {
-	p.rw.RLock()
-	defer p.rw.RUnlock()
-
-	return len(p.peerMap)
-}
-
 func (p *p2p) dialStatic() {
 	for _, n := range p.staticNodes {
 		p.connect(n)
@@ -494,40 +398,62 @@ func (p *p2p) findLoop() {
 
 	need := p.cfg.minPeers
 
+	var duration = 10 * time.Second
+	var maxDuration = 3 * time.Minute
+	var timer = time.NewTimer(time.Hour)
+	defer timer.Stop()
+
+Loop:
 	for {
-		p.rw.RLock()
-		for len(p.peerMap) >= p.cfg.minPeers {
-			p.cond.Wait()
+		p.dialStatic()
+
+		for {
+			if p.peers.count() > p.cfg.minPeers {
+				duration *= 2
+				if duration > maxDuration {
+					duration = maxDuration
+				}
+			} else {
+				break
+			}
+
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(duration)
+
+			select {
+			case <-timer.C:
+				continue
+			case <-p.term:
+				break Loop
+			}
 		}
-		p.rw.RUnlock()
 
 		if atomic.LoadInt32(&p.running) == 0 {
 			return
 		}
 
-		need *= 2
-		if need > p.maxPeers() {
-			need = p.maxPeers()
-		}
-		nodes := p.discv.GetNodes(need)
-		for _, n := range nodes {
-			p.connect(&n)
+		if p.cfg.discover {
+			need *= 2
+			max := p.peers.max()
+			if need > max {
+				need = max
+			}
+
+			nodes := p.discv.GetNodes(need)
+			for _, n := range nodes {
+				p.connect(&n)
+			}
 		}
 	}
-}
-
-func (p *p2p) maxPeers() (c int) {
-	p.rw.RLock()
-	defer p.rw.RUnlock()
-
-	for _, n := range p.cfg.maxPeers {
-		c += n
-	}
-
-	return
 }
 
 func (p *p2p) connect(node *vnode.Node) {
+	if p.peers.has(node.ID) {
+		return
+	}
+
 	peer, err := p.dialer.dialNode(node)
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to dail %s: %v", node.String(), err))

@@ -3,6 +3,7 @@ package discovery
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func mockAgent(port int, handler func(pkt *packet)) *agent {
 		},
 		Net: 2,
 		Ext: []byte("hello"),
-	}, handler)
+	}, "127.0.0.1:"+strconv.Itoa(port), handler)
 
 	return s
 }
@@ -62,14 +63,14 @@ func TestSocket_sendNeighbors(t *testing.T) {
 	}
 
 	go func() {
-		udp, er := net.ResolveUDPAddr("udp", s2.self.Address())
+		udp, er := net.ResolveUDPAddr("udp", s2.node.Address())
 		if er != nil {
 			panic(er)
 		}
 
 		s2.pool.add(&request{
-			expectFrom: s1.self.Address(),
-			expectID:   s1.self.ID,
+			expectFrom: s1.node.Address(),
+			expectID:   s1.node.ID,
 			expectCode: codeNeighbors,
 			handler: &findNodeRequest{
 				count: total,

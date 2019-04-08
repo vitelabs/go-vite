@@ -82,7 +82,7 @@ func main() {
 	var ds []discovery.Discovery
 	for i := 0; i < total; i++ {
 		if i != total-1 {
-			configs[i].BootNodes = append(configs[i].BootNodes, configs[i+1].Node().ID.String()+"@127.0.0.1:"+strconv.Itoa(samples[i+1].port))
+			configs[i].BootNodes = append(configs[i].BootNodes, configs[i+1].Node().ID.String()+"@127.0.0.1:"+strconv.Itoa(samples[i+1].port)+"/10")
 		}
 
 		ds = append(ds, discovery.New(configs[i]))

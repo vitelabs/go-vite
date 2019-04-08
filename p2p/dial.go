@@ -29,33 +29,31 @@ type dialer interface {
 //}
 
 type dl struct {
-	d  net.Dialer
-	hk Handshaker
-
-	cur int
-	tkt ticket.Ticket
-
-	wg sync.WaitGroup
+	net.Dialer
+	handshaker Handshaker
+	cur        int
+	tkt        ticket.Ticket
+	wg         sync.WaitGroup
 }
 
-func newDialer(timeout time.Duration, cur int, hk Handshaker) dialer {
+func newDialer(timeout time.Duration, cur int, hkr Handshaker) *dl {
 	return &dl{
-		d: net.Dialer{
+		Dialer: net.Dialer{
 			Timeout: timeout,
 		},
-		hk:  hk,
-		cur: cur,
-		tkt: ticket.New(cur),
+		handshaker: hkr,
+		cur:        cur,
+		tkt:        ticket.New(cur),
 	}
 }
 
 func (d *dl) dialNode(n *vnode.Node) (p PeerMux, err error) {
-	conn, err := d.d.Dial("tcp", n.Address())
+	conn, err := d.Dial("tcp", n.Address())
 	if err != nil {
 		return
 	}
 
-	p, err = d.hk.Handshake(conn, Inbound)
+	p, err = d.handshaker.Handshake(conn, Inbound)
 
 	return
 }

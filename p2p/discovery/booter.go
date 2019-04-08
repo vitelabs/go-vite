@@ -37,11 +37,13 @@ func (d *dbBooter) getBootNodes(count int) []*Node {
 // cfgBooter supply random bootNodes from config
 type cfgBooter struct {
 	bootNodes []*Node
+	node      *vnode.Node
 }
 
-func newCfgBooter(bootNodes []string) (booter, error) {
+func newCfgBooter(bootNodes []string, node *vnode.Node) (booter, error) {
 	var c = &cfgBooter{
 		bootNodes: make([]*Node, len(bootNodes)),
+		node:      node,
 	}
 
 	var n *vnode.Node
@@ -53,6 +55,12 @@ func newCfgBooter(bootNodes []string) (booter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse bootNode: %s", url)
 		}
+
+		if n.Net != 0 && n.Net != node.Net {
+			return nil, errDifferentNet
+		}
+
+		n.Net = node.Net
 
 		c.bootNodes[i] = &Node{
 			Node: *n,

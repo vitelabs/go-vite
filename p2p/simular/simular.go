@@ -24,7 +24,10 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/p2p"
 )
@@ -90,84 +93,66 @@ func main() {
 		panic(err)
 	}
 
-	cfg1, err := p2p.NewConfig("127.0.0.1:8483", "127.0.0.1:8483", filepath.Join(pwd, ".mock1"), "", nil, nil, 10,
-		true, "mock1", 0, 0, 0, 0, nil)
-	if err != nil {
-		panic(err)
+	var port = 8081
+	const total = 5
+	type sample struct {
+		port int
+		dir  string
+		key  ed25519.PrivateKey
+	}
+	var samples []sample
+	var configs []*p2p.Config
+	for i := 0; i < total; i++ {
+		var prv ed25519.PrivateKey
+		_, prv, err = ed25519.GenerateKey(nil)
+		if err != nil {
+			panic(err)
+		}
+
+		s := sample{
+			port: port,
+			dir:  ".mock" + strconv.Itoa(i+1),
+			key:  prv,
+		}
+		samples = append(samples, s)
+
+		var cfg *p2p.Config
+		cfg, err = p2p.NewConfig("127.0.0.1:"+strconv.Itoa(s.port), "", filepath.Join(pwd, s.dir), prv.Hex(), nil, nil, 10,
+			true, s.dir, 0, 0, 0, 0, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		configs = append(configs, cfg)
+
+		port++
 	}
 
-	cfg2, err := p2p.NewConfig("127.0.0.1:8484", "127.0.0.1:8484", filepath.Join(pwd, ".mock2"), "", nil, nil, 10,
-		true, "mock2", 0, 0, 0, 0, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg3, err := p2p.NewConfig("127.0.0.1:8485", "127.0.0.1:8485", filepath.Join(pwd, ".mock3"), "", nil, nil, 10,
-		true, "mock3", 0, 0, 0, 0, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg4, err := p2p.NewConfig("127.0.0.1:8486", "127.0.0.1:8486", filepath.Join(pwd, ".mock4"), "", nil, nil, 10,
-		true, "mock4", 0, 0, 0, 0, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg5, err := p2p.NewConfig("127.0.0.1:8487", "127.0.0.1:8487", filepath.Join(pwd, ".mock5"), "", nil, nil, 10,
-		true, "mock3", 0, 0, 0, 0, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg1.BootNodes = append(cfg1.BootNodes, cfg2.Node().String())
-	cfg2.BootNodes = append(cfg2.BootNodes, cfg3.Node().String())
-	cfg3.BootNodes = append(cfg3.BootNodes, cfg4.Node().String())
-	cfg4.BootNodes = append(cfg4.BootNodes, cfg5.Node().String())
-
-	d1 := p2p.New(cfg1)
-	d2 := p2p.New(cfg2)
-	d3 := p2p.New(cfg3)
-	d4 := p2p.New(cfg4)
-	d5 := p2p.New(cfg5)
-
-	err = d1.Register(&mockProtocol{})
-	if err != nil {
-		panic(err)
-	}
-	err = d2.Register(&mockProtocol{})
-	if err != nil {
-		panic(err)
-	}
-	err = d3.Register(&mockProtocol{})
-	if err != nil {
-		panic(err)
-	}
-	err = d4.Register(&mockProtocol{})
-	if err != nil {
-		panic(err)
-	}
-	err = d5.Register(&mockProtocol{})
-	if err != nil {
-		panic(err)
-	}
-
-	start := func(p p2p.P2P) {
-		err = p.Start()
+	start := func(d p2p.P2P) {
+		err = d.Start()
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	go start(d1)
-	time.Sleep(time.Second)
-	go start(d2)
-	time.Sleep(time.Second)
-	go start(d3)
-	time.Sleep(time.Second)
-	go start(d4)
-	time.Sleep(time.Second)
-	go start(d5)
+	var ds []p2p.P2P
+	for i := 0; i < total; i++ {
+		if i != total-1 {
+			configs[i].BootNodes = append(configs[i].BootNodes, configs[i+1].Node().ID.String()+"@127.0.0.1:"+strconv.Itoa(samples[i+1].port))
+		}
+
+		p := p2p.New(configs[i])
+		err = p.Register(&mockProtocol{})
+		if err != nil {
+			panic(err)
+		}
+		ds = append(ds, p)
+	}
+
+	for _, d := range ds {
+		go start(d)
+		time.Sleep(time.Second)
+	}
 
 	fmt.Println("start")
 
@@ -176,11 +161,9 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println("d1", d1.Info())
-				fmt.Println("d2", d2.Info())
-				fmt.Println("d3", d3.Info())
-				fmt.Println("d4", d4.Info())
-				fmt.Println("d5", d5.Info())
+				for i, d := range ds {
+					fmt.Println(i, len(d.Info().Peers))
+				}
 				fmt.Println("------------")
 			}
 		}
