@@ -55,7 +55,7 @@ func checkRegisterAndVoteParam(gid types.Gid, name string) bool {
 	return true
 }
 
-func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	// Check param by group info
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, sendBlock.Data)
@@ -149,7 +149,7 @@ func (p *MethodCancelRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, param.Gid, param.Name)
 	return nil
 }
-func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, sendBlock.Data)
 	snapshotBlock := globalStatus.SnapshotBlock()
@@ -182,13 +182,14 @@ func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 		old.HisAddrList)
 	db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 	if old.Amount.Sign() > 0 {
-		return []*SendBlock{
+		return []*ledger.AccountBlock{
 			{
-				sendBlock.AccountAddress,
-				ledger.BlockTypeSendCall,
-				old.Amount,
-				ledger.ViteTokenId,
-				[]byte{},
+				AccountAddress: block.AccountAddress,
+				ToAddress:      sendBlock.AccountAddress,
+				BlockType:      ledger.BlockTypeSendCall,
+				Amount:         old.Amount,
+				TokenId:        ledger.ViteTokenId,
+				Data:           []byte{},
 			},
 		}, nil
 	}
@@ -225,7 +226,7 @@ func (p *MethodReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return nil
 }
-func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReward)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
@@ -256,13 +257,14 @@ func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 		if reward != nil && reward.Sign() > 0 {
 			// send reward by issue vite token
 			issueData, _ := abi.ABIMintage.PackMethod(abi.MethodNameIssue, ledger.ViteTokenId, reward, param.BeneficialAddr)
-			return []*SendBlock{
+			return []*ledger.AccountBlock{
 				{
-					types.AddressMintage,
-					ledger.BlockTypeSendCall,
-					big.NewInt(0),
-					ledger.ViteTokenId,
-					issueData,
+					AccountAddress: block.AccountAddress,
+					ToAddress:      types.AddressMintage,
+					BlockType:      ledger.BlockTypeSendCall,
+					Amount:         big.NewInt(0),
+					TokenId:        ledger.ViteTokenId,
+					Data:           issueData,
 				},
 			}, nil
 		}
@@ -422,7 +424,7 @@ func (p *MethodUpdateRegistration) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
-func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)

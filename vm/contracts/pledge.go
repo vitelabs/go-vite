@@ -39,7 +39,7 @@ func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNamePledge, *beneficialAddr)
 	return nil
 }
-func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	beneficialAddr := new(types.Address)
 	abi.ABIPledge.UnpackMethod(beneficialAddr, abi.MethodNamePledge, sendBlock.Data)
 	pledgeKey := abi.GetPledgeKey(sendBlock.AccountAddress, *beneficialAddr)
@@ -108,7 +108,7 @@ func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	return nil
 }
 
-func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelPledge)
 	abi.ABIPledge.UnpackMethod(param, abi.MethodNameCancelPledge, sendBlock.Data)
 	pledgeKey := abi.GetPledgeKey(sendBlock.AccountAddress, param.Beneficial)
@@ -147,13 +147,14 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 		pledgeBeneficial, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, oldBeneficial.Amount)
 		db.SetValue(beneficialKey, pledgeBeneficial)
 	}
-	return []*SendBlock{
+	return []*ledger.AccountBlock{
 		{
-			sendBlock.AccountAddress,
-			ledger.BlockTypeSendCall,
-			param.Amount,
-			ledger.ViteTokenId,
-			[]byte{},
+			AccountAddress: block.AccountAddress,
+			ToAddress:      sendBlock.AccountAddress,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         param.Amount,
+			TokenId:        ledger.ViteTokenId,
+			Data:           []byte{},
 		},
 	}, nil
 }

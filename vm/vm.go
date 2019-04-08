@@ -442,16 +442,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
 			vm.updateBlock(db, block, err, 0)
-			for _, blockToSend := range blockListToSend {
-				vm.VmContext.AppendBlock(
-					util.MakeSendBlock(
-						block.AccountAddress,
-						blockToSend.ToAddress,
-						blockToSend.BlockType,
-						blockToSend.Amount,
-						blockToSend.TokenId,
-						blockToSend.Data))
-			}
+			vm.VmContext.sendBlockList = blockListToSend
 			if db, err = vm.doSendBlockList(db); err == nil {
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
