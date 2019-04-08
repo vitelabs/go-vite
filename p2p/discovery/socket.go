@@ -69,30 +69,32 @@ type packet struct {
 }
 
 type agent struct {
-	self    *vnode.Node
-	socket  *net.UDPConn
-	peerKey ed25519.PrivateKey
-	queue   chan *packet
-	handler func(*packet)
-	pool    requestPool
-	running int32
-	term    chan struct{}
-	wg      sync.WaitGroup
+	node          *vnode.Node
+	listenAddress string
+	socket        *net.UDPConn
+	peerKey       ed25519.PrivateKey
+	queue         chan *packet
+	handler       func(*packet)
+	pool          requestPool
+	running       int32
+	term          chan struct{}
+	wg            sync.WaitGroup
 }
 
-func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, handler func(*packet)) *agent {
+func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, listenAddress string, handler func(*packet)) *agent {
 	return &agent{
-		self:    self,
-		peerKey: peerKey,
-		handler: handler,
-		pool:    newRequestPool(),
+		node:          self,
+		listenAddress: listenAddress,
+		peerKey:       peerKey,
+		handler:       handler,
+		pool:          newRequestPool(),
 	}
 }
 
 func (a *agent) start() (err error) {
 	if atomic.CompareAndSwapInt32(&a.running, 0, 1) {
 		var udp *net.UDPAddr
-		udp, err = net.ResolveUDPAddr("udp", a.self.Address())
+		udp, err = net.ResolveUDPAddr("udp", a.listenAddress)
 		if err != nil {
 			return
 		}
@@ -143,12 +145,12 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 	now := time.Now()
 	hash, err := a.write(message{
 		c:  codePing,
-		id: a.self.ID,
+		id: a.node.ID,
 		body: &ping{
-			from: &a.self.EndPoint,
+			from: &a.node.EndPoint,
 			to:   &n.EndPoint,
-			net:  a.self.Net,
-			ext:  a.self.Ext,
+			net:  a.node.Net,
+			ext:  a.node.Ext,
 			time: now,
 		},
 	}, udp)
@@ -180,12 +182,12 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 
 	_, err = a.write(message{
 		c:  codePong,
-		id: a.self.ID,
+		id: a.node.ID,
 		body: &pong{
-			from: &a.self.EndPoint,
+			from: &a.node.EndPoint,
 			to:   &n.EndPoint,
-			net:  a.self.Net,
-			ext:  a.self.Ext,
+			net:  a.node.Net,
+			ext:  a.node.Ext,
 			echo: echo,
 			time: time.Now(),
 		},
@@ -206,7 +208,7 @@ func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- [
 
 	_, err = a.write(message{
 		c:  codeFindnode,
-		id: a.self.ID,
+		id: a.node.ID,
 		body: &findnode{
 			target: target,
 			count:  count,
@@ -242,7 +244,7 @@ func (a *agent) sendNodes(eps []*vnode.EndPoint, to *net.UDPAddr) (err error) {
 
 	msg := message{
 		c:    codeNeighbors,
-		id:   a.self.ID,
+		id:   a.node.ID,
 		body: n,
 	}
 
@@ -337,14 +339,8 @@ func (a *agent) readLoop() {
 func (a *agent) handleLoop() {
 	defer a.wg.Done()
 
-	var pkt *packet
-	for {
-		select {
-		case <-a.term:
-			return
-		case pkt = <-a.queue:
-			a.handler(pkt)
-		}
+	for pkt := range a.queue {
+		a.handler(pkt)
 	}
 }
 
