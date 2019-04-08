@@ -71,6 +71,11 @@ func (self *ConsensusDB) GetPointByHeight(prefix byte, height uint64) (*Point, e
 	return result, nil
 }
 
+func (self *ConsensusDB) DeletePointByHeight(prefix byte, height uint64) error {
+	key := CreatePointKey(prefix, height)
+	return self.db.Delete(key, nil)
+}
+
 func (self *ConsensusDB) StorePointByHeight(prefix byte, height uint64, p *Point) error {
 	key := CreatePointKey(prefix, height)
 	byt, err := p.Marshal()
