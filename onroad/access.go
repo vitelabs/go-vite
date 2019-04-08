@@ -26,19 +26,13 @@ func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageC
 		return nil, nil
 	}
 	for _, v := range hashList {
-		/*		isReceive, err := manager.chain.IsReceived(v)
-				if err != nil {
-					return nil, err
-				}
-				if isReceive {
-					log.Error("get find err, already exist")
-					continue
-				}*/
 		onroad, err := manager.chain.GetAccountBlockByHash(v)
 		if err != nil {
 			log.Error(fmt.Sprintf("GetAccountBlockByHash failed, err:%v", err))
 		}
-		blocks = append(blocks, onroad)
+		if onroad != nil {
+			blocks = append(blocks, onroad)
+		}
 	}
 	return blocks, nil
 }
