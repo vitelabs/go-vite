@@ -6,6 +6,7 @@ import (
 	"fmt"
 	net2 "net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -18,6 +19,8 @@ import (
 )
 
 var netLog = log15.New("module", "vite/net")
+var errNetIsRunning = errors.New("network is already running")
+var errNetIsNotRunning = errors.New("network is not running")
 var errInvalidSignature = errors.New("invalid signature")
 var errDiffGenesisBlock = errors.New("different genesis block")
 
@@ -44,6 +47,7 @@ type net struct {
 	reader syncCacheReader
 	BlockSubscriber
 	query         *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
+	running       int32
 	term          chan struct{}
 	log           log15.Logger
 	wg            sync.WaitGroup
@@ -366,38 +370,36 @@ func (n *net) addHandler(handler msgHandler) {
 }
 
 func (n *net) Start(svr p2p.P2P) (err error) {
-	n.nodeID = svr.Config().Node().ID
+	if atomic.CompareAndSwapInt32(&n.running, 0, 1) {
+		n.nodeID = svr.Config().Node().ID
 
-	if n.Producer != nil && n.MinePrivateKey != nil {
-		if n.Producer.IsProducer(types.PubkeyToAddress(n.MinePrivateKey.PubByte())) {
-			// is producer
-			svr.SetMaxPeers(p2p.Superior, 30)
+		if n.Producer != nil && n.MinePrivateKey != nil {
+			addr := types.PubkeyToAddress(n.MinePrivateKey.PubByte())
+			if n.Producer.IsProducer(addr) {
+				// todo set finder
+			}
 		}
-	}
 
-	n.term = make(chan struct{})
+		n.term = make(chan struct{})
 
-	if err = n.fs.start(); err != nil {
+		if err = n.fs.start(); err != nil {
+			return
+		}
+
+		n.reader.start()
+
+		n.query.start()
+
+		n.fetcher.start()
+
 		return
 	}
 
-	n.reader.start()
-
-	n.query.start()
-
-	n.fetcher.start()
-
-	return
+	return errNetIsRunning
 }
 
-func (n *net) Stop() {
-	if n.term == nil {
-		return
-	}
-
-	select {
-	case <-n.term:
-	default:
+func (n *net) Stop() error {
+	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
 		close(n.term)
 
 		n.reader.stop()
@@ -411,7 +413,11 @@ func (n *net) Stop() {
 		n.fetcher.stop()
 
 		n.wg.Wait()
+
+		return nil
 	}
+
+	return errNetIsNotRunning
 }
 
 func (n *net) Info() NodeInfo {

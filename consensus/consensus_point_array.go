@@ -79,7 +79,7 @@ func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
 }
 
 func (self *linkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
-	point, err := self.getByIndexWithProofFromDb(index, proofHash)
+	point, exists, err := self.getByIndexWithProofFromDb(index, proofHash)
 	if err != nil {
 		return nil, err
 	}
@@ -94,38 +94,43 @@ func (self *linkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash)
 	if point == nil {
 		return nil, errors.Errorf("index[%d][%d]proof[%s] Get fail", self.prefix, index, proofHash)
 	}
-
-	err = self.db.StorePointByHeight(self.prefix, index, point)
-	if err != nil {
-		bytes, _ := json.Marshal(point)
-		self.log.Error("store point by height Fail.", "index", index, "point", string(bytes))
+	if exists && point.IsEmpty() {
+		self.db.DeletePointByHeight(self.prefix, index)
+	} else {
+		err = self.db.StorePointByHeight(self.prefix, index, point)
+		if err != nil {
+			bytes, _ := json.Marshal(point)
+			self.log.Error("store point by height Fail.", "index", index, "point", string(bytes))
+		}
 	}
 	return point, nil
 }
 
 // result maybe nil
-func (self *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+func (self *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*consensus_db.Point, bool, error) {
+	var exists = false
 	// get point info from db
 	point, err := self.db.GetPointByHeight(self.prefix, index)
 	if err != nil {
-		return nil, err
+		return nil, exists, err
 	}
 	if point == nil {
 		// proof for empty
 		emptyProofResult, err := self.proof.ProofEmpty(self.timeIndex.Index2Time(index))
 		if err != nil {
-			return nil, err
+			return nil, exists, err
 		}
 		if emptyProofResult {
-			return consensus_db.NewEmptyPoint(), nil
+			return consensus_db.NewEmptyPoint(), exists, nil
 		}
 	} else {
+		exists = true
 		if proofHash == point.Hash {
 			// from db and proof
-			return point, nil
+			return point, exists, nil
 		}
 	}
-	return nil, nil
+	return nil, exists, nil
 }
 
 // result must not nil
