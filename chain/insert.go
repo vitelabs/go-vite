@@ -43,7 +43,6 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
-	//canBeSnappedBlocks, invalidAccountBlocks := c.filterInvalidUnconfirmedBlocks(unconfirmedBlocks)
 	//c.flusherMu.RLock()
 	//defer c.flusherMu.RUnlock()
 
@@ -90,6 +89,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
 
 	c.stateDB.InsertSnapshotBlocks(sbList)
+
+	fmt.Println("Insert snapshot block ", snapshotBlock)
 	return invalidBlocks, nil
 }
 

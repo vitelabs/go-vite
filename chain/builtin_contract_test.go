@@ -1,9 +1,12 @@
 package chain
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/rand"
 	"testing"
 )
 
@@ -18,9 +21,9 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 	t.Run("NewStorageDatabase", func(t *testing.T) {
 		NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 	})
-	//t.Run("GetRegisterList", func(t *testing.T) {
-	//	GetRegisterList(t, chainInstance)
-	//})
+	t.Run("GetRegisterList", func(t *testing.T) {
+		//GetRegisterList(t, chainInstance)
+	})
 }
 func GetRegisterList(t *testing.T, chainInstance *chain) {
 	latestSnapshot := chainInstance.GetLatestSnapshotBlock()
@@ -34,15 +37,26 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		fmt.Println("")
 		for _, register := range registerList {
 			fmt.Println(register)
 		}
+		fmt.Println("")
 	}
 }
 
 func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
-	for _, snapshotBlock := range snapshotBlockList {
+	sbLen := len(snapshotBlockList)
+	if sbLen < 2 {
+		return
+	}
+
+	count := sbLen - 2
+	for i := 0; i < 10; i++ {
+		index := rand.Intn(count) + 2
+		snapshotBlock := snapshotBlockList[index]
+
+		prevSnapshotBlock := snapshotBlockList[index-1]
 		for _, account := range accounts {
 			sd, err := chainInstance.stateDB.NewStorageDatabase(snapshotBlock.Hash, account.addr)
 			if err != nil {
@@ -53,34 +67,65 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 				t.Fatal("error")
 			}
 
-			//kv := make(map[string][]byte)
-			//for i := 0; i <= index; i++ {
-			//	confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlockList[i].Hash]
-			//	for hash := range confirmedBlockHashMap {
-			//		accountKv := account.KvSetMap[hash]
-			//		for k, v := range accountKv {
-			//			kv[k] = v
-			//		}
-			//	}
-			//}
-			//
-			//err = checkIterator(kv, func() (interfaces.StorageIterator, error) {
-			//	return sd.NewStorageIterator(nil)
-			//})
-			//if err != nil {
-			//	t.Fatal(fmt.Sprintf("snapshotBlock: %+v. account: %d, Error: %s", snapshotBlock, account.addr.Bytes(), err.Error()))
-			//}
-			//
-			//for key, value := range kv {
-			//	queryValue, err := sd.GetValue([]byte(key))
-			//	if err != nil {
-			//		t.Fatal("error")
-			//	}
-			//	if !bytes.Equal(value, queryValue) {
-			//		t.Fatal("error")
-			//	}
-			//
-			//}
+			prevSd, err := chainInstance.stateDB.NewStorageDatabase(prevSnapshotBlock.Hash, account.addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if *prevSd.Address() != account.addr {
+				t.Fatal("error")
+			}
+
+			kv := make(map[string][]byte)
+
+			iter, err := prevSd.NewStorageIterator(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for iter.Next() {
+				keyStr := string(iter.Key())
+				kv[keyStr] = make([]byte, len(iter.Value()))
+				copy(kv[keyStr], iter.Value())
+			}
+
+			if err := iter.Error(); err != nil {
+				t.Fatal(err)
+			}
+
+			confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlock.Hash]
+
+			kvSetMap := make(map[types.Hash]map[string][]byte)
+			for hash := range confirmedBlockHashMap {
+				kvSetMap[hash] = account.KvSetMap[hash]
+			}
+			KvSetList := account.NewKvSetList(kvSetMap)
+			for _, kvSet := range KvSetList {
+				for k, v := range kvSet.Kv {
+					kv[k] = v
+				}
+
+			}
+
+			err = checkIterator(kv, func() (interfaces.StorageIterator, error) {
+				return sd.NewStorageIterator(nil)
+			})
+
+			if err != nil {
+				t.Fatal(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.addr, snapshotBlock, err.Error()))
+			}
+
+			for key, value := range kv {
+				queryValue, err := sd.GetValue([]byte(key))
+				if err != nil {
+					t.Fatal("error")
+				}
+				if !bytes.Equal(value, queryValue) {
+					t.Fatal(fmt.Sprintf("addr: %s, snapshot block: %+v, key: %s, kv: %+v, value: %d, query value: %d",
+						account.addr, snapshotBlock, key, kv, value, queryValue))
+				}
+
+			}
 
 		}
 	}

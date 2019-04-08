@@ -345,6 +345,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	for iterOk {
 		count2++
 		key := iter.Key()
+
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
 			fmt.Println(string(key))
