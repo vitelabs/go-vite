@@ -211,6 +211,11 @@ func (c *Config) makeP2PConfig() (*p2p.Config, error) {
 
 	p2pDataDir := filepath.Join(c.DataDir, "p2p")
 
+	// open data dir
+	if err := os.MkdirAll(p2pDataDir, 0700); err != nil {
+		return nil, err
+	}
+
 	peerKey := c.PeerKey
 	if peerKey == "" {
 		peerKey = c.PrivateKey
