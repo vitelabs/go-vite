@@ -41,14 +41,14 @@ func RecoverVmContext(chain vm_db.Chain, block *ledger.AccountBlock, snapshotHas
 }
 
 type VMGlobalStatus struct {
-	c        chainReader
+	c        Chain
 	sb       *ledger.SnapshotBlock
 	fromHash types.Hash
 	seed     uint64
 	setSeed  bool
 }
 
-func NewVMGlobalStatus(c chainReader, sb *ledger.SnapshotBlock, fromHash types.Hash) *VMGlobalStatus {
+func NewVMGlobalStatus(c Chain, sb *ledger.SnapshotBlock, fromHash types.Hash) *VMGlobalStatus {
 	return &VMGlobalStatus{c: c, sb: sb, fromHash: fromHash, setSeed: false}
 }
 func (g *VMGlobalStatus) Seed() (uint64, error) {
