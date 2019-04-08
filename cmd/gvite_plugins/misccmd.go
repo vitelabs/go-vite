@@ -2,13 +2,13 @@ package gvite_plugins
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/cmd/params"
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/p2p/network"
-	"gopkg.in/urfave/cli.v1"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/vitelabs/go-vite/cmd/params"
+	"github.com/vitelabs/go-vite/cmd/utils"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -35,7 +35,7 @@ func versionAction(ctx *cli.Context) error {
 	fmt.Println(strings.Title("gvite"))
 	fmt.Println("Version:", params.Version)
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Network Id:", network.Gemini)
+	//fmt.Println("Network Id:", ctx.GlobalInt())
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))

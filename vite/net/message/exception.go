@@ -18,6 +18,7 @@ const (
 	UnMatchedMsgVersion
 	UnIdenticalGenesis
 	FileTransDone
+	Unauthorized
 )
 
 var exception = [...]string{
@@ -31,6 +32,7 @@ var exception = [...]string{
 	UnMatchedMsgVersion: "UnMatchedMsgVersion",
 	UnIdenticalGenesis:  "UnIdenticalGenesis",
 	FileTransDone:       "FileTransDone",
+	Unauthorized:        "Unauthorized",
 }
 
 func (exp Exception) String() string {

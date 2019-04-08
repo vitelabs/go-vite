@@ -18,7 +18,7 @@ func (*MockSyncer) FetchAccountBlocksWithHeight(start types.Hash, count uint64, 
 }
 
 func (*MockSyncer) SyncState() net.SyncState {
-	return net.Syncdone
+	return net.SyncDone
 }
 
 func (*MockSyncer) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -45,7 +45,7 @@ func (*MockSyncer) FetchAccountBlocks(start types.Hash, count uint64, address *t
 	logger.Info("FetchAccountBlocks")
 }
 
-func (*MockSyncer) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
+func (*MockSyncer) SubscribeAccountBlock(fn net.AccountBlockCallback) (subId int) {
 	logger.Info("SubscribeAccountBlock")
 	return 12
 }

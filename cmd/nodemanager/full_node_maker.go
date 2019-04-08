@@ -85,15 +85,15 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
+		cfg.MaxPeers = ctx.GlobalInt(utils.MaxPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
+		cfg.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(utils.ListenPortFlag.Name)
+		cfg.ListenAddress = "0.0.0.0:" + utils.ListenPortFlag.Name
 	}
 
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
@@ -175,7 +175,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
-		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+		cfg.FileListenAddress = "0.0.0.0:" + utils.FilePortFlag.Name
 	}
 
 	//metrics

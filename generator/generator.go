@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -103,15 +102,17 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			resultErr = errors.New("generator_vm panic error")
 		}
 	}()
-	var state *util.GlobalStatus
+	var state *VMGlobalStatus
 	if block.IsReceiveBlock() {
 		if fromBlock == nil {
 			return nil, errors.New("need to pass in sendBlock when generate receiveBlock")
 		}
-		var stateErr error
-		state, stateErr = gen.chain.GetRandomGlobalStatus(&block.AccountAddress, &fromBlock.Hash)
+		sb, stateErr := gen.chain.GetSnapshotBlockByContractMeta(&block.AccountAddress, &fromBlock.Hash)
 		if stateErr != nil {
-			return nil, errors.New(fmt.Sprintf("GetRandomGlobalStatus failed, err:%v", stateErr))
+			return nil, errors.New(fmt.Sprintf("GetSnapshotBlockByContractMeta failed, err:%v", stateErr))
+		}
+		if sb != nil {
+			state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
 		}
 	}
 

@@ -32,6 +32,9 @@ func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 		if db.prevAccountBlockHash == nil {
 			return nil, errors.New("No context, db.prevAccountBlockHash is nil")
 		}
+		if db.prevAccountBlockHash.IsZero() {
+			return nil, nil
+		}
 		var err error
 		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(*db.prevAccountBlockHash)
 		if err != nil {

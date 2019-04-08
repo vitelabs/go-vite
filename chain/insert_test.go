@@ -2,11 +2,13 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+
 	"log"
 	"math/rand"
 	"net/http"
@@ -163,6 +165,7 @@ func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Ad
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if err := chainInstance.InsertAccountBlock(tx); err != nil {
 			t.Fatal(err)
 		}

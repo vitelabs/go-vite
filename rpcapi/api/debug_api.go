@@ -55,14 +55,6 @@ func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) 
 	return m
 }
 
-func (api DebugApi) P2pNodes() []string {
-	if p2p := api.v.P2P(); p2p != nil {
-		return p2p.Nodes()
-	}
-
-	return nil
-}
-
 func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64) map[string]interface{} {
 	result := make(map[string]interface{})
 	if index == 0 {

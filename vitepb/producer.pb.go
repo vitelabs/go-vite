@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Producer struct {
 	BrokerList           []string `protobuf:"bytes,1,rep,name=brokerList,proto3" json:"brokerList,omitempty"`
@@ -30,16 +32,17 @@ func (m *Producer) Reset()         { *m = Producer{} }
 func (m *Producer) String() string { return proto.CompactTextString(m) }
 func (*Producer) ProtoMessage()    {}
 func (*Producer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_producer_87d18ae861c53c3e, []int{0}
+	return fileDescriptor_67ceeaed98d707ec, []int{0}
 }
+
 func (m *Producer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Producer.Unmarshal(m, b)
 }
 func (m *Producer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Producer.Marshal(b, m, deterministic)
 }
-func (dst *Producer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Producer.Merge(dst, src)
+func (m *Producer) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Producer.Merge(m, src)
 }
 func (m *Producer) XXX_Size() int {
 	return xxx_messageInfo_Producer.Size(m)
@@ -68,9 +71,9 @@ func init() {
 	proto.RegisterType((*Producer)(nil), "vitepb.Producer")
 }
 
-func init() { proto.RegisterFile("vitepb/producer.proto", fileDescriptor_producer_87d18ae861c53c3e) }
+func init() { proto.RegisterFile("vitepb/producer.proto", fileDescriptor_67ceeaed98d707ec) }
 
-var fileDescriptor_producer_87d18ae861c53c3e = []byte{
+var fileDescriptor_67ceeaed98d707ec = []byte{
 	// 104 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2d, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x2f, 0x28, 0xca, 0x4f, 0x29, 0x4d, 0x4e, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f,

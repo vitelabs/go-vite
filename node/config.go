@@ -18,11 +18,12 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Config struct {
+	NetSelect string
+
 	DataDir string `json:"DataDir"`
 
 	KeyStoreDir string `json:"KeyStoreDir"`
@@ -39,17 +40,22 @@ type Config struct {
 	GenesisFile string `json:"GenesisFile"`
 
 	// p2p
-	NetSelect            string
-	Identity             string   `json:"Identity"`
-	PrivateKey           string   `json:"PrivateKey"`
-	MaxPeers             uint     `json:"MaxPeers"`
-	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
-	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
-	BootNodes            []string `json:"BootNodes"`
-	StaticNodes          []string `json:"StaticNodes"`
-	Port                 int      `json:"Port"`
-	NetID                uint     `json:"NetID"`
-	Discovery            bool     `json:"Discovery"`
+	Identity        string   `json:"Identity"`
+	PeerKey         string   `json:"PeerKey"`
+	PrivateKey      string   `json:"PrivateKey"`
+	MaxPeers        int      `json:"MaxPeers"`
+	MinPeers        int      `json:"MinPeers"`
+	MaxInboundRatio int      `json:"MaxInboundRatio"`
+	MaxPendingPeers int      `json:"MaxPendingPeers"`
+	BootNodes       []string `json:"BootNodes"`
+	BootSeeds       []string `json"BootSeeds"`
+	StaticNodes     []string `json:"StaticNodes"`
+	ListenInterface string   `json:"ListenInterface"`
+	Port            int      `json:"Port"`
+	ListenAddress   string   `json:"ListenAddress"`
+	PublicAddress   string   `json:"PublicAddress"`
+	NetID           int      `json:"NetID"`
+	Discover        bool     `json:"Discover"`
 
 	//producer
 	EntropyStorePath     string `json:"EntropyStorePath"`
@@ -92,14 +98,12 @@ type Config struct {
 	// subscribe
 	SubscribeEnabled bool `json:"SubscribeEnabled"`
 
-	//Net TODO: cmd after ？
-	Single                 bool     `json:"Single"`
-	FilePort               int      `json:"FilePort"`
-	Topology               []string `json:"Topology"`
-	TopologyTopic          string   `json:"TopologyTopic"`
-	TopologyReportInterval int      `json:"TopologyReportInterval"`
-	TopoEnabled            bool     `json:"TopoEnabled"`
-	DashboardTargetURL     string
+	// net
+	Single             bool   `json:"Single"`
+	FilePort           int    `json:"FilePort"`
+	FileListenAddress  string `json:"FileListenAddress"`
+	FilePublicAddress  string `json:"FileAddress"`
+	DashboardTargetURL string
 
 	// reward
 	RewardAddr string `json:"RewardAddr"`
@@ -133,11 +137,15 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
-	fileAddress := "0.0.0.0:" + strconv.Itoa(c.FilePort)
+	var fileListenAddress = c.FileListenAddress
+	if fileListenAddress == "" {
+		fileListenAddress = c.ListenInterface + ":" + strconv.Itoa(c.FilePort)
+	}
 
 	return &config.Net{
-		Single:      c.Single,
-		FileAddress: fileAddress,
+		Single:            c.Single,
+		FileListenAddress: fileListenAddress,
+		FilePublicAddress: c.FilePublicAddress,
 	}
 }
 
@@ -195,25 +203,34 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	}
 }
 
-func (c *Config) makeP2PConfig() *p2p.Config {
-	if c.Port == 0 {
-		c.Port = 8483
+func (c *Config) makeP2PConfig() (*p2p.Config, error) {
+	var listenAddress = c.ListenAddress
+	if listenAddress == "" {
+		listenAddress = c.ListenInterface + ":" + strconv.Itoa(c.Port)
 	}
 
-	addr := "0.0.0.0:" + strconv.Itoa(c.Port)
-	return &p2p.Config{
-		Name:            c.Identity,
-		NetID:           network.ID(c.NetID),
-		MaxPeers:        c.MaxPeers,
-		MaxPendingPeers: c.MaxPendingPeers,
-		MaxInboundRatio: c.MaxPassivePeersRatio,
-		Addr:            addr,
-		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
-		PeerKey:         c.GetPrivateKey(),
-		BootNodes:       c.BootNodes,
-		StaticNodes:     c.StaticNodes,
-		Discovery:       c.Discovery,
+	p2pDataDir := filepath.Join(c.DataDir, "p2p")
+
+	peerKey := c.PeerKey
+	if peerKey == "" {
+		peerKey = c.PrivateKey
 	}
+
+	return p2p.NewConfig(
+		listenAddress,
+		c.PublicAddress,
+		p2pDataDir,
+		c.PeerKey,
+		c.BootNodes,
+		c.BootSeeds,
+		c.NetID,
+		c.Discover,
+		c.Identity,
+		c.MaxPeers,
+		c.MinPeers,
+		c.MaxInboundRatio,
+		c.MaxPendingPeers,
+		c.StaticNodes)
 }
 
 func (c *Config) makeChainConfig() *config.Chain {
@@ -274,13 +291,12 @@ func (c *Config) WSEndpoint() string {
 }
 
 func (c *Config) SetPrivateKey(privateKey string) {
-	c.PrivateKey = privateKey
+	c.PeerKey = privateKey
 }
 
 func (c *Config) GetPrivateKey() ed25519.PrivateKey {
-
-	if c.PrivateKey != "" {
-		privateKey, err := hex.DecodeString(c.PrivateKey)
+	if c.PeerKey != "" {
+		privateKey, err := hex.DecodeString(c.PeerKey)
 		if err == nil {
 			return ed25519.PrivateKey(privateKey)
 		}

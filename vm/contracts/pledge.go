@@ -39,7 +39,7 @@ func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNamePledge, *beneficialAddr)
 	return nil
 }
-func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
 	beneficialAddr := new(types.Address)
 	abi.ABIPledge.UnpackMethod(beneficialAddr, abi.MethodNamePledge, sendBlock.Data)
 	pledgeKey := abi.GetPledgeKey(sendBlock.AccountAddress, *beneficialAddr)
@@ -57,7 +57,7 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 		amount = oldPledge.Amount
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, globalStatus.SnapshotBlock.Height+nodeConfig.params.PledgeHeight, beneficialAddr)
+	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, globalStatus.SnapshotBlock().Height+nodeConfig.params.PledgeHeight, beneficialAddr)
 	db.SetValue(pledgeKey, pledgeInfo)
 
 	beneficialKey := abi.GetPledgeBeneficialKey(*beneficialAddr)
@@ -108,7 +108,7 @@ func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	return nil
 }
 
-func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus *util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
 	param := new(abi.ParamCancelPledge)
 	abi.ABIPledge.UnpackMethod(param, abi.MethodNameCancelPledge, sendBlock.Data)
 	pledgeKey := abi.GetPledgeKey(sendBlock.AccountAddress, param.Beneficial)
@@ -116,7 +116,7 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	v, err := db.GetValue(pledgeKey)
 	util.DealWithErr(err)
 	err = abi.ABIPledge.UnpackVariable(oldPledge, abi.VariableNamePledgeInfo, v)
-	if err != nil || oldPledge.WithdrawHeight > globalStatus.SnapshotBlock.Height || oldPledge.Amount.Cmp(param.Amount) < 0 || oldPledge.BeneficialAddr != param.Beneficial {
+	if err != nil || oldPledge.WithdrawHeight > globalStatus.SnapshotBlock().Height || oldPledge.Amount.Cmp(param.Amount) < 0 || oldPledge.BeneficialAddr != param.Beneficial {
 		return nil, util.ErrInvalidMethodParam
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
