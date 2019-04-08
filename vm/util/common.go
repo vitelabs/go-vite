@@ -118,10 +118,6 @@ func PrintMap(m map[string][]byte) string {
 }
 
 func IsUserAccount(db CommonDb) bool {
-	// TODO check this method
-	if types.IsBuiltinContractAddr(*db.Address()) {
-		return false
-	}
 	ok, err := db.IsContractAccount()
 	DealWithErr(err)
 	return !ok
