@@ -5,7 +5,6 @@ import (
 	"path"
 	"sync"
 
-	"fmt"
 	"github.com/boltdb/bolt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -107,12 +106,9 @@ func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
 	delete(redo.logMap, blockHash)
 }
 
-func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
+func (redo *StorageRedo) PrepareRollback(snapshotHeight uint64) {
 	if snapshotHeight != redo.snapshotHeight {
 		redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
-	} else {
-		redo.snapshotHeight = 0
-		redo.logMap = make(map[types.Hash][]byte)
 	}
 
 }
@@ -221,8 +217,6 @@ func (redo *StorageRedo) flush(snapshotHeight uint64, batch *leveldb.Batch) erro
 		return err
 	}
 
-	fmt.Println("create bucket", snapshotHeight)
-
 	// add
 	redo.flushingBatch.Replay(NewBatchFlush(bu))
 
@@ -246,6 +240,12 @@ func (redo *StorageRedo) delete(snapshotHeights []uint64) error {
 	defer tx.Rollback()
 
 	for _, snapshotHeight := range snapshotHeights {
+		if snapshotHeight == redo.snapshotHeight {
+			redo.snapshotHeight = 0
+			redo.logMap = make(map[types.Hash][]byte)
+			continue
+		}
+
 		if err := tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight)); err != nil {
 			return err
 		}

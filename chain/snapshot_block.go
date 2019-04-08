@@ -50,14 +50,6 @@ func (c *chain) IsSnapshotBlockExisted(hash types.Hash) (bool, error) {
 	return ok, nil
 }
 
-// is valid
-func (c *chain) IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error) {
-	//for addr, hashHeight := range snapshotContent {
-	//
-	//}
-	return nil, nil
-}
-
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return c.cache.GetGenesisSnapshotBlock()
 }

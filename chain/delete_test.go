@@ -14,15 +14,14 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 168, 24, 2)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 168, 96, 2)
 
-	for i := 0; i < 2; i++ {
-		InsertAccountBlock(t, chainInstance, accounts, rand.Intn(1000), rand.Intn(12))
-
+	for i := 0; i < 10; i++ {
+		snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, rand.Intn(1000), 8)...)
 		testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
-		//deleteCount := (rand.Uint64() % 5) + 1
-		deleteCount := uint64(2)
+		deleteCount := (rand.Uint64() % 9) + 1
+		//deleteCount := uint64(2)
 
 		DeleteSnapshotBlocks(t, chainInstance, accounts, deleteCount)
 		snapshotBlockList = snapshotBlockList[:uint64(len(snapshotBlockList))-deleteCount]

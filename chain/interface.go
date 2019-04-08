@@ -110,9 +110,6 @@ type Chain interface {
 
 	IsSnapshotBlockExisted(hash types.Hash) (bool, error) // ok
 
-	// is valid
-	IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error)
-
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock

@@ -33,6 +33,7 @@ func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, on
 	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
 
 	snapshotHeight := latestHeight
+
 	for _, seg := range deletedSnapshotSegments {
 		snapshotHeight += 1
 
@@ -47,7 +48,7 @@ func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, on
 		}
 
 		if !onlyDeleteAbs {
-			sDB.storageRedo.Rollback(snapshotHeight)
+			sDB.storageRedo.PrepareRollback(snapshotHeight)
 		}
 
 		deleteKeys := make(map[string]struct{})
@@ -195,11 +196,7 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 			}
 		}
 	} else {
-
-		fmt.Println("lalala")
-
 		for addr, keySet := range rollbackStorageKeySet {
-			fmt.Println(addr, keySet)
 			storage := NewStorageDatabase(sDB, latestHeight+1, addr)
 			for keyStr := range keySet {
 				key := []byte(keyStr)
@@ -217,7 +214,6 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 
 			}
 		}
-		fmt.Println("lalala ha")
 	}
 
 	return nil
