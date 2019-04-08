@@ -95,7 +95,7 @@ func mock(cfg Config) Net {
 		}),
 		log: log15.New("module", "net/syncer"),
 	}
-	syncer.state = syncStateWait{syncer}
+	syncer.state = syncStateDone{syncer}
 
 	return &mockNet{
 		Config: &Config{
