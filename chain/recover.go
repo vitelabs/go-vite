@@ -27,8 +27,6 @@ func (c *chain) recoverUnconfirmedCache() error {
 		return nil
 	}
 
-	c.flusher.Pause()
-
 	// rollback blockDb
 	chunks, err := c.blockDB.Rollback(nextLocation)
 	if err != nil {

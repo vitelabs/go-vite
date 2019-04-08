@@ -17,7 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
-	"sync"
 	"sync/atomic"
 )
 
@@ -47,8 +46,6 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
-
-	flusherMu sync.RWMutex
 
 	status uint32
 }
@@ -117,7 +114,7 @@ func (c *chain) Init() error {
 
 			// init flusher
 			stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
-			if c.flusher, err = chain_flusher.NewFlusher(&c.flusherMu, stores, c.chainDir); err != nil {
+			if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
 				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 				c.log.Error(cErr.Error(), "method", "Init")
 				return cErr
@@ -197,8 +194,6 @@ func (c *chain) Start() error {
 		return nil
 	}
 
-	c.flusher.Start()
-	c.log.Info("Start flusher", "method", "Start")
 	return nil
 }
 
@@ -206,8 +201,6 @@ func (c *chain) Stop() error {
 	if !atomic.CompareAndSwapUint32(&c.status, start, stop) {
 		return nil
 	}
-	c.flusher.Stop()
-	c.log.Info("Stop flusher", "method", "Stop")
 
 	c.blockDB.Stop()
 	c.log.Info("Stop block db", "method", "Stop")
