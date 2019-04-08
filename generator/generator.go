@@ -111,10 +111,9 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		if stateErr != nil {
 			return nil, errors.New(fmt.Sprintf("GetSnapshotBlockByContractMeta failed, err:%v", stateErr))
 		}
-		if sb == nil {
-			return nil, errors.New(fmt.Sprintf("GetSnapshotBlockByContractMeta failed, sb is nil, fromHash: %v", &fromBlock.Hash))
+		if sb != nil {
+			state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
 		}
-		state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
 	}
 
 	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
