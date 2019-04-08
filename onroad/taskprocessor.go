@@ -155,9 +155,9 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			// no vmBlock no vmRetry in condition that fail to create contract
 			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
 				blog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
-				tp.worker.addContractIntoBlackList(task.Addr)
-				return false
 			}
+			tp.worker.addContractIntoBlackList(task.Addr)
+			return false
 		}
 	}
 	return true
