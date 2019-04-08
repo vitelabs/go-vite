@@ -114,6 +114,9 @@ func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[ty
 					if err != nil {
 						t.Fatal(err)
 					}
+					if block == nil {
+						t.Fatal(fmt.Sprintf("%s, %s", account.addr, hash))
+					}
 
 					if highBlock == nil || block.Height > highBlock.Height {
 						highBlock = block
@@ -263,6 +266,9 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 
 		for hash := range account.unconfirmedBlocks {
 			block := account.BlocksMap[hash]
+			if block == nil {
+				t.Fatal(fmt.Sprintf("error, hash: %s, unconfirmedBlocks: %+v\n BlocksMap: %+v\n", hash, account.unconfirmedBlocks, account.BlocksMap))
+			}
 			quota += block.AccountBlock.Quota
 			blockCount += 1
 		}
@@ -270,6 +276,9 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 			confirmedBlocks := account.ConfirmedBlockMap[sb.Hash]
 			for hash := range confirmedBlocks {
 				block := account.BlocksMap[hash]
+				if block == nil {
+					t.Fatal(fmt.Sprintf("error, unconfirmedBlocks: %+v\n BlocksMap: %+v\n", account.unconfirmedBlocks, account.BlocksMap))
+				}
 				quota += block.AccountBlock.Quota
 				blockCount += 1
 			}
