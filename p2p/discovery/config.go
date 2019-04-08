@@ -163,11 +163,14 @@ func (cfg *Config) Ensure() (err error) {
 	id, _ := vnode.Bytes2NodeID(cfg.privateKey.PubByte())
 
 	var e vnode.EndPoint
-	if cfg.PublicAddress != "" {
-		e, err = vnode.ParseEndPoint(cfg.PublicAddress)
-		if err != nil {
-			return
-		}
+	address := cfg.PublicAddress
+	if address == "" {
+		address = cfg.ListenAddress
+	}
+
+	e, err = vnode.ParseEndPoint(address)
+	if err != nil {
+		return
 	}
 
 	cfg.node = &vnode.Node{
