@@ -303,3 +303,11 @@ func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 
 	return l.chain.GetVmLogList(block.LogHash)
 }
+
+func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint64, error) {
+	sb, err := l.chain.GetSnapshotBlockByHash(snapshotHash)
+	if err != nil {
+		return 0, err
+	}
+	return l.chain.GetSeed(sb, fromHash)
+}
