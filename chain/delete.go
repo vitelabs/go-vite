@@ -117,22 +117,6 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	fmt.Println("delete")
-	for _, chunk := range snapshotChunks {
-		fmt.Println("")
-		fmt.Println("snapshot blocks:")
-		fmt.Printf("%+v\n", chunk.SnapshotBlock)
-		fmt.Println("")
-		fmt.Println("account blocks:")
-		fmt.Println("")
-
-		for _, ab := range chunk.AccountBlocks {
-			fmt.Printf("%+v\n", ab)
-			fmt.Println("")
-		}
-	}
-	fmt.Println("delete end")
-
 	c.flusher.Flush()
 
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
