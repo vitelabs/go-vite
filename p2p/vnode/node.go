@@ -205,10 +205,18 @@ func (n Node) String() (str string) {
 	return
 }
 
+const protocol = "vnode://"
+
 // ParseNode parse a string to Node
 // Return error if missing Hostname/IP
 func ParseNode(u string) (n *Node, err error) {
-	index := strings.IndexRune(u, '@')
+	var index int
+	if index = strings.Index(u, protocol); index > -1 {
+		index += 8
+		u = u[index:]
+	}
+
+	index = strings.IndexRune(u, '@')
 	if index == len(u)-1 {
 		err = errMissHost
 		return

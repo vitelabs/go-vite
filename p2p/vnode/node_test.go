@@ -187,7 +187,7 @@ func TestParseNode(t *testing.T) {
 
 	var samples = []sample{
 		{
-			"vite.org",
+			"vnode://vite.org",
 			func(n *Node, err error) error {
 				if err != nil {
 					return errors.New("error should be nil")
