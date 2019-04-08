@@ -14,6 +14,9 @@ import (
  *	2.
  */
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil)
 
@@ -41,6 +44,11 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 // no lock
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	//canBeSnappedBlocks, invalidAccountBlocks := c.filterInvalidUnconfirmedBlocks(unconfirmedBlocks)
+	c.flusherMu.RLock()
+	defer c.flusherMu.RUnlock()
+
+	c.flusher.RecoverStart()
+
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {
 		return nil, err
@@ -74,12 +82,13 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// TODO consensus
 	invalidBlocks := c.filterUnconfirmedBlocks(false)
 
-	c.deleteAccountBlocks(invalidBlocks)
-
-	c.flusher.Flush()
+	if len(invalidBlocks) > 0 {
+		c.deleteAccountBlocks(invalidBlocks)
+	}
 
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
 
+	c.stateDB.InsertSnapshotBlocks(sbList)
 	return invalidBlocks, nil
 }
 

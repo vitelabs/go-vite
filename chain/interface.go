@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"time"
@@ -160,7 +159,8 @@ type Chain interface {
 
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
 	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
 
@@ -178,13 +178,13 @@ type Chain interface {
 	IsContractAccount(address types.Address) (bool, error)
 
 	// ===== Query state ======
-	// get balance
+	// get Balance
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
-	// get balance map
+	// get Balance map
 	GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error)
 
-	// get confirmed snapshot balance, if history is too old, failed
+	// get confirmed snapshot Balance, if history is too old, failed
 	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error)
 
 	// get contract code

@@ -57,7 +57,7 @@ type testSubscriber struct {
 }
 
 func (*testSubscriber) SyncState() net.SyncState {
-	return net.Syncdone
+	return net.SyncDone
 }
 
 func (*testSubscriber) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
@@ -79,7 +79,7 @@ func (*testSubscriber) UnsubscribeSnapshotBlock(subId int) {
 func (*testSubscriber) SubscribeSyncStatus(fn net.SyncStateCallback) (subId int) {
 	go func() {
 		time.Sleep(2 * time.Second)
-		fn(net.Syncdone)
+		fn(net.SyncDone)
 	}()
 	return 0
 }

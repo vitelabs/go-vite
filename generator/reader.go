@@ -3,13 +3,13 @@ package generator
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type chainReader interface {
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 
 func NewChain(c vm_db.Chain) chainReader {

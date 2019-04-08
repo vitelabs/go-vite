@@ -72,7 +72,8 @@ func GetGenesisSnapshotBlock(t *testing.T, chainInstance *chain) {
 	}
 
 	if genesisSnapshotBlock.Hash != correctFirstSb.Hash {
-		t.Fatal("error")
+		chainInstance.GetSnapshotBlockByHeight(1)
+		t.Fatal(fmt.Sprintf("%+v. %+v\n", genesisSnapshotBlock, correctFirstSb))
 	}
 }
 
@@ -339,11 +340,19 @@ func checkSnapshotBlock(t *testing.T, snapshotBlock *ledger.SnapshotBlock, query
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshotBlock == nil && querySnapshotBlock == nil {
-		return
+	if snapshotBlock == nil {
+		if querySnapshotBlock == nil {
+			return
+		} else {
+			t.Fatal(fmt.Sprintf("%+v\n", querySnapshotBlock))
+		}
+	} else {
+		if querySnapshotBlock == nil {
+			t.Fatal(fmt.Sprintf("snapshot block: %+v\n", snapshotBlock))
+		}
 	}
 
-	if querySnapshotBlock.Hash != snapshotBlock.Hash {
+	if snapshotBlock != nil && querySnapshotBlock != nil && querySnapshotBlock.Hash != snapshotBlock.Hash {
 		t.Fatal(fmt.Sprintf("querySnapshotBlock: %+v\n, snapshotBlock: %+v\n", querySnapshotBlock, snapshotBlock))
 	}
 	if !onlyHeader {
@@ -456,12 +465,13 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 			t.Fatal(err)
 		}
 
+		startSnapshotBlock := snapshotBlockList[start]
 		for i := 0; i < len(segs); i++ {
 			seg := segs[i]
 			snapshotBlock := seg.SnapshotBlock
 
 			checkSnapshotBlock(t, snapshotBlock, func() (*ledger.SnapshotBlock, error) {
-				return chainInstance.GetSnapshotBlockByHeight(snapshotBlockList[start+i].Height)
+				return chainInstance.GetSnapshotBlockByHeight(startSnapshotBlock.Height + uint64(i))
 			}, false)
 
 			accountBlocks := seg.AccountBlocks

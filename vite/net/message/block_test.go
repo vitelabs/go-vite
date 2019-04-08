@@ -2,12 +2,13 @@ package message
 
 import (
 	crand "crypto/rand"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	mrand "math/rand"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 // GetAccountBlocks
@@ -179,19 +180,5 @@ func TestAccountBlocks_Deserialize(t *testing.T) {
 
 	if !equalAccountBlocks(gs, g) {
 		t.Fail()
-	}
-}
-
-func TestSubLedger_Serialize(t *testing.T) {
-	s := new(SubLedger)
-	buf, err := s.Serialize()
-	if err != nil {
-		t.Error(err)
-	}
-
-	s2 := new(SubLedger)
-	err = s2.Deserialize(buf)
-	if err != nil {
-		t.Error(err)
 	}
 }

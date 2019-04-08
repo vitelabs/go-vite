@@ -1,0 +1,29 @@
+syntax="proto3";
+
+package protos;
+
+message HeartBeat {
+    map<int32, bytes> State = 3;
+
+    int64 Timestamp = 4;
+}
+
+message Handshake {
+    uint32 Version = 1;
+
+    uint32 NetId = 2;
+
+    string Name = 3;
+
+    bytes ID = 4;
+
+	int64 Timestamp = 5;
+
+	repeated Protocol Protocols = 6;
+}
+
+message Protocol {
+    uint32 ID = 1;
+
+    bytes Data = 2;
+}

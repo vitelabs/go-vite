@@ -4,17 +4,18 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/golang/snappy"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"io"
-	"os"
 )
 
 func (cache *syncCache) NewReader(from, to uint64) (interfaces.ReadCloser, error) {
 	cache.segMu.RLock()
-	cache.segMu.RUnlock()
+	defer cache.segMu.RUnlock()
 
 	if !cache.CheckExisted(from, to) {
 		return nil, errors.New(fmt.Sprintf("file is not existed, from is %d, to is %d", from, to))
@@ -113,9 +114,18 @@ func (reader *Reader) Close() error {
 }
 
 func (reader *Reader) close() error {
-	filename := reader.file.Name()
-	reader.file.Close()
+	return reader.file.Close()
+}
 
-	reader.cache.DeleteSeg(reader.from, reader.to)
-	return os.Remove(filename)
+func (cache *syncCache) deleteSeg(from, to uint64) {
+	cache.segMu.Lock()
+	defer cache.segMu.Unlock()
+
+	for index, seg := range cache.segments {
+		if seg[0] == from && seg[1] == to {
+			cache.segments = append(cache.segments[:index], cache.segments[index+1:]...)
+			return
+		}
+	}
+
 }

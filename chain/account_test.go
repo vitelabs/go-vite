@@ -1,6 +1,7 @@
 package chain
 
 import (
+	rand2 "crypto/rand"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -8,9 +9,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
-	"math/rand"
 	"sort"
 	"sync"
+
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -18,52 +21,55 @@ import (
 func TestChain_Account(t *testing.T) {
 
 	chainInstance, accounts, _ := SetUp(t, 1000, 1000, 8)
-
 	testAccount(t, chainInstance, accounts)
 	TearDown(chainInstance)
 }
 
 func testAccount(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
+	t.Run("GetAccountId_GetAccountAddress", func(t *testing.T) {
+		accountIdList := make([]uint64, 0, len(accounts))
 
-	accountIdList := make([]uint64, 0, len(accounts))
+		for addr, account := range accounts {
+			accountId, err := chainInstance.GetAccountId(addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if accountId <= 0 {
+				if account.latestBlock == nil {
+					continue
+				}
+				t.Fatal(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.latestBlock))
+			}
+			queryAddr2, err := chainInstance.GetAccountAddress(accountId)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	for addr := range accounts {
-		accountId, err := chainInstance.GetAccountId(addr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if accountId <= 0 {
-			t.Fatal("accountId <= 0")
-		}
-		queryAddr2, err := chainInstance.GetAccountAddress(accountId)
-		if err != nil {
-			t.Fatal(err)
-		}
+			if *queryAddr2 != addr {
+				t.Fatal("error")
+			}
 
-		if *queryAddr2 != addr {
-			t.Fatal("error")
-		}
-
-		accountIdList = append(accountIdList, accountId)
-	}
-
-	for _, accountId := range accountIdList {
-		addr, err := chainInstance.GetAccountAddress(accountId)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if addr == nil {
-			t.Fatal("addr is nil")
-		}
-		queryAccountId, err := chainInstance.GetAccountId(*addr)
-		if err != nil {
-			t.Fatal(err)
+			accountIdList = append(accountIdList, accountId)
 		}
 
-		if queryAccountId != accountId {
-			t.Fatal("error")
+		for _, accountId := range accountIdList {
+			addr, err := chainInstance.GetAccountAddress(accountId)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if addr == nil {
+				t.Fatal("addr is nil")
+			}
+			queryAccountId, err := chainInstance.GetAccountId(*addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if queryAccountId != accountId {
+				t.Fatal("error")
+			}
 		}
-	}
+	})
 
 }
 
@@ -85,6 +91,7 @@ type Account struct {
 	publicKey     ed25519.PublicKey
 	chainInstance Chain
 	unreceivedMu  sync.RWMutex
+	initBalance   *big.Int
 
 	contractMetaMu sync.RWMutex
 	contractMeta   *ledger.ContractMeta
@@ -118,30 +125,50 @@ type CreateTxOptions struct {
 	KeyValue map[string][]byte
 }
 
-func MakeAccounts(num int, chainInstance Chain) map[types.Address]*Account {
+func NewAccount(chainInstance Chain, pubKey ed25519.PublicKey, privateKey ed25519.PrivateKey) *Account {
+	addr := types.PubkeyToAddress(pubKey)
+
+	account := &Account{
+		addr:          addr,
+		privateKey:    privateKey,
+		publicKey:     pubKey,
+		chainInstance: chainInstance,
+		initBalance:   big.NewInt(10000000),
+
+		UnreceivedBlocks:  make(map[types.Hash]*vm_db.VmAccountBlock),
+		BlocksMap:         make(map[types.Hash]*vm_db.VmAccountBlock),
+		SendBlocksMap:     make(map[types.Hash]*vm_db.VmAccountBlock),
+		ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
+		ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
+
+		BalanceMap: make(map[types.Hash]*big.Int),
+		LogListMap: make(map[types.Hash]ledger.VmLogList),
+
+		KvSetMap:          make(map[types.Hash]map[string][]byte),
+		unconfirmedBlocks: make(map[types.Hash]struct{}),
+	}
+
+	latestBlock, err := chainInstance.GetLatestAccountBlock(addr)
+
+	if err != nil {
+		panic(err)
+	}
+
+	account.latestBlock = latestBlock
+	return account
+}
+
+func MakeAccounts(chainInstance Chain, num int) map[types.Address]*Account {
 	accountMap := make(map[types.Address]*Account, num)
 
 	for i := 0; i < num; i++ {
-		addr, privateKey, _ := types.CreateAddress()
-
-		accountMap[addr] = &Account{
-			addr:          addr,
-			privateKey:    privateKey,
-			publicKey:     privateKey.PubByte(),
-			chainInstance: chainInstance,
-
-			UnreceivedBlocks:  make(map[types.Hash]*vm_db.VmAccountBlock),
-			BlocksMap:         make(map[types.Hash]*vm_db.VmAccountBlock),
-			SendBlocksMap:     make(map[types.Hash]*vm_db.VmAccountBlock),
-			ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
-			ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
-
-			BalanceMap: make(map[types.Hash]*big.Int),
-			LogListMap: make(map[types.Hash]ledger.VmLogList),
-
-			KvSetMap:          make(map[types.Hash]map[string][]byte),
-			unconfirmedBlocks: make(map[types.Hash]struct{}),
+		pub, pri, err := ed25519.GenerateKey(rand2.Reader)
+		if err != nil {
+			panic(err)
 		}
+		addr := types.PubkeyToAddress(pub)
+
+		accountMap[addr] = NewAccount(chainInstance, pub, pri)
 	}
 	return accountMap
 }
@@ -156,18 +183,20 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 	if err != nil {
 		return nil, err
 	}
-	balance, err := vmDb.GetBalance(&ledger.ViteTokenId)
-	if err != nil {
-		return nil, err
-	}
+	balance := acc.Balance()
 
-	balance.Add(balance, big.NewInt(189))
+	amount := big.NewInt(rand.Int63n(150))
 
-	vmDb.SetBalance(&ledger.ViteTokenId, balance)
+	newBalance := new(big.Int)
+	newBalance.Sub(balance, amount)
+
+	vmDb.SetBalance(&ledger.ViteTokenId, newBalance)
+
 	if options.ContractMeta != nil {
 		vmDb.SetContractMeta(toAccount.addr, options.ContractMeta)
 		toAccount.SetContractMeta(options.ContractMeta)
 	}
+
 	var logHash *types.Hash
 	if len(options.VmLogList) > 0 {
 		for _, vmLog := range options.VmLogList {
@@ -183,7 +212,7 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		ToAddress:      toAccount.addr,
 		Height:         acc.latestHeight() + 1,
 		PrevHash:       prevHash,
-		Amount:         big.NewInt(rand.Int63n(100)),
+		Amount:         amount,
 		TokenId:        ledger.ViteTokenId,
 		PublicKey:      acc.publicKey,
 		Quota:          options.Quota,
@@ -217,17 +246,19 @@ func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions
 		AccountBlock: tx,
 		VmDb:         vmDb,
 	}
-	toAccount.AddUnreceivedBlock(vmTx)
 
-	acc.BalanceMap[tx.Hash] = balance
+	acc.BalanceMap[tx.Hash] = newBalance
 	acc.addSendBlock(vmTx)
+
+	toAccount.AddOnRoadBlock(vmTx)
+
 	return vmTx, nil
 }
 
 // No state_bak hash
 func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
 
-	UnreceivedBlock := acc.PopUnreceivedBlock()
+	UnreceivedBlock := acc.PopOnRoadBlock()
 	if UnreceivedBlock == nil {
 		return nil, nil
 	}
@@ -240,15 +271,14 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		return nil, err
 	}
 
-	balance, err := vmDb.GetBalance(&ledger.ViteTokenId)
+	balance := acc.Balance()
 
-	if err != nil {
-		return nil, err
-	}
+	amount := UnreceivedBlock.AccountBlock.Amount
 
-	balance.Add(balance, big.NewInt(126))
+	newBalance := new(big.Int)
+	newBalance.Add(balance, amount)
 
-	vmDb.SetBalance(&ledger.ViteTokenId, balance)
+	vmDb.SetBalance(&ledger.ViteTokenId, newBalance)
 	if UnreceivedBlock.VmDb.GetUnsavedContractMeta() != nil {
 		code := crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())))
 
@@ -305,7 +335,7 @@ func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccount
 		VmDb:         vmDb,
 	}
 
-	acc.BalanceMap[receiveTx.Hash] = balance
+	acc.BalanceMap[receiveTx.Hash] = newBalance
 	acc.addReceiveBlock(vmTx)
 
 	return vmTx, nil
@@ -347,21 +377,28 @@ func (acc *Account) SetContractMeta(contractMeta *ledger.ContractMeta) {
 	acc.contractMeta = contractMeta
 }
 
-func (acc *Account) HasUnreceivedBlock() bool {
+func (acc *Account) HasOnRoadBlock() bool {
 	acc.unreceivedMu.RLock()
 	defer acc.unreceivedMu.RUnlock()
 
 	return len(acc.UnreceivedBlocks) > 0
 }
 
-func (acc *Account) AddUnreceivedBlock(block *vm_db.VmAccountBlock) {
+func (acc *Account) AddOnRoadBlock(block *vm_db.VmAccountBlock) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
 	acc.UnreceivedBlocks[block.AccountBlock.Hash] = block
 }
 
-func (acc *Account) PopUnreceivedBlock() *vm_db.VmAccountBlock {
+func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
+	acc.unreceivedMu.Lock()
+	defer acc.unreceivedMu.Unlock()
+
+	delete(acc.UnreceivedBlocks, blockHash)
+}
+
+func (acc *Account) PopOnRoadBlock() *vm_db.VmAccountBlock {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
@@ -370,8 +407,9 @@ func (acc *Account) PopUnreceivedBlock() *vm_db.VmAccountBlock {
 	}
 
 	var unreceivedBlock *vm_db.VmAccountBlock
-	for _, block := range acc.UnreceivedBlocks {
+	for hash, block := range acc.UnreceivedBlocks {
 		unreceivedBlock = block
+		delete(acc.UnreceivedBlocks, hash)
 		break
 	}
 
@@ -391,10 +429,11 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
 
 	// rollback confirmed blocks
-	for i := len(snapshotBlocks) - 1; i >= 0; i-- {
+	for i := 0; i < len(snapshotBlocks)-1; i++ {
 		snapshotBlock := snapshotBlocks[i]
 
 		confirmedBlocks := acc.ConfirmedBlockMap[snapshotBlock.Hash]
+
 		if len(confirmedBlocks) <= 0 {
 			continue
 		}
@@ -406,14 +445,16 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 		delete(acc.ConfirmedBlockMap, snapshotBlock.Hash)
 	}
 
+	// reset unconfirmed block
+	tailSnapshotBlock := snapshotBlocks[len(snapshotBlocks)-1]
+
+	acc.unconfirmedBlocks = acc.ConfirmedBlockMap[tailSnapshotBlock.Hash]
+
+	delete(acc.ConfirmedBlockMap, tailSnapshotBlock.Hash)
+
 	// reset latest block
 	acc.resetLatestBlock()
-}
 
-func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
-	acc.unreceivedMu.Lock()
-	defer acc.unreceivedMu.Unlock()
-	delete(acc.UnreceivedBlocks, blockHash)
 }
 
 func (acc *Account) DeleteContractMeta() {
@@ -421,6 +462,18 @@ func (acc *Account) DeleteContractMeta() {
 	defer acc.contractMetaMu.Unlock()
 
 	acc.contractMeta = nil
+}
+
+func (acc *Account) InitBalance() *big.Int {
+	return acc.initBalance
+}
+
+func (acc *Account) Balance() *big.Int {
+	if acc.latestBlock == nil {
+		return acc.initBalance
+	}
+
+	return acc.BalanceMap[acc.latestBlock.Hash]
 }
 
 func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, blockHash types.Hash) {
@@ -432,6 +485,13 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 
 		if accountBlock.BlockType == ledger.BlockTypeSendCreate {
 			toAccount.DeleteContractMeta()
+		}
+	} else {
+		for _, account := range accounts {
+			if fromBlock, ok := account.BlocksMap[accountBlock.FromBlockHash]; ok && fromBlock != nil {
+				acc.AddOnRoadBlock(fromBlock)
+				break
+			}
 		}
 	}
 
@@ -445,6 +505,10 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 	}
 	if accountBlock.LogHash != nil {
 		delete(acc.LogListMap, *accountBlock.LogHash)
+	}
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		acc.deleteAccountBlock(accounts, sendBlock.Hash)
 	}
 }
 
@@ -476,6 +540,9 @@ func (acc *Account) latestHash() types.Hash {
 
 func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
 	acc.SendBlocksMap[block.AccountBlock.Hash] = block
+	if acc.BlocksMap == nil {
+		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }

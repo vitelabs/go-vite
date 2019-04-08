@@ -3,7 +3,7 @@ package blockQueue
 import (
 	"sync"
 
-	"github.com/vitelabs/go-vite/p2p/list"
+	"github.com/vitelabs/go-vite/tools/list"
 )
 
 type BlockQueue interface {

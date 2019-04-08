@@ -79,13 +79,13 @@ type CommonDb interface {
 	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error)
 }
 
-func GetContractCode(db CommonDb, addr *types.Address, status *GlobalStatus) ([]byte, []byte) {
+func GetContractCode(db CommonDb, addr *types.Address, status GlobalStatus) ([]byte, []byte) {
 	var code []byte
 	var err error
 	if *db.Address() == *addr {
 		code, err = db.GetContractCode()
 	} else {
-		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock)
+		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock())
 	}
 	DealWithErr(err)
 	if len(code) > 0 {

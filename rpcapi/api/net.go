@@ -11,7 +11,7 @@ import (
 
 type NetApi struct {
 	net net.Net
-	p2p p2p.Server
+	p2p p2p.P2P
 	log log15.Logger
 }
 
@@ -54,15 +54,6 @@ func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 
-func (n *NetApi) PeersCount() uint {
-	info := n.net.Info()
-	return uint(len(info.Peers))
-}
-
-func (n *NetApi) Nodes() []string {
-	return n.p2p.Nodes()
-}
-
 func (n *NetApi) NodeInfo() p2p.NodeInfo {
-	return n.p2p.NodeInfo()
+	return n.p2p.Info()
 }

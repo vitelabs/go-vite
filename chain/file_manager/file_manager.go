@@ -71,7 +71,7 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 	fm.lockMu.Lock()
 	defer fm.lockMu.Unlock()
 
-	if location.Compare(fm.LatestLocation()) > 0 {
+	if location.Compare(fm.LatestLocation()) >= 0 {
 		return nil
 	}
 	if err := fm.fdSet.DeleteTo(location); err != nil {
@@ -116,6 +116,8 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) 
 			flushStartLocation = NewLocation(fm.nextFlushStartLocation.FileId, offset)
 		}
 	}
+
+	fmt.Println(fdList)
 
 	fm.nextFlushStartLocation = flushStartLocation
 

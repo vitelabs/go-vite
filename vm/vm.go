@@ -112,7 +112,7 @@ type VM struct {
 	abort int32
 	VmContext
 	i            *Interpreter
-	globalStatus *util.GlobalStatus
+	globalStatus util.GlobalStatus
 }
 
 func NewVM() *VM {
@@ -175,7 +175,7 @@ func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
 	return meta
 }
 
-func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status *util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
+func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
 		if nodeConfig.IsDebug {

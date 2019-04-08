@@ -104,12 +104,16 @@ func (ql *quotaList) NewNext() {
 	ql.backElement = make(map[types.Address]*item)
 	ql.list.PushBack(ql.backElement)
 
-	quotaUsed := ql.usedStart.Value.(map[types.Address]*item)
-	for addr, usedItem := range quotaUsed {
-		if usedItem == nil {
+	if uint64(ql.list.Len()) <= ql.usedAccumulateHeight {
+		return
+	}
+
+	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*item)
+	for addr, usedStartItem := range quotaUsedStart {
+		if usedStartItem == nil {
 			continue
 		}
-		ql.subUsed(&addr, usedItem.BlockCount, usedItem.Quota)
+		ql.subUsed(&addr, usedStartItem.BlockCount, usedStartItem.Quota)
 	}
 	ql.usedStart = ql.usedStart.Next()
 }
@@ -118,11 +122,9 @@ func (ql *quotaList) Rollback(n int) error {
 	if n >= ql.listMaxLength {
 		ql.list.Init()
 	} else {
-		current := ql.list.Back()
-
-		for i := 0; i < n; i++ {
-			ql.list.Remove(current)
-			current = current.Prev()
+		// TODO
+		for i := 0; i < n && ql.list.Len() > 0; i++ {
+			ql.list.Remove(ql.list.Back())
 		}
 	}
 
@@ -147,7 +149,12 @@ func (ql *quotaList) build() (returnError error) {
 		return nil
 	}
 
-	latestSbHeight := ql.chain.GetLatestSnapshotBlock().Height
+	latestSb, err := ql.chain.QueryLatestSnapshotBlock()
+	if err != nil {
+		return err
+	}
+
+	latestSbHeight := latestSb.Height
 
 	if latestSbHeight <= listLength {
 		return nil
@@ -163,7 +170,6 @@ func (ql *quotaList) build() (returnError error) {
 
 	var snapshotSegments []*ledger.SnapshotChunk
 
-	var err error
 	if listLength <= 0 {
 		snapshotSegments, err = ql.chain.GetSubLedgerAfterHeight(startSbHeight)
 		if err != nil {

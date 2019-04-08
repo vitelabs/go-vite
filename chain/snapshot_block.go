@@ -2,16 +2,15 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"sort"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {
@@ -520,7 +519,7 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error) {
+func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
 	meta, err := c.GetContractMeta(*addr)
 	if err != nil {
 		return nil, err
@@ -542,16 +541,17 @@ func (c *chain) GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash)
 	if limitSb == nil {
 		return nil, errors.New("fromBlock confirmed times not enough")
 	}
+	return limitSb, nil
+}
+
+func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error) {
 	seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount)
 	seedByte := helper.LeftPadBytes(new(big.Int).SetUint64(seed).Bytes(), types.HashSize)
 	var resultSeed types.Hash
 	for i := 0; i < types.HashSize; i++ {
 		resultSeed[i] = seedByte[i] ^ fromHash[i]
 	}
-	return &util.GlobalStatus{
-		Seed:          helper.BytesToU64(resultSeed.Bytes()),
-		SnapshotBlock: limitSb,
-	}, nil
+	return helper.BytesToU64(resultSeed.Bytes()), nil
 }
 
 func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error) {

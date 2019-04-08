@@ -63,9 +63,12 @@ func GetBalance(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if balance.Cmp(account.BalanceMap[account.latestBlock.Hash]) != 0 {
-			t.Fatal(fmt.Sprintf("Error: balance %d, balance2: %d", balance, account.BalanceMap[account.latestBlock.Hash]))
+		if balance == nil || balance.String() == "0" {
+			if account.Balance().Cmp(account.InitBalance()) != 0 {
+				t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d, Balance3: %d", account.addr, balance, account.Balance(), account.InitBalance()))
+			}
+		} else if balance.Cmp(account.Balance()) != 0 {
+			t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d", account.addr, balance, account.Balance()))
 		}
 
 	}
@@ -74,19 +77,20 @@ func GetBalance(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 func GetBalanceMap(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
 		balanceMap, err := chainInstance.GetBalanceMap(addr)
-		receiveBlocksLen := len(account.ReceiveBlocksMap)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(balanceMap) <= 0 && receiveBlocksLen > 0 {
-			t.Fatal("error")
+
+		balance := balanceMap[ledger.ViteTokenId]
+
+		if balance == nil || balance.String() == "0" {
+			if account.Balance().Cmp(account.InitBalance()) != 0 {
+				t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d, Balance3: %d", account.addr, balance, account.Balance(), account.InitBalance()))
+			}
+		} else if balanceMap[ledger.ViteTokenId].Cmp(account.BalanceMap[account.latestBlock.Hash]) != 0 {
+			t.Fatal(fmt.Sprintf("Error: Balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.BalanceMap[account.latestBlock.Hash]))
 		}
 
-		if len(balanceMap) > 0 {
-			if balanceMap[ledger.ViteTokenId].Cmp(account.BalanceMap[account.latestBlock.Hash]) != 0 {
-				t.Fatal(fmt.Sprintf("Error: balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.BalanceMap[account.latestBlock.Hash]))
-			}
-		}
 	}
 }
 
@@ -165,6 +169,10 @@ func GetContractMeta(t *testing.T, chainInstance *chain, accounts map[types.Addr
 				continue
 			}
 			t.Fatal("error")
+		} else {
+			if contractMeta == nil {
+				t.Fatal(fmt.Sprintf("%+v\n%+v\n", meta, contractMeta))
+			}
 		}
 		if meta.Gid != contractMeta.Gid || meta.SendConfirmedTimes != contractMeta.SendConfirmedTimes {
 			t.Fatal(fmt.Sprintf("%+v\n%+v\n", meta, contractMeta))
@@ -251,27 +259,21 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 		var quota, blockCount uint64
 
 		for hash := range account.unconfirmedBlocks {
-			block := account.SendBlocksMap[hash]
-			if block == nil {
-				block = account.ReceiveBlocksMap[hash]
-			}
+			block := account.BlocksMap[hash]
 			quota += block.AccountBlock.Quota
 			blockCount += 1
 		}
 		for _, sb := range sbList {
 			confirmedBlocks := account.ConfirmedBlockMap[sb.Hash]
 			for hash := range confirmedBlocks {
-				block := account.SendBlocksMap[hash]
-				if block == nil {
-					block = account.ReceiveBlocksMap[hash]
-				}
+				block := account.BlocksMap[hash]
 				quota += block.AccountBlock.Quota
 				blockCount += 1
 			}
 		}
 		if queryQuota != quota || queryBlockCount != blockCount {
-			t.Fatal(fmt.Sprintf("queryQuota: %d, quota: %d, queryBlockCount: %d, blockCount: %d",
-				queryQuota, quota, queryBlockCount, blockCount))
+			t.Fatal(fmt.Sprintf("addr: %s, queryQuota: %d, quota: %d, queryBlockCount: %d, blockCount: %d",
+				account.addr, queryQuota, quota, queryBlockCount, blockCount))
 		}
 
 	}

@@ -137,13 +137,13 @@ func (self *producer) Start() error {
 
 	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase.Address, func(e consensus.Event) {
 		mLog.Info("snapshot producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
-		if self.syncState == net.Syncdone {
+		if self.syncState == net.SyncDone {
 			self.worker.produceSnapshot(e)
 		}
 	})
 	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase.Address, func(e consensus.Event) {
 		mLog.Info("contract producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
-		if self.syncState == net.Syncdone {
+		if self.syncState == net.SyncDone {
 			self.producerContract(e)
 		}
 	})

@@ -3,9 +3,11 @@
 
 package vitepb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type PointContent struct {
 	Address              []byte   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -31,16 +33,17 @@ func (m *PointContent) Reset()         { *m = PointContent{} }
 func (m *PointContent) String() string { return proto.CompactTextString(m) }
 func (*PointContent) ProtoMessage()    {}
 func (*PointContent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_consensus_point_1b16ab42bd382332, []int{0}
+	return fileDescriptor_88e96154ef7983e8, []int{0}
 }
+
 func (m *PointContent) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PointContent.Unmarshal(m, b)
 }
 func (m *PointContent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PointContent.Marshal(b, m, deterministic)
 }
-func (dst *PointContent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PointContent.Merge(dst, src)
+func (m *PointContent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PointContent.Merge(m, src)
 }
 func (m *PointContent) XXX_Size() int {
 	return xxx_messageInfo_PointContent.Size(m)
@@ -85,16 +88,17 @@ func (m *ConsensusPoint) Reset()         { *m = ConsensusPoint{} }
 func (m *ConsensusPoint) String() string { return proto.CompactTextString(m) }
 func (*ConsensusPoint) ProtoMessage()    {}
 func (*ConsensusPoint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_consensus_point_1b16ab42bd382332, []int{1}
+	return fileDescriptor_88e96154ef7983e8, []int{1}
 }
+
 func (m *ConsensusPoint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConsensusPoint.Unmarshal(m, b)
 }
 func (m *ConsensusPoint) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConsensusPoint.Marshal(b, m, deterministic)
 }
-func (dst *ConsensusPoint) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsensusPoint.Merge(dst, src)
+func (m *ConsensusPoint) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsensusPoint.Merge(m, src)
 }
 func (m *ConsensusPoint) XXX_Size() int {
 	return xxx_messageInfo_ConsensusPoint.Size(m)
@@ -131,11 +135,9 @@ func init() {
 	proto.RegisterType((*ConsensusPoint)(nil), "vitepb.ConsensusPoint")
 }
 
-func init() {
-	proto.RegisterFile("vitepb/consensus_point.proto", fileDescriptor_consensus_point_1b16ab42bd382332)
-}
+func init() { proto.RegisterFile("vitepb/consensus_point.proto", fileDescriptor_88e96154ef7983e8) }
 
-var fileDescriptor_consensus_point_1b16ab42bd382332 = []byte{
+var fileDescriptor_88e96154ef7983e8 = []byte{
 	// 184 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x29, 0xcb, 0x2c, 0x49,
 	0x2d, 0x48, 0xd2, 0x4f, 0xce, 0xcf, 0x2b, 0x4e, 0xcd, 0x2b, 0x2e, 0x2d, 0x8e, 0x2f, 0xc8, 0xcf,

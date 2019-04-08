@@ -13,7 +13,7 @@ func TestExecutor_DeleteTo(t *testing.T) {
 
 	cs := splitChunk(from, to, 20)
 	for i := 0; i < len(cs); i++ {
-		exec.add(&syncTask{
+		exec.add(syncTask{
 			task: &chunkTask{
 				from: cs[i][0],
 				to:   cs[i][1],
@@ -54,7 +54,7 @@ func TestExecutor_DeleteTo2(t *testing.T) {
 
 	cs := splitChunk(from, to, chunkSize)
 	for i := 0; i < len(cs); i++ {
-		st := &syncTask{
+		st := syncTask{
 			task: &chunkTask{
 				from: cs[i][0],
 				to:   cs[i][1],

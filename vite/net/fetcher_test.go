@@ -1,7 +1,6 @@
 package net
 
 import (
-	"strconv"
 	"testing"
 
 	"time"
@@ -88,9 +87,10 @@ func TestPolicy_AccountTargets(t *testing.T) {
 	}
 
 	i := uint64(1)
-	err := peers.Add(&peer{
-		id:     strconv.FormatUint(i, 10),
-		height: i,
+	err := peers.add(&peer{
+
+		//id:     strconv.FormatUint(i, 10),
+		//height: i,
 	})
 	if err != nil {
 		t.Fatal("add peer error")
@@ -103,9 +103,9 @@ func TestPolicy_AccountTargets(t *testing.T) {
 	}
 
 	for i = uint64(2); i < 10; i++ {
-		err = peers.Add(&peer{
-			id:     strconv.FormatUint(i, 10),
-			height: i,
+		err = peers.add(&peer{
+			//id:     strconv.FormatUint(i, 10),
+			//height: i,
 		})
 		if err != nil {
 			t.Fatal("add peer error")
@@ -131,9 +131,9 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 
 	const total = 10
 	for i := uint64(1); i < total; i++ {
-		err := peers.Add(&peer{
-			id:     strconv.FormatUint(i, 10),
-			height: i,
+		err := peers.add(&peer{
+			//id:     strconv.FormatUint(i, 10),
+			//height: i,
 		})
 		if err != nil {
 			t.Fatal("add peer error")
@@ -141,7 +141,7 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 	}
 
 	p := f.snapshotTarget(0)
-	if p.Height() != total-1 {
+	if p.height() != total-1 {
 		t.Log("should be best peer")
 		t.Fail()
 	}
@@ -152,7 +152,7 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 	}
 
 	p = f.snapshotTarget(total / 2)
-	if p.Height() < total/2 {
+	if p.height() < total/2 {
 		t.Fail()
 	}
 }

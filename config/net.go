@@ -1,6 +1,11 @@
 package config
 
+import "github.com/vitelabs/go-vite/crypto/ed25519"
+
 type Net struct {
-	Single      bool   `json:"Single"`
-	FileAddress string `json:"FileAddress"`
+	Single            bool   `json:"Single"`
+	FileListenAddress string `json:"FileListenAddress"`
+	FilePublicAddress string `json:"FilePublicAddress"`
+	MinePublicKey     ed25519.PublicKey
+	MinePrivateKey    ed25519.PrivateKey
 }

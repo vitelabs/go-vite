@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/vite/net/sbpn"
-
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
@@ -39,7 +37,7 @@ type Vite struct {
 	pool            pool.BlockPool
 	consensus       consensus.Consensus
 	onRoad          *onroad.Manager
-	p2p             p2p.Server
+	p2p             p2p.P2P
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -67,11 +65,13 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	// net
-	net := net.New(&net.Config{
-		Single:      cfg.Single,
-		FileAddress: cfg.FileAddress,
-		Chain:       chain,
-		Verifier:    verifier,
+	net := net.New(net.Config{
+		Single:            cfg.Single,
+		FileListenAddress: cfg.FileListenAddress,
+		FilePublicAddress: cfg.FilePublicAddress,
+		MinePrivateKey:    nil,
+		Chain:             chain,
+		Verifier:          verifier,
 	})
 
 	// vite
@@ -105,8 +105,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			Index:     index,
 		}
 		vite.producer = producer.NewProducer(chain, net, addressContext, cs, sbVerifier, walletManager, pl)
-
-		net.AddPlugin(sbpn.New(*coinbase, cs))
 	}
 
 	// onroad
@@ -133,7 +131,7 @@ func (v *Vite) Init() (err error) {
 	return nil
 }
 
-func (v *Vite) Start(p2p p2p.Server) (err error) {
+func (v *Vite) Start(p2p p2p.P2P) (err error) {
 	v.p2p = p2p
 
 	v.onRoad.Start()
@@ -214,7 +212,7 @@ func (v *Vite) Config() *config.Config {
 	return v.config
 }
 
-func (v *Vite) P2P() p2p.Server {
+func (v *Vite) P2P() p2p.P2P {
 	return v.p2p
 }
 

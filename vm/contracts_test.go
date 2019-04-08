@@ -75,7 +75,7 @@ func TestContractsRefund(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr2
-	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	contractBalance.Add(contractBalance, block13.Amount)
 	newBalance, _ := db.GetBalance(&ledger.ViteTokenId)
 	if receiveRegisterBlock == nil ||
@@ -179,7 +179,7 @@ func TestContractsRegister(t *testing.T) {
 	withdrawHeight := snapshot2.Height + 3600*24*90
 	registrationData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr7, addr1, block13.Amount, withdrawHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
 	db.addr = addr2
-	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	if receiveRegisterBlock == nil ||
 		len(receiveRegisterBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
@@ -234,7 +234,7 @@ func TestContractsRegister(t *testing.T) {
 	hisAddrList = append(hisAddrList, addr6)
 	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
 	db.addr = addr2
-	receiveRegisterBlock2, isRetry, err := vm.RunV2(db, block22, sendRegisterBlock2.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveRegisterBlock2, isRetry, err := vm.RunV2(db, block22, sendRegisterBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	if receiveRegisterBlock2 == nil ||
 		len(receiveRegisterBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
@@ -301,7 +301,7 @@ func TestContractsRegister(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr2
-	receiveCancelRegisterBlock, isRetry, err := vm.RunV2(db, block23, sendCancelRegisterBlock.AccountBlock, &util.GlobalStatus{0, snapshot5})
+	receiveCancelRegisterBlock, isRetry, err := vm.RunV2(db, block23, sendCancelRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
 	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(-1), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveCancelRegisterBlock == nil ||
 		len(receiveCancelRegisterBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
@@ -384,7 +384,7 @@ func TestContractsRegister(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr2
-	receiveRewardBlock, isRetry, err := vm.RunV2(db, block25, sendRewardBlock.AccountBlock, &util.GlobalStatus{0, snapshot5})
+	receiveRewardBlock, isRetry, err := vm.RunV2(db, block25, sendRewardBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
 	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(-1), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveRewardBlock == nil ||
 		len(receiveRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != util.ErrInvalidMethodParam ||
@@ -443,7 +443,7 @@ func TestContractsVote(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr3
-	receiveVoteBlock, isRetry, err := vm.RunV2(db, block31, sendVoteBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveVoteBlock, isRetry, err := vm.RunV2(db, block31, sendVoteBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	voteKey := abi.GetVoteKey(addr1, types.SNAPSHOT_GID)
 	voteData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, nodeName)
 	if receiveVoteBlock == nil ||
@@ -498,7 +498,7 @@ func TestContractsVote(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr3
-	receiveVoteBlock2, isRetry, err := vm.RunV2(db, block32, sendVoteBlock2.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveVoteBlock2, isRetry, err := vm.RunV2(db, block32, sendVoteBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	voteData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, nodeName2)
 	if receiveVoteBlock2 == nil ||
 		len(receiveVoteBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -555,7 +555,7 @@ func TestContractsVote(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr3
-	receiveCancelVoteBlock, isRetry, err := vm.RunV2(db, block33, sendCancelVoteBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveCancelVoteBlock, isRetry, err := vm.RunV2(db, block33, sendCancelVoteBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	if receiveCancelVoteBlock == nil ||
 		len(receiveCancelVoteBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		len(db.storageMap[addr3][ToKey(voteKey)]) != 0 ||
@@ -616,7 +616,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr5
-	receivePledgeBlock, isRetry, err := vm.RunV2(db, block51, sendPledgeBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receivePledgeBlock, isRetry, err := vm.RunV2(db, block51, sendPledgeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
 	pledgeKey := abi.GetPledgeKey(addr1, addr4)
 	withdrawHeight := snapshot2.Height + 3600*24*3
@@ -673,7 +673,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr5
-	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
 	if receivePledgeBlock2 == nil ||
 		len(receivePledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -747,7 +747,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr5
-	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, &util.GlobalStatus{0, currentSnapshot})
+	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
 	if receiveCancelPledgeBlock == nil ||
 		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize), helper.LeftPadBytes(addr4.Bytes(), helper.WordSize))) ||
@@ -780,7 +780,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr1
-	receiveCancelPledgeRefundBlock, isRetry, err := vm.RunV2(db, block16, receiveCancelPledgeBlock.AccountBlock.SendBlockList[0], &util.GlobalStatus{0, currentSnapshot})
+	receiveCancelPledgeRefundBlock, isRetry, err := vm.RunV2(db, block16, receiveCancelPledgeBlock.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
 	balance1.Add(balance1, pledgeAmount)
 	if receiveCancelPledgeRefundBlock == nil ||
 		len(receiveCancelPledgeRefundBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -828,7 +828,7 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM()
 	//vm.Debug = true
 	db.addr = addr5
-	receiveCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block55, sendCancelPledgeBlock2.AccountBlock, &util.GlobalStatus{0, currentSnapshot})
+	receiveCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block55, sendCancelPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
 	if receiveCancelPledgeBlock2 == nil ||
 		len(receiveCancelPledgeBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		len(db.storageMap[addr5][ToKey(pledgeKey)]) != 0 ||
@@ -862,7 +862,7 @@ func TestContractsPledge(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, pledgeAmount)
-	receiveCancelPledgeRefundBlock2, isRetry, err := vm.RunV2(db, block18, receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0], &util.GlobalStatus{0, currentSnapshot})
+	receiveCancelPledgeRefundBlock2, isRetry, err := vm.RunV2(db, block18, receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
 	if receiveCancelPledgeRefundBlock2 == nil ||
 		len(receiveCancelPledgeRefundBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
@@ -933,7 +933,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveMintageBlock, isRetry, err := vm.RunV2(db, block21, sendMintageBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveMintageBlock, isRetry, err := vm.RunV2(db, block21, sendMintageBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	key := abi.GetMintageKey(tokenId)
 	tokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
 	if receiveMintageBlock == nil ||
@@ -1035,7 +1035,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveIssueBlock, isRetry, err := vm.RunV2(db, block23, sendIssueBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveIssueBlock, isRetry, err := vm.RunV2(db, block23, sendIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	totalSupply = totalSupply.Add(totalSupply, reIssueAmount)
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
 	if receiveIssueBlock == nil ||
@@ -1124,7 +1124,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveBurnBlock, isRetry, err := vm.RunV2(db, block25, sendBurnBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveBurnBlock, isRetry, err := vm.RunV2(db, block25, sendBurnBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
 	if receiveBurnBlock == nil ||
 		len(receiveBurnBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -1183,7 +1183,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveTransferOwnerBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnerBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveTransferOwnerBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnerBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
 	if receiveTransferOwnerBlock == nil ||
 		len(receiveTransferOwnerBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -1248,7 +1248,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block27, sendChangeTokenTypeBlock.AccountBlock, &util.GlobalStatus{0, snapshot2})
+	receiveChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block27, sendChangeTokenTypeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, false, big.NewInt(0), false)
 	if receiveChangeTokenTypeBlock == nil ||
 		len(receiveChangeTokenTypeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
@@ -1319,7 +1319,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM()
 	db.addr = addr2
-	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block28, cancelPledgeBlock.AccountBlock, &util.GlobalStatus{0, latestSb})
+	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block28, cancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, latestSb))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, helper.Big0, uint64(0), addr1, false, big.NewInt(0), false)
 	if receiveCancelPledgeBlock == nil ||
 		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||

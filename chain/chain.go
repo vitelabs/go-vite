@@ -197,7 +197,7 @@ func (c *chain) Start() error {
 		return nil
 	}
 
-	//c.flusher.Start()
+	c.flusher.Start()
 	c.log.Info("Start flusher", "method", "Start")
 	return nil
 }
@@ -206,6 +206,8 @@ func (c *chain) Stop() error {
 	if !atomic.CompareAndSwapUint32(&c.status, start, stop) {
 		return nil
 	}
+	c.flusher.Stop()
+	c.log.Info("Stop flusher", "method", "Stop")
 
 	c.blockDB.Stop()
 	c.log.Info("Stop block db", "method", "Stop")

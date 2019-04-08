@@ -82,6 +82,9 @@ func GetReceiveAbBySendAb(t *testing.T, chainInstance Chain, accounts map[types.
 		if err != nil {
 			t.Fatal(err)
 		}
+		if block == nil {
+			t.Fatal(fmt.Sprintf("hash is %s, block is %+v\n", hash, block))
+		}
 
 		if block.IsSendBlock() {
 			receiveAccount := accounts[block.ToAddress]
@@ -136,6 +139,9 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 		if err != nil {
 			t.Fatal(err)
 		}
+		if block == nil {
+			t.Fatal(fmt.Sprintf("hash is %s", hash))
+		}
 
 		toAccount := accounts[block.ToAddress]
 		if received {
@@ -150,7 +156,11 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 				}
 			}
 			if !hasReceived {
-				t.Fatal(fmt.Sprintf("error. block is %+v", block))
+				str := ""
+				for _, block := range toAccount.ReceiveBlocksMap {
+					str += fmt.Sprintf("%+v\n", block)
+				}
+				t.Fatal(fmt.Sprintf("error. block is %+v, toAccount.ReceiveBlocksMap is %s\n", block, str))
 			}
 		} else {
 			if block.IsReceiveBlock() {
@@ -175,6 +185,9 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 func GetAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
 		latestBlock := account.latestBlock
+		if latestBlock == nil {
+			continue
+		}
 		for _, count := range []uint64{0, 10, 100, 1000, 10000} {
 
 			blocks, err := chainInstance.GetAccountBlocks(latestBlock.Hash, count)
@@ -194,6 +207,9 @@ func GetAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Add
 func GetAccountBlocksByHeight(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
 		latestBlock := account.latestBlock
+		if latestBlock == nil {
+			continue
+		}
 		for _, count := range []uint64{0, 10, 100, 1000, 10000} {
 			blocks, err := chainInstance.GetAccountBlocksByHeight(addr, latestBlock.Height, count)
 			if err != nil {
@@ -207,8 +223,9 @@ func GetAccountBlocksByHeight(t *testing.T, chainInstance *chain, accounts map[t
 
 func checkBlocks(t *testing.T, latestBlock *ledger.AccountBlock, count uint64, blocks []*ledger.AccountBlock) {
 	blocksLength := uint64(len(blocks))
-	if count != 0 && blocks[0].Height != latestBlock.Height {
-		t.Fatal("error")
+	if count > 0 && (blocksLength <= 0 || blocks[0].Height != latestBlock.Height) {
+		t.Fatal(fmt.Sprintf("count is %d, latestBlock is %+v, blocks is %+v\n", count, latestBlock, blocks))
+
 	} else if count == 0 && blocksLength > 0 {
 		t.Fatal("error")
 	}
@@ -249,12 +266,15 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 			t.Fatal(err)
 		}
 
+		if block == nil {
+			t.Fatal(fmt.Sprintf("hash is %s, block is %+v\n", hash, block))
+		}
+
 		account := accounts[block.AccountAddress]
 		if firstConfirmSbHeight > latestSnapshotBlock.Height {
-			for _, blocksMap := range account.ConfirmedBlockMap {
-				if _, ok := blocksMap[hash]; ok {
-					t.Fatal("error")
-				}
+			// no confirm
+			if _, ok := account.unconfirmedBlocks[hash]; !ok {
+				t.Fatal(fmt.Sprintf("addr: %s, hash is %s, unconfirmedBlocks: %+v\n", block.AccountAddress, hash, account.unconfirmedBlocks))
 			}
 		} else {
 			firstConfirmSb, err := chainInstance.GetSnapshotBlockByHeight(firstConfirmSbHeight)
@@ -264,7 +284,7 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 
 			blocksMap := account.ConfirmedBlockMap[firstConfirmSb.Hash]
 			if _, ok := blocksMap[hash]; !ok {
-				t.Fatal(fmt.Printf("error, %+v\n%+v", firstConfirmSb.SnapshotContent[block.AccountAddress], block))
+				t.Fatal(fmt.Sprintf("error, %+v\n%+v\n", firstConfirmSb.SnapshotContent[block.AccountAddress], block))
 			}
 		}
 	}
@@ -285,6 +305,15 @@ func GetLatestAccountBlock(t *testing.T, chainInstance Chain, accounts map[types
 			t.Fatal(err)
 		}
 
+		if block == nil {
+			if account.latestBlock == nil {
+				continue
+			} else {
+				chainInstance.GetLatestAccountBlock(addr)
+				t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.latestBlock))
+			}
+		}
+
 		if block.Hash != account.latestBlock.Hash {
 			t.Fatal(fmt.Sprintf("%+v\n%+v\n", block, accounts[addr].latestBlock))
 		}
@@ -297,9 +326,18 @@ func GetLatestAccountHeight(t *testing.T, chainInstance Chain, accounts map[type
 		if err != nil {
 			t.Fatal(err)
 		}
+		if height <= 0 {
+			if account.latestBlock == nil {
+				continue
+			} else {
+				t.Fatal(fmt.Sprintf("%+v", account.latestBlock))
+			}
+		} else if account.latestBlock == nil {
+			t.Fatal(fmt.Sprintf("%d, %+v", height, account.latestBlock))
+		}
 
 		if height != account.latestBlock.Height {
-			t.Fatal("error")
+			t.Fatal(fmt.Sprintf("%d, %+v", height, account.latestBlock))
 		}
 	}
 }
@@ -311,7 +349,7 @@ func checkAccountBlock(t *testing.T, hash types.Hash, getBlock func() (*ledger.A
 	}
 
 	if block == nil || block.Hash != hash {
-		t.Fatal(fmt.Sprintf("block is error! block is %+v\n", block))
+		t.Fatal(fmt.Sprintf("hash is %s, block is error! block is %+v\n", hash, block))
 	}
 }
 

@@ -101,6 +101,7 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 	result := false
 	for iter.Next() {
 		result = true
+		break
 	}
 
 	if err := iter.Error(); err != nil {
@@ -109,6 +110,7 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 		}
 		return false, err
 	}
+
 	return result, nil
 }
 
