@@ -167,7 +167,7 @@ func (d *discovery) Start() (err error) {
 	}
 	if len(d.BootNodes) > 0 {
 		var bt booter
-		bt, err = newCfgBooter(d.BootNodes)
+		bt, err = newCfgBooter(d.BootNodes, d.node)
 		if err != nil {
 			return
 		}

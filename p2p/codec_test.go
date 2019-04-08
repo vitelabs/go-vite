@@ -136,7 +136,7 @@ func ExampleSHA3_Size() {
 }
 
 func MsgEqual(msg1, msg2 Msg) bool {
-	if msg1.Pid != msg2.Pid {
+	if msg1.pid != msg2.pid {
 		return false
 	}
 	if msg1.Code != msg2.Code {
@@ -167,7 +167,7 @@ func TestCodec(t *testing.T) {
 			_, _ = crand.Read(buf)
 
 			msg = Msg{
-				Pid:     ProtocolID(i % max),
+				pid:     ProtocolID(i % max),
 				Code:    ProtocolID(i % max),
 				Payload: buf,
 			}
@@ -196,7 +196,7 @@ func TestCodec(t *testing.T) {
 			msgC = <-msgChan
 
 			if MsgEqual(msg, msgC) {
-				t.Logf("get message %d/%d, %d bytes", msg.Pid, msg.Code, len(msg.Payload))
+				t.Logf("get message %d/%d, %d bytes", msg.pid, msg.Code, len(msg.Payload))
 			} else {
 				t.Fatalf("message not equal")
 			}

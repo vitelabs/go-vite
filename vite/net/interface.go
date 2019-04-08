@@ -124,6 +124,6 @@ type Net interface {
 	Broadcaster
 	BlockSubscriber
 	Start(svr p2p.P2P) error
-	Stop()
+	Stop() error
 	Info() NodeInfo
 }

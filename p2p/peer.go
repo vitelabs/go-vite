@@ -96,7 +96,7 @@ type PeerInfo struct {
 const peerReadMsgBufferSize = 10
 const peerWriteMsgBufferSize = 10
 
-type peerLeveler interface {
+type levelManager interface {
 	changeLevel(p PeerMux, old Level) error
 }
 
@@ -106,7 +106,7 @@ type peerMux struct {
 	name       string
 	version    uint32
 	level      Level
-	pm         peerLeveler
+	pm         levelManager
 	createAt   time.Time
 	protoMap   map[ProtocolID]*protoPeer
 	running    int32
@@ -182,7 +182,7 @@ func (p *peerMux) ID() vnode.NodeID {
 }
 
 // setManager will be invoked before run by module p2p
-func (p *peerMux) setManager(pm peerLeveler) {
+func (p *peerMux) setManager(pm levelManager) {
 	p.pm = pm
 }
 
