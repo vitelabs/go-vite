@@ -8,7 +8,6 @@ import (
 )
 
 type Pool interface {
-	ExistInPool(address types.Address, fromBlockHash types.Hash) bool
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
 }
 

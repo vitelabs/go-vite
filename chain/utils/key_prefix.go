@@ -51,3 +51,8 @@ const (
 
 	CallDepthKeyPrefix = byte(11)
 )
+
+// Statistics
+const (
+	OnRoadInfoKeyPrefix = byte(1)
+)
