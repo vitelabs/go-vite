@@ -17,6 +17,10 @@ type mockNet struct {
 	BlockSubscriber
 }
 
+func (n *mockNet) Stop() error {
+	return nil
+}
+
 func (n *mockNet) ProtoData() []byte {
 	return nil
 }
