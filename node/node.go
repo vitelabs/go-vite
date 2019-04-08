@@ -165,7 +165,7 @@ func (node *Node) Prepare() (err error) {
 		if err != nil {
 			return
 		}
-		if err = node.walletManager.MatchAddress(node.config.CoinBase, addr, index); err != nil {
+		if err = node.walletManager.MatchAddress(node.config.EntropyStorePath, addr, index); err != nil {
 			return
 		}
 
