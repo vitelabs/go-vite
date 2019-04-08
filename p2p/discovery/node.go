@@ -141,22 +141,7 @@ func udpAddrToEndPoint(addr *net.UDPAddr) (e *vnode.EndPoint) {
 func nodeFromPing(res *packet) *Node {
 	p := res.body.(*ping)
 
-	var addr *net.UDPAddr
-	var e *vnode.EndPoint
-	if p.from != nil {
-		var err error
-		addr, err = net.ResolveUDPAddr("udp", p.from.String())
-		if err != nil {
-			addr = res.from
-			// generate from remote address
-			e = udpAddrToEndPoint(res.from)
-		} else {
-			e = p.from
-		}
-	} else {
-		addr = res.from
-		e = udpAddrToEndPoint(res.from)
-	}
+	e, addr := extractEndPoint(res.from, p.from)
 
 	return &Node{
 		Node: vnode.Node{
@@ -165,8 +150,6 @@ func nodeFromPing(res *packet) *Node {
 			Net:      p.net,
 			Ext:      p.ext,
 		},
-		addAt:    time.Now(),
-		activeAt: time.Now(),
-		addr:     addr,
+		addr: addr,
 	}
 }

@@ -144,7 +144,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}
-				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), task.Addr, *q); !canRetryDuringNextSnapshot {
+				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), *q); !canRetryDuringNextSnapshot {
 					blog.Info("Check quota is gone to be insufficient",
 						"quota", fmt.Sprintf("(u:%v c:%v t:%v sb:%v)", q.Used(), q.Current(), q.Total(), addrState.LatestSnapshotHash))
 					tp.worker.addContractIntoBlackList(task.Addr)
@@ -155,9 +155,9 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			// no vmBlock no vmRetry in condition that fail to create contract
 			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
 				blog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
-				tp.worker.addContractIntoBlackList(task.Addr)
-				return false
 			}
+			tp.worker.addContractIntoBlackList(task.Addr)
+			return false
 		}
 	}
 	return true
