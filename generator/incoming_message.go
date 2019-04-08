@@ -29,7 +29,7 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 		block.FromBlockHash = types.Hash{}
 		if im.ToAddress != nil {
 			block.ToAddress = *im.ToAddress
-		} else {
+		} else if im.BlockType != ledger.BlockTypeSendCreate {
 			return nil, errors.New("pack sendBlock failed, toAddress can't be nil")
 		}
 
