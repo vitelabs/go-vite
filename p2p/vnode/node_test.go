@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-func compare(n, n2 *Node, rest bool) error {
+func compare(n, n2 *Node, ext bool) error {
 	if n.ID != n2.ID {
 		return fmt.Errorf("different ID %s %s", n.ID, n2.ID)
 	}
@@ -39,11 +39,15 @@ func compare(n, n2 *Node, rest bool) error {
 		return fmt.Errorf("different Port %d %d", n.Port, n2.Port)
 	}
 
+	if n.Typ != n2.Typ {
+		return fmt.Errorf("different type %d %d", n.Typ, n2.Typ)
+	}
+
 	if n.Net != n2.Net {
 		return fmt.Errorf("different Net %d %d", n.Net, n2.Net)
 	}
 
-	if rest && !bytes.Equal(n.Ext, n2.Ext) {
+	if ext && !bytes.Equal(n.Ext, n2.Ext) {
 		return fmt.Errorf("different Ext %v %v", n.Ext, n2.Ext)
 	}
 
@@ -183,7 +187,7 @@ func TestParseNode(t *testing.T) {
 
 	var samples = []sample{
 		{
-			"vite.org",
+			"vnode://vite.org",
 			func(n *Node, err error) error {
 				if err != nil {
 					return errors.New("error should be nil")

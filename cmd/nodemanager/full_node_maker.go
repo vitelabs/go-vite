@@ -81,7 +81,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	//Network Config
 	if identity := ctx.GlobalString(utils.IdentityFlag.Name); len(identity) > 0 {
-		cfg.Name = identity
+		cfg.Identity = identity
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
