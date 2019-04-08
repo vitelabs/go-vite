@@ -28,6 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/netool"
+
 	"github.com/vitelabs/go-vite/p2p/discovery"
 
 	"github.com/golang/protobuf/proto"
@@ -74,11 +76,6 @@ type P2P interface {
 	Info() NodeInfo
 	Register(pt Protocol) error
 	SetMaxPeers(level Level, max int)
-}
-
-type netutils interface {
-	ban(ip net.IP)
-	unban(ip net.IP)
 }
 
 type Handshaker interface {
@@ -134,7 +131,7 @@ type p2p struct {
 
 	handshaker Handshaker
 
-	netTool netutils
+	blackList netool.BlackList
 
 	server Server
 
@@ -144,6 +141,24 @@ type p2p struct {
 	term    chan struct{}
 
 	log log15.Logger
+}
+
+func strategy(t time.Time, count int) bool {
+	now := time.Now()
+
+	if now.Sub(t) < 5*time.Second {
+		return true
+	}
+
+	if now.Sub(t) > 5*time.Minute {
+		return false
+	}
+
+	if count > 10 {
+		return true
+	}
+
+	return false
 }
 
 func New(cfg *Config) P2P {
@@ -182,6 +197,7 @@ func New(cfg *Config) P2P {
 		peerMap:     make(map[vnode.NodeID]PeerMux),
 		peerLevel:   make(map[Level][]PeerMux),
 		handshaker:  hkr,
+		blackList:   netool.NewBlackList(strategy),
 		dialer:      newDialer(5*time.Second, 5, hkr),
 		log:         log,
 	}
