@@ -39,3 +39,30 @@ func GetAddressStateForGenerator(chain chain.Chain, addr *types.Address) (*EnvPr
 func RecoverVmContext(chain vm_db.Chain, block *ledger.AccountBlock, snapshotHash *types.Hash) (vmDbList vm_db.VmDb, resultErr error) {
 	return nil, nil
 }
+
+type VMGlobalStatus struct {
+	c        chainReader
+	sb       *ledger.SnapshotBlock
+	fromHash types.Hash
+	seed     uint64
+	setSeed  bool
+}
+
+func NewVMGlobalStatus(c chainReader, sb *ledger.SnapshotBlock, fromHash types.Hash) *VMGlobalStatus {
+	return &VMGlobalStatus{c: c, sb: sb, fromHash: fromHash, setSeed: false}
+}
+func (g *VMGlobalStatus) Seed() (uint64, error) {
+	if g.setSeed {
+		return g.seed, nil
+	} else {
+		s, err := g.c.GetSeed(g.sb, g.fromHash)
+		if err == nil {
+			g.seed = s
+			g.setSeed = true
+		}
+		return s, err
+	}
+}
+func (g *VMGlobalStatus) SnapshotBlock() *ledger.SnapshotBlock {
+	return g.sb
+}

@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"time"
@@ -160,7 +159,8 @@ type Chain interface {
 
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
-	GetRandomGlobalStatus(addr *types.Address, fromHash *types.Hash) (*util.GlobalStatus, error)
+	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
 	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
 

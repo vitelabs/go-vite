@@ -5,10 +5,11 @@ import (
 	"crypto/cipher"
 	crand "crypto/rand"
 	"errors"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"golang.org/x/crypto/curve25519"
 	"io"
 	"strconv"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"golang.org/x/crypto/curve25519"
 )
 
 const (
