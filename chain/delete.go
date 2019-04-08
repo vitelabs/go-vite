@@ -34,6 +34,8 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, cErr
 	}
 
+	c.flusher.Flush()
+
 	snapshotChunkList := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
 
 	var location *chain_file_manager.Location
@@ -72,8 +74,8 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 }
 
 func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) []*ledger.SnapshotChunk {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
+	//c.flusherMu.RLock()
+	//defer c.flusherMu.RUnlock()
 
 	c.flusher.RecoverStart()
 
@@ -84,6 +86,15 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		cErr := errors.New(fmt.Sprintf("c.blockDB.Rollback failed, location is %d. Error: %s,", location, err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
+
+	if len(snapshotChunks) <= 0 {
+		return nil
+	}
+
+	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
+	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
+		AccountBlocks: unconfirmedBlocks,
+	})
 
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
@@ -101,13 +112,32 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 	}
 
 	// rollback state db
-	if err := c.stateDB.Rollback(snapshotChunks); err != nil {
+	if err := c.stateDB.RollbackSnapshotBlocks(snapshotChunks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
+	fmt.Println("delete")
+	for _, chunk := range snapshotChunks {
+		fmt.Println("")
+		fmt.Println("snapshot blocks:")
+		fmt.Printf("%+v\n", chunk.SnapshotBlock)
+		fmt.Println("")
+		fmt.Println("account blocks:")
+		fmt.Println("")
+
+		for _, ab := range chunk.AccountBlocks {
+			fmt.Printf("%+v\n", ab)
+			fmt.Println("")
+		}
+	}
+	fmt.Println("delete end")
+
+	c.flusher.Flush()
+
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
+	// trigger manually
 	c.stateDB.DeleteSnapshotBlocks(snapshotChunks)
 
 	return snapshotChunks
@@ -164,8 +194,8 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 }
 
 func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
+	//c.flusherMu.RLock()
+	//defer c.flusherMu.RUnlock()
 
 	seg := []*ledger.SnapshotChunk{{
 		AccountBlocks: blocks,
@@ -186,7 +216,7 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
 	}
 
 	// rollback state db
-	if err := c.stateDB.Rollback(seg); err != nil {
+	if err := c.stateDB.RollbackAccountBlocks(seg); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.Rollback failed. Error: %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}

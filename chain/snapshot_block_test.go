@@ -303,6 +303,10 @@ func GetSnapshotHeaderBeforeTime(t *testing.T, chainInstance *chain, snapshotBlo
 }
 
 func GetSnapshotHeadersAfterOrEqualTime(t *testing.T, chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
+	if len(snapshotBlockList) <= 0 {
+		return
+	}
+
 	lastSnapshotBlock := snapshotBlockList[len(snapshotBlockList)-1]
 	for _, snapshotBlock := range snapshotBlockList {
 

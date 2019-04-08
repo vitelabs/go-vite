@@ -12,26 +12,25 @@ import (
 )
 
 // TODO
-func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	if len(deletedSnapshotSegments) <= 0 {
-		return nil
-	}
+func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	return sDB.rollback(deletedSnapshotSegments, false)
+}
 
-	onlyDeleteAbs := false
-	if deletedSnapshotSegments[0].SnapshotBlock == nil {
-		onlyDeleteAbs = true
-	}
+func (sDB *StateDB) RollbackAccountBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	return sDB.rollback(deletedSnapshotSegments, true)
+}
+
+func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, onlyDeleteAbs bool) error {
 
 	batch := sDB.store.NewBatch()
 
 	blocksCache := make(map[types.Hash]*ledger.AccountBlock)
 	balanceCache := make(map[types.Address]map[types.TokenTypeId]*big.Int)
 
-	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
-
 	addrList := make(map[types.Address]struct{})
-
 	rollbackStorageKeySet := make(map[types.Address]map[string]struct{})
+
+	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
 
 	snapshotHeight := latestHeight
 	for _, seg := range deletedSnapshotSegments {
@@ -41,14 +40,14 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 			continue
 		}
 
-		if !onlyDeleteAbs {
-			sDB.storageRedo.Rollback(snapshotHeight)
-		}
-
 		var err error
 		kvLogMap, _, err := sDB.storageRedo.QueryLog(snapshotHeight)
 		if err != nil {
 			return err
+		}
+
+		if !onlyDeleteAbs {
+			sDB.storageRedo.Rollback(snapshotHeight)
 		}
 
 		deleteKeys := make(map[string]struct{})
@@ -57,6 +56,7 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 			if onlyDeleteAbs {
 				sDB.storageRedo.RemoveLog(accountBlock.Hash)
 			}
+
 			blocksCache[accountBlock.Hash] = accountBlock
 			for _, sendBlock := range accountBlock.SendBlockList {
 				blocksCache[sendBlock.Hash] = sendBlock
@@ -195,8 +195,11 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 			}
 		}
 	} else {
-		for addr, keySet := range rollbackStorageKeySet {
 
+		fmt.Println("lalala")
+
+		for addr, keySet := range rollbackStorageKeySet {
+			fmt.Println(addr, keySet)
 			storage := NewStorageDatabase(sDB, latestHeight+1, addr)
 			for keyStr := range keySet {
 				key := []byte(keyStr)
@@ -214,6 +217,7 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 
 			}
 		}
+		fmt.Println("lalala ha")
 	}
 
 	return nil

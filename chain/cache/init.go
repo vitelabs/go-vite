@@ -24,7 +24,7 @@ func (cache *Cache) Init() error {
 }
 
 func (cache *Cache) initGenesisSnapshotBlock() error {
-	genesisSnapshotBlock, err := cache.chain.GetSnapshotBlockByHeight(1)
+	genesisSnapshotBlock, err := cache.chain.QuerySnapshotBlockByHeight(1)
 	if err != nil {
 		return err
 	}

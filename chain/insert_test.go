@@ -121,10 +121,6 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 	}
 }
 
-func BenchmarkChain_InsertStateDB(b *testing.B) {
-
-}
-
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -209,14 +205,20 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		Data:   chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	})
 
-	keyValue := make(map[string][]byte, 10)
-	for i := 0; i < 1; i++ {
-		keyValue[strconv.FormatUint(uint64(time.Now().UnixNano()), 10)] = chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))
+	latestHeight := uint64(0)
+	if account.latestBlock != nil {
+		latestHeight = account.latestBlock.Height
 	}
+
+	keyValue := map[string][]byte{
+		strconv.FormatUint(latestHeight+1, 10): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
+	}
+	fmt.Printf("%s add key value: %+v\n", account.addr, keyValue)
+
 	cTxOptions := &CreateTxOptions{
 		MockSignature: true,
-		VmLogList:     vmLogList,
 		KeyValue:      keyValue,
+		VmLogList:     vmLogList,
 		Quota:         rand.Uint64() % 10000,
 	}
 
@@ -232,7 +234,8 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 
 	if createRequestTx {
 		toAccount := accounts[addrList[rand.Intn(len(addrList))]]
-		if len(toAccount.SendBlocksMap) <= 0 && len(toAccount.ReceiveBlocksMap) <= 0 {
+
+		if len(toAccount.BlocksMap) <= 0 {
 			cTxOptions.ContractMeta = &ledger.ContractMeta{
 				SendConfirmedTimes: 2,
 				Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
@@ -245,6 +248,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 	} else {
 		tx, createTxErr = account.CreateResponseTx(cTxOptions)
 	}
+
 	if createTxErr != nil {
 		return nil, createTxErr
 	}

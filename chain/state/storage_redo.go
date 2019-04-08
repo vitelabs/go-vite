@@ -5,6 +5,7 @@ import (
 	"path"
 	"sync"
 
+	"fmt"
 	"github.com/boltdb/bolt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -109,10 +110,11 @@ func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
 func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
 	if snapshotHeight != redo.snapshotHeight {
 		redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
+	} else {
+		redo.snapshotHeight = 0
+		redo.logMap = make(map[types.Hash][]byte)
 	}
 
-	redo.snapshotHeight = 0
-	redo.logMap = make(map[types.Hash][]byte)
 }
 
 func (redo *StorageRedo) Id() types.Hash {
@@ -162,19 +164,19 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 }
 
 func (redo *StorageRedo) Commit() error {
-	//if len(redo.rollbackHeights) > 0 {
-	//	defer func() {
-	//		redo.rollbackHeights = nil
-	//	}()
-	//
-	//	return redo.delete(redo.rollbackHeights)
-	//} else if redo.flushingBatch.Len() > 0 {
-	//	defer func() {
-	//		redo.flushingBatch.Reset()
-	//	}()
-	//
-	//	return redo.flush(redo.snapshotHeight, redo.flushingBatch)
-	//}
+	if len(redo.rollbackHeights) > 0 {
+		defer func() {
+			redo.rollbackHeights = nil
+		}()
+
+		return redo.delete(redo.rollbackHeights)
+	} else if redo.flushingBatch.Len() > 0 {
+		defer func() {
+			redo.flushingBatch.Reset()
+		}()
+
+		return redo.flush(redo.snapshotHeight, redo.flushingBatch)
+	}
 
 	return nil
 }
@@ -218,6 +220,8 @@ func (redo *StorageRedo) flush(snapshotHeight uint64, batch *leveldb.Batch) erro
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("create bucket", snapshotHeight)
 
 	// add
 	redo.flushingBatch.Replay(NewBatchFlush(bu))

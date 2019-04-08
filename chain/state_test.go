@@ -87,8 +87,8 @@ func GetBalanceMap(t *testing.T, chainInstance *chain, accounts map[types.Addres
 			if account.Balance().Cmp(account.InitBalance()) != 0 {
 				t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d, Balance3: %d", account.addr, balance, account.Balance(), account.InitBalance()))
 			}
-		} else if balanceMap[ledger.ViteTokenId].Cmp(account.BalanceMap[account.latestBlock.Hash]) != 0 {
-			t.Fatal(fmt.Sprintf("Error: Balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.BalanceMap[account.latestBlock.Hash]))
+		} else if balanceMap[ledger.ViteTokenId].Cmp(account.Balance()) != 0 {
+			t.Fatal(fmt.Sprintf("Error: Balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.Balance()))
 		}
 
 	}
@@ -189,6 +189,9 @@ func GetContractList(t *testing.T, chainInstance *chain, accounts map[types.Addr
 			contractList, err := chainInstance.GetContractList(gid)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if len(contractList) <= 0 {
+				t.Fatal("error")
 			}
 
 			if contractList[0] != account.addr {
@@ -301,7 +304,7 @@ func GetStorageIterator(t *testing.T, chainInstance *chain, accounts map[types.A
 			return chainInstance.GetStorageIterator(account.addr, nil)
 		})
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal(fmt.Sprintf("%s, account: %s, account.latestAccountBlock: %+v\n", err.Error(), account.addr, account.latestBlock))
 		}
 	}
 }
@@ -318,7 +321,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			return errors.New(fmt.Sprintf("key: %d, kvValue:%d, value: %d", key, kvSet[string(key)], value))
+			return errors.New(fmt.Sprintf("key: %s, kv: %+v, value: %d, queryValue: %d", key, kvSet, kvSet[string(key)], value))
 		}
 	}
 	if err := iter.Error(); err != nil {

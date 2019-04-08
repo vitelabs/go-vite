@@ -544,10 +544,22 @@ func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
 		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
 	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.unconfirmedBlocks == nil {
+		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	}
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }
 func (acc *Account) addReceiveBlock(block *vm_db.VmAccountBlock) {
 	acc.ReceiveBlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.BlocksMap == nil {
+		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.unconfirmedBlocks == nil {
+		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	}
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }

@@ -8,10 +8,6 @@ import (
 )
 
 func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	if len(deletedSnapshotSegments) <= 0 {
-		return nil
-	}
-
 	batch := iDB.store.NewBatch()
 
 	openSendBlockHashMap := make(map[types.Hash]struct{})
@@ -44,6 +40,11 @@ func (iDB *IndexDB) deleteSnapshotBlock(batch *leveldb.Batch, snapshotBlock *led
 	if snapshotBlock != nil {
 		iDB.deleteSnapshotBlockHash(batch, snapshotBlock.Hash)
 		iDB.deleteSnapshotBlockHeight(batch, snapshotBlock.Height)
+
+		// delete confirmed index
+		for addr, hashHeight := range snapshotBlock.SnapshotContent {
+			iDB.deleteConfirmHeight(batch, addr, hashHeight.Height)
+		}
 	}
 }
 
@@ -54,9 +55,6 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 
 		// delete account block height index
 		iDB.deleteAccountBlockHeight(batch, block.AccountAddress, block.Height)
-
-		// delete confirmed index
-		iDB.deleteConfirmHeight(batch, block.AccountAddress, block.Height)
 
 		if block.IsReceiveBlock() {
 			// delete receive index
