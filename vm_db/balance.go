@@ -7,7 +7,7 @@ import (
 
 func (db *vmDb) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
 	if balance, ok := db.unsaved.GetBalance(tokenTypeId); ok {
-		return balance, nil
+		return new(big.Int).Set(balance), nil
 	}
 
 	return db.chain.GetBalance(*db.address, *tokenTypeId)
