@@ -48,7 +48,7 @@ func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 
 func (db *vmDb) IsContractAccount() (bool, error) {
 	if db.address == nil {
-		return false, nil
+		return false, errors.New("No context, db.address is nil")
 	}
 
 	return db.chain.IsContractAccount(*db.address)
