@@ -114,7 +114,7 @@ func TestSplitChunk(t *testing.T) {
 			t.Fatalf("chunk from is larger than to: %d - %d", c[0], c[1])
 		}
 
-		if c[1] >= c[0]+chunk {
+		if c[1] >= c[0]+batch {
 			t.Fatalf("chunk is too large: %d - %d", c[0], c[1])
 		}
 

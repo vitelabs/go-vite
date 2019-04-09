@@ -323,7 +323,7 @@ func (m *peerSet) Del(peer *peer) {
 	m.prw.Lock()
 	defer m.prw.Unlock()
 
-	delete(m.m, peer.id)
+	delete(m.m, peer.ID())
 
 	go m.Notify(peerEvent{
 		code:  delPeer,

@@ -21,6 +21,7 @@ package net
 import (
 	"fmt"
 	net2 "net"
+	"time"
 
 	"github.com/vitelabs/go-vite/vite/net/message"
 
@@ -31,9 +32,28 @@ import (
 
 type Handler func(msgId uint64, payload p2p.Serializable)
 type MockPeer struct {
-	Handlers map[ViteCmd]Handler
-	addr     *net2.TCPAddr
-	faddr    *net2.TCPAddr
+	Handlers    map[ViteCmd]Handler
+	addr        *net2.TCPAddr
+	faddr       *net2.TCPAddr
+	id          string
+	height      uint64
+	head        types.Hash
+	knownblocks map[types.Hash]struct{}
+	ctime       time.Time
+}
+
+func (mp *MockPeer) Info() PeerInfo {
+	return PeerInfo{
+		ID:      mp.id,
+		Addr:    "",
+		Head:    mp.head.String(),
+		Height:  mp.height,
+		Created: mp.ctime.String(),
+	}
+}
+
+func (mp *MockPeer) HasBlock(hash types.Hash) bool {
+	return false
 }
 
 func (mp *MockPeer) Info() PeerInfo {
@@ -52,9 +72,14 @@ func (mp *MockPeer) HasBlock(hash types.Hash) bool {
 
 func NewMockPeer() *MockPeer {
 	mp := &MockPeer{
-		Handlers: make(map[ViteCmd]Handler),
-		addr:     &net2.TCPAddr{},
-		faddr:    &net2.TCPAddr{},
+		Handlers:    make(map[ViteCmd]Handler),
+		addr:        &net2.TCPAddr{},
+		faddr:       &net2.TCPAddr{},
+		id:          id,
+		height:      height,
+		head:        head,
+		knownblocks: make(map[types.Hash]struct{}),
+		ctime:       time.Now(),
 	}
 	mp.Handlers[FileListCode] = defFileListHandler
 
@@ -70,27 +95,28 @@ func (mp *MockPeer) FileAddress() *net2.TCPAddr {
 }
 
 func (mp *MockPeer) SetHead(head types.Hash, height uint64) {
-	panic("implement me")
+	mp.height = height
+	mp.head = head
 }
 
 func (mp *MockPeer) SeeBlock(hash types.Hash) {
-	panic("implement me")
+	mp.knownblocks[hash] = struct{}{}
 }
 
 func (mp *MockPeer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
@@ -98,27 +124,27 @@ func (mp *MockPeer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (
 }
 
 func (mp *MockPeer) SendMsg(msg *p2p.Msg) (err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) Report(err error) {
-	panic("implement me")
+	return
 }
 
 func (mp *MockPeer) ID() string {
-	panic("implement me")
+	return mp.id
 }
 
 func (mp *MockPeer) Height() uint64 {
-	panic("implement me")
+	return mp.height
 }
 
 func (mp *MockPeer) Head() types.Hash {
-	panic("implement me")
+	return types.Hash{}
 }
 
 func (mp *MockPeer) Disconnect(reason p2p.DiscReason) {
-	panic("implement me")
+	return
 }
 
 func defFileListHandler(msgId uint64, payload p2p.Serializable) {

@@ -86,7 +86,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.currentSnapshotHash = w.accEvent.SnapshotHash
 	}
 
-	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
+	w.log = slog.New("worker", "c", "gid", accEvent.Gid, "producer", accEvent.Address)
 
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
@@ -296,7 +296,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		}
 		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, commonContractAddressList)
 		if err != nil {
-			w.log.Error("GetPledgeQuotas err", "error", err)
+			w.log.Error(fmt.Sprintf("GetPledgeQuotas err:%v, sbHash:%v", err, w.currentSnapshotHash))
 		} else {
 			for k, v := range commonQuotas {
 				quotas[k] = v
@@ -306,7 +306,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 		var qRrr error
 		quotas, qRrr = w.manager.Chain().GetPledgeQuotas(w.currentSnapshotHash, beneficialList)
 		if qRrr != nil {
-			w.log.Error("GetPledgeQuotas err", "error", qRrr)
+			w.log.Error(fmt.Sprintf("GetPledgeQuotas err:%v, sbHash:%v", qRrr, w.currentSnapshotHash))
 		}
 	}
 	return quotas
