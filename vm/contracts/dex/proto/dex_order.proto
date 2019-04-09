@@ -18,6 +18,7 @@ message Order {
     bytes ExecutedFee = 13; // fee actually executed
     bytes RefundToken = 14;
     bytes RefundQuantity = 15; //refund trade/quote token
+    int64 Timestamp = 16;
 }
 
 message OrderTokenInfo {
@@ -44,6 +45,7 @@ message OrderUpdateInfo {
     OrderTokenInfo OrderTokenInfo = 9;
 }
 
+//maker no need tokenInfo, use taker tokenInfo instead
 message OrderNode {
     Order Order = 1;
     repeated bytes ForwardOnLevel = 2;
@@ -72,6 +74,7 @@ message Transaction {
     bytes Amount = 7;
     bytes TakerFee = 8;
     bytes MakerFee = 9;
+    int64 Timestamp = 10;
 }
 
 message OrderFail {
@@ -83,6 +86,7 @@ message MarketInfo {
     int32 TradeTokenDecimals = 1;
     int32 QuoteTokenDecimals = 2;
     bytes Creator    = 3; //creator address
+    int64 Timestamp = 4;
 }
 
 message NewMarket {
