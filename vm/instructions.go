@@ -2,7 +2,6 @@ package vm
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -610,7 +609,8 @@ func opJump(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte,
 	pos := stack.pop()
 	if !c.jumpdests.has(c.codeAddr, c.code, pos) {
 		nop := c.getOp(pos.Uint64())
-		return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
+		nodeConfig.log.Error("invalid jump destination", nop, pos)
+		return nil, util.ErrInvalidJumpDestination
 	}
 	*pc = pos.Uint64()
 
@@ -623,7 +623,8 @@ func opJumpi(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte
 	if cond.Sign() != 0 {
 		if !c.jumpdests.has(c.codeAddr, c.code, pos) {
 			nop := c.getOp(pos.Uint64())
-			return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
+			nodeConfig.log.Error("invalid jump destination", nop, pos)
+			return nil, util.ErrInvalidJumpDestination
 		}
 		*pc = pos.Uint64()
 	} else {

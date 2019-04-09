@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -85,7 +84,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 		}
 		// old is not active, check old reward drained
 		if !checkRewardDrained(db, groupInfo, old.RewardTime, old.CancelTime) {
-			return nil, errors.New("reward is not drained")
+			return nil, util.ErrInvalidMethodParam
 		}
 		hisAddrList = old.HisAddrList
 	}
@@ -288,7 +287,7 @@ func CalcReward(db vm_db.VmDb, old *types.Registration, gid types.Gid, current *
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
-			err = errors.New("calc reward panic")
+			err = util.ErrChainForked
 		}
 	}()
 	groupInfo, err := abi.GetConsensusGroup(db, gid)
@@ -332,7 +331,7 @@ func CalcRewardByDay(db vm_db.VmDb, gid types.Gid, timestamp int64) (m map[strin
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
-			err = errors.New("calc reward panic")
+			err = util.ErrChainForked
 		}
 	}()
 	groupInfo, err := abi.GetConsensusGroup(db, gid)

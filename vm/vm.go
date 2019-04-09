@@ -268,12 +268,12 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 
 	gid := util.GetGidFromCreateContractData(block.Data)
 	if gid == types.SNAPSHOT_GID {
-		return nil, errors.New("invalid consensus group")
+		return nil, util.ErrInvalidMethodParam
 	}
 
 	contractType := util.GetContractTypeFromCreateContractData(block.Data)
 	if !util.IsExistContractType(contractType) {
-		return nil, errors.New("invalid contract type")
+		return nil, util.ErrInvalidMethodParam
 	}
 
 	confirmTime := util.GetConfirmTimeFromCreateContractData(block.Data)
@@ -606,7 +606,7 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 	if block.AccountAddress != types.AddressConsensusGroup &&
 		block.AccountAddress != types.AddressMintage {
-		return nil, errors.New("invalid account address")
+		return nil, util.ErrInvalidMethodParam
 	}
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil))
 	return &vm_db.VmAccountBlock{block, db}, nil

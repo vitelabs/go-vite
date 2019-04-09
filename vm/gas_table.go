@@ -2,7 +2,6 @@ package vm
 
 import (
 	"bytes"
-	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -373,7 +372,7 @@ func GasRequiredForSendBlock(block *ledger.AccountBlock) (uint64, error) {
 	} else if block.BlockType == ledger.BlockTypeSendCall {
 		return gasUserSendCall(block)
 	} else {
-		return 0, errors.New("block type not supported")
+		return 0, util.ErrBlockTypeNotSupported
 	}
 }
 
@@ -396,7 +395,7 @@ func gasReceive(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, 
 func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
 	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
 		if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
-			return 0, errors.New("built-in contract method not exists")
+			return 0, util.ErrAbiMethodNotFound
 		} else {
 			return method.GetSendQuota(block.Data)
 		}

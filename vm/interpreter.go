@@ -2,7 +2,6 @@ package vm
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -42,7 +41,8 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		operation := i.instructionSet[op]
 
 		if !operation.valid {
-			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
+			nodeConfig.log.Error("invalid opcode", "op", int(op))
+			return nil, util.ErrInvalidOpCode
 		}
 
 		if err := operation.validateStack(st); err != nil {

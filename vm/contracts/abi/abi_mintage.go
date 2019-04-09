@@ -2,7 +2,6 @@ package abi
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -170,7 +169,7 @@ func GetTokenMapByOwner(db StorageDatabase, owner types.Address) (tokenInfoMap m
 
 func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
 	if len(data) == 0 {
-		return nil, errors.New("token info data is nil")
+		return nil, util.ErrDataNotExist
 	}
 	tokenInfo := new(types.TokenInfo)
 	err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)

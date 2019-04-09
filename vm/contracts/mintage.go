@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -18,7 +17,7 @@ func (p *MethodMint) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	if block.Amount.Cmp(mintagePledgeAmount) == 0 && util.IsViteToken(block.TokenId) {
 		return big.NewInt(0), nil
 	} else if block.Amount.Sign() > 0 {
-		return big.NewInt(0), errors.New("invalid amount")
+		return big.NewInt(0), util.ErrInvalidMethodParam
 	}
 	return new(big.Int).Set(mintageFee), nil
 }
@@ -57,20 +56,20 @@ func CheckMintToken(param abi.ParamMintage) error {
 		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
 		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
-		return errors.New("invalid token param")
+		return util.ErrInvalidMethodParam
 	}
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
-		return errors.New("invalid token name")
+		return util.ErrInvalidMethodParam
 	}
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenSymbol); !ok {
-		return errors.New("invalid token symbol")
+		return util.ErrInvalidMethodParam
 	}
 	if param.IsReIssuable {
 		if param.MaxSupply.Cmp(param.TotalSupply) < 0 || param.MaxSupply.Cmp(helper.Tt256m1) > 0 {
-			return errors.New("invalid reissuable token param")
+			return util.ErrInvalidMethodParam
 		}
 	} else if param.MaxSupply.Sign() > 0 {
-		return errors.New("invalid token param")
+		return util.ErrInvalidMethodParam
 	}
 	return nil
 }
@@ -149,7 +148,7 @@ func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 
 func (p *MethodMintageCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
-		return errors.New("invalid block data")
+		return util.ErrInvalidMethodParam
 	}
 	tokenId := new(types.TokenTypeId)
 	if err := abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameCancelMintPledge, block.Data); err != nil {
@@ -166,7 +165,7 @@ func (p *MethodMintageCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	if tokenInfo.PledgeAddr != sendBlock.AccountAddress ||
 		tokenInfo.PledgeAmount.Sign() == 0 ||
 		tokenInfo.WithdrawHeight > globalStatus.SnapshotBlock().Height {
-		return nil, errors.New("cannot withdraw mintage pledge, status error")
+		return nil, util.ErrInvalidMethodParam
 	}
 	newTokenInfo, _ := abi.ABIMintage.PackVariable(
 		abi.VariableNameTokenInfo,
