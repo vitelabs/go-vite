@@ -198,7 +198,7 @@ func (p *peer) sendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 		TTL:   10,
 	}
 
-	return p.send(NewSnapshotBlockCode, 0, ms)
+	return p.send(NewAccountBlockCode, 0, ms)
 }
 
 type peerEventCode byte
