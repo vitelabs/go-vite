@@ -16,6 +16,8 @@ type Collector interface {
 	Status() uint8
 	Check() (bool, error)
 	Recover() (returnErr error)
+
+	RetainMinHeight() uint64
 }
 
 type Chain interface {

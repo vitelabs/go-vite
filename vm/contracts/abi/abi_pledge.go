@@ -58,6 +58,11 @@ func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
 	return address
 }
 
+func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
+	address, _ := types.BytesToAddress(key[:types.AddressSize])
+	return address
+}
+
 func GetPledgeBeneficialAmount(db StorageDatabase, beneficial types.Address) *big.Int {
 	key := GetPledgeBeneficialKey(beneficial)
 	beneficialAmount := new(VariablePledgeBeneficial)

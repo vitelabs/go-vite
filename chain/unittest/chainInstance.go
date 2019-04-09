@@ -15,29 +15,6 @@ import (
 	"path/filepath"
 )
 
-func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
-	forkPoints := &config.ForkPoints{}
-
-	if genesisConfig != nil && genesisConfig.ForkPoints != nil {
-		forkPoints = genesisConfig.ForkPoints
-	}
-
-	if forkPoints.Smart == nil {
-		forkPoints.Smart = &config.ForkPoint{}
-	}
-	if forkPoints.Smart.Height == 0 {
-		forkPoints.Smart.Height = 5788912
-	}
-	if forkPoints.Mint == nil {
-		forkPoints.Mint = &config.ForkPoint{}
-	}
-	if forkPoints.Mint.Height == 0 {
-		forkPoints.Mint.Height = 9453262
-	}
-
-	return forkPoints
-}
-
 func MakeChainConfig(genesisFile string) *config.Genesis {
 	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
 	var defaultBlockProducers []types.Address
@@ -157,7 +134,7 @@ func NewChainInstance(dirName string, clearDataDir bool) chain.Chain {
 	chainInstance := chain.NewChain(&config.Config{
 		DataDir: dataDir,
 
-		Genesis: makeChainConfig(""),
+		Genesis: MakeChainConfig(""),
 	})
 
 	chainInstance.Init()

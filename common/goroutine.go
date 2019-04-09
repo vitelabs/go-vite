@@ -27,7 +27,7 @@ func catch() {
 		case string:
 			e = errors.New(t)
 		default:
-			e = errors.Errorf("unknown type", err)
+			e = errors.Errorf("unknown type %+v", err)
 		}
 
 		glog.Error("panic", "err", err, "withstack", e)
