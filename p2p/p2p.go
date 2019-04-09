@@ -446,6 +446,8 @@ Loop:
 				p.connect(&n)
 			}
 		}
+
+		time.Sleep(duration)
 	}
 }
 
