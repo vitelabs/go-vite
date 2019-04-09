@@ -1,7 +1,6 @@
 package abi
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -231,7 +230,7 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) (bool,
 			return registration.IsActive(), nil
 		}
 	}
-	return false, errors.New("registration not exists")
+	return false, util.ErrDataNotExist
 }
 
 func GetCandidateList(db StorageDatabase, gid types.Gid) ([]*types.Registration, error) {

@@ -90,7 +90,6 @@ type Account struct {
 	privateKey    ed25519.PrivateKey
 	publicKey     ed25519.PublicKey
 	chainInstance Chain
-	unreceivedMu  sync.RWMutex
 	initBalance   *big.Int
 
 	contractMetaMu sync.RWMutex
@@ -99,6 +98,7 @@ type Account struct {
 	Code []byte
 
 	UnreceivedBlocks map[types.Hash]*vm_db.VmAccountBlock
+	unreceivedMu     sync.RWMutex
 
 	BlocksMap         map[types.Hash]*vm_db.VmAccountBlock
 	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
@@ -423,10 +423,13 @@ func (acc *Account) Snapshot(snapshotHash types.Hash) {
 
 func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
 	// rollback unconfirmed blocks
+	unconfirmedBlockHashList := make([]types.Hash, 0, len(acc.unconfirmedBlocks))
 	for hash := range acc.unconfirmedBlocks {
+		unconfirmedBlockHashList = append(unconfirmedBlockHashList, hash)
+	}
+	for _, hash := range unconfirmedBlockHashList {
 		acc.deleteAccountBlock(accounts, hash)
 	}
-	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
 
 	// rollback confirmed blocks
 	for i := 0; i < len(snapshotBlocks)-1; i++ {
@@ -495,6 +498,7 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 		}
 	}
 
+	delete(acc.unconfirmedBlocks, accountBlock.Hash)
 	delete(acc.BlocksMap, accountBlock.Hash)
 	delete(acc.SendBlocksMap, accountBlock.Hash)
 	delete(acc.ReceiveBlocksMap, accountBlock.Hash)
@@ -509,6 +513,18 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 
 	for _, sendBlock := range accountBlock.SendBlockList {
 		acc.deleteAccountBlock(accounts, sendBlock.Hash)
+	}
+}
+
+func (acc *Account) rollbackLatestBlock() {
+	if acc.latestBlock == nil {
+		return
+	}
+	if acc.latestBlock.Height <= 1 {
+		acc.latestBlock = nil
+	} else {
+		acc.latestBlock = acc.BlocksMap[acc.latestBlock.PrevHash].AccountBlock
+
 	}
 }
 
@@ -544,10 +560,22 @@ func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
 		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
 	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.unconfirmedBlocks == nil {
+		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	}
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }
 func (acc *Account) addReceiveBlock(block *vm_db.VmAccountBlock) {
 	acc.ReceiveBlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.BlocksMap == nil {
+		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+	}
 	acc.BlocksMap[block.AccountBlock.Hash] = block
+
+	if acc.unconfirmedBlocks == nil {
+		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	}
 	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
 }

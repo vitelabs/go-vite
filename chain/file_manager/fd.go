@@ -8,8 +8,6 @@ import (
 )
 
 type fileDescription struct {
-	writePerm bool
-
 	fdSet      *fdManager
 	fileReader *os.File
 
@@ -17,17 +15,12 @@ type fileDescription struct {
 
 	fileId uint64
 
-	readPointer int64
-
 	writeMaxSize int64
-
-	closed bool
 }
 
 func NewFdByFile(file *os.File) *fileDescription {
 	return &fileDescription{
 		fileReader: file,
-		writePerm:  false,
 	}
 }
 
@@ -36,40 +29,13 @@ func NewFdByBuffer(fdSet *fdManager, cacheItem *fileCacheItem) *fileDescription 
 		fdSet:     fdSet,
 		cacheItem: cacheItem,
 
-		fileId: cacheItem.FileId,
-
-		writePerm: false,
+		fileId:       cacheItem.FileId,
+		writeMaxSize: int64(len(cacheItem.Buffer)),
 	}
-}
-
-func NewWriteFd(fdSet *fdManager, cacheItem *fileCacheItem, writeMaxSize int64) *fileDescription {
-	return &fileDescription{
-		fdSet:     fdSet,
-		cacheItem: cacheItem,
-
-		fileId: cacheItem.FileId,
-
-		writeMaxSize: writeMaxSize,
-		writePerm:    true,
-	}
-}
-
-func (fd *fileDescription) Read(b []byte) (int, error) {
-	if fd.fileReader != nil {
-		return fd.fileReader.Read(b)
-	}
-
-	readN, err := fd.readAt(b, fd.readPointer)
-	fd.readPointer += int64(readN)
-
-	if err != nil {
-		return readN, err
-	}
-
-	return readN, nil
 }
 
 func (fd *fileDescription) ReadAt(b []byte, offset int64) (int, error) {
+
 	if fd.fileReader != nil {
 		return fd.fileReader.ReadAt(b, offset)
 	}
@@ -83,14 +49,11 @@ func (fd *fileDescription) ReadAt(b []byte, offset int64) (int, error) {
 }
 
 func (fd *fileDescription) Write(buf []byte) (int, error) {
+
 	cacheItem := fd.cacheItem
 
 	cacheItem.Mu.Lock()
 	defer cacheItem.Mu.Unlock()
-
-	if !fd.writePerm {
-		return 0, errors.New(fmt.Sprintf("can't write, writePerm is %+v\n", fd.writePerm))
-	}
 
 	if fd.fileId != cacheItem.FileId {
 		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
@@ -119,9 +82,6 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 }
 
 func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
-	if fd.closed {
-		return 0, nil
-	}
 
 	cacheItem := fd.cacheItem
 
@@ -169,6 +129,7 @@ func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
 }
 
 func (fd *fileDescription) Sync() error {
+
 	cacheItem := fd.cacheItem
 
 	if cacheItem == nil {
@@ -193,14 +154,9 @@ func (fd *fileDescription) Sync() error {
 }
 
 func (fd *fileDescription) Close() {
-	if fd.closed {
-		return
-	}
 	if fd.fileReader != nil {
 		fd.fileReader.Close()
 	}
-
-	fd.cacheItem = nil
 }
 
 func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {

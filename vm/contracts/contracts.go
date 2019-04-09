@@ -24,14 +24,6 @@ func InitContractsConfig(isTestParam bool) {
 	}
 }
 
-type SendBlock struct {
-	ToAddress types.Address
-	BlockType byte
-	Amount    *big.Int
-	TokenId   types.TokenTypeId
-	Data      []byte
-}
-
 type BuiltinContractMethod interface {
 	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
@@ -39,8 +31,7 @@ type BuiltinContractMethod interface {
 	// quota for doSend block
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
-	// TODO return ledger.AccountBlock instead of SendBlock
-	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error)
+	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
 }

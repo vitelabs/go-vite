@@ -16,6 +16,6 @@ func (sDB *StateDB) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 		panic(err)
 	}
 
-	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height, logMap, hasRedo)
+	sDB.storageRedo.SetSnapshot(currentHeight, logMap, hasRedo)
 	return nil
 }

@@ -32,7 +32,11 @@ type fdManager struct {
 	filenamePrefix     string
 	filenamePrefixSize int
 
-	fileCache       *list.List
+	fileCache *list.List
+	fileFdMu  sync.RWMutex
+
+	fileFdCache map[uint64]*fileDescription
+
 	fileCacheLength int
 
 	fileSize int64
@@ -50,7 +54,9 @@ func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, er
 
 		fileCache:       list.New(),
 		fileCacheLength: cacheLength,
-		fileSize:        int64(fileSize),
+
+		fileFdCache: make(map[uint64]*fileDescription, cacheLength),
+		fileSize:    int64(fileSize),
 	}
 
 	var err error
@@ -90,6 +96,14 @@ func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
 		return nil, nil
 	}
 
+	// get from cache
+	fdSet.fileFdMu.RLock()
+	if fd, ok := fdSet.fileFdCache[fileId]; ok {
+		fdSet.fileFdMu.RUnlock()
+		return fd, nil
+	}
+	fdSet.fileFdMu.RUnlock()
+
 	fileCacheItem := fdSet.getCacheItem(fileId)
 	if fileCacheItem != nil {
 		return NewFdByBuffer(fdSet, fileCacheItem), nil
@@ -118,6 +132,10 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 
 		cacheItem := fdSet.fileCache.Back().Value.(*fileCacheItem)
 		if cacheItem != nil {
+			fdSet.fileFdMu.Lock()
+			delete(fdSet.fileFdCache, cacheItem.FileId)
+			fdSet.fileFdMu.Unlock()
+
 			cacheItem.Mu.Lock()
 
 			cacheItem.FileWriter.Close()
@@ -211,6 +229,7 @@ func (fdSet *fdManager) Close() error {
 func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	if fdSet.writeFd != nil {
 		cacheItem := fdSet.writeFd.cacheItem
+
 		cacheItem.Mu.Lock()
 		defer cacheItem.Mu.Unlock()
 
@@ -243,6 +262,11 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
 		if newItem.FlushPointer >= fdSet.fileSize {
 			fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
+
+			fdSet.fileFdMu.Lock()
+			delete(fdSet.fileFdCache, newItem.FileId)
+			fdSet.fileFdMu.Unlock()
+
 		} else {
 			newItem = nil
 		}
@@ -269,13 +293,15 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	newItem.FlushPointer = bufferLen
 
 	newItem.Mu.Unlock()
+
 	if bufferLen > 0 && fd != nil {
 		if _, err := fd.Read(newItem.Buffer[:bufferLen]); err != nil {
 			return err
 		}
 	}
 
-	fdSet.writeFd = NewWriteFd(fdSet, newItem, fdSet.fileSize)
+	fdSet.writeFd = NewFdByBuffer(fdSet, newItem)
+	fdSet.fileFdCache[newItem.FileId] = fdSet.writeFd
 
 	return nil
 }

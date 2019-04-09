@@ -50,14 +50,6 @@ func (c *chain) IsSnapshotBlockExisted(hash types.Hash) (bool, error) {
 	return ok, nil
 }
 
-// is valid
-func (c *chain) IsSnapshotContentValid(snapshotContent ledger.SnapshotContent) (invalidMap map[types.Address]*ledger.HashHeight, err error) {
-	//for addr, hashHeight := range snapshotContent {
-	//
-	//}
-	return nil, nil
-}
-
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return c.cache.GetGenesisSnapshotBlock()
 }
@@ -592,7 +584,13 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotC
 	if startHeight <= 0 {
 		startHeight = 1
 	}
-	latestSb := c.GetLatestSnapshotBlock()
+	latestSb, err := c.QueryLatestSnapshotBlock()
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.QueryLatestSnapshotBlock failed. Error: %s,",
+			err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSubLedger")
+		return nil, cErr
+	}
 	if endHeight > latestSb.Height {
 		endHeight = latestSb.Height
 	}
@@ -601,7 +599,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotC
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
 			startHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		c.log.Error(cErr.Error(), "method", "GetSubLedger")
 		return nil, cErr
 	}
 	if startLocation == nil {
@@ -612,7 +610,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotC
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed,  height is %d. Error: %s,",
 			endHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		c.log.Error(cErr.Error(), "method", "GetSubLedger")
 		return nil, cErr
 	}
 	if endLocation == nil {
@@ -623,7 +621,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotC
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.ReadRange failed, startLocation is %+v, endLocation is %+v, . Error: %s,",
 			startLocation, endLocation, err.Error()))
-		c.log.Error(cErr.Error(), "method", "GetSubLedgerAfterHeight")
+		c.log.Error(cErr.Error(), "method", "GetSubLedger")
 		return nil, cErr
 	}
 	return segList, nil

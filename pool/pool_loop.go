@@ -33,8 +33,10 @@ func (self *pool) loopQueue() {
 			}
 			err := self.insertQueue(q)
 			if err != nil {
-				self.log.Info(fmt.Sprintf("insert queue err:%s\n", err))
-				self.log.Info(fmt.Sprintf("all queue:%s\n", q.Info()))
+				self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
+				self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
+				//time.Sleep(time.Second
+				self.log.Error("pool auto stop")
 			}
 			t2 := time.Now()
 			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
@@ -297,7 +299,7 @@ func (self *pool) insertSnapshotBucket(bucket Bucket) error {
 			return err
 		}
 	}
-	return errors.Errorf("account blocks rollback for snapshot block[%s-%d] insert.", item.Hash(), item.Height())
+	return errors.Errorf("account blocks rollback for snapshot block[%s-%s-%d] insert.", item.ownerWrapper, item.Hash(), item.Height())
 }
 
 var NotFound = errors.New("Not Found")

@@ -107,12 +107,10 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		return signData, pubkey, nil
 	})
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return newerr
+		return e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return newerr
+		return result.Err
 	}
 	if result.VmBlock != nil {
 		return t.walletApi.pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)
@@ -179,12 +177,10 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 			return ed25519.Sign(privKey, data), pubKey, nil
 		})
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return newerr
+		return e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return newerr
+		return result.Err
 	}
 	if result.VmBlock != nil {
 		return pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)

@@ -19,6 +19,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"reflect"
 	"runtime"
 	"strings"
@@ -317,6 +318,7 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 	if req.callb.errPos >= 0 { // test if method returned an error
 		if !reply[req.callb.errPos].IsNil() {
 			e := reply[req.callb.errPos].Interface().(error)
+			e, _ = api.TryMakeConcernedError(e)
 			ne, ok := e.(Error)
 			if ok {
 				res := codec.CreateErrorResponse(&req.id, ne)

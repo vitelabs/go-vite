@@ -268,12 +268,12 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 
 	gid := util.GetGidFromCreateContractData(block.Data)
 	if gid == types.SNAPSHOT_GID {
-		return nil, errors.New("invalid consensus group")
+		return nil, util.ErrInvalidMethodParam
 	}
 
 	contractType := util.GetContractTypeFromCreateContractData(block.Data)
 	if !util.IsExistContractType(contractType) {
-		return nil, errors.New("invalid contract type")
+		return nil, util.ErrInvalidMethodParam
 	}
 
 	confirmTime := util.GetConfirmTimeFromCreateContractData(block.Data)
@@ -442,16 +442,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
 			vm.updateBlock(db, block, err, 0)
-			for _, blockToSend := range blockListToSend {
-				vm.VmContext.AppendBlock(
-					util.MakeSendBlock(
-						block.AccountAddress,
-						blockToSend.ToAddress,
-						blockToSend.BlockType,
-						blockToSend.Amount,
-						blockToSend.TokenId,
-						blockToSend.Data))
-			}
+			vm.VmContext.sendBlockList = blockListToSend
 			if db, err = vm.doSendBlockList(db); err == nil {
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
@@ -615,7 +606,7 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 	if block.AccountAddress != types.AddressConsensusGroup &&
 		block.AccountAddress != types.AddressMintage {
-		return nil, errors.New("invalid account address")
+		return nil, util.ErrInvalidMethodParam
 	}
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil))
 	return &vm_db.VmAccountBlock{block, db}, nil

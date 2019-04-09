@@ -89,7 +89,9 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 func (m *memory) print() string {
 	var result string
 	// do not print memory when memory size too large
-	if len(m.store) > 0 && len(m.store) < 100 {
+	if len(m.store) == 0 {
+		result += ""
+	} else if len(m.store) < 100 {
 		addr := 0
 		for i := 0; i+helper.WordSize <= len(m.store); i += helper.WordSize {
 			if i+helper.WordSize < len(m.store) {

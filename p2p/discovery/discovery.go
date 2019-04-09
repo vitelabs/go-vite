@@ -140,7 +140,7 @@ func New(cfg *Config) Discovery {
 
 	d.node = cfg.Node()
 
-	d.socket = newAgent(cfg.PrivateKey(), d.node, d.handle)
+	d.socket = newAgent(cfg.PrivateKey(), d.node, cfg.ListenAddress, d.handle)
 
 	d.table = newTable(d.node.ID, bucketSize, bucketNum, newListBucket, d)
 
@@ -167,7 +167,7 @@ func (d *discovery) Start() (err error) {
 	}
 	if len(d.BootNodes) > 0 {
 		var bt booter
-		bt, err = newCfgBooter(d.BootNodes)
+		bt, err = newCfgBooter(d.BootNodes, d.node)
 		if err != nil {
 			return
 		}
@@ -287,6 +287,33 @@ Loop:
 	}
 
 	d.table.store(d.db)
+}
+
+func (d *discovery) findLoop() {
+	duration := 10 * time.Second
+	maxDuration := 10 * time.Minute
+
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+Loop:
+	for {
+		select {
+		case <-d.term:
+			break Loop
+
+		case <-timer.C:
+			d.init()
+
+			duration *= 2
+			if duration > maxDuration {
+				duration = maxDuration
+			}
+
+			timer.Stop()
+			timer.Reset(duration)
+		}
+	}
 }
 
 func (d *discovery) handle(pkt *packet) {
@@ -441,6 +468,10 @@ func (d *discovery) refresh() {
 		nodes := d.lookup(id, bucketSize)
 		d.table.addNodes(nodes)
 	}
+
+	d.mu.Lock()
+	d.refreshing = false
+	d.mu.Unlock()
 
 	d.cond.Signal()
 }

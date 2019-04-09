@@ -63,7 +63,6 @@ func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_file_manager
 	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
-// only in disk
 func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_file_manager.Location, error) {
 	startKey := chain_utils.CreateSnapshotBlockHeightKey(1)
 	endKey := chain_utils.CreateSnapshotBlockHeightKey(helper.MaxUint64)

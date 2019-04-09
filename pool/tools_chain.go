@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -28,12 +29,14 @@ type chainDb interface {
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
 	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error)
+	DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*ledger.AccountBlock, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	IsGenesisSnapshotBlock(hash types.Hash) bool
 	IsGenesisAccountBlock(block types.Hash) bool
 	GetQuotaUnused(address types.Address) (uint64, error)
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+	SetConsensus(cs ch.Consensus)
 }
 
 type chainRw interface {
@@ -111,23 +114,17 @@ func (self *accountCh) insertBlocks(bs []commonBlock) error {
 }
 
 func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Address][]commonBlock, error) {
-	// todo
-	return nil, nil, nil
-	//bm, e := self.rw.DeleteAccountBlocks(&self.address, height)
-	//if e != nil {
-	//	return nil, nil, e
-	//}
-	//
-	//// FIXME
-	//results := make(map[types.Address][]commonBlock)
-	//for addr, bs := range bm {
-	//	var r []commonBlock
-	//	for _, b := range bs {
-	//		r = append(r, newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
-	//	}
-	//	results[addr] = r
-	//}
-	//return nil, results, nil
+	bm, e := self.rw.DeleteAccountBlocksToHeight(self.address, height)
+	if e != nil {
+		return nil, nil, e
+	}
+
+	// FIXME
+	results := make(map[types.Address][]commonBlock)
+	for _, b := range bm {
+		results[b.AccountAddress] = append(results[b.AccountAddress], newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
+	}
+	return nil, results, nil
 }
 
 func (self *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
@@ -236,6 +233,9 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	}
 	var snapshotResults []commonBlock
 	for _, s := range schunk {
+		if s.SnapshotBlock == nil {
+			continue
+		}
 		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s.SnapshotBlock, self.version, types.RollbackChain))
 	}
 	return snapshotResults, accountResults, nil
@@ -267,6 +267,9 @@ func (self *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[types.Add
 			result = r
 		}
 		results[bs.AccountAddress] = append(result, newAccountPoolBlock(bs, nil, self.version, types.RollbackChain))
+		self.log.Info("account block delete by insertToSnapshot.",
+			"snapshot", fmt.Sprintf("[%d][%s]", b.Height(), b.Hash()),
+			"aBlock", fmt.Sprintf("[%s][%d][%s]", bs.AccountAddress, bs.Height, bs.Hash))
 	}
 	return results, err
 }

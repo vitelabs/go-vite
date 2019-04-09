@@ -17,6 +17,10 @@ type mockNet struct {
 	BlockSubscriber
 }
 
+func (n *mockNet) Stop() error {
+	return nil
+}
+
 func (n *mockNet) ProtoData() []byte {
 	return nil
 }
@@ -69,7 +73,6 @@ func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{
 		PeerCount: 0,
 		Latency:   nil,
-		Plugins:   nil,
 	}
 }
 
@@ -95,7 +98,7 @@ func mock(cfg Config) Net {
 		}),
 		log: log15.New("module", "net/syncer"),
 	}
-	syncer.state = syncStateWait{syncer}
+	syncer.state = syncStateDone{syncer}
 
 	return &mockNet{
 		Config: &Config{

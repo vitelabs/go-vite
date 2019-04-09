@@ -24,7 +24,10 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/p2p/discovery"
 )
@@ -35,41 +38,39 @@ func main() {
 		panic(err)
 	}
 
-	cfg1, err := discovery.NewConfig("127.0.0.1:8483", "127.0.0.1:8483", filepath.Join(pwd, ".mock1"), "", nil, nil, 10)
-	if err != nil {
-		panic(err)
+	var port = 8081
+	const total = 5
+	type sample struct {
+		port int
+		dir  string
+		key  ed25519.PrivateKey
 	}
+	var samples []sample
+	var configs []*discovery.Config
+	for i := 0; i < total; i++ {
+		var prv ed25519.PrivateKey
+		_, prv, err = ed25519.GenerateKey(nil)
+		if err != nil {
+			panic(err)
+		}
 
-	cfg2, err := discovery.NewConfig("127.0.0.1:8484", "127.0.0.1:8484", filepath.Join(pwd, ".mock2"), "", nil, nil, 10)
-	if err != nil {
-		panic(err)
+		s := sample{
+			port: port,
+			dir:  ".mock" + strconv.Itoa(i+1),
+			key:  prv,
+		}
+		samples = append(samples, s)
+
+		var cfg *discovery.Config
+		cfg, err = discovery.NewConfig("127.0.0.1:"+strconv.Itoa(s.port), "", filepath.Join(pwd, s.dir), prv.Hex(), nil, nil, 10)
+		if err != nil {
+			panic(err)
+		}
+
+		configs = append(configs, cfg)
+
+		port++
 	}
-
-	cfg3, err := discovery.NewConfig("127.0.0.1:8485", "127.0.0.1:8485", filepath.Join(pwd, ".mock3"), "", nil, nil, 10)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg4, err := discovery.NewConfig("127.0.0.1:8486", "127.0.0.1:8486", filepath.Join(pwd, ".mock4"), "", nil, nil, 10)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg5, err := discovery.NewConfig("127.0.0.1:8487", "127.0.0.1:8487", filepath.Join(pwd, ".mock5"), "", nil, nil, 10)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg1.BootNodes = append(cfg1.BootNodes, cfg2.Node().String())
-	cfg2.BootNodes = append(cfg2.BootNodes, cfg3.Node().String())
-	cfg3.BootNodes = append(cfg3.BootNodes, cfg4.Node().String())
-	cfg4.BootNodes = append(cfg4.BootNodes, cfg5.Node().String())
-
-	d1 := discovery.New(cfg1)
-	d2 := discovery.New(cfg2)
-	d3 := discovery.New(cfg3)
-	d4 := discovery.New(cfg4)
-	d5 := discovery.New(cfg5)
 
 	start := func(d discovery.Discovery) {
 		err = d.Start()
@@ -78,15 +79,19 @@ func main() {
 		}
 	}
 
-	go start(d1)
-	time.Sleep(time.Second)
-	go start(d2)
-	time.Sleep(time.Second)
-	go start(d3)
-	time.Sleep(time.Second)
-	go start(d4)
-	time.Sleep(time.Second)
-	go start(d5)
+	var ds []discovery.Discovery
+	for i := 0; i < total; i++ {
+		if i != total-1 {
+			configs[i].BootNodes = append(configs[i].BootNodes, configs[i+1].Node().ID.String()+"@127.0.0.1:"+strconv.Itoa(samples[i+1].port)+"/10")
+		}
+
+		ds = append(ds, discovery.New(configs[i]))
+	}
+
+	for _, d := range ds {
+		go start(d)
+		time.Sleep(time.Second)
+	}
 
 	fmt.Println("start")
 
@@ -95,11 +100,9 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println("d1", d1.AllNodes())
-				fmt.Println("d2", d2.AllNodes())
-				fmt.Println("d3", d3.AllNodes())
-				fmt.Println("d4", d4.AllNodes())
-				fmt.Println("d5", d5.AllNodes())
+				for i, d := range ds {
+					fmt.Println(i, d.AllNodes())
+				}
 				fmt.Println("------------")
 			}
 		}

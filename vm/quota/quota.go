@@ -1,7 +1,6 @@
 package quota
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -90,8 +89,11 @@ func CalcCreateQuota(fee *big.Int) uint64 {
 }
 
 // Check whether current quota of a contract account is enough to receive a new block
-func CheckQuota(db quotaDb, addr types.Address, q types.Quota) bool {
-	// TODO optimize for receive error
+func CheckQuota(db quotaDb, q types.Quota) bool {
+	if unconfirmedBlocks := db.GetUnconfirmedBlocks(); len(unconfirmedBlocks) > 0 &&
+		unconfirmedBlocks[len(unconfirmedBlocks)-1].BlockType == ledger.BlockTypeReceiveError {
+		return false
+	}
 	if q.Current() >= q.Avg() {
 		return true
 	} else {
@@ -166,7 +168,6 @@ func getIndexInSection(x *big.Float) int {
 	return getIndexInFloatList(x, nodeConfig.sectionList, 0, len(nodeConfig.sectionList)-1)
 }
 func getIndexInFloatList(x *big.Float, list []*big.Float, left, right int) int {
-	// TODO optimize according to quota formula
 	if left == right {
 		if left == 0 || list[left].Cmp(x) <= 0 {
 			return left
@@ -186,7 +187,6 @@ func getIndexInFloatList(x *big.Float, list []*big.Float, left, right int) int {
 }
 
 func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
-	// TODO optimize according to quota formula
 	if left == right {
 		return left
 	}
@@ -213,11 +213,11 @@ func CanPoW(db quotaDb) (bool, error) {
 
 func CalcPoWDifficulty(quotaRequired uint64, q types.Quota, pledgeAmount *big.Int) (*big.Int, error) {
 	if quotaRequired > quotaLimitForBlock {
-		return nil, errors.New("quota limit for block reached")
+		return nil, util.ErrBlockQuotaLimitReached
 	}
 	expectedTotal := quotaRequired + q.Used()
 	if expectedTotal > quotaLimitForAccount {
-		return nil, errors.New("quota limit for account reached")
+		return nil, util.ErrAccountQuotaLimitReached
 	}
 	if q.Total() >= expectedTotal {
 		return big.NewInt(0), nil

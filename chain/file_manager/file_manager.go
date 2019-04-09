@@ -85,7 +85,7 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 }
 
 func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) error {
-	var fdList []*fileDescription
+	var fdList []fileDescription
 
 	// flush
 	flushStartLocation := startLocation
@@ -108,16 +108,16 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) 
 		if err != nil {
 			return errors.New(fmt.Sprintf("fd flush failed, fileId is %d", flushStartLocation.FileId))
 		}
-		fdList = append(fdList, fd)
+		fdList = append(fdList, *fd)
 
 		if offset >= fm.fileSize {
-			flushStartLocation = NewLocation(fm.nextFlushStartLocation.FileId+1, 0)
+			flushStartLocation.FileId += 1
+			flushStartLocation.Offset = 0
+
 		} else {
-			flushStartLocation = NewLocation(fm.nextFlushStartLocation.FileId, offset)
+			flushStartLocation.Offset = offset
 		}
 	}
-
-	fmt.Println(fdList)
 
 	fm.nextFlushStartLocation = flushStartLocation
 

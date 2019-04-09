@@ -117,10 +117,6 @@ func (bDB *BlockDB) PatchRedoLog(redoLog []byte) error {
 	return bDB.fm.Flush(flushStartLocation, flushTargetLocation)
 }
 
-func (bDB *BlockDB) Stop() {
-	bDB.wg.Wait()
-}
-
 func (bDB *BlockDB) FileSize() int64 {
 	return bDB.fileSize
 }

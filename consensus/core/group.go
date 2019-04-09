@@ -111,6 +111,9 @@ func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) [
 				sTime = etime
 			}
 		}
+		if len(members) < int(self.NodeCount) {
+			sTime = sTime.Add(time.Duration(self.Interval*self.PerCount*(int64(self.NodeCount)-int64(len(members)))) * time.Second)
+		}
 	}
 	return plans
 }

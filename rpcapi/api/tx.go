@@ -4,11 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
-	"time"
-
-	"go.uber.org/atomic"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -20,6 +15,9 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
+	"go.uber.org/atomic"
+	"math/big"
+	"time"
 )
 
 type Tx struct {
@@ -134,8 +132,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return newerr
+		return err
 	}
 
 	if result != nil {
@@ -215,12 +212,10 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return signData, pubkey, nil
 	})
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return nil, newerr
+		return nil, e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return nil, newerr
+		return nil, result.Err
 	}
 	if result.VmBlock != nil {
 		if err := t.vite.Pool().AddDirectAccountBlock(msg.AccountAddress, result.VmBlock); err != nil {

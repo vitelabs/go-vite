@@ -198,8 +198,7 @@ func (m WalletApi) Unlock(entropyStore string, passphrase string) error {
 	}
 	err := manager.Unlock(passphrase)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return newerr
+		return err
 	}
 	return nil
 }
@@ -338,12 +337,10 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	})
 
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return nil, newerr
+		return nil, e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return nil, newerr
+		return nil, result.Err
 	}
 	if result.VmBlock != nil {
 		return &result.VmBlock.AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.VmBlock)
@@ -365,8 +362,7 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 	}
 	signedData, pubkey, err := key.SignData(msgbytes)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return nil, newerr
+		return nil, err
 	}
 
 	t := HexSignedTuple{

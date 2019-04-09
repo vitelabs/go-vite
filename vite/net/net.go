@@ -2,10 +2,13 @@ package net
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	net2 "net"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -18,13 +21,17 @@ import (
 )
 
 var netLog = log15.New("module", "vite/net")
+var errNetIsRunning = errors.New("network is already running")
+var errNetIsNotRunning = errors.New("network is not running")
 var errInvalidSignature = errors.New("invalid signature")
 var errDiffGenesisBlock = errors.New("different genesis block")
+var errErrorHeadToHash = errors.New("error head to hash")
 
 type Config struct {
 	Single            bool
 	FileListenAddress string
 	FilePublicAddress string
+	FilePort          int
 	MinePrivateKey    ed25519.PrivateKey
 	Chain
 	Verifier
@@ -43,64 +50,64 @@ type net struct {
 	*broadcaster
 	reader syncCacheReader
 	BlockSubscriber
-	query         *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
-	term          chan struct{}
-	log           log15.Logger
-	wg            sync.WaitGroup
-	fs            *fileServer
-	handlers      map[code]msgHandler
-	hb            *heartBeater
-	handshakeData []byte
+	query    *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
+	running  int32
+	term     chan struct{}
+	log      log15.Logger
+	wg       sync.WaitGroup
+	fs       *fileServer
+	handlers map[code]msgHandler
+	hb       *heartBeater
 }
 
-func (n *net) ProtoData() []byte {
-	if len(n.handshakeData) == 0 {
-		genesis := n.chain.GetLatestSnapshotBlock()
-		current := n.chain.GetLatestSnapshotBlock()
-
-		var key, signature []byte
-		if len(n.MinePrivateKey) != 0 {
-			key = n.MinePrivateKey.PubByte()
-			signature = ed25519.Sign(n.MinePrivateKey, n.nodeID.Bytes())
-		}
-
+func (n *net) parseFilePublicAddress() (fileAddress []byte) {
+	if n.FilePublicAddress != "" {
 		var e vnode.EndPoint
 		var err error
 		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
 		if err != nil {
-			e = vnode.EndPoint{
-				Host: []byte{0, 0, 0, 0},
-				Port: DefaultFilePort,
-				Typ:  vnode.HostIPv4,
-			}
-
 			n.log.Error(fmt.Sprintf("Failed to parse FilePublicAddress: %v", err))
-		}
-
-		addr, err := e.Serialize()
-		if err != nil {
-			addr = nil
-			n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
-		}
-
-		pb := &protos.ViteHandshake{
-			Genesis:     genesis.Hash.Bytes(),
-			Head:        current.Hash.Bytes(),
-			Height:      current.Height,
-			Key:         key,
-			Signature:   signature,
-			FileAddress: addr,
-		}
-
-		buf, err := proto.Marshal(pb)
-		if err != nil {
 			return nil
 		}
 
-		return buf
+		fileAddress, err = e.Serialize()
+		if err != nil {
+			n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
+			return nil
+		}
+	} else if n.FilePort != 0 {
+		fileAddress = make([]byte, 2)
+		binary.BigEndian.PutUint16(fileAddress, uint16(n.FilePort))
 	}
 
-	return n.handshakeData
+	return fileAddress
+}
+
+func (n *net) ProtoData() []byte {
+	genesis := n.Chain.GetGenesisSnapshotBlock()
+	current := n.Chain.GetLatestSnapshotBlock()
+
+	var key, signature []byte
+	if len(n.MinePrivateKey) != 0 {
+		key = n.MinePrivateKey.PubByte()
+		signature = ed25519.Sign(n.MinePrivateKey, n.nodeID.Bytes())
+	}
+
+	pb := &protos.ViteHandshake{
+		Genesis:     genesis.Hash.Bytes(),
+		Head:        current.Hash.Bytes(),
+		Height:      current.Height,
+		Key:         key,
+		Signature:   signature,
+		FileAddress: n.parseFilePublicAddress(),
+	}
+
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		return nil
+	}
+
+	return buf
 }
 
 func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
@@ -114,7 +121,6 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 		right := ed25519.Verify(pb.Key, msg.ID.Bytes(), pb.Signature)
 		if !right {
 			err = errInvalidSignature
-			n.log.Error(fmt.Sprintf("Failed to verify signature: %v", err))
 			return
 		}
 
@@ -124,14 +130,21 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 		}
 	}
 
+	// genesis
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 	if !bytes.Equal(pb.Genesis, genesis.Hash.Bytes()) {
 		err = errDiffGenesisBlock
 		return
 	}
 
+	// head
 	var hash types.Hash
-	copy(hash[:], pb.Head)
+	hash, err = types.BytesToHash(pb.Head)
+	if err != nil {
+		err = errErrorHeadToHash
+		return
+	}
+
 	var pState = PeerState{
 		Head:        hash,
 		Height:      pb.Height,
@@ -139,23 +152,22 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 	}
 
 	if len(pb.FileAddress) != 0 {
-		var e vnode.EndPoint
-		err = e.Deserialize(pb.FileAddress)
-		if err != nil {
-			n.log.Error(fmt.Sprintf("Failed to parse FileAddress: %v", err))
-			err = nil
-		} else {
-			pState.FileAddress = e.String()
-		}
-
-		if bytes.Equal(e.Host, []byte{0, 0, 0, 0}) {
-			var addr *net2.TCPAddr
-			addr, err = net2.ResolveTCPAddr("tcp", msg.From)
+		if len(pb.FileAddress) == 2 {
+			var host string
+			host, _, err = net2.SplitHostPort(msg.From)
 			if err != nil {
-				// nothing
+				pState.FileAddress = ""
 			} else {
-				e.Host = addr.IP
-				e.Typ = vnode.HostIP
+				filePort := binary.BigEndian.Uint16(pb.FileAddress)
+				pState.FileAddress = host + ":" + strconv.Itoa(int(filePort))
+			}
+		} else {
+			var e vnode.EndPoint
+			err = e.Deserialize(pb.FileAddress)
+			if err != nil {
+				pState.FileAddress = ""
+			} else {
+				pState.FileAddress = e.String()
 			}
 		}
 	}
@@ -283,7 +295,7 @@ func New(cfg Config) Net {
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        make(map[code]msgHandler),
 		log:             netLog,
-		hb:              newHeartBeater(peers, netLog.New("module", "heartbeat")),
+		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
 	//n.addHandler(_statusHandler(statusHandler))
@@ -297,23 +309,29 @@ func New(cfg Config) Net {
 }
 
 type heartBeater struct {
+	chain     chainReader
 	last      time.Time
 	lastPeers map[vnode.NodeID]struct{}
 	ps        *peerSet
 	log       log15.Logger
 }
 
-func newHeartBeater(ps *peerSet, log log15.Logger) *heartBeater {
+func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeater {
 	return &heartBeater{
-		ps:  ps,
-		log: log,
+		ps:    ps,
+		chain: chain,
+		log:   log,
 	}
 }
 
 func (h *heartBeater) state() []byte {
+	current := h.chain.GetLatestSnapshotBlock()
+
 	var heartBeat = &protos.ProtocolState{
 		Peers:     nil,
 		Patch:     true,
+		Head:      current.Hash.Bytes(),
+		Height:    current.Height,
 		Timestamp: time.Now().Unix(),
 	}
 
@@ -348,7 +366,6 @@ func (h *heartBeater) state() []byte {
 
 	data, err := proto.Marshal(heartBeat)
 	if err != nil {
-
 		return nil
 	}
 
@@ -366,38 +383,36 @@ func (n *net) addHandler(handler msgHandler) {
 }
 
 func (n *net) Start(svr p2p.P2P) (err error) {
-	n.nodeID = svr.Config().Node().ID
+	if atomic.CompareAndSwapInt32(&n.running, 0, 1) {
+		n.nodeID = svr.Config().Node().ID
 
-	if n.Producer != nil && n.MinePrivateKey != nil {
-		if n.Producer.IsProducer(types.PubkeyToAddress(n.MinePrivateKey.PubByte())) {
-			// is producer
-			svr.SetMaxPeers(p2p.Superior, 30)
+		if n.Producer != nil && n.MinePrivateKey != nil {
+			addr := types.PubkeyToAddress(n.MinePrivateKey.PubByte())
+			if n.Producer.IsProducer(addr) {
+				// todo set finder
+			}
 		}
-	}
 
-	n.term = make(chan struct{})
+		n.term = make(chan struct{})
 
-	if err = n.fs.start(); err != nil {
+		if err = n.fs.start(); err != nil {
+			return
+		}
+
+		n.reader.start()
+
+		n.query.start()
+
+		n.fetcher.start()
+
 		return
 	}
 
-	n.reader.start()
-
-	n.query.start()
-
-	n.fetcher.start()
-
-	return
+	return errNetIsRunning
 }
 
-func (n *net) Stop() {
-	if n.term == nil {
-		return
-	}
-
-	select {
-	case <-n.term:
-	default:
+func (n *net) Stop() error {
+	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
 		close(n.term)
 
 		n.reader.stop()
@@ -411,17 +426,21 @@ func (n *net) Stop() {
 		n.fetcher.stop()
 
 		n.wg.Wait()
+
+		return nil
 	}
+
+	return errNetIsNotRunning
 }
 
 func (n *net) Info() NodeInfo {
 	return NodeInfo{
-		Latency: n.broadcaster.Statistic(),
+		PeerCount: n.peers.count(),
+		Latency:   n.broadcaster.Statistic(),
 	}
 }
 
 type NodeInfo struct {
-	PeerCount int           `json:"peerCount"`
-	Latency   []int64       `json:"latency"` // [0,1,12,24]
-	Plugins   []interface{} `json:"plugins"`
+	PeerCount int     `json:"peerCount"`
+	Latency   []int64 `json:"latency"` // [0,1,12,24]
 }

@@ -10,7 +10,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "err": "invalid jump destination (STOP) 999",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -26,7 +26,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "err": "invalid jump destination (STOP) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -42,7 +42,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "err": "invalid jump destination (PUSH1) 10",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -58,7 +58,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 100000000000,
-    "err": "invalid jump destination (PUSH1) 13",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -124,7 +124,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -140,7 +140,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 2097152",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -156,7 +156,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 11",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -189,7 +189,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 12",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -222,7 +222,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 8",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -238,7 +238,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -254,7 +254,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 6",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -270,7 +270,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 7",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -286,7 +286,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639922",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -412,7 +412,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 11",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -431,7 +431,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 11",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -447,7 +447,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 14",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -513,7 +513,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 10",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -529,7 +529,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 2097153",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     }
@@ -593,7 +593,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "stack underflow (1 <=> 2)",
+    "err": "stack underflow",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -626,7 +626,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 12",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -659,7 +659,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 13",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -692,7 +692,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -708,7 +708,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 10",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -724,7 +724,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 7",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -740,7 +740,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 8",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -756,7 +756,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639923",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -772,7 +772,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (ADD) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -822,7 +822,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 16",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -838,7 +838,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 4",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -854,7 +854,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 7",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -919,7 +919,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 18446744073709551638",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "1b"
     }
@@ -999,7 +999,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 12",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1018,7 +1018,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 15",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1098,7 +1098,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 11",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1117,7 +1117,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 2097154",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1136,7 +1136,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 13",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1176,7 +1176,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (PUSH1) 14",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1216,7 +1216,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 10",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1235,7 +1235,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 11",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1254,7 +1254,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (JUMPDEST) 8",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1273,7 +1273,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (SELFDESTRUCT) 9",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1292,7 +1292,7 @@
     "returnData": "",
     "quotaTotal": 100000,
     "quotaLeft": 100000,
-    "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639924",
+    "err": "invalid jump destination",
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
@@ -1378,7 +1378,7 @@
   "jumpiToUintmaxPlus1": {
     "amount": "0de0b6b3a7640000",
     "code": "6001640100000009575b5b6001600155",
-    "err": "invalid jump destination (STOP) 4294967305",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1408,7 +1408,7 @@
   "jumpInsidePushWithJumpDest": {
     "amount": "0de0b6b3a7640000",
     "code": "600456655b6001600155",
-    "err": "invalid jump destination (JUMPDEST) 4",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1453,7 +1453,7 @@
   "jumpInsidePushWithoutJumpDest": {
     "amount": "0de0b6b3a7640000",
     "code": "60055661eeff",
-    "err": "invalid jump destination (SELFDESTRUCT) 5",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1468,7 +1468,7 @@
   "jumpOntoJump": {
     "amount": "0de0b6b3a7640000",
     "code": "565b600056",
-    "err": "stack underflow (0 <=> 1)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1498,7 +1498,7 @@
   "jumpHigh": {
     "amount": "0de0b6b3a7640000",
     "code": "630fffffff565b5b6001600155",
-    "err": "invalid jump destination (STOP) 268435455",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1513,7 +1513,7 @@
   "loop_stacklimit_1021": {
     "amount": "03fd",
     "code": "6000345b60019003906001018180600357600052600152600059f3",
-    "err": "stack limit reached 1024 (1024)",
+    "err": "stack limit reached",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1545,7 +1545,7 @@
   "jumpTo1InstructionafterJump_noJumpDest": {
     "amount": "0de0b6b3a7640000",
     "code": "6003566001600055",
-    "err": "invalid jump destination (PUSH1) 3",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1575,7 +1575,7 @@
   "jumpifInsidePushWithJumpDest": {
     "amount": "0de0b6b3a7640000",
     "code": "6001600657655b6001600155",
-    "err": "invalid jump destination (JUMPDEST) 6",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1590,7 +1590,7 @@
   "jump0_withoutJumpdest": {
     "amount": "0de0b6b3a7640000",
     "code": "60236007566001600255",
-    "err": "invalid jump destination (PUSH1) 7",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1605,7 +1605,7 @@
   "jumpToUint64maxPlus1": {
     "amount": "0de0b6b3a7640000",
     "code": "6801000000000000000b565b5b6001600155",
-    "err": "invalid jump destination (JUMPDEST) 18446744073709551627",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1678,7 +1678,7 @@
   "jumpToUintmaxPlus1": {
     "amount": "0de0b6b3a7640000",
     "code": "640100000007565b5b6001600155",
-    "err": "invalid jump destination (STOP) 4294967303",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1693,7 +1693,7 @@
   "jumpi0": {
     "amount": "0de0b6b3a7640000",
     "code": "602360016009576001600255",
-    "err": "invalid jump destination (PUSH1) 9",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1708,7 +1708,7 @@
   "jumpTo1InstructionafterJump_jumpdestFirstInstruction": {
     "amount": "0de0b6b3a7640000",
     "code": "5b6003565b6001600055",
-    "err": "invalid jump destination (JUMP) 3",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1723,7 +1723,7 @@
   "jumpifInsidePushWithoutJumpDest": {
     "amount": "0de0b6b3a7640000",
     "code": "600160075761eeff",
-    "err": "invalid jump destination (SELFDESTRUCT) 7",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1753,7 +1753,7 @@
   "jump0_AfterJumpdest3": {
     "amount": "0de0b6b3a7640000",
     "code": "6023600b6008505660015b600255",
-    "err": "invalid jump destination (PUSH1) 11",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1768,7 +1768,7 @@
   "swapAt52becameMstore": {
     "amount": "0de0b6b3a7640000",
     "code": "600260035255",
-    "err": "stack underflow (0 <=> 2)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1798,7 +1798,7 @@
   "jump0_AfterJumpdest": {
     "amount": "0de0b6b3a7640000",
     "code": "602360085660015b600255",
-    "err": "invalid jump destination (PUSH1) 8",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1813,7 +1813,7 @@
   "jump1": {
     "amount": "0de0b6b3a7640000",
     "code": "620fffff620fffff0156",
-    "err": "invalid jump destination (STOP) 2097150",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1858,7 +1858,7 @@
   "jump0_outOfBoundary": {
     "amount": "0de0b6b3a7640000",
     "code": "60236007566001600255",
-    "err": "invalid jump destination (PUSH1) 7",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1933,7 +1933,7 @@
   "jumpi1_jumpdest": {
     "amount": "0de0b6b3a7640000",
     "code": "60236001600a5760015b600255",
-    "err": "invalid jump destination (PUSH1) 10",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -1978,7 +1978,7 @@
   "pop1": {
     "amount": "0de0b6b3a7640000",
     "code": "5060026003600455",
-    "err": "stack underflow (0 <=> 1)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -2023,7 +2023,7 @@
   "jumpiToUint64maxPlus1": {
     "amount": "0de0b6b3a7640000",
     "code": "60016801000000000000000d575b5b6001600155",
-    "err": "invalid jump destination (JUMPDEST) 18446744073709551629",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -2038,7 +2038,7 @@
   "stack_loop": {
     "amount": "0de0b6b3a7640000",
     "code": "60015b6001810380600257600053600153600253600353600453600553600653600753600853600953596000f3",
-    "err": "stack underflow (1 <=> 2)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -2068,7 +2068,7 @@
   "sstore_underflow": {
     "amount": "0de0b6b3a7640000",
     "code": "600155",
-    "err": "stack underflow (1 <=> 2)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -2098,7 +2098,7 @@
   "jumpiOutsideBoundary": {
     "amount": "0de0b6b3a7640000",
     "code": "60017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff576002600355",
-    "err": "invalid jump destination (STOP) 115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    "err": "invalid jump destination",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,

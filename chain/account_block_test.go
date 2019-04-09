@@ -284,7 +284,7 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 
 			blocksMap := account.ConfirmedBlockMap[firstConfirmSb.Hash]
 			if _, ok := blocksMap[hash]; !ok {
-				t.Fatal(fmt.Sprintf("error, %+v\n%+v\n", firstConfirmSb.SnapshotContent[block.AccountAddress], block))
+				t.Fatal(fmt.Sprintf("error, %+v \n %+v \n", firstConfirmSb.SnapshotContent[block.AccountAddress], block))
 			}
 		}
 	}
@@ -306,17 +306,16 @@ func GetLatestAccountBlock(t *testing.T, chainInstance Chain, accounts map[types
 		}
 
 		if block == nil {
-			if account.latestBlock == nil {
-				continue
-			} else {
+			if account.latestBlock != nil {
 				chainInstance.GetLatestAccountBlock(addr)
 				t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.latestBlock))
 			}
-		}
-
-		if block.Hash != account.latestBlock.Hash {
+		} else if account.latestBlock == nil {
+			t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.latestBlock))
+		} else if block.Hash != account.latestBlock.Hash {
 			t.Fatal(fmt.Sprintf("%+v\n%+v\n", block, accounts[addr].latestBlock))
 		}
+
 	}
 }
 

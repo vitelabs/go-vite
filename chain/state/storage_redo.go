@@ -18,17 +18,21 @@ const (
 )
 
 type StorageRedo struct {
-	store          *bolt.DB
-	logMap         map[types.Hash][]byte
-	snapshotHeight uint64
-	retainHeight   uint64
-	hasRedo        bool
+	store *bolt.DB
+	//logMap         map[types.Hash][]byte
+	//snapshotHeight uint64
+
+	snapshotLogMap        map[uint64]map[types.Hash][]byte
+	currentSnapshotHeight uint64
+
+	retainHeight uint64
+	hasRedo      bool
 
 	id types.Hash
 	mu sync.RWMutex
 
-	flushingBatch   *leveldb.Batch
-	rollbackHeights []uint64
+	flushingBatchMap map[uint64]*leveldb.Batch
+	rollbackHeights  []uint64
 }
 
 func NewStorageRedo(chainDir string) (*StorageRedo, error) {
@@ -39,29 +43,49 @@ func NewStorageRedo(chainDir string) (*StorageRedo, error) {
 		return nil, err
 	}
 	return &StorageRedo{
-		store:        store,
-		logMap:       make(map[types.Hash][]byte),
+		store:          store,
+		snapshotLogMap: make(map[uint64]map[types.Hash][]byte),
+		//logMap:       make(map[types.Hash][]byte),
 		retainHeight: 600,
 		id:           id,
 
-		flushingBatch: new(leveldb.Batch),
+		flushingBatchMap: make(map[uint64]*leveldb.Batch),
 	}, nil
 }
 
-func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
-	redo.logMap = redoLog
-
-	if redo.logMap == nil {
-		redo.logMap = make(map[types.Hash][]byte)
+func (redo *StorageRedo) Close() error {
+	if err := redo.store.Close(); err != nil {
+		return err
 	}
-	redo.snapshotHeight = snapshotHeight
+	redo.store = nil
+	return nil
+}
+
+func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
+	//redo.logMap = redoLog
+	//
+	//if redo.logMap == nil {
+	//	redo.logMap = make(map[types.Hash][]byte)
+	//}
+	//redo.snapshotHeight = snapshotHeight
+	if redoLog == nil {
+		redo.snapshotLogMap[snapshotHeight] = make(map[types.Hash][]byte)
+	} else {
+		redo.snapshotLogMap[snapshotHeight] = redoLog
+	}
+	redo.currentSnapshotHeight = snapshotHeight
 	redo.hasRedo = hasRedo
 }
 
 func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, bool, error) {
-	if snapshotHeight == redo.snapshotHeight {
-		return redo.logMap, true, nil
+	//if snapshotHeight == redo.snapshotHeight {
+	//	return redo.logMap, true, nil
+	//}
+
+	if logMap, ok := redo.snapshotLogMap[snapshotHeight]; ok {
+		return logMap, true, nil
 	}
+
 	logMap := make(map[types.Hash][]byte)
 
 	hasRedo := false
@@ -96,23 +120,19 @@ func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
 
-	redo.logMap[blockHash] = log
+	redo.snapshotLogMap[redo.currentSnapshotHeight][blockHash] = log
+	//redo.logMap[blockHash] = log
 }
 
 func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
 
-	delete(redo.logMap, blockHash)
+	delete(redo.snapshotLogMap[redo.currentSnapshotHeight], blockHash)
 }
 
-func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
-	if snapshotHeight != redo.snapshotHeight {
-		redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
-	}
-
-	redo.snapshotHeight = 0
-	redo.logMap = make(map[types.Hash][]byte)
+func (redo *StorageRedo) PrepareRollback(snapshotHeight uint64) {
+	redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
 }
 
 func (redo *StorageRedo) Id() types.Hash {
@@ -123,15 +143,24 @@ func (redo *StorageRedo) Prepare() {
 	if len(redo.rollbackHeights) > 0 {
 		return
 	}
-	redo.flushingBatch.Reset()
-	for blockHash, kvLog := range redo.logMap {
-		redo.flushingBatch.Put(blockHash.Bytes(), kvLog)
+
+	redo.flushingBatchMap = make(map[uint64]*leveldb.Batch, len(redo.snapshotLogMap))
+
+	for snapshotHeight, logMap := range redo.snapshotLogMap {
+		batch, ok := redo.flushingBatchMap[snapshotHeight]
+		if !ok || batch == nil {
+			batch = new(leveldb.Batch)
+			redo.flushingBatchMap[snapshotHeight] = batch
+		}
+		for blockHash, kvLog := range logMap {
+			batch.Put(blockHash.Bytes(), kvLog)
+		}
 	}
 
 }
 
 func (redo *StorageRedo) CancelPrepare() {
-	redo.flushingBatch.Reset()
+	redo.flushingBatchMap = make(map[uint64]*leveldb.Batch, 0)
 }
 
 func (redo *StorageRedo) RedoLog() ([]byte, error) {
@@ -143,38 +172,51 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 		for _, rollbackHeight := range redo.rollbackHeights {
 			redoLog = append(redoLog, chain_utils.Uint64ToBytes(rollbackHeight)...)
 		}
-	} else {
+	} else if len(redo.flushingBatchMap) > 0 {
 
-		if redo.flushingBatch.Len() <= 0 {
-			return nil, nil
+		redoLogSize := 1
+		for _, batch := range redo.flushingBatchMap {
+			redoLogSize += 12 + len(batch.Dump())
 		}
 
-		redoLog = make([]byte, 0, 9+len(redo.flushingBatch.Dump()))
+		redoLog = make([]byte, 0, redoLogSize)
 
 		redoLog = append(redoLog, optFlush)
 
-		redoLog = append(redoLog, chain_utils.Uint64ToBytes(redo.snapshotHeight)...)
+		for snapshotHeight, batch := range redo.flushingBatchMap {
+			redoLog = append(redoLog, chain_utils.Uint64ToBytes(snapshotHeight)...)
 
-		redoLog = append(redoLog, redo.flushingBatch.Dump()...)
+			batchLen := len(batch.Dump())
+			batchLenBytes := make([]byte, 4)
+			binary.BigEndian.PutUint32(batchLenBytes, uint32(batchLen))
+
+			redoLog = append(redoLog, batchLenBytes...)
+			redoLog = append(redoLog, batch.Dump()...)
+		}
+
 	}
 
 	return redoLog, nil
 }
 
 func (redo *StorageRedo) Commit() error {
-	//if len(redo.rollbackHeights) > 0 {
-	//	defer func() {
-	//		redo.rollbackHeights = nil
-	//	}()
-	//
-	//	return redo.delete(redo.rollbackHeights)
-	//} else if redo.flushingBatch.Len() > 0 {
-	//	defer func() {
-	//		redo.flushingBatch.Reset()
-	//	}()
-	//
-	//	return redo.flush(redo.snapshotHeight, redo.flushingBatch)
-	//}
+	if len(redo.rollbackHeights) > 0 {
+		defer func() {
+			redo.rollbackHeights = nil
+		}()
+
+		return redo.delete(redo.rollbackHeights)
+	} else if len(redo.flushingBatchMap) > 0 {
+		defer func() {
+			redo.flushingBatchMap = make(map[uint64]*leveldb.Batch)
+		}()
+
+		for snapshotHeight, batch := range redo.flushingBatchMap {
+			if err := redo.flush(snapshotHeight, batch); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
@@ -182,19 +224,36 @@ func (redo *StorageRedo) Commit() error {
 func (redo *StorageRedo) PatchRedoLog(redoLog []byte) error {
 	switch redoLog[0] {
 	case optFlush:
-		batch := new(leveldb.Batch)
-		if err := batch.Load(redoLog[9:]); err != nil {
-			return err
+
+		redoLogLen := len(redoLog)
+		currentPointer := 1
+
+		for currentPointer < redoLogLen {
+			batch := new(leveldb.Batch)
+
+			snapshotHeight := chain_utils.BytesToUint64(redoLog[currentPointer : currentPointer+8])
+			currentPointer += 8
+
+			size := binary.BigEndian.Uint32(redoLog[currentPointer : currentPointer+4])
+			currentPointer += 4
+
+			batchBytes := redoLog[currentPointer : currentPointer+int(size)]
+			currentPointer += int(size)
+
+			batch.Load(batchBytes)
+
+			if err := redo.flush(snapshotHeight, batch); err != nil {
+				return err
+			}
+
 		}
-		if batch.Len() <= 0 {
-			return nil
-		}
-		return redo.flush(chain_utils.BytesToUint64(redoLog[1:9]), batch)
+
+		return nil
 	case optRollback:
 		currentPointer := 1
 		redoLogLen := len(redoLog)
 
-		snapshotHeights := make([]uint64, 0, redoLogLen-1/8)
+		snapshotHeights := make([]uint64, 0, (redoLogLen-1)/8)
 
 		for currentPointer < redoLogLen {
 			snapshotHeights = append(snapshotHeights, binary.BigEndian.Uint64(redoLog[currentPointer:currentPointer+8]))
@@ -220,7 +279,7 @@ func (redo *StorageRedo) flush(snapshotHeight uint64, batch *leveldb.Batch) erro
 	}
 
 	// add
-	redo.flushingBatch.Replay(NewBatchFlush(bu))
+	batch.Replay(NewBatchFlush(bu))
 
 	// delete
 	if snapshotHeight > redo.retainHeight {
@@ -242,6 +301,11 @@ func (redo *StorageRedo) delete(snapshotHeights []uint64) error {
 	defer tx.Rollback()
 
 	for _, snapshotHeight := range snapshotHeights {
+		if _, ok := redo.snapshotLogMap[snapshotHeight]; ok {
+			delete(redo.snapshotLogMap, snapshotHeight)
+			continue
+		}
+
 		if err := tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight)); err != nil {
 			return err
 		}

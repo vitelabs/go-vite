@@ -115,6 +115,9 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 }
 
 func (store *Store) NewIterator(slice *util.Range) interfaces.StorageIterator {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		store.memDb.NewIterator(slice),
 		store.db.NewIterator(slice, nil),

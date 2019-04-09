@@ -8,11 +8,6 @@ import (
 	"io"
 )
 
-const (
-	MethodTypeFunction string = "function"
-	MethodTypeOffChain string = "offchain"
-)
-
 // The ABIContract holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.

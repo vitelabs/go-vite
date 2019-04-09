@@ -48,20 +48,18 @@ func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	if len(deletedSnapshotSegments) <= 0 {
-		return nil
-	}
 
 	// delete all confirmed block
 	cache.unconfirmedPool.DeleteAllBlocks()
 
 	// update latest snapshot block
 	if err := cache.initLatestSnapshotBlock(); err != nil {
+		cache.mu.Unlock()
 		return err
 	}
 
 	// rollback quota list
-	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments)); err != nil {
+	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments) - 1); err != nil {
 		return err
 	}
 	return nil

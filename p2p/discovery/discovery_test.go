@@ -3,6 +3,7 @@ package discovery
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
@@ -87,5 +88,25 @@ func TestFindNode(t *testing.T) {
 	nodes := d.lookup(vnode.ZERO, 32)
 	if len(nodes) != 32 {
 		t.Errorf("should not find %d nodes", len(nodes))
+	}
+}
+
+// timer reset
+func TestTimer(t *testing.T) {
+	timer := time.NewTimer(100 * time.Millisecond)
+	defer timer.Stop()
+
+	<-timer.C
+
+	if !timer.Stop() {
+		//<-timer.C // will block
+	}
+
+	start := time.Now().Unix()
+	timer.Reset(time.Second)
+	<-timer.C
+
+	if time.Now().Unix()-start != 1 {
+		t.Fail()
 	}
 }

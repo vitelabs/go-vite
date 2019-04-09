@@ -60,19 +60,20 @@ type AccountInfo struct {
 
 func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	// check genesis account status
-	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(ledger.GenesisAccountAddress)
+
+	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(*v.vite.Config().GenesisAccountAddress)
 	if err != nil {
 		return nil, err
 	}
 	// receive genesis onroad tx
 	if prevBlock == nil {
-		onroadList, err := v.onroad.GetOnroadBlocksByAddress(ledger.GenesisAccountAddress, 0, 10)
+		onroadList, err := v.onroad.GetOnroadBlocksByAddress(*v.vite.Config().GenesisAccountAddress, 0, 10)
 		if err != nil {
 			return nil, err
 		}
 		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressMintage && onroadList[0].Height == "2" {
 			err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-				SelfAddr:   ledger.GenesisAccountAddress,
+				SelfAddr:   *v.vite.Config().GenesisAccountAddress,
 				FromHash:   onroadList[0].Hash,
 				PrivKeyStr: testapi_hexPrivKey,
 			})
@@ -111,7 +112,7 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 	// transfer from genesis account to user account
 	tid, _ := types.HexToTokenTypeId(testapi_tti)
 	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
-		SelfAddr:    &ledger.GenesisAccountAddress,
+		SelfAddr:    v.vite.Config().GenesisAccountAddress,
 		ToAddr:      &acc.Addr,
 		TokenTypeId: tid,
 		PrivateKey:  &testapi_hexPrivKey,

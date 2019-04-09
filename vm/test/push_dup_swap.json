@@ -92,7 +92,7 @@
   "swap2error": {
     "amount": "0de0b6b3a7640000",
     "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff60039155",
-    "err": "stack underflow (2 <=> 3)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,
@@ -868,7 +868,7 @@
   "dup2error": {
     "amount": "0de0b6b3a7640000",
     "code": "7f10112233445566778899aabbccddeeff00112233445566778899aabbccddeeff81600355",
-    "err": "stack underflow (1 <=> 2)",
+    "err": "stack underflow",
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "inputData": "",
     "quotaLeft": 0,

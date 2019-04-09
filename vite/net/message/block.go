@@ -98,7 +98,10 @@ func (b *SnapshotBlocks) Deserialize(buf []byte) error {
 	b.Blocks = make([]*ledger.SnapshotBlock, len(pb.Blocks))
 	for i, bp := range pb.Blocks {
 		block := new(ledger.SnapshotBlock)
-		block.DeProto(bp)
+		err = block.DeProto(bp)
+		if err != nil {
+			return err
+		}
 		b.Blocks[i] = block
 	}
 
@@ -195,7 +198,10 @@ func (a *AccountBlocks) Deserialize(buf []byte) error {
 	a.Blocks = make([]*ledger.AccountBlock, len(pb.Blocks))
 	for i, bp := range pb.Blocks {
 		block := new(ledger.AccountBlock)
-		block.DeProto(bp)
+		err = block.DeProto(bp)
+		if err != nil {
+			return err
+		}
 		a.Blocks[i] = block
 	}
 
@@ -227,7 +233,10 @@ func (b *NewSnapshotBlock) Deserialize(buf []byte) error {
 	}
 
 	b.Block = new(ledger.SnapshotBlock)
-	b.Block.DeProto(pb.Block)
+	err = b.Block.DeProto(pb.Block)
+	if err != nil {
+		return err
+	}
 
 	b.TTL = pb.TTL
 
@@ -259,7 +268,10 @@ func (b *NewAccountBlock) Deserialize(buf []byte) error {
 	}
 
 	b.Block = new(ledger.AccountBlock)
-	b.Block.DeProto(pb.Block)
+	err = b.Block.DeProto(pb.Block)
+	if err != nil {
+		return err
+	}
 
 	b.TTL = pb.TTL
 

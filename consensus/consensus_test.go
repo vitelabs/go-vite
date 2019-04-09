@@ -661,7 +661,9 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 }
 
 func TestChainSnapshot(t *testing.T) {
-	c, err := NewChainInstanceFromDir(UnitTestDir, false, GenesisJson)
+	//dir := UnitTestDir
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_bk/devdata"
+	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -684,7 +686,7 @@ func TestChainSnapshot(t *testing.T) {
 		for _, v := range infos {
 			vs += fmt.Sprintf("[%s],", v.Name)
 		}
-		fmt.Printf("height:%d, producer:%s, t:%s, vs:%s\n", block.Height, block.Producer(), block.Timestamp, vs)
+		fmt.Printf("height:%d, hash:%s, producer:%s, t:%s, vs:%s\n", block.Height, block.Hash, block.Producer(), block.Timestamp, vs)
 		//fmt.Printf("%+v\n", block)
 	}
 
@@ -752,7 +754,7 @@ func TestChainAll(t *testing.T) {
 				bs += fmt.Sprintf("%d,", b.Height)
 				detailBs += fmt.Sprintf("[%d-%s-%t-%s]", b.Height, b.Hash, b.IsReceiveBlock(), b.ToAddress)
 			}
-			vs += fmt.Sprintf("\taccount[%s][%s]\n", k, bs)
+			vs += fmt.Sprintf("\taccount[%s][%s][%d]\n", k, bs, block.SnapshotContent[k].Height)
 			vs += fmt.Sprintf("\t\tdetails[%s]\n", detailBs)
 		}
 		fmt.Println(vs)

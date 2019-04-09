@@ -5,6 +5,10 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
+	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/crypto/sha3"
@@ -25,7 +29,7 @@ func TestPutUint24(t *testing.T) {
 	for offset := uint(0); offset < maxLen*8; offset++ {
 		i = 1 << offset
 
-		length := int(offset/8 + 1)
+		length := byte(offset/8 + 1)
 
 		m = PutVarint(buf, i, length)
 
@@ -50,7 +54,7 @@ func TestUint24(t *testing.T) {
 	for offset := uint(0); offset < maxLen*8; offset++ {
 		i = 1 << offset
 
-		length := int(offset/8 + 1)
+		length := byte(offset/8 + 1)
 
 		m = PutVarint(buf, uint(i), length)
 
@@ -136,72 +140,152 @@ func ExampleSHA3_Size() {
 }
 
 func MsgEqual(msg1, msg2 Msg) bool {
-	if msg1.Pid != msg2.Pid {
+	if msg1.pid != msg2.pid {
 		return false
 	}
 	if msg1.Code != msg2.Code {
+		return false
+	}
+	if msg1.Id != msg2.Id {
 		return false
 	}
 
 	return bytes.Equal(msg1.Payload, msg2.Payload)
 }
 
+//func TestPutIdSize(t *testing.T) {
+//	var sizes = []byte{0, 1, 2, 4}
+//
+//	for _, size := range sizes {
+//		if getIdSize(putIdSize(size)) != size {
+//			t.Fail()
+//		}
+//	}
+//}
+
+func TestRetrieveMeta(t *testing.T) {
+	var isizes = []byte{0, 1, 2, 4}
+	var lsizes = []byte{0, 1, 2, 3}
+	var cs = []bool{true, false}
+
+	for _, isize := range isizes {
+		for _, lsize := range lsizes {
+			for _, c := range cs {
+				meta := storeMeta(isize, lsize, c)
+				isize2, lsize2, c2 := retrieveMeta(meta)
+				if isize != isize2 {
+					t.Errorf("wrong isize: %d", isize2)
+				}
+				if lsize != lsize2 {
+					t.Errorf("wrong lsize: %d", lsize2)
+				}
+				if c != c2 {
+					t.Errorf("wrong compress: %v", c2)
+				}
+			}
+		}
+	}
+}
+
 func TestCodec(t *testing.T) {
-	conn1, conn2 := net.Pipe()
+	const addr = "127.0.0.1:10000"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
 
-	c1 := NewTransport(conn1, 100, readMsgTimeout, writeMsgTimeout)
-	c2 := NewTransport(conn2, 100, readMsgTimeout, writeMsgTimeout)
+	var wg sync.WaitGroup
 
-	const total = 10000
-	msgChan := make(chan Msg, total)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	const max = 1<<8 - 1
-	t.Run("write", func(t *testing.T) {
-		t.Parallel()
+		conn, e := ln.Accept()
+		if e != nil {
+			panic(err)
+		}
+
+		c1 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
+
 		var msg Msg
-		var err error
+		var werr error
 		var buf []byte
 
-		for i := 0; i < total; i++ {
+		const total = 10000001
+		const max = 1 << 8
+		for i := 0; i < total; i *= 2 {
 			buf = make([]byte, i)
 			_, _ = crand.Read(buf)
 
 			msg = Msg{
-				Pid:     ProtocolID(i % max),
+				pid:     ProtocolID(i % max),
 				Code:    ProtocolID(i % max),
+				Id:      uint32(i),
 				Payload: buf,
 			}
 
-			err = c1.WriteMsg(msg)
+			werr = c1.WriteMsg(msg)
+			fmt.Printf("write %d message %d/%d, %d bytes\n", i, msg.pid, msg.Code, len(msg.Payload))
 
-			if err != nil {
-				t.Fatalf("write error: %v", err)
+			if werr != nil {
+				t.Fatalf("write error: %v", werr)
 			}
 
-			msgChan <- msg
+			i++
 		}
-	})
 
-	t.Run("read", func(t *testing.T) {
-		t.Parallel()
-		var msg, msgC Msg
-		var err error
+		fmt.Println("sent done")
+		_ = conn.Close()
+		_ = ln.Close()
+	}()
 
-		for i := 0; i < total; i++ {
-			msg, err = c2.ReadMsg()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-			if err != nil {
-				t.Fatalf("read error: %v", err)
-			}
-			msgC = <-msgChan
+		var msg Msg
+		var rerr error
 
-			if MsgEqual(msg, msgC) {
-				t.Logf("get message %d/%d, %d bytes", msg.Pid, msg.Code, len(msg.Payload))
-			} else {
-				t.Fatalf("message not equal")
-			}
+		conn, rerr := net.Dial("tcp", addr)
+		if rerr != nil {
+			panic(rerr)
 		}
-	})
+
+		c2 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
+
+		for {
+			msg, rerr = c2.ReadMsg()
+
+			if rerr != nil {
+				if strings.Index(rerr.Error(), "EOF") == -1 {
+					t.Errorf("read error: %v", rerr)
+				}
+				break
+			}
+
+			fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+			//if MsgEqual(msg, msgC) {
+			//	fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+			//} else {
+			//	t.Error("message not equal")
+			//}
+		}
+
+		_ = conn.Close()
+	}()
+
+	go func() {
+		err = http.ListenAndServe("0.0.0.0:8080", nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	wg.Wait()
+}
+
+func BenchmarkMockCodec_WriteMsg(b *testing.B) {
+
 }
 
 /*

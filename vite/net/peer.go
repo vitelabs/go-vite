@@ -198,7 +198,7 @@ func (p *peer) sendNewAccountBlock(b *ledger.AccountBlock) (err error) {
 		TTL:   10,
 	}
 
-	return p.send(NewSnapshotBlockCode, 0, ms)
+	return p.send(NewAccountBlockCode, 0, ms)
 }
 
 type peerEventCode byte
@@ -428,6 +428,13 @@ func (m *peerSet) get(id peerId) Peer {
 	defer m.prw.RUnlock()
 
 	return m.m[id]
+}
+
+func (m *peerSet) count() int {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	return len(m.m)
 }
 
 // peers can be sort by height, from low to high

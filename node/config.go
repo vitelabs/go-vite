@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,8 +40,9 @@ type Config struct {
 	GenesisFile string `json:"GenesisFile"`
 
 	// p2p
-	Name            string   `json:"Name"`
+	Identity        string   `json:"Identity"`
 	PeerKey         string   `json:"PeerKey"`
+	PrivateKey      string   `json:"PrivateKey"`
 	MaxPeers        int      `json:"MaxPeers"`
 	MinPeers        int      `json:"MinPeers"`
 	MaxInboundRatio int      `json:"MaxInboundRatio"`
@@ -48,6 +50,8 @@ type Config struct {
 	BootNodes       []string `json:"BootNodes"`
 	BootSeeds       []string `json"BootSeeds"`
 	StaticNodes     []string `json:"StaticNodes"`
+	ListenInterface string   `json:"ListenInterface"`
+	Port            int      `json:"Port"`
 	ListenAddress   string   `json:"ListenAddress"`
 	PublicAddress   string   `json:"PublicAddress"`
 	NetID           int      `json:"NetID"`
@@ -96,6 +100,7 @@ type Config struct {
 
 	// net
 	Single             bool   `json:"Single"`
+	FilePort           int    `json:"FilePort"`
 	FileListenAddress  string `json:"FileListenAddress"`
 	FilePublicAddress  string `json:"FileAddress"`
 	DashboardTargetURL string
@@ -133,21 +138,22 @@ func (c *Config) makeViteConfig() *config.Config {
 
 func (c *Config) makeNetConfig() *config.Net {
 	var fileListenAddress = c.FileListenAddress
-	if c.FileListenAddress == "" {
-		fileListenAddress = "0.0.0.0:8483"
+	if fileListenAddress == "" {
+		fileListenAddress = c.ListenInterface + ":" + strconv.Itoa(c.FilePort)
 	}
 
 	return &config.Net{
 		Single:            c.Single,
 		FileListenAddress: fileListenAddress,
 		FilePublicAddress: c.FilePublicAddress,
+		FilePort:          c.FilePort,
 	}
 }
 
 func (c *Config) makeRewardConfig() *biz.Reward {
 	return &biz.Reward{
 		RewardAddr: c.RewardAddr,
-		Name:       c.Name,
+		Name:       c.Identity,
 	}
 }
 
@@ -199,16 +205,33 @@ func (c *Config) makeMinerConfig() *config.Producer {
 }
 
 func (c *Config) makeP2PConfig() (*p2p.Config, error) {
+	var listenAddress = c.ListenAddress
+	if listenAddress == "" {
+		listenAddress = c.ListenInterface + ":" + strconv.Itoa(c.Port)
+	}
+
+	p2pDataDir := filepath.Join(c.DataDir, "p2p")
+
+	// open data dir
+	if err := os.MkdirAll(p2pDataDir, 0700); err != nil {
+		return nil, err
+	}
+
+	peerKey := c.PeerKey
+	if peerKey == "" {
+		peerKey = c.PrivateKey
+	}
+
 	return p2p.NewConfig(
-		c.ListenAddress,
+		listenAddress,
 		c.PublicAddress,
-		c.DataDir,
+		p2pDataDir,
 		c.PeerKey,
 		c.BootNodes,
 		c.BootSeeds,
 		c.NetID,
 		c.Discover,
-		c.Name,
+		c.Identity,
 		c.MaxPeers,
 		c.MinPeers,
 		c.MaxInboundRatio,

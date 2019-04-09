@@ -2,16 +2,20 @@ package chain
 
 import (
 	"fmt"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
 
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+
+	"log"
+	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func createSnapshotBlock(chainInstance Chain) *ledger.SnapshotBlock {
@@ -62,7 +66,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		addrList = append(addrList, account.addr)
 	}
 
-	fmt.Printf("Account number is %d\n", accountNumber)
+	fmt.Printf("Account number is %d, snapshotPerNum is %d\n", accountNumber, snapshotPerBlockNum)
 
 	cTxOptions := &CreateTxOptions{
 		MockSignature: true,
@@ -117,26 +121,19 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 	}
 }
 
-func BenchmarkChain_InsertStateDB(b *testing.B) {
-
-}
-
 func BenchmarkChain_InsertAccountBlock(b *testing.B) {
-	b.Run("10 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10, 10000)
-	})
-	b.Run("100 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100, 10000)
-	})
-	b.Run("1000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 1000, 10000)
-	})
-	b.Run("10000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 10000, 10000)
-	})
-	b.Run("100000 accounts", func(b *testing.B) {
-		BmInsertAccountBlock(b, 100000, 10000)
-	})
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	for _, snapshotPerNum := range []int{0} {
+		for _, accountNum := range []int{1, 10, 100, 10000, 10000} {
+			b.Run(fmt.Sprintf("%d accounts, snapshotPerNum: %d", accountNum, snapshotPerNum), func(b *testing.B) {
+				BmInsertAccountBlock(b, accountNum, snapshotPerNum)
+			})
+		}
+	}
+
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
 	//})
@@ -201,14 +198,20 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		Data:   chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	})
 
-	keyValue := make(map[string][]byte, 10)
-	for i := 0; i < 1; i++ {
-		keyValue[strconv.FormatUint(uint64(time.Now().UnixNano()), 10)] = chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))
+	latestHeight := uint64(0)
+	if account.latestBlock != nil {
+		latestHeight = account.latestBlock.Height
 	}
+
+	keyValue := map[string][]byte{
+		strconv.FormatUint(latestHeight+1, 10): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
+	}
+	fmt.Printf("%s add key value: %+v\n", account.addr, keyValue)
+
 	cTxOptions := &CreateTxOptions{
 		MockSignature: true,
-		VmLogList:     vmLogList,
 		KeyValue:      keyValue,
+		VmLogList:     vmLogList,
 		Quota:         rand.Uint64() % 10000,
 	}
 
@@ -224,7 +227,8 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 
 	if createRequestTx {
 		toAccount := accounts[addrList[rand.Intn(len(addrList))]]
-		if len(toAccount.SendBlocksMap) <= 0 && len(toAccount.ReceiveBlocksMap) <= 0 {
+
+		if len(toAccount.BlocksMap) <= 0 {
 			cTxOptions.ContractMeta = &ledger.ContractMeta{
 				SendConfirmedTimes: 2,
 				Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
@@ -237,6 +241,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 	} else {
 		tx, createTxErr = account.CreateResponseTx(cTxOptions)
 	}
+
 	if createTxErr != nil {
 		return nil, createTxErr
 	}

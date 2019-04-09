@@ -160,7 +160,7 @@ func (srv *server) handle(c net.Conn) {
 	if err != nil {
 		srv.log.Error(fmt.Sprintf("handshake with peer %s error: %v", c.RemoteAddr(), err))
 	} else {
-		go srv.pm.register(p)
+		srv.pm.register(p)
 	}
 }
 

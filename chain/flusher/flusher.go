@@ -11,14 +11,7 @@ import (
 	"os"
 	"path"
 	"sync"
-	"sync/atomic"
 	"time"
-)
-
-const (
-	stopStat  = 1
-	pauseStat = 2
-	startStat = 3
 )
 
 type Storage interface {
@@ -42,17 +35,17 @@ type Flusher struct {
 	log log15.Logger
 	fd  *os.File
 
-	mu      *sync.RWMutex
-	wg      sync.WaitGroup
-	status  uint32
-	stopped chan struct{}
+	mu sync.RWMutex
+	wg sync.WaitGroup
 
 	flushInterval   time.Duration
 	startCommitFlag types.Hash
 	commitWg        sync.WaitGroup
+
+	lastFlushTime time.Time
 }
 
-func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flusher, error) {
+func NewFlusher(storeList []Storage, chainDir string) (*Flusher, error) {
 	fileName := path.Join(chainDir, "flush.redo.log")
 	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
 	if oErr != nil {
@@ -81,26 +74,31 @@ func NewFlusher(mu *sync.RWMutex, storeList []Storage, chainDir string) (*Flushe
 
 		log: log15.New("module", "flusher"),
 		fd:  fd,
-		mu:  mu,
 
-		status:          stopStat,
-		stopped:         make(chan struct{}),
 		flushInterval:   time.Second,
 		startCommitFlag: startCommitFlag,
+		lastFlushTime:   time.Now(),
 	}
 
 	return flusher, nil
 }
+func (flusher *Flusher) Close() error {
+	if err := flusher.fd.Close(); err != nil {
+		return err
+	}
+	return nil
+}
 
-func (flusher *Flusher) Flush() {
+func (flusher *Flusher) Flush(force bool) {
 	flusher.mu.Lock()
 	defer flusher.mu.Unlock()
 
-	if flusher.status != startStat {
+	if !force && time.Now().Sub(flusher.lastFlushTime) < flusher.flushInterval {
 		return
 	}
 
 	flusher.flush()
+	flusher.lastFlushTime = time.Now()
 }
 
 func (flusher *Flusher) Recover() error {
@@ -113,55 +111,9 @@ func (flusher *Flusher) Recover() error {
 		return nil
 	}
 	return flusher.redo(stores, redoLogList)
-
-}
-
-func (flusher *Flusher) Start() {
-	if !atomic.CompareAndSwapUint32(&flusher.status, stopStat, startStat) {
-		return
-	}
-
-	flusher.wg.Add(1)
-	go func() {
-		defer flusher.wg.Done()
-		for {
-			select {
-			case <-flusher.stopped:
-				flusher.flush()
-				return
-			default:
-				time.Sleep(flusher.flushInterval)
-				flusher.Flush()
-			}
-		}
-	}()
-	flusher.status = startStat
-}
-
-func (flusher *Flusher) Pause() {
-	atomic.CompareAndSwapUint32(&flusher.status, startStat, pauseStat)
-
-}
-
-func (flusher *Flusher) RecoverStart() {
-	atomic.CompareAndSwapUint32(&flusher.status, pauseStat, startStat)
-}
-
-func (flusher *Flusher) Stop() {
-	if !(atomic.CompareAndSwapUint32(&flusher.status, startStat, stopStat) ||
-		atomic.CompareAndSwapUint32(&flusher.status, pauseStat, stopStat)) {
-		return
-	}
-
-	close(flusher.stopped)
-	flusher.wg.Wait()
-
-	flusher.status = stopStat
 }
 
 func (flusher *Flusher) commitRedo() error {
-	flusher.mu.Lock()
-	defer flusher.mu.Unlock()
 
 	redoLogList, stores, err := flusher.loadRedo()
 	if err != nil {

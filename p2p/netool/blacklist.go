@@ -16,61 +16,66 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package network
+package netool
 
 import (
 	"encoding/hex"
 	"time"
 )
 
-type Record struct {
-	T time.Time
-	C int
-}
-
+// Strategy receive first ban time and ban count, return true means banned
 type Strategy func(t time.Time, count int) bool
 
 type BlackList interface {
-	Block([]byte)
-	UnBlock([]byte)
-	Blocked([]byte) bool
+	Ban([]byte)
+	UnBan([]byte)
+	Banned([]byte) bool
 }
 
-type Block struct {
-	records  map[string]*Record
+type record struct {
+	t time.Time
+	c int
+}
+
+type blackList struct {
+	records  map[string]*record
 	strategy Strategy
 }
 
 func NewBlackList(strategy Strategy) BlackList {
-	return &Block{
-		records:  make(map[string]*Record),
+	return &blackList{
+		records:  make(map[string]*record),
 		strategy: strategy,
 	}
 }
 
-func (b *Block) Block(buf []byte) {
+func (b *blackList) Ban(buf []byte) {
 	id := hex.EncodeToString(buf)
 	if r, ok := b.records[id]; ok {
-		r.T = time.Now()
-		r.C++
+		r.t = time.Now()
+		r.c++
 	} else {
-		b.records[id] = &Record{
-			T: time.Now(),
-			C: 1,
+		b.records[id] = &record{
+			t: time.Now(),
+			c: 1,
 		}
 	}
 }
 
-func (b *Block) UnBlock(buf []byte) {
+func (b *blackList) UnBan(buf []byte) {
 	id := hex.EncodeToString(buf)
 	delete(b.records, id)
 }
 
-func (b *Block) Blocked(buf []byte) bool {
+func (b *blackList) Banned(buf []byte) bool {
 	id := hex.EncodeToString(buf)
 
 	if r, ok := b.records[id]; ok {
-		return b.strategy(r.T, r.C)
+		if b.strategy(r.t, r.c) {
+			return true
+		} else {
+			delete(b.records, id)
+		}
 	}
 
 	return false
