@@ -56,7 +56,7 @@ type CodecFactory interface {
  * |------------ head --------------|
  * +----------+----------+----------+------------------+----------------------+----------------------------+
  * |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
- * |  1 byte  |  1 byte  |  1 byte  |    0 ~ 4 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
+ * |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
  * +----------+----------+----------+------------------+----------------------+----------------------------+
  *
  * Meta structure
@@ -69,33 +69,36 @@ type CodecFactory interface {
  * Compress: 0 no compressed, 1 compressed
  */
 
-func putIdSize(idLength byte) byte {
-	switch idLength {
-	case 4:
-		return 3
-	default:
-		return idLength
-	}
-}
+// idLength is 0, 1, 2, 4
+//func putIdSize(idLength byte) byte {
+//	switch idLength {
+//	case 4:
+//		return 3
+//	default:
+//		return idLength
+//	}
+//}
 
-func getIdSize(code byte) byte {
-	switch code {
-	case 3:
-		return 4
-	default:
-		return code
-	}
-}
+//func getIdSize(code byte) byte {
+//	switch code {
+//	case 3:
+//		return 4
+//	default:
+//		return code
+//	}
+//}
 
-func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
-	isize = getIdSize(meta >> 6)
-	lsize = meta << 2 >> 6
-	compressed = (meta << 4 >> 7) > 0
-	return
-}
+//func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
+//	isize = getIdSize(meta >> 6)
+//	lsize = meta << 2 >> 6
+//	compressed = (meta << 4 >> 7) > 0
+//	return
+//}
 
+// isize is idsize 0, 1, 2, 4
+// lsize is length 0, 1, 2, 3
 //func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
-//	meta |= putIdSize(isize << 6)
+//	meta |= putIdSize(isize) << 6
 //	meta |= lsize << 4
 //	if compressed {
 //		meta |= 8
@@ -103,11 +106,29 @@ func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
 //	return
 //}
 
+func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
+	isize = meta >> 6
+	lsize = meta << 2 >> 6
+	compressed = (meta << 4 >> 7) > 0
+	return
+}
+
+func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
+	meta |= isize << 6
+	meta |= lsize << 4
+	if compressed {
+		meta |= 8
+	}
+	return
+}
+
 type transport struct {
 	net.Conn
 	readTimeout       time.Duration
 	writeTimeout      time.Duration
 	minCompressLength int // will not compress message payload if small than minCompressLength bytes
+	readHeadBuf       []byte
+	writeHeadBuf      []byte
 }
 
 func (t *transport) Address() string {
@@ -130,6 +151,8 @@ func NewTransport(conn net.Conn, minCompressLength int, readTimeout, writeTimeou
 		minCompressLength: minCompressLength,
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
+		readHeadBuf:       make([]byte, 3),
+		writeHeadBuf:      make([]byte, 9),
 	}
 }
 
@@ -149,9 +172,8 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 func (t *transport) ReadMsg() (msg Msg, err error) {
 	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
-	buf := make([]byte, 4)
-
-	_, err = io.ReadFull(t.Conn, buf[:headLength])
+	buf := t.readHeadBuf
+	_, err = io.ReadFull(t.Conn, buf)
 	if err != nil {
 		return
 	}
@@ -204,45 +226,49 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 func (t *transport) WriteMsg(msg Msg) (err error) {
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
-	head := make([]byte, headLength+maxIdLength+maxPayloadLength)
+	head := t.writeHeadBuf
 	head[1] = msg.pid
 	head[2] = msg.Code
 
-	var headLen = 3
+	var headLen byte = 3
 
-	var n int
+	var isize byte
 	if msg.Id > 0 {
-		n = PutVarint(head[3:], uint(msg.Id), maxIdLength)
-		head[0] |= putIdSize(byte(n)) << 6
-		headLen += n
+		isize = PutVarint(head[3:], uint(msg.Id), maxIdLength)
+		headLen += isize
 	}
 
+	var lsize byte
+	var compress bool
 	payloadLen := len(msg.Payload)
 	if payloadLen > t.minCompressLength {
 		payload := snappy.Encode(nil, msg.Payload)
+		// smaller after compressed
 		if len(payload) < payloadLen {
 			msg.Payload = payload
-			head[0] |= 8 // compressed
 			payloadLen = len(payload)
+			compress = true
 		}
 	}
 
 	if payloadLen > 0 {
-		n = PutVarint(head[headLen:], uint(payloadLen), maxPayloadLength)
-		head[0] |= byte(n << 4)
-		headLen += n
+		lsize = PutVarint(head[headLen:], uint(payloadLen), maxPayloadLength)
+		headLen += lsize
 	}
 
-	data := make([]byte, headLen+payloadLen)
+	head[0] = storeMeta(isize, lsize, compress)
+
+	data := make([]byte, int(headLen)+payloadLen)
 	copy(data, head[:headLen])
 	copy(data[headLen:], msg.Payload)
 
-	n, err = t.Conn.Write(data)
+	var wsize int
+	wsize, err = t.Conn.Write(data)
 	if err != nil {
 		return
 	}
 
-	if n != len(data) {
+	if wsize != len(data) {
 		return errWriteTooShort
 	}
 
@@ -258,7 +284,7 @@ func Varint(buf []byte) (n uint) {
 	return
 }
 
-func PutVarint(buf []byte, n uint, maxBytes int) (m int) {
+func PutVarint(buf []byte, n uint, maxBytes byte) (m byte) {
 	_ = buf[maxBytes-1]
 
 	for m = 1; m < maxBytes+1; m++ {
@@ -267,7 +293,7 @@ func PutVarint(buf []byte, n uint, maxBytes int) (m int) {
 		}
 	}
 
-	for i := 0; i < m; i++ {
+	for i := byte(0); i < m; i++ {
 		buf[i] = byte(n >> (uint(m-i-1) * 8))
 	}
 
