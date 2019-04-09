@@ -68,23 +68,26 @@ func (n *net) ProtoData() []byte {
 			signature = ed25519.Sign(n.MinePrivateKey, n.nodeID.Bytes())
 		}
 
-		var e vnode.EndPoint
-		var err error
-		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
-		if err != nil {
-			e = vnode.EndPoint{
-				Host: []byte{0, 0, 0, 0},
-				Port: DefaultFilePort,
-				Typ:  vnode.HostIPv4,
+		var fileAddress []byte
+		if n.FilePublicAddress != "" {
+			var e vnode.EndPoint
+			var err error
+			e, err = vnode.ParseEndPoint(n.FilePublicAddress)
+			if err != nil {
+				e = vnode.EndPoint{
+					Host: []byte{0, 0, 0, 0},
+					Port: DefaultFilePort,
+					Typ:  vnode.HostIPv4,
+				}
+
+				n.log.Error(fmt.Sprintf("Failed to parse FilePublicAddress: %v", err))
 			}
 
-			n.log.Error(fmt.Sprintf("Failed to parse FilePublicAddress: %v", err))
-		}
-
-		addr, err := e.Serialize()
-		if err != nil {
-			addr = nil
-			n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
+			fileAddress, err = e.Serialize()
+			if err != nil {
+				fileAddress = nil
+				n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
+			}
 		}
 
 		pb := &protos.ViteHandshake{
@@ -93,7 +96,7 @@ func (n *net) ProtoData() []byte {
 			Height:      current.Height,
 			Key:         key,
 			Signature:   signature,
-			FileAddress: addr,
+			FileAddress: fileAddress,
 		}
 
 		buf, err := proto.Marshal(pb)
@@ -421,12 +424,12 @@ func (n *net) Stop() error {
 
 func (n *net) Info() NodeInfo {
 	return NodeInfo{
-		Latency: n.broadcaster.Statistic(),
+		PeerCount: n.peers.count(),
+		Latency:   n.broadcaster.Statistic(),
 	}
 }
 
 type NodeInfo struct {
-	PeerCount int           `json:"peerCount"`
-	Latency   []int64       `json:"latency"` // [0,1,12,24]
-	Plugins   []interface{} `json:"plugins"`
+	PeerCount int     `json:"peerCount"`
+	Latency   []int64 `json:"latency"` // [0,1,12,24]
 }

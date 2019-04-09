@@ -288,6 +288,7 @@ func (p *p2p) Info() NodeInfo {
 		Version:   version,
 		Address:   p.cfg.ListenAddress,
 		Protocols: pts,
+		PeerCount: p.peers.count(),
 		Peers:     p.peers.info(),
 	}
 }
