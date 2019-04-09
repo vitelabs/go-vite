@@ -233,6 +233,9 @@ func (self *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	}
 	var snapshotResults []commonBlock
 	for _, s := range schunk {
+		if s.SnapshotBlock == nil {
+			continue
+		}
 		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s.SnapshotBlock, self.version, types.RollbackChain))
 	}
 	return snapshotResults, accountResults, nil
