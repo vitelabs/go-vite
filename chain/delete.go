@@ -34,8 +34,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, cErr
 	}
 
-	c.flusher.Flush(true)
-
 	snapshotChunkList := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
 
 	var location *chain_file_manager.Location

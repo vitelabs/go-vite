@@ -133,6 +133,9 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 			})
 		}
 	}
+	//b.Run("1000000 accounts", func(b *testing.B) {
+	//	BmInsertAccountBlock(b, 1000000)
+	//})
 }
 
 func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int) []*ledger.SnapshotBlock {

@@ -87,8 +87,13 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	}
 
 	// write call depth
-	callDepth := vmDb.GetUnsavedCallDepth()
-	if accountBlock.IsReceiveBlock() && callDepth > 0 {
+	if accountBlock.IsReceiveBlock() && len(accountBlock.SendBlockList) > 0 {
+		callDepth, err := vmDb.GetCallDepth(&accountBlock.FromBlockHash)
+		if err != nil {
+			return err
+		}
+
+		callDepth += 1
 		callDepthBytes := make([]byte, 2)
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 

@@ -77,6 +77,7 @@ func NewFlusher(storeList []Storage, chainDir string) (*Flusher, error) {
 
 		flushInterval:   time.Second,
 		startCommitFlag: startCommitFlag,
+		lastFlushTime:   time.Now(),
 	}
 
 	return flusher, nil
