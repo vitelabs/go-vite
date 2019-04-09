@@ -295,7 +295,7 @@ func New(cfg Config) Net {
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        make(map[code]msgHandler),
 		log:             netLog,
-		hb:              newHeartBeater(peers, netLog.New("module", "heartbeat")),
+		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
 	//n.addHandler(_statusHandler(statusHandler))
@@ -309,23 +309,29 @@ func New(cfg Config) Net {
 }
 
 type heartBeater struct {
+	chain     chainReader
 	last      time.Time
 	lastPeers map[vnode.NodeID]struct{}
 	ps        *peerSet
 	log       log15.Logger
 }
 
-func newHeartBeater(ps *peerSet, log log15.Logger) *heartBeater {
+func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeater {
 	return &heartBeater{
-		ps:  ps,
-		log: log,
+		ps:    ps,
+		chain: chain,
+		log:   log,
 	}
 }
 
 func (h *heartBeater) state() []byte {
+	current := h.chain.GetLatestSnapshotBlock()
+
 	var heartBeat = &protos.ProtocolState{
 		Peers:     nil,
 		Patch:     true,
+		Head:      current.Hash.Bytes(),
+		Height:    current.Height,
 		Timestamp: time.Now().Unix(),
 	}
 
