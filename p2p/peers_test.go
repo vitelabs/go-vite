@@ -212,3 +212,23 @@ func TestPeers_resize(t *testing.T) {
 		t.Error("wrong resize")
 	}
 }
+
+func TestPeers_has(t *testing.T) {
+	var ps = newPeers(map[Level]int{
+		Outbound: 1,
+	})
+
+	peer := &mockPeer{
+		level: Superior,
+		id:    vnode.RandomNodeID(),
+	}
+
+	_, ok := ps.add(peer)
+	if !ok {
+		t.Fail()
+	}
+
+	if !ps.has(peer.id) {
+		t.Fail()
+	}
+}

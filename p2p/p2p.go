@@ -399,7 +399,7 @@ func (p *p2p) findLoop() {
 	need := p.cfg.minPeers
 
 	var duration = 10 * time.Second
-	var maxDuration = 3 * time.Minute
+	var maxDuration = 4 * time.Minute
 	var timer = time.NewTimer(time.Hour)
 	defer timer.Stop()
 
