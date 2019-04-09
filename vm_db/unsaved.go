@@ -25,8 +25,6 @@ type Unsaved struct {
 	storageCache [][2][]byte
 
 	balanceMap map[types.TokenTypeId]*big.Int
-
-	callDepth uint16
 }
 
 func NewUnsaved() *Unsaved {
@@ -148,12 +146,4 @@ func (unsaved *Unsaved) NewStorageIterator(prefix []byte) interfaces.StorageIter
 func (unsaved *Unsaved) ReleaseRuntime() {
 	unsaved.GetStorage()
 	unsaved.storage = nil
-}
-
-func (unsaved *Unsaved) SetCallDepth(callDepth uint16) {
-	unsaved.callDepth = callDepth
-}
-
-func (unsaved *Unsaved) GetCallDepth() uint16 {
-	return unsaved.callDepth
 }

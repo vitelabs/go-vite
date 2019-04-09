@@ -56,10 +56,6 @@ type VmDb interface {
 
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
-	SetCallDepth(uint16)
-
-	GetUnsavedCallDepth() uint16
-
 	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
 
 	// ====== State ======

@@ -55,14 +55,17 @@ func (db *vmDb) IsContractAccount() (bool, error) {
 }
 
 func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	return db.chain.GetCallDepth(*sendBlockHash)
-}
+	if db.callDepth != nil {
+		return *db.callDepth, nil
+	}
 
-func (db *vmDb) SetCallDepth(callDepth uint16) {
-	db.unsaved.SetCallDepth(callDepth)
-}
-func (db *vmDb) GetUnsavedCallDepth() uint16 {
-	return db.unsaved.GetCallDepth()
+	callDepth, err := db.chain.GetCallDepth(*sendBlockHash)
+	if err != nil {
+		return 0, err
+	}
+	db.callDepth = &callDepth
+
+	return *db.callDepth, nil
 }
 
 func (db *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {

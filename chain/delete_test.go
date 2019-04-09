@@ -18,12 +18,12 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 	}()
 	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 96, 2)
 
-	testDelete(t, chainInstance, accounts, snapshotBlockList)
+	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
 	TearDown(chainInstance)
 }
 
-func testDelete(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
 	for i := 0; i < rand.Intn(5); i++ {
 		t.Run("DeleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList)
@@ -33,6 +33,7 @@ func testDelete(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
 		})
 	}
+	return snapshotBlockList
 }
 
 func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
