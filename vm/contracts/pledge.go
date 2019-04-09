@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -52,7 +51,7 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 		oldPledge := new(abi.PledgeInfo)
 		abi.ABIPledge.UnpackVariable(oldPledge, abi.VariableNamePledgeInfo, oldPledgeData)
 		if oldPledge.BeneficialAddr != *beneficialAddr {
-			return nil, errors.New("beneficial address error")
+			return nil, util.ErrInvalidMethodParam
 		}
 		amount = oldPledge.Amount
 	}

@@ -1,7 +1,6 @@
 package quota
 
 import (
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -214,11 +213,11 @@ func CanPoW(db quotaDb) (bool, error) {
 
 func CalcPoWDifficulty(quotaRequired uint64, q types.Quota, pledgeAmount *big.Int) (*big.Int, error) {
 	if quotaRequired > quotaLimitForBlock {
-		return nil, errors.New("quota limit for block reached")
+		return nil, util.ErrBlockQuotaLimitReached
 	}
 	expectedTotal := quotaRequired + q.Used()
 	if expectedTotal > quotaLimitForAccount {
-		return nil, errors.New("quota limit for account reached")
+		return nil, util.ErrAccountQuotaLimitReached
 	}
 	if q.Total() >= expectedTotal {
 		return big.NewInt(0), nil
