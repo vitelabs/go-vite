@@ -43,7 +43,7 @@ const (
 	SyncCancel
 )
 
-var syncStatus = [...]string{
+var syncStatus = map[SyncState]string{
 	SyncInit:       "Sync Not Start",
 	SyncWait:       "Sync wait",
 	Syncing:        "Synchronising",
@@ -54,10 +54,12 @@ var syncStatus = [...]string{
 }
 
 func (s SyncState) String() string {
-	if s > SyncDownloaded {
-		return "unknown sync state"
+	status, ok := syncStatus[s]
+	if ok {
+		return status
 	}
-	return syncStatus[s]
+
+	return "unknown sync state"
 }
 
 type syncState interface {
