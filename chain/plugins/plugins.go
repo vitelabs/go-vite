@@ -15,6 +15,17 @@ type Plugins struct {
 }
 
 func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
+	var err error
+
+	id, err := types.BytesToHash(crypto.Hash256([]byte("plugins")))
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := chain_db.NewStore(path.Join(chainDir, "plugins"), 0, id)
+	if err != nil {
+		return nil, err
+	}
 
 	plugins := map[string]Plugin{
 		"filterToken": newFilterToken(store),
