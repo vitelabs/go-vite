@@ -220,6 +220,10 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			return FAIL, err
 		}
 		if isReceived {
+			received, err := v.chain.GetReceiveAbBySendAb(block.FromBlockHash)
+			if err == nil && received != nil {
+				return FAIL, errors.Errorf("block is already received successfully[received:%s]", received.Hash)
+			}
 			return FAIL, errors.New("block is already received successfully")
 		}
 

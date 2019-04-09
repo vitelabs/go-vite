@@ -87,8 +87,8 @@ func GetBalanceMap(t *testing.T, chainInstance *chain, accounts map[types.Addres
 			if account.Balance().Cmp(account.InitBalance()) != 0 {
 				t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d, Balance3: %d", account.addr, balance, account.Balance(), account.InitBalance()))
 			}
-		} else if balanceMap[ledger.ViteTokenId].Cmp(account.BalanceMap[account.latestBlock.Hash]) != 0 {
-			t.Fatal(fmt.Sprintf("Error: Balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.BalanceMap[account.latestBlock.Hash]))
+		} else if balanceMap[ledger.ViteTokenId].Cmp(account.Balance()) != 0 {
+			t.Fatal(fmt.Sprintf("Error: Balance %d, balance2: %d", balanceMap[ledger.ViteTokenId], account.Balance()))
 		}
 
 	}
@@ -113,6 +113,9 @@ func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[ty
 					block, err := chainInstance.GetAccountBlockByHash(hash)
 					if err != nil {
 						t.Fatal(err)
+					}
+					if block == nil {
+						t.Fatal(fmt.Sprintf("%s, %s", account.addr, hash))
 					}
 
 					if highBlock == nil || block.Height > highBlock.Height {
@@ -190,6 +193,9 @@ func GetContractList(t *testing.T, chainInstance *chain, accounts map[types.Addr
 			if err != nil {
 				t.Fatal(err)
 			}
+			if len(contractList) <= 0 {
+				t.Fatal("error")
+			}
 
 			if contractList[0] != account.addr {
 
@@ -260,6 +266,9 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 
 		for hash := range account.unconfirmedBlocks {
 			block := account.BlocksMap[hash]
+			if block == nil {
+				t.Fatal(fmt.Sprintf("error, hash: %s, unconfirmedBlocks: %+v\n BlocksMap: %+v\n", hash, account.unconfirmedBlocks, account.BlocksMap))
+			}
 			quota += block.AccountBlock.Quota
 			blockCount += 1
 		}
@@ -267,6 +276,9 @@ func GetQuotaUsed(t *testing.T, chainInstance *chain, accounts map[types.Address
 			confirmedBlocks := account.ConfirmedBlockMap[sb.Hash]
 			for hash := range confirmedBlocks {
 				block := account.BlocksMap[hash]
+				if block == nil {
+					t.Fatal(fmt.Sprintf("error, unconfirmedBlocks: %+v\n BlocksMap: %+v\n", account.unconfirmedBlocks, account.BlocksMap))
+				}
 				quota += block.AccountBlock.Quota
 				blockCount += 1
 			}
@@ -301,7 +313,7 @@ func GetStorageIterator(t *testing.T, chainInstance *chain, accounts map[types.A
 			return chainInstance.GetStorageIterator(account.addr, nil)
 		})
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal(fmt.Sprintf("%s, account: %s, account.latestAccountBlock: %+v\n", err.Error(), account.addr, account.latestBlock))
 		}
 	}
 }
@@ -318,7 +330,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			return errors.New(fmt.Sprintf("key: %d, kvValue:%d, value: %d", key, kvSet[string(key)], value))
+			return errors.New(fmt.Sprintf("key: %s, kv: %+v, value: %d, queryValue: %d", key, kvSet, kvSet[string(key)], value))
 		}
 	}
 	if err := iter.Error(); err != nil {
@@ -333,6 +345,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	for iterOk {
 		count2++
 		key := iter.Key()
+
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
 			fmt.Println(string(key))

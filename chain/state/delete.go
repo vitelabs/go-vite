@@ -12,37 +12,33 @@ import (
 )
 
 // TODO
-func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	if len(deletedSnapshotSegments) <= 0 {
-		return nil
-	}
+func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	return sDB.rollback(deletedSnapshotSegments, false)
+}
 
-	onlyDeleteAbs := false
-	if deletedSnapshotSegments[0].SnapshotBlock == nil {
-		onlyDeleteAbs = true
-	}
+func (sDB *StateDB) RollbackAccountBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	return sDB.rollback(deletedSnapshotSegments, true)
+}
+
+func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, onlyDeleteAbs bool) error {
 
 	batch := sDB.store.NewBatch()
 
 	blocksCache := make(map[types.Hash]*ledger.AccountBlock)
 	balanceCache := make(map[types.Address]map[types.TokenTypeId]*big.Int)
 
-	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
-
 	addrList := make(map[types.Address]struct{})
-
 	rollbackStorageKeySet := make(map[types.Address]map[string]struct{})
 
+	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
+
 	snapshotHeight := latestHeight
+
 	for _, seg := range deletedSnapshotSegments {
 		snapshotHeight += 1
 
 		if len(seg.AccountBlocks) <= 0 {
 			continue
-		}
-
-		if !onlyDeleteAbs {
-			sDB.storageRedo.Rollback(snapshotHeight)
 		}
 
 		var err error
@@ -51,12 +47,14 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 			return err
 		}
 
+		if !onlyDeleteAbs {
+			sDB.storageRedo.PrepareRollback(snapshotHeight)
+		}
+
 		deleteKeys := make(map[string]struct{})
 
 		for _, accountBlock := range seg.AccountBlocks {
-			if onlyDeleteAbs {
-				sDB.storageRedo.RemoveLog(accountBlock.Hash)
-			}
+
 			blocksCache[accountBlock.Hash] = accountBlock
 			for _, sendBlock := range accountBlock.SendBlockList {
 				blocksCache[sendBlock.Hash] = sendBlock
@@ -142,6 +140,21 @@ func (sDB *StateDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 		return err
 	}
 
+	// rollback redo log
+	if onlyDeleteAbs {
+		for _, seg := range deletedSnapshotSegments {
+			if len(seg.AccountBlocks) <= 0 {
+				continue
+			}
+			for _, accountBlock := range seg.AccountBlocks {
+				if onlyDeleteAbs {
+					sDB.storageRedo.RemoveLog(accountBlock.Hash)
+				}
+			}
+
+		}
+	}
+
 	sDB.store.Write(batch)
 	return nil
 }
@@ -196,7 +209,6 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 		}
 	} else {
 		for addr, keySet := range rollbackStorageKeySet {
-
 			storage := NewStorageDatabase(sDB, latestHeight+1, addr)
 			for keyStr := range keySet {
 				key := []byte(keyStr)

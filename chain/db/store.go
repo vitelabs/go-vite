@@ -121,6 +121,10 @@ func (store *Store) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	}, store.memDb.IsDelete)
 }
 
+func (store *Store) CleanMem() {
+	store.resetMemDB()
+}
+
 func (store *Store) Close() error {
 	store.mu.Lock()
 	defer store.mu.Unlock()

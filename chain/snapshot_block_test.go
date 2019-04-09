@@ -303,6 +303,10 @@ func GetSnapshotHeaderBeforeTime(t *testing.T, chainInstance *chain, snapshotBlo
 }
 
 func GetSnapshotHeadersAfterOrEqualTime(t *testing.T, chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
+	if len(snapshotBlockList) <= 0 {
+		return
+	}
+
 	lastSnapshotBlock := snapshotBlockList[len(snapshotBlockList)-1]
 	for _, snapshotBlock := range snapshotBlockList {
 
@@ -487,7 +491,7 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 				blockHashMap[accountBlock.Hash] = struct{}{}
 			}
 
-			if snapshotBlock != nil && snapshotBlock.Height != snapshotBlockList[start].Height {
+			if snapshotBlock != nil {
 				for _, account := range accounts {
 					confirmedBlockHashList := account.ConfirmedBlockMap[snapshotBlock.Hash]
 					for hash := range confirmedBlockHashList {
@@ -498,7 +502,8 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 						}
 					}
 				}
-			} else if snapshotBlock == nil {
+
+			} else {
 				for _, account := range accounts {
 					for hash := range account.unconfirmedBlocks {
 						if _, ok := blockHashMap[hash]; ok {
@@ -522,7 +527,11 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 					if err != nil {
 						t.Fatal(err)
 					}
-					fmt.Printf("confirm snapshot block: %+v\n", confirmSnapshotBlock)
+					scStr := ""
+					for addr, hashHeight := range confirmSnapshotBlock.SnapshotContent {
+						scStr += fmt.Sprintf("%s %d %s, ", addr.String(), hashHeight.Height, hashHeight.Hash)
+					}
+					fmt.Printf("confirm snapshot block: %+v %s\n", confirmSnapshotBlock, scStr)
 				}
 
 				t.Fatal(fmt.Sprintf("blockHashMap: %+v\n snapshotBlock: %+v\n", blockHashMap, snapshotBlock))

@@ -5,13 +5,10 @@ import (
 	"fmt"
 )
 
-// TODO
 func (c *chain) recoverUnconfirmedCache() error {
-	c.flusher.Pause()
 
 	// rebuild unconfirmed cache
 	height := c.GetLatestSnapshotBlock().Height
-
 	location, err := c.indexDB.GetSnapshotBlockLocation(height)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, latestHeight is %d. Error: %s", height, err.Error()))
@@ -30,6 +27,8 @@ func (c *chain) recoverUnconfirmedCache() error {
 		return nil
 	}
 
+	c.flusher.Pause()
+
 	// rollback blockDb
 	chunks, err := c.blockDB.Rollback(nextLocation)
 	if err != nil {
@@ -38,12 +37,21 @@ func (c *chain) recoverUnconfirmedCache() error {
 		return cErr
 	}
 
-	if len(chunks) <= 0 {
+	if len(chunks) <= 0 || len(chunks[0].AccountBlocks) <= 0 {
 		return nil
 	}
 
-	// recover cache
-	c.cache.RecoverUnconfirmedPool(chunks[0].AccountBlocks)
+	// rebuild unconfirmed cache
+	for _, chunk := range chunks {
+		if chunk.SnapshotBlock != nil {
+			continue
+		}
+
+		// recover unconfirmed pool
+		c.cache.RecoverUnconfirmedPool(chunk.AccountBlocks)
+
+	}
 
 	return nil
+
 }

@@ -29,8 +29,8 @@ func (c *chain) GetOnRoadBlocksHashList(address types.Address, pageNum, countPer
 }
 
 func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
-	c.flusherMu.RLock()
-	defer c.flusherMu.RUnlock()
+	//c.flusherMu.RLock()
+	//defer c.flusherMu.RUnlock()
 
 	if err := c.indexDB.DeleteOnRoad(sendBlockHash); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.DeleteOnRoad failed, blockHash is %s. Error: %s",

@@ -30,7 +30,7 @@ func TestPeerMux(t *testing.T) {
 
 	go func() {
 		err := p1.WriteMsg(Msg{
-			Pid:     mp1.ID(),
+			pid:     mp1.ID(),
 			Code:    0,
 			Id:      0,
 			Payload: []byte("hello"),

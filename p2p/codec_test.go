@@ -4,8 +4,11 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"fmt"
-	"net"
 	"testing"
+
+	"github.com/vitelabs/go-vite/tools/mock_conn"
+
+	"github.com/vitelabs/go-vite/common/math"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -136,10 +139,13 @@ func ExampleSHA3_Size() {
 }
 
 func MsgEqual(msg1, msg2 Msg) bool {
-	if msg1.Pid != msg2.Pid {
+	if msg1.pid != msg2.pid {
 		return false
 	}
 	if msg1.Code != msg2.Code {
+		return false
+	}
+	if msg1.Id != msg2.Id {
 		return false
 	}
 
@@ -147,28 +153,35 @@ func MsgEqual(msg1, msg2 Msg) bool {
 }
 
 func TestCodec(t *testing.T) {
-	conn1, conn2 := net.Pipe()
+	conn1, conn2 := mock_conn.Pipe()
 
 	c1 := NewTransport(conn1, 100, readMsgTimeout, writeMsgTimeout)
 	c2 := NewTransport(conn2, 100, readMsgTimeout, writeMsgTimeout)
 
-	const total = 10000
-	msgChan := make(chan Msg, total)
+	const total = math.MaxUint32
+	msgChan := make(chan Msg, 1)
 
-	const max = 1<<8 - 1
+	const max = 1 << 8
 	t.Run("write", func(t *testing.T) {
 		t.Parallel()
 		var msg Msg
 		var err error
 		var buf []byte
+		var payloadLength uint32
 
-		for i := 0; i < total; i++ {
-			buf = make([]byte, i)
+		for i := uint32(0); i < total; i *= 2 {
+			payloadLength = i
+			if payloadLength > maxPayloadSize {
+				payloadLength = maxPayloadSize
+			}
+
+			buf = make([]byte, payloadLength)
 			_, _ = crand.Read(buf)
 
 			msg = Msg{
-				Pid:     ProtocolID(i % max),
+				pid:     ProtocolID(i % max),
 				Code:    ProtocolID(i % max),
+				Id:      i,
 				Payload: buf,
 			}
 
@@ -179,7 +192,12 @@ func TestCodec(t *testing.T) {
 			}
 
 			msgChan <- msg
+
+			i++
 		}
+
+		close(msgChan)
+		c1.Close()
 	})
 
 	t.Run("read", func(t *testing.T) {
@@ -187,20 +205,21 @@ func TestCodec(t *testing.T) {
 		var msg, msgC Msg
 		var err error
 
-		for i := 0; i < total; i++ {
+		for msgC = range msgChan {
 			msg, err = c2.ReadMsg()
 
 			if err != nil {
 				t.Fatalf("read error: %v", err)
 			}
-			msgC = <-msgChan
 
 			if MsgEqual(msg, msgC) {
-				t.Logf("get message %d/%d, %d bytes", msg.Pid, msg.Code, len(msg.Payload))
+				t.Logf("get message %d/%d, %d bytes", msg.pid, msg.Code, len(msg.Payload))
 			} else {
 				t.Fatalf("message not equal")
 			}
 		}
+
+		c2.Close()
 	})
 }
 

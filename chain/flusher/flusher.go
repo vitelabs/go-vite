@@ -121,20 +121,20 @@ func (flusher *Flusher) Start() {
 		return
 	}
 
-	flusher.wg.Add(1)
-	go func() {
-		defer flusher.wg.Done()
-		for {
-			select {
-			case <-flusher.stopped:
-				flusher.flush()
-				return
-			default:
-				time.Sleep(flusher.flushInterval)
-				flusher.Flush()
-			}
-		}
-	}()
+	//flusher.wg.Add(1)
+	//go func() {
+	//	defer flusher.wg.Done()
+	//	for {
+	//		select {
+	//		case <-flusher.stopped:
+	//			flusher.flush()
+	//			return
+	//		default:
+	//			time.Sleep(flusher.flushInterval)
+	//			flusher.Flush()
+	//		}
+	//	}
+	//}()
 	flusher.status = startStat
 }
 

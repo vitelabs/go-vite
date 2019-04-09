@@ -114,11 +114,15 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 1200, 1)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 100, 3)
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 1232, 5)...)
+	// test all
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+
+	// test delete
+	testDelete(t, chainInstance, accounts, snapshotBlockList)
 
 	TearDown(chainInstance)
 }
