@@ -69,9 +69,11 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		Single:            cfg.Single,
 		FileListenAddress: cfg.FileListenAddress,
 		FilePublicAddress: cfg.FilePublicAddress,
-		MinePrivateKey:    nil,
+		FilePort:          cfg.FilePort,
+		MinePrivateKey:    cfg.MinePrivateKey,
 		Chain:             chain,
 		Verifier:          verifier,
+		Producer:          nil,
 	})
 
 	// vite

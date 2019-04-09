@@ -190,7 +190,7 @@ func (node *Node) Prepare() (err error) {
 	node.p2pServer = p2p.New(p2pConfig)
 
 	//Initialize the vite server
-	node.viteConfig.MinePrivateKey, node.viteConfig.MinePublicKey = minePrivateKey, minePublicKey
+	node.viteConfig.MinePrivateKey = minePrivateKey
 	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
 	if err != nil {
 		log.Error(fmt.Sprintf("Vite new error: %v", err))
