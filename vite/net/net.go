@@ -59,8 +59,8 @@ type net struct {
 
 func (n *net) ProtoData() []byte {
 	if len(n.handshakeData) == 0 {
-		genesis := n.chain.GetLatestSnapshotBlock()
-		current := n.chain.GetLatestSnapshotBlock()
+		genesis := n.Chain.GetGenesisSnapshotBlock()
+		current := n.Chain.GetLatestSnapshotBlock()
 
 		var key, signature []byte
 		if len(n.MinePrivateKey) != 0 {
