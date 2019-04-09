@@ -430,6 +430,13 @@ func (m *peerSet) get(id peerId) Peer {
 	return m.m[id]
 }
 
+func (m *peerSet) count() int {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	return len(m.m)
+}
+
 // peers can be sort by height, from low to high
 type peers []Peer
 
