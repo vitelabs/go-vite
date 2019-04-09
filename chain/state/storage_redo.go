@@ -53,6 +53,14 @@ func NewStorageRedo(chainDir string) (*StorageRedo, error) {
 	}, nil
 }
 
+func (redo *StorageRedo) Close() error {
+	if err := redo.store.Close(); err != nil {
+		return err
+	}
+	redo.store = nil
+	return nil
+}
+
 func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
 	//redo.logMap = redoLog
 	//

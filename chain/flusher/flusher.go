@@ -82,6 +82,12 @@ func NewFlusher(storeList []Storage, chainDir string) (*Flusher, error) {
 
 	return flusher, nil
 }
+func (flusher *Flusher) Close() error {
+	if err := flusher.fd.Close(); err != nil {
+		return err
+	}
+	return nil
+}
 
 func (flusher *Flusher) Flush(force bool) {
 	flusher.mu.Lock()
@@ -105,12 +111,9 @@ func (flusher *Flusher) Recover() error {
 		return nil
 	}
 	return flusher.redo(stores, redoLogList)
-
 }
 
 func (flusher *Flusher) commitRedo() error {
-	flusher.mu.Lock()
-	defer flusher.mu.Unlock()
 
 	redoLogList, stores, err := flusher.loadRedo()
 	if err != nil {

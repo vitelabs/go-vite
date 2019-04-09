@@ -60,12 +60,17 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	return stateDb, nil
 }
 
-func (sDB *StateDB) Destroy() error {
+func (sDB *StateDB) Close() error {
 	if err := sDB.store.Close(); err != nil {
 		return err
 	}
 
 	sDB.store = nil
+
+	if err := sDB.storageRedo.Close(); err != nil {
+		return err
+	}
+	sDB.storageRedo = nil
 	return nil
 }
 

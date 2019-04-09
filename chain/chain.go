@@ -74,19 +74,42 @@ func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	for {
 		var err error
-		// Init ledger
-		c.indexDB, err = chain_index.NewIndexDB(c.chainDir)
-		if err != nil {
+		// Init ledger db
+		if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
 			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 			return err
 		}
 
-		c.blockDB, err = chain_block.NewBlockDB(c.chainDir)
-		if err != nil {
+		// Init block db
+		if c.blockDB, err = chain_block.NewBlockDB(c.chainDir); err != nil {
 			c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
 			return err
 		}
 
+		// Init state db
+		if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		// init flusher
+		stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+		if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "Init")
+			return cErr
+		}
+
+		// flusher check and recover
+		if err := c.flusher.Recover(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "Init")
+			return cErr
+		}
+
+		// check ledger
 		status, err := chain_genesis.CheckLedger(c, c.cfg)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
@@ -94,6 +117,7 @@ func (c *chain) Init() error {
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
+
 		if status != chain_genesis.LedgerInvalid {
 			// valid or empty
 			// Init cache
@@ -104,22 +128,6 @@ func (c *chain) Init() error {
 				return err
 			}
 
-			// Init state  db
-			if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
-
-				c.log.Error(cErr.Error(), "method", "Init")
-				return err
-			}
-
-			// init flusher
-			stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
-			if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
-				c.log.Error(cErr.Error(), "method", "Init")
-				return cErr
-			}
-
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
 				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
@@ -128,25 +136,9 @@ func (c *chain) Init() error {
 					return err
 				}
 			}
-
-			// check and repair
-			if err := c.flusher.Recover(); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
-				c.log.Error(cErr.Error(), "method", "Init")
-				return cErr
-			}
-
 			break
-
 		}
-
-		// clean
-		if err = c.indexDB.Close(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
+		// close blockDB
 		if err = c.blockDB.Close(); err != nil {
 			cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
 
@@ -154,12 +146,38 @@ func (c *chain) Init() error {
 			return err
 		}
 
+		// close indexDB
+		if err = c.indexDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		// close stateDB
+		if err = c.stateDB.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		// close flusher
+		if err = c.flusher.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.flusher.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "Init")
+			return err
+		}
+
+		// clean all data
 		if err = c.cleanAllData(); err != nil {
 			cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
 
 			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
+
 	}
 
 	// init cache
@@ -202,38 +220,35 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
-	c.blockDB.Stop()
-	c.log.Info("Stop block db", "method", "Stop")
-
 	return nil
 }
 
 func (c *chain) Destroy() error {
-	c.log.Info("Begin to destroy", "method", "Destroy")
+	c.log.Info("Begin to destroy", "method", "Close")
 
 	c.cache.Destroy()
-	c.log.Info("Destroy cache", "method", "Destroy")
+	c.log.Info("Close cache", "method", "Close")
 
-	if err := c.stateDB.Destroy(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.Destroy failed, error is %s", err))
-		c.log.Error(cErr.Error(), "method", "Destroy")
+	if err := c.stateDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
 		return cErr
 	}
-	c.log.Info("Destroy stateDB", "method", "Destroy")
+	c.log.Info("Close stateDB", "method", "Close")
 
 	if err := c.indexDB.Close(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.Destroy failed, error is %s", err))
-		c.log.Error(cErr.Error(), "method", "Destroy")
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
 		return cErr
 	}
-	c.log.Info("Destroy indexDB", "method", "Destroy")
+	c.log.Info("Close indexDB", "method", "Close")
 
 	if err := c.blockDB.Close(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed, error is %s", err))
-		c.log.Error(cErr.Error(), "method", "Destroy")
+		c.log.Error(cErr.Error(), "method", "Close")
 		return cErr
 	}
-	c.log.Info("Destroy blockDB", "method", "Destroy")
+	c.log.Info("Close blockDB", "method", "Close")
 
 	c.flusher = nil
 	c.cache = nil
@@ -241,7 +256,7 @@ func (c *chain) Destroy() error {
 	c.indexDB = nil
 	c.blockDB = nil
 
-	c.log.Info("Complete destruction", "method", "Destroy")
+	c.log.Info("Complete destruction", "method", "Close")
 
 	return nil
 }
