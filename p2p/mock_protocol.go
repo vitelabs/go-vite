@@ -31,10 +31,13 @@ func (m *mockProtocol) ReceiveHandshake(msg HandshakeMsg, protoData []byte) (sta
 }
 
 func (m *mockProtocol) Handle(msg Msg) error {
-	fmt.Printf("code: %d, length: %d\n", msg.Code, len(msg.Payload))
+	fmt.Printf("receive message from %s code: %d, id: %d, length: %d\n", msg.Sender.Address(), msg.Code, msg.Id, len(msg.Payload))
 
-	time.Sleep(10 * time.Millisecond)
-	return msg.Sender.WriteMsg(msg)
+	//if rand.Intn(10000) < 100 {
+	//	return errors.New("fake error")
+	//}
+
+	return nil
 }
 
 func (m *mockProtocol) State() []byte {
@@ -58,6 +61,28 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 	}
 
 	m.peers[peer.ID()] = peer
+
+	go func(peer Peer) {
+		var i uint32
+
+		for {
+			<-time.After(time.Millisecond)
+
+			err := peer.WriteMsg(Msg{
+				pid:     m.ID(),
+				Code:    0,
+				Id:      i,
+				Payload: []byte("hello"),
+			})
+
+			if err != nil {
+				panic(err)
+				return
+			}
+
+			i++
+		}
+	}(peer)
 
 	return nil
 }

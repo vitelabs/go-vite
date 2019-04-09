@@ -19,6 +19,32 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
+type ForwardStrategy byte
+
+const (
+	FullForward ForwardStrategy = iota
+	CrossForward
+)
+
+var forwardStrategyText = map[ForwardStrategy]string{
+	FullForward:  "full",
+	CrossForward: "cross",
+}
+
+func (f ForwardStrategy) String() string {
+	return forwardStrategyText[f]
+}
+
+func chooseForardStrategy(text string) ForwardStrategy {
+	for f, t := range forwardStrategyText {
+		if t == text {
+			return f
+		}
+	}
+
+	return FullForward
+}
+
 // A blockStore implementation can store blocks in queue,
 // when node is syncing, blocks from remote broadcaster can be stored.
 // dequeue these blocks when sync done.

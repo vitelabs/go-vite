@@ -8,6 +8,7 @@ import (
 )
 
 type MockCodec struct {
+	name     string
 	r        chan Msg
 	w        chan Msg
 	rtimeout time.Duration
@@ -20,11 +21,13 @@ func MockPipe() (c1, c2 Codec) {
 	chan2 := make(chan Msg)
 
 	return &MockCodec{
-			r: chan1,
-			w: chan2,
+			name: "mock1",
+			r:    chan1,
+			w:    chan2,
 		}, &MockCodec{
-			r: chan2,
-			w: chan1,
+			name: "mock2",
+			r:    chan2,
+			w:    chan1,
 		}
 }
 
@@ -93,5 +96,5 @@ func (m *MockCodec) SetTimeout(timeout time.Duration) {
 }
 
 func (m *MockCodec) Address() string {
-	return "mock"
+	return m.name
 }

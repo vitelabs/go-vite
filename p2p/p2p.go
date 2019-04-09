@@ -199,7 +199,7 @@ func New(cfg *Config) P2P {
 	return p
 }
 
-func (p *p2p) check(peer PeerMux) error {
+func (p *p2p) tryAdd(peer PeerMux) error {
 	if peer.ID() == p.node.ID {
 		return PeerConnectSelf
 	}
@@ -322,12 +322,18 @@ func (p *p2p) register(peer PeerMux) {
 	defer p.wg.Done()
 
 	var err error
-	if err = p.check(peer); err != nil {
+	if err = p.tryAdd(peer); err != nil {
 		if pe, ok := err.(PeerError); ok {
 			_ = peer.Close(pe)
 		}
 
 		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", peer, err))
+
+		// clean
+		if err = p.peers.remove(peer); err != nil {
+			p.log.Warn(fmt.Sprintf("failed to unregister peer %s: %v", peer, err))
+		}
+
 		return
 	}
 
@@ -388,7 +394,7 @@ func (p *p2p) beatLoop() {
 	}
 }
 
-func (p *p2p) dialStatic() {
+func (p *p2p) connectStaticNodes() {
 	for _, n := range p.staticNodes {
 		p.connect(n)
 	}
@@ -399,56 +405,42 @@ func (p *p2p) findLoop() {
 
 	need := p.cfg.minPeers
 
-	var duration = 10 * time.Second
-	var maxDuration = 4 * time.Minute
+	var initduration = 10 * time.Second
+	var maxDuration = 160 * time.Second
+	var duration = initduration
 	var timer = time.NewTimer(time.Hour)
 	defer timer.Stop()
 
 Loop:
 	for {
-		p.dialStatic()
+		p.connectStaticNodes()
 
-		for {
-			if p.peers.count() > p.cfg.minPeers {
-				duration *= 2
-				if duration > maxDuration {
-					duration = maxDuration
+		select {
+		case <-timer.C:
+			if p.peers.count() < p.cfg.minPeers && p.cfg.discover {
+				need *= 2
+				max := p.peers.max()
+				if need > max {
+					need = max
 				}
+
+				nodes := p.discv.GetNodes(need)
+				for _, n := range nodes {
+					p.connect(&n)
+				}
+			}
+
+			if duration < maxDuration {
+				duration *= 2
 			} else {
-				break
+				duration = initduration
 			}
 
-			if !timer.Stop() {
-				<-timer.C
-			}
+			timer.Stop()
 			timer.Reset(duration)
-
-			select {
-			case <-timer.C:
-				continue
-			case <-p.term:
-				break Loop
-			}
+		case <-p.term:
+			break Loop
 		}
-
-		if atomic.LoadInt32(&p.running) == 0 {
-			return
-		}
-
-		if p.cfg.discover {
-			need *= 2
-			max := p.peers.max()
-			if need > max {
-				need = max
-			}
-
-			nodes := p.discv.GetNodes(need)
-			for _, n := range nodes {
-				p.connect(&n)
-			}
-		}
-
-		time.Sleep(duration)
 	}
 }
 

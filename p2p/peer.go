@@ -142,7 +142,7 @@ func (p *peerMux) SetLevel(level Level) error {
 
 // String return `id@address`
 func (p *peerMux) String() string {
-	return p.id.String() + "@" + p.codec.Address()
+	return p.id.Brief() + "@" + p.codec.Address()
 }
 
 // Address return the remote net address
@@ -162,7 +162,7 @@ func NewPeer(id vnode.NodeID, name string, version uint32, c Codec, level Level,
 		writeQueue: make(chan Msg, peerWriteMsgBufferSize),
 		running:    0,
 		writable:   1,
-		errChan:    make(chan error, 1),
+		errChan:    make(chan error, 3),
 		log:        log15.New("module", "p2p", "peer", id.Brief()),
 	}
 
@@ -201,7 +201,8 @@ func (p *peerMux) run() (err error) {
 		p.goLoop(p.writeLoop, p.errChan)
 		p.goLoop(p.handleLoop, p.errChan)
 
-		return <-p.errChan
+		err = <-p.errChan
+		return
 	}
 
 	return errPeerAlreadyRunning
@@ -216,10 +217,7 @@ func (p *peerMux) goLoop(fn func() error, ch chan<- error) {
 			p.log.Error(fmt.Sprintf("peer %s error: %v", p.Address(), err))
 		}
 
-		select {
-		case ch <- err:
-		default:
-		}
+		ch <- err
 	}()
 }
 
