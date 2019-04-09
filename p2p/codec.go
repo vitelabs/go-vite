@@ -147,7 +147,7 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 }
 
 func (t *transport) ReadMsg() (msg Msg, err error) {
-	_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
+	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
 	buf := make([]byte, 4)
 
@@ -202,7 +202,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 }
 
 func (t *transport) WriteMsg(msg Msg) (err error) {
-	_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
+	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := make([]byte, headLength+maxIdLength+maxPayloadLength)
 	head[1] = msg.pid
