@@ -6,6 +6,6 @@ type Net struct {
 	Single            bool   `json:"Single"`
 	FileListenAddress string `json:"FileListenAddress"`
 	FilePublicAddress string `json:"FilePublicAddress"`
-	MinePublicKey     ed25519.PublicKey
+	FilePort          int    `json:"FilePort"`
 	MinePrivateKey    ed25519.PrivateKey
 }

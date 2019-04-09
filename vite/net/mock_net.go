@@ -73,7 +73,6 @@ func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{
 		PeerCount: 0,
 		Latency:   nil,
-		Plugins:   nil,
 	}
 }
 

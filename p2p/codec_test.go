@@ -4,11 +4,12 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
+	"sync"
 	"testing"
-
-	"github.com/vitelabs/go-vite/tools/mock_conn"
-
-	"github.com/vitelabs/go-vite/common/math"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -153,29 +154,34 @@ func MsgEqual(msg1, msg2 Msg) bool {
 }
 
 func TestCodec(t *testing.T) {
-	conn1, conn2 := mock_conn.Pipe()
+	const addr = "127.0.0.1:10000"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
 
-	c1 := NewTransport(conn1, 100, readMsgTimeout, writeMsgTimeout)
-	c2 := NewTransport(conn2, 100, readMsgTimeout, writeMsgTimeout)
-
-	const total = math.MaxUint32
+	const total = 1000000
 	msgChan := make(chan Msg, 1)
+	var wg sync.WaitGroup
 
-	const max = 1 << 8
-	t.Run("write", func(t *testing.T) {
-		t.Parallel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		conn, e := ln.Accept()
+		if e != nil {
+			panic(err)
+		}
+
+		c1 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
+
 		var msg Msg
 		var err error
 		var buf []byte
-		var payloadLength uint32
 
+		const max = 1 << 8
 		for i := uint32(0); i < total; i *= 2 {
-			payloadLength = i
-			if payloadLength > maxPayloadSize {
-				payloadLength = maxPayloadSize
-			}
-
-			buf = make([]byte, payloadLength)
+			buf = make([]byte, i)
 			_, _ = crand.Read(buf)
 
 			msg = Msg{
@@ -185,42 +191,59 @@ func TestCodec(t *testing.T) {
 				Payload: buf,
 			}
 
+			msgChan <- msg
+
 			err = c1.WriteMsg(msg)
+			fmt.Printf("write message %d/%d, %d bytes\n", msg.pid, msg.Code, len(msg.Payload))
 
 			if err != nil {
 				t.Fatalf("write error: %v", err)
 			}
 
-			msgChan <- msg
-
 			i++
 		}
 
 		close(msgChan)
-		c1.Close()
-	})
+	}()
 
-	t.Run("read", func(t *testing.T) {
-		t.Parallel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
 		var msg, msgC Msg
 		var err error
+
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			panic(err)
+		}
+
+		c2 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
 
 		for msgC = range msgChan {
 			msg, err = c2.ReadMsg()
 
 			if err != nil {
+				if err == io.EOF {
+					continue
+				}
 				t.Fatalf("read error: %v", err)
 			}
 
 			if MsgEqual(msg, msgC) {
-				t.Logf("get message %d/%d, %d bytes", msg.pid, msg.Code, len(msg.Payload))
+				fmt.Printf("read message %d/%d, %d bytes\n", msg.pid, msg.Code, len(msg.Payload))
 			} else {
 				t.Fatalf("message not equal")
 			}
 		}
+	}()
 
-		c2.Close()
-	})
+	err = http.ListenAndServe("0.0.0.0:8080", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	wg.Wait()
 }
 
 /*

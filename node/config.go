@@ -146,6 +146,7 @@ func (c *Config) makeNetConfig() *config.Net {
 		Single:            c.Single,
 		FileListenAddress: fileListenAddress,
 		FilePublicAddress: c.FilePublicAddress,
+		FilePort:          c.FilePort,
 	}
 }
 
