@@ -7,15 +7,19 @@ import (
 
 type FilterToken struct {
 	store *chain_db.Store
+	chain Chain
 }
 
-func newFilterToken(store *chain_db.Store) Plugin {
+func newFilterToken(store *chain_db.Store, chain Chain) Plugin {
 	return &FilterToken{
 		store: store,
 	}
 }
 
 func (ft *FilterToken) InsertAccountBlocks([]*ledger.AccountBlock) error {
+	batch := ft.store.NewBatch()
+
+	ft.store.Write(batch)
 	return nil
 }
 func (ft *FilterToken) InsertSnapshotBlocks([]*ledger.SnapshotBlock) error {
@@ -24,11 +28,10 @@ func (ft *FilterToken) InsertSnapshotBlocks([]*ledger.SnapshotBlock) error {
 }
 func (ft *FilterToken) DeleteChunks([]*ledger.SnapshotChunk) error {
 	return nil
-
 }
 
-func (ft *FilterToken) DeleteChunksByHash([]hashChunk) error {
-	return nil
+func (ft *FilterToken) GetBlocks() ([]*ledger.AccountBlock, error) {
+	return nil, nil
 }
 
 //
