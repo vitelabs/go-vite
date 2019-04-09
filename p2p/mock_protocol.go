@@ -10,8 +10,10 @@ import (
 )
 
 type mockProtocol struct {
-	mu    sync.Mutex
-	peers map[vnode.NodeID]Peer
+	mu       sync.Mutex
+	peers    map[vnode.NodeID]Peer
+	errFac   func() error
+	interval time.Duration
 }
 
 func (m *mockProtocol) Name() string {
@@ -33,11 +35,11 @@ func (m *mockProtocol) ReceiveHandshake(msg HandshakeMsg, protoData []byte) (sta
 func (m *mockProtocol) Handle(msg Msg) error {
 	fmt.Printf("receive message from %s code: %d, id: %d, length: %d\n", msg.Sender.Address(), msg.Code, msg.Id, len(msg.Payload))
 
-	//if rand.Intn(10000) < 100 {
-	//	return errors.New("fake error")
-	//}
+	if m.errFac == nil {
+		return nil
+	}
 
-	return nil
+	return m.errFac()
 }
 
 func (m *mockProtocol) State() []byte {
@@ -66,7 +68,7 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 		var i uint32
 
 		for {
-			<-time.After(time.Millisecond)
+			<-time.After(m.interval)
 
 			err := peer.WriteMsg(Msg{
 				pid:     m.ID(),
@@ -76,7 +78,7 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 			})
 
 			if err != nil {
-				panic(err)
+				fmt.Printf("mock protocol write message to %s error: %v", peer, err)
 				return
 			}
 

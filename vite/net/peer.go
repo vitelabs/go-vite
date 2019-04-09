@@ -95,8 +95,8 @@ func (p *peer) catch(err error) {
 }
 
 func (p *peer) fileAddress() string {
-	// todo
-	return ""
+	st := p.State().(PeerState)
+	return st.FileAddress
 }
 
 func (p *peer) setHead(head types.Hash, height uint64) {
