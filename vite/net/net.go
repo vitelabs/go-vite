@@ -33,11 +33,13 @@ type Config struct {
 	FilePublicAddress string
 	FilePort          int
 	MinePrivateKey    ed25519.PrivateKey
+	ForwardStrategy   string // default `cross`
 	Chain
 	Verifier
 	Producer
 }
 
+const DefaultForwardStrategy = "cross"
 const DefaultFilePort = 8484
 const ID = 1
 

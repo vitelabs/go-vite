@@ -99,10 +99,13 @@ type Config struct {
 	SubscribeEnabled bool `json:"SubscribeEnabled"`
 
 	// net
-	Single             bool   `json:"Single"`
-	FilePort           int    `json:"FilePort"`
-	FileListenAddress  string `json:"FileListenAddress"`
-	FilePublicAddress  string `json:"FileAddress"`
+	Single            bool   `json:"Single"`
+	FilePort          int    `json:"FilePort"`
+	FileListenAddress string `json:"FileListenAddress"`
+	FilePublicAddress string `json:"FileAddress"`
+	ForwardStrategy   string `json:"ForwardStrategy"`
+
+	// dashboard
 	DashboardTargetURL string
 
 	// reward

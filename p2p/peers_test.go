@@ -148,6 +148,10 @@ func TestPees_remove(t *testing.T) {
 		t.Error("should remove success")
 	}
 
+	if ps.has(peer.id) {
+		t.Error("should remove")
+	}
+
 	if ps.count() != 0 {
 		t.Error("wrong count")
 	}

@@ -19,6 +19,7 @@
 package discovery
 
 import (
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -103,6 +104,9 @@ type nodeTable interface {
 	store(db nodeStore)
 	// resolveAddr find the node match `node.Address() == address`
 	resolveAddr(address string) *Node
+	// toFind return the sub-tree need more nodes
+	// return distance from the sub-tree
+	toFind() uint
 }
 
 type element struct {
@@ -569,6 +573,25 @@ func (tab *table) iterate(fn func(*Node)) {
 	for _, n := range nodes {
 		fn(n)
 	}
+}
+
+func (tab *table) toFind() uint {
+	tab.rw.RLock()
+	defer tab.rw.RUnlock()
+
+	var buckets []uint
+	for i, bkt := range tab.buckets {
+		if bkt.size() < tab.bucketSize/2 {
+			buckets = append(buckets, uint(i))
+		}
+	}
+
+	if len(buckets) > 0 {
+		i := rand.Intn(len(buckets))
+		return buckets[i] + tab.minDistance
+	}
+
+	return 0
 }
 
 // closet around the pivot

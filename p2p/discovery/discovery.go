@@ -186,6 +186,10 @@ func (d *discovery) Start() (err error) {
 	d.wg.Add(1)
 	go d.tableLoop()
 
+	// find more nodes
+	d.wg.Add(1)
+	go d.findLoop()
+
 	return
 }
 
@@ -270,11 +274,6 @@ Loop:
 				go d.pingDelete(node)
 			}
 
-			// todo
-			if d.table.size() < d.table.max()/10 {
-				d.init()
-			}
-
 		case <-refreshTicker.C:
 			go d.init()
 
@@ -290,8 +289,11 @@ Loop:
 }
 
 func (d *discovery) findLoop() {
-	duration := 10 * time.Second
-	maxDuration := 10 * time.Minute
+	defer d.wg.Done()
+
+	initduration := 10 * time.Second
+	maxDuration := 640 * time.Second
+	duration := initduration
 
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
@@ -303,11 +305,14 @@ Loop:
 			break Loop
 
 		case <-timer.C:
-			d.init()
+			if distance := d.table.toFind(); distance > 0 {
+				d.findSubTree(distance)
+			}
 
-			duration *= 2
-			if duration > maxDuration {
-				duration = maxDuration
+			if duration < maxDuration {
+				duration *= 2
+			} else {
+				duration = initduration
 			}
 
 			timer.Stop()
@@ -434,7 +439,14 @@ func (d *discovery) getBootNodes(num int) (bootNodes []*Node) {
 }
 
 func (d *discovery) init() {
+	if d.loadBootNodes() {
+		d.refresh()
+	}
+}
+
+func (d *discovery) loadBootNodes() bool {
 	var failed int
+
 Load:
 	bootNodes := d.getBootNodes(bucketSize)
 
@@ -442,7 +454,7 @@ Load:
 		failed++
 		if failed > 5 {
 			// todo
-			return
+			return false
 		}
 		goto Load
 	}
@@ -451,7 +463,19 @@ Load:
 		_ = d.receiveNode(n)
 	}
 
-	d.refresh()
+	return true
+}
+
+func (d *discovery) findSubTree(distance uint) {
+	if d.refreshing {
+		return
+	}
+
+	if d.loadBootNodes() {
+		id := vnode.RandFromDistance(d.node.ID, distance)
+		nodes := d.lookup(id, bucketSize)
+		d.table.addNodes(nodes)
+	}
 }
 
 func (d *discovery) refresh() {
