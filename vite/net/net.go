@@ -352,7 +352,6 @@ func (h *heartBeater) state() []byte {
 
 	data, err := proto.Marshal(heartBeat)
 	if err != nil {
-
 		return nil
 	}
 
