@@ -483,7 +483,7 @@ func (self *chainPool) writeToChain(chain *forkedChain, block commonBlock) error
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return nil
 	} else {
-		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash))
+		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash), "err", err)
 		return err
 	}
 }
@@ -632,8 +632,12 @@ func (self *chainPool) findEmptyForHead(head commonBlock) *forkedChain {
 func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader) error {
 	head := ancestor.Head()
 	ancestorBlock := c.getBlock(head.Height(), true)
-	if ancestorBlock == nil || ancestorBlock.Hash() != head.Hash() {
-		return errors.New("check ancestor fail")
+	if ancestorBlock == nil {
+		head := c.Head()
+		return errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d]", head.Hash(), head.Height())
+	}
+	if ancestorBlock.Hash() != head.Hash() {
+		return errors.Errorf("check ancestor fail, ancestoreHash:[%s], headHash:[%s]", ancestorBlock.Hash(), head.Hash())
 	}
 	return nil
 }

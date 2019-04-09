@@ -444,7 +444,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	for _, p := range ps {
 		err = p.sendNewSnapshotBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Error(fmt.Sprintf("Failed to broadcast snapshotblock %s/%d to %s@%s, %v", block.Hash, block.Height, p.ID(), p.Address(), err))
 		} else {
 			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.Address()))
 		}
@@ -473,7 +473,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	for _, p := range ps {
 		err = p.sendNewAccountBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Error(fmt.Sprintf("Failed to broadcast accountblock %s/%d to %s@%s, %v", block.Hash, block.Height, p.ID(), p.Address(), err))
 		} else {
 			b.log.Info(fmt.Sprintf("broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.Address()))
 		}
