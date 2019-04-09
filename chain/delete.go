@@ -34,8 +34,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, cErr
 	}
 
-	c.flusher.Flush()
-
 	snapshotChunkList := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
 
 	var location *chain_file_manager.Location
@@ -74,10 +72,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 }
 
 func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) []*ledger.SnapshotChunk {
-	//c.flusherMu.RLock()
-	//defer c.flusherMu.RUnlock()
-
-	c.flusher.RecoverStart()
 
 	// rollback blocks db
 	snapshotChunks, err := c.blockDB.Rollback(location)
@@ -117,7 +111,7 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
-	c.flusher.Flush()
+	c.flusher.Flush(true)
 
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
@@ -178,8 +172,6 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 }
 
 func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
-	//c.flusherMu.RLock()
-	//defer c.flusherMu.RUnlock()
 
 	seg := []*ledger.SnapshotChunk{{
 		AccountBlocks: blocks,

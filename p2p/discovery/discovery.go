@@ -301,13 +301,17 @@ Loop:
 		select {
 		case <-d.term:
 			break Loop
-		default:
+
+		case <-timer.C:
 			d.init()
-			time.Sleep(duration)
+
 			duration *= 2
 			if duration > maxDuration {
 				duration = maxDuration
 			}
+
+			timer.Stop()
+			timer.Reset(duration)
 		}
 	}
 }
