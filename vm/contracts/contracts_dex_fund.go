@@ -200,7 +200,7 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		return handleReceiveErr(db, err)
 	}
 	orderInfo := &dexproto.OrderInfo{}
-	dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress, db.CurrentSnapshotBlock().Timestamp)
+	dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress)
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return handleNewOrderFail(db, orderInfo, dex.NewOrderGetFundFail)
 	}

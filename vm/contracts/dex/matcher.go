@@ -205,7 +205,7 @@ func (mc *Matcher) doMatchTaker(taker TakerOrder, makerBook *skiplist) (err erro
 
 //TODO add assertion for order calculation correctness
 func (mc *Matcher) recursiveTakeOrder(taker *TakerOrder, maker Order, makerBook *skiplist, modifiedMakers *[]Order, txs *[]OrderTx, nextOrderId nodeKeyType) error {
-	if filterTimeout(&maker) {
+	if filterTimeout(taker.Order.Timestamp, &maker) {
 		mc.handleRefund(&maker.Order, taker.OrderTokenInfo)
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
@@ -264,6 +264,7 @@ func calculateOrderAndTx(taker *TakerOrder, maker *Order) (tx OrderTx) {
 	tx.makerAddress = maker.Address
 	tx.TakerFee = takerFee
 	tx.MakerFee = makerFee
+	tx.Timestamp = taker.Order.Timestamp
 	return tx
 }
 
@@ -556,22 +557,22 @@ func matchPrice(taker TakerOrder, maker Order) (matched bool, executedPrice stri
 
 
 //TODO support timeout when timer trigger available for set raw timestamp in one hour for order timestamp
-func filterTimeout(maker *Order) bool {
+func filterTimeout(takerTimestamp int64, maker *Order) bool {
 	return false
-	//if takerTimestamp > maker.Timestamp + timeoutSecond {
-	//	switch maker.Status {
-	//	case Pending:
-	//		maker.CancelReason = cancelledOnTimeout
-	//	case PartialExecuted:
-	//		maker.CancelReason = partialExecutedCancelledOnTimeout
-	//	default:
-	//		maker.CancelReason = unknownCancelledOnTimeout
-	//	}
-	//	maker.Status = Cancelled
-	//	return true
-	//} else {
-	//	return false
-	//}
+	if takerTimestamp > maker.Timestamp + timeoutSecond {
+		switch maker.Status {
+		case Pending:
+			maker.CancelReason = cancelledOnTimeout
+		case PartialExecuted:
+			maker.CancelReason = partialExecutedCancelledOnTimeout
+		default:
+			maker.CancelReason = unknownCancelledOnTimeout
+		}
+		maker.Status = Cancelled
+		return true
+	} else {
+		return false
+	}
 }
 
 func getMakerById(makerBook *skiplist, orderId nodeKeyType) (od Order, nextId OrderId, err error) {

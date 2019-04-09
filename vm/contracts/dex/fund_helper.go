@@ -21,6 +21,7 @@ import (
 
 var (
 	fundKeyPrefix = []byte("fd:") // fund:types.Address
+	timestampKey = []byte("tts") // timerTimestamp
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
@@ -198,6 +199,7 @@ func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, ne
 		newMarketEvent.QuoteTokenSymbol = quoteTokenInfo.TokenSymbol
 	}
 	marketInfo.Creator = address.Bytes()
+	marketInfo.Timestamp = GetTimestampInt64(db)
 	newMarketEvent.Creator = address.Bytes()
 	return nil
 }
@@ -240,7 +242,7 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 	return nil
 }
 
-func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address, snapshotTM *time.Time) {
+func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address) {
 	orderTokenDecimals := &dexproto.OrderTokenInfo{}
 	orderTokenDecimals.TradeToken = param.TradeToken.Bytes()
 	orderTokenDecimals.QuoteToken = param.QuoteToken.Bytes()
@@ -266,6 +268,7 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
+	order.Timestamp = GetTimestampInt64(db)
 	orderInfo.Order = order
 	orderInfo.OrderTokenInfo = orderTokenDecimals
 }
@@ -673,7 +676,7 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 func GetCurrentPeriodIdFromStorage(db vmctxt_interface.VmDatabase) (uint64, error) {
 	groupInfo := cabi.GetConsensusGroup(db, types.SNAPSHOT_GID)
 	reader := core.NewReader(*db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	return reader.TimeToIndex(*db.CurrentSnapshotBlock().Timestamp)
+	return reader.TimeToIndex(GetTimestamp(db))
 }
 
 func GetDonateFeeSum(db vmctxt_interface.VmDatabase, periodId uint64) *big.Int {
@@ -767,6 +770,28 @@ func SaveMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, trad
 	}
 }
 
+func GetTimestamp(db vmctxt_interface.VmDatabase) time.Time {
+	//	GetTimerTimestamp(db)
+	return *db.CurrentSnapshotBlock().Timestamp
+}
+
+func GetTimestampInt64(db vmctxt_interface.VmDatabase) int64 {
+	return GetTimestamp(db).Unix()
+}
+
+func SetTimerTimestamp(db vmctxt_interface.VmDatabase, timestampInt int64)  {
+	db.SetStorage(timestampKey, Uint64ToBytes(uint64(timestampInt)))
+}
+
+func GetTimerTimestamp(db vmctxt_interface.VmDatabase) (int64, error) {
+	bs := db.GetStorage(&types.AddressDexFund, timestampKey)
+	if len(bs) == 8 {
+		return int64(BytesToUint64(bs)), nil
+	} else {
+		return 0, fmt.Errorf("get time stamp failed")
+	}
+}
+
 func AddNewMarketEventLog(db vmctxt_interface.VmDatabase, newMarketEvent *NewMarketEvent) {
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, newMarketEvent.getTopicId())
@@ -786,6 +811,10 @@ func Uint64ToBytes(value uint64) []byte {
 	bs := make([]byte, 8)
 	binary.BigEndian.PutUint64(bs, value)
 	return bs
+}
+
+func BytesToUint64(bytes []byte) uint64 {
+	return binary.BigEndian.Uint64(bytes)
 }
 
 func ValidPrice(price string) bool {
