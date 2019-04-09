@@ -115,14 +115,13 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 }
 
 func (store *Store) NewIterator(slice *util.Range) interfaces.StorageIterator {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
 	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
 		store.memDb.NewIterator(slice),
 		store.db.NewIterator(slice, nil),
 	}, store.memDb.IsDelete)
-}
-
-func (store *Store) CleanMem() {
-	store.resetMemDB()
 }
 
 func (store *Store) Close() error {

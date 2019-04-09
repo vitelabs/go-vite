@@ -270,6 +270,7 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	}
 	return db, nil
 }
+
 func (c *chain) SetConsensus(cs Consensus) {
 	c.consensus = cs
 }

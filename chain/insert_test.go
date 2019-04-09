@@ -126,13 +126,14 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	for _, snapshotPerNum := range []int{1, 10, 100, 1000, 10000} {
+	for _, snapshotPerNum := range []int{0} {
 		for _, accountNum := range []int{1, 10, 100, 10000, 10000} {
 			b.Run(fmt.Sprintf("%d accounts, snapshotPerNum: %d", accountNum, snapshotPerNum), func(b *testing.B) {
 				BmInsertAccountBlock(b, accountNum, snapshotPerNum)
 			})
 		}
 	}
+
 	//b.Run("1000000 accounts", func(b *testing.B) {
 	//	BmInsertAccountBlock(b, 1000000)
 	//})
