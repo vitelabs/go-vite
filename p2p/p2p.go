@@ -199,15 +199,16 @@ func New(cfg *Config) P2P {
 	return p
 }
 
-func (p *p2p) tryAdd(peer PeerMux) error {
+// add success return true
+func (p *p2p) tryAdd(peer PeerMux) (PeerError, bool) {
 	if peer.ID() == p.node.ID {
-		return PeerConnectSelf
+		return PeerConnectSelf, false
 	}
 
 	if pe, ok := p.peers.add(peer); ok {
-		return nil
+		return 0, true
 	} else {
-		return pe
+		return pe, false
 	}
 }
 
@@ -321,24 +322,16 @@ func (p *p2p) register(peer PeerMux) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
-	var err error
-	if err = p.tryAdd(peer); err != nil {
-		if pe, ok := err.(PeerError); ok {
-			_ = peer.Close(pe)
-		}
+	if pe, ok := p.tryAdd(peer); !ok {
+		_ = peer.Close(pe)
 
-		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", peer, err))
-
-		// clean
-		if err = p.peers.remove(peer); err != nil {
-			p.log.Warn(fmt.Sprintf("failed to unregister peer %s: %v", peer, err))
-		}
-
+		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", peer, pe))
 		return
 	}
 
 	peer.setManager(p.peers)
 
+	var err error
 	// run
 	if err = peer.run(); err != nil {
 		p.log.Error(fmt.Sprintf("peer %s run error: %v", peer, err))
@@ -375,16 +368,18 @@ func (p *p2p) beatLoop() {
 		}
 
 		for pid, pt := range p.ptMap {
-			heartBeat.State[int32(pid)] = pt.State()
+			if state := pt.State(); state != nil {
+				heartBeat.State[int32(pid)] = pt.State()
+			}
 		}
 
 		data, err := proto.Marshal(heartBeat)
 		if err != nil {
-			p.log.Error(fmt.Sprintf("Failed to marshal heartbeat data: %v", err))
+			p.log.Error(fmt.Sprintf("failed to marshal heartbeat data: %v", err))
 			continue
 		}
 
-		for _, pe := range p.peerMap {
+		for _, pe := range p.peers.peers() {
 			_ = pe.WriteMsg(Msg{
 				pid:     baseProtocolID,
 				Code:    baseHeartBeat,

@@ -55,6 +55,9 @@ func (p *protoPeer) WriteMsg(msg Msg) (err error) {
 
 // WriteMsg will put msg into queue, then write asynchronously
 func (p *peerMux) WriteMsg(msg Msg) (err error) {
+	p.write()
+	defer p.writeDone()
+
 	if atomic.LoadInt32(&p.writable) == 0 {
 		return errPeerCannotWrite
 	}
@@ -65,6 +68,14 @@ func (p *peerMux) WriteMsg(msg Msg) (err error) {
 	default:
 		return errPeerWriteBusy
 	}
+}
+
+func (p *peerMux) write() {
+	atomic.AddInt32(&p.writing, 1)
+}
+
+func (p *peerMux) writeDone() {
+	atomic.AddInt32(&p.writing, -1)
 }
 
 func (p *protoPeer) State() interface{} {
@@ -110,7 +121,8 @@ type peerMux struct {
 	createAt   time.Time
 	protoMap   map[ProtocolID]*protoPeer
 	running    int32
-	writable   int32    // set to 0 when write error in writeLoop, or close actively
+	writable   int32 // set to 0 when write error in writeLoop, or close actively
+	writing    int32
 	readQueue  chan Msg // will be closed when read error in readLoop
 	writeQueue chan Msg // will be closed in method Close
 	errChan    chan error
@@ -188,8 +200,6 @@ func (p *peerMux) setManager(pm levelManager) {
 
 func (p *peerMux) run() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
-		defer atomic.StoreInt32(&p.running, 0)
-
 		err = p.onAdded()
 		if err != nil {
 			return
@@ -213,10 +223,6 @@ func (p *peerMux) goLoop(fn func() error, ch chan<- error) {
 	go func() {
 		defer p.wg.Done()
 		err := fn()
-		if err != nil {
-			p.log.Error(fmt.Sprintf("peer %s error: %v", p.Address(), err))
-		}
-
 		ch <- err
 	}()
 }
@@ -301,8 +307,15 @@ func (p *peerMux) Close(err PeerError) (err2 error) {
 
 		atomic.StoreInt32(&p.writable, 0)
 
-		// todo could panic: write to closed channel
-		time.Sleep(100 * time.Millisecond)
+		// ensure nobody is writing
+		for {
+			if atomic.LoadInt32(&p.writing) == 0 {
+				break
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
 		close(p.writeQueue)
 
 		if err3 := p.codec.Close(); err3 != nil {

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
@@ -13,7 +14,9 @@ type MockCodec struct {
 	w        chan Msg
 	rtimeout time.Duration
 	wtimeout time.Duration
+	term     chan struct{}
 	closed   int32
+	write    int32
 }
 
 func MockPipe() (c1, c2 Codec) {
@@ -24,55 +27,75 @@ func MockPipe() (c1, c2 Codec) {
 			name: "mock1",
 			r:    chan1,
 			w:    chan2,
+			term: make(chan struct{}),
 		}, &MockCodec{
 			name: "mock2",
 			r:    chan2,
 			w:    chan1,
+			term: make(chan struct{}),
 		}
 }
 
 func (m *MockCodec) ReadMsg() (msg Msg, err error) {
 	var ok bool
-	now := time.Now()
-	if now.Add(m.rtimeout) == now {
-		msg, ok = <-m.r
-	} else {
-		select {
-		case <-time.After(m.rtimeout):
-			return msg, errors.New("read timeout")
-		case msg, ok = <-m.r:
+
+	var timer <-chan time.Time
+	if m.rtimeout > 0 {
+		timer = time.After(m.rtimeout)
+	}
+
+	select {
+	case <-timer:
+		return msg, errors.New("read timeout")
+
+	case msg, ok = <-m.r:
+		if ok {
+			return msg, nil
 		}
-	}
 
-	if ok {
-		return msg, nil
-	}
+		return msg, io.EOF
 
-	return msg, io.EOF
+	case <-m.term:
+		err = fmt.Errorf("mock codec %s closed", m.name)
+		return
+	}
 }
 
-func (m *MockCodec) WriteMsg(msg Msg) error {
+func (m *MockCodec) WriteMsg(msg Msg) (err error) {
 	if atomic.LoadInt32(&m.closed) == 1 {
-		return errors.New("closed")
+		return fmt.Errorf("mock codec %s closed", m.name)
 	}
 
-	now := time.Now()
-	if now.Add(m.rtimeout) == now {
-		m.w <- msg
-	} else {
-		select {
-		case <-time.After(m.wtimeout):
-			return errors.New("write timeout")
-		case m.w <- msg:
-		}
+	atomic.AddInt32(&m.write, 1)
+	defer atomic.AddInt32(&m.write, -1)
+
+	var timer <-chan time.Time
+	if m.wtimeout > 0 {
+		timer = time.After(m.wtimeout)
 	}
 
-	return nil
+	select {
+	case <-timer:
+		return errors.New("write timeout")
+	case m.w <- msg:
+		return nil
+	case <-m.term:
+		err = fmt.Errorf("mock codec %s closed", m.name)
+		return
+	}
 }
 
 func (m *MockCodec) Close() error {
 	if atomic.CompareAndSwapInt32(&m.closed, 0, 1) {
-		time.Sleep(100 * time.Minute)
+		close(m.term)
+
+		for {
+			if atomic.LoadInt32(&m.write) == 0 {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+
 		close(m.r)
 		close(m.w)
 

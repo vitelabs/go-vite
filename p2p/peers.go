@@ -241,3 +241,15 @@ func (s *peers) info() []PeerInfo {
 
 	return infos
 }
+
+func (s *peers) peers() []PeerMux {
+	s.rw.RLock()
+	defer s.rw.RUnlock()
+
+	ps := make([]PeerMux, 0, len(s.peerMap))
+	for _, p := range s.peerMap {
+		ps = append(ps, p)
+	}
+
+	return ps
+}
