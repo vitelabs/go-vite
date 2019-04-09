@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	DefaultNetID         = 3
-	DefaultListenAddress = "0.0.0.0:8483"
-	PrivKeyFileName      = "peer.key"
+	DefaultNetID           = 3
+	DefaultListenAddress   = "0.0.0.0:8483"
+	PrivKeyFileName        = "peer.key"
+	DefaultPort            = 8483
+	DefaultListenInterface = "0.0.0.0"
 )
 
 type Config struct {

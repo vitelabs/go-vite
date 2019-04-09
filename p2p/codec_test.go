@@ -194,6 +194,8 @@ func TestCodec(t *testing.T) {
 		panic(err)
 	}
 
+	channel := make(chan Msg, 1)
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -231,7 +233,102 @@ func TestCodec(t *testing.T) {
 				t.Fatalf("write error: %v", werr)
 			}
 
+			channel <- msg
+
 			i++
+		}
+
+		fmt.Println("sent done")
+		_ = conn.Close()
+		_ = ln.Close()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		var msg, msg2 Msg
+		var rerr error
+
+		conn, rerr := net.Dial("tcp", addr)
+		if rerr != nil {
+			panic(rerr)
+		}
+
+		c2 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
+
+		for {
+			msg, rerr = c2.ReadMsg()
+
+			if rerr != nil {
+				if strings.Index(rerr.Error(), "EOF") == -1 {
+					t.Errorf("read error: %v", rerr)
+				}
+				break
+			}
+
+			msg2 = <-channel
+			if MsgEqual(msg, msg2) {
+				fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+			} else {
+				t.Error("message not equal")
+			}
+		}
+
+		_ = conn.Close()
+	}()
+
+	go func() {
+		err = http.ListenAndServe("0.0.0.0:8080", nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	wg.Wait()
+}
+
+func BenchmarkMockCodec_WriteMsg(b *testing.B) {
+	const addr = "127.0.0.1:10000"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		conn, e := ln.Accept()
+		if e != nil {
+			panic(err)
+		}
+
+		c1 := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
+
+		const payloadSize = 1000
+		const max = 1 << 8
+		var buf = make([]byte, payloadSize)
+
+		var werr error
+		for i := 0; i < b.N; i++ {
+			_, _ = crand.Read(buf)
+
+			msg := Msg{
+				pid:     ProtocolID(i % max),
+				Code:    ProtocolID(i % max),
+				Id:      uint32(i % maxPayloadSize),
+				Payload: buf,
+			}
+
+			werr = c1.WriteMsg(msg)
+			fmt.Printf("write %d message %d/%d, %d bytes\n", i, msg.pid, msg.Code, len(msg.Payload))
+
+			if err != nil {
+				b.Fatalf("write error: %v", werr)
+			}
 		}
 
 		fmt.Println("sent done")
@@ -258,34 +355,18 @@ func TestCodec(t *testing.T) {
 
 			if rerr != nil {
 				if strings.Index(rerr.Error(), "EOF") == -1 {
-					t.Errorf("read error: %v", rerr)
+					b.Errorf("read error: %v", rerr)
 				}
 				break
 			}
 
 			fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
-			//if MsgEqual(msg, msgC) {
-			//	fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
-			//} else {
-			//	t.Error("message not equal")
-			//}
 		}
 
 		_ = conn.Close()
 	}()
 
-	go func() {
-		err = http.ListenAndServe("0.0.0.0:8080", nil)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
 	wg.Wait()
-}
-
-func BenchmarkMockCodec_WriteMsg(b *testing.B) {
-
 }
 
 /*

@@ -169,6 +169,7 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 	t.writeTimeout = timeout
 }
 
+// ReadMsg is NOT thread-safe
 func (t *transport) ReadMsg() (msg Msg, err error) {
 	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
@@ -223,6 +224,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 	return
 }
 
+// WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 

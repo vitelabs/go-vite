@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/vite/net"
+
 	"github.com/vitelabs/go-vite/common"
 )
 
@@ -21,9 +24,10 @@ var DefaultNodeConfig = Config{
 	WSOrigins:       []string{"*"},
 	WSExposeAll:     true,
 	HttpExposeAll:   true,
-	ListenInterface: "0.0.0.0",
-	Port:            8483,
-	FilePort:        8484,
+	ListenInterface: discovery.DefaultListenInterface,
+	Port:            discovery.DefaultPort,
+	FilePort:        net.DefaultFilePort,
+	ForwardStrategy: net.DefaultForwardStrategy,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

@@ -7,5 +7,6 @@ type Net struct {
 	FileListenAddress string `json:"FileListenAddress"`
 	FilePublicAddress string `json:"FilePublicAddress"`
 	FilePort          int    `json:"FilePort"`
+	ForwardStrategy   string `json:"ForwardStrategy"`
 	MinePrivateKey    ed25519.PrivateKey
 }
