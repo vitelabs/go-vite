@@ -5,7 +5,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"testing"
-	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -129,7 +128,6 @@ func mockAccountBlocks() AccountBlocks {
 
 	for i := 0; i < n; i++ {
 		ga.Blocks[i] = &ledger.AccountBlock{
-			Meta:           &ledger.AccountBlockMeta{},
 			BlockType:      0,
 			Hash:           types.Hash{},
 			Height:         0,
@@ -142,10 +140,7 @@ func mockAccountBlocks() AccountBlocks {
 			TokenId:        types.TokenTypeId{},
 			Quota:          0,
 			Fee:            new(big.Int),
-			SnapshotHash:   types.Hash{},
 			Data:           nil,
-			Timestamp:      &time.Time{},
-			StateHash:      types.Hash{},
 			LogHash:        nil,
 			Difficulty:     nil,
 			Nonce:          nil,

@@ -289,6 +289,29 @@ Loop:
 	d.table.store(d.db)
 }
 
+func (d *discovery) findLoop() {
+	duration := 10 * time.Second
+	maxDuration := 10 * time.Minute
+
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+Loop:
+	for {
+		select {
+		case <-d.term:
+			break Loop
+		default:
+			d.init()
+			time.Sleep(duration)
+			duration *= 2
+			if duration > maxDuration {
+				duration = maxDuration
+			}
+		}
+	}
+}
+
 func (d *discovery) handle(pkt *packet) {
 	d.table.bubble(pkt.id)
 
