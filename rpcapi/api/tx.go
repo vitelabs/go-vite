@@ -1,9 +1,11 @@
 package api
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,7 +15,9 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
+	"go.uber.org/atomic"
 	"math/big"
+	"time"
 )
 
 type Tx struct {
@@ -24,7 +28,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
 	}
-	/*if vite.Producer() == nil {
+	if vite.Producer() == nil {
 		return tx
 	}
 	coinbase := vite.Producer().GetCoinBase()
@@ -97,7 +101,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 			fmt.Printf("[%s]send block:%s,%s,%s\n", time.Now(), block.AccountAddress, block.Height, block.Hash)
 		}
 
-	})*/
+	})
 
 	return tx
 }
@@ -309,8 +313,4 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		return nil, err
 	}
 	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
-}
-
-func (t Tx) ReturnError() (result *CalcPoWDifficultyResult, err error) {
-	return nil, util.ErrCalcPoWTwice
 }
