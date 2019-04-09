@@ -501,6 +501,11 @@ func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight, sHe
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	this := self.selfPendingAc(addr)
+	this.chainHeadMu.Lock()
+	defer this.chainHeadMu.Unlock()
+	this.chainTailMu.Lock()
+	defer this.chainTailMu.Unlock()
+
 	// find in tree
 	targetChain := this.findInTree(h.Hash, h.Height)
 
@@ -1003,14 +1008,14 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 }
 
 func (self *pool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.Lock()
-	defer self.UnLock()
-
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
 		err := self.ForkAccountTo(k, v)
 		if err != nil {
 			self.log.Error("forkaccountTo err", "err", err)
+			time.Sleep(time.Second)
+			// todo
+			self.log.Crit("error ")
 		}
 	}
 

@@ -388,7 +388,7 @@ func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snap
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
-		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash))
+		self.log.Error(fmt.Sprintf("waiting pool insert forkedChain fail. height:[%d], hash:[%s]", height, hash), "err", err)
 		return nil, err
 	}
 }
