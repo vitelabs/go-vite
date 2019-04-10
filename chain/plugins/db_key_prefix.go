@@ -1,3 +1,5 @@
 package chain_plugins
 
-const ()
+const (
+	OnRoadInfoKeyPrefix = byte(1)
+)

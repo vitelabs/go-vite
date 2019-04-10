@@ -29,6 +29,7 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 
 	plugins := map[string]Plugin{
 		"filterToken": newFilterToken(store, chain),
+		"onRoadInfo":  newOnRoadInfo(store, chain),
 	}
 
 	return &Plugins{
@@ -96,10 +97,6 @@ func (p *Plugins) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) e
 func (p *Plugins) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	return nil
 }
-func (p *Plugins) DeleteChunksByHash([]hashChunk) error {
-	return nil
-}
-
 func (p *Plugins) checkAndRecover() (*chain_db.Store, error) {
 	return nil, nil
 }

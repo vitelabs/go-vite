@@ -54,10 +54,6 @@ func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
 
-func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types.Hash) bool {
-	return manager.pool.ExistInPool(addr, fromBlockHash)
-}
-
 func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 	return manager.chain.HasOnRoadBlocks(*addr)
 }
@@ -91,12 +87,3 @@ func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 		}
 	}
 }
-
-/*func (manager *Manager) NewSnapshot(snapshotBlock []*ledger.SnapshotBlock) error {
-	manager.interruptSignalToAllWorker()
-	return nil
-}
-
-func (manager *Manager) interruptSignalToAllWorker() {
-}
-*/
