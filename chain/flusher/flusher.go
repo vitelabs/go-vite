@@ -179,10 +179,11 @@ func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
 			stores = append(stores, store)
 			status = 1
 			size = 4
+
 		case 1:
-			buffer = buf[currentPointer:nextPointer]
 			status = 2
 			size = int(binary.BigEndian.Uint32(buffer))
+
 		case 2:
 			redoLogList = append(redoLogList, buffer)
 			status = 0
@@ -288,8 +289,10 @@ func (flusher *Flusher) flush() {
 		commitStore := store
 		go func() {
 			defer flusher.commitWg.Done()
-			if commitErr = commitStore.Commit(); commitErr != nil {
-				flusher.log.Error(fmt.Sprintf("commit failed. Error: %s", commitErr.Error()), "method", "Flush")
+			if err := commitStore.Commit(); err != nil {
+				commitErr = err
+				flusher.log.Error(fmt.Sprintf("%s commit failed. Error: %s", commitStore.Id(), err.Error()), "method", "Flush")
+				return
 			}
 		}()
 	}

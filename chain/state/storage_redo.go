@@ -19,38 +19,53 @@ const (
 
 type StorageRedo struct {
 	store *bolt.DB
-	//logMap         map[types.Hash][]byte
-	//snapshotHeight uint64
 
-	snapshotLogMap        map[uint64]map[types.Hash][]byte
+	chain          Chain
+	snapshotLogMap map[uint64]map[types.Hash][]byte
+
 	currentSnapshotHeight uint64
 
 	retainHeight uint64
-	hasRedo      bool
 
 	id types.Hash
 	mu sync.RWMutex
 
+	hasRedo          bool
 	flushingBatchMap map[uint64]*leveldb.Batch
 	rollbackHeights  []uint64
 }
 
-func NewStorageRedo(chainDir string) (*StorageRedo, error) {
+func NewStorageRedo(chain Chain, chainDir string) (*StorageRedo, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("state_db_kv_redo")))
 
 	store, err := bolt.Open(path.Join(chainDir, "kv_redo"), 0600, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &StorageRedo{
+	redo := &StorageRedo{
+		chain:          chain,
 		store:          store,
 		snapshotLogMap: make(map[uint64]map[types.Hash][]byte),
-		//logMap:       make(map[types.Hash][]byte),
-		retainHeight: 600,
-		id:           id,
+		retainHeight:   1200,
+		id:             id,
 
 		flushingBatchMap: make(map[uint64]*leveldb.Batch),
-	}, nil
+	}
+
+	height := uint64(0)
+
+	latestSnapshotBlock, err := chain.QueryLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	if latestSnapshotBlock != nil {
+		height = latestSnapshotBlock.Height
+	}
+
+	if err := redo.ResetSnapshot(height + 1); err != nil {
+		return nil, err
+	}
+	return redo, nil
 }
 
 func (redo *StorageRedo) Close() error {
@@ -61,40 +76,73 @@ func (redo *StorageRedo) Close() error {
 	return nil
 }
 
-func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte, hasRedo bool) {
-	//redo.logMap = redoLog
-	//
-	//if redo.logMap == nil {
-	//	redo.logMap = make(map[types.Hash][]byte)
-	//}
-	//redo.snapshotHeight = snapshotHeight
-	if redoLog == nil {
-		redo.snapshotLogMap[snapshotHeight] = make(map[types.Hash][]byte)
-	} else {
-		redo.snapshotLogMap[snapshotHeight] = redoLog
-	}
-	redo.currentSnapshotHeight = snapshotHeight
-	redo.hasRedo = hasRedo
+func (redo *StorageRedo) ResetSnapshot(snapshotHeight uint64) error {
+	return redo.store.Update(func(tx *bolt.Tx) error {
+		redoLogMap := make(map[types.Hash][]byte)
+
+		bu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight))
+
+		hasRedo := true
+		if bu == nil {
+			prevBu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight - 1))
+			if prevBu == nil {
+				hasRedo = false
+			}
+
+			var err error
+			bu, err = tx.CreateBucket(chain_utils.Uint64ToBytes(snapshotHeight))
+			if err != nil {
+				return err
+			}
+		} else {
+			c := bu.Cursor()
+
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				hash, err := types.BytesToHash(k)
+				if err != nil {
+					return err
+				}
+				redoLogMap[hash] = v
+			}
+
+		}
+
+		if hasRedo {
+			redo.SetSnapshot(snapshotHeight, redoLogMap)
+		} else {
+			redo.SetSnapshot(snapshotHeight, nil)
+		}
+
+		return nil
+	})
 }
 
-func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, bool, error) {
-	//if snapshotHeight == redo.snapshotHeight {
-	//	return redo.logMap, true, nil
-	//}
+func (redo *StorageRedo) SetSnapshot(snapshotHeight uint64, redoLog map[types.Hash][]byte) {
 
+	//redo.snapshotLogMap[snapshotHeight] = make(map[types.Hash][]byte)
+
+	redo.snapshotLogMap[snapshotHeight] = redoLog
+
+	redo.currentSnapshotHeight = snapshotHeight
+}
+
+func (redo *StorageRedo) HasRedo() bool {
+	return redo.snapshotLogMap[redo.currentSnapshotHeight] != nil
+}
+func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, bool, error) {
 	if logMap, ok := redo.snapshotLogMap[snapshotHeight]; ok {
-		return logMap, true, nil
+		return logMap, logMap != nil, nil
 	}
 
 	logMap := make(map[types.Hash][]byte)
 
-	hasRedo := false
+	hasRedo := true
 	err := redo.store.View(func(tx *bolt.Tx) error {
 		bu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight))
 		if bu == nil {
+			hasRedo = false
 			return nil
 		}
-		hasRedo = true
 
 		c := bu.Cursor()
 
@@ -112,26 +160,28 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 	return logMap, hasRedo, err
 }
 
-func (redo *StorageRedo) HasRedo() bool {
-	return redo.hasRedo
-}
-
 func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
+	if !redo.HasRedo() {
+		return
+	}
 
 	redo.snapshotLogMap[redo.currentSnapshotHeight][blockHash] = log
-	//redo.logMap[blockHash] = log
 }
 
 func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
 
+	if !redo.HasRedo() {
+		return
+	}
+
 	delete(redo.snapshotLogMap[redo.currentSnapshotHeight], blockHash)
 }
 
-func (redo *StorageRedo) PrepareRollback(snapshotHeight uint64) {
+func (redo *StorageRedo) Rollback(snapshotHeight uint64) {
 	redo.rollbackHeights = append(redo.rollbackHeights, snapshotHeight)
 }
 
@@ -144,9 +194,15 @@ func (redo *StorageRedo) Prepare() {
 		return
 	}
 
+	latestSb := redo.chain.GetLatestSnapshotBlock()
+
 	redo.flushingBatchMap = make(map[uint64]*leveldb.Batch, len(redo.snapshotLogMap))
 
 	for snapshotHeight, logMap := range redo.snapshotLogMap {
+		if snapshotHeight > latestSb.Height {
+			continue
+		}
+
 		batch, ok := redo.flushingBatchMap[snapshotHeight]
 		if !ok || batch == nil {
 			batch = new(leveldb.Batch)
@@ -169,9 +225,17 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 		redoLog = make([]byte, 0, 1+8*len(redo.rollbackHeights))
 		redoLog = append(redoLog, optRollback)
 
+		// FOR DEBUG
+		//fmt.Println("storage redo log start")
 		for _, rollbackHeight := range redo.rollbackHeights {
 			redoLog = append(redoLog, chain_utils.Uint64ToBytes(rollbackHeight)...)
+
+			// FOR DEBUG
+			//fmt.Println("storage redo ", rollbackHeight)
 		}
+		// FOR DEBUG
+		//fmt.Println("storage redo log end")
+
 	} else if len(redo.flushingBatchMap) > 0 {
 
 		redoLogSize := 1
@@ -192,6 +256,7 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 
 			redoLog = append(redoLog, batchLenBytes...)
 			redoLog = append(redoLog, batch.Dump()...)
+
 		}
 
 	}
@@ -200,22 +265,26 @@ func (redo *StorageRedo) RedoLog() ([]byte, error) {
 }
 
 func (redo *StorageRedo) Commit() error {
+	defer func() {
+		redo.rollbackHeights = nil
+		redo.flushingBatchMap = make(map[uint64]*leveldb.Batch)
+
+		current := redo.snapshotLogMap[redo.currentSnapshotHeight]
+		redo.snapshotLogMap = make(map[uint64]map[types.Hash][]byte)
+		redo.snapshotLogMap[redo.currentSnapshotHeight] = current
+
+	}()
+
 	if len(redo.rollbackHeights) > 0 {
-		defer func() {
-			redo.rollbackHeights = nil
-		}()
 
 		return redo.delete(redo.rollbackHeights)
-	} else if len(redo.flushingBatchMap) > 0 {
-		defer func() {
-			redo.flushingBatchMap = make(map[uint64]*leveldb.Batch)
-		}()
-
+	} else {
 		for snapshotHeight, batch := range redo.flushingBatchMap {
 			if err := redo.flush(snapshotHeight, batch); err != nil {
 				return err
 			}
 		}
+
 	}
 
 	return nil
@@ -260,7 +329,7 @@ func (redo *StorageRedo) PatchRedoLog(redoLog []byte) error {
 			currentPointer += 8
 		}
 
-		return redo.delete(redo.rollbackHeights)
+		return redo.delete(snapshotHeights)
 	}
 
 	return nil
@@ -285,6 +354,7 @@ func (redo *StorageRedo) flush(snapshotHeight uint64, batch *leveldb.Batch) erro
 	if snapshotHeight > redo.retainHeight {
 		// ignore error
 		tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight - redo.retainHeight))
+
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -294,6 +364,9 @@ func (redo *StorageRedo) flush(snapshotHeight uint64, batch *leveldb.Batch) erro
 }
 
 func (redo *StorageRedo) delete(snapshotHeights []uint64) error {
+	if len(snapshotHeights) <= 0 {
+		return nil
+	}
 	tx, err := redo.store.Begin(true)
 	if err != nil {
 		return err
@@ -301,14 +374,7 @@ func (redo *StorageRedo) delete(snapshotHeights []uint64) error {
 	defer tx.Rollback()
 
 	for _, snapshotHeight := range snapshotHeights {
-		if _, ok := redo.snapshotLogMap[snapshotHeight]; ok {
-			delete(redo.snapshotLogMap, snapshotHeight)
-			continue
-		}
-
-		if err := tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight)); err != nil {
-			return err
-		}
+		tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight))
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -182,7 +182,9 @@ func (store *Store) Commit() error {
 func (store *Store) PatchRedoLog(redoLog []byte) error {
 
 	batch := new(leveldb.Batch)
-	batch.Load(redoLog)
+	if err := batch.Load(redoLog); err != nil {
+		return err
+	}
 
 	if err := store.db.Write(batch, nil); err != nil {
 		return err

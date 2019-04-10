@@ -101,6 +101,7 @@ func (ql *quotaList) NewNext() {
 	if ql.status < 1 {
 		return
 	}
+
 	ql.backElement = make(map[types.Address]*item)
 	ql.list.PushBack(ql.backElement)
 
@@ -115,7 +116,11 @@ func (ql *quotaList) NewNext() {
 		}
 		ql.subUsed(&addr, usedStartItem.BlockCount, usedStartItem.Quota)
 	}
+
 	ql.usedStart = ql.usedStart.Next()
+	if ql.list.Len() > ql.listMaxLength {
+		ql.list.Remove(ql.list.Front())
+	}
 }
 
 func (ql *quotaList) Rollback(n int) error {

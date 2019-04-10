@@ -4,6 +4,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -116,6 +117,24 @@ func TestPeerMux_Close(t *testing.T) {
 	//}
 }
 
-func TestPeerMux_run(t *testing.T) {
+func BenchmarkAtomic(b *testing.B) {
+	var w int32
 
+	var wg sync.WaitGroup
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			atomic.AddInt32(&w, 1)
+			time.Sleep(time.Millisecond)
+			atomic.AddInt32(&w, -1)
+		}()
+	}
+
+	wg.Wait()
+
+	if w != 0 {
+		b.Errorf("should not be %d", w)
+	}
 }
