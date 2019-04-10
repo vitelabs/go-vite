@@ -3,20 +3,18 @@ package net
 import (
 	"errors"
 	"fmt"
+	net2 "net"
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/vnode"
-
-	"github.com/vitelabs/go-vite/vite/net/message"
-
 	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 	"github.com/vitelabs/go-vite/vite/net/circle"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 type ForwardStrategy byte
@@ -128,7 +126,7 @@ type forwardStrategy interface {
 
 type broadcastPeer interface {
 	ID() vnode.NodeID
-	Address() string
+	Address() net2.Addr
 	peers() map[vnode.NodeID]struct{}
 	seeBlock(types.Hash)
 	hasBlock(hash types.Hash) bool

@@ -3,22 +3,18 @@ package net
 import (
 	"errors"
 	"fmt"
+	net2 "net"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/log15"
-
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/vite/net/message"
-
-	"github.com/vitelabs/go-vite/p2p"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/vnode"
+	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 type mockBroadcastPeerSet map[vnode.NodeID]*mockBroadcastPeer
@@ -296,8 +292,22 @@ func (mp *mockBroadcastNet) ID() vnode.NodeID {
 	return mp.id
 }
 
-func (mp *mockBroadcastNet) Address() string {
-	return mp.id.String()
+type mpAddr struct {
+	str string
+}
+
+func (m mpAddr) Network() string {
+	return "mock broadcast"
+}
+
+func (m mpAddr) String() string {
+	return m.Network() + " " + m.str
+}
+
+func (mp *mockBroadcastNet) Address() net2.Addr {
+	return mpAddr{
+		str: mp.id.String(),
+	}
 }
 
 func (mp *mockBroadcastNet) peers() map[vnode.NodeID]struct{} {

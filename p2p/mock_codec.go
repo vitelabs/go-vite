@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync/atomic"
 	"time"
 )
@@ -17,6 +18,18 @@ type MockCodec struct {
 	term     chan struct{}
 	closed   int32
 	write    int32
+}
+
+type mockAddress struct {
+	name string
+}
+
+func (m mockAddress) Network() string {
+	return "mock codec"
+}
+
+func (m mockAddress) String() string {
+	return "mock codec " + m.name
 }
 
 func MockPipe() (c1, c2 Codec) {
@@ -118,6 +131,6 @@ func (m *MockCodec) SetTimeout(timeout time.Duration) {
 	m.wtimeout = timeout
 }
 
-func (m *MockCodec) Address() string {
-	return m.name
+func (m *MockCodec) Address() net.Addr {
+	return mockAddress{m.name}
 }
