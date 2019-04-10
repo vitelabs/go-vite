@@ -221,16 +221,7 @@ func (p *pingRequest) handle(pkt *packet, err error) bool {
 
 func (p *pingRequest) receivePong(pkt *packet, png *pong) {
 	if p.done != nil {
-		e, addr := extractEndPoint(pkt.from, png.from)
-		p.done <- &Node{
-			Node: vnode.Node{
-				ID:       pkt.id,
-				EndPoint: *e,
-				Net:      png.net,
-				Ext:      png.ext,
-			},
-			addr: addr,
-		}
+		p.done <- nodeFromPong(pkt)
 	}
 }
 

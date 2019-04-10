@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/netool"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
@@ -92,16 +94,20 @@ func (n *Node) update(n2 *Node) {
 
 func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint, addr2 *net.UDPAddr) {
 	var err error
+	var done bool
 	if from != nil {
-		// from EndPoint could be unavailable
+		// from is available
 		addr2, err = net.ResolveUDPAddr("udp", from.String())
-		if err != nil {
-			e = udpAddrToEndPoint(addr)
-			addr2 = addr
-		} else {
-			e = from
+		if err == nil {
+			if from.Typ.Is(vnode.HostDomain) || netool.CheckRelayIP(addr.IP, from.Host) == nil {
+				// from is domain, or IP is available
+				done = true
+				e = from
+			}
 		}
-	} else {
+	}
+
+	if !done {
 		e = udpAddrToEndPoint(addr)
 		addr2 = addr
 	}
@@ -150,6 +156,24 @@ func nodeFromPing(res *packet) *Node {
 			Net:      p.net,
 			Ext:      p.ext,
 		},
-		addr: addr,
+		addr:    addr,
+		parseAt: time.Now(),
+	}
+}
+
+func nodeFromPong(res *packet) *Node {
+	p := res.body.(*pong)
+
+	e, addr := extractEndPoint(res.from, p.from)
+
+	return &Node{
+		Node: vnode.Node{
+			ID:       res.id,
+			EndPoint: *e,
+			Net:      p.net,
+			Ext:      p.ext,
+		},
+		addr:    addr,
+		parseAt: time.Now(),
 	}
 }

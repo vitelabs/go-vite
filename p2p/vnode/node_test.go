@@ -60,6 +60,35 @@ func TestNodeID_IsZero(t *testing.T) {
 	}
 }
 
+func TestNodeID_Bytes(t *testing.T) {
+	var id = RandomNodeID()
+	buf := id.Bytes()
+	id2, err := Bytes2NodeID(buf)
+	if err != nil {
+		t.Errorf("bytes to id error: %v", err)
+	}
+	if id != id2 {
+		t.Errorf("diff id")
+	}
+
+	copy(id.Bytes(), ZERO.Bytes())
+	fmt.Println(id == ZERO)
+	fmt.Println(id == id2)
+}
+
+func ExampleNodeID_Bytes() {
+	var id = RandomNodeID()
+	var id2 = id
+
+	copy(id.Bytes(), ZERO.Bytes())
+	fmt.Println(id == ZERO)
+	id.Bytes()[0] = 0
+	fmt.Println(id == id2)
+	// Output:
+	// false
+	// true
+}
+
 func TestNode_Serialize(t *testing.T) {
 	var conds = [4][2]bool{
 		{true, true},
@@ -84,6 +113,24 @@ func TestNode_Serialize(t *testing.T) {
 		if err = compare(n, n2, true); err != nil {
 			t.Error(err)
 		}
+	}
+}
+
+func TestNode_Deserialize(t *testing.T) {
+	var n = MockNode(false, true)
+	buf, err := n.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	var n2 *Node
+	err = n2.Deserialize(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	if n.ID != n2.ID {
+		t.Error("diff id")
 	}
 }
 

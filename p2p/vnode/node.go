@@ -49,10 +49,12 @@ func (id NodeID) String() string {
 	return hex.EncodeToString(id[:])
 }
 
+// Brief return the first 8 chars of id.String()
 func (id NodeID) Brief() string {
-	return id.String()[:8]
+	return hex.EncodeToString(id[:16])
 }
 
+// Bytes return bytes slice copy of the origin NodeID. So modify the result cannot effect the origin NodeID.
 func (id NodeID) Bytes() []byte {
 	return id[:]
 }
@@ -67,6 +69,7 @@ func (id NodeID) IsZero() bool {
 	return true
 }
 
+// RandomNodeID return a random NodeID, easy to test
 func RandomNodeID() (id NodeID) {
 	_, _ = rand.Read(id[:])
 	return
@@ -157,10 +160,9 @@ func commonNBits(a NodeID, n uint) (b NodeID) {
 }
 
 // Distance is bit-count minus the common bits, from left to right continuously, between a and b. eg:
-// a: 0000 1111
-// b: 0100 0011
-// common bits between a and b is 1
-// Distance(a, b) == 8 - 1
+//  a: 0000 1111
+//  b: 0100 0011
+//  Distance(a, b) == 8 - 1 // true
 func Distance(a, b NodeID) uint {
 	return IDBits - commonBits(a, b)
 }
@@ -185,9 +187,14 @@ func (n Node) Address() string {
 	return n.EndPoint.String()
 }
 
-// String marshal node to string, looks like:
-// <hex_node_id>@domain:<port>/net
-// <hex_node_id>@[IP]:<port>/net
+// String marshal node to string, domain or IP is mandatory, other fields are optional. looks like:
+//  <hex_node_id>@domain:port/net
+//  <hex_node_id>@IPv4:port/net
+//  <hex_node_id>@[IPv6]:port/net
+// missing fields will parse to default value.
+//  NodeID default is Zero
+//  port default is `DefaultPort`
+//  net default is 0
 // the field `Ext` will not be included in the encoded string
 func (n Node) String() (str string) {
 	str = n.ID.String() + "@"
@@ -207,8 +214,7 @@ func (n Node) String() (str string) {
 
 const protocol = "vnode://"
 
-// ParseNode parse a string to Node
-// Return error if missing Hostname/IP
+// ParseNode parse a string to Node, return error if missing Hostname/IP.
 func ParseNode(u string) (n *Node, err error) {
 	var index int
 	if index = strings.Index(u, protocol); index > -1 {
@@ -272,6 +278,7 @@ func parseNid(str string) (nid uint32, err error) {
 	return uint32(n), nil
 }
 
+// Serialize a Node to bytes through protobuf
 func (n *Node) Serialize() ([]byte, error) {
 	pb := &protos.Node{
 		ID:       n.ID.Bytes(),
@@ -285,6 +292,10 @@ func (n *Node) Serialize() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
+// Deserialize bytes to Node through protobuf, Node should be constructed before Deserialize.
+//  // for example
+//  var n = new(Node)
+//  err := n.Deserialize(someBuf)
 func (n *Node) Deserialize(data []byte) (err error) {
 	pb := new(protos.Node)
 	err = proto.Unmarshal(data, pb)
