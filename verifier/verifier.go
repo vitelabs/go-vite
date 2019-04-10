@@ -32,13 +32,12 @@ func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 
 func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	//fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
-	//fixme 2. block referred snapshot not arrive yet, return error
-	//3. VerifyHash
+	//2. VerifyHash
 	if err := v.Av.verifyHash(block); err != nil {
 		return err
 	}
-	//4. VerifySignature
-	if block.IsReceiveBlock() || (len(block.Signature) > 0 || len(block.PublicKey) > 0) {
+	//3. VerifySignature
+	if !v.Av.chain.IsGenesisAccountBlock(block.Hash) {
 		if err := v.Av.verifySignature(block); err != nil {
 			return err
 		}
@@ -116,9 +115,6 @@ func (v *verifier) VerifyAccBlockSignature(block *ledger.AccountBlock) error {
 			return errors.New("signature and publicKey of the contract's send must be nil")
 		}
 	} else {
-		if len(block.Signature) == 0 || len(block.PublicKey) == 0 {
-			return errors.New("signature or publicKey can't be nil")
-		}
 		if err := v.Av.verifySignature(block); err != nil {
 			return err
 		}

@@ -70,7 +70,7 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 /*
 func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnroadAccountInfo(address)
+	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
@@ -147,7 +147,7 @@ func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
 
 func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnroadAccountInfo(address)
+	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}

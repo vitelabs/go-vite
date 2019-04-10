@@ -12,10 +12,16 @@ import (
 	"math/big"
 )
 
+type Chain interface {
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
+}
+
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 type Generator struct {
-	chain chainReader
+	chain Chain
 
 	vmDb vm_db.VmDb
 	vm   *vm.VM
@@ -37,7 +43,7 @@ func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHas
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
 	}
-	gen.chain = NewChain(chain)
+	gen.chain = chain
 	gen.vm = vm.NewVM()
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
