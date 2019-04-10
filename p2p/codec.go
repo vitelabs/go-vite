@@ -53,17 +53,17 @@ type CodecFactory interface {
 
 /*
  * message structure
- * |------------ head --------------|
- * +----------+----------+----------+------------------+----------------------+----------------------------+
- * |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
- * |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
- * +----------+----------+----------+------------------+----------------------+----------------------------+
+ *  |------------ head --------------|
+ *  +----------+----------+----------+------------------+----------------------+----------------------------+
+ *  |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
+ *  |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
+ *  +----------+----------+----------+------------------+----------------------+----------------------------+
  *
  * Meta structure
- * +-------------+-------------+----------+-----------------+
- * |   Id size   | Length size | Compress |    Reserved     |
- * |   2 bits    |    2 bits   |  1 bit   |     3 bits      |
- * +-------------+-------------+----------+-----------------+
+ *  +-------------+-------------+----------+-----------------+
+ *  |   Id size   | Length size | Compress |    Reserved     |
+ *  |   2 bits    |    2 bits   |  1 bit   |     3 bits      |
+ *  +-------------+-------------+----------+-----------------+
  * Length size: the bytes-number of `Payload Length` field, min 0 bytes ~ max 3 bytes
  * Id size: the bytes-number of `Id size` field: 0 bytes, 1 byte, 2 bytes, 4 bytes
  * Compress: 0 no compressed, 1 compressed
