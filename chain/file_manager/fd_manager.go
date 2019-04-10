@@ -32,15 +32,15 @@ type fdManager struct {
 	filenamePrefix     string
 	filenamePrefixSize int
 
-	fileCache *list.List
-	fileFdMu  sync.RWMutex
-
+	fileCache   *list.List
 	fileFdCache map[uint64]*fileDescription
 
 	fileCacheLength int
 
 	fileSize int64
 	writeFd  *fileDescription
+
+	changeFdMu sync.RWMutex
 }
 
 func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, error) {
@@ -86,23 +86,18 @@ func (fdSet *fdManager) LatestLocation() *Location {
 	return NewLocation(writeFd.cacheItem.FileId, writeFd.cacheItem.BufferLen)
 }
 
-func (fdSet *fdManager) LatestFileId() uint64 {
-	return fdSet.writeFd.cacheItem.FileId
-}
-
 func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
+	fdSet.changeFdMu.RLock()
+	defer fdSet.changeFdMu.RUnlock()
 
-	if fileId > fdSet.LatestFileId() {
+	if fileId > fdSet.latestFileId() {
 		return nil, nil
 	}
 
 	// get from cache
-	fdSet.fileFdMu.RLock()
 	if fd, ok := fdSet.fileFdCache[fileId]; ok {
-		fdSet.fileFdMu.RUnlock()
 		return fd, nil
 	}
-	fdSet.fileFdMu.RUnlock()
 
 	fileCacheItem := fdSet.getCacheItem(fileId)
 	if fileCacheItem != nil {
@@ -118,11 +113,17 @@ func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
 }
 
 func (fdSet *fdManager) GetWriteFd() *fileDescription {
+	fdSet.changeFdMu.RLock()
+	defer fdSet.changeFdMu.RUnlock()
+
 	return fdSet.writeFd
 }
 
 func (fdSet *fdManager) DeleteTo(location *Location) error {
-	for i := fdSet.LatestFileId(); i > location.FileId; i-- {
+	fdSet.changeFdMu.Lock()
+	defer fdSet.changeFdMu.Unlock()
+
+	for i := fdSet.latestFileId(); i > location.FileId; i-- {
 		if fdSet.writeFd != nil {
 			fdSet.writeFd.cacheItem.FileWriter.Close()
 			fdSet.writeFd.Close()
@@ -132,12 +133,10 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 
 		cacheItem := fdSet.fileCache.Back().Value.(*fileCacheItem)
 		if cacheItem != nil {
-			fdSet.fileFdMu.Lock()
+
 			delete(fdSet.fileFdCache, cacheItem.FileId)
-			fdSet.fileFdMu.Unlock()
 
 			cacheItem.Mu.Lock()
-
 			cacheItem.FileWriter.Close()
 			cacheItem.FileId = 0
 			cacheItem.Buffer = nil
@@ -179,8 +178,11 @@ func (fdSet *fdManager) DiskDelete(topLocation *Location, lowLocation *Location)
 }
 
 func (fdSet *fdManager) CreateNextFd() error {
+	fdSet.changeFdMu.Lock()
+	defer fdSet.changeFdMu.Unlock()
+
 	// new location
-	newLocation := NewLocation(fdSet.LatestFileId()+1, 0)
+	newLocation := NewLocation(fdSet.latestFileId()+1, 0)
 
 	// set write fd
 	fdSet.writeFd = nil
@@ -192,15 +194,13 @@ func (fdSet *fdManager) CreateNextFd() error {
 
 	// set write fd
 	return nil
-
 }
 
 func (fdSet *fdManager) RemoveAllFiles() error {
+	fdSet.changeFdMu.Lock()
+	defer fdSet.changeFdMu.Unlock()
+
 	fdSet.reset()
-	if fdSet.writeFd != nil {
-		fdSet.writeFd.Close()
-		fdSet.writeFd = nil
-	}
 
 	if err := os.RemoveAll(fdSet.dirName); err != nil {
 		return err
@@ -209,11 +209,10 @@ func (fdSet *fdManager) RemoveAllFiles() error {
 	return nil
 }
 func (fdSet *fdManager) Close() error {
+	fdSet.changeFdMu.Lock()
+	defer fdSet.changeFdMu.Unlock()
+
 	fdSet.reset()
-	if fdSet.writeFd != nil {
-		fdSet.writeFd.Close()
-		fdSet.writeFd = nil
-	}
 
 	if fdSet.dirFd != nil {
 		if err := fdSet.dirFd.Close(); err != nil {
@@ -263,10 +262,7 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		if newItem.FlushPointer >= fdSet.fileSize {
 			fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
 
-			fdSet.fileFdMu.Lock()
 			delete(fdSet.fileFdCache, newItem.FileId)
-			fdSet.fileFdMu.Unlock()
-
 		} else {
 			newItem = nil
 		}
@@ -301,9 +297,14 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	}
 
 	fdSet.writeFd = NewFdByBuffer(fdSet, newItem)
+
 	fdSet.fileFdCache[newItem.FileId] = fdSet.writeFd
 
 	return nil
+}
+
+func (fdSet *fdManager) latestFileId() uint64 {
+	return fdSet.writeFd.cacheItem.FileId
 }
 
 func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
@@ -344,19 +345,18 @@ func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
 }
 
 func (fdSet *fdManager) reset() {
-	if fdSet.writeFd != nil {
-		fdSet.writeFd.Close()
+	for _, fileFd := range fdSet.fileFdCache {
+		// close file reader
+		fileFd.Close()
+		if fileFd.cacheItem != nil && fileFd.cacheItem.FileWriter != nil {
+			// close file writer
+			fileFd.cacheItem.FileWriter.Close()
+		}
 	}
 
-	back := fdSet.fileCache.Back()
-	for back != nil {
-		backValue := back.Value.(*fileCacheItem)
-
-		backValue.Mu.Lock()
-		backValue.FileWriter.Close()
-		backValue.Mu.Unlock()
-		back = back.Prev()
-	}
+	fdSet.fileCache = nil
+	fdSet.writeFd = nil
+	fdSet.fileFdCache = nil
 }
 
 func (fdSet *fdManager) getCacheItem(fileId uint64) *fileCacheItem {

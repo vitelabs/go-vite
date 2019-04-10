@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/netool"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -85,6 +87,45 @@ func (n *net) parseFilePublicAddress() (fileAddress []byte) {
 	return fileAddress
 }
 
+func extractFileAddress(sender net2.Addr, fileAddressBytes []byte) (fileAddress string) {
+	if len(fileAddressBytes) != 0 {
+		var tcp *net2.TCPAddr
+
+		if len(fileAddressBytes) == 2 {
+			filePort := binary.BigEndian.Uint16(fileAddressBytes)
+			var ok bool
+			if tcp, ok = sender.(*net2.TCPAddr); ok {
+				return tcp.IP.String() + ":" + strconv.Itoa(int(filePort))
+			}
+		} else {
+			var ep = new(vnode.EndPoint)
+
+			if err := ep.Deserialize(fileAddressBytes); err == nil {
+				if ep.Typ.Is(vnode.HostIP) {
+					// verify ip
+					var ok bool
+					if tcp, ok = sender.(*net2.TCPAddr); ok {
+						err = netool.CheckRelayIP(tcp.IP, ep.Host)
+						if err != nil {
+							// invalid ip
+							ep.Host = tcp.IP
+						}
+					}
+
+					fileAddress = ep.String()
+				} else {
+					tcp, err = net2.ResolveTCPAddr("tcp", ep.String())
+					if err == nil {
+						fileAddress = ep.String()
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
 func (n *net) ProtoData() []byte {
 	genesis := n.Chain.GetGenesisSnapshotBlock()
 	current := n.Chain.GetLatestSnapshotBlock()
@@ -112,7 +153,7 @@ func (n *net) ProtoData() []byte {
 	return buf
 }
 
-func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
+func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
 	pb := &protos.ViteHandshake{}
 	err = proto.Unmarshal(protoData, pb)
 	if err != nil {
@@ -147,34 +188,11 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 		return
 	}
 
-	var pState = PeerState{
+	state = PeerState{
 		Head:        hash,
 		Height:      pb.Height,
-		FileAddress: "",
+		FileAddress: extractFileAddress(sender, pb.FileAddress),
 	}
-
-	if len(pb.FileAddress) != 0 {
-		if len(pb.FileAddress) == 2 {
-			var host string
-			host, _, err = net2.SplitHostPort(msg.From)
-			if err != nil {
-				pState.FileAddress = ""
-			} else {
-				filePort := binary.BigEndian.Uint16(pb.FileAddress)
-				pState.FileAddress = host + ":" + strconv.Itoa(int(filePort))
-			}
-		} else {
-			var e vnode.EndPoint
-			err = e.Deserialize(pb.FileAddress)
-			if err != nil {
-				pState.FileAddress = ""
-			} else {
-				pState.FileAddress = e.String()
-			}
-		}
-	}
-
-	state = pState
 
 	return
 }

@@ -1,6 +1,7 @@
 package net
 
 import (
+	net2 "net"
 	"sync"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -25,7 +26,7 @@ func (n *mockNet) ProtoData() []byte {
 	return nil
 }
 
-func (n *mockNet) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
+func (n *mockNet) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
 	return
 }
 

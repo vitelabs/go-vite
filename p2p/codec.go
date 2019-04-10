@@ -44,7 +44,7 @@ type Codec interface {
 	SetReadTimeout(timeout time.Duration)
 	SetWriteTimeout(timeout time.Duration)
 	SetTimeout(timeout time.Duration)
-	Address() string
+	Address() net.Addr
 }
 
 type CodecFactory interface {
@@ -53,17 +53,17 @@ type CodecFactory interface {
 
 /*
  * message structure
- * |------------ head --------------|
- * +----------+----------+----------+------------------+----------------------+----------------------------+
- * |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
- * |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
- * +----------+----------+----------+------------------+----------------------+----------------------------+
+ *  |------------ head --------------|
+ *  +----------+----------+----------+------------------+----------------------+----------------------------+
+ *  |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
+ *  |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
+ *  +----------+----------+----------+------------------+----------------------+----------------------------+
  *
  * Meta structure
- * +-------------+-------------+----------+-----------------+
- * |   Id size   | Length size | Compress |    Reserved     |
- * |   2 bits    |    2 bits   |  1 bit   |     3 bits      |
- * +-------------+-------------+----------+-----------------+
+ *  +-------------+-------------+----------+-----------------+
+ *  |   Id size   | Length size | Compress |    Reserved     |
+ *  |   2 bits    |    2 bits   |  1 bit   |     3 bits      |
+ *  +-------------+-------------+----------+-----------------+
  * Length size: the bytes-number of `Payload Length` field, min 0 bytes ~ max 3 bytes
  * Id size: the bytes-number of `Id size` field: 0 bytes, 1 byte, 2 bytes, 4 bytes
  * Compress: 0 no compressed, 1 compressed
@@ -131,8 +131,8 @@ type transport struct {
 	writeHeadBuf      []byte
 }
 
-func (t *transport) Address() string {
-	return t.Conn.RemoteAddr().String()
+func (t *transport) Address() net.Addr {
+	return t.Conn.RemoteAddr()
 }
 
 type transportFactory struct {
@@ -171,7 +171,7 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 
 // ReadMsg is NOT thread-safe
 func (t *transport) ReadMsg() (msg Msg, err error) {
-	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
+	_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
 	buf := t.readHeadBuf
 	_, err = io.ReadFull(t.Conn, buf)
@@ -226,7 +226,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
-	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
+	_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf
 	head[1] = msg.pid

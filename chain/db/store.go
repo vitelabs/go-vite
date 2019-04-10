@@ -95,7 +95,7 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
-	iter := store.NewIterator(util.BytesPrefix(prefix))
+	iter := store.newIterator(util.BytesPrefix(prefix))
 	defer iter.Release()
 
 	result := false
@@ -118,25 +118,21 @@ func (store *Store) NewIterator(slice *util.Range) interfaces.StorageIterator {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
-	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
-		store.memDb.NewIterator(slice),
-		store.db.NewIterator(slice, nil),
-	}, store.memDb.IsDelete)
+	return store.newIterator(slice)
 }
 
 func (store *Store) Close() error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
-	store.memDb = nil
-	return store.db.Close()
+	return store.close()
 }
 
 func (store *Store) Clean() error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
-	if err := store.Close(); err != nil {
+	if err := store.close(); err != nil {
 		return err
 	}
 
@@ -198,4 +194,16 @@ func (store *Store) resetMemDB() {
 	store.mu.Lock()
 	store.memDb = NewMemDB()
 	store.mu.Unlock()
+}
+
+func (store *Store) newIterator(slice *util.Range) interfaces.StorageIterator {
+	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
+		store.memDb.NewIterator(slice),
+		store.db.NewIterator(slice, nil),
+	}, store.memDb.IsDelete)
+}
+
+func (store *Store) close() error {
+	store.memDb = nil
+	return store.db.Close()
 }
