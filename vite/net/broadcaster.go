@@ -17,32 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-type ForwardStrategy byte
-
-const (
-	FullForward ForwardStrategy = iota
-	CrossForward
-)
-
-var forwardStrategyText = map[ForwardStrategy]string{
-	FullForward:  "full",
-	CrossForward: "cross",
-}
-
-func (f ForwardStrategy) String() string {
-	return forwardStrategyText[f]
-}
-
-func chooseForardStrategy(text string) ForwardStrategy {
-	for f, t := range forwardStrategyText {
-		if t == text {
-			return f
-		}
-	}
-
-	return FullForward
-}
-
 // A blockStore implementation can store blocks in queue,
 // when node is syncing, blocks from remote broadcaster can be stored.
 // dequeue these blocks when sync done.
@@ -119,6 +93,25 @@ func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
 	return
 }
 
+//type ForwardMode string
+//
+//const (
+//	ForwardModeFull  ForwardMode = "full"
+//	ForwardModeCross ForwardMode = "cross"
+//)
+
+func chooseForardStrategy(strategy string, ps broadcastPeerSet) forwardStrategy {
+	if strategy == "full" {
+		return &fullForward{ps}
+	} else {
+		return &crossForward{
+			ps:          ps,
+			commonMax:   3,
+			commonRatio: 10,
+		}
+	}
+}
+
 // forwardStrategy will pick peers to forward new blocks
 type forwardStrategy interface {
 	choosePeers(sender broadcastPeer) []broadcastPeer
@@ -142,11 +135,11 @@ type broadcastPeerSet interface {
 }
 
 // fullForwardStrategy will choose all peers as forward targets except sender
-type fullForwardStrategy struct {
+type fullForward struct {
 	ps broadcastPeerSet
 }
 
-func (d *fullForwardStrategy) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
+func (d *fullForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
 	ourPeers := d.ps.broadcastPeers()
 
 	for _, p := range ourPeers {
@@ -161,7 +154,7 @@ func (d *fullForwardStrategy) choosePeers(sender broadcastPeer) (l []broadcastPe
 
 // redForwardStrategy will choose a part of common peers and all particular peers
 // the selected common peers should less than min(commonMax, commonRation * commonCount)
-type redForwardStrategy struct {
+type crossForward struct {
 	ps broadcastPeerSet
 	// choose how many peers from the common peers
 	commonMax int
@@ -176,14 +169,14 @@ func newRedForwardStrategy(ps broadcastPeerSet, commonMax int, commonRatio int) 
 		commonRatio = 100
 	}
 
-	return &redForwardStrategy{
+	return &crossForward{
 		ps:          ps,
 		commonMax:   commonMax,
 		commonRatio: commonRatio,
 	}
 }
 
-func (d *redForwardStrategy) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
+func (d *crossForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
 	ppMap := sender.peers()
 	ourPeers := d.ps.broadcastPeers()
 
@@ -221,7 +214,7 @@ func (d *redForwardStrategy) choosePeers(sender broadcastPeer) (l []broadcastPee
 	return
 }
 
-var errMissingBlock = errors.New("propagation missing block")
+var errMissingBroadcastBlock = errors.New("propagation missing block")
 
 type newBlockListener interface {
 	onNewAccountBlock(block *ledger.AccountBlock)
@@ -245,25 +238,24 @@ type broadcaster struct {
 
 	listener newBlockListener
 
-	mu     sync.Mutex
-	statis circle.List // statistic latency of block propagation
+	mu        sync.Mutex
+	statistic circle.List // statistic latency of block propagation
 
 	log log15.Logger
 }
 
 func newBroadcaster(peers broadcastPeerSet, verifier Verifier, feed blockNotifier,
-	store blockStore, strategy forwardStrategy, listener newBlockListener,
-	log log15.Logger) *broadcaster {
+	store blockStore, strategy forwardStrategy, listener newBlockListener) *broadcaster {
 	return &broadcaster{
-		peers:    peers,
-		statis:   circle.NewList(records24h),
-		verifier: verifier,
-		feed:     feed,
-		store:    store,
-		filter:   newBlockFilter(filterCap),
-		strategy: strategy,
-		log:      log,
-		listener: listener,
+		peers:     peers,
+		statistic: circle.NewList(records24h),
+		verifier:  verifier,
+		feed:      feed,
+		store:     store,
+		filter:    newBlockFilter(filterCap),
+		strategy:  strategy,
+		log:       netLog.New("module", "broadcaster"),
+		listener:  listener,
 	}
 }
 
@@ -284,7 +276,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		if nb.Block == nil {
-			return errMissingBlock
+			return errMissingBroadcastBlock
 		}
 
 		block := nb.Block
@@ -321,7 +313,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.forwardSnapshotBlock(nb, sender)
 		}
 
-		if b.canNotify() {
+		if b.st.syncExited() {
 			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueSnapshotBlock(block)
@@ -334,7 +326,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		if nb.Block == nil {
-			return errMissingBlock
+			return errMissingBroadcastBlock
 		}
 
 		block := nb.Block
@@ -371,7 +363,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.forwardAccountBlock(nb, sender)
 		}
 
-		if b.canNotify() {
+		if b.st.syncExited() {
 			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueAccountBlock(block)
@@ -395,10 +387,10 @@ func (b *broadcaster) Statistic() []int64 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	count := int64(b.statis.Size())
+	count := int64(b.statistic.Size())
 	countF := float64(count)
 	var vf float64
-	b.statis.TraverseR(func(key circle.Key) bool {
+	b.statistic.TraverseR(func(key circle.Key) bool {
 		v, ok := key.(int64)
 		if !ok {
 			return false
@@ -441,7 +433,7 @@ func (b *broadcaster) Statistic() []int64 {
 func (b *broadcaster) subSyncState(st SyncState) {
 	b.st = st
 
-	if b.canNotify() {
+	if b.st.syncExited() {
 		for block := b.store.dequeueSnapshotBlock(); block != nil; block = b.store.dequeueSnapshotBlock() {
 			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
 		}
@@ -449,10 +441,6 @@ func (b *broadcaster) subSyncState(st SyncState) {
 			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
 		}
 	}
-}
-
-func (b *broadcaster) canNotify() bool {
-	return b.st != Syncing && b.st != SyncWait
 }
 
 func (b *broadcaster) setHeight(height uint64) {
@@ -477,7 +465,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	if block.Timestamp != nil && block.Height > b.height {
 		delta := now.Sub(*block.Timestamp)
 		b.mu.Lock()
-		b.statis.Put(delta.Nanoseconds() / 1e6)
+		b.statistic.Put(delta.Nanoseconds() / 1e6)
 		b.mu.Unlock()
 	}
 }

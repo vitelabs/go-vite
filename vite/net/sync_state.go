@@ -43,6 +43,10 @@ const (
 	SyncCancel
 )
 
+func (s SyncState) syncExited() bool {
+	return s == SyncDone || s == SyncError || s == SyncCancel
+}
+
 var syncStatus = map[SyncState]string{
 	SyncInit:       "Sync Not Start",
 	SyncWait:       "Sync wait",

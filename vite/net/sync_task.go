@@ -18,7 +18,7 @@ const (
 	reqCancel
 )
 
-var reqStatus = [...]string{
+var reqStatus = map[reqState]string{
 	reqWaiting: "waiting",
 	reqPending: "db",
 	reqDone:    "done",
@@ -27,10 +27,11 @@ var reqStatus = [...]string{
 }
 
 func (s reqState) String() string {
-	if s > reqCancel {
-		return "unknown request state_bak"
+	if str, ok := reqStatus[s]; ok {
+		return str
 	}
-	return reqStatus[s]
+
+	return "unknown request state"
 }
 
 type syncTask struct {
@@ -84,7 +85,7 @@ func (c *chunkTask) do(ctx context.Context) error {
 	return <-c.downloader.download(ctx, c.from, c.to)
 }
 
-type syncTasks []syncTask
+type syncTasks []*syncTask
 
 func (s syncTasks) Len() int {
 	return len(s)
@@ -105,10 +106,10 @@ type syncTaskExecutor interface {
 	stop()
 	// add a task into queue, task will be sorted from small to large.
 	// if task is overlapped, then the task will be split to small tasks.
-	add(t syncTask)
+	add(t *syncTask) bool
 	// execute a task directly, NOT put into queue.
 	// if a previous same from-to task has done, the gap time must longer than 1 min, or the task will not exec.
-	exec(t syncTask)
+	exec(t *syncTask) bool
 	// runTo will execute those from is small than to tasks
 	runTo(to uint64)
 	// deleteFrom will delete those from is large than start tasks.
@@ -120,6 +121,7 @@ type syncTaskExecutor interface {
 	status() ExecutorStatus
 	// clear all tasks
 	reset()
+	size() int
 	addListener(listener syncTaskListener)
 }
 
@@ -150,6 +152,13 @@ func newExecutor(max, batch int) syncTaskExecutor {
 		batch: batch,
 		tasks: make(syncTasks, 0, max),
 	}
+}
+
+func (e *executor) size() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return len(e.tasks)
 }
 
 func (e *executor) start() {
@@ -191,11 +200,20 @@ func (e *executor) status() ExecutorStatus {
 }
 
 // add from low to high
-func (e *executor) add(t syncTask) {
+func (e *executor) add(t *syncTask) bool {
+	if atomic.LoadInt32(&e.running) == 0 {
+		return false
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if len(e.tasks) == cap(e.tasks) {
+		return false
+	}
 	e.tasks = append(e.tasks, t)
+
+	return true
 }
 
 func (e *executor) reset() {
@@ -216,9 +234,9 @@ func (e *executor) loop() {
 		default:
 			var skip = 0 // db / cancel / done but not continue
 			var index = 0
-			var batch = 0
 			var continuous = true // is task done consecutively
-			var t syncTask
+			var batch = 0
+			var t *syncTask
 
 			e.mu.Lock()
 			for index = e.doneIndex; index < len(e.tasks); index = e.doneIndex + skip {
@@ -252,7 +270,7 @@ func (e *executor) loop() {
 			e.mu.Unlock()
 
 			if last {
-				go e.notifyAllDone(t)
+				go e.notifyAllDone(*t)
 			}
 		}
 	}
@@ -262,7 +280,7 @@ func (e *executor) runTo(to uint64) {
 	var skip = 0 // db / cancel / done but not continue
 	var index = 0
 	var continuous = true // is task done consecutively
-	var t syncTask
+	var t *syncTask
 
 	e.mu.Lock()
 	for index = e.doneIndex + skip; index < len(e.tasks); index = e.doneIndex + skip {
@@ -293,31 +311,42 @@ func (e *executor) runTo(to uint64) {
 	e.mu.Unlock()
 
 	if last {
-		go e.notifyAllDone(t)
+		go e.notifyAllDone(*t)
 	}
 }
 
-func (e *executor) run(t syncTask) {
+func (e *executor) run(t *syncTask) {
 	t.st = reqPending
+
 	go e.do(t)
 }
 
-func (e *executor) exec(t syncTask) {
+// if t is not belong tasks, then run it
+func (e *executor) exec(t *syncTask) bool {
+	if atomic.LoadInt32(&e.running) == 0 {
+		return false
+	}
+
 	_, to := t.bound()
 
 	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if len(e.tasks) == 0 {
 		e.run(t)
 	} else {
 		from, _ := e.tasks[0].bound()
 		if from > to {
 			e.run(t)
+		} else {
+			return false
 		}
 	}
-	e.mu.Unlock()
+
+	return true
 }
 
-func (e *executor) do(t syncTask) {
+func (e *executor) do(t *syncTask) {
 	t.ctx, t.cancel = context.WithCancel(e.ctx)
 
 	err := t.do()
@@ -328,7 +357,7 @@ func (e *executor) do(t syncTask) {
 		t.st = reqDone
 	}
 
-	go e.notify(t, err)
+	go e.notify(*t, err)
 }
 
 func (e *executor) notify(t syncTask, err error) {
@@ -352,7 +381,7 @@ func (e *executor) last() (t syncTask, ok bool) {
 		return
 	}
 
-	return e.tasks[len(e.tasks)-1], true
+	return *(e.tasks[len(e.tasks)-1]), true
 }
 
 // delete tasks those start is larger than start
@@ -397,7 +426,7 @@ type syncBatchDownloader struct {
 	executor   syncTaskExecutor
 	downloader chunkDownloader
 	observer   func(err error)
-	syncing    int32
+	running    int32
 }
 
 func (s *syncBatchDownloader) allTaskDone(last syncTask) {
@@ -425,7 +454,7 @@ func newBatchDownloader(peers *peerSet, fact syncConnectionFactory) *syncBatchDo
 
 	var s = &syncBatchDownloader{
 		executor:   newExecutor(batchSyncTask, 4),
-		downloader: newDownloader(pool, fact, nil),
+		downloader: newDownloader(pool, fact, netLog.New("module", "downloader")),
 	}
 
 	s.executor.addListener(s)
@@ -434,14 +463,14 @@ func newBatchDownloader(peers *peerSet, fact syncConnectionFactory) *syncBatchDo
 }
 
 func (s *syncBatchDownloader) stop() {
-	if atomic.CompareAndSwapInt32(&s.syncing, 1, 0) {
+	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.executor.stop()
 		s.downloader.stop()
 	}
 }
 
 func (s *syncBatchDownloader) sync(from, to uint64) {
-	if atomic.CompareAndSwapInt32(&s.syncing, 0, 1) {
+	if atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		s.from, s.to = from, to
 		s.batchEnd = s.from - 1
 
@@ -450,7 +479,7 @@ func (s *syncBatchDownloader) sync(from, to uint64) {
 	}
 }
 func (s *syncBatchDownloader) download(from, to uint64) {
-	s.executor.exec(syncTask{
+	s.executor.exec(&syncTask{
 		task: &chunkTask{
 			from:       from,
 			to:         to,
@@ -470,7 +499,7 @@ func (s *syncBatchDownloader) allocateTasks() {
 
 	cs := splitChunk(from, s.batchEnd, syncTaskSize)
 	for _, c := range cs {
-		s.executor.add(syncTask{
+		s.executor.add(&syncTask{
 			task: &chunkTask{
 				from:       c[0],
 				to:         c[1],
@@ -483,9 +512,9 @@ func (s *syncBatchDownloader) allocateTasks() {
 func (s *syncBatchDownloader) setTo(to uint64) {
 	atomic.StoreUint64(&s.to, to)
 
-	if s.batchEnd > s.to {
+	if s.batchEnd > to {
 		// remove taller tasks
-		s.executor.deleteFrom(s.to)
+		s.executor.deleteFrom(to)
 	}
 }
 

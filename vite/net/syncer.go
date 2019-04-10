@@ -75,6 +75,8 @@ type syncer struct {
 	height   uint64
 	state    syncState
 
+	timeout time.Duration
+
 	peers     syncPeerSet
 	eventChan chan peerEvent // get peer add/delete event
 
@@ -90,14 +92,15 @@ type syncer struct {
 	log     log15.Logger
 }
 
-func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader) *syncer {
+func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader, timeout time.Duration) *syncer {
 	s := &syncer{
 		chain:      chain,
 		peers:      peers,
 		eventChan:  make(chan peerEvent, 1),
 		subs:       make(map[int]SyncStateCallback),
 		downloader: downloader,
-		log:        log15.New("module", "net/syncer"),
+		timeout:    timeout,
+		log:        netLog.New("module", "syncer"),
 	}
 
 	s.state = syncStateInit{s}
@@ -251,7 +254,7 @@ Wait:
 			}
 
 			if current.Height == s.height {
-				if now.Sub(lastCheckTime) > 10*time.Minute {
+				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: chain get stuck")
 					s.state.error()
 				}
@@ -270,7 +273,6 @@ Wait:
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
 	atomic.StoreUint64(&s.to, to)
-	// todo
 	s.downloader.setTo(to)
 }
 
@@ -302,12 +304,21 @@ func (s *syncer) Status() SyncStatus {
 }
 
 type SyncDetail struct {
-	SyncStatus
-	ExecutorStatus
+	From    uint64
+	To      uint64
+	Current uint64
+	State   SyncState
+	Tasks   []string
 }
 
 func (s *syncer) Detail() SyncDetail {
+	st := s.Status()
+
 	return SyncDetail{
-		SyncStatus: s.Status(),
+		From:    st.From,
+		To:      st.To,
+		Current: st.Current,
+		State:   st.State,
+		Tasks:   nil,
 	}
 }

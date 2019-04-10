@@ -281,8 +281,8 @@ func New(cfg Config) Net {
 
 	feed := newBlockFeeder()
 
-	forward := newRedForwardStrategy(peers, 3, 30)
-	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, netLog.New("module", "broadcast"))
+	forward := chooseForardStrategy(cfg.ForwardStrategy, peers)
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil)
 
 	receiver := &safeBlockNotifier{
 		blockFeeder: feed,
@@ -295,7 +295,7 @@ func New(cfg Config) Net {
 	}
 
 	downloader := newBatchDownloader(peers, syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader)
+	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Second)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
 
 	fetcher := newFetcher(peers, receiver)

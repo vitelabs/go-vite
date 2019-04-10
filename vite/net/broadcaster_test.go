@@ -11,7 +11,7 @@ import (
 
 func TestBroadcaster_Statistic(t *testing.T) {
 	bdc := &broadcaster{
-		statis: circle.NewList(records24h),
+		statistic: circle.NewList(records24h),
 	}
 
 	ret := bdc.Statistic()
@@ -23,7 +23,7 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 	// put one element
 	fmt.Println("put one elements")
-	bdc.statis.Put(int64(10))
+	bdc.statistic.Put(int64(10))
 	ret = bdc.Statistic()
 	if ret[0] != 10 {
 		t.Fail()
@@ -31,12 +31,12 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 	// put 3600 elements
 	fmt.Println("put 3610 elements")
-	bdc.statis.Reset()
+	bdc.statistic.Reset()
 	var t0 int64
 	var t1 float64
 	var total = records1h + 10
 	for i := 0; i < total; i++ {
-		bdc.statis.Put(int64(i))
+		bdc.statistic.Put(int64(i))
 	}
 	ret = bdc.Statistic()
 	for i := total - records1h; i < total; i++ {
@@ -53,13 +53,13 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 	// put 43200 elements
 	fmt.Println("put 43210 elements")
-	bdc.statis.Reset()
+	bdc.statistic.Reset()
 	t0, t1 = 0, 0
 
 	var t12 float64
 	total = records12h + 10
 	for i := 0; i < total; i++ {
-		bdc.statis.Put(int64(i))
+		bdc.statistic.Put(int64(i))
 		t0 = int64(i)
 	}
 	ret = bdc.Statistic()
@@ -82,13 +82,13 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 	// put 86400 elements
 	fmt.Println("put 86410 elements")
-	bdc.statis.Reset()
+	bdc.statistic.Reset()
 	t0, t1, t12 = 0, 0, 0
 
 	var t24 float64
 	total = records24h + 10
 	for i := 0; i < total; i++ {
-		bdc.statis.Put(int64(i))
+		bdc.statistic.Put(int64(i))
 		t0 = int64(i)
 	}
 	ret = bdc.Statistic()
@@ -119,11 +119,11 @@ func TestBroadcaster_Statistic(t *testing.T) {
 
 func BenchmarkBroadcaster_Statistic(b *testing.B) {
 	bdc := &broadcaster{
-		statis: circle.NewList(records24h),
+		statistic: circle.NewList(records24h),
 	}
 
 	for i := int64(0); i < records24h*2; i++ {
-		bdc.statis.Put(i)
+		bdc.statistic.Put(i)
 	}
 
 	var ret []int64
