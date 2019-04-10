@@ -188,24 +188,23 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if block.Height == 1 {
 			return FAIL, ErrVerifyPrevBlockFailed
 		}
-		latestBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
+		latestBlock, err := v.chain.GetLatestAccountBlock(block.AccountAddress)
 		if err != nil {
 			return FAIL, err
 		}
 		if latestBlock == nil {
+			return FAIL, err
+		}
+		switch {
+		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
+			break
+			/*case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
 				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
-		} else {
-			switch {
-			case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
-				break
-			case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
-				pendingTask.AccountTask = append(pendingTask.AccountTask,
-					&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
-				break
-			default:
-				return FAIL, ErrVerifyPrevBlockFailed
-			}
+			break
+			*/
+		default:
+			return FAIL, ErrVerifyPrevBlockFailed
 		}
 	}
 
