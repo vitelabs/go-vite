@@ -17,11 +17,11 @@ func TestChain_AccountBlock(t *testing.T) {
 
 func GetAccountBlockByHash(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			checkAccountBlock(t, hash, func() (*ledger.AccountBlock, error) {
 				return chainInstance.GetAccountBlockByHash(hash)
 			})
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				checkAccountBlock(t, sendBlock.Hash, func() (*ledger.AccountBlock, error) {
 					return chainInstance.GetAccountBlockByHash(sendBlock.Hash)
 				})
@@ -34,13 +34,13 @@ func GetAccountBlockByHash(t *testing.T, chainInstance Chain, accounts map[types
 
 func GetAccountBlockByHeight(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			checkAccountBlock(t, hash, func() (*ledger.AccountBlock, error) {
-				return chainInstance.GetAccountBlockByHeight(account.addr, vmBlock.AccountBlock.Height)
+				return chainInstance.GetAccountBlockByHeight(account.Addr, block.Height)
 			})
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				checkAccountBlock(t, hash, func() (*ledger.AccountBlock, error) {
-					return chainInstance.GetAccountBlockByHeight(account.addr, sendBlock.Height)
+					return chainInstance.GetAccountBlockByHeight(account.Addr, sendBlock.Height)
 				})
 			}
 		}
@@ -50,7 +50,7 @@ func GetAccountBlockByHeight(t *testing.T, chainInstance Chain, accounts map[typ
 func IsAccountBlockExisted(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
 
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			ok, err := chainInstance.IsAccountBlockExisted(hash)
 			if err != nil {
 				t.Fatal(err)
@@ -58,7 +58,7 @@ func IsAccountBlockExisted(t *testing.T, chainInstance Chain, accounts map[types
 			if !ok {
 				t.Fatal(fmt.Sprintf("error"))
 			}
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				ok, err := chainInstance.IsAccountBlockExisted(sendBlock.Hash)
 				if err != nil {
 					t.Fatal(err)
@@ -103,7 +103,7 @@ func GetReceiveAbBySendAb(t *testing.T, chainInstance Chain, accounts map[types.
 			} else {
 				hasReceived := false
 				for _, receiveBlock := range receiveAccount.ReceiveBlocksMap {
-					if receiveBlock.AccountBlock.FromBlockHash == hash {
+					if receiveBlock.FromBlockHash == hash {
 						hasReceived = true
 						break
 					}
@@ -120,9 +120,9 @@ func GetReceiveAbBySendAb(t *testing.T, chainInstance Chain, accounts map[types.
 	}
 
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			checkReceive(hash)
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				checkReceive(sendBlock.Hash)
 			}
 		}
@@ -150,7 +150,7 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 			}
 			hasReceived := false
 			for _, receiveBlock := range toAccount.ReceiveBlocksMap {
-				if receiveBlock.AccountBlock.FromBlockHash == hash {
+				if receiveBlock.FromBlockHash == hash {
 					hasReceived = true
 					break
 				}
@@ -172,9 +172,9 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 		}
 	}
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			checkIsReceive(hash)
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				checkIsReceive(sendBlock.Hash)
 			}
 		}
@@ -184,7 +184,7 @@ func IsReceived(t *testing.T, chainInstance Chain, accounts map[types.Address]*A
 
 func GetAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
-		latestBlock := account.latestBlock
+		latestBlock := account.LatestBlock
 		if latestBlock == nil {
 			continue
 		}
@@ -206,7 +206,7 @@ func GetAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Add
 
 func GetAccountBlocksByHeight(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
-		latestBlock := account.latestBlock
+		latestBlock := account.LatestBlock
 		if latestBlock == nil {
 			continue
 		}
@@ -224,7 +224,7 @@ func GetAccountBlocksByHeight(t *testing.T, chainInstance *chain, accounts map[t
 func checkBlocks(t *testing.T, latestBlock *ledger.AccountBlock, count uint64, blocks []*ledger.AccountBlock) {
 	blocksLength := uint64(len(blocks))
 	if count > 0 && (blocksLength <= 0 || blocks[0].Height != latestBlock.Height) {
-		t.Fatal(fmt.Sprintf("count is %d, latestBlock is %+v, blocks is %+v\n", count, latestBlock, blocks))
+		t.Fatal(fmt.Sprintf("count is %d, LatestBlock is %+v, blocks is %+v\n", count, latestBlock, blocks))
 
 	} else if count == 0 && blocksLength > 0 {
 		t.Fatal("error")
@@ -273,8 +273,8 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 		account := accounts[block.AccountAddress]
 		if firstConfirmSbHeight > latestSnapshotBlock.Height {
 			// no confirm
-			if _, ok := account.unconfirmedBlocks[hash]; !ok {
-				t.Fatal(fmt.Sprintf("addr: %s, hash is %s, unconfirmedBlocks: %+v\n", block.AccountAddress, hash, account.unconfirmedBlocks))
+			if _, ok := account.UnconfirmedBlocks[hash]; !ok {
+				t.Fatal(fmt.Sprintf("Addr: %s, hash is %s, UnconfirmedBlocks: %+v\n", block.AccountAddress, hash, account.UnconfirmedBlocks))
 			}
 		} else {
 			firstConfirmSb, err := chainInstance.GetSnapshotBlockByHeight(firstConfirmSbHeight)
@@ -289,9 +289,9 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 		}
 	}
 	for _, account := range accounts {
-		for hash, vmBlock := range account.BlocksMap {
+		for hash, block := range account.BlocksMap {
 			checkConfirmedTimes(hash)
-			for _, sendBlock := range vmBlock.AccountBlock.SendBlockList {
+			for _, sendBlock := range block.SendBlockList {
 				checkConfirmedTimes(sendBlock.Hash)
 			}
 		}
@@ -306,14 +306,14 @@ func GetLatestAccountBlock(t *testing.T, chainInstance Chain, accounts map[types
 		}
 
 		if block == nil {
-			if account.latestBlock != nil {
+			if account.LatestBlock != nil {
 				chainInstance.GetLatestAccountBlock(addr)
-				t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.latestBlock))
+				t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.LatestBlock))
 			}
-		} else if account.latestBlock == nil {
-			t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.latestBlock))
-		} else if block.Hash != account.latestBlock.Hash {
-			t.Fatal(fmt.Sprintf("%+v\n%+v\n", block, accounts[addr].latestBlock))
+		} else if account.LatestBlock == nil {
+			t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.LatestBlock))
+		} else if block.Hash != account.LatestBlock.Hash {
+			t.Fatal(fmt.Sprintf("%+v\n%+v\n", block, accounts[addr].LatestBlock))
 		}
 
 	}
@@ -326,17 +326,17 @@ func GetLatestAccountHeight(t *testing.T, chainInstance Chain, accounts map[type
 			t.Fatal(err)
 		}
 		if height <= 0 {
-			if account.latestBlock == nil {
+			if account.LatestBlock == nil {
 				continue
 			} else {
-				t.Fatal(fmt.Sprintf("%+v", account.latestBlock))
+				t.Fatal(fmt.Sprintf("%+v", account.LatestBlock))
 			}
-		} else if account.latestBlock == nil {
-			t.Fatal(fmt.Sprintf("%d, %+v", height, account.latestBlock))
+		} else if account.LatestBlock == nil {
+			t.Fatal(fmt.Sprintf("%d, %+v", height, account.LatestBlock))
 		}
 
-		if height != account.latestBlock.Height {
-			t.Fatal(fmt.Sprintf("%d, %+v", height, account.latestBlock))
+		if height != account.LatestBlock.Height {
+			t.Fatal(fmt.Sprintf("%d, %+v", height, account.LatestBlock))
 		}
 	}
 }

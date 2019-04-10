@@ -61,8 +61,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	//fmt.Println("InsertSnapshotBlock")
 	//
 	//fmt.Printf("%d.%+v\n", insertSnapshotNum, snapshotBlock)
-	//for addr, hh := range snapshotBlock.SnapshotContent {
-	//	fmt.Printf("SC: %s %s %d\n", addr, hh.Hash, hh.Height)
+	//for Addr, hh := range snapshotBlock.SnapshotContent {
+	//	fmt.Printf("SC: %s %s %d\n", Addr, hh.Hash, hh.Height)
 	//	fmt.Println()
 	//}
 	//

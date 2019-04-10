@@ -29,7 +29,7 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
 	latestHeight := c.GetLatestSnapshotBlock().Height
 	if toHeight > latestHeight || toHeight <= 1 {
-		cErr := errors.New(fmt.Sprintf("toHeight is %d, latestHeight is %d", toHeight, latestHeight))
+		cErr := errors.New(fmt.Sprintf("toHeight is %d, GetLatestHeight is %d", toHeight, latestHeight))
 		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
 		return nil, cErr
 	}
@@ -151,7 +151,7 @@ func (c *chain) DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64)
 func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight uint64, toHash *types.Hash) ([]*ledger.AccountBlock, error) {
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	if len(unconfirmedBlocks) <= 0 {
-		cErr := errors.New(fmt.Sprintf("blocks is not unconfirmed, addr is %s, toHeight is %d", addr, toHeight))
+		cErr := errors.New(fmt.Sprintf("blocks is not unconfirmed, Addr is %s, toHeight is %d", addr, toHeight))
 		c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 		return nil, cErr
 	}
@@ -174,7 +174,7 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 	if !c.stateDB.StorageRedo().HasRedo() {
 		for _, block := range needDeleteBlocks {
 			if ok, err := c.IsContractAccount(block.AccountAddress); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, addr is %s", block.AccountAddress))
+				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, Addr is %s", block.AccountAddress))
 				c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 				return nil, cErr
 			} else if ok {

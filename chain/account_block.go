@@ -168,7 +168,7 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByHeight(addr, height, count)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, addr is %s,  height is %d, count is %d.Error: %s",
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, Addr is %s,  height is %d, count is %d.Error: %s",
 			addr, height, count, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, err
@@ -217,7 +217,7 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 
 	height, location, err := c.indexDB.GetLatestAccountBlock(&addr)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, addr is %s. Error: %s",
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
 			addr, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return nil, cErr
@@ -254,7 +254,7 @@ func (c *chain) GetLatestAccountHeight(addr types.Address) (uint64, error) {
 
 	height, _, err := c.indexDB.GetLatestAccountBlock(&addr)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, addr is %s. Error: %s",
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
 			addr, err.Error()))
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return 0, cErr

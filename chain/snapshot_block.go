@@ -627,7 +627,7 @@ func (c *chain) GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotC
 	return segList, nil
 }
 
-// [startHeight, latestHeight]
+// [startHeight, GetLatestHeight]
 func (c *chain) GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error) {
 	// query location
 	startLocation, err := c.indexDB.GetSnapshotBlockLocation(height)

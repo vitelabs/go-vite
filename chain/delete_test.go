@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_db"
 	"log"
 	"math/rand"
 	"net/http"
@@ -120,7 +119,7 @@ func DeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.
 	unconfirmedBlock := unconfirmedBlocks[rand.Intn(len(unconfirmedBlocks))]
 
 	account := accounts[unconfirmedBlock.AccountAddress]
-	_, err := chainInstance.DeleteAccountBlocks(account.addr, unconfirmedBlock.Hash)
+	_, err := chainInstance.DeleteAccountBlocks(account.Addr, unconfirmedBlock.Hash)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +141,7 @@ func DeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.
 	//fmt.Println("delete mem accountBlocks end")
 
 	for fromBlockHash := range onRoadBlocksCache {
-		var onRoadSendBlock *vm_db.VmAccountBlock
+		var onRoadSendBlock *ledger.AccountBlock
 		for _, account := range accounts {
 			if len(account.SendBlocksMap) <= 0 {
 				continue
@@ -157,7 +156,7 @@ func DeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.
 			t.Fatal(fmt.Sprintf("error, %s", fromBlockHash))
 		}
 
-		toAccount := accounts[onRoadSendBlock.AccountBlock.ToAddress]
+		toAccount := accounts[onRoadSendBlock.ToAddress]
 		toAccount.AddOnRoadBlock(onRoadSendBlock)
 
 	}
@@ -169,18 +168,18 @@ func deleteMemAccountBlock(accounts map[types.Address]*Account, account *Account
 	deleteSendBlock := func(blockToDelete *ledger.AccountBlock) {
 		delete(onRoadBlocksCache, blockToDelete.Hash)
 		toAccount := accounts[blockToDelete.ToAddress]
-		var blockNeedDelete *vm_db.VmAccountBlock
+		var blockNeedDelete *ledger.AccountBlock
 		for _, block := range toAccount.ReceiveBlocksMap {
-			if block.AccountBlock.FromBlockHash == blockToDelete.Hash {
+			if block.FromBlockHash == blockToDelete.Hash {
 				blockNeedDelete = block
 			}
 		}
 		if blockNeedDelete != nil {
-			deleteMemAccountBlock(accounts, toAccount, blockNeedDelete.AccountBlock, onRoadBlocksCache)
+			deleteMemAccountBlock(accounts, toAccount, blockNeedDelete, onRoadBlocksCache)
 		}
 	}
 	for {
-		blockToDelete := account.latestBlock
+		blockToDelete := account.LatestBlock
 		if blockToDelete == nil || blockToDelete.Height < toBlock.Height {
 			break
 		}
