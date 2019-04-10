@@ -13,7 +13,20 @@ import (
  *	1. prepare
  *	2.
  */
+
+//FOR DEBUG
+//var insertNum = 1
+
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
+	//FOR DEBUG
+	//fmt.Println()
+	//fmt.Println("InsertAccountBlock")
+	//
+	//fmt.Printf("%d.%+v\n", insertNum, vmAccountBlock.AccountBlock)
+	//insertNum += 1
+	//fmt.Println("InsertAccountBlock end")
+	//fmt.Println()
+
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil)
 
@@ -38,8 +51,24 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-// no lock
+//FOR DEBUG
+//var insertSnapshotNum = 1
+
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
+	//FOR DEBUG
+	//fmt.Println()
+	//
+	//fmt.Println("InsertSnapshotBlock")
+	//
+	//fmt.Printf("%d.%+v\n", insertSnapshotNum, snapshotBlock)
+	//for addr, hh := range snapshotBlock.SnapshotContent {
+	//	fmt.Printf("SC: %s %s %d\n", addr, hh.Hash, hh.Height)
+	//	fmt.Println()
+	//}
+	//
+	//insertSnapshotNum += 1
+	//fmt.Println("InsertSnapshotBlock end")
+	//fmt.Println()
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {
@@ -70,6 +99,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
+	// insert snapshot blocks
+	c.stateDB.InsertSnapshotBlocks()
+
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
 
@@ -79,8 +111,6 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	c.flusher.Flush(false)
 	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
-
-	c.stateDB.InsertSnapshotBlocks(sbList)
 
 	return invalidBlocks, nil
 }

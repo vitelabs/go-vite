@@ -33,21 +33,11 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	storageRedo, err := NewStorageRedo(chainDir)
+
+	storageRedo, err := NewStorageRedo(chain, chainDir)
 	if err != nil {
 		return nil, err
 	}
-
-	latestSnapshotBlock, err := chain.QueryLatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
-	height := uint64(1)
-	if latestSnapshotBlock != nil {
-		height = latestSnapshotBlock.Height + 1
-	}
-
-	storageRedo.SetSnapshot(height, nil, true)
 
 	stateDb := &StateDB{
 		chain: chain,

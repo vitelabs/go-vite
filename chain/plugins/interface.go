@@ -18,17 +18,10 @@ type Chain interface {
 	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
 }
 
-type hashChunk struct {
-	SnapshotHashHeight ledger.HashHeight
-
-	AccountHashList []types.Hash
-}
-
 type Plugin interface {
 	InsertAccountBlocks([]*ledger.AccountBlock) error
+
 	InsertSnapshotBlocks([]*ledger.SnapshotBlock) error
 
 	DeleteChunks([]*ledger.SnapshotChunk) error
-
-	DeleteChunksByHash([]hashChunk) error
 }

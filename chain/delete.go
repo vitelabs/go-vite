@@ -42,6 +42,10 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	deletePerTime := uint64(100)
 
+	unconfirmedChunk := &ledger.SnapshotChunk{
+		AccountBlocks: c.cache.GetUnconfirmedBlocks(),
+	}
+
 	for targetHeight > toHeight {
 		if targetHeight > deletePerTime {
 			targetHeight = targetHeight - deletePerTime
@@ -60,7 +64,9 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			return nil, cErr
 		}
 
-		snapshotChunkList = append(snapshotChunkList, c.deleteSnapshotBlocksToLocation(location)...)
+		// prepend
+		snapshotChunkList = append(c.deleteSnapshotBlocksToLocation(location, unconfirmedChunk), snapshotChunkList...)
+		unconfirmedChunk = nil
 	}
 
 	// rebuild unconfirmed cache
@@ -71,7 +77,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return snapshotChunkList, nil
 }
 
-func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location) []*ledger.SnapshotChunk {
+func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location, unconfirmedChunk *ledger.SnapshotChunk) []*ledger.SnapshotChunk {
 
 	// rollback blocks db
 	snapshotChunks, err := c.blockDB.Rollback(location)
@@ -85,10 +91,9 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		return nil
 	}
 
-	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
-	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
-		AccountBlocks: unconfirmedBlocks,
-	})
+	if unconfirmedChunk != nil {
+		snapshotChunks = append(snapshotChunks, unconfirmedChunk)
+	}
 
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
@@ -111,12 +116,26 @@ func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Loca
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
+	//FOR DEBUG
+	//fmt.Println("delete")
+	//for _, chunk := range snapshotChunks {
+	//	fmt.Println()
+	//	fmt.Println("delete snapshotBlocks")
+	//	fmt.Printf("%+v\n", chunk.SnapshotBlock)
+	//	fmt.Println()
+	//
+	//	fmt.Println("delete accountBlocks")
+	//	for _, ab := range chunk.AccountBlocks {
+	//		fmt.Println()
+	//		fmt.Printf("%+v\n", ab)
+	//		fmt.Println()
+	//	}
+	//}
+	//fmt.Println("delete end")
+
 	c.flusher.Flush(true)
 
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
-
-	// trigger manually
-	c.stateDB.DeleteSnapshotBlocks(snapshotChunks)
 
 	return snapshotChunks
 }

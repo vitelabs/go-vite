@@ -28,7 +28,7 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}
 
 	plugins := map[string]Plugin{
-		"filterToken": newFilterToken(store),
+		"filterToken": newFilterToken(store, chain),
 	}
 
 	return &Plugins{

@@ -206,7 +206,8 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 	keyValue := map[string][]byte{
 		strconv.FormatUint(latestHeight+1, 10): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	}
-	fmt.Printf("%s add key value: %+v\n", account.addr, keyValue)
+	// FOR DEBUG
+	//fmt.Printf("%s add key value: %+v\n", account.addr, keyValue)
 
 	cTxOptions := &CreateTxOptions{
 		MockSignature: true,

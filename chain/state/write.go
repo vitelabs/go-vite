@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -104,5 +105,10 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	sDB.store.Write(batch)
 
+	return nil
+}
+
+func (sDB *StateDB) InsertSnapshotBlocks() error {
+	sDB.storageRedo.SetSnapshot(sDB.chain.GetLatestSnapshotBlock().Height+1, make(map[types.Hash][]byte))
 	return nil
 }
