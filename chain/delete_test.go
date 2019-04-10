@@ -28,26 +28,13 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		snapshotBlockList = testDeleteSbsAndAbs(t, chainInstance, accounts, snapshotBlockList)
 	})
 
-	for i := 0; i < rand.Intn(8); i++ {
+	for i := 0; i < rand.Intn(3)+1; i++ {
 		t.Run("DeleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(10))
 		})
 
-		t.Run("DeleteSnapshotBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(10))
-		})
-
 		t.Run("DeleteAccountBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
-		})
-		t.Run("DeleteAccountBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
-		})
-		t.Run("DeleteAccountBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
-		})
-		t.Run("DeleteSnapshotBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(10))
 		})
 
 	}
