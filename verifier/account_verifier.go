@@ -235,16 +235,20 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 }
 
 func (v *AccountVerifier) verifySendBlockIntergrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
+	zero_amount := big.NewInt(0)
+	if block.TokenId == types.ZERO_TOKENID {
+		if block.Amount != nil && block.Amount.Cmp(zero_amount) > 0 {
+			return errors.New("sendBlock.TokenId can't be ZERO_TOKENID when amount has value")
+		}
+	}
 	if block.Amount == nil {
-		block.Amount = big.NewInt(0)
+		block.Amount = zero_amount
 	} else {
 		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
 			return errors.New("sendBlock.Amount out of bounds")
 		}
-		if block.TokenId == types.ZERO_TOKENID {
-			return errors.New("sendBlock.TokenId can't be ZERO_TOKENID when amount has value")
-		}
 	}
+
 	if block.Fee == nil {
 		block.Fee = big.NewInt(0)
 	} else {
