@@ -39,7 +39,7 @@ func (self *snapshotCs) ElectionTime(t time.Time) (*electionResult, error) {
 }
 
 func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
-	sTime, voteIndex := self.genSnapshotVoteTime(index)
+	sTime := self.GenVoteTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -50,7 +50,7 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 	self.log.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
 	seeds := self.rw.GetSeedsBeforeHashH(block)
 	seed := core.NewSeedInfo(seeds)
-	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, voteIndex)
+	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 	return plans, nil
 }
 
-func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, voteIndex uint64) ([]types.Address, error) {
+func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, index uint64) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.rw.getSnapshotVoteCache(hashH.Hash)
 	if ok {
@@ -73,16 +73,19 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 	}
 
 	var successRate map[types.Address]int32
-	successRate, err = self.rw.GetSuccessRateByHour(voteIndex)
-	if err != nil {
-		return nil, err
+
+	if index > 0 {
+		successRate, err = self.rw.GetSuccessRateByHour(index - 1)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	all := ""
 	for _, v := range votes {
 		all += fmt.Sprintf("[%s]", v.Name)
 	}
-	self.log.Info(fmt.Sprintf("[%d][%d]success rate log: %+v, %s", hashH.Height, voteIndex, successRate, all))
+	self.log.Info(fmt.Sprintf("[%d][%d]pre success rate log: %+v, %s", hashH.Height, index, successRate, all))
 
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
@@ -90,7 +93,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 	// shuffle the members
 	finalVotes = self.algo.ShuffleVotes(finalVotes, &hashH, seed)
 
-	result := fmt.Sprintf("CalVotes result: %d:%d:%s, ", voteIndex, hashH.Height, hashH.Hash)
+	result := fmt.Sprintf("CalVotes result: %d:%d:%s, ", index, hashH.Height, hashH.Hash)
 	for _, v := range finalVotes {
 		if len(v.Type) > 0 {
 			result += fmt.Sprintf("[%s:%+v],", v.Name, v.Type)
@@ -108,12 +111,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, v
 
 // generate the vote time for snapshot consensus group
 func (self *snapshotCs) GenVoteTime(idx uint64) time.Time {
-	voteTime, _ := self.genSnapshotVoteTime(idx)
-	return voteTime
-}
-
-func (self *snapshotCs) genSnapshotVoteTime(idx uint64) (time.Time, uint64) {
-	return self.info.GenSTime(idx - 1), idx - 2
+	return self.info.GenSTime(idx)
 }
 
 func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {

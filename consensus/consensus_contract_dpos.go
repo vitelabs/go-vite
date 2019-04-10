@@ -90,7 +90,12 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 // generate the vote time for account consensus group
 func (self *contractDposCs) GenVoteTime(idx uint64) time.Time {
 	sTime := self.info.GenSTime(idx)
-	return sTime.Add(-time.Second * 75)
+	sTime = sTime.Add(-time.Second * 75)
+	// if before genesis'time, just use genesis'time + 1s
+	if sTime.Before(self.info.GenesisTime) {
+		return self.info.GenesisTime.Add(time.Second)
+	}
+	return sTime
 }
 
 func (self *contractDposCs) verifyAccountsProducer(accountBlocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
