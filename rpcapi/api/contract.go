@@ -140,3 +140,21 @@ func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map
 		}
 	}
 }
+
+type ContractInfo struct {
+	Code        []byte    `json:"code"`
+	Gid         types.Gid `json:"gid"`
+	ConfirmTime uint8     `json:"confirmTime"`
+}
+
+func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
+	code, err := c.chain.GetContractCode(addr)
+	if err != nil {
+		return nil, err
+	}
+	meta, err := c.chain.GetContractMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes}, nil
+}
