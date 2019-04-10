@@ -127,7 +127,6 @@ func BenchmarkAtomic(b *testing.B) {
 			defer wg.Done()
 
 			atomic.AddInt32(&w, 1)
-			time.Sleep(time.Millisecond)
 			atomic.AddInt32(&w, -1)
 		}()
 	}
@@ -137,4 +136,20 @@ func BenchmarkAtomic(b *testing.B) {
 	if w != 0 {
 		b.Errorf("should not be %d", w)
 	}
+}
+
+func BenchmarkWG(b *testing.B) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			wg.Add(1)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }

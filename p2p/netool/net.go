@@ -189,9 +189,9 @@ func SameNet(bits uint, ip, other net.IP) bool {
 	}
 }
 
-// bits 是子网掩码的位数
-// IP & Mask 相等则表示同一网段
-// 如果 Mask 不为 0 则不比较公共部分，只比较子网掩码没有覆盖的部分是否相同
+// bites is bit-count of mask.
+// value of `IP & Mask` is equal, then is the same net.
+// if Mask is not zero, then compare rest bits, out of Mask.
 func sameNet(bits uint, ip, other net.IP) bool {
 	nb := int(bits / 8)
 	mask := ^byte(0xFF >> (bits % 8))

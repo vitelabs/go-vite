@@ -6,11 +6,6 @@ import (
 	"net"
 )
 
-func mockID() (id NodeID) {
-	crand.Read(id[:])
-	return
-}
-
 func mockIP() (ip net.IP) {
 	ipv4 := mrand.Intn(10) > 5
 	if ipv4 {
@@ -41,7 +36,7 @@ func mockNet() uint32 {
 
 func MockNode(domain bool, ext bool) *Node {
 	n := &Node{
-		ID: mockID(),
+		ID: RandomNodeID(),
 		EndPoint: EndPoint{
 			mockIP(),
 			mockPort(),

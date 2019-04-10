@@ -128,6 +128,9 @@ func (db *nodeDB) Retrieve(ID vnode.NodeID) (node *Node, err error) {
 
 	node = new(Node)
 	err = node.Deserialize(data)
+	if err != nil {
+		return
+	}
 
 	key = append(nodeActivePrefix, ID.Bytes()...)
 	node.activeAt = time.Unix(db.retrieveInt64(key), 0)
