@@ -179,32 +179,41 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr b
 }
 
 func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock, isGeneralAddr bool) (VerifyResult, error) {
-	// check whether the prev is snapshoted
-	if block.Height == 1 && !block.PrevHash.IsZero() {
-		return FAIL, errors.New("account first block's prevHash error")
-	}
-	latestBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
-	if err != nil {
-		return FAIL, err
-	}
-	if latestBlock == nil {
-		pendingTask.AccountTask = append(pendingTask.AccountTask,
-			&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
+	// check the prev
+	if block.PrevHash.IsZero() {
+		if block.Height != 1 {
+			return FAIL, ErrVerifyPrevBlockFailed
+		}
 	} else {
-		switch {
-		case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
-			break
-		case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
+		if block.Height == 1 {
+			return FAIL, ErrVerifyPrevBlockFailed
+		}
+		latestBlock, err := v.chain.GetAccountBlockByHash(block.PrevHash)
+		if err != nil {
+			return FAIL, err
+		}
+		if latestBlock == nil {
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
 				&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
-			break
-		default:
-			return FAIL, ErrVerifyPrevBlockFailed
+		} else {
+			switch {
+			case block.PrevHash == latestBlock.Hash && block.Height == latestBlock.Height+1:
+				break
+			case block.PrevHash != latestBlock.Hash && block.Height > latestBlock.Height+1:
+				pendingTask.AccountTask = append(pendingTask.AccountTask,
+					&AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.PrevHash})
+				break
+			default:
+				return FAIL, ErrVerifyPrevBlockFailed
+			}
 		}
 	}
 
 	if block.IsReceiveBlock() {
-		// check the existence of recvBlock's send
+		// check the existence of recv's send
+		if block.FromBlockHash.IsZero() {
+			return FAIL, errors.New("recvBlock FromBlockHash can't be ZERO_HASH")
+		}
 		sendBlock, err := v.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return FAIL, err
@@ -212,24 +221,29 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if sendBlock == nil {
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
-			return PENDING, nil
 		}
-		// check whether is already received
-		isReceived, err := v.chain.IsReceived(block.FromBlockHash)
+
+		// check whether the send referred is already received
+		isReceived, err := v.chain.IsReceived(sendBlock.Hash)
 		if err != nil {
 			return FAIL, err
 		}
 		if isReceived {
 			received, err := v.chain.GetReceiveAbBySendAb(block.FromBlockHash)
 			if err == nil && received != nil {
-				return FAIL, errors.Errorf("block is already received successfully[received:%s]", received.Hash)
+				return FAIL, errors.Errorf("block is already received successfully[received:%s, from:%s]", received.Hash, sendBlock.Hash)
 			}
 			return FAIL, errors.New("block is already received successfully")
 		}
 
+		// check confirmedTimes of the send referred
 		if err := v.verifyComfirmedTimes(block, isGeneralAddr); err != nil {
 			return FAIL, err
 		}
+	}
+
+	if len(pendingTask.AccountTask) > 0 {
+		return PENDING, nil
 	}
 	return SUCCESS, nil
 }
@@ -283,6 +297,9 @@ func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, 
 	}
 	if block.Fee != nil && block.Fee.Cmp(big.NewInt(0)) != 0 {
 		return errors.New("recvBlock.Fee can't be anything other than nil or 0")
+	}
+	if block.ToAddress != types.ZERO_ADDRESS {
+		return errors.New("recvBlock.ToAddress must be ZERO_ADDRESS")
 	}
 	if block.Height <= 0 {
 		return errors.New("recvBlock.Height must be larger than 0")
