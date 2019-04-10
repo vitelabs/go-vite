@@ -20,6 +20,11 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
+func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error) {
+	// todo
+	return nil, nil
+}
+
 func newSnapshotCs(rw *chainRw, log log15.Logger) *snapshotCs {
 	cs := &snapshotCs{}
 	cs.rw = rw

@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"math/big"
 	"sync"
 	"time"
 
@@ -55,15 +56,28 @@ type APIReader interface {
 	ReadSuccessRateForAPI(start, end uint64) ([]map[types.Address]*consensus_db.Content, error)
 }
 
-type innerReader interface {
-	Reader
-	GenVoteTime(gid types.Gid, t uint64) (*time.Time, error)
-}
-
 type Life interface {
 	Start()
 	Init() error
 	Stop()
+}
+
+type SbpStats struct {
+	Index            uint64
+	BlockNum         uint64
+	ExceptedBlockNum uint64
+	VoteCnt          *big.Int
+	Name             string
+}
+
+type DayStats struct {
+	Index uint64
+	stats map[string]*SbpStats
+	// todo
+	VoteSum *big.Int
+}
+type SBPStatReader interface {
+	DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error)
 }
 
 type Consensus interface {
@@ -75,7 +89,7 @@ type Consensus interface {
 }
 
 // update committee result
-type committee struct {
+type consensus struct {
 	common.LifecycleStatus
 
 	mLog log15.Logger
@@ -98,14 +112,14 @@ type committee struct {
 	closed chan struct{}
 }
 
-func (self *committee) API() APIReader {
+func (self *consensus) API() APIReader {
 	return self.api
 }
 
-func NewConsensus(ch Chain) *committee {
+func NewConsensus(ch Chain) *consensus {
 	log := log15.New("module", "consensus")
 	rw := newChainRw(ch, log)
-	self := &committee{rw: rw}
+	self := &consensus{rw: rw}
 	self.mLog = log
 
 	return self
