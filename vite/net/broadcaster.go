@@ -267,15 +267,15 @@ func newBroadcaster(peers broadcastPeerSet, verifier Verifier, feed blockNotifie
 	}
 }
 
-func (b *broadcaster) ID() string {
+func (b *broadcaster) name() string {
 	return "broadcaster"
 }
 
-func (b *broadcaster) Codes() []code {
+func (b *broadcaster) codes() []code {
 	return []code{NewAccountBlockCode, NewSnapshotBlockCode}
 }
 
-func (b *broadcaster) Handle(msg p2p.Msg, sender Peer) (err error) {
+func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 	switch code(msg.Code) {
 	case NewSnapshotBlockCode:
 		nb := new(message.NewSnapshotBlock)

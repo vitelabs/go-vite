@@ -54,13 +54,13 @@ type net struct {
 	*broadcaster
 	reader syncCacheReader
 	BlockSubscriber
-	query    *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	running  int32
 	term     chan struct{}
 	log      log15.Logger
 	wg       sync.WaitGroup
 	fs       *fileServer
-	handlers map[code]msgHandler
+	handlers *msgHandlers
+	query    *queryHandler
 	hb       *heartBeater
 }
 
@@ -206,10 +206,10 @@ func (n *net) ID() p2p.ProtocolID {
 }
 
 func (n *net) Handle(msg p2p.Msg) error {
-	if handler, ok := n.handlers[code(msg.Code)]; ok {
+	if handler := n.handlers.pick(code(msg.Code)); handler != nil {
 		p := n.peers.get(msg.Sender.ID())
 		if p != nil {
-			return handler.Handle(msg, p)
+			return handler.handle(msg, p)
 		} else {
 			return errPeerNotExist
 		}
@@ -313,17 +313,31 @@ func New(cfg Config) Net {
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
-		handlers:        make(map[code]msgHandler),
+		handlers:        newHandlers("vite"),
 		log:             netLog,
 		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
-	//n.addHandler(_statusHandler(statusHandler))
-	n.query = newQueryHandler(cfg.Chain)
+	var err error
+	n.query, err = newQueryHandler(cfg.Chain)
+	if err != nil {
+		panic(errors.New("cannot construct query handler"))
+	}
 
-	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
-	n.addHandler(broadcaster) // NewSnapshotBlockCode, NewAccountBlockCode
-	n.addHandler(fetcher)     // SnapshotBlocksCode, AccountBlocksCode
+	// GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	if err = n.handlers.register(n.query); err != nil {
+		panic(errors.New("cannot register handler: query"))
+	}
+
+	// NewSnapshotBlockCode, NewAccountBlockCode
+	if err = n.handlers.register(broadcaster); err != nil {
+		panic(errors.New("cannot register handler: broadcaster"))
+	}
+
+	// SnapshotBlocksCode, AccountBlocksCode
+	if err = n.handlers.register(fetcher); err != nil {
+		panic(errors.New("cannot register handler: fetcher"))
+	}
 
 	return n
 }
@@ -394,12 +408,6 @@ func (h *heartBeater) state() []byte {
 
 func (n *net) State() []byte {
 	return n.hb.state()
-}
-
-func (n *net) addHandler(handler msgHandler) {
-	for _, cmd := range handler.Codes() {
-		n.handlers[cmd] = handler
-	}
 }
 
 func (n *net) Start(svr p2p.P2P) (err error) {
