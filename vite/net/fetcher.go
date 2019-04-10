@@ -268,15 +268,15 @@ func (f *fetcher) canFetch() bool {
 	return f.st == SyncDone || f.st == SyncError
 }
 
-func (f *fetcher) ID() string {
+func (f *fetcher) name() string {
 	return "fetcher"
 }
 
-func (f *fetcher) Codes() []code {
-	return []code{SnapshotBlocksCode, AccountBlocksCode}
+func (f *fetcher) codes() []code {
+	return []code{SnapshotBlocksCode, AccountBlocksCode, ExceptionCode}
 }
 
-func (f *fetcher) Handle(msg p2p.Msg, sender Peer) (err error) {
+func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 	switch code(msg.Code) {
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
@@ -309,6 +309,9 @@ func (f *fetcher) Handle(msg p2p.Msg, sender Peer) (err error) {
 		if len(bs.Blocks) > 0 {
 			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
 		}
+
+	default:
+		// todo
 	}
 
 	return nil

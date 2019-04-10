@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/monitor"
@@ -15,7 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-type code p2p.Code
+type code = p2p.Code
 
 const (
 	GetSnapshotBlocksCode code = iota
@@ -29,88 +28,133 @@ const (
 	ExceptionCode = 127
 )
 
-var msgNames = [...]string{
-	GetSnapshotBlocksCode: "GetSnapshotBlocksMsg",
-	GetAccountBlocksCode:  "GetAccountBlocksMsg",
-	GetChunkCode:          "GetChunkMsg",
-	SnapshotBlocksCode:    "SnapshotBlocksMsg",
-	AccountBlocksCode:     "AccountBlocksMsg",
-	NewSnapshotBlockCode:  "NewSnapshotBlockMsg",
-	NewAccountBlockCode:   "NewAccountBlockMsg",
-}
-
-func (t code) String() string {
-	if t == ExceptionCode {
-		return "ExceptionMsg"
-	}
-
-	if t > NewAccountBlockCode {
-		return "Unknown Message"
-	}
-
-	return msgNames[t]
-}
-
-type msgHandler interface {
-	ID() string
-	Codes() []code
-	Handle(msg p2p.Msg, sender Peer) error
-}
-
-// @section statusHandler
-//type _statusHandler func(msg p2p.Msg, sender Peer) error
+//var msgNames = [...]string{
+//	GetSnapshotBlocksCode: "GetSnapshotBlocksMsg",
+//	GetAccountBlocksCode:  "GetAccountBlocksMsg",
+//	GetChunkCode:          "GetChunkMsg",
+//	SnapshotBlocksCode:    "SnapshotBlocksMsg",
+//	AccountBlocksCode:     "AccountBlocksMsg",
+//	NewSnapshotBlockCode:  "NewSnapshotBlockMsg",
+//	NewAccountBlockCode:   "NewAccountBlockMsg",
+//}
 //
-//func statusHandler(msg p2p.Msg, sender Peer) error {
-//	status := new(ledger.HashHeight)
-//
-//	if err := status.Deserialize(msg.Payload); err != nil {
-//		return err
+//func (t code) String() string {
+//	if t == ExceptionCode {
+//		return "ExceptionMsg"
 //	}
 //
-//	sender.setHead(status.Hash, status.Height)
-//	return nil
-//}
+//	if t > NewAccountBlockCode {
+//		return "Unknown Message"
+//	}
 //
-//func (s _statusHandler) ID() string {
-//	return "status handler"
+//	return msgNames[t]
 //}
-//
-//func (s _statusHandler) Cmds() []code {
-//	return []code{StatusCode}
-//}
-//
-//func (s _statusHandler) Handle(msg p2p.Msg, sender Peer) error {
-//	return s(msg, sender)
-//}
+
+type msgHandler interface {
+	name() string
+	codes() []code
+	handle(msg p2p.Msg, sender Peer) error
+}
+
+type msgHandlers struct {
+	_name    string
+	handlers map[code]msgHandler
+}
+
+func newHandlers(name string) *msgHandlers {
+	return &msgHandlers{
+		_name:    name,
+		handlers: make(map[code]msgHandler),
+	}
+}
+
+func (m msgHandlers) name() string {
+	return m._name
+}
+
+func (m msgHandlers) codes() (codes []code) {
+	for c := range m.handlers {
+		codes = append(codes, c)
+	}
+
+	return
+}
+
+func (m msgHandlers) handle(msg p2p.Msg, sender Peer) error {
+	if handler, ok := m.handlers[msg.Code]; ok {
+		return handler.handle(msg, sender)
+	}
+
+	return fmt.Errorf("missing handler for code %d", msg.Code)
+}
+
+func (m msgHandlers) register(h msgHandler) error {
+	for _, c := range h.codes() {
+		if _, ok := m.handlers[c]; ok {
+			return fmt.Errorf("handler for %d exist", c)
+		}
+		m.handlers[c] = h
+	}
+
+	return nil
+}
+
+func (m msgHandlers) unregister(h msgHandler) (err error) {
+	var codes []code
+
+	for _, c := range h.codes() {
+		if _, ok := m.handlers[c]; ok {
+			delete(m.handlers, c)
+		} else {
+			codes = append(codes, c)
+		}
+	}
+
+	if len(codes) > 0 {
+		return fmt.Errorf("handler for codes %v not exist", codes)
+	}
+
+	return nil
+}
+
+func (m msgHandlers) pick(c code) msgHandler {
+	if h, ok := m.handlers[c]; ok {
+		return h
+	}
+
+	return nil
+}
 
 // @section queryHandler
 type queryHandler struct {
-	lock     sync.RWMutex
-	queue    list.List
-	handlers map[code]msgHandler
-	term     chan struct{}
-	wg       sync.WaitGroup
+	*msgHandlers
+	lock  sync.RWMutex
+	queue list.List
+	term  chan struct{}
+	wg    sync.WaitGroup
 }
 
-func newQueryHandler(chain Chain) *queryHandler {
-	q := &queryHandler{
-		handlers: make(map[code]msgHandler),
-		queue:    list.New(),
+func newQueryHandler(chain Chain) (q *queryHandler, err error) {
+	q = &queryHandler{
+		msgHandlers: newHandlers("query"),
+		queue:       list.New(),
 	}
 
-	//q.addHandler(&getSubLedgerHandler{chain})
-	q.addHandler(&getSnapshotBlocksHandler{chain})
-	q.addHandler(&getAccountBlocksHandler{chain})
-	//q.addHandler(&getChunkHandler{chain})
+	if err = q.register(&getSnapshotBlocksHandler{chain}); err != nil {
+		return nil, err
+	}
+	if err = q.register(&getAccountBlocksHandler{chain}); err != nil {
+		return nil, err
+	}
 
-	return q
+	return q, nil
 }
 
 func (q *queryHandler) start() {
 	q.term = make(chan struct{})
 
 	q.wg.Add(1)
-	common.Go(q.loop)
+	go q.loop()
 }
 
 func (q *queryHandler) stop() {
@@ -126,26 +170,12 @@ func (q *queryHandler) stop() {
 	}
 }
 
-func (q *queryHandler) addHandler(handler msgHandler) {
-	for _, cmd := range handler.Codes() {
-		q.handlers[cmd] = handler
-	}
-}
-
-func (q *queryHandler) ID() string {
-	return "query handler"
-}
-
-func (q *queryHandler) Codes() []code {
-	return []code{GetSnapshotBlocksCode, GetAccountBlocksCode}
-}
-
 type queryTask struct {
 	msg    p2p.Msg
 	sender Peer
 }
 
-func (q *queryHandler) Handle(msg p2p.Msg, sender Peer) error {
+func (q *queryHandler) handle(msg p2p.Msg, sender Peer) error {
 	q.lock.Lock()
 	q.queue.Append(queryTask{msg, sender})
 	q.lock.Unlock()
@@ -185,11 +215,14 @@ func (q *queryHandler) loop() {
 			netLog.Info(fmt.Sprintf("retrive %d query tasks", index))
 
 			for _, event := range tasks[:index] {
-				cmd := code(event.msg.Code)
-				if h, ok := q.handlers[cmd]; ok {
-					if err := h.Handle(event.msg, event.sender); err != nil {
+				handler := q.pick(event.msg.Code)
+				if handler != nil {
+					err := handler.handle(event.msg, event.sender)
+					if err != nil {
 						event.sender.catch(err)
 					}
+				} else {
+					// todo
 				}
 			}
 		}
@@ -200,15 +233,15 @@ type getSnapshotBlocksHandler struct {
 	chain snapshotBlockReader
 }
 
-func (s *getSnapshotBlocksHandler) ID() string {
+func (s *getSnapshotBlocksHandler) name() string {
 	return "GetSnapshotBlocks"
 }
 
-func (s *getSnapshotBlocksHandler) Codes() []code {
+func (s *getSnapshotBlocksHandler) codes() []code {
 	return []code{GetSnapshotBlocksCode}
 }
 
-func (s *getSnapshotBlocksHandler) Handle(msg p2p.Msg, sender Peer) (err error) {
+func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 	defer monitor.LogTime("net", "handle_GetSnapshotBlocksMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
@@ -272,18 +305,18 @@ type getAccountBlocksHandler struct {
 	chain accountBockReader
 }
 
-func (a *getAccountBlocksHandler) ID() string {
+func (a *getAccountBlocksHandler) name() string {
 	return "GetAccountBlocks Handler"
 }
 
-func (a *getAccountBlocksHandler) Codes() []code {
+func (a *getAccountBlocksHandler) codes() []code {
 	return []code{GetAccountBlocksCode}
 }
 
 var nilAddress = types.Address{}
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
-func (a *getAccountBlocksHandler) Handle(msg p2p.Msg, sender Peer) (err error) {
+func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 	defer monitor.LogTime("net", "handle_GetAccountBlocksMsg", time.Now())
 
 	req := new(message.GetAccountBlocks)
