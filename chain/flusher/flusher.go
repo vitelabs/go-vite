@@ -134,7 +134,7 @@ func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
 	}
 
 	buf := make([]byte, fileSize)
-	if _, err := flusher.fd.Read(buf); err != nil {
+	if _, err := flusher.fd.ReadAt(buf, 0); err != nil {
 		return nil, nil, err
 	}
 

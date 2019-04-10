@@ -34,19 +34,19 @@ func (e *EndPoint) Equal(e2 *EndPoint) bool {
 // Serialize not use ProtoBuffers, because we should ensure the neighbors message is short than 1200 bytes
 // but PB is variable-length-encode, the length of encoded []byte is unknown before encode.
 //
-// EndPoint serialize structure
-// +----------+----------------------+-------------+
-// |   Meta   |         Host         |  Port(opt)  |
-// |  1 byte  |      0 ~ 63 bytes    |   2 bytes   |
-// +----------+----------------------+-------------+
+// EndPoint serialize structure.
+//  +----------+----------------------+-------------+
+//  |   Meta   |         Host         |  Port(opt)  |
+//  |  1 byte  |      0 ~ 63 bytes    |   2 bytes   |
+//  +----------+----------------------+-------------+
 // Meta structure
-// +---------------------+--------+--------+
-// |     Host Length     |  Host  |  Port  |
-// |       6 bits        |  1 bit |  1 bit |
-// +---------------------+--------+--------+
-// Host Length is the byte-count of Host
-// Host: 0 IP. 1 Domain
-// Port: 0 no IP, mean DefaultPort. 1 has 2 bytes Port
+//  +---------------------+--------+--------+
+//  |     Host Length     |  Host  |  Port  |
+//  |       6 bits        |  1 bit |  1 bit |
+//  +---------------------+--------+--------+
+//  Host Length is the byte-count of Host
+//  Host: 0 IP. 1 Domain
+//  Port: 0 no IP, mean DefaultPort. 1 has 2 bytes Port
 func (e EndPoint) Serialize() (buf []byte, err error) {
 	hLen := len(e.Host)
 	if hLen == 0 {
@@ -140,7 +140,7 @@ func (e EndPoint) Length() (n int) {
 	return n
 }
 
-// String return `domain:port` or `IPv4:port` or `[IPv6]:port`
+// String return domain:port or IPv4:port or [IPv6]:port
 func (e EndPoint) String() string {
 	return e.Hostname() + ":" + strconv.FormatInt(int64(e.Port), 10)
 }
