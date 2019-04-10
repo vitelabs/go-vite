@@ -1,5 +1,7 @@
 package p2p
 
+import "net"
+
 // Protocol is a abstract communication layer above connection, there can be multi protocol on a connection.
 // A Protocol usually has many different message codes, each code has a handler to handle the message from peer.
 type Protocol interface {
@@ -17,7 +19,7 @@ type Protocol interface {
 	// Level MUST small than 255, each level has it`s strategy, Eg, access by count-constraint, broadcast priority
 	// If peer support multiple protocol, the highest protocol level will be the peer`s level.
 	// As default, there are 4 levels from low to high: Inbound - Outbound - Trusted - Superior
-	ReceiveHandshake(msg HandshakeMsg, protoData []byte) (state interface{}, level Level, err error)
+	ReceiveHandshake(msg HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level Level, err error)
 
 	// Handle message from sender, if the return error is not nil, will disconnect with peer
 	Handle(msg Msg) error

@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+const loopback = "localhost"
+
+var loopbackIP = []byte{127, 0, 0, 1}
+
 var errInvalidHost = errors.New("invalid Host")
 
 // EndPoint is the net address format `IP:Port` or `domain:Port`
@@ -109,6 +113,10 @@ func (e *EndPoint) Deserialize(buf []byte) (err error) {
 
 	if buf[0]&2 > 0 {
 		e.Typ = HostDomain
+		if string(e.Host) == loopback {
+			e.Host = loopbackIP
+			e.Typ = HostIPv4
+		}
 	} else if hLen > net.IPv4len {
 		e.Typ = HostIPv6
 	} else {
@@ -180,7 +188,9 @@ func parseHost(hostname string) (buf []byte, hostType HostType, err error) {
 		err = errInvalidHost
 		return
 	} else {
-		if ip := net.ParseIP(hostname); len(ip) == 0 {
+		if hostname == loopback {
+			return loopbackIP, HostIPv4, nil
+		} else if ip := net.ParseIP(hostname); len(ip) == 0 {
 			return []byte(hostname), HostDomain, nil
 		} else if ip4 := ip.To4(); len(ip4) != 0 {
 			return ip4, HostIPv4, nil
