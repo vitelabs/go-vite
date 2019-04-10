@@ -173,10 +173,7 @@ func (self *snapshotPackage) print() {
 	}
 }
 func (self *snapshotPackage) addToAll(b *Item, l *ownerLevel) {
-	// todo remove
-	fmt.Println("------max:", l.level)
-
-	fmt.Printf("add to item:[%s-%s-%d]%s\n", b.ownerWrapper, b.commonBlock.Hash(), b.commonBlock.Height(), b.commonBlock.Latency())
+	//fmt.Printf("add to item:[%s-%s-%d]%s\n", b.ownerWrapper, b.commonBlock.Hash(), b.commonBlock.Height(), b.commonBlock.Latency())
 	for _, v := range b.Keys() {
 		self.all[v] = l
 	}
