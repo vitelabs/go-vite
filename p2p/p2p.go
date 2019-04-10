@@ -403,7 +403,7 @@ func (p *p2p) findLoop() {
 	var initduration = 10 * time.Second
 	var maxDuration = 160 * time.Second
 	var duration = initduration
-	var timer = time.NewTimer(time.Hour)
+	var timer = time.NewTimer(initduration)
 	defer timer.Stop()
 
 Loop:
