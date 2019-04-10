@@ -95,7 +95,7 @@ func (store *Store) HasPrefix(prefix []byte) (bool, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
-	iter := store.NewIterator(util.BytesPrefix(prefix))
+	iter := store.newIterator(util.BytesPrefix(prefix))
 	defer iter.Release()
 
 	result := false
