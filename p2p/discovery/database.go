@@ -119,7 +119,9 @@ func encodeVarint(i int64) []byte {
 
 // Retrieve Node according to the special nodeID
 func (db *nodeDB) Retrieve(ID vnode.NodeID) (node *Node, err error) {
-	key := append(nodeDataPrefix, ID.Bytes()...)
+	id := ID.Bytes()
+
+	key := append(nodeDataPrefix, id...)
 	// retrieve node
 	data, err := db.Get(key, nil)
 	if err != nil {
@@ -132,10 +134,10 @@ func (db *nodeDB) Retrieve(ID vnode.NodeID) (node *Node, err error) {
 		return
 	}
 
-	key = append(nodeActivePrefix, ID.Bytes()...)
+	key = append(nodeActivePrefix, id...)
 	node.activeAt = time.Unix(db.retrieveInt64(key), 0)
 
-	key = append(nodeCheckPrefix, ID.Bytes()...)
+	key = append(nodeCheckPrefix, id...)
 	node.checkAt = time.Unix(db.retrieveInt64(key), 0)
 
 	return
@@ -149,14 +151,15 @@ func (db *nodeDB) Store(node *Node) (err error) {
 		return
 	}
 
+	id := node.ID.Bytes()
 	// store node
-	key := append(nodeDataPrefix, node.ID.Bytes()...)
+	key := append(nodeDataPrefix, id...)
 	err = db.Put(key, data, nil)
 
-	key = append(nodeActivePrefix, node.ID.Bytes()...)
+	key = append(nodeActivePrefix, id...)
 	err = db.storeInt64(key, node.activeAt.Unix())
 
-	key = append(nodeCheckPrefix, node.ID.Bytes()...)
+	key = append(nodeCheckPrefix, id...)
 	err = db.storeInt64(key, node.checkAt.Unix())
 
 	return
@@ -164,16 +167,18 @@ func (db *nodeDB) Store(node *Node) (err error) {
 
 // Remove data about the specific NodeID
 func (db *nodeDB) Remove(ID vnode.NodeID) {
-	key := append(nodeDataPrefix, ID.Bytes()...)
+	id := ID.Bytes()
+
+	key := append(nodeDataPrefix, id...)
 	_ = db.Delete(key, nil)
 
-	key = append(nodeActivePrefix, ID.Bytes()...)
+	key = append(nodeActivePrefix, id...)
 	_ = db.Delete(key, nil)
 
-	key = append(nodeCheckPrefix, ID.Bytes()...)
+	key = append(nodeCheckPrefix, id...)
 	_ = db.Delete(key, nil)
 
-	key = append(nodeMarkPrefix, ID.Bytes()...)
+	key = append(nodeMarkPrefix, id...)
 	_ = db.Delete(key, nil)
 }
 

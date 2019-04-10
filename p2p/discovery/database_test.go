@@ -27,7 +27,7 @@ func TestNodeDB_Store(t *testing.T) {
 		panic(err)
 	}
 
-	node2, err := mdb.Retrieve(id)
+	node2, err := mdb.Retrieve(node.ID)
 	if err != nil {
 		t.Errorf("retrieve error: %v", err)
 	}
