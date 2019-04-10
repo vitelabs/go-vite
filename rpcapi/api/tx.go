@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -16,8 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"go.uber.org/atomic"
-	"math/big"
-	"time"
 )
 
 type Tx struct {
@@ -37,23 +38,39 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	if err != nil {
 		panic(err)
 	}
-	_, key, err := manager.DeriveForIndexPath(0)
-	if err != nil {
-		panic(err)
-	}
-	binKey, err := key.PrivateKey()
-	if err != nil {
-		panic(err)
-	}
 
-	pubKey, err := key.PublicKey()
-	if err != nil {
-		panic(err)
+	var fromAddrs []types.Address
+	var fromHexPrivKeys []string
+
+	{
+		for i := uint32(0); i < uint32(1); i++ {
+			_, key, err := manager.DeriveForIndexPath(i)
+			if err != nil {
+				panic(err)
+			}
+			binKey, err := key.PrivateKey()
+			if err != nil {
+				panic(err)
+			}
+
+			pubKey, err := key.PublicKey()
+			if err != nil {
+				panic(err)
+			}
+
+			address, err := key.Address()
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("%s hex public key:%s\n", address, hex.EncodeToString(pubKey))
+
+			hexKey := hex.EncodeToString(binKey)
+			fromHexPrivKeys = append(fromHexPrivKeys, hexKey)
+			fromAddrs = append(fromAddrs, *address)
+
+		}
 	}
-
-	fmt.Printf("%s hex public key:%s\n", coinbase, hex.EncodeToString(pubKey))
-
-	hexKey := hex.EncodeToString(binKey)
 
 	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
 	amount := string("0")
@@ -67,11 +84,9 @@ func NewTxApi(vite *vite.Vite) *Tx {
 		panic(err)
 	}
 
-	difficulty := string("65535")
-
 	num := atomic.NewUint32(0)
 
-	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", &coinbase, func(e consensus.Event) {
+	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", nil, func(e consensus.Event) {
 
 		if num.Load() > 0 {
 			fmt.Printf("something is loading[return].%s\n", time.Now())
@@ -84,23 +99,30 @@ func NewTxApi(vite *vite.Vite) *Tx {
 			fmt.Println("latest height must >= 10.")
 			return
 		}
-		block, err := tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
-			SelfAddr:     &coinbase,
-			ToAddr:       &toAddr,
-			TokenTypeId:  ledger.ViteTokenId,
-			PrivateKey:   &hexKey,
-			Amount:       &amount,
-			Data:         data,
-			Difficulty:   &difficulty,
-			PreBlockHash: nil,
-			BlockType:    2,
-		})
-		if err != nil {
-			fmt.Printf("[%s]send block err:%v\n", time.Now(), err)
-		} else {
-			fmt.Printf("[%s]send block:%s,%s,%s\n", time.Now(), block.AccountAddress, block.Height, block.Hash)
+		N := 1
+		for i := 0; i < N; i++ {
+			for k, v := range fromAddrs {
+				addr := v
+				key := fromHexPrivKeys[k]
+				block, err := tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+					SelfAddr:     &addr,
+					ToAddr:       &toAddr,
+					TokenTypeId:  ledger.ViteTokenId,
+					PrivateKey:   &key,
+					Amount:       &amount,
+					Data:         data,
+					Difficulty:   nil,
+					PreBlockHash: nil,
+					BlockType:    2,
+				})
+				if err != nil {
+					log.Error(fmt.Sprintf("send block err:%v\n", err))
+					return
+				} else {
+					log.Info(fmt.Sprintf("send block:%s,%s,%s\n", block.AccountAddress, block.Height, block.Hash))
+				}
+			}
 		}
-
 	})
 
 	return tx
