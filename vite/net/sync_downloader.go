@@ -18,15 +18,6 @@ var errFileConnExist = errors.New("fileConn has exist")
 var errFileConnClosed = errors.New("file connection has closed")
 var errPeerDialing = errors.New("peer is dialing")
 
-type fileConnState byte
-
-const (
-	fileConnStateNew fileConnState = iota
-	fileConnStateIdle
-	fileConnStateBusy
-	fileConnStateClosed
-)
-
 type connections []syncConnection
 
 func (fl connections) Len() int {
@@ -95,14 +86,14 @@ func (fp *connPoolImpl) status() FilePoolStatus {
 }
 
 // delete filePeer and connection
-func (fp *connPoolImpl) delPeer(id peerId) {
+func (fp *connPoolImpl) delConn(c syncConnection) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.delPeerLocked(id)
+	fp.delConnLocked(c.ID())
 }
 
-func (fp *connPoolImpl) delPeerLocked(id peerId) {
+func (fp *connPoolImpl) delConnLocked(id peerId) {
 	if i, ok := fp.mi[id]; ok {
 		delete(fp.mi, id)
 
@@ -123,13 +114,6 @@ func (fp *connPoolImpl) addConn(c syncConnection) error {
 	return nil
 }
 
-func (fp *connPoolImpl) catch(c syncConnection) {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	fp.delPeerLocked(c.ID())
-}
-
 // sort list, and update index to map
 func (fp *connPoolImpl) sort() {
 	fp.mu.Lock()
@@ -145,7 +129,7 @@ func (fp *connPoolImpl) sortLocked() {
 	}
 }
 
-// choose chain fast fileConn, or create chain new conn randomly
+// choose the fast fileConn, or create new conn randomly
 func (fp *connPoolImpl) chooseSource(from, to uint64) (downloadPeer, syncConnection, error) {
 	peerMap := fp.peers.pickDownloadPeers(to)
 
@@ -156,7 +140,7 @@ func (fp *connPoolImpl) chooseSource(from, to uint64) (downloadPeer, syncConnect
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.sortLocked()
+	// only peers without sync connection
 	for _, c := range fp.l {
 		delete(peerMap, c.ID())
 	}
@@ -165,21 +149,24 @@ func (fp *connPoolImpl) chooseSource(from, to uint64) (downloadPeer, syncConnect
 	if len(peerMap) > 0 {
 		createNew = rand.Intn(10) > 5
 	}
+
+	fp.sortLocked()
 	for i, c := range fp.l {
 		if c.isBusy() || c.height() < to {
 			continue
 		}
 
 		if len(fp.l)+1 > 3*(i+1) {
-			// very fast
+			// fast enough
 			return nil, c, nil
 		}
 
-		// if createNew is true, there must has new available peers
 		if createNew {
 			for _, p := range peerMap {
 				return p, nil, nil
 			}
+		} else {
+			return nil, c, nil
 		}
 	}
 
@@ -220,34 +207,43 @@ func (l downloadTasks) Swap(i, j int) {
 
 type connPool interface {
 	addConn(c syncConnection) error
-	catch(c syncConnection)
+	delConn(c syncConnection)
 	chooseSource(from, to uint64) (downloadPeer, syncConnection, error)
 	reset()
 }
 
 type downloader struct {
-	mu      sync.Mutex
-	queue   downloadTasks // wait to download
+	mu    sync.Mutex
+	cond  *sync.Cond
+	queue downloadTasks // wait to download
+
 	pool    connPool
 	factory syncConnInitiator
+
 	dialing map[string]struct{}
 	dialer  *net2.Dialer
 
-	term    chan struct{}
 	wg      sync.WaitGroup
 	running int32
 
 	log log15.Logger
 }
 
-func newDownloader(pool connPool, factory syncConnInitiator) *downloader {
-	return &downloader{
+func newDownloader(pool connPool, factory syncConnInitiator, log log15.Logger) *downloader {
+	d := &downloader{
 		pool:    pool,
 		factory: factory,
 		dialing: make(map[string]struct{}),
-		dialer:  &net2.Dialer{Timeout: 5 * time.Second},
-		log:     log15.New("module", "net/fileClient"),
+		dialer: &net2.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 5 * time.Second,
+		},
+		log: log,
 	}
+
+	d.cond = sync.NewCond(&d.mu)
+
+	return d
 }
 
 func (fc *downloader) download(ctx context.Context, from, to uint64) <-chan error {
@@ -277,8 +273,8 @@ func (fc *downloader) runTask(t downloadTask) {
 
 	}
 
-	cont, err := fc.downloadChunk(t.from, t.to)
-	if cont {
+	wait, err := fc.downloadChunk(t.from, t.to)
+	if wait {
 		fc.wait(t)
 	} else {
 		t.ch <- err
@@ -302,9 +298,13 @@ func (fc *downloader) downloadChunk(from, to uint64) (wait bool, err error) {
 				// downloaded
 				return false, nil
 			}
+		} else {
+			_ = c.Close()
+			fc.pool.delConn(c)
 		}
 	}
 
+	// no idle peers, or download error
 	return true, err
 }
 
@@ -314,15 +314,19 @@ func (fc *downloader) wait(t downloadTask) {
 
 	fc.queue = append(fc.queue, t)
 	sort.Sort(fc.queue)
+
+	fc.cond.Signal()
 }
 
 func (fc *downloader) doJob(c syncConnection, from, to uint64) error {
 	start := time.Now()
 
-	fc.log.Info(fmt.Sprintf("begin download chunk %d-%d from %s", from, to, c.RemoteAddr()))
+	fc.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
 	if err := c.download(from, to); err != nil {
-		fc.pool.catch(c)
+		if c.catch(err) {
+			fc.pool.delConn(c)
+		}
 		fc.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
@@ -335,8 +339,6 @@ func (fc *downloader) doJob(c syncConnection, from, to uint64) error {
 
 func (fc *downloader) start() {
 	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
-		fc.term = make(chan struct{})
-
 		fc.wg.Add(1)
 		go fc.loop()
 	}
@@ -344,7 +346,7 @@ func (fc *downloader) start() {
 
 func (fc *downloader) stop() {
 	if atomic.CompareAndSwapInt32(&fc.running, 1, 0) {
-		close(fc.term)
+		fc.cond.Signal()
 		fc.wg.Wait()
 	}
 }
@@ -352,25 +354,27 @@ func (fc *downloader) stop() {
 func (fc *downloader) loop() {
 	defer fc.wg.Done()
 
-	ticker := time.NewTicker(500 * time.Microsecond)
-	defer ticker.Stop()
+	var t downloadTask
 
 Loop:
 	for {
-		select {
-		case <-fc.term:
-			break Loop
-		case <-ticker.C:
-			var t downloadTask
-			fc.mu.Lock()
-			if len(fc.queue) > 0 {
-				t = fc.queue[0]
-				fc.queue = fc.queue[1:]
-			}
-			fc.mu.Unlock()
+		fc.mu.Lock()
 
-			go fc.runTask(t)
+		for len(fc.queue) == 0 {
+			if atomic.LoadInt32(&fc.running) == 0 {
+				fc.mu.Unlock()
+				break Loop
+			}
+
+			fc.cond.Wait()
 		}
+
+		t = fc.queue[0]
+		fc.queue = fc.queue[1:]
+
+		fc.mu.Unlock()
+
+		go fc.runTask(t)
 	}
 
 	fc.pool.reset()
@@ -393,12 +397,18 @@ func (fc *downloader) createConn(p downloadPeer) (c syncConnection, err error) {
 	delete(fc.dialing, addr)
 	fc.mu.Unlock()
 
+	// dial error
 	if err != nil {
 		return nil, err
 	}
 
+	// handshake error
 	c, err = fc.factory.initiate(tcp, p)
+	if err != nil {
+		return
+	}
 
+	// add error
 	err = fc.pool.addConn(c)
 
 	return

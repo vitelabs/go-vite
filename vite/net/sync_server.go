@@ -8,15 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/vite/net/message"
+	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 )
 
-const fReadTimeout = 20 * time.Second
-const fWriteTimeout = 20 * time.Second
 const fileTimeout = 5 * time.Minute
 
 var errFileServerIsRunning = errors.New("file server is running")
@@ -120,7 +118,7 @@ func (s *fileServer) listenLoop() {
 }
 
 func (s *fileServer) deleteConn(c syncConnection) {
-	c.Close()
+	_ = c.Close()
 
 	// is running
 	if atomic.LoadInt32(&s.running) == 1 {
@@ -156,25 +154,28 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			return
 		}
 
-		if msg.code == syncQuit {
+		if msg.code() == syncQuit {
 			return
 		}
 
-		if msg.code == syncRequest {
-			chunk := msg.payload.(message.GetChunk)
-			reader, err := s.chain.GetLedgerReaderByHeight(chunk.Start, chunk.End)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("read chunk %d-%d error: %v", chunk.Start, chunk.End, err))
+		if msg.code() == syncRequest {
+			request := msg.(*syncRequestMsg)
 
-				_ = sconn.write(syncMsg{
-					code: syncServerError,
-				})
+			var reader interfaces.LedgerReader
+			reader, err = s.chain.GetLedgerReaderByHeight(request.from, request.to)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("read chunk %d-%d error: %v", request.from, request.to, err))
+
+				_ = sconn.write(syncServerError)
 
 				return
 			}
 
-			err = sconn.write(syncMsg{
-				code: syncReady,
+			from, to := reader.Bound()
+			err = sconn.write(&syncReadyMsg{
+				from: from,
+				to:   to,
+				size: uint64(reader.Size()),
 			})
 
 			if err != nil {
@@ -185,13 +186,11 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			_ = reader.Close()
 
 			if err != nil {
-				s.log.Error(fmt.Sprintf("send chunk<%d-%d> to %s error: %v", chunk.Start, chunk.End, conn.RemoteAddr(), err))
+				s.log.Error(fmt.Sprintf("send chunk<%d-%d> to %s error: %v", request.from, request.to, conn.RemoteAddr(), err))
 				return
 			} else {
-				s.log.Info(fmt.Sprintf("send chunk<%d-%d> to %s done", chunk.Start, chunk.End, conn.RemoteAddr()))
+				s.log.Info(fmt.Sprintf("send chunk<%d-%d> to %s done", request.from, request.to, conn.RemoteAddr()))
 			}
-		} else {
-			return
 		}
 	}
 }

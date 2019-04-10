@@ -315,7 +315,6 @@ Loop:
 				duration = initduration
 			}
 
-			timer.Stop()
 			timer.Reset(duration)
 		}
 	}

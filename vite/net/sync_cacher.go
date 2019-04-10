@@ -41,11 +41,17 @@ func newCacheReader(chain interface {
 }
 
 func (s *cacheReader) subSyncState(state SyncState) {
+	s.syncState = state
+
+	// sync state maybe change from SyncDone to Syncing.
+	// like long time offline, and back online, find higher peers, start sync.
+	// because SyncDone cause cacheReader stop, so it need start again.
 	if state == Syncing {
 		s.start()
 		return
 	}
 
+	// won`t stop when SyncError, because cache maybe haven`t read done.
 	if state == SyncDone || state == SyncCancel {
 		s.stop()
 		return
@@ -70,24 +76,40 @@ func (s *cacheReader) readCacheLoop() {
 	var oldHeight uint64
 	var lastTime time.Time
 
+	var initDuration = 3 * time.Second
+	var maxDuration = 24 * time.Second
+	var duration = initDuration
+	var timer = time.NewTimer(duration)
+	defer timer.Stop()
+
+	var err error
+	var reader interfaces.ReadCloser
+
 	for {
-		select {
-		case <-s.term:
-			atomic.StoreInt32(&s.running, 0)
-			return
-		default:
-
-		}
-
 		cs := cache.Chunks()
 
 		if len(cs) == 0 {
-			time.Sleep(3 * time.Second)
-			continue
-		}
+			// sync error, and no cache to read, then stop.
+			if s.syncState == SyncError {
+				s.stop()
+				return
+			}
 
-		var err error
-		var reader interfaces.ReadCloser
+			select {
+			case <-s.term:
+				return
+			case <-timer.C:
+
+				if duration < maxDuration {
+					duration *= 2
+				} else {
+					duration = initDuration
+				}
+
+				timer.Reset(duration)
+				continue
+			}
+		}
 
 		height := s.chain.GetLatestSnapshotBlock().Height
 		if oldHeight != height {
@@ -96,12 +118,15 @@ func (s *cacheReader) readCacheLoop() {
 		}
 
 		for _, c := range cs {
+			// chunk is useless
 			if c[1] < height {
 				_ = cache.Delete(c)
 				continue
 			}
 
+			// chunk is too high
 			if c[0] > height+syncTaskSize {
+				// chain get stuck for a long time, download missing chunks
 				if time.Now().Sub(lastTime) > time.Minute {
 					s.downloader.download(oldHeight+1, c[0]-1)
 				}
@@ -111,19 +136,18 @@ func (s *cacheReader) readCacheLoop() {
 
 			reader, err = cache.NewReader(c[0], c[1])
 			if err != nil {
+				// chunk is broken, download again
 				_ = cache.Delete(c)
 				s.downloader.download(c[0], c[1])
 				continue
 			}
 
+			// read chunk
 			for {
 				var ab *ledger.AccountBlock
 				var sb *ledger.SnapshotBlock
 				ab, sb, err = reader.Read()
 				if err != nil {
-					if err == io.EOF {
-						err = nil
-					}
 					break
 				} else if ab != nil {
 					if err = s.receiver.receiveAccountBlock(ab, types.RemoteSync); err != nil {
@@ -136,7 +160,8 @@ func (s *cacheReader) readCacheLoop() {
 				}
 			}
 
-			if err != nil {
+			// read chunk error
+			if err != nil && err != io.EOF {
 				_ = cache.Delete(c)
 				s.downloader.download(c[0], c[1])
 			}

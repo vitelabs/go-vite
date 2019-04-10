@@ -219,7 +219,7 @@ func (n *net) Handle(msg p2p.Msg) error {
 }
 
 func (n *net) SetState(state []byte, peer p2p.Peer) {
-	var heartbeat = &protos.ProtocolState{}
+	var heartbeat = &protos.State{}
 
 	err := proto.Unmarshal(state, heartbeat)
 	if err != nil {
@@ -241,7 +241,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 		for i, hp := range heartbeat.Peers {
 			pl[i] = peerConn{
 				id:  hp.ID,
-				add: hp.Status != protos.ProtocolState_Disconnected,
+				add: hp.Status != protos.State_Disconnected,
 			}
 		}
 
@@ -257,7 +257,7 @@ func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
 		return
 	}
 
-	go n.syncer.Start()
+	go n.syncer.start()
 
 	return nil
 }
@@ -361,7 +361,7 @@ func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeat
 func (h *heartBeater) state() []byte {
 	current := h.chain.GetLatestSnapshotBlock()
 
-	var heartBeat = &protos.ProtocolState{
+	var heartBeat = &protos.State{
 		Peers:     nil,
 		Patch:     true,
 		Head:      current.Hash.Bytes(),
@@ -382,9 +382,9 @@ func (h *heartBeater) state() []byte {
 		if _, ok = idMap[id]; ok {
 			continue
 		}
-		heartBeat.Peers = append(heartBeat.Peers, &protos.ProtocolState_Peer{
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
 			ID:     id[:],
-			Status: protos.ProtocolState_Disconnected,
+			Status: protos.State_Disconnected,
 		})
 	}
 
@@ -392,9 +392,9 @@ func (h *heartBeater) state() []byte {
 		if _, ok = h.lastPeers[id]; ok {
 			continue
 		}
-		heartBeat.Peers = append(heartBeat.Peers, &protos.ProtocolState_Peer{
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
 			ID:     id[:],
-			Status: protos.ProtocolState_Connected,
+			Status: protos.State_Disconnected,
 		})
 	}
 
@@ -445,7 +445,7 @@ func (n *net) Stop() error {
 
 		n.reader.stop()
 
-		n.syncer.Stop()
+		n.syncer.stop()
 
 		_ = n.fs.stop()
 

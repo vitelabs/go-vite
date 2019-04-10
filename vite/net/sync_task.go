@@ -425,7 +425,7 @@ func newBatchDownloader(peers *peerSet, fact syncConnectionFactory) *syncBatchDo
 
 	var s = &syncBatchDownloader{
 		executor:   newExecutor(batchSyncTask, 4),
-		downloader: newDownloader(pool, fact),
+		downloader: newDownloader(pool, fact, nil),
 	}
 
 	s.executor.addListener(s)
