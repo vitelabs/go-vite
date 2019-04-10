@@ -39,7 +39,8 @@ type dl struct {
 func newDialer(timeout time.Duration, cur int, hkr Handshaker) *dl {
 	return &dl{
 		Dialer: net.Dialer{
-			Timeout: timeout,
+			Timeout:   timeout,
+			KeepAlive: 5 * time.Second,
 		},
 		handshaker: hkr,
 		cur:        cur,
