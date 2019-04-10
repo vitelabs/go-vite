@@ -26,7 +26,7 @@ const (
 )
 
 const version = iota
-const handshakeTimeout = 3 * time.Second
+const handshakeTimeout = 10 * time.Second
 
 const nonceLen = 32
 const signatureLen = 64

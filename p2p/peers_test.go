@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"net"
 	"testing"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
@@ -23,8 +24,8 @@ func (mp *mockPeer) String() string {
 	panic("implement me")
 }
 
-func (mp *mockPeer) Address() string {
-	panic("implement me")
+func (mp *mockPeer) Address() net.Addr {
+	return nil
 }
 
 func (mp *mockPeer) Info() PeerInfo {

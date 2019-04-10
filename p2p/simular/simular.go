@@ -20,6 +20,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -47,7 +48,7 @@ func (mp *mockProtocol) ProtoData() []byte {
 	return nil
 }
 
-func (mp *mockProtocol) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
+func (mp *mockProtocol) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level p2p.Level, err error) {
 	return
 }
 

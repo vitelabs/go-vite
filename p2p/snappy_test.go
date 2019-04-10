@@ -43,7 +43,8 @@ func TestSnappy_Reader(t *testing.T) {
 	const total = 10000
 	var buf = make([]byte, total)
 	_, _ = rand.Read(buf)
-	var buf2 = make([]byte, total+10000)
+	var buf2 = snappy.Encode(nil, buf)
+	var buf3 = make([]byte, len(buf2))
 
 	var wg sync.WaitGroup
 
@@ -82,13 +83,13 @@ func TestSnappy_Reader(t *testing.T) {
 		start := 0
 		const chunk = 2000
 
-		for start < len(buf2) {
+		for start < len(buf3) {
 			stop := start + chunk
-			if stop > len(buf2) {
-				stop = len(buf2)
+			if stop > len(buf3) {
+				stop = len(buf3)
 			}
 
-			n, err := reader.Read(buf2[start:stop])
+			n, err := reader.Read(buf3[start:stop])
 			if err != nil {
 				start += n
 				break
@@ -97,11 +98,10 @@ func TestSnappy_Reader(t *testing.T) {
 			start += n
 		}
 
-		buf2 = buf2[:start]
+		buf2 = buf3[:start]
 	}()
 
 	wg.Wait()
-	buf3 := snappy.Encode(nil, buf)
 
 	if !bytes.Equal(buf2, buf3) {
 		t.Errorf("diff compress: %d %d", len(buf2), len(buf3))
