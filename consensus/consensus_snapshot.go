@@ -24,6 +24,10 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
+func (self *snapshotCs) GetDayTimeIndex() TimeIndex {
+	return self.rw.dayPoints
+}
+
 func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error) {
 	// get points from linked array
 	points := make(map[uint64]*consensus_db.Point)
