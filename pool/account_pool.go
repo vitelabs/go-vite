@@ -116,42 +116,6 @@ func (self *accountPool) Init(
 func (self *accountPool) Compact() int {
 	self.chainHeadMu.Lock()
 	defer self.chainHeadMu.Unlock()
-	//// if an insert operation is in progress, do nothing.
-	//if !self.compactLock.TryLock() {
-	//	return 0
-	//} else {
-	//	defer self.compactLock.Unlock()
-	//}
-
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		var e error
-	//		switch t := err.(type) {
-	//		case error:
-	//			e = errors.WithStack(t)
-	//		case string:
-	//			e = errors.New(t)
-	//		default:
-	//			e = errors.Errorf("unknown type,%+v", err)
-	//		}
-	//
-	//		self.log.Warn("Compact start recover.", "err", err, "withstack", fmt.Sprintf("%+v", e))
-	//		fmt.Printf("%+v", e)
-	//		defer self.log.Warn("Compact end recover.")
-	//		self.pool.RLock()
-	//		defer self.pool.RUnLock()
-	//		self.rMu.Lock()
-	//		defer self.rMu.Unlock()
-	//		self.initPool()
-	//	}
-	//}()
-
-	//defer monitor.LogTime("pool", "accountCompact", time.Now())
-	//self.pool.RLock()
-	//defer self.pool.RUnLock()
-	//defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
-	//self.rMu.Lock()
-	//defer self.rMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
@@ -168,56 +132,6 @@ func (self *accountPool) Compact() int {
 	}
 	return sum
 }
-
-func (self *accountPool) LockForInsert() {
-	// if an compact operation is in progress, do nothing.
-	self.compactLock.Lock()
-	// lock other chain insert
-	self.pool.RLock()
-	self.rMu.Lock()
-}
-
-func (self *accountPool) UnLockForInsert() {
-	self.compactLock.UnLock()
-	self.pool.RUnLock()
-	self.rMu.Unlock()
-}
-
-///**
-//try insert block to real chain.
-//*/
-//func (self *accountPool) TryInsert() verifyTask {
-//	// if current size is empty, do nothing.
-//	if self.chainpool.current.size() <= 0 {
-//		return nil
-//	}
-//
-//	// if an compact operation is in progress, do nothing.
-//	if !self.compactLock.TryLock() {
-//		return nil
-//	} else {
-//		defer self.compactLock.Unlock()
-//	}
-//
-//	// if last verify task has not done
-//	if self.verifyTask != nil && !self.verifyTask.done(self.rw.rw) {
-//		return nil
-//	}
-//	// lock other chain insert
-//	self.pool.RLock()
-//	defer self.pool.RUnLock()
-//
-//	// try insert block to real chain
-//	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
-//
-//	task := self.tryInsert()
-//	self.verifyTask = task
-//	if task != nil {
-//		return task
-//	} else {
-//		return nil
-//	}
-//}
 
 /**
 try insert block to real chain.
@@ -621,10 +535,6 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	if self.chainpool.current.size() <= 0 {
 		return 0, errors.New("empty chainpool")
 	}
-
-	// if an compact operation is in progress, do nothing.
-	self.compactLock.Lock()
-	defer self.compactLock.UnLock()
 
 	// lock other chain insert
 	self.pool.RLock()

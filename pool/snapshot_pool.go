@@ -26,7 +26,6 @@ type snapshotPool struct {
 	f      *snapshotSyncer
 
 	nextFetchTime        time.Time
-	nextCompactTime      time.Time
 	hashBlacklist        Blacklist
 	newSnapshotBlockCond *common.CondTimer
 }
@@ -88,7 +87,6 @@ func newSnapshotPool(
 	pool.log = log.New("snapshotPool", name)
 	now := time.Now()
 	pool.nextFetchTime = now
-	pool.nextCompactTime = now
 	pool.hashBlacklist = hashBlacklist
 	pool.newSnapshotBlockCond = cond
 	return pool
@@ -102,48 +100,48 @@ func (self *snapshotPool) init(
 	self.BCPool.init(tools)
 }
 
-func (self *snapshotPool) loopCheckFork() {
-	// recover logic
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		var e error
-	//		switch t := err.(type) {
-	//		case error:
-	//			e = errors.WithStack(t)
-	//		case string:
-	//			e = errors.New(t)
-	//		default:
-	//			e = errors.Errorf("unknown type, %+v", err)
-	//		}
-	//
-	//		self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
-	//		fmt.Printf("%+v", e)
-	//		defer self.log.Warn("loopCheckFork end recover.")
-	//		self.pool.Lock()
-	//		defer self.pool.Unlock()
-	//		self.initPool()
-	//		if self.rstat.inc() {
-	//			common.Go(self.loopCheckFork)
-	//		} else {
-	//			panic(e)
-	//		}
-	//
-	//		self.pool.version.Inc()
-	//	}
-	//}()
-	self.wg.Add(1)
-	defer self.wg.Done()
-	for {
-		select {
-		case <-self.closed:
-			return
-		default:
-			self.checkFork()
-			// check fork every 2 sec.
-			time.Sleep(2 * time.Second)
-		}
-	}
-}
+//func (self *snapshotPool) loopCheckFork() {
+//	// recover logic
+//	//defer func() {
+//	//	if err := recover(); err != nil {
+//	//		var e error
+//	//		switch t := err.(type) {
+//	//		case error:
+//	//			e = errors.WithStack(t)
+//	//		case string:
+//	//			e = errors.New(t)
+//	//		default:
+//	//			e = errors.Errorf("unknown type, %+v", err)
+//	//		}
+//	//
+//	//		self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
+//	//		fmt.Printf("%+v", e)
+//	//		defer self.log.Warn("loopCheckFork end recover.")
+//	//		self.pool.Lock()
+//	//		defer self.pool.Unlock()
+//	//		self.initPool()
+//	//		if self.rstat.inc() {
+//	//			common.Go(self.loopCheckFork)
+//	//		} else {
+//	//			panic(e)
+//	//		}
+//	//
+//	//		self.pool.version.Inc()
+//	//	}
+//	//}()
+//	self.wg.Add(1)
+//	defer self.wg.Done()
+//	for {
+//		select {
+//		case <-self.closed:
+//			return
+//		default:
+//			self.checkFork()
+//			// check fork every 2 sec.
+//			time.Sleep(2 * time.Second)
+//		}
+//	}
+//}
 
 func (self *snapshotPool) checkFork() {
 	current := self.CurrentChain()
@@ -236,94 +234,32 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 }
 
 func (self *snapshotPool) loop() {
-	//// recover logic
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		var e error
-	//		switch t := err.(type) {
-	//		case error:
-	//			e = errors.WithStack(t)
-	//		case string:
-	//			e = errors.New(t)
-	//		default:
-	//			e = errors.Errorf("unknown type, %+v", err)
-	//		}
-	//
-	//		self.log.Error("snapshot loop start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
-	//		fmt.Printf("%+v", e)
-	//		defer self.log.Warn("snapshot loop end recover.")
-	//		self.pool.Lock()
-	//		defer self.pool.Unlock()
-	//		self.initPool()
-	//		if self.rstat.inc() {
-	//			common.Go(self.loop)
-	//		} else {
-	//			panic(e)
-	//		}
-	//		self.pool.version.Inc()
-	//	}
-	//}()
-
 	self.wg.Add(1)
 	defer self.wg.Done()
-	last := time.Now()
 	for {
 		select {
 		case <-self.closed:
 			return
 		default:
-			monitor.LogTime("pool", "snapshot_selectTime", last)
-			now := time.Now()
-			if now.After(self.nextCompactTime) {
-				self.nextCompactTime = now.Add(50 * time.Millisecond)
-				self.loopCompactSnapshot()
-			}
-
-			//if now.After(self.nextInsertTime) {
-			//	size := self.CurrentChain().size()
-			//	sleep := 200 * time.Millisecond
-			//	if size > 10000 {
-			//		sleep = 2 * time.Millisecond
-			//		monitor.LogEvent("pool", "trySnapshotInsertSleep2")
-			//	} else if size > 1000 {
-			//		sleep = 20 * time.Millisecond
-			//		monitor.LogEvent("pool", "trySnapshotInsertSleep20")
-			//	} else if size > 100 {
-			//		sleep = 50 * time.Millisecond
-			//		monitor.LogEvent("pool", "trySnapshotInsertSleep50")
-			//	} else {
-			//		sleep = 200 * time.Millisecond
-			//		monitor.LogEvent("pool", "trySnapshotInsertSleep200")
-			//	}
-			//
-			//	self.nextInsertTime = now.Add(sleep)
-			//	self.loopCheckCurrentInsert()
-			//}
+			self.loopCompactSnapshot()
 			self.newSnapshotBlockCond.Wait()
-			last = time.Now()
 		}
 	}
 }
 
-func (self *snapshotPool) loopCompactSnapshot() {
-	//defer monitor.LogTime("pool", "loopCompactSnapshotRLock", time.Now())
-	//self.pool.RLock()
-	//defer self.pool.RUnLock()
-	//defer monitor.LogTime("pool", "loopCompactSnapshotMuLock", time.Now())
-	//self.rMu.Lock()
-	//defer self.rMu.Unlock()
-	defer monitor.LogTime("pool", "snapshot_loopGenSnippetChains", time.Now())
+func (self *snapshotPool) loopCompactSnapshot() int {
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+	sum := 0
 	self.loopGenSnippetChains()
-	defer monitor.LogTime("pool", "snapshot_loopAppendChains", time.Now())
-	self.loopAppendChains()
+	sum += self.loopAppendChains()
 	now := time.Now()
 	if now.After(self.nextFetchTime) {
 		self.nextFetchTime = now.Add(time.Millisecond * 200)
-		defer monitor.LogTime("pool", "snapshot_loopFetchForSnippets", time.Now())
 		self.loopFetchForSnippets()
-		defer monitor.LogTime("pool", "snapshot_loopFetchForSnapshot", time.Now())
 		self.loopFetchForSnapshot()
 	}
+	return sum
 }
 
 func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
@@ -385,8 +321,8 @@ func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snap
 
 func (self *snapshotPool) Start() {
 	self.closed = make(chan struct{})
-	common.Go(self.loop)
-	common.Go(self.loopCheckFork)
+	//common.Go(self.loop)
+	//common.Go(self.loopCheckFork)
 	self.log.Info("snapshot_pool started.")
 }
 func (self *snapshotPool) Stop() {
@@ -433,38 +369,12 @@ func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHe
 	self.version.Inc()
 }
 
-func (self *snapshotPool) insertVerifyPending(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
-	defer monitor.LogTime("pool", "insertVerifyPending", time.Now())
-	block := b.block
-
-	results := stat.results
-
-	accounts := make(map[types.Address]*ledger.HashHeight)
-
-	for k, account := range block.SnapshotContent {
-		result := results[k]
-		if result == verifier.PENDING {
-			monitor.LogEvent("pool", "snapshotPending")
-			self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
-			hashH, e := self.pool.PendingAccountTo(k, account, b.Height())
-			self.fetchAccounts(accounts, b.Height())
-			if e != nil {
-				self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
-			}
-			if hashH != nil {
-				accounts[k] = account
-			}
-		}
-	}
-	if len(accounts) > 0 {
-		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccounts(accounts)
-	}
-}
-
 func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 
 	stat := self.v.verifySnapshot(block)
 	result := stat.verifyResult()
@@ -497,49 +407,50 @@ func (self *snapshotPool) loopFetchForSnapshot() {
 	}
 	return
 }
-func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
 
-	cp := self.chainpool
-	current := cp.current
-
-	if info.offset == nil {
-		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
-	} else {
-		block := current.getBlock(info.offset.Height+1, false)
-		if block == nil || block.PrevHash() != info.offset.Hash {
-			return uint64(0), errors.New("current chain modify.")
-		}
-	}
-
-	minH := info.offset.Height + 1
-	headH := current.headHeight
-	for i := minH; i <= headH; i++ {
-		block := self.getCurrentBlock(i)
-		if block == nil {
-			return uint64(i - minH), errors.New("current chain modify")
-		}
-
-		if self.hashBlacklist.Exists(block.Hash()) {
-			return uint64(i - minH), errors.New("block in blacklist")
-		}
-
-		item := NewItem(block, nil)
-
-		err := q.AddItem(item)
-		if err != nil {
-			return uint64(i - minH), err
-		}
-		info.offset.Hash = item.Hash()
-		info.offset.Height = item.Height()
-	}
-
-	return uint64(headH - minH), errors.New("all in")
-
-}
+//func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
+//	self.pool.RLock()
+//	defer self.pool.RUnLock()
+//	self.rMu.Lock()
+//	defer self.rMu.Unlock()
+//
+//	cp := self.chainpool
+//	current := cp.current
+//
+//	if info.offset == nil {
+//		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+//	} else {
+//		block := current.getBlock(info.offset.Height+1, false)
+//		if block == nil || block.PrevHash() != info.offset.Hash {
+//			return uint64(0), errors.New("current chain modify.")
+//		}
+//	}
+//
+//	minH := info.offset.Height + 1
+//	headH := current.headHeight
+//	for i := minH; i <= headH; i++ {
+//		block := self.getCurrentBlock(i)
+//		if block == nil {
+//			return uint64(i - minH), errors.New("current chain modify")
+//		}
+//
+//		if self.hashBlacklist.Exists(block.Hash()) {
+//			return uint64(i - minH), errors.New("block in blacklist")
+//		}
+//
+//		item := NewItem(block, nil)
+//
+//		err := q.AddItem(item)
+//		if err != nil {
+//			return uint64(i - minH), err
+//		}
+//		info.offset.Hash = item.Hash()
+//		info.offset.Height = item.Height()
+//	}
+//
+//	return uint64(headH - minH), errors.New("all in")
+//
+//}
 func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
 	b := self.chainpool.current.getBlock(i, false)
 	if b != nil {
@@ -573,51 +484,51 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 
 }
 
-func (self *snapshotPool) makePackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, info *offsetInfo) (*snapshotPackage, error) {
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	cp := self.chainpool
-	current := cp.current
-
-	if info.offset == nil {
-		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
-	}
-
-	if current.size() == 0 {
-		return NewSnapshotPackage2(snapshotF, accountF, 50, nil), nil
-	}
-	block := current.getBlock(info.offset.Height+1, false)
-	if block == nil || block.PrevHash() != info.offset.Hash {
-		return nil, errors.New("current chain modify.")
-	}
-
-	c := block.(*snapshotPoolBlock)
-	return NewSnapshotPackage2(snapshotF, accountF, 50, c.block), nil
-
-	//minH := info.offset.Height + 1
-	//headH := current.headHeight
-	//for i := minH; i <= headH; i++ {
-	//	block := self.getCurrentBlock(i)
-	//	if block == nil {
-	//		return uint64(i - minH), errors.New("current chain modify")
-	//	}
-	//
-	//	if self.hashBlacklist.Exists(block.Hash()) {
-	//		return uint64(i - minH), errors.New("block in blacklist")
-	//	}
-	//
-	//	item := NewItem(block, nil)
-	//
-	//	err := q.AddItem(item)
-	//	if err != nil {
-	//		return uint64(i - minH), err
-	//	}
-	//	info.offset.Hash = item.Hash()
-	//	info.offset.Height = item.Height()
-	//}
-	//
-	//return uint64(headH - minH), errors.New("all in")
-}
+//func (self *snapshotPool) makePackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, info *offsetInfo) (*snapshotPackage, error) {
+//	self.pool.RLock()
+//	defer self.pool.RUnLock()
+//	self.rMu.Lock()
+//	defer self.rMu.Unlock()
+//
+//	cp := self.chainpool
+//	current := cp.current
+//
+//	if info.offset == nil {
+//		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+//	}
+//
+//	if current.size() == 0 {
+//		return NewSnapshotPackage2(snapshotF, accountF, 50, nil), nil
+//	}
+//	block := current.getBlock(info.offset.Height+1, false)
+//	if block == nil || block.PrevHash() != info.offset.Hash {
+//		return nil, errors.New("current chain modify.")
+//	}
+//
+//	c := block.(*snapshotPoolBlock)
+//	return NewSnapshotPackage2(snapshotF, accountF, 50, c.block), nil
+//
+//	//minH := info.offset.Height + 1
+//	//headH := current.headHeight
+//	//for i := minH; i <= headH; i++ {
+//	//	block := self.getCurrentBlock(i)
+//	//	if block == nil {
+//	//		return uint64(i - minH), errors.New("current chain modify")
+//	//	}
+//	//
+//	//	if self.hashBlacklist.Exists(block.Hash()) {
+//	//		return uint64(i - minH), errors.New("block in blacklist")
+//	//	}
+//	//
+//	//	item := NewItem(block, nil)
+//	//
+//	//	err := q.AddItem(item)
+//	//	if err != nil {
+//	//		return uint64(i - minH), err
+//	//	}
+//	//	info.offset.Hash = item.Hash()
+//	//	info.offset.Height = item.Height()
+//	//}
+//	//
+//	//return uint64(headH - minH), errors.New("all in")
+//}

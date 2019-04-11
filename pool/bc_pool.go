@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -46,14 +45,12 @@ type BCPool struct {
 	tools     *tools
 
 	version *ForkVersion
-	rMu     sync.Mutex // direct add and loop insert
 
 	// 1. protecting the tail(hash && height) of current chain.
 	// 2. protecting the modification for the current chain (which is the current chain?).
 	chainTailMu sync.Mutex
 	chainHeadMu sync.Mutex
 
-	compactLock       *common.NonBlockLock // snippet,chain
 	LIMIT_HEIGHT      uint64
 	LIMIT_LONGEST_NUM uint64
 
@@ -335,7 +332,6 @@ func newBlockChainPool(name string) *BCPool {
 }
 func (self *BCPool) init(tools *tools) {
 	self.tools = tools
-	self.compactLock = &common.NonBlockLock{}
 
 	self.LIMIT_HEIGHT = 75 * 2
 	self.LIMIT_LONGEST_NUM = 3
@@ -961,15 +957,11 @@ func (self *BCPool) loop() {
 }
 
 func (self *BCPool) loopDelUselessChain() {
-	// if an insert operation is in progress, do nothing.
-	// todo add tryLockWait method
-	if !self.compactLock.TryLock() {
-		return
-	} else {
-		defer self.compactLock.UnLock()
-	}
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
 
 	dels := make(map[string]*forkedChain)
 	height := self.chainpool.current.tailHeight

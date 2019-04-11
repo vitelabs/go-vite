@@ -11,7 +11,6 @@ import (
 
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -222,7 +221,6 @@ func TestUselessChain(t *testing.T) {
 	m["4"] = &forkedChain{chain: chain{headHeight: 80, tailHeight: 0, chainId: "4"}, referChain: m["3"]}
 	m["5"] = &forkedChain{chain: chain{headHeight: 51, tailHeight: 0, chainId: "5"}, referChain: cur}
 	m["6"] = &forkedChain{chain: chain{headHeight: 70, tailHeight: 0, chainId: "6"}, referChain: cur}
-	bc.compactLock = &common.NonBlockLock{}
 	bc.chainpool = &chainPool{current: cur, chains: m, snippetChains: s}
 	bc.blockpool = &blockPool{freeBlocks: make(map[types.Hash]commonBlock), compoundBlocks: make(map[types.Hash]commonBlock)}
 	bc.log = log15.New("module", "test")

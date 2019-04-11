@@ -131,6 +131,7 @@ type pool struct {
 
 	newAccBlockCond      *common.CondTimer
 	newSnapshotBlockCond *common.CondTimer
+	worker               *worker
 
 	rwMutex sync.RWMutex
 	version *ForkVersion
@@ -209,6 +210,7 @@ func NewPool(bc chainDb) (*pool, error) {
 	if err != nil {
 		return nil, err
 	}
+	self.worker = &worker{p: self}
 	return self, nil
 }
 
@@ -229,6 +231,8 @@ func (self *pool) Init(s syncer,
 
 	self.pendingSc = snapshotPool
 	self.stat = (&recoverStat{}).init(10, time.Second*10)
+	self.worker.init()
+
 }
 func (self *pool) Info(addr *types.Address) string {
 	if addr == nil {
@@ -316,9 +320,15 @@ func (self *pool) Start() {
 	//}
 	self.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	self.newAccBlockCond.Start(time.Millisecond * 40)
-	common.Go(self.loopCompact)
-	common.Go(self.loopBroadcastAndDel)
-	common.Go(self.loopQueue)
+	self.worker.closed = self.closed
+	common.Go(func() {
+		self.wg.Add(1)
+		defer self.wg.Done()
+		self.worker.work()
+	})
+	//common.Go(self.loopCompact)
+	//common.Go(self.loopBroadcastAndDel)
+	//common.Go(self.loopQueue)
 }
 func (self *pool) Stop() {
 	self.log.Info("pool stop.")
@@ -358,6 +368,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.Blo
 	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version, source))
 
 	self.newSnapshotBlockCond.Broadcast()
+	self.worker.bus.newSBlockEvent()
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
@@ -399,6 +410,7 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 	ac.AddReceivedBlock(block)
 
 	self.newAccBlockCond.Broadcast()
+	self.worker.bus.newABlockEvent()
 }
 
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
@@ -433,6 +445,7 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 	}
 
 	self.newAccBlockCond.Broadcast()
+	self.worker.bus.newABlockEvent()
 	return nil
 }
 
@@ -471,36 +484,6 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 		}
 	}
 	return nil
-}
-
-func (self *pool) PendingAccountTo(addr types.Address, h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {
-	this := self.selfPendingAc(addr)
-
-	this.LockForInsert()
-	defer this.UnLockForInsert()
-	targetChain := this.findInTree(h.Hash, h.Height)
-	if targetChain != nil {
-		if targetChain.ChainId() == this.chainpool.current.ChainId() {
-			return nil, nil
-		}
-
-		_, forkPoint, err := this.getForkPointByChains(targetChain, this.CurrentChain())
-		if err != nil {
-			return nil, err
-		}
-		// key point in disk chain
-		if forkPoint.Height() < this.CurrentChain().tailHeight {
-			return h, nil
-		}
-		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain",
-			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
-		err = this.CurrentModifyToChain(targetChain, h)
-		if err != nil {
-			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
-		}
-		return nil, nil
-	}
-	return nil, nil
 }
 
 func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
@@ -690,29 +673,38 @@ func (self *pool) poolRecover() {
 	//	}
 	//}
 }
-func (self *pool) loopBroadcastAndDel() {
-	defer self.poolRecover()
-	self.wg.Add(1)
-	defer self.wg.Done()
 
-	broadcastT := time.NewTicker(time.Second * 30)
-	delUselessChainT := time.NewTicker(time.Minute)
+//func (self *pool) loopBroadcastAndDel() {
+//	defer self.poolRecover()
+//	self.wg.Add(1)
+//	defer self.wg.Done()
+//
+//	broadcastT := time.NewTicker(time.Second * 30)
+//	delUselessChainT := time.NewTicker(time.Minute)
+//
+//	defer broadcastT.Stop()
+//	for {
+//		select {
+//		case <-self.closed:
+//			return
+//		case <-broadcastT.C:
+//			addrList := self.listPoolRelAddr()
+//			// todo all unconfirmed
+//			for _, addr := range addrList {
+//				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
+//			}
+//		case <-delUselessChainT.C:
+//			// del some useless chain in pool
+//			self.delUseLessChains()
+//		}
+//	}
+//}
 
-	defer broadcastT.Stop()
-	for {
-		select {
-		case <-self.closed:
-			return
-		case <-broadcastT.C:
-			addrList := self.listPoolRelAddr()
-			// todo all unconfirmed
-			for _, addr := range addrList {
-				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
-			}
-		case <-delUselessChainT.C:
-			// del some useless chain in pool
-			self.delUseLessChains()
-		}
+func (self *pool) broadcastUnConfirmedBlocks() {
+	addrList := self.listPoolRelAddr()
+	// todo all unconfirmed
+	for _, addr := range addrList {
+		self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
 	}
 }
 
@@ -745,6 +737,15 @@ func (self *pool) listPoolRelAddr() []types.Address {
 		}
 	}
 	return todoAddress
+}
+func (self *pool) compact() int {
+	sum := 0
+	sum += self.accountsCompact()
+	sum += self.pendingSc.loopCompactSnapshot()
+	return sum
+}
+func (self *pool) snapshotCompact() int {
+	return self.pendingSc.loopCompactSnapshot()
 }
 
 func (self *pool) accountsCompact() int {
@@ -1116,3 +1117,22 @@ func (self *recoverStat) inc() bool {
 	}
 	return true
 }
+
+/**
+
+about the lock:
+
+# lock in pool
+
+this is a rw lock.
+
+Write Lock: pool.Lock() <-> pool.UnLock()
+Read Lock: pool.RLock() <-> pool.RUnLock()
+
+the scope of the lock is the ledger in pool.
+
+the account's tailHash modification and the snapshot's tailHash modification,
+
+these two things will not happen at the same time.
+
+*/
