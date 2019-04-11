@@ -46,6 +46,7 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 }
 
 func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
+
 	value := sendBlockHash.Bytes()
 	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
 	if ok, err := iDB.store.Has(reverseKey); err != nil {
@@ -59,6 +60,9 @@ func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Has
 
 	batch.Put(key, value)
 	batch.Put(reverseKey, key)
+
+	// FOR DEBUG
+	//fmt.Printf("insert on road %s %d %d\n", sendBlockHash, key, reverseKey)
 	return nil
 
 }
@@ -75,6 +79,9 @@ func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash types.Has
 
 	batch.Delete(reverseKey)
 	batch.Delete(value)
+
+	// FOR DEBUG
+	//fmt.Printf("delete on road %s %d %d\n", sendBlockHash, value, reverseKey)
 
 	return nil
 }

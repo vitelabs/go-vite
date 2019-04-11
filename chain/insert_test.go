@@ -18,7 +18,36 @@ import (
 	"time"
 )
 
-func createSnapshotBlock(chainInstance Chain) *ledger.SnapshotBlock {
+func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.SnapshotContent {
+	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
+
+	// random snapshot
+	if !snapshotAll && len(unconfirmedBlocks) > 1 {
+		randomNum := rand.Intn(100)
+		if randomNum > 70 {
+			unconfirmedBlocks = unconfirmedBlocks[:rand.Intn(len(unconfirmedBlocks))]
+		}
+		if randomNum > 90 {
+			unconfirmedBlocks = []*ledger.AccountBlock{}
+		}
+	}
+
+	sc := make(ledger.SnapshotContent)
+
+	for i := len(unconfirmedBlocks) - 1; i >= 0; i-- {
+		block := unconfirmedBlocks[i]
+		if _, ok := sc[block.AccountAddress]; !ok {
+			sc[block.AccountAddress] = &ledger.HashHeight{
+				Hash:   block.Hash,
+				Height: block.Height,
+			}
+		}
+	}
+
+	return sc
+}
+
+func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.SnapshotBlock {
 	latestSb := chainInstance.GetLatestSnapshotBlock()
 	var now time.Time
 	randomNum := rand.Intn(100)
@@ -34,15 +63,15 @@ func createSnapshotBlock(chainInstance Chain) *ledger.SnapshotBlock {
 		PrevHash:        latestSb.Hash,
 		Height:          latestSb.Height + 1,
 		Timestamp:       &now,
-		SnapshotContent: chainInstance.GetContentNeedSnapshot(),
+		SnapshotContent: createSnapshotContent(chainInstance, snapshotAll),
 	}
 	sb.Hash = sb.ComputeHash()
 	return sb
 
 }
 
-func InsertSnapshotBlock(chainInstance Chain) (*ledger.SnapshotBlock, error) {
-	sb := createSnapshotBlock(chainInstance)
+func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, error) {
+	sb := createSnapshotBlock(chainInstance, snapshotAll)
 	if _, err := chainInstance.InsertSnapshotBlock(sb); err != nil {
 		return nil, err
 	}
@@ -63,7 +92,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
-		addrList = append(addrList, account.addr)
+		addrList = append(addrList, account.Addr)
 	}
 
 	fmt.Printf("Account number is %d, snapshotPerNum is %d\n", accountNumber, snapshotPerBlockNum)
@@ -86,12 +115,12 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		var tx *vm_db.VmAccountBlock
 		if createRequestTx {
 			toAccount := accounts[addrList[rand.Intn(accountNumber)]]
-			tx, err = account.CreateRequestTx(toAccount, cTxOptions)
+			tx, err = account.CreateSendBlock(toAccount, cTxOptions)
 			if err != nil {
 				b.Fatal(err)
 			}
 		} else {
-			tx, err = account.CreateResponseTx(cTxOptions)
+			tx, err = account.CreateReceiveBlock(cTxOptions)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -99,7 +128,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 		b.StartTimer()
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			_, err := InsertSnapshotBlock(chainInstance)
+			_, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -139,55 +168,115 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	//})
 }
 
-func InsertAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int) []*ledger.SnapshotBlock {
+func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int) []*ledger.SnapshotBlock {
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
-		addrList = append(addrList, account.addr)
+		addrList = append(addrList, account.Addr)
 	}
 	accountNumber := len(accounts)
 
 	snapshotBlockList := make([]*ledger.SnapshotBlock, 0)
 
 	for i := 1; i <= txCount; i++ {
+		// get random account
 		account := accounts[addrList[rand.Intn(accountNumber)]]
-		tx, err := createVmBlock(account, accounts, addrList)
+
+		// create vm block
+		vmBlock, err := createVmBlock(account, accounts, addrList)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if err := chainInstance.InsertAccountBlock(tx); err != nil {
+		// insert vm block
+		account.InsertBlock(vmBlock, accounts)
+
+		// insert vm block to chain
+		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
 			t.Fatal(err)
 		}
 
+		// snapshot
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-
-			sb, err := InsertSnapshotBlock(chainInstance)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for addr := range sb.SnapshotContent {
-				if account, ok := accounts[addr]; ok {
-					account.Snapshot(sb.Hash)
+			for i := 0; i < 3; i++ {
+				sb, err := InsertSnapshotBlock(chainInstance, false)
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
-			snapshotBlockList = append(snapshotBlockList, sb)
-		}
+				for addr, hashHeight := range sb.SnapshotContent {
+					if account, ok := accounts[addr]; ok {
+						account.Snapshot(sb.Hash, hashHeight)
+					}
+				}
+				snapshotBlockList = append(snapshotBlockList, sb)
 
+				// simple test
+				GetLatestAccountBlock(t, chainInstance, accounts)
+			}
+
+		}
 	}
+
 	return snapshotBlockList
 }
 
 func createVmBlock(account *Account, accounts map[types.Address]*Account, addrList []types.Address) (*vm_db.VmAccountBlock, error) {
-	createRequestTx := true
+
+	// query latest height
+	latestHeight := account.GetLatestHeight()
+
+	// FOR DEBUG
+	//fmt.Printf("%s add key value: %+v\n", account.Addr, keyValue)
+
+	cTxOptions := &CreateTxOptions{
+		MockSignature: true,                         // mock signature
+		KeyValue:      createKeyValue(latestHeight), // create key value
+		VmLogList:     createVmLogList(),            // create vm log list
+		Quota:         rand.Uint64() % 10000,
+	}
+
+	var vmBlock *vm_db.VmAccountBlock
+	var createBlockErr error
+
+	isCreateSendBlock := true
+
+	if account.HasOnRoadBlock() {
+		randNum := rand.Intn(100)
+		if randNum > 50 {
+			isCreateSendBlock = false
+		}
+	}
+
+	if isCreateSendBlock {
+		// query to account
+		toAccount := accounts[addrList[rand.Intn(len(addrList))]]
+
+		if len(toAccount.BlocksMap) <= 0 {
+			// set contract meta
+			cTxOptions.ContractMeta = createContractMeta()
+
+		}
+		vmBlock, createBlockErr = account.CreateSendBlock(toAccount, cTxOptions)
+	} else {
+
+		vmBlock, createBlockErr = account.CreateReceiveBlock(cTxOptions)
+	}
+
+	if createBlockErr != nil {
+		return nil, createBlockErr
+	}
+	return vmBlock, nil
+}
+
+func createVmLogList() ledger.VmLogList {
 	var vmLogList ledger.VmLogList
 
 	topicHash1, err := types.BytesToHash(crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))))
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	topicHash2, err := types.BytesToHash(crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))))
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	vmLogList = append(vmLogList, &ledger.VmLog{
 		Topics: []types.Hash{topicHash1},
@@ -197,54 +286,18 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		Topics: []types.Hash{topicHash2},
 		Data:   chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	})
+	return vmLogList
+}
 
-	latestHeight := uint64(0)
-	if account.latestBlock != nil {
-		latestHeight = account.latestBlock.Height
-	}
-
-	keyValue := map[string][]byte{
+func createKeyValue(latestHeight uint64) map[string][]byte {
+	return map[string][]byte{
 		strconv.FormatUint(latestHeight+1, 10): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	}
-	// FOR DEBUG
-	//fmt.Printf("%s add key value: %+v\n", account.addr, keyValue)
+}
 
-	cTxOptions := &CreateTxOptions{
-		MockSignature: true,
-		KeyValue:      keyValue,
-		VmLogList:     vmLogList,
-		Quota:         rand.Uint64() % 10000,
+func createContractMeta() *ledger.ContractMeta {
+	return &ledger.ContractMeta{
+		SendConfirmedTimes: 2,
+		Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
 	}
-
-	if account.HasOnRoadBlock() {
-		randNum := rand.Intn(100)
-		if randNum > 50 {
-			createRequestTx = false
-		}
-	}
-
-	var tx *vm_db.VmAccountBlock
-	var createTxErr error
-
-	if createRequestTx {
-		toAccount := accounts[addrList[rand.Intn(len(addrList))]]
-
-		if len(toAccount.BlocksMap) <= 0 {
-			cTxOptions.ContractMeta = &ledger.ContractMeta{
-				SendConfirmedTimes: 2,
-				Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
-			}
-			tx, createTxErr = account.CreateRequestTx(toAccount, cTxOptions)
-		} else {
-			tx, createTxErr = account.CreateRequestTx(toAccount, cTxOptions)
-		}
-
-	} else {
-		tx, createTxErr = account.CreateResponseTx(cTxOptions)
-	}
-
-	if createTxErr != nil {
-		return nil, createTxErr
-	}
-	return tx, nil
 }

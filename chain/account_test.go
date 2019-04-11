@@ -2,9 +2,7 @@ package chain
 
 import (
 	rand2 "crypto/rand"
-	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -13,6 +11,8 @@ import (
 	"sync"
 
 	"fmt"
+	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/crypto"
 	"math/rand"
 	"testing"
 	"time"
@@ -35,10 +35,10 @@ func testAccount(t *testing.T, chainInstance *chain, accounts map[types.Address]
 				t.Fatal(err)
 			}
 			if accountId <= 0 {
-				if account.latestBlock == nil {
+				if account.LatestBlock == nil {
 					continue
 				}
-				t.Fatal(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.latestBlock))
+				t.Fatal(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.LatestBlock))
 			}
 			queryAddr2, err := chainInstance.GetAccountAddress(accountId)
 			if err != nil {
@@ -58,7 +58,7 @@ func testAccount(t *testing.T, chainInstance *chain, accounts map[types.Address]
 				t.Fatal(err)
 			}
 			if addr == nil {
-				t.Fatal("addr is nil")
+				t.Fatal("Addr is nil")
 			}
 			queryAccountId, err := chainInstance.GetAccountId(*addr)
 			if err != nil {
@@ -86,33 +86,34 @@ func (list KvSetList) Less(i, j int) bool {
 }
 
 type Account struct {
-	addr          types.Address
-	privateKey    ed25519.PrivateKey
-	publicKey     ed25519.PublicKey
+	Addr       types.Address      // encode
+	PrivateKey ed25519.PrivateKey // encode
+	PublicKey  ed25519.PublicKey  // encode
+
 	chainInstance Chain
-	initBalance   *big.Int
+
+	InitBalance *big.Int // encode
 
 	contractMetaMu sync.RWMutex
-	contractMeta   *ledger.ContractMeta
+	ContractMeta   *ledger.ContractMeta // encode
 
-	Code []byte
+	Code []byte // encode
 
-	UnreceivedBlocks map[types.Hash]*vm_db.VmAccountBlock
-	unreceivedMu     sync.RWMutex
+	OnRoadBlocks map[types.Hash]*ledger.AccountBlock // encode
+	unreceivedMu sync.RWMutex
 
-	BlocksMap         map[types.Hash]*vm_db.VmAccountBlock
-	SendBlocksMap     map[types.Hash]*vm_db.VmAccountBlock
-	ReceiveBlocksMap  map[types.Hash]*vm_db.VmAccountBlock
-	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{}
+	BlocksMap         map[types.Hash]*ledger.AccountBlock    // encode
+	SendBlocksMap     map[types.Hash]*ledger.AccountBlock    // encode
+	ReceiveBlocksMap  map[types.Hash]*ledger.AccountBlock    // encode
+	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{} // encode
+	UnconfirmedBlocks map[types.Hash]struct{}                // encode
 
-	BalanceMap map[types.Hash]*big.Int
-	KvSetMap   map[types.Hash]map[string][]byte
+	BalanceMap map[types.Hash]*big.Int          // encode
+	KvSetMap   map[types.Hash]map[string][]byte // encode
 
-	LogListMap map[types.Hash]ledger.VmLogList
+	LogListMap map[types.Hash]ledger.VmLogList // encode
 
-	unconfirmedBlocks map[types.Hash]struct{}
-
-	latestBlock *ledger.AccountBlock
+	LatestBlock *ledger.AccountBlock // encode
 }
 
 type CreateTxOptions struct {
@@ -129,23 +130,23 @@ func NewAccount(chainInstance Chain, pubKey ed25519.PublicKey, privateKey ed2551
 	addr := types.PubkeyToAddress(pubKey)
 
 	account := &Account{
-		addr:          addr,
-		privateKey:    privateKey,
-		publicKey:     pubKey,
+		Addr:          addr,
+		PrivateKey:    privateKey,
+		PublicKey:     pubKey,
 		chainInstance: chainInstance,
-		initBalance:   big.NewInt(10000000),
+		InitBalance:   big.NewInt(10000000),
 
-		UnreceivedBlocks:  make(map[types.Hash]*vm_db.VmAccountBlock),
-		BlocksMap:         make(map[types.Hash]*vm_db.VmAccountBlock),
-		SendBlocksMap:     make(map[types.Hash]*vm_db.VmAccountBlock),
-		ReceiveBlocksMap:  make(map[types.Hash]*vm_db.VmAccountBlock),
+		OnRoadBlocks:      make(map[types.Hash]*ledger.AccountBlock),
+		BlocksMap:         make(map[types.Hash]*ledger.AccountBlock),
+		SendBlocksMap:     make(map[types.Hash]*ledger.AccountBlock),
+		ReceiveBlocksMap:  make(map[types.Hash]*ledger.AccountBlock),
 		ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
 
 		BalanceMap: make(map[types.Hash]*big.Int),
 		LogListMap: make(map[types.Hash]ledger.VmLogList),
 
 		KvSetMap:          make(map[types.Hash]map[string][]byte),
-		unconfirmedBlocks: make(map[types.Hash]struct{}),
+		UnconfirmedBlocks: make(map[types.Hash]struct{}),
 	}
 
 	latestBlock, err := chainInstance.GetLatestAccountBlock(addr)
@@ -154,7 +155,7 @@ func NewAccount(chainInstance Chain, pubKey ed25519.PublicKey, privateKey ed2551
 		panic(err)
 	}
 
-	account.latestBlock = latestBlock
+	account.LatestBlock = latestBlock
 	return account
 }
 
@@ -174,178 +175,223 @@ func MakeAccounts(chainInstance Chain, num int) map[types.Address]*Account {
 }
 
 // No state_bak hash
-func (acc *Account) CreateRequestTx(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+	// get latest hash
+	prevHash := acc.latestHash()
+
+	// get latest snapshot block
 	chainInstance := acc.chainInstance
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
-	prevHash := acc.latestHash()
-	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
+	// new vm_db
+	vmDb, err := vm_db.NewVmDb(chainInstance, &acc.Addr, &latestSnapshotBlock.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}
-	balance := acc.Balance()
 
+	// set balance
 	amount := big.NewInt(rand.Int63n(150))
+	vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Sub(acc.Balance(), amount))
 
-	newBalance := new(big.Int)
-	newBalance.Sub(balance, amount)
-
-	vmDb.SetBalance(&ledger.ViteTokenId, newBalance)
-
+	// set contract meta
 	if options.ContractMeta != nil {
-		vmDb.SetContractMeta(toAccount.addr, options.ContractMeta)
-		toAccount.SetContractMeta(options.ContractMeta)
+		vmDb.SetContractMeta(toAccount.Addr, options.ContractMeta)
 	}
 
+	// set log list
 	var logHash *types.Hash
 	if len(options.VmLogList) > 0 {
 		for _, vmLog := range options.VmLogList {
 			vmDb.AddLog(vmLog)
 		}
 		logHash = vmDb.GetLogListHash()
-		acc.LogListMap[*logHash] = vmDb.GetLogList()
 	}
 
-	tx := &ledger.AccountBlock{
+	// set key value
+	for key, value := range options.KeyValue {
+		if err := vmDb.SetValue([]byte(key), value); err != nil {
+			return nil, err
+		}
+	}
+
+	// finish
+	vmDb.Finish()
+
+	// new block
+	block := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeSendCall,
-		AccountAddress: acc.addr,
-		ToAddress:      toAccount.addr,
-		Height:         acc.latestHeight() + 1,
+		AccountAddress: acc.Addr,
+		ToAddress:      toAccount.Addr,
+		Height:         acc.GetLatestHeight() + 1,
 		PrevHash:       prevHash,
 		Amount:         amount,
 		TokenId:        ledger.ViteTokenId,
-		PublicKey:      acc.publicKey,
+		PublicKey:      acc.PublicKey,
 		Quota:          options.Quota,
 		LogHash:        logHash,
 	}
 
 	// compute hash
-	tx.Hash = tx.ComputeHash()
-
-	if len(options.KeyValue) > 0 {
-		acc.KvSetMap[tx.Hash] = make(map[string][]byte)
-		for key, value := range options.KeyValue {
-			if err := vmDb.SetValue([]byte(key), value); err != nil {
-				return nil, err
-			}
-			acc.KvSetMap[tx.Hash][string(key)] = value
-		}
-	}
-	vmDb.Finish()
+	block.Hash = block.ComputeHash()
 
 	// sign
 	if options != nil && options.MockSignature {
-		tx.Signature = []byte("This is chain mock signature")
+		block.Signature = []byte("This is chain mock signature")
 	} else {
-		tx.Signature = ed25519.Sign(acc.privateKey, tx.Hash.Bytes())
+		block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
 	}
 
-	acc.latestBlock = tx
-
-	vmTx := &vm_db.VmAccountBlock{
-		AccountBlock: tx,
+	vmBlock := &vm_db.VmAccountBlock{
+		AccountBlock: block,
 		VmDb:         vmDb,
 	}
 
-	acc.BalanceMap[tx.Hash] = newBalance
-	acc.addSendBlock(vmTx)
-
-	toAccount.AddOnRoadBlock(vmTx)
-
-	return vmTx, nil
+	return vmBlock, nil
 }
 
 // No state_bak hash
-func (acc *Account) CreateResponseTx(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
-
+func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+	// pop onRoad block
 	UnreceivedBlock := acc.PopOnRoadBlock()
 	if UnreceivedBlock == nil {
 		return nil, nil
 	}
+
+	// prevHash
+	prevHash := acc.latestHash()
+
+	// latest block
 	chainInstance := acc.chainInstance
+
 	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 
-	prevHash := acc.latestHash()
-	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.addr, &latestSnapshotBlock.Hash, &prevHash)
+	// new vm db
+	vmDb, err := vm_db.NewVmDb(acc.chainInstance, &acc.Addr, &latestSnapshotBlock.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}
 
-	balance := acc.Balance()
+	// set balance
+	vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Add(acc.Balance(), UnreceivedBlock.Amount))
 
-	amount := UnreceivedBlock.AccountBlock.Amount
-
-	newBalance := new(big.Int)
-	newBalance.Add(balance, amount)
-
-	vmDb.SetBalance(&ledger.ViteTokenId, newBalance)
-	if UnreceivedBlock.VmDb.GetUnsavedContractMeta() != nil {
+	// set contract code
+	if acc.GetContractMeta() != nil && acc.LatestBlock == nil {
 		code := crypto.Hash256(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())))
 
 		vmDb.SetContractCode(code)
-		acc.Code = code
 	}
 
+	// set log list
 	var logHash *types.Hash
-
 	if len(options.VmLogList) > 0 {
 		for _, vmLog := range options.VmLogList {
 			vmDb.AddLog(vmLog)
 		}
 		logHash = vmDb.GetLogListHash()
-		acc.LogListMap[*logHash] = vmDb.GetLogList()
 	}
 
-	receiveTx := &ledger.AccountBlock{
+	// set key value
+	for key, value := range options.KeyValue {
+		if err := vmDb.SetValue([]byte(key), value); err != nil {
+			return nil, err
+		}
+	}
+
+	// vm db finish
+	vmDb.Finish()
+
+	// new block
+	block := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
-		AccountAddress: acc.addr,
-		FromBlockHash:  UnreceivedBlock.AccountBlock.Hash,
-		Height:         acc.latestHeight() + 1,
+		AccountAddress: acc.Addr,
+		FromBlockHash:  UnreceivedBlock.Hash,
+		Height:         acc.GetLatestHeight() + 1,
 		PrevHash:       prevHash,
-		PublicKey:      acc.publicKey,
+		PublicKey:      acc.PublicKey,
 
 		Quota:   options.Quota,
 		LogHash: logHash,
 	}
 
 	// compute hash
-	receiveTx.Hash = receiveTx.ComputeHash()
-
-	if len(options.KeyValue) > 0 {
-		acc.KvSetMap[receiveTx.Hash] = make(map[string][]byte)
-		for key, value := range options.KeyValue {
-			if err := vmDb.SetValue([]byte(key), value); err != nil {
-				return nil, err
-			}
-			acc.KvSetMap[receiveTx.Hash][string(key)] = value
-		}
-	}
-	vmDb.Finish()
+	block.Hash = block.ComputeHash()
 
 	// sign
 	if options != nil && options.MockSignature {
-		receiveTx.Signature = []byte("This is chain mock signature")
+		block.Signature = []byte("This is chain mock signature")
 	} else {
-		receiveTx.Signature = ed25519.Sign(acc.privateKey, receiveTx.Hash.Bytes())
+		block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
 	}
 
-	acc.latestBlock = receiveTx
-	vmTx := &vm_db.VmAccountBlock{
-		AccountBlock: receiveTx,
+	vmBlock := &vm_db.VmAccountBlock{
+		AccountBlock: block,
 		VmDb:         vmDb,
 	}
 
-	acc.BalanceMap[receiveTx.Hash] = newBalance
-	acc.addReceiveBlock(vmTx)
+	return vmBlock, nil
+}
 
-	return vmTx, nil
+func (acc *Account) InsertBlock(vmBlock *vm_db.VmAccountBlock, accounts map[types.Address]*Account) {
+	block := vmBlock.AccountBlock
+	vmDb := vmBlock.VmDb
+
+	// set latest block
+	acc.LatestBlock = block
+
+	// set key value
+	acc.KvSetMap[block.Hash] = make(map[string][]byte)
+	for _, kv := range vmDb.GetUnsavedStorage() {
+		acc.KvSetMap[block.Hash][string(kv[0])] = kv[1]
+	}
+
+	// set balance
+	acc.BalanceMap[block.Hash] = vmDb.GetUnsavedBalanceMap()[ledger.ViteTokenId]
+
+	// set contract meta
+	if contractMetaMap := vmDb.GetUnsavedContractMeta(); len(contractMetaMap) > 0 {
+		for addr, contractMeta := range contractMetaMap {
+			toAccount := accounts[addr]
+			toAccount.SetContractMeta(contractMeta)
+		}
+	}
+
+	// set code
+	if code := vmDb.GetUnsavedContractCode(); len(code) > 0 {
+		acc.Code = code
+	}
+
+	// set log
+	if vmLogList := vmDb.GetLogList(); len(vmLogList) > 0 {
+		acc.LogListMap[*vmDb.GetLogListHash()] = vmLogList
+	}
+
+	// set send block
+	if block.IsSendBlock() {
+		// set send block
+		acc.addSendBlock(block)
+
+		// set on road
+		toAccount := accounts[block.ToAddress]
+		toAccount.AddOnRoadBlock(block)
+
+	} else {
+		// add receive block
+		acc.addReceiveBlock(block)
+	}
+
+	// set send block list
+	for _, sendBlock := range block.SendBlockList {
+		toAccount := accounts[sendBlock.ToAddress]
+		toAccount.AddOnRoadBlock(block)
+	}
+
 }
 
 func (acc *Account) NewKvSetList(KvSetMap map[types.Hash]map[string][]byte) KvSetList {
 	kvSetList := make(KvSetList, 0, len(KvSetMap))
 	for hash, kv := range KvSetMap {
 		kvSetList = append(kvSetList, &KvSet{
-			Height: acc.BlocksMap[hash].AccountBlock.Height,
+			Height: acc.BlocksMap[hash].Height,
 			Kv:     kv,
 		})
 	}
@@ -363,71 +409,92 @@ func (acc *Account) KeyValue() map[string][]byte {
 	}
 	return keyValue
 }
-func (acc *Account) ContractMeta() *ledger.ContractMeta {
+func (acc *Account) GetContractMeta() *ledger.ContractMeta {
 	acc.contractMetaMu.RLock()
 	defer acc.contractMetaMu.RUnlock()
 
-	return acc.contractMeta
+	return acc.ContractMeta
 }
 
 func (acc *Account) SetContractMeta(contractMeta *ledger.ContractMeta) {
 	acc.contractMetaMu.Lock()
 	defer acc.contractMetaMu.Unlock()
 
-	acc.contractMeta = contractMeta
+	acc.ContractMeta = contractMeta
 }
 
 func (acc *Account) HasOnRoadBlock() bool {
 	acc.unreceivedMu.RLock()
 	defer acc.unreceivedMu.RUnlock()
 
-	return len(acc.UnreceivedBlocks) > 0
+	return len(acc.OnRoadBlocks) > 0
 }
 
-func (acc *Account) AddOnRoadBlock(block *vm_db.VmAccountBlock) {
+func (acc *Account) AddOnRoadBlock(block *ledger.AccountBlock) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	acc.UnreceivedBlocks[block.AccountBlock.Hash] = block
+	//fmt.Println("Mock AddOnRoadBlock", acc.Addr, block.Hash)
+	acc.OnRoadBlocks[block.Hash] = block
 }
 
 func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	delete(acc.UnreceivedBlocks, blockHash)
+	//fmt.Println("Mock DeleteOnRoad", acc.Addr, blockHash)
+	delete(acc.OnRoadBlocks, blockHash)
 }
 
-func (acc *Account) PopOnRoadBlock() *vm_db.VmAccountBlock {
+func (acc *Account) PopOnRoadBlock() *ledger.AccountBlock {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	if len(acc.UnreceivedBlocks) <= 0 {
+	if len(acc.OnRoadBlocks) <= 0 {
 		return nil
 	}
 
-	var unreceivedBlock *vm_db.VmAccountBlock
-	for hash, block := range acc.UnreceivedBlocks {
+	var unreceivedBlock *ledger.AccountBlock
+	for _, block := range acc.OnRoadBlocks {
 		unreceivedBlock = block
-		delete(acc.UnreceivedBlocks, hash)
 		break
 	}
+	//fmt.Println("Mock PopOnRoadBlock", acc.Addr, unreceivedBlock.Hash)
+	delete(acc.OnRoadBlocks, unreceivedBlock.Hash)
 
 	return unreceivedBlock
 }
 
-func (acc *Account) Snapshot(snapshotHash types.Hash) {
-	acc.ConfirmedBlockMap[snapshotHash] = acc.unconfirmedBlocks
-	acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+func (acc *Account) Snapshot(snapshotHash types.Hash, hashHeight *ledger.HashHeight) {
+	// confirmed
+	confirmedBlocks := make(map[types.Hash]struct{}, len(acc.UnconfirmedBlocks))
+
+	// unconfirmed
+	unconfirmedBlocks := make(map[types.Hash]struct{})
+	for hash := range acc.UnconfirmedBlocks {
+		block := acc.BlocksMap[hash]
+
+		if block.Height <= hashHeight.Height {
+			confirmedBlocks[hash] = struct{}{}
+		} else {
+			unconfirmedBlocks[hash] = struct{}{}
+		}
+	}
+	// set confirmed
+	acc.ConfirmedBlockMap[snapshotHash] = confirmedBlocks
+
+	// set unconfirmed
+	acc.UnconfirmedBlocks = unconfirmedBlocks
 }
 
 func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
 	// rollback unconfirmed blocks
-	unconfirmedBlockHashList := make([]types.Hash, 0, len(acc.unconfirmedBlocks))
-	for hash := range acc.unconfirmedBlocks {
+	unconfirmedBlockHashList := make([]types.Hash, 0, len(acc.UnconfirmedBlocks))
+	for hash := range acc.UnconfirmedBlocks {
 		unconfirmedBlockHashList = append(unconfirmedBlockHashList, hash)
 	}
 	for _, hash := range unconfirmedBlockHashList {
+		//fmt.Printf("Mock delete unconfirmedBlockHashList %s %s\n", acc.Addr, hash)
 		acc.deleteAccountBlock(accounts, hash)
 	}
 
@@ -436,7 +503,6 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 		snapshotBlock := snapshotBlocks[i]
 
 		confirmedBlocks := acc.ConfirmedBlockMap[snapshotBlock.Hash]
-
 		if len(confirmedBlocks) <= 0 {
 			continue
 		}
@@ -451,7 +517,7 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 	// reset unconfirmed block
 	tailSnapshotBlock := snapshotBlocks[len(snapshotBlocks)-1]
 
-	acc.unconfirmedBlocks = acc.ConfirmedBlockMap[tailSnapshotBlock.Hash]
+	acc.UnconfirmedBlocks = acc.ConfirmedBlockMap[tailSnapshotBlock.Hash]
 
 	delete(acc.ConfirmedBlockMap, tailSnapshotBlock.Hash)
 
@@ -464,23 +530,23 @@ func (acc *Account) DeleteContractMeta() {
 	acc.contractMetaMu.Lock()
 	defer acc.contractMetaMu.Unlock()
 
-	acc.contractMeta = nil
+	acc.ContractMeta = nil
 }
 
-func (acc *Account) InitBalance() *big.Int {
-	return acc.initBalance
+func (acc *Account) GetInitBalance() *big.Int {
+	return acc.InitBalance
 }
 
 func (acc *Account) Balance() *big.Int {
-	if acc.latestBlock == nil {
-		return acc.initBalance
+	if acc.LatestBlock == nil {
+		return acc.InitBalance
 	}
 
-	return acc.BalanceMap[acc.latestBlock.Hash]
+	return acc.BalanceMap[acc.LatestBlock.Hash]
 }
 
 func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, blockHash types.Hash) {
-	accountBlock := acc.BlocksMap[blockHash].AccountBlock
+	accountBlock := acc.BlocksMap[blockHash]
 
 	if accountBlock.IsSendBlock() {
 		toAccount := accounts[accountBlock.ToAddress]
@@ -498,7 +564,7 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 		}
 	}
 
-	delete(acc.unconfirmedBlocks, accountBlock.Hash)
+	delete(acc.UnconfirmedBlocks, accountBlock.Hash)
 	delete(acc.BlocksMap, accountBlock.Hash)
 	delete(acc.SendBlocksMap, accountBlock.Hash)
 	delete(acc.ReceiveBlocksMap, accountBlock.Hash)
@@ -517,65 +583,69 @@ func (acc *Account) deleteAccountBlock(accounts map[types.Address]*Account, bloc
 }
 
 func (acc *Account) rollbackLatestBlock() {
-	if acc.latestBlock == nil {
+	if acc.LatestBlock == nil {
 		return
 	}
-	if acc.latestBlock.Height <= 1 {
-		acc.latestBlock = nil
+	if acc.LatestBlock.Height <= 1 {
+		acc.LatestBlock = nil
 	} else {
-		acc.latestBlock = acc.BlocksMap[acc.latestBlock.PrevHash].AccountBlock
+		acc.LatestBlock = acc.BlocksMap[acc.LatestBlock.PrevHash]
 
 	}
 }
 
 func (acc *Account) resetLatestBlock() {
-	acc.latestBlock = nil
+	acc.LatestBlock = nil
 	var headBlock *ledger.AccountBlock
 	for _, block := range acc.BlocksMap {
-		if headBlock == nil || block.AccountBlock.Height > headBlock.Height {
-			headBlock = block.AccountBlock
+		if headBlock == nil || block.Height > headBlock.Height {
+			headBlock = block
 		}
 	}
 
-	acc.latestBlock = headBlock
+	acc.LatestBlock = headBlock
 }
 
-func (acc *Account) latestHeight() uint64 {
-	if acc.latestBlock != nil {
-		return acc.latestBlock.Height
+func (acc *Account) GetLatestHeight() uint64 {
+	if acc.LatestBlock != nil {
+		return acc.LatestBlock.Height
 	}
 	return 0
 }
 
 func (acc *Account) latestHash() types.Hash {
-	if acc.latestBlock != nil {
-		return acc.latestBlock.Hash
+	if acc.LatestBlock != nil {
+		return acc.LatestBlock.Hash
 	}
 	return types.Hash{}
 }
 
-func (acc *Account) addSendBlock(block *vm_db.VmAccountBlock) {
-	acc.SendBlocksMap[block.AccountBlock.Hash] = block
-	if acc.BlocksMap == nil {
-		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+func (acc *Account) addSendBlock(block *ledger.AccountBlock) {
+	if acc.SendBlocksMap == nil {
+		acc.SendBlocksMap = make(map[types.Hash]*ledger.AccountBlock)
 	}
-	acc.BlocksMap[block.AccountBlock.Hash] = block
+	acc.SendBlocksMap[block.Hash] = block
 
-	if acc.unconfirmedBlocks == nil {
-		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	if acc.BlocksMap == nil {
+		acc.BlocksMap = make(map[types.Hash]*ledger.AccountBlock)
 	}
-	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
+	acc.BlocksMap[block.Hash] = block
+
+	if acc.UnconfirmedBlocks == nil {
+		acc.UnconfirmedBlocks = make(map[types.Hash]struct{})
+	}
+	acc.UnconfirmedBlocks[block.Hash] = struct{}{}
 }
-func (acc *Account) addReceiveBlock(block *vm_db.VmAccountBlock) {
-	acc.ReceiveBlocksMap[block.AccountBlock.Hash] = block
+func (acc *Account) addReceiveBlock(block *ledger.AccountBlock) {
+	acc.ReceiveBlocksMap[block.Hash] = block
 
 	if acc.BlocksMap == nil {
-		acc.BlocksMap = make(map[types.Hash]*vm_db.VmAccountBlock)
+		acc.BlocksMap = make(map[types.Hash]*ledger.AccountBlock)
 	}
-	acc.BlocksMap[block.AccountBlock.Hash] = block
+	acc.BlocksMap[block.Hash] = block
 
-	if acc.unconfirmedBlocks == nil {
-		acc.unconfirmedBlocks = make(map[types.Hash]struct{})
+	if acc.UnconfirmedBlocks == nil {
+		acc.UnconfirmedBlocks = make(map[types.Hash]struct{})
 	}
-	acc.unconfirmedBlocks[block.AccountBlock.Hash] = struct{}{}
+	acc.UnconfirmedBlocks[block.Hash] = struct{}{}
 }

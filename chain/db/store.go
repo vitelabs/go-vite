@@ -7,9 +7,9 @@ import (
 	"github.com/vitelabs/go-vite/common/dbutils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 	"os"
 	"sync"
-	"time"
 )
 
 type Store struct {
@@ -17,16 +17,16 @@ type Store struct {
 	mu    sync.RWMutex
 	memDb *MemDB
 
+	unconfirmedBatchMap map[types.Hash]*leveldb.Batch
+	snapshotMemDb       *MemDB
+
 	dbDir string
 	db    *leveldb.DB
 
 	flushingBatch *leveldb.Batch
 }
 
-func NewStore(dataDir string, flushInterval time.Duration, id types.Hash) (*Store, error) {
-	if flushInterval <= 0 {
-		flushInterval = time.Second
-	}
+func NewStore(dataDir string, id types.Hash) (*Store, error) {
 
 	db, err := leveldb.OpenFile(dataDir, nil)
 
@@ -35,7 +35,10 @@ func NewStore(dataDir string, flushInterval time.Duration, id types.Hash) (*Stor
 	}
 
 	store := &Store{
-		memDb:         NewMemDB(),
+		memDb:               NewMemDB(),
+		unconfirmedBatchMap: make(map[types.Hash]*leveldb.Batch),
+		snapshotMemDb:       NewMemDB(),
+
 		flushingBatch: new(leveldb.Batch),
 		dbDir:         dataDir,
 		db:            db,
@@ -49,12 +52,117 @@ func (store *Store) NewBatch() *leveldb.Batch {
 	return new(leveldb.Batch)
 }
 
-func (store *Store) Write(batch *leveldb.Batch) {
-	//return store.db.Write(batch, nil)
+func (store *Store) WriteDirectly(batch *leveldb.Batch) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
 	batch.Replay(store.memDb)
+	batch.Replay(store.snapshotMemDb)
+}
+
+func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) {
+	store.WriteAccountBlockByHash(batch, block.Hash)
+}
+
+func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) {
+	//return store.db.WriteAccountBlock(batch, nil)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// write store.unconfirmedBatch
+	store.unconfirmedBatchMap[blockHash] = batch
+
+	// write store.memDb
+	batch.Replay(store.memDb)
+}
+
+// snapshot
+func (store *Store) WriteSnapshot(snapshotBatch *leveldb.Batch, accountBlock []*ledger.AccountBlock) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// write store.memDb
+	if snapshotBatch != nil {
+		snapshotBatch.Replay(store.memDb)
+	}
+
+	for _, block := range accountBlock {
+		if batch, ok := store.unconfirmedBatchMap[block.Hash]; ok {
+			batch.Replay(store.snapshotMemDb)
+			delete(store.unconfirmedBatchMap, block.Hash)
+		}
+	}
+
+	// write store snapshot memDb
+	if snapshotBatch != nil {
+		snapshotBatch.Replay(store.snapshotMemDb)
+	}
+}
+
+// snapshot
+func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashList []types.Hash) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// write store.memDb
+	if snapshotBatch != nil {
+		snapshotBatch.Replay(store.memDb)
+	}
+
+	for _, blockHash := range blockHashList {
+		if batch, ok := store.unconfirmedBatchMap[blockHash]; ok {
+			batch.Replay(store.snapshotMemDb)
+			delete(store.unconfirmedBatchMap, blockHash)
+		}
+	}
+
+	// write store snapshot memDb
+	if snapshotBatch != nil {
+		snapshotBatch.Replay(store.snapshotMemDb)
+	}
+}
+
+// rollback
+func (store *Store) RollbackAccountBlocks(rollbackBatch *leveldb.Batch, accountBlocks []*ledger.AccountBlock) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// delete store.unconfirmedBatchMap
+	for _, block := range accountBlocks {
+		delete(store.unconfirmedBatchMap, block.Hash)
+	}
+
+	// write store.memDb
+	rollbackBatch.Replay(store.memDb)
+}
+
+// rollback
+func (store *Store) RollbackAccountBlockByHash(rollbackBatch *leveldb.Batch, blockHashList []types.Hash) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// delete store.unconfirmedBatchMap
+	for _, blockHash := range blockHashList {
+		delete(store.unconfirmedBatchMap, blockHash)
+	}
+
+	// write store.memDb
+	rollbackBatch.Replay(store.memDb)
+}
+
+// assume that rollback and flush to disk immediately
+func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	// write store.memDb
+	rollbackBatch.Replay(store.memDb)
+
+	// reset
+	store.snapshotMemDb = store.memDb
+
+	// reset
+	store.unconfirmedBatchMap = make(map[types.Hash]*leveldb.Batch)
 }
 
 func (store *Store) Get(key []byte) ([]byte, error) {
@@ -143,57 +251,6 @@ func (store *Store) Clean() error {
 	store.db = nil
 
 	return nil
-}
-
-func (store *Store) Id() types.Hash {
-	return store.id
-}
-
-func (store *Store) Prepare() {
-	store.mu.RLock()
-	defer store.mu.RUnlock()
-
-	store.flushingBatch.Reset()
-	store.memDb.Flush(store.flushingBatch)
-}
-
-func (store *Store) CancelPrepare() {
-	store.flushingBatch.Reset()
-}
-
-func (store *Store) RedoLog() ([]byte, error) {
-	return store.flushingBatch.Dump(), nil
-}
-
-func (store *Store) Commit() error {
-	if err := store.db.Write(store.flushingBatch, nil); err != nil {
-		return err
-	}
-	store.flushingBatch.Reset()
-
-	store.resetMemDB()
-	return nil
-}
-
-func (store *Store) PatchRedoLog(redoLog []byte) error {
-
-	batch := new(leveldb.Batch)
-	if err := batch.Load(redoLog); err != nil {
-		return err
-	}
-
-	if err := store.db.Write(batch, nil); err != nil {
-		return err
-	}
-
-	store.resetMemDB()
-	return nil
-}
-
-func (store *Store) resetMemDB() {
-	store.mu.Lock()
-	store.memDb = NewMemDB()
-	store.mu.Unlock()
 }
 
 func (store *Store) newIterator(slice *util.Range) interfaces.StorageIterator {

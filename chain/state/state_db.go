@@ -13,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path"
+	"sync"
 )
 
 type StateDB struct {
@@ -22,13 +23,16 @@ type StateDB struct {
 	log log15.Logger
 
 	storageRedo *StorageRedo
+
+	historyKv   map[types.Hash][][2][]byte
+	historyKvMu sync.Mutex
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("stateDb")))
 
 	var err error
-	store, err := chain_db.NewStore(path.Join(chainDir, "state"), 0, id)
+	store, err := chain_db.NewStore(path.Join(chainDir, "state"), id)
 
 	if err != nil {
 		return nil, err
@@ -45,6 +49,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		store: store,
 
 		storageRedo: storageRedo,
+		historyKv:   make(map[types.Hash][][2][]byte),
 	}
 
 	return stateDb, nil
@@ -210,6 +215,8 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		key := iter.Key()
 		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
 			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
+			//FOR DEBUG
+			//fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
 		}
 
 	}

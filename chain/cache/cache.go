@@ -40,12 +40,12 @@ func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 
 	// rollback quota list
 	for _, block := range accountBlocks {
-		cache.quotaList.Sub(&block.AccountAddress, block.Quota)
+		cache.quotaList.Sub(block.AccountAddress, block.Quota)
 	}
 
 	return nil
 }
-func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
@@ -59,7 +59,15 @@ func (cache *Cache) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 	}
 
 	// rollback quota list
-	if err := cache.quotaList.Rollback(len(deletedSnapshotSegments) - 1); err != nil {
+	deletedChunksLength := len(deletedChunks)
+	rollbackNumber := deletedChunksLength - 1
+
+	lastChunk := deletedChunks[deletedChunksLength-1]
+	if lastChunk.SnapshotBlock != nil {
+		rollbackNumber = deletedChunksLength
+	}
+
+	if err := cache.quotaList.Rollback(rollbackNumber); err != nil {
 		return err
 	}
 	return nil
@@ -82,7 +90,7 @@ func (cache *Cache) InsertAccountBlock(block *ledger.AccountBlock) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	cache.quotaList.Add(&block.AccountAddress, block.Quota)
+	cache.quotaList.Add(block.AccountAddress, block.Quota)
 	dataId := cache.ds.InsertAccountBlock(block)
 	cache.unconfirmedPool.InsertAccountBlock(&block.AccountAddress, dataId)
 }
@@ -96,13 +104,6 @@ func (cache *Cache) RecoverUnconfirmedPool(accountBlocks []*ledger.AccountBlock)
 		dataId := cache.ds.InsertAccountBlock(accountBlock)
 		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)
 	}
-}
-
-func (cache *Cache) SnapshotAccountBlocks(blocks []*ledger.AccountBlock) {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	cache.unconfirmedPool.DeleteBlocks(blocks)
 }
 
 func (cache *Cache) GetUnconfirmedBlocks() []*ledger.AccountBlock {
@@ -132,7 +133,7 @@ func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	cache.unconfirmedPool.DeleteBlocks(confirmedBlocks)
 
 	// new quota
-	cache.quotaList.NewNext()
+	cache.quotaList.NewNext(confirmedBlocks)
 }
 
 func (cache *Cache) IsSnapshotBlockExisted(hash *types.Hash) bool {
