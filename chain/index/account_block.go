@@ -31,6 +31,7 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_f
 	var location *chain_file_manager.Location
 
 	value := iter.Value()
+
 	if len(value) > types.HashSize {
 		location = chain_utils.DeserializeLocation(value[types.HashSize:])
 	}

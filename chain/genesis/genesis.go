@@ -1,6 +1,10 @@
 package chain_genesis
 
-import "github.com/vitelabs/go-vite/config"
+import (
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm_db"
+)
 
 const (
 	LedgerUnknown = byte(0)
@@ -9,25 +13,21 @@ const (
 	LedgerInvalid = byte(3)
 )
 
-func InitLedger(chain Chain, cfg *config.Genesis) error {
+func InitLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, vmBlocks []*vm_db.VmAccountBlock) error {
 	// insert genesis account blocks
-	genesisAccountBlockList := NewGenesisAccountBlocks(cfg)
-	for _, ab := range genesisAccountBlockList {
+	for _, ab := range vmBlocks {
 		err := chain.InsertAccountBlock(ab)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	// init genesis snapshot block
-	genesisSnapshotBlock := NewGenesisSnapshotBlock(genesisAccountBlockList)
-
-	// insert
+	// insert genesis snapshot block
 	chain.InsertSnapshotBlock(genesisSnapshotBlock)
 	return nil
 }
 
-func CheckLedger(chain Chain, cfg *config.Genesis) (byte, error) {
+func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock) (byte, error) {
 	firstSb, err := chain.QuerySnapshotBlockByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
@@ -36,10 +36,17 @@ func CheckLedger(chain Chain, cfg *config.Genesis) (byte, error) {
 		return LedgerEmpty, nil
 	}
 
-	genesisSnapshotBlock := NewGenesisSnapshotBlock(NewGenesisAccountBlocks(cfg))
-
 	if firstSb.Hash == genesisSnapshotBlock.Hash {
 		return LedgerValid, nil
 	}
 	return LedgerInvalid, nil
+}
+
+func VmBlocksToHashMap(accountBlocks []*vm_db.VmAccountBlock) map[types.Hash]struct{} {
+	hashMap := make(map[types.Hash]struct{}, len(accountBlocks))
+
+	for _, accountBlock := range accountBlocks {
+		hashMap[accountBlock.AccountBlock.Hash] = struct{}{}
+	}
+	return hashMap
 }

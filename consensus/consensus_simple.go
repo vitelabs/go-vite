@@ -67,7 +67,7 @@ func newSimpleCs(log log15.Logger) *simpleCs {
 	return cs
 }
 
-func (self *simpleCs) GenVoteTime(h uint64) time.Time {
+func (self *simpleCs) GenProofTime(h uint64) time.Time {
 	_, end := self.info.Index2Time(h)
 	return end
 }

@@ -20,7 +20,7 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
 
 	var err error
-	store, err := chain_db.NewStore(path.Join(chainDir, "index"), 0, id)
+	store, err := chain_db.NewStore(path.Join(chainDir, "index"), id)
 	if err != nil {
 		return nil, err
 	}

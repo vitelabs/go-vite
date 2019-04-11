@@ -99,7 +99,8 @@ func (self *accountCh) insertBlocks(bs []commonBlock) error {
 	var blocks []*vm_db.VmAccountBlock
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
-		fmt.Printf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash())
+		self.log.Info(fmt.Sprintf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash()))
+		monitor.LogEvent("pool", "insertChain")
 		blocks = append(blocks, &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock})
 		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}
@@ -255,6 +256,7 @@ func (self *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[types.Add
 	if b.Source() == types.QueryChain {
 		self.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
 	}
+	monitor.LogEvent("pool", "insertChain")
 	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	bm, err := self.bc.InsertSnapshotBlock(b.block)
 

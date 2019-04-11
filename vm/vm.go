@@ -178,6 +178,7 @@ func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
 func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
+		db.Finish()
 		if nodeConfig.IsDebug {
 			printDebugBlockInfo(block, vmAccountBlock, err)
 		}

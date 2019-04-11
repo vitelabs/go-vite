@@ -44,6 +44,24 @@ func (self *pool) loopQueue() {
 	}
 }
 
+func (self *pool) insert() {
+	t1 := time.Now()
+	q := self.makeQueue()
+	size := q.Size()
+	if size == 0 {
+		return
+	}
+	err := self.insertQueue(q)
+	if err != nil {
+		self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
+		self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
+		//time.Sleep(time.Second
+		self.log.Error("pool auto stop")
+	}
+	t2 := time.Now()
+	self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
+}
+
 /**
 make a queue from account pool and snapshot pool
 */
@@ -106,6 +124,10 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	if block == nil {
 		return nil, nil, nil
 	}
+	// fork happen
+	if block.PrevHash() != info.offset.Hash {
+		return nil, nil, nil
+	}
 	newOffset := &ledger.HashHeight{Hash: block.Hash(), Height: block.Height()}
 	b := block.(*snapshotPoolBlock)
 	result := &completeSnapshotBlock{cur: b}
@@ -117,36 +139,14 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	addrM := make(map[types.Address]*stack.Stack)
 	for k, v := range contents {
 		ac := self.selfPendingAc(k)
-		acurr := ac.CurrentChain()
-		ab := acurr.getBlock(v.Height, true)
-		if ab == nil {
-			errorAcc[k] = v
-			pending = true
-			continue
-		}
-		if ab.Hash() != v.Hash {
-			fmt.Printf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
-				b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash())
-			// todo switch account chain
-			errorAcc[k] = v
-			pending = true
-			continue
-		}
+		var tmp *stack.Stack
+		pending, tmp = ac.genForSnapshotContents(p, b, k, v)
 		if pending {
+			errorAcc[k] = v
 			continue
 		}
-		if ab.Height() > acurr.tailHeight {
-			tmp := stack.New()
-			for h := ab.Height(); h > acurr.tailHeight; h-- {
-				currB := ac.getCurrentBlock(h)
-				if p.Exists(currB.Hash()) {
-					break
-				}
-				tmp.Push(currB)
-			}
-			if tmp.Len() > 0 {
-				addrM[k] = tmp
-			}
+		if tmp != nil {
+			addrM[k] = tmp
 		}
 	}
 
@@ -315,18 +315,6 @@ func (self *pool) accountExists(hash types.Hash) error {
 	return NotFound
 }
 
-func (self *pool) accountBlockCheckAndFetch(snapshot *snapshotPoolBlock, hashH *ledger.HashHeight, address types.Address) (*ledger.HashHeight, error) {
-	err := self.accountExists(hashH.Hash)
-	if err == nil {
-		return nil, nil
-	}
-	if err != nil && err != NotFound {
-		return nil, err
-	}
-	hashHeight, err := self.PendingAccountTo(address, hashH, snapshot.Height())
-
-	return hashHeight, err
-}
 func (self *pool) snapshotExists(hash types.Hash) error {
 	sb, err := self.bc.GetSnapshotHeaderByHash(hash)
 	if err != nil {
@@ -358,36 +346,5 @@ func (self offsetInfo) quotaSub(b commonBlock) {
 		self.quotaUnused = self.quotaUnused - quotaUsed
 	} else {
 		self.quotaUnused = 0
-	}
-}
-
-// todo fix: not in same thread with loopCompact
-func (self *pool) loopPendingSnapshot() {
-	snapshots, err := self.pendingSc.getPendingForCurrent()
-	if err != nil {
-		self.log.Error("getPendingForCurrent error.", "error", err)
-	}
-
-	accounts := make(map[types.Address]*ledger.HashHeight)
-
-	for _, b := range snapshots {
-		block := b.(*snapshotPoolBlock)
-		for addr, hashH := range block.block.SnapshotContent {
-			hashH, err := self.accountBlockCheckAndFetch(block, hashH, addr)
-			if err != nil {
-				self.log.Error("account block check and fetch fail.", "err", err, "addr", addr, "hash", hashH.Hash, "height", hashH.Height)
-			}
-
-			_, ok := accounts[addr]
-			if hashH != nil && !ok {
-				accounts[addr] = hashH
-			}
-		}
-	}
-	if len(accounts) > 0 {
-		self.pendingSc.forkAccounts(accounts)
-
-		// todo fix
-		self.pendingSc.fetchAccounts(accounts, snapshots[len(snapshots)-1].Height())
 	}
 }

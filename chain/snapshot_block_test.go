@@ -505,7 +505,7 @@ func checkSubLedger(t *testing.T, chainInstance *chain, accounts map[types.Addre
 
 			} else {
 				for _, account := range accounts {
-					for hash := range account.unconfirmedBlocks {
+					for hash := range account.UnconfirmedBlocks {
 						if _, ok := blockHashMap[hash]; ok {
 							delete(blockHashMap, hash)
 						} else {

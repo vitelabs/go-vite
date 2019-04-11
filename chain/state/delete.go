@@ -14,18 +14,34 @@ import (
 	"math/big"
 )
 
-// TODO
 func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	return sDB.rollback(deletedSnapshotSegments, false)
-}
-
-func (sDB *StateDB) RollbackAccountBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	return sDB.rollback(deletedSnapshotSegments, true)
-}
-
-func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, onlyDeleteAbs bool) error {
 
 	batch := sDB.store.NewBatch()
+
+	// reset history kv
+	sDB.historyKv = make(map[types.Hash][][2][]byte)
+
+	if err := sDB.rollback(batch, deletedSnapshotSegments, false, false); err != nil {
+		return err
+	}
+	sDB.store.RollbackSnapshot(batch)
+	return nil
+}
+
+func (sDB *StateDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock, deleteAllUnconfirmed bool) error {
+	batch := sDB.store.NewBatch()
+
+	if err := sDB.rollback(batch, []*ledger.SnapshotChunk{{
+		AccountBlocks: accountBlocks,
+	}}, true, deleteAllUnconfirmed); err != nil {
+		return err
+	}
+	sDB.store.RollbackAccountBlocks(batch, accountBlocks)
+	return nil
+
+}
+
+func (sDB *StateDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*ledger.SnapshotChunk, onlyDeleteAbs bool, deleteAllUnconfirmed bool) error {
 
 	blocksCache := make(map[types.Hash]*ledger.AccountBlock)
 
@@ -44,7 +60,7 @@ func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, on
 	for index, seg := range deletedSnapshotSegments {
 		snapshotHeight += 1
 
-		if !onlyDeleteAbs && index > 0 {
+		if index > 0 {
 			sDB.storageRedo.Rollback(snapshotHeight)
 		}
 
@@ -75,25 +91,31 @@ func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, on
 			addrMap[addr] = struct{}{}
 
 			// record rollback keys
-			kvList, err := getKvList(kvLogMap, accountBlock.Hash)
-			if err != nil {
-				return err
-			}
-
-			if len(kvList) > 0 {
-				keySet, _ := rollbackStorageKeySet[addr]
-				if keySet == nil {
-					keySet = make(map[string]struct{})
+			if hasRedo && len(kvLogMap) > 0 {
+				kvList, err := getKvList(kvLogMap, accountBlock.Hash)
+				if err != nil {
+					return err
 				}
 
-				for _, kv := range kvList {
-					keySet[string(kv[0])] = struct{}{}
-					deleteKeys[string(chain_utils.CreateHistoryStorageValueKey(&addr, kv[0], snapshotHeight))] = struct{}{}
-				}
+				if len(kvList) > 0 {
+					keySet, _ := rollbackStorageKeySet[addr]
+					if keySet == nil {
+						keySet = make(map[string]struct{})
+					}
 
-				rollbackStorageKeySet[addr] = keySet
+					for _, kv := range kvList {
+						keySet[string(kv[0])] = struct{}{}
+						deleteKeys[string(chain_utils.CreateHistoryStorageValueKey(&addr, kv[0], snapshotHeight))] = struct{}{}
+					}
+
+					rollbackStorageKeySet[addr] = keySet
+				}
 			}
 
+			// remove log
+			if onlyDeleteAbs {
+				sDB.storageRedo.RemoveLog(accountBlock.Hash)
+			}
 			// record balance
 			// query info
 			tokenIds, err := sDB.calculateBalance(accountBlock, balanceCache, blocksCache)
@@ -147,44 +169,30 @@ func (sDB *StateDB) rollback(deletedSnapshotSegments []*ledger.SnapshotChunk, on
 	}
 
 	// reset storage index
+
 	if hasRedo {
 		if err := sDB.recoverStorage(batch, rollbackStorageKeySet, onlyDeleteAbs); err != nil {
 			return err
 		}
 	} else {
-		if err := sDB.recoverStorageToLatestSnapshot(batch, addrMap, onlyDeleteAbs); err != nil {
+		if err := sDB.recoverStorageToLatestSnapshot(batch, addrMap, onlyDeleteAbs, deleteAllUnconfirmed); err != nil {
 			return err
 		}
 	}
 
-	// rollback redo log
-	if onlyDeleteAbs {
-		for _, seg := range deletedSnapshotSegments {
-			if len(seg.AccountBlocks) <= 0 {
-				continue
-			}
-			for _, accountBlock := range seg.AccountBlocks {
-				if onlyDeleteAbs {
-					sDB.storageRedo.RemoveLog(accountBlock.Hash)
-				}
-			}
-
-		}
-	}
-
+	// reset redo log
 	if !onlyDeleteAbs {
 		sDB.storageRedo.ResetSnapshot(latestHeight + 1)
 	}
 
-	sDB.store.Write(batch)
 	return nil
 }
 
-func (sDB *StateDB) recoverStorageToLatestSnapshot(batch *leveldb.Batch, addrList map[types.Address]struct{}, onlyDeleteAbs bool) error {
+func (sDB *StateDB) recoverStorageToLatestSnapshot(batch *leveldb.Batch, addrList map[types.Address]struct{}, onlyDeleteAbs bool, deleteAllUnconfirmed bool) error {
 
-	height := sDB.chain.GetLatestSnapshotBlock().Height
-	if !onlyDeleteAbs {
-		height += 1
+	height := sDB.chain.GetLatestSnapshotBlock().Height + 1
+	if onlyDeleteAbs && deleteAllUnconfirmed {
+		height -= 1
 	}
 
 	for addr := range addrList {
@@ -220,7 +228,7 @@ func (sDB *StateDB) recoverStorageToLatestSnapshot(batch *leveldb.Batch, addrLis
 					hasResetLatestIndex = true
 					value := iter.Value()
 					if len(value) <= 0 {
-						// FOR DEBUG
+						//FOR DEBUG
 						//fmt.Println()
 						//fmt.Printf("%d. %s. delete latest: %s", height, addr, key)
 						//fmt.Println()
@@ -237,6 +245,7 @@ func (sDB *StateDB) recoverStorageToLatestSnapshot(batch *leveldb.Batch, addrLis
 					}
 					break
 				} else {
+					// delete history key
 					batch.Delete(iter2Key)
 				}
 
@@ -304,11 +313,12 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 					if err != nil {
 						return err
 					}
-				} else {
-
-					batch.Put(chain_utils.CreateHistoryStorageValueKey(&addr, key, latestHeight+1), value)
-
 				}
+
+				// FOR DEBUG
+				//fmt.Println()
+				//fmt.Printf("%s. onlydeleteabs recover latest: %s, %+v", addr, key, value)
+				//fmt.Println()
 
 				if len(value) <= 0 {
 					batch.Delete(chain_utils.CreateStorageValueKey(&addr, key))
@@ -329,6 +339,10 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 					return err
 				}
 
+				// FOR DEBUG
+				//fmt.Println()
+				//fmt.Printf("%s. recover latest: %s, %+v", addr, key, value)
+				//fmt.Println()
 				if len(value) <= 0 {
 					batch.Delete(chain_utils.CreateStorageValueKey(&addr, key))
 				} else {

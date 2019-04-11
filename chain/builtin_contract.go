@@ -95,7 +95,7 @@ func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*ty
 	for _, addr := range addrList {
 		amount, err := abi.GetPledgeBeneficialAmount(sd, addr)
 		if err != nil {
-			cErr := errors.New(fmt.Sprintf("abi.GetPledgeBeneficialAmount failed, addr is %s. Error: %s", addr, err))
+			cErr := errors.New(fmt.Sprintf("abi.GetPledgeBeneficialAmount failed, Addr is %s. Error: %s", addr, err))
 			c.log.Error(cErr.Error(), "method", "GetPledgeQuotas")
 			return nil, err
 		}

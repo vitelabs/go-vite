@@ -8,16 +8,16 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type item struct {
+type quotaInfo struct {
 	BlockCount uint64
 	Quota      uint64
 }
 type quotaList struct {
 	chain Chain
 
-	backElement map[types.Address]*item
+	backElement map[types.Address]*quotaInfo
 
-	used                 map[types.Address]*item
+	used                 map[types.Address]*quotaInfo
 	usedStart            *list.Element
 	usedAccumulateHeight uint64
 
@@ -30,9 +30,9 @@ type quotaList struct {
 func newQuotaList(chain Chain) *quotaList {
 	ql := &quotaList{
 		chain: chain,
-		used:  make(map[types.Address]*item),
+		used:  make(map[types.Address]*quotaInfo),
 
-		backElement: make(map[types.Address]*item),
+		backElement: make(map[types.Address]*quotaInfo),
 
 		list:                 list.New(),
 		listMaxLength:        600,
@@ -74,53 +74,71 @@ func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	return used.Quota, used.BlockCount
 }
 
-func (ql *quotaList) Add(addr *types.Address, quota uint64) {
-	backItem := ql.backElement[*addr]
-	if backItem == nil {
-		backItem = &item{}
-		ql.backElement[*addr] = backItem
-	}
-	backItem.BlockCount += 1
-	backItem.Quota += quota
+func (ql *quotaList) Add(addr types.Address, quota uint64) {
+	// add back element quota
+	ql.add(ql.backElement, addr, quota)
 
-	usedItem := ql.used[*addr]
-	if usedItem == nil {
-		usedItem = &item{}
-		ql.used[*addr] = usedItem
-	}
-	usedItem.BlockCount += 1
-	usedItem.Quota += quota
+	// add used quota
+	ql.add(ql.used, addr, quota)
+
 }
 
-func (ql *quotaList) Sub(addr *types.Address, quota uint64) {
-	ql.subBackElement(addr, 1, quota)
-	ql.subUsed(addr, 1, quota)
+func (ql *quotaList) Sub(addr types.Address, quota uint64) {
+
+	// add back element
+	ql.sub(ql.backElement, addr, 1, quota)
+
+	// sub used quota
+	ql.sub(ql.used, addr, 1, quota)
+
 }
 
-func (ql *quotaList) NewNext() {
+func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 	if ql.status < 1 {
 		return
 	}
 
-	ql.backElement = make(map[types.Address]*item)
+	currentSnapshotQuota := make(map[types.Address]*quotaInfo)
+
+	for _, confirmedBlock := range confirmedBlocks {
+		qi, ok := currentSnapshotQuota[confirmedBlock.AccountAddress]
+		backQi := ql.backElement[confirmedBlock.AccountAddress]
+
+		if !ok {
+			qi = &quotaInfo{}
+			currentSnapshotQuota[confirmedBlock.AccountAddress] = qi
+		}
+		qi.Quota += confirmedBlock.Quota
+		qi.BlockCount += 1
+
+		if backQi.BlockCount <= 1 {
+			delete(ql.backElement, confirmedBlock.AccountAddress)
+		} else {
+			backQi.BlockCount -= 1
+			backQi.Quota -= confirmedBlock.Quota
+		}
+	}
+
+	ql.list.Back().Value = currentSnapshotQuota
 	ql.list.PushBack(ql.backElement)
 
 	if uint64(ql.list.Len()) <= ql.usedAccumulateHeight {
 		return
 	}
 
-	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*item)
+	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*quotaInfo)
 	for addr, usedStartItem := range quotaUsedStart {
 		if usedStartItem == nil {
 			continue
 		}
-		ql.subUsed(&addr, usedStartItem.BlockCount, usedStartItem.Quota)
+		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Quota)
 	}
 
 	ql.usedStart = ql.usedStart.Next()
 	if ql.list.Len() > ql.listMaxLength {
 		ql.list.Remove(ql.list.Front())
 	}
+
 }
 
 func (ql *quotaList) Rollback(n int) error {
@@ -141,14 +159,28 @@ func (ql *quotaList) build() (returnError error) {
 		if returnError != nil {
 			return
 		}
-		ql.backElement = ql.list.Back().Value.(map[types.Address]*item)
+		ql.backElement = ql.list.Back().Value.(map[types.Address]*quotaInfo)
 
 		ql.resetUsedStart()
 
 		ql.calculateUsed()
+
+		// FOR DEBUG
+		//fmt.Println("after build, ql.backElement", ql.list.Len())
+		//for addr, quotaInfo := range ql.backElement {
+		//	fmt.Println(addr, quotaInfo)
+		//}
+		//fmt.Println()
 	}()
 
 	listLength := uint64(ql.list.Len())
+
+	// FOR DEBUG
+	//fmt.Println("before build, ql.backElement", listLength)
+	//for addr, quotaInfo := range ql.backElement {
+	//	fmt.Println(addr, quotaInfo)
+	//}
+	//fmt.Println()
 
 	if listLength >= ql.usedAccumulateHeight {
 		return nil
@@ -187,10 +219,10 @@ func (ql *quotaList) build() (returnError error) {
 
 		for _, seg := range snapshotSegments[1:] {
 
-			newItem := make(map[types.Address]*item)
+			newItem := make(map[types.Address]*quotaInfo)
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
-					newItem[block.AccountAddress] = &item{
+					newItem[block.AccountAddress] = &quotaInfo{
 						Quota:      block.Quota,
 						BlockCount: 1,
 					}
@@ -204,7 +236,7 @@ func (ql *quotaList) build() (returnError error) {
 		}
 
 		if snapshotSegments[len(snapshotSegments)-1].SnapshotBlock != nil {
-			ql.list.PushBack(make(map[types.Address]*item))
+			ql.list.PushBack(make(map[types.Address]*quotaInfo))
 		}
 
 	} else {
@@ -221,11 +253,11 @@ func (ql *quotaList) build() (returnError error) {
 		segLength := len(snapshotSegments)
 		for i := segLength - 1; i > 0; i-- {
 			seg := snapshotSegments[i]
-			newItem := make(map[types.Address]*item)
+			newItem := make(map[types.Address]*quotaInfo)
 
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
-					newItem[block.AccountAddress] = &item{
+					newItem[block.AccountAddress] = &quotaInfo{
 						Quota:      block.Quota,
 						BlockCount: 1,
 					}
@@ -242,42 +274,40 @@ func (ql *quotaList) build() (returnError error) {
 	return nil
 }
 
-func (ql *quotaList) subBackElement(addr *types.Address, blockCount, quota uint64) {
-	backItem := ql.backElement[*addr]
-	if backItem == nil {
-		return
+func (ql *quotaList) add(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, quota uint64) {
+	qi := quotaInfoMap[addr]
+	if qi == nil {
+		qi = &quotaInfo{}
+		quotaInfoMap[addr] = qi
 	}
-	backItem.BlockCount -= blockCount
-	if backItem.BlockCount <= 0 {
-		delete(ql.backElement, *addr)
-		return
-	}
-	backItem.Quota -= quota
-
+	qi.BlockCount += 1
+	qi.Quota += quota
 }
 
-func (ql *quotaList) subUsed(addr *types.Address, blockCount, quota uint64) {
-	usedItem := ql.used[*addr]
-	if usedItem == nil {
+func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, blockCount, quota uint64) {
+	qi := quotaInfoMap[addr]
+	if qi == nil {
 		return
 	}
-	usedItem.BlockCount -= blockCount
-	if usedItem.BlockCount <= 0 {
-		delete(ql.used, *addr)
+	if qi.BlockCount <= blockCount {
+		delete(quotaInfoMap, addr)
+	} else {
+		qi.BlockCount -= blockCount
+		qi.Quota -= quota
 		return
 	}
-	usedItem.Quota -= quota
+
 }
 
 func (ql *quotaList) calculateUsed() {
-	used := make(map[types.Address]*item)
+	used := make(map[types.Address]*quotaInfo)
 
 	pointer := ql.usedStart
 	for pointer != nil {
-		tmpUsed := pointer.Value.(map[types.Address]*item)
+		tmpUsed := pointer.Value.(map[types.Address]*quotaInfo)
 		for addr, tmpItem := range tmpUsed {
 			if used[addr] == nil {
-				used[addr] = &item{}
+				used[addr] = &quotaInfo{}
 			}
 
 			used[addr].BlockCount += tmpItem.BlockCount
@@ -291,6 +321,7 @@ func (ql *quotaList) calculateUsed() {
 
 func (ql *quotaList) resetUsedStart() {
 	ql.usedStart = ql.list.Back()
+
 	for i := uint64(1); i < ql.usedAccumulateHeight; i++ {
 		prev := ql.usedStart.Prev()
 		if prev == nil {

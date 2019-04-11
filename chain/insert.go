@@ -15,15 +15,15 @@ import (
  */
 
 //FOR DEBUG
-//var insertNum = 1
+//var eventNum = 1
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	//FOR DEBUG
 	//fmt.Println()
 	//fmt.Println("InsertAccountBlock")
 	//
-	//fmt.Printf("%d.%+v\n", insertNum, vmAccountBlock.AccountBlock)
-	//insertNum += 1
+	//fmt.Printf("%d.%+v\n", eventNum, vmAccountBlock.AccountBlock)
+	//eventNum += 1
 	//fmt.Println("InsertAccountBlock end")
 	//fmt.Println()
 
@@ -42,7 +42,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.Write failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		cErr := errors.New(fmt.Sprintf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
 	}
 
@@ -51,22 +51,19 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	return nil
 }
 
-//FOR DEBUG
-//var insertSnapshotNum = 1
-
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	//FOR DEBUG
 	//fmt.Println()
 	//
 	//fmt.Println("InsertSnapshotBlock")
 	//
-	//fmt.Printf("%d.%+v\n", insertSnapshotNum, snapshotBlock)
-	//for addr, hh := range snapshotBlock.SnapshotContent {
-	//	fmt.Printf("SC: %s %s %d\n", addr, hh.Hash, hh.Height)
+	//fmt.Printf("%d.%+v\n", eventNum, snapshotBlock)
+	//for Addr, hh := range snapshotBlock.SnapshotContent {
+	//	fmt.Printf("SC: %s %s %d\n", Addr, hh.Hash, hh.Height)
 	//	fmt.Println()
 	//}
 	//
-	//insertSnapshotNum += 1
+	//eventNum += 1
 	//fmt.Println("InsertSnapshotBlock end")
 	//fmt.Println()
 
@@ -86,27 +83,24 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	})
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.Write failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	// insert index
-	if err := c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertSnapshotBlock failed. Error: %s", err.Error()))
-		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
-	}
+	c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
 
 	// update latest snapshot block cache
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
 	// insert snapshot blocks
-	c.stateDB.InsertSnapshotBlocks()
+	c.stateDB.InsertSnapshotBlocks(snapshotBlock, canBeSnappedBlocks)
 
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
 
 	if len(invalidBlocks) > 0 {
-		c.deleteAccountBlocks(invalidBlocks)
+		c.deleteAccountBlocks(invalidBlocks, false)
 	}
 
 	c.flusher.Flush(false)

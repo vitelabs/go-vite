@@ -50,12 +50,12 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 		}
 	}
 
-	iDB.store.Write(batch)
+	iDB.store.WriteAccountBlock(batch, accountBlock)
 
 	return nil
 }
 
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) error {
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) {
 
 	batch := iDB.store.NewBatch()
 
@@ -80,6 +80,6 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	// latest on road id
 	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
 
-	iDB.store.Write(batch)
-	return nil
+	// write snapshot
+	iDB.store.WriteSnapshot(batch, confirmedBlocks)
 }

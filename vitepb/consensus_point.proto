@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package vitepb;
 
+message PointVoteContent {
+    bytes voteCnt = 1;
+    string name = 2;
+}
+
 
 message PointContent {
     bytes address = 1;
@@ -14,6 +19,9 @@ message ConsensusPoint {
     bytes hash  = 2;
 
     repeated PointContent contents  = 7;
+
+    repeated PointVoteContent votes = 8;
 }
+
 
 

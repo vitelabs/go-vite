@@ -18,11 +18,11 @@ type Chain interface {
 }
 
 type Plugin interface {
-	InsertAccountBlocks([]*ledger.AccountBlock) error
+	InsertAccountBlock(*leveldb.Batch, *ledger.AccountBlock) error
 
-	InsertSnapshotBlocks([]*ledger.SnapshotBlock) error
+	InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock, []*ledger.AccountBlock) error
 
-	DeleteChunks([]*ledger.SnapshotChunk) error
+	DeleteChunks(*leveldb.Batch, []*ledger.SnapshotChunk) error
 
 	GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error)
 }

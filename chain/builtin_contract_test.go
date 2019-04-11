@@ -58,21 +58,21 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 
 		prevSnapshotBlock := snapshotBlockList[index-1]
 		for _, account := range accounts {
-			sd, err := chainInstance.stateDB.NewStorageDatabase(snapshotBlock.Hash, account.addr)
+			sd, err := chainInstance.stateDB.NewStorageDatabase(snapshotBlock.Hash, account.Addr)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if *sd.Address() != account.addr {
+			if *sd.Address() != account.Addr {
 				t.Fatal("error")
 			}
 
-			prevSd, err := chainInstance.stateDB.NewStorageDatabase(prevSnapshotBlock.Hash, account.addr)
+			prevSd, err := chainInstance.stateDB.NewStorageDatabase(prevSnapshotBlock.Hash, account.Addr)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if *prevSd.Address() != account.addr {
+			if *prevSd.Address() != account.Addr {
 				t.Fatal("error")
 			}
 
@@ -112,7 +112,7 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 			})
 
 			if err != nil {
-				t.Fatal(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.addr, snapshotBlock, err.Error()))
+				t.Fatal(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.Addr, snapshotBlock, err.Error()))
 			}
 
 			for key, value := range kv {
@@ -121,8 +121,8 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 					t.Fatal("error")
 				}
 				if !bytes.Equal(value, queryValue) {
-					t.Fatal(fmt.Sprintf("addr: %s, snapshot block: %+v, key: %s, kv: %+v, value: %d, query value: %d",
-						account.addr, snapshotBlock, key, kv, value, queryValue))
+					t.Fatal(fmt.Sprintf("Addr: %s, snapshot block: %+v, key: %s, kv: %+v, value: %d, query value: %d",
+						account.Addr, snapshotBlock, key, kv, value, queryValue))
 				}
 
 			}

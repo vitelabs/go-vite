@@ -88,14 +88,19 @@ func (self *algo) FilterVotes(context *VoteAlgoContext) []*Vote {
 	// top N sbps
 	context.sbps = mergeGroup(groupA, groupB)
 
+	if len(groupB) == 0 {
+		sort.Sort(ByBalance(groupA))
+		return groupA
+	}
+
 	successRates := context.successRate
 
 	if successRates != nil {
 		groupA, groupB = self.filterBySuccessRate(groupA, groupB, hashH, successRates)
 	}
-
 	votes = self.filterRandV2(groupA, groupB, hashH, context.seeds)
 
+	sort.Sort(ByBalance(votes))
 	return votes
 }
 
@@ -162,22 +167,17 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight, seedInfo *
 }
 
 func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight, seedInfo *SeedInfo) []*Vote {
+	if len(groupB) == 0 {
+		return groupA
+	}
 	var result []*Vote
 	total := int(self.info.NodeCount)
 	sort.Sort(ByBalance(groupA))
 	sort.Sort(ByBalance(groupB))
 
-	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
 	length := len(groupA) + len(groupB)
-	if len(groupB) == 0 {
-		random1 := rand.New(rand.NewSource(seed))
-		arr := random1.Perm(int(length))
-		for _, v := range arr {
-			result = append(result, groupA[v])
-		}
-		return result
-	}
 
+	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
 	randCnt := self.calRandCnt(total, int(self.info.RandCount))
 	topTotal := total - randCnt
 

@@ -13,9 +13,12 @@ import (
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/chain/sync_cache"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_db"
 	"os"
 	"path"
 	"sync/atomic"
@@ -27,7 +30,12 @@ const (
 )
 
 type chain struct {
-	cfg       *config.Genesis
+	genesisCfg *config.Genesis
+
+	genesisSnapshotBlock    *ledger.SnapshotBlock
+	genesisAccountBlocks    []*vm_db.VmAccountBlock
+	genesisAccountBlockHash map[types.Hash]struct{}
+
 	dataDir   string
 	chainDir  string
 	consensus Consensus
@@ -57,19 +65,25 @@ type chain struct {
  * Init chain config
  */
 func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
-	return &chain{
-		cfg:      genesisCfg,
-		dataDir:  dir,
-		chainDir: path.Join(dir, "ledger"),
-		log:      log15.New("module", "chain"),
-		em:       newEventManager(),
+	c := &chain{
+		genesisCfg: genesisCfg,
+		dataDir:    dir,
+		chainDir:   path.Join(dir, "ledger"),
+		log:        log15.New("module", "chain"),
+		em:         newEventManager(),
 	}
+
+	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
+	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
+	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
+
+	return c
 }
 
 /*
  * 1. Check and init ledger (check genesis block)
  * 2. Init index database
- * 3. Init state_bak database
+ * 3. Init state database
  * 4. Init block database
  * 5. Init cache
  */
@@ -113,7 +127,7 @@ func (c *chain) Init() error {
 		}
 
 		// check ledger
-		status, err := chain_genesis.CheckLedger(c, c.cfg)
+		status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
 
@@ -133,7 +147,7 @@ func (c *chain) Init() error {
 
 			if status == chain_genesis.LedgerEmpty {
 				// Init Ledger
-				if err = chain_genesis.InitLedger(c, c.cfg); err != nil {
+				if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
 					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 					c.log.Error(cErr.Error(), "method", "Init")
 					return err

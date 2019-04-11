@@ -445,7 +445,9 @@ func (e ForkChainError) Error() string {
 func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 	if self.current.id() == c.id() {
 		// todo remove
-		self.log.Info(fmt.Sprintf("insert to current:[%s-%d]%s", wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+		self.log.Info(fmt.Sprintf("insert to current[%s]:[%s-%d]%s", c.id(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+	} else {
+		self.log.Info(fmt.Sprintf("insert to chain[%s]:[%s-%d]%s", c.id(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
 	}
 	if wrapper.Height() == c.headHeight+1 {
 		if c.headHash == wrapper.PrevHash() {
@@ -633,8 +635,11 @@ func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader)
 	head := ancestor.Head()
 	ancestorBlock := c.getBlock(head.Height(), true)
 	if ancestorBlock == nil {
-		head := c.Head()
-		return errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d]", head.Hash(), head.Height())
+		chead := c.Head()
+		err := errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d], chead:[%s][%d][%d]", head.Hash(), head.Height(), chead.Hash(), chead.Height(), c.headHeight)
+		// todo
+		panic(err)
+		return err
 	}
 	if ancestorBlock.Hash() != head.Hash() {
 		return errors.Errorf("check ancestor fail, ancestoreHash:[%s], headHash:[%s]", ancestorBlock.Hash(), head.Hash())

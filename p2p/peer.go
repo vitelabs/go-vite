@@ -355,21 +355,24 @@ func (p *peerMux) onRemoved() {
 
 func (p *peerMux) Info() PeerInfo {
 	state := make(protocolStateMap, len(p.protoMap))
+	pts := make([]string, 0, len(p.protoMap))
 
 	for pid, pt := range p.protoMap {
 		state[pid] = protocolState{
 			Name:  pt.Name(),
 			State: pt.state,
 		}
+		pts = append(pts, pt.Name())
 	}
 
 	return PeerInfo{
-		ID:       p.id.String(),
-		Name:     p.name,
-		Version:  p.version,
-		Address:  p.codec.Address().String(),
-		Level:    p.level,
-		CreateAt: p.createAt.Format("2006-01-02 15:04:05"),
-		State:    state,
+		ID:        p.id.String(),
+		Name:      p.name,
+		Version:   p.version,
+		Protocols: pts,
+		Address:   p.codec.Address().String(),
+		Level:     p.level,
+		CreateAt:  p.createAt.Format("2006-01-02 15:04:05"),
+		State:     state,
 	}
 }
