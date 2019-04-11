@@ -26,9 +26,8 @@ type Manager struct {
 	chain    chain.Chain
 	wallet   *wallet.Manager
 
-	contractWorkers       map[types.Gid]*ContractWorker
-	newContractListener   map[types.Gid]func(address types.Address)
-	contractListenerMutex sync.RWMutex
+	contractWorkers     map[types.Gid]*ContractWorker
+	newContractListener sync.Map //map[types.Gid]func(address types.Address)
 
 	unlockLid   int
 	netStateLid int
@@ -40,13 +39,12 @@ type Manager struct {
 
 func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		pool:                pool,
-		net:                 net,
-		producer:            producer,
-		wallet:              wallet,
-		contractWorkers:     make(map[types.Gid]*ContractWorker),
-		newContractListener: make(map[types.Gid]func(address types.Address)),
-		log:                 slog.New("w", "manager"),
+		pool:            pool,
+		net:             net,
+		producer:        producer,
+		wallet:          wallet,
+		contractWorkers: make(map[types.Gid]*ContractWorker),
+		log:             slog.New("w", "manager"),
 	}
 	return m
 }
@@ -60,7 +58,6 @@ func (manager *Manager) Start() {
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
-	// fixme
 	manager.Chain().Register(manager)
 }
 

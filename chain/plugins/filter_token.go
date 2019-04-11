@@ -2,6 +2,7 @@ package chain_plugins
 
 import (
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -13,6 +14,7 @@ type FilterToken struct {
 func newFilterToken(store *chain_db.Store, chain Chain) Plugin {
 	return &FilterToken{
 		store: store,
+		chain: chain,
 	}
 }
 
@@ -22,15 +24,16 @@ func (ft *FilterToken) InsertAccountBlocks([]*ledger.AccountBlock) error {
 	ft.store.Write(batch)
 	return nil
 }
+
 func (ft *FilterToken) InsertSnapshotBlocks([]*ledger.SnapshotBlock) error {
 	return nil
-
 }
+
 func (ft *FilterToken) DeleteChunks([]*ledger.SnapshotChunk) error {
 	return nil
 }
 
-func (ft *FilterToken) GetBlocks() ([]*ledger.AccountBlock, error) {
+func (ft *FilterToken) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
 	return nil, nil
 }
 

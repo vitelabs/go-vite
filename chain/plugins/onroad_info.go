@@ -2,39 +2,108 @@ package chain_plugins
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
 	"sync"
 )
 
+const (
+	INIT_WORKING = iota
+	INIT_DONE
+)
+
+var oLog = log15.New("plugin", "onroad_info")
+
 type OnRoadInfo struct {
 	chain Chain
 
-	store *chain_db.Store
-	mu    sync.RWMutex
+	store      *chain_db.Store
+	storeMutex sync.RWMutex
+
+	status      int
+	statusMutex sync.RWMutex
 }
 
 func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
-	return &OnRoadInfo{
+	or := &OnRoadInfo{
 		store: store,
 		chain: chain,
 	}
+	if err := or.Clear(); err != nil {
+		oLog.Error("onRoadInfo-plugin Clear fail.", "err", err)
+		return nil
+	}
+	oLog.Info("Start InitAndBuild onRoadInfo-plugin")
+	if err := or.InitAndBuild(); err != nil {
+		oLog.Error("InitAndBuild fail.", "err", err)
+		return nil
+	}
+	oLog.Info("InitAndBuild success.")
+	return or
+}
+
+func (or *OnRoadInfo) Clear() error {
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+
+	iter := or.store.NewIterator(util.BytesPrefix([]byte{OnRoadInfoKeyPrefix}))
+	batch := or.store.NewBatch()
+	for iter.Next() {
+		key := iter.Key()
+		or.deleteMeta(batch, key)
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return err
+	}
+	or.store.Write(batch)
+	iter.Release()
+	return nil
+}
+
+func (or *OnRoadInfo) InitAndBuild() error {
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+
+	latestSnapshot := or.chain.GetLatestSnapshotBlock()
+	if latestSnapshot == nil {
+		return errors.New("GetLatestSnapshotBlock fail.")
+	}
+	chunks, err := or.chain.GetSubLedger(1, latestSnapshot.Height)
+	if err != nil {
+		return err
+	}
+	if len(chunks) <= 0 {
+		return nil
+	}
+	batch := or.store.NewBatch()
+	for _, chunk := range chunks {
+		oLog.Info("handle snapshot", "height", chunk.SnapshotBlock.Height)
+		for _, block := range chunk.AccountBlocks {
+			if err := or.writeOnRoadInfo(batch, block); err != nil {
+				return errors.New("writeOnRoadInfo, err:" + err.Error())
+			}
+		}
+	}
+	or.store.Write(batch)
+	return nil
 }
 
 func (or *OnRoadInfo) InsertAccountBlocks(blocks []*ledger.AccountBlock) error {
-	or.mu.Lock()
-	defer or.mu.Unlock()
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
 
 	batch := or.store.NewBatch()
 	for _, v := range blocks {
 		if err := or.writeOnRoadInfo(batch, v); err != nil {
-			return err
+			return errors.New("writeOnRoadInfo, err:" + err.Error())
 		}
 	}
 	or.store.Write(batch)
@@ -46,14 +115,14 @@ func (or *OnRoadInfo) InsertSnapshotBlocks(blocks []*ledger.SnapshotBlock) error
 }
 
 func (or *OnRoadInfo) DeleteChunks(chunks []*ledger.SnapshotChunk) error {
-	or.mu.Lock()
-	defer or.mu.Unlock()
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
 
 	batch := or.store.NewBatch()
 	for _, chunk := range chunks {
 		for _, block := range chunk.AccountBlocks {
 			if err := or.deleteOnRoadInfo(batch, block); err != nil {
-				return err
+				return errors.New("deleteOnRoadInfo, err:" + err.Error())
 			}
 		}
 	}
@@ -61,15 +130,15 @@ func (or *OnRoadInfo) DeleteChunks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
 
-func (or *OnRoadInfo) GetOnRoadAccountInfo(addr *types.Address) (*ledger.OnRoadAccountInfo, error) {
-	or.mu.RLock()
-	defer or.mu.RUnlock()
+func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
+	or.storeMutex.RLock()
+	defer or.storeMutex.RUnlock()
 
 	omMap, err := or.readOnRoadInfo(addr)
 	if err != nil {
 		return nil, err
 	}
-	onroadInfo := &ledger.OnRoadAccountInfo{
+	onroadInfo := &ledger.AccountInfo{
 		AccountAddress:      *addr,
 		TotalNumber:         0,
 		TokenBalanceInfoMap: make(map[types.TokenTypeId]*ledger.TokenBalanceInfo),
@@ -86,6 +155,7 @@ func (or *OnRoadInfo) GetOnRoadAccountInfo(addr *types.Address) (*ledger.OnRoadA
 }
 
 func (or *OnRoadInfo) writeOnRoadInfo(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	fmt.Printf("block: addr=%v hash=%v height=%v\n", block.AccountAddress, block.Hash, block.Height)
 	if block.IsSendBlock() {
 		key := CreateOnRoadInfoKey(&block.ToAddress, &block.TokenId)
 		om, err := or.getMeta(key)
@@ -95,8 +165,9 @@ func (or *OnRoadInfo) writeOnRoadInfo(batch *leveldb.Batch, block *ledger.Accoun
 		if om != nil {
 			om.TotalAmount.Add(&om.TotalAmount, block.Amount)
 		} else {
+			om = &onroadMeta{}
 			totalAmount := big.NewInt(0)
-			if block.Amount != nil {
+			if block.Amount != nil && block.Amount.Cmp(totalAmount) > 0 {
 				totalAmount.Add(totalAmount, block.Amount)
 			}
 			om.TotalAmount = *totalAmount
@@ -104,13 +175,14 @@ func (or *OnRoadInfo) writeOnRoadInfo(batch *leveldb.Batch, block *ledger.Accoun
 		om.Number++
 		return or.writeMeta(batch, key, om)
 	} else {
-		fromBlock, err := or.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return err
 		}
 		if fromBlock == nil {
 			return errors.New("failed to find onroad by recv")
 		}
+		fmt.Printf("fromBlock: addr=%v hash=%v height=%v\n", fromBlock.AccountAddress, fromBlock.Hash, fromBlock.Height)
 		key := CreateOnRoadInfoKey(&fromBlock.ToAddress, &fromBlock.TokenId)
 		om, err := or.getMeta(key)
 		if err != nil {
@@ -153,7 +225,7 @@ func (or *OnRoadInfo) deleteOnRoadInfo(batch *leveldb.Batch, block *ledger.Accou
 			return or.writeMeta(batch, key, om)
 		}
 	} else {
-		fromBlock, err := or.chain.GetAccountBlockByHash(&block.FromBlockHash)
+		fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return err
 		}
@@ -168,6 +240,7 @@ func (or *OnRoadInfo) deleteOnRoadInfo(batch *leveldb.Batch, block *ledger.Accou
 		if om != nil {
 			om.TotalAmount.Add(&om.TotalAmount, fromBlock.Amount)
 		} else {
+			om = &onroadMeta{}
 			totalAmount := big.NewInt(0)
 			if fromBlock.Amount != nil {
 				totalAmount.Add(totalAmount, fromBlock.Amount)

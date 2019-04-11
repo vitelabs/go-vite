@@ -204,7 +204,6 @@ func (w *ContractWorker) WakeupAllTps() {
 func (w *ContractWorker) pushContractTask(t *contractTask) {
 	w.ctpMutex.Lock()
 	defer w.ctpMutex.Unlock()
-	// be careful duplicates
 	for _, v := range w.contractTaskPQueue {
 		if v.Addr == t.Addr {
 			//w.log.Info(fmt.Sprintf("heap fix, pre-idx=%v, addr=%v, quota=%v\n", v.Index, t.Addr, t.Quota))
@@ -320,15 +319,15 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *le
 		w.selectivePendingCache[*contractAddr] = callerMap
 	}
 	/*	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
-			listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
-			for k, v := range l {
-				listStr += strconv.FormatUint(v.Height, 10)
-				if k < len(l)-1 {
-					listStr += ","
-				}
+		listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
+		for k, v := range l {
+			listStr += strconv.FormatUint(v.Height, 10)
+			if k < len(l)-1 {
+				listStr += ","
 			}
-			w.log.Info("acquireNewOnroadBlocks detail: " + listStr)
-		}*/
+		}
+		w.log.Info("acquireNewOnroadBlocks detail: " + listStr)
+	}*/
 	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
 }
 
