@@ -146,12 +146,18 @@ func (redo *StorageRedo) NextSnapshot(nextSnapshotHeight uint64, confirmedBlocks
 }
 
 func (redo *StorageRedo) HasRedo() bool {
-	return redo.snapshotLogMap[redo.currentSnapshotHeight].hasRedo
+	redo.mu.RLock()
+	defer redo.mu.RUnlock()
+
+	return redo.hasRedo()
 }
 func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte, bool, error) {
+	redo.mu.RLock()
 	if snapshotLog, ok := redo.snapshotLogMap[snapshotHeight]; ok {
+		redo.mu.RUnlock()
 		return snapshotLog.log, snapshotLog.hasRedo, nil
 	}
+	redo.mu.RUnlock()
 
 	logMap := make(map[types.Hash][]byte)
 
@@ -182,7 +188,7 @@ func (redo *StorageRedo) QueryLog(snapshotHeight uint64) (map[types.Hash][]byte,
 func (redo *StorageRedo) AddLog(blockHash types.Hash, log []byte) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
-	if !redo.HasRedo() {
+	if !redo.hasRedo() {
 		return
 	}
 
@@ -194,7 +200,7 @@ func (redo *StorageRedo) RemoveLog(blockHash types.Hash) {
 	redo.mu.Lock()
 	defer redo.mu.Unlock()
 
-	if !redo.HasRedo() {
+	if !redo.hasRedo() {
 		return
 	}
 
@@ -213,4 +219,9 @@ func (redo *StorageRedo) setSnapshot(snapshotHeight uint64, redoLog map[types.Ha
 	}
 
 	redo.currentSnapshotHeight = snapshotHeight
+}
+
+func (redo *StorageRedo) hasRedo() bool {
+	return redo.snapshotLogMap[redo.currentSnapshotHeight].hasRedo
+
 }

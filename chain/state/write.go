@@ -30,6 +30,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		// set history
 		historyKvList = append(historyKvList, [2][]byte{chain_utils.CreateHistoryStorageValueKey(&accountBlock.AccountAddress, kv[0], 0), kv[1]})
+
+		// FOR DEBUG
+		//fmt.Println("write storage key", block.AccountBlock.AccountAddress, block.AccountBlock.Height, sDB.chain.GetLatestSnapshotBlock().Hash, sDB.chain.GetLatestSnapshotBlock().Height, kv[0], kv[1])
 	}
 
 	// write kv redo log

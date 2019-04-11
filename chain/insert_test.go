@@ -168,7 +168,7 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	//})
 }
 
-func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int) []*ledger.SnapshotBlock {
+func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int, testQuery bool) []*ledger.SnapshotBlock {
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
 		addrList = append(addrList, account.Addr)
@@ -197,22 +197,22 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 
 		// snapshot
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			for i := 0; i < 3; i++ {
-				sb, err := InsertSnapshotBlock(chainInstance, false)
-				if err != nil {
-					t.Fatal(err)
-				}
-				for addr, hashHeight := range sb.SnapshotContent {
-					if account, ok := accounts[addr]; ok {
-						account.Snapshot(sb.Hash, hashHeight)
-					}
-				}
-				snapshotBlockList = append(snapshotBlockList, sb)
 
-				// simple test
-				GetLatestAccountBlock(t, chainInstance, accounts)
+			sb, err := InsertSnapshotBlock(chainInstance, false)
+			if err != nil {
+				t.Fatal(err)
 			}
+			for addr, hashHeight := range sb.SnapshotContent {
+				if account, ok := accounts[addr]; ok {
+					account.Snapshot(sb.Hash, hashHeight)
+				}
+			}
+			snapshotBlockList = append(snapshotBlockList, sb)
+		}
 
+		if testQuery {
+			testAccountBlock(t, chainInstance, accounts)
+			testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 		}
 	}
 

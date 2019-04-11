@@ -51,7 +51,7 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 }
 
 func testDeleteMany(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 15000, 3)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 15000, 3, false)...)
 	deleteCount := 3500
 	DeleteSnapshotBlocks(t, chainInstance, accounts, uint64(deleteCount))
 
@@ -67,37 +67,39 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 	insertCount := rand.Intn(100)
 	snapshotPerNum := rand.Intn(5)
 
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, insertCount, snapshotPerNum)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, insertCount, snapshotPerNum, false)...)
 
 	if deleteCount > len(snapshotBlockList) {
 		lackNum := deleteCount - len(snapshotBlockList) + 10
-		snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, lackNum*20, 20)...)
+		snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, lackNum*20, 20, false)...)
 	}
 
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
-	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
+	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	GetStorageIterator(t, chainInstance, accounts)
 
 	DeleteSnapshotBlocks(t, chainInstance, accounts, uint64(deleteCount))
 
 	snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-deleteCount]
 
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	GetStorageIterator(t, chainInstance, accounts)
+
 	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
 	return snapshotBlockList
 }
 
 func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
 
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, rand.Intn(100), 5)...)
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, rand.Intn(100), 5, false)...)
+	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
+	GetStorageIterator(t, chainInstance, accounts)
 
 	DeleteAccountBlocks(t, chainInstance, accounts)
 
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
+	GetStorageIterator(t, chainInstance, accounts)
 
 	return snapshotBlockList
 }
@@ -208,7 +210,6 @@ func deleteMemAccountBlock(accounts map[types.Address]*Account, account *Account
 			deleteSendBlock(sendBlock)
 		}
 
-		fmt.Printf("MOCK DELETE %+v\n", blockToDelete)
 		account.deleteAccountBlock(accounts, blockToDelete.Hash)
 		account.rollbackLatestBlock()
 
