@@ -120,6 +120,14 @@ var (
 		Message: dex.CancelOrderInvalidStatusErr.Error(),
 		Code:    -37010,
 	}
+	ErrDexTradeMarketInvalidQuoteToken = JsonRpc2Error{
+		Message: dex.TradeMarketInvalidQuoteTokenError.Error(),
+		Code:    -37011,
+	}
+	ErrDexTradeMarketInvalidTokenPair = JsonRpc2Error{
+		Message: dex.TradeMarketInvalidTokenPairError.Error(),
+		Code:    -37012,
+	}
 
 	concernedErrorMap map[string]JsonRpc2Error
 )
@@ -152,6 +160,8 @@ func init() {
 	concernedErrorMap[ErrDexGetOrderByIdFailed.Error()] = ErrDexGetOrderByIdFailed
 	concernedErrorMap[ErrDexCancelOrderOwnerInvalid.Error()] = ErrDexCancelOrderOwnerInvalid
 	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
+	concernedErrorMap[ErrDexTradeMarketInvalidQuoteToken.Error()] = ErrDexTradeMarketInvalidQuoteToken
+	concernedErrorMap[ErrDexTradeMarketInvalidTokenPair.Error()] = ErrDexTradeMarketInvalidTokenPair
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

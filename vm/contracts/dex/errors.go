@@ -13,6 +13,8 @@ var (
 
 	TradeMarketExistsError    = errors.New("trade market already exists")
 	TradeMarketNotExistsError = errors.New("trade market not exists")
+	TradeMarketInvalidQuoteTokenError    = errors.New("invalid quote token")
+	TradeMarketInvalidTokenPairError    = errors.New("invalid token pair")
 
 	GetOrderByIdFailedErr = errors.New("failed get order by orderId")
 	CancelOrderOwnerInvalidErr = errors.New("order to cancel not own to initiator")

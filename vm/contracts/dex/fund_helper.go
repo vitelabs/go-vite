@@ -178,6 +178,17 @@ func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundN
 	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
 		return TradeMarketExistsError
 	}
+	if _, ok := QuoteTokenMinAmount[marketParam.QuoteToken]; !ok {
+		return TradeMarketInvalidQuoteTokenError
+	}
+	if marketParam.TradeToken == marketParam.QuoteToken {
+		return TradeMarketInvalidTokenPairError
+	}
+	if marketParam.QuoteToken == bitcoinToken && marketParam.TradeToken == usdtToken ||
+		marketParam.QuoteToken == ethToken && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken) ||
+		marketParam.QuoteToken == ledger.ViteTokenId && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken || marketParam.TradeToken == ethToken) {
+		return TradeMarketInvalidTokenPairError
+	}
 	return nil
 }
 
