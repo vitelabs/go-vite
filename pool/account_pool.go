@@ -605,7 +605,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.\n", block.Hash(), i, len(items)))
+		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.", block.Hash(), i, len(items)))
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
@@ -634,7 +634,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
 		}
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d [latency:%s]success.\n", block.Hash(), i, len(items), block.Latency()))
+		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d [latency:%s]success.", block.Hash(), i, len(items), block.Latency()))
 	}
 	return nil
 }
@@ -675,6 +675,7 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	}
 
 	if ab.Height() > acurr.tailHeight {
+		// account block is in pool.
 		tmp := stack.New()
 		for h := ab.Height(); h > acurr.tailHeight; h-- {
 			currB := self.getCurrentBlock(h)
