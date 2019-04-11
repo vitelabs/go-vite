@@ -18,6 +18,9 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 
 	batch := sDB.store.NewBatch()
 
+	// reset history kv
+	sDB.historyKv = make(map[types.Hash][][2][]byte)
+
 	if err := sDB.rollback(batch, deletedSnapshotSegments, false, false); err != nil {
 		return err
 	}
@@ -166,6 +169,7 @@ func (sDB *StateDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*le
 	}
 
 	// reset storage index
+
 	if hasRedo {
 		if err := sDB.recoverStorage(batch, rollbackStorageKeySet, onlyDeleteAbs); err != nil {
 			return err
@@ -309,11 +313,12 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 					if err != nil {
 						return err
 					}
-				} else {
-
-					batch.Put(chain_utils.CreateHistoryStorageValueKey(&addr, key, latestHeight+1), value)
-
 				}
+
+				// FOR DEBUG
+				//fmt.Println()
+				//fmt.Printf("%s. onlydeleteabs recover latest: %s, %+v", addr, key, value)
+				//fmt.Println()
 
 				if len(value) <= 0 {
 					batch.Delete(chain_utils.CreateStorageValueKey(&addr, key))
@@ -334,19 +339,13 @@ func (sDB *StateDB) recoverStorage(batch *leveldb.Batch, rollbackStorageKeySet m
 					return err
 				}
 
+				// FOR DEBUG
+				//fmt.Println()
+				//fmt.Printf("%s. recover latest: %s, %+v", addr, key, value)
+				//fmt.Println()
 				if len(value) <= 0 {
-					//FOR DEBUG
-					//fmt.Println()
-					//fmt.Printf("%d. %s. delete latest: %s", latestHeight+1, addr, key)
-					//fmt.Println()
-
 					batch.Delete(chain_utils.CreateStorageValueKey(&addr, key))
 				} else {
-
-					// FOR DEBUG
-					//fmt.Println()
-					//fmt.Printf("%d. %s. set latest: %s, %+v", latestHeight+1, addr, key, value)
-					//fmt.Println()
 					batch.Put(chain_utils.CreateStorageValueKey(&addr, key), value)
 				}
 
