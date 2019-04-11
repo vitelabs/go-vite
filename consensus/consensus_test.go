@@ -662,7 +662,7 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 
 func TestChainSnapshot(t *testing.T) {
 	//dir := UnitTestDir
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_bk/devdata"
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
@@ -824,3 +824,9 @@ func TestChainAll(t *testing.T) {
 //
 //	}
 //}
+
+func TestName(t *testing.T) {
+	byt := []byte{63, 197, 34, 78, 89, 67, 59, 255, 79, 72, 200, 60, 14, 180, 237, 234, 14, 76, 66, 234, 105, 126, 4, 205, 236, 113, 125, 3, 229, 13, 82, 0}
+	producer := types.PubkeyToAddress(byt)
+	t.Log(producer)
+}

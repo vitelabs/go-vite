@@ -83,7 +83,7 @@ func (self *consensus) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint6
 		return nil, 0, err
 	}
 
-	voteTime := self.snapshot.GenVoteTime(index)
+	voteTime := self.snapshot.GenProofTime(index)
 	var result []*Event
 	for _, p := range eResult.Plans {
 		e := newConsensusEvent(eResult, p, gid, voteTime)
@@ -238,7 +238,7 @@ func (self *consensus) update(gid types.Gid, t DposReader, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.event(tmpV, tmpResult, t.GenVoteTime(index))
+				self.event(tmpV, tmpResult, t.GenProofTime(index))
 			})
 		}
 
@@ -246,7 +246,7 @@ func (self *consensus) update(gid types.Gid, t DposReader, m *sync.Map) {
 			tmpV := v
 			tmpResult := electionResult
 			common.Go(func() {
-				self.eventProducer(tmpV, tmpResult, t.GenVoteTime(index))
+				self.eventProducer(tmpV, tmpResult, t.GenProofTime(index))
 			})
 		}
 

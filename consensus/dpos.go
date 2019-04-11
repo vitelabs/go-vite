@@ -28,7 +28,7 @@ type DposReader interface {
 	GetInfo() *core.GroupInfo
 	Time2Index(t time.Time) uint64
 	Index2Time(i uint64) (time.Time, time.Time)
-	GenVoteTime(t uint64) time.Time
+	GenProofTime(t uint64) time.Time
 	VerifyProducer(address types.Address, t time.Time) (bool, error)
 }
 

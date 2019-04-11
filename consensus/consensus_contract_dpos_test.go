@@ -94,7 +94,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 
 	cs := newContractDposCs(info, rw, log15.New())
 
-	voteTime := cs.GenVoteTime(0)
+	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
 		Name:           "s1",
