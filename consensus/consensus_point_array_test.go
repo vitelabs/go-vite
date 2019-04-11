@@ -36,7 +36,7 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	fmt.Println(b2.Hash)
 	fmt.Println(b6.Hash)
 
-	mch.EXPECT().IsGenesisSnapshotBlock(gomock.Not(b1.Hash)).Return(false)
+	mch.EXPECT().IsGenesisSnapshotBlock(gomock.Not(b1.Hash)).Return(false).Times(1)
 	var r []*ledger.SnapshotBlock
 	r = append(r, b6)
 	r = append(r, b5)
@@ -124,9 +124,9 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 		}, nil).Times(1)
 	}
 
-	array := newHourLinkedArray(mockPerids, consensusDB, mockProof, time.Now(), log15.New())
+	array := newHourLinkedArray(mockPerids, consensusDB, mockProof, time.Second*75, time.Now(), log15.New())
 
-	stime, etime := array.timeIndex.Index2Time(0)
+	stime, etime := array.TimeIndex.Index2Time(0)
 	mockProof.EXPECT().ProofEmpty(stime, etime).Return(false, nil).Times(1)
 	mockProof.EXPECT().ProofHash(etime).Return(hashArr[num], nil).Times(2)
 

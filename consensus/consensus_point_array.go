@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus/core"
-
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
@@ -54,9 +52,9 @@ func newDayLinkedArray(hour LinkedArray,
 	return dayArr
 }
 
-func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, info *core.GroupInfo, genesisTime time.Time, log log15.Logger) *linkedArray {
+func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, intervalSec time.Duration, genesisTime time.Time, log log15.Logger) *linkedArray {
 	hourArr := &linkedArray{}
-	hourArr.rate = uint64(time.Hour / (time.Duration(info.PlanInterval) * time.Second))
+	hourArr.rate = uint64(time.Hour / intervalSec)
 	hourArr.prefix = consensus_db.INDEX_Point_HOUR
 	hourArr.lowerArr = period
 	hourArr.db = db
@@ -282,10 +280,6 @@ func (self *periodLinkedArray) set(index uint64, block *consensus_db.Point) erro
 
 func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
 	stime, etime := self.snapshot.Index2Time(index)
-
-	if self.rw.IsGenesisSnapshotBlock(proofHash) {
-		return consensus_db.NewEmptyPoint(), nil
-	}
 
 	block, err := self.rw.GetSnapshotBlockByHash(proofHash)
 	if err != nil {

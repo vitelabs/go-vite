@@ -90,7 +90,7 @@ func (self *chainRw) initArray(cs *snapshotCs) {
 	}
 	proof := newRollbackProof(self.rw)
 	self.periodPoints = newPeriodPointArray(self.rw, cs, proof, self.log)
-	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, proof, cs.GetInfo(), self.genesisTime, self.log)
+	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, proof, time.Duration(cs.GetInfo().PlanInterval)*time.Second, self.genesisTime, self.log)
 	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, proof, cs.dayVoteStat, self.genesisTime, self.log)
 }
 
