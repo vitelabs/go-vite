@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/core"
+
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,48 +14,66 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type TimeIndex struct {
+type TimeIndex interface {
+	Index2Time(index uint64) (time.Time, time.Time)
+	Time2Index(t time.Time) uint64
+}
+
+type timeIndex struct {
 	GenesisTime time.Time
 	// second
 	Interval time.Duration
 }
 
-func (self *TimeIndex) Index2Time(index uint64) (time.Time, time.Time) {
+func (self timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
 	sTime := self.GenesisTime.Add(self.Interval * time.Duration(index))
 	eTime := self.GenesisTime.Add(self.Interval * time.Duration(index+1))
 	return sTime, eTime
 }
+func (self timeIndex) Time2Index(t time.Time) uint64 {
+	subSec := int64(t.Sub(self.GenesisTime).Seconds())
+	i := uint64(subSec) / uint64(self.Interval.Seconds())
+	return i
+}
 
-func newDayLinkedArray(hour LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, genesisTime time.Time, log log15.Logger) *linkedArray {
+func newDayLinkedArray(hour LinkedArray,
+	db *consensus_db.ConsensusDB,
+	proof RollbackProof,
+	fn func(b byte, u uint64, hashes types.Hash) (*consensus_db.VoteContent, error),
+	genesisTime time.Time,
+	log log15.Logger) *linkedArray {
 	dayArr := &linkedArray{}
-	dayArr.rate = DAY_TO_HOUR
+	dayArr.rate = 24 // 24 hour in day
 	dayArr.prefix = consensus_db.INDEX_Point_DAY
 	dayArr.lowerArr = hour
 	dayArr.db = db
 	dayArr.proof = proof
-	dayArr.timeIndex = &TimeIndex{GenesisTime: genesisTime, Interval: time.Duration(DAY_TO_PERIOD*PERIOD_TO_SECS) * time.Second}
+	dayArr.extraDataFn = fn
+	dayArr.TimeIndex = timeIndex{GenesisTime: genesisTime, Interval: time.Hour * 24}
 	dayArr.log = log
 	return dayArr
 }
 
-func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, genesisTime time.Time, log log15.Logger) *linkedArray {
+func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof RollbackProof, info *core.GroupInfo, genesisTime time.Time, log log15.Logger) *linkedArray {
 	hourArr := &linkedArray{}
-	hourArr.rate = HOUR_TO_PERIOD
+	hourArr.rate = uint64(time.Hour / (time.Duration(info.PlanInterval) * time.Second))
 	hourArr.prefix = consensus_db.INDEX_Point_HOUR
 	hourArr.lowerArr = period
 	hourArr.db = db
 	hourArr.proof = proof
-	hourArr.timeIndex = &TimeIndex{GenesisTime: genesisTime, Interval: time.Duration(HOUR_TO_PERIOD*PERIOD_TO_SECS) * time.Second}
+	hourArr.TimeIndex = timeIndex{GenesisTime: genesisTime, Interval: time.Hour}
 	hourArr.log = log
 	return hourArr
 }
 
 type LinkedArray interface {
+	TimeIndex
 	GetByIndex(index uint64) (*consensus_db.Point, error)
 	GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error)
 }
 
 type linkedArray struct {
+	TimeIndex
 	prefix   byte
 	rate     uint64
 	db       *consensus_db.ConsensusDB
@@ -61,16 +81,17 @@ type linkedArray struct {
 
 	proof RollbackProof
 
-	timeIndex *TimeIndex
 	//genesisTime   time.Time
 	//indexInterval time.Duration
+
+	extraDataFn func(b byte, u uint64, hashes types.Hash) (*consensus_db.VoteContent, error)
 
 	log log15.Logger
 }
 
 func (self *linkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
 	//proofTime := self.genesisTime.Add(self.indexInterval * time.Duration(index))
-	_, etime := self.timeIndex.Index2Time(index)
+	_, etime := self.Index2Time(index)
 	hash, err := self.proof.ProofHash(etime)
 	if err != nil {
 		return nil, err
@@ -116,7 +137,7 @@ func (self *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types
 	}
 	if point == nil {
 		// proof for empty
-		emptyProofResult, err := self.proof.ProofEmpty(self.timeIndex.Index2Time(index))
+		emptyProofResult, err := self.proof.ProofEmpty(self.Index2Time(index))
 		if err != nil {
 			return nil, exists, err
 		}
@@ -145,7 +166,6 @@ func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash t
 			return nil, err
 		}
 		if p.IsEmpty() {
-
 			continue
 		}
 		tmpProofHash = p.PrevHash
@@ -153,13 +173,17 @@ func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash t
 			return nil, err
 		}
 	}
+	if !result.IsEmpty() && self.extraDataFn != nil {
+		voteContent, err := self.extraDataFn(self.prefix, index, proofHash)
+		if err != nil {
+			return nil, err
+		}
+		if voteContent != nil {
+			result.Votes = voteContent
+		}
+	}
 	return result, nil
 }
-
-var PERIOD_TO_SECS = uint64(75)
-var HOUR_TO_PERIOD = uint64(48)
-var DAY_TO_HOUR = uint64(24)
-var DAY_TO_PERIOD = uint64(24 * 48)
 
 //// hour = 48 * period
 //type hourPoint struct {
@@ -172,13 +196,13 @@ type SBPInfo struct {
 }
 
 type periodLinkedArray struct {
+	TimeIndex
 	//periods map[uint64]*periodPoint
-	periods   *lru.Cache
-	rw        Chain
-	snapshot  DposReader
-	timeIndex *TimeIndex
-	proof     RollbackProof
-	log       log15.Logger
+	periods  *lru.Cache
+	rw       Chain
+	snapshot DposReader
+	proof    RollbackProof
+	log      log15.Logger
 }
 
 func newPeriodPointArray(rw Chain, cs DposReader, proof RollbackProof, log log15.Logger) *periodLinkedArray {
@@ -186,13 +210,16 @@ func newPeriodPointArray(rw Chain, cs DposReader, proof RollbackProof, log log15
 	if err != nil {
 		panic(err)
 	}
-	index := &TimeIndex{}
+	index := timeIndex{}
 	index.GenesisTime = cs.GetInfo().GenesisTime
 	index.Interval = time.Second * time.Duration(cs.GetInfo().PlanInterval)
-	return &periodLinkedArray{rw: rw, periods: cache, snapshot: cs, log: log, timeIndex: index, proof: proof}
+	return &periodLinkedArray{TimeIndex: index, rw: rw, periods: cache, snapshot: cs, log: log, proof: proof}
 }
 
 func (self *periodLinkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error) {
+	if self.rw.IsGenesisSnapshotBlock(proofHash) {
+		return consensus_db.NewEmptyPoint(), nil
+	}
 	point, err := self.getByIndexWithProofFromDb(index, proofHash)
 	if err != nil {
 		return nil, err
@@ -221,7 +248,7 @@ func (self *periodLinkedArray) getByIndexWithProofFromDb(index uint64, proofHash
 	// get point info from db
 	value, ok := self.periods.Get(index)
 	if !ok || value == nil {
-		proofEmptyResult, err := self.proof.ProofEmpty(self.timeIndex.Index2Time(index))
+		proofEmptyResult, err := self.proof.ProofEmpty(self.Index2Time(index))
 		if err != nil {
 			return nil, err
 		}
@@ -239,7 +266,7 @@ func (self *periodLinkedArray) getByIndexWithProofFromDb(index uint64, proofHash
 }
 
 func (self *periodLinkedArray) GetByIndex(index uint64) (*consensus_db.Point, error) {
-	_, etime := self.timeIndex.Index2Time(index)
+	_, etime := self.Index2Time(index)
 
 	proofHash, err := self.proof.ProofHash(etime)
 	if err != nil {

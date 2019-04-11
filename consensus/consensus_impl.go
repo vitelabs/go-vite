@@ -125,8 +125,7 @@ func (self *consensus) Init() error {
 
 	snapshot := newSnapshotCs(self.rw, self.mLog)
 	self.snapshot = snapshot
-	//self.snapshot = snapshot
-	self.rw.initArray(self.snapshot)
+	self.rw.initArray(snapshot)
 
 	self.contracts = newContractCs(self.rw, self.mLog)
 	err := self.contracts.LoadGid(types.DELEGATE_GID)
@@ -163,12 +162,14 @@ func (self *consensus) Start() {
 		defer self.wg.Done()
 		self.update(types.DELEGATE_GID, reader, contractSubs.(*sync.Map))
 	})
+
+	self.rw.Start()
 }
 
 func (self *consensus) Stop() {
 	self.PreStop()
 	defer self.PostStop()
-
+	self.rw.Stop()
 	close(self.closed)
 	self.wg.Wait()
 }

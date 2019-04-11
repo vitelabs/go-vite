@@ -2,7 +2,11 @@ package consensus
 
 import (
 	"fmt"
+	"math/big"
+	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/consensus/db"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -21,8 +25,98 @@ type snapshotCs struct {
 }
 
 func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error) {
-	// todo
-	return nil, nil
+	// get points from linked array
+	points := make(map[uint64]*consensus_db.Point)
+
+	var proofHash *types.Hash
+	for i := endIndex - 1; i >= startIndex; i-- {
+
+		var point *consensus_db.Point
+		if proofHash == nil {
+			tmp, err := self.rw.dayPoints.GetByIndex(endIndex)
+			if err != nil {
+				return nil, err
+			}
+			point = tmp
+		} else {
+			tmp, err := self.rw.dayPoints.GetByIndexWithProof(endIndex, *proofHash)
+			if err != nil {
+				return nil, err
+			}
+			point = tmp
+		}
+
+		if point.IsEmpty() {
+			continue
+		}
+		points[i] = point
+		proofHash = &point.PrevHash
+	}
+
+	if len(points) == 0 {
+		return nil, nil
+	}
+	var result []*DayStats
+
+	// get register map for address->name
+	registerMap := make(map[types.Address]string)
+	lastHash := self.rw.GetLatestSnapshotBlock().Hash
+	registers, err := self.rw.rw.GetRegisterList(lastHash, types.SNAPSHOT_GID)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range registers {
+		for _, vv := range v.HisAddrList {
+			registerMap[vv] = v.Name
+		}
+	}
+	// convert Points to DayStats
+	for i := startIndex; i <= endIndex; i++ {
+		p := points[i]
+		if p == nil || p.IsEmpty() {
+			continue
+		}
+		if p.Votes == nil {
+			continue
+		}
+		stats := &DayStats{stats: make(map[string]*SbpStats), Index: i, VoteSum: p.Votes.Total}
+
+		for k, v := range p.Votes.Details {
+			stats.stats[k] = &SbpStats{Index: i, VoteCnt: v, Name: k}
+		}
+
+		for k, v := range p.Sbps {
+			name := registerMap[k]
+			if sbp, ok := stats.stats[name]; ok {
+				// just vote
+				sbp.BlockNum += uint64(v.FactualNum)
+				sbp.ExceptedBlockNum += uint64(v.ExpectedNum)
+			}
+		}
+		result = append(result, stats)
+	}
+	return result, nil
+}
+
+func (self *snapshotCs) dayVoteStat(b byte, index uint64, proofHash types.Hash) (*consensus_db.VoteContent, error) {
+	votes, err := core.CalVotes(self.info, proofHash, self.rw.rw)
+	if err != nil {
+		return nil, err
+	}
+	sort.Sort(core.ByBalance(votes))
+
+	total := big.NewInt(0)
+
+	details := make(map[string]*big.Int)
+	for k, v := range votes {
+		if k > int(self.info.RandRank) {
+			break
+		}
+		details[v.Name] = v.Balance
+		total.Add(total, v.Balance)
+	}
+	result := &consensus_db.VoteContent{Details: details, Total: total}
+	return result, nil
 }
 
 func newSnapshotCs(rw *chainRw, log log15.Logger) *snapshotCs {

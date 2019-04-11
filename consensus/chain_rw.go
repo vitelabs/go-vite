@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/chain"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
@@ -19,6 +22,12 @@ import (
 type Chain interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+
+	/*
+	*	Event Manager
+	 */
+	Register(listener chain.EventListener)
+	UnRegister(listener chain.EventListener)
 
 	// todo
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
@@ -49,6 +58,9 @@ type chainRw struct {
 	dbCache  *consensus_db.ConsensusDB
 	lruCache *lru.Cache
 
+	started chan struct{}
+	wg      sync.WaitGroup
+
 	log log15.Logger
 }
 
@@ -72,14 +84,53 @@ func newChainRw(rw Chain, log log15.Logger) *chainRw {
 
 }
 
-func (self *chainRw) initArray(cs DposReader) {
+func (self *chainRw) initArray(cs *snapshotCs) {
 	if cs == nil {
 		panic("snapshot cs is nil.")
 	}
 	proof := newRollbackProof(self.rw)
 	self.periodPoints = newPeriodPointArray(self.rw, cs, proof, self.log)
-	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, proof, self.genesisTime, self.log)
-	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, proof, self.genesisTime, self.log)
+	self.hourPoints = newHourLinkedArray(self.periodPoints, self.dbCache, proof, cs.GetInfo(), self.genesisTime, self.log)
+	self.dayPoints = newDayLinkedArray(self.hourPoints, self.dbCache, proof, cs.dayVoteStat, self.genesisTime, self.log)
+}
+
+func (self *chainRw) Start() error {
+	self.started = make(chan struct{})
+
+	// todo register chain
+	go func() {
+		self.wg.Add(1)
+		defer self.wg.Done()
+		startedCh := self.started
+		ticker := time.NewTicker(time.Second * 30)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				block := self.GetLatestSnapshotBlock()
+				t := block.Timestamp
+
+				index := self.dayPoints.Time2Index(*t)
+				point, err := self.dayPoints.GetByIndex(index)
+				if err != nil {
+					self.log.Error("can't get day info by index", "index", index, "time", t)
+				} else {
+					self.log.Info("get day by info index", "index", index, "time", t, "point", point.Json())
+				}
+			case <-startedCh:
+				return
+			}
+		}
+	}()
+	return nil
+
+}
+
+func (self *chainRw) Stop() error {
+	// todo register chain
+	close(self.started)
+	self.wg.Wait()
+	return nil
 }
 
 type VoteDetails struct {
@@ -120,8 +171,8 @@ func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock) uint64
 	return self.rw.GetRandomSeed(lastBlock.Hash, 25)
 }
 
-func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
-	return core.CalVotes(info, block, self.rw)
+func (self *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
+	return core.CalVotes(info, hashH.Hash, self.rw)
 }
 
 func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
@@ -313,50 +364,6 @@ func (self *chainRw) updateContractVoteCache(hashes types.Hash, addrArr []types.
 		self.lruCache.Add(hashes, addrArr)
 	}
 }
-
-// a day = 23 * hour + LatestHour
-//func (self *chainRw) GetSuccessRateByDay(index uint64) (map[types.Address]*big.Int, error) {
-//	dayInfos := NewSBPInfos()
-//	startIndex := uint64(0)
-//	endIndex := index
-//	if day <= index {
-//		startIndex = index - (day - 1)
-//	}
-//	// [startIndex, endIndex]
-//	points := self.genPoints(startIndex, endIndex)
-//
-//	for _, p := range points {
-//		switch p.(type) {
-//		case *dayPoint:
-//			break
-//		case *hourPoint:
-//			height, err := self.hourPoints.GetByHeight(p.Height())
-//			if err != nil {
-//				return nil, err
-//			}
-//			infos := height.(*hourPoint).GetSBPInfos()
-//			for k, v := range infos {
-//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
-//			}
-//		case *periodPoint:
-//			height, err := self.periodPoints.GetByHeight(p.Height())
-//			if err != nil {
-//				return nil, err
-//			}
-//			infos := height.(*periodPoint).GetSBPInfos()
-//			for k, v := range infos {
-//				dayInfos.Get(k).AddNum(v.ExpectedNum, v.FactualNum)
-//			}
-//		}
-//	}
-//	// todo
-//	return nil, nil
-//}
-//
-//// [startIndex, endIndex]
-//func (self *chainRw) genPoints(startIndex uint64, endIndex uint64) []Point {
-//	return nil
-//}
 
 const (
 	period = 1

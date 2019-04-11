@@ -28,6 +28,8 @@ func (self *rollbackProof) ProofEmpty(stime time.Time, etime time.Time) (bool, e
 	if block == nil {
 		return false, errors.New("before time[" + etime.String() + "] block not exist")
 	}
+	// todo
+	//fmt.Printf("[%s]\t[%s]\t[%s], height:%d\n", stime, block.Timestamp, etime, block.Height)
 	if block.Timestamp.Before(stime) {
 		return true, nil
 	} else {

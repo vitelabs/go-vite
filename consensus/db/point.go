@@ -1,6 +1,7 @@
 package consensus_db
 
 import (
+	"encoding/json"
 	"math/big"
 
 	"github.com/go-errors/errors"
@@ -12,6 +13,11 @@ import (
 type Content struct {
 	ExpectedNum uint32
 	FactualNum  uint32
+}
+
+type VoteContent struct {
+	Details map[string]*big.Int
+	Total   *big.Int
 }
 
 func (self Content) Copy() *Content {
@@ -42,6 +48,13 @@ type Point struct {
 	PrevHash types.Hash
 	Hash     types.Hash
 	Sbps     map[types.Address]*Content
+
+	Votes *VoteContent
+}
+
+func (self *Point) Json() string {
+	bytes, _ := json.Marshal(self)
+	return string(bytes)
 }
 
 func (self *Point) Marshal() ([]byte, error) {
@@ -58,6 +71,22 @@ func (self *Point) Marshal() ([]byte, error) {
 			c.FNum = v.FactualNum
 
 			pb.Contents[i] = c
+			i++
+		}
+	}
+
+	if self.Votes != nil {
+		pb.Votes = make([]*vitepb.PointVoteContent, len(self.Votes.Details)+1)
+		i := 0
+		c := &vitepb.PointVoteContent{}
+		c.VoteCnt = self.Votes.Total.Bytes()
+		pb.Votes[i] = c
+		i++
+		for k, v := range self.Votes.Details {
+			c := &vitepb.PointVoteContent{}
+			c.Name = k
+			c.VoteCnt = v.Bytes()
+			pb.Votes[i] = c
 			i++
 		}
 	}
@@ -92,6 +121,16 @@ func (self *Point) Unmarshal(buf []byte) error {
 			return err
 		}
 		self.Sbps[addr] = &Content{ExpectedNum: v.ENum, FactualNum: v.FNum}
+	}
+
+	if len(pb.Votes) > 0 {
+		self.Votes = &VoteContent{Details: make(map[string]*big.Int), Total: big.NewInt(0).SetBytes(pb.Votes[0].VoteCnt)}
+		for k, v := range pb.Votes {
+			if k == 0 {
+				continue
+			}
+			self.Votes.Details[v.Name] = big.NewInt(0).SetBytes(v.VoteCnt)
+		}
 	}
 	return nil
 }
