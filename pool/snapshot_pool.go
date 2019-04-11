@@ -26,10 +26,9 @@ type snapshotPool struct {
 	f      *snapshotSyncer
 
 	nextFetchTime        time.Time
-	nextInsertTime       time.Time
 	nextCompactTime      time.Time
 	hashBlacklist        Blacklist
-	newSnapshotBlockCond *common.TimeoutCond
+	newSnapshotBlockCond *common.CondTimer
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
@@ -77,7 +76,7 @@ func newSnapshotPool(
 	f *snapshotSyncer,
 	rw *snapshotCh,
 	hashBlacklist Blacklist,
-	cond *common.TimeoutCond,
+	cond *common.CondTimer,
 	log log15.Logger,
 ) *snapshotPool {
 	pool := &snapshotPool{}
@@ -89,7 +88,6 @@ func newSnapshotPool(
 	pool.log = log.New("snapshotPool", name)
 	now := time.Now()
 	pool.nextFetchTime = now
-	pool.nextInsertTime = now
 	pool.nextCompactTime = now
 	pool.hashBlacklist = hashBlacklist
 	pool.newSnapshotBlockCond = cond
@@ -301,15 +299,7 @@ func (self *snapshotPool) loop() {
 			//	self.nextInsertTime = now.Add(sleep)
 			//	self.loopCheckCurrentInsert()
 			//}
-			n2 := time.Now()
-			s1 := self.nextCompactTime.Sub(n2)
-			s2 := self.nextInsertTime.Sub(n2)
-			if s1 > s2 {
-				self.newSnapshotBlockCond.WaitTimeout(s2)
-			} else {
-				self.newSnapshotBlockCond.WaitTimeout(s1)
-			}
-			monitor.LogTime("pool", "snapshotRealSleep", n2)
+			self.newSnapshotBlockCond.Wait()
 			last = time.Now()
 		}
 	}

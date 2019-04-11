@@ -117,36 +117,13 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	addrM := make(map[types.Address]*stack.Stack)
 	for k, v := range contents {
 		ac := self.selfPendingAc(k)
-		acurr := ac.CurrentChain()
-		ab := acurr.getBlock(v.Height, true)
-		if ab == nil {
-			errorAcc[k] = v
-			pending = true
-			continue
-		}
-		if ab.Hash() != v.Hash {
-			fmt.Printf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
-				b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash())
-			// todo switch account chain
-			errorAcc[k] = v
-			pending = true
-			continue
-		}
+		var tmp *stack.Stack
+		pending, tmp = ac.genForSnapshotContents(p, b, k, v)
 		if pending {
 			continue
 		}
-		if ab.Height() > acurr.tailHeight {
-			tmp := stack.New()
-			for h := ab.Height(); h > acurr.tailHeight; h-- {
-				currB := ac.getCurrentBlock(h)
-				if p.Exists(currB.Hash()) {
-					break
-				}
-				tmp.Push(currB)
-			}
-			if tmp.Len() > 0 {
-				addrM[k] = tmp
-			}
+		if tmp != nil {
+			addrM[k] = tmp
 		}
 	}
 

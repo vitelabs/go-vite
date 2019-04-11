@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -246,6 +247,7 @@ func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) 
 		err = self.CurrentModifyToChain(targetChain, h)
 		if err != nil {
 			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+			panic(err)
 		}
 		return nil, nil
 	}
@@ -693,7 +695,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
-		fmt.Printf("try to insert account block[%s]%d-%d.\n", block.Hash(), i, len(items))
+		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.\n", block.Hash(), i, len(items)))
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
@@ -745,4 +747,35 @@ func (self *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
 		}
 	}
 	return nil
+}
+func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock, k types.Address, v *ledger.HashHeight) (bool, *stack.Stack) {
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
+	acurr := self.CurrentChain()
+	ab := acurr.getBlock(v.Height, true)
+	if ab == nil {
+		return true, nil
+	}
+	if ab.Hash() != v.Hash {
+		fmt.Printf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
+			b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash())
+		// todo switch account chain
+
+		return true, nil
+	}
+
+	if ab.Height() > acurr.tailHeight {
+		tmp := stack.New()
+		for h := ab.Height(); h > acurr.tailHeight; h-- {
+			currB := self.getCurrentBlock(h)
+			if p.Exists(currB.Hash()) {
+				break
+			}
+			tmp.Push(currB)
+		}
+		if tmp.Len() > 0 {
+			return false, tmp
+		}
+	}
+	return false, nil
 }

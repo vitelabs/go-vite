@@ -129,8 +129,8 @@ type pool struct {
 	accountSubId  int
 	snapshotSubId int
 
-	newAccBlockCond      *common.TimeoutCond
-	newSnapshotBlockCond *common.TimeoutCond
+	newAccBlockCond      *common.CondTimer
+	newSnapshotBlockCond *common.CondTimer
 
 	rwMutex sync.RWMutex
 	version *ForkVersion
@@ -204,8 +204,8 @@ func NewPool(bc chainDb) (*pool, error) {
 	self.addrCache = cache
 
 	self.hashBlacklist, err = NewBlacklist()
-	self.newAccBlockCond = common.NewTimeoutCond()
-	self.newSnapshotBlockCond = common.NewTimeoutCond()
+	self.newAccBlockCond = common.NewCondTimer()
+	self.newSnapshotBlockCond = common.NewCondTimer()
 	if err != nil {
 		return nil, err
 	}
@@ -314,6 +314,8 @@ func (self *pool) Start() {
 	//for i := 0; i < ACCOUNT_PARALLEL; i++ {
 	//	common.Go(self.loopTryInsert)
 	//}
+	self.newSnapshotBlockCond.Start(time.Millisecond * 30)
+	self.newAccBlockCond.Start(time.Millisecond * 40)
 	common.Go(self.loopCompact)
 	common.Go(self.loopBroadcastAndDel)
 	common.Go(self.loopQueue)
@@ -328,6 +330,8 @@ func (self *pool) Stop() {
 
 	self.pendingSc.Stop()
 	close(self.closed)
+	self.newAccBlockCond.Stop()
+	self.newSnapshotBlockCond.Stop()
 	self.wg.Wait()
 }
 func (self *pool) Restart() {
@@ -658,7 +662,7 @@ func (self *pool) loopCompact() {
 			return
 		default:
 			if sum == 0 {
-				self.newAccBlockCond.WaitTimeout(30 * time.Millisecond)
+				self.newAccBlockCond.Wait()
 			}
 			sum = 0
 			sum += self.accountsCompact()
@@ -988,7 +992,7 @@ func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types
 	}
 	if len(accounts) > 0 {
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccounts(accounts)
+		self.forkAccountsFor(accounts, snapshot)
 	}
 }
 
@@ -1007,7 +1011,7 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 
 }
 
-func (self *pool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
+func (self *pool) forkAccountsFor(accounts map[types.Address]*ledger.HashHeight, snapshot *ledger.HashHeight) {
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
 		err := self.ForkAccountTo(k, v)
@@ -1015,7 +1019,7 @@ func (self *pool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
 			self.log.Error("forkaccountTo err", "err", err)
 			time.Sleep(time.Second)
 			// todo
-			self.log.Crit("error ")
+			panic(errors.Errorf("snapshot:%s-%d", snapshot.Hash, snapshot.Height))
 		}
 	}
 

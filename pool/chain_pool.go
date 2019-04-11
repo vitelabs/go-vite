@@ -633,8 +633,11 @@ func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader)
 	head := ancestor.Head()
 	ancestorBlock := c.getBlock(head.Height(), true)
 	if ancestorBlock == nil {
-		head := c.Head()
-		return errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d]", head.Hash(), head.Height())
+		chead := c.Head()
+		err := errors.Errorf("check ancestor fail, ancestunknown message codeorBlock is nil. head:[%s][%d], chead:[%s][%d]", head.Hash(), head.Height(), chead.Hash(), chead.Height())
+		// todo
+		panic(err)
+		return err
 	}
 	if ancestorBlock.Hash() != head.Hash() {
 		return errors.Errorf("check ancestor fail, ancestoreHash:[%s], headHash:[%s]", ancestorBlock.Hash(), head.Hash())

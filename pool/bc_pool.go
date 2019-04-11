@@ -444,11 +444,11 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return nil
 	}
 	cur := self.chainpool.current
-	self.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
-		"currentId", cur.id())
-
 	// from small to big
 	sort.Sort(ByHeight(blocks))
+
+	self.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
+		"currentId", cur.id())
 
 	head := self.chainpool.diskChain.Head()
 
