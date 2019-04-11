@@ -7,9 +7,39 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+func (iDB *IndexDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) error {
+	batch := iDB.store.NewBatch()
+	if err := iDB.rollback(batch, []*ledger.SnapshotChunk{{
+		AccountBlocks: accountBlocks,
+	}}); err != nil {
+		return err
+	}
+
+	iDB.store.RollbackAccountBlocks(batch, accountBlocks)
+	return nil
+}
+
+func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	batch := iDB.store.NewBatch()
 
+	if err := iDB.rollback(batch, deletedSnapshotSegments); err != nil {
+		return err
+	}
+
+	iDB.store.RollbackSnapshot(batch)
+	return nil
+}
+
+func (iDB *IndexDB) DeleteOnRoad(sendBlockHash types.Hash) error {
+	batch := iDB.store.NewBatch()
+	if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
+		return err
+	}
+	iDB.store.WriteDirectly(batch)
+	return nil
+}
+
+func (iDB *IndexDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*ledger.SnapshotChunk) error {
 	openSendBlockHashMap := make(map[types.Hash]struct{})
 
 	for _, seg := range deletedSnapshotSegments {
@@ -22,17 +52,6 @@ func (iDB *IndexDB) Rollback(deletedSnapshotSegments []*ledger.SnapshotChunk) er
 	for sendBlockHash := range openSendBlockHashMap {
 		iDB.deleteOnRoad(batch, sendBlockHash)
 	}
-
-	iDB.store.Write(batch)
-	return nil
-}
-
-func (iDB *IndexDB) DeleteOnRoad(sendBlockHash types.Hash) error {
-	batch := iDB.store.NewBatch()
-	if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
-		return err
-	}
-	iDB.store.Write(batch)
 	return nil
 }
 

@@ -30,7 +30,7 @@ func (c *chain) recoverUnconfirmedCache() error {
 	// rollback blockDb
 	chunks, err := c.blockDB.Rollback(nextLocation)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.Rollback failed. Error: %s", err.Error()))
+		cErr := errors.New(fmt.Sprintf("c.blockDB.RollbackAccountBlocks failed. Error: %s", err.Error()))
 		c.log.Error(cErr.Error(), "method", "recoverUnconfirmedCache")
 		return cErr
 	}

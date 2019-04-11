@@ -13,7 +13,7 @@ import (
 
 func TestChain_State(t *testing.T) {
 
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 910, 3)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 2, 910, 3)
 
 	testState(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -110,10 +110,8 @@ func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[ty
 				confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlocks[i].Hash]
 
 				for hash := range confirmedBlockHashMap {
-					block, err := chainInstance.GetAccountBlockByHash(hash)
-					if err != nil {
-						t.Fatal(err)
-					}
+					block := account.BlocksMap[hash]
+
 					if block == nil {
 						t.Fatal(fmt.Sprintf("%s, %s", account.Addr, hash))
 					}
@@ -141,7 +139,7 @@ func GetConfirmedBalanceList(t *testing.T, chainInstance *chain, accounts map[ty
 		}
 		for addr, balance := range queryBalanceMap {
 			if balance.Cmp(balanceMap[addr]) != 0 {
-				t.Fatal(fmt.Sprintf("snapshotBlock %+v, content %+v, Addr: %d, Balance: %d, Balance2: %d", snapshotBlock, snapshotBlock.SnapshotContent, addr.Bytes(), balance, balanceMap[addr]))
+				t.Fatal(fmt.Sprintf("snapshotBlock %+v, content %+v, addr: %s, highBlock: %+v, queryBalance: %d, Balance: %d", snapshotBlock, snapshotBlock.SnapshotContent, addr, highBlock, balance, balanceMap[addr]))
 			}
 		}
 	}

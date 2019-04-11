@@ -31,14 +31,34 @@ func HasOnRoadBlocks(t *testing.T, chainInstance *chain, accounts map[types.Addr
 			t.Fatal(err)
 		}
 
-		if result && len(account.UnreceivedBlocks) <= 0 {
+		if result && len(account.OnRoadBlocks) <= 0 {
 			t.Fatal(fmt.Sprintf("%s", addr))
 		}
 
-		if !result && len(account.UnreceivedBlocks) > 0 {
-			t.Fatal(fmt.Sprintf("%+v\n", account.UnreceivedBlocks))
+		if !result && len(account.OnRoadBlocks) > 0 {
+			t.Fatal(fmt.Sprintf("%+v\n", account.OnRoadBlocks))
 		}
 	}
+}
+
+func TestGetOnRoadBlocks(t *testing.T) {
+	addr, err := types.HexToAddress("vite_ee0f97c3947596401dd4ba952cd77e69c96a7109fe80924db7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chainInstance, err := NewChainInstance("unit_test", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hashList, err := chainInstance.GetOnRoadBlocksHashList(addr, 0, 100)
+
+	fmt.Println(hashList)
+
+	sendHash, err := types.HexToHash("301f17c6ccc1ba9c66c677c52748893aa176514e792cdd5dfa855fc105a31ba4")
+	block, err := chainInstance.GetReceiveAbBySendAb(sendHash)
+	fmt.Println(block, err)
+
 }
 
 func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
@@ -70,16 +90,16 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 
 				hashSet[hash] = struct{}{}
 
-				if _, hasUnReceive := account.UnreceivedBlocks[hash]; !hasUnReceive {
-					t.Fatal(fmt.Sprintf("Hash is %s, hashList is %+v，account.UnreceivedBlocks: %+v", hash, hashList, account.UnreceivedBlocks))
+				if _, hasUnReceive := account.OnRoadBlocks[hash]; !hasUnReceive {
+					t.Fatal(fmt.Sprintf("Hash is %s, hashList is %+v，account.OnRoadBlocks: %+v", hash, hashList, account.OnRoadBlocks))
 
 				}
 			}
 			pageNum++
 		}
 
-		if len(hashSet) != len(account.UnreceivedBlocks) {
-			t.Fatal(fmt.Sprintf("hashSet: %+v \n account.UnreceivedBlocks: %+v", hashSet, account.UnreceivedBlocks))
+		if len(hashSet) != len(account.OnRoadBlocks) {
+			t.Fatal(fmt.Sprintf("hashSet: %+v \n account.OnRoadBlocks: %+v", hashSet, account.OnRoadBlocks))
 		}
 	}
 }

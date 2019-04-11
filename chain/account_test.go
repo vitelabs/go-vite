@@ -99,20 +99,19 @@ type Account struct {
 
 	Code []byte // encode
 
-	UnreceivedBlocks map[types.Hash]*ledger.AccountBlock // encode
-	unreceivedMu     sync.RWMutex
+	OnRoadBlocks map[types.Hash]*ledger.AccountBlock // encode
+	unreceivedMu sync.RWMutex
 
 	BlocksMap         map[types.Hash]*ledger.AccountBlock    // encode
 	SendBlocksMap     map[types.Hash]*ledger.AccountBlock    // encode
 	ReceiveBlocksMap  map[types.Hash]*ledger.AccountBlock    // encode
 	ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{} // encode
+	UnconfirmedBlocks map[types.Hash]struct{}                // encode
 
 	BalanceMap map[types.Hash]*big.Int          // encode
 	KvSetMap   map[types.Hash]map[string][]byte // encode
 
 	LogListMap map[types.Hash]ledger.VmLogList // encode
-
-	UnconfirmedBlocks map[types.Hash]struct{} // encode
 
 	LatestBlock *ledger.AccountBlock // encode
 }
@@ -137,7 +136,7 @@ func NewAccount(chainInstance Chain, pubKey ed25519.PublicKey, privateKey ed2551
 		chainInstance: chainInstance,
 		InitBalance:   big.NewInt(10000000),
 
-		UnreceivedBlocks:  make(map[types.Hash]*ledger.AccountBlock),
+		OnRoadBlocks:      make(map[types.Hash]*ledger.AccountBlock),
 		BlocksMap:         make(map[types.Hash]*ledger.AccountBlock),
 		SendBlocksMap:     make(map[types.Hash]*ledger.AccountBlock),
 		ReceiveBlocksMap:  make(map[types.Hash]*ledger.AccountBlock),
@@ -428,44 +427,64 @@ func (acc *Account) HasOnRoadBlock() bool {
 	acc.unreceivedMu.RLock()
 	defer acc.unreceivedMu.RUnlock()
 
-	return len(acc.UnreceivedBlocks) > 0
+	return len(acc.OnRoadBlocks) > 0
 }
 
 func (acc *Account) AddOnRoadBlock(block *ledger.AccountBlock) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	acc.UnreceivedBlocks[block.Hash] = block
+	//fmt.Println("Mock AddOnRoadBlock", acc.Addr, block.Hash)
+	acc.OnRoadBlocks[block.Hash] = block
 }
 
 func (acc *Account) DeleteOnRoad(blockHash types.Hash) {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	delete(acc.UnreceivedBlocks, blockHash)
+	//fmt.Println("Mock DeleteOnRoad", acc.Addr, blockHash)
+	delete(acc.OnRoadBlocks, blockHash)
 }
 
 func (acc *Account) PopOnRoadBlock() *ledger.AccountBlock {
 	acc.unreceivedMu.Lock()
 	defer acc.unreceivedMu.Unlock()
 
-	if len(acc.UnreceivedBlocks) <= 0 {
+	if len(acc.OnRoadBlocks) <= 0 {
 		return nil
 	}
 
 	var unreceivedBlock *ledger.AccountBlock
-	for hash, block := range acc.UnreceivedBlocks {
+	for _, block := range acc.OnRoadBlocks {
 		unreceivedBlock = block
-		delete(acc.UnreceivedBlocks, hash)
 		break
 	}
+	//fmt.Println("Mock PopOnRoadBlock", acc.Addr, unreceivedBlock.Hash)
+	delete(acc.OnRoadBlocks, unreceivedBlock.Hash)
 
 	return unreceivedBlock
 }
 
-func (acc *Account) Snapshot(snapshotHash types.Hash) {
-	acc.ConfirmedBlockMap[snapshotHash] = acc.UnconfirmedBlocks
-	acc.UnconfirmedBlocks = make(map[types.Hash]struct{})
+func (acc *Account) Snapshot(snapshotHash types.Hash, hashHeight *ledger.HashHeight) {
+	// confirmed
+	confirmedBlocks := make(map[types.Hash]struct{}, len(acc.UnconfirmedBlocks))
+
+	// unconfirmed
+	unconfirmedBlocks := make(map[types.Hash]struct{})
+	for hash := range acc.UnconfirmedBlocks {
+		block := acc.BlocksMap[hash]
+
+		if block.Height <= hashHeight.Height {
+			confirmedBlocks[hash] = struct{}{}
+		} else {
+			unconfirmedBlocks[hash] = struct{}{}
+		}
+	}
+	// set confirmed
+	acc.ConfirmedBlockMap[snapshotHash] = confirmedBlocks
+
+	// set unconfirmed
+	acc.UnconfirmedBlocks = unconfirmedBlocks
 }
 
 func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
@@ -475,6 +494,7 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 		unconfirmedBlockHashList = append(unconfirmedBlockHashList, hash)
 	}
 	for _, hash := range unconfirmedBlockHashList {
+		//fmt.Printf("Mock delete unconfirmedBlockHashList %s %s\n", acc.Addr, hash)
 		acc.deleteAccountBlock(accounts, hash)
 	}
 
@@ -483,7 +503,6 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 		snapshotBlock := snapshotBlocks[i]
 
 		confirmedBlocks := acc.ConfirmedBlockMap[snapshotBlock.Hash]
-
 		if len(confirmedBlocks) <= 0 {
 			continue
 		}
@@ -602,7 +621,11 @@ func (acc *Account) latestHash() types.Hash {
 }
 
 func (acc *Account) addSendBlock(block *ledger.AccountBlock) {
+	if acc.SendBlocksMap == nil {
+		acc.SendBlocksMap = make(map[types.Hash]*ledger.AccountBlock)
+	}
 	acc.SendBlocksMap[block.Hash] = block
+
 	if acc.BlocksMap == nil {
 		acc.BlocksMap = make(map[types.Hash]*ledger.AccountBlock)
 	}

@@ -274,7 +274,7 @@ func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_file_man
 	for currentHeight >= startHeight {
 		block := c.cache.GetAccountBlockByHeight(&addr, currentHeight)
 		if block == nil {
-			if locations[index] == nil {
+			if len(locations) <= index || locations[index] == nil {
 				return nil, nil
 			}
 			var err error

@@ -298,7 +298,7 @@ func GetConfirmedTimes(t *testing.T, chainInstance Chain, accounts map[types.Add
 	}
 }
 
-func GetLatestAccountBlock(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
+func GetLatestAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	for addr, account := range accounts {
 		block, err := chainInstance.GetLatestAccountBlock(addr)
 		if err != nil {

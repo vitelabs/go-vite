@@ -67,24 +67,24 @@ func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, 
 		t.Fatal(err)
 	}
 
-	InsertSnapshotBlock(chainInstance)
+	InsertSnapshotBlock(chainInstance, true)
 
-	accounts := make(map[types.Address]*Account)
-	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
-	for _, accountBlock := range unconfirmedBlocks {
-		if _, ok := accounts[accountBlock.AccountAddress]; !ok {
-			accounts[accountBlock.AccountAddress] = NewAccount(chainInstance, accountBlock.PublicKey, nil)
-		}
-	}
+	accounts := MakeAccounts(chainInstance, accountNum)
+	//unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
+	//for _, accountBlock := range unconfirmedBlocks {
+	//	if _, ok := accounts[accountBlock.AccountAddress]; !ok {
+	//		accounts[accountBlock.AccountAddress] = NewAccount(chainInstance, accountBlock.PublicKey, nil)
+	//	}
+	//}
 
-	if len(accounts) < accountNum {
-		lackNum := accountNum - len(accounts)
-		newAccounts := MakeAccounts(chainInstance, lackNum)
-		for addr, account := range newAccounts {
-			accounts[addr] = account
-		}
-
-	}
+	//if len(accounts) < accountNum {
+	//	lackNum := accountNum - len(accounts)
+	//	newAccounts := MakeAccounts(chainInstance, lackNum)
+	//	for addr, account := range newAccounts {
+	//		accounts[addr] = account
+	//	}
+	//
+	//}
 	var snapshotBlockList []*ledger.SnapshotBlock
 
 	t.Run("InsertBlocks", func(t *testing.T) {

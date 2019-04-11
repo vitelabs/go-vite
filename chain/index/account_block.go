@@ -1,7 +1,6 @@
 package chain_index
 
 import (
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -32,9 +31,6 @@ func (iDB *IndexDB) GetLatestAccountBlock(addr *types.Address) (uint64, *chain_f
 	var location *chain_file_manager.Location
 
 	value := iter.Value()
-
-	hash, err := types.BytesToHash(value[:types.HashSize])
-	fmt.Println(hash, err)
 
 	if len(value) > types.HashSize {
 		location = chain_utils.DeserializeLocation(value[types.HashSize:])
