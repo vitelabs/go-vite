@@ -9,9 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-// TODO
 func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {
-	return false
+	_, ok := c.genesisAccountBlockHash[hash]
+	return ok
 }
 
 func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
