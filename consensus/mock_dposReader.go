@@ -5,11 +5,12 @@
 package consensus
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	types "github.com/vitelabs/go-vite/common/types"
 	core "github.com/vitelabs/go-vite/consensus/core"
-	reflect "reflect"
-	time "time"
 )
 
 // MockDposReader is a mock of DposReader interface
@@ -50,18 +51,18 @@ func (mr *MockDposReaderMockRecorder) ElectionIndex(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ElectionIndex", reflect.TypeOf((*MockDposReader)(nil).ElectionIndex), arg0)
 }
 
-// GenVoteTime mocks base method
+// GenProofTime mocks base method
 func (m *MockDposReader) GenVoteTime(arg0 uint64) time.Time {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenVoteTime", arg0)
+	ret := m.ctrl.Call(m, "GenProofTime", arg0)
 	ret0, _ := ret[0].(time.Time)
 	return ret0
 }
 
-// GenVoteTime indicates an expected call of GenVoteTime
+// GenProofTime indicates an expected call of GenProofTime
 func (mr *MockDposReaderMockRecorder) GenVoteTime(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenVoteTime", reflect.TypeOf((*MockDposReader)(nil).GenVoteTime), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenProofTime", reflect.TypeOf((*MockDposReader)(nil).GenVoteTime), arg0)
 }
 
 // GetInfo mocks base method

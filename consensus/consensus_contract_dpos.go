@@ -42,7 +42,7 @@ func (self *contractDposCs) ElectionIndex(index uint64) (*electionResult, error)
 }
 
 func (self *contractDposCs) electionAddrsIndex(index uint64) ([]types.Address, *ledger.SnapshotBlock, error) {
-	sTime := self.GenVoteTime(index)
+	sTime := self.GenProofTime(index)
 
 	block, e := self.rw.GetSnapshotBeforeTime(sTime)
 	if e != nil {
@@ -88,7 +88,7 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 }
 
 // generate the vote time for account consensus group
-func (self *contractDposCs) GenVoteTime(idx uint64) time.Time {
+func (self *contractDposCs) GenProofTime(idx uint64) time.Time {
 	sTime := self.info.GenSTime(idx)
 	sTime = sTime.Add(-time.Second * 75)
 	// if before genesis'time, just use genesis'time + 1s

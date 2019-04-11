@@ -117,7 +117,7 @@ func (self *reader) voteDetail(index uint64,
 	panic("not supported.")
 
 	// todo
-	//voteTime := self.info.GenVoteTime(index)
+	//voteTime := self.info.GenProofTime(index)
 	//block, err := r.GetSnapshotBlockBeforeTime(&voteTime)
 	//
 	//hashH := ledger.HashHeight{Hash: block.Hash, Height: block.Height}

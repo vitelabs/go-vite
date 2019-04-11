@@ -78,6 +78,7 @@ type DayStats struct {
 }
 type SBPStatReader interface {
 	DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error)
+	GetDayTimeIndex() TimeIndex
 }
 
 type Consensus interface {
@@ -86,6 +87,7 @@ type Consensus interface {
 	Reader
 	Life
 	API() APIReader
+	SBPReader() SBPStatReader
 }
 
 // update committee result
@@ -98,7 +100,7 @@ type consensus struct {
 
 	rw *chainRw
 
-	snapshot  DposReader
+	snapshot  *snapshotCs
 	contracts *contractsCs
 
 	dposWrapper *dposReader
@@ -110,6 +112,10 @@ type consensus struct {
 
 	wg     sync.WaitGroup
 	closed chan struct{}
+}
+
+func (self *consensus) SBPReader() SBPStatReader {
+	return self.snapshot
 }
 
 func (self *consensus) API() APIReader {

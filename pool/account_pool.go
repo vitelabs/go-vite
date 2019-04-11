@@ -84,9 +84,6 @@ func (self *accountPoolBlock) Hash() types.Hash {
 func (self *accountPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
-func (self *accountPoolBlock) Source() types.BlockSource {
-	return self.source
-}
 
 func newAccountPool(name string, rw *accountCh, v *ForkVersion, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}

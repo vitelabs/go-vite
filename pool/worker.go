@@ -74,6 +74,8 @@ func (self *worker) work() {
 		}
 		if sum > 0 {
 			self.p.insert()
+		} else {
+			self.p.compact()
 		}
 		bus.wait.Wait()
 	}

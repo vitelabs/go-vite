@@ -973,9 +973,6 @@ func (self *pool) insertAccountLevel(l Level) error {
 	return nil
 }
 func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
-	self.RLock()
-	defer self.RUnLock()
-
 	accounts := make(map[types.Address]*ledger.HashHeight)
 
 	for k, account := range accs {
@@ -991,7 +988,10 @@ func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types
 			accounts[k] = account
 		}
 	}
+
 	if len(accounts) > 0 {
+		self.Lock()
+		defer self.UnLock()
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
 		self.forkAccountsFor(accounts, snapshot)
 	}

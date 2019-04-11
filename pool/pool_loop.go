@@ -142,6 +142,7 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 		var tmp *stack.Stack
 		pending, tmp = ac.genForSnapshotContents(p, b, k, v)
 		if pending {
+			errorAcc[k] = v
 			continue
 		}
 		if tmp != nil {

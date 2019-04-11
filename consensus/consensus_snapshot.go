@@ -24,6 +24,10 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
+func (self *snapshotCs) GetDayTimeIndex() TimeIndex {
+	return self.rw.dayPoints
+}
+
 func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error) {
 	// get points from linked array
 	points := make(map[uint64]*consensus_db.Point)
@@ -138,18 +142,18 @@ func (self *snapshotCs) ElectionTime(t time.Time) (*electionResult, error) {
 }
 
 func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
-	sTime := self.GenVoteTime(index)
+	proofTime, proofIndex := self.genSnapshotProofTimeIndx(index)
 
-	block, e := self.rw.GetSnapshotBeforeTime(sTime)
+	block, e := self.rw.GetSnapshotBeforeTime(proofTime)
 	if e != nil {
 		self.log.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
 	// todo
-	self.log.Debug(fmt.Sprintf("election index:%d,%s, voteTime:%s", index, block.Hash, sTime))
+	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, block.Hash, proofTime))
 	seeds := self.rw.GetSeedsBeforeHashH(block)
 	seed := core.NewSeedInfo(seeds)
-	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index)
+	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index, proofIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +162,7 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 	return plans, nil
 }
 
-func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, index uint64) ([]types.Address, error) {
+func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, index uint64, proofIndex uint64) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.rw.getSnapshotVoteCache(hashH.Hash)
 	if ok {
@@ -173,8 +177,8 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, i
 
 	var successRate map[types.Address]int32
 
-	if index > 0 {
-		successRate, err = self.rw.GetSuccessRateByHour(index - 1)
+	if proofIndex > 0 {
+		successRate, err = self.rw.GetSuccessRateByHour(proofIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -209,8 +213,16 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, i
 }
 
 // generate the vote time for snapshot consensus group
-func (self *snapshotCs) GenVoteTime(idx uint64) time.Time {
-	return self.info.GenSTime(idx)
+func (self *snapshotCs) GenProofTime(idx uint64) time.Time {
+	t, _ := self.genSnapshotProofTimeIndx(idx)
+	return t
+}
+
+func (self *snapshotCs) genSnapshotProofTimeIndx(idx uint64) (time.Time, uint64) {
+	if idx < 2 {
+		return self.info.GenesisTime.Add(time.Second), 0
+	}
+	return self.info.GenETime(idx - 2), idx - 2
 }
 
 func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {

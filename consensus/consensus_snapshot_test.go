@@ -55,7 +55,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 
 	cs := newSnapshotCs(rw, log15.New())
 
-	voteTime := cs.GenVoteTime(0)
+	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
 		Name:           "s1",
@@ -133,5 +133,28 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		assert.Equal(t, simpleGenesis.Add(time.Duration(int64(k)*info.Interval)*time.Second), v.STime)
 		assert.Equal(t, v.STime.Add(time.Second), v.ETime)
 		assert.Equal(t, common.MockAddress(k/int(info.PerCount)%int(info.NodeCount)), v.Member, fmt.Sprintf("%d", k))
+	}
+}
+
+func TestSnapshotCs_Tools(t *testing.T) {
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
+	if err != nil {
+		assert.FailNow(t, err.Error())
+	}
+	rw := newChainRw(c, log15.New())
+	cs := newSnapshotCs(rw, log15.New())
+
+	rw.initArray(cs)
+
+	result, err := cs.ElectionIndex(251694)
+	if err != nil {
+		assert.FailNow(t, err.Error())
+	}
+
+	t.Log(fmt.Sprintf("stime:%s, etime:%s", result.STime, result.ETime))
+	for _, v := range result.Plans {
+		t.Log(v.STime, v.ETime, v.Member)
+		t.Log(cs.VerifyProducer(v.Member, v.STime))
 	}
 }

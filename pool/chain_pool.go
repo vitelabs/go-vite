@@ -445,7 +445,9 @@ func (e ForkChainError) Error() string {
 func (self *chainPool) insert(c *forkedChain, wrapper commonBlock) error {
 	if self.current.id() == c.id() {
 		// todo remove
-		self.log.Info(fmt.Sprintf("insert to current:[%s-%d]%s", wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+		self.log.Info(fmt.Sprintf("insert to current[%s]:[%s-%d]%s", c.id(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+	} else {
+		self.log.Info(fmt.Sprintf("insert to chain[%s]:[%s-%d]%s", c.id(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
 	}
 	if wrapper.Height() == c.headHeight+1 {
 		if c.headHash == wrapper.PrevHash() {
