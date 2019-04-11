@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -53,10 +54,6 @@ func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
 
-func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types.Hash) bool {
-	return manager.pool.ExistInPool(addr, fromBlockHash)
-}
-
 func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 	return manager.chain.HasOnRoadBlocks(*addr)
 }
@@ -67,33 +64,26 @@ func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
 
 func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 	newLog := manager.log.New("method", "newSignalToWorker", "Hash", block.Hash)
-	isContract, err := manager.chain.IsContractAccount(block.AccountAddress)
+	toAddr := block.ToAddress
+	isContract, err := manager.chain.IsContractAccount(toAddr)
 	if err != nil {
 		newLog.Error(fmt.Sprintf("IsContractAccount, err:%v", err))
 		return
 	}
 	if isContract {
-		meta, err := manager.chain.GetContractMeta(block.AccountAddress)
+		meta, err := manager.chain.GetContractMeta(toAddr)
 		if err != nil {
 			newLog.Error(fmt.Sprintf("GetContractMeta, err:%v", err))
 			return
 		}
 		if meta == nil {
+			newLog.Error("GetContractMeta fail.", "contract", toAddr)
 			return
 		}
 		manager.contractListenerMutex.RLock()
 		defer manager.contractListenerMutex.RUnlock()
 		if f, ok := manager.newContractListener[meta.Gid]; ok {
-			f(block.ToAddress)
+			f(toAddr)
 		}
 	}
 }
-
-/*func (manager *Manager) NewSnapshot(snapshotBlock []*ledger.SnapshotBlock) error {
-	manager.interruptSignalToAllWorker()
-	return nil
-}
-
-func (manager *Manager) interruptSignalToAllWorker() {
-}
-*/

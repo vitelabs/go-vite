@@ -7,6 +7,7 @@ package consensus
 import (
 	gomock "github.com/golang/mock/gomock"
 	leveldb "github.com/syndtr/goleveldb/leveldb"
+	chain "github.com/vitelabs/go-vite/chain"
 	types "github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/ledger"
 	big "math/big"
@@ -241,4 +242,28 @@ func (m *MockChain) NewDb(arg0 string) (*leveldb.DB, error) {
 func (mr *MockChainMockRecorder) NewDb(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewDb", reflect.TypeOf((*MockChain)(nil).NewDb), arg0)
+}
+
+// Register mocks base method
+func (m *MockChain) Register(arg0 chain.EventListener) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Register", arg0)
+}
+
+// Register indicates an expected call of Register
+func (mr *MockChainMockRecorder) Register(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockChain)(nil).Register), arg0)
+}
+
+// UnRegister mocks base method
+func (m *MockChain) UnRegister(arg0 chain.EventListener) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UnRegister", arg0)
+}
+
+// UnRegister indicates an expected call of UnRegister
+func (mr *MockChainMockRecorder) UnRegister(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnRegister", reflect.TypeOf((*MockChain)(nil).UnRegister), arg0)
 }

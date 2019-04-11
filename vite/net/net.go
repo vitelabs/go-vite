@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/netool"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -52,13 +54,13 @@ type net struct {
 	*broadcaster
 	reader syncCacheReader
 	BlockSubscriber
-	query    *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
 	running  int32
 	term     chan struct{}
 	log      log15.Logger
 	wg       sync.WaitGroup
 	fs       *fileServer
-	handlers map[code]msgHandler
+	handlers *msgHandlers
+	query    *queryHandler
 	hb       *heartBeater
 }
 
@@ -83,6 +85,45 @@ func (n *net) parseFilePublicAddress() (fileAddress []byte) {
 	}
 
 	return fileAddress
+}
+
+func extractFileAddress(sender net2.Addr, fileAddressBytes []byte) (fileAddress string) {
+	if len(fileAddressBytes) != 0 {
+		var tcp *net2.TCPAddr
+
+		if len(fileAddressBytes) == 2 {
+			filePort := binary.BigEndian.Uint16(fileAddressBytes)
+			var ok bool
+			if tcp, ok = sender.(*net2.TCPAddr); ok {
+				return tcp.IP.String() + ":" + strconv.Itoa(int(filePort))
+			}
+		} else {
+			var ep = new(vnode.EndPoint)
+
+			if err := ep.Deserialize(fileAddressBytes); err == nil {
+				if ep.Typ.Is(vnode.HostIP) {
+					// verify ip
+					var ok bool
+					if tcp, ok = sender.(*net2.TCPAddr); ok {
+						err = netool.CheckRelayIP(tcp.IP, ep.Host)
+						if err != nil {
+							// invalid ip
+							ep.Host = tcp.IP
+						}
+					}
+
+					fileAddress = ep.String()
+				} else {
+					tcp, err = net2.ResolveTCPAddr("tcp", ep.String())
+					if err == nil {
+						fileAddress = ep.String()
+					}
+				}
+			}
+		}
+	}
+
+	return
 }
 
 func (n *net) ProtoData() []byte {
@@ -112,7 +153,7 @@ func (n *net) ProtoData() []byte {
 	return buf
 }
 
-func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state interface{}, level p2p.Level, err error) {
+func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
 	pb := &protos.ViteHandshake{}
 	err = proto.Unmarshal(protoData, pb)
 	if err != nil {
@@ -147,34 +188,11 @@ func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte) (state in
 		return
 	}
 
-	var pState = PeerState{
+	state = PeerState{
 		Head:        hash,
 		Height:      pb.Height,
-		FileAddress: "",
+		FileAddress: extractFileAddress(sender, pb.FileAddress),
 	}
-
-	if len(pb.FileAddress) != 0 {
-		if len(pb.FileAddress) == 2 {
-			var host string
-			host, _, err = net2.SplitHostPort(msg.From)
-			if err != nil {
-				pState.FileAddress = ""
-			} else {
-				filePort := binary.BigEndian.Uint16(pb.FileAddress)
-				pState.FileAddress = host + ":" + strconv.Itoa(int(filePort))
-			}
-		} else {
-			var e vnode.EndPoint
-			err = e.Deserialize(pb.FileAddress)
-			if err != nil {
-				pState.FileAddress = ""
-			} else {
-				pState.FileAddress = e.String()
-			}
-		}
-	}
-
-	state = pState
 
 	return
 }
@@ -188,10 +206,10 @@ func (n *net) ID() p2p.ProtocolID {
 }
 
 func (n *net) Handle(msg p2p.Msg) error {
-	if handler, ok := n.handlers[code(msg.Code)]; ok {
+	if handler := n.handlers.pick(code(msg.Code)); handler != nil {
 		p := n.peers.get(msg.Sender.ID())
 		if p != nil {
-			return handler.Handle(msg, p)
+			return handler.handle(msg, p)
 		} else {
 			return errPeerNotExist
 		}
@@ -295,17 +313,31 @@ func New(cfg Config) Net {
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
-		handlers:        make(map[code]msgHandler),
+		handlers:        newHandlers("vite"),
 		log:             netLog,
 		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
-	//n.addHandler(_statusHandler(statusHandler))
-	n.query = newQueryHandler(cfg.Chain)
+	var err error
+	n.query, err = newQueryHandler(cfg.Chain)
+	if err != nil {
+		panic(errors.New("cannot construct query handler"))
+	}
 
-	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
-	n.addHandler(broadcaster) // NewSnapshotBlockCode, NewAccountBlockCode
-	n.addHandler(fetcher)     // SnapshotBlocksCode, AccountBlocksCode
+	// GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	if err = n.handlers.register(n.query); err != nil {
+		panic(errors.New("cannot register handler: query"))
+	}
+
+	// NewSnapshotBlockCode, NewAccountBlockCode
+	if err = n.handlers.register(broadcaster); err != nil {
+		panic(errors.New("cannot register handler: broadcaster"))
+	}
+
+	// SnapshotBlocksCode, AccountBlocksCode
+	if err = n.handlers.register(fetcher); err != nil {
+		panic(errors.New("cannot register handler: fetcher"))
+	}
 
 	return n
 }
@@ -376,12 +408,6 @@ func (h *heartBeater) state() []byte {
 
 func (n *net) State() []byte {
 	return n.hb.state()
-}
-
-func (n *net) addHandler(handler msgHandler) {
-	for _, cmd := range handler.Codes() {
-		n.handlers[cmd] = handler
-	}
 }
 
 func (n *net) Start(svr p2p.P2P) (err error) {

@@ -26,7 +26,7 @@ const (
 )
 
 const version = iota
-const handshakeTimeout = 3 * time.Second
+const handshakeTimeout = 10 * time.Second
 
 const nonceLen = 32
 const signatureLen = 64
@@ -59,7 +59,7 @@ type HandshakeMsg struct {
 	protocols protoDataList
 
 	// NOT send to peer, just to Protocol
-	From string
+	From net.Addr
 }
 
 func (b *HandshakeMsg) Serialize() (data []byte, err error) {
@@ -222,7 +222,7 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 	}
 
 	// protocols
-	ptMap, level2, err = matchProtocols(h.ptMap, their, level)
+	ptMap, level2, err = matchProtocols(h.ptMap, their, level, codec.Address())
 	if err != nil {
 		err = &Error{
 			Code:    uint32(PeerProtocolError),
@@ -270,7 +270,7 @@ func (h *handshaker) Handshake(conn net.Conn, level Level) (peer PeerMux, err er
 	return
 }
 
-func matchProtocols(our ProtocolMap, their *HandshakeMsg, level1 Level) (ptMap map[ProtocolID]peerProtocol, level2 Level, err error) {
+func matchProtocols(our ProtocolMap, their *HandshakeMsg, level1 Level, sender net.Addr) (ptMap map[ProtocolID]peerProtocol, level2 Level, err error) {
 	ptMap = make(map[ProtocolID]peerProtocol)
 
 	level2 = level1
@@ -283,7 +283,7 @@ func matchProtocols(our ProtocolMap, their *HandshakeMsg, level1 Level) (ptMap m
 		pid := ProtocolID(pt.ID)
 
 		if ptme, ok = our[pid]; ok {
-			if state, plevel, err = ptme.ReceiveHandshake(*their, pt.Data); err != nil {
+			if state, plevel, err = ptme.ReceiveHandshake(*their, pt.Data, sender); err != nil {
 				return nil, level1, err
 			} else {
 				ptMap[pid] = peerProtocol{

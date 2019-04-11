@@ -3,6 +3,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -28,7 +29,7 @@ func (m *mockProtocol) ProtoData() []byte {
 	return nil
 }
 
-func (m *mockProtocol) ReceiveHandshake(msg HandshakeMsg, protoData []byte) (state interface{}, level Level, err error) {
+func (m *mockProtocol) ReceiveHandshake(msg HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level Level, err error) {
 	return nil, 1, nil
 }
 

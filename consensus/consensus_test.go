@@ -693,12 +693,13 @@ func TestChainSnapshot(t *testing.T) {
 }
 
 func TestChainAcc(t *testing.T) {
-	c, err := NewChainInstanceFromDir(UnitTestDir, false, GenesisJson)
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-	addr := types.HexToAddressPanic("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
+	addr := types.HexToAddressPanic("vite_004d7d2f8f1f18a7d69e2d28a13d0bb1d2c1361b91acf497dc")
 	prev, err := c.GetLatestAccountBlock(addr)
 
 	assert.NoError(t, err)
@@ -709,13 +710,14 @@ func TestChainAcc(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("height:%d, producer:%s, hash:%s\n", block.Height, block.Producer(), block.Hash)
-		//fmt.Printf("%+v\n", block)
+		b := c.IsGenesisAccountBlock(block.Hash)
+
+		fmt.Printf("height:%d, producer:%s, hash:%s, %t\n", block.Height, block.Producer(), block.Hash, b)
 	}
 }
 
 func TestChainAll(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_2/devdata"
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
 	genesisJson := GenesisJson
 	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
 	if err != nil {
@@ -752,7 +754,7 @@ func TestChainAll(t *testing.T) {
 			detailBs := ""
 			for _, b := range v {
 				bs += fmt.Sprintf("%d,", b.Height)
-				detailBs += fmt.Sprintf("[%d-%s-%t-%s]", b.Height, b.Hash, b.IsReceiveBlock(), b.ToAddress)
+				detailBs += fmt.Sprintf("[%d-%s]", b.Height, b.Hash)
 			}
 			vs += fmt.Sprintf("\taccount[%s][%s][%d]\n", k, bs, block.SnapshotContent[k].Height)
 			vs += fmt.Sprintf("\t\tdetails[%s]\n", detailBs)

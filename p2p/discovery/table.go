@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/math"
-
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
@@ -559,7 +557,7 @@ func (tab *table) resolveAddr(address string) *Node {
 func (tab *table) store(db nodeStore) {
 	now := time.Now()
 
-	nodes := tab.nodes(math.MaxInt64)
+	nodes := tab.nodes(0)
 
 	for _, n := range nodes {
 		if now.Sub(n.addAt) > stayInTable {
@@ -569,7 +567,7 @@ func (tab *table) store(db nodeStore) {
 }
 
 func (tab *table) iterate(fn func(*Node)) {
-	nodes := tab.nodes(math.MaxInt64)
+	nodes := tab.nodes(0)
 	for _, n := range nodes {
 		fn(n)
 	}

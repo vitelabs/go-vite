@@ -68,7 +68,7 @@ func CheckMintToken(param abi.ParamMintage) error {
 		if param.MaxSupply.Cmp(param.TotalSupply) < 0 || param.MaxSupply.Cmp(helper.Tt256m1) > 0 {
 			return util.ErrInvalidMethodParam
 		}
-	} else if param.MaxSupply.Sign() > 0 {
+	} else if param.MaxSupply.Sign() > 0 || param.OwnerBurnOnly {
 		return util.ErrInvalidMethodParam
 	}
 	return nil

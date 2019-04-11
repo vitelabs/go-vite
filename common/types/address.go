@@ -67,6 +67,8 @@ func IsBuiltinContractAddrInUseWithSendConfirm(addr Address) bool {
 
 type Address [AddressSize]byte
 
+var ZERO_ADDRESS = Address{}
+
 func BytesToAddress(b []byte) (Address, error) {
 	var a Address
 	err := a.SetBytes(b)

@@ -30,6 +30,7 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 
 	plugins := map[string]Plugin{
 		"filterToken": newFilterToken(store, chain),
+		"onRoadInfo":  newOnRoadInfo(store, chain),
 	}
 
 	return &Plugins{
@@ -111,3 +112,16 @@ func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 //func (p *Plugins) checkAndRecover() (*chain_db.Store, error) {
 //	return nil, nil
 //}
+
+func (p *Plugins) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+	return nil
+}
+func (p *Plugins) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	return nil
+}
+func (p *Plugins) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
+	return nil
+}
+func (p *Plugins) checkAndRecover() (*chain_db.Store, error) {
+	return nil, nil
+}

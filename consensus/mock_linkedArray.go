@@ -9,6 +9,7 @@ import (
 	types "github.com/vitelabs/go-vite/common/types"
 	db "github.com/vitelabs/go-vite/consensus/db"
 	reflect "reflect"
+	time "time"
 )
 
 // MockLinkedArray is a mock of LinkedArray interface
@@ -62,4 +63,33 @@ func (m *MockLinkedArray) GetByIndexWithProof(arg0 uint64, arg1 types.Hash) (*db
 func (mr *MockLinkedArrayMockRecorder) GetByIndexWithProof(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByIndexWithProof", reflect.TypeOf((*MockLinkedArray)(nil).GetByIndexWithProof), arg0, arg1)
+}
+
+// Index2Time mocks base method
+func (m *MockLinkedArray) Index2Time(arg0 uint64) (time.Time, time.Time) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Index2Time", arg0)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(time.Time)
+	return ret0, ret1
+}
+
+// Index2Time indicates an expected call of Index2Time
+func (mr *MockLinkedArrayMockRecorder) Index2Time(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Index2Time", reflect.TypeOf((*MockLinkedArray)(nil).Index2Time), arg0)
+}
+
+// Time2Index mocks base method
+func (m *MockLinkedArray) Time2Index(arg0 time.Time) uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Time2Index", arg0)
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Time2Index indicates an expected call of Time2Index
+func (mr *MockLinkedArrayMockRecorder) Time2Index(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Time2Index", reflect.TypeOf((*MockLinkedArray)(nil).Time2Index), arg0)
 }

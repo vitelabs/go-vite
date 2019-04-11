@@ -117,11 +117,14 @@ func TestEndPoint_Deserialize(t *testing.T) {
 func ExampleParseIP() {
 	// even if ip is v4, the parsed IP is 16 bytes
 	ip := net.ParseIP("127.0.0.1")
+	fmt.Println(len(ip))
 
+	ip = net.ParseIP("localhost")
 	fmt.Println(len(ip))
 
 	// Output:
 	// 16
+	// 0
 }
 
 func TestParseEndPoint(t *testing.T) {
@@ -169,6 +172,10 @@ func TestParseEndPoint(t *testing.T) {
 		},
 		{
 			"[127.0.0.1]:8888",
+			factor([]byte{127, 0, 0, 1}, HostIPv4, 8888, "127.0.0.1:8888"),
+		},
+		{
+			"localhost:8888",
 			factor([]byte{127, 0, 0, 1}, HostIPv4, 8888, "127.0.0.1:8888"),
 		},
 		{

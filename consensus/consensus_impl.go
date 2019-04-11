@@ -24,11 +24,11 @@ type producerSubscribeEvent struct {
 	fn  func(ProducersEvent)
 }
 
-func (self *committee) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
+func (self *consensus) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
 	return self.snapshot.VerifyProducer(header.Producer(), *header.Timestamp)
 }
 
-func (self *committee) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+func (self *consensus) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	var result []*ledger.AccountBlock
 	for k, v := range abs {
 		blocks, err := self.VerifyABsProducerByGid(k, v)
@@ -42,7 +42,7 @@ func (self *committee) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBloc
 	return result, nil
 }
 
-func (self *committee) VerifyABsProducerByGid(gid types.Gid, blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+func (self *consensus) VerifyABsProducerByGid(gid types.Gid, blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	tel, err := self.contracts.getOrLoadGid(gid)
 
 	if err != nil {
@@ -54,7 +54,7 @@ func (self *committee) VerifyABsProducerByGid(gid types.Gid, blocks []*ledger.Ac
 	return tel.verifyAccountsProducer(blocks)
 }
 
-func (self *committee) VerifyAccountProducer(accountBlock *ledger.AccountBlock) (bool, error) {
+func (self *consensus) VerifyAccountProducer(accountBlock *ledger.AccountBlock) (bool, error) {
 	gid, err := self.rw.getGid(accountBlock)
 	if err != nil {
 		return false, err
@@ -70,7 +70,7 @@ func (self *committee) VerifyAccountProducer(accountBlock *ledger.AccountBlock) 
 	return tel.VerifyAccountProducer(accountBlock)
 }
 
-func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error) {
+func (self *consensus) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error) {
 	// load from dpos wrapper
 	reader, err := self.dposWrapper.getDposConsensus(gid)
 	if err != nil {
@@ -92,7 +92,7 @@ func (self *committee) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint6
 	return result, uint64(eResult.Index), nil
 }
 
-func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
+func (self *consensus) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error) {
 	// load from dpos wrapper
 	reader, err := self.dposWrapper.getDposConsensus(gid)
 	if err != nil {
@@ -101,7 +101,7 @@ func (self *committee) VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, err
 	return reader.Time2Index(t2), nil
 }
 
-func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error) {
+func (self *consensus) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error) {
 	// load from dpos wrapper
 	reader, err := self.dposWrapper.getDposConsensus(gid)
 	if err != nil {
@@ -117,7 +117,7 @@ func (self *committee) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 	return &st, &et, nil
 }
 
-func (self *committee) Init() error {
+func (self *consensus) Init() error {
 	if !self.PreInit() {
 		panic("pre init fail.")
 	}
@@ -125,8 +125,7 @@ func (self *committee) Init() error {
 
 	snapshot := newSnapshotCs(self.rw, self.mLog)
 	self.snapshot = snapshot
-	//self.snapshot = snapshot
-	self.rw.initArray(self.snapshot)
+	self.rw.initArray(snapshot)
 
 	self.contracts = newContractCs(self.rw, self.mLog)
 	err := self.contracts.LoadGid(types.DELEGATE_GID)
@@ -139,7 +138,7 @@ func (self *committee) Init() error {
 	return nil
 }
 
-func (self *committee) Start() {
+func (self *consensus) Start() {
 	self.PreStart()
 	defer self.PostStart()
 	self.closed = make(chan struct{})
@@ -163,17 +162,19 @@ func (self *committee) Start() {
 		defer self.wg.Done()
 		self.update(types.DELEGATE_GID, reader, contractSubs.(*sync.Map))
 	})
+
+	self.rw.Start()
 }
 
-func (self *committee) Stop() {
+func (self *consensus) Stop() {
 	self.PreStop()
 	defer self.PostStop()
-
+	self.rw.Stop()
 	close(self.closed)
 	self.wg.Wait()
 }
 
-func (self *committee) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event)) {
+func (self *consensus) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event)) {
 	value, ok := self.subscribes.Load(gid)
 	if !ok {
 		value, _ = self.subscribes.LoadOrStore(gid, &sync.Map{})
@@ -181,7 +182,7 @@ func (self *committee) Subscribe(gid types.Gid, id string, addr *types.Address, 
 	v := value.(*sync.Map)
 	v.Store(id, &subscribeEvent{addr: addr, fn: fn, gid: gid})
 }
-func (self *committee) UnSubscribe(gid types.Gid, id string) {
+func (self *consensus) UnSubscribe(gid types.Gid, id string) {
 	value, ok := self.subscribes.Load(gid)
 	if !ok {
 		return
@@ -190,7 +191,7 @@ func (self *committee) UnSubscribe(gid types.Gid, id string) {
 	v.Delete(id)
 }
 
-func (self *committee) SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent)) {
+func (self *consensus) SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent)) {
 	value, ok := self.subscribes.Load(gid)
 	if !ok {
 		value, _ = self.subscribes.LoadOrStore(gid, &sync.Map{})
@@ -199,7 +200,7 @@ func (self *committee) SubscribeProducers(gid types.Gid, id string, fn func(even
 	v.Store(id, &producerSubscribeEvent{fn: fn, gid: gid})
 }
 
-func (self *committee) update(gid types.Gid, t DposReader, m *sync.Map) {
+func (self *consensus) update(gid types.Gid, t DposReader, m *sync.Map) {
 	index := t.Time2Index(time.Now())
 	for !self.Stopped() {
 		//var current *memberPlan = nil
@@ -272,7 +273,7 @@ func copyMap(m *sync.Map) (map[string]*subscribeEvent, map[string]*producerSubsc
 	})
 	return r1, r2
 }
-func (self *committee) eventProducer(e *producerSubscribeEvent, result *electionResult, voteTime time.Time) {
+func (self *consensus) eventProducer(e *producerSubscribeEvent, result *electionResult, voteTime time.Time) {
 	self.wg.Add(1)
 	defer self.wg.Done()
 	var r []types.Address
@@ -282,7 +283,7 @@ func (self *committee) eventProducer(e *producerSubscribeEvent, result *election
 	e.fn(ProducersEvent{Addrs: r, Index: result.Index, Gid: e.gid})
 }
 
-func (self *committee) event(e *subscribeEvent, result *electionResult, voteTime time.Time) {
+func (self *consensus) event(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	self.wg.Add(1)
 	defer self.wg.Done()
 	if e.addr == nil {
@@ -293,7 +294,7 @@ func (self *committee) event(e *subscribeEvent, result *electionResult, voteTime
 	}
 }
 
-func (self *committee) eventAll(e *subscribeEvent, result *electionResult, voteTime time.Time) {
+func (self *consensus) eventAll(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	for _, p := range result.Plans {
 		now := time.Now()
 		sub := p.STime.Sub(now)
@@ -310,7 +311,7 @@ func (self *committee) eventAll(e *subscribeEvent, result *electionResult, voteT
 		e.fn(newConsensusEvent(result, p, e.gid, voteTime))
 	}
 }
-func (self *committee) eventAddr(e *subscribeEvent, result *electionResult, voteTime time.Time) {
+func (self *consensus) eventAddr(e *subscribeEvent, result *electionResult, voteTime time.Time) {
 	for _, p := range result.Plans {
 		if p.Member == *e.addr {
 			now := time.Now()

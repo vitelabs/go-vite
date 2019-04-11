@@ -79,7 +79,7 @@ type basePeer interface {
 	MsgWriter
 	ID() vnode.NodeID
 	String() string
-	Address() string
+	Address() net.Addr
 	Info() PeerInfo
 	Close(err PeerError) error
 	Level() Level
@@ -330,13 +330,18 @@ func (p *p2p) register(peer PeerMux) {
 	}
 
 	peer.setManager(p.peers)
+	p.log.Info(fmt.Sprintf("register peer %s, total: %d", peer, p.peers.count()))
 
 	var err error
 	// run
 	if err = peer.run(); err != nil {
 		p.log.Error(fmt.Sprintf("peer %s run error: %v", peer, err))
+		if pe, ok := err.(PeerError); ok {
+			_ = peer.Close(pe)
+		}
 	} else {
 		p.log.Warn(fmt.Sprintf("peer %s run done", peer))
+		_ = peer.Close(PeerQuitting)
 	}
 
 	// clean

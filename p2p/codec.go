@@ -44,7 +44,7 @@ type Codec interface {
 	SetReadTimeout(timeout time.Duration)
 	SetWriteTimeout(timeout time.Duration)
 	SetTimeout(timeout time.Duration)
-	Address() string
+	Address() net.Addr
 }
 
 type CodecFactory interface {
@@ -131,8 +131,8 @@ type transport struct {
 	writeHeadBuf      []byte
 }
 
-func (t *transport) Address() string {
-	return t.Conn.RemoteAddr().String()
+func (t *transport) Address() net.Addr {
+	return t.Conn.RemoteAddr()
 }
 
 type transportFactory struct {
@@ -171,7 +171,7 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 
 // ReadMsg is NOT thread-safe
 func (t *transport) ReadMsg() (msg Msg, err error) {
-	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
+	_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
 	buf := t.readHeadBuf
 	_, err = io.ReadFull(t.Conn, buf)
@@ -226,7 +226,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
-	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
+	_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf
 	head[1] = msg.pid
