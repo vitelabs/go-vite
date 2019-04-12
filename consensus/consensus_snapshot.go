@@ -24,11 +24,11 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
-func (self *snapshotCs) GetDayTimeIndex() TimeIndex {
+func (self *snapshotCs) GetDayTimeIndex() core.TimeIndex {
 	return self.rw.dayPoints
 }
 
-func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error) {
+func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error) {
 	// get points from linked array
 	points := make(map[uint64]*consensus_db.Point)
 
@@ -60,7 +60,7 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStat
 	if len(points) == 0 {
 		return nil, nil
 	}
-	var result []*DayStats
+	var result []*core.DayStats
 
 	// get register map for address->name
 	registerMap := make(map[types.Address]string)
@@ -83,15 +83,15 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*DayStat
 		if p.Votes == nil {
 			continue
 		}
-		stats := &DayStats{stats: make(map[string]*SbpStats), Index: i, VoteSum: p.Votes.Total}
+		stats := &core.DayStats{Stats: make(map[string]*core.SbpStats), Index: i, VoteSum: p.Votes.Total}
 
 		for k, v := range p.Votes.Details {
-			stats.stats[k] = &SbpStats{Index: i, VoteCnt: v, Name: k}
+			stats.Stats[k] = &core.SbpStats{Index: i, VoteCnt: v, Name: k}
 		}
 
 		for k, v := range p.Sbps {
 			name := registerMap[k]
-			if sbp, ok := stats.stats[name]; ok {
+			if sbp, ok := stats.Stats[name]; ok {
 				// just vote
 				sbp.BlockNum += uint64(v.FactualNum)
 				sbp.ExceptedBlockNum += uint64(v.ExpectedNum)

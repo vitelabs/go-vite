@@ -2,7 +2,6 @@ package core
 
 import (
 	"math/big"
-
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
