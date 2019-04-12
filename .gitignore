@@ -37,7 +37,7 @@ node_config.json
 node_config_*.json
 !/node_config.json
 
-genesis.json
+vite/net/simular/genesis.go
 genesis_*.json
 
 **/p2p/**/simular/**

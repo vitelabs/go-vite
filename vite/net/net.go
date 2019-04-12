@@ -422,6 +422,8 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
+		//fmt.Println(n.chain.GetLatestSnapshotBlock().Height)
+
 		n.term = make(chan struct{})
 
 		if err = n.fs.start(); err != nil {
