@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-const skiplistMaxLevel int8 = 13 // 2^13 8192
+const skiplistMaxLevel int8 = 18 // 2^18 262144
 const metaStorageSalt = "listMeta:"
 const skiplistIdLength = 21
 
