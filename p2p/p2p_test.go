@@ -87,6 +87,38 @@ func TestP2P_run(t *testing.T) {
 	wg.Wait()
 }
 
+func TestSleep(t *testing.T) {
+	var initDuration = 1 * time.Second
+	var maxDuration = 4 * time.Second
+	var duration = initDuration
+	var timer = time.NewTimer(duration)
+	defer timer.Stop()
+
+	var start = time.Now().Unix()
+	var i int
+	for {
+		i++
+
+		if i > 3 {
+			break
+		}
+		<-timer.C
+
+		if duration < maxDuration {
+			duration *= 2
+		} else {
+			duration = initDuration
+		}
+
+		timer.Reset(duration)
+	}
+
+	var stop = time.Now().Unix()
+	if stop-start != 7 {
+		t.Errorf("error duration: %d", stop-start)
+	}
+}
+
 //var blockUtil = block.New(blockPolicy)
 //
 //func TestBlock(t *testing.T) {

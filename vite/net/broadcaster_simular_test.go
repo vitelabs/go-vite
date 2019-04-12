@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 	"github.com/vitelabs/go-vite/vite/net/message"
@@ -262,9 +261,7 @@ func newMockBroadcastNet(id vnode.NodeID, priv ed25519.PrivateKey) *mockBroadcas
 	//	ps: set,
 	//}
 
-	log := log15.New("broadcast", id.String()[:8])
-
-	b := newBroadcaster(set, mockVerifier{}, mockBlockNotifier{}, nil, str, globalMockNewBlockListener, log)
+	b := newBroadcaster(set, mockVerifier{}, mockBlockNotifier{}, nil, str, globalMockNewBlockListener)
 	b.st = SyncDone
 
 	mp.broadcaster = b

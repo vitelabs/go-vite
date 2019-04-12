@@ -436,7 +436,6 @@ Loop:
 				duration = initduration
 			}
 
-			timer.Stop()
 			timer.Reset(duration)
 		case <-p.term:
 			break Loop

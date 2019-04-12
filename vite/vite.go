@@ -71,6 +71,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		FilePublicAddress: cfg.FilePublicAddress,
 		FilePort:          cfg.FilePort,
 		MinePrivateKey:    cfg.MinePrivateKey,
+		P2PPrivateKey:     cfg.P2PPrivateKey,
 		ForwardStrategy:   cfg.ForwardStrategy,
 		Chain:             chain,
 		Verifier:          verifier,

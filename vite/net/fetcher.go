@@ -264,10 +264,6 @@ func (f *fetcher) subSyncState(st SyncState) {
 	f.st = st
 }
 
-func (f *fetcher) canFetch() bool {
-	return f.st == SyncDone || f.st == SyncError
-}
-
 func (f *fetcher) name() string {
 	return "fetcher"
 }
@@ -334,8 +330,8 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 		return
 	}
 
-	if !f.canFetch() {
-		f.log.Debug("not ready")
+	if !f.st.syncExited() {
+		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 
@@ -368,8 +364,8 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	if !f.canFetch() {
-		f.log.Warn("not ready")
+	if !f.st.syncExited() {
+		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 
@@ -411,8 +407,8 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		return
 	}
 
-	if !f.canFetch() {
-		f.log.Warn("not ready")
+	if !f.st.syncExited() {
+		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 

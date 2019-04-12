@@ -2,7 +2,7 @@ syntax="proto3";
 
 package protos;
 
-message ProtocolState {
+message State {
     message Peer {
         bytes ID = 1;
         PeerStatus Status = 3;
@@ -20,13 +20,4 @@ message ProtocolState {
     uint64 Height = 4;
 
     int64 Timestamp = 10;
-}
-
-message ViteHandshake {
-    bytes Genesis = 1;
-    bytes Head = 2;
-    uint64 Height = 3;
-    bytes Key = 4;
-    bytes Signature = 5;
-    bytes FileAddress = 6;
 }
