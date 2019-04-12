@@ -225,7 +225,7 @@ func newFetcher(peers *peerSet, receiver blockReceiver) *fetcher {
 		policy:   &fp{peers},
 		idGen:    new(gid),
 		receiver: receiver,
-		log:      log15.New("module", "net/fetcher"),
+		log:      netLog.New("module", "fetcher"),
 	}
 }
 
@@ -284,11 +284,15 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 			return err
 		}
 
+		f.log.Info(fmt.Sprintf("receive %d snapshotblocks from %s", len(bs.Blocks), sender.String()))
+
 		for _, block := range bs.Blocks {
 			if err = f.receiver.receiveSnapshotBlock(block, types.RemoteFetch); err != nil {
 				return err
 			}
 		}
+
+		f.log.Info(fmt.Sprintf("receive %d snapshotblocks from %s done", len(bs.Blocks), sender.String()))
 
 		if len(bs.Blocks) > 0 {
 			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
@@ -300,11 +304,15 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 			return err
 		}
 
+		f.log.Info(fmt.Sprintf("receive %d accountblocks from %s", len(bs.Blocks), sender.String()))
+
 		for _, block := range bs.Blocks {
 			if err = f.receiver.receiveAccountBlock(block, types.RemoteFetch); err != nil {
 				return err
 			}
 		}
+
+		f.log.Info(fmt.Sprintf("receive %d accountblocks from %s done", len(bs.Blocks), sender.String()))
 
 		if len(bs.Blocks) > 0 {
 			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
