@@ -363,7 +363,7 @@ func calcRewardByDaySingle(detailMap map[string]*consensusDetail, summary *conse
 		return reward
 	}
 
-	// reward = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount * pledgeAmount) / (selfVoteCount + totalPledgeAmount)
+	// reward = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount + pledgeAmount) / (selfVoteCount + totalPledgeAmount)
 	// 			+ 0.5 * rewardPerBlock * selfProducedBlockNum
 	tmp1.Set(selfDetail.voteCount)
 	tmp1.Add(tmp1, pledgeAmount)
