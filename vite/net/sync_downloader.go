@@ -431,35 +431,36 @@ func (e *executor) do(t *syncTask) {
 
 	var p downloadPeer
 	var c syncConnection
-	var wait bool
 	var err error
 
 	if p, c, err = e.pool.chooseSource(t.to); err != nil {
 		// no peers
-		wait = false
+		t.st = reqError
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
-			wait = false
+			t.st = reqDone
+		} else {
+			t.st = reqError
 		}
 	} else if p != nil {
 		if c, err = e.createConn(p); err == nil {
 			if err = e.doJob(c, t.from, t.to); err == nil {
 				// downloaded
-				wait = false
+				t.st = reqDone
+			} else {
+				t.st = reqError
 			}
+		} else {
+			t.st = reqError
 		}
-	}
-
-	if wait {
-		t.st = reqWaiting
-	} else if err != nil {
-		t.st = reqError
 	} else {
-		t.st = reqDone
+		t.st = reqWaiting
 	}
 
-	e.notify(t, err)
+	if t.st == reqDone {
+		e.notify(t, err)
+	}
 }
 
 func (e *executor) notify(t *syncTask, err error) {

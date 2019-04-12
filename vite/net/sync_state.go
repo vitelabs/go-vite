@@ -14,6 +14,8 @@ package net
  * |    SyncDone    |    Syncing     | new peer													 	|
  * +----------------+----------------+--------------------------------------------------------------+
  * |    SyncInit    |    Syncing     | new peer											 			|
+ * |    SyncInit    |    SyncDone    | no need to sync												|
+ * |    SyncInit    |    SyncError   | no peers														|
  * |    SyncInit	|	SyncCancel	 | stop															|
  * +----------------+----------------+--------------------------------------------------------------+
  */
@@ -82,11 +84,15 @@ func (s syncStateInit) sync() {
 }
 
 func (s syncStateInit) done() {
-	// cannot happen
+	s.host.setState(syncStateDone{
+		host: s.host,
+	})
 }
 
 func (s syncStateInit) error() {
-	// cannot happen
+	s.host.setState(syncStateError{
+		host: s.host,
+	})
 }
 
 func (s syncStateInit) cancel() {

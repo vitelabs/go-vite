@@ -182,6 +182,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 				return
 			}
 
+			_ = conn.SetWriteDeadline(time.Now().Add(fileTimeout))
 			_, err = io.Copy(conn, reader)
 			_ = reader.Close()
 

@@ -32,6 +32,8 @@ func newCacheReader(chain syncChain, receiver blockReceiver, downloader syncDown
 	}
 	s.cond = sync.NewCond(&s.mu)
 
+	downloader.addListener(s.handleChunkDone)
+
 	return s
 }
 
@@ -72,17 +74,15 @@ func (s *cacheReader) stop() {
 }
 
 func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
-	s.cond.Signal()
+	if err == nil {
+		s.cond.Signal()
+	}
 }
 
 func (s *cacheReader) handleChunkError(chunk [2]uint64) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(chunk)
 	s.downloader.download(chunk[0], chunk[1], true)
-}
-
-func (s *cacheReader) notify() {
-	s.cond.Signal()
 }
 
 func (s *cacheReader) readLoop() {

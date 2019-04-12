@@ -7,7 +7,6 @@ import (
 	"fmt"
 	net2 "net"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,6 +34,7 @@ type Config struct {
 	FilePublicAddress string
 	FilePort          int
 	MinePrivateKey    ed25519.PrivateKey
+	P2PPrivateKey     ed25519.PrivateKey
 	ForwardStrategy   string // default `cross`
 	Chain
 	Verifier
@@ -56,9 +56,7 @@ type net struct {
 	downloader syncDownloader
 	BlockSubscriber
 	running  int32
-	term     chan struct{}
 	log      log15.Logger
-	wg       sync.WaitGroup
 	fs       *fileServer
 	handlers *msgHandlers
 	query    *queryHandler
@@ -251,7 +249,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 }
 
 func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
-	p := newPeer(peer, n.log.New("peer", peer.ID()))
+	p := newPeer(peer, netLog.New("peer", peer.ID()))
 
 	err = n.peers.add(p)
 	if err != nil {
@@ -291,12 +289,12 @@ func New(cfg Config) Net {
 	}
 
 	syncConnFac := &defaultSyncConnectionFactory{
-		chain: cfg.Chain,
-		peers: peers,
+		chain:      cfg.Chain,
+		peers:      peers,
+		privateKey: cfg.P2PPrivateKey,
 	}
-
 	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Second)
+	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Minute)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
 
 	fetcher := newFetcher(peers, receiver)
@@ -422,10 +420,6 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
-		//fmt.Println(n.chain.GetLatestSnapshotBlock().Height)
-
-		n.term = make(chan struct{})
-
 		if err = n.fs.start(); err != nil {
 			return
 		}
@@ -446,8 +440,6 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 
 func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
-		close(n.term)
-
 		n.reader.stop()
 
 		n.downloader.stop()
@@ -459,8 +451,6 @@ func (n *net) Stop() error {
 		n.query.stop()
 
 		n.fetcher.stop()
-
-		n.wg.Wait()
 
 		return nil
 	}

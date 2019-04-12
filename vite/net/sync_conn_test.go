@@ -234,3 +234,18 @@ func TestCodec(t *testing.T) {
 
 	wg.Done()
 }
+
+//func TestSyncHandshake(t *testing.T) {
+//	var mockPeer = &peer{
+//		Peer:        nil,
+//		peerMap:     sync.Map{},
+//		knownBlocks: nil,
+//		errChan:     nil,
+//		once:        sync.Once{},
+//		log:         nil,
+//	}
+//	peers := newPeerSet()
+//	fac := &defaultSyncConnectionFactory{
+//		peers: peers,
+//	}
+//}

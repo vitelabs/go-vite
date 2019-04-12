@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/golang/protobuf/proto"
@@ -67,7 +69,7 @@ func syncMsgParser(code syncCode, payload []byte) (syncMsg, error) {
 		}
 		return msg, nil
 	case syncRequest:
-		var msg = new(syncReadyMsg)
+		var msg = new(syncRequestMsg)
 		err := msg.deserialize(payload)
 		if err != nil {
 			return nil, err
@@ -284,13 +286,14 @@ func (d *defaultSyncConnectionFactory) makeCodec(conn net2.Conn) syncCodecer {
 	return &syncCodec{
 		Conn:    conn,
 		builder: syncMsgParser,
+		timeout: 10 * time.Second,
 	}
 }
 
 func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer downloadPeer) (syncConnection, error) {
 	codec := d.makeCodec(conn)
 	err := codec.write(&syncHandshakeMsg{
-		key:  nil,
+		key:  d.privateKey.PubByte(),
 		time: time.Now(),
 		sign: nil,
 	})
@@ -328,7 +331,23 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, 
 		return nil, errHandshakeError
 	}
 
-	// todo auth
+	var id peerId
+	if h, ok := msg.(*syncHandshakeMsg); ok {
+		id, err = vnode.Bytes2NodeID(h.key)
+		if err != nil {
+			_ = codec.write(syncHandshakeErr)
+			return nil, errHandshakeError
+		}
+	} else {
+		_ = codec.write(syncHandshakeErr)
+		return nil, errHandshakeError
+	}
+
+	p := d.peers.get(id)
+	if p == nil {
+		_ = codec.write(syncNoAuth)
+		return nil, errHandshakeError
+	}
 
 	err = codec.write(syncHandshakeDone)
 	if err != nil {
@@ -336,8 +355,9 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, 
 	}
 
 	return &syncConn{
-		Conn:        conn,
-		syncCodecer: codec,
+		Conn:         conn,
+		syncCodecer:  codec,
+		downloadPeer: p,
 	}, nil
 }
 
@@ -426,6 +446,7 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	var nr, nw int
 	var total, count uint64
 	var werr error
+	_ = f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	for {
 		count = chunkInfo.size - total
 		if count > 1024 {
@@ -641,6 +662,10 @@ func (fp *connPoolImpl) chooseSource(to uint64) (downloadPeer, syncConnection, e
 		} else {
 			return nil, c, nil
 		}
+	}
+
+	for _, p := range peerMap {
+		return p, nil, nil
 	}
 
 	return nil, nil, nil

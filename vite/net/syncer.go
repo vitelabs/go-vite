@@ -11,7 +11,7 @@ import (
 
 // the minimal height difference between snapshot chain of ours and bestPeer,
 // if the difference is little than this value, then we deem no need sync.
-const minHeightDifference = 1800
+const minHeightDifference = 1000
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 3
 const chainGrowInterval = time.Second
@@ -189,17 +189,23 @@ Wait:
 
 	syncPeerHeight := syncPeer.height()
 
-	// compare snapshot chain height
+	// compare snapshot chain height and local cache height
 	current := s.chain.GetLatestSnapshotBlock()
+	cacheHeight := s.cacheHeight()
+	local := current.Height
+	if local < cacheHeight {
+		local = cacheHeight
+	}
+
 	// syncPeer is not all enough, no need to sync
-	if !shouldSync(current.Height, syncPeerHeight) {
-		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.String(), syncPeerHeight, current.Height))
+	if !shouldSync(local, syncPeerHeight) {
+		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d, cache height: %d", syncPeer.String(), syncPeerHeight, current.Height, cacheHeight))
 		s.state.done()
 		return
 	}
 
 	s.state.sync()
-	s.sync(current.Height, syncPeerHeight)
+	s.sync(local+1, syncPeerHeight)
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -209,18 +215,17 @@ Wait:
 	for {
 		select {
 		case <-s.eventChan:
+			syncPeer = s.peers.syncPeer()
+			bestPeer := s.peers.bestPeer()
+
 			// peers change, find new peer or peer disconnected. Choose sync peer again.
-			if syncPeer = s.peers.syncPeer(); syncPeer != nil {
+			if bestPeer != nil {
 				syncPeerHeight = syncPeer.height()
-				if shouldSync(current.Height, syncPeerHeight) {
-					bestPeer := s.peers.bestPeer()
+				if bestPeer.height() < s.to || shouldSync(s.to, syncPeerHeight) {
 					// only change sync target at two following scene:
 					// 1. the bestPeer is low than current target, because taller peers maybe disconnected.
 					// 2. the new syncPeer is taller enough than current target, because find more taller peers.
-					if bestPeer.height() < s.to || shouldSync(s.to, syncPeerHeight) {
-						s.setTarget(syncPeerHeight)
-					}
-
+					s.setTarget(syncPeerHeight)
 					s.state.sync()
 				} else {
 					// no need sync
@@ -260,17 +265,28 @@ Wait:
 	}
 }
 
-func (s *syncer) sync(current, syncPeerHeight uint64) {
-	// download after cache
+func (s *syncer) cacheHeight() (chunkEnd uint64) {
 	chunks := s.chain.GetSyncCache().Chunks()
 	if len(chunks) > 0 {
-		chunkEnd := chunks[len(chunks)-1][1]
-		if current < chunkEnd {
-			current = chunkEnd
-		}
+		chunkEnd = chunks[len(chunks)-1][1]
 	}
 
-	s.from = current + 1
+	return chunkEnd
+}
+
+func (s *syncer) getLocalHeight() uint64 {
+	current := s.chain.GetLatestSnapshotBlock().Height
+	cacheHeight := s.cacheHeight()
+
+	if current < cacheHeight {
+		current = cacheHeight
+	}
+
+	return current
+}
+
+func (s *syncer) sync(from, syncPeerHeight uint64) {
+	s.from = from
 	s.to = syncPeerHeight
 
 	go s.runTasks()
