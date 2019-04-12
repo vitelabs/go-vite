@@ -75,7 +75,7 @@ func (s *cacheReader) stop() {
 
 func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
 	if err == nil {
-		s.cond.Signal()
+		s.cond.Broadcast()
 	}
 }
 
