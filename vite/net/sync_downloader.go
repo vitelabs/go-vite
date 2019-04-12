@@ -2,11 +2,10 @@ package net
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math/rand"
 	net2 "net"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,223 +13,200 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-var errFileConnExist = errors.New("fileConn has exist")
-var errFileConnClosed = errors.New("file connection has closed")
-var errPeerDialing = errors.New("peer is dialing")
+type reqState byte
 
-type connections []syncConnection
+const (
+	reqWaiting reqState = iota
+	reqPending
+	reqDone
+	reqError
+	reqCancel
+)
 
-func (fl connections) Len() int {
-	return len(fl)
+var reqStatus = map[reqState]string{
+	reqWaiting: "waiting",
+	reqPending: "pending",
+	reqDone:    "done",
+	reqError:   "error",
+	reqCancel:  "canceled",
 }
 
-func (fl connections) Less(i, j int) bool {
-	return fl[i].speed() > fl[j].speed()
-}
-
-func (fl connections) Swap(i, j int) {
-	fl[i], fl[j] = fl[j], fl[i]
-}
-
-func (fl connections) del(i int) connections {
-	total := len(fl)
-	if i < total {
-		copy(fl[i:], fl[i+1:])
-		return fl[:total-1]
+func (s reqState) String() string {
+	if str, ok := reqStatus[s]; ok {
+		return str
 	}
 
-	return fl
+	return "unknown request state"
 }
 
-type FilePoolStatus struct {
-	Connections []FileConnStatus
+type syncTask struct {
+	from, to  uint64
+	st        reqState
+	doneAt    time.Time
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
-type downloadPeer interface {
-	ID() peerId
-	height() uint64
-	fileAddress() string
+func (t *syncTask) String() string {
+	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + t.st.String()
 }
 
-type downloadPeerSet interface {
-	pickDownloadPeers(height uint64) (m map[peerId]downloadPeer)
-}
-
-type connPoolImpl struct {
-	mu    sync.Mutex
-	peers downloadPeerSet
-	mi    map[peerId]int // value is the index of `connPoolImpl.l`
-	l     connections    // connections sort by speed, from fast to slow
-}
-
-func newPool(peers downloadPeerSet) *connPoolImpl {
-	return &connPoolImpl{
-		mi:    make(map[peerId]int),
-		peers: peers,
+func (t *syncTask) cancel() {
+	if t.ctxCancel != nil {
+		t.ctxCancel()
 	}
 }
 
-func (fp *connPoolImpl) status() FilePoolStatus {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
+type syncTasks []*syncTask
 
-	cs := make([]FileConnStatus, len(fp.l))
-
-	for i := 0; i < len(fp.l); i++ {
-		cs[i] = fp.l[i].status()
-	}
-
-	return FilePoolStatus{
-		Connections: cs,
-	}
+func (s syncTasks) Len() int {
+	return len(s)
 }
 
-// delete filePeer and connection
-func (fp *connPoolImpl) delConn(c syncConnection) {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	fp.delConnLocked(c.ID())
+func (s syncTasks) Less(i, j int) bool {
+	return s[i].from < s[j].from
 }
 
-func (fp *connPoolImpl) delConnLocked(id peerId) {
-	if i, ok := fp.mi[id]; ok {
-		delete(fp.mi, id)
-
-		fp.l = fp.l.del(i)
-	}
+func (s syncTasks) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
 
-func (fp *connPoolImpl) addConn(c syncConnection) error {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	if _, ok := fp.mi[c.ID()]; ok {
-		return errFileConnExist
-	}
-
-	fp.l = append(fp.l, c)
-	fp.mi[c.ID()] = len(fp.l) - 1
-	return nil
-}
-
-// sort list, and update index to map
-func (fp *connPoolImpl) sort() {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	fp.sortLocked()
-}
-
-func (fp *connPoolImpl) sortLocked() {
-	sort.Sort(fp.l)
-	for i, c := range fp.l {
-		fp.mi[c.ID()] = i
-	}
-}
-
-// choose the fast fileConn, or create new conn randomly
-func (fp *connPoolImpl) chooseSource(from, to uint64) (downloadPeer, syncConnection, error) {
-	peerMap := fp.peers.pickDownloadPeers(to)
-
-	if len(peerMap) == 0 {
-		return nil, nil, errNoSuitablePeer
-	}
-
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	// only peers without sync connection
-	for _, c := range fp.l {
-		delete(peerMap, c.ID())
-	}
-
-	var createNew bool
-	if len(peerMap) > 0 {
-		createNew = rand.Intn(10) > 5
-	}
-
-	fp.sortLocked()
-	for i, c := range fp.l {
-		if c.isBusy() || c.height() < to {
+// chunks should be continuous [from, to]
+func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
+	for _, chunk := range chunks {
+		// useless
+		if chunk[1] < from {
 			continue
 		}
 
-		if len(fp.l)+1 > 3*(i+1) {
-			// fast enough
-			return nil, c, nil
+		// missing front piece
+		if chunk[0] > from {
+			mis = append(mis, [2]uint64{
+				from,
+				chunk[0] - 1,
+			})
 		}
 
-		if createNew {
-			for _, p := range peerMap {
-				return p, nil, nil
-			}
-		} else {
-			return nil, c, nil
+		// next response
+		from = chunk[1] + 1
+	}
+
+	// from should equal (cr.to + 1)
+	if from-1 < to {
+		mis = append(mis, [2]uint64{
+			from,
+			to,
+		})
+	}
+
+	return
+}
+
+func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
+	for _, t := range tasks {
+		// useless
+		if t.to < from {
+			continue
 		}
+
+		// missing front piece
+		if t.from > from {
+			mis = append(mis, &syncTask{
+				from: from,
+				to:   t.from - 1,
+			})
+		}
+
+		// next response
+		from = t.to + 1
 	}
 
-	return nil, nil, nil
-}
-
-func (fp *connPoolImpl) reset() {
-	fp.mu.Lock()
-	defer fp.mu.Unlock()
-
-	fp.mi = make(map[peerId]int)
-
-	for _, c := range fp.l {
-		_ = c.Close()
+	// from should equal (cr.to + 1)
+	if from-1 < to {
+		mis = append(mis, &syncTask{
+			from: from,
+			to:   to,
+		})
 	}
 
-	fp.l = nil
+	return
 }
 
-type downloadTask struct {
-	from, to uint64
-	ch       chan error
-	ctx      context.Context
-}
-type downloadTasks []downloadTask
-
-func (l downloadTasks) Len() int {
-	return len(l)
-}
-
-func (l downloadTasks) Less(i, j int) bool {
-	return l[i].from < l[j].from
+type syncDownloader interface {
+	start()
+	stop()
+	// will be block, if cannot download (eg. no peers) or task queue is full
+	// must will download the task regardless of task repeat
+	download(from, to uint64, must bool) bool
+	// cancel tasks between from and to
+	cancel(from, to uint64)
+	addListener(listener taskListener)
 }
 
-func (l downloadTasks) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
+//type syncExecutor interface {
+//	start()
+//	stop()
+//
+//	// add a task into queue, task will be sorted from small to large.
+//	// if task is overlapped, then the task will be split to small tasks.
+//	add(t *syncTask) bool
+//
+//	// execute a task directly, NOT put into queue.
+//	// if a previous same from-to task has done, the gap time must longer than 1 min, or the task will not exec.
+//	exec(t *syncTask) bool
+//
+//	// runTo will execute those from is small than to tasks
+//	// runTo(to uint64)
+//
+//	// deleteFrom will delete those from is large than start tasks.
+//	// return (the last task`s to + 1)
+//	deleteFrom(start uint64) (nextStart uint64)
+//
+//	// last return the last task in queue
+//	// ok is false if task queue is empty
+//	// last() (t *syncTask, ok bool)
+//
+//	status() ExecutorStatus
+//
+//	// clear all tasks
+//	reset()
+//
+//	size() int
+//
+//	addListener(listener taskListener)
+//}
 
-type connPool interface {
-	addConn(c syncConnection) error
-	delConn(c syncConnection)
-	chooseSource(from, to uint64) (downloadPeer, syncConnection, error)
-	reset()
-}
+type taskListener = func(from, to uint64, err error)
 
-type downloader struct {
-	mu    sync.Mutex
-	cond  *sync.Cond
-	queue downloadTasks // wait to download
+type executor struct {
+	mu         sync.Mutex
+	tasks      syncTasks
+	cond       *sync.Cond
+	max, batch int
 
 	pool    connPool
 	factory syncConnInitiator
-
 	dialing map[string]struct{}
 	dialer  *net2.Dialer
 
-	wg      sync.WaitGroup
-	running int32
+	listeners []taskListener
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	running   int32
+	wg        sync.WaitGroup
 
 	log log15.Logger
 }
 
-func newDownloader(pool connPool, factory syncConnInitiator, log log15.Logger) *downloader {
-	d := &downloader{
+type ExecutorStatus struct {
+	Tasks []string
+}
+
+func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *executor {
+	e := &executor{
+		max:     max,
+		batch:   batch,
+		tasks:   make(syncTasks, 0, max),
 		pool:    pool,
 		factory: factory,
 		dialing: make(map[string]struct{}),
@@ -238,164 +214,196 @@ func newDownloader(pool connPool, factory syncConnInitiator, log log15.Logger) *
 			Timeout:   5 * time.Second,
 			KeepAlive: 5 * time.Second,
 		},
-		log: log,
+		log: netLog.New("module", "downloader"),
 	}
 
-	d.cond = sync.NewCond(&d.mu)
-
-	return d
+	e.cond = sync.NewCond(&e.mu)
+	return e
 }
 
-func (fc *downloader) download(ctx context.Context, from, to uint64) <-chan error {
-	ch := make(chan error, 1)
+func (e *executor) size() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-	wait, err := fc.downloadChunk(from, to)
-	if wait {
-		fc.wait(downloadTask{
+	return len(e.tasks)
+}
+
+func (e *executor) start() {
+	if atomic.CompareAndSwapInt32(&e.running, 0, 1) {
+		e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+
+		e.tasks = e.tasks[:0]
+
+		e.wg.Add(1)
+		go e.loop()
+	}
+}
+
+func (e *executor) stop() {
+	if atomic.CompareAndSwapInt32(&e.running, 1, 0) {
+		e.ctxCancel()
+		e.wg.Wait()
+	}
+}
+
+func (e *executor) addListener(listener taskListener) {
+	e.listeners = append(e.listeners, listener)
+}
+
+func (e *executor) status() ExecutorStatus {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	tasks := make([]string, len(e.tasks))
+	i := 0
+	for _, t := range e.tasks {
+		tasks[i] = t.String()
+		i++
+	}
+
+	return ExecutorStatus{
+		tasks,
+	}
+}
+
+func (e *executor) download(from, to uint64, must bool) bool {
+	if atomic.LoadInt32(&e.running) == 0 {
+		return false
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for {
+		if len(e.tasks) == cap(e.tasks) {
+			e.cond.Wait()
+		} else {
+			break
+		}
+	}
+
+	if must {
+		e.tasks = append(e.tasks, &syncTask{
 			from: from,
 			to:   to,
-			ch:   ch,
-			ctx:  ctx,
 		})
 	} else {
-		ch <- err
-	}
-
-	return ch
-}
-
-func (fc *downloader) runTask(t downloadTask) {
-	select {
-	case <-t.ctx.Done():
-		t.ch <- nil
-		return
-	default:
-
-	}
-
-	wait, err := fc.downloadChunk(t.from, t.to)
-	if wait {
-		fc.wait(t)
-	} else {
-		t.ch <- err
-	}
-}
-
-func (fc *downloader) downloadChunk(from, to uint64) (wait bool, err error) {
-	var p downloadPeer
-	var c syncConnection
-	if p, c, err = fc.pool.chooseSource(from, to); err != nil {
-		// no peers
-		return false, err
-	} else if c != nil {
-		if err = fc.doJob(c, from, to); err == nil {
-			// downloaded
-			return false, nil
+		tasks := missingTasks(e.tasks, from, to)
+		for _, t := range tasks {
+			e.tasks = append(e.tasks, t)
 		}
-	} else if p != nil {
-		if c, err = fc.createConn(p); err == nil {
-			if err = fc.doJob(c, from, to); err == nil {
-				// downloaded
-				return false, nil
+	}
+
+	sort.Sort(e.tasks)
+
+	return true
+}
+
+func (e *executor) cancel(from, to uint64) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for i := len(e.tasks); i > -1; i-- {
+		t := e.tasks[i]
+		if t.from >= from {
+			t.cancel()
+		} else if t.to > from {
+			t.to = from - 1
+		}
+	}
+}
+
+func (e *executor) reset() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.tasks = e.tasks[:0]
+}
+
+func (e *executor) loop() {
+	defer e.wg.Done()
+
+	for {
+		if atomic.LoadInt32(&e.running) == 0 {
+			break
+		}
+
+		var done = 0
+		var index = 0
+		var batch = 0
+		var t *syncTask
+
+		e.mu.Lock()
+		for index = done; index < len(e.tasks); index = done + batch {
+			t = e.tasks[index]
+
+			// update downIndex if done tasks are continuous
+			if t.st == reqDone {
+				done++
+			} else if t.st == reqPending {
+				batch++
+			} else if batch < e.batch {
+				batch++
+				e.run(t)
+			} else {
+				break
 			}
-		} else {
-			_ = c.Close()
-			fc.pool.delConn(c)
 		}
+
+		// todo clean done tasks
+		// more than a half tasks have done
+		if done > cap(e.tasks)/2 {
+			for index = 0; index < done; index++ {
+
+			}
+		}
+		e.mu.Unlock()
+
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	// no idle peers, or download error
-	return true, err
 }
 
-func (fc *downloader) wait(t downloadTask) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (e *executor) run(t *syncTask) {
+	t.st = reqPending
 
-	fc.queue = append(fc.queue, t)
-	sort.Sort(fc.queue)
-
-	fc.cond.Signal()
+	go e.do(t)
 }
 
-func (fc *downloader) doJob(c syncConnection, from, to uint64) error {
+func (e *executor) doJob(c syncConnection, from, to uint64) error {
 	start := time.Now()
 
-	fc.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
+	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
 	if err := c.download(from, to); err != nil {
 		if c.catch(err) {
-			fc.pool.delConn(c)
+			e.pool.delConn(c)
 		}
-		fc.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
+		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
 	}
 
-	fc.log.Info(fmt.Sprintf("download chunk %d-%d from %s elapse %s", from, to, c.RemoteAddr(), time.Now().Sub(start)))
+	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s elapse %s", from, to, c.RemoteAddr(), time.Now().Sub(start)))
 
 	return nil
 }
 
-func (fc *downloader) start() {
-	if atomic.CompareAndSwapInt32(&fc.running, 0, 1) {
-		fc.wg.Add(1)
-		go fc.loop()
-	}
-}
-
-func (fc *downloader) stop() {
-	if atomic.CompareAndSwapInt32(&fc.running, 1, 0) {
-		fc.cond.Signal()
-		fc.wg.Wait()
-	}
-}
-
-func (fc *downloader) loop() {
-	defer fc.wg.Done()
-
-	var t downloadTask
-
-Loop:
-	for {
-		fc.mu.Lock()
-
-		for len(fc.queue) == 0 {
-			if atomic.LoadInt32(&fc.running) == 0 {
-				fc.mu.Unlock()
-				break Loop
-			}
-
-			fc.cond.Wait()
-		}
-
-		t = fc.queue[0]
-		fc.queue = fc.queue[1:]
-
-		fc.mu.Unlock()
-
-		go fc.runTask(t)
-	}
-
-	fc.pool.reset()
-}
-
-func (fc *downloader) createConn(p downloadPeer) (c syncConnection, err error) {
+func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	addr := p.fileAddress()
 
-	fc.mu.Lock()
-	if _, ok := fc.dialing[addr]; ok {
-		fc.mu.Unlock()
+	e.mu.Lock()
+	if _, ok := e.dialing[addr]; ok {
+		e.mu.Unlock()
 		return nil, errPeerDialing
 	}
-	fc.dialing[addr] = struct{}{}
-	fc.mu.Unlock()
+	e.dialing[addr] = struct{}{}
+	e.mu.Unlock()
 
-	tcp, err := fc.dialer.Dial("tcp", addr)
+	tcp, err := e.dialer.Dial("tcp", addr)
 
-	fc.mu.Lock()
-	delete(fc.dialing, addr)
-	fc.mu.Unlock()
+	e.mu.Lock()
+	delete(e.dialing, addr)
+	e.mu.Unlock()
 
 	// dial error
 	if err != nil {
@@ -403,13 +411,59 @@ func (fc *downloader) createConn(p downloadPeer) (c syncConnection, err error) {
 	}
 
 	// handshake error
-	c, err = fc.factory.initiate(tcp, p)
+	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
 		return
 	}
 
 	// add error
-	err = fc.pool.addConn(c)
+	if err = e.pool.addConn(c); err != nil {
+		e.pool.delConn(c)
+	}
 
 	return
+}
+
+func (e *executor) do(t *syncTask) {
+	if t.ctx == nil {
+		t.ctx, t.ctxCancel = context.WithCancel(e.ctx)
+	}
+
+	var p downloadPeer
+	var c syncConnection
+	var wait bool
+	var err error
+
+	if p, c, err = e.pool.chooseSource(t.to); err != nil {
+		// no peers
+		wait = false
+	} else if c != nil {
+		if err = e.doJob(c, t.from, t.to); err == nil {
+			// downloaded
+			wait = false
+		}
+	} else if p != nil {
+		if c, err = e.createConn(p); err == nil {
+			if err = e.doJob(c, t.from, t.to); err == nil {
+				// downloaded
+				wait = false
+			}
+		}
+	}
+
+	if wait {
+		t.st = reqWaiting
+	} else if err != nil {
+		t.st = reqError
+	} else {
+		t.st = reqDone
+	}
+
+	e.notify(t, err)
+}
+
+func (e *executor) notify(t *syncTask, err error) {
+	for _, listener := range e.listeners {
+		listener(t.from, t.to, err)
+	}
 }

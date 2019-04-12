@@ -34,6 +34,11 @@ type syncCacher interface {
 	GetSyncCache() interfaces.SyncCache
 }
 
+type syncChain interface {
+	syncCacher
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+}
+
 type Chain interface {
 	snapshotBlockReader
 	accountBockReader

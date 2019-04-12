@@ -52,7 +52,8 @@ type net struct {
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
-	reader syncCacheReader
+	reader     syncCacheReader
+	downloader syncDownloader
 	BlockSubscriber
 	running  int32
 	term     chan struct{}
@@ -294,7 +295,7 @@ func New(cfg Config) Net {
 		peers: peers,
 	}
 
-	downloader := newBatchDownloader(peers, syncConnFac)
+	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
 	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Second)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
 
@@ -302,7 +303,6 @@ func New(cfg Config) Net {
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)
 	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
-	syncer.SubscribeSyncStatus(reader.subSyncState)
 
 	n := &net{
 		Config:          cfg,
@@ -312,6 +312,7 @@ func New(cfg Config) Net {
 		reader:          reader,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
+		downloader:      downloader,
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        newHandlers("vite"),
 		log:             netLog,
@@ -427,6 +428,8 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			return
 		}
 
+		n.downloader.start()
+
 		n.reader.start()
 
 		n.query.start()
@@ -444,6 +447,8 @@ func (n *net) Stop() error {
 		close(n.term)
 
 		n.reader.stop()
+
+		n.downloader.stop()
 
 		n.syncer.stop()
 

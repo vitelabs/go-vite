@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	net2 "net"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -472,5 +475,186 @@ func (f *syncConn) close() error {
 		return f.Conn.Close()
 	}
 
-	return errFileConnClosed
+	return errSyncConnClosed
+}
+
+var errSyncConnExist = errors.New("sync connection has exist")
+var errSyncConnClosed = errors.New("sync connection has closed")
+var errPeerDialing = errors.New("peer is dialing")
+
+type connections []syncConnection
+
+func (fl connections) Len() int {
+	return len(fl)
+}
+
+func (fl connections) Less(i, j int) bool {
+	return fl[i].speed() > fl[j].speed()
+}
+
+func (fl connections) Swap(i, j int) {
+	fl[i], fl[j] = fl[j], fl[i]
+}
+
+func (fl connections) del(i int) connections {
+	total := len(fl)
+	if i < total {
+		copy(fl[i:], fl[i+1:])
+		return fl[:total-1]
+	}
+
+	return fl
+}
+
+type FilePoolStatus struct {
+	Connections []FileConnStatus
+}
+
+type downloadPeer interface {
+	ID() peerId
+	height() uint64
+	fileAddress() string
+}
+
+type downloadPeerSet interface {
+	pickDownloadPeers(height uint64) (m map[peerId]downloadPeer)
+}
+
+type connPool interface {
+	addConn(c syncConnection) error
+	delConn(c syncConnection)
+	chooseSource(to uint64) (downloadPeer, syncConnection, error)
+	reset()
+}
+
+type connPoolImpl struct {
+	mu    sync.Mutex
+	peers downloadPeerSet
+	mi    map[peerId]int // value is the index of `connPoolImpl.l`
+	l     connections    // connections sort by speed, from fast to slow
+}
+
+func newPool(peers downloadPeerSet) *connPoolImpl {
+	return &connPoolImpl{
+		mi:    make(map[peerId]int),
+		peers: peers,
+	}
+}
+
+func (fp *connPoolImpl) status() FilePoolStatus {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	cs := make([]FileConnStatus, len(fp.l))
+
+	for i := 0; i < len(fp.l); i++ {
+		cs[i] = fp.l[i].status()
+	}
+
+	return FilePoolStatus{
+		Connections: cs,
+	}
+}
+
+// delete filePeer and connection
+func (fp *connPoolImpl) delConn(c syncConnection) {
+	_ = c.Close()
+
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	fp.delConnLocked(c.ID())
+}
+
+func (fp *connPoolImpl) delConnLocked(id peerId) {
+	if i, ok := fp.mi[id]; ok {
+		delete(fp.mi, id)
+
+		fp.l = fp.l.del(i)
+	}
+}
+
+func (fp *connPoolImpl) addConn(c syncConnection) error {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	if _, ok := fp.mi[c.ID()]; ok {
+		return errSyncConnExist
+	}
+
+	fp.l = append(fp.l, c)
+	fp.mi[c.ID()] = len(fp.l) - 1
+	return nil
+}
+
+// sort list, and update index to map
+func (fp *connPoolImpl) sort() {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	fp.sortLocked()
+}
+
+func (fp *connPoolImpl) sortLocked() {
+	sort.Sort(fp.l)
+	for i, c := range fp.l {
+		fp.mi[c.ID()] = i
+	}
+}
+
+// choose the fast fileConn, or create new conn randomly
+func (fp *connPoolImpl) chooseSource(to uint64) (downloadPeer, syncConnection, error) {
+	peerMap := fp.peers.pickDownloadPeers(to)
+
+	if len(peerMap) == 0 {
+		return nil, nil, errNoSuitablePeer
+	}
+
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	// only peers without sync connection
+	for _, c := range fp.l {
+		delete(peerMap, c.ID())
+	}
+
+	var createNew bool
+	if len(peerMap) > 0 {
+		createNew = rand.Intn(10) > 5
+	}
+
+	fp.sortLocked()
+	for i, c := range fp.l {
+		if c.isBusy() || c.height() < to {
+			continue
+		}
+
+		if len(fp.l)+1 > 3*(i+1) {
+			// fast enough
+			return nil, c, nil
+		}
+
+		if createNew {
+			for _, p := range peerMap {
+				return p, nil, nil
+			}
+		} else {
+			return nil, c, nil
+		}
+	}
+
+	return nil, nil, nil
+}
+
+func (fp *connPoolImpl) reset() {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	fp.mi = make(map[peerId]int)
+
+	for _, c := range fp.l {
+		_ = c.Close()
+	}
+
+	fp.l = nil
 }

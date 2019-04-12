@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -52,28 +51,19 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-type syncChain interface {
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-}
-
 type syncPeerSet interface {
 	sub(ch chan<- peerEvent)
 	unSub(ch chan<- peerEvent)
 	syncPeer() Peer
-}
-
-type syncDownloader interface {
-	stop()
-	sync(from, to uint64)
-	download(from, to uint64)
-	subscribe(done func(err error))
-	setTo(to uint64)
+	bestPeer() Peer
 }
 
 type syncer struct {
 	from, to uint64
-	height   uint64
-	state    syncState
+	batchEnd uint64
+
+	height uint64
+	state  syncState
 
 	timeout time.Duration
 
@@ -104,8 +94,6 @@ func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader, ti
 	}
 
 	s.state = syncStateInit{s}
-
-	downloader.subscribe(s.done)
 
 	return s
 }
@@ -165,8 +153,6 @@ func (s *syncer) start() {
 		return
 	}
 
-	s.state.wait()
-
 	s.term = make(chan struct{})
 
 	s.peers.sub(s.eventChan)
@@ -212,11 +198,8 @@ Wait:
 		return
 	}
 
-	s.height = current.Height
-	s.from = s.height + 1
-	s.to = syncPeerHeight
-	s.state.start()
-	s.downloader.sync(s.from, s.to)
+	s.state.sync()
+	s.sync(current.Height, syncPeerHeight)
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -226,12 +209,19 @@ Wait:
 	for {
 		select {
 		case <-s.eventChan:
-			// choose sync peer again
+			// peers change, find new peer or peer disconnected. Choose sync peer again.
 			if syncPeer = s.peers.syncPeer(); syncPeer != nil {
 				syncPeerHeight = syncPeer.height()
 				if shouldSync(current.Height, syncPeerHeight) {
-					s.setTarget(syncPeerHeight)
-					s.state.start()
+					bestPeer := s.peers.bestPeer()
+					// only change sync target at two following scene:
+					// 1. the bestPeer is low than current target, because taller peers maybe disconnected.
+					// 2. the new syncPeer is taller enough than current target, because find more taller peers.
+					if bestPeer.height() < s.to || shouldSync(s.to, syncPeerHeight) {
+						s.setTarget(syncPeerHeight)
+					}
+
+					s.state.sync()
 				} else {
 					// no need sync
 					s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.String(), syncPeerHeight, current.Height))
@@ -270,10 +260,45 @@ Wait:
 	}
 }
 
+func (s *syncer) sync(current, syncPeerHeight uint64) {
+	// download after cache
+	chunks := s.chain.GetSyncCache().Chunks()
+	if len(chunks) > 0 {
+		chunkEnd := chunks[len(chunks)-1][1]
+		if current < chunkEnd {
+			current = chunkEnd
+		}
+	}
+
+	s.from = current + 1
+	s.to = syncPeerHeight
+
+	go s.runTasks()
+}
+
+func (s *syncer) runTasks() {
+	from := s.from
+	var to uint64
+
+	// todo how to exit avoid goroutine leak
+	for from < s.to {
+		to = from + syncTaskSize - 1
+		if to > s.to {
+			to = s.to
+		}
+
+		s.downloader.download(from, to, false)
+		from = to + 1
+	}
+}
+
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
-	atomic.StoreUint64(&s.to, to)
-	s.downloader.setTo(to)
+	if s.to > to {
+		s.downloader.cancel(to+1, s.to)
+	}
+
+	s.to = to
 }
 
 // subscribe sync downloader

@@ -93,13 +93,9 @@ func mock(cfg Config) Net {
 		subs:      make(map[int]SyncStateCallback),
 		running:   1,
 		term:      make(chan struct{}),
-		downloader: newBatchDownloader(peers, &defaultSyncConnectionFactory{
-			chain: cfg.Chain,
-			peers: peers,
-		}),
-		log: log15.New("module", "net/syncer"),
+		log:       log15.New("module", "net/syncer"),
 	}
-	syncer.state = syncStateWait{syncer}
+	syncer.state = syncStateDone{syncer}
 
 	return &mockNet{
 		Config: &Config{

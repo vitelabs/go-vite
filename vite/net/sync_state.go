@@ -1,43 +1,28 @@
 package net
 
-/* +----------------+----------------+-----------------------------------------------------------+
- * |     From       |       To       |                           Comment                         |
- * +----------------+----------------+-----------------------------------------------------------+
- * |    SyncWait    |     Syncing    | find taller peers										 |
- * |    SyncWait    |    SyncDone    | find peers, but not tall enough							 |
- * |    SyncWait    |   SyncCancel   | cancel before wait timeout								 |
- * |    SyncWait    |    SyncError   | cannot find peers after wait timeout						 |
- * +----------------+----------------+-----------------------------------------------------------+
- * |     Syncing    | SyncDownloaded | all sync tasks done										 |
- * |     Syncing    |    SyncDone    | taller peers disconnected, cancel remaining tasks		 |
- * |     Syncing    |   SyncError    | chain stop growing long time before all sync tasks done	 |
- * |     Syncing    |   SyncCancel   | cancel before all tasks done 							 |
- * +----------------+----------------+-----------------------------------------------------------+
- * | SyncDownloaded |    SyncDone    | all tasks done, and chain grow to target height			 |
- * | SyncDownloaded |    SyncError   | chain stop growing long time after all sync tasks done	 |
- * | SyncDownloaded |   SyncCancel   | cancel after all tasks done, before chain grow to target	 |
- * | SyncDownloaded |     Syncing    | find taller peers, syncPeer is more taller				 |
- * +----------------+----------------+-----------------------------------------------------------+
- * |   SyncError    |    SyncWait    | last sync flow exited, eg. no peers, find new taller peers|
- * |   SyncError    |    Syncing     | in sync flow, find new taller peers						 |
- * |   SyncError    |    SyncDone    | in sync flow, tall peers disconnected, no need to sync	 |
- * |   SyncError    |   SyncCancel   | in sync flow, cancel										 |
- * +----------------+----------------+-----------------------------------------------------------+
- * |   SyncCancel   |    SyncWait    | new sync flow											 |
- * +----------------+----------------+-----------------------------------------------------------+
- * |    SyncDone    |    SyncWait    | new sync flow											 |
- * +----------------+----------------+-----------------------------------------------------------+
- * |    SyncInit    |    SyncWait    | find new peer											 |
- * +----------------+----------------+-----------------------------------------------------------+
+/* +----------------+----------------+--------------------------------------------------------------+
+ * |     From       |       To       |                           Comment                         	|
+ * +----------------+----------------+--------------------------------------------------------------+
+ * |     Syncing    |    SyncDone    | success														|
+ * |     Syncing    |   SyncError    | chain get stuck, download error, no peers					|
+ * |     Syncing    |   SyncCancel   | stop							 							 	|
+ * +----------------+----------------+--------------------------------------------------------------+
+ * |   SyncError    |    Syncing     | new peer													 	|
+ * |   SyncError    |    SyncDone    | in sync flow, taller peers disconnected, no need to sync	 	|
+ * |   SyncError    |   SyncCancel   | stop														 	|
+ * +----------------+----------------+--------------------------------------------------------------+
+ * |    SyncDone    |    Syncing     | new peer													 	|
+ * +----------------+----------------+--------------------------------------------------------------+
+ * |    SyncInit    |    Syncing     | new peer											 			|
+ * |    SyncInit	|	SyncCancel	 | stop															|
+ * +----------------+----------------+--------------------------------------------------------------+
  */
 
 type SyncState byte
 
 const (
 	SyncInit SyncState = iota
-	SyncWait
 	Syncing
-	SyncDownloaded
 	SyncDone
 	SyncError
 	SyncCancel
@@ -48,13 +33,11 @@ func (s SyncState) syncExited() bool {
 }
 
 var syncStatus = map[SyncState]string{
-	SyncInit:       "Sync Not Start",
-	SyncWait:       "Sync wait",
-	Syncing:        "Synchronising",
-	SyncDownloaded: "Sync downloaded",
-	SyncDone:       "Sync done",
-	SyncError:      "Sync error",
-	SyncCancel:     "Sync canceled",
+	SyncInit:   "Sync Not Start",
+	Syncing:    "Synchronising",
+	SyncDone:   "Sync done",
+	SyncError:  "Sync error",
+	SyncCancel: "Sync canceled",
 }
 
 func (s SyncState) String() string {
@@ -68,18 +51,18 @@ func (s SyncState) String() string {
 
 type syncState interface {
 	state() SyncState
-	wait()
-	start()
-	downloaded()
+	enter()
+	sync()
 	done()
 	error()
 	cancel()
 }
 
 type syncStateHost interface {
-	setState(state syncState)
+	setState(syncState)
 }
 
+// state init
 type syncStateInit struct {
 	host syncStateHost
 }
@@ -88,18 +71,14 @@ func (s syncStateInit) state() SyncState {
 	return SyncInit
 }
 
-func (s syncStateInit) wait() {
-	s.host.setState(syncStateWait{
+func (s syncStateInit) enter() {
+	// do nothing
+}
+
+func (s syncStateInit) sync() {
+	s.host.setState(syncStateSyncing{
 		host: s.host,
 	})
-}
-
-func (s syncStateInit) start() {
-	// cannot happen
-}
-
-func (s syncStateInit) downloaded() {
-	// cannot happen
 }
 
 func (s syncStateInit) done() {
@@ -111,128 +90,51 @@ func (s syncStateInit) error() {
 }
 
 func (s syncStateInit) cancel() {
-	// cannot happen
-}
-
-type syncStateWait struct {
-	host syncStateHost
-}
-
-func (s syncStateWait) state() SyncState {
-	return SyncWait
-}
-func (s syncStateWait) wait() {
-	// nothing
-}
-
-func (s syncStateWait) start() {
-	s.host.setState(syncStatePending{
-		host: s.host,
-	})
-}
-
-func (s syncStateWait) downloaded() {
-	// cannot happen
-}
-
-func (s syncStateWait) done() {
-	s.host.setState(syncStateDone{
-		host: s.host,
-	})
-}
-
-func (s syncStateWait) error() {
-	s.host.setState(syncStateError{
-		host: s.host,
-	})
-}
-
-func (s syncStateWait) cancel() {
 	s.host.setState(syncStateCancel{
 		host: s.host,
 	})
 }
 
-type syncStatePending struct {
+// state syncing
+type syncStateSyncing struct {
 	host syncStateHost
 }
 
-func (s syncStatePending) wait() {
-	// cannot happen
-}
-
-func (s syncStatePending) state() SyncState {
+func (s syncStateSyncing) state() SyncState {
 	return Syncing
 }
 
-func (s syncStatePending) start() {
-	// self
+func (s syncStateSyncing) enter() {
+
 }
 
-func (s syncStatePending) downloaded() {
-	s.host.setState(syncStateDownloaded{
+func (s syncStateSyncing) sync() {
+	// self
+	// maybe get taller peers
+	s.host.setState(syncStateSyncing{
 		host: s.host,
 	})
 }
 
-func (s syncStatePending) done() {
+func (s syncStateSyncing) done() {
 	s.host.setState(syncStateDone{
 		host: s.host,
 	})
 }
 
-func (s syncStatePending) error() {
+func (s syncStateSyncing) error() {
 	s.host.setState(syncStateError{
 		host: s.host,
 	})
 }
 
-func (s syncStatePending) cancel() {
+func (s syncStateSyncing) cancel() {
 	s.host.setState(syncStateCancel{
 		host: s.host,
 	})
 }
 
-type syncStateDownloaded struct {
-	host syncStateHost
-}
-
-func (s syncStateDownloaded) state() SyncState {
-	return SyncDownloaded
-}
-
-func (s syncStateDownloaded) wait() {
-	// cannot happen
-}
-
-func (s syncStateDownloaded) start() {
-	s.host.setState(syncStatePending{
-		host: s.host,
-	})
-}
-
-func (s syncStateDownloaded) downloaded() {
-	// self
-}
-
-func (s syncStateDownloaded) done() {
-	s.host.setState(syncStateDone{
-		host: s.host,
-	})
-}
-
-func (s syncStateDownloaded) error() {
-	s.host.setState(syncStateError{
-		host: s.host,
-	})
-}
-
-func (s syncStateDownloaded) cancel() {
-	s.host.setState(syncStateCancel{
-		host: s.host,
-	})
-}
-
+// state done
 type syncStateDone struct {
 	host syncStateHost
 }
@@ -241,18 +143,14 @@ func (s syncStateDone) state() SyncState {
 	return SyncDone
 }
 
-func (s syncStateDone) wait() {
-	s.host.setState(syncStateWait{
+func (s syncStateDone) enter() {
+
+}
+
+func (s syncStateDone) sync() {
+	s.host.setState(syncStateSyncing{
 		host: s.host,
 	})
-}
-
-func (s syncStateDone) start() {
-	// cannot happen
-}
-
-func (s syncStateDone) downloaded() {
-	// cannot happen
 }
 
 func (s syncStateDone) done() {
@@ -264,9 +162,10 @@ func (s syncStateDone) error() {
 }
 
 func (s syncStateDone) cancel() {
-	// cannot happen
+	// do nothing
 }
 
+// state error
 type syncStateError struct {
 	host syncStateHost
 }
@@ -275,20 +174,14 @@ func (s syncStateError) state() SyncState {
 	return SyncError
 }
 
-func (s syncStateError) wait() {
-	s.host.setState(syncStateWait{
-		host: s.host,
-	})
+func (s syncStateError) enter() {
+
 }
 
-func (s syncStateError) start() {
-	s.host.setState(syncStatePending{
+func (s syncStateError) sync() {
+	s.host.setState(syncStateSyncing{
 		host: s.host,
 	})
-}
-
-func (s syncStateError) downloaded() {
-	// cannot happen
 }
 
 func (s syncStateError) done() {
@@ -298,9 +191,7 @@ func (s syncStateError) done() {
 }
 
 func (s syncStateError) error() {
-	s.host.setState(syncStateError{
-		host: s.host,
-	})
+	// self
 }
 
 func (s syncStateError) cancel() {
@@ -309,25 +200,20 @@ func (s syncStateError) cancel() {
 	})
 }
 
+// state cancel
 type syncStateCancel struct {
 	host syncStateHost
-}
-
-func (s syncStateCancel) wait() {
-	s.host.setState(syncStateWait{
-		host: s.host,
-	})
 }
 
 func (s syncStateCancel) state() SyncState {
 	return SyncCancel
 }
 
-func (s syncStateCancel) start() {
-	// cannot happen
+func (s syncStateCancel) enter() {
+
 }
 
-func (s syncStateCancel) downloaded() {
+func (s syncStateCancel) sync() {
 	// cannot happen
 }
 
@@ -340,5 +226,5 @@ func (s syncStateCancel) error() {
 }
 
 func (s syncStateCancel) cancel() {
-	// cannot happen
+	// self
 }

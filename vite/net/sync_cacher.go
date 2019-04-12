@@ -2,8 +2,7 @@ package net
 
 import (
 	"io"
-	"sync/atomic"
-	"time"
+	"sync"
 
 	"github.com/vitelabs/go-vite/common/types"
 
@@ -12,34 +11,31 @@ import (
 )
 
 type syncCacheReader interface {
-	subSyncState(state SyncState)
 	start()
 	stop()
 }
 
 type cacheReader struct {
-	chain interface {
-		syncCacher
-		GetLatestSnapshotBlock() *ledger.SnapshotBlock
-	}
+	chain      syncChain
 	receiver   blockReceiver
 	downloader syncDownloader
-	syncState  SyncState
-	running    int32
-	term       chan struct{}
+	running    bool
+	mu         sync.Mutex
+	cond       *sync.Cond
 }
 
-func newCacheReader(chain interface {
-	syncCacher
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-}, receiver blockReceiver, downloader syncDownloader) syncCacheReader {
-	return &cacheReader{
+func newCacheReader(chain syncChain, receiver blockReceiver, downloader syncDownloader) syncCacheReader {
+	s := &cacheReader{
 		chain:      chain,
 		receiver:   receiver,
 		downloader: downloader,
 	}
+	s.cond = sync.NewCond(&s.mu)
+
+	return s
 }
 
+/*
 func (s *cacheReader) subSyncState(state SyncState) {
 	s.syncState = state
 
@@ -57,88 +53,115 @@ func (s *cacheReader) subSyncState(state SyncState) {
 		return
 	}
 }
+*/
 
 func (s *cacheReader) start() {
-	if atomic.CompareAndSwapInt32(&s.running, 0, 1) {
-		s.term = make(chan struct{})
-		go s.readCacheLoop()
-	}
+	s.mu.Lock()
+	s.running = true
+	s.mu.Unlock()
+
+	go s.readLoop()
 }
 
 func (s *cacheReader) stop() {
-	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
-		close(s.term)
-	}
+	s.mu.Lock()
+	s.running = false
+	s.mu.Unlock()
+
+	s.cond.Signal()
 }
 
-func (s *cacheReader) readCacheLoop() {
-	cache := s.chain.GetSyncCache()
-	var oldHeight uint64
-	var lastTime time.Time
+func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
+	s.cond.Signal()
+}
 
-	var initDuration = 3 * time.Second
-	var maxDuration = 24 * time.Second
-	var duration = initDuration
-	var timer = time.NewTimer(duration)
-	defer timer.Stop()
+func (s *cacheReader) handleChunkError(chunk [2]uint64) {
+	cache := s.chain.GetSyncCache()
+	_ = cache.Delete(chunk)
+	s.downloader.download(chunk[0], chunk[1], true)
+}
+
+func (s *cacheReader) notify() {
+	s.cond.Signal()
+}
+
+func (s *cacheReader) readLoop() {
+	cache := s.chain.GetSyncCache()
 
 	var err error
 	var reader interfaces.ReadCloser
+	var height uint64
+	var chunkReadEnd uint64
+	var requestEnd uint64
 
+Loop:
 	for {
 		cs := cache.Chunks()
 
-		if len(cs) == 0 {
-			// sync error, and no cache to read, then stop.
-			if s.syncState == SyncError {
-				s.stop()
-				return
+		s.mu.Lock()
+		for len(cs) == 0 {
+			if false == s.running {
+				s.mu.Unlock()
+				break Loop
 			}
 
-			select {
-			case <-s.term:
-				return
-			case <-timer.C:
-
-				if duration < maxDuration {
-					duration *= 2
-				} else {
-					duration = initDuration
-				}
-
-				timer.Reset(duration)
-				continue
-			}
+			s.cond.Wait()
 		}
+		s.mu.Unlock()
 
-		height := s.chain.GetLatestSnapshotBlock().Height
-		if oldHeight != height {
-			oldHeight = height
-			lastTime = time.Now()
-		}
+		height = s.chain.GetLatestSnapshotBlock().Height
 
-		for _, c := range cs {
-			// chunk is useless
+		// clean useless chunks
+		var i int
+		var c [2]uint64
+		for i, c = range cs {
 			if c[1] < height {
 				_ = cache.Delete(c)
+			} else {
+				break
+			}
+		}
+
+		cs = cs[i:]
+		if len(cs) == 0 {
+			continue
+		}
+
+		// request missing chunks
+		chunkTo := cs[len(cs)-1][1]
+		if requestEnd < chunkTo {
+			requestEnd = chunkTo
+
+			chunks := make([][2]uint64, len(cs))
+			for i, c = range cs {
+				chunks[i] = c
+			}
+
+			mis := missingChunks(chunks, height+1, requestEnd)
+			for _, chunk := range mis {
+				s.downloader.download(chunk[0], chunk[1], false)
+			}
+		}
+
+		// read chunks
+		for _, c = range cs {
+			if c[1] < chunkReadEnd {
 				continue
 			}
 
 			// chunk is too high
 			if c[0] > height+syncTaskSize {
-				// chain get stuck for a long time, download missing chunks
-				if time.Now().Sub(lastTime) > time.Minute {
-					s.downloader.download(oldHeight+1, c[0]-1)
-				}
-
-				break
+				// wait for download
+				s.mu.Lock()
+				s.cond.Wait()
+				s.mu.Unlock()
+				// chunk downloaded
+				continue Loop
 			}
 
 			reader, err = cache.NewReader(c[0], c[1])
 			if err != nil {
-				// chunk is broken, download again
-				_ = cache.Delete(c)
-				s.downloader.download(c[0], c[1])
+				s.handleChunkError(c)
 				continue
 			}
 
@@ -162,8 +185,9 @@ func (s *cacheReader) readCacheLoop() {
 
 			// read chunk error
 			if err != nil && err != io.EOF {
-				_ = cache.Delete(c)
-				s.downloader.download(c[0], c[1])
+				s.handleChunkError(c)
+			} else {
+				chunkReadEnd = c[1]
 			}
 		}
 	}
