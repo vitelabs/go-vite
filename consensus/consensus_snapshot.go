@@ -96,6 +96,8 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 				sbp.BlockNum += uint64(v.FactualNum)
 				sbp.ExceptedBlockNum += uint64(v.ExpectedNum)
 			}
+			// block sum
+			stats.BlockTotal += uint64(v.FactualNum)
 		}
 		result = append(result, stats)
 	}
@@ -113,7 +115,7 @@ func (self *snapshotCs) dayVoteStat(b byte, index uint64, proofHash types.Hash) 
 
 	details := make(map[string]*big.Int)
 	for k, v := range votes {
-		if k > int(self.info.RandRank) {
+		if k >= int(self.info.RandRank) {
 			break
 		}
 		details[v.Name] = v.Balance

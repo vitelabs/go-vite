@@ -15,6 +15,8 @@ type DayStats struct {
 	Stats map[string]*SbpStats
 
 	VoteSum *big.Int
+	// block total in one day
+	BlockTotal uint64
 }
 
 type SBPStatReader interface {
