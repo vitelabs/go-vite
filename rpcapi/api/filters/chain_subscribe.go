@@ -14,6 +14,11 @@ type AccountChainEvent struct {
 	Logs   []*ledger.VmLog
 }
 
+type SnapshotChainEvent struct {
+	Hash   types.Hash
+	Height uint64
+}
+
 type ChainSubscribe struct {
 	vite                   *vite.Vite
 	es                     *EventSystem
@@ -48,6 +53,11 @@ func (c *ChainSubscribe) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.Sn
 	return nil
 }
 func (c *ChainSubscribe) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	sbEvents := make([]*SnapshotChainEvent, len(snapshotBlocks))
+	for i, b := range snapshotBlocks {
+		sbEvents[i] = &SnapshotChainEvent{b.Hash, b.Height}
+	}
+	c.es.sbCh <- sbEvents
 	return nil
 }
 func (c *ChainSubscribe) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
@@ -76,5 +86,10 @@ func (c *ChainSubscribe) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotCh
 	return nil
 }
 func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	sbEvents := make([]*SnapshotChainEvent, len(chunks))
+	for i, b := range chunks {
+		sbEvents[i] = &SnapshotChainEvent{b.SnapshotBlock.Hash, b.SnapshotBlock.Height}
+	}
+	c.es.sbDelCh <- sbEvents
 	return nil
 }

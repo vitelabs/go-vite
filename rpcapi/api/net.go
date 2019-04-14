@@ -24,12 +24,11 @@ func NewNetApi(vite *vite.Vite) *NetApi {
 }
 
 type SyncInfo struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Received string `json:"received"`
-	Current  string `json:"current"`
-	State    uint   `json:"state_bak"`
-	Status   string `json:"status"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Current string `json:"current"`
+	State   uint   `json:"state"`
+	Status  string `json:"status"`
 }
 
 func (n *NetApi) SyncInfo() SyncInfo {
@@ -37,12 +36,11 @@ func (n *NetApi) SyncInfo() SyncInfo {
 	s := n.net.Status()
 
 	return SyncInfo{
-		From:     strconv.FormatUint(s.From, 10),
-		To:       strconv.FormatUint(s.To, 10),
-		Received: strconv.FormatUint(s.Received, 10),
-		Current:  strconv.FormatUint(s.Current, 10),
-		State:    uint(s.State),
-		Status:   s.State.String(),
+		From:    strconv.FormatUint(s.From, 10),
+		To:      strconv.FormatUint(s.To, 10),
+		Current: strconv.FormatUint(s.Current, 10),
+		State:   uint(s.State),
+		Status:  s.State.String(),
 	}
 }
 

@@ -1,14 +1,13 @@
 package consensus
 
 import (
-	"math/big"
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus/db"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -62,32 +61,13 @@ type Life interface {
 	Stop()
 }
 
-type SbpStats struct {
-	Index            uint64
-	BlockNum         uint64
-	ExceptedBlockNum uint64
-	VoteCnt          *big.Int
-	Name             string
-}
-
-type DayStats struct {
-	Index uint64
-	stats map[string]*SbpStats
-	// todo
-	VoteSum *big.Int
-}
-type SBPStatReader interface {
-	DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error)
-	GetDayTimeIndex() TimeIndex
-}
-
 type Consensus interface {
 	Verifier
 	Subscriber
 	Reader
 	Life
 	API() APIReader
-	SBPReader() SBPStatReader
+	SBPReader() core.SBPStatReader
 }
 
 // update committee result
@@ -114,7 +94,7 @@ type consensus struct {
 	closed chan struct{}
 }
 
-func (self *consensus) SBPReader() SBPStatReader {
+func (self *consensus) SBPReader() core.SBPStatReader {
 	return self.snapshot
 }
 

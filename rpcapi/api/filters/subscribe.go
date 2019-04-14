@@ -18,12 +18,13 @@ var (
 )
 
 type filter struct {
-	typ      FilterType
-	deadline *time.Timer
-	param    filterParam
-	s        *RpcSubscription
-	blocks   []*AccountBlock
-	logs     []*Logs
+	typ            FilterType
+	deadline       *time.Timer
+	param          filterParam
+	s              *RpcSubscription
+	blocks         []*AccountBlock
+	logs           []*Logs
+	snapshotBlocks []*SnapshotBlock
 }
 
 type SubscribeApi struct {
@@ -128,11 +129,49 @@ type AccountBlock struct {
 	Removed bool       `json:"removed"`
 }
 
+type SnapshotBlock struct {
+	Hash    types.Hash `json:"hash"`
+	Height  uint64     `json:"height"`
+	Removed bool       `json:"removed"`
+}
+
 type Logs struct {
 	Log              *ledger.VmLog  `json:"log"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
 	Addr             *types.Address `json:"addr"`
 	Removed          bool           `json:"removed"`
+}
+
+func (s *SubscribeApi) NewSnapshotBlocksFilter() (rpc.ID, error) {
+	s.log.Info("NewSnapshotBlocksFilter")
+	var (
+		sbCh  = make(chan []*SnapshotBlock)
+		sbSub = s.eventSystem.SubscribeSnapshotBlocks(sbCh)
+	)
+
+	s.filterMapMu.Lock()
+	s.filterMap[sbSub.ID] = &filter{typ: sbSub.sub.typ, deadline: time.NewTimer(deadline), s: sbSub}
+	s.filterMapMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case sb := <-sbCh:
+				s.filterMapMu.Lock()
+				if f, found := s.filterMap[sbSub.ID]; found {
+					f.snapshotBlocks = append(f.snapshotBlocks, sb...)
+				}
+				s.filterMapMu.Unlock()
+			case <-sbSub.Err():
+				s.filterMapMu.Lock()
+				delete(s.filterMap, sbSub.ID)
+				s.filterMapMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return sbSub.ID, nil
 }
 
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
@@ -227,6 +266,11 @@ type LogsMsg struct {
 	Id   rpc.ID  `json:"subscription"`
 }
 
+type SnapshotBlocksMsg struct {
+	Blocks []*SnapshotBlock `json:"result"`
+	Id     rpc.ID           `json:"subscription"`
+}
+
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 	s.log.Info("GetFilterChanges", "id", id)
 	s.filterMapMu.Lock()
@@ -247,10 +291,42 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 			logs := f.logs
 			f.logs = nil
 			return LogsMsg{logs, id}, nil
+		case SnapshotBlocksSubscription:
+			snapshotBlocks := f.snapshotBlocks
+			f.snapshotBlocks = nil
+			return SnapshotBlocksMsg{snapshotBlocks, id}, nil
 		}
 	}
 
 	return nil, errors.New("filter not found")
+}
+
+func (s *SubscribeApi) NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription, error) {
+	s.log.Info("NewSnapshotBlocks")
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		snapshotBlockHashChan := make(chan []*SnapshotBlock, 128)
+		sbSub := s.eventSystem.SubscribeSnapshotBlocks(snapshotBlockHashChan)
+		for {
+			select {
+			case h := <-snapshotBlockHashChan:
+				notifier.Notify(rpcSub.ID, h)
+			case <-rpcSub.Err():
+				sbSub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				sbSub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
 }
 
 func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {

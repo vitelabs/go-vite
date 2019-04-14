@@ -9,4 +9,5 @@ type Net struct {
 	FilePort          int    `json:"FilePort"`
 	ForwardStrategy   string `json:"ForwardStrategy"`
 	MinePrivateKey    ed25519.PrivateKey
+	P2PPrivateKey     ed25519.PrivateKey
 }

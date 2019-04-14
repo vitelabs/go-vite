@@ -7,7 +7,6 @@ import (
 	"fmt"
 	net2 "net"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,6 +34,7 @@ type Config struct {
 	FilePublicAddress string
 	FilePort          int
 	MinePrivateKey    ed25519.PrivateKey
+	P2PPrivateKey     ed25519.PrivateKey
 	ForwardStrategy   string // default `cross`
 	Chain
 	Verifier
@@ -52,12 +52,11 @@ type net struct {
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
-	reader syncCacheReader
+	reader     syncCacheReader
+	downloader syncDownloader
 	BlockSubscriber
 	running  int32
-	term     chan struct{}
 	log      log15.Logger
-	wg       sync.WaitGroup
 	fs       *fileServer
 	handlers *msgHandlers
 	query    *queryHandler
@@ -219,7 +218,7 @@ func (n *net) Handle(msg p2p.Msg) error {
 }
 
 func (n *net) SetState(state []byte, peer p2p.Peer) {
-	var heartbeat = &protos.ProtocolState{}
+	var heartbeat = &protos.State{}
 
 	err := proto.Unmarshal(state, heartbeat)
 	if err != nil {
@@ -241,7 +240,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 		for i, hp := range heartbeat.Peers {
 			pl[i] = peerConn{
 				id:  hp.ID,
-				add: hp.Status != protos.ProtocolState_Disconnected,
+				add: hp.Status != protos.State_Disconnected,
 			}
 		}
 
@@ -250,14 +249,14 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 }
 
 func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
-	p := newPeer(peer, n.log.New("peer", peer.ID()))
+	p := newPeer(peer, netLog.New("peer", peer.ID()))
 
 	err = n.peers.add(p)
 	if err != nil {
 		return
 	}
 
-	go n.syncer.Start()
+	go n.syncer.start()
 
 	return nil
 }
@@ -281,8 +280,8 @@ func New(cfg Config) Net {
 
 	feed := newBlockFeeder()
 
-	forward := newRedForwardStrategy(peers, 3, 30)
-	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, netLog.New("module", "broadcast"))
+	forward := chooseForardStrategy(cfg.ForwardStrategy, peers)
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil)
 
 	receiver := &safeBlockNotifier{
 		blockFeeder: feed,
@@ -290,19 +289,18 @@ func New(cfg Config) Net {
 	}
 
 	syncConnFac := &defaultSyncConnectionFactory{
-		chain: cfg.Chain,
-		peers: peers,
+		chain:      cfg.Chain,
+		peers:      peers,
+		privateKey: cfg.P2PPrivateKey,
 	}
-
-	downloader := newBatchDownloader(peers, syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader)
+	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
+	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Minute)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
 
 	fetcher := newFetcher(peers, receiver)
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)
 	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
-	syncer.SubscribeSyncStatus(reader.subSyncState)
 
 	n := &net{
 		Config:          cfg,
@@ -312,6 +310,7 @@ func New(cfg Config) Net {
 		reader:          reader,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
+		downloader:      downloader,
 		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        newHandlers("vite"),
 		log:             netLog,
@@ -361,7 +360,7 @@ func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeat
 func (h *heartBeater) state() []byte {
 	current := h.chain.GetLatestSnapshotBlock()
 
-	var heartBeat = &protos.ProtocolState{
+	var heartBeat = &protos.State{
 		Peers:     nil,
 		Patch:     true,
 		Head:      current.Hash.Bytes(),
@@ -382,9 +381,9 @@ func (h *heartBeater) state() []byte {
 		if _, ok = idMap[id]; ok {
 			continue
 		}
-		heartBeat.Peers = append(heartBeat.Peers, &protos.ProtocolState_Peer{
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
 			ID:     id[:],
-			Status: protos.ProtocolState_Disconnected,
+			Status: protos.State_Disconnected,
 		})
 	}
 
@@ -392,9 +391,9 @@ func (h *heartBeater) state() []byte {
 		if _, ok = h.lastPeers[id]; ok {
 			continue
 		}
-		heartBeat.Peers = append(heartBeat.Peers, &protos.ProtocolState_Peer{
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
 			ID:     id[:],
-			Status: protos.ProtocolState_Connected,
+			Status: protos.State_Disconnected,
 		})
 	}
 
@@ -421,11 +420,11 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
-		n.term = make(chan struct{})
-
 		if err = n.fs.start(); err != nil {
 			return
 		}
+
+		n.downloader.start()
 
 		n.reader.start()
 
@@ -441,19 +440,17 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 
 func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
-		close(n.term)
-
 		n.reader.stop()
 
-		n.syncer.Stop()
+		n.downloader.stop()
+
+		n.syncer.stop()
 
 		_ = n.fs.stop()
 
 		n.query.stop()
 
 		n.fetcher.stop()
-
-		n.wg.Wait()
 
 		return nil
 	}
