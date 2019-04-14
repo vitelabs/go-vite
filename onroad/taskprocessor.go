@@ -91,7 +91,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	}
 	tp.log.Info(fmt.Sprintf("contract-prev: addr=%v hash=%v height=%v", task.Addr, addrState.LatestAccountHash, addrState.LatestAccountHeight))
 
-	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), tp.worker.manager.Consensus(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), tp.worker.manager.Consensus(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if err != nil {
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true

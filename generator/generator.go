@@ -40,7 +40,7 @@ type GenResult struct {
 	Err     error
 }
 
-func NewGenerator2(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
+func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
 	}

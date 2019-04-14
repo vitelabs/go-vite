@@ -318,7 +318,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	if err != nil || addrState == nil {
 		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator2(m.chain, m.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	g, e := generator.NewGenerator(m.chain, m.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}
