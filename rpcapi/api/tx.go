@@ -73,7 +73,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	}
 
 	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
-	amount := string("0")
+	amount := string("1")
 	if err != nil {
 		panic(err)
 	}
@@ -219,7 +219,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if err != nil || addrState == nil {
 		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator2(t.vite.Chain(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	g, e := generator.NewGenerator2(t.vite.Chain(), t.vite.Consensus(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}

@@ -57,16 +57,18 @@ type IsMayValidKeystoreFileResponse struct {
 
 func NewWalletApi(vite *vite.Vite) *WalletApi {
 	return &WalletApi{
-		wallet: vite.WalletManager(),
-		chain:  vite.Chain(),
-		pool:   vite.Pool(),
+		wallet:    vite.WalletManager(),
+		chain:     vite.Chain(),
+		pool:      vite.Pool(),
+		consensus: vite.Consensus(),
 	}
 }
 
 type WalletApi struct {
-	wallet *wallet.Manager
-	chain  chain.Chain
-	pool   pool.Writer
+	wallet    *wallet.Manager
+	chain     chain.Chain
+	pool      pool.Writer
+	consensus generator.Consensus
 }
 
 func (m WalletApi) String() string {
@@ -316,7 +318,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	if err != nil || addrState == nil {
 		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator2(m.chain, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	g, e := generator.NewGenerator2(m.chain, m.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}

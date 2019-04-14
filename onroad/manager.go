@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/generator"
 	"sync"
 	"time"
 
@@ -20,11 +21,13 @@ var (
 )
 
 type Manager struct {
-	pool     Pool
 	net      Net
 	producer Producer
-	chain    chain.Chain
 	wallet   *wallet.Manager
+
+	pool      Pool
+	chain     chain.Chain
+	consensus generator.Consensus
 
 	contractWorkers     map[types.Gid]*ContractWorker
 	newContractListener sync.Map //map[types.Gid]func(address types.Address)
@@ -37,12 +40,13 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
+func NewManager(net Net, pool Pool, producer Producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		pool:            pool,
 		net:             net,
 		producer:        producer,
 		wallet:          wallet,
+		pool:            pool,
+		consensus:       consensus,
 		contractWorkers: make(map[types.Gid]*ContractWorker),
 		log:             slog.New("w", "manager"),
 	}
@@ -169,4 +173,8 @@ func (manager Manager) Net() Net {
 
 func (manager Manager) Producer() Producer {
 	return manager.producer
+}
+
+func (manager Manager) Consensus() generator.Consensus {
+	return manager.consensus
 }

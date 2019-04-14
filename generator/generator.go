@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
@@ -16,6 +17,10 @@ type Chain interface {
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
+}
+
+type Consensus interface {
+	SBPReader() core.SBPStatReader
 }
 
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
@@ -35,15 +40,13 @@ type GenResult struct {
 	Err     error
 }
 
-func NewGenerator(chain vm_db.Chain, snapshotBlockHash, prevBlockHash *types.Hash, addr *types.Address) (*Generator, error) {
-	return nil, nil
-}
-
-func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
+func NewGenerator2(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
 	}
 	gen.chain = chain
+
+	//todo add consensus SBP as the args
 	gen.vm = vm.NewVM()
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
