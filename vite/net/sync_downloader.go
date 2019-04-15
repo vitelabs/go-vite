@@ -72,6 +72,54 @@ func (s syncTasks) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+type chunks [][2]uint64
+
+func (cs chunks) Len() int {
+	return len(cs)
+}
+
+func (cs chunks) Less(i, j int) bool {
+	return cs[i][0] < cs[j][0]
+}
+
+func (cs chunks) Swap(i, j int) {
+	cs[i], cs[j] = cs[j], cs[i]
+}
+
+func (cs chunks) overlap(from, to uint64) (conflict [2]uint64, ok bool) {
+	ok = true
+
+	if len(cs) == 0 {
+		return
+	}
+
+	n := sort.Search(len(cs), func(i int) bool {
+		return cs[i][0] > from
+	})
+
+	if n == 0 {
+		if cs[0][0] <= to {
+			return cs[0], false
+		} else {
+			return
+		}
+	}
+
+	if cs[n-1][1] >= from {
+		return cs[n-1], false
+	}
+
+	if n == len(cs) {
+		return
+	}
+
+	if cs[n][0] <= to {
+		return cs[n], false
+	}
+
+	return
+}
+
 func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis interfaces.SegmentList) {
 	for _, segment := range sortedList {
 		// useless
@@ -379,21 +427,50 @@ func (e *executor) reset() {
 	e.tasks = e.tasks[:0]
 }
 
+func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
+	var done = 0
+	var index = 0
+	var batch = 0
+	var t *syncTask
+
+	// clean continuous done tasks
+	var condone = 0
+	var continuous = true
+	var now = time.Now()
+
+	for index = done; index < len(tasks); index = done + batch {
+		t = tasks[index]
+
+		if t.st == reqDone {
+			done++
+			if continuous && now.Sub(t.doneAt) > 5*time.Second {
+				condone++
+			}
+		} else if t.st == reqPending {
+			continuous = false
+			batch++
+		} else if batch < maxBatch {
+			continuous = false
+			batch++
+			exec(t)
+		} else {
+			break
+		}
+	}
+
+	if condone > 0 {
+		copy(tasks, tasks[condone:])
+		tasks = tasks[:len(tasks)-condone]
+	}
+
+	return tasks
+}
+
 func (e *executor) loop() {
 	defer e.wg.Done()
 
 Loop:
 	for {
-		var done = 0
-		var index = 0
-		var batch = 0
-		var t *syncTask
-
-		// clean continuous done tasks
-		var condone = 0
-		var continuous = true
-		var now = time.Now()
-
 		e.mu.Lock()
 		for len(e.tasks) == 0 && e.running {
 			e.cond.Wait()
@@ -403,32 +480,11 @@ Loop:
 			break Loop
 		}
 
-		for index = done; index < len(e.tasks); index = done + batch {
-			t = e.tasks[index]
-
-			if t.st == reqDone {
-				done++
-				if continuous && now.Sub(t.doneAt) > 5*time.Second {
-					condone++
-				}
-			} else if t.st == reqPending {
-				continuous = false
-				batch++
-			} else if batch < e.batch {
-				continuous = false
-				batch++
-				e.run(t)
-			} else {
-				break
-			}
-		}
-
-		if condone > 0 {
-			copy(e.tasks, e.tasks[condone:])
-			e.tasks = e.tasks[:len(e.tasks)-condone]
+		before := len(e.tasks)
+		e.tasks = runTasks(e.tasks, e.batch, e.run)
+		if len(e.tasks) < before {
 			e.cond.Signal()
 		}
-
 		e.mu.Unlock()
 
 		time.Sleep(100 * time.Millisecond)
@@ -507,31 +563,25 @@ func (e *executor) do(t *syncTask) {
 
 	if p, c, err = e.pool.chooseSource(t.to); err != nil {
 		// no tall enough peers
-		t.st = reqError
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
 			t.st = reqDone
-		} else {
-			// download error
-			t.st = reqError
 		}
 	} else if p != nil {
 		if c, err = e.createConn(p); err == nil {
 			if err = e.doJob(c, t.from, t.to); err == nil {
 				// downloaded
 				t.st = reqDone
-			} else {
-				// download error
-				t.st = reqError
 			}
-		} else {
-			// create connection error
-			t.st = reqError
 		}
 	} else {
 		// no idle peers
 		t.st = reqWaiting
+	}
+
+	if t.st == reqPending {
+		t.st = reqError
 	}
 
 	if t.st == reqDone {

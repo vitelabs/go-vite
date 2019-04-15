@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/vitelabs/go-vite/log15"
 
@@ -16,7 +17,9 @@ import (
 type syncCacheReader interface {
 	start()
 	stop()
+	// clean cache and reset state
 	clean()
+	// reset state
 	reset()
 	cacheHeight() uint64
 }
@@ -70,6 +73,10 @@ func (s *cacheReader) subSyncState(state SyncState) {
 
 func (s *cacheReader) start() {
 	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		return
+	}
 	s.running = true
 	s.mu.Unlock()
 
@@ -82,17 +89,14 @@ func (s *cacheReader) stop() {
 	s.running = false
 	s.mu.Unlock()
 
-	s.readTo = 0
-	s.requestTo = 0
-
-	s.cond.Broadcast()
+	s.reset()
 
 	s.wg.Wait()
 }
 
 func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
 	if err == nil {
-		s.cond.Broadcast()
+		s.cond.Signal()
 	}
 }
 
@@ -110,8 +114,6 @@ func (s *cacheReader) clean() {
 	}
 
 	s.reset()
-
-	s.cond.Broadcast()
 }
 
 func (s *cacheReader) reset() {
@@ -121,7 +123,7 @@ func (s *cacheReader) reset() {
 	s.readTo = 0
 	s.requestTo = 0
 
-	s.cond.Broadcast()
+	s.cond.Signal()
 }
 
 func (s *cacheReader) cacheHeight() uint64 {
@@ -141,18 +143,23 @@ func (s *cacheReader) removeUselessChunks() {
 	cs := cache.Chunks()
 
 	for _, c := range cs {
-		if c[1] < height {
-			_ = cache.Delete(c)
-		} else {
+		if c[1] > height {
 			break
+		} else {
+			_ = cache.Delete(c)
 		}
 	}
 }
 
 func (s *cacheReader) downloadMissingChunks() {
 	height := s.chain.GetLatestSnapshotBlock().Height
+
 	cache := s.chain.GetSyncCache()
 	cs := cache.Chunks()
+	// chunks maybe deleted
+	if len(cs) == 0 {
+		return
+	}
 
 	// height < readTo < requestTo < cacheTo
 
@@ -166,8 +173,8 @@ func (s *cacheReader) downloadMissingChunks() {
 
 	cacheTo := cs[len(cs)-1][1]
 	if s.requestTo < cacheTo {
-		go func() {
-			mis := missingSegments(cs, s.requestTo+1, cacheTo)
+		go func(chunks interfaces.SegmentList, from, to uint64) {
+			mis := missingSegments(chunks, from, to)
 			for _, chunk := range mis {
 				if s.downloader.download(chunk[0], chunk[1], false) {
 					continue
@@ -176,7 +183,7 @@ func (s *cacheReader) downloadMissingChunks() {
 					break
 				}
 			}
-		}()
+		}(cs, s.requestTo+1, cacheTo)
 
 		s.requestTo = cacheTo
 	}
@@ -219,12 +226,18 @@ Loop:
 				continue
 			}
 
-			// chunk is too high
-			if c[0] > height+syncTaskSize {
-				// wait for download
-				s.mu.Lock()
-				s.cond.Wait()
-				s.mu.Unlock()
+			// Only read chunks satisfy (chunk[0] == current.Height + 1).
+			// Cannot use condition (chunk[0] < current.Height + syncTaskSize).
+			// Imagine the following chunks:
+			//  current.Height : 10000 ----> missing ----> 10801-14400
+			// s.readTo will be set to 14400 if read 10801-14400 successfully (cause 10801 < 1000 + syncTaskSize).
+			// The missing chunk 1001-10800 will not be read after download.
+			//
+			// Chunk is too high, maybe two reasons:
+			// 1. chain haven`t grow to c[0]-1, wait for chain grow
+			// 2. missing chunks between chain and c, wait for chunk downloaded
+			if c[0] > height+1 {
+				time.Sleep(200 * time.Millisecond)
 				// chunk downloaded
 				continue Loop
 			}
@@ -259,6 +272,7 @@ Loop:
 				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c[0], c[1], err))
 				s.handleChunkError(c)
 			} else {
+				// set readTo should be very seriously
 				s.readTo = c[1]
 			}
 		}
