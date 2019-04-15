@@ -395,7 +395,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 			return nil, errors.New("failed to find the recvBlock's fromBlock")
 		}
 	}
-	gen, err := generator.NewGenerator2(v.chain, block.AccountAddress, snapshotHash, &block.PrevHash)
+	gen, err := generator.NewGenerator(v.chain, v.consensus, block.AccountAddress, snapshotHash, &block.PrevHash)
 	if err != nil {
 		return nil, ErrVerifyForVmGeneratorFailed
 	}

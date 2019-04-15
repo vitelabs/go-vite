@@ -233,6 +233,8 @@ type Chain interface {
 
 	DeleteOnRoad(sendBlockHash types.Hash) error
 
+	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
 

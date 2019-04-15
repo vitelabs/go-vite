@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-type OnRoadAccountInfo struct {
+type AccountInfo struct {
 	AccountAddress      types.Address
 	TotalNumber         uint64
 	TokenBalanceInfoMap map[types.TokenTypeId]*TokenBalanceInfo

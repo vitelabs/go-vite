@@ -20,8 +20,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Account
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db) {
+		!util.IsViteToken(block.TokenId) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(types.ConsensusGroupInfo)
@@ -82,7 +81,7 @@ func checkCondition(db vm_db.VmDb, conditionId uint8, conditionParam []byte, con
 	}
 	return nil
 }
-func (p *MethodCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*SendBlock, error) {
 	param := new(types.ConsensusGroupInfo)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCreateConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(param.Gid)
@@ -130,8 +129,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Account
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
@@ -142,7 +140,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Account
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodCancelConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodCancelConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(*gid)
@@ -204,8 +202,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Accou
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db) {
+		!util.IsViteToken(block.TokenId) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
@@ -220,7 +217,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Accou
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, *gid)
 	return quotaLeft, nil
 }
-func (p *MethodReCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*SendBlock, error) {
+func (p *MethodReCreateConsensusGroup) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*SendBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameReCreateConsensusGroup, sendBlock.Data)
 	key := abi.GetConsensusGroupKey(*gid)

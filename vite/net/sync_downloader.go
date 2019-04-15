@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -71,12 +72,50 @@ func (s syncTasks) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis interfaces.SegmentList) {
+	for _, segment := range sortedList {
+		// useless
+		if segment[1] < from {
+			continue
+		}
+
+		if segment[0] > to {
+			break
+		}
+
+		// missing front piece
+		if segment[0] > from {
+			mis = append(mis, [2]uint64{
+				from,
+				segment[0] - 1,
+			})
+		}
+
+		// next response
+		from = segment[1] + 1
+	}
+
+	// from should equal (cr.to + 1)
+	if from-1 < to {
+		mis = append(mis, [2]uint64{
+			from,
+			to,
+		})
+	}
+
+	return
+}
+
 // chunks should be continuous [from, to]
 func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
 	for _, chunk := range chunks {
 		// useless
 		if chunk[1] < from {
 			continue
+		}
+
+		if chunk[0] > to {
+			break
 		}
 
 		// missing front piece
@@ -107,6 +146,10 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 		// useless
 		if t.to < from {
 			continue
+		}
+
+		if t.from > to {
+			break
 		}
 
 		// missing front piece
@@ -192,7 +235,7 @@ type executor struct {
 	listeners []taskListener
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	running   int32
+	running   bool
 	wg        sync.WaitGroup
 
 	log log15.Logger
@@ -229,21 +272,35 @@ func (e *executor) size() int {
 }
 
 func (e *executor) start() {
-	if atomic.CompareAndSwapInt32(&e.running, 0, 1) {
-		e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-		e.tasks = e.tasks[:0]
-
-		e.wg.Add(1)
-		go e.loop()
+	if e.running {
+		return
 	}
+
+	e.running = true
+	e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+
+	e.tasks = e.tasks[:0]
+
+	e.wg.Add(1)
+	go e.loop()
 }
 
 func (e *executor) stop() {
-	if atomic.CompareAndSwapInt32(&e.running, 1, 0) {
-		e.ctxCancel()
-		e.wg.Wait()
+	e.mu.Lock()
+	if false == e.running {
+		e.mu.Unlock()
+		return
 	}
+
+	e.running = false
+	e.mu.Unlock()
+
+	e.ctxCancel()
+	e.cond.Broadcast()
+	e.wg.Wait()
 }
 
 func (e *executor) addListener(listener taskListener) {
@@ -266,20 +323,21 @@ func (e *executor) status() ExecutorStatus {
 	}
 }
 
+// will be blocked when task queue is full
 func (e *executor) download(from, to uint64, must bool) bool {
-	if atomic.LoadInt32(&e.running) == 0 {
-		return false
-	}
-
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	for {
-		if len(e.tasks) == cap(e.tasks) {
+		if len(e.tasks) == cap(e.tasks) && e.running {
 			e.cond.Wait()
 		} else {
 			break
 		}
+	}
+
+	if false == e.running {
+		return false
 	}
 
 	if must {
@@ -295,6 +353,7 @@ func (e *executor) download(from, to uint64, must bool) bool {
 	}
 
 	sort.Sort(e.tasks)
+	e.cond.Broadcast()
 
 	return true
 }
@@ -323,26 +382,40 @@ func (e *executor) reset() {
 func (e *executor) loop() {
 	defer e.wg.Done()
 
+Loop:
 	for {
-		if atomic.LoadInt32(&e.running) == 0 {
-			break
-		}
-
 		var done = 0
 		var index = 0
 		var batch = 0
 		var t *syncTask
 
+		// clean continuous done tasks
+		var condone = 0
+		var continuous = true
+		var now = time.Now()
+
 		e.mu.Lock()
+		for len(e.tasks) == 0 && e.running {
+			e.cond.Wait()
+		}
+		if false == e.running {
+			e.mu.Unlock()
+			break Loop
+		}
+
 		for index = done; index < len(e.tasks); index = done + batch {
 			t = e.tasks[index]
 
-			// update downIndex if done tasks are continuous
 			if t.st == reqDone {
 				done++
+				if continuous && now.Sub(t.doneAt) > 5*time.Second {
+					condone++
+				}
 			} else if t.st == reqPending {
+				continuous = false
 				batch++
 			} else if batch < e.batch {
+				continuous = false
 				batch++
 				e.run(t)
 			} else {
@@ -350,13 +423,12 @@ func (e *executor) loop() {
 			}
 		}
 
-		// todo clean done tasks
-		// more than a half tasks have done
-		if done > cap(e.tasks)/2 {
-			for index = 0; index < done; index++ {
-
-			}
+		if condone > 0 {
+			copy(e.tasks, e.tasks[condone:])
+			e.tasks = e.tasks[:len(e.tasks)-condone]
+			e.cond.Signal()
 		}
+
 		e.mu.Unlock()
 
 		time.Sleep(100 * time.Millisecond)
@@ -434,13 +506,14 @@ func (e *executor) do(t *syncTask) {
 	var err error
 
 	if p, c, err = e.pool.chooseSource(t.to); err != nil {
-		// no peers
+		// no tall enough peers
 		t.st = reqError
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
 			t.st = reqDone
 		} else {
+			// download error
 			t.st = reqError
 		}
 	} else if p != nil {
@@ -449,16 +522,20 @@ func (e *executor) do(t *syncTask) {
 				// downloaded
 				t.st = reqDone
 			} else {
+				// download error
 				t.st = reqError
 			}
 		} else {
+			// create connection error
 			t.st = reqError
 		}
 	} else {
+		// no idle peers
 		t.st = reqWaiting
 	}
 
 	if t.st == reqDone {
+		t.doneAt = time.Now()
 		e.notify(t, err)
 	}
 }

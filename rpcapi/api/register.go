@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 	"time"
@@ -89,7 +90,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
-			_, _, reward, err := contracts.CalcReward(db, info, gid, snapshotBlock)
+			_, _, reward, _, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, snapshotBlock)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +111,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]string, error) {
 	vmDb := vm_db.NewNoContextVmDb(r.chain)
-	m, err := contracts.CalcRewardByDay(vmDb, gid, timestamp)
+	m, err := contracts.CalcRewardByDay(vmDb, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}

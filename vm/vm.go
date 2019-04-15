@@ -113,10 +113,18 @@ type VM struct {
 	VmContext
 	i            *Interpreter
 	globalStatus util.GlobalStatus
+	reader       util.ConsensusReader
 }
 
-func NewVM() *VM {
-	return &VM{}
+func NewVM(cr util.ConsensusReader) *VM {
+	return &VM{reader: cr}
+}
+
+func (vm *VM) GlobalStatus() util.GlobalStatus {
+	return vm.globalStatus
+}
+func (vm *VM) ConsensusReader() util.ConsensusReader {
+	return vm.reader
 }
 
 func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_db.VmAccountBlock, err error) {
@@ -439,7 +447,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	}
 	if p, ok, _ := contracts.GetBuiltinContract(block.AccountAddress, sendBlock.Data); ok {
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
-		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm.globalStatus)
+		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm)
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
 			vm.updateBlock(db, block, err, 0)
