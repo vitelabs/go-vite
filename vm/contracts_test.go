@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
@@ -50,7 +51,7 @@ func TestContractsRefund(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Hash:           hash13,
 	}
-	vm := NewVM()
+	vm := NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -72,7 +73,7 @@ func TestContractsRefund(t *testing.T) {
 		FromBlockHash:  hash13,
 		Hash:           hash21,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -109,7 +110,7 @@ func TestContractsRefund(t *testing.T) {
 		FromBlockHash:  hash22,
 		Hash:           hash14,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	receiveRegisterRefuncBlock, isRetry, err := vm.RunV2(db, block14, receiveRegisterBlock.AccountBlock.SendBlockList[0], nil)
@@ -127,6 +128,8 @@ func TestContractsRegister(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
+
+	reader := util.NewVmConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600))
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, privateKey6, _ := types.CreateAddress()
@@ -150,7 +153,7 @@ func TestContractsRegister(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Hash:           hash13,
 	}
-	vm := NewVM()
+	vm := NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -172,7 +175,7 @@ func TestContractsRegister(t *testing.T) {
 		FromBlockHash:  hash13,
 		Hash:           hash21,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	locHashRegister := abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID)
 	hisAddrList := []types.Address{addr7}
@@ -207,7 +210,7 @@ func TestContractsRegister(t *testing.T) {
 		TokenId:        ledger.ViteTokenId,
 		Hash:           hash14,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr1
 	sendRegisterBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
@@ -229,7 +232,7 @@ func TestContractsRegister(t *testing.T) {
 		PrevHash:       hash21,
 		Hash:           hash22,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	hisAddrList = append(hisAddrList, addr6)
 	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
@@ -259,7 +262,7 @@ func TestContractsRegister(t *testing.T) {
 	time4 := time.Unix(timestamp+2, 0)
 	snapshot4 := &ledger.SnapshotBlock{Height: 4, Timestamp: &time4, Hash: types.DataHash([]byte{10, 4}), PublicKey: publicKey6}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot4)
-	time5 := time.Unix(timestamp+3, 0)
+	time5 := time.Unix(timestamp+1+3600*24*90, 0)
 	snapshot5 := &ledger.SnapshotBlock{Height: 3 + 3600*24*90, Timestamp: &time5, Hash: types.DataHash([]byte{10, 5})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot5)
 
@@ -277,7 +280,7 @@ func TestContractsRegister(t *testing.T) {
 		Data:           block15Data,
 		Hash:           hash15,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCancelRegisterBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
@@ -298,11 +301,11 @@ func TestContractsRegister(t *testing.T) {
 		PrevHash:       hash21,
 		FromBlockHash:  hash15,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCancelRegisterBlock, isRetry, err := vm.RunV2(db, block23, sendCancelRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
-	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(-1), snapshot5.Timestamp.Unix(), hisAddrList)
+	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), snapshot2.Timestamp.Unix(), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveCancelRegisterBlock == nil ||
 		len(receiveCancelRegisterBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
@@ -331,7 +334,7 @@ func TestContractsRegister(t *testing.T) {
 		FromBlockHash:  hash23,
 		Hash:           hash16,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, block13.Amount)
@@ -345,6 +348,7 @@ func TestContractsRegister(t *testing.T) {
 	}
 	db.accountBlockMap[addr1][hash16] = receiveCancelRegisterRefundBlock.AccountBlock
 
+	// TODO reward
 	// Reward
 	hash17 := types.DataHash([]byte{1, 7})
 	block17Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr1)
@@ -360,7 +364,7 @@ func TestContractsRegister(t *testing.T) {
 		Data:           block17Data,
 		Hash:           hash17,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendRewardBlock, isRetry, err := vm.RunV2(db, block17, nil, nil)
@@ -381,18 +385,18 @@ func TestContractsRegister(t *testing.T) {
 		PrevHash:       hash24,
 		FromBlockHash:  hash17,
 	}
-	vm = NewVM()
+	vm = NewVM(reader)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveRewardBlock, isRetry, err := vm.RunV2(db, block25, sendRewardBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
-	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(-1), snapshot5.Timestamp.Unix(), hisAddrList)
+	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(snapshot5.Timestamp.Unix()-2-24*3600), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveRewardBlock == nil ||
-		len(receiveRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != util.ErrInvalidMethodParam ||
+		len(receiveRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(locHashRegister)], registrationData) ||
 		len(receiveRewardBlock.AccountBlock.Data) != 33 ||
-		receiveRewardBlock.AccountBlock.Data[32] != byte(1) ||
+		receiveRewardBlock.AccountBlock.Data[32] != byte(0) ||
 		receiveRewardBlock.AccountBlock.Quota != 0 {
 		t.Fatalf("receive reward transaction error")
 	}
@@ -420,7 +424,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block13Data,
 		Hash:           hash13,
 	}
-	vm := NewVM()
+	vm := NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendVoteBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -440,7 +444,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash13,
 		Hash:           hash31,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlock, isRetry, err := vm.RunV2(db, block31, sendVoteBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -474,7 +478,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block14Data,
 		Hash:           hash14,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendVoteBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
@@ -495,7 +499,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash14,
 		Hash:           hash32,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlock2, isRetry, err := vm.RunV2(db, block32, sendVoteBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -531,7 +535,7 @@ func TestContractsVote(t *testing.T) {
 		Data:           block15Data,
 		Hash:           hash15,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCancelVoteBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
@@ -552,7 +556,7 @@ func TestContractsVote(t *testing.T) {
 		FromBlockHash:  hash15,
 		Hash:           hash33,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr3
 	receiveCancelVoteBlock, isRetry, err := vm.RunV2(db, block33, sendCancelVoteBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -591,7 +595,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block13Data,
 		Hash:           hash13,
 	}
-	vm := NewVM()
+	vm := NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendPledgeBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -613,7 +617,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash13,
 		Hash:           hash51,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
 	receivePledgeBlock, isRetry, err := vm.RunV2(db, block51, sendPledgeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -647,7 +651,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block14Data,
 		Hash:           hash14,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendPledgeBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
@@ -670,7 +674,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash14,
 		Hash:           hash52,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
 	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
@@ -723,7 +727,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block15Data,
 		Hash:           hash15,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
@@ -744,7 +748,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash15,
 		Hash:           hash53,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
@@ -777,7 +781,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash54,
 		Hash:           hash16,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	receiveCancelPledgeRefundBlock, isRetry, err := vm.RunV2(db, block16, receiveCancelPledgeBlock.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
@@ -804,7 +808,7 @@ func TestContractsPledge(t *testing.T) {
 		Data:           block17Data,
 		Hash:           hash17,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block17, nil, nil)
@@ -825,7 +829,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash17,
 		Hash:           hash55,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block55, sendCancelPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
@@ -858,7 +862,7 @@ func TestContractsPledge(t *testing.T) {
 		FromBlockHash:  hash56,
 		Hash:           hash18,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
 	balance1.Add(balance1, pledgeAmount)
@@ -909,7 +913,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Data:           block13Data,
 		Hash:           hash13,
 	}
-	vm := NewVM()
+	vm := NewVM(nil)
 	db.addr = addr1
 	sendMintageBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
 	if sendMintageBlock == nil ||
@@ -931,7 +935,7 @@ func TestContractsMintageV2(t *testing.T) {
 		FromBlockHash:  hash13,
 		Hash:           hash21,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveMintageBlock, isRetry, err := vm.RunV2(db, block21, sendMintageBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	key := abi.GetMintageKey(tokenId)
@@ -968,7 +972,7 @@ func TestContractsMintageV2(t *testing.T) {
 		PrevHash:       hash13,
 		Hash:           hash14,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr1
 	tokenBalance := new(big.Int).Set(totalSupply)
 	receiveMintageRewardBlock, isRetry, err := vm.RunV2(db, block14, receiveMintageBlock.AccountBlock.SendBlockList[0], nil)
@@ -1011,7 +1015,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Data:           block15Data,
 		Hash:           hash15,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr1
 	sendIssueBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
 	if sendIssueBlock == nil ||
@@ -1033,7 +1037,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash21,
 		PrevHash:       hash22,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveIssueBlock, isRetry, err := vm.RunV2(db, block23, sendIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	totalSupply = totalSupply.Add(totalSupply, reIssueAmount)
@@ -1069,7 +1073,7 @@ func TestContractsMintageV2(t *testing.T) {
 		FromBlockHash:  hash24,
 		Hash:           hash31,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr3
 	receiveIssueRewardBlock, isRetry, err := vm.RunV2(db, block31, receiveIssueBlock.AccountBlock.SendBlockList[0], nil)
 	if receiveIssueRewardBlock == nil ||
@@ -1097,7 +1101,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Data:           block16Data,
 		Hash:           hash16,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr1
 	sendBurnBlock, isRetry, err := vm.RunV2(db, block16, nil, nil)
 	totalSupply = totalSupply.Sub(totalSupply, burnAmount)
@@ -1122,7 +1126,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash25,
 		PrevHash:       hash24,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveBurnBlock, isRetry, err := vm.RunV2(db, block25, sendBurnBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
@@ -1158,7 +1162,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Data:           block17Data,
 		Hash:           hash17,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr1
 	sendTransferOwnerBlock, isRetry, err := vm.RunV2(db, block17, nil, nil)
 	if sendTransferOwnerBlock == nil ||
@@ -1181,7 +1185,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash26,
 		PrevHash:       hash25,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveTransferOwnerBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnerBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
@@ -1225,7 +1229,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash32,
 		PrevHash:       hash31,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr3
 	sendChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block32, nil, nil)
 	if sendChangeTokenTypeBlock == nil ||
@@ -1246,7 +1250,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash27,
 		PrevHash:       hash26,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block27, sendChangeTokenTypeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, false, big.NewInt(0), false)
@@ -1296,7 +1300,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash18,
 		PrevHash:       hash17,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr1
 	cancelPledgeBlock, isRetry, err := vm.RunV2(db, block18, nil, nil)
 	if cancelPledgeBlock == nil ||
@@ -1317,7 +1321,7 @@ func TestContractsMintageV2(t *testing.T) {
 		Hash:           hash28,
 		PrevHash:       hash27,
 	}
-	vm = NewVM()
+	vm = NewVM(nil)
 	db.addr = addr2
 	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block28, cancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, latestSb))
 	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, helper.Big0, uint64(0), addr1, false, big.NewInt(0), false)
@@ -1450,4 +1454,36 @@ func TestGenesisBlockData(t *testing.T) {
 		fmt.Printf("\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")
+}
+
+type emptyConsensusReaderTest struct {
+	ti timeIndex
+}
+
+func newConsensusReaderTest(genesisTime int64, interval int64) *emptyConsensusReaderTest {
+	return &emptyConsensusReaderTest{timeIndex{time.Unix(genesisTime, 0), time.Second * time.Duration(interval)}}
+}
+
+func (r *emptyConsensusReaderTest) DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error) {
+	list := make([]*core.DayStats, 0)
+	return list, nil
+}
+func (r *emptyConsensusReaderTest) GetDayTimeIndex() core.TimeIndex {
+	return r.ti
+}
+
+type timeIndex struct {
+	GenesisTime time.Time
+	Interval    time.Duration
+}
+
+func (self timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
+	sTime := self.GenesisTime.Add(self.Interval * time.Duration(index))
+	eTime := self.GenesisTime.Add(self.Interval * time.Duration(index+1))
+	return sTime, eTime
+}
+func (self timeIndex) Time2Index(t time.Time) uint64 {
+	subSec := int64(t.Sub(self.GenesisTime).Seconds())
+	i := uint64(subSec) / uint64(self.Interval.Seconds())
+	return i
 }

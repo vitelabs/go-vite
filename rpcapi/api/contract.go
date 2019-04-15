@@ -114,7 +114,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
+	return vm.NewVM(nil).OffChainReader(db, param.OffChainCode, param.Data)
 }
 
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {

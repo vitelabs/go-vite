@@ -24,6 +24,11 @@ func InitContractsConfig(isTestParam bool) {
 	}
 }
 
+type vmEnvironment interface {
+	GlobalStatus() util.GlobalStatus
+	ConsensusReader() util.ConsensusReader
+}
+
 type BuiltinContractMethod interface {
 	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
@@ -31,7 +36,7 @@ type BuiltinContractMethod interface {
 	// quota for doSend block
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
-	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error)
+	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// refund data at receive error
 	GetRefundData() []byte
 }

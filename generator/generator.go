@@ -44,7 +44,7 @@ func NewGenerator2(chain vm_db.Chain, addr types.Address, latestSnapshotBlockHas
 		log: log15.New("module", "Generator"),
 	}
 	gen.chain = chain
-	gen.vm = vm.NewVM()
+	gen.vm = vm.NewVM(nil)
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {
