@@ -90,7 +90,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
-			_, _, reward, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, snapshotBlock)
+			_, _, reward, _, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, snapshotBlock)
 			if err != nil {
 				return nil, err
 			}

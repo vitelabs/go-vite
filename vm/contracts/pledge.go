@@ -27,7 +27,6 @@ func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
 func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	// pledge gas is low without data gas cost, so that a new account is easy to pledge
 	if !util.IsViteToken(block.TokenId) ||
-		(!util.IsUserAccount(db) && !types.IsBuiltinContractAddr(block.AccountAddress)) ||
 		block.Amount.Cmp(pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -92,8 +91,7 @@ func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 
 // cancel pledge ViteToken
 func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() > 0 ||
-		(!util.IsUserAccount(db) && !types.IsBuiltinContractAddr(block.AccountAddress)) {
+	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamCancelPledge)

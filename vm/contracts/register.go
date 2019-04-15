@@ -28,9 +28,6 @@ func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if !util.IsUserAccount(db) {
-		return util.ErrInvalidMethodParam
-	}
 	param := new(abi.ParamRegister)
 	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
@@ -136,8 +133,7 @@ func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamCancelRegister)
@@ -210,8 +206,7 @@ func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamReward)
@@ -426,8 +421,7 @@ func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 
 // update registration info
 func (p *MethodUpdateRegistration) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamRegister)
