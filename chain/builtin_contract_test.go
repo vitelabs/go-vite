@@ -47,11 +47,12 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 
 func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	sbLen := len(snapshotBlockList)
-	if sbLen < 2 {
+	if sbLen <= 2 {
 		return
 	}
 
 	count := sbLen - 2
+
 	for i := 0; i < 10; i++ {
 		index := rand.Intn(count) + 2
 		snapshotBlock := snapshotBlockList[index]
@@ -121,8 +122,11 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 					t.Fatal("error")
 				}
 				if !bytes.Equal(value, queryValue) {
-					t.Fatal(fmt.Sprintf("Addr: %s, snapshot block: %+v, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock, key, kv, value, queryValue))
+					fmt.Printf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
+						account.Addr, snapshotBlock.Height, key, kv, value, queryValue)
+					sd.GetValue([]byte(key))
+					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
+						account.Addr, snapshotBlock.Height, key, kv, value, queryValue))
 				}
 
 			}

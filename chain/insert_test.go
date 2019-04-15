@@ -13,17 +13,23 @@ import (
 	"math/rand"
 	"net/http"
 
-	"strconv"
 	"testing"
 	"time"
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
 	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 96, 2)
+	for i := 0; i < 100; i++ {
+		t.Run("InsertAccountBlock", func(t *testing.T) {
+			snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 17, 7, false)...)
 
-	t.Run("InsertAccountBlock", func(t *testing.T) {
-		snapshotBlockList = InsertAccountBlock(t, chainInstance, accounts, 17, 7, true)
-	})
+		})
+
+		t.Run("NewStorageDatabase", func(t *testing.T) {
+			NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+		})
+
+	}
 
 	TearDown(chainInstance)
 }
@@ -313,7 +319,7 @@ func createVmLogList() ledger.VmLogList {
 
 func createKeyValue(latestHeight uint64) map[string][]byte {
 	return map[string][]byte{
-		strconv.FormatUint(latestHeight+1, 10): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
+		string(chain_utils.Uint64ToBytes(latestHeight + 1)): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	}
 }
 

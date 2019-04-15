@@ -129,7 +129,7 @@ func testChainAll(t *testing.T, chainInstance *chain, accounts map[types.Address
 	testState(t, chainInstance, accounts, snapshotBlockList)
 
 	// built-in contract
-	//testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
+	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 }
 
 func testPanic(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {

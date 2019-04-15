@@ -2,7 +2,6 @@ package chain_state
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -121,8 +120,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	for tokenTypeId, balance := range redoLog.BalanceMap {
 		// set latest balance
 		batch.Put(chain_utils.CreateBalanceKey(addr, tokenTypeId), balance.Bytes())
-		fmt.Println("recover unconfirmed", addr, redoLog.Height, balance)
-		//fmt.Println("PUT BALANCE", accountBlock.AccountAddress, tokenTypeId, balance)
+		//fmt.Println("recover unconfirmed", addr, redoLog.Height, balance)
 	}
 
 	// write unsaved code
@@ -175,16 +173,16 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	sDB.redo.NextSnapshot(height+1, confirmedBlocks)
 
 	// write history
-	redoLog, _, err := sDB.redo.QueryLog(height)
+	snapshotRedoLog, _, err := sDB.redo.QueryLog(height)
 	if err != nil {
 		return err
 	}
 
 	batch := new(leveldb.Batch)
 
-	if len(redoLog) > 0 {
+	if len(snapshotRedoLog) > 0 {
 
-		redoKvMap, redoBalanceMap, err := parseRedoLog(redoLog)
+		redoKvMap, redoBalanceMap, err := parseRedoLog(snapshotRedoLog)
 		if err != nil {
 			return err
 		}
@@ -199,13 +197,14 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 			copy(putKeyTemplate[1:1+types.AddressSize], addr.Bytes())
 
-			for key, value := range kvMap {
+			for keyStr, value := range kvMap {
 				// record rollback key
+				key := []byte(keyStr)
 				copy(putKeyTemplate[1+types.AddressSize:], key)
 				putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
 
 				batch.Put(putKeyTemplate, value)
-
+				//fmt.Printf("write history storage, addr: %s, key: %d, putKeyTemplate: %d, value: %d\n", addr, key, putKeyTemplate, value)
 			}
 
 			// set rollback key set
