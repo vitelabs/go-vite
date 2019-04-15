@@ -191,21 +191,15 @@ Wait:
 
 	// compare snapshot chain height and local cache height
 	current := s.chain.GetLatestSnapshotBlock()
-	cacheHeight := s.cacheHeight()
-	local := current.Height
-	if local < cacheHeight {
-		local = cacheHeight
-	}
-
 	// syncPeer is not all enough, no need to sync
-	if !shouldSync(local, syncPeerHeight) {
-		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d, cache height: %d", syncPeer.String(), syncPeerHeight, current.Height, cacheHeight))
+	if !shouldSync(current.Height, syncPeerHeight) {
+		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.String(), syncPeerHeight, current.Height))
 		s.state.done()
 		return
 	}
 
 	s.state.sync()
-	s.sync(local+1, syncPeerHeight)
+	s.sync(syncPeerHeight)
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -285,14 +279,15 @@ func (s *syncer) getLocalHeight() uint64 {
 	return current
 }
 
-func (s *syncer) sync(from, syncPeerHeight uint64) {
-	s.from = from
+func (s *syncer) sync(syncPeerHeight uint64) {
+	local := s.getLocalHeight()
+	s.from = local + 1
 	s.to = syncPeerHeight
 
-	go s.runTasks()
+	go s.createTasks()
 }
 
-func (s *syncer) runTasks() {
+func (s *syncer) createTasks() {
 	from := s.from
 	var to uint64
 
@@ -303,8 +298,12 @@ func (s *syncer) runTasks() {
 			to = s.to
 		}
 
-		s.downloader.download(from, to, false)
-		from = to + 1
+		if s.downloader.download(from, to, false) {
+			from = to + 1
+		} else {
+			s.log.Warn(fmt.Sprintf("failed to download %d-%d", from, to))
+			break
+		}
 	}
 }
 

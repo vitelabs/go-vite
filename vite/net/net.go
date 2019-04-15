@@ -442,9 +442,9 @@ func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
 		n.reader.stop()
 
-		n.downloader.stop()
-
 		n.syncer.stop()
+
+		n.downloader.stop()
 
 		_ = n.fs.stop()
 
