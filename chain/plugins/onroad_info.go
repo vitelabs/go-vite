@@ -140,9 +140,7 @@ func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, 
 
 func (or *OnRoadInfo) writeChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
 	for addr, blocks := range excludeWritePairTrades(chunks) {
-		/*		for _, v := range blocks {
-				fmt.Printf("block: addr=%v type=%v hash=%v amount=%v\n", addr, v.IsSendBlock(), v.Hash, v.Amount)
-			}*/
+		oLog.Info(fmt.Sprintf("writeChunks: addr=%v, count=%v", addr, len(blocks)))
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
 			return err
