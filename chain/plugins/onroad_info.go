@@ -2,6 +2,7 @@ package chain_plugins
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -98,17 +99,19 @@ func (or *OnRoadInfo) InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock,
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	or.storeMutex.Lock()
-	defer or.storeMutex.Unlock()
+	/*	or.storeMutex.Lock()
+		defer or.storeMutex.Unlock()
 
-	return or.writeBlock(batch, block)
+		return or.writeBlock(batch, block)*/
+	return nil
 }
 
 func (or *OnRoadInfo) DeleteChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
-	or.storeMutex.Lock()
-	defer or.storeMutex.Unlock()
+	/*	or.storeMutex.Lock()
+		defer or.storeMutex.Unlock()
 
-	return or.deleteChunks(batch, chunks)
+		return or.deleteChunks(batch, chunks)*/
+	return nil
 }
 
 func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
