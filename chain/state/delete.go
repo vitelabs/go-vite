@@ -416,6 +416,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 	defer iter.Release()
 
 	storageTemplateKey := make([]byte, 1+types.AddressSize+types.HashSize+1)
+
 	storageTemplateKey[0] = chain_utils.StorageKeyPrefix
 	copy(storageTemplateKey[1:], addr.Bytes())
 
@@ -438,7 +439,6 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 		iter.Seek(seekTemplateKey)
 
 		if iter.Prev() && bytes.Equal(seekTemplateKey[1+types.AddressSize:1+types.AddressSize+types.HashSize+1], iter.Key()[1+types.AddressSize:1+types.AddressSize+types.HashSize+1]) {
-
 			batch.Put(storageTemplateKey, iter.Value())
 		} else {
 			batch.Delete(storageTemplateKey)

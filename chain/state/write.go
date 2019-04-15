@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -200,7 +201,7 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 			for keyStr, value := range kvMap {
 				// record rollback key
 				key := []byte(keyStr)
-				copy(putKeyTemplate[1+types.AddressSize:], key)
+				copy(putKeyTemplate[1+types.AddressSize:], common.RightPadBytes(key, 32))
 				putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
 
 				batch.Put(putKeyTemplate, value)

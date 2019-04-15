@@ -25,6 +25,43 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 		//GetRegisterList(t, chainInstance)
 	})
 }
+
+func TestVoteList(t *testing.T) {
+
+	chainInstance, err := NewChainInstance("/Users/liyanda/test_ledger/ledger4/devdata", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block := chainInstance.GetLatestSnapshotBlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	voteMap, err := chainInstance.GetVoteList(block.Hash, types.SNAPSHOT_GID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, voteInfo := range voteMap {
+		addr := voteInfo.VoterAddr
+		latest, e := chainInstance.GetLatestAccountBlock(addr)
+		if e != nil {
+			panic(e)
+		}
+		blocks, e := chainInstance.GetAccountBlocks(latest.Hash, 300)
+		if e != nil {
+			panic(e)
+		}
+		for i := 0; i < len(blocks); i++ {
+			if blocks[i].ToAddress.String() == "vite_00000000000000000000000000000000000000042d7ef71894" {
+				fmt.Printf("%s: %+v\n", blocks[i].AccountAddress, blocks[i].Data)
+				break
+			}
+		}
+	}
+}
+
 func GetRegisterList(t *testing.T, chainInstance *chain) {
 	latestSnapshot := chainInstance.GetLatestSnapshotBlock()
 	for i := uint64(1); i < latestSnapshot.Height; i++ {
@@ -53,7 +90,7 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 
 	count := sbLen - 2
 
-	for i := 0; i < 10; i++ {
+	for i := 1; i < sbLen-1; i++ {
 		index := rand.Intn(count) + 2
 		snapshotBlock := snapshotBlockList[index]
 
