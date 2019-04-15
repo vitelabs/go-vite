@@ -294,8 +294,8 @@ func New(cfg Config) Net {
 		privateKey: cfg.P2PPrivateKey,
 	}
 	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Minute)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
+	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
 
 	fetcher := newFetcher(peers, receiver)
 
@@ -442,9 +442,9 @@ func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
 		n.reader.stop()
 
-		n.downloader.stop()
-
 		n.syncer.stop()
+
+		n.downloader.stop()
 
 		_ = n.fs.stop()
 
