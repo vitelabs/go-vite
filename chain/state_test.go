@@ -13,7 +13,7 @@ import (
 
 func TestChain_State(t *testing.T) {
 
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 2, 910, 3)
+	chainInstance, accounts, snapshotBlockList := SetUp(2, 910, 3)
 
 	testState(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)

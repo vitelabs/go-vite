@@ -20,7 +20,7 @@ import (
 
 func TestChain_Account(t *testing.T) {
 
-	chainInstance, accounts, _ := SetUp(t, 1000, 1000, 8)
+	chainInstance, accounts, _ := SetUp(1000, 1000, 8)
 	t.Run("testAccount", func(t *testing.T) {
 		testAccount(chainInstance, accounts)
 	})

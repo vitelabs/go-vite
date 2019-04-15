@@ -16,7 +16,7 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	for i := 0; i < 1; i++ {
-		chainInstance, accounts, snapshotBlockList := SetUp(t, 100, 960, 2)
+		chainInstance, accounts, snapshotBlockList := SetUp(100, 960, 2)
 
 		snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 

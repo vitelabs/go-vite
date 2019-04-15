@@ -11,7 +11,7 @@ import (
 )
 
 func TestChain_builtInContract(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 17, 2654, 9)
+	chainInstance, accounts, snapshotBlockList := SetUp(17, 2654, 9)
 
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)

@@ -9,7 +9,7 @@ import (
 )
 
 func TestChain_AccountBlock(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(t, 10, 5000, 90)
+	chainInstance, accounts, _ := SetUp(10, 5000, 90)
 
 	testAccountBlock(t, chainInstance, accounts)
 	TearDown(chainInstance)

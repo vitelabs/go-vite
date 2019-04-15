@@ -18,7 +18,7 @@ import (
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 96, 2)
+	chainInstance, accounts, snapshotBlockList := SetUp(18, 96, 2)
 	for i := 0; i < 100; i++ {
 		t.Run("InsertAccountBlock", func(t *testing.T) {
 			snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, 17, 7, false)...)

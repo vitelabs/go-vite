@@ -7,7 +7,7 @@ import (
 )
 
 func TestUnconfirmed(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(t, 2, 30, 100)
+	chainInstance, accounts, _ := SetUp(2, 30, 100)
 
 	testUnconfirmed(t, chainInstance, accounts)
 

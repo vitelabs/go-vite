@@ -57,24 +57,20 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	return chainInstance, nil
 }
 
-func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
 	chainInstance, err := NewChainInstance("unit_test", false)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	InsertSnapshotBlock(chainInstance, true)
 
 	accounts := MakeAccounts(chainInstance, accountNum)
 
-	var snapshotBlockList []*ledger.SnapshotBlock
-
-	t.Run("InsertBlocks", func(t *testing.T) {
-		snapshotBlockList = InsertAccountBlock(chainInstance, accounts, txCount, snapshotPerBlockNum, false)
-	})
+	snapshotBlockList := InsertAccountBlock(chainInstance, accounts, txCount, snapshotPerBlockNum, false)
 
 	return chainInstance, accounts, snapshotBlockList
 }
@@ -89,7 +85,7 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 100, 3)
+	chainInstance, accounts, snapshotBlockList := SetUp(20, 100, 3)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
@@ -105,7 +101,7 @@ func TestChain(t *testing.T) {
 	// test panic
 	TearDown(chainInstance)
 
-	snapshotBlockList = testPanic(t, accounts, snapshotBlockList)
+	testPanic(t)
 
 }
 
@@ -133,13 +129,16 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 	// account
 	testAccount(chainInstance, accounts)
 
+	// unconfirmed
+	testUnconfirmedNoTesting(chainInstance, accounts)
+
 	// account block
 	testAccountBlockNoTesting(chainInstance, accounts)
-	//
-	//// on road
-	//testOnRoad(t, chainInstance, accounts)
-	//
-	//// snapshot block
+
+	// on road
+	testOnRoadNoTesting(chainInstance, accounts)
+
+	// snapshot block
 	testSnapshotBlockNoTesting(chainInstance, accounts, snapshotBlockList)
 	//
 	//// state
@@ -149,32 +148,7 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 	//testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 }
 
-func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	//cacheFilename := path.Join(test_tools.DefaultDataDir(), "test_panic")
-	//gocache := cache.New(0, 0)
-	//for addr, account := range accounts {
-	//	if err := gocache.Add(addr.String(), account, 0); err != nil {
-	//		t.Fatal(err)
-	//	}
-	//}
-	//allItems := gocache.Items()
-	//
-	//gocache.Save(cacheFilename)
-	//gocache = nil
-	//
-	//gocache2 := cache.New(0, 0)
-	//if err := gocache2.LoadFile(cacheFilename); err != nil {
-	//	t.Fatal(err)
-	//}
-	//
-	//newAccounts := make(map[types.Address]*Account)
-	//for key, item := range allItems {
-	//	addr, _ := types.HexToAddress(key)
-	//	newAccounts[addr] = item.Object.(*Account)
-	//}
-
-	saveData(accounts, snapshotBlockList)
-
+func testPanic(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		cmd := reexec.Command("randomPanic")
 
@@ -189,11 +163,7 @@ func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockL
 			}
 		})
 
-		//fmt.Println("main runned")
-
 	}
-
-	return snapshotBlockList
 
 }
 
@@ -207,7 +177,15 @@ func init() {
 func randomPanic() {
 	quota.InitQuotaConfig(true, true)
 	chainInstance, err := NewChainInstance("unit_test", false)
+
 	accounts, snapshotBlockList := loadData(chainInstance)
+	if len(accounts) <= 0 {
+		accounts = MakeAccounts(chainInstance, 100)
+		snapshotBlockList = InsertAccountBlock(chainInstance, accounts, 100, 10, false)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	defer func() {
 		TearDown(chainInstance)
@@ -217,6 +195,7 @@ func randomPanic() {
 			}
 			account.resetLatestBlock()
 		}
+
 		saveData(accounts, snapshotBlockList)
 	}()
 	if err != nil {
@@ -225,59 +204,6 @@ func randomPanic() {
 	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(1000), 10, false)...)
 
 	testChainAllNoTesting(chainInstance, accounts, snapshotBlockList)
-
-	//var wg sync.WaitGroup
-	//for j := 0; j < 3; j++ {
-	//	wg.Add(1)
-	//	go func() {
-	//		defer wg.Done()
-	//		// test insert & delete
-	//		go func() {
-	//			panic("error")
-	//		}()
-	//
-	//		snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
-	//
-	//	}()
-	//
-	//	wg.Wait()
-	//
-	//	// recover snapshotBlockList
-	//	if len(snapshotBlockList) > 0 {
-	//		maxIndex := len(snapshotBlockList) - 1
-	//		i := maxIndex
-	//		for ; i > 0; i-- {
-	//			snapshotBlock := snapshotBlockList[i]
-	//			if ok, err := chainInstance.IsSnapshotBlockExisted(snapshotBlock.Hash); err != nil {
-	//				t.Fatal(err)
-	//			} else if ok {
-	//				break
-	//			}
-	//		}
-	//
-	//		if i < maxIndex {
-	//			for _, account := range accounts {
-	//				account.deleteSnapshotBlocks(accounts, snapshotBlockList[i+1:])
-	//			}
-	//
-	//			snapshotBlockList = snapshotBlockList[:i+1]
-	//		}
-	//
-	//	}
-	//
-	//	// recover accounts
-	//	for _, account := range accounts {
-	//		for account.LatestBlock != nil {
-	//			if ok, err := chainInstance.IsAccountBlockExisted(account.LatestBlock.Hash); err != nil {
-	//				t.Fatal(err)
-	//			} else if !ok {
-	//				account.rollbackLatestBlock()
-	//			} else {
-	//				break
-	//			}
-	//		}
-	//	}
-	//}
 
 }
 
