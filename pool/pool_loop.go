@@ -36,7 +36,7 @@ func (self *pool) loopQueue() {
 				self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
 				self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
 				//time.Sleep(time.Second
-				self.log.Error("pool auto stop")
+				self.log.Crit("pool auto stop")
 			}
 			t2 := time.Now()
 			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))

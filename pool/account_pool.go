@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/tree"
+
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -341,22 +343,22 @@ func (self *accountPool) modifyToOther(b *accountPoolBlock) error {
 }
 
 // result,(need fork)
-func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedChain, error) {
-	current := cp.current
+func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, tree.Branch, error) {
+	current := cp.tree.Main()
 
-	var newChain *forkedChain
+	var newChain tree.Branch
 	var err error
 	var result = []commonBlock{}
 
 	for _, b := range bs {
-		tmp := current.getHeightBlock(b.Height())
+		tmp := current.GetKnot(b.Height(), false)
 		if newChain != nil {
-			err := newChain.canAddHead(b)
-			if err != nil {
-				return nil, nil, err
-			}
+			//err := newChain.canAddHead(b)
+			//if err != nil {
+			//	return nil, nil, err
+			//}
 			// forked chain
-			newChain.addHead(tmp)
+			newChain.AddHead(tmp)
 		} else {
 			if tmp == nil || tmp.Hash() != b.Hash() {
 				// forked chain
@@ -364,11 +366,11 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 				if err != nil {
 					return nil, nil, err
 				}
-				err := newChain.canAddHead(b)
-				if err != nil {
-					return nil, nil, err
-				}
-				newChain.addHead(b)
+				//err := newChain.canAddHead(b)
+				//if err != nil {
+				//	return nil, nil, err
+				//}
+				newChain.AddHead(b)
 			}
 		}
 		result = append(result, b)
@@ -385,33 +387,19 @@ func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
 	return self.blockpool.contains(hash, height)
 }
 
-func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain {
-	block := self.chainpool.current.getBlock(height, false)
-	if block != nil && block.Hash() == hash {
-		return self.chainpool.current
-	}
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
-
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return c
-			}
-		}
-	}
-	return nil
+func (self *accountPool) findInTree(hash types.Hash, height uint64) tree.Branch {
+	return self.chainpool.tree.FindBranch(height, hash)
 }
 
-func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) *forkedChain {
-	block := self.chainpool.current.getBlock(height, disk)
+func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) tree.Branch {
+	cur := self.CurrentChain()
+	block := cur.GetKnot(height, disk)
 	if block != nil && block.Hash() == hash {
-		return self.chainpool.current
+		return cur
 	}
 
 	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
+		b := c.GetKnot(height, false)
 
 		if b == nil {
 			continue
@@ -451,7 +439,9 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 		if err != nil {
 			return err
 		}
-		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight, "HeadHash", fchain.headHash)
+		tailHeight, _ := fchain.TailHH()
+		headHeight, headHash := fchain.HeadHH()
+		self.log.Debug("AddDirectBlocks", "id", fchain.Id(), "TailHeight", tailHeight, "HeadHeight", headHeight, "HeadHash", headHash)
 		err = self.chainpool.currentModifyToChain(fchain)
 		if err != nil {
 			return err
@@ -494,7 +484,7 @@ func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
 	block := b.(*ledger.AccountBlock)
 	h := block.Height
 	// block in current
-	received := self.chainpool.current.getBlock(h, false)
+	received := self.chainpool.tree.Main().GetKnot(h, false)
 	if received == nil || received.Hash() != block.Hash {
 		return false
 	} else {
@@ -503,25 +493,25 @@ func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
 	return ok
 }
 func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
-	b := self.chainpool.current.getBlock(i, false)
+	b := self.chainpool.tree.Main().GetKnot(i, false)
 	if b != nil {
 		return b.(*accountPoolBlock)
 	} else {
 		return nil
 	}
 }
-func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedChain, []commonBlock, error) {
+func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (tree.Branch, []commonBlock, error) {
 	var results []commonBlock
-	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1, blocks[0].PrevHash())
+	fchain, err := self.chainpool.forkFrom(self.chainpool.tree.Main(), blocks[0].Height()-1, blocks[0].PrevHash())
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, b := range blocks {
-		err := fchain.canAddHead(b)
-		if err != nil {
-			return nil, nil, err
-		}
-		fchain.addHead(b)
+		//err := fchain.canAddHead(b)
+		//if err != nil {
+		//	return nil, nil, err
+		//}
+		fchain.AddHead(b)
 		results = append(results, b)
 	}
 	return fchain, results, nil
@@ -531,7 +521,7 @@ func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 }
 func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error) {
 	// if current size is empty, do nothing.
-	if self.chainpool.current.size() <= 0 {
+	if self.chainpool.tree.Main().Size() <= 0 {
 		return 0, errors.New("empty chainpool")
 	}
 
@@ -543,20 +533,21 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	defer self.chainTailMu.Unlock()
 
 	cp := self.chainpool
-	current := cp.current
+	current := cp.tree.Main()
 
 	if info.offset == nil {
-		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+		tailHeight, tailHash := current.TailHH()
+		info.offset = &ledger.HashHeight{Hash: tailHash, Height: tailHeight}
 		info.quotaUnused = self.rw.getQuotaUnused()
 	} else {
-		block := current.getBlock(info.offset.Height+1, false)
+		block := current.GetKnot(info.offset.Height+1, false)
 		if block == nil || block.PrevHash() != info.offset.Hash {
 			return uint64(0), errors.New("current chain modify.")
 		}
 	}
 
 	minH := info.offset.Height + 1
-	headH := current.headHeight
+	headH, _ := current.HeadHH()
 	for i := minH; i <= headH; i++ {
 		block := self.getCurrentBlock(i)
 		if block == nil {
@@ -591,7 +582,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 
 func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock) error {
 	// if current size is empty, do nothing.
-	if self.chainpool.current.size() <= 0 {
+	if self.chainpool.tree.Main().Size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))
 	}
 
@@ -599,14 +590,15 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 	defer self.chainTailMu.Unlock()
 
 	cp := self.chainpool
-	current := cp.current
+	current := cp.tree.Main()
 
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
+		tailHeight, tailHash := current.TailHH()
 		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.", block.Hash(), i, len(items)))
-		if block.Height() == current.tailHeight+1 &&
-			block.PrevHash() == current.tailHash {
+		if block.Height() == tailHeight+1 &&
+			block.PrevHash() == tailHash {
 			block.resetForkVersion()
 			stat := self.v.verifyAccount(block.(*accountPoolBlock), latestSb)
 			if !block.checkForkVersion() {
@@ -661,8 +653,8 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 	acurr := self.CurrentChain()
-	self.checkCurrent()
-	ab := acurr.getBlock(v.Height, true)
+	tailHeight, _ := acurr.TailHH()
+	ab := acurr.GetKnot(v.Height, true)
 	if ab == nil {
 		return true, nil
 	}
@@ -674,10 +666,10 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 		return true, nil
 	}
 
-	if ab.Height() > acurr.tailHeight {
+	if ab.Height() > tailHeight {
 		// account block is in pool.
 		tmp := stack.New()
-		for h := ab.Height(); h > acurr.tailHeight; h-- {
+		for h := ab.Height(); h > tailHeight; h-- {
 			currB := self.getCurrentBlock(h)
 			if p.Exists(currB.Hash()) {
 				break
@@ -691,10 +683,11 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	return false, nil
 }
 func (self *accountPool) checkCurrent() {
-	acurr := self.CurrentChain()
-	head := self.chainpool.diskChain.Head()
-	if head.Height() != acurr.tailHeight || head.Hash() != acurr.tailHash {
+	main := self.CurrentChain()
+	tailHeight, tailHash := main.TailHH()
+	headHeight, headHash := self.chainpool.diskChain.HeadHH()
+	if headHeight != tailHeight || headHash != tailHash {
 		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
-			acurr.id(), acurr.tailHeight, acurr.tailHash, head.Height(), head.Hash()))
+			main.Id(), tailHeight, tailHash, headHeight, headHash))
 	}
 }

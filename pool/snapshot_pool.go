@@ -392,7 +392,7 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 		if err != nil {
 			return nil, err
 		}
-		head := self.chainpool.diskChain.Head()
+		head := self.chainpool.diskChain.Hash()
 		self.chainpool.insertNotify(head)
 		return abs, nil
 	default:
