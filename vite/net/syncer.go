@@ -65,6 +65,8 @@ type syncer struct {
 	height uint64
 	state  syncState
 
+	pending int32 // pending for add tasks
+
 	timeout time.Duration
 
 	peers     syncPeerSet
@@ -72,6 +74,7 @@ type syncer struct {
 
 	chain      syncChain // query current block and height
 	downloader syncDownloader
+	reader     syncCacheReader
 
 	curSubId int // for subscribe
 	subs     map[int]SyncStateCallback
@@ -82,13 +85,14 @@ type syncer struct {
 	log     log15.Logger
 }
 
-func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader, timeout time.Duration) *syncer {
+func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downloader syncDownloader, timeout time.Duration) *syncer {
 	s := &syncer{
 		chain:      chain,
 		peers:      peers,
 		eventChan:  make(chan peerEvent, 1),
 		subs:       make(map[int]SyncStateCallback),
 		downloader: downloader,
+		reader:     reader,
 		timeout:    timeout,
 		log:        netLog.New("module", "syncer"),
 	}
@@ -209,28 +213,35 @@ Wait:
 	for {
 		select {
 		case <-s.eventChan:
-			syncPeer = s.peers.syncPeer()
-			bestPeer := s.peers.bestPeer()
-
 			// peers change, find new peer or peer disconnected. Choose sync peer again.
-			if bestPeer != nil {
+			if bestPeer := s.peers.bestPeer(); bestPeer != nil {
+				if s.height >= bestPeer.height() {
+					// we are taller than the best peer, no need sync
+					s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", bestPeer.String(), bestPeer.height(), s.height))
+					s.state.done()
+
+					// cancel rest tasks
+					s.downloader.cancel(s.height, s.to)
+					s.reader.clean()
+					return
+				}
+
+				syncPeer = s.peers.syncPeer()
 				syncPeerHeight = syncPeer.height()
-				if bestPeer.height() < s.to || shouldSync(s.to, syncPeerHeight) {
+				if shouldSync(s.to, syncPeerHeight) {
 					// only change sync target at two following scene:
 					// 1. the bestPeer is low than current target, because taller peers maybe disconnected.
 					// 2. the new syncPeer is taller enough than current target, because find more taller peers.
 					s.setTarget(syncPeerHeight)
 					s.state.sync()
-				} else {
-					// no need sync
-					s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.String(), syncPeerHeight, current.Height))
-					s.state.done()
-					return
 				}
 			} else {
 				s.log.Error("sync error: no peers")
 				s.state.error()
-				// no peers, then quit
+				// no peers
+				// cancel rest tasks, keep cache
+				s.downloader.cancel(s.height, s.to)
+				s.reader.reset()
 				return
 			}
 
@@ -239,6 +250,10 @@ Wait:
 
 			if current.Height >= s.to {
 				s.state.done()
+
+				// clean cache, cancel rest tasks
+				s.downloader.cancel(s.height, s.to)
+				s.reader.clean()
 				return
 			}
 
@@ -246,6 +261,10 @@ Wait:
 				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: chain get stuck")
 					s.state.error()
+					// watching chain grow through fetcher
+					// clean cache, cancel rest tasks
+					s.downloader.cancel(s.height, s.to)
+					s.reader.clean()
 				}
 			} else {
 				s.height = current.Height
@@ -254,23 +273,18 @@ Wait:
 
 		case <-s.term:
 			s.state.cancel()
+
+			// cancel rest tasks, keep cache
+			s.downloader.cancel(s.height, s.to)
+			s.reader.reset()
 			return
 		}
 	}
 }
 
-func (s *syncer) cacheHeight() (chunkEnd uint64) {
-	chunks := s.chain.GetSyncCache().Chunks()
-	if len(chunks) > 0 {
-		chunkEnd = chunks[len(chunks)-1][1]
-	}
-
-	return chunkEnd
-}
-
 func (s *syncer) getLocalHeight() uint64 {
 	current := s.chain.GetLatestSnapshotBlock().Height
-	cacheHeight := s.cacheHeight()
+	cacheHeight := s.reader.cacheHeight()
 
 	if current < cacheHeight {
 		current = cacheHeight
@@ -284,14 +298,17 @@ func (s *syncer) sync(syncPeerHeight uint64) {
 	s.from = local + 1
 	s.to = syncPeerHeight
 
-	go s.createTasks()
+	if atomic.CompareAndSwapInt32(&s.pending, 0, 1) {
+		go s.createTasks()
+	}
 }
 
 func (s *syncer) createTasks() {
+	defer atomic.StoreInt32(&s.pending, 0)
+
 	from := s.from
 	var to uint64
 
-	// todo how to exit avoid goroutine leak
 	for from < s.to {
 		to = from + syncTaskSize - 1
 		if to > s.to {
@@ -311,9 +328,14 @@ func (s *syncer) createTasks() {
 func (s *syncer) setTarget(to uint64) {
 	if s.to > to {
 		s.downloader.cancel(to+1, s.to)
+		s.to = to
+	} else {
+		if atomic.LoadInt32(&s.pending) == 1 {
+			s.to = to
+		} else {
+			s.sync(to)
+		}
 	}
-
-	s.to = to
 }
 
 // subscribe sync downloader

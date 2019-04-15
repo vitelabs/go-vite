@@ -79,6 +79,10 @@ func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis in
 			continue
 		}
 
+		if segment[0] > to {
+			break
+		}
+
 		// missing front piece
 		if segment[0] > from {
 			mis = append(mis, [2]uint64{
@@ -110,6 +114,10 @@ func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
 			continue
 		}
 
+		if chunk[0] > to {
+			break
+		}
+
 		// missing front piece
 		if chunk[0] > from {
 			mis = append(mis, [2]uint64{
@@ -138,6 +146,10 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 		// useless
 		if t.to < from {
 			continue
+		}
+
+		if t.from > to {
+			break
 		}
 
 		// missing front piece

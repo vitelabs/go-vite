@@ -294,8 +294,8 @@ func New(cfg Config) Net {
 		privateKey: cfg.P2PPrivateKey,
 	}
 	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Minute)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
+	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
 
 	fetcher := newFetcher(peers, receiver)
 

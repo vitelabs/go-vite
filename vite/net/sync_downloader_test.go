@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
 func TestMissingChunks(t *testing.T) {
@@ -24,6 +26,81 @@ func TestMissingChunks(t *testing.T) {
 	mis = missingChunks(chunks, 30, 60)
 	// mis should be [51, 60]
 	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingChunks(chunks, 0, 10)
+	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingChunks(chunks, 60, 70)
+	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+}
+
+func TestMissingSegments(t *testing.T) {
+	var chunks = interfaces.SegmentList{
+		{10, 20},
+		{30, 40},
+		{35, 45},
+		{40, 50},
+	}
+
+	mis := missingSegments(chunks, 2, 60)
+	// mis should be [2, 9] [21, 29] [51, 60]
+	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingSegments(chunks, 30, 60)
+	// mis should be [51, 60]
+	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingSegments(chunks, 0, 10)
+	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingSegments(chunks, 60, 70)
+	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+		t.Errorf("wrong mis: %v", mis)
+	}
+}
+
+func TestMissingTasks(t *testing.T) {
+	var chunks = syncTasks{
+		&syncTask{from: 10, to: 20},
+		&syncTask{from: 30, to: 40},
+		&syncTask{from: 35, to: 45},
+		&syncTask{from: 40, to: 50},
+	}
+
+	mis := missingTasks(chunks, 2, 60)
+	// mis should be [2, 9] [21, 29] [51, 60]
+	if len(mis) != 3 ||
+		mis[0].from != 2 || mis[0].to != 9 ||
+		mis[1].from != 21 || mis[1].to != 29 ||
+		mis[2].from != 51 || mis[2].to != 60 {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingTasks(chunks, 30, 60)
+	// mis should be [51, 60]
+	if len(mis) != 1 || mis[0].from != 51 || mis[0].to != 60 {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingTasks(chunks, 0, 10)
+	if len(mis) != 1 || mis[0].from != 0 || mis[0].to != 9 {
+		t.Errorf("wrong mis: %v", mis)
+	}
+
+	mis = missingTasks(chunks, 60, 70)
+	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
 		t.Errorf("wrong mis: %v", mis)
 	}
 }

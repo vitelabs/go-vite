@@ -16,6 +16,9 @@ import (
 type syncCacheReader interface {
 	start()
 	stop()
+	clean()
+	reset()
+	cacheHeight() uint64
 }
 
 type cacheReader struct {
@@ -27,7 +30,6 @@ type cacheReader struct {
 	cond       *sync.Cond
 	readTo     uint64
 	requestTo  uint64
-	cacheTo    uint64
 	wg         sync.WaitGroup
 	log        log15.Logger
 }
@@ -80,6 +82,9 @@ func (s *cacheReader) stop() {
 	s.running = false
 	s.mu.Unlock()
 
+	s.readTo = 0
+	s.requestTo = 0
+
 	s.cond.Broadcast()
 
 	s.wg.Wait()
@@ -95,6 +100,39 @@ func (s *cacheReader) handleChunkError(chunk [2]uint64) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(chunk)
 	s.downloader.download(chunk[0], chunk[1], true)
+}
+
+func (s *cacheReader) clean() {
+	cache := s.chain.GetSyncCache()
+	cs := cache.Chunks()
+	for _, c := range cs {
+		_ = cache.Delete(c)
+	}
+
+	s.reset()
+
+	s.cond.Broadcast()
+}
+
+func (s *cacheReader) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.readTo = 0
+	s.requestTo = 0
+
+	s.cond.Broadcast()
+}
+
+func (s *cacheReader) cacheHeight() uint64 {
+	cache := s.chain.GetSyncCache()
+	cs := cache.Chunks()
+
+	if len(cs) > 0 {
+		return cs[len(cs)-1][1]
+	}
+
+	return 0
 }
 
 func (s *cacheReader) removeUselessChunks() {
