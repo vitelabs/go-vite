@@ -6,6 +6,21 @@ import (
 )
 
 type branchChain struct {
+	rw      chainRw
+	chainId string
+	v       *ForkVersion
+}
+
+func (self *branchChain) AddTail(k tree.Knot) {
+	panic("not support")
+}
+
+func (self *branchChain) SprintTail() string {
+	return "DISK TAIL"
+}
+
+func (self *branchChain) SprintHead() string {
+	panic("implement me")
 }
 
 func (self *branchChain) RemoveTail(k tree.Knot) {

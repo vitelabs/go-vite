@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/tree"
+
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
@@ -151,14 +153,14 @@ func (self *pool) Snapshot() map[string]interface{} {
 	return self.pendingSc.info()
 }
 func (self *pool) SnapshotPendingNum() uint64 {
-	return self.pendingSc.CurrentChain().size()
+	return self.pendingSc.CurrentChain().Size()
 }
 
 func (self *pool) AccountPendingNum() *big.Int {
 	result := big.NewInt(0)
 	self.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
-		size := p.CurrentChain().size()
+		size := p.CurrentChain().Size()
 		if size > 0 {
 			result.Add(result, big.NewInt(0).SetUint64(size))
 		}
@@ -242,7 +244,7 @@ func (self *pool) Info(addr *types.Address) string {
 		freeSize := len(bp.freeBlocks)
 		compoundSize := len(bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
-		currentLen := cp.current.size()
+		currentLen := cp.tree.Main().Size()
 		chainSize := cp.size()
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
@@ -257,7 +259,7 @@ func (self *pool) Info(addr *types.Address) string {
 		freeSize := len(bp.freeBlocks)
 		compoundSize := len(bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
-		currentLen := cp.current.size()
+		currentLen := cp.tree.Main().Size()
 		chainSize := cp.size()
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, currentLen, chainSize)
@@ -498,37 +500,39 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 
 	if targetChain == nil {
 		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
-			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+			"currentId", this.CurrentChain().Id(), "Tail", this.CurrentChain().SprintTail(), "Head", this.CurrentChain().SprintHead())
 		err := this.CurrentModifyToEmpty()
 		return err
 	}
-	if targetChain.id() == this.CurrentChain().id() {
+	if targetChain.Id() == this.CurrentChain().Id() {
 		return nil
 	}
 	cu := this.CurrentChain()
-	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
+	curTailHeight, _ := cu.TailHH()
+	keyPoint, forkPoint, err := this.chainpool.tree.FindForkPointFromMain(targetChain)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTailHeight:%d, targetTailHash:%s, currentTailHeight:%d, currentTailHash:%s",
-			targetChain.id(), cu.id(), targetChain.tailHeight, targetChain.tailHash, cu.tailHeight, cu.tailHash)
+		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTail:%s, currentTail:%s",
+			targetChain.Id(), cu.Id(), targetChain.SprintTail(), cu.SprintTail())
 	}
 	// fork point in disk chain
-	if forkPoint.Height() <= this.CurrentChain().tailHeight {
-		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
-			"targetChainTailHeight", targetChain.tailHeight,
-			"targetChainHeadHeight", targetChain.headHeight,
+	if forkPoint.Height() <= curTailHeight {
+		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+			"targetChainTail", targetChain.SprintTail(),
+			"targetChainHead", targetChain.SprintHead(),
 			"keyPoint", keyPoint.Height(),
-			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+			"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintTail())
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
-	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
-		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+		"targetChainTail", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
+		"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintHead())
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err
@@ -836,10 +840,10 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 	return result
 }
 
-func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
-	h := fc.tailHeight
+func (self *pool) realSnapshotHeight(fc tree.Branch) uint64 {
+	h, _ := fc.TailHH()
 	for {
-		b := fc.getHeightBlock(h + 1)
+		b := fc.GetKnot(h+1, false)
 		if b == nil {
 			return h
 		}
@@ -857,12 +861,14 @@ func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
 	}
 }
 
-func (self *pool) fetchForSnapshot(fc *forkedChain) error {
+func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	var reqs []*fetchRequest
 	j := 0
-	for i := fc.tailHeight + 1; i < fc.headHeight && j < 100; i++ {
+	tailHeight, _ := fc.TailHH()
+	headHeight, _ := fc.HeadHH()
+	for i := tailHeight + 1; i < headHeight && j < 100; i++ {
 		j++
-		b := fc.getHeightBlock(i)
+		b := fc.GetKnot(i, false)
 		if b == nil {
 			continue
 		}
@@ -1001,10 +1007,10 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 	for addr, hashH := range accounts {
 		ac := self.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
-			head := ac.chainpool.diskChain.Head()
+			head, _ := ac.chainpool.diskChain.HeadHH()
 			u := uint64(10)
-			if hashH.Height > head.Height() {
-				u = hashH.Height - head.Height()
+			if hashH.Height > head {
+				u = hashH.Height - head
 			}
 			ac.f.fetchBySnapshot(*hashH, u, sHeight)
 		}

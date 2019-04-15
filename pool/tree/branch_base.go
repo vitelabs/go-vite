@@ -21,17 +21,19 @@ func (self *branchBase) size() uint64 {
 	return self.headHeight - self.tailHeight
 }
 
+func (self *branchBase) SprintHead() string {
+	return fmt.Sprintf("%d-%s", self.headHeight, self.headHash)
+}
+
+func (self *branchBase) SprintTail() string {
+	return fmt.Sprintf("%d-%s", self.tailHeight, self.tailHash)
+}
+
 func (self *branchBase) headHH() (uint64, types.Hash) {
 	return self.headHeight, self.headHash
 }
 func (self *branchBase) tailHH() (uint64, types.Hash) {
 	return self.tailHeight, self.tailHash
-}
-func (self *branchBase) tail() string {
-	return fmt.Sprintf("%d-%s", self.tailHeight, self.tailHash)
-}
-func (self *branchBase) head() string {
-	return fmt.Sprintf("%d-%s", self.headHeight, self.headHash)
 }
 
 func (self *branchBase) branchId() string {
@@ -102,12 +104,13 @@ func (self *branchBase) AddTail(w Knot) {
 	self.updateHeightBlock(w.Height(), w)
 }
 
-func newBranchBase(tailHeight uint64, tailHash types.Hash, headHeight uint64, headHash types.Hash) *branchBase {
+func newBranchBase(tailHeight uint64, tailHash types.Hash, headHeight uint64, headHash types.Hash, id string) *branchBase {
 	b := &branchBase{}
 	b.tailHeight = tailHeight
 	b.tailHash = tailHash
 	b.headHeight = headHeight
 	b.headHash = headHash
+	b.id = id
 	b.heightBlocks = make(map[uint64]Knot)
 	return b
 }

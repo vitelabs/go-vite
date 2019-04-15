@@ -3,7 +3,6 @@ package pool
 import (
 	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -143,24 +142,27 @@ func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) 
 
 	targetChain := self.findInTree(h.Hash, h.Height)
 	if targetChain != nil {
-		if targetChain.ChainId() == self.chainpool.current.ChainId() {
+		current := self.CurrentChain()
+
+		if targetChain.Id() == current.Id() {
 			return nil, nil
 		}
 
-		_, forkPoint, err := self.getForkPointByChains(targetChain, self.CurrentChain())
+		_, forkPoint, err := self.chainpool.tree.FindForkPointFromMain(targetChain)
 		if err != nil {
 			return nil, err
 		}
+		tailHeight, _ := current.TailHH()
 		// key point in disk chain
-		if forkPoint.Height() < self.CurrentChain().tailHeight {
+		if forkPoint.Height() < tailHeight {
 			return h, nil
 		}
 		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", self.address, "hash", h.Hash, "height", h.Height, "targetChain",
-			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
+			targetChain.Id(), "targetChainTailt", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
 			"forkPoint", fmt.Sprintf("[%s-%d]", forkPoint.Hash(), forkPoint.Height()))
 		err = self.CurrentModifyToChain(targetChain, h)
 		if err != nil {
-			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
+			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.Id())
 			panic(err)
 		}
 		return nil, nil
@@ -285,7 +287,7 @@ func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
 		return err, 0
 	}
 
-	self.log.Debug("verifySuccess", "id", forked.id(), "TailHeight", forked.tailHeight, "HeadHeight", forked.headHeight)
+	self.log.Debug("verifySuccess", "id", forked.Id(), "tail", forked.SprintTail())
 	err = cp.currentModifyToChain(forked)
 	if err != nil {
 		return err, 0
@@ -305,7 +307,8 @@ func (self *accountPool) verifyPending(b *accountPoolBlock) error {
 	if !b.recover.inc() {
 		b.recover.reset()
 		monitor.LogEvent("pool", "accountPendingFail")
-		return self.modifyToOther(b)
+		// todo
+		//return self.modifyToOther(b)
 	}
 	return nil
 }
@@ -322,25 +325,28 @@ func (self *accountPool) verifyFail(b *accountPoolBlock) error {
 			b.fail = true
 		}
 	}
-	return self.modifyToOther(b)
+	//return self.modifyToOther(b)
+	// todo
+	return nil
 }
-func (self *accountPool) modifyToOther(b *accountPoolBlock) error {
-	cp := self.chainpool
-	cur := cp.current
 
-	cs := cp.findOtherChainsByTail(cur, cur.tailHash, cur.tailHeight)
-
-	if len(cs) == 0 {
-		return nil
-	}
-
-	monitor.LogEvent("pool", "accountVerifyFailModify")
-	r := rand.Intn(len(cs))
-
-	err := cp.currentModifyToChain(cs[r])
-
-	return err
-}
+//func (self *accountPool) modifyToOther(b *accountPoolBlock) error {
+//	cp := self.chainpool
+//	cur := cp.current
+//
+//	cs := cp.findOtherChainsByTail(cur, cur.tailHash, cur.tailHeight)
+//
+//	if len(cs) == 0 {
+//		return nil
+//	}
+//
+//	monitor.LogEvent("pool", "accountVerifyFailModify")
+//	r := rand.Intn(len(cs))
+//
+//	err := cp.currentModifyToChain(cs[r])
+//
+//	return err
+//}
 
 // result,(need fork)
 func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, tree.Branch, error) {

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/tree"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -147,22 +149,23 @@ func (self *snapshotPool) checkFork() {
 	current := self.CurrentChain()
 	minHeight := self.pool.realSnapshotHeight(current)
 
-	self.log.Debug("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+	self.log.Debug("current chain.", "id", current.Id(), "realH", minHeight, "headH", current.SprintHead())
 
 	longers := self.LongerChain(minHeight)
 
-	var longest *forkedChain
+	var longest tree.Branch
 	longestH := minHeight
 	for _, l := range longers {
-		if l.headHeight < longestH {
+		headHeight, _ := l.HeadHH()
+		if headHeight < longestH {
 			continue
 		}
 		lH := self.pool.realSnapshotHeight(l)
-		self.log.Debug("find chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+		self.log.Debug("find chain.", "id", l.Id(), "realH", lH, "headH", headHeight)
 		if lH > longestH {
 			longestH = lH
 			longest = l
-			self.log.Info("find more longer chain.", "id", l.id(), "realH", lH, "headH", l.headHeight, "tailH", l.tailHeight)
+			self.log.Info("find more longer chain.", "id", l.Id(), "realH", lH, "headH", headHeight, "tailH", l.SprintTail())
 		}
 	}
 
@@ -170,13 +173,14 @@ func (self *snapshotPool) checkFork() {
 		return
 	}
 
-	if longest.ChainId() == current.ChainId() {
+	if longest.Id() == current.Id() {
 		return
 	}
-	if longestH-self.LIMIT_LONGEST_NUM < current.headHeight {
+	curHeadH, _ := current.HeadHH()
+	if longestH-self.LIMIT_LONGEST_NUM < curHeadH {
 		return
 	}
-	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight, "tailH", current.tailHeight)
+	self.log.Info("current chain.", "id", current.Id(), "realH", minHeight, "headH", curHeadH, "tailH", current.SprintTail())
 
 	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
@@ -185,15 +189,15 @@ func (self *snapshotPool) checkFork() {
 	}
 }
 
-func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChain) error {
+func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch) error {
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
-	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId(),
-		"longestTailHeight", longest.tailHeight, "longestHeadHeight", longest.headHeight, "currentTailHeight", current.tailHeight, "currentHeadHeight", current.headHeight)
+	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id(),
+		"longestTail", longest.SprintTail(), "longestHead", longest.SprintHead(), "currentTail", current.SprintTail(), "currentHead", current.SprintHead())
 	self.pool.Lock()
 	defer self.pool.UnLock()
-	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
+	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id())
 
-	k, forked, err := self.getForkPointByChains(longest, current)
+	k, forked, err := self.chainpool.tree.FindForkPointFromMain(longest)
 	if err != nil {
 		self.log.Error("get snapshot forkPoint err.", "err", err)
 		return err
@@ -456,31 +460,32 @@ func (self *snapshotPool) loopFetchForSnapshot() {
 //
 //}
 func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
-	b := self.chainpool.current.getBlock(i, false)
+	b := self.CurrentChain().GetKnot(i, false)
 	if b != nil {
 		return b.(*snapshotPoolBlock)
 	} else {
 		return nil
 	}
 }
-func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
-	begin := self.chainpool.current.tailHeight + 1
-	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
-	err := self.checkChain(blocks)
-	if err != nil {
-		return nil, err
-	}
 
-	return blocks, nil
-}
+//func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
+//	begin := self.chainpool.current.tailHeight + 1
+//	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
+//	err := self.checkChain(blocks)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return blocks, nil
+//}
 func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
 	for addr, hashH := range accounts {
 		ac := self.pool.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
-			head := ac.chainpool.diskChain.Head()
+			head, _ := ac.chainpool.diskChain.HeadHH()
 			u := uint64(10)
-			if hashH.Height > head.Height() {
-				u = hashH.Height - head.Height()
+			if hashH.Height > head {
+				u = hashH.Height - head
 			}
 			ac.f.fetchBySnapshot(*hashH, u, sHeight)
 		}

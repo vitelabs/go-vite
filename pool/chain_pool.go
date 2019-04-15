@@ -81,7 +81,7 @@ func (self *chainPool) init() {
 	//self.current.referChain = self.diskChain
 	//self.chains = make(map[string]*forkedChain)
 	self.snippetChains = make(map[string]*snippetChain)
-	self.tree.Init(self.diskChain)
+	self.tree.Init(self.poolId, self.diskChain)
 	//self.addChain(self.current)
 }
 
@@ -266,7 +266,7 @@ func (self *chainPool) currentModify(initBlock commonBlock) {
 	self.tree.SwitchMainTo(new)
 	//self.modifyReferForChainExchange(c, new, new)
 }
-func (self *chainPool) fork2(snippet *snippetChain, chains []tree.Branch) (bool, bool, tree.Branch, error) {
+func (self *chainPool) fork2(snippet *snippetChain, chains map[string]tree.Branch) (bool, bool, tree.Branch, error) {
 
 	var forky, insertable bool
 	var result tree.Branch = nil
@@ -460,16 +460,16 @@ func (self *chainPool) writeBlocksToChain(chain tree.Branch, blocks []commonBloc
 	return nil
 }
 func (self *chainPool) check() error {
-	diskId := self.diskChain.id()
-	currentId := self.current.id()
+	diskId := self.diskChain.Id()
+	currentId := self.tree.Main().Id()
 	for _, c := range self.allChain() {
 		// refer to disk
-		if c.referChain.id() == diskId {
-			if c.id() != currentId {
-				self.log.Error(fmt.Sprintf("chain:%s, refer disk.", c.id()))
+		if c.Root().Id() == diskId {
+			if c.Id() != currentId {
+				self.log.Error(fmt.Sprintf("chain:%s, refer disk.", c.Id()))
 				return errors.New("refer disk")
 			} else {
-				err := checkHeadTailLink(c, c.referChain)
+				err := checkHeadTailLink(c, c.Root())
 				if err != nil {
 					self.log.Error(err.Error())
 					return err
@@ -506,98 +506,87 @@ func (self *chainPool) check() error {
 func (self *chainPool) allChain() map[string]tree.Branch {
 	return self.tree.Branches()
 }
-func (self *chainPool) clearUselessChain() []*forkedChain {
-	self.chainMu.Lock()
-	defer self.chainMu.Unlock()
 
-	var r []*forkedChain
-	for id, c := range self.chains {
-		if id == self.current.id() {
-			continue
-		}
-		if c.size() == 0 {
-			delete(self.chains, id)
-			r = append(r, c)
-		}
-	}
-	return r
-}
-func (self *chainPool) clearRepeatChain() []*forkedChain {
-	self.chainMu.Lock()
-	defer self.chainMu.Unlock()
+//func (self *chainPool) clearRepeatChain() []*forkedChain {
+//	self.chainMu.Lock()
+//	defer self.chainMu.Unlock()
+//
+//	var r []*forkedChain
+//	for id1, c1 := range self.chains {
+//		if id1 == self.current.id() {
+//			continue
+//		}
+//		for _, c2 := range self.chains {
+//			if c1.tailHeight == c2.tailHeight &&
+//				c1.tailHash == c2.tailHash {
+//				h := c2.getHeightBlock(c1.headHeight)
+//				if h != nil && h.Hash() == c1.headHash {
+//					r = append(r, c1)
+//				}
+//			}
+//		}
+//	}
+//	return r
+//}
+//func (self *chainPool) delChain(id string) {
+//	self.chainMu.Lock()
+//	defer self.chainMu.Unlock()
+//	delete(self.chains, id)
+//}
 
-	var r []*forkedChain
-	for id1, c1 := range self.chains {
-		if id1 == self.current.id() {
-			continue
-		}
-		for _, c2 := range self.chains {
-			if c1.tailHeight == c2.tailHeight &&
-				c1.tailHash == c2.tailHash {
-				h := c2.getHeightBlock(c1.headHeight)
-				if h != nil && h.Hash() == c1.headHash {
-					r = append(r, c1)
-				}
-			}
-		}
-	}
-	return r
-}
-func (self *chainPool) delChain(id string) {
-	self.chainMu.Lock()
-	defer self.chainMu.Unlock()
-	delete(self.chains, id)
-}
 func (self *chainPool) size() int {
-	self.chainMu.Lock()
-	defer self.chainMu.Unlock()
-	return len(self.chains)
+	return -1
+	//self.chainMu.Lock()
+	//defer self.chainMu.Unlock()
+	//return len(self.chains)
 }
-func (self *chainPool) findOtherChainsByTail(cur *forkedChain, hash types.Hash, height uint64) []*forkedChain {
-	self.chainMu.Lock()
-	defer self.chainMu.Unlock()
-	var result []*forkedChain
-	for _, v := range self.chains {
-		if v.id() == cur.id() {
-			continue
-		}
-		if v.tailHeight == height {
-			if v.tailHash == hash {
-				result = append(result, v)
-			}
-			continue
-		}
-		b := v.getHeightBlock(height)
-		if b != nil && b.Hash() == hash && v.tailHeight < height {
-			result = append(result, v)
-			continue
-		}
-	}
-	return result
-}
-func (self *chainPool) findEmptyForHead(head commonBlock) *forkedChain {
-	for _, c := range self.chains {
-		if c.size() == uint64(0) && c.headHash == head.Hash() {
-			return c
-		}
-	}
-	return nil
-}
-func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader) error {
-	head := ancestor.Head()
-	ancestorBlock := c.getBlock(head.Height(), true)
-	if ancestorBlock == nil {
-		chead := c.Head()
-		err := errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d], chead:[%s][%d][%d]", head.Hash(), head.Height(), chead.Hash(), chead.Height(), c.headHeight)
-		// todo
-		panic(err)
-		return err
-	}
-	if ancestorBlock.Hash() != head.Hash() {
-		return errors.Errorf("check ancestor fail, ancestoreHash:[%s], headHash:[%s]", ancestorBlock.Hash(), head.Hash())
-	}
-	return nil
-}
+
+//func (self *chainPool) findOtherChainsByTail(cur *forkedChain, hash types.Hash, height uint64) []*forkedChain {
+//	self.chainMu.Lock()
+//	defer self.chainMu.Unlock()
+//	var result []*forkedChain
+//	for _, v := range self.chains {
+//		if v.id() == cur.id() {
+//			continue
+//		}
+//		if v.tailHeight == height {
+//			if v.tailHash == hash {
+//				result = append(result, v)
+//			}
+//			continue
+//		}
+//		b := v.getHeightBlock(height)
+//		if b != nil && b.Hash() == hash && v.tailHeight < height {
+//			result = append(result, v)
+//			continue
+//		}
+//	}
+//	return result
+//}
+
+//func (self *chainPool) findEmptyForHead(head commonBlock) *forkedChain {
+//	for _, c := range self.chains {
+//		if c.size() == uint64(0) && c.headHash == head.Hash() {
+//			return c
+//		}
+//	}
+//	return nil
+//}
+//func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader) error {
+//	head := ancestor.Head()
+//	ancestorBlock := c.getBlock(head.Height(), true)
+//	if ancestorBlock == nil {
+//		chead := c.Head()
+//		err := errors.Errorf("check ancestor fail, ancestorBlock is nil. head:[%s][%d], chead:[%s][%d][%d]", head.Hash(), head.Height(), chead.Hash(), chead.Height(), c.headHeight)
+//		// todo
+//		panic(err)
+//		return err
+//	}
+//	if ancestorBlock.Hash() != head.Hash() {
+//		return errors.Errorf("check ancestor fail, ancestoreHash:[%s], headHash:[%s]", ancestorBlock.Hash(), head.Hash())
+//	}
+//	return nil
+//}
 
 //func (self *chainPool) exchangeRefer(from *forkedChain, to *forkedChain) error {
 //	e := self.checkExchangeRefer(from, to)
@@ -641,26 +630,26 @@ func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader)
 //	}
 //	return nil
 //}
-func (self *chainPool) checkExchangeRefer(from *forkedChain, to *forkedChain) error {
-	if to.tailHash == from.tailHash {
-		return nil
-	}
-
-	tailBlock := from.getBlock(to.tailHeight, false)
-	if tailBlock == nil {
-		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty], %s,%s",
-			to.id(), from.id(), to.tailHeight, to.tailHash, from.Details(), to.Details())
-	}
-	if tailBlock.Hash() == to.tailHash {
-		return nil
-	} else {
-		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s], %s,%s",
-			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash(), from.Details(), to.Details())
-	}
-}
+//func (self *chainPool) checkExchangeRefer(from *forkedChain, to *forkedChain) error {
+//	if to.tailHash == from.tailHash {
+//		return nil
+//	}
+//
+//	tailBlock := from.getBlock(to.tailHeight, false)
+//	if tailBlock == nil {
+//		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty], %s,%s",
+//			to.id(), from.id(), to.tailHeight, to.tailHash, from.Details(), to.Details())
+//	}
+//	if tailBlock.Hash() == to.tailHash {
+//		return nil
+//	} else {
+//		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s], %s,%s",
+//			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash(), from.Details(), to.Details())
+//	}
+//}
 func (self *chainPool) getCurrentBlocks(begin uint64, end uint64) (blocks []commonBlock) {
 	for i := begin; i <= end; i++ {
-		block := self.current.getBlock(i, true)
+		block := self.tree.Main().GetKnot(i, true)
 		if block == nil {
 			return
 		}

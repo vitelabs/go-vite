@@ -97,7 +97,7 @@ func (self *branch) prune() {
 		block := self.root.GetKnot(i, true)
 		if block != nil && block.Hash() == selfB.Hash() {
 			fmt.Printf("remove tail[%s][%d-%s]\n", self.branchId(), block.Height(), block.Hash())
-			self.removeTail(block)
+			self.RemoveTail(block)
 		} else {
 			break
 		}
@@ -123,7 +123,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 		return errors.New("root not match")
 	}
 
-	if root.tailHH() == self.tailHH() {
+	if tailEquals(root, self) {
 		root.removeChild(self)
 		self.updateRootSimple(root, root.root)
 		root.updateRoot(root.root, self)
@@ -138,13 +138,13 @@ func (self *branch) exchangeRoot(root *branch) error {
 		for i := selfTailHeight; i > rootTailHeight; i-- {
 			w := root.GetKnot(i, false)
 			if w != nil {
-				self.addTail(w)
+				self.AddTail(w)
 			}
 		}
 		for i := rootTailHeight + 1; i <= rootTailHeight; i++ {
 			w := root.GetKnot(i, false)
 			if w != nil {
-				root.removeTail(w)
+				root.RemoveTail(w)
 			}
 		}
 		root.removeChild(self)
@@ -153,7 +153,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 		return nil
 	} else {
 		return errors.Errorf("err for exchangeRoot.root:%s, self:%s, rootTail:%s, rootHead:%s, selfTail:%s, selfHead:%s",
-			root.Id(), self.Id(), root.tail(), root.head(), self.tail(), self.head())
+			root.Id(), self.Id(), root.SprintTail(), root.SprintHead(), self.SprintTail(), self.SprintHead())
 
 	}
 }
@@ -303,6 +303,14 @@ func (self *branch) allChildren() (result []*branch) {
 	}
 	return
 }
+func (self *branchBase) linked(root Branch) bool {
+	headHeight, headHash := root.HeadHH()
+	if self.tailHeight == headHeight && self.tailHash == headHash {
+		return true
+	} else {
+		return false
+	}
+}
 
 func newBranch(base *branchBase, root Branch) *branch {
 	b := &branch{}
@@ -310,4 +318,11 @@ func newBranch(base *branchBase, root Branch) *branch {
 	b.root = root
 	b.children = make(map[string]*branch)
 	return b
+}
+
+func tailEquals(b1 *branch, b2 *branch) bool {
+	if b1.tailHeight == b2.tailHeight && b1.tailHash == b2.tailHash {
+		return true
+	}
+	return false
 }

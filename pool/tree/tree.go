@@ -20,6 +20,8 @@ type Knot interface {
 type BranchBase interface {
 	RemoveTail(k Knot)
 	AddTail(k Knot)
+	SprintTail() string
+	SprintHead() string
 }
 
 type Branch interface {
@@ -45,10 +47,13 @@ type Tree interface {
 	Root() Branch
 	Main() Branch
 	Branches() map[string]Branch
+	PruneTree() []Branch
 	FindBranch(height uint64, hash types.Hash) Branch
 	ForkBranch(b Branch, height uint64, hash types.Hash) Branch
 	SwitchMainTo(b Branch) error
-	Init(root Branch) error
+	SwitchMainToEmpty() error
+	FindForkPointFromMain(target Branch) (Knot, Knot, error)
+	Init(name string, root Branch) error
 }
 
 type innerTree interface {
