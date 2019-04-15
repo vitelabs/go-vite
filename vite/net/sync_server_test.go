@@ -10,7 +10,7 @@ import (
 
 func Test_File_Server(t *testing.T) {
 	const addr = "localhost:8484"
-	fs := newFileServer(addr, nil, nil)
+	fs := newSyncServer(addr, nil, nil)
 
 	if err := fs.start(); err != nil {
 		t.Fatal(err)

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/vitelabs/go-vite/interfaces"
 )
@@ -103,6 +105,96 @@ func TestMissingTasks(t *testing.T) {
 	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
 		t.Errorf("wrong mis: %v", mis)
 	}
+}
+
+func TestChunksOverlap(t *testing.T) {
+	var cs chunks = [][2]uint64{
+		{10, 20},
+		{22, 40},
+		{41, 50},
+	}
+
+	var ok bool
+	var chunk [2]uint64
+
+	if chunk, ok = cs.overlap(1, 9); !ok {
+		t.Errorf("should not overlap")
+	}
+
+	if chunk, ok = cs.overlap(51, 60); !ok {
+		t.Errorf("should not overlap")
+	}
+
+	if chunk, ok = cs.overlap(20, 21); ok || chunk != [2]uint64{10, 20} {
+		t.Errorf("should overlap")
+	}
+
+	if chunk, ok = cs.overlap(50, 61); ok || chunk != [2]uint64{41, 50} {
+		t.Errorf("should overlap")
+	}
+
+	if chunk, ok = cs.overlap(19, 42); ok || chunk != [2]uint64{10, 20} {
+		t.Errorf("should overlap")
+	}
+}
+
+func TestRunTasks(t *testing.T) {
+	var tasks = syncTasks{
+		{
+			from:   3,
+			to:     10,
+			st:     reqDone,
+			doneAt: time.Time{}.Add(3 * time.Second),
+		},
+		{
+			from: 11,
+			to:   15,
+		},
+		{
+			from: 16,
+			to:   20,
+			st:   reqDone,
+		},
+		{
+			from: 21,
+			to:   25,
+			st:   reqError,
+		},
+		{
+			from: 26,
+			to:   30,
+		},
+		{
+			from: 31,
+			to:   35,
+		},
+	}
+
+	var wg sync.WaitGroup
+	var run = func(t *syncTask) {
+		if t.st == reqDone || t.st == reqPending {
+			panic(fmt.Sprintf("run task %d-%d repeatedly", t.from, t.to))
+		}
+
+		fmt.Printf("run task %d-%d\n", t.from, t.to)
+		t.st = reqPending
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			time.Sleep(time.Second)
+			t.st = reqDone
+			t.doneAt = time.Now()
+		}()
+	}
+
+	for len(tasks) > 0 {
+		tasks = runTasks(tasks, 3, run)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	fmt.Printf("rest %d tasks\n", len(tasks))
 }
 
 type mockDownloader struct {
