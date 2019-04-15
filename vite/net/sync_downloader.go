@@ -72,6 +72,54 @@ func (s syncTasks) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+type chunks [][2]uint64
+
+func (cs chunks) Len() int {
+	return len(cs)
+}
+
+func (cs chunks) Less(i, j int) bool {
+	return cs[i][0] < cs[j][0]
+}
+
+func (cs chunks) Swap(i, j int) {
+	cs[i], cs[j] = cs[j], cs[i]
+}
+
+func (cs chunks) overlap(from, to uint64) (conflict [2]uint64, ok bool) {
+	ok = true
+
+	if len(cs) == 0 {
+		return
+	}
+
+	n := sort.Search(len(cs), func(i int) bool {
+		return cs[i][0] > from
+	})
+
+	if n == 0 {
+		if cs[0][0] <= to {
+			return cs[0], false
+		} else {
+			return
+		}
+	}
+
+	if cs[n-1][1] >= from {
+		return cs[n-1], false
+	}
+
+	if n == len(cs) {
+		return
+	}
+
+	if cs[n][0] <= to {
+		return cs[n], false
+	}
+
+	return
+}
+
 func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis interfaces.SegmentList) {
 	for _, segment := range sortedList {
 		// useless

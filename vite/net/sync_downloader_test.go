@@ -105,6 +105,37 @@ func TestMissingTasks(t *testing.T) {
 	}
 }
 
+func TestChunksOverlap(t *testing.T) {
+	var cs chunks = [][2]uint64{
+		{10, 20},
+		{22, 40},
+		{41, 50},
+	}
+
+	var ok bool
+	var chunk [2]uint64
+
+	if chunk, ok = cs.overlap(1, 9); !ok {
+		t.Errorf("should not overlap")
+	}
+
+	if chunk, ok = cs.overlap(51, 60); !ok {
+		t.Errorf("should not overlap")
+	}
+
+	if chunk, ok = cs.overlap(20, 21); ok || chunk != [2]uint64{10, 20} {
+		t.Errorf("should overlap")
+	}
+
+	if chunk, ok = cs.overlap(50, 61); ok || chunk != [2]uint64{41, 50} {
+		t.Errorf("should overlap")
+	}
+
+	if chunk, ok = cs.overlap(19, 42); ok || chunk != [2]uint64{10, 20} {
+		t.Errorf("should overlap")
+	}
+}
+
 type mockDownloader struct {
 }
 
