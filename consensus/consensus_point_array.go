@@ -7,32 +7,11 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
-
-type TimeIndex interface {
-	Index2Time(index uint64) (time.Time, time.Time)
-	Time2Index(t time.Time) uint64
-}
-
-type timeIndex struct {
-	GenesisTime time.Time
-	// second
-	Interval time.Duration
-}
-
-func (self timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
-	sTime := self.GenesisTime.Add(self.Interval * time.Duration(index))
-	eTime := self.GenesisTime.Add(self.Interval * time.Duration(index+1))
-	return sTime, eTime
-}
-func (self timeIndex) Time2Index(t time.Time) uint64 {
-	subSec := int64(t.Sub(self.GenesisTime).Seconds())
-	i := uint64(subSec) / uint64(self.Interval.Seconds())
-	return i
-}
 
 func newDayLinkedArray(hour LinkedArray,
 	db *consensus_db.ConsensusDB,
@@ -47,7 +26,8 @@ func newDayLinkedArray(hour LinkedArray,
 	dayArr.db = db
 	dayArr.proof = proof
 	dayArr.extraDataFn = fn
-	dayArr.TimeIndex = timeIndex{GenesisTime: genesisTime, Interval: time.Hour * 24}
+
+	dayArr.TimeIndex = core.NewTimeIndex(genesisTime, time.Hour*24)
 	dayArr.log = log
 	return dayArr
 }
@@ -59,19 +39,19 @@ func newHourLinkedArray(period LinkedArray, db *consensus_db.ConsensusDB, proof 
 	hourArr.lowerArr = period
 	hourArr.db = db
 	hourArr.proof = proof
-	hourArr.TimeIndex = timeIndex{GenesisTime: genesisTime, Interval: time.Hour}
+	hourArr.TimeIndex = core.NewTimeIndex(genesisTime, time.Hour)
 	hourArr.log = log
 	return hourArr
 }
 
 type LinkedArray interface {
-	TimeIndex
+	core.TimeIndex
 	GetByIndex(index uint64) (*consensus_db.Point, error)
 	GetByIndexWithProof(index uint64, proofHash types.Hash) (*consensus_db.Point, error)
 }
 
 type linkedArray struct {
-	TimeIndex
+	core.TimeIndex
 	prefix   byte
 	rate     uint64
 	db       *consensus_db.ConsensusDB
@@ -194,7 +174,7 @@ type SBPInfo struct {
 }
 
 type periodLinkedArray struct {
-	TimeIndex
+	core.TimeIndex
 	//periods map[uint64]*periodPoint
 	periods  *lru.Cache
 	rw       Chain
@@ -208,9 +188,7 @@ func newPeriodPointArray(rw Chain, cs DposReader, proof RollbackProof, log log15
 	if err != nil {
 		panic(err)
 	}
-	index := timeIndex{}
-	index.GenesisTime = cs.GetInfo().GenesisTime
-	index.Interval = time.Second * time.Duration(cs.GetInfo().PlanInterval)
+	index := core.NewTimeIndex(cs.GetInfo().GenesisTime, time.Second*time.Duration(cs.GetInfo().PlanInterval))
 	return &periodLinkedArray{TimeIndex: index, rw: rw, periods: cache, snapshot: cs, log: log, proof: proof}
 }
 

@@ -17,6 +17,7 @@ var Es *EventSystem
 const (
 	LogsSubscription FilterType = iota
 	AccountBlocksSubscription
+	SnapshotBlocksSubscription
 )
 
 type heightRange struct {
@@ -30,14 +31,15 @@ type filterParam struct {
 }
 
 type subscription struct {
-	id             rpc.ID
-	typ            FilterType
-	createTime     time.Time
-	installed      chan struct{}
-	err            chan error
-	param          *filterParam
-	accountBlockCh chan []*AccountBlock
-	logsCh         chan []*Logs
+	id              rpc.ID
+	typ             FilterType
+	createTime      time.Time
+	installed       chan struct{}
+	err             chan error
+	param           *filterParam
+	snapshotBlockCh chan []*SnapshotBlock
+	accountBlockCh  chan []*AccountBlock
+	logsCh          chan []*Logs
 }
 
 type EventSystem struct {
@@ -47,6 +49,8 @@ type EventSystem struct {
 	uninstall chan *subscription        // remove filter
 	acCh      chan []*AccountChainEvent // Channel to receive new account chain event
 	acDelCh   chan []*AccountChainEvent // Channel to receive new account chain delete event when account chain fork
+	sbCh      chan []*SnapshotChainEvent
+	sbDelCh   chan []*SnapshotChainEvent
 	stop      chan struct{}
 	log       log15.Logger
 }
@@ -54,6 +58,8 @@ type EventSystem struct {
 const (
 	acChanSize    = 100
 	acDelChanSize = 10
+	sbChanSize    = 10
+	sbDelChanSize = 10
 	installSize   = 10
 	uninstallSize = 10
 )
@@ -63,6 +69,8 @@ func NewEventSystem(v *vite.Vite) *EventSystem {
 		vite:      v,
 		acCh:      make(chan []*AccountChainEvent, acChanSize),
 		acDelCh:   make(chan []*AccountChainEvent, acDelChanSize),
+		sbCh:      make(chan []*SnapshotChainEvent, sbChanSize),
+		sbDelCh:   make(chan []*SnapshotChainEvent, sbDelChanSize),
 		install:   make(chan *subscription, installSize),
 		uninstall: make(chan *subscription, uninstallSize),
 		stop:      make(chan struct{}),
@@ -84,7 +92,7 @@ func (es *EventSystem) Stop() {
 func (es *EventSystem) eventLoop() {
 	es.log.Info("start event loop")
 	index := make(map[FilterType]map[rpc.ID]*subscription)
-	for i := LogsSubscription; i <= AccountBlocksSubscription; i++ {
+	for i := LogsSubscription; i <= SnapshotBlocksSubscription; i++ {
 		index[i] = make(map[rpc.ID]*subscription)
 	}
 
@@ -94,6 +102,10 @@ func (es *EventSystem) eventLoop() {
 			es.handleAcEvent(index, acEvent, false)
 		case acDelEvent := <-es.acDelCh:
 			es.handleAcEvent(index, acDelEvent, true)
+		case sbEvent := <-es.sbCh:
+			es.handleSbEvent(index, sbEvent, false)
+		case sbDelEvent := <-es.sbDelCh:
+			es.handleSbEvent(index, sbDelEvent, true)
 		case i := <-es.install:
 			es.log.Info("install ", "id", i.id)
 			index[i.typ][i.id] = i
@@ -114,6 +126,19 @@ func (es *EventSystem) eventLoop() {
 			es.log.Info("stop event loop")
 			return
 		}
+	}
+}
+
+func (es *EventSystem) handleSbEvent(filters map[FilterType]map[rpc.ID]*subscription, sbEvent []*SnapshotChainEvent, removed bool) {
+	if len(sbEvent) == 0 {
+		return
+	}
+	blocks := make([]*SnapshotBlock, len(sbEvent))
+	for i, e := range sbEvent {
+		blocks[i] = &SnapshotBlock{Hash: e.Hash, Height: e.Height, Removed: removed}
+	}
+	for _, f := range filters[SnapshotBlocksSubscription] {
+		f.snapshotBlockCh <- blocks
 	}
 }
 
@@ -205,6 +230,7 @@ func (s *RpcSubscription) Unsubscribe() {
 				break uninstallLoop
 			case <-s.sub.accountBlockCh:
 			case <-s.sub.logsCh:
+			case <-s.sub.snapshotBlockCh:
 			}
 		}
 		<-s.Err()
@@ -213,27 +239,43 @@ func (s *RpcSubscription) Unsubscribe() {
 
 func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlock) *RpcSubscription {
 	sub := &subscription{
-		id:             rpc.NewID(),
-		typ:            AccountBlocksSubscription,
-		createTime:     time.Now(),
-		installed:      make(chan struct{}),
-		err:            make(chan error),
-		accountBlockCh: ch,
-		logsCh:         make(chan []*Logs),
+		id:              rpc.NewID(),
+		typ:             AccountBlocksSubscription,
+		createTime:      time.Now(),
+		installed:       make(chan struct{}),
+		err:             make(chan error),
+		snapshotBlockCh: make(chan []*SnapshotBlock),
+		accountBlockCh:  ch,
+		logsCh:          make(chan []*Logs),
+	}
+	return es.subscribe(sub)
+}
+
+func (es *EventSystem) SubscribeSnapshotBlocks(ch chan []*SnapshotBlock) *RpcSubscription {
+	sub := &subscription{
+		id:              rpc.NewID(),
+		typ:             SnapshotBlocksSubscription,
+		createTime:      time.Now(),
+		installed:       make(chan struct{}),
+		err:             make(chan error),
+		snapshotBlockCh: ch,
+		accountBlockCh:  make(chan []*AccountBlock),
+		logsCh:          make(chan []*Logs),
 	}
 	return es.subscribe(sub)
 }
 
 func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*Logs) *RpcSubscription {
 	sub := &subscription{
-		id:             rpc.NewID(),
-		typ:            LogsSubscription,
-		param:          p,
-		createTime:     time.Now(),
-		installed:      make(chan struct{}),
-		err:            make(chan error),
-		accountBlockCh: make(chan []*AccountBlock),
-		logsCh:         ch,
+		id:              rpc.NewID(),
+		typ:             LogsSubscription,
+		param:           p,
+		createTime:      time.Now(),
+		installed:       make(chan struct{}),
+		err:             make(chan error),
+		snapshotBlockCh: make(chan []*SnapshotBlock),
+		accountBlockCh:  make(chan []*AccountBlock),
+		logsCh:          ch,
 	}
 	return es.subscribe(sub)
 }
