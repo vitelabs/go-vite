@@ -285,9 +285,13 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 			case verifier.FAIL:
 				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				// todo
+				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier")
 			case verifier.PENDING:
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
+				// todo
+				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier db.")
 			}
 			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))

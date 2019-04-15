@@ -115,6 +115,7 @@ func (self *accountCh) insertBlocks(bs []commonBlock) error {
 }
 
 func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Address][]commonBlock, error) {
+	self.log.Info("delToHeight", "height", height, "address", self.address)
 	bm, e := self.rw.DeleteAccountBlocksToHeight(self.address, height)
 	if e != nil {
 		return nil, nil, e
@@ -124,6 +125,14 @@ func (self *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Addr
 	results := make(map[types.Address][]commonBlock)
 	for _, b := range bm {
 		results[b.AccountAddress] = append(results[b.AccountAddress], newAccountPoolBlock(b, nil, self.version, types.RollbackChain))
+		self.log.Info("actual delToHeight", "height", b.Height, "hash", b.Hash, "address", b.AccountAddress)
+	}
+	block, err := self.rw.GetLatestAccountBlock(self.address)
+	if err != nil {
+		panic(err)
+	}
+	if block.Height > height {
+		panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))
 	}
 	return nil, results, nil
 }
