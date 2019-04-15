@@ -1,6 +1,8 @@
 package util
 
-import "github.com/vitelabs/go-vite/ledger"
+import (
+	"github.com/vitelabs/go-vite/ledger"
+)
 
 type GlobalStatus interface {
 	Seed() (uint64, error)

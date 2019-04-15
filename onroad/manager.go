@@ -2,6 +2,7 @@ package onroad
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/generator"
 	"sync"
 	"time"
 
@@ -20,15 +21,16 @@ var (
 )
 
 type Manager struct {
-	pool     Pool
 	net      Net
 	producer Producer
-	chain    chain.Chain
 	wallet   *wallet.Manager
 
-	contractWorkers       map[types.Gid]*ContractWorker
-	newContractListener   map[types.Gid]func(address types.Address)
-	contractListenerMutex sync.RWMutex
+	pool      Pool
+	chain     chain.Chain
+	consensus generator.Consensus
+
+	contractWorkers     map[types.Gid]*ContractWorker
+	newContractListener sync.Map //map[types.Gid]func(address types.Address)
 
 	unlockLid   int
 	netStateLid int
@@ -38,15 +40,15 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
+func NewManager(net Net, pool Pool, producer Producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		pool:                pool,
-		net:                 net,
-		producer:            producer,
-		wallet:              wallet,
-		contractWorkers:     make(map[types.Gid]*ContractWorker),
-		newContractListener: make(map[types.Gid]func(address types.Address)),
-		log:                 slog.New("w", "manager"),
+		net:             net,
+		producer:        producer,
+		wallet:          wallet,
+		pool:            pool,
+		consensus:       consensus,
+		contractWorkers: make(map[types.Gid]*ContractWorker),
+		log:             slog.New("w", "manager"),
 	}
 	return m
 }
@@ -60,7 +62,6 @@ func (manager *Manager) Start() {
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
-	// fixme
 	manager.Chain().Register(manager)
 }
 
@@ -172,4 +173,8 @@ func (manager Manager) Net() Net {
 
 func (manager Manager) Producer() Producer {
 	return manager.producer
+}
+
+func (manager Manager) Consensus() generator.Consensus {
+	return manager.consensus
 }

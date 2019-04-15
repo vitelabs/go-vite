@@ -14,6 +14,7 @@ func (e VMError) CostAllGas() bool {
 
 var (
 	ErrInvalidMethodParam        = VMError{"invalid method param", false}
+	ErrRewardIsNotDrained        = VMError{"reward is not drained", false}
 	ErrInsufficientBalance       = VMError{"insufficient balance for transfer", false}
 	ErrCalcPoWTwice              = VMError{"calc PoW twice referring to one snapshot block", false}
 	ErrAbiMethodNotFound         = VMError{"abi: method not found", false}

@@ -1,9 +1,12 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/vite"
+	"strconv"
 )
 
 type PublicOnroadApi struct {
@@ -23,9 +26,8 @@ func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index i
 	return o.api.GetOnroadBlocksByAddress(address, index, count)
 }
 
-//todo
 func (o PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
-	return nil, nil
+	return o.api.GetAccountOnroadInfo(address)
 }
 
 func (o PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {
@@ -67,32 +69,27 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 	return a[:sum], nil
 }
 
-/*
 func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
+	info, e := o.manager.Chain().GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
-
-	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), *info)
+	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), info)
 	return r, nil
 
 }
 
-func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
-	onroadInfo.Mutex.RLock()
-	defer onroadInfo.Mutex.RUnlock()
-
+func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
 	var r RpcAccountInfo
-	r.AccountAddress = *onroadInfo.AccountAddress
-	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
+	r.AccountAddress = info.AccountAddress
+	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
 	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 
-	for tti, v := range onroadInfo.TokenBalanceInfoMap {
+	for tti, v := range info.TokenBalanceInfoMap {
 		if v != nil {
 			number := strconv.FormatUint(v.Number, 10)
-			tinfo, _ := chain.GetTokenInfoById(&tti)
+			tinfo, _ := chain.GetTokenInfoById(tti)
 			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
@@ -103,81 +100,3 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 	}
 	return &r
 }
-*/
-/*
-func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
-	log.Info("ListWorkingAutoReceiveWorker")
-	return o.manager.ListWorkingAutoReceiveWorker()
-}
-
-func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string, powDifficulty *string) error {
-	log.Info("StartAutoReceive", "addr", addr, "entropystore", entropystore)
-
-	rawfilter := make(map[types.TokenTypeId]big.Int)
-	if filter != nil {
-		for k, v := range filter {
-			b, ok := new(big.Int).SetString(v, 10)
-			if !ok {
-				return ErrStrToBigInt
-			}
-			ids, e := types.HexToTokenTypeId(k)
-			if e != nil {
-				return e
-			}
-			rawfilter[ids] = *b
-		}
-	}
-
-	var realDifficulty *big.Int = nil
-	if powDifficulty != nil {
-		b, ok := new(big.Int).SetString(*powDifficulty, 10)
-		if !ok {
-			return ErrStrToBigInt
-		}
-		realDifficulty = b
-	}
-
-	return o.manager.StartAutoReceiveWorker(entropystore, addr, rawfilter, realDifficulty)
-}
-
-func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
-	log.Info("StopAutoReceive", "addr", addr)
-	return o.manager.StopAutoReceiveWorker(addr)
-}
-
-func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
-	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
-	if e != nil || info == nil {
-		return nil, e
-	}
-
-	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), *info)
-	return r, nil
-
-}
-
-func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
-	onroadInfo.Mutex.RLock()
-	defer onroadInfo.Mutex.RUnlock()
-
-	var r RpcAccountInfo
-	r.AccountAddress = *onroadInfo.AccountAddress
-	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
-	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
-
-	for tti, v := range onroadInfo.TokenBalanceInfoMap {
-		if v != nil {
-			number := strconv.FormatUint(v.Number, 10)
-			tinfo, _ := chain.GetTokenInfoById(&tti)
-			b := &RpcTokenBalanceInfo{
-				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
-				TotalAmount: v.TotalAmount.String(),
-				Number:      &number,
-			}
-			r.TokenBalanceInfoMap[tti] = b
-		}
-	}
-	return &r
-}
-*/

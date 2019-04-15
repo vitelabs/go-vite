@@ -38,18 +38,6 @@ func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageC
 	return blocks, nil
 }
 
-func (manager *Manager) addContractLis(gid types.Gid, f func(address types.Address)) {
-	manager.contractListenerMutex.Lock()
-	defer manager.contractListenerMutex.Unlock()
-	manager.newContractListener[gid] = f
-}
-
-func (manager *Manager) removeContractLis(gid types.Gid) {
-	manager.contractListenerMutex.Lock()
-	defer manager.contractListenerMutex.Unlock()
-	delete(manager.newContractListener, gid)
-}
-
 func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
@@ -60,6 +48,16 @@ func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 
 func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
 	return manager.chain.DeleteOnRoad(sendBlock.Hash)
+}
+
+type reactFunc func(address types.Address)
+
+func (manager *Manager) addContractLis(gid types.Gid, f reactFunc) {
+	manager.newContractListener.Store(gid, f)
+}
+
+func (manager *Manager) removeContractLis(gid types.Gid) {
+	manager.newContractListener.Delete(gid)
 }
 
 func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
@@ -80,10 +78,8 @@ func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 			newLog.Error("GetContractMeta fail.", "contract", toAddr)
 			return
 		}
-		manager.contractListenerMutex.RLock()
-		defer manager.contractListenerMutex.RUnlock()
-		if f, ok := manager.newContractListener[meta.Gid]; ok {
-			f(toAddr)
+		if f, ok := manager.newContractListener.Load(meta.Gid); ok {
+			f.(reactFunc)(toAddr)
 		}
 	}
 }

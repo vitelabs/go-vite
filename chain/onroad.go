@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 func (c *chain) HasOnRoadBlocks(address types.Address) (bool, error) {
@@ -40,4 +41,19 @@ func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
 		return cErr
 	}
 	return nil
+}
+
+func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
+	if c.plugins == nil {
+		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
+	}
+	onroad := c.plugins.GetPlugin("onRoadInfo")
+	if onroad == nil {
+		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
+	}
+	info, err := onroad.GetAccountInfo(&addr)
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
 }

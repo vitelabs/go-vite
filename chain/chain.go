@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/chain/plugins"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -54,6 +55,8 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
+
+	plugins *chain_plugins.Plugins
 
 	status uint32
 }
@@ -206,6 +209,13 @@ func (c *chain) Init() error {
 	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "Init")
+		return cErr
+	}
+
+	// init plugins
+	if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "Init")
 		return cErr
 	}
