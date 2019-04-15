@@ -57,7 +57,7 @@ type net struct {
 	BlockSubscriber
 	running  int32
 	log      log15.Logger
-	fs       *fileServer
+	server   *syncServer
 	handlers *msgHandlers
 	query    *queryHandler
 	hb       *heartBeater
@@ -311,7 +311,7 @@ func New(cfg Config) Net {
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
 		downloader:      downloader,
-		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
+		server:          newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        newHandlers("vite"),
 		log:             netLog,
 		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
@@ -420,7 +420,7 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
-		if err = n.fs.start(); err != nil {
+		if err = n.server.start(); err != nil {
 			return
 		}
 
@@ -446,7 +446,7 @@ func (n *net) Stop() error {
 
 		n.downloader.stop()
 
-		_ = n.fs.stop()
+		_ = n.server.stop()
 
 		n.query.stop()
 
