@@ -93,11 +93,7 @@ func mock(cfg Config) Net {
 		subs:      make(map[int]SyncStateCallback),
 		running:   1,
 		term:      make(chan struct{}),
-		downloader: newBatchDownloader(peers, &defaultSyncConnectionFactory{
-			chain: cfg.Chain,
-			peers: peers,
-		}),
-		log: log15.New("module", "net/syncer"),
+		log:       log15.New("module", "net/syncer"),
 	}
 	syncer.state = syncStateDone{syncer}
 
@@ -112,15 +108,15 @@ func mock(cfg Config) Net {
 			idGen:  new(gid),
 		},
 		broadcaster: &broadcaster{
-			peers:    peers,
-			st:       SyncDone,
-			verifier: cfg.Verifier,
-			feed:     feed,
-			filter:   nil,
-			store:    nil,
-			mu:       sync.Mutex{},
-			statis:   circle.NewList(records24h),
-			log:      log15.New("module", "mocknet/broadcaster"),
+			peers:     peers,
+			st:        SyncDone,
+			verifier:  cfg.Verifier,
+			feed:      feed,
+			filter:    nil,
+			store:     nil,
+			mu:        sync.Mutex{},
+			statistic: circle.NewList(records24h),
+			log:       log15.New("module", "mocknet/broadcaster"),
 		},
 		BlockSubscriber: feed,
 	}

@@ -34,6 +34,7 @@ type heightChainReader interface {
 	getBlockByChain(height uint64) (commonBlock, heightChainReader)
 	Head() commonBlock
 	refer() heightChainReader
+	prune()
 }
 
 type BCPool struct {
@@ -69,6 +70,9 @@ type diskChain struct {
 	v       *ForkVersion
 }
 
+func (self *diskChain) prune() {
+	// ignore
+}
 func (self *diskChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
 	block := self.getBlock(height, false)
 	if block != nil {
@@ -229,6 +233,24 @@ type forkedChain struct {
 	tailHash   types.Hash
 	referChain heightChainReader
 	heightMu   sync.RWMutex
+}
+
+func (self *forkedChain) prune() {
+	tail := self.referChain.getBlock(self.tailHeight, true)
+	if tail == nil {
+		panic("tail is nil")
+	}
+	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
+		selfB := self.getBlock(i, false)
+		block := self.referChain.getBlock(i, true)
+		if block != nil && block.Hash() == selfB.Hash() {
+			fmt.Printf("remove tail[%s][%d-%s]\n", self.id(), block.Height(), block.Hash())
+			self.removeTail(block)
+		} else {
+			break
+		}
+	}
+	self.referChain.prune()
 }
 
 func (self *forkedChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
@@ -564,24 +586,36 @@ func (self *forkedChain) canAddHead(w commonBlock) error {
 	return errors.Errorf("can't add head. c.headH:%d-%s, w.prevH:%d-%s", self.headHeight, self.headHash, w.Height()-1, w.PrevHash())
 }
 func (self *forkedChain) addHead(w commonBlock) {
+	if self.headHash != w.PrevHash() {
+		panic("add head")
+	}
 	self.headHash = w.Hash()
 	self.headHeight = w.Height()
 	self.setHeightBlock(w.Height(), w)
 }
 
 func (self *forkedChain) removeTail(w commonBlock) {
+	if self.tailHash != w.PrevHash() {
+		panic("remove fail")
+	}
 	self.tailHash = w.Hash()
 	self.tailHeight = w.Height()
 	self.setHeightBlock(w.Height(), nil)
 }
 
 func (self *forkedChain) removeHead(w commonBlock) {
+	if self.headHash != w.Hash() {
+		panic("remove head")
+	}
 	self.headHash = w.PrevHash()
 	self.headHeight = w.Height() - 1
 	self.setHeightBlock(w.Height(), nil)
 }
 
 func (self *forkedChain) addTail(w commonBlock) {
+	if self.tailHash != w.Hash() {
+		panic("add tail")
+	}
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.setHeightBlock(w.Height(), w)
@@ -594,11 +628,23 @@ func (self *forkedChain) canAddTail(w commonBlock) bool {
 	}
 }
 
-func (self *forkedChain) String() string {
+func (self forkedChain) String() string {
 	return "chainId:\t" + self.chainId + "\n" +
 		"headHeight:\t" + strconv.FormatUint(self.headHeight, 10) + "\n" +
 		"headHash:\t" + "[" + self.headHash.String() + "]\t" + "\n" +
 		"tailHeight:\t" + strconv.FormatUint(self.tailHeight, 10)
+}
+func (self forkedChain) Details() string {
+	result := ""
+	for i := self.headHeight; i >= self.tailHeight; i-- {
+		if b, ok := self.heightBlocks[i]; ok {
+			result += fmt.Sprintf("[%d-%s-%s]", b.Height(), b.Hash(), b.PrevHash())
+		} else {
+			result += fmt.Sprintf("[%d-empty]", i)
+		}
+	}
+	result += fmt.Sprintf("tail[%d-%s]", self.tailHeight, self.tailHash)
+	return result
 }
 
 func (self *blockPool) contains(hash types.Hash, height uint64) bool {

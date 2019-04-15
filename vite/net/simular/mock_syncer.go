@@ -27,6 +27,8 @@ func newSyncer(dirname string) *syncer {
 		panic(err)
 	}
 
+	fmt.Println(c.GetLatestSnapshotBlock())
+
 	p, err := pool.NewPool(c)
 	if err != nil {
 		panic(err)

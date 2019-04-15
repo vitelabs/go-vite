@@ -88,6 +88,7 @@ func (self *chainPool) currentModifyToChain(chain *forkedChain) error {
 	if chain.id() == self.current.id() {
 		return nil
 	}
+	chain.prune()
 
 	err := self.checkAncestor(chain, self.diskChain)
 	if err != nil {
@@ -646,10 +647,20 @@ func (self *chainPool) checkAncestor(c *forkedChain, ancestor heightChainReader)
 	}
 	return nil
 }
+
 func (self *chainPool) exchangeRefer(from *forkedChain, to *forkedChain) error {
-	err := self.checkExchangeRefer(from, to)
-	if err != nil {
-		return err
+	e := self.checkExchangeRefer(from, to)
+	if e != nil {
+		r := reduceChainByRefer(to)
+		if len(r) > 0 {
+			self.log.Debug("currentModifyToChain[2]-clear ChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
+		}
+		err := self.checkExchangeRefer(from, to)
+		if err != nil {
+			return err
+		} else {
+			self.log.Warn("check exchange fail. but recover success.", "err", e)
+		}
 	}
 	if from.size() == 0 {
 		r := reduceChainByRefer(to)
@@ -686,14 +697,14 @@ func (self *chainPool) checkExchangeRefer(from *forkedChain, to *forkedChain) er
 
 	tailBlock := from.getBlock(to.tailHeight, false)
 	if tailBlock == nil {
-		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty]",
-			to.id(), from.id(), to.tailHeight, to.tailHash)
+		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty], %s,%s",
+			to.id(), from.id(), to.tailHeight, to.tailHash, from.Details(), to.Details())
 	}
 	if tailBlock.Hash() == to.tailHash {
 		return nil
 	} else {
-		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s]",
-			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash())
+		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s], %s,%s",
+			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash(), from.Details(), to.Details())
 	}
 }
 func (self *chainPool) getCurrentBlocks(begin uint64, end uint64) (blocks []commonBlock) {

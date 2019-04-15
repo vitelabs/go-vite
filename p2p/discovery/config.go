@@ -79,7 +79,12 @@ func NewConfig(listenAddress, publicAddress, dataDir, peerKey string, bootNodes,
 		NetID:         netId,
 	}
 
-	err := cfg.Ensure()
+	err := os.MkdirAll(dataDir, 0700)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cfg.Ensure()
 	if err != nil {
 		return nil, err
 	}

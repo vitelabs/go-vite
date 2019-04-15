@@ -6,13 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
 
-// the minimal height difference between snapshot chain of ours and bestPeer
-// if the difference is little than this value, then we deem no need sync
-const minHeightDifference = 60
+// the minimal height difference between snapshot chain of ours and bestPeer,
+// if the difference is little than this value, then we deem no need sync.
+const minHeightDifference = 1000
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 3
 const chainGrowInterval = time.Second
@@ -52,55 +51,49 @@ func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
 	return chunks[:i]
 }
 
-type syncChain interface {
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
-}
-
 type syncPeerSet interface {
 	sub(ch chan<- peerEvent)
 	unSub(ch chan<- peerEvent)
 	syncPeer() Peer
-}
-
-type syncDownloader interface {
-	stop()
-	sync(from, to uint64)
-	download(from, to uint64)
-	subscribe(done func(err error))
-	setTo(to uint64)
+	bestPeer() Peer
 }
 
 type syncer struct {
-	from, to   uint64
-	height     uint64
-	state      syncState
-	peers      syncPeerSet
-	eventChan  chan peerEvent // get peer add/delete event
-	chain      syncChain      // query current block and height
+	from, to uint64
+	batchEnd uint64
+
+	height uint64
+	state  syncState
+
+	timeout time.Duration
+
+	peers     syncPeerSet
+	eventChan chan peerEvent // get peer add/delete event
+
+	chain      syncChain // query current block and height
 	downloader syncDownloader
-	curSubId   int // for subscribe
-	subs       map[int]SyncStateCallback
-	mu         sync.Mutex
-	running    int32
-	term       chan struct{}
-	log        log15.Logger
+
+	curSubId int // for subscribe
+	subs     map[int]SyncStateCallback
+	mu       sync.Mutex
+
+	running int32
+	term    chan struct{}
+	log     log15.Logger
 }
 
-func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader) *syncer {
+func newSyncer(chain syncChain, peers syncPeerSet, downloader syncDownloader, timeout time.Duration) *syncer {
 	s := &syncer{
 		chain:      chain,
 		peers:      peers,
 		eventChan:  make(chan peerEvent, 1),
 		subs:       make(map[int]SyncStateCallback),
 		downloader: downloader,
-		log:        log15.New("module", "net/syncer"),
+		timeout:    timeout,
+		log:        netLog.New("module", "syncer"),
 	}
 
-	s.state = syncStateInit{
-		s,
-	}
-
-	downloader.subscribe(s.done)
+	s.state = syncStateInit{s}
 
 	return s
 }
@@ -129,53 +122,54 @@ func (s *syncer) SyncState() SyncState {
 	return s.state.state()
 }
 
+// implements syncStateHost
 func (s *syncer) setState(state syncState) {
 	s.state = state
+
+	s.mu.Lock()
+	subs := make([]SyncStateCallback, len(s.subs))
+	i := 0
 	for _, sub := range s.subs {
+		subs[i] = sub
+		i++
+	}
+	s.mu.Unlock()
+
+	for _, sub := range subs {
 		sub(state.state())
 	}
 }
 
-func (s *syncer) Stop() {
+func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
-		if s.term == nil {
-			return
-		}
-
-		select {
-		case <-s.term:
-		default:
-			close(s.term)
-			s.downloader.stop()
-			s.peers.unSub(s.eventChan)
-		}
+		s.peers.unSub(s.eventChan)
+		close(s.term)
+		s.downloader.stop()
 	}
 }
 
-func (s *syncer) Start() {
+func (s *syncer) start() {
 	if !atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		return
 	}
-
-	s.state.wait()
 
 	s.term = make(chan struct{})
 
 	s.peers.sub(s.eventChan)
 
-	defer s.Stop()
+	defer s.stop()
 
 	start := time.NewTimer(waitEnoughPeers)
 
-WAIT:
+Wait:
 	for {
 		select {
 		case e := <-s.eventChan:
 			if e.count >= enoughPeers {
-				break WAIT
+				break Wait
 			}
 		case <-start.C:
-			break WAIT
+			break Wait
 		case <-s.term:
 			s.state.cancel()
 			start.Stop()
@@ -195,20 +189,23 @@ WAIT:
 
 	syncPeerHeight := syncPeer.height()
 
-	// compare snapshot chain height
+	// compare snapshot chain height and local cache height
 	current := s.chain.GetLatestSnapshotBlock()
-	// p is not all enough, no need to sync
-	if current.Height+minHeightDifference > syncPeerHeight {
-		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.Address(), syncPeerHeight, current.Height))
+	cacheHeight := s.cacheHeight()
+	local := current.Height
+	if local < cacheHeight {
+		local = cacheHeight
+	}
+
+	// syncPeer is not all enough, no need to sync
+	if !shouldSync(local, syncPeerHeight) {
+		s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d, cache height: %d", syncPeer.String(), syncPeerHeight, current.Height, cacheHeight))
 		s.state.done()
 		return
 	}
 
-	s.height = current.Height
-	s.from = s.height + 1
-	s.to = syncPeerHeight
-	s.state.start()
-	s.downloader.sync(s.from, s.to)
+	s.state.sync()
+	s.sync(local+1, syncPeerHeight)
 
 	// check chain height
 	checkChainTicker := time.NewTicker(chainGrowInterval)
@@ -218,14 +215,21 @@ WAIT:
 	for {
 		select {
 		case <-s.eventChan:
-			if syncPeer = s.peers.syncPeer(); syncPeer != nil {
+			syncPeer = s.peers.syncPeer()
+			bestPeer := s.peers.bestPeer()
+
+			// peers change, find new peer or peer disconnected. Choose sync peer again.
+			if bestPeer != nil {
 				syncPeerHeight = syncPeer.height()
-				if shouldSync(current.Height, syncPeerHeight) {
+				if bestPeer.height() < s.to || shouldSync(s.to, syncPeerHeight) {
+					// only change sync target at two following scene:
+					// 1. the bestPeer is low than current target, because taller peers maybe disconnected.
+					// 2. the new syncPeer is taller enough than current target, because find more taller peers.
 					s.setTarget(syncPeerHeight)
-					// s.state.start()
+					s.state.sync()
 				} else {
 					// no need sync
-					s.log.Info(fmt.Sprintf("no need sync to bestPeer %s at %d, our height: %d", syncPeer, syncPeerHeight, current.Height))
+					s.log.Info(fmt.Sprintf("sync done: syncPeer %s at %d, our height: %d", syncPeer.String(), syncPeerHeight, current.Height))
 					s.state.done()
 					return
 				}
@@ -245,7 +249,8 @@ WAIT:
 			}
 
 			if current.Height == s.height {
-				if now.Sub(lastCheckTime) > 10*time.Minute {
+				if now.Sub(lastCheckTime) > s.timeout {
+					s.log.Error("sync error: chain get stuck")
 					s.state.error()
 				}
 			} else {
@@ -260,12 +265,59 @@ WAIT:
 	}
 }
 
-// this method will be called when our target Height changed, (eg. the best peer disconnected)
-func (s *syncer) setTarget(to uint64) {
-	atomic.StoreUint64(&s.to, to)
-	s.downloader.setTo(to)
+func (s *syncer) cacheHeight() (chunkEnd uint64) {
+	chunks := s.chain.GetSyncCache().Chunks()
+	if len(chunks) > 0 {
+		chunkEnd = chunks[len(chunks)-1][1]
+	}
+
+	return chunkEnd
 }
 
+func (s *syncer) getLocalHeight() uint64 {
+	current := s.chain.GetLatestSnapshotBlock().Height
+	cacheHeight := s.cacheHeight()
+
+	if current < cacheHeight {
+		current = cacheHeight
+	}
+
+	return current
+}
+
+func (s *syncer) sync(from, syncPeerHeight uint64) {
+	s.from = from
+	s.to = syncPeerHeight
+
+	go s.runTasks()
+}
+
+func (s *syncer) runTasks() {
+	from := s.from
+	var to uint64
+
+	// todo how to exit avoid goroutine leak
+	for from < s.to {
+		to = from + syncTaskSize - 1
+		if to > s.to {
+			to = s.to
+		}
+
+		s.downloader.download(from, to, false)
+		from = to + 1
+	}
+}
+
+// this method will be called when our target Height changed, (eg. the best peer disconnected)
+func (s *syncer) setTarget(to uint64) {
+	if s.to > to {
+		s.downloader.cancel(to+1, s.to)
+	}
+
+	s.to = to
+}
+
+// subscribe sync downloader
 func (s *syncer) done(err error) {
 	if err != nil {
 		s.state.error()
@@ -275,11 +327,10 @@ func (s *syncer) done(err error) {
 }
 
 type SyncStatus struct {
-	From     uint64
-	To       uint64
-	Current  uint64
-	Received uint64
-	State    SyncState
+	From    uint64
+	To      uint64
+	Current uint64
+	State   SyncState
 }
 
 func (s *syncer) Status() SyncStatus {
@@ -294,12 +345,21 @@ func (s *syncer) Status() SyncStatus {
 }
 
 type SyncDetail struct {
-	SyncStatus
-	ExecutorStatus
+	From    uint64
+	To      uint64
+	Current uint64
+	State   SyncState
+	Tasks   []string
 }
 
 func (s *syncer) Detail() SyncDetail {
+	st := s.Status()
+
 	return SyncDetail{
-		SyncStatus: s.Status(),
+		From:    st.From,
+		To:      st.To,
+		Current: st.Current,
+		State:   st.State,
+		Tasks:   nil,
 	}
 }

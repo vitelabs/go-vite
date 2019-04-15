@@ -85,7 +85,7 @@ func TearDown(chainInstance *chain) {
 }
 
 func TestSetup(t *testing.T) {
-	SetUp(t, 100, 1231, 9)
+	SetUp(t, 100, 12310, 9)
 }
 
 func TestChain(t *testing.T) {
