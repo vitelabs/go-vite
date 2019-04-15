@@ -73,7 +73,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	}
 
 	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
-	amount := string("1")
+	amount := string("0")
 	if err != nil {
 		panic(err)
 	}

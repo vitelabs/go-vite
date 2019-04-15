@@ -26,9 +26,8 @@ func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index i
 	return o.api.GetOnroadBlocksByAddress(address, index, count)
 }
 
-//todo
 func (o PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
-	return nil, nil
+	return o.api.GetAccountOnroadInfo(address)
 }
 
 func (o PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {

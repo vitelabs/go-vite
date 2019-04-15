@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -46,8 +47,7 @@ func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, la
 	}
 	gen.chain = chain
 
-	//todo add consensus SBP as the args
-	gen.vm = vm.NewVM(consensus)
+	gen.vm = vm.NewVM(util.NewVmConsensusReader(consensus.SBPReader()))
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {

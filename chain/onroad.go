@@ -44,11 +44,14 @@ func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
 }
 
 func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
-	plugin := c.plugins.GetPlugin("onRoadInfo")
-	if plugin == nil {
-		return nil, errors.New("OnRoadInfo-plugin's service not provided.")
+	if c.plugins == nil {
+		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
 	}
-	info, err := plugin.GetAccountInfo(&addr)
+	onroad := c.plugins.GetPlugin("onRoadInfo")
+	if onroad == nil {
+		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
+	}
+	info, err := onroad.GetAccountInfo(&addr)
 	if err != nil {
 		return nil, err
 	}
