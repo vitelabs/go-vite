@@ -154,7 +154,8 @@ func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) 
 			return h, nil
 		}
 		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", self.address, "hash", h.Hash, "height", h.Height, "targetChain",
-			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight)
+			targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
+			"forkPoint", fmt.Sprintf("[%s-%d]", forkPoint.Hash(), forkPoint.Height()))
 		err = self.CurrentModifyToChain(targetChain, h)
 		if err != nil {
 			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.id())
@@ -433,6 +434,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 
+	self.checkCurrent()
 	stat := self.v.verifyDirectAccount(received, latestSb)
 	result := stat.verifyResult()
 	switch result {
@@ -449,7 +451,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 		if err != nil {
 			return err
 		}
-		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight)
+		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight, "HeadHash", fchain.headHash)
 		err = self.chainpool.currentModifyToChain(fchain)
 		if err != nil {
 			return err
@@ -613,7 +615,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			}
 			switch stat.verifyResult() {
 			case verifier.FAIL:
-				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
+				self.log.Warn("add account block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
 				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
@@ -659,6 +661,7 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 	acurr := self.CurrentChain()
+	self.checkCurrent()
 	ab := acurr.getBlock(v.Height, true)
 	if ab == nil {
 		return true, nil
@@ -686,4 +689,12 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 		}
 	}
 	return false, nil
+}
+func (self *accountPool) checkCurrent() {
+	acurr := self.CurrentChain()
+	head := self.chainpool.diskChain.Head()
+	if head.Height() != acurr.tailHeight || head.Hash() != acurr.tailHash {
+		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
+			acurr.id(), acurr.tailHeight, acurr.tailHash, head.Height(), head.Hash()))
+	}
 }

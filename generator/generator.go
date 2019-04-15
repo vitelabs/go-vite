@@ -47,7 +47,7 @@ func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, la
 	gen.chain = chain
 
 	//todo add consensus SBP as the args
-	gen.vm = vm.NewVM()
+	gen.vm = vm.NewVM(consensus)
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {

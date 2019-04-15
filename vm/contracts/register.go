@@ -3,6 +3,7 @@ package contracts
 import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -10,7 +11,6 @@ import (
 	"math/big"
 	"regexp"
 	"runtime/debug"
-	"time"
 )
 
 type MethodRegister struct {
@@ -28,9 +28,6 @@ func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if !util.IsUserAccount(db) {
-		return util.ErrInvalidMethodParam
-	}
 	param := new(abi.ParamRegister)
 	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
@@ -54,11 +51,11 @@ func checkRegisterAndVoteParam(gid types.Gid, name string) bool {
 	return true
 }
 
-func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	// Check param by group info
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, sendBlock.Data)
-	snapshotBlock := globalStatus.SnapshotBlock()
+	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
 	if groupInfo == nil {
@@ -83,8 +80,10 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 			return nil, util.ErrInvalidMethodParam
 		}
 		// old is not active, check old reward drained
-		if !checkRewardDrained(db, groupInfo, old.RewardTime, old.CancelTime) {
-			return nil, util.ErrInvalidMethodParam
+		drained, err := checkRewardDrained(vm.ConsensusReader(), db, old, vm.GlobalStatus().SnapshotBlock())
+		util.DealWithErr(err)
+		if !drained {
+			return nil, util.ErrRewardIsNotDrained
 		}
 		hisAddrList = old.HisAddrList
 	}
@@ -134,8 +133,7 @@ func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
 func (p *MethodCancelRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamCancelRegister)
@@ -148,10 +146,10 @@ func (p *MethodCancelRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, param.Gid, param.Name)
 	return nil
 }
-func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, sendBlock.Data)
-	snapshotBlock := globalStatus.SnapshotBlock()
+	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
 	util.DealWithErr(err)
 	if old == nil || !old.IsActive() || old.PledgeAddr != sendBlock.AccountAddress || old.WithdrawHeight > snapshotBlock.Height {
@@ -160,15 +158,12 @@ func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 
 	rewardTime := old.RewardTime
 	cancelTime := snapshotBlock.Timestamp.Unix()
-	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
-	if groupInfo == nil {
-		return nil, util.ErrInvalidMethodParam
-	}
-	if checkRewardDrained(db, groupInfo, old.RewardTime, cancelTime) {
+	drained, err := checkRewardDrained(vm.ConsensusReader(), db, old, vm.GlobalStatus().SnapshotBlock())
+	util.DealWithErr(err)
+	if drained {
 		rewardTime = -1
 	}
-
 	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
 		abi.VariableNameRegistration,
 		old.Name,
@@ -211,8 +206,7 @@ func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 
 // get reward of generating snapshot block
 func (p *MethodReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamReward)
@@ -225,7 +219,7 @@ func (p *MethodReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, param.Gid, param.Name, param.BeneficialAddr)
 	return nil
 }
-func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReward)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
@@ -233,11 +227,11 @@ func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	if old == nil || sendBlock.AccountAddress != old.PledgeAddr || old.RewardTime == -1 {
 		return nil, util.ErrInvalidMethodParam
 	}
-	startTime, endTime, reward, err := CalcReward(db, old, param.Gid, globalStatus.SnapshotBlock())
+	_, endTime, reward, drained, err := CalcReward(vm.ConsensusReader(), db, old, vm.GlobalStatus().SnapshotBlock())
 	if err != nil {
 		return nil, err
 	}
-	if startTime == endTime {
+	if drained {
 		endTime = -1
 	}
 	if endTime != old.RewardTime {
@@ -271,118 +265,136 @@ func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	return nil, nil
 }
 
-func checkRewardDrained(db vm_db.VmDb, groupInfo *types.ConsensusGroupInfo, rewardTime, cancelTime int64) bool {
-	if rewardTime == -1 {
-		return true
+func checkRewardDrained(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (bool, error) {
+	_, _, reward, drained, err := CalcReward(reader, db, old, current)
+	if err != nil {
+		return false, err
 	}
-	// old is not active, check old reward drained
-	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	if reader.TimeToRewardEndDayTime(cancelTime) == reader.TimeToRewardEndDayTime(rewardTime) {
-		return true
+	if drained && (reward == nil || reward.Sign() == 0) {
+		return drained, nil
 	}
-	return false
+	return false, nil
 }
 
-func CalcReward(db vm_db.VmDb, old *types.Registration, gid types.Gid, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *big.Int, err error) {
+func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *big.Int, drained bool, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
 			err = util.ErrChainForked
 		}
 	}()
-	groupInfo, err := abi.GetConsensusGroup(db, gid)
-	util.DealWithErr(err)
-	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	return calcReward(old, current, reader)
+	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
+	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
+	if err != nil {
+		return 0, 0, nil, false, err
+	}
+	return calcReward(old, genesisTime, pledgeAmount, current, reader)
 }
 
-func calcReward(old *types.Registration, current *ledger.SnapshotBlock, reader consensusReader) (startTime int64, endTime int64, reward *big.Int, err error) {
-	if old.RewardTime < reader.GenesisTime() {
-		startTime = reader.TimeToRewardStartDayTime(reader.GenesisTime())
+func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.Int, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *big.Int, bool, error) {
+	var startIndex, endIndex uint64
+	var startTime, endTime int64
+	drained := false
+	startIndex, startTime, drained = reader.GetIndexByStartTime(old.RewardTime, genesisTime)
+	if drained {
+		return 0, 0, nil, true, nil
+	}
+	var withinOneDayFlag bool
+	timeLimit := current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
+	if !old.IsActive() && old.CancelTime <= timeLimit {
+		drained = true
+		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(old.CancelTime, genesisTime)
 	} else {
-		startTime = reader.TimeToRewardStartDayTime(old.RewardTime)
+		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(timeLimit, genesisTime)
 	}
-	if !old.IsActive() {
-		endTime = reader.TimeToRewardEndDayTime(old.CancelTime)
-	} else {
-		endTime = reader.TimeToRewardEndDayTime(current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit)
+	if withinOneDayFlag || startIndex > endIndex {
+		return startTime, endTime, big.NewInt(0), drained, nil
 	}
-	if startTime >= endTime {
-		// reward drained
-		return startTime, endTime, big.NewInt(0), nil
+	details, err := reader.GetConsensusDetailByDay(startIndex, endIndex)
+	if err != nil {
+		return 0, 0, nil, false, err
 	}
-	indexInDay := reader.GetIndexInDay()
-	startIndex := reader.TimeToPeriodIndex(time.Unix(startTime, 0))
-	endIndex := reader.TimeToPeriodIndex(time.Unix(endTime, 0))
-	reward = big.NewInt(0)
+	reward := big.NewInt(0)
 	tmp1 := big.NewInt(0)
 	tmp2 := big.NewInt(0)
-	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
-	for startIndex < endIndex {
-		// TODO batch fetch data of days
-		detailMap, summary := reader.GetConsensusDetailByDay(startIndex, startIndex+indexInDay)
-		reward.Add(reward, calcRewardByDaySingle(detailMap, summary, old.Name, pledgeParam.PledgeAmount, tmp1, tmp2))
-		startIndex = startIndex + indexInDay
+	for _, detail := range details {
+		reward.Add(reward, calcRewardByDayDetail(detail, old.Name, pledgeAmount, tmp1, tmp2))
 	}
-	return startTime, endTime, reward, nil
+	return startTime, endTime, reward, drained, nil
 }
 
-func CalcRewardByDay(db vm_db.VmDb, gid types.Gid, timestamp int64) (m map[string]*big.Int, err error) {
-	defer func() {
-		if err := recover(); err != nil {
-			debug.PrintStack()
-			err = util.ErrChainForked
-		}
-	}()
-	groupInfo, err := abi.GetConsensusGroup(db, gid)
+func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
+	group, err := abi.GetConsensusGroup(db, types.SNAPSHOT_GID)
 	if err != nil {
 		return nil, err
 	}
-	reader := newVmConsensusReader(db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(reader.GroupInfo().RegisterConditionParam)
-	return calcRewardByDay(reader, timestamp, pledgeParam.PledgeAmount)
+	pledgeParam, err := abi.GetRegisterOfPledgeInfo(group.RegisterConditionParam)
+	if err != nil {
+		return nil, err
+	}
+	return pledgeParam.PledgeAmount, nil
 }
 
-func calcRewardByDay(reader consensusReader, timestamp int64, pledgeAmount *big.Int) (m map[string]*big.Int, err error) {
-	startIndex := reader.TimeToRewardStartIndex(timestamp)
-	endIndex := startIndex + reader.GetIndexInDay()
-	detailMap, summary := reader.GetConsensusDetailByDay(startIndex, endIndex)
+func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*big.Int, err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			debug.PrintStack()
+			err = util.ErrChainForked
+		}
+	}()
+	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
+	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
+	if err != nil {
+		return nil, err
+	}
+	return calcRewardByDay(reader, genesisTime, timestamp, pledgeAmount)
+}
+
+func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp int64, pledgeAmount *big.Int) (m map[string]*big.Int, err error) {
+	index := reader.GetIndexByTime(timestamp, genesisTime)
+	detailList, err := reader.GetConsensusDetailByDay(index, index)
+	if err != nil {
+		return nil, err
+	}
+	if len(detailList) == 0 {
+		return nil, nil
+	}
 	tmp1 := big.NewInt(0)
 	tmp2 := big.NewInt(0)
-	rewardMap := make(map[string]*big.Int, len(detailMap))
-	for name, _ := range detailMap {
-		rewardMap[name] = calcRewardByDaySingle(detailMap, summary, name, pledgeAmount, tmp1, tmp2)
+	rewardMap := make(map[string]*big.Int, len(detailList[0].Stats))
+	for name, _ := range detailList[0].Stats {
+		rewardMap[name] = calcRewardByDayDetail(detailList[0], name, pledgeAmount, tmp1, tmp2)
 	}
 	return rewardMap, nil
 }
 
-func calcRewardByDaySingle(detailMap map[string]*consensusDetail, summary *consensusDetail, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
+func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
 	reward := big.NewInt(0)
-	selfDetail, ok := detailMap[name]
+	selfDetail, ok := detail.Stats[name]
 	if !ok {
 		return reward
 	}
 
 	// reward = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount + pledgeAmount) / (selfVoteCount + totalPledgeAmount)
 	// 			+ 0.5 * rewardPerBlock * selfProducedBlockNum
-	tmp1.Set(selfDetail.voteCount)
+	tmp1.Set(selfDetail.VoteCnt)
 	tmp1.Add(tmp1, pledgeAmount)
-	tmp2.SetUint64(summary.blockNum)
+	tmp2.SetUint64(detail.BlockTotal)
 	tmp1.Mul(tmp1, tmp2)
 	tmp1.Mul(tmp1, helper.Big50)
 	tmp1.Mul(tmp1, rewardPerBlock)
-	tmp2.SetUint64(selfDetail.blockNum)
+	tmp2.SetUint64(selfDetail.BlockNum)
 	tmp1.Mul(tmp1, tmp2)
 
-	tmp2.SetInt64(int64(len(detailMap)))
+	tmp2.SetInt64(int64(len(detail.Stats)))
 	tmp2.Mul(tmp2, pledgeAmount)
-	tmp2.Add(tmp2, summary.voteCount)
+	tmp2.Add(tmp2, detail.VoteSum)
 	tmp1.Quo(tmp1, tmp2)
 
-	tmp2.SetUint64(selfDetail.expectedBlockNum)
+	tmp2.SetUint64(selfDetail.ExceptedBlockNum)
 	tmp1.Quo(tmp1, tmp2)
 
-	tmp2.SetUint64(selfDetail.blockNum)
+	tmp2.SetUint64(selfDetail.BlockNum)
 	tmp2.Mul(tmp2, helper.Big50)
 	tmp2.Mul(tmp2, rewardPerBlock)
 
@@ -409,8 +421,7 @@ func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 
 // update registration info
 func (p *MethodUpdateRegistration) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamRegister)
@@ -423,7 +434,7 @@ func (p *MethodUpdateRegistration) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, param.Gid, param.Name, param.NodeAddr)
 	return nil
 }
-func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
