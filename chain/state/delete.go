@@ -7,6 +7,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -212,7 +213,7 @@ func (sDB *StateDB) rollbackByRedo(batch *leveldb.Batch, snapshotBlock *ledger.S
 
 				keySet[string(kv[0])] = struct{}{}
 
-				copy(resetKeyTemplate[1+types.AddressSize:], kv[0])
+				copy(resetKeyTemplate[1+types.AddressSize:], common.RightPadBytes(kv[0], 32))
 				resetKeyTemplate[1+types.AddressSize+types.HashSize] = byte(len(kv[0]))
 
 				batch.Delete(resetKeyTemplate)
@@ -427,6 +428,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 
 	iterOk := iter.Next()
 	for iterOk {
+		// copy key
 		storageKeyBytes := iter.Key()[1+types.AddressSize : 1+types.AddressSize+types.HashSize+1]
 		copy(seekTemplateKey[1+types.AddressSize:], storageKeyBytes)
 
