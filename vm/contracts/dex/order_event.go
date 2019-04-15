@@ -13,7 +13,8 @@ const orderUpdateEventName = "orderUpdateEvent"
 const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
 const newMarketEventName = "newMarketEvent"
-const errEvent = "errEvent"
+const errEventName = "errEventName"
+const cancelOrderFailEventName = "cancelOrderFailEvent"
 
 
 const (
@@ -21,12 +22,14 @@ const (
 	NewOrderLockFundFail
 	NewOrderSaveFundFail
 	NewOrderInternalErr
+	TradeMarketNotExistsFail
+	OrderAmountTooSmallFail
 )
 
 type OrderEvent interface {
-	getTopicId() types.Hash
+	GetTopicId() types.Hash
 	toDataBytes() []byte
-	fromBytes([]byte) interface{}
+	FromBytes([]byte) interface{}
 }
 
 type NewOrderEvent struct {
@@ -49,11 +52,15 @@ type NewMarketEvent struct {
 	dexproto.NewMarket
 }
 
+type CancelOrderFailEvent struct {
+	dexproto.CancelOrderFail
+}
+
 type ErrEvent struct {
 	error
 }
 
-func (od NewOrderEvent) getTopicId() types.Hash {
+func (od NewOrderEvent) GetTopicId() types.Hash {
 	return fromNameToHash(newOrderEventName)
 }
 
@@ -62,7 +69,7 @@ func (od NewOrderEvent) toDataBytes() []byte {
 	return data
 }
 
-func (od NewOrderEvent) fromBytes(data []byte) interface{} {
+func (od NewOrderEvent) FromBytes(data []byte) interface{} {
 	event := NewOrderEvent{}
 	if err := proto.Unmarshal(data, &event.OrderInfo); err != nil {
 		return nil
@@ -71,7 +78,7 @@ func (od NewOrderEvent) fromBytes(data []byte) interface{} {
 	}
 }
 
-func (od OrderUpdateEvent) getTopicId() types.Hash {
+func (od OrderUpdateEvent) GetTopicId() types.Hash {
 	return fromNameToHash(orderUpdateEventName)
 }
 
@@ -80,7 +87,7 @@ func (od OrderUpdateEvent) toDataBytes() []byte {
 	return data
 }
 
-func (od OrderUpdateEvent) fromBytes(data []byte) interface{} {
+func (od OrderUpdateEvent) FromBytes(data []byte) interface{} {
 	event := OrderUpdateEvent{}
 	if err := proto.Unmarshal(data, &event.OrderUpdateInfo); err != nil {
 		return nil
@@ -89,7 +96,7 @@ func (od OrderUpdateEvent) fromBytes(data []byte) interface{} {
 	}
 }
 
-func (tx TransactionEvent) getTopicId() types.Hash {
+func (tx TransactionEvent) GetTopicId() types.Hash {
 	return fromNameToHash(txEventName)
 }
 
@@ -98,7 +105,7 @@ func (tx TransactionEvent) toDataBytes() []byte {
 	return data
 }
 
-func (tx TransactionEvent) fromBytes(data []byte) interface{} {
+func (tx TransactionEvent) FromBytes(data []byte) interface{} {
 	event := TransactionEvent{}
 	if err := proto.Unmarshal(data, &event.Transaction); err != nil {
 		return nil
@@ -107,7 +114,7 @@ func (tx TransactionEvent) fromBytes(data []byte) interface{} {
 	}
 }
 
-func (of NewOrderFailEvent) getTopicId() types.Hash {
+func (of NewOrderFailEvent) GetTopicId() types.Hash {
 	return fromNameToHash(newOrderFailEventName)
 }
 
@@ -116,7 +123,7 @@ func (of NewOrderFailEvent) toDataBytes() []byte {
 	return data
 }
 
-func (of NewOrderFailEvent) fromBytes(data []byte) interface{} {
+func (of NewOrderFailEvent) FromBytes(data []byte) interface{} {
 	event := NewOrderFailEvent{}
 	if err := proto.Unmarshal(data, &event.OrderFail); err != nil {
 		return nil
@@ -125,7 +132,7 @@ func (of NewOrderFailEvent) fromBytes(data []byte) interface{} {
 	}
 }
 
-func (me NewMarketEvent) getTopicId() types.Hash {
+func (me NewMarketEvent) GetTopicId() types.Hash {
 	return fromNameToHash(newMarketEventName)
 }
 
@@ -134,7 +141,7 @@ func (me NewMarketEvent) toDataBytes() []byte {
 	return data
 }
 
-func (me NewMarketEvent) fromBytes(data []byte) interface{} {
+func (me NewMarketEvent) FromBytes(data []byte) interface{} {
 	event := NewMarketEvent{}
 	if err := proto.Unmarshal(data, &event.NewMarket); err != nil {
 		return nil
@@ -143,16 +150,34 @@ func (me NewMarketEvent) fromBytes(data []byte) interface{} {
 	}
 }
 
-func (err ErrEvent) getTopicId() types.Hash {
-	return fromNameToHash(errEvent)
+func (err ErrEvent) GetTopicId() types.Hash {
+	return fromNameToHash(errEventName)
 }
 
 func (err ErrEvent) toDataBytes() []byte {
 	return []byte(err.Error())
 }
 
-func (err ErrEvent) fromBytes(data []byte) interface{} {
-	return fmt.Errorf(string(data))
+func (err ErrEvent) FromBytes(data []byte) interface{} {
+	return ErrEvent{fmt.Errorf(string(data))}
+}
+
+func (ce CancelOrderFailEvent) GetTopicId() types.Hash {
+	return fromNameToHash(cancelOrderFailEventName)
+}
+
+func (ce CancelOrderFailEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&ce.CancelOrderFail)
+	return data
+}
+
+func (ce CancelOrderFailEvent) FromBytes(data []byte) interface{} {
+	event := CancelOrderFailEvent{}
+	if err := proto.Unmarshal(data, &event.CancelOrderFail); err != nil {
+		return nil
+	} else {
+		return event
+	}
 }
 
 func fromNameToHash(name string) types.Hash {

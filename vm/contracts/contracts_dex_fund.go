@@ -34,7 +34,7 @@ const (
 	MethodNameDexFundSettleOrders    = "DexFundSettleOrders"
 	MethodNameDexFundFeeDividend     = "DexFundFeeDividend"
 	MethodNameDexFundMinedVxDividend = "DexFundMinedVxDividend"
-	MethodNameDexFundNewMarket 		 = "DexFundNewMarket"
+	MethodNameDexFundNewMarket       = "DexFundNewMarket"
 )
 
 var (
@@ -182,7 +182,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 	if err = ABIDexFund.UnpackMethod(param, MethodNameDexFundNewOrder, block.Data); err != nil {
 		return err
 	}
-	if err = dex.CheckOrderParam(db, param); err != nil {
+	if err = dex.PreCheckOrderParam(db, param); err != nil {
 		return err
 	}
 	return nil
@@ -190,7 +190,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *l
 
 func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
 	var (
-		dexFund                = &dex.UserFund{}
+		dexFund        = &dex.UserFund{}
 		tradeBlockData []byte
 		err            error
 		orderInfoBytes []byte
@@ -200,7 +200,9 @@ func (md *MethodDexFundNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block
 		return handleReceiveErr(db, err)
 	}
 	orderInfo := &dexproto.OrderInfo{}
-	dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress)
+	if dexErr := dex.RenderOrder(orderInfo, param, db, sendBlock.AccountAddress); dexErr != nil {
+		return handleNewOrderFail(db, orderInfo, dexErr.Code())
+	}
 	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
 		return handleNewOrderFail(db, orderInfo, dex.NewOrderGetFundFail)
 	}
@@ -845,10 +847,10 @@ func doSettleVxFunds(db vmctxt_interface.VmDatabase, addressBytes []byte, amtCha
 
 func doDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 	var (
-		feeSumsMap map[uint64]*dex.FeeSumByPeriod
-		donateFeeSums  = make(map[uint64]*big.Int)
-		vxSumFunds *dex.VxFunds
-		err        error
+		feeSumsMap    map[uint64]*dex.FeeSumByPeriod
+		donateFeeSums = make(map[uint64]*big.Int)
+		vxSumFunds    *dex.VxFunds
+		err           error
 	)
 
 	//allow divide history fees that not divided yet

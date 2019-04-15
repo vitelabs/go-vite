@@ -95,7 +95,7 @@ func TestMatcher(t *testing.T) {
 
 	log := localStorage.logs[6]
 	newOrderEvent := NewOrderEvent{}
-	newOrderEvent = newOrderEvent.fromBytes(log.Data).(NewOrderEvent)
+	newOrderEvent = newOrderEvent.FromBytes(log.Data).(NewOrderEvent)
 	assert.Equal(t, 202, fromOrderIdBytesToInt(newOrderEvent.Order.Id))
 	assert.Equal(t, FullyExecuted, int(newOrderEvent.Order.Status))
 	assert.True(t, CheckBigEqualToInt(5000, newOrderEvent.Order.ExecutedQuantity))
@@ -158,7 +158,7 @@ func TestMatcher(t *testing.T) {
 	// localStorage.logs[13] txEvent taker -> maker[106, 201]
 	log = localStorage.logs[11]
 	newOrderEvent = NewOrderEvent{}
-	newOrderEvent = newOrderEvent.fromBytes(log.Data).(NewOrderEvent)
+	newOrderEvent = newOrderEvent.FromBytes(log.Data).(NewOrderEvent)
 	assert.Equal(t, 106, fromOrderIdBytesToInt(newOrderEvent.Order.Id))
 	assert.Equal(t, PartialExecuted, int(newOrderEvent.Order.Status))
 	assert.True(t, CheckBigEqualToInt(10000, newOrderEvent.Order.ExecutedQuantity))
@@ -258,7 +258,7 @@ func TestDustWithOrder(t *testing.T) {
 	assert.Equal(t, 4, len(localStorage.logs))
 	log := localStorage.logs[1]
 	newOrderEvent := NewOrderEvent{} //taker
-	newOrderEvent = newOrderEvent.fromBytes(log.Data).(NewOrderEvent)
+	newOrderEvent = newOrderEvent.FromBytes(log.Data).(NewOrderEvent)
 	assert.Equal(t, 401, fromOrderIdBytesToInt(newOrderEvent.Order.Id))
 	assert.Equal(t, FullyExecuted, int(newOrderEvent.Order.Status))
 	assert.True(t, CheckBigEqualToInt(10000, newOrderEvent.Order.ExecutedQuantity))

@@ -533,7 +533,7 @@ func (mc *Matcher) rawDelete(orderId OrderId) {
 
 func newLog(event OrderEvent) *ledger.VmLog {
 	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, event.getTopicId())
+	log.Topics = append(log.Topics, event.GetTopicId())
 	log.Data = event.toDataBytes()
 	return log
 }

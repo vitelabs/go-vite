@@ -15,6 +15,7 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -27,7 +28,7 @@ type tokenInfo struct {
 
 var (
 	ETH = tokenInfo{types.TokenTypeId{'E', 'T', 'H', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}, 12} //tradeToken
-	VITE = tokenInfo{types.TokenTypeId{'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}, 14} //quoteToken
+	VITE = tokenInfo{ledger.ViteTokenId, 14} //quoteToken
 )
 
 func TestDexFund(t *testing.T) {
@@ -144,34 +145,36 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	method := contracts.MethodDexFundNewOrder{}
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(1000))
-	//fmt.Printf("PackMethod err for send %s\n", err.Error())
-	err := method.DoSend(db, senderAccBlock)
-	assert.Equal(t, err, dex.TradeMarketNotExistsError)
-
-	innerTestNewMarket(t, db)
-
-	err = method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "order amount too small", err.Error())
-
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
-	err = method.DoSend(db, senderAccBlock)
-	assert.Equal(t, nil, err)
-
-	param := new(dex.ParamDexFundNewOrder)
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundNewOrder, senderAccBlock.Data)
-	assert.True(t, err == nil)
-	//fmt.Printf("UnpackMethod err for send %s\n", err.Error())
 
 	receiveBlock := &ledger.AccountBlock{}
 	now := time.Now()
 	receiveBlock.Timestamp = &now
 	receiveBlock.SnapshotHash = types.DataHash([]byte{10, 1})
 
+	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(1000))
+	//fmt.Printf("PackMethod err for send %s\n", err.Error())
+	_, err := method.DoReceive(db, receiveBlock, senderAccBlock)
+	assert.Equal(t, err, nil)
+	eventLen := len(db.logList)
+	invalidMarketEvent := dex.NewOrderFailEvent{}
+	assert.Equal(t, invalidMarketEvent.GetTopicId().Bytes(), db.logList[eventLen - 1].Topics[0].Bytes())
+	invalidMarketEvent, _ = invalidMarketEvent.FromBytes(db.logList[eventLen - 1].Data).(dex.NewOrderFailEvent)
+	assert.Equal(t, strconv.Itoa(dex.TradeMarketNotExistsFail), invalidMarketEvent.ErrCode)
+
+	innerTestNewMarket(t, db)
+
+	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	eventLen = len(db.logList)
+	tooSmallAmountEvent := dex.NewOrderFailEvent{}
+	assert.Equal(t, tooSmallAmountEvent.GetTopicId().Bytes(), db.logList[eventLen - 1].Topics[0].Bytes())
+	tooSmallAmountEvent, _ = tooSmallAmountEvent.FromBytes(db.logList[eventLen - 1].Data).(dex.NewOrderFailEvent)
+	assert.Equal(t, strconv.Itoa(dex.OrderAmountTooSmallFail), tooSmallAmountEvent.ErrCode)
+
+	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
 	var appendedBlocks []*contracts.SendBlock
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
-
+	assert.Equal(t, eventLen, len(db.logList))
 	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
 

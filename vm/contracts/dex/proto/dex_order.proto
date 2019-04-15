@@ -99,3 +99,12 @@ message NewMarket {
     bytes Creator    = 7; //creator address
 }
 
+message CancelOrderFail {
+    bytes Id = 1;
+    bytes Address = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    bool Side = 5;
+    string ErrMsg = 6;
+}
+

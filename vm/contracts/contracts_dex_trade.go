@@ -21,22 +21,15 @@ const (
 	[
 		{"type":"function","name":"DexTradeNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}]}
-	]`
+]`
 
-	MethodNameDexTradeNewOrder    = "DexTradeNewOrder"
-	MethodNameDexTradeCancelOrder = "DexTradeCancelOrder"
+	MethodNameDexTradeNewOrder            = "DexTradeNewOrder"
+	MethodNameDexTradeCancelOrder         = "DexTradeCancelOrder"
 )
 
 var (
 	ABIDexTrade, _ = abi.JSONToABIContract(strings.NewReader(jsonDexTrade))
 )
-
-type ParamDexCancelOrder struct {
-	OrderId    []byte
-	TradeToken types.TokenTypeId
-	QuoteToken types.TokenTypeId
-	Side       bool
-}
 
 type MethodDexTradeNewOrder struct {
 }
@@ -112,28 +105,15 @@ func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
 
 func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
 	var err error
-	param := new(ParamDexCancelOrder)
+	param := new(dex.ParamDexCancelOrder)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
 		return err
-	}
-	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
-	storage, _ := db.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
-	var order *dex.Order
-	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
-		return err
-	}
-	if !bytes.Equal(block.AccountAddress.Bytes(), []byte(order.Address)) {
-		return dex.CancelOrderOwnerInvalidErr
-	}
-	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return dex.CancelOrderInvalidStatusErr
 	}
 	return nil
 }
 
 func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
-	param := new(ParamDexCancelOrder)
+	param := new(dex.ParamDexCancelOrder)
 	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
 	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := db.(dex.BaseStorage)
@@ -146,14 +126,17 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
 		return handleReceiveErr(db, err)
 	}
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
+		return handleReceiveErr(db, dex.CancelOrderOwnerInvalidErr)
+	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return handleReceiveErr(db, dex.CancelOrderInvalidStatusErr)
+		return handleCancelOrderFail(db, param, order.Address, dex.CancelOrderInvalidStatusErr)
 	}
 	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId, param.TradeToken, param.QuoteToken); err != nil {
-		return handleReceiveErr(db, err)
+		return handleCancelOrderFail(db, param, order.Address, err)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
-		return handleReceiveErr(db, err)
+		return handleCancelOrderFail(db, param, order.Address, err)
 	} else {
 		return blocks, nil
 	}
@@ -196,6 +179,11 @@ func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 			dexSettleBlockData,
 		},
 	}, nil
+}
+
+func handleCancelOrderFail(db vmctxt_interface.VmDatabase, param *dex.ParamDexCancelOrder, address []byte, err error) ([]*SendBlock, error) {
+	dex.EmitCancelOrderFailLog(db, param, address, err)
+	return []*SendBlock{}, nil
 }
 
 func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*SendBlock, error) {

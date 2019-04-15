@@ -175,9 +175,6 @@ func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundN
 	if feeAmount.Cmp(NewMarketFeeAmount) < 0 {
 		return fmt.Errorf("fee for create market not enough")
 	}
-	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
-		return TradeMarketExistsError
-	}
 	if _, ok := QuoteTokenMinAmount[marketParam.QuoteToken]; !ok {
 		return TradeMarketInvalidQuoteTokenError
 	}
@@ -193,6 +190,9 @@ func CheckMarketParam(db vmctxt_interface.VmDatabase, marketParam *ParamDexFundN
 }
 
 func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, marketParam *ParamDexFundNewMarket, address types.Address) error {
+	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
+		return TradeMarketExistsError
+	}
 	if err, tradeTokenInfo := GetTokenInfo(db, marketParam.TradeToken); err != nil {
 		return err
 	} else {
@@ -215,20 +215,16 @@ func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, ne
 	return nil
 }
 
-func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
+func PreCheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNewOrder) error {
 	var (
 		orderId OrderId
 		err     error
-		marketInfo *MarketInfo
 	)
 	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
 		return InvalidOrderIdErr
 	}
 	if !orderId.IsNormal() {
 		return InvalidOrderIdErr
-	}
-	if marketInfo, _ = GetMarketInfo(db, orderParam.TradeToken, orderParam.QuoteToken); marketInfo == nil {
-		return TradeMarketNotExistsError
 	}
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
@@ -241,37 +237,36 @@ func CheckOrderParam(db vmctxt_interface.VmDatabase, orderParam *ParamDexFundNew
 		if !ValidPrice(orderParam.Price) {
 			return InvalidOrderPriceErr
 		}
-		amount := CalculateRawAmount(orderParam.Quantity.Bytes(), orderParam.Price, marketInfo.TradeTokenDecimals, marketInfo.QuoteTokenDecimals)
-		if !orderParam.Side { //buy
-			lockedBuyFee := CalculateRawFee(amount, MaxFeeRate())
-			amount = AddBigInt(amount, lockedBuyFee)
-		}
-		if new(big.Int).SetBytes(amount).Cmp(QuoteTokenMinAmount[orderParam.QuoteToken]) < 0 {
-			return OrderAmountTooSmallErr
-		}
 	}
 	return nil
 }
 
-func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address) {
-	orderTokenDecimals := &dexproto.OrderTokenInfo{}
-	orderTokenDecimals.TradeToken = param.TradeToken.Bytes()
-	orderTokenDecimals.QuoteToken = param.QuoteToken.Bytes()
-	marketInfo, _ := GetMarketInfo(db, param.TradeToken, param.QuoteToken)
-	orderTokenDecimals.TradeTokenDecimals = int32(marketInfo.TradeTokenDecimals)
-	orderTokenDecimals.QuoteTokenDecimals = int32(marketInfo.QuoteTokenDecimals)
-
+func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address) *dexError {
 	order := &dexproto.Order{}
+	orderInfo.Order = order
 	order.Id = param.OrderId
 	order.Address = address.Bytes()
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = param.Price
 	order.Quantity = param.Quantity.Bytes()
+	var marketInfo *MarketInfo
+	if marketInfo, _ = GetMarketInfo(db, param.TradeToken, param.QuoteToken); marketInfo == nil {
+		return TradeMarketNotExistsError
+	}
+	orderTokenInfo := &dexproto.OrderTokenInfo{}
+	orderTokenInfo.TradeToken = param.TradeToken.Bytes()
+	orderTokenInfo.QuoteToken = param.QuoteToken.Bytes()
+	orderTokenInfo.TradeTokenDecimals = int32(marketInfo.TradeTokenDecimals)
+	orderTokenInfo.QuoteTokenDecimals = int32(marketInfo.QuoteTokenDecimals)
 	if order.Type == Limited {
-		order.Amount = CalculateRawAmount(order.Quantity, order.Price, orderTokenDecimals.TradeTokenDecimals, orderTokenDecimals.QuoteTokenDecimals)
+		order.Amount = CalculateRawAmount(order.Quantity, order.Price, orderTokenInfo.TradeTokenDecimals, orderTokenInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
 			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
+		}
+		totalAmount := AddBigInt(order.Amount, order.LockedBuyFee)
+		if new(big.Int).SetBytes(totalAmount).Cmp(QuoteTokenMinAmount[param.QuoteToken]) < 0 {
+			return OrderAmountTooSmallErr
 		}
 	}
 	order.Status = Pending
@@ -280,8 +275,8 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
-	orderInfo.Order = order
-	orderInfo.OrderTokenInfo = orderTokenDecimals
+	orderInfo.OrderTokenInfo = orderTokenInfo
+	return nil
 }
 
 func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) {
@@ -291,7 +286,7 @@ func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderI
 	event := NewOrderFailEvent{orderFail}
 
 	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, event.getTopicId())
+	log.Topics = append(log.Topics, event.GetTopicId())
 	log.Data = event.toDataBytes()
 	db.AddLog(log)
 }
@@ -299,7 +294,7 @@ func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderI
 func EmitErrLog(db vmctxt_interface.VmDatabase, err error) {
 	event := ErrEvent{err}
 	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, event.getTopicId())
+	log.Topics = append(log.Topics, event.GetTopicId())
 	log.Data = event.toDataBytes()
 	db.AddLog(log)
 }
@@ -805,7 +800,7 @@ func GetTimerTimestamp(db vmctxt_interface.VmDatabase) (int64, error) {
 
 func AddNewMarketEventLog(db vmctxt_interface.VmDatabase, newMarketEvent *NewMarketEvent) {
 	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, newMarketEvent.getTopicId())
+	log.Topics = append(log.Topics, newMarketEvent.GetTopicId())
 	log.Data = newMarketEvent.toDataBytes()
 	db.AddLog(log)
 }
