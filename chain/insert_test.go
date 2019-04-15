@@ -21,7 +21,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 96, 2)
 	for i := 0; i < 100; i++ {
 		t.Run("InsertAccountBlock", func(t *testing.T) {
-			snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, 17, 7, false)...)
+			snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, 17, 7, false)...)
 
 		})
 
@@ -185,7 +185,7 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	//})
 }
 
-func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int, testQuery bool) []*ledger.SnapshotBlock {
+func InsertAccountBlock(chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int, testQuery bool) []*ledger.SnapshotBlock {
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
 		addrList = append(addrList, account.Addr)
@@ -201,7 +201,7 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 		// create vm block
 		vmBlock, err := createVmBlock(account, accounts, addrList)
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 
 		// insert vm block
@@ -209,15 +209,15 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 
 		// insert vm block to chain
 		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
-		GetOnRoadBlocksHashList(t, chainInstance, accounts)
+
 		// snapshot
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 
 			sb, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 			for addr, hashHeight := range sb.SnapshotContent {
 				if account, ok := accounts[addr]; ok {
@@ -226,21 +226,21 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 			}
 			snapshotBlockList = append(snapshotBlockList, sb)
 
+			// delete invalid
 			for i := len(invalidBlocks) - 1; i >= 0; i-- {
 				ab := invalidBlocks[i]
 				fmt.Printf("test delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
 
 				accounts[ab.AccountAddress].deleteAccountBlock(accounts, ab.Hash)
 				accounts[ab.AccountAddress].rollbackLatestBlock()
-
 			}
 
 		}
 
 		if testQuery {
-			testUnconfirmed(t, chainInstance, accounts)
-			testAccountBlock(t, chainInstance, accounts)
-			testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
+			testUnconfirmedNoTesting(chainInstance, accounts)
+			testAccountBlockNoTesting(chainInstance, accounts)
+			testSnapshotBlockNoTesting(chainInstance, accounts, snapshotBlockList)
 		}
 	}
 

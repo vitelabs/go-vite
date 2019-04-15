@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"encoding/gob"
+	"fmt"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/vitelabs/go-vite/chain/test_tools"
 	"github.com/vitelabs/go-vite/common/types"
@@ -72,7 +73,7 @@ func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, 
 	var snapshotBlockList []*ledger.SnapshotBlock
 
 	t.Run("InsertBlocks", func(t *testing.T) {
-		snapshotBlockList = InsertAccountBlock(t, chainInstance, accounts, txCount, snapshotPerBlockNum, false)
+		snapshotBlockList = InsertAccountBlock(chainInstance, accounts, txCount, snapshotPerBlockNum, false)
 	})
 
 	return chainInstance, accounts, snapshotBlockList
@@ -93,7 +94,7 @@ func TestChain(t *testing.T) {
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert and query
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
 
 	// test all
 	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
@@ -139,7 +140,7 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 	//testOnRoad(t, chainInstance, accounts)
 	//
 	//// snapshot block
-	//testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
+	testSnapshotBlockNoTesting(chainInstance, accounts, snapshotBlockList)
 	//
 	//// state
 	//testState(t, chainInstance, accounts, snapshotBlockList)
@@ -181,10 +182,13 @@ func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockL
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		//fmt.Println("main run")
-		cmd.Run()
-		//if err := cmd.Run(); err != nil {
-		//	log.Printf("failed to run command: %s", err)
-		//}
+		t.Run(fmt.Sprintf("panic %d", i), func(t *testing.T) {
+
+			if err := cmd.Run(); err != nil {
+				panic(fmt.Sprintf("failed to run command: %s", err.Error()))
+			}
+		})
+
 		//fmt.Println("main runned")
 
 	}
@@ -201,6 +205,7 @@ func init() {
 }
 
 func randomPanic() {
+	quota.InitQuotaConfig(true, true)
 	chainInstance, err := NewChainInstance("unit_test", false)
 	accounts, snapshotBlockList := loadData(chainInstance)
 
@@ -217,6 +222,7 @@ func randomPanic() {
 	if err != nil {
 		panic(err)
 	}
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(1000), 10, false)...)
 
 	testChainAllNoTesting(chainInstance, accounts, snapshotBlockList)
 

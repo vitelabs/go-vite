@@ -90,7 +90,7 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 
 	count := sbLen - 2
 
-	for i := 1; i < sbLen-1; i++ {
+	for i := 0; i < 10; i++ {
 		index := rand.Intn(count) + 2
 		snapshotBlock := snapshotBlockList[index]
 
