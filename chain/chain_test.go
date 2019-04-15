@@ -97,13 +97,13 @@ func TestChain(t *testing.T) {
 	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(t, chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
 
 	//// test all
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//
 	//// test insert & delete
-	//snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
+	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
 	// test panic
-	snapshotBlockList = testPanic(t, chainInstance, accounts, snapshotBlockList)
+	//snapshotBlockList = testPanic(t, chainInstance, accounts, snapshotBlockList)
 
 	TearDown(chainInstance)
 }

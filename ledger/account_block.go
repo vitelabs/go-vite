@@ -292,11 +292,11 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 	ab.PublicKey = pb.PublicKey
 
 	if ab.IsSendBlock() {
-
-		// 9
-		if ab.TokenId, err = types.BytesToTokenTypeId(pb.TokenId); err != nil {
+		// 7
+		if ab.ToAddress, err = types.BytesToAddress(pb.ToAddress); err != nil {
 			return err
 		}
+
 	} else {
 		// 10
 		if ab.FromBlockHash, err = types.BytesToHash(pb.FromBlockHash); err != nil {
@@ -305,11 +305,11 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 	}
 
 	if ab.IsSendBlock() || ab.BlockType == BlockTypeGenesisReceive {
-		// 7
-		if ab.ToAddress, err = types.BytesToAddress(pb.ToAddress); err != nil {
+
+		// 9
+		if ab.TokenId, err = types.BytesToTokenTypeId(pb.TokenId); err != nil {
 			return err
 		}
-
 		// 8
 		ab.Amount = big.NewInt(0)
 		if len(pb.Amount) > 0 {
