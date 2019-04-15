@@ -84,24 +84,24 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//GetUnconfirmedBlocks(t, chainInstanc	e, accounts)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(t, chainInstance, accounts)
+	GetLatestAccountBlock(t, chainInstance, accounts)
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
 	//
 	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
 
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 
 	deleteSnapshotBlocks(t, chainInstance, accounts, uint64(deleteCount))
 	//
 	snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-deleteCount]
 
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 
 	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//GetUnconfirmedBlocks(t, chainInstance, accounts)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(t, chainInstance, accounts)
+	GetLatestAccountBlock(t, chainInstance, accounts)
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
 
@@ -119,24 +119,24 @@ func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[ty
 
 	//GetUnconfirmedBlocks(t, chainInstance, accounts)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(t, chainInstance, accounts)
+	GetLatestAccountBlock(t, chainInstance, accounts)
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
 	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
 
 	//GetStorageIterator(t, chainInstance, accounts)
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 
 	deleteAccountBlocks(t, chainInstance, accounts)
 
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
 	//GetUnconfirmedBlocks(t, chainInstance, accounts)
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(t, chainInstance, accounts)
+	GetLatestAccountBlock(t, chainInstance, accounts)
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
 
@@ -185,47 +185,44 @@ func deleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.
 	unconfirmedBlock := unconfirmedBlocks[rand.Intn(len(unconfirmedBlocks))]
 
 	account := accounts[unconfirmedBlock.AccountAddress]
-	_, err := chainInstance.DeleteAccountBlocks(account.Addr, unconfirmedBlock.Hash)
+	deletedAccountBlocks, err := chainInstance.DeleteAccountBlocks(account.Addr, unconfirmedBlock.Hash)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	//if len(deletedAccountBlocks) <= 0 {
-	//	fmt.Println("haha")
-	//}
-	//for i := len(deletedAccountBlocks) - 1; i >= 0; i-- {
-	//	ab := deletedAccountBlocks[i]
-	//	fmt.Printf("test delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
-	//
-	//	accounts[ab.AccountAddress].deleteAccountBlock(accounts, deletedAccountBlocks[i].Hash)
-	//	accounts[ab.AccountAddress].rollbackLatestBlock()
-	//
-	//}
+	for i := len(deletedAccountBlocks) - 1; i >= 0; i-- {
+		ab := deletedAccountBlocks[i]
+		fmt.Printf("test delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
 
-	onRoadBlocksCache := make(map[types.Hash]struct{})
-
-	deleteMemAccountBlock(accounts, account, unconfirmedBlock, onRoadBlocksCache)
-
-	for fromBlockHash := range onRoadBlocksCache {
-		var onRoadSendBlock *ledger.AccountBlock
-		for _, account := range accounts {
-			if len(account.SendBlocksMap) <= 0 {
-				continue
-			}
-			if sendBlock, ok := account.SendBlocksMap[fromBlockHash]; ok {
-				onRoadSendBlock = sendBlock
-				break
-			}
-
-		}
-		if onRoadSendBlock == nil {
-			continue
-		}
-
-		toAccount := accounts[onRoadSendBlock.ToAddress]
-		toAccount.AddOnRoadBlock(onRoadSendBlock)
+		accounts[ab.AccountAddress].deleteAccountBlock(accounts, deletedAccountBlocks[i].Hash)
+		accounts[ab.AccountAddress].rollbackLatestBlock()
 
 	}
+	//
+	//onRoadBlocksCache := make(map[types.Hash]struct{})
+	//
+	//deleteMemAccountBlock(accounts, account, unconfirmedBlock, onRoadBlocksCache)
+	//
+	//for fromBlockHash := range onRoadBlocksCache {
+	//	var onRoadSendBlock *ledger.AccountBlock
+	//	for _, account := range accounts {
+	//		if len(account.SendBlocksMap) <= 0 {
+	//			continue
+	//		}
+	//		if sendBlock, ok := account.SendBlocksMap[fromBlockHash]; ok {
+	//			onRoadSendBlock = sendBlock
+	//			break
+	//		}
+	//
+	//	}
+	//	if onRoadSendBlock == nil {
+	//		continue
+	//	}
+	//
+	//	toAccount := accounts[onRoadSendBlock.ToAddress]
+	//	toAccount.AddOnRoadBlock(onRoadSendBlock)
+	//
+	//}
 }
 
 func deleteMemAccountBlock(accounts map[types.Address]*Account, account *Account,

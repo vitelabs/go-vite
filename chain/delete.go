@@ -93,17 +93,17 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	//FOR DEBUG
-	//for _, chunk := range snapshotChunks {
-	//	if chunk.SnapshotBlock != nil {
-	//		fmt.Printf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height)
-	//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-	//			fmt.Printf("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash)
-	//		}
-	//	}
-	//	for _, ab := range chunk.AccountBlocks {
-	//		fmt.Printf("delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
-	//	}
-	//}
+	for _, chunk := range snapshotChunks {
+		if chunk.SnapshotBlock != nil {
+			fmt.Printf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height)
+			//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
+			//			fmt.Printf("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash)
+			//		}
+		}
+		for _, ab := range chunk.AccountBlocks {
+			fmt.Printf("delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
+		}
+	}
 
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 

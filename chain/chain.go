@@ -214,11 +214,11 @@ func (c *chain) Init() error {
 	}
 
 	// init plugins
-	if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
-		cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
+	//if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+	//	cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+	//	c.log.Error(cErr.Error(), "method", "Init")
+	//	return cErr
+	//}
 
 	c.log.Info("Complete initialization", "method", "Init")
 	return nil

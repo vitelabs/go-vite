@@ -227,13 +227,17 @@ func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
 	if ab.IsSendBlock() {
 		// 7
 		pb.ToAddress = ab.ToAddress.Bytes()
+	} else {
+		// 10
+		pb.FromBlockHash = ab.FromBlockHash.Bytes()
+
+	}
+
+	if ab.IsSendBlock() || ab.BlockType == BlockTypeGenesisReceive {
 		// 8
 		pb.Amount = ab.Amount.Bytes()
 		// 9
 		pb.TokenId = ab.TokenId.Bytes()
-	} else {
-		// 10
-		pb.FromBlockHash = ab.FromBlockHash.Bytes()
 	}
 
 	// 11
@@ -288,16 +292,6 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 	ab.PublicKey = pb.PublicKey
 
 	if ab.IsSendBlock() {
-		// 7
-		if ab.ToAddress, err = types.BytesToAddress(pb.ToAddress); err != nil {
-			return err
-		}
-
-		// 8
-		ab.Amount = big.NewInt(0)
-		if len(pb.Amount) > 0 {
-			ab.Amount.SetBytes(pb.Amount)
-		}
 
 		// 9
 		if ab.TokenId, err = types.BytesToTokenTypeId(pb.TokenId); err != nil {
@@ -307,6 +301,19 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 		// 10
 		if ab.FromBlockHash, err = types.BytesToHash(pb.FromBlockHash); err != nil {
 			return err
+		}
+	}
+
+	if ab.IsSendBlock() || ab.BlockType == BlockTypeGenesisReceive {
+		// 7
+		if ab.ToAddress, err = types.BytesToAddress(pb.ToAddress); err != nil {
+			return err
+		}
+
+		// 8
+		ab.Amount = big.NewInt(0)
+		if len(pb.Amount) > 0 {
+			ab.Amount.SetBytes(pb.Amount)
 		}
 	}
 
