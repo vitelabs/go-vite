@@ -19,14 +19,23 @@ func (iDB *IndexDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 	return nil
 }
 
-func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
 	batch := iDB.store.NewBatch()
 
-	if err := iDB.rollback(batch, deletedSnapshotSegments); err != nil {
+	err := iDB.rollback(batch, deletedSnapshotSegments)
+	if err != nil {
 		return err
 	}
 
 	iDB.store.RollbackSnapshot(batch)
+
+	// recover unconfirmed
+	for _, block := range unconfirmedBlocks {
+		if err := iDB.InsertAccountBlock(block); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -43,10 +52,10 @@ func (iDB *IndexDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*le
 	openSendBlockHashMap := make(map[types.Hash]struct{})
 
 	for _, seg := range deletedSnapshotSegments {
-		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
 		if err := iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlockHashMap); err != nil {
 			return err
 		}
+		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
 	}
 
 	for sendBlockHash := range openSendBlockHashMap {

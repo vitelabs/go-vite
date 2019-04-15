@@ -86,7 +86,7 @@ func checkFlusher(times int, opts ...*StorageOptions) error {
 		if !canStartCommit {
 			for _, br := range brList {
 				if len(br.Kv) > 0 {
-					return errors.New("len(br.Kv) > 0")
+					return errors.New("len(br.Storage) > 0")
 				}
 			}
 

@@ -65,7 +65,7 @@ func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 	//for _, plugin := range p.plugins {
 	//batch := new(leveldb.Batch)
 	//
-	//if err := plugin.InsertSnapshotBlocks(snapshotBlocks); err != nil {
+	//if err := plugin.InsertSnapshotBlock(snapshotBlocks); err != nil {
 	//	return err
 	//}
 	//
@@ -99,7 +99,7 @@ func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 //func (p *Plugins) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 //	return nil
 //}
-//func (p *Plugins) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+//func (p *Plugins) InsertSnapshotBlock(snapshotBlocks []*ledger.SnapshotBlock) error {
 //	return nil
 //}
 //func (p *Plugins) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {

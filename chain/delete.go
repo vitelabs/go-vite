@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -13,12 +12,12 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed, snapshotHash is %s. Error: %s", toHash, err.Error()))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocks")
 		return nil, cErr
 	}
 	if height <= 1 {
 		cErr := errors.New(fmt.Sprintf("height <= 1,  snapshotHash is %s. Error: %s", toHash, err.Error()))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocks")
 		return nil, cErr
 	}
 
@@ -34,112 +33,95 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, cErr
 	}
 
-	snapshotChunkList := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
-
-	var location *chain_file_manager.Location
-
-	targetHeight := latestHeight + 1
-
-	deletePerTime := uint64(100)
-
-	unconfirmedChunk := &ledger.SnapshotChunk{
-		AccountBlocks: c.cache.GetUnconfirmedBlocks(),
+	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, height is %d. Error: %s", toHeight-1, err.Error()))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		return nil, cErr
 	}
 
-	for targetHeight > toHeight {
-		if targetHeight > deletePerTime {
-			targetHeight = targetHeight - deletePerTime
-			if targetHeight < toHeight {
-				targetHeight = toHeight
-			}
-		} else {
-			targetHeight = toHeight
-		}
-
-		var err error
-		location, err = c.indexDB.GetSnapshotBlockLocation(targetHeight)
-		if err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, snapshotHeight is %d. Error: %s", targetHeight, err.Error()))
-			c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
-			return nil, cErr
-		}
-
-		// prepend
-		snapshotChunkList = append(c.deleteSnapshotBlocksToLocation(location, unconfirmedChunk), snapshotChunkList...)
-		unconfirmedChunk = nil
+	location, err := c.blockDB.GetNextLocation(tmpLocation)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.GetNextLocation failed. Error: %s", err.Error()))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		return nil, cErr
 	}
 
-	// rebuild unconfirmed cache
-	if err := c.recoverUnconfirmedCache(); err != nil {
-		return nil, err
+	if location == nil {
+		cErr := errors.New(fmt.Sprintf("location is nil, toHeight is %d",
+			toHeight))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+
+		return nil, cErr
 	}
 
-	return snapshotChunkList, nil
-}
-
-func (c *chain) deleteSnapshotBlocksToLocation(location *chain_file_manager.Location, unconfirmedChunk *ledger.SnapshotChunk) []*ledger.SnapshotChunk {
-
-	// rollback blocks db
+	// block db rollback
 	snapshotChunks, err := c.blockDB.Rollback(location)
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.RollbackAccountBlocks failed, location is %d. Error: %s,", location, err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
-
 	if len(snapshotChunks) <= 0 {
-		return nil
+		return nil, nil
 	}
 
-	if unconfirmedChunk != nil {
-		snapshotChunks = append(snapshotChunks, unconfirmedChunk)
+	// rollback blocks db
+	hasStorageRedoLog, err := c.stateDB.StorageRedo().HasRedo(toHeight)
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		return nil, cErr
 	}
+
+	var newUnconfirmedBlocks []*ledger.AccountBlock
+	if hasStorageRedoLog {
+		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
+	}
+	// append old unconfirmed blocks
+	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
+		AccountBlocks: c.cache.GetUnconfirmedBlocks(),
+	})
+
+	//FOR DEBUG
+	//for _, chunk := range snapshotChunks {
+	//	if chunk.SnapshotBlock != nil {
+	//		fmt.Printf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height)
+	//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
+	//			fmt.Printf("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash)
+	//		}
+	//	}
+	//	for _, ab := range chunk.AccountBlocks {
+	//		fmt.Printf("delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
+	//	}
+	//}
 
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
 	// rollback index db
-	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.RollbackAccountBlocks failed, error is %s", err.Error()))
+	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.RollbackSnapshotBlocks failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
 	// rollback cache
-	err = c.cache.RollbackSnapshotBlocks(snapshotChunks)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.cache.RollbackAccountBlocks failed, error is %s", err.Error()))
+	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.RollbackSnapshotBlocks failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
 
 	// rollback state db
-	if err := c.stateDB.RollbackSnapshotBlocks(snapshotChunks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.RollbackAccountBlocks failed, error is %s", err.Error()))
+	if err := c.stateDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.RollbackSnapshotBlocks failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
 	}
-
-	//FOR DEBUG
-	//fmt.Println("delete")
-	//for _, chunk := range snapshotChunks {
-	//	fmt.Println()
-	//	fmt.Println("delete snapshotBlocks")
-	//	fmt.Printf("%d. %+v\n", eventNum, chunk.SnapshotBlock)
-	//	fmt.Println()
-	//	eventNum++
-	//
-	//	fmt.Println("delete accountBlocks")
-	//	for _, ab := range chunk.AccountBlocks {
-	//		fmt.Println()
-	//		fmt.Printf("%d. %+v\n", eventNum, ab)
-	//		eventNum++
-	//		fmt.Println()
-	//	}
-	//}
-	//fmt.Println("delete end")
 
 	c.flusher.Flush(true)
 
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
 
-	return snapshotChunks
+	return snapshotChunks, nil
 }
 
 func (c *chain) DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*ledger.AccountBlock, error) {
@@ -173,28 +155,17 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 
 	needDeleteBlocks := c.computeDependencies(planDeleteBlocks)
 
-	deleteAllUnconfirmed := false
-	if !c.stateDB.StorageRedo().HasRedo() {
-		for _, block := range needDeleteBlocks {
-			if ok, err := c.IsContractAccount(block.AccountAddress); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, Addr is %s", block.AccountAddress))
-				c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
-				return nil, cErr
-			} else if ok {
-				// clean all, temporary implementation
-				needDeleteBlocks = unconfirmedBlocks
-				deleteAllUnconfirmed = true
-				break
-			}
-		}
-	}
-
-	c.deleteAccountBlocks(needDeleteBlocks, deleteAllUnconfirmed)
+	c.deleteAccountBlocks(needDeleteBlocks)
 
 	return needDeleteBlocks, nil
 }
 
-func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock, deleteAllUnconfirmed bool) {
+func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
+	//FOR DEBUG
+	//for _, ab := range blocks {
+	//	fmt.Printf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
+	//}
+
 	c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil)
 
 	// rollback index db
@@ -210,22 +181,10 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock, deleteAllUnco
 	}
 
 	// rollback state db
-	if err := c.stateDB.RollbackAccountBlocks(blocks, deleteAllUnconfirmed); err != nil {
+	if err := c.stateDB.RollbackAccountBlocks(blocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.RollbackAccountBlocks failed. Error: %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
-
-	//FOR DEBUG
-	//fmt.Println("only delete accountblocks")
-	//
-	//for _, ab := range blocks {
-	//	fmt.Println()
-	//	fmt.Printf("%d. %+v\n", eventNum, ab)
-	//	eventNum++
-	//	fmt.Println()
-	//}
-	//
-	//fmt.Println("only delete accountblocks end")
 
 	c.em.Trigger(DeleteAbsEvent, nil, blocks, nil, nil)
 }

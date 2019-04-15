@@ -68,7 +68,7 @@ func GetBalance(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 				t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d, Balance3: %d", account.Addr, balance, account.Balance(), account.GetInitBalance()))
 			}
 		} else if balance.Cmp(account.Balance()) != 0 {
-			t.Fatal(fmt.Sprintf("Error: %s, Balance %d, Balance2: %d", account.Addr, balance, account.Balance()))
+			t.Fatal(fmt.Sprintf("Error: %s, QueryBalance %d, Balance: %d", account.Addr, balance, account.Balance()))
 		}
 
 	}

@@ -307,6 +307,7 @@ func GetLatestAccountBlock(t *testing.T, chainInstance *chain, accounts map[type
 
 		if block == nil {
 			if account.LatestBlock != nil {
+				fmt.Println(addr)
 				chainInstance.GetLatestAccountBlock(addr)
 				t.Fatal(fmt.Sprintf("%+v, %+v\n", block, account.LatestBlock))
 			}

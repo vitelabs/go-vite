@@ -12,11 +12,21 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	_ "net/http/pprof"
+
 	"strconv"
 	"testing"
 	"time"
 )
+
+func TestInsertAccountBlocks(t *testing.T) {
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 18, 96, 2)
+
+	t.Run("InsertAccountBlock", func(t *testing.T) {
+		snapshotBlockList = InsertAccountBlock(t, chainInstance, accounts, 17, 7, true)
+	})
+
+	TearDown(chainInstance)
+}
 
 func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.SnapshotContent {
 	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
@@ -24,10 +34,10 @@ func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.Snapsh
 	// random snapshot
 	if !snapshotAll && len(unconfirmedBlocks) > 1 {
 		randomNum := rand.Intn(100)
-		if randomNum > 70 {
+		if randomNum > 30 {
 			unconfirmedBlocks = unconfirmedBlocks[:rand.Intn(len(unconfirmedBlocks))]
 		}
-		if randomNum > 90 {
+		if randomNum > 50 {
 			unconfirmedBlocks = []*ledger.AccountBlock{}
 		}
 	}
@@ -70,13 +80,14 @@ func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.Snapsho
 
 }
 
-func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, error) {
+func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
 	sb := createSnapshotBlock(chainInstance, snapshotAll)
-	if _, err := chainInstance.InsertSnapshotBlock(sb); err != nil {
-		return nil, err
+	invalidBlocks, err := chainInstance.InsertSnapshotBlock(sb)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return sb, nil
+	return sb, invalidBlocks, nil
 }
 
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
@@ -128,7 +139,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 		b.StartTimer()
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			_, err := InsertSnapshotBlock(chainInstance, false)
+			_, _, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -194,11 +205,11 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
 			t.Fatal(err)
 		}
-
+		GetOnRoadBlocksHashList(t, chainInstance, accounts)
 		// snapshot
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 
-			sb, err := InsertSnapshotBlock(chainInstance, false)
+			sb, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -208,9 +219,20 @@ func InsertAccountBlock(t *testing.T, chainInstance *chain, accounts map[types.A
 				}
 			}
 			snapshotBlockList = append(snapshotBlockList, sb)
+
+			for i := len(invalidBlocks) - 1; i >= 0; i-- {
+				ab := invalidBlocks[i]
+				fmt.Printf("test delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
+
+				accounts[ab.AccountAddress].deleteAccountBlock(accounts, ab.Hash)
+				accounts[ab.AccountAddress].rollbackLatestBlock()
+
+			}
+
 		}
 
 		if testQuery {
+			testUnconfirmed(t, chainInstance, accounts)
 			testAccountBlock(t, chainInstance, accounts)
 			testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 		}

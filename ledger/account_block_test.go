@@ -3,11 +3,40 @@ package ledger
 import (
 	"github.com/vitelabs/go-vite/common/types"
 
+	"fmt"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"math/big"
 	"testing"
 )
+
+type SSS struct {
+	A uint64
+}
+
+func TestAccountBlock_Copymap(t *testing.T) {
+	Aslice := make([]SSS, 3)
+	b := SSS{
+		A: 2,
+	}
+
+	fmt.Println(b)
+	Aslice[2] = b
+
+	fmt.Println(Aslice[2])
+	d := Aslice[2]
+	d.A = 100
+
+	b.A = 1000
+
+	fmt.Println(d)
+	fmt.Println(b)
+
+	fmt.Println(Aslice[2])
+	Aslice[2].A = 1000
+	fmt.Println(Aslice[2])
+
+}
 
 func createBlock() *AccountBlock {
 	accountAddress1, privateKey, _ := types.CreateAddress()

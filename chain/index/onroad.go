@@ -45,43 +45,52 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 	return hashList, nil
 }
 
-func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
+//var logger = log15.New("onroad", "test")
 
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
 	value := sendBlockHash.Bytes()
 	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
-	if ok, err := iDB.store.Has(reverseKey); err != nil {
+	ok, err := iDB.store.Has(reverseKey)
+	if err != nil {
 		return err
-	} else if ok {
-		return nil
+	}
+	var key []byte
+	if ok {
+		key, err = iDB.store.Get(reverseKey)
+		if err != nil {
+			return err
+		}
+	} else {
+		if len(key) <= 0 {
+			// new key
+			onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
+			key = chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
+		}
+
+		batch.Put(reverseKey, key)
 	}
 
-	onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
-	key := chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
-
 	batch.Put(key, value)
-	batch.Put(reverseKey, key)
 
 	// FOR DEBUG
-	//fmt.Printf("insert on road %s %d %d\n", sendBlockHash, key, reverseKey)
+	//logger.Debug(fmt.Sprintf("insert on road %s %d %d\n", sendBlockHash, key, reverseKey))
 	return nil
 
 }
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash types.Hash) error {
-	reverseKey := chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes())
-	value, err := iDB.store.Get(reverseKey)
+	onRoadKey, err := iDB.store.Get(chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes()))
 	if err != nil {
 		return err
 	}
-	if len(value) <= 0 {
+	if len(onRoadKey) <= 0 {
 		return nil
 	}
 
-	batch.Delete(reverseKey)
-	batch.Delete(value)
+	batch.Delete(onRoadKey)
 
 	// FOR DEBUG
-	//fmt.Printf("delete on road %s %d %d\n", sendBlockHash, value, reverseKey)
+	//logger.Debug(fmt.Sprintf("delete on road %s %d %d\n", sendBlockHash, value, reverseKey))
 
 	return nil
 }

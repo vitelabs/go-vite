@@ -57,7 +57,9 @@ func (store *Store) resetMemDB() {
 
 	store.memDb = NewMemDB()
 
-	for _, batch := range store.unconfirmedBatchMap {
-		batch.Replay(store.memDb)
+	elem := store.unconfirmedBatchList.Front()
+	for elem != nil {
+		elem.Value.(*leveldb.Batch).Replay(store.memDb)
+		elem = elem.Next()
 	}
 }

@@ -1,6 +1,7 @@
 package chain_db
 
 import (
+	"container/list"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -13,12 +14,13 @@ import (
 )
 
 type Store struct {
-	id    types.Hash
-	mu    sync.RWMutex
-	memDb *MemDB
+	id            types.Hash
+	mu            sync.RWMutex
+	memDb         *MemDB
+	snapshotMemDb *MemDB
 
-	unconfirmedBatchMap map[types.Hash]*leveldb.Batch
-	snapshotMemDb       *MemDB
+	unconfirmedBatchMap  map[types.Hash]*list.Element
+	unconfirmedBatchList *list.List
 
 	dbDir string
 	db    *leveldb.DB
@@ -35,9 +37,11 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	store := &Store{
-		memDb:               NewMemDB(),
-		unconfirmedBatchMap: make(map[types.Hash]*leveldb.Batch),
-		snapshotMemDb:       NewMemDB(),
+		memDb:                NewMemDB(),
+		unconfirmedBatchMap:  make(map[types.Hash]*list.Element),
+		unconfirmedBatchList: list.New(),
+
+		snapshotMemDb: NewMemDB(),
 
 		flushingBatch: new(leveldb.Batch),
 		dbDir:         dataDir,
@@ -70,7 +74,8 @@ func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash type
 	defer store.mu.Unlock()
 
 	// write store.unconfirmedBatch
-	store.unconfirmedBatchMap[blockHash] = batch
+	elem := store.unconfirmedBatchList.PushBack(batch)
+	store.unconfirmedBatchMap[blockHash] = elem
 
 	// write store.memDb
 	batch.Replay(store.memDb)
@@ -87,9 +92,12 @@ func (store *Store) WriteSnapshot(snapshotBatch *leveldb.Batch, accountBlock []*
 	}
 
 	for _, block := range accountBlock {
-		if batch, ok := store.unconfirmedBatchMap[block.Hash]; ok {
-			batch.Replay(store.snapshotMemDb)
+		if elem, ok := store.unconfirmedBatchMap[block.Hash]; ok {
+			// patch
+			elem.Value.(*leveldb.Batch).Replay(store.snapshotMemDb)
+			// remove
 			delete(store.unconfirmedBatchMap, block.Hash)
+			store.unconfirmedBatchList.Remove(elem)
 		}
 	}
 
@@ -110,9 +118,11 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 	}
 
 	for _, blockHash := range blockHashList {
-		if batch, ok := store.unconfirmedBatchMap[blockHash]; ok {
-			batch.Replay(store.snapshotMemDb)
+		if elem, ok := store.unconfirmedBatchMap[blockHash]; ok {
+			elem.Value.(*leveldb.Batch).Replay(store.snapshotMemDb)
+			// delete
 			delete(store.unconfirmedBatchMap, blockHash)
+			store.unconfirmedBatchList.Remove(elem)
 		}
 	}
 
@@ -129,7 +139,12 @@ func (store *Store) RollbackAccountBlocks(rollbackBatch *leveldb.Batch, accountB
 
 	// delete store.unconfirmedBatchMap
 	for _, block := range accountBlocks {
-		delete(store.unconfirmedBatchMap, block.Hash)
+		if elem, ok := store.unconfirmedBatchMap[block.Hash]; ok {
+			// delete
+			delete(store.unconfirmedBatchMap, block.Hash)
+			store.unconfirmedBatchList.Remove(elem)
+		}
+
 	}
 
 	// write store.memDb
@@ -143,14 +158,17 @@ func (store *Store) RollbackAccountBlockByHash(rollbackBatch *leveldb.Batch, blo
 
 	// delete store.unconfirmedBatchMap
 	for _, blockHash := range blockHashList {
-		delete(store.unconfirmedBatchMap, blockHash)
+		if elem, ok := store.unconfirmedBatchMap[blockHash]; ok {
+			// delete
+			delete(store.unconfirmedBatchMap, blockHash)
+			store.unconfirmedBatchList.Remove(elem)
+		}
 	}
 
 	// write store.memDb
 	rollbackBatch.Replay(store.memDb)
 }
 
-// assume that rollback and flush to disk immediately
 func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -158,11 +176,17 @@ func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
 	// write store.memDb
 	rollbackBatch.Replay(store.memDb)
 
-	// reset
-	store.snapshotMemDb = store.memDb
+	// copy
+	copyBatch := new(leveldb.Batch)
+	store.memDb.Flush(copyBatch)
+
+	store.snapshotMemDb = NewMemDB()
+	copyBatch.Replay(store.snapshotMemDb)
 
 	// reset
-	store.unconfirmedBatchMap = make(map[types.Hash]*leveldb.Batch)
+	store.unconfirmedBatchList = new(list.List)
+	store.unconfirmedBatchMap = make(map[types.Hash]*list.Element)
+
 }
 
 func (store *Store) Get(key []byte) ([]byte, error) {

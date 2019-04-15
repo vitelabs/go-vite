@@ -12,8 +12,8 @@ import (
 
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/crypto"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -190,8 +190,10 @@ func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions
 	}
 
 	// set balance
-	amount := big.NewInt(rand.Int63n(150))
-	vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Sub(acc.Balance(), amount))
+	//amount := big.NewInt(rand.Int63n(150))
+	//vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Sub(acc.Balance(), amount))
+	amount := big.NewInt(1)
+	vmDb.SetBalance(&ledger.ViteTokenId, big.NewInt(int64(acc.GetLatestHeight()+1)))
 
 	// set contract meta
 	if options.ContractMeta != nil {
@@ -272,7 +274,8 @@ func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccou
 	}
 
 	// set balance
-	vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Add(acc.Balance(), UnreceivedBlock.Amount))
+	vmDb.SetBalance(&ledger.ViteTokenId, big.NewInt(int64(acc.GetLatestHeight()+1)))
+	//vmDb.SetBalance(&ledger.ViteTokenId, new(big.Int).Add(acc.Balance(), UnreceivedBlock.Amount))
 
 	// set contract code
 	if acc.GetContractMeta() != nil && acc.LatestBlock == nil {
@@ -382,7 +385,7 @@ func (acc *Account) InsertBlock(vmBlock *vm_db.VmAccountBlock, accounts map[type
 	// set send block list
 	for _, sendBlock := range block.SendBlockList {
 		toAccount := accounts[sendBlock.ToAddress]
-		toAccount.AddOnRoadBlock(block)
+		toAccount.AddOnRoadBlock(sendBlock)
 	}
 
 }
@@ -471,15 +474,42 @@ func (acc *Account) Snapshot(snapshotHash types.Hash, hashHeight *ledger.HashHei
 
 	// unconfirmed
 	unconfirmedBlocks := make(map[types.Hash]struct{})
+
+	deletedCache := make([]uint64, 0)
+
 	for hash := range acc.UnconfirmedBlocks {
 		block := acc.BlocksMap[hash]
 
 		if block.Height <= hashHeight.Height {
 			confirmedBlocks[hash] = struct{}{}
+			deletedCache = append(deletedCache, block.Height)
 		} else {
 			unconfirmedBlocks[hash] = struct{}{}
 		}
 	}
+
+	// check
+	if len(deletedCache) <= 0 {
+		panic(fmt.Sprintf("%s. %d %s", snapshotHash, hashHeight.Height, hashHeight.Hash))
+	}
+	minHeight := helper.MaxUint64
+	maxHeight := uint64(0)
+	for _, height := range deletedCache {
+		if height < minHeight {
+			minHeight = height
+		}
+
+		if height >= maxHeight {
+			maxHeight = height
+		}
+	}
+	if uint64(len(deletedCache)) != (maxHeight-minHeight)+1 {
+		panic("error")
+	}
+	if maxHeight != hashHeight.Height {
+		panic("error")
+	}
+
 	// set confirmed
 	acc.ConfirmedBlockMap[snapshotHash] = confirmedBlocks
 
@@ -487,7 +517,7 @@ func (acc *Account) Snapshot(snapshotHash types.Hash, hashHeight *ledger.HashHei
 	acc.UnconfirmedBlocks = unconfirmedBlocks
 }
 
-func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
+func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock, hasRedoLog bool) {
 	// rollback unconfirmed blocks
 	unconfirmedBlockHashList := make([]types.Hash, 0, len(acc.UnconfirmedBlocks))
 	for hash := range acc.UnconfirmedBlocks {
@@ -498,28 +528,26 @@ func (acc *Account) DeleteSnapshotBlocks(accounts map[types.Address]*Account, sn
 		acc.deleteAccountBlock(accounts, hash)
 	}
 
-	// rollback confirmed blocks
-	for i := 0; i < len(snapshotBlocks)-1; i++ {
+	// rollback confirmed blocks, from high to low
+	for i := 0; i < len(snapshotBlocks); i++ {
 		snapshotBlock := snapshotBlocks[i]
 
 		confirmedBlocks := acc.ConfirmedBlockMap[snapshotBlock.Hash]
-		if len(confirmedBlocks) <= 0 {
-			continue
-		}
+		if i == len(snapshotBlocks)-1 && hasRedoLog {
+			acc.UnconfirmedBlocks = confirmedBlocks
 
-		for hash := range confirmedBlocks {
-			acc.deleteAccountBlock(accounts, hash)
-		}
+		} else {
+			if len(confirmedBlocks) <= 0 {
+				continue
+			}
 
+			for hash := range confirmedBlocks {
+				acc.deleteAccountBlock(accounts, hash)
+			}
+		}
 		delete(acc.ConfirmedBlockMap, snapshotBlock.Hash)
+
 	}
-
-	// reset unconfirmed block
-	tailSnapshotBlock := snapshotBlocks[len(snapshotBlocks)-1]
-
-	acc.UnconfirmedBlocks = acc.ConfirmedBlockMap[tailSnapshotBlock.Hash]
-
-	delete(acc.ConfirmedBlockMap, tailSnapshotBlock.Hash)
 
 	// reset latest block
 	acc.resetLatestBlock()

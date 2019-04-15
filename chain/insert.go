@@ -9,23 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-/*
- *	1. prepare
- *	2.
- */
-
-//FOR DEBUG
-//var eventNum = 1
-
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	//FOR DEBUG
-	//fmt.Println()
-	//fmt.Println("InsertAccountBlock")
-	//
-	//fmt.Printf("%d.%+v\n", eventNum, vmAccountBlock.AccountBlock)
-	//eventNum += 1
-	//fmt.Println("InsertAccountBlock end")
-	//fmt.Println()
+	//fmt.Printf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash)
 
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil)
@@ -53,19 +39,11 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	//FOR DEBUG
-	//fmt.Println()
+	//fmt.Printf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash)
 	//
-	//fmt.Println("InsertSnapshotBlock")
-	//
-	//fmt.Printf("%d.%+v\n", eventNum, snapshotBlock)
 	//for Addr, hh := range snapshotBlock.SnapshotContent {
-	//	fmt.Printf("SC: %s %s %d\n", Addr, hh.Hash, hh.Height)
-	//	fmt.Println()
+	//	fmt.Printf("%d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash)
 	//}
-	//
-	//eventNum += 1
-	//fmt.Println("InsertSnapshotBlock end")
-	//fmt.Println()
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {
@@ -94,13 +72,13 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
 	// insert snapshot blocks
-	c.stateDB.InsertSnapshotBlocks(snapshotBlock, canBeSnappedBlocks)
+	c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
 
 	if len(invalidBlocks) > 0 {
-		c.deleteAccountBlocks(invalidBlocks, false)
+		c.deleteAccountBlocks(invalidBlocks)
 	}
 
 	c.flusher.Flush(false)

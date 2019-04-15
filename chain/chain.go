@@ -201,13 +201,6 @@ func (c *chain) Init() error {
 		return cErr
 	}
 
-	// recover unconfirmed cache
-	if err := c.recoverUnconfirmedCache(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.recoverUnconfirmedCache failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
 	// init sync cache
 	var err error
 	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)

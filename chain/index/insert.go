@@ -1,6 +1,7 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/ledger"
@@ -8,6 +9,45 @@ import (
 
 func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error {
 	batch := iDB.store.NewBatch()
+
+	if err := iDB.insertAccountBlock(batch, accountBlock); err != nil {
+		return err
+	}
+	iDB.store.WriteAccountBlock(batch, accountBlock)
+
+	return nil
+}
+
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) {
+
+	batch := iDB.store.NewBatch()
+
+	heightBytes := chain_utils.Uint64ToBytes(snapshotBlock.Height)
+	// hash -> height
+	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
+
+	// height -> location
+	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height), append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
+
+	// confirm block
+	for addr, hashHeight := range snapshotBlock.SnapshotContent {
+		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
+	}
+
+	// flush account block indexes
+	for index, block := range confirmedBlocks {
+		// height -> account block location
+		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
+	}
+
+	// latest on road id
+	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
+
+	// write snapshot
+	iDB.store.WriteSnapshot(batch, confirmedBlocks)
+}
+
+func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {
 
 	blockHash := &accountBlock.Hash
 
@@ -50,36 +90,5 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 		}
 	}
 
-	iDB.store.WriteAccountBlock(batch, accountBlock)
-
 	return nil
-}
-
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) {
-
-	batch := iDB.store.NewBatch()
-
-	heightBytes := chain_utils.Uint64ToBytes(snapshotBlock.Height)
-	// hash -> height
-	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
-
-	// height -> location
-	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height), append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
-
-	// confirm block
-	for addr, hashHeight := range snapshotBlock.SnapshotContent {
-		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
-	}
-
-	// flush account block indexes
-	for index, block := range confirmedBlocks {
-		// height -> account block location
-		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
-	}
-
-	// latest on road id
-	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
-
-	// write snapshot
-	iDB.store.WriteSnapshot(batch, confirmedBlocks)
 }

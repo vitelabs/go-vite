@@ -2,6 +2,9 @@ package chain
 
 import (
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"testing"
 )
@@ -61,7 +64,7 @@ func TestGetOnRoadBlocks(t *testing.T) {
 
 }
 
-func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[types.Address]*Account) {
+func GetOnRoadBlocksHashList(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
 	countPerPage := 10
 
 	for addr, account := range accounts {
@@ -91,7 +94,34 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 				hashSet[hash] = struct{}{}
 
 				if _, hasUnReceive := account.OnRoadBlocks[hash]; !hasUnReceive {
-					t.Fatal(fmt.Sprintf("Hash is %s, hashList is %+v，account.OnRoadBlocks: %+v", hash, hashList, account.OnRoadBlocks))
+					key := chain_utils.CreateOnRoadPrefixKey(&addr)
+
+					iter := chainInstance.indexDB.Store().NewIterator(util.BytesPrefix(key))
+					defer iter.Release()
+
+					startIndex := pageNum * countPerPage
+					endIndex := (pageNum + 1) * countPerPage
+
+					index := 0
+					for iter.Next() && index < endIndex {
+
+						if index >= startIndex {
+							hash, err := types.BytesToHash(iter.Value())
+							if err != nil {
+								t.Fatal(err)
+							}
+
+							fmt.Printf("onroad list: key: %d value: %s\n", iter.Key(), hash)
+						}
+						index++
+					}
+
+					if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+						t.Fatal(err)
+					}
+
+					fmt.Printf("Hash is %s, addr: %s, hashList is %+v，account.OnRoadBlocks: %+v\n", hash, addr, hashList, account.OnRoadBlocks)
+					panic(fmt.Sprintf("Hash is %s, addr: %s, hashList is %+v，account.OnRoadBlocks: %+v\n", hash, addr, hashList, account.OnRoadBlocks))
 
 				}
 			}
@@ -99,7 +129,16 @@ func GetOnRoadBlocksHashList(t *testing.T, chainInstance Chain, accounts map[typ
 		}
 
 		if len(hashSet) != len(account.OnRoadBlocks) {
-			t.Fatal(fmt.Sprintf("hashSet: %+v \n account.OnRoadBlocks: %+v", hashSet, account.OnRoadBlocks))
+			onRoadBlocks := make(map[types.Hash]struct{})
+			for hash := range account.OnRoadBlocks {
+				onRoadBlocks[hash] = struct{}{}
+			}
+			for hash := range onRoadBlocks {
+				if _, ok := hashSet[hash]; ok {
+					delete(onRoadBlocks, hash)
+				}
+			}
+			t.Fatal(fmt.Sprintf("addr %s, lack account.OnRoadBlocks: %+v", account.Addr, onRoadBlocks))
 		}
 	}
 }
