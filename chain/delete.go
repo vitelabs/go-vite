@@ -76,13 +76,21 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
-	if hasStorageRedoLog {
-		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
-	}
+
 	// append old unconfirmed blocks
 	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
 		AccountBlocks: c.cache.GetUnconfirmedBlocks(),
 	})
+
+	realChunksToDelete := snapshotChunks
+	if hasStorageRedoLog {
+		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
+
+		// remove unconfirmed blocks
+		firstChunk := *snapshotChunks[0]
+		firstChunk.AccountBlocks = nil
+		realChunksToDelete[0] = &firstChunk
+	}
 
 	//FOR DEBUG
 	//for _, chunk := range snapshotChunks {
@@ -97,7 +105,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	//	}
 	//}
 
-	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks)
+	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
 	// rollback index db
 	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
@@ -119,9 +127,9 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	c.flusher.Flush(true)
 
-	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks)
+	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
-	return snapshotChunks, nil
+	return realChunksToDelete, nil
 }
 
 func (c *chain) DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*ledger.AccountBlock, error) {
