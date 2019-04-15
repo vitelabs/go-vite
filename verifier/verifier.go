@@ -31,16 +31,17 @@ func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 }
 
 func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
-	//fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
+	// fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
 	//2. VerifyHash
 	if err := v.Av.verifyHash(block); err != nil {
 		return err
 	}
 	//3. VerifySignature
-	if !v.Av.chain.IsGenesisAccountBlock(block.Hash) {
-		if err := v.Av.verifySignature(block); err != nil {
-			return err
-		}
+	if v.Av.chain.IsGenesisAccountBlock(block.Hash) {
+		return nil
+	}
+	if err := v.Av.verifySignature(block); err != nil {
+		return err
 	}
 	return nil
 }
@@ -48,9 +49,9 @@ func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
 	eLog := v.log.New("method", "VerifyPoolAccBlock")
 
-	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v, hash:%v", snapshotHash, block.AccountAddress, block.Height, block.Hash)
+	detail := fmt.Sprintf("sbHash=%v; block:addr=%v height=%v hash=%v; ", snapshotHash, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
-		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
+		detail += fmt.Sprintf("fromHash=%v;", block.FromBlockHash)
 	}
 
 	verifyResult, task, err := v.Av.verifyReferred(block)

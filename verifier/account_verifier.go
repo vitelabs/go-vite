@@ -222,6 +222,16 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
 		}
 
+		if !isGeneralAddr {
+			isCorrect, err := v.verifyOrderOfContractReceive(block, sendBlock)
+			if err != nil {
+				return FAIL, errors.New(fmt.Sprintf("verifyOrderOfContractReceive failed, err:%v", err))
+			}
+			if !isCorrect {
+				return FAIL, errors.New("verifyOrderOfContractReceive failed")
+			}
+		}
+
 		// check whether the send referred is already received
 		isReceived, err := v.chain.IsReceived(sendBlock.Hash)
 		if err != nil {
@@ -245,6 +255,40 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		return PENDING, nil
 	}
 	return SUCCESS, nil
+}
+
+func (v *AccountVerifier) verifyOrderOfContractReceive(block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) (bool, error) {
+	prevHash := sendBlock.PrevHash
+	for {
+		if prevHash == types.ZERO_HASH {
+			break
+		}
+		pb, err := v.chain.GetAccountBlockByHash(prevHash)
+		if err != nil {
+			return false, err
+		}
+		if pb == nil {
+			return false, errors.New("fail to get caller's prev block, db return nil")
+		}
+		if pb.IsSendBlock() && pb.ToAddress == block.AccountAddress {
+			rb, err := v.chain.GetReceiveAbBySendAb(pb.Hash)
+			if err != nil {
+				return false, err
+			}
+			if rb == nil {
+				return false, errors.New("fail to get caller's prev sendBlock's receive, db return nil")
+			}
+			if block.Height <= rb.Height {
+				v.log.Error("contract's processing sequence error", "detail",
+					fmt.Sprintf("contract: addr=%v height=%v hash=%v; caller: addr=%v, (height=%v hash=%v), (pHeight=%v pHash=%v pRecv=%v);",
+						block.AccountAddress, block.Height, block.Hash, sendBlock.AccountAddress, sendBlock.Height, sendBlock.Hash, pb.Height, pb.Hash, rb.Hash))
+				return false, errors.New("contract's processing sequence error")
+			}
+			return true, nil
+		}
+		prevHash = pb.PrevHash
+	}
+	return true, nil
 }
 
 func (v *AccountVerifier) verifySendBlockIntergrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
