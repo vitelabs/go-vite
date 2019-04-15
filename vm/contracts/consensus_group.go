@@ -20,8 +20,7 @@ func (p *MethodCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Account
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db) {
+		!util.IsViteToken(block.TokenId) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	param := new(types.ConsensusGroupInfo)
@@ -130,8 +129,7 @@ func (p *MethodCancelConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Account
 	if err != nil {
 		return quotaLeft, err
 	}
-	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(db) {
+	if block.Amount.Sign() != 0 {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
@@ -204,8 +202,7 @@ func (p *MethodReCreateConsensusGroup) DoSend(db vm_db.VmDb, block *ledger.Accou
 		return quotaLeft, err
 	}
 	if block.Amount.Cmp(createConsensusGroupPledgeAmount) != 0 ||
-		!util.IsViteToken(block.TokenId) ||
-		!util.IsUserAccount(db) {
+		!util.IsViteToken(block.TokenId) {
 		return quotaLeft, errors.New("invalid block data")
 	}
 	gid := new(types.Gid)
