@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net/http"
 
+	"github.com/vitelabs/go-vite/vm/quota"
 	"sync"
 	"testing"
 	"time"
@@ -50,9 +51,7 @@ func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.Snapsh
 
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
 	b.StopTimer()
-	const (
-		requestTxPercent = 50
-	)
+
 	chainInstance, err := NewChainInstance("benchmark", true)
 	if err != nil {
 		b.Fatal(err)
@@ -66,47 +65,29 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 	fmt.Printf("Account number is %d, snapshotPerNum is %d\n", accountNumber, snapshotPerBlockNum)
 
-	cTxOptions := &CreateTxOptions{
-		MockSignature: true,
-	}
-
 	for i := 0; i < b.N; i++ {
-		account := accounts[addrList[rand.Intn(accountNumber)]]
-		createRequestTx := true
 
-		if account.HasOnRoadBlock() {
-			randNum := rand.Intn(100)
-			if randNum > requestTxPercent {
-				createRequestTx = false
-			}
+		account := getRandomAccount(accounts)
+
+		vmBlock, err := createVmBlock(account, accounts)
+		if err != nil {
+			panic(err)
 		}
 
-		var tx *vm_db.VmAccountBlock
-		if createRequestTx {
-			toAccount := accounts[addrList[rand.Intn(accountNumber)]]
-			tx, err = account.CreateSendBlock(toAccount, cTxOptions)
-			if err != nil {
-				b.Fatal(err)
-			}
-		} else {
-			tx, err = account.CreateReceiveBlock(cTxOptions)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
+		account.InsertBlock(vmBlock, accounts)
 
 		b.StartTimer()
+
+		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+			b.Fatal(err)
+		}
+
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 			_, _, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
-
-		if err := chainInstance.InsertAccountBlock(tx); err != nil {
-			b.Fatal(err)
-		}
-
 		b.StopTimer()
 	}
 
@@ -123,6 +104,8 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+
+	quota.InitQuotaConfig(true, true)
 
 	for _, snapshotPerNum := range []int{0} {
 		for _, accountNum := range []int{1, 10, 100, 10000, 10000} {
@@ -245,7 +228,8 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 		MockSignature: true,                         // mock signature
 		KeyValue:      createKeyValue(latestHeight), // create key value
 		VmLogList:     createVmLogList(),            // create vm log list
-		Quota:         rand.Uint64() % 10000,
+		//Quota:         rand.Uint64() % 10000,
+		Quota: 0,
 	}
 
 	var vmBlock *vm_db.VmAccountBlock

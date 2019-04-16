@@ -155,7 +155,9 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 
 	}
-	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete)
+	if err := c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete); err != nil {
+		return nil, err
+	}
 
 	// rollback index db
 	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
@@ -228,18 +230,22 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 
 	needDeleteBlocks := c.computeDependencies(planDeleteBlocks)
 
-	c.deleteAccountBlocks(needDeleteBlocks)
+	if err := c.deleteAccountBlocks(needDeleteBlocks); err != nil {
+		return nil, err
+	}
 
 	return needDeleteBlocks, nil
 }
 
-func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
+func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	//FOR DEBUG
 	for _, ab := range blocks {
 		c.log.Info(fmt.Sprintf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
 	}
 
-	c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil)
+	if err := c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil); err != nil {
+		return err
+	}
 
 	// rollback index db
 	if err := c.indexDB.RollbackAccountBlocks(blocks); err != nil {
@@ -260,4 +266,5 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
 	}
 
 	c.em.Trigger(DeleteAbsEvent, nil, blocks, nil, nil)
+	return nil
 }

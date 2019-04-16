@@ -37,19 +37,21 @@ func newEventManager() *eventManager {
 }
 
 func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccountBlock,
-	deleteAccountBlocks []*ledger.AccountBlock, snapshotBlocks []*ledger.SnapshotBlock, chunks []*ledger.SnapshotChunk) {
+	deleteAccountBlocks []*ledger.AccountBlock, snapshotBlocks []*ledger.SnapshotBlock, chunks []*ledger.SnapshotChunk) error {
 
 	em.mu.Lock()
 	defer em.mu.Unlock()
 
 	if len(em.listenerList) <= 0 {
-		return
+		return nil
 	}
 
 	switch eventType {
 	case prepareInsertAbsEvent:
 		for _, listener := range em.listenerList {
-			listener.PrepareInsertAccountBlocks(vmAccountBlocks)
+			if err := listener.PrepareInsertAccountBlocks(vmAccountBlocks); err != nil {
+				return err
+			}
 		}
 	case insertAbsEvent:
 		for _, listener := range em.listenerList {
@@ -58,7 +60,9 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 
 	case prepareInsertSbsEvent:
 		for _, listener := range em.listenerList {
-			listener.PrepareInsertSnapshotBlocks(snapshotBlocks)
+			if err := listener.PrepareInsertSnapshotBlocks(snapshotBlocks); err != nil {
+				return err
+			}
 		}
 	case InsertSbsEvent:
 		for _, listener := range em.listenerList {
@@ -67,7 +71,9 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 
 	case prepareDeleteAbsEvent:
 		for _, listener := range em.listenerList {
-			listener.PrepareDeleteAccountBlocks(deleteAccountBlocks)
+			if err := listener.PrepareDeleteAccountBlocks(deleteAccountBlocks); err != nil {
+				return err
+			}
 		}
 	case DeleteAbsEvent:
 		for _, listener := range em.listenerList {
@@ -76,7 +82,9 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 
 	case prepareDeleteSbsEvent:
 		for _, listener := range em.listenerList {
-			listener.PrepareDeleteSnapshotBlocks(chunks)
+			if err := listener.PrepareDeleteSnapshotBlocks(chunks); err != nil {
+				return err
+			}
 		}
 	case DeleteSbsEvent:
 		for _, listener := range em.listenerList {
@@ -84,6 +92,7 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 		}
 	}
 
+	return nil
 }
 
 func (em *eventManager) Register(listener EventListener) {
