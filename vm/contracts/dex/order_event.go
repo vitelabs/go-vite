@@ -13,7 +13,7 @@ const orderUpdateEventName = "orderUpdateEvent"
 const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
 const newMarketEventName = "newMarketEvent"
-const errEventName = "errEventName"
+const errEventName = "errEvent"
 const cancelOrderFailEventName = "cancelOrderFailEvent"
 
 
