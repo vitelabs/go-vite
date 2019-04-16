@@ -314,8 +314,6 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 }
 
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
-	monitor.LogEvent("net/fetch", "GetSnapshotBlocks")
-
 	// been suppressed
 	if f.filter.hold(start) {
 		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", start, count))
@@ -348,8 +346,6 @@ func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
 }
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
-	monitor.LogEvent("net/fetch", "GetAccountBlocks")
-
 	// been suppressed
 	if f.filter.hold(start) {
 		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
@@ -391,8 +387,6 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 }
 
 func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
-	monitor.LogEvent("net/fetch", "GetAccountBlocks_S")
-
 	// been suppressed
 	if f.filter.hold(start) {
 		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))

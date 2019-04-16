@@ -268,6 +268,8 @@ func (b *broadcaster) codes() []code {
 }
 
 func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
+	defer monitor.LogTime("broadcast", "handle", time.Now())
+
 	switch code(msg.Code) {
 	case NewSnapshotBlockCode:
 		nb := new(message.NewSnapshotBlock)
@@ -449,7 +451,7 @@ func (b *broadcaster) setHeight(height uint64) {
 
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
-	defer monitor.LogTime("net/broadcast", "SnapshotBlock", now)
+	defer monitor.LogTime("broadcast", "broad", now)
 
 	var err error
 	ps := b.peers.unknownBlock(block.Hash)
@@ -478,7 +480,7 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	now := time.Now()
-	defer monitor.LogTime("net/broadcast", "AccountBlock", now)
+	defer monitor.LogTime("broadcast", "broad", now)
 
 	var err error
 	ps := b.peers.unknownBlock(block.Hash)
@@ -499,6 +501,8 @@ func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (b *broadcaster) forwardSnapshotBlock(msg *message.NewSnapshotBlock, sender broadcastPeer) {
+	defer monitor.LogTime("broadcast", "forward", time.Now())
+
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
 		if p.hasBlock(msg.Block.Hash) {
@@ -513,6 +517,8 @@ func (b *broadcaster) forwardSnapshotBlock(msg *message.NewSnapshotBlock, sender
 }
 
 func (b *broadcaster) forwardAccountBlock(msg *message.NewAccountBlock, sender broadcastPeer) {
+	defer monitor.LogTime("broadcast", "forward", time.Now())
+
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
 		if p.hasBlock(msg.Block.Hash) {
