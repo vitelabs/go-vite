@@ -106,6 +106,7 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 
 	for _, block := range newUnconfirmedBlocks {
 		redoLogList := newUnconfirmedLog[block.AccountAddress]
+
 		startHeight := redoLogList[0].Height
 		targetIndex := block.Height - startHeight
 
@@ -434,9 +435,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 
 		copy(storageTemplateKey[1+types.AddressSize:], storageKeyBytes)
 
-		storageKey := storageKeyBytes[:iter.Key()[1+types.AddressSize+types.HashSize]]
-
-		delete(keySet, string(storageKey))
+		delete(keySet, string(storageKeyBytes[:storageKeyBytes[len(storageKeyBytes)-1]]))
 
 		iter.Seek(seekTemplateKey)
 

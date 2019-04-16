@@ -12,12 +12,12 @@ func (c *chain) DeleteSnapshotBlocks(toHash types.Hash) ([]*ledger.SnapshotChunk
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockHeight failed, snapshotHash is %s. Error: %s", toHash, err.Error()))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocks")
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
 		return nil, cErr
 	}
 	if height <= 1 {
-		cErr := errors.New(fmt.Sprintf("height <= 1,  snapshotHash is %s. Error: %s", toHash, err.Error()))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocks")
+		cErr := errors.New(fmt.Sprintf("height <= 1, snapshotHash is %s. Error: %s", toHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocks")
 		return nil, cErr
 	}
 
@@ -33,24 +33,63 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		return nil, cErr
 	}
 
+	deleteAtOnce := uint64(120)
+	// init target height
+	targetHeight := latestHeight + 1
+
+	allChunksDeleted := make([]*ledger.SnapshotChunk, 0, latestHeight-toHeight+1)
+
+	for targetHeight > toHeight {
+		// compute middle height to delete, because can't delete too much data at once
+		if targetHeight > deleteAtOnce {
+			targetHeight -= deleteAtOnce
+			if targetHeight < toHeight {
+				targetHeight = toHeight
+			}
+		} else {
+			targetHeight = toHeight
+		}
+
+		// delete to middle height
+		chunksDeleted, err := c.deleteSnapshotBlocksToHeight(targetHeight)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.deleteSnapshotBlocksToHeight failed, targetHeight is %d. Error: %s", targetHeight, err.Error()))
+			c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+			return nil, cErr
+		}
+
+		// assemble all chunks deleted
+		if len(allChunksDeleted) > 0 && allChunksDeleted[0].AccountBlocks == nil && chunksDeleted[len(chunksDeleted)-1].SnapshotBlock == nil {
+			allChunksDeleted[0].AccountBlocks = chunksDeleted[len(chunksDeleted)-1].AccountBlocks
+			allChunksDeleted = append(chunksDeleted[:len(chunksDeleted)-1], allChunksDeleted...)
+		} else {
+			allChunksDeleted = append(chunksDeleted, allChunksDeleted...)
+		}
+
+	}
+
+	return allChunksDeleted, nil
+}
+func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+
 	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockLocation failed, height is %d. Error: %s", toHeight-1, err.Error()))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 		return nil, cErr
 	}
 
 	location, err := c.blockDB.GetNextLocation(tmpLocation)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.GetNextLocation failed. Error: %s", err.Error()))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 		return nil, cErr
 	}
 
 	if location == nil {
 		cErr := errors.New(fmt.Sprintf("location is nil, toHeight is %d",
 			toHeight))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 
 		return nil, cErr
 	}
@@ -60,7 +99,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.RollbackAccountBlocks failed, location is %d. Error: %s,", location, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 	if len(snapshotChunks) <= 0 {
 		return nil, nil
@@ -71,16 +110,19 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "DeleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 		return nil, cErr
 	}
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
 
 	// append old unconfirmed blocks
-	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
-		AccountBlocks: c.cache.GetUnconfirmedBlocks(),
-	})
+	oldUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
+	if len(oldUnconfirmedBlocks) > 0 {
+		snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
+			AccountBlocks: oldUnconfirmedBlocks,
+		})
+	}
 
 	realChunksToDelete := snapshotChunks
 	if hasStorageRedoLog {
@@ -111,29 +153,27 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 
 	}
-
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
 	// rollback index db
 	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.RollbackSnapshotBlocks failed, error is %s", err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback cache
 	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.RollbackSnapshotBlocks failed, error is %s", err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback state db
 	if err := c.stateDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.RollbackSnapshotBlocks failed, error is %s", err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToLocation")
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	c.flusher.Flush(true)
-
 	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
 	return realChunksToDelete, nil
