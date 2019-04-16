@@ -86,7 +86,7 @@ message MarketInfo {
     int32 TradeTokenDecimals = 1;
     int32 QuoteTokenDecimals = 2;
     bytes Creator    = 3; //creator address
-    int64 Timestamp = 4;
+    int64 Timestamp = 8;
 }
 
 message NewMarket {
