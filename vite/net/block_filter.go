@@ -7,7 +7,7 @@ import (
 )
 
 const filterCap = 100000
-const rt = 0.0001
+const rt = 0.001
 
 type blockFilter interface {
 	has(b []byte) bool
