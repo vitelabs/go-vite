@@ -348,7 +348,7 @@ func (md MethodDexFundFeeDividend) DoReceive(db vmctxt_interface.VmDatabase, blo
 	if err = doDivideFees(db, param.PeriodId); err != nil {
 		return handleReceiveErr(db, err)
 	} else {
-		dex.SaveLastDividendIdToStorage(db, param.PeriodId)
+		dex.SaveLastFeeDividendIdToStorage(db, param.PeriodId)
 	}
 	return []*SendBlock{}, nil
 }

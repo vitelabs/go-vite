@@ -20,15 +20,14 @@ import (
 	"time"
 )
 
-
 type tokenInfo struct {
-	tokenId types.TokenTypeId
+	tokenId  types.TokenTypeId
 	decimals int32
 }
 
 var (
-	ETH = tokenInfo{types.TokenTypeId{'E', 'T', 'H', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}, 12} //tradeToken
-	VITE = tokenInfo{ledger.ViteTokenId, 14} //quoteToken
+	ETH  = tokenInfo{types.TokenTypeId{'E', 'T', 'H', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}, 12} //tradeToken
+	VITE = tokenInfo{ledger.ViteTokenId, 14}                                                  //quoteToken
 )
 
 func TestDexFund(t *testing.T) {
@@ -39,6 +38,7 @@ func TestDexFund(t *testing.T) {
 	registerToken(db, VITE)
 	innerTestDepositAndWithdraw(t, db, userAddress)
 	innerTestFundNewOrder(t, db, userAddress)
+	innerTestVerifyBalance(t, db)
 	//innerTestNewMarket(t, db)
 	innerTestSettleOrder(t, db, userAddress)
 }
@@ -70,7 +70,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 
 	depositReceiveBlock := &ledger.AccountBlock{}
 
-	_, err = depositMethod.DoReceive(db, depositReceiveBlock, depositSendAccBlock)
+	err = doDeposit(db, depositMethod, depositReceiveBlock, depositSendAccBlock)
 	assert.True(t, err == nil)
 
 	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
@@ -94,7 +94,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	withdrawReceiveBlock.Timestamp = &now
 
 	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
-	appendedBlocks, _ := withdrawMethod.DoReceive(db, withdrawReceiveBlock, withdrawSendAccBlock)
+	appendedBlocks, _ := doWithdraw(db, withdrawMethod, withdrawReceiveBlock, withdrawSendAccBlock)
 
 	dexFund, _ = dex.GetUserFundFromStorage(db, userAddress)
 	acc = dexFund.Accounts[0]
@@ -116,11 +116,10 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	senderAccBlock.TokenId = VITE.tokenId
 	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "fee for create market not enough", err.Error())
-	senderAccBlock.Amount = dex.NewMarketFeeAmount
 	senderAccBlock.Amount = new(big.Int).Add(dex.NewMarketFeeAmount, dex.NewMarketFeeDividendAmount)
 
 	receiveBlock := &ledger.AccountBlock{}
-	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	err = doNewMarket(db, method, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress1)
 	acc := dexFund.Accounts[0]
@@ -131,13 +130,23 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	assert.True(t, bytes.Equal(marketInfo.Creator, userAddress1.Bytes()))
 	assert.Equal(t, VITE.decimals, marketInfo.TradeTokenDecimals)
 	assert.Equal(t, ETH.decimals, marketInfo.QuoteTokenDecimals)
-	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	err = doNewMarket(db, method, receiveBlock, senderAccBlock)
 
 	assert.Equal(t, dex.TradeMarketExistsError, err)
 	userFees, _ := dex.GetUserFeesFromStorage(db, userAddress1.Bytes())
 	assert.Equal(t, 1, len(userFees.Fees))
 	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Token, VITE.tokenId.Bytes()))
 	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Amount, dex.NewMarketFeeDividendAmount.Bytes()))
+}
+
+func innerTestVerifyBalance(t *testing.T, db *testDatabase) {
+	resMap := dex.VerifyDexFundBalance(db)
+	for _, v := range resMap {
+		if v.TokenId != vxTokenId {
+			//fmt.Printf("token %s, balance %s, amount %s, ok %v\n", string(v.TokenId.Bytes()), v.Balance, v.Amount, v.Ok)
+			assert.True(t, v.Ok)
+		}
+	}
 }
 
 func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Address) {
@@ -157,8 +166,8 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	assert.Equal(t, err, nil)
 	eventLen := len(db.logList)
 	invalidMarketEvent := dex.NewOrderFailEvent{}
-	assert.Equal(t, invalidMarketEvent.GetTopicId().Bytes(), db.logList[eventLen - 1].Topics[0].Bytes())
-	invalidMarketEvent, _ = invalidMarketEvent.FromBytes(db.logList[eventLen - 1].Data).(dex.NewOrderFailEvent)
+	assert.Equal(t, invalidMarketEvent.GetTopicId().Bytes(), db.logList[eventLen-1].Topics[0].Bytes())
+	invalidMarketEvent, _ = invalidMarketEvent.FromBytes(db.logList[eventLen-1].Data).(dex.NewOrderFailEvent)
 	assert.Equal(t, strconv.Itoa(dex.TradeMarketNotExistsFail), invalidMarketEvent.ErrCode)
 
 	innerTestNewMarket(t, db)
@@ -166,8 +175,8 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	_, err = method.DoReceive(db, receiveBlock, senderAccBlock)
 	eventLen = len(db.logList)
 	tooSmallAmountEvent := dex.NewOrderFailEvent{}
-	assert.Equal(t, tooSmallAmountEvent.GetTopicId().Bytes(), db.logList[eventLen - 1].Topics[0].Bytes())
-	tooSmallAmountEvent, _ = tooSmallAmountEvent.FromBytes(db.logList[eventLen - 1].Data).(dex.NewOrderFailEvent)
+	assert.Equal(t, tooSmallAmountEvent.GetTopicId().Bytes(), db.logList[eventLen-1].Topics[0].Bytes())
+	tooSmallAmountEvent, _ = tooSmallAmountEvent.FromBytes(db.logList[eventLen-1].Data).(dex.NewOrderFailEvent)
 	assert.Equal(t, strconv.Itoa(dex.OrderAmountTooSmallFail), tooSmallAmountEvent.ErrCode)
 
 	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, uint32(dex.Limited), "0.3", big.NewInt(2000))
@@ -276,14 +285,14 @@ func initDexFundDatabase() *testDatabase {
 	//	subSec := int64(t.Sub(self.genesisTime).Seconds())
 	//	i := uint64(subSec) / self.PlanInterval
 	consensusGroupData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
-		uint8(25),//nodeCount
-		int64(1),//interval
-		int64(3),//perCount
+		uint8(25), //nodeCount
+		int64(1),  //interval
+		int64(3),  //perCount
 		uint8(2),
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600 * 24 * 90).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{},
 		db.addr,
@@ -295,8 +304,8 @@ func initDexFundDatabase() *testDatabase {
 }
 
 func rollPeriod(db *testDatabase) {
-	lastSnapshot := db.snapshotBlockList[len(db.snapshotBlockList) - 1]
-	t1 := time.Unix(int64(lastSnapshot.Timestamp.Unix() + 75), 0)
+	lastSnapshot := db.snapshotBlockList[len(db.snapshotBlockList)-1]
+	t1 := time.Unix(int64(lastSnapshot.Timestamp.Unix()+75), 0)
 	snapshot1 := &ledger.SnapshotBlock{Height: lastSnapshot.Height + 1, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot1)
 }
@@ -328,4 +337,27 @@ func orderIdBytesFromInt(v int) []byte {
 	bs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bs, uint32(v))
 	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
+}
+
+func doDeposit(db *testDatabase, depositMethod contracts.MethodDexFundUserDeposit, receiveBlock, sendBlock *ledger.AccountBlock) (err error) {
+	if _, err = depositMethod.DoReceive(db, receiveBlock, sendBlock); err == nil {
+		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+	}
+	return err
+}
+
+func doWithdraw(db *testDatabase, withdrawMethod contracts.MethodDexFundUserWithdraw, receiveBlock, sendBlock *ledger.AccountBlock) (appendedBlocks []*contracts.SendBlock, err error) {
+	if appendedBlocks, err = withdrawMethod.DoReceive(db, receiveBlock, sendBlock); err == nil {
+		param := new(dex.ParamDexFundWithDraw)
+		contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundUserWithdraw, sendBlock.Data)
+		db.SubBalance(&param.Token, param.Amount)
+	}
+	return appendedBlocks, err
+}
+
+func doNewMarket(db *testDatabase, newMarketMethod contracts.MethodDexFundNewMarket, receiveBlock, sendBlock *ledger.AccountBlock) (err error) {
+	if _, err = newMarketMethod.DoReceive(db, receiveBlock, sendBlock); err == nil {
+		db.AddBalance(&sendBlock.TokenId, sendBlock.Amount)
+	}
+	return err
 }

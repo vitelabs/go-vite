@@ -655,7 +655,7 @@ func GetLastFeeDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 {
 	}
 }
 
-func SaveLastDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
+func SaveLastFeeDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
 	db.SetStorage(lastFeeDividendIdKey, Uint64ToBytes(periodId))
 }
 

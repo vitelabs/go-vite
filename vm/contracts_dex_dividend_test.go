@@ -13,8 +13,7 @@ import (
 )
 
 var (
- 	vxTokenBytes = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
- 	vxTokenId, _ = types.BytesToTokenTypeId(vxTokenBytes)
+ 	vxTokenId = types.TokenTypeId{'V', 'X', ' ', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}
 	vxTokenInfo = tokenInfo{vxTokenId, 5}
 
 	userAddress0, _ = types.BytesToAddress([]byte("12345678901234567890"))
@@ -26,11 +25,12 @@ func TestDexDividend(t *testing.T) {
 	db := initDexFundDatabase()
 	registerToken(db, vxTokenInfo)
 	rollPeriod(db)
-	dex.VxTokenBytes = vxTokenBytes
+	dex.VxTokenBytes = vxTokenId.Bytes()
 	dex.VxDividendThreshold = big.NewInt(20)
 	innerTestVxAccUpdate(t, db)
 	innerTestFeeDividend(t, db)
 	innerTestMinedVxForFee(t, db)
+	innerTestVerifyBalance(t, db)
 }
 
 func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
@@ -202,7 +202,9 @@ func innerTestFeeDividend(t *testing.T, db *testDatabase) {
 	checkUserVxLen(t, db, userAddress1.Bytes(), 3)
 
 	err = feeDividend(db, 4)
-	assert.Equal(t, "fee dividend period id not equals to expected id 3", err.Error())
+	invalidPeriodIdErr := dex.ErrEvent{}
+	assert.Equal(t, invalidPeriodIdErr.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
+	assert.Equal(t, "fee dividend period id not equals to expected id 3", invalidPeriodIdErr.FromBytes(db.logList[0].Data).(dex.ErrEvent).Error())
 
 	err = feeDividend(db, 3) // not fount feeSum
 	err = feeDividend(db, 4) // vxSum is zero
@@ -272,7 +274,7 @@ func deposit(db *testDatabase, address types.Address, tokenId types.TokenTypeId,
 	depositReceiveBlock := &ledger.AccountBlock{}
 
 	depositMethod := contracts.MethodDexFundUserDeposit{}
-	_, err = depositMethod.DoReceive(db, depositReceiveBlock, depositSendBlock)
+	err = doDeposit(db, depositMethod, depositReceiveBlock, depositSendBlock)
 	return err
 }
 
@@ -285,15 +287,17 @@ func withdraw(db *testDatabase, address types.Address, tokenId types.TokenTypeId
 	withdrawReceiveBlock := &ledger.AccountBlock{}
 
 	withdrawMethod := contracts.MethodDexFundUserWithdraw{}
-	_, err = withdrawMethod.DoReceive(db, withdrawReceiveBlock, withdrawSendBlock)
+	_, err = doWithdraw(db, withdrawMethod, withdrawReceiveBlock, withdrawSendBlock)
 	return err
 }
 
 func settleFund(db *testDatabase, address types.Address, tokenId types.TokenTypeId, incAmount int64) error {
+	db.AddBalance(&tokenId, big.NewInt(incAmount))
 	return settleFundAndFee(db, address, tokenId, incAmount, vxTokenId, 0)
 }
 
 func settleFee(db *testDatabase, address types.Address, feeTokenId types.TokenTypeId, feeAmount int64) error {
+	db.AddBalance(&feeTokenId, big.NewInt(feeAmount))
 	return settleFundAndFee(db, address, vxTokenId, 0, feeTokenId, feeAmount)
 }
 

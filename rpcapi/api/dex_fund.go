@@ -106,3 +106,11 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	}
 	return fundInfoMap, nil
 }
+
+func (f DexFundApi) VerifyFundBalance() (map[types.TokenTypeId]*dex.FundVerifyRes, error){
+	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	return dex.VerifyDexFundBalance(vmContext), nil
+}
