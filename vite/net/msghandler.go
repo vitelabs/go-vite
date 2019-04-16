@@ -233,7 +233,7 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 		return
 	}
 
-	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.Address()))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
 
 	var block *ledger.SnapshotBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -243,7 +243,7 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 	}
 
 	if err != nil || block == nil {
-		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.Address(), err))
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
 		return sender.send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -260,21 +260,22 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 			from = 0
 		}
 	}
+
 	chunks := splitChunk(from, to, syncTaskSize)
 
 	var blocks []*ledger.SnapshotBlock
 	for _, c := range chunks {
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], true, c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
-			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.Address(), err))
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
 			return sender.send(ExceptionCode, msg.Id, message.Missing)
 		}
 
 		if err = sender.sendSnapshotBlocks(blocks, msg.Id); err != nil {
-			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender.Address(), err))
+			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender, err))
 			return
 		} else {
-			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks to %s done", len(blocks), sender.Address()))
+			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, sender))
 		}
 	}
 
@@ -306,7 +307,7 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 		return
 	}
 
-	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender.Address()))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
 
 	var block *ledger.AccountBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -321,7 +322,7 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 	}
 
 	if err != nil || block == nil {
-		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.Address(), err))
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
 		return sender.send(ExceptionCode, msg.Id, message.Missing)
 	}
 
@@ -345,17 +346,17 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 
 	var blocks []*ledger.AccountBlock
 	for _, c := range chunks {
-		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[0], c[1]-c[0]+1)
+		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[1], c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
-			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender.Address(), err))
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
 			return sender.send(ExceptionCode, msg.Id, message.Missing)
 		}
 
 		if err = sender.sendAccountBlocks(blocks, msg.Id); err != nil {
-			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender.Address(), err))
+			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender, err))
 			return
 		} else {
-			netLog.Info(fmt.Sprintf("send %d AccountBlocks to %s done", len(blocks), sender.Address()))
+			netLog.Info(fmt.Sprintf("send %d AccountBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, sender))
 		}
 	}
 
