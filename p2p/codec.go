@@ -20,15 +20,16 @@ package p2p
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
 
+	"github.com/vitelabs/go-vite/monitor"
+
 	"github.com/golang/snappy"
 )
 
-const headLength = 3
-const maxIdLength = 4
 const maxPayloadLength = 3
 const maxPayloadSize = (1 << (maxPayloadLength * 8)) - 1 // 15MB
 const readMsgTimeout = 30 * time.Second
@@ -56,7 +57,7 @@ type CodecFactory interface {
  *  |------------ head --------------|
  *  +----------+----------+----------+------------------+----------------------+----------------------------+
  *  |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
- *  |  1 byte  |  1 byte  |  1 byte  |    0 ~ 3 bytes   |     0 ~ 3 bytes      |         0 ~ 15 MB          |
+ *  |  1 byte  |  1 byte  |  1 byte  |   0 1 2 4 bytes  |     0 ~ 3 bytes      |         0 ~ 15 MB          |
  *  +----------+----------+----------+------------------+----------------------+----------------------------+
  *
  * Meta structure
@@ -69,52 +70,69 @@ type CodecFactory interface {
  * Compress: 0 no compressed, 1 compressed
  */
 
-// idLength is 0, 1, 2, 4
-//func putIdSize(idLength byte) byte {
-//	switch idLength {
-//	case 4:
-//		return 3
-//	default:
-//		return idLength
-//	}
-//}
+// idLength to bits
+//  0 --> 00
+//  1 --> 01
+//  2 --> 10
+//  4 --> 11
+func idLengthToBits(idLength byte) byte {
+	switch idLength {
+	case 4:
+		return 3
+	default:
+		return idLength
+	}
+}
 
-//func getIdSize(code byte) byte {
-//	switch code {
-//	case 3:
-//		return 4
-//	default:
-//		return code
-//	}
-//}
+// bits to id length
+// 00 --> 0
+// 01 --> 1
+// 10 --> 2
+// 11 --> 4
+func bitsToIdLength(bits byte) byte {
+	switch bits {
+	case 3:
+		return 4
+	default:
+		return bits
+	}
+}
 
-//func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
-//	isize = getIdSize(meta >> 6)
-//	lsize = meta << 2 >> 6
-//	compressed = (meta << 4 >> 7) > 0
-//	return
-//}
+// buf should not small than 4 bytes
+func putId(id MsgId, buf []byte) (n byte) {
+	if id == 0 {
+		return 0
+	}
 
-// isize is idsize 0, 1, 2, 4
-// lsize is length 0, 1, 2, 3
-//func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
-//	meta |= putIdSize(isize) << 6
-//	meta |= lsize << 4
-//	if compressed {
-//		meta |= 8
-//	}
-//	return
-//}
+	if id > 65535 {
+		buf[0] = byte(id >> 24)
+		buf[1] = byte(id >> 16)
+		buf[2] = byte(id >> 8)
+		buf[3] = byte(id)
+
+		return 4
+	}
+
+	if id > 255 {
+		buf[0] = byte(id >> 8)
+		buf[1] = byte(id)
+
+		return 2
+	}
+
+	buf[0] = byte(id)
+	return 1
+}
 
 func retrieveMeta(meta byte) (isize, lsize byte, compressed bool) {
-	isize = meta >> 6
+	isize = bitsToIdLength(meta >> 6)
 	lsize = meta << 2 >> 6
 	compressed = (meta << 4 >> 7) > 0
 	return
 }
 
 func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
-	meta |= isize << 6
+	meta |= idLengthToBits(isize) << 6
 	meta |= lsize << 4
 	if compressed {
 		meta |= 8
@@ -127,8 +145,8 @@ type transport struct {
 	readTimeout       time.Duration
 	writeTimeout      time.Duration
 	minCompressLength int // will not compress message payload if small than minCompressLength bytes
-	readHeadBuf       []byte
-	writeHeadBuf      []byte
+	readHeadBuf       [4]byte
+	writeHeadBuf      [10]byte
 }
 
 func (t *transport) Address() net.Addr {
@@ -151,8 +169,6 @@ func NewTransport(conn net.Conn, minCompressLength int, readTimeout, writeTimeou
 		minCompressLength: minCompressLength,
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
-		readHeadBuf:       make([]byte, 3),
-		writeHeadBuf:      make([]byte, 9),
 	}
 }
 
@@ -171,11 +187,13 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 
 // ReadMsg is NOT thread-safe
 func (t *transport) ReadMsg() (msg Msg, err error) {
+	defer monitor.LogTime("codec", "read", time.Now())
 	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
-	buf := t.readHeadBuf
-	_, err = io.ReadFull(t.Conn, buf)
+	buf := t.readHeadBuf[:]
+	_, err = io.ReadFull(t.Conn, buf[:3])
 	if err != nil {
+		err = fmt.Errorf("failed to read message meta: %v", err)
 		return
 	}
 
@@ -190,26 +208,30 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 	if isize > 0 {
 		_, err = io.ReadFull(t.Conn, buf[:isize])
 		if err != nil {
+			err = fmt.Errorf("failed to read message id: %v", err)
 			return
 		}
-		msg.Id = uint32(Varint(buf[:isize]))
+		msg.Id = MsgId(Varint(buf[:isize]))
 	}
 
 	// retrieve payload
 	if lsize > 0 {
 		_, err = io.ReadFull(t.Conn, buf[:lsize])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %v", err)
 			return
 		}
 
 		length := Varint(buf[:lsize])
 		if length > maxPayloadSize {
-			return msg, errMsgPayloadTooLarge
+			err = errMsgPayloadTooLarge
+			return
 		}
 
 		msg.Payload = make([]byte, length)
 		_, err = io.ReadFull(t.Conn, msg.Payload)
 		if err != nil {
+			err = fmt.Errorf("failed to read message payload: %v", err)
 			return
 		}
 	}
@@ -217,6 +239,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 	if compressed {
 		msg.Payload, err = snappy.Decode(nil, msg.Payload)
 		if err != nil {
+			err = fmt.Errorf("failed to decode message payload: %v", err)
 			return
 		}
 	}
@@ -226,21 +249,20 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
+	defer monitor.LogTime("codec", "write", time.Now())
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
-	head := t.writeHeadBuf
+	head := t.writeHeadBuf[:]
 	head[1] = msg.pid
 	head[2] = msg.Code
 
 	var headLen byte = 3
 
-	var isize byte
-	if msg.Id > 0 {
-		isize = PutVarint(head[3:], uint(msg.Id), maxIdLength)
-		headLen += isize
-	}
+	// store msg id
+	isize := putId(msg.Id, head[3:])
+	headLen += isize
 
-	var lsize byte
+	// compress payload
 	var compress bool
 	payloadLen := len(msg.Payload)
 	if payloadLen > t.minCompressLength {
@@ -253,10 +275,9 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 		}
 	}
 
-	if payloadLen > 0 {
-		lsize = PutVarint(head[headLen:], uint(payloadLen), maxPayloadLength)
-		headLen += lsize
-	}
+	// store msg length
+	lsize := PutVarint(head[headLen:], uint(payloadLen))
+	headLen += lsize
 
 	head[0] = storeMeta(isize, lsize, compress)
 
@@ -286,13 +307,12 @@ func Varint(buf []byte) (n uint) {
 	return
 }
 
-func PutVarint(buf []byte, n uint, maxBytes byte) (m byte) {
-	_ = buf[maxBytes-1]
+func PutVarint(buf []byte, n uint) (m byte) {
+	if n == 0 {
+		return
+	}
 
-	for m = 1; m < maxBytes+1; m++ {
-		if n>>uint(m*8) == 0 {
-			break
-		}
+	for m = 1; (n >> uint(m*8)) > 0; m++ {
 	}
 
 	for i := byte(0); i < m; i++ {
