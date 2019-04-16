@@ -125,13 +125,15 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	realChunksToDelete := snapshotChunks
+
 	if hasStorageRedoLog {
 		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
 
 		// remove unconfirmed blocks
 		firstChunk := *snapshotChunks[0]
-		firstChunk.AccountBlocks = nil
-		realChunksToDelete[0] = &firstChunk
+
+		realChunksToDelete[0].AccountBlocks = nil
+		snapshotChunks[0] = &firstChunk
 	}
 
 	//FOR DEBUG
@@ -139,7 +141,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		if chunk.SnapshotBlock != nil {
 			c.log.Info(fmt.Sprintf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
 			for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-				c.log.Info(fmt.Sprintf("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
+				c.log.Info(fmt.Sprintf("Delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
 			}
 		}
 

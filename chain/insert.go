@@ -42,7 +42,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.log.Info(fmt.Sprintf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash))
 
 	for Addr, hh := range snapshotBlock.SnapshotContent {
-		c.log.Info(fmt.Sprintf("%d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
+		c.log.Info(fmt.Sprintf("Insert %d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
 	}
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)

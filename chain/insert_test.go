@@ -19,18 +19,21 @@ import (
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(18, 96, 2)
-	for i := 0; i < 100; i++ {
-		t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
-			snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 17, 7, false)...)
-
-		})
-
-		t.Run("NewStorageDatabase", func(t *testing.T) {
-			NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
-		})
-
+	chainInstance, accounts, snapshotBlockList := SetUp(5, 98, 2)
+	addrList := make([]types.Address, 0, len(accounts))
+	for addr := range accounts {
+		addrList = append(addrList, addr)
 	}
+
+	t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
+		snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 17, 7, false)...)
+	})
+
+	t.Run("NewStorageDatabase", func(t *testing.T) {
+		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+	})
+
+	//}
 
 	TearDown(chainInstance)
 }
@@ -145,7 +148,12 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 	countInserted := 0
 
 	for countInserted < blockCount {
-		insertCount := snapshotPerBlockNum
+		var insertCount = snapshotPerBlockNum
+
+		if insertCount == 0 {
+			insertCount = 10
+		}
+
 		if insertCount > blockCount-countInserted {
 			insertCount = blockCount - countInserted
 		}

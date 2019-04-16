@@ -86,7 +86,7 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 
 func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) error {
 	var fdList []fileDescription
-
+	//fmt.Printf("begin flush %+v - %+v\n", startLocation, targetLocation)
 	// flush
 	flushStartLocation := startLocation
 
@@ -147,6 +147,8 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) 
 		}
 		fm.fSyncWg.Wait()
 	}
+
+	//fmt.Printf("flush finish %+v - %+v\n", startLocation, targetLocation)
 
 	return nil
 }
