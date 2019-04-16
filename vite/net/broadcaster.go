@@ -451,16 +451,16 @@ func (b *broadcaster) setHeight(height uint64) {
 
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
-	defer monitor.LogTime("broadcast", "broad", now)
+	defer monitor.LogTime("broadcast", "broadcast", now)
 
 	var err error
 	ps := b.peers.unknownBlock(block.Hash)
 	for _, p := range ps {
 		err = p.sendNewSnapshotBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Error(fmt.Sprintf("failed to broadcast snapshotblock %s/%d to %s: %v", block.Hash, block.Height, p, err))
 		} else {
-			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p))
 		}
 	}
 
@@ -480,16 +480,16 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	now := time.Now()
-	defer monitor.LogTime("broadcast", "broad", now)
+	defer monitor.LogTime("broadcast", "broadcast", now)
 
 	var err error
 	ps := b.peers.unknownBlock(block.Hash)
 	for _, p := range ps {
 		err = p.sendNewAccountBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Error(fmt.Sprintf("failed to broadcast accountblock %s/%d to %s: %v", block.Hash, block.Height, p, err))
 		} else {
-			b.log.Info(fmt.Sprintf("broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Info(fmt.Sprintf("broadcast accountblock %s/%d to %s", block.Hash, block.Height, p))
 		}
 	}
 }

@@ -205,16 +205,12 @@ func (n *net) ID() p2p.ProtocolID {
 }
 
 func (n *net) Handle(msg p2p.Msg) error {
-	if handler := n.handlers.pick(code(msg.Code)); handler != nil {
-		p := n.peers.get(msg.Sender.ID())
-		if p != nil {
-			return handler.handle(msg, p)
-		} else {
-			return errPeerNotExist
-		}
+	p := n.peers.get(msg.Sender.ID())
+	if p != nil {
+		return n.handlers.handle(msg, p)
+	} else {
+		return errPeerNotExist
 	}
-
-	return p2p.PeerUnknownMessage
 }
 
 func (n *net) SetState(state []byte, peer p2p.Peer) {

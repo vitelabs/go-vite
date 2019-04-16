@@ -11,7 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
@@ -30,92 +29,63 @@ type MsgIder interface {
 	MsgID() p2p.MsgId
 }
 
-// chain fetchPolicy implementation can choose suitable peers to fetch blocks
-type fetchPolicy interface {
-	accountTargets(height uint64) (l []Peer)
-	snapshotTarget(height uint64) Peer
+// fetchTargets implementation can choose suitable peers to fetch blocks
+type fetchTargets interface {
+	account(height uint64) Peer
+	snapshot(height uint64) Peer
 }
 
-// chain fp is fetchPolicy implementation
 type fp struct {
 	peers *peerSet
 }
 
-// best peer , random peer, chain random taller peer
-func (p *fp) accountTargets(height uint64) []Peer {
-	var l, taller []Peer
-
-	peerList := p.peers.peers()
-	total := len(peerList)
-
-	if total == 0 {
-		return l
+// a random taller peer
+func (p *fp) account(height uint64) Peer {
+	var ps peers
+	if height == 0 {
+		ps = p.peers.sortPeers()
+	} else {
+		ps = p.peers.pick(height)
 	}
 
-	// best
-	var per Peer
-	var maxHeight uint64
-	for _, p := range peerList {
-		peerHeight := p.height()
-
-		if peerHeight > maxHeight {
-			maxHeight = peerHeight
-			per = p
-		}
-
-		if peerHeight >= height {
-			taller = append(taller, p)
-		}
+	if len(ps) == 0 {
+		return p.peers.bestPeer()
 	}
 
-	l = append(l, per)
-
-	// random
-	ran := rand.Intn(total)
-	if per = peerList[ran]; per != l[0] {
-		l = append(l, per)
+	top := len(ps) / 3
+	if top == 0 {
+		return ps[0]
 	}
 
-	// taller
-	if len(taller) > 0 {
-		ran = rand.Intn(len(taller))
-		per = taller[ran]
-
-		for _, per2 := range l {
-			if per == per2 {
-				return l
-			}
-		}
-
-		l = append(l, per)
-	}
-
-	return l
+	ran := rand.Intn(top)
+	return ps[ran]
 }
 
-func (p *fp) snapshotTarget(height uint64) Peer {
+func (p *fp) snapshot(height uint64) Peer {
 	if height == 0 {
 		return p.peers.bestPeer()
 	}
 
 	ps := p.peers.pick(height)
 	if len(ps) == 0 {
-		return nil
+		return p.peers.bestPeer()
 	}
 
-	i := rand.Intn(len(ps))
-	return ps[i]
+	ran := rand.Intn(len(ps))
+	return ps[ran]
 }
 
 // fetch filter
 const maxMark = 3       // times
 const timeThreshold = 3 // second
+const expiration = 60
 
 type record struct {
+	id     p2p.MsgId
 	addAt  int64
 	doneAt int64
 	mark   int
-	_done  bool
+	st     reqState
 }
 
 func (r *record) inc() {
@@ -124,84 +94,115 @@ func (r *record) inc() {
 
 func (r *record) reset() {
 	r.mark = 0
-	r._done = false
+	r.st = reqPending
 	r.addAt = time.Now().Unix()
 }
 
 func (r *record) done() {
+	r.st = reqDone
 	r.doneAt = time.Now().Unix()
-	r._done = true
 }
 
 type filter struct {
-	records map[types.Hash]*record
-	lock    sync.RWMutex
+	idGen    MsgIder
+	idToHash map[p2p.MsgId]types.Hash
+	records  map[types.Hash]*record
+	mu       sync.Mutex
+	pool     sync.Pool
 }
 
 func newFilter() *filter {
 	return &filter{
-		records: make(map[types.Hash]*record, 3600),
+		idGen:    new(gid),
+		idToHash: make(map[p2p.MsgId]types.Hash, 1000),
+		records:  make(map[types.Hash]*record, 1000),
+		pool: sync.Pool{
+			New: func() interface{} {
+				return &record{}
+			},
+		},
 	}
 }
 
 func (f *filter) clean(t int64) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	for hash, r := range f.records {
-		if r._done && (t-r.doneAt) > timeThreshold {
+		if (t - r.addAt) > expiration {
 			delete(f.records, hash)
+			delete(f.idToHash, r.id)
+
+			f.pool.Put(r)
 		}
 	}
 }
 
 // will suppress fetch
-func (f *filter) hold(hash types.Hash) bool {
-	f.lock.Lock()
-	defer f.lock.Unlock()
+func (f *filter) hold(hash types.Hash) (id p2p.MsgId, hold bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	now := time.Now().Unix()
-	if r, ok := f.records[hash]; ok {
-		if r._done {
+
+	var r *record
+	var ok bool
+
+	if r, ok = f.records[hash]; ok {
+		if r.st == reqError {
+			r.reset()
+			return r.id, false
+		}
+
+		if r.st == reqDone {
 			if r.mark >= maxMark && (now-r.doneAt) >= timeThreshold {
 				r.reset()
-				return false
+				return r.id, false
 			}
 		} else {
 			if r.mark >= maxMark*2 && (now-r.addAt) >= timeThreshold*2 {
 				r.reset()
-				return false
+				return r.id, false
 			}
 		}
 
 		r.inc()
-	} else {
-		f.records[hash] = &record{addAt: now, mark: 1}
-		return false
+		return r.id, true
 	}
 
-	return true
+	r = f.pool.Get().(*record)
+	r.addAt = now
+	r.mark = 0
+	r.id = f.idGen.MsgID()
+	r.st = reqPending
+
+	f.records[hash] = r
+	f.idToHash[r.id] = hash
+
+	return r.id, false
 }
 
-func (f *filter) done(hash types.Hash) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
+func (f *filter) done(id p2p.MsgId) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	if r, ok := f.records[hash]; ok {
-		r.done()
-	}
-}
-
-func (f *filter) fail(hash types.Hash) {
-	f.lock.RLock()
-	defer f.lock.RUnlock()
-
-	if r, ok := f.records[hash]; ok {
-		if r._done {
-			return
+	if hash, ok := f.idToHash[id]; ok {
+		var r *record
+		if r, ok = f.records[hash]; ok {
+			r.done()
 		}
+	}
+}
 
-		delete(f.records, hash)
+func (f *filter) fail(id p2p.MsgId) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if hash, ok := f.idToHash[id]; ok {
+		var r *record
+		if r, ok = f.records[hash]; ok {
+			r.st = reqError
+		}
 	}
 }
 
@@ -211,8 +212,7 @@ type fetcher struct {
 	st       SyncState
 	receiver blockReceiver
 
-	policy fetchPolicy
-	idGen  MsgIder
+	policy fetchTargets
 
 	log log15.Logger
 
@@ -223,9 +223,8 @@ func newFetcher(peers *peerSet, receiver blockReceiver) *fetcher {
 	return &fetcher{
 		filter:   newFilter(),
 		policy:   &fp{peers},
-		idGen:    new(gid),
 		receiver: receiver,
-		log:      log15.New("module", "net/fetcher"),
+		log:      netLog.New("module", "fetcher"),
 	}
 }
 
@@ -247,7 +246,7 @@ func (f *fetcher) stop() {
 }
 
 func (f *fetcher) cleanLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -287,7 +286,7 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		if len(bs.Blocks) > 0 {
-			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
+			f.filter.done(msg.Id)
 		}
 
 	case AccountBlocksCode:
@@ -303,61 +302,96 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 
 		if len(bs.Blocks) > 0 {
-			f.filter.done(bs.Blocks[len(bs.Blocks)-1].Hash)
+			f.filter.done(msg.Id)
 		}
 
-	default:
-		// todo
+	case ExceptionCode:
+		f.filter.fail(msg.Id)
 	}
 
 	return nil
 }
 
 func (f *fetcher) FetchSnapshotBlocks(start types.Hash, count uint64) {
-	// been suppressed
-	if f.filter.hold(start) {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", start, count))
-		return
-	}
-
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 
-	if p := f.policy.snapshotTarget(0); p != nil {
+	// been suppressed
+	id, hold := f.filter.hold(start)
+	if hold {
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", start, count))
+		return
+	}
+
+	if p := f.policy.snapshot(0); p != nil {
 		m := &message.GetSnapshotBlocks{
 			From:    ledger.HashHeight{Hash: start},
 			Count:   count,
 			Forward: false,
 		}
 
-		id := f.idGen.MsgID()
-
 		if err := p.send(GetSnapshotBlocksCode, id, m); err != nil {
-			f.log.Error(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
+			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
+			f.filter.fail(id)
 		} else {
-			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", start, count, p.Address()))
+			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", start, count, p))
 		}
-		monitor.LogEvent("net/fetch", "GetSnapshotBlocks_Send")
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
+		f.filter.fail(id)
+	}
+}
+
+// FetchSnapshotBlocksWithHeight fetch blocks:
+//  ... count blocks ... {hash, height}
+func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) {
+	if !f.st.syncExited() {
+		f.log.Debug("in syncing flow, cannot fetch")
+		return
+	}
+
+	id, hold := f.filter.hold(hash)
+	// been suppressed
+	if hold {
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", hash, count))
+		return
+	}
+
+	if p := f.policy.snapshot(0); p != nil {
+		m := &message.GetSnapshotBlocks{
+			From:    ledger.HashHeight{Hash: hash},
+			Count:   count,
+			Forward: false,
+		}
+
+		if err := p.send(GetSnapshotBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
+			f.filter.fail(id)
+		} else {
+			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+		}
+	} else {
+		f.log.Error(errNoSuitablePeer.Error())
+		f.filter.fail(id)
 	}
 }
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
-	// been suppressed
-	if f.filter.hold(start) {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
-		return
-	}
-
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 
-	if peerList := f.policy.accountTargets(0); len(peerList) != 0 {
+	id, hold := f.filter.hold(start)
+	// been suppressed
+	if hold {
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
+		return
+	}
+
+	if p := f.policy.account(0); p != nil {
 		addr := nilAddress
 		if address != nil {
 			addr = *address
@@ -371,34 +405,32 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			Forward: false,
 		}
 
-		id := f.idGen.MsgID()
-
-		for _, p := range peerList {
-			if err := p.send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
-			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.Address()))
-			}
-			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		if err := p.send(GetAccountBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
+			f.filter.fail(id)
+		} else {
+			f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
 		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
+		f.filter.fail(id)
 	}
 }
 
 func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
-	// been suppressed
-	if f.filter.hold(start) {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
-		return
-	}
-
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
 	}
 
-	if peerList := f.policy.accountTargets(sHeight); len(peerList) != 0 {
+	id, hold := f.filter.hold(start)
+	// been suppressed
+	if hold {
+		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
+		return
+	}
+
+	if p := f.policy.account(sHeight); p != nil {
 		addr := nilAddress
 		if address != nil {
 			addr = *address
@@ -412,17 +444,14 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 			Forward: false,
 		}
 
-		id := f.idGen.MsgID()
-
-		for _, p := range peerList {
-			if err := p.send(GetAccountBlocksCode, id, m); err != nil {
-				f.log.Error(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s error: %v", start, count, p.Address(), err))
-			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p.Address()))
-			}
-			monitor.LogEvent("net/fetch", "GetAccountBlocks_Send")
+		if err := p.send(GetAccountBlocksCode, id, m); err != nil {
+			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
+			f.filter.fail(id)
+		} else {
+			f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
 		}
 	} else {
 		f.log.Error(errNoSuitablePeer.Error())
+		f.filter.fail(id)
 	}
 }
