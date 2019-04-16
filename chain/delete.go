@@ -106,6 +106,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 	}
 
+	// FOR DEBUG
+	for _, block := range newUnconfirmedBlocks {
+		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
+
+	}
+
 	c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
 	// rollback index db
@@ -171,9 +177,9 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 
 func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) {
 	//FOR DEBUG
-	//for _, ab := range blocks {
-	//	fmt.Printf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
-	//}
+	for _, ab := range blocks {
+		c.log.Info(fmt.Sprintf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
+	}
 
 	c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil)
 
