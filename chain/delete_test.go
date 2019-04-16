@@ -117,37 +117,12 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
 
 	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(100), 5, false)...)
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
-	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
-	//GetUnconfirmedBlocks(t, chainInstance, accounts)
-	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(chainInstance, accounts)
-	//GetStorageIterator(t, chainInstance, accounts)
-	//GetBalance(t, chainInstance, accounts)
-	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
-
-	//GetStorageIterator(t, chainInstance, accounts)
-	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	deleteAccountBlocks(t, chainInstance, accounts)
 
-	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
-
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
-	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetUnconfirmedBlocks(t, chainInstance, accounts)
-	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
-	//GetLatestAccountBlock(chainInstance, accounts)
-	//GetStorageIterator(t, chainInstance, accounts)
-	//GetBalance(t, chainInstance, accounts)
-	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
-
-	//GetStorageIterator(t, chainInstance, accounts)
-
-	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	return snapshotBlockList
 }
