@@ -273,6 +273,7 @@ func (flusher *Flusher) flush() {
 		}
 
 		// clean redo log failed
+
 		if err := flusher.cleanRedoLog(); err != nil {
 			flusher.log.Error(err.Error(), "method", "Flush")
 			return

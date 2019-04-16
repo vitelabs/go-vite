@@ -171,12 +171,24 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 
 			snapshotHeight = binary.BigEndian.Uint64(buff)
 			size = 1
+			status = 1
 		case 1:
 			operation = buff[0]
-			size = 4
+			switch operation {
+			case optWrite:
+				size = 4
+				status = 2
+			case optRollback:
+				fallthrough
+			case optCover:
+				size = 8
+				status = 0
+			}
+
 		case 2:
 			batchSize = binary.BigEndian.Uint32(buff)
 			size = int(batchSize)
+			status = 3
 		case 3:
 			batch = new(leveldb.Batch)
 			if err := batch.Load(buff); err != nil {
@@ -184,8 +196,8 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 			}
 
 			size = 8
+			status = 0
 		}
-		status = (status + 1) % 4
 
 	}
 
