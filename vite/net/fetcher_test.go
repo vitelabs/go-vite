@@ -3,6 +3,8 @@ package net
 import (
 	"testing"
 
+	"github.com/vitelabs/go-vite/p2p"
+
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -17,7 +19,7 @@ func TestFilter_Hold(t *testing.T) {
 	f := newFilter()
 
 	// first time, should not hold
-	if f.hold(hash) {
+	if _, hold := f.hold(hash); hold {
 		t.Fatal("should not hold first time")
 	}
 
@@ -28,8 +30,8 @@ func TestFilter_Hold(t *testing.T) {
 	}
 
 	// have`nt done, then hold 2*timeThreshold and maxMark*2 times
-	for i := 0; i < maxMark*2-1; i++ {
-		if !f.hold(hash) {
+	for i := 0; i < maxMark*2; i++ {
+		if _, hold := f.hold(hash); !hold {
 			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
 	}
@@ -41,7 +43,7 @@ func TestFilter_Hold(t *testing.T) {
 	// have wait exceed 2 * timeThreshold and maxMark times from add
 	time.Sleep(2 * timeThreshold * time.Second)
 
-	hold := f.hold(hash)
+	_, hold := f.hold(hash)
 	if hold {
 		t.Fatalf("should not hold, mark %d, elapse %d", r.mark, time.Now().Unix()-r.addAt)
 	}
@@ -55,24 +57,80 @@ func TestFilter_Done(t *testing.T) {
 
 	f := newFilter()
 
+	var id p2p.MsgId
+	var hold bool
 	// first time, should hold
-	if f.hold(hash) {
+	if id, hold = f.hold(hash); hold {
 		t.Fatal("should not hold first time")
 	}
 
-	f.done(hash)
+	f.done(id)
 
 	// task done, then hold maxMark times and timeThreshold
 	for i := 0; i < maxMark-1; i++ {
-		if !f.hold(hash) {
+		if _, hold = f.hold(hash); !hold {
 			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
 	}
 
 	// have done, then hold timeThreshold
 	time.Sleep(timeThreshold * time.Second)
-	if f.hold(hash) {
+	if _, hold = f.hold(hash); hold {
 		t.Fatal("should not hold")
+	}
+}
+
+func TestFilter_fail(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
+	}
+
+	f := newFilter()
+
+	var id p2p.MsgId
+	var hold bool
+	// first time, should hold
+	if id, hold = f.hold(hash); hold {
+		t.Fatal("should not hold first time")
+	}
+
+	f.fail(id)
+	if _, hold = f.hold(hash); hold {
+		t.Fatal("should not hold after fail")
+	}
+}
+
+func TestFilter_clean(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
+	}
+
+	f := newFilter()
+
+	var id p2p.MsgId
+	var hold bool
+	// first time, should hold
+	if id, hold = f.hold(hash); hold {
+		t.Fatal("should not hold first time")
+	}
+	if f.idToHash[id] != hash {
+		t.Fail()
+	}
+	if len(f.idToHash) != 1 {
+		t.Fail()
+	}
+	if len(f.records) != 1 {
+		t.Fail()
+	}
+
+	f.clean(time.Now().Add(5 * time.Minute).Unix())
+	if len(f.idToHash) != 0 {
+		t.Fail()
+	}
+	if len(f.records) != 0 {
+		t.Fail()
 	}
 }
 
@@ -82,39 +140,7 @@ func TestPolicy_AccountTargets(t *testing.T) {
 		peers: peers,
 	}
 
-	if f.accountTargets(0) != nil {
-		t.Fail()
-	}
-
-	i := uint64(1)
-	err := peers.add(&peer{
-
-		//id:     strconv.FormatUint(i, 10),
-		//height: i,
-	})
-	if err != nil {
-		t.Fatal("add peer error")
-	}
-
-	l := f.accountTargets(0)
-	if len(l) != 1 {
-		t.Logf("should get 1 account targets, but get %d\n", len(l))
-		t.Fail()
-	}
-
-	for i = uint64(2); i < 10; i++ {
-		err = peers.add(&peer{
-			//id:     strconv.FormatUint(i, 10),
-			//height: i,
-		})
-		if err != nil {
-			t.Fatal("add peer error")
-		}
-	}
-
-	l = f.accountTargets(10)
-	if len(l) != 2 {
-		t.Logf("should get 2 account targets, but get %d\n", len(l))
+	if f.account(0) != nil {
 		t.Fail()
 	}
 }
@@ -125,7 +151,7 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 		peers: peers,
 	}
 
-	if f.snapshotTarget(0) != nil {
+	if f.snapshot(0) != nil {
 		t.Fail()
 	}
 
@@ -140,18 +166,18 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 		}
 	}
 
-	p := f.snapshotTarget(0)
+	p := f.snapshot(0)
 	if p.height() != total-1 {
 		t.Log("should be best peer")
 		t.Fail()
 	}
 
-	p = f.snapshotTarget(total)
+	p = f.snapshot(total)
 	if p != nil {
 		t.Fail()
 	}
 
-	p = f.snapshotTarget(total / 2)
+	p = f.snapshot(total / 2)
 	if p.height() < total/2 {
 		t.Fail()
 	}

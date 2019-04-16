@@ -4,7 +4,6 @@ import (
 	net2 "net"
 	"sync"
 
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/circle"
 )
@@ -82,6 +81,11 @@ func mock(cfg Config) Net {
 
 	feed := newBlockFeeder()
 
+	receiver := &safeBlockNotifier{
+		blockFeeder: feed,
+		Verifier:    cfg.Verifier,
+	}
+
 	syncer := &syncer{
 		from:      0,
 		to:        0,
@@ -93,7 +97,7 @@ func mock(cfg Config) Net {
 		subs:      make(map[int]SyncStateCallback),
 		running:   1,
 		term:      make(chan struct{}),
-		log:       log15.New("module", "net/syncer"),
+		log:       netLog.New("module", "syncer"),
 	}
 	syncer.state = syncStateDone{syncer}
 
@@ -104,8 +108,10 @@ func mock(cfg Config) Net {
 		chain:  cfg.Chain,
 		syncer: syncer,
 		fetcher: &fetcher{
-			policy: &fp{peers},
-			idGen:  new(gid),
+			filter:   newFilter(),
+			policy:   &fp{peers},
+			receiver: receiver,
+			log:      netLog.New("module", "fetcher"),
 		},
 		broadcaster: &broadcaster{
 			peers:     peers,
@@ -116,7 +122,7 @@ func mock(cfg Config) Net {
 			store:     nil,
 			mu:        sync.Mutex{},
 			statistic: circle.NewList(records24h),
-			log:       log15.New("module", "mocknet/broadcaster"),
+			log:       netLog.New("module", "broadcaster"),
 		},
 		BlockSubscriber: feed,
 	}

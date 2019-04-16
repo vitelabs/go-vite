@@ -288,7 +288,7 @@ func (m *peerSet) bestPeer() (best Peer) {
 // choose middle peer but not the highest peer is to defend fake height attack. because
 // it`s more hard to fake.
 func (m *peerSet) syncPeer() Peer {
-	l := m.peers()
+	l := m.sortPeers()
 	if len(l) == 0 {
 		return nil
 	}
@@ -376,7 +376,7 @@ func (m *peerSet) unknownBlock(hash types.Hash) (l []broadcastPeer) {
 }
 
 // peers return all peers unsorted.
-func (m *peerSet) peers() (l peers) {
+func (m *peerSet) sortPeers() (l peers) {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 

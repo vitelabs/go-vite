@@ -12,7 +12,7 @@ const rt = 0.0001
 type blockFilter interface {
 	has(b []byte) bool
 	record(b []byte)
-	lookAndRecord(b []byte) bool
+	lookAndRecord(b []byte) (hasExist bool)
 }
 
 type defBlockFilter struct {
