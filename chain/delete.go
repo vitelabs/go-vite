@@ -97,7 +97,7 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		if chunk.SnapshotBlock != nil {
 			c.log.Info(fmt.Sprintf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
 			for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-				c.log.Info("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash)
+				c.log.Info(fmt.Sprintf("%d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
 			}
 		}
 
