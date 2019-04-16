@@ -2,6 +2,7 @@ package abi
 
 import (
 	"bytes"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -15,12 +16,13 @@ const (
 	jsonMintage = `
 	[
 		{"type":"function","name":"CancelMintPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
+		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
 		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"Burn","inputs":[]},
 		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"ChangeTokenType","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"pledgeAddr","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
+		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"pledgeAddr","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"},{"name":"index","type":"uint16"}]},
+		{"type":"variable","name":"tokenNameIndex","inputs":[{"name":"nextIndex","type":"uint16"}]},
 		{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
 		{"type":"event","name":"issue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
 		{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]},
@@ -35,6 +37,7 @@ const (
 	MethodNameTransferOwner    = "TransferOwner"
 	MethodNameChangeTokenType  = "ChangeTokenType"
 	VariableNameTokenInfo      = "tokenInfo"
+	VariableNameTokenNameIndex = "tokenNameIndex"
 	EventNameMint              = "mint"
 	EventNameIssue             = "issue"
 	EventNameBurn              = "burn"
@@ -47,7 +50,6 @@ var (
 )
 
 type ParamMintage struct {
-	TokenId       types.TokenTypeId
 	TokenName     string
 	TokenSymbol   string
 	TotalSupply   *big.Int
@@ -70,6 +72,9 @@ type ParamTransferOwner struct {
 
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
 	return tokenId.Bytes()
+}
+func GetNextIndexKey(tokenName string) []byte {
+	return types.DataHash([]byte(tokenName)).Bytes()
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
 	tokenId, _ := types.BytesToTokenTypeId(key)
@@ -99,7 +104,7 @@ func DeleteTokenId(oldIdList []byte, tokenId types.TokenTypeId) []byte {
 func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.TokenTypeId {
 	return types.CreateTokenTypeId(
 		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		helper.LeftPadBytes(new(big.Int).SetUint64(accountBlockHeight).Bytes(), 8),
 		prevBlockHash.Bytes())
 }
 

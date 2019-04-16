@@ -97,7 +97,7 @@ func GetContractCode(db CommonDb, addr *types.Address, status GlobalStatus) ([]b
 func NewContractAddress(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.Address {
 	return types.CreateContractAddress(
 		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
+		helper.LeftPadBytes(new(big.Int).SetUint64(accountBlockHeight).Bytes(), 8),
 		prevBlockHash.Bytes())
 }
 

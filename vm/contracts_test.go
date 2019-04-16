@@ -890,7 +890,6 @@ func TestContractsMintageV2(t *testing.T) {
 	maxSupply := new(big.Int).Mul(big.NewInt(2), totalSupply)
 	decimals := uint8(3)
 	ownerBurnOnly := true
-	tokenId := abi.NewTokenId(addr1, 3, hash12)
 	//fee := new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite)
 	//pledgeAmount := big.NewInt(0)
 	//withdrawHeight := uint64(0)
@@ -899,7 +898,7 @@ func TestContractsMintageV2(t *testing.T) {
 	withdrawHeight := snapshot2.Height + 3600*24*30*3
 	balance1.Sub(balance1, fee)
 	balance1.Sub(balance1, pledgeAmount)
-	block13Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenId, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
+	block13Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -938,8 +937,9 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveMintageBlock, isRetry, err := vm.RunV2(db, block21, sendMintageBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	tokenId := receiveMintageBlock.AccountBlock.SendBlockList[0].TokenId
 	key := abi.GetMintageKey(tokenId)
-	tokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
+	tokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
 	if receiveMintageBlock == nil ||
 		len(receiveMintageBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1041,7 +1041,7 @@ func TestContractsMintageV2(t *testing.T) {
 	db.addr = addr2
 	receiveIssueBlock, isRetry, err := vm.RunV2(db, block23, sendIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	totalSupply = totalSupply.Add(totalSupply, reIssueAmount)
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
 	if receiveIssueBlock == nil ||
 		len(receiveIssueBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1129,7 +1129,7 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveBurnBlock, isRetry, err := vm.RunV2(db, block25, sendBurnBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
 	if receiveBurnBlock == nil ||
 		len(receiveBurnBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1188,7 +1188,7 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveTransferOwnerBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnerBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
 	if receiveTransferOwnerBlock == nil ||
 		len(receiveTransferOwnerBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1253,7 +1253,7 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block27, sendChangeTokenTypeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, false, big.NewInt(0), false)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, pledgeAmount, withdrawHeight, addr1, false, big.NewInt(0), false, uint16(0))
 	if receiveChangeTokenTypeBlock == nil ||
 		len(receiveChangeTokenTypeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1279,11 +1279,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 
 	sbtime := time.Now()
-	var latestSb *ledger.SnapshotBlock
-	for i := uint64(snapshot2.Height + 1); i <= withdrawHeight; i++ {
-		latestSb = &ledger.SnapshotBlock{Height: i, Timestamp: &sbtime, Hash: types.DataHash([]byte{10, byte(i)})}
-		db.snapshotBlockList = append(db.snapshotBlockList, latestSb)
-	}
+	latestSb := &ledger.SnapshotBlock{Height: withdrawHeight, Timestamp: &sbtime, Hash: types.DataHash([]byte{10, byte(withdrawHeight)})}
 
 	// cancel pledge
 	block18Data, err := abi.ABIMintage.PackMethod(abi.MethodNameCancelMintPledge, tokenId)
@@ -1324,7 +1320,7 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block28, cancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, latestSb))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, helper.Big0, uint64(0), addr1, false, big.NewInt(0), false)
+	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, helper.Big0, uint64(0), addr1, false, big.NewInt(0), false, uint16(0))
 	if receiveCancelPledgeBlock == nil ||
 		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
@@ -1341,6 +1337,75 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr2][hash28] = receiveCancelPledgeBlock.AccountBlock
+
+	// TODO mint again
+	newWithdrawHeight := latestSb.Height + 3600*24*30*3
+	balance1.Sub(balance1, fee)
+	balance1.Sub(balance1, pledgeAmount)
+	block19Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
+	hash19 := types.DataHash([]byte{1, 9})
+	block19 := &ledger.AccountBlock{
+		Height:         9,
+		ToAddress:      addr2,
+		AccountAddress: addr1,
+		Amount:         pledgeAmount,
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            fee,
+		PrevHash:       hash18,
+		Data:           block19Data,
+		Hash:           hash19,
+	}
+	vm = NewVM(nil)
+	db.addr = addr1
+	sendMintageBlock2, isRetry, err := vm.RunV2(db, block19, nil, nil)
+	if sendMintageBlock2 == nil ||
+		len(sendMintageBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
+		!bytes.Equal(sendMintageBlock2.AccountBlock.Data, block19Data) ||
+		sendMintageBlock2.AccountBlock.Amount.Cmp(pledgeAmount) != 0 ||
+		sendMintageBlock2.AccountBlock.Fee.Cmp(fee) != 0 ||
+		sendMintageBlock2.AccountBlock.Quota != contracts.MintGas {
+		t.Fatalf("send mint transaction 2 error")
+	}
+	db.accountBlockMap[addr1][hash19] = sendMintageBlock2.AccountBlock
+
+	hash29 := types.DataHash([]byte{2, 9})
+	block29 := &ledger.AccountBlock{
+		Height:         9,
+		AccountAddress: addr2,
+		BlockType:      ledger.BlockTypeReceive,
+		FromBlockHash:  hash19,
+		Hash:           hash29,
+		PrevHash:       hash28,
+	}
+	vm = NewVM(nil)
+	db.addr = addr2
+	receiveMintageBlock2, isRetry, err := vm.RunV2(db, block29, sendMintageBlock2.AccountBlock, NewTestGlobalStatus(0, latestSb))
+	newTokenId := receiveMintageBlock2.AccountBlock.SendBlockList[0].TokenId
+	newKey := abi.GetMintageKey(newTokenId)
+	newTokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, pledgeAmount, newWithdrawHeight, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(1))
+	if receiveMintageBlock2 == nil ||
+		len(receiveMintageBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr2][ToKey(newKey)], newTokenInfoData) ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		len(receiveMintageBlock2.AccountBlock.Data) != 33 ||
+		receiveMintageBlock2.AccountBlock.Data[32] != byte(0) ||
+		receiveMintageBlock2.AccountBlock.Quota != 0 ||
+		receiveMintageBlock2.AccountBlock.SendBlockList[0].Amount.Cmp(totalSupply) != 0 ||
+		receiveMintageBlock2.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
+		receiveMintageBlock2.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
+		receiveMintageBlock2.AccountBlock.SendBlockList[0].TokenId != newTokenId ||
+		len(db.logList) != 6 ||
+		db.logList[5].Topics[0] != abi.ABIMintage.Events[abi.EventNameMint].Id() ||
+		!bytes.Equal(db.logList[5].Topics[1].Bytes(), helper.LeftPadBytes(newTokenId.Bytes(), 32)) {
+		t.Fatalf("receive mint transaction 2 error")
+	}
+	db.accountBlockMap[addr2][hash29] = receiveMintageBlock2.AccountBlock
+	hash2a := types.DataHash([]byte{2, 10})
+	receiveMintageBlock2.AccountBlock.SendBlockList[0].Hash = hash2a
+	receiveMintageBlock2.AccountBlock.SendBlockList[0].PrevHash = hash29
+	db.accountBlockMap[addr2][hash2a] = receiveMintageBlock2.AccountBlock.SendBlockList[0]
 }
 
 func TestCheckTokenName(t *testing.T) {
@@ -1375,7 +1440,7 @@ func TestGenesisBlockData(t *testing.T) {
 	decimals := uint8(18)
 	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 	viteAddress, _, _ := types.CreateAddress()
-	mintageData, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), uint64(0), viteAddress, true, helper.Tt256m1, false)
+	mintageData, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, big.NewInt(0), uint64(0), viteAddress, true, helper.Tt256m1, false, uint16(0))
 	if err != nil {
 		t.Fatalf("pack mintage variable error, %v", err)
 	}

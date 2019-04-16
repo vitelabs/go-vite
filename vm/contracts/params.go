@@ -39,6 +39,8 @@ const (
 
 	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
+
+	tokenNameIndexMax uint16 = 1000
 )
 
 var (

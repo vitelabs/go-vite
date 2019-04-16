@@ -144,6 +144,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 
 func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.MintageInfo != nil {
+		nextIndexMap := make(map[string]uint16)
 		contractAddr := types.AddressMintage
 		block := ledger.AccountBlock{
 			BlockType:      ledger.BlockTypeGenesisReceive,
@@ -156,6 +157,10 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 		for tokenIdStr, tokenInfo := range cfg.MintageInfo.TokenInfoMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 			dealWithError(err)
+			nextIndex := uint16(0)
+			if index, ok := nextIndexMap[tokenInfo.TokenName]; ok {
+				nextIndex = index
+			}
 			value, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo,
 				tokenInfo.TokenName,
 				tokenInfo.TokenSymbol,
@@ -167,7 +172,9 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 				tokenInfo.PledgeAddr,
 				tokenInfo.IsReIssuable,
 				tokenInfo.MaxSupply,
-				tokenInfo.OwnerBurnOnly)
+				tokenInfo.OwnerBurnOnly,
+				nextIndex)
+			nextIndexMap[tokenInfo.TokenName] = nextIndex + 1
 			dealWithError(err)
 			err = vmdb.SetValue(abi.GetMintageKey(tokenId), value)
 			dealWithError(err)
