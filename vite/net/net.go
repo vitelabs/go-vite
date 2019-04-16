@@ -276,7 +276,7 @@ func New(cfg Config) Net {
 
 	feed := newBlockFeeder()
 
-	forward := chooseForardStrategy(cfg.ForwardStrategy, peers)
+	forward := createForardStrategy(cfg.ForwardStrategy, peers)
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil)
 
 	receiver := &safeBlockNotifier{

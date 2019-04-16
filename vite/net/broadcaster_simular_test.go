@@ -256,7 +256,7 @@ func newMockBroadcastNet(id vnode.NodeID, priv ed25519.PrivateKey) *mockBroadcas
 	set := mockBroadcastPeerSet(peerFrames)
 	mp.peerSet = set
 
-	str := newRedForwardStrategy(set, 1, 10)
+	str := newCrossForwardStrategy(set, 1, 10)
 	//str := &fullForwardStrategy{
 	//	ps: set,
 	//}

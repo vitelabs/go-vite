@@ -3,7 +3,6 @@ package net
 import (
 	"errors"
 	"fmt"
-	net2 "net"
 	"sync"
 	"time"
 
@@ -100,16 +99,12 @@ func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
 //	ForwardModeCross ForwardMode = "cross"
 //)
 
-func chooseForardStrategy(strategy string, ps broadcastPeerSet) forwardStrategy {
+func createForardStrategy(strategy string, ps broadcastPeerSet) forwardStrategy {
 	if strategy == "full" {
-		return &fullForward{ps}
-	} else {
-		return &crossForward{
-			ps:          ps,
-			commonMax:   3,
-			commonRatio: 10,
-		}
+		return newFullForwardStrategy(ps)
 	}
+
+	return newCrossForwardStrategy(ps, 3, 10)
 }
 
 // forwardStrategy will pick peers to forward new blocks
@@ -119,7 +114,6 @@ type forwardStrategy interface {
 
 type broadcastPeer interface {
 	ID() vnode.NodeID
-	Address() net2.Addr
 	peers() map[vnode.NodeID]struct{}
 	seeBlock(types.Hash)
 	hasBlock(hash types.Hash) bool
@@ -137,6 +131,12 @@ type broadcastPeerSet interface {
 // fullForwardStrategy will choose all peers as forward targets except sender
 type fullForward struct {
 	ps broadcastPeerSet
+}
+
+func newFullForwardStrategy(ps broadcastPeerSet) forwardStrategy {
+	return &fullForward{
+		ps: ps,
+	}
 }
 
 func (d *fullForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
@@ -162,7 +162,7 @@ type crossForward struct {
 	commonRatio int
 }
 
-func newRedForwardStrategy(ps broadcastPeerSet, commonMax int, commonRatio int) forwardStrategy {
+func newCrossForwardStrategy(ps broadcastPeerSet, commonMax int, commonRatio int) forwardStrategy {
 	if commonRatio < 0 {
 		commonRatio = 0
 	} else if commonRatio > 100 {
@@ -195,7 +195,7 @@ func (d *crossForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
 	if commonTotalFromRatio == 0 {
 		commonTotalFromRatio = 1
 	}
-	if commonTotalFromRatio < d.commonMax {
+	if commonTotalFromRatio < commonMax {
 		commonMax = commonTotalFromRatio
 	}
 
@@ -288,7 +288,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewSnapshotBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -303,10 +303,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
-			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender.Address(), err))
+			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender, err))
 			return err
 		}
 
@@ -338,7 +338,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewAccountBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.Address()))
+		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -353,10 +353,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new accountblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("record new accountblock %s/%d from %s", block.Hash, block.Height, sender))
 
 		if err = b.verifier.VerifyNetAb(block); err != nil {
-			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender.Address(), err))
+			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender, err))
 			return err
 		}
 
