@@ -205,13 +205,13 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 		for pledgeAddrStr, pledgeInfoList := range cfg.PledgeInfo.PledgeInfoMap {
 			pledgeAddr, err := types.HexToAddress(pledgeAddrStr)
 			dealWithError(err)
-			for _, pledgeInfo := range pledgeInfoList {
+			for i, pledgeInfo := range pledgeInfoList {
 				value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo,
 					pledgeInfo.Amount,
 					pledgeInfo.WithdrawHeight,
 					pledgeInfo.BeneficialAddr)
 				dealWithError(err)
-				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, pledgeInfo.BeneficialAddr), value)
+				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, uint64(i)), value)
 				dealWithError(err)
 			}
 		}

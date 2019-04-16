@@ -622,7 +622,7 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr5
 	receivePledgeBlock, isRetry, err := vm.RunV2(db, block51, sendPledgeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
-	pledgeKey := abi.GetPledgeKey(addr1, addr4)
+	pledgeKey := abi.GetPledgeKey(addr1, 1)
 	withdrawHeight := snapshot2.Height + 3600*24*3
 	if receivePledgeBlock == nil ||
 		len(receivePledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
