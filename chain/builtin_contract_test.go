@@ -19,28 +19,34 @@ func TestChain_builtInContract(t *testing.T) {
 
 func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	t.Run("NewStorageDatabase", func(t *testing.T) {
-		NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 	})
 	t.Run("GetRegisterList", func(t *testing.T) {
 		//GetRegisterList(t, chainInstance)
 	})
 }
 
+func testBuiltInContractNoTesting(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+
+	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+
+}
+
 func TestVoteList(t *testing.T) {
 
 	chainInstance, err := NewChainInstance("/Users/liyanda/test_ledger/ledger4/devdata", false)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	block := chainInstance.GetLatestSnapshotBlock()
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	voteMap, err := chainInstance.GetVoteList(block.Hash, types.SNAPSHOT_GID)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	for _, voteInfo := range voteMap {
@@ -67,12 +73,12 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 	for i := uint64(1); i < latestSnapshot.Height; i++ {
 		snapshotBlock, err := chainInstance.GetSnapshotHeaderByHeight(i)
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 
 		registerList, err := chainInstance.GetRegisterList(snapshotBlock.Hash, types.SNAPSHOT_GID)
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		fmt.Println("")
 		for _, register := range registerList {
@@ -82,7 +88,7 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 	}
 }
 
-func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	sbLen := len(snapshotBlockList)
 	if sbLen <= 2 {
 		return
@@ -98,27 +104,27 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 		for _, account := range accounts {
 			sd, err := chainInstance.stateDB.NewStorageDatabase(snapshotBlock.Hash, account.Addr)
 			if err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 
 			if *sd.Address() != account.Addr {
-				t.Fatal("error")
+				panic("error")
 			}
 
 			prevSd, err := chainInstance.stateDB.NewStorageDatabase(prevSnapshotBlock.Hash, account.Addr)
 			if err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 
 			if *prevSd.Address() != account.Addr {
-				t.Fatal("error")
+				panic("error")
 			}
 
 			kv := make(map[string][]byte)
 
 			iter, err := prevSd.NewStorageIterator(nil)
 			if err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 
 			for iter.Next() {
@@ -128,7 +134,7 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 			}
 
 			if err := iter.Error(); err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 
 			confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlock.Hash]
@@ -150,13 +156,13 @@ func NewStorageDatabase(t *testing.T, chainInstance *chain, accounts map[types.A
 			})
 
 			if err != nil {
-				t.Fatal(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.Addr, snapshotBlock, err.Error()))
+				panic(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.Addr, snapshotBlock, err.Error()))
 			}
 
 			for key, value := range kv {
 				queryValue, err := sd.GetValue([]byte(key))
 				if err != nil {
-					t.Fatal("error")
+					panic("error")
 				}
 				if !bytes.Equal(value, queryValue) {
 					fmt.Printf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",

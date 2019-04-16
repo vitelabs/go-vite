@@ -26,7 +26,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 		})
 
 		t.Run("NewStorageDatabase", func(t *testing.T) {
-			NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+			NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 		})
 
 	}

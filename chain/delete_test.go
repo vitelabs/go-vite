@@ -95,7 +95,7 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 	deleteSnapshotBlocks(t, chainInstance, accounts, uint64(deleteCount))
 
 	snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-deleteCount]
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 
 	//NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
 
@@ -104,7 +104,7 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 
 	//GetOnRoadBlocksHashList(t, chainInstance, accounts)
 	GetLatestAccountBlock(chainInstance, accounts)
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
@@ -129,7 +129,7 @@ func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[ty
 	//GetConfirmedBalanceList(t, chainInstance, accounts, snapshotBlockList)
 
 	//GetStorageIterator(t, chainInstance, accounts)
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 
 	deleteAccountBlocks(t, chainInstance, accounts)
 
@@ -143,7 +143,7 @@ func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[ty
 	//GetLatestAccountBlock(chainInstance, accounts)
 	//GetStorageIterator(t, chainInstance, accounts)
 	//GetBalance(t, chainInstance, accounts)
-	NewStorageDatabase(t, chainInstance, accounts, snapshotBlockList)
+	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 
 	//GetStorageIterator(t, chainInstance, accounts)
 

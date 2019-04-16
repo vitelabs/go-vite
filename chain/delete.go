@@ -144,6 +144,9 @@ func (c *chain) DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*l
 }
 
 func (c *chain) DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*ledger.AccountBlock, error) {
+	if toHeight <= 0 {
+		return nil, errors.New("DeleteAccountBlocksToHeight failed, toHeight is 0")
+	}
 	return c.deleteAccountBlockByHeightOrHash(addr, toHeight, nil)
 }
 
@@ -155,15 +158,28 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 		return nil, cErr
 	}
 	var planDeleteBlocks []*ledger.AccountBlock
-	for i, unconfirmedBlock := range unconfirmedBlocks {
-		if (toHash != nil && unconfirmedBlock.Hash == *toHash) ||
-			(toHeight > 0 && unconfirmedBlock.Height == toHeight) {
-			planDeleteBlocks = unconfirmedBlocks[i:]
-			break
+
+	if toHash != nil {
+		for i, unconfirmedBlock := range unconfirmedBlocks {
+			if unconfirmedBlock.Hash == *toHash {
+				planDeleteBlocks = unconfirmedBlocks[i:]
+
+				break
+			}
+		}
+	} else if toHeight > 0 {
+		for i, unconfirmedBlock := range unconfirmedBlocks {
+			if unconfirmedBlock.AccountAddress == addr && unconfirmedBlock.Height == toHeight {
+				planDeleteBlocks = unconfirmedBlocks[i:]
+
+				break
+			}
+
 		}
 	}
+
 	if len(planDeleteBlocks) <= 0 {
-		cErr := errors.New(fmt.Sprintf("len(planDeleteBlocks) <= 0"))
+		cErr := errors.New(fmt.Sprintf("can't find block %s, %d, %s", addr, toHeight, toHash))
 		c.log.Error(cErr.Error(), "method", "deleteAccountBlockByHeightOrHash")
 		return nil, cErr
 	}

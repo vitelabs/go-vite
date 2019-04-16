@@ -140,22 +140,23 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 
 	// snapshot block
 	testSnapshotBlockNoTesting(chainInstance, accounts, snapshotBlockList)
-	//
-	//// state
-	//testState(t, chainInstance, accounts, snapshotBlockList)
-	//
-	//// built-in contract
-	//testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
+
+	// state
+	testStateNoTesting(chainInstance, accounts, snapshotBlockList)
+
+	// built-in contract
+	testBuiltInContractNoTesting(chainInstance, accounts, snapshotBlockList)
 }
 
-func testPanic(t *testing.T) {
+func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+	saveData(accounts, snapshotBlockList)
 	for i := 0; i < 10; i++ {
 		cmd := reexec.Command("randomPanic")
 
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		//fmt.Println("main run")
+
 		t.Run(fmt.Sprintf("panic %d", i), func(t *testing.T) {
 
 			if err := cmd.Run(); err != nil {
@@ -189,14 +190,12 @@ func randomPanic() {
 
 	defer func() {
 		TearDown(chainInstance)
-		for _, account := range accounts {
-			for blockHash := range account.UnconfirmedBlocks {
-				account.deleteAccountBlock(accounts, blockHash)
-			}
-			account.resetLatestBlock()
-		}
 
 		saveData(accounts, snapshotBlockList)
+	}()
+
+	go func() {
+
 	}()
 	if err != nil {
 		panic(err)
