@@ -101,7 +101,7 @@ func TestChain(t *testing.T) {
 	// test panic
 	TearDown(chainInstance)
 
-	testPanic(t)
+	testPanic(t, accounts, snapshotBlockList)
 
 }
 
@@ -207,7 +207,14 @@ func randomPanic() {
 
 }
 
-func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
+	for _, account := range accounts {
+		for blockHash := range account.UnconfirmedBlocks {
+			account.deleteAccountBlock(accounts, blockHash)
+		}
+		account.resetLatestBlock()
+	}
+
 	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
 	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
 	if oErr != nil {
@@ -237,6 +244,7 @@ func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.S
 	if err := enc.Encode(snapshotBlockList); err != nil {
 		panic(err)
 	}
+	return accounts, snapshotBlockList
 }
 
 func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
