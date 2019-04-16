@@ -21,7 +21,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/protos"
 )
 
-var netLog = log15.New("module", "vite/net")
+var netLog = log15.New("module", "net")
+
 var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
 var errInvalidSignature = errors.New("invalid signature")
@@ -55,12 +56,12 @@ type net struct {
 	reader     syncCacheReader
 	downloader syncDownloader
 	BlockSubscriber
-	running  int32
-	log      log15.Logger
 	server   *syncServer
 	handlers *msgHandlers
 	query    *queryHandler
 	hb       *heartBeater
+	running  int32
+	log      log15.Logger
 }
 
 func (n *net) parseFilePublicAddress() (fileAddress []byte) {
@@ -69,13 +70,13 @@ func (n *net) parseFilePublicAddress() (fileAddress []byte) {
 		var err error
 		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
 		if err != nil {
-			n.log.Error(fmt.Sprintf("Failed to parse FilePublicAddress: %v", err))
+			n.log.Error(fmt.Sprintf("failed to parse FilePublicAddress: %v", err))
 			return nil
 		}
 
 		fileAddress, err = e.Serialize()
 		if err != nil {
-			n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
+			n.log.Error(fmt.Sprintf("failed to serialize FilePublicAddress: %v", err))
 			return nil
 		}
 	} else if n.FilePort != 0 {
@@ -218,7 +219,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 
 	err := proto.Unmarshal(state, heartbeat)
 	if err != nil {
-		n.log.Error(fmt.Sprintf("Failed to unmarshal heartbeat message: %v", err))
+		n.log.Error(fmt.Sprintf("failed to unmarshal heartbeat message from %s: %v", peer, err))
 		return
 	}
 
@@ -309,8 +310,8 @@ func New(cfg Config) Net {
 		downloader:      downloader,
 		server:          newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        newHandlers("vite"),
+		hb:              newHeartBeater(peers, cfg.Chain),
 		log:             netLog,
-		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
 	var err error
@@ -342,14 +343,13 @@ type heartBeater struct {
 	last      time.Time
 	lastPeers map[vnode.NodeID]struct{}
 	ps        *peerSet
-	log       log15.Logger
 }
 
-func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeater {
+func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
 	return &heartBeater{
-		ps:    ps,
-		chain: chain,
-		log:   log,
+		chain:     chain,
+		lastPeers: make(map[vnode.NodeID]struct{}),
+		ps:        ps,
 	}
 }
 
@@ -375,21 +375,19 @@ func (h *heartBeater) state() []byte {
 	var ok bool
 	for id = range h.lastPeers {
 		if _, ok = idMap[id]; ok {
+			delete(idMap, id)
 			continue
 		}
 		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
-			ID:     id[:],
+			ID:     id.Bytes(),
 			Status: protos.State_Disconnected,
 		})
 	}
 
 	for id = range idMap {
-		if _, ok = h.lastPeers[id]; ok {
-			continue
-		}
 		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
-			ID:     id[:],
-			Status: protos.State_Disconnected,
+			ID:     id.Bytes(),
+			Status: protos.State_Connected,
 		})
 	}
 
@@ -397,6 +395,8 @@ func (h *heartBeater) state() []byte {
 	if err != nil {
 		return nil
 	}
+
+	h.lastPeers = idMap
 
 	return data
 }
