@@ -18,6 +18,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"math/rand"
+	"os/exec"
+	"sync"
+	"syscall"
+	"time"
 )
 
 var genesisConfigJson = "{  \"GenesisAccountAddress\": \"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",  \"ForkPoints\": {  },  \"ConsensusGroupInfo\": {    \"ConsensusGroupInfoMap\":{      \"00000000000000000001\":{        \"NodeCount\":25,        \"Interval\":1,        \"PerCount\":3,        \"RandCount\":2,        \"RandRank\":100,        \"Repeat\":1,        \"CheckLevel\":0,        \"CountingTokenId\":\"tti_5649544520544f4b454e6e40\",        \"RegisterConditionId\":1,        \"RegisterConditionParam\":{          \"PledgeAmount\": 100000000000000000000000,          \"PledgeHeight\": 1,          \"PledgeToken\": \"tti_5649544520544f4b454e6e40\"        },        \"VoteConditionId\":1,        \"VoteConditionParam\":{},        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"WithdrawHeight\":1      },      \"00000000000000000002\":{        \"NodeCount\":25,        \"Interval\":3,        \"PerCount\":1,        \"RandCount\":2,        \"RandRank\":100,        \"Repeat\":48,        \"CheckLevel\":1,        \"CountingTokenId\":\"tti_5649544520544f4b454e6e40\",        \"RegisterConditionId\":1,        \"RegisterConditionParam\":{          \"PledgeAmount\": 100000000000000000000000,          \"PledgeHeight\": 1,          \"PledgeToken\": \"tti_5649544520544f4b454e6e40\"        },        \"VoteConditionId\":1,        \"VoteConditionParam\":{},        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"WithdrawHeight\":1      }    },    \"RegistrationInfoMap\":{      \"00000000000000000001\":{        \"s1\":{          \"NodeAddr\":\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\",          \"PledgeAddr\":\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\",          \"Amount\":100000000000000000000000,          \"WithdrawHeight\":7776000,          \"RewardTime\":1,          \"CancelTime\":0,          \"HisAddrList\":[\"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08\"]        },        \"s2\":{          \"NodeAddr\":\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\",          \"PledgeAddr\":\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\",          \"Amount\":100000000000000000000000,          \"WithdrawHeight\":7776000,          \"RewardTime\":1,          \"CancelTime\":0,          \"HisAddrList\":[\"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87\"]        }      }    }  },  \"MintageInfo\":{    \"TokenInfoMap\":{      \"tti_5649544520544f4b454e6e40\":{        \"TokenName\":\"Vite Token\",        \"TokenSymbol\":\"VITE\",        \"TotalSupply\":1000000000000000000000000000,        \"Decimals\":18,        \"Owner\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"PledgeAmount\":0,        \"PledgeAddr\":\"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\",        \"WithdrawHeight\":0,        \"MaxSupply\":115792089237316195423570985008687907853269984665640564039457584007913129639935,        \"OwnerBurnOnly\":false,        \"IsReIssuable\":true      }    },    \"VmLogList\": [        {          \"Data\": \"\",          \"Topics\": [            \"3f9dcc00d5e929040142c3fb2b67a3be1b0e91e98dac18d5bc2b7817a4cfecb6\",            \"000000000000000000000000000000000000000000005649544520544f4b454e\"          ]        }      ]  },  \"AccountBalanceMap\": {    \"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a\": {      \"tti_5649544520544f4b454e6e40\":899999000000000000000000000    },    \"vite_56fd05b23ff26cd7b0a40957fb77bde60c9fd6ebc35f809c23\": {      \"tti_5649544520544f4b454e6e40\":100000000000000000000000000    }  }}"
@@ -70,7 +74,7 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 
 	accounts := MakeAccounts(chainInstance, accountNum)
 
-	snapshotBlockList := InsertAccountBlock(chainInstance, accounts, txCount, snapshotPerBlockNum, false)
+	snapshotBlockList := InsertAccountBlockAndSnapshot(chainInstance, accounts, txCount, snapshotPerBlockNum, false)
 
 	return chainInstance, accounts, snapshotBlockList
 }
@@ -90,13 +94,13 @@ func TestChain(t *testing.T) {
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert and query
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
 
 	// test all
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert & delete
-	//snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
+	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
 	// test panic
 	TearDown(chainInstance)
@@ -149,22 +153,36 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 }
 
 func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+
+	//for i := 0; i < 10; i++ {
 	saveData(accounts, snapshotBlockList)
-	for i := 0; i < 10; i++ {
+	accounts = nil
+	snapshotBlockList = nil
+
+	for j := 0; j < 5; j++ {
 		cmd := reexec.Command("randomPanic")
 
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		t.Run(fmt.Sprintf("panic %d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("panic %d_%d", 1, j+1), func(t *testing.T) {
+			err := cmd.Run()
 
-			if err := cmd.Run(); err != nil {
-				panic(fmt.Sprintf("failed to run command: %s", err.Error()))
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					if status.ExitStatus() == mockPanicExitStatus {
+						return
+					}
+				}
 			}
+			panic(fmt.Sprintf("cmd.Run(): %v", err))
+
 		})
 
 	}
+
+	//}
 
 }
 
@@ -175,6 +193,8 @@ func init() {
 	}
 }
 
+const mockPanicExitStatus = 16
+
 func randomPanic() {
 	quota.InitQuotaConfig(true, true)
 	chainInstance, err := NewChainInstance("unit_test", false)
@@ -182,37 +202,99 @@ func randomPanic() {
 	accounts, snapshotBlockList := loadData(chainInstance)
 	if len(accounts) <= 0 {
 		accounts = MakeAccounts(chainInstance, 100)
-		snapshotBlockList = InsertAccountBlock(chainInstance, accounts, 100, 10, false)
+		snapshotBlockList = InsertAccountBlockAndSnapshot(chainInstance, accounts, 100, 10, false)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	defer func() {
-		TearDown(chainInstance)
-
-		saveData(accounts, snapshotBlockList)
-	}()
-
-	go func() {
-
-	}()
-	if err != nil {
-		panic(err)
-	}
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, rand.Intn(1000), 10, false)...)
+	snapshotBlockList = recoverAfterPanic(chainInstance, accounts, snapshotBlockList)
 
 	testChainAllNoTesting(chainInstance, accounts, snapshotBlockList)
 
+	if err != nil {
+		panic(err)
+	}
+
+	var mu sync.RWMutex
+	go func() {
+		defer func() {
+			mu.Lock()
+			saveData(accounts, snapshotBlockList)
+			mu.Unlock()
+
+			os.Exit(mockPanicExitStatus)
+		}()
+
+		fmt.Println("Wait 2 seconds")
+		time.Sleep(time.Second * 2)
+
+		for {
+			random := rand.Intn(100)
+			if random > 90 {
+				panic("error")
+			}
+			time.Sleep(time.Microsecond * 10)
+		}
+
+	}()
+
+	for {
+		// insert account blocks
+		InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(1000))
+		//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
+
+		// insert snapshot block
+		snapshotBlock := createSnapshotBlock(chainInstance, false)
+
+		mu.Lock()
+		snapshotBlockList = append(snapshotBlockList, snapshotBlock)
+		Snapshot(accounts, snapshotBlock)
+		mu.Unlock()
+
+		invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+		if err != nil {
+			panic(err)
+		}
+
+		mu.Lock()
+		DeleteInvalidBlocks(accounts, invalidBlocks)
+		mu.Unlock()
+
+	}
+
 }
 
-func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
+func recoverAfterPanic(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
 	for _, account := range accounts {
 		for blockHash := range account.UnconfirmedBlocks {
 			account.deleteAccountBlock(accounts, blockHash)
 		}
 		account.resetLatestBlock()
 	}
+
+	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+
+	realSnapshotBlocks := snapshotBlockList
+	needDeleteSnapshotBlocks := make([]*ledger.SnapshotBlock, 0)
+	for i := len(snapshotBlockList) - 1; i >= 0; i-- {
+		memSnapshotBlock := snapshotBlockList[i]
+		if memSnapshotBlock.Height <= latestSnapshotBlock.Height {
+			realSnapshotBlocks = snapshotBlockList[:i+1]
+			needDeleteSnapshotBlocks = snapshotBlockList[i+1:]
+			break
+
+		}
+	}
+
+	for _, account := range accounts {
+		account.DeleteSnapshotBlocks(accounts, needDeleteSnapshotBlocks, false)
+	}
+
+	return realSnapshotBlocks
+}
+
+func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
 
 	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
 	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
@@ -236,13 +318,18 @@ func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.S
 	}
 	enc := gob.NewEncoder(fd)
 
-	if err := enc.Encode(accounts); err != nil {
-		panic(err)
+	if len(accounts) > 0 {
+		if err := enc.Encode(accounts); err != nil {
+			panic(err)
+		}
 	}
 
-	if err := enc.Encode(snapshotBlockList); err != nil {
-		panic(err)
+	if len(snapshotBlockList) > 0 {
+		if err := enc.Encode(snapshotBlockList); err != nil {
+			panic(err)
+		}
 	}
+
 	return accounts, snapshotBlockList
 }
 

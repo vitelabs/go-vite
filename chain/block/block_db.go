@@ -29,7 +29,7 @@ type BlockDB struct {
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
+	id, _ := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
 
 	fileSize := int64(10 * 1024 * 1024) // 10M
 	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize, 10)

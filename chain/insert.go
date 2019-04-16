@@ -22,14 +22,14 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
+		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlockAndSnapshot failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil, nil)

@@ -374,7 +374,7 @@ func (sDB *StateDB) rollbackAccountBlock(batch *leveldb.Batch, accountBlock *led
 	}
 
 	// delete log hash
-	if len(accountBlock.LogHash) > 0 {
+	if accountBlock.LogHash != nil {
 		batch.Delete(chain_utils.CreateVmLogListKey(accountBlock.LogHash))
 	}
 
