@@ -113,9 +113,10 @@ func (or *OnRoadInfo) DeleteAccountBlocks(*leveldb.Batch, []*ledger.AccountBlock
 	return nil
 }
 
-func (or *OnRoadInfo) DeleteSnapshotBlocks(*leveldb.Batch, []*ledger.SnapshotChunk) error {
-	or.storeMutex.Lock()
-	defer or.storeMutex.Unlock()
+func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
+	/*	or.storeMutex.Lock()
+		defer or.storeMutex.Unlock()
+		return or.deleteChunks(batch, chunks)*/
 	return nil
 }
 
