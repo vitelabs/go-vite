@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -440,8 +442,6 @@ func (f *syncConn) download(from, to uint64) (err error) {
 		return err
 	}
 
-	defer writer.Close()
-
 	start := time.Now().Unix()
 	var nr, nw int
 	var total, count uint64
@@ -460,11 +460,12 @@ func (f *syncConn) download(from, to uint64) (err error) {
 
 		if err != nil {
 			if err == io.EOF {
+				err = nil
 				break
 			}
-			return err
+			break
 		} else if werr != nil {
-			err = fmt.Errorf("write cache %d-%d error: %v", from, to, werr)
+			err = fmt.Errorf("failed to write cache %d-%d: %v", from, to, werr)
 			break
 		} else if nw != nr {
 			err = fmt.Errorf("write cache %d-%d too short", from, to)
@@ -474,6 +475,19 @@ func (f *syncConn) download(from, to uint64) (err error) {
 		if total == chunkInfo.size {
 			break
 		}
+	}
+
+	_ = writer.Close()
+
+	if err != nil {
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
+	}
+
+	if total != chunkInfo.size {
+		err = fmt.Errorf("incomplete chunk")
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
 	}
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)
