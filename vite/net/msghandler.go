@@ -204,7 +204,8 @@ func (q *queryHandler) loop() {
 			time.Sleep(20 * time.Millisecond)
 		} else {
 			for _, event := range tasks[:index] {
-				if err := q.handle(event.msg, event.sender); err != nil {
+				// allocate to handlers
+				if err := q.msgHandlers.handle(event.msg, event.sender); err != nil {
 					event.sender.catch(err)
 				}
 			}

@@ -416,6 +416,8 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
+		fmt.Println(n.Chain.GetLatestSnapshotBlock().Height)
+
 		if err = n.server.start(); err != nil {
 			return
 		}

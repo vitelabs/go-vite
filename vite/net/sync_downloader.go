@@ -410,14 +410,29 @@ func (e *executor) cancel(from, to uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for i := len(e.tasks); i > -1; i-- {
+	var total = len(e.tasks)
+
+	if total == 0 {
+		return
+	}
+
+	var j int
+	for i := total - 1; i > -1; i-- {
 		t := e.tasks[i]
 		if t.from >= from {
 			t.cancel()
-		} else if t.to > from {
+			j++
+			continue
+		}
+
+		if t.to > from {
 			t.to = from - 1
 		}
+
+		break
 	}
+
+	e.tasks = e.tasks[:total-j]
 }
 
 func (e *executor) reset() {

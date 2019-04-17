@@ -138,6 +138,25 @@ func TestChunksOverlap(t *testing.T) {
 	}
 }
 
+func TestExecutor_cancel(t *testing.T) {
+	exec := newExecutor(100, 3, nil, nil)
+	exec.start()
+
+	exec.download(1, 10, false)
+	exec.download(11, 20, false)
+	exec.download(21, 30, false)
+	exec.download(31, 40, false)
+
+	exec.cancel(13, 50)
+
+	if len(exec.tasks) != 2 {
+		t.Errorf("wrong tasks length: %d", len(exec.tasks))
+	}
+	if exec.tasks[1].from != 11 || exec.tasks[1].to != 12 {
+		t.Errorf("wrong task")
+	}
+}
+
 func TestRunTasks(t *testing.T) {
 	var tasks = syncTasks{
 		{
