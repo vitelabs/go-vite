@@ -25,6 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -34,7 +36,7 @@ var errIncompleteMessage = errors.New("incomplete message")
 var errSocketIsRunning = errors.New("udp socket is listening")
 var errSocketIsNotRunning = errors.New("udp socket is not running")
 
-const socketQueueLength = 10
+const socketQueueLength = 30
 
 // sender return err is not nil if one of the following scene occur:
 // 1. failed to resolve net.UDPAddr of n
@@ -45,7 +47,7 @@ type sender interface {
 	// pong respond the last ping message from n, echo is the hash of ping message payload
 	pong(echo []byte, n *Node) (err error)
 	// findNode find count nodes near the target to n, put the responsive nodes into ch, ch MUST no be nil
-	findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error)
+	findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error)
 	// sendNodes to addr, if eps is too many, the response message will be split to multiple message,
 	// every message is small than maxPacketLength.
 	sendNodes(eps []*vnode.EndPoint, addr *net.UDPAddr) (err error)
@@ -79,6 +81,7 @@ type agent struct {
 	running       int32
 	term          chan struct{}
 	wg            sync.WaitGroup
+	log           log15.Logger
 }
 
 func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, listenAddress string, handler func(*packet)) *agent {
@@ -88,6 +91,7 @@ func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, listenAddress string
 		peerKey:       peerKey,
 		handler:       handler,
 		pool:          newRequestPool(),
+		log:           discvLog.New("module", "socket"),
 	}
 }
 
@@ -199,7 +203,7 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 func findnodenil(ch chan<- []*vnode.EndPoint) {
 	ch <- nil
 }
-func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
+func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
 	udp, err := n.udpAddr()
 	if err != nil {
 		go findnodenil(ch)

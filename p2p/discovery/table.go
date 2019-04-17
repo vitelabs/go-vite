@@ -35,7 +35,7 @@ type nodeCollector interface {
 	// bubble the specific node to the least active position, return true if bubble
 	// return false if cannot find the node
 	bubble(id vnode.NodeID) bool
-	// add node to the least active position, not check duplicate.
+	// add node to the last recent active position
 	add(node *Node) (toCheck *Node)
 	// remove and return the specific node, if cannot find in the collector, return nil
 	remove(id vnode.NodeID) (n *Node)
@@ -56,26 +56,18 @@ type nodeCollector interface {
 // bucket keep nodes from the same subtree, mean that, nodes have the same distance to the target id
 type bucket interface {
 	nodeCollector
-	// oldest return the least active node
-	oldest() *Node
-	// replace node has id to n, return true if replace success, return false if cannot find the node
-	replace(id vnode.NodeID, n *Node) bool
-}
 
-// Observer can subscribe node event, like see new node
-type Observer interface {
-	// Receive will be invoked every time when see a new node
-	Receive(n *vnode.Node)
-	// Sub a subscription, the subId returned by Subscriber.Sub should keep
-	Sub(Subscriber)
-	// UnSub a subscription
-	UnSub(Subscriber)
+	// oldest return the least recent active node, maybe nil
+	oldest() *Node
+
+	// replace the specific node with n, return false if cannot find the it in the bucket
+	replace(id vnode.NodeID, n *Node) (success bool)
 }
 
 // Subscriber can be subscribed by observer
 type Subscriber interface {
 	// Sub return the unique id
-	Sub(observer Observer) (subId int)
+	Sub(receiver func(n *vnode.Node)) (subId int)
 	// UnSub received the id returned by Sub
 	UnSub(subId int)
 }
@@ -90,11 +82,10 @@ type nodeStore interface {
 type nodeTable interface {
 	nodeCollector
 	Subscriber
-	// getId return the table id
-	getId() vnode.NodeID
+
 	// addNodes receive a batch of nodes, can reduce lock cost of lock
 	addNodes(nodes []*Node)
-	// oldest return last active nodes from every bucket
+	// oldest return least recent active nodes from every bucket
 	oldest() []*Node
 	// findNeighbors return count nodes near the id
 	findNeighbors(id vnode.NodeID, count int) []*Node
@@ -295,24 +286,26 @@ type table struct {
 
 	bucketFact func(capp int) bucket
 
-	id vnode.NodeID
+	id    vnode.NodeID
+	netId int
 
 	subId     int
-	observers map[int]Observer
+	recievers map[int]func(node *vnode.Node)
 
 	socket pinger
 }
 
-func newTable(id vnode.NodeID, bktSize, bucketNum int, fact func(bktSize int) bucket, socket pinger) *table {
+func newTable(id vnode.NodeID, netId int, bktSize, bucketNum int, fact func(bktSize int) bucket, socket pinger) *table {
 	tab := &table{
 		id:          id,
+		netId:       netId,
 		bucketSize:  bktSize,
 		bucketNum:   bucketNum,
 		minDistance: vnode.IDBits - uint(bucketNum) + 1,
 		buckets:     make([]bucket, bucketNum),
 		nodeMap:     make(map[string]*Node),
 		bucketFact:  fact,
-		observers:   make(map[int]Observer),
+		recievers:   make(map[int]func(node *vnode.Node)),
 		socket:      socket,
 	}
 
@@ -362,13 +355,14 @@ func (tab *table) nodes(count int) (nodes []*Node) {
 	return
 }
 
-func (tab *table) Sub(observer Observer) (subId int) {
+func (tab *table) Sub(rec func(node *vnode.Node)) (subId int) {
 	tab.rw.Lock()
 	defer tab.rw.Unlock()
 
-	tab.observers[tab.subId] = observer
 	subId = tab.subId
 	tab.subId++
+
+	tab.recievers[subId] = rec
 
 	return
 }
@@ -377,11 +371,20 @@ func (tab *table) UnSub(subId int) {
 	tab.rw.Lock()
 	defer tab.rw.Unlock()
 
-	delete(tab.observers, subId)
+	delete(tab.recievers, subId)
+}
+
+func (tab *table) notify(n *vnode.Node) {
+	tab.rw.RLock()
+	defer tab.rw.RUnlock()
+
+	for _, rec := range tab.recievers {
+		rec(n)
+	}
 }
 
 func (tab *table) add(node *Node) (toCheck *Node) {
-	if node == nil || node.ID == tab.id {
+	if node.ID == tab.id {
 		return nil
 	}
 
@@ -392,12 +395,37 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 	tab.rw.Lock()
 	defer tab.rw.Unlock()
 
-	// exist in table
-	if _, ok := tab.nodeMap[addr]; ok {
+	// same address
+	if old, ok := tab.nodeMap[addr]; ok {
+		// nothing change
+		if old.Equal(&node.Node) {
+			bkt := tab.getBucket(node.ID)
+			bkt.bubble(node.ID)
+			return nil
+		}
+
+		// same address, different info
+		// check old node
+		go tab.checkRemove(old)
+
+		return old
+	}
+
+	// no nodes has the same address
+	bkt := tab.getBucket(node.ID)
+
+	// same id, different netId, different address
+	if node.Net != tab.netId {
+		if old := bkt.resolve(node.ID); old != nil {
+			go tab.checkRemove(old)
+
+			return old
+		}
+
 		return nil
 	}
 
-	bkt := tab.getBucket(node.ID)
+	// no nodes with the same id and address, and net is the same
 	toCheck = bkt.add(node)
 	if toCheck == nil {
 		// bucket not full
@@ -405,10 +433,19 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 		return
 	}
 
-	// ping oldNode
+	// toCheck has different address with node
 	go tab.checkReplace(bkt, toCheck, node)
 
 	return
+}
+
+func (tab *table) checkRemove(node *Node) {
+	err := tab.socket.ping(node)
+	if err != nil {
+		tab.remove(node.ID)
+	} else {
+		tab.bubble(node.ID)
+	}
 }
 
 func (tab *table) checkReplace(bkt bucket, oldNode, newNode *Node) {
@@ -420,28 +457,14 @@ func (tab *table) checkReplace(bkt bucket, oldNode, newNode *Node) {
 			tab.nodeMap[newNode.Address()] = newNode
 		}
 		tab.rw.Unlock()
+	} else {
+		tab.bubble(oldNode.ID)
 	}
 }
 
 func (tab *table) addNodes(nodes []*Node) {
-	tab.rw.Lock()
-	defer tab.rw.Unlock()
-
-	for _, n := range nodes {
-		if n == nil || n.ID == tab.id {
-			continue
-		}
-
-		addr := n.Address()
-		if _, ok := tab.nodeMap[addr]; ok {
-			continue
-		}
-
-		bkt := tab.getBucket(n.ID)
-
-		if bkt.add(n) != nil {
-			tab.nodeMap[addr] = n
-		}
+	for _, node := range nodes {
+		tab.add(node)
 	}
 }
 
@@ -516,12 +539,6 @@ func (tab *table) oldest() (nodes []*Node) {
 	return
 }
 
-func (tab *table) notify(n *vnode.Node) {
-	for _, ob := range tab.observers {
-		ob.Receive(n)
-	}
-}
-
 func (tab *table) size() int {
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
@@ -573,6 +590,7 @@ func (tab *table) iterate(fn func(*Node)) {
 	}
 }
 
+// toFind return the sub-tree need more nodes
 func (tab *table) toFind() uint {
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()

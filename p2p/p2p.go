@@ -43,6 +43,8 @@ var errProtocolExisted = errors.New("protocol has existed")
 var errPeerNotExist = errors.New("peer not exist")
 var errLevelIsFull = errors.New("level is full")
 
+var p2pLog = log15.New("module", "p2p")
+
 // Authenticator will authenticate all inbound connection whether can access our server
 type Authenticator interface {
 	// Authenticate the connection, connection will be disconnected if return false
@@ -151,8 +153,8 @@ func strategy(t time.Time, count int) bool {
 }
 
 func New(cfg *Config) P2P {
-	staticNodes := make([]*vnode.Node, 0, len(cfg.staticNodes))
-	for _, u := range cfg.staticNodes {
+	staticNodes := make([]*vnode.Node, 0, len(cfg.StaticNodes))
+	for _, u := range cfg.StaticNodes {
 		n, err := vnode.ParseNode(u)
 		if err != nil {
 			panic(err)
@@ -161,13 +163,11 @@ func New(cfg *Config) P2P {
 		staticNodes = append(staticNodes, n)
 	}
 
-	log := log15.New("module", "p2p")
-
 	ptMap := make(map[ProtocolID]Protocol)
 	hkr := &handshaker{
 		version: version,
 		netId:   uint32(cfg.NetID),
-		name:    cfg.name,
+		name:    cfg.Name,
 		id:      cfg.Node().ID,
 		priv:    cfg.PrivateKey(),
 		codecFactory: &transportFactory{
@@ -176,7 +176,7 @@ func New(cfg *Config) P2P {
 			writeTimeout:      writeMsgTimeout,
 		},
 		ptMap: ptMap,
-		log:   log.New("module", "handshaker"),
+		log:   p2pLog.New("module", "handshaker"),
 	}
 
 	var p = &p2p{
@@ -187,14 +187,14 @@ func New(cfg *Config) P2P {
 		handshaker:  hkr,
 		blackList:   netool.NewBlackList(strategy),
 		dialer:      newDialer(5*time.Second, 5, hkr),
-		log:         log,
+		log:         p2pLog,
 	}
 
-	if cfg.discover {
+	if cfg.Discover {
 		p.discv = discovery.New(cfg.Config)
 	}
 
-	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.maxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
+	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.MaxPendingPeers, p.handshaker, p, cfg.ListenAddress)
 
 	return p
 }
@@ -220,7 +220,7 @@ func (p *p2p) Start() (err error) {
 			return err
 		}
 
-		if p.cfg.discover {
+		if p.cfg.Discover {
 			if err = p.discv.Start(); err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ func (p *p2p) Stop() (err error) {
 
 		p.wg.Wait()
 
-		if p.cfg.discover {
+		if p.cfg.Discover {
 			err = p.discv.Stop()
 		}
 
@@ -284,7 +284,7 @@ func (p *p2p) Info() NodeInfo {
 
 	return NodeInfo{
 		ID:        p.cfg.Node().ID.String(),
-		Name:      p.cfg.name,
+		Name:      p.cfg.Name,
 		NetID:     p.cfg.NetID,
 		Version:   version,
 		Address:   p.cfg.ListenAddress,
@@ -403,7 +403,7 @@ func (p *p2p) connectStaticNodes() {
 func (p *p2p) findLoop() {
 	defer p.wg.Done()
 
-	need := p.cfg.minPeers
+	need := p.cfg.MinPeers
 
 	var initduration = 10 * time.Second
 	var maxDuration = 160 * time.Second
@@ -417,7 +417,7 @@ Loop:
 
 		select {
 		case <-timer.C:
-			if p.peers.count() < p.cfg.minPeers && p.cfg.discover {
+			if p.peers.count() < p.cfg.MinPeers && p.cfg.Discover {
 				need *= 2
 				max := p.peers.max()
 				if need > max {

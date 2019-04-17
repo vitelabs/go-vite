@@ -204,19 +204,18 @@ Loop:
 		s.removeUselessChunks()
 
 		for {
-			if cs = cache.Chunks(); len(cs) == 0 {
-				s.mu.Lock()
-				if s.running {
-					s.cond.Wait()
-					s.mu.Unlock()
-					continue
-				} else {
-					s.mu.Unlock()
-					break Loop
-				}
+			if false == s.running {
+				break Loop
 			}
 
-			break
+			if cs = cache.Chunks(); len(cs) == 0 {
+				s.mu.Lock()
+				s.cond.Wait()
+				s.mu.Unlock()
+				continue
+			} else {
+				break
+			}
 		}
 
 		// request
@@ -226,6 +225,10 @@ Loop:
 
 		// read chunks
 		for _, c := range cs {
+			if false == s.running {
+				return
+			}
+
 			// chunk has read
 			if c[1] <= s.readTo {
 				continue
@@ -256,6 +259,11 @@ Loop:
 
 			// read chunk
 			for {
+				if false == s.running {
+					_ = reader.Close()
+					return
+				}
+
 				var ab *ledger.AccountBlock
 				var sb *ledger.SnapshotBlock
 				ab, sb, err = reader.Read()
@@ -271,6 +279,8 @@ Loop:
 					}
 				}
 			}
+
+			_ = reader.Close()
 
 			// read chunk error
 			if err != nil && err != io.EOF {

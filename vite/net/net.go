@@ -459,6 +459,7 @@ func (n *net) Stop() error {
 func (n *net) Info() NodeInfo {
 	info := NodeInfo{
 		Latency: n.broadcaster.Statistic(),
+		Peers:   n.peers.info(),
 	}
 
 	if n.server != nil {
@@ -469,6 +470,7 @@ func (n *net) Info() NodeInfo {
 }
 
 type NodeInfo struct {
+	Peers   []PeerInfo       `json:"peers"`
 	Latency []int64          `json:"latency"` // [0,1,12,24]
 	Server  FileServerStatus `json:"server"`
 }

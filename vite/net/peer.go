@@ -41,6 +41,7 @@ type Peer interface {
 	sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error
 	sendNewSnapshotBlock(b *ledger.SnapshotBlock) error
 	sendNewAccountBlock(b *ledger.AccountBlock) error
+	info() PeerInfo
 }
 
 // PeerState is p2p.Peer.State
@@ -53,6 +54,14 @@ type PeerState struct {
 	FileAddress string
 }
 
+// PeerInfo is for api
+type PeerInfo struct {
+	ID     string `json:"id"`
+	Addr   string `json:"addr"`
+	Head   string `json:"head"`
+	Height uint64 `json:"height"`
+}
+
 type peer struct {
 	p2p.Peer
 
@@ -63,6 +72,15 @@ type peer struct {
 	once        sync.Once
 
 	log log15.Logger
+}
+
+func (p *peer) info() PeerInfo {
+	return PeerInfo{
+		ID:     p.Peer.ID().String(),
+		Addr:   p.Peer.Address().String(),
+		Head:   p.head().String(),
+		Height: p.height(),
+	}
 }
 
 func (p *peer) head() types.Hash {
@@ -406,6 +424,21 @@ func (m *peerSet) count() int {
 	defer m.prw.RUnlock()
 
 	return len(m.m)
+}
+
+func (m *peerSet) info() []PeerInfo {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	infos := make([]PeerInfo, len(m.m))
+
+	var i int
+	for _, p := range m.m {
+		infos[i] = p.info()
+		i++
+	}
+
+	return infos
 }
 
 // peers can be sort by height, from low to high

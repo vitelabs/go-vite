@@ -226,7 +226,7 @@ func (p *pingRequest) receivePong(pkt *packet, png *pong) {
 }
 
 type findNodeRequest struct {
-	count uint32
+	count int
 	rec   []*vnode.EndPoint
 	ch    chan<- []*vnode.EndPoint
 }
