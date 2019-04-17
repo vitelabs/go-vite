@@ -1,6 +1,10 @@
 package core
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+)
 
 type SbpStats struct {
 	Index            uint64
@@ -19,7 +23,26 @@ type DayStats struct {
 	BlockTotal uint64
 }
 
+type BaseStats struct {
+	Index uint64
+	Stats map[types.Address]*SbpStats
+}
+
+type HourStats struct {
+	*BaseStats
+}
+
+type PeriodStats struct {
+	*BaseStats
+}
+
 type SBPStatReader interface {
 	DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error)
 	GetDayTimeIndex() TimeIndex
+
+	HourStats(startIndex uint64, endIndex uint64) ([]*HourStats, error)
+	GetHourTimeIndex() TimeIndex
+
+	PeriodStats(startIndex uint64, endIndex uint64) ([]*PeriodStats, error)
+	GetPeriodTimeIndex() TimeIndex
 }
