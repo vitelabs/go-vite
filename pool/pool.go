@@ -394,6 +394,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 		}
 		self.selfPendingAc(k).checkCurrent()
 	}
+	self.version.Inc()
 	return nil
 }
 
@@ -923,14 +924,14 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 	}
 	return nil
 }
-func (self *pool) insertLevel(l Level) error {
+func (self *pool) insertLevel(l Level, version int) error {
 	if l.Snapshot() {
-		return self.insertSnapshotLevel(l)
+		return self.insertSnapshotLevel(l, version)
 	} else {
-		return self.insertAccountLevel(l)
+		return self.insertAccountLevel(l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(l Level) error {
+func (self *pool) insertSnapshotLevel(l Level, version int) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -940,14 +941,14 @@ func (self *pool) insertSnapshotLevel(l Level) error {
 	}()
 	for _, b := range l.Buckets() {
 		num = num + len(b.Items())
-		return self.insertSnapshotBucket(b)
+		return self.insertSnapshotBucket(b, version)
 	}
 	return nil
 }
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(l Level) error {
+func (self *pool) insertAccountLevel(l Level, version int) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {
@@ -970,7 +971,7 @@ func (self *pool) insertAccountLevel(l Level) error {
 				if globalErr != nil {
 					return
 				}
-				err := self.insertAccountBucket(b)
+				err := self.insertAccountBucket(b, version)
 				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err

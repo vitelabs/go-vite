@@ -617,7 +617,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (u
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock) error {
+func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock, version int) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))
@@ -636,6 +636,10 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
+			if block.forkVersion() != version {
+				return errors.New("snapshot version update")
+			}
+
 			stat := self.v.verifyAccount(block.(*accountPoolBlock), latestSb)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()

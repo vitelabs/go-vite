@@ -12,6 +12,7 @@ import (
 type snapshotPackage struct {
 	num             int
 	current         int
+	version         int
 	all             map[types.Hash]*ownerLevel
 	ls              []Level
 	snapshotExistsF SnapshotExistsFunc
@@ -55,6 +56,9 @@ func (self *snapshotPackage) Info() string {
 
 	return fmt.Sprintf("sum:%d,%d,%d:%s\n", len(self.all), sum, self.num, levelInfo)
 }
+func (self *snapshotPackage) Version() int {
+	return self.version
+}
 
 func (self *snapshotPackage) Size() int {
 	return len(self.all)
@@ -67,12 +71,12 @@ func (self *snapshotPackage) IsUnconfirmed() bool {
 type SnapshotExistsFunc func(hash types.Hash) error
 type AccountExistsFunc func(hash types.Hash) error
 
-func NewSnapshotPackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int) Package {
+func NewSnapshotPackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, version int, max int) Package {
 	tmpLs := make([]Level, max)
 	//for i := 0; i < max; i++ {
 	//	tmpLs[i] = newLevel()
 	//}
-	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, current: -1}
+	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, current: -1, version: version}
 }
 func NewSnapshotPackage2(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int, snapshot *ledger.SnapshotBlock) *snapshotPackage {
 	tmpLs := make([]Level, max)

@@ -68,7 +68,7 @@ make a queue from account pool and snapshot pool
 func (self *pool) makeQueue() Package {
 	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: self.pendingSc.CurrentChain().tailHeight, Hash: self.pendingSc.CurrentChain().tailHash}}
 
-	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
+	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, self.version.Val(), 50)
 	for {
 		newOffset, errAcc, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
@@ -273,7 +273,7 @@ func (self *pool) insertQueue(q Package) error {
 		if level == nil {
 			continue
 		}
-		err := self.insertLevel(level)
+		err := self.insertLevel(level, q.Version())
 		if err != nil {
 			return err
 		}
@@ -281,22 +281,22 @@ func (self *pool) insertQueue(q Package) error {
 	return nil
 }
 
-func (self *pool) insertAccountBucket(bucket Bucket) error {
+func (self *pool) insertAccountBucket(bucket Bucket, version int) error {
 	self.RLock()
 	defer self.RUnLock()
 	latestSb := self.bc.GetLatestSnapshotBlock()
-	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items(), latestSb)
+	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items(), latestSb, version)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(bucket Bucket) error {
+func (self *pool) insertSnapshotBucket(bucket Bucket, version int) error {
 	// stop the world for snapshot insert
 	self.Lock()
 	defer self.UnLock()
-	accBlocks, item, err := self.pendingSc.snapshotInsertItems(bucket.Items())
+	accBlocks, item, err := self.pendingSc.snapshotInsertItems(bucket.Items(), version)
 	if err != nil {
 		return err
 	}

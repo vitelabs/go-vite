@@ -263,7 +263,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
+func (self *snapshotPool) snapshotInsertItems(items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
