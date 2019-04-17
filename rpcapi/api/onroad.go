@@ -28,11 +28,11 @@ func (pub PublicOnroadApi) String() string {
 	return "PublicOnroadApi"
 }
 
-func (pub PublicOnroadApi) GetAccountOnroadBlocks(address types.Address, index, count int) ([]*AccountBlock, error) {
+func (pub PublicOnroadApi) GetAccountOnroadBlocks(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	if count > math.MaxUint16+1 {
 		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
 	}
-	return pub.api.GetOnroadBlocksByAddress(address, uint64(index), uint64(count))
+	return pub.api.GetOnroadBlocksByAddress(address, index, count)
 }
 
 func (pub PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
