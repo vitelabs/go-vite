@@ -20,7 +20,6 @@ func (cache *Cache) GetUnconfirmedBlocksByAddress(address *types.Address) []*led
 }
 
 func (cache *Cache) recoverUnconfirmedPool(accountBlocks []*ledger.AccountBlock) {
-
 	for _, accountBlock := range accountBlocks {
 		dataId := cache.ds.InsertAccountBlock(accountBlock)
 		cache.unconfirmedPool.InsertAccountBlock(&accountBlock.AccountAddress, dataId)

@@ -40,6 +40,14 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}, nil
 }
 
+func (p *Plugins) Close() error {
+	if err := p.store.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *Plugins) GetPlugin(name string) Plugin {
 	return p.plugins[name]
 }
@@ -60,20 +68,20 @@ func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) e
 	return nil
 }
 
-func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
+func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
 
-	for _, snapshotBlock := range snapshotBlocks {
-		batch := p.store.NewBatch()
-
-		for _, plugin := range p.plugins {
-
-			if err := plugin.InsertSnapshotBlock(batch, snapshotBlock, confirmedBlocks); err != nil {
-				return err
-			}
-		}
-		p.store.WriteSnapshot(batch, confirmedBlocks)
-
-	}
+	//for _, snapshotBlock := range snapshotBlocks {
+	//	batch := p.store.NewBatch()
+	//
+	//	for _, plugin := range p.plugins {
+	//
+	//		if err := plugin.InsertSnapshotBlock(batch, snapshotBlock, confirmedBlocks); err != nil {
+	//			return err
+	//		}
+	//	}
+	//	p.store.WriteSnapshot(batch, confirmedBlocks)
+	//
+	//}
 
 	return nil
 }
@@ -106,7 +114,7 @@ func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 	return nil
 }
 
-func (p *Plugins) DeleteSnapshotBlocks(blocks []*ledger.AccountBlock) error {
+func (p *Plugins) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	unconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
 	if len(unconfirmedBlocks) <= 0 {
 		return nil

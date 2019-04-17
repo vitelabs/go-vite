@@ -58,24 +58,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			return nil, cErr
 		}
 
-		// FOR DEBUG
-
-		if len(allChunksDeleted) > 0 {
-			fmt.Printf("REAL allChunksDeleted[0] %+v %+v\n", allChunksDeleted[0].AccountBlocks, allChunksDeleted[0].SnapshotBlock)
-		}
-		for _, chunk := range chunksDeleted {
-			if chunk.SnapshotBlock != nil {
-				c.log.Info(fmt.Sprintf("REAL Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
-				for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-					c.log.Info(fmt.Sprintf("REAL Delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
-				}
-			}
-
-			for _, ab := range chunk.AccountBlocks {
-				c.log.Info(fmt.Sprintf("REAL delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
-			}
-		}
-
 		if len(allChunksDeleted) > 0 && allChunksDeleted[0].AccountBlocks == nil && chunksDeleted[len(chunksDeleted)-1].SnapshotBlock == nil {
 			allChunksDeleted[0].AccountBlocks = chunksDeleted[len(chunksDeleted)-1].AccountBlocks
 			allChunksDeleted = append(chunksDeleted[:len(chunksDeleted)-1], allChunksDeleted...)
@@ -133,15 +115,15 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
 
-	realChunksToDelete := snapshotChunks
-
 	// append old unconfirmed blocks
 	oldUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	if len(oldUnconfirmedBlocks) > 0 {
 		snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
-			AccountBlocks: c.cache.GetUnconfirmedBlocks(),
+			AccountBlocks: oldUnconfirmedBlocks,
 		})
 	}
+
+	realChunksToDelete := snapshotChunks
 
 	if hasStorageRedoLog {
 		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
@@ -155,13 +137,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		realChunksToDelete[0] = &firstChunk
 	}
 
-	//if len(oldUnconfirmedBlocks) <= 0 {
-	//	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
-	//		AccountBlocks: oldUnconfirmedBlocks,
-	//	})
-	//}
-
-	////FOR DEBUG
+	//FOR DEBUG
 	for _, chunk := range snapshotChunks {
 		if chunk.SnapshotBlock != nil {
 			c.log.Info(fmt.Sprintf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
@@ -175,7 +151,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 	}
 
-	// FOR DEBUG
+	//FOR DEBUG
 	for _, block := range newUnconfirmedBlocks {
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 	}

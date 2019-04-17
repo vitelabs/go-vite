@@ -29,6 +29,8 @@ const (
 	start = 1
 )
 
+const testPlugins = false
+
 type chain struct {
 	genesisCfg *config.Genesis
 
@@ -117,13 +119,6 @@ func (c *chain) Init() error {
 	if err := c.initCache(); err != nil {
 		return err
 	}
-
-	// init plugins
-	//if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
-	//	cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
-	//	c.log.Error(cErr.Error(), "method", "Init")
-	//	return cErr
-	//}
 
 	c.log.Info("Complete initialization", "method", "Init")
 	return nil
@@ -243,6 +238,18 @@ func (c *chain) newDbAndRecover() error {
 		return cErr
 	}
 
+	// init plugins
+	if testPlugins {
+		var err error
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return cErr
+		}
+
+		c.Register(c.plugins)
+	}
+
 	return nil
 }
 
@@ -324,6 +331,17 @@ func (c *chain) closeAndCleanData() error {
 
 		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
 		return err
+	}
+
+	// close plugins
+	if testPlugins {
+		if err = c.plugins.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.plugins.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+			return err
+		}
+
 	}
 
 	// clean all data

@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
@@ -103,6 +104,15 @@ func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[ty
 	return snapshotBlockList
 }
 
+// check blocks is a chain
+func printf(blocks []*ledger.AccountBlock) string {
+	result := ""
+	for _, v := range blocks {
+		result += fmt.Sprintf("[%d-%s-%s]", v.Height, v.Hash, v.PrevHash)
+	}
+	return result
+}
+
 func deleteSnapshotBlocks(chainInstance *chain, accounts map[types.Address]*Account, count uint64) {
 	if count <= 0 {
 		return
@@ -133,6 +143,33 @@ func deleteSnapshotBlocks(chainInstance *chain, accounts map[types.Address]*Acco
 		len(snapshotBlocksToDelete)+1 != len(snapshotChunksDeleted) {
 
 		panic(fmt.Sprintf("snapshotBlocksToDelete length: %d, snapshotChunksDeleted length: %d", len(snapshotBlocksToDelete), len(snapshotChunksDeleted)))
+	}
+
+	deletedBlocks := make(map[types.Address][]*ledger.AccountBlock)
+	for _, chunk := range snapshotChunksDeleted {
+		for _, accountBlock := range chunk.AccountBlocks {
+			deletedBlocks[accountBlock.AccountAddress] = append(deletedBlocks[accountBlock.AccountAddress], accountBlock)
+		}
+	}
+
+	for addr, blocks := range deletedBlocks {
+		var prev *ledger.AccountBlock
+		for _, block := range blocks {
+			if prev == nil {
+				prev = block
+				continue
+			}
+			if block.PrevHash != prev.Hash {
+				panic(fmt.Sprintf("%s-%d %s-%d", prev.Hash, prev.Height, block.Hash, block.Height))
+
+				//panic(errors.New(fmt.Sprintf("%s not a chain:"+printf(blocks), addr)))
+			}
+
+			if block.Height-1 != prev.Height {
+				panic(errors.New(fmt.Sprintf("%s not a chain:"+printf(blocks), addr)))
+			}
+			prev = block
+		}
 	}
 
 	hasStorageRedoLog := len(snapshotChunksDeleted[0].AccountBlocks) <= 0
