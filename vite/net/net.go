@@ -457,13 +457,18 @@ func (n *net) Stop() error {
 }
 
 func (n *net) Info() NodeInfo {
-	return NodeInfo{
-		PeerCount: n.peers.count(),
-		Latency:   n.broadcaster.Statistic(),
+	info := NodeInfo{
+		Latency: n.broadcaster.Statistic(),
 	}
+
+	if n.server != nil {
+		info.Server = n.server.status()
+	}
+
+	return info
 }
 
 type NodeInfo struct {
-	PeerCount int     `json:"peerCount"`
-	Latency   []int64 `json:"latency"` // [0,1,12,24]
+	Latency []int64          `json:"latency"` // [0,1,12,24]
+	Server  FileServerStatus `json:"server"`
 }
