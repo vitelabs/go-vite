@@ -16,7 +16,7 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	for i := 0; i < 1; i++ {
-		chainInstance, accounts, snapshotBlockList := SetUp(5, 960, 2)
+		chainInstance, accounts, snapshotBlockList := SetUp(1, 960, 2)
 
 		snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
@@ -26,11 +26,11 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 }
 
 func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	//t.Run("DeleteMany", func(t *testing.T) {
-	//	snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
-	//})
+	t.Run("DeleteMany", func(t *testing.T) {
+		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
+	})
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
 		})
@@ -43,6 +43,8 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
 		})
 	}
+
+	//testRedo(t, chainInstance)
 
 	return snapshotBlockList
 }

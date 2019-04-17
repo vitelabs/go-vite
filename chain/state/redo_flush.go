@@ -114,18 +114,26 @@ func (redo *Redo) Commit() error {
 	}
 	defer tx.Rollback()
 
+	maxSnapshotHeight := uint64(0)
 	for snapshotHeight, flushingBatch := range redo.flushingBatchMap {
 		switch flushingBatch.Operation {
 		case optWrite:
 			if err := redo.flush(tx, snapshotHeight, flushingBatch.Batch); err != nil {
 				return err
 			}
+
+			if snapshotHeight > maxSnapshotHeight {
+				maxSnapshotHeight = snapshotHeight
+			}
 		case optRollback:
 			fallthrough
 		case optCover:
 			tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight))
 		}
+	}
 
+	if maxSnapshotHeight > 0 {
+		redo.deleteStale(tx, maxSnapshotHeight)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -151,6 +159,8 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 	}
 	defer tx.Rollback()
 
+	maxSnapshotHeight := uint64(0)
+
 	for currentPointer < endPointer {
 		buff := redoLog[currentPointer : currentPointer+size]
 		currentPointer += size
@@ -161,6 +171,10 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 				case optWrite:
 					if err := redo.flush(tx, snapshotHeight, batch); err != nil {
 						return err
+					}
+
+					if snapshotHeight > maxSnapshotHeight {
+						maxSnapshotHeight = snapshotHeight
 					}
 				case optRollback:
 					fallthrough
@@ -201,6 +215,10 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 
 	}
 
+	if maxSnapshotHeight > 0 {
+		redo.deleteStale(tx, maxSnapshotHeight)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -216,12 +234,25 @@ func (redo *Redo) flush(tx *bolt.Tx, snapshotHeight uint64, batch *leveldb.Batch
 	// add
 	batch.Replay(NewBatchFlush(bu))
 
-	// delete
-	if snapshotHeight > redo.retainHeight {
-		// ignore error
-		tx.DeleteBucket(chain_utils.Uint64ToBytes(snapshotHeight - redo.retainHeight))
-	}
 	return nil
+}
+
+func (redo *Redo) deleteStale(tx *bolt.Tx, maxSnapshotHeight uint64) {
+	if maxSnapshotHeight <= redo.retainHeight {
+		return
+	}
+
+	checkStartHeight := maxSnapshotHeight - redo.retainHeight
+	for h := checkStartHeight; h > 0; h-- {
+		key := chain_utils.Uint64ToBytes(h)
+		bu := tx.Bucket(key)
+		if bu == nil {
+			break
+		}
+
+		// delete
+		tx.DeleteBucket(key)
+	}
 }
 
 type BatchFlush struct {

@@ -58,7 +58,6 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 			return nil, cErr
 		}
 
-		// assemble all chunks deleted
 		if len(allChunksDeleted) > 0 && allChunksDeleted[0].AccountBlocks == nil && chunksDeleted[len(chunksDeleted)-1].SnapshotBlock == nil {
 			allChunksDeleted[0].AccountBlocks = chunksDeleted[len(chunksDeleted)-1].AccountBlocks
 			allChunksDeleted = append(chunksDeleted[:len(chunksDeleted)-1], allChunksDeleted...)
@@ -116,27 +115,34 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
 
+	realChunksToDelete := snapshotChunks
+
 	// append old unconfirmed blocks
 	oldUnconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 	if len(oldUnconfirmedBlocks) > 0 {
 		snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
-			AccountBlocks: oldUnconfirmedBlocks,
+			AccountBlocks: c.cache.GetUnconfirmedBlocks(),
 		})
 	}
-
-	realChunksToDelete := snapshotChunks
 
 	if hasStorageRedoLog {
 		newUnconfirmedBlocks = snapshotChunks[0].AccountBlocks
 
 		// remove unconfirmed blocks
+		realChunksToDelete = make([]*ledger.SnapshotChunk, len(snapshotChunks))
+		copy(realChunksToDelete[1:], snapshotChunks[1:])
 		firstChunk := *snapshotChunks[0]
-
-		realChunksToDelete[0].AccountBlocks = nil
-		snapshotChunks[0] = &firstChunk
+		firstChunk.AccountBlocks = nil
+		realChunksToDelete[0] = &firstChunk
 	}
 
-	//FOR DEBUG
+	//if len(oldUnconfirmedBlocks) <= 0 {
+	//	snapshotChunks = append(snapshotChunks, &ledger.SnapshotChunk{
+	//		AccountBlocks: oldUnconfirmedBlocks,
+	//	})
+	//}
+
+	////FOR DEBUG
 	for _, chunk := range snapshotChunks {
 		if chunk.SnapshotBlock != nil {
 			c.log.Info(fmt.Sprintf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
@@ -153,9 +159,9 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	// FOR DEBUG
 	for _, block := range newUnconfirmedBlocks {
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
-
 	}
-	if err := c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, realChunksToDelete); err != nil {
+
+	if err := c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +172,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	// rollback cache
-	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
+	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks, hasStorageRedoLog); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.RollbackSnapshotBlocks failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
@@ -177,8 +183,12 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
+	if err := c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.em.Trigger(DeleteSbsEvent) failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+	}
+
 	c.flusher.Flush(true)
-	c.em.Trigger(DeleteSbsEvent, nil, nil, nil, realChunksToDelete)
 
 	return realChunksToDelete, nil
 }

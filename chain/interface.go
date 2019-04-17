@@ -164,6 +164,8 @@ type Chain interface {
 	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
 
 	// ====== Query unconfirmed pool ======
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
+
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 
 	GetContentNeedSnapshot() ledger.SnapshotContent

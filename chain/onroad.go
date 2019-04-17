@@ -3,6 +3,7 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -47,7 +48,7 @@ func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, e
 	if c.plugins == nil {
 		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
 	}
-	onroad := c.plugins.GetPlugin("onRoadInfo")
+	onroad := c.plugins.GetPlugin("onRoadInfo").(*chain_plugins.OnRoadInfo)
 	if onroad == nil {
 		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
 	}

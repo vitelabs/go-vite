@@ -93,6 +93,18 @@ func (ql *quotaList) Sub(addr types.Address, quota uint64) {
 
 }
 
+func (ql *quotaList) NewEmptyNext() {
+	if ql.status < 1 {
+		return
+	}
+
+	ql.list.PushBack(make(map[types.Address]*quotaInfo))
+
+	ql.backElement = ql.list.Back().Value.(map[types.Address]*quotaInfo)
+
+	ql.moveNext()
+}
+
 func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 	if ql.status < 1 {
 		return
@@ -121,7 +133,11 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 
 	ql.list.Back().Value = currentSnapshotQuota
 	ql.list.PushBack(ql.backElement)
+	ql.moveNext()
 
+}
+
+func (ql *quotaList) moveNext() {
 	if uint64(ql.list.Len()) <= ql.usedAccumulateHeight {
 		return
 	}
@@ -141,17 +157,32 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 
 }
 
-func (ql *quotaList) Rollback(n int) error {
+func (ql *quotaList) Rollback(deletedChunks []*ledger.SnapshotChunk, hasStorageRedoLog bool) error {
+	backElem := ql.list.Back()
+	if backElem == nil {
+		return nil
+	}
+	if len(backElem.Value.(map[types.Address]*quotaInfo)) <= 0 {
+		ql.list.Remove(backElem)
+	}
+
+	n := len(deletedChunks)
+
 	if n >= ql.listMaxLength {
 		ql.list.Init()
 	} else {
-		// TODO
+		if hasStorageRedoLog {
+			n = n - 1
+		}
+
 		for i := 0; i < n && ql.list.Len() > 0; i++ {
 			ql.list.Remove(ql.list.Back())
 		}
 	}
 
-	return ql.build()
+	ql.build()
+
+	return nil
 }
 
 func (ql *quotaList) build() (returnError error) {
@@ -165,7 +196,6 @@ func (ql *quotaList) build() (returnError error) {
 
 		ql.calculateUsed()
 
-		// FOR DEBUG
 		//fmt.Println("after build, ql.backElement", ql.list.Len())
 		//for addr, quotaInfo := range ql.backElement {
 		//	fmt.Println(addr, quotaInfo)
