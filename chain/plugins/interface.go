@@ -23,6 +23,4 @@ type Plugin interface {
 	InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock, []*ledger.AccountBlock) error
 
 	DeleteChunks(*leveldb.Batch, []*ledger.SnapshotChunk) error
-
-	GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error)
 }

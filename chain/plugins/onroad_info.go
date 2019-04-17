@@ -15,7 +15,10 @@ import (
 	"sync"
 )
 
-var oLog = log15.New("plugin", "onroad_info")
+var (
+	OneInt = big.NewInt(1)
+	oLog   = log15.New("plugin", "onroad_info")
+)
 
 type OnRoadInfo struct {
 	chain Chain
@@ -99,19 +102,15 @@ func (or *OnRoadInfo) InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock,
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	/*	or.storeMutex.Lock()
-		defer or.storeMutex.Unlock()
-
-		return or.writeBlock(batch, block)*/
-	return nil
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+	return or.writeBlock(batch, block)
 }
 
 func (or *OnRoadInfo) DeleteChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
-	/*	or.storeMutex.Lock()
-		defer or.storeMutex.Unlock()
-
-		return or.deleteChunks(batch, chunks)*/
-	return nil
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+	return or.deleteChunks(batch, chunks)
 }
 
 func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
@@ -318,7 +317,6 @@ type signOnRoadMeta struct {
 }
 
 func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.TokenTypeId]*signOnRoadMeta, error) {
-	OneBigInt := big.NewInt(1)
 	addMap := make(map[types.TokenTypeId]*signOnRoadMeta)
 	for _, block := range blocks {
 		if block.IsSendBlock() {
@@ -332,7 +330,7 @@ func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.
 			if block.Amount != nil {
 				v.amount.Add(&v.amount, block.Amount)
 			}
-			v.number.Add(&v.number, OneBigInt)
+			v.number.Add(&v.number, OneInt)
 			addMap[block.TokenId] = v
 		} else {
 			fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
@@ -352,7 +350,7 @@ func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.
 			if fromBlock.Amount != nil {
 				v.amount.Sub(&v.amount, fromBlock.Amount)
 			}
-			v.number.Sub(&v.number, OneBigInt)
+			v.number.Sub(&v.number, OneInt)
 			addMap[fromBlock.TokenId] = v
 		}
 	}

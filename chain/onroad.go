@@ -3,6 +3,7 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -45,13 +46,13 @@ func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
 
 func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
 	if c.plugins == nil {
-		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
+		return nil, errors.New("plugins-OnRoadInfo's service not provided.")
 	}
-	onroad := c.plugins.GetPlugin("onRoadInfo")
-	if onroad == nil {
-		return nil, errors.New("OnRoadInfo-onroad's service not provided.")
+	onRoadInfo, ok := c.plugins.GetPlugin("onRoadInfo").(*chain_plugins.OnRoadInfo)
+	if !ok || onRoadInfo == nil {
+		return nil, errors.New("plugins-OnRoadInfo's service not provided.")
 	}
-	info, err := onroad.GetAccountInfo(&addr)
+	info, err := onRoadInfo.GetAccountInfo(&addr)
 	if err != nil {
 		return nil, err
 	}

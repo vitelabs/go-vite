@@ -3,7 +3,6 @@ package chain_plugins
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -29,10 +28,6 @@ func (ft *FilterToken) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *
 
 func (ft *FilterToken) DeleteChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
 	return nil
-}
-
-func (ft *FilterToken) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
-	return nil, nil
 }
 
 func (ft *FilterToken) GetBlocks() ([]*ledger.AccountBlock, error) {

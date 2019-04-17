@@ -111,7 +111,6 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 	}
 	// Difficulty,Nonce
 	if im.Difficulty != nil {
-		// currently, default mode of GenerateWithOnroad is to calc pow
 		nonce, err := pow.GetPowNonce(im.Difficulty, types.DataHash(append(block.AccountAddress.Bytes(), block.PrevHash.Bytes()...)))
 		if err != nil {
 			return nil, err
