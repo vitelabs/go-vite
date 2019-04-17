@@ -67,7 +67,7 @@ func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	}
 	// receive genesis onroad tx
 	if prevBlock == nil {
-		onroadList, err := v.onroad.GetOnroadBlocksByAddress(*v.vite.Config().GenesisAccountAddress, 0, 10)
+		onroadList, err := v.onroad.GetAccountOnroadBlocks(*v.vite.Config().GenesisAccountAddress, 0, 10)
 		if err != nil {
 			return nil, err
 		}
