@@ -59,6 +59,10 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		}
 
 		// FOR DEBUG
+
+		if len(allChunksDeleted) > 0 {
+			fmt.Printf("REAL allChunksDeleted[0] %+v %+v\n", allChunksDeleted[0].AccountBlocks, allChunksDeleted[0].SnapshotBlock)
+		}
 		for _, chunk := range chunksDeleted {
 			if chunk.SnapshotBlock != nil {
 				c.log.Info(fmt.Sprintf("REAL Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
