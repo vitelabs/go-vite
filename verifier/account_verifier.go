@@ -1,9 +1,8 @@
 package verifier
 
 import (
+	"bytes"
 	"fmt"
-	"math/big"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
@@ -14,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 )
 
 type AccountType int
@@ -153,16 +153,11 @@ func (v *AccountVerifier) verifyComfirmedTimes(recvBlock *ledger.AccountBlock, i
 
 func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr bool) error {
 	if block.IsSendBlock() {
-		if err := v.verifySendBlockIntergrity(block, isGeneralAddr); err != nil {
+		if err := v.verifySendBlockIntegrity(block, isGeneralAddr); err != nil {
 			return err
 		}
 	} else {
-		if err := v.verifyRecvBlockIntergrity(block, isGeneralAddr); err != nil {
-			return err
-		}
-	}
-	if isGeneralAddr || block.IsReceiveBlock() {
-		if err := v.verifySignature(block); err != nil {
+		if err := v.verifyReceiveBlockIntegrity(block, isGeneralAddr); err != nil {
 			return err
 		}
 	}
@@ -173,6 +168,12 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock, isGeneralAddr b
 		return err
 	}
 	if err := v.verifyHash(block); err != nil {
+		return err
+	}
+	if !isGeneralAddr && block.IsSendBlock() {
+		return nil
+	}
+	if err := v.verifySignature(block); err != nil {
 		return err
 	}
 	return nil
@@ -222,6 +223,16 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
 		}
 
+		if !isGeneralAddr {
+			isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
+			if err != nil {
+				return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
+			}
+			if !isCorrect {
+				return FAIL, errors.New("verifySequenceOfContractReceive failed")
+			}
+		}
+
 		// check whether the send referred is already received
 		isReceived, err := v.chain.IsReceived(sendBlock.Hash)
 		if err != nil {
@@ -247,15 +258,45 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	return SUCCESS, nil
 }
 
-func (v *AccountVerifier) verifySendBlockIntergrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
-	zero_amount := big.NewInt(0)
+func (v *AccountVerifier) verifySequenceOfContractReceive(receive *ledger.AccountBlock, send *ledger.AccountBlock) (bool, error) {
+	pageNum := 0
+	for {
+		hashList, err := v.chain.GetOnRoadBlocksHashList(receive.AccountAddress, pageNum, 1)
+		if err != nil {
+			return false, err
+		}
+		if len(hashList) <= 0 {
+			break
+		}
+		onRoad, err := v.chain.GetAccountBlockByHash(hashList[0])
+		if err != nil {
+			return false, err
+		}
+		if onRoad == nil {
+			return false, errors.New("get most preferred onroad failed")
+		}
+		if onRoad.AccountAddress == send.AccountAddress {
+			if onRoad.Hash != send.Hash {
+				v.log.Error(fmt.Sprintf("verify contract recv sequence fail, block: height=%v hash=%v fromHash=%v fromHeight=%v, but onroad preferred hash=%v height=%v",
+					receive.Height, receive.Hash, send.Hash, send.Height, onRoad.Hash, onRoad.Height),
+					"caller", send.AccountAddress, "contract", receive.AccountAddress)
+				return false, errors.New("contract's processing sequence error")
+			}
+			return true, nil
+		}
+		pageNum++
+	}
+	return true, nil
+}
+
+func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
 	if block.TokenId == types.ZERO_TOKENID {
-		if block.Amount != nil && block.Amount.Cmp(zero_amount) > 0 {
+		if block.Amount != nil && block.Amount.Cmp(math.ZeroInt) > 0 {
 			return errors.New("sendBlock.TokenId can't be ZERO_TOKENID when amount has value")
 		}
 	}
 	if block.Amount == nil {
-		block.Amount = zero_amount
+		block.Amount = big.NewInt(0)
 	} else {
 		if block.Amount.Sign() < 0 || block.Amount.BitLen() > math.MaxBigIntLen {
 			return errors.New("sendBlock.Amount out of bounds")
@@ -287,27 +328,30 @@ func (v *AccountVerifier) verifySendBlockIntergrity(block *ledger.AccountBlock, 
 	return nil
 }
 
-func (v *AccountVerifier) verifyRecvBlockIntergrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
+func (v *AccountVerifier) verifyReceiveBlockIntegrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
 	if block.TokenId != types.ZERO_TOKENID {
-		return errors.New("recvBlock.TokenId must be ZERO_TOKENID")
+		return errors.New("receive.TokenId must be ZERO_TOKENID")
 	}
-	if block.Amount != nil && block.Amount.Cmp(big.NewInt(0)) != 0 {
-		return errors.New("recvBlock.Amount can't be anything other than nil or 0 ")
+	if block.Amount != nil && block.Amount.Cmp(math.ZeroInt) != 0 {
+		return errors.New("receive.Amount can't be anything other than nil or 0 ")
 	}
-	if block.Fee != nil && block.Fee.Cmp(big.NewInt(0)) != 0 {
-		return errors.New("recvBlock.Fee can't be anything other than nil or 0")
+	if block.Fee != nil && block.Fee.Cmp(math.ZeroInt) != 0 {
+		return errors.New("receive.Fee can't be anything other than nil or 0")
 	}
 	if block.ToAddress != types.ZERO_ADDRESS {
-		return errors.New("recvBlock.ToAddress must be ZERO_ADDRESS")
+		return errors.New("receive.ToAddress must be ZERO_ADDRESS")
 	}
 	if block.Height <= 0 {
-		return errors.New("recvBlock.Height must be larger than 0")
+		return errors.New("receive.Height must be larger than 0")
 	}
-	if !isGeneralAddr && block.SendBlockList != nil {
-		for _, sendBlock := range block.SendBlockList {
-			if err := v.verifySendBlockIntergrity(sendBlock, isGeneralAddr); err != nil {
-				v.log.Error(fmt.Sprintf("err:%v, contractAddr:%v, recv-subSends(%v, %v)",
-					err.Error(), block.AccountAddress, block.Hash, sendBlock.Hash), "method", "verifyRecvBlockIntergrity")
+	if len(block.SendBlockList) > 0 {
+		if isGeneralAddr {
+			return errors.New("generalAddr's receive.SendBlockList must be nil")
+		}
+		for k, sendBlock := range block.SendBlockList {
+			if err := v.verifySendBlockIntegrity(sendBlock, isGeneralAddr); err != nil {
+				v.log.Error(fmt.Sprintf("err:%v, contract:%v, recv-subSends[%v](%v, %v)",
+					err.Error(), block.AccountAddress, k, block.Hash, sendBlock.Hash), "method", "verifyReceiveBlockIntegrity")
 				return err
 			}
 		}
@@ -366,6 +410,18 @@ func (v *AccountVerifier) verifyNonce(block *ledger.AccountBlock, isGeneralAddr 
 }
 
 func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isGeneralAddr bool) error {
+	if block.IsReceiveBlock() {
+		send, err := v.chain.GetAccountBlockByHash(block.FromBlockHash)
+		if err != nil {
+			return err
+		}
+		if send == nil {
+			return errors.New("fail to find receive's send in verifyProducerLegality")
+		}
+		if send.ToAddress != block.AccountAddress {
+			return errors.New("receive's AccountAddress doesn't match the send'ToAddress")
+		}
+	}
 	if isGeneralAddr {
 		if types.PubkeyToAddress(block.PublicKey) != block.AccountAddress {
 			return errors.New("general-account's publicKey doesn't match with the address")
@@ -383,7 +439,7 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isG
 	return nil
 }
 
-func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (vmBlock *vm_db.VmAccountBlock, err error) {
+func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
 	var fromBlock *ledger.AccountBlock
 	var recvErr error
 	if block.IsReceiveBlock() {
@@ -399,7 +455,6 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 	if err != nil {
 		return nil, ErrVerifyForVmGeneratorFailed
 	}
-
 	genResult, err := gen.GenerateWithBlock(block, fromBlock)
 	if err != nil {
 		return nil, ErrVerifyForVmGeneratorFailed
@@ -413,14 +468,67 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 		}
 		return nil, errors.New("vm failed, blockList is empty")
 	}
-
-	vmBlock = genResult.VmBlock
-
-	// verify vm result block's hash
-	if block.Hash != vmBlock.AccountBlock.Hash {
-		return nil, errors.New("Inconsistent execution results in vm.")
+	if err := v.verifyVMResult(block, genResult.VmBlock.AccountBlock); err != nil {
+		return nil, errors.New("Inconsistent execution results in vm, err:" + err.Error())
 	}
-	return vmBlock, nil
+	return genResult.VmBlock, nil
+}
+
+func (v *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
+	// BlockType AccountAddress ToAddress PrevHash Height Amount TokenId FromBlockHash Data Fee LogHash Nonce SendBlockList
+	if origBlock.Hash == genBlock.Hash {
+		return nil
+	}
+
+	if origBlock.BlockType != genBlock.BlockType {
+		return errors.New("BlockType")
+	}
+	if origBlock.AccountAddress != genBlock.AccountAddress {
+		return errors.New("AccountAddress")
+	}
+	if origBlock.ToAddress != genBlock.ToAddress {
+		return errors.New("ToAddress")
+	}
+	if origBlock.FromBlockHash != genBlock.FromBlockHash {
+		return errors.New("FromBlockHash")
+	}
+	if origBlock.Height != genBlock.Height {
+		return errors.New("Height")
+	}
+	if !bytes.Equal(origBlock.Data, genBlock.Data) {
+		return errors.New("data")
+	}
+	if !bytes.Equal(origBlock.Nonce, genBlock.Nonce) {
+		return errors.New("Nonce")
+	}
+	if (origBlock.LogHash == nil && genBlock.LogHash != nil) || (origBlock.LogHash != nil && genBlock.LogHash == nil) {
+		return errors.New("LogHash")
+	}
+	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
+		return errors.New("LogHash")
+	}
+
+	if origBlock.IsSendBlock() {
+		if origBlock.Fee.Cmp(genBlock.Fee) != 0 {
+			return errors.New("Fee")
+		}
+		if origBlock.Amount.Cmp(genBlock.Amount) != 0 {
+			return errors.New("Amount")
+		}
+		if origBlock.TokenId != genBlock.TokenId {
+			return errors.New("TokenId")
+		}
+	} else {
+		if len(origBlock.SendBlockList) != len(genBlock.SendBlockList) {
+			return errors.New("SendBlockList len")
+		}
+		for k, v := range origBlock.SendBlockList {
+			if v.Hash != genBlock.SendBlockList[k].Hash {
+				return errors.New(fmt.Sprintf("SendBlockList[%v] Hash", k))
+			}
+		}
+	}
+	return errors.New("Hash")
 }
 
 func (v *AccountVerifier) verifyIsReceivedSucceed(block *ledger.AccountBlock) (bool, error) {
