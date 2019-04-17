@@ -415,7 +415,7 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock, isG
 		if err != nil {
 			return err
 		}
-		if send != nil {
+		if send == nil {
 			return errors.New("fail to find receive's send in verifyProducerLegality")
 		}
 		if send.ToAddress != block.AccountAddress {
