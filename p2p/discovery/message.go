@@ -229,14 +229,14 @@ func (p *pong) expired() bool {
 
 type findnode struct {
 	target vnode.NodeID
-	count  uint32
+	count  int
 	time   time.Time
 }
 
 func (f *findnode) serialize() ([]byte, error) {
 	pb := &protos.Findnode{
 		Target: f.target.Bytes(),
-		Count:  f.count,
+		Count:  uint32(f.count),
 		Time:   f.time.Unix(),
 	}
 	return proto.Marshal(pb)
@@ -254,7 +254,7 @@ func (f *findnode) deserialize(buf []byte) error {
 		return err
 	}
 
-	f.count = pb.Count
+	f.count = int(pb.Count)
 	f.time = time.Unix(pb.Time, 0)
 
 	return nil

@@ -259,3 +259,43 @@ func BenchmarkEndPoint_Serialize(b *testing.B) {
 
 	fmt.Println("average length", total/b.N)
 }
+
+func ExampleEndPoint_MarshalJSON() {
+	var addr = "127.0.0.1:8080"
+	ep, err := ParseEndPoint(addr)
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := ep.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s\n", data)
+	// Output:
+	// "127.0.0.1:8080"
+}
+
+func TestEndPoint_MarshalJSON(t *testing.T) {
+	var addr = "127.0.0.1:8080"
+	ep, err := ParseEndPoint(addr)
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := ep.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+
+	ep2 := new(EndPoint)
+	err = ep2.UnmarshalJSON(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if !ep.Equal(ep2) {
+		t.Fail()
+	}
+}

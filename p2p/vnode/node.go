@@ -69,6 +69,29 @@ func (id NodeID) IsZero() bool {
 	return true
 }
 
+func (id *NodeID) UnmarshalJSON(data []byte) error {
+	return id.UnmarshalText(data)
+}
+
+func (id NodeID) MarshalJSON() ([]byte, error) {
+	return id.MarshalText()
+}
+
+func (id NodeID) MarshalText() (text []byte, err error) {
+	return []byte(`"` + id.String() + `"`), nil
+}
+
+func (id *NodeID) UnmarshalText(text []byte) (err error) {
+	if len(text) < 2+2*idBytes {
+		return errors.New("incomplete text")
+	}
+
+	str := string(text[1 : len(text)-1])
+	*id, err = Hex2NodeID(str)
+
+	return err
+}
+
 // RandomNodeID return a random NodeID, easy to test
 func RandomNodeID() (id NodeID) {
 	_, _ = rand.Read(id[:])
@@ -171,15 +194,10 @@ var errMissHost = errors.New("missing Host")
 
 // Node mean a node in vite P2P network
 type Node struct {
-	// ID is the unique node identity
-	ID NodeID
-
-	EndPoint
-
-	// Net is the network this node belongs
-	Net uint32
-	// Ext can be arbitrary data, will be sent to other nodes
-	Ext []byte
+	ID       NodeID   `json:"id"` // ID is the unique node identity
+	EndPoint EndPoint `json:"address"`
+	Net      uint32   `json:"net"` // Net is the network this node belongs
+	Ext      []byte   `json:"ext"` // Ext can be arbitrary data, will be sent to other nodes
 }
 
 // Address is formatted `domain:Port` or `IP:Port`
@@ -199,8 +217,8 @@ func (n Node) Address() string {
 func (n Node) String() (str string) {
 	str = n.ID.String() + "@"
 
-	if n.Port == DefaultPort {
-		str += n.Hostname()
+	if n.EndPoint.Port == DefaultPort {
+		str += n.EndPoint.Hostname()
 	} else {
 		str += n.Address()
 	}
@@ -282,9 +300,9 @@ func parseNid(str string) (nid uint32, err error) {
 func (n *Node) Serialize() ([]byte, error) {
 	pb := &protos.Node{
 		ID:       n.ID.Bytes(),
-		Hostname: n.Host,
-		HostType: uint32(n.Typ),
-		Port:     uint32(n.Port),
+		Hostname: n.EndPoint.Host,
+		HostType: uint32(n.EndPoint.Typ),
+		Port:     uint32(n.EndPoint.Port),
 		Net:      n.Net,
 		Ext:      n.Ext,
 	}
@@ -308,10 +326,9 @@ func (n *Node) Deserialize(data []byte) (err error) {
 		return
 	}
 
-	n.Host = pb.Hostname
-	n.Typ = HostType(pb.HostType)
-
-	n.Port = int(pb.Port)
+	n.EndPoint.Host = pb.Hostname
+	n.EndPoint.Typ = HostType(pb.HostType)
+	n.EndPoint.Port = int(pb.Port)
 
 	n.Net = pb.Net
 

@@ -145,7 +145,7 @@ func New(cfg *Config) Discovery {
 
 	d.socket = newAgent(cfg.PrivateKey(), d.node, cfg.ListenAddress, d.handle)
 
-	d.table = newTable(d.node.ID, bucketSize, bucketNum, newListBucket, d)
+	d.table = newTable(d.node.ID, cfg.BucketSize, cfg.BucketCount, newListBucket, d)
 
 	d.SetFinder(&closetFinder{table: d.table})
 
@@ -450,7 +450,7 @@ func (d *discovery) loadBootNodes() bool {
 	var failed int
 
 Load:
-	bootNodes := d.getBootNodes(bucketSize)
+	bootNodes := d.getBootNodes(d.BucketSize)
 
 	if len(bootNodes) == 0 {
 		failed++
@@ -475,7 +475,7 @@ func (d *discovery) findSubTree(distance uint) {
 
 	if d.loadBootNodes() {
 		id := vnode.RandFromDistance(d.node.ID, distance)
-		nodes := d.lookup(id, bucketSize)
+		nodes := d.lookup(id, d.BucketSize)
 		d.table.addNodes(nodes)
 	}
 }
@@ -491,7 +491,7 @@ func (d *discovery) refresh() {
 
 	for i := uint(0); i < vnode.IDBits; i++ {
 		id := vnode.RandFromDistance(d.node.ID, i)
-		nodes := d.lookup(id, bucketSize)
+		nodes := d.lookup(id, d.BucketSize)
 		d.table.addNodes(nodes)
 	}
 
@@ -502,7 +502,7 @@ func (d *discovery) refresh() {
 	d.cond.Signal()
 }
 
-func (d *discovery) lookup(target vnode.NodeID, count uint32) []*Node {
+func (d *discovery) lookup(target vnode.NodeID, count int) []*Node {
 	// is looking
 	if !atomic.CompareAndSwapInt32(&d.looking, 0, 1) {
 		return nil
@@ -564,7 +564,7 @@ Loop:
 	return result.nodes
 }
 
-func (d *discovery) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*Node) {
+func (d *discovery) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*Node) {
 	epChan := make(chan []*vnode.EndPoint)
 	err := d.socket.findNode(target, count, n, epChan)
 	if err != nil {

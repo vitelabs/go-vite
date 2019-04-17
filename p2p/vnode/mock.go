@@ -47,8 +47,8 @@ func MockNode(domain bool, ext bool) *Node {
 	}
 
 	if domain {
-		n.Host = []byte("www.vite.org")
-		n.Typ = HostDomain
+		n.EndPoint.Host = []byte("www.vite.org")
+		n.EndPoint.Typ = HostDomain
 	}
 
 	if ext {

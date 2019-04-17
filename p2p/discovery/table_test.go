@@ -65,7 +65,7 @@ func TestTable_add(t *testing.T) {
 		t.Error("should return the oldest node to check")
 	}
 	time.Sleep(100 * time.Millisecond)
-	if oldest = tab.oldest()[0]; oldest.Port != 0 {
+	if oldest = tab.oldest()[0]; oldest.EndPoint.Port != 0 {
 		t.Error("the check node should be the first node")
 	}
 
@@ -76,7 +76,7 @@ func TestTable_add(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	if oldest = tab.oldest()[0]; oldest.Port != node.Port {
+	if oldest = tab.oldest()[0]; oldest.EndPoint.Port != node.EndPoint.Port {
 		t.Errorf("the oldest node should not be: %s", oldest.String())
 	}
 }

@@ -19,6 +19,7 @@
 package discovery
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -30,9 +31,11 @@ import (
 const (
 	DefaultNetID           = 3
 	DefaultListenAddress   = "0.0.0.0:8483"
-	PrivKeyFileName        = "peer.key"
+	PeerKeyFileName        = "key"
 	DefaultPort            = 8483
 	DefaultListenInterface = "0.0.0.0"
+	DefaultBucketSize      = 32
+	DefaultBucketCount     = 32
 )
 
 type Config struct {
@@ -64,32 +67,9 @@ type Config struct {
 
 	// NetID is to mark which network our node in, nodes from different network can`t connect each other
 	NetID int
-}
 
-func NewConfig(listenAddress, publicAddress, dataDir, peerKey string, bootNodes, bootSeed []string, netId int) (*Config, error) {
-	cfg := &Config{
-		ListenAddress: listenAddress,
-		PublicAddress: publicAddress,
-		DataDir:       dataDir,
-		PeerKey:       peerKey,
-		privateKey:    nil,
-		node:          nil,
-		BootNodes:     bootNodes,
-		BootSeeds:     bootSeed,
-		NetID:         netId,
-	}
-
-	err := os.MkdirAll(dataDir, 0700)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cfg.Ensure()
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
+	BucketCount int
+	BucketSize  int
 }
 
 // Node MUST NOT be invoked before Ensure
@@ -107,6 +87,8 @@ func getPeerKey(filename string) (privateKey ed25519.PrivateKey, err error) {
 
 	// open file error
 	if err != nil {
+		fd = nil
+
 		if _, privateKey, err = ed25519.GenerateKey(nil); err != nil {
 			return
 		}
@@ -149,21 +131,29 @@ func (cfg *Config) Ensure() (err error) {
 		cfg.ListenAddress = DefaultListenAddress
 	}
 
+	if cfg.BucketCount == 0 {
+		cfg.BucketCount = DefaultBucketCount
+	}
+
+	if cfg.BucketSize == 0 {
+		cfg.BucketSize = DefaultBucketSize
+	}
+
 	if cfg.PeerKey == "" {
 		if cfg.DataDir == "" {
 			_, cfg.privateKey, err = ed25519.GenerateKey(nil)
 		} else {
-			keyFile := filepath.Join(cfg.DataDir, PrivKeyFileName)
+			keyFile := filepath.Join(cfg.DataDir, PeerKeyFileName)
 			cfg.privateKey, err = getPeerKey(keyFile)
 		}
 
 		if err != nil {
-			return
+			return fmt.Errorf("failed to generate peerKey: %v", err)
 		}
 	} else {
 		cfg.privateKey, err = ed25519.HexToPrivateKey(cfg.PeerKey)
 		if err != nil {
-			return
+			return fmt.Errorf("failed to parse PeerKey: %v", err)
 		}
 	}
 
@@ -173,7 +163,7 @@ func (cfg *Config) Ensure() (err error) {
 	if cfg.PublicAddress != "" {
 		e, err = vnode.ParseEndPoint(cfg.PublicAddress)
 		if err != nil {
-			return
+			return fmt.Errorf("failed to parse PublicAddress: %v", err)
 		}
 	}
 

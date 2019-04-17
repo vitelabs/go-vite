@@ -21,6 +21,29 @@ type EndPoint struct {
 	Typ  HostType
 }
 
+func (e *EndPoint) UnmarshalJSON(data []byte) error {
+	return e.UnmarshalText(data)
+}
+
+func (e EndPoint) MarshalJSON() ([]byte, error) {
+	return e.MarshalText()
+}
+
+func (e EndPoint) MarshalText() (text []byte, err error) {
+	return []byte(`"` + e.String() + `"`), nil
+}
+
+func (e *EndPoint) UnmarshalText(text []byte) (err error) {
+	if len(text) < 2 {
+		return errors.New("incomplete text")
+	}
+
+	str := string(text[1 : len(text)-1])
+	*e, err = ParseEndPoint(str)
+
+	return err
+}
+
 func (e *EndPoint) Equal(e2 *EndPoint) bool {
 	if e.Port != e2.Port {
 		return false

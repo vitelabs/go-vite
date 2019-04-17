@@ -47,7 +47,7 @@ type sender interface {
 	// pong respond the last ping message from n, echo is the hash of ping message payload
 	pong(echo []byte, n *Node) (err error)
 	// findNode find count nodes near the target to n, put the responsive nodes into ch, ch MUST no be nil
-	findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error)
+	findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error)
 	// sendNodes to addr, if eps is too many, the response message will be split to multiple message,
 	// every message is small than maxPacketLength.
 	sendNodes(eps []*vnode.EndPoint, addr *net.UDPAddr) (err error)
@@ -203,7 +203,7 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 func findnodenil(ch chan<- []*vnode.EndPoint) {
 	ch <- nil
 }
-func (a *agent) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
+func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
 	udp, err := n.udpAddr()
 	if err != nil {
 		go findnodenil(ch)

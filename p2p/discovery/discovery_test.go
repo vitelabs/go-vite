@@ -24,10 +24,10 @@ func (m *mockSocket) pong(echo []byte, n *Node) (err error) {
 	panic("implement me")
 }
 
-func (m *mockSocket) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
+func (m *mockSocket) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
 	go func() {
 		var eps = make([]*vnode.EndPoint, count)
-		for i := uint32(0); i < count; i++ {
+		for i := 0; i < count; i++ {
 			eps[i] = &vnode.EndPoint{
 				Host: []byte{0, 0, 0, 0},
 				Port: int(i),
