@@ -52,7 +52,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		return nil, err
 	}
 
-	sbList := []*ledger.SnapshotBlock{snapshotBlock}
+	//sbList := []*ledger.SnapshotBlock{snapshotBlock}
 	chunks := []*ledger.SnapshotChunk{{
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,

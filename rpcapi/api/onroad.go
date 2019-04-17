@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
@@ -27,11 +28,14 @@ func (pub PublicOnroadApi) String() string {
 	return "PublicOnroadApi"
 }
 
-func (pub PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index uint8, count uint8) ([]*AccountBlock, error) {
-	return pub.api.GetOnroadBlocksByAddress(address, uint32(index), uint32(count))
+func (pub PublicOnroadApi) GetAccountOnroadBlocks(address types.Address, index, count int) ([]*AccountBlock, error) {
+	if count > math.MaxUint16+1 {
+		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
+	}
+	return pub.api.GetOnroadBlocksByAddress(address, uint64(index), uint64(count))
 }
 
-func (pub PublicOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
+func (pub PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
 	return pub.api.GetOnroadInfoByAddress(address)
 }
 
@@ -53,13 +57,12 @@ func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Add
 	return pri.manager.Chain().GetContractList(gid)
 }
 
-func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index uint32, count uint32) ([]*AccountBlock, error) {
+func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := pri.manager.GetOnRoadBlockByAddr(&address, uint64(index), uint64(count))
+	blockList, err := pri.manager.GetOnRoadBlockByAddr(&address, index, count)
 	if err != nil {
 		return nil, err
 	}
-
 	a := make([]*AccountBlock, len(blockList))
 	sum := 0
 	for k, v := range blockList {
@@ -89,8 +92,8 @@ func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcA
 type OnroadPagingQuery struct {
 	Addr types.Address `json:"addr"`
 
-	PageNum   uint8 `json:"pageNum"`
-	PageCount uint8 `json:"pageCount"`
+	PageNum   uint64 `json:"pageNum"`
+	PageCount uint64 `json:"pageCount"`
 }
 
 func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery) (map[types.Address][]*AccountBlock, error) {
@@ -105,7 +108,10 @@ func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery
 		if l, ok := resultMap[q.Addr]; ok && l != nil {
 			continue
 		}
-		blockList, err := pri.GetOnroadBlocksByAddress(q.Addr, uint32(q.PageNum), uint32(q.PageCount))
+		if q.PageCount > math.MaxUint8+1 {
+			return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint8+1))
+		}
+		blockList, err := pri.GetOnroadBlocksByAddress(q.Addr, q.PageNum, q.PageCount)
 		if err != nil {
 			return nil, err
 		}
