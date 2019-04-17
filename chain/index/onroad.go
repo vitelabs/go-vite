@@ -61,13 +61,14 @@ func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Has
 			return err
 		}
 	} else {
-		if len(key) <= 0 {
-			// new key
-			onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
-			key = chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
-		}
 
-		batch.Put(reverseKey, key)
+		onRoadBatch := iDB.store.NewBatch()
+		// new key
+		onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
+		key = chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
+
+		onRoadBatch.Put(reverseKey, key)
+		iDB.store.WriteDirectly(onRoadBatch)
 	}
 
 	batch.Put(key, value)
