@@ -51,3 +51,7 @@ func (n *NetApi) SyncDetail() net.SyncDetail {
 func (n *NetApi) Peers() p2p.NodeInfo {
 	return n.p2p.Info()
 }
+
+func (n *NetApi) NodeInfo() net.NodeInfo {
+	return n.net.Info()
+}

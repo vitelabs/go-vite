@@ -381,6 +381,7 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 	if err != nil {
 		return err
 	}
+	self.pendingSc.checkCurrent()
 	self.pendingSc.f.broadcastBlock(block)
 	if abs == nil || len(abs) == 0 {
 		return nil
@@ -391,7 +392,9 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 		if err != nil {
 			return err
 		}
+		self.selfPendingAc(k).checkCurrent()
 	}
+	self.version.Inc()
 	return nil
 }
 
@@ -482,6 +485,7 @@ func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 		if err != nil {
 			return err
 		}
+		self.selfPendingAc(k).checkCurrent()
 	}
 	return nil
 }
@@ -550,12 +554,15 @@ func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height 
 	if err != nil {
 		return err
 	}
+
+	self.pendingSc.checkCurrent()
 	// rollback accounts chain in pool
 	for k, v := range accounts {
 		err = self.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
 			return err
 		}
+		self.selfPendingAc(k).checkCurrent()
 	}
 	return err
 }
@@ -827,9 +834,12 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 	var result = true
 	for k, v := range block.block.SnapshotContent {
 		ac := self.selfPendingAc(k)
+		if ac.findInPool(v.Hash, v.Height) {
+			continue
+		}
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height())
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height(), block.Hash())
 			result = false
 		}
 	}
@@ -860,7 +870,8 @@ func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
 func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 	var reqs []*fetchRequest
 	j := 0
-	for i := fc.tailHeight + 1; i < fc.headHeight && j < 100; i++ {
+	addrM := make(map[types.Address]*ledger.HashHeight)
+	for i := fc.tailHeight + 1; i <= fc.headHeight; i++ {
 		j++
 		b := fc.getHeightBlock(i)
 		if b == nil {
@@ -869,18 +880,33 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 
 		sb := b.(*snapshotPoolBlock)
 
-		hash := sb.Hash()
 		for k, v := range sb.block.SnapshotContent {
-			reqs = append(reqs, &fetchRequest{
-				snapshot:       false,
-				chain:          &k,
-				hash:           v.Hash,
-				accHeight:      v.Height,
-				prevCnt:        1,
-				snapshotHash:   &hash,
-				snapshotHeight: b.Height(),
-			})
+
+			hh, ok := addrM[k]
+			if ok {
+				if hh.Height < v.Height {
+					hh.Hash = v.Hash
+					hh.Height = v.Height
+				}
+			} else {
+				vv := *v
+				addrM[k] = &vv
+			}
+
 		}
+	}
+
+	for k, v := range addrM {
+		addr := k
+		reqs = append(reqs, &fetchRequest{
+			snapshot:       false,
+			chain:          &addr,
+			hash:           v.Hash,
+			accHeight:      v.Height,
+			prevCnt:        1,
+			snapshotHash:   &fc.headHash,
+			snapshotHeight: fc.headHeight,
+		})
 	}
 
 	for _, v := range reqs {
@@ -888,21 +914,24 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 			continue
 		}
 		ac := self.selfPendingAc(*v.chain)
-		fc := ac.findInTreeDisk(v.hash, v.accHeight, true)
+		if ac.findInPool(v.hash, v.accHeight) {
+			continue
+		}
+		fc := ac.findInTreeDiskTmp(v.hash, v.accHeight, true, v.snapshotHeight)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight)
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight, *v.snapshotHash)
 		}
 	}
 	return nil
 }
-func (self *pool) insertLevel(l Level) error {
+func (self *pool) insertLevel(l Level, version int) error {
 	if l.Snapshot() {
-		return self.insertSnapshotLevel(l)
+		return self.insertSnapshotLevel(l, version)
 	} else {
-		return self.insertAccountLevel(l)
+		return self.insertAccountLevel(l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(l Level) error {
+func (self *pool) insertSnapshotLevel(l Level, version int) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -912,14 +941,14 @@ func (self *pool) insertSnapshotLevel(l Level) error {
 	}()
 	for _, b := range l.Buckets() {
 		num = num + len(b.Items())
-		return self.insertSnapshotBucket(b)
+		return self.insertSnapshotBucket(b, version)
 	}
 	return nil
 }
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(l Level) error {
+func (self *pool) insertAccountLevel(l Level, version int) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {
@@ -942,7 +971,7 @@ func (self *pool) insertAccountLevel(l Level) error {
 				if globalErr != nil {
 					return
 				}
-				err := self.insertAccountBucket(b)
+				err := self.insertAccountBucket(b, version)
 				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err
@@ -973,14 +1002,16 @@ func (self *pool) insertAccountLevel(l Level) error {
 	return nil
 }
 func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
-	accounts := make(map[types.Address]*ledger.HashHeight)
+	self.Lock()
+	defer self.UnLock()
 
+	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range accs {
 		monitor.LogEvent("pool", "snapshotPending")
 		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
-		self.fetchAccounts(accounts, snapshot.Height)
+		self.fetchAccounts(accounts, snapshot.Height, snapshot.Hash)
 		if e != nil {
 			self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 		}
@@ -990,14 +1021,12 @@ func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types
 	}
 
 	if len(accounts) > 0 {
-		self.Lock()
-		defer self.UnLock()
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
 		self.forkAccountsFor(accounts, snapshot)
 	}
 }
 
-func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
 		ac := self.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
@@ -1006,7 +1035,7 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 			if hashH.Height > head.Height() {
 				u = hashH.Height - head.Height()
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
 		}
 	}
 

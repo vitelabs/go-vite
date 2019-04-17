@@ -223,9 +223,15 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 	return
 }
 
+type DownloaderStatus struct {
+	Tasks       []string               `json:"tasks"`
+	Connections []SyncConnectionStatus `json:"connections"`
+}
+
 type syncDownloader interface {
 	start()
 	stop()
+	status() DownloaderStatus
 	// will be block, if cannot download (eg. no peers) or task queue is full
 	// must will download the task regardless of task repeat
 	download(from, to uint64, must bool) bool
@@ -287,10 +293,6 @@ type executor struct {
 	wg        sync.WaitGroup
 
 	log log15.Logger
-}
-
-type ExecutorStatus struct {
-	Tasks []string
 }
 
 func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *executor {
@@ -355,7 +357,7 @@ func (e *executor) addListener(listener taskListener) {
 	e.listeners = append(e.listeners, listener)
 }
 
-func (e *executor) status() ExecutorStatus {
+func (e *executor) status() DownloaderStatus {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -366,9 +368,12 @@ func (e *executor) status() ExecutorStatus {
 		i++
 	}
 
-	return ExecutorStatus{
+	st := DownloaderStatus{
 		tasks,
+		e.pool.connections(),
 	}
+
+	return st
 }
 
 // will be blocked when task queue is full
@@ -410,14 +415,29 @@ func (e *executor) cancel(from, to uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for i := len(e.tasks); i > -1; i-- {
+	var total = len(e.tasks)
+
+	if total == 0 {
+		return
+	}
+
+	var j int
+	for i := total - 1; i > -1; i-- {
 		t := e.tasks[i]
 		if t.from >= from {
 			t.cancel()
-		} else if t.to > from {
+			j++
+			continue
+		}
+
+		if t.to > from {
 			t.to = from - 1
 		}
+
+		break
 	}
+
+	e.tasks = e.tasks[:total-j]
 }
 
 func (e *executor) reset() {
@@ -502,10 +522,11 @@ func (e *executor) doJob(c syncConnection, from, to uint64) error {
 
 	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
-	if err := c.download(from, to); err != nil {
-		if c.catch(err) {
+	if fatal, err := c.download(from, to); err != nil {
+		if fatal {
 			e.pool.delConn(c)
 		}
+
 		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
@@ -541,6 +562,7 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	// handshake error
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
+		_ = tcp.Close()
 		return
 	}
 

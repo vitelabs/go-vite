@@ -24,6 +24,97 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
+// hour stats
+func (self *snapshotCs) HourStats(startIndex uint64, endIndex uint64) ([]*core.HourStats, error) {
+	stats, err := getBaseStats(self.rw.hourPoints, startIndex, endIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*core.HourStats, len(stats))
+
+	for k, v := range stats {
+		result[k] = &core.HourStats{BaseStats: v}
+	}
+	return result, nil
+}
+
+func (self *snapshotCs) GetHourTimeIndex() core.TimeIndex {
+	return self.rw.hourPoints
+}
+
+// period stats
+func (self *snapshotCs) PeriodStats(startIndex uint64, endIndex uint64) ([]*core.PeriodStats, error) {
+	stats, err := getBaseStats(self.rw.periodPoints, startIndex, endIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*core.PeriodStats, len(stats))
+
+	for k, v := range stats {
+		result[k] = &core.PeriodStats{BaseStats: v}
+	}
+	return result, nil
+}
+
+func (self *snapshotCs) GetPeriodTimeIndex() core.TimeIndex {
+	return self.rw.periodPoints
+}
+
+func getBaseStats(array LinkedArray, startIndex uint64, endIndex uint64) ([]*core.BaseStats, error) {
+	// get points from linked array
+	points := make(map[uint64]*consensus_db.Point)
+
+	var proofHash *types.Hash
+	for i := endIndex - 1; i >= startIndex; i-- {
+		var point *consensus_db.Point
+		if proofHash == nil {
+			tmp, err := array.GetByIndex(endIndex)
+			if err != nil {
+				return nil, err
+			}
+			point = tmp
+		} else {
+			tmp, err := array.GetByIndexWithProof(endIndex, *proofHash)
+			if err != nil {
+				return nil, err
+			}
+			point = tmp
+		}
+
+		if point.IsEmpty() {
+			continue
+		}
+		points[i] = point
+		proofHash = &point.PrevHash
+	}
+
+	if len(points) == 0 {
+		return nil, nil
+	}
+	var result []*core.BaseStats
+
+	// convert Points to HourStats
+	for i := startIndex; i <= endIndex; i++ {
+		p := points[i]
+		if p == nil || p.IsEmpty() {
+			continue
+		}
+
+		stats := &core.BaseStats{Stats: make(map[types.Address]*core.SbpStats), Index: i}
+
+		for k, v := range p.Sbps {
+			// convert to sbp stats
+			sbp := &core.SbpStats{Index: i, BlockNum: uint64(v.FactualNum), ExceptedBlockNum: uint64(v.ExpectedNum)}
+			stats.Stats[k] = sbp
+		}
+
+		result = append(result, stats)
+	}
+	return result, nil
+}
+
 func (self *snapshotCs) GetDayTimeIndex() core.TimeIndex {
 	return self.rw.dayPoints
 }
@@ -151,9 +242,9 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 		self.log.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
-	// todo
-	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, block.Hash, proofTime))
 	seeds := self.rw.GetSeedsBeforeHashH(block)
+	// todo
+	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s, seeds:%d", index, block.Hash, proofTime, seeds))
 	seed := core.NewSeedInfo(seeds)
 	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index, proofIndex)
 	if err != nil {
@@ -188,7 +279,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, i
 
 	all := ""
 	for _, v := range votes {
-		all += fmt.Sprintf("[%s]", v.Name)
+		all += fmt.Sprintf("[%s-%s]", v.Name, v.Balance.String())
 	}
 	self.log.Info(fmt.Sprintf("[%d][%d]pre success rate log: %+v, %s", hashH.Height, index, successRate, all))
 

@@ -21,6 +21,7 @@ type Package interface {
 	Levels() []Level
 	Size() int
 	Info() string
+	Version() int
 	Exists(hash types.Hash) bool
 }
 

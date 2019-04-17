@@ -197,22 +197,27 @@ func (s *cacheReader) readLoop() {
 	var err error
 	var reader interfaces.ReadCloser
 	var height uint64
+	var cs interfaces.SegmentList
 
 Loop:
 	for {
 		s.removeUselessChunks()
 
-		cs := cache.Chunks()
+		for {
+			if cs = cache.Chunks(); len(cs) == 0 {
+				s.mu.Lock()
+				if s.running {
+					s.cond.Wait()
+					s.mu.Unlock()
+					continue
+				} else {
+					s.mu.Unlock()
+					break Loop
+				}
+			}
 
-		s.mu.Lock()
-		for len(cs) == 0 && s.running {
-			s.cond.Wait()
+			break
 		}
-		if false == s.running {
-			s.mu.Unlock()
-			break Loop
-		}
-		s.mu.Unlock()
 
 		// request
 		s.downloadMissingChunks()
@@ -237,7 +242,7 @@ Loop:
 			// 1. chain haven`t grow to c[0]-1, wait for chain grow
 			// 2. missing chunks between chain and c, wait for chunk downloaded
 			if c[0] > height+1 {
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 				// chunk downloaded
 				continue Loop
 			}

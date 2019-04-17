@@ -276,7 +276,7 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.storageMap[types.AddressMintage] = make(map[string][]byte)
 	viteTokenIdKey := abi.GetMintageKey(ledger.ViteTokenId)
 	var err error
-	db.storageMap[types.AddressMintage][ToKey(viteTokenIdKey)], err = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0), addr1, true, helper.Tt256m1, false)
+	db.storageMap[types.AddressMintage][ToKey(viteTokenIdKey)], err = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, big.NewInt(0), uint64(0), addr1, true, helper.Tt256m1, false, uint16(1))
 	if err != nil {
 		panic(err)
 	}

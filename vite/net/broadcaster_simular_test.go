@@ -26,18 +26,6 @@ func (m mockBroadcastPeerSet) broadcastPeers() (l []broadcastPeer) {
 	return
 }
 
-func (m mockBroadcastPeerSet) unknownBlock(hash types.Hash) (l []broadcastPeer) {
-	for _, p := range m {
-		if p.hasBlock(hash) {
-			continue
-		}
-
-		l = append(l, p)
-	}
-
-	return
-}
-
 type mockVerifier struct{}
 
 func (mockVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {

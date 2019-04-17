@@ -143,6 +143,7 @@ type RpcTokenInfo struct {
 	MaxSupply      *string           `json:"maxSupply"` // *big.Int
 	OwnerBurnOnly  bool              `json:"ownerBurnOnly"`
 	IsReIssuable   bool              `json:"isReIssuable"`
+	Index          uint16            `json:"index"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
@@ -160,6 +161,7 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 			TokenId:        tti,
 			OwnerBurnOnly:  tinfo.OwnerBurnOnly,
 			IsReIssuable:   tinfo.IsReIssuable,
+			Index:          tinfo.Index,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()

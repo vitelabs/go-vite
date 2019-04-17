@@ -11,6 +11,37 @@ import (
 	"time"
 )
 
+func TestSpeedToString(t *testing.T) {
+	speeds := []uint64{
+		1000,
+		2 * 1024,
+		2 * 1024 * 1024,
+		2 * 1024 * 1024 * 1024,
+		2 * 1024 * 1024 * 1024 * 1024,
+	}
+
+	type result struct {
+		sf   float64
+		unit int
+	}
+
+	results := []result{
+		{1000, 0},
+		{2, 1},
+		{2, 2},
+		{2, 3},
+		{2048, 3},
+	}
+
+	for i, speed := range speeds {
+		if sf, unit := formatSpeed(float64(speed)); sf != results[i].sf || unit != results[i].unit {
+			t.Errorf("wrong speeed: %f, unit: %d", sf, unit)
+		} else {
+			fmt.Println(speedToString(float64(speed)))
+		}
+	}
+}
+
 func TestSyncHandshakeMsg_Serialize(t *testing.T) {
 	var s = syncHandshakeMsg{
 		key:  make([]byte, 32),

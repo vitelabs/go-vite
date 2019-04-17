@@ -292,7 +292,7 @@ func (self *forkedChain) getBlock(height uint64, flag bool) commonBlock {
 		return block
 	}
 	if flag {
-		b, _ := self.getBlockByChain(height)
+		b := self.referChain.getBlock(height, flag)
 		return b
 	}
 	return nil
@@ -468,6 +468,11 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	self.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
 		"currentId", cur.id())
 
+	err := self.checkChain(blocks)
+	if err != nil {
+		return err
+	}
+
 	head := self.chainpool.diskChain.Head()
 
 	if cur.tailHeight == head.Height() && cur.tailHash == head.Hash() {
@@ -500,7 +505,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 			return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
 		}
 	}
-	err := self.chainpool.check()
+	err = self.chainpool.check()
 	if err != nil {
 		self.log.Error("rollbackCurrent check", "err", err)
 	}
@@ -516,14 +521,23 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 			continue
 		}
 		if b.PrevHash() != prev.Hash() {
-			return errors.New("not a chain")
+			return errors.New("not a chain:" + self.printf(blocks))
 		}
 		if b.Height()-1 != prev.Height() {
-			return errors.New("not a chain")
+			return errors.New("not a chain:" + self.printf(blocks))
 		}
 		prev = b
 	}
 	return nil
+}
+
+// check blocks is a chain
+func (self *BCPool) printf(blocks []commonBlock) string {
+	result := ""
+	for _, v := range blocks {
+		result += fmt.Sprintf("[%d-%s-%s]", v.Height(), v.Hash(), v.PrevHash())
+	}
+	return result
 }
 
 func checkHeadTailLink(c1 *forkedChain, c2 heightChainReader) error {
@@ -587,7 +601,7 @@ func (self *forkedChain) canAddHead(w commonBlock) error {
 }
 func (self *forkedChain) addHead(w commonBlock) {
 	if self.headHash != w.PrevHash() {
-		panic("add head")
+		panic(fmt.Sprintf("add head fail.[%d-%s][%d-%s]", self.tailHeight, self.tailHash, w.Height(), w.Hash()))
 	}
 	self.headHash = w.Hash()
 	self.headHeight = w.Height()
@@ -596,7 +610,7 @@ func (self *forkedChain) addHead(w commonBlock) {
 
 func (self *forkedChain) removeTail(w commonBlock) {
 	if self.tailHash != w.PrevHash() {
-		panic("remove fail")
+		panic(fmt.Sprintf("remove tail fail.[%d-%s][%d-%s]", self.tailHeight, self.tailHash, w.Height(), w.Hash()))
 	}
 	self.tailHash = w.Hash()
 	self.tailHeight = w.Height()
@@ -605,7 +619,7 @@ func (self *forkedChain) removeTail(w commonBlock) {
 
 func (self *forkedChain) removeHead(w commonBlock) {
 	if self.headHash != w.Hash() {
-		panic("remove head")
+		panic(fmt.Sprintf("remove head fail.[%d-%s][%d-%s]", self.headHeight, self.headHash, w.Height(), w.Hash()))
 	}
 	self.headHash = w.PrevHash()
 	self.headHeight = w.Height() - 1
@@ -614,7 +628,7 @@ func (self *forkedChain) removeHead(w commonBlock) {
 
 func (self *forkedChain) addTail(w commonBlock) {
 	if self.tailHash != w.Hash() {
-		panic("add tail")
+		panic(fmt.Sprintf("add tail fail.[%d-%s][%d-%s]", self.tailHeight, self.tailHash, w.Height(), w.Hash()))
 	}
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
@@ -801,6 +815,7 @@ func (self *BCPool) loopAppendChains() int {
 		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains)
 		if err != nil {
 			self.delSnippet(w)
+			self.log.Error("fork to error.", "err", err)
 			continue
 		}
 		if forky {
@@ -844,7 +859,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 	head := new(big.Int).SetUint64(self.chainpool.current.headHeight)
 
-	tailHeight := self.chainpool.current.tailHeight
+	//tailHeight := self.chainpool.current.tailHeight
 
 	i := 0
 	zero := big.NewInt(0)
@@ -852,9 +867,9 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 	for _, w := range sortSnippets {
 		// if snippet is lower, ignore
-		if w.headHeight+10 < tailHeight {
-			continue
-		}
+		//if w.headHeight+10 < tailHeight {
+		//	continue
+		//}
 		diff := big.NewInt(0)
 		tailHeight := new(big.Int).SetUint64(w.tailHeight)
 		// prev > 0
@@ -872,7 +887,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 		// lower than the current chain
 		if diff.Sign() <= 0 {
-			diff.SetUint64(20)
+			diff.SetUint64(100)
 		}
 
 		i++
