@@ -3,13 +3,14 @@ package net
 import (
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	net2 "net"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
@@ -26,6 +27,8 @@ var errReadTooShort = errors.New("read too short")
 var errWriteTooShort = errors.New("write too short")
 var errPayloadTooLarge = errors.New("payload too large")
 var errHandshakeError = errors.New("sync handshake error")
+var errServerNotReady = errors.New("server not ready")
+var errIncompleteChunk = errors.New("incomplete chunk")
 
 type syncCode byte
 
@@ -254,13 +257,12 @@ type syncConnection interface {
 	net2.Conn
 	syncCodecer
 	ID() peerId
-	download(from, to uint64) (err error)
+	download(from, to uint64) (fatal bool, err error)
 	speed() uint64
 	state() syncConnState
 	status() FileConnStatus
 	isBusy() bool
 	height() uint64
-	catch(err error) bool
 }
 
 type syncConnectionFactory interface {
@@ -385,12 +387,10 @@ func (f *syncConn) state() syncConnState {
 	return f.st
 }
 
-func (f *syncConn) catch(err error) bool {
-	if atomic.LoadInt32(&f.failed) > 3 {
-		return true
-	}
+func (f *syncConn) fail() bool {
+	f.failed++
 
-	return false
+	return f.failed > 3
 }
 
 func (f *syncConn) speed() uint64 {
@@ -409,7 +409,7 @@ func (f *syncConn) isBusy() bool {
 	return atomic.LoadInt32(&f.busy) == 1
 }
 
-func (f *syncConn) download(from, to uint64) (err error) {
+func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	f.setBusy()
 	defer f.idle()
 
@@ -419,17 +419,20 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	})
 
 	if err != nil {
-		return err
+		f.fail()
+		return true, err
 	}
 
 	var msg syncMsg
 	msg, err = f.read()
 	if err != nil {
-		return
+		f.fail()
+		return true, err
 	}
 
 	if msg.code() != syncReady {
-		return errors.New("remote not ready")
+		fatal = f.fail()
+		return fatal, errServerNotReady
 	}
 
 	chunkInfo := msg.(*syncReadyMsg)
@@ -437,15 +440,13 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	cache := f.cacher.GetSyncCache()
 	writer, err := cache.NewWriter(from, to)
 	if err != nil {
-		return err
+		return false, err
 	}
-
-	defer writer.Close()
 
 	start := time.Now().Unix()
 	var nr, nw int
 	var total, count uint64
-	var werr error
+	var rerr, werr error
 	_ = f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	for {
 		count = chunkInfo.size - total
@@ -453,27 +454,42 @@ func (f *syncConn) download(from, to uint64) (err error) {
 			count = 1024
 		}
 
-		nr, err = f.Conn.Read(f.buf[:count])
+		nr, rerr = f.Conn.Read(f.buf[:count])
 		total += uint64(nr)
 
 		nw, werr = writer.Write(f.buf[:nr])
 
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
+		if rerr != nil {
+			break
 		} else if werr != nil {
-			err = fmt.Errorf("write cache %d-%d error: %v", from, to, werr)
 			break
 		} else if nw != nr {
-			err = fmt.Errorf("write cache %d-%d too short", from, to)
+			werr = errWriteTooShort
 			break
 		}
 
 		if total == chunkInfo.size {
 			break
 		}
+	}
+
+	_ = writer.Close()
+
+	if rerr != nil {
+		fatal = true
+	}
+
+	if werr != nil {
+		err = fmt.Errorf("failed to write cache %d-%d: %v", from, to, werr)
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
+	}
+
+	if total != chunkInfo.size {
+		fatal = true
+		err = errIncompleteChunk
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
 	}
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)

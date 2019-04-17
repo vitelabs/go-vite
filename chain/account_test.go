@@ -20,56 +20,56 @@ import (
 
 func TestChain_Account(t *testing.T) {
 
-	chainInstance, accounts, _ := SetUp(t, 1000, 1000, 8)
-	testAccount(t, chainInstance, accounts)
+	chainInstance, accounts, _ := SetUp(1000, 1000, 8)
+	t.Run("testAccount", func(t *testing.T) {
+		testAccount(chainInstance, accounts)
+	})
 	TearDown(chainInstance)
 }
+func testAccount(chainInstance *chain, accounts map[types.Address]*Account) {
 
-func testAccount(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account) {
-	t.Run("GetAccountId_GetAccountAddress", func(t *testing.T) {
-		accountIdList := make([]uint64, 0, len(accounts))
+	accountIdList := make([]uint64, 0, len(accounts))
 
-		for addr, account := range accounts {
-			accountId, err := chainInstance.GetAccountId(addr)
-			if err != nil {
-				t.Fatal(err)
+	for addr, account := range accounts {
+		accountId, err := chainInstance.GetAccountId(addr)
+		if err != nil {
+			panic(err)
+		}
+		if accountId <= 0 {
+			if account.LatestBlock == nil {
+				continue
 			}
-			if accountId <= 0 {
-				if account.LatestBlock == nil {
-					continue
-				}
-				t.Fatal(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.LatestBlock))
-			}
-			queryAddr2, err := chainInstance.GetAccountAddress(accountId)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if *queryAddr2 != addr {
-				t.Fatal("error")
-			}
-
-			accountIdList = append(accountIdList, accountId)
+			panic(fmt.Sprintf("accountId <= 0, %s, %+v\n", addr, account.LatestBlock))
+		}
+		queryAddr2, err := chainInstance.GetAccountAddress(accountId)
+		if err != nil {
+			panic(err)
 		}
 
-		for _, accountId := range accountIdList {
-			addr, err := chainInstance.GetAccountAddress(accountId)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if addr == nil {
-				t.Fatal("Addr is nil")
-			}
-			queryAccountId, err := chainInstance.GetAccountId(*addr)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if queryAccountId != accountId {
-				t.Fatal("error")
-			}
+		if *queryAddr2 != addr {
+			panic("error")
 		}
-	})
+
+		accountIdList = append(accountIdList, accountId)
+	}
+
+	for _, accountId := range accountIdList {
+		addr, err := chainInstance.GetAccountAddress(accountId)
+		if err != nil {
+			panic(err)
+		}
+		if addr == nil {
+			panic("Addr is nil")
+		}
+		queryAccountId, err := chainInstance.GetAccountId(*addr)
+		if err != nil {
+			panic(err)
+		}
+
+		if queryAccountId != accountId {
+			panic("error")
+		}
+	}
 
 }
 

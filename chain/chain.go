@@ -237,6 +237,7 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
+	c.flusher.Flush(true)
 	return nil
 }
 

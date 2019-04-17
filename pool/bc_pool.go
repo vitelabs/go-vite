@@ -292,7 +292,7 @@ func (self *forkedChain) getBlock(height uint64, flag bool) commonBlock {
 		return block
 	}
 	if flag {
-		b, _ := self.getBlockByChain(height)
+		b := self.referChain.getBlock(height, flag)
 		return b
 	}
 	return nil
@@ -801,6 +801,7 @@ func (self *BCPool) loopAppendChains() int {
 		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains)
 		if err != nil {
 			self.delSnippet(w)
+			self.log.Error("fork to error.", "err", err)
 			continue
 		}
 		if forky {
@@ -844,7 +845,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 	head := new(big.Int).SetUint64(self.chainpool.current.headHeight)
 
-	tailHeight := self.chainpool.current.tailHeight
+	//tailHeight := self.chainpool.current.tailHeight
 
 	i := 0
 	zero := big.NewInt(0)
@@ -852,9 +853,9 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 	for _, w := range sortSnippets {
 		// if snippet is lower, ignore
-		if w.headHeight+10 < tailHeight {
-			continue
-		}
+		//if w.headHeight+10 < tailHeight {
+		//	continue
+		//}
 		diff := big.NewInt(0)
 		tailHeight := new(big.Int).SetUint64(w.tailHeight)
 		// prev > 0
@@ -872,7 +873,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 		// lower than the current chain
 		if diff.Sign() <= 0 {
-			diff.SetUint64(20)
+			diff.SetUint64(100)
 		}
 
 		i++

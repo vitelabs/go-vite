@@ -60,7 +60,7 @@ type Redo struct {
 }
 
 func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("state_db_kv_redo")))
+	id, _ := types.BytesToHash(crypto.Hash256([]byte("stateDbRedo")))
 
 	store, err := bolt.Open(path.Join(chainDir, "kv_redo"), 0600, nil)
 	if err != nil {

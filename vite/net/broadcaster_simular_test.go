@@ -26,18 +26,6 @@ func (m mockBroadcastPeerSet) broadcastPeers() (l []broadcastPeer) {
 	return
 }
 
-func (m mockBroadcastPeerSet) unknownBlock(hash types.Hash) (l []broadcastPeer) {
-	for _, p := range m {
-		if p.hasBlock(hash) {
-			continue
-		}
-
-		l = append(l, p)
-	}
-
-	return
-}
-
 type mockVerifier struct{}
 
 func (mockVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
@@ -78,20 +66,16 @@ type mockBroadcastPeer struct {
 	rw          sync.RWMutex
 }
 
-func (mpf *mockBroadcastPeer) seeBlock(hash types.Hash) {
+func (mpf *mockBroadcastPeer) seeBlock(hash types.Hash) bool {
 	mpf.rw.Lock()
 	defer mpf.rw.Unlock()
 
+	if _, ok := mpf.knownBlocks[hash]; ok {
+		return ok
+	}
+
 	mpf.knownBlocks[hash] = struct{}{}
-}
-
-func (mpf *mockBroadcastPeer) hasBlock(hash types.Hash) bool {
-	mpf.rw.RLock()
-	defer mpf.rw.RUnlock()
-
-	_, ok := mpf.knownBlocks[hash]
-
-	return ok
+	return false
 }
 
 func (mpf *mockBroadcastPeer) sendNewSnapshotBlock(block *ledger.SnapshotBlock) error {
@@ -256,12 +240,12 @@ func newMockBroadcastNet(id vnode.NodeID, priv ed25519.PrivateKey) *mockBroadcas
 	set := mockBroadcastPeerSet(peerFrames)
 	mp.peerSet = set
 
-	str := newRedForwardStrategy(set, 1, 10)
+	str := newCrossForwardStrategy(set, 1, 10)
 	//str := &fullForwardStrategy{
 	//	ps: set,
 	//}
 
-	b := newBroadcaster(set, mockVerifier{}, mockBlockNotifier{}, nil, str, globalMockNewBlockListener)
+	b := newBroadcaster(set, mockVerifier{}, mockBlockNotifier{}, nil, str, globalMockNewBlockListener, nil)
 	b.st = SyncDone
 
 	mp.broadcaster = b

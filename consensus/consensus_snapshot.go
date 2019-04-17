@@ -151,9 +151,9 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 		self.log.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
-	// todo
-	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, block.Hash, proofTime))
 	seeds := self.rw.GetSeedsBeforeHashH(block)
+	// todo
+	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s, seeds:%d", index, block.Hash, proofTime, seeds))
 	seed := core.NewSeedInfo(seeds)
 	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index, proofIndex)
 	if err != nil {
@@ -188,7 +188,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, i
 
 	all := ""
 	for _, v := range votes {
-		all += fmt.Sprintf("[%s]", v.Name)
+		all += fmt.Sprintf("[%s-%s]", v.Name, v.Balance.String())
 	}
 	self.log.Info(fmt.Sprintf("[%d][%d]pre success rate log: %+v, %s", hashH.Height, index, successRate, all))
 

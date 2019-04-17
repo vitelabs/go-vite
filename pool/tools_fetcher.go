@@ -36,13 +36,16 @@ func (self *accountSyncer) broadcastReceivedBlocks(received *vm_db.VmAccountBloc
 
 func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
+		if prevCnt > 100 {
+			prevCnt = 100
+		}
 		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
 	}
 }
-func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, prevCnt uint64, sHeight uint64) {
+func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, prevCnt uint64, sHeight uint64, sHash types.Hash) {
 	if hashHeight.Height > 0 {
-		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt, "sHeight", sHeight, "sHash", sHash)
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
 	}
 }
@@ -61,6 +64,9 @@ func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
 
 func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
+		if prevCnt > 100 {
+			prevCnt = 100
+		}
 		self.log.Debug("fetch snapshot block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
 		self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
 	}

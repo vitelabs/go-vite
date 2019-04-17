@@ -56,7 +56,7 @@ func (self *pool) insert() {
 		self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
 		self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
 		//time.Sleep(time.Second
-		self.log.Error("pool auto stop")
+		//self.log.Error("pool auto stop")
 	}
 	t2 := time.Now()
 	self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
@@ -152,6 +152,7 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 
 	if len(errorAcc) > 0 {
 		return newOffset, errorAcc, nil
+
 	}
 	result.addrM = addrM
 	return newOffset, nil, result
@@ -197,6 +198,8 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 }
 func (self *pool) makeQueueFromAccounts(p Package) {
 	addrOffsets := make(map[types.Address]*offsetInfo)
+	max := uint64(100)
+	total := uint64(0)
 	for {
 		sum := uint64(0)
 		self.pendingAc.Range(func(key, v interface{}) bool {
@@ -206,11 +209,17 @@ func (self *pool) makeQueueFromAccounts(p Package) {
 				offset = &offsetInfo{}
 				addrOffsets[key.(types.Address)] = offset
 			}
-
-			num, _ := cp.makePackage(p, offset)
+			if total >= max {
+				return false
+			}
+			num, _ := cp.makePackage(p, offset, max-total)
 			sum += num
+			total += num
 			return true
 		})
+		if total >= max {
+			break
+		}
 		if sum == 0 {
 			break
 		}
@@ -291,6 +300,7 @@ func (self *pool) insertSnapshotBucket(bucket Bucket) error {
 	if err != nil {
 		return err
 	}
+	self.pendingSc.checkCurrent()
 	if accBlocks == nil || len(accBlocks) == 0 {
 		return nil
 	}
@@ -300,6 +310,7 @@ func (self *pool) insertSnapshotBucket(bucket Bucket) error {
 		if err != nil {
 			return err
 		}
+		self.selfPendingAc(k).checkCurrent()
 	}
 	return errors.Errorf("account blocks rollback for snapshot block[%s-%s-%d] insert.", item.ownerWrapper, item.Hash(), item.Height())
 }

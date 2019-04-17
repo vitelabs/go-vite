@@ -60,7 +60,7 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 	}
 
 	if cacheItem.BufferLen >= fd.writeMaxSize {
-		return 0, errors.New("can't write, fileReader is full")
+		return 0, nil
 	}
 
 	bufLen := len(buf)

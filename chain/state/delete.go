@@ -7,6 +7,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
@@ -105,6 +106,7 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 
 	for _, block := range newUnconfirmedBlocks {
 		redoLogList := newUnconfirmedLog[block.AccountAddress]
+
 		startHeight := redoLogList[0].Height
 		targetIndex := block.Height - startHeight
 
@@ -212,7 +214,7 @@ func (sDB *StateDB) rollbackByRedo(batch *leveldb.Batch, snapshotBlock *ledger.S
 
 				keySet[string(kv[0])] = struct{}{}
 
-				copy(resetKeyTemplate[1+types.AddressSize:], kv[0])
+				copy(resetKeyTemplate[1+types.AddressSize:], common.RightPadBytes(kv[0], 32))
 				resetKeyTemplate[1+types.AddressSize+types.HashSize] = byte(len(kv[0]))
 
 				batch.Delete(resetKeyTemplate)
@@ -372,7 +374,7 @@ func (sDB *StateDB) rollbackAccountBlock(batch *leveldb.Batch, accountBlock *led
 	}
 
 	// delete log hash
-	if len(accountBlock.LogHash) > 0 {
+	if accountBlock.LogHash != nil {
 		batch.Delete(chain_utils.CreateVmLogListKey(accountBlock.LogHash))
 	}
 
@@ -416,6 +418,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 	defer iter.Release()
 
 	storageTemplateKey := make([]byte, 1+types.AddressSize+types.HashSize+1)
+
 	storageTemplateKey[0] = chain_utils.StorageKeyPrefix
 	copy(storageTemplateKey[1:], addr.Bytes())
 
@@ -426,19 +429,17 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 
 	iterOk := iter.Next()
 	for iterOk {
+		// copy key
 		storageKeyBytes := iter.Key()[1+types.AddressSize : 1+types.AddressSize+types.HashSize+1]
 		copy(seekTemplateKey[1+types.AddressSize:], storageKeyBytes)
 
 		copy(storageTemplateKey[1+types.AddressSize:], storageKeyBytes)
 
-		storageKey := storageKeyBytes[:iter.Key()[1+types.AddressSize+types.HashSize]]
-
-		delete(keySet, string(storageKey))
+		delete(keySet, string(storageKeyBytes[:storageKeyBytes[len(storageKeyBytes)-1]]))
 
 		iter.Seek(seekTemplateKey)
 
 		if iter.Prev() && bytes.Equal(seekTemplateKey[1+types.AddressSize:1+types.AddressSize+types.HashSize+1], iter.Key()[1+types.AddressSize:1+types.AddressSize+types.HashSize+1]) {
-
 			batch.Put(storageTemplateKey, iter.Value())
 		} else {
 			batch.Delete(storageTemplateKey)

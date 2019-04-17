@@ -410,14 +410,29 @@ func (e *executor) cancel(from, to uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for i := len(e.tasks); i > -1; i-- {
+	var total = len(e.tasks)
+
+	if total == 0 {
+		return
+	}
+
+	var j int
+	for i := total - 1; i > -1; i-- {
 		t := e.tasks[i]
 		if t.from >= from {
 			t.cancel()
-		} else if t.to > from {
+			j++
+			continue
+		}
+
+		if t.to > from {
 			t.to = from - 1
 		}
+
+		break
 	}
+
+	e.tasks = e.tasks[:total-j]
 }
 
 func (e *executor) reset() {
@@ -502,10 +517,11 @@ func (e *executor) doJob(c syncConnection, from, to uint64) error {
 
 	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
-	if err := c.download(from, to); err != nil {
-		if c.catch(err) {
+	if fatal, err := c.download(from, to); err != nil {
+		if fatal {
 			e.pool.delConn(c)
 		}
+
 		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
@@ -541,6 +557,7 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	// handshake error
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
+		_ = tcp.Close()
 		return
 	}
 

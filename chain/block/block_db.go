@@ -6,7 +6,6 @@ import (
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
-	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
@@ -29,7 +28,7 @@ type BlockDB struct {
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
+	id, _ := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
 
 	fileSize := int64(10 * 1024 * 1024) // 10M
 	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize, 10)
@@ -43,78 +42,6 @@ func NewBlockDB(chainDir string) (*BlockDB, error) {
 		snappyWriteBuffer: make([]byte, fileSize),
 		id:                id,
 	}, nil
-}
-
-func (bDB *BlockDB) Id() types.Hash {
-	return bDB.id
-}
-
-func (bDB *BlockDB) Prepare() {
-	bDB.flushStartLocation = bDB.fm.NextFlushStartLocation()
-	bDB.flushTargetLocation = bDB.fm.LatestLocation()
-	bDB.fm.LockDelete()
-
-}
-
-func (bDB *BlockDB) CancelPrepare() {
-	bDB.flushStartLocation = nil
-	bDB.flushTargetLocation = nil
-	bDB.fm.UnlockDelete()
-}
-
-func (bDB *BlockDB) RedoLog() ([]byte, error) {
-	var redoLog []byte
-
-	bfp := newBlockFileParser()
-	bDB.wg.Add(1)
-	go func() {
-		defer bDB.wg.Done()
-		bDB.fm.ReadRange(bDB.flushStartLocation, bDB.flushTargetLocation, bfp)
-		bfp.Close()
-	}()
-
-	iterator := bfp.Iterator()
-
-	redoLog = make([]byte, 0, 24+bDB.flushStartLocation.Distance(bDB.fileSize, bDB.flushTargetLocation))
-
-	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushStartLocation)...)
-	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushTargetLocation)...)
-
-	for buf := range iterator {
-		redoLog = append(redoLog, buf.Buffer...)
-	}
-	if err := bfp.Error(); err != nil {
-		return nil, err
-	}
-
-	return redoLog, nil
-
-}
-
-func (bDB *BlockDB) Commit() error {
-	defer func() {
-		bDB.flushStartLocation = nil
-		bDB.flushTargetLocation = nil
-		bDB.fm.UnlockDelete()
-	}()
-
-	return bDB.fm.Flush(bDB.flushStartLocation, bDB.flushTargetLocation)
-
-}
-
-func (bDB *BlockDB) PatchRedoLog(redoLog []byte) error {
-	flushStartLocation := chain_utils.DeserializeLocation(redoLog[:12])
-	flushTargetLocation := chain_utils.DeserializeLocation(redoLog[12:24])
-
-	if err := bDB.fm.DeleteTo(flushStartLocation); err != nil {
-		return err
-	}
-
-	if _, err := bDB.fm.Write(redoLog[24:]); err != nil {
-		return err
-	}
-
-	return bDB.fm.Flush(flushStartLocation, flushTargetLocation)
 }
 
 func (bDB *BlockDB) FileSize() int64 {

@@ -33,7 +33,7 @@ func NewUnsaved() *Unsaved {
 		logList:         make(ledger.VmLogList, 0),
 		keys:            make(map[string]struct{}),
 		deletedKeys:     make(map[string]struct{}),
-		storage:         memdb.New(comparer.DefaultComparer, 16*1024),
+		storage:         memdb.New(comparer.DefaultComparer, 0),
 		storageDirty:    false,
 		balanceMap:      make(map[types.TokenTypeId]*big.Int),
 	}

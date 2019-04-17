@@ -3,7 +3,6 @@ package net
 import (
 	"errors"
 	"fmt"
-	net2 "net"
 	"sync"
 	"time"
 
@@ -100,16 +99,12 @@ func (m *memBlockStore) dequeueSnapshotBlock() (block *ledger.SnapshotBlock) {
 //	ForwardModeCross ForwardMode = "cross"
 //)
 
-func chooseForardStrategy(strategy string, ps broadcastPeerSet) forwardStrategy {
+func createForardStrategy(strategy string, ps broadcastPeerSet) forwardStrategy {
 	if strategy == "full" {
-		return &fullForward{ps}
-	} else {
-		return &crossForward{
-			ps:          ps,
-			commonMax:   3,
-			commonRatio: 10,
-		}
+		return newFullForwardStrategy(ps)
 	}
+
+	return newCrossForwardStrategy(ps, 3, 10)
 }
 
 // forwardStrategy will pick peers to forward new blocks
@@ -119,10 +114,8 @@ type forwardStrategy interface {
 
 type broadcastPeer interface {
 	ID() vnode.NodeID
-	Address() net2.Addr
 	peers() map[vnode.NodeID]struct{}
-	seeBlock(types.Hash)
-	hasBlock(hash types.Hash) bool
+	seeBlock(types.Hash) bool
 	send(c code, id p2p.MsgId, data p2p.Serializable) error
 	catch(error)
 	sendNewSnapshotBlock(block *ledger.SnapshotBlock) error
@@ -131,12 +124,17 @@ type broadcastPeer interface {
 
 type broadcastPeerSet interface {
 	broadcastPeers() (l []broadcastPeer)
-	unknownBlock(types.Hash) (l []broadcastPeer)
 }
 
 // fullForwardStrategy will choose all peers as forward targets except sender
 type fullForward struct {
 	ps broadcastPeerSet
+}
+
+func newFullForwardStrategy(ps broadcastPeerSet) forwardStrategy {
+	return &fullForward{
+		ps: ps,
+	}
 }
 
 func (d *fullForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
@@ -162,7 +160,7 @@ type crossForward struct {
 	commonRatio int
 }
 
-func newRedForwardStrategy(ps broadcastPeerSet, commonMax int, commonRatio int) forwardStrategy {
+func newCrossForwardStrategy(ps broadcastPeerSet, commonMax int, commonRatio int) forwardStrategy {
 	if commonRatio < 0 {
 		commonRatio = 0
 	} else if commonRatio > 100 {
@@ -195,7 +193,7 @@ func (d *crossForward) choosePeers(sender broadcastPeer) (l []broadcastPeer) {
 	if commonTotalFromRatio == 0 {
 		commonTotalFromRatio = 1
 	}
-	if commonTotalFromRatio < d.commonMax {
+	if commonTotalFromRatio < commonMax {
 		commonMax = commonTotalFromRatio
 	}
 
@@ -226,8 +224,6 @@ type broadcaster struct {
 
 	strategy forwardStrategy
 
-	height uint64
-
 	st SyncState
 
 	verifier Verifier
@@ -240,12 +236,13 @@ type broadcaster struct {
 
 	mu        sync.Mutex
 	statistic circle.List // statistic latency of block propagation
+	chain     chainReader
 
 	log log15.Logger
 }
 
 func newBroadcaster(peers broadcastPeerSet, verifier Verifier, feed blockNotifier,
-	store blockStore, strategy forwardStrategy, listener newBlockListener) *broadcaster {
+	store blockStore, strategy forwardStrategy, listener newBlockListener, chain chainReader) *broadcaster {
 	return &broadcaster{
 		peers:     peers,
 		statistic: circle.NewList(records24h),
@@ -254,8 +251,9 @@ func newBroadcaster(peers broadcastPeerSet, verifier Verifier, feed blockNotifie
 		store:     store,
 		filter:    newBlockFilter(filterCap),
 		strategy:  strategy,
-		log:       netLog.New("module", "broadcaster"),
+		chain:     chain,
 		listener:  listener,
+		log:       netLog.New("module", "broadcaster"),
 	}
 }
 
@@ -268,6 +266,8 @@ func (b *broadcaster) codes() []code {
 }
 
 func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
+	defer monitor.LogTime("broadcast", "handle", time.Now())
+
 	switch code(msg.Code) {
 	case NewSnapshotBlockCode:
 		nb := new(message.NewSnapshotBlock)
@@ -286,7 +286,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewSnapshotBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -301,10 +301,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
-			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender.Address(), err))
+			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender, err))
 			return err
 		}
 
@@ -336,7 +336,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewAccountBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender.Address()))
+		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -351,10 +351,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new accountblock %s/%d from %s", block.Hash, block.Height, sender.Address()))
+		b.log.Info(fmt.Sprintf("record new accountblock %s from %s", block.Hash, sender))
 
 		if err = b.verifier.VerifyNetAb(block); err != nil {
-			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender.Address(), err))
+			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender, err))
 			return err
 		}
 
@@ -443,30 +443,34 @@ func (b *broadcaster) subSyncState(st SyncState) {
 	}
 }
 
-func (b *broadcaster) setHeight(height uint64) {
-	b.height = height
-}
-
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 	now := time.Now()
-	defer monitor.LogTime("net/broadcast", "SnapshotBlock", now)
+	defer monitor.LogTime("broadcast", "broadcast", now)
 
 	var err error
-	ps := b.peers.unknownBlock(block.Hash)
+	ps := b.peers.broadcastPeers()
 	for _, p := range ps {
+		if p.seeBlock(block.Hash) {
+			continue
+		}
+
 		err = p.sendNewSnapshotBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast snapshotblock %s/%d to %s@%s, %v", block.Hash, block.Height, p.ID(), p.Address(), err))
+			p.catch(err)
+			b.log.Error(fmt.Sprintf("failed to broadcast snapshotblock %s/%d to %s: %v", block.Hash, block.Height, p, err))
 		} else {
-			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p))
 		}
 	}
 
-	if block.Timestamp != nil && block.Height > b.height {
-		delta := now.Sub(*block.Timestamp)
-		b.mu.Lock()
-		b.statistic.Put(delta.Nanoseconds() / 1e6)
-		b.mu.Unlock()
+	if b.chain != nil {
+		current := b.chain.GetLatestSnapshotBlock().Height
+		if block.Timestamp != nil && block.Height > current {
+			delta := now.Sub(*block.Timestamp)
+			b.mu.Lock()
+			b.statistic.Put(delta.Nanoseconds() / 1e6)
+			b.mu.Unlock()
+		}
 	}
 }
 
@@ -478,16 +482,21 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 	now := time.Now()
-	defer monitor.LogTime("net/broadcast", "AccountBlock", now)
+	defer monitor.LogTime("broadcast", "broadcast", now)
 
 	var err error
-	ps := b.peers.unknownBlock(block.Hash)
+	ps := b.peers.broadcastPeers()
 	for _, p := range ps {
+		if p.seeBlock(block.Hash) {
+			continue
+		}
+
 		err = p.sendNewAccountBlock(block)
 		if err != nil {
-			b.log.Error(fmt.Sprintf("Failed to broadcast accountblock %s/%d to %s@%s, %v", block.Hash, block.Height, p.ID(), p.Address(), err))
+			p.catch(err)
+			b.log.Error(fmt.Sprintf("failed to broadcast accountblock %s to %s: %v", block.Hash, p, err))
 		} else {
-			b.log.Info(fmt.Sprintf("broadcast accountblock %s/%d to %s", block.Hash, block.Height, p.Address()))
+			b.log.Info(fmt.Sprintf("broadcast accountblock %s to %s", block.Hash, p))
 		}
 	}
 }
@@ -499,29 +508,37 @@ func (b *broadcaster) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
 }
 
 func (b *broadcaster) forwardSnapshotBlock(msg *message.NewSnapshotBlock, sender broadcastPeer) {
+	defer monitor.LogTime("broadcast", "forward", time.Now())
+
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.hasBlock(msg.Block.Hash) {
+		if p.seeBlock(msg.Block.Hash) {
 			continue
 		}
 
-		p.seeBlock(msg.Block.Hash)
 		if err := p.send(NewSnapshotBlockCode, 0, msg); err != nil {
 			p.catch(err)
+			b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
+		} else {
+			b.log.Info(fmt.Sprintf("forward snapshotblock %s/%d to %s", msg.Block.Hash, msg.Block.Height, p))
 		}
 	}
 }
 
 func (b *broadcaster) forwardAccountBlock(msg *message.NewAccountBlock, sender broadcastPeer) {
+	defer monitor.LogTime("broadcast", "forward", time.Now())
+
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.hasBlock(msg.Block.Hash) {
+		if p.seeBlock(msg.Block.Hash) {
 			continue
 		}
 
-		p.seeBlock(msg.Block.Hash)
 		if err := p.send(NewAccountBlockCode, 0, msg); err != nil {
 			p.catch(err)
+			b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
+		} else {
+			b.log.Info(fmt.Sprintf("forward accountblock %s to %s", msg.Block.Hash, p))
 		}
 	}
 }
