@@ -36,7 +36,7 @@ var errIncompleteMessage = errors.New("incomplete message")
 var errSocketIsRunning = errors.New("udp socket is listening")
 var errSocketIsNotRunning = errors.New("udp socket is not running")
 
-const socketQueueLength = 10
+const socketQueueLength = 30
 
 // sender return err is not nil if one of the following scene occur:
 // 1. failed to resolve net.UDPAddr of n

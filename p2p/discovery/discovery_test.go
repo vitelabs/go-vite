@@ -54,7 +54,7 @@ func (m *mockSocket) stop() error {
 }
 
 func TestFindNode(t *testing.T) {
-	tab := newTable(vnode.ZERO, bucketSize, bucketNum, newListBucket, nil)
+	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, nil)
 	tab.add(&Node{
 		Node: vnode.Node{
 			ID: vnode.RandFromDistance(tab.id, 100),
@@ -63,7 +63,7 @@ func TestFindNode(t *testing.T) {
 				Port: 8888,
 				Typ:  vnode.HostIPv4,
 			},
-			Net: 0,
+			Net: self.Net,
 			Ext: nil,
 		},
 	})
@@ -76,7 +76,7 @@ func TestFindNode(t *testing.T) {
 				Port: 8483,
 				Typ:  vnode.HostIPv4,
 			},
-			Net: 0,
+			Net: self.Net,
 			Ext: nil,
 		},
 		table:  tab,
@@ -86,7 +86,7 @@ func TestFindNode(t *testing.T) {
 	}
 
 	nodes := d.lookup(vnode.ZERO, 32)
-	if len(nodes) != 32 {
+	if len(nodes) != tab.size() {
 		t.Errorf("should not find %d nodes", len(nodes))
 	}
 }

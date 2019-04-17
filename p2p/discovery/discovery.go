@@ -145,7 +145,7 @@ func New(cfg *Config) Discovery {
 
 	d.socket = newAgent(cfg.PrivateKey(), d.node, cfg.ListenAddress, d.handle)
 
-	d.table = newTable(d.node.ID, cfg.BucketSize, cfg.BucketCount, newListBucket, d)
+	d.table = newTable(d.node.ID, d.NetID, cfg.BucketSize, cfg.BucketCount, newListBucket, d)
 
 	d.SetFinder(&closetFinder{table: d.table})
 
@@ -329,28 +329,17 @@ func (d *discovery) handle(pkt *packet) {
 	switch pkt.c {
 	case codePing:
 		n := nodeFromPing(pkt)
-		n2 := d.table.resolveAddr(n.Address())
-
-		if n2 != nil {
-			if n.Net != d.node.Net {
-				d.table.remove(pkt.id)
-			} else {
-				n2.update(n)
-				d.table.bubble(n2.ID)
-				_ = d.socket.pong(pkt.hash, n)
-			}
-		} else {
-			if n.Net != d.node.Net {
-				return
-			}
-			// add to table
-			d.table.add(n)
+		if n.Net == d.node.Net {
 			_ = d.socket.pong(pkt.hash, n)
 		}
+
+		d.table.bubble(n.ID)
+		d.table.add(n)
 
 	case codePong:
 		// nothing
 		// pong will be handle by requestPool
+
 	case codeFindnode:
 		find := pkt.body.(*findnode)
 		nodes := d.table.findNeighbors(find.target, int(find.count))

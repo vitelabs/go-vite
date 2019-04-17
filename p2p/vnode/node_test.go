@@ -32,7 +32,7 @@ func compare(n, n2 *Node, ext bool) error {
 		return fmt.Errorf("different ID %s %s", n.ID, n2.ID)
 	}
 
-	if n.EndPoint.Equal(&n2.EndPoint) {
+	if false == n.EndPoint.Equal(&n2.EndPoint) {
 		return fmt.Errorf("different endpoint: %v %v", n.EndPoint, n2.EndPoint)
 	}
 
@@ -40,7 +40,7 @@ func compare(n, n2 *Node, ext bool) error {
 		return fmt.Errorf("different Net %d %d", n.Net, n2.Net)
 	}
 
-	if ext && !bytes.Equal(n.Ext, n2.Ext) {
+	if ext && false == bytes.Equal(n.Ext, n2.Ext) {
 		return fmt.Errorf("different Ext %v %v", n.Ext, n2.Ext)
 	}
 
@@ -61,12 +61,8 @@ func TestNodeID_Bytes(t *testing.T) {
 		t.Errorf("bytes to id error: %v", err)
 	}
 	if id != id2 {
-		t.Errorf("diff id")
+		t.Errorf("different id")
 	}
-
-	copy(id.Bytes(), ZERO.Bytes())
-	fmt.Println(id == ZERO)
-	fmt.Println(id == id2)
 }
 
 func ExampleNodeID_Bytes() {
@@ -151,7 +147,7 @@ func TestNode_Deserialize(t *testing.T) {
 		panic(err)
 	}
 
-	var n2 *Node
+	var n2 = new(Node)
 	err = n2.Deserialize(buf)
 	if err != nil {
 		panic(err)
@@ -412,7 +408,7 @@ func TestNode_MarshalJSON(t *testing.T) {
 	}
 
 	if err = compare(node, node2, true); err != nil {
-		t.Fail()
+		t.Error(err)
 	}
 }
 

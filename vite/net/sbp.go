@@ -33,7 +33,7 @@ func (s *sbpCollector) GetNodes(count int) []vnode.Node {
 	return nodes
 }
 
-func (s *sbpCollector) Receive(n *vnode.Node) {
+func (s *sbpCollector) receive(n *vnode.Node) {
 	if len(n.Ext) < extensionLen {
 		return
 	}
@@ -51,7 +51,7 @@ func (s *sbpCollector) Receive(n *vnode.Node) {
 }
 
 func (s *sbpCollector) Sub(sub discovery.Subscriber) {
-	s.subId = sub.Sub(s)
+	s.subId = sub.Sub(s.receive)
 }
 
 func (s *sbpCollector) UnSub(sub discovery.Subscriber) {

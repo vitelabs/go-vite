@@ -51,7 +51,7 @@ func (e *EndPoint) Equal(e2 *EndPoint) bool {
 	if e.Typ != e2.Typ {
 		return false
 	}
-	if !bytes.Equal(e.Host, e2.Host) {
+	if false == bytes.Equal(e.Host, e2.Host) {
 		return false
 	}
 

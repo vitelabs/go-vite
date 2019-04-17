@@ -19,6 +19,7 @@
 package vnode
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -196,8 +197,28 @@ var errMissHost = errors.New("missing Host")
 type Node struct {
 	ID       NodeID   `json:"id"` // ID is the unique node identity
 	EndPoint EndPoint `json:"address"`
-	Net      uint32   `json:"net"` // Net is the network this node belongs
+	Net      int      `json:"net"` // Net is the network this node belongs
 	Ext      []byte   `json:"ext"` // Ext can be arbitrary data, will be sent to other nodes
+}
+
+func (n *Node) Equal(n2 *Node) bool {
+	if n.ID != n2.ID {
+		return false
+	}
+
+	if false == n.EndPoint.Equal(&n2.EndPoint) {
+		return false
+	}
+
+	if n.Net != n2.Net {
+		return false
+	}
+
+	if false == bytes.Equal(n.Ext, n2.Ext) {
+		return false
+	}
+
+	return true
 }
 
 // Address is formatted `domain:Port` or `IP:Port`
@@ -287,13 +308,13 @@ func parsePort(str string) (port int, err error) {
 	return int(p), nil
 }
 
-func parseNid(str string) (nid uint32, err error) {
+func parseNid(str string) (nid int, err error) {
 	n, err := strconv.ParseInt(str, 10, 8)
 	if err != nil {
 		return
 	}
 
-	return uint32(n), nil
+	return int(n), nil
 }
 
 // Serialize a Node to bytes through protobuf
@@ -303,7 +324,7 @@ func (n *Node) Serialize() ([]byte, error) {
 		Hostname: n.EndPoint.Host,
 		HostType: uint32(n.EndPoint.Typ),
 		Port:     uint32(n.EndPoint.Port),
-		Net:      n.Net,
+		Net:      uint32(n.Net),
 		Ext:      n.Ext,
 	}
 
@@ -330,7 +351,7 @@ func (n *Node) Deserialize(data []byte) (err error) {
 	n.EndPoint.Typ = HostType(pb.HostType)
 	n.EndPoint.Port = int(pb.Port)
 
-	n.Net = pb.Net
+	n.Net = int(pb.Net)
 
 	n.Ext = pb.Ext
 

@@ -170,7 +170,7 @@ func (cfg *Config) Ensure() (err error) {
 	cfg.node = &vnode.Node{
 		ID:       id,
 		EndPoint: e,
-		Net:      uint32(cfg.NetID),
+		Net:      cfg.NetID,
 		Ext:      nil,
 	}
 

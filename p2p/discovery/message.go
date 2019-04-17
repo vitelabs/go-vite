@@ -78,14 +78,14 @@ func (m message) pack(key ed25519.PrivateKey) (data, hash []byte, err error) {
 
 type ping struct {
 	from, to *vnode.EndPoint
-	net      uint32
+	net      int
 	ext      []byte
 	time     time.Time
 }
 
 func (p *ping) serialize() (data []byte, err error) {
 	pb := &protos.Ping{
-		Net:  p.net,
+		Net:  uint32(p.net),
 		Ext:  p.ext,
 		Time: p.time.Unix(),
 	}
@@ -123,7 +123,7 @@ func (p *ping) deserialize(buf []byte) error {
 		return err
 	}
 
-	p.net = pb.Net
+	p.net = int(pb.Net)
 	p.ext = pb.Ext
 	p.time = time.Unix(pb.Time, 0)
 
@@ -152,7 +152,7 @@ func (p *ping) expired() bool {
 
 type pong struct {
 	from, to *vnode.EndPoint
-	net      uint32
+	net      int
 	ext      []byte
 	echo     []byte
 	time     time.Time
@@ -161,7 +161,7 @@ type pong struct {
 func (p *pong) serialize() (data []byte, err error) {
 	pb := &protos.Pong{}
 
-	pb.Net = p.net
+	pb.Net = uint32(p.net)
 	pb.Ext = p.ext
 	pb.Echo = p.echo
 	pb.Time = p.time.Unix()
@@ -199,7 +199,7 @@ func (p *pong) deserialize(data []byte) error {
 		return err
 	}
 
-	p.net = pb.Net
+	p.net = int(pb.Net)
 	p.ext = pb.Ext
 	p.echo = pb.Echo
 	p.time = time.Unix(pb.Time, 0)
