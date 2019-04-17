@@ -36,9 +36,7 @@ func newEventManager() *eventManager {
 	}
 }
 
-func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccountBlock,
-	deleteAccountBlocks []*ledger.AccountBlock, snapshotBlocks []*ledger.SnapshotBlock, chunks []*ledger.SnapshotChunk) error {
-
+func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*vm_db.VmAccountBlock) error {
 	em.mu.Lock()
 	defer em.mu.Unlock()
 
@@ -58,28 +56,65 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 			listener.InsertAccountBlocks(vmAccountBlocks)
 		}
 
-	case prepareInsertSbsEvent:
-		for _, listener := range em.listenerList {
-			if err := listener.PrepareInsertSnapshotBlocks(snapshotBlocks); err != nil {
-				return err
-			}
-		}
-	case InsertSbsEvent:
-		for _, listener := range em.listenerList {
-			listener.InsertSnapshotBlocks(snapshotBlocks)
-		}
+	}
+	return nil
+}
 
+func (em *eventManager) TriggerDeleteAbs(eventType byte, accountBlocks []*ledger.AccountBlock) error {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if len(em.listenerList) <= 0 {
+		return nil
+	}
+
+	switch eventType {
 	case prepareDeleteAbsEvent:
 		for _, listener := range em.listenerList {
-			if err := listener.PrepareDeleteAccountBlocks(deleteAccountBlocks); err != nil {
+			if err := listener.PrepareDeleteAccountBlocks(accountBlocks); err != nil {
 				return err
 			}
 		}
 	case DeleteAbsEvent:
 		for _, listener := range em.listenerList {
-			listener.DeleteAccountBlocks(deleteAccountBlocks)
+			listener.DeleteAccountBlocks(accountBlocks)
 		}
+	}
+	return nil
+}
 
+func (em *eventManager) TriggerInsertSbs(eventType byte, chunks []*ledger.SnapshotChunk) error {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if len(em.listenerList) <= 0 {
+		return nil
+	}
+
+	switch eventType {
+
+	case prepareInsertSbsEvent:
+		for _, listener := range em.listenerList {
+			if err := listener.PrepareInsertSnapshotBlocks(chunks); err != nil {
+				return err
+			}
+		}
+	case InsertSbsEvent:
+		for _, listener := range em.listenerList {
+			listener.InsertSnapshotBlocks(chunks)
+		}
+	}
+	return nil
+}
+
+func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.SnapshotChunk) error {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if len(em.listenerList) <= 0 {
+		return nil
+	}
+	switch eventType {
 	case prepareDeleteSbsEvent:
 		for _, listener := range em.listenerList {
 			if err := listener.PrepareDeleteSnapshotBlocks(chunks); err != nil {
@@ -91,7 +126,6 @@ func (em *eventManager) Trigger(eventType byte, vmAccountBlocks []*vm_db.VmAccou
 			listener.DeleteSnapshotBlocks(chunks)
 		}
 	}
-
 	return nil
 }
 

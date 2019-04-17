@@ -156,7 +156,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 	}
 
-	if err := c.em.Trigger(prepareDeleteSbsEvent, nil, nil, nil, snapshotChunks); err != nil {
+	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, snapshotChunks); err != nil {
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
-	if err := c.em.Trigger(DeleteSbsEvent, nil, nil, nil, snapshotChunks); err != nil {
+	if err := c.em.TriggerDeleteSbs(DeleteSbsEvent, snapshotChunks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.em.Trigger(DeleteSbsEvent) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
@@ -248,7 +248,7 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 		c.log.Info(fmt.Sprintf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
 	}
 
-	if err := c.em.Trigger(prepareDeleteAbsEvent, nil, blocks, nil, nil); err != nil {
+	if err := c.em.TriggerDeleteAbs(prepareDeleteAbsEvent, blocks); err != nil {
 		return err
 	}
 
@@ -270,6 +270,6 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
-	c.em.Trigger(DeleteAbsEvent, nil, blocks, nil, nil)
+	c.em.TriggerDeleteAbs(DeleteAbsEvent, blocks)
 	return nil
 }
