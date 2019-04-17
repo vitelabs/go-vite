@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/discovery"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/p2p"
@@ -117,14 +119,30 @@ func main() {
 		}
 		samples = append(samples, s)
 
-		var cfg *p2p.Config
-		cfg, err = p2p.NewConfig("127.0.0.1:"+strconv.Itoa(s.port), "", filepath.Join(pwd, s.dir), prv.Hex(), nil, nil, 10,
-			true, s.dir, 0, 0, 0, 0, nil)
-		if err != nil {
+		cfg := p2p.Config{
+			Config: &discovery.Config{
+				ListenAddress: "127.0.0.1:" + strconv.Itoa(s.port),
+				PublicAddress: "",
+				DataDir:       filepath.Join(pwd, s.dir),
+				PeerKey:       prv.Hex(),
+				BootNodes:     nil,
+				BootSeeds:     nil,
+				NetID:         10,
+			},
+			Discover:        true,
+			Name:            s.dir,
+			MaxPeers:        0,
+			MaxInboundRatio: 0,
+			MinPeers:        0,
+			MaxPendingPeers: 0,
+			StaticNodes:     nil,
+		}
+
+		if err = cfg.Ensure(); err != nil {
 			panic(err)
 		}
 
-		configs = append(configs, cfg)
+		configs = append(configs, &cfg)
 
 		port++
 	}

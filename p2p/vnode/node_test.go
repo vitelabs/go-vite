@@ -21,6 +21,7 @@ package vnode
 import (
 	"bytes"
 	crand "crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -31,23 +32,15 @@ func compare(n, n2 *Node, ext bool) error {
 		return fmt.Errorf("different ID %s %s", n.ID, n2.ID)
 	}
 
-	if !bytes.Equal(n.Host, n2.Host) {
-		return fmt.Errorf("different Host %v %v", n.Host, n2.Host)
-	}
-
-	if n.Port != n2.Port {
-		return fmt.Errorf("different Port %d %d", n.Port, n2.Port)
-	}
-
-	if n.Typ != n2.Typ {
-		return fmt.Errorf("different type %d %d", n.Typ, n2.Typ)
+	if false == n.EndPoint.Equal(&n2.EndPoint) {
+		return fmt.Errorf("different endpoint: %v %v", n.EndPoint, n2.EndPoint)
 	}
 
 	if n.Net != n2.Net {
 		return fmt.Errorf("different Net %d %d", n.Net, n2.Net)
 	}
 
-	if ext && !bytes.Equal(n.Ext, n2.Ext) {
+	if ext && false == bytes.Equal(n.Ext, n2.Ext) {
 		return fmt.Errorf("different Ext %v %v", n.Ext, n2.Ext)
 	}
 
@@ -68,12 +61,8 @@ func TestNodeID_Bytes(t *testing.T) {
 		t.Errorf("bytes to id error: %v", err)
 	}
 	if id != id2 {
-		t.Errorf("diff id")
+		t.Errorf("different id")
 	}
-
-	copy(id.Bytes(), ZERO.Bytes())
-	fmt.Println(id == ZERO)
-	fmt.Println(id == id2)
 }
 
 func ExampleNodeID_Bytes() {
@@ -87,6 +76,41 @@ func ExampleNodeID_Bytes() {
 	// Output:
 	// false
 	// true
+}
+
+func ExampleNodeID_MarshalJSON() {
+	var hex = "864c763b198f7234e90e25c935c77f84866def8590afec4af1545ca2e45ca926"
+	id, err := Hex2NodeID(hex)
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := id.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s\n", data)
+	// Output:
+	// "864c763b198f7234e90e25c935c77f84866def8590afec4af1545ca2e45ca926"
+}
+
+func TestNodeID_MarshalJSON(t *testing.T) {
+	var id = RandomNodeID()
+	data, err := id.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+
+	var id2 = new(NodeID)
+	err = id2.UnmarshalJSON(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if id != *id2 {
+		t.Fail()
+	}
 }
 
 func TestNode_Serialize(t *testing.T) {
@@ -123,7 +147,7 @@ func TestNode_Deserialize(t *testing.T) {
 		panic(err)
 	}
 
-	var n2 *Node
+	var n2 = new(Node)
 	err = n2.Deserialize(buf)
 	if err != nil {
 		panic(err)
@@ -245,8 +269,8 @@ func TestParseNode(t *testing.T) {
 				if n.EndPoint.String() != "vite.org:8483" {
 					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
 				}
-				if n.Typ != HostDomain {
-					return fmt.Errorf("host type should not be %d", n.Typ)
+				if n.EndPoint.Typ != HostDomain {
+					return fmt.Errorf("host type should not be %d", n.EndPoint.Typ)
 				}
 				if n.Net != 0 {
 					return fmt.Errorf("net should not be %d", n.Net)
@@ -269,8 +293,8 @@ func TestParseNode(t *testing.T) {
 				if n.EndPoint.String() != "vite.org:8483" {
 					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
 				}
-				if n.Typ != HostDomain {
-					return fmt.Errorf("host type should not be %d", n.Typ)
+				if n.EndPoint.Typ != HostDomain {
+					return fmt.Errorf("host type should not be %d", n.EndPoint.Typ)
 				}
 				if n.Net != 0 {
 					return fmt.Errorf("net should not be %d", n.Net)
@@ -295,8 +319,8 @@ func TestParseNode(t *testing.T) {
 				if n.EndPoint.String() != "127.0.0.1:8483" {
 					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
 				}
-				if n.Typ != HostIPv4 {
-					return fmt.Errorf("host type should not be %d", n.Typ)
+				if n.EndPoint.Typ != HostIPv4 {
+					return fmt.Errorf("host type should not be %d", n.EndPoint.Typ)
 				}
 				if n.Net != 2 {
 					return fmt.Errorf("net should not be %d", n.Net)
@@ -321,8 +345,8 @@ func TestParseNode(t *testing.T) {
 				if n.EndPoint.String() != "127.0.0.1:8484" {
 					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
 				}
-				if n.Typ != HostIPv4 {
-					return fmt.Errorf("host type should not be %d", n.Typ)
+				if n.EndPoint.Typ != HostIPv4 {
+					return fmt.Errorf("host type should not be %d", n.EndPoint.Typ)
 				}
 				if n.Net != 2 {
 					return fmt.Errorf("net should not be %d", n.Net)
@@ -347,8 +371,8 @@ func TestParseNode(t *testing.T) {
 				if n.EndPoint.String() != "[::1]:8483" {
 					return fmt.Errorf("endpoint should not be %s", n.EndPoint.String())
 				}
-				if n.Typ != HostIPv6 {
-					return fmt.Errorf("host type should not be %d", n.Typ)
+				if n.EndPoint.Typ != HostIPv6 {
+					return fmt.Errorf("host type should not be %d", n.EndPoint.Typ)
 				}
 				if n.Net != 4 {
 					return fmt.Errorf("net should not be %d", n.Net)
@@ -367,4 +391,51 @@ func TestParseNode(t *testing.T) {
 			t.Error(err)
 		}
 	}
+}
+
+func TestNode_MarshalJSON(t *testing.T) {
+	var node = MockNode(false, true)
+
+	data, err := json.Marshal(node)
+	if err != nil {
+		panic(err)
+	}
+
+	var node2 = new(Node)
+	err = json.Unmarshal(data, node2)
+	if err != nil {
+		panic(err)
+	}
+
+	if err = compare(node, node2, true); err != nil {
+		t.Error(err)
+	}
+}
+
+func ExampleNode_MarshalJSON() {
+	var hex = "864c763b198f7234e90e25c935c77f84866def8590afec4af1545ca2e45ca926"
+	id, err := Hex2NodeID(hex)
+	if err != nil {
+		panic(err)
+	}
+
+	var addr = "127.0.0.1:8080"
+	e, err := ParseEndPoint(addr)
+	if err != nil {
+		panic(err)
+	}
+
+	var node = Node{
+		ID:       id,
+		EndPoint: e,
+		Net:      3,
+	}
+
+	data, err := json.Marshal(node)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", data)
+	// Output:
+	// {"id":"864c763b198f7234e90e25c935c77f84866def8590afec4af1545ca2e45ca926","address":"127.0.0.1:8080","net":3,"ext":null}
 }

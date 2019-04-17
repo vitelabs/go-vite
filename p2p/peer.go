@@ -176,7 +176,7 @@ func NewPeer(id vnode.NodeID, name string, version uint32, c Codec, level Level,
 		running:    0,
 		writable:   1,
 		errChan:    make(chan error, 3),
-		log:        log15.New("module", "p2p", "peer", id.Brief()),
+		log:        p2pLog.New("peer", id.Brief()),
 	}
 
 	pm.protoMap = make(map[ProtocolID]*protoPeer, len(m))

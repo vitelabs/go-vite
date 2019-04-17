@@ -64,7 +64,7 @@ type server struct {
 	log           log15.Logger
 }
 
-func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerManager, addr string, log log15.Logger) Server {
+func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerManager, addr string) Server {
 	return &server{
 		retryStartDuration: rd,
 		retryStartCount:    rc,
@@ -74,7 +74,7 @@ func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerMana
 		pm:                 pm,
 		listenAddress:      addr,
 		tkt:                ticket.New(maxp),
-		log:                log,
+		log:                p2pLog.New("module", "server"),
 	}
 }
 
