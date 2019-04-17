@@ -221,8 +221,10 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if sendBlock == nil {
 			pendingTask.AccountTask = append(pendingTask.AccountTask,
 				&AccountPendingTask{Addr: nil, Hash: &block.FromBlockHash})
+			return PENDING, nil
 		}
 
+		// check contract receive sequence
 		if !isGeneralAddr {
 			isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
 			if err != nil {
@@ -250,10 +252,6 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		if err := v.verifyComfirmedTimes(block, isGeneralAddr); err != nil {
 			return FAIL, err
 		}
-	}
-
-	if len(pendingTask.AccountTask) > 0 {
-		return PENDING, nil
 	}
 	return SUCCESS, nil
 }
