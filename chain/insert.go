@@ -14,7 +14,9 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	c.log.Info(fmt.Sprintf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
-	c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil)
+	if err := c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil); err != nil {
+		return err
+	}
 
 	accountBlock := vmAccountBlock.AccountBlock
 	// write cache
@@ -22,14 +24,14 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
+		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlockAndSnapshot failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlock")
+		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil, nil)
@@ -42,7 +44,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.log.Info(fmt.Sprintf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash))
 
 	for Addr, hh := range snapshotBlock.SnapshotContent {
-		c.log.Info(fmt.Sprintf("%d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
+		c.log.Info(fmt.Sprintf("Insert %d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
 	}
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
@@ -52,7 +54,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 
 	sbList := []*ledger.SnapshotBlock{snapshotBlock}
 
-	c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList, nil)
+	if err := c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList, nil); err != nil {
+		return nil, err
+	}
 
 	// write block db
 	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&ledger.SnapshotChunk{
@@ -74,15 +78,18 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// insert snapshot blocks
 	c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
+	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
+
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
 
 	if len(invalidBlocks) > 0 {
-		c.deleteAccountBlocks(invalidBlocks)
+		if err := c.deleteAccountBlocks(invalidBlocks); err != nil {
+			return nil, err
+		}
 	}
 
 	c.flusher.Flush(false)
-	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
 
 	return invalidBlocks, nil
 }

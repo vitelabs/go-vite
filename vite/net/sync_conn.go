@@ -3,13 +3,15 @@ package net
 import (
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	net2 "net"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
@@ -26,6 +28,8 @@ var errReadTooShort = errors.New("read too short")
 var errWriteTooShort = errors.New("write too short")
 var errPayloadTooLarge = errors.New("payload too large")
 var errHandshakeError = errors.New("sync handshake error")
+var errServerNotReady = errors.New("server not ready")
+var errIncompleteChunk = errors.New("incomplete chunk")
 
 type syncCode byte
 
@@ -250,17 +254,22 @@ const (
 	fileConnStateClosed
 )
 
+type SyncConnectionStatus struct {
+	Address string `json:"address"`
+	Speed   string `json:"speed"`
+	Task    string `json:"task"`
+}
+
 type syncConnection interface {
 	net2.Conn
 	syncCodecer
 	ID() peerId
-	download(from, to uint64) (err error)
+	download(from, to uint64) (fatal bool, err error)
 	speed() uint64
 	state() syncConnState
-	status() FileConnStatus
+	status() SyncConnectionStatus
 	isBusy() bool
 	height() uint64
-	catch(err error) bool
 }
 
 type syncConnectionFactory interface {
@@ -361,57 +370,85 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, 
 	}, nil
 }
 
-type FileConnStatus struct {
-	Id    string
-	Addr  string
-	Speed uint64
-}
-
 type syncConn struct {
 	net2.Conn
 	syncCodecer
 	downloadPeer
 	busy   int32 // atomic
 	st     syncConnState
-	t      int64  // timestamp
-	_speed uint64 // download speed, byte/s
+	t      int64     // timestamp
+	_speed uint64    // download speed, byte/s
+	chunk  [2]uint64 // task
 	closed int32
 	cacher syncCacher
 	buf    [1024]byte
 	failed int32
 }
 
+var speedUnits = [...]string{
+	" Byte/s",
+	" KByte/s",
+	" MByte/s",
+	" GByte/s",
+}
+
+func formatSpeed(s float64) (sf float64, unit int) {
+	for unit = 1; unit < len(speedUnits); unit++ {
+		if sf = s / 1024.0; sf > 1 {
+			s = sf
+		} else {
+			break
+		}
+	}
+
+	unit--
+
+	return s, unit
+}
+
+func speedToString(s float64) string {
+	sf, unit := formatSpeed(s)
+
+	return strconv.FormatFloat(sf, 'f', 2, 64) + speedUnits[unit]
+}
+
+func (f *syncConn) status() SyncConnectionStatus {
+	st := SyncConnectionStatus{
+		Address: f.downloadPeer.ID().Brief() + "@" + f.Conn.RemoteAddr().String(),
+		Speed:   speedToString(float64(f._speed)),
+		Task:    "",
+	}
+
+	if f.isBusy() {
+		st.Task = strconv.FormatUint(f.chunk[0], 10) + "-" + strconv.FormatUint(f.chunk[1], 10)
+	}
+
+	return st
+}
+
 func (f *syncConn) state() syncConnState {
 	return f.st
 }
 
-func (f *syncConn) catch(err error) bool {
-	if atomic.LoadInt32(&f.failed) > 3 {
-		return true
-	}
+func (f *syncConn) fail() bool {
+	f.failed++
 
-	return false
+	return f.failed > 3
 }
 
 func (f *syncConn) speed() uint64 {
 	return f._speed
 }
 
-func (f *syncConn) status() FileConnStatus {
-	return FileConnStatus{
-		Id:    f.ID().String(),
-		Addr:  f.RemoteAddr().String(),
-		Speed: f._speed,
-	}
-}
-
 func (f *syncConn) isBusy() bool {
 	return atomic.LoadInt32(&f.busy) == 1
 }
 
-func (f *syncConn) download(from, to uint64) (err error) {
+func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	f.setBusy()
 	defer f.idle()
+
+	f.chunk = [2]uint64{from, to}
 
 	err = f.write(&syncRequestMsg{
 		from: from,
@@ -419,17 +456,20 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	})
 
 	if err != nil {
-		return err
+		f.fail()
+		return true, err
 	}
 
 	var msg syncMsg
 	msg, err = f.read()
 	if err != nil {
-		return
+		f.fail()
+		return true, err
 	}
 
 	if msg.code() != syncReady {
-		return errors.New("remote not ready")
+		fatal = f.fail()
+		return fatal, errServerNotReady
 	}
 
 	chunkInfo := msg.(*syncReadyMsg)
@@ -437,15 +477,13 @@ func (f *syncConn) download(from, to uint64) (err error) {
 	cache := f.cacher.GetSyncCache()
 	writer, err := cache.NewWriter(from, to)
 	if err != nil {
-		return err
+		return false, err
 	}
-
-	defer writer.Close()
 
 	start := time.Now().Unix()
 	var nr, nw int
 	var total, count uint64
-	var werr error
+	var rerr, werr error
 	_ = f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	for {
 		count = chunkInfo.size - total
@@ -453,27 +491,42 @@ func (f *syncConn) download(from, to uint64) (err error) {
 			count = 1024
 		}
 
-		nr, err = f.Conn.Read(f.buf[:count])
+		nr, rerr = f.Conn.Read(f.buf[:count])
 		total += uint64(nr)
 
 		nw, werr = writer.Write(f.buf[:nr])
 
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
+		if rerr != nil {
+			break
 		} else if werr != nil {
-			err = fmt.Errorf("write cache %d-%d error: %v", from, to, werr)
 			break
 		} else if nw != nr {
-			err = fmt.Errorf("write cache %d-%d too short", from, to)
+			werr = errWriteTooShort
 			break
 		}
 
 		if total == chunkInfo.size {
 			break
 		}
+	}
+
+	_ = writer.Close()
+
+	if rerr != nil {
+		fatal = true
+	}
+
+	if werr != nil {
+		err = fmt.Errorf("failed to write cache %d-%d: %v", from, to, werr)
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
+	}
+
+	if total != chunkInfo.size {
+		fatal = true
+		err = errIncompleteChunk
+		_ = cache.Delete(interfaces.Segment{from, to})
+		return
 	}
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)
@@ -528,7 +581,7 @@ func (fl connections) del(i int) connections {
 }
 
 type FilePoolStatus struct {
-	Connections []FileConnStatus
+	Connections []SyncConnectionStatus `json:"connections"`
 }
 
 type downloadPeer interface {
@@ -546,6 +599,7 @@ type connPool interface {
 	delConn(c syncConnection)
 	chooseSource(to uint64) (downloadPeer, syncConnection, error)
 	reset()
+	connections() []SyncConnectionStatus
 }
 
 type connPoolImpl struct {
@@ -562,19 +616,17 @@ func newPool(peers downloadPeerSet) *connPoolImpl {
 	}
 }
 
-func (fp *connPoolImpl) status() FilePoolStatus {
+func (fp *connPoolImpl) connections() []SyncConnectionStatus {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	cs := make([]FileConnStatus, len(fp.l))
+	cs := make([]SyncConnectionStatus, len(fp.l))
 
 	for i := 0; i < len(fp.l); i++ {
 		cs[i] = fp.l[i].status()
 	}
 
-	return FilePoolStatus{
-		Connections: cs,
-	}
+	return cs
 }
 
 // delete filePeer and connection

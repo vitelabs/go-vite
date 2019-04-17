@@ -215,6 +215,7 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 		if err != nil {
 			return err
 		}
+		self.checkCurrent()
 	}
 
 	if len(accounts) > 0 {
@@ -354,7 +355,7 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
 		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
 		self.forkAccounts(accounts)
-		self.fetchAccounts(accounts, b.Height())
+		self.fetchAccounts(accounts, b.Height(), b.Hash())
 	}
 }
 
@@ -473,7 +474,7 @@ func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
 
 	return blocks, nil
 }
-func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
 		ac := self.pool.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
@@ -482,7 +483,7 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 			if hashH.Height > head.Height() {
 				u = hashH.Height - head.Height()
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
 		}
 	}
 

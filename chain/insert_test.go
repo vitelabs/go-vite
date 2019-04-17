@@ -13,77 +13,30 @@ import (
 	"math/rand"
 	"net/http"
 
+	"github.com/vitelabs/go-vite/vm/quota"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(18, 96, 2)
-	for i := 0; i < 100; i++ {
-		t.Run("InsertAccountBlock", func(t *testing.T) {
-			snapshotBlockList = append(snapshotBlockList, InsertAccountBlock(chainInstance, accounts, 17, 7, false)...)
-
-		})
-
-		t.Run("NewStorageDatabase", func(t *testing.T) {
-			NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
-		})
-
+	chainInstance, accounts, snapshotBlockList := SetUp(5, 98, 2)
+	addrList := make([]types.Address, 0, len(accounts))
+	for addr := range accounts {
+		addrList = append(addrList, addr)
 	}
+
+	t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
+		snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 17, 7, false)...)
+	})
+
+	t.Run("NewStorageDatabase", func(t *testing.T) {
+		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+	})
+
+	//}
 
 	TearDown(chainInstance)
-}
-
-func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.SnapshotContent {
-	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
-
-	// random snapshot
-	if !snapshotAll && len(unconfirmedBlocks) > 1 {
-		randomNum := rand.Intn(100)
-		if randomNum > 30 {
-			unconfirmedBlocks = unconfirmedBlocks[:rand.Intn(len(unconfirmedBlocks))]
-		}
-		if randomNum > 50 {
-			unconfirmedBlocks = []*ledger.AccountBlock{}
-		}
-	}
-
-	sc := make(ledger.SnapshotContent)
-
-	for i := len(unconfirmedBlocks) - 1; i >= 0; i-- {
-		block := unconfirmedBlocks[i]
-		if _, ok := sc[block.AccountAddress]; !ok {
-			sc[block.AccountAddress] = &ledger.HashHeight{
-				Hash:   block.Hash,
-				Height: block.Height,
-			}
-		}
-	}
-
-	return sc
-}
-
-func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.SnapshotBlock {
-	latestSb := chainInstance.GetLatestSnapshotBlock()
-	var now time.Time
-	randomNum := rand.Intn(100)
-	if randomNum < 70 {
-		now = latestSb.Timestamp.Add(time.Second)
-	} else if randomNum < 90 {
-		now = latestSb.Timestamp.Add(2 * time.Second)
-	} else {
-		now = latestSb.Timestamp.Add(3 * time.Second)
-	}
-
-	sb := &ledger.SnapshotBlock{
-		PrevHash:        latestSb.Hash,
-		Height:          latestSb.Height + 1,
-		Timestamp:       &now,
-		SnapshotContent: createSnapshotContent(chainInstance, snapshotAll),
-	}
-	sb.Hash = sb.ComputeHash()
-	return sb
-
 }
 
 func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
@@ -98,9 +51,7 @@ func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.Snapsh
 
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
 	b.StopTimer()
-	const (
-		requestTxPercent = 50
-	)
+
 	chainInstance, err := NewChainInstance("benchmark", true)
 	if err != nil {
 		b.Fatal(err)
@@ -114,47 +65,29 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 
 	fmt.Printf("Account number is %d, snapshotPerNum is %d\n", accountNumber, snapshotPerBlockNum)
 
-	cTxOptions := &CreateTxOptions{
-		MockSignature: true,
-	}
-
 	for i := 0; i < b.N; i++ {
-		account := accounts[addrList[rand.Intn(accountNumber)]]
-		createRequestTx := true
 
-		if account.HasOnRoadBlock() {
-			randNum := rand.Intn(100)
-			if randNum > requestTxPercent {
-				createRequestTx = false
-			}
+		account := getRandomAccount(accounts)
+
+		vmBlock, err := createVmBlock(account, accounts)
+		if err != nil {
+			panic(err)
 		}
 
-		var tx *vm_db.VmAccountBlock
-		if createRequestTx {
-			toAccount := accounts[addrList[rand.Intn(accountNumber)]]
-			tx, err = account.CreateSendBlock(toAccount, cTxOptions)
-			if err != nil {
-				b.Fatal(err)
-			}
-		} else {
-			tx, err = account.CreateReceiveBlock(cTxOptions)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
+		account.InsertBlock(vmBlock, accounts)
 
 		b.StartTimer()
+
+		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+			b.Fatal(err)
+		}
+
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
 			_, _, err := InsertSnapshotBlock(chainInstance, false)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
-
-		if err := chainInstance.InsertAccountBlock(tx); err != nil {
-			b.Fatal(err)
-		}
-
 		b.StopTimer()
 	}
 
@@ -172,6 +105,8 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
+	quota.InitQuotaConfig(true, true)
+
 	for _, snapshotPerNum := range []int{0} {
 		for _, accountNum := range []int{1, 10, 100, 10000, 10000} {
 			b.Run(fmt.Sprintf("%d accounts, snapshotPerNum: %d", accountNum, snapshotPerNum), func(b *testing.B) {
@@ -185,57 +120,43 @@ func BenchmarkChain_InsertAccountBlock(b *testing.B) {
 	//})
 }
 
-func InsertAccountBlock(chainInstance *chain, accounts map[types.Address]*Account, txCount int, snapshotPerBlockNum int, testQuery bool) []*ledger.SnapshotBlock {
+func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Address]*Account, blockCount int, snapshotPerBlockNum int, testQuery bool) []*ledger.SnapshotBlock {
 	addrList := make([]types.Address, 0, len(accounts))
 	for _, account := range accounts {
 		addrList = append(addrList, account.Addr)
 	}
-	accountNumber := len(accounts)
 
 	snapshotBlockList := make([]*ledger.SnapshotBlock, 0)
 
-	for i := 1; i <= txCount; i++ {
-		// get random account
-		account := accounts[addrList[rand.Intn(accountNumber)]]
+	countInserted := 0
 
-		// create vm block
-		vmBlock, err := createVmBlock(account, accounts, addrList)
+	for countInserted < blockCount {
+		var insertCount = snapshotPerBlockNum
+
+		if insertCount == 0 {
+			insertCount = 10
+		}
+
+		if insertCount > blockCount-countInserted {
+			insertCount = blockCount - countInserted
+		}
+
+		InsertAccountBlocks(nil, chainInstance, accounts, insertCount)
+
+		countInserted += insertCount
+
+		// snapshot
+		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
 		if err != nil {
 			panic(err)
 		}
 
-		// insert vm block
-		account.InsertBlock(vmBlock, accounts)
-
-		// insert vm block to chain
-		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
-			panic(err)
-		}
+		snapshotBlockList = append(snapshotBlockList, snapshotBlock)
 
 		// snapshot
-		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-
-			sb, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
-			if err != nil {
-				panic(err)
-			}
-			for addr, hashHeight := range sb.SnapshotContent {
-				if account, ok := accounts[addr]; ok {
-					account.Snapshot(sb.Hash, hashHeight)
-				}
-			}
-			snapshotBlockList = append(snapshotBlockList, sb)
-
-			// delete invalid
-			for i := len(invalidBlocks) - 1; i >= 0; i-- {
-				ab := invalidBlocks[i]
-				fmt.Printf("test delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash)
-
-				accounts[ab.AccountAddress].deleteAccountBlock(accounts, ab.Hash)
-				accounts[ab.AccountAddress].rollbackLatestBlock()
-			}
-
-		}
+		Snapshot(accounts, snapshotBlock)
+		// delete
+		DeleteInvalidBlocks(accounts, invalidBlocks)
 
 		if testQuery {
 			testUnconfirmedNoTesting(chainInstance, accounts)
@@ -247,7 +168,55 @@ func InsertAccountBlock(chainInstance *chain, accounts map[types.Address]*Accoun
 	return snapshotBlockList
 }
 
-func createVmBlock(account *Account, accounts map[types.Address]*Account, addrList []types.Address) (*vm_db.VmAccountBlock, error) {
+func InsertAccountBlocks(mu *sync.RWMutex, chainInstance *chain, accounts map[types.Address]*Account, blockCount int) {
+	for i := 1; i <= blockCount; i++ {
+		if mu != nil {
+			mu.Lock()
+		}
+
+		// get random account
+		account := getRandomAccount(accounts)
+
+		// create vm block
+		vmBlock, err := createVmBlock(account, accounts)
+		if err != nil {
+			panic(err)
+		}
+
+		// insert vm block
+		account.InsertBlock(vmBlock, accounts)
+
+		if mu != nil {
+			mu.Unlock()
+		}
+
+		// insert vm block to chain
+		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+			panic(err)
+		}
+	}
+
+}
+func Snapshot(accounts map[types.Address]*Account, snapshotBlock *ledger.SnapshotBlock) {
+	for addr, hashHeight := range snapshotBlock.SnapshotContent {
+		if account, ok := accounts[addr]; ok {
+			account.Snapshot(snapshotBlock.Hash, hashHeight)
+		}
+	}
+
+}
+
+func DeleteInvalidBlocks(accounts map[types.Address]*Account, invalidBlocks []*ledger.AccountBlock) {
+	// delete invalid
+	for i := len(invalidBlocks) - 1; i >= 0; i-- {
+		ab := invalidBlocks[i]
+
+		accounts[ab.AccountAddress].deleteAccountBlock(accounts, ab.Hash)
+		accounts[ab.AccountAddress].rollbackLatestBlock()
+	}
+}
+
+func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_db.VmAccountBlock, error) {
 
 	// query latest height
 	latestHeight := account.GetLatestHeight()
@@ -259,7 +228,8 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		MockSignature: true,                         // mock signature
 		KeyValue:      createKeyValue(latestHeight), // create key value
 		VmLogList:     createVmLogList(),            // create vm log list
-		Quota:         rand.Uint64() % 10000,
+		//Quota:         rand.Uint64() % 10000,
+		Quota: 0,
 	}
 
 	var vmBlock *vm_db.VmAccountBlock
@@ -276,7 +246,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 
 	if isCreateSendBlock {
 		// query to account
-		toAccount := accounts[addrList[rand.Intn(len(addrList))]]
+		toAccount := getRandomAccount(accounts)
 
 		if len(toAccount.BlocksMap) <= 0 {
 			// set contract meta
@@ -293,6 +263,17 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account, addrLi
 		return nil, createBlockErr
 	}
 	return vmBlock, nil
+}
+
+func getRandomAccount(accounts map[types.Address]*Account) *Account {
+	var account *Account
+
+	for _, tmpAccount := range accounts {
+		account = tmpAccount
+		break
+	}
+	return account
+
 }
 
 func createVmLogList() ledger.VmLogList {
@@ -338,4 +319,57 @@ func createContractMeta() *ledger.ContractMeta {
 		SendConfirmedTimes: 2,
 		Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
 	}
+}
+func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.SnapshotContent {
+	unconfirmedBlocks := chainInstance.cache.GetUnconfirmedBlocks()
+
+	// random snapshot
+	if !snapshotAll && len(unconfirmedBlocks) > 1 {
+		randomNum := rand.Intn(100)
+
+		if randomNum > 90 {
+			unconfirmedBlocks = []*ledger.AccountBlock{}
+
+		} else if randomNum > 50 {
+			unconfirmedBlocks = unconfirmedBlocks[:rand.Intn(len(unconfirmedBlocks))]
+
+		}
+	}
+
+	sc := make(ledger.SnapshotContent)
+
+	for i := len(unconfirmedBlocks) - 1; i >= 0; i-- {
+		block := unconfirmedBlocks[i]
+		if _, ok := sc[block.AccountAddress]; !ok {
+			sc[block.AccountAddress] = &ledger.HashHeight{
+				Hash:   block.Hash,
+				Height: block.Height,
+			}
+		}
+	}
+
+	return sc
+}
+
+func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.SnapshotBlock {
+	latestSb := chainInstance.GetLatestSnapshotBlock()
+	var now time.Time
+	randomNum := rand.Intn(100)
+	if randomNum < 70 {
+		now = latestSb.Timestamp.Add(time.Second)
+	} else if randomNum < 90 {
+		now = latestSb.Timestamp.Add(2 * time.Second)
+	} else {
+		now = latestSb.Timestamp.Add(3 * time.Second)
+	}
+
+	sb := &ledger.SnapshotBlock{
+		PrevHash:        latestSb.Hash,
+		Height:          latestSb.Height + 1,
+		Timestamp:       &now,
+		SnapshotContent: createSnapshotContent(chainInstance, snapshotAll),
+	}
+	sb.Hash = sb.ComputeHash()
+	return sb
+
 }

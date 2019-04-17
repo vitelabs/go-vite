@@ -20,9 +20,9 @@ func TestPutUint24(t *testing.T) {
 
 	var i uint = 0
 
-	m := PutVarint(buf, i, maxLen)
-	if m != 1 {
-		t.Fatalf("0 should be 1 byte, but not %d bytes", m)
+	m := PutVarint(buf, i)
+	if m != 0 {
+		t.Fatalf("0 should be 0 byte, but not %d bytes", m)
 	}
 
 	i = 1
@@ -31,7 +31,7 @@ func TestPutUint24(t *testing.T) {
 
 		length := byte(offset/8 + 1)
 
-		m = PutVarint(buf, i, length)
+		m = PutVarint(buf, i)
 
 		if m > length {
 			t.Fatalf("%d should be %d bytes, but not %d bytes", i, length, m)
@@ -44,7 +44,7 @@ func TestUint24(t *testing.T) {
 	buf := make([]byte, maxLen)
 
 	var i uint = 0
-	m := PutVarint(buf, i, maxLen)
+	m := PutVarint(buf, i)
 	i2 := Varint(buf[:m])
 	if i2 != i {
 		t.Fatalf("put 0, but not get %d", i2)
@@ -54,9 +54,7 @@ func TestUint24(t *testing.T) {
 	for offset := uint(0); offset < maxLen*8; offset++ {
 		i = 1 << offset
 
-		length := byte(offset/8 + 1)
-
-		m = PutVarint(buf, uint(i), length)
+		m = PutVarint(buf, uint(i))
 
 		i2 = Varint(buf[:m])
 		if i2 != uint(i) {
@@ -153,15 +151,33 @@ func MsgEqual(msg1, msg2 Msg) bool {
 	return bytes.Equal(msg1.Payload, msg2.Payload)
 }
 
-//func TestPutIdSize(t *testing.T) {
-//	var sizes = []byte{0, 1, 2, 4}
-//
-//	for _, size := range sizes {
-//		if getIdSize(putIdSize(size)) != size {
-//			t.Fail()
-//		}
-//	}
-//}
+func TestIdLength(t *testing.T) {
+	var sizes = []byte{0, 1, 2, 4}
+	var bits = []byte{0, 1, 2, 3}
+
+	for i, size := range sizes {
+		bit := idLengthToBits(size)
+		if bit != bits[i] {
+			t.Errorf("wrong length to bit %d --> %d", size, bit)
+		}
+		if bitsToIdLength(bit) != size {
+			t.Errorf("wrong bit to length %d --> %d", bit, size)
+		}
+	}
+}
+
+func TestPutId(t *testing.T) {
+	var ids = []MsgId{0, 222, 666, 77777}
+	var lengths = []byte{0, 1, 2, 4}
+
+	var buf = make([]byte, 4)
+	for i, id := range ids {
+		n := putId(id, buf)
+		if n != lengths[i] {
+			t.Errorf("wrong id %d length: %d", id, n)
+		}
+	}
+}
 
 func TestRetrieveMeta(t *testing.T) {
 	var isizes = []byte{0, 1, 2, 4}
@@ -174,13 +190,13 @@ func TestRetrieveMeta(t *testing.T) {
 				meta := storeMeta(isize, lsize, c)
 				isize2, lsize2, c2 := retrieveMeta(meta)
 				if isize != isize2 {
-					t.Errorf("wrong isize: %d", isize2)
+					t.Errorf("wrong isize: %d %d", isize, isize2)
 				}
 				if lsize != lsize2 {
-					t.Errorf("wrong lsize: %d", lsize2)
+					t.Errorf("wrong lsize: %d %d", lsize, lsize2)
 				}
 				if c != c2 {
-					t.Errorf("wrong compress: %v", c2)
+					t.Errorf("wrong compress: %v %v", c, c2)
 				}
 			}
 		}
@@ -227,7 +243,7 @@ func TestCodec(t *testing.T) {
 			}
 
 			werr = c1.WriteMsg(msg)
-			fmt.Printf("write %d message %d/%d, %d bytes\n", i, msg.pid, msg.Code, len(msg.Payload))
+			fmt.Printf("write message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
 
 			if werr != nil {
 				t.Fatalf("write error: %v", werr)

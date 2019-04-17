@@ -382,6 +382,8 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedCha
 }
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
+	self.blockpool.pendingMu.Lock()
+	defer self.blockpool.pendingMu.Unlock()
 	return self.blockpool.contains(hash, height)
 }
 
@@ -420,6 +422,29 @@ func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk boo
 				return c
 			}
 		}
+	}
+	return nil
+}
+
+func (self *accountPool) findInTreeDiskTmp(hash types.Hash, height uint64, disk bool, sHeight uint64) *forkedChain {
+	block := self.chainpool.current.getBlock(height, disk)
+	if block != nil && block.Hash() == hash {
+		return self.chainpool.current
+	}
+
+	for _, c := range self.chainpool.allChain() {
+		b := c.getBlock(height, false)
+
+		if b == nil {
+			continue
+		} else {
+			if b.Hash() == hash {
+				return c
+			}
+		}
+	}
+	if sHeight == 117 && block != nil {
+		fmt.Printf("%s-%d-%s-%s\n", self.address, height, hash, block.Hash())
 	}
 	return nil
 }
@@ -529,7 +554,7 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedCha
 func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
 }
-func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error) {
+func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (uint64, error) {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
 		return 0, errors.New("empty chainpool")
@@ -558,6 +583,9 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	minH := info.offset.Height + 1
 	headH := current.headHeight
 	for i := minH; i <= headH; i++ {
+		if i-minH >= max {
+			return uint64(i - minH), errors.New("arrived to max")
+		}
 		block := self.getCurrentBlock(i)
 		if block == nil {
 			return uint64(i - minH), errors.New("current chain modify")
@@ -690,7 +718,7 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	}
 	return false, nil
 }
-func (self *accountPool) checkCurrent() {
+func (self *BCPool) checkCurrent() {
 	acurr := self.CurrentChain()
 	head := self.chainpool.diskChain.Head()
 	if head.Height() != acurr.tailHeight || head.Hash() != acurr.tailHash {

@@ -20,7 +20,7 @@ var errSyncServerIsRunning = errors.New("sync server is running")
 var errSyncServerNotRunning = errors.New("sync server is not running")
 
 type FileServerStatus struct {
-	Connections []FileConnStatus
+	Connections []SyncConnectionStatus `json:"connections"`
 }
 
 type syncServer struct {
@@ -49,7 +49,7 @@ func (s *syncServer) status() FileServerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	connStates := make([]FileConnStatus, len(s.sconnMap))
+	connStates := make([]SyncConnectionStatus, len(s.sconnMap))
 
 	i := 0
 	for _, c := range s.sconnMap {
@@ -140,6 +140,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 
 	sconn, err := s.factory.receive(conn)
 	if err != nil {
+		_ = conn.Close()
 		return
 	}
 
