@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	net2 "net"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -253,6 +254,12 @@ const (
 	fileConnStateClosed
 )
 
+type SyncConnectionStatus struct {
+	Address string `json:"address"`
+	Speed   string `json:"speed"`
+	Task    string `json:"task"`
+}
+
 type syncConnection interface {
 	net2.Conn
 	syncCodecer
@@ -260,7 +267,7 @@ type syncConnection interface {
 	download(from, to uint64) (fatal bool, err error)
 	speed() uint64
 	state() syncConnState
-	status() FileConnStatus
+	status() SyncConnectionStatus
 	isBusy() bool
 	height() uint64
 }
@@ -363,24 +370,60 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, 
 	}, nil
 }
 
-type FileConnStatus struct {
-	Id    string
-	Addr  string
-	Speed uint64
-}
-
 type syncConn struct {
 	net2.Conn
 	syncCodecer
 	downloadPeer
 	busy   int32 // atomic
 	st     syncConnState
-	t      int64  // timestamp
-	_speed uint64 // download speed, byte/s
+	t      int64     // timestamp
+	_speed uint64    // download speed, byte/s
+	chunk  [2]uint64 // task
 	closed int32
 	cacher syncCacher
 	buf    [1024]byte
 	failed int32
+}
+
+var speedUnits = [...]string{
+	" Byte/s",
+	" KByte/s",
+	" MByte/s",
+	" GByte/s",
+}
+
+func formatSpeed(s float64) (sf float64, unit int) {
+	for unit = 1; unit < len(speedUnits); unit++ {
+		if sf = s / 1024.0; sf > 1 {
+			s = sf
+		} else {
+			break
+		}
+	}
+
+	unit--
+
+	return s, unit
+}
+
+func speedToString(s float64) string {
+	sf, unit := formatSpeed(s)
+
+	return strconv.FormatFloat(sf, 'f', 2, 64) + speedUnits[unit]
+}
+
+func (f *syncConn) status() SyncConnectionStatus {
+	st := SyncConnectionStatus{
+		Address: f.downloadPeer.ID().Brief() + "@" + f.Conn.RemoteAddr().String(),
+		Speed:   speedToString(float64(f._speed)),
+		Task:    "",
+	}
+
+	if f.isBusy() {
+		st.Task = strconv.FormatUint(f.chunk[0], 10) + "-" + strconv.FormatUint(f.chunk[1], 10)
+	}
+
+	return st
 }
 
 func (f *syncConn) state() syncConnState {
@@ -397,14 +440,6 @@ func (f *syncConn) speed() uint64 {
 	return f._speed
 }
 
-func (f *syncConn) status() FileConnStatus {
-	return FileConnStatus{
-		Id:    f.ID().String(),
-		Addr:  f.RemoteAddr().String(),
-		Speed: f._speed,
-	}
-}
-
 func (f *syncConn) isBusy() bool {
 	return atomic.LoadInt32(&f.busy) == 1
 }
@@ -412,6 +447,8 @@ func (f *syncConn) isBusy() bool {
 func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	f.setBusy()
 	defer f.idle()
+
+	f.chunk = [2]uint64{from, to}
 
 	err = f.write(&syncRequestMsg{
 		from: from,
@@ -544,7 +581,7 @@ func (fl connections) del(i int) connections {
 }
 
 type FilePoolStatus struct {
-	Connections []FileConnStatus
+	Connections []SyncConnectionStatus `json:"connections"`
 }
 
 type downloadPeer interface {
@@ -562,6 +599,7 @@ type connPool interface {
 	delConn(c syncConnection)
 	chooseSource(to uint64) (downloadPeer, syncConnection, error)
 	reset()
+	connections() []SyncConnectionStatus
 }
 
 type connPoolImpl struct {
@@ -578,19 +616,17 @@ func newPool(peers downloadPeerSet) *connPoolImpl {
 	}
 }
 
-func (fp *connPoolImpl) status() FilePoolStatus {
+func (fp *connPoolImpl) connections() []SyncConnectionStatus {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	cs := make([]FileConnStatus, len(fp.l))
+	cs := make([]SyncConnectionStatus, len(fp.l))
 
 	for i := 0; i < len(fp.l); i++ {
 		cs[i] = fp.l[i].status()
 	}
 
-	return FilePoolStatus{
-		Connections: cs,
-	}
+	return cs
 }
 
 // delete filePeer and connection

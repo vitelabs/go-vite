@@ -20,23 +20,36 @@ import (
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(5, 98, 2)
+	chainInstance, accounts, snapshotBlockList := SetUp(1, 0, 0)
 	addrList := make([]types.Address, 0, len(accounts))
 	for addr := range accounts {
 		addrList = append(addrList, addr)
 	}
 
 	t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
-		snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 17, 7, false)...)
+		snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 1300, 1, false)...)
 	})
 
 	t.Run("NewStorageDatabase", func(t *testing.T) {
 		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
 	})
 
-	//}
+	//testRedo(t, chainInstance)
 
 	TearDown(chainInstance)
+}
+
+func testRedo(t *testing.T, chainInstance *chain) {
+	for i := uint64(1); i < chainInstance.GetLatestSnapshotBlock().Height+1; i++ {
+		redoLogList, hasRedo, err := chainInstance.stateDB.StorageRedo().QueryLog(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hasRedo {
+			fmt.Println(i, len(redoLogList), hasRedo)
+		}
+	}
+
 }
 
 func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
@@ -146,7 +159,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 		countInserted += insertCount
 
 		// snapshot
-		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
+		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, true)
 		if err != nil {
 			panic(err)
 		}

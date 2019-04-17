@@ -59,4 +59,5 @@ type TokenInfo struct {
 	MaxSupply      *big.Int `json:"maxSupply"`
 	OwnerBurnOnly  bool     `json:"ownerBurnOnly"`
 	IsReIssuable   bool     `json:"isReIssuable"`
+	Index          uint16   `json:"index"`
 }

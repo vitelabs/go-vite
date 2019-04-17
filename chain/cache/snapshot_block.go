@@ -20,7 +20,7 @@ func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	cache.quotaList.NewNext(confirmedBlocks)
 }
 
-func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
+func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock, hasStorageRedoLog bool) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
@@ -31,21 +31,32 @@ func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk
 	}
 
 	// rollback quota list
-	deletedChunksLength := len(deletedChunks)
-	rollbackNumber := deletedChunksLength - 1
-
-	if deletedChunks[deletedChunksLength-1].SnapshotBlock != nil {
-		rollbackNumber = deletedChunksLength
-	}
-
-	if err := cache.quotaList.Rollback(rollbackNumber); err != nil {
+	if err := cache.quotaList.Rollback(deletedChunks, hasStorageRedoLog); err != nil {
 		return err
 	}
 
+	if !hasStorageRedoLog {
+		cache.quotaList.NewEmptyNext()
+
+	}
+	//deletedChunksLength := len(deletedChunks)
+	//rollbackNumber := deletedChunksLength - 1
+	//
+	//if deletedChunks[deletedChunksLength-1].SnapshotBlock != nil {
+	//	rollbackNumber = deletedChunksLength
+	//}
+	//
+	//if err := cache.quotaList.Rollback(rollbackNumber); err != nil {
+	//	return err
+	//}
+
 	// delete all confirmed block
 	cache.unconfirmedPool.DeleteAllBlocks()
+
 	// recover unconfirmed pool
 	cache.recoverUnconfirmedPool(unconfirmedBlocks)
+
+	// FOR DEBUG
 	return nil
 }
 

@@ -76,6 +76,7 @@ func (self *worker) work() {
 			self.p.insert()
 		} else {
 			self.p.compact()
+			self.p.insert()
 		}
 		bus.wait.Wait()
 	}

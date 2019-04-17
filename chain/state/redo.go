@@ -196,7 +196,7 @@ func (redo *Redo) QueryLog(snapshotHeight uint64) (map[types.Address][]LogItem, 
 
 	hasRedo := true
 
-	err := redo.store.Update(func(tx *bolt.Tx) error {
+	err := redo.store.View(func(tx *bolt.Tx) error {
 		bu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight))
 		if bu == nil {
 			prevBu := tx.Bucket(chain_utils.Uint64ToBytes(snapshotHeight - 1))
@@ -278,11 +278,9 @@ func (redo *Redo) AddLog(addr types.Address, log LogItem) {
 }
 
 func (redo *Redo) Rollback(snapshotHeight uint64) {
-
 	redo.snapshotLogMap[snapshotHeight] = &SnapshotLog{
 		FlushOpt: optRollback,
 	}
-
 }
 
 func deleteRedoLog(redoLog map[types.Address][]LogItem, addr types.Address, height uint64) []LogItem {

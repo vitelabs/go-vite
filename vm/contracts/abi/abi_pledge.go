@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -24,7 +25,8 @@ const (
 )
 
 var (
-	ABIPledge, _ = abi.JSONToABIContract(strings.NewReader(jsonPledge))
+	ABIPledge, _  = abi.JSONToABIContract(strings.NewReader(jsonPledge))
+	pledgeKeySize = types.AddressSize + 8
 )
 
 type VariablePledgeBeneficial struct {
@@ -43,19 +45,22 @@ type PledgeInfo struct {
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {
 	return beneficial.Bytes()
 }
-func GetPledgeKey(addr types.Address, beneficial types.Address) []byte {
-	return append(addr.Bytes(), beneficial.Bytes()[:types.HashSize-types.AddressSize]...)
+func GetPledgeKey(addr types.Address, index uint64) []byte {
+	return append(addr.Bytes(), helper.LeftPadBytes(new(big.Int).SetUint64(index).Bytes(), 8)...)
 }
 func GetPledgeKeyPrefix(addr types.Address) []byte {
 	return addr.Bytes()
 }
 func IsPledgeKey(key []byte) bool {
-	return len(key) == types.HashSize
+	return len(key) == pledgeKeySize
 }
 
 func GetPledgeAddrFromPledgeKey(key []byte) types.Address {
 	address, _ := types.BytesToAddress(key[:types.AddressSize])
 	return address
+}
+func GetIndexFromPledgeKey(key []byte) uint64 {
+	return new(big.Int).SetBytes(key[types.AddressSize:]).Uint64()
 }
 
 func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeInfo, *big.Int, error) {
@@ -80,7 +85,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 			continue
 		}
 		pledgeInfo := new(PledgeInfo)
-		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil ||
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil &&
 			pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
 			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
 			pledgeAmount.Add(pledgeAmount, pledgeInfo.Amount)

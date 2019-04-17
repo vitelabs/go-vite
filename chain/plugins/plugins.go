@@ -1,7 +1,6 @@
 package chain_plugins
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -11,6 +10,7 @@ import (
 )
 
 type Plugins struct {
+	chain   Chain
 	store   *chain_db.Store
 	plugins map[string]Plugin
 }
@@ -34,6 +34,7 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}
 
 	return &Plugins{
+		chain:   chain,
 		store:   store,
 		plugins: plugins,
 	}, nil
@@ -45,9 +46,8 @@ func (p *Plugins) GetPlugin(name string) Plugin {
 
 func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) error {
 	// for recover
-
 	for _, vmBlock := range vmBlocks {
-		batch := new(leveldb.Batch)
+		batch := p.store.NewBatch()
 
 		for _, plugin := range p.plugins {
 			if err := plugin.InsertAccountBlock(batch, vmBlock.AccountBlock); err != nil {
@@ -60,58 +60,72 @@ func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) e
 	return nil
 }
 
-func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+func (p *Plugins) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 
-	//for _, plugin := range p.plugins {
-	//batch := new(leveldb.Batch)
-	//
-	//if err := plugin.InsertSnapshotBlock(snapshotBlocks); err != nil {
-	//	return err
-	//}
-	//
-	//p.store.WriteSnapshot(batch, vmBlock.AccountBlock)
+	for _, snapshotBlock := range snapshotBlocks {
+		batch := p.store.NewBatch()
 
-	//}
+		for _, plugin := range p.plugins {
+
+			if err := plugin.InsertSnapshotBlock(batch, snapshotBlock, confirmedBlocks); err != nil {
+				return err
+			}
+		}
+		p.store.WriteSnapshot(batch, confirmedBlocks)
+
+	}
+
 	return nil
-	//return nil
 }
 
-//func (p *Plugins) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
-//	for _, plugin := range p.plugins {
-//		if err := plugin.DeleteChunks([]*ledger.SnapshotChunk{{
-//			AccountBlocks: blocks,
-//		}}); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-//
-//func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-//	for _, plugin := range p.plugins {
-//		if err := plugin.DeleteChunks(chunks); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-//
-//func (p *Plugins) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-//	return nil
-//}
-//func (p *Plugins) InsertSnapshotBlock(snapshotBlocks []*ledger.SnapshotBlock) error {
-//	return nil
-//}
-//func (p *Plugins) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
-//	return nil
-//}
-//func (p *Plugins) DeleteChunksByHash([]hashChunk) error {
-//	return nil
-//}
-//
-//func (p *Plugins) checkAndRecover() (*chain_db.Store, error) {
-//	return nil, nil
-//}
+func (p *Plugins) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
+	batch := p.store.NewBatch()
+
+	for _, plugin := range p.plugins {
+		if err := plugin.DeleteAccountBlocks(batch, blocks); err != nil {
+			return err
+		}
+	}
+	p.store.RollbackAccountBlocks(batch, blocks)
+
+	return nil
+}
+
+func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	batch := p.store.NewBatch()
+
+	for _, plugin := range p.plugins {
+
+		if err := plugin.DeleteSnapshotBlocks(batch, chunks); err != nil {
+			return err
+		}
+
+	}
+	p.store.RollbackSnapshot(batch)
+
+	return nil
+}
+
+func (p *Plugins) DeleteSnapshotBlocks(blocks []*ledger.AccountBlock) error {
+	unconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
+	if len(unconfirmedBlocks) <= 0 {
+		return nil
+	}
+
+	for _, block := range unconfirmedBlocks {
+		batch := p.store.NewBatch()
+		for _, plugin := range p.plugins {
+
+			// recover
+			if err := plugin.InsertAccountBlock(batch, block); err != nil {
+				return err
+			}
+		}
+
+		p.store.WriteAccountBlock(batch, block)
+	}
+	return nil
+}
 
 func (p *Plugins) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	return nil
@@ -122,6 +136,7 @@ func (p *Plugins) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) e
 func (p *Plugins) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	return nil
 }
+
 func (p *Plugins) checkAndRecover() (*chain_db.Store, error) {
 	return nil, nil
 }

@@ -15,6 +15,8 @@ type Chain interface {
 
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
 	IsGenesisAccountBlock(hash types.Hash) bool
+
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 }
 
 type Plugin interface {
@@ -22,5 +24,7 @@ type Plugin interface {
 
 	InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock, []*ledger.AccountBlock) error
 
-	DeleteChunks(*leveldb.Batch, []*ledger.SnapshotChunk) error
+	DeleteAccountBlocks(*leveldb.Batch, []*ledger.AccountBlock) error
+
+	DeleteSnapshotBlocks(*leveldb.Batch, []*ledger.SnapshotChunk) error
 }

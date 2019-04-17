@@ -26,25 +26,7 @@ func (m MintageApi) String() string {
 	return "MintageApi"
 }
 
-type NewTokenIdParams struct {
-	SelfAddr types.Address
-	Height   string
-	PrevHash types.Hash
-}
-
-func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, error) {
-	h, err := StringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tid := abi.NewTokenId(param.SelfAddr, h, param.PrevHash)
-	return &tid, nil
-}
-
 type MintageParams struct {
-	SelfAddr      types.Address
-	Height        string
-	PrevHash      types.Hash
 	TokenName     string
 	TokenSymbol   string
 	TotalSupply   string
@@ -59,11 +41,6 @@ func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]by
 }
 
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
-	h, err := StringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash)
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err
@@ -72,7 +49,7 @@ func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
+	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
 }
 
 type IssueParams struct {

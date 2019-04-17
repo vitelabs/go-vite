@@ -23,6 +23,7 @@ func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 	batch := iDB.store.NewBatch()
 
 	err := iDB.rollback(batch, deletedSnapshotSegments)
+
 	if err != nil {
 		return err
 	}
