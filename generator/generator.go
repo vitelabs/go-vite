@@ -85,7 +85,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 	return gen.generateBlock(block, fromBlock, producer, signFunc)
 }
 
-func (gen *Generator) GenerateWithOnroad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
+func (gen *Generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
 	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
 		return nil, err
