@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/quota"
 )
 
 //
@@ -648,6 +648,7 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 	if clear {
 		os.RemoveAll(dirName)
 	}
+	quota.InitQuotaConfig(false, true)
 	genesisConfig := &config.Genesis{}
 	json.Unmarshal([]byte(genesis), genesisConfig)
 
@@ -658,6 +659,43 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 	}
 	chainInstance.Start()
 	return chainInstance, nil
+}
+
+func TestConsensus(t *testing.T) {
+	//dir := UnitTestDir
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_3/devdata"
+	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	index := uint64(291471)
+	cs := NewConsensus(c)
+	cs.Init()
+	cs.Start()
+	stime, etime, err := cs.VoteIndexToTime(types.SNAPSHOT_GID, index)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	t.Log(stime, etime)
+
+	result, err := cs.SBPReader().(*snapshotCs).ElectionIndex(index)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	for _, v := range result.Plans {
+		t.Log(v)
+	}
+
+	addresses := types.PubkeyToAddress([]byte{59, 245, 248, 162, 33, 219, 95, 240, 171, 227, 160, 56, 42, 147, 223, 34, 252, 232, 23, 156, 236, 11, 73, 135, 153, 172, 56, 81, 90, 193, 39, 82})
+
+	t.Log(addresses)
+
 }
 
 func TestChainSnapshot(t *testing.T) {
@@ -699,7 +737,7 @@ func TestChainAcc(t *testing.T) {
 		t.Error(err)
 		t.FailNow()
 	}
-	addr := types.HexToAddressPanic("vite_00000000000000000000000000000000000000042d7ef71894")
+	addr := types.HexToAddressPanic("vite_40996a2ba285ad38930e09a43ee1bd0d84f756f65318e8073a")
 	prev, err := c.GetLatestAccountBlock(addr)
 
 	assert.NoError(t, err)
@@ -710,9 +748,12 @@ func TestChainAcc(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		b := c.IsGenesisAccountBlock(block.Hash)
+		u, e := c.GetConfirmedTimes(block.Hash)
+		if e != nil {
+			panic(e)
+		}
 
-		fmt.Printf("height:%d, producer:%s, hash:%s, %t\n", block.Height, block.Producer(), block.Hash, b)
+		fmt.Printf("height:%d, producer:%s, hash:%s, %d\n", block.Height, block.Producer(), block.Hash, u)
 	}
 }
 
@@ -824,9 +865,3 @@ func TestChainAll(t *testing.T) {
 //
 //	}
 //}
-
-func TestName(t *testing.T) {
-	byt := []byte{63, 197, 34, 78, 89, 67, 59, 255, 79, 72, 200, 60, 14, 180, 237, 234, 14, 76, 66, 234, 105, 126, 4, 205, 236, 113, 125, 3, 229, 13, 82, 0}
-	producer := types.PubkeyToAddress(byt)
-	t.Log(producer)
-}
