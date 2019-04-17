@@ -53,7 +53,7 @@ func newCfgBooter(bootNodes []string, node *vnode.Node) (booter, error) {
 		n, err = vnode.ParseNode(url)
 
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse bootNode: %s", url)
+			return nil, fmt.Errorf("failed to parse bootNode: %s", url)
 		}
 
 		if n.Net != 0 && n.Net != node.Net {

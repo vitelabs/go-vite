@@ -25,6 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -79,6 +81,7 @@ type agent struct {
 	running       int32
 	term          chan struct{}
 	wg            sync.WaitGroup
+	log           log15.Logger
 }
 
 func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, listenAddress string, handler func(*packet)) *agent {
@@ -88,6 +91,7 @@ func newAgent(peerKey ed25519.PrivateKey, self *vnode.Node, listenAddress string
 		peerKey:       peerKey,
 		handler:       handler,
 		pool:          newRequestPool(),
+		log:           discvLog.New("module", "socket"),
 	}
 }
 

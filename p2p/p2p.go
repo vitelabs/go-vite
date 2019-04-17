@@ -43,6 +43,8 @@ var errProtocolExisted = errors.New("protocol has existed")
 var errPeerNotExist = errors.New("peer not exist")
 var errLevelIsFull = errors.New("level is full")
 
+var p2pLog = log15.New("module", "p2p")
+
 // Authenticator will authenticate all inbound connection whether can access our server
 type Authenticator interface {
 	// Authenticate the connection, connection will be disconnected if return false
@@ -161,8 +163,6 @@ func New(cfg *Config) P2P {
 		staticNodes = append(staticNodes, n)
 	}
 
-	log := log15.New("module", "p2p")
-
 	ptMap := make(map[ProtocolID]Protocol)
 	hkr := &handshaker{
 		version: version,
@@ -176,7 +176,7 @@ func New(cfg *Config) P2P {
 			writeTimeout:      writeMsgTimeout,
 		},
 		ptMap: ptMap,
-		log:   log.New("module", "handshaker"),
+		log:   p2pLog.New("module", "handshaker"),
 	}
 
 	var p = &p2p{
@@ -187,14 +187,14 @@ func New(cfg *Config) P2P {
 		handshaker:  hkr,
 		blackList:   netool.NewBlackList(strategy),
 		dialer:      newDialer(5*time.Second, 5, hkr),
-		log:         log,
+		log:         p2pLog,
 	}
 
 	if cfg.discover {
 		p.discv = discovery.New(cfg.Config)
 	}
 
-	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.maxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.log.New("module", "server"))
+	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.maxPendingPeers, p.handshaker, p, cfg.ListenAddress)
 
 	return p
 }

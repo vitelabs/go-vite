@@ -20,6 +20,7 @@ package discovery
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +41,8 @@ var errDiscoveryIsRunning = errors.New("discovery is running")
 var errDiscoveryIsStopped = errors.New("discovery is stopped")
 var errDifferentNet = errors.New("different net")
 var errPingFailed = errors.New("failed to ping node")
+
+var discvLog = log15.New("module", "discovery")
 
 // Discovery is the interface to discovery other node
 type Discovery interface {
@@ -133,7 +136,7 @@ func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config: cfg,
 		stage:  make(map[string]*Node),
-		log:    log15.New("module", "p2p/discv"),
+		log:    discvLog,
 	}
 
 	d.cond = sync.NewCond(&d.mu)
@@ -157,7 +160,7 @@ func (d *discovery) Start() (err error) {
 	// open database
 	d.db, err = newDB(d.Config.DataDir, 3, d.node.ID)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to create database: %v", err)
 	}
 
 	// retrieve boot nodes
@@ -169,7 +172,7 @@ func (d *discovery) Start() (err error) {
 		var bt booter
 		bt, err = newCfgBooter(d.BootNodes, d.node)
 		if err != nil {
-			return
+			return err
 		}
 		d.booters = append(d.booters, bt)
 	}
@@ -177,7 +180,7 @@ func (d *discovery) Start() (err error) {
 	// open socket
 	err = d.socket.start()
 	if err != nil {
-		return
+		return fmt.Errorf("failed to start udp server: %v", err)
 	}
 
 	d.term = make(chan struct{})
