@@ -140,6 +140,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 
 	sconn, err := s.factory.receive(conn)
 	if err != nil {
+		_ = conn.Close()
 		return
 	}
 

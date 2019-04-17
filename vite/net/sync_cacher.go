@@ -203,11 +203,12 @@ Loop:
 	for {
 		s.removeUselessChunks()
 
-		s.mu.Lock()
 		for {
 			if cs = cache.Chunks(); len(cs) == 0 {
+				s.mu.Lock()
 				if s.running {
 					s.cond.Wait()
+					s.mu.Unlock()
 					continue
 				} else {
 					s.mu.Unlock()
@@ -217,7 +218,6 @@ Loop:
 
 			break
 		}
-		s.mu.Unlock()
 
 		// request
 		s.downloadMissingChunks()
