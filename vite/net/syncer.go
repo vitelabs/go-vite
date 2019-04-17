@@ -366,21 +366,21 @@ func (s *syncer) Status() SyncStatus {
 }
 
 type SyncDetail struct {
-	From    uint64
-	To      uint64
-	Current uint64
-	State   SyncState
-	Tasks   []string
+	From       uint64           `json:"from"`
+	To         uint64           `json:"to"`
+	Current    uint64           `json:"current"`
+	State      SyncState        `json:"state"`
+	Downloader DownloaderStatus `json:"downloader"`
 }
 
 func (s *syncer) Detail() SyncDetail {
 	st := s.Status()
 
 	return SyncDetail{
-		From:    st.From,
-		To:      st.To,
-		Current: st.Current,
-		State:   st.State,
-		Tasks:   nil,
+		From:       st.From,
+		To:         st.To,
+		Current:    st.Current,
+		State:      st.State,
+		Downloader: s.downloader.status(),
 	}
 }

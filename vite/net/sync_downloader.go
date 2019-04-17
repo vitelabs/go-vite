@@ -223,9 +223,15 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 	return
 }
 
+type DownloaderStatus struct {
+	Tasks       []string               `json:"tasks"`
+	Connections []SyncConnectionStatus `json:"connections"`
+}
+
 type syncDownloader interface {
 	start()
 	stop()
+	status() DownloaderStatus
 	// will be block, if cannot download (eg. no peers) or task queue is full
 	// must will download the task regardless of task repeat
 	download(from, to uint64, must bool) bool
@@ -287,10 +293,6 @@ type executor struct {
 	wg        sync.WaitGroup
 
 	log log15.Logger
-}
-
-type ExecutorStatus struct {
-	Tasks []string
 }
 
 func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *executor {
@@ -355,7 +357,7 @@ func (e *executor) addListener(listener taskListener) {
 	e.listeners = append(e.listeners, listener)
 }
 
-func (e *executor) status() ExecutorStatus {
+func (e *executor) status() DownloaderStatus {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -366,9 +368,12 @@ func (e *executor) status() ExecutorStatus {
 		i++
 	}
 
-	return ExecutorStatus{
+	st := DownloaderStatus{
 		tasks,
+		e.pool.connections(),
 	}
+
+	return st
 }
 
 // will be blocked when task queue is full
