@@ -82,7 +82,7 @@ func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 		return nil, util.ErrIdCollision
 	}
 	nextIndex := uint16(0)
-	nextIndexKey := abi.GetNextIndexKey(param.TokenName)
+	nextIndexKey := abi.GetNextIndexKey(param.TokenSymbol)
 	nextV, err := db.GetValue(nextIndexKey)
 	util.DealWithErr(err)
 	if len(nextV) > 0 {

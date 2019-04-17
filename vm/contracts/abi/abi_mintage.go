@@ -73,8 +73,8 @@ type ParamTransferOwner struct {
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
 	return tokenId.Bytes()
 }
-func GetNextIndexKey(tokenName string) []byte {
-	return types.DataHash([]byte(tokenName)).Bytes()
+func GetNextIndexKey(tokenSymbol string) []byte {
+	return types.DataHash([]byte(tokenSymbol)).Bytes()
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
 	tokenId, _ := types.BytesToTokenTypeId(key)

@@ -158,7 +158,7 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 			dealWithError(err)
 			nextIndex := uint16(0)
-			if index, ok := nextIndexMap[tokenInfo.TokenName]; ok {
+			if index, ok := nextIndexMap[tokenInfo.TokenSymbol]; ok {
 				nextIndex = index
 			}
 			value, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo,
@@ -174,7 +174,12 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 				tokenInfo.MaxSupply,
 				tokenInfo.OwnerBurnOnly,
 				nextIndex)
-			nextIndexMap[tokenInfo.TokenName] = nextIndex + 1
+			dealWithError(err)
+			nextIndex = nextIndex + 1
+			nextIndexMap[tokenInfo.TokenSymbol] = nextIndex
+			nextIndexValue, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenNameIndex, nextIndex)
+			dealWithError(err)
+			err = vmdb.SetValue(abi.GetNextIndexKey(tokenInfo.TokenSymbol), nextIndexValue)
 			dealWithError(err)
 			err = vmdb.SetValue(abi.GetMintageKey(tokenId), value)
 			dealWithError(err)
