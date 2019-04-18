@@ -55,29 +55,29 @@ func planInterval(info *GroupInfo) uint64 {
 	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount) * uint64(info.Repeat)
 }
 
-func (self *GroupInfo) Time2Index(t time.Time) uint64 {
+func (self GroupInfo) Time2Index(t time.Time) uint64 {
 	subSec := int64(t.Sub(self.GenesisTime).Seconds())
 
 	i := uint64(subSec) / self.PlanInterval
 	return i
 }
-func (self *GroupInfo) GenSTime(index uint64) time.Time {
+func (self GroupInfo) GenSTime(index uint64) time.Time {
 	planInterval := self.PlanInterval
 	return self.GenesisTime.Add(time.Duration(planInterval*index) * time.Second)
 }
 
-func (self *GroupInfo) GenETime(index uint64) time.Time {
+func (self GroupInfo) GenETime(index uint64) time.Time {
 	planInterval := self.PlanInterval
 	return self.GenesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
 }
 
-func (self *GroupInfo) Index2Time(index uint64) (time.Time, time.Time) {
+func (self GroupInfo) Index2Time(index uint64) (time.Time, time.Time) {
 	sTime := self.GenSTime(index)
 	eTime := self.GenETime(index)
 	return sTime, eTime
 }
 
-func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
+func (self GroupInfo) GenVoteTime(index uint64) time.Time {
 	if index < 2 {
 		index = 2
 	}
@@ -85,7 +85,7 @@ func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
 	return self.GenesisTime.Add(time.Duration(planInterval*(index-1)) * time.Second)
 }
 
-func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
+func (self GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
 	for _, member := range members {
@@ -98,7 +98,7 @@ func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
 	}
 	return plans
 }
-func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
+func (self GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
 	sTime := self.GenSTime(index)
 	var plans []*MemberPlan
 
@@ -118,7 +118,7 @@ func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) [
 	return plans
 }
 
-func (self *GroupInfo) String() string {
+func (self GroupInfo) String() string {
 	return fmt.Sprintf("genesisTime:%s, memberCnt:%d, interval:%d, perCnt:%d, randCnt:%d, randRange:%d, seed:%s, countingTokenId:%s",
 		self.GenesisTime.String(), self.NodeCount, self.Interval, self.PerCount, self.RandCount, self.RandRank, self.seed, self.CountingTokenId.String())
 

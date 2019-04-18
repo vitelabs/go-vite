@@ -17,7 +17,7 @@ type stateCh interface {
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 }
 
-func CalVotes(info *GroupInfo, hash types.Hash, rw stateCh) ([]*Vote, error) {
+func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vote, error) {
 	// query register info
 	registerList, err := rw.GetRegisterList(hash, info.Gid)
 	if err != nil {

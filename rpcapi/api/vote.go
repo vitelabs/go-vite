@@ -1,8 +1,11 @@
 package api
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -12,12 +15,14 @@ import (
 
 type VoteApi struct {
 	chain chain.Chain
+	cs    consensus.Consensus
 	log   log15.Logger
 }
 
 func NewVoteApi(vite *vite.Vite) *VoteApi {
 	return &VoteApi{
 		chain: vite.Chain(),
+		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/vote_api"),
 	}
 }
@@ -73,4 +78,13 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 		}
 	}
 	return nil, nil
+}
+
+func (v VoteApi) GetVoteDetails() ([]*consensus.VoteDetails, error) {
+	head := v.chain.GetLatestSnapshotBlock()
+	details, _, err := v.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
+	if err != nil {
+		return nil, err
+	}
+	return details, nil
 }
