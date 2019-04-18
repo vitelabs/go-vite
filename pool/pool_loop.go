@@ -78,7 +78,7 @@ func (self *pool) makeQueue() Package {
 			}
 
 			if errAcc != nil && rand.Intn(10) > 3 {
-				self.snapshotPendingFix(newOffset, errAcc)
+				self.snapshotPendingFix(p, newOffset, errAcc)
 			} else {
 				self.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
@@ -98,7 +98,9 @@ func (self *pool) makeQueue() Package {
 			snapshotOffset.offset = newOffset
 		}
 	}
-	self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
+	if p.Size() > 0 {
+		self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
+	}
 	return p
 }
 

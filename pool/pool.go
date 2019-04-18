@@ -1001,17 +1001,20 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 	return nil
 }
-func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
+func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
+	self.fetchAccounts(accs, snapshot.Height, snapshot.Hash)
+
 	self.Lock()
 	defer self.UnLock()
-
+	if p.Version() != self.version.Val() {
+		self.log.Warn("new version happened.")
+		return
+	}
 	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range accs {
-		monitor.LogEvent("pool", "snapshotPending")
 		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
-		self.fetchAccounts(accounts, snapshot.Height, snapshot.Hash)
 		if e != nil {
 			self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 		}
