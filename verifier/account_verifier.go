@@ -224,16 +224,19 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			return PENDING, nil
 		}
 
-		// check contract receive sequence
-		if !isGeneralAddr {
-			isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
-			if err != nil {
-				return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
+		// fixme check sequence
+		/*
+			// check contract receive sequence
+			if !isGeneralAddr {
+				isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
+				if err != nil {
+					return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
+				}
+				if !isCorrect {
+					return FAIL, errors.New("verifySequenceOfContractReceive failed")
+				}
 			}
-			if !isCorrect {
-				return FAIL, errors.New("verifySequenceOfContractReceive failed")
-			}
-		}
+		*/
 
 		// check whether the send referred is already received
 		isReceived, err := v.chain.IsReceived(sendBlock.Hash)

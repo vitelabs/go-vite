@@ -97,6 +97,9 @@ func (or *OnRoadInfo) InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock,
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
+	if or.chain.IsGenesisAccountBlock(block.Hash) {
+		return nil
+	}
 	or.storeMutex.Lock()
 	defer or.storeMutex.Unlock()
 	return or.writeBlock(batch, block)
@@ -152,7 +155,7 @@ func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, 
 }
 
 func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	for addr, blocks := range excludeWritePairTrades(blocks) {
+	for addr, blocks := range excludeWritePairTrades(or.chain, blocks) {
 		oLog.Info(fmt.Sprintf("writeChunks: addr=%v, count=%v", addr, len(blocks)))
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
@@ -191,7 +194,7 @@ func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, blocks []*ledger.Account
 }
 
 func (or *OnRoadInfo) deleteBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	for addr, blocks := range excludeDeletePairTrades(blocks) {
+	for addr, blocks := range excludeDeletePairTrades(or.chain, blocks) {
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
 			return err
@@ -472,7 +475,7 @@ func CreateOnRoadInfoPrefixKey(addr *types.Address) []byte {
 	return key
 }
 
-func excludeWritePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
+func excludeWritePairTrades(chain Chain, blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
 	for _, p := range blocks {
 		if p.IsSendBlock() {
@@ -480,6 +483,9 @@ func excludeWritePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*
 			continue
 		}
 
+		if chain.IsGenesisAccountBlock(p.Hash) {
+			continue
+		}
 		v, ok := cutMap[p.FromBlockHash]
 		if ok && v != nil && v.IsSendBlock() {
 			delete(cutMap, p.FromBlockHash)
@@ -511,7 +517,7 @@ func excludeWritePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*
 	return pendingMap
 }
 
-func excludeDeletePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
+func excludeDeletePairTrades(chain Chain, blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
 	for _, p := range blocks {
 		if p.IsSendBlock() {
@@ -524,6 +530,9 @@ func excludeDeletePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]
 			continue
 		}
 
+		if chain.IsGenesisAccountBlock(p.Hash) {
+			continue
+		}
 		v, ok := cutMap[p.FromBlockHash]
 		if ok && v != nil && v.IsSendBlock() {
 			delete(cutMap, p.FromBlockHash)
