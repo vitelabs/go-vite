@@ -657,6 +657,7 @@ func (self forkedChain) Details() string {
 			result += fmt.Sprintf("[%d-%s-%s]", b.Height(), b.Hash(), b.PrevHash())
 		} else {
 			result += fmt.Sprintf("[%d-empty]", i)
+			break
 		}
 	}
 	result += fmt.Sprintf("tail[%d-%s]", self.tailHeight, self.tailHash)

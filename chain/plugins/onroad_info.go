@@ -32,7 +32,7 @@ func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
 		store: store,
 		chain: chain,
 	}
-	if err := or.Clear(); err != nil {
+	/*if err := or.Clear(); err != nil {
 		oLog.Error("onRoadInfo-plugin Clear fail.", "err", err)
 		return nil
 	}
@@ -42,7 +42,7 @@ func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
 		or.Clear()
 		return nil
 	}
-	oLog.Info("InitAndBuild success.")
+	oLog.Info("InitAndBuild success.")*/
 	return or
 }
 
@@ -79,21 +79,16 @@ func (or *OnRoadInfo) InitAndBuild() error {
 	if len(chunks) <= 0 {
 		return nil
 	}
+	blocks := make([]*ledger.AccountBlock, 0)
+	for _, v := range chunks {
+		if len(v.AccountBlocks) <= 0 {
+			continue
+		}
+		blocks = append(blocks, v.AccountBlocks...)
+	}
 	batch := or.store.NewBatch()
-	or.writeChunks(batch, chunks)
+	or.writeBlocks(batch, blocks)
 	or.store.WriteDirectly(batch)
-
-	/*	pendings := excludeWritePairTrades(chunks)
-		for _, v := range pendings {
-			if v == nil {
-				continue
-			}
-			batch := or.store.NewBatch()
-			if err := or.writeBlock(batch, v); err != nil {
-				return err
-			}
-			or.store.WriteDirectly(batch)
-		}*/
 	return nil
 }
 
@@ -102,22 +97,34 @@ func (or *OnRoadInfo) InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock,
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	/*	or.storeMutex.Lock()
-		defer or.storeMutex.Unlock()
-
-		return or.writeBlock(batch, block)*/
-	return nil
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+	return or.writeBlock(batch, block)
 }
 
-func (or *OnRoadInfo) DeleteAccountBlocks(*leveldb.Batch, []*ledger.AccountBlock) error {
-	return nil
+func (or *OnRoadInfo) DeleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
+	if len(blocks) <= 0 {
+		return nil
+	}
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+	return or.deleteBlocks(batch, blocks)
 }
 
 func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
-	/*	or.storeMutex.Lock()
-		defer or.storeMutex.Unlock()
-		return or.deleteChunks(batch, chunks)*/
-	return nil
+	if len(chunks) <= 0 {
+		return nil
+	}
+	or.storeMutex.Lock()
+	defer or.storeMutex.Unlock()
+	blocks := make([]*ledger.AccountBlock, 0)
+	for i := len(chunks) - 1; i >= 0; i-- {
+		if len(chunks[i].AccountBlocks) <= 0 {
+			continue
+		}
+		blocks = append(blocks, chunks[i].AccountBlocks...)
+	}
+	return or.deleteBlocks(batch, blocks)
 }
 
 func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
@@ -144,8 +151,8 @@ func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, 
 	return onroadInfo, nil
 }
 
-func (or *OnRoadInfo) writeChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
-	for addr, blocks := range excludeWritePairTrades(chunks) {
+func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
+	for addr, blocks := range excludeWritePairTrades(blocks) {
 		oLog.Info(fmt.Sprintf("writeChunks: addr=%v, count=%v", addr, len(blocks)))
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
@@ -183,8 +190,8 @@ func (or *OnRoadInfo) writeChunks(batch *leveldb.Batch, chunks []*ledger.Snapsho
 	return nil
 }
 
-func (or *OnRoadInfo) deleteChunks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
-	for addr, blocks := range excludeDeletePairTrades(chunks) {
+func (or *OnRoadInfo) deleteBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
+	for addr, blocks := range excludeDeletePairTrades(blocks) {
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
 			return err
@@ -465,23 +472,22 @@ func CreateOnRoadInfoPrefixKey(addr *types.Address) []byte {
 	return key
 }
 
-func excludeWritePairTrades(chunks []*ledger.SnapshotChunk) map[types.Address][]*ledger.AccountBlock {
+func excludeWritePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
-	for _, chunk := range chunks {
-		for _, p := range chunk.AccountBlocks {
-			if p.IsSendBlock() {
-				cutMap[p.Hash] = p
-				continue
-			}
-
-			v, ok := cutMap[p.FromBlockHash]
-			if ok && v != nil && v.IsSendBlock() {
-				delete(cutMap, p.FromBlockHash)
-				continue
-			}
-			cutMap[p.FromBlockHash] = p
+	for _, p := range blocks {
+		if p.IsSendBlock() {
+			cutMap[p.Hash] = p
+			continue
 		}
+
+		v, ok := cutMap[p.FromBlockHash]
+		if ok && v != nil && v.IsSendBlock() {
+			delete(cutMap, p.FromBlockHash)
+			continue
+		}
+		cutMap[p.FromBlockHash] = p
 	}
+
 	pendingMap := make(map[types.Address][]*ledger.AccountBlock)
 	for _, v := range cutMap {
 		if v == nil {
@@ -505,27 +511,25 @@ func excludeWritePairTrades(chunks []*ledger.SnapshotChunk) map[types.Address][]
 	return pendingMap
 }
 
-func excludeDeletePairTrades(chunks []*ledger.SnapshotChunk) map[types.Address][]*ledger.AccountBlock {
+func excludeDeletePairTrades(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
-	for i := len(chunks) - 1; i >= 0; i-- {
-		for _, p := range chunks[i].AccountBlocks {
-			if p.IsSendBlock() {
-				v, ok := cutMap[p.Hash]
-				if ok && v != nil && v.IsReceiveBlock() {
-					delete(cutMap, p.Hash)
-					continue
-				}
-				cutMap[p.Hash] = p
+	for _, p := range blocks {
+		if p.IsSendBlock() {
+			v, ok := cutMap[p.Hash]
+			if ok && v != nil && v.IsReceiveBlock() {
+				delete(cutMap, p.Hash)
 				continue
 			}
-
-			v, ok := cutMap[p.FromBlockHash]
-			if ok && v != nil && v.IsSendBlock() {
-				delete(cutMap, p.FromBlockHash)
-				continue
-			}
-			cutMap[p.FromBlockHash] = p
+			cutMap[p.Hash] = p
+			continue
 		}
+
+		v, ok := cutMap[p.FromBlockHash]
+		if ok && v != nil && v.IsSendBlock() {
+			delete(cutMap, p.FromBlockHash)
+			continue
+		}
+		cutMap[p.FromBlockHash] = p
 	}
 
 	pendingMap := make(map[types.Address][]*ledger.AccountBlock)
