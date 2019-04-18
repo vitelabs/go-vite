@@ -130,8 +130,23 @@ func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*R
 	if len(addrList) > MaxBatchQuery {
 		return nil, errors.New(fmt.Sprintf("the maximum number of queries allowed is %d", MaxBatchQuery))
 	}
+	// Remove duplicate
+	addrs := make([]types.Address, 0)
+	for _, v1 := range addrList {
+		var isExist = false
+		for _, v2 := range addrs {
+			if v2 == v1 {
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			addrs = append(addrs, v1)
+		}
+	}
+
 	resultList := make([]*RpcAccountInfo, 0)
-	for _, addr := range addrList {
+	for _, addr := range addrs {
 		info, err := pri.GetOnroadInfoByAddress(addr)
 		if err != nil {
 			return nil, err
