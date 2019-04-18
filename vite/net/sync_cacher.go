@@ -20,10 +20,8 @@ var errNoSnapshotBlocksInChunk = errors.New("no snapshot blocks")
 type syncCacheReader interface {
 	start()
 	stop()
-	// clean cache and reset state
-	clean()
-	// reset state
-	reset()
+	clean() // clean cache and reset
+	reset() // reset state (readTo and requestTo)
 	cacheHeight() uint64
 	chunks() interfaces.SegmentList
 }
@@ -93,8 +91,9 @@ func (s *cacheReader) stop() {
 	s.running = false
 	s.mu.Unlock()
 
-	s.wg.Wait()
 	s.reset()
+
+	s.wg.Wait()
 }
 
 func (s *cacheReader) chunks() interfaces.SegmentList {
@@ -248,7 +247,7 @@ Loop:
 			// 1. chain haven`t grow to c[0]-1, wait for chain grow
 			// 2. missing chunks between chain and c, wait for chunk downloaded
 			if c[0] > height+1 {
-				time.Sleep(20 * time.Millisecond)
+				time.Sleep(200 * time.Millisecond)
 				// chunk downloaded
 				continue Loop
 			}

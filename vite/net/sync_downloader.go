@@ -240,39 +240,6 @@ type syncDownloader interface {
 	addListener(listener taskListener)
 }
 
-//type syncExecutor interface {
-//	start()
-//	stop()
-//
-//	// add a task into queue, task will be sorted from small to large.
-//	// if task is overlapped, then the task will be split to small tasks.
-//	add(t *syncTask) bool
-//
-//	// execute a task directly, NOT put into queue.
-//	// if a previous same from-to task has done, the gap time must longer than 1 min, or the task will not exec.
-//	exec(t *syncTask) bool
-//
-//	// runTo will execute those from is small than to tasks
-//	// runTo(to uint64)
-//
-//	// deleteFrom will delete those from is large than start tasks.
-//	// return (the last task`s to + 1)
-//	deleteFrom(start uint64) (nextStart uint64)
-//
-//	// last return the last task in queue
-//	// ok is false if task queue is empty
-//	// last() (t *syncTask, ok bool)
-//
-//	status() ExecutorStatus
-//
-//	// clear all tasks
-//	reset()
-//
-//	size() int
-//
-//	addListener(listener taskListener)
-//}
-
 type taskListener = func(from, to uint64, err error)
 
 type executor struct {
@@ -314,13 +281,6 @@ func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *exec
 	return e
 }
 
-func (e *executor) size() int {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	return len(e.tasks)
-}
-
 func (e *executor) start() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -359,14 +319,11 @@ func (e *executor) addListener(listener taskListener) {
 
 func (e *executor) status() DownloaderStatus {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	tasks := make([]string, len(e.tasks))
-	i := 0
-	for _, t := range e.tasks {
+	for i, t := range e.tasks {
 		tasks[i] = t.String()
-		i++
 	}
+	e.mu.Unlock()
 
 	st := DownloaderStatus{
 		tasks,
@@ -374,6 +331,33 @@ func (e *executor) status() DownloaderStatus {
 	}
 
 	return st
+}
+
+// from must be larger than 0
+func addTasks(tasks syncTasks, from, to uint64, must bool) syncTasks {
+	var t *syncTask
+	if must {
+		var i, j int
+		for i = 0; i < len(tasks); i++ {
+			t = tasks[i]
+			if t.st == reqDone {
+				continue
+			}
+
+			tasks[j] = tasks[i]
+			j++
+		}
+
+		tasks = tasks[:j]
+	}
+
+	ts := missingTasks(tasks, from, to)
+	for _, t = range ts {
+		tasks = append(tasks, t)
+	}
+
+	sort.Sort(tasks)
+	return tasks
 }
 
 // will be blocked when task queue is full
@@ -393,20 +377,9 @@ func (e *executor) download(from, to uint64, must bool) bool {
 		return false
 	}
 
-	if must {
-		e.tasks = append(e.tasks, &syncTask{
-			from: from,
-			to:   to,
-		})
-	} else {
-		tasks := missingTasks(e.tasks, from, to)
-		for _, t := range tasks {
-			e.tasks = append(e.tasks, t)
-		}
-	}
+	e.tasks = addTasks(e.tasks, from, to, must)
 
-	sort.Sort(e.tasks)
-	e.cond.Broadcast()
+	e.cond.Signal()
 
 	return true
 }
@@ -440,37 +413,34 @@ func (e *executor) cancel(from, to uint64) {
 	e.tasks = e.tasks[:total-j]
 }
 
-func (e *executor) reset() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	e.tasks = e.tasks[:0]
-}
-
 func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
+	var total = len(tasks)
+	var now = time.Now()
+
 	var done = 0
+	var clean = 0 // clean continuous done tasks
+	var continuous = true
+
 	var index = 0
 	var batch = 0
 	var t *syncTask
 
-	// clean continuous done tasks
-	var condone = 0
-	var continuous = true
-	var now = time.Now()
-
-	for index = done; index < len(tasks); index = done + batch {
+	for index = done; index < total; index = done + batch {
 		t = tasks[index]
 
 		if t.st == reqDone {
 			done++
 			if continuous && now.Sub(t.doneAt) > 5*time.Second {
-				condone++
+				clean++
 			}
-		} else if t.st == reqPending {
+			continue
+		} else {
 			continuous = false
+		}
+
+		if t.st == reqPending {
 			batch++
 		} else if batch < maxBatch {
-			continuous = false
 			batch++
 			exec(t)
 		} else {
@@ -478,9 +448,9 @@ func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 		}
 	}
 
-	if condone > 0 {
-		copy(tasks, tasks[condone:])
-		tasks = tasks[:len(tasks)-condone]
+	if clean > total/5 {
+		total = copy(tasks, tasks[clean:])
+		tasks = tasks[:total]
 	}
 
 	return tasks
@@ -489,10 +459,12 @@ func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 func (e *executor) loop() {
 	defer e.wg.Done()
 
+	var total int
+
 Loop:
 	for {
 		e.mu.Lock()
-		for len(e.tasks) == 0 && e.running {
+		for total = len(e.tasks); total == 0 && e.running; total = len(e.tasks) {
 			e.cond.Wait()
 		}
 		if false == e.running {
@@ -500,13 +472,14 @@ Loop:
 			break Loop
 		}
 
-		before := len(e.tasks)
 		e.tasks = runTasks(e.tasks, e.batch, e.run)
-		if len(e.tasks) < before {
-			e.cond.Signal()
-		}
 		e.mu.Unlock()
 
+		if len(e.tasks) < total {
+			e.cond.Broadcast()
+		}
+
+		// have tasks, but running tasks is batch, so wait for task done
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -523,11 +496,12 @@ func (e *executor) doJob(c syncConnection, from, to uint64) error {
 	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
 	if fatal, err := c.download(from, to); err != nil {
+		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
+
 		if fatal {
 			e.pool.delConn(c)
+			e.log.Warn(fmt.Sprintf("delete sync connection: %s", c.RemoteAddr()))
 		}
-
-		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
 	}
@@ -543,7 +517,9 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	e.mu.Lock()
 	if _, ok := e.dialing[addr]; ok {
 		e.mu.Unlock()
-		return nil, errPeerDialing
+		err = errPeerDialing
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
+		return
 	}
 	e.dialing[addr] = struct{}{}
 	e.mu.Unlock()
@@ -556,19 +532,22 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 
 	// dial error
 	if err != nil {
-		return nil, err
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
+		return
 	}
 
 	// handshake error
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
 		_ = tcp.Close()
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
 		return
 	}
 
 	// add error
 	if err = e.pool.addConn(c); err != nil {
 		e.pool.delConn(c)
+		e.log.Warn(fmt.Sprintf("failed to add sync connection: %s: %v", addr, err))
 	}
 
 	return
