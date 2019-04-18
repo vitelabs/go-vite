@@ -68,7 +68,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, createContractFee)
 	if sendCreateBlock == nil || isRetry ||
 		err != nil ||
-		sendCreateBlock.AccountBlock.Quota != 29072 ||
+		sendCreateBlock.AccountBlock.Quota != 32016 ||
 		sendCreateBlock.AccountBlock.Fee.Cmp(createContractFee) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
@@ -126,7 +126,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, block14.Amount)
 	if sendCallBlock == nil ||
 		len(sendCallBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendCallBlock.AccountBlock.Quota != 21464 ||
+		sendCallBlock.AccountBlock.Quota != 23448 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
@@ -312,6 +312,7 @@ func TestCall(t *testing.T) {
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
 		Hash:           hash13,
+		ToAddress:      addr2,
 	}
 	db.addr = addr1
 	sendCallBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -342,7 +343,7 @@ func TestCall(t *testing.T) {
 	receiveCallBlock, isRetry, err := vm.RunV2(db, block21, sendCallBlock.AccountBlock, nil)
 	if receiveCallBlock == nil ||
 		len(receiveCallBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
-		receiveCallBlock.AccountBlock.Quota != 32425 ||
+		receiveCallBlock.AccountBlock.Quota != 34409 ||
 		len(receiveCallBlock.AccountBlock.Data) != 33 ||
 		receiveCallBlock.AccountBlock.Data[32] != 0 ||
 		receiveCallBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendCall ||
