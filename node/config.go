@@ -34,10 +34,9 @@ type Config struct {
 	KafkaProducers []string `json:"KafkaProducers"`
 
 	// chain
-	LedgerGcRetain       uint64 `json:"LedgerGcRetain"`
-	LedgerGc             *bool  `json:"LedgerGc"`
-	OpenFilterTokenIndex *bool  `json:"OpenFilterTokenIndex"`
-	ChainPluginsEnable   *bool  `json:"ChainPluginsEnable"`
+	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
+	LedgerGc       *bool  `json:"LedgerGc"`
+	OpenPlugins    *bool  `json:"OpenPlugins"`
 
 	// genesis
 	GenesisFile string `json:"GenesisFile"`
@@ -258,48 +257,21 @@ func (c *Config) makeP2PConfig() (cfg *p2p.Config, err error) {
 
 func (c *Config) makeChainConfig() *config.Chain {
 
-	// init kafkaProducers
-	kafkaProducers := make([]*config.KafkaProducer, len(c.KafkaProducers))
-
-	if len(c.KafkaProducers) > 0 {
-		for i, kafkaProducer := range c.KafkaProducers {
-			splitKafkaProducer := strings.Split(kafkaProducer, "|")
-			if len(splitKafkaProducer) != 2 {
-				log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-				break
-			}
-
-			splitKafkaBroker := strings.Split(splitKafkaProducer[0], ",")
-			if len(splitKafkaBroker) == 0 {
-				log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-				break
-			}
-
-			kafkaProducers[i] = &config.KafkaProducer{
-				BrokerList: splitKafkaBroker,
-				Topic:      splitKafkaProducer[1],
-			}
-		}
-	}
-
+	// is open ledger gc
 	ledgerGc := true
 	if c.LedgerGc != nil {
 		ledgerGc = *c.LedgerGc
 	}
-	openFilterTokenIndex := false
-	if c.OpenFilterTokenIndex != nil {
-		openFilterTokenIndex = *c.OpenFilterTokenIndex
+	// is open plugins
+	openPlugins := false
+	if c.OpenPlugins != nil {
+		openPlugins = *c.OpenPlugins
 	}
-	chainPluginsEnable := false
-	if c.ChainPluginsEnable != nil {
-		chainPluginsEnable = *c.ChainPluginsEnable
-	}
+
 	return &config.Chain{
-		KafkaProducers:       kafkaProducers,
-		LedgerGcRetain:       c.LedgerGcRetain,
-		LedgerGc:             ledgerGc,
-		OpenFilterTokenIndex: openFilterTokenIndex,
-		PluginEnable:         chainPluginsEnable,
+		LedgerGcRetain: c.LedgerGcRetain,
+		LedgerGc:       ledgerGc,
+		OpenPlugins:    openPlugins,
 	}
 }
 

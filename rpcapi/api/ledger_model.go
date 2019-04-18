@@ -24,10 +24,13 @@ type AccountBlock struct {
 
 	Timestamp int64 `json:"timestamp"`
 
-	ConfirmedTimes *string       `json:"confirmedTimes"`
-	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
+	ConfirmedTimes *string     `json:"confirmedTimes"`
+	ConfirmedHash  *types.Hash `json:"confirmedHash"`
 
-	ReceiveBlockHeights []string `json:"receiveBlockHeights"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
+
+	ReceiveBlockHeight string      `json:"receiveBlockHeight"`
+	ReceiveBlockHash   *types.Hash `json:"receiveBlockHash"`
 }
 
 // TODO set timestamp
@@ -189,9 +192,11 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	}
 
 	var confirmedTimes uint64
+	var confirmedHash types.Hash
 	var timestamp int64
 
 	if confirmedBlock != nil && latestSb != nil && confirmedBlock.Height <= latestSb.Height {
+		confirmedHash = confirmedBlock.Hash
 		confirmedTimes = latestSb.Height - confirmedBlock.Height + 1
 		timestamp = confirmedBlock.Timestamp.Unix()
 	}
@@ -217,6 +222,11 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 
 	token, _ := chain.GetTokenInfoById(block.TokenId)
 	rpcAccountBlock := createAccountBlock(block, token, confirmedTimes)
+
+	if confirmedTimes > 0 {
+		rpcAccountBlock.ConfirmedHash = &confirmedHash
+	}
+
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
 	rpcAccountBlock.Timestamp = timestamp
@@ -227,7 +237,8 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 			return nil, err
 		}
 		if receiveBlock != nil {
-			rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlock.Height, 10))
+			rpcAccountBlock.ReceiveBlockHeight = strconv.FormatUint(receiveBlock.Height, 10)
+			rpcAccountBlock.ReceiveBlockHash = &receiveBlock.Hash
 		}
 	}
 

@@ -29,10 +29,9 @@ const (
 	start = 1
 )
 
-var chainPlugins = false
-
 type chain struct {
 	genesisCfg *config.Genesis
+	chainCfg   *config.Chain
 
 	genesisSnapshotBlock    *ledger.SnapshotBlock
 	genesisAccountBlocks    []*vm_db.VmAccountBlock
@@ -67,19 +66,22 @@ type chain struct {
  * Init chain config
  */
 func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
+	if chainCfg == nil {
+		chainCfg = defaultConfig()
+	}
+
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
 		chainDir:   path.Join(dir, "ledger"),
 		log:        log15.New("module", "chain"),
 		em:         newEventManager(),
+		chainCfg:   chainCfg,
 	}
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
-
-	chainPlugins = chainCfg.PluginEnable
 
 	return c
 }
@@ -181,6 +183,10 @@ func (c *chain) Destroy() error {
 	return nil
 }
 
+func (c *chain) Plugins() *chain_plugins.Plugins {
+	return c.plugins
+}
+
 func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	absoluteDirName := path.Join(c.chainDir, dirName)
 	db, err := leveldb.OpenFile(absoluteDirName, nil)
@@ -241,7 +247,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// init plugins
-	if chainPlugins {
+	if c.chainCfg.OpenPlugins {
 		var err error
 		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
@@ -336,7 +342,7 @@ func (c *chain) closeAndCleanData() error {
 	}
 
 	// close plugins
-	if chainPlugins {
+	if c.chainCfg.OpenPlugins {
 		if err = c.plugins.Close(); err != nil {
 			cErr := errors.New(fmt.Sprintf("c.plugins.Close failed. Error: %s", err))
 
@@ -358,4 +364,12 @@ func (c *chain) closeAndCleanData() error {
 
 func (c *chain) cleanAllData() error {
 	return os.RemoveAll(c.chainDir)
+}
+
+func defaultConfig() *config.Chain {
+	return &config.Chain{
+		LedgerGc:       true,
+		LedgerGcRetain: 24 * 3600,
+		OpenPlugins:    false,
+	}
 }
