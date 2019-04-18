@@ -37,6 +37,7 @@ type Config struct {
 	LedgerGcRetain       uint64 `json:"LedgerGcRetain"`
 	LedgerGc             *bool  `json:"LedgerGc"`
 	OpenFilterTokenIndex *bool  `json:"OpenFilterTokenIndex"`
+	ChainPluginsEnable   *bool  `json:"ChainPluginsEnable"`
 
 	// genesis
 	GenesisFile string `json:"GenesisFile"`
@@ -289,12 +290,16 @@ func (c *Config) makeChainConfig() *config.Chain {
 	if c.OpenFilterTokenIndex != nil {
 		openFilterTokenIndex = *c.OpenFilterTokenIndex
 	}
-
+	chainPluginsEnable := false
+	if c.ChainPluginsEnable != nil {
+		chainPluginsEnable = *c.ChainPluginsEnable
+	}
 	return &config.Chain{
 		KafkaProducers:       kafkaProducers,
 		LedgerGcRetain:       c.LedgerGcRetain,
 		LedgerGc:             ledgerGc,
 		OpenFilterTokenIndex: openFilterTokenIndex,
+		PluginEnable:         chainPluginsEnable,
 	}
 }
 

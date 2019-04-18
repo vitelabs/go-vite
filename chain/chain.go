@@ -29,7 +29,7 @@ const (
 	start = 1
 )
 
-const testPlugins = false
+var chainPlugins = false
 
 type chain struct {
 	genesisCfg *config.Genesis
@@ -78,6 +78,8 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
+
+	chainPlugins = chainCfg.PluginEnable
 
 	return c
 }
@@ -239,7 +241,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// init plugins
-	if testPlugins {
+	if chainPlugins {
 		var err error
 		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
@@ -334,7 +336,7 @@ func (c *chain) closeAndCleanData() error {
 	}
 
 	// close plugins
-	if testPlugins {
+	if chainPlugins {
 		if err = c.plugins.Close(); err != nil {
 			cErr := errors.New(fmt.Sprintf("c.plugins.Close failed. Error: %s", err))
 

@@ -12,4 +12,5 @@ type Chain struct {
 	GenesisFile          string
 	LedgerGc             bool
 	OpenFilterTokenIndex bool
+	PluginEnable         bool
 }
