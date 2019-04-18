@@ -2,6 +2,7 @@ package chain
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -239,6 +240,8 @@ type Chain interface {
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
+
+	Plugins() *chain_plugins.Plugins
 
 	SetConsensus(cs Consensus)
 }
