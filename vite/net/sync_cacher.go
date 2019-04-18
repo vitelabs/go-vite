@@ -1,6 +1,7 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -13,6 +14,8 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
+
+var errNoSnapshotBlocksInChunk = errors.New("no snapshot blocks")
 
 type syncCacheReader interface {
 	start()
@@ -89,9 +92,8 @@ func (s *cacheReader) stop() {
 	s.running = false
 	s.mu.Unlock()
 
-	s.reset()
-
 	s.wg.Wait()
+	s.reset()
 }
 
 func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
@@ -225,10 +227,6 @@ Loop:
 
 		// read chunks
 		for _, c := range cs {
-			if false == s.running {
-				return
-			}
-
 			// chunk has read
 			if c[1] <= s.readTo {
 				continue
@@ -257,15 +255,15 @@ Loop:
 				continue
 			}
 
+			var ab *ledger.AccountBlock
+			var sb, prev *ledger.SnapshotBlock
 			// read chunk
 			for {
 				if false == s.running {
 					_ = reader.Close()
-					return
+					break Loop
 				}
 
-				var ab *ledger.AccountBlock
-				var sb *ledger.SnapshotBlock
 				ab, sb, err = reader.Read()
 				if err != nil {
 					break
@@ -276,14 +274,38 @@ Loop:
 				} else if sb != nil {
 					if err = s.receiver.receiveSnapshotBlock(sb, types.RemoteSync); err != nil {
 						break
+					} else if prev == nil {
+						if sb.Height != c[0] {
+							err = fmt.Errorf("first snapshot block height: should %d, get %d", c[0], sb.Height)
+							break
+						} else {
+							prev = sb
+						}
+					} else {
+						if sb.PrevHash != prev.Hash || sb.Height != prev.Height+1 {
+							err = fmt.Errorf("snapshot block not continuous: prev %s/%d, %s/%s/%d", prev.Hash, prev.Height, sb.PrevHash, sb.Hash, sb.Height)
+							break
+						} else {
+							prev = sb
+						}
 					}
 				}
 			}
 
 			_ = reader.Close()
 
+			if err == io.EOF {
+				if prev == nil {
+					err = errNoSnapshotBlocksInChunk
+				} else if prev.Height != c[1] {
+					err = fmt.Errorf("last snapshot block height: should %d, get %d", c[1], prev.Height)
+				} else {
+					err = nil
+				}
+			}
+
 			// read chunk error
-			if err != nil && err != io.EOF {
+			if err != nil {
 				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c[0], c[1], err))
 				s.handleChunkError(c)
 			} else {
