@@ -50,13 +50,22 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", from))
 	}
 
-	toLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
+	tmpLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
+	if err != nil {
+		return nil, err
+	}
+	if tmpLocation == nil {
+		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", to))
+	}
+
+	toLocation, err := chain.blockDB.GetNextLocation(tmpLocation)
 	if err != nil {
 		return nil, err
 	}
 	if toLocation == nil {
-		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", to))
+		return nil, errors.New(fmt.Sprintf("next location %d is not existed", toLocation))
 	}
+
 	return &ledgerReader{
 		chain:           chain,
 		from:            from,
