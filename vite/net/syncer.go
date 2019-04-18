@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -366,11 +368,12 @@ func (s *syncer) Status() SyncStatus {
 }
 
 type SyncDetail struct {
-	From       uint64           `json:"from"`
-	To         uint64           `json:"to"`
-	Current    uint64           `json:"current"`
-	State      SyncState        `json:"state"`
-	Downloader DownloaderStatus `json:"downloader"`
+	From       uint64                 `json:"from"`
+	To         uint64                 `json:"to"`
+	Current    uint64                 `json:"current"`
+	State      SyncState              `json:"state"`
+	Downloader DownloaderStatus       `json:"downloader"`
+	Cache      interfaces.SegmentList `json:"cache"`
 }
 
 func (s *syncer) Detail() SyncDetail {
@@ -382,5 +385,6 @@ func (s *syncer) Detail() SyncDetail {
 		Current:    st.Current,
 		State:      st.State,
 		Downloader: s.downloader.status(),
+		Cache:      s.reader.chunks(),
 	}
 }

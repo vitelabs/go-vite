@@ -216,6 +216,10 @@ type mockSyncDownloader struct {
 	}
 }
 
+func (m *mockSyncDownloader) status() DownloaderStatus {
+	return DownloaderStatus{}
+}
+
 func (m *mockSyncDownloader) download(from, to uint64, must bool) bool {
 	fmt.Println("download", from, to, must)
 	time.Sleep(time.Second)
