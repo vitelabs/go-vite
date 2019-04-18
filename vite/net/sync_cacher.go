@@ -22,6 +22,7 @@ type syncCacheReader interface {
 	// reset state
 	reset()
 	cacheHeight() uint64
+	chunks() interfaces.SegmentList
 }
 
 type cacheReader struct {
@@ -92,6 +93,10 @@ func (s *cacheReader) stop() {
 	s.reset()
 
 	s.wg.Wait()
+}
+
+func (s *cacheReader) chunks() interfaces.SegmentList {
+	return s.chain.GetSyncCache().Chunks()
 }
 
 func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
