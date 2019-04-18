@@ -263,7 +263,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
@@ -271,9 +271,10 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item, version int) (map[t
 	pool := self.chainpool
 	current := pool.current
 
-	for _, item := range items {
+	for i, item := range items {
 		block := item.commonBlock
 
+		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
@@ -299,6 +300,7 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item, version int) (map[t
 			if err != nil {
 				return nil, item, err
 			}
+			self.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d success.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 			self.blockpool.afterInsert(block)
 			if len(accBlocks) > 0 {
 				return accBlocks, item, err
@@ -469,6 +471,7 @@ func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
 	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
 	err := self.checkChain(blocks)
 	if err != nil {
+		self.log.Info("[getPendingForCurrent]check chain fail." + self.printf(blocks))
 		return nil, err
 	}
 
@@ -537,3 +540,8 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 //	//
 //	//return uint64(headH - minH), errors.New("all in")
 //}
+
+//t=2019-04-17T22:10:47.528+0800 lvl=warn msg="add account block to blacklist." module=pool
+//account=accountChainPool-vite_00000000000000000000000000000000000000042d7ef71894
+//hash=c6fe046872cd0255e51c93b59a110bc0084d869913338c319c7b5aefdea97308
+//height=16087 err="verify referred confirmedTimes not enough"

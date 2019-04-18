@@ -14,8 +14,8 @@ type EventListener interface {
 	PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
 	InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
 
-	PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
-	InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
+	PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
+	InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
 
 	PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 	DeleteAccountBlocks(blocks []*ledger.AccountBlock) error

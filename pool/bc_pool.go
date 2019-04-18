@@ -470,6 +470,8 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 
 	err := self.checkChain(blocks)
 	if err != nil {
+		self.log.Info("check chain fail." + self.printf(blocks))
+		panic(err)
 		return err
 	}
 
@@ -521,10 +523,10 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 			continue
 		}
 		if b.PrevHash() != prev.Hash() {
-			return errors.New("not a chain:" + self.printf(blocks))
+			return errors.New("not a chain.")
 		}
 		if b.Height()-1 != prev.Height() {
-			return errors.New("not a chain:" + self.printf(blocks))
+			return errors.New("not a chain.")
 		}
 		prev = b
 	}

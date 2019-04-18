@@ -14,7 +14,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	c.log.Info(fmt.Sprintf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
-	if err := c.em.Trigger(prepareInsertAbsEvent, vmAbList, nil, nil, nil); err != nil {
+	if err := c.em.TriggerInsertAbs(prepareInsertAbsEvent, vmAbList); err != nil {
 		return err
 	}
 
@@ -34,7 +34,7 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
-	c.em.Trigger(insertAbsEvent, vmAbList, nil, nil, nil)
+	c.em.TriggerInsertAbs(insertAbsEvent, vmAbList)
 
 	return nil
 }
@@ -52,17 +52,17 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		return nil, err
 	}
 
-	sbList := []*ledger.SnapshotBlock{snapshotBlock}
-
-	if err := c.em.Trigger(prepareInsertSbsEvent, nil, nil, sbList, nil); err != nil {
-		return nil, err
-	}
-
-	// write block db
-	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(&ledger.SnapshotChunk{
+	//sbList := []*ledger.SnapshotBlock{snapshotBlock}
+	chunks := []*ledger.SnapshotChunk{{
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,
-	})
+	}}
+	// write block db
+	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
+
+	if err := c.em.TriggerInsertSbs(prepareInsertSbsEvent, chunks); err != nil {
+		return nil, err
+	}
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
@@ -78,7 +78,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	// insert snapshot blocks
 	c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
 
-	c.em.Trigger(InsertSbsEvent, nil, nil, sbList, nil)
+	c.em.TriggerInsertSbs(InsertSbsEvent, chunks)
 
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
