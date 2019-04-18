@@ -70,15 +70,15 @@ func (self *pool) makeQueue() Package {
 
 	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, self.version.Val(), 50)
 	for {
-		newOffset, errAcc, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
+		newOffset, pendingForSb, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
 			// just account
 			if p.Size() > 0 {
 				break
 			}
 
-			if errAcc != nil && rand.Intn(10) > 3 {
-				self.snapshotPendingFix(p, newOffset, errAcc)
+			if pendingForSb != nil && rand.Intn(10) > 3 {
+				self.snapshotPendingFix(p, newOffset, pendingForSb)
 			} else {
 				self.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
@@ -120,7 +120,14 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 	return true
 }
 
-func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, map[types.Address]*ledger.HashHeight, *completeSnapshotBlock) {
+type snapshotPending struct {
+	sHash     types.Hash
+	sHeight   uint64
+	sPrevHash types.Hash
+	addrM     map[types.Address]*ledger.HashHeight
+}
+
+func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
 	if self.pendingSc.CurrentChain().size() == 0 {
 		return nil, nil, nil
 	}
@@ -156,7 +163,8 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	}
 
 	if len(errorAcc) > 0 {
-		return newOffset, errorAcc, nil
+		pendingS := &snapshotPending{sHash: b.Hash(), sHeight: b.Height(), sPrevHash: b.PrevHash(), addrM: errorAcc}
+		return newOffset, pendingS, nil
 
 	}
 	result.addrM = addrM
