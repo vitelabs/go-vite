@@ -84,6 +84,8 @@ func (self *pool) makeQueue() Package {
 				if p.Size() > 0 {
 					// todo remove
 					fmt.Printf("make accounts[%d]\n", p.Size())
+					self.log.Info(fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size()))
+					return p
 				}
 			}
 			break
@@ -96,6 +98,7 @@ func (self *pool) makeQueue() Package {
 			snapshotOffset.offset = newOffset
 		}
 	}
+	self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
 	return p
 }
 
@@ -265,15 +268,16 @@ func (self *pool) insertQueue(q Package) error {
 
 	defer func() {
 		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("queue[%s][%d][%d]", sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
+		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
 		fmt.Println(queueResult)
 	}()
 
-	for _, level := range levels {
+	for i, level := range levels {
 		if level == nil {
 			continue
 		}
-		err := self.insertLevel(level, q.Version())
+		self.log.Info(fmt.Sprintf("[%d]insert queue level[%d][%t] insert.", q.Id(), i, level.Snapshot()))
+		err := self.insertLevel(q, level, q.Version())
 		if err != nil {
 			return err
 		}
@@ -281,22 +285,22 @@ func (self *pool) insertQueue(q Package) error {
 	return nil
 }
 
-func (self *pool) insertAccountBucket(bucket Bucket, version int) error {
+func (self *pool) insertAccountBucket(p Package, bucket Bucket, version int) error {
 	self.RLock()
 	defer self.RUnLock()
 	latestSb := self.bc.GetLatestSnapshotBlock()
-	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items(), latestSb, version)
+	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(bucket Bucket, version int) error {
+func (self *pool) insertSnapshotBucket(p Package, bucket Bucket, version int) error {
 	// stop the world for snapshot insert
 	self.Lock()
 	defer self.UnLock()
-	accBlocks, item, err := self.pendingSc.snapshotInsertItems(bucket.Items(), version)
+	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err
 	}

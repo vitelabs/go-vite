@@ -23,6 +23,7 @@ type Package interface {
 	Info() string
 	Version() int
 	Exists(hash types.Hash) bool
+	Id() uint64
 }
 
 type Level interface {

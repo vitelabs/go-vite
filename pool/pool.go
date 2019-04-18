@@ -924,14 +924,14 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 	}
 	return nil
 }
-func (self *pool) insertLevel(l Level, version int) error {
+func (self *pool) insertLevel(p Package, l Level, version int) error {
 	if l.Snapshot() {
-		return self.insertSnapshotLevel(l, version)
+		return self.insertSnapshotLevel(p, l, version)
 	} else {
-		return self.insertAccountLevel(l, version)
+		return self.insertAccountLevel(p, l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(l Level, version int) error {
+func (self *pool) insertSnapshotLevel(p Package, l Level, version int) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -941,14 +941,14 @@ func (self *pool) insertSnapshotLevel(l Level, version int) error {
 	}()
 	for _, b := range l.Buckets() {
 		num = num + len(b.Items())
-		return self.insertSnapshotBucket(b, version)
+		return self.insertSnapshotBucket(p, b, version)
 	}
 	return nil
 }
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(l Level, version int) error {
+func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {
@@ -971,7 +971,7 @@ func (self *pool) insertAccountLevel(l Level, version int) error {
 				if globalErr != nil {
 					return
 				}
-				err := self.insertAccountBucket(b, version)
+				err := self.insertAccountBucket(p, b, version)
 				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err

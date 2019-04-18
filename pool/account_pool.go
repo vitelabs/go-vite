@@ -594,11 +594,12 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (u
 			return uint64(i - minH), errors.New("block in blacklist")
 		}
 		// check quota
-		if used, unused, enought := info.quotaEnough(block); !enought {
+		used, unused, enought := info.quotaEnough(block)
+		if !enought {
 			// todo remove
-			self.log.Info(fmt.Sprintf("[%s][%d][%s]quota not enough[used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 			return uint64(i - minH), errors.New("block quota not enough.")
 		}
+		self.log.Debug(fmt.Sprintf("[%s][%d][%s]quota info [used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 		// check request block confirmed time for response block
 		if err := self.checkSnapshotSuccess(block); err != nil {
 			return uint64(i - minH), err
@@ -617,7 +618,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (u
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock, version int) error {
+func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledger.SnapshotBlock, version int) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.current.size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))
@@ -632,7 +633,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.", block.Hash(), i, len(items)))
+		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		if block.Height() == current.tailHeight+1 &&
 			block.PrevHash() == current.tailHash {
 			block.resetForkVersion()
@@ -665,7 +666,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
 		}
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d [latency:%s]success.", block.Hash(), i, len(items), block.Latency()))
+		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))
 	}
 	return nil
 }
