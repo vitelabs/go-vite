@@ -10,8 +10,8 @@ import (
 )
 
 func (c *chain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
-	if startHeight <= 0 {
-		return nil, errors.New("startHeight is 0")
+	if startHeight < 2 {
+		return nil, errors.New(fmt.Sprintf("startHeight is %d", startHeight))
 	}
 	if startHeight > endHeight {
 		return nil, errors.New(fmt.Sprintf("startHeight > endHeight, startHeight is %d, endHeight is %d", startHeight, endHeight))
@@ -42,7 +42,15 @@ type ledgerReader struct {
 }
 
 func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, error) {
-	fromLocation, err := chain.indexDB.GetSnapshotBlockLocation(from)
+	tmpFromLocation, err := chain.indexDB.GetSnapshotBlockLocation(from - 1)
+	if err != nil {
+		return nil, err
+	}
+	if tmpFromLocation == nil {
+		return nil, errors.New(fmt.Sprintf("from location %d is not existed", tmpFromLocation))
+	}
+
+	fromLocation, err := chain.blockDB.GetNextLocation(tmpFromLocation)
 	if err != nil {
 		return nil, err
 	}
@@ -50,15 +58,15 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", from))
 	}
 
-	tmpLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
+	tmpToLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
 	if err != nil {
 		return nil, err
 	}
-	if tmpLocation == nil {
+	if tmpToLocation == nil {
 		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", to))
 	}
 
-	toLocation, err := chain.blockDB.GetNextLocation(tmpLocation)
+	toLocation, err := chain.blockDB.GetNextLocation(tmpToLocation)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +78,8 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		chain:           chain,
 		from:            from,
 		to:              to,
-		fromLocation:    fromLocation,
-		currentLocation: fromLocation,
+		fromLocation:    tmpFromLocation,
+		currentLocation: tmpFromLocation,
 		toLocation:      toLocation,
 	}, nil
 }
