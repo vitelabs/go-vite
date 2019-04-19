@@ -26,6 +26,16 @@ func (c StatsApi) String() string {
 	return "StatsApi"
 }
 
+func (c StatsApi) Time2Index(t *time.Time) uint64 {
+	if t == nil {
+		now := time.Now()
+		t = &now
+	}
+	index := c.cs.SBPReader().GetPeriodTimeIndex()
+	time2Index := index.Time2Index(*t)
+	return time2Index
+}
+
 func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 	reader := c.cs.SBPReader()
