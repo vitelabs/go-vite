@@ -3,9 +3,8 @@ package api
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus/core"
-
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 )
@@ -34,6 +33,10 @@ func (c StatsApi) Time2Index(t *time.Time) uint64 {
 	index := c.cs.SBPReader().GetPeriodTimeIndex()
 	time2Index := index.Time2Index(*t)
 	return time2Index
+}
+func (c StatsApi) Index2Time(i uint64) (time.Time, time.Time) {
+	index := c.cs.SBPReader().GetPeriodTimeIndex()
+	return index.Index2Time(i)
 }
 
 func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
