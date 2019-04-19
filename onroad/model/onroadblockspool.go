@@ -111,7 +111,7 @@ func (p *OnroadBlocksPool) ResetCacheCursor(addr types.Address) {
 }
 
 func (p *OnroadBlocksPool) loadFullCacheFromDb(addr types.Address) error {
-	blocks, e := p.dbAccess.GetAllOnroadBlocks(addr)
+	blocks, e := p.dbAccess.GetAllOnroadBlocks(&addr)
 	if e != nil {
 		return e
 	}
@@ -198,7 +198,7 @@ func (p *OnroadBlocksPool) loadContractCacheFromDb(addr types.Address) error {
 		p.contractCache.Delete(addr)
 	}
 
-	blockList, e := p.dbAccess.GetAllOnroadBlocks(addr)
+	blockList, e := p.dbAccess.GetAllOnroadBlocks(&addr)
 	if e != nil {
 		return e
 	}
@@ -296,7 +296,7 @@ func (p *OnroadBlocksPool) WriteOnroad(batch *leveldb.Batch, blockList []*vm_con
 				gidList := v.VmContext.UnsavedCache().ContractGidList()
 				for _, v := range gidList {
 					p.log.Debug("WriteOnroad", "gid", v.Gid(), "addr", v.Addr())
-					if err := p.dbAccess.WriteContractAddrToGid(batch, *v.Gid(), *v.Addr()); err != nil {
+					if err := p.dbAccess.WriteContractAddrToGid(batch, v.Gid(), v.Addr()); err != nil {
 						p.log.Error("WriteContractAddrToGid", "error", err)
 						return err
 					}
@@ -365,7 +365,7 @@ func (p *OnroadBlocksPool) RevertOnroad(batch *leveldb.Batch, subLedger map[type
 				if v.BlockType == ledger.BlockTypeSendCreate {
 					revertLog.Info("delete contract addr from gid")
 					gid := util.GetGidFromCreateContractData(v.Data)
-					p.dbAccess.DeleteContractAddrFromGid(batch, gid, v.ToAddress)
+					p.dbAccess.DeleteContractAddrFromGid(batch, &gid, &v.ToAddress)
 				}
 			}
 		}

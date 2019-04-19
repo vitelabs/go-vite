@@ -289,7 +289,7 @@ func createContract(vite *VitePrepared, addr *types.Address, addrPrivKey ed25519
 func receiveTransferSendBlocks(vite *VitePrepared, addr *types.Address) ([]*ledger.AccountBlock, error) {
 	var genBlockList []*ledger.AccountBlock
 
-	sBlocks, err := vite.onroadPool.dbAccess.GetAllOnroadBlocks(*addr)
+	sBlocks, err := vite.onroadPool.dbAccess.GetAllOnroadBlocks(addr)
 	if err != nil {
 		return nil, err
 	}

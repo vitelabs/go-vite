@@ -30,59 +30,67 @@ func (access *UAccess) Init(chain chain.Chain) {
 func (access *UAccess) GetContractAddrListByGid(gid *types.Gid) ([]types.Address, error) {
 	addrList, err := access.store.GetContractAddrList(gid)
 	if err != nil {
-		access.log.Error("GetContractAddrListByGid", "error", err)
+		access.log.Error("GetContractAddrListByGid.GetContractAddrList", "error", err, "gid", gid)
 		return nil, err
 	}
-	if *gid == types.DELEGATE_GID {
+	if gid != nil && *gid == types.DELEGATE_GID {
+		if len(addrList) <= 0 {
+			addrList = make([]types.Address, 0)
+		}
 		addrList = append(addrList, types.PrecompiledContractAddressList...)
 	}
 	return addrList, nil
 }
 
-func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
-	var addrList []types.Address
-	var err error
-
-	if gid == types.DELEGATE_GID && types.IsPrecompiledContractAddress(address) {
+func (access *UAccess) WriteContractAddrToGid(batch *leveldb.Batch, gid *types.Gid, address *types.Address) error {
+	if gid == nil || address == nil {
+		return errors.New("WriteContractAddrToGid failed, gid or address can't be nil")
+	}
+	if *gid == types.DELEGATE_GID && types.IsPrecompiledContractAddress(*address) {
 		return nil
 	}
 
-	addrList, err = access.store.GetContractAddrList(&gid)
+	addrList, err := access.store.GetContractAddrList(gid)
 	if err != nil {
-		access.log.Error("WriteContractAddrToGid", "error", err)
+		access.log.Error("WriteContractAddrToGid failed", "error", err, "gid", gid, "addr", address)
 		return err
-	} else {
-		for _, v := range addrList {
-			if v == address {
-				return nil
-			}
-		}
-		addrList = append(addrList, address)
-		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}
+	if len(addrList) <= 0 {
+		addrList = make([]types.Address, 0)
+	}
+	for _, v := range addrList {
+		if v == *address {
+			return nil
+		}
+	}
+	addrList = append(addrList, *address)
+	return access.store.WriteGidAddrList(batch, gid, addrList)
 }
 
-func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid types.Gid, address types.Address) error {
+func (access *UAccess) DeleteContractAddrFromGid(batch *leveldb.Batch, gid *types.Gid, address *types.Address) error {
+	if gid == nil || address == nil {
+		return errors.New("WriteContractAddrToGid failed, gid or address can't be nil")
+	}
+
 	var addrList []types.Address
 	var err error
 
-	addrList, err = access.store.GetContractAddrList(&gid)
-	if addrList == nil || err != nil {
-		access.log.Error("DeleteContractAddrFromGid", "error", err)
+	addrList, err = access.store.GetContractAddrList(gid)
+	if err != nil || len(addrList) <= 0 {
+		access.log.Error("DeleteContractAddrFromGid.GetContractAddrList failed", "error", err, "gid", gid, "addr", address)
 		return err
-	} else {
-		for k, v := range addrList {
-			if v == address {
-				if k >= len(addrList)-1 {
-					addrList = addrList[0:k]
-				} else {
-					addrList = append(addrList[0:k], addrList[k+1:]...)
-				}
-				break
-			}
-		}
-		return access.store.WriteGidAddrList(batch, &gid, addrList)
 	}
+	for k, v := range addrList {
+		if v == *address {
+			if k >= len(addrList)-1 {
+				addrList = addrList[0:k]
+			} else {
+				addrList = append(addrList[0:k], addrList[k+1:]...)
+			}
+			break
+		}
+	}
+	return access.store.WriteGidAddrList(batch, gid, addrList)
 }
 
 func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.AccountBlock) error {
@@ -96,18 +104,22 @@ func (access *UAccess) writeOnroadMeta(batch *leveldb.Batch, block *ledger.Accou
 
 		recvErrList, recvErr := access.Chain.GetReceiveBlockHeights(hash)
 		if recvErr != nil {
-			return errors.New("GetReceiveErrCount error" + recvErr.Error())
+			access.log.Error("writeOnroadMeta.RevertOnroad.GetReceiveBlockHeights failed", "err", recvErr, "recvAddr", addr, "fromHash", hash)
+			return recvErr
 		}
 		if block.BlockType == ledger.BlockTypeReceiveError && len(recvErrList) <= 0 {
-			return errors.New("conflict, revert receiveError but recvErrCount is 0")
+			recvErr = errors.New("conflict, revert receiveError but recvErrCount is 0")
+			access.log.Error(recvErr.Error(), "recvAddr", addr, "fromHash", hash)
+			return recvErr
 		}
 
 		if block.BlockType == ledger.BlockTypeReceive {
 			if access.Chain.IsSuccessReceived(addr, hash) {
-				access.log.Info("the corresponding sendBlock has already been delete")
 				return access.store.WriteMeta(batch, addr, hash)
 			}
-			return errors.New("conflict, revert receiveBlock but referred send still in onroad")
+			recvErr = errors.New("conflict, revert receiveBlock but referred send still in onroad")
+			access.log.Error(recvErr.Error(), "recvAddr", addr, "fromHash", hash)
+			return recvErr
 		}
 		return nil
 	}
@@ -118,12 +130,15 @@ func (access *UAccess) deleteOnroadMeta(batch *leveldb.Batch, block *ledger.Acco
 		// call from the WriteOnroad func to handle the onRoadTx's receiveBlock
 		addr := &block.AccountAddress
 		hash := &block.FromBlockHash
-
-		if access.Chain.IsSuccessReceived(&block.AccountAddress, &block.FromBlockHash) {
-			access.log.Info("the corresponding sendBlock has already been delete")
+		if block.BlockType == ledger.BlockTypeReceiveError {
 			return nil
 		}
 		if block.BlockType == ledger.BlockTypeReceive {
+			if access.Chain.IsSuccessReceived(addr, hash) {
+				recvErr := errors.New("conflict, onroad is already successfully received")
+				access.log.Error(recvErr.Error(), "recvAddr", addr, "fromHash", hash)
+				return recvErr
+			}
 			return access.store.DeleteMeta(batch, addr, hash)
 		}
 		return nil
@@ -137,20 +152,12 @@ func (access *UAccess) GetOnroadHashs(index, num, count uint64, addr *types.Addr
 	totalCount := (index + num) * count
 	maxCount, err := access.store.GetCountByAddress(addr)
 	if err != nil && err != leveldb.ErrNotFound {
-		access.log.Error("GetOnroadHashs", "error", err)
-		return nil, err
+		return nil, errors.New("GetOnroadHashs.GetCountByAddress failed, err:" + err.Error())
 	}
 	if totalCount > maxCount {
 		totalCount = maxCount
 	}
-
-	hashList, err := access.store.GetHashsByCount(totalCount, addr)
-	if err != nil {
-		access.log.Error("GetHashsByCount", "error", err)
-		return nil, err
-	}
-
-	return hashList, nil
+	return access.store.GetHashsByCount(totalCount, addr)
 }
 
 func (access *UAccess) GetOnroadBlocks(index, num, count uint64, addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
@@ -161,7 +168,7 @@ func (access *UAccess) GetOnroadBlocks(index, num, count uint64, addr *types.Add
 	for _, v := range hashList {
 		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
-			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
+			access.log.Info("GetOnroadBlocks.GetBlockByHash", "error", err, "addr", addr, "hash", v)
 			continue
 		}
 		blockList = append(blockList, block)
@@ -183,21 +190,24 @@ func (access *UAccess) GetCommonAccInfo(addr *types.Address) (info *OnroadAccoun
 	return info, nil
 }
 
-func (access *UAccess) GetAllOnroadBlocks(addr types.Address) (blockList []*ledger.AccountBlock, err error) {
-	hashList, err := access.store.GetHashList(&addr)
+func (access *UAccess) GetAllOnroadBlocks(addr *types.Address) (blockList []*ledger.AccountBlock, err error) {
+	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*ledger.AccountBlock, len(hashList))
+	if len(hashList) <= 0 {
+		return nil, nil
+	}
 
+	result := make([]*ledger.AccountBlock, len(hashList))
 	count := 0
-	for i, v := range hashList {
+	for _, v := range hashList {
 		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
-			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
+			access.log.Info("GetAllOnroadBlocks.GetBlockByHash", "error", err, "addr", addr, "hash", v)
 			continue
 		}
-		result[i] = block
+		result[count] = block
 		count++
 	}
 
@@ -205,16 +215,20 @@ func (access *UAccess) GetAllOnroadBlocks(addr types.Address) (blockList []*ledg
 }
 
 func (access *UAccess) GetCommonAccTokenInfoMap(addr *types.Address) (map[types.TokenTypeId]*TokenBalanceInfo, uint64, error) {
-	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
 	hashList, err := access.store.GetHashList(addr)
 	if err != nil {
-		access.log.Error("GetCommonAccTokenInfoMap.GetHashList", "error", err)
+		access.log.Error("GetCommonAccTokenInfoMap.GetHashList", "error", err, "addr", addr)
 		return nil, 0, err
 	}
+	if len(hashList) <= 0 {
+		return nil, 0, nil
+	}
+
+	infoMap := make(map[types.TokenTypeId]*TokenBalanceInfo)
 	for _, v := range hashList {
 		block, err := access.Chain.GetAccountBlockByHash(v)
 		if err != nil || block == nil {
-			access.log.Error("ContractWorker.GetBlockByHash", "error", err)
+			access.log.Info("GetCommonAccTokenInfoMap.GetBlockByHash", "error", err, "addr", addr, "hash", v)
 			continue
 		}
 		ti, ok := infoMap[block.TokenId]
