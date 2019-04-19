@@ -50,17 +50,13 @@ func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, cou
 func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
 	value := sendBlockHash.Bytes()
 	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
-	ok, err := iDB.store.Has(reverseKey)
+
+	key, err := iDB.store.Get(reverseKey)
 	if err != nil {
 		return err
 	}
-	var key []byte
-	if ok {
-		key, err = iDB.store.Get(reverseKey)
-		if err != nil {
-			return err
-		}
-	} else {
+
+	if len(key) <= 0 {
 
 		onRoadBatch := iDB.store.NewBatch()
 		// new key
