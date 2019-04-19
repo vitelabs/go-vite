@@ -140,7 +140,7 @@ func TestCalcReward(t *testing.T) {
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v CalcReward failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
-		if err == nil && (startTime != testCase.startTime || drained != testCase.drained || endTime != testCase.endTime || testCase.reward.Cmp(reward) != 0) {
+		if err == nil && (startTime != testCase.startTime || drained != testCase.drained || endTime != testCase.endTime || testCase.reward.Cmp(reward.TotalReward) != 0) {
 			t.Fatalf("%v CalcReward failed, result not match, expected (%v,%v,%v,%v), got (%v,%v,%v,%v)", testCase.name, testCase.startTime, testCase.endTime, testCase.drained, testCase.reward, startTime, endTime, drained, reward)
 		}
 	}
@@ -205,7 +205,7 @@ func TestCalcRewardByDay(t *testing.T) {
 				t.Fatalf("%v CalcRewardByDay failed, rewardMap len not match, expected %v, got %v", testCase.name, len(testCase.rewardMap), len(rewardMap))
 			} else {
 				for k, v := range rewardMap {
-					if expectedV, ok := testCase.rewardMap[k]; !ok || v.Cmp(expectedV) != 0 {
+					if expectedV, ok := testCase.rewardMap[k]; !ok || v.TotalReward.Cmp(expectedV) != 0 {
 						t.Fatalf("%v CalcRewardByDay failed, rewardMap not match, expected %v:%v, got %v:%v", testCase.name, k, expectedV, k, v)
 					}
 				}
