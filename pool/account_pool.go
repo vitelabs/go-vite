@@ -459,6 +459,12 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 
+	current := self.CurrentChain()
+	if received.Height() != current.tailHeight+1 ||
+		received.PrevHash() != current.tailHash {
+		return errors.Errorf("account head not match[%d-%s][%d-%s]", received.Height(), received.PrevHash(), current.tailHeight, current.tailHash)
+	}
+
 	self.checkCurrent()
 	stat := self.v.verifyDirectAccount(received, latestSb)
 	result := stat.verifyResult()

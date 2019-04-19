@@ -382,7 +382,11 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
-
+	current := self.CurrentChain()
+	if block.Height() != current.tailHeight+1 ||
+		block.PrevHash() != current.tailHash {
+		return nil, errors.Errorf("snapshot head not match[%d-%s][%d-%s]", block.Height(), block.PrevHash(), current.tailHeight, current.tailHash)
+	}
 	stat := self.v.verifySnapshot(block)
 	result := stat.verifyResult()
 	switch result {

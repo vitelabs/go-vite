@@ -372,6 +372,7 @@ func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.Blo
 }
 
 func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
+	defer self.version.Inc()
 	err := self.pendingSc.v.verifySnapshotData(block)
 	if err != nil {
 		return err
@@ -394,7 +395,6 @@ func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
 		}
 		self.selfPendingAc(k).checkCurrent()
 	}
-	self.version.Inc()
 	return nil
 }
 
@@ -1001,17 +1001,25 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 	return nil
 }
-func (self *pool) snapshotPendingFix(snapshot *ledger.HashHeight, accs map[types.Address]*ledger.HashHeight) {
+func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pending *snapshotPending) {
+	self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
+
 	self.Lock()
 	defer self.UnLock()
+	if p.Version() != self.version.Val() {
+		self.log.Warn("new version happened.")
+		return
+	}
+	//if self.pendingSc.CurrentChain().tailHash != pending.sPrevHash {
+	//	self.log.Warn("pending prevHash not match")
+	//	return
+	//}
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
-	for k, account := range accs {
-		monitor.LogEvent("pool", "snapshotPending")
+	for k, account := range pending.addrM {
 		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
-		self.fetchAccounts(accounts, snapshot.Height, snapshot.Hash)
 		if e != nil {
 			self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 		}

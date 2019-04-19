@@ -12,10 +12,15 @@ type ConsensusReader interface {
 	GetConsensusDetailByDay(startIndex, endIndex uint64) ([]*core.DayStats, error)
 }
 type VMConsensusReader struct {
-	reader core.SBPStatReader
+	reader SBPStatReader
 }
 
-func NewVmConsensusReader(sr core.SBPStatReader) *VMConsensusReader {
+type SBPStatReader interface {
+	DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error)
+	GetDayTimeIndex() core.TimeIndex
+}
+
+func NewVmConsensusReader(sr SBPStatReader) *VMConsensusReader {
 	return &VMConsensusReader{reader: sr}
 }
 
