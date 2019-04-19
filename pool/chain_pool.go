@@ -699,14 +699,14 @@ func (self *chainPool) checkExchangeRefer(from *forkedChain, to *forkedChain) er
 
 	tailBlock := from.getBlock(to.tailHeight, false)
 	if tailBlock == nil {
-		self.log.Info("from[%s]Detail:%s, to[%s]Details:%s\n", from.id(), to.id(), from.Details(), to.Details())
+		self.log.Info(fmt.Sprintf("from[%s]Detail:%s, to[%s]Details:%s\n", from.id(), to.id(), from.Details(), to.Details()))
 		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[empty]",
 			to.id(), from.id(), to.tailHeight, to.tailHash)
 	}
 	if tailBlock.Hash() == to.tailHash {
 		return nil
 	} else {
-		self.log.Info("from[%s]Detail:%s, to[%s]Details:%s\n", from.id(), to.id(), from.Details(), to.Details())
+		self.log.Info(fmt.Sprintf("from[%s]Detail:%s, to[%s]Details:%s\n", from.id(), to.id(), from.Details(), to.Details()))
 		return errors.Errorf("[%s] and [%s] can't exchange. height[%d], A-Hash[%s], B-Hash[%s]",
 			to.id(), from.id(), to.tailHeight, to.tailHash, tailBlock.Hash())
 	}

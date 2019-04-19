@@ -240,6 +240,7 @@ func (self *forkedChain) prune() {
 	if tail == nil {
 		panic("tail is nil")
 	}
+	self.referChain.prune()
 	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
 		selfB := self.getBlock(i, false)
 		block := self.referChain.getBlock(i, true)
@@ -250,7 +251,6 @@ func (self *forkedChain) prune() {
 			break
 		}
 	}
-	self.referChain.prune()
 }
 
 func (self *forkedChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
