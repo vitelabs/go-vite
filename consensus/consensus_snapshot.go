@@ -67,16 +67,16 @@ func getBaseStats(array LinkedArray, startIndex uint64, endIndex uint64) ([]*cor
 	points := make(map[uint64]*consensus_db.Point)
 
 	var proofHash *types.Hash
-	for i := endIndex - 1; i >= startIndex; i-- {
+	for i := endIndex; i >= startIndex; i-- {
 		var point *consensus_db.Point
 		if proofHash == nil {
-			tmp, err := array.GetByIndex(endIndex)
+			tmp, err := array.GetByIndex(i)
 			if err != nil {
 				return nil, err
 			}
 			point = tmp
 		} else {
-			tmp, err := array.GetByIndexWithProof(endIndex, *proofHash)
+			tmp, err := array.GetByIndexWithProof(i, *proofHash)
 			if err != nil {
 				return nil, err
 			}
@@ -124,17 +124,17 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 	points := make(map[uint64]*consensus_db.Point)
 
 	var proofHash *types.Hash
-	for i := endIndex - 1; i >= startIndex; i-- {
+	for i := endIndex; i >= startIndex; i-- {
 
 		var point *consensus_db.Point
 		if proofHash == nil {
-			tmp, err := self.rw.dayPoints.GetByIndex(endIndex)
+			tmp, err := self.rw.dayPoints.GetByIndex(i)
 			if err != nil {
 				return nil, err
 			}
 			point = tmp
 		} else {
-			tmp, err := self.rw.dayPoints.GetByIndexWithProof(endIndex, *proofHash)
+			tmp, err := self.rw.dayPoints.GetByIndexWithProof(i, *proofHash)
 			if err != nil {
 				return nil, err
 			}
@@ -174,10 +174,10 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 		if p.Votes == nil {
 			continue
 		}
-		stats := &core.DayStats{Stats: make(map[string]*core.SbpStats), Index: i, VoteSum: p.Votes.Total}
+		stats := &core.DayStats{Stats: make(map[string]*core.SbpStats), Index: i, VoteSum: &core.BigInt{Int: p.Votes.Total}}
 
 		for k, v := range p.Votes.Details {
-			stats.Stats[k] = &core.SbpStats{Index: i, VoteCnt: v, Name: k}
+			stats.Stats[k] = &core.SbpStats{Index: i, VoteCnt: &core.BigInt{Int: v}, Name: k}
 		}
 
 		for k, v := range p.Sbps {
@@ -196,7 +196,7 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 }
 
 func (self *snapshotCs) dayVoteStat(b byte, index uint64, proofHash types.Hash) (*consensus_db.VoteContent, error) {
-	votes, err := core.CalVotes(self.info, proofHash, self.rw.rw)
+	votes, err := core.CalVotes(self.info.ConsensusGroupInfo, proofHash, self.rw.rw)
 	if err != nil {
 		return nil, err
 	}
