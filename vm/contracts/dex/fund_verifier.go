@@ -8,20 +8,28 @@ import (
 )
 
 type FundVerifyRes struct {
+	UserCount   int                                   `json:"userCount"`
+	Ok          bool                                  `json:"ok"`
+	VerifyItems map[types.TokenTypeId]*FundVerifyItem `json:"balances"`
+}
+
+type FundVerifyItem struct {
 	TokenId    types.TokenTypeId `json:"tokenId"`
 	Balance    string            `json:"balance"`
 	Amount     string            `json:"amount"`
 	UserAmount string            `json:"userAmount"`
+	UserCount  int               `json:"userCount"`
 	FeeAmount  string            `json:"feeAmount"`
 	FeeOccupy  string            `json:"feeOccupy"`
 	Ok         bool              `json:"ok"`
 }
 
-func VerifyDexFundBalance(db vmctxt_interface.VmDatabase) map[types.TokenTypeId]*FundVerifyRes {
+func VerifyDexFundBalance(db vmctxt_interface.VmDatabase) *FundVerifyRes {
 	userAmountMap := make(map[types.TokenTypeId]*big.Int)
 	feeAmountMap := make(map[types.TokenTypeId]*big.Int)
-	showRes := make(map[types.TokenTypeId]*FundVerifyRes)
-	accumulateUserAccount(db, userAmountMap)
+	verifyItems := make(map[types.TokenTypeId]*FundVerifyItem)
+	count, _ := accumulateUserAccount(db, userAmountMap)
+	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
@@ -37,18 +45,27 @@ func VerifyDexFundBalance(db vmctxt_interface.VmDatabase) map[types.TokenTypeId]
 			amount = userAmount
 		}
 		balance := db.GetBalance(&types.AddressDexFund, &tokenId)
-		showRes[tokenId] = &FundVerifyRes{TokenId: tokenId, Balance: balance.String(), Amount: amount.String(), UserAmount: userAmount.String(), FeeAmount: feeAmount.String(), FeeOccupy: feeOccupy, Ok: amount.Cmp(balance) == 0}
+		ok = amount.Cmp(balance) == 0
+		verifyItems[tokenId] = &FundVerifyItem{TokenId: tokenId, Balance: balance.String(), Amount: amount.String(), UserAmount: userAmount.String(), FeeAmount: feeAmount.String(), FeeOccupy: feeOccupy, Ok: ok}
+		if !ok {
+			balanceMatch = false
+		}
 	}
-	return showRes
+	return &FundVerifyRes{
+		count,
+		balanceMatch,
+		verifyItems,
+	}
 }
 
-func accumulateUserAccount(db vmctxt_interface.VmDatabase, accumulateRes map[types.TokenTypeId]*big.Int) (error) {
+func accumulateUserAccount(db vmctxt_interface.VmDatabase, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
 	var (
 		userAccountValue []byte
 		userFund         *UserFund
 		err              error
 		ok               bool
 	)
+	var count = 0
 	iterator := db.NewStorageIterator(&types.AddressDexFund, fundKeyPrefix)
 	for {
 		if _, userAccountValue, ok = iterator.Next(); !ok {
@@ -56,23 +73,24 @@ func accumulateUserAccount(db vmctxt_interface.VmDatabase, accumulateRes map[typ
 		}
 		userFund = &UserFund{}
 		if userFund, err = userFund.DeSerialize(userAccountValue); err != nil {
-			return err
+			return 0, err
 		}
 		for _, acc := range userFund.Accounts {
 			tokenId, _ := types.BytesToTokenTypeId(acc.Token)
 			total := AddBigInt(acc.Available, acc.Locked)
 			accAccount(tokenId, total, accumulateRes)
 		}
+		count++
 	}
-	return nil
+	return count, nil
 }
 
 func accumulateFeeAccount(db vmctxt_interface.VmDatabase, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
 		feeSumValue, donateFeeSumValue []byte
-		feeSum      *FeeSumByPeriod
-		err         error
-		ok          bool
+		feeSum                         *FeeSumByPeriod
+		err                            error
+		ok                             bool
 	)
 	iterator := db.NewStorageIterator(&types.AddressDexFund, feeSumKeyPrefix)
 	for {

@@ -141,7 +141,7 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 
 func innerTestVerifyBalance(t *testing.T, db *testDatabase) {
 	resMap := dex.VerifyDexFundBalance(db)
-	for _, v := range resMap {
+	for _, v := range resMap.VerifyItems {
 		if v.TokenId != vxTokenId {
 			//fmt.Printf("token %s, balance %s, amount %s, ok %v\n", string(v.TokenId.Bytes()), v.Balance, v.Amount, v.Ok)
 			assert.True(t, v.Ok)
