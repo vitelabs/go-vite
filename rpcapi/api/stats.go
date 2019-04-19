@@ -44,7 +44,7 @@ func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]
 	reader := c.cs.SBPReader()
 
 	timeIndex := reader.GetHourTimeIndex()
-	if startIdx == 0 {
+	if startIdx > endIdx {
 		startIdx, endIdx = c.reIndex(timeIndex)
 	}
 	// hour
