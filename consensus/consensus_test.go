@@ -663,7 +663,7 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 
 func TestConsensus(t *testing.T) {
 	//dir := UnitTestDir
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_3/devdata"
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
@@ -731,40 +731,54 @@ func TestChainSnapshot(t *testing.T) {
 }
 
 func TestChainAcc(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_3/devdata"
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-	addr := types.HexToAddressPanic("vite_40996a2ba285ad38930e09a43ee1bd0d84f756f65318e8073a")
+	addr := types.HexToAddressPanic("vite_00000000000000000000000000000000000000042d7ef71894")
 	prev, err := c.GetLatestAccountBlock(addr)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, prev)
+	t.Log(prev)
+	return
 
 	for i := uint64(1); i <= prev.Height; i++ {
 		block, err := c.GetAccountBlockByHeight(addr, i)
 		if err != nil {
 			panic(err)
 		}
-		u, e := c.GetConfirmedTimes(block.Hash)
+		u, e := c.GetConfirmSnapshotHeaderByAbHash(block.Hash)
 		if e != nil {
 			panic(e)
 		}
 
-		fmt.Printf("height:%d, producer:%s, hash:%s, %d\n", block.Height, block.Producer(), block.Hash, u)
+		fmt.Printf("height:%d, producer:%s, hash:%s, %s, %d\n", block.Height, block.Producer(), block.Hash, u.Hash, u.Height)
+		if i > 3000 {
+			break
+		}
 	}
 }
 
 func TestChainAll(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_3/devdata"
+	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
 	genesisJson := GenesisJson
 	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
+
+	//block, e := c.GetSnapshotHeaderByHash(types.HexToHashPanic("35484e694fc9318c3de98311a95b92918a5c4a0d2a392493ee534b82d71923b6"))
+	//
+	//if e != nil {
+	//	t.Error(e)
+	//	t.FailNow()
+	//}
+	//t.Log(block)
+	//return
 
 	prev := c.GetLatestSnapshotBlock()
 	assert.NotNil(t, prev)
