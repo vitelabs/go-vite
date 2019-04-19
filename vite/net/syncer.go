@@ -303,7 +303,7 @@ func (s *syncer) sync(syncPeerHeight uint64) {
 func (s *syncer) cancelTasks() {
 	local := s.getLocalHeight()
 
-	s.downloader.cancel(local, s.to)
+	s.downloader.cancel(local)
 }
 
 func (s *syncer) createTasks() {
@@ -330,8 +330,7 @@ func (s *syncer) createTasks() {
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
 	if s.to > to {
-		s.downloader.cancel(to+1, s.to)
-		s.to = to
+		s.to = s.downloader.cancel(to + 1)
 	} else {
 		if atomic.LoadInt32(&s.pending) == 1 {
 			s.to = to

@@ -164,13 +164,39 @@ func TestExecutor_cancel(t *testing.T) {
 	exec.download(21, 30, false)
 	exec.download(31, 40, false)
 
-	exec.cancel(13, 50)
+	exec.cancel(13)
 
 	if len(exec.tasks) != 2 {
 		t.Errorf("wrong tasks length: %d", len(exec.tasks))
 	}
 	if exec.tasks[1].from != 11 || exec.tasks[1].to != 12 {
 		t.Errorf("wrong task")
+	}
+}
+
+func TestCancelTasks(t *testing.T) {
+	var tasks = syncTasks{
+		{from: 1, to: 10},
+		{from: 11, to: 20},
+		{from: 21, to: 30},
+		{from: 31, to: 40},
+		{from: 41, to: 50},
+		{from: 51, to: 60},
+	}
+
+	tasks, end := cancelTasks(tasks, 15)
+	var cs = [][2]uint64{{1, 10}}
+	if len(tasks) != len(cs) {
+		t.Errorf("wrong tasks: %d", len(tasks))
+	} else {
+		if end != cs[len(cs)-1][1] {
+			t.Errorf("wrong end: %d", end)
+		}
+		for i, t2 := range tasks {
+			if t2.from != cs[i][0] || t2.to != cs[i][1] {
+				t.Errorf("wrong task: %v", t2)
+			}
+		}
 	}
 }
 
@@ -200,6 +226,7 @@ func TestRunTasks(t *testing.T) {
 		{
 			from: 26,
 			to:   30,
+			st:   reqCancel,
 		},
 		{
 			from: 31,

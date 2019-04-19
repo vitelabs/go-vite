@@ -1,7 +1,6 @@
 package net
 
 import (
-	"context"
 	"fmt"
 	net2 "net"
 	"sort"
@@ -14,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type reqState byte
+type reqState = int32
 
 const (
 	reqWaiting reqState = iota
@@ -32,29 +31,36 @@ var reqStatus = map[reqState]string{
 	reqCancel:  "canceled",
 }
 
-func (s reqState) String() string {
-	if str, ok := reqStatus[s]; ok {
-		return str
-	}
-
-	return "unknown request state"
-}
-
 type syncTask struct {
-	from, to  uint64
-	st        reqState
-	doneAt    time.Time
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	from, to uint64
+	st       reqState
+	doneAt   time.Time
 }
 
 func (t *syncTask) String() string {
-	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + t.st.String()
+	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + reqStatus[t.st]
+}
+
+func (t *syncTask) wait() {
+	t.st = reqWaiting
 }
 
 func (t *syncTask) cancel() {
-	if t.ctxCancel != nil {
-		t.ctxCancel()
+	t.st = reqCancel
+}
+
+func (t *syncTask) pending() {
+	t.st = reqPending
+}
+
+func (t *syncTask) done() {
+	t.st = reqDone
+	t.doneAt = time.Now()
+}
+
+func (t *syncTask) error() {
+	if t.st == reqPending {
+		t.st = reqError
 	}
 }
 
@@ -236,7 +242,7 @@ type syncDownloader interface {
 	// must will download the task regardless of task repeat
 	download(from, to uint64, must bool) bool
 	// cancel tasks between from and to
-	cancel(from, to uint64)
+	cancel(from uint64) (end uint64)
 	addListener(listener taskListener)
 }
 
@@ -254,8 +260,6 @@ type executor struct {
 	dialer  *net2.Dialer
 
 	listeners []taskListener
-	ctx       context.Context
-	ctxCancel context.CancelFunc
 	running   bool
 	wg        sync.WaitGroup
 
@@ -290,7 +294,6 @@ func (e *executor) start() {
 	}
 
 	e.running = true
-	e.ctx, e.ctxCancel = context.WithCancel(context.Background())
 
 	e.tasks = e.tasks[:0]
 
@@ -308,7 +311,6 @@ func (e *executor) stop() {
 	e.running = false
 	e.mu.Unlock()
 
-	e.ctxCancel()
 	e.cond.Broadcast()
 	e.wg.Wait()
 }
@@ -384,40 +386,48 @@ func (e *executor) download(from, to uint64, must bool) bool {
 	return true
 }
 
-func (e *executor) cancel(from, to uint64) {
+func (e *executor) cancel(from uint64) (end uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	var total = len(e.tasks)
+	e.tasks, end = cancelTasks(e.tasks, from)
+	return
+}
+
+// cancel tasks if `t.to > from`
+func cancelTasks(tasks syncTasks, from uint64) (tasks2 syncTasks, end uint64) {
+	var total = len(tasks)
 
 	if total == 0 {
-		return
+		return tasks, 0
 	}
 
 	var j int
+	var t *syncTask
 	for i := total - 1; i > -1; i-- {
-		t := e.tasks[i]
-		if t.from >= from {
+		t = tasks[i]
+		if t.to > from {
 			t.cancel()
 			j++
 			continue
 		}
 
-		if t.to > from {
-			t.to = from - 1
-		}
-
 		break
 	}
 
-	e.tasks = e.tasks[:total-j]
+	total = total - j
+	tasks = tasks[:total]
+	if total > 0 {
+		end = tasks[total-1].to
+	}
+
+	return tasks, end
 }
 
 func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 	var total = len(tasks)
 	var now = time.Now()
 
-	var done = 0
 	var clean = 0 // clean continuous done tasks
 	var continuous = true
 
@@ -425,12 +435,18 @@ func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 	var batch = 0
 	var t *syncTask
 
-	for index = done; index < total; index = done + batch {
+	for index = 0; index < total; index += batch {
 		t = tasks[index]
 
 		if t.st == reqDone {
-			done++
+			index++
 			if continuous && now.Sub(t.doneAt) > 5*time.Second {
+				clean++
+			}
+			continue
+		} else if t.st == reqCancel {
+			index++
+			if continuous {
 				clean++
 			}
 			continue
@@ -485,7 +501,7 @@ Loop:
 }
 
 func (e *executor) run(t *syncTask) {
-	t.st = reqPending
+	t.pending()
 
 	go e.do(t)
 }
@@ -554,10 +570,6 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 }
 
 func (e *executor) do(t *syncTask) {
-	if t.ctx == nil {
-		t.ctx, t.ctxCancel = context.WithCancel(e.ctx)
-	}
-
 	var p downloadPeer
 	var c syncConnection
 	var err error
@@ -567,26 +579,24 @@ func (e *executor) do(t *syncTask) {
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
-			t.st = reqDone
+			t.done()
 		}
 	} else if p != nil {
 		if c, err = e.createConn(p); err == nil {
 			if err = e.doJob(c, t.from, t.to); err == nil {
 				// downloaded
-				t.st = reqDone
+				t.done()
 			}
 		}
 	} else {
 		// no idle peers
-		t.st = reqWaiting
+		t.wait()
 	}
 
-	if t.st == reqPending {
-		t.st = reqError
-	}
+	// only t.st == reqPending
+	t.error()
 
 	if t.st == reqDone {
-		t.doneAt = time.Now()
 		e.notify(t, err)
 	}
 }

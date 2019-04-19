@@ -232,8 +232,9 @@ func (m *mockSyncDownloader) download(from, to uint64, must bool) bool {
 	return true
 }
 
-func (m *mockSyncDownloader) cancel(from, to uint64) {
-	fmt.Printf("cancel %d-%d", from, to)
+func (m *mockSyncDownloader) cancel(from uint64) (end uint64) {
+	fmt.Printf("cancel %d", from)
+	return 0
 }
 
 func (m *mockSyncDownloader) addListener(listener taskListener) {
