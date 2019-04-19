@@ -240,7 +240,7 @@ func createRPCTransferBlockS(vite *VitePrepared) ([]*ledger.AccountBlock, error)
 
 func createRPCTransferBlocksR(vite *VitePrepared) ([]*ledger.AccountBlock, error) {
 	var receiveBlocks []*ledger.AccountBlock
-	sBlocks, err := vite.onroad.DbAccess().GetAllOnroadBlocks(addr1)
+	sBlocks, err := vite.onroad.DbAccess().GetAllOnroadBlocks(&addr1)
 	if err != nil {
 		return nil, err
 	}
