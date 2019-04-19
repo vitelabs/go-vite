@@ -32,7 +32,7 @@ func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
 
 func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error) {
 	// cache
-	if block := c.cache.GetAccountBlockByHeight(&addr, height); block != nil {
+	if block := c.cache.GetAccountBlockByHeight(addr, height); block != nil {
 		return block, nil
 	}
 
@@ -105,7 +105,6 @@ func (c *chain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 }
 
 // query receive block of send block
-// TODO cache
 func (c *chain) GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
 	receiveBlockHash, err := c.indexDB.GetReceivedBySend(&sendBlockHash)
 	if err != nil {
@@ -211,7 +210,7 @@ func (c *chain) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 }
 
 func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
-	if block := c.cache.GetLatestAccountBlock(&addr); block != nil {
+	if block := c.cache.GetLatestAccountBlock(addr); block != nil {
 		return block, nil
 	}
 
@@ -226,14 +225,10 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 		return nil, nil
 	}
 
-	// cache
-	if block := c.cache.GetAccountBlockByHeight(&addr, height); block != nil {
-		return block, nil
+	if location == nil {
+		return c.GetAccountBlockByHeight(addr, height)
 	}
 
-	if location == nil {
-		return nil, nil
-	}
 	// query block
 	block, err := c.blockDB.GetAccountBlock(location)
 
@@ -248,7 +243,7 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 }
 
 func (c *chain) GetLatestAccountHeight(addr types.Address) (uint64, error) {
-	if block := c.cache.GetLatestAccountBlock(&addr); block != nil {
+	if block := c.cache.GetLatestAccountBlock(addr); block != nil {
 		return block.Height, nil
 	}
 
@@ -272,7 +267,7 @@ func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_file_man
 	index := 0
 
 	for currentHeight >= startHeight {
-		block := c.cache.GetAccountBlockByHeight(&addr, currentHeight)
+		block := c.cache.GetAccountBlockByHeight(addr, currentHeight)
 		if block == nil {
 			if len(locations) <= index || locations[index] == nil {
 				return nil, nil

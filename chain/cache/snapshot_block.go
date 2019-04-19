@@ -37,7 +37,6 @@ func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk
 
 	if !hasStorageRedoLog {
 		cache.quotaList.NewEmptyNext()
-
 	}
 	//deletedChunksLength := len(deletedChunks)
 	//rollbackNumber := deletedChunksLength - 1
