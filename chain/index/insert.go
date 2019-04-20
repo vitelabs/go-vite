@@ -40,9 +40,6 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
 	}
 
-	// latest on road id
-	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
-
 	// write snapshot
 	iDB.store.WriteSnapshot(batch, confirmedBlocks)
 }
@@ -70,24 +67,18 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 			batch.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
 
 			// receive on road
-			if err := iDB.deleteOnRoad(batch, accountBlock.FromBlockHash); err != nil {
-				return err
-			}
+			iDB.deleteOnRoad(batch, accountBlock.AccountAddress, accountBlock.FromBlockHash)
 		}
 	} else {
 		// insert on road block
-		if err := iDB.insertOnRoad(batch, accountBlock.Hash, accountBlock.ToAddress); err != nil {
-			return err
-		}
+		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock.Hash)
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
 		// send block hash -> addr & height
 		batch.Put(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash), addrHeightValue)
 		// insert on road block
-		if err := iDB.insertOnRoad(batch, sendBlock.Hash, sendBlock.ToAddress); err != nil {
-			return err
-		}
+		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock.Hash)
 	}
 
 	return nil

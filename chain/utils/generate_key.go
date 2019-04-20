@@ -45,31 +45,40 @@ func CreateAccountAddressKey(addr *types.Address) []byte {
 	return key
 }
 
-func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
+func CreateOnRoadKey(toAddr types.Address, blockHash types.Hash) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+types.HashSize)
 	key = append(key, OnRoadKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToBytes(id)...)
+	key = append(key, toAddr.Bytes()...)
+	key = append(key, blockHash.Bytes()...)
+
 	return key
 }
 
-func CreateOnRoadPrefixKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, OnRoadKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	return key
-}
-
-func CreateOnRoadReverseKey(reverseKey []byte) []byte {
-	key := make([]byte, 0, 1+len(reverseKey))
-	key = append(key, OnRoadReverseKeyPrefix)
-	key = append(key, reverseKey...)
-	return key
-}
-
-func CreateLatestOnRoadIdKey() []byte {
-	return []byte{LatestOnRoadIdKeyPrefix}
-}
+//func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize+8)
+//	key = append(key, OnRoadKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	key = append(key, Uint64ToBytes(id)...)
+//	return key
+//}
+//
+//func CreateOnRoadPrefixKey(addr *types.Address) []byte {
+//	key := make([]byte, 0, 1+types.AddressSize)
+//	key = append(key, OnRoadKeyPrefix)
+//	key = append(key, addr.Bytes()...)
+//	return key
+//}
+//
+//func CreateOnRoadReverseKey(reverseKey []byte) []byte {
+//	key := make([]byte, 0, 1+len(reverseKey))
+//	key = append(key, OnRoadReverseKeyPrefix)
+//	key = append(key, reverseKey...)
+//	return key
+//}
+//
+//func CreateLatestOnRoadIdKey() []byte {
+//	return []byte{LatestOnRoadIdKeyPrefix}
+//}
 
 func CreateAccountIdKey(accountId uint64) []byte {
 	key := make([]byte, 0, 9)

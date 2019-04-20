@@ -230,11 +230,9 @@ type Chain interface {
 	GetSyncCache() interfaces.SyncCache
 
 	// ====== OnRoad ======
-	HasOnRoadBlocks(address types.Address) (bool, error)
+	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]uint64, error)
 
-	GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error)
-
-	DeleteOnRoad(sendBlockHash types.Hash) error
+	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
 

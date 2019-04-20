@@ -13,7 +13,6 @@ type IndexDB struct {
 	store *chain_db.Store
 
 	latestAccountId uint64
-	latestOnRoadId  uint64
 }
 
 func NewIndexDB(chainDir string) (*IndexDB, error) {
@@ -34,20 +33,12 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 		return nil, err
 	}
 
-	iDB.latestOnRoadId, err = iDB.queryLatestOnRoadId()
-	if err != nil {
-		return nil, err
-	}
-
 	return iDB, nil
 }
 
 func (iDB *IndexDB) CleanAllData() error {
 	// clean latestAccountId
 	iDB.latestAccountId = 0
-
-	// clean latestOnRoadId
-	iDB.latestOnRoadId = 0
 
 	// clean store
 	if err := iDB.store.Clean(); err != nil {

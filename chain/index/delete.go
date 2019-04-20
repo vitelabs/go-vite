@@ -40,27 +40,24 @@ func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 	return nil
 }
 
-func (iDB *IndexDB) DeleteOnRoad(sendBlockHash types.Hash) error {
+func (iDB *IndexDB) DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) {
 	batch := iDB.store.NewBatch()
-	if err := iDB.deleteOnRoad(batch, sendBlockHash); err != nil {
-		return err
-	}
+	iDB.deleteOnRoad(batch, toAddress, sendBlockHash)
 	iDB.store.WriteDirectly(batch)
-	return nil
 }
 
 func (iDB *IndexDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*ledger.SnapshotChunk) error {
-	openSendBlockHashMap := make(map[types.Hash]struct{})
+	openSendBlock := make(map[types.Hash]*ledger.AccountBlock)
 
 	for _, seg := range deletedSnapshotSegments {
-		if err := iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlockHashMap); err != nil {
+		if err := iDB.deleteAccountBlocks(batch, seg.AccountBlocks, openSendBlock); err != nil {
 			return err
 		}
 		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
 	}
 
-	for sendBlockHash := range openSendBlockHashMap {
-		iDB.deleteOnRoad(batch, sendBlockHash)
+	for sendBlockHash, sendBlock := range openSendBlock {
+		iDB.deleteOnRoad(batch, sendBlock.ToAddress, sendBlockHash)
 	}
 	return nil
 }
@@ -77,7 +74,7 @@ func (iDB *IndexDB) deleteSnapshotBlock(batch *leveldb.Batch, snapshotBlock *led
 	}
 }
 
-func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock, sendBlockHashMap map[types.Hash]struct{}) error {
+func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock, sendBlockHashMap map[types.Hash]*ledger.AccountBlock) error {
 	for _, block := range blocks {
 		// delete account block hash index
 		iDB.deleteAccountBlockHash(batch, block.Hash)
@@ -93,19 +90,17 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				delete(sendBlockHashMap, block.FromBlockHash)
 			} else {
 				// insert onRoad
-				if err := iDB.insertOnRoad(batch, block.FromBlockHash, block.AccountAddress); err != nil {
-					return err
-				}
+				iDB.insertOnRoad(batch, block.AccountAddress, block.FromBlockHash)
 			}
 		} else {
-			sendBlockHashMap[block.Hash] = struct{}{}
+			sendBlockHashMap[block.Hash] = block
 		}
 		for _, sendBlock := range block.SendBlockList {
 			// delete sendBlock hash index
 			iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
 
 			// set open send
-			sendBlockHashMap[sendBlock.Hash] = struct{}{}
+			sendBlockHashMap[sendBlock.Hash] = sendBlock
 		}
 
 	}

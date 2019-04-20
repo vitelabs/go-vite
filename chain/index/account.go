@@ -1,7 +1,6 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -69,18 +68,4 @@ func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
 	}
 
 	return latestAccountId, nil
-}
-
-func (iDB *IndexDB) queryLatestOnRoadId() (uint64, error) {
-	value, err := iDB.store.Get(chain_utils.CreateLatestOnRoadIdKey())
-	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return 0, nil
-		}
-		return 0, err
-	}
-	if len(value) <= 0 {
-		return 0, nil
-	}
-	return chain_utils.BytesToUint64(value), nil
 }

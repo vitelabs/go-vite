@@ -8,40 +8,24 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) HasOnRoadBlocks(address types.Address) (bool, error) {
-	result, err := c.indexDB.HasOnRoadBlocks(&address)
+func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]uint64, error) {
+	addrList, err := c.GetContractList(gid)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.HasOnRoadBlocks failed, error is %s, address is %s", err, address))
-		c.log.Error(cErr.Error(), "method", "HasOnRoadBlocks")
-		return false, cErr
+		return nil, err
 	}
-	return result, nil
+
+	onRoadData, err := c.indexDB.Load(addrList)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err))
+		c.log.Error(cErr.Error(), "method", "LoadOnRoad")
+	}
+
+	return onRoadData, nil
+
 }
 
-func (c *chain) GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error) {
-	result, err := c.indexDB.GetOnRoadBlocksHashList(&address, pageNum, countPerPage)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.GetOnRoadBlocksHashList failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
-			err, address, pageNum, countPerPage))
-
-		c.log.Error(cErr.Error(), "method", "GetOnRoadBlocksHashList")
-		return nil, cErr
-	}
-	return result, nil
-}
-
-func (c *chain) DeleteOnRoad(sendBlockHash types.Hash) error {
-	//c.flusherMu.RLock()
-	//defer c.flusherMu.RUnlock()
-
-	if err := c.indexDB.DeleteOnRoad(sendBlockHash); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.DeleteOnRoad failed, blockHash is %s. Error: %s",
-			sendBlockHash, err))
-
-		c.log.Error(cErr.Error(), "method", "GetOnRoadBlocksHashList")
-		return cErr
-	}
-	return nil
+func (c *chain) DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) {
+	c.indexDB.DeleteOnRoad(toAddress, sendBlockHash)
 }
 
 func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
