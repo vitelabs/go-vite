@@ -843,7 +843,7 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 		}
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height(), block.Hash())
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
 			result = false
 		}
 	}
@@ -925,7 +925,7 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 		}
 		fc := ac.findInTreeDiskTmp(v.hash, v.accHeight, true, v.snapshotHeight)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight, *v.snapshotHash)
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, *v.chain, 1, v.snapshotHeight, *v.snapshotHash)
 		}
 	}
 	return nil
@@ -1049,7 +1049,7 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 			if hashH.Height > head {
 				u = hashH.Height - head
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
+			ac.f.fetchBySnapshot(*hashH, addr, u, sHeight, sHash)
 		}
 	}
 

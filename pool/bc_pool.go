@@ -699,7 +699,6 @@ func (self *BCPool) info() map[string]interface{} {
 	result["FreeSize"] = len(bp.freeBlocks)
 	result["CompoundSize"] = len(bp.compoundBlocks)
 	result["SnippetSize"] = len(cp.snippetChains)
-	//result["ChainSize"] = len(cp.)
 	result["CurrentLen"] = cp.tree.Main().Size()
 	var snippetIds []interface{}
 	for _, v := range cp.snippetChains {
@@ -708,12 +707,26 @@ func (self *BCPool) info() map[string]interface{} {
 	result["Snippets"] = snippetIds
 	var chainIds []interface{}
 	for _, v := range cp.allChain() {
-		chainIds = append(chainIds, v.Id())
+		chainIds = append(chainIds, self.branchInfo(v))
 	}
 	result["Chains"] = chainIds
-	//result["Current"] = cp.current.info()
-	//result["Disk"] = cp.diskChain.info()
+	result["ChainSize"] = len(chainIds)
+	result["Current"] = self.branchInfo(cp.tree.Main())
+	result["Disk"] = self.branchInfo(cp.diskChain)
 
+	return result
+}
+
+func (self *BCPool) branchInfo(b tree.Branch) interface{} {
+	result := make(map[string]interface{})
+	result["Id"] = b.Id()
+	if b.Type() == tree.Normal {
+		result["Head"] = b.SprintHead()
+		result["Tail"] = b.SprintTail()
+		result["Root"] = b.Root().Id()
+	} else {
+		result["Head"] = b.SprintHead()
+	}
 	return result
 }
 

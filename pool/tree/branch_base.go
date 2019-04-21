@@ -72,7 +72,7 @@ func (self *branchBase) addHead(w Knot) {
 }
 
 func (self *branchBase) MatchHead(hash types.Hash) bool {
-	if self.headHash != hash {
+	if self.headHash == hash {
 		return true
 	}
 	return false

@@ -495,7 +495,7 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 			if hashH.Height > head {
 				u = hashH.Height - head
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
+			ac.f.fetchBySnapshot(*hashH, addr, u, sHeight, sHash)
 		}
 	}
 

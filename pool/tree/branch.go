@@ -88,10 +88,6 @@ func (self *branch) Type() BranchType {
 }
 
 func (self *branch) prune() {
-	tail := self.root.GetKnot(self.tailHeight, false)
-	if tail == nil {
-		panic("tail is nil")
-	}
 	if self.root.Type() == Normal {
 		self.root.(*branch).prune()
 	}
@@ -159,7 +155,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 
 func (self *branch) updateRootSimple(old Branch, new Branch) {
 	self.root = new
-	if new.Type() == Disk {
+	if new.Type() == Normal {
 		new.(*branch).addChild(self)
 	}
 }

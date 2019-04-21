@@ -43,7 +43,8 @@ func (self *chainPool) forkChain(forked tree.Branch, snippet *snippetChain) (tre
 	//self.addChain(new)
 
 	new := self.tree.ForkBranch(forked, snippet.tailHeight, snippet.tailHash)
-	for _, v := range snippet.heightBlocks {
+	for i := snippet.tailHeight + 1; i <= snippet.headHeight; i++ {
+		v := snippet.heightBlocks[i]
 		new.AddHead(v)
 	}
 
