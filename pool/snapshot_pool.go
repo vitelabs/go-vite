@@ -387,9 +387,10 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 	current := self.CurrentChain()
-	if block.Height() != current.tailHeight+1 ||
-		block.PrevHash() != current.tailHash {
-		return nil, errors.Errorf("snapshot head not match[%d-%s][%d-%s]", block.Height(), block.PrevHash(), current.tailHeight, current.tailHash)
+	tailHeight, tailHash := current.TailHH()
+	if block.Height() != tailHeight+1 ||
+		block.PrevHash() != tailHash {
+		return nil, errors.Errorf("snapshot head not match[%d-%s][%s]", block.Height(), block.PrevHash(), current.SprintTail())
 	}
 	stat := self.v.verifySnapshot(block)
 	result := stat.verifyResult()
@@ -485,7 +486,7 @@ func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
 //
 //	return blocks, nil
 //}
-func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64) {
+func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
 		ac := self.pool.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {

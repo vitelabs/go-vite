@@ -875,9 +875,9 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	var reqs []*fetchRequest
 	j := 0
 	tailHeight, _ := fc.TailHH()
-	headHeight, _ := fc.HeadHH()
+	headHeight, headHash := fc.HeadHH()
 	addrM := make(map[types.Address]*ledger.HashHeight)
-	for i := fc.tailHeight + 1; i <= fc.headHeight; i++ {
+	for i := tailHeight + 1; i <= headHeight; i++ {
 		j++
 		b := fc.GetKnot(i, false)
 		if b == nil {
@@ -910,8 +910,8 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 			hash:           v.Hash,
 			accHeight:      v.Height,
 			prevCnt:        1,
-			snapshotHash:   &fc.headHash,
-			snapshotHeight: fc.headHeight,
+			snapshotHash:   &headHash,
+			snapshotHeight: headHeight,
 		})
 	}
 

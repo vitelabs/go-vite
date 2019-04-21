@@ -76,17 +76,18 @@ func (self *chain) ChainId() string {
 func (self *chain) id() string {
 	return self.chainId
 }
-func (self *chain) detail() map[string]interface{} {
-	blocks := copyValues(self.heightBlocks)
-	sort.Sort(ByHeight(blocks))
-	result := make(map[string]interface{})
-	var bList []string
-	for _, v := range blocks {
-		bList = append(bList, fmt.Sprintf("%d-%s-%s", v.Height(), v.Hash(), v.PrevHash()))
-	}
-	result["Blocks"] = bList
-	return result
-}
+
+//func (self *chain) detail() map[string]interface{} {
+//	blocks := copyValues(self.heightBlocks)
+//	sort.Sort(ByHeight(blocks))
+//	result := make(map[string]interface{})
+//	var bList []string
+//	for _, v := range blocks {
+//		bList = append(bList, fmt.Sprintf("%d-%s-%s", v.Height(), v.Hash(), v.PrevHash()))
+//	}
+//	result["Blocks"] = bList
+//	return result
+//}
 
 type snippetChain struct {
 	chain
@@ -197,8 +198,6 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return err
 	}
 
-
-	block.PrevHash() == current.tailHash {
 	if cur.Linked(disk) {
 		self.log.Info("poolChain and db is connected.", "headHeight", headHeight, "headHash", headHash)
 		return nil
@@ -254,12 +253,13 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 	}
 	return nil
 }
+
 // check blocks is a chain
 func (self *BCPool) printf(blocks []commonBlock) string {
 	result := ""
 	for _, v := range blocks {
-	result += fmt.Sprintf("[%d-%s-%s]", v.Height(), v.Hash(), v.PrevHash())
-}
+		result += fmt.Sprintf("[%d-%s-%s]", v.Height(), v.Hash(), v.PrevHash())
+	}
 	return result
 }
 

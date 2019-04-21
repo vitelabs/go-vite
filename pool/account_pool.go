@@ -420,14 +420,15 @@ func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk boo
 	return nil
 }
 
-func (self *accountPool) findInTreeDiskTmp(hash types.Hash, height uint64, disk bool, sHeight uint64) *forkedChain {
-	block := self.chainpool.current.getBlock(height, disk)
+func (self *accountPool) findInTreeDiskTmp(hash types.Hash, height uint64, disk bool, sHeight uint64) tree.Branch {
+	cur := self.CurrentChain()
+	block := cur.GetKnot(height, disk)
 	if block != nil && block.Hash() == hash {
-		return self.chainpool.current
+		return cur
 	}
 
 	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
+		b := c.GetKnot(height, false)
 
 		if b == nil {
 			continue
@@ -454,9 +455,10 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	defer self.chainTailMu.Unlock()
 
 	current := self.CurrentChain()
-	if received.Height() != current.tailHeight+1 ||
-		received.PrevHash() != current.tailHash {
-		return errors.Errorf("account head not match[%d-%s][%d-%s]", received.Height(), received.PrevHash(), current.tailHeight, current.tailHash)
+	tailHeight, tailHash := current.TailHH()
+	if received.Height() != tailHeight+1 ||
+		received.PrevHash() != tailHash {
+		return errors.Errorf("account head not match[%d-%s][%s]", received.Height(), received.PrevHash(), current.SprintTail())
 	}
 
 	self.checkCurrent()
