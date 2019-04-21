@@ -36,11 +36,9 @@ func (p *MethodMint) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err = CheckMintToken(*param); err != nil {
 		return err
 	}
-	tokenId := abi.NewTokenId(block.AccountAddress, block.Height, block.PrevHash)
 	block.Data, _ = abi.ABIMintage.PackMethod(
 		abi.MethodNameMint,
 		param.IsReIssuable,
-		tokenId,
 		param.TokenName,
 		param.TokenSymbol,
 		param.TotalSupply,
@@ -73,16 +71,35 @@ func CheckMintToken(param abi.ParamMintage) error {
 	}
 	return nil
 }
-func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamMintage)
 	abi.ABIMintage.UnpackMethod(param, abi.MethodNameMint, sendBlock.Data)
-	key := abi.GetMintageKey(param.TokenId)
+	tokenId := abi.NewTokenId(sendBlock.AccountAddress, block.Height, sendBlock.Hash)
+	key := abi.GetMintageKey(tokenId)
 	v, err := db.GetValue(key)
 	util.DealWithErr(err)
 	if len(v) > 0 {
 		return nil, util.ErrIdCollision
 	}
+	nextIndex := uint16(0)
+	nextIndexKey := abi.GetNextIndexKey(param.TokenSymbol)
+	nextV, err := db.GetValue(nextIndexKey)
+	util.DealWithErr(err)
+	if len(nextV) > 0 {
+		nextIndexPtr := new(uint16)
+		abi.ABIMintage.UnpackVariable(nextIndexPtr, abi.VariableNameTokenNameIndex, nextV)
+		nextIndex = *nextIndexPtr
+	}
+	if nextIndex == tokenNameIndexMax {
+		return nil, util.ErrInvalidMethodParam
+	}
+
+	ownerTokenIdListKey := abi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
+	oldIdList, err := db.GetValue(ownerTokenIdListKey)
+	util.DealWithErr(err)
+
 	var tokenInfo []byte
+	// TODO get index
 	if sendBlock.Amount.Sign() == 0 {
 		tokenInfo, _ = abi.ABIMintage.PackVariable(
 			abi.VariableNameTokenInfo,
@@ -96,7 +113,8 @@ func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 			sendBlock.AccountAddress,
 			param.IsReIssuable,
 			param.MaxSupply,
-			param.OwnerBurnOnly)
+			param.OwnerBurnOnly,
+			nextIndex)
 	} else {
 		tokenInfo, _ = abi.ABIMintage.PackVariable(
 			abi.VariableNameTokenInfo,
@@ -106,26 +124,26 @@ func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 			param.Decimals,
 			sendBlock.AccountAddress,
 			sendBlock.Amount,
-			globalStatus.SnapshotBlock().Height+nodeConfig.params.MintPledgeHeight,
+			vm.GlobalStatus().SnapshotBlock().Height+nodeConfig.params.MintPledgeHeight,
 			sendBlock.AccountAddress,
 			param.IsReIssuable,
 			param.MaxSupply,
-			param.OwnerBurnOnly)
+			param.OwnerBurnOnly,
+			nextIndex)
 	}
 	db.SetValue(key, tokenInfo)
-	ownerTokenIdListKey := abi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
-	oldIdList, err := db.GetValue(ownerTokenIdListKey)
-	util.DealWithErr(err)
-	db.SetValue(ownerTokenIdListKey, abi.AppendTokenId(oldIdList, param.TokenId))
+	db.SetValue(ownerTokenIdListKey, abi.AppendTokenId(oldIdList, tokenId))
+	nextV, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenNameIndex, nextIndex+1)
+	db.SetValue(nextIndexKey, nextV)
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameMint, param.TokenId))
+	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameMint, tokenId))
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
 			ToAddress:      sendBlock.AccountAddress,
 			BlockType:      ledger.BlockTypeSendReward,
 			Amount:         param.TotalSupply,
-			TokenId:        param.TokenId,
+			TokenId:        tokenId,
 			Data:           []byte{},
 		},
 	}, nil
@@ -157,14 +175,14 @@ func (p *MethodMintageCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameCancelMintPledge, *tokenId)
 	return nil
 }
-func (p *MethodMintageCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodMintageCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenId := new(types.TokenTypeId)
 	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameCancelMintPledge, sendBlock.Data)
 	tokenInfo, err := abi.GetTokenById(db, *tokenId)
 	util.DealWithErr(err)
 	if tokenInfo.PledgeAddr != sendBlock.AccountAddress ||
 		tokenInfo.PledgeAmount.Sign() == 0 ||
-		tokenInfo.WithdrawHeight > globalStatus.SnapshotBlock().Height {
+		tokenInfo.WithdrawHeight > vm.GlobalStatus().SnapshotBlock().Height {
 		return nil, util.ErrInvalidMethodParam
 	}
 	newTokenInfo, _ := abi.ABIMintage.PackVariable(
@@ -179,7 +197,8 @@ func (p *MethodMintageCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		tokenInfo.PledgeAddr,
 		tokenInfo.IsReIssuable,
 		tokenInfo.MaxSupply,
-		tokenInfo.OwnerBurnOnly)
+		tokenInfo.OwnerBurnOnly,
+		tokenInfo.Index)
 	db.SetValue(abi.GetMintageKey(*tokenId), newTokenInfo)
 	if tokenInfo.PledgeAmount.Sign() > 0 {
 		return []*ledger.AccountBlock{
@@ -219,7 +238,7 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameIssue, param.TokenId, param.Amount, param.Beneficial)
 	return nil
 }
-func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamIssue)
 	abi.ABIMintage.UnpackMethod(param, abi.MethodNameIssue, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, param.TokenId)
@@ -240,7 +259,8 @@ func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendB
 		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
-		oldTokenInfo.OwnerBurnOnly)
+		oldTokenInfo.OwnerBurnOnly,
+		oldTokenInfo.Index)
 	db.SetValue(abi.GetMintageKey(param.TokenId), newTokenInfo)
 
 	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameIssue, param.TokenId))
@@ -274,7 +294,7 @@ func (p *MethodBurn) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameBurn)
 	return nil
 }
-func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	oldTokenInfo, err := abi.GetTokenById(db, sendBlock.TokenId)
 	util.DealWithErr(err)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable ||
@@ -293,7 +313,8 @@ func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
-		oldTokenInfo.OwnerBurnOnly)
+		oldTokenInfo.OwnerBurnOnly,
+		oldTokenInfo.Index)
 	util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	db.SetValue(abi.GetMintageKey(sendBlock.TokenId), newTokenInfo)
 
@@ -327,7 +348,7 @@ func (p *MethodTransferOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
 	return nil
 }
-func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamTransferOwner)
 	abi.ABIMintage.UnpackMethod(param, abi.MethodNameTransferOwner, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, param.TokenId)
@@ -347,7 +368,8 @@ func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 		oldTokenInfo.PledgeAddr,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
-		oldTokenInfo.OwnerBurnOnly)
+		oldTokenInfo.OwnerBurnOnly,
+		oldTokenInfo.Index)
 	db.SetValue(abi.GetMintageKey(param.TokenId), newTokenInfo)
 
 	oldKey := abi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
@@ -386,7 +408,7 @@ func (p *MethodChangeTokenType) DoSend(db vm_db.VmDb, block *ledger.AccountBlock
 	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, &tokenId)
 	return nil
 }
-func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, globalStatus util.GlobalStatus) ([]*ledger.AccountBlock, error) {
+func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenId := new(types.TokenTypeId)
 	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameChangeTokenType, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, *tokenId)
@@ -406,7 +428,8 @@ func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBl
 		oldTokenInfo.PledgeAddr,
 		false,
 		helper.Big0,
-		false)
+		false,
+		oldTokenInfo.Index)
 	db.SetValue(abi.GetMintageKey(*tokenId), newTokenInfo)
 
 	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameChangeTokenType, *tokenId))

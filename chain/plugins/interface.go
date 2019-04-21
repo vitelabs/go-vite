@@ -10,12 +10,13 @@ type Chain interface {
 	NewDb(dirName string) (*leveldb.DB, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
+	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
-	GetAccountBlockByHash(blockHash *types.Hash) (*ledger.AccountBlock, error)
-
-	GetAccount(address *types.Address) (*ledger.Account, error)
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
-	IsGenesisAccountBlock(block *ledger.AccountBlock) bool
+	IsGenesisAccountBlock(hash types.Hash) bool
+
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 }
 
 type Plugin interface {
@@ -23,5 +24,7 @@ type Plugin interface {
 
 	InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock, []*ledger.AccountBlock) error
 
-	DeleteChunks(*leveldb.Batch, []*ledger.SnapshotChunk) error
+	DeleteAccountBlocks(*leveldb.Batch, []*ledger.AccountBlock) error
+
+	DeleteSnapshotBlocks(*leveldb.Batch, []*ledger.SnapshotChunk) error
 }

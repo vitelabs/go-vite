@@ -42,6 +42,9 @@ func (cache *Cache) initLatestSnapshotBlock() error {
 	if err != nil {
 		return err
 	}
+	if latestSnapshotBlock == nil {
+		cache.chain.QueryLatestSnapshotBlock()
+	}
 	cache.setLatestSnapshotBlock(latestSnapshotBlock)
 	return nil
 }

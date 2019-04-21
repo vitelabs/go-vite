@@ -60,6 +60,7 @@ func (mDb *MemDB) Delete(key []byte) {
 	mDb.storage.Delete(key)
 
 	mDb.deletedKey[string(key)] = struct{}{}
+
 }
 
 func (mDb *MemDB) Has(key []byte) (bool, deleted bool) {
@@ -92,12 +93,6 @@ func (mDb *MemDB) Flush(batch *leveldb.Batch) error {
 
 	return nil
 
-}
-
-func (mDb *MemDB) Clean() {
-	mDb.mu.Lock()
-	defer mDb.mu.Unlock()
-	mDb.deletedKey = make(map[string]struct{})
 }
 
 func (mDb *MemDB) get(key []byte) ([]byte, bool) {

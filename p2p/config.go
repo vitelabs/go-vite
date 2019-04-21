@@ -30,17 +30,22 @@ const (
 	DefaultSuperiorPeers   = 30
 	DefaultMinPeers        = DefaultOutboundPeers
 	DefaultMaxPendingPeers = 10
+	DirName                = "p2p"
 )
 
 // Config is the essential configuration to create a p2p server
 type Config struct {
 	*discovery.Config
 
-	// discover means whether discover other nodes in the networks, default true
-	discover bool
+	// Discover means whether discover other nodes in the networks, default true
+	Discover bool
 
-	// name is our node name, NO need to be unique in the whole network, just for readability, default is `vite-node`
-	name string
+	// Name is our node name, NO need to be unique in the whole network, just for readability, default is `vite-node`
+	Name string
+
+	MaxPeers int
+
+	MaxInboundRatio int
 
 	// maxPeers means each level can accept how many peers, default:
 	// Inbound: 5
@@ -48,59 +53,52 @@ type Config struct {
 	// Superior: 30
 	maxPeers map[Level]int
 
-	// minPeers, server will keep finding nodes and try to connect until number of peers is larger than `MinPeers`,
+	// MinPeers server will keep finding nodes and try to connect until number of peers is larger than `MinPeers`,
 	// default 5
-	minPeers int
+	MinPeers int
 
-	// maxPendingPeers: how many inbound peers can be connect concurrently, more inbound connection will be blocked
+	// MaxPendingPeers how many inbound peers can be connect concurrently, more inbound connection will be blocked
 	// this value is for defend DDOS attack, default 10
-	maxPendingPeers int
+	MaxPendingPeers int
 
-	// staticNodes will be connect directly
-	staticNodes []string
+	// StaticNodes will be connect directly
+	StaticNodes []string
 }
 
-func NewConfig(listenAddress, publicAddress, dataDir, peerKey string, bootNodes, bootSeed []string, netId int,
-	discover bool,
-	name string, maxPeers, minPeers, maxInboundRatio, maxPendingPeers int, staticNodes []string) (*Config, error) {
-
-	cfg, err := discovery.NewConfig(listenAddress, publicAddress, dataDir, peerKey, bootNodes, bootSeed, netId)
+func (cfg *Config) Ensure() (err error) {
+	err = cfg.Config.Ensure()
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	if name == "" {
-		name = DefaultNodeName
-	}
-	if maxPeers == 0 {
-		maxPeers = DefaultMaxPeers
-	}
-	if minPeers == 0 {
-		minPeers = DefaultMinPeers
-	}
-	if maxPeers < minPeers {
-		maxPeers = minPeers
-	}
-	if maxInboundRatio == 0 {
-		maxInboundRatio = DefaultMaxInboundRatio
-	}
-	if maxPendingPeers == 0 {
-		maxPendingPeers = DefaultMaxPendingPeers
+	if cfg.Name == "" {
+		cfg.Name = DefaultNodeName
 	}
 
-	p2pConfig := &Config{
-		Config:          cfg,
-		discover:        discover,
-		name:            name,
-		minPeers:        minPeers,
-		maxPendingPeers: maxPendingPeers,
-		staticNodes:     staticNodes,
+	if cfg.MaxPeers == 0 {
+		cfg.MaxPeers = DefaultMaxPeers
 	}
 
-	p2pConfig.maxPeers = make(map[Level]int)
-	p2pConfig.maxPeers[Inbound] = maxPeers / maxInboundRatio
-	p2pConfig.maxPeers[Outbound] = maxPeers - p2pConfig.maxPeers[Inbound]
-	p2pConfig.maxPeers[Superior] = DefaultSuperiorPeers
+	if cfg.MinPeers == 0 {
+		cfg.MinPeers = DefaultMinPeers
+	}
 
-	return p2pConfig, nil
+	if cfg.MaxPeers < cfg.MinPeers {
+		cfg.MaxPeers = cfg.MinPeers
+	}
+
+	if cfg.MaxInboundRatio == 0 {
+		cfg.MaxInboundRatio = DefaultMaxInboundRatio
+	}
+
+	if cfg.MaxPendingPeers == 0 {
+		cfg.MaxPendingPeers = DefaultMaxPendingPeers
+	}
+
+	cfg.maxPeers = make(map[Level]int)
+	cfg.maxPeers[Inbound] = cfg.MaxPeers / cfg.MaxInboundRatio
+	cfg.maxPeers[Outbound] = cfg.MaxPeers - cfg.maxPeers[Inbound]
+	cfg.maxPeers[Superior] = DefaultSuperiorPeers
+
+	return nil
 }

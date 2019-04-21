@@ -24,10 +24,10 @@ func (m *mockSocket) pong(echo []byte, n *Node) (err error) {
 	panic("implement me")
 }
 
-func (m *mockSocket) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
+func (m *mockSocket) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
 	go func() {
 		var eps = make([]*vnode.EndPoint, count)
-		for i := uint32(0); i < count; i++ {
+		for i := 0; i < count; i++ {
 			eps[i] = &vnode.EndPoint{
 				Host: []byte{0, 0, 0, 0},
 				Port: int(i),
@@ -54,7 +54,7 @@ func (m *mockSocket) stop() error {
 }
 
 func TestFindNode(t *testing.T) {
-	tab := newTable(vnode.ZERO, bucketSize, bucketNum, newListBucket, nil)
+	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, nil)
 	tab.add(&Node{
 		Node: vnode.Node{
 			ID: vnode.RandFromDistance(tab.id, 100),
@@ -63,7 +63,7 @@ func TestFindNode(t *testing.T) {
 				Port: 8888,
 				Typ:  vnode.HostIPv4,
 			},
-			Net: 0,
+			Net: self.Net,
 			Ext: nil,
 		},
 	})
@@ -76,7 +76,7 @@ func TestFindNode(t *testing.T) {
 				Port: 8483,
 				Typ:  vnode.HostIPv4,
 			},
-			Net: 0,
+			Net: self.Net,
 			Ext: nil,
 		},
 		table:  tab,
@@ -86,7 +86,7 @@ func TestFindNode(t *testing.T) {
 	}
 
 	nodes := d.lookup(vnode.ZERO, 32)
-	if len(nodes) != 32 {
+	if len(nodes) != tab.size() {
 		t.Errorf("should not find %d nodes", len(nodes))
 	}
 }

@@ -219,6 +219,7 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 		if err != nil {
 			return err
 		}
+		self.checkCurrent()
 	}
 
 	if len(accounts) > 0 {
@@ -266,7 +267,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address][]commonBlock, *Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
@@ -274,9 +275,9 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 	pool := self.chainpool
 	current := pool.tree.Main()
 
-	for _, item := range items {
+	for i, item := range items {
 		block := item.commonBlock
-
+		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		tailHeight, tailHash := current.TailHH()
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
@@ -303,6 +304,7 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 			if err != nil {
 				return nil, item, err
 			}
+			self.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d success.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 			self.blockpool.afterInsert(block)
 			if len(accBlocks) > 0 {
 				return accBlocks, item, err
@@ -359,7 +361,7 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
 		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
 		self.forkAccounts(accounts)
-		self.fetchAccounts(accounts, b.Height())
+		self.fetchAccounts(accounts, b.Height(), b.Hash())
 	}
 }
 
@@ -384,7 +386,11 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
-
+	current := self.CurrentChain()
+	if block.Height() != current.tailHeight+1 ||
+		block.PrevHash() != current.tailHash {
+		return nil, errors.Errorf("snapshot head not match[%d-%s][%d-%s]", block.Height(), block.PrevHash(), current.tailHeight, current.tailHash)
+	}
 	stat := self.v.verifySnapshot(block)
 	result := stat.verifyResult()
 	switch result {
@@ -488,7 +494,7 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 			if hashH.Height > head {
 				u = hashH.Height - head
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight)
+			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
 		}
 	}
 

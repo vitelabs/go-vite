@@ -31,20 +31,17 @@ type Peer interface {
 	setHead(head types.Hash, height uint64)
 	setPeers(ps []peerConn, patch bool)
 	peers() map[vnode.NodeID]struct{}
-	seeBlock(hash types.Hash)
-	hasBlock(hash types.Hash) bool
+	seeBlock(hash types.Hash) bool
 	height() uint64
 	head() types.Hash
-
 	fileAddress() string
-
 	catch(err error)
-
 	send(c code, id p2p.MsgId, data p2p.Serializable) error
 	sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) error
 	sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error
 	sendNewSnapshotBlock(b *ledger.SnapshotBlock) error
 	sendNewAccountBlock(b *ledger.AccountBlock) error
+	info() PeerInfo
 }
 
 // PeerState is p2p.Peer.State
@@ -57,6 +54,14 @@ type PeerState struct {
 	FileAddress string
 }
 
+// PeerInfo is for api
+type PeerInfo struct {
+	ID     string `json:"id"`
+	Addr   string `json:"addr"`
+	Head   string `json:"head"`
+	Height uint64 `json:"height"`
+}
+
 type peer struct {
 	p2p.Peer
 
@@ -67,6 +72,15 @@ type peer struct {
 	once        sync.Once
 
 	log log15.Logger
+}
+
+func (p *peer) info() PeerInfo {
+	return PeerInfo{
+		ID:     p.Peer.ID().String(),
+		Addr:   p.Peer.Address().String(),
+		Head:   p.head().String(),
+		Height: p.height(),
+	}
 }
 
 func (p *peer) head() types.Hash {
@@ -140,12 +154,8 @@ func (p *peer) peers() map[vnode.NodeID]struct{} {
 	return m
 }
 
-func (p *peer) seeBlock(hash types.Hash) {
-	p.knownBlocks.lookAndRecord(hash[:])
-}
-
-func (p *peer) hasBlock(hash types.Hash) bool {
-	return p.knownBlocks.has(hash[:])
+func (p *peer) seeBlock(hash types.Hash) (existed bool) {
+	return p.knownBlocks.lookAndRecord(hash[:])
 }
 
 func (p *peer) send(c code, id p2p.MsgId, data p2p.Serializable) error {
@@ -180,8 +190,6 @@ func (p *peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) (er
 }
 
 func (p *peer) sendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	p.seeBlock(b.Hash)
-
 	ms := &message.NewSnapshotBlock{
 		Block: b,
 		TTL:   10,
@@ -191,8 +199,6 @@ func (p *peer) sendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
 }
 
 func (p *peer) sendNewAccountBlock(b *ledger.AccountBlock) (err error) {
-	p.seeBlock(b.Hash)
-
 	ms := &message.NewAccountBlock{
 		Block: b,
 		TTL:   10,
@@ -288,7 +294,7 @@ func (m *peerSet) bestPeer() (best Peer) {
 // choose middle peer but not the highest peer is to defend fake height attack. because
 // it`s more hard to fake.
 func (m *peerSet) syncPeer() Peer {
-	l := m.peers()
+	l := m.sortPeers()
 	if len(l) == 0 {
 		return nil
 	}
@@ -357,36 +363,19 @@ func (m *peerSet) pick(height uint64) (l []Peer) {
 	return
 }
 
-// unknownBlock return unsorted peers never received the specific block.
-func (m *peerSet) unknownBlock(hash types.Hash) (l []broadcastPeer) {
-	m.prw.RLock()
-	defer m.prw.RUnlock()
-
-	l = make([]broadcastPeer, len(m.m))
-
-	i := 0
-	for _, p := range m.m {
-		if seen := p.hasBlock(hash); !seen {
-			l[i] = p
-			i++
-		}
-	}
-
-	return l[:i]
-}
-
 // peers return all peers unsorted.
-func (m *peerSet) peers() (l peers) {
+func (m *peerSet) sortPeers() (l peers) {
 	m.prw.RLock()
-	defer m.prw.RUnlock()
 
 	l = make(peers, len(m.m))
-
 	i := 0
 	for _, p := range m.m {
 		l[i] = p
 		i++
 	}
+	m.prw.RUnlock()
+
+	sort.Sort(l)
 
 	return
 }
@@ -435,6 +424,21 @@ func (m *peerSet) count() int {
 	defer m.prw.RUnlock()
 
 	return len(m.m)
+}
+
+func (m *peerSet) info() []PeerInfo {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	infos := make([]PeerInfo, len(m.m))
+
+	var i int
+	for _, p := range m.m {
+		infos[i] = p.info()
+		i++
+	}
+
+	return infos
 }
 
 // peers can be sort by height, from low to high

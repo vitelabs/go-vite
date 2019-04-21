@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -71,12 +72,98 @@ func (s syncTasks) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+type chunks [][2]uint64
+
+func (cs chunks) Len() int {
+	return len(cs)
+}
+
+func (cs chunks) Less(i, j int) bool {
+	return cs[i][0] < cs[j][0]
+}
+
+func (cs chunks) Swap(i, j int) {
+	cs[i], cs[j] = cs[j], cs[i]
+}
+
+func (cs chunks) overlap(from, to uint64) (conflict [2]uint64, ok bool) {
+	ok = true
+
+	if len(cs) == 0 {
+		return
+	}
+
+	n := sort.Search(len(cs), func(i int) bool {
+		return cs[i][0] > from
+	})
+
+	if n == 0 {
+		if cs[0][0] <= to {
+			return cs[0], false
+		} else {
+			return
+		}
+	}
+
+	if cs[n-1][1] >= from {
+		return cs[n-1], false
+	}
+
+	if n == len(cs) {
+		return
+	}
+
+	if cs[n][0] <= to {
+		return cs[n], false
+	}
+
+	return
+}
+
+func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis interfaces.SegmentList) {
+	for _, segment := range sortedList {
+		// useless
+		if segment[1] < from {
+			continue
+		}
+
+		if segment[0] > to {
+			break
+		}
+
+		// missing front piece
+		if segment[0] > from {
+			mis = append(mis, [2]uint64{
+				from,
+				segment[0] - 1,
+			})
+		}
+
+		// next response
+		from = segment[1] + 1
+	}
+
+	// from should equal (cr.to + 1)
+	if from-1 < to {
+		mis = append(mis, [2]uint64{
+			from,
+			to,
+		})
+	}
+
+	return
+}
+
 // chunks should be continuous [from, to]
 func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
 	for _, chunk := range chunks {
 		// useless
 		if chunk[1] < from {
 			continue
+		}
+
+		if chunk[0] > to {
+			break
 		}
 
 		// missing front piece
@@ -109,6 +196,10 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 			continue
 		}
 
+		if t.from > to {
+			break
+		}
+
 		// missing front piece
 		if t.from > from {
 			mis = append(mis, &syncTask{
@@ -132,9 +223,15 @@ func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
 	return
 }
 
+type DownloaderStatus struct {
+	Tasks       []string               `json:"tasks"`
+	Connections []SyncConnectionStatus `json:"connections"`
+}
+
 type syncDownloader interface {
 	start()
 	stop()
+	status() DownloaderStatus
 	// will be block, if cannot download (eg. no peers) or task queue is full
 	// must will download the task regardless of task repeat
 	download(from, to uint64, must bool) bool
@@ -192,14 +289,10 @@ type executor struct {
 	listeners []taskListener
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	running   int32
+	running   bool
 	wg        sync.WaitGroup
 
 	log log15.Logger
-}
-
-type ExecutorStatus struct {
-	Tasks []string
 }
 
 func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *executor {
@@ -229,28 +322,42 @@ func (e *executor) size() int {
 }
 
 func (e *executor) start() {
-	if atomic.CompareAndSwapInt32(&e.running, 0, 1) {
-		e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-		e.tasks = e.tasks[:0]
-
-		e.wg.Add(1)
-		go e.loop()
+	if e.running {
+		return
 	}
+
+	e.running = true
+	e.ctx, e.ctxCancel = context.WithCancel(context.Background())
+
+	e.tasks = e.tasks[:0]
+
+	e.wg.Add(1)
+	go e.loop()
 }
 
 func (e *executor) stop() {
-	if atomic.CompareAndSwapInt32(&e.running, 1, 0) {
-		e.ctxCancel()
-		e.wg.Wait()
+	e.mu.Lock()
+	if false == e.running {
+		e.mu.Unlock()
+		return
 	}
+
+	e.running = false
+	e.mu.Unlock()
+
+	e.ctxCancel()
+	e.cond.Broadcast()
+	e.wg.Wait()
 }
 
 func (e *executor) addListener(listener taskListener) {
 	e.listeners = append(e.listeners, listener)
 }
 
-func (e *executor) status() ExecutorStatus {
+func (e *executor) status() DownloaderStatus {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -261,25 +368,29 @@ func (e *executor) status() ExecutorStatus {
 		i++
 	}
 
-	return ExecutorStatus{
+	st := DownloaderStatus{
 		tasks,
+		e.pool.connections(),
 	}
+
+	return st
 }
 
+// will be blocked when task queue is full
 func (e *executor) download(from, to uint64, must bool) bool {
-	if atomic.LoadInt32(&e.running) == 0 {
-		return false
-	}
-
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	for {
-		if len(e.tasks) == cap(e.tasks) {
+		if len(e.tasks) == cap(e.tasks) && e.running {
 			e.cond.Wait()
 		} else {
 			break
 		}
+	}
+
+	if false == e.running {
+		return false
 	}
 
 	if must {
@@ -295,6 +406,7 @@ func (e *executor) download(from, to uint64, must bool) bool {
 	}
 
 	sort.Sort(e.tasks)
+	e.cond.Broadcast()
 
 	return true
 }
@@ -303,14 +415,29 @@ func (e *executor) cancel(from, to uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	for i := len(e.tasks); i > -1; i-- {
+	var total = len(e.tasks)
+
+	if total == 0 {
+		return
+	}
+
+	var j int
+	for i := total - 1; i > -1; i-- {
 		t := e.tasks[i]
 		if t.from >= from {
 			t.cancel()
-		} else if t.to > from {
+			j++
+			continue
+		}
+
+		if t.to > from {
 			t.to = from - 1
 		}
+
+		break
 	}
+
+	e.tasks = e.tasks[:total-j]
 }
 
 func (e *executor) reset() {
@@ -320,42 +447,63 @@ func (e *executor) reset() {
 	e.tasks = e.tasks[:0]
 }
 
+func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
+	var done = 0
+	var index = 0
+	var batch = 0
+	var t *syncTask
+
+	// clean continuous done tasks
+	var condone = 0
+	var continuous = true
+	var now = time.Now()
+
+	for index = done; index < len(tasks); index = done + batch {
+		t = tasks[index]
+
+		if t.st == reqDone {
+			done++
+			if continuous && now.Sub(t.doneAt) > 5*time.Second {
+				condone++
+			}
+		} else if t.st == reqPending {
+			continuous = false
+			batch++
+		} else if batch < maxBatch {
+			continuous = false
+			batch++
+			exec(t)
+		} else {
+			break
+		}
+	}
+
+	if condone > 0 {
+		copy(tasks, tasks[condone:])
+		tasks = tasks[:len(tasks)-condone]
+	}
+
+	return tasks
+}
+
 func (e *executor) loop() {
 	defer e.wg.Done()
 
+Loop:
 	for {
-		if atomic.LoadInt32(&e.running) == 0 {
-			break
-		}
-
-		var done = 0
-		var index = 0
-		var batch = 0
-		var t *syncTask
-
 		e.mu.Lock()
-		for index = done; index < len(e.tasks); index = done + batch {
-			t = e.tasks[index]
-
-			// update downIndex if done tasks are continuous
-			if t.st == reqDone {
-				done++
-			} else if t.st == reqPending {
-				batch++
-			} else if batch < e.batch {
-				batch++
-				e.run(t)
-			} else {
-				break
-			}
+		for len(e.tasks) == 0 && e.running {
+			e.cond.Wait()
+		}
+		if false == e.running {
+			e.mu.Unlock()
+			break Loop
 		}
 
-		// todo clean done tasks
-		// more than a half tasks have done
-		if done > cap(e.tasks)/2 {
-			for index = 0; index < done; index++ {
-
-			}
+		before := len(e.tasks)
+		e.tasks = runTasks(e.tasks, e.batch, e.run)
+		if len(e.tasks) < before {
+			e.cond.Signal()
 		}
 		e.mu.Unlock()
 
@@ -374,10 +522,11 @@ func (e *executor) doJob(c syncConnection, from, to uint64) error {
 
 	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
-	if err := c.download(from, to); err != nil {
-		if c.catch(err) {
+	if fatal, err := c.download(from, to); err != nil {
+		if fatal {
 			e.pool.delConn(c)
 		}
+
 		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
@@ -413,6 +562,7 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	// handshake error
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
+		_ = tcp.Close()
 		return
 	}
 
@@ -434,31 +584,30 @@ func (e *executor) do(t *syncTask) {
 	var err error
 
 	if p, c, err = e.pool.chooseSource(t.to); err != nil {
-		// no peers
-		t.st = reqError
+		// no tall enough peers
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
 			t.st = reqDone
-		} else {
-			t.st = reqError
 		}
 	} else if p != nil {
 		if c, err = e.createConn(p); err == nil {
 			if err = e.doJob(c, t.from, t.to); err == nil {
 				// downloaded
 				t.st = reqDone
-			} else {
-				t.st = reqError
 			}
-		} else {
-			t.st = reqError
 		}
 	} else {
+		// no idle peers
 		t.st = reqWaiting
 	}
 
+	if t.st == reqPending {
+		t.st = reqError
+	}
+
 	if t.st == reqDone {
+		t.doneAt = time.Now()
 		e.notify(t, err)
 	}
 }

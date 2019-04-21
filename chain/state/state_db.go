@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
 	"path"
-	"sync"
 )
 
 type StateDB struct {
@@ -22,10 +21,7 @@ type StateDB struct {
 
 	log log15.Logger
 
-	storageRedo *StorageRedo
-
-	historyKv   map[types.Hash][][2][]byte
-	historyKvMu sync.Mutex
+	redo *Redo
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -48,8 +44,7 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		log:   log15.New("module", "stateDB"),
 		store: store,
 
-		storageRedo: storageRedo,
-		historyKv:   make(map[types.Hash][][2][]byte),
+		redo: storageRedo,
 	}
 
 	return stateDb, nil
@@ -62,10 +57,10 @@ func (sDB *StateDB) Close() error {
 
 	sDB.store = nil
 
-	if err := sDB.storageRedo.Close(); err != nil {
+	if err := sDB.redo.Close(); err != nil {
 		return err
 	}
-	sDB.storageRedo = nil
+	sDB.redo = nil
 	return nil
 }
 
@@ -171,7 +166,7 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	value, err := sDB.store.Get(chain_utils.CreateCallDepthKey(sendBlockHash))
+	value, err := sDB.store.Get(chain_utils.CreateCallDepthKey(*sendBlockHash))
 	if err != nil {
 		return 0, err
 	}
@@ -184,6 +179,14 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 }
 
 func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
+	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	if snapshotHeight <= 0 {
+		return nil, nil
+	}
+
 	balanceMap := make(map[types.Address]*big.Int, len(addrList))
 
 	prefix := chain_utils.BalanceHistoryKeyPrefix
@@ -191,15 +194,10 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
 
-	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
-	if err != nil {
-		return nil, err
-	}
-
 	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
 	seekKey[0] = prefix
 
-	copy(seekKey[1+types.AddressSize:1+types.AddressSize+types.TokenTypeIdSize], tokenId.Bytes())
+	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
 	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
 
 	for _, addr := range addrList {
@@ -245,6 +243,6 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 func (sDB *StateDB) Store() *chain_db.Store {
 	return sDB.store
 }
-func (sDB *StateDB) StorageRedo() *StorageRedo {
-	return sDB.storageRedo
+func (sDB *StateDB) StorageRedo() *Redo {
+	return sDB.redo
 }

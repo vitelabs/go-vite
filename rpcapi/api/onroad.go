@@ -1,17 +1,21 @@
 package api
 
 import (
+	"fmt"
+	"github.com/go-errors/errors"
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/vite"
+	"strconv"
 )
+
+var MaxBatchQuery = 10
 
 type PublicOnroadApi struct {
 	api *PrivateOnroadApi
-}
-
-func (o PublicOnroadApi) String() string {
-	return "PublicOnroadApi"
 }
 
 func NewPublicOnroadApi(vite *vite.Vite) *PublicOnroadApi {
@@ -19,17 +23,20 @@ func NewPublicOnroadApi(vite *vite.Vite) *PublicOnroadApi {
 		api: NewPrivateOnroadApi(vite),
 	}
 }
-func (o PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
-	return o.api.GetOnroadBlocksByAddress(address, index, count)
+
+func (pub PublicOnroadApi) String() string {
+	return "PublicOnroadApi"
 }
 
-//todo
-func (o PublicOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
-	return nil, nil
+func (pub PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
+	if count > math.MaxUint16+1 {
+		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
+	}
+	return pub.api.GetOnroadBlocksByAddress(address, index, count)
 }
 
-func (o PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {
-	return o.manager.Chain().GetContractList(gid)
+func (pub PublicOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
+	return pub.api.GetOnroadInfoByAddress(address)
 }
 
 type PrivateOnroadApi struct {
@@ -42,21 +49,25 @@ func NewPrivateOnroadApi(vite *vite.Vite) *PrivateOnroadApi {
 	}
 }
 
-func (o PrivateOnroadApi) String() string {
+func (pri PrivateOnroadApi) String() string {
 	return "PrivateOnroadApi"
 }
-func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index int, count int) ([]*AccountBlock, error) {
+
+func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Address, error) {
+	return pri.manager.Chain().GetContractList(gid)
+}
+
+func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := o.manager.GetOnRoadBlockByAddr(&address, uint64(index), uint64(count))
+	blockList, err := pri.manager.GetOnRoadBlockByAddr(&address, index, count)
 	if err != nil {
 		return nil, err
 	}
-
 	a := make([]*AccountBlock, len(blockList))
 	sum := 0
 	for k, v := range blockList {
 		if v != nil {
-			accountBlock, e := ledgerToRpcBlock(v, o.manager.Chain())
+			accountBlock, e := ledgerToRpcBlock(v, pri.manager.Chain())
 			if e != nil {
 				return nil, e
 			}
@@ -67,32 +78,97 @@ func (o PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index 
 	return a[:sum], nil
 }
 
-/*
-func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
+func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
+	info, e := pri.manager.Chain().GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
-
-	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), *info)
+	r := onroadInfoToRpcAccountInfo(pri.manager.Chain(), info)
 	return r, nil
 
 }
 
-func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
-	onroadInfo.Mutex.RLock()
-	defer onroadInfo.Mutex.RUnlock()
+type OnroadPagingQuery struct {
+	Addr types.Address `json:"addr"`
 
+	PageNum   uint64 `json:"pageNum"`
+	PageCount uint64 `json:"pageCount"`
+}
+
+func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery) (map[types.Address][]*AccountBlock, error) {
+	if len(queryList) <= 0 {
+		return nil, nil
+	}
+	if len(queryList) > MaxBatchQuery {
+		return nil, errors.New(fmt.Sprintf("the maximum number of queries allowed is %d", MaxBatchQuery))
+	}
+	resultMap := make(map[types.Address][]*AccountBlock)
+	for _, q := range queryList {
+		if l, ok := resultMap[q.Addr]; ok && l != nil {
+			continue
+		}
+		if q.PageCount > math.MaxUint8+1 {
+			return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint8+1))
+		}
+		blockList, err := pri.GetOnroadBlocksByAddress(q.Addr, q.PageNum, q.PageCount)
+		if err != nil {
+			return nil, err
+		}
+		if len(blockList) <= 0 {
+			continue
+		}
+		resultMap[q.Addr] = blockList
+	}
+	return resultMap, nil
+}
+
+func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*RpcAccountInfo, error) {
+	if len(addrList) <= 0 {
+		return nil, nil
+	}
+	if len(addrList) > MaxBatchQuery {
+		return nil, errors.New(fmt.Sprintf("the maximum number of queries allowed is %d", MaxBatchQuery))
+	}
+	// Remove duplicate
+	addrs := make([]types.Address, 0)
+	for _, v1 := range addrList {
+		var isExist = false
+		for _, v2 := range addrs {
+			if v2 == v1 {
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			addrs = append(addrs, v1)
+		}
+	}
+
+	resultList := make([]*RpcAccountInfo, 0)
+	for _, addr := range addrs {
+		info, err := pri.GetOnroadInfoByAddress(addr)
+		if err != nil {
+			return nil, err
+		}
+		if info == nil {
+			continue
+		}
+		resultList = append(resultList, info)
+	}
+	return resultList, nil
+}
+
+func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
 	var r RpcAccountInfo
-	r.AccountAddress = *onroadInfo.AccountAddress
-	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
+	r.AccountAddress = info.AccountAddress
+	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
 	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 
-	for tti, v := range onroadInfo.TokenBalanceInfoMap {
+	for tti, v := range info.TokenBalanceInfoMap {
 		if v != nil {
 			number := strconv.FormatUint(v.Number, 10)
-			tinfo, _ := chain.GetTokenInfoById(&tti)
+			tinfo, _ := chain.GetTokenInfoById(tti)
 			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
@@ -103,81 +179,3 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccoun
 	}
 	return &r
 }
-*/
-/*
-func (o PrivateOnroadApi) ListWorkingAutoReceiveWorker() []types.Address {
-	log.Info("ListWorkingAutoReceiveWorker")
-	return o.manager.ListWorkingAutoReceiveWorker()
-}
-
-func (o PrivateOnroadApi) StartAutoReceive(entropystore string, addr types.Address, filter map[string]string, powDifficulty *string) error {
-	log.Info("StartAutoReceive", "addr", addr, "entropystore", entropystore)
-
-	rawfilter := make(map[types.TokenTypeId]big.Int)
-	if filter != nil {
-		for k, v := range filter {
-			b, ok := new(big.Int).SetString(v, 10)
-			if !ok {
-				return ErrStrToBigInt
-			}
-			ids, e := types.HexToTokenTypeId(k)
-			if e != nil {
-				return e
-			}
-			rawfilter[ids] = *b
-		}
-	}
-
-	var realDifficulty *big.Int = nil
-	if powDifficulty != nil {
-		b, ok := new(big.Int).SetString(*powDifficulty, 10)
-		if !ok {
-			return ErrStrToBigInt
-		}
-		realDifficulty = b
-	}
-
-	return o.manager.StartAutoReceiveWorker(entropystore, addr, rawfilter, realDifficulty)
-}
-
-func (o PrivateOnroadApi) StopAutoReceive(addr types.Address) error {
-	log.Info("StopAutoReceive", "addr", addr)
-	return o.manager.StopAutoReceiveWorker(addr)
-}
-
-func (o PrivateOnroadApi) GetAccountOnroadInfo(address types.Address) (*RpcAccountInfo, error) {
-	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := o.manager.GetOnroadBlocksPool().GetOnRoadAccountInfo(address)
-	if e != nil || info == nil {
-		return nil, e
-	}
-
-	r := onroadInfoToRpcAccountInfo(o.manager.Chain(), *info)
-	return r, nil
-
-}
-
-func onroadInfoToRpcAccountInfo(chain chain.Chain, onroadInfo model.OnroadAccountInfo) *RpcAccountInfo {
-	onroadInfo.Mutex.RLock()
-	defer onroadInfo.Mutex.RUnlock()
-
-	var r RpcAccountInfo
-	r.AccountAddress = *onroadInfo.AccountAddress
-	r.TotalNumber = strconv.FormatUint(onroadInfo.TotalNumber, 10)
-	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
-
-	for tti, v := range onroadInfo.TokenBalanceInfoMap {
-		if v != nil {
-			number := strconv.FormatUint(v.Number, 10)
-			tinfo, _ := chain.GetTokenInfoById(&tti)
-			b := &RpcTokenBalanceInfo{
-				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
-				TotalAmount: v.TotalAmount.String(),
-				Number:      &number,
-			}
-			r.TokenBalanceInfoMap[tti] = b
-		}
-	}
-	return &r
-}
-*/

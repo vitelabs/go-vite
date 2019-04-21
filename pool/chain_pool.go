@@ -317,6 +317,8 @@ LOOP:
 			} else {
 				reader = r2
 				block = b2
+				// todo
+				self.log.Info(fmt.Sprintf("block[%s-%d] exists. del from tail.", sb.Hash(), sb.Height()))
 				tail := snippet.remTail()
 				if tail == nil {
 					delete(self.snippetChains, snippet.id())

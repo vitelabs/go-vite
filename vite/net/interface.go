@@ -108,6 +108,8 @@ type Broadcaster interface {
 type Fetcher interface {
 	FetchSnapshotBlocks(start types.Hash, count uint64)
 
+	FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64)
+
 	// FetchAccountBlocks address is optional
 	FetchAccountBlocks(start types.Hash, count uint64, address *types.Address)
 

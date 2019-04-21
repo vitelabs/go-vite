@@ -19,6 +19,8 @@ type dataSet struct {
 
 	abHeightIndexes map[types.Address]map[uint64]*ledger.AccountBlock
 
+	latestAbHeight map[types.Address]uint64
+
 	sbHeightIndexes map[uint64]*ledger.SnapshotBlock
 }
 
@@ -31,6 +33,7 @@ func NewDataSet() *dataSet {
 		snapshotBlockSet: make(map[uint64]*ledger.SnapshotBlock),
 
 		abHeightIndexes: make(map[types.Address]map[uint64]*ledger.AccountBlock),
+		latestAbHeight:  make(map[types.Address]uint64),
 
 		sbHeightIndexes: make(map[uint64]*ledger.SnapshotBlock),
 	}
@@ -72,8 +75,11 @@ func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) uint64 
 	heightMap := ds.abHeightIndexes[accountBlock.AccountAddress]
 	if heightMap == nil {
 		heightMap = make(map[uint64]*ledger.AccountBlock)
+
 	}
 	heightMap[accountBlock.Height] = accountBlock
+	ds.latestAbHeight[accountBlock.AccountAddress] = accountBlock.Height
+
 	ds.abHeightIndexes[accountBlock.AccountAddress] = heightMap
 
 	// blockDataId
@@ -135,12 +141,21 @@ func (ds *dataSet) GetAccountBlockByHash(blockHash *types.Hash) *ledger.AccountB
 	//return ds.[*blockHash]
 }
 
-func (ds *dataSet) GetAccountBlockByHeight(address *types.Address, height uint64) *ledger.AccountBlock {
-	abHeightMap := ds.abHeightIndexes[*address]
+func (ds *dataSet) GetAccountBlockByHeight(address types.Address, height uint64) *ledger.AccountBlock {
+	abHeightMap := ds.abHeightIndexes[address]
 	if abHeightMap == nil {
 		return nil
 	}
 	return abHeightMap[height]
+}
+
+func (ds *dataSet) GetLatestAccountBlock(address types.Address) *ledger.AccountBlock {
+	height, ok := ds.latestAbHeight[address]
+	if ok && height > 0 {
+		return ds.GetAccountBlockByHeight(address, height)
+	}
+
+	return nil
 }
 
 func (ds *dataSet) GetSnapshotBlockByHash(blockHash *types.Hash) *ledger.SnapshotBlock {
@@ -162,7 +177,16 @@ func (ds *dataSet) gc(dataId uint64) {
 	if ok {
 		delete(ds.blockDataId, ab.Hash)
 		delete(ds.accountBlockSet, dataId)
-		delete(ds.abHeightIndexes[ab.AccountAddress], ab.Height)
+
+		heightMap := ds.abHeightIndexes[ab.AccountAddress]
+		delete(heightMap, ab.Height)
+		if len(heightMap) <= 0 {
+			delete(ds.abHeightIndexes, ab.AccountAddress)
+			delete(ds.latestAbHeight, ab.AccountAddress)
+		} else if ab.Height <= ds.latestAbHeight[ab.AccountAddress] {
+			ds.latestAbHeight[ab.AccountAddress] = ab.Height - 1
+		}
+
 		return
 	}
 

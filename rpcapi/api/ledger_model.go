@@ -24,10 +24,13 @@ type AccountBlock struct {
 
 	Timestamp int64 `json:"timestamp"`
 
-	ConfirmedTimes *string       `json:"confirmedTimes"`
-	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
+	ConfirmedTimes *string     `json:"confirmedTimes"`
+	ConfirmedHash  *types.Hash `json:"confirmedHash"`
 
-	ReceiveBlockHeights []string `json:"receiveBlockHeights"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
+
+	ReceiveBlockHeight string      `json:"receiveBlockHeight"`
+	ReceiveBlockHash   *types.Hash `json:"receiveBlockHash"`
 }
 
 // TODO set timestamp
@@ -74,9 +77,6 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 			lAb.Difficulty = setString
 		}
 	}
-	//
-	//t := time.Unix(ab.Timestamp, 0)
-	//lAb.Timestamp = &t
 
 	return lAb, nil
 }
@@ -146,6 +146,7 @@ type RpcTokenInfo struct {
 	MaxSupply      *string           `json:"maxSupply"` // *big.Int
 	OwnerBurnOnly  bool              `json:"ownerBurnOnly"`
 	IsReIssuable   bool              `json:"isReIssuable"`
+	Index          uint16            `json:"index"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
@@ -163,6 +164,7 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 			TokenId:        tti,
 			OwnerBurnOnly:  tinfo.OwnerBurnOnly,
 			IsReIssuable:   tinfo.IsReIssuable,
+			Index:          tinfo.Index,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()
@@ -181,10 +183,22 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 }
 
 func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBlock, error) {
-	confirmTimes, err := chain.GetConfirmedTimes(block.Hash)
+	latestSb := chain.GetLatestSnapshotBlock()
+
+	confirmedBlock, err := chain.GetConfirmSnapshotHeaderByAbHash(block.Hash)
 
 	if err != nil {
 		return nil, err
+	}
+
+	var confirmedTimes uint64
+	var confirmedHash types.Hash
+	var timestamp int64
+
+	if confirmedBlock != nil && latestSb != nil && confirmedBlock.Height <= latestSb.Height {
+		confirmedHash = confirmedBlock.Hash
+		confirmedTimes = latestSb.Height - confirmedBlock.Height + 1
+		timestamp = confirmedBlock.Timestamp.Unix()
 	}
 
 	var fromAddress, toAddress types.Address
@@ -207,17 +221,26 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 	}
 
 	token, _ := chain.GetTokenInfoById(block.TokenId)
-	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
+	rpcAccountBlock := createAccountBlock(block, token, confirmedTimes)
+
+	if confirmedTimes > 0 {
+		rpcAccountBlock.ConfirmedHash = &confirmedHash
+	}
+
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
+	rpcAccountBlock.Timestamp = timestamp
 
 	if block.IsSendBlock() {
-		// todo
-		//receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
-		//if err != nil {
-		//	return nil, err
-		//}
-		//rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlock.Height, 10))
+		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
+		if err != nil {
+			return nil, err
+		}
+		if receiveBlock != nil {
+			rpcAccountBlock.ReceiveBlockHeight = strconv.FormatUint(receiveBlock.Height, 10)
+			rpcAccountBlock.ReceiveBlockHash = &receiveBlock.Hash
+		}
 	}
+
 	return rpcAccountBlock, nil
 }

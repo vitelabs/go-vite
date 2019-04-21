@@ -61,9 +61,17 @@ func main() {
 		}
 		samples = append(samples, s)
 
-		var cfg *discovery.Config
-		cfg, err = discovery.NewConfig("127.0.0.1:"+strconv.Itoa(s.port), "", filepath.Join(pwd, s.dir), prv.Hex(), nil, nil, 10)
-		if err != nil {
+		cfg := &discovery.Config{
+			ListenAddress: "127.0.0.1:" + strconv.Itoa(s.port),
+			PublicAddress: "",
+			DataDir:       filepath.Join(pwd, s.dir),
+			PeerKey:       prv.Hex(),
+			BootNodes:     nil,
+			BootSeeds:     nil,
+			NetID:         10,
+		}
+
+		if err = cfg.Ensure(); err != nil {
 			panic(err)
 		}
 

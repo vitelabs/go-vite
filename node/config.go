@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/discovery"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/config/biz"
@@ -32,9 +34,9 @@ type Config struct {
 	KafkaProducers []string `json:"KafkaProducers"`
 
 	// chain
-	LedgerGcRetain       uint64 `json:"LedgerGcRetain"`
-	LedgerGc             *bool  `json:"LedgerGc"`
-	OpenFilterTokenIndex *bool  `json:"OpenFilterTokenIndex"`
+	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
+	LedgerGc       *bool  `json:"LedgerGc"`
+	OpenPlugins    *bool  `json:"OpenPlugins"`
 
 	// genesis
 	GenesisFile string `json:"GenesisFile"`
@@ -207,16 +209,16 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	}
 }
 
-func (c *Config) makeP2PConfig() (*p2p.Config, error) {
+func (c *Config) makeP2PConfig() (cfg *p2p.Config, err error) {
 	var listenAddress = c.ListenAddress
 	if listenAddress == "" {
 		listenAddress = c.ListenInterface + ":" + strconv.Itoa(c.Port)
 	}
 
-	p2pDataDir := filepath.Join(c.DataDir, "p2p")
+	p2pDataDir := filepath.Join(c.DataDir, p2p.DirName)
 
-	// open data dir
-	if err := os.MkdirAll(p2pDataDir, 0700); err != nil {
+	// create data dir
+	if err = os.MkdirAll(p2pDataDir, 0700); err != nil {
 		return nil, err
 	}
 
@@ -225,63 +227,51 @@ func (c *Config) makeP2PConfig() (*p2p.Config, error) {
 		peerKey = c.PrivateKey
 	}
 
-	return p2p.NewConfig(
-		listenAddress,
-		c.PublicAddress,
-		p2pDataDir,
-		c.PeerKey,
-		c.BootNodes,
-		c.BootSeeds,
-		c.NetID,
-		c.Discover,
-		c.Identity,
-		c.MaxPeers,
-		c.MinPeers,
-		c.MaxInboundRatio,
-		c.MaxPendingPeers,
-		c.StaticNodes)
+	cfg = &p2p.Config{
+		Config: &discovery.Config{
+			ListenAddress: listenAddress,
+			PublicAddress: c.PublicAddress,
+			DataDir:       p2pDataDir,
+			PeerKey:       c.PeerKey,
+			BootNodes:     c.BootNodes,
+			BootSeeds:     c.BootSeeds,
+			NetID:         c.NetID,
+		},
+		Discover:        c.Discover,
+		Name:            c.Identity,
+		MaxPeers:        c.MaxPeers,
+		MaxInboundRatio: c.MaxInboundRatio,
+		MinPeers:        c.MinPeers,
+		MaxPendingPeers: c.MaxPendingPeers,
+		StaticNodes:     c.StaticNodes,
+	}
+
+	err = cfg.Ensure()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func (c *Config) makeChainConfig() *config.Chain {
 
-	// init kafkaProducers
-	kafkaProducers := make([]*config.KafkaProducer, len(c.KafkaProducers))
-
-	if len(c.KafkaProducers) > 0 {
-		for i, kafkaProducer := range c.KafkaProducers {
-			splitKafkaProducer := strings.Split(kafkaProducer, "|")
-			if len(splitKafkaProducer) != 2 {
-				log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-				break
-			}
-
-			splitKafkaBroker := strings.Split(splitKafkaProducer[0], ",")
-			if len(splitKafkaBroker) == 0 {
-				log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-				break
-			}
-
-			kafkaProducers[i] = &config.KafkaProducer{
-				BrokerList: splitKafkaBroker,
-				Topic:      splitKafkaProducer[1],
-			}
-		}
-	}
-
+	// is open ledger gc
 	ledgerGc := true
 	if c.LedgerGc != nil {
 		ledgerGc = *c.LedgerGc
 	}
-	openFilterTokenIndex := false
-	if c.OpenFilterTokenIndex != nil {
-		openFilterTokenIndex = *c.OpenFilterTokenIndex
+	// is open plugins
+	openPlugins := false
+	if c.OpenPlugins != nil {
+		openPlugins = *c.OpenPlugins
 	}
 
 	return &config.Chain{
-		KafkaProducers:       kafkaProducers,
-		LedgerGcRetain:       c.LedgerGcRetain,
-		LedgerGc:             ledgerGc,
-		OpenFilterTokenIndex: openFilterTokenIndex,
+		LedgerGcRetain: c.LedgerGcRetain,
+		LedgerGc:       ledgerGc,
+		OpenPlugins:    openPlugins,
 	}
 }
 

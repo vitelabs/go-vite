@@ -32,6 +32,8 @@ var (
 	MaxBig63  = new(big.Int).Sub(tt63, big.NewInt(1))
 
 	MaxBigIntLen = 256
+
+	ZeroInt = big.NewInt(0)
 )
 
 const (

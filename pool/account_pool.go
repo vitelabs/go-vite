@@ -390,6 +390,8 @@ func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, tree.Branc
 }
 
 func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
+	self.blockpool.pendingMu.Lock()
+	defer self.blockpool.pendingMu.Unlock()
 	return self.blockpool.contains(hash, height)
 }
 
@@ -418,6 +420,29 @@ func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk boo
 	return nil
 }
 
+func (self *accountPool) findInTreeDiskTmp(hash types.Hash, height uint64, disk bool, sHeight uint64) *forkedChain {
+	block := self.chainpool.current.getBlock(height, disk)
+	if block != nil && block.Hash() == hash {
+		return self.chainpool.current
+	}
+
+	for _, c := range self.chainpool.allChain() {
+		b := c.getBlock(height, false)
+
+		if b == nil {
+			continue
+		} else {
+			if b.Hash() == hash {
+				return c
+			}
+		}
+	}
+	if sHeight == 117 && block != nil {
+		fmt.Printf("%s-%d-%s-%s\n", self.address, height, hash, block.Hash())
+	}
+	return nil
+}
+
 func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	latestSb := self.rw.getLatestSnapshotBlock()
 	//self.rMu.Lock()
@@ -427,6 +452,12 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
+
+	current := self.CurrentChain()
+	if received.Height() != current.tailHeight+1 ||
+		received.PrevHash() != current.tailHash {
+		return errors.Errorf("account head not match[%d-%s][%d-%s]", received.Height(), received.PrevHash(), current.tailHeight, current.tailHash)
+	}
 
 	self.checkCurrent()
 	stat := self.v.verifyDirectAccount(received, latestSb)
@@ -525,7 +556,7 @@ func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (tree.Branc
 func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
 }
-func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error) {
+func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (uint64, error) {
 	// if current size is empty, do nothing.
 	if self.chainpool.tree.Main().Size() <= 0 {
 		return 0, errors.New("empty chainpool")
@@ -555,6 +586,9 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	minH := info.offset.Height + 1
 	headH, _ := current.HeadHH()
 	for i := minH; i <= headH; i++ {
+		if i-minH >= max {
+			return uint64(i - minH), errors.New("arrived to max")
+		}
 		block := self.getCurrentBlock(i)
 		if block == nil {
 			return uint64(i - minH), errors.New("current chain modify")
@@ -563,11 +597,12 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 			return uint64(i - minH), errors.New("block in blacklist")
 		}
 		// check quota
-		if used, unused, enought := info.quotaEnough(block); !enought {
+		used, unused, enought := info.quotaEnough(block)
+		if !enought {
 			// todo remove
-			self.log.Info(fmt.Sprintf("[%s][%d][%s]quota not enough[used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 			return uint64(i - minH), errors.New("block quota not enough.")
 		}
+		self.log.Debug(fmt.Sprintf("[%s][%d][%s]quota info [used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 		// check request block confirmed time for response block
 		if err := self.checkSnapshotSuccess(block); err != nil {
 			return uint64(i - minH), err
@@ -586,7 +621,7 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo) (uint64, error
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.SnapshotBlock) error {
+func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledger.SnapshotBlock, version int) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.tree.Main().Size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))
@@ -601,11 +636,15 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
+		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		tailHeight, tailHash := current.TailHH()
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d.", block.Hash(), i, len(items)))
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
 			block.resetForkVersion()
+			if block.forkVersion() != version {
+				return errors.New("snapshot version update")
+			}
+
 			stat := self.v.verifyAccount(block.(*accountPoolBlock), latestSb)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
@@ -631,7 +670,7 @@ func (self *accountPool) tryInsertItems(items []*Item, latestSb *ledger.Snapshot
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
 		}
-		self.log.Info(fmt.Sprintf("try to insert account block[%s]%d-%d [latency:%s]success.", block.Hash(), i, len(items), block.Latency()))
+		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))
 	}
 	return nil
 }
@@ -688,7 +727,7 @@ func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock,
 	}
 	return false, nil
 }
-func (self *accountPool) checkCurrent() {
+func (self *BCPool) checkCurrent() {
 	main := self.CurrentChain()
 	tailHeight, tailHash := main.TailHH()
 	headHeight, headHash := self.chainpool.diskChain.HeadHH()

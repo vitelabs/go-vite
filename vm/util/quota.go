@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	txDataZeroGas         uint64 = 4     // Per byte of data attached to a transaction that equals zero.
-	txDataNonZeroGas      uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero.
+	txDataGas             uint64 = 68
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
 	QuotaRange            uint64 = 75
@@ -53,23 +52,11 @@ func IntrinsicGasCost(data []byte, isCreate bool, confirmTime uint8) (uint64, er
 
 func DataGasCost(data []byte) (uint64, error) {
 	var gas uint64
-	if len(data) > 0 {
-		var nonZeroByteCount uint64
-		for _, byteCode := range data {
-			if byteCode != 0 {
-				nonZeroByteCount++
-			}
-		}
-		if helper.MaxUint64/txDataNonZeroGas < nonZeroByteCount {
+	if l := uint64(len(data)); l > 0 {
+		if helper.MaxUint64/txDataGas < l {
 			return 0, ErrGasUintOverflow
 		}
-		gas = nonZeroByteCount * txDataNonZeroGas
-
-		zeroByteCount := uint64(len(data)) - nonZeroByteCount
-		if (helper.MaxUint64-gas)/txDataZeroGas < zeroByteCount {
-			return 0, ErrGasUintOverflow
-		}
-		gas += zeroByteCount * txDataZeroGas
+		gas = l * txDataGas
 	}
 	return gas, nil
 }

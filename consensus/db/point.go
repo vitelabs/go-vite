@@ -186,7 +186,7 @@ func mergeMap(m1 map[types.Address]*Content, m2 map[types.Address]*Content) map[
 	for k, v := range m2 {
 		c, ok := result[k]
 		if !ok {
-			result[k] = c.Copy()
+			result[k] = v.Copy()
 		} else {
 			c.Merge(v)
 		}

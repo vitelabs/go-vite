@@ -91,12 +91,12 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	}
 	tp.log.Info(fmt.Sprintf("contract-prev: addr=%v hash=%v height=%v", task.Addr, addrState.LatestAccountHash, addrState.LatestAccountHeight))
 
-	gen, err := generator.NewGenerator2(tp.worker.manager.Chain(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	gen, err := generator.NewGenerator(tp.worker.manager.Chain(), tp.worker.manager.Consensus(), task.Addr, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if err != nil {
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true
 	}
-	genResult, err := gen.GenerateWithOnroad(sBlock, &tp.worker.accEvent.Address,
+	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.accEvent.Address,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
 			if err != nil {
@@ -105,7 +105,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return key.SignData(data)
 		}, nil)
 	if err != nil {
-		blog.Error(fmt.Sprintf("GenerateWithOnroad failed, err:%v", err))
+		blog.Error(fmt.Sprintf("GenerateWithOnRoad failed, err:%v", err))
 		return true
 	}
 	if genResult == nil {

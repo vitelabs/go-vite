@@ -49,13 +49,13 @@ func (c *ChainSubscribe) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) err
 	return nil
 }
 
-func (c *ChainSubscribe) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+func (c *ChainSubscribe) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
-func (c *ChainSubscribe) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
-	sbEvents := make([]*SnapshotChainEvent, len(snapshotBlocks))
-	for i, b := range snapshotBlocks {
-		sbEvents[i] = &SnapshotChainEvent{b.Hash, b.Height}
+func (c *ChainSubscribe) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	sbEvents := make([]*SnapshotChainEvent, len(chunks))
+	for i, chunk := range chunks {
+		sbEvents[i] = &SnapshotChainEvent{chunk.SnapshotBlock.Hash, chunk.SnapshotBlock.Height}
 	}
 	c.es.sbCh <- sbEvents
 	return nil

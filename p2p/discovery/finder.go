@@ -2,9 +2,14 @@ package discovery
 
 import "github.com/vitelabs/go-vite/p2p/vnode"
 
+type Observer interface {
+	Sub(sub Subscriber)
+	UnSub(sub Subscriber)
+}
+
 type Finder interface {
-	GetNodes(count int) []vnode.Node
 	Observer
+	GetNodes(count int) []vnode.Node
 }
 
 type closetFinder struct {
@@ -13,7 +18,7 @@ type closetFinder struct {
 }
 
 func (f *closetFinder) Sub(sub Subscriber) {
-	f.subId = sub.Sub(f)
+	f.subId = sub.Sub(f.receive)
 	return
 }
 
@@ -22,7 +27,7 @@ func (f *closetFinder) UnSub(sub Subscriber) {
 	return
 }
 
-func (f *closetFinder) Receive(n *vnode.Node) {
+func (f *closetFinder) receive(n *vnode.Node) {
 	return
 }
 

@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"strconv"
 )
-
-// !!! Block = Transaction = TX
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	api := &LedgerApi{
@@ -103,38 +102,26 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 }
 
 // in token
-//func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
-//	l.log.Info("GetBlocksByHashInToken")
-//	fti := l.chain.Fti()
-//	if fti == nil {
-//		err := errors.New("config.OpenFilterTokenIndex is false, api can't work")
-//		return nil, err
-//	}
-//
-//	account, err := l.chain.GetAccount(&addr)
-//	if err != nil {
-//		return nil, err
-//	}
-//	if account == nil {
-//		return nil, nil
-//	}
-//
-//	hashList, err := fti.GetBlockHashList(account, originBlockHash, tokenTypeId, count)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	blockList := make([]*ledger.AccountBlock, len(hashList))
-//	for index, blockHash := range hashList {
-//		block, err := l.chain.GetAccountBlockByHash(&blockHash)
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//		blockList[index] = block
-//	}
-//	return l.ledgerBlocksToRpcBlocks(blockList)
-//}
+func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
+	l.log.Info("GetBlocksByHashInToken")
+	if count == 0 {
+		return nil, nil
+	}
+	plugins := l.chain.Plugins()
+	if plugins == nil {
+		err := errors.New("config.OpenFilterTokenIndex is false, api can't work")
+		return nil, err
+	}
+
+	plugin := plugins.GetPlugin("filterToken").(*chain_plugins.FilterToken)
+
+	blocks, err := plugin.GetBlocks(addr, tokenTypeId, originBlockHash, count)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.ledgerBlocksToRpcBlocks(blocks)
+}
 
 func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
 	logList, err := l.chain.GetVmLogList(&logHash)

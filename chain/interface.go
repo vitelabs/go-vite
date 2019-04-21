@@ -2,6 +2,7 @@ package chain
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -14,8 +15,8 @@ type EventListener interface {
 	PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
 	InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
 
-	PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
-	InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
+	PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
+	InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
 
 	PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 	DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
@@ -164,6 +165,8 @@ type Chain interface {
 	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
 
 	// ====== Query unconfirmed pool ======
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
+
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 
 	GetContentNeedSnapshot() ledger.SnapshotContent
@@ -233,8 +236,12 @@ type Chain interface {
 
 	DeleteOnRoad(sendBlockHash types.Hash) error
 
+	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
+
+	Plugins() *chain_plugins.Plugins
 
 	SetConsensus(cs Consensus)
 }

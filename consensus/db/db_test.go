@@ -59,7 +59,7 @@ func TestConsensusDB_Point(t *testing.T) {
 	addr2, _ := types.HexToAddress("vite_d6851aaf8966f4550bde3d64582f7da9c6ab8b18a289823b95")
 	infos[addr1] = &Content{3, 2}
 	infos[addr2] = &Content{9, 7}
-	p := &point{PreHash: h1, Hash: h2, Sbps: infos}
+	p := &Point{PrevHash: h1, Hash: h2, Sbps: infos}
 
 	err = db.StorePointByHeight(INDEX_Point_DAY, 1, p)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestConsensusDB_Point(t *testing.T) {
 	if p1 == nil {
 		panic(p1)
 	}
-	assert.Equal(t, p1.PreHash, h1)
+	assert.Equal(t, p1.PrevHash, h1)
 	assert.Equal(t, p1.Hash, h2)
 	for k, v := range p1.Sbps {
 		assert.Equal(t, v, infos[k])

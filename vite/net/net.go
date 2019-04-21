@@ -21,7 +21,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/protos"
 )
 
-var netLog = log15.New("module", "vite/net")
+var netLog = log15.New("module", "net")
+
 var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
 var errInvalidSignature = errors.New("invalid signature")
@@ -55,12 +56,12 @@ type net struct {
 	reader     syncCacheReader
 	downloader syncDownloader
 	BlockSubscriber
-	running  int32
-	log      log15.Logger
-	fs       *fileServer
+	server   *syncServer
 	handlers *msgHandlers
 	query    *queryHandler
 	hb       *heartBeater
+	running  int32
+	log      log15.Logger
 }
 
 func (n *net) parseFilePublicAddress() (fileAddress []byte) {
@@ -69,13 +70,13 @@ func (n *net) parseFilePublicAddress() (fileAddress []byte) {
 		var err error
 		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
 		if err != nil {
-			n.log.Error(fmt.Sprintf("Failed to parse FilePublicAddress: %v", err))
+			n.log.Error(fmt.Sprintf("failed to parse FilePublicAddress: %v", err))
 			return nil
 		}
 
 		fileAddress, err = e.Serialize()
 		if err != nil {
-			n.log.Error(fmt.Sprintf("Failed to serialize FilePublicAddress: %v", err))
+			n.log.Error(fmt.Sprintf("failed to serialize FilePublicAddress: %v", err))
 			return nil
 		}
 	} else if n.FilePort != 0 {
@@ -205,16 +206,12 @@ func (n *net) ID() p2p.ProtocolID {
 }
 
 func (n *net) Handle(msg p2p.Msg) error {
-	if handler := n.handlers.pick(code(msg.Code)); handler != nil {
-		p := n.peers.get(msg.Sender.ID())
-		if p != nil {
-			return handler.handle(msg, p)
-		} else {
-			return errPeerNotExist
-		}
+	p := n.peers.get(msg.Sender.ID())
+	if p != nil {
+		return n.handlers.handle(msg, p)
+	} else {
+		return errPeerNotExist
 	}
-
-	return p2p.PeerUnknownMessage
 }
 
 func (n *net) SetState(state []byte, peer p2p.Peer) {
@@ -222,7 +219,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 
 	err := proto.Unmarshal(state, heartbeat)
 	if err != nil {
-		n.log.Error(fmt.Sprintf("Failed to unmarshal heartbeat message: %v", err))
+		n.log.Error(fmt.Sprintf("failed to unmarshal heartbeat message from %s: %v", peer, err))
 		return
 	}
 
@@ -280,8 +277,8 @@ func New(cfg Config) Net {
 
 	feed := newBlockFeeder()
 
-	forward := chooseForardStrategy(cfg.ForwardStrategy, peers)
-	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil)
+	forward := createForardStrategy(cfg.ForwardStrategy, peers)
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, cfg.Chain)
 
 	receiver := &safeBlockNotifier{
 		blockFeeder: feed,
@@ -294,8 +291,8 @@ func New(cfg Config) Net {
 		privateKey: cfg.P2PPrivateKey,
 	}
 	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
-	syncer := newSyncer(cfg.Chain, peers, downloader, 10*time.Minute)
 	reader := newCacheReader(cfg.Chain, receiver, downloader)
+	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
 
 	fetcher := newFetcher(peers, receiver)
 
@@ -311,10 +308,10 @@ func New(cfg Config) Net {
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
 		downloader:      downloader,
-		fs:              newFileServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
+		server:          newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
 		handlers:        newHandlers("vite"),
+		hb:              newHeartBeater(peers, cfg.Chain),
 		log:             netLog,
-		hb:              newHeartBeater(peers, cfg.Chain, netLog.New("module", "heartbeat")),
 	}
 
 	var err error
@@ -346,14 +343,13 @@ type heartBeater struct {
 	last      time.Time
 	lastPeers map[vnode.NodeID]struct{}
 	ps        *peerSet
-	log       log15.Logger
 }
 
-func newHeartBeater(ps *peerSet, chain chainReader, log log15.Logger) *heartBeater {
+func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
 	return &heartBeater{
-		ps:    ps,
-		chain: chain,
-		log:   log,
+		chain:     chain,
+		lastPeers: make(map[vnode.NodeID]struct{}),
+		ps:        ps,
 	}
 }
 
@@ -379,21 +375,19 @@ func (h *heartBeater) state() []byte {
 	var ok bool
 	for id = range h.lastPeers {
 		if _, ok = idMap[id]; ok {
+			delete(idMap, id)
 			continue
 		}
 		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
-			ID:     id[:],
+			ID:     id.Bytes(),
 			Status: protos.State_Disconnected,
 		})
 	}
 
 	for id = range idMap {
-		if _, ok = h.lastPeers[id]; ok {
-			continue
-		}
 		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
-			ID:     id[:],
-			Status: protos.State_Disconnected,
+			ID:     id.Bytes(),
+			Status: protos.State_Connected,
 		})
 	}
 
@@ -401,6 +395,8 @@ func (h *heartBeater) state() []byte {
 	if err != nil {
 		return nil
 	}
+
+	h.lastPeers = idMap
 
 	return data
 }
@@ -420,7 +416,9 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 			}
 		}
 
-		if err = n.fs.start(); err != nil {
+		fmt.Println(n.Chain.GetLatestSnapshotBlock().Height)
+
+		if err = n.server.start(); err != nil {
 			return
 		}
 
@@ -442,11 +440,11 @@ func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
 		n.reader.stop()
 
-		n.downloader.stop()
-
 		n.syncer.stop()
 
-		_ = n.fs.stop()
+		n.downloader.stop()
+
+		_ = n.server.stop()
 
 		n.query.stop()
 
@@ -459,13 +457,20 @@ func (n *net) Stop() error {
 }
 
 func (n *net) Info() NodeInfo {
-	return NodeInfo{
-		PeerCount: n.peers.count(),
-		Latency:   n.broadcaster.Statistic(),
+	info := NodeInfo{
+		Latency: n.broadcaster.Statistic(),
+		Peers:   n.peers.info(),
 	}
+
+	if n.server != nil {
+		info.Server = n.server.status()
+	}
+
+	return info
 }
 
 type NodeInfo struct {
-	PeerCount int     `json:"peerCount"`
-	Latency   []int64 `json:"latency"` // [0,1,12,24]
+	Peers   []PeerInfo       `json:"peers"`
+	Latency []int64          `json:"latency"` // [0,1,12,24]
+	Server  FileServerStatus `json:"server"`
 }

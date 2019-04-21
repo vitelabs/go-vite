@@ -68,6 +68,7 @@ func (self *accountCh) insertBlock(b commonBlock) error {
 func (self *accountCh) head() commonBlock {
 	block, e := self.rw.GetLatestAccountBlock(self.address)
 	if e != nil {
+		self.log.Error("get latest block error", "error", e)
 		return nil
 	}
 	if block == nil {

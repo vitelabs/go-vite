@@ -36,7 +36,7 @@ func (self *pool) loopQueue() {
 				self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
 				self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
 				//time.Sleep(time.Second
-				self.log.Crit("pool auto stop")
+				self.log.Error("pool auto stop")
 			}
 			t2 := time.Now()
 			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
@@ -56,7 +56,7 @@ func (self *pool) insert() {
 		self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
 		self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
 		//time.Sleep(time.Second
-		self.log.Error("pool auto stop")
+		//self.log.Error("pool auto stop")
 	}
 	t2 := time.Now()
 	self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
@@ -69,22 +69,24 @@ func (self *pool) makeQueue() Package {
 	tailHeight, tailHash := self.pendingSc.CurrentChain().TailHH()
 	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: tailHeight, Hash: tailHash}}
 
-	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
+	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, self.version.Val(), 50)
 	for {
-		newOffset, errAcc, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
+		newOffset, pendingForSb, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
 			// just account
 			if p.Size() > 0 {
 				break
 			}
 
-			if errAcc != nil && rand.Intn(10) > 3 {
-				self.snapshotPendingFix(newOffset, errAcc)
+			if pendingForSb != nil && rand.Intn(10) > 3 {
+				self.snapshotPendingFix(p, newOffset, pendingForSb)
 			} else {
 				self.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
 					// todo remove
 					fmt.Printf("make accounts[%d]\n", p.Size())
+					self.log.Info(fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size()))
+					return p
 				}
 			}
 			break
@@ -96,6 +98,9 @@ func (self *pool) makeQueue() Package {
 			}
 			snapshotOffset.offset = newOffset
 		}
+	}
+	if p.Size() > 0 {
+		self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
 	}
 	return p
 }
@@ -116,7 +121,14 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 	return true
 }
 
-func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, map[types.Address]*ledger.HashHeight, *completeSnapshotBlock) {
+type snapshotPending struct {
+	sHash     types.Hash
+	sHeight   uint64
+	sPrevHash types.Hash
+	addrM     map[types.Address]*ledger.HashHeight
+}
+
+func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
 	if self.pendingSc.CurrentChain().Size() == 0 {
 		return nil, nil, nil
 	}
@@ -152,7 +164,9 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	}
 
 	if len(errorAcc) > 0 {
-		return newOffset, errorAcc, nil
+		pendingS := &snapshotPending{sHash: b.Hash(), sHeight: b.Height(), sPrevHash: b.PrevHash(), addrM: errorAcc}
+		return newOffset, pendingS, nil
+
 	}
 	result.addrM = addrM
 	return newOffset, nil, result
@@ -198,6 +212,8 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 }
 func (self *pool) makeQueueFromAccounts(p Package) {
 	addrOffsets := make(map[types.Address]*offsetInfo)
+	max := uint64(100)
+	total := uint64(0)
 	for {
 		sum := uint64(0)
 		self.pendingAc.Range(func(key, v interface{}) bool {
@@ -207,11 +223,17 @@ func (self *pool) makeQueueFromAccounts(p Package) {
 				offset = &offsetInfo{}
 				addrOffsets[key.(types.Address)] = offset
 			}
-
-			num, _ := cp.makePackage(p, offset)
+			if total >= max {
+				return false
+			}
+			num, _ := cp.makePackage(p, offset, max-total)
 			sum += num
+			total += num
 			return true
 		})
+		if total >= max {
+			break
+		}
 		if sum == 0 {
 			break
 		}
@@ -257,15 +279,16 @@ func (self *pool) insertQueue(q Package) error {
 
 	defer func() {
 		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("queue[%s][%d][%d]", sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
+		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
 		fmt.Println(queueResult)
 	}()
 
-	for _, level := range levels {
+	for i, level := range levels {
 		if level == nil {
 			continue
 		}
-		err := self.insertLevel(level)
+		self.log.Info(fmt.Sprintf("[%d]insert queue level[%d][%t] insert.", q.Id(), i, level.Snapshot()))
+		err := self.insertLevel(q, level, q.Version())
 		if err != nil {
 			return err
 		}
@@ -273,25 +296,26 @@ func (self *pool) insertQueue(q Package) error {
 	return nil
 }
 
-func (self *pool) insertAccountBucket(bucket Bucket) error {
+func (self *pool) insertAccountBucket(p Package, bucket Bucket, version int) error {
 	self.RLock()
 	defer self.RUnLock()
 	latestSb := self.bc.GetLatestSnapshotBlock()
-	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(bucket.Items(), latestSb)
+	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(bucket Bucket) error {
+func (self *pool) insertSnapshotBucket(p Package, bucket Bucket, version int) error {
 	// stop the world for snapshot insert
 	self.Lock()
 	defer self.UnLock()
-	accBlocks, item, err := self.pendingSc.snapshotInsertItems(bucket.Items())
+	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err
 	}
+	self.pendingSc.checkCurrent()
 	if accBlocks == nil || len(accBlocks) == 0 {
 		return nil
 	}
@@ -301,6 +325,7 @@ func (self *pool) insertSnapshotBucket(bucket Bucket) error {
 		if err != nil {
 			return err
 		}
+		self.selfPendingAc(k).checkCurrent()
 	}
 	return errors.Errorf("account blocks rollback for snapshot block[%s-%s-%d] insert.", item.ownerWrapper, item.Hash(), item.Height())
 }

@@ -100,8 +100,7 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 
 type CallOffChainMethodParam struct {
 	SelfAddr     types.Address
-	MethodName   string
-	OffChainCode []byte
+	OffChainCode string
 	Data         []byte
 }
 
@@ -114,7 +113,11 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
+	coedBytes, err := hex.DecodeString(param.OffChainCode)
+	if err != nil {
+		return nil, err
+	}
+	return vm.NewVM(nil).OffChainReader(db, coedBytes, param.Data)
 }
 
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {

@@ -20,6 +20,7 @@ package discovery
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +41,8 @@ var errDiscoveryIsRunning = errors.New("discovery is running")
 var errDiscoveryIsStopped = errors.New("discovery is stopped")
 var errDifferentNet = errors.New("different net")
 var errPingFailed = errors.New("failed to ping node")
+
+var discvLog = log15.New("module", "discovery")
 
 // Discovery is the interface to discovery other node
 type Discovery interface {
@@ -133,7 +136,7 @@ func New(cfg *Config) Discovery {
 	d := &discovery{
 		Config: cfg,
 		stage:  make(map[string]*Node),
-		log:    log15.New("module", "p2p/discv"),
+		log:    discvLog,
 	}
 
 	d.cond = sync.NewCond(&d.mu)
@@ -142,7 +145,7 @@ func New(cfg *Config) Discovery {
 
 	d.socket = newAgent(cfg.PrivateKey(), d.node, cfg.ListenAddress, d.handle)
 
-	d.table = newTable(d.node.ID, bucketSize, bucketNum, newListBucket, d)
+	d.table = newTable(d.node.ID, d.NetID, cfg.BucketSize, cfg.BucketCount, newListBucket, d)
 
 	d.SetFinder(&closetFinder{table: d.table})
 
@@ -157,7 +160,7 @@ func (d *discovery) Start() (err error) {
 	// open database
 	d.db, err = newDB(d.Config.DataDir, 3, d.node.ID)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to create database: %v", err)
 	}
 
 	// retrieve boot nodes
@@ -169,7 +172,7 @@ func (d *discovery) Start() (err error) {
 		var bt booter
 		bt, err = newCfgBooter(d.BootNodes, d.node)
 		if err != nil {
-			return
+			return err
 		}
 		d.booters = append(d.booters, bt)
 	}
@@ -177,7 +180,7 @@ func (d *discovery) Start() (err error) {
 	// open socket
 	err = d.socket.start()
 	if err != nil {
-		return
+		return fmt.Errorf("failed to start udp server: %v", err)
 	}
 
 	d.term = make(chan struct{})
@@ -326,28 +329,17 @@ func (d *discovery) handle(pkt *packet) {
 	switch pkt.c {
 	case codePing:
 		n := nodeFromPing(pkt)
-		n2 := d.table.resolveAddr(n.Address())
-
-		if n2 != nil {
-			if n.Net != d.node.Net {
-				d.table.remove(pkt.id)
-			} else {
-				n2.update(n)
-				d.table.bubble(n2.ID)
-				_ = d.socket.pong(pkt.hash, n)
-			}
-		} else {
-			if n.Net != d.node.Net {
-				return
-			}
-			// add to table
-			d.table.add(n)
+		if n.Net == d.node.Net {
 			_ = d.socket.pong(pkt.hash, n)
 		}
+
+		d.table.bubble(n.ID)
+		d.table.add(n)
 
 	case codePong:
 		// nothing
 		// pong will be handle by requestPool
+
 	case codeFindnode:
 		find := pkt.body.(*findnode)
 		nodes := d.table.findNeighbors(find.target, int(find.count))
@@ -447,7 +439,7 @@ func (d *discovery) loadBootNodes() bool {
 	var failed int
 
 Load:
-	bootNodes := d.getBootNodes(bucketSize)
+	bootNodes := d.getBootNodes(d.BucketSize)
 
 	if len(bootNodes) == 0 {
 		failed++
@@ -472,7 +464,7 @@ func (d *discovery) findSubTree(distance uint) {
 
 	if d.loadBootNodes() {
 		id := vnode.RandFromDistance(d.node.ID, distance)
-		nodes := d.lookup(id, bucketSize)
+		nodes := d.lookup(id, d.BucketSize)
 		d.table.addNodes(nodes)
 	}
 }
@@ -488,7 +480,7 @@ func (d *discovery) refresh() {
 
 	for i := uint(0); i < vnode.IDBits; i++ {
 		id := vnode.RandFromDistance(d.node.ID, i)
-		nodes := d.lookup(id, bucketSize)
+		nodes := d.lookup(id, d.BucketSize)
 		d.table.addNodes(nodes)
 	}
 
@@ -499,7 +491,7 @@ func (d *discovery) refresh() {
 	d.cond.Signal()
 }
 
-func (d *discovery) lookup(target vnode.NodeID, count uint32) []*Node {
+func (d *discovery) lookup(target vnode.NodeID, count int) []*Node {
 	// is looking
 	if !atomic.CompareAndSwapInt32(&d.looking, 0, 1) {
 		return nil
@@ -561,7 +553,7 @@ Loop:
 	return result.nodes
 }
 
-func (d *discovery) findNode(target vnode.NodeID, count uint32, n *Node, ch chan<- []*Node) {
+func (d *discovery) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*Node) {
 	epChan := make(chan []*vnode.EndPoint)
 	err := d.socket.findNode(target, count, n, epChan)
 	if err != nil {

@@ -7,14 +7,24 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+func (c *chain) GetAllUnconfirmedBlocks() []*ledger.AccountBlock {
+	return c.cache.GetUnconfirmedBlocks()
+}
+
 func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
 	return c.cache.GetUnconfirmedBlocksByAddress(&addr)
 }
+
+const maxSnapshotLength = 40000
 
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	sc := make(ledger.SnapshotContent)
+	// limit account blocks be snapshot less than 40000
+	if len(unconfirmedBlocks) > maxSnapshotLength {
+		unconfirmedBlocks = unconfirmedBlocks[:maxSnapshotLength]
+	}
 
 	for i := len(unconfirmedBlocks) - 1; i >= 0; i-- {
 		block := unconfirmedBlocks[i]

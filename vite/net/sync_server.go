@@ -11,20 +11,19 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 )
 
 const fileTimeout = 5 * time.Minute
 
-var errFileServerIsRunning = errors.New("file server is running")
-var errFileServerNotRunning = errors.New("file server is not running")
+var errSyncServerIsRunning = errors.New("sync server is running")
+var errSyncServerNotRunning = errors.New("sync server is not running")
 
 type FileServerStatus struct {
-	Connections []FileConnStatus
+	Connections []SyncConnectionStatus `json:"connections"`
 }
 
-type fileServer struct {
+type syncServer struct {
 	addr     string
 	ln       net2.Listener
 	mu       sync.Mutex
@@ -36,21 +35,21 @@ type fileServer struct {
 	log      log15.Logger
 }
 
-func newFileServer(addr string, chain ledgerReader, factory syncConnReceiver) *fileServer {
-	return &fileServer{
+func newSyncServer(addr string, chain ledgerReader, factory syncConnReceiver) *syncServer {
+	return &syncServer{
 		addr:     addr,
 		sconnMap: make(map[peerId]syncConnection),
 		chain:    chain,
 		factory:  factory,
-		log:      log15.New("module", "net/fileServer"),
+		log:      log15.New("module", "server"),
 	}
 }
 
-func (s *fileServer) status() FileServerStatus {
+func (s *syncServer) status() FileServerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	connStates := make([]FileConnStatus, len(s.sconnMap))
+	connStates := make([]SyncConnectionStatus, len(s.sconnMap))
 
 	i := 0
 	for _, c := range s.sconnMap {
@@ -63,7 +62,7 @@ func (s *fileServer) status() FileServerStatus {
 	}
 }
 
-func (s *fileServer) start() error {
+func (s *syncServer) start() error {
 	if atomic.CompareAndSwapInt32(&s.running, 0, 1) {
 		if ln, err := net2.Listen("tcp", s.addr); err != nil {
 			return err
@@ -72,15 +71,15 @@ func (s *fileServer) start() error {
 		}
 
 		s.wg.Add(1)
-		common.Go(s.listenLoop)
+		go s.listenLoop()
 
 		return nil
 	}
 
-	return errFileServerIsRunning
+	return errSyncServerIsRunning
 }
 
-func (s *fileServer) stop() (err error) {
+func (s *syncServer) stop() (err error) {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		if s.ln != nil {
 			err = s.ln.Close()
@@ -94,10 +93,10 @@ func (s *fileServer) stop() (err error) {
 		s.wg.Wait()
 	}
 
-	return errFileServerNotRunning
+	return errSyncServerNotRunning
 }
 
-func (s *fileServer) listenLoop() {
+func (s *syncServer) listenLoop() {
 	defer s.wg.Done()
 
 	for {
@@ -117,7 +116,7 @@ func (s *fileServer) listenLoop() {
 	}
 }
 
-func (s *fileServer) deleteConn(c syncConnection) {
+func (s *syncServer) deleteConn(c syncConnection) {
 	_ = c.Close()
 
 	// is running
@@ -128,7 +127,7 @@ func (s *fileServer) deleteConn(c syncConnection) {
 	}
 }
 
-func (s *fileServer) addConn(c syncConnection) {
+func (s *syncServer) addConn(c syncConnection) {
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
 		s.sconnMap[c.ID()] = c
@@ -136,11 +135,12 @@ func (s *fileServer) addConn(c syncConnection) {
 	}
 }
 
-func (s *fileServer) handleConn(conn net2.Conn) {
+func (s *syncServer) handleConn(conn net2.Conn) {
 	defer s.wg.Done()
 
 	sconn, err := s.factory.receive(conn)
 	if err != nil {
+		_ = conn.Close()
 		return
 	}
 
@@ -151,10 +151,12 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 	for {
 		msg, err = sconn.read()
 		if err != nil {
+			s.log.Error(fmt.Sprintf("failed read message from sync connection %s: %v", sconn.RemoteAddr(), err))
 			return
 		}
 
 		if msg.code() == syncQuit {
+			s.log.Warn(fmt.Sprintf("sync connection %s quit", sconn.RemoteAddr()))
 			return
 		}
 
@@ -164,7 +166,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			var reader interfaces.LedgerReader
 			reader, err = s.chain.GetLedgerReaderByHeight(request.from, request.to)
 			if err != nil {
-				s.log.Error(fmt.Sprintf("read chunk %d-%d error: %v", request.from, request.to, err))
+				s.log.Error(fmt.Sprintf("failed to read chunk %d-%d error: %v", request.from, request.to, err))
 
 				_ = sconn.write(syncServerError)
 
@@ -179,6 +181,7 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			})
 
 			if err != nil {
+				s.log.Error(fmt.Sprintf("failed to send ready message %d-%d to %s: %v", from, to, sconn.RemoteAddr(), err))
 				return
 			}
 
@@ -187,10 +190,10 @@ func (s *fileServer) handleConn(conn net2.Conn) {
 			_ = reader.Close()
 
 			if err != nil {
-				s.log.Error(fmt.Sprintf("send chunk<%d-%d> to %s error: %v", request.from, request.to, conn.RemoteAddr(), err))
+				s.log.Error(fmt.Sprintf("failed to send chunk<%d-%d> to %s: %v", from, to, conn.RemoteAddr(), err))
 				return
 			} else {
-				s.log.Info(fmt.Sprintf("send chunk<%d-%d> to %s done", request.from, request.to, conn.RemoteAddr()))
+				s.log.Info(fmt.Sprintf("send chunk<%d-%d> to %s done", from, to, conn.RemoteAddr()))
 			}
 		}
 	}

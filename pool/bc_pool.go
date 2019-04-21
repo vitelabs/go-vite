@@ -190,6 +190,15 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	disk := self.chainpool.diskChain
 	headHeight, headHash := disk.HeadHH()
 
+	err := self.checkChain(blocks)
+	if err != nil {
+		self.log.Info("check chain fail." + self.printf(blocks))
+		panic(err)
+		return err
+	}
+
+
+	block.PrevHash() == current.tailHash {
 	if cur.Linked(disk) {
 		self.log.Info("poolChain and db is connected.", "headHeight", headHeight, "headHash", headHash)
 		return nil
@@ -220,7 +229,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		//	return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
 		//}
 	}
-	err := self.chainpool.check()
+	err = self.chainpool.check()
 	if err != nil {
 		self.log.Error("rollbackCurrent check", "err", err)
 	}
@@ -236,14 +245,22 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 			continue
 		}
 		if b.PrevHash() != prev.Hash() {
-			return errors.New("not a chain")
+			return errors.New("not a chain.")
 		}
 		if b.Height()-1 != prev.Height() {
-			return errors.New("not a chain")
+			return errors.New("not a chain.")
 		}
 		prev = b
 	}
 	return nil
+}
+// check blocks is a chain
+func (self *BCPool) printf(blocks []commonBlock) string {
+	result := ""
+	for _, v := range blocks {
+	result += fmt.Sprintf("[%d-%s-%s]", v.Height(), v.Hash(), v.PrevHash())
+}
+	return result
 }
 
 func checkHeadTailLink(c1 tree.Branch, c2 tree.Branch) error {
@@ -420,6 +437,7 @@ func (self *BCPool) loopAppendChains() int {
 		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains)
 		if err != nil {
 			self.delSnippet(w)
+			self.log.Error("fork to error.", "err", err)
 			continue
 		}
 		if forky {
@@ -460,7 +478,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 	headH, _ := cur.HeadHH()
 	head := new(big.Int).SetUint64(headH)
 
-	tailHeight, _ := cur.TailHH()
+	//tailHeight, _ := cur.TailHH()
 
 	i := 0
 	zero := big.NewInt(0)
@@ -468,9 +486,9 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 	for _, w := range sortSnippets {
 		// if snippet is lower, ignore
-		if w.headHeight+10 < tailHeight {
-			continue
-		}
+		//if w.headHeight+10 < tailHeight {
+		//	continue
+		//}
 		diff := big.NewInt(0)
 		tailHeight := new(big.Int).SetUint64(w.tailHeight)
 		// prev > 0
@@ -488,7 +506,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 
 		// lower than the current chain
 		if diff.Sign() <= 0 {
-			diff.SetUint64(20)
+			diff.SetUint64(100)
 		}
 
 		i++

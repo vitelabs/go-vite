@@ -3,21 +3,26 @@ package pool
 import (
 	"fmt"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+var packageId uint64
+
 type snapshotPackage struct {
 	num             int
 	current         int
+	version         int
 	all             map[types.Hash]*ownerLevel
 	ls              []Level
 	snapshotExistsF SnapshotExistsFunc
 	accountExistsF  AccountExistsFunc
 	maxLevel        int
 	snapshot        *ledger.SnapshotBlock
+	id              uint64
 }
 
 func (self *snapshotPackage) Exists(hash types.Hash) bool {
@@ -55,6 +60,9 @@ func (self *snapshotPackage) Info() string {
 
 	return fmt.Sprintf("sum:%d,%d,%d:%s\n", len(self.all), sum, self.num, levelInfo)
 }
+func (self *snapshotPackage) Version() int {
+	return self.version
+}
 
 func (self *snapshotPackage) Size() int {
 	return len(self.all)
@@ -67,12 +75,13 @@ func (self *snapshotPackage) IsUnconfirmed() bool {
 type SnapshotExistsFunc func(hash types.Hash) error
 type AccountExistsFunc func(hash types.Hash) error
 
-func NewSnapshotPackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int) Package {
+func NewSnapshotPackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, version int, max int) Package {
 	tmpLs := make([]Level, max)
 	//for i := 0; i < max; i++ {
 	//	tmpLs[i] = newLevel()
 	//}
-	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, current: -1}
+	id := atomic.AddUint64(&packageId, 1)
+	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, current: -1, version: version, id: id}
 }
 func NewSnapshotPackage2(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, max int, snapshot *ledger.SnapshotBlock) *snapshotPackage {
 	tmpLs := make([]Level, max)
@@ -80,6 +89,10 @@ func NewSnapshotPackage2(snapshotF SnapshotExistsFunc, accountF AccountExistsFun
 	//	tmpLs[i] = newLevel()
 	//}
 	return &snapshotPackage{all: make(map[types.Hash]*ownerLevel), ls: tmpLs, snapshotExistsF: snapshotF, accountExistsF: accountF, maxLevel: max, snapshot: snapshot, current: -1}
+}
+
+func (self *snapshotPackage) Id() uint64 {
+	return self.id
 }
 
 func (self *snapshotPackage) Levels() []Level {
@@ -145,14 +158,30 @@ func (self *snapshotPackage) AddItem(b *Item) error {
 	if tmp == nil {
 		tmp = newLevel(b.Snapshot(), max)
 		self.ls[max] = tmp
-	}
-	if b.Snapshot() != tmp.Snapshot() {
-		max = self.current + 1
-		if max > self.maxLevel-1 {
-			return MAX_ERROR
+	} else {
+		if b.Snapshot() {
+			if !tmp.Snapshot() {
+				max = self.current + 1
+				if max > self.maxLevel-1 {
+					return MAX_ERROR
+				}
+				tmp = newLevel(b.Snapshot(), max)
+				self.ls[max] = tmp
+			}
+		} else {
+			if self.current > max {
+				max = self.current
+				tmp = self.ls[max]
+			}
+			if tmp.Snapshot() {
+				max = self.current + 1
+				if max > self.maxLevel-1 {
+					return MAX_ERROR
+				}
+				tmp = newLevel(b.Snapshot(), max)
+				self.ls[max] = tmp
+			}
 		}
-		tmp = newLevel(b.Snapshot(), max)
-		self.ls[max] = tmp
 	}
 
 	err := tmp.Add(b)

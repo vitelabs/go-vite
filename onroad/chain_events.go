@@ -18,10 +18,10 @@ func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBloc
 	return nil
 }
 
-func (manager *Manager) PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+func (manager *Manager) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
-func (manager *Manager) InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+func (manager *Manager) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
 

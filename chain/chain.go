@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/chain/plugins"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -30,6 +31,7 @@ const (
 
 type chain struct {
 	genesisCfg *config.Genesis
+	chainCfg   *config.Chain
 
 	genesisSnapshotBlock    *ledger.SnapshotBlock
 	genesisAccountBlocks    []*vm_db.VmAccountBlock
@@ -55,6 +57,8 @@ type chain struct {
 
 	flusher *chain_flusher.Flusher
 
+	plugins *chain_plugins.Plugins
+
 	status uint32
 }
 
@@ -62,12 +66,17 @@ type chain struct {
  * Init chain config
  */
 func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
+	if chainCfg == nil {
+		chainCfg = defaultConfig()
+	}
+
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
 		chainDir:   path.Join(dir, "ledger"),
 		log:        log15.New("module", "chain"),
 		em:         newEventManager(),
+		chainCfg:   chainCfg,
 	}
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
@@ -87,134 +96,32 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
 	for {
-		var err error
-		// Init ledger db
-		if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
-			c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
+		// init db
+		if err := c.newDbAndRecover(); err != nil {
 			return err
-		}
-
-		// Init block db
-		if c.blockDB, err = chain_block.NewBlockDB(c.chainDir); err != nil {
-			c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "Init")
-			return err
-		}
-
-		// Init state db
-		if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
-			cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
-
-		// init flusher
-		stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
-		if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
-			cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "Init")
-			return cErr
-		}
-
-		// flusher check and recover
-		if err := c.flusher.Recover(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "Init")
-			return cErr
 		}
 
 		// check ledger
-		status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+		status, err := c.checkAndInitData()
 		if err != nil {
-			cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
-
-			c.log.Error(cErr.Error(), "method", "Init")
 			return err
 		}
 
-		if status != chain_genesis.LedgerInvalid {
-			// valid or empty
-			// Init cache
-			if c.cache, err = chain_cache.NewCache(c); err != nil {
-				cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
-
-				c.log.Error(cErr.Error(), "method", "Init")
-				return err
-			}
-
-			if status == chain_genesis.LedgerEmpty {
-				// Init Ledger
-				if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
-					cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
-					c.log.Error(cErr.Error(), "method", "Init")
-					return err
-				}
-			}
+		// ledger is valid
+		if status == chain_genesis.LedgerValid {
 			break
 		}
-		// close blockDB
-		if err = c.blockDB.Close(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
 
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
-
-		// close indexDB
-		if err = c.indexDB.Close(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
-
-		// close stateDB
-		if err = c.stateDB.Close(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed. Error: %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
-
-		// close flusher
-		if err = c.flusher.Close(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.flusher.Close failed. Error: %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
-			return err
-		}
-
-		// clean all data
-		if err = c.cleanAllData(); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
-
-			c.log.Error(cErr.Error(), "method", "Init")
+		// close and clean ledger data
+		if err := c.closeAndCleanData(); err != nil {
 			return err
 		}
 
 	}
 
 	// init cache
-	if err := c.cache.Init(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
-	// recover unconfirmed cache
-	if err := c.recoverUnconfirmedCache(); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.recoverUnconfirmedCache failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
-	}
-
-	// init sync cache
-	var err error
-	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
-		c.log.Error(cErr.Error(), "method", "Init")
-		return cErr
+	if err := c.initCache(); err != nil {
+		return err
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")
@@ -234,6 +141,7 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
+	c.flusher.Flush(true)
 	return nil
 }
 
@@ -275,6 +183,10 @@ func (c *chain) Destroy() error {
 	return nil
 }
 
+func (c *chain) Plugins() *chain_plugins.Plugins {
+	return c.plugins
+}
+
 func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	absoluteDirName := path.Join(c.chainDir, dirName)
 	db, err := leveldb.OpenFile(absoluteDirName, nil)
@@ -289,6 +201,175 @@ func (c *chain) SetConsensus(cs Consensus) {
 	c.consensus = cs
 }
 
+func (c *chain) newDbAndRecover() error {
+	var err error
+	// new ledger db
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
+		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
+	}
+
+	// new block db
+	if c.blockDB, err = chain_block.NewBlockDB(c.chainDir); err != nil {
+		c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
+	}
+
+	// new state db
+	if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
+
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return err
+	}
+
+	// new flusher
+	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+	if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return cErr
+	}
+
+	// flusher check and recover
+	if err := c.flusher.Recover(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return cErr
+	}
+
+	// new cache
+	if c.cache, err = chain_cache.NewCache(c); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
+
+		c.log.Error(cErr.Error(), "method", "checkAndInitData")
+		return cErr
+	}
+
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		var err error
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return cErr
+		}
+
+		c.Register(c.plugins)
+	}
+
+	return nil
+}
+
+func (c *chain) checkAndInitData() (byte, error) {
+	// check ledger
+	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
+
+		c.log.Error(cErr.Error(), "method", "checkAndInitData")
+		return status, err
+	}
+
+	switch status {
+	case chain_genesis.LedgerInvalid:
+		break
+	case chain_genesis.LedgerEmpty:
+		// Init Ledger
+		if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return status, err
+		}
+		status = chain_genesis.LedgerValid
+
+	}
+
+	return status, nil
+}
+
+func (c *chain) initCache() error {
+	// init cache
+	if err := c.cache.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init sync cache
+	var err error
+	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+	return nil
+}
+
+func (c *chain) closeAndCleanData() error {
+	var err error
+	// close blockDB
+	if err = c.blockDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close indexDB
+	if err = c.indexDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close stateDB
+	if err = c.stateDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close flusher
+	if err = c.flusher.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.flusher.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close plugins
+	if c.chainCfg.OpenPlugins {
+		if err = c.plugins.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.plugins.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+			return err
+		}
+
+	}
+
+	// clean all data
+	if err = c.cleanAllData(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+	return nil
+}
+
 func (c *chain) cleanAllData() error {
 	return os.RemoveAll(c.chainDir)
+}
+
+func defaultConfig() *config.Chain {
+	return &config.Chain{
+		LedgerGc:       true,
+		LedgerGcRetain: 24 * 3600,
+		OpenPlugins:    false,
+	}
 }

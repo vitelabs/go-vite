@@ -1,16 +1,14 @@
-package onroad_test
+package onroad
 
 import (
-	"time"
-
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
+	"time"
 )
 
 type testNet struct {
@@ -53,11 +51,11 @@ func (t *testProducer) SetAccountEventFunc(f func(event producerevent.AccountEve
 type testVite struct {
 	chain    chain.Chain
 	wallet   *wallet.Manager
-	producer onroad.Producer
-	pool     onroad.Pool
+	producer Producer
+	pool     Pool
 }
 
-func (testVite) Net() onroad.Net {
+func (testVite) Net() Net {
 	return new(testNet)
 }
 
@@ -69,10 +67,10 @@ func (t testVite) WalletManager() *wallet.Manager {
 	return t.wallet
 }
 
-func (t testVite) Producer() onroad.Producer {
+func (t testVite) Producer() Producer {
 	return t.producer
 }
-func (t testVite) Pool() onroad.Pool {
+func (t testVite) Pool() Pool {
 	return t.pool
 }
 

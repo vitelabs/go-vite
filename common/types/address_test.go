@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
@@ -95,4 +96,9 @@ func TestPubkeyToAddress(t *testing.T) {
 	producer := PubkeyToAddress(publicKey)
 
 	fmt.Printf("%+v\n", producer)
+}
+func TestPubkeyBytesToAddress(t *testing.T) {
+	byt := []byte{63, 197, 34, 78, 89, 67, 59, 255, 79, 72, 200, 60, 14, 180, 237, 234, 14, 76, 66, 234, 105, 126, 4, 205, 236, 113, 125, 3, 229, 13, 82, 0}
+	producer := types.PubkeyToAddress(byt)
+	t.Log(producer)
 }

@@ -25,8 +25,9 @@ func (mp *mockPinger) ping(n *Node) error {
 func TestTable_add(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
 	var node *Node
+	var toCheck *Node
 	for i := 0; i < bucketSize; i++ {
 		node = &Node{
 			Node: vnode.Node{
@@ -41,8 +42,8 @@ func TestTable_add(t *testing.T) {
 			},
 		}
 
-		if tab.add(node) != nil {
-			t.Fail()
+		if toCheck = tab.add(node); toCheck != nil {
+			t.Errorf("should not return toCheck: %s", toCheck.String())
 		}
 	}
 
@@ -65,18 +66,20 @@ func TestTable_add(t *testing.T) {
 		t.Error("should return the oldest node to check")
 	}
 	time.Sleep(100 * time.Millisecond)
-	if oldest = tab.oldest()[0]; oldest.Port != 0 {
-		t.Error("the check node should be the first node")
+
+	// check old and bubble old
+	if oldest = tab.oldest()[0]; oldest.EndPoint.Port != 1 {
+		t.Error("oldest node should be the first node")
 	}
 
 	// check false
 	mp.fail = true
-	if tab.add(node) == nil {
+	if toCheck = tab.add(node); toCheck == nil {
 		t.Error("should return the oldest node to check")
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	if oldest = tab.oldest()[0]; oldest.Port != node.Port {
+	if oldest = tab.oldest()[0]; oldest.EndPoint.Port != node.EndPoint.Port {
 		t.Errorf("the oldest node should not be: %s", oldest.String())
 	}
 }
@@ -84,7 +87,7 @@ func TestTable_add(t *testing.T) {
 func TestTable_add2(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
 
 	tab.add(&Node{
 		Node: vnode.Node{
@@ -105,6 +108,7 @@ func TestTable_add2(t *testing.T) {
 				Port: 8483,
 				Typ:  vnode.HostIPv4,
 			},
+			Net: self.Net,
 		},
 	}
 
@@ -130,7 +134,7 @@ func TestTable_add2(t *testing.T) {
 func TestTable_add3(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
 
 	node := &Node{
 		Node: vnode.Node{
@@ -140,11 +144,13 @@ func TestTable_add3(t *testing.T) {
 				Port: 8483,
 				Typ:  vnode.HostIPv4,
 			},
+			Net: self.Net,
 		},
 	}
 
-	if tocheck := tab.add(node); tocheck != nil {
-		t.Errorf("check node should not be %s", tocheck.String())
+	var toCheck *Node
+	if toCheck = tab.add(node); toCheck != nil {
+		t.Errorf("check node should not be %s", toCheck.String())
 	}
 
 	// same id different address
@@ -156,15 +162,16 @@ func TestTable_add3(t *testing.T) {
 				Port: 8485,
 				Typ:  vnode.HostIPv4,
 			},
+			Net: self.Net,
 		},
 	}
 
 	// check old success, should keep old
-	if tocheck := tab.add(node2); tocheck != node {
-		if tocheck == nil {
+	if toCheck = tab.add(node2); toCheck != node {
+		if toCheck == nil {
 			t.Error("check node should not be nil")
 		} else {
-			t.Errorf("check node should not be %s", tocheck.String())
+			t.Errorf("check node should not be %s", toCheck.String())
 		}
 	} else {
 		time.Sleep(100 * time.Millisecond)
@@ -209,7 +216,7 @@ func TestTable_add3(t *testing.T) {
 func TestTable_nodes(t *testing.T) {
 	var id vnode.NodeID
 	mp := &mockPinger{false}
-	tab := newTable(id, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(id, self.Net, bucketSize, bucketNum, newListBucket, mp)
 
 	// one node per bucket
 	for i := tab.minDistance; i <= vnode.IDBits; i++ {
@@ -221,6 +228,7 @@ func TestTable_nodes(t *testing.T) {
 					Port: int(i),
 					Typ:  vnode.HostIPv4,
 				},
+				Net: self.Net,
 			},
 		}
 
@@ -243,7 +251,7 @@ func TestTable_nodes(t *testing.T) {
 
 func TestTable_getBucket(t *testing.T) {
 	var id = vnode.RandomNodeID()
-	tab := newTable(id, bucketSize, bucketNum, newListBucket, nil)
+	tab := newTable(id, self.Net, bucketSize, bucketNum, newListBucket, nil)
 
 	for i := uint(0); i <= vnode.IDBits; i++ {
 		id2 := vnode.RandFromDistance(id, i)
