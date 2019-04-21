@@ -298,7 +298,13 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 			quota += block.Quota
 			blockCount += 1
 		}
-		for _, sb := range sbList {
+
+		printIndex := 0
+
+		for index := len(sbList) - 1; index >= 0; index-- {
+			printIndex++
+			sb := sbList[index]
+
 			confirmedBlocks := account.ConfirmedBlockMap[sb.Hash]
 			for hash := range confirmedBlocks {
 				block := account.BlocksMap[hash]
@@ -309,6 +315,7 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 				blockCount += 1
 			}
 		}
+
 		if queryQuota != quota || queryBlockCount != blockCount {
 			panic(fmt.Sprintf("Addr: %s, queryQuota: %d, quota: %d, queryBlockCount: %d, blockCount: %d",
 				account.Addr, queryQuota, quota, queryBlockCount, blockCount))

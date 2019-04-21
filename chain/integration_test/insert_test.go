@@ -1,4 +1,4 @@
-package integration_test
+package integration
 
 import (
 	"encoding/json"
@@ -72,7 +72,7 @@ func BenchmarkInsert(b *testing.B) {
 	snapshotVerifier := verifier.NewSnapshotVerifier(chainInstance, &test_tools.MockCssVerifier{})
 	verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
 
-	accounts := test_tools.MakeAccounts(chainInstance, 10)
+	accounts := MakeAccounts(chainInstance, 10)
 	b.Run("CheckAndInsert", func(b *testing.B) {
 		for i := 1; i <= b.N; i++ {
 			if i%snapshotPerNum == 0 {
@@ -96,7 +96,7 @@ func BenchmarkInsert(b *testing.B) {
 
 			// get random account
 			var vmBlock *vm_db.VmAccountBlock
-			var account *test_tools.Account
+			var account *Account
 			for {
 				account = getRandomAccount(accounts)
 
@@ -134,7 +134,7 @@ func BenchmarkInsert(b *testing.B) {
 	fmt.Println(chainInstance.GetLatestSnapshotBlock().Height)
 }
 
-func createVmBlock(account *test_tools.Account, accounts map[types.Address]*test_tools.Account) (*vm_db.VmAccountBlock, error) {
+func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_db.VmAccountBlock, error) {
 	var vmBlock *vm_db.VmAccountBlock
 	var createBlockErr error
 
@@ -168,8 +168,8 @@ func createVmBlock(account *test_tools.Account, accounts map[types.Address]*test
 	return vmBlock, nil
 }
 
-func getRandomAccount(accounts map[types.Address]*test_tools.Account) *test_tools.Account {
-	var account *test_tools.Account
+func getRandomAccount(accounts map[types.Address]*Account) *Account {
+	var account *Account
 
 	for _, tmpAccount := range accounts {
 		account = tmpAccount

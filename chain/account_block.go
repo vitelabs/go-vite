@@ -16,7 +16,7 @@ func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {
 
 func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
 	// cache
-	if ok := c.cache.IsAccountBlockExisted(&hash); ok {
+	if ok := c.cache.IsAccountBlockExisted(hash); ok {
 		return ok, nil
 	}
 
@@ -66,7 +66,7 @@ func (c *chain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	var accountBlock *ledger.AccountBlock
 
 	// cache
-	if block := c.cache.GetAccountBlockByHash(&blockHash); block != nil {
+	if block := c.cache.GetAccountBlockByHash(blockHash); block != nil {
 		if block.IsReceiveBlock() {
 			return c.rsBlockToSBlock(block, blockHash), nil
 		}

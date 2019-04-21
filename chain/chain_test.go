@@ -64,7 +64,7 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 		panic(err)
 	}
 
-	InsertSnapshotBlock(chainInstance, true)
+	//InsertSnapshotBlock(chainInstance, true)
 
 	accounts := MakeAccounts(chainInstance, accountNum)
 

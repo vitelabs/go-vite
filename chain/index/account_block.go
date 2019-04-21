@@ -52,7 +52,7 @@ func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain
 
 func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
-	value, err := iDB.store.Get(key)
+	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,8 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	}
 
 	return locationList, [2]uint64{minHeight, maxHeight}, nil
-
 }
+
 func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*chain_file_manager.Location, [2]uint64, error) {
 	if count <= 0 {
 		return nil, nil, [2]uint64{}, nil
@@ -181,11 +181,12 @@ func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, uint64, error) {
 
 	key := chain_utils.CreateAccountBlockHashKey(blockHash)
-	value, err := iDB.store.Get(key)
+
+	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, 0, err
-
 	}
+
 	if len(value) <= 0 {
 		return nil, 0, nil
 

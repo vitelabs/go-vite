@@ -69,7 +69,7 @@ func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.Accoun
 }
 
 func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) {
-	//return store.db.WriteAccountBlock(batch, nil)
+	//return store.cache.WriteAccountBlock(batch, nil)
 	store.mu.Lock()
 	defer store.mu.Unlock()
 

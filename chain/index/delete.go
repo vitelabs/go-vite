@@ -117,11 +117,15 @@ func (iDB *IndexDB) deleteSnapshotBlockHeight(batch *leveldb.Batch, snapshotBloc
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch *leveldb.Batch, accountBlockHash types.Hash) {
-	batch.Delete(chain_utils.CreateAccountBlockHashKey(&accountBlockHash))
+	key := chain_utils.CreateAccountBlockHashKey(&accountBlockHash)
+	iDB.cache.Delete(string(key))
+	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteAccountBlockHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
-	batch.Delete(chain_utils.CreateAccountBlockHeightKey(&addr, height))
+	key := chain_utils.CreateAccountBlockHeightKey(&addr, height)
+	iDB.cache.Delete(string(key))
+	batch.Delete(key)
 }
 
 func (iDB *IndexDB) deleteReceive(batch *leveldb.Batch, sendBlockHash types.Hash) {

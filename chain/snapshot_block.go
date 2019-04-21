@@ -14,29 +14,12 @@ import (
 )
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {
-	block := c.GetGenesisSnapshotBlock()
-	if block == nil {
-		var err error
-		block, err = c.GetSnapshotHeaderByHeight(1)
-
-		if err != nil {
-			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err))
-			c.log.Error(cErr.Error(), "method", "IsGenesisSnapshotBlock")
-			return false
-		}
-		if block == nil {
-			cErr := errors.New(fmt.Sprintf("block is nil"))
-			c.log.Error(cErr.Error(), "method", "IsGenesisSnapshotBlock")
-			return false
-		}
-	}
-
-	return block.Hash == hash
+	return c.genesisSnapshotBlock.Hash == hash
 
 }
 func (c *chain) IsSnapshotBlockExisted(hash types.Hash) (bool, error) {
 	// cache
-	if ok := c.cache.IsSnapshotBlockExisted(&hash); ok {
+	if ok := c.cache.IsSnapshotBlockExisted(hash); ok {
 		return ok, nil
 	}
 
@@ -51,7 +34,7 @@ func (c *chain) IsSnapshotBlockExisted(hash types.Hash) (bool, error) {
 }
 
 func (c *chain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return c.cache.GetGenesisSnapshotBlock()
+	return c.genesisSnapshotBlock
 }
 
 func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
@@ -60,7 +43,7 @@ func (c *chain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 
 func (c *chain) GetSnapshotHeightByHash(hash types.Hash) (uint64, error) {
 	// cache
-	if header := c.cache.GetSnapshotHeaderByHash(&hash); header != nil {
+	if header := c.cache.GetSnapshotHeaderByHash(hash); header != nil {
 		return header.Height, nil
 	}
 
@@ -107,7 +90,7 @@ func (c *chain) GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock,
 		return nil, nil
 	}
 
-	snapshotBlock.SnapshotContent = nil
+	//snapshotBlock.SnapshotContent = nil
 	return snapshotBlock, nil
 }
 
@@ -124,7 +107,7 @@ func (c *chain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, 
 
 func (c *chain) GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
 	// cache
-	if block := c.cache.GetSnapshotHeaderByHash(&hash); block != nil {
+	if block := c.cache.GetSnapshotHeaderByHash(hash); block != nil {
 		return block, nil
 	}
 
@@ -148,14 +131,14 @@ func (c *chain) GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock,
 		return nil, err
 	}
 
-	snapshotBlock.SnapshotContent = nil
+	//snapshotBlock.SnapshotContent = nil
 
 	return snapshotBlock, nil
 }
 
 func (c *chain) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
 	// cache
-	if header := c.cache.GetSnapshotBlockByHash(&hash); header != nil {
+	if header := c.cache.GetSnapshotBlockByHash(hash); header != nil {
 		return header, nil
 	}
 

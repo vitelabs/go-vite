@@ -9,9 +9,7 @@ func (cache *Cache) InsertAccountBlock(block *ledger.AccountBlock) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	cache.quotaList.Add(block.AccountAddress, block.Quota)
-	dataId := cache.ds.InsertAccountBlock(block)
-	cache.unconfirmedPool.InsertAccountBlock(&block.AccountAddress, dataId)
+	cache.insertAccountBlock(block)
 }
 
 func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) error {
@@ -24,24 +22,30 @@ func (cache *Cache) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 	// rollback quota list
 	for _, block := range accountBlocks {
 		cache.quotaList.Sub(block.AccountAddress, block.Quota)
+
 	}
+
+	// delete account data
+	cache.hd.DeleteAccountBlocks(accountBlocks)
+
+	// rollback data set
+	cache.ds.DeleteAccountBlocks(accountBlocks)
 
 	return nil
 }
 
-func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
+func (cache *Cache) IsAccountBlockExisted(hash types.Hash) bool {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.ds.IsDataExisted(hash)
+	return cache.ds.IsAccountBlockExisted(hash)
 }
 
-// TODO
 func (cache *Cache) GetLatestAccountBlock(address types.Address) *ledger.AccountBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.ds.GetLatestAccountBlock(address)
+	return cache.hd.GetLatestAccountBlock(address)
 }
 
 func (cache *Cache) GetAccountBlockByHeight(addr types.Address, height uint64) *ledger.AccountBlock {
@@ -51,9 +55,23 @@ func (cache *Cache) GetAccountBlockByHeight(addr types.Address, height uint64) *
 	return cache.ds.GetAccountBlockByHeight(addr, height)
 }
 
-func (cache *Cache) GetAccountBlockByHash(hash *types.Hash) *ledger.AccountBlock {
+func (cache *Cache) GetAccountBlockByHash(hash types.Hash) *ledger.AccountBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.ds.GetAccountBlockByHash(hash)
+	return cache.ds.GetAccountBlock(hash)
+}
+
+func (cache *Cache) insertAccountBlock(block *ledger.AccountBlock) {
+	// add data set
+	cache.ds.InsertAccountBlock(block)
+
+	// add hot data
+	cache.hd.InsertAccountBlock(block)
+
+	// add unconfirmed pool
+	cache.unconfirmedPool.InsertAccountBlock(block)
+
+	// add quota
+	cache.quotaList.Add(block.AccountAddress, block.Quota)
 }

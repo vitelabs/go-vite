@@ -4,6 +4,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -37,7 +39,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
-		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
+		iDB.insertHeightLocation(batch, block, abLocationsList[index])
 	}
 
 	// write snapshot
@@ -55,7 +57,7 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 	}
 	// hash -> addr & height
 	addrHeightValue := append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...)
-	batch.Put(chain_utils.CreateAccountBlockHashKey(blockHash), addrHeightValue)
+	iDB.insertHashHeight(batch, accountBlock.Hash, addrHeightValue)
 
 	// height -> hash
 	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
@@ -76,10 +78,26 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 
 	for _, sendBlock := range accountBlock.SendBlockList {
 		// send block hash -> addr & height
-		batch.Put(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash), addrHeightValue)
+		iDB.insertHashHeight(batch, sendBlock.Hash, addrHeightValue)
+
 		// insert on road block
 		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock.Hash)
 	}
 
 	return nil
+}
+
+func (iDB *IndexDB) insertHashHeight(batch interfaces.Batch, hash types.Hash, value []byte) {
+	key := chain_utils.CreateAccountBlockHashKey(&hash)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertHeightLocation(batch interfaces.Batch, block *ledger.AccountBlock, location *chain_file_manager.Location) {
+	key := chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height)
+	value := append(block.Hash.Bytes(), chain_utils.SerializeLocation(location)...)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
 }

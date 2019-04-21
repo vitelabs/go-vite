@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"fmt"
+	"github.com/allegro/bigcache"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
@@ -13,6 +14,7 @@ type IndexDB struct {
 	store *chain_db.Store
 
 	latestAccountId uint64
+	cache           *bigcache.BigCache
 }
 
 func NewIndexDB(chainDir string) (*IndexDB, error) {
@@ -30,6 +32,10 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 
 	iDB.latestAccountId, err = iDB.queryLatestAccountId()
 	if err != nil {
+		return nil, err
+	}
+
+	if err = iDB.newCache(); err != nil {
 		return nil, err
 	}
 
