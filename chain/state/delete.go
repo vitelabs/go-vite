@@ -14,7 +14,6 @@ import (
 )
 
 func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk, newUnconfirmedBlocks []*ledger.AccountBlock) error {
-
 	batch := sDB.store.NewBatch()
 
 	latestHeight := sDB.chain.GetLatestSnapshotBlock().Height
@@ -87,8 +86,18 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 
 		}
 
+		// reset cache
+		if err := sDB.cache.Reset(); err != nil {
+			return err
+		}
+
 		// recover latest and history index
 		if err := sDB.recoverToHeight(batch, latestHeight, oldUnconfirmedLog, addrMap); err != nil {
+			return err
+		}
+
+		// recover cache
+		if err := sDB.initCache(); err != nil {
 			return err
 		}
 
@@ -234,9 +243,8 @@ func (sDB *StateDB) rollbackByRedo(batch *leveldb.Batch, snapshotBlock *ledger.S
 
 			// delete contract meta
 			for contractAddr := range redoLog.ContractMeta {
-
 				batch.Delete(chain_utils.CreateContractMetaKey(contractAddr))
-
+				sDB.cache.Delete(contractAddrPrefix + string(contractAddr.Bytes()))
 			}
 
 			// delete code
@@ -280,7 +288,19 @@ func (sDB *StateDB) recoverLatestIndex(batch *leveldb.Batch, latestSnapshotHeigh
 	for addr, keySet := range keySetMap {
 		storage := NewStorageDatabase(sDB, latestSnapshotHeight, addr)
 
+		deleteCache := false
+		var addrStr string
+		if types.IsBuiltinContractAddr(addr) {
+			deleteCache = true
+			addrStr = string(addr.Bytes())
+		}
+
 		for keyStr := range keySet {
+			// delete cache
+			if deleteCache {
+				sDB.cache.Delete(snapshotValuePrefix + addrStr + keyStr)
+			}
+
 			key := []byte(keyStr)
 
 			value, err := storage.GetValue(key)
@@ -295,6 +315,9 @@ func (sDB *StateDB) recoverLatestIndex(batch *leveldb.Batch, latestSnapshotHeigh
 			} else {
 				//fmt.Println("recoverKvAndBalance Put key", addr, key, value)
 				batch.Put(chain_utils.CreateStorageValueKey(&addr, key), value)
+
+				// set snapshot cache
+				sDB.cache.Set(snapshotValuePrefix+addrStr+keyStr, value)
 			}
 
 		}
@@ -371,6 +394,8 @@ func (sDB *StateDB) rollbackAccountBlock(batch *leveldb.Batch, accountBlock *led
 	// delete contract meta
 	if accountBlock.BlockType == ledger.BlockTypeSendCreate {
 		batch.Delete(chain_utils.CreateContractMetaKey(accountBlock.ToAddress))
+		sDB.cache.Delete(contractAddrPrefix + string(accountBlock.ToAddress.Bytes()))
+
 	}
 
 	// delete log hash
@@ -384,6 +409,7 @@ func (sDB *StateDB) rollbackAccountBlock(batch *leveldb.Batch, accountBlock *led
 
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			batch.Delete(chain_utils.CreateContractMetaKey(sendBlock.ToAddress))
+			sDB.cache.Delete(contractAddrPrefix + string(sendBlock.ToAddress.Bytes()))
 		}
 	}
 
@@ -428,14 +454,16 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 	binary.BigEndian.PutUint64(seekTemplateKey[len(seekTemplateKey)-8:], height+1)
 
 	iterOk := iter.Next()
+
 	for iterOk {
 		// copy key
 		storageKeyBytes := iter.Key()[1+types.AddressSize : 1+types.AddressSize+types.HashSize+1]
 		copy(seekTemplateKey[1+types.AddressSize:], storageKeyBytes)
 
 		copy(storageTemplateKey[1+types.AddressSize:], storageKeyBytes)
+		realKey := string(storageKeyBytes[:storageKeyBytes[len(storageKeyBytes)-1]])
 
-		delete(keySet, string(storageKeyBytes[:storageKeyBytes[len(storageKeyBytes)-1]]))
+		delete(keySet, realKey)
 
 		iter.Seek(seekTemplateKey)
 
@@ -443,6 +471,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 			batch.Put(storageTemplateKey, iter.Value())
 		} else {
 			batch.Delete(storageTemplateKey)
+
 		}
 		for {
 			iterOk = iter.Next()
@@ -451,7 +480,6 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 			}
 			key := iter.Key()
 			if bytes.Equal(seekTemplateKey[1+types.AddressSize:1+types.AddressSize+types.HashSize+1], key[1+types.AddressSize:1+types.AddressSize+types.HashSize+1]) {
-
 				// delete history
 				batch.Delete(key)
 			} else {
@@ -472,6 +500,7 @@ func (sDB *StateDB) recoverStorageToHeight(batch *leveldb.Batch, height uint64, 
 		copy(storageTemplateKey[1+types.AddressSize:], key)
 		storageTemplateKey[1+types.AddressSize+types.HashSize] = byte(len(key))
 		batch.Delete(storageTemplateKey)
+
 	}
 
 	return nil

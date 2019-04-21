@@ -289,9 +289,17 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) initCache() error {
+
 	// init cache
 	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init state db cache
+	if err := c.stateDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}

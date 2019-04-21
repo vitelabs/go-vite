@@ -58,6 +58,11 @@ func (iDB *IndexDB) Store() *chain_db.Store {
 }
 
 func (iDB *IndexDB) Close() error {
+	if err := iDB.cache.Close(); err != nil {
+		return errors.New(fmt.Sprintf("iDB.cache.Close failed, error is %s", err.Error()))
+	}
+	iDB.cache = nil
+
 	if err := iDB.store.Close(); err != nil {
 		return errors.New(fmt.Sprintf("iDB.store.Close failed, error is %s", err.Error()))
 	}

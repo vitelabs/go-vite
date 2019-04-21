@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/rand"
 	"testing"
 )
 
@@ -94,10 +93,11 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 		return
 	}
 
-	count := sbLen - 2
+	//count := sbLen - 2
 
-	for i := 0; i < 10; i++ {
-		index := rand.Intn(count) + 2
+	for i := sbLen - 1; i >= 0 && i >= sbLen-10; i-- {
+		//index := rand.Intn(count) + 2
+		index := i
 		snapshotBlock := snapshotBlockList[index]
 
 		prevSnapshotBlock := snapshotBlockList[index-1]

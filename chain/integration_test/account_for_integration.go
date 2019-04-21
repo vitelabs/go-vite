@@ -80,11 +80,13 @@ func (acc *Account) CreateSendBlock(toAccount *Account) (*vm_db.VmAccountBlock, 
 		return nil, err
 	}
 
+	// set value
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, rand.Uint64())
 	if err := vmDb.SetValue([]byte(key), []byte(key)); err != nil {
 		return nil, err
 	}
+
 	// finish
 	vmDb.Finish()
 

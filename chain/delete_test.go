@@ -31,7 +31,7 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
 	})
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
 		})
@@ -40,8 +40,8 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
 		})
 
-		t.Run("deleteAccountBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteAccountBlocks(t, chainInstance, accounts, snapshotBlockList)
+		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
+			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
 		})
 	}
 
@@ -89,10 +89,9 @@ func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[t
 }
 
 func testDeleteAccountBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(100), 5, false)...)
-
-	testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(100), 5, false)...)
+	//
+	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	deleteAccountBlocks(chainInstance, accounts)
 

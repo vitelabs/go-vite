@@ -3,6 +3,7 @@ package chain_state
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/allegro/bigcache"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
@@ -18,6 +19,7 @@ import (
 type StateDB struct {
 	chain Chain
 	store *chain_db.Store
+	cache *bigcache.BigCache
 
 	log log15.Logger
 
@@ -46,11 +48,23 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 
 		redo: storageRedo,
 	}
+	if err := stateDb.newCache(); err != nil {
+		return nil, err
+	}
 
 	return stateDb, nil
 }
 
+func (sDB *StateDB) Init() error {
+	return sDB.initCache()
+}
+
 func (sDB *StateDB) Close() error {
+	if err := sDB.cache.Close(); err != nil {
+		return err
+	}
+	sDB.cache = nil
+
 	if err := sDB.store.Close(); err != nil {
 		return err
 	}
@@ -113,8 +127,12 @@ func (sDB *StateDB) GetCode(addr types.Address) ([]byte, error) {
 
 //
 func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, error) {
-	value, err := sDB.store.Get(chain_utils.CreateContractMetaKey(addr))
+	value, err := sDB.cache.Get(contractAddrPrefix + string(addr.Bytes()))
+
 	if err != nil {
+		if err == bigcache.ErrEntryNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -130,7 +148,17 @@ func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, e
 }
 
 func (sDB *StateDB) HasContractMeta(addr types.Address) (bool, error) {
-	return sDB.store.Has(chain_utils.CreateContractMetaKey(addr))
+	_, err := sDB.cache.Get(contractAddrPrefix + string(addr.Bytes()))
+
+	if err == nil {
+		return true, nil
+	}
+
+	if err == bigcache.ErrEntryNotFound {
+		return false, nil
+	}
+
+	return false, err
 }
 
 func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
@@ -222,6 +250,16 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
+	if types.IsBuiltinContractAddr(addr) &&
+		snapshotBlockHeight == sDB.chain.GetLatestSnapshotBlock().Height {
+
+		value, err := sDB.cache.Get(snapshotValuePrefix + string(addr.Bytes()) + string(key))
+		if err != nil && err != bigcache.ErrEntryNotFound {
+			return nil, err
+
+		}
+		return value, nil
+	}
 
 	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)
 	endHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, snapshotBlockHeight+1)

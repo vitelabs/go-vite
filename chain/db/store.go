@@ -17,7 +17,7 @@ type Store struct {
 	id            types.Hash
 	mu            sync.RWMutex
 	memDb         *MemDB
-	snapshotMemDb *MemDB
+	snapshotMemDb *SnapshotMemDB
 
 	unconfirmedBatchMap  map[types.Hash]*list.Element
 	unconfirmedBatchList *list.List
@@ -41,7 +41,7 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 		unconfirmedBatchMap:  make(map[types.Hash]*list.Element),
 		unconfirmedBatchList: list.New(),
 
-		snapshotMemDb: NewMemDB(),
+		snapshotMemDb: NewSnapshotMemDB(),
 
 		flushingBatch: new(leveldb.Batch),
 		dbDir:         dataDir,
@@ -180,7 +180,7 @@ func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
 	copyBatch := new(leveldb.Batch)
 	store.memDb.Flush(copyBatch)
 
-	store.snapshotMemDb = NewMemDB()
+	store.snapshotMemDb.Reset()
 	copyBatch.Replay(store.snapshotMemDb)
 
 	// reset

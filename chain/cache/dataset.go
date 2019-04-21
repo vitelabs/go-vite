@@ -18,6 +18,11 @@ func NewDataSet() *dataSet {
 	}
 }
 
+func (ds *dataSet) Close() {
+	ds.store.Flush()
+	ds.store = nil
+}
+
 func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) {
 	hashKey := string(chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash))
 	heightKey := string(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height))

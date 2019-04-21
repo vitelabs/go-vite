@@ -196,7 +196,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 		countInserted += insertCount
 
 		// snapshot
-		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, true)
+		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
 		if err != nil {
 			panic(err)
 		}

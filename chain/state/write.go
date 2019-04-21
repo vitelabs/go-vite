@@ -62,6 +62,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			batch.Put(gidContractKey, nil)
 
 			redoLog.ContractMeta[addr] = metaBytes
+
+			// set meta
+			sDB.cache.Set(contractAddrPrefix+string(addr.Bytes()), metaBytes)
 		}
 
 	}
@@ -145,6 +148,8 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 
 		batch.Put(contractKey, metaBytes)
 		batch.Put(gidContractKey, nil)
+		// set
+		sDB.cache.Set(contractAddrPrefix+string(addr.Bytes()), metaBytes)
 	}
 
 	// write vm log
@@ -167,7 +172,6 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 
 // TODO redo
 func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
-
 	height := snapshotBlock.Height
 
 	// next snapshot
@@ -198,6 +202,13 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 			copy(putKeyTemplate[1:1+types.AddressSize], addr.Bytes())
 
+			writeCache := false
+			var addrStr string
+			if types.IsBuiltinContractAddr(addr) {
+				writeCache = true
+				addrStr = string(addr.Bytes())
+
+			}
 			for keyStr, value := range kvMap {
 				// record rollback key
 				key := []byte(keyStr)
@@ -205,6 +216,9 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 				putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
 
 				batch.Put(putKeyTemplate, value)
+				if writeCache {
+					sDB.cache.Set(snapshotValuePrefix+addrStr+keyStr, value)
+				}
 				//fmt.Printf("write history storage, addr: %s, key: %d, putKeyTemplate: %d, value: %d\n", addr, key, putKeyTemplate, value)
 			}
 

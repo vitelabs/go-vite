@@ -33,6 +33,7 @@ func (cache *Cache) Destroy() {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
+	cache.ds.Close()
 	cache.ds = nil
 	cache.unconfirmedPool = nil
 	cache.hd = nil
