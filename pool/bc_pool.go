@@ -28,16 +28,6 @@ type ChainReader interface {
 	GetBlock(height uint64) commonBlock
 }
 
-type heightChainReader interface {
-	id() string
-	getBlock(height uint64, refer bool) commonBlock
-	contains(height uint64) bool
-	getBlockByChain(height uint64) (commonBlock, heightChainReader)
-	Head() commonBlock
-	refer() heightChainReader
-	prune()
-}
-
 type BCPool struct {
 	Id  string
 	log log15.Logger
@@ -63,75 +53,6 @@ type blockPool struct {
 	freeBlocks     map[types.Hash]commonBlock // free state_bak
 	compoundBlocks map[types.Hash]commonBlock // compound state_bak
 	pendingMu      sync.Mutex
-}
-
-type diskChain struct {
-	rw      chainRw
-	chainId string
-	v       *ForkVersion
-}
-
-func (self *diskChain) prune() {
-	// ignore
-}
-func (self *diskChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
-	block := self.getBlock(height, false)
-	if block != nil {
-		return block, self
-	} else {
-		return nil, nil
-	}
-}
-
-func (self *diskChain) refer() heightChainReader {
-	return nil
-}
-
-func (self *diskChain) getBlock(height uint64, refer bool) commonBlock {
-	if height < 0 {
-		return nil
-	}
-	block := self.rw.getBlock(height)
-	if block == nil {
-		return nil
-	} else {
-		return block
-	}
-}
-func (self *diskChain) getBlockBetween(tail int, head int, refer bool) commonBlock {
-	//forkVersion := version.ForkVersion()
-	//block := self.rw.GetBlock(height)
-	//if block == nil {
-	//	return nil
-	//} else {
-	//	return &PoolBlock{block: block, forkVersion: forkVersion, verifyStat: &BlockVerifySuccessStat{}}
-	//}
-	return nil
-}
-
-func (self *diskChain) contains(height uint64) bool {
-	return self.rw.head().Height() >= height
-}
-
-func (self *diskChain) id() string {
-	return self.chainId
-}
-func (self *diskChain) info() map[string]interface{} {
-	result := make(map[string]interface{})
-	head := self.rw.head()
-	result["Head"] = fmt.Sprintf("%s-%d", head.Hash().String(), head.Height())
-	result["Id"] = self.id()
-	return result
-
-}
-
-func (self *diskChain) Head() commonBlock {
-	head := self.rw.head()
-	if head == nil {
-		return self.rw.getBlock(types.EmptyHeight) // hack implement
-	}
-
-	return head
 }
 
 type chain struct {
@@ -227,132 +148,6 @@ func (self *snippetChain) getBlock(height uint64) commonBlock {
 	}
 }
 
-//type forkedChain struct {
-//	chain
-//	// key: height
-//	headHash   types.Hash
-//	tailHash   types.Hash
-//	referChain heightChainReader
-//	heightMu   sync.RWMutex
-//}
-//
-//func (self *forkedChain) prune() {
-//	tail := self.referChain.getBlock(self.tailHeight, true)
-//	if tail == nil {
-//		panic("tail is nil")
-//	}
-//	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
-//		selfB := self.getBlock(i, false)
-//		block := self.referChain.getBlock(i, true)
-//		if block != nil && block.Hash() == selfB.Hash() {
-//			fmt.Printf("remove tail[%s][%d-%s]\n", self.id(), block.Height(), block.Hash())
-//			self.removeTail(block)
-//		} else {
-//			break
-//		}
-//	}
-//	self.referChain.prune()
-//}
-//
-//func (self *forkedChain) getBlockByChain(height uint64) (commonBlock, heightChainReader) {
-//	if height > self.headHeight {
-//		return nil, nil
-//	}
-//	block := self.getHeightBlock(height)
-//	if block != nil {
-//		return block, self
-//	}
-//	refers := make(map[string]heightChainReader)
-//	refer := self.referChain
-//	for {
-//		if refer == nil {
-//			return nil, nil
-//		}
-//		b := refer.getBlock(height, false)
-//		if b != nil {
-//			return b, refer
-//		} else {
-//			if _, ok := refers[refer.id()]; ok {
-//				monitor.LogEvent("pool", "getBlockError")
-//				return nil, nil
-//			}
-//			refers[refer.id()] = refer
-//			refer = refer.refer()
-//		}
-//	}
-//	return nil, nil
-//}
-//
-//func (self *forkedChain) refer() heightChainReader {
-//	return self.referChain
-//}
-//
-//func (self *forkedChain) getBlock(height uint64, flag bool) commonBlock {
-//	block := self.getHeightBlock(height)
-//	if block != nil {
-//		return block
-//	}
-//	if flag {
-//		b, _ := self.getBlockByChain(height)
-//		return b
-//	}
-//	return nil
-//}
-//func (self *forkedChain) getHeightBlock(height uint64) commonBlock {
-//	self.heightMu.RLock()
-//	defer self.heightMu.RUnlock()
-//	block, ok := self.heightBlocks[height]
-//	if ok {
-//		return block
-//	} else {
-//		return nil
-//	}
-//}
-//func (self *forkedChain) setHeightBlock(height uint64, b commonBlock) {
-//	self.heightMu.Lock()
-//	defer self.heightMu.Unlock()
-//	if b != nil {
-//		self.heightBlocks[height] = b
-//	} else {
-//		// nil means delete
-//		delete(self.heightBlocks, height)
-//	}
-//}
-//
-//func (self *forkedChain) Head() commonBlock {
-//	return self.GetBlock(self.headHeight)
-//}
-//
-//func (self *forkedChain) GetBlock(height uint64) commonBlock {
-//	w := self.getBlock(height, true)
-//	if w == nil {
-//		return nil
-//	}
-//	return w
-//}
-//
-//func (self *forkedChain) contains(height uint64) bool {
-//	return height > self.tailHeight && self.headHeight <= height
-//}
-//
-//func (self *forkedChain) info() map[string]interface{} {
-//	result := make(map[string]interface{})
-//	result["TailHeight"] = self.tailHeight
-//	result["TailHash"] = self.tailHash
-//	result["HeadHeight"] = self.headHeight
-//	result["HeadHash"] = self.headHash
-//	if self.referChain != nil {
-//		result["ReferId"] = self.referChain.id()
-//	}
-//	result["Id"] = self.id()
-//	return result
-//}
-
-func newBlockChainPool(name string) *BCPool {
-	return &BCPool{
-		Id: name,
-	}
-}
 func (self *BCPool) init(tools *tools) {
 	self.tools = tools
 
@@ -364,9 +159,12 @@ func (self *BCPool) init(tools *tools) {
 
 func (self *BCPool) initPool() {
 	diskChain := &branchChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
+
+	t := tree.NewTree()
 	chainpool := &chainPool{
 		poolId:    self.Id,
 		diskChain: diskChain,
+		tree:      t,
 		log:       self.log,
 	}
 	chainpool.init()
@@ -377,82 +175,6 @@ func (self *BCPool) initPool() {
 	self.chainpool = chainpool
 	self.blockpool = blockpool
 }
-
-//func (self *BCPool) reInitPool() {
-//	diskChain := &branchChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
-//	chainpool := &chainPool{
-//		poolId:    self.Id,
-//		diskChain: diskChain,
-//		log:       self.log,
-//	}
-//	chainpool.init()
-//
-//	self.chainpool = chainpool
-//	self.blockpool.reInit(diskChain.Head().Height())
-//}
-
-//func cutSnippet(snippet *snippetChain, height uint64) {
-//	for {
-//		tail := snippet.remTail()
-//		if tail == nil {
-//			return
-//		}
-//		if tail.Height() >= height {
-//			return
-//		}
-//	}
-//}
-//
-//// snippet.headHeight >=chain.headHeight
-//func sameChain(snippet *snippetChain, chain heightChainReader) bool {
-//	head := chain.Head()
-//	if snippet.headHeight >= head.Height() {
-//		b := snippet.heightBlocks[head.Height()]
-//		if b != nil && b.Hash() == head.Hash() {
-//			return true
-//		} else {
-//			return false
-//		}
-//	} else {
-//		b := chain.getBlock(snippet.headHeight, true)
-//		if b != nil && b.Hash() == snippet.headHash {
-//			return true
-//		} else {
-//			return false
-//		}
-//	}
-//}
-
-//// snippet.tailHeight <= chain.headHeight
-//func findForkPoint(snippet *snippetChain, chain heightChainReader, refer bool) commonBlock {
-//	tailHeight := snippet.tailHeight
-//	headHeight := snippet.headHeight
-//
-//	start := tailHeight + 1
-//	forkpoint := chain.getBlock(start, refer)
-//	if forkpoint == nil {
-//		return nil
-//	}
-//	if forkpoint.PrevHash() != snippet.tailHash {
-//		return nil
-//	}
-//
-//	for i := start + 1; i <= headHeight; i++ {
-//		uncle := chain.getBlock(i, refer)
-//		if uncle == nil {
-//			break
-//		}
-//		point := snippet.heightBlocks[i]
-//		if point.Hash() != uncle.Hash() {
-//			return forkpoint
-//		} else {
-//			snippet.deleteTail(point)
-//			forkpoint = point
-//			continue
-//		}
-//	}
-//	return forkpoint
-//}
 
 func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	if len(blocks) <= 0 {
@@ -468,7 +190,7 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	disk := self.chainpool.diskChain
 	headHeight, headHash := disk.HeadHH()
 
-	if cur.TailHH() == disk.HeadHH() {
+	if cur.Linked(disk) {
 		self.log.Info("poolChain and db is connected.", "headHeight", headHeight, "headHash", headHash)
 		return nil
 	}
@@ -525,7 +247,7 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 }
 
 func checkHeadTailLink(c1 tree.Branch, c2 tree.Branch) error {
-	if c2.HeadHH() == c1.TailHH() {
+	if c1.Linked(c2) {
 		return nil
 	}
 	return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
@@ -543,104 +265,6 @@ func checkLink(c1 tree.Branch, c2 tree.Branch, refer bool) error {
 	}
 	return nil
 }
-
-//func (self *chainPool) fixReferInsert(origin heightChainReader, target heightChainReader, fixHeight int) {
-//	originId := origin.id()
-//	for id, chain := range self.chains {
-//		if chain.referChain.id() == originId && chain.tailHeight <= fixHeight {
-//			chain.referChain = target
-//			log.Info("forkedChain[%s] reset refer from %s because of %d, refer to disk.", id, originId, fixHeight)
-//		}
-//	}
-//}
-//
-//func (self *chainPool) fixReferRollback(origin heightChainReader, target heightChainReader, fixHeight int) {
-//	originId := origin.id()
-//	for id, chain := range self.chains {
-//		if chain.referChain.id() == originId && chain.tailHeight> fixHeight {
-//			chain.referChain = self.diskChain
-//			log.Info("forkedChain[%s] reset refer from %s because of %d, refer to disk.", id, targetId, fixHeight)
-//		}
-//	}
-//}
-//
-//func (self *forkedChain) init(initBlock commonBlock) {
-//	self.heightBlocks = make(map[uint64]commonBlock)
-//	self.tailHeight = initBlock.Height()
-//	self.tailHash = initBlock.Hash()
-//	self.headHeight = initBlock.Height()
-//	self.headHash = initBlock.Hash()
-//}
-//
-//func (self *forkedChain) canAddHead(w commonBlock) error {
-//	if w.Height() == self.headHeight+1 {
-//		if self.headHash == w.PrevHash() {
-//			return nil
-//		}
-//	}
-//	return errors.Errorf("can't add head. c.headH:%d-%s, w.prevH:%d-%s", self.headHeight, self.headHash, w.Height()-1, w.PrevHash())
-//}
-//func (self *forkedChain) addHead(w commonBlock) {
-//	if self.headHash != w.PrevHash() {
-//		panic("add head")
-//	}
-//	self.headHash = w.Hash()
-//	self.headHeight = w.Height()
-//	self.setHeightBlock(w.Height(), w)
-//}
-//
-//func (self *forkedChain) removeTail(w commonBlock) {
-//	if self.tailHash != w.PrevHash() {
-//		panic("remove fail")
-//	}
-//	self.tailHash = w.Hash()
-//	self.tailHeight = w.Height()
-//	self.setHeightBlock(w.Height(), nil)
-//}
-//
-//func (self *forkedChain) removeHead(w commonBlock) {
-//	if self.headHash != w.Hash() {
-//		panic("remove head")
-//	}
-//	self.headHash = w.PrevHash()
-//	self.headHeight = w.Height() - 1
-//	self.setHeightBlock(w.Height(), nil)
-//}
-//
-//func (self *forkedChain) addTail(w commonBlock) {
-//	if self.tailHash != w.Hash() {
-//		panic("add tail")
-//	}
-//	self.tailHash = w.PrevHash()
-//	self.tailHeight = w.Height() - 1
-//	self.setHeightBlock(w.Height(), w)
-//}
-//func (self *forkedChain) canAddTail(w commonBlock) bool {
-//	if self.tailHash == w.Hash() && self.tailHeight == w.Height() {
-//		return true
-//	} else {
-//		return false
-//	}
-//}
-//
-//func (self forkedChain) String() string {
-//	return "chainId:\t" + self.chainId + "\n" +
-//		"headHeight:\t" + strconv.FormatUint(self.headHeight, 10) + "\n" +
-//		"headHash:\t" + "[" + self.headHash.String() + "]\t" + "\n" +
-//		"tailHeight:\t" + strconv.FormatUint(self.tailHeight, 10)
-//}
-//func (self forkedChain) Details() string {
-//	result := ""
-//	for i := self.headHeight; i >= self.tailHeight; i-- {
-//		if b, ok := self.heightBlocks[i]; ok {
-//			result += fmt.Sprintf("[%d-%s-%s]", b.Height(), b.Hash(), b.PrevHash())
-//		} else {
-//			result += fmt.Sprintf("[%d-empty]", i)
-//		}
-//	}
-//	result += fmt.Sprintf("tail[%d-%s]", self.tailHeight, self.tailHash)
-//	return result
-//}
 
 func (self *blockPool) contains(hash types.Hash, height uint64) bool {
 	_, free := self.freeBlocks[hash]
@@ -1136,15 +760,6 @@ func copyValuesFrom(m map[types.Hash]commonBlock, pendingMu *sync.Mutex) []commo
 }
 func copyValues(m map[uint64]commonBlock) []commonBlock {
 	var r []commonBlock
-
-	for _, v := range m {
-		r = append(r, v)
-	}
-	return r
-}
-
-func copyChains(m map[string]*forkedChain) []*forkedChain {
-	var r []*forkedChain
 
 	for _, v := range m {
 		r = append(r, v)

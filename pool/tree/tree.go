@@ -20,6 +20,7 @@ type Knot interface {
 type BranchBase interface {
 	RemoveTail(k Knot)
 	AddTail(k Knot)
+	MatchHead(hash types.Hash) bool
 	SprintTail() string
 	SprintHead() string
 }
@@ -31,6 +32,7 @@ type Branch interface {
 	ContainsKnot(height uint64, hash types.Hash, flag bool) bool
 	HeadHH() (uint64, types.Hash)
 	TailHH() (uint64, types.Hash)
+	Linked(root Branch) bool
 	AddHead(k ...Knot) error
 
 	//AddTail(k Knot) error
@@ -54,7 +56,4 @@ type Tree interface {
 	SwitchMainToEmpty() error
 	FindForkPointFromMain(target Branch) (Knot, Knot, error)
 	Init(name string, root Branch) error
-}
-
-type innerTree interface {
 }

@@ -71,6 +71,13 @@ func (self *branchBase) addHead(w Knot) {
 	self.updateHeightBlock(w.Height(), w)
 }
 
+func (self *branchBase) MatchHead(hash types.Hash) bool {
+	if self.headHash != hash {
+		return true
+	}
+	return false
+}
+
 func (self *branchBase) RemoveTail(w Knot) {
 	self.heightMu.Lock()
 	defer self.heightMu.Unlock()

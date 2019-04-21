@@ -426,7 +426,27 @@ func (self *chainPool) insert(c tree.Branch, wrapper commonBlock) error {
 }
 
 func (self *chainPool) insertNotify(head commonBlock) {
-	self.currentModify(head)
+	main := self.tree.Main()
+	if main.MatchHead(head.PrevHash()) {
+		main.AddHead(head)
+	} else {
+		branch, err := self.genDirectBlock(head)
+		if err != nil {
+			panic(err)
+		}
+		self.currentModifyToChain(branch)
+	}
+	self.tree.Main().RemoveTail(head)
+}
+
+func (self *chainPool) genDirectBlock(head commonBlock) (tree.Branch, error) {
+	fchain, err := self.forkFrom(self.tree.Main(), head.Height()-1, head.PrevHash())
+	if err != nil {
+		return nil, err
+	}
+
+	fchain.AddHead(head)
+	return fchain, nil
 }
 
 //func (self *chainPool) writeToChain(chain *forkedChain, block commonBlock) error {
@@ -475,15 +495,15 @@ func (self *chainPool) check() error {
 					return err
 				}
 			}
-		} else if c.referChain.id() == currentId {
+		} else if c.Root().Id() == currentId {
 			// refer to current
-			err := checkLink(c, c.referChain, true)
+			err := checkLink(c, c.Root(), true)
 			if err != nil {
 				self.log.Error(err.Error())
 				return err
 			}
 		} else {
-			err := checkLink(c, c.referChain, false)
+			err := checkLink(c, c.Root(), false)
 			if err != nil {
 				self.log.Error(err.Error())
 				return err

@@ -66,7 +66,8 @@ func (self *pool) insert() {
 make a queue from account pool and snapshot pool
 */
 func (self *pool) makeQueue() Package {
-	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: self.pendingSc.CurrentChain().tailHeight, Hash: self.pendingSc.CurrentChain().tailHash}}
+	tailHeight, tailHash := self.pendingSc.CurrentChain().TailHH()
+	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: tailHeight, Hash: tailHash}}
 
 	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
 	for {
@@ -116,11 +117,11 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 }
 
 func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, map[types.Address]*ledger.HashHeight, *completeSnapshotBlock) {
-	if self.pendingSc.CurrentChain().size() == 0 {
+	if self.pendingSc.CurrentChain().Size() == 0 {
 		return nil, nil, nil
 	}
 	current := self.pendingSc.CurrentChain()
-	block := current.getBlock(info.offset.Height+1, false)
+	block := current.GetKnot(info.offset.Height+1, false)
 	if block == nil {
 		return nil, nil, nil
 	}

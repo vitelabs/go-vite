@@ -92,6 +92,9 @@ func (self *branch) prune() {
 	if tail == nil {
 		panic("tail is nil")
 	}
+	if self.root.Type() == Normal {
+		self.root.(*branch).prune()
+	}
 	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
 		selfB := self.getKnot(i, false)
 		block := self.root.GetKnot(i, true)
@@ -102,10 +105,6 @@ func (self *branch) prune() {
 			break
 		}
 	}
-	if self.root.Type() == Normal {
-		self.root.(*branch).prune()
-	}
-
 }
 
 func (self *branch) exchangeAllRoot() {
@@ -303,7 +302,8 @@ func (self *branch) allChildren() (result []*branch) {
 	}
 	return
 }
-func (self *branchBase) linked(root Branch) bool {
+
+func (self *branch) Linked(root Branch) bool {
 	headHeight, headHash := root.HeadHH()
 	if self.tailHeight == headHeight && self.tailHash == headHash {
 		return true

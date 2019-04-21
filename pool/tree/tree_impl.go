@@ -84,7 +84,7 @@ func (self *tree) SwitchMainTo(b Branch) error {
 	// second modify
 	target.exchangeAllRoot()
 
-	if target.linked(self.root) {
+	if target.Linked(self.root) {
 		self.main = target
 	} else {
 		return errors.New("new chain tail fail.")

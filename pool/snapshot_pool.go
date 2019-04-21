@@ -228,7 +228,7 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 		}
 	}
 
-	self.log.Debug("snapshotFork longest modify", "id", longest.id(), "TailHeight", longest.tailHeight, "HeadHeight", longest.headHeight)
+	self.log.Debug("snapshotFork longest modify", "id", longest.Id(), "Tail", longest.SprintTail())
 	err = self.CurrentModifyToChain(longest, &ledger.HashHeight{Hash: forked.Hash(), Height: forked.Height()})
 	if err != nil {
 		return err
@@ -272,13 +272,14 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 	defer self.chainTailMu.Unlock()
 
 	pool := self.chainpool
-	current := pool.current
+	current := pool.tree.Main()
 
 	for _, item := range items {
 		block := item.commonBlock
 
-		if block.Height() == current.tailHeight+1 &&
-			block.PrevHash() == current.tailHash {
+		tailHeight, tailHash := current.TailHH()
+		if block.Height() == tailHeight+1 &&
+			block.PrevHash() == tailHash {
 			block.resetForkVersion()
 			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
 			if !block.checkForkVersion() {
@@ -313,12 +314,12 @@ func (self *snapshotPool) snapshotInsertItems(items []*Item) (map[types.Address]
 	return nil, nil, nil
 }
 
-func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	height := block.Height()
 	hash := block.Hash()
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
-		current.removeTail(block)
+		current.RemoveTail(block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
@@ -396,7 +397,7 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 		if err != nil {
 			return nil, err
 		}
-		head := self.chainpool.diskChain.Hash()
+		head := self.chainpool.diskChain.Head()
 		self.chainpool.insertNotify(head)
 		return abs, nil
 	default:
