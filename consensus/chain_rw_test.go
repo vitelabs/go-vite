@@ -1,31 +1,17 @@
 package consensus
 
 import (
-	"math/big"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
-
-type mock_ch struct {
-}
-
-func (self *mock_ch) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
-	panic("implement me")
-}
 
 func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {
 	info := &types.ConsensusGroupInfo{
@@ -48,50 +34,6 @@ func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {
 	}
 
 	return []*types.ConsensusGroupInfo{info}, nil
-}
-
-func (self *mock_ch) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error) {
-	panic("implement me")
-}
-
-func (self *mock_ch) IsGenesisSnapshotBlock(hash types.Hash) bool {
-	panic("implement me")
-}
-
-func (self *mock_ch) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
-	panic("implement me")
-}
-
-func (self *mock_ch) NewDb(dbDir string) (*leveldb.DB, error) {
-	panic("implement me")
 }
 
 func testDataDir() string {
