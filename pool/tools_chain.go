@@ -54,7 +54,7 @@ type accountCh struct {
 }
 
 func (self *accountCh) insertBlock(b commonBlock) error {
-	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
+	monitor.LogEvent("pool", "insertChain")
 	block := b.(*accountPoolBlock)
 	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
 	return self.rw.InsertAccountBlock(accountBlock)
