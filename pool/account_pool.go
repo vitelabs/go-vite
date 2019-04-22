@@ -652,7 +652,6 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 					"hash", block.Hash(), "height", block.Height(), "error", err)
 				return err
 			}
-			i = i + 1
 		} else {
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
