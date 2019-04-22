@@ -217,13 +217,16 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 	if len(groupB) == 0 {
 		return groupA, groupB
 	}
+	obsoletedNum := 2
+	if len(successRate) < obsoletedNum {
+		return groupA, groupB
+	}
 
 	var groupA1 []*SuccessRateVote
 	var deleteGroupA []*SuccessRateVote
 	var improvementGroupB []*SuccessRateVote
 	var groupB1 []*SuccessRateVote
 
-	obsoletedNum := 2
 	{
 		// groupA
 		var successRateGroupA []*SuccessRateVote
