@@ -26,7 +26,8 @@ type snapshotCs struct {
 
 // hour stats
 func (self *snapshotCs) HourStats(startIndex uint64, endIndex uint64) ([]*core.HourStats, error) {
-	stats, err := getBaseStats(self.rw.hourPoints, startIndex, endIndex)
+	genesis := self.rw.rw.GetGenesisSnapshotBlock()
+	stats, err := getBaseStats(genesis.Hash, self.rw.hourPoints, startIndex, endIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,8 @@ func (self *snapshotCs) GetHourTimeIndex() core.TimeIndex {
 
 // period stats
 func (self *snapshotCs) PeriodStats(startIndex uint64, endIndex uint64) ([]*core.PeriodStats, error) {
-	stats, err := getBaseStats(self.rw.periodPoints, startIndex, endIndex)
+	genesis := self.rw.rw.GetGenesisSnapshotBlock()
+	stats, err := getBaseStats(genesis.Hash, self.rw.periodPoints, startIndex, endIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +64,7 @@ func (self *snapshotCs) GetPeriodTimeIndex() core.TimeIndex {
 	return self.rw.periodPoints
 }
 
-func getBaseStats(array LinkedArray, startIndex uint64, endIndex uint64) ([]*core.BaseStats, error) {
+func getBaseStats(genesisHash types.Hash, array LinkedArray, startIndex uint64, endIndex uint64) ([]*core.BaseStats, error) {
 	// get points from linked array
 	points := make(map[uint64]*consensus_db.Point)
 
@@ -75,7 +77,10 @@ func getBaseStats(array LinkedArray, startIndex uint64, endIndex uint64) ([]*cor
 				return nil, err
 			}
 			point = tmp
+		} else if *proofHash == genesisHash {
+			break
 		} else {
+
 			tmp, err := array.GetByIndexWithProof(i, *proofHash)
 			if err != nil {
 				return nil, err
