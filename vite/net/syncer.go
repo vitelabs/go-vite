@@ -15,7 +15,7 @@ import (
 // if the difference is little than this value, then we deem no need sync.
 const minHeightDifference = 1000
 const waitEnoughPeers = 10 * time.Second
-const enoughPeers = 3
+const enoughPeers = 1
 const chainGrowInterval = time.Second
 const batchSyncTask = 24 // one day
 const syncTaskSize = 3600

@@ -2,8 +2,6 @@ package monitor
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/metrics"
-	"fmt"
 	"math/rand"
 	"os"
 	"os/user"
@@ -14,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/metrics"
 )
 
 func init() {
@@ -184,11 +183,7 @@ func loop() {
 				//	)
 				//}
 				// todo FIX
-				if key == "chain-insert" {
-					fmt.Println("group", key, "interval", 1, "name", key,
-						"metric-cnt", c,
-						"metric-sum", s,
-					)
+				if key == "pool-insertChain" {
 					logger.Info("", "group", key, "interval", 1, "name", key,
 						"metric-cnt", c,
 						"metric-sum", s,

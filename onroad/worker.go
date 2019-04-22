@@ -1,9 +1,5 @@
 package onroad
 
-import (
-	"runtime"
-)
-
 const (
 	Create = iota
 	Start
@@ -18,6 +14,6 @@ type Worker interface {
 }
 
 var (
-	POMAXPROCS                = runtime.NumCPU()
-	ContractTaskProcessorSize = 2 * POMAXPROCS
+	POMAXPROCS                = 2
+	ContractTaskProcessorSize = POMAXPROCS
 )

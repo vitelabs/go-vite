@@ -449,7 +449,7 @@ func (s peers) Len() int {
 }
 
 func (s peers) Less(i, j int) bool {
-	return s[i].height() < s[j].height()
+	return s[i].height() > s[j].height()
 }
 
 func (s peers) Swap(i, j int) {
