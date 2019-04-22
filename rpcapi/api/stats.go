@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"time"
 
 	"github.com/vitelabs/go-vite/consensus"
@@ -71,6 +72,9 @@ func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]
 }
 
 func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
+	if endIdx > startIdx && endIdx-startIdx > 48 {
+		return nil, errors.New("max step is 48")
+	}
 	var result []map[string]interface{}
 	reader := c.cs.SBPReader()
 

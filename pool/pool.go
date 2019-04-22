@@ -1023,7 +1023,7 @@ func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pen
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range pending.addrM {
-		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash, "sbHash", snapshot.Hash, "sbHeight", snapshot.Height)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
 		if e != nil {
