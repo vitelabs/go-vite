@@ -152,7 +152,14 @@ func ToReward(source *contracts.Reward) *Reward {
 }
 
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
-	vmDb := vm_db.NewNoContextVmDb(r.chain)
+	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, prevHash, &r.chain.GetLatestSnapshotBlock().Hash)
+	if err != nil {
+		return nil, err
+	}
 	m, err := contracts.CalcRewardByDay(vmDb, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
