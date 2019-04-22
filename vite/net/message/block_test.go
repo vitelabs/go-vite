@@ -6,6 +6,7 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -16,12 +17,12 @@ func mockGetAccountBlocks() GetAccountBlocks {
 	var ga GetAccountBlocks
 
 	ga.From.Height = mrand.Uint64()
-	crand.Read(ga.From.Hash[:])
+	_, _ = crand.Read(ga.From.Hash[:])
 
 	ga.Count = mrand.Uint64()
 	ga.Forward = mrand.Intn(10) > 5
 
-	crand.Read(ga.Address[:])
+	_, _ = crand.Read(ga.Address[:])
 
 	return ga
 }
