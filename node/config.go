@@ -50,7 +50,7 @@ type Config struct {
 	MaxInboundRatio int      `json:"MaxInboundRatio"`
 	MaxPendingPeers int      `json:"MaxPendingPeers"`
 	BootNodes       []string `json:"BootNodes"`
-	BootSeeds       []string `json"BootSeeds"`
+	BootSeeds       []string `json:"BootSeeds"`
 	StaticNodes     []string `json:"StaticNodes"`
 	ListenInterface string   `json:"ListenInterface"`
 	Port            int      `json:"Port"`
