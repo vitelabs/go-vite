@@ -247,11 +247,11 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 		self.log.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
-	seeds := self.rw.GetSeedsBeforeHashH(block)
+
 	// todo
-	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s, seeds:%d", index, block.Hash, proofTime, seeds))
-	seed := core.NewSeedInfo(seeds)
-	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, seed, index, proofIndex)
+	self.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, block.Hash, proofTime))
+
+	voteResults, err := self.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, index, proofIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -260,13 +260,14 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 	return plans, nil
 }
 
-func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, index uint64, proofIndex uint64) ([]types.Address, error) {
+func (self *snapshotCs) calVotes(hashH ledger.HashHeight, index uint64, proofIndex uint64) ([]types.Address, error) {
 	// load from cache
 	r, ok := self.rw.getSnapshotVoteCache(hashH.Hash)
 	if ok {
 		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
 	}
+	seed := core.NewSeedInfo(self.rw.GetSeedsBeforeHashH(hashH.Hash))
 	// record vote
 	votes, err := self.rw.CalVotes(self.info, hashH)
 	if err != nil {
@@ -286,7 +287,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, seed *core.SeedInfo, i
 	for _, v := range votes {
 		all += fmt.Sprintf("[%s-%s]", v.Name, v.Balance.String())
 	}
-	self.log.Info(fmt.Sprintf("[%d][%d]pre success rate log: %+v, %s", hashH.Height, index, successRate, all))
+	self.log.Info(fmt.Sprintf("[%d][%d]pre success rate log: %+v, %s, seed:%d", hashH.Height, index, successRate, all, seed))
 
 	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
 	// filter size of members
