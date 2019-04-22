@@ -34,9 +34,13 @@ func (c StatsApi) Time2Index(t *time.Time) uint64 {
 	time2Index := index.Time2Index(*t)
 	return time2Index
 }
-func (c StatsApi) Index2Time(i uint64) (time.Time, time.Time) {
+func (c StatsApi) Index2Time(i uint64) map[string]time.Time {
+	result := make(map[string]time.Time)
 	index := c.cs.SBPReader().GetPeriodTimeIndex()
-	return index.Index2Time(i)
+	stime, etime := index.Index2Time(i)
+	result["stime"] = stime
+	result["etime"] = etime
+	return result
 }
 
 func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
