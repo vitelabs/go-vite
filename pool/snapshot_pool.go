@@ -404,8 +404,7 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 		if err != nil {
 			return nil, err
 		}
-		head := self.chainpool.diskChain.Head()
-		self.chainpool.insertNotify(head)
+		self.chainpool.insertNotify(block)
 		return abs, nil
 	default:
 		self.log.Crit("verify unexpected.")
