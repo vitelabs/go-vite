@@ -80,7 +80,7 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 	return nil, nil
 }
 
-func (v VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, time.Time, error) {
+func (v *VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, error) {
 	t := time.Now()
 	if index != nil {
 		_, etime := v.cs.SBPReader().GetDayTimeIndex().Index2Time(*index)
@@ -89,7 +89,7 @@ func (v VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, time.T
 
 	details, _, err := v.cs.API().ReadVoteMap((t).Add(time.Second))
 	if err != nil {
-		return nil, t, err
+		return nil, err
 	}
-	return details, t, nil
+	return details, nil
 }
