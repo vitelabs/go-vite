@@ -26,11 +26,13 @@ import (
 
 type Tx struct {
 	vite *vite.Vite
+	N    int
 }
 
 func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
+		N:    4,
 	}
 	if vite.Producer() == nil {
 		return tx
@@ -117,8 +119,8 @@ func NewTxApi(vite *vite.Vite) *Tx {
 			fmt.Printf("sync state: %s \n", state)
 			return
 		}
-		N := 4
-		for i := 0; i < N; i++ {
+
+		for i := 0; i < tx.N; i++ {
 			for k, v := range fromAddrs {
 				addr := v
 				key := fromHexPrivKeys[k]
@@ -145,6 +147,11 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	})
 
 	return tx
+}
+
+func (t *Tx) UpdateBenchMark(cnt int) (int, error) {
+	t.N = cnt
+	return t.N, nil
 }
 
 func (t Tx) SendRawTx(block *AccountBlock) error {
