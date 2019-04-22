@@ -105,6 +105,27 @@ func (self *branch) prune() {
 			break
 		}
 	}
+	self.updateChildrenForRemoveTail(self.root)
+}
+
+func (self *branch) updateChildrenForRemoveTail(root Branch) {
+	if root.Type() == Disk {
+		return
+	}
+
+	for _, v := range self.allChildren() {
+		height, hash := v.tailHH()
+		if self.contains(height, hash, false) {
+			continue
+		}
+
+		if root.ContainsKnot(height, hash, true) {
+			v.updateRootSimple(self, root)
+			continue
+		}
+
+		panic("children fail.")
+	}
 }
 
 func (self *branch) exchangeAllRoot() error {
