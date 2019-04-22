@@ -136,9 +136,9 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 }
 
 type Reward struct {
-	BlockReward string
-	VoteReward  string
-	TotalReward string
+	BlockReward string `json:"blockReward"`
+	VoteReward  string `json:"voteReward"`
+	TotalReward string `json:"totalReward"`
 }
 
 func ToReward(source *contracts.Reward) *Reward {
