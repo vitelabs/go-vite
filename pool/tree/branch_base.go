@@ -3,6 +3,7 @@ package tree
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -15,6 +16,9 @@ type branchBase struct {
 	tailHash     types.Hash
 	id           string
 	heightMu     sync.RWMutex
+
+	// update time
+	utime time.Time
 }
 
 func (self *branchBase) size() uint64 {
@@ -58,6 +62,7 @@ func (self *branchBase) updateHeightBlock(height uint64, b Knot) {
 		// nil means delete
 		delete(self.heightBlocks, height)
 	}
+	self.utime = time.Now()
 }
 
 func (self *branchBase) addHead(w Knot) {

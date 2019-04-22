@@ -3,6 +3,7 @@ package tree
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 
@@ -270,22 +271,15 @@ func (self *branch) info() map[string]interface{} {
 	return result
 }
 
-func (self *branch) checkSameTail(target *branch) bool {
-	if self.tailHeight != target.tailHeight {
-		return false
-	}
-
-	if self.tailHash != target.tailHash {
-		return false
-	}
-	return true
-}
+// remove child branch from the branch
 func (self *branch) removeChild(b *branch) {
 	self.childrenMu.Lock()
 	defer self.childrenMu.Unlock()
 
 	delete(self.children, b.Id())
 }
+
+// add child branch
 func (self *branch) addChild(b *branch) {
 	self.childrenMu.Lock()
 	defer self.childrenMu.Unlock()
@@ -293,6 +287,7 @@ func (self *branch) addChild(b *branch) {
 	self.children[b.Id()] = b
 }
 
+// get all children for the branch
 func (self *branch) allChildren() (result []*branch) {
 	self.childrenMu.Lock()
 	defer self.childrenMu.Unlock()
@@ -302,13 +297,37 @@ func (self *branch) allChildren() (result []*branch) {
 	return
 }
 
-func (self *branch) Linked(root Branch) bool {
+// check if the two branches are connected end to end
+func (self branch) Linked(root Branch) bool {
 	headHeight, headHash := root.HeadHH()
 	if self.tailHeight == headHeight && self.tailHash == headHash {
 		return true
 	} else {
 		return false
 	}
+}
+
+func (self branch) isGarbage() bool {
+	if !self.isLeafBranch() {
+		return false
+	}
+	// not updated for a long time (4 minutes)
+	if time.Now().After(self.utime.Add(time.Minute * 4)) {
+		return true
+	}
+
+	// empty chain
+	if self.size() == 0 {
+		return true
+	}
+	return false
+}
+
+func (self branch) isLeafBranch() bool {
+	if len(self.children) > 0 {
+		return false
+	}
+	return true
 }
 
 func newBranch(base *branchBase, root Branch) *branch {
@@ -319,6 +338,7 @@ func newBranch(base *branchBase, root Branch) *branch {
 	return b
 }
 
+// check if the two branch end are equal
 func tailEquals(b1 *branch, b2 *branch) bool {
 	if b1.tailHeight == b2.tailHeight && b1.tailHash == b2.tailHash {
 		return true

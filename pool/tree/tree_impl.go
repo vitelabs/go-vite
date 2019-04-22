@@ -173,17 +173,38 @@ func (self *tree) PruneTree() []Branch {
 	self.branchMu.Lock()
 	defer self.branchMu.Unlock()
 
+	// prune every branch
+	for id, c := range self.branchList {
+		if id == self.main.Id() {
+			continue
+		}
+		c.prune()
+	}
+
 	var r []Branch
 	for id, c := range self.branchList {
 		if id == self.main.Id() {
 			continue
 		}
-		if c.Size() == 0 {
-			delete(self.branchList, id)
-			r = append(r, c)
+		if !c.isGarbage() {
+			continue
 		}
+		self.removeBranch(c)
 	}
 	return r
+}
+
+func (self *tree) removeBranch(b *branch) error {
+	if b.isLeafBranch() {
+		id := b.Id()
+		if b.Root().Type() == Disk {
+			return errors.Errorf("chain[%s] can't be removed[refer disk].", id)
+		}
+		b.Root().(*branch).removeChild(b)
+		delete(self.branchList, id)
+	}
+
+	return errors.New("not support")
 }
 
 //func (self *tree) clearRepeatBranch() []Branch {
