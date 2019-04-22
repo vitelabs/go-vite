@@ -128,7 +128,8 @@ func (self *tree) SwitchMainTo(b Branch) error {
 	target := b.(*branch)
 
 	// first prune
-	target.prune()
+	target.prune(self)
+
 	// second modify
 	err := target.exchangeAllRoot()
 	if err != nil {
@@ -230,7 +231,7 @@ func (self *tree) PruneTree() []Branch {
 		if id == self.main.Id() {
 			continue
 		}
-		c.prune()
+		c.prune(self)
 	}
 
 	var r []Branch
@@ -252,16 +253,27 @@ func (self *tree) PruneTree() []Branch {
 }
 
 func (self *tree) removeBranch(b *branch) error {
+	id := b.Id()
+	if id == self.main.Id() {
+		return errors.Errorf("not support for main[%s]", id)
+	}
+	if b.Root().Type() == Disk {
+		return errors.Errorf("chain[%s] can't be removed[refer disk].", id)
+	}
+	root := b.Root().(*branch)
 	if b.isLeafBranch() {
-		id := b.Id()
-		if b.Root().Type() == Disk {
-			return errors.Errorf("chain[%s] can't be removed[refer disk].", id)
-		}
-		b.Root().(*branch).removeChild(b)
+		root.removeChild(b)
 		delete(self.branchList, id)
 		return nil
 	}
 
+	if b.Size() == 0 {
+		root.removeChild(b)
+		delete(self.branchList, id)
+		for _, v := range b.allChildren() {
+			root.addChild(v)
+		}
+	}
 	return errors.New("not support")
 }
 
