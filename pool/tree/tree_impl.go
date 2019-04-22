@@ -259,6 +259,7 @@ func (self *tree) removeBranch(b *branch) error {
 		}
 		b.Root().(*branch).removeChild(b)
 		delete(self.branchList, id)
+		return nil
 	}
 
 	return errors.New("not support")
