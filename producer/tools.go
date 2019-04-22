@@ -78,7 +78,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	defer monitor.LogTime("producer", "snapshotInsert", time.Now())
 	// todo insert pool ?? dead lock
-	self.log.Info("insert snapshot block.", "block", block)
+	self.log.Info("insert snapshot block.", "block", block, "producer", block.Producer())
 	return self.pool.AddDirectSnapshotBlock(block)
 }
 

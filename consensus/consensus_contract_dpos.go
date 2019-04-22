@@ -71,7 +71,7 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 		return nil, err
 	}
 
-	randomSeed := self.rw.GetSeedsBeforeHashH(block)
+	randomSeed := self.rw.GetSeedsBeforeHashH(block.Hash)
 	seed := core.NewSeedInfo(randomSeed)
 
 	context := core.NewVoteAlgoContext(votes, &hashH, nil, seed)

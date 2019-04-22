@@ -39,26 +39,36 @@ type fp struct {
 	peers *peerSet
 }
 
-// a random taller peer
-func (p *fp) account(height uint64) Peer {
+func (p *fp) account(height uint64) (pe Peer) {
 	var ps peers
+	var total, top, ran int
+
 	if height == 0 {
 		ps = p.peers.sortPeers()
 	} else {
 		ps = p.peers.pick(height)
 	}
 
-	if len(ps) == 0 {
+	total = len(ps)
+
+	// only one peer
+	if total < 1 {
 		return p.peers.bestPeer()
 	}
 
-	top := len(ps) / 3
-	if top == 0 {
-		return ps[0]
+	top = total / 3
+
+	ran = rand.Intn(10)
+
+	if ran > 5 && top > 1 {
+		ran = rand.Intn(top)
+	} else {
+		ran = rand.Intn(total)
 	}
 
-	ran := rand.Intn(top)
-	return ps[ran]
+	pe = ps[ran]
+
+	return
 }
 
 func (p *fp) snapshot(height uint64) Peer {
@@ -67,18 +77,19 @@ func (p *fp) snapshot(height uint64) Peer {
 	}
 
 	ps := p.peers.pick(height)
-	if len(ps) == 0 {
+	total := len(ps)
+	if total == 0 {
 		return p.peers.bestPeer()
 	}
 
-	ran := rand.Intn(len(ps))
+	ran := rand.Intn(total)
 	return ps[ran]
 }
 
 // fetch filter
 const maxMark = 3       // times
 const timeThreshold = 3 // second
-const expiration = 60
+const expiration = 60   // 60s
 
 type record struct {
 	id     p2p.MsgId
@@ -86,21 +97,34 @@ type record struct {
 	doneAt int64
 	mark   int
 	st     reqState
+	failed int // fail times
 }
 
 func (r *record) inc() {
 	r.mark += 1
 }
 
-func (r *record) reset() {
+func (r *record) reset(clearFail bool) {
 	r.mark = 0
 	r.st = reqPending
 	r.addAt = time.Now().Unix()
+	if clearFail {
+		r.failed = 0
+	}
 }
 
 func (r *record) done() {
 	r.st = reqDone
 	r.doneAt = time.Now().Unix()
+	r.failed = 0
+}
+
+func (r *record) fail() {
+	// record maybe done
+	if r.st == reqPending {
+		r.st = reqError
+		r.failed++
+	}
 }
 
 type filter struct {
@@ -149,19 +173,21 @@ func (f *filter) hold(hash types.Hash) (id p2p.MsgId, hold bool) {
 	var ok bool
 
 	if r, ok = f.records[hash]; ok {
+		// error
 		if r.st == reqError {
-			r.reset()
+			r.reset(false)
 			return r.id, false
 		}
 
 		if r.st == reqDone {
 			if r.mark >= maxMark && (now-r.doneAt) >= timeThreshold {
-				r.reset()
+				r.reset(true)
 				return r.id, false
 			}
 		} else {
+			// pending
 			if r.mark >= maxMark*2 && (now-r.addAt) >= timeThreshold*2 {
-				r.reset()
+				r.reset(true)
 				return r.id, false
 			}
 		}
@@ -175,6 +201,7 @@ func (f *filter) hold(hash types.Hash) (id p2p.MsgId, hold bool) {
 	r.mark = 0
 	r.id = f.idGen.MsgID()
 	r.st = reqPending
+	r.failed = 0
 
 	f.records[hash] = r
 	f.idToHash[r.id] = hash
@@ -201,7 +228,7 @@ func (f *filter) fail(id p2p.MsgId) {
 	if hash, ok := f.idToHash[id]; ok {
 		var r *record
 		if r, ok = f.records[hash]; ok {
-			r.st = reqError
+			r.fail()
 		}
 	}
 }
@@ -367,7 +394,7 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 		return
 	}
 
-	if p := f.policy.snapshot(0); p != nil {
+	if p := f.policy.snapshot(height); p != nil {
 		m := &message.GetSnapshotBlocks{
 			From:    ledger.HashHeight{Hash: hash},
 			Count:   count,

@@ -1,6 +1,10 @@
 package contracts
 
 import (
+	"math/big"
+	"regexp"
+	"runtime/debug"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -8,9 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"regexp"
-	"runtime/debug"
 )
 
 type MethodRegister struct {
@@ -247,7 +248,7 @@ func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 			old.HisAddrList)
 		db.SetValue(abi.GetRegisterKey(param.Name, param.Gid), registerInfo)
 
-		if reward != nil && reward.Sign() > 0 {
+		if reward != nil && reward.TotalReward.Sign() > 0 {
 			// send reward by issue vite token
 			issueData, _ := abi.ABIMintage.PackMethod(abi.MethodNameIssue, ledger.ViteTokenId, reward, param.BeneficialAddr)
 			return []*ledger.AccountBlock{
@@ -270,13 +271,29 @@ func checkRewardDrained(reader util.ConsensusReader, db vm_db.VmDb, old *types.R
 	if err != nil {
 		return false, err
 	}
-	if drained && (reward == nil || reward.Sign() == 0) {
+	if drained && (reward == nil || reward.TotalReward.Sign() == 0) {
 		return drained, nil
 	}
 	return false, nil
 }
 
-func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *big.Int, drained bool, err error) {
+type Reward struct {
+	VoteReward  *big.Int
+	BlockReward *big.Int
+	TotalReward *big.Int
+}
+
+func newZeroReward() *Reward {
+	return &Reward{big.NewInt(0), big.NewInt(0), big.NewInt(0)}
+}
+
+func (r *Reward) Add(a *Reward) {
+	r.VoteReward.Add(r.VoteReward, a.VoteReward)
+	r.BlockReward.Add(r.BlockReward, a.BlockReward)
+	r.TotalReward.Add(r.TotalReward, a.TotalReward)
+}
+
+func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *Reward, drained bool, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
@@ -291,7 +308,7 @@ func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registrat
 	return calcReward(old, genesisTime, pledgeAmount, current, reader)
 }
 
-func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.Int, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *big.Int, bool, error) {
+func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.Int, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *Reward, bool, error) {
 	var startIndex, endIndex uint64
 	var startTime, endTime int64
 	drained := false
@@ -308,17 +325,15 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(timeLimit, genesisTime)
 	}
 	if withinOneDayFlag || startIndex > endIndex {
-		return startTime, endTime, big.NewInt(0), drained, nil
+		return startTime, endTime, newZeroReward(), drained, nil
 	}
 	details, err := reader.GetConsensusDetailByDay(startIndex, endIndex)
 	if err != nil {
 		return 0, 0, nil, false, err
 	}
-	reward := big.NewInt(0)
-	tmp1 := big.NewInt(0)
-	tmp2 := big.NewInt(0)
+	reward := newZeroReward()
 	for _, detail := range details {
-		reward.Add(reward, calcRewardByDayDetail(detail, old.Name, pledgeAmount, tmp1, tmp2))
+		reward.Add(calcRewardByDayDetail(detail, old.Name, pledgeAmount))
 	}
 	return startTime, endTime, reward, drained, nil
 }
@@ -335,7 +350,7 @@ func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
 	return pledgeParam.PledgeAmount, nil
 }
 
-func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*big.Int, err error) {
+func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
@@ -350,7 +365,7 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	return calcRewardByDay(reader, genesisTime, timestamp, pledgeAmount)
 }
 
-func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp int64, pledgeAmount *big.Int) (m map[string]*big.Int, err error) {
+func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp int64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
 	index := reader.GetIndexByTime(timestamp, genesisTime)
 	detailList, err := reader.GetConsensusDetailByDay(index, index)
 	if err != nil {
@@ -359,25 +374,25 @@ func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp i
 	if len(detailList) == 0 {
 		return nil, nil
 	}
-	tmp1 := big.NewInt(0)
-	tmp2 := big.NewInt(0)
-	rewardMap := make(map[string]*big.Int, len(detailList[0].Stats))
+	rewardMap := make(map[string]*Reward, len(detailList[0].Stats))
 	for name, _ := range detailList[0].Stats {
-		rewardMap[name] = calcRewardByDayDetail(detailList[0], name, pledgeAmount, tmp1, tmp2)
+		rewardMap[name] = calcRewardByDayDetail(detailList[0], name, pledgeAmount)
 	}
 	return rewardMap, nil
 }
 
-func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big.Int, tmp1, tmp2 *big.Int) *big.Int {
-	reward := big.NewInt(0)
+func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big.Int) *Reward {
 	selfDetail, ok := detail.Stats[name]
 	if !ok {
-		return reward
+		return newZeroReward()
 	}
+	reward := &Reward{}
 
 	// reward = 0.5 * rewardPerBlock * totalBlockNum * (selfProducedBlockNum / expectedBlockNum) * (selfVoteCount + pledgeAmount) / (selfVoteCount + totalPledgeAmount)
 	// 			+ 0.5 * rewardPerBlock * selfProducedBlockNum
-	tmp1.Set(selfDetail.VoteCnt)
+	tmp1 := new(big.Int)
+	tmp2 := new(big.Int)
+	tmp1.Set(selfDetail.VoteCnt.Int)
 	tmp1.Add(tmp1, pledgeAmount)
 	tmp2.SetUint64(detail.BlockTotal)
 	tmp1.Mul(tmp1, tmp2)
@@ -388,20 +403,21 @@ func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big
 
 	tmp2.SetInt64(int64(len(detail.Stats)))
 	tmp2.Mul(tmp2, pledgeAmount)
-	tmp2.Add(tmp2, detail.VoteSum)
+	tmp2.Add(tmp2, detail.VoteSum.Int)
 	tmp1.Quo(tmp1, tmp2)
 
 	tmp2.SetUint64(selfDetail.ExceptedBlockNum)
 	tmp1.Quo(tmp1, tmp2)
+	tmp1.Quo(tmp1, helper.Big100)
+	reward.VoteReward = tmp1
 
 	tmp2.SetUint64(selfDetail.BlockNum)
 	tmp2.Mul(tmp2, helper.Big50)
 	tmp2.Mul(tmp2, rewardPerBlock)
+	tmp2.Quo(tmp2, helper.Big100)
+	reward.BlockReward = tmp2
 
-	tmp1.Add(tmp1, tmp2)
-	tmp1.Quo(tmp1, helper.Big100)
-
-	reward.Set(tmp1)
+	reward.TotalReward = new(big.Int).Add(tmp1, tmp2)
 	return reward
 }
 

@@ -37,11 +37,14 @@ func (cache *Cache) IsAccountBlockExisted(hash *types.Hash) bool {
 }
 
 // TODO
-func (cache *Cache) GetLatestAccountBlock(address *types.Address) *ledger.AccountBlock {
-	return nil
+func (cache *Cache) GetLatestAccountBlock(address types.Address) *ledger.AccountBlock {
+	cache.mu.RLock()
+	defer cache.mu.RUnlock()
+
+	return cache.ds.GetLatestAccountBlock(address)
 }
 
-func (cache *Cache) GetAccountBlockByHeight(addr *types.Address, height uint64) *ledger.AccountBlock {
+func (cache *Cache) GetAccountBlockByHeight(addr types.Address, height uint64) *ledger.AccountBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 

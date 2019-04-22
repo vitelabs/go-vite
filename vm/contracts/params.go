@@ -57,7 +57,6 @@ type ContractsParams struct {
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
 	GetRewardTimeLimit               int64  // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
-	RewardTimeUnit                   int64
 }
 
 var (
@@ -67,7 +66,6 @@ var (
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
 		GetRewardTimeLimit:               75,
-		RewardTimeUnit:                   75 * 2,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
@@ -75,6 +73,5 @@ var (
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
 		GetRewardTimeLimit:               3600,
-		RewardTimeUnit:                   24 * 3600,
 	}
 )

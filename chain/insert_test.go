@@ -20,19 +20,56 @@ import (
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(1, 0, 0)
+	chainInstance, accounts, _ := SetUp(10, 1000, 10)
 	addrList := make([]types.Address, 0, len(accounts))
 	for addr := range accounts {
 		addrList = append(addrList, addr)
+		block, err := chainInstance.GetLatestAccountBlock(addr)
+		if err != nil {
+			panic(err)
+		}
+
+		if block == nil || block.Hash.IsZero() {
+			panic("error error error")
+		}
 	}
 
-	t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
-		snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 1300, 1, false)...)
-	})
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for {
+			for addr := range accounts {
+				block, err := chainInstance.GetLatestAccountBlock(addr)
+				if err != nil {
+					panic(err)
+				}
 
-	t.Run("NewStorageDatabase", func(t *testing.T) {
-		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
-	})
+				if block == nil || block.Hash.IsZero() {
+					fmt.Println(addr)
+					fmt.Println(chainInstance.GetLatestAccountBlock(addr))
+					panic("error")
+				}
+			}
+
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 10000; i++ {
+			//t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
+			InsertAccountBlockAndSnapshot(chainInstance, accounts, 1300, 1, false)
+			//})
+		}
+
+	}()
+
+	wg.Wait()
+
+	//t.Run("NewStorageDatabase", func(t *testing.T) {
+	//	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+	//})
 
 	//testRedo(t, chainInstance)
 

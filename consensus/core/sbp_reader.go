@@ -1,16 +1,32 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+type BigInt struct {
+	*big.Int
+}
+
+func (i *BigInt) MarshalText() ([]byte, error) {
+	if i == nil || i.Int == nil {
+		return []byte("0"), nil
+	}
+	return []byte(fmt.Sprintf(`"%s"`, i.String())), nil
+}
+
+func (x *BigInt) MarshalJSON() ([]byte, error) {
+	return x.MarshalText()
+}
+
 type SbpStats struct {
 	Index            uint64
 	BlockNum         uint64
 	ExceptedBlockNum uint64
-	VoteCnt          *big.Int
+	VoteCnt          *BigInt
 	Name             string
 }
 
@@ -18,7 +34,7 @@ type DayStats struct {
 	Index uint64
 	Stats map[string]*SbpStats
 
-	VoteSum *big.Int
+	VoteSum *BigInt
 	// block total in one day
 	BlockTotal uint64
 }

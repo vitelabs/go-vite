@@ -426,7 +426,7 @@ Loop:
 
 				nodes := p.discv.GetNodes(need)
 				for _, n := range nodes {
-					p.connect(&n)
+					p.connect(n)
 				}
 			}
 

@@ -48,10 +48,10 @@ var discvLog = log15.New("module", "discovery")
 type Discovery interface {
 	Start() error
 	Stop() error
-	Delete(id vnode.NodeID)
-	GetNodes(count int) []vnode.Node
-	Resolve(id vnode.NodeID)
-	Verify(node vnode.Node)
+	Delete(id vnode.NodeID, reason error)
+	GetNodes(count int) []*vnode.Node
+	FindNodes(node *vnode.Node, count int) []*vnode.Node
+	Resolve(id vnode.NodeID) *vnode.Node
 	SetFinder(f Finder)
 	AllNodes() []*vnode.Node
 }
@@ -95,7 +95,7 @@ type discovery struct {
 	log log15.Logger
 }
 
-func (d *discovery) GetNodes(count int) []vnode.Node {
+func (d *discovery) GetNodes(count int) []*vnode.Node {
 	// can NOT use rw.RLock(), will panic
 	d.mu.Lock()
 	for d.refreshing {
@@ -104,6 +104,11 @@ func (d *discovery) GetNodes(count int) []vnode.Node {
 	d.mu.Unlock()
 
 	return d.finder.GetNodes(count)
+}
+
+func (d *discovery) FindNodes(node *vnode.Node, count int) []*vnode.Node {
+	// todo
+	return nil
 }
 
 func (d *discovery) SetFinder(f Finder) {
@@ -115,20 +120,26 @@ func (d *discovery) SetFinder(f Finder) {
 	d.finder.Sub(d.table)
 }
 
-func (d *discovery) Delete(id vnode.NodeID) {
+func (d *discovery) Delete(id vnode.NodeID, reason error) {
 	d.table.remove(id)
 	d.db.Remove(id)
+
+	d.log.Warn(fmt.Sprintf("remove node %s: %v", id.String(), reason))
 }
 
-func (d *discovery) Resolve(id vnode.NodeID) {
-
-}
-
-func (d *discovery) Verify(node vnode.Node) {
-	n := d.table.resolve(node.ID)
-	if n != nil {
-		_ = d.ping(n)
+func (d *discovery) Resolve(id vnode.NodeID) (ret *vnode.Node) {
+	node := d.table.resolve(id)
+	if node != nil {
+		return &node.Node
 	}
+
+	if nodes := d.lookup(id, 1); len(nodes) > 0 {
+		if nodes[0].ID == id {
+			return &(nodes[0].Node)
+		}
+	}
+
+	return
 }
 
 // New create a Discovery implementation
@@ -241,6 +252,7 @@ func (d *discovery) ping(n *Node) error {
 		return errDifferentNet
 	}
 
+	n.checkAt = time.Now()
 	n.update(n2)
 	return nil
 }
@@ -488,7 +500,7 @@ func (d *discovery) refresh() {
 	d.refreshing = false
 	d.mu.Unlock()
 
-	d.cond.Signal()
+	d.cond.Broadcast()
 }
 
 func (d *discovery) lookup(target vnode.NodeID, count int) []*Node {
