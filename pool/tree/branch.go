@@ -95,17 +95,22 @@ func (self *branch) prune() {
 	if self.root.Type() == Normal {
 		self.root.(*branch).prune()
 	}
+	removed := false
 	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
 		selfB := self.getKnot(i, false)
 		block := self.root.GetKnot(i, true)
 		if block != nil && block.Hash() == selfB.Hash() {
 			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.Id(), block.Height(), block.Hash())
 			self.RemoveTail(block)
+			removed = true
 		} else {
 			break
 		}
 	}
-	self.updateChildrenForRemoveTail(self.root)
+
+	if removed {
+		self.updateChildrenForRemoveTail(self.root)
+	}
 }
 
 func (self *branch) updateChildrenForRemoveTail(root Branch) {
