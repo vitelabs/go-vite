@@ -32,17 +32,6 @@ func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
 		store: store,
 		chain: chain,
 	}
-	/*if err := or.Clear(); err != nil {
-		oLog.Error("onRoadInfo-plugin Clear fail.", "err", err)
-		return nil
-	}
-	oLog.Info("Start InitAndBuild onRoadInfo-plugin")
-	if err := or.InitAndBuild(); err != nil {
-		oLog.Error("InitAndBuild fail.", "err", err)
-		or.Clear()
-		return nil
-	}
-	oLog.Info("InitAndBuild success.")*/
 	return or
 }
 
@@ -67,28 +56,7 @@ func (or *OnRoadInfo) Clear() error {
 func (or *OnRoadInfo) InitAndBuild() error {
 	or.storeMutex.Lock()
 	defer or.storeMutex.Unlock()
-
-	latestSnapshot := or.chain.GetLatestSnapshotBlock()
-	if latestSnapshot == nil {
-		return errors.New("GetLatestSnapshotBlock fail.")
-	}
-	chunks, err := or.chain.GetSubLedger(1, latestSnapshot.Height)
-	if err != nil {
-		return err
-	}
-	if len(chunks) <= 0 {
-		return nil
-	}
-	blocks := make([]*ledger.AccountBlock, 0)
-	for _, v := range chunks {
-		if len(v.AccountBlocks) <= 0 {
-			continue
-		}
-		blocks = append(blocks, v.AccountBlocks...)
-	}
-	batch := or.store.NewBatch()
-	or.writeBlocks(batch, blocks)
-	or.store.WriteDirectly(batch)
+	// fixme
 	return nil
 }
 
@@ -154,9 +122,9 @@ func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, 
 	return onroadInfo, nil
 }
 
-func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	for addr, blocks := range excludeWritePairTrades(or.chain, blocks) {
-		oLog.Info(fmt.Sprintf("writeChunks: addr=%v, count=%v", addr, len(blocks)))
+func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, pendingList []*ledger.AccountBlock) error {
+	for addr, blocks := range excludeWritePairTrades(or.chain, pendingList) {
+		oLog.Info(fmt.Sprintf("writeBlocks: addr=%v, count=%v", addr, len(blocks)))
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
 			return err
@@ -193,8 +161,9 @@ func (or *OnRoadInfo) writeBlocks(batch *leveldb.Batch, blocks []*ledger.Account
 	return nil
 }
 
-func (or *OnRoadInfo) deleteBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	for addr, blocks := range excludeDeletePairTrades(or.chain, blocks) {
+func (or *OnRoadInfo) deleteBlocks(batch *leveldb.Batch, pendingList []*ledger.AccountBlock) error {
+	for addr, blocks := range excludeDeletePairTrades(or.chain, pendingList) {
+		oLog.Info(fmt.Sprintf("deleteBlocks: addr=%v, count=%v", addr, len(blocks)))
 		signOmMap, err := or.aggregateBlocks(blocks)
 		if err != nil {
 			return err
@@ -250,32 +219,20 @@ func (or *OnRoadInfo) writeBlock(batch *leveldb.Batch, block *ledger.AccountBloc
 		om.Number++
 		return or.writeMeta(batch, key, om)
 	} else {
-		fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
+		pendingList := make([]*ledger.AccountBlock, 0)
+		pendingList = append(pendingList, block)
+		// sendBlockList
+		isContract, err := or.chain.IsContractAccount(block.AccountAddress)
 		if err != nil {
 			return err
 		}
-		if fromBlock == nil {
-			return errors.New("failed to find onroad by recv")
+		if isContract && len(block.SendBlockList) > 0 {
+			pendingList = append(pendingList, block.SendBlockList...)
 		}
-		key := CreateOnRoadInfoKey(&fromBlock.ToAddress, &fromBlock.TokenId)
-		om, err := or.getMeta(key)
-		if err != nil {
+		if err := or.writeBlocks(batch, pendingList); err != nil {
 			return err
 		}
-		if om == nil {
-			return errors.New("conflict, failed to remove onroad cause info meta is nil")
-		}
-		result := om.TotalAmount.Cmp(fromBlock.Amount)
-		if result < 0 || result > 0 && om.Number <= 1 {
-			return errors.New("conflict when remove onroad")
-		}
-		if om.Number <= 1 {
-			or.deleteMeta(batch, key)
-			return nil
-		}
-		om.TotalAmount.Sub(&om.TotalAmount, fromBlock.Amount)
-		om.Number--
-		return or.writeMeta(batch, key, om)
+		return nil
 	}
 }
 
@@ -301,30 +258,21 @@ func (or *OnRoadInfo) deleteBlock(batch *leveldb.Batch, block *ledger.AccountBlo
 			return or.writeMeta(batch, key, om)
 		}
 	} else {
-		fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
+		pendingList := make([]*ledger.AccountBlock, 0)
+		pendingList = append(pendingList, block)
+
+		// sendBlockList
+		isContract, err := or.chain.IsContractAccount(block.AccountAddress)
 		if err != nil {
 			return err
 		}
-		if fromBlock == nil {
-			return errors.New("failed to find onroad by recv")
+		if isContract && len(block.SendBlockList) > 0 {
+			pendingList = append(pendingList, block.SendBlockList...)
 		}
-		//fmt.Printf("fromBlock: addr=%v hash=%v height=%v\n", fromBlock.AccountAddress, fromBlock.Hash, fromBlock.Height)
-		key := CreateOnRoadInfoKey(&fromBlock.ToAddress, &fromBlock.TokenId)
-		om, err := or.getMeta(key)
-		if err != nil {
+		if err := or.deleteBlocks(batch, pendingList); err != nil {
 			return err
 		}
-		if om == nil {
-			om = &onroadMeta{
-				TotalAmount: *big.NewInt(0),
-				Number:      0,
-			}
-		}
-		if fromBlock.Amount != nil {
-			om.TotalAmount.Add(&om.TotalAmount, fromBlock.Amount)
-		}
-		om.Number++
-		return or.writeMeta(batch, key, om)
+		return nil
 	}
 }
 
@@ -458,21 +406,6 @@ func (om *onroadMeta) deserialize(buf []byte) error {
 	}
 	om.deProto(pb)
 	return nil
-}
-
-func CreateOnRoadInfoKey(addr *types.Address, tId *types.TokenTypeId) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+types.TokenTypeIdSize)
-	key = append(key, OnRoadInfoKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, tId.Bytes()...)
-	return key
-}
-
-func CreateOnRoadInfoPrefixKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, OnRoadInfoKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	return key
 }
 
 func excludeWritePairTrades(chain Chain, blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {

@@ -15,6 +15,7 @@ type Chain interface {
 
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
 	IsGenesisAccountBlock(hash types.Hash) bool
+	IsContractAccount(address types.Address) (bool, error)
 
 	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 }

@@ -9,6 +9,10 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 	for _, v := range blocks {
 		if v.AccountBlock.IsSendBlock() {
 			manager.newSignalToWorker(v.AccountBlock)
+		} else {
+			for _, rs := range v.AccountBlock.SendBlockList {
+				manager.newSignalToWorker(rs)
+			}
 		}
 	}
 	return nil
