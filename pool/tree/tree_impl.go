@@ -67,10 +67,55 @@ func (self *tree) Main() Branch {
 }
 
 func (self *tree) ForkBranch(b Branch, height uint64, hash types.Hash) Branch {
+	if b.Type() == Disk {
+		panic("can't fork from disk")
+	}
 	knot := b.GetKnot(height, true)
+	if knot == nil {
+		panic(fmt.Sprintf("can't get knot by[%d]", height))
+	}
 	new := newBranch(newBranchBase(knot.Height(), knot.Hash(), knot.Height(), knot.Hash(), self.newBranchId()), b)
 	self.addBranch(new)
 	return new
+}
+
+func (self *tree) RootHeadAdd(k Knot) error {
+	main := self.main
+	if main.MatchHead(k.PrevHash()) {
+		err := main.AddHead(k)
+		if err != nil {
+			return err
+		}
+		err = main.RemoveTail(k)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		newBranch := self.ForkBranch(main, k.Height()-1, k.PrevHash()).(*branch)
+		err := newBranch.AddHead(k)
+		if err != nil {
+			return err
+		}
+		err = newBranch.RemoveTail(k)
+		if err != nil {
+			return err
+		}
+		newBranch.updateRootSimple(main, self.root)
+		main.updateRoot(main.root, newBranch)
+
+		self.main = newBranch
+		return nil
+	}
+}
+
+func (self *tree) RootHeadRemove(k Knot) error {
+	main := self.main
+	if main.tailHash != k.Hash() {
+		return errors.Errorf("root head[%s][%d-%s] remove fail.", main.SprintTail(), k.Height(), k.Hash())
+	}
+	main.AddTail(k)
+	return nil
 }
 
 func (self *tree) SwitchMainTo(b Branch) error {
@@ -85,11 +130,15 @@ func (self *tree) SwitchMainTo(b Branch) error {
 	// first prune
 	target.prune()
 	// second modify
-	target.exchangeAllRoot()
+	err := target.exchangeAllRoot()
+	if err != nil {
+		return err
+	}
 
 	if target.Linked(self.root) {
 		self.main = target
 	} else {
+		panic("new chain tail fail.")
 		return errors.New("new chain tail fail.")
 	}
 	return nil

@@ -80,9 +80,7 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.S
 	//result.stat =
 
 	if blocks != nil {
-		var bs []*accountPoolBlock
-		bs = append(bs, newAccountPoolBlock(blocks.AccountBlock, blocks.VmDb, b.v, b.source))
-		result.blocks = bs
+		result.block = newAccountPoolBlock(blocks.AccountBlock, blocks.VmDb, b.v, b.source)
 		result.result = verifier.SUCCESS
 		return result
 	}
@@ -127,7 +125,7 @@ func (self *poolAccountVerifyStat) task() verifyTask {
 }
 
 type poolAccountVerifyStat struct {
-	blocks   []*accountPoolBlock
+	block    *accountPoolBlock
 	result   verifier.VerifyResult
 	taskList *verifier.AccBlockPendingTask
 	err      error

@@ -222,11 +222,10 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
 	for i := h; i >= 0; i-- {
-		//if cur.canAddTail(blocks[i]) {
-		cur.AddTail(blocks[i])
-		//} else {
-		//	return errors.Errorf("err add tail %d-%s", blocks[i].Height(), blocks[i].Hash())
-		//}
+		err := self.chainpool.tree.RootHeadRemove(blocks[i])
+		if err != nil {
+			panic(err)
+		}
 	}
 	err = self.chainpool.check()
 	if err != nil {

@@ -279,28 +279,22 @@ success:
 //
 //	return self.v.newSuccessTask()
 //}
-func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
+func (self *accountPool) verifySuccess(bs *accountPoolBlock) (error, uint64) {
 	cp := self.chainpool
 
-	blocks, forked, err := genBlocks(cp, bs)
+	err := self.rw.insertBlock(bs)
 	if err != nil {
 		return err, 0
 	}
 
-	self.log.Debug("verifySuccess", "id", forked.Id(), "tail", forked.SprintTail())
-	err = cp.currentModifyToChain(forked)
+	cp.insertNotify(bs)
+
 	if err != nil {
 		return err, 0
 	}
-	err = cp.writeBlocksToChain(forked, blocks)
-	if err != nil {
-		return err, 0
-	}
-	for _, b := range blocks {
-		self.blockpool.afterInsert(b)
-		self.afterInsertBlock(b)
-	}
-	return nil, uint64(len(bs))
+	self.blockpool.afterInsert(bs)
+	self.afterInsertBlock(bs)
+	return nil, 1
 }
 
 func (self *accountPool) verifyPending(b *accountPoolBlock) error {
@@ -474,18 +468,9 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 		}
 		return errors.Errorf("directly adding account block[%s-%s-%d] fail.", received.block.AccountAddress, received.Hash(), received.Height())
 	case verifier.SUCCESS:
-		fchain, blocks, err := self.genDirectBlocks(stat.blocks)
-		if err != nil {
-			return err
-		}
-		tailHeight, _ := fchain.TailHH()
-		headHeight, headHash := fchain.HeadHH()
-		self.log.Debug("AddDirectBlocks", "id", fchain.Id(), "TailHeight", tailHeight, "HeadHeight", headHeight, "HeadHash", headHash)
-		err = self.chainpool.currentModifyToChain(fchain)
-		if err != nil {
-			return err
-		}
-		err = self.chainpool.writeBlocksToChain(fchain, blocks)
+
+		self.log.Debug("AddDirectBlocks", "height", received.Height(), "hash", received.Hash())
+		err, _ := self.verifySuccess(stat.block)
 		if err != nil {
 			return err
 		}
@@ -633,12 +618,12 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 	defer self.chainTailMu.Unlock()
 
 	cp := self.chainpool
-	current := cp.tree.Main()
 
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		block := item.commonBlock
 		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
+		current := cp.tree.Main()
 		tailHeight, tailHash := current.TailHH()
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
@@ -661,7 +646,7 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
 				return errors.Wrap(stat.err, "fail verifier db.")
 			}
-			err, num := self.verifySuccess(stat.blocks)
+			err, num := self.verifySuccess(stat.block)
 			if err != nil {
 				self.log.Error("account block write fail. ",
 					"hash", block.Hash(), "height", block.Height(), "error", err)
