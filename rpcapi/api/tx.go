@@ -117,7 +117,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 			fmt.Printf("sync state: %s \n", state)
 			return
 		}
-		N := 8
+		N := 4
 		for i := 0; i < N; i++ {
 			for k, v := range fromAddrs {
 				addr := v
