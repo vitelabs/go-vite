@@ -99,7 +99,7 @@ func (self *branch) prune() {
 		selfB := self.getKnot(i, false)
 		block := self.root.GetKnot(i, true)
 		if block != nil && block.Hash() == selfB.Hash() {
-			fmt.Printf("remove tail[%s][%d-%s]\n", self.branchId(), block.Height(), block.Hash())
+			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.Id(), block.Height(), block.Hash())
 			self.RemoveTail(block)
 		} else {
 			break
@@ -107,14 +107,18 @@ func (self *branch) prune() {
 	}
 }
 
-func (self *branch) exchangeAllRoot() {
+func (self *branch) exchangeAllRoot() error {
 	for {
 		root := self.root
 		if root.Type() == Disk {
 			break
 		}
-		self.exchangeRoot(self.root.(*branch))
+		err := self.exchangeRoot(self.root.(*branch))
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (self *branch) exchangeRoot(root *branch) error {
@@ -123,7 +127,6 @@ func (self *branch) exchangeRoot(root *branch) error {
 	}
 
 	if tailEquals(root, self) {
-		root.removeChild(self)
 		self.updateRootSimple(root, root.root)
 		root.updateRoot(root.root, self)
 		return nil
@@ -146,7 +149,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 				root.RemoveTail(w)
 			}
 		}
-		root.removeChild(self)
+
 		self.updateRootSimple(root, root.root)
 		root.updateRoot(root.root, self)
 		return nil
@@ -158,12 +161,21 @@ func (self *branch) exchangeRoot(root *branch) error {
 }
 
 func (self *branch) updateRootSimple(old Branch, new Branch) {
+	if old.Type() == Normal {
+		old.(*branch).removeChild(self)
+	}
+
 	self.root = new
 	if new.Type() == Normal {
 		new.(*branch).addChild(self)
 	}
 }
 func (self *branch) updateRoot(old Branch, new Branch) {
+	self.root = new
+	if new.Type() == Normal {
+		new.(*branch).addChild(self)
+	}
+
 	for _, v := range self.allChildren() {
 		height, hash := v.tailHH()
 		if self.contains(height, hash, false) {
@@ -171,11 +183,11 @@ func (self *branch) updateRoot(old Branch, new Branch) {
 		}
 
 		if new.ContainsKnot(height, hash, true) {
+			v.updateRootSimple(self, new)
 			continue
 		}
 
 		if old.ContainsKnot(height, hash, true) {
-			self.removeChild(v)
 			v.updateRootSimple(self, old)
 			continue
 		}
@@ -202,6 +214,9 @@ func (self *branch) getKnotAndChain(height uint64) (Knot, Branch) {
 		if b != nil {
 			return b, refer
 		} else {
+			if refer.Type() == Disk {
+				return nil, nil
+			}
 			if _, ok := refers[refer.Id()]; ok {
 				monitor.LogEvent("pool", "GetKnotError")
 				return nil, nil
@@ -246,7 +261,7 @@ func (self *branch) contains(height uint64, hash types.Hash, flag bool) bool {
 }
 
 func (self *branch) localContains(height uint64, hash types.Hash) bool {
-	if height > self.tailHeight && self.headHeight <= height {
+	if height > self.tailHeight && height <= self.headHeight {
 		k := self.getHeightBlock(height)
 		if k != nil {
 			return k.Hash() == hash

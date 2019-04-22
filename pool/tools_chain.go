@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -55,10 +54,6 @@ type accountCh struct {
 }
 
 func (self *accountCh) insertBlock(b commonBlock) error {
-	if !b.checkForkVersion() {
-		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.FormatInt(int64(b.forkVersion()), 10))
-	}
-
 	monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	block := b.(*accountPoolBlock)
 	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}

@@ -253,20 +253,6 @@ func (self *chainPool) currentModifyToChain(chain tree.Branch) error {
 //	}
 //}
 
-func (self *chainPool) currentModify(initBlock commonBlock) {
-	//new := &forkedChain{}
-	//new.chainId = self.genChainId()
-	//new.init(initBlock)
-	//new.referChain = self.diskChain
-	//self.addChain(new)
-	//c := self.current
-	//c.referChain = new
-	//self.current = new
-	main := self.tree.Main()
-	new := self.tree.ForkBranch(main, initBlock.Height(), initBlock.Hash())
-	self.tree.SwitchMainTo(new)
-	//self.modifyReferForChainExchange(c, new, new)
-}
 func (self *chainPool) fork2(snippet *snippetChain, chains map[string]tree.Branch) (bool, bool, tree.Branch, error) {
 
 	var forky, insertable bool
@@ -429,27 +415,10 @@ func (self *chainPool) insert(c tree.Branch, wrapper commonBlock) error {
 }
 
 func (self *chainPool) insertNotify(head commonBlock) {
-	main := self.tree.Main()
-	if main.MatchHead(head.PrevHash()) {
-		main.AddHead(head)
-	} else {
-		branch, err := self.genDirectBlock(head)
-		if err != nil {
-			panic(err)
-		}
-		self.currentModifyToChain(branch)
-	}
-	self.tree.Main().RemoveTail(head)
-}
-
-func (self *chainPool) genDirectBlock(head commonBlock) (tree.Branch, error) {
-	fchain, err := self.forkFrom(self.tree.Main(), head.Height()-1, head.PrevHash())
+	err := self.tree.RootHeadAdd(head)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
-	fchain.AddHead(head)
-	return fchain, nil
 }
 
 //func (self *chainPool) writeToChain(chain *forkedChain, block commonBlock) error {

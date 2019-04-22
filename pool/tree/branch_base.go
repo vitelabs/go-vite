@@ -87,7 +87,10 @@ func (self *branchBase) removeTail(w Knot) {
 	self.heightMu.Lock()
 	defer self.heightMu.Unlock()
 	if self.tailHash != w.PrevHash() {
-		panic("remove fail")
+		panic("remove tail fail1[not match].")
+	}
+	if w.Height() > self.headHeight {
+		panic("remove tail fail.")
 	}
 	self.tailHash = w.Hash()
 	self.tailHeight = w.Height()
@@ -98,7 +101,10 @@ func (self *branchBase) removeHead(w Knot) {
 	self.heightMu.Lock()
 	defer self.heightMu.Unlock()
 	if self.headHash != w.Hash() {
-		panic("remove head")
+		panic("remove head fail[not match].")
+	}
+	if w.Height() <= self.tailHeight {
+		panic("remove head fail.")
 	}
 	self.headHash = w.PrevHash()
 	self.headHeight = w.Height() - 1

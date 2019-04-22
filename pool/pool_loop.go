@@ -84,8 +84,9 @@ func (self *pool) makeQueue() Package {
 				self.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
 					// todo remove
-					fmt.Printf("make accounts[%d]\n", p.Size())
-					self.log.Info(fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size()))
+					msg := fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size())
+					fmt.Println(msg)
+					self.log.Info(msg)
 					return p
 				}
 			}
@@ -100,7 +101,9 @@ func (self *pool) makeQueue() Package {
 		}
 	}
 	if p.Size() > 0 {
-		self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
+		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
+		fmt.Println(msg)
+		self.log.Info(msg)
 	}
 	return p
 }

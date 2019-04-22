@@ -52,6 +52,8 @@ type Tree interface {
 	PruneTree() []Branch
 	FindBranch(height uint64, hash types.Hash) Branch
 	ForkBranch(b Branch, height uint64, hash types.Hash) Branch
+	RootHeadAdd(k Knot) error
+	RootHeadRemove(k Knot) error
 	SwitchMainTo(b Branch) error
 	SwitchMainToEmpty() error
 	FindForkPointFromMain(target Branch) (Knot, Knot, error)
