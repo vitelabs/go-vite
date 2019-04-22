@@ -18,7 +18,6 @@ type Knot interface {
 }
 
 type BranchBase interface {
-	RemoveTail(k Knot)
 	AddTail(k Knot)
 	MatchHead(hash types.Hash) bool
 	SprintTail() string
@@ -33,7 +32,8 @@ type Branch interface {
 	HeadHH() (uint64, types.Hash)
 	TailHH() (uint64, types.Hash)
 	Linked(root Branch) bool
-	AddHead(k ...Knot) error
+	AddHead(k Knot) error
+	RemoveTail(k Knot) error
 
 	//AddTail(k Knot) error
 	//RemoveTail(k Knot) error

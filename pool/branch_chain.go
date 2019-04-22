@@ -16,6 +16,10 @@ type branchChain struct {
 	head    *ledger.HashHeight
 }
 
+func (self *branchChain) RemoveTail(k tree.Knot) error {
+	panic("implement me")
+}
+
 func (self *branchChain) MatchHead(hash types.Hash) bool {
 	_, h := self.HeadHH()
 	return hash == h
@@ -38,10 +42,6 @@ func (self *branchChain) SprintHead() string {
 	return fmt.Sprintf("%d-%s", h1, h2)
 }
 
-func (self *branchChain) RemoveTail(k tree.Knot) {
-	panic("not support")
-}
-
 func (self *branchChain) GetKnotAndBranch(height uint64) (tree.Knot, tree.Branch) {
 	return self.GetKnot(height, true), self
 }
@@ -55,7 +55,7 @@ func (self *branchChain) Size() uint64 {
 	return u
 }
 
-func (self *branchChain) AddHead(k ...tree.Knot) error {
+func (self *branchChain) AddHead(k tree.Knot) error {
 	panic("not support")
 }
 

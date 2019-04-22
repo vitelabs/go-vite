@@ -78,7 +78,7 @@ func (self *branchBase) MatchHead(hash types.Hash) bool {
 	return false
 }
 
-func (self *branchBase) RemoveTail(w Knot) {
+func (self *branchBase) removeTail(w Knot) {
 	self.heightMu.Lock()
 	defer self.heightMu.Unlock()
 	if self.tailHash != w.PrevHash() {

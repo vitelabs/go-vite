@@ -52,10 +52,13 @@ func (self *branch) GetKnotAndBranch(height uint64) (Knot, Branch) {
 	return nil, nil
 }
 
-func (self *branch) AddHead(ks ...Knot) error {
-	for _, v := range ks {
-		self.addHead(v)
-	}
+func (self *branch) AddHead(k Knot) error {
+	self.addHead(k)
+	return nil
+}
+
+func (self *branch) RemoveTail(k Knot) error {
+	self.removeTail(k)
 	return nil
 }
 
