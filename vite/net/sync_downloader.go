@@ -1,7 +1,6 @@
 package net
 
 import (
-	"context"
 	"fmt"
 	net2 "net"
 	"sort"
@@ -14,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-type reqState byte
+type reqState = int32
 
 const (
 	reqWaiting reqState = iota
@@ -32,29 +31,36 @@ var reqStatus = map[reqState]string{
 	reqCancel:  "canceled",
 }
 
-func (s reqState) String() string {
-	if str, ok := reqStatus[s]; ok {
-		return str
-	}
-
-	return "unknown request state"
-}
-
 type syncTask struct {
-	from, to  uint64
-	st        reqState
-	doneAt    time.Time
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	from, to uint64
+	st       reqState
+	doneAt   time.Time
 }
 
 func (t *syncTask) String() string {
-	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + t.st.String()
+	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + reqStatus[t.st]
+}
+
+func (t *syncTask) wait() {
+	t.st = reqWaiting
 }
 
 func (t *syncTask) cancel() {
-	if t.ctxCancel != nil {
-		t.ctxCancel()
+	t.st = reqCancel
+}
+
+func (t *syncTask) pending() {
+	t.st = reqPending
+}
+
+func (t *syncTask) done() {
+	t.st = reqDone
+	t.doneAt = time.Now()
+}
+
+func (t *syncTask) error() {
+	if t.st == reqPending {
+		t.st = reqError
 	}
 }
 
@@ -236,42 +242,9 @@ type syncDownloader interface {
 	// must will download the task regardless of task repeat
 	download(from, to uint64, must bool) bool
 	// cancel tasks between from and to
-	cancel(from, to uint64)
+	cancel(from uint64) (end uint64)
 	addListener(listener taskListener)
 }
-
-//type syncExecutor interface {
-//	start()
-//	stop()
-//
-//	// add a task into queue, task will be sorted from small to large.
-//	// if task is overlapped, then the task will be split to small tasks.
-//	add(t *syncTask) bool
-//
-//	// execute a task directly, NOT put into queue.
-//	// if a previous same from-to task has done, the gap time must longer than 1 min, or the task will not exec.
-//	exec(t *syncTask) bool
-//
-//	// runTo will execute those from is small than to tasks
-//	// runTo(to uint64)
-//
-//	// deleteFrom will delete those from is large than start tasks.
-//	// return (the last task`s to + 1)
-//	deleteFrom(start uint64) (nextStart uint64)
-//
-//	// last return the last task in queue
-//	// ok is false if task queue is empty
-//	// last() (t *syncTask, ok bool)
-//
-//	status() ExecutorStatus
-//
-//	// clear all tasks
-//	reset()
-//
-//	size() int
-//
-//	addListener(listener taskListener)
-//}
 
 type taskListener = func(from, to uint64, err error)
 
@@ -287,8 +260,6 @@ type executor struct {
 	dialer  *net2.Dialer
 
 	listeners []taskListener
-	ctx       context.Context
-	ctxCancel context.CancelFunc
 	running   bool
 	wg        sync.WaitGroup
 
@@ -314,13 +285,6 @@ func newExecutor(max, batch int, pool connPool, factory syncConnInitiator) *exec
 	return e
 }
 
-func (e *executor) size() int {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	return len(e.tasks)
-}
-
 func (e *executor) start() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -330,7 +294,6 @@ func (e *executor) start() {
 	}
 
 	e.running = true
-	e.ctx, e.ctxCancel = context.WithCancel(context.Background())
 
 	e.tasks = e.tasks[:0]
 
@@ -348,7 +311,6 @@ func (e *executor) stop() {
 	e.running = false
 	e.mu.Unlock()
 
-	e.ctxCancel()
 	e.cond.Broadcast()
 	e.wg.Wait()
 }
@@ -359,14 +321,11 @@ func (e *executor) addListener(listener taskListener) {
 
 func (e *executor) status() DownloaderStatus {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	tasks := make([]string, len(e.tasks))
-	i := 0
-	for _, t := range e.tasks {
+	for i, t := range e.tasks {
 		tasks[i] = t.String()
-		i++
 	}
+	e.mu.Unlock()
 
 	st := DownloaderStatus{
 		tasks,
@@ -374,6 +333,33 @@ func (e *executor) status() DownloaderStatus {
 	}
 
 	return st
+}
+
+// from must be larger than 0
+func addTasks(tasks syncTasks, from, to uint64, must bool) syncTasks {
+	var t *syncTask
+	if must {
+		var i, j int
+		for i = 0; i < len(tasks); i++ {
+			t = tasks[i]
+			if t.st == reqDone {
+				continue
+			}
+
+			tasks[j] = tasks[i]
+			j++
+		}
+
+		tasks = tasks[:j]
+	}
+
+	ts := missingTasks(tasks, from, to)
+	for _, t = range ts {
+		tasks = append(tasks, t)
+	}
+
+	sort.Sort(tasks)
+	return tasks
 }
 
 // will be blocked when task queue is full
@@ -393,84 +379,84 @@ func (e *executor) download(from, to uint64, must bool) bool {
 		return false
 	}
 
-	if must {
-		e.tasks = append(e.tasks, &syncTask{
-			from: from,
-			to:   to,
-		})
-	} else {
-		tasks := missingTasks(e.tasks, from, to)
-		for _, t := range tasks {
-			e.tasks = append(e.tasks, t)
-		}
-	}
+	e.tasks = addTasks(e.tasks, from, to, must)
 
-	sort.Sort(e.tasks)
-	e.cond.Broadcast()
+	e.cond.Signal()
 
 	return true
 }
 
-func (e *executor) cancel(from, to uint64) {
+func (e *executor) cancel(from uint64) (end uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	var total = len(e.tasks)
+	e.tasks, end = cancelTasks(e.tasks, from)
+	return
+}
+
+// cancel tasks if `t.to > from`
+func cancelTasks(tasks syncTasks, from uint64) (tasks2 syncTasks, end uint64) {
+	var total = len(tasks)
 
 	if total == 0 {
-		return
+		return tasks, 0
 	}
 
 	var j int
+	var t *syncTask
 	for i := total - 1; i > -1; i-- {
-		t := e.tasks[i]
-		if t.from >= from {
+		t = tasks[i]
+		if t.to > from {
 			t.cancel()
 			j++
 			continue
 		}
 
-		if t.to > from {
-			t.to = from - 1
-		}
-
 		break
 	}
 
-	e.tasks = e.tasks[:total-j]
-}
+	total = total - j
+	tasks = tasks[:total]
+	if total > 0 {
+		end = tasks[total-1].to
+	}
 
-func (e *executor) reset() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	e.tasks = e.tasks[:0]
+	return tasks, end
 }
 
 func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
-	var done = 0
+	var total = len(tasks)
+	var now = time.Now()
+
+	var clean = 0 // clean continuous done tasks
+	var continuous = true
+
 	var index = 0
 	var batch = 0
 	var t *syncTask
 
-	// clean continuous done tasks
-	var condone = 0
-	var continuous = true
-	var now = time.Now()
-
-	for index = done; index < len(tasks); index = done + batch {
+	for index = 0; index < total; index += batch {
 		t = tasks[index]
 
 		if t.st == reqDone {
-			done++
+			index++
 			if continuous && now.Sub(t.doneAt) > 5*time.Second {
-				condone++
+				clean++
 			}
-		} else if t.st == reqPending {
+			continue
+		} else if t.st == reqCancel {
+			index++
+			if continuous {
+				clean++
+			}
+			continue
+		} else {
 			continuous = false
+		}
+
+		if t.st == reqPending {
 			batch++
 		} else if batch < maxBatch {
-			continuous = false
 			batch++
 			exec(t)
 		} else {
@@ -478,9 +464,9 @@ func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 		}
 	}
 
-	if condone > 0 {
-		copy(tasks, tasks[condone:])
-		tasks = tasks[:len(tasks)-condone]
+	if clean > total/5 {
+		total = copy(tasks, tasks[clean:])
+		tasks = tasks[:total]
 	}
 
 	return tasks
@@ -489,10 +475,12 @@ func runTasks(tasks syncTasks, maxBatch int, exec func(t *syncTask)) syncTasks {
 func (e *executor) loop() {
 	defer e.wg.Done()
 
+	var total int
+
 Loop:
 	for {
 		e.mu.Lock()
-		for len(e.tasks) == 0 && e.running {
+		for total = len(e.tasks); total == 0 && e.running; total = len(e.tasks) {
 			e.cond.Wait()
 		}
 		if false == e.running {
@@ -500,19 +488,20 @@ Loop:
 			break Loop
 		}
 
-		before := len(e.tasks)
 		e.tasks = runTasks(e.tasks, e.batch, e.run)
-		if len(e.tasks) < before {
-			e.cond.Signal()
-		}
 		e.mu.Unlock()
 
+		if len(e.tasks) < total {
+			e.cond.Broadcast()
+		}
+
+		// have tasks, but running tasks is batch, so wait for task done
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 func (e *executor) run(t *syncTask) {
-	t.st = reqPending
+	t.pending()
 
 	go e.do(t)
 }
@@ -523,11 +512,12 @@ func (e *executor) doJob(c syncConnection, from, to uint64) error {
 	e.log.Info(fmt.Sprintf("download chunk %d-%d from %s", from, to, c.RemoteAddr()))
 
 	if fatal, err := c.download(from, to); err != nil {
+		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
+
 		if fatal {
 			e.pool.delConn(c)
+			e.log.Warn(fmt.Sprintf("delete sync connection: %s", c.RemoteAddr()))
 		}
-
-		e.log.Error(fmt.Sprintf("download chunk %d-%d from %s error: %v", from, to, c.RemoteAddr(), err))
 
 		return err
 	}
@@ -543,7 +533,9 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 	e.mu.Lock()
 	if _, ok := e.dialing[addr]; ok {
 		e.mu.Unlock()
-		return nil, errPeerDialing
+		err = errPeerDialing
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
+		return
 	}
 	e.dialing[addr] = struct{}{}
 	e.mu.Unlock()
@@ -556,29 +548,28 @@ func (e *executor) createConn(p downloadPeer) (c syncConnection, err error) {
 
 	// dial error
 	if err != nil {
-		return nil, err
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
+		return
 	}
 
 	// handshake error
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
 		_ = tcp.Close()
+		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
 		return
 	}
 
 	// add error
 	if err = e.pool.addConn(c); err != nil {
 		e.pool.delConn(c)
+		e.log.Warn(fmt.Sprintf("failed to add sync connection: %s: %v", addr, err))
 	}
 
 	return
 }
 
 func (e *executor) do(t *syncTask) {
-	if t.ctx == nil {
-		t.ctx, t.ctxCancel = context.WithCancel(e.ctx)
-	}
-
 	var p downloadPeer
 	var c syncConnection
 	var err error
@@ -588,26 +579,24 @@ func (e *executor) do(t *syncTask) {
 	} else if c != nil {
 		if err = e.doJob(c, t.from, t.to); err == nil {
 			// downloaded
-			t.st = reqDone
+			t.done()
 		}
 	} else if p != nil {
 		if c, err = e.createConn(p); err == nil {
 			if err = e.doJob(c, t.from, t.to); err == nil {
 				// downloaded
-				t.st = reqDone
+				t.done()
 			}
 		}
 	} else {
 		// no idle peers
-		t.st = reqWaiting
+		t.wait()
 	}
 
-	if t.st == reqPending {
-		t.st = reqError
-	}
+	// only t.st == reqPending
+	t.error()
 
 	if t.st == reqDone {
-		t.doneAt = time.Now()
 		e.notify(t, err)
 	}
 }

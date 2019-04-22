@@ -9,7 +9,7 @@ type Observer interface {
 
 type Finder interface {
 	Observer
-	GetNodes(count int) []vnode.Node
+	GetNodes(count int) []*vnode.Node
 }
 
 type closetFinder struct {
@@ -31,11 +31,13 @@ func (f *closetFinder) receive(n *vnode.Node) {
 	return
 }
 
-func (f *closetFinder) GetNodes(count int) []vnode.Node {
+func (f *closetFinder) GetNodes(count int) (vnodes []*vnode.Node) {
 	nodes := f.table.nodes(count)
-	vnodes := make([]vnode.Node, len(nodes))
+
+	vnodes = make([]*vnode.Node, len(nodes))
+
 	for i, n := range nodes {
-		vnodes[i] = n.Node
+		vnodes[i] = &(n.Node)
 	}
 
 	return vnodes
