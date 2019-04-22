@@ -273,11 +273,13 @@ func checkLink(c1 tree.Branch, c2 tree.Branch, refer bool) error {
 	tailHeight, tailHash := c1.TailHH()
 	block := c2.GetKnot(tailHeight, refer)
 	if block == nil {
-		c2.GetKnot(tailHeight, refer)
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tail:%s", c1.Id(), c2.Id(), refer, c1.SprintTail()))
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
+			c1.Id(), c2.Id(), refer,
+			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
 	} else if block.Hash() != tailHash {
-		c2.GetKnot(tailHeight, refer)
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, tail:%s, blockHash:%s", c1.Id(), c2.Id(), refer, c1.SprintTail(), block.Hash().String()))
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s, hash[%s-%s]",
+			c1.Id(), c2.Id(), refer,
+			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead(), block.Hash(), tailHash))
 	}
 	return nil
 }
