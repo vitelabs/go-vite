@@ -28,7 +28,7 @@ type Tx struct {
 	vite *vite.Vite
 }
 
-func NewTxApr(vite *vite.Vite) *Tx {
+func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
 	}
