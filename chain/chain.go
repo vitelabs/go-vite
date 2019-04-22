@@ -124,6 +124,50 @@ func (c *chain) Init() error {
 		return err
 	}
 
+	/*	fmt.Printf("Start InitAndBuild onRoadInfo-plugin")
+		if or := c.plugins.GetPlugin("onRoadInfo").(*chain_plugins.OnRoadInfo); or != nil {
+
+			if err := or.Clear(); err != nil {
+				c.log.Error("onRoadInfo-plugin Clear fail.", "err", err)
+				return nil
+			}
+
+			latestSnapshot := c.GetLatestSnapshotBlock()
+			if latestSnapshot == nil {
+				return errors.New("GetLatestSnapshotBlock fail.")
+			}
+
+			fmt.Printf("%+v\n", latestSnapshot)
+			chunks, err := c.GetSubLedgerAfterHeight(1)
+			if err != nil {
+				panic(err)
+			}
+			for i, chunk := range chunks {
+				if i == 0 {
+					continue
+				}
+
+				// write ab
+				for _, ab := range chunk.AccountBlocks {
+					batch := c.plugins.GetStore().NewBatch()
+					if err := or.InsertAccountBlock(batch, ab); err != nil {
+						return err
+					}
+					c.plugins.GetStore().WriteAccountBlock(batch, ab)
+				}
+
+				// write sb
+				batch := c.plugins.GetStore().NewBatch()
+				if err := or.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
+					return err
+				}
+				c.plugins.GetStore().WriteSnapshot(batch, chunk.AccountBlocks)
+				// flush
+				c.flusher.Flush(false)
+			}
+		}
+		fmt.Printf("End InitAndBuild onRoadInfo-plugin")*/
+
 	c.log.Info("Complete initialization", "method", "Init")
 	return nil
 }

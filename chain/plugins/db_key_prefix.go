@@ -26,18 +26,3 @@ func CreateOnRoadInfoPrefixKey(addr *types.Address) []byte {
 	key = append(key, addr.Bytes()...)
 	return key
 }
-
-func CreateOnRoadPrefixKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, onRoadPrefixKey)
-	key = append(key, addr.Bytes()...)
-	return key
-}
-
-func CreateOnRoadKey(addr *types.Address, hash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, OnRoadKey)
-	key = append(key, addr.Bytes()...)
-	key = append(key, hash.Bytes()...)
-	return key
-}

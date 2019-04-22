@@ -1,6 +1,7 @@
 package chain_plugins
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -38,6 +39,59 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 		store:   store,
 		plugins: plugins,
 	}, nil
+}
+
+func (p *Plugins) GetStore() *chain_db.Store {
+	return p.store
+}
+
+func (p *Plugins) InitOnRoad() {
+	oLog.Info("Start InitAndBuild onRoadInfo-plugin")
+	if or := p.GetPlugin("onRoadInfo").(*OnRoadInfo); or != nil {
+
+		if err := or.Clear(); err != nil {
+			oLog.Error("onRoadInfo-plugin Clear fail.", "err", err)
+			return
+		}
+
+		latestSnapshot := p.chain.GetLatestSnapshotBlock()
+		if latestSnapshot == nil {
+			oLog.Error("GetLatestSnapshotBlock fail.")
+			return
+		}
+
+		oLog.Error("%+v\n", latestSnapshot)
+		chunks, err := p.chain.GetSubLedgerAfterHeight(1)
+		if err != nil {
+			panic(err)
+		}
+		for i, chunk := range chunks {
+			if i == 0 {
+				continue
+			}
+
+			// write ab
+			for _, ab := range chunk.AccountBlocks {
+				batch := p.store.NewBatch()
+				if err := or.InsertAccountBlock(batch, ab); err != nil {
+					oLog.Error(fmt.Sprintf("InsertAccountBlock fail, err:%v, ab[%v %v %v] ", err, ab.AccountAddress, ab.Hash, ab.Height))
+					return
+				}
+				p.store.WriteAccountBlock(batch, ab)
+			}
+
+			// write sb
+			batch := p.store.NewBatch()
+			if err := or.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
+				oLog.Error(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
+				return
+			}
+			p.store.WriteSnapshot(batch, chunk.AccountBlocks)
+			// fixme : flush
+			//c.flusher.Flush(false)
+		}
+	}
+	oLog.Info("End InitAndBuild onRoadInfo-plugin")
 }
 
 func (p *Plugins) Close() error {
