@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -18,6 +20,7 @@ type tree struct {
 
 	idIdx uint32
 	name  string
+	log   log15.Logger
 }
 
 func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
@@ -39,7 +42,7 @@ func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
 	return nil
 }
 func NewTree() *tree {
-	return &tree{branchList: make(map[string]*branch)}
+	return &tree{branchList: make(map[string]*branch), log: log15.New("module", "pool/tree")}
 }
 
 func (self *tree) Init(name string, root Branch) error {
@@ -189,7 +192,12 @@ func (self *tree) PruneTree() []Branch {
 		if !c.isGarbage() {
 			continue
 		}
-		self.removeBranch(c)
+		err := self.removeBranch(c)
+		if err != nil {
+			self.log.Error("remove branch fail.", "err", err)
+		} else {
+			r = append(r, c)
+		}
 	}
 	return r
 }
