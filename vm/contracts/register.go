@@ -1,6 +1,10 @@
 package contracts
 
 import (
+	"math/big"
+	"regexp"
+	"runtime/debug"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -8,9 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"regexp"
-	"runtime/debug"
 )
 
 type MethodRegister struct {
@@ -391,7 +392,7 @@ func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big
 	// 			+ 0.5 * rewardPerBlock * selfProducedBlockNum
 	tmp1 := new(big.Int)
 	tmp2 := new(big.Int)
-	tmp1.Set(selfDetail.VoteCnt)
+	tmp1.Set(selfDetail.VoteCnt.Int)
 	tmp1.Add(tmp1, pledgeAmount)
 	tmp2.SetUint64(detail.BlockTotal)
 	tmp1.Mul(tmp1, tmp2)
@@ -402,7 +403,7 @@ func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big
 
 	tmp2.SetInt64(int64(len(detail.Stats)))
 	tmp2.Mul(tmp2, pledgeAmount)
-	tmp2.Add(tmp2, detail.VoteSum)
+	tmp2.Add(tmp2, detail.VoteSum.Int)
 	tmp1.Quo(tmp1, tmp2)
 
 	tmp2.SetUint64(selfDetail.ExceptedBlockNum)

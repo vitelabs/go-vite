@@ -248,9 +248,9 @@ func (r *consensusReaderTest) DayStats(startIndex uint64, endIndex uint64) ([]*c
 			blockNum = blockNum + detail.blockNum
 			expectedBlockNum = expectedBlockNum + detail.expectedBlockNum
 			voteCount.Add(voteCount, detail.voteCount)
-			statusMap[name] = &core.SbpStats{i, detail.blockNum, detail.expectedBlockNum, detail.voteCount, name}
+			statusMap[name] = &core.SbpStats{i, detail.blockNum, detail.expectedBlockNum, &core.BigInt{detail.voteCount}, name}
 		}
-		list = append(list, &core.DayStats{Index: i, Stats: statusMap, VoteSum: voteCount, BlockTotal: blockNum})
+		list = append(list, &core.DayStats{Index: i, Stats: statusMap, VoteSum: &core.BigInt{voteCount}, BlockTotal: blockNum})
 	}
 	return list, nil
 }

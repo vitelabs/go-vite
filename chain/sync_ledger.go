@@ -55,7 +55,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if fromLocation == nil {
-		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", from))
+		return nil, errors.New(fmt.Sprintf("block %d is not existed", from))
 	}
 
 	tmpToLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
@@ -63,7 +63,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if tmpToLocation == nil {
-		return nil, errors.New(fmt.Sprintf("snapshot %d is not existed", to))
+		return nil, errors.New(fmt.Sprintf("block %d is not existed", to))
 	}
 
 	toLocation, err := chain.blockDB.GetNextLocation(tmpToLocation)

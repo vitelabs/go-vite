@@ -80,7 +80,7 @@ type TimeoutCond struct {
 
 func NewTimeoutCond() *TimeoutCond {
 	mutex := &sync.Mutex{}
-	return &TimeoutCond{L: mutex, signal: make(chan uint8, 0)}
+	return &TimeoutCond{L: mutex, signal: make(chan uint8)}
 }
 
 func (self *TimeoutCond) Wait() {
@@ -114,11 +114,14 @@ func (self *TimeoutCond) Broadcast() {
 	atomic.AddUint32(&self.notifyNum, 1)
 	self.L.Lock()
 	defer self.L.Unlock()
-	close(self.signal)
-	self.signal = make(chan uint8, 0)
+	old := self.signal
+	self.signal = make(chan uint8)
+	close(old)
 }
 func (self *TimeoutCond) Signal() {
 	atomic.AddUint32(&self.notifyNum, 1)
+	self.L.Lock()
+	defer self.L.Unlock()
 	select {
 	case self.signal <- uint8(1):
 	default:

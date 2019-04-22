@@ -172,7 +172,7 @@ func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock) uint64
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
-	return core.CalVotes(info, hashH.Hash, self.rw)
+	return core.CalVotes(info.ConsensusGroupInfo, hashH.Hash, self.rw)
 }
 
 func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
