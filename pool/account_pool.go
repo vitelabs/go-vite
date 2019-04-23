@@ -128,6 +128,7 @@ func (self *accountPool) Compact() int {
 		self.loopFetchTime = now
 		sum = sum + self.loopFetchForSnippets()
 	}
+	self.checkCurrent()
 	return sum
 }
 
@@ -720,5 +721,9 @@ func (self *BCPool) checkCurrent() {
 	if headHeight != tailHeight || headHash != tailHash {
 		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
 			main.Id(), tailHeight, tailHash, headHeight, headHash))
+	}
+	err := self.chainpool.check()
+	if err != nil {
+		panic(err)
 	}
 }

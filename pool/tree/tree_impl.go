@@ -70,11 +70,13 @@ func (self *tree) ForkBranch(b Branch, height uint64, hash types.Hash) Branch {
 	if b.Type() == Disk {
 		panic("can't fork from disk")
 	}
-	knot := b.GetKnot(height, true)
+	root := b.(*branch)
+	knot := root.GetKnot(height, true)
 	if knot == nil {
 		panic(fmt.Sprintf("can't get knot by[%d]", height))
 	}
 	new := newBranch(newBranchBase(knot.Height(), knot.Hash(), knot.Height(), knot.Hash(), self.newBranchId()), b)
+	root.addChild(new)
 	self.addBranch(new)
 	return new
 }
@@ -300,4 +302,59 @@ func (self *tree) addBranch(b *branch) {
 	self.branchMu.Lock()
 	defer self.branchMu.Unlock()
 	self.branchList[b.Id()] = b
+}
+
+func (self *tree) check() error {
+	diskId := self.root.Id()
+	currentId := self.main.Id()
+	for _, c := range self.Branches() {
+		// refer to disk
+		if c.Root().Id() == diskId {
+			if c.Id() != currentId {
+				self.log.Error(fmt.Sprintf("chain:%s, refer disk.", c.Id()))
+				return errors.New("refer disk")
+			} else {
+				err := checkHeadTailLink(c, c.Root())
+				if err != nil {
+					self.log.Error(err.Error())
+					return err
+				}
+			}
+		} else if c.Root().Id() == currentId {
+			// refer to current
+			err := checkLink(c, c.Root(), true)
+			if err != nil {
+				self.log.Error(err.Error())
+				return err
+			}
+		} else {
+			err := checkLink(c, c.Root(), false)
+			if err != nil {
+				self.log.Error(err.Error())
+				return err
+			}
+		}
+	}
+	return nil
+}
+func checkHeadTailLink(c1 Branch, c2 Branch) error {
+	if c1.Linked(c2) {
+		return nil
+	}
+	return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
+		c1.Id(), c2.Id(), c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
+}
+func checkLink(c1 Branch, c2 Branch, refer bool) error {
+	tailHeight, tailHash := c1.TailHH()
+	block := c2.GetKnot(tailHeight, refer)
+	if block == nil {
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
+			c1.Id(), c2.Id(), refer,
+			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
+	} else if block.Hash() != tailHash {
+		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s, hash[%s-%s]",
+			c1.Id(), c2.Id(), refer,
+			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead(), block.Hash(), tailHash))
+	}
+	return nil
 }

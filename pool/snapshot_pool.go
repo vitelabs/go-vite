@@ -264,6 +264,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 		self.loopFetchForSnippets()
 		self.loopFetchForSnapshot()
 	}
+	self.checkCurrent()
 	return sum
 }
 

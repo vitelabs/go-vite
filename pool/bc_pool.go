@@ -448,7 +448,7 @@ func (self *BCPool) loopAppendChains() int {
 				//tmpChains = append(tmpChains, newChain)
 				delete(self.chainpool.snippetChains, w.id())
 				// todo
-				self.log.Info(fmt.Sprintf("insert new chain[%s][%s]", c.Id(), newChain.SprintTail()))
+				self.log.Info(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.Id(), c.SprintHead(), c.SprintTail(), newChain.Id(), newChain.SprintHead(), newChain.SprintTail()))
 			}
 			continue
 		}
