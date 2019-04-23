@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/tree"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -147,22 +149,23 @@ func (self *snapshotPool) checkFork() {
 	current := self.CurrentChain()
 	minHeight := self.pool.realSnapshotHeight(current)
 
-	self.log.Debug("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight)
+	self.log.Debug("current chain.", "id", current.Id(), "realH", minHeight, "headH", current.SprintHead())
 
 	longers := self.LongerChain(minHeight)
 
-	var longest *forkedChain
+	var longest tree.Branch
 	longestH := minHeight
 	for _, l := range longers {
-		if l.headHeight < longestH {
+		headHeight, _ := l.HeadHH()
+		if headHeight < longestH {
 			continue
 		}
 		lH := self.pool.realSnapshotHeight(l)
-		self.log.Debug("find chain.", "id", l.id(), "realH", lH, "headH", l.headHeight)
+		self.log.Debug("find chain.", "id", l.Id(), "realH", lH, "headH", headHeight)
 		if lH > longestH {
 			longestH = lH
 			longest = l
-			self.log.Info("find more longer chain.", "id", l.id(), "realH", lH, "headH", l.headHeight, "tailH", l.tailHeight)
+			self.log.Info("find more longer chain.", "id", l.Id(), "realH", lH, "headH", headHeight, "tailH", l.SprintTail())
 		}
 	}
 
@@ -170,13 +173,14 @@ func (self *snapshotPool) checkFork() {
 		return
 	}
 
-	if longest.ChainId() == current.ChainId() {
+	if longest.Id() == current.Id() {
 		return
 	}
-	if longestH-self.LIMIT_LONGEST_NUM < current.headHeight {
+	curHeadH, _ := current.HeadHH()
+	if longestH-self.LIMIT_LONGEST_NUM < curHeadH {
 		return
 	}
-	self.log.Info("current chain.", "id", current.id(), "realH", minHeight, "headH", current.headHeight, "tailH", current.tailHeight)
+	self.log.Info("current chain.", "id", current.Id(), "realH", minHeight, "headH", curHeadH, "tailH", current.SprintTail())
 
 	monitor.LogEvent("pool", "snapshotFork")
 	err := self.snapshotFork(longest, current)
@@ -185,15 +189,15 @@ func (self *snapshotPool) checkFork() {
 	}
 }
 
-func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChain) error {
+func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch) error {
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
-	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId(),
-		"longestTailHeight", longest.tailHeight, "longestHeadHeight", longest.headHeight, "currentTailHeight", current.tailHeight, "currentHeadHeight", current.headHeight)
+	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id(),
+		"longestTail", longest.SprintTail(), "longestHead", longest.SprintHead(), "currentTail", current.SprintTail(), "currentHead", current.SprintHead())
 	self.pool.Lock()
 	defer self.pool.UnLock()
-	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ChainId(), "current", current.ChainId())
+	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id())
 
-	k, forked, err := self.getForkPointByChains(longest, current)
+	k, forked, err := self.chainpool.tree.FindForkPointFromMain(longest)
 	if err != nil {
 		self.log.Error("get snapshot forkPoint err.", "err", err)
 		return err
@@ -225,7 +229,7 @@ func (self *snapshotPool) snapshotFork(longest *forkedChain, current *forkedChai
 		}
 	}
 
-	self.log.Debug("snapshotFork longest modify", "id", longest.id(), "TailHeight", longest.tailHeight, "HeadHeight", longest.headHeight)
+	self.log.Debug("snapshotFork longest modify", "id", longest.Id(), "Tail", longest.SprintTail())
 	err = self.CurrentModifyToChain(longest, &ledger.HashHeight{Hash: forked.Hash(), Height: forked.Height()})
 	if err != nil {
 		return err
@@ -260,6 +264,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 		self.loopFetchForSnippets()
 		self.loopFetchForSnapshot()
 	}
+	self.checkCurrent()
 	return sum
 }
 
@@ -269,20 +274,24 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 	defer self.chainTailMu.Unlock()
 
 	pool := self.chainpool
-	current := pool.current
+	current := pool.tree.Main()
 
 	for i, item := range items {
 		block := item.commonBlock
-
 		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-		if block.Height() == current.tailHeight+1 &&
-			block.PrevHash() == current.tailHash {
+		tailHeight, tailHash := current.TailHH()
+		if block.Height() == tailHeight+1 &&
+			block.PrevHash() == tailHash {
 			block.resetForkVersion()
+			if block.forkVersion() != version {
+				return nil, nil, errors.Errorf("[%d]snapshot[s] version update", p.Id())
+			}
 			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return nil, item, errors.New("new fork version")
 			}
+
 			switch stat.verifyResult() {
 			case verifier.FAIL:
 				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())
@@ -301,7 +310,6 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 				return nil, item, err
 			}
 			self.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d success.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-			self.blockpool.afterInsert(block)
 			if len(accBlocks) > 0 {
 				return accBlocks, item, err
 			}
@@ -312,12 +320,12 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 	return nil, nil, nil
 }
 
-func (self *snapshotPool) snapshotWriteToChain(current *forkedChain, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	height := block.Height()
 	hash := block.Hash()
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
-		current.removeTail(block)
+		self.chainpool.tree.RemoveTail(current, block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
@@ -383,9 +391,10 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 	current := self.CurrentChain()
-	if block.Height() != current.tailHeight+1 ||
-		block.PrevHash() != current.tailHash {
-		return nil, errors.Errorf("snapshot head not match[%d-%s][%d-%s]", block.Height(), block.PrevHash(), current.tailHeight, current.tailHash)
+	tailHeight, tailHash := current.TailHH()
+	if block.Height() != tailHeight+1 ||
+		block.PrevHash() != tailHash {
+		return nil, errors.Errorf("snapshot head not match[%d-%s][%s]", block.Height(), block.PrevHash(), current.SprintTail())
 	}
 	stat := self.v.verifySnapshot(block)
 	result := stat.verifyResult()
@@ -399,8 +408,7 @@ func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Ad
 		if err != nil {
 			return nil, err
 		}
-		head := self.chainpool.diskChain.Head()
-		self.chainpool.insertNotify(head)
+		self.chainpool.insertNotify(block)
 		return abs, nil
 	default:
 		self.log.Crit("verify unexpected.")
@@ -463,34 +471,34 @@ func (self *snapshotPool) loopFetchForSnapshot() {
 //
 //}
 func (self *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
-	b := self.chainpool.current.getBlock(i, false)
+	b := self.CurrentChain().GetKnot(i, false)
 	if b != nil {
 		return b.(*snapshotPoolBlock)
 	} else {
 		return nil
 	}
 }
-func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
-	begin := self.chainpool.current.tailHeight + 1
-	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
-	err := self.checkChain(blocks)
-	if err != nil {
-		self.log.Info("[getPendingForCurrent]check chain fail." + self.printf(blocks))
-		return nil, err
-	}
 
-	return blocks, nil
-}
+//func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
+//	begin := self.chainpool.current.tailHeight + 1
+//	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
+//	err := self.checkChain(blocks)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return blocks, nil
+//}
 func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
 		ac := self.pool.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
-			head := ac.chainpool.diskChain.Head()
+			head, _ := ac.chainpool.diskChain.HeadHH()
 			u := uint64(10)
-			if hashH.Height > head.Height() {
-				u = hashH.Height - head.Height()
+			if hashH.Height > head {
+				u = hashH.Height - head
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
+			ac.f.fetchBySnapshot(*hashH, addr, u, sHeight, sHash)
 		}
 	}
 
@@ -544,8 +552,3 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 //	//
 //	//return uint64(headH - minH), errors.New("all in")
 //}
-
-//t=2019-04-17T22:10:47.528+0800 lvl=warn msg="add account block to blacklist." module=pool
-//account=accountChainPool-vite_00000000000000000000000000000000000000042d7ef71894
-//hash=c6fe046872cd0255e51c93b59a110bc0084d869913338c319c7b5aefdea97308
-//height=16087 err="verify referred confirmedTimes not enough"

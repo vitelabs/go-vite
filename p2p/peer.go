@@ -95,14 +95,16 @@ type protocolState struct {
 type protocolStateMap = map[ProtocolID]protocolState
 
 type PeerInfo struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name"`
-	Version   uint32           `json:"version"`
-	Protocols []string         `json:"protocols"`
-	Address   string           `json:"address"`
-	Level     Level            `json:"level"`
-	CreateAt  string           `json:"createAt"`
-	State     protocolStateMap `json:"state"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name"`
+	Version    uint32           `json:"version"`
+	Protocols  []string         `json:"protocols"`
+	Address    string           `json:"address"`
+	Level      Level            `json:"level"`
+	CreateAt   string           `json:"createAt"`
+	State      protocolStateMap `json:"state"`
+	ReadQueue  int              `json:"readQueue"`
+	WriteQueue int              `json:"writeQueue"`
 }
 
 const peerReadMsgBufferSize = 10
@@ -234,7 +236,9 @@ func (p *peerMux) readLoop() (err error) {
 	var msg Msg
 
 	for {
+		p.log.Debug(fmt.Sprintf("begin read message"))
 		msg, err = p.codec.ReadMsg()
+		p.log.Debug(fmt.Sprintf("read message %d/%d %d bytes done", msg.pid, msg.Code, len(msg.Payload)))
 		if err != nil {
 			return
 		}
@@ -280,10 +284,14 @@ func (p *peerMux) readLoop() (err error) {
 func (p *peerMux) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin write msg %d/%d %d bytes", msg.pid, msg.Code, len(msg.Payload)))
 		if err = p.codec.WriteMsg(msg); err != nil {
+			p.log.Debug(fmt.Sprintf("write msg %d/%d %d bytes error: %v", msg.pid, msg.Code, len(msg.Payload), err))
 			atomic.StoreInt32(&p.writable, 0)
 			return
 		}
+		p.log.Debug(fmt.Sprintf("write msg %d/%d %d bytes done[%d][%s]", msg.pid, msg.Code, len(msg.Payload), len(p.writeQueue), time.Now().Sub(t1)))
 	}
 
 	return nil
@@ -292,7 +300,10 @@ func (p *peerMux) writeLoop() (err error) {
 func (p *peerMux) handleLoop() (err error) {
 	var msg Msg
 	for msg = range p.readQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin handle msg %d/%d", msg.pid, msg.Code))
 		err = p.protoMap[msg.pid].Handle(msg)
+		p.log.Debug(fmt.Sprintf("handle msg %d/%d done[%d][%s]", msg.pid, msg.Code, len(p.readQueue), time.Now().Sub(t1)))
 		if err != nil {
 			return
 		}
@@ -366,13 +377,15 @@ func (p *peerMux) Info() PeerInfo {
 	}
 
 	return PeerInfo{
-		ID:        p.id.String(),
-		Name:      p.name,
-		Version:   p.version,
-		Protocols: pts,
-		Address:   p.codec.Address().String(),
-		Level:     p.level,
-		CreateAt:  p.createAt.Format("2006-01-02 15:04:05"),
-		State:     state,
+		ID:         p.id.String(),
+		Name:       p.name,
+		Version:    p.version,
+		Protocols:  pts,
+		Address:    p.codec.Address().String(),
+		Level:      p.level,
+		CreateAt:   p.createAt.Format("2006-01-02 15:04:05"),
+		State:      state,
+		ReadQueue:  len(p.readQueue),
+		WriteQueue: len(p.writeQueue),
 	}
 }

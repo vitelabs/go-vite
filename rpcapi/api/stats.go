@@ -1,11 +1,11 @@
 package api
 
 import (
+	"errors"
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus/core"
-
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 )
@@ -35,13 +35,21 @@ func (c StatsApi) Time2Index(t *time.Time) uint64 {
 	time2Index := index.Time2Index(*t)
 	return time2Index
 }
+func (c StatsApi) Index2Time(i uint64) map[string]time.Time {
+	result := make(map[string]time.Time)
+	index := c.cs.SBPReader().GetPeriodTimeIndex()
+	stime, etime := index.Index2Time(i)
+	result["stime"] = stime
+	result["etime"] = etime
+	return result
+}
 
 func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 	reader := c.cs.SBPReader()
 
 	timeIndex := reader.GetHourTimeIndex()
-	if startIdx == 0 {
+	if startIdx > endIdx {
 		startIdx, endIdx = c.reIndex(timeIndex)
 	}
 	// hour
@@ -70,6 +78,9 @@ type PeriodStats struct {
 }
 
 func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]*PeriodStats, error) {
+	if endIdx > startIdx && endIdx-startIdx > 48 {
+		return nil, errors.New("max step is 48")
+	}
 	var result []*PeriodStats
 	reader := c.cs.SBPReader()
 

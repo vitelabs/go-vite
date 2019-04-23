@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -140,7 +141,7 @@ func TestCalcReward(t *testing.T) {
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v CalcReward failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
-		if err == nil && (startTime != testCase.startTime || drained != testCase.drained || endTime != testCase.endTime || testCase.reward.Cmp(reward) != 0) {
+		if err == nil && (startTime != testCase.startTime || drained != testCase.drained || endTime != testCase.endTime || testCase.reward.Cmp(reward.TotalReward) != 0) {
 			t.Fatalf("%v CalcReward failed, result not match, expected (%v,%v,%v,%v), got (%v,%v,%v,%v)", testCase.name, testCase.startTime, testCase.endTime, testCase.drained, testCase.reward, startTime, endTime, drained, reward)
 		}
 	}
@@ -205,7 +206,7 @@ func TestCalcRewardByDay(t *testing.T) {
 				t.Fatalf("%v CalcRewardByDay failed, rewardMap len not match, expected %v, got %v", testCase.name, len(testCase.rewardMap), len(rewardMap))
 			} else {
 				for k, v := range rewardMap {
-					if expectedV, ok := testCase.rewardMap[k]; !ok || v.Cmp(expectedV) != 0 {
+					if expectedV, ok := testCase.rewardMap[k]; !ok || v.TotalReward.Cmp(expectedV) != 0 {
 						t.Fatalf("%v CalcRewardByDay failed, rewardMap not match, expected %v:%v, got %v:%v", testCase.name, k, expectedV, k, v)
 					}
 				}
@@ -248,9 +249,9 @@ func (r *consensusReaderTest) DayStats(startIndex uint64, endIndex uint64) ([]*c
 			blockNum = blockNum + detail.blockNum
 			expectedBlockNum = expectedBlockNum + detail.expectedBlockNum
 			voteCount.Add(voteCount, detail.voteCount)
-			statusMap[name] = &core.SbpStats{i, detail.blockNum, detail.expectedBlockNum, detail.voteCount, name}
+			statusMap[name] = &core.SbpStats{i, detail.blockNum, detail.expectedBlockNum, &core.BigInt{detail.voteCount}, name}
 		}
-		list = append(list, &core.DayStats{Index: i, Stats: statusMap, VoteSum: voteCount, BlockTotal: blockNum})
+		list = append(list, &core.DayStats{Index: i, Stats: statusMap, VoteSum: &core.BigInt{voteCount}, BlockTotal: blockNum})
 	}
 	return list, nil
 }
@@ -271,5 +272,56 @@ func (self timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
 func (self timeIndex) Time2Index(t time.Time) uint64 {
 	subSec := int64(t.Sub(self.GenesisTime).Seconds())
 	i := uint64(subSec) / uint64(self.Interval.Seconds())
+	return i
+}
+
+func TestCalcRewardSingle(t *testing.T) {
+	name1 := "s1"
+	name2 := "s2"
+	voteCountMap := map[string]*big.Int{
+		name1: stringToBigInt("899798000000000000000000000"),
+		name2: stringToBigInt("100000000000000000000000000"),
+	}
+	pledgeAmount := stringToBigInt("100000000000000000000000")
+	expectedBlockNum := map[string]uint64{
+		name1: 921,
+		name2: 921,
+	}
+	blockNum := map[string]uint64{
+		name1: 900,
+		name2: 0,
+	}
+	expectedVoteReward := stringToBigInt("376447308157656786459")
+	expectedBlockReward := stringToBigInt("428082191780821917750")
+
+	targetName := name1
+	anotherName := name2
+	voteReward := new(big.Int).Set(rewardPerBlock)
+	voteReward.Mul(voteReward, helper.Big50)
+	voteReward.Mul(voteReward, new(big.Int).SetUint64(blockNum[name1]+blockNum[name2]))
+	tmp := new(big.Int).Add(pledgeAmount, voteCountMap[targetName])
+	voteReward.Mul(voteReward, tmp)
+	tmp.Add(tmp, pledgeAmount)
+	tmp.Add(tmp, voteCountMap[anotherName])
+	voteReward.Mul(voteReward, new(big.Int).SetUint64(blockNum[targetName]))
+	voteReward.Quo(voteReward, new(big.Int).SetUint64(expectedBlockNum[targetName]))
+	voteReward.Quo(voteReward, tmp)
+	voteReward.Quo(voteReward, helper.Big100)
+
+	blockReward := new(big.Int).Set(rewardPerBlock)
+	blockReward.Mul(blockReward, helper.Big50)
+	blockReward.Mul(blockReward, new(big.Int).SetUint64(blockNum[targetName]))
+	blockReward.Quo(blockReward, helper.Big100)
+
+	if voteReward.Cmp(expectedVoteReward) != 0 {
+		t.Fatalf("vote reward not match, expected %v, got %v", expectedVoteReward, voteReward)
+	}
+	if blockReward.Cmp(expectedBlockReward) != 0 {
+		t.Fatalf("block reward not match, expected %v, got %v", expectedBlockReward, blockReward)
+	}
+}
+
+func stringToBigInt(s string) *big.Int {
+	i, _ := new(big.Int).SetString(s, 10)
 	return i
 }

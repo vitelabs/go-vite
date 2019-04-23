@@ -1,13 +1,14 @@
 package pool
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
@@ -41,8 +42,6 @@ type SnapshotProducerWriter interface {
 }
 
 type Reader interface {
-	// received block in current? (key is requestHash)
-	ExistInPool(address types.Address, requestHash types.Hash) bool
 }
 type Debug interface {
 	Info(addr *types.Address) string
@@ -68,7 +67,6 @@ type BlockPool interface {
 		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
 		accountV verifier.Verifier)
-	Details(addr *types.Address, hash types.Hash) string
 }
 
 type commonBlock interface {
@@ -151,14 +149,14 @@ func (self *pool) Snapshot() map[string]interface{} {
 	return self.pendingSc.info()
 }
 func (self *pool) SnapshotPendingNum() uint64 {
-	return self.pendingSc.CurrentChain().size()
+	return self.pendingSc.CurrentChain().Size()
 }
 
 func (self *pool) AccountPendingNum() *big.Int {
 	result := big.NewInt(0)
 	self.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
-		size := p.CurrentChain().size()
+		size := p.CurrentChain().Size()
 		if size > 0 {
 			result.Add(result, big.NewInt(0).SetUint64(size))
 		}
@@ -240,12 +238,13 @@ func (self *pool) Info(addr *types.Address) string {
 		cp := self.pendingSc.chainpool
 
 		freeSize := len(bp.freeBlocks)
-		compoundSize := len(bp.compoundBlocks)
+		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
-		currentLen := cp.current.size()
+		currentLen := cp.tree.Main().Size()
+		treeSize := cp.tree.Size()
 		chainSize := cp.size()
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, currentLen, chainSize)
+		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
+			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	} else {
 		ac := self.selfPendingAc(*addr)
 		if ac == nil {
@@ -255,56 +254,39 @@ func (self *pool) Info(addr *types.Address) string {
 		cp := ac.chainpool
 
 		freeSize := len(bp.freeBlocks)
-		compoundSize := len(bp.compoundBlocks)
+		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
-		currentLen := cp.current.size()
+		treeSize := cp.tree.Size()
+		currentLen := cp.tree.Main().Size()
 		chainSize := cp.size()
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, currentLen, chainSize)
+		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
+			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
 }
 func (self *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
-	b := self.selfPendingAc(addr).blockpool.get(hash)
+	b, s := self.selfPendingAc(addr).blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*accountPoolBlock)
 		return sb.block
+	}
+	if s != nil {
+		return *s
 	}
 	return nil
 }
 
 func (self *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
-	b := self.pendingSc.blockpool.get(hash)
+	b, s := self.pendingSc.blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*snapshotPoolBlock)
 		return sb.block
 	}
+	if s != nil {
+		return *s
+	}
 	return nil
 }
 
-func (self *pool) Details(addr *types.Address, hash types.Hash) string {
-	if addr == nil {
-		bp := self.pendingSc.blockpool
-
-		b := bp.get(hash)
-		if b == nil {
-			return "not exist"
-		}
-		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
-		return string(bytes)
-	} else {
-		ac := self.selfPendingAc(*addr)
-		if ac == nil {
-			return "pool not exist."
-		}
-		bp := ac.blockpool
-		b := bp.get(hash)
-		if b == nil {
-			return "not exist"
-		}
-		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
-		return string(bytes)
-	}
-}
 func (self *pool) Start() {
 	self.log.Info("pool start.")
 	defer self.log.Info("pool started.")
@@ -314,10 +296,7 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
-	//for i := 0; i < ACCOUNT_PARALLEL; i++ {
-	//	common.Go(self.loopTryInsert)
-	//}
+
 	self.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	self.newAccBlockCond.Start(time.Millisecond * 40)
 	self.worker.closed = self.closed
@@ -326,9 +305,6 @@ func (self *pool) Start() {
 		defer self.wg.Done()
 		self.worker.work()
 	})
-	//common.Go(self.loopCompact)
-	//common.Go(self.loopBroadcastAndDel)
-	//common.Go(self.loopQueue)
 }
 func (self *pool) Stop() {
 	self.log.Info("pool stop.")
@@ -410,7 +386,6 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		return
 	}
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
-	ac.AddReceivedBlock(block)
 
 	self.newAccBlockCond.Broadcast()
 	self.worker.bus.newABlockEvent()
@@ -473,11 +448,6 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 //	return nil
 //}
 
-func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
-	return false
-	return self.selfPendingAc(address).ExistInCurrent(requestHash)
-}
-
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
@@ -502,37 +472,39 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 
 	if targetChain == nil {
 		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
-			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+			"currentId", this.CurrentChain().Id(), "Tail", this.CurrentChain().SprintTail(), "Head", this.CurrentChain().SprintHead())
 		err := this.CurrentModifyToEmpty()
 		return err
 	}
-	if targetChain.id() == this.CurrentChain().id() {
+	if targetChain.Id() == this.CurrentChain().Id() {
 		return nil
 	}
 	cu := this.CurrentChain()
-	keyPoint, forkPoint, err := this.getForkPointByChains(targetChain, cu)
+	curTailHeight, _ := cu.TailHH()
+	keyPoint, forkPoint, err := this.chainpool.tree.FindForkPointFromMain(targetChain)
 	if err != nil {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTailHeight:%d, targetTailHash:%s, currentTailHeight:%d, currentTailHash:%s",
-			targetChain.id(), cu.id(), targetChain.tailHeight, targetChain.tailHash, cu.tailHeight, cu.tailHash)
+		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTail:%s, currentTail:%s",
+			targetChain.Id(), cu.Id(), targetChain.SprintTail(), cu.SprintTail())
 	}
 	// fork point in disk chain
-	if forkPoint.Height() <= this.CurrentChain().tailHeight {
-		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(),
-			"targetChainTailHeight", targetChain.tailHeight,
-			"targetChainHeadHeight", targetChain.headHeight,
+	if forkPoint.Height() <= curTailHeight {
+		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+			"targetChainTail", targetChain.SprintTail(),
+			"targetChainHead", targetChain.SprintHead(),
 			"keyPoint", keyPoint.Height(),
-			"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+			"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintTail())
 		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
-	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.id(), "targetChainTailHeight", targetChain.tailHeight, "targetChainHeadHeight", targetChain.headHeight,
-		"currentId", this.CurrentChain().id(), "TailHeight", this.CurrentChain().tailHeight, "HeadHeight", this.CurrentChain().headHeight)
+	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+		"targetChainTail", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
+		"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintHead())
 	err = this.CurrentModifyToChain(targetChain, h)
 	if err != nil {
 		return err
@@ -839,17 +811,17 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 		}
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, 1, block.Height(), block.Hash())
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
 			result = false
 		}
 	}
 	return result
 }
 
-func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
-	h := fc.tailHeight
+func (self *pool) realSnapshotHeight(fc tree.Branch) uint64 {
+	h, _ := fc.TailHH()
 	for {
-		b := fc.getHeightBlock(h + 1)
+		b := fc.GetKnot(h+1, false)
 		if b == nil {
 			return h
 		}
@@ -867,13 +839,15 @@ func (self *pool) realSnapshotHeight(fc *forkedChain) uint64 {
 	}
 }
 
-func (self *pool) fetchForSnapshot(fc *forkedChain) error {
+func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	var reqs []*fetchRequest
 	j := 0
+	tailHeight, _ := fc.TailHH()
+	headHeight, headHash := fc.HeadHH()
 	addrM := make(map[types.Address]*ledger.HashHeight)
-	for i := fc.tailHeight + 1; i <= fc.headHeight; i++ {
+	for i := tailHeight + 1; i <= headHeight; i++ {
 		j++
-		b := fc.getHeightBlock(i)
+		b := fc.GetKnot(i, false)
 		if b == nil {
 			continue
 		}
@@ -904,8 +878,8 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 			hash:           v.Hash,
 			accHeight:      v.Height,
 			prevCnt:        1,
-			snapshotHash:   &fc.headHash,
-			snapshotHeight: fc.headHeight,
+			snapshotHash:   &headHash,
+			snapshotHeight: headHeight,
 		})
 	}
 
@@ -917,9 +891,9 @@ func (self *pool) fetchForSnapshot(fc *forkedChain) error {
 		if ac.findInPool(v.hash, v.accHeight) {
 			continue
 		}
-		fc := ac.findInTreeDiskTmp(v.hash, v.accHeight, true, v.snapshotHeight)
+		fc := ac.findInTreeDisk(v.hash, v.accHeight, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, 1, v.snapshotHeight, *v.snapshotHash)
+			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, *v.chain, 1, v.snapshotHeight, *v.snapshotHash)
 		}
 	}
 	return nil
@@ -1010,14 +984,10 @@ func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pen
 		self.log.Warn("new version happened.")
 		return
 	}
-	//if self.pendingSc.CurrentChain().tailHash != pending.sPrevHash {
-	//	self.log.Warn("pending prevHash not match")
-	//	return
-	//}
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range pending.addrM {
-		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash)
+		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash, "sbHash", snapshot.Hash, "sbHeight", snapshot.Height)
 		this := self.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
 		if e != nil {
@@ -1038,12 +1008,12 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 	for addr, hashH := range accounts {
 		ac := self.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
-			head := ac.chainpool.diskChain.Head()
+			head, _ := ac.chainpool.diskChain.HeadHH()
 			u := uint64(10)
-			if hashH.Height > head.Height() {
-				u = hashH.Height - head.Height()
+			if hashH.Height > head {
+				u = hashH.Height - head
 			}
-			ac.f.fetchBySnapshot(*hashH, u, sHeight, sHash)
+			ac.f.fetchBySnapshot(*hashH, addr, u, sHeight, sHash)
 		}
 	}
 

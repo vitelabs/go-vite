@@ -167,8 +167,8 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 
-func (self *chainRw) GetSeedsBeforeHashH(lastBlock *ledger.SnapshotBlock) uint64 {
-	return self.rw.GetRandomSeed(lastBlock.Hash, 25)
+func (self *chainRw) GetSeedsBeforeHashH(hash types.Hash) uint64 {
+	return self.rw.GetRandomSeed(hash, 25)
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {

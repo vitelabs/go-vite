@@ -725,6 +725,10 @@ func (c *chain) binarySearchBeforeTime(start, end *ledger.SnapshotBlock, timeNan
 		if err != nil {
 			return true
 		}
+		if blockMap[i] == nil {
+			err = errors.New("Rolling back")
+			return true
+		}
 
 		return blockMap[i].Timestamp.UnixNano() >= timeNanosecond
 
