@@ -18,7 +18,6 @@ type Knot interface {
 }
 
 type BranchBase interface {
-	AddTail(k Knot)
 	MatchHead(hash types.Hash) bool
 	SprintTail() string
 	SprintHead() string
@@ -32,13 +31,7 @@ type Branch interface {
 	HeadHH() (uint64, types.Hash)
 	TailHH() (uint64, types.Hash)
 	Linked(root Branch) bool
-	AddHead(k Knot) error
-	RemoveTail(k Knot) error
 
-	//AddTail(k Knot) error
-	//RemoveTail(k Knot) error
-	//RemoveHead(k Knot) error
-	//Insert(k ...Knot)
 	Size() uint64
 	Root() Branch
 	Id() string
@@ -52,11 +45,18 @@ type Tree interface {
 	PruneTree() []Branch
 	FindBranch(height uint64, hash types.Hash) Branch
 	ForkBranch(b Branch, height uint64, hash types.Hash) Branch
+
 	RootHeadAdd(k Knot) error
-	RootHeadRemove(k Knot) error
+
+	AddHead(b Branch, k Knot) error
+	RemoveTail(b Branch, k Knot) error
+	AddTail(b Branch, k Knot) error
+
 	SwitchMainTo(b Branch) error
 	SwitchMainToEmpty() error
 	FindForkPointFromMain(target Branch) (Knot, Knot, error)
-	SetKnotRemoveFn(fn func(k Knot))
 	Init(name string, root Branch) error
+
+	Exists(hash types.Hash) bool
+	Size() uint64
 }
