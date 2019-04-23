@@ -45,6 +45,7 @@ type Config struct {
 const DefaultForwardStrategy = "cross"
 const DefaultFilePort = 8484
 const ID = 1
+const maxNeighbors = 100
 
 type net struct {
 	Config
@@ -233,14 +234,19 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 
 		p.setHead(head, heartbeat.Height)
 
-		var pl = make([]peerConn, len(heartbeat.Peers))
-		for i, hp := range heartbeat.Peers {
+		// max 100 neighbors
+		var count = len(heartbeat.Peers)
+		if count > maxNeighbors {
+			count = maxNeighbors
+		}
+		var pl = make([]peerConn, count)
+		for i := 0; i < count; i++ {
+			hp := heartbeat.Peers[i]
 			pl[i] = peerConn{
 				id:  hp.ID,
 				add: hp.Status != protos.State_Disconnected,
 			}
 		}
-
 		p.setPeers(pl, heartbeat.Patch)
 	}
 }

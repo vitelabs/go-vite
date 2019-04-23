@@ -96,7 +96,9 @@ func BenchmarkInsert(b *testing.B) {
 
 			// get random account
 			var vmBlock *vm_db.VmAccountBlock
+
 			var account *Account
+
 			for {
 				account = getRandomAccount(accounts)
 
@@ -135,6 +137,7 @@ func BenchmarkInsert(b *testing.B) {
 }
 
 func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_db.VmAccountBlock, error) {
+
 	var vmBlock *vm_db.VmAccountBlock
 	var createBlockErr error
 
@@ -156,7 +159,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 		// query to account
 		toAccount := getRandomAccount(accounts)
 
-		vmBlock, createBlockErr = account.CreateSendBlock(toAccount)
+		vmBlock, createBlockErr = account.CreateSendBlock(&toAccount)
 	} else {
 
 		vmBlock, createBlockErr = account.CreateReceiveBlock()

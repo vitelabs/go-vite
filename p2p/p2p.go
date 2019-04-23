@@ -69,6 +69,7 @@ type P2P interface {
 	Start() error
 	Stop() error
 	Connect(node string) error
+	ConnectNode(node *vnode.Node) error
 	Info() NodeInfo
 	Register(pt Protocol) error
 }
@@ -264,8 +265,7 @@ func (p *p2p) Connect(node string) error {
 		return err
 	}
 
-	p.connect(n)
-	return nil
+	return p.ConnectNode(n)
 }
 
 func (p *p2p) Ban(ip net.IP) {
@@ -396,7 +396,7 @@ func (p *p2p) beatLoop() {
 
 func (p *p2p) connectStaticNodes() {
 	for _, n := range p.staticNodes {
-		p.connect(n)
+		_ = p.ConnectNode(n)
 	}
 }
 
@@ -426,7 +426,7 @@ Loop:
 
 				nodes := p.discv.GetNodes(need)
 				for _, n := range nodes {
-					p.connect(&n)
+					p.ConnectNode(n)
 				}
 			}
 
@@ -443,15 +443,18 @@ Loop:
 	}
 }
 
-func (p *p2p) connect(node *vnode.Node) {
+func (p *p2p) ConnectNode(node *vnode.Node) error {
 	if p.peers.has(node.ID) {
-		return
+		return PeerAlreadyConnected
 	}
 
 	peer, err := p.dialer.dialNode(node)
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to dail %s: %v", node.String(), err))
-	} else {
-		go p.register(peer)
+		return err
 	}
+
+	go p.register(peer)
+
+	return nil
 }

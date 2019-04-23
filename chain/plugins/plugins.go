@@ -2,6 +2,7 @@ package chain_plugins
 
 import (
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
@@ -40,16 +41,33 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}, nil
 }
 
+func (p *Plugins) BuildPluginsDb(flusher *chain_flusher.Flusher) {
+	if or := p.GetPlugin("onRoadInfo").(*OnRoadInfo); or != nil {
+		if err := or.InitAndBuild(flusher); err != nil {
+			oLog.Error("InitAndBuild onRoadInfo failed, err is " + err.Error())
+			p.RemovePlugin("onRoadInfo")
+			or.Clear(flusher)
+		}
+	}
+}
+
 func (p *Plugins) Close() error {
 	if err := p.store.Close(); err != nil {
 		return err
 	}
-
 	return nil
+}
+
+func (p *Plugins) Store() *chain_db.Store {
+	return p.store
 }
 
 func (p *Plugins) GetPlugin(name string) Plugin {
 	return p.plugins[name]
+}
+
+func (p *Plugins) RemovePlugin(name string) {
+	delete(p.plugins, name)
 }
 
 func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) error {

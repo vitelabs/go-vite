@@ -1,5 +1,10 @@
 package net
 
+import "errors"
+
+var errTooShort = errors.New("too short")
+var errUnknownSyncState = errors.New("unknown sync state")
+
 /* +----------------+----------------+--------------------------------------------------------------+
  * |     From       |       To       |                           Comment                         	|
  * +----------------+----------------+--------------------------------------------------------------+
@@ -9,7 +14,7 @@ package net
  * +----------------+----------------+--------------------------------------------------------------+
  * |   SyncError    |    Syncing     | new peer													 	|
  * |   SyncError    |    SyncDone    | in sync flow, taller peers disconnected, no need to sync	 	|
- * |   SyncError    |   SyncCancel   | stop														 	|
+ * |   SyncError    |   SyncCancel   | in sync flow, stop											|
  * +----------------+----------------+--------------------------------------------------------------+
  * |    SyncDone    |    Syncing     | new peer													 	|
  * +----------------+----------------+--------------------------------------------------------------+
@@ -21,6 +26,22 @@ package net
  */
 
 type SyncState byte
+
+func (s *SyncState) UnmarshalText(text []byte) error {
+	str := string(text)
+	for k, v := range syncStatus {
+		if v == str {
+			*s = k
+			return nil
+		}
+	}
+
+	return errUnknownSyncState
+}
+
+func (s SyncState) MarshalText() (text []byte, err error) {
+	return []byte(s.String()), nil
+}
 
 const (
 	SyncInit SyncState = iota
@@ -48,7 +69,30 @@ func (s SyncState) String() string {
 		return status
 	}
 
-	return "unknown sync state"
+	return errUnknownSyncState.Error()
+}
+
+type syncErrorCode byte
+
+var syncError = map[syncErrorCode]string{
+	syncErrorNoPeers:  "no peers",
+	syncErrorStuck:    "stuck",
+	syncErrorDownload: "download error",
+}
+
+const (
+	syncErrorNoPeers syncErrorCode = iota
+	syncErrorStuck
+	syncErrorDownload
+)
+
+func (e syncErrorCode) Error() string {
+	text, ok := syncError[e]
+	if ok {
+		return text
+	}
+
+	return "unknown sync error"
 }
 
 type syncState interface {
@@ -56,7 +100,7 @@ type syncState interface {
 	enter()
 	sync()
 	done()
-	error()
+	error(reason syncErrorCode)
 	cancel()
 }
 
@@ -89,7 +133,7 @@ func (s syncStateInit) done() {
 	})
 }
 
-func (s syncStateInit) error() {
+func (s syncStateInit) error(reason syncErrorCode) {
 	s.host.setState(syncStateError{
 		host: s.host,
 	})
@@ -128,7 +172,7 @@ func (s syncStateSyncing) done() {
 	})
 }
 
-func (s syncStateSyncing) error() {
+func (s syncStateSyncing) error(reason syncErrorCode) {
 	s.host.setState(syncStateError{
 		host: s.host,
 	})
@@ -163,7 +207,7 @@ func (s syncStateDone) done() {
 	// self
 }
 
-func (s syncStateDone) error() {
+func (s syncStateDone) error(reason syncErrorCode) {
 	// cannot happen
 }
 
@@ -196,7 +240,7 @@ func (s syncStateError) done() {
 	})
 }
 
-func (s syncStateError) error() {
+func (s syncStateError) error(reason syncErrorCode) {
 	// self
 }
 
@@ -227,7 +271,7 @@ func (s syncStateCancel) done() {
 	// cannot happen
 }
 
-func (s syncStateCancel) error() {
+func (s syncStateCancel) error(reason syncErrorCode) {
 	// cannot happen
 }
 

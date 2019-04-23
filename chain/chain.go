@@ -124,6 +124,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		c.plugins.BuildPluginsDb(c.flusher)
+	}
+
 	c.log.Info("Complete initialization", "method", "Init")
 
 	return nil
@@ -224,8 +229,22 @@ func (c *chain) newDbAndRecover() error {
 		return err
 	}
 
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		var err error
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return cErr
+		}
+		c.Register(c.plugins)
+	}
+
 	// new flusher
 	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+	if c.chainCfg.OpenPlugins {
+		stores = append(stores, c.plugins.Store())
+	}
 	if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
@@ -245,18 +264,6 @@ func (c *chain) newDbAndRecover() error {
 
 		c.log.Error(cErr.Error(), "method", "checkAndInitData")
 		return cErr
-	}
-
-	// init plugins
-	if c.chainCfg.OpenPlugins {
-		var err error
-		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
-			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "checkAndInitData")
-			return cErr
-		}
-
-		c.Register(c.plugins)
 	}
 
 	return nil
