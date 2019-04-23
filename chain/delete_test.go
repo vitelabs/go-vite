@@ -3,6 +3,8 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"log"
@@ -55,6 +57,7 @@ func testDeleteMany(t *testing.T, chainInstance *chain, accounts map[types.Addre
 	deleteCount := 3500
 
 	deleteSnapshotBlocks(chainInstance, accounts, uint64(deleteCount))
+	chainInstance.stateDB.Store().CompactRange(*util.BytesPrefix([]byte{chain_utils.StorageHistoryKeyPrefix}))
 
 	snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-deleteCount]
 

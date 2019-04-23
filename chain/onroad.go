@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]uint64, error) {
+func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
 	addrList, err := c.GetContractList(gid)
 	if err != nil {
 		return nil, err

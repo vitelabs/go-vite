@@ -232,7 +232,7 @@ type Chain interface {
 	GetSyncCache() interfaces.SyncCache
 
 	// ====== OnRoad ======
-	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]uint64, error)
+	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 
 	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 

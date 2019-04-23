@@ -23,9 +23,6 @@ func (iDB *IndexDB) newCache() error {
 	}
 	return nil
 }
-func (iDB *IndexDB) initCache() {
-
-}
 
 // with cache
 func (iDB *IndexDB) getValue(key []byte) ([]byte, error) {

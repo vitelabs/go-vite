@@ -5,12 +5,13 @@ import (
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.Address][]uint64, error) {
-	onRoadData := make(map[types.Address]map[types.Address][]uint64, len(addrList))
+func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
+	onRoadData := make(map[types.Address]map[types.Address][]ledger.HashHeight, len(addrList))
 	for _, addr := range addrList {
-		onRoadListMap := make(map[types.Address][]uint64)
+		onRoadListMap := make(map[types.Address][]ledger.HashHeight)
 		onRoadData[addr] = onRoadListMap
 
 		iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
@@ -28,7 +29,10 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 				return nil, err
 			}
 
-			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], height)
+			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{
+				Hash:   blockHash,
+				Height: height,
+			})
 		}
 
 		err := iter.Error()

@@ -24,14 +24,29 @@ func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 }
 
 func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
+	// update latest snapshot block
+	var firstSnapshotBlock *ledger.SnapshotBlock
+	for _, chunk := range deletedChunks {
+		if chunk.SnapshotBlock != nil {
+			firstSnapshotBlock = chunk.SnapshotBlock
+			break
+		}
+	}
+
+	var snapshotBlock *ledger.SnapshotBlock
+	var err error
+	if firstSnapshotBlock == nil {
+		if snapshotBlock, err = cache.chain.QueryLatestSnapshotBlock(); err != nil {
+			return err
+		}
+	} else if snapshotBlock, err = cache.chain.GetSnapshotBlockByHeight(firstSnapshotBlock.Height - 1); err != nil {
+		return err
+	}
+
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	// update latest snapshot block
-	if err := cache.initLatestSnapshotBlock(); err != nil {
-		cache.mu.Unlock()
-		return err
-	}
+	cache.hd.SetLatestSnapshotBlock(snapshotBlock)
 
 	// rollback quota list
 	if err := cache.quotaList.Rollback(deletedChunks); err != nil {
