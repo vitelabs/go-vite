@@ -6,10 +6,6 @@ const (
 	OnRoadInfoKeyPrefix = byte(1)
 
 	DiffTokenHash = byte(2)
-
-	onRoadPrefixKey = byte(3)
-
-	OnRoadKey = byte(4)
 )
 
 func CreateOnRoadInfoKey(addr *types.Address, tId *types.TokenTypeId) []byte {
