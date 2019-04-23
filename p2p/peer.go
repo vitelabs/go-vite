@@ -95,14 +95,16 @@ type protocolState struct {
 type protocolStateMap = map[ProtocolID]protocolState
 
 type PeerInfo struct {
-	ID        string           `json:"id"`
-	Name      string           `json:"name"`
-	Version   uint32           `json:"version"`
-	Protocols []string         `json:"protocols"`
-	Address   string           `json:"address"`
-	Level     Level            `json:"level"`
-	CreateAt  string           `json:"createAt"`
-	State     protocolStateMap `json:"state"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name"`
+	Version    uint32           `json:"version"`
+	Protocols  []string         `json:"protocols"`
+	Address    string           `json:"address"`
+	Level      Level            `json:"level"`
+	CreateAt   string           `json:"createAt"`
+	State      protocolStateMap `json:"state"`
+	ReadQueue  int              `json:"readQueue"`
+	WriteQueue int              `json:"writeQueue"`
 }
 
 const peerReadMsgBufferSize = 10
@@ -366,13 +368,15 @@ func (p *peerMux) Info() PeerInfo {
 	}
 
 	return PeerInfo{
-		ID:        p.id.String(),
-		Name:      p.name,
-		Version:   p.version,
-		Protocols: pts,
-		Address:   p.codec.Address().String(),
-		Level:     p.level,
-		CreateAt:  p.createAt.Format("2006-01-02 15:04:05"),
-		State:     state,
+		ID:         p.id.String(),
+		Name:       p.name,
+		Version:    p.version,
+		Protocols:  pts,
+		Address:    p.codec.Address().String(),
+		Level:      p.level,
+		CreateAt:   p.createAt.Format("2006-01-02 15:04:05"),
+		State:      state,
+		ReadQueue:  len(p.readQueue),
+		WriteQueue: len(p.writeQueue),
 	}
 }
