@@ -107,13 +107,8 @@ func (self *consensus) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *ti
 	if err != nil {
 		return nil, nil, errors.Errorf("consensus group[%s] not exist", gid)
 	}
-	info := reader.GetInfo()
 
-	if info == nil {
-		return nil, nil, errors.Errorf("consensus group[%s] not exist", gid)
-	}
-
-	st, et := info.Index2Time(i)
+	st, et := reader.Index2Time(i)
 	return &st, &et, nil
 }
 

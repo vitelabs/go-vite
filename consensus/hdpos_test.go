@@ -71,13 +71,9 @@ func TestTime2Index(t *testing.T) {
 	index = info.Time2Index(time.Now().Add(150 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
-	voteTime := info.GenVoteTime(2)
-	voteIndex := info.Time2Index(voteTime.Add(time.Second))
-
-	t.Log(fmt.Sprintf("viteTime:%s, voteIndex:%d", voteTime.String(), voteIndex))
-
 	for i := uint64(90); i < 100; i++ {
-		t.Log(fmt.Sprintf("startTime:%s, endTime:%s", info.GenSTime(i), info.GenETime(i)))
+		stime, etime := info.Index2Time(i)
+		t.Log(fmt.Sprintf("startTime:%s, endTime:%s", stime, etime))
 	}
 
 	time2Index := info.Time2Index(now)

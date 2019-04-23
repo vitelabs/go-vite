@@ -15,13 +15,17 @@ import (
 )
 
 type snapshotCs struct {
-	consensusDpos
+	core.GroupInfo
 	//voteCache map[int32]*electionResult
 	//voteCache *lru.Cache
 	rw   *chainRw
 	algo core.Algo
 
 	log log15.Logger
+}
+
+func (self *snapshotCs) GetInfo() *core.GroupInfo {
+	return &self.GroupInfo
 }
 
 // hour stats
@@ -201,7 +205,7 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 }
 
 func (self *snapshotCs) dayVoteStat(b byte, index uint64, proofHash types.Hash) (*consensus_db.VoteContent, error) {
-	votes, err := core.CalVotes(self.info.ConsensusGroupInfo, proofHash, self.rw.rw)
+	votes, err := core.CalVotes(self.ConsensusGroupInfo, proofHash, self.rw.rw)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +215,7 @@ func (self *snapshotCs) dayVoteStat(b byte, index uint64, proofHash types.Hash) 
 
 	details := make(map[string]*big.Int)
 	for k, v := range votes {
-		if k >= int(self.info.RandRank) {
+		if k >= int(self.RandRank) {
 			break
 		}
 		details[v.Name] = v.Balance
@@ -230,7 +234,7 @@ func newSnapshotCs(rw *chainRw, log log15.Logger) *snapshotCs {
 		panic(err)
 	}
 	cs.algo = core.NewAlgo(info)
-	cs.info = info
+	cs.GroupInfo = *info
 	return cs
 }
 
@@ -256,7 +260,7 @@ func (self *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
 		return nil, err
 	}
 
-	plans := genElectionResult(self.info, index, voteResults)
+	plans := genElectionResult(&self.GroupInfo, index, voteResults)
 	return plans, nil
 }
 
@@ -269,7 +273,7 @@ func (self *snapshotCs) calVotes(hashH ledger.HashHeight, index uint64, proofInd
 	}
 	seed := core.NewSeedInfo(self.rw.GetSeedsBeforeHashH(hashH.Hash))
 	// record vote
-	votes, err := self.rw.CalVotes(self.info, hashH)
+	votes, err := self.rw.CalVotes(&self.GroupInfo, hashH)
 	if err != nil {
 		return nil, err
 	}
@@ -319,9 +323,10 @@ func (self *snapshotCs) GenProofTime(idx uint64) time.Time {
 
 func (self *snapshotCs) genSnapshotProofTimeIndx(idx uint64) (time.Time, uint64) {
 	if idx < 2 {
-		return self.info.GenesisTime.Add(time.Second), 0
+		return self.GenesisTime.Add(time.Second), 0
 	}
-	return self.info.GenETime(idx - 2), idx - 2
+	_, etime := self.Index2Time(idx - 2)
+	return etime, idx - 2
 }
 
 func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error) {
@@ -332,7 +337,7 @@ func (self *snapshotCs) voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *led
 	}
 
 	headH := ledger.HashHeight{Height: block.Height, Hash: block.Hash}
-	details, err := self.rw.CalVoteDetails(self.info.Gid, self.info, headH)
+	details, err := self.rw.CalVoteDetails(self.Gid, &self.GroupInfo, headH)
 	return details, &headH, err
 }
 
