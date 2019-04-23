@@ -30,7 +30,7 @@ type Peer interface {
 	p2p.Peer
 	setHead(head types.Hash, height uint64)
 	setPeers(ps []peerConn, patch bool)
-	peers() map[vnode.NodeID]struct{}
+	peers() map[peerId]struct{}
 	seeBlock(hash types.Hash) bool
 	height() uint64
 	head() types.Hash
@@ -39,8 +39,6 @@ type Peer interface {
 	send(c code, id p2p.MsgId, data p2p.Serializable) error
 	sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) error
 	sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error
-	sendNewSnapshotBlock(b *ledger.SnapshotBlock) error
-	sendNewAccountBlock(b *ledger.AccountBlock) error
 	info() PeerInfo
 }
 
@@ -65,7 +63,8 @@ type PeerInfo struct {
 type peer struct {
 	p2p.Peer
 
-	peerMap sync.Map // [vnode.NodeID]struct{}
+	m  map[peerId]struct{}
+	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
 
 	knownBlocks blockFilter
 	errChan     chan error
@@ -97,6 +96,7 @@ func newPeer(p p2p.Peer, log log15.Logger) Peer {
 	return &peer{
 		Peer:        p,
 		knownBlocks: newBlockFilter(filterCap),
+		m:           make(map[peerId]struct{}),
 		log:         log,
 		errChan:     make(chan error, 1),
 	}
@@ -126,7 +126,7 @@ func (p *peer) setPeers(ps []peerConn, patch bool) {
 	var err error
 
 	if patch {
-		p.peerMap = sync.Map{}
+		p.m = make(map[peerId]struct{})
 	}
 
 	for _, c := range ps {
@@ -135,23 +135,23 @@ func (p *peer) setPeers(ps []peerConn, patch bool) {
 			if err != nil {
 				continue
 			}
-			p.peerMap.Store(id, struct{}{})
+			p.m[id] = struct{}{}
 		} else {
-			p.peerMap.Delete(id)
+			delete(p.m, id)
 		}
 	}
+
+	// make copy
+	m2 := make(map[peerId]struct{}, len(p.m))
+	for id = range p.m {
+		m2[id] = struct{}{}
+	}
+
+	p.m2 = m2
 }
 
-func (p *peer) peers() map[vnode.NodeID]struct{} {
-	m := make(map[vnode.NodeID]struct{})
-
-	p.peerMap.Range(func(key, value interface{}) bool {
-		id := key.(vnode.NodeID)
-		m[id] = struct{}{}
-		return true
-	})
-
-	return m
+func (p *peer) peers() map[peerId]struct{} {
+	return p.m2
 }
 
 func (p *peer) seeBlock(hash types.Hash) (existed bool) {
@@ -402,9 +402,19 @@ func (m *peerSet) idMap() map[peerId]struct{} {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 
-	mp := make(map[peerId]struct{}, len(m.m))
+	var count = len(m.m)
+	if count > maxNeighbors {
+		count = maxNeighbors
+	}
 
+	mp := make(map[peerId]struct{}, count)
+
+	var i int
 	for id := range m.m {
+		i++
+		if i > count {
+			break
+		}
 		mp[id] = struct{}{}
 	}
 

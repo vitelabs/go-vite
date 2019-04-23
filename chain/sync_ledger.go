@@ -78,8 +78,8 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		chain:           chain,
 		from:            from,
 		to:              to,
-		fromLocation:    tmpFromLocation,
-		currentLocation: tmpFromLocation,
+		fromLocation:    fromLocation,
+		currentLocation: fromLocation,
 		toLocation:      toLocation,
 	}, nil
 }
