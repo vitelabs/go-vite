@@ -20,9 +20,13 @@ type IndexDB struct {
 	accountCache    *lru.Cache
 
 	log log15.Logger
+
+	onRoadData map[types.Address]map[types.Hash]struct{} // FIXME, template test
+
+	chain Chain
 }
 
-func NewIndexDB(chainDir string) (*IndexDB, error) {
+func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
 
 	var err error
@@ -34,6 +38,7 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 	iDB := &IndexDB{
 		store: store,
 		log:   log15.New("module", "indexDB"),
+		chain: chain,
 	}
 
 	iDB.latestAccountId, err = iDB.queryLatestAccountId()

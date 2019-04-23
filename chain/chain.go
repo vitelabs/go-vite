@@ -210,7 +210,7 @@ func (c *chain) SetConsensus(cs Consensus) {
 func (c *chain) newDbAndRecover() error {
 	var err error
 	// new ledger db
-	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
 		return err
 	}
@@ -320,6 +320,12 @@ func (c *chain) initCache() error {
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}
+
+	// FIXME TEMP
+	if err := c.indexDB.InitOnRoad(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

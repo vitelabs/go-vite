@@ -238,6 +238,11 @@ type Chain interface {
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
 
+	// FIXME
+	HasOnRoadBlocks(addr types.Address) (bool, error)
+	// FIXME
+	GetOnRoadBlocksHashList(addr types.Address, pageNum, num int) ([]types.Hash, error)
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
 
