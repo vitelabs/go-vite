@@ -2,7 +2,14 @@ package net
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
+	"time"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vite/net/message"
 
 	"github.com/vitelabs/go-vite/ledger"
 
@@ -173,5 +180,203 @@ func TestMemStore_EnqueueSnapshotBlock(t *testing.T) {
 		if block != nil {
 			t.Fail()
 		}
+	}
+}
+
+//func BenchmarkBroadcaster_handle(b *testing.B) {
+//	ps := newPeerSet()
+//	feed := newBlockFeeder()
+//	forward := createForardStrategy("cross", ps)
+//	broadcaster := newBroadcaster(ps, &mockVerifier{}, feed, newMemBlockStore(1000), forward, nil, nil)
+//
+//	broadcaster.handle()
+//}
+
+func TestAccountMsgPool(t *testing.T) {
+	p := newAccountMsgPool()
+
+	for i := 0; i < 1000; i++ {
+		var nb = new(message.NewAccountBlock)
+		nb.Block = &ledger.AccountBlock{
+			BlockType:      0,
+			Hash:           types.Hash{byte(i % 256)},
+			Height:         uint64(i),
+			PrevHash:       types.Hash{},
+			AccountAddress: types.Address{},
+			PublicKey:      nil,
+			ToAddress:      types.Address{},
+			FromBlockHash:  types.Hash{},
+			Amount:         new(big.Int),
+			TokenId:        types.TokenTypeId{},
+			Quota:          0,
+			Fee:            new(big.Int),
+			Data:           nil,
+			LogHash:        nil,
+			Difficulty:     nil,
+			Nonce:          nil,
+			Signature:      nil,
+		}
+		nb.TTL = int32(i)
+
+		data, err := nb.Serialize()
+		if err != nil {
+			panic(err)
+		}
+
+		msg := p.get()
+		err = msg.Deserialize(data)
+		if err != nil {
+			panic(err)
+		}
+
+		if msg.Block.Hash != nb.Block.Hash {
+			t.Errorf("wrong hash")
+		}
+		if msg.TTL != nb.TTL {
+			t.Errorf("wrong ttl")
+		}
+
+		p.put(msg)
+	}
+}
+
+func TestSnapshotMsgPool(t *testing.T) {
+	p := newSnapshotMsgPool()
+
+	var now = time.Now()
+	for i := 0; i < 1000; i++ {
+		var nb = new(message.NewSnapshotBlock)
+		nb.Block = &ledger.SnapshotBlock{
+			Hash:            types.Hash{byte(i % 256)},
+			PrevHash:        types.Hash{},
+			Height:          uint64(i),
+			PublicKey:       []byte("hello"),
+			Signature:       []byte("hello"),
+			Seed:            0,
+			Timestamp:       &now,
+			SeedHash:        &types.Hash{},
+			SnapshotContent: nil,
+		}
+		nb.TTL = int32(i)
+
+		data, err := nb.Serialize()
+		if err != nil {
+			panic(err)
+		}
+
+		msg := p.get()
+		err = msg.Deserialize(data)
+		if err != nil {
+			panic(err)
+		}
+
+		if msg.Block.Hash != nb.Block.Hash {
+			t.Errorf("wrong hash")
+		}
+		if msg.TTL != nb.TTL {
+			t.Errorf("wrong ttl")
+		}
+
+		p.put(msg)
+	}
+}
+
+func BenchmarkCrossPeers(b *testing.B) {
+	var p = newMockPeer(vnode.RandomNodeID(), 1)
+	const total = 200
+	pcs := make([]peerConn, total)
+	for i := 0; i < total; i++ {
+		pcs[i] = peerConn{
+			id:  vnode.RandomNodeID().Bytes(),
+			add: true,
+		}
+	}
+	p.setPeers(pcs, false)
+
+	var ps = newPeerSet()
+	for i := 0; i < 10; i++ {
+		err := ps.add(newMockPeer(vnode.RandomNodeID(), 1))
+		if err != nil {
+			panic(err)
+		}
+	}
+	cross := newCrossForwardStrategy(ps, 3, 10)
+
+	b.ResetTimer()
+
+	// 35000ns
+	for i := 0; i < b.N; i++ {
+		cross.choosePeers(p)
+	}
+}
+
+func TestCommonPeers(t *testing.T) {
+	const our = 100
+	const common = 10
+	var commonMax = 5
+	var commonRatio = 100
+	var ourPeers = make([]broadcastPeer, our)
+	var ppMap map[peerId]struct{}
+	var ps []broadcastPeer
+
+	for i := 0; i < our; i++ {
+		ourPeers[i] = newMockPeer(vnode.RandomNodeID(), 1)
+	}
+
+	copyOurPeers := func(n int) (l []broadcastPeer) {
+		l = make([]broadcastPeer, n)
+		for i := 0; i < n; i++ {
+			l[i] = ourPeers[i]
+		}
+
+		return
+	}
+
+	verify := func(l []broadcastPeer) bool {
+		for i, p := range l {
+			if p == nil {
+				t.Errorf("%d peer is nil", i)
+				return false
+			}
+		}
+		return true
+	}
+
+	sender := ourPeers[0].ID()
+
+	// ppMap is nil
+	ps = commonPeers(copyOurPeers(3), ppMap, sender, commonMax, commonRatio)
+	if len(ps) != 2 {
+		t.Errorf("wrong peers count %d", len(ps))
+	} else if false == verify(ps) {
+		t.Fail()
+	}
+
+	ppMap = make(map[peerId]struct{})
+	for i := 0; i < common; i++ {
+		ppMap[ourPeers[50+i].ID()] = struct{}{}
+	}
+
+	ps = commonPeers(copyOurPeers(3), ppMap, sender, commonMax, commonRatio)
+	if len(ps) != 2 {
+		t.Errorf("wrong peers count %d", len(ps))
+	} else if false == verify(ps) {
+		t.Fail()
+	}
+
+	commonRatio = 30 // commonFromRatio = 3
+	ps = commonPeers(copyOurPeers(our), ppMap, sender, commonMax, commonRatio)
+	if len(ps) != our-common+(common*commonRatio/100)-1 {
+		t.Errorf("wrong peers count %d", len(ps))
+	} else if false == verify(ps) {
+		t.Fail()
+	}
+
+	commonRatio = 0
+	ps = commonPeers(copyOurPeers(our), ppMap, sender, commonMax, commonRatio)
+	if len(ps) != our-common {
+		t.Errorf("wrong peers count %d", len(ps))
+	} else if false == verify(ps) {
+		t.Fail()
 	}
 }
