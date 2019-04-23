@@ -183,7 +183,7 @@ func (c *chain) Destroy() error {
 	c.indexDB = nil
 	c.blockDB = nil
 
-	c.log.Info("Complete destruction", "method", "ClosFe")
+	c.log.Info("Complete destruction", "method", "Close")
 
 	return nil
 }
