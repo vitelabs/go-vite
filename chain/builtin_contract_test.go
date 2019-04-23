@@ -165,11 +165,8 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 					panic("error")
 				}
 				if !bytes.Equal(value, queryValue) {
-					fmt.Printf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue)
-					sd.GetValue([]byte(key))
-					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue))
+					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %d, value: %d, query value: %d",
+						account.Addr, snapshotBlock.Height, []byte(key), value, queryValue))
 				}
 
 			}

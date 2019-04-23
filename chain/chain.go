@@ -125,6 +125,7 @@ func (c *chain) Init() error {
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")
+
 	return nil
 }
 

@@ -177,6 +177,8 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address types.Address) (bool, error)
 
+	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)
+
 	// ===== Query state ======
 	// get Balance
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)

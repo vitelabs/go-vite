@@ -356,15 +356,20 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	if err != nil {
 		return err
 	}
+	fmt.Printf("prepare check %d key\n", len(kvSet))
 	count := 0
 	for iter.Next() {
 		count++
+		if count > len(kvSet) {
+			panic("too more key")
+		}
 		key := iter.Key()
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
 			return errors.New(fmt.Sprintf("key: %s, kv: %+v, value: %d, queryValue: %d", key, kvSet, kvSet[string(key)], value))
 		}
+
 	}
 	if err := iter.Error(); err != nil {
 		return err
@@ -377,6 +382,9 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	count2 := 0
 	for iterOk {
 		count2++
+		if count2 > len(kvSet) {
+			panic("too more key")
+		}
 		key := iter.Key()
 
 		value := iter.Value()

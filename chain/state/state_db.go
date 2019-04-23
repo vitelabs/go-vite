@@ -3,7 +3,7 @@ package chain_state
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/allegro/bigcache"
+	"github.com/patrickmn/go-cache"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
@@ -19,11 +19,12 @@ import (
 type StateDB struct {
 	chain Chain
 	store *chain_db.Store
-	cache *bigcache.BigCache
+	cache *cache.Cache
 
 	log log15.Logger
 
-	redo *Redo
+	redo     *Redo
+	useCache bool
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -46,7 +47,8 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		log:   log15.New("module", "stateDB"),
 		store: store,
 
-		redo: storageRedo,
+		redo:     storageRedo,
+		useCache: false,
 	}
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
@@ -56,13 +58,14 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 }
 
 func (sDB *StateDB) Init() error {
+	defer sDB.enableCache()
+
 	return sDB.initCache()
 }
 
 func (sDB *StateDB) Close() error {
-	if err := sDB.cache.Close(); err != nil {
-		return err
-	}
+	sDB.cache.Flush()
+
 	sDB.cache = nil
 
 	if err := sDB.store.Close(); err != nil {
@@ -87,10 +90,12 @@ func (sDB *StateDB) GetStorageValue(addr *types.Address, key []byte) ([]byte, er
 }
 
 func (sDB *StateDB) GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error) {
-	value, err := sDB.store.Get(chain_utils.CreateBalanceKey(addr, tokenTypeId))
+	value, err := sDB.getValue(chain_utils.CreateBalanceKey(addr, tokenTypeId), balancePrefix)
+
 	if err != nil {
 		return nil, err
 	}
+
 	balance := big.NewInt(0).SetBytes(value)
 	return balance, nil
 }
@@ -127,12 +132,8 @@ func (sDB *StateDB) GetCode(addr types.Address) ([]byte, error) {
 
 //
 func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, error) {
-	value, err := sDB.cache.Get(contractAddrPrefix + string(addr.Bytes()))
-
+	value, err := sDB.getValueInCache(chain_utils.CreateContractMetaKey(addr), contractAddrPrefix)
 	if err != nil {
-		if err == bigcache.ErrEntryNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -148,17 +149,12 @@ func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, e
 }
 
 func (sDB *StateDB) HasContractMeta(addr types.Address) (bool, error) {
-	_, err := sDB.cache.Get(contractAddrPrefix + string(addr.Bytes()))
-
-	if err == nil {
-		return true, nil
+	value, err := sDB.getValueInCache(chain_utils.CreateContractMetaKey(addr), contractAddrPrefix)
+	if err != nil {
+		return false, err
 	}
 
-	if err == bigcache.ErrEntryNotFound {
-		return false, nil
-	}
-
-	return false, err
+	return len(value) > 0, nil
 }
 
 func (sDB *StateDB) GetContractList(gid *types.Gid) ([]types.Address, error) {
@@ -250,15 +246,9 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
-	if types.IsBuiltinContractAddr(addr) &&
-		snapshotBlockHeight == sDB.chain.GetLatestSnapshotBlock().Height {
 
-		value, err := sDB.cache.Get(snapshotValuePrefix + string(addr.Bytes()) + string(key))
-		if err != nil && err != bigcache.ErrEntryNotFound {
-			return nil, err
-
-		}
-		return value, nil
+	if sDB.useCache && types.IsBuiltinContractAddr(addr) && snapshotBlockHeight == sDB.chain.GetLatestSnapshotBlock().Height {
+		return sDB.getValueInCache(append(addr.Bytes(), key...), snapshotValuePrefix)
 	}
 
 	startHistoryStorageKey := chain_utils.CreateHistoryStorageValueKey(&addr, key, 0)

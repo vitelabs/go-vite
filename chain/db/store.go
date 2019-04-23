@@ -29,7 +29,6 @@ type Store struct {
 }
 
 func NewStore(dataDir string, id types.Hash) (*Store, error) {
-
 	db, err := leveldb.OpenFile(dataDir, nil)
 
 	if err != nil {
@@ -50,6 +49,10 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	return store, nil
+}
+
+func (store *Store) CompactRange(r util.Range) error {
+	return store.db.CompactRange(r)
 }
 
 func (store *Store) NewBatch() *leveldb.Batch {

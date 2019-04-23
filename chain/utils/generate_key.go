@@ -167,6 +167,17 @@ func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) []by
 	return key
 }
 
+func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotHeight uint64) []byte {
+	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+	key[0] = BalanceHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+	binary.BigEndian.PutUint64(key[len(key)-8:], snapshotHeight)
+
+	return key
+}
+
 func CreateCodeKey(address types.Address) []byte {
 	keySize := 1 + types.AddressSize
 

@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"github.com/allegro/bigcache"
+	"github.com/hashicorp/golang-lru"
 	"time"
 )
 
@@ -12,6 +13,11 @@ func (iDB *IndexDB) newCache() error {
 		Shards:           1024,
 		LifeWindow:       time.Minute * 10,
 	})
+	if err != nil {
+		return err
+	}
+
+	iDB.accountCache, err = lru.New(100 * 1000)
 	if err != nil {
 		return err
 	}

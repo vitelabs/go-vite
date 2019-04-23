@@ -1,24 +1,23 @@
 package chain_state
 
 import (
-	"github.com/allegro/bigcache"
+	"github.com/patrickmn/go-cache"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 )
 
 const (
 	snapshotValuePrefix = "a"
 	contractAddrPrefix  = "b"
+	balancePrefix       = "c"
 )
 
 func (sDB *StateDB) newCache() error {
 	var err error
 
-	sDB.cache, err = bigcache.NewBigCache(bigcache.Config{
-		Shards: 1024,
-	})
+	sDB.cache = cache.New(cache.NoExpiration, cache.NoExpiration)
+
 	if err != nil {
 		return err
 	}
@@ -27,39 +26,41 @@ func (sDB *StateDB) newCache() error {
 
 // with cache
 func (sDB *StateDB) initCache() error {
-	latestDB := sDB.chain.GetLatestSnapshotBlock()
-	for _, contractAddr := range types.BuiltinContractAddrList {
-		addrStr := string(contractAddr.Bytes())
-
-		if meta := ledger.GetBuiltinContractMeta(contractAddr); meta != nil {
-			sDB.cache.Set(contractAddrPrefix+addrStr, meta.Serialize())
-		}
-
-		db, err := sDB.NewStorageDatabase(latestDB.Hash, contractAddr)
-		if err != nil {
-			return err
-		}
-		iter, err := db.NewStorageIterator(nil)
-		if err != nil {
-			return err
-		}
-
-		for iter.Next() {
-			key := iter.Key()
-			value := iter.Value()
-
-			sDB.cache.Set(snapshotValuePrefix+addrStr+string(key), value)
-		}
-
-		iterErr := iter.Error()
-		iter.Release()
-		if iterErr != nil {
-			return iterErr
-		}
+	if err := sDB.initSnapshotValueCache(); err != nil {
+		return err
 	}
 
 	if err := sDB.initContractMetaCache(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (sDB *StateDB) disableCache() {
+	sDB.useCache = false
+}
+
+func (sDB *StateDB) enableCache() {
+	sDB.useCache = true
+}
+
+func (sDB *StateDB) initSnapshotValueCache() error {
+	for _, contractAddr := range types.BuiltinContractAddrList {
+
+		iter := sDB.NewStorageIterator(&contractAddr, nil)
+		for iter.Next() {
+			//fmt.Printf("init set snapshot value cache: %d, %d\n", []byte(snapshotValuePrefix+addrStr+string(key)), sDB.copyValue(value))
+			sDB.cache.Set(snapshotValuePrefix+string(append(contractAddr.Bytes(), iter.Key()...)), sDB.copyValue(iter.Value()), cache.NoExpiration)
+		}
+
+		returnErr := iter.Error()
+		iter.Release()
+
+		if returnErr != nil {
+			return returnErr
+		}
+
 	}
 
 	return nil
@@ -70,16 +71,50 @@ func (sDB *StateDB) initContractMetaCache() error {
 	defer iter.Release()
 
 	for iter.Next() {
-		addrKey := iter.Key()
-		addrStr := string(addrKey[1:])
 
-		value := make([]byte, len(iter.Value()))
-		copy(value, iter.Value())
-
-		sDB.cache.Set(contractAddrPrefix+addrStr, value)
+		sDB.cache.Set(contractAddrPrefix+string(iter.Key()), sDB.copyValue(iter.Value()), cache.NoExpiration)
 	}
 	if err := iter.Error(); err != nil {
 		return err
 	}
 	return nil
+}
+
+// with cache
+func (sDB *StateDB) getValue(key []byte, cachePrefix string) ([]byte, error) {
+	ok := false
+	var value interface{}
+	if sDB.useCache {
+		value, ok = sDB.cache.Get(cachePrefix + string(key))
+	}
+	if !ok {
+		var err error
+		value, err = sDB.store.Get(key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return value.([]byte), nil
+}
+
+func (sDB *StateDB) getValueInCache(key []byte, cachePrefix string) ([]byte, error) {
+	if !sDB.useCache {
+		return sDB.getValue(key, cachePrefix)
+	}
+	value, ok := sDB.cache.Get(cachePrefix + string(key))
+	if !ok {
+		return nil, nil
+	}
+	return value.([]byte), nil
+}
+
+func (sDB *StateDB) parseStorageKey(key []byte) []byte {
+	realKey := key[1+types.AddressSize : 1+types.AddressSize+types.HashSize+1]
+	return realKey[:realKey[len(realKey)-1]]
+}
+
+func (sDB *StateDB) copyValue(value []byte) []byte {
+	newValue := make([]byte, len(value))
+	copy(newValue, value)
+	return newValue
 }

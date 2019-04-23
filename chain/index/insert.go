@@ -50,7 +50,7 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 
 	blockHash := &accountBlock.Hash
 
-	if ok, err := iDB.HasAccount(&accountBlock.AccountAddress); err != nil {
+	if ok, err := iDB.HasAccount(accountBlock.AccountAddress); err != nil {
 		return err
 	} else if !ok {
 		iDB.createAccount(batch, &accountBlock.AccountAddress)

@@ -3,10 +3,12 @@ package chain_index
 import (
 	"fmt"
 	"github.com/allegro/bigcache"
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/log15"
 	"path"
 )
 
@@ -15,6 +17,9 @@ type IndexDB struct {
 
 	latestAccountId uint64
 	cache           *bigcache.BigCache
+	accountCache    *lru.Cache
+
+	log log15.Logger
 }
 
 func NewIndexDB(chainDir string) (*IndexDB, error) {
@@ -28,6 +33,7 @@ func NewIndexDB(chainDir string) (*IndexDB, error) {
 
 	iDB := &IndexDB{
 		store: store,
+		log:   log15.New("module", "indexDB"),
 	}
 
 	iDB.latestAccountId, err = iDB.queryLatestAccountId()

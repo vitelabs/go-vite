@@ -45,3 +45,7 @@ func (c *chain) GetAccountAddress(accountId uint64) (*types.Address, error) {
 
 	return addr, nil
 }
+
+func (c *chain) IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool) {
+	c.indexDB.IterateAccounts(iterateFunc)
+}
