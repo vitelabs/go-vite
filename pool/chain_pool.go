@@ -435,21 +435,15 @@ func (self *chainPool) insertNotify(head commonBlock) {
 //	}
 //}
 
-func (self *chainPool) writeBlocksToChain(chain tree.Branch, blocks []commonBlock) error {
-	if len(blocks) == 0 {
-		return nil
-	}
-	err := self.diskChain.rw.insertBlocks(blocks)
+func (self *chainPool) writeBlockToChain(chain tree.Branch, block commonBlock) error {
+	err := self.diskChain.rw.insertBlock(block)
 
 	if err != nil {
 		// todo opt log
-		self.log.Error(fmt.Sprintf("pool insert Chain fail. height:[%d], hash:[%s], len:[%d]", blocks[0].Height(), blocks[0].Hash(), len(blocks)))
+		self.log.Error(fmt.Sprintf("pool insert Chain fail. height:[%d], hash:[%s]", block.Height(), block.Hash()))
 		return err
 	}
-	for _, b := range blocks {
-		chain.RemoveTail(b)
-	}
-	return nil
+	return chain.RemoveTail(block)
 }
 func (self *chainPool) check() error {
 	diskId := self.diskChain.Id()

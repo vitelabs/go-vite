@@ -91,19 +91,51 @@ func (self *branch) Type() BranchType {
 	return Normal
 }
 
-func (self *branch) prune() {
+func (self *branch) prune(t *tree) {
 	if self.root.Type() == Normal {
-		self.root.(*branch).prune()
+		self.root.(*branch).prune(t)
 	}
+	removed := false
 	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
 		selfB := self.getKnot(i, false)
 		block := self.root.GetKnot(i, true)
 		if block != nil && block.Hash() == selfB.Hash() {
 			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.Id(), block.Height(), block.Hash())
 			self.RemoveTail(block)
+			removed = true
 		} else {
 			break
 		}
+	}
+
+	if removed {
+		self.updateChildrenForRemoveTail(self.root)
+		if self.Id() != t.main.Id() && self.Size() == 0 {
+			err := t.removeBranch(self)
+			if err != nil {
+				t.log.Error("remove branch fail.", "id", self.Id())
+			}
+		}
+	}
+}
+
+func (self *branch) updateChildrenForRemoveTail(root Branch) {
+	if root.Type() == Disk {
+		return
+	}
+
+	for _, v := range self.allChildren() {
+		height, hash := v.tailHH()
+		if self.contains(height, hash, false) {
+			continue
+		}
+
+		if root.ContainsKnot(height, hash, true) {
+			v.updateRootSimple(self, root)
+			continue
+		}
+
+		panic("children fail.")
 	}
 }
 
@@ -339,6 +371,8 @@ func (self branch) isGarbage() bool {
 }
 
 func (self branch) isLeafBranch() bool {
+	self.childrenMu.RLock()
+	defer self.childrenMu.RUnlock()
 	if len(self.children) > 0 {
 		return false
 	}

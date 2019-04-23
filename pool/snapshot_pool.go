@@ -282,11 +282,15 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
 			block.resetForkVersion()
+			if block.forkVersion() != version {
+				return nil, nil, errors.Errorf("[%d]snapshot[s] version update", p.Id())
+			}
 			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return nil, item, errors.New("new fork version")
 			}
+
 			switch stat.verifyResult() {
 			case verifier.FAIL:
 				self.log.Warn("add snapshot block to blacklist.", "hash", block.Hash(), "height", block.Height())

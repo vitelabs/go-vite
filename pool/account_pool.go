@@ -646,13 +646,12 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
 				return errors.Wrap(stat.err, "fail verifier db.")
 			}
-			err, num := self.verifySuccess(stat.block)
+			err := cp.writeBlockToChain(current, stat.block)
 			if err != nil {
 				self.log.Error("account block write fail. ",
 					"hash", block.Hash(), "height", block.Height(), "error", err)
 				return err
 			}
-			i = i + int(num) - 1
 		} else {
 			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
 			return errors.New("tail not match")
