@@ -14,12 +14,16 @@ const (
 	[
 		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"}]},
+		{"type":"function","name":"AgentPledge", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"}]},
+		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
+		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"}]},
 		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
 	MethodNamePledge             = "Pledge"
 	MethodNameCancelPledge       = "CancelPledge"
+	MethodNameAgentPledge        = "AgentPledge"
+	MethodNameAgentCancelPledge  = "AgentCancelPledge"
 	VariableNamePledgeInfo       = "pledgeInfo"
 	VariableNamePledgeBeneficial = "pledgeBeneficial"
 )
@@ -36,10 +40,21 @@ type ParamCancelPledge struct {
 	Beneficial types.Address
 	Amount     *big.Int
 }
+type ParamAgentPledge struct {
+	PledgeAddress types.Address
+	Beneficial    types.Address
+}
+type ParamAgentCancelPledge struct {
+	PledgeAddress types.Address
+	Beneficial    types.Address
+	Amount        *big.Int
+}
 type PledgeInfo struct {
 	Amount         *big.Int
 	WithdrawHeight uint64
 	BeneficialAddr types.Address
+	Agent          bool
+	AgentAddress   types.Address
 }
 
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {

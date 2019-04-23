@@ -49,8 +49,10 @@ type builtinContract struct {
 var simpleContracts = map[types.Address]*builtinContract{
 	types.AddressPledge: {
 		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:       &MethodPledge{},
-			cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+			cabi.MethodNamePledge:            &MethodPledge{},
+			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
+			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
+			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
 		},
 		cabi.ABIPledge,
 	},

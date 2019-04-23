@@ -624,9 +624,10 @@ func TestContractsPledge(t *testing.T) {
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
 	pledgeKey := abi.GetPledgeKey(addr1, 1)
 	withdrawHeight := snapshot2.Height + 3600*24*3
+	pledgeInfoBytes, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{})
 	if receivePledgeBlock == nil ||
 		len(receivePledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize), helper.LeftPadBytes(addr4.Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
 		len(receivePledgeBlock.AccountBlock.Data) != 33 ||
@@ -679,9 +680,10 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr5
 	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
+	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, newPledgeAmount, withdrawHeight, addr4, false, types.Address{})
 	if receivePledgeBlock2 == nil ||
 		len(receivePledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize), helper.LeftPadBytes(addr4.Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(newPledgeAmount) != 0 ||
 		len(receivePledgeBlock2.AccountBlock.Data) != 33 ||
@@ -752,9 +754,10 @@ func TestContractsPledge(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
+	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{})
 	if receiveCancelPledgeBlock == nil ||
 		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], helper.JoinBytes(helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize), helper.LeftPadBytes(new(big.Int).SetUint64(withdrawHeight).Bytes(), helper.WordSize), helper.LeftPadBytes(addr4.Bytes(), helper.WordSize))) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
 		len(receiveCancelPledgeBlock.AccountBlock.Data) != 33 ||

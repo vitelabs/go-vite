@@ -33,9 +33,21 @@ func (p *PledgeApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) 
 	return abi.ABIPledge.PackMethod(abi.MethodNamePledge, beneficialAddr)
 }
 
+func (p *PledgeApi) GetAgentPledgeData(pledgeAddr types.Address, beneficialAddr types.Address) ([]byte, error) {
+	return abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, pledgeAddr, beneficialAddr)
+}
+
 func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error) {
 	if bAmount, err := stringToBigInt(&amount); err == nil {
 		return abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, beneficialAddr, bAmount)
+	} else {
+		return nil, err
+	}
+}
+
+func (p *PledgeApi) GetAgentCancelPledgeData(pledgeAddr types.Address, beneficialAddr types.Address, amount string) ([]byte, error) {
+	if bAmount, err := stringToBigInt(&amount); err == nil {
+		return abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, pledgeAddr, beneficialAddr, bAmount)
 	} else {
 		return nil, err
 	}
@@ -65,6 +77,8 @@ type PledgeInfo struct {
 	WithdrawHeight string        `json:"withdrawHeight"`
 	BeneficialAddr types.Address `json:"beneficialAddr"`
 	WithdrawTime   int64         `json:"withdrawTime"`
+	Agent          bool          `json:"agent"`
+	AgentAddress   types.Address `json:"agentAddress"`
 }
 type byWithdrawHeight []*abi.PledgeInfo
 
@@ -105,7 +119,9 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 			*bigIntToString(info.Amount),
 			uint64ToString(info.WithdrawHeight),
 			info.BeneficialAddr,
-			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)}
+			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
+			info.Agent,
+			info.AgentAddress}
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
