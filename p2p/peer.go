@@ -236,7 +236,9 @@ func (p *peerMux) readLoop() (err error) {
 	var msg Msg
 
 	for {
+		p.log.Debug(fmt.Sprintf("begin read message"))
 		msg, err = p.codec.ReadMsg()
+		p.log.Debug(fmt.Sprintf("read message %d/%d %d bytes done", msg.pid, msg.Code, len(msg.Payload)))
 		if err != nil {
 			return
 		}
@@ -282,10 +284,13 @@ func (p *peerMux) readLoop() (err error) {
 func (p *peerMux) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
+		p.log.Debug(fmt.Sprintf("begin write msg %d/%d %d bytes", msg.pid, msg.Code, len(msg.Payload)))
 		if err = p.codec.WriteMsg(msg); err != nil {
+			p.log.Debug(fmt.Sprintf("write msg %d/%d %d bytes error: %v", msg.pid, msg.Code, len(msg.Payload), err))
 			atomic.StoreInt32(&p.writable, 0)
 			return
 		}
+		p.log.Debug(fmt.Sprintf("write msg %d/%d %d bytes done", msg.pid, msg.Code, len(msg.Payload)))
 	}
 
 	return nil
@@ -294,7 +299,9 @@ func (p *peerMux) writeLoop() (err error) {
 func (p *peerMux) handleLoop() (err error) {
 	var msg Msg
 	for msg = range p.readQueue {
+		p.log.Debug(fmt.Sprintf("begin handle msg %d/%d", msg.pid, msg.Code))
 		err = p.protoMap[msg.pid].Handle(msg)
+		p.log.Debug(fmt.Sprintf("handle msg %d/%d done", msg.pid, msg.Code))
 		if err != nil {
 			return
 		}
