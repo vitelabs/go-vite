@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/pkg/errors"
@@ -51,7 +53,7 @@ type BCPool struct {
 
 type blockPool struct {
 	freeBlocks     map[types.Hash]commonBlock // free state_bak
-	compoundBlocks map[types.Hash]commonBlock // compound state_bak
+	compoundBlocks sync.Map                   // compound state_bak
 	pendingMu      sync.Mutex
 }
 
@@ -93,6 +95,18 @@ type snippetChain struct {
 	chain
 	tailHash types.Hash
 	headHash types.Hash
+}
+
+func newSnippetChain(w commonBlock, id string) *snippetChain {
+	self := &snippetChain{}
+	self.chainId = id
+	self.heightBlocks = make(map[uint64]commonBlock)
+	self.headHeight = w.Height()
+	self.headHash = w.Hash()
+	self.tailHash = w.PrevHash()
+	self.tailHeight = w.Height() - 1
+	self.heightBlocks[w.Height()] = w
+	return self
 }
 
 func (self *snippetChain) init(w commonBlock) {
@@ -162,7 +176,6 @@ func (self *BCPool) initPool() {
 	diskChain := &branchChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
 
 	t := tree.NewTree()
-	t.SetKnotRemoveFn(self.removeFromTree)
 	chainpool := &chainPool{
 		poolId:    self.Id,
 		diskChain: diskChain,
@@ -171,15 +184,10 @@ func (self *BCPool) initPool() {
 	}
 	chainpool.init()
 	blockpool := &blockPool{
-		compoundBlocks: make(map[types.Hash]commonBlock),
-		freeBlocks:     make(map[types.Hash]commonBlock),
+		freeBlocks: make(map[types.Hash]commonBlock),
 	}
 	self.chainpool = chainpool
 	self.blockpool = blockpool
-}
-
-func (self *BCPool) removeFromTree(k tree.Knot) {
-	self.blockpool.delHashFromCompound(k.Hash())
 }
 
 func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
@@ -226,8 +234,9 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		self.log.Crit("error for db fail.", "tailHeight", curTailHeight, "tailHash", curTailHash, "longestHeight", longest.Height(), "err", errors.New(self.Id+" current chain height hash check fail"))
 		return errors.New(self.Id + " current chain height hash check fail")
 	}
+	main := self.chainpool.tree.Main()
 	for i := h; i >= 0; i-- {
-		err := self.chainpool.tree.RootHeadRemove(blocks[i])
+		err := self.chainpool.tree.AddTail(main, blocks[i])
 		if err != nil {
 			panic(err)
 		}
@@ -289,74 +298,47 @@ func checkLink(c1 tree.Branch, c2 tree.Branch, refer bool) error {
 	return nil
 }
 
-func (self *blockPool) contains(hash types.Hash, height uint64) bool {
-	_, free := self.freeBlocks[hash]
-	_, compound := self.compoundBlocks[hash]
-	return free || compound
-}
-
-func (self *blockPool) get(hash types.Hash) commonBlock {
+func (self *blockPool) sprint(hash types.Hash) (commonBlock, *string) {
 	b1, free := self.freeBlocks[hash]
 	if free {
-		return b1
+		return b1, nil
 	}
-	b2, compound := self.compoundBlocks[hash]
+	_, compound := self.compoundBlocks.Load(hash)
 	if compound {
-		return b2
+		s := "compound" + hash.String()
+		return nil, &s
 	}
-	return nil
+	return nil, nil
 }
 func (self *blockPool) containsHash(hash types.Hash) bool {
 	_, free := self.freeBlocks[hash]
-	_, compound := self.compoundBlocks[hash]
+	_, compound := self.compoundBlocks.Load(hash)
 	return free || compound
 }
 
 func (self *blockPool) putBlock(hash types.Hash, pool commonBlock) {
 	self.freeBlocks[hash] = pool
 }
+
 func (self *blockPool) compound(w commonBlock) {
 	self.pendingMu.Lock()
 	defer self.pendingMu.Unlock()
-	self.compoundBlocks[w.Hash()] = w
+	self.compoundBlocks.Store(w.Hash(), true)
 	delete(self.freeBlocks, w.Hash())
-}
-func (self *blockPool) afterInsert(w commonBlock) {
-	self.pendingMu.Lock()
-	defer self.pendingMu.Unlock()
-	delete(self.compoundBlocks, w.Hash())
 }
 
 func (self *blockPool) delFromCompound(ws map[uint64]commonBlock) {
 	self.pendingMu.Lock()
 	defer self.pendingMu.Unlock()
 	for _, b := range ws {
-		delete(self.compoundBlocks, b.Hash())
+		self.compoundBlocks.Delete(b.Hash())
 	}
 }
 
 func (self *blockPool) delHashFromCompound(hash types.Hash) {
 	self.pendingMu.Lock()
 	defer self.pendingMu.Unlock()
-	delete(self.compoundBlocks, hash)
-}
-
-func (self *blockPool) reInit(max uint64) {
-	self.pendingMu.Lock()
-	defer self.pendingMu.Unlock()
-
-	for _, v := range self.freeBlocks {
-		if v.Height() <= max {
-			delete(self.freeBlocks, v.Hash())
-		}
-	}
-
-	for _, v := range self.compoundBlocks {
-		delete(self.compoundBlocks, v.Hash())
-		if v.Height() > max {
-			self.freeBlocks[v.Hash()] = v
-		}
-	}
+	self.compoundBlocks.Delete(hash)
 }
 
 func (self *BCPool) AddBlock(block commonBlock) {
@@ -364,7 +346,7 @@ func (self *BCPool) AddBlock(block commonBlock) {
 	defer self.blockpool.pendingMu.Unlock()
 	hash := block.Hash()
 	height := block.Height()
-	if !self.blockpool.contains(hash, height) {
+	if !self.blockpool.containsHash(hash) && !self.chainpool.tree.Exists(hash) {
 		self.blockpool.putBlock(hash, block)
 	} else {
 		monitor.LogEvent("pool", "addDuplication")
@@ -375,7 +357,7 @@ func (self *BCPool) AddBlock(block commonBlock) {
 func (self *BCPool) existInPool(hashes types.Hash) bool {
 	self.blockpool.pendingMu.Lock()
 	defer self.blockpool.pendingMu.Unlock()
-	return self.blockpool.containsHash(hashes)
+	return self.blockpool.containsHash(hashes) || self.chainpool.tree.Exists(hashes)
 }
 
 type ByHeight []commonBlock
@@ -406,9 +388,7 @@ func (self *BCPool) loopGenSnippetChains() int {
 
 	for _, v := range sortPending {
 		if !tryInsert(chains, v) {
-			snippet := &snippetChain{}
-			snippet.chainId = self.chainpool.genChainId()
-			snippet.init(v)
+			snippet := newSnippetChain(v, self.chainpool.genChainId())
 			chains = append(chains, snippet)
 		}
 		i++
@@ -457,8 +437,7 @@ func (self *BCPool) loopAppendChains() int {
 			i++
 			newChain, err := self.chainpool.forkChain(c, w)
 			if err == nil {
-				//tmpChains = append(tmpChains, newChain)
-				delete(self.chainpool.snippetChains, w.id())
+				self.delSnippet(w)
 				// todo
 				self.log.Info(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.Id(), c.SprintHead(), c.SprintTail(), newChain.Id(), newChain.SprintHead(), newChain.SprintTail()))
 			}
@@ -470,6 +449,7 @@ func (self *BCPool) loopAppendChains() int {
 			if err != nil {
 				self.log.Error("insert fail.", "err", err)
 			}
+			self.delSnippet(w)
 			continue
 		}
 	}
@@ -532,7 +512,7 @@ func (self *BCPool) loopFetchForSnippets() int {
 }
 
 func (self *BCPool) CurrentModifyToChain(target tree.Branch, hashH *ledger.HashHeight) error {
-	return self.chainpool.currentModifyToChain(target)
+	return self.chainpool.tree.SwitchMainTo(target)
 }
 
 /**
@@ -710,8 +690,9 @@ func (self *BCPool) info() map[string]interface{} {
 	cp := self.chainpool
 
 	result["FreeSize"] = len(bp.freeBlocks)
-	result["CompoundSize"] = len(bp.compoundBlocks)
+	result["CompoundSize"] = common.SyncMapLen(&bp.compoundBlocks)
 	result["SnippetSize"] = len(cp.snippetChains)
+	result["TreeSize"] = cp.tree.Size()
 	result["CurrentLen"] = cp.tree.Main().Size()
 	var snippetIds []interface{}
 	for _, v := range cp.snippetChains {

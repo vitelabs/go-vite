@@ -176,7 +176,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 		for i := selfTailHeight; i > rootTailHeight; i-- {
 			w := root.GetKnot(i, false)
 			if w != nil {
-				self.AddTail(w)
+				self.addTail(w)
 			}
 		}
 		for i := rootTailHeight + 1; i <= rootTailHeight; i++ {

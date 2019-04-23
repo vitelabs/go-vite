@@ -29,25 +29,14 @@ type chainPool struct {
 }
 
 func (self *chainPool) forkChain(forked tree.Branch, snippet *snippetChain) (tree.Branch, error) {
-	//new := &forkedChain{}
-	//
-	//new.heightBlocks = snippet.heightBlocks
-	//new.tailHeight = snippet.tailHeight
-	//new.tailHash = snippet.tailHash
-	//new.headHeight = snippet.headHeight
-	//new.headHash = snippet.headHash
-	//new.referChain = forked
-	//
-	//new.chainId = self.genChainId()
-	//
-	//self.addChain(new)
-
 	new := self.tree.ForkBranch(forked, snippet.tailHeight, snippet.tailHash)
 	for i := snippet.tailHeight + 1; i <= snippet.headHeight; i++ {
 		v := snippet.heightBlocks[i]
-		new.AddHead(v)
+		err := self.tree.AddHead(new, v)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	return new, nil
 }
 
@@ -77,181 +66,9 @@ func (self *chainPool) incChainIdx() int {
 	}
 }
 func (self *chainPool) init() {
-	//initBlock := self.diskChain.Head()
-	//self.current.init(initBlock)
-	//self.current.referChain = self.diskChain
-	//self.chains = make(map[string]*forkedChain)
 	self.snippetChains = make(map[string]*snippetChain)
 	self.tree.Init(self.poolId, self.diskChain)
-	//self.addChain(self.current)
 }
-
-/** constrained condition:
-disk header block can be found in chain.
-*/
-func (self *chainPool) currentModifyToChain(chain tree.Branch) error {
-	return self.tree.SwitchMainTo(chain)
-	//if chain.id() == self.current.id() {
-	//	return nil
-	//}
-	//chain.prune()
-	//
-	//err := self.checkAncestor(chain, self.diskChain)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//e := self.check()
-	//if e != nil {
-	//	self.log.Error("---------[1]", "err", e)
-	//}
-	//
-	//for chain.referChain.id() != self.diskChain.id() {
-	//	fromChain := chain.referChain.(*forkedChain)
-	//
-	//	err := self.exchangeRefer(fromChain, chain)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	//self.log.Warn("current modify.", "from", self.current.id(), "to", chain.id(),
-	//	"fromTailHeight", self.current.tailHeight, "fromHeadHeight", self.current.headHeight,
-	//	"toTailHeight", chain.tailHeight, "toHeadHeight", chain.headHeight)
-	//self.current = chain
-	//e = self.check()
-	//if e != nil {
-	//	self.log.Error("---------[2]", "err", e)
-	//}
-	////self.modifyChainRefer()
-	//return nil
-}
-
-//func (self *chainPool) modifyRefer(from *forkedChain, to *forkedChain) error {
-//	r := reduceChainByRefer(to)
-//	if len(r) > 0 {
-//		self.log.Debug("modifyRefer-clear ChainBase", "chainId", to.id(), "start", r[0].Height(), "end", r[len(r)-1].Height())
-//	}
-//	// from.tailHeight <= to.tailHeight  && from.headHeight > to.tail.Height
-//	toTailHeight := to.tailHeight
-//	fromTailHeight := from.tailHeight
-//	fromHeadHeight := from.headHeight
-//	if fromTailHeight <= toTailHeight && fromHeadHeight >= toTailHeight {
-//		for i := toTailHeight; i > fromTailHeight; i-- {
-//			w := from.getBlock(i, false)
-//			if w != nil {
-//				to.addTail(w)
-//			}
-//		}
-//		for i := fromTailHeight + 1; i <= toTailHeight; i++ {
-//			w := from.getBlock(i, false)
-//			if w != nil {
-//				from.removeTail(w)
-//			}
-//		}
-//
-//		to.referChain = from.referChain
-//		from.referChain = to
-//
-//		e := self.modifyReferForChainExchange(from, to, to)
-//
-//		self.log.Info("modify refer", "from", from.id(), "to", to.id(),
-//			"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-//			"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight, "err", e)
-//		return e
-//	} else {
-//		return errors.Errorf("err for modifyRefer.from:%s, to:%s, fromTailHeight:%d, fromHeadHeight:%d, toTailHeight:%d, toHeadHeight:%d",
-//			from.id(), to.id(), fromTailHeight, fromHeadHeight, toTailHeight, to.headHeight)
-//
-//	}
-//}
-//func (self *chainPool) modifyReferForChainExchange(from *forkedChain, to *forkedChain, diskInstead *forkedChain) error {
-//	toTailHeight := to.tailHeight
-//	fromTailHeight := from.tailHeight
-//	fromHeadHeight := from.headHeight
-//	for _, v := range self.allChain() {
-//		if v.id() == from.id() || v.id() == to.id() {
-//			continue
-//		}
-//		if v.referChain.id() == from.id() {
-//			block, reader := to.getBlockByChain(v.tailHeight)
-//			if block != nil && block.Hash() == v.tailHash {
-//				if reader.id() == self.diskChain.id() {
-//					self.log.Info("modify refer[7]", "from", from.id(), "to", to.id(),
-//						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-//						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
-//						"v", v.id(),
-//						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
-//					v.referChain = diskInstead
-//				} else {
-//					self.log.Info("modify refer[8]", "from", from.id(), "to", to.id(),
-//						"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-//						"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
-//						"v", v.id(),
-//						"vTailHeight", v.tailHeight, "vTailHash", v.tailHash,
-//						"readerId", reader.id())
-//					v.referChain = reader
-//				}
-//			} else {
-//				self.log.Warn("modify refer[4]", "from", from.id(), "to", to.id(),
-//					"fromTailHeight", fromTailHeight, "fromHeadHeight", fromHeadHeight,
-//					"toTailHeight", toTailHeight, "toHeadHeight", to.headHeight,
-//					"v", v.id(),
-//					"vTailHeight", v.tailHeight, "vTailHash", v.tailHash)
-//			}
-//		}
-//	}
-//	return nil
-//}
-//
-//func (self *chainPool) modifyChainRefer() {
-//	cs := self.allChain()
-//	for _, c := range cs {
-//		if c.id() == self.current.id() {
-//			continue
-//		}
-//		b, reader := c.referChain.getBlockByChain(c.tailHeight)
-//		if b != nil {
-//			if reader.id() == self.diskChain.id() {
-//				if c.referChain.id() == self.current.id() {
-//					continue
-//				}
-//				c.referChain = self.current
-//				self.log.Warn("[1]modify for refer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//				continue
-//			}
-//
-//			if reader.id() == c.referChain.id() {
-//				continue
-//			}
-//
-//			if c.id() == reader.id() {
-//				self.log.Error("err for modifyChainRefer refer self.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//				continue
-//			}
-//			self.log.Warn("[2]modify for refer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//			c.referChain = reader
-//		} else {
-//			self.log.Error("err for modifyChainRefer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//			for _, v := range cs {
-//				b2, r2 := v.getBlockByChain(c.tailHeight)
-//				if b2 != nil {
-//					if r2.id() == self.diskChain.id() {
-//						self.log.Warn("[3]modify for refer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//						c.referChain = self.current
-//						break
-//					}
-//					if r2.id() == c.id() {
-//						self.log.Error("err for modifyChainRefer refer self r2.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//						continue
-//					}
-//					self.log.Warn("[4]modify for refer.", "from", c.id(), "refer", c.referChain.id(), "tailHeight", c.tailHeight)
-//					c.referChain = r2
-//					break
-//				}
-//			}
-//		}
-//	}
-//}
 
 func (self *chainPool) fork2(snippet *snippetChain, chains map[string]tree.Branch) (bool, bool, tree.Branch, error) {
 
@@ -377,10 +194,6 @@ func (self *chainPool) insertSnippet(c tree.Branch, snippet *snippetChain) error
 		if err != nil {
 			return err
 		}
-		snippet.deleteTail(w)
-	}
-	if snippet.tailHeight == snippet.headHeight {
-		delete(self.snippetChains, snippet.chainId)
 	}
 	return nil
 }
@@ -402,7 +215,10 @@ func (self *chainPool) insert(c tree.Branch, wrapper commonBlock) error {
 	height, hash := c.HeadHH()
 	if wrapper.Height() == height+1 {
 		if hash == wrapper.PrevHash() {
-			c.AddHead(wrapper)
+			err := self.tree.AddHead(c, wrapper)
+			if err != nil {
+				panic(err)
+			}
 			return nil
 		} else {
 			return errors.Errorf("forkedChain fork, fork point height[%d],hash[%s], but next block[%s]'s preHash is [%s]",
@@ -443,7 +259,7 @@ func (self *chainPool) writeBlockToChain(chain tree.Branch, block commonBlock) e
 		self.log.Error(fmt.Sprintf("pool insert Chain fail. height:[%d], hash:[%s]", block.Height(), block.Hash()))
 		return err
 	}
-	return chain.RemoveTail(block)
+	return self.tree.RemoveTail(chain, block)
 }
 func (self *chainPool) check() error {
 	diskId := self.diskChain.Id()
