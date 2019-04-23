@@ -708,26 +708,13 @@ func (self *BCPool) info() map[string]interface{} {
 	result["Snippets"] = snippetIds
 	var chainIds []interface{}
 	for _, v := range cp.allChain() {
-		chainIds = append(chainIds, self.branchInfo(v))
+		chainIds = append(chainIds, tree.PrintBranchInfo(v))
 	}
 	result["Chains"] = chainIds
 	result["ChainSize"] = len(chainIds)
-	result["Current"] = self.branchInfo(cp.tree.Main())
-	result["Disk"] = self.branchInfo(cp.diskChain)
+	result["Current"] = tree.PrintBranchInfo(cp.tree.Main())
+	result["Disk"] = tree.PrintBranchInfo(cp.diskChain)
 
-	return result
-}
-
-func (self *BCPool) branchInfo(b tree.Branch) interface{} {
-	result := make(map[string]interface{})
-	result["Id"] = b.Id()
-	if b.Type() == tree.Normal {
-		result["Head"] = b.SprintHead()
-		result["Tail"] = b.SprintTail()
-		result["Root"] = b.Root().Id()
-	} else {
-		result["Head"] = b.SprintHead()
-	}
 	return result
 }
 
