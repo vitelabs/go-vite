@@ -55,6 +55,12 @@ func (self *branchBase) getHeightBlock(height uint64) Knot {
 	}
 }
 
+func (self *branchBase) storeSize() uint64 {
+	self.heightMu.RLock()
+	defer self.heightMu.RUnlock()
+	return uint64(len(self.heightBlocks))
+}
+
 func (self *branchBase) updateHeightBlock(height uint64, b Knot) {
 	if b != nil {
 		self.heightBlocks[height] = b
@@ -111,7 +117,7 @@ func (self *branchBase) removeHead(w Knot) {
 	self.updateHeightBlock(w.Height(), nil)
 }
 
-func (self *branchBase) AddTail(w Knot) {
+func (self *branchBase) addTail(w Knot) {
 	self.heightMu.Lock()
 	defer self.heightMu.Unlock()
 	if self.tailHash != w.Hash() {

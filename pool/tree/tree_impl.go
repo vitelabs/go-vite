@@ -5,10 +5,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/log15"
-
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type tree struct {
@@ -21,6 +20,8 @@ type tree struct {
 	idIdx uint32
 	name  string
 	log   log15.Logger
+
+	hashes sync.Map
 }
 
 func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
@@ -41,8 +42,15 @@ func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
 	}
 	return nil
 }
+func (self *tree) knotRemove(k Knot) {
+	self.hashes.Delete(k.Hash())
+}
+
 func NewTree() *tree {
-	return &tree{branchList: make(map[string]*branch), log: log15.New("module", "pool/tree")}
+	return &tree{
+		branchList: make(map[string]*branch),
+		log:        log15.New("module", "pool/tree"),
+	}
 }
 
 func (self *tree) Init(name string, root Branch) error {
@@ -70,11 +78,13 @@ func (self *tree) ForkBranch(b Branch, height uint64, hash types.Hash) Branch {
 	if b.Type() == Disk {
 		panic("can't fork from disk")
 	}
-	knot := b.GetKnot(height, true)
+	root := b.(*branch)
+	knot := root.GetKnot(height, true)
 	if knot == nil {
 		panic(fmt.Sprintf("can't get knot by[%d]", height))
 	}
 	new := newBranch(newBranchBase(knot.Height(), knot.Hash(), knot.Height(), knot.Hash(), self.newBranchId()), b)
+	root.addChild(new)
 	self.addBranch(new)
 	return new
 }
@@ -114,8 +124,52 @@ func (self *tree) RootHeadRemove(k Knot) error {
 	if main.tailHash != k.Hash() {
 		return errors.Errorf("root head[%s][%d-%s] remove fail.", main.SprintTail(), k.Height(), k.Hash())
 	}
-	main.AddTail(k)
+	main.addTail(k)
 	return nil
+}
+
+func (self *tree) AddHead(b Branch, k Knot) error {
+	if b.Type() == Disk {
+		return errors.New("can't add head to chain.")
+	}
+	br := b.(*branch)
+	br.addHead(k)
+	self.hashes.Store(k.Hash(), true)
+	return nil
+}
+
+func (self *tree) RemoveTail(b Branch, k Knot) error {
+	if b.Type() == Disk {
+		return errors.New("can't remove tail from chain.")
+	}
+	br := b.(*branch)
+	br.removeTail(k)
+	self.hashes.Delete(k.Hash())
+	return nil
+}
+
+func (self *tree) AddTail(b Branch, k Knot) error {
+	if b.Type() == Disk {
+		return errors.New("can't remove tail from chain.")
+	}
+	br := b.(*branch)
+	br.addTail(k)
+	self.hashes.Store(k.Hash(), true)
+	return nil
+}
+
+func (self *tree) Exists(hash types.Hash) bool {
+	_, ok := self.hashes.Load(hash)
+	return ok
+}
+
+func (self *tree) Size() uint64 {
+	result := uint64(0)
+	self.hashes.Range(func(key, value interface{}) bool {
+		result = result + 1
+		return true
+	})
+	return result
 }
 
 func (self *tree) SwitchMainTo(b Branch) error {
@@ -264,6 +318,7 @@ func (self *tree) removeBranch(b *branch) error {
 	if b.isLeafBranch() {
 		root.removeChild(b)
 		delete(self.branchList, id)
+		b.destroy(self)
 		return nil
 	}
 
@@ -276,25 +331,6 @@ func (self *tree) removeBranch(b *branch) error {
 	}
 	return errors.New("not support")
 }
-
-//func (self *tree) clearRepeatBranch() []Branch {
-//	var r []Branch
-//	for id1, c1 := range self.chains {
-//		if id1 == self.current.id() {
-//			continue
-//		}
-//		for _, c2 := range self.chains {
-//			if c1.tailHeight == c2.tailHeight &&
-//				c1.tailHash == c2.tailHash {
-//				h := c2.getHeightBlock(c1.headHeight)
-//				if h != nil && h.Hash() == c1.headHash {
-//					r = append(r, c1)
-//				}
-//			}
-//		}
-//	}
-//	return r
-//}
 
 func (self *tree) addBranch(b *branch) {
 	self.branchMu.Lock()
