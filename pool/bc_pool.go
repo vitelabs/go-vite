@@ -427,7 +427,7 @@ func (self *BCPool) loopAppendChains() int {
 	tmpChains := self.chainpool.allChain()
 
 	for _, w := range sortSnippets {
-		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains)
+		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains, self.blockpool)
 		if err != nil {
 			self.delSnippet(w)
 			self.log.Error("fork to error.", "err", err)

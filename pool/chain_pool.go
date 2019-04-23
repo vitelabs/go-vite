@@ -70,7 +70,7 @@ func (self *chainPool) init() {
 	self.tree.Init(self.poolId, self.diskChain)
 }
 
-func (self *chainPool) fork2(snippet *snippetChain, chains map[string]tree.Branch) (bool, bool, tree.Branch, error) {
+func (self *chainPool) fork2(snippet *snippetChain, chains map[string]tree.Branch, bp *blockPool) (bool, bool, tree.Branch, error) {
 
 	var forky, insertable bool
 	var result tree.Branch = nil
@@ -131,6 +131,7 @@ LOOP:
 					err = errors.Errorf("snippet rem nil. size:%d", snippet.size())
 					break LOOP
 				}
+				bp.delHashFromCompound(tail.Hash())
 				if snippet.size() == 0 {
 					delete(self.snippetChains, snippet.id())
 					hr = nil
