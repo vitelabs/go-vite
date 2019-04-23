@@ -66,7 +66,8 @@ func (self *pool) insert() {
 make a queue from account pool and snapshot pool
 */
 func (self *pool) makeQueue() Package {
-	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: self.pendingSc.CurrentChain().tailHeight, Hash: self.pendingSc.CurrentChain().tailHash}}
+	tailHeight, tailHash := self.pendingSc.CurrentChain().TailHH()
+	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: tailHeight, Hash: tailHash}}
 
 	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, self.version.Val(), 50)
 	for {
@@ -83,8 +84,9 @@ func (self *pool) makeQueue() Package {
 				self.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
 					// todo remove
-					fmt.Printf("make accounts[%d]\n", p.Size())
-					self.log.Info(fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size()))
+					msg := fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size())
+					fmt.Println(msg)
+					self.log.Info(msg)
 					return p
 				}
 			}
@@ -99,7 +101,9 @@ func (self *pool) makeQueue() Package {
 		}
 	}
 	if p.Size() > 0 {
-		self.log.Info(fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size()))
+		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
+		fmt.Println(msg)
+		self.log.Info(msg)
 	}
 	return p
 }
@@ -128,11 +132,11 @@ type snapshotPending struct {
 }
 
 func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
-	if self.pendingSc.CurrentChain().size() == 0 {
+	if self.pendingSc.CurrentChain().Size() == 0 {
 		return nil, nil, nil
 	}
 	current := self.pendingSc.CurrentChain()
-	block := current.getBlock(info.offset.Height+1, false)
+	block := current.GetKnot(info.offset.Height+1, false)
 	if block == nil {
 		return nil, nil, nil
 	}

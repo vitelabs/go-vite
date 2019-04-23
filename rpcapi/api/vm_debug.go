@@ -174,7 +174,11 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 	for _, c := range compileResultList {
 		txParam := param.Params[c.name]
 		// send create contract tx
-		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, 1, c.code, c.abiJson, txParam.Params)
+		paramBytes, err := v.contract.GetCreateContractParams(c.abiJson, txParam.Params)
+		if err != nil {
+			return nil, err
+		}
+		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, 1, c.code, paramBytes)
 		if err != nil {
 			return nil, err
 		}
