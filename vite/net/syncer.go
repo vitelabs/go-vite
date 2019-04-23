@@ -28,19 +28,19 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
-func splitChunk(from, to uint64, chunk uint64) (chunks [][2]uint64) {
+func splitChunk(from, to uint64, size uint64) (chunks [][2]uint64) {
 	// chunks may be only one block, then from == to
 	if from > to || to == 0 {
 		return
 	}
 
-	total := (to-from)/chunk + 1
+	total := (to-from)/size + 1
 	chunks = make([][2]uint64, total)
 
 	var cTo uint64
 	var i int
 	for from <= to {
-		if cTo = from + chunk - 1; cTo > to {
+		if cTo = from + size - 1; cTo > to {
 			cTo = to
 		}
 
@@ -67,9 +67,9 @@ type syncer struct {
 	height uint64
 	state  syncState
 
-	pending int32 // pending for add tasks
+	pending int32 // atomic, pending for add tasks
 
-	timeout time.Duration
+	timeout time.Duration // sync error if timeout
 
 	peers     syncPeerSet
 	eventChan chan peerEvent // get peer add/delete event
@@ -114,10 +114,6 @@ func (s *syncer) SubscribeSyncStatus(fn SyncStateCallback) int {
 }
 
 func (s *syncer) UnsubscribeSyncStatus(subId int) {
-	if subId <= 0 {
-		return
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -150,7 +146,6 @@ func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.peers.unSub(s.eventChan)
 		close(s.term)
-		s.downloader.stop()
 	}
 }
 
@@ -185,10 +180,10 @@ Wait:
 
 	start.Stop()
 
-	// for now syncState is SyncWait
 	syncPeer := s.peers.syncPeer()
+	// all peers disconnected
 	if syncPeer == nil {
-		s.state.error()
+		s.state.error(syncErrorNoPeers)
 		s.log.Error("sync error: no peers")
 		return
 	}
@@ -223,7 +218,7 @@ Wait:
 					s.state.done()
 
 					// cancel rest tasks
-					s.downloader.cancel(s.height, s.to)
+					s.cancelTasks()
 					s.reader.clean()
 					return
 				}
@@ -239,10 +234,10 @@ Wait:
 				}
 			} else {
 				s.log.Error("sync error: no peers")
-				s.state.error()
+				s.state.error(syncErrorNoPeers)
 				// no peers
 				// cancel rest tasks, keep cache
-				s.downloader.cancel(s.height, s.to)
+				s.cancelTasks()
 				s.reader.reset()
 				return
 			}
@@ -254,18 +249,18 @@ Wait:
 				s.state.done()
 
 				// clean cache, cancel rest tasks
-				s.downloader.cancel(s.height, s.to)
+				s.cancelTasks()
 				s.reader.clean()
 				return
 			}
 
 			if current.Height == s.height {
 				if now.Sub(lastCheckTime) > s.timeout {
-					s.log.Error("sync error: chain get stuck")
-					s.state.error()
+					s.log.Error("sync error: stuck")
+					s.state.error(syncErrorStuck)
 					// watching chain grow through fetcher
 					// clean cache, cancel rest tasks
-					s.downloader.cancel(s.height, s.to)
+					s.cancelTasks()
 					s.reader.clean()
 				}
 			} else {
@@ -277,7 +272,7 @@ Wait:
 			s.state.cancel()
 
 			// cancel rest tasks, keep cache
-			s.downloader.cancel(s.height, s.to)
+			s.cancelTasks()
 			s.reader.reset()
 			return
 		}
@@ -305,10 +300,16 @@ func (s *syncer) sync(syncPeerHeight uint64) {
 	}
 }
 
+func (s *syncer) cancelTasks() {
+	local := s.getLocalHeight()
+
+	s.downloader.cancel(local)
+}
+
 func (s *syncer) createTasks() {
 	defer atomic.StoreInt32(&s.pending, 0)
 
-	from := s.from
+	var from = s.from
 	var to uint64
 
 	for from < s.to {
@@ -329,23 +330,13 @@ func (s *syncer) createTasks() {
 // this method will be called when our target Height changed, (eg. the best peer disconnected)
 func (s *syncer) setTarget(to uint64) {
 	if s.to > to {
-		s.downloader.cancel(to+1, s.to)
-		s.to = to
+		s.to = s.downloader.cancel(to + 1)
 	} else {
 		if atomic.LoadInt32(&s.pending) == 1 {
 			s.to = to
 		} else {
 			s.sync(to)
 		}
-	}
-}
-
-// subscribe sync downloader
-func (s *syncer) done(err error) {
-	if err != nil {
-		s.state.error()
-	} else {
-		s.state.done()
 	}
 }
 

@@ -288,9 +288,9 @@ func (m *peerSet) bestPeer() (best Peer) {
 	return
 }
 
-// syncPeer choose the middle peer from all peers sorted by height from low to high, eg:
-// [1, 2, 4, 4, 5, 5, 10] represent all peers,
-// middle peer is `peerList[ len(peerList)/2 ]` at height 4.
+// syncPeer choose the middle peer from all peers sorted by height from high to low, eg:
+// peerList [10, 8, 7, 7, 7, 5, 4] represent all 7 peers,
+// middle peer is `peerList[ len(peerList)/3 ]` at height 7.
 // choose middle peer but not the highest peer is to defend fake height attack. because
 // it`s more hard to fake.
 func (m *peerSet) syncPeer() Peer {
@@ -300,7 +300,7 @@ func (m *peerSet) syncPeer() Peer {
 	}
 
 	sort.Sort(l)
-	mid := len(l) / 2
+	mid := len(l) / 3
 
 	return l[mid]
 }
@@ -441,7 +441,7 @@ func (m *peerSet) info() []PeerInfo {
 	return infos
 }
 
-// peers can be sort by height, from low to high
+// peers can be sort by height, from high to low
 type peers []Peer
 
 func (s peers) Len() int {

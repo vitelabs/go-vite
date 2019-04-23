@@ -2,110 +2,242 @@ package net
 
 import (
 	"fmt"
+	net2 "net"
 	"sort"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-var peerMap = newPeerSet()
+type mockPeer struct {
+	id      vnode.NodeID
+	_height uint64
+}
 
-func mockPeer() *peer {
-	return &peer{}
+func newMockPeer(id vnode.NodeID, height uint64) *mockPeer {
+	return &mockPeer{
+		id:      id,
+		_height: height,
+	}
+}
+
+func (mp *mockPeer) WriteMsg(p2p.Msg) error {
+	return nil
+}
+
+func (mp *mockPeer) ID() vnode.NodeID {
+	return mp.id
+}
+
+func (mp *mockPeer) String() string {
+	return mp.id.Brief()
+}
+
+func (mp *mockPeer) Address() net2.Addr {
+	return &net2.TCPAddr{
+		IP:   []byte{127, 0, 0, 1},
+		Port: 0,
+		Zone: "mock",
+	}
+}
+
+func (mp *mockPeer) Info() p2p.PeerInfo {
+	return p2p.PeerInfo{
+		ID:        mp.id.Brief(),
+		Name:      "",
+		Version:   0,
+		Protocols: nil,
+		Address:   "",
+		Level:     0,
+		CreateAt:  "",
+		State:     nil,
+	}
+}
+
+func (mp *mockPeer) Close(err p2p.PeerError) error {
+	return nil
+}
+
+func (mp *mockPeer) Level() p2p.Level {
+	panic("implement me")
+}
+
+func (mp *mockPeer) SetLevel(level p2p.Level) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) State() interface{} {
+	panic("implement me")
+}
+
+func (mp *mockPeer) SetState(state interface{}) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) setHead(head types.Hash, height uint64) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) setPeers(ps []peerConn, patch bool) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) peers() map[vnode.NodeID]struct{} {
+	panic("implement me")
+}
+
+func (mp *mockPeer) seeBlock(hash types.Hash) bool {
+	panic("implement me")
+}
+
+func (mp *mockPeer) height() uint64 {
+	return mp._height
+}
+
+func (mp *mockPeer) head() types.Hash {
+	panic("implement me")
+}
+
+func (mp *mockPeer) fileAddress() string {
+	panic("implement me")
+}
+
+func (mp *mockPeer) catch(err error) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) send(c code, id p2p.MsgId, data p2p.Serializable) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) sendNewSnapshotBlock(b *ledger.SnapshotBlock) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) sendNewAccountBlock(b *ledger.AccountBlock) error {
+	panic("implement me")
+}
+
+func (mp *mockPeer) info() PeerInfo {
+	panic("implement me")
 }
 
 func TestPeerSet_Add(t *testing.T) {
 	var m = newPeerSet()
-	var p *peer
-	// should have error
-	if m.add(p) == nil {
+	var p = newMockPeer(vnode.RandomNodeID(), 1)
+
+	// add first time
+	if m.add(p) != nil {
 		t.Fail()
 	}
 
-	p = mockPeer()
-	if m.add(p) != nil {
+	// add repeatedly
+	if m.add(p) == nil {
 		t.Fail()
 	}
 }
 
 func TestPeerSet_Del(t *testing.T) {
 	var m = newPeerSet()
-	var p = mockPeer()
+	var p = newMockPeer(vnode.RandomNodeID(), 1)
 
 	// should have no error
 	if m.add(p) != nil {
 		t.Fail()
 	}
 
-	m.remove(p.ID())
+	p2, err := m.remove(p.ID())
+	if err != nil {
+		t.Fail()
+	}
 
-	var p2 Peer
+	if p != p2 {
+		t.Fail()
+	}
+
 	if p2 = m.get(p.ID()); p2 != nil {
 		t.Fail()
 	}
 }
 
-type heights []uint64
-
-func (h heights) Len() int {
-	return len(h)
-}
-
-func (h heights) Less(i, j int) bool {
-	return h[i] < h[j]
-}
-
-func (h heights) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
 func TestPeerSet_SyncPeer(t *testing.T) {
-	if peerMap.syncPeer() != nil {
+	var m = newPeerSet()
+	var p Peer
+	var err error
+
+	if m.syncPeer() != nil {
 		t.Fail()
 	}
 
-	//for i := 0; i < 10; i++ {
-	//	p := mockPeer()
-	//	peerMap.Add(p)
-	//	fmt.Println(p.Height())
-	//}
-	//
-	//fmt.Println("mid", peerMap.syncPeer().Height())
-
-}
-
-func TestPeerSet_BestPeer(t *testing.T) {
-	var m = newPeerSet()
-	if m.syncPeer() != nil {
+	if m.bestPeer() != nil {
 		t.Fail()
+	}
+
+	for i := 0; i < 2; i++ {
+		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		if err = m.add(p); err != nil {
+			t.Errorf("failed to add peer: %v", err)
+		}
+	}
+
+	// only two peers
+	if p = m.syncPeer(); p.height() != 1 {
+		t.Errorf("wrong sync peer height: %d", p.height())
+	}
+
+	// reset
+	m = newPeerSet()
+
+	const total = 10
+	for i := 0; i < total; i++ {
+		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		if m.add(p) != nil {
+			t.Fail()
+		}
+	}
+
+	// the 1/3 peer
+	if p = m.syncPeer(); p.height() != 6 {
+		t.Errorf("wrong sync peer height: %d", p.height())
+	}
+	if p = m.bestPeer(); p.height() != total-1 {
+		t.Errorf("wrong best peer height: %d", p.height())
 	}
 }
 
 func TestPeerSet_Pick(t *testing.T) {
 	var m = newPeerSet()
-	if m.bestPeer() != nil {
-		t.Fail()
+	var p Peer
+
+	const total = 10
+	for i := 0; i < total; i++ {
+		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		if m.add(p) != nil {
+			t.Fail()
+		}
 	}
 
-	var hs heights
+	const target = total / 2
 
-	for i := 0; i < 10; i++ {
-		p2 := mockPeer()
-		m.add(p2)
-		hs = append(hs, p2.height())
+	ps := m.pick(target)
+	if len(ps) != total/2 {
+		t.Errorf("wrong peer number: %d", len(ps))
 	}
-
-	sort.Sort(hs)
-
-	height := hs[len(hs)-1]
-	if ps := m.pick(height); len(ps) != 1 {
-		t.Fail()
-	}
-
-	mid := len(hs) / 2
-	height = hs[mid]
-	if ps := m.pick(height); len(ps) != len(hs)-mid {
-		t.Fail()
+	for _, p = range ps {
+		if p.height() < target {
+			t.Errorf("wrong peer height: %d", p.height())
+		}
 	}
 }
 
@@ -126,4 +258,16 @@ func ExamplePeerSet_Get() {
 	// true
 	// true
 	// false
+}
+
+func ExamplePeersSort() {
+	var ps peers
+	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 1))
+	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 2))
+	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 3))
+
+	sort.Sort(ps)
+	fmt.Println(ps[0].height())
+	// Output:
+	// 3
 }

@@ -3,13 +3,10 @@ package net
 import (
 	"testing"
 
-	"github.com/vitelabs/go-vite/p2p"
-
-	"time"
-
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
+/*
 func TestFilter_Hold(t *testing.T) {
 	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
 	if e != nil {
@@ -134,21 +131,60 @@ func TestFilter_clean(t *testing.T) {
 	}
 }
 
+*/
+
 func TestPolicy_AccountTargets(t *testing.T) {
-	peers := newPeerSet()
+	m := newPeerSet()
 	f := &fp{
-		peers: peers,
+		peers: m,
 	}
 
-	if f.account(0) != nil {
-		t.Fail()
+	var ret Peer
+
+	// no peers
+	if ret = f.account(0); ret != nil {
+		t.Error("peer should be nil")
+	}
+
+	// add a peer, only one peer
+	err := m.add(newMockPeer(vnode.RandomNodeID(), 1))
+	if err != nil {
+		t.Errorf("failed to add peer: %v", err)
+	}
+
+	if ret = f.account(0); ret == nil {
+		t.Error("failed to get account target")
+	}
+
+	// add a peer, two peers
+	err = m.add(newMockPeer(vnode.RandomNodeID(), 2))
+	if err != nil {
+		t.Errorf("failed to add peer: %v", err)
+	}
+
+	if ret = f.account(0); ret == nil {
+		t.Error("failed to get account target")
+	}
+
+	// ten peers [1 ... 10]
+	for i := 3; i < 11; i++ {
+		err = m.add(newMockPeer(vnode.RandomNodeID(), uint64(i)))
+		if err != nil {
+			t.Errorf("failed to add peer: %v", err)
+		}
+	}
+
+	for i := 0; i < 10000; i++ {
+		if ret = f.account(0); ret == nil {
+			t.Error("failed to get account target")
+		}
 	}
 }
 
 func TestPolicy_SnapshotTarget(t *testing.T) {
-	peers := newPeerSet()
+	m := newPeerSet()
 	f := &fp{
-		peers: peers,
+		peers: m,
 	}
 
 	if f.snapshot(0) != nil {
@@ -157,7 +193,7 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 
 	const total = 10
 	for i := uint64(1); i < total; i++ {
-		err := peers.add(&peer{
+		err := m.add(&peer{
 			//id:     strconv.FormatUint(i, 10),
 			//height: i,
 		})
