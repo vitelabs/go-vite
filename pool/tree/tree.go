@@ -57,5 +57,6 @@ type Tree interface {
 	SwitchMainTo(b Branch) error
 	SwitchMainToEmpty() error
 	FindForkPointFromMain(target Branch) (Knot, Knot, error)
+	SetKnotRemoveFn(fn func(k Knot))
 	Init(name string, root Branch) error
 }
