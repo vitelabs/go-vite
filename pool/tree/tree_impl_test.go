@@ -31,7 +31,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 		b2 := tr.ForkBranch(main, height, hash)
 		for i := 0; i < 3; i++ {
 			h1, h2 := b2.HeadHH()
-			b2.AddHead(newMockKnotByHH(h1, h2, flag))
+			tr.AddHead(b2, newMockKnotByHH(h1, h2, flag))
 		}
 	}
 
@@ -51,7 +51,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 		b3 = tr.ForkBranch(main, height, hash)
 		for i := 0; i < 3; i++ {
 			h1, h2 := b3.HeadHH()
-			b3.AddHead(newMockKnotByHH(h1, h2, flag))
+			tr.AddHead(b3, newMockKnotByHH(h1, h2, flag))
 		}
 	}
 	{
@@ -59,7 +59,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 		main := tr.Main()
 		for i := 0; i < 3; i++ {
 			h1, h2 := main.HeadHH()
-			main.AddHead(newMockKnotByHH(h1, h2, flag))
+			tr.AddHead(main, newMockKnotByHH(h1, h2, flag))
 		}
 	}
 
@@ -80,7 +80,18 @@ func TestTree_SwitchMainTo(t *testing.T) {
 		t.Log(string(byt))
 	}
 
-	err = tr.check()
+	err = tr.SwitchMainToEmpty()
 	assert.NilError(t, err)
 
+	{ // print tree
+		msg := PrintTree(tr)
+		byt, _ := json.Marshal(msg)
+		t.Log(string(byt))
+	}
+
+	err = CheckTree(tr)
+	assert.NilError(t, err)
+
+	err = CheckTreeSize(tr)
+	assert.NilError(t, err)
 }
