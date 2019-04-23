@@ -55,6 +55,12 @@ func (self *branchBase) getHeightBlock(height uint64) Knot {
 	}
 }
 
+func (self *branchBase) storeSize() uint64 {
+	self.heightMu.RLock()
+	defer self.heightMu.RUnlock()
+	return uint64(len(self.heightBlocks))
+}
+
 func (self *branchBase) updateHeightBlock(height uint64, b Knot) {
 	if b != nil {
 		self.heightBlocks[height] = b

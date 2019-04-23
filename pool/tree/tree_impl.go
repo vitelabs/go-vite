@@ -21,6 +21,12 @@ type tree struct {
 	idIdx uint32
 	name  string
 	log   log15.Logger
+
+	knotRemoveFn func(k Knot)
+}
+
+func (self *tree) SetKnotRemoveFn(fn func(k Knot)) {
+	self.knotRemoveFn = fn
 }
 
 func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
@@ -41,6 +47,12 @@ func (self *tree) FindBranch(height uint64, hash types.Hash) Branch {
 	}
 	return nil
 }
+func (self *tree) knotRemove(k Knot) {
+	if self.knotRemoveFn != nil {
+		self.knotRemoveFn(k)
+	}
+}
+
 func NewTree() *tree {
 	return &tree{branchList: make(map[string]*branch), log: log15.New("module", "pool/tree")}
 }
@@ -266,6 +278,7 @@ func (self *tree) removeBranch(b *branch) error {
 	if b.isLeafBranch() {
 		root.removeChild(b)
 		delete(self.branchList, id)
+		b.destroy(self)
 		return nil
 	}
 

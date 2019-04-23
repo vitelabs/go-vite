@@ -98,10 +98,14 @@ func (self *branch) prune(t *tree) {
 	removed := false
 	for i := self.tailHeight + 1; i <= self.headHeight; i++ {
 		selfB := self.getKnot(i, false)
-		block := self.root.GetKnot(i, true)
+		block, b := self.root.GetKnotAndBranch(i)
 		if block != nil && block.Hash() == selfB.Hash() {
 			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.Id(), block.Height(), block.Hash())
 			self.RemoveTail(block)
+			if b != nil && b.Type() == Disk {
+				// notify tree
+				t.knotRemove(block)
+			}
 			removed = true
 		} else {
 			break
@@ -377,6 +381,20 @@ func (self branch) isLeafBranch() bool {
 		return false
 	}
 	return true
+}
+func (self *branch) destroy(t *tree) {
+	for i := self.headHeight; i > self.tailHeight; i-- {
+		k := self.getHeightBlock(i)
+		self.removeHead(k)
+		t.knotRemove(k)
+	}
+
+	if self.Size() != 0 {
+		panic(fmt.Sprintf("size[%d] must be zero.", self.Size()))
+	}
+	if self.storeSize() != 0 {
+		panic(fmt.Sprintf("store size[%d] must be zero.", self.storeSize()))
+	}
 }
 
 func newBranch(base *branchBase, root Branch) *branch {

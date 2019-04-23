@@ -162,6 +162,7 @@ func (self *BCPool) initPool() {
 	diskChain := &branchChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
 
 	t := tree.NewTree()
+	t.SetKnotRemoveFn(self.removeFromTree)
 	chainpool := &chainPool{
 		poolId:    self.Id,
 		diskChain: diskChain,
@@ -175,6 +176,10 @@ func (self *BCPool) initPool() {
 	}
 	self.chainpool = chainpool
 	self.blockpool = blockpool
+}
+
+func (self *BCPool) removeFromTree(k tree.Knot) {
+	self.blockpool.delHashFromCompound(k.Hash())
 }
 
 func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
@@ -329,6 +334,13 @@ func (self *blockPool) delFromCompound(ws map[uint64]commonBlock) {
 		delete(self.compoundBlocks, b.Hash())
 	}
 }
+
+func (self *blockPool) delHashFromCompound(hash types.Hash) {
+	self.pendingMu.Lock()
+	defer self.pendingMu.Unlock()
+	delete(self.compoundBlocks, hash)
+}
+
 func (self *blockPool) reInit(max uint64) {
 	self.pendingMu.Lock()
 	defer self.pendingMu.Unlock()

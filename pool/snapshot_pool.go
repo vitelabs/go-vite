@@ -327,6 +327,7 @@ func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snaps
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
 		current.RemoveTail(block)
+		self.removeFromTree(block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
