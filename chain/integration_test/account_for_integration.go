@@ -1,4 +1,4 @@
-package test_tools
+package integration
 
 import (
 	rand2 "crypto/rand"
