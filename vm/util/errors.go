@@ -27,6 +27,7 @@ var (
 
 	ErrAddressCollision = VMError{"contract address collision", false}
 	ErrIdCollision      = VMError{"id collision", false}
+	ErrRewardNotDue     = VMError{"reward not due", false}
 
 	ErrExecutionReverted = VMError{"execution reverted", false}
 	ErrDepth             = VMError{"max call depth exceeded", false}
