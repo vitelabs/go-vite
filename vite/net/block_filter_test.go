@@ -96,3 +96,52 @@ func TestFilter_LookAndRecord(t *testing.T) {
 
 	t.Logf("failed %d, count: %d", failed, count)
 }
+
+func BenchmarkBlockFilter_has(b *testing.B) {
+	// 60ns
+	f := newBlockFilter(filterCap)
+
+	var hash types.Hash
+	_, _ = rand.Read(hash[:])
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			f.has(hash[:])
+		}
+	})
+}
+
+func BenchmarkBlockFilter_record(b *testing.B) {
+	// 500ns
+	f := newBlockFilter(filterCap)
+
+	b.RunParallel(func(pb *testing.PB) {
+		var hash types.Hash
+
+		for pb.Next() {
+			_, _ = rand.Read(hash[:])
+			f.record(hash[:])
+		}
+	})
+}
+
+func BenchmarkBlockFilter_lookAndRecord(b *testing.B) {
+	// 700ns
+	f := newBlockFilter(filterCap)
+
+	b.RunParallel(func(pb *testing.PB) {
+		var hash types.Hash
+		for pb.Next() {
+			_, _ = rand.Read(hash[:])
+			f.lookAndRecord(hash[:])
+		}
+	})
+}
+
+// 1500ns
+func BenchmarkCrypto(b *testing.B) {
+	var hash types.Hash
+	for i := 0; i < b.N; i++ {
+		_, _ = rand.Read(hash[:])
+	}
+}

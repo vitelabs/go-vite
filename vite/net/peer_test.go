@@ -5,6 +5,7 @@ import (
 	net2 "net"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -15,12 +16,14 @@ import (
 type mockPeer struct {
 	id      vnode.NodeID
 	_height uint64
+	peerMap map[vnode.NodeID]struct{}
 }
 
 func newMockPeer(id vnode.NodeID, height uint64) *mockPeer {
 	return &mockPeer{
 		id:      id,
 		_height: height,
+		peerMap: make(map[vnode.NodeID]struct{}),
 	}
 }
 
@@ -82,11 +85,36 @@ func (mp *mockPeer) setHead(head types.Hash, height uint64) {
 }
 
 func (mp *mockPeer) setPeers(ps []peerConn, patch bool) {
-	panic("implement me")
+	var id vnode.NodeID
+	var err error
+
+	if patch {
+		mp.peerMap = make(map[vnode.NodeID]struct{})
+	}
+
+	for _, c := range ps {
+		if c.add {
+			id, err = vnode.Bytes2NodeID(c.id)
+			if err != nil {
+				continue
+			}
+			mp.peerMap[id] = struct{}{}
+		} else {
+			delete(mp.peerMap, id)
+		}
+	}
 }
 
 func (mp *mockPeer) peers() map[vnode.NodeID]struct{} {
-	panic("implement me")
+	//m := make(map[vnode.NodeID]struct{})
+	//
+	//mp.peerMap.Range(func(key, value interface{}) bool {
+	//	id := key.(vnode.NodeID)
+	//	m[id] = struct{}{}
+	//	return true
+	//})
+
+	return mp.peerMap
 }
 
 func (mp *mockPeer) seeBlock(hash types.Hash) bool {
@@ -118,14 +146,6 @@ func (mp *mockPeer) sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.Msg
 }
 
 func (mp *mockPeer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error {
-	panic("implement me")
-}
-
-func (mp *mockPeer) sendNewSnapshotBlock(b *ledger.SnapshotBlock) error {
-	panic("implement me")
-}
-
-func (mp *mockPeer) sendNewAccountBlock(b *ledger.AccountBlock) error {
 	panic("implement me")
 }
 
@@ -270,4 +290,39 @@ func ExamplePeersSort() {
 	fmt.Println(ps[0].height())
 	// Output:
 	// 3
+}
+
+func TestPeer_peers(t *testing.T) {
+	var p = &peer{
+		m: make(map[peerId]struct{}),
+	}
+
+	go func() {
+		patch := false
+		const batch = 10
+		for {
+			ps := make([]peerConn, batch)
+			for i := range ps {
+				ps[i] = peerConn{
+					id:  vnode.RandomNodeID().Bytes(),
+					add: true,
+				}
+			}
+			p.setPeers(ps, patch)
+			patch = !patch
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	go func() {
+		for {
+			mp := p.peers()
+			for k := range mp {
+				delete(mp, k)
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+	}()
+
+	time.Sleep(5 * time.Second)
 }

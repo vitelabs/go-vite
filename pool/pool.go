@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -43,8 +42,6 @@ type SnapshotProducerWriter interface {
 }
 
 type Reader interface {
-	// received block in current? (key is requestHash)
-	ExistInPool(address types.Address, requestHash types.Hash) bool
 }
 type Debug interface {
 	Info(addr *types.Address) string
@@ -70,7 +67,6 @@ type BlockPool interface {
 		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
 		accountV verifier.Verifier)
-	Details(addr *types.Address, hash types.Hash) string
 }
 
 type commonBlock interface {
@@ -242,12 +238,13 @@ func (self *pool) Info(addr *types.Address) string {
 		cp := self.pendingSc.chainpool
 
 		freeSize := len(bp.freeBlocks)
-		compoundSize := len(bp.compoundBlocks)
+		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
 		currentLen := cp.tree.Main().Size()
+		treeSize := cp.tree.Size()
 		chainSize := cp.size()
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, currentLen, chainSize)
+		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
+			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	} else {
 		ac := self.selfPendingAc(*addr)
 		if ac == nil {
@@ -257,56 +254,39 @@ func (self *pool) Info(addr *types.Address) string {
 		cp := ac.chainpool
 
 		freeSize := len(bp.freeBlocks)
-		compoundSize := len(bp.compoundBlocks)
+		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
 		snippetSize := len(cp.snippetChains)
+		treeSize := cp.tree.Size()
 		currentLen := cp.tree.Main().Size()
 		chainSize := cp.size()
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, currentLen, chainSize)
+		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
+			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
 }
 func (self *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
-	b := self.selfPendingAc(addr).blockpool.get(hash)
+	b, s := self.selfPendingAc(addr).blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*accountPoolBlock)
 		return sb.block
+	}
+	if s != nil {
+		return *s
 	}
 	return nil
 }
 
 func (self *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
-	b := self.pendingSc.blockpool.get(hash)
+	b, s := self.pendingSc.blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*snapshotPoolBlock)
 		return sb.block
 	}
+	if s != nil {
+		return *s
+	}
 	return nil
 }
 
-func (self *pool) Details(addr *types.Address, hash types.Hash) string {
-	if addr == nil {
-		bp := self.pendingSc.blockpool
-
-		b := bp.get(hash)
-		if b == nil {
-			return "not exist"
-		}
-		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
-		return string(bytes)
-	} else {
-		ac := self.selfPendingAc(*addr)
-		if ac == nil {
-			return "pool not exist."
-		}
-		bp := ac.blockpool
-		b := bp.get(hash)
-		if b == nil {
-			return "not exist"
-		}
-		bytes, _ := json.Marshal(b.(*snapshotPoolBlock).block)
-		return string(bytes)
-	}
-}
 func (self *pool) Start() {
 	self.log.Info("pool start.")
 	defer self.log.Info("pool started.")
@@ -316,10 +296,7 @@ func (self *pool) Start() {
 	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
 
 	self.pendingSc.Start()
-	self.log.Info("pool account parallel.", "parallel", ACCOUNT_PARALLEL)
-	//for i := 0; i < ACCOUNT_PARALLEL; i++ {
-	//	common.Go(self.loopTryInsert)
-	//}
+
 	self.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	self.newAccBlockCond.Start(time.Millisecond * 40)
 	self.worker.closed = self.closed
@@ -328,9 +305,6 @@ func (self *pool) Start() {
 		defer self.wg.Done()
 		self.worker.work()
 	})
-	//common.Go(self.loopCompact)
-	//common.Go(self.loopBroadcastAndDel)
-	//common.Go(self.loopQueue)
 }
 func (self *pool) Stop() {
 	self.log.Info("pool stop.")
@@ -412,7 +386,6 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		return
 	}
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
-	ac.AddReceivedBlock(block)
 
 	self.newAccBlockCond.Broadcast()
 	self.worker.bus.newABlockEvent()
@@ -474,11 +447,6 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 //	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
 //	return nil
 //}
-
-func (self *pool) ExistInPool(address types.Address, requestHash types.Hash) bool {
-	return false
-	return self.selfPendingAc(address).ExistInCurrent(requestHash)
-}
 
 func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
@@ -923,7 +891,7 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 		if ac.findInPool(v.hash, v.accHeight) {
 			continue
 		}
-		fc := ac.findInTreeDiskTmp(v.hash, v.accHeight, true, v.snapshotHeight)
+		fc := ac.findInTreeDisk(v.hash, v.accHeight, true)
 		if fc == nil {
 			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, *v.chain, 1, v.snapshotHeight, *v.snapshotHash)
 		}
@@ -1016,10 +984,6 @@ func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pen
 		self.log.Warn("new version happened.")
 		return
 	}
-	//if self.pendingSc.CurrentChain().tailHash != pending.sPrevHash {
-	//	self.log.Warn("pending prevHash not match")
-	//	return
-	//}
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range pending.addrM {

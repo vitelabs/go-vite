@@ -264,6 +264,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 		self.loopFetchForSnippets()
 		self.loopFetchForSnapshot()
 	}
+	self.checkCurrent()
 	return sum
 }
 
@@ -309,7 +310,6 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 				return nil, item, err
 			}
 			self.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d success.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-			self.blockpool.afterInsert(block)
 			if len(accBlocks) > 0 {
 				return accBlocks, item, err
 			}
@@ -325,7 +325,7 @@ func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snaps
 	hash := block.Hash()
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
-		current.RemoveTail(block)
+		self.chainpool.tree.RemoveTail(current, block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
