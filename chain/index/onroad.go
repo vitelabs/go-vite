@@ -111,6 +111,7 @@ func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, b
 	}
 }
 
+// fixme TEST
 func (iDB *IndexDB) HasOnRoad(addr types.Address) (bool, error) {
 	onRoadMu.RLock()
 	defer onRoadMu.RUnlock()
@@ -119,6 +120,7 @@ func (iDB *IndexDB) HasOnRoad(addr types.Address) (bool, error) {
 	return ok, nil
 }
 
+// fixme TEST
 func (iDB *IndexDB) GetOnRoad(addr types.Address, pageNum, num int) ([]types.Hash, error) {
 	onRoadMu.RLock()
 	defer onRoadMu.RUnlock()

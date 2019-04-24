@@ -1,6 +1,8 @@
 package chain_index
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -158,12 +160,12 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 }
 
 func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, error) {
-
-	value, err := iDB.store.Get(chain_utils.CreateReceiveKey(sendBlockHash))
+	value, err := iDB.getValue(chain_utils.CreateReceiveKey(sendBlockHash))
 	if err != nil {
 		return nil, err
 	}
-	if len(value) <= 0 {
+
+	if len(value) != types.HashSize {
 		return nil, nil
 	}
 
@@ -175,7 +177,18 @@ func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, e
 }
 
 func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
-	return iDB.store.Has(chain_utils.CreateReceiveKey(sendBlockHash))
+	value, err := iDB.getValue(chain_utils.CreateReceiveKey(sendBlockHash))
+	if err != nil {
+		return false, err
+	}
+	if len(value) <= 0 {
+		return false, errors.New(fmt.Sprintf("no send block hash, %s", sendBlockHash))
+	}
+
+	if len(value) != types.HashSize {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, uint64, error) {
