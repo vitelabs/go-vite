@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -100,5 +102,11 @@ func main() {
 
 	for k, v := range rates {
 		fmt.Printf("%s:%d", k, v)
+	}
+
+	stime, _ := cs.SBPReader().GetPeriodTimeIndex().Index2Time(index)
+	blocks, err := c.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: proofBlock.Hash, Height: proofBlock.Height}, &stime, nil)
+	for _, v := range blocks {
+		fmt.Printf("%s-%d-%s-%s-%s\n", v.Producer(), v.Height, v.Hash, v.PrevHash, v.Timestamp)
 	}
 }
