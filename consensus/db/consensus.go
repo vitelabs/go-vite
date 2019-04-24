@@ -104,6 +104,12 @@ func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]types.Addre
 	return []types.Address(result), nil
 }
 
+func (self *ConsensusDB) DeleteElectionResultByHash(hash types.Hash) error {
+	key := CreateElectionResultKey(hash)
+	err := self.db.Delete(key, nil)
+	return err
+}
+
 func (self *ConsensusDB) StoreElectionResultByHash(hash types.Hash, addrArr []types.Address) error {
 	data := AddrArr(addrArr).Bytes()
 	key := CreateElectionResultKey(hash)
