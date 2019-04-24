@@ -92,6 +92,8 @@ type Chain interface {
 	// high to low, contains the block that has the blockHash
 	GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
+	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
@@ -177,6 +179,8 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address types.Address) (bool, error)
 
+	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)
+
 	// ===== Query state ======
 	// get Balance
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
@@ -230,13 +234,16 @@ type Chain interface {
 	GetSyncCache() interfaces.SyncCache
 
 	// ====== OnRoad ======
-	HasOnRoadBlocks(address types.Address) (bool, error)
+	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 
-	GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error)
-
-	DeleteOnRoad(sendBlockHash types.Hash) error
+	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
+
+	// FIXME
+	HasOnRoadBlocks(addr types.Address) (bool, error)
+	// FIXME
+	GetOnRoadBlocksHashList(addr types.Address, pageNum, num int) ([]types.Hash, error)
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)

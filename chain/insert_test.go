@@ -196,7 +196,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 		countInserted += insertCount
 
 		// snapshot
-		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, true)
+		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
 		if err != nil {
 			panic(err)
 		}
@@ -349,17 +349,17 @@ func createVmLogList() ledger.VmLogList {
 }
 
 func createKeyValue(latestHeight uint64) map[string][]byte {
-	num := rand.Intn(100)
+	//num := rand.Intn(100)
 	var kv map[string][]byte
-	if num <= 50 {
-		kv = map[string][]byte{
-			string(chain_utils.Uint64ToBytes(latestHeight + 1)): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
-		}
-	} else {
-		kv = map[string][]byte{
-			string(chain_utils.Uint64ToBytes(latestHeight)): nil,
-		}
+	//if num <= 50 {
+	kv = map[string][]byte{
+		string(chain_utils.Uint64ToBytes(latestHeight + 1)): chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano())),
 	}
+	//} else {
+	//	kv = map[string][]byte{
+	//		string(chain_utils.Uint64ToBytes(latestHeight)): nil,
+	//	}
+	//}
 
 	return kv
 }

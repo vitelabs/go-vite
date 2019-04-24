@@ -23,28 +23,9 @@ type Account struct {
 
 	chainInstance chain.Chain
 
-	//InitBalance *big.Int // encode
-
-	//contractMetaMu sync.RWMutex
-	//ContractMeta   *ledger.ContractMeta // encode
-
-	//Code []byte // encode
-
 	OnRoadBlocks map[types.Hash]*ledger.AccountBlock // encode
 	onRoadMu     sync.RWMutex
 
-	//
-	//BlocksMap         map[types.Hash]*ledger.AccountBlock    // encode
-	//SendBlocksMap     map[types.Hash]*ledger.AccountBlock    // encode
-	//ReceiveBlocksMap  map[types.Hash]*ledger.AccountBlock    // encode
-	//ConfirmedBlockMap map[types.Hash]map[types.Hash]struct{} // encode
-	//UnconfirmedBlocks map[types.Hash]struct{}                // encode
-	//
-	//BalanceMap map[types.Hash]*big.Int          // encode
-	//KvSetMap   map[types.Hash]map[string][]byte // encode
-	//
-	//LogListMap map[types.Hash]ledger.VmLogList // encode
-	//
 	LatestBlock *ledger.AccountBlock // encode
 }
 
@@ -56,19 +37,8 @@ func NewAccount(chainInstance chain.Chain, pubKey ed25519.PublicKey, privateKey 
 		PrivateKey:    privateKey,
 		PublicKey:     pubKey,
 		chainInstance: chainInstance,
-		//InitBalance:   big.NewInt(10000000),
-		//
+
 		OnRoadBlocks: make(map[types.Hash]*ledger.AccountBlock),
-		//BlocksMap:         make(map[types.Hash]*ledger.AccountBlock),
-		//SendBlocksMap:     make(map[types.Hash]*ledger.AccountBlock),
-		//ReceiveBlocksMap:  make(map[types.Hash]*ledger.AccountBlock),
-		//ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
-		//
-		//BalanceMap: make(map[types.Hash]*big.Int),
-		//LogListMap: make(map[types.Hash]ledger.VmLogList),
-		//
-		//KvSetMap:          make(map[types.Hash]map[string][]byte),
-		//UnconfirmedBlocks: make(map[types.Hash]struct{}),
 	}
 
 	latestBlock, err := chainInstance.GetLatestAccountBlock(addr)
@@ -110,11 +80,13 @@ func (acc *Account) CreateSendBlock(toAccount *Account) (*vm_db.VmAccountBlock, 
 		return nil, err
 	}
 
+	// set value
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, rand.Uint64())
 	if err := vmDb.SetValue([]byte(key), []byte(key)); err != nil {
 		return nil, err
 	}
+
 	// finish
 	vmDb.Finish()
 
