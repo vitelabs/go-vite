@@ -41,10 +41,15 @@ var (
 	SolidityPPContractType = []byte{1}
 	contractTypeSize       = 1
 	confirmTimeSize        = 1
+	quotaRatioSize         = 1
 )
 
-func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, gid types.Gid) []byte {
-	return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, bytecode)
+func IsValidQuotaRatio(quotaRatio uint8) bool {
+	return quotaRatio >= 10 && quotaRatio <= 100
+}
+
+func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, quotaRatio uint8, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -53,7 +58,7 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 }
 
 func GetCodeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize+contractTypeSize+confirmTimeSize:]
+	return data[types.GidSize+contractTypeSize+confirmTimeSize+quotaRatioSize:]
 }
 func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
@@ -66,6 +71,9 @@ func IsExistContractType(contractType []byte) bool {
 }
 func GetConfirmTimeFromCreateContractData(data []byte) uint8 {
 	return uint8(data[types.GidSize+contractTypeSize])
+}
+func GetQuotaRatioFromCreateContractData(data []byte) uint8 {
+	return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize])
 }
 
 func PackContractCode(contractType, code []byte) []byte {

@@ -61,6 +61,21 @@ var (
 		Code:    -35007,
 	}
 
+	ErrVmContractNotExists = JsonRpc2Error{
+		Message: util.ErrContractNotExists.Error(),
+		Code:    -35008,
+	}
+
+	ErrInvalidConfirmTime = JsonRpc2Error{
+		Message: util.ErrInvalidConfirmTime.Error(),
+		Code:    -35009,
+	}
+
+	ErrVmInvalidQuotaRatio = JsonRpc2Error{
+		Message: util.ErrInvalidQuotaRatio.Error(),
+		Code:    -35010,
+	}
+
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
 		Message: verifier.ErrVerifyAccountTypeNotSure.Error(),
@@ -106,6 +121,9 @@ func init() {
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
 	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
+	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
