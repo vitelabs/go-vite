@@ -137,10 +137,16 @@ func (iDB *IndexDB) GetOnRoad(addr types.Address, pageNum, num int) ([]types.Has
 		return nil, nil
 	}
 	hashList := make([]types.Hash, 0, num)
+
+	startCount := pageNum * num
+	index := 0
 	for fromBlockHash := range fromBlockHashSet {
-		hashList = append(hashList, fromBlockHash)
-		if len(hashList) >= num {
-			break
+		index++
+		if index > startCount {
+			hashList = append(hashList, fromBlockHash)
+			if len(hashList) >= num {
+				break
+			}
 		}
 	}
 	return hashList, nil
