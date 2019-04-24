@@ -4,9 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/db"
 )
 
