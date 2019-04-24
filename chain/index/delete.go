@@ -93,7 +93,7 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 
 			} else {
 				// insert onRoad
-				iDB.insertOnRoad(batch, block.AccountAddress, block.FromBlockHash)
+				iDB.insertOnRoad(batch, block.AccountAddress, block)
 
 				// insert unreceived placeholder. avoid querying all data when no receive
 				iDB.insertReceiveInfo(batch, block.FromBlockHash, unreceivedFlag)
