@@ -92,6 +92,8 @@ type Chain interface {
 	// high to low, contains the block that has the blockHash
 	GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
+	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth

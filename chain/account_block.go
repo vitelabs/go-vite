@@ -62,41 +62,45 @@ func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*led
 	return block, nil
 }
 
-func (c *chain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
-	var accountBlock *ledger.AccountBlock
+func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 
 	// cache
 	if block := c.cache.GetAccountBlockByHash(blockHash); block != nil {
-		if block.IsReceiveBlock() {
-			return c.rsBlockToSBlock(block, blockHash), nil
-		}
-		accountBlock = block
-	} else {
-		var err error
-		// query location
-		location, err := c.indexDB.GetAccountBlockLocationByHash(&blockHash)
-		if err != nil {
-			cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, hash is %s. Error: %s",
-				blockHash, err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
-			return nil, err
-		}
-
-		if location == nil {
-			return nil, nil
-		}
-
-		// query block
-		accountBlock, err = c.blockDB.GetAccountBlock(location)
-
-		if err != nil {
-			cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, hash is %s, location is %+v. Error: %s",
-				blockHash, location, err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetAccountBlockByHash")
-			return nil, cErr
-		}
+		return block, nil
 	}
 
+	// query location
+	location, err := c.indexDB.GetAccountBlockLocationByHash(&blockHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, hash is %s. Error: %s",
+			blockHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetCompleteBlockByHash")
+		return nil, cErr
+	}
+
+	if location == nil {
+		return nil, nil
+	}
+
+	// query block
+	block, err := c.blockDB.GetAccountBlock(location)
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, hash is %s, location is %+v. Error: %s",
+			blockHash, location, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetCompleteBlockByHash")
+		return nil, cErr
+	}
+
+	return block, nil
+}
+
+func (c *chain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+
+	accountBlock, err := c.GetCompleteBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
 	if accountBlock != nil && accountBlock.IsReceiveBlock() {
 		return c.rsBlockToSBlock(accountBlock, blockHash), nil
 	}
