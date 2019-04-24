@@ -106,9 +106,13 @@ func mock(cfg Config) Net {
 		syncer: syncer,
 		fetcher: &fetcher{
 			filter:   newFilter(),
-			policy:   &fp{peers},
+			st:       0,
 			receiver: receiver,
-			log:      netLog.New("module", "fetcher"),
+			policy: &fetchTarget{peers, func() bool {
+				return true
+			}},
+			log:  netLog.New("module", "fetcher"),
+			term: nil,
 		},
 		broadcaster: &broadcaster{
 			peers:     peers,

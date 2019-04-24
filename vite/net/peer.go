@@ -363,7 +363,7 @@ func (m *peerSet) pick(height uint64) (l []Peer) {
 	return
 }
 
-// peers return all peers unsorted.
+// peers return all peers sort from low to high
 func (m *peerSet) sortPeers() (l peers) {
 	m.prw.RLock()
 

@@ -21,7 +21,7 @@ func TestSnappy_Encode(t *testing.T) {
 				panic(err)
 			}
 			buf2 := snappy.Encode(nil, buf)
-			t.Log(n, len(buf2), len(buf2)/n)
+			t.Log(n, len(buf2), float64(len(buf2))/float64(n))
 		}
 
 		n += 10
