@@ -27,10 +27,22 @@
 			"revisionTime": "2018-02-21T22:46:20Z"
 		},
 		{
+			"checksumSHA1": "vwNjR8772Pqs8z9ZdPFoatNI9Kg=",
+			"path": "github.com/deckarep/golang-set",
+			"revision": "699df6a3acf6867538e50931511e9dc403da108a",
+			"revisionTime": "2018-09-27T02:58:44Z"
+		},
+		{
 			"checksumSHA1": "Ad8LPSCP9HctFrmskh+S5HpHXcs=",
 			"path": "github.com/docker/docker/pkg/reexec",
 			"revision": "d9d9eccdc862594bbc3ef4e041a01c0623d5f510",
 			"revisionTime": "2019-04-10T06:32:27Z"
+		},
+		{
+			"checksumSHA1": "wgMR/DdK0gLwKfto03wDbAo2TQw=",
+			"path": "github.com/elastic/gosigar",
+			"revision": "ae3ea775685222c6cbaf79464d8a8acba5dc400f",
+			"revisionTime": "2019-04-24T11:54:17Z"
 		},
 		{
 			"checksumSHA1": "KSRJC/V4LkGTakqzakXY/Ces0sw=",
@@ -532,6 +544,12 @@
 			"path": "golang.org/x/text/transform",
 			"revision": "0605a8320aceb4207a5fb3521281e17ec2075476",
 			"revisionTime": "2018-07-08T16:53:44Z"
+		},
+		{
+			"checksumSHA1": "TM3Neoy1xRAKyZYMGzKc41sDFW4=",
+			"path": "gopkg.in/natefinch/lumberjack.v2",
+			"revision": "a96e63847dc3c67d17befa69c303767e2f84e54f",
+			"revisionTime": "2017-05-31T16:03:50Z"
 		},
 		{
 			"checksumSHA1": "4BwmmgQUhWtizsR2soXND0nqZ1I=",
