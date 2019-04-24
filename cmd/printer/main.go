@@ -101,10 +101,10 @@ func main() {
 	}
 
 	for k, v := range rates {
-		fmt.Printf("%s:%d", k, v)
+		fmt.Printf("%s:%d\n", k, v)
 	}
 
-	stime, _ := cs.SBPReader().GetPeriodTimeIndex().Index2Time(index)
+	stime, _ := cs.SBPReader().GetPeriodTimeIndex().Index2Time(index - 2)
 	blocks, err := c.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: proofBlock.Hash, Height: proofBlock.Height}, &stime, nil)
 	for _, v := range blocks {
 		fmt.Printf("%s-%d-%s-%s-%s\n", v.Producer(), v.Height, v.Hash, v.PrevHash, v.Timestamp)
