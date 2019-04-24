@@ -12,8 +12,6 @@ const (
 
 	OnRoadKeyPrefix = byte(5)
 
-	OnRoadReverseKeyPrefix = byte(6)
-
 	SnapshotBlockHashKeyPrefix = byte(7)
 
 	SnapshotBlockHeightKeyPrefix = byte(8)
@@ -21,10 +19,6 @@ const (
 	AccountAddressKeyPrefix = byte(9)
 
 	AccountIdKeyPrefix = byte(10)
-
-	LatestOnRoadIdKeyPrefix = byte(11)
-
-	IndexDbLatestLocationKeyPrefix = byte(12)
 )
 
 // state db

@@ -64,7 +64,7 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 		panic(err)
 	}
 
-	InsertSnapshotBlock(chainInstance, true)
+	//InsertSnapshotBlock(chainInstance, true)
 
 	accounts := MakeAccounts(chainInstance, accountNum)
 
@@ -83,12 +83,18 @@ func TestChain(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	chainInstance, accounts, snapshotBlockList := SetUp(20, 100, 3)
+	// test panic
+	//tempChain, accounts, snapshotBlockList := SetUp(20, 1, 3)
+	//TearDown(tempChain)
+	//testPanic(t, accounts, snapshotBlockList)
+
+	// test insert
+	chainInstance, accounts, snapshotBlockList := SetUp(2, 500, 10)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert and query
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), false)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), true)...)
 
 	// test all
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
@@ -98,8 +104,6 @@ func TestChain(t *testing.T) {
 
 	// test panic
 	TearDown(chainInstance)
-
-	testPanic(t, accounts, snapshotBlockList)
 
 }
 

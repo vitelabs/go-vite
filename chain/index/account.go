@@ -1,7 +1,7 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
+	"encoding/binary"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -10,8 +10,20 @@ import (
 	"sync/atomic"
 )
 
-func (iDB *IndexDB) HasAccount(addr *types.Address) (bool, error) {
-	return iDB.store.Has(chain_utils.CreateAccountAddressKey(addr))
+func (iDB *IndexDB) HasAccount(addr types.Address) (result bool, returnErr error) {
+
+	_, ok := iDB.accountCache.Get(addr)
+	if ok {
+		return ok, nil
+	} else {
+		defer func() {
+			if result {
+				iDB.accountCache.Add(addr, nil)
+			}
+		}()
+	}
+
+	return iDB.store.Has(chain_utils.CreateAccountAddressKey(&addr))
 }
 
 func (iDB *IndexDB) GetAccountId(addr *types.Address) (uint64, error) {
@@ -45,6 +57,23 @@ func (iDB *IndexDB) GetAccountAddress(accountId uint64) (*types.Address, error) 
 	return &addr, nil
 }
 
+func (iDB *IndexDB) IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool) {
+	iter := iDB.store.NewIterator(util.BytesPrefix([]byte{chain_utils.AccountIdKeyPrefix}))
+	defer iter.Release()
+
+	for iter.Next() {
+		accountId := binary.BigEndian.Uint64(iter.Key()[1:])
+		account, err := types.BytesToAddress(iter.Value())
+
+		if !iterateFunc(account, accountId, err) {
+			break
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
 func (iDB *IndexDB) createAccount(batch interfaces.Batch, addr *types.Address) uint64 {
 	newAccountId := atomic.AddUint64(&iDB.latestAccountId, 1)
 
@@ -69,18 +98,4 @@ func (iDB *IndexDB) queryLatestAccountId() (uint64, error) {
 	}
 
 	return latestAccountId, nil
-}
-
-func (iDB *IndexDB) queryLatestOnRoadId() (uint64, error) {
-	value, err := iDB.store.Get(chain_utils.CreateLatestOnRoadIdKey())
-	if err != nil {
-		if err == leveldb.ErrNotFound {
-			return 0, nil
-		}
-		return 0, err
-	}
-	if len(value) <= 0 {
-		return 0, nil
-	}
-	return chain_utils.BytesToUint64(value), nil
 }

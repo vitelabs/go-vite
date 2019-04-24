@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/rand"
 	"testing"
 )
 
@@ -94,10 +93,11 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 		return
 	}
 
-	count := sbLen - 2
+	//count := sbLen - 2
 
-	for i := 0; i < 10; i++ {
-		index := rand.Intn(count) + 2
+	for i := sbLen - 1; i >= 0 && i >= sbLen-10; i-- {
+		//index := rand.Intn(count) + 2
+		index := i
 		snapshotBlock := snapshotBlockList[index]
 
 		prevSnapshotBlock := snapshotBlockList[index-1]
@@ -165,11 +165,8 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 					panic("error")
 				}
 				if !bytes.Equal(value, queryValue) {
-					fmt.Printf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue)
-					sd.GetValue([]byte(key))
-					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue))
+					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %d, value: %d, query value: %d",
+						account.Addr, snapshotBlock.Height, []byte(key), value, queryValue))
 				}
 
 			}

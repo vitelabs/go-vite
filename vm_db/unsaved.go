@@ -2,12 +2,12 @@ package vm_db
 
 import (
 	"github.com/syndtr/goleveldb/leveldb/comparer"
-	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"math/rand"
 )
 
 type Unsaved struct {
@@ -17,7 +17,7 @@ type Unsaved struct {
 
 	logList ledger.VmLogList
 
-	storage     *memdb.DB
+	storage     *DB
 	deletedKeys map[string]struct{}
 	keys        map[string]struct{}
 
@@ -27,17 +27,20 @@ type Unsaved struct {
 	balanceMap map[types.TokenTypeId]*big.Int
 }
 
+var rnd = rand.New(rand.NewSource(0xdeadbeef))
+
 func NewUnsaved() *Unsaved {
 	return &Unsaved{
 		contractMetaMap: make(map[types.Address]*ledger.ContractMeta),
 		logList:         make(ledger.VmLogList, 0),
 		keys:            make(map[string]struct{}),
 		deletedKeys:     make(map[string]struct{}),
-		storage:         memdb.New(comparer.DefaultComparer, 0),
+		storage:         newMemDB(comparer.DefaultComparer, 0, rnd),
 		storageDirty:    false,
 		balanceMap:      make(map[types.TokenTypeId]*big.Int),
 	}
 }
+
 func (unsaved *Unsaved) Reset() {
 	unsaved.contractMetaMap = make(map[types.Address]*ledger.ContractMeta)
 	unsaved.code = nil

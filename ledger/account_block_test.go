@@ -107,11 +107,11 @@ func TestAccountBlock_ComputeHash(t *testing.T) {
 		LogHash: &logHash,
 
 		Difficulty: big.NewInt(10),
-		Nonce:      []byte("test nonce test nonce"),
+		Nonce:      []byte("12345678"),
 	}
 
-	if block.ComputeHash().String() != "1e25ac8dac6945afc84e3361d2d011046d9966603981fd8d1a78eeb32cef34f5" {
-		t.Fatal("error")
+	if block.ComputeHash().String() != "6d54436d78a3bae0b4aacbeb91a0af3c666c6ed3339fbcc6610e12844736d091" {
+		t.Fatal(block.ComputeHash().String())
 	}
 
 }

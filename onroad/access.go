@@ -47,7 +47,8 @@ func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
 }
 
 func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
-	return manager.chain.DeleteOnRoad(sendBlock.Hash)
+	manager.chain.DeleteOnRoad(sendBlock.ToAddress, sendBlock.Hash)
+	return nil
 }
 
 type reactFunc func(address types.Address)
