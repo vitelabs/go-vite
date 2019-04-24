@@ -41,9 +41,13 @@ var (
 	BuiltinContractWithSendConfirm      = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 
+func IsContractAddr(addr Address) bool {
+	return addr[AddressSize-1] == ContractAddrByte
+}
+
 func IsBuiltinContractAddr(addr Address) bool {
 	addrBytes := addr.Bytes()
-	if helper.AllZero(addrBytes[:AddressSize-1]) && addrBytes[AddressSize-1] != byte(0) {
+	if IsContractAddr(addr) && helper.AllZero(addrBytes[:AddressCoreSize-1]) && addrBytes[AddressCoreSize-1] != byte(0) {
 		return true
 	}
 	return false
@@ -177,7 +181,7 @@ func CreateAddress() (Address, ed25519.PrivateKey, error) {
 }
 
 func CreateContractAddress(data ...[]byte) Address {
-	addr, _ := BytesToAddress(vcrypto.Hash(AddressSize, data...))
+	addr, _ := BytesToAddress(append(vcrypto.Hash(AddressCoreSize, data...), ContractAddrByte))
 	return addr
 }
 
