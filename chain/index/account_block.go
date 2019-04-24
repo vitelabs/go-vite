@@ -1,8 +1,6 @@
 package chain_index
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -182,7 +180,7 @@ func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
 		return false, err
 	}
 	if len(value) <= 0 {
-		return false, errors.New(fmt.Sprintf("no send block hash, %s", sendBlockHash))
+		return false, nil
 	}
 
 	if len(value) != types.HashSize {
