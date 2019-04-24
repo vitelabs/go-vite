@@ -79,6 +79,7 @@ Loop:
 				goto Loop
 			}
 
+			var prev *ledger.SnapshotBlock
 			for {
 				var ab *ledger.AccountBlock
 				var sb *ledger.SnapshotBlock
@@ -94,12 +95,31 @@ Loop:
 					//}
 					//break
 				} else if sb != nil {
+					if prev == nil {
+						if sb.Height != c[0] {
+							err = fmt.Errorf("wrong start: %d %d", sb.Height, c[0])
+							panic(err)
+						}
+						prev = sb
+					} else {
+						if prev.Hash != sb.PrevHash {
+							err = fmt.Errorf("not continuous: %s/%d %s/%s/%d", prev.Hash, prev.Height, sb.PrevHash, sb.Hash, sb.Height)
+							panic(err)
+						} else {
+							prev = sb
+						}
+					}
 					//err = s.receiveSnapshotBlock(sb)
 					//if err != nil {
 					//}
 					fmt.Println(sb.Height, sb.Hash, sb.PrevHash)
 					//break
 				}
+			}
+
+			if prev.Height != c[1] {
+				err = fmt.Errorf("wrong end: %d %d", prev.Height, c[1])
+				panic(err)
 			}
 
 			_ = reader.Close()
