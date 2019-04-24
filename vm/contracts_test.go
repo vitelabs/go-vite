@@ -624,7 +624,7 @@ func TestContractsPledge(t *testing.T) {
 	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
 	pledgeKey := abi.GetPledgeKey(addr1, 1)
 	withdrawHeight := snapshot2.Height + 3600*24*3
-	pledgeInfoBytes, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{})
+	pledgeInfoBytes, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
 	if receivePledgeBlock == nil ||
 		len(receivePledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
@@ -680,7 +680,7 @@ func TestContractsPledge(t *testing.T) {
 	db.addr = addr5
 	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
-	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, newPledgeAmount, withdrawHeight, addr4, false, types.Address{})
+	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, newPledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
 	if receivePledgeBlock2 == nil ||
 		len(receivePledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
@@ -698,12 +698,8 @@ func TestContractsPledge(t *testing.T) {
 	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge beneficial amount failed")
 	}
-
-	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
-		t.Fatalf("get pledge beneficial amount failed")
-	}
-
-	if pledgeInfoList, _, _ := abi.GetPledgeInfoList(db, addr1); len(pledgeInfoList) != 1 || pledgeInfoList[0].BeneficialAddr != addr4 {
+	if pledgeInfoList, _, _ := abi.GetPledgeInfoList(db, addr1); len(pledgeInfoList) != 1 ||
+		pledgeInfoList[0].BeneficialAddr != addr4 || pledgeInfoList[0].Amount.Cmp(newPledgeAmount) != 0 {
 		t.Fatalf("get pledge amount failed")
 	}
 
@@ -715,7 +711,7 @@ func TestContractsPledge(t *testing.T) {
 	}
 	currentSnapshot := db.snapshotBlockList[len(db.snapshotBlockList)-1]
 
-	block15Data, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, pledgeAmount)
+	block15Data, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, big.NewInt(10))
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
@@ -730,9 +726,30 @@ func TestContractsPledge(t *testing.T) {
 		Hash:           hash15,
 	}
 	vm = NewVM(nil)
-	//vm.Debug = true
 	db.addr = addr1
 	sendCancelPledgeBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
+	if sendCancelPledgeBlock != nil || isRetry ||
+		err == nil || err.Error() != util.ErrInvalidMethodParam.Error() {
+		t.Fatalf("send invalid cancel pledge transaction error")
+	}
+
+	block15Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, pledgeAmount)
+	block15 = &ledger.AccountBlock{
+		Height:         5,
+		ToAddress:      addr5,
+		AccountAddress: addr1,
+		Amount:         helper.Big0,
+		TokenId:        ledger.ViteTokenId,
+		BlockType:      ledger.BlockTypeSendCall,
+		Fee:            big.NewInt(0),
+		PrevHash:       hash14,
+		Data:           block15Data,
+		Hash:           hash15,
+	}
+	vm = NewVM(nil)
+	//vm.Debug = true
+	db.addr = addr1
+	sendCancelPledgeBlock, isRetry, err = vm.RunV2(db, block15, nil, nil)
 	if sendCancelPledgeBlock == nil ||
 		len(sendCancelPledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(sendCancelPledgeBlock.AccountBlock.Data, block15Data) ||
@@ -754,7 +771,7 @@ func TestContractsPledge(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr5
 	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
-	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{})
+	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
 	if receiveCancelPledgeBlock == nil ||
 		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||

@@ -14,9 +14,9 @@ const (
 	[
 		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"AgentPledge", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"}]},
-		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"}]},
+		{"type":"function","name":"AgentPledge", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"bid","type":"uint8"}]},
+		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"},{"name":"bid","type":"uint8"}]},
 		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
@@ -43,11 +43,13 @@ type ParamCancelPledge struct {
 type ParamAgentPledge struct {
 	PledgeAddress types.Address
 	Beneficial    types.Address
+	Bid           uint8
 }
 type ParamAgentCancelPledge struct {
 	PledgeAddress types.Address
 	Beneficial    types.Address
 	Amount        *big.Int
+	Bid           uint8
 }
 type PledgeInfo struct {
 	Amount         *big.Int
@@ -55,6 +57,7 @@ type PledgeInfo struct {
 	BeneficialAddr types.Address
 	Agent          bool
 	AgentAddress   types.Address
+	Bid            uint8
 }
 
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {

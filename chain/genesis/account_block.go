@@ -223,7 +223,8 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 					pledgeInfo.WithdrawHeight,
 					pledgeInfo.BeneficialAddr,
 					false,
-					types.ZERO_ADDRESS)
+					types.ZERO_ADDRESS,
+					uint8(0))
 				dealWithError(err)
 				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, uint64(i)), value)
 				dealWithError(err)
