@@ -35,7 +35,12 @@ func (iDB *IndexDB) newCache() error {
 }
 
 func (iDB *IndexDB) initCache() error {
+	var returnErr error
 	iDB.chain.IterateContracts(func(addr types.Address, meta *ledger.ContractMeta, err error) bool {
+		if err != nil {
+			returnErr = err
+			return false
+		}
 		blockHash := meta.CreateBlockHash
 		if !blockHash.IsZero() {
 			snapshotHeight, err := iDB.GetConfirmHeightByHash(&blockHash)
@@ -47,7 +52,7 @@ func (iDB *IndexDB) initCache() error {
 		}
 		return true
 	})
-	return nil
+	return returnErr
 }
 
 // with cache

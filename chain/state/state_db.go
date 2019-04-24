@@ -156,7 +156,7 @@ func (sDB *StateDB) IterateContracts(iterateFunc func(addr types.Address, meta *
 
 		if keyStr[0] == prefix {
 			key := []byte(keyStr)
-			addr, err := types.BytesToAddress(key[1:])
+			addr, err := types.BytesToAddress(key[2:])
 			if err != nil {
 				iterateFunc(types.Address{}, nil, err)
 				return
