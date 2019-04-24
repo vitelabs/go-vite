@@ -161,7 +161,7 @@ func (addr Address) Hex() string {
 		return AddressPrefix + hex.EncodeToString(coreAddr) + hex.EncodeToString(vcrypto.Hash(addressChecksumSize, coreAddr))
 	} else if byt == ContractAddrByte {
 		hash := vcrypto.Hash(addressChecksumSize, coreAddr)
-		return AddressPrefix + hex.EncodeToString(coreAddr) + hex.EncodeToString(helper.XOR(hash))
+		return AddressPrefix + hex.EncodeToString(coreAddr) + hex.EncodeToString(helper.LDI(hash))
 	} else {
 		return fmt.Sprintf("error address[%d]", byt)
 	}
