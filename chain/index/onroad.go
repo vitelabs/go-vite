@@ -70,14 +70,21 @@ func (iDB *IndexDB) InitOnRoad() error {
 	return nil
 }
 
-func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
-	batch.Put(chain_utils.CreateOnRoadKey(toAddr, blockHash), []byte{})
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, block *ledger.AccountBlock) {
+	batch.Put(chain_utils.CreateOnRoadKey(toAddr, block.Hash), []byte{})
 
 	// fixme TEST
-	isContract, err := iDB.chain.IsContractAccount(toAddr)
-	if err != nil {
-		panic(err)
+	isContract := false
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		isContract = true
+	} else {
+		var err error
+		isContract, err = iDB.chain.IsContractAccount(toAddr)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	if !isContract {
 		return
 	}
@@ -90,7 +97,7 @@ func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, b
 		fromBlockHashSet = make(map[types.Hash]struct{})
 		iDB.onRoadData[toAddr] = fromBlockHashSet
 	}
-	fromBlockHashSet[blockHash] = struct{}{}
+	fromBlockHashSet[block.Hash] = struct{}{}
 }
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {

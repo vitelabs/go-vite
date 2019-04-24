@@ -78,7 +78,7 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertReceiveInfo(batch, accountBlock.Hash, unreceivedFlag)
 
 		// insert on road block
-		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock.Hash)
+		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock)
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
@@ -89,7 +89,7 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertAbHashHeight(batch, sendBlock.Hash, addrHeightValue)
 
 		// insert on road block
-		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock.Hash)
+		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock)
 	}
 
 	return nil

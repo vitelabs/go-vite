@@ -68,6 +68,7 @@ func BenchmarkInsert(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
+
 	accountVerifier := verifier.NewAccountVerifier(chainInstance, &test_tools.MockConsensus{})
 	snapshotVerifier := verifier.NewSnapshotVerifier(chainInstance, &test_tools.MockCssVerifier{})
 	verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
