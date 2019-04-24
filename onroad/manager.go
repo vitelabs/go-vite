@@ -1,23 +1,21 @@
 package onroad
 
 import (
-	"errors"
-	"github.com/vitelabs/go-vite/generator"
-	"sync"
-	"time"
-
+	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
+	"sync"
+	"time"
 )
 
 var (
-	slog           = log15.New("module", "onroad")
-	ErrNotSyncDone = errors.New("network synchronization is not complete")
+	slog = log15.New("module", "onroad")
 )
 
 type Manager struct {
@@ -31,6 +29,8 @@ type Manager struct {
 
 	contractWorkers     map[types.Gid]*ContractWorker
 	newContractListener sync.Map //map[types.Gid]func(address types.Address)
+
+	onRoadPools sync.Map //map[types.Gid]OnRoadPool
 
 	unlockLid   int
 	netStateLid int
@@ -55,6 +55,9 @@ func NewManager(net Net, pool Pool, producer Producer, consensus generator.Conse
 
 func (manager *Manager) Init(chain chain.Chain) {
 	manager.chain = chain
+	for _, gid := range types.DefaultGidList {
+		manager.prepareOnRoadPool(gid)
+	}
 }
 
 func (manager *Manager) Start() {
@@ -119,6 +122,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		w = NewContractWorker(manager)
 		manager.contractWorkers[event.Gid] = w
 	}
+	manager.prepareOnRoadPool(event.Gid)
 
 	nowTime := time.Now()
 	if nowTime.After(event.Stime) && nowTime.Before(event.Etime) {
@@ -143,6 +147,15 @@ func (manager *Manager) stopAllWorks() {
 	}
 	wg.Wait()
 	manager.log.Info("stopAllWorks end")
+}
+
+func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
+	orPool, exist := manager.onRoadPools.Load(gid)
+	if !exist || orPool == nil {
+		manager.onRoadPools.Store(gid, NewContractOnRoadPool(gid, manager.chain))
+		return
+	}
+	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
 }
 
 func (manager *Manager) resumeContractWorks() {

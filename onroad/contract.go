@@ -83,7 +83,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.address = accEvent.Address
 	w.accEvent = accEvent
 
-	w.log = slog.New("worker", "c", "addr", accEvent.Address, "gid", accEvent.Gid)
+	w.log = slog.New("worker", accEvent.Address, "gid", accEvent.Gid)
 
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
@@ -192,7 +192,6 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 }
 
 func (w *ContractWorker) WakeupOneTp() {
-	//w.log.Info("WakeupOneTp")
 	w.newBlockCond.Signal()
 }
 
@@ -206,7 +205,6 @@ func (w *ContractWorker) pushContractTask(t *contractTask) {
 	defer w.ctpMutex.Unlock()
 	for _, v := range w.contractTaskPQueue {
 		if v.Addr == t.Addr {
-			//w.log.Info(fmt.Sprintf("heap fix, pre-idx=%v, addr=%v, quota=%v\n", v.Index, t.Addr, t.Quota))
 			v.Quota = t.Quota
 			heap.Fix(&w.contractTaskPQueue, v.Index)
 			return
@@ -276,14 +274,9 @@ func (w *ContractWorker) clearSelectiveBlocksCache() {
 	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
 }
 
-func (w *ContractWorker) getPendingOnroadBlock(contractAddr *types.Address) *ledger.AccountBlock {
-	if pendingCache, ok := w.selectivePendingCache[*contractAddr]; ok && pendingCache != nil {
-		return pendingCache.getPendingOnroad()
-	}
-	return nil
-}
+func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+	// succeed in handling a l block, if it's a inferior-caller, than set it free.
 
-func (w *ContractWorker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
 	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
 		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
 		if success && pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
@@ -292,32 +285,29 @@ func (w *ContractWorker) deletePendingOnroadBlock(contractAddr *types.Address, s
 	}
 }
 
-func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
-	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
-		var pageNum uint8 = 0
-		for pendingMap.isPendingMapNotSufficient() {
-			blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, uint64(pageNum), uint64(DefaultPullCount))
-			if len(blocks) <= 0 {
-				break
-			}
-			for _, v := range blocks {
-				if !pendingMap.existInInferiorList(v.AccountAddress) {
-					pendingMap.addPendingMap(v)
-				}
-			}
-			pageNum++
-		}
-	} else {
-		callerMap := newCallerPendingMap()
-		blocks, _ := w.manager.GetOnRoadBlockByAddr(contractAddr, 0, uint64(DefaultPullCount))
+func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
+	pendingMap, ok := w.selectivePendingCache[contractAddr]
+	if !ok || pendingMap == nil {
+		blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
 		if len(blocks) <= 0 {
 			return nil
 		}
+		pendingMap = newCallerPendingMap()
 		for _, v := range blocks {
-			callerMap.addPendingMap(v)
+			pendingMap.addPendingMap(v)
 		}
-		w.selectivePendingCache[*contractAddr] = callerMap
+	} else {
+		if pendingMap.isPendingMapNotSufficient() {
+			blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
+			for _, v := range blocks {
+				if pendingMap.existInInferiorList(v.AccountAddress) {
+					continue
+				}
+				pendingMap.addPendingMap(v)
+			}
+		}
 	}
+	w.selectivePendingCache[contractAddr] = pendingMap
 	/*	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
 		listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
 		for k, v := range l {
@@ -326,9 +316,9 @@ func (w *ContractWorker) acquireNewOnroadBlocks(contractAddr *types.Address) *le
 				listStr += ","
 			}
 		}
-		w.log.Info("acquireNewOnroadBlocks detail: " + listStr)
+		w.log.Info("acquireOnRoadBlocks detail: " + listStr)
 	}*/
-	return w.selectivePendingCache[*contractAddr].getPendingOnroad()
+	return w.selectivePendingCache[contractAddr].getOnePending()
 }
 
 func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {

@@ -24,6 +24,31 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 
 }
 
+func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {
+	hashList, err := c.indexDB.GetOnRoad(addr, pageNum, pageSize)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.GetOnRoadBlocksByAddr failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
+			err, addr, pageNum, pageSize))
+		c.log.Error(cErr.Error(), "method", "GetOnRoadBlocksByAddr")
+		return nil, cErr
+	}
+
+	blockList := make([]*ledger.AccountBlock, len(hashList))
+	count := 0
+	for _, v := range hashList {
+		b, err := c.GetAccountBlockByHash(v)
+		if err != nil {
+			return nil, err
+		}
+		if b == nil {
+			continue
+		}
+		blockList = append(blockList, b)
+		count++
+	}
+	return blockList[:count], nil
+}
+
 func (c *chain) DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) {
 	c.indexDB.DeleteOnRoad(toAddress, sendBlockHash)
 }

@@ -29,7 +29,7 @@ var (
 
 	testDefaultQuota = uint64(20)
 
-	testlog = log15.New("test", "onroad")
+	testlog = log15.New("test", "l")
 	signal  = testlog.New("signal", nil)
 )
 
@@ -371,7 +371,7 @@ func (w *testContractWoker) clearSelectiveBlocksCache() {
 
 func (w *testContractWoker) getPendingOnroadBlock(contractAddr *types.Address) *ledger.AccountBlock {
 	if pendingCache, ok := w.testPendingCache[*contractAddr]; ok && pendingCache != nil {
-		return pendingCache.getPendingOnroad()
+		return pendingCache.getOnePending()
 	}
 	return nil
 }
@@ -388,7 +388,7 @@ func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address
 }
 
 func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
-	acqlog := testlog.New("acquireNewOnroadBlocks", contractAddr)
+	acqlog := testlog.New("acquireOnRoadBlocks", contractAddr)
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
 		var pageNum uint8 = 0
 		for pendingMap.isPendingMapNotSufficient() {
@@ -416,7 +416,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 		}
 		w.testPendingCache[*contractAddr] = callerMap
 	}
-	return w.testPendingCache[*contractAddr].getPendingOnroad()
+	return w.testPendingCache[*contractAddr].getOnePending()
 }
 
 func (w *testContractWoker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {

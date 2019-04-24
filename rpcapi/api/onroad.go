@@ -59,7 +59,7 @@ func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Add
 
 func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := pri.manager.GetOnRoadBlockByAddr(&address, index, count)
+	blockList, err := pri.manager.Chain().GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -178,4 +178,43 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *Rp
 		}
 	}
 	return &r
+}
+
+// fixme
+func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
+	var g types.Gid
+	if gid == nil || *gid == types.DELEGATE_GID {
+		g = types.SNAPSHOT_GID
+	} else {
+		g = *gid
+	}
+	return pri.manager.GetOnRoadTotalNumByAddr(g, addr)
+}
+
+// fixme
+func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
+	var g types.Gid
+	if gid == nil || *gid == types.DELEGATE_GID {
+		g = types.SNAPSHOT_GID
+	} else {
+		g = *gid
+	}
+
+	blockList, err := pri.manager.GetOnRoadFrontBlocks(g, addr)
+	if err != nil {
+		return nil, err
+	}
+	rpcBlockList := make([]*AccountBlock, len(blockList))
+	sum := 0
+	for k, v := range blockList {
+		if v != nil {
+			accountBlock, e := ledgerToRpcBlock(v, pri.manager.Chain())
+			if e != nil {
+				return nil, e
+			}
+			rpcBlockList[k] = accountBlock
+			sum++
+		}
+	}
+	return rpcBlockList[:sum], nil
 }

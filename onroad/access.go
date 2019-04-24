@@ -1,54 +1,43 @@
 package onroad
 
 import (
-	"fmt"
-
+	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (manager *Manager) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCount uint64) ([]*ledger.AccountBlock, error) {
-	log := manager.log.New("method", "newSignalToWorker", "addr", addr)
-	hasOnroads, err := manager.chain.HasOnRoadBlocks(*addr)
+func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Address) (uint64, error) {
+	onRoadPool, ok := manager.onRoadPools.Load(gid)
+	if !ok || onRoadPool == nil {
+		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
+		return 0, errors.New("contractOnRoadPool is not available")
+	}
+	return onRoadPool.(OnRoadPool).GetOnRoadTotalNumByAddr(addr)
+}
+
+func (manager *Manager) GetOnRoadFrontBlocks(gid types.Gid, addr types.Address) ([]*ledger.AccountBlock, error) {
+	return nil, nil
+	onRoadPool, ok := manager.onRoadPools.Load(gid)
+	if !ok || onRoadPool == nil {
+		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
+		return nil, errors.New("contractOnRoadPool is not available")
+	}
+	blockList, err := onRoadPool.(OnRoadPool).GetOnRoadFrontBlocks(addr)
 	if err != nil {
 		return nil, err
 	}
-	if !hasOnroads {
-		return nil, nil
-	}
-	blocks := make([]*ledger.AccountBlock, 0)
-	hashList, err := manager.chain.GetOnRoadBlocksHashList(*addr, int(pageNum), int(pageCount))
-	if err != nil {
-		log.Error(fmt.Sprintf("GetOnRoadBlocksHashList failed, err:%v", err))
-		return nil, err
-	}
-	if hashList == nil {
-		return nil, nil
-	}
-	for _, v := range hashList {
-		onroad, err := manager.chain.GetAccountBlockByHash(v)
-		if err != nil {
-			log.Error(fmt.Sprintf("GetAccountBlockByHash failed, err:%v", err))
-		}
-		if onroad != nil {
-			blocks = append(blocks, onroad)
-		}
-	}
-	return blocks, nil
-}
-
-func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
-	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
-}
-
-func (manager *Manager) hasOnRoadBlocks(addr *types.Address) (bool, error) {
-	return manager.chain.HasOnRoadBlocks(*addr)
+	manager.log.Info("GetOnRoadFrontBlocks", "gid", gid, "addr", addr, "len", len(blockList))
+	return blockList, nil
 }
 
 func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
 	manager.chain.DeleteOnRoad(sendBlock.ToAddress, sendBlock.Hash)
 	return nil
+}
+
+func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
+	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
 
 type reactFunc func(address types.Address)
@@ -61,26 +50,8 @@ func (manager *Manager) removeContractLis(gid types.Gid) {
 	manager.newContractListener.Delete(gid)
 }
 
-func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
-	newLog := manager.log.New("method", "newSignalToWorker", "Hash", block.Hash)
-	toAddr := block.ToAddress
-	isContract, err := manager.chain.IsContractAccount(toAddr)
-	if err != nil {
-		newLog.Error(fmt.Sprintf("IsContractAccount, err:%v", err))
-		return
-	}
-	if isContract {
-		meta, err := manager.chain.GetContractMeta(toAddr)
-		if err != nil {
-			newLog.Error(fmt.Sprintf("GetContractMeta, err:%v", err))
-			return
-		}
-		if meta == nil {
-			newLog.Error("GetContractMeta fail.", "contract", toAddr)
-			return
-		}
-		if f, ok := manager.newContractListener.Load(meta.Gid); ok {
-			f.(reactFunc)(toAddr)
-		}
+func (manager *Manager) newSignalToWorker(gid types.Gid, contract types.Address) {
+	if f, ok := manager.newContractListener.Load(gid); ok {
+		f.(reactFunc)(contract)
 	}
 }
