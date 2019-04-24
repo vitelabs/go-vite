@@ -317,7 +317,7 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 		return 0, 0, nil, true, nil
 	}
 	var withinOneDayFlag bool
-	timeLimit := current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
+	timeLimit := getRewardTimeLimit(current)
 	if !old.IsActive() && old.CancelTime <= timeLimit {
 		drained = true
 		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(old.CancelTime, genesisTime)
@@ -336,6 +336,10 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 		reward.Add(calcRewardByDayDetail(detail, old.Name, pledgeAmount))
 	}
 	return startTime, endTime, reward, drained, nil
+}
+
+func getRewardTimeLimit(current *ledger.SnapshotBlock) int64 {
+	return current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
 }
 
 func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
@@ -362,11 +366,20 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	if err != nil {
 		return nil, err
 	}
-	return calcRewardByDay(reader, genesisTime, timestamp, pledgeAmount)
+	index := reader.GetIndexByTime(timestamp, genesisTime)
+	endTime := reader.GetEndTimeByIndex(index)
+	current, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	timeLimit := getRewardTimeLimit(current)
+	if endTime > timeLimit {
+		return nil, util.ErrRewardNotDue
+	}
+	return calcRewardByDay(reader, index, pledgeAmount)
 }
 
-func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp int64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
-	index := reader.GetIndexByTime(timestamp, genesisTime)
+func calcRewardByDay(reader util.ConsensusReader, index uint64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
 	detailList, err := reader.GetConsensusDetailByDay(index, index)
 	if err != nil {
 		return nil, err
