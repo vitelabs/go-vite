@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -272,6 +273,10 @@ func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofH
 		return nil, err
 	}
 
+	for _, v := range blocks {
+		self.log.Debug(fmt.Sprintf("[A]index:%d, height:%d, producer:%s, hash:%s", index, v.Height, v.Producer(), v.Hash))
+	}
+
 	// actually no block
 	if len(blocks) == 0 {
 		return consensus_db.NewEmptyPoint(), nil
@@ -280,6 +285,9 @@ func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofH
 	result, err := self.snapshot.ElectionIndex(index)
 	if err != nil {
 		return nil, err
+	}
+	for _, v := range result.Plans {
+		self.log.Debug(fmt.Sprintf("[E]index:%d, producer:%s, stime:%s ", index, v.Member, v.STime))
 	}
 
 	return self.genPeriodPoint(index, &stime, &etime, proofHash, blocks, result)
