@@ -61,4 +61,6 @@ type SBPStatReader interface {
 
 	PeriodStats(startIndex uint64, endIndex uint64) ([]*PeriodStats, error)
 	GetPeriodTimeIndex() TimeIndex
+
+	GetSuccessRateByHour(index uint64) (map[types.Address]int32, error)
 }

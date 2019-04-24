@@ -38,24 +38,14 @@ func main() {
 	}
 	dir := "devdata"
 	genesisJson := string(bytes)
+	index := uint64(*index)
 	c := newChain(dir, genesisJson)
 
 	cs := consensus.NewConsensus(c)
 	cs.Init()
 	reader := cs.SBPReader().(consensus.DposReader)
 
-	index := uint64(*index)
-	result, err := reader.ElectionIndex(index)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%d\t%s\t%s\n", result.Index, result.STime, result.ETime)
-	for k, v := range result.Plans {
-		fmt.Printf("%d\t%s\t%s\t%s\t%s\n", k, v.STime, v.ETime, v.Member, v.Name)
-	}
-
-	fmt.Println("-----------------")
+	fmt.Println("------proof info-----------")
 
 	t := reader.GenProofTime(index)
 
@@ -65,14 +55,28 @@ func main() {
 	}
 	fmt.Printf("%d\t%s\t%s\n", index, t, proofBlock.Hash)
 
-	fmt.Println()
+	fmt.Println("--------register---------")
+	registerM := make(map[types.Address]string)
 	proofHash := proofBlock.Hash
 	registers, err := c.GetRegisterList(proofHash, types.SNAPSHOT_GID)
 	if err != nil {
 		panic(err)
 	}
 	for _, v := range registers {
-		fmt.Printf("%s\t%s\n", v.Name, v.HisAddrList[0])
+		for _, vv := range v.HisAddrList {
+			registerM[vv] = v.Name
+			fmt.Printf("%s\t%s\n", v.Name, vv)
+		}
+	}
+
+	fmt.Println("------Election result-----------")
+	result, err := reader.ElectionIndex(index)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%d\t%s\t%s\n", result.Index, result.STime, result.ETime)
+	for k, v := range result.Plans {
+		fmt.Printf("%d\t%s\t%s\t%s\t%s\n", k, v.STime, v.ETime, v.Member, registerM[v.Member])
 	}
 
 	info := reader.GetInfo().ConsensusGroupInfo
@@ -81,8 +85,20 @@ func main() {
 		panic(e)
 	}
 
-	fmt.Println("-----------------")
+	fmt.Println("--------votes---------")
 	for _, v := range votes {
 		fmt.Printf("%s,%s,%s\n", v.Name, v.Addr, v.Balance)
+	}
+	seed := c.GetRandomSeed(proofHash, 25)
+	fmt.Printf("----------seed:%d-------------\n", seed)
+
+	fmt.Println("---------success rate--------")
+	rates, err := cs.SBPReader().GetSuccessRateByHour(index)
+	if err != nil {
+		panic(err)
+	}
+
+	for k, v := range rates {
+		fmt.Printf("%s:%d", k, v)
 	}
 }
