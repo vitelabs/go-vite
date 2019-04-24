@@ -68,11 +68,12 @@ func BenchmarkInsert(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
+
 	accountVerifier := verifier.NewAccountVerifier(chainInstance, &test_tools.MockConsensus{})
 	snapshotVerifier := verifier.NewSnapshotVerifier(chainInstance, &test_tools.MockCssVerifier{})
 	verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
 
-	accounts := MakeAccounts(chainInstance, 10)
+	accounts := MakeAccounts(chainInstance, 100)
 	b.Run("CheckAndInsert", func(b *testing.B) {
 		for i := 1; i <= b.N; i++ {
 			if i%snapshotPerNum == 0 {
@@ -96,7 +97,9 @@ func BenchmarkInsert(b *testing.B) {
 
 			// get random account
 			var vmBlock *vm_db.VmAccountBlock
-			var account Account
+
+			var account *Account
+
 			for {
 				account = getRandomAccount(accounts)
 
@@ -134,7 +137,8 @@ func BenchmarkInsert(b *testing.B) {
 	fmt.Println(chainInstance.GetLatestSnapshotBlock().Height)
 }
 
-func createVmBlock(account Account, accounts map[types.Address]Account) (*vm_db.VmAccountBlock, error) {
+func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_db.VmAccountBlock, error) {
+
 	var vmBlock *vm_db.VmAccountBlock
 	var createBlockErr error
 
@@ -156,7 +160,7 @@ func createVmBlock(account Account, accounts map[types.Address]Account) (*vm_db.
 		// query to account
 		toAccount := getRandomAccount(accounts)
 
-		vmBlock, createBlockErr = account.CreateSendBlock(&toAccount)
+		vmBlock, createBlockErr = account.CreateSendBlock(toAccount)
 	} else {
 
 		vmBlock, createBlockErr = account.CreateReceiveBlock()
@@ -168,8 +172,8 @@ func createVmBlock(account Account, accounts map[types.Address]Account) (*vm_db.
 	return vmBlock, nil
 }
 
-func getRandomAccount(accounts map[types.Address]Account) Account {
-	var account Account
+func getRandomAccount(accounts map[types.Address]*Account) *Account {
+	var account *Account
 
 	for _, tmpAccount := range accounts {
 		account = tmpAccount

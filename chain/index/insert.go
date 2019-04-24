@@ -4,8 +4,12 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
+
+var unreceivedFlag = []byte{0}
 
 func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error {
 	batch := iDB.store.NewBatch()
@@ -24,24 +28,22 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	heightBytes := chain_utils.Uint64ToBytes(snapshotBlock.Height)
 	// hash -> height
-	batch.Put(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash), heightBytes)
+	iDB.insertSbHashHeight(batch, snapshotBlock.Hash, snapshotBlock.Height)
 
 	// height -> location
-	batch.Put(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height), append(snapshotBlock.Hash.Bytes(), chain_utils.SerializeLocation(snapshotBlockLocation)...))
+	iDB.insertSbHeightLocation(batch, snapshotBlock, snapshotBlockLocation)
 
 	// confirm block
 	for addr, hashHeight := range snapshotBlock.SnapshotContent {
 		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
+
 	}
 
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
-		batch.Put(chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height), append(block.Hash.Bytes(), chain_utils.SerializeLocation(abLocationsList[index])...))
+		iDB.insertAbHeightLocation(batch, block, abLocationsList[index])
 	}
-
-	// latest on road id
-	batch.Put(chain_utils.CreateLatestOnRoadIdKey(), chain_utils.Uint64ToBytes(iDB.latestOnRoadId))
 
 	// write snapshot
 	iDB.store.WriteSnapshot(batch, confirmedBlocks)
@@ -51,14 +53,14 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 
 	blockHash := &accountBlock.Hash
 
-	if ok, err := iDB.HasAccount(&accountBlock.AccountAddress); err != nil {
+	if ok, err := iDB.HasAccount(accountBlock.AccountAddress); err != nil {
 		return err
 	} else if !ok {
 		iDB.createAccount(batch, &accountBlock.AccountAddress)
 	}
 	// hash -> addr & height
 	addrHeightValue := append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...)
-	batch.Put(chain_utils.CreateAccountBlockHashKey(blockHash), addrHeightValue)
+	iDB.insertAbHashHeight(batch, accountBlock.Hash, addrHeightValue)
 
 	// height -> hash
 	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
@@ -67,28 +69,68 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		// not genesis
 		if accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
 			// close send block
-			batch.Put(chain_utils.CreateReceiveKey(&accountBlock.FromBlockHash), blockHash.Bytes())
-
+			iDB.insertReceiveInfo(batch, accountBlock.FromBlockHash, blockHash.Bytes())
 			// receive on road
-			if err := iDB.deleteOnRoad(batch, accountBlock.FromBlockHash); err != nil {
-				return err
-			}
+			iDB.deleteOnRoad(batch, accountBlock.AccountAddress, accountBlock.FromBlockHash)
 		}
 	} else {
+		// insert unreceived placeholder. avoid querying all data when no receive
+		iDB.insertReceiveInfo(batch, accountBlock.Hash, unreceivedFlag)
+
 		// insert on road block
-		if err := iDB.insertOnRoad(batch, accountBlock.Hash, accountBlock.ToAddress); err != nil {
-			return err
-		}
+		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock)
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
+		// insert unreceived placeholder. avoid querying all data when no receive
+		iDB.insertReceiveInfo(batch, sendBlock.Hash, unreceivedFlag)
+
 		// send block hash -> addr & height
-		batch.Put(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash), addrHeightValue)
+		iDB.insertAbHashHeight(batch, sendBlock.Hash, addrHeightValue)
+
 		// insert on road block
-		if err := iDB.insertOnRoad(batch, sendBlock.Hash, sendBlock.ToAddress); err != nil {
-			return err
-		}
+		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock)
 	}
 
 	return nil
+}
+
+func (iDB *IndexDB) insertAbHashHeight(batch interfaces.Batch, hash types.Hash, value []byte) {
+	key := chain_utils.CreateAccountBlockHashKey(&hash)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertAbHeightLocation(batch interfaces.Batch, block *ledger.AccountBlock, location *chain_file_manager.Location) {
+	key := chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height)
+	value := append(block.Hash.Bytes(), chain_utils.SerializeLocation(location)...)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertSbHashHeight(batch interfaces.Batch, hash types.Hash, height uint64) {
+	key := chain_utils.CreateSnapshotBlockHashKey(&hash)
+
+	value := chain_utils.Uint64ToBytes(height)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertSbHeightLocation(batch interfaces.Batch, block *ledger.SnapshotBlock, location *chain_file_manager.Location) {
+	key := chain_utils.CreateSnapshotBlockHeightKey(block.Height)
+	value := append(block.Hash.Bytes(), chain_utils.SerializeLocation(location)...)
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertReceiveInfo(batch interfaces.Batch, sendBlockHash types.Hash, value []byte) {
+	key := chain_utils.CreateReceiveKey(&sendBlockHash)
+	//value := receiveBlockHash.Bytes()
+
+	iDB.cache.Set(string(key), value)
+	batch.Put(key, value)
 }

@@ -21,8 +21,8 @@ func (p *MethodMint) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	}
 	return new(big.Int).Set(mintageFee), nil
 }
-func (p *MethodMint) GetRefundData() []byte {
-	return []byte{1}
+func (p *MethodMint) GetRefundData() ([]byte, bool) {
+	return []byte{1}, false
 }
 func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
 	return MintGas, nil
@@ -156,8 +156,8 @@ func (p *MethodMintageCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (p *MethodMintageCancelPledge) GetRefundData() []byte {
-	return []byte{2}
+func (p *MethodMintageCancelPledge) GetRefundData() ([]byte, bool) {
+	return []byte{2}, false
 }
 
 func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
@@ -220,8 +220,8 @@ type MethodIssue struct{}
 func (p *MethodIssue) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodIssue) GetRefundData() []byte {
-	return []byte{4}
+func (p *MethodIssue) GetRefundData() ([]byte, bool) {
+	return []byte{4}, false
 }
 func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
 	return IssueGas, nil
@@ -281,8 +281,8 @@ type MethodBurn struct{}
 func (p *MethodBurn) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodBurn) GetRefundData() []byte {
-	return []byte{5}
+func (p *MethodBurn) GetRefundData() ([]byte, bool) {
+	return []byte{5}, false
 }
 func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
 	return BurnGas, nil
@@ -327,8 +327,8 @@ type MethodTransferOwner struct{}
 func (p *MethodTransferOwner) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodTransferOwner) GetRefundData() []byte {
-	return []byte{6}
+func (p *MethodTransferOwner) GetRefundData() ([]byte, bool) {
+	return []byte{6}, false
 }
 func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
 	return TransferOwnerGas, nil
@@ -390,8 +390,8 @@ type MethodChangeTokenType struct{}
 func (p *MethodChangeTokenType) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodChangeTokenType) GetRefundData() []byte {
-	return []byte{7}
+func (p *MethodChangeTokenType) GetRefundData() ([]byte, bool) {
+	return []byte{7}, false
 }
 func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
 	return ChangeTokenTypeGas, nil

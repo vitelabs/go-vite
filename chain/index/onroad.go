@@ -1,93 +1,147 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"sync/atomic"
+	"github.com/vitelabs/go-vite/ledger"
+	"sync"
 )
 
-func (iDB *IndexDB) HasOnRoadBlocks(address *types.Address) (bool, error) {
-	return iDB.store.HasPrefix(chain_utils.CreateOnRoadPrefixKey(address))
-}
+func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
+	onRoadData := make(map[types.Address]map[types.Address][]ledger.HashHeight, len(addrList))
+	for _, addr := range addrList {
+		onRoadListMap := make(map[types.Address][]ledger.HashHeight)
+		onRoadData[addr] = onRoadListMap
 
-func (iDB *IndexDB) GetOnRoadBlocksHashList(address *types.Address, pageNum, countPerPage int) ([]types.Hash, error) {
-	key := chain_utils.CreateOnRoadPrefixKey(address)
+		iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
+		for iter.Next() {
+			key := iter.Key()
+			blockHashBytes := key[len(key)-types.HashSize:]
 
-	iter := iDB.store.NewIterator(util.BytesPrefix(key))
-	defer iter.Release()
-
-	hashList := make([]types.Hash, 0, countPerPage)
-
-	startIndex := pageNum * countPerPage
-	endIndex := (pageNum + 1) * countPerPage
-
-	index := 0
-	for iter.Next() && index < endIndex {
-
-		if index >= startIndex {
-			result, err := types.BytesToHash(iter.Value())
+			blockHash, err := types.BytesToHash(blockHashBytes)
 			if err != nil {
 				return nil, err
 			}
 
-			hashList = append(hashList, result)
+			fromAddr, height, err := iDB.GetAddrHeightByHash(&blockHash)
+			if err != nil {
+				return nil, err
+			}
+
+			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{
+				Hash:   blockHash,
+				Height: height,
+			})
 		}
-		index++
+
+		err := iter.Error()
+		iter.Release()
+
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	return onRoadData, nil
+
+}
+
+// TEST
+var onRoadMu sync.RWMutex
+
+func (iDB *IndexDB) InitOnRoad() error {
+	iDB.onRoadData = make(map[types.Address]map[types.Hash]struct{})
+	data, err := iDB.chain.LoadOnRoad(types.DELEGATE_GID)
+	if err != nil {
+		return err
+	}
+	for toAddr, fromAddrSet := range data {
+		hashSet := make(map[types.Hash]struct{})
+		iDB.onRoadData[toAddr] = hashSet
+		for _, hashHeightList := range fromAddrSet {
+			for _, hashHeight := range hashHeightList {
+				hashSet[hashHeight.Hash] = struct{}{}
+			}
+
+		}
+	}
+	return nil
+}
+
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, block *ledger.AccountBlock) {
+	batch.Put(chain_utils.CreateOnRoadKey(toAddr, block.Hash), []byte{})
+
+	// fixme TEST
+	isContract := false
+	if block.BlockType == ledger.BlockTypeSendCreate {
+		isContract = true
+	} else {
+		var err error
+		isContract, err = iDB.chain.IsContractAccount(toAddr)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
-		return nil, err
+	if !isContract {
+		return
 	}
 
+	onRoadMu.Lock()
+	defer onRoadMu.Unlock()
+
+	fromBlockHashSet, ok := iDB.onRoadData[toAddr]
+	if !ok {
+		fromBlockHashSet = make(map[types.Hash]struct{})
+		iDB.onRoadData[toAddr] = fromBlockHashSet
+	}
+	fromBlockHashSet[block.Hash] = struct{}{}
+}
+
+func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
+	batch.Delete(chain_utils.CreateOnRoadKey(toAddr, blockHash))
+
+	// fixme TEST
+	onRoadMu.Lock()
+	defer onRoadMu.Unlock()
+
+	fromBlockHashSet, ok := iDB.onRoadData[toAddr]
+	if !ok {
+		return
+	}
+	delete(fromBlockHashSet, blockHash)
+
+	if len(fromBlockHashSet) <= 0 {
+		delete(iDB.onRoadData, toAddr)
+	}
+}
+
+// fixme TEST
+func (iDB *IndexDB) HasOnRoad(addr types.Address) (bool, error) {
+	onRoadMu.RLock()
+	defer onRoadMu.RUnlock()
+
+	_, ok := iDB.onRoadData[addr]
+	return ok, nil
+}
+
+// fixme TEST
+func (iDB *IndexDB) GetOnRoad(addr types.Address, pageNum, num int) ([]types.Hash, error) {
+	onRoadMu.RLock()
+	defer onRoadMu.RUnlock()
+
+	fromBlockHashSet, ok := iDB.onRoadData[addr]
+	if !ok {
+		return nil, nil
+	}
+	hashList := make([]types.Hash, 0, num)
+	for fromBlockHash := range fromBlockHashSet {
+		hashList = append(hashList, fromBlockHash)
+		if len(hashList) >= num {
+			break
+		}
+	}
 	return hashList, nil
-}
-
-//var logger = log15.New("onroad", "test")
-
-func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, sendBlockHash types.Hash, toAddr types.Address) error {
-	value := sendBlockHash.Bytes()
-	reverseKey := chain_utils.CreateOnRoadReverseKey(value)
-
-	key, err := iDB.store.Get(reverseKey)
-	if err != nil {
-		return err
-	}
-
-	if len(key) <= 0 {
-
-		onRoadBatch := iDB.store.NewBatch()
-		// new key
-		onRoadId := atomic.AddUint64(&iDB.latestOnRoadId, 1)
-		key = chain_utils.CreateOnRoadKey(&toAddr, onRoadId)
-
-		onRoadBatch.Put(reverseKey, key)
-		iDB.store.WriteDirectly(onRoadBatch)
-	}
-
-	batch.Put(key, value)
-
-	// FOR DEBUG
-	//logger.Debug(fmt.Sprintf("insert on road %s %d %d\n", sendBlockHash, key, reverseKey))
-	return nil
-
-}
-
-func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, sendBlockHash types.Hash) error {
-	onRoadKey, err := iDB.store.Get(chain_utils.CreateOnRoadReverseKey(sendBlockHash.Bytes()))
-	if err != nil {
-		return err
-	}
-	if len(onRoadKey) <= 0 {
-		return nil
-	}
-
-	batch.Delete(onRoadKey)
-
-	// FOR DEBUG
-	//logger.Debug(fmt.Sprintf("delete on road %s %d %d\n", sendBlockHash, value, reverseKey))
-
-	return nil
 }

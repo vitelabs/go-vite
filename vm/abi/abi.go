@@ -48,6 +48,20 @@ func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, err
 	return abi.packMethod(method, name, args...)
 }
 
+var (
+	boolType, _    = NewType("bool")
+	callbackMethod = Method{Name: "", Inputs: []Argument{{Name: "success", Type: boolType}}}
+)
+
+func (abi ABIContract) PackCallbackMethod(name string, success bool) ([]byte, error) {
+	_, exist := abi.Methods[name]
+	if !exist {
+		return nil, fmt.Errorf("method '%s' not found", name)
+	}
+	callbackMethod.Name = name + "Callback"
+	return abi.packMethod(callbackMethod, name, success)
+}
+
 func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, error) {
 	method, exist := abi.OffChains[name]
 	if !exist {

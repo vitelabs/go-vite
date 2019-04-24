@@ -19,7 +19,7 @@ type quotaList struct {
 
 	used                 map[types.Address]*quotaInfo
 	usedStart            *list.Element
-	usedAccumulateHeight uint64
+	usedAccumulateHeight int
 
 	list          *list.List
 	listMaxLength int
@@ -46,6 +46,7 @@ func (ql *quotaList) init() error {
 	if err := ql.build(); err != nil {
 		return err
 	}
+	ql.moveNext(make(map[types.Address]*quotaInfo))
 
 	ql.status = 1
 	return nil
@@ -93,18 +94,6 @@ func (ql *quotaList) Sub(addr types.Address, quota uint64) {
 
 }
 
-func (ql *quotaList) NewEmptyNext() {
-	if ql.status < 1 {
-		return
-	}
-
-	ql.list.PushBack(make(map[types.Address]*quotaInfo))
-
-	ql.backElement = ql.list.Back().Value.(map[types.Address]*quotaInfo)
-
-	ql.moveNext()
-}
-
 func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 	if ql.status < 1 {
 		return
@@ -132,32 +121,11 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 	}
 
 	ql.list.Back().Value = currentSnapshotQuota
-	ql.list.PushBack(ql.backElement)
-	ql.moveNext()
+	ql.moveNext(ql.backElement)
 
 }
 
-func (ql *quotaList) moveNext() {
-	if uint64(ql.list.Len()) <= ql.usedAccumulateHeight {
-		return
-	}
-
-	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*quotaInfo)
-	for addr, usedStartItem := range quotaUsedStart {
-		if usedStartItem == nil {
-			continue
-		}
-		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Quota)
-	}
-
-	ql.usedStart = ql.usedStart.Next()
-	if ql.list.Len() > ql.listMaxLength {
-		ql.list.Remove(ql.list.Front())
-	}
-
-}
-
-func (ql *quotaList) Rollback(deletedChunks []*ledger.SnapshotChunk, hasStorageRedoLog bool) error {
+func (ql *quotaList) Rollback(deletedChunks []*ledger.SnapshotChunk) error {
 	backElem := ql.list.Back()
 	if backElem == nil {
 		return nil
@@ -171,23 +139,25 @@ func (ql *quotaList) Rollback(deletedChunks []*ledger.SnapshotChunk, hasStorageR
 	if n >= ql.listMaxLength {
 		ql.list.Init()
 	} else {
-		if hasStorageRedoLog {
-			n = n - 1
-		}
-
 		for i := 0; i < n && ql.list.Len() > 0; i++ {
 			ql.list.Remove(ql.list.Back())
 		}
 	}
 
-	ql.build()
+	if err := ql.build(); err != nil {
+		return err
+	}
 
+	ql.moveNext(make(map[types.Address]*quotaInfo))
 	return nil
 }
 
 func (ql *quotaList) build() (returnError error) {
 	defer func() {
 		if returnError != nil {
+			return
+		}
+		if ql.list.Len() <= 0 {
 			return
 		}
 		ql.backElement = ql.list.Back().Value.(map[types.Address]*quotaInfo)
@@ -203,7 +173,7 @@ func (ql *quotaList) build() (returnError error) {
 		//fmt.Println()
 	}()
 
-	listLength := uint64(ql.list.Len())
+	listLength := ql.list.Len()
 
 	// FOR DEBUG
 	//fmt.Println("before build, ql.backElement", listLength)
@@ -223,14 +193,14 @@ func (ql *quotaList) build() (returnError error) {
 
 	latestSbHeight := latestSb.Height
 
-	if latestSbHeight <= listLength {
+	if latestSbHeight <= uint64(listLength) {
 		return nil
 	}
 
-	endSbHeight := latestSbHeight + 1 - listLength
+	endSbHeight := latestSbHeight + 1 - uint64(listLength)
 	startSbHeight := uint64(1)
 
-	lackListLen := uint64(ql.listMaxLength) - listLength
+	lackListLen := uint64(ql.listMaxLength - listLength)
 	if endSbHeight > lackListLen {
 		startSbHeight = endSbHeight - lackListLen
 	}
@@ -264,11 +234,6 @@ func (ql *quotaList) build() (returnError error) {
 			}
 			ql.list.PushBack(newItem)
 		}
-
-		if snapshotSegments[len(snapshotSegments)-1].SnapshotBlock != nil {
-			ql.list.PushBack(make(map[types.Address]*quotaInfo))
-		}
-
 	} else {
 		snapshotSegments, err = ql.chain.GetSubLedger(startSbHeight, endSbHeight)
 		if err != nil {
@@ -302,6 +267,36 @@ func (ql *quotaList) build() (returnError error) {
 	}
 
 	return nil
+}
+
+func (ql *quotaList) moveNext(backElement map[types.Address]*quotaInfo) {
+
+	ql.list.PushBack(backElement)
+
+	ql.backElement = backElement
+
+	if ql.usedStart == nil {
+		ql.usedStart = ql.list.Back()
+
+	}
+
+	if ql.list.Len() <= ql.usedAccumulateHeight {
+		return
+	}
+
+	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*quotaInfo)
+	for addr, usedStartItem := range quotaUsedStart {
+		if usedStartItem == nil {
+			continue
+		}
+		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Quota)
+	}
+
+	ql.usedStart = ql.usedStart.Next()
+	if ql.list.Len() > ql.listMaxLength {
+		ql.list.Remove(ql.list.Front())
+	}
+
 }
 
 func (ql *quotaList) add(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, quota uint64) {
@@ -352,7 +347,7 @@ func (ql *quotaList) calculateUsed() {
 func (ql *quotaList) resetUsedStart() {
 	ql.usedStart = ql.list.Back()
 
-	for i := uint64(1); i < ql.usedAccumulateHeight; i++ {
+	for i := 1; i < ql.usedAccumulateHeight; i++ {
 		prev := ql.usedStart.Prev()
 		if prev == nil {
 			break

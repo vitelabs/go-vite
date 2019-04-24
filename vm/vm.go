@@ -458,7 +458,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		}
 		vm.revert(db)
 		refundFlag := false
-		refundFlag = doRefund(vm, db, block, sendBlock, p.GetRefundData(), ledger.BlockTypeSendCall)
+		refundData, needRefund := p.GetRefundData()
+		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
 		block.Data = getReceiveCallData(db, err)
 		vm.updateBlock(db, block, err, 0)
 		if refundFlag {
@@ -522,7 +523,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			} else {
 				// Contract receive out of quota, current block is first unconfirmed block, refund with no quota
 				block.Data = getReceiveCallData(db, err)
-				refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, ledger.BlockTypeSendRefund)
+				refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
 				vm.updateBlock(db, block, nil, util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err))
 				if refundFlag {
 					var refundErr error
@@ -538,7 +539,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			}
 		}
 
-		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, ledger.BlockTypeSendRefund)
+		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
 		block.Data = getReceiveCallData(db, err)
 		vm.updateBlock(db, block, err, util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err))
 		if refundFlag {
@@ -555,7 +556,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	}
 }
 
-func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, refundBlockType byte) bool {
+func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, needRefund bool, refundBlockType byte) bool {
 	refundFlag := false
 	if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
 		refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
@@ -594,6 +595,17 @@ func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledg
 			util.AddBalance(db, &ledger.ViteTokenId, sendBlock.Fee)
 			refundFlag = true
 		}
+	}
+	if !refundFlag && needRefund {
+		vm.VmContext.AppendBlock(
+			util.MakeSendBlock(
+				block.AccountAddress,
+				sendBlock.AccountAddress,
+				ledger.BlockTypeSendCall,
+				big.NewInt(0),
+				ledger.ViteTokenId,
+				refundData))
+		refundFlag = true
 	}
 	return refundFlag
 }

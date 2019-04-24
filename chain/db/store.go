@@ -17,7 +17,7 @@ type Store struct {
 	id            types.Hash
 	mu            sync.RWMutex
 	memDb         *MemDB
-	snapshotMemDb *MemDB
+	snapshotMemDb *SnapshotMemDB
 
 	unconfirmedBatchMap  map[types.Hash]*list.Element
 	unconfirmedBatchList *list.List
@@ -29,7 +29,6 @@ type Store struct {
 }
 
 func NewStore(dataDir string, id types.Hash) (*Store, error) {
-
 	db, err := leveldb.OpenFile(dataDir, nil)
 
 	if err != nil {
@@ -41,7 +40,7 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 		unconfirmedBatchMap:  make(map[types.Hash]*list.Element),
 		unconfirmedBatchList: list.New(),
 
-		snapshotMemDb: NewMemDB(),
+		snapshotMemDb: NewSnapshotMemDB(),
 
 		flushingBatch: new(leveldb.Batch),
 		dbDir:         dataDir,
@@ -50,6 +49,10 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	return store, nil
+}
+
+func (store *Store) CompactRange(r util.Range) error {
+	return store.db.CompactRange(r)
 }
 
 func (store *Store) NewBatch() *leveldb.Batch {
@@ -69,7 +72,7 @@ func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.Accoun
 }
 
 func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) {
-	//return store.db.WriteAccountBlock(batch, nil)
+	//return store.cache.WriteAccountBlock(batch, nil)
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
@@ -180,7 +183,7 @@ func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
 	copyBatch := new(leveldb.Batch)
 	store.memDb.Flush(copyBatch)
 
-	store.snapshotMemDb = NewMemDB()
+	store.snapshotMemDb.Reset()
 	copyBatch.Replay(store.snapshotMemDb)
 
 	// reset

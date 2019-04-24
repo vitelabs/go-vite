@@ -38,7 +38,7 @@ type BuiltinContractMethod interface {
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// refund data at receive error
-	GetRefundData() []byte
+	GetRefundData() ([]byte, bool)
 }
 
 type builtinContract struct {
@@ -49,8 +49,10 @@ type builtinContract struct {
 var simpleContracts = map[types.Address]*builtinContract{
 	types.AddressPledge: {
 		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:       &MethodPledge{},
-			cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+			cabi.MethodNamePledge:            &MethodPledge{},
+			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
+			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
+			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
 		},
 		cabi.ABIPledge,
 	},
