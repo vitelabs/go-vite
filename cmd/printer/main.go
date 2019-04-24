@@ -31,6 +31,7 @@ func newChain(dirName string, genesis string) chain.Chain {
 }
 
 var index = flag.Int("index", 0, "consensus index")
+var dir = flag.String("dataDir", "devdata", "data dir, for example: devdata")
 
 func main() {
 	flag.Parse()
@@ -38,10 +39,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	dir := "devdata"
+
 	genesisJson := string(bytes)
 	index := uint64(*index)
-	c := newChain(dir, genesisJson)
+	c := newChain(*dir, genesisJson)
 
 	cs := consensus.NewConsensus(c)
 	cs.Init()
@@ -95,7 +96,7 @@ func main() {
 	fmt.Printf("----------seed:%d-------------\n", seed)
 
 	fmt.Println("---------success rate--------")
-	rates, err := cs.SBPReader().GetSuccessRateByHour(index)
+	rates, err := cs.SBPReader().GetSuccessRateByHour(index - 2)
 	if err != nil {
 		panic(err)
 	}
