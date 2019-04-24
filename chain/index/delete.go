@@ -99,14 +99,25 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				iDB.insertReceiveInfo(batch, block.FromBlockHash, unreceivedFlag)
 			}
 		} else {
+
 			sendBlockHashMap[block.Hash] = block
+
+			if block.BlockType == ledger.BlockTypeSendCreate {
+				iDB.deleteConfirmCache(block.Hash)
+			}
+
 		}
 		for _, sendBlock := range block.SendBlockList {
 			// delete sendBlock hash index
 			iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
 
 			// set open send
+
 			sendBlockHashMap[sendBlock.Hash] = sendBlock
+
+			if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+				iDB.deleteConfirmCache(sendBlock.Hash)
+			}
 		}
 
 	}
@@ -150,4 +161,8 @@ func (iDB *IndexDB) deleteReceiveInfo(batch *leveldb.Batch, sendBlockHash types.
 
 func (iDB *IndexDB) deleteConfirmHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
 	batch.Delete(chain_utils.CreateConfirmHeightKey(&addr, height))
+}
+
+func (iDB *IndexDB) deleteConfirmCache(blockHash types.Hash) {
+	iDB.sendCreateBlockHashCache.Remove(blockHash)
 }
