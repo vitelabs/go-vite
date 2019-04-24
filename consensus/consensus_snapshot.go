@@ -24,6 +24,10 @@ type snapshotCs struct {
 	log log15.Logger
 }
 
+func (self *snapshotCs) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
+	return self.rw.GetSuccessRateByHour(index)
+}
+
 func (self *snapshotCs) GetInfo() *core.GroupInfo {
 	return &self.GroupInfo
 }
