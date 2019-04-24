@@ -26,7 +26,7 @@ func (iDB *IndexDB) newCache() error {
 		return err
 	}
 
-	iDB.sendCreateBlockHashCache, err = lru.New(0)
+	iDB.sendCreateBlockHashCache, err = lru.New(10000)
 	if err != nil {
 		return err
 	}
