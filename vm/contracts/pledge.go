@@ -23,8 +23,8 @@ func (p *MethodPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodPledge) GetRefundData() []byte {
-	return []byte{1}
+func (p *MethodPledge) GetRefundData() ([]byte, bool) {
+	return []byte{1}, false
 }
 
 func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
@@ -108,8 +108,8 @@ func (p *MethodCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelPledge) GetRefundData() []byte {
-	return []byte{2}
+func (p *MethodCancelPledge) GetRefundData() ([]byte, bool) {
+	return []byte{2}, false
 }
 
 func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
@@ -184,9 +184,9 @@ func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentPledge) GetRefundData() []byte {
+func (p *MethodAgentPledge) GetRefundData() ([]byte, bool) {
 	callbackData, _ := abi.ABIPledge.PackCallbackMethod(abi.MethodNameAgentPledge, false)
-	return callbackData
+	return callbackData, true
 }
 
 func (p *MethodAgentPledge) GetSendQuota(data []byte) (uint64, error) {
@@ -202,7 +202,7 @@ func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) er
 	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial)
+	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, param.Bid)
 	return nil
 }
 func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -251,9 +251,9 @@ func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentCancelPledge) GetRefundData() []byte {
+func (p *MethodAgentCancelPledge) GetRefundData() ([]byte, bool) {
 	callbackData, _ := abi.ABIPledge.PackCallbackMethod(abi.MethodNameAgentCancelPledge, false)
-	return callbackData
+	return callbackData, true
 }
 
 func (p *MethodAgentCancelPledge) GetSendQuota(data []byte) (uint64, error) {
@@ -271,7 +271,7 @@ func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if param.Amount.Cmp(pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount)
+	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount, param.Bid)
 	return nil
 }
 
