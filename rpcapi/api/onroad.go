@@ -204,7 +204,7 @@ func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid
 		g = *gid
 	}
 
-	blockList, err := pri.manager.GetOnRoadFrontBlocks(g, addr)
+	blockList, err := pri.manager.GetAllCallersFrontOnRoad(g, addr)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/onroad/pool"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -143,9 +144,6 @@ func (v *AccountVerifier) verifyComfirmedTimes(recvBlock *ledger.AccountBlock, i
 		return errors.New("call GetConfirmedTimes failed," + err.Error())
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
-		/*		v.log.Error(fmt.Sprintf("err:%v, contract(addr:%v,ct:%v), from(hash:%v,ct:%v),",
-				ErrVerifyConfirmedTimesNotEnough.Error(), recvBlock.AccountAddress, meta.SendConfirmedTimes, recvBlock.FromBlockHash, sendConfirmedTimes),
-				"method", "verifyComfirmedTimes")*/
 		return ErrVerifyConfirmedTimesNotEnough
 	}
 	return nil
@@ -224,19 +222,16 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			return PENDING, nil
 		}
 
-		// fixme check sequence
-		/*
-			// check contract receive sequence
-			if !isGeneralAddr {
-				isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
+		// fixme check contract receive sequence
+		/*		if !isGeneralAddr {
+				isCorrect, err := v.verifySequenceOfContractReceive(nil, sendBlock)
 				if err != nil {
 					return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
 				}
 				if !isCorrect {
 					return FAIL, errors.New("verifySequenceOfContractReceive failed")
 				}
-			}
-		*/
+			}*/
 
 		// check whether the send referred is already received
 		isReceived, err := v.chain.IsReceived(sendBlock.Hash)
@@ -259,32 +254,12 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	return SUCCESS, nil
 }
 
-/*
-func (v *AccountVerifier) verifySequenceOfContractReceive(receive *ledger.AccountBlock, send *ledger.AccountBlock) (bool, error) {
-	pageNum := 0
-	for {
-		blockList, err := v.chain.GetOnRoadBlocksByAddr(receive.AccountAddress, pageNum, 1)
-		if err != nil {
-			return false, err
-		}
-		if len(blockList) <= 0 {
-			return false, errors.New("get most preferred onroad failed")
-		}
-		lowestBlock := blockList[0]
-		if lowestBlock.AccountAddress == send.AccountAddress {
-			if lowestBlock.Hash != send.Hash {
-				v.log.Error(fmt.Sprintf("verify contract recv sequence fail, block: height=%v hash=%v fromHash=%v fromHeight=%v, but onroad preferred hash=%v height=%v",
-					receive.Height, receive.Hash, send.Hash, send.Height, lowestBlock.Hash, lowestBlock.Height),
-					"caller", send.AccountAddress, "contract", receive.AccountAddress)
-				return false, errors.New("contract's processing sequence error")
-			}
-			return true, nil
-		}
-		pageNum++
+func (v *AccountVerifier) verifySequenceOfContractReceive(pool onroad_pool.OnRoadPool, send *ledger.AccountBlock) (bool, error) {
+	if pool == nil {
+		return true, nil
 	}
-	return true, nil
+	return pool.IsFrontOnRoadOfCaller(send.ToAddress, send.AccountAddress, send.Hash)
 }
-*/
 
 func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
 	if block.TokenId == types.ZERO_TOKENID {
