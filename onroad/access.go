@@ -13,11 +13,15 @@ func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Addres
 		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
 		return 0, errors.New("contractOnRoadPool is not available")
 	}
-	return onRoadPool.(OnRoadPool).GetOnRoadTotalNumByAddr(addr)
+	num, err := onRoadPool.(OnRoadPool).GetOnRoadTotalNumByAddr(addr)
+	if err != nil {
+		return 0, err
+	}
+	manager.log.Info("GetOnRoadTotalNumByAddr", "gid", gid, "addr", addr, "num", num)
+	return num, nil
 }
 
 func (manager *Manager) GetOnRoadFrontBlocks(gid types.Gid, addr types.Address) ([]*ledger.AccountBlock, error) {
-	return nil, nil
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
 		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)

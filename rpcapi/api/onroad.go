@@ -183,7 +183,7 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *Rp
 // fixme
 func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
 	var g types.Gid
-	if gid == nil || *gid == types.DELEGATE_GID {
+	if gid == nil {
 		g = types.SNAPSHOT_GID
 	} else {
 		g = *gid
@@ -194,7 +194,7 @@ func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *t
 // fixme
 func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
 	var g types.Gid
-	if gid == nil || *gid == types.DELEGATE_GID {
+	if gid == nil {
 		g = types.SNAPSHOT_GID
 	} else {
 		g = *gid

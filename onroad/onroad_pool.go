@@ -56,15 +56,12 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 	for contract, callerMap := range contractMap {
 		cc := NewCallerCache()
 		for caller, orList := range callerMap {
-			if err := cc.initLoad(p.chain, caller, orList); err != nil {
-				p.log.Error("loadOnRoad failed", "err", err, "caller", caller)
+			if initErr := cc.initLoad(p.chain, caller, orList); initErr != nil {
+				p.log.Error("loadOnRoad failed", "err", initErr, "caller", caller)
 				return err
 			}
 		}
-		if cc.Len() > 0 {
-			p.log.Info("success initLoad", "len", cc.Len())
-			p.cache.Store(contract, cc)
-		}
+		p.cache.Store(contract, NewCallerCache())
 	}
 	p.log.Info("success loadOnRoad")
 	return nil
@@ -308,7 +305,9 @@ func NewCallerCache() *callerCache {
 }
 
 func (cc *callerCache) initLoad(chain Chain, caller types.Address, orList []ledger.HashHeight) error {
-	for _, or := range orList {
+	for k, _ := range orList {
+		or := orList[k]
+		// fmt.Printf("initLoad caller=%v height=%v, hash=%v\n", caller, or.Height, or.Hash)
 		b, err := chain.GetAccountBlockByHash(or.Hash)
 		if err != nil {
 			return err
@@ -402,7 +401,7 @@ func (cc *callerCache) addTx(caller types.Address, isContract bool, or *ledger.H
 			}
 			return errors.New("addTx fail, hash conflict at the same height")
 		}
-		return errors.New("addTx fail, hash repeat")
+		return errors.New("addTx fail, duplicated")
 	}
 	return nil
 }
