@@ -63,7 +63,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		workingAddrList:       make(map[types.Address]bool),
 		selectivePendingCache: make(map[types.Address]*callerPendingMap),
 
-		log: slog.New("worker", "c"),
+		log: slog.New("worker", nil),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
@@ -286,28 +286,37 @@ func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBl
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
-	pendingMap, ok := w.selectivePendingCache[contractAddr]
-	if !ok || pendingMap == nil {
+	value, ok := w.selectivePendingCache[contractAddr]
+
+	addNewCount := 0
+	var p *callerPendingMap
+	if !ok || value == nil {
 		blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
 		if len(blocks) <= 0 {
 			return nil
 		}
-		pendingMap = newCallerPendingMap()
+		p = newCallerPendingMap()
 		for _, v := range blocks {
-			pendingMap.addPendingMap(v)
+			if !p.addPendingMap(v) {
+				addNewCount++
+			}
 		}
+		w.selectivePendingCache[contractAddr] = p
 	} else {
-		if pendingMap.isPendingMapNotSufficient() {
+		p = w.selectivePendingCache[contractAddr]
+		if p.isPendingMapNotSufficient() {
 			blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
 			for _, v := range blocks {
-				if pendingMap.existInInferiorList(v.AccountAddress) {
+				if p.existInInferiorList(v.AccountAddress) {
 					continue
 				}
-				pendingMap.addPendingMap(v)
+				if !p.addPendingMap(v) {
+					addNewCount++
+				}
 			}
 		}
 	}
-	w.selectivePendingCache[contractAddr] = pendingMap
+	w.log.Info(fmt.Sprintf("acquire new.len %v, currentPendingCache.len %v", addNewCount, p.Len()), "addr", contractAddr)
 	/*	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
 		listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
 		for k, v := range l {

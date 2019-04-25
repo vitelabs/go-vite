@@ -4,8 +4,17 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/onroad/pool"
 	"github.com/vitelabs/go-vite/vm_db"
 )
+
+func (manager *Manager) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {
+	return manager.chain.GetOnRoadBlocksByAddr(addr, pageNum, pageSize)
+}
+
+func (manager *Manager) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
+	return manager.chain.GetAccountOnRoadInfo(addr)
+}
 
 func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Address) (uint64, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
@@ -13,11 +22,10 @@ func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Addres
 		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
 		return 0, errors.New("contractOnRoadPool is not available")
 	}
-	num, err := onRoadPool.(OnRoadPool).GetOnRoadTotalNumByAddr(addr)
+	num, err := onRoadPool.(onroad_pool.OnRoadPool).GetOnRoadTotalNumByAddr(addr)
 	if err != nil {
 		return 0, err
 	}
-	manager.log.Info("GetOnRoadTotalNumByAddr", "gid", gid, "addr", addr, "num", num)
 	return num, nil
 }
 
@@ -27,11 +35,10 @@ func (manager *Manager) GetOnRoadFrontBlocks(gid types.Gid, addr types.Address) 
 		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
 		return nil, errors.New("contractOnRoadPool is not available")
 	}
-	blockList, err := onRoadPool.(OnRoadPool).GetOnRoadFrontBlocks(addr)
+	blockList, err := onRoadPool.(onroad_pool.OnRoadPool).GetOnRoadFrontBlocks(addr)
 	if err != nil {
 		return nil, err
 	}
-	manager.log.Info("GetOnRoadFrontBlocks", "gid", gid, "addr", addr, "len", len(blockList))
 	return blockList, nil
 }
 

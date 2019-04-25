@@ -25,7 +25,7 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 }
 
 func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {
-	hashList, err := c.indexDB.GetOnRoad(addr, pageNum, pageSize)
+	hashList, err := c.indexDB.GetOnRoadHashList(addr, pageNum, pageSize)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetOnRoadBlocksByAddr failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
 			err, addr, pageNum, pageSize))
@@ -43,7 +43,7 @@ func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int)
 		if b == nil {
 			continue
 		}
-		blockList = append(blockList, b)
+		blockList[count] = b
 		count++
 	}
 	return blockList[:count], nil

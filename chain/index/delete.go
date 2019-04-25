@@ -91,14 +91,6 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				// delete receive index
 				iDB.deleteReceiveInfo(batch, block.FromBlockHash)
 
-				for _, sendBlock := range block.SendBlockList {
-					// delete sendBlock hash index
-					iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
-
-					// set open send
-					sendBlockHashMap[sendBlock.Hash] = sendBlock
-				}
-
 			} else {
 				// insert onRoad
 				iDB.insertOnRoad(batch, block.AccountAddress, block)
@@ -106,6 +98,15 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				// insert unreceived placeholder. avoid querying all data when no receive
 				iDB.insertReceiveInfo(batch, block.FromBlockHash, unreceivedFlag)
 			}
+
+			for _, sendBlock := range block.SendBlockList {
+				// delete sendBlock hash index
+				iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
+
+				// set open send
+				sendBlockHashMap[sendBlock.Hash] = sendBlock
+			}
+
 		} else {
 			sendBlockHashMap[block.Hash] = block
 		}

@@ -59,7 +59,7 @@ func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Add
 
 func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := pri.manager.Chain().GetOnRoadBlocksByAddr(address, int(index), int(count))
+	blockList, err := pri.manager.GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 
 func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := pri.manager.Chain().GetAccountOnRoadInfo(address)
+	info, e := pri.manager.GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
@@ -180,7 +180,6 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *Rp
 	return &r
 }
 
-// fixme
 func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
 	var g types.Gid
 	if gid == nil {
@@ -188,10 +187,15 @@ func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *t
 	} else {
 		g = *gid
 	}
-	return pri.manager.GetOnRoadTotalNumByAddr(g, addr)
+
+	num, err := pri.manager.GetOnRoadTotalNumByAddr(g, addr)
+	if err != nil {
+		return 0, err
+	}
+	log.Info("GetContractOnRoadTotalNum", "gid", gid, "addr", addr, "num", num)
+	return num, nil
 }
 
-// fixme
 func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
 	var g types.Gid
 	if gid == nil {
@@ -204,6 +208,7 @@ func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid
 	if err != nil {
 		return nil, err
 	}
+	log.Info("GetContractOnRoadFrontBlocks", "gid", gid, "addr", addr, "len", len(blockList))
 	rpcBlockList := make([]*AccountBlock, len(blockList))
 	sum := 0
 	for k, v := range blockList {

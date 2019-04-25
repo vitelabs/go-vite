@@ -45,6 +45,16 @@ func (p *callerPendingMap) isPendingMapNotSufficient() bool {
 	return false
 }
 
+func (p *callerPendingMap) Len() int {
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
+	count := 0
+	for _, v := range p.pmap {
+		count += len(v)
+	}
+	return count
+}
+
 func (p *callerPendingMap) getOnePending() *ledger.AccountBlock {
 	p.addrMutex.RLock()
 	defer p.addrMutex.RUnlock()
@@ -57,7 +67,7 @@ func (p *callerPendingMap) getOnePending() *ledger.AccountBlock {
 	return nil
 }
 
-func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) {
+func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) (isExist bool) {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
 
@@ -70,10 +80,11 @@ func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) {
 	}
 	for _, v := range list {
 		if v.Hash == sendBlock.Hash {
-			return
+			return true
 		}
 	}
 	p.pmap[sendBlock.AccountAddress] = append(p.pmap[sendBlock.AccountAddress], sendBlock)
+	return false
 }
 
 func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *types.Hash) bool {

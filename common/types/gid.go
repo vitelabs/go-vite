@@ -18,8 +18,6 @@ var (
 	DELEGATE_GID = Gid{0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
 )
 
-var DefaultGidList = []Gid{PRIVATE_GID, SNAPSHOT_GID, DELEGATE_GID}
-
 type Gid [GidSize]byte
 
 func DataToGid(data ...[]byte) Gid {

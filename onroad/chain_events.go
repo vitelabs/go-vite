@@ -3,6 +3,7 @@ package onroad
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/onroad/pool"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -35,7 +36,7 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 		if !exist || orPool == nil {
 			return nil
 		}
-		if err := orPool.(OnRoadPool).WriteAccountBlock(block.AccountBlock); err != nil {
+		if err := orPool.(onroad_pool.OnRoadPool).WriteAccountBlock(block.AccountBlock); err != nil {
 			return err
 		}
 		if block.AccountBlock.IsSendBlock() {
@@ -84,7 +85,7 @@ func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 		if !exist || orPool == nil {
 			return nil
 		}
-		return orPool.(OnRoadPool).DeleteAccountBlock(v)
+		return orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v)
 	}
 	return nil
 }
