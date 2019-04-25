@@ -25,6 +25,7 @@ const (
 	BurnGas                   uint64 = 48837
 	TransferOwnerGas          uint64 = 58981
 	ChangeTokenTypeGas        uint64 = 63125
+	GetTokenInfoGas           uint64 = 63200
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group
@@ -34,8 +35,6 @@ const (
 	cgPerCountMax    int64 = 10 * 60
 	cgPerIntervalMin int64 = 1
 	cgPerIntervalMax int64 = 10 * 60
-
-	rewardPrecForFloat uint = 18
 
 	registrationNameLengthMax int = 40
 
