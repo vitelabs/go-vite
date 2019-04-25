@@ -22,8 +22,6 @@ func TestTree_SwitchMainTo(t *testing.T) {
 
 	tr.Init("unittest", root)
 
-	var b3 Branch
-
 	{
 		flag := "b2"
 		main := tr.Main()
@@ -44,6 +42,8 @@ func TestTree_SwitchMainTo(t *testing.T) {
 			tr.RootHeadAdd(k)
 		}
 	}
+
+	var b3 Branch
 	{
 		flag := "b3"
 		main := tr.Main()

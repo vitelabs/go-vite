@@ -51,6 +51,25 @@ func NewAlgo(info *GroupInfo) *algo {
 }
 
 // balance + snapshotHeight + gid
+func (self *algo) findSeedTmp(votes []*Vote, sheight uint64, info *SeedInfo, successRate map[types.Address]int32) int64 {
+	result := big.NewInt(0)
+	result.Add(result, new(big.Int).SetUint64(sheight))
+	seeds := info.seeds
+	if seeds == 0 {
+		for _, v := range votes {
+			result.Add(result, v.Balance)
+		}
+	}
+	if successRate != nil {
+		for _, v := range successRate {
+			result.Add(result, big.NewInt(0).SetInt64(int64(v)))
+		}
+	}
+	result.Add(result, big.NewInt(0).SetUint64(seeds))
+	return result.Add(result, self.info.seed).Int64()
+}
+
+// balance + snapshotHeight + gid
 func (self *algo) findSeed(votes []*Vote, sheight uint64, info *SeedInfo) int64 {
 	seeds := info.seeds
 	if seeds == 0 {
@@ -98,7 +117,7 @@ func (self *algo) FilterVotes(context *VoteAlgoContext) []*Vote {
 	if successRates != nil {
 		groupA, groupB = self.filterBySuccessRate(groupA, groupB, hashH, successRates)
 	}
-	votes = self.filterRandV2(groupA, groupB, hashH, context.seeds)
+	votes = self.filterRandV2(groupA, groupB, hashH, context.seeds, successRates)
 
 	sort.Sort(ByBalance(votes))
 	return votes
@@ -166,7 +185,7 @@ func (self *algo) filterRand(votes []*Vote, hashH *ledger.HashHeight, seedInfo *
 	return result
 }
 
-func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight, seedInfo *SeedInfo) []*Vote {
+func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight, seedInfo *SeedInfo, successRate map[types.Address]int32) []*Vote {
 	if len(groupB) == 0 {
 		return groupA
 	}
@@ -177,7 +196,7 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 
 	length := len(groupA) + len(groupB)
 
-	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
+	seed := self.findSeedTmp(mergeGroup(groupA, groupB), hashH.Height, seedInfo, successRate)
 	randCnt := self.calRandCnt(total, int(self.info.RandCount))
 	topTotal := total - randCnt
 

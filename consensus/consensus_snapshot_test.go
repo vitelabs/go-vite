@@ -13,6 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pool/lock"
 )
 
 func TestSnapshotCs_ElectionIndex(t *testing.T) {
@@ -51,7 +52,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 
 	mock_chain.EXPECT().GetConsensusGroupList(b1.Hash).Return([]*types.ConsensusGroupInfo{&group}, nil)
 	mock_chain.EXPECT().GetLatestSnapshotBlock().Return(b1)
-	rw := newChainRw(mock_chain, log15.New())
+	rw := newChainRw(mock_chain, log15.New(), &lock.EasyImpl{})
 
 	cs := newSnapshotCs(rw, log15.New())
 
@@ -142,7 +143,7 @@ func TestSnapshotCs_Tools(t *testing.T) {
 	if err != nil {
 		assert.FailNow(t, err.Error())
 	}
-	rw := newChainRw(c, log15.New())
+	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
 	cs := newSnapshotCs(rw, log15.New())
 
 	rw.initArray(cs)

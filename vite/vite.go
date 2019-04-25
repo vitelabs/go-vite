@@ -57,7 +57,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		return nil, err
 	}
 	// consensus
-	cs := consensus.NewConsensus(chain)
+	cs := consensus.NewConsensus(chain, pl)
 
 	// sb verifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)

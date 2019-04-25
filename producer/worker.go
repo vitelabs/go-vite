@@ -84,9 +84,9 @@ func (self *worker) genAndInsert(e *consensus.Event) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	// lock pool
-	self.tools.ledgerLock()
+	self.tools.pool.LockInsert()
 	// unlock pool
-	defer self.tools.ledgerUnLock()
+	defer self.tools.pool.UnLockInsert()
 
 	seed := self.randomSeed()
 

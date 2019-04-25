@@ -2,7 +2,12 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/chain/plugins"
+
+	"os"
+	"path"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -19,9 +24,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
-	"os"
-	"path"
-	"sync/atomic"
 )
 
 const (
@@ -394,4 +396,8 @@ func defaultConfig() *config.Chain {
 		LedgerGcRetain: 24 * 3600,
 		OpenPlugins:    false,
 	}
+}
+
+func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
+	return c.indexDB, c.blockDB, c.stateDB
 }
