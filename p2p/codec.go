@@ -25,7 +25,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/tools/bytes_pool"
 
 	"github.com/golang/snappy"
 )
@@ -187,7 +187,6 @@ func (t *transport) SetTimeout(timeout time.Duration) {
 
 // ReadMsg is NOT thread-safe
 func (t *transport) ReadMsg() (msg Msg, err error) {
-	defer monitor.LogTime("codec", "read", time.Now())
 	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
 	buf := t.readHeadBuf[:]
@@ -228,20 +227,33 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 			return
 		}
 
-		msg.Payload = make([]byte, length)
+		msg.Payload = bytes_pool.Get(int(length))
 		_, err = io.ReadFull(t.Conn, msg.Payload)
 		if err != nil {
 			err = fmt.Errorf("failed to read message payload: %v", err)
+			bytes_pool.Put(msg.Payload)
 			return
 		}
 	}
 
 	if compressed {
-		msg.Payload, err = snappy.Decode(nil, msg.Payload)
+		var payloadReadLength int
+		payloadReadLength, err = snappy.DecodedLen(msg.Payload)
+		if err != nil {
+			err = fmt.Errorf("failed to decode message length: %v", err)
+			return
+		}
+
+		payloadUncompressed := bytes_pool.Get(payloadReadLength)
+		payloadUncompressed, err = snappy.Decode(payloadUncompressed, msg.Payload)
+		// recycle old payload
+		bytes_pool.Put(msg.Payload)
+
 		if err != nil {
 			err = fmt.Errorf("failed to decode message payload: %v", err)
 			return
 		}
+		msg.Payload = payloadUncompressed
 	}
 
 	return
@@ -249,7 +261,6 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
-	defer monitor.LogTime("codec", "write", time.Now())
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf[:]
@@ -266,12 +277,17 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	var compress bool
 	payloadLen := len(msg.Payload)
 	if payloadLen > t.minCompressLength {
-		payload := snappy.Encode(nil, msg.Payload)
+		payloadCompressed := bytes_pool.Get(snappy.MaxEncodedLen(payloadLen))
+		payloadCompressed = snappy.Encode(payloadCompressed, msg.Payload)
+
 		// smaller after compressed
-		if len(payload) < payloadLen {
-			msg.Payload = payload
-			payloadLen = len(payload)
+		if len(payloadCompressed) < payloadLen {
+			bytes_pool.Put(msg.Payload)
+			msg.Payload = payloadCompressed
+			payloadLen = len(payloadCompressed)
 			compress = true
+		} else {
+			bytes_pool.Put(payloadCompressed)
 		}
 	}
 
@@ -281,17 +297,24 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 
 	head[0] = storeMeta(isize, lsize, compress)
 
-	data := make([]byte, int(headLen)+payloadLen)
-	copy(data, head[:headLen])
-	copy(data[headLen:], msg.Payload)
+	defer bytes_pool.Put(msg.Payload)
 
 	var wsize int
-	wsize, err = t.Conn.Write(data)
+	// send head
+	wsize, err = t.Conn.Write(head[:headLen])
 	if err != nil {
 		return
 	}
+	if wsize != int(headLen) {
+		return errWriteTooShort
+	}
 
-	if wsize != len(data) {
+	// send payload
+	wsize, err = t.Conn.Write(msg.Payload)
+	if err != nil {
+		return
+	}
+	if wsize != payloadLen {
 		return errWriteTooShort
 	}
 

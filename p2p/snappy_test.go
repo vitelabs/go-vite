@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -11,23 +12,20 @@ import (
 )
 
 func TestSnappy_Encode(t *testing.T) {
-	n := 10
+	const total = 10
+	var buf = make([]byte, total)
+	fmt.Printf("max encoded length: %d\n", snappy.MaxEncodedLen(total))
 
-	for {
-		for i := 0; i < 10; i++ {
-			buf := make([]byte, n)
-			_, err := rand.Read(buf)
-			if err != nil {
-				panic(err)
-			}
-			buf2 := snappy.Encode(nil, buf)
-			t.Log(n, len(buf2), float64(len(buf2))/float64(n))
-		}
+	buf2 := snappy.Encode(nil, buf)
+	n, err := snappy.DecodedLen(buf2)
+	if err != nil {
+		panic(err)
+	}
 
-		n += 10
-		if n > 10000 {
-			break
-		}
+	if n != total {
+		t.Errorf("wrong decoded length: %d", n)
+	} else {
+		fmt.Printf("decoded length: %d\n", n)
 	}
 }
 

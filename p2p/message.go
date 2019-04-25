@@ -3,6 +3,8 @@ package p2p
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/tools/bytes_pool"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/p2p/protos"
 )
@@ -18,6 +20,11 @@ type Msg struct {
 	Payload    []byte
 	ReceivedAt time.Time
 	Sender     Peer
+}
+
+// Recycle will put Msg.Payload back to pool
+func (m Msg) Recycle() {
+	bytes_pool.Put(m.Payload)
 }
 
 type MsgReader interface {
