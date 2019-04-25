@@ -3,7 +3,6 @@ package verifier
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -70,12 +69,13 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 	defer monitor.LogTime("verify", "snapshotSelf", time.Now())
 
 	if block.Height == types.GenesisHeight {
-		snapshotBlock := self.reader.GetGenesisSnapshotBlock()
-		if block.Hash != snapshotBlock.Hash {
+		flag := self.reader.IsGenesisSnapshotBlock(block.Hash)
+		if !flag {
 			stat.result = FAIL
-			return errors.New("genesis block error.")
+			return errors.Errorf("genesis block[%s] error.", block.Hash)
 		}
 	}
+
 	if block.Seed != 0 {
 		seedBlock := self.getLastSeedBlock(block)
 		if seedBlock != nil {
@@ -84,6 +84,14 @@ func (self *SnapshotVerifier) verifySelf(block *ledger.SnapshotBlock, stat *Snap
 				return errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
 			}
 		}
+	}
+
+	head := self.reader.GetLatestSnapshotBlock()
+	if head.Height != block.Height-1 {
+		return errors.Errorf("snapshot fail for height:[%d]", head.Height)
+	}
+	if head.Hash != block.PrevHash {
+		return errors.Errorf("block is not next. prevHash:%s, headHash:%s", block.PrevHash, head.Hash)
 	}
 	return nil
 }
@@ -97,7 +105,6 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 			return e
 		}
 		if ab == nil {
-			fmt.Printf("snapshot:[%s], account[%s] hash:[%d]-[%s] not exist.\n", block.Hash, addr, b.Height, b.Hash)
 			stat.results[addr] = PENDING
 		} else if ab.Hash == b.Hash {
 			stat.results[addr] = SUCCESS
@@ -114,64 +121,6 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 		}
 	}
 	return nil
-}
-
-func (self *SnapshotVerifier) verifyAccountsTimeout(block *ledger.SnapshotBlock, stat *SnapshotBlockVerifyStat) error {
-	defer monitor.LogTime("verify", "snapshotAccountsTimeout", time.Now())
-	head := self.reader.GetLatestSnapshotBlock()
-	if head.Height != block.Height-1 {
-		return errors.New("snapshot db for height:" + strconv.FormatUint(head.Height, 10))
-	}
-	if head.Hash != block.PrevHash {
-		return errors.New(fmt.Sprintf("block is not next. prevHash:%s, headHash:%s", block.PrevHash, head.Hash))
-	}
-
-	//for addr, hashH := range block.SnapshotContent {
-	//	_, err := self.VerifyAccountTimeout(addr, hashH, block.Height)
-	//	if err != nil {
-	//		stat.result = FAIL
-	//		return err
-	//	}
-	//}
-	return nil
-}
-
-//func (self *SnapshotVerifier) VerifyAccountTimeout(addr types.Address, hashH *ledger.HashHeight, snapshotHeight uint64) (*ledger.HashHeight, error) {
-//
-//	defer monitor.LogTime("verify", "accountTimeout", time.Now())
-//
-//	first, e := self.reader.GetFirstConfirmedAccountBlockBySbHeight(snapshotHeight, &addr)
-//	if e != nil {
-//		return nil, e
-//	}
-//
-//	if first == nil {
-//		if hashH != nil {
-//			return nil, errors.Errorf("account block[%s:%d:%s] is nil.", addr, hashH.Height, hashH.Hash)
-//		}
-//		return nil, errors.New("account block is nil.")
-//	}
-//	refer, e := self.reader.GetSnapshotBlockHeadByHash(&first.SnapshotHash)
-//
-//	if e != nil {
-//		return nil, e
-//	}
-//	if refer == nil {
-//		return nil, errors.New("snapshot block is nil.")
-//	}
-//
-//	ok := self.VerifyTimeout(snapshotHeight, refer.Height)
-//	if !ok {
-//		return &ledger.HashHeight{Height: first.Height, Hash: first.Hash}, errors.New("snapshot account block timeout.")
-//	}
-//	return nil, nil
-//}
-
-func (self *SnapshotVerifier) VerifyTimeout(nowHeight uint64, referHeight uint64) bool {
-	if nowHeight-referHeight > types.AccountLimitSnapshotHeight {
-		return false
-	}
-	return true
 }
 
 func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
@@ -201,13 +150,6 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 		if v == FAIL || v == PENDING {
 			return stat
 		}
-	}
-
-	// verify accounts timeout
-	err = self.verifyAccountsTimeout(block, stat)
-	if err != nil {
-		stat.errMsg = err.Error()
-		return stat
 	}
 
 	if block.Height != types.GenesisHeight {
