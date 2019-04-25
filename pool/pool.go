@@ -80,6 +80,7 @@ type commonBlock interface {
 	forkVersion() int
 	Source() types.BlockSource
 	Latency() time.Duration
+	ShouldFetch() bool
 	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
 }
 
@@ -109,6 +110,16 @@ func (self *forkBlock) Latency() time.Duration {
 		return time.Now().Sub(self.nTime)
 	}
 	return time.Duration(0)
+}
+
+func (self *forkBlock) ShouldFetch() bool {
+	if self.Source() != types.RemoteBroadcast {
+		return true
+	}
+	if self.Latency() > time.Millisecond*200 {
+		return true
+	}
+	return false
 }
 
 func (self *forkBlock) Source() types.BlockSource {
@@ -813,8 +824,10 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 		}
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
 			result = false
+			if block.ShouldFetch() {
+				ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
+			}
 		}
 	}
 	return result
@@ -856,6 +869,9 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 
 		sb := b.(*snapshotPoolBlock)
 
+		if !sb.ShouldFetch() {
+			continue
+		}
 		for k, v := range sb.block.SnapshotContent {
 
 			hh, ok := addrM[k]
@@ -978,8 +994,9 @@ func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version int) 
 	return nil
 }
 func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight, pending *snapshotPending) {
-	self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
-
+	if pending.snapshot != nil && pending.snapshot.ShouldFetch() {
+		self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
+	}
 	self.Lock()
 	defer self.UnLock()
 	if p.Version() != self.version.Val() {

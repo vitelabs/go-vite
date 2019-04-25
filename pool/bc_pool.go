@@ -498,6 +498,11 @@ func (self *BCPool) loopFetchForSnippets() int {
 			diff.SetUint64(100)
 		}
 
+		// don't fetch for new block
+		b := w.getBlock(w.tailHeight + 1)
+		if b != nil && !b.ShouldFetch() {
+			continue
+		}
 		i++
 		hash := ledger.HashHeight{Hash: w.tailHash, Height: w.tailHeight}
 		self.tools.fetcher.fetch(hash, diff.Uint64())

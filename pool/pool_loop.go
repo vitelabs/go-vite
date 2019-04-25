@@ -127,10 +127,8 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 }
 
 type snapshotPending struct {
-	sHash     types.Hash
-	sHeight   uint64
-	sPrevHash types.Hash
-	addrM     map[types.Address]*ledger.HashHeight
+	snapshot *snapshotPoolBlock
+	addrM    map[types.Address]*ledger.HashHeight
 }
 
 func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
@@ -169,7 +167,7 @@ func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.Ha
 	}
 
 	if len(errorAcc) > 0 {
-		pendingS := &snapshotPending{sHash: b.Hash(), sHeight: b.Height(), sPrevHash: b.PrevHash(), addrM: errorAcc}
+		pendingS := &snapshotPending{snapshot: b, addrM: errorAcc}
 		return newOffset, pendingS, nil
 
 	}
