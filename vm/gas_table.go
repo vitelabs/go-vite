@@ -350,9 +350,12 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 		return 0, true, err
 	}
 
-	var overflow bool
-	if gas, overflow = helper.SafeAdd(gas, cost); overflow {
-		return 0, true, util.ErrGasUintOverflow
+	if cost > callMinusGas {
+		cost = cost - callMinusGas
+		var overflow bool
+		if gas, overflow = helper.SafeAdd(gas, cost); overflow {
+			return 0, true, util.ErrGasUintOverflow
+		}
 	}
 	return gas, true, nil
 }

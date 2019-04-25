@@ -184,6 +184,13 @@ func (db *testDatabase) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList
 func (db *testDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
 }
+func (db *testDatabase) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error) {
+	return db.LatestSnapshotBlock()
+}
+func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (*ledger.ContractMeta, error) {
+	meta := db.contractMetaMap[contractAddress]
+	return meta, nil
+}
 
 type testIteratorItem struct {
 	key, value []byte
