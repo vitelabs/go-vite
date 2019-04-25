@@ -313,7 +313,7 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(fmt.Sprintf("%v\n", err))
-			result = codec.CreateResponse(req.id, "server panic error")
+			result = codec.CreateErrorResponse(req.id, &executePanicError{})
 			f = nil
 		}
 	}()
