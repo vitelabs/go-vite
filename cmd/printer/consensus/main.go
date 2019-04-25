@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -44,7 +46,7 @@ func main() {
 	index := uint64(*index)
 	c := newChain(*dir, genesisJson)
 
-	cs := consensus.NewConsensus(c)
+	cs := consensus.NewConsensus(c, &lock.EasyImpl{})
 	cs.Init()
 	reader := cs.SBPReader().(consensus.DposReader)
 

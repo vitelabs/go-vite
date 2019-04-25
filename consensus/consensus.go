@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -78,7 +80,8 @@ type consensus struct {
 
 	genesis time.Time
 
-	rw *chainRw
+	rw       *chainRw
+	rollback lock.ChainRollback
 
 	snapshot  *snapshotCs
 	contracts *contractsCs
@@ -102,10 +105,10 @@ func (self *consensus) API() APIReader {
 	return self.api
 }
 
-func NewConsensus(ch Chain) *consensus {
+func NewConsensus(ch Chain, rollback lock.ChainRollback) *consensus {
 	log := log15.New("module", "consensus")
-	rw := newChainRw(ch, log)
-	self := &consensus{rw: rw}
+	rw := newChainRw(ch, log, rollback)
+	self := &consensus{rw: rw, rollback: rollback}
 	self.mLog = log
 
 	return self

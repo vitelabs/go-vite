@@ -34,7 +34,7 @@ type snapshotPool struct {
 	newSnapshotBlockCond *common.CondTimer
 }
 
-func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
+func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *common.Version, source types.BlockSource) *snapshotPoolBlock {
 	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source), failStat: (&failStat{}).init(time.Second * 20)}
 }
 
@@ -78,7 +78,7 @@ func (self *snapshotPoolBlock) Owner() *types.Address {
 
 func newSnapshotPool(
 	name string,
-	version *ForkVersion,
+	version *common.Version,
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
@@ -199,8 +199,10 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id(),
 		"longestTail", longest.SprintTail(), "longestHead", longest.SprintHead(), "currentTail", current.SprintTail(), "currentHead", current.SprintHead())
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
+	self.pool.LockRollback()
+	defer self.pool.UnLockRollback()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id())
 
 	k, forked, err := self.chainpool.tree.FindForkPointFromMain(longest)
@@ -274,7 +276,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version int) (map[types.Address][]commonBlock, batch.Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version uint64) (map[types.Address][]commonBlock, batch.Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
@@ -376,8 +378,8 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 }
 
 func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)

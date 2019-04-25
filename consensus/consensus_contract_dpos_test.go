@@ -8,6 +8,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pool/lock"
 
 	"github.com/golang/mock/gomock"
 
@@ -24,7 +25,7 @@ func TestContractDposCs_ElectionIndexReader(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	rw := newChainRw(c, log15.New())
+	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
 	groupInfo, err := rw.GetMemberInfo(types.DELEGATE_GID)
 	assert.NoError(t, err)
 
@@ -90,7 +91,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 
 	b1 := GenSnapshotBlock(1, "3fc5224e59433bff4f48c83c0eb4edea0e4c42ea697e04cdec717d03e50d5200", types.Hash{}, simpleGenesis)
 
-	rw := newChainRw(mock_chain, log15.New())
+	rw := newChainRw(mock_chain, log15.New(), &lock.EasyImpl{})
 
 	cs := newContractDposCs(info, rw, log15.New())
 
