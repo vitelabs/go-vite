@@ -22,8 +22,8 @@ import "sync"
 
 const bufSize0 = 128
 const bufSize1 = 512
-const bufSize2 = 10240  // 10k
-const bufSize3 = 102400 // 100k
+const bufSize2 = 1024
+const bufSize3 = 10240 // 10k
 
 const maxTry = 3
 
@@ -72,6 +72,10 @@ var bytesPools = [...]bytesPool{
 }
 
 func Get(n int) []byte {
+	if n > bufSize3 {
+		return make([]byte, n)
+	}
+
 	for _, p := range bytesPools {
 		if n < p.max {
 			for i := 0; i < maxTry; i++ {
@@ -82,7 +86,8 @@ func Get(n int) []byte {
 				p.Put(buf)
 			}
 
-			return make([]byte, n)
+			// find no contented buffer in pool
+			break
 		}
 	}
 
