@@ -38,7 +38,7 @@ type BCPool struct {
 	chainpool *chainPool
 	tools     *tools
 
-	version *ForkVersion
+	version *common.Version
 
 	// 1. protecting the tail(hash && height) of current chain.
 	// 2. protecting the modification for the current chain (which is the current chain?).

@@ -16,7 +16,7 @@ type batchSnapshot struct {
 	num             int // default 0
 	current         int // default -1
 	lastSnapshot    int // default -1
-	version         int
+	version         uint64
 	all             map[types.Hash]*ownerLevel
 	ls              []Level
 	snapshotExistsF SnapshotExistsFunc
@@ -61,7 +61,7 @@ func (self *batchSnapshot) Info() string {
 
 	return fmt.Sprintf("sum:%d,%d,%d:%s\n", len(self.all), sum, self.num, levelInfo)
 }
-func (self *batchSnapshot) Version() int {
+func (self *batchSnapshot) Version() uint64 {
 	return self.version
 }
 
@@ -76,7 +76,7 @@ func (self *batchSnapshot) IsUnconfirmed() bool {
 type SnapshotExistsFunc func(hash types.Hash) error
 type AccountExistsFunc func(hash types.Hash) error
 
-func NewBatch(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, version int, max int) Batch {
+func NewBatch(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, version uint64, max int) Batch {
 	tmpLs := make([]Level, max)
 	//for i := 0; i < max; i++ {
 	//	tmpLs[i] = newLevel()

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
+
 	"github.com/vitelabs/go-vite/pool/batch"
 
 	"github.com/vitelabs/go-vite/pool/tree"
@@ -35,7 +37,7 @@ type accountPool struct {
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
 	vmBlock vm_db.VmDb,
-	version *ForkVersion,
+	version *common.Version,
 	source types.BlockSource) *accountPoolBlock {
 	return &accountPoolBlock{
 		forkBlock: *newForkBlock(version, source),
@@ -91,7 +93,7 @@ func (self *accountPoolBlock) Owner() *types.Address {
 	return &self.block.AccountAddress
 }
 
-func newAccountPool(name string, rw *accountCh, v *ForkVersion, hashBlacklist Blacklist, log log15.Logger) *accountPool {
+func newAccountPool(name string, rw *accountCh, v *common.Version, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}
 	pool.Id = name
 	pool.rw = rw
@@ -369,7 +371,7 @@ func (self *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version int) error {
+func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.tree.Main().Size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))

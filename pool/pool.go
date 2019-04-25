@@ -77,25 +77,25 @@ type commonBlock interface {
 	PrevHash() types.Hash
 	checkForkVersion() bool
 	resetForkVersion()
-	forkVersion() int
+	forkVersion() uint64
 	Source() types.BlockSource
 	Latency() time.Duration
 	ShouldFetch() bool
 	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
 }
 
-func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
+func newForkBlock(v *common.Version, source types.BlockSource) *forkBlock {
 	return &forkBlock{firstV: v.Val(), v: v, source: source, nTime: time.Now()}
 }
 
 type forkBlock struct {
-	firstV int
-	v      *ForkVersion
+	firstV uint64
+	v      *common.Version
 	source types.BlockSource
 	nTime  time.Time
 }
 
-func (self *forkBlock) forkVersion() int {
+func (self *forkBlock) forkVersion() uint64 {
 	return self.v.Val()
 }
 func (self *forkBlock) checkForkVersion() bool {
@@ -145,7 +145,7 @@ type pool struct {
 	worker               *worker
 
 	rwMutex sync.RWMutex
-	version *ForkVersion
+	version *common.Version
 
 	closed chan struct{}
 	wg     sync.WaitGroup
@@ -207,7 +207,7 @@ func (self *pool) RUnLock() {
 }
 
 func NewPool(bc chainDb) (*pool, error) {
-	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}}
+	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
 	if err != nil {
@@ -916,14 +916,14 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	}
 	return nil
 }
-func (self *pool) insertLevel(p batch.Batch, l batch.Level, version int) error {
+func (self *pool) insertLevel(p batch.Batch, l batch.Level, version uint64) error {
 	if l.Snapshot() {
 		return self.insertSnapshotLevel(p, l, version)
 	} else {
 		return self.insertAccountLevel(p, l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version int) error {
+func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version uint64) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -940,7 +940,7 @@ func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version int)
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version int) error {
+func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version uint64) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {

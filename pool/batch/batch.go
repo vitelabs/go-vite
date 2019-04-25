@@ -16,7 +16,7 @@ type Batch interface {
 	Levels() []Level
 	Size() int
 	Info() string
-	Version() int
+	Version() uint64
 	Exists(hash types.Hash) bool
 	Id() uint64
 }

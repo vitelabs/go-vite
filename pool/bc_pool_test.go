@@ -3,6 +3,8 @@ package pool
 import (
 	"testing"
 
+	"github.com/vitelabs/go-vite/common"
+
 	"fmt"
 
 	"encoding/json"
@@ -51,7 +53,7 @@ func TestBcPool(t *testing.T) {
 	bcPool := BCPool{}
 
 	bcPool.Id = "test"
-	bcPool.version = &ForkVersion{}
+	bcPool.version = &common.Version{}
 	bcPool.log = log15.New("module", "pool/test")
 
 	testRw := &testChainRw{}

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/common"
+
 	ch "github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -49,7 +51,7 @@ type chainRw interface {
 type accountCh struct {
 	address types.Address
 	rw      chainDb
-	version *ForkVersion
+	version *common.Version
 	log     log15.Logger
 }
 
@@ -176,7 +178,7 @@ func (self *accountCh) needSnapshot(addr types.Address) (uint8, error) {
 
 type snapshotCh struct {
 	bc      chainDb
-	version *ForkVersion
+	version *common.Version
 	log     log15.Logger
 }
 

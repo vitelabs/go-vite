@@ -34,7 +34,7 @@ type snapshotPool struct {
 	newSnapshotBlockCond *common.CondTimer
 }
 
-func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
+func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *common.Version, source types.BlockSource) *snapshotPoolBlock {
 	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source), failStat: (&failStat{}).init(time.Second * 20)}
 }
 
@@ -78,7 +78,7 @@ func (self *snapshotPoolBlock) Owner() *types.Address {
 
 func newSnapshotPool(
 	name string,
-	version *ForkVersion,
+	version *common.Version,
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
@@ -274,7 +274,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version int) (map[types.Address][]commonBlock, batch.Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version uint64) (map[types.Address][]commonBlock, batch.Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()

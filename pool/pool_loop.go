@@ -264,7 +264,7 @@ func (self *pool) insertQueue(q batch.Batch) error {
 	return nil
 }
 
-func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version int) error {
+func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
 	self.RLock()
 	defer self.RUnLock()
 	latestSb := self.bc.GetLatestSnapshotBlock()
@@ -275,7 +275,7 @@ func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, versio
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version int) error {
+func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
 	// stop the world for snapshot insert
 	self.Lock()
 	defer self.UnLock()
