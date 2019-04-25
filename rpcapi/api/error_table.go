@@ -66,8 +66,8 @@ var (
 		Code:    -35008,
 	}
 
-	ErrInvalidConfirmTime = JsonRpc2Error{
-		Message: util.ErrInvalidConfirmTime.Error(),
+	ErrVmNoReliableStatus = JsonRpc2Error{
+		Message: util.ErrNoReliableStatus.Error(),
 		Code:    -35009,
 	}
 
@@ -122,7 +122,7 @@ func init() {
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
 	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
 	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
-	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
 	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
