@@ -47,7 +47,7 @@ func TestVmRun(t *testing.T) {
 	 */
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	// send create
-	data13, _ := hex.DecodeString("0000000000000000000201010a608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
+	data13, _ := hex.DecodeString("0000000000000000000201010b608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -126,7 +126,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, block14.Amount)
 	if sendCallBlock == nil ||
 		len(sendCallBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendCallBlock.AccountBlock.Quota != 23448 ||
+		sendCallBlock.AccountBlock.Quota != 25792 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
