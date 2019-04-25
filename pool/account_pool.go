@@ -314,8 +314,8 @@ func (self *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	}
 
 	// lock other chain insert
-	self.pool.RLock()
-	defer self.pool.RUnLock()
+	self.pool.RLockInsert()
+	defer self.pool.RUnLockInsert()
 
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()

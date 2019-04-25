@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/vitelabs/go-vite/pool/batch"
 
 	"github.com/vitelabs/go-vite/pool/tree"
@@ -34,13 +36,8 @@ type Writer interface {
 }
 
 type SnapshotProducerWriter interface {
-	Lock()
-
-	UnLock()
-
+	lock.ChainInsert
 	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
-
-	RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error
 }
 
 type Reader interface {
@@ -127,6 +124,7 @@ func (self *forkBlock) Source() types.BlockSource {
 }
 
 type pool struct {
+	lock.EasyImpl
 	pendingSc *snapshotPool
 	pendingAc sync.Map // key:address v:*accountPool
 
@@ -144,7 +142,6 @@ type pool struct {
 	newSnapshotBlockCond *common.CondTimer
 	worker               *worker
 
-	rwMutex sync.RWMutex
 	version *common.Version
 
 	closed chan struct{}
@@ -190,24 +187,8 @@ func (self *pool) AccountChainDetail(addr types.Address, chainId string) map[str
 	return self.selfPendingAc(addr).detailChain(chainId)
 }
 
-func (self *pool) Lock() {
-	self.rwMutex.Lock()
-}
-
-func (self *pool) UnLock() {
-	self.rwMutex.Unlock()
-}
-
-func (self *pool) RLock() {
-	self.rwMutex.RLock()
-}
-
-func (self *pool) RUnLock() {
-	self.rwMutex.RUnlock()
-}
-
 func NewPool(bc chainDb) (*pool, error) {
-	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &common.Version{}}
+	self := &pool{bc: bc, version: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
 	if err != nil {
@@ -333,14 +314,6 @@ func (self *pool) Stop() {
 	self.newSnapshotBlockCond.Stop()
 	self.wg.Wait()
 }
-func (self *pool) Restart() {
-	self.Lock()
-	defer self.UnLock()
-	self.log.Info("pool restart.")
-	defer self.log.Info("pool restarted.")
-	self.Stop()
-	self.Start()
-}
 
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
@@ -407,8 +380,8 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
 	self.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
-	self.RLock()
-	defer self.RUnLock()
+	self.RLockInsert()
+	defer self.RUnLockInsert()
 
 	ac := self.selfPendingAc(address)
 
@@ -997,8 +970,8 @@ func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight,
 	if pending.snapshot != nil && pending.snapshot.ShouldFetch() {
 		self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
 	}
-	self.Lock()
-	defer self.UnLock()
+	self.LockInsert()
+	defer self.UnLockInsert()
 	if p.Version() != self.version.Val() {
 		self.log.Warn("new version happened.")
 		return

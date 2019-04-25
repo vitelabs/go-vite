@@ -199,8 +199,10 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id(),
 		"longestTail", longest.SprintTail(), "longestHead", longest.SprintHead(), "currentTail", current.SprintTail(), "currentHead", current.SprintHead())
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
+	self.pool.LockRollback()
+	defer self.pool.UnLockRollback()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id())
 
 	k, forked, err := self.chainpool.tree.FindForkPointFromMain(longest)
@@ -376,8 +378,8 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 }
 
 func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)

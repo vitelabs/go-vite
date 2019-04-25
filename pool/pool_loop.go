@@ -265,8 +265,8 @@ func (self *pool) insertQueue(q batch.Batch) error {
 }
 
 func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	self.RLock()
-	defer self.RUnLock()
+	self.RLockInsert()
+	defer self.RUnLockInsert()
 	latestSb := self.bc.GetLatestSnapshotBlock()
 	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
@@ -277,8 +277,8 @@ func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, versio
 
 func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
 	// stop the world for snapshot insert
-	self.Lock()
-	defer self.UnLock()
+	self.LockInsert()
+	defer self.UnLockInsert()
 	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err
