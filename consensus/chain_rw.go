@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/vitelabs/go-vite/chain"
 
 	"github.com/hashicorp/golang-lru"
@@ -48,8 +50,9 @@ type Chain interface {
 
 type chainRw struct {
 	// todo
-	genesisTime time.Time
-	rw          Chain
+	genesisTime  time.Time
+	rw           Chain
+	rollbackLock lock.ChainRollback
 
 	hourPoints   LinkedArray
 	dayPoints    LinkedArray
@@ -64,7 +67,7 @@ type chainRw struct {
 	log log15.Logger
 }
 
-func newChainRw(rw Chain, log log15.Logger) *chainRw {
+func newChainRw(rw Chain, log log15.Logger, rollbackLock lock.ChainRollback) *chainRw {
 	self := &chainRw{rw: rw}
 
 	self.genesisTime = *rw.GetGenesisSnapshotBlock().Timestamp
@@ -80,6 +83,7 @@ func newChainRw(rw Chain, log log15.Logger) *chainRw {
 	}
 	self.lruCache = cache
 	self.log = log
+	self.rollbackLock = rollbackLock
 	return self
 
 }
@@ -172,6 +176,8 @@ func (self *chainRw) GetSeedsBeforeHashH(hash types.Hash) uint64 {
 }
 
 func (self *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
+	self.rollbackLock.RLockRollback()
+	defer self.rollbackLock.RUnLockRollback()
 	return core.CalVotes(info.ConsensusGroupInfo, hashH.Hash, self.rw)
 }
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -671,7 +673,7 @@ func TestConsensus(t *testing.T) {
 	}
 
 	index := uint64(291471)
-	cs := NewConsensus(c)
+	cs := NewConsensus(c, &lock.EasyImpl{})
 	cs.Init()
 	cs.Start()
 	stime, etime, err := cs.VoteIndexToTime(types.SNAPSHOT_GID, index)
