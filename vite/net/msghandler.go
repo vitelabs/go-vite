@@ -231,8 +231,10 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 	req := new(message.GetSnapshotBlocks)
 
 	if err = req.Deserialize(msg.Payload); err != nil {
+		msg.Recycle()
 		return
 	}
+	msg.Recycle()
 
 	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
 
@@ -305,8 +307,10 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 	req := new(message.GetAccountBlocks)
 
 	if err = req.Deserialize(msg.Payload); err != nil {
+		msg.Recycle()
 		return
 	}
+	msg.Recycle()
 
 	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
 

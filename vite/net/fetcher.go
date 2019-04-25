@@ -360,8 +360,10 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 	case SnapshotBlocksCode:
 		bs := new(message.SnapshotBlocks)
 		if err = bs.Deserialize(msg.Payload); err != nil {
+			msg.Recycle()
 			return err
 		}
+		msg.Recycle()
 
 		f.log.Info(fmt.Sprintf("receive %d snapshotblocks from %s", len(bs.Blocks), sender.String()))
 
@@ -380,8 +382,10 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 	case AccountBlocksCode:
 		bs := new(message.AccountBlocks)
 		if err = bs.Deserialize(msg.Payload); err != nil {
+			msg.Recycle()
 			return err
 		}
+		msg.Recycle()
 
 		f.log.Info(fmt.Sprintf("receive %d accountblocks from %s", len(bs.Blocks), sender.String()))
 
