@@ -125,7 +125,7 @@ func (p *peer) setPeers(ps []peerConn, patch bool) {
 	var id vnode.NodeID
 	var err error
 
-	if patch {
+	if false == patch {
 		p.m = make(map[peerId]struct{})
 	}
 
