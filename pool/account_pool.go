@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/golang-collections/collections/stack"
@@ -83,6 +85,10 @@ func (self *accountPoolBlock) Hash() types.Hash {
 
 func (self *accountPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
+}
+
+func (self *accountPoolBlock) Owner() *types.Address {
+	return &self.block.AccountAddress
 }
 
 func newAccountPool(name string, rw *accountCh, v *ForkVersion, hashBlacklist Blacklist, log log15.Logger) *accountPool {
@@ -299,7 +305,7 @@ func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 		return nil
 	}
 }
-func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (uint64, error) {
+func (self *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64) (uint64, error) {
 	// if current size is empty, do nothing.
 	if self.chainpool.tree.Main().Size() <= 0 {
 		return 0, errors.New("empty chainpool")
@@ -350,21 +356,20 @@ func (self *accountPool) makePackage(q Package, info *offsetInfo, max uint64) (u
 		if err := self.checkSnapshotSuccess(block); err != nil {
 			return uint64(i - minH), err
 		}
-		item := NewItem(block, &self.address)
 
-		err := q.AddItem(item)
+		err := q.AddItem(block)
 		if err != nil {
 			return uint64(i - minH), err
 		}
-		info.offset.Hash = item.Hash()
-		info.offset.Height = item.Height()
+		info.offset.Hash = block.Hash()
+		info.offset.Height = block.Height()
 		info.quotaSub(block)
 	}
 
 	return uint64(headH - minH), errors.New("all in")
 }
 
-func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledger.SnapshotBlock, version int) error {
+func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version int) error {
 	// if current size is empty, do nothing.
 	if self.chainpool.tree.Main().Size() <= 0 {
 		return errors.Errorf("empty chainpool, but item size:%d", len(items))
@@ -377,7 +382,7 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 
 	for i := 0; i < len(items); i++ {
 		item := items[i]
-		block := item.commonBlock
+		block := item.(*accountPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		current := cp.tree.Main()
 		tailHeight, tailHash := current.TailHH()
@@ -388,7 +393,7 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 				return errors.New("snapshot version update")
 			}
 
-			stat := self.v.verifyAccount(block.(*accountPoolBlock), latestSb)
+			stat := self.v.verifyAccount(block, latestSb)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return errors.New("new fork version")
@@ -409,7 +414,7 @@ func (self *accountPool) tryInsertItems(p Package, items []*Item, latestSb *ledg
 				return err
 			}
 		} else {
-			fmt.Println(self.address, item.commonBlock.(*accountPoolBlock).block.IsSendBlock())
+			fmt.Println(self.address, block.block.IsSendBlock())
 			return errors.New("tail not match")
 		}
 		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))
@@ -436,7 +441,7 @@ func (self *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
 	}
 	return nil
 }
-func (self *accountPool) genForSnapshotContents(p Package, b *snapshotPoolBlock, k types.Address, v *ledger.HashHeight) (bool, *stack.Stack) {
+func (self *accountPool) genForSnapshotContents(p batch.Batch, b *snapshotPoolBlock, k types.Address, v *ledger.HashHeight) (bool, *stack.Stack) {
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 	acurr := self.CurrentChain()
