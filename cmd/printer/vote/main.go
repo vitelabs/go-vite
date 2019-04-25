@@ -70,9 +70,9 @@ func main() {
 	sort.Sort(consensus.ByBalance(registers))
 
 	for k, v := range registers {
-		fmt.Sprintf("%d\t%s\t%s\n", k, v.Name, v.CurrentAddr)
+		fmt.Printf("%d\t%s\t%s\n", k, v.Name, v.CurrentAddr)
 		for kk, vv := range v.Addr {
-			fmt.Sprintf("\t%s\t%s\n", kk, vv.String())
+			fmt.Printf("\t%s\t%s\n", kk, vv.String())
 		}
 	}
 }
