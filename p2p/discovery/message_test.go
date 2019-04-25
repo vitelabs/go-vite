@@ -359,7 +359,8 @@ func TestMessage_Pack(t *testing.T) {
 			t.Error(err)
 		}
 
-		p, err = unPacket(data)
+		p = retrievePacket()
+		err = unPacket(data, p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -376,9 +377,10 @@ func TestMessage_Pack(t *testing.T) {
 
 func TestUnpack(t *testing.T) {
 	var buf []byte
+	var p = retrievePacket()
 	for i := 0; i < minPacketLength; i++ {
-		_, _ = unPacket(buf)
+		_ = unPacket(buf, p)
 		buf = append(buf, 1)
 	}
-	_, _ = unPacket(buf)
+	_ = unPacket(buf, p)
 }

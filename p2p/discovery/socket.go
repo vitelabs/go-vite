@@ -20,6 +20,7 @@ package discovery
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -318,16 +319,20 @@ func (a *agent) readLoop() {
 
 		tempDelay = 0
 
-		p, err := unPacket(buf[:n])
+		p := retrievePacket()
+		p.from = addr
+		err = unPacket(buf[:n], p)
 		if err != nil {
-			continue
-		}
-		//fmt.Printf("%s receive packet %d from %s\n", a.self.Address(), p.c, addr.String())
-		if p.expired() {
+			a.log.Error(fmt.Sprintf("failed to unpack message from %s: %v", addr, err))
+			recyclePacket(p)
 			continue
 		}
 
-		p.from = addr
+		if p.expired() {
+			a.log.Warn(fmt.Sprintf("message %d from %s expired", p.c, addr))
+			recyclePacket(p)
+			continue
+		}
 
 		want := true
 		if p.c == codePong || p.c == codeNeighbors {
@@ -336,6 +341,8 @@ func (a *agent) readLoop() {
 
 		if want {
 			a.handler(p)
+		} else {
+			recyclePacket(p)
 		}
 	}
 }

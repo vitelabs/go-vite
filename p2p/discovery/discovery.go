@@ -336,6 +336,8 @@ Loop:
 }
 
 func (d *discovery) handle(pkt *packet) {
+	defer recyclePacket(pkt)
+
 	d.table.bubble(pkt.id)
 
 	switch pkt.c {
