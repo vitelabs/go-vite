@@ -10,13 +10,11 @@ type Chain interface {
 	NewDb(dirName string) (*leveldb.DB, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
-	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
 	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
 	IsGenesisAccountBlock(hash types.Hash) bool
-	IsContractAccount(address types.Address) (bool, error)
 
 	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 }

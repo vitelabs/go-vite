@@ -64,12 +64,7 @@ func (manager *Manager) removeContractLis(gid types.Gid) {
 func (manager *Manager) newSignalToWorker(block *ledger.AccountBlock) {
 	newLog := manager.log.New("method", "newSignalToWorker", "Hash", block.Hash)
 	toAddr := block.ToAddress
-	isContract, err := manager.chain.IsContractAccount(toAddr)
-	if err != nil {
-		newLog.Error(fmt.Sprintf("IsContractAccount, err:%v", err))
-		return
-	}
-	if isContract {
+	if types.IsContractAddr(toAddr) {
 		meta, err := manager.chain.GetContractMeta(toAddr)
 		if err != nil {
 			newLog.Error(fmt.Sprintf("GetContractMeta, err:%v", err))
