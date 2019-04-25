@@ -1,6 +1,8 @@
 package chain_plugins
 
-import "github.com/vitelabs/go-vite/common/types"
+import (
+	"github.com/vitelabs/go-vite/common/types"
+)
 
 var (
 	contract1, _ = types.BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})

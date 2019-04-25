@@ -62,7 +62,7 @@ func (tp *testProcessor) processOneAddress(task *contractTask) (canContinue bool
 	if sBlock == nil {
 		return true
 	}
-	blog := tp.log.New("onroad", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
+	blog := tp.log.New("l", fmt.Sprintf("(%v %v)", sBlock.AccountAddress, sBlock.Hash))
 
 	if err := tp.w.chain.InsertIntoChain(&task.Addr, &sBlock.Hash); err != nil {
 		tp.w.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
@@ -70,7 +70,7 @@ func (tp *testProcessor) processOneAddress(task *contractTask) (canContinue bool
 		return true
 	}
 	tp.w.deletePendingOnroadBlock(&task.Addr, sBlock)
-	blog.Info("deletePendingOnroadBlock")
+	blog.Info("deletePendingOnRoad")
 
 	if !tp.w.chain.CheckQuota(&task.Addr) {
 		tp.w.addContractIntoBlackList(&task.Addr)

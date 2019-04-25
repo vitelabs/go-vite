@@ -259,27 +259,22 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	return SUCCESS, nil
 }
 
+/*
 func (v *AccountVerifier) verifySequenceOfContractReceive(receive *ledger.AccountBlock, send *ledger.AccountBlock) (bool, error) {
 	pageNum := 0
 	for {
-		hashList, err := v.chain.GetOnRoadBlocksHashList(receive.AccountAddress, pageNum, 1)
+		blockList, err := v.chain.GetOnRoadBlocksByAddr(receive.AccountAddress, pageNum, 1)
 		if err != nil {
 			return false, err
 		}
-		if len(hashList) <= 0 {
-			break
-		}
-		onRoad, err := v.chain.GetAccountBlockByHash(hashList[0])
-		if err != nil {
-			return false, err
-		}
-		if onRoad == nil {
+		if len(blockList) <= 0 {
 			return false, errors.New("get most preferred onroad failed")
 		}
-		if onRoad.AccountAddress == send.AccountAddress {
-			if onRoad.Hash != send.Hash {
+		lowestBlock := blockList[0]
+		if lowestBlock.AccountAddress == send.AccountAddress {
+			if lowestBlock.Hash != send.Hash {
 				v.log.Error(fmt.Sprintf("verify contract recv sequence fail, block: height=%v hash=%v fromHash=%v fromHeight=%v, but onroad preferred hash=%v height=%v",
-					receive.Height, receive.Hash, send.Hash, send.Height, onRoad.Hash, onRoad.Height),
+					receive.Height, receive.Hash, send.Hash, send.Height, lowestBlock.Hash, lowestBlock.Height),
 					"caller", send.AccountAddress, "contract", receive.AccountAddress)
 				return false, errors.New("contract's processing sequence error")
 			}
@@ -289,6 +284,7 @@ func (v *AccountVerifier) verifySequenceOfContractReceive(receive *ledger.Accoun
 	}
 	return true, nil
 }
+*/
 
 func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock, isGeneralAddr bool) error {
 	if block.TokenId == types.ZERO_TOKENID {
