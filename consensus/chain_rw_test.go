@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/chain"
@@ -92,7 +94,7 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 	infos, err := GetConsensusGroupList()
 	mch.EXPECT().GetConsensusGroupList(genesisBlock.Hash).Return(infos, err).MaxTimes(1)
 
-	rw := newChainRw(mch, log15.New("unittest", "chainrw"))
+	rw := newChainRw(mch, log15.New("unittest", "chainrw"), &lock.EasyImpl{})
 	block := rw.GetLatestSnapshotBlock()
 	assert.Equal(t, genesisBlock.Timestamp, block.Timestamp)
 	groupInfo, err := rw.GetMemberInfo(types.SNAPSHOT_GID)

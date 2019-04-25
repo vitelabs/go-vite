@@ -1,11 +1,12 @@
 package common
 
 import (
-	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
@@ -61,8 +62,8 @@ func MakeDefaultLogger(absFilePath string) *lumberjack.Logger {
 	return &lumberjack.Logger{
 		Filename:   absFilePath,
 		MaxSize:    100,
-		MaxBackups: 14,
-		MaxAge:     14,
+		MaxBackups: 100000,
+		MaxAge:     100000,
 		Compress:   true,
 		LocalTime:  true,
 	}

@@ -67,7 +67,7 @@ func (self *worker) work() {
 		case <-bus.broadcasterT.C:
 			self.p.broadcastUnConfirmedBlocks()
 		case <-bus.clearT.C:
-			//self.p.delUseLessChains()
+			self.p.delUseLessChains()
 		case <-self.closed:
 			return
 		default:

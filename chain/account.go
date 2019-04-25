@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-// TODO cache, unit_test
 func (c *chain) IsContractAccount(address types.Address) (bool, error) {
 	if ok := types.IsBuiltinContractAddrInUse(address); ok {
 		return ok, nil
@@ -45,4 +44,8 @@ func (c *chain) GetAccountAddress(accountId uint64) (*types.Address, error) {
 	}
 
 	return addr, nil
+}
+
+func (c *chain) IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool) {
+	c.indexDB.IterateAccounts(iterateFunc)
 }

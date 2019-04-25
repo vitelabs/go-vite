@@ -22,7 +22,7 @@ func generateAddress() types.Address {
 }
 
 /*
-func startManager() (*onroad.Manager, types.Address) {
+func startManager() (*l.Manager, types.Address) {
 	addr := generateAddress()
 
 		c := chain.NewChain(&config.Config{
@@ -38,7 +38,7 @@ func startManager() (*onroad.Manager, types.Address) {
 
 		tpool := new(testPool)
 
-		manager := onroad.NewManager(tnet, tpool, prod, twallet)
+		manager := l.NewManager(tnet, tpool, prod, twallet)
 		manager.Init(c)
 
 		manager.Start()
@@ -82,7 +82,7 @@ func TestManager_ContractWorker(t *testing.T) {
 
 		vite.Producer().(*testProducer).Addr = addr
 
-		manager := onroad.NewManager(vite)
+		manager := l.NewManager(vite)
 		manager.Init()
 
 		time.AfterFunc(5*time.Second, func() {

@@ -53,7 +53,7 @@ func (store *Store) PatchRedoLog(redoLog []byte) error {
 func (store *Store) resetMemDB() {
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	store.snapshotMemDb = NewMemDB()
+	store.snapshotMemDb.Reset()
 
 	store.memDb = NewMemDB()
 

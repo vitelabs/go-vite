@@ -8,6 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/hashicorp/golang-lru"
@@ -32,13 +36,8 @@ type Writer interface {
 }
 
 type SnapshotProducerWriter interface {
-	Lock()
-
-	UnLock()
-
+	lock.ChainInsert
 	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
-
-	RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error
 }
 
 type Reader interface {
@@ -75,24 +74,25 @@ type commonBlock interface {
 	PrevHash() types.Hash
 	checkForkVersion() bool
 	resetForkVersion()
-	forkVersion() int
+	forkVersion() uint64
 	Source() types.BlockSource
 	Latency() time.Duration
+	ShouldFetch() bool
 	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
 }
 
-func newForkBlock(v *ForkVersion, source types.BlockSource) *forkBlock {
+func newForkBlock(v *common.Version, source types.BlockSource) *forkBlock {
 	return &forkBlock{firstV: v.Val(), v: v, source: source, nTime: time.Now()}
 }
 
 type forkBlock struct {
-	firstV int
-	v      *ForkVersion
+	firstV uint64
+	v      *common.Version
 	source types.BlockSource
 	nTime  time.Time
 }
 
-func (self *forkBlock) forkVersion() int {
+func (self *forkBlock) forkVersion() uint64 {
 	return self.v.Val()
 }
 func (self *forkBlock) checkForkVersion() bool {
@@ -109,11 +109,22 @@ func (self *forkBlock) Latency() time.Duration {
 	return time.Duration(0)
 }
 
+func (self *forkBlock) ShouldFetch() bool {
+	if self.Source() != types.RemoteBroadcast {
+		return true
+	}
+	if self.Latency() > time.Millisecond*200 {
+		return true
+	}
+	return false
+}
+
 func (self *forkBlock) Source() types.BlockSource {
 	return self.source
 }
 
 type pool struct {
+	lock.EasyImpl
 	pendingSc *snapshotPool
 	pendingAc sync.Map // key:address v:*accountPool
 
@@ -131,8 +142,7 @@ type pool struct {
 	newSnapshotBlockCond *common.CondTimer
 	worker               *worker
 
-	rwMutex sync.RWMutex
-	version *ForkVersion
+	version *common.Version
 
 	closed chan struct{}
 	wg     sync.WaitGroup
@@ -177,24 +187,8 @@ func (self *pool) AccountChainDetail(addr types.Address, chainId string) map[str
 	return self.selfPendingAc(addr).detailChain(chainId)
 }
 
-func (self *pool) Lock() {
-	self.rwMutex.Lock()
-}
-
-func (self *pool) UnLock() {
-	self.rwMutex.Unlock()
-}
-
-func (self *pool) RLock() {
-	self.rwMutex.RLock()
-}
-
-func (self *pool) RUnLock() {
-	self.rwMutex.RUnlock()
-}
-
 func NewPool(bc chainDb) (*pool, error) {
-	self := &pool{bc: bc, rwMutex: sync.RWMutex{}, version: &ForkVersion{}}
+	self := &pool{bc: bc, version: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
 	if err != nil {
@@ -320,14 +314,6 @@ func (self *pool) Stop() {
 	self.newSnapshotBlockCond.Stop()
 	self.wg.Wait()
 }
-func (self *pool) Restart() {
-	self.Lock()
-	defer self.UnLock()
-	self.log.Info("pool restart.")
-	defer self.log.Info("pool restarted.")
-	self.Stop()
-	self.Start()
-}
 
 func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
@@ -394,8 +380,8 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
 	self.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
-	self.RLock()
-	defer self.RUnLock()
+	self.RLockInsert()
+	defer self.RUnLockInsert()
 
 	ac := self.selfPendingAc(address)
 
@@ -811,8 +797,10 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 		}
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
-			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
 			result = false
+			if block.ShouldFetch() {
+				ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
+			}
 		}
 	}
 	return result
@@ -854,6 +842,9 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 
 		sb := b.(*snapshotPoolBlock)
 
+		if !sb.ShouldFetch() {
+			continue
+		}
 		for k, v := range sb.block.SnapshotContent {
 
 			hh, ok := addrM[k]
@@ -898,14 +889,14 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	}
 	return nil
 }
-func (self *pool) insertLevel(p Package, l Level, version int) error {
+func (self *pool) insertLevel(p batch.Batch, l batch.Level, version uint64) error {
 	if l.Snapshot() {
 		return self.insertSnapshotLevel(p, l, version)
 	} else {
 		return self.insertAccountLevel(p, l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(p Package, l Level, version int) error {
+func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version uint64) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -922,7 +913,7 @@ func (self *pool) insertSnapshotLevel(p Package, l Level, version int) error {
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
+func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version uint64) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {
@@ -930,7 +921,7 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 
 	N := helper.MinInt(lenBs, MAX_PARALLEL)
-	bucketCh := make(chan Bucket, lenBs)
+	bucketCh := make(chan batch.Bucket, lenBs)
 
 	var wg sync.WaitGroup
 	wg.Add(N)
@@ -975,11 +966,12 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 	return nil
 }
-func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pending *snapshotPending) {
-	self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
-
-	self.Lock()
-	defer self.UnLock()
+func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight, pending *snapshotPending) {
+	if pending.snapshot != nil && pending.snapshot.ShouldFetch() {
+		self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
+	}
+	self.LockInsert()
+	defer self.UnLockInsert()
 	if p.Version() != self.version.Val() {
 		self.log.Warn("new version happened.")
 		return

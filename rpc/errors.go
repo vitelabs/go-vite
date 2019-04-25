@@ -71,3 +71,9 @@ type shutdownError struct{}
 func (e *shutdownError) ErrorCode() int { return -32000 }
 
 func (e *shutdownError) Error() string { return "server is shutting down" }
+
+type executePanicError struct{}
+
+func (e *executePanicError) ErrorCode() int { return -32001 }
+
+func (e *executePanicError) Error() string { return "server execute panic" }

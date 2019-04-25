@@ -2,7 +2,12 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/chain/plugins"
+
+	"os"
+	"path"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -19,9 +24,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
-	"os"
-	"path"
-	"sync/atomic"
 )
 
 const (
@@ -130,6 +132,7 @@ func (c *chain) Init() error {
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")
+
 	return nil
 }
 
@@ -209,7 +212,7 @@ func (c *chain) SetConsensus(cs Consensus) {
 func (c *chain) newDbAndRecover() error {
 	var err error
 	// new ledger db
-	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
 		return err
 	}
@@ -296,9 +299,17 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) initCache() error {
+
 	// init cache
 	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init state db cache
+	if err := c.stateDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}
@@ -311,6 +322,12 @@ func (c *chain) initCache() error {
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}
+
+	// FIXME TEMP
+	if err := c.indexDB.InitOnRoad(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -379,4 +396,8 @@ func defaultConfig() *config.Chain {
 		LedgerGcRetain: 24 * 3600,
 		OpenPlugins:    false,
 	}
+}
+
+func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
+	return c.indexDB, c.blockDB, c.stateDB
 }

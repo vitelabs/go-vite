@@ -45,30 +45,13 @@ func CreateAccountAddressKey(addr *types.Address) []byte {
 	return key
 }
 
-func CreateOnRoadKey(addr *types.Address, id uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
+func CreateOnRoadKey(toAddr types.Address, blockHash types.Hash) []byte {
+	key := make([]byte, 0, 1+types.AddressSize+types.HashSize)
 	key = append(key, OnRoadKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToBytes(id)...)
-	return key
-}
+	key = append(key, toAddr.Bytes()...)
+	key = append(key, blockHash.Bytes()...)
 
-func CreateOnRoadPrefixKey(addr *types.Address) []byte {
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, OnRoadKeyPrefix)
-	key = append(key, addr.Bytes()...)
 	return key
-}
-
-func CreateOnRoadReverseKey(reverseKey []byte) []byte {
-	key := make([]byte, 0, 1+len(reverseKey))
-	key = append(key, OnRoadReverseKeyPrefix)
-	key = append(key, reverseKey...)
-	return key
-}
-
-func CreateLatestOnRoadIdKey() []byte {
-	return []byte{LatestOnRoadIdKeyPrefix}
 }
 
 func CreateAccountIdKey(accountId uint64) []byte {
@@ -106,12 +89,12 @@ func CreateStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
 }
 
 func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
-	keySize := types.AddressSize + 34
+	keySize := 1 + types.AddressSize + types.HashSize + 1
 	key := make([]byte, keySize)
 	key[0] = StorageKeyPrefix
 
-	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:types.AddressSize+types.HashSize], storageKey)
+	copy(key[1:1+types.AddressSize], address.Bytes())
+	copy(key[1+types.AddressSize:1+types.AddressSize+types.HashSize], storageKey)
 	key[keySize-1] = byte(len(storageKey))
 
 	return key
@@ -128,14 +111,14 @@ func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) [
 }
 
 func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
-	keySize := types.AddressSize + 42
+	keySize := 1 + types.AddressSize + types.HashSize + 1 + 8
 	key := make([]byte, keySize)
 	key[0] = StorageHistoryKeyPrefix
 
-	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:types.AddressSize+types.HashSize], storageKey)
-	key[keySize-9] = byte(len(storageKey))
+	copy(key[1:1+types.AddressSize], address.Bytes())
+	copy(key[1+types.AddressSize:1+types.AddressSize+types.HashSize], storageKey)
 
+	key[keySize-9] = byte(len(storageKey))
 	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
 
 	return key
@@ -154,6 +137,17 @@ func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) []by
 
 	copy(key[1:types.AddressSize+1], address.Bytes())
 	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+
+	return key
+}
+
+func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotHeight uint64) []byte {
+	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+	key[0] = BalanceHistoryKeyPrefix
+
+	copy(key[1:types.AddressSize+1], address.Bytes())
+	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
+	binary.BigEndian.PutUint64(key[len(key)-8:], snapshotHeight)
 
 	return key
 }

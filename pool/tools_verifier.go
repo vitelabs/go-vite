@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -20,7 +19,6 @@ type verifyTask interface {
 type sverifier interface {
 	VerifyNetSb(block *ledger.SnapshotBlock) error
 	VerifyReferred(block *ledger.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
-	VerifyTimeout(nowHeight uint64, referHeight uint64) bool
 }
 
 type snapshotVerifier struct {
@@ -42,9 +40,6 @@ func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnap
 	result.result = stat.VerifyResult()
 	result.msg = stat.ErrMsg()
 	return result
-}
-func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
-	return self.v.VerifyTimeout(current.Height, refer.Height)
 }
 
 type accountVerifier struct {
