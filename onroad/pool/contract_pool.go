@@ -45,15 +45,27 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 				return err
 			}
 		}
-		if cc.(*callerCache).Len() > 0 {
-			p.log.Info("initLoad one caller, len :%v\n", cc.(*callerCache).Len(), "contract", contract)
+		if cc.(*callerCache).len() > 0 {
+			p.log.Info("initLoad one caller, len :%v\n", cc.(*callerCache).len(), "contract", contract)
 		}
 	}
 	p.log.Info("success loadOnRoad")
 	return nil
 }
 
-func (p *contractOnRoadPool) GetOnRoadFrontBlocks(contract types.Address) ([]*ledger.AccountBlock, error) {
+func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(contract types.Address, caller types.Address, hash types.Hash) (bool, error) {
+	cc, ok := p.cache.Load(contract)
+	if !ok || cc == nil {
+		return false, ErrLoadCallerCacheFailed
+	}
+	or := cc.(*callerCache).getFrontTxByCaller(&caller)
+	if or == nil || or.Hash != hash {
+		return false, ErrLoadCallerCacheFailed
+	}
+	return true, nil
+}
+
+func (p *contractOnRoadPool) GetFrontOnRoadBlocksByAddr(contract types.Address) ([]*ledger.AccountBlock, error) {
 	cc, ok := p.cache.Load(contract)
 	if !ok || cc == nil {
 		return nil, nil
@@ -61,7 +73,7 @@ func (p *contractOnRoadPool) GetOnRoadFrontBlocks(contract types.Address) ([]*le
 
 	blockList := make([]*ledger.AccountBlock, 0)
 
-	orList := cc.(*callerCache).getAllFrontTx()
+	orList := cc.(*callerCache).getFrontTxOfAllCallers()
 
 	for _, or := range orList {
 		b, err := p.chain.GetAccountBlockByHash(or.Hash)
@@ -81,7 +93,7 @@ func (p *contractOnRoadPool) GetOnRoadTotalNumByAddr(contract types.Address) (ui
 	if !ok || cc == nil {
 		return 0, nil
 	}
-	return uint64(cc.(*callerCache).Len()), nil
+	return uint64(cc.(*callerCache).len()), nil
 }
 
 func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error {
@@ -323,7 +335,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	return nil
 }
 
-func (cc *callerCache) getAllFrontTx() []*ledger.HashHeight {
+func (cc *callerCache) getFrontTxOfAllCallers() []*ledger.HashHeight {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
@@ -338,7 +350,19 @@ func (cc *callerCache) getAllFrontTx() []*ledger.HashHeight {
 	return orList
 }
 
-func (cc *callerCache) Len() int {
+func (cc *callerCache) getFrontTxByCaller(caller *types.Address) *ledger.HashHeight {
+	value, exist := cc.cache[*caller]
+	if !exist || value == nil {
+		return nil
+	}
+	ele := cc.cache[*caller].Front()
+	if ele == nil {
+		return nil
+	}
+	return ele.Value.(*ledger.HashHeight)
+}
+
+func (cc *callerCache) len() int {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 

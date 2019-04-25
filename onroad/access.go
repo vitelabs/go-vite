@@ -1,7 +1,6 @@
 package onroad
 
 import (
-	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad/pool"
@@ -19,8 +18,8 @@ func (manager *Manager) GetAccountOnRoadInfo(addr types.Address) (*ledger.Accoun
 func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Address) (uint64, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
-		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
-		return 0, errors.New("contractOnRoadPool is not available")
+		manager.log.Error(onroad_pool.ErrOnRoadPoolNotAvailable.Error(), "gid", gid, "addr", addr)
+		return 0, onroad_pool.ErrOnRoadPoolNotAvailable
 	}
 	num, err := onRoadPool.(onroad_pool.OnRoadPool).GetOnRoadTotalNumByAddr(addr)
 	if err != nil {
@@ -29,17 +28,26 @@ func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Addres
 	return num, nil
 }
 
-func (manager *Manager) GetOnRoadFrontBlocks(gid types.Gid, addr types.Address) ([]*ledger.AccountBlock, error) {
+func (manager *Manager) GetAllCallersFrontOnRoad(gid types.Gid, addr types.Address) ([]*ledger.AccountBlock, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
-		manager.log.Error("contractOnRoadPool is not available", "gid", gid, "addr", addr)
-		return nil, errors.New("contractOnRoadPool is not available")
+		manager.log.Error(onroad_pool.ErrOnRoadPoolNotAvailable.Error(), "gid", gid, "addr", addr)
+		return nil, onroad_pool.ErrOnRoadPoolNotAvailable
 	}
-	blockList, err := onRoadPool.(onroad_pool.OnRoadPool).GetOnRoadFrontBlocks(addr)
+	blockList, err := onRoadPool.(onroad_pool.OnRoadPool).GetFrontOnRoadBlocksByAddr(addr)
 	if err != nil {
 		return nil, err
 	}
 	return blockList, nil
+}
+
+func (manager *Manager) IsFrontOnRoadOfCaller(gid types.Gid, addr types.Address, caller types.Address, hash types.Hash) (bool, error) {
+	onRoadPool, ok := manager.onRoadPools.Load(gid)
+	if !ok || onRoadPool == nil {
+		manager.log.Error(onroad_pool.ErrOnRoadPoolNotAvailable.Error(), "gid", gid, "addr", addr)
+		return false, onroad_pool.ErrOnRoadPoolNotAvailable
+	}
+	return onRoadPool.(onroad_pool.OnRoadPool).IsFrontOnRoadOfCaller(addr, caller, hash)
 }
 
 func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
