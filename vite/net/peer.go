@@ -54,10 +54,11 @@ type PeerState struct {
 
 // PeerInfo is for api
 type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
+	ID     string   `json:"id"`
+	Addr   string   `json:"addr"`
+	Head   string   `json:"head"`
+	Height uint64   `json:"height"`
+	Peers  []string `json:"peers"`
 }
 
 type peer struct {
@@ -74,11 +75,28 @@ type peer struct {
 }
 
 func (p *peer) info() PeerInfo {
+	var ps []string
+
+	if total := len(p.m2); total > 0 {
+		ps = make([]string, total)
+		var i int
+		// m2 maybe replaced concurrently, more peers than total.
+		for id := range p.m2 {
+			ps[i] = id.String()
+			i++
+			if i == total {
+				break
+			}
+		}
+		ps = ps[:i]
+	}
+
 	return PeerInfo{
 		ID:     p.Peer.ID().String(),
 		Addr:   p.Peer.Address().String(),
 		Head:   p.head().String(),
 		Height: p.height(),
+		Peers:  ps,
 	}
 }
 
@@ -125,7 +143,7 @@ func (p *peer) setPeers(ps []peerConn, patch bool) {
 	var id vnode.NodeID
 	var err error
 
-	if patch {
+	if false == patch {
 		p.m = make(map[peerId]struct{})
 	}
 

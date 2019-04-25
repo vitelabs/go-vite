@@ -435,3 +435,51 @@ func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBl
 	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameChangeTokenType, *tokenId))
 	return nil, nil
 }
+
+type MethodGetTokenInfo struct{}
+
+func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+func (p *MethodGetTokenInfo) GetRefundData() ([]byte, bool) {
+	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, false, uint8(0), "", uint16(0))
+	return callbackData, true
+}
+func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
+	return GetTokenInfoGas, nil
+}
+func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	tokenId := new(types.TokenTypeId)
+	err := abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, block.Data)
+	if err != nil {
+		return err
+	}
+	if tokenId == nil || block.Amount.Sign() > 0 {
+		return util.ErrInvalidMethodParam
+	}
+	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, &tokenId)
+	return nil
+}
+
+func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	tokenId := new(types.TokenTypeId)
+	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, block.Data)
+	tokenInfo, err := abi.GetTokenById(db, *tokenId)
+	util.DealWithErr(err)
+	var callbackData []byte
+	if tokenInfo != nil {
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index)
+	} else {
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, false, uint8(0), "", uint16(0))
+	}
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: block.AccountAddress,
+			ToAddress:      sendBlock.AccountAddress,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         big.NewInt(0),
+			TokenId:        ledger.ViteTokenId,
+			Data:           callbackData,
+		},
+	}, nil
+}

@@ -16,6 +16,8 @@ const (
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"AgentPledge", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"bid","type":"uint8"}]},
 		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"callback","name":"AgentPledge","inputs":[{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"success","type":"bool"}]},
 		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"},{"name":"bid","type":"uint8"}]},
 		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`

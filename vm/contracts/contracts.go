@@ -78,6 +78,7 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameBurn:             &MethodBurn{},
 			cabi.MethodNameTransferOwner:    &MethodTransferOwner{},
 			cabi.MethodNameChangeTokenType:  &MethodChangeTokenType{},
+			cabi.MethodNameGetTokenInfo:     &MethodGetTokenInfo{},
 		},
 		cabi.ABIMintage,
 	},
