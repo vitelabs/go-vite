@@ -2,6 +2,7 @@ package net
 
 import (
 	"fmt"
+	"math/rand"
 	net2 "net"
 	"sort"
 	"testing"
@@ -106,14 +107,6 @@ func (mp *mockPeer) setPeers(ps []peerConn, patch bool) {
 }
 
 func (mp *mockPeer) peers() map[vnode.NodeID]struct{} {
-	//m := make(map[vnode.NodeID]struct{})
-	//
-	//mp.peerMap.Range(func(key, value interface{}) bool {
-	//	id := key.(vnode.NodeID)
-	//	m[id] = struct{}{}
-	//	return true
-	//})
-
 	return mp.peerMap
 }
 
@@ -292,6 +285,7 @@ func ExamplePeersSort() {
 	// 3
 }
 
+// test read write concurrently
 func TestPeer_peers(t *testing.T) {
 	var p = &peer{
 		m: make(map[peerId]struct{}),
@@ -325,4 +319,59 @@ func TestPeer_peers(t *testing.T) {
 	}()
 
 	time.Sleep(5 * time.Second)
+}
+
+func TestPeer_peers2(t *testing.T) {
+	const maxNeighbors = 200
+	var total = rand.Intn(maxNeighbors)
+
+	var pids = make([]vnode.NodeID, total)
+	for i := range pids {
+		pids[i] = vnode.RandomNodeID()
+	}
+
+	var m, m2 map[vnode.NodeID]struct{}
+
+	m = make(map[vnode.NodeID]struct{})
+	for i := 0; i < total/2; i++ {
+		m[pids[i]] = struct{}{}
+	}
+
+	var p = &peer{
+		m: m,
+	}
+
+	p.setPeers(nil, true)
+	m2 = p.peers()
+	if len(m2) != len(p.m) {
+		t.Errorf("wrong peers: %d", len(m2))
+	}
+
+	p.setPeers(nil, false)
+	m2 = p.peers()
+	if len(m2) != 0 {
+		t.Errorf("wrong peers: %d", len(m2))
+	}
+	// reset
+	p.m = m
+	p.m2 = m
+
+	idsPatch := make([]peerConn, total/4)
+	var add = true
+	for i := 0; i < len(idsPatch); i++ {
+		idsPatch[i] = peerConn{
+			id:  pids[i].Bytes(),
+			add: add,
+		}
+		add = !add
+	}
+
+	old := len(m)
+	p.setPeers(idsPatch, true)
+	m2 = p.peers()
+	should := old - len(idsPatch)/2
+
+	if len(m2) != should {
+		t.Errorf("should %d peers, but %d peers", should, len(m2))
+	}
 }

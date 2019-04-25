@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
@@ -339,14 +340,31 @@ func pack(priv ed25519.PrivateKey, code code, payload []byte) (data, hash []byte
 	return
 }
 
+var packet_pool = sync.Pool{
+	New: func() interface{} {
+		return new(packet)
+	},
+}
+
+func retrievePacket() *packet {
+	v := packet_pool.Get().(*packet)
+	return v
+}
+
+func recyclePacket(pkt *packet) {
+	packet_pool.Put(pkt)
+}
+
 // unPacket []byte to message
-func unPacket(data []byte) (p *packet, err error) {
+func unPacket(data []byte, p *packet) (err error) {
 	if len(data) < minPacketLength {
-		return nil, errPacketTooSmall
+		err = errPacketTooSmall
+		return
 	}
 
 	if data[0] != version {
-		return nil, errDiffVersion
+		err = errDiffVersion
+		return
 	}
 
 	c := data[1]
@@ -356,15 +374,16 @@ func unPacket(data []byte) (p *packet, err error) {
 
 	valid, err := crypto.VerifySig(id, payload, signature)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if !valid {
-		return nil, errInvalidSignature
+		err = errInvalidSignature
+		return
 	}
 
 	fromId, err := vnode.Bytes2NodeID(id)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// unpack packet to get content and signature
@@ -373,16 +392,12 @@ func unPacket(data []byte) (p *packet, err error) {
 		return
 	}
 
-	p = &packet{
-		message: message{
-			c:    c,
-			id:   fromId,
-			body: m,
-		},
-		hash: crypto.Hash256(payload),
-	}
+	p.c = c
+	p.id = fromId
+	p.body = m
+	p.hash = crypto.Hash256(payload)
 
-	return p, nil
+	return nil
 }
 
 func decode(code code, payload []byte) (m body, err error) {
