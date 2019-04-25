@@ -347,12 +347,13 @@ var packet_pool = sync.Pool{
 }
 
 func retrievePacket() *packet {
-	v := packet_pool.Get().(*packet)
-	return v
+	//v := packet_pool.Get().(*packet)
+	return new(packet)
+	//return v
 }
 
 func recyclePacket(pkt *packet) {
-	packet_pool.Put(pkt)
+	//packet_pool.Put(pkt)
 }
 
 // unPacket []byte to message
