@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/pkg/errors"
@@ -68,6 +70,10 @@ func (self *snapshotPoolBlock) Hash() types.Hash {
 
 func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
+}
+
+func (self *snapshotPoolBlock) Owner() *types.Address {
+	return nil
 }
 
 func newSnapshotPool(
@@ -268,7 +274,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version int) (map[types.Address][]commonBlock, batch.Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
@@ -277,7 +283,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 	current := pool.tree.Main()
 
 	for i, item := range items {
-		block := item.commonBlock
+		block := item.(*snapshotPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		tailHeight, tailHash := current.TailHH()
 		if block.Height() == tailHeight+1 &&
@@ -286,7 +292,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 			if block.forkVersion() != version {
 				return nil, nil, errors.Errorf("[%d]snapshot[s] version update", p.Id())
 			}
-			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
+			stat := self.v.verifySnapshot(block)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return nil, item, errors.New("new fork version")
@@ -305,7 +311,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier db.")
 			}
-			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))
+			accBlocks, err := self.snapshotWriteToChain(current, block)
 			if err != nil {
 				return nil, item, err
 			}

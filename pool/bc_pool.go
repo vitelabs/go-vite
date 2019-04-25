@@ -95,6 +95,8 @@ type snippetChain struct {
 	chain
 	tailHash types.Hash
 	headHash types.Hash
+
+	utime time.Time
 }
 
 func newSnippetChain(w commonBlock, id string) *snippetChain {
@@ -106,22 +108,15 @@ func newSnippetChain(w commonBlock, id string) *snippetChain {
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.heightBlocks[w.Height()] = w
+	self.utime = time.Now()
 	return self
-}
-
-func (self *snippetChain) init(w commonBlock) {
-	self.heightBlocks = make(map[uint64]commonBlock)
-	self.headHeight = w.Height()
-	self.headHash = w.Hash()
-	self.tailHash = w.PrevHash()
-	self.tailHeight = w.Height() - 1
-	self.heightBlocks[w.Height()] = w
 }
 
 func (self *snippetChain) addTail(w commonBlock) {
 	self.tailHash = w.PrevHash()
 	self.tailHeight = w.Height() - 1
 	self.heightBlocks[w.Height()] = w
+	self.utime = time.Now()
 }
 func (self *snippetChain) deleteTail(newtail commonBlock) {
 	self.tailHash = newtail.Hash()
@@ -143,6 +138,7 @@ func (self *snippetChain) merge(snippet *snippetChain) {
 	for k, v := range snippet.heightBlocks {
 		self.heightBlocks[k] = v
 	}
+	self.utime = time.Now()
 }
 
 func (self *snippetChain) info() map[string]interface{} {
@@ -625,55 +621,18 @@ func (self *BCPool) loop() {
 }
 
 func (self *BCPool) loopDelUselessChain() {
-	//self.chainHeadMu.Lock()
-	//defer self.chainHeadMu.Unlock()
-	//
-	//self.chainTailMu.Lock()
-	//defer self.chainTailMu.Unlock()
-	//
-	//dels := make(map[string]*forkedChain)
-	//height := self.chainpool.current.tailHeight
-	//for _, c := range self.chainpool.allChain() {
-	//	if c.headHeight+self.LIMIT_HEIGHT < height {
-	//		dels[c.id()] = c
-	//	}
-	//}
-	//for {
-	//	i := 0
-	//	for _, c := range self.chainpool.allChain() {
-	//		_, ok := dels[c.id()]
-	//		if ok {
-	//			continue
-	//		}
-	//		r := c.refer()
-	//		if r == nil {
-	//			i++
-	//			dels[c.id()] = c
-	//		} else {
-	//			_, ok := dels[r.id()]
-	//			if ok {
-	//				i++
-	//				dels[c.id()] = c
-	//			}
-	//		}
-	//	}
-	//	if i == 0 {
-	//		break
-	//	} else {
-	//		i = 0
-	//	}
-	//}
-	//
-	//for _, v := range dels {
-	//	self.log.Info("del useless chain", "id", v.id(), "headHeight", v.headHeight, "tailHeight", v.tailHeight)
-	//	self.delChain(v)
-	//}
-	//
-	//for _, c := range self.chainpool.snippetChains {
-	//	if c.headHeight+self.LIMIT_HEIGHT < height {
-	//		self.delSnippet(c)
-	//	}
-	//}
+	self.chainHeadMu.Lock()
+	defer self.chainHeadMu.Unlock()
+
+	self.chainTailMu.Lock()
+	defer self.chainTailMu.Unlock()
+
+	for _, c := range self.chainpool.snippetChains {
+		if c.utime.Add(time.Minute * 5).Before(time.Now()) {
+			self.delSnippet(c)
+			self.log.Info(fmt.Sprintf("delete snippet[%s][%d-%s][%d-%s]", c.id(), c.headHeight, c.headHash, c.tailHeight, c.tailHash))
+		}
+	}
 }
 
 //func (self *BCPool) delChain(c *forkedChain) {

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/hashicorp/golang-lru"
@@ -898,14 +900,14 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	}
 	return nil
 }
-func (self *pool) insertLevel(p Package, l Level, version int) error {
+func (self *pool) insertLevel(p batch.Batch, l batch.Level, version int) error {
 	if l.Snapshot() {
 		return self.insertSnapshotLevel(p, l, version)
 	} else {
 		return self.insertAccountLevel(p, l, version)
 	}
 }
-func (self *pool) insertSnapshotLevel(p Package, l Level, version int) error {
+func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version int) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
@@ -922,7 +924,7 @@ func (self *pool) insertSnapshotLevel(p Package, l Level, version int) error {
 
 var MAX_PARALLEL = 5
 
-func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
+func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version int) error {
 	bs := l.Buckets()
 	lenBs := len(bs)
 	if lenBs == 0 {
@@ -930,7 +932,7 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 
 	N := helper.MinInt(lenBs, MAX_PARALLEL)
-	bucketCh := make(chan Bucket, lenBs)
+	bucketCh := make(chan batch.Bucket, lenBs)
 
 	var wg sync.WaitGroup
 	wg.Add(N)
@@ -975,7 +977,7 @@ func (self *pool) insertAccountLevel(p Package, l Level, version int) error {
 	}
 	return nil
 }
-func (self *pool) snapshotPendingFix(p Package, snapshot *ledger.HashHeight, pending *snapshotPending) {
+func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight, pending *snapshotPending) {
 	self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
 
 	self.Lock()
