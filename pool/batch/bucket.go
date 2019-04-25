@@ -2,8 +2,6 @@ package batch
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -40,12 +38,6 @@ func (self *bucket) add(b Item) error {
 	self.bs = append(self.bs, b)
 	self.last = self.last + 1
 	return nil
-}
-func (self *bucket) print() {
-	for _, v := range self.bs {
-		fmt.Print(strconv.FormatUint(v.Height(), 10) + ",")
-	}
-	fmt.Println()
 }
 
 func newBucket(owner *types.Address) *bucket {
