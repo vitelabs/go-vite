@@ -47,7 +47,7 @@ func TestVmRun(t *testing.T) {
 	 */
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	// send create
-	data13, _ := hex.DecodeString("000000000000000000020101608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
+	data13, _ := hex.DecodeString("0000000000000000000201010b608060405260858060116000396000f300608060405260043610603e5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663f021ab8f81146043575b600080fd5b604c600435604e565b005b6000805490910190555600a165627a7a72305820b8d8d60a46c6ac6569047b17b012aa1ea458271f9bc8078ef0cff9208999d0900029")
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -68,7 +68,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, createContractFee)
 	if sendCreateBlock == nil || isRetry ||
 		err != nil ||
-		sendCreateBlock.AccountBlock.Quota != 32016 ||
+		sendCreateBlock.AccountBlock.Quota != 32084 ||
 		sendCreateBlock.AccountBlock.Fee.Cmp(createContractFee) != 0 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send create transaction error")
@@ -126,7 +126,7 @@ func TestVmRun(t *testing.T) {
 	balance1.Sub(balance1, block14.Amount)
 	if sendCallBlock == nil ||
 		len(sendCallBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendCallBlock.AccountBlock.Quota != 23448 ||
+		sendCallBlock.AccountBlock.Quota != 25792 ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
 		t.Fatalf("send call transaction error")
 	}
@@ -278,19 +278,19 @@ func TestCall(t *testing.T) {
 	db, addr1, _, hash12, _, _ := prepareDb(viteTotalSupply)
 
 	// code2 calls addr1 with data=100 and amount=10
-	addr2, _, _ := types.CreateAddress()
+	addr2 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 	code2 := []byte{
 		1,
 		byte(PUSH1), 32, byte(PUSH1), 100, byte(PUSH1), 0, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE),
-		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH20), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, byte(CALL)}
+		byte(PUSH1), 10, byte(PUSH10), 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N', byte(PUSH21), 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, byte(CALL)}
 	db.codeMap[addr2] = code2
-	db.contractMetaMap[addr2] = &ledger.ContractMeta{types.DELEGATE_GID, 1}
+	db.contractMetaMap[addr2] = &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 1, QuotaRatio: 10}
 
 	// code3 return amount+data
-	addr3 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	addr3 := types.Address{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1}
 	code3 := []byte{1, byte(CALLVALUE), byte(PUSH1), 0, byte(CALLDATALOAD), byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
 	db.codeMap[addr3] = code3
-	db.contractMetaMap[addr3] = &ledger.ContractMeta{types.DELEGATE_GID, 2}
+	db.contractMetaMap[addr3] = &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 2, QuotaRatio: 10}
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
 	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))

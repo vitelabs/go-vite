@@ -71,7 +71,6 @@ func (sDB *StateDB) initContractMetaCache() error {
 	defer iter.Release()
 
 	for iter.Next() {
-
 		sDB.cache.Set(contractAddrPrefix+string(iter.Key()), sDB.copyValue(iter.Value()), cache.NoExpiration)
 	}
 	if err := iter.Error(); err != nil {

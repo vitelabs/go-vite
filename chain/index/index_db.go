@@ -16,8 +16,12 @@ type IndexDB struct {
 	store *chain_db.Store
 
 	latestAccountId uint64
-	cache           *bigcache.BigCache
-	accountCache    *lru.Cache
+
+	cache *bigcache.BigCache
+
+	sendCreateBlockHashCache *lru.Cache
+
+	accountCache *lru.Cache
 
 	log log15.Logger
 
@@ -51,6 +55,10 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 	}
 
 	return iDB, nil
+}
+
+func (iDB *IndexDB) Init() error {
+	return iDB.initCache()
 }
 
 func (iDB *IndexDB) CleanAllData() error {

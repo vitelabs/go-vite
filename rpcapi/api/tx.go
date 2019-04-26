@@ -289,17 +289,17 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	} else if param.BlockType == ledger.BlockTypeSendCall {
 		return nil, errors.New("toAddr is nil")
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(block)
-	if err != nil {
-		return nil, err
-	}
-
-	// get current quota
 	sb := t.vite.Chain().GetLatestSnapshotBlock()
 	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &param.PrevHash)
 	if err != nil {
 		return nil, err
 	}
+	quotaRequired, err := vm.GasRequiredForBlock(db, block)
+	if err != nil {
+		return nil, err
+	}
+
+	// get current quota
 	var pledgeAmount *big.Int
 	var q types.Quota
 	if param.UsePledgeQuota {

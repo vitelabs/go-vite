@@ -59,16 +59,27 @@ func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([
 	return []byte{}, nil
 }
 
-func (c *ContractApi) GetCreateContractData(gid types.Gid, confirmTime uint8, hexCode string, params []byte) ([]byte, error) {
-	code, err := hex.DecodeString(hexCode)
+type CreateContractDataParam struct {
+	Gid         types.Gid `json:"gid"`
+	ConfirmTime uint8     `json:"confirmTime"`
+	QuotaRatio  uint8     `json:"quotaRatio"`
+	HexCode     string    `json:"hexCode"`
+	Params      []byte    `json:"params"`
+}
+
+func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]byte, error) {
+	code, err := hex.DecodeString(param.HexCode)
 	if err != nil {
 		return nil, err
 	}
-	if len(params) > 0 {
-		data := util.GetCreateContractData(helper.JoinBytes(code, params), util.SolidityPPContractType, confirmTime, gid)
+	if !util.IsValidQuotaRatio(param.QuotaRatio) {
+		return nil, util.ErrInvalidQuotaRatio
+	}
+	if len(param.Params) > 0 {
+		data := util.GetCreateContractData(helper.JoinBytes(code, param.Params), util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
 		return data, nil
 	} else {
-		data := util.GetCreateContractData(code, util.SolidityPPContractType, confirmTime, gid)
+		data := util.GetCreateContractData(code, util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
 		return data, nil
 	}
 }
@@ -155,6 +166,7 @@ type ContractInfo struct {
 	Code        []byte    `json:"code"`
 	Gid         types.Gid `json:"gid"`
 	ConfirmTime uint8     `json:"confirmTime"`
+	QuotaRatio  uint8     `json:"quotaRatio"`
 }
 
 func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
@@ -166,5 +178,5 @@ func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error)
 	if err != nil {
 		return nil, err
 	}
-	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes}, nil
+	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes, QuotaRatio: meta.QuotaRatio}, nil
 }

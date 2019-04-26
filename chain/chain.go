@@ -314,6 +314,13 @@ func (c *chain) initCache() error {
 		return cErr
 	}
 
+	// init index db cache
+	if err := c.indexDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
 	// init sync cache
 	var err error
 	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)

@@ -22,6 +22,10 @@ type Chain interface {
 
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 
+	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)
+
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
@@ -96,10 +100,14 @@ type VmDb interface {
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
+	GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error)
+
 	// ====== Meta & Code ======
 	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)
 
 	GetContractMeta() (*ledger.ContractMeta, error)
+
+	GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (meta *ledger.ContractMeta, err error)
 
 	SetContractCode(code []byte)
 

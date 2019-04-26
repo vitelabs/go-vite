@@ -128,7 +128,7 @@ func GetReceiveAbBySendAb(chainInstance Chain, accounts map[types.Address]*Accou
 		}
 	}
 }
-func IsReceived(chainInstance Chain, accounts map[types.Address]*Account) {
+func IsReceived(chainInstance *chain, accounts map[types.Address]*Account) {
 
 	checkIsReceive := func(hash types.Hash) {
 		received, err := chainInstance.IsReceived(hash)

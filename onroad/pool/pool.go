@@ -19,6 +19,4 @@ type chainReader interface {
 	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	IsContractAccount(address types.Address) (bool, error)
-	IsGenesisAccountBlock(hash types.Hash) bool
 }
