@@ -356,6 +356,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 
 	switch code(msg.Code) {
 	case NewSnapshotBlockCode:
+		start := time.Now()
 		nb := &message.NewSnapshotBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
 			msg.Recycle()
@@ -367,6 +368,9 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return errMissingBroadcastBlock
 		}
 
+		unmarshalAt := time.Now()
+		b.log.Debug(fmt.Sprintf("unmarshal new snapshotblock %s/%d from %s [%s]", nb.Block.Hash, nb.Block.Height, sender, unmarshalAt.Sub(start)))
+
 		block := nb.Block
 		sender.seeBlock(block.Hash)
 
@@ -374,7 +378,8 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewSnapshotBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
+		receiveAt := time.Now()
+		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s [%s]", block.Hash, block.Height, sender, receiveAt.Sub(unmarshalAt)))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -389,25 +394,32 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s", block.Hash, block.Height, sender))
+		recordAt := time.Now()
+		b.log.Info(fmt.Sprintf("record new snapshotblock %s/%d from %s [%s]", block.Hash, block.Height, sender, recordAt.Sub(receiveAt)))
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
 			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, sender, err))
 			return err
 		}
+		verifyAt := time.Now()
+		b.log.Debug(fmt.Sprintf("verify new snapshotblock %s/%d from %s [%s]", hash, block.Height, sender, verifyAt.Sub(recordAt)))
 
 		if nb.TTL > 0 {
 			nb.TTL--
 			b.forwardSnapshotBlock(nb, sender)
 		}
+		propagateAt := time.Now()
+		b.log.Debug(fmt.Sprintf("propagate new snapshotblock %s/%d from %s [%s]", hash, block.Height, sender, propagateAt.Sub(verifyAt)))
 
 		if b.st.syncExited() {
 			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueSnapshotBlock(block)
 		}
+		b.log.Debug(fmt.Sprintf("notify new snapshotblock %s/%d from %s [%s]", hash, block.Height, sender, time.Now().Sub(propagateAt)))
 
 	case NewAccountBlockCode:
+		start := time.Now()
 		nb := &message.NewAccountBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
 			msg.Recycle()
@@ -419,6 +431,9 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return errMissingBroadcastBlock
 		}
 
+		unmarshalAt := time.Now()
+		b.log.Debug(fmt.Sprintf("unmarshal new accountblock %s from %s [%s]", nb.Block.Hash, sender, unmarshalAt.Sub(start)))
+
 		block := nb.Block
 		sender.seeBlock(block.Hash)
 
@@ -426,7 +441,8 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			b.listener.onNewAccountBlock(block)
 		}
 
-		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, sender))
+		receiveAt := time.Now()
+		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s [%s]", block.Hash, sender, receiveAt.Sub(unmarshalAt)))
 
 		// check if block has exist first
 		if exist := b.filter.has(block.Hash[:]); exist {
@@ -441,23 +457,32 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 			return nil
 		}
 
-		b.log.Info(fmt.Sprintf("record new accountblock %s from %s", block.Hash, sender))
+		recordAt := time.Now()
+		b.log.Info(fmt.Sprintf("record new accountblock %s from %s [%s]", block.Hash, sender, recordAt.Sub(receiveAt)))
 
 		if err = b.verifier.VerifyNetAb(block); err != nil {
 			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, sender, err))
 			return err
 		}
 
+		verifyAt := time.Now()
+		b.log.Debug(fmt.Sprintf("verify new accountblock %s from %s [%s]", hash, sender, verifyAt.Sub(recordAt)))
+
 		if nb.TTL > 0 {
 			nb.TTL--
 			b.forwardAccountBlock(nb, sender)
 		}
+
+		propagateAt := time.Now()
+		b.log.Debug(fmt.Sprintf("propagate new accountblock %s from %s [%s]", hash, sender, propagateAt.Sub(verifyAt)))
 
 		if b.st.syncExited() {
 			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueAccountBlock(block)
 		}
+
+		b.log.Debug(fmt.Sprintf("notify new accountblock %s from %s [%s]", hash, sender, time.Now().Sub(propagateAt)))
 	}
 
 	return nil
