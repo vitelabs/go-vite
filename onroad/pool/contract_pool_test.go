@@ -16,10 +16,6 @@ func (db *TestChainDB) GetAccountBlockByHash(blockHash types.Hash) (*ledger.Acco
 	return nil, nil
 }
 
-func (db *TestChainDB) IsContractAccount(address types.Address) (bool, error) {
-	return true, nil
-}
-
 func (db *TestChainDB) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 	return nil, nil
 }

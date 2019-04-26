@@ -107,10 +107,7 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 		}
 
 		caller := block.AccountAddress
-		isCallerContract, err := p.chain.IsContractAccount(caller)
-		if err != nil {
-			return err
-		}
+		isCallerContract := types.IsContractAddr(caller)
 		if isCallerContract {
 			return ErrBlockTypeErr
 		}
@@ -140,10 +137,7 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 			return errors.New("failed to find send")
 		}
 		caller := fromBlock.AccountAddress
-		isCallerContract, err := p.chain.IsContractAccount(caller)
-		if err != nil {
-			return err
-		}
+		isCallerContract := types.IsContractAddr(caller)
 		or := &ledger.HashHeight{
 			Hash:   fromBlock.Hash,
 			Height: fromBlock.Height,
@@ -166,10 +160,7 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 
 		// handle sendBlockList
 		for _, subSend := range block.SendBlockList {
-			isToAddrContract, err := p.chain.IsContractAccount(subSend.ToAddress)
-			if err != nil {
-				return err
-			}
+			isToAddrContract := types.IsContractAddr(subSend.ToAddress)
 			if !isToAddrContract {
 				continue
 			}
@@ -204,10 +195,7 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 		}
 
 		caller := block.AccountAddress
-		isCallerContract, err := p.chain.IsContractAccount(caller)
-		if err != nil {
-			return err
-		}
+		isCallerContract := types.IsContractAddr(caller)
 		if isCallerContract {
 			return ErrBlockTypeErr
 		}
@@ -235,10 +223,7 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 			return errors.New("failed to find send")
 		}
 		caller := fromBlock.AccountAddress
-		isCallerContract, err := p.chain.IsContractAccount(caller)
-		if err != nil {
-			return err
-		}
+		isCallerContract := types.IsContractAddr(caller)
 		or := &ledger.HashHeight{
 			Hash:   fromBlock.Hash,
 			Height: fromBlock.Height,
@@ -262,10 +247,7 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 
 		// revert sendBlockList
 		for _, subSend := range block.SendBlockList {
-			isToAddrContract, err := p.chain.IsContractAccount(subSend.ToAddress)
-			if err != nil {
-				return err
-			}
+			isToAddrContract := types.IsContractAddr(subSend.ToAddress)
 			if !isToAddrContract {
 				continue
 			}
@@ -314,10 +296,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 		if b.IsReceiveBlock() {
 			return ErrBlockTypeErr
 		}
-		isContract, err := chain.IsContractAccount(b.AccountAddress)
-		if err != nil {
-			return err
-		}
+		isContract := types.IsContractAddr(b.AccountAddress)
 		if isContract {
 			completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
 			if err != nil {
