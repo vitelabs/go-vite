@@ -101,12 +101,14 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 	isWrite := true
 
 	if block.IsSendBlock() {
-		cc, exist := p.cache.Load(block.ToAddress)
+		orAddress := block.ToAddress
+		caller := block.AccountAddress
+
+		cc, exist := p.cache.Load(orAddress)
 		if !exist || cc == nil {
-			cc, _ = p.cache.LoadOrStore(block.ToAddress, NewCallerCache())
+			cc, _ = p.cache.LoadOrStore(orAddress, NewCallerCache())
 		}
 
-		caller := block.AccountAddress
 		isCallerContract := types.IsContractAddr(caller)
 		if isCallerContract {
 			return ErrBlockTypeErr
@@ -116,19 +118,14 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 			Hash:   block.Hash,
 			Height: block.Height,
 		}
-		if err := cc.(*callerCache).addTx(block.AccountAddress, isCallerContract, or, isWrite); err != nil {
+		if err := cc.(*callerCache).addTx(caller, isCallerContract, or, isWrite); err != nil {
 			mlog.Error(fmt.Sprintf("write block-s: %v -> %v %v %v", block.AccountAddress, block.ToAddress, block.Height, block.Hash),
 				"err", err)
 			panic(ErrAddTxFailed)
 		}
+
 	} else {
-		// handle receive
-		cc, exist := p.cache.Load(block.AccountAddress)
-		if !exist {
-			mlog.Error(fmt.Sprintf("write block-r: %v %v %v fromHash=%v", block.AccountAddress, block.Height, block.Hash, block.FromBlockHash),
-				"err", ErrLoadCallerCacheFailed)
-			panic(ErrLoadCallerCacheFailed)
-		}
+		// insert receive
 		fromBlock, err := p.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return err
@@ -136,7 +133,17 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 		if fromBlock == nil {
 			return errors.New("failed to find send")
 		}
+
+		orAddress := fromBlock.ToAddress
 		caller := fromBlock.AccountAddress
+
+		cc, exist := p.cache.Load(orAddress)
+		if !exist {
+			mlog.Error(fmt.Sprintf("write block-r: %v %v %v fromHash=%v", block.AccountAddress, block.Height, block.Hash, block.FromBlockHash),
+				"err", ErrLoadCallerCacheFailed)
+			panic(ErrLoadCallerCacheFailed)
+		}
+
 		isCallerContract := types.IsContractAddr(caller)
 		or := &ledger.HashHeight{
 			Hash:   fromBlock.Hash,
@@ -158,21 +165,24 @@ func (p *contractOnRoadPool) WriteAccountBlock(block *ledger.AccountBlock) error
 			panic(ErrRmTxFailed)
 		}
 
-		// handle sendBlockList
+		// insert sendBlockList
 		for _, subSend := range block.SendBlockList {
-			isToAddrContract := types.IsContractAddr(subSend.ToAddress)
+			orAddress := subSend.ToAddress
+			caller := subSend.AccountAddress
+
+			isToAddrContract := types.IsContractAddr(orAddress)
 			if !isToAddrContract {
 				continue
 			}
-			cc, exist := p.cache.Load(subSend.ToAddress)
+			cc, exist := p.cache.Load(orAddress)
 			if !exist || cc == nil {
-				cc, _ = p.cache.LoadOrStore(subSend.ToAddress, NewCallerCache())
+				cc, _ = p.cache.LoadOrStore(orAddress, NewCallerCache())
 			}
 			or := &ledger.HashHeight{
 				Hash:   subSend.Hash,
 				Height: block.Height, // refer to its parent receive's height
 			}
-			if err := cc.(*callerCache).addTx(subSend.AccountAddress, isToAddrContract, or, isWrite); err != nil {
+			if err := cc.(*callerCache).addTx(caller, true, or, isWrite); err != nil {
 				mlog.Error(fmt.Sprintf("write block-s: %v -> %v %v %v", subSend.AccountAddress, subSend.ToAddress, block.Height, subSend.Hash),
 					"err", err)
 				panic(ErrAddTxFailed)
@@ -187,14 +197,16 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 	isWrite := false
 
 	if block.IsSendBlock() {
-		cc, exist := p.cache.Load(block.ToAddress)
+		orAddress := block.ToAddress
+		caller := block.AccountAddress
+
+		cc, exist := p.cache.Load(orAddress)
 		if !exist || cc == nil {
 			mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v", block.AccountAddress, block.ToAddress, block.Height, block.Hash),
 				"err", ErrLoadCallerCacheFailed)
 			panic(ErrLoadCallerCacheFailed)
 		}
 
-		caller := block.AccountAddress
 		isCallerContract := types.IsContractAddr(caller)
 		if isCallerContract {
 			return ErrBlockTypeErr
@@ -209,12 +221,9 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 				"err", err)
 			panic(ErrRmTxFailed)
 		}
+
 	} else {
 		// revert receive
-		cc, exist := p.cache.Load(block.AccountAddress)
-		if !exist || cc == nil {
-			cc, _ = p.cache.LoadOrStore(block.AccountAddress, NewCallerCache())
-		}
 		fromBlock, err := p.chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return err
@@ -222,7 +231,15 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 		if fromBlock == nil {
 			return errors.New("failed to find send")
 		}
+
+		orAddress := fromBlock.ToAddress
 		caller := fromBlock.AccountAddress
+
+		cc, exist := p.cache.Load(orAddress)
+		if !exist || cc == nil {
+			cc, _ = p.cache.LoadOrStore(orAddress, NewCallerCache())
+		}
+
 		isCallerContract := types.IsContractAddr(caller)
 		or := &ledger.HashHeight{
 			Hash:   fromBlock.Hash,
@@ -238,7 +255,6 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 			}
 			or.Height = completeBlock.Height // refer to its parent receive's height
 		}
-		// revert how to ensure sequence contract's send ？？
 		if err := cc.(*callerCache).addTx(caller, isCallerContract, or, isWrite); err != nil {
 			mlog.Error(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v", block.AccountAddress, block.Height, block.Hash, block.FromBlockHash),
 				"err", err)
@@ -247,11 +263,15 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 
 		// revert sendBlockList
 		for _, subSend := range block.SendBlockList {
-			isToAddrContract := types.IsContractAddr(subSend.ToAddress)
-			if !isToAddrContract {
+
+			orAddress := subSend.ToAddress
+			caller := subSend.AccountAddress
+
+			isOrAddrContract := types.IsContractAddr(orAddress)
+			if !isOrAddrContract {
 				continue
 			}
-			cc, exist := p.cache.Load(subSend.ToAddress)
+			cc, exist := p.cache.Load(orAddress)
 			if !exist || cc == nil {
 				mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v", subSend.AccountAddress, subSend.ToAddress, block.Height, subSend.Hash),
 					"err", ErrLoadCallerCacheFailed)
@@ -261,7 +281,7 @@ func (p *contractOnRoadPool) DeleteAccountBlock(block *ledger.AccountBlock) erro
 				Hash:   subSend.Hash,
 				Height: block.Height, // refer to its parent receive's height
 			}
-			if err := cc.(*callerCache).rmTx(subSend.ToAddress, isToAddrContract, or, isWrite); err != nil {
+			if err := cc.(*callerCache).rmTx(caller, true, or, isWrite); err != nil {
 				mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v", subSend.AccountAddress, subSend.ToAddress, block.Height, subSend.Hash),
 					"err", err)
 				panic(ErrRmTxFailed)
@@ -285,7 +305,7 @@ func NewCallerCache() *callerCache {
 func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList []ledger.HashHeight) error {
 	for k, _ := range orList {
 		or := orList[k]
-		//fmt.Printf("initLoad caller=%v height=%v, hash=%v\n", caller, or.Height, or.Hash)
+
 		b, err := chain.GetAccountBlockByHash(or.Hash)
 		if err != nil {
 			return err
@@ -296,8 +316,11 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 		if b.IsReceiveBlock() {
 			return ErrBlockTypeErr
 		}
-		isContract := types.IsContractAddr(b.AccountAddress)
-		if isContract {
+
+		caller := b.AccountAddress
+
+		isCallerContract := types.IsContractAddr(caller)
+		if isCallerContract {
 			completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
 			if err != nil {
 				return err
@@ -307,7 +330,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			}
 			or.Height = completeBlock.Height // refer to its parent receive's height
 		}
-		if err := cc.addTx(b.AccountAddress, isContract, &or, true); err != nil {
+		if err := cc.addTx(caller, isCallerContract, &or, true); err != nil {
 			return err
 		}
 	}
@@ -352,7 +375,7 @@ func (cc *callerCache) len() int {
 	return count
 }
 
-func (cc *callerCache) addTx(caller types.Address, isContract bool, or *ledger.HashHeight, isWrite bool) error {
+func (cc *callerCache) addTx(caller types.Address, isCallerContract bool, or *ledger.HashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
@@ -379,7 +402,7 @@ func (cc *callerCache) addTx(caller types.Address, isContract bool, or *ledger.H
 				break
 			}
 			// prev.Height == or.Height
-			if isContract {
+			if isCallerContract {
 				if !isWrite {
 					continue
 				}
@@ -399,7 +422,7 @@ func (cc *callerCache) addTx(caller types.Address, isContract bool, or *ledger.H
 	return nil
 }
 
-func (cc *callerCache) rmTx(caller types.Address, isContract bool, or *ledger.HashHeight, isWrite bool) error {
+func (cc *callerCache) rmTx(caller types.Address, isCallerContract bool, or *ledger.HashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
