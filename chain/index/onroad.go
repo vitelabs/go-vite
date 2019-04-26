@@ -1,7 +1,6 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -72,7 +71,11 @@ func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int)
 			index++
 		}
 	}
-	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+
+	err := iter.Error()
+	iter.Release()
+
+	if err != nil {
 		return nil, err
 	}
 	return hashList, nil
