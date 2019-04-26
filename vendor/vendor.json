@@ -51,6 +51,12 @@
 			"revisionTime": "2019-04-24T11:54:17Z"
 		},
 		{
+			"checksumSHA1": "RYRPGPM8/+BSC+bOnaeWQxL/tqM=",
+			"path": "github.com/elastic/gosigar/sys/windows",
+			"revision": "90a28657afb320e7ace6184dff8d1bc1e521eee8",
+			"revisionTime": "2019-04-24T13:28:44Z"
+		},
+		{
 			"checksumSHA1": "KSRJC/V4LkGTakqzakXY/Ces0sw=",
 			"path": "github.com/ethereum/go-ethereum/log",
 			"revision": "9a58a9b91a9bb60be2768aea451576135fa7ebe0",
@@ -676,6 +682,12 @@
 			"path": "gopkg.in/natefinch/lumberjack.v2",
 			"revision": "a96e63847dc3c67d17befa69c303767e2f84e54f",
 			"revisionTime": "2017-05-31T16:03:50Z"
+		},
+		{
+			"checksumSHA1": "0xgs8lwcWLUffemlj+SsgKlxvDU=",
+			"path": "gopkg.in/natefinch/npipe.v2",
+			"revision": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6",
+			"revisionTime": "2016-06-21T03:49:01Z"
 		},
 		{
 			"checksumSHA1": "4BwmmgQUhWtizsR2soXND0nqZ1I=",
