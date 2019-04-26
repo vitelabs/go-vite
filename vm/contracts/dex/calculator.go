@@ -40,20 +40,19 @@ func CmpForBigInt(a []byte, b []byte) int {
 	return new(big.Int).SetBytes(a).Cmp(new(big.Int).SetBytes(b))
 }
 
-func SubForAbsAndSign(a, b int32) (int32, int32) {
-	r := a - b
-	if r < 0 {
-		return -r, -1
+func GetAbs(v int32) (int32, int32) {//abs, sign
+	if v < 0 {
+		return -v, -1
 	} else {
-		return r, 1
+		return v, 1
 	}
 }
 
-func AdjustForDecimalsDiff(sourceAmountF *big.Float, sourceDecimals, targetDecimals int32) *big.Float {
-	if sourceDecimals == targetDecimals {
+func AdjustForDecimalsDiff(sourceAmountF *big.Float, decimalsDiff int32) *big.Float {
+	if decimalsDiff == 0 {
 		return sourceAmountF
 	}
-	dcDiffAbs, dcDiffSign := SubForAbsAndSign(sourceDecimals, targetDecimals)
+	dcDiffAbs, dcDiffSign := GetAbs(decimalsDiff)
 	decimalDiffInt := new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(dcDiffAbs)), nil)
 	decimalDiffFloat := new(big.Float).SetPrec(bigFloatPrec).SetInt(decimalDiffInt)
 	if dcDiffSign > 0 {

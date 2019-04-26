@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	orderproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"math/big"
 )
 
 const OrderIdLength = 20
@@ -164,10 +163,8 @@ func (protocol *OrderNodeProtocol) deSerializeMeta(nodeData []byte) (*skiplistMe
 	}
 }
 
-func priceEqual(a string, b string) bool {
-	af, _ := new(big.Float).SetString(a)
-	bf, _ := new(big.Float).SetString(b)
-	return af.Cmp(bf) == 0
+func priceCompare(a, b []byte) int {
+	return bytes.Compare(a, b)
 }
 
 func convertKeyOnLevelToProto(from []nodeKeyType) [][]byte {
@@ -205,19 +202,11 @@ func (order Order) randomSeed() int64 {
 
 func CompareOrderPrice(order Order, target Order) int8 {
 	var result int8
-	if priceEqual(order.GetPrice(), target.GetPrice()) {
-		//if order.GetTimestamp() == target.GetTimestamp() {
-		//	result = 0
-		//} else if order.GetTimestamp() > target.GetTimestamp() {
-		//	result = -1
-		//} else {
-		//	result = 1
-		//}
-		return 0
+	cmp := priceCompare(order.Price, target.Price)
+	if cmp == 0 {
+		result = 0
 	} else {
-		cp, _ := new(big.Float).SetString(order.Price)
-		tp, _ := new(big.Float).SetString(target.Price)
-		if cp.Cmp(tp) > 0 {
+		if cmp > 0 {
 			switch order.GetSide() {
 			case false: // bid/buy
 				result = 1

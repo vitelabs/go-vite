@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -186,21 +187,22 @@ func initDexTradeDatabase()  *testDatabase {
 }
 
 func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteToken tokenInfo, side bool, price string, quantity int64) []byte {
-	tokenInfo := &dexproto.OrderTokenInfo{}
-	tokenInfo.TradeToken = tradeToken.tokenId.Bytes()
-	tokenInfo.QuoteToken = quoteToken.tokenId.Bytes()
-	tokenInfo.TradeTokenDecimals = tradeToken.decimals
-	tokenInfo.QuoteTokenDecimals = quoteToken.decimals
+	orderMarketInfo := &dexproto.OrderMarketInfo{}
+	marketId := make([]byte, 4)
+	copy(marketId, tradeToken.tokenId.Bytes()[:2])
+	copy(marketId[2:], tradeToken.tokenId.Bytes()[:2])
+	orderMarketInfo.MarketId = int32(binary.BigEndian.Uint32(marketId))
+	orderMarketInfo.DecimalsDiff = tradeToken.decimals - quoteToken.decimals
 	fmt.Printf("")
 	order := &dexproto.Order{}
 	order.Id = orderIdBytesFromInt(id)
 	order.Address = address.Bytes()
 	order.Side = side
 	order.Type = dex.Limited
-	order.Price = price
+	order.Price = dex.PriceToBytes(price)
 	order.Quantity = big.NewInt(quantity).Bytes()
 	order.Status =  dex.Pending
-	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, tokenInfo.TradeTokenDecimals, tokenInfo.QuoteTokenDecimals)
+	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, orderMarketInfo.DecimalsDiff)
 	if order.Type == dex.Limited && !order.Side {//buy
 		//fmt.Printf("newOrderInfo set LockedBuyFee id %v, order.Type %v, order.Side %v, order.Amount %v\n", id, order.Type, order.Side, order.Amount)
 		order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
@@ -211,7 +213,7 @@ func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteT
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	orderInfo := &dexproto.OrderInfo{}
-	orderInfo.OrderTokenInfo = tokenInfo
+	orderInfo.OrderMarketInfo = orderMarketInfo
 	orderInfo.Order = order
 	data, _ := proto.Marshal(orderInfo)
 	return data
@@ -220,4 +222,3 @@ func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteT
 func clearContext(db *testDatabase) {
 	db.logList = make([]*ledger.VmLog, 0)
 }
-

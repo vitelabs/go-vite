@@ -147,10 +147,10 @@ func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 	fundSettle := &dexproto.FundSettle{}
 	switch orderInfo.Order.Side {
 	case false: // buy
-		fundSettle.Token = orderInfo.OrderTokenInfo.QuoteToken
+		fundSettle.Token = orderInfo.OrderMarketInfo.QuoteToken
 		fundSettle.ReleaseLocked = dex.AddBigInt(orderInfo.Order.Amount, orderInfo.Order.LockedBuyFee)
 	case true: // sell
-		fundSettle.Token = orderInfo.OrderTokenInfo.TradeToken
+		fundSettle.Token = orderInfo.OrderMarketInfo.TradeToken
 		fundSettle.ReleaseLocked = orderInfo.Order.Quantity
 	}
 	userFundSettle := &dexproto.UserFundSettle{}

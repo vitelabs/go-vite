@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
@@ -126,7 +127,7 @@ func TestMatcher(t *testing.T) {
 	assert.Equal(t, 202, fromOrderIdBytesToInt(txEvent.TakerId))
 	assert.Equal(t, 104, fromOrderIdBytesToInt(txEvent.MakerId))
 	assert.True(t, CheckBigEqualToInt(4500, txEvent.Quantity))
-	assert.True(t, priceEqual(txEvent.Price, "100.04"))
+	assert.True(t, priceEqual("100.04", txEvent.Price))
 	assert.True(t, CheckBigEqualToInt(45018000, txEvent.Amount))// 4500*100.04 * 100
 	assert.True(t, CheckBigEqualToInt(2701080, txEvent.TakerFee)) // 45018000 * 0.06
 	assert.True(t, CheckBigEqualToInt(2250900, txEvent.MakerFee)) // 45018000 * 0.05
@@ -137,7 +138,7 @@ func TestMatcher(t *testing.T) {
 	assert.Equal(t, 202, fromOrderIdBytesToInt(txEvent.TakerId))
 	assert.Equal(t, 102, fromOrderIdBytesToInt(txEvent.MakerId))
 	assert.True(t, CheckBigEqualToInt(500, txEvent.Quantity))
-	assert.True(t, priceEqual(txEvent.Price, "100.03"))
+	assert.True(t, priceEqual("100.03", txEvent.Price))
 	assert.True(t, CheckBigEqualToInt(5001500, txEvent.Amount))
 	assert.True(t, CheckBigEqualToInt(300090, txEvent.TakerFee))
 	assert.True(t, CheckBigEqualToInt(250075, txEvent.MakerFee))
@@ -180,7 +181,7 @@ func TestMatcher(t *testing.T) {
 	assert.Equal(t, 106, fromOrderIdBytesToInt(txEvent.TakerId))
 	assert.Equal(t, 201, fromOrderIdBytesToInt(txEvent.MakerId))
 	assert.True(t, CheckBigEqualToInt(10000, txEvent.Quantity))
-	assert.True(t, priceEqual(txEvent.Price, "100.1"))
+	assert.True(t, priceEqual("100.1", txEvent.Price))
 	assert.True(t, CheckBigEqualToInt(100100000, txEvent.Amount))
 	assert.True(t, CheckBigEqualToInt(6006000, txEvent.TakerFee))
 	assert.True(t, CheckBigEqualToInt(5005000, txEvent.MakerFee))
@@ -207,21 +208,19 @@ func TestDustCheck(t *testing.T) {
 	order := &proto.Order{}
 	order.Quantity = big.NewInt(2000).Bytes()
 	order.ExecutedQuantity = big.NewInt(0).Bytes()
-	order.Price = "0.1"
-	tokenInfo := &proto.OrderTokenInfo{}
-	tokenInfo.TradeTokenDecimals = 10
-	tokenInfo.QuoteTokenDecimals = 8
-	assert.False(t, isDust(order, big.NewInt(1000).Bytes(), tokenInfo))
-	assert.True(t, isDust(order, big.NewInt(1001).Bytes(), tokenInfo))
+	order.Price = PriceToBytes("0.1")
+	orderMarketInfo := &proto.OrderMarketInfo{}
+	orderMarketInfo.DecimalsDiff = 10 - 8
+	assert.False(t, isDust(order, big.NewInt(1000).Bytes(), orderMarketInfo.DecimalsDiff))
+	assert.True(t, isDust(order, big.NewInt(1001).Bytes(), orderMarketInfo.DecimalsDiff))
 
 	order1 := &proto.Order{}
 	order1.Quantity = big.NewInt(1000).Bytes()
 	order1.ExecutedQuantity = big.NewInt(0).Bytes()
-	order1.Price = "0.001"
-	tokenInfo.TradeTokenDecimals = 8
-	tokenInfo.QuoteTokenDecimals = 10
-	assert.False(t, isDust(order1, big.NewInt(990).Bytes(), tokenInfo))
-	assert.True(t, isDust(order1, big.NewInt(991).Bytes(), tokenInfo))
+	order1.Price = PriceToBytes("0.001")
+	orderMarketInfo.DecimalsDiff = 8 - 10
+	assert.False(t, isDust(order1, big.NewInt(990).Bytes(), orderMarketInfo.DecimalsDiff))
+	assert.True(t, isDust(order1, big.NewInt(991).Bytes(), orderMarketInfo.DecimalsDiff))
 }
 
 func TestDustWithOrder(t *testing.T) {
@@ -298,19 +297,18 @@ func TestMarket(t *testing.T) {
 }
 
 func newOrderInfo(id int, tradeToken tokenInfo, quoteToken tokenInfo, side bool, orderType int32, price string, quantity uint64, ts int64) TakerOrder {
-	tokenInfo := &proto.OrderTokenInfo{}
-	tokenInfo.TradeToken = tradeToken.tokenId.Bytes()
-	tokenInfo.QuoteToken = quoteToken.tokenId.Bytes()
-	tokenInfo.TradeTokenDecimals = tradeToken.decimals
-	tokenInfo.QuoteTokenDecimals = quoteToken.decimals
+	orderMarketInfo := &proto.OrderMarketInfo{}
+	orderMarketInfo.TradeToken = tradeToken.tokenId.Bytes()
+	orderMarketInfo.QuoteToken = quoteToken.tokenId.Bytes()
+	orderMarketInfo.DecimalsDiff = tradeToken.decimals - quoteToken.decimals
 	order := &proto.Order{}
 	order.Id = orderIdBytesFromInt(id)
 	order.Side = side // buy
 	order.Type = orderType
-	order.Price = price
+	order.Price = PriceToBytes(price)
 	order.Quantity = new(big.Int).SetUint64(quantity).Bytes()
 	order.Status = Pending
-	order.Amount = CalculateRawAmount(order.Quantity, order.Price, tokenInfo.TradeTokenDecimals, tokenInfo.QuoteTokenDecimals)
+	order.Amount = CalculateRawAmount(order.Quantity, order.Price, orderMarketInfo.DecimalsDiff)
 	if order.Type == Limited && !order.Side {//buy
 		//fmt.Printf("newOrderInfo set LockedBuyFee id %v, order.Type %v, order.Side %v, order.Amount %v\n", id, order.Type, order.Side, order.Amount)
 		order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
@@ -319,7 +317,7 @@ func newOrderInfo(id int, tradeToken tokenInfo, quoteToken tokenInfo, side bool,
 	order.ExecutedAmount = big.NewInt(0).Bytes()
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
-	orderInfo := proto.OrderInfo{Order:order, OrderTokenInfo:tokenInfo}
+	orderInfo := proto.OrderInfo{Order:order, OrderMarketInfo: orderMarketInfo}
 	return TakerOrder{orderInfo}
 }
 
@@ -334,4 +332,8 @@ func fromOrderIdToInt(orderId nodeKeyType) int {
 func fromOrderIdBytesToInt(orderIdBytes []byte) int {
 	res := int(binary.BigEndian.Uint32(orderIdBytes[16:20]))
 	return res
+}
+
+func priceEqual(price string, bs []byte) bool {
+	return bytes.Equal(PriceToBytes(price), bs)
 }

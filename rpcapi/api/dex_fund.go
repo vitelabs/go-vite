@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
@@ -49,7 +50,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 
 	accFundInfo := make(map[types.TokenTypeId]*AccountFundInfo, 0)
 	for _, v := range fundInfo {
-		err, tokenInfo := dex.GetTokenInfo(vmContext, v.Token)
+		tokenInfo := abi.GetTokenById(vmContext, v.Token)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +108,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	return fundInfoMap, nil
 }
 
-func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error){
+func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
 	if err != nil {
 		return nil, err

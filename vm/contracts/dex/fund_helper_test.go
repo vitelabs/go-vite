@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"bytes"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -55,10 +56,30 @@ func TestDivideByProportion(t *testing.T) {
 
 func TestValidPrice(t *testing.T) {
 	assert.True(t, ValidPrice("10.5"))
-	assert.False(t, ValidPrice("0.0"))
+	assert.False(t, ValidPrice("00.000"))
 	assert.False(t, ValidPrice("-0.1"))
 	assert.False(t, ValidPrice("0..5"))
-	assert.False(t, ValidPrice("1.123456789"))
-	assert.True(t, ValidPrice("1.12345678"))
+	assert.True(t, ValidPrice("1.123456789012"))
+	assert.False(t, ValidPrice("1.1234567890123"))
+	assert.True(t, ValidPrice("123456789012.123456789"))
+	assert.False(t, ValidPrice("1234567890123.0"))
+
+	assert.True(t, ValidPrice(".24523"))
+	assert.False(t, ValidPrice("..24523"))
+	assert.False(t, ValidPrice("0.000"))
+	assert.False(t, ValidPrice("-.24523"))
+	assert.False(t, ValidPrice(".2452e3"))
+	assert.False(t, ValidPrice("3.2452e3"))
 }
 
+func TestPriceConvert(t *testing.T) {
+	assert.Equal(t, "0.23", BytesToPrice(PriceToBytes(".23")))
+	assert.Equal(t, "0.23", BytesToPrice(PriceToBytes("000.230000")))
+	assert.Equal(t, "23", BytesToPrice(PriceToBytes("23.")))
+	assert.Equal(t, "23", BytesToPrice(PriceToBytes("23.0")))
+
+	assert.Equal(t, 0, bytes.Compare(PriceToBytes("23"), PriceToBytes("23.00")))
+	assert.Equal(t, 1, bytes.Compare(PriceToBytes("23.001"), PriceToBytes("23")))
+	assert.Equal(t, -1, bytes.Compare(PriceToBytes("23.001"), PriceToBytes("23.1")))
+	assert.Equal(t, -1, bytes.Compare(PriceToBytes("0.021"), PriceToBytes("0.022")))
+}

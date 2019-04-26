@@ -1,13 +1,13 @@
-syntax="proto3";
+syntax = "proto3";
 
 package proto;
 
 message Order {
     bytes Id = 1;
     bytes Address = 2;
-    bool  Side = 3; // false buy, true sell
+    bool Side = 3; // false buy, true sell
     int32 Type = 4; // 0 limit order, 1 market order
-    string Price = 5;
+    bytes Price = 5; // [0...4]intPart [5..8]decimalPart
     bytes Quantity = 6;
     bytes Amount = 7; // QuoteAmount
     bytes LockedBuyFee = 8; // fee locked ahead for buy
@@ -21,16 +21,16 @@ message Order {
     int64 Timestamp = 16;
 }
 
-message OrderTokenInfo {
-    bytes TradeToken = 1;
-    bytes QuoteToken = 2;
-    int32 TradeTokenDecimals = 3; // will not be set in case cancel order
-    int32 QuoteTokenDecimals = 4; // will not be set in case cancel order
+message OrderMarketInfo {
+    int32 MarketId = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+    int32 DecimalsDiff = 4;
 }
 
 message OrderInfo {
     Order Order = 1;
-    OrderTokenInfo OrderTokenInfo = 2;
+    OrderMarketInfo OrderMarketInfo = 2;
 }
 
 message OrderUpdateInfo {
@@ -42,7 +42,7 @@ message OrderUpdateInfo {
     bytes ExecutedFee = 6; // fee actually executed
     bytes RefundToken = 7;
     bytes RefundQuantity = 8; //refund trade/quote token
-    OrderTokenInfo OrderTokenInfo = 9;
+    OrderMarketInfo OrderMarketInfo = 9;
 }
 
 //maker no need tokenInfo, use taker tokenInfo instead
@@ -60,16 +60,12 @@ message OrderListMeta {
     repeated bytes ForwardOnLevel = 5;
 }
 
-message OrderBook {
-    repeated string MarketSide = 1; //format : TradeToken|QuoteToken|Side
-}
-
 message Transaction {
     bytes Id = 1;
     bool TakerSide = 2;
     bytes TakerId = 3;
     bytes MakerId = 4;
-    string Price = 5;
+    bytes Price = 5;
     bytes Quantity = 6;
     bytes Amount = 7;
     bytes TakerFee = 8;
@@ -77,26 +73,37 @@ message Transaction {
     int64 Timestamp = 10;
 }
 
-message OrderFail {
-    OrderInfo OrderInfo = 1;
-    string ErrCode = 2;
+message TokenInfo {
+    string Symbol = 1;
+    int32 Decimals = 2;
 }
 
 message MarketInfo {
-    int32 TradeTokenDecimals = 1;
-    int32 QuoteTokenDecimals = 2;
-    bytes Creator    = 3; //creator address
+    int32 MarketId = 1;
+    string MarketSymbol = 2;
+    int32 TradeTokenDecimals = 3;
+    int32 QuoteTokenDecimals = 4;
+    bool AllowMine = 5;
+    bool Valid = 6; // false: pending for tradeToken validate
+    bytes Creator = 7; //creator address
     int64 Timestamp = 8;
 }
 
 message NewMarket {
-    bytes TradeToken = 1;
-    bytes QuoteToken = 2;
-    string TradeTokenSymbol = 3;
-    string QuoteTokenSymbol = 4;
-    int32 TradeTokenDecimals = 5;
-    int32 QuoteTokenDecimals = 6;
-    bytes Creator    = 7; //creator address
+    int32 MarketId = 1;
+    string MarketSymbol = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    string TradeTokenSymbol = 5;
+    string QuoteTokenSymbol = 6;
+    int32 TradeTokenDecimals = 7;
+    int32 QuoteTokenDecimals = 8;
+    bytes Creator = 9; //creator address
+}
+
+message OrderFail {
+    OrderInfo OrderInfo = 1;
+    string ErrCode = 2;
 }
 
 message CancelOrderFail {

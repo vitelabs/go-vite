@@ -12,7 +12,7 @@ func TestSerialize(t *testing.T) {
 	order := Order{}
 	order.Id = orderIdBytesFromInt(100)
 	order.Address = []byte("123")
-	order.Price = "10.0"
+	order.Price = PriceToBytes("10.0")
 	//order.Timestamp = 10000
 	order.Side = false
 	node := &skiplistNode{}
@@ -65,7 +65,7 @@ func newNodeInfoWithTs(value int, ts uint64) (nodeKeyType, *nodePayload) {
 func newNodeInfoWithPriceAndTs(value int, price string, ts uint64) (nodeKeyType, *nodePayload) {
 	order := Order{}
 	order.Id = orderIdBytesFromInt(value)
-	order.Price = price
+	order.Price = PriceToBytes(price)
 	//order.Timestamp = int64(ts)
 	order.Side = false // buy
 	pl := nodePayload(order)

@@ -69,3 +69,8 @@ message VxFundWithPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
 }
+
+message PledgeVip {
+    int64 Timestamp = 1;
+    int32 PledgeTimes = 2; //sum pledge times in case duplicate pledge happen
+}
