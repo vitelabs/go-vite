@@ -1,12 +1,13 @@
 package api
 
 import (
+	"sort"
+	"time"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"sort"
-	"time"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -156,7 +157,7 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 	if err != nil {
 		return nil, err
 	}
-	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, prevHash, &r.chain.GetLatestSnapshotBlock().Hash)
+	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
