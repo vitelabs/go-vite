@@ -25,32 +25,7 @@ func (self *branch) Size() uint64 {
 }
 
 func (self *branch) GetKnotAndBranch(height uint64) (Knot, Branch) {
-	if height > self.headHeight {
-		return nil, nil
-	}
-	block := self.getHeightBlock(height)
-	if block != nil {
-		return block, self
-	}
-	refers := make(map[string]Branch)
-	refer := self.root
-	for {
-		if refer == nil {
-			return nil, nil
-		}
-		b := refer.GetKnot(height, false)
-		if b != nil {
-			return b, refer
-		} else {
-			if _, ok := refers[refer.Id()]; ok {
-				monitor.LogEvent("pool", "getBlockError")
-				return nil, nil
-			}
-			refers[refer.Id()] = refer
-			refer = refer.Root()
-		}
-	}
-	return nil, nil
+	return self.getKnotAndBranch(height)
 }
 
 func (self *branch) AddHead(k Knot) error {
@@ -232,7 +207,7 @@ func (self *branch) updateRoot(old Branch, new Branch) {
 	}
 }
 
-func (self *branch) getKnotAndChain(height uint64) (Knot, Branch) {
+func (self *branch) getKnotAndBranch(height uint64) (Knot, Branch) {
 	if height > self.headHeight {
 		return nil, nil
 	}
@@ -274,7 +249,7 @@ func (self *branch) getKnot(height uint64, flag bool) Knot {
 		return block
 	}
 	if flag {
-		b, _ := self.getKnotAndChain(height)
+		b, _ := self.getKnotAndBranch(height)
 		return b
 	}
 	return nil

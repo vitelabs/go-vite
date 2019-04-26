@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -65,11 +67,11 @@ func (self *pool) insert() {
 /**
 make a queue from account pool and snapshot pool
 */
-func (self *pool) makeQueue() Package {
+func (self *pool) makeQueue() batch.Batch {
 	tailHeight, tailHash := self.pendingSc.CurrentChain().TailHH()
 	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: tailHeight, Hash: tailHash}}
 
-	p := NewSnapshotPackage(self.snapshotExists, self.accountExists, self.version.Val(), 50)
+	p := batch.NewBatch(self.snapshotExists, self.accountExists, self.version.Val(), 50)
 	for {
 		newOffset, pendingForSb, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
@@ -125,13 +127,11 @@ func (self *completeSnapshotBlock) isEmpty() bool {
 }
 
 type snapshotPending struct {
-	sHash     types.Hash
-	sHeight   uint64
-	sPrevHash types.Hash
-	addrM     map[types.Address]*ledger.HashHeight
+	snapshot *snapshotPoolBlock
+	addrM    map[types.Address]*ledger.HashHeight
 }
 
-func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
+func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
 	if self.pendingSc.CurrentChain().Size() == 0 {
 		return nil, nil, nil
 	}
@@ -167,7 +167,7 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	}
 
 	if len(errorAcc) > 0 {
-		pendingS := &snapshotPending{sHash: b.Hash(), sHeight: b.Height(), sPrevHash: b.PrevHash(), addrM: errorAcc}
+		pendingS := &snapshotPending{snapshot: b, addrM: errorAcc}
 		return newOffset, pendingS, nil
 
 	}
@@ -175,20 +175,19 @@ func (self *pool) makeSnapshotBlock(p Package, info *offsetInfo) (*ledger.HashHe
 	return newOffset, nil, result
 }
 
-func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock) error {
+func (self *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlock) error {
 	sum := 0
 	for {
 		for _, v := range b.addrM {
 			for v.Len() > 0 {
 				ab := v.Peek().(*accountPoolBlock)
-				item := NewItem(ab, &ab.block.AccountAddress)
-				err := p.AddItem(item)
+				err := p.AddItem(ab)
 				if err != nil {
-					if err == MAX_ERROR {
-						fmt.Printf("account[%s] max. %s\n", item.Hash(), err)
+					if err == batch.MAX_ERROR {
+						fmt.Printf("account[%s] max. %s\n", ab.Hash(), err)
 						return err
 					}
-					fmt.Printf("account[%s] add fail. %s\n", item.Hash(), err)
+					fmt.Printf("account[%s] add fail. %s\n", ab.Hash(), err)
 					break
 				}
 				sum += 1
@@ -202,18 +201,17 @@ func (self *pool) makeQueueFromSnapshotBlock(p Package, b *completeSnapshotBlock
 		}
 	}
 	if b.isEmpty() {
-		item := NewItem(b.cur, nil)
-		err := p.AddItem(item)
+		err := p.AddItem(b.cur)
 		if err != nil {
-			fmt.Printf("add snapshot[%s] error. %s\n", item.Hash(), err)
+			fmt.Printf("add snapshot[%s] error. %s\n", b.cur.Hash(), err)
 			return err
 		}
 		return nil
 	} else {
-		return errors.WithMessage(REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
+		return errors.WithMessage(batch.REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 	}
 }
-func (self *pool) makeQueueFromAccounts(p Package) {
+func (self *pool) makeQueueFromAccounts(p batch.Batch) {
 	addrOffsets := make(map[types.Address]*offsetInfo)
 	max := uint64(100)
 	total := uint64(0)
@@ -243,40 +241,7 @@ func (self *pool) makeQueueFromAccounts(p Package) {
 	}
 }
 
-//func (self *pool) makePackages() (Packages, error) {
-//	q := NewSnapshotPackage(self.snapshotExists, self.accountExists, 50)
-//	addrOffsets := make(map[types.Address]*offsetInfo)
-//	snapshotOffset := &offsetInfo{}
-//
-//	spkg, err := self.pendingSc.makePackage(self.snapshotExists, self.accountExists, snapshotOffset)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	for {
-//		sum := uint64(0)
-//		self.pendingAc.Range(func(key, v interface{}) bool {
-//			cp := v.(*accountPool)
-//			offset := addrOffsets[key.(types.Address)]
-//			if offset == nil {
-//				offset = &offsetInfo{}
-//				addrOffsets[key.(types.Address)] = offset
-//			}
-//			num, _ := cp.makePackage(q, offset)
-//			sum += num
-//			return true
-//		})
-//
-//		num, _ := self.pendingSc.makeQueue(q, snapshotOffset)
-//		sum += num
-//		if sum == 0 {
-//			break
-//		}
-//	}
-//	return q
-//}
-
-func (self *pool) insertQueue(q Package) error {
+func (self *pool) insertQueue(q batch.Batch) error {
 	levels := q.Levels()
 	t0 := time.Now()
 
@@ -299,9 +264,9 @@ func (self *pool) insertQueue(q Package) error {
 	return nil
 }
 
-func (self *pool) insertAccountBucket(p Package, bucket Bucket, version int) error {
-	self.RLock()
-	defer self.RUnLock()
+func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	self.RLockInsert()
+	defer self.RUnLockInsert()
 	latestSb := self.bc.GetLatestSnapshotBlock()
 	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
@@ -310,10 +275,10 @@ func (self *pool) insertAccountBucket(p Package, bucket Bucket, version int) err
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(p Package, bucket Bucket, version int) error {
+func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
 	// stop the world for snapshot insert
-	self.Lock()
-	defer self.UnLock()
+	self.LockInsert()
+	defer self.UnLockInsert()
 	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err
@@ -330,7 +295,7 @@ func (self *pool) insertSnapshotBucket(p Package, bucket Bucket, version int) er
 		}
 		self.selfPendingAc(k).checkCurrent()
 	}
-	return errors.Errorf("account blocks rollback for snapshot block[%s-%s-%d] insert.", item.ownerWrapper, item.Hash(), item.Height())
+	return errors.Errorf("account blocks rollback for snapshot block[%s-%d] insert.", item.Hash(), item.Height())
 }
 
 var NotFound = errors.New("Not Found")

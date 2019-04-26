@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/onroad/pool"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -188,35 +189,11 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	return SUCCESS, nil
 }
 
-func (v *AccountVerifier) verifySequenceOfContractReceive(receive *ledger.AccountBlock, send *ledger.AccountBlock) (bool, error) {
-	pageNum := 0
-	for {
-		hashList, err := v.chain.GetOnRoadBlocksHashList(receive.AccountAddress, pageNum, 1)
-		if err != nil {
-			return false, err
-		}
-		if len(hashList) <= 0 {
-			break
-		}
-		onRoad, err := v.chain.GetAccountBlockByHash(hashList[0])
-		if err != nil {
-			return false, err
-		}
-		if onRoad == nil {
-			return false, errors.New("get most preferred onroad failed")
-		}
-		if onRoad.AccountAddress == send.AccountAddress {
-			if onRoad.Hash != send.Hash {
-				v.log.Error(fmt.Sprintf("verify contract recv sequence fail, block: height=%v hash=%v fromHash=%v fromHeight=%v, but onroad preferred hash=%v height=%v",
-					receive.Height, receive.Hash, send.Hash, send.Height, onRoad.Hash, onRoad.Height),
-					"caller", send.AccountAddress, "contract", receive.AccountAddress)
-				return false, errors.New("contract's processing sequence error")
-			}
-			return true, nil
-		}
-		pageNum++
+func (v *AccountVerifier) verifySequenceOfContractReceive(pool onroad_pool.OnRoadPool, send *ledger.AccountBlock) (bool, error) {
+	if pool == nil {
+		return true, nil
 	}
-	return true, nil
+	return pool.IsFrontOnRoadOfCaller(send.ToAddress, send.AccountAddress, send.Hash)
 }
 
 func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) error {

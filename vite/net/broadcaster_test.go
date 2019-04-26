@@ -380,3 +380,27 @@ func TestCommonPeers(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestCommonPeers2(t *testing.T) {
+	const totalPeers = 5
+	var commonMax = 3
+	var commonRatio = 10
+	var ps = make([]broadcastPeer, totalPeers)
+	for i := range ps {
+		ps[i] = newMockPeer(vnode.RandomNodeID(), 0)
+	}
+
+	//our := ps[0]
+	ourPeers := ps[1:]
+
+	sender := ps[totalPeers-1]
+	ppMap := make(map[peerId]struct{})
+	for i := 0; i < totalPeers-1; i++ {
+		ppMap[ps[i].ID()] = struct{}{}
+	}
+
+	commons := commonPeers(ourPeers, ppMap, sender.ID(), commonMax, commonRatio)
+	if len(commons) != 1 {
+		t.Errorf("wrong commons count: %d", len(commons))
+	}
+}

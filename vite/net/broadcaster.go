@@ -358,8 +358,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 	case NewSnapshotBlockCode:
 		nb := &message.NewSnapshotBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
+			msg.Recycle()
 			return err
 		}
+		msg.Recycle()
 
 		if nb.Block == nil {
 			return errMissingBroadcastBlock
@@ -408,8 +410,10 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 	case NewAccountBlockCode:
 		nb := &message.NewAccountBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
+			msg.Recycle()
 			return err
 		}
+		msg.Recycle()
 
 		if nb.Block == nil {
 			return errMissingBroadcastBlock

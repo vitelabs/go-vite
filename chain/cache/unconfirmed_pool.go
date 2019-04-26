@@ -1,7 +1,6 @@
 package chain_cache
 
 import (
-	"github.com/emirpasic/gods/sets/linkedhashset"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -9,7 +8,6 @@ import (
 type UnconfirmedPool struct {
 	ds *dataSet
 
-	pool         *linkedhashset.Set
 	insertedList []types.Hash
 	insertedMap  map[types.Address][]types.Hash
 }

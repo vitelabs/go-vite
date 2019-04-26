@@ -59,7 +59,7 @@ func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Add
 
 func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := pri.manager.GetOnRoadBlockByAddr(&address, index, count)
+	blockList, err := pri.manager.GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 
 func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := pri.manager.Chain().GetAccountOnRoadInfo(address)
+	info, e := pri.manager.GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
@@ -178,4 +178,48 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *Rp
 		}
 	}
 	return &r
+}
+
+func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
+	var g types.Gid
+	if gid == nil {
+		g = types.DELEGATE_GID
+	} else {
+		g = *gid
+	}
+
+	num, err := pri.manager.GetOnRoadTotalNumByAddr(g, addr)
+	if err != nil {
+		return 0, err
+	}
+	log.Info("GetContractOnRoadTotalNum", "gid", gid, "addr", addr, "num", num)
+	return num, nil
+}
+
+func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
+	var g types.Gid
+	if gid == nil {
+		g = types.DELEGATE_GID
+	} else {
+		g = *gid
+	}
+
+	blockList, err := pri.manager.GetAllCallersFrontOnRoad(g, addr)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("GetContractOnRoadFrontBlocks", "gid", gid, "addr", addr, "len", len(blockList))
+	rpcBlockList := make([]*AccountBlock, len(blockList))
+	sum := 0
+	for k, v := range blockList {
+		if v != nil {
+			accountBlock, e := ledgerToRpcBlock(v, pri.manager.Chain())
+			if e != nil {
+				return nil, e
+			}
+			rpcBlockList[k] = accountBlock
+			sum++
+		}
+	}
+	return rpcBlockList[:sum], nil
 }

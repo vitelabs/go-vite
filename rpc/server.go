@@ -257,7 +257,7 @@ func (s *Server) createSubscription(ctx context.Context, c ServerCodec, req *ser
 }
 
 // handle executes chain request and returns the response from the callback.
-func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverRequest) (interface{}, func()) {
+func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverRequest) (result interface{}, f func()) {
 	if req.err != nil {
 		return codec.CreateErrorResponse(&req.id, req.err), nil
 	}
@@ -310,6 +310,13 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 		arguments = append(arguments, req.args...)
 	}
 
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("%v\n", err))
+			result = codec.CreateErrorResponse(req.id, &executePanicError{})
+			f = nil
+		}
+	}()
 	// execute RPC method and return result
 	reply := req.callb.method.Func.Call(arguments)
 	if len(reply) == 0 {

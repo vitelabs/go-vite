@@ -9,6 +9,7 @@ type ConsensusReader interface {
 	GetIndexByStartTime(t int64, genesisTime int64) (startIndex uint64, startTime int64, drained bool)
 	GetIndexByEndTime(t int64, genesisTime int64) (endIndex uint64, endTime int64, withinADay bool)
 	GetIndexByTime(t int64, genesisTime int64) uint64
+	GetEndTimeByIndex(index uint64) int64
 	GetConsensusDetailByDay(startIndex, endIndex uint64) ([]*core.DayStats, error)
 }
 type VMConsensusReader struct {
@@ -73,6 +74,10 @@ func (r *VMConsensusReader) getStartTimeByIndex(index uint64) int64 {
 func (r *VMConsensusReader) getEndTimeByIndex(index uint64) int64 {
 	_, t := r.reader.GetDayTimeIndex().Index2Time(index)
 	return t.Unix()
+}
+func (r *VMConsensusReader) GetEndTimeByIndex(index uint64) int64 {
+	_, endtime := r.reader.GetDayTimeIndex().Index2Time(index)
+	return endtime.Unix()
 }
 func (r *VMConsensusReader) GetConsensusDetailByDay(startIndex, endIndex uint64) ([]*core.DayStats, error) {
 	return r.reader.DayStats(startIndex, endIndex)

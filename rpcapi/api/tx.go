@@ -4,9 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
-	"time"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -19,6 +16,8 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"go.uber.org/atomic"
+	"math/big"
+	"time"
 )
 
 type Tx struct {

@@ -1,14 +1,18 @@
 package chain
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/plugins"
+	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"time"
 )
 
 type EventListener interface {
@@ -244,10 +248,7 @@ type Chain interface {
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
 
-	// FIXME
-	HasOnRoadBlocks(addr types.Address) (bool, error)
-	// FIXME
-	GetOnRoadBlocksHashList(addr types.Address, pageNum, num int) ([]types.Hash, error)
+	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
@@ -255,4 +256,6 @@ type Chain interface {
 	Plugins() *chain_plugins.Plugins
 
 	SetConsensus(cs Consensus)
+
+	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 }

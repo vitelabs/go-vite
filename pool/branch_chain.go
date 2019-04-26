@@ -3,6 +3,8 @@ package pool
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/common"
+
 	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,7 +14,7 @@ import (
 type branchChain struct {
 	rw      chainRw
 	chainId string
-	v       *ForkVersion
+	v       *common.Version
 	head    *ledger.HashHeight
 }
 

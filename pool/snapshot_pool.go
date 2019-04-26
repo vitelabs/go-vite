@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/pool/batch"
+
 	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/pkg/errors"
@@ -32,7 +34,7 @@ type snapshotPool struct {
 	newSnapshotBlockCond *common.CondTimer
 }
 
-func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *ForkVersion, source types.BlockSource) *snapshotPoolBlock {
+func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *common.Version, source types.BlockSource) *snapshotPoolBlock {
 	return &snapshotPoolBlock{block: block, forkBlock: *newForkBlock(version, source), failStat: (&failStat{}).init(time.Second * 20)}
 }
 
@@ -70,9 +72,13 @@ func (self *snapshotPoolBlock) PrevHash() types.Hash {
 	return self.block.PrevHash
 }
 
+func (self *snapshotPoolBlock) Owner() *types.Address {
+	return nil
+}
+
 func newSnapshotPool(
 	name string,
-	version *ForkVersion,
+	version *common.Version,
 	v *snapshotVerifier,
 	f *snapshotSyncer,
 	rw *snapshotCh,
@@ -193,8 +199,10 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 	defer monitor.LogTime("pool", "snapshotFork", time.Now())
 	self.log.Warn("[try]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id(),
 		"longestTail", longest.SprintTail(), "longestHead", longest.SprintHead(), "currentTail", current.SprintTail(), "currentHead", current.SprintHead())
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
+	self.pool.LockRollback()
+	defer self.pool.UnLockRollback()
 	self.log.Warn("[lock]snapshot chain start fork.", "longest", longest.Id(), "current", current.Id())
 
 	k, forked, err := self.chainpool.tree.FindForkPointFromMain(longest)
@@ -268,7 +276,7 @@ func (self *snapshotPool) loopCompactSnapshot() int {
 	return sum
 }
 
-func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version int) (map[types.Address][]commonBlock, *Item, error) {
+func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, version uint64) (map[types.Address][]commonBlock, batch.Item, error) {
 	// lock current chain tail
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
@@ -277,7 +285,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 	current := pool.tree.Main()
 
 	for i, item := range items {
-		block := item.commonBlock
+		block := item.(*snapshotPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
 		tailHeight, tailHash := current.TailHH()
 		if block.Height() == tailHeight+1 &&
@@ -286,7 +294,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 			if block.forkVersion() != version {
 				return nil, nil, errors.Errorf("[%d]snapshot[s] version update", p.Id())
 			}
-			stat := self.v.verifySnapshot(block.(*snapshotPoolBlock))
+			stat := self.v.verifySnapshot(block)
 			if !block.checkForkVersion() {
 				block.resetForkVersion()
 				return nil, item, errors.New("new fork version")
@@ -305,7 +313,7 @@ func (self *snapshotPool) snapshotInsertItems(p Package, items []*Item, version 
 				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier db.")
 			}
-			accBlocks, err := self.snapshotWriteToChain(current, block.(*snapshotPoolBlock))
+			accBlocks, err := self.snapshotWriteToChain(current, block)
 			if err != nil {
 				return nil, item, err
 			}
@@ -370,8 +378,8 @@ func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnaps
 }
 
 func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.pool.Lock()
-	defer self.pool.UnLock()
+	self.pool.LockInsert()
+	defer self.pool.UnLockInsert()
 
 	for k, v := range accounts {
 		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)

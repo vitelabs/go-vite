@@ -1,6 +1,7 @@
 package chain_index
 
 import (
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -46,6 +47,35 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 	}
 	return onRoadData, nil
 
+}
+
+func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int) ([]types.Hash, error) {
+	onRoadMu.RLock()
+	defer onRoadMu.RUnlock()
+
+	index := 0
+	hashList := make([]types.Hash, 0, pageSize)
+	iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
+	for iter.Next() {
+		if index >= pageSize*pageNum {
+			if index >= pageSize*(pageNum+1) {
+				break
+			}
+
+			key := iter.Key()
+			blockHashBytes := key[len(key)-types.HashSize:]
+			blockHash, err := types.BytesToHash(blockHashBytes)
+			if err != nil {
+				return nil, err
+			}
+			hashList = append(hashList, blockHash)
+			index++
+		}
+	}
+	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
+		return nil, err
+	}
+	return hashList, nil
 }
 
 // TEST
@@ -98,6 +128,7 @@ func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, b
 		iDB.onRoadData[toAddr] = fromBlockHashSet
 	}
 	fromBlockHashSet[block.Hash] = struct{}{}
+
 }
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
@@ -116,15 +147,6 @@ func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, b
 	if len(fromBlockHashSet) <= 0 {
 		delete(iDB.onRoadData, toAddr)
 	}
-}
-
-// fixme TEST
-func (iDB *IndexDB) HasOnRoad(addr types.Address) (bool, error) {
-	onRoadMu.RLock()
-	defer onRoadMu.RUnlock()
-
-	_, ok := iDB.onRoadData[addr]
-	return ok, nil
 }
 
 // fixme TEST

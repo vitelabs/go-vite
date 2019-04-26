@@ -98,6 +98,19 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				// insert unreceived placeholder. avoid querying all data when no receive
 				iDB.insertReceiveInfo(batch, block.FromBlockHash, unreceivedFlag)
 			}
+
+			for _, sendBlock := range block.SendBlockList {
+				// delete sendBlock hash index
+				iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
+
+				// set open send
+
+				sendBlockHashMap[sendBlock.Hash] = sendBlock
+
+				if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+					iDB.deleteConfirmCache(sendBlock.Hash)
+				}
+			}
 		} else {
 
 			sendBlockHashMap[block.Hash] = block
@@ -107,19 +120,6 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 			}
 
 		}
-		for _, sendBlock := range block.SendBlockList {
-			// delete sendBlock hash index
-			iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
-
-			// set open send
-
-			sendBlockHashMap[sendBlock.Hash] = sendBlock
-
-			if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-				iDB.deleteConfirmCache(sendBlock.Hash)
-			}
-		}
-
 	}
 	return nil
 
