@@ -261,7 +261,6 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
-	defer monitor.LogTime("codec", "write", time.Now())
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf[:]
