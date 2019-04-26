@@ -24,11 +24,8 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 			addr = &block.AccountBlock.AccountAddress
 		}
 		meta, err := manager.chain.GetContractMeta(*addr)
-		if err != nil {
-			return err
-		}
-		if meta == nil {
-			return nil
+		if err != nil || meta == nil {
+			panic("find contract meta nil, err is " + err.Error())
 		}
 
 		// handle contract addr
@@ -37,18 +34,15 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 			return nil
 		}
 		if err := orPool.(onroad_pool.OnRoadPool).WriteAccountBlock(block.AccountBlock); err != nil {
-			return err
+			panic("WriteAccountBlock panic, err is " + err.Error())
 		}
 		if block.AccountBlock.IsSendBlock() {
 			manager.newSignalToWorker(meta.Gid, block.AccountBlock.ToAddress)
 		} else {
 			for _, subSend := range block.AccountBlock.SendBlockList {
 				sm, err := manager.chain.GetContractMeta(subSend.ToAddress)
-				if err != nil {
-					return err
-				}
-				if sm == nil {
-					continue
+				if err != nil || sm == nil {
+					panic("find contract meta nil, err is " + err.Error())
 				}
 				manager.newSignalToWorker(sm.Gid, subSend.ToAddress)
 			}
@@ -75,17 +69,16 @@ func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 			addr = &v.AccountAddress
 		}
 		meta, err := manager.chain.GetContractMeta(*addr)
-		if err != nil {
-			return err
-		}
-		if meta == nil {
-			return nil
+		if err != nil || meta == nil {
+			panic("find contract meta nil, err is " + err.Error())
 		}
 		orPool, exist := manager.onRoadPools.Load(meta.Gid)
 		if !exist || orPool == nil {
 			return nil
 		}
-		return orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v)
+		if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
+			panic("DeleteAccountBlock panic, err is " + err.Error())
+		}
 	}
 	return nil
 }
