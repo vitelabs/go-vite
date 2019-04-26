@@ -119,28 +119,22 @@ func (v *AccountVerifier) checkAccountAddress(block *ledger.AccountBlock) error 
 
 func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock) (VerifyResult, error) {
 	// check the prev
-	if block.PrevHash.IsZero() {
-		if block.Height != 1 {
+	latestBlock, err := v.chain.GetLatestAccountBlock(block.AccountAddress)
+	if err != nil {
+		return FAIL, err
+	}
+	if latestBlock == nil {
+		if block.Height != 1 || !block.PrevHash.IsZero() {
 			return FAIL, ErrVerifyPrevBlockFailed
 		}
 	} else {
-		if block.Height == 1 {
-			return FAIL, ErrVerifyPrevBlockFailed
-		}
-		latestBlock, err := v.chain.GetLatestAccountBlock(block.AccountAddress)
-		if err != nil {
-			return FAIL, err
-		}
-		if latestBlock == nil {
-			return FAIL, err
-		}
 		if block.Height != latestBlock.Height+1 || block.PrevHash != latestBlock.Hash {
 			return FAIL, ErrVerifyPrevBlockFailed
 		}
 	}
 
 	if block.IsReceiveBlock() {
-		// check the existence of recv's send
+		// check the existence of receive's send
 		if block.FromBlockHash.IsZero() {
 			return FAIL, errors.New("recvBlock FromBlockHash can't be ZERO_HASH")
 		}
