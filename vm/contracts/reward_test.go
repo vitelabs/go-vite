@@ -197,7 +197,7 @@ func TestCalcRewardByDay(t *testing.T) {
 	InitContractsConfig(true)
 	for _, testCase := range testCases {
 		reader := util.NewVmConsensusReader(newConsensusReaderTest(genesisTime, oneDay, testCase.detailMap))
-		rewardMap, err := calcRewardByDay(reader, genesisTime, testCase.day, pledgeAmountForTest)
+		rewardMap, err := calcRewardByDay(reader, reader.GetIndexByTime(testCase.day, genesisTime), pledgeAmountForTest)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v CalcRewardByDay failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}

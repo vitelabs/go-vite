@@ -126,7 +126,13 @@ func (c *chain) Init() error {
 		return err
 	}
 
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		c.plugins.BuildPluginsDb(c.flusher)
+	}
+
 	c.log.Info("Complete initialization", "method", "Init")
+
 	return nil
 }
 
@@ -206,7 +212,7 @@ func (c *chain) SetConsensus(cs Consensus) {
 func (c *chain) newDbAndRecover() error {
 	var err error
 	// new ledger db
-	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
 		return err
 	}
@@ -225,8 +231,22 @@ func (c *chain) newDbAndRecover() error {
 		return err
 	}
 
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		var err error
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return cErr
+		}
+		c.Register(c.plugins)
+	}
+
 	// new flusher
 	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+	if c.chainCfg.OpenPlugins {
+		stores = append(stores, c.plugins.Store())
+	}
 	if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
@@ -246,18 +266,6 @@ func (c *chain) newDbAndRecover() error {
 
 		c.log.Error(cErr.Error(), "method", "checkAndInitData")
 		return cErr
-	}
-
-	// init plugins
-	if c.chainCfg.OpenPlugins {
-		var err error
-		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
-			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "checkAndInitData")
-			return cErr
-		}
-
-		c.Register(c.plugins)
 	}
 
 	return nil
@@ -291,9 +299,17 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) initCache() error {
+
 	// init cache
 	if err := c.cache.Init(); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init state db cache
+	if err := c.stateDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}
@@ -306,6 +322,12 @@ func (c *chain) initCache() error {
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
 	}
+
+	// FIXME TEMP
+	if err := c.indexDB.InitOnRoad(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -40,12 +40,8 @@ func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightS
 	return &addr, nil
 }
 
-func (c *ContractApi) GetCreateContractData(gid types.Gid, confirmTime uint8, hexCode string, abiStr string, params []string) ([]byte, error) {
-	code, err := hex.DecodeString(hexCode)
-	if err != nil {
-		return nil, err
-	}
-	if len(params) > 0 {
+func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([]byte, error) {
+	if len(abiStr) > 0 && len(params) > 0 {
 		abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 		if err != nil {
 			return nil, err
@@ -58,7 +54,18 @@ func (c *ContractApi) GetCreateContractData(gid types.Gid, confirmTime uint8, he
 		if err != nil {
 			return nil, err
 		}
-		data := util.GetCreateContractData(helper.JoinBytes(code, constructorParams), util.SolidityPPContractType, confirmTime, gid)
+		return constructorParams, nil
+	}
+	return []byte{}, nil
+}
+
+func (c *ContractApi) GetCreateContractData(gid types.Gid, confirmTime uint8, hexCode string, params []byte) ([]byte, error) {
+	code, err := hex.DecodeString(hexCode)
+	if err != nil {
+		return nil, err
+	}
+	if len(params) > 0 {
+		data := util.GetCreateContractData(helper.JoinBytes(code, params), util.SolidityPPContractType, confirmTime, gid)
 		return data, nil
 	} else {
 		data := util.GetCreateContractData(code, util.SolidityPPContractType, confirmTime, gid)

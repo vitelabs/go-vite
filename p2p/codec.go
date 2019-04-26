@@ -261,6 +261,7 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 // WriteMsg is NOT thread-safe
 func (t *transport) WriteMsg(msg Msg) (err error) {
+	defer monitor.LogTime("codec", "write", time.Now())
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf[:]
@@ -277,7 +278,6 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	var compress bool
 	payloadLen := len(msg.Payload)
 	beforeCompress := time.Now()
-	beforeCompressLen := payloadLen
 	if payloadLen > t.minCompressLength {
 		payloadCompressed := bytes_pool.Get(snappy.MaxEncodedLen(payloadLen))
 		payloadCompressed = snappy.Encode(payloadCompressed, msg.Payload)
@@ -292,7 +292,7 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 			bytes_pool.Put(payloadCompressed)
 		}
 	}
-	p2pLog.Debug(fmt.Sprintf("compress %d bytes to %d bytes, ellapse %s", beforeCompressLen, payloadLen, time.Now().Sub(beforeCompress)))
+	p2pLog.Debug(fmt.Sprintf("compress %d bytes to %d bytes, ellapse %s", payloadLen, len(msg.Payload), time.Now().Sub(beforeCompress)))
 
 	// store msg length
 	lsize := PutVarint(head[headLen:], uint(payloadLen))

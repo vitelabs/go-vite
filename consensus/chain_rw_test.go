@@ -100,5 +100,30 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 	groupInfo, err := rw.GetMemberInfo(types.SNAPSHOT_GID)
 	assert.Nil(t, err)
 	assert.Equal(t, groupInfo.PlanInterval, uint64(30))
-	assert.Equal(t, groupInfo.GenSTime(0), simpleGenesis)
+	stime, _ := groupInfo.Index2Time(0)
+	assert.Equal(t, stime, simpleGenesis)
+}
+
+func TestChainRw_GetMemberInfo2(t *testing.T) {
+	c := NewChain(t, UnitTestDir, GenesisJson)
+	defer ClearChain(UnitTestDir)
+	genesis := c.GetGenesisSnapshotBlock()
+	infos, err := c.GetConsensusGroupList(genesis.Hash)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	assert.Equal(t, 2, len(infos))
+	for _, v := range infos {
+		if v.Gid == types.SNAPSHOT_GID {
+			assert.Equal(t, v.CheckLevel, uint8(0))
+			assert.Equal(t, v.Repeat, uint16(1))
+		} else if v.Gid == types.DELEGATE_GID {
+			assert.Equal(t, v.CheckLevel, uint8(1))
+			assert.Equal(t, v.Repeat, uint16(48))
+		} else {
+			t.FailNow()
+		}
+	}
 }

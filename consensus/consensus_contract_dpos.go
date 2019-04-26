@@ -11,24 +11,28 @@ import (
 )
 
 type contractDposCs struct {
-	consensusDpos
+	core.GroupInfo
 	rw   *chainRw
 	algo core.Algo
 
 	log log15.Logger
 }
 
+func (self *contractDposCs) GetInfo() *core.GroupInfo {
+	return &self.GroupInfo
+}
+
 func newContractDposCs(info *core.GroupInfo, rw *chainRw, log log15.Logger) *contractDposCs {
 	cs := &contractDposCs{}
 	cs.rw = rw
-	cs.info = info
+	cs.GroupInfo = *info
 	cs.algo = core.NewAlgo(info)
 	cs.log = log.New("gid", fmt.Sprintf("contract-%s", info.Gid.String()))
 	return cs
 }
 
 func (self *contractDposCs) electionTime(t time.Time) (*electionResult, error) {
-	index := self.info.Time2Index(t)
+	index := self.Time2Index(t)
 	return self.ElectionIndex(index)
 }
 
@@ -37,7 +41,7 @@ func (self *contractDposCs) ElectionIndex(index uint64) (*electionResult, error)
 	if err != nil {
 		return nil, err
 	}
-	plans := genElectionResult(self.info, index, voteResults)
+	plans := genElectionResult(&self.GroupInfo, index, voteResults)
 	return plans, nil
 }
 
@@ -66,7 +70,7 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 	}
 	hashH := ledger.HashHeight{Hash: block.Hash, Height: block.Height}
 	// record vote
-	votes, err := self.rw.CalVotes(self.info, hashH)
+	votes, err := self.rw.CalVotes(&self.GroupInfo, hashH)
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +93,11 @@ func (self *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Addre
 
 // generate the vote time for account consensus group
 func (self *contractDposCs) GenProofTime(idx uint64) time.Time {
-	sTime := self.info.GenSTime(idx)
+	sTime, _ := self.Index2Time(idx)
 	sTime = sTime.Add(-time.Second * 75)
 	// if before genesis'time, just use genesis'time + 1s
-	if sTime.Before(self.info.GenesisTime) {
-		return self.info.GenesisTime.Add(time.Second)
+	if sTime.Before(self.GenesisTime) {
+		return self.GenesisTime.Add(time.Second)
 	}
 	return sTime
 }
@@ -148,7 +152,7 @@ func (self *contractDposCs) verifyProducer(address types.Address, result *electi
 
 	for _, plan := range result.Plans {
 		if plan.Member == address {
-			if self.info.CheckLevel == 1 {
+			if self.CheckLevel == 1 {
 				return true
 			}
 		}

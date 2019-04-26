@@ -16,8 +16,7 @@ type electionResult struct {
 
 func genElectionResult(info *core.GroupInfo, index uint64, members []types.Address) *electionResult {
 	self := &electionResult{}
-	self.STime = info.GenSTime(index)
-	self.ETime = info.GenETime(index)
+	self.STime, self.ETime = info.Index2Time(index)
 	self.Plans = info.GenPlanByAddress(index, members)
 	self.Index = index
 	return self

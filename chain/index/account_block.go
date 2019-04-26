@@ -52,7 +52,7 @@ func (iDB *IndexDB) GetAccountBlockLocationByHash(blockHash *types.Hash) (*chain
 
 func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
-	value, err := iDB.store.Get(key)
+	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,8 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	}
 
 	return locationList, [2]uint64{minHeight, maxHeight}, nil
-
 }
+
 func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*chain_file_manager.Location, [2]uint64, error) {
 	if count <= 0 {
 		return nil, nil, [2]uint64{}, nil
@@ -158,12 +158,12 @@ func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error
 }
 
 func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, error) {
-
-	value, err := iDB.store.Get(chain_utils.CreateReceiveKey(sendBlockHash))
+	value, err := iDB.getValue(chain_utils.CreateReceiveKey(sendBlockHash))
 	if err != nil {
 		return nil, err
 	}
-	if len(value) <= 0 {
+
+	if len(value) != types.HashSize {
 		return nil, nil
 	}
 
@@ -175,17 +175,29 @@ func (iDB *IndexDB) GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, e
 }
 
 func (iDB *IndexDB) IsReceived(sendBlockHash *types.Hash) (bool, error) {
-	return iDB.store.Has(chain_utils.CreateReceiveKey(sendBlockHash))
+	value, err := iDB.getValue(chain_utils.CreateReceiveKey(sendBlockHash))
+	if err != nil {
+		return false, err
+	}
+	if len(value) <= 0 {
+		return false, nil
+	}
+
+	if len(value) != types.HashSize {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (iDB *IndexDB) GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, uint64, error) {
 
 	key := chain_utils.CreateAccountBlockHashKey(blockHash)
-	value, err := iDB.store.Get(key)
+
+	value, err := iDB.getValue(key)
 	if err != nil {
 		return nil, 0, err
-
 	}
+
 	if len(value) <= 0 {
 		return nil, 0, nil
 

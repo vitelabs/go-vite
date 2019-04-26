@@ -71,11 +71,17 @@ func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]
 	return result, nil
 }
 
-func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
+type PeriodStats struct {
+	*core.PeriodStats
+	stime time.Time `json:"stime"`
+	etime time.Time `json:"etime"`
+}
+
+func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]*PeriodStats, error) {
 	if endIdx > startIdx && endIdx-startIdx > 48 {
 		return nil, errors.New("max step is 48")
 	}
-	var result []map[string]interface{}
+	var result []*PeriodStats
 	reader := c.cs.SBPReader()
 
 	timeIndex := reader.GetPeriodTimeIndex()
@@ -89,14 +95,8 @@ func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]map[strin
 	}
 
 	for _, v := range stats {
-		r := make(map[string]interface{})
 		stime, etime := timeIndex.Index2Time(v.Index)
-
-		r["stime"] = stime.String()
-		r["etime"] = etime.String()
-		r["stat"] = v
-
-		result = append(result, r)
+		result = append(result, &PeriodStats{PeriodStats: v, stime: stime, etime: etime})
 	}
 	return result, nil
 }
