@@ -65,6 +65,8 @@ type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.Bloc
 // source mark where the block come from: broadcast, sync or fetch
 type AccountBlockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
 
+type ChunkCallback = func(chunks []ledger.SnapshotChunk, source types.BlockSource)
+
 // SyncStateCallback will be invoked when sync state change, the param is state after change
 type SyncStateCallback = func(SyncState)
 
@@ -79,6 +81,9 @@ type BlockSubscriber interface {
 	SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int)
 	// UnsubscribeSnapshotBlock if subId is 0, then ignore
 	UnsubscribeSnapshotBlock(subId int)
+
+	SubscribeChunk(fn ChunkCallback) (subId int)
+	UnsubscribeChunk(subId int)
 }
 
 type SyncStateSubscriber interface {
