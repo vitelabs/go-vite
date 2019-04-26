@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -16,8 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"go.uber.org/atomic"
-	"math/big"
-	"time"
 )
 
 type Tx struct {
@@ -71,11 +72,8 @@ func NewTxApi(vite *vite.Vite) *Tx {
 		}
 	}
 
-	toAddr, err := types.HexToAddress("vite_00000000000000000000000000000000000000042d7ef71894")
+	toAddr := types.AddressConsensusGroup
 	amount := string("0")
-	if err != nil {
-		panic(err)
-	}
 	hexData := "fdc17f250000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000027331000000000000000000000000000000000000000000000000000000000000"
 
 	data, err := hex.DecodeString(hexData)
