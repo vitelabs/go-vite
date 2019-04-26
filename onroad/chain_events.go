@@ -16,6 +16,7 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 		if manager.chain.IsGenesisAccountBlock(block.AccountBlock.Hash) {
 			continue
 		}
+
 		var addr *types.Address
 		if block.AccountBlock.IsSendBlock() {
 			addr = &block.AccountBlock.ToAddress
@@ -38,6 +39,7 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 		}
 		if err := orPool.(onroad_pool.OnRoadPool).WriteAccountBlock(block.AccountBlock); err != nil {
 			panic(err)
+			panic("WriteAccountBlock panic, err is " + err.Error())
 		}
 		if block.AccountBlock.IsSendBlock() {
 			manager.newSignalToWorker(meta.Gid, block.AccountBlock.ToAddress)
@@ -86,7 +88,7 @@ func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 			return nil
 		}
 		if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
-			panic(err)
+			panic("DeleteAccountBlock panic, err is " + err.Error())
 		}
 	}
 	return nil
