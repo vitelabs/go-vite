@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/proto"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/flusher"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -78,7 +78,6 @@ func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
 			return err
 		}
 		or.store.WriteSnapshot(batch, chunk.AccountBlocks)
-		flusher.Flush(true)
 	}
 
 	oLog.Info("Succeed InitAndBuild onRoadInfo-db")
@@ -104,7 +103,6 @@ func (or *OnRoadInfo) Clear(flusher *chain_flusher.Flusher) error {
 	}
 	or.store.WriteDirectly(batch)
 
-	flusher.Flush(true)
 	oLog.Info("Succeed Clear onRoadInfo-db")
 	return nil
 }

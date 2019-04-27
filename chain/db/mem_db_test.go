@@ -102,14 +102,14 @@ func (c *goCacheBenchCache) Size() int {
 func benchmarkCache(b *testing.B, cache BenchCache) {
 	maxNum := uint64(1000 * 10000)
 	b.Run("put", func(b *testing.B) {
-		key := make([]byte, 24)
+		key := make([]byte, 8)
 		value := make([]byte, 8)
-		for i := 0; i < b.N; i++ {
+		for i := 0; i < 5; i++ {
 			//random := uint64(i)
 			random := rand.Uint64() % maxNum
 			binary.BigEndian.PutUint64(key[:8], random)
-			binary.BigEndian.PutUint64(key[8:], random)
-			binary.BigEndian.PutUint64(key[16:], random)
+			//binary.BigEndian.PutUint64(key[8:], random)
+			//binary.BigEndian.PutUint64(key[16:], random)
 
 			binary.BigEndian.PutUint64(value[:], random)
 
@@ -119,6 +119,7 @@ func benchmarkCache(b *testing.B, cache BenchCache) {
 		}
 	})
 	fmt.Println(cache.Size())
+	return
 	b.Run("get", func(b *testing.B) {
 		key := make([]byte, 24)
 		for i := 0; i < b.N; i++ {

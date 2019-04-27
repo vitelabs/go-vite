@@ -3,9 +3,9 @@ package chain_state
 import (
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"

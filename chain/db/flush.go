@@ -1,24 +1,42 @@
 package chain_db
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/db"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"sync"
 )
+
+var batchPool = sync.Pool{
+	New: func() interface{} {
+		return new(leveldb.Batch)
+	},
+}
 
 func (store *Store) Id() types.Hash {
 	return store.id
 }
 
+// assume lock write when prepare
 func (store *Store) Prepare() {
-	store.mu.RLock()
-	defer store.mu.RUnlock()
+	if store.flushingBatch != nil {
+		panic("prepare repeatedly")
+	}
 
-	store.flushingBatch.Reset()
-	store.snapshotMemDb.Flush(store.flushingBatch)
+	store.flushingBatch = store.snapshotBatch
+	store.snapshotBatch = store.getNewBatch()
 }
 
+// assume lock write when cancel prepare
 func (store *Store) CancelPrepare() {
-	store.flushingBatch.Reset()
+	currentSnapshotBatch := store.snapshotBatch
+
+	store.snapshotBatch = store.getNewBatch()
+
+	store.flushingBatch.Replay(store.snapshotBatch)
+	currentSnapshotBatch.Replay(store.snapshotBatch)
+
+	store.releaseFlushingBatch()
 }
 
 func (store *Store) RedoLog() ([]byte, error) {
@@ -29,9 +47,6 @@ func (store *Store) Commit() error {
 	if err := store.db.Write(store.flushingBatch, nil); err != nil {
 		return err
 	}
-	store.flushingBatch.Reset()
-
-	store.resetMemDB()
 	return nil
 }
 
@@ -46,20 +61,36 @@ func (store *Store) PatchRedoLog(redoLog []byte) error {
 		return err
 	}
 
-	store.resetMemDB()
 	return nil
 }
 
-func (store *Store) resetMemDB() {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.snapshotMemDb.Reset()
+// assume lock write when call after commit
+func (store *Store) AfterCommit() {
+	// reset flushing batch
+	store.releaseFlushingBatch()
 
-	store.memDb = NewMemDB()
+	// reset mem db
+	store.memDbMu.Lock()
+	store.memDb = db.NewMemDB()
+	store.memDbMu.Unlock()
 
-	elem := store.unconfirmedBatchList.Front()
-	for elem != nil {
-		elem.Value.(*leveldb.Batch).Replay(store.memDb)
-		elem = elem.Next()
+	// replay snapshot batch
+	store.snapshotBatch.Replay(store.memDb)
+
+	// replay unconfirmed batch
+	iter := store.unconfirmedBatchs.Iterator()
+	for iter.Next() {
+		iter.Value().(*leveldb.Batch).Replay(store.memDb)
 	}
+}
+
+func (store *Store) getNewBatch() *leveldb.Batch {
+	batch := batchPool.Get().(*leveldb.Batch)
+	batch.Reset()
+	return batch
+}
+
+func (store *Store) releaseFlushingBatch() {
+	batchPool.Put(store.flushingBatch)
+	store.flushingBatch = nil
 }

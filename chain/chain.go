@@ -21,6 +21,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 	"os"
 	"path"
+	"sync"
 	"sync/atomic"
 )
 
@@ -56,6 +57,8 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
+
+	flushMu sync.RWMutex
 
 	plugins *chain_plugins.Plugins
 
@@ -139,6 +142,9 @@ func (c *chain) Start() error {
 		return nil
 	}
 
+	c.flusher.Start()
+	c.log.Info("Start flusher", "method", "Start")
+
 	return nil
 }
 
@@ -147,7 +153,9 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
-	c.flusher.Flush(true)
+	c.flusher.Stop()
+
+	c.log.Info("Stop flusher", "method", "Stop")
 	return nil
 }
 
@@ -245,7 +253,7 @@ func (c *chain) newDbAndRecover() error {
 	if c.chainCfg.OpenPlugins {
 		stores = append(stores, c.plugins.Store())
 	}
-	if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
+	if c.flusher, err = chain_flusher.NewFlusher(stores, &c.flushMu, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
 		return cErr

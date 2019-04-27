@@ -7,67 +7,67 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (db *vmDb) Address() *types.Address {
-	return db.address
+func (vdb *vmDb) Address() *types.Address {
+	return vdb.address
 }
 
-func (db *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
-	if db.latestSnapshotBlock == nil {
-		if db.latestSnapshotBlockHash == nil {
-			return nil, errors.New("No context, db.latestSnapshotBlockHash is nil")
+func (vdb *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
+	if vdb.latestSnapshotBlock == nil {
+		if vdb.latestSnapshotBlockHash == nil {
+			return nil, errors.New("No context, vdb.latestSnapshotBlockHash is nil")
 		}
 		var err error
-		db.latestSnapshotBlock, err = db.chain.GetSnapshotHeaderByHash(*db.latestSnapshotBlockHash)
+		vdb.latestSnapshotBlock, err = vdb.chain.GetSnapshotHeaderByHash(*vdb.latestSnapshotBlockHash)
 		if err != nil {
 			return nil, err
-		} else if db.latestSnapshotBlock == nil {
-			return nil, errors.New(fmt.Sprintf("the returned snapshotHeader of db.chain.GetSnapshotHeaderByHash is nil, db.latestSnapshotBlockHash is %s", db.latestSnapshotBlockHash))
+		} else if vdb.latestSnapshotBlock == nil {
+			return nil, errors.New(fmt.Sprintf("the returned snapshotHeader of vdb.chain.GetSnapshotHeaderByHash is nil, vdb.latestSnapshotBlockHash is %s", vdb.latestSnapshotBlockHash))
 		}
 	}
-	return db.latestSnapshotBlock, nil
+	return vdb.latestSnapshotBlock, nil
 }
 
-func (db *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
-	if db.prevAccountBlock == nil {
-		if db.prevAccountBlockHash == nil {
-			return nil, errors.New("No context, db.prevAccountBlockHash is nil")
+func (vdb *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
+	if vdb.prevAccountBlock == nil {
+		if vdb.prevAccountBlockHash == nil {
+			return nil, errors.New("No context, vdb.prevAccountBlockHash is nil")
 		}
-		if db.prevAccountBlockHash.IsZero() {
+		if vdb.prevAccountBlockHash.IsZero() {
 			return nil, nil
 		}
 		var err error
-		db.prevAccountBlock, err = db.chain.GetAccountBlockByHash(*db.prevAccountBlockHash)
+		vdb.prevAccountBlock, err = vdb.chain.GetAccountBlockByHash(*vdb.prevAccountBlockHash)
 		if err != nil {
 			return nil, err
-		} else if db.prevAccountBlock == nil {
-			return nil, errors.New(fmt.Sprintf("the returned accountBlock of db.chain.GetAccountBlockByHash is nil, db.prevAccountBlockHash is %s", db.prevAccountBlockHash))
+		} else if vdb.prevAccountBlock == nil {
+			return nil, errors.New(fmt.Sprintf("the returned accountBlock of vdb.chain.GetAccountBlockByHash is nil, vdb.prevAccountBlockHash is %s", vdb.prevAccountBlockHash))
 		}
 	}
-	return db.prevAccountBlock, nil
+	return vdb.prevAccountBlock, nil
 }
 
-func (db *vmDb) IsContractAccount() (bool, error) {
-	if db.address == nil {
-		return false, errors.New("No context, db.address is nil")
+func (vdb *vmDb) IsContractAccount() (bool, error) {
+	if vdb.address == nil {
+		return false, errors.New("No context, vdb.address is nil")
 	}
 
-	return db.chain.IsContractAccount(*db.address)
+	return vdb.chain.IsContractAccount(*vdb.address)
 }
 
-func (db *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
-	if db.callDepth != nil {
-		return *db.callDepth, nil
+func (vdb *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
+	if vdb.callDepth != nil {
+		return *vdb.callDepth, nil
 	}
 
-	callDepth, err := db.chain.GetCallDepth(*sendBlockHash)
+	callDepth, err := vdb.chain.GetCallDepth(*sendBlockHash)
 	if err != nil {
 		return 0, err
 	}
-	db.callDepth = &callDepth
+	vdb.callDepth = &callDepth
 
-	return *db.callDepth, nil
+	return *vdb.callDepth, nil
 }
 
-func (db *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
-	return db.chain.GetQuotaUsed(*db.address)
+func (vdb *vmDb) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
+	return vdb.chain.GetQuotaUsed(*vdb.address)
 }
