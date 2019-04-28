@@ -297,6 +297,14 @@ func (v *AccountVerifier) verifyHash(block *ledger.AccountBlock) error {
 		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
 		return ErrVerifyHashFailed
 	}
+	if !types.IsContractAddr(block.AccountAddress) || block.IsSendBlock() || len(block.SendBlockList) <= 0 {
+		return nil
+	}
+	for idx, v := range block.SendBlockList {
+		if v.Hash != v.ComputeSendHash(block, uint8(idx)) {
+			return ErrVerifyHashFailed
+		}
+	}
 	return nil
 }
 
