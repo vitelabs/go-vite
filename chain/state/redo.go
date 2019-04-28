@@ -72,24 +72,29 @@ func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 		snapshotLogMap: make(map[uint64]*SnapshotLog),
 		retainHeight:   1200,
 		id:             id,
-
-		flushingBatchMap: make(map[uint64]*FlushingBatch),
 	}
 
+	if err := redo.InitFlushingBatchMap(); err != nil {
+		return nil, err
+	}
+	return redo, nil
+}
+
+func (redo *Redo) InitFlushingBatchMap() error {
 	height := uint64(0)
 
-	latestSnapshotBlock, err := chain.QueryLatestSnapshotBlock()
+	latestSnapshotBlock, err := redo.chain.QueryLatestSnapshotBlock()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if latestSnapshotBlock != nil {
 		height = latestSnapshotBlock.Height
 	}
 
 	if err := redo.ResetSnapshot(height + 1); err != nil {
-		return nil, err
+		return err
 	}
-	return redo, nil
+	return nil
 }
 
 func (redo *Redo) Close() error {

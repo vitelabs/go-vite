@@ -28,6 +28,8 @@ type Store struct {
 
 	dbDir string
 	db    *leveldb.DB
+
+	afterRecoverFuncs []func()
 }
 
 func NewStore(dataDir string, id types.Hash) (*Store, error) {
@@ -112,6 +114,10 @@ func (store *Store) Clean() error {
 	store.db = nil
 
 	return nil
+}
+
+func (store *Store) RegisterAfterRecover(f func()) {
+	store.afterRecoverFuncs = append(store.afterRecoverFuncs, f)
 }
 
 func (store *Store) getSnapshotMemDb() (*memdb.DB, uint64) {

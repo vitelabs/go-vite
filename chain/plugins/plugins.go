@@ -87,7 +87,6 @@ func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) e
 }
 
 func (p *Plugins) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-
 	for _, chunk := range chunks {
 		batch := p.store.NewBatch()
 
