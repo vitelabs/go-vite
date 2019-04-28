@@ -375,7 +375,9 @@ func (c *chain) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHei
 		startHeader = c.GetGenesisSnapshotBlock()
 	}
 
-	// FIXME height
+	if startHeader.Height >= endHashHeight.Height {
+		return nil, nil
+	}
 
 	snapshotHeaders, err := c.GetSnapshotHeaders(endHashHeight.Hash, false, endHashHeight.Height-startHeader.Height)
 	if err != nil {
