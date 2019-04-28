@@ -10,6 +10,7 @@ type Chain interface {
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
 	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)
+	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	IsAccountBlockExisted(hash types.Hash) (bool, error)
