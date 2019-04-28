@@ -144,7 +144,6 @@ func (flusher *Flusher) loopFlush() {
 			case <-flusher.terminal:
 				flusher.flush()
 				return
-			//case flusher.force:
 
 			default:
 				flusher.flush()
@@ -161,8 +160,6 @@ func (flusher *Flusher) flush() {
 
 	// prepare, lock write
 	flusher.prepare()
-
-	fmt.Println("prepare")
 
 	// write redo log
 	flusher.writeRedoLog()

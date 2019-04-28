@@ -5,7 +5,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
@@ -17,9 +16,8 @@ import (
 )
 
 var (
-	OneInt        = big.NewInt(1)
-	oLog          = log15.New("plugin", "onroad_info")
-	initRoundSize = uint64(10)
+	OneInt = big.NewInt(1)
+	oLog   = log15.New("plugin", "onroad_info")
 )
 
 type OnRoadInfo struct {
@@ -40,125 +38,8 @@ func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
 	return or
 }
 
-func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
-	oLog.Info("Start InitAndBuild onRoadInfo-db")
-
-	if err := or.Clear(flusher); err != nil {
-		return errors.New(fmt.Sprintf("onRoadInfo-plugin Clear fail. err is ", err))
-	}
-
-	latestSnapshot := or.chain.GetLatestSnapshotBlock()
-	if latestSnapshot == nil {
-		return errors.New("GetLatestSnapshotBlock fail.")
-	}
-	oLog.Info(fmt.Sprintf("latestSnapshot[%v %v]", latestSnapshot.Hash, latestSnapshot.Height), "method", "InitAndBuild")
-
-	/*chunks, err := or.chain.GetSubLedgerAfterHeight(1)
-	if err != nil {
-		return err
-	}
-	for i, chunk := range chunks {
-		if i == 0 {
-			continue
-		}
-
-		// write ab
-		for _, ab := range chunk.AccountBlocks {
-			batch := or.store.NewBatch()
-			if err := or.InsertAccountBlock(batch, ab); err != nil {
-				oLog.Error(fmt.Sprintf("InsertAccountBlock fail, err:%v, ab[%v %v %v] ", err, ab.AccountAddress, ab.Hash, ab.Height))
-				return err
-			}
-			or.store.WriteAccountBlock(batch, ab)
-		}
-
-		// write sb
-		batch := or.store.NewBatch()
-		if err := or.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
-			oLog.Error(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
-			return err
-		}
-		or.store.WriteSnapshot(batch, chunk.AccountBlocks)
-
-		flusher.Flush()
-	}
-	*/
-
-	round := latestSnapshot.Height / initRoundSize
-	leftCount := latestSnapshot.Height % initRoundSize
-
-	for i := uint64(0); i < round+1; i++ {
-		start := i * initRoundSize
-		end := i * initRoundSize
-		if i < round {
-			end = end + initRoundSize
-		} else {
-			if leftCount <= 0 {
-				break
-			}
-			end = end + leftCount
-		}
-		if i == 0 {
-			start += 1
-		}
-		chunks, err := or.chain.GetSubLedger(start, end)
-		if err != nil {
-			return err
-		}
-
-		for idx, chunk := range chunks {
-			if idx == 0 {
-				continue
-			}
-			// write ab
-			for _, ab := range chunk.AccountBlocks {
-				batch := or.store.NewBatch()
-				if err := or.InsertAccountBlock(batch, ab); err != nil {
-					oLog.Error(fmt.Sprintf("InsertAccountBlock fail, err:%v, ab[%v %v %v] ", err, ab.AccountAddress, ab.Hash, ab.Height))
-					return err
-				}
-				or.store.WriteAccountBlock(batch, ab)
-			}
-
-			// write sb
-			batch := or.store.NewBatch()
-			if err := or.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
-				oLog.Error(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
-				return err
-			}
-			or.store.WriteSnapshot(batch, chunk.AccountBlocks)
-		}
-		flusher.Flush()
-		//oLog.Info(fmt.Sprintf("success build range from sb %v to sb %v", start, end))
-	}
-
-	oLog.Info("Succeed InitAndBuild onRoadInfo-db")
-	return nil
-}
-
-func (or *OnRoadInfo) Clear(flusher *chain_flusher.Flusher) error {
-	oLog.Info("Start Clear onRoadInfo-db")
-	// clean cache
-	or.unconfirmedCache = make(map[types.Address]map[types.Hash]*ledger.AccountBlock)
-
-	// clean db
-	iter := or.store.NewIterator(util.BytesPrefix([]byte{OnRoadInfoKeyPrefix}))
-	defer iter.Release()
-
-	batch := or.store.NewBatch()
-	for iter.Next() {
-		key := iter.Key()
-		or.deleteMeta(batch, key)
-	}
-	if err := iter.Error(); err != nil && err != leveldb.ErrNotFound {
-		return err
-	}
-	or.store.WriteDirectly(batch)
-
-	flusher.Flush()
-
-	oLog.Info("Succeed Clear onRoadInfo-db")
-	return nil
+func (or *OnRoadInfo) SetStore(store *chain_db.Store) {
+	or.store = store
 }
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {

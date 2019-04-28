@@ -24,9 +24,39 @@ func newFilterToken(store *chain_db.Store, chain Chain) Plugin {
 	}
 }
 
+func (ft *FilterToken) SetStore(store *chain_db.Store) {
+	ft.store = store
+}
+
 func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {
-	key := createDiffTokenKey(accountBlock.AccountAddress, accountBlock.TokenId, accountBlock.Height)
+	var key []byte
+	var tokenTypeId types.TokenTypeId
+	if accountBlock.IsReceiveBlock() && accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
+		sendBlock, err := ft.chain.GetAccountBlockByHash(accountBlock.FromBlockHash)
+
+		if err != nil {
+			return errors.New(fmt.Sprintf("ft.chain.GetAccountBlockByHash failed. Error: %s", err))
+		}
+
+		if sendBlock == nil {
+			return errors.New(fmt.Sprintf("send block is nil"))
+		}
+
+		tokenTypeId = sendBlock.TokenId
+	} else {
+
+		tokenTypeId = accountBlock.TokenId
+	}
+
+	key = createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height)
+
 	batch.Put(key, accountBlock.Hash.Bytes())
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		key = createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height)
+
+		batch.Put(key, accountBlock.Hash.Bytes())
+	}
 	return nil
 }
 
@@ -35,19 +65,20 @@ func (ft *FilterToken) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *
 }
 
 func (ft *FilterToken) DeleteAccountBlocks(batch *leveldb.Batch, accountBlocks []*ledger.AccountBlock) error {
-	for _, accountBlock := range accountBlocks {
-		key := createDiffTokenKey(accountBlock.AccountAddress, accountBlock.TokenId, accountBlock.Height)
-		batch.Delete(key)
-	}
-	return nil
+	sendBlocksMap := make(map[types.Hash]*ledger.AccountBlock)
+
+	return ft.deleteAccountBlocks(batch, accountBlocks, sendBlocksMap)
+
 }
 
 func (ft *FilterToken) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
+	sendBlocksMap := make(map[types.Hash]*ledger.AccountBlock)
+
 	for _, chunk := range chunks {
-		for _, accountBlock := range chunk.AccountBlocks {
-			key := createDiffTokenKey(accountBlock.AccountAddress, accountBlock.TokenId, accountBlock.Height)
-			batch.Delete(key)
+		if err := ft.deleteAccountBlocks(batch, chunk.AccountBlocks, sendBlocksMap); err != nil {
+			return err
 		}
+
 	}
 	return nil
 }
@@ -89,6 +120,49 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 		iterOk = iter.Prev()
 	}
 	return blocks, nil
+}
+
+func (ft *FilterToken) deleteAccountBlocks(batch *leveldb.Batch, accountBlocks []*ledger.AccountBlock, sendBlocksMap map[types.Hash]*ledger.AccountBlock) error {
+	for _, accountBlock := range accountBlocks {
+		// add send blocks
+		for _, sendBlock := range accountBlock.SendBlockList {
+			sendBlocksMap[sendBlock.Hash] = sendBlock
+
+			key := createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height)
+			batch.Delete(key)
+		}
+		var tokenTypeId types.TokenTypeId
+		if accountBlock.IsSendBlock() {
+
+			sendBlocksMap[accountBlock.Hash] = accountBlock
+
+			tokenTypeId = accountBlock.TokenId
+
+		} else if accountBlock.BlockType == ledger.BlockTypeGenesisReceive {
+			tokenTypeId = accountBlock.TokenId
+		} else {
+			sendBlock, ok := sendBlocksMap[accountBlock.FromBlockHash]
+			if !ok {
+				var err error
+				sendBlock, err = ft.chain.GetAccountBlockByHash(accountBlock.FromBlockHash)
+				if err != nil {
+					return err
+				}
+			} else {
+				delete(sendBlocksMap, accountBlock.FromBlockHash)
+			}
+
+			if sendBlock == nil {
+				return errors.New(fmt.Sprintf("send block is nil, send block: %+v\n", sendBlock))
+			}
+			tokenTypeId = sendBlock.TokenId
+
+		}
+
+		key := createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height)
+		batch.Delete(key)
+	}
+	return nil
 }
 
 func createDiffTokenKey(addr types.Address, tokenId types.TokenTypeId, height uint64) []byte {

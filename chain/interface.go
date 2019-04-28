@@ -6,6 +6,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/chain/state"
@@ -258,4 +259,6 @@ type Chain interface {
 	SetConsensus(cs Consensus)
 
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
+
+	Flusher() *chain_flusher.Flusher
 }
