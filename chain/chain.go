@@ -5,10 +5,6 @@ import (
 
 	"github.com/vitelabs/go-vite/chain/plugins"
 
-	"os"
-	"path"
-	"sync/atomic"
-
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
