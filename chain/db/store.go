@@ -23,7 +23,8 @@ type Store struct {
 	snapshotBatch *leveldb.Batch
 	flushingBatch *leveldb.Batch
 
-	unconfirmedBatchs *linkedhashmap.Map
+	unconfirmedBatchs     *linkedhashmap.Map
+	unconfirmedBatchsLock sync.RWMutex
 
 	dbDir string
 	db    *leveldb.DB
