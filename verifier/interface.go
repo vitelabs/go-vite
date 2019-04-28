@@ -3,6 +3,7 @@ package verifier
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -19,4 +20,6 @@ type Verifier interface {
 	VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error
 
 	GetSnapshotVerifier() *SnapshotVerifier
+
+	InitOnRoadPool(manager *onroad.Manager)
 }

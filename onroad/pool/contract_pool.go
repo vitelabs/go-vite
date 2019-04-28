@@ -53,8 +53,8 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 	return nil
 }
 
-func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(contract types.Address, caller types.Address, hash types.Hash) (bool, error) {
-	cc, ok := p.cache.Load(contract)
+func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address, hash types.Hash) (bool, error) {
+	cc, ok := p.cache.Load(orAddr)
 	if !ok || cc == nil {
 		return false, ErrLoadCallerCacheFailed
 	}
