@@ -46,6 +46,7 @@ type Chain interface {
 
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
+	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 }
 
 type VmDb interface {
@@ -96,6 +97,8 @@ type VmDb interface {
 
 	// ====== AccountBlock ======
 	GetUnconfirmedBlocks() []*ledger.AccountBlock
+	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock

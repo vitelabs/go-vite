@@ -123,3 +123,21 @@ func GetBuiltinContract(addr types.Address, methodSelector []byte) (BuiltinContr
 	}
 	return nil, ok, nil
 }
+
+func GetOriginSendBlock(db vm_db.VmDb, sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
+	receiveBlock, err := db.GetCompleteBlockByHash(sendBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	if receiveBlock == nil {
+		return nil, util.ErrChainForked
+	}
+	sendBlock, err := db.GetAccountBlockByHash(receiveBlock.FromBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	if sendBlock == nil {
+		return nil, util.ErrChainForked
+	}
+	return sendBlock, nil
+}
