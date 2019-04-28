@@ -234,6 +234,13 @@ func (redo *Redo) AfterCommit() {
 
 }
 
+func (redo *Redo) BeforeRecover([]byte) {}
+func (redo *Redo) AfterRecover() {
+	if err := redo.InitFlushingBatchMap(); err != nil {
+		panic(fmt.Sprintf("redo AfterRecover() failed, Error: %s", err))
+	}
+}
+
 func (redo *Redo) flush(tx *bolt.Tx, snapshotHeight uint64, batch *leveldb.Batch) error {
 	bu, err := tx.CreateBucketIfNotExists(chain_utils.Uint64ToBytes(snapshotHeight))
 	if err != nil {
