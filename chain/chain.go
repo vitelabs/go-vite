@@ -338,11 +338,6 @@ func (c *chain) initCache() error {
 		return cErr
 	}
 
-	// FIXME TEMP
-	if err := c.indexDB.InitOnRoad(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -415,4 +410,8 @@ func defaultConfig() *config.Chain {
 
 func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
 	return c.indexDB, c.blockDB, c.stateDB
+}
+
+func (c *chain) Flusher() *chain_flusher.Flusher {
+	return c.flusher
 }

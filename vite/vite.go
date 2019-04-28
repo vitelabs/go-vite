@@ -130,7 +130,9 @@ func (v *Vite) Init() (err error) {
 		}
 	}
 
+	// initOnRoadPool
 	v.onRoad.Init(v.chain)
+	v.accountVerifier.InitOnRoadPool(v.onRoad)
 
 	return nil
 }

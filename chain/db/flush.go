@@ -86,6 +86,14 @@ func (store *Store) AfterCommit() {
 	store.memDbMu.Unlock()
 }
 
+func (store *Store) BeforeRecover([]byte) {}
+
+func (store *Store) AfterRecover() {
+	for _, f := range store.afterRecoverFuncs {
+		f()
+	}
+}
+
 func (store *Store) getNewBatch() *leveldb.Batch {
 	batch := batchPool.Get().(*leveldb.Batch)
 	batch.Reset()

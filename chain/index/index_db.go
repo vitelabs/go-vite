@@ -45,11 +45,9 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 		chain: chain,
 	}
 
-	iDB.latestAccountId, err = iDB.queryLatestAccountId()
-	if err != nil {
-		return nil, err
-	}
+	store.RegisterAfterRecover(iDB.InitAccountId)
 
+	iDB.InitAccountId()
 	if err = iDB.newCache(); err != nil {
 		return nil, err
 	}
@@ -59,6 +57,15 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 
 func (iDB *IndexDB) Init() error {
 	return iDB.initCache()
+}
+
+func (iDB *IndexDB) InitAccountId() {
+	var err error
+	iDB.latestAccountId, err = iDB.queryLatestAccountId()
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func (iDB *IndexDB) CleanAllData() error {

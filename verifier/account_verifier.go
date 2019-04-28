@@ -11,7 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad/pool"
+	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -22,6 +22,7 @@ type AccountType int
 type AccountVerifier struct {
 	chain     chain.Chain
 	consensus consensus
+	orManager onRoadPool
 
 	log log15.Logger
 }
@@ -33,6 +34,10 @@ func NewAccountVerifier(chain chain.Chain, consensus consensus) *AccountVerifier
 
 		log: log15.New("module", "AccountVerifier"),
 	}
+}
+
+func (v *AccountVerifier) InitOnRoadPool(manager *onroad.Manager) {
+	v.orManager = manager
 }
 
 func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccBlockPendingTask, error) {
@@ -161,19 +166,16 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			return FAIL, errors.New("block is already received successfully")
 		}
 
-		// fixme check sequence
-		/*
-			// check contract receive sequence
-			if !isGeneralAddr {
-				isCorrect, err := v.verifySequenceOfContractReceive(block, sendBlock)
-				if err != nil {
-					return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
-				}
-				if !isCorrect {
-					return FAIL, errors.New("verifySequenceOfContractReceive failed")
-				}
+		// check contract receive sequence
+		if types.IsContractAddr(sendBlock.ToAddress) {
+			isCorrect, err := v.verifySequenceOfContractReceive(sendBlock)
+			if err != nil {
+				return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
 			}
-		*/
+			if !isCorrect {
+				return FAIL, errors.New("verifySequenceOfContractReceive failed")
+			}
+		}
 
 		// check confirmedTimes of the send referred
 		if err := v.verifyConfirmedTimes(block); err != nil {
@@ -183,11 +185,15 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 	return SUCCESS, nil
 }
 
-func (v *AccountVerifier) verifySequenceOfContractReceive(pool onroad_pool.OnRoadPool, send *ledger.AccountBlock) (bool, error) {
-	if pool == nil {
-		return true, nil
+func (v *AccountVerifier) verifySequenceOfContractReceive(send *ledger.AccountBlock) (bool, error) {
+	if v.orManager == nil {
+		return false, errors.New(" onroad manager is not available or supported")
 	}
-	return pool.IsFrontOnRoadOfCaller(send.ToAddress, send.AccountAddress, send.Hash)
+	meta, err := v.chain.GetContractMeta(send.ToAddress)
+	if err != nil || meta == nil {
+		return false, errors.New("find contract meta nil, err is " + err.Error())
+	}
+	return v.orManager.IsFrontOnRoadOfCaller(meta.Gid, send.ToAddress, send.AccountAddress, send.Hash)
 }
 
 func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) error {
@@ -290,6 +296,14 @@ func (v *AccountVerifier) verifyHash(block *ledger.AccountBlock) error {
 	if computedHash != block.Hash {
 		//verifier.log.Error("checkHash failed", "originHash", block.Hash, "computedHash", computedHash)
 		return ErrVerifyHashFailed
+	}
+	if !types.IsContractAddr(block.AccountAddress) || block.IsSendBlock() || len(block.SendBlockList) <= 0 {
+		return nil
+	}
+	for idx, v := range block.SendBlockList {
+		if v.Hash != v.ComputeSendHash(block, uint8(idx)) {
+			return ErrVerifyHashFailed
+		}
 	}
 	return nil
 }
