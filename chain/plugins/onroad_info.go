@@ -78,6 +78,8 @@ func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
 			return err
 		}
 		or.store.WriteSnapshot(batch, chunk.AccountBlocks)
+
+		flusher.Flush()
 	}
 
 	oLog.Info("Succeed InitAndBuild onRoadInfo-db")
@@ -102,6 +104,8 @@ func (or *OnRoadInfo) Clear(flusher *chain_flusher.Flusher) error {
 		return err
 	}
 	or.store.WriteDirectly(batch)
+
+	flusher.Flush()
 
 	oLog.Info("Succeed Clear onRoadInfo-db")
 	return nil
