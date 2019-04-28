@@ -162,10 +162,7 @@ func (or *OnRoadInfo) Clear(flusher *chain_flusher.Flusher) error {
 }
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
-	addrOnRoadMap, err := excludePairTrades(or.chain, confirmedBlocks)
-	if err != nil {
-		return err
-	}
+	addrOnRoadMap := excludePairTrades(or.chain, confirmedBlocks)
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
@@ -187,10 +184,7 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		}
 		blocks = append(blocks, chunks[i].AccountBlocks...)
 	}
-	addrOnRoadMap, err := excludePairTrades(or.chain, blocks)
-	if err != nil {
-		return err
-	}
+	addrOnRoadMap := excludePairTrades(or.chain, blocks)
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
@@ -205,10 +199,7 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
 	blocks := make([]*ledger.AccountBlock, 0)
 	blocks = append(blocks, block)
-	addrOnRoadMap, err := excludePairTrades(or.chain, blocks)
-	if err != nil {
-		return err
-	}
+	addrOnRoadMap := excludePairTrades(or.chain, blocks)
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
@@ -218,10 +209,7 @@ func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.Acc
 }
 
 func (or *OnRoadInfo) DeleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	addrOnRoadMap, err := excludePairTrades(or.chain, blocks)
-	if err != nil {
-		return err
-	}
+	addrOnRoadMap := excludePairTrades(or.chain, blocks)
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
@@ -543,7 +531,41 @@ func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.
 	return addMap, nil
 }
 
-func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) (map[types.Address][]*ledger.AccountBlock, error) {
+type onroadMeta struct {
+	TotalAmount big.Int
+	Number      uint64
+}
+
+func (om *onroadMeta) proto() *vitepb.OnroadMeta {
+	pb := &vitepb.OnroadMeta{}
+	pb.Num = om.Number
+	pb.Amount = om.TotalAmount.Bytes()
+	return pb
+}
+
+func (om *onroadMeta) deProto(pb *vitepb.OnroadMeta) {
+	om.Number = pb.Num
+	totalAmount := big.NewInt(0)
+	if len(pb.Amount) > 0 {
+		totalAmount.SetBytes(pb.Amount)
+	}
+	om.TotalAmount = *totalAmount
+}
+
+func (om *onroadMeta) serialize() ([]byte, error) {
+	return proto.Marshal(om.proto())
+}
+
+func (om *onroadMeta) deserialize(buf []byte) error {
+	pb := &vitepb.OnroadMeta{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	om.deProto(pb)
+	return nil
+}
+
+func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
 	for _, block := range blockList {
 		if block.IsSendBlock() {
@@ -560,12 +582,13 @@ func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) (map[types
 			continue
 		}
 
+		// receive block
 		v, ok := cutMap[block.FromBlockHash]
 		if ok && v != nil && v.IsSendBlock() {
 			delete(cutMap, block.FromBlockHash)
-			continue
+		} else {
+			cutMap[block.FromBlockHash] = block
 		}
-		cutMap[block.FromBlockHash] = block
 
 		// sendBlockList
 		if !types.IsContractAddr(block.AccountAddress) || len(block.SendBlockList) <= 0 {
@@ -601,39 +624,5 @@ func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) (map[types
 			pendingMap[*addr] = append(pendingMap[*addr], v)
 		}
 	}
-	return pendingMap, nil
-}
-
-type onroadMeta struct {
-	TotalAmount big.Int
-	Number      uint64
-}
-
-func (om *onroadMeta) proto() *vitepb.OnroadMeta {
-	pb := &vitepb.OnroadMeta{}
-	pb.Num = om.Number
-	pb.Amount = om.TotalAmount.Bytes()
-	return pb
-}
-
-func (om *onroadMeta) deProto(pb *vitepb.OnroadMeta) {
-	om.Number = pb.Num
-	totalAmount := big.NewInt(0)
-	if len(pb.Amount) > 0 {
-		totalAmount.SetBytes(pb.Amount)
-	}
-	om.TotalAmount = *totalAmount
-}
-
-func (om *onroadMeta) serialize() ([]byte, error) {
-	return proto.Marshal(om.proto())
-}
-
-func (om *onroadMeta) deserialize(buf []byte) error {
-	pb := &vitepb.OnroadMeta{}
-	if err := proto.Unmarshal(buf, pb); err != nil {
-		return err
-	}
-	om.deProto(pb)
-	return nil
+	return pendingMap
 }

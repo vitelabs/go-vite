@@ -6,7 +6,7 @@ import (
 )
 
 type OnRoadPool interface {
-	WriteAccountBlock(block *ledger.AccountBlock) error
+	InsertAccountBlock(block *ledger.AccountBlock) error
 	DeleteAccountBlock(block *ledger.AccountBlock) error
 
 	GetOnRoadTotalNumByAddr(addr types.Address) (uint64, error)
