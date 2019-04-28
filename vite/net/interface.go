@@ -70,6 +70,18 @@ type ChunkCallback = func(chunks []ledger.SnapshotChunk, source types.BlockSourc
 // SyncStateCallback will be invoked when sync state change, the param is state after change
 type SyncStateCallback = func(SyncState)
 
+type ChunkReader interface {
+	Peek() Chunks
+	Pop()
+}
+
+type Chunks struct {
+	SnapshotChunks []ledger.SnapshotChunk
+	SnapshotRange  [2]*ledger.HashHeight
+	AccountRange   map[types.Address][2]*ledger.HashHeight
+	HashMap        map[types.Hash]struct{}
+}
+
 // A BlockSubscriber implementation can be subscribed and Unsubscribed, when got chain block, should notify subscribers
 type BlockSubscriber interface {
 	// SubscribeAccountBlock return the subId, always larger than 0, use to unsubscribe
@@ -81,9 +93,6 @@ type BlockSubscriber interface {
 	SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int)
 	// UnsubscribeSnapshotBlock if subId is 0, then ignore
 	UnsubscribeSnapshotBlock(subId int)
-
-	SubscribeChunk(fn ChunkCallback) (subId int)
-	UnsubscribeChunk(subId int)
 }
 
 type SyncStateSubscriber interface {

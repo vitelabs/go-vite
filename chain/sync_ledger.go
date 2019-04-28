@@ -6,6 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
+	"github.com/vitelabs/go-vite/chain/sync_cache"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
@@ -32,8 +34,10 @@ func (c *chain) GetSyncCache() interfaces.SyncCache {
 type ledgerReader struct {
 	chain *chain
 
-	from uint64
-	to   uint64
+	from          uint64
+	to            uint64
+	chunkPrevHash types.Hash
+	chunkHash     types.Hash
 
 	fromLocation *chain_file_manager.Location
 	toLocation   *chain_file_manager.Location
@@ -74,17 +78,39 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, errors.New(fmt.Sprintf("next location %d is not existed", toLocation))
 	}
 
+	fromPrevSnapshotBlock, err := chain.GetSnapshotHeaderByHeight(from - 1)
+	if err != nil {
+		return nil, err
+	}
+	if fromPrevSnapshotBlock == nil {
+		return nil, errors.New(fmt.Sprintf("fromPrevSnapshotBlock is nil, from is %d", from))
+	}
+
+	toSnapshotBlock, err := chain.GetSnapshotHeaderByHeight(to)
+	if err != nil {
+		return nil, err
+	}
+	if fromPrevSnapshotBlock == nil {
+		return nil, errors.New(fmt.Sprintf("toSnapshotBlock is nil, to is %d", to))
+	}
+
 	return &ledgerReader{
-		chain:           chain,
-		from:            from,
-		to:              to,
+		chain: chain,
+		from:  from,
+		to:    to,
+
+		chunkPrevHash: fromPrevSnapshotBlock.Hash,
+		chunkHash:     toSnapshotBlock.Hash,
+
 		fromLocation:    fromLocation,
 		currentLocation: fromLocation,
 		toLocation:      toLocation,
 	}, nil
 }
-func (reader *ledgerReader) Bound() (from, to uint64) {
-	return reader.from, reader.to
+
+func (reader *ledgerReader) Seg() interfaces.Segment {
+
+	return sync_cache.NewSegment(reader.from, reader.to, reader.chunkPrevHash, reader.chunkHash)
 }
 
 func (reader *ledgerReader) Size() int {
