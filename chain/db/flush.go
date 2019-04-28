@@ -71,8 +71,8 @@ func (store *Store) AfterCommit() {
 
 	// reset mem db
 	store.memDbMu.Lock()
+
 	store.memDb = db.NewMemDB()
-	store.memDbMu.Unlock()
 
 	// replay snapshot batch
 	store.snapshotBatch.Replay(store.memDb)
@@ -82,6 +82,8 @@ func (store *Store) AfterCommit() {
 	for iter.Next() {
 		iter.Value().(*leveldb.Batch).Replay(store.memDb)
 	}
+
+	store.memDbMu.Unlock()
 }
 
 func (store *Store) getNewBatch() *leveldb.Batch {
