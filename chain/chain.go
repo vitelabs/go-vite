@@ -338,11 +338,6 @@ func (c *chain) initCache() error {
 		return cErr
 	}
 
-	// FIXME TEMP
-	if err := c.indexDB.InitOnRoad(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
