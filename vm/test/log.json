@@ -130,7 +130,7 @@
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
-    "logHash":"4cd8ff30f25d1865a7c1b430f837ce00d926ec62ba187345e0626ccd575723d6",
+    "logHash":"36ac589e9cce1789557ba53e6615b19f07cb62997725957b3d4e8fe134a84f55",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
     "tokenId": "tti_2445f6e5cde8c2c70e446c83"
   },
@@ -280,7 +280,7 @@
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
-    "logHash":"d432749611a3652d7448a9641ec720a6a8a191130c6ccb93e5af6bb716acfbc7",
+    "logHash":"ee13b6ea615ed2e57cc4c3cfcfcd3e25a38d6dd49541788eb4774f621da105ea",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
     "tokenId": "tti_2445f6e5cde8c2c70e446c83"
   },
@@ -310,7 +310,7 @@
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
-    "logHash":"e33d6db32239b3d7d40ace87903c35720c9fe9461d9d94fcafc0a55140c58dba",
+    "logHash":"3ec27bfb7d9d6046ef0873d37af51069e75458100cfc5ca904ae038b7cdc20af",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
     "tokenId": "tti_2445f6e5cde8c2c70e446c83"
   },
@@ -460,7 +460,7 @@
     "storage": {
       "$BALANCEtti_2445f6e5cde8c2c70e446c83": "0de0b6b3a7640000"
     },
-    "logHash":"bebac332f965f575bebf3ab13450257c1c1ebbdb4fd22f39a0d06b09addfb56b",
+    "logHash":"8c171fc42d99527546a3fea831ef7d378e0bb768efd3e02c870c68c04ba4fd7b",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
     "tokenId": "tti_2445f6e5cde8c2c70e446c83"
   },

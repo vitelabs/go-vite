@@ -101,7 +101,6 @@ type Chain interface {
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-
 	GetCallDepth(sendBlock types.Hash) (uint16, error)
 
 	// get confirmed times
@@ -164,6 +163,7 @@ type Chain interface {
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
 	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
@@ -183,6 +183,8 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address types.Address) (bool, error)
 
+	IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool)
+
 	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)
 
 	// ===== Query state ======
@@ -199,6 +201,8 @@ type Chain interface {
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+
+	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)
 
 	GetContractList(gid types.Gid) ([]types.Address, error)
 

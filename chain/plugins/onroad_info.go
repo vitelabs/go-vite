@@ -516,11 +516,7 @@ func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) (map[types
 		cutMap[block.FromBlockHash] = block
 
 		// sendBlockList
-		isContract, err := chain.IsContractAccount(block.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-		if !isContract || len(block.SendBlockList) <= 0 {
+		if !types.IsContractAddr(block.AccountAddress) || len(block.SendBlockList) <= 0 {
 			continue
 		}
 		for _, subSend := range block.SendBlockList {

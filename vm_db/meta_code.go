@@ -22,6 +22,10 @@ func (db *vmDb) GetContractMeta() (*ledger.ContractMeta, error) {
 	return db.chain.GetContractMeta(*db.address)
 }
 
+func (db *vmDb) GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (meta *ledger.ContractMeta, err error) {
+	return db.chain.GetContractMetaInSnapshot(contractAddress, snapshotBlock.Height)
+}
+
 func (db *vmDb) SetContractCode(code []byte) {
 	db.unsaved.SetCode(code)
 }

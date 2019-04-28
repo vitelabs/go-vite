@@ -73,6 +73,15 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	return padded
 }
 
+// LDI byte slice
+func LDI(slice []byte) []byte {
+	result := make([]byte, len(slice))
+	for k, v := range slice {
+		result[k] = ^v
+	}
+	return result
+}
+
 // GetDataBig returns chain slice from the data based on the start and size and pads
 // up to size with zero's. This function is overflow safe.
 func GetDataBig(data []byte, start *big.Int, size *big.Int) []byte {

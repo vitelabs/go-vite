@@ -131,6 +131,10 @@ func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) 
 }
 
 func (iDB *IndexDB) GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error) {
+	if snapshotHeight, ok := iDB.sendCreateBlockHashCache.Get(*blockHash); ok {
+		return snapshotHeight.(uint64), nil
+	}
+
 	addr, height, err := iDB.GetAddrHeightByHash(blockHash)
 	if err != nil {
 		return 0, err
