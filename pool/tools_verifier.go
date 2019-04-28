@@ -2,7 +2,6 @@ package pool
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -84,18 +83,6 @@ func (self *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.S
 	result.err = errors.New(msg)
 	return result
 }
-func (self *accountVerifier) newSuccessTask() verifyTask {
-	return successT
-}
-
-func (self *accountVerifier) newFailTask() verifyTask {
-	return &failTask{t: time.Now()}
-}
-
-func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, latestSb *ledger.SnapshotBlock) (result *poolAccountVerifyStat) {
-	result = self.verifyAccount(received, latestSb)
-	return
-}
 
 type poolSnapshotVerifyStat struct {
 	results map[types.Address]verifier.VerifyResult
@@ -110,14 +97,6 @@ func (self *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
 func (self *poolSnapshotVerifyStat) errMsg() string {
 	return self.msg
 }
-func (self *poolAccountVerifyStat) task() verifyTask {
-	var result []fetchRequest
-
-	for _, v := range self.taskList.AccountTask {
-		result = append(result, fetchRequest{snapshot: false, chain: v.Addr, hash: *v.Hash, prevCnt: 1})
-	}
-	return &accountTask{result: result, t: time.Now()}
-}
 
 type poolAccountVerifyStat struct {
 	block    *accountPoolBlock
@@ -127,62 +106,5 @@ type poolAccountVerifyStat struct {
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
-	return self.result
-}
-
-var successT = &successTask{}
-
-type successTask struct {
-}
-
-func (self *successTask) done(c chainDb) bool {
-	return true
-}
-
-func (*successTask) requests() []fetchRequest {
-	return nil
-}
-
-type failTask struct {
-	t time.Time
-}
-
-func (self *failTask) done(c chainDb) bool {
-	if time.Now().After(self.t.Add(time.Millisecond * 200)) {
-		return true
-	}
-	return false
-}
-
-func (*failTask) requests() []fetchRequest {
-	return nil
-}
-
-type accountTask struct {
-	result []fetchRequest
-	t      time.Time
-}
-
-func (self *accountTask) done(c chainDb) bool {
-	if time.Now().After(self.t.Add(time.Second * 5)) {
-		return true
-	}
-	for _, v := range self.result {
-		if v.snapshot {
-			block, _ := c.GetSnapshotHeaderByHash(v.hash)
-			if block == nil {
-				return false
-			}
-		} else {
-			block, _ := c.GetAccountBlockByHash(v.hash)
-			if block == nil {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (self *accountTask) requests() []fetchRequest {
 	return self.result
 }

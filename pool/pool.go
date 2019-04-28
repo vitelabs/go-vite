@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/pool/lock"
+	"github.com/vitelabs/go-vite/vite/net"
 
 	"github.com/vitelabs/go-vite/pool/batch"
 
@@ -235,7 +236,7 @@ func (self *pool) Info(addr *types.Address) string {
 		snippetSize := len(cp.snippetChains)
 		currentLen := cp.tree.Main().Size()
 		treeSize := cp.tree.Size()
-		chainSize := cp.size()
+		chainSize := len(cp.tree.Branches())
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	} else {
@@ -251,7 +252,7 @@ func (self *pool) Info(addr *types.Address) string {
 		snippetSize := len(cp.snippetChains)
 		treeSize := cp.tree.Size()
 		currentLen := cp.tree.Main().Size()
-		chainSize := cp.size()
+		chainSize := len(cp.tree.Branches())
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
@@ -681,15 +682,17 @@ func (self *pool) broadcastUnConfirmedBlocks() {
 }
 
 func (self *pool) delUseLessChains() {
-	self.pendingSc.loopDelUselessChain()
-	var pendings []*accountPool
-	self.pendingAc.Range(func(_, v interface{}) bool {
-		p := v.(*accountPool)
-		pendings = append(pendings, p)
-		return true
-	})
-	for _, v := range pendings {
-		v.loopDelUselessChain()
+	if self.sync.SyncState() != net.Syncing {
+		self.pendingSc.loopDelUselessChain()
+		var pendings []*accountPool
+		self.pendingAc.Range(func(_, v interface{}) bool {
+			p := v.(*accountPool)
+			pendings = append(pendings, p)
+			return true
+		})
+		for _, v := range pendings {
+			v.loopDelUselessChain()
+		}
 	}
 }
 

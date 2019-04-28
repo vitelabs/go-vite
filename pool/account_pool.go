@@ -269,7 +269,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	}
 
 	self.checkCurrent()
-	stat := self.v.verifyDirectAccount(received, latestSb)
+	stat := self.v.verifyAccount(received, latestSb)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
@@ -484,7 +484,7 @@ func (self *BCPool) checkCurrent() {
 		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
 			main.Id(), tailHeight, tailHash, headHeight, headHash))
 	}
-	err := self.chainpool.check()
+	err := tree.CheckTree(self.chainpool.tree)
 	if err != nil {
 		panic(err)
 	}

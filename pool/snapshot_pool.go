@@ -354,44 +354,6 @@ func (self *snapshotPool) Stop() {
 	self.log.Info("snapshot_pool stopped.")
 }
 
-func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
-	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
-	block := b.block
-	b.failStat.inc()
-	results := stat.results
-
-	accounts := make(map[types.Address]*ledger.HashHeight)
-
-	for k, account := range block.SnapshotContent {
-		result := results[k]
-		if result == verifier.FAIL {
-			accounts[k] = account
-		}
-	}
-
-	if len(accounts) > 0 {
-		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
-		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
-		self.forkAccounts(accounts)
-		self.fetchAccounts(accounts, b.Height(), b.Hash())
-	}
-}
-
-func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.pool.LockInsert()
-	defer self.pool.UnLockInsert()
-
-	for k, v := range accounts {
-		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.pool.ForkAccountTo(k, v)
-		if err != nil {
-			self.log.Error("forkaccountTo err", "err", err)
-		}
-	}
-
-	self.version.Inc()
-}
-
 func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	self.chainHeadMu.Lock()
 	defer self.chainHeadMu.Unlock()

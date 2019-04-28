@@ -13,15 +13,17 @@ import (
 )
 
 type batchExecutor struct {
-	p          Batch
-	snapshotFn BucketExecutorFn
-	accountFn  BucketExecutorFn
-	log        log15.Logger
+	p           Batch
+	snapshotFn  BucketExecutorFn
+	accountFn   BucketExecutorFn
+	maxParallel int
+	log         log15.Logger
 }
 
 func newBatchExecutor(p Batch, snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) *batchExecutor {
 	executor := &batchExecutor{p: p, snapshotFn: snapshotFn, accountFn: accountFn}
 	executor.log = log15.New("module", "pool/batch", "batchId", p.Id())
+	executor.maxParallel = 5
 	return executor
 }
 
@@ -63,8 +65,6 @@ func (self *batchExecutor) insertSnapshotLevel(l Level) error {
 	return nil
 }
 
-var MAX_PARALLEL = 5
-
 func (self *batchExecutor) insertAccountLevel(l Level) error {
 	version := self.p.Version()
 	bs := l.Buckets()
@@ -73,7 +73,7 @@ func (self *batchExecutor) insertAccountLevel(l Level) error {
 		return nil
 	}
 
-	N := helper.MinInt(lenBs, MAX_PARALLEL)
+	N := helper.MinInt(lenBs, self.maxParallel)
 	bucketCh := make(chan Bucket, lenBs)
 
 	var wg sync.WaitGroup
