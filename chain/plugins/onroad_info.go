@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	OneInt = big.NewInt(1)
-	oLog   = log15.New("plugin", "onroad_info")
+	OneInt        = big.NewInt(1)
+	oLog          = log15.New("plugin", "onroad_info")
+	initRoundSize = uint64(10)
 )
 
 type OnRoadInfo struct {
@@ -50,9 +51,9 @@ func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
 	if latestSnapshot == nil {
 		return errors.New("GetLatestSnapshotBlock fail.")
 	}
-
 	oLog.Info(fmt.Sprintf("latestSnapshot[%v %v]", latestSnapshot.Hash, latestSnapshot.Height), "method", "InitAndBuild")
-	chunks, err := or.chain.GetSubLedgerAfterHeight(1)
+
+	/*chunks, err := or.chain.GetSubLedgerAfterHeight(1)
 	if err != nil {
 		return err
 	}
@@ -78,6 +79,57 @@ func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
 			return err
 		}
 		or.store.WriteSnapshot(batch, chunk.AccountBlocks)
+
+		flusher.Flush()
+	}
+	*/
+
+	round := latestSnapshot.Height / initRoundSize
+	leftCount := latestSnapshot.Height % initRoundSize
+
+	for i := uint64(0); i < round+1; i++ {
+		start := i * initRoundSize
+		end := i * initRoundSize
+		if i < round {
+			end = end + initRoundSize
+		} else {
+			if leftCount <= 0 {
+				break
+			}
+			end = end + leftCount
+		}
+		if i == 0 {
+			start += 1
+		}
+		chunks, err := or.chain.GetSubLedger(start, end)
+		if err != nil {
+			return err
+		}
+
+		for idx, chunk := range chunks {
+			if idx == 0 {
+				continue
+			}
+			// write ab
+			for _, ab := range chunk.AccountBlocks {
+				batch := or.store.NewBatch()
+				if err := or.InsertAccountBlock(batch, ab); err != nil {
+					oLog.Error(fmt.Sprintf("InsertAccountBlock fail, err:%v, ab[%v %v %v] ", err, ab.AccountAddress, ab.Hash, ab.Height))
+					return err
+				}
+				or.store.WriteAccountBlock(batch, ab)
+			}
+
+			// write sb
+			batch := or.store.NewBatch()
+			if err := or.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
+				oLog.Error(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
+				return err
+			}
+			or.store.WriteSnapshot(batch, chunk.AccountBlocks)
+		}
+		flusher.Flush()
+		oLog.Info(fmt.Sprintf("success build range from sb %v to sb %v", start, end))
 	}
 
 	oLog.Info("Succeed InitAndBuild onRoadInfo-db")
@@ -102,6 +154,8 @@ func (or *OnRoadInfo) Clear(flusher *chain_flusher.Flusher) error {
 		return err
 	}
 	or.store.WriteDirectly(batch)
+
+	flusher.Flush()
 
 	oLog.Info("Succeed Clear onRoadInfo-db")
 	return nil
