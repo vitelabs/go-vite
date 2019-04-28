@@ -121,7 +121,7 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 	if sb == nil {
 		return nil, errors.New("unexpected error, latest snapshot block is nil")
 	}
-	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, prevHash, &sb.Hash)
+	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &sb.Hash, prevHash)
 	if err != nil {
 		return nil, err
 	}
