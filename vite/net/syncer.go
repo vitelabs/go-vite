@@ -6,6 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/vite/net/message"
+
+	"github.com/vitelabs/go-vite/ledger"
+
+	"github.com/vitelabs/go-vite/p2p"
+
 	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -85,6 +91,35 @@ type syncer struct {
 	running int32
 	term    chan struct{}
 	log     log15.Logger
+}
+
+func (s *syncer) name() string {
+	return "syncer"
+}
+
+func (s *syncer) codes() []code {
+	return []code{CodeCheckResult, CodeHashList}
+}
+
+func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
+	switch msg.Code {
+	case CodeCheckResult:
+		var hh = &ledger.HashHeight{}
+		err = hh.Deserialize(msg.Payload)
+		if err != nil {
+			return
+		}
+		// todo
+	case CodeHashList:
+		var list = &message.HashHeightList{}
+		err = list.Deserialize(msg.Payload)
+		if err != nil {
+			return
+		}
+		// todo
+	}
+
+	return nil
 }
 
 func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downloader syncDownloader, timeout time.Duration) *syncer {

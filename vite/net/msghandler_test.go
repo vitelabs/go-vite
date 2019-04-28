@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/vitelabs/go-vite/vite/net/message"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -89,4 +91,85 @@ func Test_SplitAccountMap_Min(t *testing.T) {
 	}
 
 	fmt.Println(total, total2, total3)
+}
+
+type mockSnapshotReader struct {
+	blocksByHash   map[types.Hash]*ledger.SnapshotBlock
+	blocksByHeight map[uint64]*ledger.SnapshotBlock
+}
+
+func (m *mockSnapshotReader) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	return m.blocksByHeight[height], nil
+}
+
+func (m *mockSnapshotReader) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
+	return m.blocksByHash[hash], nil
+}
+
+func (m *mockSnapshotReader) GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
+	panic("implement me")
+}
+
+func (m *mockSnapshotReader) GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error) {
+	panic("implement me")
+}
+
+func mockHash() (hash types.Hash) {
+	_, _ = rand.Read(hash[:])
+	return
+}
+
+func TestCheckHandler(t *testing.T) {
+	const to = 600
+	hhs := []*ledger.HashHeight{
+		{75, mockHash()},
+		{175, mockHash()},
+	}
+
+	var check = &message.Check{
+		Points: hhs,
+		To:     to,
+	}
+
+	chain := &mockSnapshotReader{
+		blocksByHash:   make(map[types.Hash]*ledger.SnapshotBlock),
+		blocksByHeight: make(map[uint64]*ledger.SnapshotBlock),
+	}
+	for _, hh := range hhs {
+		block := &ledger.SnapshotBlock{
+			Hash:   hh.Hash,
+			Height: hh.Height,
+		}
+
+		chain.blocksByHash[hh.Hash] = block
+		chain.blocksByHeight[hh.Height] = block
+	}
+
+	for start := uint64(0); start < to; start += step {
+		block := &ledger.SnapshotBlock{
+			Hash:   mockHash(),
+			Height: start,
+		}
+		chain.blocksByHash[block.Hash] = block
+		chain.blocksByHeight[block.Height] = block
+	}
+
+	var checkH = &checkHandler{
+		chain: &mockSnapshotReader{
+			blocksByHash:   nil,
+			blocksByHeight: nil,
+		},
+		log: netLog,
+	}
+
+	cd, payload := checkH.handleCheck(check)
+	if cd != CodeCheckResult {
+		t.Errorf("error code: %d", cd)
+	}
+
+	checkResult := payload.(*message.CheckResult)
+
+	if checkResult.FEP.Height != 175 || checkResult.FEP.Hash != hhs[1].Hash {
+		t.Error("wrong fep")
+	}
 }

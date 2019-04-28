@@ -72,7 +72,7 @@ type SyncStateCallback = func(SyncState)
 
 type ChunkReader interface {
 	Peek() Chunks
-	Pop()
+	Pop(endHash types.Hash)
 }
 
 type Chunks struct {

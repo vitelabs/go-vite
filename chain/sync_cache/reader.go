@@ -18,7 +18,7 @@ func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ReadCl
 	defer cache.segMu.RUnlock()
 
 	if !cache.CheckExisted(segment) {
-		return nil, errors.New(fmt.Sprintf("file is not existed, from is %d, to is %d", from, to))
+		return nil, errors.New(fmt.Sprintf("file is not existed, %s/%d %s/%d", segment.PrevHash, segment.Bound[0], segment.Hash, segment.Bound[1]))
 	}
 
 	return NewReader(cache, segment)
