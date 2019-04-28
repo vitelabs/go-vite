@@ -37,6 +37,7 @@ func genSimpleInfo() *core.GroupInfo {
 		PerCount:               3,
 		RandCount:              1,
 		RandRank:               100,
+		Repeat:                 1,
 		CountingTokenId:        types.CreateTokenTypeId(),
 		RegisterConditionId:    0,
 		RegisterConditionParam: nil,
@@ -56,6 +57,10 @@ type simpleCs struct {
 	algo core.Algo
 
 	log log15.Logger
+}
+
+func (self *simpleCs) GetInfo() *core.GroupInfo {
+	return &self.GroupInfo
 }
 
 func newSimpleCs(log log15.Logger) *simpleCs {
