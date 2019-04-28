@@ -252,7 +252,7 @@ func (self *chainPool) insertNotify(head commonBlock) {
 //	}
 //}
 
-func (self *chainPool) writeBlockToChain(chain tree.Branch, block commonBlock) error {
+func (self *chainPool) writeBlockToChain(block commonBlock) error {
 	err := self.diskChain.rw.insertBlock(block)
 
 	if err != nil {
@@ -260,7 +260,7 @@ func (self *chainPool) writeBlockToChain(chain tree.Branch, block commonBlock) e
 		self.log.Error(fmt.Sprintf("pool insert Chain fail. height:[%d], hash:[%s]", block.Height(), block.Hash()))
 		return err
 	}
-	return self.tree.RemoveTail(chain, block)
+	return self.tree.RootHeadAdd(block)
 }
 func (self *chainPool) check() error {
 	diskId := self.diskChain.Id()

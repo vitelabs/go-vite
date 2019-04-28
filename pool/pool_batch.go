@@ -15,37 +15,9 @@ import (
 
 /**
 loop:
-1. make a queue for blocks plan
-2. insert for queue
+1. make a batch for blocks plan
+2. insert batch
 */
-func (self *pool) loopQueue() {
-	self.wg.Add(1)
-	defer self.wg.Done()
-	for {
-		select {
-		case <-self.closed:
-			return
-		default:
-			t1 := time.Now()
-			q := self.makeQueue()
-			size := q.Size()
-			if size == 0 {
-				time.Sleep(2 * time.Millisecond)
-				continue
-			}
-			err := self.insertQueue(q)
-			if err != nil {
-				self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
-				self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
-				//time.Sleep(time.Second
-				self.log.Error("pool auto stop")
-			}
-			t2 := time.Now()
-			self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
-		}
-	}
-}
-
 func (self *pool) insert() {
 	t1 := time.Now()
 	q := self.makeQueue()
@@ -242,26 +214,26 @@ func (self *pool) makeQueueFromAccounts(p batch.Batch) {
 }
 
 func (self *pool) insertQueue(q batch.Batch) error {
-	levels := q.Levels()
 	t0 := time.Now()
-
 	defer func() {
 		sub := time.Now().Sub(t0)
 		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
 		fmt.Println(queueResult)
 	}()
+	return q.Batch(self.insertSnapshotBucketForTree, self.insertAccountBucketForTree)
+}
 
-	for i, level := range levels {
-		if level == nil {
-			continue
-		}
-		self.log.Info(fmt.Sprintf("[%d]insert queue level[%d][%t] insert.", q.Id(), i, level.Snapshot()))
-		err := self.insertLevel(q, level, q.Version())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (self *pool) insertSnapshotBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	// stop the world for snapshot insert
+	self.LockInsert()
+	defer self.UnLockInsert()
+	return self.insertSnapshotBucket(p, bucket, version)
+}
+
+func (self *pool) insertAccountBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	self.RLockInsert()
+	defer self.RUnLockInsert()
+	return self.insertAccountBucket(p, bucket, version)
 }
 
 func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
@@ -276,9 +248,6 @@ func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, versio
 }
 
 func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	// stop the world for snapshot insert
-	self.LockInsert()
-	defer self.UnLockInsert()
 	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err

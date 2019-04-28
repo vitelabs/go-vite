@@ -241,3 +241,8 @@ func (self *batchSnapshot) addToAll(keys []types.Hash, l *ownerLevel) {
 		self.all[v] = l
 	}
 }
+
+func (self *batchSnapshot) Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error {
+	executor := newBatchExecutor(self, snapshotFn, accountFn)
+	return executor.execute()
+}

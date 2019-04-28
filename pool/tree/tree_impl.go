@@ -91,6 +91,9 @@ func (self *tree) ForkBranch(b Branch, height uint64, hash types.Hash) Branch {
 
 func (self *tree) RootHeadAdd(k Knot) error {
 	main := self.main
+	if k.PrevHash() != main.tailHash {
+		panic(fmt.Sprintf("root head add fail. mainTail[%s], addBlock[%d-%s-%s]", main.SprintTail(), k.Height(), k.Hash(), k.PrevHash()))
+	}
 	if main.MatchHead(k.PrevHash()) {
 		err := main.AddHead(k)
 		if err != nil {
@@ -102,6 +105,9 @@ func (self *tree) RootHeadAdd(k Knot) error {
 		}
 		return nil
 	} else {
+		if main.contains(k.Height(), k.Hash(), false) {
+			return self.RemoveTail(main, k)
+		}
 		newBranch := self.ForkBranch(main, k.Height()-1, k.PrevHash()).(*branch)
 		err := newBranch.AddHead(k)
 		if err != nil {

@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -544,6 +543,14 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 
+func (self *pool) ReadDownloadedChunks() ([]ledger.SnapshotChunk, ledger.HashHeight, ledger.HashHeight, types.BlockSource) {
+	return nil, ledger.HashHeight{}, ledger.HashHeight{}, types.RemoteSync
+}
+
+func (self *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
+	return
+}
+
 //func (self *pool) loopTryInsert() {
 //	defer self.poolRecover()
 //	self.wg.Add(1)
@@ -886,83 +893,6 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 		if fc == nil {
 			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, *v.chain, 1, v.snapshotHeight, *v.snapshotHash)
 		}
-	}
-	return nil
-}
-func (self *pool) insertLevel(p batch.Batch, l batch.Level, version uint64) error {
-	if l.Snapshot() {
-		return self.insertSnapshotLevel(p, l, version)
-	} else {
-		return self.insertAccountLevel(p, l, version)
-	}
-}
-func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version uint64) error {
-	t1 := time.Now()
-	num := 0
-	defer func() {
-		sub := time.Now().Sub(t1)
-		levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
-		fmt.Println(levelInfo)
-	}()
-	for _, b := range l.Buckets() {
-		num = num + len(b.Items())
-		return self.insertSnapshotBucket(p, b, version)
-	}
-	return nil
-}
-
-var MAX_PARALLEL = 5
-
-func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version uint64) error {
-	bs := l.Buckets()
-	lenBs := len(bs)
-	if lenBs == 0 {
-		return nil
-	}
-
-	N := helper.MinInt(lenBs, MAX_PARALLEL)
-	bucketCh := make(chan batch.Bucket, lenBs)
-
-	var wg sync.WaitGroup
-	wg.Add(N)
-
-	var num int32
-	t1 := time.Now()
-	var globalErr error
-	for i := 0; i < N; i++ {
-		common.Go(func() {
-			defer wg.Done()
-			for b := range bucketCh {
-				if globalErr != nil {
-					return
-				}
-				err := self.insertAccountBucket(p, b, version)
-				atomic.AddInt32(&num, int32(len(b.Items())))
-				if err != nil {
-					globalErr = err
-					fmt.Printf("error[%s] for insert account block.\n", err)
-					return
-				}
-			}
-		})
-	}
-	levelInfo := ""
-	for _, bucket := range bs {
-		levelInfo += "|" + strconv.Itoa(len(bucket.Items()))
-		if bucket.Owner() == nil {
-			levelInfo += "S"
-		}
-
-		bucketCh <- bucket
-	}
-	close(bucketCh)
-	wg.Wait()
-	sub := time.Now().Sub(t1)
-	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
-	fmt.Println(levelInfo)
-
-	if globalErr != nil {
-		return globalErr
 	}
 	return nil
 }

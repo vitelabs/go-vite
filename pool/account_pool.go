@@ -409,7 +409,7 @@ func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
 				return errors.Wrap(stat.err, "fail verifier db.")
 			}
-			err := cp.writeBlockToChain(current, stat.block)
+			err := cp.writeBlockToChain(stat.block)
 			if err != nil {
 				self.log.Error("account block write fail. ",
 					"hash", block.Hash(), "height", block.Height(), "error", err)

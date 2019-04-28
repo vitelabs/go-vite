@@ -313,7 +313,7 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier db.")
 			}
-			accBlocks, err := self.snapshotWriteToChain(current, block)
+			accBlocks, err := self.snapshotWriteToChain(block)
 			if err != nil {
 				return nil, item, err
 			}
@@ -328,12 +328,12 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 	return nil, nil, nil
 }
 
-func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+func (self *snapshotPool) snapshotWriteToChain(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	height := block.Height()
 	hash := block.Hash()
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
-		self.chainpool.tree.RemoveTail(current, block)
+		self.chainpool.tree.RootHeadAdd(block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
