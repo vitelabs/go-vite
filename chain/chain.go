@@ -129,11 +129,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
-	// init plugins
-	if c.chainCfg.OpenPlugins {
-		c.plugins.BuildPluginsDb(c.flusher)
-	}
-
+	// reconstruct the plugins
+	/*	if c.chainCfg.OpenPlugins {
+			c.plugins.BuildPluginsDb(c.flusher)
+		}
+	*/
 	c.log.Info("Complete initialization", "method", "Init")
 
 	return nil
