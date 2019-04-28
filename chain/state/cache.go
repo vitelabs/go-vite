@@ -2,8 +2,9 @@ package chain_state
 
 import (
 	"github.com/patrickmn/go-cache"
-	"github.com/syndtr/goleveldb/leveldb/util"
+
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 )
 

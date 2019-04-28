@@ -3,14 +3,19 @@ package chain_db
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/test_tools"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"math/rand"
 	"path"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestStore(t *testing.T) {
@@ -112,6 +117,69 @@ func TestPutAndDelete(t *testing.T) {
 
 }
 
+func TestIterator2(t *testing.T) {
+	a, err := leveldb.Open(storage.NewMemStorage(), nil)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%d", uint64(1)<<8)
+	a.Put(chain_utils.Uint64ToBytes(1), chain_utils.Uint64ToBytes(1), nil)
+	iter := a.NewIterator(&util.Range{Start: chain_utils.Uint64ToBytes(1), Limit: chain_utils.Uint64ToBytes(helper.MaxUint64)}, nil)
+	iter.Last()
+}
+
+func TestIterator(t *testing.T) {
+	id, err := types.BytesToHash(crypto.Hash256([]byte("123")))
+	if err != nil {
+		panic(err)
+	}
+	store, err := NewStore("test_mem", id)
+	if err != nil {
+		panic(err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	count := uint64(0)
+	go func() {
+		defer wg.Done()
+
+		for {
+			batch := new(leveldb.Batch)
+			count++
+			batch.Put(chain_utils.Uint64ToBytes(count), chain_utils.Uint64ToBytes(count))
+			store.WriteDirectly(batch)
+
+			random := rand.Intn(100)
+			if random > 50 {
+				flushToDisk(store)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+
+	}()
+	go func() {
+		defer wg.Done()
+
+		for {
+			iter := store.NewIterator(nil)
+			prev := uint64(0)
+			for iter.Next() {
+				current := chain_utils.BytesToUint64(iter.Key())
+				if prev+1 != current {
+					fmt.Printf("error, %d, %d\n", prev, current)
+				}
+				prev = current
+			}
+
+			fmt.Println("check ", prev)
+		}
+
+	}()
+	wg.Wait()
+
+}
+
 func writeKv(batch *leveldb.Batch, key uint64, value uint64) {
 	batch.Put(chain_utils.Uint64ToBytes(key), chain_utils.Uint64ToBytes(value))
 }
@@ -125,6 +193,9 @@ func flushToDisk(store *Store) {
 
 	// commit
 	store.Commit()
+
+	// after commit
+	store.AfterCommit()
 }
 
 func writeBlock(store *Store, blockIndex int) {

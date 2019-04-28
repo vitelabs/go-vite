@@ -84,12 +84,12 @@ func TestChain(t *testing.T) {
 	}()
 
 	// test panic
-	tempChain, accounts, snapshotBlockList := SetUp(20, 1, 3)
-	TearDown(tempChain)
-	testPanic(t, accounts, snapshotBlockList)
+	//tempChain, accounts, snapshotBlockList := SetUp(20, 1, 3)
+	//TearDown(tempChain)
+	//testPanic(t, accounts, snapshotBlockList)
 
 	// test insert
-	chainInstance, accounts, snapshotBlockList := SetUp(2, 500, 10)
+	chainInstance, accounts, snapshotBlockList := SetUp(20, 500, 10)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 

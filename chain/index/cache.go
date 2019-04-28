@@ -13,7 +13,7 @@ import (
 func (iDB *IndexDB) newCache() error {
 	var err error
 	iDB.cache, err = bigcache.NewBigCache(bigcache.Config{
-		HardMaxCacheSize: 256,
+		HardMaxCacheSize: 128,
 		Shards:           1024,
 		LifeWindow:       time.Minute * 10,
 	})

@@ -375,6 +375,10 @@ func (c *chain) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHei
 		startHeader = c.GetGenesisSnapshotBlock()
 	}
 
+	if startHeader.Height >= endHashHeight.Height {
+		return nil, nil
+	}
+
 	snapshotHeaders, err := c.GetSnapshotHeaders(endHashHeight.Hash, false, endHashHeight.Height-startHeader.Height)
 	if err != nil {
 		return nil, err
@@ -441,6 +445,7 @@ func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
+// FIXME check prev hash
 func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	count := uint64(10 * 60)
 
