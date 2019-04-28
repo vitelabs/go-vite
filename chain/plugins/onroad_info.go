@@ -129,7 +129,7 @@ func (or *OnRoadInfo) InitAndBuild(flusher *chain_flusher.Flusher) error {
 			or.store.WriteSnapshot(batch, chunk.AccountBlocks)
 		}
 		flusher.Flush()
-		oLog.Info(fmt.Sprintf("success build range from sb %v to sb %v", start, end))
+		//oLog.Info(fmt.Sprintf("success build range from sb %v to sb %v", start, end))
 	}
 
 	oLog.Info("Succeed InitAndBuild onRoadInfo-db")
