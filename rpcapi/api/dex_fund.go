@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_context"
 	"math/big"
 )
 

@@ -30,6 +30,9 @@ func (p *MethodPledge) GetRefundData() ([]byte, bool) {
 func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
 	return PledgeGas, nil
 }
+func (p *MethodPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 
 func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
@@ -115,6 +118,9 @@ func (p *MethodCancelPledge) GetRefundData() ([]byte, bool) {
 func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return CancelPledgeGas, nil
 }
+func (p *MethodCancelPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 
 func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
@@ -192,6 +198,9 @@ func (p *MethodAgentPledge) GetRefundData() ([]byte, bool) {
 func (p *MethodAgentPledge) GetSendQuota(data []byte) (uint64, error) {
 	return AgentPledgeGas, nil
 }
+func (p *MethodAgentPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 
 func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
@@ -258,6 +267,10 @@ func (p *MethodAgentCancelPledge) GetRefundData() ([]byte, bool) {
 
 func (p *MethodAgentCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return AgentCancelPledgeGas, nil
+}
+
+func (p *MethodAgentCancelPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {

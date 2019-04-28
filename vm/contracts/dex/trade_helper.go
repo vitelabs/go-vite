@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type ParamDexCancelOrder struct {
@@ -14,7 +14,7 @@ type ParamDexCancelOrder struct {
 	Side       bool
 }
 
-func EmitCancelOrderFailLog(db vmctxt_interface.VmDatabase, param *ParamDexCancelOrder, address []byte, err error) {
+func EmitCancelOrderFailLog(db vm_db.VmDb, param *ParamDexCancelOrder, address []byte, err error) {
 	cancelFail := dexproto.CancelOrderFail{}
 	cancelFail.Id = param.OrderId
 	cancelFail.Address = address

@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"sort"
 	"strings"
@@ -23,8 +23,8 @@ const (
 		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}]}
 ]`
 
-	MethodNameDexTradeNewOrder            = "DexTradeNewOrder"
-	MethodNameDexTradeCancelOrder         = "DexTradeCancelOrder"
+	MethodNameDexTradeNewOrder    = "DexTradeNewOrder"
+	MethodNameDexTradeCancelOrder = "DexTradeCancelOrder"
 )
 
 var (
@@ -34,12 +34,12 @@ var (
 type MethodDexTradeNewOrder struct {
 }
 
-func (md *MethodDexTradeNewOrder) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradeNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNewOrder) GetRefundData() []byte {
-	return []byte{}
+func (md *MethodDexTradeNewOrder) GetRefundData() ([]byte, bool) {
+	return []byte{}, false
 }
 
 func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte) (uint64, error) {
@@ -50,17 +50,17 @@ func (md *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return fmt.Errorf("invalid block source")
 	}
 	return nil
 }
 
-func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err    error
-		blocks = []*SendBlock{}
+		blocks []*ledger.AccountBlock
 	)
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return handleReceiveErr(db, fmt.Errorf("invalid block source"))
@@ -87,12 +87,12 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vmctxt_interface.VmDatabase, bloc
 type MethodDexTradeCancelOrder struct {
 }
 
-func (md *MethodDexTradeCancelOrder) GetFee(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradeCancelOrder) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCancelOrder) GetRefundData() []byte {
-	return []byte{}
+func (md *MethodDexTradeCancelOrder) GetRefundData() ([]byte, bool) {
+	return []byte{}, false
 }
 
 func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte) (uint64, error) {
@@ -103,7 +103,7 @@ func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock) error {
+func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	param := new(dex.ParamDexCancelOrder)
 	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
@@ -112,7 +112,7 @@ func (md *MethodDexTradeCancelOrder) DoSend(db vmctxt_interface.VmDatabase, bloc
 	return nil
 }
 
-func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock) ([]*SendBlock, error) {
+func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexCancelOrder)
 	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
 	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
@@ -121,7 +121,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	var (
 		order  *dex.Order
 		err    error
-		blocks = []*SendBlock{}
+		blocks []*ledger.AccountBlock
 	)
 	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
 		return handleReceiveErr(db, err)
@@ -142,7 +142,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vmctxt_interface.VmDatabase, bl
 	}
 }
 
-func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountBlock, orderInfo *dexproto.OrderInfo, inputErr error) ([]*SendBlock, error) {
+func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, orderInfo *dexproto.OrderInfo, inputErr error) ([]*ledger.AccountBlock, error) {
 	dex.EmitErrLog(db, inputErr)
 	fundSettle := &dexproto.FundSettle{}
 	switch orderInfo.Order.Side {
@@ -164,32 +164,33 @@ func handleNewOrderFailed(db vmctxt_interface.VmDatabase, block *ledger.AccountB
 	)
 	if settleData, newErr = proto.Marshal(settleActions); newErr != nil {
 		dex.EmitErrLog(db, newErr)
-		return []*SendBlock{}, newErr
+		return nil, newErr
 	}
 	if dexSettleBlockData, newErr = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); newErr != nil {
 		dex.EmitErrLog(db, newErr)
-		return []*SendBlock{}, newErr
+		return nil, newErr
 	}
-	return []*SendBlock{
-		{block,
-			types.AddressDexFund,
-			ledger.BlockTypeSendCall,
-			big.NewInt(0),
-			ledger.ViteTokenId, // no need send token
-			dexSettleBlockData,
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: block.AccountAddress,
+			ToAddress:      types.AddressDexFund,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         big.NewInt(0),
+			TokenId:        ledger.ViteTokenId,
+			Data:           dexSettleBlockData,
 		},
 	}, nil
 }
 
-func handleCancelOrderFail(db vmctxt_interface.VmDatabase, param *dex.ParamDexCancelOrder, address []byte, err error) ([]*SendBlock, error) {
+func handleCancelOrderFail(db vm_db.VmDb, param *dex.ParamDexCancelOrder, address []byte, err error) ([]*ledger.AccountBlock, error) {
 	dex.EmitCancelOrderFailLog(db, param, address, err)
-	return []*SendBlock{}, nil
+	return nil, nil
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*SendBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
-		return []*SendBlock{}, nil
+		return nil, nil
 	}
 	settleActions := &dexproto.SettleActions{}
 	if len(fundSettles) > 0 {
@@ -235,18 +236,19 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 		err                            error
 	)
 	if settleData, err = proto.Marshal(settleActions); err != nil {
-		return []*SendBlock{}, err
+		return nil, err
 	}
 	if dexSettleBlockData, err = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); err != nil {
-		return []*SendBlock{}, err
+		return nil, err
 	}
-	return []*SendBlock{
-		{block,
-			types.AddressDexFund,
-			ledger.BlockTypeSendCall,
-			big.NewInt(0),
-			ledger.ViteTokenId, // no need send token
-			dexSettleBlockData,
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: block.AccountAddress,
+			ToAddress:      types.AddressDexFund,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         big.NewInt(0),
+			TokenId:        ledger.ViteTokenId,
+			Data:           dexSettleBlockData,
 		},
 	}, nil
 }

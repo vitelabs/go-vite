@@ -84,6 +84,31 @@ var simpleContracts = map[types.Address]*builtinContract{
 		},
 		cabi.ABIMintage,
 	},
+	types.AddressDexFund: {
+		map[string]BuiltinContractMethod{
+			MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
+			MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
+			MethodNameDexFundNewOrder:             &MethodDexFundNewOrder{},
+			MethodNameDexFundSettleOrders:         &MethodDexFundSettleOrders{},
+			MethodNameDexFundFeeDividend:          &MethodDexFundFeeDividend{},
+			MethodNameDexFundMinedVxDividend:      &MethodDexFundMinedVxDividend{},
+			MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{},
+			MethodNameDexFundSetOwner:             &MethodDexFundSetOwner{},
+			MethodNameDexFundConfigMineMarket:     &MethodDexFundConfigMineMarket{},
+			MethodNameDexFundPledgeForVx:          &MethodDexFundPledgeForVx{},
+			MethodNameDexFundPledgeForVip:         &MethodDexFundPledgeForVip{},
+			MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{},
+			MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{},
+		},
+		ABIDexFund,
+	},
+	types.AddressDexTrade: {
+		map[string]BuiltinContractMethod{
+			MethodNameDexTradeNewOrder:    &MethodDexTradeNewOrder{},
+			MethodNameDexTradeCancelOrder: &MethodDexTradeCancelOrder{},
+		},
+		ABIDexTrade,
+	},
 }
 
 func GetBuiltinContract(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {

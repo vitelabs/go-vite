@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_context"
 )
 
 type DexTradeApi struct {
@@ -61,7 +60,7 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	}
 }
 
-func (f DexTradeApi)  TravelMarketOrders(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
+func (f DexTradeApi) TravelMarketOrders(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
 	if matcher, err := f.getMatcher(); err != nil {
 		return nil, err
 	} else {

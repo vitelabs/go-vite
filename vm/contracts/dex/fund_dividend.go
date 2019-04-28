@@ -6,11 +6,11 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
-func SettleFeeSum(db vmctxt_interface.VmDatabase, feeActions []*dexproto.FeeSettle) error {
+func SettleFeeSum(db vm_db.VmDb, feeActions []*dexproto.FeeSettle) error {
 	var (
 		feeSumByPeriod *FeeSumByPeriod
 		err            error
@@ -55,7 +55,7 @@ func SettleFeeSum(db vmctxt_interface.VmDatabase, feeActions []*dexproto.FeeSett
 	}
 }
 
-func SettleUserFees(db vmctxt_interface.VmDatabase, feeAction *dexproto.FeeSettle) error {
+func SettleUserFees(db vm_db.VmDb, feeAction *dexproto.FeeSettle) error {
 	var (
 		userFees *UserFees
 		periodId uint64
@@ -103,21 +103,20 @@ func SettleUserFees(db vmctxt_interface.VmDatabase, feeAction *dexproto.FeeSettl
 	return nil
 }
 
-func OnDepositVx(db vmctxt_interface.VmDatabase, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+func OnDepositVx(db vm_db.VmDb, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
 	return doSettleVxFunds(db, address.Bytes(), depositAmount, updatedVxAccount)
 }
 
-func OnWithdrawVx(db vmctxt_interface.VmDatabase, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+func OnWithdrawVx(db vm_db.VmDb, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
 	return doSettleVxFunds(db, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 }
 
-func OnSettleVx(db vmctxt_interface.VmDatabase, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
+func OnSettleVx(db vm_db.VmDb, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
 	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
 	return doSettleVxFunds(db, address, amtChange, updatedVxAccount)
 }
 
-
-func rollFeeSumPeriodId(db vmctxt_interface.VmDatabase) (uint64, error) {
+func rollFeeSumPeriodId(db vm_db.VmDb) (uint64, error) {
 	formerId := GetFeeSumLastPeriodIdForRoll(db)
 	if err := SaveFeeSumLastPeriodIdForRoll(db); err != nil {
 		return 0, err
@@ -127,7 +126,7 @@ func rollFeeSumPeriodId(db vmctxt_interface.VmDatabase) (uint64, error) {
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vmctxt_interface.VmDatabase, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func doSettleVxFunds(db vm_db.VmDb, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -233,7 +232,7 @@ func doSettleVxFunds(db vmctxt_interface.VmDatabase, addressBytes []byte, amtCha
 	return nil
 }
 
-func DoDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
+func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	var (
 		feeSumsMap    map[uint64]*FeeSumByPeriod
 		donateFeeSums = make(map[uint64]*big.Int)
@@ -354,7 +353,7 @@ func DoDivideFees(db vmctxt_interface.VmDatabase, periodId uint64) error {
 	return nil
 }
 
-func DoDivideMinedVxForFee(db vmctxt_interface.VmDatabase, periodId uint64, minedVxAmtPerMarket *big.Int) error {
+func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *big.Int) error {
 	var (
 		feeSum                *FeeSumByPeriod
 		feeSumMap             = make(map[types.TokenTypeId]*big.Int)
@@ -438,7 +437,7 @@ func DoDivideMinedVxForFee(db vmctxt_interface.VmDatabase, periodId uint64, mine
 	return nil
 }
 
-func DoDivideMinedVxForPledge(db vmctxt_interface.VmDatabase, minedVxAmt *big.Int) error {
+func DoDivideMinedVxForPledge(db vm_db.VmDb, minedVxAmt *big.Int) error {
 	// support accumulate history pledge vx
 	if minedVxAmt.Sign() == 0 {
 		return nil
@@ -446,7 +445,7 @@ func DoDivideMinedVxForPledge(db vmctxt_interface.VmDatabase, minedVxAmt *big.In
 	return nil
 }
 
-func DoDivideMinedVxForViteLabs(db vmctxt_interface.VmDatabase, minedVxAmt *big.Int) error {
+func DoDivideMinedVxForViteLabs(db vm_db.VmDb, minedVxAmt *big.Int) error {
 	if minedVxAmt.Sign() == 0 {
 		return nil
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"strconv"
 	"strings"
@@ -20,59 +20,59 @@ import (
 )
 
 var (
-	ownerKey = []byte("own:")
+	ownerKey      = []byte("own:")
 	fundKeyPrefix = []byte("fd:") // fund:types.Address
-	timestampKey = []byte("tts") // timerTimestamp
+	timestampKey  = []byte("tts") // timerTimestamp
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
-	feeSumKeyPrefix     = []byte("fS:")    // feeSum:periodId
+	feeSumKeyPrefix       = []byte("fS:")     // feeSum:periodId
 	donateFeeSumKeyPrefix = []byte("dfS:")    // donateFeeSum:periodId, feeSum for new market fee exceed
-	lastFeeSumPeriodKey = []byte("lFSPId:") //
+	lastFeeSumPeriodKey   = []byte("lFSPId:") //
 
-	VxFundKeyPrefix          = []byte("vxF:")    // vxFund:types.Address
+	VxFundKeyPrefix          = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
 	lastFeeDividendIdKey     = []byte("lDId:")
 	lastMinedVxDividendIdKey = []byte("lMVDId:") //
-	marketKeyPrefix          = []byte("mk:") // market: types.TokenTypeId,types.TokenTypeId
+	marketKeyPrefix          = []byte("mk:")     // market: types.TokenTypeId,types.TokenTypeId
 
-	pledgeForVipPrefix          = []byte("pldVip:") // pledgeForVip: types.Address
-	pledgeForVxPrefix          = []byte("pldVx:") // pledgeForVx: types.Address
+	pledgeForVipPrefix = []byte("pldVip:") // pledgeForVip: types.Address
+	pledgeForVxPrefix  = []byte("pldVx:")  // pledgeForVx: types.Address
 
 	tokenDecimalsPrefix = []byte("tk:") // token:uint8
 
-	VxTokenBytes        = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
-	commonTokenPow      = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
-	VxDividendThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(10))     // 10
-	VxMinedAmtPerPeriod = new(big.Int).Mul(commonTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
-	NewMarketFeeAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
+	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
+	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10))     // 10
+	VxMinedAmtPerPeriod        = new(big.Int).Mul(commonTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
+	NewMarketFeeAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
-	NewMarketFeeDonateAmount = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
+	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
 
-	bitcoinToken, _ = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
-	ethToken, _     = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
-	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
-	QuoteTokenDecimals = map[types.TokenTypeId]int32{ledger.ViteTokenId : 18, bitcoinToken: 8, ethToken: 18, usdtToken : 8}
+	bitcoinToken, _    = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
+	ethToken, _        = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
+	usdtToken, _       = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
+	QuoteTokenDecimals = map[types.TokenTypeId]int32{ledger.ViteTokenId: 18, bitcoinToken: 8, ethToken: 18, usdtToken: 8}
 
-	viteMinAmount       = commonTokenPow // 1 VITE
-	bitcoinMinAmount    = big.NewInt(1000000) //0.01 BTC
-	ethMinAmount        = big.NewInt(10000000)//0.1 ETH
-	usdtMinAmount       = big.NewInt(100000)//1 USDT
-	QuoteTokenMinAmount = map[types.TokenTypeId]*big.Int{ledger.ViteTokenId : viteMinAmount, bitcoinToken: bitcoinMinAmount, ethToken: ethMinAmount, usdtToken : usdtMinAmount}
+	viteMinAmount       = commonTokenPow       // 1 VITE
+	bitcoinMinAmount    = big.NewInt(1000000)  //0.01 BTC
+	ethMinAmount        = big.NewInt(10000000) //0.1 ETH
+	usdtMinAmount       = big.NewInt(100000)   //1 USDT
+	QuoteTokenMinAmount = map[types.TokenTypeId]*big.Int{ledger.ViteTokenId: viteMinAmount, bitcoinToken: bitcoinMinAmount, ethToken: ethMinAmount, usdtToken: usdtMinAmount}
 
-	PledgeForVxMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	PledgeForVipDuration int64 = 3600*24*30
+	PledgeForVxMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVipDuration int64 = 3600 * 24 * 30
 )
 
 const (
-	priceIntMaxLen = 12
+	priceIntMaxLen     = 12
 	priceDecimalMaxLen = 12
 )
 
 const (
-  PledgeForVx =	iota + 1
-  PledgeForVip
+	PledgeForVx = iota + 1
+	PledgeForVip
 )
 
 const (
@@ -120,7 +120,7 @@ type ParamDexFundConfigMineMarket struct {
 
 type ParamDexFundPledgeForVx struct {
 	ActionType int8 // 1: pledge 2: cancel pledge
-	Amount *big.Int
+	Amount     *big.Int
 }
 
 type ParamDexFundPledgeForVip struct {
@@ -132,10 +132,10 @@ type ParamDexFundPledgeCallBack struct {
 }
 
 type ParamDexFundPledge struct {
-	Source types.Address
+	Source     types.Address
 	Beneficial types.Address
 	PledgeType int8
-	Amount *big.Int
+	Amount     *big.Int
 }
 
 type UserFund struct {
@@ -257,7 +257,7 @@ func (pv *PledgeVip) DeSerialize(data []byte) (*PledgeVip, error) {
 	}
 }
 
-func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderInfo, errCode int) {
+func EmitOrderFailLog(db vm_db.VmDb, orderInfo *dexproto.OrderInfo, errCode int) {
 	orderFail := dexproto.OrderFail{}
 	orderFail.OrderInfo = orderInfo
 	orderFail.ErrCode = strconv.Itoa(errCode)
@@ -269,7 +269,7 @@ func EmitOrderFailLog(db vmctxt_interface.VmDatabase, orderInfo *dexproto.OrderI
 	db.AddLog(log)
 }
 
-func EmitErrLog(db vmctxt_interface.VmDatabase, err error) {
+func EmitErrLog(db vm_db.VmDb, err error) {
 	event := ErrEvent{err}
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, event.GetTopicId())
@@ -314,7 +314,7 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 	return dexAccount, nil
 }
 
-func GetUserFundFromStorage(db vmctxt_interface.VmDatabase, address types.Address) (dexFund *UserFund, err error) {
+func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (dexFund *UserFund, err error) {
 	dexFund = &UserFund{}
 	if fundBytes := db.GetStorage(&types.AddressDexFund, GetUserFundKey(address)); len(fundBytes) > 0 {
 		if dexFund, err = dexFund.DeSerialize(fundBytes); err != nil {
@@ -324,7 +324,7 @@ func GetUserFundFromStorage(db vmctxt_interface.VmDatabase, address types.Addres
 	return dexFund, nil
 }
 
-func SaveUserFundToStorage(db vmctxt_interface.VmDatabase, address types.Address, dexFund *UserFund) error {
+func SaveUserFundToStorage(db vm_db.VmDb, address types.Address, dexFund *UserFund) error {
 	if fundRes, err := dexFund.Serialize(); err == nil {
 		db.SetStorage(GetUserFundKey(address), fundRes)
 		return nil
@@ -333,7 +333,7 @@ func SaveUserFundToStorage(db vmctxt_interface.VmDatabase, address types.Address
 	}
 }
 
-func BatchSaveUserFund(db vmctxt_interface.VmDatabase, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
+func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
 	if userFund, err := GetUserFundFromStorage(db, address); err != nil {
 		return err
 	} else {
@@ -364,7 +364,7 @@ func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func GetCurrentFeeSumFromStorage(db vmctxt_interface.VmDatabase) (feeSum *FeeSumByPeriod, err error) {
+func GetCurrentFeeSumFromStorage(db vm_db.VmDb) (feeSum *FeeSumByPeriod, err error) {
 	if feeKey, err := GetFeeSumCurrentKeyFromStorage(db); err != nil {
 		return nil, err
 	} else {
@@ -372,11 +372,11 @@ func GetCurrentFeeSumFromStorage(db vmctxt_interface.VmDatabase) (feeSum *FeeSum
 	}
 }
 
-func GetFeeSumByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (feeSum *FeeSumByPeriod, err error) {
+func GetFeeSumByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (feeSum *FeeSumByPeriod, err error) {
 	return getFeeSumByKeyFromStorage(db, GetFeeSumKeyByPeriodId(periodId))
 }
 
-func getFeeSumByKeyFromStorage(db vmctxt_interface.VmDatabase, feeKey []byte) (feeSum *FeeSumByPeriod, err error) {
+func getFeeSumByKeyFromStorage(db vm_db.VmDb, feeKey []byte) (feeSum *FeeSumByPeriod, err error) {
 	feeSum = &FeeSumByPeriod{}
 	if feeBytes := db.GetStorage(&types.AddressDexFund, feeKey); len(feeBytes) > 0 {
 		if feeSum, err = feeSum.DeSerialize(feeBytes); err != nil {
@@ -390,12 +390,12 @@ func getFeeSumByKeyFromStorage(db vmctxt_interface.VmDatabase, feeKey []byte) (f
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int, error) {
+func GetNotDividedFeeSumsByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int, error) {
 	var (
-		dexFeeSums  = make(map[uint64]*FeeSumByPeriod)
-		dexFeeSum  *FeeSumByPeriod
-		donateFeeSums  = make(map[uint64]*big.Int)
-		err        error
+		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
+		dexFeeSum     *FeeSumByPeriod
+		donateFeeSums = make(map[uint64]*big.Int)
+		err           error
 	)
 	for {
 		if dexFeeSum, err = GetFeeSumByPeriodIdFromStorage(db, periodId); err != nil {
@@ -403,7 +403,7 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, p
 		} else {
 			if dexFeeSum == nil {
 				if periodId > 0 {
-					periodId --
+					periodId--
 					continue
 				} else {
 					return nil, nil, nil
@@ -411,7 +411,7 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, p
 			} else {
 				if !dexFeeSum.FeeDivided {
 					dexFeeSums[periodId] = dexFeeSum
-					if donateFeeSum := GetDonateFeeSum(db, periodId); donateFeeSum.Sign() > 0 {// when donateFee exists feeSum must exists
+					if donateFeeSum := GetDonateFeeSum(db, periodId); donateFeeSum.Sign() > 0 { // when donateFee exists feeSum must exists
 						donateFeeSums[periodId] = donateFeeSum
 					}
 				} else {
@@ -426,7 +426,7 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vmctxt_interface.VmDatabase, p
 	}
 }
 
-func SaveCurrentFeeSumToStorage(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeriod) error {
+func SaveCurrentFeeSumToStorage(db vm_db.VmDb, feeSum *FeeSumByPeriod) error {
 	if feeSumKey, err := GetFeeSumCurrentKeyFromStorage(db); err != nil {
 		return err
 	} else {
@@ -438,8 +438,9 @@ func SaveCurrentFeeSumToStorage(db vmctxt_interface.VmDatabase, feeSum *FeeSumBy
 		}
 	}
 }
+
 //fee sum used both by fee dividend and mined vx dividend
-func MarkFeeSumAsFeeDivided(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeriod, periodId uint64) {
+func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
 	if feeSum.MinedVxDivided {
 		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
@@ -449,7 +450,7 @@ func MarkFeeSumAsFeeDivided(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeri
 	}
 }
 
-func MarkFeeSumAsMinedVxDivided(db vmctxt_interface.VmDatabase, feeSum *FeeSumByPeriod, periodId uint64) {
+func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
 	if feeSum.FeeDivided {
 		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
@@ -463,7 +464,7 @@ func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
 }
 
-func GetFeeSumCurrentKeyFromStorage(db vmctxt_interface.VmDatabase) ([]byte, error) {
+func GetFeeSumCurrentKeyFromStorage(db vm_db.VmDb) ([]byte, error) {
 	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
 		return nil, err
 	} else {
@@ -471,7 +472,7 @@ func GetFeeSumCurrentKeyFromStorage(db vmctxt_interface.VmDatabase) ([]byte, err
 	}
 }
 
-func GetFeeSumLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) uint64 {
+func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 	if lastPeriodIdBytes := db.GetStorage(&types.AddressDexFund, lastFeeSumPeriodKey); len(lastPeriodIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastPeriodIdBytes)
 	} else {
@@ -479,7 +480,7 @@ func GetFeeSumLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) uint64 {
 	}
 }
 
-func SaveFeeSumLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) error {
+func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb) error {
 	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
 		return err
 	} else {
@@ -488,7 +489,7 @@ func SaveFeeSumLastPeriodIdForRoll(db vmctxt_interface.VmDatabase) error {
 	}
 }
 
-func GetUserFeesFromStorage(db vmctxt_interface.VmDatabase, address []byte) (userFees *UserFees, err error) {
+func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (userFees *UserFees, err error) {
 	userFees = &UserFees{}
 	if userFeesBytes := db.GetStorage(&types.AddressDexFund, GetUserFeesKey(address)); len(userFeesBytes) > 0 {
 		if userFees, err = userFees.DeSerialize(userFeesBytes); err != nil {
@@ -501,7 +502,7 @@ func GetUserFeesFromStorage(db vmctxt_interface.VmDatabase, address []byte) (use
 	}
 }
 
-func SaveUserFeesToStorage(db vmctxt_interface.VmDatabase, address []byte, userFees *UserFees) error {
+func SaveUserFeesToStorage(db vm_db.VmDb, address []byte, userFees *UserFees) error {
 	if userFeesBytes, err := userFees.Serialize(); err == nil {
 		db.SetStorage(GetUserFeesKey(address), userFeesBytes)
 		return nil
@@ -510,7 +511,7 @@ func SaveUserFeesToStorage(db vmctxt_interface.VmDatabase, address []byte, userF
 	}
 }
 
-func DeleteUserFeesFromStorage(db vmctxt_interface.VmDatabase, address []byte) {
+func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) {
 	db.SetStorage(GetUserFeesKey(address), nil)
 }
 
@@ -518,8 +519,7 @@ func GetUserFeesKey(address []byte) []byte {
 	return append(UserFeeKeyPrefix, address...)
 }
 
-
-func GetVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) (vxFunds *VxFunds, err error) {
+func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, err error) {
 	if vxFundsBytes := db.GetStorage(&types.AddressDexFund, GetVxFundsKey(address)); len(vxFundsBytes) > 0 {
 		if vxFunds, err = vxFunds.DeSerialize(vxFundsBytes); err != nil {
 			return nil, err
@@ -531,7 +531,7 @@ func GetVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) (vxFu
 	}
 }
 
-func SaveVxFundsToStorage(db vmctxt_interface.VmDatabase, address []byte, vxFunds *VxFunds) error {
+func SaveVxFundsToStorage(db vm_db.VmDb, address []byte, vxFunds *VxFunds) error {
 	if vxFundsBytes, err := vxFunds.Serialize(); err == nil {
 		db.SetStorage(GetVxFundsKey(address), vxFundsBytes)
 		return nil
@@ -542,8 +542,8 @@ func SaveVxFundsToStorage(db vmctxt_interface.VmDatabase, address []byte, vxFund
 
 func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
 	var (
-		vxAmtBytes []byte
-		matchIndex int
+		vxAmtBytes        []byte
+		matchIndex        int
 		needUpdateVxFunds bool
 	)
 	for i, fund := range vxFunds.Funds {
@@ -557,11 +557,11 @@ func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64, checkDelete bool) (
 	if len(vxAmtBytes) == 0 {
 		return false, nil, false, checkDelete && CheckUserVxFundsCanBeDelete(vxFunds)
 	}
-	if matchIndex > 0 {//remove obsolete items, but leave current matched item
+	if matchIndex > 0 { //remove obsolete items, but leave current matched item
 		vxFunds.Funds = vxFunds.Funds[matchIndex:]
 		needUpdateVxFunds = true
 	}
-	if len(vxFunds.Funds) > 1 && vxFunds.Funds[1].Period == periodId + 1 {
+	if len(vxFunds.Funds) > 1 && vxFunds.Funds[1].Period == periodId+1 {
 		vxFunds.Funds = vxFunds.Funds[1:]
 		needUpdateVxFunds = true
 	}
@@ -572,7 +572,7 @@ func CheckUserVxFundsCanBeDelete(vxFunds *VxFunds) bool {
 	return len(vxFunds.Funds) == 1 && !IsValidVxAmountBytesForDividend(vxFunds.Funds[0].Amount)
 }
 
-func DeleteVxFundsFromStorage(db vmctxt_interface.VmDatabase, address []byte) {
+func DeleteVxFundsFromStorage(db vm_db.VmDb, address []byte) {
 	db.SetStorage(GetVxFundsKey(address), nil)
 }
 
@@ -580,7 +580,7 @@ func GetVxFundsKey(address []byte) []byte {
 	return append(VxFundKeyPrefix, address...)
 }
 
-func GetVxSumFundsFromStorage(db vmctxt_interface.VmDatabase) (vxSumFunds *VxFunds, err error) {
+func GetVxSumFundsFromStorage(db vm_db.VmDb) (vxSumFunds *VxFunds, err error) {
 	if vxSumFundsBytes := db.GetStorage(&types.AddressDexFund, vxSumFundsKey); len(vxSumFundsBytes) > 0 {
 		if vxSumFunds, err = vxSumFunds.DeSerialize(vxSumFundsBytes); err != nil {
 			return nil, err
@@ -592,7 +592,7 @@ func GetVxSumFundsFromStorage(db vmctxt_interface.VmDatabase) (vxSumFunds *VxFun
 	}
 }
 
-func SaveVxSumFundsToStorage(db vmctxt_interface.VmDatabase, vxSumFunds *VxFunds) error {
+func SaveVxSumFundsToStorage(db vm_db.VmDb, vxSumFunds *VxFunds) error {
 	if vxSumFundsBytes, err := vxSumFunds.Serialize(); err == nil {
 		db.SetStorage(vxSumFundsKey, vxSumFundsBytes)
 		return nil
@@ -601,7 +601,7 @@ func SaveVxSumFundsToStorage(db vmctxt_interface.VmDatabase, vxSumFunds *VxFunds
 	}
 }
 
-func GetLastFeeDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 {
+func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	if lastFeeDividendIdBytes := db.GetStorage(&types.AddressDexFund, lastFeeDividendIdKey); len(lastFeeDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastFeeDividendIdBytes)
 	} else {
@@ -609,11 +609,11 @@ func GetLastFeeDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 {
 	}
 }
 
-func SaveLastFeeDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
+func SaveLastFeeDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
 	db.SetStorage(lastFeeDividendIdKey, Uint64ToBytes(periodId))
 }
 
-func GetLastMinedVxDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 {
+func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	if lastMinedVxDividendIdBytes := db.GetStorage(&types.AddressDexFund, lastMinedVxDividendIdKey); len(lastMinedVxDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastMinedVxDividendIdBytes)
 	} else {
@@ -621,7 +621,7 @@ func GetLastMinedVxDividendIdFromStorage(db vmctxt_interface.VmDatabase) uint64 
 	}
 }
 
-func SaveLastMinedVxDividendIdToStorage(db vmctxt_interface.VmDatabase, periodId uint64) {
+func SaveLastMinedVxDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
 	db.SetStorage(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
 }
 
@@ -633,13 +633,13 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
 }
 
-func GetCurrentPeriodIdFromStorage(db vmctxt_interface.VmDatabase) (uint64, error) {
+func GetCurrentPeriodIdFromStorage(db vm_db.VmDb) (uint64, error) {
 	groupInfo := cabi.GetConsensusGroup(db, types.SNAPSHOT_GID)
 	reader := core.NewReader(*db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
 	return reader.TimeToIndex(GetTimestamp(db))
 }
 
-func GetDonateFeeSum(db vmctxt_interface.VmDatabase, periodId uint64) *big.Int {
+func GetDonateFeeSum(db vm_db.VmDb, periodId uint64) *big.Int {
 	if amountBytes := db.GetStorage(&types.AddressDexFund, GetDonateFeeSumKey(periodId)); len(amountBytes) > 0 {
 		return new(big.Int).SetBytes(amountBytes)
 	} else {
@@ -647,7 +647,7 @@ func GetDonateFeeSum(db vmctxt_interface.VmDatabase, periodId uint64) *big.Int {
 	}
 }
 
-func AddDonateFeeSum(db vmctxt_interface.VmDatabase) error {
+func AddDonateFeeSum(db vm_db.VmDb) error {
 	if period, err := GetCurrentPeriodIdFromStorage(db); err != nil {
 		return err
 	} else {
@@ -657,7 +657,7 @@ func AddDonateFeeSum(db vmctxt_interface.VmDatabase) error {
 	}
 }
 
-func DeleteDonateFeeSum(db vmctxt_interface.VmDatabase, period uint64) {
+func DeleteDonateFeeSum(db vm_db.VmDb, period uint64) {
 	db.SetStorage(GetDonateFeeSumKey(period), nil)
 }
 
@@ -683,11 +683,11 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 		amtForPledge.Sub(amtForPledge, amtForViteLabs)
 		return amtFroFeePerMarket, amtForPledge, amtForViteLabs, true
 	} else {
-		return nil,nil,nil, false
+		return nil, nil, nil, false
 	}
 }
 
-func GetTokenInfo(db vmctxt_interface.VmDatabase, token types.TokenTypeId) (tokenInfo *TokenInfo, err error) {
+func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, err error) {
 	if tokenInfoBytes := db.GetStorage(&types.AddressDexFund, GetTokenInfoKey(token)); len(tokenInfoBytes) > 0 {
 		if tokenInfo, err = tokenInfo.DeSerialize(tokenInfoBytes); err != nil {
 			return nil, err
@@ -699,7 +699,7 @@ func GetTokenInfo(db vmctxt_interface.VmDatabase, token types.TokenTypeId) (toke
 	}
 }
 
-func SaveTokenInfo(db vmctxt_interface.VmDatabase, token types.TokenTypeId, tokenInfo *TokenInfo) error {
+func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo) error {
 	if tokenInfoBytes, err := tokenInfo.Serialize(); err == nil {
 		db.SetStorage(GetTokenInfoKey(token), tokenInfoBytes)
 		return nil
@@ -712,7 +712,7 @@ func GetTokenInfoKey(token types.TokenTypeId) []byte {
 	return append(tokenDecimalsPrefix, token.Bytes()...)
 }
 
-func GetMarketInfo(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, err error) {
+func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, err error) {
 	if marketInfoBytes := db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken)); len(marketInfoBytes) > 0 {
 		if marketInfo, err = marketInfo.DeSerialize(marketInfoBytes); err != nil {
 			return nil, err
@@ -724,7 +724,7 @@ func GetMarketInfo(db vmctxt_interface.VmDatabase, tradeToken, quoteToken types.
 	}
 }
 
-func SaveMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) error {
+func SaveMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) error {
 	if marketInfoBytes, err := marketInfo.Serialize(); err == nil {
 		db.SetStorage(GetMarketInfoKey(tradeToken, quoteToken), marketInfoBytes)
 		return nil
@@ -733,7 +733,7 @@ func SaveMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, trad
 	}
 }
 
-func AddNewMarketEventLog(db vmctxt_interface.VmDatabase, newMarketEvent *NewMarketEvent) {
+func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, newMarketEvent.GetTopicId())
 	log.Data = newMarketEvent.toDataBytes()
@@ -741,14 +741,14 @@ func AddNewMarketEventLog(db vmctxt_interface.VmDatabase, newMarketEvent *NewMar
 }
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
-	re := make([]byte, len(marketKeyPrefix) + 2 * types.TokenTypeIdSize)
+	re := make([]byte, len(marketKeyPrefix)+2*types.TokenTypeIdSize)
 	copy(re[0:len(marketKeyPrefix)], marketKeyPrefix)
 	copy(re[len(marketKeyPrefix):], tradeToken.Bytes())
-	copy(re[len(marketKeyPrefix)+ types.TokenTypeIdSize:], quoteToken.Bytes())
+	copy(re[len(marketKeyPrefix)+types.TokenTypeIdSize:], quoteToken.Bytes())
 	return re
 }
 
-func IsOwner(db vmctxt_interface.VmDatabase, address types.Address) bool {
+func IsOwner(db vm_db.VmDb, address types.Address) bool {
 	if storeOwner := db.GetStorage(&types.AddressDexFund, ownerKey); len(storeOwner) == 20 {
 		if bytes.Compare(storeOwner, address.Bytes()) == 0 {
 			return true
@@ -757,11 +757,11 @@ func IsOwner(db vmctxt_interface.VmDatabase, address types.Address) bool {
 	return false
 }
 
-func SetOwner(db vmctxt_interface.VmDatabase, address types.Address) {
+func SetOwner(db vm_db.VmDb, address types.Address) {
 	db.SetStorage(ownerKey, address.Bytes())
 }
 
-func GetPledgeForVx(db vmctxt_interface.VmDatabase, address types.Address) *big.Int {
+func GetPledgeForVx(db vm_db.VmDb, address types.Address) *big.Int {
 	if bs := db.GetStorage(&types.AddressDexFund, GetPledgeForVxKey(address)); len(bs) == 0 {
 		return big.NewInt(0)
 	} else {
@@ -769,11 +769,11 @@ func GetPledgeForVx(db vmctxt_interface.VmDatabase, address types.Address) *big.
 	}
 }
 
-func SavePledgeForVx(db vmctxt_interface.VmDatabase, address types.Address, amount *big.Int) {
+func SavePledgeForVx(db vm_db.VmDb, address types.Address, amount *big.Int) {
 	db.SetStorage(GetPledgeForVxKey(address), amount.Bytes())
 }
 
-func DeletePledgeForVx(db vmctxt_interface.VmDatabase, address types.Address) {
+func DeletePledgeForVx(db vm_db.VmDb, address types.Address) {
 	db.SetStorage(GetPledgeForVxKey(address), nil)
 }
 
@@ -781,7 +781,7 @@ func GetPledgeForVxKey(address types.Address) []byte {
 	return append(pledgeForVxPrefix, address.Bytes()...)
 }
 
-func GetPledgeForVip(db vmctxt_interface.VmDatabase, address types.Address) (pledgeVip *PledgeVip, err error) {
+func GetPledgeForVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, err error) {
 	if pledgeVipBytes := db.GetStorage(&types.AddressDexFund, GetPledgeForVipKey(address)); len(pledgeVipBytes) > 0 {
 		if pledgeVip, err = pledgeVip.DeSerialize(pledgeVipBytes); err != nil {
 			return nil, err
@@ -793,7 +793,7 @@ func GetPledgeForVip(db vmctxt_interface.VmDatabase, address types.Address) (ple
 	}
 }
 
-func SavePledgeForVip(db vmctxt_interface.VmDatabase, address types.Address, pledgeVip *PledgeVip) error {
+func SavePledgeForVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) error {
 	if pledgeVipBytes, err := pledgeVip.Serialize(); err != nil {
 		return err
 	} else {
@@ -802,7 +802,7 @@ func SavePledgeForVip(db vmctxt_interface.VmDatabase, address types.Address, ple
 	}
 }
 
-func DeletePledgeForVip(db vmctxt_interface.VmDatabase, address types.Address) {
+func DeletePledgeForVip(db vm_db.VmDb, address types.Address) {
 	db.SetStorage(GetPledgeForVipKey(address), nil)
 }
 
@@ -810,20 +810,20 @@ func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipPrefix, address.Bytes()...)
 }
 
-func GetTimestamp(db vmctxt_interface.VmDatabase) time.Time {
+func GetTimestamp(db vm_db.VmDb) time.Time {
 	//	GetTimerTimestamp(db)
 	return *db.CurrentSnapshotBlock().Timestamp
 }
 
-func GetTimestampInt64(db vmctxt_interface.VmDatabase) int64 {
+func GetTimestampInt64(db vm_db.VmDb) int64 {
 	return GetTimestamp(db).Unix()
 }
 
-func SetTimerTimestamp(db vmctxt_interface.VmDatabase, timestampInt int64)  {
+func SetTimerTimestamp(db vm_db.VmDb, timestampInt int64) {
 	db.SetStorage(timestampKey, Uint64ToBytes(uint64(timestampInt)))
 }
 
-func GetTimerTimestamp(db vmctxt_interface.VmDatabase) (int64, error) {
+func GetTimerTimestamp(db vm_db.VmDb) (int64, error) {
 	bs := db.GetStorage(&types.AddressDexFund, timestampKey)
 	if len(bs) == 8 {
 		return int64(BytesToUint64(bs)), nil
@@ -896,7 +896,7 @@ func BytesToPrice(priceBytes []byte) string {
 			copy(decimalPartArr[priceDecimalMaxLen-decimalLen:], decimalStr)
 		}
 		var rightTruncate = 0
-		for i := priceDecimalMaxLen-1; i >= 0; i -- {
+		for i := priceDecimalMaxLen - 1; i >= 0; i-- {
 			if decimalPartArr[i] == '0' {
 				rightTruncate++
 			} else {

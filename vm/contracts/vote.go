@@ -22,6 +22,9 @@ func (p *MethodVote) GetRefundData() ([]byte, bool) {
 func (p *MethodVote) GetSendQuota(data []byte) (uint64, error) {
 	return VoteGas, nil
 }
+func (p *MethodVote) GetReceiveQuota() uint64 {
+	return 0
+}
 
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -68,6 +71,9 @@ func (p *MethodCancelVote) GetRefundData() ([]byte, bool) {
 }
 func (p *MethodCancelVote) GetSendQuota(data []byte) (uint64, error) {
 	return CancelVoteGas, nil
+}
+func (p *MethodCancelVote) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // cancel vote for a super node of a consensus group

@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"strconv"
 	"strings"
@@ -34,7 +34,7 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	return nil
 }
 
-func RenderMarketInfo(db vmctxt_interface.VmDatabase, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, marketParam *ParamDexFundNewMarket, address types.Address) error {
+func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, marketParam *ParamDexFundNewMarket, address types.Address) error {
 	if marketInfo, _ := GetMarketInfo(db, marketParam.TradeToken, marketParam.QuoteToken); marketInfo != nil {
 		return TradeMarketExistsError
 	}
@@ -86,7 +86,7 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 	return nil
 }
 
-func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vmctxt_interface.VmDatabase, address types.Address) *dexError {
+func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) *dexError {
 	order := &dexproto.Order{}
 	orderInfo.Order = order
 	order.Id = param.OrderId
@@ -148,7 +148,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	return nil
 }
 
-func DepositAccount(db vmctxt_interface.VmDatabase, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account, error) {
+func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account, error) {
 	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
 		return nil, err
 	} else {
@@ -218,7 +218,7 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, orderInfo *dexproto.OrderInf
 	return needUpdate, nil
 }
 
-func DoSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.UserFundSettle) error {
+func DoSettleFund(db vm_db.VmDb, action *dexproto.UserFundSettle) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
 	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
@@ -268,7 +268,7 @@ func DoSettleFund(db vmctxt_interface.VmDatabase, action *dexproto.UserFundSettl
 	return nil
 }
 
-func PledgeRequest(db vmctxt_interface.VmDatabase, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
+func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVip {
 		if pledgeVip, _ := GetPledgeForVip(db, address); pledgeVip != nil {
 			return nil, PledgeForVipExistsErr
@@ -294,7 +294,7 @@ func PledgeRequest(db vmctxt_interface.VmDatabase, address types.Address, pledge
 	}
 }
 
-func CancelPledgeRequest(db vmctxt_interface.VmDatabase, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
+func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVx {
 		available := GetPledgeForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)

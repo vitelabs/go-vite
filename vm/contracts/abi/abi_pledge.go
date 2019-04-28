@@ -129,30 +129,3 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address)
 	ABIPledge.UnpackVariable(amount, VariableNamePledgeBeneficial, v)
 	return amount.Amount, nil
 }
-
-// get pledge info list for dex fund precompiled contract
-func GetPledgeInfoListByBeneficial(db StorageDatabase, beneficial types.Address, snapshotHash *types.Hash) []*PledgeInfo {
-	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressPledge, nil, snapshotHash)
-	pledgeInfoList := make([]*PledgeInfo, 0)
-	if iterator == nil {
-		return pledgeInfoList
-	}
-	for {
-		key, value, ok := iterator.Next()
-		if !ok {
-			break
-		}
-		if IsPledgeKey(key) {
-			if GetBeneficialFromPledgeKey(key) != beneficial {
-				continue
-			}
-			pledgeInfo := new(PledgeInfo)
-			if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, value); err == nil && pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
-				pledgeAddr := GetPledgeAddrFromPledgeKey(key)
-				pledgeInfo.PledgeAddr = &pledgeAddr
-				pledgeInfoList = append(pledgeInfoList, pledgeInfo)
-			}
-		}
-	}
-	return pledgeInfoList
-}

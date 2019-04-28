@@ -27,6 +27,9 @@ func (p *MethodMint) GetRefundData() ([]byte, bool) {
 func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
 	return MintGas, nil
 }
+func (p *MethodMint) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMint) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamMintage)
 	err := abi.ABIMintage.UnpackMethod(param, abi.MethodNameMint, block.Data)
@@ -163,7 +166,9 @@ func (p *MethodMintageCancelPledge) GetRefundData() ([]byte, bool) {
 func (p *MethodMintageCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return MintageCancelPledgeGas, nil
 }
-
+func (p *MethodMintageCancelPledge) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodMintageCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
@@ -226,6 +231,9 @@ func (p *MethodIssue) GetRefundData() ([]byte, bool) {
 func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
 	return IssueGas, nil
 }
+func (p *MethodIssue) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamIssue)
 	err := abi.ABIMintage.UnpackMethod(param, abi.MethodNameIssue, block.Data)
@@ -287,6 +295,9 @@ func (p *MethodBurn) GetRefundData() ([]byte, bool) {
 func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
 	return BurnGas, nil
 }
+func (p *MethodBurn) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodBurn) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
@@ -332,6 +343,9 @@ func (p *MethodTransferOwner) GetRefundData() ([]byte, bool) {
 }
 func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
 	return TransferOwnerGas, nil
+}
+func (p *MethodTransferOwner) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodTransferOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
@@ -396,6 +410,9 @@ func (p *MethodChangeTokenType) GetRefundData() ([]byte, bool) {
 func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
 	return ChangeTokenTypeGas, nil
 }
+func (p *MethodChangeTokenType) GetReceiveQuota() uint64 {
+	return 0
+}
 func (p *MethodChangeTokenType) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)
 	err := abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameChangeTokenType, block.Data)
@@ -447,6 +464,9 @@ func (p *MethodGetTokenInfo) GetRefundData() ([]byte, bool) {
 }
 func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
 	return GetTokenInfoGas, nil
+}
+func (p *MethodGetTokenInfo) GetReceiveQuota() uint64 {
+	return 0
 }
 func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)

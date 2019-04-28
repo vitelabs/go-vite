@@ -23,16 +23,6 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	for i, str := range sectionStrList {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
-	var calcQuotaFunc func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error)
-	if isTest {
-		calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-			return 1000000, 0, nil
-		}
-	} else {
-		calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal uint64, quotaAddition uint64, err error) {
-			return calcQuota(db, addr, pledgeAmount, difficulty)
-		}
-	}
 	if isTestParam {
 		nodeConfig = NodeConfig{
 			QuotaParams:      QuotaParamTestnet,

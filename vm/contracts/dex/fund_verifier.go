@@ -3,7 +3,7 @@ package dex
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
@@ -24,7 +24,7 @@ type FundVerifyItem struct {
 	Ok         bool              `json:"ok"`
 }
 
-func VerifyDexFundBalance(db vmctxt_interface.VmDatabase) *FundVerifyRes {
+func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	userAmountMap := make(map[types.TokenTypeId]*big.Int)
 	feeAmountMap := make(map[types.TokenTypeId]*big.Int)
 	verifyItems := make(map[types.TokenTypeId]*FundVerifyItem)
@@ -58,7 +58,7 @@ func VerifyDexFundBalance(db vmctxt_interface.VmDatabase) *FundVerifyRes {
 	}
 }
 
-func accumulateUserAccount(db vmctxt_interface.VmDatabase, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
+func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
 	var (
 		userAccountValue []byte
 		userFund         *UserFund
@@ -85,7 +85,7 @@ func accumulateUserAccount(db vmctxt_interface.VmDatabase, accumulateRes map[typ
 	return count, nil
 }
 
-func accumulateFeeAccount(db vmctxt_interface.VmDatabase, accumulateRes map[types.TokenTypeId]*big.Int) error {
+func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
 		feeSumValue, donateFeeSumValue []byte
 		feeSum                         *FeeSumByPeriod
