@@ -54,18 +54,31 @@ func TestGenPlan(t *testing.T) {
 func TestTime2Index(t *testing.T) {
 	now := time.Now()
 	println("now:\t" + now.Format(time.RFC3339))
-	info := core.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 2, Interval: 6, Gid: types.SNAPSHOT_GID})
+	info := core.NewGroupInfo(now, types.ConsensusGroupInfo{NodeCount: 25, Interval: 1, Gid: types.SNAPSHOT_GID, PerCount: 3})
 
 	index := info.Time2Index(time.Now().Add(6 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
-	index = info.Time2Index(time.Now().Add(13 * time.Second))
+	index = info.Time2Index(time.Now().Add(74 * time.Second))
 	println("" + strconv.FormatInt(int64(index), 10))
 
-	var i int
-	i = 1000000000000000
-	println(strconv.Itoa(i))
+	index = info.Time2Index(time.Now().Add(75 * time.Second))
+	println("" + strconv.FormatInt(int64(index), 10))
 
+	index = info.Time2Index(time.Now().Add(77 * time.Second))
+	println("" + strconv.FormatInt(int64(index), 10))
+
+	index = info.Time2Index(time.Now().Add(150 * time.Second))
+	println("" + strconv.FormatInt(int64(index), 10))
+
+	for i := uint64(90); i < 100; i++ {
+		stime, etime := info.Index2Time(i)
+		t.Log(fmt.Sprintf("startTime:%s, endTime:%s", stime, etime))
+	}
+
+	time2Index := info.Time2Index(now)
+	t.Log("genesis index", time2Index)
+	t.Log("genesis next index", info.Time2Index(now.Add(time.Nanosecond*1000)))
 }
 
 func TestUpdate(tt *testing.T) {
@@ -127,4 +140,14 @@ func TestMonotime(t *testing.T) {
 	}
 
 	// Prints: 1.062759ms
+}
+
+func TestArray(t *testing.T) {
+	data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
+
+	ints := data[0:3]
+	fmt.Println(ints)
+
+	ints = data[0:13]
+	fmt.Println(ints)
 }

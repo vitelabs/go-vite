@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/verifier"
 )
@@ -19,7 +19,6 @@ type verifyTask interface {
 type sverifier interface {
 	VerifyNetSb(block *ledger.SnapshotBlock) error
 	VerifyReferred(block *ledger.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
-	VerifyTimeout(nowHeight uint64, referHeight uint64) bool
 }
 
 type snapshotVerifier struct {
@@ -42,54 +41,47 @@ func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnap
 	result.msg = stat.ErrMsg()
 	return result
 }
-func (self *snapshotVerifier) verifyAccountTimeout(current *ledger.SnapshotBlock, refer *ledger.SnapshotBlock) bool {
-	return self.v.VerifyTimeout(current.Height, refer.Height)
-}
 
 type accountVerifier struct {
-	v   *verifier.AccountVerifier
+	v   verifier.Verifier
 	log log15.Logger
 }
 
 func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
-	if err := self.v.VerifyNetAb(b); err != nil {
-		return err
-	}
+	//if err := self.v.VerifyNetAb(b); err != nil {
+	//	return err
+	//}
 	return nil
 }
 
 /**
 if b is contract send block, result must be FAIL.
 */
-func (self *accountVerifier) verifyAccount(b *accountPoolBlock) *poolAccountVerifyStat {
+func (self *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.SnapshotBlock) *poolAccountVerifyStat {
 	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
-	verifyResult, stat := self.v.VerifyReferred(b.block)
-	result.result = verifyResult
-	result.stat = stat
 
-	switch verifyResult {
-	case verifier.SUCCESS:
-
-		blocks, err := self.v.VerifyforVM(b.block)
-		if err != nil {
-			result.result = verifier.FAIL
-			result.err = err
-			return result
-		}
-		var bs []*accountPoolBlock
-		for _, v := range blocks {
-			bs = append(bs, newAccountPoolBlock(v.AccountBlock, v.VmContext, b.v, b.source))
-		}
-		result.blocks = bs
-		return result
-	case verifier.PENDING:
-		// todo
-		return result
-	case verifier.FAIL:
+	task, blocks, err := self.v.VerifyPoolAccBlock(b.block, &latest.Hash)
+	if err != nil {
+		result.err = err
+		result.result = verifier.FAIL
 		return result
 	}
+	if task != nil {
+		result.result = verifier.PENDING
+		result.taskList = task
+		return result
+	}
+	//result.stat =
 
+	if blocks != nil {
+		result.block = newAccountPoolBlock(blocks.AccountBlock, blocks.VmDb, b.v, b.source)
+		result.result = verifier.SUCCESS
+		return result
+	}
+	result.result = verifier.FAIL
+	msg := fmt.Sprintf("error verify result. %s-%s-%d", b.block.AccountAddress, b.Hash(), b.Height())
+	result.err = errors.New(msg)
 	return result
 }
 func (self *accountVerifier) newSuccessTask() verifyTask {
@@ -100,22 +92,8 @@ func (self *accountVerifier) newFailTask() verifyTask {
 	return &failTask{t: time.Now()}
 }
 
-func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, sends []*accountPoolBlock) (result *poolAccountVerifyStat) {
-	result = self.verifyAccount(received)
-	if result.result == verifier.SUCCESS {
-		if len(result.blocks) != len(sends)+1 {
-			self.log.Error(fmt.Sprintf("account verify fail. received:%s.", received.Hash()))
-			result.result = verifier.FAIL
-			return
-		}
-		for i, b := range sends {
-			if b.Hash() != result.blocks[i+1].Hash() {
-				self.log.Error(fmt.Sprintf("account verify fail. received:%s, send:%s, %s.", received.Hash(), b.Hash(), result.blocks[i+1].Hash()))
-				result.result = verifier.FAIL
-				return
-			}
-		}
-	}
+func (self *accountVerifier) verifyDirectAccount(received *accountPoolBlock, latestSb *ledger.SnapshotBlock) (result *poolAccountVerifyStat) {
+	result = self.verifyAccount(received, latestSb)
 	return
 }
 
@@ -134,37 +112,22 @@ func (self *poolSnapshotVerifyStat) errMsg() string {
 }
 func (self *poolAccountVerifyStat) task() verifyTask {
 	var result []fetchRequest
-	taskA, taskB := self.stat.GetPendingTasks()
-	for _, v := range taskA {
-		result = append(result, fetchRequest{snapshot: false, chain: v.Addr, hash: *v.Hash, prevCnt: 1})
-	}
 
-	if taskB != nil {
-		result = append(result, fetchRequest{snapshot: true, hash: *taskB.Hash, prevCnt: 1})
+	for _, v := range self.taskList.AccountTask {
+		result = append(result, fetchRequest{snapshot: false, chain: v.Addr, hash: *v.Hash, prevCnt: 1})
 	}
 	return &accountTask{result: result, t: time.Now()}
 }
 
 type poolAccountVerifyStat struct {
-	blocks []*accountPoolBlock
-	result verifier.VerifyResult
-	stat   *verifier.AccountBlockVerifyStat
-	err    error
+	block    *accountPoolBlock
+	result   verifier.VerifyResult
+	taskList *verifier.AccBlockPendingTask
+	err      error
 }
 
 func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
 	return self.result
-}
-func (self *poolAccountVerifyStat) errMsg() string {
-
-	if self.err != nil {
-		return self.err.Error()
-	} else if self.stat.ErrMsg() == "" {
-		return "has no err msg."
-	} else {
-		return self.stat.ErrMsg()
-	}
-
 }
 
 var successT = &successTask{}
@@ -206,12 +169,12 @@ func (self *accountTask) done(c chainDb) bool {
 	}
 	for _, v := range self.result {
 		if v.snapshot {
-			block, _ := c.GetSnapshotBlockByHash(&v.hash)
+			block, _ := c.GetSnapshotHeaderByHash(v.hash)
 			if block == nil {
 				return false
 			}
 		} else {
-			block, _ := c.GetAccountBlockByHash(&v.hash)
+			block, _ := c.GetAccountBlockByHash(v.hash)
 			if block == nil {
 				return false
 			}

@@ -57,7 +57,7 @@ type testSubscriber struct {
 }
 
 func (*testSubscriber) SyncState() net.SyncState {
-	return net.Syncdone
+	return net.SyncDone
 }
 
 func (*testSubscriber) SubscribeAccountBlock(fn net.AccountblockCallback) (subId int) {
@@ -79,7 +79,7 @@ func (*testSubscriber) UnsubscribeSnapshotBlock(subId int) {
 func (*testSubscriber) SubscribeSyncStatus(fn net.SyncStateCallback) (subId int) {
 	go func() {
 		time.Sleep(2 * time.Second)
-		fn(net.Syncdone)
+		fn(net.SyncDone)
 	}()
 	return 0
 }
@@ -108,7 +108,7 @@ func TestSnapshot(t *testing.T) {
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs)
-	p1 := pool.NewPool(c)
+	p1, _ := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
 	p1.Init(&pool.MockSyncer{}, w, sv, av)
@@ -147,7 +147,7 @@ func TestProducer_Init(t *testing.T) {
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs)
-	p1 := pool.NewPool(c)
+	p1, _ := pool.NewPool(c)
 	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
 
 	c.Init()

@@ -1,13 +1,52 @@
 package net
 
 import (
-	"strconv"
+	"fmt"
 	"testing"
-
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
+
+func TestRecord_Fail(t *testing.T) {
+	var r = &record{
+		st:    reqPending,
+		fails: make([]peerId, 0, keepFails),
+	}
+
+	var id peerId
+	id = vnode.RandomNodeID()
+	r.fail(id)
+	if r.st != reqError {
+		t.Errorf("wrong st: %d", r.st)
+	}
+	if r.t != time.Now().Unix() {
+		t.Error("wrong time")
+	}
+	if len(r.fails) != 1 || r.fails[0] != id {
+		t.Error("wrong fail id")
+	}
+
+	r.reset()
+	for i := 0; i < keepFails; i++ {
+		id = vnode.RandomNodeID()
+		r.fail(id)
+		r.st = reqPending
+	}
+	if len(r.fails) != keepFails {
+		t.Errorf("wrong fails %d", len(r.fails))
+	}
+
+	id = vnode.RandomNodeID()
+	r.fail(id)
+	if len(r.fails) != 3 || r.fails[0] != id {
+		t.Errorf("wrong recent fail id")
+	}
+
+	fmt.Println(r.fails)
+}
 
 func TestFilter_Hold(t *testing.T) {
 	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
@@ -18,7 +57,7 @@ func TestFilter_Hold(t *testing.T) {
 	f := newFilter()
 
 	// first time, should not hold
-	if f.hold(hash) {
+	if _, hold := f.hold(hash); hold {
 		t.Fatal("should not hold first time")
 	}
 
@@ -29,8 +68,8 @@ func TestFilter_Hold(t *testing.T) {
 	}
 
 	// have`nt done, then hold 2*timeThreshold and maxMark*2 times
-	for i := 0; i < maxMark*2-1; i++ {
-		if !f.hold(hash) {
+	for i := 0; i < maxMark*2; i++ {
+		if _, hold := f.hold(hash); !hold {
 			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
 	}
@@ -42,7 +81,7 @@ func TestFilter_Hold(t *testing.T) {
 	// have wait exceed 2 * timeThreshold and maxMark times from add
 	time.Sleep(2 * timeThreshold * time.Second)
 
-	hold := f.hold(hash)
+	_, hold := f.hold(hash)
 	if hold {
 		t.Fatalf("should not hold, mark %d, elapse %d", r.mark, time.Now().Unix()-r.addAt)
 	}
@@ -56,103 +95,221 @@ func TestFilter_Done(t *testing.T) {
 
 	f := newFilter()
 
+	var r *record
+	var hold bool
 	// first time, should hold
-	if f.hold(hash) {
+	if r, hold = f.hold(hash); hold {
 		t.Fatal("should not hold first time")
 	}
 
-	f.done(hash)
+	f.done(r.id)
 
 	// task done, then hold maxMark times and timeThreshold
-	for i := 0; i < maxMark-1; i++ {
-		if !f.hold(hash) {
+	for i := 0; i < maxMark; i++ {
+		if _, hold = f.hold(hash); false == hold {
 			t.Fatal("should hold, because mark is enough, but time is too short")
 		}
 	}
 
 	// have done, then hold timeThreshold
 	time.Sleep(timeThreshold * time.Second)
-	if f.hold(hash) {
+	if _, hold = f.hold(hash); hold {
 		t.Fatal("should not hold")
 	}
 }
 
-func TestPolicy_AccountTargets(t *testing.T) {
-	peers := newPeerSet()
-	f := &fp{
-		peers: peers,
+func TestFilter_fail(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
 	}
 
-	if f.accountTargets(0) != nil {
+	f := newFilter()
+
+	var r *record
+	var hold bool
+	// first time, should hold
+	if r, hold = f.hold(hash); hold {
+		t.Fatal("should not hold first time")
+	}
+
+	f.failNoPeers(r.id)
+	if _, hold = f.hold(hash); hold {
+		t.Fatal("should not hold after fail")
+	}
+
+	for i := 0; i < keepFails; i++ {
+		r.st = reqPending
+		id := vnode.RandomNodeID()
+		r.fail(id)
+	}
+	if _, hold = f.hold(hash); false == hold {
+		t.Fatal("should hold, because fail too short time")
+	}
+	time.Sleep(fail3wait * time.Second)
+	if _, hold = f.hold(hash); true == hold {
+		t.Fatal("should not hold, because fail too long time")
+	}
+}
+
+func TestFilter_clean(t *testing.T) {
+	hash, e := types.HexToHash("8d9cef33f1c053f976844c489fc642855576ccd535cf2648412451d783147394")
+	if e != nil {
+		panic(e)
+	}
+
+	f := newFilter()
+
+	var r *record
+	var hold bool
+	// first time, should hold
+	if r, hold = f.hold(hash); hold {
+		t.Fatal("should not hold first time")
+	}
+	if f.idToHash[r.id] != hash {
+		t.Fail()
+	}
+	if len(f.idToHash) != 1 {
+		t.Fail()
+	}
+	if len(f.records) != 1 {
 		t.Fail()
 	}
 
-	i := uint64(1)
-	err := peers.Add(&peer{
-		id:     strconv.FormatUint(i, 10),
-		height: i,
-	})
-	if err != nil {
-		t.Fatal("add peer error")
-	}
-
-	l := f.accountTargets(0)
-	if len(l) != 1 {
-		t.Logf("should get 1 account targets, but get %d\n", len(l))
+	f.clean(time.Now().Add(5 * time.Minute).Unix())
+	if len(f.idToHash) != 0 {
 		t.Fail()
 	}
-
-	for i = uint64(2); i < 10; i++ {
-		err = peers.Add(&peer{
-			id:     strconv.FormatUint(i, 10),
-			height: i,
-		})
-		if err != nil {
-			t.Fatal("add peer error")
-		}
-	}
-
-	l = f.accountTargets(10)
-	if len(l) != 2 {
-		t.Logf("should get 2 account targets, but get %d\n", len(l))
+	if len(f.records) != 0 {
 		t.Fail()
 	}
 }
 
-func TestPolicy_SnapshotTarget(t *testing.T) {
-	peers := newPeerSet()
-	f := &fp{
-		peers: peers,
+func TestPolicy_AccountTargets(t *testing.T) {
+	var err error
+	var chooseTop = true
+	m := newPeerSet()
+	f := &fetchTarget{
+		peers: m,
+		chooseTop: func() bool {
+			return chooseTop
+		},
 	}
 
-	if f.snapshotTarget(0) != nil {
+	var r = &record{
+		st:    reqPending,
+		fails: make([]peerId, 0, keepFails),
+	}
+
+	var ret Peer
+
+	// no peers
+	if ret = f.account(0, r); ret != nil {
+		t.Error("peer should be nil")
+	}
+
+	// only one peer
+	ret = newMockPeer(vnode.RandomNodeID(), 1)
+	if err = m.add(ret); err != nil {
+		t.Errorf("failed to add peer: %v", err)
+	}
+	if ret = f.account(10, r); ret == nil {
+		t.Error("account target should not be nil")
+	}
+
+	// two peers
+	if err = m.add(newMockPeer(vnode.RandomNodeID(), 2)); err != nil {
+		t.Errorf("failed to add peer: %v", err)
+	}
+
+	if ret = f.account(1, r); ret == nil {
+		t.Error("failed to get account target")
+		return
+	}
+
+	// fail one
+	r.fail(ret.ID())
+	if ret = f.account(1, r); ret == nil {
+		t.Error("failed to get account target")
+	}
+	// another is too low
+	if ret = f.account(20, r); ret != nil {
+		t.Error("account should be nil, because height is too low")
+	}
+
+	// ten peers [1 ... 10]
+	for i := 3; i < 11; i++ {
+		if err = m.add(newMockPeer(vnode.RandomNodeID(), uint64(i))); err != nil {
+			t.Errorf("failed to add peer: %v", err)
+		}
+	}
+
+	// choose from top: 10 9 8
+	for i := 0; i < 100; i++ {
+		if ret = f.account(0, r); ret.height() < 8 {
+			t.Errorf("not top peers: %d", ret.height())
+		}
+	}
+
+	// 10 9 8 failed
+	ps := m.sortPeers()
+	for i := 0; i < keepFails; i++ {
+		r.st = reqPending
+		r.fail(ps[i].ID())
+	}
+
+	for i := 0; i < 100; i++ {
+		if ret = f.account(0, r); ret.height() > 7 {
+			t.Errorf("wrong top peers: %d", ret.height())
+		}
+	}
+}
+
+func TestPolicy_SnapshotTarget(t *testing.T) {
+	var err error
+	var ps peers
+
+	m := newPeerSet()
+	f := &fetchTarget{
+		peers: m,
+	}
+
+	var r = &record{
+		st:    reqPending,
+		fails: make([]peerId, 0, keepFails),
+	}
+
+	if f.snapshot(0, r) != nil {
 		t.Fail()
 	}
 
 	const total = 10
-	for i := uint64(1); i < total; i++ {
-		err := peers.Add(&peer{
-			id:     strconv.FormatUint(i, 10),
-			height: i,
-		})
-		if err != nil {
+	for i := 1; i < total; i++ {
+		if err = m.add(newMockPeer(vnode.RandomNodeID(), uint64(i))); err != nil {
 			t.Fatal("add peer error")
 		}
 	}
 
-	p := f.snapshotTarget(0)
-	if p.Height() != total-1 {
-		t.Log("should be best peer")
-		t.Fail()
+	var ret Peer
+	if ret = f.snapshot(20, r); ret != nil {
+		t.Errorf("should be nil, because peers are too low")
+		return
 	}
 
-	p = f.snapshotTarget(total)
-	if p != nil {
-		t.Fail()
+	ps = m.sortPeers()
+	if ret = f.snapshot(0, r); ret != ps[0] {
+		t.Errorf("should be the best peer")
 	}
 
-	p = f.snapshotTarget(total / 2)
-	if p.Height() < total/2 {
-		t.Fail()
+	for i := 0; i < keepFails; i++ {
+		ret = ps[i]
+		fmt.Println("fail", ret.ID(), ret.height())
+		r.fail(ret.ID())
+		r.st = reqPending
+	}
+	fmt.Println(r.fails)
+
+	if ret = f.snapshot(0, r); ret != ps[keepFails] {
+		t.Errorf("should be the %d peer", keepFails)
 	}
 }

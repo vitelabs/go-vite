@@ -1,9 +1,8 @@
 package generator
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
-	ErrGetSnapshotOfReferredBlockFailed = errors.New("get snapshotblock of blocks referred failed")
-	ErrGetFittestSnapshotBlockFailed    = errors.New("get fittest snapshotblock failed")
-	ErrGetVmContextValueFailed          = errors.New("vmcontext's value is nil")
+	ErrGetLatestAccountBlock  = errors.New("get latest account block failed")
+	ErrGetLatestSnapshotBlock = errors.New("get latest snapshot block failed")
 )

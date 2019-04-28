@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -96,7 +96,7 @@ func (err *jsonError) ErrorCode() int {
 	return err.Code
 }
 
-// NewCodec creates a new RPC server codec with support for JSON-RPC 2.0 based
+// NewCodec creates chain new RPC server codec with support for JSON-RPC 2.0 based
 // on explicitly given encoding and decoding methods.
 func NewCodec(rwc io.ReadWriteCloser, encode, decode func(v interface{}) error) ServerCodec {
 	return &jsonCodec{
@@ -107,7 +107,7 @@ func NewCodec(rwc io.ReadWriteCloser, encode, decode func(v interface{}) error) 
 	}
 }
 
-// NewJSONCodec creates a new RPC server codec with support for JSON-RPC 2.0.
+// NewJSONCodec creates chain new RPC server codec with support for JSON-RPC 2.0.
 func NewJSONCodec(rwc io.ReadWriteCloser) ServerCodec {
 	enc := json.NewEncoder(rwc)
 	dec := json.NewDecoder(rwc)
@@ -134,7 +134,7 @@ func isBatch(msg json.RawMessage) bool {
 }
 
 // ReadRequestHeaders will read new requests without parsing the arguments. It will
-// return a collection of requests, an indication if these requests are in batch
+// return chain collection of requests, an indication if these requests are in batch
 // form or an error when the incoming message could not be read/parsed.
 func (c *jsonCodec) ReadRequestHeaders() ([]rpcRequest, bool, Error) {
 	c.decMu.Lock()
@@ -142,7 +142,7 @@ func (c *jsonCodec) ReadRequestHeaders() ([]rpcRequest, bool, Error) {
 
 	var incomingMsg json.RawMessage
 	if err := c.decode(&incomingMsg); err != nil {
-		return nil, false, &invalidRequestError{err.Error()}
+		return nil, false, &invalidRequestError{err.Error(), nil}
 	}
 	if isBatch(incomingMsg) {
 		return parseBatchRequest(incomingMsg)
@@ -166,8 +166,8 @@ func checkReqId(reqId json.RawMessage) error {
 	return fmt.Errorf("invalid request id")
 }
 
-// parseRequest will parse a single request from the given RawMessage. It will return
-// the parsed request, an indication if the request was a batch or an error when
+// parseRequest will parse chain single request from the given RawMessage. It will return
+// the parsed request, an indication if the request was chain batch or an error when
 // the request could not be parsed.
 func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 	var in jsonRequest
@@ -187,14 +187,14 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 			var subscribeMethod [1]string
 			if err := json.Unmarshal(in.Payload, &subscribeMethod); err != nil {
 				log.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
-				return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+				return nil, false, &invalidRequestError{"Unable to parse subscription request", in.Id}
 			}
 
 			reqs[0].service, reqs[0].method = strings.TrimSuffix(in.Method, subscribeMethodSuffix), subscribeMethod[0]
 			reqs[0].params = in.Payload
 			return reqs, false, nil
 		}
-		return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+		return nil, false, &invalidRequestError{"Unable to parse subscription request", in.Id}
 	}
 
 	if strings.HasSuffix(in.Method, unsubscribeMethodSuffix) {
@@ -204,7 +204,7 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 
 	elems := strings.Split(in.Method, serviceMethodSeparator)
 	if len(elems) != 2 {
-		return nil, false, &methodNotFoundError{in.Method, ""}
+		return nil, false, &methodNotFoundError{in.Method, "", in.Id}
 	}
 
 	// regular RPC call
@@ -215,8 +215,8 @@ func parseRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 	return []rpcRequest{{service: elems[0], method: elems[1], id: &in.Id, params: in.Payload}}, false, nil
 }
 
-// parseBatchRequest will parse a batch request into a collection of requests from the given RawMessage, an indication
-// if the request was a batch or an error when the request could not be read.
+// parseBatchRequest will parse chain batch request into chain collection of requests from the given RawMessage, an indication
+// if the request was chain batch or an error when the request could not be read.
 func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) {
 	var in []jsonRequest
 	if err := json.Unmarshal(incomingMsg, &in); err != nil {
@@ -239,7 +239,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 				var subscribeMethod [1]string
 				if err := json.Unmarshal(r.Payload, &subscribeMethod); err != nil {
 					log.Debug(fmt.Sprintf("Unable to parse subscription method: %v\n", err))
-					return nil, false, &invalidRequestError{"Unable to parse subscription request"}
+					return nil, false, &invalidRequestError{"Unable to parse subscription request", id}
 				}
 
 				requests[i].service, requests[i].method = strings.TrimSuffix(r.Method, subscribeMethodSuffix), subscribeMethod[0]
@@ -247,7 +247,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 				continue
 			}
 
-			return nil, true, &invalidRequestError{"Unable to parse (un)subscribe request arguments"}
+			return nil, true, &invalidRequestError{"Unable to parse (un)subscribe request arguments", id}
 		}
 
 		if strings.HasSuffix(r.Method, unsubscribeMethodSuffix) {
@@ -263,7 +263,7 @@ func parseBatchRequest(incomingMsg json.RawMessage) ([]rpcRequest, bool, Error) 
 		if elem := strings.Split(r.Method, serviceMethodSeparator); len(elem) == 2 {
 			requests[i].service, requests[i].method = elem[0], elem[1]
 		} else {
-			requests[i].err = &methodNotFoundError{r.Method, ""}
+			requests[i].err = &methodNotFoundError{r.Method, "", id}
 		}
 	}
 
@@ -318,24 +318,24 @@ func parsePositionalArguments(rawArgs json.RawMessage, types []reflect.Type) ([]
 	return args, nil
 }
 
-// CreateResponse will create a JSON-RPC success response with the given id and reply as result.
+// CreateResponse will create chain JSON-RPC success response with the given id and reply as result.
 func (c *jsonCodec) CreateResponse(id interface{}, reply interface{}) interface{} {
 	return &jsonSuccessResponse{Version: jsonrpcVersion, Id: id, Result: reply}
 }
 
-// CreateErrorResponse will create a JSON-RPC error response with the given id and error.
+// CreateErrorResponse will create chain JSON-RPC error response with the given id and error.
 func (c *jsonCodec) CreateErrorResponse(id interface{}, err Error) interface{} {
 	return &jsonErrResponse{Version: jsonrpcVersion, Id: id, Error: jsonError{Code: err.ErrorCode(), Message: err.Error()}}
 }
 
-// CreateErrorResponseWithInfo will create a JSON-RPC error response with the given id and error.
+// CreateErrorResponseWithInfo will create chain JSON-RPC error response with the given id and error.
 // info is optional and contains additional information about the error. When an empty string is passed it is ignored.
 func (c *jsonCodec) CreateErrorResponseWithInfo(id interface{}, err Error, info interface{}) interface{} {
 	return &jsonErrResponse{Version: jsonrpcVersion, Id: id,
 		Error: jsonError{Code: err.ErrorCode(), Message: err.Error(), Data: info}}
 }
 
-// CreateNotification will create a JSON-RPC notification with the given subscription id and event as params.
+// CreateNotification will create chain JSON-RPC notification with the given subscription id and event as params.
 func (c *jsonCodec) CreateNotification(subid, namespace string, event interface{}) interface{} {
 	return &jsonNotification{Version: jsonrpcVersion, Method: namespace + notificationMethodSuffix,
 		Params: jsonSubscription{Subscription: subid, Result: event}}
@@ -357,7 +357,7 @@ func (c *jsonCodec) Close() {
 	})
 }
 
-// Closed returns a channel which will be closed when Close is called
+// Closed returns chain channel which will be closed when Close is called
 func (c *jsonCodec) Closed() <-chan interface{} {
 	return c.closed
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 )
 
@@ -41,21 +41,37 @@ func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount str
 	}
 }
 
+type AgentPledgeParam struct {
+	PledgeAddr     types.Address `json:"pledgeAddr"`
+	BeneficialAddr types.Address `json:"beneficialAddr"`
+	Bid            uint8         `json:"bid"`
+	Amount         string        `json:"amount"`
+}
+
+func (p *PledgeApi) GetAgentPledgeData(param AgentPledgeParam) ([]byte, error) {
+	return abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddr, param.BeneficialAddr, param.Bid)
+}
+
+func (p *PledgeApi) GetAgentCancelPledgeData(param AgentPledgeParam) ([]byte, error) {
+	if bAmount, err := stringToBigInt(&param.Amount); err == nil {
+		return abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.PledgeAddr, param.BeneficialAddr, bAmount, param.Bid)
+	} else {
+		return nil, err
+	}
+}
+
 type QuotaAndTxNum struct {
-	Quota string `json:"quota"`
-	TxNum string `json:"txNum"`
+	TotalQuota         string `json:"total"`
+	CurrentQuota       string `json:"current"`
+	CurrentTxNumPerSec string `json:"utps"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
-	hash, err := p.ledgerApi.GetFittestSnapshotHash(&addr, nil)
+	q, err := p.chain.GetPledgeQuota(addr)
 	if err != nil {
 		return nil, err
 	}
-	q, err := p.chain.GetPledgeQuota(*hash, addr)
-	if err != nil {
-		return nil, err
-	}
-	return &QuotaAndTxNum{uint64ToString(q), uint64ToString(q / util.TxGas)}, nil
+	return &QuotaAndTxNum{uint64ToString(q.Total()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas / util.QuotaRange)}, nil
 }
 
 type PledgeInfoList struct {
@@ -64,11 +80,13 @@ type PledgeInfoList struct {
 	List              []*PledgeInfo `json:"pledgeInfoList"`
 }
 type PledgeInfo struct {
-	Amount         string         `json:"amount"`
-	WithdrawHeight *string        `json:"withdrawHeight"`
-	BeneficialAddr *types.Address `json:"beneficialAddr"`
-	WithdrawTime   *int64         `json:"withdrawTime"`
-	PledgeAddr     *types.Address `json:"pledgeAddr"`
+	Amount         string        `json:"amount"`
+	WithdrawHeight string        `json:"withdrawHeight"`
+	BeneficialAddr types.Address `json:"beneficialAddr"`
+	WithdrawTime   int64         `json:"withdrawTime"`
+	Agent          bool          `json:"agent"`
+	AgentAddress   types.Address `json:"agentAddress"`
+	Bid            uint8         `json:"bid"`
 }
 type byWithdrawHeight []*abi.PledgeInfo
 
@@ -83,11 +101,18 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
 	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(p.chain, &snapshotBlock.Hash, nil, nil)
+	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
-	list, amount := abi.GetPledgeInfoList(vmContext, addr)
+	db, err := vm_db.NewVmDb(p.chain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	list, amount, err := abi.GetPledgeInfoList(db, addr)
+	if err != nil {
+		return nil, err
+	}
 	sort.Sort(byWithdrawHeight(list))
 	startHeight, endHeight := index*count, (index+1)*count
 	if startHeight >= len(list) {
@@ -101,23 +126,21 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 		withdrawHeight := uint64ToString(info.WithdrawHeight)
 		withdrawTime := getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)
 		targetList[i] = &PledgeInfo{
-			Amount:         *bigIntToString(info.Amount),
-			WithdrawHeight: &withdrawHeight,
-			BeneficialAddr: &info.BeneficialAddr,
-			WithdrawTime:   &withdrawTime}
+			*bigIntToString(info.Amount),
+			uint64ToString(info.WithdrawHeight),
+			info.BeneficialAddr,
+			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
+			info.Agent,
+			info.AgentAddress,
+			info.Bid}
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
 
-func (p *PledgeApi) GetPledgeInfoListByBeneficial(beneficial types.Address, snapshotHash *types.Hash) ([]*PledgeInfo, error) {
-	vmContext, err := vm_context.NewVmContext(p.chain, snapshotHash, nil, nil)
+func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error) {
+	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	list := abi.GetPledgeInfoListByBeneficial(vmContext, beneficial, snapshotHash)
-	pledgeInfoList := make([]*PledgeInfo, len(list))
-	for i, info := range list {
-		pledgeInfoList[i] = &PledgeInfo{Amount: *bigIntToString(info.Amount), PledgeAddr: info.PledgeAddr}
-	}
-	return pledgeInfoList, nil
+	return *bigIntToString(amount), nil
 }

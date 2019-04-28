@@ -9,41 +9,55 @@ import (
 )
 
 type stateCh interface {
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                                  // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                           // Get the candidate's vote
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) // Get balance for addressList
-	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+	//GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                    // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
+	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
+	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 }
 
-func CalVotes(info *GroupInfo, block ledger.HashHeight, rw stateCh) ([]*Vote, error) {
+func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vote, error) {
 	// query register info
-	registerList, _ := rw.GetRegisterList(block.Hash, info.Gid)
+	registerList, err := rw.GetRegisterList(hash, info.Gid)
+	if err != nil {
+		return nil, err
+	}
 	// query vote info
-	votes, _ := rw.GetVoteMap(block.Hash, info.Gid)
+	votes, err := rw.GetVoteList(hash, info.Gid)
+	if err != nil {
+		return nil, err
+	}
 
 	var registers []*Vote
 
 	// cal candidate
 	for _, v := range registerList {
-		registers = append(registers, GenVote(block.Hash, v, votes, info.CountingTokenId, rw))
+		register := &Vote{Balance: big.NewInt(0), Name: v.Name, Addr: v.NodeAddr}
+		err := voteCompleting(hash, register, votes, info.CountingTokenId, rw)
+		if err != nil {
+			return nil, err
+		}
+
+		registers = append(registers, register)
 	}
 	return registers, nil
 }
-func GenVote(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId, rw stateCh) *Vote {
+func voteCompleting(snapshotHash types.Hash, vote *Vote, infos []*types.VoteInfo, id types.TokenTypeId, rw stateCh) error {
 	var addrs []types.Address
 	for _, v := range infos {
-		if v.NodeName == registration.Name {
+		if v.NodeName == vote.Name {
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
-	result := &Vote{Balance: big.NewInt(0), Name: registration.Name, Addr: registration.NodeAddr}
 	if len(addrs) > 0 {
-		balanceMap, _ := rw.GetBalanceList(snapshotHash, id, addrs)
+		balanceMap, err := rw.GetConfirmedBalanceList(addrs, id, snapshotHash)
+		if err != nil {
+			return err
+		}
 		for _, v := range balanceMap {
-			result.Balance.Add(result.Balance, v)
+			vote.Balance.Add(vote.Balance, v)
 		}
 	}
-	return result
+	return nil
 }

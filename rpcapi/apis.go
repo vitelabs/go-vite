@@ -3,6 +3,7 @@ package rpcapi
 import (
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -152,6 +153,20 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewVmDebugApi(vite),
 			Public:    true,
 		}
+	case "subscribe":
+		return rpc.API{
+			Namespace: "subscribe",
+			Version:   "1.0",
+			Service:   filters.NewSubscribeApi(vite),
+			Public:    true,
+		}
+	case "sbpstats":
+		return rpc.API{
+			Namespace: "sbpstats",
+			Version:   "1.0",
+			Service:   api.NewStatsApi(vite),
+			Public:    true,
+		}
 	default:
 		return rpc.API{}
 	}
@@ -170,5 +185,5 @@ func GetPublicApis(vite *vite.Vite) []rpc.API {
 }
 
 func GetAllApis(vite *vite.Vite) []rpc.API {
-	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug", "dashboard", "vmdebug")
+	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug", "dashboard", "vmdebug", "subscribe")
 }

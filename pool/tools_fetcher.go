@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type commonSyncer interface {
@@ -24,7 +24,7 @@ func (self *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
 	self.fetcher.BroadcastAccountBlocks(blocks)
 }
 
-func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccountBlock, sendBlocks []*vm_context.VmAccountBlock) {
+func (self *accountSyncer) broadcastReceivedBlocks(received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) {
 	var blocks []*ledger.AccountBlock
 
 	blocks = append(blocks, received.AccountBlock)
@@ -36,13 +36,16 @@ func (self *accountSyncer) broadcastReceivedBlocks(received *vm_context.VmAccoun
 
 func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
+		if prevCnt > 100 {
+			prevCnt = 100
+		}
 		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
 	}
 }
-func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, prevCnt uint64, sHeight uint64) {
+func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, account types.Address, prevCnt uint64, sHeight uint64, sHash types.Hash) {
 	if hashHeight.Height > 0 {
-		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		self.log.Debug("fetch account block", "height", hashHeight.Height, "address", account, "hash", hashHeight.Hash, "prevCnt", prevCnt, "sHeight", sHeight, "sHash", sHash)
 		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
 	}
 }
@@ -61,6 +64,9 @@ func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
 
 func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
+		if prevCnt > 100 {
+			prevCnt = 100
+		}
 		self.log.Debug("fetch snapshot block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
 		self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
 	}

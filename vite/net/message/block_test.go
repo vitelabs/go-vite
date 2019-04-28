@@ -2,12 +2,14 @@ package message
 
 import (
 	crand "crypto/rand"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 // GetAccountBlocks
@@ -15,12 +17,12 @@ func mockGetAccountBlocks() GetAccountBlocks {
 	var ga GetAccountBlocks
 
 	ga.From.Height = mrand.Uint64()
-	crand.Read(ga.From.Hash[:])
+	_, _ = crand.Read(ga.From.Hash[:])
 
 	ga.Count = mrand.Uint64()
 	ga.Forward = mrand.Intn(10) > 5
 
-	crand.Read(ga.Address[:])
+	_, _ = crand.Read(ga.Address[:])
 
 	return ga
 }
@@ -128,7 +130,6 @@ func mockAccountBlocks() AccountBlocks {
 
 	for i := 0; i < n; i++ {
 		ga.Blocks[i] = &ledger.AccountBlock{
-			Meta:           &ledger.AccountBlockMeta{},
 			BlockType:      0,
 			Hash:           types.Hash{},
 			Height:         0,
@@ -141,10 +142,7 @@ func mockAccountBlocks() AccountBlocks {
 			TokenId:        types.TokenTypeId{},
 			Quota:          0,
 			Fee:            new(big.Int),
-			SnapshotHash:   types.Hash{},
 			Data:           nil,
-			Timestamp:      &time.Time{},
-			StateHash:      types.Hash{},
 			LogHash:        nil,
 			Difficulty:     nil,
 			Nonce:          nil,
@@ -182,16 +180,147 @@ func TestAccountBlocks_Deserialize(t *testing.T) {
 	}
 }
 
-func TestSubLedger_Serialize(t *testing.T) {
-	s := new(SubLedger)
-	buf, err := s.Serialize()
-	if err != nil {
-		t.Error(err)
+func TestNewSnapshotBlock_Serialize(t *testing.T) {
+	var nb = &NewSnapshotBlock{}
+
+	now := time.Now()
+	nb.Block = &ledger.SnapshotBlock{
+		Hash:            types.Hash{},
+		PrevHash:        types.Hash{},
+		Height:          0,
+		PublicKey:       []byte("hello"),
+		Signature:       []byte("hello"),
+		Timestamp:       &now,
+		Seed:            0,
+		SeedHash:        &types.Hash{},
+		SnapshotContent: nil,
 	}
 
-	s2 := new(SubLedger)
-	err = s2.Deserialize(buf)
+	data, err := nb.Serialize()
 	if err != nil {
-		t.Error(err)
+		t.Error("should not error")
 	}
+
+	var nb2 = &NewSnapshotBlock{}
+	err = nb2.Deserialize(data)
+	if err != nil {
+		t.Errorf("deserialize error: %v", err)
+	}
+
+	if nb.Block.ComputeHash() != nb2.Block.ComputeHash() {
+		t.Error("different hash")
+	}
+}
+
+func TestNewAccountBlock_Serialize(t *testing.T) {
+	var nb = &NewAccountBlock{}
+
+	nb.Block = &ledger.AccountBlock{
+		BlockType:      0,
+		Hash:           types.Hash{1, 1, 1},
+		Height:         0,
+		PrevHash:       types.Hash{},
+		AccountAddress: types.Address{},
+		PublicKey:      nil,
+		ToAddress:      types.Address{},
+		FromBlockHash:  types.Hash{},
+		Amount:         new(big.Int),
+		TokenId:        types.TokenTypeId{},
+		Quota:          0,
+		Fee:            new(big.Int),
+		Data:           nil,
+		LogHash:        nil,
+		Difficulty:     nil,
+		Nonce:          nil,
+		Signature:      nil,
+	}
+
+	data, err := nb.Serialize()
+	if err != nil {
+		t.Error("should not error")
+	}
+
+	var nb2 = &NewAccountBlock{}
+	err = nb2.Deserialize(data)
+	if err != nil {
+		t.Errorf("deserialize error: %v", err)
+	}
+
+	if nb.Block.ComputeHash() != nb2.Block.ComputeHash() {
+		t.Error("different hash")
+	}
+
+	if nb.Block.Hash != nb2.Block.Hash {
+		t.Error("different hash")
+	}
+}
+
+func ExampleNewAccountBlock() {
+	var nb = &NewSnapshotBlock{}
+
+	now := time.Now()
+	nb.Block = &ledger.SnapshotBlock{
+		Hash:            types.Hash{},
+		PrevHash:        types.Hash{},
+		Height:          0,
+		PublicKey:       []byte("hello"),
+		Signature:       []byte("hello"),
+		Timestamp:       &now,
+		Seed:            0,
+		SeedHash:        &types.Hash{},
+		SnapshotContent: nil,
+	}
+
+	data, err := nb.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	var ab = &NewAccountBlock{}
+	err = ab.Deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(false)
+
+	// Output:
+	// false
+}
+
+func ExampleNewSnapBlock() {
+	ab := &ledger.AccountBlock{
+		BlockType:      0,
+		Hash:           types.Hash{1, 1, 1},
+		Height:         0,
+		PrevHash:       types.Hash{},
+		AccountAddress: types.Address{},
+		PublicKey:      nil,
+		ToAddress:      types.Address{},
+		FromBlockHash:  types.Hash{},
+		Amount:         new(big.Int),
+		TokenId:        types.TokenTypeId{},
+		Quota:          0,
+		Fee:            new(big.Int),
+		Data:           nil,
+		LogHash:        nil,
+		Difficulty:     nil,
+		Nonce:          nil,
+		Signature:      nil,
+	}
+
+	data, err := ab.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	var sb = new(ledger.SnapshotBlock)
+	err = sb.Deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(false)
+	// Output:
+	// false
 }

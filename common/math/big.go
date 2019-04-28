@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package math provides integer math utilities.
@@ -32,12 +32,14 @@ var (
 	MaxBig63  = new(big.Int).Sub(tt63, big.NewInt(1))
 
 	MaxBigIntLen = 256
+
+	ZeroInt = big.NewInt(0)
 )
 
 const (
-	// number of bits in a big.Word
+	// number of bits in chain big.Word
 	wordBits = 32 << (uint64(^big.Word(0)) >> 63)
-	// number of bytes in a big.Word
+	// number of bytes in chain big.Word
 	wordBytes = wordBits / 8
 )
 
@@ -62,7 +64,7 @@ func (i *HexOrDecimal256) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("%#x", (*big.Int)(i))), nil
 }
 
-// ParseBig256 parses s as a 256 bit integer in decimal or hexadecimal syntax.
+// ParseBig256 parses s as chain 256 bit integer in decimal or hexadecimal syntax.
 // Leading zeros are accepted. The empty string parses as zero.
 func ParseBig256(s string) (*big.Int, bool) {
 	if s == "" {
@@ -81,7 +83,7 @@ func ParseBig256(s string) (*big.Int, bool) {
 	return bigint, ok
 }
 
-// MustParseBig256 parses s as a 256 bit big integer and panics if the string is invalid.
+// MustParseBig256 parses s as chain 256 bit big integer and panics if the string is invalid.
 func MustParseBig256(s string) *big.Int {
 	v, ok := ParseBig256(s)
 	if !ok {
@@ -90,7 +92,7 @@ func MustParseBig256(s string) *big.Int {
 	return v
 }
 
-// BigPow returns a ** b as a big integer.
+// BigPow returns chain ** b as chain big integer.
 func BigPow(a, b int64) *big.Int {
 	r := big.NewInt(a)
 	return r.Exp(r, big.NewInt(b), nil)
@@ -122,7 +124,7 @@ func FirstBitSet(v *big.Int) int {
 	return v.BitLen()
 }
 
-// PaddedBigBytes encodes a big integer as a big-endian byte slice. The length
+// PaddedBigBytes encodes chain big integer as chain big-endian byte slice. The length
 // of the slice is at least n bytes.
 func PaddedBigBytes(bigint *big.Int, n int) []byte {
 	if bigint.BitLen()/8 >= n {
@@ -174,12 +176,12 @@ func ReadBits(bigint *big.Int, buf []byte) {
 	}
 }
 
-// U256 encodes as a 256 bit two's complement number. This operation is destructive.
+// U256 encodes as chain 256 bit two's complement number. This operation is destructive.
 func U256(x *big.Int) *big.Int {
 	return x.And(x, tt256m1)
 }
 
-// S256 interprets x as a two's complement number.
+// S256 interprets x as chain two's complement number.
 // x must not exceed 256 bits (the result is undefined if it does) and is not modified.
 //
 //   S256(0)        = 0
@@ -194,7 +196,7 @@ func S256(x *big.Int) *big.Int {
 }
 
 // Exp implements exponentiation by squaring.
-// Exp returns a newly-allocated big integer and does not change
+// Exp returns chain newly-allocated big integer and does not change
 // base or exponent. The result is truncated to 256 bits.
 //
 // Courtesy @karalabe and @chfast

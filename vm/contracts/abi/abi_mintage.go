@@ -2,11 +2,11 @@ package abi
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strings"
 	"time"
@@ -15,15 +15,16 @@ import (
 const (
 	jsonMintage = `
 	[
-		{"type":"function","name":"Mintage","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"}]},
-		{"type":"function","name":"CancelPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenId","type":"tokenId"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
+		{"type":"function","name":"CancelMintPledge","inputs":[{"name":"tokenId","type":"tokenId"}]},
+		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
 		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
 		{"type":"function","name":"Burn","inputs":[]},
 		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"ChangeTokenType","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"variable","name":"mintage","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]},
-		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"pledgeAddr","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
+		{"type":"function","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"}]},
+		{"type":"callback","name":"GetTokenInfo","inputs":[{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"}]},
+		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"pledgeAddr","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"},{"name":"index","type":"uint16"}]},
+		{"type":"variable","name":"tokenNameIndex","inputs":[{"name":"nextIndex","type":"uint16"}]},
 		{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
 		{"type":"event","name":"issue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
 		{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]},
@@ -31,20 +32,20 @@ const (
 		{"type":"event","name":"changeTokenType","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}
 	]`
 
-	MethodNameMintage             = "Mintage"
-	MethodNameMintageCancelPledge = "CancelPledge"
-	MethodNameMint                = "Mint"
-	MethodNameIssue               = "Issue"
-	MethodNameBurn                = "Burn"
-	MethodNameTransferOwner       = "TransferOwner"
-	MethodNameChangeTokenType     = "ChangeTokenType"
-	VariableNameMintage           = "mintage"
-	VariableNameTokenInfo         = "tokenInfo"
-	EventNameMint                 = "mint"
-	EventNameIssue                = "issue"
-	EventNameBurn                 = "burn"
-	EventNameTransferOwner        = "transferOwner"
-	EventNameChangeTokenType      = "changeTokenType"
+	MethodNameCancelMintPledge = "CancelMintPledge"
+	MethodNameMint             = "Mint"
+	MethodNameIssue            = "Issue"
+	MethodNameBurn             = "Burn"
+	MethodNameTransferOwner    = "TransferOwner"
+	MethodNameChangeTokenType  = "ChangeTokenType"
+	MethodNameGetTokenInfo     = "GetTokenInfo"
+	VariableNameTokenInfo      = "tokenInfo"
+	VariableNameTokenNameIndex = "tokenNameIndex"
+	EventNameMint              = "mint"
+	EventNameIssue             = "issue"
+	EventNameBurn              = "burn"
+	EventNameTransferOwner     = "transferOwner"
+	EventNameChangeTokenType   = "changeTokenType"
 )
 
 var (
@@ -52,7 +53,6 @@ var (
 )
 
 type ParamMintage struct {
-	TokenId       types.TokenTypeId
 	TokenName     string
 	TokenSymbol   string
 	TotalSupply   *big.Int
@@ -73,16 +73,18 @@ type ParamTransferOwner struct {
 	NewOwner types.Address
 }
 
-// TODO no left pad
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
-	return helper.LeftPadBytes(tokenId.Bytes(), types.HashSize)
+	return tokenId.Bytes()
+}
+func GetNextIndexKey(tokenSymbol string) []byte {
+	return types.DataHash([]byte(tokenSymbol)).Bytes()
 }
 func GetTokenIdFromMintageKey(key []byte) types.TokenTypeId {
-	tokenId, _ := types.BytesToTokenTypeId(key[types.HashSize-types.TokenTypeIdSize:])
+	tokenId, _ := types.BytesToTokenTypeId(key)
 	return tokenId
 }
 func IsMintageKey(key []byte) bool {
-	return len(key) == types.HashSize
+	return len(key) == types.TokenTypeIdSize
 }
 func GetOwnerTokenIdListKey(owner types.Address) []byte {
 	return owner.Bytes()
@@ -102,70 +104,82 @@ func DeleteTokenId(oldIdList []byte, tokenId types.TokenTypeId) []byte {
 	return oldIdList
 }
 
-func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash, snapshotHash types.Hash) types.TokenTypeId {
+func NewTokenId(accountAddress types.Address, accountBlockHeight uint64, prevBlockHash types.Hash) types.TokenTypeId {
 	return types.CreateTokenTypeId(
 		accountAddress.Bytes(),
-		new(big.Int).SetUint64(accountBlockHeight).Bytes(),
-		prevBlockHash.Bytes(),
-		snapshotHash.Bytes())
+		helper.LeftPadBytes(new(big.Int).SetUint64(accountBlockHeight).Bytes(), 8),
+		prevBlockHash.Bytes())
 }
 
-func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) *types.TokenInfo {
-	data := db.GetStorageBySnapshotHash(&types.AddressMintage, GetMintageKey(tokenId), nil)
+func GetTokenById(db StorageDatabase, tokenId types.TokenTypeId) (*types.TokenInfo, error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
+	}
+	data, err := db.GetValue(GetMintageKey(tokenId))
+	if err != nil {
+		return nil, err
+	}
 	if len(data) > 0 {
 		tokenInfo, _ := ParseTokenInfo(data)
-		return tokenInfo
+		return tokenInfo, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func GetTokenMap(db StorageDatabase) map[types.TokenTypeId]*types.TokenInfo {
-	defer monitor.LogTime("vm", "GetTokenMap", time.Now())
-	iterator := db.NewStorageIteratorBySnapshotHash(&types.AddressMintage, nil, nil)
-	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
-	if iterator == nil {
-		return tokenInfoMap
+func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
 	}
+	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMap"}, time.Now())
+	iterator, err := db.NewStorageIterator(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer iterator.Release()
+	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
 	for {
-		key, value, ok := iterator.Next()
-		if !ok {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, err
+			}
 			break
 		}
-		if !IsMintageKey(key) {
+		if !filterKeyValue(iterator.Key(), iterator.Value(), IsMintageKey) {
 			continue
 		}
-		tokenId := GetTokenIdFromMintageKey(key)
-		if tokenInfo, err := ParseTokenInfo(value); err == nil {
+		tokenId := GetTokenIdFromMintageKey(iterator.Key())
+		if tokenInfo, err := ParseTokenInfo(iterator.Value()); err == nil {
 			tokenInfoMap[tokenId] = tokenInfo
 		}
 	}
-	return tokenInfoMap
+	return tokenInfoMap, nil
 }
 
-func GetTokenMapByOwner(db StorageDatabase, owner types.Address) map[types.TokenTypeId]*types.TokenInfo {
-	defer monitor.LogTime("vm", "GetTokenMapByOwner", time.Now())
-	tokenIdList := db.GetStorageBySnapshotHash(&types.AddressMintage, GetOwnerTokenIdListKey(owner), nil)
-	tokenInfoMap := make(map[types.TokenTypeId]*types.TokenInfo)
+func GetTokenMapByOwner(db StorageDatabase, owner types.Address) (tokenInfoMap map[types.TokenTypeId]*types.TokenInfo, err error) {
+	if *db.Address() != types.AddressMintage {
+		return nil, util.ErrAddressNotMatch
+	}
+	defer monitor.LogTimerConsuming([]string{"vm", "getTokenMapByOwner"}, time.Now())
+	tokenIdList, err := db.GetValue(GetOwnerTokenIdListKey(owner))
+	if err != nil {
+		return nil, err
+	}
+	tokenInfoMap = make(map[types.TokenTypeId]*types.TokenInfo)
 	for i := 0; i < len(tokenIdList)/types.TokenTypeIdSize; i++ {
 		tokenId, _ := types.BytesToTokenTypeId(tokenIdList[i*types.TokenTypeIdSize : (i+1)*types.TokenTypeIdSize])
-		tokenInfoMap[tokenId] = GetTokenById(db, tokenId)
+		tokenInfoMap[tokenId], err = GetTokenById(db, tokenId)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return tokenInfoMap
+	return tokenInfoMap, nil
 }
 
 func ParseTokenInfo(data []byte) (*types.TokenInfo, error) {
 	if len(data) == 0 {
-		return nil, errors.New("token info data is nil")
+		return nil, util.ErrDataNotExist
 	}
 	tokenInfo := new(types.TokenInfo)
-	if data[31] == 224 {
-		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameMintage, data)
-		if err == nil {
-			tokenInfo.PledgeAddr = tokenInfo.Owner
-		}
-		return tokenInfo, err
-	} else {
-		err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
-		return tokenInfo, err
-	}
+	err := ABIMintage.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
+	return tokenInfo, err
 }

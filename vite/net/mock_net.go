@@ -1,9 +1,9 @@
 package net
 
 import (
+	net2 "net"
 	"sync"
 
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite/net/circle"
 )
@@ -17,55 +17,86 @@ type mockNet struct {
 	BlockSubscriber
 }
 
-func (n *mockNet) AddPlugin(plugin p2p.Plugin) {
+func (n *mockNet) Stop() error {
+	return nil
+}
+
+func (n *mockNet) ProtoData() []byte {
+	return nil
+}
+
+func (n *mockNet) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
+	return
+}
+
+func (n *mockNet) Start(svr p2p.P2P) error {
+	return nil
+}
+
+func (n *mockNet) Name() string {
+	return "mock_net"
+}
+
+func (n *mockNet) ID() p2p.ProtocolID {
+	return ID
+}
+
+func (n *mockNet) Auth(input []byte) (output []byte) {
+	return nil
+}
+
+func (n *mockNet) Handshake(their []byte) error {
+	return nil
+}
+
+func (n *mockNet) Handle(msg p2p.Msg) error {
+	return nil
+}
+
+func (n *mockNet) State() []byte {
+	return nil
+}
+
+func (n *mockNet) SetState(state []byte, peer p2p.Peer) {
+	return
+}
+
+func (n *mockNet) OnPeerAdded(peer p2p.Peer) error {
+	return nil
+}
+
+func (n *mockNet) OnPeerRemoved(peer p2p.Peer) error {
+	return nil
 }
 
 func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{}
 }
 
-func (n *mockNet) Protocols() []*p2p.Protocol {
-	return nil
-}
-
-func (n *mockNet) Start(svr p2p.Server) error {
-	return nil
-}
-
-func mock(cfg *Config) Net {
+func mock(cfg Config) Net {
 	peers := newPeerSet()
-	pool := &gid{}
 
 	feed := newBlockFeeder()
+
+	receiver := &safeBlockNotifier{
+		blockFeeder: feed,
+		Verifier:    cfg.Verifier,
+	}
 
 	syncer := &syncer{
 		from:      0,
 		to:        0,
-		current:   0,
-		aCount:    0,
-		sCount:    0,
-		state:     Syncdone,
 		peers:     peers,
-		pending:   0,
-		responsed: 0,
 		mu:        sync.Mutex{},
-		fileMap:   make(map[filename]*fileRecord),
 		chain:     cfg.Chain,
 		eventChan: make(chan peerEvent),
-		verifier:  cfg.Verifier,
-		notifier:  feed,
-		fc:        nil,
-		pool:      nil,
-		exec:      nil,
 		curSubId:  0,
 		subs:      make(map[int]SyncStateCallback),
 		running:   1,
 		term:      make(chan struct{}),
-		log:       log15.New("module", "net/syncer"),
+		log:       netLog.New("module", "syncer"),
 	}
-	syncer.exec = newExecutor(syncer)
-	syncer.fc = newFileClient(cfg.Chain, syncer, peers)
-	syncer.pool = newChunkPool(peers, new(gid), syncer)
+	syncer.state = syncStateDone{syncer}
 
 	return &mockNet{
 		Config: &Config{
@@ -74,19 +105,25 @@ func mock(cfg *Config) Net {
 		chain:  cfg.Chain,
 		syncer: syncer,
 		fetcher: &fetcher{
-			policy: &fp{peers},
-			pool:   pool,
+			filter:   newFilter(),
+			st:       0,
+			receiver: receiver,
+			policy: &fetchTarget{peers, func() bool {
+				return true
+			}},
+			log:  netLog.New("module", "fetcher"),
+			term: nil,
 		},
 		broadcaster: &broadcaster{
-			peers:    peers,
-			st:       Syncdone,
-			verifier: cfg.Verifier,
-			feed:     feed,
-			filter:   nil,
-			store:    nil,
-			mu:       sync.Mutex{},
-			statis:   circle.NewList(records_24),
-			log:      log15.New("module", "mocknet/broadcaster"),
+			peers:     peers,
+			st:        SyncDone,
+			verifier:  cfg.Verifier,
+			feed:      feed,
+			filter:    nil,
+			store:     nil,
+			mu:        sync.Mutex{},
+			statistic: circle.NewList(records24h),
+			log:       netLog.New("module", "broadcaster"),
 		},
 		BlockSubscriber: feed,
 	}

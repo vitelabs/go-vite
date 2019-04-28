@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"fmt"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
@@ -33,7 +33,8 @@ func (st *stack) len() int {
 
 func (st *stack) require(n int) error {
 	if st.len() < n {
-		return fmt.Errorf("stack underflow (%d <=> %d)", len(st.data), n)
+		nodeConfig.log.Error("stack underflow", "data len", len(st.data), "expected", n)
+		return util.ErrStackUnderflow
 	}
 	return nil
 }

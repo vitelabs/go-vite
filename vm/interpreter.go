@@ -2,8 +2,6 @@ package vm
 
 import (
 	"encoding/hex"
-	"fmt"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sync/atomic"
@@ -16,23 +14,13 @@ type Interpreter struct {
 var (
 	simpleInterpreter         = &Interpreter{simpleInstructionSet}
 	offchainSimpleInterpreter = &Interpreter{offchainSimpleInstructionSet}
-	mintInterpreter           = &Interpreter{mintInstructionSet}
-	offchainMintInterpreter   = &Interpreter{offchainMintInstructionSet}
 )
 
 func NewInterpreter(blockHeight uint64, offChain bool) *Interpreter {
-	if fork.IsMintFork(blockHeight) {
-		if offChain {
-			return offchainMintInterpreter
-		} else {
-			return mintInterpreter
-		}
+	if offChain {
+		return offchainSimpleInterpreter
 	} else {
-		if offChain {
-			return offchainSimpleInterpreter
-		} else {
-			return simpleInterpreter
-		}
+		return simpleInterpreter
 	}
 }
 
@@ -44,6 +32,7 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		st   = newStack()
 		pc   = uint64(0)
 		cost uint64
+		flag bool
 	)
 
 	for atomic.LoadInt32(&vm.abort) == 0 {
@@ -52,7 +41,8 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 		operation := i.instructionSet[op]
 
 		if !operation.valid {
-			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
+			nodeConfig.log.Error("invalid opcode", "op", int(op))
+			return nil, util.ErrInvalidOpCode
 		}
 
 		if err := operation.validateStack(st); err != nil {
@@ -70,11 +60,11 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 			}
 		}
 
-		cost, err = operation.gasCost(vm, c, st, mem, memorySize)
+		cost, flag, err = operation.gasCost(vm, c, st, mem, memorySize)
 		if err != nil {
 			return nil, err
 		}
-		c.quotaLeft, err = util.UseQuota(c.quotaLeft, cost)
+		c.quotaLeft, err = util.UseQuotaWithFlag(c.quotaLeft, cost, flag)
 		if err != nil {
 			return nil, err
 		}
@@ -90,6 +80,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 			if currentPc < uint64(len(c.code)) {
 				currentCode = hex.EncodeToString(c.code[currentPc:])
 			}
+			storageMap, err := c.db.DebugGetStorage()
+			if err != nil {
+				nodeConfig.interpreterLog.Error("vm step, get storage failed")
+			}
 			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.BlockType,
 				"address", c.block.AccountAddress.String(),
@@ -98,10 +92,10 @@ func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
 				"\ncurrent code", currentCode,
 				"\nop", opCodeToString[op],
 				"pc", currentPc,
-				"quotaLeft", c.quotaLeft, "quotaRefund", c.quotaRefund,
+				"quotaLeft", c.quotaLeft,
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
-				"\nstorage", util.PrintMap(c.db.DebugGetStorage()))
+				"\nstorage", util.PrintMap(storageMap))
 		}
 
 		if operation.returns {

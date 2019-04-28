@@ -12,9 +12,9 @@ var (
 	ledgerRecoverCommand = cli.Command{
 		Action:    utils.MigrateFlags(recoverLedgerAction),
 		Name:      "recover",
-		Usage:     "Recover ledger",
+		Usage:     "recover --del=500000",
 		ArgsUsage: "--del=500000",
-		Flags:     ledgerFlags,
+		Flags:     append(ledgerFlags, configFlags...),
 		Category:  "RECOVER COMMANDS",
 		Description: `
 Recover ledger.
@@ -29,7 +29,11 @@ func recoverLedgerAction(ctx *cli.Context) error {
 		log.Error(fmt.Sprintf("new Node error, %+v", err))
 		return err
 	}
-	nodeManager.Start()
+	if err := nodeManager.Start(); err != nil {
+		log.Error(err.Error())
+		fmt.Println(err.Error())
+		return err
+	}
 	os.Exit(0)
 	return nil
 }

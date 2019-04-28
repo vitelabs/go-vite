@@ -6,30 +6,28 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/vite/net"
+
 	"github.com/vitelabs/go-vite/common"
 )
 
 var DefaultNodeConfig = Config{
-	Identity:             "nodeServer",
-	IPCPath:              "gvite.ipc",
-	DataDir:              DefaultDataDir(),
-	KeyStoreDir:          DefaultDataDir(),
-	HttpPort:             common.DefaultHTTPPort,
-	WSPort:               common.DefaultWSPort,
-	PrivateKey:           "",
-	MaxPeers:             0,
-	MaxPassivePeersRatio: 0,
-	MaxPendingPeers:      0,
-	BootNodes:            nil,
-	Port:                 8483,
-	NetID:                0,
-	Discovery:            true,
-	LogLevel:             "info",
-	WSOrigins:            []string{"*"},
-	WSExposeAll:          true,
-	HttpExposeAll:        true,
-	TopoEnabled:          false,
-	FilePort:             8484,
+	Identity:        "nodeServer",
+	IPCPath:         "gvite.ipc",
+	DataDir:         DefaultDataDir(),
+	KeyStoreDir:     DefaultDataDir(),
+	HttpPort:        common.DefaultHTTPPort,
+	WSPort:          common.DefaultWSPort,
+	Discover:        true,
+	LogLevel:        "info",
+	WSOrigins:       []string{"*"},
+	WSExposeAll:     true,
+	HttpExposeAll:   true,
+	ListenInterface: discovery.DefaultListenInterface,
+	Port:            discovery.DefaultPort,
+	FilePort:        net.DefaultFilePort,
+	ForwardStrategy: net.DefaultForwardStrategy,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.
@@ -45,7 +43,7 @@ func DefaultDataDir() string {
 			return filepath.Join(home, ".gvite")
 		}
 	}
-	// As we cannot guess a stable location, return empty and handle later
+	// As we cannot guess chain stable location, return empty and handle later
 	return ""
 }
 

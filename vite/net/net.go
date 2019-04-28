@@ -1,348 +1,482 @@
 package net
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	net2 "net"
-	"sync"
+	"strconv"
+	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/p2p/netool"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
+	"github.com/vitelabs/go-vite/p2p/vnode"
+	"github.com/vitelabs/go-vite/vite/net/protos"
 )
 
-var netLog = log15.New("module", "vite/net")
+var netLog = log15.New("module", "net")
+
+var errNetIsRunning = errors.New("network is already running")
+var errNetIsNotRunning = errors.New("network is not running")
+var errInvalidSignature = errors.New("invalid signature")
+var errDiffGenesisBlock = errors.New("different genesis block")
+var errErrorHeadToHash = errors.New("error head to hash")
 
 type Config struct {
-	Single      bool // for test
-	FileAddress string
-	Chain       Chain
-	Verifier    Verifier
+	Single            bool
+	FileListenAddress string
+	FilePublicAddress string
+	FilePort          int
+	MinePrivateKey    ed25519.PrivateKey
+	P2PPrivateKey     ed25519.PrivateKey
+	ForwardStrategy   string // default `cross`
+	Chain
+	Verifier
+	Producer
 }
 
-const DefaultPort uint16 = 8484
+const DefaultForwardStrategy = "cross"
+const DefaultFilePort = 8484
+const ID = 1
+const maxNeighbors = 100
 
 type net struct {
-	*Config
-	fileAddress *net2.TCPAddr
-	peers       *peerSet
-	*syncer     // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
-	*fetcher    // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
+	Config
+	nodeID   vnode.NodeID
+	peers    *peerSet
+	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
+	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
+	reader     syncCacheReader
+	downloader syncDownloader
 	BlockSubscriber
-	query     *queryHandler // handle query message (eg. getAccountBlocks, getSnapshotblocks, getChunk, getSubLedger)
-	term      chan struct{}
-	log       log15.Logger
-	protocols []*p2p.Protocol // mount to p2p.server
-	wg        sync.WaitGroup
-	fs        *fileServer
-	handlers  map[ViteCmd]MsgHandler
-	plugins   []p2p.Plugin
+	server   *syncServer
+	handlers *msgHandlers
+	query    *queryHandler
+	hb       *heartBeater
+	running  int32
+	log      log15.Logger
 }
 
-func New(cfg *Config) Net {
+func (n *net) parseFilePublicAddress() (fileAddress []byte) {
+	if n.FilePublicAddress != "" {
+		var e vnode.EndPoint
+		var err error
+		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
+		if err != nil {
+			n.log.Error(fmt.Sprintf("failed to parse FilePublicAddress: %v", err))
+			return nil
+		}
+
+		fileAddress, err = e.Serialize()
+		if err != nil {
+			n.log.Error(fmt.Sprintf("failed to serialize FilePublicAddress: %v", err))
+			return nil
+		}
+	} else if n.FilePort != 0 {
+		fileAddress = make([]byte, 2)
+		binary.BigEndian.PutUint16(fileAddress, uint16(n.FilePort))
+	}
+
+	return fileAddress
+}
+
+func extractFileAddress(sender net2.Addr, fileAddressBytes []byte) (fileAddress string) {
+	if len(fileAddressBytes) != 0 {
+		var tcp *net2.TCPAddr
+
+		if len(fileAddressBytes) == 2 {
+			filePort := binary.BigEndian.Uint16(fileAddressBytes)
+			var ok bool
+			if tcp, ok = sender.(*net2.TCPAddr); ok {
+				return tcp.IP.String() + ":" + strconv.Itoa(int(filePort))
+			}
+		} else {
+			var ep = new(vnode.EndPoint)
+
+			if err := ep.Deserialize(fileAddressBytes); err == nil {
+				if ep.Typ.Is(vnode.HostIP) {
+					// verify ip
+					var ok bool
+					if tcp, ok = sender.(*net2.TCPAddr); ok {
+						err = netool.CheckRelayIP(tcp.IP, ep.Host)
+						if err != nil {
+							// invalid ip
+							ep.Host = tcp.IP
+						}
+					}
+
+					fileAddress = ep.String()
+				} else {
+					tcp, err = net2.ResolveTCPAddr("tcp", ep.String())
+					if err == nil {
+						fileAddress = ep.String()
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func (n *net) ProtoData() []byte {
+	genesis := n.Chain.GetGenesisSnapshotBlock()
+	current := n.Chain.GetLatestSnapshotBlock()
+
+	var key, signature []byte
+	if len(n.MinePrivateKey) != 0 {
+		key = n.MinePrivateKey.PubByte()
+		signature = ed25519.Sign(n.MinePrivateKey, n.nodeID.Bytes())
+	}
+
+	pb := &protos.ViteHandshake{
+		Genesis:     genesis.Hash.Bytes(),
+		Head:        current.Hash.Bytes(),
+		Height:      current.Height,
+		Key:         key,
+		Signature:   signature,
+		FileAddress: n.parseFilePublicAddress(),
+	}
+
+	buf, err := proto.Marshal(pb)
+	if err != nil {
+		return nil
+	}
+
+	return buf
+}
+
+func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
+	pb := &protos.ViteHandshake{}
+	err = proto.Unmarshal(protoData, pb)
+	if err != nil {
+		return
+	}
+
+	if pb.Key != nil {
+		right := ed25519.Verify(pb.Key, msg.ID.Bytes(), pb.Signature)
+		if !right {
+			err = errInvalidSignature
+			return
+		}
+
+		addr := types.PubkeyToAddress(pb.Key)
+		if n.Producer != nil && n.Producer.IsProducer(addr) {
+			level = p2p.Superior
+		}
+	}
+
+	// genesis
+	genesis := n.Chain.GetGenesisSnapshotBlock()
+	if !bytes.Equal(pb.Genesis, genesis.Hash.Bytes()) {
+		err = errDiffGenesisBlock
+		return
+	}
+
+	// head
+	var hash types.Hash
+	hash, err = types.BytesToHash(pb.Head)
+	if err != nil {
+		err = errErrorHeadToHash
+		return
+	}
+
+	state = PeerState{
+		Head:        hash,
+		Height:      pb.Height,
+		FileAddress: extractFileAddress(sender, pb.FileAddress),
+	}
+
+	return
+}
+
+func (n *net) Name() string {
+	return "vite"
+}
+
+func (n *net) ID() p2p.ProtocolID {
+	return ID
+}
+
+func (n *net) Handle(msg p2p.Msg) error {
+	p := n.peers.get(msg.Sender.ID())
+	if p != nil {
+		return n.handlers.handle(msg, p)
+	} else {
+		return errPeerNotExist
+	}
+}
+
+func (n *net) SetState(state []byte, peer p2p.Peer) {
+	var heartbeat = &protos.State{}
+
+	err := proto.Unmarshal(state, heartbeat)
+	if err != nil {
+		n.log.Error(fmt.Sprintf("failed to unmarshal heartbeat message from %s: %v", peer, err))
+		return
+	}
+
+	p := n.peers.get(peer.ID())
+	if p != nil {
+		var head types.Hash
+		head, err = types.BytesToHash(heartbeat.Head)
+		if err != nil {
+			return
+		}
+
+		p.setHead(head, heartbeat.Height)
+
+		// max 100 neighbors
+		var count = len(heartbeat.Peers)
+		if count > maxNeighbors {
+			count = maxNeighbors
+		}
+		var pl = make([]peerConn, count)
+		for i := 0; i < count; i++ {
+			hp := heartbeat.Peers[i]
+			pl[i] = peerConn{
+				id:  hp.ID,
+				add: hp.Status != protos.State_Disconnected,
+			}
+		}
+		p.setPeers(pl, heartbeat.Patch)
+	}
+}
+
+func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
+	p := newPeer(peer, netLog.New("peer", peer.ID()))
+
+	err = n.peers.add(p)
+	if err != nil {
+		return
+	}
+
+	go n.syncer.start()
+
+	return nil
+}
+
+func (n *net) OnPeerRemoved(peer p2p.Peer) (err error) {
+	_, err = n.peers.remove(peer.ID())
+
+	return
+}
+
+func New(cfg Config) Net {
 	// wraper_verifier
-	cfg.Verifier = newVerifier(cfg.Verifier)
+	//cfg.Verifier = newVerifier(cfg.Verifier)
 
 	// for test
 	if cfg.Single {
 		return mock(cfg)
 	}
 
-	g := new(gid)
 	peers := newPeerSet()
 
 	feed := newBlockFeeder()
 
-	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000))
-	syncer := newSyncer(cfg.Chain, peers, cfg.Verifier, g, feed)
-	fetcher := newFetcher(peers, g, cfg.Verifier, feed)
+	forward := createForardStrategy(cfg.ForwardStrategy, peers)
+	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, cfg.Chain)
 
-	syncer.SubscribeSyncStatus(fetcher.subSyncState)     // subscribe sync status
-	syncer.SubscribeSyncStatus(broadcaster.subSyncState) // subscribe sync status
+	receiver := &safeBlockNotifier{
+		blockFeeder: feed,
+		Verifier:    cfg.Verifier,
+	}
+
+	syncConnFac := &defaultSyncConnectionFactory{
+		chain:      cfg.Chain,
+		peers:      peers,
+		privateKey: cfg.P2PPrivateKey,
+	}
+	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
+	reader := newCacheReader(cfg.Chain, receiver, downloader)
+	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
+
+	fetcher := newFetcher(peers, receiver)
+
+	syncer.SubscribeSyncStatus(fetcher.subSyncState)
+	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
 
 	n := &net{
 		Config:          cfg,
 		BlockSubscriber: feed,
 		peers:           peers,
 		syncer:          syncer,
+		reader:          reader,
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
-		fs:              newFileServer(cfg.FileAddress, cfg.Chain),
-		handlers:        make(map[ViteCmd]MsgHandler),
+		downloader:      downloader,
+		server:          newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
+		handlers:        newHandlers("vite"),
+		hb:              newHeartBeater(peers, cfg.Chain),
 		log:             netLog,
 	}
 
-	n.addHandler(_statusHandler(statusHandler))
-	n.query = newQueryHandler(cfg.Chain)
-	n.addHandler(n.query)     // GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
-	n.addHandler(syncer)      // FileListCode, SubLedgerCode
-	n.addHandler(broadcaster) // NewSnapshotBlockCode, NewAccountBlockCode
-	n.addHandler(fetcher)     // SnapshotBlocksCode, AccountBlocksCode
+	var err error
+	n.query, err = newQueryHandler(cfg.Chain)
+	if err != nil {
+		panic(errors.New("cannot construct query handler"))
+	}
 
-	n.protocols = append(n.protocols, &p2p.Protocol{
-		Name: Vite,
-		ID:   CmdSet,
-		Handle: func(p *p2p.Peer, rw *p2p.ProtoFrame) error {
-			// will be called by p2p.Peer.runProtocols use goroutine
-			peer := newPeer(p, rw, CmdSet)
-			return n.handlePeer(peer)
-		},
-	})
+	// GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	if err = n.handlers.register(n.query); err != nil {
+		panic(errors.New("cannot register handler: query"))
+	}
+
+	// NewSnapshotBlockCode, NewAccountBlockCode
+	if err = n.handlers.register(broadcaster); err != nil {
+		panic(errors.New("cannot register handler: broadcaster"))
+	}
+
+	// SnapshotBlocksCode, AccountBlocksCode
+	if err = n.handlers.register(fetcher); err != nil {
+		panic(errors.New("cannot register handler: fetcher"))
+	}
 
 	return n
 }
 
-func (n *net) Protocols() []*p2p.Protocol {
-	return n.protocols
+type heartBeater struct {
+	chain     chainReader
+	last      time.Time
+	lastPeers map[vnode.NodeID]struct{}
+	ps        *peerSet
 }
 
-func (n *net) AddPlugin(plugin p2p.Plugin) {
-	n.plugins = append(n.plugins, plugin)
+func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
+	return &heartBeater{
+		chain:     chain,
+		lastPeers: make(map[vnode.NodeID]struct{}),
+		ps:        ps,
+	}
 }
 
-func (n *net) startPlugins(svr p2p.Server) (err error) {
-	for _, plugin := range n.plugins {
-		if err = plugin.Start(svr); err != nil {
+func (h *heartBeater) state() []byte {
+	current := h.chain.GetLatestSnapshotBlock()
+
+	var heartBeat = &protos.State{
+		Peers:     nil,
+		Patch:     true,
+		Head:      current.Hash.Bytes(),
+		Height:    current.Height,
+		Timestamp: time.Now().Unix(),
+	}
+
+	idMap := h.ps.idMap()
+
+	if time.Now().Sub(h.last) > time.Minute {
+		heartBeat.Patch = false
+		h.lastPeers = make(map[vnode.NodeID]struct{})
+	}
+
+	var id vnode.NodeID
+	var ok bool
+	for id = range h.lastPeers {
+		if _, ok = idMap[id]; ok {
+			delete(idMap, id)
+			continue
+		}
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
+			ID:     id.Bytes(),
+			Status: protos.State_Disconnected,
+		})
+	}
+
+	for id = range idMap {
+		heartBeat.Peers = append(heartBeat.Peers, &protos.State_Peer{
+			ID:     id.Bytes(),
+			Status: protos.State_Connected,
+		})
+	}
+
+	data, err := proto.Marshal(heartBeat)
+	if err != nil {
+		return nil
+	}
+
+	h.lastPeers = idMap
+
+	return data
+}
+
+func (n *net) State() []byte {
+	return n.hb.state()
+}
+
+func (n *net) Start(svr p2p.P2P) (err error) {
+	if atomic.CompareAndSwapInt32(&n.running, 0, 1) {
+		n.nodeID = svr.Config().Node().ID
+
+		if n.Producer != nil && n.MinePrivateKey != nil {
+			addr := types.PubkeyToAddress(n.MinePrivateKey.PubByte())
+			if n.Producer.IsProducer(addr) {
+				// todo set finder
+			}
+		}
+
+		fmt.Println(n.Chain.GetLatestSnapshotBlock().Height)
+
+		if err = n.server.start(); err != nil {
 			return
 		}
-	}
-	return nil
-}
 
-func (n *net) addHandler(handler MsgHandler) {
-	for _, cmd := range handler.Cmds() {
-		n.handlers[cmd] = handler
-	}
-}
+		n.downloader.start()
 
-func (n *net) Start(svr p2p.Server) (err error) {
-	n.term = make(chan struct{})
+		n.reader.start()
 
-	if err = n.fs.start(); err != nil {
+		n.query.start()
+
+		n.fetcher.start()
+
 		return
 	}
 
-	if err = n.startPlugins(svr); err != nil {
-		return
-	}
-
-	n.wg.Add(1)
-	common.Go(n.heartbeat)
-
-	n.query.start()
-
-	n.fetcher.start()
-
-	return
+	return errNetIsRunning
 }
 
-func (n *net) Stop() {
-	if n.term == nil {
-		return
-	}
+func (n *net) Stop() error {
+	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
+		n.reader.stop()
 
-	select {
-	case <-n.term:
-	default:
-		close(n.term)
+		n.syncer.stop()
 
-		n.syncer.Stop()
+		n.downloader.stop()
 
-		n.fs.stop()
+		_ = n.server.stop()
 
 		n.query.stop()
 
 		n.fetcher.stop()
 
-		n.wg.Wait()
-	}
-}
-
-// will be called by p2p.server, run as goroutine
-func (n *net) handlePeer(p *peer) (err error) {
-	current := n.Chain.GetLatestSnapshotBlock()
-	genesis := n.Chain.GetGenesisSnapshotBlock()
-
-	n.log.Debug(fmt.Sprintf("handshake with %s", p))
-
-	var port uint16
-	if n.fileAddress != nil {
-		port = uint16(n.fileAddress.Port)
-	} else {
-		var tcpAddr *net2.TCPAddr
-		tcpAddr, err = net2.ResolveTCPAddr("tcp", n.FileAddress)
-		if err != nil {
-			port = 0
-		} else {
-			port = uint16(tcpAddr.Port)
-		}
+		return nil
 	}
 
-	err = p.Handshake(&message.HandShake{
-		Height:  current.Height,
-		Port:    port,
-		Current: current.Hash,
-		Genesis: genesis.Hash,
-	})
-
-	if err != nil {
-		n.log.Error(fmt.Sprintf("handshake with %s error: %v", p, err))
-		return err
-	}
-
-	n.log.Debug(fmt.Sprintf("handshake with %s done", p))
-
-	return n.startPeer(p)
-}
-
-func (n *net) startPeer(p *peer) (err error) {
-	if err = n.peers.Add(p); err != nil {
-		return err
-	}
-
-	defer n.peers.Del(p)
-
-	common.Go(n.syncer.Start)
-
-loop:
-	for {
-		select {
-		case <-n.term:
-			err = p2p.DiscQuitting
-			break loop
-
-		case err = <-p.errChan:
-			if err != nil {
-				p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
-				break loop
-			}
-
-		default:
-			if err = n.handleMsg(p); err != nil {
-				return err
-			}
-		}
-	}
-
-	return err
-}
-
-func (n *net) heartbeat() {
-	defer n.wg.Done()
-
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	var height uint64
-
-	for {
-		select {
-		case <-n.term:
-			return
-
-		case <-ticker.C:
-			l := n.peers.Peers()
-			if len(l) == 0 {
-				break
-			}
-
-			current := n.Chain.GetLatestSnapshotBlock()
-			if height == current.Height {
-				break
-			}
-
-			height = current.Height
-
-			n.broadcaster.setHeight(height)
-
-			for _, p := range l {
-				p.Send(StatusCode, 0, &ledger.HashHeight{
-					Hash:   current.Hash,
-					Height: current.Height,
-				})
-			}
-
-			monitor.LogEvent("net", "heartbeat")
-		}
-	}
-}
-
-func (n *net) handleMsg(p *peer) (err error) {
-	msg, err := p.mrw.ReadMsg()
-	if err != nil {
-		n.log.Error(fmt.Sprintf("read message from %s error: %v", p, err))
-		return
-	}
-
-	code := ViteCmd(msg.Cmd)
-
-	// before syncDone, ignore GetAccountBlocksCode
-	if n.syncer.SyncState() != Syncdone {
-		if code == GetAccountBlocksCode {
-			// ignore
-			return
-		}
-	}
-
-	if handler, ok := n.handlers[code]; ok && handler != nil {
-		return handler.Handle(msg, p)
-	}
-
-	return nil
+	return errNetIsNotRunning
 }
 
 func (n *net) Info() NodeInfo {
-	peersInfo := n.peers.Info()
-
-	var plugins []interface{}
-	for _, plg := range n.plugins {
-		plugins = append(plugins, plg.Info())
+	info := NodeInfo{
+		Latency: n.broadcaster.Statistic(),
+		Peers:   n.peers.info(),
 	}
 
-	return NodeInfo{
-		PeerCount: len(peersInfo),
-		Peers:     peersInfo,
-		Latency:   n.broadcaster.Statistic(),
-		// MsgSend:      send,
-		// MsgReceived:  received,
-		// MsgHandled:   handled,
-		// MsgDiscarded: discarded,
-		Plugins: plugins,
+	if n.server != nil {
+		info.Server = n.server.status()
 	}
+
+	return info
 }
 
 type NodeInfo struct {
-	PeerCount int           `json:"peerCount"`
-	Peers     []*PeerInfo   `json:"peers"`
-	Latency   []int64       `json:"latency"` // [0,1,12,24]
-	Plugins   []interface{} `json:"plugins"`
-}
-
-type Task struct {
-	Msg    string `json:"Msg"`
-	Sender string `json:"Sender"`
-}
-
-func (n *net) Tasks() (ts []*Task) {
-	n.query.lock.RLock()
-	defer n.query.lock.RUnlock()
-
-	ts = make([]*Task, n.query.queue.Size())
-	i := 0
-
-	n.query.queue.Traverse(func(value interface{}) bool {
-		t := value.(*queryTask)
-		ts[i] = &Task{
-			Msg:    ViteCmd(t.Msg.Cmd).String(),
-			Sender: t.Sender.RemoteAddr().String(),
-		}
-		i++
-		return true
-	})
-
-	return
+	Peers   []PeerInfo       `json:"peers"`
+	Latency []int64          `json:"latency"` // [0,1,12,24]
+	Server  FileServerStatus `json:"server"`
 }

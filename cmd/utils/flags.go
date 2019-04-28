@@ -58,7 +58,7 @@ var (
 	}
 	MaxPendingPeersFlag = cli.UintFlag{
 		Name:  "maxpendpeers", //mapping:p2p.MaxPendingPeers
-		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
+		Usage: "Maximum number of db connection attempts (defaults used if set to 0)",
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr
@@ -162,10 +162,28 @@ var (
 		Usage: "Enable VM debug",
 	}
 
+	// Subscribe
+	SubscribeFlag = cli.BoolFlag{
+		Name:  "subscribe",
+		Usage: "Enable Subscribe",
+	}
+
 	// Ledger
 	LedgerDeleteToHeight = cli.Uint64Flag{
 		Name:  "del",
 		Usage: "Delete to height",
+	}
+
+	// Trie
+	RecoverTrieFlag = cli.BoolFlag{
+		Name:  "trie",
+		Usage: "Recover trie",
+	}
+
+	// Export sb height
+	ExportSbHeightFlags = cli.Uint64Flag{
+		Name:  "sbHeight",
+		Usage: "The snapshot block height",
 	}
 
 	//Net
@@ -182,7 +200,7 @@ var (
 	//Stat
 	PProfEnabledFlag = cli.BoolFlag{
 		Name:  "pprof",
-		Usage: "Enable a performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
+		Usage: "Enable chain performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
 	}
 
 	PProfPortFlag = cli.UintFlag{
@@ -219,8 +237,8 @@ var (
 		Value: "test",
 	}
 	// The `host` tag is part of every measurement sent to InfluxDB. Queries on tags are faster in InfluxDB.
-	// It is used so that we can group all nodes and average a measurement across all of them, but also so
-	// that we can select a specific node and inspect its measurements.
+	// It is used so that we can group all nodes and average chain measurement across all of them, but also so
+	// that we can select chain specific node and inspect its measurements.
 	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
 	InfluxDBHostTagFlag = cli.StringFlag{
 		Name:  "metrics.influxdb.host.tag",

@@ -5,14 +5,92 @@ import (
 	"crypto/cipher"
 	crand "crypto/rand"
 	"errors"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"io"
 	"strconv"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"golang.org/x/crypto/curve25519"
 )
 
 const (
 	gcmAdditionData = "vite"
 )
+
+/**
+func (ecdh25519) ComputeSecret(private crypto.PrivateKey, peersPublic crypto.PublicKey) (secret []byte) {
+	var sec, pri, pub [32]byte
+	if ok := checkType(&pri, private); !ok {
+		panic("ecdh: unexpected type of private key")
+	}
+	if ok := checkType(&pub, peersPublic); !ok {
+		panic("ecdh: unexpected type of peers public key")
+	}
+
+	curve25519.ScalarMult(&sec, &pri, &pub)
+
+	secret = sec[:]
+	return
+}
+
+func checkType(key *[32]byte, typeToCheck interface{}) (ok bool) {
+	switch t := typeToCheck.(type) {
+	case [32]byte:
+		copy(key[:], t[:])
+		ok = true
+	case *[32]byte:
+		copy(key[:], t[:])
+		ok = true
+	case []byte:
+		if len(t) == 32 {
+			copy(key[:], t)
+			ok = true
+		}
+	case *[]byte:
+		if len(*t) == 32 {
+			copy(key[:], *t)
+			ok = true
+		}
+	}
+	return
+}
+
+*/
+
+func checkType(key *[32]byte, typeToCheck interface{}) (ok bool) {
+	switch t := typeToCheck.(type) {
+	case [32]byte:
+		copy(key[:], t[:])
+		ok = true
+	case *[32]byte:
+		copy(key[:], t[:])
+		ok = true
+	case []byte:
+		if len(t) == 32 {
+			copy(key[:], t)
+			ok = true
+		}
+	case *[]byte:
+		if len(*t) == 32 {
+			copy(key[:], *t)
+			ok = true
+		}
+	}
+	return
+}
+
+func X25519ComputeSecret(private []byte, peersPublic []byte) ([]byte, error) {
+	var sec, pri, pub [32]byte
+	if ok := checkType(&pri, private); !ok {
+		return nil, errors.New("unexpected type of private key")
+	}
+	if ok := checkType(&pub, peersPublic); !ok {
+		return nil, errors.New("unexpected type of peers public key")
+	}
+
+	curve25519.ScalarMult(&sec, &pri, &pub)
+
+	return sec[:], nil
+}
 
 // AesCTRXOR(plainText) = cipherText AesCTRXOR(cipherText) = plainText
 func AesCTRXOR(key, inText, iv []byte) ([]byte, error) {

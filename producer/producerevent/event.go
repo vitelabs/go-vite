@@ -1,8 +1,9 @@
 package producerevent
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type AccountEvent interface {
@@ -14,8 +15,4 @@ type AccountStartEvent struct {
 	Address types.Address
 	Stime   time.Time
 	Etime   time.Time
-
-	Timestamp      time.Time  // add to block
-	SnapshotHash   types.Hash // add to block
-	SnapshotHeight uint64     // add to block
 }

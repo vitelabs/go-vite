@@ -13,6 +13,7 @@ type Config struct {
 	*Producer   `json:"Producer"`
 	*Chain      `json:"Chain"`
 	*Vm         `json:"Vm"`
+	*Subscribe  `json:"Subscribe"`
 	*Net        `json:"Net"`
 	*biz.Reward `json:"Reward"`
 	*Genesis    `json:"Genesis"`
@@ -40,7 +41,7 @@ func DefaultDataDir() string {
 			return filepath.Join(home, ".gvite")
 		}
 	}
-	// As we cannot guess a stable location, return empty and handle later
+	// As we cannot guess chain stable location, return empty and handle later
 	return ""
 }
 

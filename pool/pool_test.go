@@ -84,7 +84,7 @@ func TestNewPool(t *testing.T) {
 	c := ch.NewChain(&config.Config{
 		DataDir: common.DefaultDataDir(),
 	})
-	p := NewPool(c)
+	p, _ := NewPool(c)
 	w := wallet.New(nil)
 
 	av := verifier.NewAccountVerifier(c, nil)
@@ -109,7 +109,7 @@ func TestPool(t *testing.T) {
 	c := ch.NewChain(&config.Config{
 		DataDir: common.DefaultDataDir(),
 	})
-	p := NewPool(c)
+	p, _ := NewPool(c)
 	w := wallet.New(nil)
 
 	av := verifier.NewAccountVerifier(c, nil)
@@ -134,7 +134,7 @@ func TestPool_Lock(t *testing.T) {
 	c := ch.NewChain(&config.Config{
 		DataDir: common.DefaultDataDir(),
 	})
-	p := NewPool(c)
+	p, _ := NewPool(c)
 	w := wallet.New(nil)
 
 	av := verifier.NewAccountVerifier(c, nil)

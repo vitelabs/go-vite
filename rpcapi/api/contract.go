@@ -11,7 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 	"strings"
 )
 
@@ -31,21 +31,17 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
-func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash, snapshotHash types.Hash) (*types.Address, error) {
-	h, err := stringToUint64(heightStr)
+func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
+	h, err := StringToUint64(heightStr)
 	if err != nil {
 		return nil, err
 	}
-	addr := util.NewContractAddress(selfAddr, h, prevHash, snapshotHash)
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
 	return &addr, nil
 }
 
-func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiStr string, params []string) ([]byte, error) {
-	code, err := hex.DecodeString(hexCode)
-	if err != nil {
-		return nil, err
-	}
-	if len(params) > 0 {
+func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([]byte, error) {
+	if len(abiStr) > 0 && len(params) > 0 {
 		abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 		if err != nil {
 			return nil, err
@@ -58,10 +54,32 @@ func (c *ContractApi) GetCreateContractData(gid types.Gid, hexCode string, abiSt
 		if err != nil {
 			return nil, err
 		}
-		data := util.GetCreateContractData(helper.JoinBytes(code, constructorParams), util.SolidityPPContractType, gid)
+		return constructorParams, nil
+	}
+	return []byte{}, nil
+}
+
+type CreateContractDataParam struct {
+	Gid         types.Gid `json:"gid"`
+	ConfirmTime uint8     `json:"confirmTime"`
+	QuotaRatio  uint8     `json:"quotaRatio"`
+	HexCode     string    `json:"hexCode"`
+	Params      []byte    `json:"params"`
+}
+
+func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]byte, error) {
+	code, err := hex.DecodeString(param.HexCode)
+	if err != nil {
+		return nil, err
+	}
+	if !util.IsValidQuotaRatio(param.QuotaRatio) {
+		return nil, util.ErrInvalidQuotaRatio
+	}
+	if len(param.Params) > 0 {
+		data := util.GetCreateContractData(helper.JoinBytes(code, param.Params), util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
 		return data, nil
 	} else {
-		data := util.GetCreateContractData(code, util.SolidityPPContractType, gid)
+		data := util.GetCreateContractData(code, util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
 		return data, nil
 	}
 }
@@ -100,15 +118,65 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 
 type CallOffChainMethodParam struct {
 	SelfAddr     types.Address
-	MethodName   string
-	OffChainCode []byte
+	OffChainCode string
 	Data         []byte
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	db, err := vm_context.NewVmContext(c.chain, nil, nil, &param.SelfAddr)
+	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM().OffChainReader(db, param.OffChainCode, param.Data)
+	db, err := vm_db.NewVmDb(c.chain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	coedBytes, err := hex.DecodeString(param.OffChainCode)
+	if err != nil {
+		return nil, err
+	}
+	return vm.NewVM(nil).OffChainReader(db, coedBytes, param.Data)
+}
+
+func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
+	var prefixBytes []byte
+	if len(prefix) > 0 {
+		var err error
+		prefixBytes, err = hex.DecodeString(prefix)
+		if err != nil {
+			return nil, err
+		}
+	}
+	iter, err := c.chain.GetStorageIterator(addr, prefixBytes)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string)
+	for {
+		if !iter.Next() {
+			return m, nil
+		}
+		if len(iter.Key()) > 0 && len(iter.Value()) > 0 {
+			m["0x"+hex.EncodeToString(iter.Key())] = "0x" + hex.EncodeToString(iter.Value())
+		}
+	}
+}
+
+type ContractInfo struct {
+	Code        []byte    `json:"code"`
+	Gid         types.Gid `json:"gid"`
+	ConfirmTime uint8     `json:"confirmTime"`
+	QuotaRatio  uint8     `json:"quotaRatio"`
+}
+
+func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
+	code, err := c.chain.GetContractCode(addr)
+	if err != nil {
+		return nil, err
+	}
+	meta, err := c.chain.GetContractMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes, QuotaRatio: meta.QuotaRatio}, nil
 }

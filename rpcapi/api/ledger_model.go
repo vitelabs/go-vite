@@ -2,13 +2,12 @@ package api
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/sender"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"strconv"
-	"time"
+
+	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 type AccountBlock struct {
@@ -25,12 +24,16 @@ type AccountBlock struct {
 
 	Timestamp int64 `json:"timestamp"`
 
-	ConfirmedTimes *string       `json:"confirmedTimes"`
-	TokenInfo      *RpcTokenInfo `json:"tokenInfo"`
+	ConfirmedTimes *string     `json:"confirmedTimes"`
+	ConfirmedHash  *types.Hash `json:"confirmedHash"`
 
-	ReceiveBlockHeights []string `json:"receiveBlockHeights"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
+
+	ReceiveBlockHeight string      `json:"receiveBlockHeight"`
+	ReceiveBlockHash   *types.Hash `json:"receiveBlockHash"`
 }
 
+// TODO set timestamp
 func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 	lAb := ab.AccountBlock
 	if lAb == nil {
@@ -75,9 +78,6 @@ func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
 		}
 	}
 
-	t := time.Unix(ab.Timestamp, 0)
-	lAb.Timestamp = &t
-
 	return lAb, nil
 }
 
@@ -102,9 +102,9 @@ func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo
 		ab.Difficulty = &difficulty
 	}
 
-	if ledgerBlock.Timestamp != nil {
-		ab.Timestamp = ledgerBlock.Timestamp.Unix()
-	}
+	//if ledgerBlock.Timestamp != nil {
+	//	ab.Timestamp = ledgerBlock.Timestamp.Unix()
+	//}
 
 	if token != nil {
 		ab.TokenInfo = RawTokenInfoToRpc(token, ledgerBlock.TokenId)
@@ -146,6 +146,7 @@ type RpcTokenInfo struct {
 	MaxSupply      *string           `json:"maxSupply"` // *big.Int
 	OwnerBurnOnly  bool              `json:"ownerBurnOnly"`
 	IsReIssuable   bool              `json:"isReIssuable"`
+	Index          uint16            `json:"index"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
@@ -163,6 +164,7 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 			TokenId:        tti,
 			OwnerBurnOnly:  tinfo.OwnerBurnOnly,
 			IsReIssuable:   tinfo.IsReIssuable,
+			Index:          tinfo.Index,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()
@@ -180,51 +182,29 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 	return rt
 }
 
-type KafkaSendInfo struct {
-	Producers    []*KafkaProducerInfo `json:"producers"`
-	RunProducers []*KafkaProducerInfo `json:"runProducers"`
-	TotalEvent   uint64               `json:"totalEvent"`
-}
-
-type KafkaProducerInfo struct {
-	ProducerId uint8    `json:"producerId"`
-	BrokerList []string `json:"brokerList"`
-	Topic      string   `json:"topic"`
-	HasSend    uint64   `json:"hasSend"`
-	Status     string   `json:"status"`
-}
-
-func createKafkaProducerInfo(producer *sender.Producer) *KafkaProducerInfo {
-	status := "unknown"
-	switch producer.Status() {
-	case sender.STOPPED:
-		status = "stopped"
-	case sender.RUNNING:
-		status = "running"
-	}
-
-	producerInfo := &KafkaProducerInfo{
-		ProducerId: producer.ProducerId(),
-		BrokerList: producer.BrokerList(),
-		Topic:      producer.Topic(),
-		HasSend:    producer.HasSend(),
-		Status:     status,
-	}
-
-	return producerInfo
-}
-
 func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBlock, error) {
-	confirmTimes, err := chain.GetConfirmTimes(&block.Hash)
+	latestSb := chain.GetLatestSnapshotBlock()
+
+	confirmedBlock, err := chain.GetConfirmSnapshotHeaderByAbHash(block.Hash)
 
 	if err != nil {
 		return nil, err
 	}
 
+	var confirmedTimes uint64
+	var confirmedHash types.Hash
+	var timestamp int64
+
+	if confirmedBlock != nil && latestSb != nil && confirmedBlock.Height <= latestSb.Height {
+		confirmedHash = confirmedBlock.Hash
+		confirmedTimes = latestSb.Height - confirmedBlock.Height + 1
+		timestamp = confirmedBlock.Timestamp.Unix()
+	}
+
 	var fromAddress, toAddress types.Address
 	if block.IsReceiveBlock() {
 		toAddress = block.AccountAddress
-		sendBlock, err := chain.GetAccountBlockByHash(&block.FromBlockHash)
+		sendBlock, err := chain.GetAccountBlockByHash(block.FromBlockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -240,25 +220,27 @@ func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBl
 		toAddress = block.ToAddress
 	}
 
-	token, _ := chain.GetTokenInfoById(&block.TokenId)
-	rpcAccountBlock := createAccountBlock(block, token, confirmTimes)
+	token, _ := chain.GetTokenInfoById(block.TokenId)
+	rpcAccountBlock := createAccountBlock(block, token, confirmedTimes)
+
+	if confirmedTimes > 0 {
+		rpcAccountBlock.ConfirmedHash = &confirmedHash
+	}
+
 	rpcAccountBlock.FromAddress = fromAddress
 	rpcAccountBlock.ToAddress = toAddress
+	rpcAccountBlock.Timestamp = timestamp
 
 	if block.IsSendBlock() {
-		if block.Meta == nil {
-			var err error
-			block.Meta, err = chain.ChainDb().Ac.GetBlockMeta(&block.Hash)
-			if err != nil {
-				return nil, err
-			}
+		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
+		if err != nil {
+			return nil, err
 		}
-
-		if block.Meta != nil {
-			for _, receiveBlockHeight := range block.Meta.ReceiveBlockHeights {
-				rpcAccountBlock.ReceiveBlockHeights = append(rpcAccountBlock.ReceiveBlockHeights, strconv.FormatUint(receiveBlockHeight, 10))
-			}
+		if receiveBlock != nil {
+			rpcAccountBlock.ReceiveBlockHeight = strconv.FormatUint(receiveBlock.Height, 10)
+			rpcAccountBlock.ReceiveBlockHash = &receiveBlock.Hash
 		}
 	}
+
 	return rpcAccountBlock, nil
 }

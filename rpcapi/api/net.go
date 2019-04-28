@@ -11,7 +11,7 @@ import (
 
 type NetApi struct {
 	net net.Net
-	p2p p2p.Server
+	p2p p2p.P2P
 	log log15.Logger
 }
 
@@ -24,12 +24,11 @@ func NewNetApi(vite *vite.Vite) *NetApi {
 }
 
 type SyncInfo struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Received string `json:"received"`
-	Current  string `json:"current"`
-	State    uint   `json:"state"`
-	Status   string `json:"status"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Current string `json:"current"`
+	State   uint   `json:"state"`
+	Status  string `json:"status"`
 }
 
 func (n *NetApi) SyncInfo() SyncInfo {
@@ -37,12 +36,11 @@ func (n *NetApi) SyncInfo() SyncInfo {
 	s := n.net.Status()
 
 	return SyncInfo{
-		From:     strconv.FormatUint(s.From, 10),
-		To:       strconv.FormatUint(s.To, 10),
-		Received: strconv.FormatUint(s.Received, 10),
-		Current:  strconv.FormatUint(s.Current, 10),
-		State:    uint(s.State),
-		Status:   s.State.String(),
+		From:    strconv.FormatUint(s.From, 10),
+		To:      strconv.FormatUint(s.To, 10),
+		Current: strconv.FormatUint(s.Current, 10),
+		State:   uint(s.State),
+		Status:  s.State.String(),
 	}
 }
 
@@ -50,19 +48,15 @@ func (n *NetApi) SyncDetail() net.SyncDetail {
 	return n.net.Detail()
 }
 
+// Peers is for old api
 func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 
-func (n *NetApi) PeersCount() uint {
-	info := n.net.Info()
-	return uint(len(info.Peers))
-}
-
-func (n *NetApi) Nodes() []string {
-	return n.p2p.Nodes()
-}
-
 func (n *NetApi) NodeInfo() p2p.NodeInfo {
-	return n.p2p.NodeInfo()
+	return n.p2p.Info()
+}
+
+func (n *NetApi) NetInfo() net.NodeInfo {
+	return n.net.Info()
 }

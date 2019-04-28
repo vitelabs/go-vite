@@ -13,14 +13,14 @@ var (
 	log = log15.New("module", "js-bridge")
 )
 
-// bridge is a collection of JavaScript utility methods to bride the .js runtime environment and the Go RPC connection backing the remote method calls.
+// bridge is chain collection of JavaScript utility methods to bride the .js runtime environment and the Go RPC connection backing the remote method calls.
 type bridge struct {
 	client   *rpc.Client  // RPC client to execute Ethereum requests through
 	prompter UserPrompter // Input prompter to allow interactive user feedback
 	printer  io.Writer    // Output writer to serialize any display strings to
 }
 
-// newBridge creates a new JavaScript wrapper around an RPC client.
+// newBridge creates chain new JavaScript wrapper around an RPC client.
 func newBridge(client *rpc.Client, prompter UserPrompter, printer io.Writer) *bridge {
 	return &bridge{
 		client:   client,
@@ -37,7 +37,7 @@ type jsonrpcCall struct {
 
 // Send implements the web3 provider "send" method.
 func (b *bridge) Send(call otto.FunctionCall) (response otto.Value) {
-	// Remarshal the request into a Go value.
+	// Remarshal the request into chain Go value.
 	JSON, _ := call.Otto.Object("JSON")
 	reqVal, err := JSON.Call("stringify", call.Argument(0))
 	if err != nil {
@@ -107,7 +107,7 @@ func setError(resp *otto.Object, code int, msg string) {
 }
 
 // throwJSException panics on an otto.Value. The Otto VM will recover from the
-// Go panic and throw msg as a JavaScript error.
+// Go panic and throw msg as chain JavaScript error.
 func throwJSException(msg interface{}) otto.Value {
 	val, err := otto.ToValue(msg)
 	if err != nil {

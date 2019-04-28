@@ -1,5 +1,5 @@
 // Copyright 2016 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by chain BSD-style
 // license that can be found in the LICENSE file.
 
 package ed25519
@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/aead/ecdh"
 	"testing"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
@@ -149,8 +150,8 @@ func TestCryptoSigner(t *testing.T) {
 
 func TestMalleability(t *testing.T) {
 	// https://tools.ietf.org/html/rfc8032#section-5.1.7 adds an additional test
-	// that s be in [0, order). This prevents someone from adding a multiple of
-	// order to s and obtaining a second valid signature for the same message.
+	// that s be in [0, order). This prevents someone from adding chain multiple of
+	// order to s and obtaining chain second valid signature for the same message.
 	msg := []byte{0x54, 0x65, 0x73, 0x74}
 	sig := []byte{
 		0x7c, 0x38, 0xe0, 0x26, 0xf2, 0x9e, 0x14, 0xaa, 0xbd, 0x05, 0x9a,
@@ -223,4 +224,21 @@ func TestPrivateKey_Clear(t *testing.T) {
 			t.Fatal()
 		}
 	}
+
+}
+
+func TestX25519Exchange(t *testing.T) {
+	pub1, priv1, _ := GenerateKey(nil)
+	xpub1 := pub1.ToX25519Pk()
+	println(hex.EncodeToString(xpub1))
+	xpriv1 := priv1.ToX25519Sk()
+	println(hex.EncodeToString(xpriv1))
+
+	pub2, priv2, _ := GenerateKey(nil)
+	xpub2 := pub2.ToX25519Pk()
+	xpriv2 := priv2.ToX25519Sk()
+
+	println(hex.EncodeToString(ecdh.X25519().ComputeSecret(&xpriv1, &xpub2)))
+
+	println(hex.EncodeToString(ecdh.X25519().ComputeSecret(&xpriv2, &xpub1)))
 }

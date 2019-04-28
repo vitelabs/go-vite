@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -56,16 +57,18 @@ type IsMayValidKeystoreFileResponse struct {
 
 func NewWalletApi(vite *vite.Vite) *WalletApi {
 	return &WalletApi{
-		wallet: vite.WalletManager(),
-		chain:  vite.Chain(),
-		pool:   vite.Pool(),
+		wallet:    vite.WalletManager(),
+		chain:     vite.Chain(),
+		pool:      vite.Pool(),
+		consensus: vite.Consensus(),
 	}
 }
 
 type WalletApi struct {
-	wallet *wallet.Manager
-	chain  chain.Chain
-	pool   pool.Writer
+	wallet    *wallet.Manager
+	chain     chain.Chain
+	pool      pool.Writer
+	consensus generator.Consensus
 }
 
 func (m WalletApi) String() string {
@@ -197,8 +200,7 @@ func (m WalletApi) Unlock(entropyStore string, passphrase string) error {
 	}
 	err := manager.Unlock(passphrase)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return newerr
+		return err
 	}
 	return nil
 }
@@ -312,16 +314,15 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 		Data:           params.Data,
 	}
 
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(m.chain, &msg.AccountAddress, nil, true)
-	if err != nil {
-		return nil, err
+	addrState, err := generator.GetAddressStateForGenerator(m.chain, &msg.AccountAddress)
+	if err != nil || addrState == nil {
+		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator(m.chain, fitestSnapshotBlockHash, nil, &params.SelfAddr)
+	g, e := generator.NewGenerator(m.chain, m.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}
-
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		if params.EntropystoreFile != nil {
 			manager, e := m.wallet.GetEntropyStoreManager(*params.EntropystoreFile)
 			if e != nil {
@@ -338,15 +339,13 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	})
 
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return nil, newerr
+		return nil, e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return nil, newerr
+		return nil, result.Err
 	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		return &result.BlockGenList[0].AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.BlockGenList[0])
+	if result.VmBlock != nil {
+		return &result.VmBlock.AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.VmBlock)
 	} else {
 		return nil, errors.New("generator gen an empty block")
 	}
@@ -365,8 +364,7 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 	}
 	signedData, pubkey, err := key.SignData(msgbytes)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return nil, newerr
+		return nil, err
 	}
 
 	t := HexSignedTuple{

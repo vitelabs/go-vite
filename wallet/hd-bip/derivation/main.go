@@ -57,7 +57,7 @@ func (k Key) StringPair() (seed string, address string, err error) {
 	return seed, address, nil
 }
 
-// DeriveForPath derives key for a path in BIP-44 format and a seed.
+// DeriveForPath derives key for chain path in BIP-44 format and chain seed.
 // Ed25119 derivation operated on hardened keys only.
 func DeriveForPath(path string, seed []byte) (*Key, error) {
 	if !isValidPath(path) {

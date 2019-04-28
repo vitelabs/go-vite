@@ -8,12 +8,13 @@ func TestException_Deserialize(t *testing.T) {
 		t.Error(err)
 	}
 
-	exp, err := DeserializeException(buf)
+	e := new(Exception)
+	err = e.Deserialize(buf)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if exp != Missing {
+	if *e != Missing {
 		t.Fail()
 	}
 }

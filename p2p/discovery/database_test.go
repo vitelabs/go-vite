@@ -1,40 +1,58 @@
 package discovery
 
 import (
+	"bytes"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-func TestDB_Store_Node(t *testing.T) {
-	db, err := newDB("", 3, NodeID{})
+var id = vnode.RandomNodeID()
+
+func TestNodeDB_Store(t *testing.T) {
+	mdb, err := newDB("", 1, id)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
-	node := mockNode(true)
-	node.lastPing = time.Now()
-	node.lastFind = time.Now().Add(2 * time.Second)
-	node.activeAt = time.Now().Add(5 * time.Second)
-	node.mark = 10001
-
-	db.storeNode(node)
-
-	node2 := db.retrieveNode(node.ID)
-	equal := compare(node, node2, true)
-	if !equal {
-		t.Fail()
+	node := &Node{
+		Node:     *vnode.MockNode(false, true),
+		checkAt:  time.Now().Add(time.Hour),
+		activeAt: time.Now().Add(2 * time.Hour),
 	}
 
-	if node.activeAt.Unix() != node2.activeAt.Unix() {
-		t.Fail()
+	err = mdb.Store(node)
+	if err != nil {
+		panic(err)
 	}
-	if node.lastFind.Unix() != node2.lastFind.Unix() {
-		t.Fail()
+
+	node2, err := mdb.Retrieve(node.ID)
+	if err != nil {
+		t.Errorf("retrieve error: %v", err)
 	}
-	if node.lastPing.Unix() != node2.lastPing.Unix() {
-		t.Fail()
+
+	if node2.ID != node.ID {
+		t.Error("diff id")
 	}
-	if node.mark != node2.mark {
-		t.Fail()
+	if node2.EndPoint.String() != node.EndPoint.String() {
+		t.Error("diff endpoint")
 	}
+	if !bytes.Equal(node2.Ext, node.Ext) {
+		t.Error("diff extension")
+	}
+	if node2.Net != node.Net {
+		t.Error("diff net")
+	}
+	if node2.checkAt.Unix() != node.checkAt.Unix() {
+		t.Error("diff checkAt")
+	}
+	if node2.activeAt.Unix() != node.activeAt.Unix() {
+		t.Error("diff activeAt")
+	}
+
+}
+
+func TestNodeDB_Clean(t *testing.T) {
+
 }

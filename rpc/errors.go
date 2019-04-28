@@ -18,10 +18,44 @@ package rpc
 
 import "fmt"
 
+// issued when a request is received after the server is issued to stop.
+type shutdownError struct{}
+
+func (e *shutdownError) ErrorCode() int { return -32000 }
+
+func (e *shutdownError) Error() string { return "server is shutting down" }
+
+// execute panic, retry later
+type executePanicError struct{}
+
+func (e *executePanicError) ErrorCode() int { return -32001 }
+
+func (e *executePanicError) Error() string { return "server execute panic" }
+
+// logic error, callback returned an error
+type callbackError struct{ message string }
+
+func (e *callbackError) ErrorCode() int { return -32002 }
+
+func (e *callbackError) Error() string { return e.message }
+
+// received message isn't a valid request
+type invalidRequestError struct {
+	message string
+	id      interface{}
+}
+
+func (e *invalidRequestError) ErrorCode() int { return -32600 }
+
+func (e *invalidRequestError) Error() string { return e.message }
+
+func (e *invalidRequestError) Id() interface{} { return e.id }
+
 // request is for an unknown service
 type methodNotFoundError struct {
 	service string
 	method  string
+	id      interface{}
 }
 
 func (e *methodNotFoundError) ErrorCode() int { return -32601 }
@@ -29,20 +63,7 @@ func (e *methodNotFoundError) ErrorCode() int { return -32601 }
 func (e *methodNotFoundError) Error() string {
 	return fmt.Sprintf("The method %s%s%s does not exist/is not available", e.service, serviceMethodSeparator, e.method)
 }
-
-// received message isn't a valid request
-type invalidRequestError struct{ message string }
-
-func (e *invalidRequestError) ErrorCode() int { return -32600 }
-
-func (e *invalidRequestError) Error() string { return e.message }
-
-// received message is invalid
-type invalidMessageError struct{ message string }
-
-func (e *invalidMessageError) ErrorCode() int { return -32700 }
-
-func (e *invalidMessageError) Error() string { return e.message }
+func (e *methodNotFoundError) Id() interface{} { return e.id }
 
 // unable to decode supplied params, or an invalid number of parameters
 type invalidParamsError struct{ message string }
@@ -51,16 +72,9 @@ func (e *invalidParamsError) ErrorCode() int { return -32602 }
 
 func (e *invalidParamsError) Error() string { return e.message }
 
-// logic error, callback returned an error
-type callbackError struct{ message string }
+// received message is invalid
+type invalidMessageError struct{ message string }
 
-func (e *callbackError) ErrorCode() int { return -32000 }
+func (e *invalidMessageError) ErrorCode() int { return -32700 }
 
-func (e *callbackError) Error() string { return e.message }
-
-// issued when a request is received after the server is issued to stop.
-type shutdownError struct{}
-
-func (e *shutdownError) ErrorCode() int { return -32000 }
-
-func (e *shutdownError) Error() string { return "server is shutting down" }
+func (e *invalidMessageError) Error() string { return e.message }

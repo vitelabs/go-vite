@@ -1,22 +1,24 @@
 package api
 
 import (
+	"encoding/hex"
 	"errors"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common/helper"
+	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
-	"time"
+	"github.com/vitelabs/go-vite/vm_db"
+	"go.uber.org/atomic"
 )
 
 type Tx struct {
@@ -24,9 +26,103 @@ type Tx struct {
 }
 
 func NewTxApi(vite *vite.Vite) *Tx {
-	return &Tx{
+	tx := &Tx{
 		vite: vite,
 	}
+	if vite.Producer() == nil {
+		return tx
+	}
+	coinbase := vite.Producer().GetCoinBase()
+
+	manager, err := vite.WalletManager().GetEntropyStoreManager(coinbase.String())
+	if err != nil {
+		panic(err)
+	}
+
+	var fromAddrs []types.Address
+	var fromHexPrivKeys []string
+
+	{
+		for i := uint32(0); i < uint32(1); i++ {
+			_, key, err := manager.DeriveForIndexPath(i)
+			if err != nil {
+				panic(err)
+			}
+			binKey, err := key.PrivateKey()
+			if err != nil {
+				panic(err)
+			}
+
+			pubKey, err := key.PublicKey()
+			if err != nil {
+				panic(err)
+			}
+
+			address, err := key.Address()
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Printf("%s hex public key:%s\n", address, hex.EncodeToString(pubKey))
+
+			hexKey := hex.EncodeToString(binKey)
+			fromHexPrivKeys = append(fromHexPrivKeys, hexKey)
+			fromAddrs = append(fromAddrs, *address)
+
+		}
+	}
+
+	toAddr := types.AddressConsensusGroup
+	amount := string("0")
+	hexData := "fdc17f250000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000027331000000000000000000000000000000000000000000000000000000000000"
+
+	data, err := hex.DecodeString(hexData)
+	if err != nil {
+		panic(err)
+	}
+
+	num := atomic.NewUint32(0)
+
+	vite.Consensus().Subscribe(types.SNAPSHOT_GID, "api-auto-send", nil, func(e consensus.Event) {
+
+		if num.Load() > 0 {
+			fmt.Printf("something is loading[return].%s\n", time.Now())
+			return
+		}
+		num.Add(1)
+		defer num.Sub(1)
+		snapshotBlock := vite.Chain().GetLatestSnapshotBlock()
+		if snapshotBlock.Height < 10 {
+			fmt.Println("latest height must >= 10.")
+			return
+		}
+		N := 1
+		for i := 0; i < N; i++ {
+			for k, v := range fromAddrs {
+				addr := v
+				key := fromHexPrivKeys[k]
+				block, err := tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
+					SelfAddr:     &addr,
+					ToAddr:       &toAddr,
+					TokenTypeId:  ledger.ViteTokenId,
+					PrivateKey:   &key,
+					Amount:       &amount,
+					Data:         data,
+					Difficulty:   nil,
+					PreBlockHash: nil,
+					BlockType:    2,
+				})
+				if err != nil {
+					log.Error(fmt.Sprintf("send block err:%v\n", err))
+					return
+				} else {
+					log.Info(fmt.Sprintf("send block:%s,%s,%s\n", block.AccountAddress, block.Height, block.Hash))
+				}
+			}
+		}
+	})
+
+	return tx
 }
 
 func (t Tx) SendRawTx(block *AccountBlock) error {
@@ -40,7 +136,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return err
 	}
 	// need to remove Later
-	//if len(lb.Data) != 0 && !isPreCompiledContracts(lb.ToAddress) {
+	//if len(lb.Data) != 0 && !isBuiltinContracts(lb.ToAddress) {
 	//	return ErrorNotSupportAddNot
 	//}
 	//
@@ -48,16 +144,18 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	//	return ErrorNotSupportRecvAddNote
 	//}
 
-	v := verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus())
-
-	blocks, err := v.VerifyforRPC(lb)
+	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
+	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
+	if latestSb == nil {
+		return errors.New("failed to get latest snapshotBlock")
+	}
+	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
 	if err != nil {
-		newerr, _ := TryMakeConcernedError(err)
-		return newerr
+		return err
 	}
 
-	if len(blocks) > 0 && blocks[0] != nil {
-		return t.vite.Pool().AddDirectAccountBlock(block.AccountAddress, blocks[0])
+	if result != nil {
+		return t.vite.Pool().AddDirectAccountBlock(result.AccountBlock.AccountAddress, result)
 	} else {
 		return errors.New("generator gen an empty block")
 	}
@@ -95,12 +193,14 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
+
 	var blockType byte
 	if param.BlockType > 0 {
 		blockType = param.BlockType
 	} else {
 		blockType = ledger.BlockTypeSendCall
 	}
+
 	msg := &generator.IncomingMessage{
 		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
@@ -111,15 +211,16 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		Data:           param.Data,
 		Difficulty:     d,
 	}
-	_, fitestSnapshotBlockHash, err := generator.GetFittestGeneratorSnapshotHash(t.vite.Chain(), &msg.AccountAddress, nil, false)
-	if err != nil {
-		return nil, err
+
+	addrState, err := generator.GetAddressStateForGenerator(t.vite.Chain(), &msg.AccountAddress)
+	if err != nil || addrState == nil {
+		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), fitestSnapshotBlockHash, param.PreBlockHash, param.SelfAddr)
+	g, e := generator.NewGenerator(t.vite.Chain(), t.vite.Consensus(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}
-	result, e := g.GenerateWithMessage(msg, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		var privkey ed25519.PrivateKey
 		privkey, e := ed25519.HexToPrivateKey(*param.PrivateKey)
 		if e != nil {
@@ -130,23 +231,19 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		return signData, pubkey, nil
 	})
 	if e != nil {
-		newerr, _ := TryMakeConcernedError(e)
-		return nil, newerr
+		return nil, e
 	}
 	if result.Err != nil {
-		newerr, _ := TryMakeConcernedError(result.Err)
-		return nil, newerr
+		return nil, result.Err
 	}
-	if len(result.BlockGenList) > 0 && result.BlockGenList[0] != nil {
-		if err := t.vite.Pool().AddDirectAccountBlock(*param.SelfAddr, result.BlockGenList[0]); err != nil {
+	if result.VmBlock != nil {
+		if err := t.vite.Pool().AddDirectAccountBlock(msg.AccountAddress, result.VmBlock); err != nil {
 			return nil, err
 		}
-		return ledgerToRpcBlock(result.BlockGenList[0].AccountBlock, t.vite.Chain())
-
+		return ledgerToRpcBlock(result.VmBlock.AccountBlock, t.vite.Chain())
 	} else {
 		return nil, errors.New("generator gen an empty block")
 	}
-
 }
 
 type SendTxWithPrivateKeyParam struct {
@@ -162,9 +259,8 @@ type SendTxWithPrivateKeyParam struct {
 }
 
 type CalcPoWDifficultyParam struct {
-	SelfAddr     types.Address `json:"selfAddr"`
-	PrevHash     types.Hash    `json:"prevHash"`
-	SnapshotHash types.Hash    `json:"snapshotHash"`
+	SelfAddr types.Address `json:"selfAddr"`
+	PrevHash types.Hash    `json:"prevHash"`
 
 	BlockType byte           `json:"blockType"`
 	ToAddr    *types.Address `json:"toAddr"`
@@ -173,96 +269,64 @@ type CalcPoWDifficultyParam struct {
 	UsePledgeQuota bool `json:"usePledgeQuota"`
 }
 
-func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (difficulty string, err error) {
-	var quotaRequired uint64
-	if param.BlockType == ledger.BlockTypeSendCreate {
-		quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
-	} else if param.BlockType == ledger.BlockTypeReceive {
-		quotaRequired, _ = util.IntrinsicGasCost(nil, false)
+type CalcPoWDifficultyResult struct {
+	QuotaRequired uint64 `json:"quota"`
+	Difficulty    string `json:"difficulty"`
+}
+
+func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	// get quota required
+	block := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		AccountAddress: param.SelfAddr,
+		PrevHash:       param.PrevHash,
+		Data:           param.Data,
+	}
+	if param.ToAddr != nil {
+		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		if param.ToAddr == nil {
-			return "", errors.New("toAddr is nil")
+		return nil, errors.New("toAddr is nil")
+	}
+	sb := t.vite.Chain().GetLatestSnapshotBlock()
+	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &param.PrevHash)
+	if err != nil {
+		return nil, err
+	}
+	quotaRequired, err := vm.GasRequiredForBlock(db, block)
+	if err != nil {
+		return nil, err
+	}
+
+	// get current quota
+	var pledgeAmount *big.Int
+	var q types.Quota
+	if param.UsePledgeQuota {
+		pledgeAmount, err = t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
+		if err != nil {
+			return nil, err
 		}
-		if types.IsPrecompiledContractAddress(*param.ToAddr) {
-			if method, ok, err := vm.GetPrecompiledContract(*param.ToAddr, param.Data); !ok || err != nil {
-				return "", errors.New("precompiled contract method not exists")
-			} else {
-				quotaRequired, err = method.GetSendQuota(param.Data)
-				if err != nil {
-					return "", err
-				}
-			}
-		} else {
-			quotaRequired, _ = util.IntrinsicGasCost(param.Data, false)
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		if err != nil {
+			return nil, err
+		}
+		if q.Current() >= quotaRequired {
+			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
 		}
 	} else {
-		return "", errors.New("block type not supported")
+		pledgeAmount = big.NewInt(0)
+		q = types.NewQuota(0, 0, 0)
 	}
-
-	db, err := vm_context.NewVmContext(t.vite.Chain(), &param.SnapshotHash, &param.PrevHash, &param.SelfAddr)
+	// calc difficulty if current quota is not enough
+	canPoW, err := quota.CanPoW(db)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if param.UsePledgeQuota {
-		pledgeAmount := abi.GetPledgeBeneficialAmount(db, param.SelfAddr)
-		quotaLeft, _, err := quota.CalcQuotaV2(db, param.SelfAddr, pledgeAmount, helper.Big0)
-		if err != nil {
-			return "", err
-		}
-		if quotaLeft >= quotaRequired {
-			return "0", nil
-		}
+	if !canPoW {
+		return nil, util.ErrCalcPoWTwice
 	}
-
-	if !quota.CanPoW(db, param.SelfAddr) {
-		return "", util.ErrCalcPoWTwice
-	}
-	// TODO optimize part use quota left
-	d := quota.CalcPoWDifficulty(quotaRequired)
-	return d.String(), nil
-}
-
-const (
-	day           = 24 * time.Hour
-	powTimesLimit = 10
-)
-
-// A single account is limited to send 10 tx with PoW in one day
-func checkPoWLimit(c chain.Chain, addr types.Address, prevHash *types.Hash, snapshotHash types.Hash, nonce []byte) (bool, error) {
-	if prevHash == nil || !isPoW(nonce) {
-		return false, nil
-	}
-	powtimes := 1
-	currentSb, err := c.GetSnapshotBlockByHash(&snapshotHash)
+	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	startTime := getTodayStartTime(currentSb.Timestamp, *c.GetGenesisSnapshotBlock().Timestamp)
-	prevBlockHash := *prevHash
-	for {
-		prevBlock, err := c.GetAccountBlockByHash(&prevBlockHash)
-		if err != nil {
-			return false, err
-		}
-		if prevBlock == nil || prevBlock.Timestamp.Before(*startTime) {
-			return false, nil
-		}
-		if isPoW(prevBlock.Nonce) {
-			powtimes = powtimes + 1
-			if powtimes > powTimesLimit {
-				return true, nil
-			}
-		}
-		prevBlockHash = prevBlock.PrevHash
-	}
-	return false, err
-}
-
-func getTodayStartTime(currentTime *time.Time, genesisTime time.Time) *time.Time {
-	startTime := genesisTime.Add(currentTime.Sub(genesisTime).Round(day))
-	return &startTime
-}
-
-func isPoW(nonce []byte) bool {
-	return len(nonce) > 0
+	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
 }

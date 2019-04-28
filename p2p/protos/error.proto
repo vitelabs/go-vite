@@ -1,0 +1,8 @@
+syntax="proto3";
+
+package protos;
+
+message Error {
+    uint32 Code = 1;
+    string Message = 2;
+}

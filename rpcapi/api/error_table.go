@@ -57,9 +57,29 @@ var (
 		Code:    -35006,
 	}
 
+	ErrVmInvalidConfirmTime = JsonRpc2Error{
+		Message: util.ErrInvalidConfirmTime.Error(),
+		Code:    -35007,
+	}
+
+	ErrVmContractNotExists = JsonRpc2Error{
+		Message: util.ErrContractNotExists.Error(),
+		Code:    -35008,
+	}
+
+	ErrVmNoReliableStatus = JsonRpc2Error{
+		Message: util.ErrNoReliableStatus.Error(),
+		Code:    -35009,
+	}
+
+	ErrVmInvalidQuotaRatio = JsonRpc2Error{
+		Message: util.ErrInvalidQuotaRatio.Error(),
+		Code:    -35010,
+	}
+
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
-		Message: verifier.ErrVerifyAccountAddrFailed.Error(),
+		Message: verifier.ErrVerifyAccountTypeNotSure.Error(),
 		Code:    -36001,
 	}
 	ErrVerifyHash = JsonRpc2Error{
@@ -77,6 +97,14 @@ var (
 	ErrVerifySnapshotOfReferredBlock = JsonRpc2Error{
 		Message: verifier.ErrVerifySnapshotOfReferredBlockFailed.Error(),
 		Code:    -36005,
+	}
+	ErrVerifyPrevBlock = JsonRpc2Error{
+		Message: verifier.ErrVerifyPrevBlockFailed.Error(),
+		Code:    -36006,
+	}
+	ErrVerifyRPCBlockIsPending = JsonRpc2Error{
+		Message: verifier.ErrVerifyRPCBlockPendingState.Error(),
+		Code:    -36007,
 	}
 
 	// -37001 ~ -37999 contracts_dex
@@ -143,12 +171,18 @@ func init() {
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
+	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
+	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
+	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
 	concernedErrorMap[ErrVerifySignature.Error()] = ErrVerifySignature
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifySnapshotOfReferredBlock.Error()] = ErrVerifySnapshotOfReferredBlock
+	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
+	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
 
 	concernedErrorMap[ErrDexInvalidOrderId.Error()] = ErrDexInvalidOrderId
 	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType

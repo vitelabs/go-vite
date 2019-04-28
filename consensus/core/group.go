@@ -16,53 +16,32 @@ type MemberPlan struct {
 }
 
 type GroupInfo struct {
+	TimeIndex
 	types.ConsensusGroupInfo
 
-	genesisTime  time.Time
+	GenesisTime  time.Time
 	seed         *big.Int
 	PlanInterval uint64
-	//countingTokenId types.TokenTypeId
 }
 
 func NewGroupInfo(genesisTime time.Time, info types.ConsensusGroupInfo) *GroupInfo {
 	groupInfo := &GroupInfo{
 		ConsensusGroupInfo: info,
-		genesisTime:        genesisTime,
+		GenesisTime:        genesisTime,
 		seed:               new(big.Int).SetBytes(info.Gid.Bytes()),
-		PlanInterval:       planInterval(&info),
 	}
+
+	groupInfo.PlanInterval = planInterval(groupInfo)
+	groupInfo.TimeIndex = NewTimeIndex(genesisTime, time.Second*time.Duration(groupInfo.PlanInterval))
 	return groupInfo
 }
 
-func planInterval(info *types.ConsensusGroupInfo) uint64 {
-	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount)
+func planInterval(info *GroupInfo) uint64 {
+	return uint64(info.Interval) * uint64(info.NodeCount) * uint64(info.PerCount) * uint64(info.Repeat)
 }
 
-func (self *GroupInfo) Time2Index(t time.Time) uint64 {
-	subSec := int64(t.Sub(self.genesisTime).Seconds())
-
-	i := uint64(subSec) / self.PlanInterval
-	return i
-}
-func (self *GroupInfo) GenSTime(index uint64) time.Time {
-	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*index) * time.Second)
-}
-
-func (self *GroupInfo) GenETime(index uint64) time.Time {
-	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*(index+1)) * time.Second)
-}
-func (self *GroupInfo) GenVoteTime(index uint64) time.Time {
-	if index < 2 {
-		index = 2
-	}
-	planInterval := self.PlanInterval
-	return self.genesisTime.Add(time.Duration(planInterval*(index-1)) * time.Second)
-}
-
-func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
-	sTime := self.GenSTime(index)
+func (self GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
+	sTime, _ := self.Index2Time(index)
 	var plans []*MemberPlan
 	for _, member := range members {
 		for i := int64(0); i < self.PerCount; i++ {
@@ -74,22 +53,29 @@ func (self *GroupInfo) GenPlan(index uint64, members []*Vote) []*MemberPlan {
 	}
 	return plans
 }
-func (self *GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
-	sTime := self.GenSTime(index)
+
+func (self GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan {
+	sTime, _ := self.Index2Time(index)
 	var plans []*MemberPlan
-	for _, member := range members {
-		for i := int64(0); i < self.PerCount; i++ {
-			etime := sTime.Add(time.Duration(self.Interval) * time.Second)
-			plan := MemberPlan{STime: sTime, ETime: etime, Member: member}
-			plans = append(plans, &plan)
-			sTime = etime
+
+	for j := uint16(0); j < self.Repeat; j++ {
+		for _, member := range members {
+			for i := int64(0); i < self.PerCount; i++ {
+				etime := sTime.Add(time.Duration(self.Interval) * time.Second)
+				plan := MemberPlan{STime: sTime, ETime: etime, Member: member}
+				plans = append(plans, &plan)
+				sTime = etime
+			}
+		}
+		if len(members) < int(self.NodeCount) {
+			sTime = sTime.Add(time.Duration(self.Interval*self.PerCount*(int64(self.NodeCount)-int64(len(members)))) * time.Second)
 		}
 	}
 	return plans
 }
 
-func (self *GroupInfo) String() string {
+func (self GroupInfo) String() string {
 	return fmt.Sprintf("genesisTime:%s, memberCnt:%d, interval:%d, perCnt:%d, randCnt:%d, randRange:%d, seed:%s, countingTokenId:%s",
-		self.genesisTime.String(), self.NodeCount, self.Interval, self.PerCount, self.RandCount, self.RandRank, self.seed, self.CountingTokenId.String())
+		self.GenesisTime.String(), self.NodeCount, self.Interval, self.PerCount, self.RandCount, self.RandRank, self.seed, self.CountingTokenId.String())
 
 }
