@@ -1,13 +1,12 @@
 package chain_plugins
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
 type Chain interface {
-	NewDb(dirName string) (*leveldb.DB, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*ledger.SnapshotBlock, error)
 	GetSubLedgerAfterHeight(height uint64) ([]*ledger.SnapshotChunk, error)

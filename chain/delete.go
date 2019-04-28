@@ -70,6 +70,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return allChunksDeleted, nil
 }
 func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+	// lock flush
+	c.flushMu.RLock()
+	defer func() {
+		c.flushMu.RUnlock()
+		c.flusher.Flush()
+	}()
 
 	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
 	if err != nil {
@@ -183,8 +189,6 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
-	c.flusher.Flush(true)
-
 	return realChunksToDelete, nil
 }
 
@@ -243,6 +247,10 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 }
 
 func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
+	// lock flush
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
+
 	//FOR DEBUG
 	for _, ab := range blocks {
 		c.log.Info(fmt.Sprintf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))

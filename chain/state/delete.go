@@ -3,10 +3,10 @@ package chain_state
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"

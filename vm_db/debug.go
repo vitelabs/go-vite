@@ -1,8 +1,8 @@
 package vm_db
 
-func (db *vmDb) DebugGetStorage() (map[string][]byte, error) {
+func (vdb *vmDb) DebugGetStorage() (map[string][]byte, error) {
 	result := make(map[string][]byte)
-	iter, err := db.NewStorageIterator(nil)
+	iter, err := vdb.NewStorageIterator(nil)
 	if err != nil {
 		return nil, err
 	}
