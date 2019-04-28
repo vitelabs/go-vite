@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type DexTradeApi struct {
@@ -75,10 +76,14 @@ func (f DexTradeApi) TravelMarketOrders(tradeToken, quoteToken types.TokenTypeId
 }
 
 func (f DexTradeApi) getMatcher() (matcher *dex.Matcher, err error) {
-	if vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexTrade); err != nil {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexTrade)
+	if err != nil {
+		return nil, err
+	}
+	if db, err := vm_db.NewVmDb(f.chain, &types.AddressDexTrade, &f.chain.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
 		return nil, err
 	} else {
-		storage, _ := vmContext.(dex.BaseStorage)
+		storage, _ := db.(dex.BaseStorage)
 		return dex.NewMatcher(&types.AddressDexTrade, &storage), nil
 	}
 }

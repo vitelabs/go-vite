@@ -6,8 +6,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
@@ -34,11 +34,15 @@ type AccountFundInfo struct {
 }
 
 func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
-	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	dexFund, err := dex.GetUserFundFromStorage(vmContext, addr)
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	dexFund, err := dex.GetUserFundFromStorage(db, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +53,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 
 	accFundInfo := make(map[types.TokenTypeId]*AccountFundInfo, 0)
 	for _, v := range fundInfo {
-		tokenInfo := abi.GetTokenById(vmContext, v.Token)
+		tokenInfo, err := f.chain.GetTokenInfoById(v.Token)
 		if err != nil {
 			return nil, err
 		}
@@ -76,11 +80,15 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
 	}
 
-	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	dexFund, err := dex.GetUserFundFromStorage(vmContext, addr)
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	dexFund, err := dex.GetUserFundFromStorage(db, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +116,13 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 }
 
 func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
-	vmContext, err := vm_context.NewVmContext(f.chain, nil, nil, &types.AddressDexFund)
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	return dex.VerifyDexFundBalance(vmContext), nil
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return dex.VerifyDexFundBalance(db), nil
 }
