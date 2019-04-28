@@ -29,6 +29,11 @@ func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) {
 
 	ds.store.Set(hashKey, accountBlock, cache.NoExpiration)
 	ds.store.Set(heightKey, hashKey, cache.NoExpiration)
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		// set send block hash
+		ds.store.Set(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)), accountBlock, cache.NoExpiration)
+	}
 }
 
 func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
@@ -46,6 +51,10 @@ func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
 
 		ds.store.Delete(hashKey)
 		ds.store.Delete(heightKey)
+		for _, sendBlock := range accountBlock.SendBlockList {
+			// delete send block
+			ds.store.Delete(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)))
+		}
 	}
 
 }
