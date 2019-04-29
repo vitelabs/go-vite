@@ -237,8 +237,6 @@ func (self *pool) insertAccountBucketForTree(p batch.Batch, bucket batch.Bucket,
 }
 
 func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	self.RLockInsert()
-	defer self.RUnLockInsert()
 	latestSb := self.bc.GetLatestSnapshotBlock()
 	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {

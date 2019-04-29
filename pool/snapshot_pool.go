@@ -282,12 +282,12 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 	defer self.chainTailMu.Unlock()
 
 	pool := self.chainpool
-	current := pool.tree.Main()
+	current := pool.tree.Root()
 
 	for i, item := range items {
 		block := item.(*snapshotPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-		tailHeight, tailHash := current.TailHH()
+		tailHeight, tailHash := current.HeadHH()
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
 			block.resetForkVersion()
