@@ -51,12 +51,12 @@ func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
 
 		ds.store.Delete(hashKey)
 		ds.store.Delete(heightKey)
+
 		for _, sendBlock := range accountBlock.SendBlockList {
 			// delete send block
 			ds.store.Delete(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)))
 		}
 	}
-
 }
 
 func (ds *dataSet) DeleteSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {

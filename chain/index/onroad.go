@@ -25,6 +25,7 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 			}
 
 			fromAddr, height, err := iDB.GetAddrHeightByHash(&blockHash)
+
 			if err != nil {
 				return nil, err
 			}
@@ -44,7 +45,6 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 
 	}
 	return onRoadData, nil
-
 }
 
 func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int) ([]types.Hash, error) {
@@ -77,8 +77,8 @@ func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int)
 	return hashList, nil
 }
 
-func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, block *ledger.AccountBlock) {
-	batch.Put(chain_utils.CreateOnRoadKey(toAddr, block.Hash), []byte{})
+func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
+	batch.Put(chain_utils.CreateOnRoadKey(toAddr, blockHash), []byte{})
 
 }
 
