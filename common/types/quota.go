@@ -1,5 +1,10 @@
 package types
 
+type QuotaInfo struct {
+	BlockCount uint64
+	Used       uint64
+}
+
 type Quota struct {
 	current uint64
 	total   uint64
