@@ -149,7 +149,7 @@ func (v *Vite) Start(p2p p2p.P2P) (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier)
+	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier, v.consensus)
 
 	v.consensus.Start()
 
