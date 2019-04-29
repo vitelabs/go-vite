@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus"
+
 	"github.com/vitelabs/go-vite/pool/lock"
 
 	"github.com/vitelabs/go-vite/pool/batch"
@@ -65,7 +67,8 @@ type BlockPool interface {
 	Init(s syncer,
 		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
-		accountV verifier.Verifier)
+		accountV verifier.Verifier,
+		cs consensus.Consensus)
 }
 
 type commonBlock interface {
@@ -209,7 +212,8 @@ func NewPool(bc chainDb) (*pool, error) {
 func (self *pool) Init(s syncer,
 	wt *wallet.Manager,
 	snapshotV *verifier.SnapshotVerifier,
-	accountV verifier.Verifier) {
+	accountV verifier.Verifier,
+	cs consensus.Consensus) {
 	self.sync = s
 	self.wt = wt
 	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
@@ -221,6 +225,7 @@ func (self *pool) Init(s syncer,
 		newTools(fe, rw),
 		self)
 
+	self.bc.SetConsensus(cs)
 	self.pendingSc = snapshotPool
 	self.stat = (&recoverStat{}).init(10, time.Second*10)
 	self.worker.init()
