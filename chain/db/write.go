@@ -18,8 +18,12 @@ func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.Accoun
 }
 
 func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) {
+
 	// write store.memDb
 	store.putMemDb(batch)
+
+	store.unconfirmedBatchsLock.Lock()
+	defer store.unconfirmedBatchsLock.Unlock()
 
 	// write store.unconfirmedBatch
 	store.unconfirmedBatchs.Put(blockHash, batch)
@@ -43,7 +47,7 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 	if snapshotBatch != nil {
 		store.putMemDb(snapshotBatch)
 	}
-
+	store.unconfirmedBatchsLock.Lock()
 	for _, blockHash := range blockHashList {
 		batch, ok := store.unconfirmedBatchs.Get(blockHash)
 		if !ok {
@@ -55,6 +59,7 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 		// remove
 		store.unconfirmedBatchs.Remove(blockHash)
 	}
+	store.unconfirmedBatchsLock.Unlock()
 
 	// write store snapshot batch
 	if snapshotBatch != nil {

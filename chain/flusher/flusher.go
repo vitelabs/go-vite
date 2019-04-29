@@ -27,6 +27,10 @@ type Storage interface {
 
 	AfterCommit()
 
+	BeforeRecover([]byte)
+
+	AfterRecover()
+
 	PatchRedoLog([]byte) error
 }
 
@@ -121,7 +125,13 @@ func (flusher *Flusher) Recover() error {
 		flusher.cleanRedoLog()
 		return nil
 	}
-	return flusher.redo(stores, redoLogList)
+
+	flusher.beforeRecover(stores, redoLogList)
+	if err := flusher.redo(stores, redoLogList); err != nil {
+		return err
+	}
+	flusher.afterRecover()
+	return nil
 }
 
 func (flusher *Flusher) loopFlush() {
@@ -134,7 +144,6 @@ func (flusher *Flusher) loopFlush() {
 			case <-flusher.terminal:
 				flusher.flush()
 				return
-			//case flusher.force:
 
 			default:
 				flusher.flush()
@@ -393,6 +402,18 @@ func (flusher *Flusher) afterCommit() {
 		store.AfterCommit()
 	}
 
+}
+
+func (flusher *Flusher) beforeRecover(stores []Storage, redoLogList [][]byte) {
+	for index, redoLog := range redoLogList {
+		stores[index].BeforeRecover(redoLog)
+	}
+}
+
+func (flusher *Flusher) afterRecover() {
+	for _, store := range flusher.storeList {
+		store.AfterRecover()
+	}
 }
 
 func (flusher *Flusher) redo(stores []Storage, redoLogList [][]byte) error {

@@ -127,8 +127,8 @@ func (ab *AccountBlock) hashSourceLength() int {
 	return size
 }
 
-func (ab *AccountBlock) hashSource() []byte {
-	source := make([]byte, 0, ab.hashSourceLength())
+func (ab *AccountBlock) hashSource(extraByte []byte) []byte {
+	source := make([]byte, 0, ab.hashSourceLength()+len(extraByte))
 	// BlockType
 	source = append(source, ab.BlockType)
 
@@ -180,11 +180,34 @@ func (ab *AccountBlock) hashSource() []byte {
 	for _, sendBlock := range ab.SendBlockList {
 		source = append(source, sendBlock.Hash.Bytes()...)
 	}
+
+	source = append(source, extraByte...)
 	return source
 }
 
 func (ab *AccountBlock) ComputeHash() types.Hash {
-	source := ab.hashSource()
+	source := ab.hashSource(nil)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+
+	return hash
+}
+
+func (ab *AccountBlock) ComputeSendHash(hostBlock *AccountBlock, index uint8) types.Hash {
+
+	extraBytes := make([]byte, 0, types.HashSize+8+1)
+	// prev hash
+	extraBytes = append(extraBytes, hostBlock.PrevHash.Bytes()...)
+
+	// height
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, hostBlock.Height)
+	extraBytes = append(extraBytes, heightBytes...)
+
+	// index
+	extraBytes = append(extraBytes, index)
+
+	source := ab.hashSource(extraBytes)
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 

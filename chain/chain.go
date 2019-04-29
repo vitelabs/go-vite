@@ -129,11 +129,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
-	// init plugins
-	if c.chainCfg.OpenPlugins {
-		c.plugins.BuildPluginsDb(c.flusher)
-	}
-
+	// reconstruct the plugins
+	/*	if c.chainCfg.OpenPlugins {
+			c.plugins.BuildPluginsDb(c.flusher)
+		}
+	*/
 	c.log.Info("Complete initialization", "method", "Init")
 
 	return nil
@@ -338,11 +338,6 @@ func (c *chain) initCache() error {
 		return cErr
 	}
 
-	// FIXME TEMP
-	if err := c.indexDB.InitOnRoad(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -415,4 +410,8 @@ func defaultConfig() *config.Chain {
 
 func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
 	return c.indexDB, c.blockDB, c.stateDB
+}
+
+func (c *chain) Flusher() *chain_flusher.Flusher {
+	return c.flusher
 }
