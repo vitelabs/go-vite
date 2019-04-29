@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
@@ -216,8 +218,9 @@ func (s *syncRequestMsg) deserialize(data []byte) error {
 }
 
 type syncReadyMsg struct {
-	from, to uint64
-	size     uint64
+	from, to          uint64
+	size              uint64
+	prevHash, endHash types.Hash
 }
 
 func (s *syncReadyMsg) code() syncCode {
@@ -226,10 +229,13 @@ func (s *syncReadyMsg) code() syncCode {
 
 func (s *syncReadyMsg) Serialize() ([]byte, error) {
 	pb := &protos.ChunkInfo{
-		From: s.from,
-		To:   s.to,
-		Size: s.size,
+		From:     s.from,
+		To:       s.to,
+		Size:     s.size,
+		PrevHash: s.prevHash.Bytes(),
+		EndHash:  s.endHash.Bytes(),
 	}
+
 	return proto.Marshal(pb)
 }
 
@@ -239,6 +245,17 @@ func (s *syncReadyMsg) deserialize(data []byte) error {
 	if err != nil {
 		return err
 	}
+
+	s.prevHash, err = types.BytesToHash(pb.PrevHash)
+	if err != nil {
+		return err
+	}
+
+	s.endHash, err = types.BytesToHash(pb.EndHash)
+	if err != nil {
+		return err
+	}
+
 	s.from = pb.From
 	s.to = pb.To
 	s.size = pb.Size
@@ -475,7 +492,12 @@ func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	chunkInfo := msg.(*syncReadyMsg)
 
 	cache := f.cacher.GetSyncCache()
-	writer, err := cache.NewWriter(from, to)
+	segment := interfaces.Segment{
+		Bound:    [2]uint64{from, to},
+		Hash:     chunkInfo.endHash,
+		PrevHash: chunkInfo.prevHash,
+	}
+	writer, err := cache.NewWriter(segment)
 	if err != nil {
 		return false, err
 	}
@@ -518,14 +540,14 @@ func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 
 	if werr != nil {
 		err = fmt.Errorf("failed to write cache %d-%d: %v", from, to, werr)
-		_ = cache.Delete(interfaces.Segment{from, to})
+		_ = cache.Delete(segment)
 		return
 	}
 
 	if total != chunkInfo.size {
 		fatal = true
 		err = errIncompleteChunk
-		_ = cache.Delete(interfaces.Segment{from, to})
+		_ = cache.Delete(segment)
 		return
 	}
 

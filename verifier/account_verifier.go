@@ -3,6 +3,8 @@ package verifier
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
@@ -14,7 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 type AccountType int
@@ -98,12 +99,6 @@ func (v *AccountVerifier) verifySelf(block *ledger.AccountBlock) error {
 		return err
 	}
 	if err := v.verifyNonce(block); err != nil {
-		return err
-	}
-	if err := v.verifyHash(block); err != nil {
-		return err
-	}
-	if err := v.verifySignature(block); err != nil {
 		return err
 	}
 	return nil

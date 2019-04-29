@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestSpeedToString(t *testing.T) {
@@ -266,17 +268,49 @@ func TestCodec(t *testing.T) {
 	wg.Done()
 }
 
-//func TestSyncHandshake(t *testing.T) {
-//	var mockPeer = &peer{
-//		Peer:        nil,
-//		peerMap:     sync.Map{},
-//		knownBlocks: nil,
-//		errChan:     nil,
-//		once:        sync.Once{},
-//		log:         nil,
-//	}
-//	peers := newPeerSet()
-//	fac := &defaultSyncConnectionFactory{
-//		peers: peers,
-//	}
-//}
+func compare(m1, m2 *syncReadyMsg) error {
+	if m1.from != m2.from {
+		return fmt.Errorf("different from %d %d", m1.from, m2.from)
+	}
+	if m1.to != m2.to {
+		return fmt.Errorf("different to %d %d", m1.to, m2.to)
+	}
+	if m1.size != m2.size {
+		return fmt.Errorf("different size %d %d", m1.to, m2.to)
+	}
+	if m1.prevHash != m2.prevHash {
+		return fmt.Errorf("different prev hash %s %s", m1.prevHash, m2.prevHash)
+	}
+	if m2.endHash != m2.endHash {
+		return fmt.Errorf("different end hash %s %s", m1.endHash, m2.endHash)
+	}
+
+	return nil
+}
+func TestSyncReadyMsg(t *testing.T) {
+	var msg = &syncReadyMsg{
+		from:     117,
+		to:       1189,
+		size:     20293,
+		prevHash: types.Hash{},
+		endHash:  types.Hash{},
+	}
+
+	_, _ = crand.Read(msg.prevHash[:])
+	_, _ = crand.Read(msg.endHash[:])
+
+	data, err := msg.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	var msg2 = &syncReadyMsg{}
+	err = msg2.deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if err = compare(msg, msg2); err != nil {
+		t.Error(err)
+	}
+}

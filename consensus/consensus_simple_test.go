@@ -11,7 +11,7 @@ import (
 func TestSimpleCs(t *testing.T) {
 	cs := newSimpleCs(log15.New("unitest", "simpleCs"))
 
-	info := cs.GetInfo()
+	info := cs.GroupInfo
 	stime, etime := cs.Index2Time(0)
 	// genesis
 	assert.True(t, stime.Unix() == simpleGenesis.Unix())

@@ -18,6 +18,7 @@ type Batch interface {
 	Info() string
 	Version() uint64
 	Exists(hash types.Hash) bool
+	Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error
 	Id() uint64
 }
 
@@ -43,3 +44,5 @@ type Item interface {
 	Height() uint64
 	PrevHash() types.Hash
 }
+
+type BucketExecutorFn func(p Batch, bucket Bucket, version uint64) error
