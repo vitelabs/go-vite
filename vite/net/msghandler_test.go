@@ -126,9 +126,8 @@ func TestCheckHandler(t *testing.T) {
 		{175, mockHash()},
 	}
 
-	var check = &message.Check{
+	var check = &message.HashHeightList{
 		Points: hhs,
-		To:     to,
 	}
 
 	chain := &mockSnapshotReader{
@@ -165,11 +164,11 @@ func TestCheckHandler(t *testing.T) {
 	cd, payload := checkH.handleCheck(check)
 	if cd != CodeCheckResult {
 		t.Errorf("error code: %d", cd)
-	}
+	} else {
+		checkResult := payload.(*ledger.HashHeight)
 
-	checkResult := payload.(*message.CheckResult)
-
-	if checkResult.FEP.Height != 175 || checkResult.FEP.Hash != hhs[1].Hash {
-		t.Error("wrong fep")
+		if checkResult.Height != 175 || checkResult.Hash != hhs[1].Hash {
+			t.Error("wrong fep")
+		}
 	}
 }

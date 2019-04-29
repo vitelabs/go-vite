@@ -73,8 +73,8 @@ Loop:
 		var reader interfaces.ReadCloser
 
 		c := cs[0]
-		if c[1] > s.height() {
-			reader, err = cache.NewReader(c[0], c[1])
+		if c.Bound[1] > s.height() {
+			reader, err = cache.NewReader(c)
 			if err != nil {
 				goto Loop
 			}
@@ -117,8 +117,8 @@ Loop:
 				}
 			}
 
-			if prev.Height != c[1] {
-				err = fmt.Errorf("wrong end: %d %d", prev.Height, c[1])
+			if prev.Height != c.Bound[1] {
+				err = fmt.Errorf("wrong end: %d %d", prev.Height, c.Bound[1])
 				panic(err)
 			}
 
