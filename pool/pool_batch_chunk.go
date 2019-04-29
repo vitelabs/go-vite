@@ -86,6 +86,9 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 	for _, v := range chunks {
 		if v.AccountBlocks != nil {
 			for _, vv := range v.AccountBlocks {
+				if err := self.accountExists(vv.Hash); err == nil {
+					continue
+				}
 				block := newAccountPoolBlock(vv, nil, self.version, source)
 				err := b.AddItem(block)
 				if err != nil && err == batch.MAX_ERROR {
@@ -102,6 +105,10 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 			}
 		}
 		if v.SnapshotBlock != nil {
+			if err := self.snapshotExists(v.SnapshotBlock.Hash); err == nil {
+				continue
+			}
+
 			block := newSnapshotPoolBlock(v.SnapshotBlock, self.version, source)
 			err := b.AddItem(block)
 			if err != nil && err == batch.MAX_ERROR {
