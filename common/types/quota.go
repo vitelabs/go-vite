@@ -22,7 +22,7 @@ func (q *Quota) Current() uint64 {
 }
 
 // Quota used of a single account in past 74 snapshot blocks and unconfirmed account blocks
-func (q *Quota) CurrentSnapshot() uint64 {
+func (q *Quota) SnapshotCurrent() uint64 {
 	return q.current - q.unconfirmed
 }
 
