@@ -44,8 +44,9 @@ type AccountBlock struct {
 
 	Data []byte `json:"data"` // 9	hash
 
-	Quota uint64   `json:"quota"`
-	Fee   *big.Int `json:"fee"` // 10 padding 32 bytes
+	Quota     uint64   `json:"quota"`     // stake quota used in block, Quota = max(QuotaUsed - quotaByPoW,0)
+	QuotaUsed uint64   `json:"quotaUsed"` // actual quota used in block
+	Fee       *big.Int `json:"fee"`       // 10 padding 32 bytes
 
 	LogHash *types.Hash `json:"logHash"` // 11
 
