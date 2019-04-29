@@ -68,6 +68,6 @@ func (vdb *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return *vdb.callDepth, nil
 }
 
-func (vdb *vmDb) GetQuotaUsedList() []types.QuotaInfo {
-	return vdb.chain.GetQuotaUsedList(*vdb.address)
+func (vdb *vmDb) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
+	return vdb.chain.GetQuotaUsedList(addr)
 }

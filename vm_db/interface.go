@@ -61,7 +61,7 @@ type VmDb interface {
 
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
-	GetQuotaUsedList() []types.QuotaInfo
+	GetQuotaUsedList(addr types.Address) []types.QuotaInfo
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash

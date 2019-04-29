@@ -1,8 +1,9 @@
 package types
 
 type QuotaInfo struct {
-	BlockCount uint64
-	Used       uint64
+	BlockCount     uint64
+	QuotaTotal     uint64
+	QuotaUsedTotal uint64
 }
 
 type Quota struct {

@@ -132,12 +132,12 @@ func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
 }
 
 func (c *chain) GetGlobalQuota() types.QuotaInfo {
-	return types.QuotaInfo{}
+	return c.cache.GetGlobalQuota()
 }
 
 func (c *chain) GetQuotaUsedList(address types.Address) []types.QuotaInfo {
-	//return c.cache.GetQuotaUsed(&address)
-	return nil
+	//return c.cache.GetQuotaUsedList(&address)
+	return c.cache.GetQuotaUsedList(address)
 }
 
 func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error) {

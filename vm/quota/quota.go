@@ -48,8 +48,8 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 }
 
 type quotaDb interface {
-	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
-	GetUnconfirmedBlocks() []*ledger.AccountBlock
+	GetQuotaUsedList(address types.Address) []types.QuotaInfo
+	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
 }
 
 func CalcBlockQuota(db quotaDb, block *ledger.AccountBlock) (uint64, error) {
