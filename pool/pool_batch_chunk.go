@@ -87,9 +87,11 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 		if v.AccountBlocks != nil {
 			for _, vv := range v.AccountBlocks {
 				if err := self.accountExists(vv.Hash); err == nil {
+					self.log.Info("[A]block exist, ignore.", "block", vv.Hash)
 					continue
 				}
 				block := newAccountPoolBlock(vv, nil, self.version, source)
+				self.log.Info("[A]add block to batch.", "account", vv.AccountAddress, "height", vv.Height, "block", vv.Hash, "batchId", b.Id())
 				err := b.AddItem(block)
 				if err != nil && err == batch.MAX_ERROR {
 					err := b.Batch(self.insertSnapshotBucketForChunks, self.insertAccountsBucketForChunks)
@@ -97,6 +99,11 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 						return err
 					} else {
 						b = batch.NewBatch(self.snapshotExists, self.accountExists, self.version.Val(), 50)
+						err = b.AddItem(block)
+						if err != nil {
+							return err
+						}
+						continue
 					}
 				}
 				if err != nil {
@@ -106,10 +113,12 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 		}
 		if v.SnapshotBlock != nil {
 			if err := self.snapshotExists(v.SnapshotBlock.Hash); err == nil {
+				self.log.Info("[S]block exist, ignore.", "block", v.SnapshotBlock.Hash)
 				continue
 			}
 
 			block := newSnapshotPoolBlock(v.SnapshotBlock, self.version, source)
+			self.log.Info("[S]add block to batch.", "block", v.SnapshotBlock.Hash, "batchId", b.Id())
 			err := b.AddItem(block)
 			if err != nil && err == batch.MAX_ERROR {
 				err := b.Batch(self.insertSnapshotBucketForChunks, self.insertAccountsBucketForChunks)
@@ -117,6 +126,11 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 					return err
 				} else {
 					b = batch.NewBatch(self.snapshotExists, self.accountExists, self.version.Val(), 50)
+					err = b.AddItem(block)
+					if err != nil {
+						return err
+					}
+					continue
 				}
 			}
 			if err != nil {
@@ -126,7 +140,7 @@ func (self *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source type
 	}
 
 	if b.Size() > 0 {
-		return b.Batch(self.insertAccountsBucketForChunks, self.insertAccountsBucketForChunks)
+		return b.Batch(self.insertSnapshotBucketForChunks, self.insertAccountsBucketForChunks)
 	}
 	return nil
 }

@@ -173,7 +173,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A]account[%s] not exist.", r))
+				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A][%d]account[%s][%s] not exist.", self.Id(), b.Hash(), r))
 			}
 			continue
 		}

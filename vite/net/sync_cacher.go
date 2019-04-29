@@ -120,9 +120,9 @@ func (s *cacheReader) Pop(endHash types.Hash) {
 
 func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	for {
 		if false == s.running {
-			s.mu.Unlock()
 			return
 		}
 
