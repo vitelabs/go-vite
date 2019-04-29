@@ -38,7 +38,12 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	if isTest {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
 			// TODO update quotaUnconfirmed for chain
-			return 1000000, 1000000, 0, 0, 0, nil
+			list := db.GetUnconfirmedBlocks(addr)
+			quotaUnconfirmed = uint64(0)
+			for _, block := range list {
+				quotaUnconfirmed = quotaUnconfirmed + block.Quota
+			}
+			return 1000000, 1000000, 0, quotaUnconfirmed, 0, nil
 		}
 	} else {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
@@ -126,9 +131,9 @@ func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficul
 			return 0, 0, 0, 0, 0, util.ErrCalcPoWTwice
 		}
 	}
-	return calcQuotaTotal(db, pledgeAmount, difficulty)
+	return calcQuotaTotal(db, addr, pledgeAmount, difficulty)
 }
-func calcQuotaTotal(db quotaDb, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
+func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
 	quotaPledge, err = calcPledgeQuota(db, pledgeAmount)
 	if err != nil {
 		return 0, 0, 0, 0, 0, err
@@ -137,8 +142,31 @@ func calcQuotaTotal(db quotaDb, pledgeAmount *big.Int, difficulty *big.Int) (quo
 	if err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
-	// TODO get quota Used
-	return 0, quotaPledge, quotaAddition, 0, 0, nil
+	quotaList := db.GetQuotaUsedList(addr)
+	quotaTotal = uint64(0)
+	quotaUsedTotal := uint64(0)
+	blockCountTotal := uint64(0)
+	for _, q := range quotaList {
+		quotaTotal = quotaTotal + quotaPledge
+		quotaUsedTotal = quotaUsedTotal + q.QuotaUsedTotal
+		blockCountTotal = blockCountTotal + q.BlockCount
+		if quotaTotal >= q.QuotaTotal {
+			quotaTotal = 0
+		} else {
+			quotaTotal = quotaTotal - q.QuotaTotal
+		}
+	}
+	if len(quotaList) > 0 {
+		quotaUnconfirmed = quotaList[len(quotaList)-1].QuotaTotal
+	} else {
+		quotaUnconfirmed = 0
+	}
+	if blockCountTotal > 0 {
+		quotaAvg = quotaUsedTotal / blockCountTotal
+	} else {
+		quotaAvg = 0
+	}
+	return quotaTotal + quotaAddition, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg, nil
 }
 
 func calcPledgeQuota(db quotaDb, pledgeAmount *big.Int) (uint64, error) {
@@ -166,32 +194,12 @@ func calcQuotaByIndex(index int) uint64 {
 	return 0
 }
 
-func getIndexByQuota(q uint64) int {
-	return int((q + quotaForSection - 1) / quotaForSection)
-}
-
-// Get the largest index
-// which makes sectionList[index] <= x
-func getIndexInSection(x *big.Float) int {
-	return getIndexInFloatList(x, nodeConfig.sectionList, 0, len(nodeConfig.sectionList)-1)
-}
-func getIndexInFloatList(x *big.Float, list []*big.Float, left, right int) int {
-	if left == right {
-		if left == 0 || list[left].Cmp(x) <= 0 {
-			return left
-		} else {
-			return left - 1
-		}
+func getIndexByQuota(q uint64) (int, error) {
+	index := int((q + quotaForSection - 1) / quotaForSection)
+	if index >= len(nodeConfig.sectionList) || uint64(index)*quotaForSection < q {
+		return 0, util.ErrBlockQuotaLimitReached
 	}
-	mid := (left + right + 1) / 2
-	cmp := nodeConfig.sectionList[mid].Cmp(x)
-	if cmp == 0 {
-		return mid
-	} else if cmp > 0 {
-		return getIndexInFloatList(x, list, left, mid-1)
-	} else {
-		return getIndexInFloatList(x, list, mid, right)
-	}
+	return index, nil
 }
 
 func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
@@ -226,8 +234,10 @@ func CalcPoWDifficulty(quotaRequired uint64, q types.Quota, pledgeAmount *big.In
 	if q.Current() >= quotaRequired {
 		return big.NewInt(0), nil
 	}
-
-	index := getIndexByQuota(quotaRequired)
+	index, err := getIndexByQuota(quotaRequired)
+	if err != nil {
+		return nil, err
+	}
 	difficulty := nodeConfig.difficultyList[index]
 	return difficulty, nil
 }
