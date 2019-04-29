@@ -291,7 +291,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 	addNewCount := 0
 	var p *callerPendingMap
 	if !ok || value == nil {
-		blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
+		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 		if len(blocks) <= 0 {
 			return nil
 		}
@@ -305,7 +305,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 	} else {
 		p = w.selectivePendingCache[contractAddr]
 		if p.isPendingMapNotSufficient() {
-			blocks, _ := w.manager.GetOnRoadFrontBlocks(w.gid, contractAddr)
+			blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 			for _, v := range blocks {
 				if p.existInInferiorList(v.AccountAddress) {
 					continue
@@ -317,16 +317,6 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		}
 	}
 	w.log.Info(fmt.Sprintf("acquire new.len %v, currentPendingCache.len %v", addNewCount, p.Len()), "addr", contractAddr)
-	/*	for caller, l := range w.selectivePendingCache[*contractAddr].pmap {
-		listStr := fmt.Sprintf("contract %v caller %v:", contractAddr, caller)
-		for k, v := range l {
-			listStr += strconv.FormatUint(v.Height, 10)
-			if k < len(l)-1 {
-				listStr += ","
-			}
-		}
-		w.log.Info("acquireOnRoadBlocks detail: " + listStr)
-	}*/
 	return w.selectivePendingCache[contractAddr].getOnePending()
 }
 

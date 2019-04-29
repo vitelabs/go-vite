@@ -54,12 +54,12 @@ func NewSyncCache(dataDir string) (interfaces.SyncCache, error) {
 }
 
 func (cache *syncCache) Delete(seg interfaces.Segment) error {
-	filename := cache.toAbsoluteFileName(seg[0], seg[1])
+	filename := cache.toAbsoluteFileName(seg)
 
 	if err := os.Remove(filename); err != nil {
 		return err
 	}
-	cache.deleteSeg(seg[0], seg[1])
+	cache.deleteSeg(seg)
 	return nil
 }
 
@@ -119,6 +119,7 @@ func (cache *syncCache) isCorrectFile(filename string) bool {
 	return strings.HasPrefix(filename, "f_")
 }
 
-func (cache *syncCache) toAbsoluteFileName(from, to uint64) string {
-	return path.Join(cache.dirName, "f_"+strconv.FormatUint(from, 10)+"_"+strconv.FormatUint(to, 10))
+func (cache *syncCache) toAbsoluteFileName(segment interfaces.Segment) string {
+	return path.Join(cache.dirName, "f_"+strconv.FormatUint(segment.Bound[0], 10)+"_"+segment.PrevHash.String()+
+		"_"+strconv.FormatUint(segment.Bound[1], 10)+"_"+segment.Hash.String())
 }

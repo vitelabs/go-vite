@@ -1,8 +1,8 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -104,11 +104,21 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 				iDB.deleteAccountBlockHash(batch, sendBlock.Hash)
 
 				// set open send
+
 				sendBlockHashMap[sendBlock.Hash] = sendBlock
+
+				if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+					iDB.deleteConfirmCache(sendBlock.Hash)
+				}
+			}
+		} else {
+
+			sendBlockHashMap[block.Hash] = block
+
+			if block.BlockType == ledger.BlockTypeSendCreate {
+				iDB.deleteConfirmCache(block.Hash)
 			}
 
-		} else {
-			sendBlockHashMap[block.Hash] = block
 		}
 	}
 	return nil
@@ -151,4 +161,8 @@ func (iDB *IndexDB) deleteReceiveInfo(batch *leveldb.Batch, sendBlockHash types.
 
 func (iDB *IndexDB) deleteConfirmHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
 	batch.Delete(chain_utils.CreateConfirmHeightKey(&addr, height))
+}
+
+func (iDB *IndexDB) deleteConfirmCache(blockHash types.Hash) {
+	iDB.sendCreateBlockHashCache.Remove(blockHash)
 }

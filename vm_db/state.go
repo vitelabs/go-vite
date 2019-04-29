@@ -5,8 +5,8 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 )
 
-func (db *vmDb) GetReceiptHash() *types.Hash {
-	kvList := db.unsaved.GetStorage()
+func (vdb *vmDb) GetReceiptHash() *types.Hash {
+	kvList := vdb.unsaved.GetStorage()
 	if len(kvList) <= 0 {
 		return &types.Hash{}
 	}
@@ -27,10 +27,10 @@ func (db *vmDb) GetReceiptHash() *types.Hash {
 	return &hash
 }
 
-func (db *vmDb) Reset() {
-	db.unsaved.Reset()
+func (vdb *vmDb) Reset() {
+	vdb.unsaved.Reset()
 }
 
-func (db *vmDb) Finish() {
-	db.unsaved.ReleaseRuntime()
+func (vdb *vmDb) Finish() {
+	vdb.unsaved.ReleaseRuntime()
 }

@@ -25,6 +25,7 @@ type BlockDB struct {
 
 	flushStartLocation  *chain_file_manager.Location
 	flushTargetLocation *chain_file_manager.Location
+	flushBuf            []byte
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {

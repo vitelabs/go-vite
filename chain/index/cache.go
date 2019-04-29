@@ -1,15 +1,19 @@
 package chain_index
 
 import (
+	"fmt"
 	"github.com/allegro/bigcache"
 	"github.com/hashicorp/golang-lru"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+
 	"time"
 )
 
 func (iDB *IndexDB) newCache() error {
 	var err error
 	iDB.cache, err = bigcache.NewBigCache(bigcache.Config{
-		HardMaxCacheSize: 256,
+		HardMaxCacheSize: 128,
 		Shards:           1024,
 		LifeWindow:       time.Minute * 10,
 	})
@@ -17,11 +21,38 @@ func (iDB *IndexDB) newCache() error {
 		return err
 	}
 
-	iDB.accountCache, err = lru.New(100 * 1000)
+	iDB.accountCache, err = lru.New(10 * 10000)
 	if err != nil {
 		return err
 	}
+
+	iDB.sendCreateBlockHashCache, err = lru.New(10000)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func (iDB *IndexDB) initCache() error {
+	var returnErr error
+	iDB.chain.IterateContracts(func(addr types.Address, meta *ledger.ContractMeta, err error) bool {
+		if err != nil {
+			returnErr = err
+			return false
+		}
+		blockHash := meta.CreateBlockHash
+		if !blockHash.IsZero() {
+			snapshotHeight, err := iDB.GetConfirmHeightByHash(&blockHash)
+			if err != nil {
+				panic(fmt.Sprintf("indexDB initCache failed, Error: %s", err))
+			}
+
+			iDB.insertConfirmCache(blockHash, snapshotHeight)
+		}
+		return true
+	})
+	return returnErr
 }
 
 // with cache

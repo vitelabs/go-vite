@@ -2,8 +2,9 @@ package chain_state
 
 import (
 	"github.com/patrickmn/go-cache"
-	"github.com/syndtr/goleveldb/leveldb/util"
+
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -71,7 +72,6 @@ func (sDB *StateDB) initContractMetaCache() error {
 	defer iter.Release()
 
 	for iter.Next() {
-
 		sDB.cache.Set(contractAddrPrefix+string(iter.Key()), sDB.copyValue(iter.Value()), cache.NoExpiration)
 	}
 	if err := iter.Error(); err != nil {

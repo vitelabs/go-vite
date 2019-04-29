@@ -3,18 +3,24 @@ package sync_cache
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"strconv"
 	"strings"
 )
 
-func newSegment(from uint64, to uint64) interfaces.Segment {
-	return interfaces.Segment{from, to}
+func NewSegment(from uint64, to uint64, prevHash, hash types.Hash) interfaces.Segment {
+	return interfaces.Segment{
+		Bound:    [2]uint64{from, to},
+		Hash:     hash,
+		PrevHash: prevHash,
+	}
 }
+
 func newSegmentByFilename(filename string) (interfaces.Segment, error) {
 	f1 := strings.Replace(filename, "f_", "", 1)
 	strList := strings.Split(f1, "_")
-	if len(strList) != 2 {
+	if len(strList) != 4 {
 		return interfaces.Segment{}, errors.New(fmt.Sprintf("%s is invalid.", filename))
 	}
 
@@ -22,10 +28,20 @@ func newSegmentByFilename(filename string) (interfaces.Segment, error) {
 	if err != nil {
 		return interfaces.Segment{}, errors.New(fmt.Sprintf("%s is invalid. Error: %s", filename, err))
 	}
-	to, err := strconv.ParseUint(strList[1], 10, 64)
+
+	prevHash, err := types.HexToHash(strList[1])
 	if err != nil {
 		return interfaces.Segment{}, errors.New(fmt.Sprintf("%s is invalid. Error: %s", filename, err))
 	}
 
-	return interfaces.Segment{from, to}, nil
+	to, err := strconv.ParseUint(strList[2], 10, 64)
+	if err != nil {
+		return interfaces.Segment{}, errors.New(fmt.Sprintf("%s is invalid. Error: %s", filename, err))
+	}
+	hash, err := types.HexToHash(strList[3])
+	if err != nil {
+		return interfaces.Segment{}, errors.New(fmt.Sprintf("%s is invalid. Error: %s", filename, err))
+	}
+
+	return NewSegment(from, to, prevHash, hash), nil
 }

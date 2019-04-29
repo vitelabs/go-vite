@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
+
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
@@ -43,12 +44,12 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 	}
 
 	stateDb := &StateDB{
-		chain: chain,
-		log:   log15.New("module", "stateDB"),
-		store: store,
-
-		redo:     storageRedo,
+		chain:    chain,
+		log:      log15.New("module", "stateDB"),
+		store:    store,
 		useCache: false,
+
+		redo: storageRedo,
 	}
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
@@ -146,6 +147,33 @@ func (sDB *StateDB) GetContractMeta(addr types.Address) (*ledger.ContractMeta, e
 		return nil, err
 	}
 	return meta, nil
+}
+
+func (sDB *StateDB) IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool) {
+	items := sDB.cache.Items()
+
+	prefix := contractAddrPrefix[0]
+	for keyStr, item := range items {
+
+		if keyStr[0] == prefix {
+			key := []byte(keyStr)
+			addr, err := types.BytesToAddress(key[2:])
+			if err != nil {
+				iterateFunc(types.Address{}, nil, err)
+				return
+			}
+
+			meta := &ledger.ContractMeta{}
+			if err := meta.Deserialize(item.Object.([]byte)); err != nil {
+				iterateFunc(types.Address{}, nil, err)
+				return
+			}
+
+			if !iterateFunc(addr, meta, nil) {
+				return
+			}
+		}
+	}
 }
 
 func (sDB *StateDB) HasContractMeta(addr types.Address) (bool, error) {

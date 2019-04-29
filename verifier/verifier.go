@@ -1,8 +1,8 @@
 package verifier
 
 import (
-	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/onroad"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,8 +13,9 @@ import (
 type VerifyResult int
 
 type verifier struct {
-	Sv  *SnapshotVerifier
-	Av  *AccountVerifier
+	Sv *SnapshotVerifier
+	Av *AccountVerifier
+
 	log log15.Logger
 }
 
@@ -26,21 +27,22 @@ func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
 	}
 }
 
+func (v *verifier) InitOnRoadPool(manager *onroad.Manager) {
+	v.Av.InitOnRoadPool(manager)
+}
+
 func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
 	return v.Sv.VerifyNetSb(block)
 }
 
 func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	// fixme 1. makesure genesis and initial-balance blocks don't need to check, return nil
-	//2. VerifyHash
-	if err := v.Av.verifyHash(block); err != nil {
+	//1. VerifyHash
+	if err := v.VerifyAccBlockHash(block); err != nil {
 		return err
 	}
-	//3. VerifySignature
-	if v.Av.chain.IsGenesisAccountBlock(block.Hash) {
-		return nil
-	}
-	if err := v.Av.verifySignature(block); err != nil {
+	//2. VerifySignature
+	if err := v.VerifyAccBlockSignature(block); err != nil {
 		return err
 	}
 	return nil
@@ -103,46 +105,18 @@ func (v *verifier) VerifyAccBlockHash(block *ledger.AccountBlock) error {
 }
 
 func (v *verifier) VerifyAccBlockSignature(block *ledger.AccountBlock) error {
-	accType, err := v.Av.verifyAccAddress(block)
-	if err != nil {
-		return err
+	if v.Av.chain.IsGenesisAccountBlock(block.Hash) {
+		return nil
 	}
-	if accType == AccountTypeNotSure {
-		return ErrVerifyAccountTypeNotSure
-	}
-	isGeneralAddr := isAccTypeGeneral(accType)
-	if !isGeneralAddr && block.IsSendBlock() {
-		if len(block.Signature) != 0 || len(block.PublicKey) != 0 {
-			return errors.New("signature and publicKey of the contract's send must be nil")
-		}
-	} else {
-		if err := v.Av.verifySignature(block); err != nil {
-			return err
-		}
-	}
-	return nil
+	return v.Av.verifySignature(block)
 }
 
 func (v *verifier) VerifyAccBlockNonce(block *ledger.AccountBlock) error {
-	accType, err := v.Av.verifyAccAddress(block)
-	if err != nil {
-		return err
-	}
-	if accType == AccountTypeNotSure {
-		return ErrVerifyAccountTypeNotSure
-	}
-	return v.Av.verifyNonce(block, isAccTypeGeneral(accType))
+	return v.Av.verifyNonce(block)
 }
 
 func (v *verifier) VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error {
-	accType, err := v.Av.verifyAccAddress(block)
-	if err != nil {
-		return err
-	}
-	if accType == AccountTypeNotSure {
-		return ErrVerifyAccountTypeNotSure
-	}
-	return v.Av.verifyProducerLegality(block, isAccTypeGeneral(accType))
+	return v.Av.verifyProducerLegality(block)
 }
 
 func (v *verifier) GetSnapshotVerifier() *SnapshotVerifier {

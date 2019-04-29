@@ -6,40 +6,44 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (db *vmDb) SetContractMeta(toAddress types.Address, meta *ledger.ContractMeta) {
-	db.unsaved.SetContractMeta(toAddress, meta)
+func (vdb *vmDb) SetContractMeta(toAddress types.Address, meta *ledger.ContractMeta) {
+	vdb.unsaved.SetContractMeta(toAddress, meta)
 }
 
-func (db *vmDb) GetContractMeta() (*ledger.ContractMeta, error) {
-	if db.address == nil {
+func (vdb *vmDb) GetContractMeta() (*ledger.ContractMeta, error) {
+	if vdb.address == nil {
 		return nil, errors.New("no self address")
 	}
-	meta := db.unsaved.GetContractMeta(*db.address)
+	meta := vdb.unsaved.GetContractMeta(*vdb.address)
 	if meta != nil {
 		return meta, nil
 	}
 
-	return db.chain.GetContractMeta(*db.address)
+	return vdb.chain.GetContractMeta(*vdb.address)
+}
+
+func (db *vmDb) GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (meta *ledger.ContractMeta, err error) {
+	return db.chain.GetContractMetaInSnapshot(contractAddress, snapshotBlock.Height)
 }
 
 func (db *vmDb) SetContractCode(code []byte) {
 	db.unsaved.SetCode(code)
 }
 
-func (db *vmDb) GetContractCode() ([]byte, error) {
-	if code := db.unsaved.GetCode(); len(code) > 0 {
+func (vdb *vmDb) GetContractCode() ([]byte, error) {
+	if code := vdb.unsaved.GetCode(); len(code) > 0 {
 		return code, nil
 	}
 
-	return db.chain.GetContractCode(*db.address)
+	return vdb.chain.GetContractCode(*vdb.address)
 }
-func (db *vmDb) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
+func (vdb *vmDb) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	return nil, nil
 }
 
-func (db *vmDb) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {
-	return db.unsaved.contractMetaMap
+func (vdb *vmDb) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {
+	return vdb.unsaved.contractMetaMap
 }
-func (db *vmDb) GetUnsavedContractCode() []byte {
-	return db.unsaved.code
+func (vdb *vmDb) GetUnsavedContractCode() []byte {
+	return vdb.unsaved.code
 }

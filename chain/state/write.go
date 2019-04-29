@@ -3,9 +3,9 @@ package chain_state
 import (
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -53,6 +53,10 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if len(unsavedContractMeta) > 0 {
 		redoLog.ContractMeta = make(map[types.Address][]byte, len(unsavedContractMeta))
 		for addr, meta := range unsavedContractMeta {
+			// set create block hash
+			meta.CreateBlockHash = accountBlock.Hash
+
+			// set meta
 			contractKey := chain_utils.CreateContractMetaKey(addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 

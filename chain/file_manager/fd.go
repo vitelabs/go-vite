@@ -81,7 +81,7 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 	return count, nil
 }
 
-func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
+func (fd *fileDescription) Flush(startOffset int64, buf []byte) (int, error) {
 
 	cacheItem := fd.cacheItem
 
@@ -99,59 +99,102 @@ func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
 	if cacheItem.FileWriter == nil {
 		fd, err := fd.fdSet.createNewFile(cacheItem.FileId)
 		if err != nil {
-			return cacheItem.FlushPointer, errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err))
+			return 0, errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err))
 		}
 		if fd == nil {
-			return cacheItem.FlushPointer, errors.New("fd is nil")
+			return 0, errors.New("fd is nil")
 		}
 		cacheItem.FileWriter = fd
 	}
 
 	file := cacheItem.FileWriter
 
-	if cacheItem.FlushPointer >= cacheItem.BufferLen ||
-		cacheItem.FlushPointer >= targetOffset {
-		return cacheItem.FlushPointer, nil
+	if _, err := file.Seek(startOffset, 0); err != nil {
+		return 0, err
 	}
 
-	if _, err := file.Seek(cacheItem.FlushPointer, 0); err != nil {
-		return cacheItem.FlushPointer, err
-	}
-
-	n, err := file.Write(cacheItem.Buffer[cacheItem.FlushPointer:targetOffset])
-	cacheItem.FlushPointer += int64(n)
-
+	n, err := file.Write(buf)
 	if err != nil {
-		return cacheItem.FlushPointer, err
+		return n, err
 	}
 
-	return cacheItem.FlushPointer, nil
+	if err := file.Sync(); err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
-func (fd *fileDescription) Sync() error {
+//func (fd *fileDescription) Flush(targetOffset int64) (int64, error) {
+//
+//	cacheItem := fd.cacheItem
+//
+//	if cacheItem == nil {
+//		return 0, errors.New("cacheItem is nil")
+//	}
+//
+//	cacheItem.Mu.Lock()
+//	defer cacheItem.Mu.Unlock()
+//
+//	if fd.fileId != cacheItem.FileId {
+//		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
+//	}
+//
+//	if cacheItem.FileWriter == nil {
+//		fd, err := fd.fdSet.createNewFile(cacheItem.FileId)
+//		if err != nil {
+//			return cacheItem.FlushPointer, errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err))
+//		}
+//		if fd == nil {
+//			return cacheItem.FlushPointer, errors.New("fd is nil")
+//		}
+//		cacheItem.FileWriter = fd
+//	}
+//
+//	file := cacheItem.FileWriter
+//
+//	if cacheItem.FlushPointer >= cacheItem.BufferLen ||
+//		cacheItem.FlushPointer >= targetOffset {
+//		return cacheItem.FlushPointer, nil
+//	}
+//
+//	if _, err := file.Seek(cacheItem.FlushPointer, 0); err != nil {
+//		return cacheItem.FlushPointer, err
+//	}
+//
+//	n, err := file.Write(cacheItem.Buffer[cacheItem.FlushPointer:targetOffset])
+//	cacheItem.FlushPointer += int64(n)
+//
+//	if err != nil {
+//		return cacheItem.FlushPointer, err
+//	}
+//
+//	return cacheItem.FlushPointer, nil
+//}
 
-	cacheItem := fd.cacheItem
-
-	if cacheItem == nil {
-		return errors.New("cacheItem is nil")
-	}
-
-	cacheItem.Mu.Lock()
-	defer cacheItem.Mu.Unlock()
-
-	if fd.fileId != cacheItem.FileId {
-		return errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
-	}
-
-	if cacheItem.FileWriter == nil {
-		return errors.New("cacheItem.FileWriter is nil")
-	}
-	if err := cacheItem.FileWriter.Sync(); err != nil {
-		return err
-	}
-
-	return nil
-}
+//func (fd *fileDescription) Sync() error {
+//
+//	cacheItem := fd.cacheItem
+//
+//	if cacheItem == nil {
+//		return errors.New("cacheItem is nil")
+//	}
+//
+//	cacheItem.Mu.Lock()
+//	defer cacheItem.Mu.Unlock()
+//
+//	if fd.fileId != cacheItem.FileId {
+//		return errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
+//	}
+//
+//	if cacheItem.FileWriter == nil {
+//		return errors.New("cacheItem.FileWriter is nil")
+//	}
+//	if err := cacheItem.FileWriter.Sync(); err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 func (fd *fileDescription) Close() {
 	if fd.fileReader != nil {

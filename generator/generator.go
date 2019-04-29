@@ -129,8 +129,8 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
 		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
-			for _, v := range vb.SendBlockList {
-				v.Hash = v.ComputeHash()
+			for idx, v := range vb.SendBlockList {
+				v.Hash = v.ComputeSendHash(vb, uint8(idx))
 			}
 		}
 		vb.Hash = vb.ComputeHash()

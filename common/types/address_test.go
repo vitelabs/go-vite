@@ -2,21 +2,20 @@ package types
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	"encoding/hex"
-
 	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 func TestCreateContractAddress(t *testing.T) {
 	addr := CreateContractAddress([]byte{1, 2, 3}, []byte{1, 2, 3})
 	fmt.Println(addr)
-	if !IsValidHexAddress(addr.String()) {
+	if _, err := ValidHexAddress(addr.String()); err == nil {
 		t.Fatal("Not valid")
 	}
 }
@@ -69,6 +68,28 @@ func TestAddressValid(t *testing.T) {
 		t.Fail()
 	}
 
+	real, _, err := CreateAddress()
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	if !IsValidHexAddress(real.String()) {
+		t.Fail()
+	}
+
+	if !IsValidHexAddress(AddressPledge.String()) {
+		t.Fail()
+	}
+
+	if !IsValidHexAddress(AddressConsensusGroup.String()) {
+		t.Fail()
+	}
+
+	if !IsValidHexAddress(AddressMintage.String()) {
+		t.Fail()
+	}
+
 }
 
 func BenchmarkCreateAddress(b *testing.B) {
@@ -88,7 +109,11 @@ func TestAddress_UnmarshalJSON(t *testing.T) {
 }
 
 func TestPubkeyToAddress(t *testing.T) {
-	publicKey, err := ed25519.HexToPublicKey("meHN+pdEEN1yp34IV8JZRFYqYMB+znhxvSTMRufmeoc=")
+	byt, err := base64.StdEncoding.DecodeString("meHN+pdEEN1yp34IV8JZRFYqYMB+znhxvSTMRufmeoc=")
+	if err != nil {
+		panic(err)
+	}
+	publicKey, err := ed25519.HexToPublicKey(hex.EncodeToString(byt))
 	if err != nil {
 		panic(err)
 	}
@@ -97,8 +122,9 @@ func TestPubkeyToAddress(t *testing.T) {
 
 	fmt.Printf("%+v\n", producer)
 }
+
 func TestPubkeyBytesToAddress(t *testing.T) {
 	byt := []byte{63, 197, 34, 78, 89, 67, 59, 255, 79, 72, 200, 60, 14, 180, 237, 234, 14, 76, 66, 234, 105, 126, 4, 205, 236, 113, 125, 3, 229, 13, 82, 0}
-	producer := types.PubkeyToAddress(byt)
+	producer := PubkeyToAddress(byt)
 	t.Log(producer)
 }

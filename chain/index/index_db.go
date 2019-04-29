@@ -16,12 +16,14 @@ type IndexDB struct {
 	store *chain_db.Store
 
 	latestAccountId uint64
-	cache           *bigcache.BigCache
-	accountCache    *lru.Cache
+
+	cache *bigcache.BigCache
+
+	sendCreateBlockHashCache *lru.Cache
+
+	accountCache *lru.Cache
 
 	log log15.Logger
-
-	onRoadData map[types.Address]map[types.Hash]struct{} // FIXME, template test
 
 	chain Chain
 }
@@ -41,16 +43,27 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 		chain: chain,
 	}
 
-	iDB.latestAccountId, err = iDB.queryLatestAccountId()
-	if err != nil {
-		return nil, err
-	}
+	store.RegisterAfterRecover(iDB.InitAccountId)
 
+	iDB.InitAccountId()
 	if err = iDB.newCache(); err != nil {
 		return nil, err
 	}
 
 	return iDB, nil
+}
+
+func (iDB *IndexDB) Init() error {
+	return iDB.initCache()
+}
+
+func (iDB *IndexDB) InitAccountId() {
+	var err error
+	iDB.latestAccountId, err = iDB.queryLatestAccountId()
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func (iDB *IndexDB) CleanAllData() error {

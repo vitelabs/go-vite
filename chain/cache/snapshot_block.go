@@ -21,6 +21,9 @@ func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	// new quota
 	cache.quotaList.NewNext(confirmedBlocks)
+
+	// delete confirmed blocks
+	cache.ds.DeleteAccountBlocks(confirmedBlocks)
 }
 
 func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {

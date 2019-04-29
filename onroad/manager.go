@@ -19,7 +19,8 @@ import (
 var (
 	slog           = log15.New("module", "onroad")
 	ErrNotSyncDone = errors.New("network synchronization is not complete")
-	DefaultGidList = []types.Gid{types.DELEGATE_GID}
+
+	DefaultContractGidList = []types.Gid{types.DELEGATE_GID}
 )
 
 type Manager struct {
@@ -59,7 +60,7 @@ func NewManager(net Net, pool Pool, producer Producer, consensus generator.Conse
 
 func (manager *Manager) Init(chain chain.Chain) {
 	manager.chain = chain
-	for _, gid := range DefaultGidList {
+	for _, gid := range DefaultContractGidList {
 		manager.prepareOnRoadPool(gid)
 	}
 }
@@ -85,8 +86,16 @@ func (manager *Manager) Stop() {
 }
 
 func (manager *Manager) Close() error {
-
 	return nil
+}
+
+func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
+	orPool, exist := manager.onRoadPools.Load(gid)
+	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
+	if !exist || orPool == nil {
+		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain))
+		return
+	}
 }
 
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
@@ -150,15 +159,6 @@ func (manager *Manager) stopAllWorks() {
 	}
 	wg.Wait()
 	manager.log.Info("stopAllWorks end")
-}
-
-func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
-	orPool, exist := manager.onRoadPools.Load(gid)
-	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
-	if !exist || orPool == nil {
-		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain))
-		return
-	}
 }
 
 func (manager *Manager) resumeContractWorks() {

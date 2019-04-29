@@ -53,8 +53,8 @@ type Redo struct {
 
 	retainHeight uint64
 
-	id types.Hash
-	mu sync.RWMutex
+	id         types.Hash
+	snapsMapMu sync.RWMutex
 
 	flushingBatchMap map[uint64]*FlushingBatch
 }
@@ -72,24 +72,29 @@ func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 		snapshotLogMap: make(map[uint64]*SnapshotLog),
 		retainHeight:   1200,
 		id:             id,
-
-		flushingBatchMap: make(map[uint64]*FlushingBatch),
 	}
 
+	if err := redo.InitFlushingBatchMap(); err != nil {
+		return nil, err
+	}
+	return redo, nil
+}
+
+func (redo *Redo) InitFlushingBatchMap() error {
 	height := uint64(0)
 
-	latestSnapshotBlock, err := chain.QueryLatestSnapshotBlock()
+	latestSnapshotBlock, err := redo.chain.QueryLatestSnapshotBlock()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if latestSnapshotBlock != nil {
 		height = latestSnapshotBlock.Height
 	}
 
 	if err := redo.ResetSnapshot(height + 1); err != nil {
-		return nil, err
+		return err
 	}
-	return redo, nil
+	return nil
 }
 
 func (redo *Redo) Close() error {
@@ -163,10 +168,12 @@ func (redo *Redo) HasRedo(snapshotHeight uint64) (bool, error) {
 		return false, nil
 	}
 
+	redo.snapsMapMu.RLock()
 	if snapshotLog, ok := redo.snapshotLogMap[snapshotHeight]; ok {
-
+		redo.snapsMapMu.RUnlock()
 		return snapshotLog.FlushOpt != optRollback, nil
 	}
+	redo.snapsMapMu.RUnlock()
 
 	hasRedo := true
 
@@ -188,9 +195,12 @@ func (redo *Redo) HasRedo(snapshotHeight uint64) (bool, error) {
 }
 
 func (redo *Redo) QueryLog(snapshotHeight uint64) (map[types.Address][]LogItem, bool, error) {
+	redo.snapsMapMu.RLock()
 	if snapshotLog, ok := redo.snapshotLogMap[snapshotHeight]; ok {
+		redo.snapsMapMu.RUnlock()
 		return snapshotLog.RedoLogMap, snapshotLog.FlushOpt != optRollback, nil
 	}
+	redo.snapsMapMu.RUnlock()
 
 	redoLogMap := make(map[types.Address][]LogItem)
 
@@ -267,8 +277,8 @@ func (redo *Redo) SetSnapshot(snapshotHeight uint64, logMap map[types.Address][]
 
 func (redo *Redo) AddLog(addr types.Address, log LogItem) {
 	// FOR DEBUG
-	redo.mu.Lock()
-	defer redo.mu.Unlock()
+	redo.snapsMapMu.Lock()
+	defer redo.snapsMapMu.Unlock()
 
 	//fmt.Println("ADD LOG ", redo.currentSnapshotHeight, addr, log)
 
