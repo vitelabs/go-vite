@@ -12,31 +12,25 @@ import (
 )
 
 func TestCalcParamAndSectionList(t *testing.T) {
-	quotaLimit := 75 * 1000000.0
+	quotaLimit := 1000000.0
 	sectionList := make([]*big.Float, 0)
 	fmt.Printf("sectionStrList = []string{\n")
 	q := 0.0
 	index := 0
-	wapperIndex := 0
 	for {
 		if q >= quotaLimit {
 			break
 		}
 		gapLow := math.Log(2.0/(1.0-q/quotaLimit) - 1.0)
 
-		fmt.Printf("\t\"%v\", ", gapLow)
-		wapperIndex = wapperIndex + 1
-		if wapperIndex == 75 {
-			fmt.Printf("\n")
-			wapperIndex = 0
-		}
+		fmt.Printf("\t\"%v\", \n", gapLow)
 		sectionList = append(sectionList, new(big.Float).SetPrec(precForFloat).SetFloat64(gapLow))
 		index = index + 1
 		q = q + 21000.0
 	}
 	fmt.Printf("}\n")
 
-	defaultSectionForPledge := sectionList[75]
+	defaultSectionForPledge := sectionList[1]
 	defaultSectionForPoW := sectionList[1]
 
 	floatTmp := new(big.Float).SetPrec(precForFloat)
@@ -69,28 +63,22 @@ func TestCalcPledgeAmountSection(t *testing.T) {
 	InitQuotaConfig(false, false)
 	p := nodeConfig.paramA
 	fmt.Printf("pledgeAmountListMainnet = []*big.Int{\n")
-	for wrapperIndex, sec := range nodeConfig.sectionList {
+	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), ", amount.String())
-		if wrapperIndex%75 == 0 {
-			fmt.Printf("\n")
-		}
+		fmt.Printf("big.NewInt(%v), \n", amount.String())
 	}
 	fmt.Printf("}\n")
 
 	InitQuotaConfig(false, true)
 	p = nodeConfig.paramA
 	fmt.Printf("pledgeAmountListTestnet = []*big.Int{\n")
-	for wrapperIndex, sec := range nodeConfig.sectionList {
+	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), ", amount.String())
-		if wrapperIndex%75 == 0 {
-			fmt.Printf("\n")
-		}
+		fmt.Printf("big.NewInt(%v), \n", amount.String())
 	}
 	fmt.Printf("}\n")
 }
@@ -102,28 +90,22 @@ func TestCalcDifficultySection(t *testing.T) {
 	InitQuotaConfig(false, false)
 	p := nodeConfig.paramB
 	fmt.Printf("difficultyListMainnet = []*big.Int{\n")
-	for wrapperIndex, sec := range nodeConfig.sectionList {
+	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), ", amount.String())
-		if wrapperIndex%75 == 0 {
-			fmt.Printf("\n")
-		}
+		fmt.Printf("big.NewInt(%v), \n", amount.String())
 	}
 	fmt.Printf("}\n")
 
 	InitQuotaConfig(false, true)
 	p = nodeConfig.paramB
 	fmt.Printf("difficultyListTestnet = []*big.Int{\n")
-	for wrapperIndex, sec := range nodeConfig.sectionList {
+	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), ", amount.String())
-		if wrapperIndex%75 == 0 {
-			fmt.Printf("\n")
-		}
+		fmt.Printf("big.NewInt(%v), \n", amount.String())
 	}
 	fmt.Printf("}\n")
 }
