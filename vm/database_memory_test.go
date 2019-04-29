@@ -202,8 +202,17 @@ func (db *memoryDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
 	return nil
 }
 
+func (db *memoryDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
 func (db *memoryDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
 }
+
 func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
 	return &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 0, QuotaRatio: 10}, nil
 }

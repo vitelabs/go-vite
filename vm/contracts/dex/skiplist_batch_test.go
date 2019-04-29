@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -224,8 +223,7 @@ func doTruncate(t *testing.T, ids []int) {
 func getSkipList(t *testing.T) *skiplist {
 	listId := SkipListId{}
 	listId.SetBytes([]byte("testBatchSkiplist"))
-	add, _ := types.BytesToAddress([]byte("123456789A123456789A"))
-	skiplist, err := newSkiplist(listId, &add, &storage, &po)
+	skiplist, err := newSkiplist(listId, &storage, &po)
 	assert.Equal(t, nil, err)
 	return skiplist
 }

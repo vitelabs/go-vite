@@ -18,16 +18,17 @@ func NewMapStorage() localMapStorage {
 	return localMapStorage{data : make(map[string][]byte, 0), logs : make([]*ledger.VmLog, 0, 10)}
 }
 
-func (ls *localMapStorage) GetStorage(addr *types.Address, key []byte) []byte {
+func (ls *localMapStorage) GetValue(key []byte) ([]byte, error) {
 	if v, ok := ls.data[string(key)]; ok {
-		return v
+		return v, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
-func (ls *localMapStorage) SetStorage(key []byte, value []byte) {
+func (ls *localMapStorage) SetValue(key []byte, value []byte) error {
 	ls.data[string(key)] = value
+	return nil
 }
 
 func (ls *localMapStorage) ClearStorage(key []byte, value []byte) {
@@ -57,11 +58,6 @@ func (ls *localMapStorage) GetLogListHash() *types.Hash {
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 	return &hash
 	return nil
-}
-
-func getAddress() *types.Address {
-	add, _ := types.BytesToAddress([]byte("12345678901234567890"))
-	return &add
 }
 
 var baseKeyInt, key2Int, key5Int, key1Int, key3Int int
@@ -96,7 +92,7 @@ func newSkipListTest (t *testing.T) *skiplist {
 	// Test new
 	listId := SkipListId{}
 	listId.SetBytes([]byte("skiplistName"))
-	skiplist, _ := newSkiplist(listId, getAddress(), &st, &po)
+	skiplist, _ := newSkiplist(listId, &st, &po)
 	assert.Equal(t, skiplist.level, int8(1))
 	return skiplist
 }

@@ -47,8 +47,8 @@ type nodePayloadProtocol interface {
 }
 
 type BaseStorage interface {
-	GetStorage(addr *types.Address, key []byte) []byte
-	SetStorage(key []byte, value []byte)
+	GetValue(key []byte) ([]byte, error)
+	SetValue(key []byte, value []byte) error
 	AddLog(log *ledger.VmLog)
 	GetLogListHash() *types.Hash
 }
@@ -95,7 +95,7 @@ func (meta *skiplistMeta) getMetaStorageKey(listId SkipListId) []byte {
 	return append([]byte(metaStorageSalt), listId.Bytes()...)
 }
 
-func newSkiplist(listId SkipListId, contractAddress *types.Address, storage *BaseStorage, protocol *nodePayloadProtocol) (*skiplist, error) {
+func newSkiplist(listId SkipListId, storage *BaseStorage, protocol *nodePayloadProtocol) (*skiplist, error) {
 	skl := &skiplist{}
 	skl.listId = listId
 	skl.header = (*protocol).getNilKey()
@@ -105,7 +105,6 @@ func newSkiplist(listId SkipListId, contractAddress *types.Address, storage *Bas
 	skl.storage = storage
 	skl.protocol = protocol
 	skl.barrierNode = skl.createNode((*skl.protocol).getBarrierKey(), nil, skiplistMaxLevel)
-	skl.contractAddress = contractAddress
 	if err := skl.initMeta(listId); err != nil {
 		return nil, err
 	}
@@ -139,8 +138,8 @@ func (skl *skiplist) getNodeWithDirtyFilter(nodeKey nodeKeyType, dirtyNodes map[
 			return node, nil
 		}
 	}
-	nodeData := (*skl.storage).GetStorage(skl.contractAddress, nodeKey.getStorageKey())
-	if len(nodeData) > 0 {
+	nodeData, err := (*skl.storage).GetValue(nodeKey.getStorageKey())
+	if err == nil && len(nodeData) > 0 {
 		return (*skl.protocol).deSerialize(nodeData)
 	} else {
 		return nil, nil
@@ -166,8 +165,7 @@ func (skl *skiplist) saveNode(node *skiplistNode) error {
 	if nodeData, err = (*skl.protocol).serialize(node); err != nil {
 		return err
 	}
-	(*skl.storage).SetStorage(node.nodeKey.getStorageKey(), nodeData)
-	return nil
+	return (*skl.storage).SetValue(node.nodeKey.getStorageKey(), nodeData)
 }
 
 func (skl *skiplist) saveMeta() error {
@@ -180,16 +178,18 @@ func (skl *skiplist) saveMeta() error {
 	if metaData, err = (*skl.protocol).serializeMeta(meta); err != nil {
 		return err
 	}
-	(*skl.storage).SetStorage(meta.getMetaStorageKey(skl.listId), metaData)
-	return nil
+	return (*skl.storage).SetValue(meta.getMetaStorageKey(skl.listId), metaData)
 }
 
 func (skl *skiplist) initMeta(name SkipListId) error {
 	var (
 		meta = &skiplistMeta{}
+		metaData []byte
 		err error
 	)
-	metaData := (*skl.storage).GetStorage(skl.contractAddress, meta.getMetaStorageKey(name))
+	if metaData, err = (*skl.storage).GetValue(meta.getMetaStorageKey(name)); err != nil {
+		return err
+	}
 	if len(metaData) == 0 {
 		return nil
 	} else {

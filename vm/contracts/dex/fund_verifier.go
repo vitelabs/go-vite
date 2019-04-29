@@ -31,6 +31,7 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	count, _ := accumulateUserAccount(db, userAmountMap)
 	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
+	accumulateFeeDonate(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
 			amount    *big.Int
@@ -44,7 +45,7 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 		} else {
 			amount = userAmount
 		}
-		balance := db.GetBalance(&types.AddressDexFund, &tokenId)
+		balance, _ := db.GetBalance(&tokenId)
 		ok = amount.Cmp(balance) == 0
 		verifyItems[tokenId] = &FundVerifyItem{TokenId: tokenId, Balance: balance.String(), Amount: amount.String(), UserAmount: userAmount.String(), FeeAmount: feeAmount.String(), FeeOccupy: feeOccupy, Ok: ok}
 		if !ok {
@@ -62,17 +63,22 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 	var (
 		userAccountValue []byte
 		userFund         *UserFund
-		err              error
 		ok               bool
 	)
 	var count = 0
-	iterator := db.NewStorageIterator(&types.AddressDexFund, fundKeyPrefix)
+	iterator, err := db.NewStorageIterator(fundKeyPrefix)
+	if err != nil {
+		return 0, err
+	}
+	defer iterator.Release()
 	for {
-		if _, userAccountValue, ok = iterator.Next(); !ok {
+		if ok = iterator.Next(); ok {
+			userAccountValue = iterator.Value()
+		} else {
 			break
 		}
 		userFund = &UserFund{}
-		if userFund, err = userFund.DeSerialize(userAccountValue); err != nil {
+		if err = userFund.DeSerialize(userAccountValue); err != nil {
 			return 0, err
 		}
 		for _, acc := range userFund.Accounts {
@@ -87,18 +93,23 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 
 func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
-		feeSumValue, donateFeeSumValue []byte
-		feeSum                         *FeeSumByPeriod
-		err                            error
-		ok                             bool
+		feeSumValue []byte
+		feeSum      *FeeSumByPeriod
+		ok          bool
 	)
-	iterator := db.NewStorageIterator(&types.AddressDexFund, feeSumKeyPrefix)
+	iterator, err := db.NewStorageIterator(feeSumKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
 	for {
-		if _, feeSumValue, ok = iterator.Next(); !ok {
+		if ok = iterator.Next(); ok {
+			feeSumValue = iterator.Value()
+		} else {
 			break
 		}
 		feeSum = &FeeSumByPeriod{}
-		if feeSum, err = feeSum.DeSerialize(feeSumValue); err != nil {
+		if err = feeSum.DeSerialize(feeSumValue); err != nil {
 			return err
 		}
 		if !feeSum.FeeDivided {
@@ -108,12 +119,21 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 			}
 		}
 	}
-	iterator = db.NewStorageIterator(&types.AddressDexFund, donateFeeSumKeyPrefix)
+	return nil
+}
+
+func accumulateFeeDonate(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+	iterator, err := db.NewStorageIterator(donateFeeSumKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
 	for {
-		if _, donateFeeSumValue, ok = iterator.Next(); !ok {
+		if ok := iterator.Next(); ok {
+			accAccount(ledger.ViteTokenId, iterator.Value(), accumulateRes)
+		} else {
 			break
 		}
-		accAccount(ledger.ViteTokenId, donateFeeSumValue, accumulateRes)
 	}
 	return nil
 }

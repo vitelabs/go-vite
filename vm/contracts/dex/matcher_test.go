@@ -24,7 +24,7 @@ var (
 func TestMatcher(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
-	mc := NewMatcher(getAddress(), &st)
+	mc := NewMatcher(&st)
 
 	DeleteTerminatedOrder = true
 	SetFeeRate("0.06", "0.05") // takerFee, makerFee
@@ -226,7 +226,7 @@ func TestDustCheck(t *testing.T) {
 func TestDustWithOrder(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
-	mc := NewMatcher(getAddress(), &st)
+	mc := NewMatcher(&st)
 	SetFeeRate("0.06", "0.05") // takerFee, makerFee
 	// buy quantity = origin * 100,000,000
 	buy1 := newOrderInfo(301, ETH, VITE,false, Limited, "0.00012345", 10000, time.Now().UnixNano()/1000) //amount 123.45

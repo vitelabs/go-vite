@@ -16,9 +16,9 @@ var (
  	vxTokenId = types.TokenTypeId{'V', 'X', ' ', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}
 	vxTokenInfo = tokenInfo{vxTokenId, 5}
 
-	userAddress0, _ = types.BytesToAddress([]byte("12345678901234567890"))
-	userAddress1, _ = types.BytesToAddress([]byte("12345678901234567891"))
-	userAddress2, _ = types.BytesToAddress([]byte("12345678901234567892"))
+	userAddress0, _ = types.BytesToAddress([]byte("123456789012345678901"))
+	userAddress1, _ = types.BytesToAddress([]byte("123456789012345678902"))
+	userAddress2, _ = types.BytesToAddress([]byte("123456789012345678903"))
 )
 
 func TestDexDividend(t *testing.T) {
@@ -36,7 +36,7 @@ func TestDexDividend(t *testing.T) {
 func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	err := deposit(db, userAddress0, vxTokenId, 10)
 	assert.True(t, err == nil)
-	vxSumFunds, err := dex.GetVxSumFundsFromStorage(db)
+	vxSumFunds, err := dex.GetVxSumFundsFromDb(db)
 	assert.True(t, err == nil)
 	assert.True(t, vxSumFunds == nil)
 
@@ -53,7 +53,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(user0VxFunds.Funds))
 	assert.True(t, CheckBigEqualToInt(30, user0VxFunds.Funds[0].Amount))
 
-	periodId, err := dex.GetCurrentPeriodIdFromStorage(db)
+	periodId := dex.GetCurrentPeriodIdFromStorage(db)
 	assert.Equal(t, uint64(1), periodId)
 	err = settleFee(db, userAddress0, ETH.tokenId, 60)
 	settleFee(db, userAddress0, VITE.tokenId, 30)
@@ -66,13 +66,13 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	// userAddress1 userFees 1 -> [ETH : 30]
 
 	rollPeriod(db)
-	periodId, err = dex.GetCurrentPeriodIdFromStorage(db)
+	periodId = dex.GetCurrentPeriodIdFromStorage(db)
 	assert.True(t, err == nil)
 	assert.Equal(t, uint64(2), periodId)
 
 	deposit(db, userAddress0, vxTokenId, 2)
 	deposit(db, userAddress1, vxTokenId, 23)
-	vxSumFunds, err = dex.GetVxSumFundsFromStorage(db)
+	vxSumFunds, err = dex.GetVxSumFundsFromDb(db)
 	assert.Equal(t, uint64(1), vxSumFunds.Funds[0].Period)
 	assert.Equal(t, uint64(2), vxSumFunds.Funds[1].Period)
 
@@ -239,7 +239,7 @@ func innerTestMinedVxForFee(t *testing.T, db *testDatabase) {
 }
 
 func checkVxSumLen(t *testing.T, db *testDatabase, expectedLen int) *dex.VxFunds {
-	vxSumFunds, _ := dex.GetVxSumFundsFromStorage(db)
+	vxSumFunds, _ := dex.GetVxSumFundsFromDb(db)
 	assert.Equal(t, expectedLen, len(vxSumFunds.Funds))
 	return vxSumFunds
 }
@@ -292,15 +292,14 @@ func withdraw(db *testDatabase, address types.Address, tokenId types.TokenTypeId
 }
 
 func settleFund(db *testDatabase, address types.Address, tokenId types.TokenTypeId, incAmount int64) error {
-	db.AddBalance(&tokenId, big.NewInt(incAmount))
+	addBalance(db, tokenId, big.NewInt(incAmount))
 	return settleFundAndFee(db, address, tokenId, incAmount, vxTokenId, 0)
 }
 
 func settleFee(db *testDatabase, address types.Address, feeTokenId types.TokenTypeId, feeAmount int64) error {
-	db.AddBalance(&feeTokenId, big.NewInt(feeAmount))
+	addBalance(db, feeTokenId, big.NewInt(feeAmount))
 	return settleFundAndFee(db, address, vxTokenId, 0, feeTokenId, feeAmount)
 }
-
 func settleFundAndFee(db *testDatabase, address types.Address, tokenId types.TokenTypeId, incAmount int64, feeTokenId types.TokenTypeId, feeAmount int64) error {
 	settleActions := &dexproto.SettleActions{}
 	if incAmount > 0 {
@@ -335,7 +334,7 @@ func settleFundAndFee(db *testDatabase, address types.Address, tokenId types.Tok
 		} else {
 			settleReceiveBlock := &ledger.AccountBlock{}
 			settleMethod := contracts.MethodDexFundSettleOrders{}
-			_, err = settleMethod.DoReceive(db, settleReceiveBlock, settleSendBlock)
+			_, err = settleMethod.DoReceive(db, settleReceiveBlock, settleSendBlock, nil)
 			return err
 		}
 	}
@@ -349,7 +348,7 @@ func feeDividend(db *testDatabase, periodId uint64) error {
 	} else {
 		feeDividendReceiveBlock := &ledger.AccountBlock{}
 		feeDividendMethod := contracts.MethodDexFundFeeDividend{}
-		_, err = feeDividendMethod.DoReceive(db, feeDividendReceiveBlock, feeDividendSendBlock)
+		_, err = feeDividendMethod.DoReceive(db, feeDividendReceiveBlock, feeDividendSendBlock, nil)
 		return err
 	}
 }
@@ -362,7 +361,19 @@ func vxMinedVxDividend(db *testDatabase, periodId uint64) error {
 	} else {
 		vxMinedVxDividendReceiveBlock := &ledger.AccountBlock{}
 		minedVxDividendMethod := contracts.MethodDexFundMinedVxDividend{}
-		_, err = minedVxDividendMethod.DoReceive(db, vxMinedVxDividendReceiveBlock, vxMinedVxDividendSendBlock)
+		_, err = minedVxDividendMethod.DoReceive(db, vxMinedVxDividendReceiveBlock, vxMinedVxDividendSendBlock, nil)
 		return err
 	}
+}
+
+
+
+func addBalance(db *testDatabase, tokenId types.TokenTypeId, amount *big.Int) {
+	origin, _ := db.GetBalance(&tokenId)
+	db.SetBalance(&tokenId, origin.Add(origin, amount))
+}
+
+func subBalance(db *testDatabase, tokenId types.TokenTypeId, amount *big.Int) {
+	origin, _ := db.GetBalance(&tokenId)
+	db.SetBalance(&tokenId, origin.Sub(origin, amount))
 }

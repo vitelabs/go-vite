@@ -74,11 +74,13 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 		return handleReceiveErr(db, err)
 	}
 	storage, _ := db.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
+	matcher := dex.NewMatcher(&storage)
 	if err = matcher.MatchOrder(dex.TakerOrder{*orderInfo}); err != nil {
+		fmt.Printf("MatchOrder err %s\n ", err.Error())
 		return handleNewOrderFailed(db, block, orderInfo, err)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
+		fmt.Printf("handleSettleActions err %s\n ", err.Error())
 		return handleNewOrderFailed(db, block, orderInfo, err)
 	}
 	return blocks, err
@@ -117,7 +119,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
 	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
 	storage, _ := db.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&types.AddressDexTrade, &storage)
+	matcher := dex.NewMatcher(&storage)
 	var (
 		order  *dex.Order
 		err    error

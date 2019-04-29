@@ -3,20 +3,16 @@ package dex
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"strconv"
-	"strings"
-	"time"
 )
 
 var (
@@ -39,7 +35,7 @@ var (
 	pledgeForVipPrefix = []byte("pldVip:") // pledgeForVip: types.Address
 	pledgeForVxPrefix  = []byte("pldVx:")  // pledgeForVx: types.Address
 
-	tokenDecimalsPrefix = []byte("tk:") // token:uint8
+	tokenInfoPrefix = []byte("tk:") // token:tokenId
 
 	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
@@ -135,23 +131,35 @@ type ParamDexFundPledge struct {
 	Source     types.Address
 	Beneficial types.Address
 	PledgeType int8
-	Amount     *big.Int
+}
+
+type ParamDexFundGetTokenInfo struct {
+	Exist    bool
+	Decimals uint8
+	Symbol   string
+	Index    uint16
 }
 
 type UserFund struct {
 	dexproto.Fund
 }
 
+type FundSerializable interface {
+	Serialize() ([]byte, error)
+	DeSerialize([]byte) error
+}
+
 func (df *UserFund) Serialize() (data []byte, err error) {
 	return proto.Marshal(&df.Fund)
 }
 
-func (df *UserFund) DeSerialize(fundData []byte) (dexFund *UserFund, err error) {
+func (df *UserFund) DeSerialize(fundData []byte) (err error) {
 	protoFund := dexproto.Fund{}
 	if err := proto.Unmarshal(fundData, &protoFund); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &UserFund{protoFund}, nil
+		df.Fund = protoFund
+		return nil
 	}
 }
 
@@ -163,12 +171,13 @@ func (df *FeeSumByPeriod) Serialize() (data []byte, err error) {
 	return proto.Marshal(&df.FeeSumByPeriod)
 }
 
-func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (dexFeeSum *FeeSumByPeriod, err error) {
+func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (err error) {
 	protoFeeSum := dexproto.FeeSumByPeriod{}
 	if err := proto.Unmarshal(feeSumData, &protoFeeSum); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &FeeSumByPeriod{protoFeeSum}, nil
+		df.FeeSumByPeriod = protoFeeSum
+		return nil
 	}
 }
 
@@ -180,12 +189,13 @@ func (dvf *VxFunds) Serialize() (data []byte, err error) {
 	return proto.Marshal(&dvf.VxFunds)
 }
 
-func (dvf *VxFunds) DeSerialize(vxFundsData []byte) (*VxFunds, error) {
+func (dvf *VxFunds) DeSerialize(vxFundsData []byte) error {
 	protoVxFunds := dexproto.VxFunds{}
 	if err := proto.Unmarshal(vxFundsData, &protoVxFunds); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &VxFunds{protoVxFunds}, nil
+		dvf.VxFunds = protoVxFunds
+		return nil
 	}
 }
 
@@ -197,12 +207,13 @@ func (tk *TokenInfo) Serialize() (data []byte, err error) {
 	return proto.Marshal(&tk.TokenInfo)
 }
 
-func (tk *TokenInfo) DeSerialize(data []byte) (*TokenInfo, error) {
+func (tk *TokenInfo) DeSerialize(data []byte) error {
 	tokenInfo := dexproto.TokenInfo{}
 	if err := proto.Unmarshal(data, &tokenInfo); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &TokenInfo{tokenInfo}, nil
+		tk.TokenInfo = tokenInfo
+		return nil
 	}
 }
 
@@ -214,12 +225,13 @@ func (ufs *UserFees) Serialize() (data []byte, err error) {
 	return proto.Marshal(&ufs.UserFees)
 }
 
-func (ufs *UserFees) DeSerialize(userFeesData []byte) (*UserFees, error) {
+func (ufs *UserFees) DeSerialize(userFeesData []byte) error {
 	protoUserFees := dexproto.UserFees{}
 	if err := proto.Unmarshal(userFeesData, &protoUserFees); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &UserFees{protoUserFees}, nil
+		ufs.UserFees = protoUserFees
+		return nil
 	}
 }
 
@@ -231,12 +243,13 @@ func (mi *MarketInfo) Serialize() (data []byte, err error) {
 	return proto.Marshal(&mi.MarketInfo)
 }
 
-func (mi *MarketInfo) DeSerialize(data []byte) (*MarketInfo, error) {
+func (mi *MarketInfo) DeSerialize(data []byte) error {
 	marketInfo := dexproto.MarketInfo{}
 	if err := proto.Unmarshal(data, &marketInfo); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &MarketInfo{marketInfo}, nil
+		mi.MarketInfo = marketInfo
+		return nil
 	}
 }
 
@@ -248,12 +261,13 @@ func (pv *PledgeVip) Serialize() (data []byte, err error) {
 	return proto.Marshal(&pv.PledgeVip)
 }
 
-func (pv *PledgeVip) DeSerialize(data []byte) (*PledgeVip, error) {
+func (pv *PledgeVip) DeSerialize(data []byte) error {
 	pledgeVip := dexproto.PledgeVip{}
 	if err := proto.Unmarshal(data, &pledgeVip); err != nil {
-		return nil, err
+		return err
 	} else {
-		return &PledgeVip{pledgeVip}, nil
+		pv.PledgeVip = pledgeVip
+		return nil
 	}
 }
 
@@ -314,23 +328,17 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 	return dexAccount, nil
 }
 
-func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (dexFund *UserFund, err error) {
-	dexFund = &UserFund{}
-	if fundBytes := db.GetStorage(&types.AddressDexFund, GetUserFundKey(address)); len(fundBytes) > 0 {
-		if dexFund, err = dexFund.DeSerialize(fundBytes); err != nil {
-			return nil, err
-		}
+func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (*UserFund, error) {
+	dexFund := &UserFund{}
+	if err := getFundValueFromDb(db, GetUserFundKey(address), dexFund); err == NotFoundValueFromDb {
+		return dexFund, nil
+	} else {
+		return dexFund, err
 	}
-	return dexFund, nil
 }
 
 func SaveUserFundToStorage(db vm_db.VmDb, address types.Address, dexFund *UserFund) error {
-	if fundRes, err := dexFund.Serialize(); err == nil {
-		db.SetStorage(GetUserFundKey(address), fundRes)
-		return nil
-	} else {
-		return err
-	}
+	return saveFunValueToDb(db, GetUserFundKey(address), dexFund)
 }
 
 func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
@@ -364,28 +372,20 @@ func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func GetCurrentFeeSumFromStorage(db vm_db.VmDb) (feeSum *FeeSumByPeriod, err error) {
-	if feeKey, err := GetFeeSumCurrentKeyFromStorage(db); err != nil {
-		return nil, err
-	} else {
-		return getFeeSumByKeyFromStorage(db, feeKey)
-	}
+func GetCurrentFeeSumFromStorage(db vm_db.VmDb, reader util.ConsensusReader) (feeSum *FeeSumByPeriod, err error) {
+	return getFeeSumByKeyFromStorage(db, GetFeeSumCurrentKeyFromStorage(db, reader))
 }
 
 func GetFeeSumByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (feeSum *FeeSumByPeriod, err error) {
 	return getFeeSumByKeyFromStorage(db, GetFeeSumKeyByPeriodId(periodId))
 }
 
-func getFeeSumByKeyFromStorage(db vm_db.VmDb, feeKey []byte) (feeSum *FeeSumByPeriod, err error) {
-	feeSum = &FeeSumByPeriod{}
-	if feeBytes := db.GetStorage(&types.AddressDexFund, feeKey); len(feeBytes) > 0 {
-		if feeSum, err = feeSum.DeSerialize(feeBytes); err != nil {
-			return nil, err
-		} else {
-			return feeSum, nil
-		}
-	} else {
+func getFeeSumByKeyFromStorage(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, error) {
+	feeSum := &FeeSumByPeriod{}
+	if err := getFundValueFromDb(db, feeKey, feeSum); err == NotFoundValueFromDb {
 		return nil, nil
+	} else {
+		return feeSum, err
 	}
 }
 
@@ -426,37 +426,27 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (
 	}
 }
 
-func SaveCurrentFeeSumToStorage(db vm_db.VmDb, feeSum *FeeSumByPeriod) error {
-	if feeSumKey, err := GetFeeSumCurrentKeyFromStorage(db); err != nil {
-		return err
-	} else {
-		if feeSumBytes, err := feeSum.Serialize(); err == nil {
-			db.SetStorage(feeSumKey, feeSumBytes)
-			return nil
-		} else {
-			return err
-		}
-	}
+func SaveCurrentFeeSumToStorage(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) error {
+	feeSumKey := GetFeeSumCurrentKeyFromStorage(db, reader)
+	return saveFunValueToDb(db, feeSumKey, feeSum)
 }
 
 //fee sum used both by fee dividend and mined vx dividend
-func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
+func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) error {
 	if feeSum.MinedVxDivided {
-		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), nil)
+		return db.SetValue(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
 		feeSum.FeeDivided = true
-		sumBytes, _ := feeSum.Serialize()
-		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), sumBytes)
+		return saveFunValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
-func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
+func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) error {
 	if feeSum.FeeDivided {
-		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), nil)
+		return db.SetValue(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
 		feeSum.MinedVxDivided = true
-		sumBytes, _ := feeSum.Serialize()
-		db.SetStorage(GetFeeSumKeyByPeriodId(periodId), sumBytes)
+		return saveFunValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
@@ -464,80 +454,57 @@ func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
 }
 
-func GetFeeSumCurrentKeyFromStorage(db vm_db.VmDb) ([]byte, error) {
-	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
-		return nil, err
-	} else {
-		return GetFeeSumKeyByPeriodId(periodId), nil
-	}
+func GetFeeSumCurrentKeyFromStorage(db vm_db.VmDb, reader util.ConsensusReader) []byte {
+	return GetFeeSumKeyByPeriodId(GetCurrentPeriodIdFromStorage(db, reader))
 }
 
 func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
-	if lastPeriodIdBytes := db.GetStorage(&types.AddressDexFund, lastFeeSumPeriodKey); len(lastPeriodIdBytes) == 8 {
+	if lastPeriodIdBytes, err := db.GetValue(lastFeeSumPeriodKey); err == nil && len(lastPeriodIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastPeriodIdBytes)
 	} else {
 		return 0
 	}
 }
 
-func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb) error {
-	if periodId, err := GetCurrentPeriodIdFromStorage(db); err != nil {
-		return err
-	} else {
-		db.SetStorage(lastFeeSumPeriodKey, Uint64ToBytes(periodId))
-		return nil
-	}
+func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) error {
+	periodId := GetCurrentPeriodIdFromStorage(db, reader)
+	db.SetValue(lastFeeSumPeriodKey, Uint64ToBytes(periodId))
+	return nil
+
 }
 
-func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (userFees *UserFees, err error) {
-	userFees = &UserFees{}
-	if userFeesBytes := db.GetStorage(&types.AddressDexFund, GetUserFeesKey(address)); len(userFeesBytes) > 0 {
-		if userFees, err = userFees.DeSerialize(userFeesBytes); err != nil {
-			return nil, err
-		} else {
-			return userFees, nil
-		}
-	} else {
+func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (*UserFees, error) {
+	userFees := &UserFees{}
+	if err := getFundValueFromDb(db, GetUserFeesKey(address), userFees); err == NotFoundValueFromDb {
 		return nil, nil
+	} else {
+		return userFees, err
 	}
 }
 
 func SaveUserFeesToStorage(db vm_db.VmDb, address []byte, userFees *UserFees) error {
-	if userFeesBytes, err := userFees.Serialize(); err == nil {
-		db.SetStorage(GetUserFeesKey(address), userFeesBytes)
-		return nil
-	} else {
-		return err
-	}
+	return saveFunValueToDb(db, GetUserFeesKey(address), userFees)
 }
 
 func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) {
-	db.SetStorage(GetUserFeesKey(address), nil)
+	db.SetValue(GetUserFeesKey(address), nil)
 }
 
 func GetUserFeesKey(address []byte) []byte {
 	return append(UserFeeKeyPrefix, address...)
 }
 
-func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, err error) {
-	if vxFundsBytes := db.GetStorage(&types.AddressDexFund, GetVxFundsKey(address)); len(vxFundsBytes) > 0 {
-		if vxFunds, err = vxFunds.DeSerialize(vxFundsBytes); err != nil {
-			return nil, err
-		} else {
-			return vxFunds, nil
-		}
-	} else {
+func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (*VxFunds, error) {
+	var vxFunds = &VxFunds{}
+	if err := getFundValueFromDb(db, GetVxFundsKey(address), vxFunds); err == NotFoundValueFromDb {
 		return nil, nil
+	} else {
+		return vxFunds, err
 	}
 }
 
 func SaveVxFundsToStorage(db vm_db.VmDb, address []byte, vxFunds *VxFunds) error {
-	if vxFundsBytes, err := vxFunds.Serialize(); err == nil {
-		db.SetStorage(GetVxFundsKey(address), vxFundsBytes)
-		return nil
-	} else {
-		return err
-	}
+	return saveFunValueToDb(db, GetVxFundsKey(address), vxFunds)
 }
 
 func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
@@ -573,28 +540,25 @@ func CheckUserVxFundsCanBeDelete(vxFunds *VxFunds) bool {
 }
 
 func DeleteVxFundsFromStorage(db vm_db.VmDb, address []byte) {
-	db.SetStorage(GetVxFundsKey(address), nil)
+	db.SetValue(GetVxFundsKey(address), nil)
 }
 
 func GetVxFundsKey(address []byte) []byte {
 	return append(VxFundKeyPrefix, address...)
 }
 
-func GetVxSumFundsFromStorage(db vm_db.VmDb) (vxSumFunds *VxFunds, err error) {
-	if vxSumFundsBytes := db.GetStorage(&types.AddressDexFund, vxSumFundsKey); len(vxSumFundsBytes) > 0 {
-		if vxSumFunds, err = vxSumFunds.DeSerialize(vxSumFundsBytes); err != nil {
-			return nil, err
-		} else {
-			return vxSumFunds, nil
-		}
-	} else {
+func GetVxSumFundsFromDb(db vm_db.VmDb) (*VxFunds, error) {
+	vxSumFunds := &VxFunds{}
+	if err := getFundValueFromDb(db, vxSumFundsKey, vxSumFunds); err == NotFoundValueFromDb {
 		return nil, nil
+	} else {
+		return vxSumFunds, err
 	}
 }
 
-func SaveVxSumFundsToStorage(db vm_db.VmDb, vxSumFunds *VxFunds) error {
+func SaveVxSumFundsToDb(db vm_db.VmDb, vxSumFunds *VxFunds) error {
 	if vxSumFundsBytes, err := vxSumFunds.Serialize(); err == nil {
-		db.SetStorage(vxSumFundsKey, vxSumFundsBytes)
+		db.SetValue(vxSumFundsKey, vxSumFundsBytes)
 		return nil
 	} else {
 		return err
@@ -602,7 +566,7 @@ func SaveVxSumFundsToStorage(db vm_db.VmDb, vxSumFunds *VxFunds) error {
 }
 
 func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
-	if lastFeeDividendIdBytes := db.GetStorage(&types.AddressDexFund, lastFeeDividendIdKey); len(lastFeeDividendIdBytes) == 8 {
+	if lastFeeDividendIdBytes, err := db.GetValue(lastFeeDividendIdKey); err == nil && len(lastFeeDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastFeeDividendIdBytes)
 	} else {
 		return 0
@@ -610,11 +574,11 @@ func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
 }
 
 func SaveLastFeeDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
-	db.SetStorage(lastFeeDividendIdKey, Uint64ToBytes(periodId))
+	db.SetValue(lastFeeDividendIdKey, Uint64ToBytes(periodId))
 }
 
 func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
-	if lastMinedVxDividendIdBytes := db.GetStorage(&types.AddressDexFund, lastMinedVxDividendIdKey); len(lastMinedVxDividendIdBytes) == 8 {
+	if lastMinedVxDividendIdBytes, err := db.GetValue(lastMinedVxDividendIdKey); err == nil && len(lastMinedVxDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastMinedVxDividendIdBytes)
 	} else {
 		return 0
@@ -622,7 +586,7 @@ func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
 }
 
 func SaveLastMinedVxDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
-	db.SetStorage(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
+	db.SetValue(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
 }
 
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
@@ -633,32 +597,26 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
 }
 
-func GetCurrentPeriodIdFromStorage(db vm_db.VmDb) (uint64, error) {
-	groupInfo := cabi.GetConsensusGroup(db, types.SNAPSHOT_GID)
-	reader := core.NewReader(*db.GetGenesisSnapshotBlock().Timestamp, groupInfo)
-	return reader.TimeToIndex(GetTimestamp(db))
+func GetCurrentPeriodIdFromStorage(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
+	return reader.GetIndexByTime(GetTimestampInt64(db), 0)
 }
 
 func GetDonateFeeSum(db vm_db.VmDb, periodId uint64) *big.Int {
-	if amountBytes := db.GetStorage(&types.AddressDexFund, GetDonateFeeSumKey(periodId)); len(amountBytes) > 0 {
+	if amountBytes, err := db.GetValue(GetDonateFeeSumKey(periodId)); err == nil && len(amountBytes) > 0 {
 		return new(big.Int).SetBytes(amountBytes)
 	} else {
 		return big.NewInt(0)
 	}
 }
 
-func AddDonateFeeSum(db vm_db.VmDb) error {
-	if period, err := GetCurrentPeriodIdFromStorage(db); err != nil {
-		return err
-	} else {
-		donateFeeSum := GetDonateFeeSum(db, period)
-		db.SetStorage(GetDonateFeeSumKey(period), new(big.Int).Add(donateFeeSum, NewMarketFeeDonateAmount).Bytes())
-		return nil
-	}
+func AddDonateFeeSum(db vm_db.VmDb, reader util.ConsensusReader) error {
+	period := GetCurrentPeriodIdFromStorage(db, reader)
+	donateFeeSum := GetDonateFeeSum(db, period)
+	return db.SetValue(GetDonateFeeSumKey(period), new(big.Int).Add(donateFeeSum, NewMarketFeeDonateAmount).Bytes())
 }
 
-func DeleteDonateFeeSum(db vm_db.VmDb, period uint64) {
-	db.SetStorage(GetDonateFeeSumKey(period), nil)
+func DeleteDonateFeeSum(db vm_db.VmDb, period uint64) error {
+	return db.SetValue(GetDonateFeeSumKey(period), nil)
 }
 
 func GetDonateFeeSumKey(periodId uint64) []byte {
@@ -687,50 +645,34 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 	}
 }
 
-func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, err error) {
-	if tokenInfoBytes := db.GetStorage(&types.AddressDexFund, GetTokenInfoKey(token)); len(tokenInfoBytes) > 0 {
-		if tokenInfo, err = tokenInfo.DeSerialize(tokenInfoBytes); err != nil {
-			return nil, err
-		} else {
-			return tokenInfo, nil
-		}
-	} else {
+func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (*TokenInfo, error) {
+	tokenInfo := &TokenInfo{}
+	if err := getFundValueFromDb(db, GetTokenInfoKey(token), tokenInfo); err == NotFoundValueFromDb {
 		return nil, nil
+	} else {
+		return tokenInfo, err
 	}
 }
 
 func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo) error {
-	if tokenInfoBytes, err := tokenInfo.Serialize(); err == nil {
-		db.SetStorage(GetTokenInfoKey(token), tokenInfoBytes)
-		return nil
-	} else {
-		return err
-	}
+	return saveFunValueToDb(db, GetTokenInfoKey(token), tokenInfo)
 }
 
 func GetTokenInfoKey(token types.TokenTypeId) []byte {
-	return append(tokenDecimalsPrefix, token.Bytes()...)
+	return append(tokenInfoPrefix, token.Bytes()...)
 }
 
-func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, err error) {
-	if marketInfoBytes := db.GetStorage(&types.AddressDexFund, GetMarketInfoKey(tradeToken, quoteToken)); len(marketInfoBytes) > 0 {
-		if marketInfo, err = marketInfo.DeSerialize(marketInfoBytes); err != nil {
-			return nil, err
-		} else {
-			return marketInfo, nil
-		}
+func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (*MarketInfo, error) {
+	marketInfo := &MarketInfo{}
+	if err := getFundValueFromDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo); err == NotFoundValueFromDb {
+		return nil, nil
 	} else {
-		return nil, TradeMarketNotExistsError
+		return marketInfo, err
 	}
 }
 
 func SaveMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) error {
-	if marketInfoBytes, err := marketInfo.Serialize(); err == nil {
-		db.SetStorage(GetMarketInfoKey(tradeToken, quoteToken), marketInfoBytes)
-		return nil
-	} else {
-		return err
-	}
+	return saveFunValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
 }
 
 func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
@@ -749,7 +691,7 @@ func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
 }
 
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
-	if storeOwner := db.GetStorage(&types.AddressDexFund, ownerKey); len(storeOwner) == 20 {
+	if storeOwner, err := db.GetValue(ownerKey); err == nil && len(storeOwner) == 20 {
 		if bytes.Compare(storeOwner, address.Bytes()) == 0 {
 			return true
 		}
@@ -758,161 +700,78 @@ func IsOwner(db vm_db.VmDb, address types.Address) bool {
 }
 
 func SetOwner(db vm_db.VmDb, address types.Address) {
-	db.SetStorage(ownerKey, address.Bytes())
+	db.SetValue(ownerKey, address.Bytes())
 }
 
 func GetPledgeForVx(db vm_db.VmDb, address types.Address) *big.Int {
-	if bs := db.GetStorage(&types.AddressDexFund, GetPledgeForVxKey(address)); len(bs) == 0 {
-		return big.NewInt(0)
-	} else {
+	if bs, err := db.GetValue(GetPledgeForVxKey(address)); err == nil && len(bs) > 0 {
 		return new(big.Int).SetBytes(bs)
+	} else {
+		return big.NewInt(0)
 	}
 }
 
-func SavePledgeForVx(db vm_db.VmDb, address types.Address, amount *big.Int) {
-	db.SetStorage(GetPledgeForVxKey(address), amount.Bytes())
+func SavePledgeForVx(db vm_db.VmDb, address types.Address, amount *big.Int) error {
+	return db.SetValue(GetPledgeForVxKey(address), amount.Bytes())
 }
 
-func DeletePledgeForVx(db vm_db.VmDb, address types.Address) {
-	db.SetStorage(GetPledgeForVxKey(address), nil)
+func DeletePledgeForVx(db vm_db.VmDb, address types.Address) error {
+	return db.SetValue(GetPledgeForVxKey(address), nil)
 }
 
 func GetPledgeForVxKey(address types.Address) []byte {
 	return append(pledgeForVxPrefix, address.Bytes()...)
 }
 
-func GetPledgeForVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, err error) {
-	if pledgeVipBytes := db.GetStorage(&types.AddressDexFund, GetPledgeForVipKey(address)); len(pledgeVipBytes) > 0 {
-		if pledgeVip, err = pledgeVip.DeSerialize(pledgeVipBytes); err != nil {
-			return nil, err
-		} else {
-			return pledgeVip, nil
-		}
+func GetPledgeForVip(db vm_db.VmDb, address types.Address) (*PledgeVip, error) {
+	pledgeVip := &PledgeVip{}
+	if err := getFundValueFromDb(db, GetPledgeForVipKey(address), pledgeVip); err == NotFoundValueFromDb {
+		return nil, nil
 	} else {
-		return nil, PledgeForVipNotExistsErr
+		return pledgeVip, err
 	}
 }
 
 func SavePledgeForVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) error {
-	if pledgeVipBytes, err := pledgeVip.Serialize(); err != nil {
-		return err
-	} else {
-		db.SetStorage(GetPledgeForVipKey(address), pledgeVipBytes)
-		return nil
-	}
+	return saveFunValueToDb(db, GetPledgeForVipKey(address), pledgeVip)
 }
 
-func DeletePledgeForVip(db vm_db.VmDb, address types.Address) {
-	db.SetStorage(GetPledgeForVipKey(address), nil)
+func DeletePledgeForVip(db vm_db.VmDb, address types.Address) error {
+	return db.SetValue(GetPledgeForVipKey(address), nil)
 }
 
 func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipPrefix, address.Bytes()...)
 }
 
-func GetTimestamp(db vm_db.VmDb) time.Time {
-	//	GetTimerTimestamp(db)
-	return *db.CurrentSnapshotBlock().Timestamp
-}
-
-func GetTimestampInt64(db vm_db.VmDb) int64 {
-	return GetTimestamp(db).Unix()
-}
-
 func SetTimerTimestamp(db vm_db.VmDb, timestampInt int64) {
-	db.SetStorage(timestampKey, Uint64ToBytes(uint64(timestampInt)))
+	db.SetValue(timestampKey, Uint64ToBytes(uint64(timestampInt)))
 }
 
-func GetTimerTimestamp(db vm_db.VmDb) (int64, error) {
-	bs := db.GetStorage(&types.AddressDexFund, timestampKey)
-	if len(bs) == 8 {
-		return int64(BytesToUint64(bs)), nil
+func GetTimestampInt64(db vm_db.VmDb) (int64) {
+	if bs, err := db.GetValue(timestampKey); err == nil && len(bs) == 8 {
+		return int64(BytesToUint64(bs))
 	} else {
-		return 0, fmt.Errorf("get time stamp failed")
+		panic(NotFoundValueFromDb)
 	}
 }
 
-func PriceToBytes(price string) []byte {
-	parts := strings.Split(price, ".")
-	var intPart, decimalPart string
-	priceBytes := make([]byte, 10)
-	if len(parts) == 2 {
-		intPart = parts[0]
-		decimalPart = parts[1]
-	} else {
-		intPart = parts[0]
-	}
-	if len(intPart) > 0 {
-		intValue, _ := strconv.ParseUint(intPart, 10, 64)
-		bs := make([]byte, 8)
-		binary.BigEndian.PutUint64(bs, intValue)
-		copy(priceBytes[:5], bs[3:8])
-	}
-	decimalLen := len(decimalPart)
-	if decimalLen > 0 {
-		if decimalLen < priceDecimalMaxLen {
-			decimalPartArr := make([]byte, priceDecimalMaxLen)
-			copy(decimalPartArr, decimalPart)
-			//right pad 0
-			for i := decimalLen; i < priceDecimalMaxLen; i++ {
-				decimalPartArr[i] = '0'
-			}
-			decimalPart = string(decimalPartArr)
-		}
-		decimalValue, _ := strconv.ParseUint(decimalPart, 10, 64)
-		bs := make([]byte, 8)
-		binary.BigEndian.PutUint64(bs, decimalValue)
-		copy(priceBytes[5:], bs[3:8])
-	}
-	return priceBytes
-}
-
-func BytesToPrice(priceBytes []byte) string {
-	intBytes := make([]byte, 8)
-	copy(intBytes[3:], priceBytes[:5])
-	intValue := binary.BigEndian.Uint64(intBytes)
-	decimalBytes := make([]byte, 8)
-	copy(decimalBytes[3:], priceBytes[5:])
-	decimalValue := binary.BigEndian.Uint64(decimalBytes)
-	var intStr, decimalStr string
-	if intValue == 0 {
-		intStr = "0"
-	} else {
-		intStr = strconv.FormatUint(intValue, 10)
-	}
-	if decimalValue == 0 {
-		return intStr
-	} else {
-		decimalStr = strconv.FormatUint(decimalValue, 10)
-		decimalLen := len(decimalStr)
-		decimalPartArr := make([]byte, priceDecimalMaxLen)
-		if decimalLen == priceDecimalMaxLen {
-			copy(decimalPartArr, decimalStr)
+func getFundValueFromDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializable) error {
+	if data, err := db.GetValue(key); err == nil && len(data) > 0 {
+		if err = fundSerializable.DeSerialize(data); err != nil {
+			return err
 		} else {
-			//left pad 0
-			for i := 0; i < priceDecimalMaxLen-decimalLen; i++ {
-				decimalPartArr[i] = '0'
-			}
-			copy(decimalPartArr[priceDecimalMaxLen-decimalLen:], decimalStr)
+			return nil
 		}
-		var rightTruncate = 0
-		for i := priceDecimalMaxLen - 1; i >= 0; i-- {
-			if decimalPartArr[i] == '0' {
-				rightTruncate++
-			} else {
-				break
-			}
-		}
-		return fmt.Sprintf("%s.%s", intStr, string(decimalPartArr[:priceDecimalMaxLen-rightTruncate]))
+	} else {
+		return NotFoundValueFromDb
 	}
 }
 
-func Uint64ToBytes(value uint64) []byte {
-	bs := make([]byte, 8)
-	binary.BigEndian.PutUint64(bs, value)
-	return bs
-}
-
-func BytesToUint64(bytes []byte) uint64 {
-	return binary.BigEndian.Uint64(bytes)
+func saveFunValueToDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializable) error {
+	if userFeesBytes, err := fundSerializable.Serialize(); err == nil {
+		return db.SetValue(key, userFeesBytes)
+	} else {
+		return err
+	}
 }

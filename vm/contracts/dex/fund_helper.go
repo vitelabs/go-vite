@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"strconv"
@@ -129,7 +130,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 		return fmt.Errorf("settle actions is emtpy")
 	}
 	for _, fund := range actions.FundActions {
-		if len(fund.Address) != 20 {
+		if len(fund.Address) != types.AddressSize {
 			return fmt.Errorf("invalid address format for settle")
 		}
 		if len(fund.FundSettles) == 0 {
@@ -138,7 +139,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	}
 
 	for _, fee := range actions.FeeActions {
-		if len(fee.Token) != 10 {
+		if len(fee.Token) != types.TokenTypeIdSize {
 			return fmt.Errorf("invalid tokenId format for fee settle")
 		}
 		if len(fee.UserFeeSettles) == 0 {
@@ -218,7 +219,7 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, orderInfo *dexproto.OrderInf
 	return needUpdate, nil
 }
 
-func DoSettleFund(db vm_db.VmDb, action *dexproto.UserFundSettle) error {
+func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
 	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
@@ -254,7 +255,7 @@ func DoSettleFund(db vm_db.VmDb, action *dexproto.UserFundSettle) error {
 				}
 				// must do after account updated by settle
 				if bytes.Equal(fundSettle.Token, VxTokenBytes) {
-					if err = OnSettleVx(db, action.Address, fundSettle, account); err != nil {
+					if err = OnSettleVx(db, reader, action.Address, fundSettle, account); err != nil {
 						return err
 					}
 				}
@@ -285,7 +286,7 @@ func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount
 			if err = SaveUserFundToStorage(db, address, dexFund); err != nil {
 				return nil, err
 			}
-			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNamePledge, address, types.AddressDexFund, pledgeType, amount); err != nil {
+			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
 				return nil, err
 			} else {
 				return pledgeData, err
@@ -311,7 +312,7 @@ func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, 
 			}
 		}
 	}
-	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, address, types.AddressDexFund, pledgeType, amount); err != nil {
+	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, pledgeType); err != nil {
 		return nil, err
 	} else {
 		return cancelPledgeData, err

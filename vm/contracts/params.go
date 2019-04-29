@@ -46,17 +46,14 @@ const (
 	dexFundPledgeCallbackReceiveGas       uint64 = 1
 	dexFundCancelPledgeCallbackGas        uint64 = 300
 	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
+	dexFundGetTokenInfoCallbackGas        uint64 = 300
+	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
 
 	dexTradeNewOrderGas    uint64 = 300
 	dexTradeCancelOrderGas uint64 = 300
 
 	MintGas                uint64 = 104525
 	MintageCancelPledgeGas uint64 = 83200
-	IssueGas               uint64 = 69325
-	BurnGas                uint64 = 48837
-	TransferOwnerGas       uint64 = 58981
-	ChangeTokenTypeGas     uint64 = 63125
-	MintGas                uint64 = 104525
 	IssueGas               uint64 = 69325
 	BurnGas                uint64 = 48837
 	TransferOwnerGas       uint64 = 58981

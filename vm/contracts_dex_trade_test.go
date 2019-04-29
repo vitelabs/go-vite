@@ -13,7 +13,6 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"math/big"
 	"testing"
-	"time"
 )
 
 func TestDexTrade(t *testing.T) {
@@ -24,10 +23,10 @@ func TestDexTrade(t *testing.T) {
 }
 
 func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
-	buyAddress0, _ := types.BytesToAddress([]byte("12345678901234567890"))
-	buyAddress1, _ := types.BytesToAddress([]byte("12345678901234567891"))
+	buyAddress0, _ := types.BytesToAddress([]byte("123456789012345678901"))
+	buyAddress1, _ := types.BytesToAddress([]byte("123456789012345678902"))
 
-	sellAddress0, _ := types.BytesToAddress([]byte("12345678901234567892"))
+	sellAddress0, _ := types.BytesToAddress([]byte("123456789012345678903"))
 
 	method := contracts.MethodDexTradeNewOrder{}
 
@@ -43,11 +42,9 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.True(t,  err == nil)
 
 	receiveBlock := &ledger.AccountBlock{}
-	now := time.Now()
-	receiveBlock.Timestamp = &now
 	receiveBlock.AccountAddress = types.AddressDexTrade
-	var appendedBlocks []*contracts.SendBlock
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	var appendedBlocks []*ledger.AccountBlock
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.True(t, err == nil)
 	assert.True(t, len(db.logList) == 1)
 	assert.Equal(t, 0, len(appendedBlocks))
@@ -55,7 +52,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	clearContext(db)
 	sellOrder0 := getNewOrderData(202, sellAddress0, ETH, VITE, true, "31", 300)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, sellOrder0)
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.True(t, err == nil)
 	assert.Equal(t, 1, len(db.logList))
 	assert.Equal(t, 0, len(appendedBlocks))
@@ -64,10 +61,10 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	// locked = 400 * 32 * 1.001 * 100 = 1281280
 	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, "32", 400)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder1)
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, 3, len(db.logList))
 	assert.Equal(t, 1, len(appendedBlocks))
-	assert.True(t, bytes.Equal(appendedBlocks[0].Block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()))
+	assert.True(t, bytes.Equal(appendedBlocks[0].AccountAddress.Bytes(), types.AddressDexTrade.Bytes()))
 	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 	param := new(dex.ParamDexSerializedData)
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
@@ -99,7 +96,7 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 
 	duplicateOrder := getNewOrderData(102, buyAddress0, ETH, VITE, false, "100", 10)
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, duplicateOrder)
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(appendedBlocks))
 	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
@@ -116,8 +113,8 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 }
 
 func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
-	userAddress, _ := types.BytesToAddress([]byte("12345678901234567891"))
-	userAddress1, _ := types.BytesToAddress([]byte("12345678901234567892"))
+	userAddress, _ := types.BytesToAddress([]byte("123456789012345678902"))
+	userAddress1, _ := types.BytesToAddress([]byte("123456789012345678903"))
 
 	method := contracts.MethodDexTradeCancelOrder{}
 
@@ -125,14 +122,12 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock.AccountAddress = userAddress1
 
 	receiveBlock := &ledger.AccountBlock{}
-	now := time.Now()
-	receiveBlock.Timestamp = &now
 	receiveBlock.AccountAddress = types.AddressDexTrade
 
 	clearContext(db)
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	_, err := method.DoReceive(db, receiveBlock, senderAccBlock)
+	_, err := method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	invalidOwnerEvent := dex.ErrEvent{}
 	assert.Equal(t, invalidOwnerEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
 	invalidOwnerEvent, _ = invalidOwnerEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
@@ -142,7 +137,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 
 	senderAccBlock.AccountAddress = userAddress2
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH.tokenId, VITE.tokenId, true)
-	method.DoReceive(db, receiveBlock, senderAccBlock)
+	method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	getOrderFailEvent := dex.ErrEvent{}
 	assert.Equal(t, getOrderFailEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
 	getOrderFailEvent, _ = getOrderFailEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
@@ -154,8 +149,8 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	senderAccBlock.AccountAddress = userAddress
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
 
-	var appendedBlocks []*contracts.SendBlock
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock)
+	var appendedBlocks []*ledger.AccountBlock
+	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, nil, err)
 
 	assert.Equal(t, 1, len(db.logList))
@@ -174,7 +169,7 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	clearContext(db)
 
 	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	method.DoReceive(db, receiveBlock, senderAccBlock)
+	method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, getOrderFailEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
 	getOrderFailEvent, _ = getOrderFailEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
 	assert.Equal(t, dex.GetOrderByIdFailedErr.Error(), getOrderFailEvent.Error())
@@ -192,6 +187,8 @@ func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteT
 	copy(marketId, tradeToken.tokenId.Bytes()[:2])
 	copy(marketId[2:], tradeToken.tokenId.Bytes()[:2])
 	orderMarketInfo.MarketId = int32(binary.BigEndian.Uint32(marketId))
+	orderMarketInfo.TradeToken = tradeToken.tokenId.Bytes()
+	orderMarketInfo.QuoteToken = quoteToken.tokenId.Bytes()
 	orderMarketInfo.DecimalsDiff = tradeToken.decimals - quoteToken.decimals
 	fmt.Printf("")
 	order := &dexproto.Order{}

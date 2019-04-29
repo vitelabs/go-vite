@@ -17,7 +17,6 @@ const txIdLength = 20
 const bigFloatPrec = 120
 
 type Matcher struct {
-	contractAddress *types.Address
 	storage         *BaseStorage
 	protocol        *nodePayloadProtocol
 	books           map[SkipListId]*skiplist
@@ -39,9 +38,8 @@ var (
 	DeleteTerminatedOrder = true
 )
 
-func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *Matcher {
+func NewMatcher(storage *BaseStorage) *Matcher {
 	mc := &Matcher{}
-	mc.contractAddress = contractAddress
 	mc.storage = storage
 	var po nodePayloadProtocol = &OrderNodeProtocol{}
 	mc.protocol = &po
@@ -52,12 +50,14 @@ func NewMatcher(contractAddress *types.Address, storage *BaseStorage) *Matcher {
 }
 
 func (mc *Matcher) MatchOrder(taker TakerOrder) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("matchOrder failed with exception %v", r)
-		}
-	}()
-	if mc.checkOrderIdExists(taker.Order.Id) {
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		err = fmt.Errorf("matchOrder failed with exception %v", r)
+	//	}
+	//}()
+	if exists, err := mc.checkOrderIdExists(taker.Order.Id); err != nil {
+		return err
+	} else if exists {
 		return fmt.Errorf("order id already exists")
 	}
 	var bookToTake *skiplist
@@ -157,8 +157,7 @@ func (mc *Matcher) CancelOrderByIdAndBookId(order *Order, makerBookId SkipListId
 		return err
 	}
 	if DeleteTerminatedOrder {
-		mc.rawDelete(orderId)
-		return nil
+		return mc.rawDelete(orderId)
 	} else {
 		return book.updatePayload(orderId, &pl)
 	}
@@ -171,7 +170,7 @@ func (mc *Matcher) getBookById(bookId SkipListId) (*skiplist, error) {
 		ok   bool
 	)
 	if book, ok = mc.books[bookId]; !ok {
-		if book, err = newSkiplist(bookId, mc.contractAddress, mc.storage, mc.protocol); err != nil {
+		if book, err = newSkiplist(bookId, mc.storage, mc.protocol); err != nil {
 			return nil, err
 		}
 		mc.books[bookId] = book
@@ -369,12 +368,12 @@ func (mc *Matcher) saveTakerAsMaker(taker TakerOrder, bookToMake *skiplist) erro
 	return bookToMake.insert(makerId, &pl)
 }
 
-func (mc *Matcher) checkOrderIdExists(orderIdBytes []byte) bool {
+func (mc *Matcher) checkOrderIdExists(orderIdBytes []byte) (bool, error) {
 	orderId, _ := NewOrderId(orderIdBytes)
-	if len((*mc.storage).GetStorage(mc.contractAddress, orderId.getStorageKey())) == 0 {
-		return false
+	if data, err := (*mc.storage).GetValue(orderId.getStorageKey()); err != nil || len(data) == 0 {
+		return false, err
 	} else {
-		return true
+		return true, err
 	}
 }
 
@@ -526,8 +525,8 @@ func (mc *Matcher) updateFee(quoteToken []byte, address []byte, amount []byte) {
 	}
 }
 
-func (mc *Matcher) rawDelete(orderId OrderId) {
-	(*mc.storage).SetStorage(orderId.getStorageKey(), nil)
+func (mc *Matcher) rawDelete(orderId OrderId) error {
+	return (*mc.storage).SetValue(orderId.getStorageKey(), nil)
 }
 
 func newLog(event OrderEvent) *ledger.VmLog {

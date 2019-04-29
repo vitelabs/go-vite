@@ -262,6 +262,14 @@ func (db *testDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
 	return nil
 }
 
+func (db *testDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (db *testDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
 func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	data := db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(*addr))]
 	if len(data) > 0 {

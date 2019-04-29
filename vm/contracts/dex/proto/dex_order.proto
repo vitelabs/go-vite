@@ -3,11 +3,11 @@ syntax = "proto3";
 package proto;
 
 message Order {
-    bytes Id = 1;
+    bytes Id = 1; //[unset on serialize]
     bytes Address = 2;
-    bool Side = 3; // false buy, true sell
+    bool Side = 3; // //[unset on serialize] false buy, true sell
     int32 Type = 4; // 0 limit order, 1 market order
-    bytes Price = 5; // [0...4]intPart [5..8]decimalPart
+    bytes Price = 5; // //[unset on serialize] [0...4]intPart [5..8]decimalPart
     bytes Quantity = 6;
     bytes Amount = 7; // QuoteAmount
     bytes LockedBuyFee = 8; // fee locked ahead for buy
@@ -28,7 +28,7 @@ message OrderMarketInfo {
     int32 DecimalsDiff = 4;
 }
 
-message OrderInfo {
+message OrderInfo { // for taker
     Order Order = 1;
     OrderMarketInfo OrderMarketInfo = 2;
 }
@@ -74,8 +74,9 @@ message Transaction {
 }
 
 message TokenInfo {
-    string Symbol = 1;
     int32 Decimals = 2;
+    string Symbol = 1;
+    int32 Index = 3;
 }
 
 message MarketInfo {

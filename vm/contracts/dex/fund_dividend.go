@@ -6,20 +6,21 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
-func SettleFeeSum(db vm_db.VmDb, feeActions []*dexproto.FeeSettle) error {
+func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle) error {
 	var (
 		feeSumByPeriod *FeeSumByPeriod
 		err            error
 	)
-	if feeSumByPeriod, err = GetCurrentFeeSumFromStorage(db); err != nil {
+	if feeSumByPeriod, err = GetCurrentFeeSumFromStorage(db, reader); err != nil {
 		return err
 	} else {
 		if feeSumByPeriod == nil { // need roll period when current period feeSum not saved yet
-			if formerPeriodId, err := rollFeeSumPeriodId(db); err != nil {
+			if formerPeriodId, err := rollFeeSumPeriodId(db, reader); err != nil {
 				return err
 			} else {
 				feeSumByPeriod = &FeeSumByPeriod{}
@@ -48,20 +49,20 @@ func SettleFeeSum(db vm_db.VmDb, feeActions []*dexproto.FeeSettle) error {
 			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAcc)
 		}
 	}
-	if err = SaveCurrentFeeSumToStorage(db, feeSumByPeriod); err != nil {
+	if err = SaveCurrentFeeSumToStorage(db, reader, feeSumByPeriod); err != nil {
 		return err
 	} else {
 		return nil
 	}
 }
 
-func SettleUserFees(db vm_db.VmDb, feeAction *dexproto.FeeSettle) error {
+func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexproto.FeeSettle) error {
 	var (
 		userFees *UserFees
 		periodId uint64
 		err      error
 	)
-	if periodId, err = GetCurrentPeriodIdFromStorage(db); err != nil {
+	if periodId = GetCurrentPeriodIdFromStorage(db, reader); err != nil {
 		return err
 	}
 	for _, userFeeSettle := range feeAction.UserFeeSettles {
@@ -103,22 +104,22 @@ func SettleUserFees(db vm_db.VmDb, feeAction *dexproto.FeeSettle) error {
 	return nil
 }
 
-func OnDepositVx(db vm_db.VmDb, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, address.Bytes(), depositAmount, updatedVxAccount)
+func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+	return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
 }
 
-func OnWithdrawVx(db vm_db.VmDb, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+	return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 }
 
-func OnSettleVx(db vm_db.VmDb, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
+func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
 	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-	return doSettleVxFunds(db, address, amtChange, updatedVxAccount)
+	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 }
 
-func rollFeeSumPeriodId(db vm_db.VmDb) (uint64, error) {
+func rollFeeSumPeriodId(db vm_db.VmDb, reader util.ConsensusReader) (uint64, error) {
 	formerId := GetFeeSumLastPeriodIdForRoll(db)
-	if err := SaveFeeSumLastPeriodIdForRoll(db); err != nil {
+	if err := SaveFeeSumLastPeriodIdForRoll(db, reader); err != nil {
 		return 0, err
 	} else {
 		return formerId, err
@@ -126,7 +127,7 @@ func rollFeeSumPeriodId(db vm_db.VmDb) (uint64, error) {
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vm_db.VmDb, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -141,7 +142,7 @@ func doSettleVxFunds(db vm_db.VmDb, addressBytes []byte, amtChange *big.Int, upd
 		if vxFunds == nil {
 			vxFunds = &VxFunds{}
 		}
-		if periodId, err = GetCurrentPeriodIdFromStorage(db); err != nil {
+		if periodId = GetCurrentPeriodIdFromStorage(db, reader); err != nil {
 			return err
 		}
 		fundsLen = len(vxFunds.Funds)
@@ -202,7 +203,7 @@ func doSettleVxFunds(db vm_db.VmDb, addressBytes []byte, amtChange *big.Int, upd
 
 	if sumChange != nil && sumChange.Sign() != 0 {
 		var vxSumFunds *VxFunds
-		if vxSumFunds, err = GetVxSumFundsFromStorage(db); err != nil {
+		if vxSumFunds, err = GetVxSumFundsFromDb(db); err != nil {
 			return err
 		} else {
 			if vxSumFunds == nil {
@@ -226,7 +227,7 @@ func doSettleVxFunds(db vm_db.VmDb, addressBytes []byte, amtChange *big.Int, upd
 					vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundWithPeriod{Amount: sumRes.Bytes(), Period: periodId})
 				}
 			}
-			SaveVxSumFundsToStorage(db, vxSumFunds)
+			SaveVxSumFundsToDb(db, vxSumFunds)
 		}
 	}
 	return nil
@@ -247,7 +248,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		return nil
 	}
 
-	if vxSumFunds, err = GetVxSumFundsFromStorage(db); err != nil {
+	if vxSumFunds, err = GetVxSumFundsFromDb(db); err != nil {
 		return err
 	} else if vxSumFunds == nil {
 		return nil
@@ -258,7 +259,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		return nil
 	}
 	if needUpdateVxSum {
-		if err := SaveVxSumFundsToStorage(db, vxSumFunds); err != nil {
+		if err := SaveVxSumFundsToDb(db, vxSumFunds); err != nil {
 			return err
 		}
 	}
@@ -294,7 +295,11 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		ok                               bool
 	)
 
-	iterator := db.NewStorageIterator(&types.AddressDexFund, VxFundKeyPrefix)
+	iterator, err := db.NewStorageIterator(VxFundKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
 
 	feeSumLeavedMap := make(map[types.TokenTypeId]*big.Int)
 	dividedVxAmtMap := make(map[types.TokenTypeId]*big.Int)
@@ -302,7 +307,10 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		if len(feeSumMap) == 0 {
 			break
 		}
-		if userVxFundsKey, userVxFundsBytes, ok = iterator.Next(); !ok {
+		if ok = iterator.Next(); ok {
+			userVxFundsKey = iterator.Key()
+			userVxFundsBytes = iterator.Value()
+		} else {
 			break
 		}
 
@@ -312,7 +320,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			return err
 		}
 		userVxFunds := &VxFunds{}
-		if userVxFunds, err = userVxFunds.DeSerialize(userVxFundsBytes); err != nil {
+		if err = userVxFunds.DeSerialize(userVxFundsBytes); err != nil {
 			return err
 		}
 
@@ -385,10 +393,17 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 
 	vxTokenId := types.TokenTypeId{}
 	vxTokenId.SetBytes(VxTokenBytes)
-	iterator := db.NewStorageIterator(&types.AddressDexFund, UserFeeKeyPrefix)
+	iterator, err := db.NewStorageIterator(UserFeeKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
 	for {
-		if userFeesKey, userFeesBytes, ok = iterator.Next(); !ok {
+		if ok = iterator.Next(); ok {
 			break
+		} else {
+			userFeesKey = iterator.Key()
+			userFeesBytes = iterator.Value()
 		}
 
 		addressBytes := userFeesKey[len(UserFeeKeyPrefix):]
@@ -397,7 +412,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 			return err
 		}
 		userFees := &UserFees{}
-		if userFees, err = userFees.DeSerialize(userFeesBytes); err != nil {
+		if err = userFees.DeSerialize(userFeesBytes); err != nil {
 			return err
 		}
 		if userFees.Fees[0].Period != periodId {

@@ -32,10 +32,12 @@ var (
 	PledgeForVipNotExistsErr = errors.New("pledge for vip not exists")
 	PledgeForVipNotExpireErr = errors.New("pledge for vip not expire")
 
-	InvalidPledgeSourceAddressErr = errors.New("invalid pledge source address")
-	InvalidAmountForCancelPledgeErr = errors.New("invalid amount for cancel pledge")
+	InvalidSourceAddressErr           = errors.New("invalid source address")
+	InvalidAmountForPledgeCallbackErr = errors.New("invalid amount for pledge callback")
 
 	InvalidTokenErr = errors.New("invalid token")
+
+	NotFoundValueFromDb               = errors.New("not found value from db")
 )
 
 func NewDexError(str string, code int) *dexError {

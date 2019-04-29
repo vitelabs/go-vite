@@ -99,6 +99,7 @@ var simpleContracts = map[types.Address]*builtinContract{
 			MethodNameDexFundPledgeForVip:         &MethodDexFundPledgeForVip{},
 			MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{},
 			MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{},
+			MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{},
 		},
 		ABIDexFund,
 	},
