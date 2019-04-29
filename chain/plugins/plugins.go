@@ -13,7 +13,7 @@ import (
 	"path"
 )
 
-const initRoundSize = uint64(10)
+const roundSize = uint64(10)
 
 type Plugins struct {
 	id      types.Hash
@@ -60,7 +60,6 @@ func (p *Plugins) RebuildData() error {
 	if err := p.store.Close(); err != nil {
 		return err
 	}
-	flusher := p.chain.Flusher()
 
 	// remove data
 	os.RemoveAll(p.dataDir)
@@ -71,9 +70,15 @@ func (p *Plugins) RebuildData() error {
 		return err
 	}
 
+	p.store = store
+
 	for _, plugin := range p.plugins {
 		plugin.SetStore(store)
 	}
+
+	// replace flusher store
+	flusher := p.chain.Flusher()
+	flusher.ReplaceStore(p.id, store)
 
 	// get latest snapshot block
 	latestSnapshot := p.chain.GetLatestSnapshotBlock()
@@ -84,30 +89,23 @@ func (p *Plugins) RebuildData() error {
 	p.log.Info(fmt.Sprintf("latestSnapshot[%v %v]", latestSnapshot.Hash, latestSnapshot.Height), "method", "RebuildData")
 
 	// build data
-	round := latestSnapshot.Height / initRoundSize
-	leftCount := latestSnapshot.Height % initRoundSize
+	h := uint64(0)
 
-	for i := uint64(0); i < round+1; i++ {
-		start := i * initRoundSize
-		end := i * initRoundSize
-		if i < round {
-			end = end + initRoundSize
-		} else {
-			if leftCount <= 0 {
-				break
-			}
-			end = end + leftCount
+	for h < latestSnapshot.Height {
+		targetH := h + roundSize
+		if targetH > latestSnapshot.Height {
+			targetH = latestSnapshot.Height
 		}
-		if i == 0 {
-			start += 1
-		}
-		chunks, err := p.chain.GetSubLedger(start, end)
+
+		chunks, err := p.chain.GetSubLedger(h, targetH)
 		if err != nil {
 			return err
 		}
 
-		for idx, chunk := range chunks {
-			if idx == 0 {
+		for _, chunk := range chunks {
+
+			if chunk.SnapshotBlock != nil &&
+				chunk.SnapshotBlock.Height == h {
 				continue
 			}
 			// write ab
@@ -139,6 +137,8 @@ func (p *Plugins) RebuildData() error {
 		}
 		// flush to disk
 		flusher.Flush()
+
+		h = targetH
 	}
 
 	// success

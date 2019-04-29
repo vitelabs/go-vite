@@ -285,7 +285,18 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	if nextFlushStartLocation != nil {
 		nextFlushStartFileId := nextFlushStartLocation.FileId
 
-		for fdSet.fileCache.Len() >= fdSet.fileCacheLength {
+		// remove stale cache
+		for fdSet.fileCache.Len() > fdSet.fileCacheLength {
+			item := fdSet.fileCache.Front().Value.(*fileCacheItem)
+			if item.FileId >= nextFlushStartFileId {
+				break
+			}
+
+			fdSet.fileCache.Remove(fdSet.fileCache.Front())
+		}
+
+		// ring buffer. reuse cache
+		if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
 			newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
 			if newItem.FileId < nextFlushStartFileId {
 				fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())

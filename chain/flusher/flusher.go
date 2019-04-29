@@ -101,6 +101,18 @@ func (flusher *Flusher) Close() error {
 	return nil
 }
 
+func (flusher *Flusher) ReplaceStore(id types.Hash, store Storage) {
+	flusher.flushingMu.Lock()
+	defer flusher.flushingMu.Unlock()
+	flusher.idMap[id] = store
+	for index, istore := range flusher.storeList {
+		if istore.Id() == id {
+			flusher.storeList[index] = store
+			break
+		}
+	}
+}
+
 func (flusher *Flusher) Start() {
 	flusher.terminal = make(chan struct{})
 	flusher.loopFlush()
