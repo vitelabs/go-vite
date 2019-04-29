@@ -25,8 +25,6 @@ type IndexDB struct {
 
 	log log15.Logger
 
-	onRoadData map[types.Address]map[types.Hash]struct{} // FIXME, template test
-
 	chain Chain
 }
 
