@@ -3,6 +3,7 @@ package chain_cache
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"time"
 )
 
 func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) {
@@ -22,8 +23,12 @@ func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	// new quota
 	cache.quotaList.NewNext(confirmedBlocks)
 
-	// delete confirmed blocks
-	cache.ds.DeleteAccountBlocks(confirmedBlocks)
+	// delay delete confirmed blocks
+	if cache.ds.IsLarge() {
+		cache.ds.DeleteAccountBlocks(confirmedBlocks)
+	} else {
+		cache.ds.DelayDeleteAccountBlocks(confirmedBlocks, 10*time.Second)
+	}
 }
 
 func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
