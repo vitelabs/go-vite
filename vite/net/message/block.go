@@ -33,7 +33,7 @@ func (b *GetSnapshotBlocks) String() string {
 
 func (b *GetSnapshotBlocks) Serialize() ([]byte, error) {
 	pb := new(vitepb.GetSnapshotBlocks)
-	pb.From = &vitepb.BlockID{
+	pb.From = &vitepb.HashHeight{
 		Hash:   b.From.Hash[:],
 		Height: b.From.Height,
 	}
@@ -131,7 +131,7 @@ func (b *GetAccountBlocks) String() string {
 func (b *GetAccountBlocks) Serialize() ([]byte, error) {
 	pb := new(vitepb.GetAccountBlocks)
 	pb.Address = b.Address[:]
-	pb.From = &vitepb.BlockID{
+	pb.From = &vitepb.HashHeight{
 		Hash:   b.From.Hash[:],
 		Height: b.From.Height,
 	}

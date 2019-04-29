@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 
 	"github.com/vitelabs/go-vite/pool/lock"
+	"github.com/vitelabs/go-vite/vite/net"
 
 	"github.com/vitelabs/go-vite/pool/batch"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -241,7 +241,7 @@ func (self *pool) Info(addr *types.Address) string {
 		snippetSize := len(cp.snippetChains)
 		currentLen := cp.tree.Main().Size()
 		treeSize := cp.tree.Size()
-		chainSize := cp.size()
+		chainSize := len(cp.tree.Branches())
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	} else {
@@ -257,7 +257,7 @@ func (self *pool) Info(addr *types.Address) string {
 		snippetSize := len(cp.snippetChains)
 		treeSize := cp.tree.Size()
 		currentLen := cp.tree.Main().Size()
-		chainSize := cp.size()
+		chainSize := len(cp.tree.Branches())
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
@@ -371,11 +371,6 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		return
 	}
 	ac := self.selfPendingAc(address)
-	err := ac.v.verifyAccountData(block)
-	if err != nil {
-		self.log.Error("account err", "err", err, "height", block.Height, "hash", block.Hash, "addr", address)
-		return
-	}
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 
 	self.newAccBlockCond.Broadcast()
@@ -549,6 +544,16 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 
+func (self *pool) ReadDownloadedChunks() *net.Chunk {
+	chunk := self.sync.Peek()
+	return chunk
+}
+
+func (self *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
+	self.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
+	self.sync.Pop(hashH.Hash)
+}
+
 //func (self *pool) loopTryInsert() {
 //	defer self.poolRecover()
 //	self.wg.Add(1)
@@ -679,15 +684,17 @@ func (self *pool) broadcastUnConfirmedBlocks() {
 }
 
 func (self *pool) delUseLessChains() {
-	self.pendingSc.loopDelUselessChain()
-	var pendings []*accountPool
-	self.pendingAc.Range(func(_, v interface{}) bool {
-		p := v.(*accountPool)
-		pendings = append(pendings, p)
-		return true
-	})
-	for _, v := range pendings {
-		v.loopDelUselessChain()
+	if self.sync.SyncState() != net.Syncing {
+		self.pendingSc.loopDelUselessChain()
+		var pendings []*accountPool
+		self.pendingAc.Range(func(_, v interface{}) bool {
+			p := v.(*accountPool)
+			pendings = append(pendings, p)
+			return true
+		})
+		for _, v := range pendings {
+			v.loopDelUselessChain()
+		}
 	}
 }
 
@@ -891,83 +898,6 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 		if fc == nil {
 			ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.hash, Height: v.accHeight}, *v.chain, 1, v.snapshotHeight, *v.snapshotHash)
 		}
-	}
-	return nil
-}
-func (self *pool) insertLevel(p batch.Batch, l batch.Level, version uint64) error {
-	if l.Snapshot() {
-		return self.insertSnapshotLevel(p, l, version)
-	} else {
-		return self.insertAccountLevel(p, l, version)
-	}
-}
-func (self *pool) insertSnapshotLevel(p batch.Batch, l batch.Level, version uint64) error {
-	t1 := time.Now()
-	num := 0
-	defer func() {
-		sub := time.Now().Sub(t1)
-		levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
-		fmt.Println(levelInfo)
-	}()
-	for _, b := range l.Buckets() {
-		num = num + len(b.Items())
-		return self.insertSnapshotBucket(p, b, version)
-	}
-	return nil
-}
-
-var MAX_PARALLEL = 5
-
-func (self *pool) insertAccountLevel(p batch.Batch, l batch.Level, version uint64) error {
-	bs := l.Buckets()
-	lenBs := len(bs)
-	if lenBs == 0 {
-		return nil
-	}
-
-	N := helper.MinInt(lenBs, MAX_PARALLEL)
-	bucketCh := make(chan batch.Bucket, lenBs)
-
-	var wg sync.WaitGroup
-	wg.Add(N)
-
-	var num int32
-	t1 := time.Now()
-	var globalErr error
-	for i := 0; i < N; i++ {
-		common.Go(func() {
-			defer wg.Done()
-			for b := range bucketCh {
-				if globalErr != nil {
-					return
-				}
-				err := self.insertAccountBucket(p, b, version)
-				atomic.AddInt32(&num, int32(len(b.Items())))
-				if err != nil {
-					globalErr = err
-					fmt.Printf("error[%s] for insert account block.\n", err)
-					return
-				}
-			}
-		})
-	}
-	levelInfo := ""
-	for _, bucket := range bs {
-		levelInfo += "|" + strconv.Itoa(len(bucket.Items()))
-		if bucket.Owner() == nil {
-			levelInfo += "S"
-		}
-
-		bucketCh <- bucket
-	}
-	close(bucketCh)
-	wg.Wait()
-	sub := time.Now().Sub(t1)
-	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
-	fmt.Println(levelInfo)
-
-	if globalErr != nil {
-		return globalErr
 	}
 	return nil
 }

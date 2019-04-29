@@ -173,11 +173,14 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 				return
 			}
 
-			from, to := reader.Bound()
+			segment := reader.Seg()
+			from, to := segment.Bound[0], segment.Bound[1]
 			err = sconn.write(&syncReadyMsg{
-				from: from,
-				to:   to,
-				size: uint64(reader.Size()),
+				from:     from,
+				to:       to,
+				size:     uint64(reader.Size()),
+				prevHash: segment.PrevHash,
+				endHash:  segment.Hash,
 			})
 
 			if err != nil {

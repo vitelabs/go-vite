@@ -26,7 +26,10 @@ func (self *rollbackProof) ProofEmpty(stime time.Time, etime time.Time) (bool, e
 		return false, err
 	}
 	if block == nil {
-		return false, errors.New("before time[" + etime.String() + "] block not exist")
+		return false, errors.Errorf("before time[%s] block not exist", etime.String())
+	}
+	if !etime.After(*block.Timestamp) {
+		return false, errors.Errorf("GetSnapshotHeaderBeforeTime fail. [%s]-[%s]", etime, block.Timestamp)
 	}
 	// todo
 	//fmt.Printf("[%s]\t[%s]\t[%s], height:%d\n", stime, block.Timestamp, etime, block.Height)
