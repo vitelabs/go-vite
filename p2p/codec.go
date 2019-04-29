@@ -147,6 +147,7 @@ type transport struct {
 	minCompressLength int // will not compress message payload if small than minCompressLength bytes
 	readHeadBuf       [4]byte
 	writeHeadBuf      [10]byte
+	writeBuf          []byte
 }
 
 func (t *transport) Address() net.Addr {
@@ -277,17 +278,19 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	var compress bool
 	payloadLen := len(msg.Payload)
 	if payloadLen > t.minCompressLength {
-		payloadCompressed := bytes_pool.Get(snappy.MaxEncodedLen(payloadLen))
+		preCompressLength := snappy.MaxEncodedLen(payloadLen)
+		if cap(t.writeBuf) < preCompressLength {
+			t.writeBuf = make([]byte, preCompressLength)
+		}
+
+		payloadCompressed := t.writeBuf[:preCompressLength]
 		payloadCompressed = snappy.Encode(payloadCompressed, msg.Payload)
 
 		// smaller after compressed
 		if len(payloadCompressed) < payloadLen {
-			bytes_pool.Put(msg.Payload)
 			msg.Payload = payloadCompressed
 			payloadLen = len(payloadCompressed)
 			compress = true
-		} else {
-			bytes_pool.Put(payloadCompressed)
 		}
 	}
 
@@ -296,8 +299,6 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	headLen += lsize
 
 	head[0] = storeMeta(isize, lsize, compress)
-
-	defer bytes_pool.Put(msg.Payload)
 
 	var wsize int
 	// send head

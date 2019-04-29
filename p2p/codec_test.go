@@ -4,6 +4,7 @@ import (
 	"bytes"
 	crand "crypto/rand"
 	"fmt"
+	mrand "math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -326,10 +327,11 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 
 		const payloadSize = 1000
 		const max = 1 << 8
-		var buf = make([]byte, payloadSize)
 
 		var werr error
 		for i := 0; i < b.N; i++ {
+			size := mrand.Intn(payloadSize) + payloadSize
+			buf := make([]byte, size)
 			_, _ = crand.Read(buf)
 
 			msg := Msg{
