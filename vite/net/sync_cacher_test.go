@@ -342,7 +342,7 @@ func TestChunkRead(t *testing.T) {
 	const from uint64 = 101
 	const to uint64 = 200
 	var prevHash, hash, endHash types.Hash
-	chunk := newChunk(prevHash, from-1, endHash, to)
+	chunk := newChunk(prevHash, from-1, endHash, to, types.RemoteSync)
 
 	for i := from; i < to+1; i++ {
 		_, _ = crand.Read(hash[:])
@@ -365,7 +365,7 @@ func TestChunkRead2(t *testing.T) {
 	const from uint64 = 101
 	const to uint64 = 200
 	var prevHash, hash, endHash types.Hash
-	chunk := newChunk(prevHash, from-1, endHash, to)
+	chunk := newChunk(prevHash, from-1, endHash, to, types.RemoteSync)
 
 	_, _ = crand.Read(hash[:])
 

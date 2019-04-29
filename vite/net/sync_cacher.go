@@ -303,7 +303,7 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 		return
 	}
 
-	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1])
+	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1], types.RemoteSync)
 
 	var ab *ledger.AccountBlock
 	var sb *ledger.SnapshotBlock

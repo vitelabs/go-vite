@@ -89,9 +89,10 @@ type Chunk struct {
 	SnapshotRange  [2]*ledger.HashHeight
 	AccountRange   map[types.Address][2]*ledger.HashHeight
 	HashMap        map[types.Hash]struct{}
+	Source         types.BlockSource
 }
 
-func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHeight uint64) (c *Chunk) {
+func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHeight uint64, source types.BlockSource) (c *Chunk) {
 	c = &Chunk{
 		// chunk will add account block first, then the snapshot block
 		SnapshotChunks: make([]ledger.SnapshotChunk, 1, endHeight-prevHeight),
@@ -101,6 +102,7 @@ func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHei
 		},
 		AccountRange: make(map[types.Address][2]*ledger.HashHeight),
 		HashMap:      make(map[types.Hash]struct{}),
+		Source:       source,
 	}
 
 	return c

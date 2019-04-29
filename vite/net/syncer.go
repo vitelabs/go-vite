@@ -153,11 +153,16 @@ type syncer struct {
 }
 
 func (s *syncer) Peek() *Chunk {
+	if s.reader == nil {
+		return nil
+	}
 	return s.reader.Peek()
 }
 
 func (s *syncer) Pop(endHash types.Hash) {
-	s.reader.Pop(endHash)
+	if s.reader != nil {
+		s.reader.Pop(endHash)
+	}
 }
 
 func (s *syncer) name() string {
