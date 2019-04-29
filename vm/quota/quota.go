@@ -52,6 +52,10 @@ type quotaDb interface {
 	GetUnconfirmedBlocks() []*ledger.AccountBlock
 }
 
+func CalcBlockQuota(db quotaDb, block *ledger.AccountBlock) (uint64, error) {
+	return 0, nil
+}
+
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
 	quotaTotal, _, quotaUsed, quotaAvg, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0))
 	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
