@@ -447,7 +447,6 @@ func (c *chain) QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return sb, nil
 }
 
-// FIXME check prev hash
 func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	count := uint64(10 * 60)
 
@@ -469,6 +468,7 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 	seedCount := 0
 	randomSeed := uint64(0)
 
+	var prevHash *types.Hash
 	for h := headHeight; h >= tailHeight && seedCount < n; h-- {
 		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
 		if err != nil {
@@ -483,6 +483,17 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
 			return 0
 		}
+
+		if prevHash != nil && snapshotHeader.Hash != *prevHash {
+			cErr := errors.New(fmt.Sprintf("rollbacking..."))
+			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
+			return 0
+		}
+		// copy
+		tmpPrevHash := snapshotHeader.PrevHash
+		prevHash = &tmpPrevHash
+
+		// seed is 0
 		if snapshotHeader.Seed <= 0 {
 			continue
 		}
