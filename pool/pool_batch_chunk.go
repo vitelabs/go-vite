@@ -197,7 +197,7 @@ func (self *pool) checkAccountsInsert(minAddrs map[types.Address][2]*ledger.Hash
 func (self *pool) checkInsert(branch tree.Branch, waitingHeadH, waitingTailH ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
 	curHeight, curHash := branch.HeadHH()
 	if waitingTailH.Height == curHeight {
-		if waitingHeadH.Hash == curHash {
+		if waitingTailH.Hash == curHash {
 			return CONNECTED
 		} else {
 			return FORKED
