@@ -153,6 +153,7 @@ func init() {
 		attachCommand,
 		ledgerRecoverCommand,
 		exportCommand,
+		pluginDataCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

@@ -1,22 +1,24 @@
 package types
 
-type Quota struct {
-	current uint64
-	total   uint64
-	avg     uint64
+type QuotaInfo struct {
+	BlockCount uint64
+	Used       uint64
 }
 
-func NewQuota(total, used, avg uint64) Quota {
-	if total > used {
-		return Quota{total - used, total, avg}
-	} else {
-		return Quota{0, total, avg}
-	}
+type Quota struct {
+	current     uint64
+	utps        uint64
+	avg         uint64
+	unconfirmed uint64
+}
+
+func NewQuota(utps, current, avg, unconfirmed uint64) Quota {
+	return Quota{current, utps, avg, unconfirmed}
 }
 
 // Total quota of a single account in 75 snapshot blocks
-func (q *Quota) Total() uint64 {
-	return q.total
+func (q *Quota) Utps() uint64 {
+	return q.utps
 }
 
 // Current quota of a single account
@@ -25,8 +27,8 @@ func (q *Quota) Current() uint64 {
 }
 
 // Quota used of a single account in past 74 snapshot blocks and unconfirmed account blocks
-func (q *Quota) Used() uint64 {
-	return q.total - q.current
+func (q *Quota) SnapshotCurrent() uint64 {
+	return q.current - q.unconfirmed
 }
 
 func (q *Quota) Avg() uint64 {

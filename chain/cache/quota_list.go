@@ -8,10 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type quotaInfo struct {
-	BlockCount uint64
-	Quota      uint64
-}
+type quotaInfo types.QuotaInfo
+
 type quotaList struct {
 	chain Chain
 
@@ -57,11 +55,11 @@ func (ql *quotaList) GetSnapshotQuotaUsed(addr *types.Address) (uint64, uint64) 
 	if used == nil {
 		return 0, 0
 	}
-	quota := used.Quota
+	quota := used.Used
 	blockCount := used.BlockCount
 	latestUsed := ql.backElement[*addr]
 	if latestUsed != nil {
-		return quota - latestUsed.Quota, blockCount - latestUsed.BlockCount
+		return quota - latestUsed.Used, blockCount - latestUsed.BlockCount
 	}
 
 	return quota, blockCount
@@ -72,7 +70,7 @@ func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
 	if used == nil {
 		return 0, 0
 	}
-	return used.Quota, used.BlockCount
+	return used.Used, used.BlockCount
 }
 
 func (ql *quotaList) Add(addr types.Address, quota uint64) {
@@ -109,14 +107,14 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 			qi = &quotaInfo{}
 			currentSnapshotQuota[confirmedBlock.AccountAddress] = qi
 		}
-		qi.Quota += confirmedBlock.Quota
+		qi.Used += confirmedBlock.Quota
 		qi.BlockCount += 1
 
 		if backQi.BlockCount <= 1 {
 			delete(ql.backElement, confirmedBlock.AccountAddress)
 		} else {
 			backQi.BlockCount -= 1
-			backQi.Quota -= confirmedBlock.Quota
+			backQi.Used -= confirmedBlock.Quota
 		}
 	}
 
@@ -223,11 +221,11 @@ func (ql *quotaList) build() (returnError error) {
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
 					newItem[block.AccountAddress] = &quotaInfo{
-						Quota:      block.Quota,
+						Used:       block.Quota,
 						BlockCount: 1,
 					}
 				} else {
-					newItem[block.AccountAddress].Quota += block.Quota
+					newItem[block.AccountAddress].Used += block.Quota
 					newItem[block.AccountAddress].BlockCount += 1
 				}
 
@@ -253,11 +251,11 @@ func (ql *quotaList) build() (returnError error) {
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
 					newItem[block.AccountAddress] = &quotaInfo{
-						Quota:      block.Quota,
+						Used:       block.Quota,
 						BlockCount: 1,
 					}
 				} else {
-					newItem[block.AccountAddress].Quota += block.Quota
+					newItem[block.AccountAddress].Used += block.Quota
 					newItem[block.AccountAddress].BlockCount += 1
 				}
 			}
@@ -289,7 +287,7 @@ func (ql *quotaList) moveNext(backElement map[types.Address]*quotaInfo) {
 		if usedStartItem == nil {
 			continue
 		}
-		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Quota)
+		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Used)
 	}
 
 	ql.usedStart = ql.usedStart.Next()
@@ -306,7 +304,7 @@ func (ql *quotaList) add(quotaInfoMap map[types.Address]*quotaInfo, addr types.A
 		quotaInfoMap[addr] = qi
 	}
 	qi.BlockCount += 1
-	qi.Quota += quota
+	qi.Used += quota
 }
 
 func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, blockCount, quota uint64) {
@@ -318,7 +316,7 @@ func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.A
 		delete(quotaInfoMap, addr)
 	} else {
 		qi.BlockCount -= blockCount
-		qi.Quota -= quota
+		qi.Used -= quota
 		return
 	}
 
@@ -336,7 +334,7 @@ func (ql *quotaList) calculateUsed() {
 			}
 
 			used[addr].BlockCount += tmpItem.BlockCount
-			used[addr].Quota += tmpItem.Quota
+			used[addr].Used += tmpItem.Used
 		}
 
 		pointer = pointer.Next()

@@ -67,8 +67,8 @@ func CalcBlockQuota(db quotaDb, block *ledger.AccountBlock) (uint64, error) {
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int) (types.Quota, error) {
-	quotaTotal, _, _, quotaUsed, quotaAvg, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0))
-	return types.NewQuota(quotaTotal, quotaUsed, quotaAvg), err
+	quotaTotal, pledgeQuota, _, quotaUnconfirmed, quotaAvg, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0))
+	return types.NewQuota(pledgeQuota, quotaTotal, quotaUnconfirmed, quotaAvg), err
 }
 
 func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
@@ -223,11 +223,7 @@ func CalcPoWDifficulty(quotaRequired uint64, q types.Quota, pledgeAmount *big.In
 	if quotaRequired > quotaLimitForBlock {
 		return nil, util.ErrBlockQuotaLimitReached
 	}
-	expectedTotal := quotaRequired + q.Used()
-	if expectedTotal > quotaLimitForAccount {
-		return nil, util.ErrAccountQuotaLimitReached
-	}
-	if q.Total() >= expectedTotal {
+	if q.Current() >= quotaRequired {
 		return big.NewInt(0), nil
 	}
 

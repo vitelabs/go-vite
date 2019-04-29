@@ -23,7 +23,7 @@ func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManage
 		fileSize: fileSize,
 	}
 
-	fdSet, err := newFdManager(dirName, int(fileSize), cacheCount)
+	fdSet, err := newFdManager(fm, dirName, int(fileSize), cacheCount)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,14 @@ func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManage
 }
 
 func (fm *FileManager) NextFlushStartLocation() *Location {
+	if fm.nextFlushStartLocation == nil {
+		return nil
+	}
 	return NewLocation(fm.nextFlushStartLocation.FileId, fm.nextFlushStartLocation.Offset)
+}
+
+func (fm *FileManager) SetNextFlushStartLocation(location *Location) {
+	fm.nextFlushStartLocation = NewLocation(location.FileId, location.Offset)
 }
 
 func (fm *FileManager) LatestLocation() *Location {
@@ -74,10 +81,8 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 }
 
 func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, buf []byte) error {
-	//fmt.Printf("begin flush %+v - %+v\n", startLocation, targetLocation)
 	// flush
 	flushLocation := NewLocation(startLocation.FileId, startLocation.Offset)
-	//flushStartLocation := startLocation
 
 	bufStart := int64(0)
 
@@ -87,7 +92,14 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 			return errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
 		}
 		if fd == nil {
-			return errors.New(fmt.Sprintf("fd is nil, fileId is %+v\n", flushLocation.FileId))
+			fd, err = fm.fdSet.GetTmpFlushFd(flushLocation.FileId)
+			if err != nil {
+				return errors.New(fmt.Sprintf("fm.fdSet.GetTmpFlushFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
+			}
+
+			if fd == nil {
+				return errors.New(fmt.Sprintf("fd is nil, fileId is %d. Error: %s", flushLocation.FileId, err))
+			}
 		}
 
 		targetOffset := fm.fileSize
@@ -113,16 +125,14 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 		}
 	}
 
-	fm.nextFlushStartLocation = flushLocation
-
-	if fm.prevFlushLocation.Compare(fm.nextFlushStartLocation) > 0 {
+	if fm.prevFlushLocation.Compare(targetLocation) > 0 {
 		// Disk delete
-		if err := fm.fdSet.DiskDelete(fm.prevFlushLocation, fm.nextFlushStartLocation); err != nil {
+		if err := fm.fdSet.DiskDelete(fm.prevFlushLocation, targetLocation); err != nil {
 			return err
 		}
 	}
 
-	fm.prevFlushLocation = fm.nextFlushStartLocation
+	fm.prevFlushLocation = targetLocation
 
 	// sync
 	//fdListLen := len(fdList)

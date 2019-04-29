@@ -181,6 +181,10 @@ func onroadInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *Rp
 }
 
 func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
+	if !types.IsContractAddr(addr) {
+		return 0, errors.New("Address must be the type of Contract.")
+	}
+
 	var g types.Gid
 	if gid == nil {
 		g = types.DELEGATE_GID
@@ -197,6 +201,9 @@ func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *t
 }
 
 func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
+	if !types.IsContractAddr(addr) {
+		return nil, errors.New("Address must be the type of Contract.")
+	}
 	var g types.Gid
 	if gid == nil {
 		g = types.DELEGATE_GID
