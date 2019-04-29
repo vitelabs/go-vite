@@ -371,11 +371,6 @@ func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBl
 		return
 	}
 	ac := self.selfPendingAc(address)
-	err := ac.v.verifyAccountData(block)
-	if err != nil {
-		self.log.Error("account err", "err", err, "height", block.Height, "hash", block.Hash, "addr", address)
-		return
-	}
 	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
 
 	self.newAccBlockCond.Broadcast()

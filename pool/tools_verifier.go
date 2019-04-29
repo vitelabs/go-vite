@@ -47,9 +47,9 @@ type accountVerifier struct {
 }
 
 func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
-	//if err := self.v.VerifyNetAb(b); err != nil {
-	//	return err
-	//}
+	if err := self.v.VerifyNetAb(b); err != nil {
+		return err
+	}
 	return nil
 }
 
