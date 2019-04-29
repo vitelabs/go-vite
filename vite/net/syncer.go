@@ -152,6 +152,14 @@ type syncer struct {
 	log     log15.Logger
 }
 
+func (s *syncer) Peek() *Chunk {
+	return s.reader.Peek()
+}
+
+func (s *syncer) Pop(endHash types.Hash) {
+	s.reader.Pop(endHash)
+}
+
 func (s *syncer) name() string {
 	return "syncer"
 }

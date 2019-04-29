@@ -19,6 +19,7 @@ var errNoSnapshotBlocksInChunk = errors.New("no snapshot blocks")
 var errReaderStopped = errors.New("cache reader stopped")
 
 type syncCacheReader interface {
+	ChunkReader
 	start()
 	stop()
 	clean() // clean cache and reset

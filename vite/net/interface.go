@@ -227,6 +227,7 @@ type Fetcher interface {
 // A Syncer implementation can synchronise blocks to peers
 type Syncer interface {
 	SyncStateSubscriber
+	ChunkReader
 	Status() SyncStatus
 	Detail() SyncDetail
 }
