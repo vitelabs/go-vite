@@ -549,12 +549,14 @@ func (self *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 
-func (self *pool) ReadDownloadedChunks() ([]ledger.SnapshotChunk, ledger.HashHeight, ledger.HashHeight, types.BlockSource) {
-	return nil, ledger.HashHeight{}, ledger.HashHeight{}, types.RemoteSync
+func (self *pool) ReadDownloadedChunks() *net.Chunk {
+	chunk := self.sync.Peek()
+	return chunk
 }
 
 func (self *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
-	return
+	self.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
+	self.sync.Pop(hashH.Hash)
 }
 
 //func (self *pool) loopTryInsert() {

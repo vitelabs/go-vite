@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool/batch"
 	"github.com/vitelabs/go-vite/pool/tree"
+	"github.com/vitelabs/go-vite/vite/net"
 )
 
 type ChainState uint8
@@ -15,23 +16,28 @@ const (
 	FORKED                = 3
 )
 
-func (self *pool) insertChunks(chunks []ledger.SnapshotChunk, hash ledger.HashHeight, prev ledger.HashHeight, source types.BlockSource) bool {
-	hashes := self.getHashSet(chunks)
-	state := self.checkSnapshotInsert(hash, prev, hashes)
+func (self *pool) insertChunks(chunks *net.Chunk) bool {
+	source := chunks.Source
+	hashes := chunks.HashMap
+	snapshot := chunks.SnapshotRange
+	head := *snapshot[1]
+	tail := *snapshot[0]
+
+	state := self.checkSnapshotInsert(head, tail, hashes)
 	if state == FORKED {
-		self.insertChunksToPool(chunks, source)
-		self.PopDownloadedChunks(hash)
+		self.insertChunksToPool(chunks.SnapshotChunks, source)
+		self.PopDownloadedChunks(head)
 		return false
 	}
 	if state == DISCONNECT {
 		return false
 	}
 
-	minAddrs := self.getMinAccountBlocks(chunks)
-	state = self.checkAccountsInsert(minAddrs, hashes)
+	accountRange := chunks.AccountRange
+	state = self.checkAccountsInsert(accountRange, hashes)
 	if state == FORKED {
-		self.insertChunksToPool(chunks, source)
-		self.PopDownloadedChunks(hash)
+		self.insertChunksToPool(chunks.SnapshotChunks, source)
+		self.PopDownloadedChunks(head)
 		return false
 	}
 	if state == DISCONNECT {
@@ -40,22 +46,22 @@ func (self *pool) insertChunks(chunks []ledger.SnapshotChunk, hash ledger.HashHe
 
 	self.LockInsert()
 	defer self.UnLockInsert()
-	state = self.checkSnapshotInsert(hash, prev, hashes)
+	state = self.checkSnapshotInsert(head, tail, hashes)
 	if state != CONNECTED {
 		return false
 	}
-	state = self.checkAccountsInsert(minAddrs, hashes)
+	state = self.checkAccountsInsert(accountRange, hashes)
 	if state != CONNECTED {
 		return false
 	}
-	err := self.insertChunksToChain(chunks, source)
+	err := self.insertChunksToChain(chunks.SnapshotChunks, source)
 	if err != nil {
 		self.log.Error("insert chunks fail.", "err", err)
-		self.PopDownloadedChunks(hash)
+		self.PopDownloadedChunks(head)
 		return false
 	} else {
-		self.log.Info("insert chunks success.", "height", hash.Height, "hash", hash.Hash, "prevHeight", prev.Height, "prevHash", prev.Hash)
-		self.PopDownloadedChunks(hash)
+		self.log.Info("insert chunks success.", "headHeight", head.Height, "headHash", head.Hash, "tailHeight", tail.Height, "tailHash", tail.Hash)
+		self.PopDownloadedChunks(head)
 		return true
 	}
 }
@@ -171,13 +177,13 @@ func (self *pool) getMinAccountBlocks(chunks []ledger.SnapshotChunk) map[types.A
 	return addrM
 }
 
-func (self *pool) checkSnapshotInsert(headHH ledger.HashHeight, tailHH ledger.HashHeight, hashes map[types.Hash]bool) ChainState {
+func (self *pool) checkSnapshotInsert(headHH ledger.HashHeight, tailHH ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
 	cur := self.pendingSc.CurrentChain()
 
 	return self.checkInsert(cur, headHH, tailHH, hashes)
 }
 
-func (self *pool) checkAccountsInsert(minAddrs map[types.Address][2]*ledger.HashHeight, hashes map[types.Hash]bool) ChainState {
+func (self *pool) checkAccountsInsert(minAddrs map[types.Address][2]*ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
 	for k, v := range minAddrs {
 		cur := self.selfPendingAc(k).CurrentChain()
 		result := self.checkInsert(cur, *v[1], *v[0], hashes)
@@ -188,7 +194,7 @@ func (self *pool) checkAccountsInsert(minAddrs map[types.Address][2]*ledger.Hash
 	return CONNECTED
 }
 
-func (self *pool) checkInsert(branch tree.Branch, waitingHeadH, waitingTailH ledger.HashHeight, hashes map[types.Hash]bool) ChainState {
+func (self *pool) checkInsert(branch tree.Branch, waitingHeadH, waitingTailH ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
 	curHeight, curHash := branch.HeadHH()
 	if waitingTailH.Height == curHeight {
 		if waitingHeadH.Hash == curHash {
@@ -205,7 +211,8 @@ func (self *pool) checkInsert(branch tree.Branch, waitingHeadH, waitingTailH led
 				return FORKED
 			}
 		}
-		if hashes[curHash] {
+
+		if _, ok := hashes[curHash]; ok {
 			return CONNECTED
 		} else {
 			return FORKED

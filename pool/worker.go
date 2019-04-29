@@ -73,9 +73,9 @@ func (self *worker) work() {
 		default:
 		}
 
-		chunks, hash, prev, source := self.p.ReadDownloadedChunks()
+		chunks := self.p.ReadDownloadedChunks()
 		if chunks != nil {
-			result := self.p.insertChunks(chunks, hash, prev, source)
+			result := self.p.insertChunks(chunks)
 			if result {
 				continue
 			}
