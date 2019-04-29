@@ -93,7 +93,6 @@ func (redo *Redo) RedoLog() ([]byte, error) {
 	return redoLog, nil
 }
 
-// assume commit immediately after delete
 func (redo *Redo) Commit() error {
 	tx, err := redo.store.Begin(true)
 	if err != nil {

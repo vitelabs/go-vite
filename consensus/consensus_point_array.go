@@ -60,9 +60,6 @@ type linkedArray struct {
 
 	proof RollbackProof
 
-	//genesisTime   time.Time
-	//indexInterval time.Duration
-
 	extraDataFn func(b byte, u uint64, hashes types.Hash) (*consensus_db.VoteContent, error)
 
 	log log15.Logger
@@ -163,11 +160,6 @@ func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash t
 	}
 	return result, nil
 }
-
-//// hour = 48 * period
-//type hourPoint struct {
-//	hashPoint
-//}
 
 type SBPInfo struct {
 	ExpectedNum int32

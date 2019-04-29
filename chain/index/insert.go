@@ -85,14 +85,11 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertReceiveInfo(batch, accountBlock.Hash, unreceivedFlag)
 
 		// insert on road block
-
-		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock)
+		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock.Hash)
 
 		if accountBlock.BlockType == ledger.BlockTypeSendCreate {
 			iDB.insertConfirmCache(accountBlock.Hash, 0)
-
 		}
-
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
@@ -100,11 +97,10 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertReceiveInfo(batch, sendBlock.Hash, unreceivedFlag)
 
 		// send block hash -> addr & height
-
 		iDB.insertAbHashHeight(batch, sendBlock, addrHeightValue)
 
 		// insert on road block
-		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock)
+		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock.Hash)
 
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			iDB.insertConfirmCache(sendBlock.Hash, 0)

@@ -58,6 +58,10 @@ func (self GroupInfo) GenPlanByAddress(index uint64, members []types.Address) []
 	sTime, _ := self.Index2Time(index)
 	var plans []*MemberPlan
 
+	if len(members) > int(self.NodeCount) {
+		// errors
+		return nil
+	}
 	for j := uint16(0); j < self.Repeat; j++ {
 		for _, member := range members {
 			for i := int64(0); i < self.PerCount; i++ {

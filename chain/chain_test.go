@@ -227,18 +227,18 @@ func TestChain(t *testing.T) {
 	//testPanic(t, accounts, snapshotBlockList)
 
 	// test insert
-	chainInstance, _, _ := SetUp(20, 50000, 10)
+	chainInstance, accounts, snapshotBlockList := SetUp(20, 50000, 10)
 
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
-	//// test insert and query
-	//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), true)...)
+	// test insert and query
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), true)...)
 
-	//// test all
-	//testChainAll(t, chainInstance, accounts, snapshotBlockList)
+	// test all
+	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
-	//// test insert & delete
-	//snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
+	// test insert & delete
+	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
 	// test panic
 	TearDown(chainInstance)

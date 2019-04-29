@@ -19,7 +19,7 @@ const (
 	DeleteAbsEvent        = byte(6)
 
 	prepareDeleteSbsEvent = byte(7)
-	DeleteSbsEvent        = byte(8)
+	deleteSbsEvent        = byte(8)
 )
 
 type eventManager struct {
@@ -121,7 +121,7 @@ func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.Snapsh
 				return err
 			}
 		}
-	case DeleteSbsEvent:
+	case deleteSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteSnapshotBlocks(chunks)
 		}
