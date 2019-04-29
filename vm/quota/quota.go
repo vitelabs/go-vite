@@ -103,8 +103,8 @@ func CalcCreateQuota(fee *big.Int) uint64 {
 }
 
 // Check whether current quota of a contract account is enough to receive a new block
-func CheckQuota(db quotaDb, q types.Quota) bool {
-	if unconfirmedBlocks := db.GetUnconfirmedBlocks(); len(unconfirmedBlocks) > 0 &&
+func CheckQuota(db quotaDb, q types.Quota, addr types.Address) bool {
+	if unconfirmedBlocks := db.GetUnconfirmedBlocks(addr); len(unconfirmedBlocks) > 0 &&
 		unconfirmedBlocks[len(unconfirmedBlocks)-1].BlockType == ledger.BlockTypeReceiveError {
 		return false
 	}
@@ -118,7 +118,7 @@ func CheckQuota(db quotaDb, q types.Quota) bool {
 func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
 	powFlag := difficulty != nil && difficulty.Sign() > 0
 	if powFlag {
-		canPoW, err := CanPoW(db)
+		canPoW, err := CanPoW(db, addr)
 		if err != nil {
 			return 0, 0, 0, 0, 0, err
 		}
@@ -209,8 +209,8 @@ func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
 	}
 }
 
-func CanPoW(db quotaDb) (bool, error) {
-	blocks := db.GetUnconfirmedBlocks()
+func CanPoW(db quotaDb, address types.Address) (bool, error) {
+	blocks := db.GetUnconfirmedBlocks(address)
 	for _, b := range blocks {
 		if util.IsPoW(b) {
 			return false, nil

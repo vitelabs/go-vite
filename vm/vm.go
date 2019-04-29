@@ -533,7 +533,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		vm.revert(db)
 
 		if err == util.ErrOutOfQuota {
-			unConfirmedList := db.GetUnconfirmedBlocks()
+			unConfirmedList := db.GetUnconfirmedBlocks(*db.Address())
 			if len(unConfirmedList) > 0 {
 				// Contract receive out of quota, current block is not first unconfirmed block, retry next snapshotBlock
 				return nil, Retry, err

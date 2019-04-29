@@ -96,7 +96,7 @@ type VmDb interface {
 	GetLogListHash() *types.Hash
 
 	// ====== AccountBlock ======
-	GetUnconfirmedBlocks() []*ledger.AccountBlock
+	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
 
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
