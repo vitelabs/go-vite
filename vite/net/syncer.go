@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/vite/net/message"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -23,7 +25,6 @@ const minHeightDifference = 1000
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 3
 const chainGrowInterval = time.Second
-const batchSyncTask = 24 // one day
 const syncTaskSize = 3600
 
 func shouldSync(from, to uint64) bool {
@@ -57,6 +58,64 @@ func splitChunk(from, to uint64, size uint64) (chunks [][2]uint64) {
 	}
 
 	return chunks[:i]
+}
+
+type hashHeightNode struct {
+	*ledger.HashHeight
+	weight int
+	nodes  map[types.Hash]*hashHeightNode
+}
+
+func newHashHeightTree() *hashHeightNode {
+	return &hashHeightNode{
+		nodes: make(map[types.Hash]*hashHeightNode),
+	}
+}
+
+func (t *hashHeightNode) addBranch(list []*ledger.HashHeight) {
+	var tree = t
+	var subTree *hashHeightNode
+	var ok bool
+	for _, h := range list {
+		subTree, ok = tree.nodes[h.Hash]
+		if ok {
+			subTree.weight++
+		} else {
+			subTree = &hashHeightNode{
+				h,
+				1,
+				make(map[types.Hash]*hashHeightNode),
+			}
+			tree.nodes[h.Hash] = subTree
+		}
+
+		tree = subTree
+	}
+}
+
+func (t *hashHeightNode) bestBranch() (list []*ledger.HashHeight) {
+	var tree = t
+	var subTree *hashHeightNode
+	var weight int
+
+	for {
+		if len(tree.nodes) == 0 {
+			return
+		}
+
+		weight = 0
+
+		for _, n := range tree.nodes {
+			if n.weight > weight {
+				weight = n.weight
+				subTree = n
+			}
+		}
+
+		list = append(list, subTree.HashHeight)
+
+		tree = subTree
+	}
 }
 
 type syncPeerSet interface {
@@ -110,6 +169,7 @@ func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 			return
 		}
 		// todo
+
 	case CodeHashList:
 		var list = &message.HashHeightList{}
 		err = list.Deserialize(msg.Payload)
@@ -117,6 +177,7 @@ func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 			return
 		}
 		// todo
+
 	}
 
 	return nil

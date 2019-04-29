@@ -251,6 +251,7 @@ func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code
 
 func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) []*ledger.HashHeight {
 
+	return nil
 }
 
 func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {

@@ -106,10 +106,10 @@ func (s *cacheReader) handleChunkDone(from, to uint64, err error) {
 	}
 }
 
-func (s *cacheReader) handleChunkError(chunk [2]uint64) {
+func (s *cacheReader) handleChunkError(segment interfaces.Segment) {
 	cache := s.chain.GetSyncCache()
-	_ = cache.Delete(chunk)
-	s.downloader.download(chunk[0], chunk[1], true)
+	_ = cache.Delete(segment)
+	s.downloader.download(segment.Bound[0], segment.Bound[1], true)
 }
 
 func (s *cacheReader) clean() {
@@ -137,7 +137,7 @@ func (s *cacheReader) cacheHeight() uint64 {
 	cs := cache.Chunks()
 
 	if len(cs) > 0 {
-		return cs[len(cs)-1][1]
+		return cs[len(cs)-1].Bound[1]
 	}
 
 	return 0
@@ -149,7 +149,7 @@ func (s *cacheReader) removeUselessChunks() {
 	cs := cache.Chunks()
 
 	for _, c := range cs {
-		if c[1] > height {
+		if c.Bound[1] > height {
 			break
 		} else {
 			_ = cache.Delete(c)
@@ -177,15 +177,15 @@ func (s *cacheReader) downloadMissingChunks() {
 		s.requestTo = s.readTo
 	}
 
-	cacheTo := cs[len(cs)-1][1]
+	cacheTo := cs[len(cs)-1].Bound[1]
 	if s.requestTo < cacheTo {
 		go func(chunks interfaces.SegmentList, from, to uint64) {
 			mis := missingSegments(chunks, from, to)
 			for _, chunk := range mis {
-				if s.downloader.download(chunk[0], chunk[1], false) {
+				if s.downloader.download(chunk.Bound[0], chunk.Bound[1], false) {
 					continue
 				} else {
-					s.log.Warn(fmt.Sprintf("failed to download %d-%d", chunk[0], chunk[1]))
+					s.log.Warn(fmt.Sprintf("failed to download %d-%d", chunk.Bound[0], chunk.Bound[1]))
 					break
 				}
 			}
@@ -232,7 +232,7 @@ Loop:
 		// read chunks
 		for _, c := range cs {
 			// chunk has read
-			if c[1] <= s.readTo {
+			if c.Bound[1] <= s.readTo {
 				continue
 			}
 
@@ -246,15 +246,15 @@ Loop:
 			// Chunk is too high, maybe two reasons:
 			// 1. chain haven`t grow to c[0]-1, wait for chain grow
 			// 2. missing chunks between chain and c, wait for chunk downloaded
-			if c[0] > height+1 {
+			if c.Bound[0] > height+1 {
 				time.Sleep(200 * time.Millisecond)
 				// chunk downloaded
 				continue Loop
 			}
 
-			reader, err = cache.NewReader(c[0], c[1])
+			reader, err = cache.NewReader(c)
 			if err != nil {
-				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c[0], c[1], err))
+				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
 				s.handleChunkError(c)
 				continue
 			}
@@ -279,8 +279,8 @@ Loop:
 					if err = s.receiver.receiveSnapshotBlock(sb, types.RemoteSync); err != nil {
 						break
 					} else if prev == nil {
-						if sb.Height != c[0] {
-							err = fmt.Errorf("first snapshot block height: should %d, get %d", c[0], sb.Height)
+						if sb.Height != c.Bound[0] {
+							err = fmt.Errorf("first snapshot block height: should %d, get %d", c.Bound[0], sb.Height)
 							break
 						} else {
 							prev = sb
@@ -301,8 +301,8 @@ Loop:
 			if err == io.EOF {
 				if prev == nil {
 					err = errNoSnapshotBlocksInChunk
-				} else if prev.Height != c[1] {
-					err = fmt.Errorf("last snapshot block height: should %d, get %d", c[1], prev.Height)
+				} else if prev.Height != c.Bound[1] {
+					err = fmt.Errorf("last snapshot block height: should %d, get %d", c.Bound[1], prev.Height)
 				} else {
 					err = nil
 				}
@@ -310,11 +310,11 @@ Loop:
 
 			// read chunk error
 			if err != nil {
-				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c[0], c[1], err))
+				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
 				s.handleChunkError(c)
 			} else {
 				// set readTo should be very seriously
-				s.readTo = c[1]
+				s.readTo = c.Bound[1]
 			}
 		}
 	}
