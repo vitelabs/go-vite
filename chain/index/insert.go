@@ -1,9 +1,9 @@
 package chain_index
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -42,7 +42,13 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	// flush account block indexes
 	for index, block := range confirmedBlocks {
 		// height -> account block location
+
 		iDB.insertAbHeightLocation(batch, block, abLocationsList[index])
+
+		if block.BlockType == ledger.BlockTypeSendCreate {
+			iDB.insertConfirmCache(block.Hash, snapshotBlock.Height)
+		}
+
 	}
 
 	// write snapshot
@@ -60,7 +66,8 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 	}
 	// hash -> addr & height
 	addrHeightValue := append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...)
-	iDB.insertAbHashHeight(batch, accountBlock.Hash, addrHeightValue)
+
+	iDB.insertAbHashHeight(batch, accountBlock, addrHeightValue)
 
 	// height -> hash
 	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
@@ -78,7 +85,14 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertReceiveInfo(batch, accountBlock.Hash, unreceivedFlag)
 
 		// insert on road block
+
 		iDB.insertOnRoad(batch, accountBlock.ToAddress, accountBlock)
+
+		if accountBlock.BlockType == ledger.BlockTypeSendCreate {
+			iDB.insertConfirmCache(accountBlock.Hash, 0)
+
+		}
+
 	}
 
 	for _, sendBlock := range accountBlock.SendBlockList {
@@ -86,20 +100,31 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 		iDB.insertReceiveInfo(batch, sendBlock.Hash, unreceivedFlag)
 
 		// send block hash -> addr & height
-		iDB.insertAbHashHeight(batch, sendBlock.Hash, addrHeightValue)
+
+		iDB.insertAbHashHeight(batch, sendBlock, addrHeightValue)
 
 		// insert on road block
 		iDB.insertOnRoad(batch, sendBlock.ToAddress, sendBlock)
+
+		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
+			iDB.insertConfirmCache(sendBlock.Hash, 0)
+
+		}
+
 	}
 
 	return nil
 }
 
-func (iDB *IndexDB) insertAbHashHeight(batch interfaces.Batch, hash types.Hash, value []byte) {
-	key := chain_utils.CreateAccountBlockHashKey(&hash)
+func (iDB *IndexDB) insertAbHashHeight(batch interfaces.Batch, block *ledger.AccountBlock, value []byte) {
+	key := chain_utils.CreateAccountBlockHashKey(&block.Hash)
 
 	iDB.cache.Set(string(key), value)
 	batch.Put(key, value)
+}
+
+func (iDB *IndexDB) insertConfirmCache(blockHash types.Hash, snapshotHeight uint64) {
+	iDB.sendCreateBlockHashCache.Add(blockHash, snapshotHeight)
 }
 
 func (iDB *IndexDB) insertAbHeightLocation(batch interfaces.Batch, block *ledger.AccountBlock, location *chain_file_manager.Location) {

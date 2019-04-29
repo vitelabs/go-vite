@@ -52,7 +52,6 @@ func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
 }
 
 func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.ContractMeta, error) {
-	// fixme
 	if meta := ledger.GetBuiltinContractMeta(contractAddress); meta != nil {
 		return meta, nil
 	}
@@ -62,6 +61,35 @@ func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.Contract
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
+	return meta, nil
+}
+
+func (c *chain) GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (*ledger.ContractMeta, error) {
+	if meta := ledger.GetBuiltinContractMeta(contractAddress); meta != nil {
+		return meta, nil
+	}
+
+	meta, err := c.stateDB.GetContractMeta(contractAddress)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractMeta failed, error is %s, Addr is %s", err, contractAddress))
+		c.log.Error(cErr.Error(), "method", "GetBalance")
+		return nil, cErr
+	}
+
+	if meta == nil {
+		return nil, nil
+	}
+
+	createBlockHash := meta.CreateBlockHash
+	confirmedHeight, err := c.indexDB.GetConfirmHeightByHash(&createBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if confirmedHeight <= 0 || confirmedHeight > snapshotHeight {
+		return nil, nil
+	}
+
 	return meta, nil
 }
 

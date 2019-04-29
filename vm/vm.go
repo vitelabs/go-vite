@@ -290,6 +290,11 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 		return nil, util.ErrInvalidConfirmTime
 	}
 
+	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data)
+	if !util.IsValidQuotaRatio(quotaRatio) {
+		return nil, util.ErrInvalidQuotaRatio
+	}
+
 	if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data)) && confirmTime <= 0 {
 		return nil, util.ErrInvalidConfirmTime
 	}
@@ -308,7 +313,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	util.SubBalance(db, &block.TokenId, block.Amount)
 	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 	vm.updateBlock(db, block, nil, util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil))
-	db.SetContractMeta(contractAddr, &ledger.ContractMeta{gid, confirmTime})
+	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
@@ -402,6 +407,14 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 		block.Fee = helper.Big0
 		if useQuota {
 			cost, err := gasNormalSendCall(block)
+			if err != nil {
+				return nil, err
+			}
+			quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
+			if err != nil {
+				return nil, err
+			}
+			cost, err = util.MultipleCost(cost, quotaRatio)
 			if err != nil {
 				return nil, err
 			}
@@ -511,6 +524,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			if err == nil {
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
+		}
+
+		if err == util.ErrNoReliableStatus {
+			return nil, Retry, err
 		}
 
 		vm.revert(db)

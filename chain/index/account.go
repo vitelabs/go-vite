@@ -2,8 +2,8 @@ package chain_index
 
 import (
 	"encoding/binary"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -11,7 +11,6 @@ import (
 )
 
 func (iDB *IndexDB) HasAccount(addr types.Address) (result bool, returnErr error) {
-
 	_, ok := iDB.accountCache.Get(addr)
 	if ok {
 		return ok, nil

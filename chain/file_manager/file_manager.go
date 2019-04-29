@@ -15,8 +15,6 @@ type FileManager struct {
 	nextFlushStartLocation *Location
 	prevFlushLocation      *Location
 
-	lockMu sync.RWMutex
-
 	fSyncWg sync.WaitGroup
 }
 
@@ -25,7 +23,7 @@ func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManage
 		fileSize: fileSize,
 	}
 
-	fdSet, err := newFdManager(dirName, int(fileSize), cacheCount)
+	fdSet, err := newFdManager(fm, dirName, int(fileSize), cacheCount)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +36,14 @@ func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManage
 }
 
 func (fm *FileManager) NextFlushStartLocation() *Location {
-	return fm.nextFlushStartLocation
+	if fm.nextFlushStartLocation == nil {
+		return nil
+	}
+	return NewLocation(fm.nextFlushStartLocation.FileId, fm.nextFlushStartLocation.Offset)
+}
+
+func (fm *FileManager) SetNextFlushStartLocation(location *Location) {
+	fm.nextFlushStartLocation = NewLocation(location.FileId, location.Offset)
 }
 
 func (fm *FileManager) LatestLocation() *Location {
@@ -59,17 +64,8 @@ func (fm *FileManager) Write(buf []byte) (*Location, error) {
 	}
 	return location, nil
 }
-func (fm *FileManager) LockDelete() {
-	fm.lockMu.RLock()
-}
-
-func (fm *FileManager) UnlockDelete() {
-	fm.lockMu.RUnlock()
-}
 
 func (fm *FileManager) DeleteTo(location *Location) error {
-	fm.lockMu.Lock()
-	defer fm.lockMu.Unlock()
 
 	if location.Compare(fm.LatestLocation()) >= 0 {
 		return nil
@@ -84,69 +80,77 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 	return nil
 }
 
-func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location) error {
-	var fdList []fileDescription
-	//fmt.Printf("begin flush %+v - %+v\n", startLocation, targetLocation)
+func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, buf []byte) error {
 	// flush
-	flushStartLocation := startLocation
+	flushLocation := NewLocation(startLocation.FileId, startLocation.Offset)
 
-	for flushStartLocation.Compare(targetLocation) < 0 {
-		fd, err := fm.fdSet.GetFd(flushStartLocation.FileId)
+	bufStart := int64(0)
+
+	for flushLocation.Compare(targetLocation) < 0 {
+		fd, err := fm.fdSet.GetFd(flushLocation.FileId)
 		if err != nil {
-			return errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", flushStartLocation.FileId, err.Error()))
+			return errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
 		}
 		if fd == nil {
-			return errors.New(fmt.Sprintf("fd is nil, fileId is %+v\n", flushStartLocation.FileId))
+			fd, err = fm.fdSet.GetTmpFlushFd(flushLocation.FileId)
+			if err != nil {
+				return errors.New(fmt.Sprintf("fm.fdSet.GetTmpFlushFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
+			}
+
+			if fd == nil {
+				return errors.New(fmt.Sprintf("fd is nil, fileId is %d. Error: %s", flushLocation.FileId, err))
+			}
 		}
 
 		targetOffset := fm.fileSize
-		if flushStartLocation.FileId == targetLocation.FileId {
+		if flushLocation.FileId == targetLocation.FileId {
 			targetOffset = targetLocation.Offset
 		}
 
-		offset, err := fd.Flush(targetOffset)
+		bufEnd := bufStart + targetOffset - flushLocation.Offset
+
+		n, err := fd.Flush(flushLocation.Offset, buf[bufStart:bufEnd])
 		if err != nil {
-			return errors.New(fmt.Sprintf("fd flush failed, fileId is %d", flushStartLocation.FileId))
+			return errors.New(fmt.Sprintf("fd flush failed, fileId is %d", flushLocation.FileId))
 		}
-		fdList = append(fdList, *fd)
 
-		if offset >= fm.fileSize {
-			flushStartLocation.FileId += 1
-			flushStartLocation.Offset = 0
+		flushOffset := flushLocation.Offset + int64(n)
+		bufStart += int64(n)
 
+		if flushOffset >= fm.fileSize {
+			flushLocation.FileId += 1
+			flushLocation.Offset = 0
 		} else {
-			flushStartLocation.Offset = offset
+			flushLocation.Offset = flushOffset
 		}
 	}
 
-	fm.nextFlushStartLocation = flushStartLocation
-
-	if fm.prevFlushLocation.Compare(fm.nextFlushStartLocation) > 0 {
+	if fm.prevFlushLocation.Compare(targetLocation) > 0 {
 		// Disk delete
-		if err := fm.fdSet.DiskDelete(fm.prevFlushLocation, fm.nextFlushStartLocation); err != nil {
+		if err := fm.fdSet.DiskDelete(fm.prevFlushLocation, targetLocation); err != nil {
 			return err
 		}
 	}
 
-	fm.prevFlushLocation = fm.nextFlushStartLocation
+	fm.prevFlushLocation = targetLocation
 
 	// sync
-	fdListLen := len(fdList)
-	if fdListLen <= 0 {
-		return nil
-	} else if fdListLen <= 1 {
-		fdList[0].Sync()
-	} else {
-		fm.fSyncWg.Add(len(fdList))
-		for _, fd := range fdList {
-			tmpFd := fd
-			go func() {
-				defer fm.fSyncWg.Done()
-				tmpFd.Sync()
-			}()
-		}
-		fm.fSyncWg.Wait()
-	}
+	//fdListLen := len(fdList)
+	//if fdListLen <= 0 {
+	//	return nil
+	//} else if fdListLen <= 1 {
+	//	fdList[0].Sync()
+	//} else {
+	//	fm.fSyncWg.Add(len(fdList))
+	//	for _, fd := range fdList {
+	//		tmpFd := fd
+	//		go func() {
+	//			defer fm.fSyncWg.Done()
+	//			tmpFd.Sync()
+	//		}()
+	//	}
+	//	fm.fSyncWg.Wait()
+	//}
 
 	//fmt.Printf("flush finish %+v - %+v\n", startLocation, targetLocation)
 

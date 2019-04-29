@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"testing"
 )
@@ -18,9 +19,11 @@ func testOnRoad(t *testing.T, chainInstance *chain, accounts map[types.Address]*
 	//	HasOnRoadBlocks(chainInstance, accounts)
 	//})
 	//
-	//t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
-	//	GetOnRoadBlocksHashList(chainInstance, accounts)
-	//})
+	t.Run("GetOnRoadBlocksHashList", func(t *testing.T) {
+		for addr, _ := range accounts {
+			fmt.Println(chainInstance.GetOnRoadBlocksByAddr(addr, 0, 10))
+		}
+	})
 }
 
 func testOnRoadNoTesting(chainInstance *chain, accounts map[types.Address]*Account) {
@@ -56,7 +59,7 @@ func testOnRoadNoTesting(chainInstance *chain, accounts map[types.Address]*Accou
 //		hashSet := make(map[types.Hash]struct{})
 //
 //		for {
-//			hashList, err := chainInstance.GetOnRoadBlocksHashList(addr, pageNum, 10)
+//			hashList, err := chainInstance.GetOnRoadBlocksByAddr(addr, pageNum, 10)
 //			if err != nil {
 //				panic(err)
 //			}

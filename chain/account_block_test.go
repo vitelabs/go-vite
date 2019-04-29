@@ -15,6 +15,21 @@ func TestChain_AccountBlock(t *testing.T) {
 	TearDown(chainInstance)
 }
 
+//func Test_Get(t *testing.T) {
+//	chainInstance, _, _ := SetUp(0, 0, 0)
+//	//addr, err := types.HexToAddress("vite_face7f32b05faa79e4b405ad15eacaddd54d55292b0431fffd")
+//	//if err != nil {
+//	//	panic(err)
+//	//}
+//	hash, err := types.HexToHash("cb514e93490a3614d3833893ec3130a046915a5421f233d16f6fef9ed1dca66c")
+//
+//	block, err := chainInstance.GetReceiveAbBySendAb(hash)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	fmt.Printf("%+v\n", block)
+//}
+
 func GetAccountBlockByHash(chainInstance Chain, accounts map[types.Address]*Account) {
 	for _, account := range accounts {
 		for hash, block := range account.BlocksMap {
@@ -128,7 +143,7 @@ func GetReceiveAbBySendAb(chainInstance Chain, accounts map[types.Address]*Accou
 		}
 	}
 }
-func IsReceived(chainInstance Chain, accounts map[types.Address]*Account) {
+func IsReceived(chainInstance *chain, accounts map[types.Address]*Account) {
 
 	checkIsReceive := func(hash types.Hash) {
 		received, err := chainInstance.IsReceived(hash)

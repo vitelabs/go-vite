@@ -5,10 +5,6 @@ import (
 
 	"github.com/vitelabs/go-vite/chain/plugins"
 
-	"os"
-	"path"
-	"sync/atomic"
-
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/chain/block"
@@ -24,6 +20,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
+
+	"os"
+	"path"
+	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -58,6 +59,8 @@ type chain struct {
 	syncCache interfaces.SyncCache
 
 	flusher *chain_flusher.Flusher
+
+	flushMu sync.RWMutex
 
 	plugins *chain_plugins.Plugins
 
@@ -126,11 +129,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
-	// init plugins
-	if c.chainCfg.OpenPlugins {
-		c.plugins.BuildPluginsDb(c.flusher)
-	}
-
+	// reconstruct the plugins
+	/*	if c.chainCfg.OpenPlugins {
+			c.plugins.BuildPluginsDb(c.flusher)
+		}
+	*/
 	c.log.Info("Complete initialization", "method", "Init")
 
 	return nil
@@ -141,6 +144,9 @@ func (c *chain) Start() error {
 		return nil
 	}
 
+	c.flusher.Start()
+	c.log.Info("Start flusher", "method", "Start")
+
 	return nil
 }
 
@@ -149,7 +155,9 @@ func (c *chain) Stop() error {
 		return nil
 	}
 
-	c.flusher.Flush(true)
+	c.flusher.Stop()
+
+	c.log.Info("Stop flusher", "method", "Stop")
 	return nil
 }
 
@@ -247,7 +255,7 @@ func (c *chain) newDbAndRecover() error {
 	if c.chainCfg.OpenPlugins {
 		stores = append(stores, c.plugins.Store())
 	}
-	if c.flusher, err = chain_flusher.NewFlusher(stores, c.chainDir); err != nil {
+	if c.flusher, err = chain_flusher.NewFlusher(stores, &c.flushMu, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
 		return cErr
@@ -314,6 +322,13 @@ func (c *chain) initCache() error {
 		return cErr
 	}
 
+	// init index db cache
+	if err := c.indexDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
 	// init sync cache
 	var err error
 	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
@@ -321,11 +336,6 @@ func (c *chain) initCache() error {
 		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr
-	}
-
-	// FIXME TEMP
-	if err := c.indexDB.InitOnRoad(); err != nil {
-		return err
 	}
 
 	return nil
@@ -400,4 +410,8 @@ func defaultConfig() *config.Chain {
 
 func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
 	return c.indexDB, c.blockDB, c.stateDB
+}
+
+func (c *chain) Flusher() *chain_flusher.Flusher {
+	return c.flusher
 }

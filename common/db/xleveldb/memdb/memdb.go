@@ -1,14 +1,3 @@
-package vm_db
-
-import (
-	"github.com/syndtr/goleveldb/leveldb/comparer"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
-	"github.com/syndtr/goleveldb/leveldb/util"
-	"math/rand"
-	"sync"
-)
-
 // Copyright (c) 2012, Suryandaru Triandana <syndtr@gmail.com>
 // All rights reserved.
 //
@@ -16,6 +5,17 @@ import (
 // found in the LICENSE file.
 
 // Package memdb provides in-memory key/value database implementation.
+package memdb
+
+import (
+	"math/rand"
+	"sync"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+)
 
 // Common errors.
 var (
@@ -462,10 +462,25 @@ func (p *DB) Reset() {
 // reclaim KV buffer.
 //
 // The returned DB instance is safe for concurrent use.
-func newMemDB(cmp comparer.BasicComparer, capacity int, rnd *rand.Rand) *DB {
+func New(cmp comparer.BasicComparer, capacity int) *DB {
 	p := &DB{
 		cmp:       cmp,
-		rnd:       rnd,
+		rnd:       rand.New(rand.NewSource(0xdeadbeef)),
+		maxHeight: 1,
+		kvData:    make([]byte, 0, capacity),
+		nodeData:  make([]int, 4+tMaxHeight),
+	}
+	p.nodeData[nHeight] = tMaxHeight
+	return p
+}
+
+var _rnd = rand.New(rand.NewSource(0xdeadbeef))
+
+// More efficient
+func New2(cmp comparer.BasicComparer, capacity int) *DB {
+	p := &DB{
+		cmp:       cmp,
+		rnd:       _rnd,
 		maxHeight: 1,
 		kvData:    make([]byte, 0, capacity),
 		nodeData:  make([]int, 4+tMaxHeight),

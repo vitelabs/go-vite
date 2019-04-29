@@ -13,6 +13,9 @@ func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Addre
 	if err != nil {
 		return nil, err
 	}
+	if snapshotHeight <= 0 {
+		return nil, errors.New(fmt.Sprintf("snapshot hash %s is not existed", snapshotHash))
+	}
 
 	return NewStorageDatabase(sDB, snapshotHeight, addr), nil
 }
@@ -37,6 +40,7 @@ func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
 }
 
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+
 	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, &sd.addr, prefix)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %s, addr is %s, prefix is %s",
