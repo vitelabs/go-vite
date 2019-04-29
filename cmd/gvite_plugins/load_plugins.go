@@ -175,7 +175,7 @@ func Loading() {
 }
 
 func beforeAction(ctx *cli.Context) error {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
 
 	//TODO: we can add dashboard here
 	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {
