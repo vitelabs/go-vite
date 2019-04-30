@@ -100,6 +100,8 @@ var simpleContracts = map[types.Address]*builtinContract{
 			MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{},
 			MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{},
 			MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{},
+			MethodNameDexFundConfigTimerAddress:   &MethodDexFundConfigTimerAddress{},
+			MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{},
 		},
 		ABIDexFund,
 	},

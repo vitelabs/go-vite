@@ -8,17 +8,18 @@ message Order {
     bool Side = 3; // //[unset on serialize] false buy, true sell
     int32 Type = 4; // 0 limit order, 1 market order
     bytes Price = 5; // //[unset on serialize] [0...4]intPart [5..8]decimalPart
-    bytes Quantity = 6;
-    bytes Amount = 7; // QuoteAmount
-    bytes LockedBuyFee = 8; // fee locked ahead for buy
-    int32 Status = 9;
-    int32 CancelReason = 10;
-    bytes ExecutedQuantity = 11;
-    bytes ExecutedAmount = 12;
-    bytes ExecutedFee = 13; // fee actually executed
-    bytes RefundToken = 14;
-    bytes RefundQuantity = 15; //refund trade/quote token
-    int64 Timestamp = 16;
+    int32 FeeType = 6; // 0 mine 1 not mine 2 vip
+    bytes Quantity = 7;
+    bytes Amount = 8; // QuoteAmount
+    bytes LockedBuyFee = 9; // fee locked ahead for buy
+    int32 Status = 10;
+    int32 CancelReason = 11;
+    bytes ExecutedQuantity = 12;
+    bytes ExecutedAmount = 13;
+    bytes ExecutedFee = 14; // fee actually executed
+    bytes RefundToken = 15;
+    bytes RefundQuantity = 16; //refund trade/quote token
+    int64 Timestamp = 17;
 }
 
 message OrderMarketInfo {
@@ -88,6 +89,15 @@ message MarketInfo {
     bool Valid = 6; // false: pending for tradeToken validate
     bytes Creator = 7; //creator address
     int64 Timestamp = 8;
+}
+
+message PendingNewMarketAction {
+    bytes tradeToken = 1;
+    repeated bytes QuoteTokens = 2;
+}
+
+message PendingNewMarkets {
+    repeated PendingNewMarketAction pendingActions = 1;
 }
 
 message NewMarket {

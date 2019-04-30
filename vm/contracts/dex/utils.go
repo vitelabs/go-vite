@@ -91,3 +91,13 @@ func Uint64ToBytes(value uint64) []byte {
 func BytesToUint64(bytes []byte) uint64 {
 	return binary.BigEndian.Uint64(bytes)
 }
+
+func Uint32ToBytes(value uint32) []byte {
+	bs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bs, value)
+	return bs
+}
+
+func BytesToUint32(bytes []byte) uint32 {
+	return binary.BigEndian.Uint32(bytes)
+}

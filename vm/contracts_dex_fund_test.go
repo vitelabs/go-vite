@@ -244,7 +244,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
 	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := dex.GetCurrentFeeSumFromStorage(db) // initDexFundDatabase snapshotBlock Height
+	dexFee, err := dex.GetCurrentFeeSumFromStorage(db, getConsensusReader()) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 2, len(dexFee.Fees))
 	if bytes.Equal(dexFee.Fees[0].Token, ETH.tokenId.Bytes()) {
 		assert.True(t, CheckBigEqualToInt(15, dexFee.Fees[0].Amount))

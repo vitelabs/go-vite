@@ -61,16 +61,16 @@ func (id OrderId) getStorageKey() []byte {
 }
 
 func (id OrderId) isNilKey() bool {
-	return bytes.Compare(id[:], nilOrderIdValue) == 0
+	return bytes.Equal(id[:], nilOrderIdValue)
 }
 
 func (id OrderId) isBarrierKey() bool {
-	return bytes.Compare(id[:], maxOrderIdValue) == 0
+	return bytes.Equal(id[:], maxOrderIdValue)
 }
 
 func (id OrderId) equals(counter nodeKeyType) bool {
 	ct := counter.(OrderId)
-	return bytes.Compare(id[:], ct.bytes()) == 0
+	return bytes.Equal(id[:], ct.bytes())
 }
 
 func (id OrderId) toString() string {

@@ -48,6 +48,10 @@ const (
 	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
 	dexFundGetTokenInfoCallbackGas        uint64 = 300
 	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
+	dexFundConfigTimerAddressGas          uint64 = 300
+	dexFundConfigTimerAddressReceiveGas   uint64 = 1
+	dexFundNotifyTimeGas                  uint64 = 300
+	dexFundNotifyTimeReceiveGas           uint64 = 1
 
 	dexTradeNewOrderGas    uint64 = 300
 	dexTradeCancelOrderGas uint64 = 300

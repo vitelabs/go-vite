@@ -76,7 +76,7 @@ func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexpr
 		if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 			var foundToken = false
 			for _, feeAcc := range userFees.Fees[feeLen-1].UserFees {
-				if bytes.Compare(feeAcc.Token, feeAction.Token) == 0 {
+				if bytes.Equal(feeAcc.Token, feeAction.Token) {
 					feeAcc.Amount = AddBigInt(feeAcc.Amount, userFeeSettle.Amount)
 					foundToken = true
 					break

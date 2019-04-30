@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 )
@@ -53,7 +54,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(user0VxFunds.Funds))
 	assert.True(t, CheckBigEqualToInt(30, user0VxFunds.Funds[0].Amount))
 
-	periodId := dex.GetCurrentPeriodIdFromStorage(db)
+	periodId := dex.GetCurrentPeriodIdFromStorage(db, getConsensusReader())
 	assert.Equal(t, uint64(1), periodId)
 	err = settleFee(db, userAddress0, ETH.tokenId, 60)
 	settleFee(db, userAddress0, VITE.tokenId, 30)
@@ -66,7 +67,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	// userAddress1 userFees 1 -> [ETH : 30]
 
 	rollPeriod(db)
-	periodId = dex.GetCurrentPeriodIdFromStorage(db)
+	periodId = dex.GetCurrentPeriodIdFromStorage(db, getConsensusReader())
 	assert.True(t, err == nil)
 	assert.Equal(t, uint64(2), periodId)
 
@@ -366,7 +367,9 @@ func vxMinedVxDividend(db *testDatabase, periodId uint64) error {
 	}
 }
 
-
+func getConsensusReader() util.ConsensusReader {
+	return nil
+}
 
 func addBalance(db *testDatabase, tokenId types.TokenTypeId, amount *big.Int) {
 	origin, _ := db.GetBalance(&tokenId)

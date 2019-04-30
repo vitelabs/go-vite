@@ -36,6 +36,11 @@ var (
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amount for pledge callback")
 
 	InvalidTokenErr = errors.New("invalid token")
+	PendingDonateAmountSubExceedErr = errors.New("pending donate amount sub exceed")
+	PendingNewMarketInnerConflictErr = errors.New("pending new market inner conflict")
+	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
+	InvalidStatusForPendingMarketInfoErr = errors.New("invalid status for pending market info")
+	InvalidTimestampFromTimerErr = errors.New("invalid timestamp from timer")
 
 	NotFoundValueFromDb               = errors.New("not found value from db")
 )

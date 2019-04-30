@@ -22,9 +22,15 @@ var (
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
-	feeSumKeyPrefix       = []byte("fS:")     // feeSum:periodId
-	donateFeeSumKeyPrefix = []byte("dfS:")    // donateFeeSum:periodId, feeSum for new market fee exceed
-	lastFeeSumPeriodKey   = []byte("lFSPId:") //
+	feeSumKeyPrefix            = []byte("fS:")    // feeSum:periodId
+	lastFeeSumPeriodKey        = []byte("lFSPId:") //
+
+	donateFeeSumKeyPrefix      = []byte("dfS:")   // donateFeeSum:periodId, feeSum for new market fee
+	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
+	pendingNewMarketActionsKey = []byte("pmkas:")
+	marketIdKey                = []byte("mkId:")
+
+	timerContractAddressKey = []byte("tmA:")
 
 	VxFundKeyPrefix          = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
@@ -45,20 +51,26 @@ var (
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
 
-	bitcoinToken, _    = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
-	ethToken, _        = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
-	usdtToken, _       = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
-	QuoteTokenDecimals = map[types.TokenTypeId]int32{ledger.ViteTokenId: 18, bitcoinToken: 8, ethToken: 18, usdtToken: 8}
+	PledgeForVxMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVipDuration int64 = 3600 * 24 * 30
+
+	bitcoinToken, _ = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
+	ethToken, _     = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
+	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
+
+	QuoteTokenInfos = map[types.TokenTypeId]*TokenInfo{
+		ledger.ViteTokenId: &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "VITE", Index: -1}},
+		bitcoinToken:       &TokenInfo{dexproto.TokenInfo{Decimals: 8, Symbol: "BTC", Index: 1}},
+		ethToken:           &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "ETH", Index: 1}},
+		usdtToken:          &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "USDT", Index: 1}},
+	}
 
 	viteMinAmount       = commonTokenPow       // 1 VITE
 	bitcoinMinAmount    = big.NewInt(1000000)  //0.01 BTC
 	ethMinAmount        = big.NewInt(10000000) //0.1 ETH
 	usdtMinAmount       = big.NewInt(100000)   //1 USDT
 	QuoteTokenMinAmount = map[types.TokenTypeId]*big.Int{ledger.ViteTokenId: viteMinAmount, bitcoinToken: bitcoinMinAmount, ethToken: ethMinAmount, usdtToken: usdtMinAmount}
-
-	PledgeForVxMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	PledgeForVipDuration int64 = 3600 * 24 * 30
 )
 
 const (
@@ -133,11 +145,23 @@ type ParamDexFundPledge struct {
 	PledgeType int8
 }
 
-type ParamDexFundGetTokenInfo struct {
+type ParamDexFundGetTokenInfoCallback struct {
 	Exist    bool
 	Decimals uint8
 	Symbol   string
 	Index    uint16
+}
+
+type ParamDexFundGetTokenInfo struct {
+	Token types.TokenTypeId
+}
+
+type ParamDexConfigTimerAddress struct {
+	Address types.Address
+}
+
+type ParamDexFundNotifyTime struct {
+	Timestamp int64
 }
 
 type UserFund struct {
@@ -249,6 +273,24 @@ func (mi *MarketInfo) DeSerialize(data []byte) error {
 		return err
 	} else {
 		mi.MarketInfo = marketInfo
+		return nil
+	}
+}
+
+type PendingNewMarkets struct {
+	dexproto.PendingNewMarkets
+}
+
+func (pnm *PendingNewMarkets) Serialize() (data []byte, err error) {
+	return proto.Marshal(&pnm.PendingNewMarkets)
+}
+
+func (pnm *PendingNewMarkets) DeSerialize(data []byte) error {
+	pendingNewMarkets := dexproto.PendingNewMarkets{}
+	if err := proto.Unmarshal(data, &pendingNewMarkets); err != nil {
+		return err
+	} else {
+		pnm.PendingNewMarkets = pendingNewMarkets
 		return nil
 	}
 }
@@ -623,6 +665,102 @@ func GetDonateFeeSumKey(periodId uint64) []byte {
 	return append(donateFeeSumKeyPrefix, Uint64ToBytes(periodId)...)
 }
 
+func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {
+	pendingNewMarkets := &PendingNewMarkets{}
+	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err != nil {
+		return nil, err
+	} else {
+		for index, action := range pendingNewMarkets.PendingActions {
+			if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
+				quoteTokens = action.QuoteTokens
+				if len(quoteTokens) == 0 {
+					return nil, GetTokenInfoCallbackInnerConflictErr
+				}
+				actionsLen := len(pendingNewMarkets.PendingActions)
+				if actionsLen > 1 {
+					pendingNewMarkets.PendingActions[index] = pendingNewMarkets.PendingActions[actionsLen - 1]
+					pendingNewMarkets.PendingActions = pendingNewMarkets.PendingActions[:actionsLen-1]
+					return quoteTokens, SavePendingNewMarkets(db, pendingNewMarkets)
+				} else {
+					return quoteTokens, db.SetValue(pendingNewMarketActionsKey, nil)
+				}
+			}
+		}
+		return nil, GetTokenInfoCallbackInnerConflictErr
+	}
+}
+
+func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (err error) {
+	pendingNewMarkets := &PendingNewMarkets{}
+	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err != nil {
+		return
+	} else {
+		var foundTradeToken bool
+		for _, action := range pendingNewMarkets.PendingActions {
+			if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
+				for _, qt := range action.QuoteTokens {
+					if bytes.Equal(qt, quoteToken.Bytes()) {
+						return PendingNewMarketInnerConflictErr
+					}
+				}
+				foundTradeToken = true
+				action.QuoteTokens = append(action.QuoteTokens, quoteToken.Bytes())
+				break
+			}
+		}
+		if !foundTradeToken {
+			quoteTokens := [][]byte{quoteToken.Bytes()}
+			action := &dexproto.PendingNewMarketAction{TradeToken:tradeToken.Bytes(), QuoteTokens:quoteTokens}
+			pendingNewMarkets.PendingActions = append(pendingNewMarkets.PendingActions, action)
+		}
+		return SavePendingNewMarkets(db, pendingNewMarkets)
+	}
+}
+
+func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) error {
+	if data, err := pendingNewMarkets.Serialize(); err != nil {
+		return err
+	} else {
+		return db.SetValue(pendingNewMarketActionsKey, data)
+	}
+}
+
+func GetPendingNewMarketFeeSum(db vm_db.VmDb) *big.Int {
+	if amountBytes, err := db.GetValue(pendingNewMarketFeeSumKey); err == nil && len(amountBytes) > 0 {
+		return new(big.Int).SetBytes(amountBytes)
+	} else {
+		return big.NewInt(0)
+	}
+}
+
+func AddPendingNewMarketFeeSum(db vm_db.VmDb) error {
+	return modifyPendingNewMarketFeeSum(db, true)
+}
+
+func SubPendingNewMarketFeeSum(db vm_db.VmDb) error {
+	return modifyPendingNewMarketFeeSum(db, false)
+}
+
+func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) error {
+	var (
+		originAmount = GetPendingNewMarketFeeSum(db)
+		newAmount *big.Int
+	)
+	if isAdd {
+		newAmount = new(big.Int).Add(originAmount, NewMarketFeeAmount)
+	} else {
+		newAmount = new(big.Int).Sub(originAmount, NewMarketFeeAmount)
+	}
+	if newAmount.Sign() < 0 {
+		return PendingDonateAmountSubExceedErr
+	}
+	if newAmount.Sign() == 0 {
+		return db.SetValue(pendingNewMarketFeeSumKey, nil)
+	} else {
+		return db.SetValue(pendingNewMarketFeeSumKey, newAmount.Bytes())
+	}
+}
+
 func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtForViteLabs *big.Int, success bool) {
 	var toDivideTotal *big.Int
 	if vxBalance.Sign() > 0 {
@@ -662,10 +800,24 @@ func GetTokenInfoKey(token types.TokenTypeId) []byte {
 	return append(tokenInfoPrefix, token.Bytes()...)
 }
 
+func NewAndSaveMarketId(db vm_db.VmDb) (int32, error) {
+	var newId int32
+	if idBytes, err := db.GetValue(marketIdKey); err != nil {
+		return -1, err
+	} else {
+		if len(idBytes) == 0 {
+			newId = 1
+		} else {
+			newId = int32(BytesToUint32(idBytes)) + 1
+		}
+		return newId, db.SetValue(marketIdKey, Uint32ToBytes(uint32(newId)))
+	}
+}
+
 func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (*MarketInfo, error) {
 	marketInfo := &MarketInfo{}
 	if err := getFundValueFromDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo); err == NotFoundValueFromDb {
-		return nil, nil
+		return nil, TradeMarketNotExistsError
 	} else {
 		return marketInfo, err
 	}
@@ -675,11 +827,8 @@ func SaveMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToke
 	return saveFunValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
 }
 
-func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
-	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, newMarketEvent.GetTopicId())
-	log.Data = newMarketEvent.toDataBytes()
-	db.AddLog(log)
+func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) error {
+	return db.SetValue(GetMarketInfoKey(tradeToken, quoteToken), nil)
 }
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
@@ -690,9 +839,16 @@ func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
 	return re
 }
 
+func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
+	log := &ledger.VmLog{}
+	log.Topics = append(log.Topics, newMarketEvent.GetTopicId())
+	log.Data = newMarketEvent.toDataBytes()
+	db.AddLog(log)
+}
+
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
-	if storeOwner, err := db.GetValue(ownerKey); err == nil && len(storeOwner) == 20 {
-		if bytes.Compare(storeOwner, address.Bytes()) == 0 {
+	if storeOwner, err := db.GetValue(ownerKey); err == nil && len(storeOwner) == types.AddressSize {
+		if bytes.Equal(storeOwner, address.Bytes()) {
 			return true
 		}
 	}
@@ -701,6 +857,19 @@ func IsOwner(db vm_db.VmDb, address types.Address) bool {
 
 func SetOwner(db vm_db.VmDb, address types.Address) {
 	db.SetValue(ownerKey, address.Bytes())
+}
+
+func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
+	if timerAddressBytes, err := db.GetValue(timerContractAddressKey); err == nil && len(timerAddressBytes) == types.AddressSize {
+		if bytes.Equal(timerAddressBytes, address.Bytes()) {
+			return true
+		}
+	}
+	return false
+}
+
+func SetTimerAddress(db vm_db.VmDb, address types.Address) error {
+	return db.SetValue(timerContractAddressKey, address.Bytes())
 }
 
 func GetPledgeForVx(db vm_db.VmDb, address types.Address) *big.Int {
@@ -744,16 +913,29 @@ func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipPrefix, address.Bytes()...)
 }
 
-func SetTimerTimestamp(db vm_db.VmDb, timestampInt int64) {
-	db.SetValue(timestampKey, Uint64ToBytes(uint64(timestampInt)))
+func SetTimerTimestamp(db vm_db.VmDb, timestamp int64) error {
+	if timestamp > GetTimerTimestamp(db) {
+		return db.SetValue(timestampKey, Uint64ToBytes(uint64(timestamp)))
+	} else {
+		return InvalidTimestampFromTimerErr
+	}
 }
 
-func GetTimestampInt64(db vm_db.VmDb) (int64) {
+
+func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	if bs, err := db.GetValue(timestampKey); err == nil && len(bs) == 8 {
 		return int64(BytesToUint64(bs))
 	} else {
+		return 0
+	}
+}
+
+func GetTimestampInt64(db vm_db.VmDb) int64 {
+	timestamp := GetTimerTimestamp(db)
+	if timestamp == 0 {
 		panic(NotFoundValueFromDb)
 	}
+	return timestamp
 }
 
 func getFundValueFromDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializable) error {
