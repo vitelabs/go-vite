@@ -24,7 +24,7 @@ func NewMemDB() *MemDB {
 }
 
 func newStorage() *memdb.DB {
-	return memdb.New2(leveldb.NewIComparer(comparer.DefaultComparer), 0)
+	return memdb.New(leveldb.NewIComparer(comparer.DefaultComparer), 0)
 }
 
 func (mDb *MemDB) GetDb() *memdb.DB {

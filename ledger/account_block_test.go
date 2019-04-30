@@ -77,37 +77,57 @@ func createBlock() *AccountBlock {
 }
 
 func TestAccountBlock_ComputeHash(t *testing.T) {
-	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
-	fromBlockHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is fromBlockHash")))
-	logHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is logHash")))
+	//prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
+	prevHash, err := types.HexToHash("610414b4ba51937e83c5e9e48f07bdf52a3568c2608457a966853b16057e2739")
+	if err != nil {
+		panic(err)
+	}
+	//fromBlockHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is fromBlockHash")))
+	//logHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is logHash")))
 
-	addr1, _ := types.HexToAddress("vite_40ecd068e6919694d989866e3362c557984fd2637671219def")
-	addr2, _ := types.HexToAddress("vite_aa01c78289d51862026d93c98115e4b540b800a877aa98a76b")
+	addr1, err := types.HexToAddress("vite_ca009c7da35b45fe16d945e15f3fea95e7f7bffaa83f4a71cc")
+	if err != nil {
+		panic(err)
+	}
+	addr2, err := types.HexToAddress("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
+	if err != nil {
+		panic(err)
+	}
 
 	publicKey := []byte{146, 4, 102, 210, 240, 121, 18, 183, 101, 145, 74, 10, 42, 214, 120,
 		193, 131, 136, 161, 34, 13, 13, 167, 76, 142, 211, 246, 186, 111, 200, 217, 69}
 
+	//data, err := hex.DecodeString("Y2EtNDM=")
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	amount, ok := big.NewInt(0).SetString("1293523228570825505871", 10)
+	if !ok {
+		panic("err")
+	}
+
 	block := &AccountBlock{
 		BlockType: BlockTypeSendCall,
 		PrevHash:  prevHash,
-		Height:    123,
+		Height:    3,
 
 		AccountAddress: addr1,
 		PublicKey:      publicKey,
 		ToAddress:      addr2,
 
-		Amount:        big.NewInt(1000),
-		TokenId:       ViteTokenId,
-		FromBlockHash: fromBlockHash,
+		Amount:  amount,
+		TokenId: ViteTokenId,
+		//FromBlockHash: fromBlockHash,
 
-		Data: []byte("test data test data"),
+		//Data: []byte("ca-43"),
 
-		Quota:   1234,
-		Fee:     big.NewInt(10),
-		LogHash: &logHash,
+		//Quota: 1234,
+		//Fee:   big.NewInt(10),
+		//LogHash: &logHash,
 
-		Difficulty: big.NewInt(10),
-		Nonce:      []byte("12345678"),
+		//Difficulty: big.NewInt(10),
+		//Nonce:      []byte("12345678"),
 	}
 
 	if block.ComputeHash().String() != "6d54436d78a3bae0b4aacbeb91a0af3c666c6ed3339fbcc6610e12844736d091" {

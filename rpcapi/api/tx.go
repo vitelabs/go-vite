@@ -1,10 +1,12 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -14,6 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -23,11 +26,13 @@ import (
 
 type Tx struct {
 	vite *vite.Vite
+	N    int
 }
 
 func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
+		N:    5,
 	}
 	if vite.Producer() == nil {
 		return tx
@@ -43,7 +48,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	var fromHexPrivKeys []string
 
 	{
-		for i := uint32(0); i < uint32(1); i++ {
+		for i := uint32(0); i < uint32(10); i++ {
 			_, key, err := manager.DeriveForIndexPath(i)
 			if err != nil {
 				panic(err)
@@ -74,11 +79,21 @@ func NewTxApi(vite *vite.Vite) *Tx {
 
 	toAddr := types.AddressConsensusGroup
 	amount := string("0")
-	hexData := "fdc17f250000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000027331000000000000000000000000000000000000000000000000000000000000"
 
-	data, err := hex.DecodeString(hexData)
-	if err != nil {
-		panic(err)
+	ss := []string{
+		"/cF/JQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnMxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		"/cF/JQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		"/cF/JQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnMzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		"/cF/JQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		"/cF/JQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnM1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+	}
+	var datas [][]byte
+	for _, v := range ss {
+		byts, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			panic(err)
+		}
+		datas = append(datas, byts)
 	}
 
 	num := atomic.NewUint32(0)
@@ -96,18 +111,25 @@ func NewTxApi(vite *vite.Vite) *Tx {
 			fmt.Println("latest height must >= 10.")
 			return
 		}
-		N := 1
-		for i := 0; i < N; i++ {
+
+		state := vite.Net().Status().State
+		if state != net.SyncDone {
+			fmt.Printf("sync state: %s \n", state)
+			return
+		}
+
+		for i := 0; i < tx.N; i++ {
 			for k, v := range fromAddrs {
 				addr := v
 				key := fromHexPrivKeys[k]
+
 				block, err := tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
 					SelfAddr:     &addr,
 					ToAddr:       &toAddr,
 					TokenTypeId:  ledger.ViteTokenId,
 					PrivateKey:   &key,
 					Amount:       &amount,
-					Data:         data,
+					Data:         datas[rand.Intn(len(datas))],
 					Difficulty:   nil,
 					PreBlockHash: nil,
 					BlockType:    2,
@@ -123,6 +145,11 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	})
 
 	return tx
+}
+
+func (t *Tx) UpdateBenchMark(cnt int) (int, error) {
+	t.N = cnt
+	return t.N, nil
 }
 
 func (t Tx) SendRawTx(block *AccountBlock) error {
@@ -275,6 +302,14 @@ type CalcPoWDifficultyResult struct {
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	if (latestBlock == nil && !param.PrevHash.IsZero()) ||
+		(latestBlock != nil && latestBlock.Hash != param.PrevHash) {
+		return nil, util.ErrChainForked
+	}
 	// get quota required
 	block := &ledger.AccountBlock{
 		BlockType:      param.BlockType,

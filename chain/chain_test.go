@@ -227,7 +227,7 @@ func TestChain(t *testing.T) {
 	//testPanic(t, accounts, snapshotBlockList)
 
 	// test insert
-	chainInstance, accounts, snapshotBlockList := SetUp(20, 50000, 10)
+	chainInstance, accounts, snapshotBlockList := SetUp(20, 500, 10)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 

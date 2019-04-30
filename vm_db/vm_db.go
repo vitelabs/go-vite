@@ -7,8 +7,8 @@ import (
 )
 
 type vmDb struct {
-	unsaved *Unsaved
-	chain   Chain
+	uns   *Unsaved
+	chain Chain
 
 	address *types.Address
 
@@ -31,13 +31,19 @@ func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types
 	}
 
 	return &vmDb{
-		unsaved: NewUnsaved(),
 		chain:   chain,
 		address: address,
 
 		latestSnapshotBlockHash: latestSnapshotBlockHash,
 		prevAccountBlockHash:    prevAccountBlockHash,
 	}, nil
+}
+
+func (vdb *vmDb) unsaved() *Unsaved {
+	if vdb.uns == nil {
+		vdb.uns = NewUnsaved()
+	}
+	return vdb.uns
 }
 
 func NewNoContextVmDb(chain Chain) VmDb {
@@ -54,9 +60,7 @@ func NewVmDbByAddr(chain Chain, address *types.Address) VmDb {
 }
 
 func NewEmptyVmDB(address *types.Address) VmDb {
-	// fixme
 	return &vmDb{
-		unsaved: NewUnsaved(),
 		address: address,
 	}
 }

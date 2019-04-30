@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"math/rand"
 )
 
 type Unsaved struct {
@@ -25,10 +26,13 @@ type Unsaved struct {
 	storageCache [][2][]byte
 
 	balanceMap map[types.TokenTypeId]*big.Int
+
+	rnd *rand.Rand
 }
 
 func NewUnsaved() *Unsaved {
-	return &Unsaved{
+
+	unsaved := &Unsaved{
 		contractMetaMap: make(map[types.Address]*ledger.ContractMeta),
 		logList:         make(ledger.VmLogList, 0),
 		keys:            make(map[string]struct{}),
@@ -37,6 +41,8 @@ func NewUnsaved() *Unsaved {
 		storageDirty:    false,
 		balanceMap:      make(map[types.TokenTypeId]*big.Int),
 	}
+
+	return unsaved
 }
 
 func (unsaved *Unsaved) Reset() {

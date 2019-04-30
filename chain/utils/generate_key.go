@@ -211,3 +211,12 @@ func CreateCallDepthKey(blockHash types.Hash) []byte {
 	key = append(key, blockHash.Bytes()...)
 	return key
 }
+
+// ====== state redo ======
+
+func CreateRedoSnapshot(snapshotHeight uint64) []byte {
+	key := make([]byte, 0, 1+8)
+	key = append(key, SnapshotKeyPrefix)
+	key = append(key, Uint64ToBytes(snapshotHeight)...)
+	return key
+}
