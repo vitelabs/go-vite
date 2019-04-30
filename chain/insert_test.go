@@ -79,21 +79,20 @@ func TestInsertAccountBlocks(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 10000; i++ {
+
 			InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(1000))
+			mu.Lock()
 
 			snapshotBlock := createSnapshotBlock(chainInstance, false)
 
-			mu.Lock()
 			snapshotBlockList = append(snapshotBlockList, snapshotBlock)
 			Snapshot(accounts, snapshotBlock)
-			mu.Unlock()
 
 			invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
 			if err != nil {
 				panic(err)
 			}
 
-			mu.Lock()
 			DeleteInvalidBlocks(accounts, invalidBlocks)
 			mu.Unlock()
 

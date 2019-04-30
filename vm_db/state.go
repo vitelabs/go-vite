@@ -6,7 +6,7 @@ import (
 )
 
 func (vdb *vmDb) GetReceiptHash() *types.Hash {
-	kvList := vdb.unsaved.GetStorage()
+	kvList := vdb.unsaved().GetStorage()
 	if len(kvList) <= 0 {
 		return &types.Hash{}
 	}
@@ -28,9 +28,9 @@ func (vdb *vmDb) GetReceiptHash() *types.Hash {
 }
 
 func (vdb *vmDb) Reset() {
-	vdb.unsaved.Reset()
+	vdb.unsaved().Reset()
 }
 
 func (vdb *vmDb) Finish() {
-	vdb.unsaved.ReleaseRuntime()
+	vdb.unsaved().ReleaseRuntime()
 }

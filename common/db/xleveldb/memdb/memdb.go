@@ -15,6 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"runtime"
 )
 
 // Common errors.
@@ -474,17 +475,30 @@ func New(cmp comparer.BasicComparer, capacity int) *DB {
 	return p
 }
 
-var _rnd = rand.New(rand.NewSource(0xdeadbeef))
+var rndPool = sync.Pool{
+	New: func() interface{} {
+		return rand.New(rand.NewSource(0xdeadbeef))
+	},
+}
 
 // More efficient
 func New2(cmp comparer.BasicComparer, capacity int) *DB {
 	p := &DB{
 		cmp:       cmp,
-		rnd:       _rnd,
+		rnd:       rndPool.Get().(*rand.Rand),
 		maxHeight: 1,
 		kvData:    make([]byte, 0, capacity),
 		nodeData:  make([]int, 4+tMaxHeight),
 	}
 	p.nodeData[nHeight] = tMaxHeight
+
+	runtime.SetFinalizer(p, (*DB).ReleaseRnd)
+
 	return p
+}
+
+func (p *DB) ReleaseRnd() {
+	if p.rnd != nil {
+		rndPool.Put(p.rnd)
+	}
 }
