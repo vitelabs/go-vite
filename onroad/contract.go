@@ -21,9 +21,8 @@ var signalLog = slog.New("signal", "contract")
 type ContractWorker struct {
 	manager *Manager
 
-	gid      types.Gid
-	address  types.Address
-	accEvent producerevent.AccountStartEvent
+	gid     types.Gid
+	address types.Address
 
 	status      int
 	statusMutex sync.Mutex
@@ -74,14 +73,9 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 	return worker
 }
 
-func (w ContractWorker) getAccEvent() *producerevent.AccountStartEvent {
-	return &w.accEvent
-}
-
 func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
-	w.accEvent = accEvent
 
 	w.log = slog.New("worker", accEvent.Address, "gid", accEvent.Gid)
 
@@ -274,22 +268,11 @@ func (w *ContractWorker) clearSelectiveBlocksCache() {
 	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
 }
 
-/*func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
-	// succeed in handling a l block, if it's a inferior-caller, than set it free.
-
-	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
-		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
-		if success && pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
-			pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
-		}
-	}
-}*/
-
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
-	value, ok := w.selectivePendingCache[contractAddr]
-
 	addNewCount := 0
 	var p *callerPendingMap
+
+	value, ok := w.selectivePendingCache[contractAddr]
 	if !ok || value == nil {
 		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 		if len(blocks) <= 0 {
@@ -297,25 +280,37 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		}
 		p = newCallerPendingMap()
 		for _, v := range blocks {
-			if !p.addPendingMap(v) {
+			if isExist := p.addPendingMap(v); !isExist {
 				addNewCount++
 			}
 		}
 		w.selectivePendingCache[contractAddr] = p
 	} else {
 		p = w.selectivePendingCache[contractAddr]
-		if p.isPendingMapNotSufficient() {
-			blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
-			for _, v := range blocks {
-				if p.isInferiorStateOut(v.AccountAddress) {
-					continue
-				}
-				if !p.addPendingMap(v) {
-					addNewCount++
-				}
+		sendBlock := p.getOnePending()
+		if sendBlock == nil {
+			return nil
+		}
+		isFront, err := w.manager.IsFrontOnRoadOfCaller(w.gid, w.address, sendBlock.AccountAddress, sendBlock.Hash)
+		if err != nil {
+			w.log.Error("acquireOnRoadBlocks.IsFrontOnRoadOfCaller fail, cause err is "+err.Error(), "addr", contractAddr)
+			return nil
+		}
+		if isFront {
+			return sendBlock
+		}
+
+		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
+		for _, v := range blocks {
+			if p.isInferiorStateOut(v.AccountAddress) {
+				continue
+			}
+			if isExist := p.addPendingMap(v); !isExist {
+				addNewCount++
 			}
 		}
 	}
+
 	w.log.Info(fmt.Sprintf("acquire new.len %v, currentPendingCache.len %v", addNewCount, p.Len()), "addr", contractAddr)
 	return w.selectivePendingCache[contractAddr].getOnePending()
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"time"
 )
@@ -61,10 +60,6 @@ func (tp *ContractTaskProcessor) work() {
 	tp.log.Info("work end t")
 }
 
-func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
-	return tp.worker.getAccEvent()
-}
-
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canContinue bool) {
 	tp.log.Info("process", "contract", &task.Addr)
 
@@ -94,7 +89,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true
 	}
-	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.accEvent.Address,
+	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.address,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
 			if err != nil {
