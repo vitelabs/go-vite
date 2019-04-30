@@ -71,7 +71,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{uint64ToString(q.Utps()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas / util.QuotaRange)}, nil
+	return &QuotaAndTxNum{uint64ToString(q.PledgeQuotaPerSnapshotBlock()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas)}, nil
 }
 
 type PledgeInfoList struct {

@@ -7,19 +7,18 @@ type QuotaInfo struct {
 }
 
 type Quota struct {
-	current     uint64
-	utps        uint64
-	avg         uint64
-	unconfirmed uint64
+	current                     uint64
+	pledgeQuotaPerSnapshotBlock uint64
+	avg                         uint64
+	unconfirmed                 uint64
 }
 
 func NewQuota(utps, current, avg, unconfirmed uint64) Quota {
 	return Quota{current, utps, avg, unconfirmed}
 }
 
-// Total quota of a single account in 75 snapshot blocks
-func (q *Quota) Utps() uint64 {
-	return q.utps
+func (q *Quota) PledgeQuotaPerSnapshotBlock() uint64 {
+	return q.pledgeQuotaPerSnapshotBlock
 }
 
 // Current quota of a single account

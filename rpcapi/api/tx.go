@@ -324,7 +324,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
-	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
+	d, err := quota.CalcPoWDifficulty(quotaRequired, q)
 	if err != nil {
 		return nil, err
 	}

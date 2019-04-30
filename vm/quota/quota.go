@@ -77,29 +77,18 @@ func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int)
 }
 
 func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, _, quotaAddition, quotaUsed, _, err := nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty)
+	quotaTotal, _, quotaAddition, _, _, err = nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty)
 	if err != nil {
 		return 0, 0, err
 	}
-	if quotaTotal-quotaAddition <= quotaUsed {
-		// pledge amount changed in past 75 snapshot blocks, use PoW quota for new block only
-		if quotaAddition > 0 {
-			if quotaAddition > quotaLimitForBlock {
-				return quotaLimitForBlock, quotaLimitForBlock, nil
-			}
-			return quotaAddition, quotaAddition, nil
-		}
-		return 0, 0, nil
-	}
-	current := quotaTotal - quotaUsed
-	if current > quotaLimitForBlock {
+	if quotaTotal > quotaLimitForBlock {
 		if quotaAddition > quotaLimitForBlock {
 			return quotaLimitForBlock, quotaLimitForBlock, nil
 		} else {
 			return quotaLimitForBlock, quotaAddition, nil
 		}
 	} else {
-		return current, quotaAddition, nil
+		return quotaTotal, quotaAddition, nil
 	}
 }
 
@@ -146,18 +135,29 @@ func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, diffi
 	quotaTotal = uint64(0)
 	quotaUsedTotal := uint64(0)
 	blockCountTotal := uint64(0)
-	for _, q := range quotaList {
+	if len(quotaList) > 1 {
+		for _, q := range quotaList[:len(quotaList)-1] {
+			quotaTotal = quotaTotal + quotaPledge
+			quotaUsedTotal = quotaUsedTotal + q.QuotaUsedTotal
+			blockCountTotal = blockCountTotal + q.BlockCount
+			if quotaTotal >= q.QuotaTotal {
+				quotaTotal = quotaTotal - q.QuotaTotal
+			} else {
+				quotaTotal = 0
+			}
+		}
+	}
+	if len(quotaList) > 0 {
+		q := quotaList[len(quotaList)-1]
 		quotaTotal = quotaTotal + quotaPledge
 		quotaUsedTotal = quotaUsedTotal + q.QuotaUsedTotal
 		blockCountTotal = blockCountTotal + q.BlockCount
 		if quotaTotal >= q.QuotaTotal {
-			quotaTotal = 0
-		} else {
 			quotaTotal = quotaTotal - q.QuotaTotal
+		} else {
+			return 0, 0, 0, 0, 0, util.ErrInvalidUnconfirmedQuota
 		}
-	}
-	if len(quotaList) > 0 {
-		quotaUnconfirmed = quotaList[len(quotaList)-1].QuotaTotal
+		quotaUnconfirmed = q.QuotaTotal
 	} else {
 		quotaUnconfirmed = 0
 	}
@@ -227,7 +227,7 @@ func CanPoW(db quotaDb, address types.Address) (bool, error) {
 	return true, nil
 }
 
-func CalcPoWDifficulty(quotaRequired uint64, q types.Quota, pledgeAmount *big.Int) (*big.Int, error) {
+func CalcPoWDifficulty(quotaRequired uint64, q types.Quota) (*big.Int, error) {
 	if quotaRequired > quotaLimitForBlock {
 		return nil, util.ErrBlockQuotaLimitReached
 	}
