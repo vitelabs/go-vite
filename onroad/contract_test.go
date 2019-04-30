@@ -376,7 +376,7 @@ func (w *testContractWoker) getPendingOnroadBlock(contractAddr *types.Address) *
 	return nil
 }
 
-func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+/*func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
 		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
 		if success {
@@ -385,7 +385,7 @@ func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address
 			}
 		}
 	}
-}
+}*/
 
 func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
 	acqlog := testlog.New("acquireOnRoadBlocks", contractAddr)
@@ -398,7 +398,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 			}
 			acqlog.Info(fmt.Sprintf("acquireNewOnroad %v blocks %v", pageNum, len(blocks)))
 			for _, v := range blocks {
-				if !pendingMap.existInInferiorList(v.AccountAddress) {
+				if !pendingMap.isInferiorStateOut(v.AccountAddress) {
 					pendingMap.addPendingMap(v)
 				}
 			}

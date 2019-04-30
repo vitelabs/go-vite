@@ -120,8 +120,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return true
 		}
 
-		tp.worker.deletePendingOnRoad(&task.Addr, sBlock)
-
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")
 			tp.worker.addContractIntoBlackList(task.Addr)
@@ -151,9 +149,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			}
 		} else {
 			// no vmBlock no vmRetry in condition that fail to create contract
-			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
-				blog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
-			}
+			blog.Info(fmt.Sprintf("manager.DeleteDirect, contract %v hash %v", task.Addr, sBlock.Hash))
+			tp.worker.manager.deleteDirect(sBlock)
 			tp.worker.addContractIntoBlackList(task.Addr)
 			return false
 		}
