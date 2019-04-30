@@ -37,6 +37,7 @@ func TestCalcParamAndSectionList(t *testing.T) {
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 
 	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
+	pledgeAmountForOneTpsMainnet.Mul(pledgeAmountForOneTpsMainnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
 	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsMainnet)
 	paramaForMainnet := floatTmp.String()
 
@@ -46,7 +47,8 @@ func TestCalcParamAndSectionList(t *testing.T) {
 
 	fmt.Printf("QuotaParamMainnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
 
-	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9")
+	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10")
+	pledgeAmountForOneTpsTestnet.Mul(pledgeAmountForOneTpsTestnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
 	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsTestnet)
 	paramaForTestnet := floatTmp.String()
 
@@ -63,23 +65,23 @@ func TestCalcPledgeAmountSection(t *testing.T) {
 
 	InitQuotaConfig(false, false)
 	p := nodeConfig.paramA
-	fmt.Printf("pledgeAmountListMainnet = []*big.Int{\n")
+	fmt.Printf("pledgeAmountListMainnet = []string{\n")
 	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
-		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), \n", amount.String())
+		amount = getNextPledgeAmount(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("\"%v\", \n", amount.String())
 	}
 	fmt.Printf("}\n")
 
 	InitQuotaConfig(false, true)
 	p = nodeConfig.paramA
-	fmt.Printf("pledgeAmountListTestnet = []*big.Int{\n")
+	fmt.Printf("pledgeAmountListTestnet = []string{\n")
 	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
-		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), \n", amount.String())
+		amount = getNextPledgeAmount(amount, p, sec, tmpFloatForCalc)
+		fmt.Printf("\"%v\", \n", amount.String())
 	}
 	fmt.Printf("}\n")
 }
@@ -122,6 +124,21 @@ func TestCheckNodeConfig(t *testing.T) {
 	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
 		t.Fatalf("main net node config param error")
 	}
+}
+
+func getNextPledgeAmount(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float) *big.Int {
+	bi.Quo(bi, util.AttovPerVite)
+	bi.Mul(bi, util.AttovPerVite)
+	for {
+		tmp = tmp.SetInt(bi)
+		tmp = tmp.Mul(tmp, p)
+		if tmp.Cmp(target) < 0 {
+			bi = bi.Add(bi, util.AttovPerVite)
+		} else {
+			break
+		}
+	}
+	return bi
 }
 
 func getNextBigInt(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float) *big.Int {
@@ -458,7 +475,7 @@ func TestCalcQuotaV3(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList}
-		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg, err := calcQuotaV3(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
+		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg, err := calcQuotaV3(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
@@ -466,6 +483,10 @@ func TestCalcQuotaV3(t *testing.T) {
 			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v,%v), got (%v,%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.pledgeQuota, testCase.quotaAddition, testCase.quotaUnconfirmed, testCase.quotaAvg, quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg)
 		}
 	}
+}
+
+func getPledgeAmount(amount *big.Int) *big.Int {
+	return new(big.Int).Mul(amount, util.AttovPerVite)
 }
 
 func updateUnconfirmedQuotaInfo(quotaInfoList []types.QuotaInfo, unconfirmedList []*ledger.AccountBlock) []types.QuotaInfo {
@@ -596,7 +617,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList}
-		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, testCase.pledgeAmount, testCase.difficulty)
+		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v TestCalcQuotaForBlock failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}

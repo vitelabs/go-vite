@@ -24,16 +24,24 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	}
 	if isTestParam {
 		nodeConfig = NodeConfig{
-			QuotaParams:      QuotaParamTestnet,
-			sectionList:      sectionList,
-			difficultyList:   difficultyListTestnet,
-			pledgeAmountList: pledgeAmountListTestnet}
+			QuotaParams:    QuotaParamTestnet,
+			sectionList:    sectionList,
+			difficultyList: difficultyListTestnet}
+		pledgeAmountList := make([]*big.Int, len(pledgeAmountListTestnet))
+		for i, str := range pledgeAmountListTestnet {
+			pledgeAmountList[i], _ = new(big.Int).SetString(str, 10)
+		}
+		nodeConfig.pledgeAmountList = pledgeAmountList
 	} else {
 		nodeConfig = NodeConfig{
-			QuotaParams:      QuotaParamMainnet,
-			sectionList:      sectionList,
-			difficultyList:   difficultyListMainnet,
-			pledgeAmountList: pledgeAmountListMainnet}
+			QuotaParams:    QuotaParamMainnet,
+			sectionList:    sectionList,
+			difficultyList: difficultyListMainnet}
+		pledgeAmountList := make([]*big.Int, len(pledgeAmountListMainnet))
+		for i, str := range pledgeAmountListMainnet {
+			pledgeAmountList[i], _ = new(big.Int).SetString(str, 10)
+		}
+		nodeConfig.pledgeAmountList = pledgeAmountList
 	}
 	if isTest {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
