@@ -60,7 +60,7 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	}
 	or := cc.(*callerCache).getFrontTxByCaller(&caller)
 	if or == nil || or.Hash != hash {
-		return false, ErrCheckCallerFrontOnRoad
+		return false, ErrCheckIsCallerFrontOnRoadFailed
 	}
 	return true, nil
 }

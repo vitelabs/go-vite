@@ -6,8 +6,8 @@ var (
 	// OnRoadPool
 	ErrOnRoadPoolNotAvailable = errors.New("target gid's onRoadPool is not available")
 
-	ErrBlockTypeErr           = errors.New("onRoadPool block type err")
-	ErrCheckCallerFrontOnRoad = errors.New("onRoadPool check the caller's front onroad hash failed")
+	ErrBlockTypeErr                   = errors.New("onRoadPool block type err")
+	ErrCheckIsCallerFrontOnRoadFailed = errors.New("onRoadPool check the caller's front onroad hash failed")
 
 	//panic
 	ErrLoadCallerCacheFailed = errors.New("onRoadPool conflict, load callerCache failed")
