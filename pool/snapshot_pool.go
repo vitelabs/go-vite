@@ -282,12 +282,12 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 	defer self.chainTailMu.Unlock()
 
 	pool := self.chainpool
-	current := pool.tree.Main()
+	current := pool.tree.Root()
 
 	for i, item := range items {
 		block := item.(*snapshotPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert snapshot block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-		tailHeight, tailHash := current.TailHH()
+		tailHeight, tailHash := current.HeadHH()
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
 			block.resetForkVersion()
@@ -313,7 +313,7 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 				panic(stat.errMsg())
 				return nil, item, errors.New("fail verifier db.")
 			}
-			accBlocks, err := self.snapshotWriteToChain(current, block)
+			accBlocks, err := self.snapshotWriteToChain(block)
 			if err != nil {
 				return nil, item, err
 			}
@@ -328,12 +328,12 @@ func (self *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item,
 	return nil, nil, nil
 }
 
-func (self *snapshotPool) snapshotWriteToChain(current tree.Branch, block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
+func (self *snapshotPool) snapshotWriteToChain(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	height := block.Height()
 	hash := block.Hash()
 	delAbs, err := self.rw.insertSnapshotBlock(block)
 	if err == nil {
-		self.chainpool.tree.RemoveTail(current, block)
+		self.chainpool.tree.RootHeadAdd(block)
 		//self.fixReferInsert(chain, self.diskChain, height)
 		return delAbs, nil
 	} else {
@@ -352,44 +352,6 @@ func (self *snapshotPool) Stop() {
 	close(self.closed)
 	self.wg.Wait()
 	self.log.Info("snapshot_pool stopped.")
-}
-
-func (self *snapshotPool) insertVerifyFail(b *snapshotPoolBlock, stat *poolSnapshotVerifyStat) {
-	defer monitor.LogTime("pool", "insertVerifyFail", time.Now())
-	block := b.block
-	b.failStat.inc()
-	results := stat.results
-
-	accounts := make(map[types.Address]*ledger.HashHeight)
-
-	for k, account := range block.SnapshotContent {
-		result := results[k]
-		if result == verifier.FAIL {
-			accounts[k] = account
-		}
-	}
-
-	if len(accounts) > 0 {
-		self.log.Debug("insertVerifyFail", "accountsLen", len(accounts))
-		monitor.LogEventNum("pool", "snapshotFailFork", len(accounts))
-		self.forkAccounts(accounts)
-		self.fetchAccounts(accounts, b.Height(), b.Hash())
-	}
-}
-
-func (self *snapshotPool) forkAccounts(accounts map[types.Address]*ledger.HashHeight) {
-	self.pool.LockInsert()
-	defer self.pool.UnLockInsert()
-
-	for k, v := range accounts {
-		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.pool.ForkAccountTo(k, v)
-		if err != nil {
-			self.log.Error("forkaccountTo err", "err", err)
-		}
-	}
-
-	self.version.Inc()
 }
 
 func (self *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {

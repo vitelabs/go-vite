@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
@@ -33,6 +36,46 @@ func TestSplitChunks(t *testing.T) {
 	}
 }
 
+func TestHashHeightTree(t *testing.T) {
+	hashHeightList1 := []*ledger.HashHeight{
+		{100, mockHash()},
+		{200, mockHash()},
+		{300, mockHash()},
+		{400, mockHash()},
+	}
+	hashHeightList2 := []*ledger.HashHeight{
+		{100, mockHash()},
+		{200, mockHash()},
+		{300, mockHash()},
+		{400, mockHash()},
+		{500, mockHash()},
+	}
+	hashHeightList3 := make([]*ledger.HashHeight, 0, len(hashHeightList1)+1)
+	for _, h := range hashHeightList1 {
+		hashHeightList3 = append(hashHeightList3, h)
+	}
+	hashHeightList3 = append(hashHeightList3, &ledger.HashHeight{
+		500, mockHash(),
+	})
+
+	tree := newHashHeightTree()
+	tree.addBranch(hashHeightList1)
+	tree.addBranch(hashHeightList2)
+	tree.addBranch(hashHeightList3)
+
+	list := tree.bestBranch()
+
+	// should be list3
+	if len(hashHeightList3) != len(list) {
+		t.Errorf("wrong length: %d", len(list))
+	}
+	for i, h := range list {
+		if h.Hash != hashHeightList3[i].Hash || h.Height != hashHeightList3[i].Height {
+			t.Errorf("wrong branch")
+		}
+	}
+}
+
 func ExampleSyncDetail() {
 	var detail = SyncDetail{
 		From:    10,
@@ -40,8 +83,8 @@ func ExampleSyncDetail() {
 		Current: 20,
 		State:   Syncing,
 		Cache: interfaces.SegmentList{
-			{11, 30},
-			{31, 40},
+			{[2]uint64{11, 30}, types.Hash{}, types.Hash{}},
+			{[2]uint64{31, 40}, types.Hash{}, types.Hash{}},
 		},
 	}
 

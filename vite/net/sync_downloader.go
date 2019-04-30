@@ -126,27 +126,27 @@ func (cs chunks) overlap(from, to uint64) (conflict [2]uint64, ok bool) {
 	return
 }
 
-func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis interfaces.SegmentList) {
+func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis [][2]uint64) {
 	for _, segment := range sortedList {
 		// useless
-		if segment[1] < from {
+		if segment.Bound[1] < from {
 			continue
 		}
 
-		if segment[0] > to {
+		if segment.Bound[0] > to {
 			break
 		}
 
 		// missing front piece
-		if segment[0] > from {
+		if segment.Bound[0] > from {
 			mis = append(mis, [2]uint64{
 				from,
-				segment[0] - 1,
+				segment.Bound[0] - 1,
 			})
 		}
 
 		// next response
-		from = segment[1] + 1
+		from = segment.Bound[1] + 1
 	}
 
 	// from should equal (cr.to + 1)

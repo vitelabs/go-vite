@@ -173,7 +173,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A]account[%s] not exist.", r))
+				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A][%d]account[%s][%s] not exist.", self.Id(), b.Hash(), r))
 			}
 			continue
 		}
@@ -240,4 +240,9 @@ func (self *batchSnapshot) addToAll(keys []types.Hash, l *ownerLevel) {
 	for _, v := range keys {
 		self.all[v] = l
 	}
+}
+
+func (self *batchSnapshot) Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error {
+	executor := newBatchExecutor(self, snapshotFn, accountFn)
+	return executor.execute()
 }

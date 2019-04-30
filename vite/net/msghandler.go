@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -19,35 +21,23 @@ type code = p2p.Code
 const (
 	GetSnapshotBlocksCode code = iota
 	GetAccountBlocksCode       // query single AccountChain
+
 	SnapshotBlocksCode
 	AccountBlocksCode
+
 	NewSnapshotBlockCode
 	NewAccountBlockCode
+
+	CodeCheckChain  // send []hashHeight to peer, find which hashHeight is in peer`s chain
+	CodeCheckResult // send which hashHeight is in our chain
+
+	CodeGetHashList
+	CodeHashList
 
 	ExceptionCode = 127
 )
 
-//var msgNames = [...]string{
-//	GetSnapshotBlocksCode: "GetSnapshotBlocksMsg",
-//	GetAccountBlocksCode:  "GetAccountBlocksMsg",
-//	GetChunkCode:          "GetChunkMsg",
-//	SnapshotBlocksCode:    "SnapshotBlocksMsg",
-//	AccountBlocksCode:     "AccountBlocksMsg",
-//	NewSnapshotBlockCode:  "NewSnapshotBlockMsg",
-//	NewAccountBlockCode:   "NewAccountBlockMsg",
-//}
-//
-//func (t code) String() string {
-//	if t == ExceptionCode {
-//		return "ExceptionMsg"
-//	}
-//
-//	if t > NewAccountBlockCode {
-//		return "Unknown Message"
-//	}
-//
-//	return msgNames[t]
-//}
+const step = 100
 
 type msgHandler interface {
 	name() string
@@ -137,6 +127,9 @@ func newQueryHandler(chain Chain) (q *queryHandler, err error) {
 	if err = q.register(&getAccountBlocksHandler{chain}); err != nil {
 		return nil, err
 	}
+	if err = q.register(&checkHandler{chain, netLog.New("module", "checkHandler")}); err != nil {
+		return nil, err
+	}
 
 	return q, nil
 }
@@ -211,6 +204,82 @@ func (q *queryHandler) loop() {
 			}
 		}
 	}
+}
+
+type checkHandler struct {
+	chain snapshotBlockReader
+	log   log15.Logger
+}
+
+func (c *checkHandler) name() string {
+	return "Check"
+}
+
+func (c *checkHandler) codes() []code {
+	return []code{CodeCheckChain, CodeGetHashList}
+}
+
+func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code, payload p2p.Serializable) {
+	var block *ledger.SnapshotBlock
+	var err error
+	for i := len(check.Points) - 1; i > -1; i-- {
+		hh := check.Points[i]
+		block, err = c.chain.GetSnapshotBlockByHeight(hh.Height)
+		if err != nil || block == nil {
+			c.log.Warn(fmt.Sprintf("failed to search snapshotblock %s/%d", hh.Hash, hh.Height))
+			continue
+		}
+		if block.Hash != hh.Hash {
+			c.log.Warn(fmt.Sprintf("failed to find the same snapshotblock at %d: want %s, find %s", hh.Height, hh.Hash, block.Hash))
+			continue
+		}
+
+		break
+	}
+
+	if block == nil {
+		return ExceptionCode, message.Missing
+	}
+
+	var checkResult = &ledger.HashHeight{
+		Height: block.Height,
+		Hash:   block.Hash,
+	}
+
+	return CodeCheckResult, checkResult
+}
+
+func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) []*ledger.HashHeight {
+
+	return nil
+}
+
+func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+	switch msg.Code {
+	case CodeCheckChain:
+		var check = &message.HashHeightList{}
+		err = check.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		cd, payload := c.handleCheck(check)
+
+		return sender.send(cd, msg.Id, payload)
+
+	case CodeGetHashList:
+		var get = &message.GetHashHeightList{}
+		err = get.Deserialize(msg.Payload)
+		if err != nil {
+			return err
+		}
+
+		// todo
+		hashList := c.handleGetHashHeightList(get)
+		return sender.send(CodeHashList, msg.Id, &message.HashHeightList{hashList})
+	}
+
+	return nil
 }
 
 type getSnapshotBlocksHandler struct {

@@ -103,19 +103,23 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 	iterOk := iter.Last()
 	index := uint64(0)
 	blocks := make([]*ledger.AccountBlock, 0, count)
-	if iterOk && index < count {
+	for iterOk && index < count {
+
 		value := iter.Value()
 		hash, err := types.BytesToHash(value)
 		if err != nil {
 			return nil, err
 		}
+
 		block, err := ft.chain.GetAccountBlockByHash(hash)
 		if err != nil {
 			return nil, err
 		}
+
 		if block != nil {
 			blocks = append(blocks, block)
 		}
+
 		index++
 		iterOk = iter.Prev()
 	}
