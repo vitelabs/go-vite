@@ -40,7 +40,7 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	//em2.Unlock("123456")
 	em.Unlock("123456")
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 1; i++ {
 		_, key2, e := em.DeriveForIndexPath(uint32(i))
 		if e != nil {
 			t.Fatal(e)
