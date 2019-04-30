@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"sync"
 	"time"
 )
 
@@ -82,14 +83,24 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
-	// insert index
-	c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		// insert index
+		c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
 
-	// update latest snapshot block cache
-	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+		// update latest snapshot block cache
+		c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+	}()
 
-	// insert snapshot blocks
-	c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+	go func() {
+		defer wg.Done()
+		// insert snapshot blocks
+		c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+	}()
+
+	wg.Wait()
 
 	c.em.TriggerInsertSbs(InsertSbsEvent, chunks)
 

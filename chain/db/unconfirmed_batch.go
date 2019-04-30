@@ -13,22 +13,63 @@ type UnconfirmedBatchs struct {
 	mu        sync.RWMutex
 }
 
-func (ub *UnconfirmedBatchs) Get(blockHash types.Hash) *leveldb.Batch {
+func NewUnconfirmedBatchs() *UnconfirmedBatchs {
+	return &UnconfirmedBatchs{
+		batchMap:  make(map[types.Hash]*list.Element),
+		batchList: list.New(),
+	}
+}
+
+func (ub *UnconfirmedBatchs) Size() int {
+	ub.mu.RLock()
+	defer ub.mu.RUnlock()
+
+	return len(ub.batchMap)
+}
+
+func (ub *UnconfirmedBatchs) Get(blockHash types.Hash) (*leveldb.Batch, bool) {
 	ub.mu.RLock()
 	defer ub.mu.RUnlock()
 
 	if elem, ok := ub.batchMap[blockHash]; ok {
-		return elem.(*leveldb.Batch)
+		return elem.Value.(*leveldb.Batch), ok
 	}
-	return nil
+	return nil, false
+}
+
+func (ub *UnconfirmedBatchs) Put(blockHash types.Hash, batch *leveldb.Batch) {
+	ub.mu.Lock()
+	defer ub.mu.Unlock()
+
+	elem := ub.batchList.PushBack(batch)
+	ub.batchMap[blockHash] = elem
 }
 
 func (ub *UnconfirmedBatchs) Remove(blockHash types.Hash) {
 	ub.mu.Lock()
 	defer ub.mu.Unlock()
 
-	if batch, ok := ub.batchMap[blockHash]; ok {
-
+	if elem, ok := ub.batchMap[blockHash]; ok {
+		ub.batchList.Remove(elem)
+		delete(ub.batchMap, blockHash)
 	}
-	return nil
+}
+
+func (ub *UnconfirmedBatchs) Clear() {
+	ub.mu.Lock()
+	defer ub.mu.Unlock()
+
+	ub.batchMap = make(map[types.Hash]*list.Element)
+	ub.batchList = list.New()
+}
+
+func (ub *UnconfirmedBatchs) All(f func(batch *leveldb.Batch)) {
+	ub.mu.RLock()
+	defer ub.mu.RUnlock()
+	elem := ub.batchList.Front()
+	for elem != nil {
+		f(elem.Value.(*leveldb.Batch))
+		elem = elem.Next()
+	}
+
 }
