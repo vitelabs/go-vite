@@ -153,51 +153,6 @@ func (self *pool) insertAccountsBucketForChunks(p batch.Batch, bucket batch.Buck
 	return self.insertAccountBucket(p, bucket, version)
 }
 
-func (self *pool) getHashSet(chunks []ledger.SnapshotChunk) map[types.Hash]bool {
-	result := make(map[types.Hash]bool)
-	for _, v := range chunks {
-		if v.AccountBlocks != nil {
-			for _, ab := range v.AccountBlocks {
-				result[ab.Hash] = true
-			}
-		}
-		if v.SnapshotBlock != nil {
-			result[v.SnapshotBlock.Hash] = true
-		}
-	}
-
-	return result
-}
-
-func (self *pool) getMinAccountBlocks(chunks []ledger.SnapshotChunk) map[types.Address][2]*ledger.HashHeight {
-	addrM := make(map[types.Address][2]*ledger.HashHeight)
-
-	for _, v := range chunks {
-		if v.AccountBlocks == nil {
-			continue
-		}
-		for _, ab := range v.AccountBlocks {
-			tmp, ok := addrM[ab.AccountAddress]
-			if !ok {
-				tmp = [2]*ledger.HashHeight{{Hash: ab.Hash, Height: ab.Height}, {Hash: ab.Hash, Height: ab.Height}}
-				addrM[ab.AccountAddress] = tmp
-				continue
-			}
-			if tmp[0].Height > ab.Height {
-				tmp[0].Height = ab.Height
-				tmp[0].Hash = ab.Hash
-			}
-
-			if tmp[1].Height < ab.Height {
-				tmp[1].Height = ab.Height
-				tmp[1].Hash = ab.Hash
-			}
-		}
-	}
-
-	return addrM
-}
-
 func (self *pool) checkSnapshotInsert(headHH ledger.HashHeight, tailHH ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
 	cur := self.pendingSc.CurrentChain()
 
