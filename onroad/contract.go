@@ -274,7 +274,7 @@ func (w *ContractWorker) clearSelectiveBlocksCache() {
 	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
 }
 
-func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+/*func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
 	// succeed in handling a l block, if it's a inferior-caller, than set it free.
 
 	if pendingMap, ok := w.selectivePendingCache[*contractAddr]; ok && pendingMap != nil {
@@ -283,7 +283,7 @@ func (w *ContractWorker) deletePendingOnRoad(contractAddr *types.Address, sendBl
 			pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
 		}
 	}
-}
+}*/
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
 	value, ok := w.selectivePendingCache[contractAddr]
@@ -307,7 +307,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		if p.isPendingMapNotSufficient() {
 			blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 			for _, v := range blocks {
-				if p.existInInferiorList(v.AccountAddress) {
+				if p.isInferiorStateOut(v.AccountAddress) {
 					continue
 				}
 				if !p.addPendingMap(v) {

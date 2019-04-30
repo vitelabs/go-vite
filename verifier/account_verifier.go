@@ -18,8 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-type AccountType int
-
 type AccountVerifier struct {
 	chain     chain.Chain
 	consensus consensus

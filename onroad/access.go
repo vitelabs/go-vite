@@ -50,9 +50,8 @@ func (manager *Manager) IsFrontOnRoadOfCaller(gid types.Gid, orAddr, caller type
 	return onRoadPool.(onroad_pool.OnRoadPool).IsFrontOnRoadOfCaller(orAddr, caller, hash)
 }
 
-func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
+func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) {
 	manager.chain.DeleteOnRoad(sendBlock.ToAddress, sendBlock.Hash)
-	return nil
 }
 
 func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
