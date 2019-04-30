@@ -10,7 +10,7 @@ import (
 func TestBigInt(t *testing.T) {
 	n := big.NewInt(10)
 
-	bt := BigInt{Int: *n}
+	bt := BigInt{Int: n}
 
 	bt2 := bt.SetInt64(11)
 

@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const DefaultPullCount uint8 = 10
-
 type ContractTaskProcessor struct {
 	taskId int
 	worker *ContractWorker
@@ -70,11 +68,11 @@ func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canContinue bool) {
 	tp.log.Info("process", "contract", &task.Addr)
 
-	sBlock := tp.worker.acquireNewOnroadBlocks(&task.Addr)
+	sBlock := tp.worker.acquireOnRoadBlocks(task.Addr)
 	if sBlock == nil {
 		return false
 	}
-	blog := tp.log.New("onroad", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
+	blog := tp.log.New("l", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
 
 	// fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
@@ -121,8 +119,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, OUT)
 			return true
 		}
-		// succeed in handling a onroad block, if it's a inferior-caller,than set it free.
-		tp.worker.deletePendingOnroadBlock(&task.Addr, sBlock)
+
+		tp.worker.deletePendingOnRoad(&task.Addr, sBlock)
 
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")

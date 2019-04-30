@@ -1,13 +1,14 @@
 package vm_db
 
 import (
-	"github.com/syndtr/goleveldb/leveldb/comparer"
-	"github.com/syndtr/goleveldb/leveldb/memdb"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+	"math/rand"
 )
 
 type Unsaved struct {
@@ -25,19 +26,25 @@ type Unsaved struct {
 	storageCache [][2][]byte
 
 	balanceMap map[types.TokenTypeId]*big.Int
+
+	rnd *rand.Rand
 }
 
 func NewUnsaved() *Unsaved {
-	return &Unsaved{
+
+	unsaved := &Unsaved{
 		contractMetaMap: make(map[types.Address]*ledger.ContractMeta),
 		logList:         make(ledger.VmLogList, 0),
 		keys:            make(map[string]struct{}),
 		deletedKeys:     make(map[string]struct{}),
-		storage:         memdb.New(comparer.DefaultComparer, 0),
+		storage:         memdb.New2(comparer.DefaultComparer, 0),
 		storageDirty:    false,
 		balanceMap:      make(map[types.TokenTypeId]*big.Int),
 	}
+
+	return unsaved
 }
+
 func (unsaved *Unsaved) Reset() {
 	unsaved.contractMetaMap = make(map[types.Address]*ledger.ContractMeta)
 	unsaved.code = nil

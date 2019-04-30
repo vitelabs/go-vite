@@ -23,13 +23,6 @@ type tools struct {
 	sVerifier *verifier.SnapshotVerifier
 }
 
-func (self *tools) ledgerLock() {
-	self.pool.Lock()
-}
-func (self *tools) ledgerUnLock() {
-	self.pool.UnLock()
-}
-
 func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)

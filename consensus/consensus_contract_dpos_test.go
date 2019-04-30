@@ -6,55 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/golang/mock/gomock"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pool/lock"
 )
-
-func TestContractDposCs_ElectionIndexReader(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
-	genesisJson := GenesisJson
-	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
-
-	assert.NoError(t, err)
-
-	rw := newChainRw(c, log15.New())
-	groupInfo, err := rw.GetMemberInfo(types.DELEGATE_GID)
-	assert.NoError(t, err)
-
-	cs := newContractDposCs(groupInfo, rw, log15.New())
-
-	proof := newRollbackProof(rw.rw)
-	index := cs.Time2Index(time.Now())
-	for i := index; i > 0; i-- {
-		_, etime := cs.Index2Time(i)
-		hashes, err := proof.ProofHash(etime)
-		if err != nil {
-			t.Error(err)
-			assert.FailNow(t, err.Error())
-		}
-		if rw.rw.IsGenesisSnapshotBlock(hashes) {
-			break
-		}
-
-		result, err := cs.ElectionIndex(i)
-		assert.NoError(t, err)
-
-		vs := "\n"
-		for _, v := range result.Plans {
-			vs += fmt.Sprintf("\t\t[%s][%s][%s]\n", v.STime, v.ETime, v.Member)
-		}
-		t.Log(i, len(result.Plans), hashes, result.STime, result.ETime, vs)
-
-	}
-
-}
 
 func TestContractDposCs_ElectionIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -76,6 +36,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 		PerCount:               3,
 		RandCount:              1,
 		RandRank:               100,
+		Repeat:                 1,
 		CountingTokenId:        ledger.ViteTokenId,
 		RegisterConditionId:    0,
 		RegisterConditionParam: nil,
@@ -90,7 +51,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 
 	b1 := GenSnapshotBlock(1, "3fc5224e59433bff4f48c83c0eb4edea0e4c42ea697e04cdec717d03e50d5200", types.Hash{}, simpleGenesis)
 
-	rw := newChainRw(mock_chain, log15.New())
+	rw := newChainRw(mock_chain, log15.New(), &lock.EasyImpl{})
 
 	cs := newContractDposCs(info, rw, log15.New())
 
@@ -148,6 +109,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 	assert.Equal(t, simpleGenesis, result.STime)
 	assert.Equal(t, simpleGenesis.Add(time.Duration(info.PlanInterval)*time.Second), result.ETime)
 	assert.Equal(t, uint64(0), result.Index)
+	assert.Equal(t, 6, len(result.Plans))
 	for k, v := range result.Plans {
 		assert.Equal(t, simpleGenesis.Add(time.Duration(int64(k)*info.Interval)*time.Second), v.STime)
 		assert.Equal(t, v.STime.Add(time.Second), v.ETime)

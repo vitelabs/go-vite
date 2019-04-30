@@ -70,6 +70,12 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	return allChunksDeleted, nil
 }
 func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+	// lock flush
+	c.flushMu.RLock()
+	defer func() {
+		c.flushMu.RUnlock()
+		c.flusher.Flush()
+	}()
 
 	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
 	if err != nil {
@@ -156,7 +162,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 	}
 
-	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, snapshotChunks); err != nil {
+	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
 		return nil, err
 	}
 
@@ -167,7 +173,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	// rollback cache
-	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks, hasStorageRedoLog); err != nil {
+	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.cache.RollbackSnapshotBlocks failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
@@ -178,12 +184,10 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
-	if err := c.em.TriggerDeleteSbs(DeleteSbsEvent, snapshotChunks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.em.Trigger(DeleteSbsEvent) failed, error is %s", err.Error()))
+	if err := c.em.TriggerDeleteSbs(deleteSbsEvent, realChunksToDelete); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.em.Trigger(deleteSbsEvent) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
-
-	c.flusher.Flush(true)
 
 	return realChunksToDelete, nil
 }
@@ -243,6 +247,10 @@ func (c *chain) deleteAccountBlockByHeightOrHash(addr types.Address, toHeight ui
 }
 
 func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
+	// lock flush
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
+
 	//FOR DEBUG
 	for _, ab := range blocks {
 		c.log.Info(fmt.Sprintf("delete by ab %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))

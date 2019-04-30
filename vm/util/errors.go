@@ -14,6 +14,7 @@ func (e VMError) CostAllGas() bool {
 
 var (
 	ErrInvalidMethodParam        = VMError{"invalid method param", false}
+	ErrInvalidQuotaRatio         = VMError{"invalid quota ratio", false}
 	ErrRewardIsNotDrained        = VMError{"reward is not drained", false}
 	ErrInsufficientBalance       = VMError{"insufficient balance for transfer", false}
 	ErrCalcPoWTwice              = VMError{"calc PoW twice referring to one snapshot block", false}
@@ -24,9 +25,12 @@ var (
 	ErrVersionNotSupport         = VMError{"feature not supported in current snapshot height", false}
 	ErrBlockTypeNotSupported     = VMError{"block type not supported", true}
 	ErrDataNotExist              = VMError{"data not exist", false}
+	ErrContractNotExists         = VMError{"contract not exists", false}
+	ErrNoReliableStatus          = VMError{"no reliable status", false}
 
 	ErrAddressCollision = VMError{"contract address collision", false}
 	ErrIdCollision      = VMError{"id collision", false}
+	ErrRewardNotDue     = VMError{"reward not due", false}
 
 	ErrExecutionReverted = VMError{"execution reverted", false}
 	ErrDepth             = VMError{"max call depth exceeded", false}

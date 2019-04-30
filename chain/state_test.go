@@ -298,7 +298,13 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 			quota += block.Quota
 			blockCount += 1
 		}
-		for _, sb := range sbList {
+
+		printIndex := 0
+
+		for index := len(sbList) - 1; index >= 0; index-- {
+			printIndex++
+			sb := sbList[index]
+
 			confirmedBlocks := account.ConfirmedBlockMap[sb.Hash]
 			for hash := range confirmedBlocks {
 				block := account.BlocksMap[hash]
@@ -309,6 +315,7 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 				blockCount += 1
 			}
 		}
+
 		if queryQuota != quota || queryBlockCount != blockCount {
 			panic(fmt.Sprintf("Addr: %s, queryQuota: %d, quota: %d, queryBlockCount: %d, blockCount: %d",
 				account.Addr, queryQuota, quota, queryBlockCount, blockCount))
@@ -349,15 +356,24 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	if err != nil {
 		return err
 	}
+	fmt.Printf("prepare check %d key\n", len(kvSet))
 	count := 0
 	for iter.Next() {
 		count++
+		if count > len(kvSet) {
+			panic("too more key")
+		}
 		key := iter.Key()
 
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
-			return errors.New(fmt.Sprintf("key: %s, kv: %+v, value: %d, queryValue: %d", key, kvSet, kvSet[string(key)], value))
+			kvSetStr := ""
+			for key, value := range kvSet {
+				kvSetStr += fmt.Sprintf("%d: %d, ", []byte(key), value)
+			}
+			return errors.New(fmt.Sprintf("key: %d, kv: %s, value: %d, queryValue: %d", key, kvSetStr, kvSet[string(key)], value))
 		}
+
 	}
 	if err := iter.Error(); err != nil {
 		return err
@@ -370,6 +386,9 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 	count2 := 0
 	for iterOk {
 		count2++
+		if count2 > len(kvSet) {
+			panic(fmt.Sprintf("too more key, count2: %d, len(kvSet): %d", count2, len(kvSet)))
+		}
 		key := iter.Key()
 
 		value := iter.Value()

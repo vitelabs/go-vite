@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
+
 	"github.com/vitelabs/go-vite/chain/utils"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -19,10 +20,6 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	//if snapshotHeight == sDB.chain.GetLatestSnapshotBlock().Height {
-	//	return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix)))), nil
-	//}
-
 	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
 	iterator := newStateStorageIterator(newSnapshotStorageIterator(storeIterator, snapshotHeight))
 
@@ -30,10 +27,6 @@ func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, ad
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	//if snapshotHash == sDB.chain.GetLatestSnapshotBlock().Hash {
-	//	return newStateStorageIterator(sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(&addr, prefix)))), nil
-	//}
-
 	height, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
 	if err != nil {
 		sErr := errors.New(fmt.Sprintf("sDB.chain.GetSnapshotHeightByHash failed, hash is %s. Error: %s", snapshotHash, err))
@@ -60,7 +53,6 @@ func newStateStorageIterator(iter interfaces.StorageIterator) interfaces.Storage
 	}
 }
 
-// TODO
 func (iterator *stateStorageIterator) Last() bool {
 	return iterator.iter.Last()
 }
@@ -83,6 +75,7 @@ func (iterator *stateStorageIterator) Key() []byte {
 	if len(key) <= 0 {
 		return nil
 	}
+
 	keySize := key[1+types.AddressSize+types.HashSize]
 	return key[1+types.AddressSize : 1+types.AddressSize+keySize]
 }

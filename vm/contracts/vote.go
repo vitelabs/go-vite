@@ -16,8 +16,8 @@ func (p *MethodVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodVote) GetRefundData() []byte {
-	return []byte{5}
+func (p *MethodVote) GetRefundData() ([]byte, bool) {
+	return []byte{5}, false
 }
 func (p *MethodVote) GetSendQuota(data []byte) (uint64, error) {
 	return VoteGas, nil
@@ -63,8 +63,8 @@ func (p *MethodCancelVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelVote) GetRefundData() []byte {
-	return []byte{6}
+func (p *MethodCancelVote) GetRefundData() ([]byte, bool) {
+	return []byte{6}, false
 }
 func (p *MethodCancelVote) GetSendQuota(data []byte) (uint64, error) {
 	return CancelVoteGas, nil

@@ -277,6 +277,7 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	// compress payload
 	var compress bool
 	payloadLen := len(msg.Payload)
+	beforeCompress := time.Now()
 	if payloadLen > t.minCompressLength {
 		preCompressLength := snappy.MaxEncodedLen(payloadLen)
 		if cap(t.writeBuf) < preCompressLength {
@@ -293,6 +294,7 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 			compress = true
 		}
 	}
+	p2pLog.Debug(fmt.Sprintf("compress %d bytes to %d bytes, ellapse %s", payloadLen, len(msg.Payload), time.Now().Sub(beforeCompress)))
 
 	// store msg length
 	lsize := PutVarint(head[headLen:], uint(payloadLen))

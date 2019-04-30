@@ -37,6 +37,7 @@ func genSimpleInfo() *core.GroupInfo {
 		PerCount:               3,
 		RandCount:              1,
 		RandRank:               100,
+		Repeat:                 1,
 		CountingTokenId:        types.CreateTokenTypeId(),
 		RegisterConditionId:    0,
 		RegisterConditionParam: nil,
@@ -52,33 +53,37 @@ func genSimpleInfo() *core.GroupInfo {
 }
 
 type simpleCs struct {
-	consensusDpos
+	core.GroupInfo
 	algo core.Algo
 
 	log log15.Logger
+}
+
+func (self *simpleCs) GetInfo() *core.GroupInfo {
+	return &self.GroupInfo
 }
 
 func newSimpleCs(log log15.Logger) *simpleCs {
 	cs := &simpleCs{}
 	cs.log = log.New("gid", "snapshot")
 
-	cs.info = genSimpleInfo()
-	cs.algo = core.NewAlgo(cs.info)
+	cs.GroupInfo = *genSimpleInfo()
+	cs.algo = core.NewAlgo(&cs.GroupInfo)
 	return cs
 }
 
 func (self *simpleCs) GenProofTime(h uint64) time.Time {
-	_, end := self.info.Index2Time(h)
+	_, end := self.Index2Time(h)
 	return end
 }
 
 func (self *simpleCs) ElectionTime(t time.Time) (*electionResult, error) {
-	index := self.info.Time2Index(t)
+	index := self.Time2Index(t)
 	return self.ElectionIndex(index)
 }
 
 func (self *simpleCs) ElectionIndex(index uint64) (*electionResult, error) {
-	plans := genElectionResult(self.info, index, simpleAddrs)
+	plans := genElectionResult(&self.GroupInfo, index, simpleAddrs)
 	return plans, nil
 }
 

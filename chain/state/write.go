@@ -2,10 +2,12 @@ package chain_state
 
 import (
 	"encoding/binary"
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -21,7 +23,6 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	unsavedStorage := vmDb.GetUnsavedStorage()
 
 	for _, kv := range unsavedStorage {
-
 		// set latest kv
 		batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]), kv[1])
 	}
@@ -32,9 +33,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	for tokenTypeId, balance := range unsavedBalanceMap {
 		// set latest balance
-		batch.Put(chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId), balance.Bytes())
-
-		//fmt.Println("PUT BALANCE", accountBlock.AccountAddress, tokenTypeId, balance)
+		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId), balance.Bytes())
 	}
 
 	redoLog.BalanceMap = unsavedBalanceMap
@@ -54,11 +53,17 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if len(unsavedContractMeta) > 0 {
 		redoLog.ContractMeta = make(map[types.Address][]byte, len(unsavedContractMeta))
 		for addr, meta := range unsavedContractMeta {
+			// set create block hash
+			meta.CreateBlockHash = accountBlock.Hash
+
+			// set meta
 			contractKey := chain_utils.CreateContractMetaKey(addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
 			metaBytes := meta.Serialize()
-			batch.Put(contractKey, metaBytes)
+
+			// set meta
+			sDB.writeContractMeta(batch, contractKey, metaBytes)
 			batch.Put(gidContractKey, nil)
 
 			redoLog.ContractMeta[addr] = metaBytes
@@ -120,8 +125,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	// write unsaved balance
 	for tokenTypeId, balance := range redoLog.BalanceMap {
 		// set latest balance
-		batch.Put(chain_utils.CreateBalanceKey(addr, tokenTypeId), balance.Bytes())
-		//fmt.Println("recover unconfirmed", addr, redoLog.Height, balance)
+		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(addr, tokenTypeId), balance.Bytes())
 	}
 
 	// write unsaved code
@@ -143,8 +147,10 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 		gidContractKey = append(gidContractKey, addr.Bytes()...)
 		gidContractKey = append(gidContractKey, metaBytes[:types.GidSize]...)
 
-		batch.Put(contractKey, metaBytes)
+		sDB.writeContractMeta(batch, contractKey, metaBytes)
+
 		batch.Put(gidContractKey, nil)
+		// set
 	}
 
 	// write vm log
@@ -167,7 +173,6 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 
 // TODO redo
 func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
-
 	height := snapshotBlock.Height
 
 	// next snapshot
@@ -189,10 +194,7 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 		}
 
 		// put history storage kv
-		putKeyTemplate := make([]byte, 1+types.AddressSize+types.HashSize+9)
-
-		putKeyTemplate[0] = chain_utils.StorageHistoryKeyPrefix
-		binary.BigEndian.PutUint64(putKeyTemplate[len(putKeyTemplate)-8:], height)
+		putKeyTemplate := chain_utils.CreateHistoryStorageValueKey(&types.Address{}, []byte{}, height)
 
 		for addr, kvMap := range redoKvMap {
 
@@ -204,26 +206,19 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 				copy(putKeyTemplate[1+types.AddressSize:], common.RightPadBytes(key, 32))
 				putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
 
-				batch.Put(putKeyTemplate, value)
-				//fmt.Printf("write history storage, addr: %s, key: %d, putKeyTemplate: %d, value: %d\n", addr, key, putKeyTemplate, value)
+				sDB.writeHistoryKey(batch, putKeyTemplate, value)
 			}
 
-			// set rollback key set
 		}
 
-		// put history balance
-		putBalanceKeyTemplate := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
-
-		putBalanceKeyTemplate[0] = chain_utils.BalanceHistoryKeyPrefix
-
-		binary.BigEndian.PutUint64(putBalanceKeyTemplate[len(putBalanceKeyTemplate)-8:], height)
+		putBalanceTemplate := chain_utils.CreateHistoryBalanceKey(types.Address{}, types.TokenTypeId{}, height)
 
 		for addr, balanceMap := range redoBalanceMap {
-			copy(putBalanceKeyTemplate[1:1+types.AddressSize], addr.Bytes())
+			copy(putBalanceTemplate[1:1+types.AddressSize], addr.Bytes())
 			for tokenTypeId, balance := range balanceMap {
-				copy(putBalanceKeyTemplate[1+types.AddressSize:], tokenTypeId.Bytes())
+				copy(putBalanceTemplate[1+types.AddressSize:], tokenTypeId.Bytes())
 
-				batch.Put(putBalanceKeyTemplate, balance.Bytes())
+				batch.Put(putBalanceTemplate, balance.Bytes())
 			}
 		}
 	}
@@ -232,4 +227,31 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	sDB.store.WriteSnapshot(batch, confirmedBlocks)
 	return nil
 
+}
+
+func (sDB *StateDB) writeContractMeta(batch interfaces.Batch, key, value []byte) {
+	batch.Put(key, value)
+
+	sDB.cache.Set(contractAddrPrefix+string(key), sDB.copyValue(value), cache.NoExpiration)
+}
+
+func (sDB *StateDB) writeBalance(batch interfaces.Batch, key, value []byte) {
+	batch.Put(key, value)
+
+	sDB.cache.Set(balancePrefix+string(key), sDB.copyValue(value), cache.NoExpiration)
+}
+
+func (sDB *StateDB) writeHistoryKey(batch interfaces.Batch, key, value []byte) {
+	// batch put
+	batch.Put(key, value)
+
+	// cache
+	addrBytes := key[1 : 1+types.AddressSize]
+	addr, err := types.BytesToAddress(addrBytes)
+	if err != nil {
+		panic(err)
+	}
+	if types.IsBuiltinContractAddr(addr) {
+		sDB.cache.Set(snapshotValuePrefix+string(addrBytes)+string(sDB.parseStorageKey(key)), sDB.copyValue(value), cache.NoExpiration)
+	}
 }

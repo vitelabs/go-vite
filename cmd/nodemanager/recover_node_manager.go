@@ -1,7 +1,6 @@
 package nodemanager
 
 import (
-	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -38,27 +37,19 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	}, nil
 }
 
-func (nodeManager *RecoverNodeManager) getDeleteToHeight() uint64 {
-	deleteToHeight := uint64(0)
-	if nodeManager.ctx.GlobalIsSet(utils.LedgerDeleteToHeight.Name) {
-		deleteToHeight = nodeManager.ctx.GlobalUint64(utils.LedgerDeleteToHeight.Name)
-	}
-	return deleteToHeight
-}
-
-func (nodeManager *RecoverNodeManager) isRecoverTrie() bool {
-	return nodeManager.ctx.GlobalIsSet(utils.RecoverTrieFlag.Name)
-}
-
 func (nodeManager *RecoverNodeManager) Start() error {
-	//// Start up the node
+
+	// Start up the node
+
 	//node := nodeManager.node
+	//
 	//err := StartNode(nodeManager.node)
 	//if err != nil {
 	//	return err
 	//}
 	//
 	//c := node.Vite().Chain()
+	//
 	//
 	//if nodeManager.isRecoverTrie() {
 	//	return c.TrieGc().Recover()

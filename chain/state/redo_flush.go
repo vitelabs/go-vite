@@ -15,6 +15,7 @@ func (redo *Redo) Id() types.Hash {
 	return redo.id
 }
 
+// lock write
 func (redo *Redo) Prepare() {
 	redo.flushingBatchMap = make(map[uint64]*FlushingBatch, len(redo.snapshotLogMap))
 
@@ -53,6 +54,7 @@ func (redo *Redo) Prepare() {
 
 }
 
+// lock write
 func (redo *Redo) CancelPrepare() {
 	redo.flushingBatchMap = nil
 }
@@ -91,23 +93,7 @@ func (redo *Redo) RedoLog() ([]byte, error) {
 	return redoLog, nil
 }
 
-// assume commit immediately after delete
 func (redo *Redo) Commit() error {
-	defer func() {
-		// clear flushing batch
-		redo.flushingBatchMap = nil
-
-		// keep current
-		current := redo.snapshotLogMap[redo.currentSnapshotHeight]
-
-		redo.snapshotLogMap = make(map[uint64]*SnapshotLog)
-
-		current.FlushOpt = optWrite
-
-		redo.snapshotLogMap[redo.currentSnapshotHeight] = current
-
-	}()
-
 	tx, err := redo.store.Begin(true)
 	if err != nil {
 		return err
@@ -225,6 +211,35 @@ func (redo *Redo) PatchRedoLog(redoLog []byte) error {
 	return nil
 
 }
+
+// lock write
+func (redo *Redo) AfterCommit() {
+	// clear flushing batch
+	redo.snapsMapMu.Lock()
+	defer redo.snapsMapMu.Unlock()
+
+	for height, flushingBatch := range redo.flushingBatchMap {
+		switch flushingBatch.Operation {
+		case optWrite:
+			fallthrough
+		case optRollback:
+			delete(redo.snapshotLogMap, height)
+		case optCover:
+			redo.snapshotLogMap[height].FlushOpt = optWrite
+		}
+	}
+
+	redo.flushingBatchMap = nil
+
+}
+
+func (redo *Redo) BeforeRecover([]byte) {}
+func (redo *Redo) AfterRecover() {
+	if err := redo.InitFlushingBatchMap(); err != nil {
+		panic(fmt.Sprintf("redo AfterRecover() failed, Error: %s", err))
+	}
+}
+
 func (redo *Redo) flush(tx *bolt.Tx, snapshotHeight uint64, batch *leveldb.Batch) error {
 	bu, err := tx.CreateBucketIfNotExists(chain_utils.Uint64ToBytes(snapshotHeight))
 	if err != nil {

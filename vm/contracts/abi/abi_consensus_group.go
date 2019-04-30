@@ -56,7 +56,7 @@ const (
 	VariableNameVoteStatus = "voteStatus"
 
 	consensusGroupInfoKeySize = 1 + types.GidSize
-	registerKeySize           = types.HashSize
+	registerKeySize           = 30
 	registerHisNameKeySize    = types.GidSize + types.AddressSize
 	voteKeySize               = 1 + types.GidSize + types.AddressSize
 )
@@ -115,7 +115,7 @@ func isConsensusGroupKey(key []byte) bool {
 
 // Register variable keys
 func GetRegisterKey(name string, gid types.Gid) []byte {
-	return append(gid.Bytes(), types.DataHash([]byte(name)).Bytes()[types.GidSize:]...)
+	return append(gid.Bytes(), types.DataHash([]byte(name)).Bytes()[:registerKeySize-types.GidSize]...)
 }
 
 func GetHisNameKey(addr types.Address, gid types.Gid) []byte {

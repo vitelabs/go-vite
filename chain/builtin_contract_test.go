@@ -3,11 +3,14 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/rand"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestChain_builtInContract(t *testing.T) {
@@ -19,16 +22,74 @@ func TestChain_builtInContract(t *testing.T) {
 
 func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	t.Run("NewStorageDatabase", func(t *testing.T) {
-		NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+		NewStorageDatabase(nil, chainInstance, accounts, snapshotBlockList)
 	})
+
+	t.Run("ConcurrentWrite", func(t *testing.T) {
+		var mu sync.RWMutex
+		var wg sync.WaitGroup
+
+		accounts := MakeAccounts(chainInstance, 5)
+
+		wg.Add(2)
+		testCount := 0
+		const maxTestCount = 100
+		go func() {
+			defer wg.Done()
+			for testCount < maxTestCount {
+				// insert account blocks
+				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(100))
+				//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
+
+				// insert snapshot block
+				snapshotBlock := createSnapshotBlock(chainInstance, false)
+
+				mu.Lock()
+				snapshotBlockList = append(snapshotBlockList, snapshotBlock)
+				Snapshot(accounts, snapshotBlock)
+				mu.Unlock()
+
+				invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+				if err != nil {
+					panic(err)
+				}
+
+				mu.Lock()
+				DeleteInvalidBlocks(accounts, invalidBlocks)
+				mu.Unlock()
+
+				fmt.Printf("Snapshot Block: %d\n", snapshotBlock.Height)
+				time.Sleep(100 * time.Millisecond)
+				testCount++
+			}
+
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			for testCount < maxTestCount {
+				mu.Lock()
+				testSnapshotBlock := snapshotBlockList
+				mu.Unlock()
+				fmt.Printf("testSnapshotBlock: %d\n", len(testSnapshotBlock))
+				NewStorageDatabase(&mu, chainInstance, accounts, testSnapshotBlock)
+			}
+		}()
+
+		wg.Wait()
+	})
+
 	t.Run("GetRegisterList", func(t *testing.T) {
 		//GetRegisterList(t, chainInstance)
 	})
+
+	return
 }
 
 func testBuiltInContractNoTesting(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 
-	NewStorageDatabase(chainInstance, accounts, snapshotBlockList)
+	NewStorageDatabase(nil, chainInstance, accounts, snapshotBlockList)
 
 }
 
@@ -88,16 +149,17 @@ func GetRegisterList(t *testing.T, chainInstance *chain) {
 	}
 }
 
-func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
+func NewStorageDatabase(mu *sync.RWMutex, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
 	sbLen := len(snapshotBlockList)
-	if sbLen <= 2 {
+	if sbLen <= 10 {
 		return
 	}
 
-	count := sbLen - 2
+	//count := sbLen - 2
 
-	for i := 0; i < 10; i++ {
-		index := rand.Intn(count) + 2
+	for i := sbLen - 5; i >= 0 && i >= sbLen-10; i-- {
+		//index := rand.Intn(count) + 2
+		index := i
 		snapshotBlock := snapshotBlockList[index]
 
 		prevSnapshotBlock := snapshotBlockList[index-1]
@@ -127,7 +189,16 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 				panic(err)
 			}
 
+			// hackCheck
+			current := uint64(0)
 			for iter.Next() {
+				next := chain_utils.BytesToUint64(iter.Key())
+
+				if current+1 != next {
+					panic("error")
+				}
+				current += 1
+
 				keyStr := string(iter.Key())
 				kv[keyStr] = make([]byte, len(iter.Value()))
 				copy(kv[keyStr], iter.Value())
@@ -137,6 +208,9 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 				panic(err)
 			}
 
+			if mu != nil {
+				mu.RLock()
+			}
 			confirmedBlockHashMap := account.ConfirmedBlockMap[snapshotBlock.Hash]
 
 			kvSetMap := make(map[types.Hash]map[string][]byte)
@@ -148,7 +222,10 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 				for k, v := range kvSet.Kv {
 					kv[k] = v
 				}
+			}
 
+			if mu != nil {
+				mu.RUnlock()
 			}
 
 			err = checkIterator(kv, func() (interfaces.StorageIterator, error) {
@@ -156,7 +233,8 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 			})
 
 			if err != nil {
-				panic(fmt.Sprintf("account: %s, snapshotBlock: %+v. Error: %s", account.Addr, snapshotBlock, err.Error()))
+				panic(fmt.Sprintf("account: %s, snapshotBlock: %+v.hashHeight: %+v. Error: %s", account.Addr, snapshotBlock,
+					snapshotBlock.SnapshotContent[account.Addr], err.Error()))
 			}
 
 			for key, value := range kv {
@@ -165,11 +243,8 @@ func NewStorageDatabase(chainInstance *chain, accounts map[types.Address]*Accoun
 					panic("error")
 				}
 				if !bytes.Equal(value, queryValue) {
-					fmt.Printf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue)
-					sd.GetValue([]byte(key))
-					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %s, kv: %+v, value: %d, query value: %d",
-						account.Addr, snapshotBlock.Height, key, kv, value, queryValue))
+					panic(fmt.Sprintf("Addr: %s, snapshot height: %d, key: %d, value: %d, query value: %d",
+						account.Addr, snapshotBlock.Height, []byte(key), value, queryValue))
 				}
 
 			}

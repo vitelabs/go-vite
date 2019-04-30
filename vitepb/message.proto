@@ -13,18 +13,23 @@ message Handshake {
     bytes Genesis = 5;
 }
 
-message BlockID {
+message HashHeight {
     bytes Hash = 1;
     uint64 Height = 2;
 }
 
-message GetChunk {
-    uint64 Start = 1;
-    uint64 End = 2;
+message HashHeightList {
+    repeated HashHeight Points = 1;
+}
+
+message GetHashHeightList {
+    HashHeight From = 1;
+    uint64 Step = 2;
+    uint64 To = 3;
 }
 
 message GetSnapshotBlocks {
-    BlockID From = 1;
+    HashHeight From = 1;
     uint64 Count = 2;
     bool Forward = 3;
 }
@@ -35,7 +40,7 @@ message SnapshotBlocks {
 
 message GetAccountBlocks {
     bytes Address = 1;
-    BlockID From = 2;
+    HashHeight From = 2;
     uint64 Count = 3;
     bool Forward = 4;
 }

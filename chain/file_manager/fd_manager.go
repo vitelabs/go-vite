@@ -15,8 +15,7 @@ import (
 type fileCacheItem struct {
 	Buffer []byte
 
-	BufferLen    int64
-	FlushPointer int64
+	BufferLen int64
 
 	FileId uint64
 
@@ -41,14 +40,17 @@ type fdManager struct {
 	writeFd  *fileDescription
 
 	changeFdMu sync.RWMutex
+
+	fileManager *FileManager
 }
 
-func newFdManager(dirName string, fileSize int, cacheLength int) (*fdManager, error) {
+func newFdManager(fileManager *FileManager, dirName string, fileSize int, cacheLength int) (*fdManager, error) {
 	if cacheLength <= 0 {
 		cacheLength = 1
 	}
 	fdSet := &fdManager{
 		dirName:            dirName,
+		fileManager:        fileManager,
 		filenamePrefix:     "f",
 		filenamePrefixSize: 1,
 
@@ -111,6 +113,29 @@ func (fdSet *fdManager) GetFd(fileId uint64) (*fileDescription, error) {
 
 	return NewFdByFile(fd), nil
 }
+func (fdSet *fdManager) GetTmpFlushFd(fileId uint64) (*fileDescription, error) {
+	file, err := fdSet.getFileFd(fileId)
+	if err != nil {
+		return nil, err
+	}
+
+	if file == nil {
+		file, err = fdSet.createNewFile(fileId)
+		if err != nil {
+			return nil, err
+		}
+
+		if file == nil {
+			return nil, nil
+		}
+	}
+
+	return NewFdByBuffer(fdSet, &fileCacheItem{
+		FileId: fileId,
+
+		FileWriter: file,
+	}), err
+}
 
 func (fdSet *fdManager) GetWriteFd() *fileDescription {
 	fdSet.changeFdMu.RLock()
@@ -155,8 +180,8 @@ func (fdSet *fdManager) DeleteTo(location *Location) error {
 	return nil
 }
 
-func (fdSet *fdManager) DiskDelete(topLocation *Location, lowLocation *Location) error {
-	for i := topLocation.FileId; i > lowLocation.FileId; i-- {
+func (fdSet *fdManager) DiskDelete(highLocation *Location, lowLocation *Location) error {
+	for i := highLocation.FileId; i > lowLocation.FileId; i-- {
 		if err := os.Remove(fdSet.fileIdToAbsoluteFilename(i)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -232,9 +257,6 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		cacheItem.Mu.Lock()
 		defer cacheItem.Mu.Unlock()
 
-		if cacheItem.FlushPointer > location.Offset {
-			cacheItem.FlushPointer = location.Offset
-		}
 		if cacheItem.BufferLen > location.Offset {
 			cacheItem.BufferLen = location.Offset
 		}
@@ -256,15 +278,33 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		}
 	}
 
-	var newItem *fileCacheItem
-	if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
-		newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
-		if newItem.FlushPointer >= fdSet.fileSize {
-			fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
+	nextFlushStartLocation := fdSet.fileManager.NextFlushStartLocation()
 
-			delete(fdSet.fileFdCache, newItem.FileId)
-		} else {
-			newItem = nil
+	var newItem *fileCacheItem
+
+	if nextFlushStartLocation != nil {
+		nextFlushStartFileId := nextFlushStartLocation.FileId
+
+		// remove stale cache
+		for fdSet.fileCache.Len() > fdSet.fileCacheLength {
+			item := fdSet.fileCache.Front().Value.(*fileCacheItem)
+			if item.FileId >= nextFlushStartFileId {
+				break
+			}
+
+			fdSet.fileCache.Remove(fdSet.fileCache.Front())
+		}
+
+		// ring buffer. reuse cache
+		if fdSet.fileCache.Len() >= fdSet.fileCacheLength {
+			newItem = fdSet.fileCache.Front().Value.(*fileCacheItem)
+			if newItem.FileId < nextFlushStartFileId {
+				fdSet.fileCache.MoveToBack(fdSet.fileCache.Front())
+
+				delete(fdSet.fileFdCache, newItem.FileId)
+			} else {
+				newItem = nil
+			}
 		}
 	}
 
@@ -286,7 +326,6 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	newItem.FileWriter = fd
 	newItem.FileId = fileId
 	newItem.BufferLen = bufferLen
-	newItem.FlushPointer = bufferLen
 
 	newItem.Mu.Unlock()
 

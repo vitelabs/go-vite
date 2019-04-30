@@ -5,17 +5,18 @@ import (
 	"math/big"
 )
 
-func (db *vmDb) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	if balance, ok := db.unsaved.GetBalance(tokenTypeId); ok {
+func (vdb *vmDb) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
+	if balance, ok := vdb.unsaved().GetBalance(tokenTypeId); ok {
 		return new(big.Int).Set(balance), nil
 	}
 
-	return db.chain.GetBalance(*db.address, *tokenTypeId)
-}
-func (db *vmDb) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	db.unsaved.SetBalance(tokenTypeId, amount)
+	return vdb.chain.GetBalance(*vdb.address, *tokenTypeId)
 }
 
-func (db *vmDb) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
-	return db.unsaved.GetBalanceMap()
+func (vdb *vmDb) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+	vdb.unsaved().SetBalance(tokenTypeId, amount)
+}
+
+func (vdb *vmDb) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
+	return vdb.unsaved().GetBalanceMap()
 }

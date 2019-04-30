@@ -11,7 +11,9 @@ import (
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	//FOR DEBUG
-	c.log.Info(fmt.Sprintf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
+	//c.log.Info(fmt.Sprintf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
 
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	if err := c.em.TriggerInsertAbs(prepareInsertAbsEvent, vmAbList); err != nil {
@@ -41,11 +43,14 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	//FOR DEBUG
-	c.log.Info(fmt.Sprintf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash))
+	//c.log.Info(fmt.Sprintf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash))
+	//
+	//for Addr, hh := range snapshotBlock.SnapshotContent {
+	//	c.log.Info(fmt.Sprintf("Insert %d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
+	//}
 
-	for Addr, hh := range snapshotBlock.SnapshotContent {
-		c.log.Info(fmt.Sprintf("Insert %d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
-	}
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {
@@ -89,7 +94,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		}
 	}
 
-	c.flusher.Flush(false)
+	// only trigger
 
 	return invalidBlocks, nil
 }

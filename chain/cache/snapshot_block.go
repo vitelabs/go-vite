@@ -3,74 +3,92 @@ package chain_cache
 import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"time"
 )
 
 func (cache *Cache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) {
-
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
+	// insert snapshot block
+	//cache.setLatestSnapshotBlock(snapshotBlock)
+	cache.ds.InsertSnapshotBlock(snapshotBlock)
+
 	// set latest block
-	cache.setLatestSnapshotBlock(snapshotBlock)
+	cache.hd.SetLatestSnapshotBlock(snapshotBlock)
 
 	// delete confirmed blocks
 	cache.unconfirmedPool.DeleteBlocks(confirmedBlocks)
 
 	// new quota
 	cache.quotaList.NewNext(confirmedBlocks)
+
+	// delay delete confirmed blocks
+	if cache.ds.IsLarge() {
+		cache.ds.DeleteAccountBlocks(confirmedBlocks)
+	} else {
+		cache.ds.DelayDeleteAccountBlocks(confirmedBlocks, 10*time.Second)
+	}
 }
 
-func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock, hasStorageRedoLog bool) error {
+func (cache *Cache) RollbackSnapshotBlocks(deletedChunks []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
+	// update latest snapshot block
+	var firstSnapshotBlock *ledger.SnapshotBlock
+	for _, chunk := range deletedChunks {
+		if chunk.SnapshotBlock != nil {
+			firstSnapshotBlock = chunk.SnapshotBlock
+			break
+		}
+	}
+
+	var snapshotBlock *ledger.SnapshotBlock
+	var err error
+	if firstSnapshotBlock == nil {
+		if snapshotBlock, err = cache.chain.QueryLatestSnapshotBlock(); err != nil {
+			return err
+		}
+	} else if snapshotBlock, err = cache.chain.GetSnapshotBlockByHeight(firstSnapshotBlock.Height - 1); err != nil {
+		return err
+	}
+
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	// update latest snapshot block
-	if err := cache.initLatestSnapshotBlock(); err != nil {
-		cache.mu.Unlock()
-		return err
-	}
+	cache.hd.SetLatestSnapshotBlock(snapshotBlock)
 
 	// rollback quota list
-	if err := cache.quotaList.Rollback(deletedChunks, hasStorageRedoLog); err != nil {
+	if err := cache.quotaList.Rollback(deletedChunks); err != nil {
 		return err
 	}
-
-	if !hasStorageRedoLog {
-		cache.quotaList.NewEmptyNext()
-	}
-	//deletedChunksLength := len(deletedChunks)
-	//rollbackNumber := deletedChunksLength - 1
-	//
-	//if deletedChunks[deletedChunksLength-1].SnapshotBlock != nil {
-	//	rollbackNumber = deletedChunksLength
-	//}
-	//
-	//if err := cache.quotaList.Rollback(rollbackNumber); err != nil {
-	//	return err
-	//}
 
 	// delete all confirmed block
 	cache.unconfirmedPool.DeleteAllBlocks()
 
-	// recover unconfirmed pool
-	cache.recoverUnconfirmedPool(unconfirmedBlocks)
+	// delete data set
+	for _, chunk := range deletedChunks {
+		if chunk.SnapshotBlock != nil {
+			cache.ds.DeleteSnapshotBlock(chunk.SnapshotBlock)
+		}
 
-	// FOR DEBUG
+		// delete all block
+		cache.hd.DeleteAccountBlocks(chunk.AccountBlocks)
+
+		cache.ds.DeleteAccountBlocks(chunk.AccountBlocks)
+	}
+
+	// recover unconfirmed pool
+	for _, block := range unconfirmedBlocks {
+		cache.insertAccountBlock(block)
+	}
+
 	return nil
 }
 
-func (cache *Cache) IsSnapshotBlockExisted(hash *types.Hash) bool {
+func (cache *Cache) IsSnapshotBlockExisted(hash types.Hash) bool {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.ds.IsDataExisted(hash)
-}
-
-func (cache *Cache) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	cache.mu.RLock()
-	defer cache.mu.RUnlock()
-
-	return cache.hd.GetGenesisSnapshotBlock()
+	return cache.ds.IsSnapshotBlockExisted(hash)
 }
 
 func (cache *Cache) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
@@ -80,32 +98,26 @@ func (cache *Cache) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	return cache.hd.GetLatestSnapshotBlock()
 }
 
-func (cache *Cache) GetSnapshotHeaderByHash(hash *types.Hash) *ledger.SnapshotBlock {
+func (cache *Cache) GetSnapshotHeaderByHash(hash types.Hash) *ledger.SnapshotBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
-	return nil
+	return cache.ds.GetSnapshotBlock(hash)
 }
 
-func (cache *Cache) GetSnapshotBlockByHash(hash *types.Hash) *ledger.SnapshotBlock {
+func (cache *Cache) GetSnapshotBlockByHash(hash types.Hash) *ledger.SnapshotBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
-	return nil
+	return cache.ds.GetSnapshotBlock(hash)
 }
 
 func (cache *Cache) GetSnapshotHeaderByHeight(height uint64) *ledger.SnapshotBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
-	return nil
+	return cache.ds.GetSnapshotBlockByHeight(height)
 }
 
 func (cache *Cache) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
-	return nil
-}
-
-func (cache *Cache) setLatestSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) uint64 {
-	dataId := cache.ds.InsertSnapshotBlock(snapshotBlock)
-	cache.hd.UpdateLatestSnapshotBlock(dataId)
-	return dataId
+	return cache.ds.GetSnapshotBlockByHeight(height)
 }

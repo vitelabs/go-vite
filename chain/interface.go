@@ -1,14 +1,19 @@
 package chain
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/flusher"
+	"github.com/vitelabs/go-vite/chain/index"
 	"github.com/vitelabs/go-vite/chain/plugins"
+	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"time"
 )
 
 type EventListener interface {
@@ -92,10 +97,11 @@ type Chain interface {
 	// high to low, contains the block that has the blockHash
 	GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 
+	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
-
 	GetCallDepth(sendBlock types.Hash) (uint16, error)
 
 	// get confirmed times
@@ -158,6 +164,7 @@ type Chain interface {
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
 	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)
@@ -177,6 +184,10 @@ type Chain interface {
 	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
 	IsContractAccount(address types.Address) (bool, error)
 
+	IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool)
+
+	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)
+
 	// ===== Query state ======
 	// get Balance
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
@@ -191,6 +202,8 @@ type Chain interface {
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+
+	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)
 
 	GetContractList(gid types.Gid) ([]types.Address, error)
 
@@ -230,13 +243,13 @@ type Chain interface {
 	GetSyncCache() interfaces.SyncCache
 
 	// ====== OnRoad ======
-	HasOnRoadBlocks(address types.Address) (bool, error)
+	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 
-	GetOnRoadBlocksHashList(address types.Address, pageNum, countPerPage int) ([]types.Hash, error)
-
-	DeleteOnRoad(sendBlockHash types.Hash) error
+	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
+
+	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
@@ -244,4 +257,8 @@ type Chain interface {
 	Plugins() *chain_plugins.Plugins
 
 	SetConsensus(cs Consensus)
+
+	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
+
+	Flusher() *chain_flusher.Flusher
 }

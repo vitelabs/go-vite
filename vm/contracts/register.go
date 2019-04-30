@@ -20,8 +20,8 @@ type MethodRegister struct {
 func (p *MethodRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodRegister) GetRefundData() []byte {
-	return []byte{1}
+func (p *MethodRegister) GetRefundData() ([]byte, bool) {
+	return []byte{1}, false
 }
 func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 	return RegisterGas, nil
@@ -125,8 +125,8 @@ type MethodCancelRegister struct {
 func (p *MethodCancelRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodCancelRegister) GetRefundData() []byte {
-	return []byte{2}
+func (p *MethodCancelRegister) GetRefundData() ([]byte, bool) {
+	return []byte{2}, false
 }
 func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 	return CancelRegisterGas, nil
@@ -198,8 +198,8 @@ func (p *MethodReward) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodReward) GetRefundData() []byte {
-	return []byte{3}
+func (p *MethodReward) GetRefundData() ([]byte, bool) {
+	return []byte{3}, false
 }
 func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 	return RewardGas, nil
@@ -317,7 +317,7 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 		return 0, 0, nil, true, nil
 	}
 	var withinOneDayFlag bool
-	timeLimit := current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
+	timeLimit := getRewardTimeLimit(current)
 	if !old.IsActive() && old.CancelTime <= timeLimit {
 		drained = true
 		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(old.CancelTime, genesisTime)
@@ -338,6 +338,10 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 	return startTime, endTime, reward, drained, nil
 }
 
+func getRewardTimeLimit(current *ledger.SnapshotBlock) int64 {
+	return current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
+}
+
 func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
 	group, err := abi.GetConsensusGroup(db, types.SNAPSHOT_GID)
 	if err != nil {
@@ -352,7 +356,7 @@ func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
 
 func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, err error) {
 	defer func() {
-		if err := recover(); err != nil {
+		if panicErr := recover(); panicErr != nil {
 			debug.PrintStack()
 			err = util.ErrChainForked
 		}
@@ -362,11 +366,20 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	if err != nil {
 		return nil, err
 	}
-	return calcRewardByDay(reader, genesisTime, timestamp, pledgeAmount)
+	index := reader.GetIndexByTime(timestamp, genesisTime)
+	endTime := reader.GetEndTimeByIndex(index)
+	current, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	timeLimit := getRewardTimeLimit(current)
+	if endTime > timeLimit {
+		return nil, util.ErrRewardNotDue
+	}
+	return calcRewardByDay(reader, index, pledgeAmount)
 }
 
-func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp int64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
-	index := reader.GetIndexByTime(timestamp, genesisTime)
+func calcRewardByDay(reader util.ConsensusReader, index uint64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
 	detailList, err := reader.GetConsensusDetailByDay(index, index)
 	if err != nil {
 		return nil, err
@@ -383,7 +396,7 @@ func calcRewardByDay(reader util.ConsensusReader, genesisTime int64, timestamp i
 
 func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big.Int) *Reward {
 	selfDetail, ok := detail.Stats[name]
-	if !ok {
+	if !ok || selfDetail.ExceptedBlockNum == 0 {
 		return newZeroReward()
 	}
 	reward := &Reward{}
@@ -428,8 +441,8 @@ func (p *MethodUpdateRegistration) GetFee(block *ledger.AccountBlock) (*big.Int,
 	return big.NewInt(0), nil
 }
 
-func (p *MethodUpdateRegistration) GetRefundData() []byte {
-	return []byte{4}
+func (p *MethodUpdateRegistration) GetRefundData() ([]byte, bool) {
+	return []byte{4}, false
 }
 func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 	return UpdateRegistrationGas, nil

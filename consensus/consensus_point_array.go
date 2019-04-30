@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -58,9 +59,6 @@ type linkedArray struct {
 	lowerArr LinkedArray
 
 	proof RollbackProof
-
-	//genesisTime   time.Time
-	//indexInterval time.Duration
 
 	extraDataFn func(b byte, u uint64, hashes types.Hash) (*consensus_db.VoteContent, error)
 
@@ -162,11 +160,6 @@ func (self *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash t
 	}
 	return result, nil
 }
-
-//// hour = 48 * period
-//type hourPoint struct {
-//	hashPoint
-//}
 
 type SBPInfo struct {
 	ExpectedNum int32
@@ -272,6 +265,10 @@ func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofH
 		return nil, err
 	}
 
+	for _, v := range blocks {
+		self.log.Debug(fmt.Sprintf("[A]index:%d, height:%d, producer:%s, hash:%s", index, v.Height, v.Producer(), v.Hash))
+	}
+
 	// actually no block
 	if len(blocks) == 0 {
 		return consensus_db.NewEmptyPoint(), nil
@@ -280,6 +277,9 @@ func (self *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proofH
 	result, err := self.snapshot.ElectionIndex(index)
 	if err != nil {
 		return nil, err
+	}
+	for _, v := range result.Plans {
+		self.log.Debug(fmt.Sprintf("[E]index:%d, producer:%s, stime:%s ", index, v.Member, v.STime))
 	}
 
 	return self.genPeriodPoint(index, &stime, &etime, proofHash, blocks, result)

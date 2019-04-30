@@ -57,7 +57,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		return nil, err
 	}
 	// consensus
-	cs := consensus.NewConsensus(chain)
+	cs := consensus.NewConsensus(chain, pl)
 
 	// sb verifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
@@ -130,7 +130,9 @@ func (v *Vite) Init() (err error) {
 		}
 	}
 
+	// initOnRoadPool
 	v.onRoad.Init(v.chain)
+	v.accountVerifier.InitOnRoadPool(v.onRoad)
 
 	return nil
 }
@@ -147,7 +149,7 @@ func (v *Vite) Start(p2p p2p.P2P) (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier)
+	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier, v.consensus)
 
 	v.consensus.Start()
 

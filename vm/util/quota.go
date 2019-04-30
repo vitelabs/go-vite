@@ -11,7 +11,23 @@ const (
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
 	QuotaRange            uint64 = 75
 	ConfirmGas            uint64 = 200
+	CommonQuotaRatio      uint8  = 10
+	QuotaRatioDivision    uint64 = 10
 )
+
+func MultipleCost(cost uint64, quotaRatio uint8) (uint64, error) {
+	if quotaRatio < CommonQuotaRatio {
+		return 0, ErrInvalidQuotaRatio
+	}
+	if quotaRatio == CommonQuotaRatio {
+		return cost, nil
+	}
+	ratioUint64 := uint64(quotaRatio)
+	if cost > helper.MaxUint64/ratioUint64 {
+		return 0, ErrGasUintOverflow
+	}
+	return cost * ratioUint64 / QuotaRatioDivision, nil
+}
 
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	if quotaLeft < cost {

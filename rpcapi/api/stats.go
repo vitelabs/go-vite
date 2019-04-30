@@ -26,18 +26,38 @@ func (c StatsApi) String() string {
 	return "StatsApi"
 }
 
-func (c StatsApi) Time2Index(t *time.Time) uint64 {
+func (c StatsApi) Time2Index(t *time.Time, level int) uint64 {
 	if t == nil {
 		now := time.Now()
 		t = &now
 	}
-	index := c.cs.SBPReader().GetPeriodTimeIndex()
+	var index core.TimeIndex
+	if level == 0 {
+		index = c.cs.SBPReader().GetPeriodTimeIndex()
+	} else if level == 1 {
+		index = c.cs.SBPReader().GetHourTimeIndex()
+	} else if level == 2 {
+		index = c.cs.SBPReader().GetDayTimeIndex()
+	} else {
+		return 0
+	}
+
 	time2Index := index.Time2Index(*t)
 	return time2Index
 }
-func (c StatsApi) Index2Time(i uint64) map[string]time.Time {
+func (c StatsApi) Index2Time(i uint64, level int) map[string]time.Time {
 	result := make(map[string]time.Time)
-	index := c.cs.SBPReader().GetPeriodTimeIndex()
+	var index core.TimeIndex
+	if level == 0 {
+		index = c.cs.SBPReader().GetPeriodTimeIndex()
+	} else if level == 1 {
+		index = c.cs.SBPReader().GetHourTimeIndex()
+	} else if level == 2 {
+		index = c.cs.SBPReader().GetDayTimeIndex()
+	} else {
+		return nil
+	}
+
 	stime, etime := index.Index2Time(i)
 	result["stime"] = stime
 	result["etime"] = etime

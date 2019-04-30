@@ -1,19 +1,21 @@
 package vm_db
 
 import (
-	"github.com/vitelabs/go-vite/common/dbutils"
+	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func (db *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
-	iter, err := db.chain.GetStorageIterator(*db.address, prefix)
+// Cannot be concurrent with write
+func (vdb *vmDb) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+	iter, err := vdb.chain.GetStorageIterator(*vdb.address, prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	unsavedIter := db.unsaved.NewStorageIterator(prefix)
-	return dbutils.NewMergedIterator([]interfaces.StorageIterator{
+	unsavedIter := vdb.unsaved().NewStorageIterator(prefix)
+
+	return db.NewMergedIterator([]interfaces.StorageIterator{
 		unsavedIter,
 		iter,
-	}, db.unsaved.IsDelete), nil
+	}, vdb.unsaved().IsDelete), nil
 }

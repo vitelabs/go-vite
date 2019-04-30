@@ -1,6 +1,7 @@
 package net
 
 import (
+	crand "crypto/rand"
 	"fmt"
 	"io"
 	"math/rand"
@@ -157,11 +158,12 @@ func (m *mockCacheWriter) Close() error {
 	return nil
 }
 
-func (m *mockCache) NewWriter(from, to uint64) (io.WriteCloser, error) {
+func (m *mockCache) NewWriter(segment interfaces.Segment) (io.WriteCloser, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if chunk, ok := m.chunks.overlap(from, to); ok {
+	from, to := segment.Bound[0], segment.Bound[1]
+	if chunk, ok := m.chunks.overlap(segment.Bound[0], segment.Bound[1]); ok {
 		return &mockCacheWriter{
 			from:  from,
 			to:    to,
@@ -180,27 +182,29 @@ func (m *mockCache) Chunks() interfaces.SegmentList {
 
 	segments := make(interfaces.SegmentList, len(m.chunks))
 	for i, c := range m.chunks {
-		segments[i] = c
+		segments[i] = interfaces.Segment{
+			Bound: c,
+		}
 	}
 
 	return segments
 }
 
-func (m *mockCache) NewReader(from, to uint64) (interfaces.ReadCloser, error) {
+func (m *mockCache) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
 	return &mockCacheReader{
-		from: from,
-		to:   to,
+		from: segment.Bound[0],
+		to:   segment.Bound[1],
 	}, nil
 }
 
 func (m *mockCache) Delete(segment interfaces.Segment) error {
-	fmt.Printf("delete chunk %d-%d\n", segment[0], segment[1])
+	fmt.Printf("delete chunk %d-%d\n", segment.Bound[0], segment.Bound[1])
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	for i, c := range m.chunks {
-		if c == segment {
+		if c == segment.Bound {
 			copy(m.chunks[i:], m.chunks[i+1:])
 			m.chunks = m.chunks[:len(m.chunks)-1]
 		}
@@ -223,7 +227,11 @@ func (m *mockSyncDownloader) status() DownloaderStatus {
 func (m *mockSyncDownloader) download(from, to uint64, must bool) bool {
 	fmt.Println("download", from, to, must)
 	time.Sleep(time.Second)
-	w, err := m.chain.GetSyncCache().NewWriter(from, to)
+	w, err := m.chain.GetSyncCache().NewWriter(interfaces.Segment{
+		Bound:    [2]uint64{from, to},
+		Hash:     types.Hash{},
+		PrevHash: types.Hash{},
+	})
 	if err != nil {
 		panic(fmt.Sprintf("failed to create writer %d-%d: %v", from, to, err))
 	}
@@ -261,7 +269,7 @@ func TestSyncCache_read(t *testing.T) {
 		},
 	}
 
-	reader := newCacheReader(chain, chain, &mockSyncDownloader{
+	reader := newCacheReader(chain, mockVerifier{}, &mockSyncDownloader{
 		chain: chain,
 	})
 
@@ -306,7 +314,7 @@ func TestSyncCache_read_error(t *testing.T) {
 		},
 	}
 
-	reader := newCacheReader(chain, chain, &mockSyncDownloader{
+	reader := newCacheReader(chain, mockVerifier{}, &mockSyncDownloader{
 		chain: chain,
 	})
 
@@ -327,4 +335,49 @@ func TestSyncCache_read_error(t *testing.T) {
 	<-pending
 
 	reader.stop()
+}
+
+func TestChunkRead(t *testing.T) {
+	// success
+	const from uint64 = 101
+	const to uint64 = 200
+	var prevHash, hash, endHash types.Hash
+	chunk := newChunk(prevHash, from-1, endHash, to, types.RemoteSync)
+
+	for i := from; i < to+1; i++ {
+		_, _ = crand.Read(hash[:])
+
+		err := chunk.addSnapshotBlock(&ledger.SnapshotBlock{
+			Hash:     hash,
+			PrevHash: prevHash,
+			Height:   i,
+		})
+
+		if err != nil {
+			t.Errorf("error should be nil")
+		}
+
+		prevHash = hash
+	}
+}
+
+func TestChunkRead2(t *testing.T) {
+	const from uint64 = 101
+	const to uint64 = 200
+	var prevHash, hash, endHash types.Hash
+	chunk := newChunk(prevHash, from-1, endHash, to, types.RemoteSync)
+
+	_, _ = crand.Read(hash[:])
+
+	err := chunk.addSnapshotBlock(&ledger.SnapshotBlock{
+		Hash:     hash,
+		PrevHash: prevHash,
+		Height:   from + 1,
+	})
+
+	if err == nil {
+		t.Errorf("error should not be nil")
+	}
+
+	fmt.Println(err)
 }
