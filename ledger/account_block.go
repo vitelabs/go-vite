@@ -253,7 +253,6 @@ func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
 	} else {
 		// 10
 		pb.FromBlockHash = ab.FromBlockHash.Bytes()
-
 	}
 
 	if ab.IsSendBlock() || ab.BlockType == BlockTypeGenesisReceive {

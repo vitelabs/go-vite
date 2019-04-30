@@ -7,8 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestChain_builtInContract(t *testing.T) {
@@ -23,60 +25,60 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 		NewStorageDatabase(nil, chainInstance, accounts, snapshotBlockList)
 	})
 
-	//t.Run("ConcurrentWrite", func(t *testing.T) {
-	//	var mu sync.RWMutex
-	//	var wg sync.WaitGroup
-	//
-	//	accounts := MakeAccounts(chainInstance, 5)
-	//
-	//	wg.Add(2)
-	//	testCount := 0
-	//	const maxTestCount = 10
-	//	go func() {
-	//		defer wg.Done()
-	//		for testCount < maxTestCount {
-	//			// insert account blocks
-	//			InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(100))
-	//			//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
-	//
-	//			// insert snapshot block
-	//			snapshotBlock := createSnapshotBlock(chainInstance, false)
-	//
-	//			mu.Lock()
-	//			snapshotBlockList = append(snapshotBlockList, snapshotBlock)
-	//			Snapshot(accounts, snapshotBlock)
-	//			mu.Unlock()
-	//
-	//			invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
-	//			if err != nil {
-	//				panic(err)
-	//			}
-	//
-	//			mu.Lock()
-	//			DeleteInvalidBlocks(accounts, invalidBlocks)
-	//			mu.Unlock()
-	//
-	//			fmt.Printf("Snapshot Block: %d\n", snapshotBlock.Height)
-	//			time.Sleep(100 * time.Millisecond)
-	//			testCount++
-	//		}
-	//
-	//	}()
-	//
-	//	go func() {
-	//		defer wg.Done()
-	//
-	//		for testCount < maxTestCount {
-	//			mu.Lock()
-	//			testSnapshotBlock := snapshotBlockList
-	//			mu.Unlock()
-	//			fmt.Printf("testSnapshotBlock: %d\n", len(testSnapshotBlock))
-	//			NewStorageDatabase(&mu, chainInstance, accounts, testSnapshotBlock)
-	//		}
-	//	}()
-	//
-	//	wg.Wait()
-	//})
+	t.Run("ConcurrentWrite", func(t *testing.T) {
+		var mu sync.RWMutex
+		var wg sync.WaitGroup
+
+		accounts := MakeAccounts(chainInstance, 5)
+
+		wg.Add(2)
+		testCount := 0
+		const maxTestCount = 100
+		go func() {
+			defer wg.Done()
+			for testCount < maxTestCount {
+				// insert account blocks
+				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(100))
+				//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
+
+				// insert snapshot block
+				snapshotBlock := createSnapshotBlock(chainInstance, false)
+
+				mu.Lock()
+				snapshotBlockList = append(snapshotBlockList, snapshotBlock)
+				Snapshot(accounts, snapshotBlock)
+				mu.Unlock()
+
+				invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+				if err != nil {
+					panic(err)
+				}
+
+				mu.Lock()
+				DeleteInvalidBlocks(accounts, invalidBlocks)
+				mu.Unlock()
+
+				fmt.Printf("Snapshot Block: %d\n", snapshotBlock.Height)
+				time.Sleep(100 * time.Millisecond)
+				testCount++
+			}
+
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			for testCount < maxTestCount {
+				mu.Lock()
+				testSnapshotBlock := snapshotBlockList
+				mu.Unlock()
+				fmt.Printf("testSnapshotBlock: %d\n", len(testSnapshotBlock))
+				NewStorageDatabase(&mu, chainInstance, accounts, testSnapshotBlock)
+			}
+		}()
+
+		wg.Wait()
+	})
 
 	t.Run("GetRegisterList", func(t *testing.T) {
 		//GetRegisterList(t, chainInstance)

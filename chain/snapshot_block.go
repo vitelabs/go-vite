@@ -383,7 +383,7 @@ func (c *chain) GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHei
 	if err != nil {
 		return nil, err
 	}
-	c.log.Info(fmt.Sprintf("GetSnapshotHeadersAfterOrEqualTime %d, %s -%d, %s",
+	c.log.Info(fmt.Sprintf("GetSnapshotHeadersAfterOrEqualTime %d, %s - %d, %s",
 		endHashHeight.Height, endHashHeight.Hash, startHeader.Height, startHeader.Hash), "method", "GetSnapshotHeadersAfterOrEqualTime")
 	if producer != nil {
 		var result = make([]*ledger.SnapshotBlock, 0, len(snapshotHeaders)/75+3)

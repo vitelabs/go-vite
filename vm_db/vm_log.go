@@ -6,11 +6,11 @@ import (
 )
 
 func (vdb *vmDb) AddLog(log *ledger.VmLog) {
-	vdb.unsaved.AddLog(log)
+	vdb.unsaved().AddLog(log)
 }
 
 func (vdb *vmDb) GetLogList() ledger.VmLogList {
-	return vdb.unsaved.GetLogList()
+	return vdb.unsaved().GetLogList()
 }
 
 func (vdb *vmDb) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error) {
@@ -18,5 +18,5 @@ func (vdb *vmDb) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error
 }
 
 func (vdb *vmDb) GetLogListHash() *types.Hash {
-	return vdb.unsaved.GetLogListHash()
+	return vdb.unsaved().GetLogListHash()
 }
