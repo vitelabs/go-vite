@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"time"
 )
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
@@ -52,6 +53,12 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	c.flushMu.RLock()
 	defer c.flushMu.RUnlock()
 
+	totalNow := time.Now()
+	defer func() {
+		totalNow2 := time.Now()
+		fmt.Printf("InsertSnapshotBlock %d ns\n", totalNow2.UnixNano()-totalNow.UnixNano())
+	}()
+
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {
 		return nil, err
@@ -62,6 +69,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		SnapshotBlock: snapshotBlock,
 		AccountBlocks: canBeSnappedBlocks,
 	}}
+
 	// write block db
 	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
 

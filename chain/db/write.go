@@ -47,9 +47,12 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 	if snapshotBatch != nil {
 		store.putMemDb(snapshotBatch)
 	}
+
 	store.unconfirmedBatchsLock.Lock()
+	fmt.Println(store.unconfirmedBatchs.Size())
 	for _, blockHash := range blockHashList {
 		batch, ok := store.unconfirmedBatchs.Get(blockHash)
+
 		if !ok {
 			panic(fmt.Sprintf("store.WriteSnapshot failed, account block hash %s batch is not existed", blockHash))
 		}
@@ -59,6 +62,7 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 		// remove
 		store.unconfirmedBatchs.Remove(blockHash)
 	}
+	fmt.Println(store.unconfirmedBatchs.Size())
 	store.unconfirmedBatchsLock.Unlock()
 
 	// write store snapshot batch
