@@ -75,6 +75,11 @@ func (store *Store) Get(key []byte) ([]byte, error) {
 	return value, nil
 }
 
+func (store *Store) GetOriginal(key []byte) ([]byte, error) {
+	mdb, seq := store.getSnapshotMemDb()
+	return store.db.Get2(key, nil, mdb, seq)
+}
+
 func (store *Store) Has(key []byte) (bool, error) {
 	mdb, seq := store.getSnapshotMemDb()
 
