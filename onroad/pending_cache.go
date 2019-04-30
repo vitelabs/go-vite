@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"container/list"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"sync"
@@ -16,7 +17,7 @@ const (
 )
 
 type callerPendingMap struct {
-	pmap         map[types.Address][]*ledger.AccountBlock
+	pmap         map[types.Address]*list.List
 	inferiorList map[types.Address]inferiorState
 
 	addrMutex sync.RWMutex
@@ -24,7 +25,7 @@ type callerPendingMap struct {
 
 func newCallerPendingMap() *callerPendingMap {
 	return &callerPendingMap{
-		pmap:         make(map[types.Address][]*ledger.AccountBlock, 0),
+		pmap:         make(map[types.Address]*list.List),
 		inferiorList: make(map[types.Address]inferiorState, 0),
 	}
 }
@@ -36,8 +37,8 @@ func (p *callerPendingMap) isPendingMapNotSufficient() bool {
 		return true
 	}
 	count := 0
-	for _, v := range p.pmap {
-		count += len(v)
+	for _, list := range p.pmap {
+		count += list.Len()
 	}
 	if count < int(DefaultPullCount) {
 		return true
@@ -49,8 +50,8 @@ func (p *callerPendingMap) Len() int {
 	p.addrMutex.RLock()
 	defer p.addrMutex.RUnlock()
 	count := 0
-	for _, v := range p.pmap {
-		count += len(v)
+	for _, list := range p.pmap {
+		count += list.Len()
 	}
 	return count
 }
@@ -59,9 +60,11 @@ func (p *callerPendingMap) getOnePending() *ledger.AccountBlock {
 	p.addrMutex.RLock()
 	defer p.addrMutex.RUnlock()
 
-	for _, v := range p.pmap {
-		if len(v) > 0 {
-			return v[0]
+	for _, list := range p.pmap {
+		if ele := list.Front(); ele != nil {
+			front := ele.Value.(*ledger.AccountBlock)
+			list.Remove(ele)
+			return front
 		}
 	}
 	return nil
@@ -71,23 +74,34 @@ func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) (isExis
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
 
-	list, ok := p.pmap[sendBlock.AccountAddress]
-	if !ok || list == nil {
-		list = make([]*ledger.AccountBlock, 0)
-		list = append(list, sendBlock)
-		p.pmap[sendBlock.AccountAddress] = list
-		return
+	caller := sendBlock.AccountAddress
+
+	value, ok := p.pmap[caller]
+	if !ok || value == nil {
+		l := list.New()
+		l.PushBack(sendBlock)
+		p.pmap[caller] = l
+		return false
 	}
-	for _, v := range list {
-		if v.Hash == sendBlock.Hash {
+
+	l := p.pmap[caller]
+	var ele *list.Element
+	if ele = l.Back(); ele != nil {
+		pre := ele.Value.(*ledger.AccountBlock)
+		if pre.Height == sendBlock.Height {
 			return true
 		}
+		if pre.Height < sendBlock.Height {
+			l.PushBack(sendBlock)
+			return false
+		}
 	}
-	p.pmap[sendBlock.AccountAddress] = append(p.pmap[sendBlock.AccountAddress], sendBlock)
+	l.Init()
+	l.PushBack(sendBlock)
 	return false
 }
 
-func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *types.Hash) bool {
+/*func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *types.Hash) bool {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
 
@@ -107,7 +121,7 @@ func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *type
 		return true
 	}
 	return false
-}
+}*/
 
 func (p *callerPendingMap) addCallerIntoInferiorList(caller types.Address, state inferiorState) {
 	p.addrMutex.Lock()
