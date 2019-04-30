@@ -496,6 +496,10 @@ func (d *discovery) refresh() {
 		id := vnode.RandFromDistance(d.node.ID, i)
 		nodes := d.lookup(id, d.BucketSize)
 		d.table.addNodes(nodes)
+		// have no enough nodes
+		if len(nodes) < d.BucketSize {
+			break
+		}
 	}
 
 	d.mu.Lock()

@@ -48,10 +48,10 @@ func TestMissingChunks(t *testing.T) {
 
 func TestMissingSegments(t *testing.T) {
 	var chunks = interfaces.SegmentList{
-		{10, 20},
-		{30, 40},
-		{35, 45},
-		{40, 50},
+		{Bound: [2]uint64{10, 20}},
+		{Bound: [2]uint64{30, 40}},
+		{Bound: [2]uint64{35, 45}},
+		{Bound: [2]uint64{40, 50}},
 	}
 
 	mis := missingSegments(chunks, 2, 60)
