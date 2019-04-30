@@ -299,6 +299,11 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 func (sDB *StateDB) Store() *chain_db.Store {
 	return sDB.store
 }
+
+func (sDB *StateDB) RedoStore() *chain_db.Store {
+	return sDB.redo.store
+}
+
 func (sDB *StateDB) StorageRedo() *Redo {
 	return sDB.redo
 }

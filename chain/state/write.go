@@ -176,7 +176,7 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	height := snapshotBlock.Height
 
 	// next snapshot
-	sDB.redo.NextSnapshot(height+1, confirmedBlocks)
+	sDB.redo.InsertSnapshotBlock(snapshotBlock, confirmedBlocks)
 
 	// write history
 	snapshotRedoLog, _, err := sDB.redo.QueryLog(height)

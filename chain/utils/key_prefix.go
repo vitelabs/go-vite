@@ -45,3 +45,8 @@ const (
 
 	CallDepthKeyPrefix = byte(11)
 )
+
+// state redo db
+const (
+	SnapshotKeyPrefix = byte(1)
+)

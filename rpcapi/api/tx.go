@@ -302,6 +302,14 @@ type CalcPoWDifficultyResult struct {
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	if (latestBlock == nil && !param.PrevHash.IsZero()) ||
+		(latestBlock != nil && latestBlock.Hash != param.PrevHash) {
+		return nil, util.ErrChainForked
+	}
 	// get quota required
 	block := &ledger.AccountBlock{
 		BlockType:      param.BlockType,

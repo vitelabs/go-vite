@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
@@ -23,14 +24,12 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 	newUnconfirmedLog, hasRedo, err := sDB.redo.QueryLog(latestHeight + 1)
 
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("1. sDB.redo.QueryLog failed, height is %d. Error: %s", latestHeight+1, err.Error()))
 	}
 
 	snapshotHeight := latestHeight
 
 	hasBuiltInContract := true
-	//startAddrBytes := make([]byte, types.AddressSize)
-	//endAddrBytes := make([]byte, types.AddressSize)
 
 	if hasRedo {
 		rollbackKeySet := make(map[types.Address]map[string]struct{})
@@ -51,26 +50,20 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 			} else {
 				currentSnapshotLog, _, err = sDB.redo.QueryLog(snapshotHeight)
 				if err != nil {
-					return err
+					return errors.New(fmt.Sprintf("2. sDB.redo.QueryLog failed, height is %d. Error: %s", snapshotHeight, err.Error()))
 				}
 			}
-			// rollback redo
-			sDB.redo.Rollback(snapshotHeight)
 
 			// rollback snapshot data
 			if err := sDB.rollbackByRedo(batch, seg.SnapshotBlock, currentSnapshotLog, rollbackKeySet, rollbackTokenSet); err != nil {
 				return err
 			}
-
 		}
 
 		// recover latest index
 		if err := sDB.recoverLatestIndexToSnapshot(batch, latestHeight, rollbackKeySet, rollbackTokenSet); err != nil {
 			return err
 		}
-
-		// set new unconfirmed redo snapshot
-		sDB.redo.SetSnapshot(latestHeight+1, newUnconfirmedLog)
 
 	} else {
 		addrMap := make(map[types.Address]struct{}) // for recover to latest snapshot
@@ -83,12 +76,9 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 			// get old unconfirmed Log
 			if index == len(deletedSnapshotSegments)-1 && seg.SnapshotBlock == nil {
 				if oldUnconfirmedLog, _, err = sDB.redo.QueryLog(latestHeight + uint64(len(deletedSnapshotSegments))); err != nil {
-					return err
+					return errors.New(fmt.Sprintf("3. sDB.redo.QueryLog failed, height is %d. Error: %s", latestHeight+uint64(len(deletedSnapshotSegments)), err.Error()))
 				}
 			}
-
-			// rollback redo
-			sDB.redo.Rollback(snapshotHeight)
 
 			for _, accountBlock := range seg.AccountBlocks {
 				addrMap[accountBlock.AccountAddress] = struct{}{}
@@ -108,12 +98,16 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 			return err
 		}
 
-		// set redo snapshot
-		sDB.redo.SetSnapshot(latestHeight+1, make(map[types.Address][]LogItem))
 	}
 
 	// commit
 	sDB.store.RollbackSnapshot(batch)
+
+	// rollback redo
+	sDB.redo.Rollback(deletedSnapshotSegments)
+
+	// recover redo
+	sDB.redo.SetCurrentSnapshot(latestHeight+1, newUnconfirmedLog)
 
 	// recover cache
 	if hasBuiltInContract {
@@ -182,7 +176,7 @@ func (sDB *StateDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 	}
 
 	// set redo log
-	sDB.redo.SetSnapshot(latestHeight+1, unconfirmedLog)
+	sDB.redo.SetCurrentSnapshot(latestHeight+1, unconfirmedLog)
 
 	// write
 	sDB.store.RollbackAccountBlocks(batch, accountBlocks)

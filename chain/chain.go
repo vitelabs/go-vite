@@ -251,7 +251,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new flusher
-	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.stateDB.RedoStore(), c.indexDB.Store()}
 	if c.chainCfg.OpenPlugins {
 		stores = append(stores, c.plugins.Store())
 	}
