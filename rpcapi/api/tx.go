@@ -32,7 +32,7 @@ type Tx struct {
 func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
-		N:    3,
+		N:    5,
 	}
 	if vite.Producer() == nil {
 		return tx
