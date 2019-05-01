@@ -57,8 +57,8 @@ func (p *callerPendingMap) Len() int {
 }
 
 func (p *callerPendingMap) getOnePending() *ledger.AccountBlock {
-	p.addrMutex.RLock()
-	defer p.addrMutex.RUnlock()
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
 
 	for _, list := range p.pmap {
 		if ele := list.Front(); ele != nil {
