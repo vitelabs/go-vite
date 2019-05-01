@@ -272,6 +272,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 	addNewCount := 0
 	var p *callerPendingMap
 	revertHappened := false
+
 	value, ok := w.selectivePendingCache[contractAddr]
 	if !ok || value == nil {
 		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
@@ -289,16 +290,17 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		p = w.selectivePendingCache[contractAddr]
 		sendBlock := p.getOnePending()
 		if sendBlock != nil {
-			isFront, err := w.manager.IsFrontOnRoadOfCaller(w.gid, w.address, sendBlock.AccountAddress, sendBlock.Hash)
-			if err != nil {
-				w.log.Error("acquireOnRoadBlocks.IsFrontOnRoadOfCaller fail, cause err is "+err.Error(), "addr", contractAddr)
-				return nil
-			}
-			if isFront {
+			isFront, err := w.manager.IsFrontOnRoadOfCaller(w.gid, contractAddr, sendBlock.AccountAddress, sendBlock.Hash)
+			if isFront && err == nil {
 				return sendBlock
 			}
+			if err != nil {
+				w.log.Error("IsFrontOnRoadOfCaller fail, cause err is "+err.Error(), "caller", sendBlock.AccountAddress, "contract", contractAddr)
+			}
 			revertHappened = true
+			p.clearPendingMap()
 		}
+
 		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 		for _, v := range blocks {
 			if p.isInferiorStateOut(v.AccountAddress) {
@@ -310,28 +312,14 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		}
 	}
 
-	w.log.Info(fmt.Sprintf("acquire new.len %v, currentPendingCache.len %v revert happened %v", addNewCount, p.Len(), revertHappened), "addr", contractAddr)
+	w.log.Info(fmt.Sprintf("acquire new %v, current %v revert %v", addNewCount, p.Len(), revertHappened), "contract", contractAddr)
 	return w.selectivePendingCache[contractAddr].getOnePending()
 }
 
 func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
 	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
-		pendingCache.addCallerIntoInferiorList(*caller, state)
+		pendingCache.addIntoInferiorList(*caller, state)
 	}
-}
-
-func (w *ContractWorker) isContractCallerInferiorRetry(contract, caller *types.Address) bool {
-	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
-		return pendingCache.isInferiorStateRetry(*caller)
-	}
-	return false
-}
-
-func (w *ContractWorker) isContractCallerInferiorOut(contract, caller *types.Address) bool {
-	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
-		return pendingCache.isInferiorStateOut(*caller)
-	}
-	return false
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
