@@ -302,6 +302,9 @@ func (cc *callerCache) getFrontTxOfAllCallers() []*orHashHeight {
 }
 
 func (cc *callerCache) getFrontTxByCaller(caller *types.Address) *orHashHeight {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+
 	value, exist := cc.cache[*caller]
 	if !exist || value == nil {
 		return nil
