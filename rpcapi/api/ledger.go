@@ -254,6 +254,20 @@ func (l *LedgerApi) GetSnapshotBlocks(height uint64, count int) ([]*ledger.Snaps
 	return blocks, nil
 }
 
+func (l *LedgerApi) GetChunks(startHeight uint64, endHeight uint64) ([]*ledger.SnapshotChunk, error) {
+	chunks, err := l.chain.GetSubLedger(startHeight-1, endHeight)
+	if err != nil {
+		return nil, err
+	}
+	if len(chunks) > 0 {
+		if chunks[0].SnapshotBlock == nil || chunks[0].SnapshotBlock.Height == startHeight-1 {
+			chunks = chunks[1:]
+		}
+	}
+	return chunks, nil
+
+}
+
 func (l *LedgerApi) GetSnapshotChainHeight() string {
 	l.log.Info("GetLatestSnapshotChainHeight")
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)

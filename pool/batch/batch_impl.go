@@ -203,25 +203,30 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 	}
 
 	var tmp Level
-	if self.current >= 0 {
-		tmp = self.ls[self.current]
-		if tmp.Snapshot() {
-			max = self.current + 1
-			if max > self.maxLevel-1 {
-				return MAX_ERROR
-			}
-			tmp = newLevel(false, max)
-			self.ls[max] = tmp
-		} else {
-			if self.current > max {
-				tmp = self.ls[max]
-			}
-		}
-	} else {
-		// first account block
-		max = 0
+	if max > self.current {
 		tmp = newLevel(false, max)
 		self.ls[max] = tmp
+	} else {
+		if self.current >= 0 {
+			tmp = self.ls[self.current]
+			if tmp.Snapshot() {
+				max = self.current + 1
+				if max > self.maxLevel-1 {
+					return MAX_ERROR
+				}
+				tmp = newLevel(false, max)
+				self.ls[max] = tmp
+			} else {
+				if self.current > max {
+					tmp = self.ls[max]
+				}
+			}
+		} else {
+			// first account block
+			max = 0
+			tmp = newLevel(false, max)
+			self.ls[max] = tmp
+		}
 	}
 
 	err := tmp.Add(b)
