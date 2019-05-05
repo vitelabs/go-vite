@@ -27,12 +27,12 @@ func TestCalcParamAndSectionList(t *testing.T) {
 		fmt.Printf("\t\"%v\", \n", gapLow)
 		sectionList = append(sectionList, new(big.Float).SetPrec(precForFloat).SetFloat64(gapLow))
 		index = index + 1
-		q = q + 21000.0
+		q = q + 280
 	}
 	fmt.Printf("}\n")
 
-	defaultSectionForPledge := sectionList[1]
-	defaultSectionForPoW := sectionList[1]
+	defaultSectionForPledge := sectionList[75]
+	defaultSectionForPoW := sectionList[75]
 
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 
@@ -180,7 +180,7 @@ func TestCalcPoWDifficulty(t *testing.T) {
 	}{
 		{1000001, types.NewQuota(0, 0, 0, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
 		{21000, types.NewQuota(0, 0, 0, 0), big.NewInt(67108863), nil, "no_pledge_quota"},
-		{22000, types.NewQuota(0, 0, 0, 0), big.NewInt(134276984), nil, "pledge_quota_not_enough"},
+		{22000, types.NewQuota(0, 0, 0, 0), big.NewInt(70689140), nil, "pledge_quota_not_enough"},
 		{21000, types.NewQuota(0, 21000, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
 		{21000, types.NewQuota(0, 21001, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
 	}
@@ -659,5 +659,13 @@ func TestCalcQuotaTable(t *testing.T) {
 			nodeConfig.difficultyList[index/75],
 		)
 		index += 75
+	}
+}
+
+func TestPrintQuota(t *testing.T) {
+	InitQuotaConfig(false, false)
+	for i := 75; i < len(nodeConfig.sectionList); i = i + 75 {
+		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
+		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v |\n", nodeConfig.sectionList[i-75], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i/75, pledgeAmount, nodeConfig.difficultyList[i])
 	}
 }

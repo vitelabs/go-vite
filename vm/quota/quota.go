@@ -45,7 +45,6 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	}
 	if isTest {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, quotaUnconfirmed, quotaAvg uint64, err error) {
-			// TODO update quotaUnconfirmed for chain
 			list := db.GetUnconfirmedBlocks(addr)
 			quotaUnconfirmed = uint64(0)
 			for _, block := range list {
