@@ -1,11 +1,12 @@
 package chain_cache
 
 import (
+	"time"
+
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"time"
 )
 
 type dataSet struct {
@@ -14,7 +15,7 @@ type dataSet struct {
 
 func NewDataSet() *dataSet {
 	return &dataSet{
-		store: cache.New(cache.NoExpiration, cache.NoExpiration),
+		store: cache.New(cache.NoExpiration, time.Minute*10),
 	}
 }
 

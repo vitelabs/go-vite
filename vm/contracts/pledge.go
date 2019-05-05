@@ -33,7 +33,7 @@ func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
 
 func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
-		block.Amount.Cmp(pledgeAmountMin) < 0 {
+		block.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	beneficialAddr := new(types.Address)
@@ -124,7 +124,7 @@ func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameCancelPledge, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if param.Amount.Cmp(pledgeAmountMin) < 0 {
+	if param.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, param.Beneficial, param.Amount)
@@ -139,7 +139,7 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 		return nil, util.ErrInvalidMethodParam
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
-	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(pledgeAmountMin) < 0 {
+	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 
@@ -195,7 +195,7 @@ func (p *MethodAgentPledge) GetSendQuota(data []byte) (uint64, error) {
 
 func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
-		block.Amount.Cmp(pledgeAmountMin) < 0 {
+		block.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamAgentPledge)
@@ -268,7 +268,7 @@ func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if param.Amount.Cmp(pledgeAmountMin) < 0 {
+	if param.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount, param.Bid)
@@ -283,7 +283,7 @@ func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Account
 		return nil, util.ErrInvalidMethodParam
 	}
 	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
-	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(pledgeAmountMin) < 0 {
+	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(nodeConfig.params.pledgeAmountMin) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 
