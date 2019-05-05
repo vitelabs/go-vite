@@ -5,7 +5,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -171,7 +170,6 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	sDB.store.WriteAccountBlockByHash(batch, blockHash)
 }
 
-// TODO redo
 func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 	height := snapshotBlock.Height
 
@@ -184,7 +182,7 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 		return err
 	}
 
-	batch := new(leveldb.Batch)
+	batch := sDB.store.NewBatch()
 
 	if len(snapshotRedoLog) > 0 {
 
