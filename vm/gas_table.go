@@ -2,7 +2,6 @@ package vm
 
 import (
 	"bytes"
-	"github.com/modern-go/reflect2"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -456,7 +455,7 @@ func getQuotaRatioForRS(db vm_db.VmDb, toAddr types.Address, sendBlock *ledger.A
 	if !types.IsContractAddr(toAddr) {
 		return util.CommonQuotaRatio, nil
 	}
-	if !reflect2.IsNil(status) && status.SnapshotBlock() != nil {
+	if !helper.IsNil(status) && status.SnapshotBlock() != nil {
 		return getQuotaRatioBySnapshotBlock(db, toAddr, status.SnapshotBlock())
 	}
 	confirmSb, err := db.GetConfirmSnapshotHeader(sendBlock.Hash)
