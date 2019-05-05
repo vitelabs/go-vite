@@ -45,7 +45,7 @@ type ContractWorker struct {
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	selectivePendingCache map[types.Address]*callerPendingMap
+	selectivePendingCache sync.Map //map[types.Address]*callerPendingMap
 
 	log log15.Logger
 }
@@ -58,9 +58,8 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList:             make(map[types.Address]bool),
-		workingAddrList:       make(map[types.Address]bool),
-		selectivePendingCache: make(map[types.Address]*callerPendingMap),
+		blackList:       make(map[types.Address]bool),
+		workingAddrList: make(map[types.Address]bool),
 
 		log: slog.New("worker", nil),
 	}
@@ -249,9 +248,10 @@ func (w *ContractWorker) clearContractBlackList() {
 // Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
-	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
-	delete(w.selectivePendingCache, addr)
+	w.blackListMutex.Unlock()
+
+	w.selectivePendingCache.Delete(addr)
 }
 
 func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
@@ -265,29 +265,26 @@ func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 }
 
 func (w *ContractWorker) clearSelectiveBlocksCache() {
-	w.selectivePendingCache = make(map[types.Address]*callerPendingMap)
+	w.selectivePendingCache = sync.Map{}
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
 	addNewCount := 0
-	var p *callerPendingMap
 	revertHappened := false
 
-	value, ok := w.selectivePendingCache[contractAddr]
-	if !ok || value == nil {
+	value, ok := w.selectivePendingCache.LoadOrStore(contractAddr, newCallerPendingMap())
+	p := value.(*callerPendingMap)
+	if !ok {
 		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 		if len(blocks) <= 0 {
 			return nil
 		}
-		p = newCallerPendingMap()
 		for _, v := range blocks {
 			if isExist := p.addPendingMap(v); !isExist {
 				addNewCount++
 			}
 		}
-		w.selectivePendingCache[contractAddr] = p
 	} else {
-		p = w.selectivePendingCache[contractAddr]
 		sendBlock := p.getOnePending()
 		if sendBlock != nil {
 			isFront, err := w.manager.IsFrontOnRoadOfCaller(w.gid, contractAddr, sendBlock.AccountAddress, sendBlock.Hash)
@@ -313,12 +310,13 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 	}
 
 	w.log.Info(fmt.Sprintf("acquire new %v, current %v revert %v", addNewCount, p.Len(), revertHappened), "contract", contractAddr)
-	return w.selectivePendingCache[contractAddr].getOnePending()
+	return p.getOnePending()
 }
 
-func (w *ContractWorker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
-	if pendingCache, ok := w.selectivePendingCache[*contract]; ok && pendingCache != nil {
-		pendingCache.addIntoInferiorList(*caller, state)
+func (w *ContractWorker) addContractCallerToInferiorList(contract, caller types.Address, state inferiorState) {
+	value, ok := w.selectivePendingCache.Load(contract)
+	if ok && value != nil {
+		value.(*callerPendingMap).addIntoInferiorList(caller, state)
 	}
 }
 

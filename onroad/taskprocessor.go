@@ -111,7 +111,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	if genResult.VmBlock != nil {
 		if err := tp.worker.manager.insertBlockToPool(genResult.VmBlock); err != nil {
 			blog.Error(fmt.Sprintf("insertContractBlocksToPool failed, err:%v", err))
-			tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, OUT)
+			tp.worker.addContractCallerToInferiorList(task.Addr, sBlock.AccountAddress, OUT)
 			return true
 		}
 
