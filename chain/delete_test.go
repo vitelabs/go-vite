@@ -175,10 +175,6 @@ func deleteSnapshotBlocks(chainInstance *chain, accounts map[types.Address]*Acco
 	for _, account := range accounts {
 		account.DeleteSnapshotBlocks(accounts, snapshotBlocksToDelete, hasStorageRedoLog)
 	}
-
-	for _, account := range accounts {
-		fmt.Println("account.UnconfirmedBlocks: ", len(account.UnconfirmedBlocks), hasStorageRedoLog)
-	}
 }
 
 func deleteAccountBlocks(chainInstance *chain, accounts map[types.Address]*Account) {
