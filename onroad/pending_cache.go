@@ -57,8 +57,8 @@ func (p *callerPendingMap) Len() int {
 }
 
 func (p *callerPendingMap) getOnePending() *ledger.AccountBlock {
-	p.addrMutex.RLock()
-	defer p.addrMutex.RUnlock()
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
 
 	for _, list := range p.pmap {
 		if ele := list.Front(); ele != nil {
@@ -101,29 +101,13 @@ func (p *callerPendingMap) addPendingMap(sendBlock *ledger.AccountBlock) (isExis
 	return false
 }
 
-/*func (p *callerPendingMap) deletePendingMap(caller types.Address, sendHash *types.Hash) bool {
+func (p *callerPendingMap) clearPendingMap() {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
+	p.pmap = make(map[types.Address]*list.List)
+}
 
-	list, ok := p.pmap[caller]
-	if !ok || len(list) <= 0 {
-		return false
-	}
-	for k, v := range p.pmap[caller] {
-		if v.Hash != *sendHash {
-			continue
-		}
-		if k >= len(p.pmap[caller])-1 {
-			p.pmap[caller] = p.pmap[caller][0:k]
-		} else {
-			p.pmap[caller] = append(p.pmap[caller][0:k], p.pmap[caller][k+1:]...)
-		}
-		return true
-	}
-	return false
-}*/
-
-func (p *callerPendingMap) addCallerIntoInferiorList(caller types.Address, state inferiorState) {
+func (p *callerPendingMap) addIntoInferiorList(caller types.Address, state inferiorState) {
 	p.addrMutex.Lock()
 	defer p.addrMutex.Unlock()
 	p.inferiorList[caller] = state
