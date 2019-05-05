@@ -2,7 +2,6 @@ package chain_db
 
 import (
 	"errors"
-	"github.com/emirpasic/gods/maps/linkedhashmap"
 
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
@@ -23,8 +22,7 @@ type Store struct {
 	snapshotBatch *leveldb.Batch
 	flushingBatch *leveldb.Batch
 
-	unconfirmedBatchs     *linkedhashmap.Map
-	unconfirmedBatchsLock sync.RWMutex
+	unconfirmedBatchs *UnconfirmedBatchs
 
 	dbDir string
 	db    *leveldb.DB
@@ -40,15 +38,16 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	store := &Store{
-		memDb:             db.NewMemDB(),
-		unconfirmedBatchs: linkedhashmap.New(),
+		memDb: db.NewMemDB(),
 
-		snapshotBatch: new(leveldb.Batch),
+		unconfirmedBatchs: NewUnconfirmedBatchs(),
 
 		dbDir: dataDir,
 		db:    diskStore,
 		id:    id,
 	}
+
+	store.snapshotBatch = store.getNewBatch()
 
 	return store, nil
 }
