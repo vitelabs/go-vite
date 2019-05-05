@@ -11,11 +11,14 @@ import (
 
 type dataSet struct {
 	store *cache.Cache
+
+	snapshotKeepCount uint64
 }
 
 func NewDataSet() *dataSet {
 	return &dataSet{
-		store: cache.New(cache.NoExpiration, time.Minute*10),
+		store:             cache.New(cache.NoExpiration, 1*time.Minute),
+		snapshotKeepCount: 1800,
 	}
 }
 
@@ -38,6 +41,8 @@ func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
 
 	ds.store.Set(hashKey, snapshotBlock, time.Second*1800)
 	ds.store.Set(heightKey, hashKey, time.Second*1800)
+	// delete stale
+	ds.deleteStaleSnapshotBlock(snapshotBlock.Height)
 }
 
 func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
@@ -142,4 +147,19 @@ func (ds *dataSet) insertAccountBlock(accountBlock *ledger.AccountBlock, delay t
 		// set send block hash
 		ds.store.Set(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)), accountBlock, delay)
 	}
+}
+
+func (ds *dataSet) deleteStaleSnapshotBlock(height uint64) {
+	if height <= ds.snapshotKeepCount {
+		return
+	}
+	staleHeight := height - ds.snapshotKeepCount
+	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(staleHeight))
+	hash, ok := ds.store.Get(heightKey)
+	if !ok {
+		return
+	}
+
+	ds.store.Delete(heightKey)
+	ds.store.Delete(hash.(string))
 }

@@ -177,7 +177,6 @@ func (acc *Account) CreateReceiveBlock() (*vm_db.VmAccountBlock, error) {
 	block.Signature = []byte("This is chain mock signature")
 
 	//block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
-
 	vmBlock := &vm_db.VmAccountBlock{
 		AccountBlock: block,
 		VmDb:         vmDb,
