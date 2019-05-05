@@ -45,8 +45,7 @@ const (
 )
 
 var (
-	rewardPerBlock                   = big.NewInt(951293759512937595) // Reward pre snapshot block, rewardPreBlock * blockNumPerYear / viteTotalSupply = 3%
-	pledgeAmountMin                  = new(big.Int).Mul(big.NewInt(134), util.AttovPerVite)
+	rewardPerBlock                   = big.NewInt(951293759512937595)                       // Reward pre snapshot block, rewardPreBlock * blockNumPerYear / viteTotalSupply = 3%
 	mintageFee                       = new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite) // Mintage cost choice 1, destroy ViteToken
 	mintagePledgeAmount              = new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite) // Mintage cost choice 2, pledge ViteToken for 3 month
 	createConsensusGroupPledgeAmount = new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite)
@@ -58,6 +57,7 @@ type ContractsParams struct {
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
 	GetRewardTimeLimit               int64  // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
+	pledgeAmountMin                  *big.Int
 }
 
 var (
@@ -67,6 +67,7 @@ var (
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
 		GetRewardTimeLimit:               75,
+		pledgeAmountMin:                  new(big.Int).Mul(big.NewInt(10), util.AttovPerVite),
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
@@ -74,5 +75,6 @@ var (
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
 		GetRewardTimeLimit:               3600,
+		pledgeAmountMin:                  new(big.Int).Mul(big.NewInt(134), util.AttovPerVite),
 	}
 )
