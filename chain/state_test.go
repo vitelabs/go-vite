@@ -56,7 +56,7 @@ func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*A
 		GetVmLogList(chainInstance, accounts)
 	})
 
-	t.Run("GetQuotaUsed", func(t *testing.T) {
+	t.Run("GetQuotaUsedList", func(t *testing.T) {
 		GetQuotaUsed(chainInstance, accounts)
 	})
 

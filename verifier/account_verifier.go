@@ -411,7 +411,7 @@ func (v *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBloc
 		return errors.New("Height")
 	}
 	if !bytes.Equal(origBlock.Data, genBlock.Data) {
-		return errors.New("data")
+		return errors.New("Data")
 	}
 	if !bytes.Equal(origBlock.Nonce, genBlock.Nonce) {
 		return errors.New("Nonce")
@@ -422,6 +422,10 @@ func (v *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBloc
 	if origBlock.LogHash != nil && genBlock.LogHash != nil && *origBlock.LogHash != *genBlock.LogHash {
 		return errors.New("LogHash")
 	}
+	/* fixme
+	if origBlock.QuotaUsed != genBlock.QuotaUsed {
+		return errors.New("QuotaUsed")
+	}*/
 
 	if origBlock.IsSendBlock() {
 		if origBlock.Fee.Cmp(genBlock.Fee) != 0 {

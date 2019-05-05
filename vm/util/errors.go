@@ -41,6 +41,7 @@ var (
 	ErrBlockQuotaLimitReached   = VMError{"quota limit for block reached", true}
 	ErrAccountQuotaLimitReached = VMError{"quota limit for account reached", true}
 	ErrOutOfQuota               = VMError{"out of quota", true}
+	ErrInvalidUnconfirmedQuota  = VMError{"calc quota failed, invalid unconfirmed quota", true}
 
 	ErrStackLimitReached      = VMError{"stack limit reached", true}
 	ErrStackUnderflow         = VMError{"stack underflow", true}
