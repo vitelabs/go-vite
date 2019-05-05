@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/quota"
 )
 
 func (c *chain) GetAllUnconfirmedBlocks() []*ledger.AccountBlock {
@@ -50,7 +51,7 @@ func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBl
 	invalidHashSet := make(map[types.Hash]struct{})
 
 	quotaUsedCache := make(map[types.Address]uint64)
-	quotaTotalCache := make(map[types.Address]uint64)
+	quotaUnusedCache := make(map[types.Address]uint64)
 
 	for _, block := range blocks {
 
@@ -65,29 +66,37 @@ func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBl
 			if _, ok := invalidHashSet[block.FromBlockHash]; ok {
 				valid = false
 			}
-			// quota
-		} else if enough, err := c.checkQuota(quotaTotalCache, quotaUsedCache, block); err != nil {
-			cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
-			c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-			return invalidBlocks
-			// quota
-		} else if !enough {
-			valid = false
-			// consensus
-		} else if checkConsensus {
-			if isContract, err := c.IsContractAccount(addr); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
+			// quota & consensus
+		} else {
+			// reset quota
+			var err error
+			block.Quota, err = quota.CalcBlockQuota(c, block)
+
+			if err != nil {
+				panic(errors.New(fmt.Sprintf("quota.CalcBlockQuota failed when filterUnconfirmedBlocks. Error: %s", err)))
+			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
 				return invalidBlocks
-			} else if isContract {
-				ok, err := c.consensus.VerifyAccountProducer(block)
-				if err != nil {
-					cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
+				// quota
+			} else if !enough {
+				valid = false
+				// consensus
+			} else if checkConsensus {
+				if isContract, err := c.IsContractAccount(addr); err != nil {
+					cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
 					c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
 					return invalidBlocks
-				}
-				if !ok {
-					valid = false
+				} else if isContract {
+					ok, err := c.consensus.VerifyAccountProducer(block)
+					if err != nil {
+						cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
+						c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
+						return invalidBlocks
+					}
+					if !ok {
+						valid = false
+					}
 				}
 			}
 		}
@@ -108,34 +117,27 @@ func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBl
 	return invalidBlocks
 }
 
-func (c *chain) checkQuota(quotaTotalCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock) (bool, error) {
-	quotaTotal, ok := quotaTotalCache[block.AccountAddress]
+func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock) (bool, error) {
+	// get quota total
+	quotaUnused, ok := quotaUnusedCache[block.AccountAddress]
 	if !ok {
 		quotaInfo, err := c.GetPledgeQuota(block.AccountAddress)
 		if err != nil {
 			return false, err
 		}
-		quotaTotal = quotaInfo.Total()
-		quotaUsed, _ := c.cache.GetSnapshotQuotaUsed(&block.AccountAddress)
 
-		quotaTotalCache[block.AccountAddress] = quotaTotal
-		quotaUsedCache[block.AccountAddress] = quotaUsed
+		quotaUnused = quotaInfo.SnapshotCurrent()
+		quotaUnusedCache[block.AccountAddress] = quotaUnused
+
 	}
+
 	quotaUsedCache[block.AccountAddress] += block.Quota
 
-	if quotaUsedCache[block.AccountAddress] > quotaTotal {
+	if quotaUsedCache[block.AccountAddress] > quotaUnused {
 		return false, nil
 	}
 
 	return true, nil
-}
-
-func blocksToMap(blocks []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
-	blockMap := make(map[types.Address][]*ledger.AccountBlock)
-	for _, block := range blocks {
-		blockMap[block.AccountAddress] = append(blockMap[block.AccountAddress], block)
-	}
-	return blockMap
 }
 
 func (c *chain) computeDependencies(accountBlocks []*ledger.AccountBlock) []*ledger.AccountBlock {

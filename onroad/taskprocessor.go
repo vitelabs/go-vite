@@ -5,7 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"time"
 )
@@ -61,10 +60,6 @@ func (tp *ContractTaskProcessor) work() {
 	tp.log.Info("work end t")
 }
 
-func (tp *ContractTaskProcessor) accEvent() *producerevent.AccountStartEvent {
-	return tp.worker.getAccEvent()
-}
-
 func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canContinue bool) {
 	tp.log.Info("process", "contract", &task.Addr)
 
@@ -78,7 +73,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
 		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err:%v", err))
-		tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
+		// tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return true
 	}
 
@@ -94,7 +89,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true
 	}
-	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.accEvent.Address,
+	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.address,
 		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
 			if err != nil {
@@ -120,8 +115,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return true
 		}
 
-		tp.worker.deletePendingOnRoad(&task.Addr, sBlock)
-
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")
 			tp.worker.addContractIntoBlackList(task.Addr)
@@ -142,18 +135,17 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}
-				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), *q); !canRetryDuringNextSnapshot {
+				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), *q, task.Addr); !canRetryDuringNextSnapshot {
 					blog.Info("Check quota is gone to be insufficient",
-						"quota", fmt.Sprintf("(u:%v c:%v t:%v sb:%v)", q.Used(), q.Current(), q.Total(), addrState.LatestSnapshotHash))
+						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.PledgeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}
 			}
 		} else {
 			// no vmBlock no vmRetry in condition that fail to create contract
-			if err := tp.worker.manager.deleteDirect(sBlock); err != nil {
-				blog.Error(fmt.Sprintf("manager.DeleteDirect, err:%v", err))
-			}
+			blog.Info(fmt.Sprintf("manager.DeleteDirect, contract %v hash %v", task.Addr, sBlock.Hash))
+			tp.worker.manager.deleteDirect(sBlock)
 			tp.worker.addContractIntoBlackList(task.Addr)
 			return false
 		}

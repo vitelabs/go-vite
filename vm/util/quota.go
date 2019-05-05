@@ -77,17 +77,18 @@ func DataGasCost(data []byte) (uint64, error) {
 	return gas, nil
 }
 
-func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) uint64 {
+func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) (q uint64, qUsed uint64) {
 	if !useQuota {
-		return 0
+		return 0, 0
 	}
+	qUsed = quotaTotal - quotaLeft
 	if vmErr, ok := err.(VMError); ok && vmErr.CostAllGas() {
-		return quotaTotal - quotaAddition
+		return quotaTotal - quotaAddition, qUsed
 	} else {
 		if quotaTotal-quotaLeft < quotaAddition {
-			return 0
+			return 0, qUsed
 		} else {
-			return quotaTotal - quotaAddition - quotaLeft
+			return quotaTotal - quotaAddition - quotaLeft, qUsed
 		}
 	}
 }

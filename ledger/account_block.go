@@ -37,20 +37,25 @@ type AccountBlock struct {
 	PublicKey ed25519.PublicKey `json:"publicKey"`
 	ToAddress types.Address     `json:"toAddress"` // 5
 
-	Amount  *big.Int          `json:"amount"`  // 6	padding 32 bytes
+	Amount *big.Int `json:"amount"` // 6	padding 32 bytes
+
 	TokenId types.TokenTypeId `json:"tokenId"` // 7
 
 	FromBlockHash types.Hash `json:"fromBlockHash"` // 8
 
 	Data []byte `json:"data"` // 9	hash
 
-	Quota uint64   `json:"quota"`
-	Fee   *big.Int `json:"fee"` // 10 padding 32 bytes
+	Quota uint64 `json:"quota"`
+
+	QuotaUsed uint64 `json:"quotaUsed"`
+
+	Fee *big.Int `json:"fee"` // 10 padding 32 bytes
 
 	LogHash *types.Hash `json:"logHash"` // 11
 
 	Difficulty *big.Int `json:"difficulty"`
-	Nonce      []byte   `json:"nonce"` // 12 padding 8 bytes
+
+	Nonce []byte `json:"nonce"` // 12 padding 8 bytes
 
 	SendBlockList []*AccountBlock `json:"sendBlockList"` // 13
 
@@ -268,6 +273,9 @@ func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
 	// 12
 	pb.Quota = ab.Quota
 
+	// 20
+	pb.QuotaUsed = ab.QuotaUsed
+
 	if ab.Fee != nil {
 		// 13
 		pb.Fee = ab.Fee.Bytes()
@@ -344,6 +352,9 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 
 	// 12
 	ab.Quota = pb.Quota
+
+	// 20
+	ab.QuotaUsed = pb.QuotaUsed
 
 	// 13
 	ab.Fee = big.NewInt(0)
