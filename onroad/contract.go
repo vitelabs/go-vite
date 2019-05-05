@@ -248,8 +248,9 @@ func (w *ContractWorker) clearContractBlackList() {
 // Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
 	w.blackListMutex.Lock()
-	defer w.blackListMutex.Unlock()
 	w.blackList[addr] = true
+	w.blackListMutex.Unlock()
+
 	w.selectivePendingCache.Delete(addr)
 }
 
