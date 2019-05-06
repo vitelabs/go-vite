@@ -380,7 +380,6 @@ func (bcp *BCPool) loopAppendChains() int {
 		forky, insertable, c, err := bcp.chainpool.fork2(w, tmpChains, bcp.blockpool)
 		if err != nil {
 			bcp.delSnippet(w)
-			bcp.log.Error("fork to error.", "err", err)
 			continue
 		}
 		if forky {
