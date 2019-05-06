@@ -25,7 +25,7 @@ const minHeightDifference = 1000
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 1
 const chainGrowInterval = time.Second
-const syncTaskSize = 3600
+const syncTaskSize = 300
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
