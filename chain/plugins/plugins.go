@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -16,7 +14,6 @@ import (
 const roundSize = uint64(10)
 
 type Plugins struct {
-	id      types.Hash
 	dataDir string
 
 	log     log15.Logger
@@ -28,14 +25,9 @@ type Plugins struct {
 func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	var err error
 
-	id, err := types.BytesToHash(crypto.Hash256([]byte("plugins")))
-	if err != nil {
-		return nil, err
-	}
-
 	dataDir := path.Join(chainDir, "plugins")
 
-	store, err := chain_db.NewStore(dataDir, id)
+	store, err := chain_db.NewStore(dataDir, "plugins")
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +38,6 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}
 
 	return &Plugins{
-		id:      id,
 		dataDir: dataDir,
 		chain:   chain,
 		store:   store,
@@ -65,7 +56,7 @@ func (p *Plugins) RebuildData() error {
 	os.RemoveAll(p.dataDir)
 
 	// set new store
-	store, err := chain_db.NewStore(p.dataDir, p.id)
+	store, err := chain_db.NewStore(p.dataDir, "plugins")
 	if err != nil {
 		return err
 	}
@@ -78,7 +69,7 @@ func (p *Plugins) RebuildData() error {
 
 	// replace flusher store
 	flusher := p.chain.Flusher()
-	flusher.ReplaceStore(p.id, store)
+	flusher.ReplaceStore(p.store.Id(), store)
 
 	// get latest snapshot block
 	latestSnapshot := p.chain.GetLatestSnapshotBlock()

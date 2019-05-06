@@ -66,7 +66,8 @@ func (redoCache *RedoCache) SetCurrent(snapshotHeight uint64, snapshotLog Snapsh
 
 	redoCache.currentHeight = snapshotHeight
 	redoCache.snapshotLogMap[snapshotHeight] = snapshotLog
-	if uint64(len(redoCache.snapshotLogMap)) > redoCache.retainHeightGap {
+	if uint64(len(redoCache.snapshotLogMap)) > redoCache.retainHeightGap &&
+		snapshotHeight > redoCache.retainHeightGap {
 		staleHeight := snapshotHeight - redoCache.retainHeightGap
 
 		for height := range redoCache.snapshotLogMap {
