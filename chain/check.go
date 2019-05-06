@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -162,4 +163,53 @@ func (c *chain) CheckRecentBlocks() error {
 	}
 
 	return nil
+}
+
+func (c *chain) CheckOnRoad() error {
+	indexStore := c.indexDB.Store()
+	iter := indexStore.NewIterator(util.BytesPrefix([]byte{chain_utils.OnRoadKeyPrefix}))
+
+	onRoadCount := 0
+
+	for iter.Next() {
+		onRoadCount++
+		key := iter.Key()
+		toAddrBytes := key[1 : 1+types.AddressSize]
+		sendBlockHashBytes := key[1+types.AddressSize:]
+
+		toAddr, err := types.BytesToAddress(toAddrBytes)
+		if err != nil {
+			return errors.New(fmt.Sprintf("types.BytesToAddress failed, toAddrBytes is %d", toAddrBytes))
+		}
+
+		sendBlockHash, err := types.BytesToHash(sendBlockHashBytes)
+		if err != nil {
+			return errors.New(fmt.Sprintf("types.HexToHash failed, sendBlockHashBytes is %d", sendBlockHashBytes))
+		}
+
+		existed, err := c.IsAccountBlockExisted(sendBlockHash)
+		if err != nil {
+			return errors.New(fmt.Sprintf("c.IsAccountBlockExisted failed, sendBlockHash is %s", sendBlockHash))
+		}
+		if !existed {
+			return errors.New(fmt.Sprintf("send block is not exsited, sendBlockHash is %s", sendBlockHash))
+		}
+
+		received, err := c.IsReceived(sendBlockHash)
+		if err != nil {
+			return errors.New(fmt.Sprintf("c.IsReceived failed, sendBlockHash is %s", sendBlockHash))
+		}
+		if received {
+			return errors.New(fmt.Sprintf("is received, sendBlockHash is %s", sendBlockHash))
+		}
+
+		c.log.Info(fmt.Sprintf("check on road, to addr is %s, send block hash is %s", toAddr, sendBlockHash), "method", "checkOnRoad")
+	}
+
+	c.log.Info(fmt.Sprintf("total onroad: %d", onRoadCount), "method", "checkOnRoad")
+	err := iter.Error()
+	iter.Release()
+
+	return err
+
 }
