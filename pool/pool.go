@@ -158,16 +158,16 @@ type pool struct {
 	hashBlacklist Blacklist
 }
 
-func (self *pool) Snapshot() map[string]interface{} {
-	return self.pendingSc.info()
+func (pl *pool) Snapshot() map[string]interface{} {
+	return pl.pendingSc.info()
 }
-func (self *pool) SnapshotPendingNum() uint64 {
-	return self.pendingSc.CurrentChain().Size()
+func (pl *pool) SnapshotPendingNum() uint64 {
+	return pl.pendingSc.CurrentChain().Size()
 }
 
-func (self *pool) AccountPendingNum() *big.Int {
+func (pl *pool) AccountPendingNum() *big.Int {
 	result := big.NewInt(0)
-	self.pendingAc.Range(func(_, v interface{}) bool {
+	pl.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
 		size := p.CurrentChain().Size()
 		if size > 0 {
@@ -178,16 +178,16 @@ func (self *pool) AccountPendingNum() *big.Int {
 	return result
 }
 
-func (self *pool) Account(addr types.Address) map[string]interface{} {
-	return self.selfPendingAc(addr).info()
+func (pl *pool) Account(addr types.Address) map[string]interface{} {
+	return pl.selfPendingAc(addr).info()
 }
 
-func (self *pool) SnapshotChainDetail(chainId string) map[string]interface{} {
-	return self.pendingSc.detailChain(chainId)
+func (pl *pool) SnapshotChainDetail(chainId string) map[string]interface{} {
+	return pl.pendingSc.detailChain(chainId)
 }
 
-func (self *pool) AccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
-	return self.selfPendingAc(addr).detailChain(chainId)
+func (pl *pool) AccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
+	return pl.selfPendingAc(addr).detailChain(chainId)
 }
 
 func NewPool(bc chainDb) (*pool, error) {
@@ -209,32 +209,32 @@ func NewPool(bc chainDb) (*pool, error) {
 	return self, nil
 }
 
-func (self *pool) Init(s syncer,
+func (pl *pool) Init(s syncer,
 	wt *wallet.Manager,
 	snapshotV *verifier.SnapshotVerifier,
 	accountV verifier.Verifier,
 	cs consensus.Consensus) {
-	self.sync = s
-	self.wt = wt
-	rw := &snapshotCh{version: self.version, bc: self.bc, log: self.log}
-	fe := &snapshotSyncer{fetcher: s, log: self.log.New("t", "snapshot")}
+	pl.sync = s
+	pl.wt = wt
+	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
+	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
-	self.accountVerifier = accountV
-	snapshotPool := newSnapshotPool("snapshotPool", self.version, v, fe, rw, self.hashBlacklist, self.newSnapshotBlockCond, self.log)
+	pl.accountVerifier = accountV
+	snapshotPool := newSnapshotPool("snapshotPool", pl.version, v, fe, rw, pl.hashBlacklist, pl.newSnapshotBlockCond, pl.log)
 	snapshotPool.init(
 		newTools(fe, rw),
-		self)
+		pl)
 
-	self.bc.SetConsensus(cs)
-	self.pendingSc = snapshotPool
-	self.stat = (&recoverStat{}).init(10, time.Second*10)
-	self.worker.init()
+	pl.bc.SetConsensus(cs)
+	pl.pendingSc = snapshotPool
+	pl.stat = (&recoverStat{}).init(10, time.Second*10)
+	pl.worker.init()
 
 }
-func (self *pool) Info(addr *types.Address) string {
+func (pl *pool) Info(addr *types.Address) string {
 	if addr == nil {
-		bp := self.pendingSc.blockpool
-		cp := self.pendingSc.chainpool
+		bp := pl.pendingSc.blockpool
+		cp := pl.pendingSc.chainpool
 
 		freeSize := len(bp.freeBlocks)
 		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
@@ -245,7 +245,7 @@ func (self *pool) Info(addr *types.Address) string {
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	} else {
-		ac := self.selfPendingAc(*addr)
+		ac := pl.selfPendingAc(*addr)
 		if ac == nil {
 			return "pool not exist."
 		}
@@ -262,8 +262,8 @@ func (self *pool) Info(addr *types.Address) string {
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
 }
-func (self *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
-	b, s := self.selfPendingAc(addr).blockpool.sprint(hash)
+func (pl *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
+	b, s := pl.selfPendingAc(addr).blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*accountPoolBlock)
 		return sb.block
@@ -274,8 +274,8 @@ func (self *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interfac
 	return nil
 }
 
-func (self *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
-	b, s := self.pendingSc.blockpool.sprint(hash)
+func (pl *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
+	b, s := pl.pendingSc.blockpool.sprint(hash)
 	if b != nil {
 		sb := b.(*snapshotPoolBlock)
 		return sb.block
@@ -286,130 +286,130 @@ func (self *pool) SnapshotBlockInfo(hash types.Hash) interface{} {
 	return nil
 }
 
-func (self *pool) Start() {
-	self.log.Info("pool start.")
-	defer self.log.Info("pool started.")
-	self.closed = make(chan struct{})
+func (pl *pool) Start() {
+	pl.log.Info("pool start.")
+	defer pl.log.Info("pool started.")
+	pl.closed = make(chan struct{})
 
-	self.accountSubId = self.sync.SubscribeAccountBlock(self.AddAccountBlock)
-	self.snapshotSubId = self.sync.SubscribeSnapshotBlock(self.AddSnapshotBlock)
+	pl.accountSubId = pl.sync.SubscribeAccountBlock(pl.AddAccountBlock)
+	pl.snapshotSubId = pl.sync.SubscribeSnapshotBlock(pl.AddSnapshotBlock)
 
-	self.pendingSc.Start()
+	pl.pendingSc.Start()
 
-	self.newSnapshotBlockCond.Start(time.Millisecond * 30)
-	self.newAccBlockCond.Start(time.Millisecond * 40)
-	self.worker.closed = self.closed
+	pl.newSnapshotBlockCond.Start(time.Millisecond * 30)
+	pl.newAccBlockCond.Start(time.Millisecond * 40)
+	pl.worker.closed = pl.closed
 	common.Go(func() {
-		self.wg.Add(1)
-		defer self.wg.Done()
-		self.worker.work()
+		pl.wg.Add(1)
+		defer pl.wg.Done()
+		pl.worker.work()
 	})
 }
-func (self *pool) Stop() {
-	self.log.Info("pool stop.")
-	defer self.log.Info("pool stopped.")
-	self.sync.UnsubscribeAccountBlock(self.accountSubId)
-	self.accountSubId = 0
-	self.sync.UnsubscribeSnapshotBlock(self.snapshotSubId)
-	self.snapshotSubId = 0
+func (pl *pool) Stop() {
+	pl.log.Info("pool stop.")
+	defer pl.log.Info("pool stopped.")
+	pl.sync.UnsubscribeAccountBlock(pl.accountSubId)
+	pl.accountSubId = 0
+	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubId)
+	pl.snapshotSubId = 0
 
-	self.pendingSc.Stop()
-	close(self.closed)
-	self.newAccBlockCond.Stop()
-	self.newSnapshotBlockCond.Stop()
-	self.wg.Wait()
+	pl.pendingSc.Stop()
+	close(pl.closed)
+	pl.newAccBlockCond.Stop()
+	pl.newSnapshotBlockCond.Stop()
+	pl.wg.Wait()
 }
 
-func (self *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
+func (pl *pool) AddSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
 
-	self.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
-	if self.bc.IsGenesisSnapshotBlock(block.Hash) {
+	pl.log.Info("receive snapshot block from network. height:" + strconv.FormatUint(block.Height, 10) + ", hash:" + block.Hash.String() + ".")
+	if pl.bc.IsGenesisSnapshotBlock(block.Hash) {
 		return
 	}
 
-	err := self.pendingSc.v.verifySnapshotData(block)
+	err := pl.pendingSc.v.verifySnapshotData(block)
 	if err != nil {
-		self.log.Error("snapshot error", "err", err, "height", block.Height, "hash", block.Hash)
+		pl.log.Error("snapshot error", "err", err, "height", block.Height, "hash", block.Hash)
 		return
 	}
-	self.pendingSc.AddBlock(newSnapshotPoolBlock(block, self.version, source))
+	pl.pendingSc.addBlock(newSnapshotPoolBlock(block, pl.version, source))
 
-	self.newSnapshotBlockCond.Broadcast()
-	self.worker.bus.newSBlockEvent()
+	pl.newSnapshotBlockCond.Broadcast()
+	pl.worker.bus.newSBlockEvent()
 }
 
-func (self *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
-	defer self.version.Inc()
-	err := self.pendingSc.v.verifySnapshotData(block)
+func (pl *pool) AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error {
+	defer pl.version.Inc()
+	err := pl.pendingSc.v.verifySnapshotData(block)
 	if err != nil {
 		return err
 	}
-	cBlock := newSnapshotPoolBlock(block, self.version, types.Local)
-	abs, err := self.pendingSc.AddDirectBlock(cBlock)
+	cBlock := newSnapshotPoolBlock(block, pl.version, types.Local)
+	abs, err := pl.pendingSc.AddDirectBlock(cBlock)
 	if err != nil {
 		return err
 	}
-	self.pendingSc.checkCurrent()
-	self.pendingSc.f.broadcastBlock(block)
+	pl.pendingSc.checkCurrent()
+	pl.pendingSc.f.broadcastBlock(block)
 	if abs == nil || len(abs) == 0 {
 		return nil
 	}
 
 	for k, v := range abs {
-		err := self.selfPendingAc(k).rollbackCurrent(v)
+		err := pl.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
 			return err
 		}
-		self.selfPendingAc(k).checkCurrent()
+		pl.selfPendingAc(k).checkCurrent()
 	}
 	return nil
 }
 
-func (self *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
-	self.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
-	if self.bc.IsGenesisAccountBlock(block.Hash) {
+func (pl *pool) AddAccountBlock(address types.Address, block *ledger.AccountBlock, source types.BlockSource) {
+	pl.log.Info(fmt.Sprintf("receive account block from network. addr:%s, height:%d, hash:%s.", address, block.Height, block.Hash))
+	if pl.bc.IsGenesisAccountBlock(block.Hash) {
 		return
 	}
-	ac := self.selfPendingAc(address)
-	ac.AddBlock(newAccountPoolBlock(block, nil, self.version, source))
+	ac := pl.selfPendingAc(address)
+	ac.addBlock(newAccountPoolBlock(block, nil, pl.version, source))
 
-	self.newAccBlockCond.Broadcast()
-	self.worker.bus.newABlockEvent()
+	pl.newAccBlockCond.Broadcast()
+	pl.worker.bus.newABlockEvent()
 }
 
-func (self *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
-	self.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
+func (pl *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
+	pl.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
-	self.RLockInsert()
-	defer self.RUnLockInsert()
+	pl.RLockInsert()
+	defer pl.RUnLockInsert()
 
-	ac := self.selfPendingAc(address)
+	ac := pl.selfPendingAc(address)
 
 	err := ac.v.verifyAccountData(block.AccountBlock)
 	if err != nil {
-		self.log.Error("account err", "err", err, "height", block.AccountBlock.Height, "hash", block.AccountBlock.Hash, "addr", address)
+		pl.log.Error("account err", "err", err, "height", block.AccountBlock.Height, "hash", block.AccountBlock.Hash, "addr", address)
 		return err
 	}
 
-	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmDb, self.version, types.Local)
+	cBlock := newAccountPoolBlock(block.AccountBlock, block.VmDb, pl.version, types.Local)
 	err = ac.AddDirectBlocks(cBlock)
 	if err != nil {
 		return err
 	}
 	ac.f.broadcastBlock(block.AccountBlock)
-	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
+	pl.addrCache.Add(address, time.Now().Add(time.Hour*24))
 	return nil
 
 }
-func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock, source types.BlockSource) error {
+func (pl *pool) AddAccountBlocks(address types.Address, blocks []*ledger.AccountBlock, source types.BlockSource) error {
 	defer monitor.LogTime("pool", "addAccountArr", time.Now())
 
 	for _, b := range blocks {
-		self.AddAccountBlock(address, b, source)
+		pl.AddAccountBlock(address, b, source)
 	}
 
-	self.newAccBlockCond.Broadcast()
-	self.worker.bus.newABlockEvent()
+	pl.newAccBlockCond.Broadcast()
+	pl.worker.bus.newABlockEvent()
 	return nil
 }
 
@@ -434,20 +434,20 @@ func (self *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Accou
 //	return nil
 //}
 
-func (self *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
+func (pl *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
 	for k, v := range accounts {
-		err := self.selfPendingAc(k).rollbackCurrent(v)
+		err := pl.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
 			return err
 		}
-		self.selfPendingAc(k).checkCurrent()
+		pl.selfPendingAc(k).checkCurrent()
 	}
 	return nil
 }
 
-func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
-	this := self.selfPendingAc(addr)
+func (pl *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
+	this := pl.selfPendingAc(addr)
 	this.chainHeadMu.Lock()
 	defer this.chainHeadMu.Unlock()
 	this.chainTailMu.Lock()
@@ -457,12 +457,12 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	targetChain := this.findInTree(h.Hash, h.Height)
 
 	if targetChain == nil {
-		self.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
-			"currentId", this.CurrentChain().Id(), "Tail", this.CurrentChain().SprintTail(), "Head", this.CurrentChain().SprintHead())
+		pl.log.Info("CurrentModifyToEmpty", "addr", addr, "hash", h.Hash, "height", h.Height,
+			"currentId", this.CurrentChain().ID(), "Tail", this.CurrentChain().SprintTail(), "Head", this.CurrentChain().SprintHead())
 		err := this.CurrentModifyToEmpty()
 		return err
 	}
-	if targetChain.Id() == this.CurrentChain().Id() {
+	if targetChain.ID() == this.CurrentChain().ID() {
 		return nil
 	}
 	cu := this.CurrentChain()
@@ -473,24 +473,24 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	}
 	if keyPoint == nil {
 		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTail:%s, currentTail:%s",
-			targetChain.Id(), cu.Id(), targetChain.SprintTail(), cu.SprintTail())
+			targetChain.ID(), cu.ID(), targetChain.SprintTail(), cu.SprintTail())
 	}
 	// fork point in disk chain
 	if forkPoint.Height() <= curTailHeight {
-		self.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+		pl.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.ID(),
 			"targetChainTail", targetChain.SprintTail(),
 			"targetChainHead", targetChain.SprintHead(),
 			"keyPoint", keyPoint.Height(),
-			"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintTail())
-		err := self.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
+			"currentId", cu.ID(), "Tail", cu.SprintTail(), "Head", cu.SprintTail())
+		err := pl.RollbackAccountTo(addr, keyPoint.Hash(), keyPoint.Height())
 		if err != nil {
 			return err
 		}
 	}
 
-	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
+	pl.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.ID(),
 		"targetChainTail", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
-		"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintHead())
+		"currentId", cu.ID(), "Tail", cu.SprintTail(), "Head", cu.SprintHead())
 	err = this.CurrentModifyToChain(targetChain)
 	if err != nil {
 		return err
@@ -498,8 +498,8 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	return nil
 }
 
-func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error {
-	p := self.selfPendingAc(addr)
+func (pl *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error {
+	p := pl.selfPendingAc(addr)
 
 	// del some blcoks
 	snapshots, accounts, e := p.rw.delToHeight(height)
@@ -508,186 +508,84 @@ func (self *pool) RollbackAccountTo(addr types.Address, hash types.Hash, height 
 	}
 
 	// rollback snapshot chain in pool
-	err := self.pendingSc.rollbackCurrent(snapshots)
+	err := pl.pendingSc.rollbackCurrent(snapshots)
 	if err != nil {
 		return err
 	}
 
-	self.pendingSc.checkCurrent()
+	pl.pendingSc.checkCurrent()
 	// rollback accounts chain in pool
 	for k, v := range accounts {
-		err = self.selfPendingAc(k).rollbackCurrent(v)
+		err = pl.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
 			return err
 		}
-		self.selfPendingAc(k).checkCurrent()
+		pl.selfPendingAc(k).checkCurrent()
 	}
 	return err
 }
 
-func (self *pool) selfPendingAc(addr types.Address) *accountPool {
-	chain, ok := self.pendingAc.Load(addr)
+func (pl *pool) selfPendingAc(addr types.Address) *accountPool {
+	chain, ok := pl.pendingAc.Load(addr)
 
 	if ok {
 		return chain.(*accountPool)
 	}
 
 	// lazy load
-	rw := &accountCh{address: addr, rw: self.bc, version: self.version, log: self.log.New("account", addr)}
-	f := &accountSyncer{address: addr, fetcher: self.sync, log: self.log.New()}
-	v := &accountVerifier{v: self.accountVerifier, log: self.log.New()}
-	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, self.version, self.hashBlacklist, self.log)
+	rw := &accountCh{address: addr, rw: pl.bc, version: pl.version, log: pl.log.New("account", addr)}
+	f := &accountSyncer{address: addr, fetcher: pl.sync, log: pl.log.New()}
+	v := &accountVerifier{v: pl.accountVerifier, log: pl.log.New()}
+	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, pl.version, pl.hashBlacklist, pl.log)
 	p.address = addr
-	p.Init(newTools(f, rw), self, v, f)
+	p.Init(newTools(f, rw), pl, v, f)
 
-	chain, _ = self.pendingAc.LoadOrStore(addr, p)
+	chain, _ = pl.pendingAc.LoadOrStore(addr, p)
 	return chain.(*accountPool)
 }
 
-func (self *pool) ReadDownloadedChunks() *net.Chunk {
-	chunk := self.sync.Peek()
+func (pl *pool) ReadDownloadedChunks() *net.Chunk {
+	chunk := pl.sync.Peek()
 	return chunk
 }
 
-func (self *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
-	self.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
-	self.sync.Pop(hashH.Hash)
+func (pl *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
+	pl.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
+	pl.sync.Pop(hashH.Hash)
 }
 
-//func (self *pool) loopTryInsert() {
-//	defer self.poolRecover()
-//	self.wg.Add(1)
-//	defer self.wg.Done()
-//
-//	t := time.NewTicker(time.Millisecond * 100)
-//	t2 := time.NewTicker(time.Millisecond * 40)
-//	defer t.Stop()
-//	sum := 0
-//	for {
-//		select {
-//		case <-self.closed:
-//			return
-//		case <-t.C:
-//			if sum == 0 {
-//				time.Sleep(100 * time.Millisecond)
-//				monitor.LogEvent("pool", "tryInsertSleep100")
-//			}
-//			sum = 0
-//			sum += self.accountsTryInsert()
-//		case <-t2.C:
-//			if sum == 0 {
-//				time.Sleep(20 * time.Millisecond)
-//				monitor.LogEvent("pool", "tryInsertSleep20")
-//			}
-//			sum = 0
-//			sum += self.accountsTryInsert()
-//		default:
-//			sum += self.accountsTryInsert()
-//		}
-//	}
-//}
-
-//func (self *pool) accountsTryInsert() int {
-//	monitor.LogEvent("pool", "tryInsert")
-//	sum := 0
-//	var db []*accountPool
-//	self.pendingAc.Range(func(_, v interface{}) bool {
-//		p := v.(*accountPool)
-//		db = append(db, p)
-//		return true
-//	})
-//	var tasks []verifyTask
-//	for _, p := range db {
-//		task := p.TryInsert()
-//		if task != nil {
-//			self.fetchForTask(task)
-//			tasks = append(tasks, task)
-//			sum = sum + 1
-//		}
-//	}
-//	return sum
-//}
-
-func (self *pool) loopCompact() {
-	defer self.poolRecover()
-	self.wg.Add(1)
-	defer self.wg.Done()
+func (pl *pool) loopCompact() {
+	pl.wg.Add(1)
+	defer pl.wg.Done()
 
 	sum := 0
 	for {
 		select {
-		case <-self.closed:
+		case <-pl.closed:
 			return
 		default:
 			if sum == 0 {
-				self.newAccBlockCond.Wait()
+				pl.newAccBlockCond.Wait()
 			}
 			sum = 0
-			sum += self.accountsCompact()
+			sum += pl.accountsCompact()
 		}
 	}
 }
-func (self *pool) poolRecover() {
-	//if err := recover(); err != nil {
-	//	var e error
-	//	switch t := err.(type) {
-	//	case error:
-	//		e = errors.WithStack(t)
-	//	case string:
-	//		e = errors.New(t)
-	//	default:
-	//		e = errors.Errorf("unknown type, %+v", err)
-	//	}
-	//
-	//	self.log.Error("panic", "err", err, "withstack", fmt.Sprintf("%+v", e))
-	//	fmt.Printf("%+v", e)
-	//	if self.stat.inc() {
-	//		common.Go(self.Restart)
-	//	} else {
-	//		panic(e)
-	//	}
-	//}
-}
 
-//func (self *pool) loopBroadcastAndDel() {
-//	defer self.poolRecover()
-//	self.wg.Add(1)
-//	defer self.wg.Done()
-//
-//	broadcastT := time.NewTicker(time.Second * 30)
-//	delUselessChainT := time.NewTicker(time.Minute)
-//
-//	defer broadcastT.Stop()
-//	for {
-//		select {
-//		case <-self.closed:
-//			return
-//		case <-broadcastT.C:
-//			addrList := self.listPoolRelAddr()
-//			// todo all unconfirmed
-//			for _, addr := range addrList {
-//				self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
-//			}
-//		case <-delUselessChainT.C:
-//			// del some useless chain in pool
-//			self.delUseLessChains()
-//		}
-//	}
-//}
-
-func (self *pool) broadcastUnConfirmedBlocks() {
-	addrList := self.listPoolRelAddr()
+func (pl *pool) broadcastUnConfirmedBlocks() {
+	addrList := pl.listPoolRelAddr()
 	// todo all unconfirmed
 	for _, addr := range addrList {
-		self.selfPendingAc(addr).broadcastUnConfirmedBlocks()
+		pl.selfPendingAc(addr).broadcastUnConfirmedBlocks()
 	}
 }
 
-func (self *pool) delUseLessChains() {
-	if self.sync.SyncState() != net.Syncing {
-		self.pendingSc.loopDelUselessChain()
+func (pl *pool) delUseLessChains() {
+	if pl.sync.SyncState() != net.Syncing {
+		pl.pendingSc.loopDelUselessChain()
 		var pendings []*accountPool
-		self.pendingAc.Range(func(_, v interface{}) bool {
+		pl.pendingAc.Range(func(_, v interface{}) bool {
 			p := v.(*accountPool)
 			pendings = append(pendings, p)
 			return true
@@ -698,16 +596,16 @@ func (self *pool) delUseLessChains() {
 	}
 }
 
-func (self *pool) listPoolRelAddr() []types.Address {
+func (pl *pool) listPoolRelAddr() []types.Address {
 	var todoAddress []types.Address
-	keys := self.addrCache.Keys()
+	keys := pl.addrCache.Keys()
 	now := time.Now()
 	for _, k := range keys {
-		value, ok := self.addrCache.Get(k)
+		value, ok := pl.addrCache.Get(k)
 		if ok {
 			t := value.(time.Time)
 			if t.Before(now) {
-				self.addrCache.Remove(k)
+				pl.addrCache.Remove(k)
 			} else {
 				todoAddress = append(todoAddress, k.(types.Address))
 			}
@@ -715,20 +613,20 @@ func (self *pool) listPoolRelAddr() []types.Address {
 	}
 	return todoAddress
 }
-func (self *pool) compact() int {
+func (pl *pool) compact() int {
 	sum := 0
-	sum += self.accountsCompact()
-	sum += self.pendingSc.loopCompactSnapshot()
+	sum += pl.accountsCompact()
+	sum += pl.pendingSc.loopCompactSnapshot()
 	return sum
 }
-func (self *pool) snapshotCompact() int {
-	return self.pendingSc.loopCompactSnapshot()
+func (pl *pool) snapshotCompact() int {
+	return pl.pendingSc.loopCompactSnapshot()
 }
 
-func (self *pool) accountsCompact() int {
+func (pl *pool) accountsCompact() int {
 	sum := 0
 	var pendings []*accountPool
-	self.pendingAc.Range(func(_, v interface{}) bool {
+	pl.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
 		pendings = append(pendings, p)
 		return true
@@ -741,7 +639,7 @@ func (self *pool) accountsCompact() int {
 	}
 	return sum
 }
-func (self *pool) fetchForTask(task verifyTask) {
+func (pl *pool) fetchForTask(task verifyTask) {
 	reqs := task.requests()
 	if len(reqs) <= 0 {
 		return
@@ -750,63 +648,38 @@ func (self *pool) fetchForTask(task verifyTask) {
 	for _, r := range reqs {
 		exist := false
 		if r.snapshot {
-			exist = self.pendingSc.existInPool(r.hash)
+			exist = pl.pendingSc.existInPool(r.hash)
 		} else {
 			if r.chain != nil {
-				exist = self.selfPendingAc(*r.chain).existInPool(r.hash)
+				exist = pl.selfPendingAc(*r.chain).existInPool(r.hash)
 			}
 		}
 		if exist {
-			self.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
+			pl.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
 			continue
 		}
 
 		if r.snapshot {
-			self.pendingSc.f.fetchByHash(r.hash, 5)
+			pl.pendingSc.f.fetchByHash(r.hash, 5)
 		} else {
 			// todo
-			self.sync.FetchAccountBlocks(r.hash, 5, r.chain)
-			//self.selfPendingAc(*r.chain).f.fetchByHash(r.hash, 5)
+			pl.sync.FetchAccountBlocks(r.hash, 5, r.chain)
 		}
 	}
 	return
 }
-func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
-	//self.log.Debug("try to delete timeout unconfirmed blocks.", "addr", addr)
-	//headSnapshot := self.pendingSc.rw.headSnapshot()
-	//ac := self.selfPendingAc(addr)
-	//firstUnconfirmedBlock := ac.rw.getFirstUnconfirmedBlock(headSnapshot)
-	//if firstUnconfirmedBlock == nil {
-	//	return
-	//}
-	//self.log.Debug("account block unconfirmed.", "acc", addr, "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
-	//referSnapshot := self.pendingSc.rw.getSnapshotBlockByHash(firstUnconfirmedBlock.SnapshotHash)
-	//
-	//// verify account timeout
-	//if !self.pendingSc.v.verifyAccountTimeout(headSnapshot, referSnapshot) {
-	//	self.log.Info("account block timeout, rollback", "hash", firstUnconfirmedBlock.Hash, "height", firstUnconfirmedBlock.Height)
-	//	self.Lock()
-	//	defer self.Unlock()
-	//	err := self.RollbackAccountTo(addr, firstUnconfirmedBlock.Hash, firstUnconfirmedBlock.Height)
-	//	if err != nil {
-	//		self.log.Error("rollback account fail.", "err", err)
-	//	} else {
-	//		self.selfPendingAc(addr).CurrentModifyToEmpty()
-	//	}
-	//}
-}
 
-func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
+func (pl *pool) checkBlock(block *snapshotPoolBlock) bool {
 	fail := block.failStat.isFail()
 	if fail {
 		return false
 	}
-	if self.hashBlacklist.Exists(block.Hash()) {
+	if pl.hashBlacklist.Exists(block.Hash()) {
 		return false
 	}
 	var result = true
 	for k, v := range block.block.SnapshotContent {
-		ac := self.selfPendingAc(k)
+		ac := pl.selfPendingAc(k)
 		if ac.findInPool(v.Hash, v.Height) {
 			continue
 		}
@@ -821,7 +694,7 @@ func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 	return result
 }
 
-func (self *pool) realSnapshotHeight(fc tree.Branch) uint64 {
+func (pl *pool) realSnapshotHeight(fc tree.Branch) uint64 {
 	h, _ := fc.TailHH()
 	for {
 		b := fc.GetKnot(h+1, false)
@@ -832,7 +705,7 @@ func (self *pool) realSnapshotHeight(fc tree.Branch) uint64 {
 		now := time.Now()
 		if now.After(block.lastCheckTime.Add(time.Second * 5)) {
 			block.lastCheckTime = now
-			block.checkResult = self.checkBlock(block)
+			block.checkResult = pl.checkBlock(block)
 		}
 
 		if !block.checkResult {
@@ -842,7 +715,7 @@ func (self *pool) realSnapshotHeight(fc tree.Branch) uint64 {
 	}
 }
 
-func (self *pool) fetchForSnapshot(fc tree.Branch) error {
+func (pl *pool) fetchForSnapshot(fc tree.Branch) error {
 	var reqs []*fetchRequest
 	j := 0
 	tailHeight, _ := fc.TailHH()
@@ -893,7 +766,7 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 		if v.chain == nil {
 			continue
 		}
-		ac := self.selfPendingAc(*v.chain)
+		ac := pl.selfPendingAc(*v.chain)
 		if ac.findInPool(v.hash, v.accHeight) {
 			continue
 		}
@@ -904,24 +777,24 @@ func (self *pool) fetchForSnapshot(fc tree.Branch) error {
 	}
 	return nil
 }
-func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight, pending *snapshotPending) {
+func (pl *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight, pending *snapshotPending) {
 	if pending.snapshot != nil && pending.snapshot.ShouldFetch() {
-		self.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
+		pl.fetchAccounts(pending.addrM, snapshot.Height, snapshot.Hash)
 	}
-	self.LockInsert()
-	defer self.UnLockInsert()
-	if p.Version() != self.version.Val() {
-		self.log.Warn("new version happened.")
+	pl.LockInsert()
+	defer pl.UnLockInsert()
+	if p.Version() != pl.version.Val() {
+		pl.log.Warn("new version happened.")
 		return
 	}
 
 	accounts := make(map[types.Address]*ledger.HashHeight)
 	for k, account := range pending.addrM {
-		self.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash, "sbHash", snapshot.Hash, "sbHeight", snapshot.Height)
-		this := self.selfPendingAc(k)
+		pl.log.Debug("db for account.", "addr", k.String(), "height", account.Height, "hash", account.Hash, "sbHash", snapshot.Hash, "sbHeight", snapshot.Height)
+		this := pl.selfPendingAc(k)
 		hashH, e := this.pendingAccountTo(account, account.Height)
 		if e != nil {
-			self.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
+			pl.log.Error("db for account fail.", "err", e, "address", k, "hashH", account)
 		}
 		if hashH != nil {
 			accounts[k] = account
@@ -930,13 +803,13 @@ func (self *pool) snapshotPendingFix(p batch.Batch, snapshot *ledger.HashHeight,
 
 	if len(accounts) > 0 {
 		monitor.LogEventNum("pool", "snapshotPendingFork", len(accounts))
-		self.forkAccountsFor(accounts, snapshot)
+		pl.forkAccountsFor(accounts, snapshot)
 	}
 }
 
-func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
+func (pl *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
-		ac := self.selfPendingAc(addr)
+		ac := pl.selfPendingAc(addr)
 		if !ac.existInPool(hashH.Hash) {
 			head, _ := ac.chainpool.diskChain.HeadHH()
 			u := uint64(10)
@@ -949,19 +822,19 @@ func (self *pool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, s
 
 }
 
-func (self *pool) forkAccountsFor(accounts map[types.Address]*ledger.HashHeight, snapshot *ledger.HashHeight) {
+func (pl *pool) forkAccountsFor(accounts map[types.Address]*ledger.HashHeight, snapshot *ledger.HashHeight) {
 	for k, v := range accounts {
-		self.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
-		err := self.ForkAccountTo(k, v)
+		pl.log.Debug("forkAccounts", "Addr", k.String(), "Height", v.Height, "Hash", v.Hash)
+		err := pl.ForkAccountTo(k, v)
 		if err != nil {
-			self.log.Error("forkaccountTo err", "err", err)
+			pl.log.Error("forkaccountTo err", "err", err)
 			time.Sleep(time.Second)
 			// todo
 			panic(errors.Errorf("snapshot:%s-%d", snapshot.Hash, snapshot.Height))
 		}
 	}
 
-	self.version.Inc()
+	pl.version.Inc()
 }
 
 type recoverStat struct {

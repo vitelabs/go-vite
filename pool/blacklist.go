@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 )
 
+// Blacklist define a data set interface with a timeout
 type Blacklist interface {
 	Add(key types.Hash)
 	AddAddTimeout(key types.Hash, duration time.Duration)
@@ -17,6 +18,7 @@ type Blacklist interface {
 	Remove(key types.Hash)
 }
 
+// NewBlacklist returns timeout blacklist
 func NewBlacklist() (Blacklist, error) {
 	cache, err := lru.New(10 * 10000)
 	if err != nil {
@@ -29,21 +31,21 @@ type timeout struct {
 	timeoutT *time.Time
 }
 
-func (self *timeout) reset(duration time.Duration) *timeout {
+func (tt *timeout) reset(duration time.Duration) *timeout {
 	if duration <= 0 {
-		self.timeoutT = nil
+		tt.timeoutT = nil
 	} else {
 		t := time.Now().Add(duration)
-		self.timeoutT = &t
+		tt.timeoutT = &t
 	}
 
-	return self
+	return tt
 }
-func (self *timeout) isTimeout() bool {
-	if self.timeoutT == nil {
+func (tt *timeout) isTimeout() bool {
+	if tt.timeoutT == nil {
 		return false
 	}
-	return self.timeoutT.Before(time.Now())
+	return tt.timeoutT.Before(time.Now())
 }
 
 type blacklist struct {
@@ -52,27 +54,27 @@ type blacklist struct {
 	log            log15.Logger
 }
 
-func (self *blacklist) Add(key types.Hash) {
-	self.AddAddTimeout(key, self.defaultTimeout)
+func (bl *blacklist) Add(key types.Hash) {
+	bl.AddAddTimeout(key, bl.defaultTimeout)
 }
 
-func (self *blacklist) AddAddTimeout(key types.Hash, duration time.Duration) {
-	value, ok := self.cache.Get(key)
+func (bl *blacklist) AddAddTimeout(key types.Hash, duration time.Duration) {
+	value, ok := bl.cache.Get(key)
 	if ok {
 		value.(*timeout).reset(duration)
 	} else {
-		self.cache.Add(key, (&timeout{}).reset(duration))
+		bl.cache.Add(key, (&timeout{}).reset(duration))
 	}
 }
 
-func (self *blacklist) Exists(key types.Hash) bool {
-	value, ok := self.cache.Get(key)
+func (bl *blacklist) Exists(key types.Hash) bool {
+	value, ok := bl.cache.Get(key)
 	if ok {
 		return !value.(*timeout).isTimeout()
 	}
 	return false
 }
 
-func (self *blacklist) Remove(key types.Hash) {
-	self.cache.Remove(key)
+func (bl *blacklist) Remove(key types.Hash) {
+	bl.cache.Remove(key)
 }

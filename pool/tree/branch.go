@@ -58,7 +58,7 @@ func (self *branch) GetKnot(height uint64, flag bool) Knot {
 	return w
 }
 
-func (self *branch) Id() string {
+func (self *branch) ID() string {
 	return self.branchId()
 }
 
@@ -75,7 +75,7 @@ func (self *branch) prune(t *tree) {
 		selfB := self.getKnot(i, false)
 		block, b := self.root.GetKnotAndBranch(i)
 		if block != nil && block.Hash() == selfB.Hash() {
-			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.Id(), block.Height(), block.Hash())
+			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.ID(), block.Height(), block.Hash())
 			self.RemoveTail(block)
 			if b != nil && b.Type() == Disk {
 				// notify tree
@@ -89,10 +89,10 @@ func (self *branch) prune(t *tree) {
 
 	if removed {
 		self.updateChildrenForRemoveTail(self.root)
-		if self.Id() != t.main.Id() && self.Size() == 0 {
+		if self.ID() != t.main.ID() && self.Size() == 0 {
 			err := t.removeBranch(self)
 			if err != nil {
-				t.log.Error("remove branch fail.", "id", self.Id())
+				t.log.Error("remove branch fail.", "id", self.ID())
 			}
 		}
 	}
@@ -133,7 +133,7 @@ func (self *branch) exchangeAllRoot() error {
 }
 
 func (self *branch) exchangeRoot(root *branch) error {
-	if root.Id() != self.root.Id() {
+	if root.ID() != self.root.ID() {
 		return errors.New("root not match")
 	}
 
@@ -166,7 +166,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 		return nil
 	} else {
 		return errors.Errorf("err for exchangeRoot.root:%s, self:%s, rootTail:%s, rootHead:%s, selfTail:%s, selfHead:%s",
-			root.Id(), self.Id(), root.SprintTail(), root.SprintHead(), self.SprintTail(), self.SprintHead())
+			root.ID(), self.ID(), root.SprintTail(), root.SprintHead(), self.SprintTail(), self.SprintHead())
 
 	}
 }
@@ -228,11 +228,11 @@ func (self *branch) getKnotAndBranch(height uint64) (Knot, Branch) {
 			if refer.Type() == Disk {
 				return nil, nil
 			}
-			if _, ok := refers[refer.Id()]; ok {
+			if _, ok := refers[refer.ID()]; ok {
 				monitor.LogEvent("pool", "GetKnotError")
 				return nil, nil
 			}
-			refers[refer.Id()] = refer
+			refers[refer.ID()] = refer
 			refer = refer.Root()
 		}
 	}
@@ -291,9 +291,9 @@ func (self *branch) info() map[string]interface{} {
 	result["HeadHeight"] = self.headHeight
 	result["HeadHash"] = self.headHash
 	if self.root != nil {
-		result["ReferId"] = self.root.Id()
+		result["ReferId"] = self.root.ID()
 	}
-	result["Id"] = self.Id()
+	result["Id"] = self.ID()
 	return result
 }
 
@@ -302,7 +302,7 @@ func (self *branch) removeChild(b *branch) {
 	self.childrenMu.Lock()
 	defer self.childrenMu.Unlock()
 
-	delete(self.children, b.Id())
+	delete(self.children, b.ID())
 }
 
 // add child branch
@@ -310,7 +310,7 @@ func (self *branch) addChild(b *branch) {
 	self.childrenMu.Lock()
 	defer self.childrenMu.Unlock()
 
-	self.children[b.Id()] = b
+	self.children[b.ID()] = b
 }
 
 // get all children for the branch
