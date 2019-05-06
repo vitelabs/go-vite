@@ -2,7 +2,6 @@ package chain_db
 
 import (
 	"errors"
-	"github.com/emirpasic/gods/maps/linkedhashmap"
 
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
@@ -23,10 +22,12 @@ type Store struct {
 	snapshotBatch *leveldb.Batch
 	flushingBatch *leveldb.Batch
 
-	unconfirmedBatchs *linkedhashmap.Map
+	unconfirmedBatchs *UnconfirmedBatchs
 
 	dbDir string
 	db    *leveldb.DB
+
+	afterRecoverFuncs []func()
 }
 
 func NewStore(dataDir string, id types.Hash) (*Store, error) {
@@ -37,15 +38,16 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	store := &Store{
-		memDb:             db.NewMemDB(),
-		unconfirmedBatchs: linkedhashmap.New(),
+		memDb: db.NewMemDB(),
 
-		snapshotBatch: new(leveldb.Batch),
+		unconfirmedBatchs: NewUnconfirmedBatchs(),
 
 		dbDir: dataDir,
 		db:    diskStore,
 		id:    id,
 	}
+
+	store.snapshotBatch = store.getNewBatch()
 
 	return store, nil
 }
@@ -70,6 +72,11 @@ func (store *Store) Get(key []byte) ([]byte, error) {
 	}
 
 	return value, nil
+}
+
+func (store *Store) GetOriginal(key []byte) ([]byte, error) {
+	mdb, seq := store.getSnapshotMemDb()
+	return store.db.Get2(key, nil, mdb, seq)
 }
 
 func (store *Store) Has(key []byte) (bool, error) {
@@ -111,6 +118,10 @@ func (store *Store) Clean() error {
 	store.db = nil
 
 	return nil
+}
+
+func (store *Store) RegisterAfterRecover(f func()) {
+	store.afterRecoverFuncs = append(store.afterRecoverFuncs, f)
 }
 
 func (store *Store) getSnapshotMemDb() (*memdb.DB, uint64) {

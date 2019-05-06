@@ -60,7 +60,7 @@ func BenchmarkInsert(b *testing.B) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	snapshotPerNum := 1000
+	snapshotPerNum := 1
 	quota.InitQuotaConfig(true, true)
 	vm.InitVmConfig(true, true, false, "")
 
@@ -151,7 +151,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 
 	if account.HasOnRoadBlock() {
 		randNum := rand.Intn(100)
-		if randNum > 50 {
+		if randNum > 40 {
 			isCreateSendBlock = false
 		}
 	}

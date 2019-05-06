@@ -2,16 +2,16 @@ package chain_cache
 
 import "github.com/vitelabs/go-vite/common/types"
 
-func (cache *Cache) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
+func (cache *Cache) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.quotaList.GetQuotaUsed(addr)
+	return cache.quotaList.GetQuotaUsedList(addr)
 }
 
-func (cache *Cache) GetSnapshotQuotaUsed(addr *types.Address) (uint64, uint64) {
+func (cache *Cache) GetGlobalQuota() types.QuotaInfo {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	return cache.quotaList.GetSnapshotQuotaUsed(addr)
+	return cache.quotaList.GetGlobalQuota()
 }

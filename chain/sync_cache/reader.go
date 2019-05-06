@@ -13,25 +13,26 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (cache *syncCache) NewReader(from, to uint64) (interfaces.ReadCloser, error) {
+func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
 	cache.segMu.RLock()
 	defer cache.segMu.RUnlock()
 
-	if !cache.CheckExisted(from, to) {
-		return nil, errors.New(fmt.Sprintf("file is not existed, from is %d, to is %d", from, to))
+	if !cache.CheckExisted(segment) {
+		return nil, errors.New(fmt.Sprintf("file is not existed, %s/%d %s/%d", segment.PrevHash, segment.Bound[0], segment.Hash, segment.Bound[1]))
 	}
 
-	return NewReader(cache, from, to)
+	return NewReader(cache, segment)
 }
 
-func (cache *syncCache) CheckExisted(from, to uint64) bool {
+func (cache *syncCache) CheckExisted(segment interfaces.Segment) bool {
 	chunks := cache.Chunks()
 	if chunks.Len() <= 0 {
 		return false
 	}
 
 	for _, chunk := range chunks {
-		if chunk[0] == from && chunk[1] == to {
+		if segment.Hash == chunk.Hash &&
+			segment.PrevHash == chunk.PrevHash {
 			return true
 		}
 	}
@@ -43,12 +44,10 @@ type Reader struct {
 	file             *os.File
 	offset           int64
 	snappyReadBuffer []byte
-	from             uint64
-	to               uint64
 }
 
-func NewReader(cache *syncCache, from, to uint64) (*Reader, error) {
-	fileName := cache.toAbsoluteFileName(from, to)
+func NewReader(cache *syncCache, seg interfaces.Segment) (*Reader, error) {
+	fileName := cache.toAbsoluteFileName(seg)
 	file, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
 	if oErr != nil {
 		if os.IsNotExist(oErr) {
@@ -62,8 +61,6 @@ func NewReader(cache *syncCache, from, to uint64) (*Reader, error) {
 		file:             file,
 		offset:           0,
 		snappyReadBuffer: make([]byte, 0, 8*1024),
-		from:             from,
-		to:               to,
 	}, nil
 }
 
@@ -117,12 +114,14 @@ func (reader *Reader) close() error {
 	return reader.file.Close()
 }
 
-func (cache *syncCache) deleteSeg(from, to uint64) {
+func (cache *syncCache) deleteSeg(segToDelete interfaces.Segment) {
 	cache.segMu.Lock()
 	defer cache.segMu.Unlock()
 
 	for index, seg := range cache.segments {
-		if seg[0] == from && seg[1] == to {
+		if seg.Hash == segToDelete.Hash &&
+			seg.PrevHash == segToDelete.PrevHash {
+
 			cache.segments = append(cache.segments[:index], cache.segments[index+1:]...)
 			return
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 // (start, end]
-func (self *consensus) OnChainGC(start *ledger.SnapshotBlock, end *ledger.SnapshotBlock) error {
+func (cs *consensus) OnChainGC(start *ledger.SnapshotBlock, end *ledger.SnapshotBlock) error {
 	if start == nil || end == nil {
 		panic(fmt.Sprintf("start[%t] or end[%t] is nil.", start == nil, end == nil))
 	}
@@ -17,16 +17,16 @@ func (self *consensus) OnChainGC(start *ledger.SnapshotBlock, end *ledger.Snapsh
 	stime := start.Timestamp
 	etime := end.Timestamp
 
-	sIndex := self.rw.dayPoints.Time2Index(*stime)
-	eIndex := self.rw.dayPoints.Time2Index(*etime)
+	sIndex := cs.rw.dayPoints.Time2Index(*stime)
+	eIndex := cs.rw.dayPoints.Time2Index(*etime)
 
 	for i := sIndex; i <= eIndex; i++ {
-		day, err := self.rw.dayPoints.GetByIndex(i)
+		day, err := cs.rw.dayPoints.GetByIndex(i)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("load day index[%d] fail.", i))
 		}
 		byt, _ := json.Marshal(day)
-		self.mLog.Info("reload day[%d] stats for chain gc. %s", i, string(byt))
+		cs.mLog.Info("reload day[%d] stats for chain gc. %s", i, string(byt))
 	}
 	return nil
 }

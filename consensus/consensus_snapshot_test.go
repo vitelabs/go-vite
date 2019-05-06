@@ -36,6 +36,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		PerCount:               3,
 		RandCount:              1,
 		RandRank:               100,
+		Repeat:                 1,
 		CountingTokenId:        ledger.ViteTokenId,
 		RegisterConditionId:    0,
 		RegisterConditionParam: nil,
@@ -130,6 +131,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 	assert.Equal(t, simpleGenesis, result.STime)
 	assert.Equal(t, simpleGenesis.Add(time.Duration(info.PlanInterval)*time.Second), result.ETime)
 	assert.Equal(t, uint64(0), result.Index)
+	assert.Equal(t, 9, len(result.Plans))
 	for k, v := range result.Plans {
 		assert.Equal(t, simpleGenesis.Add(time.Duration(int64(k)*info.Interval)*time.Second), v.STime)
 		assert.Equal(t, v.STime.Add(time.Second), v.ETime)

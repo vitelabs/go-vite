@@ -1,6 +1,10 @@
 package net
 
 import (
+	"fmt"
+
+	"github.com/go-errors/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -68,6 +72,109 @@ type AccountBlockCallback = func(addr types.Address, block *ledger.AccountBlock,
 // SyncStateCallback will be invoked when sync state change, the param is state after change
 type SyncStateCallback = func(SyncState)
 
+type ChunkReader interface {
+	Peek() *Chunk
+	Pop(endHash types.Hash)
+}
+
+// Chunk means a chain chunk, contains snapshot blocks and dependent account blocks,
+// SnapshotRange means the chunk range, the first HashHeight is the prevHash and prevHeight.
+// eg. Chunk is from 101 to 200, SnapshotChunks is [101 ... 200], but SnapshotRange is [100, 200].
+// AccountRange like SnapshotRange but describe every account chain.
+// HashMap record all blocks hash in Chunk, it can quickly tell if a block is in the chunk.
+type Chunk struct {
+	SnapshotChunks []ledger.SnapshotChunk
+	SnapshotRange  [2]*ledger.HashHeight
+	AccountRange   map[types.Address][2]*ledger.HashHeight
+	HashMap        map[types.Hash]struct{}
+	Source         types.BlockSource
+}
+
+func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHeight uint64, source types.BlockSource) (c *Chunk) {
+	c = &Chunk{
+		// chunk will add account block first, then the snapshot block
+		SnapshotChunks: make([]ledger.SnapshotChunk, 1, endHeight-prevHeight),
+		SnapshotRange: [2]*ledger.HashHeight{
+			{prevHeight, prevHash},
+			{endHeight, endHash},
+		},
+		AccountRange: make(map[types.Address][2]*ledger.HashHeight),
+		HashMap:      make(map[types.Hash]struct{}),
+		Source:       source,
+	}
+
+	return c
+}
+
+func (c *Chunk) addSnapshotBlock(block *ledger.SnapshotBlock) error {
+	var prevHash types.Hash
+	var prevHeight uint64
+	var chunkLength = len(c.SnapshotChunks)
+
+	if chunkLength < 2 {
+		prevHash, prevHeight = c.SnapshotRange[0].Hash, c.SnapshotRange[0].Height
+	} else {
+		prevBlock := c.SnapshotChunks[chunkLength-2].SnapshotBlock
+		prevHash, prevHeight = prevBlock.Hash, prevBlock.Height
+	}
+
+	if block.PrevHash != prevHash || block.Height != prevHeight+1 {
+		return fmt.Errorf("snapshot blocks not continuous: %s/%d %s/%s/%d", prevHash, prevHeight, block.PrevHash, block.Hash, block.Height)
+	}
+
+	if block.Height > c.SnapshotRange[1].Height {
+		return fmt.Errorf("chunk overflow: %d %d", c.SnapshotRange[1].Height, block.Height)
+	}
+
+	c.SnapshotChunks[chunkLength-1].SnapshotBlock = block
+	if chunkLength < cap(c.SnapshotChunks) {
+		c.SnapshotChunks = c.SnapshotChunks[:chunkLength+1]
+	}
+	c.HashMap[block.Hash] = struct{}{}
+
+	return nil
+}
+
+func (c *Chunk) addAccountBlock(block *ledger.AccountBlock) error {
+	addr := block.AccountAddress
+	if rng, ok := c.AccountRange[addr]; ok {
+		if rng[1].Hash != block.PrevHash || rng[1].Height+1 != block.Height {
+			return fmt.Errorf("account blocks not continuous: %s/%d %s/%s/%d", rng[1].Hash, rng[1].Height, block.PrevHash, block.Hash, block.Height)
+		}
+		rng[1].Height = block.Height
+		rng[1].Hash = block.Hash
+	} else {
+		c.AccountRange[addr] = [2]*ledger.HashHeight{
+			{block.Height - 1, block.PrevHash},
+			{block.Height, block.Hash},
+		}
+	}
+
+	var chunkLength = len(c.SnapshotChunks)
+	c.SnapshotChunks[chunkLength-1].AccountBlocks = append(c.SnapshotChunks[chunkLength-1].AccountBlocks, block)
+	c.HashMap[block.Hash] = struct{}{}
+
+	return nil
+}
+
+func (c *Chunk) done() error {
+	endHash, endHeight := c.SnapshotRange[1].Hash, c.SnapshotRange[1].Height
+
+	lastChunk := c.SnapshotChunks[len(c.SnapshotChunks)-1]
+	lastBlock := lastChunk.SnapshotBlock
+	if lastBlock == nil {
+		return errors.New("missing end snapshot block")
+	}
+
+	lastHash, lastHeight := lastBlock.Hash, lastBlock.Height
+
+	if endHash != lastHash || endHeight != lastHeight {
+		return fmt.Errorf("error end: %s/%d %s/%d", endHash, endHeight, lastHash, lastHeight)
+	}
+
+	return nil
+}
+
 // A BlockSubscriber implementation can be subscribed and Unsubscribed, when got chain block, should notify subscribers
 type BlockSubscriber interface {
 	// SubscribeAccountBlock return the subId, always larger than 0, use to unsubscribe
@@ -120,6 +227,7 @@ type Fetcher interface {
 // A Syncer implementation can synchronise blocks to peers
 type Syncer interface {
 	SyncStateSubscriber
+	ChunkReader
 	Status() SyncStatus
 	Detail() SyncDetail
 }

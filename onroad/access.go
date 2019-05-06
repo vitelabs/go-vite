@@ -41,18 +41,17 @@ func (manager *Manager) GetAllCallersFrontOnRoad(gid types.Gid, addr types.Addre
 	return blockList, nil
 }
 
-func (manager *Manager) IsFrontOnRoadOfCaller(gid types.Gid, addr types.Address, caller types.Address, hash types.Hash) (bool, error) {
+func (manager *Manager) IsFrontOnRoadOfCaller(gid types.Gid, orAddr, caller types.Address, hash types.Hash) (bool, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
-		manager.log.Error(onroad_pool.ErrOnRoadPoolNotAvailable.Error(), "gid", gid, "addr", addr)
+		manager.log.Error(onroad_pool.ErrOnRoadPoolNotAvailable.Error(), "gid", gid, "addr", orAddr)
 		return false, onroad_pool.ErrOnRoadPoolNotAvailable
 	}
-	return onRoadPool.(onroad_pool.OnRoadPool).IsFrontOnRoadOfCaller(addr, caller, hash)
+	return onRoadPool.(onroad_pool.OnRoadPool).IsFrontOnRoadOfCaller(orAddr, caller, hash)
 }
 
-func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) error {
+func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) {
 	manager.chain.DeleteOnRoad(sendBlock.ToAddress, sendBlock.Hash)
-	return nil
 }
 
 func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {

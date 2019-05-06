@@ -54,7 +54,6 @@ func (bDB *BlockDB) Prepare() {
 	bDB.flushTargetLocation = bDB.fm.LatestLocation()
 
 	// set bDB.flushBuf
-
 	bufWriter := NewBufWriter()
 
 	bDB.fm.ReadRange(bDB.flushStartLocation, bDB.flushTargetLocation, bufWriter)
@@ -68,10 +67,17 @@ func (bDB *BlockDB) Prepare() {
 
 	bufWriter.Release()
 
+	// set next flush start location
+	bDB.fm.SetNextFlushStartLocation(bDB.flushTargetLocation)
 }
 
 // lock write
 func (bDB *BlockDB) CancelPrepare() {
+	nextFlushStartLocation := bDB.fm.NextFlushStartLocation()
+	if nextFlushStartLocation.Compare(bDB.flushStartLocation) > 0 {
+		bDB.fm.SetNextFlushStartLocation(bDB.flushStartLocation)
+	}
+
 	bDB.flushStartLocation = nil
 	bDB.flushTargetLocation = nil
 	bDB.flushBuf = nil
@@ -97,21 +103,26 @@ func (bDB *BlockDB) Commit() error {
 func (bDB *BlockDB) AfterCommit() {
 	bDB.flushStartLocation = nil
 	bDB.flushTargetLocation = nil
-
 	bDB.flushBuf = nil
 }
+
+func (bDB *BlockDB) BeforeRecover(redoLog []byte) {
+	flushStartLocation := chain_utils.DeserializeLocation(redoLog[:12])
+
+	if err := bDB.fm.DeleteTo(flushStartLocation); err != nil {
+		panic(err)
+	}
+
+	if _, err := bDB.fm.Write(redoLog[24:]); err != nil {
+		panic(err)
+	}
+}
+
+func (bDB *BlockDB) AfterRecover() {}
 
 func (bDB *BlockDB) PatchRedoLog(redoLog []byte) error {
 	flushStartLocation := chain_utils.DeserializeLocation(redoLog[:12])
 	flushTargetLocation := chain_utils.DeserializeLocation(redoLog[12:24])
-
-	if err := bDB.fm.DeleteTo(flushStartLocation); err != nil {
-		return err
-	}
-
-	if _, err := bDB.fm.Write(redoLog[24:]); err != nil {
-		return err
-	}
 
 	return bDB.fm.Flush(flushStartLocation, flushTargetLocation, redoLog[24:])
 }

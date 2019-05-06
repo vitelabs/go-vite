@@ -10,7 +10,7 @@ import (
 func (store *Store) WriteDirectly(batch *leveldb.Batch) {
 	store.putMemDb(batch)
 
-	batch.Replay(store.snapshotBatch)
+	store.snapshotBatch.Append(batch)
 }
 
 func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) {
@@ -18,6 +18,7 @@ func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.Accoun
 }
 
 func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) {
+
 	// write store.memDb
 	store.putMemDb(batch)
 
@@ -46,11 +47,12 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 
 	for _, blockHash := range blockHashList {
 		batch, ok := store.unconfirmedBatchs.Get(blockHash)
+
 		if !ok {
 			panic(fmt.Sprintf("store.WriteSnapshot failed, account block hash %s batch is not existed", blockHash))
 		}
 		// patch
-		batch.(*leveldb.Batch).Replay(store.snapshotBatch)
+		store.snapshotBatch.Append(batch)
 
 		// remove
 		store.unconfirmedBatchs.Remove(blockHash)
@@ -58,6 +60,6 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 
 	// write store snapshot batch
 	if snapshotBatch != nil {
-		snapshotBatch.Replay(store.snapshotBatch)
+		store.snapshotBatch.Append(snapshotBatch)
 	}
 }

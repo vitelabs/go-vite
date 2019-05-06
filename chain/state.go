@@ -128,11 +128,16 @@ func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
 		return 0, cErr
 	}
 
-	return quotaInfo.Total() - quotaInfo.Used(), nil
+	return quotaInfo.Current(), nil
 }
 
-func (c *chain) GetQuotaUsed(address types.Address) (quotaUsed uint64, blockCount uint64) {
-	return c.cache.GetQuotaUsed(&address)
+func (c *chain) GetGlobalQuota() types.QuotaInfo {
+	return c.cache.GetGlobalQuota()
+}
+
+func (c *chain) GetQuotaUsedList(address types.Address) []types.QuotaInfo {
+	//return c.cache.GetQuotaUsedList(&address)
+	return c.cache.GetQuotaUsedList(address)
 }
 
 func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error) {

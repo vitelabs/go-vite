@@ -14,7 +14,8 @@ type VmAccountBlock struct {
 
 type Chain interface {
 	IsContractAccount(address types.Address) (bool, error)
-	GetQuotaUsed(address types.Address) (quotaUsed uint64, blockCount uint64)
+
+	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
@@ -61,7 +62,7 @@ type VmDb interface {
 
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
-	GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64)
+	GetQuotaUsedList(addr types.Address) []types.QuotaInfo
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash
@@ -96,7 +97,7 @@ type VmDb interface {
 	GetLogListHash() *types.Hash
 
 	// ====== AccountBlock ======
-	GetUnconfirmedBlocks() []*ledger.AccountBlock
+	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 

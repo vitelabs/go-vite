@@ -108,7 +108,7 @@ type PeerInfo struct {
 }
 
 const peerReadMsgBufferSize = 10
-const peerWriteMsgBufferSize = 10
+const peerWriteMsgBufferSize = 100
 
 type levelManager interface {
 	changeLevel(p PeerMux, old Level) error

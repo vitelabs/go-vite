@@ -190,16 +190,19 @@ func (db *memoryDatabase) GetUnsavedCallDepth() uint16 {
 	return 0
 }
 
-func (db *memoryDatabase) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
-	return 0, 0
-}
-
 func (db *memoryDatabase) DeleteValue(key []byte) {
 	delete(db.storage, hex.EncodeToString(key))
 }
 
-func (db *memoryDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+func (db *memoryDatabase) GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock {
 	return nil
+}
+func (db *memoryDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
+	list := make([]types.QuotaInfo, 75)
+	for i, _ := range list {
+		list[i] = types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0}
+	}
+	return list
 }
 
 func (db *memoryDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {

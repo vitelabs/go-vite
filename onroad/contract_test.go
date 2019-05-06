@@ -376,17 +376,6 @@ func (w *testContractWoker) getPendingOnroadBlock(contractAddr *types.Address) *
 	return nil
 }
 
-func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
-	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
-		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
-		if success {
-			if pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
-				pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
-			}
-		}
-	}
-}
-
 func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
 	acqlog := testlog.New("acquireOnRoadBlocks", contractAddr)
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
@@ -398,7 +387,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 			}
 			acqlog.Info(fmt.Sprintf("acquireNewOnroad %v blocks %v", pageNum, len(blocks)))
 			for _, v := range blocks {
-				if !pendingMap.existInInferiorList(v.AccountAddress) {
+				if !pendingMap.isInferiorStateOut(v.AccountAddress) {
 					pendingMap.addPendingMap(v)
 				}
 			}
@@ -421,28 +410,14 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 
 func (w *testContractWoker) addContractCallerToInferiorList(contract, caller *types.Address, state inferiorState) {
 	if pendingCache, ok := w.testPendingCache[*contract]; ok && pendingCache != nil {
-		pendingCache.addCallerIntoInferiorList(*caller, state)
+		pendingCache.addIntoInferiorList(*caller, state)
 	}
-}
-
-func (w *testContractWoker) isContractCallerInferiorRetry(contract, caller *types.Address) bool {
-	if pendingCache, ok := w.testPendingCache[*contract]; ok && pendingCache != nil {
-		return pendingCache.isInferiorStateRetry(*caller)
-	}
-	return false
 }
 
 func (w *testContractWoker) clearWorkingAddrList() {
 	w.workingAddrListMutex.Lock()
 	defer w.workingAddrListMutex.Unlock()
 	w.workingAddrList = make(map[types.Address]bool)
-}
-
-func (w *testContractWoker) isContractCallerInferiorOut(contract, caller *types.Address) bool {
-	if pendingCache, ok := w.testPendingCache[*contract]; ok && pendingCache != nil {
-		return pendingCache.isInferiorStateOut(*caller)
-	}
-	return false
 }
 
 func (w *testContractWoker) addContractIntoWorkingList(addr *types.Address) bool {

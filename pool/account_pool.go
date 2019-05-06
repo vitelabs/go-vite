@@ -269,7 +269,7 @@ func (self *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	}
 
 	self.checkCurrent()
-	stat := self.v.verifyDirectAccount(received, latestSb)
+	stat := self.v.verifyAccount(received, latestSb)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
@@ -372,11 +372,6 @@ func (self *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 }
 
 func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {
-	// if current size is empty, do nothing.
-	if self.chainpool.tree.Main().Size() <= 0 {
-		return errors.Errorf("empty chainpool, but item size:%d", len(items))
-	}
-
 	self.chainTailMu.Lock()
 	defer self.chainTailMu.Unlock()
 
@@ -386,8 +381,8 @@ func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 		item := items[i]
 		block := item.(*accountPoolBlock)
 		self.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
-		current := cp.tree.Main()
-		tailHeight, tailHash := current.TailHH()
+		current := cp.tree.Root()
+		tailHeight, tailHash := current.HeadHH()
 		if block.Height() == tailHeight+1 &&
 			block.PrevHash() == tailHash {
 			block.resetForkVersion()
@@ -409,7 +404,7 @@ func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
 				return errors.Wrap(stat.err, "fail verifier db.")
 			}
-			err := cp.writeBlockToChain(current, stat.block)
+			err := cp.writeBlockToChain(stat.block)
 			if err != nil {
 				self.log.Error("account block write fail. ",
 					"hash", block.Hash(), "height", block.Height(), "error", err)
@@ -484,7 +479,7 @@ func (self *BCPool) checkCurrent() {
 		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
 			main.Id(), tailHeight, tailHash, headHeight, headHash))
 	}
-	err := self.chainpool.check()
+	err := tree.CheckTree(self.chainpool.tree)
 	if err != nil {
 		panic(err)
 	}

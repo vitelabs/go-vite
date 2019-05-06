@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"math/big"
+	"reflect"
 )
 
 const (
@@ -128,4 +129,11 @@ func BytesToU64(data []byte) uint64 {
 		return 0
 	}
 	return binary.BigEndian.Uint64(data)
+}
+
+func IsNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	return reflect.ValueOf(i).IsNil()
 }
