@@ -55,14 +55,25 @@ func (nodeManager *CheckChainNodeManager) Start() error {
 		nodeManager.log.Crit(err.Error(), "check_chain", "recent_blocks")
 	}
 	nodeManager.log.Info("finish checking recent blocks")
-
+	fmt.Println("check recent blocks success.")
 	// check redo
 	nodeManager.log.Info("start check redo")
 	if err := c.CheckRedo(); err != nil {
 		nodeManager.log.Crit(err.Error(), "check_chain", "redo")
 	}
 	nodeManager.log.Info("finish checking redo")
+	fmt.Println("check redo success.")
+
+	// check onroad
+	nodeManager.log.Info("start check onroad")
+	if err := c.CheckOnRoad(); err != nil {
+		nodeManager.log.Crit(err.Error(), "check_chain", "onroad")
+	}
+	nodeManager.log.Info("finish checking onroad")
+
+	fmt.Println("check onroad success.")
 	fmt.Println("check success.")
+
 	return nil
 }
 

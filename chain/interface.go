@@ -268,4 +268,6 @@ type Chain interface {
 	CheckRedo() error
 
 	CheckRecentBlocks() error
+
+	CheckOnRoad() error
 }
