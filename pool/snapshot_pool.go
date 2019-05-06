@@ -108,50 +108,7 @@ func (self *snapshotPool) init(
 	self.BCPool.init(tools)
 }
 
-//func (self *snapshotPool) loopCheckFork() {
-//	// recover logic
-//	//defer func() {
-//	//	if err := recover(); err != nil {
-//	//		var e error
-//	//		switch t := err.(type) {
-//	//		case error:
-//	//			e = errors.WithStack(t)
-//	//		case string:
-//	//			e = errors.New(t)
-//	//		default:
-//	//			e = errors.Errorf("unknown type, %+v", err)
-//	//		}
-//	//
-//	//		self.log.Error("loopCheckFork start recover", "err", err, "withstack", fmt.Sprintf("%+v", e))
-//	//		fmt.Printf("%+v", e)
-//	//		defer self.log.Warn("loopCheckFork end recover.")
-//	//		self.pool.Lock()
-//	//		defer self.pool.Unlock()
-//	//		self.initPool()
-//	//		if self.rstat.inc() {
-//	//			common.Go(self.loopCheckFork)
-//	//		} else {
-//	//			panic(e)
-//	//		}
-//	//
-//	//		self.pool.version.Inc()
-//	//	}
-//	//}()
-//	self.wg.Add(1)
-//	defer self.wg.Done()
-//	for {
-//		select {
-//		case <-self.closed:
-//			return
-//		default:
-//			self.checkFork()
-//			// check fork every 2 sec.
-//			time.Sleep(2 * time.Second)
-//		}
-//	}
-//}
-
-func (self *snapshotPool) checkFork() {
+func (self *snapshotPool) checkFork() (tree.Branch, uint64, error) {
 	current := self.CurrentChain()
 	minHeight := self.pool.realSnapshotHeight(current)
 
@@ -176,23 +133,17 @@ func (self *snapshotPool) checkFork() {
 	}
 
 	if longest == nil {
-		return
+		return nil, 0, nil
 	}
 
 	if longest.Id() == current.Id() {
-		return
+		return nil, 0, nil
 	}
 	curHeadH, _ := current.HeadHH()
 	if longestH-self.LIMIT_LONGEST_NUM < curHeadH {
-		return
+		return nil, 0, nil
 	}
-	self.log.Info("current chain.", "id", current.Id(), "realH", minHeight, "headH", curHeadH, "tailH", current.SprintTail())
-
-	monitor.LogEvent("pool", "snapshotFork")
-	err := self.snapshotFork(longest, current)
-	if err != nil {
-		self.log.Error("checkFork", "err", err)
-	}
+	return longest, longestH, nil
 }
 
 func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch) error {
@@ -238,7 +189,7 @@ func (self *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch)
 	}
 
 	self.log.Debug("snapshotFork longest modify", "id", longest.Id(), "Tail", longest.SprintTail())
-	err = self.CurrentModifyToChain(longest, &ledger.HashHeight{Hash: forked.Hash(), Height: forked.Height()})
+	err = self.CurrentModifyToChain(longest)
 	if err != nil {
 		return err
 	}
@@ -472,6 +423,25 @@ func (self *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashH
 		}
 	}
 
+}
+func (self *snapshotPool) genMaxAccounts(targetHeight uint64) (map[types.Address]*ledger.HashHeight, error) {
+	result := make(map[types.Address]*ledger.HashHeight)
+	cur := self.CurrentChain()
+	tailHeight, _ := cur.TailHH()
+	headHeight, _ := cur.HeadHH()
+	for i := targetHeight; i > tailHeight; i-- {
+		knot := cur.GetKnot(i, true)
+		if knot == nil {
+			return nil, errors.Errorf("can't find block[%d] from current[%s][%d-%d][%d]", i, cur.Id(), tailHeight, headHeight, targetHeight)
+		}
+		block := knot.(*snapshotPoolBlock).block
+		for k, v := range block.SnapshotContent {
+			if r := result[k]; r == nil {
+				result[k] = &ledger.HashHeight{Hash: v.Hash, Height: v.Height}
+			}
+		}
+	}
+	return result, nil
 }
 
 //func (self *snapshotPool) makePackage(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, info *offsetInfo) (*snapshotPackage, error) {

@@ -168,7 +168,7 @@ func (self *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) 
 		self.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", self.address, "hash", h.Hash, "height", h.Height, "targetChain",
 			targetChain.Id(), "targetChainTailt", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
 			"forkPoint", fmt.Sprintf("[%s-%d]", forkPoint.Hash(), forkPoint.Height()))
-		err = self.CurrentModifyToChain(targetChain, h)
+		err = self.CurrentModifyToChain(targetChain)
 		if err != nil {
 			self.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.Id())
 			panic(err)
@@ -398,7 +398,7 @@ func (self *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 			switch stat.verifyResult() {
 			case verifier.FAIL:
 				self.log.Warn("add account block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
-				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				self.hashBlacklist.AddAddTimeout(block.Hash(), time.Minute*10)
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
 				self.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())

@@ -3,14 +3,18 @@ package pool
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/hashicorp/golang-lru"
 )
 
 type Blacklist interface {
-	Add(key interface{})
-	AddAddTimeout(key interface{}, duration time.Duration)
-	Exists(key interface{}) bool
-	Remove(key interface{})
+	Add(key types.Hash)
+	AddAddTimeout(key types.Hash, duration time.Duration)
+	Exists(key types.Hash) bool
+	Remove(key types.Hash)
 }
 
 func NewBlacklist() (Blacklist, error) {
@@ -18,7 +22,7 @@ func NewBlacklist() (Blacklist, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &blacklist{cache: cache, defaultTimeout: 0}, nil
+	return &blacklist{cache: cache, defaultTimeout: 0, log: log15.New("module", "pool/blacklist")}, nil
 }
 
 type timeout struct {
@@ -45,13 +49,14 @@ func (self *timeout) isTimeout() bool {
 type blacklist struct {
 	cache          *lru.Cache
 	defaultTimeout time.Duration
+	log            log15.Logger
 }
 
-func (self *blacklist) Add(key interface{}) {
+func (self *blacklist) Add(key types.Hash) {
 	self.AddAddTimeout(key, self.defaultTimeout)
 }
 
-func (self *blacklist) AddAddTimeout(key interface{}, duration time.Duration) {
+func (self *blacklist) AddAddTimeout(key types.Hash, duration time.Duration) {
 	value, ok := self.cache.Get(key)
 	if ok {
 		value.(*timeout).reset(duration)
@@ -60,7 +65,7 @@ func (self *blacklist) AddAddTimeout(key interface{}, duration time.Duration) {
 	}
 }
 
-func (self *blacklist) Exists(key interface{}) bool {
+func (self *blacklist) Exists(key types.Hash) bool {
 	value, ok := self.cache.Get(key)
 	if ok {
 		return !value.(*timeout).isTimeout()
@@ -68,6 +73,6 @@ func (self *blacklist) Exists(key interface{}) bool {
 	return false
 }
 
-func (self *blacklist) Remove(key interface{}) {
+func (self *blacklist) Remove(key types.Hash) {
 	self.cache.Remove(key)
 }

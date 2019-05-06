@@ -491,7 +491,7 @@ func (self *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error 
 	self.log.Info("ForkAccountTo", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.Id(),
 		"targetChainTail", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
 		"currentId", cu.Id(), "Tail", cu.SprintTail(), "Head", cu.SprintHead())
-	err = this.CurrentModifyToChain(targetChain, h)
+	err = this.CurrentModifyToChain(targetChain)
 	if err != nil {
 		return err
 	}
@@ -799,6 +799,9 @@ func (self *pool) delTimeoutUnConfirmedBlocks(addr types.Address) {
 func (self *pool) checkBlock(block *snapshotPoolBlock) bool {
 	fail := block.failStat.isFail()
 	if fail {
+		return false
+	}
+	if self.hashBlacklist.Exists(block.Hash()) {
 		return false
 	}
 	var result = true

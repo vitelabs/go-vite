@@ -63,7 +63,7 @@ func (self *worker) work() {
 
 		select {
 		case <-bus.snapshotForkChecker.C:
-			self.p.pendingSc.checkFork()
+			self.p.checkFork()
 		case <-bus.broadcasterT.C:
 			self.p.broadcastUnConfirmedBlocks()
 		case <-bus.clearT.C:

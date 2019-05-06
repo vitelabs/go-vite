@@ -484,8 +484,11 @@ func (self *BCPool) loopFetchForSnippets() int {
 	return i
 }
 
-func (self *BCPool) CurrentModifyToChain(target tree.Branch, hashH *ledger.HashHeight) error {
-	return self.chainpool.tree.SwitchMainTo(target)
+func (self *BCPool) CurrentModifyToChain(target tree.Branch) error {
+	t := self.chainpool.tree
+	main := t.Main()
+	self.log.Info("current modify", "targetId", target.Id(), "TargetTail", target.SprintTail(), "currentId", main.Id(), "CurrentTail", main.SprintTail())
+	return t.SwitchMainTo(target)
 }
 
 func (self *BCPool) CurrentModifyToEmpty() error {
