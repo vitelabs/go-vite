@@ -31,11 +31,12 @@ func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
 }
 
 func (p *contractOnRoadPool) loadOnRoad() error {
-	p.log.Info("start loadOnRoad")
+	p.log.Info("loadOnRoad from chain")
 	contractMap, err := p.chain.LoadOnRoad(p.gid)
 	if err != nil {
-		return nil
+		return err
 	}
+	p.log.Info("start loadOnRoad into pool¬")
 	// resort the map
 	for contract, callerMap := range contractMap {
 		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache())
@@ -46,7 +47,7 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 			}
 		}
 		if cc.(*callerCache).len() > 0 {
-			p.log.Info("initLoad one caller, len :%v\n", cc.(*callerCache).len(), "contract", contract)
+			p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", cc.(*callerCache).len()), "contract", contract)
 		}
 	}
 	p.log.Info("success loadOnRoad")
