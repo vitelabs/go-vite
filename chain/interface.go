@@ -263,4 +263,9 @@ type Chain interface {
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 
 	Flusher() *chain_flusher.Flusher
+
+	// ====== Check ======
+	CheckRedo() error
+
+	CheckRecentBlocks() error
 }

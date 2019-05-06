@@ -20,9 +20,8 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("storeTest")))
 
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), id)
+	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,9 +54,8 @@ func TestStore(t *testing.T) {
 }
 
 func TestSeekToLastAndPrev(t *testing.T) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("storeTest")))
 
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), id)
+	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,9 +83,8 @@ func TestSeekToLastAndPrev(t *testing.T) {
 }
 
 func TestPutAndDelete(t *testing.T) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("storeTest")))
 
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), id)
+	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,11 +116,7 @@ func TestPutAndDelete(t *testing.T) {
 }
 
 func TestIterator(t *testing.T) {
-	id, err := types.BytesToHash(crypto.Hash256([]byte("123")))
-	if err != nil {
-		panic(err)
-	}
-	store, err := NewStore("test_mem", id)
+	store, err := NewStore("test_mem", "123")
 	if err != nil {
 		panic(err)
 	}
@@ -182,12 +175,8 @@ func TestIterator2(t *testing.T) {
 }
 
 func TestIterator3(t *testing.T) {
-	id, err := types.BytesToHash(crypto.Hash256([]byte("123")))
-	if err != nil {
-		panic(err)
-	}
 	os.RemoveAll("test_mem")
-	store, err := NewStore("test_mem", id)
+	store, err := NewStore("test_mem", "123")
 	if err != nil {
 		panic(err)
 	}

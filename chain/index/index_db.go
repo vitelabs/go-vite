@@ -6,8 +6,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/log15"
 	"path"
 )
@@ -29,10 +27,8 @@ type IndexDB struct {
 }
 
 func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("indexDb")))
 
-	var err error
-	store, err := chain_db.NewStore(path.Join(chainDir, "index"), id)
+	store, err := chain_db.NewStore(path.Join(chainDir, "index"), "indexDb")
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +42,8 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 	store.RegisterAfterRecover(iDB.InitAccountId)
 
 	iDB.InitAccountId()
-	if err = iDB.newCache(); err != nil {
+
+	if err := iDB.newCache(); err != nil {
 		return nil, err
 	}
 
