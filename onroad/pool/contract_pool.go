@@ -60,7 +60,7 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	}
 	or := cc.(*callerCache).getFrontTxByCaller(&caller)
 	if or == nil || or.Hash != hash {
-		return false, ErrLoadCallerCacheFailed
+		return false, ErrCheckIsCallerFrontOnRoadFailed
 	}
 	return true, nil
 }
@@ -302,6 +302,9 @@ func (cc *callerCache) getFrontTxOfAllCallers() []*orHashHeight {
 }
 
 func (cc *callerCache) getFrontTxByCaller(caller *types.Address) *orHashHeight {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+
 	value, exist := cc.cache[*caller]
 	if !exist || value == nil {
 		return nil

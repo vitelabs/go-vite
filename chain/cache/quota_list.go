@@ -8,17 +8,17 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-type quotaInfo struct {
-	BlockCount uint64
-	Quota      uint64
-}
+type quotaInfo types.QuotaInfo
+
 type quotaList struct {
 	chain Chain
 
 	backElement map[types.Address]*quotaInfo
 
-	used                 map[types.Address]*quotaInfo
-	usedStart            *list.Element
+	globalUsed types.QuotaInfo
+
+	usedStart *list.Element
+
 	usedAccumulateHeight int
 
 	list          *list.List
@@ -30,7 +30,6 @@ type quotaList struct {
 func newQuotaList(chain Chain) *quotaList {
 	ql := &quotaList{
 		chain: chain,
-		used:  make(map[types.Address]*quotaInfo),
 
 		backElement: make(map[types.Address]*quotaInfo),
 
@@ -52,45 +51,57 @@ func (ql *quotaList) init() error {
 	return nil
 }
 
-func (ql *quotaList) GetSnapshotQuotaUsed(addr *types.Address) (uint64, uint64) {
-	used := ql.used[*addr]
-	if used == nil {
-		return 0, 0
-	}
-	quota := used.Quota
-	blockCount := used.BlockCount
-	latestUsed := ql.backElement[*addr]
-	if latestUsed != nil {
-		return quota - latestUsed.Quota, blockCount - latestUsed.BlockCount
-	}
+func (ql *quotaList) GetGlobalQuota() types.QuotaInfo {
+	globalQuota := ql.globalUsed
 
-	return quota, blockCount
+	for _, quotaInfo := range ql.backElement {
+		globalQuota.BlockCount -= quotaInfo.BlockCount
+		globalQuota.QuotaTotal -= quotaInfo.QuotaTotal
+		globalQuota.QuotaUsedTotal -= quotaInfo.QuotaUsedTotal
+	}
+	return globalQuota
 }
 
-func (ql *quotaList) GetQuotaUsed(addr *types.Address) (uint64, uint64) {
-	used := ql.used[*addr]
-	if used == nil {
-		return 0, 0
+func (ql *quotaList) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
+	usedList := make([]types.QuotaInfo, 0, ql.usedAccumulateHeight)
+
+	pointer := ql.usedStart
+	for pointer != nil {
+		tmpUsed := pointer.Value.(map[types.Address]*quotaInfo)
+
+		addrUsed, ok := tmpUsed[addr]
+		if ok {
+			usedList = append(usedList, types.QuotaInfo(*addrUsed))
+		} else {
+			usedList = append(usedList, types.QuotaInfo{})
+		}
+
+		pointer = pointer.Next()
 	}
-	return used.Quota, used.BlockCount
+
+	return usedList
 }
 
-func (ql *quotaList) Add(addr types.Address, quota uint64) {
+func (ql *quotaList) Add(addr types.Address, quota uint64, quotaUsed uint64) {
 	// add back element quota
-	ql.add(ql.backElement, addr, quota)
+	ql.add(ql.backElement, addr, quota, quotaUsed)
 
-	// add used quota
-	ql.add(ql.used, addr, quota)
+	// add globalUsed quota
+	ql.globalUsed.BlockCount += 1
+	ql.globalUsed.QuotaTotal += quota
+	ql.globalUsed.QuotaUsedTotal += quotaUsed
 
 }
 
-func (ql *quotaList) Sub(addr types.Address, quota uint64) {
+func (ql *quotaList) Sub(addr types.Address, quota uint64, quotaUsed uint64) {
 
-	// add back element
-	ql.sub(ql.backElement, addr, 1, quota)
+	// sub back element quota
+	ql.sub(ql.backElement, addr, 1, quota, quotaUsed)
 
-	// sub used quota
-	ql.sub(ql.used, addr, 1, quota)
+	// sub globalUsed quota
+	ql.globalUsed.BlockCount -= 1
+	ql.globalUsed.QuotaTotal -= quota
+	ql.globalUsed.QuotaUsedTotal -= quotaUsed
 
 }
 
@@ -109,14 +120,16 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 			qi = &quotaInfo{}
 			currentSnapshotQuota[confirmedBlock.AccountAddress] = qi
 		}
-		qi.Quota += confirmedBlock.Quota
 		qi.BlockCount += 1
+		qi.QuotaTotal += confirmedBlock.Quota
+		qi.QuotaUsedTotal += confirmedBlock.QuotaUsed
 
 		if backQi.BlockCount <= 1 {
 			delete(ql.backElement, confirmedBlock.AccountAddress)
 		} else {
 			backQi.BlockCount -= 1
-			backQi.Quota -= confirmedBlock.Quota
+			backQi.QuotaTotal -= confirmedBlock.Quota
+			backQi.QuotaUsedTotal -= confirmedBlock.QuotaUsed
 		}
 	}
 
@@ -164,23 +177,11 @@ func (ql *quotaList) build() (returnError error) {
 
 		ql.resetUsedStart()
 
-		ql.calculateUsed()
+		ql.calculateGlobalUsed()
 
-		//fmt.Println("after build, ql.backElement", ql.list.Len())
-		//for addr, quotaInfo := range ql.backElement {
-		//	fmt.Println(addr, quotaInfo)
-		//}
-		//fmt.Println()
 	}()
 
 	listLength := ql.list.Len()
-
-	// FOR DEBUG
-	//fmt.Println("before build, ql.backElement", listLength)
-	//for addr, quotaInfo := range ql.backElement {
-	//	fmt.Println(addr, quotaInfo)
-	//}
-	//fmt.Println()
 
 	if listLength >= ql.usedAccumulateHeight {
 		return nil
@@ -223,12 +224,15 @@ func (ql *quotaList) build() (returnError error) {
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
 					newItem[block.AccountAddress] = &quotaInfo{
-						Quota:      block.Quota,
-						BlockCount: 1,
+						QuotaTotal:     block.Quota,
+						QuotaUsedTotal: block.QuotaUsed,
+						BlockCount:     1,
 					}
 				} else {
-					newItem[block.AccountAddress].Quota += block.Quota
-					newItem[block.AccountAddress].BlockCount += 1
+					quotaInfo := newItem[block.AccountAddress]
+					quotaInfo.QuotaTotal += block.Quota
+					quotaInfo.QuotaUsedTotal += block.QuotaUsed
+					quotaInfo.BlockCount += 1
 				}
 
 			}
@@ -253,12 +257,15 @@ func (ql *quotaList) build() (returnError error) {
 			for _, block := range seg.AccountBlocks {
 				if _, ok := newItem[block.AccountAddress]; !ok {
 					newItem[block.AccountAddress] = &quotaInfo{
-						Quota:      block.Quota,
-						BlockCount: 1,
+						QuotaTotal:     block.Quota,
+						QuotaUsedTotal: block.QuotaUsed,
+						BlockCount:     1,
 					}
 				} else {
-					newItem[block.AccountAddress].Quota += block.Quota
-					newItem[block.AccountAddress].BlockCount += 1
+					quotaInfo := newItem[block.AccountAddress]
+					quotaInfo.QuotaTotal += block.Quota
+					quotaInfo.QuotaUsedTotal += block.QuotaUsed
+					quotaInfo.BlockCount += 1
 				}
 			}
 			ql.list.PushFront(newItem)
@@ -285,11 +292,14 @@ func (ql *quotaList) moveNext(backElement map[types.Address]*quotaInfo) {
 	}
 
 	quotaUsedStart := ql.usedStart.Value.(map[types.Address]*quotaInfo)
-	for addr, usedStartItem := range quotaUsedStart {
+
+	for _, usedStartItem := range quotaUsedStart {
 		if usedStartItem == nil {
 			continue
 		}
-		ql.sub(ql.used, addr, usedStartItem.BlockCount, usedStartItem.Quota)
+		ql.globalUsed.QuotaUsedTotal -= usedStartItem.QuotaUsedTotal
+		ql.globalUsed.BlockCount -= usedStartItem.BlockCount
+		ql.globalUsed.QuotaTotal -= usedStartItem.QuotaTotal
 	}
 
 	ql.usedStart = ql.usedStart.Next()
@@ -299,17 +309,18 @@ func (ql *quotaList) moveNext(backElement map[types.Address]*quotaInfo) {
 
 }
 
-func (ql *quotaList) add(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, quota uint64) {
+func (ql *quotaList) add(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, quota uint64, quotaUsed uint64) {
 	qi := quotaInfoMap[addr]
 	if qi == nil {
 		qi = &quotaInfo{}
 		quotaInfoMap[addr] = qi
 	}
 	qi.BlockCount += 1
-	qi.Quota += quota
+	qi.QuotaTotal += quota
+	qi.QuotaUsedTotal += quotaUsed
 }
 
-func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, blockCount, quota uint64) {
+func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.Address, blockCount, quota uint64, quotaUsed uint64) {
 	qi := quotaInfoMap[addr]
 	if qi == nil {
 		return
@@ -318,30 +329,29 @@ func (ql *quotaList) sub(quotaInfoMap map[types.Address]*quotaInfo, addr types.A
 		delete(quotaInfoMap, addr)
 	} else {
 		qi.BlockCount -= blockCount
-		qi.Quota -= quota
+		qi.QuotaTotal -= quota
+		qi.QuotaUsedTotal -= quotaUsed
 		return
 	}
 
 }
 
-func (ql *quotaList) calculateUsed() {
-	used := make(map[types.Address]*quotaInfo)
+func (ql *quotaList) calculateGlobalUsed() {
+	var globalUsed types.QuotaInfo
 
 	pointer := ql.usedStart
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*quotaInfo)
-		for addr, tmpItem := range tmpUsed {
-			if used[addr] == nil {
-				used[addr] = &quotaInfo{}
-			}
-
-			used[addr].BlockCount += tmpItem.BlockCount
-			used[addr].Quota += tmpItem.Quota
+		for _, tmpItem := range tmpUsed {
+			globalUsed.BlockCount += tmpItem.BlockCount
+			globalUsed.QuotaTotal += tmpItem.QuotaTotal
+			globalUsed.QuotaUsedTotal += tmpItem.QuotaUsedTotal
 		}
 
 		pointer = pointer.Next()
 	}
-	ql.used = used
+
+	ql.globalUsed = globalUsed
 }
 
 func (ql *quotaList) resetUsedStart() {

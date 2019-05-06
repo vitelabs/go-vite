@@ -70,9 +70,6 @@ func (db *testDatabase) GetUnsavedCallDepth() uint16 {
 	return 0
 }
 
-func (db *testDatabase) GetQuotaUsed(address *types.Address) (quotaUsed uint64, blockCount uint64) {
-	return 0, 0
-}
 func (db *testDatabase) GetReceiptHash() *types.Hash {
 	return &types.Hash{}
 }
@@ -258,8 +255,15 @@ func (db *testDatabase) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
 	return db.snapshotBlockList[0]
 }
 
-func (db *testDatabase) GetUnconfirmedBlocks() []*ledger.AccountBlock {
+func (db *testDatabase) GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock {
 	return nil
+}
+func (db *testDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
+	list := make([]types.QuotaInfo, 75)
+	for i, _ := range list {
+		list[i] = types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0}
+	}
+	return list
 }
 
 func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {

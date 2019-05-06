@@ -202,6 +202,7 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 		panic(err)
 	}
 
+	chainInstance.ResetLog(chainInstance.chainDir, "info")
 	//InsertSnapshotBlock(chainInstance, true)
 
 	accounts := MakeAccounts(chainInstance, accountNum)

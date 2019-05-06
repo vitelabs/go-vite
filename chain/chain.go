@@ -21,10 +21,13 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 
+	"github.com/vitelabs/go-vite/common"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -251,7 +254,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new flusher
-	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.StorageRedo(), c.stateDB.Store(), c.indexDB.Store()}
+	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.stateDB.RedoStore(), c.indexDB.Store()}
 	if c.chainCfg.OpenPlugins {
 		stores = append(stores, c.plugins.Store())
 	}
@@ -414,4 +417,16 @@ func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.
 
 func (c *chain) Flusher() *chain_flusher.Flusher {
 	return c.flusher
+}
+
+func (c *chain) ResetLog(dir string, lvl string) {
+	logLevel, err := log15.LvlFromString(lvl)
+	if err != nil {
+		logLevel = log15.LvlInfo
+	}
+	path := filepath.Join(dir, "chain_logs", time.Now().Format("2006-01-02T15-04"))
+	filename := filepath.Join(path, "chain.log")
+	c.log.SetHandler(
+		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
+	)
 }

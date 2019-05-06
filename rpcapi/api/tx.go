@@ -302,6 +302,14 @@ type CalcPoWDifficultyResult struct {
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	if (latestBlock == nil && !param.PrevHash.IsZero()) ||
+		(latestBlock != nil && latestBlock.Hash != param.PrevHash) {
+		return nil, util.ErrChainForked
+	}
 	// get quota required
 	block := &ledger.AccountBlock{
 		BlockType:      param.BlockType,
@@ -341,17 +349,17 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
-		q = types.NewQuota(0, 0, 0)
+		q = types.NewQuota(0, 0, 0, 0)
 	}
 	// calc difficulty if current quota is not enough
-	canPoW, err := quota.CanPoW(db)
+	canPoW, err := quota.CanPoW(db, block.AccountAddress)
 	if err != nil {
 		return nil, err
 	}
 	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
-	d, err := quota.CalcPoWDifficulty(quotaRequired, q, pledgeAmount)
+	d, err := quota.CalcPoWDifficulty(quotaRequired, q)
 	if err != nil {
 		return nil, err
 	}

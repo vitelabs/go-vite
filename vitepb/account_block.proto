@@ -49,4 +49,6 @@ message AccountBlock {
 	repeated AccountBlock SendBlockList = 18;
 
 	bytes signature = 19;
+
+	uint64 quotaUsed = 20;
 }

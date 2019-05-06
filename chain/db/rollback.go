@@ -34,12 +34,11 @@ func (store *Store) RollbackSnapshot(rollbackBatch *leveldb.Batch) {
 	store.putMemDb(rollbackBatch)
 
 	// set store.snapshotBatch
-	iter := store.unconfirmedBatchs.Iterator()
-	for iter.Next() {
-		iter.Value().(*leveldb.Batch).Replay(store.snapshotBatch)
-	}
+	store.unconfirmedBatchs.All(func(batch *leveldb.Batch) {
+		store.snapshotBatch.Append(batch)
+	})
 
-	rollbackBatch.Replay(store.snapshotBatch)
+	store.snapshotBatch.Append(rollbackBatch)
 
 	// reset
 	store.unconfirmedBatchs.Clear()

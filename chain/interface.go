@@ -209,7 +209,9 @@ type Chain interface {
 
 	GetQuotaUnused(address types.Address) (uint64, error)
 
-	GetQuotaUsed(address types.Address) (quotaUsed uint64, blockCount uint64)
+	GetGlobalQuota() types.QuotaInfo
+
+	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 
 	GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
