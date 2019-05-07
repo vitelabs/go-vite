@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/pkg/errors"
@@ -35,9 +37,8 @@ const (
 	CodeHashList
 
 	ExceptionCode = 127
+	codeTrace     = 128
 )
-
-const step = 100
 
 type msgHandler interface {
 	name() string
@@ -226,11 +227,11 @@ func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code
 		hh := check.Points[i]
 		block, err = c.chain.GetSnapshotBlockByHeight(hh.Height)
 		if err != nil || block == nil {
-			c.log.Warn(fmt.Sprintf("failed to search snapshotblock %s/%d", hh.Hash, hh.Height))
+			c.log.Warn(fmt.Sprintf("failed to find snapshotblock %s/%d", hh.Hash, hh.Height))
 			continue
 		}
 		if block.Hash != hh.Hash {
-			c.log.Warn(fmt.Sprintf("failed to find the same snapshotblock at %d: want %s, find %s", hh.Height, hh.Hash, block.Hash))
+			c.log.Warn(fmt.Sprintf("snapshotblock at %d is %s not %s", hh.Height, block.Hash, hh.Hash))
 			continue
 		}
 
@@ -249,9 +250,34 @@ func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code
 	return CodeCheckResult, checkResult
 }
 
-func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) []*ledger.HashHeight {
+func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (code p2p.Code, payload p2p.Serializable) {
+	var points []*ledger.HashHeight
 
-	return nil
+	var first = true
+	for start := get.From.Height; start <= get.To; start += get.Step {
+		block, err := c.chain.GetSnapshotBlockByHeight(start)
+		if err != nil || block == nil {
+			c.log.Warn(fmt.Sprintf("failed to find snapshotblock at %d", start))
+			break
+		}
+
+		if first && (block.Hash != get.From.Hash) {
+			c.log.Warn(fmt.Sprintf("snapshotblock at %d is %s not %s", get.From.Height, block.Hash, get.From.Hash))
+			break
+		} else {
+			first = false
+			points = append(points, &ledger.HashHeight{
+				Height: block.Height,
+				Hash:   block.Hash,
+			})
+		}
+	}
+
+	if len(points) == 0 {
+		return ExceptionCode, message.Missing
+	}
+
+	return CodeHashList, &message.HashHeightList{points}
 }
 
 func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {
@@ -274,9 +300,8 @@ func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 			return err
 		}
 
-		// todo
-		hashList := c.handleGetHashHeightList(get)
-		return sender.send(CodeHashList, msg.Id, &message.HashHeightList{hashList})
+		cd, payload := c.handleGetHashHeightList(get)
+		return sender.send(cd, msg.Id, payload)
 	}
 
 	return nil
@@ -482,4 +507,28 @@ func splitAccountMap(mblocks accountBlockMap) (ret [][]*ledger.AccountBlock) {
 	}
 
 	return
+}
+
+type traceHandler struct {
+	id peerId
+}
+
+func (t traceHandler) name() string {
+	return "tracer"
+}
+
+func (t traceHandler) codes() []code {
+	return []code{codeTrace}
+}
+
+func (t traceHandler) handle(msg p2p.Msg, sender Peer) error {
+	tm := &message.Trace{}
+	err := proto.Unmarshal(msg.Payload, tm)
+	if err != nil {
+		return err
+	}
+	tm.Path = append(tm.Path, t.id.String())
+
+	// todo
+	return nil
 }

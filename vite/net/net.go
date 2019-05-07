@@ -341,6 +341,10 @@ func New(cfg Config) Net {
 		panic(errors.New("cannot register handler: fetcher"))
 	}
 
+	if err = n.handlers.register(syncer); err != nil {
+		panic(errors.New("cannot register handler: syncer"))
+	}
+
 	return n
 }
 

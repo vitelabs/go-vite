@@ -21,13 +21,14 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 
-	"github.com/vitelabs/go-vite/common"
 	"os"
 	"path"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/common"
 )
 
 const (
@@ -334,7 +335,7 @@ func (c *chain) initCache() error {
 
 	// init sync cache
 	var err error
-	c.syncCache, err = sync_cache.NewSyncCache(c.chainDir)
+	c.syncCache, err = sync_cache.NewSyncCache(path.Join(c.chainDir, "sync_cache"))
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")

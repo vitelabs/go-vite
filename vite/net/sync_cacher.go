@@ -26,6 +26,7 @@ type syncCacheReader interface {
 	reset() // reset state (readTo and requestTo)
 	cacheHeight() uint64
 	chunks() interfaces.SegmentList
+	queue() [][2]*ledger.HashHeight
 }
 
 type Chunks []*Chunk
@@ -102,6 +103,18 @@ type cacheReader struct {
 	log       log15.Logger
 }
 
+func (s *cacheReader) queue() (ret [][2]*ledger.HashHeight) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ret = make([][2]*ledger.HashHeight, len(s.buffer.chunks))
+	for i, c := range s.buffer.chunks {
+		ret[i] = c.SnapshotRange
+	}
+
+	return
+}
+
 func (s *cacheReader) Peek() (c *Chunk) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -110,6 +123,8 @@ func (s *cacheReader) Peek() (c *Chunk) {
 }
 
 func (s *cacheReader) Pop(endHash types.Hash) {
+	s.log.Info(fmt.Sprintf("pop cache %s", endHash))
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -401,6 +416,7 @@ Loop:
 				continue Loop
 			}
 
+			s.log.Info(fmt.Sprintf("begin read cache %d-%d", c.Bound[0], c.Bound[1]))
 			chunk, err = s.read(c)
 
 			// read chunk error
@@ -409,6 +425,7 @@ Loop:
 			} else {
 				// will be block
 				s.addChunkToBuffer(chunk)
+				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
 				// set readTo should be very seriously
 				s.readTo = c.Bound[1]
 			}
