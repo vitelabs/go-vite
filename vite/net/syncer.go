@@ -21,11 +21,11 @@ import (
 
 // the minimal height difference between snapshot chain of ours and bestPeer,
 // if the difference is little than this value, then we deem no need sync.
-const minHeightDifference = 1000
+const minHeightDifference = 60
 const waitEnoughPeers = 10 * time.Second
 const enoughPeers = 1
 const chainGrowInterval = time.Second
-const syncTaskSize = 300
+const syncTaskSize = 100
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
