@@ -430,5 +430,7 @@ Loop:
 				s.readTo = c.Bound[1]
 			}
 		}
+
+		time.Sleep(200 * time.Millisecond)
 	}
 }
