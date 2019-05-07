@@ -39,7 +39,31 @@ func (pl *pool) checkFork() {
 }
 
 func (pl *pool) snapshotFork(branch tree.Branch, targetHeight uint64) error {
-	err := pl.snapshotRollback(branch)
+	current := pl.pendingSc.CurrentChain()
+	if current.ID() == branch.ID() {
+		return nil
+	}
+	keyPoint, err := pl.findForkKeyPoint(branch)
+	if err != nil {
+		pl.log.Error("snapshot find fork key point error", "err", err)
+		return err
+	}
+
+	tailH, _ := current.TailHH()
+	if keyPoint.block.Height > tailH {
+		err = pl.pendingSc.CurrentModifyToChain(branch)
+		if err != nil {
+			pl.log.Error("just snapshot current modify error", "err", err)
+			return err
+		}
+		err := pl.modifyCurrentAccounts(keyPoint.block.Height)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err = pl.snapshotRollback(branch, keyPoint)
 	if err != nil {
 		pl.log.Error("snapshot rollback error", "err", err)
 		return err
@@ -52,7 +76,7 @@ func (pl *pool) snapshotFork(branch tree.Branch, targetHeight uint64) error {
 	}
 
 	if cur := pl.pendingSc.CurrentChain(); cur.ID() != branch.ID() {
-		pl.log.Error("modify to chain fail.", "longestId", branch.ID(), "currentId", cur.ID())
+		pl.log.Error("modify to chain fail", "longestId", branch.ID(), "currentId", cur.ID())
 		return err
 	}
 	err = pl.snapshotInsert(targetHeight)
@@ -63,22 +87,27 @@ func (pl *pool) snapshotFork(branch tree.Branch, targetHeight uint64) error {
 	return nil
 }
 
-func (pl *pool) snapshotRollback(longest tree.Branch) error {
+func (pl *pool) findForkKeyPoint(longest tree.Branch) (*snapshotPoolBlock, error) {
 	current := pl.pendingSc.CurrentChain()
 
-	pl.log.Warn("snapshot chain rollback.", "longest", longest.ID(), "current", current.ID())
+	pl.log.Warn("snapshot find fork point.", "longest", longest.ID(), "current", current.ID())
 
 	k, forked, err := pl.pendingSc.chainpool.tree.FindForkPointFromMain(longest)
 	if err != nil {
 		pl.log.Error("get snapshot forkPoint err.", "err", err)
-		return err
+		return nil, err
 	}
 	if k == nil {
 		pl.log.Error("keypoint is empty.", "forked", forked.Height())
-		return errors.New("key point is nil")
+		return nil, errors.New("key point is nil")
 	}
 	keyPoint := k.(*snapshotPoolBlock)
 	pl.log.Info("fork point", "height", keyPoint.Height(), "hash", keyPoint.Hash())
+	return keyPoint, nil
+}
+
+func (pl *pool) snapshotRollback(longest tree.Branch, keyPoint *snapshotPoolBlock) error {
+	pl.log.Info("rollback snapshot chain", "height", keyPoint.Height(), "hash", keyPoint.Hash())
 
 	snapshots, accounts, e := pl.pendingSc.rw.delToHeight(keyPoint.block.Height)
 	if e != nil {
@@ -86,7 +115,7 @@ func (pl *pool) snapshotRollback(longest tree.Branch) error {
 	}
 
 	if len(snapshots) > 0 {
-		err = pl.pendingSc.rollbackCurrent(snapshots)
+		err := pl.pendingSc.rollbackCurrent(snapshots)
 		if err != nil {
 			return err
 		}
@@ -94,7 +123,7 @@ func (pl *pool) snapshotRollback(longest tree.Branch) error {
 	}
 
 	if len(accounts) > 0 {
-		err = pl.ForkAccounts(accounts)
+		err := pl.ForkAccounts(accounts)
 		if err != nil {
 			return err
 		}
