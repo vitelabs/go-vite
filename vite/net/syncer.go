@@ -177,7 +177,7 @@ func (s *syncer) name() string {
 }
 
 func (s *syncer) codes() []code {
-	return []code{CodeCheckResult, CodeHashList, ExceptionCode}
+	return []code{CodeCheckResult, CodeHashList}
 }
 
 func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
