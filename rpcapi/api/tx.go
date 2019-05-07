@@ -136,8 +136,8 @@ var InitContractAddr = []string{
 func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
-		N:    5,
-		M:    0,
+		N:    0,
+		M:    5,
 	}
 	if vite.Producer() == nil {
 		return tx
