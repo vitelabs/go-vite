@@ -3,71 +3,78 @@ package pool
 import (
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/hashicorp/golang-lru"
 )
 
+// Blacklist define a data set interface with a timeout
 type Blacklist interface {
-	Add(key interface{})
-	AddAddTimeout(key interface{}, duration time.Duration)
-	Exists(key interface{}) bool
-	Remove(key interface{})
+	Add(key types.Hash)
+	AddAddTimeout(key types.Hash, duration time.Duration)
+	Exists(key types.Hash) bool
+	Remove(key types.Hash)
 }
 
+// NewBlacklist returns timeout blacklist
 func NewBlacklist() (Blacklist, error) {
 	cache, err := lru.New(10 * 10000)
 	if err != nil {
 		return nil, err
 	}
-	return &blacklist{cache: cache, defaultTimeout: 0}, nil
+	return &blacklist{cache: cache, defaultTimeout: 0, log: log15.New("module", "pool/blacklist")}, nil
 }
 
 type timeout struct {
 	timeoutT *time.Time
 }
 
-func (self *timeout) reset(duration time.Duration) *timeout {
+func (tt *timeout) reset(duration time.Duration) *timeout {
 	if duration <= 0 {
-		self.timeoutT = nil
+		tt.timeoutT = nil
 	} else {
 		t := time.Now().Add(duration)
-		self.timeoutT = &t
+		tt.timeoutT = &t
 	}
 
-	return self
+	return tt
 }
-func (self *timeout) isTimeout() bool {
-	if self.timeoutT == nil {
+func (tt *timeout) isTimeout() bool {
+	if tt.timeoutT == nil {
 		return false
 	}
-	return self.timeoutT.Before(time.Now())
+	return tt.timeoutT.Before(time.Now())
 }
 
 type blacklist struct {
 	cache          *lru.Cache
 	defaultTimeout time.Duration
+	log            log15.Logger
 }
 
-func (self *blacklist) Add(key interface{}) {
-	self.AddAddTimeout(key, self.defaultTimeout)
+func (bl *blacklist) Add(key types.Hash) {
+	bl.AddAddTimeout(key, bl.defaultTimeout)
 }
 
-func (self *blacklist) AddAddTimeout(key interface{}, duration time.Duration) {
-	value, ok := self.cache.Get(key)
+func (bl *blacklist) AddAddTimeout(key types.Hash, duration time.Duration) {
+	value, ok := bl.cache.Get(key)
 	if ok {
 		value.(*timeout).reset(duration)
 	} else {
-		self.cache.Add(key, (&timeout{}).reset(duration))
+		bl.cache.Add(key, (&timeout{}).reset(duration))
 	}
 }
 
-func (self *blacklist) Exists(key interface{}) bool {
-	value, ok := self.cache.Get(key)
+func (bl *blacklist) Exists(key types.Hash) bool {
+	value, ok := bl.cache.Get(key)
 	if ok {
 		return !value.(*timeout).isTimeout()
 	}
 	return false
 }
 
-func (self *blacklist) Remove(key interface{}) {
-	self.cache.Remove(key)
+func (bl *blacklist) Remove(key types.Hash) {
+	bl.cache.Remove(key)
 }

@@ -29,6 +29,8 @@ type Level interface {
 	Index() int
 	Close()
 	Closed() bool
+	Done()
+	HasDone() bool
 }
 
 type Bucket interface {

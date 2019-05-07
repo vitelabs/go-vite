@@ -35,25 +35,25 @@ func TestBranch_GetKnotAndBranch(t *testing.T) {
 
 	knot, b := b2.GetKnotAndBranch(1)
 	assert.NotNil(t, b)
-	assert.Equal(t, b.Id(), root.Id())
+	assert.Equal(t, b.ID(), root.Id())
 	assert.NotNil(t, knot)
 	assert.Equal(t, knot.Height(), uint64(1))
 
 	knot, b = b2.GetKnotAndBranch(7)
 	assert.NotNil(t, b)
-	assert.Equal(t, b.Id(), b1.Id())
+	assert.Equal(t, b.ID(), b1.Id())
 	assert.NotNil(t, knot)
 	assert.Equal(t, knot.Height(), uint64(7))
 
 	knot, b = b2.GetKnotAndBranch(8)
 	assert.NotNil(t, b)
-	assert.Equal(t, b.Id(), b2.Id())
+	assert.Equal(t, b.ID(), b2.Id())
 	assert.NotNil(t, knot)
 	assert.Equal(t, knot.Height(), uint64(8))
 
 	knot, b = b2.GetKnotAndBranch(17)
 	assert.NotNil(t, b)
-	assert.Equal(t, b.Id(), b2.Id())
+	assert.Equal(t, b.ID(), b2.Id())
 	assert.NotNil(t, knot)
 	assert.Equal(t, knot.Height(), uint64(17))
 
