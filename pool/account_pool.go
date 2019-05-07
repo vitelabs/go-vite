@@ -397,7 +397,7 @@ func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 			switch stat.verifyResult() {
 			case verifier.FAIL:
 				accP.log.Warn("add account block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
-				accP.hashBlacklist.AddAddTimeout(block.Hash(), time.Minute*10)
+				accP.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
 				accP.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
