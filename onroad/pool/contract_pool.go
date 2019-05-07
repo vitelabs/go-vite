@@ -36,7 +36,7 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 	if err != nil {
 		return err
 	}
-	p.log.Info("start loadOnRoad into pool¬")
+	p.log.Info("start loadOnRoad into pool")
 	// resort the map
 	for contract, callerMap := range contractMap {
 		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache())
@@ -248,29 +248,14 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			Height: orList[k].Height,
 			Hash:   orList[k].Hash,
 		}
-
-		b, err := chain.GetAccountBlockByHash(or.Hash)
+		completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
 		if err != nil {
 			return err
 		}
-		if b == nil {
-			continue
+		if completeBlock == nil {
+			return errors.New("failed to find complete block by hash")
 		}
-		if b.IsReceiveBlock() {
-			return ErrBlockTypeErr
-		}
-
-		caller := b.AccountAddress
-
-		isCallerContract := types.IsContractAddr(caller)
-		if isCallerContract {
-			completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
-			if err != nil {
-				return err
-			}
-			if completeBlock == nil {
-				return errors.New("failed to find complete send's parent receive")
-			}
+		if completeBlock.IsReceiveBlock() {
 			or.Height = completeBlock.Height // refer to its parent receive's height
 			for k, v := range completeBlock.SendBlockList {
 				if v.Hash == or.Hash {
@@ -280,6 +265,8 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 				}
 			}
 		}
+		caller := completeBlock.AccountAddress
+		isCallerContract := types.IsContractAddr(caller)
 		if err := cc.addTx(&caller, isCallerContract, or); err != nil {
 			return err
 		}
