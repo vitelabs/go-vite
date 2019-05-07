@@ -467,7 +467,7 @@ func (pl *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 	}
 	cu := this.CurrentChain()
 	curTailHeight, _ := cu.TailHH()
-	keyPoint, forkPoint, err := this.chainpool.tree.FindForkPointFromMain(targetChain)
+	keyPoint, _, err := this.chainpool.tree.FindForkPointFromMain(targetChain)
 	if err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func (pl *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 			targetChain.ID(), cu.ID(), targetChain.SprintTail(), cu.SprintTail())
 	}
 	// fork point in disk chain
-	if forkPoint.Height() <= curTailHeight {
+	if keyPoint.Height() <= curTailHeight {
 		pl.log.Info("RollbackAccountTo[2]", "addr", addr, "hash", h.Hash, "height", h.Height, "targetChain", targetChain.ID(),
 			"targetChainTail", targetChain.SprintTail(),
 			"targetChainHead", targetChain.SprintHead(),
