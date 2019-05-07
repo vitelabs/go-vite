@@ -21,11 +21,11 @@ import (
 
 // the minimal height difference between snapshot chain of ours and bestPeer,
 // if the difference is little than this value, then we deem no need sync.
-const minHeightDifference = 1000
-const waitEnoughPeers = 10 * time.Second
-const enoughPeers = 1
+const minHeightDifference = 100
+const waitEnoughPeers = 5 * time.Second
+const enoughPeers = 3
 const chainGrowInterval = time.Second
-const syncTaskSize = 3600
+const syncTaskSize = 100
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
@@ -125,6 +125,13 @@ type syncPeerSet interface {
 	bestPeer() Peer
 }
 
+type skeleton struct {
+}
+
+func (sk *skeleton) construct() {
+
+}
+
 type syncer struct {
 	from, to uint64
 	batchEnd uint64
@@ -170,7 +177,7 @@ func (s *syncer) name() string {
 }
 
 func (s *syncer) codes() []code {
-	return []code{CodeCheckResult, CodeHashList}
+	return []code{CodeCheckResult, CodeHashList, ExceptionCode}
 }
 
 func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
@@ -191,6 +198,8 @@ func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 		// todo
 
+	case ExceptionCode:
+		// todo
 	}
 
 	return nil
@@ -468,12 +477,13 @@ func (s *syncer) Status() SyncStatus {
 }
 
 type SyncDetail struct {
-	From       uint64                 `json:"from"`
-	To         uint64                 `json:"to"`
-	Current    uint64                 `json:"current"`
-	State      SyncState              `json:"state"`
-	Downloader DownloaderStatus       `json:"downloader"`
-	Cache      interfaces.SegmentList `json:"cache"`
+	From       uint64                  `json:"from"`
+	To         uint64                  `json:"to"`
+	Current    uint64                  `json:"current"`
+	State      SyncState               `json:"state"`
+	Downloader DownloaderStatus        `json:"downloader"`
+	Cache      interfaces.SegmentList  `json:"cache"`
+	Chunks     [][2]*ledger.HashHeight `json:"chunks"`
 }
 
 func (s *syncer) Detail() SyncDetail {
@@ -486,5 +496,6 @@ func (s *syncer) Detail() SyncDetail {
 		State:      st.State,
 		Downloader: s.downloader.status(),
 		Cache:      s.reader.chunks(),
+		Chunks:     s.reader.queue(),
 	}
 }

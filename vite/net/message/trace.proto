@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package message;
+
+message trace {
+    repeated string path = 1;
+}
