@@ -223,7 +223,7 @@ func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) e
 		}
 	} else {
 		if block.Height <= 1 {
-			return errors.New("general's sendBlock.Height must be larger than 1")
+			return ErrVerifyAccountTypeNotSure
 		}
 	}
 	return nil
