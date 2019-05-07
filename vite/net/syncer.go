@@ -198,7 +198,7 @@ func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 		// todo
 
-	case ExceptionCode:
+		//case ExceptionCode:
 		// todo
 	}
 
