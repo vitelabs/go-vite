@@ -114,7 +114,7 @@ func (self *branch) updateChildrenForRemoveTail(root Branch) {
 			continue
 		}
 
-		panic("children fail.")
+		panic(fmt.Sprintf("[%s][%s]children[%s] fail[%d]", self.ID(), self.SprintTail(), v.ID(), height))
 	}
 }
 
@@ -203,7 +203,7 @@ func (self *branch) updateRoot(old Branch, new Branch) {
 			continue
 		}
 
-		panic("children fail.")
+		panic(fmt.Sprintf("[%s]children[%s] fail[%d]", self.ID(), v.ID(), height))
 	}
 }
 
