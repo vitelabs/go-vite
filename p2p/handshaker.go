@@ -1,8 +1,14 @@
 package p2p
 
 import (
+	"encoding/binary"
 	"net"
+	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/netool"
+
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
@@ -16,7 +22,6 @@ import (
 )
 
 const (
-	baseProtocolID  = 0
 	baseEncRequest  = 1
 	baseEncResponse = 2
 	baseHandshake   = 3
@@ -56,20 +61,23 @@ type HandshakeMsg struct {
 
 	Timestamp int64
 
-	protocols protoDataList
-
-	// NOT send to peer, just to Protocol
-	From net.Addr
+	Height      uint64
+	Genesis     types.Hash
+	Key         []byte
+	FileAddress []byte
 }
 
 func (b *HandshakeMsg) Serialize() (data []byte, err error) {
 	pb := &protos.Handshake{
-		Version:   b.Version,
-		NetId:     b.NetID,
-		Name:      b.Name,
-		ID:        b.ID.Bytes(),
-		Timestamp: b.Timestamp,
-		Protocols: b.protocols,
+		Version:     b.Version,
+		NetId:       b.NetID,
+		Name:        b.Name,
+		ID:          b.ID.Bytes(),
+		Timestamp:   b.Timestamp,
+		Height:      b.Height,
+		Genesis:     b.Genesis.Bytes(),
+		Key:         b.Key,
+		FileAddress: b.FileAddress,
 	}
 
 	return proto.Marshal(pb)
@@ -92,21 +100,30 @@ func (b *HandshakeMsg) Deserialize(data []byte) (err error) {
 	b.NetID = pb.NetId
 	b.Name = pb.Name
 	b.Timestamp = pb.Timestamp
-	b.protocols = pb.Protocols
+	b.Height = pb.Height
+	b.Genesis, err = types.BytesToHash(pb.Genesis)
+	if err != nil {
+		return
+	}
+	b.Key = pb.Key
+
+	b.FileAddress = pb.FileAddress
 
 	return nil
 }
 
 type handshaker struct {
-	version uint32
-	netId   uint32
-	name    string
-	id      vnode.NodeID
+	version     uint32
+	netId       uint32
+	name        string
+	id          vnode.NodeID
+	genesis     types.Hash
+	fileAddress []byte
 
 	priv ed25519.PrivateKey
 
 	codecFactory CodecFactory
-	ptMap        ProtocolMap
+	protocol     Protocol
 
 	log log15.Logger
 }
@@ -118,32 +135,23 @@ func (h *handshaker) catch(codec Codec, err *Error) {
 
 func (h *handshaker) sendHandshake(codec Codec) (err error) {
 	hsm := HandshakeMsg{
-		Version:   h.version,
-		NetID:     h.netId,
-		Name:      h.name,
-		ID:        h.id,
-		Timestamp: time.Now().Unix(),
-		protocols: nil,
+		Version:     h.version,
+		NetID:       h.netId,
+		Name:        h.name,
+		ID:          h.id,
+		Timestamp:   time.Now().Unix(),
+		FileAddress: h.fileAddress,
 	}
-	for id, pt := range h.ptMap {
-		hsm.protocols = append(hsm.protocols, &protos.Protocol{
-			ID:   uint32(id),
-			Data: pt.ProtoData(),
-		})
-	}
+	hsm.Key, hsm.Height, hsm.Genesis = h.protocol.ProtoData()
+	h.genesis = hsm.Genesis
 
 	hspkt, err := hsm.Serialize()
 	if err != nil {
 		return
 	}
 
-	// add signature to head
-	sign := ed25519.Sign(h.priv, hspkt)
-	hspkt = append(sign, hspkt...)
-
 	codec.SetWriteTimeout(handshakeTimeout)
 	err = codec.WriteMsg(Msg{
-		pid:     0,
 		Code:    baseHandshake,
 		Payload: hspkt,
 	})
@@ -162,10 +170,6 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerNetworkError
 	}
 
-	if msg.pid != baseProtocolID {
-		return nil, PeerNotHandshakeMsg
-	}
-
 	if msg.Code == baseDisconnect {
 		var e = new(Error)
 		err = e.Deserialize(msg.Payload)
@@ -180,27 +184,16 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerNotHandshakeMsg
 	}
 
-	if len(msg.Payload) < signatureLen {
-		return nil, PeerPayloadTooShort
-	}
-
-	sign := msg.Payload[:signatureLen]
 	their = new(HandshakeMsg)
-	err = their.Deserialize(msg.Payload[signatureLen:])
+	err = their.Deserialize(msg.Payload)
 	if err != nil {
 		return nil, PeerUnmarshalError
 	}
 
-	ok := ed25519.Verify(their.ID.Bytes(), msg.Payload[signatureLen:], sign)
-	if !ok {
-		return nil, PeerInvalidSignature
-	}
-
-	their.From = codec.Address()
 	return
 }
 
-func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg, ptMap map[ProtocolID]peerProtocol, level2 Level, err error) {
+func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg, level2 Level, err error) {
 	err = h.sendHandshake(codec)
 	if err != nil {
 		return
@@ -221,21 +214,11 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 		return
 	}
 
-	// protocols
-	ptMap, level2, err = matchProtocols(h.ptMap, their, level, codec.Address())
-	if err != nil {
-		err = &Error{
-			Code:    uint32(PeerProtocolError),
-			Message: err.Error(),
-		}
-
-		return
+	if their.Genesis != h.genesis {
+		err = PeerDifferentGenesis
 	}
 
-	if len(ptMap) == 0 {
-		err = PeerNoMatchedProtocols
-		return
-	}
+	level2, err = h.protocol.ReceiveHandshake(their)
 
 	return
 }
@@ -243,7 +226,7 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 func (h *handshaker) Handshake(conn net.Conn, level Level) (peer PeerMux, err error) {
 	codec := h.codecFactory.CreateCodec(conn)
 
-	their, ptMap, level, err := h.doHandshake(codec, level)
+	their, level, err := h.doHandshake(codec, level)
 
 	if err != nil {
 		var e *Error
@@ -265,34 +248,44 @@ func (h *handshaker) Handshake(conn net.Conn, level Level) (peer PeerMux, err er
 		return
 	}
 
-	peer = NewPeer(their.ID, their.Name, their.Version, codec, level, ptMap)
+	fileAddress := extractFileAddress(codec.Address(), their.FileAddress)
+
+	peer = NewPeer(their.ID, their.Name, their.Height, fileAddress, their.Version, codec, level, h.protocol)
 
 	return
 }
 
-func matchProtocols(our ProtocolMap, their *HandshakeMsg, level1 Level, sender net.Addr) (ptMap map[ProtocolID]peerProtocol, level2 Level, err error) {
-	ptMap = make(map[ProtocolID]peerProtocol)
+func extractFileAddress(sender net.Addr, fileAddressBytes []byte) (fileAddress string) {
+	if len(fileAddressBytes) != 0 {
+		var tcp *net.TCPAddr
 
-	level2 = level1
+		if len(fileAddressBytes) == 2 {
+			filePort := binary.BigEndian.Uint16(fileAddressBytes)
+			var ok bool
+			if tcp, ok = sender.(*net.TCPAddr); ok {
+				return tcp.IP.String() + ":" + strconv.Itoa(int(filePort))
+			}
+		} else {
+			var ep = new(vnode.EndPoint)
 
-	var ptme Protocol
-	var plevel Level
-	var ok bool
-	var state interface{}
-	for _, pt := range their.protocols {
-		pid := ProtocolID(pt.ID)
+			if err := ep.Deserialize(fileAddressBytes); err == nil {
+				if ep.Typ.Is(vnode.HostIP) {
+					// verify ip
+					var ok bool
+					if tcp, ok = sender.(*net.TCPAddr); ok {
+						err = netool.CheckRelayIP(tcp.IP, ep.Host)
+						if err != nil {
+							// invalid ip
+							ep.Host = tcp.IP
+						}
+					}
 
-		if ptme, ok = our[pid]; ok {
-			if state, plevel, err = ptme.ReceiveHandshake(*their, pt.Data, sender); err != nil {
-				return nil, level1, err
-			} else {
-				ptMap[pid] = peerProtocol{
-					Protocol: ptme,
-					state:    state,
-				}
-
-				if plevel > level1 {
-					level2 = plevel
+					fileAddress = ep.String()
+				} else {
+					tcp, err = net.ResolveTCPAddr("tcp", ep.String())
+					if err == nil {
+						fileAddress = ep.String()
+					}
 				}
 			}
 		}
