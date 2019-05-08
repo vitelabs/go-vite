@@ -333,16 +333,16 @@ func calculateFeeAndExecutedFee(order *proto.Order, amount []byte, feeRate strin
 	return feeBytes, executedFee
 }
 
-func (mc *Matcher) handleRefund(order *proto.Order, OrderMarketInfo *proto.OrderMarketInfo) {
+func (mc *Matcher) handleRefund(order *proto.Order, orderMarketInfo *proto.OrderMarketInfo) {
 	if order.Status == FullyExecuted || order.Status == Cancelled {
 		switch order.Side {
 		case false: //buy
-			order.RefundToken = OrderMarketInfo.QuoteToken
+			order.RefundToken = orderMarketInfo.QuoteToken
 			refundAmount := SubBigIntAbs(order.Amount, order.ExecutedAmount)
 			refundFee := SubBigIntAbs(order.LockedBuyFee, order.ExecutedFee)
 			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
 		case true:
-			order.RefundToken = OrderMarketInfo.TradeToken
+			order.RefundToken = orderMarketInfo.TradeToken
 			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
 		mc.updateFundSettle(order.Address, proto.FundSettle{Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})

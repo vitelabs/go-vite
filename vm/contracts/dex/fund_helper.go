@@ -64,7 +64,11 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	if marketInfo.MarketId, err = NewAndSaveMarketId(db); err != nil {
 		return err
 	}
-	marketInfo.MarketSymbol = fmt.Sprintf("%s-%3d_%s", tradeTokenInfo.Symbol, tradeTokenInfo.Index, marketInfo.MarketSymbol)
+	indexStr := strconv.Itoa(int(tradeTokenInfo.Index))
+	for ; len(indexStr) < 3; {
+		indexStr = "0" + indexStr
+	}
+	marketInfo.MarketSymbol = fmt.Sprintf("%s-%s_%s", tradeTokenInfo.Symbol, indexStr, marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
 	return nil
@@ -125,7 +129,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (err error) {
 	tradeTokenInfo := &TokenInfo{}
 	tradeTokenInfo.Decimals = int32(tokenInfoRes.Decimals)
-	tradeTokenInfo.Symbol = tokenInfoRes.Symbol
+	tradeTokenInfo.Symbol = tokenInfoRes.TokenSymbol
 	tradeTokenInfo.Index = int32(tokenInfoRes.Index)
 	if err = SaveTokenInfo(db, tradeTokenId, tradeTokenInfo); err != nil {
 		return err
@@ -144,6 +148,11 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 					if marketInfo.Valid {
 						return InvalidStatusForPendingMarketInfoErr
 					}
+					var address types.Address
+					address, err = types.BytesToAddress(marketInfo.Creator)
+					if err != nil {
+						return err
+					}
 					newMarketEvent := &NewMarketEvent{}
 					if err = RenderMarketInfo(db, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
 						return err
@@ -151,7 +160,7 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 					if err = SubPendingNewMarketFeeSum(db); err != nil {
 						return err
 					}
-					if err = OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, nil); err != nil {
+					if err = OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address); err != nil {
 						return err
 					}
 				}
@@ -202,16 +211,6 @@ func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refund
 }
 
 func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
-	var (
-		orderId OrderId
-		err     error
-	)
-	if orderId, err = NewOrderId(orderParam.OrderId); err != nil {
-		return InvalidOrderIdErr
-	}
-	if !orderId.IsNormal() {
-		return InvalidOrderIdErr
-	}
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
@@ -230,7 +229,6 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) *dexError {
 	order := &dexproto.Order{}
 	orderInfo.Order = order
-	order.Id = param.OrderId
 	order.Address = address.Bytes()
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
@@ -238,10 +236,13 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	order.Quantity = param.Quantity.Bytes()
 	var (
 		marketInfo *MarketInfo
-		err1       error
+		err        error
 	)
-	if marketInfo, err1 = GetMarketInfo(db, param.TradeToken, param.QuoteToken); err1 != nil || !marketInfo.Valid {
+	if marketInfo, err = GetMarketInfo(db, param.TradeToken, param.QuoteToken); err != nil || !marketInfo.Valid {
 		return TradeMarketNotExistsError
+	}
+	if order.Id, err = CompositeOrderId(db, marketInfo.MarketId, param); err != nil {
+		return CompositeOrderIdFailErr
 	}
 	orderMarketInfo := &dexproto.OrderMarketInfo{}
 	orderMarketInfo.MarketId = marketInfo.MarketId
@@ -267,6 +268,7 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	orderInfo.OrderMarketInfo = orderMarketInfo
 	return nil
 }
+
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {
 	if actions == nil || len(actions.FundActions) == 0 && len(actions.FeeActions) == 0 {

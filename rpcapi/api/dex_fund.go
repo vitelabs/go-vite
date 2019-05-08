@@ -126,3 +126,39 @@ func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	}
 	return dex.VerifyDexFundBalance(db), nil
 }
+
+func (f DexFundApi) GetOwner() (*types.Address, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return dex.GetOwner(db)
+}
+
+func (f DexFundApi) GetTime() (int64, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return -1, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return -1, err
+	}
+	return dex.GetTimestampInt64(db), nil
+}
+
+func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return dex.GetMarketInfo(db, tradeToken, quoteToken)
+}

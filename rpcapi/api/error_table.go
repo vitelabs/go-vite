@@ -108,8 +108,8 @@ var (
 	}
 
 	// -37001 ~ -37999 contracts_dex
-	ErrDexInvalidOrderId = JsonRpc2Error{
-		Message: dex.InvalidOrderIdErr.Error(),
+	ErrCompositeOrderIdFail = JsonRpc2Error{
+		Message: dex.CompositeOrderIdFailErr.Error(),
 		Code:    -37001,
 	}
 	ErrDexInvalidOrderType = JsonRpc2Error{
@@ -184,7 +184,7 @@ func init() {
 	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
 	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
 
-	concernedErrorMap[ErrDexInvalidOrderId.Error()] = ErrDexInvalidOrderId
+	concernedErrorMap[ErrCompositeOrderIdFail.Error()] = ErrCompositeOrderIdFail
 	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType
 	concernedErrorMap[ErrDexInvalidOrderPrice.Error()] = ErrDexInvalidOrderPrice
 	concernedErrorMap[ErrDexInvalidOrderQuantity.Error()] = ErrDexInvalidOrderQuantity

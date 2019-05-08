@@ -32,6 +32,7 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
 	accumulateFeeDonate(db, feeAmountMap)
+	accumulatePendingNewMarketFeeSum(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
 			amount    *big.Int
@@ -134,6 +135,15 @@ func accumulateFeeDonate(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big
 		} else {
 			break
 		}
+	}
+	return nil
+}
+
+func accumulatePendingNewMarketFeeSum(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+	if bs, err := db.GetValue(pendingNewMarketFeeSumKey); err != nil {
+		return err
+	} else {
+		accAccount(ledger.ViteTokenId, bs, accumulateRes)
 	}
 	return nil
 }

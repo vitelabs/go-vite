@@ -177,8 +177,8 @@ func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, orderInfo *
 			AccountAddress: block.AccountAddress,
 			ToAddress:      types.AddressDexFund,
 			BlockType:      ledger.BlockTypeSendCall,
-			Amount:         big.NewInt(0),
 			TokenId:        ledger.ViteTokenId,
+			Amount:         big.NewInt(0),
 			Data:           dexSettleBlockData,
 		},
 	}, nil
@@ -248,8 +248,8 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			AccountAddress: block.AccountAddress,
 			ToAddress:      types.AddressDexFund,
 			BlockType:      ledger.BlockTypeSendCall,
-			Amount:         big.NewInt(0),
 			TokenId:        ledger.ViteTokenId,
+			Amount:         big.NewInt(0),
 			Data:           dexSettleBlockData,
 		},
 	}, nil

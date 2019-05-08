@@ -5,7 +5,6 @@ import (
 )
 
 var (
-	InvalidOrderIdErr       = errors.New("invalid order id")
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
@@ -13,6 +12,7 @@ var (
 
 	TradeMarketExistsError    = errors.New("trade market already exists")
 	TradeMarketNotExistsError = NewDexError("trade market not exists", TradeMarketNotExistsFail)
+	CompositeOrderIdFailErr       = NewDexError("composite order id fail", CompositeOrderIdFail)
 	TradeMarketInvalidQuoteTokenError    = errors.New("invalid quote token")
 	TradeMarketInvalidTokenPairError    = errors.New("invalid token pair")
 	TradeMarketAllowMineError    = errors.New("token pair already allow mine")

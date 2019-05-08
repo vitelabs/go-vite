@@ -84,6 +84,6 @@ func (f DexTradeApi) getMatcher() (matcher *dex.Matcher, err error) {
 		return nil, err
 	} else {
 		storage, _ := db.(dex.BaseStorage)
-		return dex.NewMatcher(&types.AddressDexTrade, &storage), nil
+		return dex.NewMatcher(&storage), nil
 	}
 }

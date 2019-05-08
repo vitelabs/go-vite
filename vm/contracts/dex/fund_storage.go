@@ -29,6 +29,7 @@ var (
 	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
 	pendingNewMarketActionsKey = []byte("pmkas:")
 	marketIdKey                = []byte("mkId:")
+	orderIdSerialNoKey         = []byte("orIdSl:")
 
 	timerContractAddressKey = []byte("tmA:")
 
@@ -94,7 +95,6 @@ type ParamDexFundWithDraw struct {
 }
 
 type ParamDexFundNewOrder struct {
-	OrderId    []byte
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 	Side       bool
@@ -148,12 +148,12 @@ type ParamDexFundPledge struct {
 type ParamDexFundGetTokenInfoCallback struct {
 	Exist    bool
 	Decimals uint8
-	Symbol   string
+	TokenSymbol   string
 	Index    uint16
 }
 
 type ParamDexFundGetTokenInfo struct {
-	Token types.TokenTypeId
+	TokenId types.TokenTypeId
 }
 
 type ParamDexConfigTimerAddress struct {
@@ -291,6 +291,24 @@ func (pnm *PendingNewMarkets) DeSerialize(data []byte) error {
 		return err
 	} else {
 		pnm.PendingNewMarkets = pendingNewMarkets
+		return nil
+	}
+}
+
+type OrderIdSerialNo struct {
+	dexproto.OrderIdSerialNo
+}
+
+func (osn *OrderIdSerialNo) Serialize() (data []byte, err error) {
+	return proto.Marshal(&osn.OrderIdSerialNo)
+}
+
+func (osn *OrderIdSerialNo) DeSerialize(data []byte) error {
+	orderIdSerialNo := dexproto.OrderIdSerialNo{}
+	if err := proto.Unmarshal(data, &orderIdSerialNo); err != nil {
+		return err
+	} else {
+		osn.OrderIdSerialNo = orderIdSerialNo
 		return nil
 	}
 }
@@ -510,9 +528,7 @@ func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 
 func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) error {
 	periodId := GetCurrentPeriodIdFromStorage(db, reader)
-	db.SetValue(lastFeeSumPeriodKey, Uint64ToBytes(periodId))
-	return nil
-
+	return db.SetValue(lastFeeSumPeriodKey, Uint64ToBytes(periodId))
 }
 
 func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (*UserFees, error) {
@@ -528,8 +544,8 @@ func SaveUserFeesToStorage(db vm_db.VmDb, address []byte, userFees *UserFees) er
 	return saveFunValueToDb(db, GetUserFeesKey(address), userFees)
 }
 
-func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) {
-	db.SetValue(GetUserFeesKey(address), nil)
+func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) error {
+	return db.SetValue(GetUserFeesKey(address), nil)
 }
 
 func GetUserFeesKey(address []byte) []byte {
@@ -581,8 +597,8 @@ func CheckUserVxFundsCanBeDelete(vxFunds *VxFunds) bool {
 	return len(vxFunds.Funds) == 1 && !IsValidVxAmountBytesForDividend(vxFunds.Funds[0].Amount)
 }
 
-func DeleteVxFundsFromStorage(db vm_db.VmDb, address []byte) {
-	db.SetValue(GetVxFundsKey(address), nil)
+func DeleteVxFundsFromStorage(db vm_db.VmDb, address []byte) error {
+	return db.SetValue(GetVxFundsKey(address), nil)
 }
 
 func GetVxFundsKey(address []byte) []byte {
@@ -600,8 +616,7 @@ func GetVxSumFundsFromDb(db vm_db.VmDb) (*VxFunds, error) {
 
 func SaveVxSumFundsToDb(db vm_db.VmDb, vxSumFunds *VxFunds) error {
 	if vxSumFundsBytes, err := vxSumFunds.Serialize(); err == nil {
-		db.SetValue(vxSumFundsKey, vxSumFundsBytes)
-		return nil
+		return db.SetValue(vxSumFundsKey, vxSumFundsBytes)
 	} else {
 		return err
 	}
@@ -615,8 +630,8 @@ func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	}
 }
 
-func SaveLastFeeDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
-	db.SetValue(lastFeeDividendIdKey, Uint64ToBytes(periodId))
+func SaveLastFeeDividendIdToStorage(db vm_db.VmDb, periodId uint64) error {
+	return db.SetValue(lastFeeDividendIdKey, Uint64ToBytes(periodId))
 }
 
 func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
@@ -627,8 +642,8 @@ func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	}
 }
 
-func SaveLastMinedVxDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
-	db.SetValue(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
+func SaveLastMinedVxDividendIdToStorage(db vm_db.VmDb, periodId uint64) error {
+	return db.SetValue(lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
 }
 
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
@@ -692,9 +707,7 @@ func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quote
 
 func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (err error) {
 	pendingNewMarkets := &PendingNewMarkets{}
-	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err != nil {
-		return
-	} else {
+	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err == nil || err == NotFoundValueFromDb {
 		var foundTradeToken bool
 		for _, action := range pendingNewMarkets.PendingActions {
 			if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
@@ -715,6 +728,7 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 		}
 		return SavePendingNewMarkets(db, pendingNewMarkets)
 	}
+	return
 }
 
 func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) error {
@@ -802,15 +816,15 @@ func GetTokenInfoKey(token types.TokenTypeId) []byte {
 
 func NewAndSaveMarketId(db vm_db.VmDb) (int32, error) {
 	var newId int32
-	if idBytes, err := db.GetValue(marketIdKey); err != nil {
-		return -1, err
-	} else {
+	if idBytes, err := db.GetValue(marketIdKey); err == nil || err == NotFoundValueFromDb {
 		if len(idBytes) == 0 {
 			newId = 1
 		} else {
 			newId = int32(BytesToUint32(idBytes)) + 1
 		}
 		return newId, db.SetValue(marketIdKey, Uint32ToBytes(uint32(newId)))
+	} else {
+		return -1, err
 	}
 }
 
@@ -833,7 +847,7 @@ func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) e
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
 	re := make([]byte, len(marketKeyPrefix)+2*types.TokenTypeIdSize)
-	copy(re[0:len(marketKeyPrefix)], marketKeyPrefix)
+	copy(re[:len(marketKeyPrefix)], marketKeyPrefix)
 	copy(re[len(marketKeyPrefix):], tradeToken.Bytes())
 	copy(re[len(marketKeyPrefix)+types.TokenTypeIdSize:], quoteToken.Bytes())
 	return re
@@ -846,24 +860,57 @@ func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
 	db.AddLog(log)
 }
 
+func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (int32, error) {
+	orderIdSerialNo := &OrderIdSerialNo{}
+	var newSerialNo int32
+	if err := getFundValueFromDb(db, orderIdSerialNoKey, orderIdSerialNo); err == NotFoundValueFromDb {
+		newSerialNo = 0
+	} else if err != nil {
+		return -1, err
+	} else {
+		if timestamp == orderIdSerialNo.Timestamp {
+			newSerialNo = orderIdSerialNo.SerialNo + 1
+		} else {
+			newSerialNo = 0
+		}
+	}
+	orderIdSerialNo.Timestamp = timestamp
+	orderIdSerialNo.SerialNo = newSerialNo
+	return newSerialNo, saveFunValueToDb(db, orderIdSerialNoKey, orderIdSerialNo)
+}
+
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
-	if storeOwner, err := db.GetValue(ownerKey); err == nil && len(storeOwner) == types.AddressSize {
-		if bytes.Equal(storeOwner, address.Bytes()) {
+	if storeOwner, err := db.GetValue(ownerKey); err == nil {
+		if  len(storeOwner) == types.AddressSize {
+			if bytes.Equal(storeOwner, address.Bytes()) {
+				return true
+			}
+		} else if len(storeOwner) == 0 {
 			return true
 		}
 	}
 	return false
 }
 
-func SetOwner(db vm_db.VmDb, address types.Address) {
-	db.SetValue(ownerKey, address.Bytes())
+func GetOwner(db vm_db.VmDb) (*types.Address, error) {
+	if storeOwner, err := db.GetValue(ownerKey); err == nil && len(storeOwner) == types.AddressSize {
+		if owner, err := types.BytesToAddress(storeOwner); err == nil {
+			return &owner, nil
+		} else {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
+}
+
+func SetOwner(db vm_db.VmDb, address types.Address) error {
+	return db.SetValue(ownerKey, address.Bytes())
 }
 
 func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
-	if timerAddressBytes, err := db.GetValue(timerContractAddressKey); err == nil && len(timerAddressBytes) == types.AddressSize {
-		if bytes.Equal(timerAddressBytes, address.Bytes()) {
-			return true
-		}
+	if timerAddressBytes, err := db.GetValue(timerContractAddressKey); err == nil && bytes.Equal(timerAddressBytes, address.Bytes()) {
+		return true
 	}
 	return false
 }

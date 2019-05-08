@@ -477,13 +477,13 @@ func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	if tokenId == nil || block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, &tokenId)
+	block.Data, _ = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, tokenId)
 	return nil
 }
 
 func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenId := new(types.TokenTypeId)
-	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, block.Data)
+	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, sendBlock.Data)
 	tokenInfo, err := abi.GetTokenById(db, *tokenId)
 	util.DealWithErr(err)
 	var callbackData []byte

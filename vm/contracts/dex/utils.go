@@ -3,14 +3,38 @@ package dex
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/vitelabs/go-vite/vm_db"
 	"strconv"
 	"strings"
 )
 
+const (
+	OrderIdBytesLength = 22
+	PriceBytesLength = 10
+)
+
+//MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
+func CompositeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) ([]byte, error) {
+	idBytes := make([]byte, OrderIdBytesLength)
+	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
+	if param.Side {
+		idBytes[3] = 1
+	}
+	copy(idBytes[4:14], PriceToBytes(param.Price))
+	timestamp := GetTimestampInt64(db)
+	copy(idBytes[14:19], Uint64ToBytes(uint64(timestamp))[3:])
+	if serialNo, err := NewAndSaveOrderSerialNo(db, timestamp); err != nil {
+		return nil, err
+	} else {
+		copy(idBytes[19:], Uint32ToBytes(uint32(serialNo))[1:])
+	}
+	return idBytes, nil
+}
+
 func PriceToBytes(price string) []byte {
 	parts := strings.Split(price, ".")
 	var intPart, decimalPart string
-	priceBytes := make([]byte, 10)
+	priceBytes := make([]byte, PriceBytesLength)
 	if len(parts) == 2 {
 		intPart = parts[0]
 		decimalPart = parts[1]

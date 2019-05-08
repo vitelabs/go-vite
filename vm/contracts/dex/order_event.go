@@ -16,7 +16,6 @@ const newMarketEventName = "newMarketEvent"
 const errEventName = "errEvent"
 const cancelOrderFailEventName = "cancelOrderFailEvent"
 
-
 const (
 	NewOrderGetFundFail = iota
 	NewOrderLockFundFail
@@ -24,6 +23,7 @@ const (
 	NewOrderInternalErr
 	TradeMarketNotExistsFail
 	OrderAmountTooSmallFail
+	CompositeOrderIdFail
 )
 
 type OrderEvent interface {

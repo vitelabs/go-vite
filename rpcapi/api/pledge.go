@@ -123,8 +123,6 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	}
 	targetList := make([]*PledgeInfo, endHeight-startHeight)
 	for i, info := range list[startHeight:endHeight] {
-		withdrawHeight := uint64ToString(info.WithdrawHeight)
-		withdrawTime := getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight)
 		targetList[i] = &PledgeInfo{
 			*bigIntToString(info.Amount),
 			uint64ToString(info.WithdrawHeight),
