@@ -261,7 +261,7 @@ func (p *peerMux) readLoop() (err error) {
 
 				for id, data := range heartBeat.State {
 					if pp, ok := p.protoMap[ProtocolID(id)]; ok {
-						go pp.Protocol.SetState(data, pp)
+						pp.Protocol.SetState(data, pp)
 					} else {
 						return PeerUnknownProtocol
 					}
