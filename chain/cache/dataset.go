@@ -1,20 +1,24 @@
 package chain_cache
 
 import (
+	"time"
+
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"time"
 )
 
 type dataSet struct {
 	store *cache.Cache
+
+	snapshotKeepCount uint64
 }
 
 func NewDataSet() *dataSet {
 	return &dataSet{
-		store: cache.New(cache.NoExpiration, cache.NoExpiration),
+		store:             cache.New(cache.NoExpiration, 1*time.Minute),
+		snapshotKeepCount: 1800,
 	}
 }
 
@@ -23,12 +27,12 @@ func (ds *dataSet) Close() {
 	ds.store = nil
 }
 
-func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) {
-	hashKey := string(chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash))
-	heightKey := string(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height))
+func (ds *dataSet) IsLarge() bool {
+	return ds.store.ItemCount() > 20*10000
+}
 
-	ds.store.Set(hashKey, accountBlock, cache.NoExpiration)
-	ds.store.Set(heightKey, hashKey, cache.NoExpiration)
+func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) {
+	ds.insertAccountBlock(accountBlock, cache.NoExpiration)
 }
 
 func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
@@ -37,6 +41,8 @@ func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
 
 	ds.store.Set(hashKey, snapshotBlock, time.Second*1800)
 	ds.store.Set(heightKey, hashKey, time.Second*1800)
+	// delete stale
+	ds.deleteStaleSnapshotBlock(snapshotBlock.Height)
 }
 
 func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
@@ -46,8 +52,18 @@ func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
 
 		ds.store.Delete(hashKey)
 		ds.store.Delete(heightKey)
-	}
 
+		for _, sendBlock := range accountBlock.SendBlockList {
+			// delete send block
+			ds.store.Delete(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)))
+		}
+	}
+}
+
+func (ds *dataSet) DelayDeleteAccountBlocks(accountBlocks []*ledger.AccountBlock, delay time.Duration) {
+	for _, accountBlock := range accountBlocks {
+		ds.insertAccountBlock(accountBlock, delay)
+	}
 }
 
 func (ds *dataSet) DeleteSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
@@ -118,4 +134,32 @@ func (ds *dataSet) IsSnapshotBlockExisted(hash types.Hash) bool {
 	hashKey := chain_utils.CreateSnapshotBlockHashKey(&hash)
 	_, ok := ds.store.Get(string(hashKey))
 	return ok
+}
+
+func (ds *dataSet) insertAccountBlock(accountBlock *ledger.AccountBlock, delay time.Duration) {
+	hashKey := string(chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash))
+	heightKey := string(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height))
+
+	ds.store.Set(hashKey, accountBlock, delay)
+	ds.store.Set(heightKey, hashKey, delay)
+
+	for _, sendBlock := range accountBlock.SendBlockList {
+		// set send block hash
+		ds.store.Set(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)), accountBlock, delay)
+	}
+}
+
+func (ds *dataSet) deleteStaleSnapshotBlock(height uint64) {
+	if height <= ds.snapshotKeepCount {
+		return
+	}
+	staleHeight := height - ds.snapshotKeepCount
+	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(staleHeight))
+	hash, ok := ds.store.Get(heightKey)
+	if !ok {
+		return
+	}
+
+	ds.store.Delete(heightKey)
+	ds.store.Delete(hash.(string))
 }

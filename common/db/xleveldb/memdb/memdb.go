@@ -474,17 +474,50 @@ func New(cmp comparer.BasicComparer, capacity int) *DB {
 	return p
 }
 
-var _rnd = rand.New(rand.NewSource(0xdeadbeef))
+type globalSource struct {
+	s  rand.Source64
+	mu sync.Mutex
+}
 
-// More efficient
+func newGlobalSource() *globalSource {
+	return &globalSource{
+		s: rand.NewSource(0xdeadbeef).(rand.Source64),
+	}
+}
+
+func (gs *globalSource) Int63() (n int64) {
+	gs.mu.Lock()
+	n = gs.s.Int63()
+	gs.mu.Unlock()
+
+	return
+}
+
+func (gs *globalSource) Seed(seed int64) {
+	gs.mu.Lock()
+
+	gs.s.Seed(seed)
+	gs.mu.Unlock()
+}
+
+func (gs *globalSource) Uint64() (n uint64) {
+	gs.mu.Lock()
+	n = gs.s.Uint64()
+	gs.mu.Unlock()
+	return
+}
+
+var globalRnd = rand.New(newGlobalSource())
+
 func New2(cmp comparer.BasicComparer, capacity int) *DB {
 	p := &DB{
 		cmp:       cmp,
-		rnd:       _rnd,
+		rnd:       globalRnd,
 		maxHeight: 1,
 		kvData:    make([]byte, 0, capacity),
 		nodeData:  make([]int, 4+tMaxHeight),
 	}
 	p.nodeData[nHeight] = tMaxHeight
+
 	return p
 }

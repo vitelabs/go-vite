@@ -365,7 +365,7 @@ func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
 
 func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, err error) {
 	defer func() {
-		if err := recover(); err != nil {
+		if panicErr := recover(); panicErr != nil {
 			debug.PrintStack()
 			err = util.ErrChainForked
 		}
@@ -405,7 +405,7 @@ func calcRewardByDay(reader util.ConsensusReader, index uint64, pledgeAmount *bi
 
 func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big.Int) *Reward {
 	selfDetail, ok := detail.Stats[name]
-	if !ok {
+	if !ok || selfDetail.ExceptedBlockNum == 0 {
 		return newZeroReward()
 	}
 	reward := &Reward{}

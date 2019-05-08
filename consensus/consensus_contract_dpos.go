@@ -128,12 +128,31 @@ func (self *contractDposCs) verifyProducers(blocks []*ledger.AccountBlock, resul
 }
 
 func (self *contractDposCs) VerifyAccountProducer(accountBlock *ledger.AccountBlock) (bool, error) {
+	if self.CheckLevel == 1 {
+		return self.VerifyAccountProducerLevel1(accountBlock)
+	}
 	head := self.rw.GetLatestSnapshotBlock()
 	electionResult, err := self.electionTime(*head.Timestamp)
 	if err != nil {
 		return false, err
 	}
+
 	return self.verifyProducer(accountBlock.Producer(), electionResult), nil
+}
+
+func (self *contractDposCs) VerifyAccountProducerLevel1(accBlock *ledger.AccountBlock) (bool, error) {
+	head := self.rw.GetLatestSnapshotBlock()
+	index := self.Time2Index(*head.Timestamp)
+	addrs, _, err := self.electionAddrsIndex(index)
+	if err != nil {
+		return false, err
+	}
+	for _, v := range addrs {
+		if v == accBlock.Producer() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (self *contractDposCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {

@@ -162,7 +162,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Info(fmt.Sprintf("recover after delete sb %s %d %s\n", block.AccountAddress, block.Height, block.Hash))
 	}
 
-	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, snapshotChunks); err != nil {
+	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
 		return nil, err
 	}
 
@@ -184,8 +184,8 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
-	if err := c.em.TriggerDeleteSbs(DeleteSbsEvent, snapshotChunks); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.em.Trigger(DeleteSbsEvent) failed, error is %s", err.Error()))
+	if err := c.em.TriggerDeleteSbs(deleteSbsEvent, realChunksToDelete); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.em.Trigger(deleteSbsEvent) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 

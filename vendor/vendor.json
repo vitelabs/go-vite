@@ -57,6 +57,42 @@
 			"revisionTime": "2019-04-24T13:28:44Z"
 		},
 		{
+			"checksumSHA1": "IlDHv+GrkfH+xp1pdKzOqws1sLY=",
+			"path": "github.com/emirpasic/gods/containers",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
+			"checksumSHA1": "x+B7oiDuT24Y9pz5+zw4RvymOiE=",
+			"path": "github.com/emirpasic/gods/lists",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
+			"checksumSHA1": "q/nvLBPPtOS8EjrmjYs0ldxTinY=",
+			"path": "github.com/emirpasic/gods/lists/doublylinkedlist",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
+			"checksumSHA1": "XCPN+L39nz8L5qBMskCg0D3vK0s=",
+			"path": "github.com/emirpasic/gods/maps",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
+			"checksumSHA1": "xKLpJ6bKJNr4X784bD2yzNFnlOU=",
+			"path": "github.com/emirpasic/gods/maps/linkedhashmap",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
+			"checksumSHA1": "MlzoSungdUXIAmRdJ85lDQLW9OQ=",
+			"path": "github.com/emirpasic/gods/utils",
+			"revision": "729073a73ce2057955fafa2a8f0ac62b99e950c9",
+			"revisionTime": "2019-01-24T12:07:04Z"
+		},
+		{
 			"checksumSHA1": "KSRJC/V4LkGTakqzakXY/Ces0sw=",
 			"path": "github.com/ethereum/go-ethereum/log",
 			"revision": "9a58a9b91a9bb60be2768aea451576135fa7ebe0",
@@ -267,6 +303,12 @@
 			"path": "github.com/mattn/go-runewidth",
 			"revision": "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb",
 			"revisionTime": "2018-04-08T05:53:51Z"
+		},
+		{
+			"checksumSHA1": "ZTcgWKWHsrX0RXYVXn5Xeb8Q0go=",
+			"path": "github.com/modern-go/concurrent",
+			"revision": "bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94",
+			"revisionTime": "2018-03-06T01:26:44Z"
 		},
 		{
 			"checksumSHA1": "W8mzTLRjnooGtHwWaxSX8eq8hlY=",

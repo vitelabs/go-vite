@@ -173,7 +173,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A]account[%s] not exist.", r))
+				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A][%d]account[%s][%s] not exist.", self.Id(), b.Hash(), r))
 			}
 			continue
 		}
@@ -203,25 +203,30 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 	}
 
 	var tmp Level
-	if self.current >= 0 {
-		tmp = self.ls[self.current]
-		if tmp.Snapshot() {
-			max = self.current + 1
-			if max > self.maxLevel-1 {
-				return MAX_ERROR
-			}
-			tmp = newLevel(false, max)
-			self.ls[max] = tmp
-		} else {
-			if self.current > max {
-				tmp = self.ls[max]
-			}
-		}
-	} else {
-		// first account block
-		max = 0
+	if max > self.current {
 		tmp = newLevel(false, max)
 		self.ls[max] = tmp
+	} else {
+		if self.current >= 0 {
+			tmp = self.ls[self.current]
+			if tmp.Snapshot() {
+				max = self.current + 1
+				if max > self.maxLevel-1 {
+					return MAX_ERROR
+				}
+				tmp = newLevel(false, max)
+				self.ls[max] = tmp
+			} else {
+				if self.current > max {
+					tmp = self.ls[max]
+				}
+			}
+		} else {
+			// first account block
+			max = 0
+			tmp = newLevel(false, max)
+			self.ls[max] = tmp
+		}
 	}
 
 	err := tmp.Add(b)
@@ -240,4 +245,9 @@ func (self *batchSnapshot) addToAll(keys []types.Hash, l *ownerLevel) {
 	for _, v := range keys {
 		self.all[v] = l
 	}
+}
+
+func (self *batchSnapshot) Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error {
+	executor := newBatchExecutor(self, snapshotFn, accountFn)
+	return executor.execute()
 }

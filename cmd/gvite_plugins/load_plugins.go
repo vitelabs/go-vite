@@ -153,6 +153,7 @@ func init() {
 		attachCommand,
 		ledgerRecoverCommand,
 		exportCommand,
+		pluginDataCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -174,7 +175,9 @@ func Loading() {
 }
 
 func beforeAction(ctx *cli.Context) error {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	max := runtime.NumCPU() + 1
+	log.Info("runtime num", "max", max)
+	runtime.GOMAXPROCS(max)
 
 	//TODO: we can add dashboard here
 	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {

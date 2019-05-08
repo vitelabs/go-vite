@@ -56,7 +56,7 @@ func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*A
 		GetVmLogList(chainInstance, accounts)
 	})
 
-	t.Run("GetQuotaUsed", func(t *testing.T) {
+	t.Run("GetQuotaUsedList", func(t *testing.T) {
 		GetQuotaUsed(chainInstance, accounts)
 	})
 
@@ -286,7 +286,12 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 	}
 
 	for _, account := range accounts {
-		queryQuota, queryBlockCount := chainInstance.GetQuotaUsed(account.Addr)
+		quotaList := chainInstance.GetQuotaUsedList(account.Addr)
+		var queryQuota, queryBlockCount uint64
+		for _, quotaInfo := range quotaList {
+			queryQuota += quotaInfo.QuotaTotal
+			queryBlockCount += quotaInfo.BlockCount
+		}
 
 		var quota, blockCount uint64
 

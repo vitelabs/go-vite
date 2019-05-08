@@ -15,6 +15,10 @@ type blockNotifier interface {
 	notifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource)
 }
 
+type chunkNotifier interface {
+	notifyChunks(chunks []ledger.SnapshotChunk, source types.BlockSource)
+}
+
 type blockReceiver interface {
 	receiveAccountBlock(block *ledger.AccountBlock, source types.BlockSource) error
 	receiveSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) error

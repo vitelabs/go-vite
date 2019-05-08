@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
+// Verifier is the interface that can verify block consensus.
 type Verifier interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
@@ -54,7 +55,7 @@ type Reader interface {
 
 type APIReader interface {
 	ReadVoteMap(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
-	ReadSuccessRateForAPI(start, end uint64) ([]map[types.Address]*consensus_db.Content, error)
+	ReadSuccessRate(start, end uint64) ([]map[types.Address]*consensus_db.Content, error)
 }
 
 type Life interface {
@@ -97,12 +98,12 @@ type consensus struct {
 	closed chan struct{}
 }
 
-func (self *consensus) SBPReader() core.SBPStatReader {
-	return self.snapshot
+func (cs *consensus) SBPReader() core.SBPStatReader {
+	return cs.snapshot
 }
 
-func (self *consensus) API() APIReader {
-	return self.api
+func (cs *consensus) API() APIReader {
+	return cs.api
 }
 
 func NewConsensus(ch Chain, rollback lock.ChainRollback) *consensus {

@@ -37,20 +37,25 @@ type AccountBlock struct {
 	PublicKey ed25519.PublicKey `json:"publicKey"`
 	ToAddress types.Address     `json:"toAddress"` // 5
 
-	Amount  *big.Int          `json:"amount"`  // 6	padding 32 bytes
+	Amount *big.Int `json:"amount"` // 6	padding 32 bytes
+
 	TokenId types.TokenTypeId `json:"tokenId"` // 7
 
 	FromBlockHash types.Hash `json:"fromBlockHash"` // 8
 
 	Data []byte `json:"data"` // 9	hash
 
-	Quota uint64   `json:"quota"`
-	Fee   *big.Int `json:"fee"` // 10 padding 32 bytes
+	Quota uint64 `json:"quota"`
+
+	QuotaUsed uint64 `json:"quotaUsed"`
+
+	Fee *big.Int `json:"fee"` // 10 padding 32 bytes
 
 	LogHash *types.Hash `json:"logHash"` // 11
 
 	Difficulty *big.Int `json:"difficulty"`
-	Nonce      []byte   `json:"nonce"` // 12 padding 8 bytes
+
+	Nonce []byte `json:"nonce"` // 12 padding 8 bytes
 
 	SendBlockList []*AccountBlock `json:"sendBlockList"` // 13
 
@@ -127,8 +132,8 @@ func (ab *AccountBlock) hashSourceLength() int {
 	return size
 }
 
-func (ab *AccountBlock) hashSource() []byte {
-	source := make([]byte, 0, ab.hashSourceLength())
+func (ab *AccountBlock) hashSource(extraByte []byte) []byte {
+	source := make([]byte, 0, ab.hashSourceLength()+len(extraByte))
 	// BlockType
 	source = append(source, ab.BlockType)
 
@@ -180,11 +185,34 @@ func (ab *AccountBlock) hashSource() []byte {
 	for _, sendBlock := range ab.SendBlockList {
 		source = append(source, sendBlock.Hash.Bytes()...)
 	}
+
+	source = append(source, extraByte...)
 	return source
 }
 
 func (ab *AccountBlock) ComputeHash() types.Hash {
-	source := ab.hashSource()
+	source := ab.hashSource(nil)
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+
+	return hash
+}
+
+func (ab *AccountBlock) ComputeSendHash(hostBlock *AccountBlock, index uint8) types.Hash {
+
+	extraBytes := make([]byte, 0, types.HashSize+8+1)
+	// prev hash
+	extraBytes = append(extraBytes, hostBlock.PrevHash.Bytes()...)
+
+	// height
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, hostBlock.Height)
+	extraBytes = append(extraBytes, heightBytes...)
+
+	// index
+	extraBytes = append(extraBytes, index)
+
+	source := ab.hashSource(extraBytes)
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
 
@@ -230,7 +258,6 @@ func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
 	} else {
 		// 10
 		pb.FromBlockHash = ab.FromBlockHash.Bytes()
-
 	}
 
 	if ab.IsSendBlock() || ab.BlockType == BlockTypeGenesisReceive {
@@ -245,6 +272,9 @@ func (ab *AccountBlock) Proto() *vitepb.AccountBlock {
 
 	// 12
 	pb.Quota = ab.Quota
+
+	// 20
+	pb.QuotaUsed = ab.QuotaUsed
 
 	if ab.Fee != nil {
 		// 13
@@ -322,6 +352,9 @@ func (ab *AccountBlock) DeProto(pb *vitepb.AccountBlock) error {
 
 	// 12
 	ab.Quota = pb.Quota
+
+	// 20
+	ab.QuotaUsed = pb.QuotaUsed
 
 	// 13
 	ab.Fee = big.NewInt(0)

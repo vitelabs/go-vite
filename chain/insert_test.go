@@ -14,6 +14,7 @@ import (
 	"net/http"
 
 	"github.com/vitelabs/go-vite/vm/quota"
+	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -35,22 +36,42 @@ func TestInsertAccountBlocks(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	var mu sync.RWMutex
+	var snapshotBlockList []*ledger.SnapshotBlock
+
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		for {
-			for addr := range accounts {
+			mu.RLock()
+			count := 0
+			for addr, account := range accounts {
+
 				block, err := chainInstance.GetLatestAccountBlock(addr)
 				if err != nil {
 					panic(err)
 				}
 
 				if block == nil || block.Hash.IsZero() {
-					fmt.Println(addr)
-					fmt.Println(chainInstance.GetLatestAccountBlock(addr))
 					panic("error")
 				}
+				if block.Hash != account.LatestBlock.Hash {
+					//block, err := chainInstance.GetLatestAccountBlock(addr)
+					panic(fmt.Sprintf("%+v\n %+v", block, account.LatestBlock))
+				}
+				count++
+
+				if count >= 3 {
+					break
+				}
+
 			}
+			mu.RUnlock()
 
 		}
 	}()
@@ -58,9 +79,26 @@ func TestInsertAccountBlocks(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 10000; i++ {
+
+			InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(1000))
+			mu.Lock()
+
+			snapshotBlock := createSnapshotBlock(chainInstance, false)
+
+			snapshotBlockList = append(snapshotBlockList, snapshotBlock)
+			Snapshot(accounts, snapshotBlock)
+
+			invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+			if err != nil {
+				panic(err)
+			}
+
+			DeleteInvalidBlocks(accounts, invalidBlocks)
+			mu.Unlock()
+
 			//t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
-			InsertAccountBlockAndSnapshot(chainInstance, accounts, 1300, 1, false)
 			//})
+			fmt.Println("Insert")
 		}
 
 	}()
@@ -236,14 +274,14 @@ func InsertAccountBlocks(mu *sync.RWMutex, chainInstance *chain, accounts map[ty
 		// insert vm block
 		account.InsertBlock(vmBlock, accounts)
 
-		if mu != nil {
-			mu.Unlock()
-		}
-
 		// insert vm block to chain
 		if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
 			panic(err)
 		}
+		if mu != nil {
+			mu.Unlock()
+		}
+
 	}
 
 }

@@ -44,12 +44,16 @@ type Store interface {
 }
 
 type LedgerReader interface {
-	Bound() (from, to uint64)
+	Seg() Segment
 	Size() int
 	io.ReadCloser
 }
 
-type Segment [2]uint64
+type Segment struct {
+	Bound    [2]uint64
+	Hash     types.Hash
+	PrevHash types.Hash
+}
 type SegmentList []Segment
 
 func (list SegmentList) Len() int { return len(list) }
@@ -57,7 +61,7 @@ func (list SegmentList) Swap(i, j int) {
 	list[i], list[j] = list[j], list[i]
 }
 func (list SegmentList) Less(i, j int) bool {
-	return list[i][0] < list[j][1]
+	return list[i].Bound[0] < list[j].Bound[1]
 }
 
 type ReadCloser interface {
@@ -68,8 +72,8 @@ type ReadCloser interface {
 }
 
 type SyncCache interface {
-	NewWriter(from, to uint64) (io.WriteCloser, error)
+	NewWriter(segment Segment) (io.WriteCloser, error)
 	Chunks() SegmentList
-	NewReader(from, to uint64) (ReadCloser, error)
+	NewReader(segment Segment) (ReadCloser, error)
 	Delete(seg Segment) error
 }

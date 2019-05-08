@@ -12,47 +12,36 @@ func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBloc
 }
 
 func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-	for _, block := range blocks {
-		if manager.chain.IsGenesisAccountBlock(block.AccountBlock.Hash) {
+
+	blockList := make([]*ledger.AccountBlock, 0)
+	for _, v := range blocks {
+		blockList = append(blockList, v.AccountBlock)
+	}
+
+	cutMap := ExcludePairTrades(manager.chain, blockList)
+	for addr, list := range cutMap {
+		// handle contract onroad
+		if !types.IsContractAddr(addr) {
 			continue
 		}
 
-		var addr *types.Address
-		if block.AccountBlock.IsSendBlock() {
-			addr = &block.AccountBlock.ToAddress
-		} else {
-			addr = &block.AccountBlock.AccountAddress
-		}
-		if !types.IsContractAddr(*addr) {
-			return nil
-		}
-
-		meta, err := manager.chain.GetContractMeta(*addr)
+		meta, err := manager.chain.GetContractMeta(addr)
 		if err != nil || meta == nil {
 			panic("find contract meta nil, err is " + err.Error())
 		}
-
-		// handle contract addr
 		orPool, exist := manager.onRoadPools.Load(meta.Gid)
 		if !exist || orPool == nil {
 			return nil
 		}
-		if err := orPool.(onroad_pool.OnRoadPool).WriteAccountBlock(block.AccountBlock); err != nil {
-			panic(err)
-			panic("WriteAccountBlock panic, err is " + err.Error())
-		}
-		if block.AccountBlock.IsSendBlock() {
-			manager.newSignalToWorker(meta.Gid, block.AccountBlock.ToAddress)
-		} else {
-			for _, subSend := range block.AccountBlock.SendBlockList {
-				if !types.IsContractAddr(subSend.ToAddress) {
-					continue
-				}
-				sm, err := manager.chain.GetContractMeta(subSend.ToAddress)
-				if err != nil || sm == nil {
-					panic("find contract meta nil, err is " + err.Error())
-				}
-				manager.newSignalToWorker(sm.Gid, subSend.ToAddress)
+		for _, v := range list {
+			// insert into OnRoadPool
+			if err := orPool.(onroad_pool.OnRoadPool).InsertAccountBlock(v); err != nil {
+				panic(err.Error())
+			}
+
+			// new signal to worker
+			if v.IsSendBlock() {
+				manager.newSignalToWorker(meta.Gid, v.ToAddress)
 			}
 		}
 	}
@@ -65,21 +54,13 @@ func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock
 
 func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 
-	for _, v := range blocks {
-		if manager.chain.IsGenesisAccountBlock(v.Hash) {
+	cutMap := ExcludePairTrades(manager.chain, blocks)
+	for addr, list := range cutMap {
+		if !types.IsContractAddr(addr) {
 			continue
 		}
 
-		var addr *types.Address
-		if v.IsSendBlock() {
-			addr = &v.ToAddress
-		} else {
-			addr = &v.AccountAddress
-		}
-		if !types.IsContractAddr(*addr) {
-			return nil
-		}
-		meta, err := manager.chain.GetContractMeta(*addr)
+		meta, err := manager.chain.GetContractMeta(addr)
 		if err != nil || meta == nil {
 			panic("find contract meta nil, err is " + err.Error())
 		}
@@ -87,8 +68,17 @@ func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 		if !exist || orPool == nil {
 			return nil
 		}
-		if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
-			panic("DeleteAccountBlock panic, err is " + err.Error())
+
+		for _, v := range list {
+			// delete from OnRoadPool
+			if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
+				panic(err.Error())
+			}
+
+			// new signal to worker
+			if v.IsReceiveBlock() {
+				manager.newSignalToWorker(meta.Gid, v.AccountAddress)
+			}
 		}
 	}
 	return nil
@@ -107,5 +97,36 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 }
 
 func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	blocks := make([]*ledger.AccountBlock, 0)
+	for _, v := range chunks {
+		blocks = append(blocks, v.AccountBlocks...)
+	}
+
+	cutMap := ExcludePairTrades(manager.chain, blocks)
+	for addr, list := range cutMap {
+		if !types.IsContractAddr(addr) {
+			continue
+		}
+		meta, err := manager.chain.GetContractMeta(addr)
+		if err != nil || meta == nil {
+			panic("find contract meta nil, err is " + err.Error())
+		}
+		orPool, exist := manager.onRoadPools.Load(meta.Gid)
+		if !exist || orPool == nil {
+			return nil
+		}
+
+		for _, v := range list {
+			// delete from OnRoadPool
+			if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
+				panic(err.Error())
+			}
+
+			// new signal to worker
+			if v.IsReceiveBlock() {
+				manager.newSignalToWorker(meta.Gid, v.AccountAddress)
+			}
+		}
+	}
 	return nil
 }

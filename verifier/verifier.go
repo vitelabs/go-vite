@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/onroad"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -12,8 +13,9 @@ import (
 type VerifyResult int
 
 type verifier struct {
-	Sv  *SnapshotVerifier
-	Av  *AccountVerifier
+	Sv *SnapshotVerifier
+	Av *AccountVerifier
+
 	log log15.Logger
 }
 
@@ -23,6 +25,10 @@ func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
 		Av:  av,
 		log: log15.New("module", "verifier"),
 	}
+}
+
+func (v *verifier) InitOnRoadPool(manager *onroad.Manager) {
+	v.Av.InitOnRoadPool(manager)
 }
 
 func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {

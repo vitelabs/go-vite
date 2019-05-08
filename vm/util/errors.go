@@ -41,13 +41,15 @@ var (
 	ErrBlockQuotaLimitReached   = VMError{"quota limit for block reached", true}
 	ErrAccountQuotaLimitReached = VMError{"quota limit for account reached", true}
 	ErrOutOfQuota               = VMError{"out of quota", true}
+	ErrInvalidUnconfirmedQuota  = VMError{"calc quota failed, invalid unconfirmed quota", true}
 
 	ErrStackLimitReached      = VMError{"stack limit reached", true}
 	ErrStackUnderflow         = VMError{"stack underflow", true}
 	ErrInvalidJumpDestination = VMError{"invalid jump destination", true}
 	ErrInvalidOpCode          = VMError{"invalid opcode", true}
 
-	ErrChainForked = VMError{"chain forked", false}
+	ErrChainForked          = VMError{"chain forked", false}
+	ErrContractCreationFail = VMError{"contract creation failed", false}
 )
 
 func DealWithErr(v interface{}) {

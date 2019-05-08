@@ -24,6 +24,7 @@ func (store *Store) Prepare() {
 	}
 
 	store.flushingBatch = store.snapshotBatch
+
 	store.snapshotBatch = store.getNewBatch()
 }
 
@@ -33,8 +34,9 @@ func (store *Store) CancelPrepare() {
 
 	store.snapshotBatch = store.getNewBatch()
 
-	store.flushingBatch.Replay(store.snapshotBatch)
-	currentSnapshotBatch.Replay(store.snapshotBatch)
+	store.snapshotBatch.Append(store.flushingBatch)
+
+	store.snapshotBatch.Append(currentSnapshotBatch)
 
 	store.releaseFlushingBatch()
 }
@@ -71,16 +73,25 @@ func (store *Store) AfterCommit() {
 
 	// reset mem db
 	store.memDbMu.Lock()
+
 	store.memDb = db.NewMemDB()
-	store.memDbMu.Unlock()
 
 	// replay snapshot batch
 	store.snapshotBatch.Replay(store.memDb)
 
 	// replay unconfirmed batch
-	iter := store.unconfirmedBatchs.Iterator()
-	for iter.Next() {
-		iter.Value().(*leveldb.Batch).Replay(store.memDb)
+	store.unconfirmedBatchs.All(func(batch *leveldb.Batch) {
+		batch.Replay(store.memDb)
+	})
+
+	store.memDbMu.Unlock()
+}
+
+func (store *Store) BeforeRecover([]byte) {}
+
+func (store *Store) AfterRecover() {
+	for _, f := range store.afterRecoverFuncs {
+		f()
 	}
 }
 

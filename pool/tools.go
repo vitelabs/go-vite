@@ -25,6 +25,7 @@ type syncer interface {
 	net.Broadcaster
 	net.Fetcher
 	net.Subscriber
+	net.ChunkReader
 }
 
 type fetchRequest struct {
