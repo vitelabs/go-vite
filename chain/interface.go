@@ -253,6 +253,8 @@ type Chain interface {
 
 	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
 
+	LoadAllOnRoad() (map[types.Address][]types.Hash, error)
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
 

@@ -20,6 +20,8 @@ type Chain interface {
 	IsGenesisAccountBlock(hash types.Hash) bool
 
 	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
+
+	LoadAllOnRoad() (map[types.Address][]types.Hash, error)
 }
 
 type Plugin interface {
