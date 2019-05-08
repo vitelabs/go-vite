@@ -29,9 +29,16 @@ func (ft *FilterToken) SetStore(store *chain_db.Store) {
 }
 
 func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {
+	if accountBlock.BlockType == ledger.BlockTypeGenesisReceive {
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, ledger.ViteTokenId, accountBlock.Height), accountBlock.Hash.Bytes())
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, ledger.VCPTokenId, accountBlock.Height), accountBlock.Hash.Bytes())
+		return nil
+	}
+
 	var key []byte
 	var tokenTypeId types.TokenTypeId
-	if accountBlock.IsReceiveBlock() && accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
+
+	if accountBlock.IsReceiveBlock() {
 		sendBlock, err := ft.chain.GetAccountBlockByHash(accountBlock.FromBlockHash)
 
 		if err != nil {
