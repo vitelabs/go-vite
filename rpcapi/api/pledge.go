@@ -142,3 +142,16 @@ func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error
 	}
 	return *bigIntToString(amount), nil
 }
+
+func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, error) {
+	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(p.chain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return db.GetQuotaUsedList(addr), nil
+}
