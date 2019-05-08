@@ -14,27 +14,14 @@ import (
 func TestPeerMux(t *testing.T) {
 	c1, c2 := MockPipe()
 
-	var m1 = make(map[ProtocolID]peerProtocol)
-	mp1 := &mockProtocol{}
-	m1[mp1.ID()] = peerProtocol{
-		Protocol: mp1,
-	}
-
-	p1 := NewPeer(vnode.ZERO, "hello", 1, c1, 1, m1)
-
-	var m2 = make(map[ProtocolID]peerProtocol)
-	mp2 := &mockProtocol{}
-	m2[mp2.ID()] = peerProtocol{
-		Protocol: mp2,
-	}
+	p1 := NewPeer(vnode.ZERO, "hello", 100, "", 1, c1, 1, &mockProtocol{})
 
 	var id vnode.NodeID
 	id[0] = 1
-	p2 := NewPeer(id, "world", 1, c2, 1, m2)
+	p2 := NewPeer(id, "world", 100, "", 1, c2, 1, &mockProtocol{})
 
 	go func() {
 		err := p1.WriteMsg(Msg{
-			pid:     mp1.ID(),
 			Code:    0,
 			Id:      0,
 			Payload: []byte("hello"),
@@ -66,20 +53,8 @@ func TestPeerMux_Close(t *testing.T) {
 	c1, c2 := MockPipe()
 	id1, id2 := vnode.RandomNodeID(), vnode.RandomNodeID()
 
-	var m1 = make(map[ProtocolID]peerProtocol)
-	mp1 := &mockProtocol{}
-	m1[mp1.ID()] = peerProtocol{
-		Protocol: mp1,
-	}
-
-	var m2 = make(map[ProtocolID]peerProtocol)
-	mp2 := &mockProtocol{}
-	m2[mp2.ID()] = peerProtocol{
-		Protocol: mp2,
-	}
-
-	p1 := NewPeer(id1, "peer1", 1, c1, 1, m1)
-	p2 := NewPeer(id2, "peer2", 1, c2, 1, m2)
+	p1 := NewPeer(id1, "peer1", 100, "", 1, c1, 1, &mockProtocol{})
+	p2 := NewPeer(id2, "peer2", 100, "", 1, c2, 1, &mockProtocol{})
 
 	var wg sync.WaitGroup
 

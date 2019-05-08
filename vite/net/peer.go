@@ -64,6 +64,8 @@ type PeerInfo struct {
 type peer struct {
 	p2p.Peer
 
+	_head types.Hash
+
 	m  map[peerId]struct{}
 	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
 
@@ -101,13 +103,11 @@ func (p *peer) info() PeerInfo {
 }
 
 func (p *peer) head() types.Hash {
-	st := p.State().(PeerState)
-	return st.Head
+	return p._head
 }
 
 func (p *peer) height() uint64 {
-	st := p.State().(PeerState)
-	return st.Height
+	return p.Height()
 }
 
 func newPeer(p p2p.Peer, log log15.Logger) Peer {
@@ -127,16 +127,12 @@ func (p *peer) catch(err error) {
 }
 
 func (p *peer) fileAddress() string {
-	st := p.State().(PeerState)
-	return st.FileAddress
+	return p.FileAddress()
 }
 
 func (p *peer) setHead(head types.Hash, height uint64) {
-	st := p.State().(PeerState)
-	st.Head = head
-	st.Height = height
-
-	p.SetState(st)
+	p._head = head
+	p.SetHeight(height)
 }
 
 func (p *peer) setPeers(ps []peerConn, patch bool) {

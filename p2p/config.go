@@ -19,7 +19,11 @@
 package p2p
 
 import (
+	"encoding/binary"
+	"fmt"
+
 	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
 const (
@@ -30,6 +34,7 @@ const (
 	DefaultSuperiorPeers   = 30
 	DefaultMinPeers        = DefaultOutboundPeers
 	DefaultMaxPendingPeers = 10
+	DefaultFilePort        = 8484
 	DirName                = "p2p"
 )
 
@@ -63,6 +68,11 @@ type Config struct {
 
 	// StaticNodes will be connect directly
 	StaticNodes []string
+
+	FilePublicAddress string
+	FilePort          int
+
+	fileAddress []byte
 }
 
 func (cfg *Config) Ensure() (err error) {
@@ -95,10 +105,38 @@ func (cfg *Config) Ensure() (err error) {
 		cfg.MaxPendingPeers = DefaultMaxPendingPeers
 	}
 
+	if cfg.FilePort == 0 {
+		cfg.FilePort = DefaultFilePort
+	}
+
 	cfg.maxPeers = make(map[Level]int)
 	cfg.maxPeers[Inbound] = cfg.MaxPeers / cfg.MaxInboundRatio
 	cfg.maxPeers[Outbound] = cfg.MaxPeers - cfg.maxPeers[Inbound]
 	cfg.maxPeers[Superior] = DefaultSuperiorPeers
 
-	return nil
+	cfg.fileAddress, err = parseFilePublicAddress(cfg.FilePublicAddress, cfg.FilePort)
+
+	return
+}
+
+func parseFilePublicAddress(FilePublicAddress string, FilePort int) (fileAddress []byte, err error) {
+	if FilePublicAddress != "" {
+		var e vnode.EndPoint
+		e, err = vnode.ParseEndPoint(FilePublicAddress)
+		if err != nil {
+			err = fmt.Errorf("failed to parse FilePublicAddress: %v", err)
+			return
+		}
+
+		fileAddress, err = e.Serialize()
+		if err != nil {
+			err = fmt.Errorf("failed to serialize FilePublicAddress: %v", err)
+			return
+		}
+	} else if FilePort != 0 {
+		fileAddress = make([]byte, 2)
+		binary.BigEndian.PutUint16(fileAddress, uint16(FilePort))
+	}
+
+	return
 }
