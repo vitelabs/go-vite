@@ -137,7 +137,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	tx := &Tx{
 		vite: vite,
 		N:    0,
-		M:    5,
+		M:    1,
 	}
 	if vite.Producer() == nil {
 		return tx
