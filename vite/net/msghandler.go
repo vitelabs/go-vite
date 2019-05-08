@@ -35,6 +35,7 @@ const (
 	CodeHashList
 
 	ExceptionCode = 127
+	codeTrace     = 128
 )
 
 const step = 100

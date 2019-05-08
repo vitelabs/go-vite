@@ -60,3 +60,7 @@ func (n *NetApi) NodeInfo() p2p.NodeInfo {
 func (n *NetApi) NetInfo() net.NodeInfo {
 	return n.net.Info()
 }
+
+func (n *NetApi) Trace() {
+	n.net.Trace()
+}

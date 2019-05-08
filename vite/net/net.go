@@ -3,6 +3,7 @@ package net
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	net2 "net"
@@ -63,6 +64,7 @@ type net struct {
 	hb       *heartBeater
 	running  int32
 	log      log15.Logger
+	tracer   *tracer
 }
 
 func (n *net) parseFilePublicAddress() (fileAddress []byte) {
@@ -323,22 +325,29 @@ func New(cfg Config) Net {
 	var err error
 	n.query, err = newQueryHandler(cfg.Chain)
 	if err != nil {
-		panic(errors.New("cannot construct query handler"))
+		panic(fmt.Errorf("cannot construct query handler: %v", err))
 	}
 
 	// GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
 	if err = n.handlers.register(n.query); err != nil {
-		panic(errors.New("cannot register handler: query"))
+		panic(fmt.Errorf("cannot register handler: query: %v", err))
 	}
 
 	// NewSnapshotBlockCode, NewAccountBlockCode
 	if err = n.handlers.register(broadcaster); err != nil {
-		panic(errors.New("cannot register handler: broadcaster"))
+		panic(fmt.Errorf("cannot register handler: broadcaster: %v", err))
 	}
 
 	// SnapshotBlocksCode, AccountBlocksCode
 	if err = n.handlers.register(fetcher); err != nil {
-		panic(errors.New("cannot register handler: fetcher"))
+		panic(fmt.Errorf("cannot register handler: fetcher: %v", err))
+	}
+
+	// trace
+	var p2pPub = cfg.P2PPrivateKey.PubByte()
+	n.tracer = newTracer(hex.EncodeToString(p2pPub), peers, forward)
+	if err = n.handlers.register(n.tracer); err != nil {
+		panic(fmt.Errorf("cannot register handler: tracer: %v", err))
 	}
 
 	return n
@@ -460,6 +469,12 @@ func (n *net) Stop() error {
 	}
 
 	return errNetIsNotRunning
+}
+
+func (n *net) Trace() {
+	if n.tracer != nil {
+		n.tracer.Trace()
+	}
 }
 
 func (n *net) Info() NodeInfo {

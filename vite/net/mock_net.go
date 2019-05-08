@@ -17,6 +17,10 @@ type mockNet struct {
 	BlockSubscriber
 }
 
+func (n *mockNet) Trace() {
+
+}
+
 func (n *mockNet) Stop() error {
 	return nil
 }
