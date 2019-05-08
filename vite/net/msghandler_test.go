@@ -144,7 +144,7 @@ func TestCheckHandler(t *testing.T) {
 		chain.blocksByHeight[hh.Height] = block
 	}
 
-	for start := uint64(0); start <= to; start += syncTaskSize {
+	for start := uint64(0); start < to; start += step {
 		block := &ledger.SnapshotBlock{
 			Hash:   mockHash(),
 			Height: start,
@@ -154,8 +154,11 @@ func TestCheckHandler(t *testing.T) {
 	}
 
 	var checkH = &checkHandler{
-		chain: chain,
-		log:   netLog,
+		chain: &mockSnapshotReader{
+			blocksByHash:   nil,
+			blocksByHeight: nil,
+		},
+		log: netLog,
 	}
 
 	cd, payload := checkH.handleCheck(check)

@@ -350,10 +350,6 @@ func New(cfg Config) Net {
 		panic(fmt.Errorf("cannot register handler: tracer: %v", err))
 	}
 
-	if err = n.handlers.register(syncer); err != nil {
-		panic(errors.New("cannot register handler: syncer"))
-	}
-
 	return n
 }
 
