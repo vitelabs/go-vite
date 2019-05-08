@@ -214,6 +214,9 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	for tokenId, amount := range balanceMap {
 		token, _ := l.chain.GetTokenInfoById(tokenId)
+		if token == nil {
+			continue
+		}
 		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
