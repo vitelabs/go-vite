@@ -8,6 +8,8 @@ import (
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"gotest.tools/assert"
+	"os"
 	"path"
 	"sync"
 	"testing"
@@ -69,6 +71,39 @@ func TestPatchRedoFailed(t *testing.T) {
 func TestRecover(t *testing.T) {
 	if err := checkRecover(100, nil, &StorageOptions{CommitFailed: true, PatchRedoFailed: true}, nil); err != nil {
 		t.Fatal(err)
+	}
+
+}
+
+func TestParseRedoLog(t *testing.T) {
+	fd, oErr := os.OpenFile("./flush.redo.log", os.O_RDWR, 0666)
+	assert.NilError(t, oErr)
+
+	defer fd.Close()
+
+	mockStores := []Storage{
+		newMockStorage("blockDb", nil, nil),
+		newMockStorage("indexDb", nil, nil),
+		newMockStorage("stateDb", nil, nil),
+		newMockStorage("stateDbRedo", nil, nil),
+	}
+
+	f, err := NewFlusher(mockStores, nil, "")
+	assert.NilError(t, err)
+
+	redoLogs, stores, err := f.loadRedo(fd)
+	assert.NilError(t, err)
+
+	blockDbId, err := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
+	if err != nil {
+		panic(err)
+	}
+
+	for i, redoLog := range redoLogs {
+		store := stores[i]
+		if store.Id() != blockDbId {
+			store.PatchRedoLog(redoLog)
+		}
 	}
 
 }
@@ -267,7 +302,8 @@ func (ms *MockStorage) PatchRedoLog(data []byte) error {
 	if err := batch.Load(data); err != nil {
 		return err
 	}
-	ms.batch.Replay(ms.db)
+	batch.Replay(ms.db)
+
 	return nil
 }
 
