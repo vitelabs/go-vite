@@ -347,8 +347,8 @@ func (tab *table) nodes(count int) (nodes []*Node) {
 		nodes = append(nodes, ns...)
 		count -= len(ns)
 
-		if count > 0 {
-			continue
+		if count <= 0 {
+			break
 		}
 	}
 
