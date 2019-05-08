@@ -3,5 +3,7 @@ syntax = "proto3";
 package message;
 
 message trace {
-    repeated string path = 1;
+    bytes hash = 1;
+    repeated string path = 2;
+    uint32 TTL = 3;
 }
