@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type quotaInfo types.QuotaInfo
@@ -25,6 +26,7 @@ type quotaList struct {
 	listMaxLength int
 
 	status byte
+	log    log15.Logger
 }
 
 func newQuotaList(chain Chain) *quotaList {
@@ -36,6 +38,8 @@ func newQuotaList(chain Chain) *quotaList {
 		list:                 list.New(),
 		listMaxLength:        600,
 		usedAccumulateHeight: 75,
+
+		log: log15.New("module", "quota_list"),
 	}
 
 	return ql
@@ -66,6 +70,7 @@ func (ql *quotaList) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	usedList := make([]types.QuotaInfo, 0, ql.usedAccumulateHeight)
 
 	pointer := ql.usedStart
+
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*quotaInfo)
 
@@ -77,6 +82,10 @@ func (ql *quotaList) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 		}
 
 		pointer = pointer.Next()
+	}
+
+	if len(usedList) <= 0 {
+		ql.log.Warn(fmt.Sprintf("GetQuotaUsedList: %s, return %d list,", addr, len(usedList)), "method", "GetQuotaUsedList")
 	}
 
 	return usedList
