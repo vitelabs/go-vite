@@ -167,7 +167,7 @@ func (b *Batch) Reset() {
 }
 
 func (b *Batch) Append(p *Batch) {
-	b.Replay(p)
+	p.Replay(b)
 }
 
 func (b *Batch) replayInternal(fn func(i int, kt keyType, k, v []byte) error) error {

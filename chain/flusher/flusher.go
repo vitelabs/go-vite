@@ -94,6 +94,7 @@ func NewFlusher(storeList []Storage, flushMu *sync.RWMutex, chainDir string) (*F
 
 	return flusher, nil
 }
+
 func (flusher *Flusher) Close() error {
 	if err := flusher.fd.Close(); err != nil {
 		return err
@@ -133,7 +134,7 @@ func (flusher *Flusher) Recover() error {
 	flusher.mu.Lock()
 	defer flusher.mu.Unlock()
 
-	redoLogList, stores, err := flusher.loadRedo()
+	redoLogList, stores, err := flusher.loadRedo(flusher.fd)
 	if err != nil || len(redoLogList) <= 0 {
 		flusher.cleanRedoLog()
 		return nil
@@ -145,6 +146,10 @@ func (flusher *Flusher) Recover() error {
 	}
 	flusher.afterRecover()
 	return nil
+}
+
+func (flusher *Flusher) LoadRedo(fd *os.File) ([][]byte, []Storage, error) {
+	return flusher.loadRedo(fd)
 }
 
 func (flusher *Flusher) loopFlush() {
@@ -218,7 +223,7 @@ func (flusher *Flusher) flush() {
 
 func (flusher *Flusher) commitRedo() error {
 
-	redoLogList, stores, err := flusher.loadRedo()
+	redoLogList, stores, err := flusher.loadRedo(flusher.fd)
 	if err != nil {
 		panic(err)
 	}
@@ -227,8 +232,8 @@ func (flusher *Flusher) commitRedo() error {
 
 }
 
-func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
-	fileSize, err := fileutils.FileSize(flusher.fd)
+func (flusher *Flusher) loadRedo(fd *os.File) ([][]byte, []Storage, error) {
+	fileSize, err := fileutils.FileSize(fd)
 	if err != nil {
 		return nil, nil, err
 	}

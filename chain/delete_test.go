@@ -29,9 +29,9 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 }
 
 func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	//t.Run("DeleteMany", func(t *testing.T) {
-	//	snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
-	//})
+	t.Run("DeleteMany", func(t *testing.T) {
+		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
+	})
 
 	for i := 0; i < 100; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
