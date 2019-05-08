@@ -68,8 +68,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	net := net.New(net.Config{
 		Single:            cfg.Single,
 		FileListenAddress: cfg.FileListenAddress,
-		FilePublicAddress: cfg.FilePublicAddress,
-		FilePort:          cfg.FilePort,
 		MinePrivateKey:    cfg.MinePrivateKey,
 		P2PPrivateKey:     cfg.P2PPrivateKey,
 		ForwardStrategy:   cfg.ForwardStrategy,
