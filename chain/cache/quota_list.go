@@ -9,6 +9,11 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
+const (
+	uninitialized = 0
+	initialized   = 1
+)
+
 type quotaInfo types.QuotaInfo
 
 type quotaList struct {
@@ -39,7 +44,8 @@ func newQuotaList(chain Chain) *quotaList {
 		listMaxLength:        600,
 		usedAccumulateHeight: 75,
 
-		log: log15.New("module", "quota_list"),
+		log:    log15.New("module", "quota_list"),
+		status: uninitialized,
 	}
 
 	return ql
@@ -51,7 +57,7 @@ func (ql *quotaList) init() error {
 	}
 	ql.moveNext(make(map[types.Address]*quotaInfo))
 
-	ql.status = 1
+	ql.status = initialized
 	return nil
 }
 
@@ -114,6 +120,10 @@ func (ql *quotaList) Sub(addr types.Address, quota uint64, quotaUsed uint64) {
 }
 
 func (ql *quotaList) ResetUnconfirmedQuotas(unconfirmedBlocks []*ledger.AccountBlock) {
+	if ql.status < initialized {
+		return
+	}
+
 	backElement := make(map[types.Address]*quotaInfo)
 	for _, unconfirmedBlock := range unconfirmedBlocks {
 		qi, ok := backElement[unconfirmedBlock.AccountAddress]
@@ -149,7 +159,7 @@ func (ql *quotaList) ResetUnconfirmedQuotas(unconfirmedBlocks []*ledger.AccountB
 }
 
 func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
-	if ql.status < 1 {
+	if ql.status < initialized {
 		return
 	}
 
