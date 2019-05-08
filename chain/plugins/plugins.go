@@ -48,11 +48,12 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}
 
 	return &Plugins{
-		dataDir: dataDir,
-		chain:   chain,
-		store:   store,
-		plugins: plugins,
-		log:     log15.New("module", "chain_plugins"),
+		dataDir:     dataDir,
+		chain:       chain,
+		store:       store,
+		plugins:     plugins,
+		writeStatus: start,
+		log:         log15.New("module", "chain_plugins"),
 	}, nil
 }
 
