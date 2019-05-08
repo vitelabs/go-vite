@@ -19,6 +19,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -47,10 +48,16 @@ func (mp *mockProtocol) ID() p2p.ProtocolID {
 }
 
 func (mp *mockProtocol) ProtoData() []byte {
-	return nil
+	return []byte{1, 2, 3}
 }
 
 func (mp *mockProtocol) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level p2p.Level, err error) {
+	if bytes.Equal(protoData, []byte{1, 2, 3}) == false {
+		err = fmt.Errorf("different proto data")
+	}
+
+	fmt.Printf("receive proto data %v\n", protoData)
+
 	return
 }
 

@@ -424,6 +424,7 @@ Loop:
 					need = max
 				}
 
+				p.log.Warn(fmt.Sprintf("need %d nodes, max %d, levels %v", need, max, p.peers.levelsCount()))
 				nodes := p.discv.GetNodes(need)
 				for _, n := range nodes {
 					p.ConnectNode(n)
