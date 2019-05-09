@@ -9,7 +9,6 @@ import (
 	orderproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 )
 
-const OrderIdLength = 20
 const (
 	Pending = iota
 	PartialExecuted
@@ -43,10 +42,10 @@ type TakerOrder struct {
 	orderproto.OrderInfo
 }
 
-var nilOrderIdValue = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-var maxOrderIdValue = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+var nilOrderIdValue = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var maxOrderIdValue = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
-type OrderId [OrderIdLength]byte
+type OrderId [OrderIdBytesLength]byte
 
 func NewOrderId(value []byte) (OrderId, error) {
 	key := &OrderId{}
@@ -86,7 +85,7 @@ func (id OrderId) bytes() []byte {
 }
 
 func (id *OrderId) setBytes(value []byte) error {
-	if len(value) != OrderIdLength {
+	if len(value) != OrderIdBytesLength {
 		return fmt.Errorf("invalid OrderId length error %d", len(value))
 	}
 	copy(id[:], value)
