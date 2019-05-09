@@ -77,7 +77,7 @@ func (p *Plugins) RebuildData() error {
 	p.StopWrite()
 	defer p.StartWrite()
 
-	oLog.Info("Start rebuild plugin data")
+	p.log.Info("Start rebuild plugin data")
 
 	if err := p.store.Close(); err != nil {
 		return err

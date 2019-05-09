@@ -67,7 +67,7 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 	sum := 0
 	for k, v := range blockList {
 		if v != nil {
-			accountBlock, e := ledgerToRpcBlock(v, pri.manager.Chain())
+			accountBlock, e := ledgerToRpcBlock(pri.manager.Chain(), v)
 			if e != nil {
 				return nil, e
 			}
@@ -220,7 +220,7 @@ func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid
 	sum := 0
 	for k, v := range blockList {
 		if v != nil {
-			accountBlock, e := ledgerToRpcBlock(v, pri.manager.Chain())
+			accountBlock, e := ledgerToRpcBlock(pri.manager.Chain(), v)
 			if e != nil {
 				return nil, e
 			}
