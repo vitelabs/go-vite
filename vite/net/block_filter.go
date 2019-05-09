@@ -3,7 +3,7 @@ package net
 import (
 	"sync"
 
-	"github.com/tylertreat/BoomFilters"
+	"github.com/jerry-vite/BoomFilters"
 )
 
 const filterCap = 100000
@@ -34,7 +34,7 @@ func (d *defBlockFilter) has(b []byte) bool {
 	d.rw.RLock()
 	defer d.rw.RUnlock()
 
-	return d.pool.Test(b)
+	return false == d.pool.TestFalse(b)
 }
 
 func (d *defBlockFilter) record(b []byte) {
@@ -56,11 +56,11 @@ func (d *defBlockFilter) lookAndRecord(b []byte) bool {
 	d.rw.Lock()
 	defer d.rw.Unlock()
 
-	ok := d.pool.Test(b)
-	if ok {
-		return ok
+	notIn := d.pool.TestFalse(b)
+	if notIn {
+		d.recordLocked(b)
+		return false
 	}
 
-	d.recordLocked(b)
-	return false
+	return true
 }
