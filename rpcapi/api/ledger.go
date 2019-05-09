@@ -40,7 +40,7 @@ func (l LedgerApi) String() string {
 }
 
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
-	return ledgerToRpcBlock(block, l.chain)
+	return ledgerToRpcBlock(l.chain, block)
 }
 
 func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
