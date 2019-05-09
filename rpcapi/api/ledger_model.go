@@ -25,7 +25,7 @@ type AccountBlock struct {
 }
 
 type RawTxBlock struct {
-	BlockType byte       `json:"blockType"` // 1
+	BlockType byte       `json:"blockType"`
 	Height    string     `json:"height"`
 	Hash      types.Hash `json:"hash"`
 	PrevHash  types.Hash `json:"prevHash"`
@@ -67,9 +67,9 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 	rpcBlock.RawTxBlock = rawTxBlock
 
 	// TokenInfo
-	if lAb.TokenId != types.ZERO_TOKENID {
-		token, _ := chain.GetTokenInfoById(lAb.TokenId)
-		rpcBlock.TokenInfo = RawTokenInfoToRpc(token, lAb.TokenId)
+	if rawTxBlock.TokenId != types.ZERO_TOKENID {
+		token, _ := chain.GetTokenInfoById(rawTxBlock.TokenId)
+		rpcBlock.TokenInfo = RawTokenInfoToRpc(token, rawTxBlock.TokenId)
 	}
 
 	// ReceiveBlockHeight & ReceiveBlockHash
