@@ -199,7 +199,10 @@ func (cs *consensus) update(gid types.Gid, t DposReader, m *sync.Map) {
 	index := t.Time2Index(time.Now())
 	for !cs.Stopped() {
 		//var current *memberPlan = nil
+
+		cs.rw.rollbackLock.RLockRollback()
 		electionResult, err := t.ElectionIndex(index)
+		cs.rw.rollbackLock.RUnLockRollback()
 
 		if err != nil {
 			cs.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
