@@ -96,6 +96,10 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 			return nil, errors.New(fmt.Sprintf("block %s is not exited", blockHash))
 		}
 
+		if block.TokenId != tokenId {
+			return nil, nil
+		}
+
 		maxHeight = block.Height + 1
 	}
 
