@@ -153,7 +153,7 @@ func NewTxApi(vite *vite.Vite) *Tx {
 	var fromHexPrivKeys []string
 
 	{
-		for i := uint32(0); i < uint32(10); i++ {
+		for i := uint32(0); i < uint32(5); i++ {
 			_, key, err := manager.DeriveForIndexPath(i)
 			if err != nil {
 				panic(err)
