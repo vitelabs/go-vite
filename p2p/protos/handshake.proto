@@ -19,7 +19,12 @@ message Handshake {
 
 	int64 Timestamp = 5;
 
-	repeated Protocol Protocols = 6;
+    uint64 Height = 6;
+
+    bytes Genesis = 7;
+	bytes Key = 8;
+
+    bytes FileAddress = 9;
 }
 
 message Protocol {

@@ -194,6 +194,10 @@ func (self *producer) producerContract(e consensus.Event) {
 			mLog.Error(fmt.Sprintf("contract producer fail. snapshot is too lower. voteTime:%s, headerTime:%s, headerHeight:%d, headerHash:%s", e.VoteTime, header.Timestamp, header.Height, header.Hash))
 			return
 		}
+		if err := self.tools.checkStableSnapshotChain(header); err != nil {
+			mLog.Error(fmt.Sprintf("contract producer fail. snapshot is not stable version. voteTime:%s, startTime:%s, endTime:%s", e.VoteTime, e.Stime, e.Etime))
+			return
+		}
 
 		tmpEvent := producerevent.AccountStartEvent{
 			Gid:     e.Gid,

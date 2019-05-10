@@ -1,17 +1,11 @@
 package net
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	net2 "net"
-	"strconv"
 	"sync/atomic"
 	"time"
-
-	"github.com/vitelabs/go-vite/p2p/netool"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
@@ -33,8 +27,6 @@ var errErrorHeadToHash = errors.New("error head to hash")
 type Config struct {
 	Single            bool
 	FileListenAddress string
-	FilePublicAddress string
-	FilePort          int
 	MinePrivateKey    ed25519.PrivateKey
 	P2PPrivateKey     ed25519.PrivateKey
 	ForwardStrategy   string // default `cross`
@@ -67,145 +59,28 @@ type net struct {
 	tracer   *tracer
 }
 
-func (n *net) parseFilePublicAddress() (fileAddress []byte) {
-	if n.FilePublicAddress != "" {
-		var e vnode.EndPoint
-		var err error
-		e, err = vnode.ParseEndPoint(n.FilePublicAddress)
-		if err != nil {
-			n.log.Error(fmt.Sprintf("failed to parse FilePublicAddress: %v", err))
-			return nil
-		}
-
-		fileAddress, err = e.Serialize()
-		if err != nil {
-			n.log.Error(fmt.Sprintf("failed to serialize FilePublicAddress: %v", err))
-			return nil
-		}
-	} else if n.FilePort != 0 {
-		fileAddress = make([]byte, 2)
-		binary.BigEndian.PutUint16(fileAddress, uint16(n.FilePort))
-	}
-
-	return fileAddress
-}
-
-func extractFileAddress(sender net2.Addr, fileAddressBytes []byte) (fileAddress string) {
-	if len(fileAddressBytes) != 0 {
-		var tcp *net2.TCPAddr
-
-		if len(fileAddressBytes) == 2 {
-			filePort := binary.BigEndian.Uint16(fileAddressBytes)
-			var ok bool
-			if tcp, ok = sender.(*net2.TCPAddr); ok {
-				return tcp.IP.String() + ":" + strconv.Itoa(int(filePort))
-			}
-		} else {
-			var ep = new(vnode.EndPoint)
-
-			if err := ep.Deserialize(fileAddressBytes); err == nil {
-				if ep.Typ.Is(vnode.HostIP) {
-					// verify ip
-					var ok bool
-					if tcp, ok = sender.(*net2.TCPAddr); ok {
-						err = netool.CheckRelayIP(tcp.IP, ep.Host)
-						if err != nil {
-							// invalid ip
-							ep.Host = tcp.IP
-						}
-					}
-
-					fileAddress = ep.String()
-				} else {
-					tcp, err = net2.ResolveTCPAddr("tcp", ep.String())
-					if err == nil {
-						fileAddress = ep.String()
-					}
-				}
-			}
-		}
-	}
+func (n *net) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+	genesis = n.Chain.GetGenesisSnapshotBlock().Hash
+	height = n.Chain.GetLatestSnapshotBlock().Height
 
 	return
 }
 
-func (n *net) ProtoData() []byte {
-	genesis := n.Chain.GetGenesisSnapshotBlock()
-	current := n.Chain.GetLatestSnapshotBlock()
-
-	var key, signature []byte
-	if len(n.MinePrivateKey) != 0 {
-		key = n.MinePrivateKey.PubByte()
-		signature = ed25519.Sign(n.MinePrivateKey, n.nodeID.Bytes())
-	}
-
-	pb := &protos.ViteHandshake{
-		Genesis:     genesis.Hash.Bytes(),
-		Head:        current.Hash.Bytes(),
-		Height:      current.Height,
-		Key:         key,
-		Signature:   signature,
-		FileAddress: n.parseFilePublicAddress(),
-	}
-
-	buf, err := proto.Marshal(pb)
-	if err != nil {
-		return nil
-	}
-
-	return buf
-}
-
-func (n *net) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
-	pb := &protos.ViteHandshake{}
-	err = proto.Unmarshal(protoData, pb)
-	if err != nil {
-		return
-	}
-
-	if pb.Key != nil {
-		right := ed25519.Verify(pb.Key, msg.ID.Bytes(), pb.Signature)
-		if !right {
-			err = errInvalidSignature
-			return
-		}
-
-		addr := types.PubkeyToAddress(pb.Key)
-		if n.Producer != nil && n.Producer.IsProducer(addr) {
-			level = p2p.Superior
-		}
-	}
-
-	// genesis
-	genesis := n.Chain.GetGenesisSnapshotBlock()
-	if !bytes.Equal(pb.Genesis, genesis.Hash.Bytes()) {
-		err = errDiffGenesisBlock
-		return
-	}
-
-	// head
-	var hash types.Hash
-	hash, err = types.BytesToHash(pb.Head)
-	if err != nil {
-		err = errErrorHeadToHash
-		return
-	}
-
-	state = PeerState{
-		Head:        hash,
-		Height:      pb.Height,
-		FileAddress: extractFileAddress(sender, pb.FileAddress),
-	}
+func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
+	//if msg.Key != nil {
+	//	right := ed25519.Verify(msg.Key, msg.ID.Bytes(), msg.Signature)
+	//	if !right {
+	//		err = errInvalidSignature
+	//		return
+	//	}
+	//
+	//	addr := types.PubkeyToAddress(msg.Key)
+	//	if n.Producer != nil && n.Producer.IsProducer(addr) {
+	//		level = p2p.Superior
+	//	}
+	//}
 
 	return
-}
-
-func (n *net) Name() string {
-	return "vite"
-}
-
-func (n *net) ID() p2p.ProtocolID {
-	return ID
 }
 
 func (n *net) Handle(msg p2p.Msg) error {

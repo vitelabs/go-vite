@@ -3,9 +3,10 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
@@ -17,20 +18,16 @@ type mockProtocol struct {
 	interval time.Duration
 }
 
+func (m *mockProtocol) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+	return
+}
+
 func (m *mockProtocol) Name() string {
 	return "mock"
 }
 
-func (m *mockProtocol) ID() ProtocolID {
-	return 255
-}
-
-func (m *mockProtocol) ProtoData() []byte {
-	return nil
-}
-
-func (m *mockProtocol) ReceiveHandshake(msg HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level Level, err error) {
-	return nil, 1, nil
+func (m *mockProtocol) ReceiveHandshake(msg *HandshakeMsg) (level Level, err error) {
+	return
 }
 
 func (m *mockProtocol) Handle(msg Msg) error {
@@ -72,7 +69,6 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 			<-time.After(m.interval)
 
 			err := peer.WriteMsg(Msg{
-				pid:     m.ID(),
 				Code:    0,
 				Id:      i,
 				Payload: []byte("hello"),

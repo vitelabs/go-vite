@@ -29,10 +29,6 @@ func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 		Name:      "",
 		ID:        nil,
 		Timestamp: 0,
-		Protocols: []*protos.Protocol{
-			{ID: 1, Data: []byte{1, 2, 3, 4, 5}},
-			{ID: 2, Data: []byte{6, 7, 8}},
-		},
 	}
 
 	data, err := proto.Marshal(&pb)
@@ -61,11 +57,5 @@ func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 	}
 	if pb.Timestamp != pb2.Timestamp {
 		t.Errorf("different time: %d %d", pb.Timestamp, pb2.Timestamp)
-	}
-	for i, d := range pb.Protocols {
-		d2 := pb2.Protocols[i]
-		if d.ID != d2.ID || bytes.Equal(d.Data, d2.Data) == false {
-			t.Errorf("different proto data")
-		}
 	}
 }

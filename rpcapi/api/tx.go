@@ -289,7 +289,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return errors.New("empty block")
 	}
 
-	lb, err := block.LedgerAccountBlock()
+	lb, err := block.RpcToLedgerBlock()
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		if err := t.vite.Pool().AddDirectAccountBlock(msg.AccountAddress, result.VmBlock); err != nil {
 			return nil, err
 		}
-		return ledgerToRpcBlock(result.VmBlock.AccountBlock, t.vite.Chain())
+		return ledgerToRpcBlock(t.vite.Chain(), result.VmBlock.AccountBlock)
 	} else {
 		return nil, errors.New("generator gen an empty block")
 	}

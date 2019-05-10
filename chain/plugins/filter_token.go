@@ -35,7 +35,6 @@ func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *le
 		return nil
 	}
 
-	var key []byte
 	var tokenTypeId types.TokenTypeId
 
 	if accountBlock.IsReceiveBlock() {
@@ -55,14 +54,10 @@ func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *le
 		tokenTypeId = accountBlock.TokenId
 	}
 
-	key = createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height)
-
-	batch.Put(key, accountBlock.Hash.Bytes())
+	batch.Put(createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height), accountBlock.Hash.Bytes())
 
 	for _, sendBlock := range accountBlock.SendBlockList {
-		key = createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height)
-
-		batch.Put(key, accountBlock.Hash.Bytes())
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height), accountBlock.Hash.Bytes())
 	}
 	return nil
 }
@@ -99,6 +94,10 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 		}
 		if block == nil {
 			return nil, errors.New(fmt.Sprintf("block %s is not exited", blockHash))
+		}
+
+		if block.TokenId != tokenId {
+			return nil, nil
 		}
 
 		maxHeight = block.Height + 1

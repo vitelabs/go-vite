@@ -180,8 +180,6 @@ func (cRw *chainRw) GetSeedsBeforeHashH(hash types.Hash) uint64 {
 }
 
 func (cRw *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
-	cRw.rollbackLock.RLockRollback()
-	defer cRw.rollbackLock.RUnLockRollback()
 	return core.CalVotes(info.ConsensusGroupInfo, hashH.Hash, cRw.rw)
 }
 

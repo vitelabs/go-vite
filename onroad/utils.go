@@ -61,12 +61,9 @@ func ExcludePairTrades(chain JudgeGenesis, blockList []*ledger.AccountBlock) map
 		}
 		_, ok := pendingMap[*addr]
 		if !ok {
-			list := make([]*ledger.AccountBlock, 0)
-			list = append(list, v)
-			pendingMap[*addr] = list
-		} else {
-			pendingMap[*addr] = append(pendingMap[*addr], v)
+			pendingMap[*addr] = make([]*ledger.AccountBlock, 0)
 		}
+		pendingMap[*addr] = append(pendingMap[*addr], v)
 	}
 	return pendingMap
 }

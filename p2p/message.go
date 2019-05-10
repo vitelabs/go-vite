@@ -9,12 +9,10 @@ import (
 	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
-type ProtocolID = byte
 type Code = byte
 type MsgId = uint32
 
 type Msg struct {
-	pid        ProtocolID
 	Code       Code
 	Id         uint32
 	Payload    []byte
@@ -76,7 +74,6 @@ func (e *Error) Deserialize(data []byte) (err error) {
 
 func Disconnect(w MsgWriter, err error) (e2 error) {
 	var msg = Msg{
-		pid:  baseProtocolID,
 		Code: baseDisconnect,
 	}
 
