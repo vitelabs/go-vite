@@ -65,7 +65,7 @@ type GetHashHeightList struct {
 
 func (c *GetHashHeightList) Serialize() ([]byte, error) {
 	pb := &vitepb.GetHashHeightList{
-		//From: pointsToPb(c.From),
+		From: pointsToPb(c.From),
 		Step: c.Step,
 		To:   c.To,
 	}
@@ -80,11 +80,11 @@ func (c *GetHashHeightList) Deserialize(data []byte) (err error) {
 		return err
 	}
 
-	//if len(pb.From) == 0 {
-	//	return errMissingPoints
-	//}
+	if len(pb.From) == 0 {
+		return errMissingPoints
+	}
 
-	//c.From, err = pbToPoints(pb.From)
+	c.From, err = pbToPoints(pb.From)
 	c.Step = pb.Step
 	c.To = pb.To
 

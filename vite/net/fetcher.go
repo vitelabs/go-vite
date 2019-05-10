@@ -46,7 +46,7 @@ func (p *fetchTarget) account(height uint64, r *record) (pe Peer) {
 	var id peerId
 Loop:
 	for i, pe = range ps {
-		if pe.height()+heightDelta < height {
+		if pe.Height()+heightDelta < height {
 			break Loop
 		}
 
@@ -88,7 +88,7 @@ func (p *fetchTarget) snapshot(height uint64, r *record) (pe Peer) {
 	var id peerId
 Loop:
 	for _, pe = range ps {
-		if pe.height()+heightDelta < height {
+		if pe.Height()+heightDelta < height {
 			return nil
 		}
 
@@ -351,13 +351,13 @@ func (f *fetcher) name() string {
 	return "fetcher"
 }
 
-func (f *fetcher) codes() []code {
-	return []code{SnapshotBlocksCode, AccountBlocksCode, ExceptionCode}
+func (f *fetcher) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeSnapshotBlocks, p2p.CodeAccountBlocks, p2p.CodeException}
 }
 
 func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
-	switch code(msg.Code) {
-	case SnapshotBlocksCode:
+	switch msg.Code {
+	case p2p.CodeSnapshotBlocks:
 		bs := new(message.SnapshotBlocks)
 		if err = bs.Deserialize(msg.Payload); err != nil {
 			msg.Recycle()
@@ -379,7 +379,7 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 			f.filter.done(msg.Id)
 		}
 
-	case AccountBlocksCode:
+	case p2p.CodeAccountBlocks:
 		bs := new(message.AccountBlocks)
 		if err = bs.Deserialize(msg.Payload); err != nil {
 			msg.Recycle()
@@ -401,7 +401,7 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 			f.filter.done(msg.Id)
 		}
 
-	case ExceptionCode:
+	case p2p.CodeException:
 		f.filter.fail(msg.Id, sender.ID())
 	}
 
@@ -428,7 +428,7 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 			Forward: false,
 		}
 
-		if err := p.send(GetSnapshotBlocksCode, r.id, m); err != nil {
+		if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
 			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
 			f.filter.fail(r.id, p.ID())
 		} else {
@@ -462,7 +462,7 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 			Forward: false,
 		}
 
-		if err := p.send(GetSnapshotBlocksCode, r.id, m); err != nil {
+		if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
 			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
 			f.filter.fail(r.id, p.ID())
 		} else {
@@ -501,7 +501,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			Forward: false,
 		}
 
-		if err := p.send(GetAccountBlocksCode, r.id, m); err != nil {
+		if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
 			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
 			f.filter.fail(r.id, p.ID())
 		} else {
@@ -540,7 +540,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 			Forward: false,
 		}
 
-		if err := p.send(GetAccountBlocksCode, r.id, m); err != nil {
+		if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
 			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
 			f.filter.fail(r.id, p.ID())
 		} else {

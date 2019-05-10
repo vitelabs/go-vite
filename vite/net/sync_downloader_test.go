@@ -1,8 +1,28 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,6 +31,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/ledger"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 
 	"github.com/vitelabs/go-vite/interfaces"
 )
@@ -159,10 +183,10 @@ func TestExecutor_cancel(t *testing.T) {
 	exec := newExecutor(100, 3, nil, nil)
 	exec.start()
 
-	exec.download(1, 10, false)
-	exec.download(11, 20, false)
-	exec.download(21, 30, false)
-	exec.download(31, 40, false)
+	exec.download(&syncTask{from: 1, to: 10}, false)
+	exec.download(&syncTask{from: 11, to: 20}, false)
+	exec.download(&syncTask{from: 21, to: 30}, false)
+	exec.download(&syncTask{from: 31, to: 40}, false)
 
 	exec.cancel(13)
 
@@ -303,7 +327,7 @@ func TestAddTasks(t *testing.T) {
 
 	for _, samp := range samples {
 		reset()
-		tasks = addTasks(tasks, samp.from, samp.to, samp.must)
+		tasks = addTasks(tasks, &syncTask{from: samp.from, to: samp.to}, samp.must)
 		if len(tasks) != len(samp.cs) {
 			t.Errorf("wrong tasks length: %d", len(tasks))
 		} else {
@@ -314,23 +338,6 @@ func TestAddTasks(t *testing.T) {
 			}
 		}
 	}
-}
-
-type mockDownloader struct {
-}
-
-func (m mockDownloader) download(ctx context.Context, from, to uint64) <-chan error {
-	ch := make(chan error, 1)
-	ch <- nil
-	return ch
-}
-
-func (m mockDownloader) start() {
-	return
-}
-
-func (m mockDownloader) stop() {
-	return
 }
 
 //func TestExecutor_Add(t *testing.T) {
@@ -684,4 +691,104 @@ func TestMockQueue(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+type mockLedgerReader struct {
+	segment interfaces.Segment
+	size    int
+	buf     *bytes.Buffer
+}
+
+func (m *mockLedgerReader) Seg() interfaces.Segment {
+	return m.segment
+}
+
+func (m *mockLedgerReader) Size() int {
+	return m.size
+}
+
+func (m *mockLedgerReader) Read(p []byte) (n int, err error) {
+	return m.buf.Read(p)
+}
+
+func (m *mockLedgerReader) Close() error {
+	return nil
+}
+
+type mockChunk struct {
+	seg   interfaces.Segment
+	buf   *bytes.Buffer
+	cache *mockSyncCacher
+}
+
+func (mc *mockChunk) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
+	panic("implement me")
+}
+
+func (mc *mockChunk) Size() int64 {
+	return int64(len(mc.buf.Bytes()))
+}
+
+func (mc *mockChunk) Write(p []byte) (n int, err error) {
+	return mc.buf.Write(p)
+}
+
+func (mc *mockChunk) Close() error {
+	mc.cache.r[mc.seg] = mc
+	delete(mc.cache.w, mc.seg)
+	return nil
+}
+
+type mockSyncCacher struct {
+	w map[interfaces.Segment]*mockChunk
+	r map[interfaces.Segment]*mockChunk
+}
+
+func (m *mockSyncCacher) NewWriter(segment interfaces.Segment) (io.WriteCloser, error) {
+	c := &mockChunk{}
+	m.w[segment] = c
+	return c, nil
+}
+
+func (m *mockSyncCacher) Chunks() (cs interfaces.SegmentList) {
+	for seg := range m.r {
+		cs = append(cs, seg)
+	}
+
+	sort.Sort(cs)
+	return
+}
+
+func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
+	r, ok := m.r[segment]
+	if ok {
+		return r, nil
+	}
+
+	return nil, errors.New("no resource")
+}
+
+func (m *mockSyncCacher) Delete(seg interfaces.Segment) error {
+	delete(m.r, seg)
+	return nil
+}
+
+type mockDownloaderChain struct {
+	readers []*mockLedgerReader
+	cache   *mockSyncCacher
+}
+
+func (m *mockDownloaderChain) GetSyncCache() interfaces.SyncCache {
+	return m.cache
+}
+
+func (m *mockDownloaderChain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
+	for _, r := range m.readers {
+		seg := r.Seg()
+		if seg.Bound == [2]uint64{startHeight, endHeight} {
+			return r, nil
+		}
+	}
+
+	return nil, errors.New("no resource")
 }

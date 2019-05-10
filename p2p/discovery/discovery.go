@@ -50,18 +50,50 @@ type Discovery interface {
 	Stop() error
 	Delete(id vnode.NodeID, reason error)
 	GetNodes(count int) []*vnode.Node
-	FindNodes(node *vnode.Node, count int) []*vnode.Node
 	Resolve(id vnode.NodeID) *vnode.Node
-	SetFinder(f Finder)
 	AllNodes() []*vnode.Node
+	SubscribeNode(receiver func(n *vnode.Node)) (subId int)
+	Unsubscribe(subId int)
 }
 
-type db interface {
-	Store(node *Node) (err error)
-	ReadNodes(count int, maxAge time.Duration) []*Node
+type NodeDB interface {
+	StoreNode(node *vnode.Node) (err error)
+	RemoveNode(ID vnode.NodeID)
+	ReadNodes(count int, expiration time.Duration) []*vnode.Node
+	RetrieveActiveAt(id vnode.NodeID) int64
+	StoreActiveAt(id vnode.NodeID, v int64)
+	RetrieveCheckAt(id vnode.NodeID) int64
+	StoreCheckAt(id vnode.NodeID, v int64)
 	Close() error
 	Clean(expiration time.Duration)
-	Remove(ID vnode.NodeID)
+}
+
+type discvDB struct {
+	NodeDB
+}
+
+func (db *discvDB) StoreNode(node *Node) (err error) {
+	err = db.NodeDB.StoreNode(&node.Node)
+	db.StoreActiveAt(node.ID, node.activeAt.Unix())
+	db.StoreCheckAt(node.ID, node.checkAt.Unix())
+
+	return
+}
+
+func (db *discvDB) ReadNodes(count int, expiration time.Duration) (nodes []*Node) {
+	vnodes := db.NodeDB.ReadNodes(count, expiration)
+	nodes = make([]*Node, len(vnodes))
+	for i, n := range vnodes {
+		nodes[i] = &Node{
+			Node:     *n,
+			checkAt:  time.Time{},
+			activeAt: time.Time{},
+		}
+		nodes[i].checkAt = time.Unix(db.RetrieveCheckAt(n.ID), 0)
+		nodes[i].activeAt = time.Unix(db.RetrieveActiveAt(n.ID), 0)
+	}
+
+	return
 }
 
 type discovery struct {
@@ -80,7 +112,7 @@ type discovery struct {
 
 	socket socket
 
-	db db
+	db *discvDB
 
 	running int32
 	term    chan struct{}
@@ -95,6 +127,13 @@ type discovery struct {
 	log log15.Logger
 }
 
+func (d *discovery) SubscribeNode(receiver func(n *vnode.Node)) (subId int) {
+	return d.table.Sub(receiver)
+}
+func (d *discovery) Unsubscribe(subId int) {
+	d.table.UnSub(subId)
+}
+
 func (d *discovery) GetNodes(count int) []*vnode.Node {
 	// can NOT use rw.RLock(), will panic
 	d.mu.Lock()
@@ -104,11 +143,6 @@ func (d *discovery) GetNodes(count int) []*vnode.Node {
 	d.mu.Unlock()
 
 	return d.finder.GetNodes(count)
-}
-
-func (d *discovery) FindNodes(node *vnode.Node, count int) []*vnode.Node {
-	// todo
-	return nil
 }
 
 func (d *discovery) SetFinder(f Finder) {
@@ -122,7 +156,10 @@ func (d *discovery) SetFinder(f Finder) {
 
 func (d *discovery) Delete(id vnode.NodeID, reason error) {
 	d.table.remove(id)
-	d.db.Remove(id)
+
+	if d.db != nil {
+		d.db.RemoveNode(id)
+	}
 
 	d.log.Warn(fmt.Sprintf("remove node %s: %v", id.String(), reason))
 }
@@ -143,11 +180,16 @@ func (d *discovery) Resolve(id vnode.NodeID) (ret *vnode.Node) {
 }
 
 // New create a Discovery implementation
-func New(cfg *Config) Discovery {
+func New(cfg *Config, db NodeDB) Discovery {
 	d := &discovery{
 		Config: cfg,
 		stage:  make(map[string]*Node),
 		log:    discvLog,
+	}
+	if db != nil {
+		d.db = &discvDB{
+			db,
+		}
 	}
 
 	d.cond = sync.NewCond(&d.mu)
@@ -168,14 +210,10 @@ func (d *discovery) Start() (err error) {
 		return errDiscoveryIsRunning
 	}
 
-	// open database
-	d.db, err = newDB(d.Config.DataDir, 3, d.node.ID)
-	if err != nil {
-		return fmt.Errorf("failed to create database: %v", err)
-	}
-
 	// retrieve boot nodes
-	d.booters = append(d.booters, newDBBooter(d.db))
+	if d.db != nil {
+		d.booters = append(d.booters, newDBBooter(d.db))
+	}
 	if len(d.BootSeeds) > 0 {
 		d.booters = append(d.booters, newNetBooter(d.node, d.BootSeeds))
 	}
@@ -213,7 +251,10 @@ func (d *discovery) Stop() (err error) {
 		d.wg.Wait()
 
 		err = d.socket.stop()
-		err = d.db.Close()
+
+		if d.db != nil {
+			err = d.db.Close()
+		}
 
 		return
 	}
@@ -270,13 +311,19 @@ func (d *discovery) tableLoop() {
 
 	checkTicker := time.NewTicker(checkInterval)
 	refreshTicker := time.NewTimer(tRefresh)
-	storeTicker := time.NewTicker(storeInterval)
-	dbTicker := time.NewTicker(dbCleanInterval)
-
 	defer checkTicker.Stop()
 	defer refreshTicker.Stop()
-	defer storeTicker.Stop()
-	defer dbTicker.Stop()
+
+	var storeChan, cleanChan <-chan time.Time
+	if d.db != nil {
+		storeTicker := time.NewTicker(storeInterval)
+		cleanTicker := time.NewTicker(dbCleanInterval)
+		defer storeTicker.Stop()
+		defer cleanTicker.Stop()
+
+		storeChan = storeTicker.C
+		cleanChan = cleanTicker.C
+	}
 
 Loop:
 	for {
@@ -292,15 +339,17 @@ Loop:
 		case <-refreshTicker.C:
 			go d.init()
 
-		case <-storeTicker.C:
+		case <-storeChan:
 			d.table.store(d.db)
 
-		case <-dbTicker.C:
+		case <-cleanChan:
 			d.db.Clean(seedMaxAge)
 		}
 	}
 
-	d.table.store(d.db)
+	if d.db != nil {
+		d.table.store(d.db)
+	}
 }
 
 func (d *discovery) findLoop() {

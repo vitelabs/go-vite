@@ -22,12 +22,29 @@ import (
 )
 
 const (
-	baseEncRequest  = 1
-	baseEncResponse = 2
-	baseHandshake   = 3
-	baseDisconnect  = 4 // body is struct Error
-	baseTooManyMsg  = 5
-	baseHeartBeat   = 6
+	CodeDisconnect  Code = 1
+	CodeEncRequest  Code = 2
+	CodeEncResponse Code = 3
+	CodeHandshake   Code = 4
+	CodeControlFlow Code = 5
+	CodeHeartBeat   Code = 6
+
+	CodeGetHashList       Code = 25
+	CodeHashList          Code = 26
+	CodeGetSnapshotBlocks Code = 27
+	CodeSnapshotBlocks    Code = 28
+	CodeGetAccountBlocks  Code = 29
+	CodeAccountBlocks     Code = 30
+	CodeNewSnapshotBlock  Code = 31
+	CodeNewAccountBlock   Code = 32
+
+	CodeSyncHandshake   Code = 60
+	CodeSyncHandshakeOK Code = 61
+	CodeSyncRequest     Code = 62
+	CodeSyncReady       Code = 63
+
+	CodeException Code = 127
+	CodeTrace     Code = 128
 )
 
 const version = iota
@@ -35,20 +52,6 @@ const handshakeTimeout = 10 * time.Second
 
 const nonceLen = 32
 const signatureLen = 64
-
-type protoDataList []*protos.Protocol
-
-func (pd protoDataList) Len() int {
-	return len(pd)
-}
-
-func (pd protoDataList) Less(i, j int) bool {
-	return pd[i].ID < pd[j].ID
-}
-
-func (pd protoDataList) Swap(i, j int) {
-	pd[i], pd[j] = pd[j], pd[i]
-}
 
 type HandshakeMsg struct {
 	Version uint32
@@ -61,9 +64,12 @@ type HandshakeMsg struct {
 
 	Timestamp int64
 
-	Height      uint64
-	Genesis     types.Hash
-	Key         []byte
+	Height  uint64
+	Head    types.Hash
+	Genesis types.Hash
+
+	Key []byte // is producer
+
 	FileAddress []byte
 }
 
@@ -122,13 +128,12 @@ type handshaker struct {
 
 	priv ed25519.PrivateKey
 
-	codecFactory CodecFactory
-	protocol     Protocol
+	protocol Protocol
 
 	log log15.Logger
 }
 
-func (h *handshaker) catch(codec Codec, err *Error) {
+func (h *handshaker) catch(codec Codec, err error) {
 	_ = Disconnect(codec, err)
 	_ = codec.Close()
 }
@@ -152,7 +157,7 @@ func (h *handshaker) sendHandshake(codec Codec) (err error) {
 
 	codec.SetWriteTimeout(handshakeTimeout)
 	err = codec.WriteMsg(Msg{
-		Code:    baseHandshake,
+		Code:    CodeHandshake,
 		Payload: hspkt,
 	})
 
@@ -170,17 +175,15 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerNetworkError
 	}
 
-	if msg.Code == baseDisconnect {
-		var e = new(Error)
-		err = e.Deserialize(msg.Payload)
-		if err != nil {
-			return nil, err
+	if msg.Code == CodeDisconnect {
+		if len(msg.Payload) > 0 {
+			err = PeerError(msg.Payload[0])
 		}
 
-		return nil, e
+		return
 	}
 
-	if msg.Code != baseHandshake {
+	if msg.Code != CodeHandshake {
 		return nil, PeerNotHandshakeMsg
 	}
 
@@ -204,6 +207,9 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 		return
 	}
 
+	codec.SetReadTimeout(readMsgTimeout)
+	codec.SetWriteTimeout(writeMsgTimeout)
+
 	if their.NetID != h.netId {
 		err = PeerDifferentNetwork
 		return
@@ -223,28 +229,11 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 	return
 }
 
-func (h *handshaker) Handshake(conn net.Conn, level Level) (peer PeerMux, err error) {
-	codec := h.codecFactory.CreateCodec(conn)
-
+func (h *handshaker) Handshake(codec Codec, level Level) (peer PeerMux, err error) {
 	their, level, err := h.doHandshake(codec, level)
 
 	if err != nil {
-		var e *Error
-		var ok bool
-		var pe PeerError
-		if pe, ok = err.(PeerError); ok {
-			e = &Error{
-				Code: uint32(pe),
-			}
-		} else if e, ok = err.(*Error); ok {
-			// do nothing
-		} else {
-			e = &Error{
-				Message: err.Error(),
-			}
-		}
-
-		h.catch(codec, e)
+		h.catch(codec, err)
 		return
 	}
 

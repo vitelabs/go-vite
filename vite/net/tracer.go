@@ -29,6 +29,11 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
+type Tracer interface {
+	msgHandler
+	Trace()
+}
+
 type tracer struct {
 	id string
 
@@ -55,13 +60,13 @@ func (b *tracer) name() string {
 	return "tracer"
 }
 
-func (b *tracer) codes() []code {
-	return []code{codeTrace}
+func (b *tracer) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeTrace}
 }
 
 func (b *tracer) handle(msg p2p.Msg, sender Peer) (err error) {
-	switch code(msg.Code) {
-	case codeTrace:
+	switch msg.Code {
+	case p2p.CodeTrace:
 		tm := &message.Tracer{}
 		err = tm.Deserialize(msg.Payload)
 		if err != nil {
@@ -106,7 +111,7 @@ func (b *tracer) Trace() {
 			continue
 		}
 
-		err = p.send(codeTrace, 0, msg)
+		err = p.send(p2p.CodeTrace, 0, msg)
 		if err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to broadcast trace %s to %s: %v", hash, p, err))
@@ -125,7 +130,7 @@ func (b *tracer) forward(msg *message.Tracer, sender broadcastPeer) {
 			continue
 		}
 
-		if err := p.send(codeTrace, 0, msg); err != nil {
+		if err := p.send(p2p.CodeTrace, 0, msg); err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to forward trace %s to %s: %v", msg.Hash, p, err))
 		} else {
@@ -133,3 +138,23 @@ func (b *tracer) forward(msg *message.Tracer, sender broadcastPeer) {
 		}
 	}
 }
+
+type mockTracer struct{}
+
+func newMockTracer() *mockTracer {
+	return &mockTracer{}
+}
+
+func (b *mockTracer) name() string {
+	return "tracer"
+}
+
+func (b *mockTracer) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeTrace}
+}
+
+func (b *mockTracer) handle(msg p2p.Msg, sender Peer) (err error) {
+	return nil
+}
+
+func (b *mockTracer) Trace() {}

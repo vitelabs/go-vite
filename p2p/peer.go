@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -85,6 +87,7 @@ type peerMux struct {
 	id          vnode.NodeID
 	name        string
 	height      uint64
+	head        types.Hash
 	version     uint32
 	level       Level
 	pm          levelManager
@@ -99,6 +102,18 @@ type peerMux struct {
 	log         log15.Logger
 	proto       Protocol
 	fileAddress string
+}
+
+func (p *peerMux) weight() int64 {
+	return time.Now().Unix() - p.createAt.Unix()
+}
+
+func (p *peerMux) Head() types.Hash {
+	return p.head
+}
+
+func (p *peerMux) SetHead(head types.Hash, height uint64) {
+	p.head, p.height = head, height
 }
 
 // Level return the peer`s level
@@ -159,10 +174,6 @@ func (p *peerMux) ID() vnode.NodeID {
 	return p.id
 }
 
-func (p *peerMux) SetHeight(height uint64) {
-	p.height = height
-}
-
 func (p *peerMux) Height() uint64 {
 	return p.height
 }
@@ -215,21 +226,20 @@ func (p *peerMux) readLoop() (err error) {
 		msg, err = p.codec.ReadMsg()
 		p.log.Debug(fmt.Sprintf("read message %d %d bytes done", msg.Code, len(msg.Payload)))
 		if err != nil {
+			atomic.StoreInt32(&p.writable, 0)
 			return
 		}
 
 		msg.ReceivedAt = time.Now()
+		msg.Sender = p
 
 		switch msg.Code {
-		case baseDisconnect:
+		case CodeDisconnect:
 			return PeerQuitting
-		case baseTooManyMsg:
+		case CodeControlFlow:
 		// todo
-		case baseHeartBeat:
-			p.proto.SetState(msg.Payload, p)
 
 		default:
-			msg.Sender = p
 			p.readQueue <- msg
 		}
 	}
@@ -266,7 +276,7 @@ func (p *peerMux) handleLoop() (err error) {
 	return nil
 }
 
-func (p *peerMux) Close(err PeerError) (err2 error) {
+func (p *peerMux) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 
 		_ = Disconnect(p, err)

@@ -6,6 +6,8 @@ type Net struct {
 	Single            bool   `json:"Single"`
 	FileListenAddress string `json:"FileListenAddress"`
 	ForwardStrategy   string `json:"ForwardStrategy"`
-	MinePrivateKey    ed25519.PrivateKey
-	P2PPrivateKey     ed25519.PrivateKey
+	TraceEnabled      bool   `json:"TraceEnabled"`
+
+	MinePrivateKey ed25519.PrivateKey
+	P2PPrivateKey  ed25519.PrivateKey
 }

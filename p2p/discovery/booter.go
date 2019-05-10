@@ -21,7 +21,7 @@ type booter interface {
 
 // booterDB can retrieve bootNodes
 type booterDB interface {
-	ReadNodes(count int, maxAge time.Duration) []*Node
+	ReadNodes(count int, expiration time.Duration) []*Node
 }
 
 // dbBooter supply bootNodes from database

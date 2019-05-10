@@ -40,67 +40,85 @@ func (cache *syncCache) CheckExisted(segment interfaces.Segment) bool {
 }
 
 type Reader struct {
-	cache            *syncCache
-	file             *os.File
-	offset           int64
-	snappyReadBuffer []byte
+	cache        *syncCache
+	file         *os.File
+	size         int64
+	offset       int64
+	readBuffer   []byte
+	decodeBuffer []byte
 }
 
 func NewReader(cache *syncCache, seg interfaces.Segment) (*Reader, error) {
 	fileName := cache.toAbsoluteFileName(seg)
-	file, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if oErr != nil {
-		if os.IsNotExist(oErr) {
-			return nil, nil
-		}
-		return nil, oErr
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0666)
+	if err != nil {
+		return nil, err
 	}
 
-	return &Reader{
-		cache:            cache,
-		file:             file,
-		offset:           0,
-		snappyReadBuffer: make([]byte, 0, 8*1024),
-	}, nil
+	r := &Reader{
+		cache:      cache,
+		file:       file,
+		offset:     0,
+		readBuffer: make([]byte, 8*1024),
+	}
+
+	fst, err := os.Stat(fileName)
+	if err == nil {
+		r.size = fst.Size()
+	}
+
+	return r, nil
 }
 
-func (reader *Reader) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, returnErr error) {
-	defer func() {
-		if returnErr != nil {
-			reader.close()
-		}
-	}()
+func (reader *Reader) Size() int64 {
+	return reader.size
+}
+
+func (reader *Reader) Read() (ab *ledger.AccountBlock, sb *ledger.SnapshotBlock, err error) {
 	fd := reader.file
 
-	bufSizeBytes := make([]byte, 4)
-	if _, err := fd.Read(bufSizeBytes); err != nil {
-		return nil, nil, err
-	}
-	bufSize := binary.BigEndian.Uint32(bufSizeBytes)
-
-	buf := make([]byte, bufSize)
-	if _, err := fd.Read(buf); err != nil {
-		return nil, nil, err
+	buf := reader.readBuffer[:4]
+	if _, err = fd.Read(buf); err != nil {
+		return
 	}
 
-	sBuf, err := snappy.Decode(reader.snappyReadBuffer, buf[1:])
+	size := binary.BigEndian.Uint32(buf)
+	if cap(reader.readBuffer) < int(size) {
+		reader.readBuffer = make([]byte, size)
+	}
+
+	buf = reader.readBuffer[:size]
+	if _, err = fd.Read(buf); err != nil {
+		return
+	}
+	code := buf[0]
+
+	decodeLen, err := snappy.DecodedLen(buf[1:])
 	if err != nil {
-		return nil, nil, err
+		return
+	}
+	if cap(reader.decodeBuffer) < decodeLen {
+		reader.decodeBuffer = make([]byte, decodeLen)
 	}
 
-	switch buf[0] {
+	sBuf, err := snappy.Decode(reader.decodeBuffer, buf[1:])
+	if err != nil {
+		return
+	}
+
+	switch code {
 	case chain_block.BlockTypeAccountBlock:
-		ab := &ledger.AccountBlock{}
-		if err := ab.Deserialize(sBuf); err != nil {
-			return nil, nil, err
+		ab = &ledger.AccountBlock{}
+		if err = ab.Deserialize(sBuf); err != nil {
+			return
 		}
-		return ab, nil, nil
+		return
 	case chain_block.BlockTypeSnapshotBlock:
-		sb := &ledger.SnapshotBlock{}
-		if err := sb.Deserialize(sBuf); err != nil {
-			return nil, nil, err
+		sb = &ledger.SnapshotBlock{}
+		if err = sb.Deserialize(sBuf); err != nil {
+			return
 		}
-		return nil, sb, nil
+		return
 	}
 
 	return nil, nil, io.EOF

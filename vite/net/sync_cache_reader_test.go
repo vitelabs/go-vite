@@ -1,3 +1,21 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net
 
 import (
@@ -36,6 +54,16 @@ type mockCacheChain struct {
 	mu     sync.Mutex
 	cache  *mockCache
 	handle func(block *ledger.SnapshotBlock) error
+}
+
+func (m *mockCacheChain) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
+	return &ledger.SnapshotBlock{
+		Height: 1,
+	}
+}
+
+func (m *mockCacheChain) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	return nil, nil
 }
 
 func (m *mockCacheChain) GetSyncCache() interfaces.SyncCache {
@@ -112,6 +140,10 @@ type mockCache struct {
 type mockCacheReader struct {
 	from, to uint64
 	height   uint64
+}
+
+func (m *mockCacheReader) Size() int64 {
+	return 1000
 }
 
 func (m *mockCacheReader) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
@@ -220,23 +252,27 @@ type mockSyncDownloader struct {
 	}
 }
 
+func (m *mockSyncDownloader) loadSource(list []hashHeightPeers) {
+	return
+}
+
 func (m *mockSyncDownloader) status() DownloaderStatus {
 	return DownloaderStatus{}
 }
 
-func (m *mockSyncDownloader) download(from, to uint64, must bool) bool {
-	fmt.Println("download", from, to, must)
+func (m *mockSyncDownloader) download(t *syncTask, must bool) bool {
+	fmt.Println("download", t.from, t.to, must)
 	time.Sleep(time.Second)
 	w, err := m.chain.GetSyncCache().NewWriter(interfaces.Segment{
-		Bound:    [2]uint64{from, to},
-		Hash:     types.Hash{},
-		PrevHash: types.Hash{},
+		Bound:    [2]uint64{t.from, t.to},
+		Hash:     t.endHash,
+		PrevHash: t.prevHash,
 	})
 	if err != nil {
-		panic(fmt.Sprintf("failed to create writer %d-%d: %v", from, to, err))
+		panic(fmt.Sprintf("failed to create writer %d-%d: %v", t.from, t.to, err))
 	}
 	_ = w.Close()
-	m.listener(from, to, nil)
+	m.listener(*t, nil)
 	return true
 }
 
@@ -380,4 +416,60 @@ func TestChunkRead2(t *testing.T) {
 	}
 
 	fmt.Println(err)
+}
+
+func TestCompareCache(t *testing.T) {
+	var caches = []interfaces.Segment{
+		{
+			Bound:    [2]uint64{2, 100},
+			Hash:     types.Hash{1},
+			PrevHash: types.Hash{2},
+		},
+		{
+			Bound:    [2]uint64{101, 200},
+			PrevHash: types.Hash{5, 9, 4},
+			Hash:     types.Hash{1, 3, 5},
+		},
+		{
+			Bound:    [2]uint64{301, 400},
+			PrevHash: types.Hash{90, 194},
+			Hash:     types.Hash{195, 49},
+		},
+	}
+
+	var tasks = syncTasks{
+		{
+			from:     2,
+			to:       100,
+			prevHash: types.Hash{0, 0, 0},
+			endHash:  types.Hash{1, 3, 5},
+		},
+		{
+			from:     101,
+			to:       200,
+			prevHash: types.Hash{1, 3, 5},
+			endHash:  types.Hash{2, 4, 6},
+		},
+		{
+			from:     201,
+			to:       300,
+			prevHash: types.Hash{2, 4, 6},
+			endHash:  types.Hash{90, 194},
+		},
+		{
+			from:     301,
+			to:       400,
+			prevHash: types.Hash{90, 194},
+			endHash:  types.Hash{195, 49},
+		},
+	}
+
+	ts := compareCache(caches, tasks, func(segment interfaces.Segment, t *syncTask) {
+		fmt.Println(segment, t)
+	})
+
+	fmt.Println(len(ts))
+	for _, tt := range ts {
+		fmt.Printf("%v\n", tt)
+	}
 }

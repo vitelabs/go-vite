@@ -73,7 +73,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		ForwardStrategy:   cfg.ForwardStrategy,
 		Chain:             chain,
 		Verifier:          verifier,
-		Producer:          nil,
 	})
 
 	// vite

@@ -16,14 +16,34 @@ import (
 
 type mockPeer struct {
 	id      vnode.NodeID
-	_height uint64
+	height  uint64
 	peerMap map[vnode.NodeID]struct{}
+}
+
+func (mp *mockPeer) Height() uint64 {
+	return mp.height
+}
+
+func (mp *mockPeer) Head() types.Hash {
+	panic("implement me")
+}
+
+func (mp *mockPeer) SetHead(head types.Hash, height uint64) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) FileAddress() string {
+	panic("implement me")
+}
+
+func (mp *mockPeer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
+	panic("implement me")
 }
 
 func newMockPeer(id vnode.NodeID, height uint64) *mockPeer {
 	return &mockPeer{
 		id:      id,
-		_height: height,
+		height:  height,
 		peerMap: make(map[vnode.NodeID]struct{}),
 	}
 }
@@ -50,14 +70,15 @@ func (mp *mockPeer) Address() net2.Addr {
 
 func (mp *mockPeer) Info() p2p.PeerInfo {
 	return p2p.PeerInfo{
-		ID:        mp.id.Brief(),
-		Name:      "",
-		Version:   0,
-		Protocols: nil,
-		Address:   "",
-		Level:     0,
-		CreateAt:  "",
-		State:     nil,
+		ID:         mp.id.Brief(),
+		Name:       "",
+		Version:    0,
+		Height:     0,
+		Address:    "",
+		Level:      0,
+		CreateAt:   "",
+		ReadQueue:  0,
+		WriteQueue: 0,
 	}
 }
 
@@ -70,18 +91,6 @@ func (mp *mockPeer) Level() p2p.Level {
 }
 
 func (mp *mockPeer) SetLevel(level p2p.Level) error {
-	panic("implement me")
-}
-
-func (mp *mockPeer) State() interface{} {
-	panic("implement me")
-}
-
-func (mp *mockPeer) SetState(state interface{}) {
-	panic("implement me")
-}
-
-func (mp *mockPeer) setHead(head types.Hash, height uint64) {
 	panic("implement me")
 }
 
@@ -114,23 +123,7 @@ func (mp *mockPeer) seeBlock(hash types.Hash) bool {
 	panic("implement me")
 }
 
-func (mp *mockPeer) height() uint64 {
-	return mp._height
-}
-
-func (mp *mockPeer) head() types.Hash {
-	panic("implement me")
-}
-
-func (mp *mockPeer) fileAddress() string {
-	panic("implement me")
-}
-
 func (mp *mockPeer) catch(err error) {
-	panic("implement me")
-}
-
-func (mp *mockPeer) send(c code, id p2p.MsgId, data p2p.Serializable) error {
 	panic("implement me")
 }
 
@@ -205,8 +198,8 @@ func TestPeerSet_SyncPeer(t *testing.T) {
 	}
 
 	// only two peers
-	if p = m.syncPeer(); p.height() != 1 {
-		t.Errorf("wrong sync peer height: %d", p.height())
+	if p = m.syncPeer(); p.Height() != 1 {
+		t.Errorf("wrong sync peer height: %d", p.Height())
 	}
 
 	// reset
@@ -221,11 +214,11 @@ func TestPeerSet_SyncPeer(t *testing.T) {
 	}
 
 	// the 1/3 peer
-	if p = m.syncPeer(); p.height() != 6 {
-		t.Errorf("wrong sync peer height: %d", p.height())
+	if p = m.syncPeer(); p.Height() != 6 {
+		t.Errorf("wrong sync peer height: %d", p.Height())
 	}
-	if p = m.bestPeer(); p.height() != total-1 {
-		t.Errorf("wrong best peer height: %d", p.height())
+	if p = m.bestPeer(); p.Height() != total-1 {
+		t.Errorf("wrong best peer height: %d", p.Height())
 	}
 }
 
@@ -248,8 +241,8 @@ func TestPeerSet_Pick(t *testing.T) {
 		t.Errorf("wrong peer number: %d", len(ps))
 	}
 	for _, p = range ps {
-		if p.height() < target {
-			t.Errorf("wrong peer height: %d", p.height())
+		if p.Height() < target {
+			t.Errorf("wrong peer height: %d", p.Height())
 		}
 	}
 }
@@ -280,7 +273,7 @@ func ExamplePeersSort() {
 	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 3))
 
 	sort.Sort(ps)
-	fmt.Println(ps[0].height())
+	fmt.Println(ps[0].Height())
 	// Output:
 	// 3
 }

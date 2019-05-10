@@ -69,6 +69,7 @@ type ReadCloser interface {
 	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
 	// Close the stream
 	Close() error
+	Size() int64
 }
 
 type SyncCache interface {

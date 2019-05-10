@@ -86,7 +86,7 @@ type Config struct {
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 	TestTokenTti        string   `json:"TestTokenTti"`
 
-	PowServerUrl string `json:"PowServerUrl”`
+	PowServerUrl string `json:"PowServerUrl"`
 
 	//Log level
 	LogLevel    string `json:"LogLevel"`
@@ -106,6 +106,7 @@ type Config struct {
 	FileListenAddress string `json:"FileListenAddress"`
 	FilePublicAddress string `json:"FileAddress"`
 	ForwardStrategy   string `json:"ForwardStrategy"`
+	TraceEnabled      bool   `json:"TraceEnabled"`
 
 	// dashboard
 	DashboardTargetURL string
@@ -150,6 +151,8 @@ func (c *Config) makeNetConfig() *config.Net {
 	return &config.Net{
 		Single:            c.Single,
 		FileListenAddress: fileListenAddress,
+		ForwardStrategy:   c.ForwardStrategy,
+		TraceEnabled:      c.TraceEnabled,
 	}
 }
 

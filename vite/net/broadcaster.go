@@ -118,7 +118,7 @@ type broadcastPeer interface {
 	ID() vnode.NodeID
 	peers() map[vnode.NodeID]struct{}
 	seeBlock(types.Hash) bool
-	send(c code, id p2p.MsgId, data p2p.Serializable) error
+	send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error
 	catch(error)
 }
 
@@ -347,15 +347,15 @@ func (b *broadcaster) name() string {
 	return "broadcaster"
 }
 
-func (b *broadcaster) codes() []code {
-	return []code{NewAccountBlockCode, NewSnapshotBlockCode}
+func (b *broadcaster) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeNewAccountBlock, p2p.CodeNewSnapshotBlock}
 }
 
 func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 	defer monitor.LogTime("broadcast", "handle", time.Now())
 
-	switch code(msg.Code) {
-	case NewSnapshotBlockCode:
+	switch msg.Code {
+	case p2p.CodeNewSnapshotBlock:
 		start := time.Now()
 		nb := &message.NewSnapshotBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
@@ -418,7 +418,7 @@ func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
 		}
 		b.log.Debug(fmt.Sprintf("notify new snapshotblock %s/%d from %s [%s]", hash, block.Height, sender, time.Now().Sub(propagateAt)))
 
-	case NewAccountBlockCode:
+	case p2p.CodeNewAccountBlock:
 		start := time.Now()
 		nb := &message.NewAccountBlock{}
 		if err = nb.Deserialize(msg.Payload); err != nil {
@@ -574,7 +574,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 			continue
 		}
 
-		err = p.send(NewSnapshotBlockCode, 0, msg)
+		err = p.send(p2p.CodeNewSnapshotBlock, 0, msg)
 		if err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to broadcast snapshotblock %s/%d to %s: %v", block.Hash, block.Height, p, err))
@@ -616,7 +616,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 			continue
 		}
 
-		err = p.send(NewAccountBlockCode, 0, msg)
+		err = p.send(p2p.CodeNewAccountBlock, 0, msg)
 		if err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to broadcast accountblock %s to %s: %v", block.Hash, p, err))
@@ -641,7 +641,7 @@ func (b *broadcaster) forwardSnapshotBlock(msg *message.NewSnapshotBlock, sender
 			continue
 		}
 
-		if err := p.send(NewSnapshotBlockCode, 0, msg); err != nil {
+		if err := p.send(p2p.CodeNewSnapshotBlock, 0, msg); err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
 		} else {
@@ -659,7 +659,7 @@ func (b *broadcaster) forwardAccountBlock(msg *message.NewAccountBlock, sender b
 			continue
 		}
 
-		if err := p.send(NewAccountBlockCode, 0, msg); err != nil {
+		if err := p.send(p2p.CodeNewAccountBlock, 0, msg); err != nil {
 			p.catch(err)
 			b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
 		} else {
