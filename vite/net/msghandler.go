@@ -19,20 +19,20 @@ import (
 type code = p2p.Code
 
 const (
-	GetSnapshotBlocksCode code = iota
-	GetAccountBlocksCode       // query single AccountChain
+	GetSnapshotBlocksCode code = 25
+	GetAccountBlocksCode  code = 26 // query single AccountChain
 
-	SnapshotBlocksCode
-	AccountBlocksCode
+	SnapshotBlocksCode code = 27
+	AccountBlocksCode  code = 28
 
-	NewSnapshotBlockCode
-	NewAccountBlockCode
+	NewSnapshotBlockCode code = 29
+	NewAccountBlockCode  code = 30
 
-	CodeCheckChain  // send []hashHeight to peer, find which hashHeight is in peer`s chain
-	CodeCheckResult // send which hashHeight is in our chain
+	CodeCheckChain  code = 31 // send []hashHeight to peer, find which hashHeight is in peer`s chain
+	CodeCheckResult code = 32 // send which hashHeight is in our chain
 
-	CodeGetHashList
-	CodeHashList
+	CodeGetHashList code = 33
+	CodeHashList    code = 34
 
 	ExceptionCode = 127
 	codeTrace     = 128
