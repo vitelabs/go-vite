@@ -414,7 +414,7 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 	return nil
 }
 
-func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
+func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVip {
 		if pledgeVip, _ := GetPledgeForVip(db, address); pledgeVip != nil {
 			return nil, PledgeForVipExistsErr
@@ -440,7 +440,7 @@ func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount
 	}
 }
 
-func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, amount *big.Int) ([]byte, error) {
+func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVx {
 		available := GetPledgeForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)
@@ -457,7 +457,7 @@ func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType int8, 
 			}
 		}
 	}
-	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, pledgeType); err != nil {
+	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(pledgeType)); err != nil {
 		return nil, err
 	} else {
 		return cancelPledgeData, err

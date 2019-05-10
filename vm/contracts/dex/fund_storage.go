@@ -22,8 +22,8 @@ var (
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
-	feeSumKeyPrefix            = []byte("fS:")    // feeSum:periodId
-	lastFeeSumPeriodKey        = []byte("lFSPId:") //
+	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
+	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
 	donateFeeSumKeyPrefix      = []byte("dfS:")   // donateFeeSum:periodId, feeSum for new market fee
 	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
@@ -140,16 +140,23 @@ type ParamDexFundPledgeCallBack struct {
 }
 
 type ParamDexFundPledge struct {
-	Source     types.Address
-	Beneficial types.Address
-	PledgeType int8
+	PledgeAddress types.Address
+	Beneficial    types.Address
+	PledgeType    uint8
+}
+
+type ParamDexFundCancelPledge struct {
+	PledgeAddress types.Address
+	Beneficial    types.Address
+	Amount        *big.Int
+	PledgeType    uint8
 }
 
 type ParamDexFundGetTokenInfoCallback struct {
-	Exist    bool
-	Decimals uint8
-	TokenSymbol   string
-	Index    uint16
+	Exist       bool
+	Decimals    uint8
+	TokenSymbol string
+	Index       uint16
 }
 
 type ParamDexFundGetTokenInfo struct {
@@ -693,7 +700,7 @@ func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quote
 				}
 				actionsLen := len(pendingNewMarkets.PendingActions)
 				if actionsLen > 1 {
-					pendingNewMarkets.PendingActions[index] = pendingNewMarkets.PendingActions[actionsLen - 1]
+					pendingNewMarkets.PendingActions[index] = pendingNewMarkets.PendingActions[actionsLen-1]
 					pendingNewMarkets.PendingActions = pendingNewMarkets.PendingActions[:actionsLen-1]
 					return quoteTokens, SavePendingNewMarkets(db, pendingNewMarkets)
 				} else {
@@ -723,7 +730,7 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 		}
 		if !foundTradeToken {
 			quoteTokens := [][]byte{quoteToken.Bytes()}
-			action := &dexproto.PendingNewMarketAction{TradeToken:tradeToken.Bytes(), QuoteTokens:quoteTokens}
+			action := &dexproto.PendingNewMarketAction{TradeToken: tradeToken.Bytes(), QuoteTokens: quoteTokens}
 			pendingNewMarkets.PendingActions = append(pendingNewMarkets.PendingActions, action)
 		}
 		return SavePendingNewMarkets(db, pendingNewMarkets)
@@ -758,7 +765,7 @@ func SubPendingNewMarketFeeSum(db vm_db.VmDb) error {
 func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) error {
 	var (
 		originAmount = GetPendingNewMarketFeeSum(db)
-		newAmount *big.Int
+		newAmount    *big.Int
 	)
 	if isAdd {
 		newAmount = new(big.Int).Add(originAmount, NewMarketFeeAmount)
@@ -881,7 +888,7 @@ func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (int32, error) {
 
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
 	if storeOwner, err := db.GetValue(ownerKey); err == nil {
-		if  len(storeOwner) == types.AddressSize {
+		if len(storeOwner) == types.AddressSize {
 			if bytes.Equal(storeOwner, address.Bytes()) {
 				return true
 			}
@@ -967,7 +974,6 @@ func SetTimerTimestamp(db vm_db.VmDb, timestamp int64) error {
 		return InvalidTimestampFromTimerErr
 	}
 }
-
 
 func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	if bs, err := db.GetValue(timestampKey); err == nil && len(bs) == 8 {
