@@ -718,7 +718,7 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 		return handleReceiveErr(db, err)
 	}
 	if callbackParam.Success {
-		if pledgeParam.PledgeType == dex.PledgeForVip {
+		if pledgeParam.Bid == dex.PledgeForVip {
 			var pledgeVip *dex.PledgeVip
 			if pledgeVip, err = dex.GetPledgeForVip(db, pledgeParam.PledgeAddress); err != nil {
 				return handleReceiveErr(db, err)
@@ -728,7 +728,7 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 				if err = dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip); err != nil {
 					return handleReceiveErr(db, err)
 				}
-				return doCancelPledge(db, block, pledgeParam.PledgeAddress, pledgeParam.PledgeType, originSendBlock.Amount)
+				return doCancelPledge(db, block, pledgeParam.PledgeAddress, pledgeParam.Bid, originSendBlock.Amount)
 			} else {
 				pledgeVip = &dex.PledgeVip{}
 				pledgeVip.Timestamp = dex.GetTimestampInt64(db)
@@ -798,10 +798,10 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 		return handleReceiveErr(db, err)
 	}
 	if callbackParam.Success {
-		if sendBlock.Amount.Cmp(originSendBlock.Amount) != 0 {
+		if sendBlock.Amount.Cmp(cancelPledgeParam.Amount) != 0 {
 			return handleReceiveErr(db, dex.InvalidAmountForPledgeCallbackErr)
 		}
-		if cancelPledgeParam.PledgeType == dex.PledgeForVip {
+		if cancelPledgeParam.Bid == dex.PledgeForVip {
 			var pledgeVip *dex.PledgeVip
 			if pledgeVip, err = dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); err != nil {
 				return handleReceiveErr(db, err)

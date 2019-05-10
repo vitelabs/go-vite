@@ -162,3 +162,27 @@ func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*de
 	}
 	return dex.GetMarketInfo(db, tradeToken, quoteToken)
 }
+
+func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return "", err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return "", err
+	}
+	return dex.GetPledgeForVx(db, address).String(), nil
+}
+
+func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	return dex.GetPledgeForVip(db, address)
+}

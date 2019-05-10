@@ -142,14 +142,14 @@ type ParamDexFundPledgeCallBack struct {
 type ParamDexFundPledge struct {
 	PledgeAddress types.Address
 	Beneficial    types.Address
-	PledgeType    uint8
+	Bid    uint8
 }
 
 type ParamDexFundCancelPledge struct {
 	PledgeAddress types.Address
 	Beneficial    types.Address
 	Amount        *big.Int
-	PledgeType    uint8
+	Bid    uint8
 }
 
 type ParamDexFundGetTokenInfoCallback struct {
