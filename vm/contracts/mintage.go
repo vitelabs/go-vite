@@ -59,7 +59,7 @@ func CheckMintToken(param abi.ParamMintage) error {
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
 		return util.ErrInvalidMethodParam
 	}
-	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenSymbol); !ok {
+	if ok, _ := regexp.MatchString("^[a-zA-Z]+$", param.TokenSymbol); !ok {
 		return util.ErrInvalidMethodParam
 	}
 	if param.IsReIssuable {
