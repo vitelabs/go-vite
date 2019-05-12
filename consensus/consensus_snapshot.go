@@ -68,6 +68,10 @@ func (self *snapshotCs) PeriodStats(startIndex uint64, endIndex uint64) ([]*core
 	return result, nil
 }
 
+func (self *snapshotCs) GetNodeCount() int {
+	return int(self.NodeCount)
+}
+
 func (self *snapshotCs) GetPeriodTimeIndex() core.TimeIndex {
 	return self.rw.periodPoints
 }

@@ -156,6 +156,7 @@ type pool struct {
 
 	addrCache     *lru.Cache
 	hashBlacklist Blacklist
+	cs            consensus.Consensus
 }
 
 func (pl *pool) Snapshot() map[string]interface{} {
@@ -225,6 +226,7 @@ func (pl *pool) Init(s syncer,
 		newTools(fe, rw),
 		pl)
 
+	pl.cs = cs
 	pl.bc.SetConsensus(cs)
 	pl.pendingSc = snapshotPool
 	pl.stat = (&recoverStat{}).init(10, time.Second*10)

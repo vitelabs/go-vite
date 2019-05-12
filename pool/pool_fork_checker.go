@@ -3,6 +3,10 @@ package pool
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/pool/tree"
 )
@@ -61,6 +65,15 @@ func (pl *pool) snapshotFork(branch tree.Branch, targetHeight uint64) error {
 			return err
 		}
 		return nil
+	}
+	err = pl.updateIrreversibleBlock()
+	if err != nil {
+		return err
+	}
+
+	err = pl.checkIrreversiblePrinciple(keyPoint)
+	if err != nil {
+		return err
 	}
 
 	err = pl.snapshotRollback(branch, keyPoint)
@@ -132,6 +145,145 @@ func (pl *pool) snapshotRollback(longest tree.Branch, keyPoint *snapshotPoolBloc
 	return nil
 }
 
+type irreversibleInfo struct {
+	point      *ledger.SnapshotBlock
+	proofPoint *ledger.SnapshotBlock
+}
+
+func (irreversible irreversibleInfo) String() string {
+	result := ""
+	if irreversible.point != nil {
+		result += fmt.Sprintf("point[%d-%s-%s]", irreversible.point.Height, irreversible.point.Hash, irreversible.point.Timestamp)
+	}
+
+	if irreversible.proofPoint != nil {
+		result += fmt.Sprintf("proofPoint[%d-%s-%s]", irreversible.proofPoint.Height, irreversible.proofPoint.Hash, irreversible.proofPoint.Timestamp)
+	}
+	return result
+}
+
+func (pl *pool) checkIrreversiblePrinciple(keyPoint *snapshotPoolBlock) error {
+	info := pl.pendingSc.irreversible
+	if info == nil {
+		return nil
+	}
+	if info.proofPoint == nil {
+		return nil
+	}
+	block, err := pl.bc.GetSnapshotHeaderByHeight(info.proofPoint.Height)
+	if err != nil {
+		return err
+	}
+	if block.Hash != info.proofPoint.Hash {
+		return errors.New("proof hash fail, " + info.String())
+	}
+	if info.point == nil {
+		return nil
+	}
+
+	if info.point.Height < keyPoint.Height() {
+		return nil
+	}
+	return errors.Errorf("check Irreversible Principle Fail, %s, keyPoint:%s"+info.String(), keyPoint.Height())
+}
+
+func (pl *pool) updateIrreversibleBlock() error {
+	last := pl.pendingSc.irreversible
+	if last == nil {
+		info, err := pl.getLatestIrreversibleBlock(nil)
+		if err != nil {
+			pl.log.Error("first get latest irreversible fail", "err", err)
+			return err
+		}
+		if info == nil {
+			pl.log.Error("first get latest irreversible fail, result is nil")
+			return errors.New("can't get irreversible info")
+		}
+		pl.pendingSc.irreversible = info
+		pl.log.Info("first update irreversible, %s", info.String())
+		return nil
+	}
+
+	result, err := pl.getLatestIrreversibleBlock(last.proofPoint)
+	if err != nil {
+		pl.log.Error("get latest irreversible fail", "err", err)
+		return err
+	}
+
+	if result == nil {
+		return nil
+	}
+
+	pl.pendingSc.irreversible = result
+	pl.log.Info("update irreversible, %s", result.String())
+	return nil
+}
+
+func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock) (*irreversibleInfo, error) {
+	nodeCnt := pl.cs.SBPReader().GetNodeCount()
+	irreversibleCnt := uint64(nodeCnt/3*2 + 1)
+	ti := pl.cs.SBPReader().GetPeriodTimeIndex()
+
+	lastIdx := uint64(0)
+	if lastProofPoint != nil {
+		block, err := pl.bc.GetSnapshotHeaderByHeight(lastProofPoint.Height)
+		if err != nil {
+			return nil, err
+		}
+		if block.Hash == lastProofPoint.Hash {
+			lastIdx = ti.Time2Index(*block.Timestamp)
+		}
+	}
+
+	pl.cs.SBPReader().GetPeriodTimeIndex()
+	latest := pl.bc.GetLatestSnapshotBlock()
+	for {
+		if latest.Height <= irreversibleCnt {
+			return &irreversibleInfo{point: nil, proofPoint: latest}, nil
+		}
+
+		endTime := latest.Timestamp
+
+		index := ti.Time2Index(*endTime)
+
+		if index < lastIdx {
+			return nil, nil
+		}
+
+		stime, _ := ti.Index2Time(index)
+		block, err := pl.bc.GetSnapshotHeaderBeforeTime(&stime)
+		if err != nil {
+			return nil, err
+		}
+		point, err := pl.bc.GetSnapshotBlockByHeight(block.Height + 1)
+		if err != nil {
+			return nil, err
+		}
+
+		if pl.checkIrreversible(point, latest, irreversibleCnt) {
+			return &irreversibleInfo{point: point, proofPoint: latest}, nil
+		}
+		latest = block
+	}
+}
+
+func (pl *pool) checkIrreversible(point *ledger.SnapshotBlock, proofPoint *ledger.SnapshotBlock, irreversibleCnt uint64) bool {
+	if 1+proofPoint.Height-point.Height < irreversibleCnt {
+		return false
+	}
+	addrs := make(map[types.Address]struct{})
+	addrs[proofPoint.Producer()] = struct{}{}
+	addrs[point.Producer()] = struct{}{}
+	for i := proofPoint.Height - 1; i > point.Height; i-- {
+		block, err := pl.bc.GetSnapshotHeaderByHeight(i)
+		if err != nil {
+			return false
+		}
+		addrs[block.Producer()] = struct{}{}
+	}
+	return uint64(len(addrs)) >= irreversibleCnt
+}
+
 func (pl *pool) snapshotInsert(targetHeight uint64) error {
 	err := pl.modifyCurrentAccounts(targetHeight)
 	if err != nil {
@@ -140,6 +292,7 @@ func (pl *pool) snapshotInsert(targetHeight uint64) error {
 
 	return pl.insertTo(targetHeight)
 }
+
 func (pl *pool) modifyCurrentAccounts(targetHeight uint64) error {
 	accounts, err := pl.pendingSc.genMaxAccounts(targetHeight)
 

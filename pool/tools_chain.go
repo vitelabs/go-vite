@@ -38,6 +38,7 @@ type chainDb interface {
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 	SetConsensus(cs ch.Consensus)
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 }
 
 type chainRw interface {

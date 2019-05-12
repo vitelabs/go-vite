@@ -32,6 +32,9 @@ type snapshotPool struct {
 	nextFetchTime        time.Time
 	hashBlacklist        Blacklist
 	newSnapshotBlockCond *common.CondTimer
+
+	// Irreversible principle
+	irreversible *irreversibleInfo
 }
 
 func newSnapshotPoolBlock(block *ledger.SnapshotBlock, version *common.Version, source types.BlockSource) *snapshotPoolBlock {
