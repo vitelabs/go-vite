@@ -317,7 +317,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 		KeyValue:      createKeyValue(latestHeight), // create key value
 		VmLogList:     createVmLogList(),            // create vm log list
 		//Quota:         rand.Uint64() % 10000,
-		Quota: 0,
+		Quota: rand.Uint64() % 100,
 	}
 
 	var vmBlock *vm_db.VmAccountBlock

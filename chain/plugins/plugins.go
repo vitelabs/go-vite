@@ -4,38 +4,40 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/db"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 	"os"
 	"path"
+	"sync"
+	"sync/atomic"
 )
 
 const roundSize = uint64(10)
 
+const (
+	stop  = 0
+	start = 1
+)
+
 type Plugins struct {
-	id      types.Hash
 	dataDir string
 
 	log     log15.Logger
 	chain   Chain
 	store   *chain_db.Store
 	plugins map[string]Plugin
+
+	writeStatus uint32
+	mu          sync.RWMutex
 }
 
 func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	var err error
 
-	id, err := types.BytesToHash(crypto.Hash256([]byte("plugins")))
-	if err != nil {
-		return nil, err
-	}
-
 	dataDir := path.Join(chainDir, "plugins")
 
-	store, err := chain_db.NewStore(dataDir, id)
+	store, err := chain_db.NewStore(dataDir, "plugins")
 	if err != nil {
 		return nil, err
 	}
@@ -46,17 +48,37 @@ func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 	}
 
 	return &Plugins{
-		id:      id,
-		dataDir: dataDir,
-		chain:   chain,
-		store:   store,
-		plugins: plugins,
-		log:     log15.New("module", "chain_plugins"),
+		dataDir:     dataDir,
+		chain:       chain,
+		store:       store,
+		plugins:     plugins,
+		writeStatus: start,
+		log:         log15.New("module", "chain_plugins"),
 	}, nil
 }
 
+func (p *Plugins) StopWrite() {
+	if !atomic.CompareAndSwapUint32(&p.writeStatus, start, stop) {
+		return
+	}
+
+	p.mu.Lock()
+}
+
+func (p *Plugins) StartWrite() {
+	if !atomic.CompareAndSwapUint32(&p.writeStatus, stop, start) {
+		return
+	}
+
+	p.mu.Unlock()
+}
+
 func (p *Plugins) RebuildData() error {
-	oLog.Info("Start rebuild plugin data")
+	p.StopWrite()
+	defer p.StartWrite()
+
+	p.log.Info("Start rebuild plugin data")
+
 	if err := p.store.Close(); err != nil {
 		return err
 	}
@@ -65,7 +87,7 @@ func (p *Plugins) RebuildData() error {
 	os.RemoveAll(p.dataDir)
 
 	// set new store
-	store, err := chain_db.NewStore(p.dataDir, p.id)
+	store, err := chain_db.NewStore(p.dataDir, "plugins")
 	if err != nil {
 		return err
 	}
@@ -78,7 +100,7 @@ func (p *Plugins) RebuildData() error {
 
 	// replace flusher store
 	flusher := p.chain.Flusher()
-	flusher.ReplaceStore(p.id, store)
+	flusher.ReplaceStore(p.store.Id(), store)
 
 	// get latest snapshot block
 	latestSnapshot := p.chain.GetLatestSnapshotBlock()
@@ -101,6 +123,8 @@ func (p *Plugins) RebuildData() error {
 		if err != nil {
 			return err
 		}
+
+		p.log.Info(fmt.Sprintf("rebuild %d - %d", h+1, targetH), "method", "RebuildData")
 
 		for _, chunk := range chunks {
 
@@ -135,6 +159,7 @@ func (p *Plugins) RebuildData() error {
 			p.store.WriteSnapshot(batch, chunk.AccountBlocks)
 
 		}
+
 		// flush to disk
 		flusher.Flush()
 
@@ -166,6 +191,9 @@ func (p *Plugins) RemovePlugin(name string) {
 }
 
 func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	// for recover
 	for _, vmBlock := range vmBlocks {
 		batch := p.store.NewBatch()
@@ -182,6 +210,8 @@ func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) e
 }
 
 func (p *Plugins) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	for _, chunk := range chunks {
 		batch := p.store.NewBatch()
 
@@ -199,6 +229,9 @@ func (p *Plugins) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 }
 
 func (p *Plugins) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	batch := p.store.NewBatch()
 
 	for _, plugin := range p.plugins {
@@ -212,6 +245,9 @@ func (p *Plugins) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) erro
 }
 
 func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	batch := p.store.NewBatch()
 
 	for _, plugin := range p.plugins {
@@ -227,6 +263,9 @@ func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 }
 
 func (p *Plugins) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	unconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
 	if len(unconfirmedBlocks) <= 0 {
 		return nil

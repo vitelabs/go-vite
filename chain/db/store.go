@@ -2,20 +2,21 @@ package chain_db
 
 import (
 	"errors"
-	"github.com/emirpasic/gods/maps/linkedhashmap"
 
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	"os"
 	"sync"
 )
 
 type Store struct {
-	id types.Hash
+	id   types.Hash
+	name string
 
 	memDbMu sync.RWMutex
 	memDb   *db.MemDB
@@ -23,8 +24,7 @@ type Store struct {
 	snapshotBatch *leveldb.Batch
 	flushingBatch *leveldb.Batch
 
-	unconfirmedBatchs     *linkedhashmap.Map
-	unconfirmedBatchsLock sync.RWMutex
+	unconfirmedBatchs *UnconfirmedBatchs
 
 	dbDir string
 	db    *leveldb.DB
@@ -32,7 +32,9 @@ type Store struct {
 	afterRecoverFuncs []func()
 }
 
-func NewStore(dataDir string, id types.Hash) (*Store, error) {
+func NewStore(dataDir string, name string) (*Store, error) {
+	id, _ := types.BytesToHash(crypto.Hash256([]byte(name)))
+
 	diskStore, err := leveldb.OpenFile(dataDir, nil)
 
 	if err != nil {
@@ -40,15 +42,17 @@ func NewStore(dataDir string, id types.Hash) (*Store, error) {
 	}
 
 	store := &Store{
-		memDb:             db.NewMemDB(),
-		unconfirmedBatchs: linkedhashmap.New(),
+		id:    id,
+		name:  name,
+		memDb: db.NewMemDB(),
 
-		snapshotBatch: new(leveldb.Batch),
+		unconfirmedBatchs: NewUnconfirmedBatchs(),
 
 		dbDir: dataDir,
 		db:    diskStore,
-		id:    id,
 	}
+
+	store.snapshotBatch = store.getNewBatch()
 
 	return store, nil
 }

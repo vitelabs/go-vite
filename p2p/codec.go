@@ -54,11 +54,11 @@ type CodecFactory interface {
 
 /*
  * message structure
- *  |------------ head --------------|
- *  +----------+----------+----------+------------------+----------------------+----------------------------+
- *  |   Meta   |  ProtoID |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
- *  |  1 byte  |  1 byte  |  1 byte  |   0 1 2 4 bytes  |     0 ~ 3 bytes      |         0 ~ 15 MB          |
- *  +----------+----------+----------+------------------+----------------------+----------------------------+
+ *  |------- head --------|
+ *  +----------+----------+------------------+----------------------+----------------------------+
+ *  |   Meta   |   Code   |     Id (opt)     | Payload Length (opt) |       Payload (opt)        |
+ *  |  1 byte  |  1 byte  |   0 1 2 4 bytes  |     0 ~ 3 bytes      |         0 ~ 15 MB          |
+ *  +----------+----------+------------------+----------------------+----------------------------+
  *
  * Meta structure
  *  +-------------+-------------+----------+-----------------+
@@ -146,7 +146,8 @@ type transport struct {
 	writeTimeout      time.Duration
 	minCompressLength int // will not compress message payload if small than minCompressLength bytes
 	readHeadBuf       [4]byte
-	writeHeadBuf      [10]byte
+	writeHeadBuf      [9]byte
+	writeBuf          []byte
 }
 
 func (t *transport) Address() net.Addr {
@@ -190,15 +191,14 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 	//_ = t.SetReadDeadline(time.Now().Add(t.readTimeout))
 
 	buf := t.readHeadBuf[:]
-	_, err = io.ReadFull(t.Conn, buf[:3])
+	_, err = io.ReadFull(t.Conn, buf[:2])
 	if err != nil {
 		err = fmt.Errorf("failed to read message meta: %v", err)
 		return
 	}
 
 	meta := buf[0]
-	msg.pid = buf[1]
-	msg.Code = buf[2]
+	msg.Code = buf[1]
 	msg.ReceivedAt = time.Now()
 
 	isize, lsize, compressed := retrieveMeta(meta)
@@ -264,13 +264,12 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	//_ = t.SetWriteDeadline(time.Now().Add(t.writeTimeout))
 
 	head := t.writeHeadBuf[:]
-	head[1] = msg.pid
-	head[2] = msg.Code
+	head[1] = msg.Code
 
-	var headLen byte = 3
+	var headLen byte = 2
 
 	// store msg id
-	isize := putId(msg.Id, head[3:])
+	isize := putId(msg.Id, head[2:])
 	headLen += isize
 
 	// compress payload
@@ -278,17 +277,19 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	payloadLen := len(msg.Payload)
 	beforeCompress := time.Now()
 	if payloadLen > t.minCompressLength {
-		payloadCompressed := bytes_pool.Get(snappy.MaxEncodedLen(payloadLen))
+		preCompressLength := snappy.MaxEncodedLen(payloadLen)
+		if cap(t.writeBuf) < preCompressLength {
+			t.writeBuf = make([]byte, preCompressLength)
+		}
+
+		payloadCompressed := t.writeBuf[:preCompressLength]
 		payloadCompressed = snappy.Encode(payloadCompressed, msg.Payload)
 
 		// smaller after compressed
 		if len(payloadCompressed) < payloadLen {
-			bytes_pool.Put(msg.Payload)
 			msg.Payload = payloadCompressed
 			payloadLen = len(payloadCompressed)
 			compress = true
-		} else {
-			bytes_pool.Put(payloadCompressed)
 		}
 	}
 	p2pLog.Debug(fmt.Sprintf("compress %d bytes to %d bytes, ellapse %s", payloadLen, len(msg.Payload), time.Now().Sub(beforeCompress)))
@@ -298,8 +299,6 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	headLen += lsize
 
 	head[0] = storeMeta(isize, lsize, compress)
-
-	defer bytes_pool.Put(msg.Payload)
 
 	var wsize int
 	// send head

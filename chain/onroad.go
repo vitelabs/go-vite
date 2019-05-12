@@ -67,3 +67,7 @@ func (c *chain) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, e
 	}
 	return info, nil
 }
+
+func (c *chain) LoadAllOnRoad() (map[types.Address][]types.Hash, error) {
+	return c.indexDB.LoadAllHash()
+}

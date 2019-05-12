@@ -253,6 +253,8 @@ type Chain interface {
 
 	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
 
+	LoadAllOnRoad() (map[types.Address][]types.Hash, error)
+
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)
 
@@ -263,4 +265,11 @@ type Chain interface {
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 
 	Flusher() *chain_flusher.Flusher
+
+	// ====== Check ======
+	CheckRedo() error
+
+	CheckRecentBlocks() error
+
+	CheckOnRoad() error
 }

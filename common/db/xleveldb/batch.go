@@ -166,6 +166,10 @@ func (b *Batch) Reset() {
 	b.internalLen = 0
 }
 
+func (b *Batch) Append(p *Batch) {
+	p.Replay(b)
+}
+
 func (b *Batch) replayInternal(fn func(i int, kt keyType, k, v []byte) error) error {
 	for i, index := range b.index {
 		if err := fn(i, index.keyType, index.k(b.data), index.v(b.data)); err != nil {

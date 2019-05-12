@@ -223,7 +223,7 @@ func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) e
 		}
 	} else {
 		if block.Height <= 1 {
-			return errors.New("general's sendBlock.Height must be larger than 1")
+			return ErrVerifyAccountTypeNotSure
 		}
 	}
 	return nil
@@ -245,6 +245,9 @@ func (v *AccountVerifier) verifyReceiveBlockIntegrity(block *ledger.AccountBlock
 	}
 	if block.Height <= 0 {
 		return errors.New("receive.Height must be larger than 0")
+	}
+	if len(block.Data) > 0 && !types.IsContractAddr(block.AccountAddress) {
+		return errors.New("receive.Data is not allowed when the account is general user")
 	}
 
 	if len(block.SendBlockList) > 0 && !types.IsContractAddr(block.AccountAddress) {

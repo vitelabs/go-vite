@@ -48,7 +48,8 @@ var (
 	ErrInvalidJumpDestination = VMError{"invalid jump destination", true}
 	ErrInvalidOpCode          = VMError{"invalid opcode", true}
 
-	ErrChainForked = VMError{"chain forked", false}
+	ErrChainForked          = VMError{"chain forked", false}
+	ErrContractCreationFail = VMError{"contract creation failed", false}
 )
 
 func DealWithErr(v interface{}) {

@@ -10,7 +10,7 @@ import (
 func (store *Store) WriteDirectly(batch *leveldb.Batch) {
 	store.putMemDb(batch)
 
-	batch.Replay(store.snapshotBatch)
+	store.snapshotBatch.Append(batch)
 }
 
 func (store *Store) WriteAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) {
@@ -21,9 +21,6 @@ func (store *Store) WriteAccountBlockByHash(batch *leveldb.Batch, blockHash type
 
 	// write store.memDb
 	store.putMemDb(batch)
-
-	store.unconfirmedBatchsLock.Lock()
-	defer store.unconfirmedBatchsLock.Unlock()
 
 	// write store.unconfirmedBatch
 	store.unconfirmedBatchs.Put(blockHash, batch)
@@ -47,22 +44,22 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 	if snapshotBatch != nil {
 		store.putMemDb(snapshotBatch)
 	}
-	store.unconfirmedBatchsLock.Lock()
+
 	for _, blockHash := range blockHashList {
 		batch, ok := store.unconfirmedBatchs.Get(blockHash)
+
 		if !ok {
 			panic(fmt.Sprintf("store.WriteSnapshot failed, account block hash %s batch is not existed", blockHash))
 		}
 		// patch
-		batch.(*leveldb.Batch).Replay(store.snapshotBatch)
+		store.snapshotBatch.Append(batch)
 
 		// remove
 		store.unconfirmedBatchs.Remove(blockHash)
 	}
-	store.unconfirmedBatchsLock.Unlock()
 
 	// write store snapshot batch
 	if snapshotBatch != nil {
-		snapshotBatch.Replay(store.snapshotBatch)
+		store.snapshotBatch.Append(snapshotBatch)
 	}
 }

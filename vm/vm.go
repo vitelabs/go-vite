@@ -352,16 +352,40 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			db.SetContractCode(code)
-			block.Data = db.GetReceiptHash().Bytes()
 			vm.updateBlock(db, block, nil, 0, 0)
 			db, err = vm.doSendBlockList(db)
 			if err == nil {
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
 		}
 	}
 	vm.revert(db)
-	return nil, NoRetry, err
+
+	// try refund
+	vm.updateBlock(db, block, nil, 0, 0)
+	if sendBlock.Amount.Sign() > 0 {
+		vm.VmContext.AppendBlock(
+			util.MakeSendBlock(
+				block.AccountAddress,
+				sendBlock.AccountAddress,
+				ledger.BlockTypeSendRefund,
+				new(big.Int).Set(sendBlock.Amount),
+				sendBlock.TokenId,
+				[]byte{}))
+		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
+		var refundErr error
+		if db, refundErr = vm.doSendBlockList(db); refundErr == nil {
+			block.Data = getReceiveCallData(db, err)
+			return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, err
+		} else {
+			monitor.LogEvent("vm", "impossibleReceiveError")
+			nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
+			return nil, Retry, err
+		}
+	}
+	block.Data = getReceiveCallData(db, err)
+	return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 }
 
 func mergeReceiveBlock(db vm_db.VmDb, receiveBlock *ledger.AccountBlock, sendBlockList []*ledger.AccountBlock) *vm_db.VmAccountBlock {
@@ -459,10 +483,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm)
 		if err == nil {
-			block.Data = getReceiveCallData(db, err)
 			vm.updateBlock(db, block, err, 0, 0)
 			vm.VmContext.sendBlockList = blockListToSend
 			if db, err = vm.doSendBlockList(db); err == nil {
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
 		}
@@ -470,11 +494,11 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		refundFlag := false
 		refundData, needRefund := p.GetRefundData()
 		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
-		block.Data = getReceiveCallData(db, err)
 		vm.updateBlock(db, block, err, 0, 0)
 		if refundFlag {
 			var refundErr error
 			if db, refundErr = vm.doSendBlockList(db); refundErr == nil {
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, err
 			} else {
 				monitor.LogEvent("vm", "impossibleReceiveError")
@@ -482,6 +506,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				return nil, Retry, err
 			}
 		}
+		block.Data = getReceiveCallData(db, err)
 		return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 	} else {
 		// check can make transaction
@@ -490,9 +515,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			block.AccountAddress,
 			getPledgeAmount(db),
 			block.Difficulty)
-		if err != nil {
-			return nil, NoRetry, err
-		}
+		util.DealWithErr(err)
 		quotaLeft := quotaTotal
 		cost, err := gasReceive(block, meta)
 		if err != nil {
@@ -516,11 +539,11 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		c.setCallCode(block.AccountAddress, code)
 		_, err = c.run(vm)
 		if err == nil {
-			block.Data = getReceiveCallData(db, err)
 			q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, nil)
 			vm.updateBlock(db, block, nil, q, qUsed)
 			db, err = vm.doSendBlockList(db)
 			if err == nil {
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, nil
 			}
 		}
@@ -538,13 +561,13 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				return nil, Retry, err
 			} else {
 				// Contract receive out of quota, current block is first unconfirmed block, refund with no quota
-				block.Data = getReceiveCallData(db, err)
 				refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
 				q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 				vm.updateBlock(db, block, nil, q, qUsed)
 				if refundFlag {
 					var refundErr error
 					if db, refundErr = vm.doSendBlockList(db); refundErr == nil {
+						block.Data = getReceiveCallData(db, err)
 						return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, err
 					} else {
 						monitor.LogEvent("vm", "impossibleReceiveError")
@@ -552,17 +575,18 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 						return nil, Retry, err
 					}
 				}
+				block.Data = getReceiveCallData(db, err)
 				return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 			}
 		}
 
 		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
-		block.Data = getReceiveCallData(db, err)
 		q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 		vm.updateBlock(db, block, err, q, qUsed)
 		if refundFlag {
 			var refundErr error
 			if db, refundErr = vm.doSendBlockList(db); refundErr == nil {
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), NoRetry, err
 			} else {
 				monitor.LogEvent("vm", "impossibleReceiveError")
@@ -570,6 +594,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				return nil, Retry, err
 			}
 		}
+		block.Data = getReceiveCallData(db, err)
 		return &vm_db.VmAccountBlock{block, db}, NoRetry, err
 	}
 }
@@ -683,9 +708,7 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		block.AccountAddress,
 		getPledgeAmount(db),
 		block.Difficulty)
-	if err != nil {
-		return nil, NoRetry, err
-	}
+	util.DealWithErr(err)
 	quotaLeft := quotaTotal
 	cost, err := gasReceive(block, meta)
 	if err != nil {
@@ -698,6 +721,7 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, q, qUsed)
+	block.Data = getReceiveCallData(db, err)
 	return &vm_db.VmAccountBlock{block, db}, NoRetry, nil
 }
 

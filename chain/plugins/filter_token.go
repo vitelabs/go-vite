@@ -29,9 +29,15 @@ func (ft *FilterToken) SetStore(store *chain_db.Store) {
 }
 
 func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {
-	var key []byte
+	if accountBlock.BlockType == ledger.BlockTypeGenesisReceive {
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, ledger.ViteTokenId, accountBlock.Height), accountBlock.Hash.Bytes())
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, ledger.VCPTokenId, accountBlock.Height), accountBlock.Hash.Bytes())
+		return nil
+	}
+
 	var tokenTypeId types.TokenTypeId
-	if accountBlock.IsReceiveBlock() && accountBlock.BlockType != ledger.BlockTypeGenesisReceive {
+
+	if accountBlock.IsReceiveBlock() {
 		sendBlock, err := ft.chain.GetAccountBlockByHash(accountBlock.FromBlockHash)
 
 		if err != nil {
@@ -48,14 +54,10 @@ func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *le
 		tokenTypeId = accountBlock.TokenId
 	}
 
-	key = createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height)
-
-	batch.Put(key, accountBlock.Hash.Bytes())
+	batch.Put(createDiffTokenKey(accountBlock.AccountAddress, tokenTypeId, accountBlock.Height), accountBlock.Hash.Bytes())
 
 	for _, sendBlock := range accountBlock.SendBlockList {
-		key = createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height)
-
-		batch.Put(key, accountBlock.Hash.Bytes())
+		batch.Put(createDiffTokenKey(accountBlock.AccountAddress, sendBlock.TokenId, accountBlock.Height), accountBlock.Hash.Bytes())
 	}
 	return nil
 }
@@ -92,6 +94,10 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 		}
 		if block == nil {
 			return nil, errors.New(fmt.Sprintf("block %s is not exited", blockHash))
+		}
+
+		if block.TokenId != tokenId {
+			return nil, nil
 		}
 
 		maxHeight = block.Height + 1

@@ -204,6 +204,17 @@ func (s *peers) max() (n int) {
 	return
 }
 
+func (s *peers) levelsCount() (ret [][2]int) {
+	s.rw.RLock()
+	defer s.rw.RUnlock()
+
+	for l, pl := range s.levels {
+		ret = append(ret, [2]int{int(l), pl.max})
+	}
+
+	return
+}
+
 func (s *peers) inboundSlots() int {
 	s.rw.RLock()
 	defer s.rw.RUnlock()

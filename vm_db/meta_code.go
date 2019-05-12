@@ -14,9 +14,12 @@ func (vdb *vmDb) GetContractMeta() (*ledger.ContractMeta, error) {
 	if vdb.address == nil {
 		return nil, errors.New("no self address")
 	}
-	meta := vdb.unsaved().GetContractMeta(*vdb.address)
-	if meta != nil {
-		return meta, nil
+
+	if vdb.uns != nil {
+		meta := vdb.unsaved().GetContractMeta(*vdb.address)
+		if meta != nil {
+			return meta, nil
+		}
 	}
 
 	return vdb.chain.GetContractMeta(*vdb.address)
@@ -31,8 +34,10 @@ func (db *vmDb) SetContractCode(code []byte) {
 }
 
 func (vdb *vmDb) GetContractCode() ([]byte, error) {
-	if code := vdb.unsaved().GetCode(); len(code) > 0 {
-		return code, nil
+	if vdb.uns != nil {
+		if code := vdb.unsaved().GetCode(); len(code) > 0 {
+			return code, nil
+		}
 	}
 
 	return vdb.chain.GetContractCode(*vdb.address)

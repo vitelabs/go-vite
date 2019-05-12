@@ -9,8 +9,8 @@ import (
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"math/big"
 	"path"
@@ -68,16 +68,12 @@ type Redo struct {
 
 	retainHeight uint64
 
-	id types.Hash
-
-	flushingBatchMap map[uint64]*FlushingBatch
+	log log15.Logger
 }
 
 func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte("stateDbRedo")))
 
-	var err error
-	store, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), id)
+	store, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), "stateDbRedo")
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +84,7 @@ func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 		cache:        NewRedoCache(),
 		retainHeight: 1200,
 
-		id: id,
+		log: log15.New("module", "state_redo"),
 	}
 
 	redo.initCache()
@@ -111,7 +107,7 @@ func (redo *Redo) initCache() {
 	if latestSnapshotBlock != nil {
 		height = latestSnapshotBlock.Height
 	}
-	redo.cache.Init(height)
+	redo.cache.Init(height + 1)
 }
 
 func (redo *Redo) Close() error {
@@ -147,14 +143,11 @@ func (redo *Redo) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confi
 						delete(nextSnapshotLog, confirmedBlock.AccountAddress)
 					} else {
 						nextSnapshotLog[confirmedBlock.AccountAddress] = logList[i+1:]
-
 					}
 					break
 				}
 			}
-
 		}
-
 	}
 
 	// write store
@@ -170,9 +163,13 @@ func (redo *Redo) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confi
 	// rollback stale data
 	if snapshotBlock.Height > redo.retainHeight {
 		batch.Delete(chain_utils.CreateRedoSnapshot(snapshotBlock.Height - redo.retainHeight))
+		//redo.log.Info(fmt.Sprintf("delete %d", snapshotBlock.Height-redo.retainHeight), "method", "InsertSnapshotBlock")
 	}
 
 	redo.store.WriteDirectly(batch)
+
+	// FOR DEBUG
+	//redo.log.Info(fmt.Sprintf("insert %d %s %d, value len: %d", snapshotBlock.Height, snapshotBlock.Hash, len(currentSnapshotLog), len(value)), "method", "InsertSnapshotBlock")
 
 	// set current
 	redo.cache.Set(snapshotBlock.Height, currentSnapshotLog)
@@ -240,6 +237,9 @@ func (redo *Redo) Rollback(chunks []*ledger.SnapshotChunk) {
 
 	for _, chunk := range chunks {
 		if chunk != nil && chunk.SnapshotBlock != nil {
+			// FOR DEBUG
+			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "Rollback")
+
 			redo.cache.Delete(chunk.SnapshotBlock.Height)
 			batch.Delete(chain_utils.CreateRedoSnapshot(chunk.SnapshotBlock.Height))
 		}

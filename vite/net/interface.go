@@ -69,8 +69,6 @@ type SnapshotBlockCallback = func(block *ledger.SnapshotBlock, source types.Bloc
 // source mark where the block come from: broadcast, sync or fetch
 type AccountBlockCallback = func(addr types.Address, block *ledger.AccountBlock, source types.BlockSource)
 
-type ChunkCallback = func(chunks []ledger.SnapshotChunk, source types.BlockSource)
-
 // SyncStateCallback will be invoked when sync state change, the param is state after change
 type SyncStateCallback = func(SyncState)
 
@@ -243,4 +241,5 @@ type Net interface {
 	Start(svr p2p.P2P) error
 	Stop() error
 	Info() NodeInfo
+	Trace()
 }

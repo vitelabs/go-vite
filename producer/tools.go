@@ -125,3 +125,24 @@ func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlo
 	}
 	return block
 }
+
+func (self *tools) checkStableSnapshotChain(header *ledger.SnapshotBlock) error {
+	if header.Height <= uint64(time.Minute) {
+		return nil
+	}
+	targetH := header.Height - uint64(time.Minute)
+
+	block, err := self.chain.GetSnapshotHeaderByHeight(targetH)
+	if err != nil {
+		return err
+	}
+	if block == nil {
+		return errors.Errorf("empty snapshot block[%d]", targetH)
+	}
+
+	t := time.Now().Add(-time.Minute).Add(-time.Second * 20)
+	if block.Timestamp.Before(t) {
+		return errors.Errorf("snapshot is not stable[%s],[%s]", t, block.Timestamp)
+	}
+	return nil
+}

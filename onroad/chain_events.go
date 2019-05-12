@@ -33,15 +33,16 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 		if !exist || orPool == nil {
 			return nil
 		}
-		for _, v := range list {
-			// insert into OnRoadPool
-			if err := orPool.(onroad_pool.OnRoadPool).InsertAccountBlock(v); err != nil {
-				panic(err.Error())
-			}
+		// insert into OnRoadPool
+		if err := orPool.(onroad_pool.OnRoadPool).InsertAccountBlocks(addr, list); err != nil {
+			panic(err.Error())
+		}
 
+		for _, v := range list {
 			// new signal to worker
 			if v.IsSendBlock() {
-				manager.newSignalToWorker(meta.Gid, v.ToAddress)
+				manager.newSignalToWorker(meta.Gid, addr)
+				break
 			}
 		}
 	}
@@ -68,16 +69,16 @@ func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
 		if !exist || orPool == nil {
 			return nil
 		}
+		// delete from OnRoadPool
+		if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlocks(addr, list); err != nil {
+			panic(err.Error())
+		}
 
 		for _, v := range list {
-			// delete from OnRoadPool
-			if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
-				panic(err.Error())
-			}
-
 			// new signal to worker
 			if v.IsReceiveBlock() {
-				manager.newSignalToWorker(meta.Gid, v.AccountAddress)
+				manager.newSignalToWorker(meta.Gid, addr)
+				break
 			}
 		}
 	}
@@ -115,16 +116,16 @@ func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) err
 		if !exist || orPool == nil {
 			return nil
 		}
+		// delete from OnRoadPool
+		if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlocks(addr, list); err != nil {
+			panic(err.Error())
+		}
 
 		for _, v := range list {
-			// delete from OnRoadPool
-			if err := orPool.(onroad_pool.OnRoadPool).DeleteAccountBlock(v); err != nil {
-				panic(err.Error())
-			}
-
 			// new signal to worker
 			if v.IsReceiveBlock() {
-				manager.newSignalToWorker(meta.Gid, v.AccountAddress)
+				manager.newSignalToWorker(meta.Gid, addr)
+				break
 			}
 		}
 	}

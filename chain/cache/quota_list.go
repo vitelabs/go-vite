@@ -6,6 +6,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+)
+
+const (
+	uninitialized = 0
+	initialized   = 1
 )
 
 type quotaInfo types.QuotaInfo
@@ -25,6 +31,7 @@ type quotaList struct {
 	listMaxLength int
 
 	status byte
+	log    log15.Logger
 }
 
 func newQuotaList(chain Chain) *quotaList {
@@ -36,6 +43,9 @@ func newQuotaList(chain Chain) *quotaList {
 		list:                 list.New(),
 		listMaxLength:        600,
 		usedAccumulateHeight: 75,
+
+		log:    log15.New("module", "quota_list"),
+		status: uninitialized,
 	}
 
 	return ql
@@ -47,7 +57,7 @@ func (ql *quotaList) init() error {
 	}
 	ql.moveNext(make(map[types.Address]*quotaInfo))
 
-	ql.status = 1
+	ql.status = initialized
 	return nil
 }
 
@@ -66,6 +76,7 @@ func (ql *quotaList) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	usedList := make([]types.QuotaInfo, 0, ql.usedAccumulateHeight)
 
 	pointer := ql.usedStart
+
 	for pointer != nil {
 		tmpUsed := pointer.Value.(map[types.Address]*quotaInfo)
 
@@ -77,6 +88,10 @@ func (ql *quotaList) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 		}
 
 		pointer = pointer.Next()
+	}
+
+	if len(usedList) <= 0 {
+		ql.log.Warn(fmt.Sprintf("GetQuotaUsedList: %s, return %d list,", addr, len(usedList)), "method", "GetQuotaUsedList")
 	}
 
 	return usedList
@@ -102,11 +117,49 @@ func (ql *quotaList) Sub(addr types.Address, quota uint64, quotaUsed uint64) {
 	ql.globalUsed.BlockCount -= 1
 	ql.globalUsed.QuotaTotal -= quota
 	ql.globalUsed.QuotaUsedTotal -= quotaUsed
+}
 
+func (ql *quotaList) ResetUnconfirmedQuotas(unconfirmedBlocks []*ledger.AccountBlock) {
+	if ql.status < initialized {
+		return
+	}
+
+	backElement := make(map[types.Address]*quotaInfo)
+	for _, unconfirmedBlock := range unconfirmedBlocks {
+		qi, ok := backElement[unconfirmedBlock.AccountAddress]
+
+		if !ok {
+			qi = &quotaInfo{}
+			backElement[unconfirmedBlock.AccountAddress] = qi
+		}
+		qi.BlockCount += 1
+		qi.QuotaTotal += unconfirmedBlock.Quota
+		qi.QuotaUsedTotal += unconfirmedBlock.QuotaUsed
+	}
+	// set globalUsed
+	originBlockCount, originQuotaTotal, originQuotaUsedTotal := ql.aggregate(ql.backElement)
+	blockCount, quotaTotal, quotaUsedTotal := ql.aggregate(backElement)
+
+	ql.globalUsed.BlockCount -= originBlockCount
+	ql.globalUsed.QuotaTotal -= originQuotaTotal
+	ql.globalUsed.QuotaUsedTotal -= originQuotaUsedTotal
+
+	ql.globalUsed.BlockCount += blockCount
+	ql.globalUsed.QuotaTotal += quotaTotal
+	ql.globalUsed.QuotaUsedTotal += quotaUsedTotal
+
+	// remove back
+	ql.list.Remove(ql.list.Back())
+
+	// set backElement
+	ql.backElement = backElement
+
+	// set list.List
+	ql.list.PushBack(ql.backElement)
 }
 
 func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
-	if ql.status < 1 {
+	if ql.status < initialized {
 		return
 	}
 
@@ -135,7 +188,6 @@ func (ql *quotaList) NewNext(confirmedBlocks []*ledger.AccountBlock) {
 
 	ql.list.Back().Value = currentSnapshotQuota
 	ql.moveNext(ql.backElement)
-
 }
 
 func (ql *quotaList) Rollback(deletedChunks []*ledger.SnapshotChunk) error {
@@ -365,4 +417,13 @@ func (ql *quotaList) resetUsedStart() {
 		ql.usedStart = prev
 
 	}
+}
+
+func (ql *quotaList) aggregate(quotaMap map[types.Address]*quotaInfo) (blockCount uint64, quotaTotal uint64, quotaUsedTotal uint64) {
+	for _, qi := range quotaMap {
+		blockCount += qi.BlockCount
+		quotaTotal += qi.QuotaTotal
+		quotaUsedTotal += qi.QuotaUsedTotal
+	}
+	return
 }

@@ -187,7 +187,7 @@ func (iDB *IndexDB) getSnapshotBlockLocationsByCache(endHeight, startHeight uint
 	maxHeight := startHeight - 1
 
 	for ; h >= startHeight; h-- {
-		value, err := iDB.cache.Get(string(chain_utils.CreateSnapshotBlockHeightKey(startHeight)))
+		value, err := iDB.cache.Get(string(chain_utils.CreateSnapshotBlockHeightKey(h)))
 		if err != nil {
 			if err == bigcache.ErrEntryNotFound {
 				break

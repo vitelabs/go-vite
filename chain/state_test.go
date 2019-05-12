@@ -63,7 +63,6 @@ func testState(t *testing.T, chainInstance *chain, accounts map[types.Address]*A
 }
 
 func testStateNoTesting(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlocks []*ledger.SnapshotBlock) {
-
 	GetValue(chainInstance, accounts)
 
 	GetStorageIterator(chainInstance, accounts)
@@ -286,7 +285,13 @@ func GetQuotaUsed(chainInstance *chain, accounts map[types.Address]*Account) {
 	}
 
 	for _, account := range accounts {
-		queryQuota, queryBlockCount := chainInstance.GetQuotaUsed(account.Addr)
+		quotaList := chainInstance.GetQuotaUsedList(account.Addr)
+		var queryQuota, queryBlockCount uint64
+		for _, quotaInfo := range quotaList {
+			queryQuota += quotaInfo.QuotaTotal
+			fmt.Println("queryQuota", queryQuota)
+			queryBlockCount += quotaInfo.BlockCount
+		}
 
 		var quota, blockCount uint64
 
@@ -405,5 +410,4 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 		return err
 	}
 	return nil
-
 }

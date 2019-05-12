@@ -5,8 +5,8 @@ import "errors"
 var (
 	ErrVerifyForVmGeneratorFailed = errors.New("generator in verifier failed")
 
-	//ErrVerifyAccountAddrFailed             = errors.New("account address doesn't exist, need receiveTx for more balance first")
-	ErrVerifyAccountTypeNotSure      = errors.New("verify accountType but is not sure")
+	//ErrVerifyAccountAddrFailed       = errors.New("account address doesn't exist, need receiveTx for more balance first")
+	ErrVerifyAccountTypeNotSure      = errors.New("general account's sendBlock.Height must be larger than 1")
 	ErrVerifyConfirmedTimesNotEnough = errors.New("verify referred confirmedTimes not enough")
 
 	ErrVerifyHashFailed                    = errors.New("verify hash failed")

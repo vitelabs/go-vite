@@ -19,7 +19,7 @@ func TestChain_DeleteSnapshotBlocks(t *testing.T) {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	for i := 0; i < 1; i++ {
-		chainInstance, accounts, snapshotBlockList := SetUp(1, 960, 1)
+		chainInstance, accounts, snapshotBlockList := SetUp(50, 960, 1)
 
 		snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
 
@@ -33,7 +33,7 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
 	})
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 100; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
 		})
@@ -174,10 +174,6 @@ func deleteSnapshotBlocks(chainInstance *chain, accounts map[types.Address]*Acco
 	hasStorageRedoLog := len(snapshotChunksDeleted[0].AccountBlocks) <= 0
 	for _, account := range accounts {
 		account.DeleteSnapshotBlocks(accounts, snapshotBlocksToDelete, hasStorageRedoLog)
-	}
-
-	for _, account := range accounts {
-		fmt.Println("account.UnconfirmedBlocks: ", len(account.UnconfirmedBlocks), hasStorageRedoLog)
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -55,12 +57,11 @@ func TestHashHeightList_Serialize(t *testing.T) {
 }
 
 func compareGetHashHeightList(c1, c2 *GetHashHeightList) error {
-	if c1.From.Hash != c2.From.Hash {
-		return fmt.Errorf("different fep hash: %s %s", c1.From.Hash, c2.From.Hash)
-	}
-
-	if c1.From.Height != c2.From.Height {
-		return fmt.Errorf("different fep height: %d %d", c1.From.Height, c2.From.Height)
+	for i, p := range c1.From {
+		p2 := c2.From[i]
+		if p2.Hash != p.Hash || p2.Height != p.Height {
+			return fmt.Errorf("different fep hash: %s/%d %s/%d", p.Hash, p.Height, p2.Hash, p2.Height)
+		}
 	}
 
 	if c1.Step != c2.Step {
@@ -76,13 +77,9 @@ func compareGetHashHeightList(c1, c2 *GetHashHeightList) error {
 
 func TestGetHashHeightList_Serialize(t *testing.T) {
 	var c = &GetHashHeightList{
-		From: &ledger.HashHeight{
-			Height: 0,
-		},
 		Step: 100,
 		To:   1000,
 	}
-	_, _ = rand.Read(c.From.Hash[:])
 
 	data, err := c.Serialize()
 	if err != nil {
@@ -91,8 +88,26 @@ func TestGetHashHeightList_Serialize(t *testing.T) {
 
 	var c2 = &GetHashHeightList{}
 	err = c2.Deserialize(data)
+	if err == nil {
+		panic("error should not be nil")
+	}
+
+	var one, two types.Hash
+	one[0] = 1
+	two[0] = 2
+	c.From = []*ledger.HashHeight{
+		{100, one},
+		{200, two},
+	}
+
+	data, err = c.Serialize()
 	if err != nil {
 		panic(err)
+	}
+
+	err = c2.Deserialize(data)
+	if err != nil {
+		panic(fmt.Sprintf("error should be nil: %v", err))
 	}
 
 	if err = compareGetHashHeightList(c, c2); err != nil {

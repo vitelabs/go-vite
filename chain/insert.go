@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"sync"
 )
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
@@ -42,48 +43,9 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 }
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
-	//FOR DEBUG
-	//c.log.Info(fmt.Sprintf("Insert snapshot block %d %s\n", snapshotBlock.Height, snapshotBlock.Hash))
-	//
-	//for Addr, hh := range snapshotBlock.SnapshotContent {
-	//	c.log.Info(fmt.Sprintf("Insert %d SC: %s %d %s\n", snapshotBlock.Height, Addr, hh.Height, hh.Hash))
-	//}
-
-	c.flushMu.RLock()
-	defer c.flushMu.RUnlock()
-
-	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
-	if err != nil {
+	if err := c.insertSnapshotBlock(snapshotBlock); err != nil {
 		return nil, err
 	}
-
-	//sbList := []*ledger.SnapshotBlock{snapshotBlock}
-	chunks := []*ledger.SnapshotChunk{{
-		SnapshotBlock: snapshotBlock,
-		AccountBlocks: canBeSnappedBlocks,
-	}}
-	// write block db
-	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
-
-	if err := c.em.TriggerInsertSbs(prepareInsertSbsEvent, chunks); err != nil {
-		return nil, err
-	}
-
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
-	}
-
-	// insert index
-	c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
-
-	// update latest snapshot block cache
-	c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
-
-	// insert snapshot blocks
-	c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
-
-	c.em.TriggerInsertSbs(InsertSbsEvent, chunks)
 
 	// delete invalidBlocks
 	invalidBlocks := c.filterUnconfirmedBlocks(true)
@@ -94,8 +56,9 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		}
 	}
 
-	// only trigger
+	c.cache.ResetUnconfirmedQuotas(c.GetAllUnconfirmedBlocks())
 
+	// only trigger
 	return invalidBlocks, nil
 }
 
@@ -123,6 +86,56 @@ func (c *chain) getBlocksToBeConfirmed(sc ledger.SnapshotContent) ([]*ledger.Acc
 	}
 
 	return blocks, errors.New(fmt.Sprintf("lack block, sc is %s", sPrintError(sc, blocks)))
+}
+
+func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
+
+	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
+	if err != nil {
+		return err
+	}
+
+	//sbList := []*ledger.SnapshotBlock{snapshotBlock}
+	chunks := []*ledger.SnapshotChunk{{
+		SnapshotBlock: snapshotBlock,
+		AccountBlocks: canBeSnappedBlocks,
+	}}
+
+	// write block db
+	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
+
+	if err := c.em.TriggerInsertSbs(prepareInsertSbsEvent, chunks); err != nil {
+		return err
+	}
+
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
+		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		// insert index
+		c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
+
+		// update latest snapshot block cache
+		c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+	}()
+
+	go func() {
+		defer wg.Done()
+		// insert snapshot blocks
+		c.stateDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)
+	}()
+
+	wg.Wait()
+
+	c.em.TriggerInsertSbs(InsertSbsEvent, chunks)
+	return nil
 }
 
 func sPrintError(sc ledger.SnapshotContent, blocks []*ledger.AccountBlock) string {
