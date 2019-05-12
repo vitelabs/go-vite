@@ -16,19 +16,19 @@ type poolEventBus struct {
 	wait *common.CondTimer
 }
 
-func (self *poolEventBus) newABlockEvent() {
+func (bus *poolEventBus) newABlockEvent() {
 	select {
-	case self.newABlock <- struct{}{}:
+	case bus.newABlock <- struct{}{}:
 	default:
 	}
-	self.wait.Signal()
+	bus.wait.Signal()
 }
-func (self *poolEventBus) newSBlockEvent() {
+func (bus *poolEventBus) newSBlockEvent() {
 	select {
-	case self.newSBlock <- struct{}{}:
+	case bus.newSBlock <- struct{}{}:
 	default:
 	}
-	self.wait.Signal()
+	bus.wait.Signal()
 }
 
 type worker struct {
@@ -38,8 +38,8 @@ type worker struct {
 	closed chan struct{}
 }
 
-func (self *worker) work() {
-	bus := self.bus
+func (w *worker) work() {
+	bus := w.bus
 
 	bus.wait.Start(time.Millisecond * 40)
 	defer bus.wait.Stop()
@@ -47,56 +47,56 @@ func (self *worker) work() {
 		sum := 0
 		select {
 		case <-bus.newABlock:
-			sum += self.p.accountsCompact()
-		case <-self.closed:
+			sum += w.p.accountsCompact()
+		case <-w.closed:
 			return
 		default:
 		}
 
 		select {
 		case <-bus.newSBlock:
-			sum += self.p.snapshotCompact()
-		case <-self.closed:
+			sum += w.p.snapshotCompact()
+		case <-w.closed:
 			return
 		default:
 		}
 
 		select {
 		case <-bus.snapshotForkChecker.C:
-			self.p.pendingSc.checkFork()
+			w.p.checkFork()
 		case <-bus.broadcasterT.C:
-			self.p.broadcastUnConfirmedBlocks()
+			w.p.broadcastUnConfirmedBlocks()
 		case <-bus.clearT.C:
-			self.p.delUseLessChains()
-		case <-self.closed:
+			w.p.delUseLessChains()
+		case <-w.closed:
 			return
 		default:
 		}
 
-		chunks := self.p.ReadDownloadedChunks()
+		chunks := w.p.ReadDownloadedChunks()
 		if chunks != nil {
-			result := self.p.insertChunks(chunks)
+			result := w.p.insertChunks(chunks)
 			if result {
 				continue
 			}
 		}
 
 		if sum > 0 {
-			self.p.insert()
+			w.p.insert()
 		} else {
-			self.p.compact()
-			self.p.insert()
+			w.p.compact()
+			w.p.insert()
 		}
 		bus.wait.Wait()
 	}
 }
 
-func (self *worker) init() {
+func (w *worker) init() {
 	checkForkT := time.NewTicker(time.Second * 2)
 	broadcasterT := time.NewTicker(time.Second * 30)
 	clearT := time.NewTicker(time.Minute)
 
-	self.bus = &poolEventBus{
+	w.bus = &poolEventBus{
 		newABlock:           make(chan struct{}, 1),
 		newSBlock:           make(chan struct{}, 1),
 		snapshotForkChecker: checkForkT,

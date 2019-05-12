@@ -36,12 +36,12 @@ func TestChainPool(t *testing.T) {
 
 	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
 	cp := &chainPool{
-		poolId:    "chain-Pool-Id",
+		poolID:    "chain-Pool-Id",
 		diskChain: diskChain,
 		log:       log15.New("module", "mock"),
 	}
 	cp.current = &forkedChain{}
-	cp.current.chainId = cp.genChainId()
+	cp.current.chainId = cp.genChainID()
 	cp.init()
 
 	printChain(cp.current)
@@ -86,12 +86,12 @@ func TestBCPool_CurrentModifyToChain(t *testing.T) {
 
 	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
 	cp := &chainPool{
-		poolId:    "chain-Pool-Id",
+		poolID:    "chain-Pool-Id",
 		diskChain: diskChain,
 		log:       log15.New("module", "mock"),
 	}
 	cp.current = &forkedChain{}
-	cp.current.chainId = cp.genChainId()
+	cp.current.chainId = cp.genChainID()
 	cp.init()
 
 	tmps := mockBlocks(1, 10, 20)
@@ -131,7 +131,7 @@ func TestChainPoolModifyRefer(t *testing.T) {
 
 	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
 	cp := &chainPool{
-		poolId:    "chain-Pool-Id",
+		poolID:    "chain-Pool-Id",
 		diskChain: diskChain,
 		log:       log15.New("module", "mock"),
 	}
@@ -179,7 +179,7 @@ func TestChainPoolModifyRefer2(t *testing.T) {
 
 	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
 	cp := &chainPool{
-		poolId:    "chain-Pool-Id",
+		poolID:    "chain-Pool-Id",
 		diskChain: diskChain,
 		log:       log15.New("module", "mock"),
 	}
@@ -225,7 +225,7 @@ func TestChainPoolModifyRefer3(t *testing.T) {
 
 	diskChain := &diskChain{chainId: "diskchain", rw: mock, v: &ForkVersion{}}
 	cp := &chainPool{
-		poolId:    "chain-Pool-Id",
+		poolID:    "chain-Pool-Id",
 		diskChain: diskChain,
 		log:       log15.New("module", "mock"),
 	}
