@@ -1,6 +1,7 @@
 package onroad
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/onroad/pool"
@@ -21,7 +22,7 @@ func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBloc
 		}
 		meta, err := manager.chain.GetContractMeta(addr)
 		if err != nil || meta == nil {
-			panic("find contract meta nil, err is " + err.Error())
+			panic(fmt.Sprintf("find contract meta nil, orAddr %v  err %v ", addr, err))
 		}
 		orPool, exist := manager.onRoadPools.Load(meta.Gid)
 		if !exist || orPool == nil {
@@ -55,7 +56,7 @@ func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock
 		}
 		meta, err := manager.chain.GetContractMeta(addr)
 		if err != nil || meta == nil {
-			panic("find contract meta nil, err is " + err.Error())
+			panic(fmt.Sprintf("find contract meta nil, orAddr %v  err %v ", addr, err))
 		}
 		orPool, exist := manager.onRoadPools.Load(meta.Gid)
 		if !exist || orPool == nil {
@@ -102,7 +103,7 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 		}
 		meta, err := manager.chain.GetContractMeta(addr)
 		if err != nil || meta == nil {
-			panic("find contract meta nil, err is " + err.Error())
+			panic(fmt.Sprintf("find contract meta nil, orAddr %v  err %v ", addr, err))
 		}
 		orPool, exist := manager.onRoadPools.Load(meta.Gid)
 		if !exist || orPool == nil {
