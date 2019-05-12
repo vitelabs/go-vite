@@ -167,7 +167,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return errors.New("failed to get latest snapshotBlock")
 	}
 	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-time.Hour)) || nowTime.After(latestSb.Timestamp.Add(time.Hour)) {
+	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
 		return IllegalNodeTime
 	}
 
