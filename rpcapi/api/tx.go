@@ -157,25 +157,21 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if block == nil {
 		return errors.New("empty block")
 	}
-
 	lb, err := block.RpcToLedgerBlock()
 	if err != nil {
 		return err
 	}
-	// need to remove Later
-	//if len(lb.Data) != 0 && !isBuiltinContracts(lb.ToAddress) {
-	//	return ErrorNotSupportAddNot
-	//}
-	//
-	//if len(lb.Data) != 0 && block.BlockType == ledger.BlockTypeReceive {
-	//	return ErrorNotSupportRecvAddNote
-	//}
 
-	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return errors.New("failed to get latest snapshotBlock")
 	}
+	nowTime := time.Now()
+	if nowTime.Before(latestSb.Timestamp.Add(-time.Hour)) || nowTime.After(latestSb.Timestamp.Add(time.Hour)) {
+		return IllegalNodeTime
+	}
+
+	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
 	if err != nil {
 		return err
