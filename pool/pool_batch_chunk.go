@@ -45,6 +45,7 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 		return false
 	}
 	if state == DISCONNECT {
+		// todo
 		return false
 	}
 

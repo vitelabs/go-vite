@@ -246,8 +246,8 @@ func TestPolicy_AccountTargets(t *testing.T) {
 
 	// choose from top: 10 9 8
 	for i := 0; i < 100; i++ {
-		if ret = f.account(0, r); ret.height() < 8 {
-			t.Errorf("not top peers: %d", ret.height())
+		if ret = f.account(0, r); ret.Height() < 8 {
+			t.Errorf("not top peers: %d", ret.Height())
 		}
 	}
 
@@ -259,8 +259,8 @@ func TestPolicy_AccountTargets(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		if ret = f.account(0, r); ret.height() > 7 {
-			t.Errorf("wrong top peers: %d", ret.height())
+		if ret = f.account(0, r); ret.Height() > 7 {
+			t.Errorf("wrong top peers: %d", ret.Height())
 		}
 	}
 }
@@ -303,7 +303,7 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 
 	for i := 0; i < keepFails; i++ {
 		ret = ps[i]
-		fmt.Println("fail", ret.ID(), ret.height())
+		fmt.Println("fail", ret.ID(), ret.Height())
 		r.fail(ret.ID())
 		r.st = reqPending
 	}

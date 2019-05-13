@@ -53,7 +53,8 @@ type Flusher struct {
 	startCommitFlag types.Hash
 	commitWg        sync.WaitGroup
 
-	terminal chan struct{}
+	terminal      chan struct{}
+	flusherStatus int32
 }
 
 func NewFlusher(storeList []Storage, flushMu *sync.RWMutex, chainDir string) (*Flusher, error) {

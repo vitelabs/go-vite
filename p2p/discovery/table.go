@@ -74,8 +74,8 @@ type Subscriber interface {
 
 // nodeStore is the node database
 type nodeStore interface {
-	// Store node into database, err is not nil if serialized error or database error
-	Store(node *Node) (err error)
+	// StoreNode node into database, err is not nil if serialized error or database error
+	StoreNode(node *Node) (err error)
 }
 
 // nodeTable has many buckets sorted by distance to self.ID from near to faraway
@@ -578,7 +578,7 @@ func (tab *table) store(db nodeStore) {
 
 	for _, n := range nodes {
 		if now.Sub(n.addAt) > stayInTable {
-			_ = db.Store(n)
+			_ = db.StoreNode(n)
 		}
 	}
 }

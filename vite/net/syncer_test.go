@@ -1,14 +1,13 @@
 package net
 
 import (
-	"encoding/json"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 func TestSplitChunks(t *testing.T) {
@@ -59,9 +58,9 @@ func TestHashHeightTree(t *testing.T) {
 	})
 
 	tree := newHashHeightTree()
-	tree.addBranch(hashHeightList1)
-	tree.addBranch(hashHeightList2)
-	tree.addBranch(hashHeightList3)
+	tree.addBranch(hashHeightList1, nil)
+	tree.addBranch(hashHeightList2, nil)
+	tree.addBranch(hashHeightList3, nil)
 
 	list := tree.bestBranch()
 
@@ -76,24 +75,41 @@ func TestHashHeightTree(t *testing.T) {
 	}
 }
 
-func ExampleSyncDetail() {
-	var detail = SyncDetail{
-		From:    10,
-		To:      100,
-		Current: 20,
-		State:   Syncing,
-		Cache: interfaces.SegmentList{
-			{[2]uint64{11, 30}, types.Hash{}, types.Hash{}},
-			{[2]uint64{31, 40}, types.Hash{}, types.Hash{}},
-		},
+func TestConstructTasks(t *testing.T) {
+	var hhs []*ledger.HashHeight
+
+	const start uint64 = 100
+	const end uint64 = 10000
+	for i := start; i < end+1; i += 100 {
+		hhs = append(hhs, &ledger.HashHeight{
+			Height: i,
+			Hash:   randomHash(),
+		})
 	}
 
-	data, err := json.Marshal(detail)
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("%d %d %d\n", start, end, len(hhs))
 
-	fmt.Printf("%s\n", data)
-	// Output:
-	// {"from":10,"to":100,"current":20,"state":"Synchronising","downloader":{"tasks":null,"connections":null},"cache":[[11,30],[31,40]]}
+	point := &ledger.HashHeight{
+		Height: start - 1,
+		Hash:   randomHash(),
+	}
+	ts := constructTasks(point, hhs)
+
+	fmt.Printf("%d tasks\n", len(ts))
+
+	prevTask := &syncTask{
+		to:      point.Height,
+		endHash: point.Hash,
+	}
+	for _, tt := range ts {
+		if tt.from != prevTask.to+1 || tt.prevHash != prevTask.endHash {
+			t.Errorf("not continuous")
+		}
+		prevTask = tt
+	}
+}
+
+func randomHash() (h types.Hash) {
+	_, _ = rand.Read(h[:])
+	return
 }

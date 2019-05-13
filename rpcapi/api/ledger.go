@@ -55,11 +55,29 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 	return blocks, nil
 }
 
+func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return l.chain.GetAccountBlockByHash(blockHash)
+}
+
 func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetAccountBlockByHash(blockHash)
-
 	if getError != nil {
 		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
+
+		return nil, getError
+	}
+	if block == nil {
+		return nil, nil
+	}
+
+	return l.ledgerBlockToRpcBlock(block)
+}
+
+func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+	block, getError := l.chain.GetCompleteBlockByHash(blockHash)
+
+	if getError != nil {
+		l.log.Error("GetCompleteBlockByHash failed, error is "+getError.Error(), "method", "GetCompleteBlockByHash")
 
 		return nil, getError
 	}

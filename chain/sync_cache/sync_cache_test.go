@@ -3,6 +3,7 @@ package sync_cache
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -10,69 +11,37 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func equal(seg1, seg2 interfaces.Segment) error {
-	if seg1.Bound != seg2.Bound {
-		return fmt.Errorf("different bound: %v %v", seg1.Bound, seg2.Bound)
-	}
-
-	if seg1.Hash != seg2.Hash {
-		return fmt.Errorf("different endHash: %s %s", seg1.Hash, seg2.Hash)
-	}
-
-	if seg1.PrevHash != seg2.PrevHash {
-		return fmt.Errorf("different prevHash: %s %s", seg1.PrevHash, seg2.PrevHash)
-	}
-
-	return nil
-}
-
-func TestFilename(t *testing.T) {
-	var seg = interfaces.Segment{
-		Bound:    [2]uint64{101, 200},
-		Hash:     types.Hash{},
-		PrevHash: types.Hash{},
-	}
-
-	seg.Hash[len(seg.Hash)-1] = 1
-
-	filename := toFilename(correctFilePrefix, seg)
-	fmt.Println(filename)
-	seg2, err := newSegmentByFilename(filename)
-	if err != nil {
-		panic(err)
-	}
-
-	err = equal(seg, seg2)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLoader(t *testing.T) {
+func TestSyncCacheLoad(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
 	}
 
-	dir = filepath.Join(dir, "mockr")
+	dir = path.Join(dir, "sync_cache")
+	err = os.RemoveAll(dir)
+	if err != nil {
+		panic(err)
+	}
+
 	err = os.MkdirAll(dir, 0700)
 	if err != nil {
 		panic(err)
 	}
 
-	files := []string{
-		"f_101_0000000000000000000000000000000000000000000000000000000000000000_200_0000000000000000000000000000000000000000000000000000000000000001",
-		"t_201_0000000000000000000000000000000000000000000000000000000000000001_300_0000000000000000000000000000000000000000000000000000000000000002",
+	filenames := []string{
+		"f_2_0100000000000000000000000000000000000000000000000000000000000000_100_0200000000000000000000000000000000000000000000000000000000000000",
+		"f_101_0300000000000000000000000000000000000000000000000000000000000000_200_0400000000000000000000000000000000000000000000000000000000000000",
+		"t_201_0500000000000000000000000000000000000000000000000000000000000000_300_0600000000000000000000000000000000000000000000000000000000000000",
+		"f_301_0700000000000000000000000000000000000000000000000000000000000000_400_0800000000000000000000000000000000000000000000000000000000000000.v",
 	}
 
-	for _, f := range files {
-		var fd *os.File
-		filename := filepath.Join(dir, f)
-		fd, err = os.Create(filename)
+	var f *os.File
+	for _, file := range filenames {
+		f, err = os.Create(path.Join(dir, file))
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("failed to create segment file: %v", err))
 		}
-		_ = fd.Close()
+		_ = f.Close()
 	}
 
 	cache, err := NewSyncCache(dir)
@@ -81,82 +50,113 @@ func TestLoader(t *testing.T) {
 	}
 
 	cs := cache.Chunks()
-	if len(cs) != 1 {
-		t.Fatalf(fmt.Sprintf("chunks length should be 1 but get %d", len(cs)))
-	} else {
-		seg := cs[0]
-		var zero types.Hash
-		var one types.Hash
-		one[len(one)-1] = 1
-		if seg.Bound != [2]uint64{101, 200} {
-			t.Fatal()
-		} else if seg.PrevHash != zero {
-			t.Fatal()
-		} else if seg.Hash != one {
-			t.Fatal()
+	cs2 := interfaces.SegmentList{
+		{
+			Bound:    [2]uint64{2, 100},
+			PrevHash: types.Hash{1},
+			Hash:     types.Hash{2},
+		},
+		{
+			Bound:    [2]uint64{101, 200},
+			PrevHash: types.Hash{3},
+			Hash:     types.Hash{4},
+		},
+		{
+			Bound:    [2]uint64{301, 400},
+			PrevHash: types.Hash{7},
+			Hash:     types.Hash{8},
+		},
+	}
+
+	for i, c := range cs {
+		if c != cs2[i] {
+			t.Error("wrong segment")
 		}
 	}
 
-	err = os.RemoveAll(dir)
+	reader, err := cache.NewReader(cs2[0])
 	if err != nil {
 		panic(err)
 	}
-}
+	if true == reader.Verified() {
+		t.Error("should not verified")
+	}
+	err = reader.Close()
+	if err != nil {
+		panic(err)
+	}
+	reader.Verify()
 
-func TestWriter(t *testing.T) {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	reader, err = cache.NewReader(cs2[0])
+	if err != nil {
+		panic(err)
+	}
+	if false == reader.Verified() {
+		t.Error("should verified")
+	}
+	err = reader.Close()
 	if err != nil {
 		panic(err)
 	}
 
-	dir = filepath.Join(dir, "mockw")
-	err = os.MkdirAll(dir, 0700)
+	reader, err = cache.NewReader(cs2[2])
+	if err != nil {
+		panic(err)
+	}
+	if false == reader.Verified() {
+		t.Error("should verified")
+	}
+	err = reader.Close()
+	if err != nil {
+		panic(err)
+	}
+	reader.Verify()
+	reader, err = cache.NewReader(cs2[2])
+	if err != nil {
+		panic(err)
+	}
+	if false == reader.Verified() {
+		t.Error("should verified")
+	}
+	err = reader.Close()
 	if err != nil {
 		panic(err)
 	}
 
-	cache, err := NewSyncCache(dir)
-	if err != nil {
-		panic(err)
-	}
-
-	var seg = interfaces.Segment{
-		Bound:    [2]uint64{101, 200},
-		Hash:     types.Hash{},
-		PrevHash: types.Hash{},
+	// create writer
+	seg := interfaces.Segment{
+		Bound:    [2]uint64{401, 500},
+		Hash:     types.Hash{9},
+		PrevHash: types.Hash{10},
 	}
 	w, err := cache.NewWriter(seg)
 	if err != nil {
 		panic(err)
 	}
-
-	cs := cache.Chunks()
-	if len(cs) != 0 {
-		t.Fatalf(fmt.Sprintf("chunks length should be 0 but get %d", len(cs)))
-	}
-
-	err = w.Close()
-	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to close writer: %v", err))
-	}
-
 	cs = cache.Chunks()
-	if len(cs) != 1 {
-		t.Fatalf(fmt.Sprintf("chunks length should be 1 but get %d", len(cs)))
-	} else {
-		seg = cs[0]
-		var zero types.Hash
-		if seg.Bound != [2]uint64{101, 200} {
-			t.Fatal()
-		} else if seg.PrevHash != zero {
-			t.Fatal()
-		} else if seg.Hash != zero {
-			t.Fatal()
+	for _, c := range cs {
+		if c == seg {
+			t.Error("write not close, should not in chunk list")
 		}
 	}
 
-	err = os.RemoveAll(dir)
+	_, err = w.Write([]byte("hello"))
 	if err != nil {
 		panic(err)
+	}
+	err = w.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	var in bool
+	cs = cache.Chunks()
+	for _, c := range cs {
+		if c == seg {
+			in = true
+		}
+	}
+	if false == in {
+		t.Error("write close, should in chunk list")
 	}
 }

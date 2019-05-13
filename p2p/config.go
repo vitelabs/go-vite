@@ -35,7 +35,8 @@ const (
 	DefaultMinPeers        = DefaultOutboundPeers
 	DefaultMaxPendingPeers = 10
 	DefaultFilePort        = 8484
-	DirName                = "p2p"
+	DirName                = "net"
+	DBDirName              = "db"
 )
 
 // Config is the essential configuration to create a p2p server

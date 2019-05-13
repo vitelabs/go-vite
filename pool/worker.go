@@ -12,6 +12,7 @@ type poolEventBus struct {
 	snapshotForkChecker *time.Ticker
 	broadcasterT        *time.Ticker
 	clearT              *time.Ticker
+	irreversibleT       *time.Ticker
 
 	wait *common.CondTimer
 }
@@ -68,6 +69,8 @@ func (w *worker) work() {
 			w.p.broadcastUnConfirmedBlocks()
 		case <-bus.clearT.C:
 			w.p.delUseLessChains()
+		case <-bus.irreversibleT.C:
+			w.p.updateIrreversibleBlock()
 		case <-w.closed:
 			return
 		default:
@@ -95,6 +98,7 @@ func (w *worker) init() {
 	checkForkT := time.NewTicker(time.Second * 2)
 	broadcasterT := time.NewTicker(time.Second * 30)
 	clearT := time.NewTicker(time.Minute)
+	irreversibleT := time.NewTicker(time.Minute * 3)
 
 	w.bus = &poolEventBus{
 		newABlock:           make(chan struct{}, 1),
@@ -102,6 +106,7 @@ func (w *worker) init() {
 		snapshotForkChecker: checkForkT,
 		broadcasterT:        broadcasterT,
 		clearT:              clearT,
+		irreversibleT:       irreversibleT,
 		wait:                common.NewCondTimer(),
 	}
 }
