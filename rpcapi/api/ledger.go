@@ -70,6 +70,21 @@ func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) 
 	return l.ledgerBlockToRpcBlock(block)
 }
 
+func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+	block, getError := l.chain.GetCompleteBlockByHash(blockHash)
+
+	if getError != nil {
+		l.log.Error("GetCompleteBlockByHash failed, error is "+getError.Error(), "method", "GetCompleteBlockByHash")
+
+		return nil, getError
+	}
+	if block == nil {
+		return nil, nil
+	}
+
+	return l.ledgerBlockToRpcBlock(block)
+}
+
 func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
 	l.log.Info("GetBlocksByHash")
 
