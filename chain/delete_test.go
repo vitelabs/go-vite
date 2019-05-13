@@ -33,7 +33,7 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
 	})
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 100; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
 			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
 		})

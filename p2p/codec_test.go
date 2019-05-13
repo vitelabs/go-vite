@@ -139,9 +139,6 @@ func ExampleSHA3_Size() {
 }
 
 func MsgEqual(msg1, msg2 Msg) bool {
-	if msg1.pid != msg2.pid {
-		return false
-	}
 	if msg1.Code != msg2.Code {
 		return false
 	}
@@ -237,14 +234,13 @@ func TestCodec(t *testing.T) {
 			_, _ = crand.Read(buf)
 
 			msg = Msg{
-				pid:     ProtocolID(i % max),
-				Code:    ProtocolID(i % max),
+				Code:    byte(i % max),
 				Id:      uint32(i),
 				Payload: buf,
 			}
 
 			werr = c1.WriteMsg(msg)
-			fmt.Printf("write message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+			fmt.Printf("write message %d/%d, %d bytes\n", msg.Code, msg.Id, len(msg.Payload))
 
 			if werr != nil {
 				t.Fatalf("write error: %v", werr)
@@ -286,7 +282,7 @@ func TestCodec(t *testing.T) {
 
 			msg2 = <-channel
 			if MsgEqual(msg, msg2) {
-				fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+				fmt.Printf("read message %d/%d, %d bytes\n", msg.Code, msg.Id, len(msg.Payload))
 			} else {
 				t.Error("message not equal")
 			}
@@ -313,6 +309,7 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 	}
 
 	var wg sync.WaitGroup
+	ch := make(chan Msg)
 
 	wg.Add(1)
 	go func() {
@@ -335,18 +332,19 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 			_, _ = crand.Read(buf)
 
 			msg := Msg{
-				pid:     ProtocolID(i % max),
-				Code:    ProtocolID(i % max),
+				Code:    byte(i % max),
 				Id:      uint32(i % maxPayloadSize),
 				Payload: buf,
 			}
 
 			werr = c1.WriteMsg(msg)
-			fmt.Printf("write %d message %d/%d, %d bytes\n", i, msg.pid, msg.Code, len(msg.Payload))
+			fmt.Printf("write %d message %d, %d bytes\n", i, msg.Code, len(msg.Payload))
 
 			if err != nil {
 				b.Fatalf("write error: %v", werr)
 			}
+
+			ch <- msg
 		}
 
 		fmt.Println("sent done")
@@ -378,7 +376,16 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 				break
 			}
 
-			fmt.Printf("read message %d/%d/%d, %d bytes\n", msg.pid, msg.Code, msg.Id, len(msg.Payload))
+			fmt.Printf("read message %d/%d, %d bytes\n", msg.Code, msg.Id, len(msg.Payload))
+
+			msg2 := <-ch
+
+			if msg.Code != msg2.Code {
+				panic("different code")
+			}
+			if false == bytes.Equal(msg.Payload, msg2.Payload) {
+				panic("different payload")
+			}
 		}
 
 		_ = conn.Close()

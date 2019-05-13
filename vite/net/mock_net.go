@@ -1,32 +1,104 @@
 package net
 
 import (
-	net2 "net"
-	"sync"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/circle"
 )
 
 type mockNet struct {
-	*Config
-	*syncer
-	*fetcher
-	*broadcaster
 	chain Chain
-	BlockSubscriber
+}
+
+func (n *mockNet) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+	return
+}
+
+func (n *mockNet) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
+	return
+}
+
+func (n *mockNet) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
+	return 0
+}
+
+func (n *mockNet) UnsubscribeSyncStatus(subId int) {
+}
+
+func (n *mockNet) SyncState() SyncState {
+	return SyncDone
+}
+
+func (n *mockNet) Peek() *Chunk {
+	return nil
+}
+
+func (n *mockNet) Pop(endHash types.Hash) {
+}
+
+func (n *mockNet) Status() SyncStatus {
+	return SyncStatus{
+		From:    0,
+		To:      0,
+		Current: n.chain.GetLatestSnapshotBlock().Height,
+		State:   SyncDone,
+	}
+}
+
+func (n *mockNet) Detail() SyncDetail {
+	return SyncDetail{
+		From:    0,
+		To:      0,
+		Current: n.chain.GetLatestSnapshotBlock().Height,
+		State:   SyncDone,
+	}
+}
+
+func (n *mockNet) FetchSnapshotBlocks(start types.Hash, count uint64) {
+}
+
+func (n *mockNet) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) {
+}
+
+func (n *mockNet) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
+}
+
+func (n *mockNet) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
+}
+
+func (n *mockNet) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
+}
+
+func (n *mockNet) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
+}
+
+func (n *mockNet) BroadcastAccountBlock(block *ledger.AccountBlock) {
+}
+
+func (n *mockNet) BroadcastAccountBlocks(blocks []*ledger.AccountBlock) {
+}
+
+func (n *mockNet) SubscribeAccountBlock(fn AccountBlockCallback) (subId int) {
+	return 0
+}
+
+func (n *mockNet) UnsubscribeAccountBlock(subId int) {
+}
+
+func (n *mockNet) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
+	return 0
+}
+
+func (n *mockNet) UnsubscribeSnapshotBlock(subId int) {
+}
+
+func (n *mockNet) Trace() {
+
 }
 
 func (n *mockNet) Stop() error {
 	return nil
-}
-
-func (n *mockNet) ProtoData() []byte {
-	return nil
-}
-
-func (n *mockNet) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net2.Addr) (state interface{}, level p2p.Level, err error) {
-	return
 }
 
 func (n *mockNet) Start(svr p2p.P2P) error {
@@ -35,10 +107,6 @@ func (n *mockNet) Start(svr p2p.P2P) error {
 
 func (n *mockNet) Name() string {
 	return "mock_net"
-}
-
-func (n *mockNet) ID() p2p.ProtocolID {
-	return ID
 }
 
 func (n *mockNet) Auth(input []byte) (output []byte) {
@@ -74,57 +142,7 @@ func (n *mockNet) Info() NodeInfo {
 }
 
 func mock(cfg Config) Net {
-	peers := newPeerSet()
-
-	feed := newBlockFeeder()
-
-	receiver := &safeBlockNotifier{
-		blockFeeder: feed,
-		Verifier:    cfg.Verifier,
-	}
-
-	syncer := &syncer{
-		from:      0,
-		to:        0,
-		peers:     peers,
-		mu:        sync.Mutex{},
-		chain:     cfg.Chain,
-		eventChan: make(chan peerEvent),
-		curSubId:  0,
-		subs:      make(map[int]SyncStateCallback),
-		running:   1,
-		term:      make(chan struct{}),
-		log:       netLog.New("module", "syncer"),
-	}
-	syncer.state = syncStateDone{syncer}
-
 	return &mockNet{
-		Config: &Config{
-			Single: true,
-		},
-		chain:  cfg.Chain,
-		syncer: syncer,
-		fetcher: &fetcher{
-			filter:   newFilter(),
-			st:       0,
-			receiver: receiver,
-			policy: &fetchTarget{peers, func() bool {
-				return true
-			}},
-			log:  netLog.New("module", "fetcher"),
-			term: nil,
-		},
-		broadcaster: &broadcaster{
-			peers:     peers,
-			st:        SyncDone,
-			verifier:  cfg.Verifier,
-			feed:      feed,
-			filter:    nil,
-			store:     nil,
-			mu:        sync.Mutex{},
-			statistic: circle.NewList(records24h),
-			log:       netLog.New("module", "broadcaster"),
-		},
-		BlockSubscriber: feed,
+		chain: cfg.Chain,
 	}
 }

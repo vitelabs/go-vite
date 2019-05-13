@@ -40,7 +40,7 @@ func (l LedgerApi) String() string {
 }
 
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
-	return ledgerToRpcBlock(block, l.chain)
+	return ledgerToRpcBlock(l.chain, block)
 }
 
 func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*AccountBlock, error) {
@@ -60,6 +60,21 @@ func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) 
 
 	if getError != nil {
 		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
+
+		return nil, getError
+	}
+	if block == nil {
+		return nil, nil
+	}
+
+	return l.ledgerBlockToRpcBlock(block)
+}
+
+func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+	block, getError := l.chain.GetCompleteBlockByHash(blockHash)
+
+	if getError != nil {
+		l.log.Error("GetCompleteBlockByHash failed, error is "+getError.Error(), "method", "GetCompleteBlockByHash")
 
 		return nil, getError
 	}
@@ -214,6 +229,9 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	for tokenId, amount := range balanceMap {
 		token, _ := l.chain.GetTokenInfoById(tokenId)
+		if token == nil {
+			continue
+		}
 		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),

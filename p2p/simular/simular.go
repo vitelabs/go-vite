@@ -20,13 +20,14 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/p2p/discovery"
 
@@ -38,19 +39,12 @@ import (
 type mockProtocol struct {
 }
 
-func (mp *mockProtocol) Name() string {
-	return "mock protocol"
+func (mp *mockProtocol) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+	return nil, 100, types.Hash{}
 }
 
-func (mp *mockProtocol) ID() p2p.ProtocolID {
-	return 2
-}
-
-func (mp *mockProtocol) ProtoData() []byte {
-	return nil
-}
-
-func (mp *mockProtocol) ReceiveHandshake(msg p2p.HandshakeMsg, protoData []byte, sender net.Addr) (state interface{}, level p2p.Level, err error) {
+func (mp *mockProtocol) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
+	fmt.Printf("receive msg\n")
 	return
 }
 

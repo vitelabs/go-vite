@@ -34,7 +34,7 @@ type Branch interface {
 
 	Size() uint64
 	Root() Branch
-	Id() string
+	ID() string
 	Type() BranchType
 }
 

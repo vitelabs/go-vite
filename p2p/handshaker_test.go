@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -28,7 +29,6 @@ func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 		Name:      "",
 		ID:        nil,
 		Timestamp: 0,
-		Protocols: nil,
 	}
 
 	data, err := proto.Marshal(&pb)
@@ -41,5 +41,21 @@ func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 	err = buffer.Unmarshal(&pb2)
 	if err != nil {
 		t.Error("unmarshal error")
+	}
+
+	if pb.Version != pb2.Version {
+		t.Errorf("different version: %d %d", pb.Version, pb2.Version)
+	}
+	if pb.NetId != pb2.NetId {
+		t.Errorf("different net: %d %d", pb.NetId, pb2.NetId)
+	}
+	if pb.Name != pb2.Name {
+		t.Errorf("different name: %s %s", pb.Name, pb2.Name)
+	}
+	if bytes.Equal(pb.ID, pb2.ID) == false {
+		t.Errorf("different id")
+	}
+	if pb.Timestamp != pb2.Timestamp {
+		t.Errorf("different time: %d %d", pb.Timestamp, pb2.Timestamp)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	OneInt = big.NewInt(1)
-	oLog   = log15.New("plugin", "onroad_info")
+	OneInt        = big.NewInt(1)
+	oLog          = log15.New("plugin", "onroad_info")
+	updateInfoErr = errors.New("conflict, fail to update onroad info")
 )
 
 type OnRoadInfo struct {
@@ -42,6 +44,50 @@ func (or *OnRoadInfo) SetStore(store *chain_db.Store) {
 	or.store = store
 }
 
+func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
+	addrOnRoadMap, err := or.chain.LoadAllOnRoad()
+	if err != nil {
+		return err
+	}
+	for addr, hashList := range addrOnRoadMap {
+		addrInfoMap := make(map[types.TokenTypeId]*onroadMeta, 0)
+
+		// aggregate the data
+		for _, v := range hashList {
+			block, err := or.chain.GetAccountBlockByHash(v)
+			if err != nil {
+				return err
+			}
+			if block == nil {
+				return errors.New("can't find the onroad block by hash")
+			}
+			om, ok := addrInfoMap[block.TokenId]
+			if !ok || om == nil {
+				om = &onroadMeta{
+					TotalAmount: *big.NewInt(0),
+					Number:      0,
+				}
+			}
+			om.TotalAmount.Add(&om.TotalAmount, block.Amount)
+			om.Number++
+			addrInfoMap[block.TokenId] = om
+		}
+
+		batch := or.store.NewBatch()
+		for tkId, om := range addrInfoMap {
+			key := CreateOnRoadInfoKey(&addr, &tkId)
+			if err := or.writeMeta(batch, key, om); err != nil {
+				return err
+			}
+		}
+		or.store.WriteDirectly(batch)
+		// flush to disk
+		flusher.Flush()
+	}
+
+	return nil
+}
+
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 	addrOnRoadMap := excludePairTrades(or.chain, confirmedBlocks)
 
@@ -50,7 +96,13 @@ func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *l
 
 	or.removeUnconfirmed(addrOnRoadMap)
 
-	return or.flushWriteBySnapshotLine(batch, addrOnRoadMap)
+	err := or.flushWriteBySnapshotLine(batch, addrOnRoadMap)
+	if err != nil {
+		oLog.Error(fmt.Sprintf("err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
+		// TODO redo the plugin onroad_info
+	}
+
+	return nil
 }
 
 func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledger.SnapshotChunk) error {
@@ -59,11 +111,11 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 	}
 
 	blocks := make([]*ledger.AccountBlock, 0)
-	for i := len(chunks) - 1; i >= 0; i-- {
-		if len(chunks[i].AccountBlocks) <= 0 {
+	for _, v := range chunks {
+		if len(v.AccountBlocks) <= 0 {
 			continue
 		}
-		blocks = append(blocks, chunks[i].AccountBlocks...)
+		blocks = append(blocks, v.AccountBlocks...)
 	}
 	addrOnRoadMap := excludePairTrades(or.chain, blocks)
 
@@ -74,7 +126,13 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 	or.unconfirmedCache = make(map[types.Address]map[types.Hash]*ledger.AccountBlock)
 
 	// revert flush the db
-	return or.flushDeleteBySnapshotLine(batch, addrOnRoadMap)
+	err := or.flushDeleteBySnapshotLine(batch, addrOnRoadMap)
+	if err != nil {
+		oLog.Error(fmt.Sprintf("err:%v", err), "method", "DeleteSnapshotBlocks")
+		// TODO redo the plugin onroad_info
+	}
+
+	return nil
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
@@ -260,7 +318,8 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 					}*/
 
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return errors.New("conflict, fail to update onroad info")
+				oLog.Error(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return updateInfoErr
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -298,7 +357,8 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			diffNum := num.Sub(num, &signOm.number)
 			diffAmount := om.TotalAmount.Sub(&om.TotalAmount, &signOm.amount)
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return errors.New("conflict, fail to update onroad info")
+				oLog.Error(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return updateInfoErr
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)

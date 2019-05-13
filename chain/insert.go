@@ -56,6 +56,8 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 		}
 	}
 
+	c.cache.ResetUnconfirmedQuotas(c.GetAllUnconfirmedBlocks())
+
 	// only trigger
 	return invalidBlocks, nil
 }

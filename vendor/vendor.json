@@ -280,6 +280,12 @@
 			"revisionTime": "2017-04-05T19:55:58Z"
 		},
 		{
+			"checksumSHA1": "qY+sf82+prpiaufb12bthn9yueQ=",
+			"path": "github.com/jerry-vite/BoomFilters",
+			"revision": "29706a831293bb9b554b93105b69df5f81e6789d",
+			"revisionTime": "2019-05-09T13:27:10Z"
+		},
+		{
 			"checksumSHA1": "cxWudRxSgBo2pjN0xpRKCKlYxa4=",
 			"path": "github.com/magiconair/properties/assert",
 			"revision": "c2353362d570a7bfa228149c62842019201cfb71",

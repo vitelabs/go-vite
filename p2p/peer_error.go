@@ -22,6 +22,7 @@ const (
 	PeerUnmarshalError
 	PeerPayloadTooShort
 	PeerNoPermission
+	PeerDifferentGenesis
 )
 
 var peerErrStr = [...]string{
@@ -44,6 +45,7 @@ var peerErrStr = [...]string{
 	PeerUnmarshalError:      "message unmarshal error",
 	PeerPayloadTooShort:     "payload is too short",
 	PeerNoPermission:        "no permission",
+	PeerDifferentGenesis:    "different genesis",
 }
 
 func (e PeerError) String() string {

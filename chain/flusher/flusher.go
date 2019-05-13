@@ -94,6 +94,7 @@ func NewFlusher(storeList []Storage, flushMu *sync.RWMutex, chainDir string) (*F
 
 	return flusher, nil
 }
+
 func (flusher *Flusher) Close() error {
 	if err := flusher.fd.Close(); err != nil {
 		return err
@@ -102,6 +103,7 @@ func (flusher *Flusher) Close() error {
 }
 
 func (flusher *Flusher) ReplaceStore(id types.Hash, store Storage) {
+
 	flusher.flushingMu.Lock()
 	defer flusher.flushingMu.Unlock()
 	flusher.idMap[id] = store
@@ -132,7 +134,7 @@ func (flusher *Flusher) Recover() error {
 	flusher.mu.Lock()
 	defer flusher.mu.Unlock()
 
-	redoLogList, stores, err := flusher.loadRedo()
+	redoLogList, stores, err := flusher.loadRedo(flusher.fd)
 	if err != nil || len(redoLogList) <= 0 {
 		flusher.cleanRedoLog()
 		return nil
@@ -144,6 +146,10 @@ func (flusher *Flusher) Recover() error {
 	}
 	flusher.afterRecover()
 	return nil
+}
+
+func (flusher *Flusher) LoadRedo(fd *os.File) ([][]byte, []Storage, error) {
+	return flusher.loadRedo(fd)
 }
 
 func (flusher *Flusher) loopFlush() {
@@ -171,29 +177,44 @@ func (flusher *Flusher) flush() {
 	defer flusher.flushingMu.Unlock()
 
 	// prepare, lock write
+	flusher.log.Info("start prepare")
 	flusher.prepare()
+	flusher.log.Info("prepare finish")
 
 	// write redo log
-	flusher.writeRedoLog()
+	flusher.log.Info("start write redo log")
+	if err := flusher.writeRedoLog(); err != nil {
+		return
+	}
+	flusher.log.Info("finish writing redo log")
 
 	// sync redo log
 	// if sync redo log failed, stop flushing and cancel prepare
 	// lock write when cancel prepare
+
+	flusher.log.Info("sync write redo log")
 	if !flusher.syncRedoLog() {
 		return
 	}
+	flusher.log.Info("finish sync writing redo log")
 
 	// commit
+	flusher.log.Info("start commit")
 	err := flusher.commit()
+	flusher.log.Info("finish committing")
 
 	// after commit, lock write
+	flusher.log.Info("after commit")
 	flusher.afterCommit()
+	flusher.log.Info("finish after committing")
 
 	// redo
 	if err != nil {
+		flusher.log.Info("commit redo")
 		if err := flusher.commitRedo(); err != nil {
 			panic(err)
 		}
+		flusher.log.Info("finish committing redo")
 	}
 
 	// clean redo log
@@ -202,7 +223,7 @@ func (flusher *Flusher) flush() {
 
 func (flusher *Flusher) commitRedo() error {
 
-	redoLogList, stores, err := flusher.loadRedo()
+	redoLogList, stores, err := flusher.loadRedo(flusher.fd)
 	if err != nil {
 		panic(err)
 	}
@@ -211,8 +232,8 @@ func (flusher *Flusher) commitRedo() error {
 
 }
 
-func (flusher *Flusher) loadRedo() ([][]byte, []Storage, error) {
-	fileSize, err := fileutils.FileSize(flusher.fd)
+func (flusher *Flusher) loadRedo(fd *os.File) ([][]byte, []Storage, error) {
+	fileSize, err := fileutils.FileSize(fd)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -312,10 +333,10 @@ func (flusher *Flusher) prepare() {
 	flusher.mu.Unlock()
 }
 
-func (flusher *Flusher) writeRedoLog() {
+func (flusher *Flusher) writeRedoLog() error {
 	// write redo (sum)
 	if err := flusher.cleanRedoLog(); err != nil {
-		return
+		return err
 	}
 
 	redoLogLengthBytes := make([]byte, 4)
@@ -324,8 +345,9 @@ func (flusher *Flusher) writeRedoLog() {
 
 		redoLog, err := store.RedoLog()
 		if err != nil {
-			flusher.log.Error(fmt.Sprintf("store.Buf failed. Error: %s", err.Error()), "method", "Flush")
-			return
+			fErr := errors.New(fmt.Sprintf("store.Buf failed. Error: %s", err.Error()))
+			flusher.log.Error(fErr.Error(), "method", "Flush")
+			return fErr
 		}
 
 		redoLogLength := uint32(len(redoLog))
@@ -336,26 +358,34 @@ func (flusher *Flusher) writeRedoLog() {
 
 		id := store.Id()
 		if _, err := flusher.fd.Write(id.Bytes()); err != nil {
-			flusher.log.Error(fmt.Sprintf("write failed. Error: %s", err.Error()), "method", "Flush")
-			return
+			fErr := errors.New(fmt.Sprintf("write failed. Error: %s", err.Error()))
+
+			flusher.log.Error(fErr.Error(), "method", "Flush")
+			return fErr
 		}
 
 		binary.BigEndian.PutUint32(redoLogLengthBytes, redoLogLength)
 		if _, err := flusher.fd.Write(redoLogLengthBytes); err != nil {
-			flusher.log.Error(fmt.Sprintf("write failed. Error: %s", err.Error()), "method", "Flush")
-			return
+			fErr := errors.New(fmt.Sprintf("write failed. Error: %s", err.Error()))
+
+			flusher.log.Error(fErr.Error(), "method", "Flush")
+			return fErr
 		}
 
 		if _, err := flusher.fd.Write(redoLog); err != nil {
-			flusher.log.Error(fmt.Sprintf("write failed. Error: %s", err.Error()), "method", "Flush")
-			return
+			fErr := errors.New(fmt.Sprintf("write failed. Error: %s", err.Error()))
+
+			flusher.log.Error(fErr.Error(), "method", "Flush")
+			return fErr
 		}
 	}
 
 	if _, err := flusher.fd.Write(flusher.startCommitFlag.Bytes()); err != nil {
-		flusher.log.Error(fmt.Sprintf("write failed. Error: %s", err.Error()), "method", "Flush")
-		return
+		fErr := errors.New(fmt.Sprintf("write failed. Error: %s", err.Error()))
+		flusher.log.Error(fErr.Error(), "method", "Flush")
+		return fErr
 	}
+	return nil
 
 }
 

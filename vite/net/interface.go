@@ -241,4 +241,5 @@ type Net interface {
 	Start(svr p2p.P2P) error
 	Stop() error
 	Info() NodeInfo
+	Trace()
 }

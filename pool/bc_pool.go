@@ -18,8 +18,9 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 )
 
+// BCPool is the basis for account pool and snapshot pool
 type BCPool struct {
-	Id  string
+	ID  string
 	log log15.Logger
 
 	blockpool *blockPool
@@ -33,8 +34,7 @@ type BCPool struct {
 	chainTailMu sync.Mutex
 	chainHeadMu sync.Mutex
 
-	LIMIT_HEIGHT      uint64
-	LIMIT_LONGEST_NUM uint64
+	limitLongestNum uint64
 
 	rstat *recoverStat
 }
@@ -49,22 +49,22 @@ type chain struct {
 	heightBlocks map[uint64]commonBlock
 	headHeight   uint64 //  forkedChain size is zero when headHeight==tailHeight
 	tailHeight   uint64
-	chainId      string
+	chainID      string
 }
 
-func (self *chain) size() uint64 {
-	return self.headHeight - self.tailHeight
+func (c *chain) size() uint64 {
+	return c.headHeight - c.tailHeight
 }
-func (self *chain) HeadHeight() uint64 {
-	return self.headHeight
-}
-
-func (self *chain) ChainId() string {
-	return self.chainId
+func (c *chain) HeadHeight() uint64 {
+	return c.headHeight
 }
 
-func (self *chain) id() string {
-	return self.chainId
+func (c *chain) ChainID() string {
+	return c.chainID
+}
+
+func (c *chain) id() string {
+	return c.chainID
 }
 
 type snippetChain struct {
@@ -77,7 +77,7 @@ type snippetChain struct {
 
 func newSnippetChain(w commonBlock, id string) *snippetChain {
 	self := &snippetChain{}
-	self.chainId = id
+	self.chainID = id
 	self.heightBlocks = make(map[uint64]commonBlock)
 	self.headHeight = w.Height()
 	self.headHash = w.Hash()
@@ -88,103 +88,101 @@ func newSnippetChain(w commonBlock, id string) *snippetChain {
 	return self
 }
 
-func (self *snippetChain) addTail(w commonBlock) {
-	self.tailHash = w.PrevHash()
-	self.tailHeight = w.Height() - 1
-	self.heightBlocks[w.Height()] = w
-	self.utime = time.Now()
+func (sc *snippetChain) addTail(w commonBlock) {
+	sc.tailHash = w.PrevHash()
+	sc.tailHeight = w.Height() - 1
+	sc.heightBlocks[w.Height()] = w
+	sc.utime = time.Now()
 }
-func (self *snippetChain) deleteTail(newtail commonBlock) {
-	self.tailHash = newtail.Hash()
-	self.tailHeight = newtail.Height()
-	delete(self.heightBlocks, newtail.Height())
+func (sc *snippetChain) deleteTail(newtail commonBlock) {
+	sc.tailHash = newtail.Hash()
+	sc.tailHeight = newtail.Height()
+	delete(sc.heightBlocks, newtail.Height())
 }
-func (self *snippetChain) remTail() commonBlock {
-	newTail := self.heightBlocks[self.tailHeight+1]
+func (sc *snippetChain) remTail() commonBlock {
+	newTail := sc.heightBlocks[sc.tailHeight+1]
 	if newTail == nil {
 		return nil
 	}
-	self.deleteTail(newTail)
+	sc.deleteTail(newTail)
 	return newTail
 }
 
-func (self *snippetChain) merge(snippet *snippetChain) {
-	self.tailHeight = snippet.tailHeight
-	self.tailHash = snippet.tailHash
+func (sc *snippetChain) merge(snippet *snippetChain) {
+	sc.tailHeight = snippet.tailHeight
+	sc.tailHash = snippet.tailHash
 	for k, v := range snippet.heightBlocks {
-		self.heightBlocks[k] = v
+		sc.heightBlocks[k] = v
 	}
-	self.utime = time.Now()
+	sc.utime = time.Now()
 }
 
-func (self *snippetChain) info() map[string]interface{} {
+func (sc *snippetChain) info() map[string]interface{} {
 	result := make(map[string]interface{})
-	result["TailHeight"] = self.tailHeight
-	result["TailHash"] = self.tailHash
-	result["HeadHeight"] = self.headHeight
-	result["HeadHash"] = self.headHash
-	result["Id"] = self.id()
+	result["TailHeight"] = sc.tailHeight
+	result["TailHash"] = sc.tailHash
+	result["HeadHeight"] = sc.headHeight
+	result["HeadHash"] = sc.headHash
+	result["Id"] = sc.id()
 	return result
 }
-func (self *snippetChain) getBlock(height uint64) commonBlock {
-	block, ok := self.heightBlocks[height]
+func (sc *snippetChain) getBlock(height uint64) commonBlock {
+	block, ok := sc.heightBlocks[height]
 	if ok {
 		return block
-	} else {
-		return nil
 	}
+	return nil
 }
 
-func (self *BCPool) init(tools *tools) {
-	self.tools = tools
+func (bcp *BCPool) init(tools *tools) {
+	bcp.tools = tools
 
-	self.LIMIT_HEIGHT = 75 * 2
-	self.LIMIT_LONGEST_NUM = 3
-	self.rstat = (&recoverStat{}).init(10, 10*time.Second)
-	self.initPool()
+	bcp.limitLongestNum = 3
+	bcp.rstat = (&recoverStat{}).init(10, 10*time.Second)
+	bcp.initPool()
 }
 
-func (self *BCPool) initPool() {
-	diskChain := &branchChain{chainId: self.Id + "-diskchain", rw: self.tools.rw, v: self.version}
+func (bcp *BCPool) initPool() {
+	diskChain := &branchChain{chainID: bcp.ID + "-diskchain", rw: bcp.tools.rw, v: bcp.version}
 
 	t := tree.NewTree()
 	chainpool := &chainPool{
-		poolId:    self.Id,
+		poolID:    bcp.ID,
 		diskChain: diskChain,
 		tree:      t,
-		log:       self.log,
+		log:       bcp.log,
 	}
 	chainpool.init()
 	blockpool := &blockPool{
 		freeBlocks: make(map[types.Hash]commonBlock),
 	}
-	self.chainpool = chainpool
-	self.blockpool = blockpool
+	bcp.chainpool = chainpool
+	bcp.blockpool = blockpool
 }
 
-func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
+func (bcp *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	if len(blocks) <= 0 {
 		return nil
 	}
-	cur := self.CurrentChain()
+	cur := bcp.CurrentChain()
 	curTailHeight, curTailHash := cur.TailHH()
 	// from small to big
 	sort.Sort(ByHeight(blocks))
 
-	self.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
-		"currentId", cur.Id())
-	disk := self.chainpool.diskChain
+	bcp.log.Info("rollbackCurrent", "start", blocks[0].Height(), "end", blocks[len(blocks)-1].Height(), "size", len(blocks),
+		"currentId", cur.ID())
+	disk := bcp.chainpool.diskChain
 	headHeight, headHash := disk.HeadHH()
 
-	err := self.checkChain(blocks)
+	err := bcp.checkChain(blocks)
 	if err != nil {
-		self.log.Info("check chain fail." + self.printf(blocks))
+		bcp.log.Info("check chain fail." + bcp.printf(blocks))
 		panic(err)
 		return err
 	}
 
 	if cur.Linked(disk) {
-		self.log.Info("poolChain and db is connected.", "headHeight", headHeight, "headHash", headHash)
+		bcp.log.Info("poolChain and db is connected.", "headHeight", headHeight, "headHash", headHash)
 		return nil
 	}
 
@@ -193,36 +191,36 @@ func (self *BCPool) rollbackCurrent(blocks []commonBlock) error {
 	longest := blocks[h]
 	if headHeight+1 != smallest.Height() || headHash != smallest.PrevHash() {
 		for _, v := range blocks {
-			self.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
+			bcp.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
 		}
-		self.log.Crit("error for db fail.", "headHeight", headHeight, "headHash", headHash, "smallestHeight", smallest.Height(), "err", errors.New(self.Id+" disk chain height hash check fail"))
-		return errors.New(self.Id + " disk chain height hash check fail")
+		bcp.log.Crit("error for db fail.", "headHeight", headHeight, "headHash", headHash, "smallestHeight", smallest.Height(), "err", errors.New(bcp.ID+" disk chain height hash check fail"))
+		return errors.New(bcp.ID + " disk chain height hash check fail")
 	}
 
 	if curTailHeight != longest.Height() || curTailHash != longest.Hash() {
 		for _, v := range blocks {
-			self.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
+			bcp.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
 		}
-		self.log.Crit("error for db fail.", "tailHeight", curTailHeight, "tailHash", curTailHash, "longestHeight", longest.Height(), "err", errors.New(self.Id+" current chain height hash check fail"))
-		return errors.New(self.Id + " current chain height hash check fail")
+		bcp.log.Crit("error for db fail.", "tailHeight", curTailHeight, "tailHash", curTailHash, "longestHeight", longest.Height(), "err", errors.New(bcp.ID+" current chain height hash check fail"))
+		return errors.New(bcp.ID + " current chain height hash check fail")
 	}
-	main := self.chainpool.tree.Main()
+	main := bcp.chainpool.tree.Main()
 	for i := h; i >= 0; i-- {
-		err := self.chainpool.tree.AddTail(main, blocks[i])
+		err := bcp.chainpool.tree.AddTail(main, blocks[i])
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	err = tree.CheckTree(self.chainpool.tree)
+	err = tree.CheckTree(bcp.chainpool.tree)
 	if err != nil {
-		self.log.Error("rollbackCurrent check", "err", err)
+		bcp.log.Error("rollbackCurrent check", "err", err)
 	}
 	return nil
 }
 
 // check blocks is a chain
-func (self *BCPool) checkChain(blocks []commonBlock) error {
+func (bcp *BCPool) checkChain(blocks []commonBlock) error {
 	var prev commonBlock
 	for _, b := range blocks {
 		if prev == nil {
@@ -230,10 +228,10 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 			continue
 		}
 		if b.PrevHash() != prev.Hash() {
-			return errors.New("not a chain.")
+			return errors.New("not a chain")
 		}
 		if b.Height()-1 != prev.Height() {
-			return errors.New("not a chain.")
+			return errors.New("not a chain")
 		}
 		prev = b
 	}
@@ -241,7 +239,7 @@ func (self *BCPool) checkChain(blocks []commonBlock) error {
 }
 
 // check blocks is a chain
-func (self *BCPool) printf(blocks []commonBlock) string {
+func (bcp *BCPool) printf(blocks []commonBlock) string {
 	result := ""
 	for _, v := range blocks {
 		result += fmt.Sprintf("[%d-%s-%s]", v.Height(), v.Hash(), v.PrevHash())
@@ -249,122 +247,102 @@ func (self *BCPool) printf(blocks []commonBlock) string {
 	return result
 }
 
-func checkHeadTailLink(c1 tree.Branch, c2 tree.Branch) error {
-	if c1.Linked(c2) {
-		return nil
-	}
-	return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
-		c1.Id(), c2.Id(), c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
-}
-func checkLink(c1 tree.Branch, c2 tree.Branch, refer bool) error {
-	tailHeight, tailHash := c1.TailHH()
-	block := c2.GetKnot(tailHeight, refer)
-	if block == nil {
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
-			c1.Id(), c2.Id(), refer,
-			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
-	} else if block.Hash() != tailHash {
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s, hash[%s-%s]",
-			c1.Id(), c2.Id(), refer,
-			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead(), block.Hash(), tailHash))
-	}
-	return nil
-}
-
-func (self *blockPool) sprint(hash types.Hash) (commonBlock, *string) {
-	b1, free := self.freeBlocks[hash]
+func (bp *blockPool) sprint(hash types.Hash) (commonBlock, *string) {
+	b1, free := bp.freeBlocks[hash]
 	if free {
 		return b1, nil
 	}
-	_, compound := self.compoundBlocks.Load(hash)
+	_, compound := bp.compoundBlocks.Load(hash)
 	if compound {
 		s := "compound" + hash.String()
 		return nil, &s
 	}
 	return nil, nil
 }
-func (self *blockPool) containsHash(hash types.Hash) bool {
-	_, free := self.freeBlocks[hash]
-	_, compound := self.compoundBlocks.Load(hash)
+func (bp *blockPool) containsHash(hash types.Hash) bool {
+	_, free := bp.freeBlocks[hash]
+	_, compound := bp.compoundBlocks.Load(hash)
 	return free || compound
 }
 
-func (self *blockPool) putBlock(hash types.Hash, pool commonBlock) {
-	self.freeBlocks[hash] = pool
+func (bp *blockPool) putBlock(hash types.Hash, pool commonBlock) {
+	bp.freeBlocks[hash] = pool
 }
 
-func (self *blockPool) compound(w commonBlock) {
-	self.pendingMu.Lock()
-	defer self.pendingMu.Unlock()
-	self.compoundBlocks.Store(w.Hash(), true)
-	delete(self.freeBlocks, w.Hash())
+func (bp *blockPool) compound(w commonBlock) {
+	bp.pendingMu.Lock()
+	defer bp.pendingMu.Unlock()
+	bp.compoundBlocks.Store(w.Hash(), true)
+	delete(bp.freeBlocks, w.Hash())
 }
 
-func (self *blockPool) delFromCompound(ws map[uint64]commonBlock) {
-	self.pendingMu.Lock()
-	defer self.pendingMu.Unlock()
+func (bp *blockPool) delFromCompound(ws map[uint64]commonBlock) {
+	bp.pendingMu.Lock()
+	defer bp.pendingMu.Unlock()
 	for _, b := range ws {
-		self.compoundBlocks.Delete(b.Hash())
+		bp.compoundBlocks.Delete(b.Hash())
 	}
 }
 
-func (self *blockPool) delHashFromCompound(hash types.Hash) {
-	self.pendingMu.Lock()
-	defer self.pendingMu.Unlock()
-	self.compoundBlocks.Delete(hash)
+func (bp *blockPool) delHashFromCompound(hash types.Hash) {
+	bp.pendingMu.Lock()
+	defer bp.pendingMu.Unlock()
+	bp.compoundBlocks.Delete(hash)
 }
 
-func (self *BCPool) AddBlock(block commonBlock) {
-	self.blockpool.pendingMu.Lock()
-	defer self.blockpool.pendingMu.Unlock()
+func (bcp *BCPool) addBlock(block commonBlock) {
+	bcp.blockpool.pendingMu.Lock()
+	defer bcp.blockpool.pendingMu.Unlock()
 	hash := block.Hash()
 	height := block.Height()
-	if !self.blockpool.containsHash(hash) && !self.chainpool.tree.Exists(hash) {
-		self.blockpool.putBlock(hash, block)
+	if !bcp.blockpool.containsHash(hash) && !bcp.chainpool.tree.Exists(hash) {
+		bcp.blockpool.putBlock(hash, block)
 	} else {
 		monitor.LogEvent("pool", "addDuplication")
 		// todo online del
-		self.log.Warn(fmt.Sprintf("block exists in BCPool. hash:[%s], height:[%d].", hash, height))
+		bcp.log.Warn(fmt.Sprintf("block exists in BCPool. hash:[%s], height:[%d].", hash, height))
 	}
 }
-func (self *BCPool) existInPool(hashes types.Hash) bool {
-	self.blockpool.pendingMu.Lock()
-	defer self.blockpool.pendingMu.Unlock()
-	return self.blockpool.containsHash(hashes) || self.chainpool.tree.Exists(hashes)
+func (bcp *BCPool) existInPool(hashes types.Hash) bool {
+	bcp.blockpool.pendingMu.Lock()
+	defer bcp.blockpool.pendingMu.Unlock()
+	return bcp.blockpool.containsHash(hashes) || bcp.chainpool.tree.Exists(hashes)
 }
 
+// ByHeight sorts commonBlock by height
 type ByHeight []commonBlock
 
 func (a ByHeight) Len() int           { return len(a) }
 func (a ByHeight) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByHeight) Less(i, j int) bool { return a[i].Height() < a[j].Height() }
 
+// ByTailHeight sorts snippetChain by tail height
 type ByTailHeight []*snippetChain
 
 func (a ByTailHeight) Len() int           { return len(a) }
 func (a ByTailHeight) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByTailHeight) Less(i, j int) bool { return a[i].tailHeight < a[j].tailHeight }
 
-func (self *BCPool) loopGenSnippetChains() int {
-	if len(self.blockpool.freeBlocks) == 0 {
+func (bcp *BCPool) loopGenSnippetChains() int {
+	if len(bcp.blockpool.freeBlocks) == 0 {
 		return 0
 	}
 
 	i := 0
 	// todo why copy ?
-	sortPending := copyValuesFrom(self.blockpool.freeBlocks, &self.blockpool.pendingMu)
+	sortPending := copyValuesFrom(bcp.blockpool.freeBlocks, &bcp.blockpool.pendingMu)
 	sort.Sort(sort.Reverse(ByHeight(sortPending)))
 
 	// todo why copy ?
-	chains := copyMap(self.chainpool.snippetChains)
+	chains := copyMap(bcp.chainpool.snippetChains)
 
 	for _, v := range sortPending {
 		if !tryInsert(chains, v) {
-			snippet := newSnippetChain(v, self.chainpool.genChainId())
+			snippet := newSnippetChain(v, bcp.chainpool.genChainID())
 			chains = append(chains, snippet)
 		}
 		i++
-		self.blockpool.compound(v)
+		bcp.blockpool.compound(v)
 	}
 
 	headMap := splitToMap(chains)
@@ -384,58 +362,57 @@ func (self *BCPool) loopGenSnippetChains() int {
 	for _, v := range headMap {
 		final[v.id()] = v
 	}
-	self.chainpool.snippetChains = final
+	bcp.chainpool.snippetChains = final
 	return i
 }
 
-func (self *BCPool) loopAppendChains() int {
-	if len(self.chainpool.snippetChains) == 0 {
+func (bcp *BCPool) loopAppendChains() int {
+	if len(bcp.chainpool.snippetChains) == 0 {
 		return 0
 	}
 	i := 0
-	sortSnippets := copyMap(self.chainpool.snippetChains)
+	sortSnippets := copyMap(bcp.chainpool.snippetChains)
 	sort.Sort(ByTailHeight(sortSnippets))
 
-	tmpChains := self.chainpool.allChain()
+	tmpChains := bcp.chainpool.allChain()
 
 	for _, w := range sortSnippets {
-		forky, insertable, c, err := self.chainpool.fork2(w, tmpChains, self.blockpool)
+		forky, insertable, c, err := bcp.chainpool.fork2(w, tmpChains, bcp.blockpool)
 		if err != nil {
-			self.delSnippet(w)
-			self.log.Error("fork to error.", "err", err)
+			bcp.delSnippet(w)
 			continue
 		}
 		if forky {
 			i++
-			newChain, err := self.chainpool.forkChain(c, w)
+			newChain, err := bcp.chainpool.forkChain(c, w)
 			if err == nil {
-				self.delSnippet(w)
+				bcp.delSnippet(w)
 				// todo
-				self.log.Info(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.Id(), c.SprintHead(), c.SprintTail(), newChain.Id(), newChain.SprintHead(), newChain.SprintTail()))
+				bcp.log.Info(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.ID(), c.SprintHead(), c.SprintTail(), newChain.ID(), newChain.SprintHead(), newChain.SprintTail()))
 			}
 			continue
 		}
 		if insertable {
 			i++
-			err := self.chainpool.insertSnippet(c, w)
+			err := bcp.chainpool.insertSnippet(c, w)
 			if err != nil {
-				self.log.Error("insert fail.", "err", err)
+				bcp.log.Error("insert fail.", "err", err)
 			}
-			self.delSnippet(w)
+			bcp.delSnippet(w)
 			continue
 		}
 	}
 
 	return i
 }
-func (self *BCPool) loopFetchForSnippets() int {
-	if len(self.chainpool.snippetChains) == 0 {
+func (bcp *BCPool) loopFetchForSnippets() int {
+	if len(bcp.chainpool.snippetChains) == 0 {
 		return 0
 	}
-	sortSnippets := copyMap(self.chainpool.snippetChains)
+	sortSnippets := copyMap(bcp.chainpool.snippetChains)
 	sort.Sort(ByTailHeight(sortSnippets))
 
-	cur := self.CurrentChain()
+	cur := bcp.CurrentChain()
 	headH, _ := cur.HeadHH()
 	head := new(big.Int).SetUint64(headH)
 
@@ -477,27 +454,33 @@ func (self *BCPool) loopFetchForSnippets() int {
 		}
 		i++
 		hash := ledger.HashHeight{Hash: w.tailHash, Height: w.tailHeight}
-		self.tools.fetcher.fetch(hash, diff.Uint64())
+		bcp.tools.fetcher.fetch(hash, diff.Uint64())
 
 		prev.SetUint64(w.headHeight)
 	}
 	return i
 }
 
-func (self *BCPool) CurrentModifyToChain(target tree.Branch, hashH *ledger.HashHeight) error {
-	return self.chainpool.tree.SwitchMainTo(target)
+// CurrentModifyToChain switch target branch to main branch
+func (bcp *BCPool) CurrentModifyToChain(target tree.Branch) error {
+	t := bcp.chainpool.tree
+	main := t.Main()
+	bcp.log.Info("current modify", "targetId", target.ID(), "TargetTail", target.SprintTail(), "currentId", main.ID(), "CurrentTail", main.SprintTail())
+	return t.SwitchMainTo(target)
 }
 
-func (self *BCPool) CurrentModifyToEmpty() error {
-	return self.chainpool.tree.SwitchMainToEmpty()
+// CurrentModifyToEmpty switch empty branch to main branch
+func (bcp *BCPool) CurrentModifyToEmpty() error {
+	return bcp.chainpool.tree.SwitchMainToEmpty()
 }
 
-func (self *BCPool) LongerChain(minHeight uint64) []tree.Branch {
+// LongerChain looks for branches that are longer than the main branch
+func (bcp *BCPool) LongerChain(minHeight uint64) []tree.Branch {
 	var result []tree.Branch
-	readers := self.chainpool.allChain()
-	current := self.CurrentChain()
+	readers := bcp.chainpool.allChain()
+	current := bcp.CurrentChain()
 	for _, reader := range readers {
-		if current.Id() == reader.Id() {
+		if current.ID() == reader.ID() {
 			continue
 		}
 		height, _ := reader.HeadHH()
@@ -508,48 +491,48 @@ func (self *BCPool) LongerChain(minHeight uint64) []tree.Branch {
 	return result
 }
 
-func (self *BCPool) CurrentChain() tree.Branch {
-	return self.chainpool.tree.Main()
+// CurrentChain returns the main branch
+func (bcp *BCPool) CurrentChain() tree.Branch {
+	return bcp.chainpool.tree.Main()
 }
 
-func (self *BCPool) loop() {
+func (bcp *BCPool) loop() {
 	for {
-		self.loopGenSnippetChains()
-		self.loopAppendChains()
-		self.loopFetchForSnippets()
-		//self.CheckCurrentInsert()
+		bcp.loopGenSnippetChains()
+		bcp.loopAppendChains()
+		bcp.loopFetchForSnippets()
 		time.Sleep(time.Second)
 	}
 }
 
-func (self *BCPool) loopDelUselessChain() {
-	self.chainHeadMu.Lock()
-	defer self.chainHeadMu.Unlock()
+func (bcp *BCPool) loopDelUselessChain() {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
 
-	self.chainTailMu.Lock()
-	defer self.chainTailMu.Unlock()
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
 
-	for _, c := range self.chainpool.snippetChains {
+	for _, c := range bcp.chainpool.snippetChains {
 		if c.utime.Add(time.Minute * 5).Before(time.Now()) {
-			self.delSnippet(c)
-			self.log.Info(fmt.Sprintf("delete snippet[%s][%d-%s][%d-%s]", c.id(), c.headHeight, c.headHash, c.tailHeight, c.tailHash))
+			bcp.delSnippet(c)
+			bcp.log.Info(fmt.Sprintf("delete snippet[%s][%d-%s][%d-%s]", c.id(), c.headHeight, c.headHash, c.tailHeight, c.tailHash))
 		}
 	}
 
-	dels := self.chainpool.tree.PruneTree()
+	dels := bcp.chainpool.tree.PruneTree()
 	for _, c := range dels {
-		self.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.Id()), "tail", c.SprintTail(), "height", c.SprintHead())
+		bcp.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.ID()), "tail", c.SprintTail(), "height", c.SprintHead())
 	}
 }
 
-func (self *BCPool) delSnippet(c *snippetChain) {
-	delete(self.chainpool.snippetChains, c.id())
-	self.blockpool.delFromCompound(c.heightBlocks)
+func (bcp *BCPool) delSnippet(c *snippetChain) {
+	delete(bcp.chainpool.snippetChains, c.id())
+	bcp.blockpool.delFromCompound(c.heightBlocks)
 }
-func (self *BCPool) info() map[string]interface{} {
+func (bcp *BCPool) info() map[string]interface{} {
 	result := make(map[string]interface{})
-	bp := self.blockpool
-	cp := self.chainpool
+	bp := bcp.blockpool
+	cp := bcp.chainpool
 
 	result["FreeSize"] = len(bp.freeBlocks)
 	result["CompoundSize"] = common.SyncMapLen(&bp.compoundBlocks)
@@ -573,16 +556,23 @@ func (self *BCPool) info() map[string]interface{} {
 	return result
 }
 
-func (self *BCPool) detailChain(id string) map[string]interface{} {
-	//c := self.chainpool.getChain(id)
-	//if c != nil {
-	//	return c.detail()
-	//}
-	//s := self.chainpool.snippetChains[id]
-	//if s != nil {
-	//	return s.detail()
-	//}
+func (bcp *BCPool) detailChain(id string) map[string]interface{} {
+	// todo
 	return nil
+}
+
+func (bcp *BCPool) checkCurrent() {
+	main := bcp.CurrentChain()
+	tailHeight, tailHash := main.TailHH()
+	headHeight, headHash := bcp.chainpool.diskChain.HeadHH()
+	if headHeight != tailHeight || headHash != tailHash {
+		panic(fmt.Sprintf("pool[%s] tail[%d-%s], chain head[%d-%s]",
+			main.ID(), tailHeight, tailHash, headHeight, headHash))
+	}
+	err := tree.CheckTree(bcp.chainpool.tree)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func splitToMap(chains []*snippetChain) map[types.Hash]*snippetChain {

@@ -115,8 +115,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
-		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
-		return nil, cErr
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
@@ -163,7 +162,8 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.em.Trigger(prepareDeleteSbsEvent) failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback index db

@@ -13,89 +13,88 @@ import (
 
 type branchChain struct {
 	rw      chainRw
-	chainId string
+	chainID string
 	v       *common.Version
 	head    *ledger.HashHeight
 }
 
-func (self *branchChain) RemoveTail(k tree.Knot) error {
+func (disk *branchChain) RemoveTail(k tree.Knot) error {
 	panic("implement me")
 }
 
-func (self *branchChain) MatchHead(hash types.Hash) bool {
-	_, h := self.HeadHH()
+func (disk *branchChain) MatchHead(hash types.Hash) bool {
+	_, h := disk.HeadHH()
 	return hash == h
 }
 
-func (self *branchChain) Linked(root tree.Branch) bool {
+func (disk *branchChain) Linked(root tree.Branch) bool {
 	panic("not support")
 }
 
-func (self *branchChain) AddTail(k tree.Knot) {
+func (disk *branchChain) AddTail(k tree.Knot) {
 	panic("not support")
 }
 
-func (self *branchChain) SprintTail() string {
+func (disk *branchChain) SprintTail() string {
 	return "DISK TAIL"
 }
 
-func (self *branchChain) SprintHead() string {
-	h1, h2 := self.HeadHH()
+func (disk *branchChain) SprintHead() string {
+	h1, h2 := disk.HeadHH()
 	return fmt.Sprintf("%d-%s", h1, h2)
 }
 
-func (self *branchChain) GetKnotAndBranch(height uint64) (tree.Knot, tree.Branch) {
-	return self.GetKnot(height, true), self
+func (disk *branchChain) GetKnotAndBranch(height uint64) (tree.Knot, tree.Branch) {
+	return disk.GetKnot(height, true), disk
 }
 
-func (self *branchChain) TailHH() (uint64, types.Hash) {
+func (disk *branchChain) TailHH() (uint64, types.Hash) {
 	panic("not support")
 }
 
-func (self *branchChain) Size() uint64 {
-	u, _ := self.HeadHH()
+func (disk *branchChain) Size() uint64 {
+	u, _ := disk.HeadHH()
 	return u
 }
 
-func (self *branchChain) AddHead(k tree.Knot) error {
+func (disk *branchChain) AddHead(k tree.Knot) error {
 	panic("not support")
 }
 
-func (self *branchChain) GetKnot(height uint64, flag bool) tree.Knot {
-	return self.rw.getBlock(height)
+func (disk *branchChain) GetKnot(height uint64, flag bool) tree.Knot {
+	return disk.rw.getBlock(height)
 }
 
-func (self *branchChain) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {
+func (disk *branchChain) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {
 	panic("implement me")
 }
 
-func (self *branchChain) Head() commonBlock {
-	head := self.rw.head()
+func (disk *branchChain) Head() commonBlock {
+	head := disk.rw.head()
 	if head == nil {
-		return self.rw.getBlock(types.EmptyHeight) // hack implement
+		return disk.rw.getBlock(types.EmptyHeight) // hack implement
 	}
 
 	return head
 }
 
-func (self *branchChain) HeadHH() (uint64, types.Hash) {
-	h := self.head
+func (disk *branchChain) HeadHH() (uint64, types.Hash) {
+	h := disk.head
 	if h == nil {
-		head := self.Head()
-		//self.head = &ledger.HashHeight{Height: head.Height(), Hash: head.Hash()}
+		head := disk.Head()
 		return head.Height(), head.Hash()
 	}
 	return h.Height, h.Hash
 }
 
-func (self *branchChain) Root() tree.Branch {
+func (disk *branchChain) Root() tree.Branch {
 	panic("not support")
 }
 
-func (self *branchChain) Id() string {
-	return self.chainId
+func (disk *branchChain) ID() string {
+	return disk.chainID
 }
 
-func (self *branchChain) Type() tree.BranchType {
+func (disk *branchChain) Type() tree.BranchType {
 	return tree.Disk
 }
