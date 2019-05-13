@@ -162,6 +162,7 @@ func (h *handshaker) sendHandshake(codec Codec) (err error) {
 	binary.BigEndian.PutUint64(t, uint64(hsm.Timestamp))
 	hsm.IdToken = ed25519.Sign(h.peerKey, t)
 	if h.key != nil {
+		hsm.Key = h.key.PubByte()
 		hsm.Token = ed25519.Sign(h.key, t)
 	}
 
@@ -210,13 +211,15 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 
 	t := make([]byte, 8)
 	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
-	if len(their.Key) != 0 || len(their.Token) != 0 {
+	if len(their.Key) != 0 && len(their.Token) != 0 {
 		if false == ed25519.Verify(their.Key, t, their.Token) {
 			return nil, PeerInvalidSignature
 		}
 	}
-	if false == ed25519.Verify(their.ID.Bytes(), t, their.IdToken) {
-		return nil, PeerInvalidSignature
+	if len(their.IdToken) != 0 {
+		if false == ed25519.Verify(their.ID.Bytes(), t, their.IdToken) {
+			return nil, PeerInvalidSignature
+		}
 	}
 
 	return

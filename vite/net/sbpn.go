@@ -46,16 +46,17 @@ type sbpn struct {
 	peers     *peerSet
 	connect   Connector
 	consensus Consensus
+	dialing   map[peerId]struct{}
 }
 
-func newSbpn(mineKey ed25519.PrivateKey, peers *peerSet, connect Connector, consensus Consensus) *sbpn {
-	address := types.PubkeyToAddress(mineKey.PubByte())
+func newSbpn(self types.Address, peers *peerSet, connect Connector, consensus Consensus) *sbpn {
 	sn := &sbpn{
-		self:      address,
+		self:      self,
 		targets:   make(map[types.Address]*target),
 		peers:     peers,
 		connect:   connect,
 		consensus: consensus,
+		dialing:   make(map[peerId]struct{}),
 	}
 	consensus.SubscribeProducers(types.SNAPSHOT_GID, "sbpn", sn.receiveProducers)
 
@@ -79,8 +80,8 @@ func (f *sbpn) clean() {
 }
 
 func (f *sbpn) receiveProducers(event consensus.ProducersEvent) {
-	f.rw.RLock()
-	defer f.rw.RUnlock()
+	f.rw.Lock()
+	defer f.rw.Unlock()
 
 	for _, addr := range event.Addrs {
 		if addr == f.self {
@@ -93,9 +94,25 @@ func (f *sbpn) receiveProducers(event consensus.ProducersEvent) {
 				continue
 			}
 
-			go f.connect.ConnectNode(t.Node)
+			f.dial(t.Node)
 		}
 	}
+}
+
+func (f *sbpn) dial(node *vnode.Node) {
+	if _, ok := f.dialing[node.ID]; ok {
+		return
+	}
+	f.dialing[node.ID] = struct{}{}
+	go f.doDial(node)
+}
+
+func (f *sbpn) doDial(node *vnode.Node) {
+	_ = f.connect.ConnectNode(node)
+
+	f.rw.Lock()
+	delete(f.dialing, node.ID)
+	f.rw.Unlock()
 }
 
 func (f *sbpn) receiveNode(node *vnode.Node) {
