@@ -69,12 +69,21 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	return allChunksDeleted, nil
 }
-func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.SnapshotChunk, returnErr error) {
 	// lock flush
 	c.flushMu.RLock()
 	defer func() {
-		c.flushMu.RUnlock()
-		c.flusher.Flush()
+		if e := recover(); e != nil {
+			c.flusher.Stop()
+			c.flushMu.RUnlock()
+			panic(e)
+		} else {
+			c.flushMu.RUnlock()
+			if returnErr != nil {
+				c.flusher.Flush()
+			}
+		}
+
 	}()
 
 	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)

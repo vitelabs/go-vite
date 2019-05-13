@@ -55,9 +55,12 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 	return blocks, nil
 }
 
+func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return l.chain.GetAccountBlockByHash(blockHash)
+}
+
 func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetAccountBlockByHash(blockHash)
-
 	if getError != nil {
 		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
 
