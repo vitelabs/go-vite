@@ -57,6 +57,15 @@ func (block *RawTxBlock) RpcToLedgerBlock() (*ledger.AccountBlock, error) {
 	return copyRawTxToLedgerBlock(block)
 }
 
+func (block *RawTxBlock) ComputeHash() (*types.Hash, error) {
+	lAb, err := copyRawTxToLedgerBlock(block)
+	if err != nil {
+		return nil, err
+	}
+	hash := lAb.ComputeHash()
+	return &hash, nil
+}
+
 func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBlock, error) {
 	rpcBlock := &AccountBlock{}
 
@@ -248,6 +257,10 @@ func copyRawTxToLedgerBlock(rawTxAb *RawTxBlock) (*ledger.AccountBlock, error) {
 
 	if rawTxAb.LogHash != nil {
 		lAb.LogHash = rawTxAb.LogHash
+	}
+
+	if !types.IsContractAddr(rawTxAb.AccountAddress) {
+		return lAb, nil
 	}
 
 	if len(rawTxAb.SendBlockList) > 0 {
