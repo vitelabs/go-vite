@@ -154,6 +154,8 @@ type pool struct {
 
 	version *common.Version
 
+	rollbackVersion *common.Version
+
 	closed chan struct{}
 	wg     sync.WaitGroup
 
@@ -200,7 +202,7 @@ func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[strin
 
 // NewPool create a new BlockPool
 func NewPool(bc chainDb) (BlockPool, error) {
-	self := &pool{bc: bc, version: &common.Version{}}
+	self := &pool{bc: bc, version: &common.Version{}, rollbackVersion: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
 	if err != nil {
