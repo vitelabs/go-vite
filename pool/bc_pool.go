@@ -143,9 +143,9 @@ func (bcp *BCPool) init(tools *tools) {
 }
 
 func (bcp *BCPool) initPool() {
-	diskChain := &branchChain{chainID: bcp.ID + "-diskchain", rw: bcp.tools.rw, v: bcp.version}
-
 	t := tree.NewTree()
+	diskChain := &branchChain{chainID: bcp.ID + "-diskchain", rw: bcp.tools.rw, v: bcp.version, t: t}
+
 	chainpool := &chainPool{
 		poolID:    bcp.ID,
 		diskChain: diskChain,
@@ -474,7 +474,7 @@ func (bcp *BCPool) CurrentModifyToEmpty() error {
 	return bcp.chainpool.tree.SwitchMainToEmpty()
 }
 
-// LongerChain looks for branches that are longer than the main branch
+// LongerChain looks for branches that are longer than insert new chainthe main branch
 func (bcp *BCPool) LongerChain(minHeight uint64) []tree.Branch {
 	var result []tree.Branch
 	readers := bcp.chainpool.allChain()
@@ -523,6 +523,16 @@ func (bcp *BCPool) loopDelUselessChain() {
 	for _, c := range dels {
 		bcp.log.Debug("del useless chain", "info", fmt.Sprintf("%+v", c.ID()), "tail", c.SprintTail(), "height", c.SprintHead())
 	}
+}
+
+func (bcp *BCPool) delForIrreversible(height uint64, hash types.Hash) error {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
+
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
+
+	return nil
 }
 
 func (bcp *BCPool) delSnippet(c *snippetChain) {

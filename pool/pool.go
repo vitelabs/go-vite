@@ -594,6 +594,9 @@ func (pl *pool) broadcastUnConfirmedBlocks() {
 
 func (pl *pool) delUseLessChains() {
 	if pl.sync.SyncState() != net.Syncing {
+		info := pl.pendingSc.irreversible
+		pl.delChainsForIrreversible(info)
+
 		pl.pendingSc.loopDelUselessChain()
 		var pendings []*accountPool
 		pl.pendingAc.Range(func(_, v interface{}) bool {
@@ -605,6 +608,14 @@ func (pl *pool) delUseLessChains() {
 			v.loopDelUselessChain()
 		}
 	}
+}
+
+func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
+	rollbackV := pl.rollbackVersion.Val()
+	if info == nil || info.point == nil || info.rollbackV != rollbackV {
+		return
+	}
+	// todo
 }
 
 func (pl *pool) listPoolRelAddr() []types.Address {

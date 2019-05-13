@@ -84,3 +84,29 @@ func CheckTreeSize(t Tree) error {
 	}
 	return nil
 }
+
+func CheckTreeRing(tr Tree) error {
+	t := tr.(*tree)
+	bm := make(map[string]struct{})
+
+	err := checkTreeRing(bm, t.main)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkTreeRing(bm map[string]struct{}, b *branch) error {
+	children := b.allChildren()
+	for _, v := range children {
+		if _, ok := bm[v.ID()]; ok {
+			return errors.Errorf("ring for %s", v.ID())
+		}
+		bm[v.ID()] = struct{}{}
+		err := checkTreeRing(bm, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
