@@ -20,6 +20,14 @@ type mockPeer struct {
 	peerMap map[vnode.NodeID]struct{}
 }
 
+func (mp *mockPeer) Weight() int64 {
+	panic("implement me")
+}
+
+func (mp *mockPeer) Close(err error) error {
+	return nil
+}
+
 func (mp *mockPeer) Height() uint64 {
 	return mp.height
 }
@@ -80,10 +88,6 @@ func (mp *mockPeer) Info() p2p.PeerInfo {
 		ReadQueue:  0,
 		WriteQueue: 0,
 	}
-}
-
-func (mp *mockPeer) Close(err p2p.PeerError) error {
-	return nil
 }
 
 func (mp *mockPeer) Level() p2p.Level {

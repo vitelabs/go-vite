@@ -104,7 +104,7 @@ type peerMux struct {
 	fileAddress string
 }
 
-func (p *peerMux) weight() int64 {
+func (p *peerMux) Weight() int64 {
 	return time.Now().Unix() - p.createAt.Unix()
 }
 

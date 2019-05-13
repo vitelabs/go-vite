@@ -140,6 +140,15 @@ type mockCache struct {
 type mockCacheReader struct {
 	from, to uint64
 	height   uint64
+	verified bool
+}
+
+func (m *mockCacheReader) Verified() bool {
+	return m.verified
+}
+
+func (m *mockCacheReader) Verify() {
+	m.verified = true
 }
 
 func (m *mockCacheReader) Size() int64 {
@@ -222,7 +231,7 @@ func (m *mockCache) Chunks() interfaces.SegmentList {
 	return segments
 }
 
-func (m *mockCache) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
+func (m *mockCache) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
 	return &mockCacheReader{
 		from: segment.Bound[0],
 		to:   segment.Bound[1],
@@ -250,6 +259,10 @@ type mockSyncDownloader struct {
 	chain    interface {
 		GetSyncCache() interfaces.SyncCache
 	}
+}
+
+func (m *mockSyncDownloader) cancelTask(t *syncTask) {
+	panic("implement me")
 }
 
 func (m *mockSyncDownloader) loadSource(list []hashHeightPeers) {

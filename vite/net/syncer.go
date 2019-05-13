@@ -277,7 +277,7 @@ Wait:
 
 					// cancel rest tasks
 					s.cancelDownload()
-					s.reader.clean()
+					s.reader.pause()
 					return
 				}
 			} else {
@@ -286,7 +286,7 @@ Wait:
 				// no peers
 				// cancel rest tasks, keep cache
 				s.cancelDownload()
-				s.reader.reset()
+				s.reader.pause()
 				return
 			}
 
@@ -297,7 +297,7 @@ Wait:
 
 				// clean cache, cancel rest tasks
 				s.cancelDownload()
-				s.reader.clean()
+				s.reader.pause()
 				return
 			}
 
@@ -320,7 +320,7 @@ Wait:
 
 			// cancel rest tasks, keep cache
 			s.cancelDownload()
-			s.reader.reset()
+			s.reader.pause()
 			return
 		}
 	}
@@ -382,7 +382,6 @@ Start:
 	}
 
 	s.from = s.batchHeight + 1
-	cacheCompared := false
 
 	for {
 		select {
@@ -417,11 +416,7 @@ Start:
 
 		if point != nil {
 			tasks := constructTasks(point, points)
-			if false == cacheCompared {
-				tasks = s.reader.compareCache(tasks)
-				cacheCompared = true
-			}
-
+			tasks = s.reader.compareCache(tasks)
 			s.runTasks(tasks)
 
 			point = points[len(points)-1]
@@ -444,9 +439,7 @@ func (s *syncer) runTasks(ts syncTasks) {
 }
 
 func (s *syncer) cancelDownload() {
-	local := s.getHeight()
-
-	s.downloader.cancel(local)
+	s.downloader.cancelAllTasks()
 
 	s.cancel <- struct{}{}
 }

@@ -42,7 +42,7 @@ func TestSpeedToString(t *testing.T) {
 }
 
 func TestSyncHandshakeMsg_Serialize(t *testing.T) {
-	var s = syncHandshakeMsg{
+	var s = syncHandshake{
 		key:  make([]byte, 32),
 		time: time.Now(),
 		sign: make([]byte, 64),
@@ -265,7 +265,7 @@ func Test_wait_all(t *testing.T) {
 //	wg.Done()
 //}
 
-func compare(m1, m2 *syncReadyMsg) error {
+func compare(m1, m2 *syncResponse) error {
 	if m1.from != m2.from {
 		return fmt.Errorf("different from %d %d", m1.from, m2.from)
 	}
@@ -285,7 +285,7 @@ func compare(m1, m2 *syncReadyMsg) error {
 	return nil
 }
 func TestSyncReadyMsg(t *testing.T) {
-	var msg = &syncReadyMsg{
+	var msg = &syncResponse{
 		from:     117,
 		to:       1189,
 		size:     20293,
@@ -301,7 +301,7 @@ func TestSyncReadyMsg(t *testing.T) {
 		panic(err)
 	}
 
-	var msg2 = &syncReadyMsg{}
+	var msg2 = &syncResponse{}
 	err = msg2.deserialize(data)
 	if err != nil {
 		panic(err)

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -34,6 +35,7 @@ import (
 )
 
 var errReaderStopped = errors.New("cache reader stopped")
+var errReaderInterrupt = errors.New("cache reader interrupt")
 
 const maxQueueSize = 10 << 20 // 10MB
 const maxQueueLength = 5
@@ -44,9 +46,10 @@ type syncCacheReader interface {
 	stop()
 	compareCache(ts syncTasks) syncTasks
 	clean() // clean cache and reset
-	reset() // reset state (readTo and requestTo)
 	chunks() interfaces.SegmentList
 	queue() [][2]*ledger.HashHeight
+	pause()
+	resume()
 }
 
 type Chunks []*Chunk
@@ -72,8 +75,10 @@ type cacheReader struct {
 	mu      sync.Mutex
 	cond    *sync.Cond
 
-	readHeight   uint64
-	initReadDone chan struct{}
+	readHeight uint64
+
+	readable int32
+	reading  *interfaces.Segment
 
 	buffer Chunks
 	index  int
@@ -151,12 +156,12 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 
 func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) syncCacheReader {
 	s := &cacheReader{
-		chain:        chain,
-		verifier:     verifier,
-		downloader:   downloader,
-		buffer:       make(Chunks, 0, maxQueueLength),
-		log:          netLog.New("module", "cache"),
-		initReadDone: make(chan struct{}, 1),
+		chain:      chain,
+		verifier:   verifier,
+		downloader: downloader,
+		buffer:     make(Chunks, 0, maxQueueLength),
+		log:        netLog.New("module", "cache"),
+		readable:   1,
 	}
 
 	s.cond = sync.NewCond(&s.mu)
@@ -179,52 +184,8 @@ func (s *cacheReader) start() {
 	s.running = true
 	s.mu.Unlock()
 
-	go s.initReadChunks()
-}
-
-func (s *cacheReader) initReadChunks() {
-	current := s.chain.GetLatestSnapshotBlock()
-	s.readHeight = current.Height
-
-	cache := s.chain.GetSyncCache()
-	cs := cache.Chunks()
-
-	// set the init state
-	for _, c := range cs {
-		if c.Bound[1] <= current.Height || c.Bound[1]%syncTaskSize != 0 {
-			_ = cache.Delete(c)
-			continue
-		}
-
-		if c.Bound[0] > current.Height+1 {
-			break
-		}
-
-		s.readHeight = c.Bound[0] - 1
-	}
-
-	// read chunks
-	cs = cache.Chunks()
-	for _, c := range cs {
-		if s.running == false {
-			break
-		}
-
-		if c.Bound[0] == s.readHeight+1 {
-			chunk, err := s.read(c)
-			if err != nil {
-				_ = cache.Delete(c)
-				break
-			} else {
-				s.addChunkToBuffer(chunk)
-				s.readHeight = c.Bound[1]
-			}
-		} else {
-			break
-		}
-	}
-
-	s.initReadDone <- struct{}{}
+	s.wg.Add(1)
+	go s.readLoop()
 }
 
 func (s *cacheReader) stop() {
@@ -255,6 +216,7 @@ Loop:
 				continue
 			}
 
+			// task and segment is overlapped
 			if c.PrevHash != t.prevHash || c.Bound[0] != t.from || c.Bound[1] != t.to || c.Hash != t.endHash {
 				catch(c, t)
 				continue Loop
@@ -283,22 +245,40 @@ Loop:
 }
 
 func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
+	defer s.resume()
+
 	cs := s.chunks()
+	if len(cs) == 0 {
+		return ts
+	}
 
-	ts = compareCache(cs, ts, s.deleteInitChunk)
+	last := cs[len(cs)-1]
+	if last.Bound[1] < ts[0].from {
+		return ts
+	}
 
-	s.wg.Add(1)
-	go s.readLoop()
+	// chunk and tasks are overlapped
+	s.pause()
+	ts = compareCache(cs, ts, s.deleteChunk)
 
 	s.cond.Signal()
 
 	return ts
 }
 
-func (s *cacheReader) deleteInitChunk(segment interfaces.Segment, t *syncTask) {
+func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(segment)
 
+	s.mu.Lock()
+	reading := s.reading
+	s.mu.Unlock()
+
+	if reading != nil && reading.Bound[1] <= segment.Bound[1] {
+		s.pause()
+	}
+
+	// chunk has been read to buffer
 	if segment.Bound[1] <= s.readHeight {
 		s.mu.Lock()
 		for i, c := range s.buffer {
@@ -328,22 +308,22 @@ func (s *cacheReader) chunks() interfaces.SegmentList {
 }
 
 func (s *cacheReader) chunkDownloaded(t syncTask, err error) {
-	if err == nil {
-		s.cond.Signal()
-	}
+	s.cond.Signal()
 }
 
-func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, err error) {
-	s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", segment.Bound[0], segment.Bound[1], err))
-
-	cache := s.chain.GetSyncCache()
-	_ = cache.Delete(segment)
-	s.downloader.download(&syncTask{
-		from:     segment.Bound[0],
-		to:       segment.Bound[1],
-		prevHash: segment.PrevHash,
-		endHash:  segment.Hash,
-	}, true)
+func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
+	if fatal {
+		cache := s.chain.GetSyncCache()
+		err := cache.Delete(segment)
+		if err == nil {
+			s.downloader.download(&syncTask{
+				from:     segment.Bound[0],
+				to:       segment.Bound[1],
+				prevHash: segment.PrevHash,
+				endHash:  segment.Hash,
+			}, true)
+		}
+	}
 }
 
 func (s *cacheReader) clean() {
@@ -360,7 +340,7 @@ func (s *cacheReader) reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.readHeight = 0
+	s.readHeight = s.getHeight()
 	s.buffer = s.buffer[:0]
 	s.index = 0
 
@@ -378,20 +358,27 @@ func (s *cacheReader) removeUselessChunks(cleanWrongEnd bool) {
 				if c.Bound[1]%syncTaskSize != 0 {
 					_ = cache.Delete(c)
 				}
+			} else {
+				break
 			}
-			break
 		} else {
 			_ = cache.Delete(c)
 		}
 	}
 }
 
-func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
+func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err error) {
+	fatal = true
+
 	cache := s.chain.GetSyncCache()
 	reader, err := cache.NewReader(c)
 	if err != nil {
 		return
 	}
+
+	s.mu.Lock()
+	s.reading = &c
+	s.mu.Unlock()
 
 	verified := reader.Verified()
 
@@ -403,7 +390,9 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 	for {
 		if false == s.running {
 			_ = reader.Close()
-			return nil, errReaderStopped
+			fatal = false
+			err = errReaderStopped
+			return
 		}
 
 		ab, sb, err = reader.Read()
@@ -431,6 +420,13 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 				break
 			}
 		}
+
+		if false == s.canRead() {
+			_ = reader.Close()
+			fatal = false
+			err = errReaderInterrupt
+			return
+		}
 	}
 
 	_ = reader.Close()
@@ -444,17 +440,35 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 		reader.Verify()
 	}
 
+	s.mu.Lock()
+	s.reading = nil
+	s.mu.Unlock()
+
 	return
+}
+
+func (s *cacheReader) pause() {
+	atomic.StoreInt32(&s.readable, 0)
+}
+
+func (s *cacheReader) resume() {
+	atomic.StoreInt32(&s.readable, 1)
+}
+
+func (s *cacheReader) canRead() bool {
+	return atomic.LoadInt32(&s.readable) == 1
 }
 
 func (s *cacheReader) readLoop() {
 	defer s.wg.Done()
 
-	<-s.initReadDone
+	s.removeUselessChunks(true)
+	s.readHeight = s.getHeight()
 
 	cache := s.chain.GetSyncCache()
 
 	var chunk *Chunk
+	var fatal bool
 	var err error
 	var cs interfaces.SegmentList
 
@@ -472,6 +486,11 @@ Loop:
 				s.cond.Wait()
 				s.mu.Unlock()
 				continue
+			} else if s.canRead() == false {
+				s.mu.Lock()
+				s.cond.Wait()
+				s.mu.Unlock()
+				continue
 			} else {
 				break
 			}
@@ -484,17 +503,6 @@ Loop:
 				continue
 			}
 
-			// Only read chunks satisfy (chunk[0] == current.Height + 1).
-			// Cannot use condition (chunk[0] < current.Height + syncTaskSize).
-			// Imagine the following chunks:
-			//  current.Height : 10000 ----> missing ----> 10801-14400
-			// s.readTo will be set to 14400 if read 10801-14400 successfully (cause 10801 < 1000 + syncTaskSize).
-			// The missing chunk 1001-10800 will not be read after download.
-			//
-			// Chunk is too high, maybe two reasons:
-			// 1. chain haven`t grow to c[0]-1, wait for chain grow
-			// 2. missing chunks between chain and c, wait for chunk downloaded
-
 			// missing chunk
 			if c.Bound[0] > s.readHeight+1 {
 				time.Sleep(200 * time.Millisecond)
@@ -503,11 +511,12 @@ Loop:
 			}
 
 			s.log.Info(fmt.Sprintf("begin read cache %d-%d", c.Bound[0], c.Bound[1]))
-			chunk, err = s.read(c)
+			chunk, fatal, err = s.read(c)
 
 			// read chunk error
 			if err != nil {
-				s.chunkReadFailed(c, err)
+				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
+				s.chunkReadFailed(c, fatal)
 			} else {
 				// will be block
 				s.addChunkToBuffer(chunk)

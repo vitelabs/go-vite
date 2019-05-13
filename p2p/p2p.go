@@ -91,7 +91,7 @@ type basePeer interface {
 	Head() types.Hash
 	SetHead(head types.Hash, height uint64)
 	FileAddress() string
-	weight() int64
+	Weight() int64
 }
 
 type Peer interface {
@@ -457,7 +457,7 @@ Loop:
 					continue
 				}
 
-				db.StoreEndPoint(peer.ID(), ep, peer.weight())
+				db.StoreEndPoint(peer.ID(), ep, peer.Weight())
 			}
 
 		case <-p.term:

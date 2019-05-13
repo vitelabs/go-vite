@@ -295,21 +295,21 @@ func TestAddTasks(t *testing.T) {
 		tasks = syncTasks{
 			{
 				from: 1,
-				to:   10,
+				to:   100,
 				st:   reqDone,
 			},
 			{
-				from: 11,
-				to:   20,
+				from: 101,
+				to:   200,
 			},
 			{
-				from: 31,
-				to:   40,
+				from: 301,
+				to:   400,
 				st:   reqDone,
 			},
 			{
-				from: 51,
-				to:   60,
+				from: 501,
+				to:   600,
 				st:   reqError,
 			},
 		}
@@ -318,24 +318,31 @@ func TestAddTasks(t *testing.T) {
 	type sample struct {
 		from, to uint64
 		must     bool
-		cs       [][2]uint64
+		ts       syncTasks
 	}
 	var samples = []sample{
-		{1, 70, false, [][2]uint64{{1, 10}, {11, 20}, {21, 30}, {31, 40}, {41, 50}, {51, 60}, {61, 70}}},
-		{1, 70, true, [][2]uint64{{1, 10}, {11, 20}, {21, 50}, {51, 60}, {61, 70}}},
+		{1, 100, true, syncTasks{
+			{from: 1, to: 100},
+			{from: 101, to: 200},
+			{from: 501, to: 600, st: reqError},
+		}},
+		{601, 700, false, syncTasks{
+			{from: 1, to: 100, st: reqDone},
+			{from: 101, to: 200},
+			{from: 301, to: 400, st: reqDone},
+			{from: 501, to: 600, st: reqError},
+			{from: 601, to: 700},
+		}},
 	}
 
 	for _, samp := range samples {
 		reset()
 		tasks = addTasks(tasks, &syncTask{from: samp.from, to: samp.to}, samp.must)
-		if len(tasks) != len(samp.cs) {
-			t.Errorf("wrong tasks length: %d", len(tasks))
-		} else {
-			for i, c := range samp.cs {
-				if tasks[i].from != c[0] || tasks[i].to != c[1] {
-					t.Errorf("wrong task: %d - %d", tasks[i].from, tasks[i].to)
-				}
+		for i, tt := range samp.ts {
+			if tasks[i].equal(tt) && tasks[i].st == tt.st {
+				continue
 			}
+			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].from, tasks[i].to, tt.from, tt.to)
 		}
 	}
 }
@@ -716,9 +723,18 @@ func (m *mockLedgerReader) Close() error {
 }
 
 type mockChunk struct {
-	seg   interfaces.Segment
-	buf   *bytes.Buffer
-	cache *mockSyncCacher
+	seg      interfaces.Segment
+	buf      *bytes.Buffer
+	cache    *mockSyncCacher
+	verified bool
+}
+
+func (mc *mockChunk) Verified() bool {
+	return mc.verified
+}
+
+func (mc *mockChunk) Verify() {
+	mc.verified = true
 }
 
 func (mc *mockChunk) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
@@ -759,7 +775,7 @@ func (m *mockSyncCacher) Chunks() (cs interfaces.SegmentList) {
 	return
 }
 
-func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
+func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
 	r, ok := m.r[segment]
 	if ok {
 		return r, nil

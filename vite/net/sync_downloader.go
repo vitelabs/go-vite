@@ -89,6 +89,10 @@ func (t *syncTask) error() {
 	}
 }
 
+func (t *syncTask) equal(t2 *syncTask) bool {
+	return t.from == t2.from && t.to == t2.to && t.prevHash == t2.prevHash && t.endHash == t2.endHash
+}
+
 type syncTasks []*syncTask
 
 func (s syncTasks) Len() int {
@@ -266,8 +270,9 @@ type syncDownloader interface {
 	// will be block, if cannot download (eg. no peers) or task queue is full
 	// must will download the task regardless of task repeat
 	download(t *syncTask, must bool) bool
-	// cancel tasks between from and to
-	cancel(from uint64) (end uint64)
+	// cancel all tasks
+	cancelAllTasks()
+	cancelTask(t *syncTask)
 	addListener(listener taskListener)
 }
 
@@ -362,12 +367,17 @@ func (e *executor) status() DownloaderStatus {
 
 // from must be larger than 0
 func addTasks(tasks syncTasks, t2 *syncTask, must bool) syncTasks {
+	var exist bool
+
 	if must {
-		var i, j int
-		for i = 0; i < len(tasks); i++ {
-			t := tasks[i]
+		var j int
+		for i, t := range tasks {
 			if t.st == reqDone {
 				continue
+			}
+
+			if t.equal(t2) {
+				exist = true
 			}
 
 			tasks[j] = tasks[i]
@@ -377,9 +387,11 @@ func addTasks(tasks syncTasks, t2 *syncTask, must bool) syncTasks {
 		tasks = tasks[:j]
 	}
 
-	tasks = append(tasks, t2)
+	if false == exist {
+		tasks = append(tasks, t2)
+		sort.Sort(tasks)
+	}
 
-	sort.Sort(tasks)
 	return tasks
 }
 
@@ -409,11 +421,23 @@ func (e *executor) download(t *syncTask, must bool) bool {
 	return true
 }
 
-func (e *executor) cancel(from uint64) (end uint64) {
+func (e *executor) cancelTask(t *syncTask) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for i, t2 := range e.tasks {
+		if t.equal(t2) {
+			e.tasks = append(e.tasks[:i], e.tasks[i+1:]...)
+			e.cond.Signal()
+			break
+		}
+	}
+}
+
+func (e *executor) cancelAllTasks() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.tasks, end = cancelTasks(e.tasks, from)
+	e.tasks = e.tasks[:0]
 	return
 }
 
