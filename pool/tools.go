@@ -38,10 +38,9 @@ type fetchRequest struct {
 	snapshotHeight uint64
 }
 
-func (self *fetchRequest) String() string {
-	if self.chain == nil {
-		return strconv.FormatBool(self.snapshot) + "," + self.hash.String() + "," + strconv.FormatUint(self.prevCnt, 10)
-	} else {
-		return strconv.FormatBool(self.snapshot) + "," + self.hash.String() + "," + strconv.FormatUint(self.prevCnt, 10) + self.chain.String() + ","
+func (request *fetchRequest) String() string {
+	if request.chain == nil {
+		return strconv.FormatBool(request.snapshot) + "," + request.hash.String() + "," + strconv.FormatUint(request.prevCnt, 10)
 	}
+	return strconv.FormatBool(request.snapshot) + "," + request.hash.String() + "," + strconv.FormatUint(request.prevCnt, 10) + request.chain.String() + ","
 }

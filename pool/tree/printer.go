@@ -12,14 +12,14 @@ func PrintTree(b Tree) map[string]interface{} {
 
 func PrintBranchInfo(b Branch) map[string]interface{} {
 	result := make(map[string]interface{})
-	result["Id"] = b.Id()
+	result["Id"] = b.ID()
 	if b.Type() == Normal {
 		result["Head"] = b.SprintHead()
 		result["Tail"] = b.SprintTail()
-		result["Root"] = b.Root().Id()
+		result["Root"] = b.Root().ID()
 		var children []string
 		for _, v := range b.(*branch).allChildren() {
-			children = append(children, v.Id())
+			children = append(children, v.ID())
 		}
 		result["Children"] = children
 	} else {

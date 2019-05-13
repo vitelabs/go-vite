@@ -6,11 +6,58 @@ import "vitepb/account_block.proto";
 import "vitepb/snapshot_block.proto";
 
 message Handshake {
-    uint64 CmdSet = 1;
-    uint64 Height = 2;
-    uint32 Port = 3;
-    bytes Current = 4;
-    bytes Genesis = 5;
+    int64 Version = 1;
+
+    int64 NetId = 2;
+
+    string Name = 3;
+
+    bytes ID = 4;
+
+    int64 Timestamp = 5;
+
+    uint64 Height = 6;
+
+    bytes Genesis = 7;
+    bytes Key = 8;
+
+    bytes FileAddress = 9;
+}
+
+message SyncConnHandshake {
+    bytes Key = 1;
+    int64 Timestamp = 2;
+    bytes Sign = 3;
+};
+
+message ChunkRequest {
+    uint64 From = 1;
+    uint64 To = 2;
+    bytes PrevHash = 3;
+    bytes EndHash = 4;
+}
+
+message ChunkResponse {
+    uint64 From = 1;
+    uint64 To = 2;
+    bytes PrevHash = 3;
+    bytes EndHash = 4;
+    uint64 Size = 5;
+}
+
+message State {
+    message Peer {
+        bytes ID = 1;
+        bool Add = 2;
+    }
+
+    repeated Peer Peers = 1;
+    bool Patch = 2;
+
+    bytes Head = 3;
+    uint64 Height = 4;
+
+    int64 Timestamp = 10;
 }
 
 message HashHeight {
@@ -23,7 +70,7 @@ message HashHeightList {
 }
 
 message GetHashHeightList {
-    HashHeight From = 1;
+    repeated HashHeight From = 1;
     uint64 Step = 2;
     uint64 To = 3;
 }
@@ -62,4 +109,10 @@ message NewAccountBlock {
 message NewAccountBlockBytes {
     bytes Block = 1;
     int32 TTL = 2;
+}
+
+message Trace {
+    bytes Hash = 1;
+    repeated bytes Path = 2;
+    uint32 TTL = 3;
 }

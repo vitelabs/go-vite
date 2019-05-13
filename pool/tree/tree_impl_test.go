@@ -95,3 +95,64 @@ func TestTree_SwitchMainTo(t *testing.T) {
 	err = CheckTreeSize(tr)
 	assert.NilError(t, err)
 }
+
+func TestTree_RootHeadAdd(t *testing.T) {
+	root := newMockBranchRoot()
+	tr := NewTree()
+
+	{
+		// init root
+		flag := "root"
+		for i := 0; i < 5; i++ {
+			root.addHead(newMockKnot(root.Head(), flag))
+		}
+		assert.Equal(t, root.headHeight, uint64(5))
+	}
+	tr.Init("unittest", root)
+
+	{
+		flag := "main"
+		main := tr.Main()
+		height, hash := main.HeadHH()
+		tr.AddHead(main, newMockKnotByHH(height, hash, flag))
+	}
+	{
+		height, hash := root.HeadHH()
+		h1 := newMockKnotByHH(height, hash, "r2")
+		t.Log(h1.Height(), h1.Hash())
+		root.addHead(h1)
+		tr.RootHeadAdd(h1)
+	}
+
+	{
+		height, hash := root.HeadHH()
+		h1 := newMockKnotByHH(height, hash, "r2")
+		t.Log(h1.Height(), h1.Hash())
+		root.addHead(h1)
+		tr.RootHeadAdd(h1)
+	}
+
+	{
+
+		flag := "main"
+		main := tr.Main()
+		height, hash := main.HeadHH()
+		tr.AddHead(main, newMockKnotByHH(height, hash, flag))
+	}
+
+	{
+		height, hash := root.HeadHH()
+		h1 := newMockKnotByHH(height, hash, "r2")
+		t.Log(h1.Height(), h1.Hash())
+		root.addHead(h1)
+		tr.RootHeadAdd(h1)
+	}
+	{ // print tree
+		msg := PrintTree(tr)
+		byt, _ := json.Marshal(msg)
+		t.Log(string(byt))
+	}
+
+	err := CheckTreeRing(tr)
+	assert.NilError(t, err)
+}

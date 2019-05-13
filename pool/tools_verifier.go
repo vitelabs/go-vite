@@ -24,17 +24,16 @@ type snapshotVerifier struct {
 	v sverifier
 }
 
-func (self *snapshotVerifier) verifySnapshotData(block *ledger.SnapshotBlock) error {
-	if err := self.v.VerifyNetSb(block); err != nil {
+func (sV *snapshotVerifier) verifySnapshotData(block *ledger.SnapshotBlock) error {
+	if err := sV.v.VerifyNetSb(block); err != nil {
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
-func (self *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
+func (sV *snapshotVerifier) verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat {
 	result := &poolSnapshotVerifyStat{}
-	stat := self.v.VerifyReferred(block.block)
+	stat := sV.v.VerifyReferred(block.block)
 	result.results = stat.Results()
 	result.result = stat.VerifyResult()
 	result.msg = stat.ErrMsg()
@@ -46,8 +45,8 @@ type accountVerifier struct {
 	log log15.Logger
 }
 
-func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
-	if err := self.v.VerifyNetAb(b); err != nil {
+func (accV *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
+	if err := accV.v.VerifyNetAb(b); err != nil {
 		return err
 	}
 	return nil
@@ -56,11 +55,11 @@ func (self *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
 /**
 if b is contract send block, result must be FAIL.
 */
-func (self *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.SnapshotBlock) *poolAccountVerifyStat {
+func (accV *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.SnapshotBlock) *poolAccountVerifyStat {
 	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
 
-	task, blocks, err := self.v.VerifyPoolAccBlock(b.block, &latest.Hash)
+	task, blocks, err := accV.v.VerifyPoolAccBlock(b.block, &latest.Hash)
 	if err != nil {
 		result.err = err
 		result.result = verifier.FAIL
@@ -91,11 +90,11 @@ type poolSnapshotVerifyStat struct {
 	msg     string
 }
 
-func (self *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
-	return self.result
+func (stat *poolSnapshotVerifyStat) verifyResult() verifier.VerifyResult {
+	return stat.result
 }
-func (self *poolSnapshotVerifyStat) errMsg() string {
-	return self.msg
+func (stat *poolSnapshotVerifyStat) errMsg() string {
+	return stat.msg
 }
 
 type poolAccountVerifyStat struct {
@@ -105,6 +104,6 @@ type poolAccountVerifyStat struct {
 	err      error
 }
 
-func (self *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
-	return self.result
+func (stat *poolAccountVerifyStat) verifyResult() verifier.VerifyResult {
+	return stat.result
 }

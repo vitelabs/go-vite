@@ -38,6 +38,7 @@ func (self *batchExecutor) execute() error {
 		if err != nil {
 			return err
 		}
+		level.Done()
 	}
 	return nil
 }

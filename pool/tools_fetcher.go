@@ -17,40 +17,40 @@ type accountSyncer struct {
 	log     log15.Logger
 }
 
-func (self *accountSyncer) broadcastBlock(block *ledger.AccountBlock) {
-	self.fetcher.BroadcastAccountBlock(block)
+func (accSyn *accountSyncer) broadcastBlock(block *ledger.AccountBlock) {
+	accSyn.fetcher.BroadcastAccountBlock(block)
 }
-func (self *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
-	self.fetcher.BroadcastAccountBlocks(blocks)
+func (accSyn *accountSyncer) broadcastBlocks(blocks []*ledger.AccountBlock) {
+	accSyn.fetcher.BroadcastAccountBlocks(blocks)
 }
 
-func (self *accountSyncer) broadcastReceivedBlocks(received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) {
+func (accSyn *accountSyncer) broadcastReceivedBlocks(received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) {
 	var blocks []*ledger.AccountBlock
 
 	blocks = append(blocks, received.AccountBlock)
 	for _, b := range sendBlocks {
 		blocks = append(blocks, b.AccountBlock)
 	}
-	self.fetcher.BroadcastAccountBlocks(blocks)
+	accSyn.fetcher.BroadcastAccountBlocks(blocks)
 }
 
-func (self *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
+func (accSyn *accountSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
 		if prevCnt > 100 {
 			prevCnt = 100
 		}
-		self.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
-		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+		accSyn.log.Debug("fetch account block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		accSyn.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &accSyn.address)
 	}
 }
-func (self *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, account types.Address, prevCnt uint64, sHeight uint64, sHash types.Hash) {
+func (accSyn *accountSyncer) fetchBySnapshot(hashHeight ledger.HashHeight, account types.Address, prevCnt uint64, sHeight uint64, sHash types.Hash) {
 	if hashHeight.Height > 0 {
-		self.log.Debug("fetch account block", "height", hashHeight.Height, "address", account, "hash", hashHeight.Hash, "prevCnt", prevCnt, "sHeight", sHeight, "sHash", sHash)
-		self.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &self.address)
+		accSyn.log.Debug("fetch account block", "height", hashHeight.Height, "address", account, "hash", hashHeight.Hash, "prevCnt", prevCnt, "sHeight", sHeight, "sHash", sHash)
+		accSyn.fetcher.FetchAccountBlocks(hashHeight.Hash, prevCnt, &accSyn.address)
 	}
 }
-func (self *accountSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
-	self.fetcher.FetchAccountBlocks(hash, prevCnt, &self.address)
+func (accSyn *accountSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
+	accSyn.fetcher.FetchAccountBlocks(hash, prevCnt, &accSyn.address)
 }
 
 type snapshotSyncer struct {
@@ -58,20 +58,20 @@ type snapshotSyncer struct {
 	log     log15.Logger
 }
 
-func (self *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
-	self.fetcher.BroadcastSnapshotBlock(block)
+func (sSync *snapshotSyncer) broadcastBlock(block *ledger.SnapshotBlock) {
+	sSync.fetcher.BroadcastSnapshotBlock(block)
 }
 
-func (self *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
+func (sSync *snapshotSyncer) fetch(hashHeight ledger.HashHeight, prevCnt uint64) {
 	if hashHeight.Height > 0 {
 		if prevCnt > 100 {
 			prevCnt = 100
 		}
-		self.log.Debug("fetch snapshot block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
-		self.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
+		sSync.log.Debug("fetch snapshot block", "height", hashHeight.Height, "hash", hashHeight.Hash, "prevCnt", prevCnt)
+		sSync.fetcher.FetchSnapshotBlocks(hashHeight.Hash, prevCnt)
 	}
 }
 
-func (self *snapshotSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
-	self.fetcher.FetchSnapshotBlocks(hash, prevCnt)
+func (sSync *snapshotSyncer) fetchByHash(hash types.Hash, prevCnt uint64) {
+	sSync.fetcher.FetchSnapshotBlocks(hash, prevCnt)
 }

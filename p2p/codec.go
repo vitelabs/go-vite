@@ -199,7 +199,6 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 
 	meta := buf[0]
 	msg.Code = buf[1]
-	msg.ReceivedAt = time.Now()
 
 	isize, lsize, compressed := retrieveMeta(meta)
 

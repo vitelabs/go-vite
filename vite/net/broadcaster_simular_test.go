@@ -93,7 +93,7 @@ func (mpf *mockBroadcastPeer) sendNewSnapshotBlock(block *ledger.SnapshotBlock) 
 	select {
 	case mpf.transport <- blockMessage{
 		Msg: p2p.Msg{
-			Code:    p2p.Code(NewSnapshotBlockCode),
+			Code:    p2p.CodeNewSnapshotBlock,
 			Payload: buf,
 		},
 		sender: mpf.fromId,
@@ -120,7 +120,7 @@ func (mpf *mockBroadcastPeer) sendNewAccountBlock(block *ledger.AccountBlock) er
 	select {
 	case mpf.transport <- blockMessage{
 		Msg: p2p.Msg{
-			Code:    p2p.Code(NewAccountBlockCode),
+			Code:    p2p.CodeNewAccountBlock,
 			Payload: buf,
 		},
 		sender: mpf.fromId,
@@ -132,7 +132,7 @@ func (mpf *mockBroadcastPeer) sendNewAccountBlock(block *ledger.AccountBlock) er
 	return nil
 }
 
-func (mpf *mockBroadcastPeer) send(c code, id p2p.MsgId, data p2p.Serializable) error {
+func (mpf *mockBroadcastPeer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
 	buf, err := data.Serialize()
 	if err != nil {
 		panic(err)

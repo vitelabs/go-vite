@@ -99,7 +99,7 @@ func (self *mockBranchRoot) Root() Branch {
 	panic("not support")
 }
 
-func (self *mockBranchRoot) Id() string {
+func (self *mockBranchRoot) ID() string {
 	return self.chainId
 }
 

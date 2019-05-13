@@ -5,6 +5,7 @@ import "github.com/vitelabs/go-vite/common/types"
 type level struct {
 	index  int
 	closed bool
+	done   bool
 }
 
 func (self *level) Index() int {
@@ -20,6 +21,14 @@ func (self *level) Close() {
 
 func (self *level) Closed() bool {
 	return self.closed
+}
+
+func (self *level) Done() {
+	self.done = true
+}
+
+func (self *level) HasDone() bool {
+	return self.done
 }
 
 func newLevel(snapshot bool, index int) Level {

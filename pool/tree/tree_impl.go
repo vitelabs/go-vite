@@ -179,11 +179,11 @@ func (self *tree) Size() uint64 {
 }
 
 func (self *tree) SwitchMainTo(b Branch) error {
-	if b.Id() == self.main.Id() {
+	if b.ID() == self.main.ID() {
 		return nil
 	}
 	if b.Type() != Normal {
-		return errors.Errorf("branch[%s] type error.", b.Id())
+		return errors.Errorf("branch[%s] type error.", b.ID())
 	}
 	target := b.(*branch)
 
@@ -283,12 +283,18 @@ func (self *tree) Branches() map[string]Branch {
 }
 
 func (self *tree) PruneTree() []Branch {
+	err := CheckTreeRing(self)
+	if err != nil {
+		self.log.Info(fmt.Sprintf("ring for tree:%s", PrintTree(self)))
+		panic("ring for tree")
+	}
+
 	self.branchMu.Lock()
 	defer self.branchMu.Unlock()
 
 	// prune every branch
 	for id, c := range self.branchList {
-		if id == self.main.Id() {
+		if id == self.main.ID() {
 			continue
 		}
 		c.prune(self)
@@ -296,7 +302,7 @@ func (self *tree) PruneTree() []Branch {
 
 	var r []Branch
 	for id, c := range self.branchList {
-		if id == self.main.Id() {
+		if id == self.main.ID() {
 			continue
 		}
 		if !c.isGarbage() {
@@ -313,8 +319,8 @@ func (self *tree) PruneTree() []Branch {
 }
 
 func (self *tree) removeBranch(b *branch) error {
-	id := b.Id()
-	if id == self.main.Id() {
+	id := b.ID()
+	if id == self.main.ID() {
 		return errors.Errorf("not support for main[%s]", id)
 	}
 	if b.Root().Type() == Disk {
@@ -341,5 +347,5 @@ func (self *tree) removeBranch(b *branch) error {
 func (self *tree) addBranch(b *branch) {
 	self.branchMu.Lock()
 	defer self.branchMu.Unlock()
-	self.branchList[b.Id()] = b
+	self.branchList[b.ID()] = b
 }

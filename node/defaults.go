@@ -28,6 +28,7 @@ var DefaultNodeConfig = Config{
 	Port:            discovery.DefaultPort,
 	FilePort:        net.DefaultFilePort,
 	ForwardStrategy: net.DefaultForwardStrategy,
+	AccessControl:   "any",
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

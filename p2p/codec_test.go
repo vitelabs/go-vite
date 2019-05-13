@@ -309,6 +309,7 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 	}
 
 	var wg sync.WaitGroup
+	ch := make(chan Msg)
 
 	wg.Add(1)
 	go func() {
@@ -342,6 +343,8 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 			if err != nil {
 				b.Fatalf("write error: %v", werr)
 			}
+
+			ch <- msg
 		}
 
 		fmt.Println("sent done")
@@ -374,6 +377,15 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 			}
 
 			fmt.Printf("read message %d/%d, %d bytes\n", msg.Code, msg.Id, len(msg.Payload))
+
+			msg2 := <-ch
+
+			if msg.Code != msg2.Code {
+				panic("different code")
+			}
+			if false == bytes.Equal(msg.Payload, msg2.Payload) {
+				panic("different payload")
+			}
 		}
 
 		_ = conn.Close()

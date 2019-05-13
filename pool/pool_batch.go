@@ -18,34 +18,34 @@ loop:
 1. make a batch for blocks plan
 2. insert batch
 */
-func (self *pool) insert() {
+func (pl *pool) insert() {
 	t1 := time.Now()
-	q := self.makeQueue()
+	q := pl.makeQueue()
 	size := q.Size()
 	if size == 0 {
 		return
 	}
-	err := self.insertQueue(q)
+	err := pl.insertQueue(q)
 	if err != nil {
-		self.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
-		self.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
+		pl.log.Error(fmt.Sprintf("insert queue err:%s\n", err))
+		pl.log.Error(fmt.Sprintf("all queue:%s\n", q.Info()))
 		//time.Sleep(time.Second
-		//self.log.Error("pool auto stop")
+
 	}
 	t2 := time.Now()
-	self.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
+	pl.log.Info(fmt.Sprintf("time duration:%s, size:%d", t2.Sub(t1), size))
 }
 
 /**
 make a queue from account pool and snapshot pool
 */
-func (self *pool) makeQueue() batch.Batch {
-	tailHeight, tailHash := self.pendingSc.CurrentChain().TailHH()
+func (pl *pool) makeQueue() batch.Batch {
+	tailHeight, tailHash := pl.pendingSc.CurrentChain().TailHH()
 	snapshotOffset := &offsetInfo{offset: &ledger.HashHeight{Height: tailHeight, Hash: tailHash}}
 
-	p := batch.NewBatch(self.snapshotExists, self.accountExists, self.version.Val(), 50)
+	p := batch.NewBatch(pl.snapshotExists, pl.accountExists, pl.version.Val(), 50)
 	for {
-		newOffset, pendingForSb, tmpSb := self.makeSnapshotBlock(p, snapshotOffset)
+		newOffset, pendingForSb, tmpSb := pl.makeSnapshotBlock(p, snapshotOffset)
 		if tmpSb == nil {
 			// just account
 			if p.Size() > 0 {
@@ -53,20 +53,20 @@ func (self *pool) makeQueue() batch.Batch {
 			}
 
 			if pendingForSb != nil && rand.Intn(10) > 3 {
-				self.snapshotPendingFix(p, newOffset, pendingForSb)
+				pl.snapshotPendingFix(p, newOffset, pendingForSb)
 			} else {
-				self.makeQueueFromAccounts(p)
+				pl.makeQueueFromAccounts(p)
 				if p.Size() > 0 {
 					// todo remove
 					msg := fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size())
 					fmt.Println(msg)
-					self.log.Info(msg)
+					pl.log.Info(msg)
 					return p
 				}
 			}
 			break
 		} else { // snapshot block
-			err := self.makeQueueFromSnapshotBlock(p, tmpSb)
+			err := pl.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
 				fmt.Println("from snapshot", err)
 				break
@@ -77,7 +77,7 @@ func (self *pool) makeQueue() batch.Batch {
 	if p.Size() > 0 {
 		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
 		fmt.Println(msg)
-		self.log.Info(msg)
+		pl.log.Info(msg)
 	}
 	return p
 }
@@ -87,9 +87,9 @@ type completeSnapshotBlock struct {
 	addrM map[types.Address]*stack.Stack
 }
 
-func (self *completeSnapshotBlock) isEmpty() bool {
-	if len(self.addrM) > 0 {
-		for _, v := range self.addrM {
+func (csb *completeSnapshotBlock) isEmpty() bool {
+	if len(csb.addrM) > 0 {
+		for _, v := range csb.addrM {
 			if v.Len() > 0 {
 				return false
 			}
@@ -103,11 +103,11 @@ type snapshotPending struct {
 	addrM    map[types.Address]*ledger.HashHeight
 }
 
-func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
-	if self.pendingSc.CurrentChain().Size() == 0 {
+func (pl *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.HashHeight, *snapshotPending, *completeSnapshotBlock) {
+	if pl.pendingSc.CurrentChain().Size() == 0 {
 		return nil, nil, nil
 	}
-	current := self.pendingSc.CurrentChain()
+	current := pl.pendingSc.CurrentChain()
 	block := current.GetKnot(info.offset.Height+1, false)
 	if block == nil {
 		return nil, nil, nil
@@ -126,7 +126,7 @@ func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.Ha
 	pending := false
 	addrM := make(map[types.Address]*stack.Stack)
 	for k, v := range contents {
-		ac := self.selfPendingAc(k)
+		ac := pl.selfPendingAc(k)
 		var tmp *stack.Stack
 		pending, tmp = ac.genForSnapshotContents(p, b, k, v)
 		if pending {
@@ -147,7 +147,7 @@ func (self *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.Ha
 	return newOffset, nil, result
 }
 
-func (self *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlock) error {
+func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlock) error {
 	sum := 0
 	for {
 		for _, v := range b.addrM {
@@ -162,7 +162,7 @@ func (self *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotB
 					fmt.Printf("account[%s] add fail. %s\n", ab.Hash(), err)
 					break
 				}
-				sum += 1
+				sum++
 				v.Pop()
 			}
 		}
@@ -179,17 +179,16 @@ func (self *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotB
 			return err
 		}
 		return nil
-	} else {
-		return errors.WithMessage(batch.REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 	}
+	return errors.WithMessage(batch.REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 }
-func (self *pool) makeQueueFromAccounts(p batch.Batch) {
+func (pl *pool) makeQueueFromAccounts(p batch.Batch) {
 	addrOffsets := make(map[types.Address]*offsetInfo)
 	max := uint64(100)
 	total := uint64(0)
 	for {
 		sum := uint64(0)
-		self.pendingAc.Range(func(key, v interface{}) bool {
+		pl.pendingAc.Range(func(key, v interface{}) bool {
 			cp := v.(*accountPool)
 			offset := addrOffsets[key.(types.Address)]
 			if offset == nil {
@@ -213,73 +212,73 @@ func (self *pool) makeQueueFromAccounts(p batch.Batch) {
 	}
 }
 
-func (self *pool) insertQueue(q batch.Batch) error {
+func (pl *pool) insertQueue(q batch.Batch) error {
 	t0 := time.Now()
 	defer func() {
 		sub := time.Now().Sub(t0)
 		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
 		fmt.Println(queueResult)
 	}()
-	return q.Batch(self.insertSnapshotBucketForTree, self.insertAccountBucketForTree)
+	return q.Batch(pl.insertSnapshotBucketForTree, pl.insertAccountBucketForTree)
 }
 
-func (self *pool) insertSnapshotBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+func (pl *pool) insertSnapshotBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
 	// stop the world for snapshot insert
-	self.LockInsert()
-	defer self.UnLockInsert()
-	return self.insertSnapshotBucket(p, bucket, version)
+	pl.LockInsert()
+	defer pl.UnLockInsert()
+	return pl.insertSnapshotBucket(p, bucket, version)
 }
 
-func (self *pool) insertAccountBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	self.RLockInsert()
-	defer self.RUnLockInsert()
-	return self.insertAccountBucket(p, bucket, version)
+func (pl *pool) insertAccountBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	pl.RLockInsert()
+	defer pl.RUnLockInsert()
+	return pl.insertAccountBucket(p, bucket, version)
 }
 
-func (self *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	latestSb := self.bc.GetLatestSnapshotBlock()
-	err := self.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
+func (pl *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	latestSb := pl.bc.GetLatestSnapshotBlock()
+	err := pl.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	accBlocks, item, err := self.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
+func (pl *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
+	accBlocks, item, err := pl.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err
 	}
-	self.pendingSc.checkCurrent()
+	pl.pendingSc.checkCurrent()
 	if accBlocks == nil || len(accBlocks) == 0 {
 		return nil
 	}
 
 	for k, v := range accBlocks {
-		err := self.selfPendingAc(k).rollbackCurrent(v)
+		err := pl.selfPendingAc(k).rollbackCurrent(v)
 		if err != nil {
 			return err
 		}
-		self.selfPendingAc(k).checkCurrent()
+		pl.selfPendingAc(k).checkCurrent()
 	}
 	return errors.Errorf("account blocks rollback for snapshot block[%s-%d] insert.", item.Hash(), item.Height())
 }
 
-var NotFound = errors.New("Not Found")
+var errNotFound = errors.New("Not Found")
 
-func (self *pool) accountExists(hash types.Hash) error {
-	ab, err := self.bc.GetAccountBlockByHash(hash)
+func (pl *pool) accountExists(hash types.Hash) error {
+	ab, err := pl.bc.GetAccountBlockByHash(hash)
 	if err != nil {
 		return err
 	}
 	if ab != nil {
 		return nil
 	}
-	return NotFound
+	return errNotFound
 }
 
-func (self *pool) snapshotExists(hash types.Hash) error {
-	sb, err := self.bc.GetSnapshotHeaderByHash(hash)
+func (pl *pool) snapshotExists(hash types.Hash) error {
+	sb, err := pl.bc.GetSnapshotHeaderByHash(hash)
 	if err != nil {
 		return err
 	}
@@ -294,20 +293,20 @@ type offsetInfo struct {
 	quotaUnused uint64
 }
 
-func (self offsetInfo) quotaEnough(b commonBlock) (uint64, uint64, bool) {
+func (offset offsetInfo) quotaEnough(b commonBlock) (uint64, uint64, bool) {
 	accB := b.(*accountPoolBlock)
 	quotaUsed := accB.block.Quota
-	if quotaUsed > self.quotaUnused {
-		return quotaUsed, self.quotaUnused, false
+	if quotaUsed > offset.quotaUnused {
+		return quotaUsed, offset.quotaUnused, false
 	}
-	return quotaUsed, self.quotaUnused, true
+	return quotaUsed, offset.quotaUnused, true
 }
-func (self offsetInfo) quotaSub(b commonBlock) {
+func (offset offsetInfo) quotaSub(b commonBlock) {
 	accB := b.(*accountPoolBlock)
 	quotaUsed := accB.block.Quota
-	if quotaUsed > self.quotaUnused {
-		self.quotaUnused = self.quotaUnused - quotaUsed
+	if quotaUsed > offset.quotaUnused {
+		offset.quotaUnused = offset.quotaUnused - quotaUsed
 	} else {
-		self.quotaUnused = 0
+		offset.quotaUnused = 0
 	}
 }

@@ -3,6 +3,8 @@ package net
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/consensus"
+
 	"github.com/go-errors/errors"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -40,7 +42,8 @@ type syncCacher interface {
 
 type syncChain interface {
 	syncCacher
-	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	chainReader
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 }
 
 type Chain interface {
@@ -51,9 +54,9 @@ type Chain interface {
 	syncCacher
 }
 
-type Producer interface {
-	// IsProducer can check an address is whether a producer
-	IsProducer(address types.Address) bool
+type Consensus interface {
+	SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent))
+	UnSubscribe(gid types.Gid, id string)
 }
 
 type Verifier interface {
@@ -88,6 +91,7 @@ type Chunk struct {
 	AccountRange   map[types.Address][2]*ledger.HashHeight
 	HashMap        map[types.Hash]struct{}
 	Source         types.BlockSource
+	size           int64
 }
 
 func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHeight uint64, source types.BlockSource) (c *Chunk) {
@@ -238,6 +242,7 @@ type Net interface {
 	Fetcher
 	Broadcaster
 	BlockSubscriber
+	Init(consensus Consensus)
 	Start(svr p2p.P2P) error
 	Stop() error
 	Info() NodeInfo
