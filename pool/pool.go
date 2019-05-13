@@ -41,6 +41,7 @@ type Writer interface {
 // SnapshotProducerWriter is a writer for snapshot producer
 type SnapshotProducerWriter interface {
 	lock.ChainInsert
+	lock.ChainRollback
 	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
 }
 
