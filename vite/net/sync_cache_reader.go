@@ -386,6 +386,8 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 		return
 	}
 
+	verified := reader.Verified()
+
 	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1], types.RemoteSync)
 	chunk.size = reader.Size()
 
@@ -401,8 +403,10 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 		if err != nil {
 			break
 		} else if ab != nil {
-			if err = s.verifier.VerifyNetAb(ab); err != nil {
-				break
+			if verified == false {
+				if err = s.verifier.VerifyNetAb(ab); err != nil {
+					break
+				}
 			}
 
 			if err = chunk.addAccountBlock(ab); err != nil {
@@ -410,8 +414,10 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 			}
 
 		} else if sb != nil {
-			if err = s.verifier.VerifyNetSb(sb); err != nil {
-				break
+			if verified == false {
+				if err = s.verifier.VerifyNetSb(sb); err != nil {
+					break
+				}
 			}
 
 			if err = chunk.addSnapshotBlock(sb); err != nil {
@@ -424,6 +430,11 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, err error) {
 
 	if err == io.EOF {
 		err = chunk.done()
+	}
+
+	// no error, set reader verified
+	if err == nil {
+		reader.Verify()
 	}
 
 	return

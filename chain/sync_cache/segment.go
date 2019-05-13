@@ -2,11 +2,13 @@ package sync_cache
 
 import (
 	"fmt"
+	"path"
+	"strconv"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"strconv"
-	"strings"
 )
 
 func NewSegment(from uint64, to uint64, prevHash, hash types.Hash) interfaces.Segment {
@@ -18,6 +20,9 @@ func NewSegment(from uint64, to uint64, prevHash, hash types.Hash) interfaces.Se
 }
 
 func newSegmentByFilename(filename string) (interfaces.Segment, error) {
+	suffix := path.Ext(filename)
+	filename = strings.TrimSuffix(filename, suffix)
+
 	f1 := strings.Replace(filename, "f_", "", 1)
 	strList := strings.Split(f1, "_")
 	if len(strList) != 4 {

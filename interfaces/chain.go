@@ -64,17 +64,19 @@ func (list SegmentList) Less(i, j int) bool {
 	return list[i].Bound[0] < list[j].Bound[1]
 }
 
-type ReadCloser interface {
+type ChunkReader interface {
 	// Read a block, return io.EOF if reach end, the block maybe a accountBlock or a snapshotBlock
 	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
 	// Close the stream
 	Close() error
 	Size() int64
+	Verified() bool
+	Verify()
 }
 
 type SyncCache interface {
 	NewWriter(segment Segment) (io.WriteCloser, error)
 	Chunks() SegmentList
-	NewReader(segment Segment) (ReadCloser, error)
+	NewReader(segment Segment) (ChunkReader, error)
 	Delete(seg Segment) error
 }

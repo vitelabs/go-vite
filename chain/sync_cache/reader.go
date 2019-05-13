@@ -13,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ReadCloser, error) {
+func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
 	cache.segMu.RLock()
 	defer cache.segMu.RUnlock()
 
@@ -46,10 +46,42 @@ type Reader struct {
 	offset       int64
 	readBuffer   []byte
 	decodeBuffer []byte
+	verified     bool
+	segment      interfaces.Segment
+}
+
+func (reader *Reader) Verified() bool {
+	return reader.verified
+}
+
+func (reader *Reader) Verify() {
+	if false == reader.verified {
+		reader.verified = true
+		err := os.Rename(reader.file.Name(), reader.cache.toVerifiedFileName(reader.segment))
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func NewReader(cache *syncCache, seg interfaces.Segment) (*Reader, error) {
 	fileName := cache.toAbsoluteFileName(seg)
+	var verified bool
+
+	fst, err := os.Stat(fileName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fileName = cache.toVerifiedFileName(seg)
+			fst, err = os.Stat(fileName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open segment<%d-%d>: %v", seg.Bound[0], seg.Bound[1], err)
+			}
+			verified = true
+		} else {
+			return nil, fmt.Errorf("failed to open segment<%d-%d>: %v", seg.Bound[0], seg.Bound[1], err)
+		}
+	}
+
 	file, err := os.OpenFile(fileName, os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
@@ -60,11 +92,9 @@ func NewReader(cache *syncCache, seg interfaces.Segment) (*Reader, error) {
 		file:       file,
 		offset:     0,
 		readBuffer: make([]byte, 8*1024),
-	}
-
-	fst, err := os.Stat(fileName)
-	if err == nil {
-		r.size = fst.Size()
+		size:       fst.Size(),
+		verified:   verified,
+		segment:    seg,
 	}
 
 	return r, nil

@@ -57,9 +57,27 @@ func NewSyncCache(dirName string) (interfaces.SyncCache, error) {
 func (cache *syncCache) Delete(seg interfaces.Segment) error {
 	filename := cache.toAbsoluteFileName(seg)
 
-	if err := os.Remove(filename); err != nil {
-		return err
+	_, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			filename = cache.toVerifiedFileName(seg)
+			_, err = os.Stat(filename)
+			if err != nil {
+				return err
+			} else {
+				if err = os.Remove(filename); err != nil {
+					return err
+				}
+			}
+		} else {
+			return err
+		}
+	} else {
+		if err = os.Remove(filename); err != nil {
+			return err
+		}
 	}
+
 	cache.deleteSeg(seg)
 	return nil
 }
@@ -136,6 +154,10 @@ func (cache *syncCache) toAbsoluteFileName(segment interfaces.Segment) string {
 
 func (cache *syncCache) toTempFileName(segment interfaces.Segment) string {
 	return path.Join(cache.dirName, toFilename(tempFilePrefix, segment))
+}
+
+func (cache *syncCache) toVerifiedFileName(segment interfaces.Segment) string {
+	return path.Join(cache.dirName, toFilename(correctFilePrefix, segment)+".v")
 }
 
 func toFilename(prefix string, segment interfaces.Segment) string {
