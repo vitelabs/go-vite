@@ -192,7 +192,7 @@ func (bDB *BlockDB) GetNextLocation(location *chain_file_manager.Location) (*cha
 	return nextLocation, nil
 }
 
-func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
+func (bDB *BlockDB) PrepareRollback(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 	bfp := newBlockFileParser()
 
 	bDB.wg.Add(1)
@@ -204,7 +204,7 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 
 	var segList []*ledger.SnapshotChunk
 	var seg *ledger.SnapshotChunk
-	var snappyReadBuffer = make([]byte, 0, 512*1024) // 512KB
+	var snappyReadBuffer = make([]byte, 0, 4*1024) // 4KB
 
 	iterator := bfp.Iterator()
 
@@ -245,10 +245,12 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 		return nil, err
 	}
 
-	bDB.fm.DeleteTo(location)
-
 	return segList, nil
 
+}
+
+func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) error {
+	return bDB.fm.DeleteTo(location)
 }
 
 func (bDB *BlockDB) maxLocation(location *chain_file_manager.Location) *chain_file_manager.Location {
