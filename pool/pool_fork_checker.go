@@ -3,6 +3,8 @@ package pool
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/consensus/core"
+
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -221,7 +223,6 @@ func (pl *pool) updateIrreversibleBlock() error {
 
 func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock) (*irreversibleInfo, error) {
 	nodeCnt := pl.cs.SBPReader().GetNodeCount()
-	irreversibleCnt := uint64(nodeCnt/3*2 + 1)
 	ti := pl.cs.SBPReader().GetPeriodTimeIndex()
 
 	lastIdx := uint64(0)
@@ -234,8 +235,12 @@ func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock)
 			lastIdx = ti.Time2Index(*block.Timestamp)
 		}
 	}
+	return pl.getLatestIrreversible(lastIdx, nodeCnt, ti)
+}
 
-	pl.cs.SBPReader().GetPeriodTimeIndex()
+func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeIndex) (*irreversibleInfo, error) {
+	irreversibleCnt := uint64(nodeCnt/3*2 + 1)
+
 	latest := pl.bc.GetLatestSnapshotBlock()
 	for {
 		if latest.Height <= irreversibleCnt {
