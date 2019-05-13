@@ -14,13 +14,17 @@ const (
 )
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
-func CompositeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) ([]byte, error) {
+func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) ([]byte, error) {
 	idBytes := make([]byte, OrderIdBytesLength)
 	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
 	if param.Side {
 		idBytes[3] = 1
 	}
-	copy(idBytes[4:14], PriceToBytes(param.Price))
+	priceBytes := PriceToBytes(param.Price)
+	if !param.Side { // buy
+		BitwiseNotBytes(priceBytes)
+	}
+	copy(idBytes[4:14], priceBytes)
 	timestamp := GetTimestampInt64(db)
 	copy(idBytes[14:19], Uint64ToBytes(uint64(timestamp))[3:])
 	if serialNo, err := NewAndSaveOrderSerialNo(db, timestamp); err != nil {
@@ -29,6 +33,25 @@ func CompositeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrde
 		copy(idBytes[19:], Uint32ToBytes(uint32(serialNo))[1:])
 	}
 	return idBytes, nil
+}
+
+func DeComposeOrderId(data []byte) (marketId int32, side bool, price[]byte, timestamp int64, err error) {
+	if len(data) != OrderIdBytesLength {
+		err = DeComposeOrderIdFailErr
+		return
+	}
+	marketIdBytes := make([]byte, 4)
+	copy(marketIdBytes[1:4], data[:3])
+	marketId = int32(BytesToUint32(marketIdBytes))
+	side = int8(data[3]) == 1
+	price = make([]byte, 10)
+	copy(price[:], data[4:14])
+	if !side { // buy
+		BitwiseNotBytes(price)
+	}
+	timestampBytes := make([]byte, 8)
+	timestamp = int64(BytesToUint64(timestampBytes))
+	return
 }
 
 func PriceToBytes(price string) []byte {
@@ -124,4 +147,10 @@ func Uint32ToBytes(value uint32) []byte {
 
 func BytesToUint32(bytes []byte) uint32 {
 	return binary.BigEndian.Uint32(bytes)
+}
+
+func BitwiseNotBytes(bytes []byte) {
+	for i, b := range bytes {
+		bytes[i] = ^b
+	}
 }

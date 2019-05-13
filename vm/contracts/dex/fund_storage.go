@@ -61,10 +61,10 @@ var (
 	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
 
 	QuoteTokenInfos = map[types.TokenTypeId]*TokenInfo{
-		ledger.ViteTokenId: &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "VITE", Index: -1}},
-		bitcoinToken:       &TokenInfo{dexproto.TokenInfo{Decimals: 8, Symbol: "BTC", Index: 1}},
-		ethToken:           &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "ETH", Index: 1}},
-		usdtToken:          &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "USDT", Index: 1}},
+		ledger.ViteTokenId: &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "VITE", Index: 0}},
+		bitcoinToken:       &TokenInfo{dexproto.TokenInfo{Decimals: 8, Symbol: "BTC", Index: 0}},
+		ethToken:           &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "ETH", Index: 0}},
+		usdtToken:          &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "USDT", Index: 0}},
 	}
 
 	viteMinAmount       = commonTokenPow       // 1 VITE

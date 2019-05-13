@@ -110,8 +110,8 @@ message NewMarket {
     string MarketSymbol = 2;
     bytes TradeToken = 3;
     bytes QuoteToken = 4;
-    string TradeTokenSymbol = 5;
-    string QuoteTokenSymbol = 6;
+    string DexTradeTokenSymbol = 5;
+    string DexQuoteTokenSymbol = 6;
     int32 TradeTokenDecimals = 7;
     int32 QuoteTokenDecimals = 8;
     bytes Creator = 9; //creator address

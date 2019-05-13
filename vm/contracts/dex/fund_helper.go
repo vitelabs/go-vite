@@ -37,7 +37,7 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 
 func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) (err error) {
 	quoteTokenInfo := QuoteTokenInfos[quoteToken]
-	marketInfo.MarketSymbol = quoteTokenInfo.Symbol
+	marketInfo.MarketSymbol = getDexTokenSymbol(quoteTokenInfo)
 	marketInfo.QuoteTokenDecimals = quoteTokenInfo.Decimals
 	if tradeTokenInfo == nil {
 		if tradeTokenInfo, err = GetTokenInfo(db, tradeToken); err != nil {
@@ -64,11 +64,7 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	if marketInfo.MarketId, err = NewAndSaveMarketId(db); err != nil {
 		return err
 	}
-	indexStr := strconv.Itoa(int(tradeTokenInfo.Index))
-	for ; len(indexStr) < 3; {
-		indexStr = "0" + indexStr
-	}
-	marketInfo.MarketSymbol = fmt.Sprintf("%s-%s_%s", tradeTokenInfo.Symbol, indexStr, marketInfo.MarketSymbol)
+	marketInfo.MarketSymbol = fmt.Sprintf("%s_%s", getDexTokenSymbol(tradeTokenInfo), marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
 	return nil
@@ -79,10 +75,10 @@ func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent
 	newMarketEvent.MarketSymbol = marketInfo.MarketSymbol
 	newMarketEvent.TradeToken = tradeToken.Bytes()
 	newMarketEvent.TradeTokenDecimals = tradeTokenInfo.Decimals
-	newMarketEvent.TradeTokenSymbol = tradeTokenInfo.Symbol
+	newMarketEvent.DexTradeTokenSymbol = getDexTokenSymbol(tradeTokenInfo)
 	newMarketEvent.QuoteToken = quoteToken.Bytes()
 	newMarketEvent.QuoteTokenDecimals = quoteTokenInfo.Decimals
-	newMarketEvent.QuoteTokenSymbol = quoteTokenInfo.Symbol
+	newMarketEvent.DexQuoteTokenSymbol = getDexTokenSymbol(quoteTokenInfo)
 	newMarketEvent.Creator = marketInfo.Creator
 }
 
@@ -241,8 +237,8 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	if marketInfo, err = GetMarketInfo(db, param.TradeToken, param.QuoteToken); err != nil || !marketInfo.Valid {
 		return TradeMarketNotExistsError
 	}
-	if order.Id, err = CompositeOrderId(db, marketInfo.MarketId, param); err != nil {
-		return CompositeOrderIdFailErr
+	if order.Id, err = ComposeOrderId(db, marketInfo.MarketId, param); err != nil {
+		return ComposeOrderIdFailErr
 	}
 	orderMarketInfo := &dexproto.OrderMarketInfo{}
 	orderMarketInfo.MarketId = marketInfo.MarketId
@@ -476,7 +472,7 @@ func ValidPrice(price string) bool {
 		if idx > priceIntMaxLen { // 10^12 < 2^40(5bytes)
 			return false
 		} else if idx >= 0 {
-			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 9 decimals 10^9 < 2^32(4bytes)
+			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 12 decimals 10^12 < 2^32(4bytes)
 				return false
 			}
 		}
@@ -491,4 +487,12 @@ func checkPriceChar(price string) bool {
 		}
 	}
 	return true
+}
+
+func getDexTokenSymbol(tokenInfo *TokenInfo) string {
+	indexStr := strconv.Itoa(int(tokenInfo.Index))
+	for ; len(indexStr) < 3; {
+		indexStr = "0" + indexStr
+	}
+	return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
 }
