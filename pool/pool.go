@@ -29,6 +29,7 @@ import (
 	"github.com/vitelabs/go-vite/wallet"
 )
 
+// Writer is a writer of BlockPool
 type Writer interface {
 	// for normal account
 	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
@@ -37,13 +38,17 @@ type Writer interface {
 	//AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error
 }
 
+// SnapshotProducerWriter is a writer for snapshot producer
 type SnapshotProducerWriter interface {
 	lock.ChainInsert
 	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
 }
 
+// Reader is a reader of BlockPool
 type Reader interface {
 }
+
+// Debug provide more detail info for BlockPool
 type Debug interface {
 	Info(addr *types.Address) string
 	AccountBlockInfo(addr types.Address, hash types.Hash) interface{}
@@ -52,10 +57,11 @@ type Debug interface {
 	SnapshotPendingNum() uint64
 	AccountPendingNum() *big.Int
 	Account(addr types.Address) map[string]interface{}
-	SnapshotChainDetail(chainId string) map[string]interface{}
-	AccountChainDetail(addr types.Address, chainId string) map[string]interface{}
+	SnapshotChainDetail(chainID string) map[string]interface{}
+	AccountChainDetail(addr types.Address, chainID string) map[string]interface{}
 }
 
+// BlockPool is responsible for organizing blocks and inserting it into the chain
 type BlockPool interface {
 	Writer
 	Reader
@@ -95,35 +101,35 @@ type forkBlock struct {
 	nTime  time.Time
 }
 
-func (self *forkBlock) forkVersion() uint64 {
-	return self.v.Val()
+func (fb *forkBlock) forkVersion() uint64 {
+	return fb.v.Val()
 }
-func (self *forkBlock) checkForkVersion() bool {
-	return self.firstV == self.v.Val()
+func (fb *forkBlock) checkForkVersion() bool {
+	return fb.firstV == fb.v.Val()
 }
-func (self *forkBlock) resetForkVersion() {
-	val := self.v.Val()
-	self.firstV = val
+func (fb *forkBlock) resetForkVersion() {
+	val := fb.v.Val()
+	fb.firstV = val
 }
-func (self *forkBlock) Latency() time.Duration {
-	if self.Source() == types.RemoteBroadcast || self.Source() == types.RemoteFetch {
-		return time.Now().Sub(self.nTime)
+func (fb *forkBlock) Latency() time.Duration {
+	if fb.Source() == types.RemoteBroadcast || fb.Source() == types.RemoteFetch {
+		return time.Now().Sub(fb.nTime)
 	}
 	return time.Duration(0)
 }
 
-func (self *forkBlock) ShouldFetch() bool {
-	if self.Source() != types.RemoteBroadcast {
+func (fb *forkBlock) ShouldFetch() bool {
+	if fb.Source() != types.RemoteBroadcast {
 		return true
 	}
-	if self.Latency() > time.Millisecond*200 {
+	if fb.Latency() > time.Millisecond*200 {
 		return true
 	}
 	return false
 }
 
-func (self *forkBlock) Source() types.BlockSource {
-	return self.source
+func (fb *forkBlock) Source() types.BlockSource {
+	return fb.source
 }
 
 type pool struct {
@@ -138,8 +144,8 @@ type pool struct {
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  verifier.Verifier
 
-	accountSubId  int
-	snapshotSubId int
+	accountSubID  int
+	snapshotSubID int
 
 	newAccBlockCond      *common.CondTimer
 	newSnapshotBlockCond *common.CondTimer
@@ -183,15 +189,16 @@ func (pl *pool) Account(addr types.Address) map[string]interface{} {
 	return pl.selfPendingAc(addr).info()
 }
 
-func (pl *pool) SnapshotChainDetail(chainId string) map[string]interface{} {
-	return pl.pendingSc.detailChain(chainId)
+func (pl *pool) SnapshotChainDetail(chainID string) map[string]interface{} {
+	return pl.pendingSc.detailChain(chainID)
 }
 
-func (pl *pool) AccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
-	return pl.selfPendingAc(addr).detailChain(chainId)
+func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[string]interface{} {
+	return pl.selfPendingAc(addr).detailChain(chainID)
 }
 
-func NewPool(bc chainDb) (*pool, error) {
+// NewPool create a new BlockPool
+func NewPool(bc chainDb) (BlockPool, error) {
 	self := &pool{bc: bc, version: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
@@ -246,23 +253,22 @@ func (pl *pool) Info(addr *types.Address) string {
 		chainSize := len(cp.tree.Branches())
 		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
 			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
-	} else {
-		ac := pl.selfPendingAc(*addr)
-		if ac == nil {
-			return "pool not exist."
-		}
-		bp := ac.blockpool
-		cp := ac.chainpool
-
-		freeSize := len(bp.freeBlocks)
-		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
-		snippetSize := len(cp.snippetChains)
-		treeSize := cp.tree.Size()
-		currentLen := cp.tree.Main().Size()
-		chainSize := len(cp.tree.Branches())
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 	}
+	ac := pl.selfPendingAc(*addr)
+	if ac == nil {
+		return "pool not exist."
+	}
+	bp := ac.blockpool
+	cp := ac.chainpool
+
+	freeSize := len(bp.freeBlocks)
+	compoundSize := common.SyncMapLen(&bp.compoundBlocks)
+	snippetSize := len(cp.snippetChains)
+	treeSize := cp.tree.Size()
+	currentLen := cp.tree.Main().Size()
+	chainSize := len(cp.tree.Branches())
+	return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
+		freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
 }
 func (pl *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
 	b, s := pl.selfPendingAc(addr).blockpool.sprint(hash)
@@ -293,8 +299,8 @@ func (pl *pool) Start() {
 	defer pl.log.Info("pool started.")
 	pl.closed = make(chan struct{})
 
-	pl.accountSubId = pl.sync.SubscribeAccountBlock(pl.AddAccountBlock)
-	pl.snapshotSubId = pl.sync.SubscribeSnapshotBlock(pl.AddSnapshotBlock)
+	pl.accountSubID = pl.sync.SubscribeAccountBlock(pl.AddAccountBlock)
+	pl.snapshotSubID = pl.sync.SubscribeSnapshotBlock(pl.AddSnapshotBlock)
 
 	pl.pendingSc.Start()
 
@@ -310,10 +316,10 @@ func (pl *pool) Start() {
 func (pl *pool) Stop() {
 	pl.log.Info("pool stop.")
 	defer pl.log.Info("pool stopped.")
-	pl.sync.UnsubscribeAccountBlock(pl.accountSubId)
-	pl.accountSubId = 0
-	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubId)
-	pl.snapshotSubId = 0
+	pl.sync.UnsubscribeAccountBlock(pl.accountSubID)
+	pl.accountSubID = 0
+	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubID)
+	pl.snapshotSubID = 0
 
 	pl.pendingSc.Stop()
 	close(pl.closed)
@@ -851,79 +857,79 @@ type failStat struct {
 	timeThreshold time.Duration
 }
 
-func (self *failStat) init(d time.Duration) *failStat {
-	self.timeThreshold = d
-	return self
+func (fstat *failStat) init(d time.Duration) *failStat {
+	fstat.timeThreshold = d
+	return fstat
 }
-func (self *failStat) inc() bool {
-	update := self.update
+func (fstat *failStat) inc() bool {
+	update := fstat.update
 	if update != nil {
-		if time.Now().Sub(*update) > self.timeThreshold {
-			self.clear()
+		if time.Now().Sub(*update) > fstat.timeThreshold {
+			fstat.clear()
 			return false
 		}
 	}
-	if self.first == nil {
+	if fstat.first == nil {
 		now := time.Now()
-		self.first = &now
+		fstat.first = &now
 	}
 	now := time.Now()
-	self.update = &now
+	fstat.update = &now
 
-	if self.update.Sub(*self.first) > self.timeThreshold {
+	if fstat.update.Sub(*fstat.first) > fstat.timeThreshold {
 		return false
 	}
 	return true
 }
 
-func (self *failStat) isFail() bool {
-	first := self.first
+func (fstat *failStat) isFail() bool {
+	first := fstat.first
 	if first == nil {
 		return false
 	}
-	update := self.update
+	update := fstat.update
 	if update == nil {
 		return false
 	}
 
-	if time.Now().Sub(*update) > 10*self.timeThreshold {
-		self.clear()
+	if time.Now().Sub(*update) > 10*fstat.timeThreshold {
+		fstat.clear()
 		return false
 	}
 
-	if update.Sub(*first) > self.timeThreshold {
+	if update.Sub(*first) > fstat.timeThreshold {
 		return true
 	}
 	return false
 }
 
-func (self *failStat) clear() {
-	self.first = nil
-	self.update = nil
+func (fstat *failStat) clear() {
+	fstat.first = nil
+	fstat.update = nil
 }
 
-func (self *recoverStat) init(t int32, d time.Duration) *recoverStat {
-	self.num = 0
-	self.updateTime = time.Now()
-	self.threshold = t
-	self.timeThreshold = d
-	return self
+func (rstat *recoverStat) init(t int32, d time.Duration) *recoverStat {
+	rstat.num = 0
+	rstat.updateTime = time.Now()
+	rstat.threshold = t
+	rstat.timeThreshold = d
+	return rstat
 }
 
-func (self *recoverStat) reset() *recoverStat {
-	self.num = 0
-	self.updateTime = time.Now()
-	return self
+func (rstat *recoverStat) reset() *recoverStat {
+	rstat.num = 0
+	rstat.updateTime = time.Now()
+	return rstat
 }
 
-func (self *recoverStat) inc() bool {
-	atomic.AddInt32(&self.num, 1)
+func (rstat *recoverStat) inc() bool {
+	atomic.AddInt32(&rstat.num, 1)
 	now := time.Now()
-	if now.Sub(self.updateTime) > self.timeThreshold {
-		self.updateTime = now
-		atomic.StoreInt32(&self.num, 0)
+	if now.Sub(rstat.updateTime) > rstat.timeThreshold {
+		rstat.updateTime = now
+		atomic.StoreInt32(&rstat.num, 0)
 	} else {
-		if self.num > self.threshold {
+		if rstat.num > rstat.threshold {
 			return false
 		}
 	}

@@ -3,13 +3,10 @@ package pool
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/consensus/core"
-
-	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/go-errors/errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool/tree"
 )
 
@@ -202,7 +199,7 @@ func (pl *pool) updateIrreversibleBlock() error {
 			return errors.New("can't get irreversible info")
 		}
 		pl.pendingSc.irreversible = info
-		pl.log.Info("first update irreversible, %s", info.String())
+		pl.log.Info(fmt.Sprintf("first update irreversible, %s", info.String()))
 		return nil
 	}
 
@@ -217,7 +214,7 @@ func (pl *pool) updateIrreversibleBlock() error {
 	}
 
 	pl.pendingSc.irreversible = result
-	pl.log.Info("update irreversible, %s", result.String())
+	pl.log.Info(fmt.Sprintf("update irreversible, %s", result.String()))
 	return nil
 }
 
