@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
@@ -21,6 +22,7 @@ func (e JsonRpc2Error) ErrorCode() int {
 
 var (
 	// ErrNotSupport = errors.New("not support this method")
+	IllegalNodeTime = errors.New("The node time is inaccurate, quite different from the time of latest snapshot block.")
 
 	ErrDecryptKey = JsonRpc2Error{
 		Message: walleterrors.ErrDecryptEntropy.Error(),
@@ -93,17 +95,13 @@ var (
 		Message: verifier.ErrVerifyNonceFailed.Error(),
 		Code:    -36004,
 	}
-	ErrVerifySnapshotOfReferredBlock = JsonRpc2Error{
-		Message: verifier.ErrVerifySnapshotOfReferredBlockFailed.Error(),
-		Code:    -36005,
-	}
 	ErrVerifyPrevBlock = JsonRpc2Error{
 		Message: verifier.ErrVerifyPrevBlockFailed.Error(),
-		Code:    -36006,
+		Code:    -36005,
 	}
 	ErrVerifyRPCBlockIsPending = JsonRpc2Error{
 		Message: verifier.ErrVerifyRPCBlockPendingState.Error(),
-		Code:    -36007,
+		Code:    -36006,
 	}
 
 	concernedErrorMap map[string]JsonRpc2Error
@@ -129,7 +127,6 @@ func init() {
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
 	concernedErrorMap[ErrVerifySignature.Error()] = ErrVerifySignature
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
-	concernedErrorMap[ErrVerifySnapshotOfReferredBlock.Error()] = ErrVerifySnapshotOfReferredBlock
 	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
 	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
 }

@@ -99,7 +99,7 @@ func (p *contractOnRoadPool) GetOnRoadTotalNumByAddr(contract types.Address) (ui
 }
 
 func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []*ledger.AccountBlock) error {
-	mlog := p.log.New("method", "insertBlocks", "orAddr", orAddr, "len", len(blocks))
+	mlog := p.log.New("method", "InsertAccountBlocks", "orAddr", orAddr, "len", len(blocks))
 	isWrite := true
 	onroadMap, err := p.ledgerBlockListToOnRoad(orAddr, blocks)
 	if err != nil {
@@ -127,7 +127,8 @@ func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []
 }
 
 func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []*ledger.AccountBlock) error {
-	mlog := p.log.New("method", "deleteBlocks", "orAddr", orAddr, "len", len(blocks))
+	mlog := p.log.New("method", "DeleteAccountBlocks", "orAddr", orAddr)
+	mlog.Info(fmt.Sprintf("deleteBlocks len %v", len(blocks)))
 	isWrite := false
 	onroadMap, err := p.ledgerBlockListToOnRoad(orAddr, blocks)
 	if err != nil {
