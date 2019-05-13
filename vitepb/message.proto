@@ -22,6 +22,9 @@ message Handshake {
     bytes Key = 8;
 
     bytes FileAddress = 9;
+
+    bytes IdToken = 10;
+    bytes Token = 11;
 }
 
 message SyncConnHandshake {

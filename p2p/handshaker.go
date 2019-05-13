@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/vitepb"
+
 	"github.com/vitelabs/go-vite/p2p/netool"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -13,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/vitelabs/go-vite/p2p/protos"
 
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
@@ -54,13 +54,14 @@ const nonceLen = 32
 const signatureLen = 64
 
 type HandshakeMsg struct {
-	Version uint32
+	Version int64
 
-	NetID uint32
+	NetID int64
 
 	Name string
 
-	ID vnode.NodeID
+	ID      vnode.NodeID
+	IdToken []byte
 
 	Timestamp int64
 
@@ -68,13 +69,14 @@ type HandshakeMsg struct {
 	Head    types.Hash
 	Genesis types.Hash
 
-	Key []byte // is producer
+	Key   ed25519.PublicKey // is producer
+	Token []byte
 
 	FileAddress []byte
 }
 
 func (b *HandshakeMsg) Serialize() (data []byte, err error) {
-	pb := &protos.Handshake{
+	pb := &vitepb.Handshake{
 		Version:     b.Version,
 		NetId:       b.NetID,
 		Name:        b.Name,
@@ -84,13 +86,15 @@ func (b *HandshakeMsg) Serialize() (data []byte, err error) {
 		Genesis:     b.Genesis.Bytes(),
 		Key:         b.Key,
 		FileAddress: b.FileAddress,
+		IdToken:     b.IdToken,
+		Token:       b.Token,
 	}
 
 	return proto.Marshal(pb)
 }
 
 func (b *HandshakeMsg) Deserialize(data []byte) (err error) {
-	pb := new(protos.Handshake)
+	pb := new(vitepb.Handshake)
 
 	err = proto.Unmarshal(data, pb)
 	if err != nil {
@@ -115,18 +119,22 @@ func (b *HandshakeMsg) Deserialize(data []byte) (err error) {
 
 	b.FileAddress = pb.FileAddress
 
+	b.Token = pb.Token
+	b.IdToken = pb.IdToken
+
 	return nil
 }
 
 type handshaker struct {
-	version     uint32
-	netId       uint32
+	version     int
+	netId       int
 	name        string
 	id          vnode.NodeID
 	genesis     types.Hash
 	fileAddress []byte
 
-	priv ed25519.PrivateKey
+	peerKey ed25519.PrivateKey
+	key     ed25519.PrivateKey
 
 	protocol Protocol
 
@@ -140,8 +148,8 @@ func (h *handshaker) catch(codec Codec, err error) {
 
 func (h *handshaker) sendHandshake(codec Codec) (err error) {
 	hsm := HandshakeMsg{
-		Version:     h.version,
-		NetID:       h.netId,
+		Version:     int64(h.version),
+		NetID:       int64(h.netId),
 		Name:        h.name,
 		ID:          h.id,
 		Timestamp:   time.Now().Unix(),
@@ -149,6 +157,13 @@ func (h *handshaker) sendHandshake(codec Codec) (err error) {
 	}
 	hsm.Key, hsm.Height, hsm.Genesis = h.protocol.ProtoData()
 	h.genesis = hsm.Genesis
+
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(hsm.Timestamp))
+	hsm.IdToken = ed25519.Sign(h.peerKey, t)
+	if h.key != nil {
+		hsm.Token = ed25519.Sign(h.key, t)
+	}
 
 	hspkt, err := hsm.Serialize()
 	if err != nil {
@@ -193,6 +208,17 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 		return nil, PeerUnmarshalError
 	}
 
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
+	if len(their.Key) != 0 || len(their.Token) != 0 {
+		if false == ed25519.Verify(their.Key, t, their.Token) {
+			return nil, PeerInvalidSignature
+		}
+	}
+	if false == ed25519.Verify(their.ID.Bytes(), t, their.IdToken) {
+		return nil, PeerInvalidSignature
+	}
+
 	return
 }
 
@@ -210,12 +236,12 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 	codec.SetReadTimeout(readMsgTimeout)
 	codec.SetWriteTimeout(writeMsgTimeout)
 
-	if their.NetID != h.netId {
+	if their.NetID != int64(h.netId) {
 		err = PeerDifferentNetwork
 		return
 	}
 
-	if their.Version < h.version {
+	if their.Version < int64(h.version) {
 		err = PeerIncompatibleVersion
 		return
 	}
@@ -239,7 +265,7 @@ func (h *handshaker) Handshake(codec Codec, level Level) (peer PeerMux, err erro
 
 	fileAddress := extractFileAddress(codec.Address(), their.FileAddress)
 
-	peer = NewPeer(their.ID, their.Name, their.Height, fileAddress, their.Version, codec, level, h.protocol)
+	peer = NewPeer(their.ID, their.Name, their.Height, fileAddress, int(their.Version), codec, level, h.protocol)
 
 	return
 }

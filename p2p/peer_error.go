@@ -21,6 +21,7 @@ const (
 	PeerDifferentGenesis
 	PeerInvalidBlock
 	PeerInvalidMessage
+	PeerResponseTimeout
 )
 
 var peerErrStr = [...]string{
@@ -42,6 +43,7 @@ var peerErrStr = [...]string{
 	PeerInvalidBlock:        "invalid block",
 	PeerInvalidMessage:      "invalid message",
 	PeerBanned:              "banned",
+	PeerResponseTimeout:     "response timeout",
 }
 
 func (e PeerError) String() string {

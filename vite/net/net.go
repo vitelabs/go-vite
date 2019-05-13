@@ -76,12 +76,6 @@ func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err erro
 	var key string
 
 	if msg.Key != nil {
-		//	right := ed25519.Verify(msg.Key, msg.ID.Bytes(), msg.Signature)
-		//	if !right {
-		//		err = errInvalidSignature
-		//		return
-		//	}
-		//
 		addr := types.PubkeyToAddress(msg.Key)
 		if n.sn != nil && n.sn.isSbp(addr) {
 			level = p2p.Superior

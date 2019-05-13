@@ -66,7 +66,7 @@ func (p *peerMux) writeDone() {
 type PeerInfo struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
-	Version    uint32 `json:"version"`
+	Version    int    `json:"version"`
 	Height     uint64 `json:"height"`
 	Address    string `json:"address"`
 	Level      Level  `json:"level"`
@@ -88,7 +88,7 @@ type peerMux struct {
 	name        string
 	height      uint64
 	head        types.Hash
-	version     uint32
+	version     int
 	level       Level
 	pm          levelManager
 	createAt    time.Time
@@ -148,7 +148,7 @@ func (p *peerMux) Address() net.Addr {
 	return p.codec.Address()
 }
 
-func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, version uint32, c Codec, level Level, proto Protocol) PeerMux {
+func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
 	pm := &peerMux{
 		codec:       c,
 		id:          id,
