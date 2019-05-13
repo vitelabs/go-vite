@@ -41,6 +41,7 @@ type Writer interface {
 // SnapshotProducerWriter is a writer for snapshot producer
 type SnapshotProducerWriter interface {
 	lock.ChainInsert
+	lock.ChainRollback
 	AddDirectSnapshotBlock(block *ledger.SnapshotBlock) error
 }
 
@@ -153,6 +154,8 @@ type pool struct {
 
 	version *common.Version
 
+	rollbackVersion *common.Version
+
 	closed chan struct{}
 	wg     sync.WaitGroup
 
@@ -199,7 +202,7 @@ func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[strin
 
 // NewPool create a new BlockPool
 func NewPool(bc chainDb) (BlockPool, error) {
-	self := &pool{bc: bc, version: &common.Version{}}
+	self := &pool{bc: bc, version: &common.Version{}, rollbackVersion: &common.Version{}}
 	self.log = log15.New("module", "pool")
 	cache, err := lru.New(1024)
 	if err != nil {
@@ -591,6 +594,9 @@ func (pl *pool) broadcastUnConfirmedBlocks() {
 
 func (pl *pool) delUseLessChains() {
 	if pl.sync.SyncState() != net.Syncing {
+		info := pl.pendingSc.irreversible
+		pl.delChainsForIrreversible(info)
+
 		pl.pendingSc.loopDelUselessChain()
 		var pendings []*accountPool
 		pl.pendingAc.Range(func(_, v interface{}) bool {
@@ -602,6 +608,14 @@ func (pl *pool) delUseLessChains() {
 			v.loopDelUselessChain()
 		}
 	}
+}
+
+func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
+	rollbackV := pl.rollbackVersion.Val()
+	if info == nil || info.point == nil || info.rollbackV != rollbackV {
+		return
+	}
+	// todo
 }
 
 func (pl *pool) listPoolRelAddr() []types.Address {

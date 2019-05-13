@@ -283,6 +283,12 @@ func (self *tree) Branches() map[string]Branch {
 }
 
 func (self *tree) PruneTree() []Branch {
+	err := CheckTreeRing(self)
+	if err != nil {
+		self.log.Info(fmt.Sprintf("ring for tree:%s", PrintTree(self)))
+		panic("ring for tree")
+	}
+
 	self.branchMu.Lock()
 	defer self.branchMu.Unlock()
 

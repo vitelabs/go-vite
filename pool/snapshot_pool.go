@@ -156,6 +156,9 @@ func (sp *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch) e
 	defer sp.pool.UnLockInsert()
 	sp.pool.LockRollback()
 	defer sp.pool.UnLockRollback()
+	defer sp.pool.rollbackVersion.Inc()
+	defer sp.version.Inc()
+
 	sp.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ID(), "current", current.ID())
 
 	k, forked, err := sp.chainpool.tree.FindForkPointFromMain(longest)
@@ -195,7 +198,6 @@ func (sp *snapshotPool) snapshotFork(longest tree.Branch, current tree.Branch) e
 	if err != nil {
 		return err
 	}
-	sp.version.Inc()
 	return nil
 }
 

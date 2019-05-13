@@ -16,6 +16,7 @@ type branchChain struct {
 	chainID string
 	v       *common.Version
 	head    *ledger.HashHeight
+	t       tree.Tree
 }
 
 func (disk *branchChain) RemoveTail(k tree.Knot) error {
@@ -66,6 +67,7 @@ func (disk *branchChain) GetKnot(height uint64, flag bool) tree.Knot {
 }
 
 func (disk *branchChain) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {
+	fmt.Printf("%d, %s, %t, tree:%s\n", height, hash, flag, tree.PrintTree(disk.t))
 	panic("implement me")
 }
 

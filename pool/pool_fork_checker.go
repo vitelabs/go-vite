@@ -28,6 +28,7 @@ func (pl *pool) checkFork() {
 	defer pl.UnLockInsert()
 	pl.LockRollback()
 	defer pl.UnLockRollback()
+	defer pl.rollbackVersion.Inc()
 	defer pl.version.Inc()
 	pl.log.Warn("[lock]snapshot chain start fork.", "longest", longest.ID(), "current", current.ID())
 
@@ -147,6 +148,7 @@ func (pl *pool) snapshotRollback(longest tree.Branch, keyPoint *snapshotPoolBloc
 type irreversibleInfo struct {
 	point      *ledger.SnapshotBlock
 	proofPoint *ledger.SnapshotBlock
+	rollbackV  uint64
 }
 
 func (irreversible irreversibleInfo) String() string {
@@ -241,7 +243,7 @@ func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeI
 	latest := pl.bc.GetLatestSnapshotBlock()
 	for {
 		if latest.Height <= irreversibleCnt {
-			return &irreversibleInfo{point: nil, proofPoint: latest}, nil
+			return &irreversibleInfo{point: nil, proofPoint: latest, rollbackV: pl.rollbackVersion.Val()}, nil
 		}
 
 		endTime := latest.Timestamp
@@ -263,7 +265,7 @@ func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeI
 		}
 
 		if pl.checkIrreversible(point, latest, irreversibleCnt) {
-			return &irreversibleInfo{point: point, proofPoint: latest}, nil
+			return &irreversibleInfo{point: point, proofPoint: latest, rollbackV: pl.rollbackVersion.Val()}, nil
 		}
 		latest = block
 	}
