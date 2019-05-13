@@ -74,6 +74,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		Chain:             chain,
 		Verifier:          verifier,
 	})
+	net.Init(cs)
 
 	// vite
 	vite = &Vite{

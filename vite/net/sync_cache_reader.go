@@ -33,7 +33,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-var errNoSnapshotBlocksInChunk = errors.New("no snapshot blocks")
 var errReaderStopped = errors.New("cache reader stopped")
 
 const maxQueueSize = 10 << 20 // 10MB
@@ -74,7 +73,6 @@ type cacheReader struct {
 	cond    *sync.Cond
 
 	readHeight   uint64
-	readHash     types.Hash
 	initReadDone chan struct{}
 
 	buffer Chunks
@@ -187,14 +185,13 @@ func (s *cacheReader) start() {
 func (s *cacheReader) initReadChunks() {
 	current := s.chain.GetLatestSnapshotBlock()
 	s.readHeight = current.Height
-	s.readHash = current.Hash
 
 	cache := s.chain.GetSyncCache()
 	cs := cache.Chunks()
 
 	// set the init state
 	for _, c := range cs {
-		if c.Bound[1] <= current.Height {
+		if c.Bound[1] <= current.Height || c.Bound[1]%syncTaskSize != 0 {
 			_ = cache.Delete(c)
 			continue
 		}
@@ -204,7 +201,6 @@ func (s *cacheReader) initReadChunks() {
 		}
 
 		s.readHeight = c.Bound[0] - 1
-		s.readHash = c.PrevHash
 	}
 
 	// read chunks
@@ -214,7 +210,7 @@ func (s *cacheReader) initReadChunks() {
 			break
 		}
 
-		if c.Bound[0] == s.readHeight+1 && c.PrevHash == s.readHash {
+		if c.Bound[0] == s.readHeight+1 {
 			chunk, err := s.read(c)
 			if err != nil {
 				_ = cache.Delete(c)
@@ -222,7 +218,6 @@ func (s *cacheReader) initReadChunks() {
 			} else {
 				s.addChunkToBuffer(chunk)
 				s.readHeight = c.Bound[1]
-				s.readHash = c.Hash
 			}
 		} else {
 			break
@@ -246,6 +241,7 @@ func (s *cacheReader) stop() {
 func compareCache(cs interfaces.SegmentList, ts syncTasks, catch func(segment interfaces.Segment, t *syncTask)) syncTasks {
 	var i int
 	var t *syncTask
+	var shouldRemoved bool
 Loop:
 	for _, c := range cs {
 		for i < len(ts) {
@@ -266,19 +262,24 @@ Loop:
 
 			// task have the same cache
 			ts[i] = nil
+			shouldRemoved = true
 			i++
 		}
 	}
 
-	i = 0
-	for j := 0; j < len(ts); j++ {
-		if ts[j] != nil {
-			ts[i] = ts[j]
-			i++
+	if shouldRemoved {
+		i = 0
+		for j := 0; j < len(ts); j++ {
+			if ts[j] != nil {
+				ts[i] = ts[j]
+				i++
+			}
 		}
+
+		ts = ts[:i]
 	}
 
-	return ts[:i]
+	return ts
 }
 
 func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
@@ -303,12 +304,18 @@ func (s *cacheReader) deleteInitChunk(segment interfaces.Segment, t *syncTask) {
 		for i, c := range s.buffer {
 			if c.SnapshotRange[1].Height == segment.Bound[1] {
 				s.buffer = s.buffer[:i]
-				s.readHeight = t.from - 1
-				s.readHash = t.prevHash
 				s.index = i
 
 				// signal reader
 				s.cond.Signal()
+
+				if len(s.buffer) > 0 {
+					last := s.buffer[len(s.buffer)-1]
+					s.readHeight = last.SnapshotRange[1].Height
+				} else {
+					s.readHeight = t.from - 1
+				}
+
 				break
 			}
 		}
@@ -507,7 +514,6 @@ Loop:
 				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
 				// set readTo should be very seriously
 				s.readHeight = c.Bound[1]
-				s.readHash = c.Hash
 			}
 		}
 
