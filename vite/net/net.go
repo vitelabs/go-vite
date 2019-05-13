@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -25,9 +26,13 @@ type Config struct {
 	Single            bool
 	FileListenAddress string
 	TraceEnabled      bool
-	MinePrivateKey    ed25519.PrivateKey
-	P2PPrivateKey     ed25519.PrivateKey
-	ForwardStrategy   string // default `cross`
+	ForwardStrategy   string   // default `cross`
+	AccessControl     string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys   []string `json:"AccessAllowKeys"`
+	AccessDenyKeys    []string `json:"AccessDenyKeys"`
+
+	MinePrivateKey ed25519.PrivateKey
+	P2PPrivateKey  ed25519.PrivateKey
 	Chain
 	Verifier
 }
@@ -67,6 +72,9 @@ func (n *net) ProtoData() (key []byte, height uint64, genesis types.Hash) {
 }
 
 func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
+	var id = msg.ID.String()
+	var key string
+
 	if msg.Key != nil {
 		//	right := ed25519.Verify(msg.Key, msg.ID.Bytes(), msg.Signature)
 		//	if !right {
@@ -80,6 +88,27 @@ func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err erro
 		}
 	}
 
+	for _, key2 := range n.AccessDenyKeys {
+		if key2 == id || key2 == key {
+			err = p2p.PeerNoPermission
+			return
+		}
+	}
+	if n.Config.AccessControl == "any" {
+		return
+	}
+
+	if strings.Contains(n.Config.AccessControl, "producer") && level == p2p.Superior {
+		return
+	}
+
+	for _, key2 := range n.AccessAllowKeys {
+		if key2 == id || key2 == key {
+			return
+		}
+	}
+
+	err = p2p.PeerNoPermission
 	return
 }
 

@@ -58,6 +58,9 @@ type Config struct {
 	PublicAddress   string   `json:"PublicAddress"`
 	NetID           int      `json:"NetID"`
 	Discover        bool     `json:"Discover"`
+	AccessControl   string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys []string `json:"AccessAllowKeys"`
+	AccessDenyKeys  []string `json:"AccessDenyKeys"`
 
 	//producer
 	EntropyStorePath     string `json:"EntropyStorePath"`
@@ -153,6 +156,9 @@ func (c *Config) makeNetConfig() *config.Net {
 		FileListenAddress: fileListenAddress,
 		ForwardStrategy:   c.ForwardStrategy,
 		TraceEnabled:      c.TraceEnabled,
+		AccessControl:     c.AccessControl,
+		AccessAllowKeys:   c.AccessAllowKeys,
+		AccessDenyKeys:    c.AccessDenyKeys,
 	}
 }
 
