@@ -14,6 +14,9 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
+const correctFilePrefix = "f_"
+const tempFilePrefix = "t_"
+
 type syncCache struct {
 	log     log15.Logger
 	dirName string
@@ -25,9 +28,7 @@ type syncCache struct {
 	segMu    sync.RWMutex
 }
 
-func NewSyncCache(dataDir string) (interfaces.SyncCache, error) {
-	dirName := path.Join(dataDir, "sync_cache")
-
+func NewSyncCache(dirName string) (interfaces.SyncCache, error) {
 	var err error
 	cache := &syncCache{
 		log:         log15.New("module", "sync_cache"),
@@ -56,9 +57,27 @@ func NewSyncCache(dataDir string) (interfaces.SyncCache, error) {
 func (cache *syncCache) Delete(seg interfaces.Segment) error {
 	filename := cache.toAbsoluteFileName(seg)
 
-	if err := os.Remove(filename); err != nil {
-		return err
+	_, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			filename = cache.toVerifiedFileName(seg)
+			_, err = os.Stat(filename)
+			if err != nil {
+				return err
+			} else {
+				if err = os.Remove(filename); err != nil {
+					return err
+				}
+			}
+		} else {
+			return err
+		}
+	} else {
+		if err = os.Remove(filename); err != nil {
+			return err
+		}
 	}
+
 	cache.deleteSeg(seg)
 	return nil
 }
@@ -99,6 +118,12 @@ func (cache *syncCache) loadAllSegments() (interfaces.SegmentList, error) {
 	}
 
 	for _, filename := range allFilename {
+		// remove temp files
+		if cache.isTempFile(filename) {
+			_ = os.Remove(filename)
+			continue
+		}
+
 		if !cache.isCorrectFile(filename) {
 			continue
 		}
@@ -115,11 +140,27 @@ func (cache *syncCache) loadAllSegments() (interfaces.SegmentList, error) {
 	return cache.segments, nil
 }
 
+func (cache *syncCache) isTempFile(filename string) bool {
+	return strings.HasPrefix(filename, tempFilePrefix)
+}
+
 func (cache *syncCache) isCorrectFile(filename string) bool {
-	return strings.HasPrefix(filename, "f_")
+	return strings.HasPrefix(filename, correctFilePrefix)
 }
 
 func (cache *syncCache) toAbsoluteFileName(segment interfaces.Segment) string {
-	return path.Join(cache.dirName, "f_"+strconv.FormatUint(segment.Bound[0], 10)+"_"+segment.PrevHash.String()+
-		"_"+strconv.FormatUint(segment.Bound[1], 10)+"_"+segment.Hash.String())
+	return path.Join(cache.dirName, toFilename(correctFilePrefix, segment))
+}
+
+func (cache *syncCache) toTempFileName(segment interfaces.Segment) string {
+	return path.Join(cache.dirName, toFilename(tempFilePrefix, segment))
+}
+
+func (cache *syncCache) toVerifiedFileName(segment interfaces.Segment) string {
+	return path.Join(cache.dirName, toFilename(correctFilePrefix, segment)+".v")
+}
+
+func toFilename(prefix string, segment interfaces.Segment) string {
+	return prefix + strconv.FormatUint(segment.Bound[0], 10) + "_" + segment.PrevHash.String() +
+		"_" + strconv.FormatUint(segment.Bound[1], 10) + "_" + segment.Hash.String()
 }
