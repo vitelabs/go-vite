@@ -48,16 +48,13 @@ func (r *Registration) IsActive() bool {
 }
 
 type TokenInfo struct {
-	TokenName      string   `json:"tokenName"`
-	TokenSymbol    string   `json:"tokenSymbol"`
-	TotalSupply    *big.Int `json:"totalSupply"`
-	Decimals       uint8    `json:"decimals"`
-	Owner          Address  `json:"owner"`
-	PledgeAmount   *big.Int `json:"pledgeAmount"`
-	PledgeAddr     Address  `json:"pledgeAddr"`
-	WithdrawHeight uint64   `json:"withdrawHeight"`
-	MaxSupply      *big.Int `json:"maxSupply"`
-	OwnerBurnOnly  bool     `json:"ownerBurnOnly"`
-	IsReIssuable   bool     `json:"isReIssuable"`
-	Index          uint16   `json:"index"`
+	TokenName     string   `json:"tokenName"`
+	TokenSymbol   string   `json:"tokenSymbol"`
+	TotalSupply   *big.Int `json:"totalSupply"`
+	Decimals      uint8    `json:"decimals"`
+	Owner         Address  `json:"owner"`
+	MaxSupply     *big.Int `json:"maxSupply"`
+	OwnerBurnOnly bool     `json:"ownerBurnOnly"`
+	IsReIssuable  bool     `json:"isReIssuable"`
+	Index         uint16   `json:"index"`
 }
