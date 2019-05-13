@@ -31,7 +31,7 @@ import (
 const (
 	DefaultNetID           = 3
 	DefaultListenAddress   = "0.0.0.0:8483"
-	PeerKeyFileName        = "key"
+	PeerKeyFileName        = "peerKey"
 	DefaultPort            = 8483
 	DefaultListenInterface = "0.0.0.0"
 	DefaultBucketSize      = 32

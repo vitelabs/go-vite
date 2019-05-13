@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/p2p/netool"
+
 	"github.com/vitelabs/go-vite/tools/ticket"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -58,13 +60,17 @@ type server struct {
 	hkr Handshaker
 	pm  peerManager
 
+	codecFactory CodecFactory
+
+	blackList netool.BlackList
+
 	listenAddress string
 	ln            net.Listener
 	tkt           ticket.Ticket
 	log           log15.Logger
 }
 
-func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerManager, addr string) Server {
+func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerManager, addr string, blackList netool.BlackList, codecFactory CodecFactory) Server {
 	return &server{
 		retryStartDuration: rd,
 		retryStartCount:    rc,
@@ -75,6 +81,8 @@ func newServer(rd time.Duration, rc, maxi, maxp int, hkr Handshaker, pm peerMana
 		listenAddress:      addr,
 		tkt:                ticket.New(maxp),
 		log:                p2pLog.New("module", "server"),
+		blackList:          blackList,
+		codecFactory:       codecFactory,
 	}
 }
 
@@ -141,8 +149,17 @@ func (srv *server) loop() {
 			break
 		}
 
+		codec := srv.codecFactory.CreateCodec(conn)
+		if addr, ok := codec.Address().(*net.TCPAddr); ok {
+			if srv.blackList.Banned(addr.IP) {
+				_ = Disconnect(codec, PeerBanned)
+				srv.tkt.Return()
+				continue
+			}
+		}
+
 		srv.wg.Add(1)
-		go srv.handle(conn)
+		go srv.handle(codec)
 	}
 
 	_ = srv.tkt.Close()
@@ -150,7 +167,7 @@ func (srv *server) loop() {
 	srv.onStopListen(err)
 }
 
-func (srv *server) handle(c net.Conn) {
+func (srv *server) handle(c Codec) {
 	defer srv.wg.Done()
 
 	p, err := srv.hkr.Handshake(c, Inbound)
@@ -158,7 +175,7 @@ func (srv *server) handle(c net.Conn) {
 	srv.tkt.Return()
 
 	if err != nil {
-		srv.log.Error(fmt.Sprintf("handshake with peer %s error: %v", c.RemoteAddr(), err))
+		srv.log.Error(fmt.Sprintf("failed to handshake with peer %s: %v", c.Address().String(), err))
 	} else {
 		srv.pm.register(p)
 	}

@@ -4,12 +4,39 @@ import (
 	"net"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
 type mockPeer struct {
-	id    vnode.NodeID
-	level Level
+	id     vnode.NodeID
+	level  Level
+	height uint64
+}
+
+func (mp *mockPeer) Close(err error) error {
+	return nil
+}
+
+func (mp *mockPeer) Height() uint64 {
+	return mp.height
+}
+
+func (mp *mockPeer) Head() types.Hash {
+	panic("implement me")
+}
+
+func (mp *mockPeer) SetHead(head types.Hash, height uint64) {
+	panic("implement me")
+}
+
+func (mp *mockPeer) FileAddress() string {
+	panic("implement me")
+}
+
+func (mp *mockPeer) weight() int64 {
+	panic("implement me")
 }
 
 func (mp *mockPeer) WriteMsg(Msg) error {
@@ -29,10 +56,6 @@ func (mp *mockPeer) Address() net.Addr {
 }
 
 func (mp *mockPeer) Info() PeerInfo {
-	panic("implement me")
-}
-
-func (mp *mockPeer) Close(err PeerError) error {
 	panic("implement me")
 }
 

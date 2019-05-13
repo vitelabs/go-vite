@@ -39,19 +39,56 @@ func (cache *syncCache) checkOverlap(segment interfaces.Segment) bool {
 }
 
 func (cache *syncCache) createNewFile(segment interfaces.Segment) (io.WriteCloser, error) {
-	filename := cache.toAbsoluteFileName(segment)
+	filename := cache.toTempFileName(segment)
 	file, cErr := os.Create(filename)
 
 	if cErr != nil {
 		return nil, errors.New("Create file failed, error is " + cErr.Error())
 	}
 
-	cache.addSeg(segment)
-
-	return file, nil
+	return &writer{
+		cache:   cache,
+		segment: segment,
+		fd:      file,
+	}, nil
 }
 
 func (cache *syncCache) addSeg(segment interfaces.Segment) {
 	cache.segments = append(cache.segments, segment)
 	sort.Sort(cache.segments)
+}
+
+type writer struct {
+	cache   *syncCache
+	segment interfaces.Segment
+	fd      *os.File
+}
+
+func (w *writer) Write(p []byte) (n int, err error) {
+	return w.fd.Write(p)
+}
+
+func (w *writer) Close() (err error) {
+	defer func() {
+		if err != nil {
+			_ = os.Remove(w.fd.Name())
+		}
+	}()
+
+	// close file
+	err = w.fd.Close()
+	if err != nil {
+		return err
+	}
+
+	// rename temp to correct, retry 3 times
+	for i := 0; i < 3; i++ {
+		err = os.Rename(w.fd.Name(), w.cache.toAbsoluteFileName(w.segment))
+		if err == nil {
+			w.cache.addSeg(w.segment)
+			break
+		}
+	}
+
+	return err
 }

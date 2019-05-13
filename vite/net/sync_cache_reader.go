@@ -1,0 +1,531 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package net
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/vitelabs/go-vite/log15"
+
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
+)
+
+var errReaderStopped = errors.New("cache reader stopped")
+var errReaderInterrupt = errors.New("cache reader interrupt")
+
+const maxQueueSize = 10 << 20 // 10MB
+const maxQueueLength = 5
+
+type syncCacheReader interface {
+	ChunkReader
+	start()
+	stop()
+	compareCache(ts syncTasks) syncTasks
+	clean() // clean cache and reset
+	chunks() interfaces.SegmentList
+	queue() [][2]*ledger.HashHeight
+	pause()
+	resume()
+}
+
+type Chunks []*Chunk
+
+func (cs Chunks) Len() int {
+	return len(cs)
+}
+
+func (cs Chunks) Less(i, j int) bool {
+	return cs[i].SnapshotRange[0].Height < cs[j].SnapshotRange[0].Height
+}
+
+func (cs Chunks) Swap(i, j int) {
+	cs[i], cs[j] = cs[j], cs[i]
+}
+
+type cacheReader struct {
+	chain      syncChain
+	verifier   Verifier
+	downloader syncDownloader
+
+	running bool
+	mu      sync.Mutex
+	cond    *sync.Cond
+
+	readHeight uint64
+
+	readable int32
+	reading  *interfaces.Segment
+
+	buffer Chunks
+	index  int
+
+	wg  sync.WaitGroup
+	log log15.Logger
+}
+
+func (s *cacheReader) queue() (ret [][2]*ledger.HashHeight) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ret = make([][2]*ledger.HashHeight, len(s.buffer))
+	for i, c := range s.buffer {
+		ret[i] = c.SnapshotRange
+	}
+
+	return
+}
+
+func (s *cacheReader) Peek() (c *Chunk) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.index < len(s.buffer) {
+		c = s.buffer[s.index]
+		s.index++
+	}
+
+	return
+}
+
+func (s *cacheReader) Pop(endHash types.Hash) {
+	s.log.Info(fmt.Sprintf("pop cache %s", endHash))
+
+	s.mu.Lock()
+	if len(s.buffer) > 0 {
+		if s.buffer[0].SnapshotRange[1].Hash == endHash {
+			s.buffer = s.buffer[1:]
+			s.index--
+		}
+	}
+	s.mu.Unlock()
+
+	s.cond.Signal()
+}
+
+func (s *cacheReader) bufferSize() (n int64) {
+	for _, c := range s.buffer {
+		n += c.size
+	}
+
+	return
+}
+
+// will blocked if queue is full
+func (s *cacheReader) addChunkToBuffer(c *Chunk) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for {
+		if false == s.running {
+			return
+		}
+
+		if s.bufferSize() >= maxQueueSize || len(s.buffer) > maxQueueLength {
+			s.cond.Wait()
+		} else {
+			break
+		}
+	}
+
+	s.buffer = append(s.buffer, c)
+}
+
+func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) syncCacheReader {
+	s := &cacheReader{
+		chain:      chain,
+		verifier:   verifier,
+		downloader: downloader,
+		buffer:     make(Chunks, 0, maxQueueLength),
+		log:        netLog.New("module", "cache"),
+		readable:   1,
+	}
+
+	s.cond = sync.NewCond(&s.mu)
+
+	downloader.addListener(s.chunkDownloaded)
+
+	return s
+}
+
+func (s *cacheReader) getHeight() uint64 {
+	return s.chain.GetLatestSnapshotBlock().Height
+}
+
+func (s *cacheReader) start() {
+	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		return
+	}
+	s.running = true
+	s.mu.Unlock()
+
+	s.wg.Add(1)
+	go s.readLoop()
+}
+
+func (s *cacheReader) stop() {
+	s.mu.Lock()
+	s.running = false
+	s.mu.Unlock()
+
+	s.reset()
+
+	s.wg.Wait()
+}
+
+// from low to high
+func compareCache(cs interfaces.SegmentList, ts syncTasks, catch func(segment interfaces.Segment, t *syncTask)) syncTasks {
+	var i int
+	var t *syncTask
+	var shouldRemoved bool
+Loop:
+	for _, c := range cs {
+		for i < len(ts) {
+			t = ts[i]
+			if c.Bound[1] < t.from {
+				continue Loop
+			}
+
+			if c.Bound[0] > t.to {
+				i++
+				continue
+			}
+
+			// task and segment is overlapped
+			if c.PrevHash != t.prevHash || c.Bound[0] != t.from || c.Bound[1] != t.to || c.Hash != t.endHash {
+				catch(c, t)
+				continue Loop
+			}
+
+			// task have the same cache
+			ts[i] = nil
+			shouldRemoved = true
+			i++
+		}
+	}
+
+	if shouldRemoved {
+		i = 0
+		for j := 0; j < len(ts); j++ {
+			if ts[j] != nil {
+				ts[i] = ts[j]
+				i++
+			}
+		}
+
+		ts = ts[:i]
+	}
+
+	return ts
+}
+
+func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
+	defer s.resume()
+
+	cs := s.chunks()
+	if len(cs) == 0 {
+		return ts
+	}
+
+	last := cs[len(cs)-1]
+	if last.Bound[1] < ts[0].from {
+		return ts
+	}
+
+	// chunk and tasks are overlapped
+	s.pause()
+	ts = compareCache(cs, ts, s.deleteChunk)
+
+	s.cond.Signal()
+
+	return ts
+}
+
+func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
+	cache := s.chain.GetSyncCache()
+	_ = cache.Delete(segment)
+
+	s.mu.Lock()
+	reading := s.reading
+	s.mu.Unlock()
+
+	if reading != nil && reading.Bound[1] <= segment.Bound[1] {
+		s.pause()
+	}
+
+	// chunk has been read to buffer
+	if segment.Bound[1] <= s.readHeight {
+		s.mu.Lock()
+		for i, c := range s.buffer {
+			if c.SnapshotRange[1].Height == segment.Bound[1] {
+				s.buffer = s.buffer[:i]
+				s.index = i
+
+				// signal reader
+				s.cond.Signal()
+
+				if len(s.buffer) > 0 {
+					last := s.buffer[len(s.buffer)-1]
+					s.readHeight = last.SnapshotRange[1].Height
+				} else {
+					s.readHeight = t.from - 1
+				}
+
+				break
+			}
+		}
+		s.mu.Unlock()
+	}
+}
+
+func (s *cacheReader) chunks() interfaces.SegmentList {
+	return s.chain.GetSyncCache().Chunks()
+}
+
+func (s *cacheReader) chunkDownloaded(t syncTask, err error) {
+	s.cond.Signal()
+}
+
+func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
+	if fatal {
+		cache := s.chain.GetSyncCache()
+		err := cache.Delete(segment)
+		if err == nil {
+			s.downloader.download(&syncTask{
+				from:     segment.Bound[0],
+				to:       segment.Bound[1],
+				prevHash: segment.PrevHash,
+				endHash:  segment.Hash,
+			}, true)
+		}
+	}
+}
+
+func (s *cacheReader) clean() {
+	cache := s.chain.GetSyncCache()
+	cs := cache.Chunks()
+	for _, c := range cs {
+		_ = cache.Delete(c)
+	}
+
+	s.reset()
+}
+
+func (s *cacheReader) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.readHeight = s.getHeight()
+	s.buffer = s.buffer[:0]
+	s.index = 0
+
+	s.cond.Signal()
+}
+
+func (s *cacheReader) removeUselessChunks(cleanWrongEnd bool) {
+	height := s.getHeight()
+	cache := s.chain.GetSyncCache()
+	cs := cache.Chunks()
+
+	for _, c := range cs {
+		if c.Bound[1] > height {
+			if cleanWrongEnd {
+				if c.Bound[1]%syncTaskSize != 0 {
+					_ = cache.Delete(c)
+				}
+			} else {
+				break
+			}
+		} else {
+			_ = cache.Delete(c)
+		}
+	}
+}
+
+func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err error) {
+	fatal = true
+
+	cache := s.chain.GetSyncCache()
+	reader, err := cache.NewReader(c)
+	if err != nil {
+		return
+	}
+
+	s.mu.Lock()
+	s.reading = &c
+	s.mu.Unlock()
+
+	verified := reader.Verified()
+
+	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1], types.RemoteSync)
+	chunk.size = reader.Size()
+
+	var ab *ledger.AccountBlock
+	var sb *ledger.SnapshotBlock
+	for {
+		if false == s.running {
+			_ = reader.Close()
+			fatal = false
+			err = errReaderStopped
+			return
+		}
+
+		ab, sb, err = reader.Read()
+		if err != nil {
+			break
+		} else if ab != nil {
+			if verified == false {
+				if err = s.verifier.VerifyNetAb(ab); err != nil {
+					break
+				}
+			}
+
+			if err = chunk.addAccountBlock(ab); err != nil {
+				break
+			}
+
+		} else if sb != nil {
+			if verified == false {
+				if err = s.verifier.VerifyNetSb(sb); err != nil {
+					break
+				}
+			}
+
+			if err = chunk.addSnapshotBlock(sb); err != nil {
+				break
+			}
+		}
+
+		if false == s.canRead() {
+			_ = reader.Close()
+			fatal = false
+			err = errReaderInterrupt
+			return
+		}
+	}
+
+	_ = reader.Close()
+
+	if err == io.EOF {
+		err = chunk.done()
+	}
+
+	// no error, set reader verified
+	if err == nil {
+		reader.Verify()
+	}
+
+	s.mu.Lock()
+	s.reading = nil
+	s.mu.Unlock()
+
+	return
+}
+
+func (s *cacheReader) pause() {
+	atomic.StoreInt32(&s.readable, 0)
+}
+
+func (s *cacheReader) resume() {
+	atomic.StoreInt32(&s.readable, 1)
+}
+
+func (s *cacheReader) canRead() bool {
+	return atomic.LoadInt32(&s.readable) == 1
+}
+
+func (s *cacheReader) readLoop() {
+	defer s.wg.Done()
+
+	s.removeUselessChunks(true)
+	s.readHeight = s.getHeight()
+
+	cache := s.chain.GetSyncCache()
+
+	var chunk *Chunk
+	var fatal bool
+	var err error
+	var cs interfaces.SegmentList
+
+Loop:
+	for {
+		s.removeUselessChunks(false)
+
+		for {
+			if false == s.running {
+				break Loop
+			}
+
+			if cs = cache.Chunks(); len(cs) == 0 {
+				s.mu.Lock()
+				s.cond.Wait()
+				s.mu.Unlock()
+				continue
+			} else if s.canRead() == false {
+				s.mu.Lock()
+				s.cond.Wait()
+				s.mu.Unlock()
+				continue
+			} else {
+				break
+			}
+		}
+
+		// read chunks
+		for _, c := range cs {
+			// chunk has read
+			if c.Bound[1] <= s.readHeight {
+				continue
+			}
+
+			// missing chunk
+			if c.Bound[0] > s.readHeight+1 {
+				time.Sleep(200 * time.Millisecond)
+				// chunk downloaded
+				continue Loop
+			}
+
+			s.log.Info(fmt.Sprintf("begin read cache %d-%d", c.Bound[0], c.Bound[1]))
+			chunk, fatal, err = s.read(c)
+
+			// read chunk error
+			if err != nil {
+				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
+				s.chunkReadFailed(c, fatal)
+			} else {
+				// will be block
+				s.addChunkToBuffer(chunk)
+				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
+				// set readTo should be very seriously
+				s.readHeight = c.Bound[1]
+			}
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+}
