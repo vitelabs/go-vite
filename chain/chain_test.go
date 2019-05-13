@@ -197,7 +197,7 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
-	chainInstance, err := NewChainInstance("premainnet/devdata", false)
+	chainInstance, err := NewChainInstance("unit_test/devdata", false)
 	if err != nil {
 		panic(err)
 	}

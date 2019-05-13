@@ -74,14 +74,14 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	c.flushMu.RLock()
 	defer func() {
 		if e := recover(); e != nil {
-			c.flusher.Stop()
+			c.flusher.Abort()
 			c.flushMu.RUnlock()
 			panic(e)
-		} else {
-			c.flushMu.RUnlock()
-			if returnErr != nil {
-				c.flusher.Flush()
-			}
+		}
+
+		c.flushMu.RUnlock()
+		if returnErr != nil {
+			c.flusher.Flush()
 		}
 
 	}()
