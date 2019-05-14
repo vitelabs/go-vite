@@ -1,11 +1,9 @@
 package consensus
 
 import (
-	"time"
-
 	"strconv"
-
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
