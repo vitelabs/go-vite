@@ -242,7 +242,7 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 	request.Token = xor(hash, secret)
 	if h.key != nil {
 		request.Key = h.key.PubByte()
-		request.Token = ed25519.Sign(h.key, t)
+		request.Token = ed25519.Sign(h.key, request.Token)
 	}
 	data, err := request.Serialize()
 	if err != nil {
@@ -257,7 +257,6 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 	if err != nil {
 		return nil, PeerNetworkError
 	}
-
 	c.SetReadTimeout(handshakeTimeout)
 	msg, err := c.ReadMsg()
 	if err != nil {
