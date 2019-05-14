@@ -203,7 +203,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 
 		segment := reader.Seg()
 		if segment.PrevHash != request.prevHash || segment.Hash != request.endHash {
-			s.log.Warn(fmt.Sprintf("different chunk<%d-%d> %s/%s %s/%s from %s", request.from, request.to, request.prevHash, request.endHash, segment.PrevHash, segment.PrevHash, conn.RemoteAddr()))
+			s.log.Warn(fmt.Sprintf("different chunk<%d-%d> %s/%s %s/%s from %s", request.from, request.to, request.prevHash, request.endHash, segment.PrevHash, segment.Hash, conn.RemoteAddr()))
 
 			_ = sconn.c.WriteMsg(p2p.Msg{
 				Code:    p2p.CodeException,

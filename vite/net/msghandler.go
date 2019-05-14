@@ -19,8 +19,6 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-const step = 100
-
 type msgHandler interface {
 	name() string
 	codes() []p2p.Code
@@ -201,6 +199,7 @@ func (c *checkHandler) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeGetHashList}
 }
 
+// return [startHeight+1 ... end]
 func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (code p2p.Code, payload p2p.Serializable) {
 	var block *ledger.SnapshotBlock
 	var err error
@@ -241,8 +240,14 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 			Hash:   block.Hash,
 		})
 
-		start += step
-		start = start / step * step
+		if start == get.To {
+			break
+		}
+
+		start = (start + step) / step * step
+		if start > get.To {
+			start = get.To
+		}
 	}
 
 	if len(points) == 0 {

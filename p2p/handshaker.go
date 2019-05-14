@@ -149,6 +149,8 @@ func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
 	if msg.Code == CodeDisconnect {
 		if len(msg.Payload) > 0 {
 			err = PeerError(msg.Payload[0])
+		} else {
+			err = PeerQuitting
 		}
 
 		return
@@ -266,6 +268,8 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 	if msg.Code == CodeDisconnect {
 		if len(msg.Payload) > 0 {
 			err = PeerError(msg.Payload[0])
+		} else {
+			err = PeerQuitting
 		}
 
 		return
@@ -312,6 +316,7 @@ func (h *handshaker) doHandshake(c Codec, level Level, their *HandshakeMsg) (pee
 
 	if their.Genesis != h.genesis {
 		err = PeerDifferentGenesis
+		return
 	}
 
 	level2, err := h.protocol.ReceiveHandshake(their)
