@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vitelabs/go-vite/ledger"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/config"
 
@@ -53,6 +55,10 @@ func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) 
 	m := make(map[string]interface{})
 	m["block"] = info
 	return m
+}
+
+func (api DebugApi) PoolIrreversible() *ledger.SnapshotBlock {
+	return api.v.Pool().GetIrreversibleBlock()
 }
 
 func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64) map[string]interface{} {
