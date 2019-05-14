@@ -426,6 +426,7 @@ Loop:
 		}
 
 		syncHeight := syncPeer.Height()
+		syncHeight = syncHeight / syncTaskSize * syncTaskSize
 		atomic.StoreUint64(&s.to, syncHeight)
 
 		end = (startHeight + maxBatchChunkSize) / syncTaskSize * syncTaskSize
@@ -434,6 +435,7 @@ Loop:
 		}
 		points := s.sk.construct(start, end)
 		if len(points) == 0 {
+			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %+v %d", start, end))
 			time.Sleep(time.Second)
 			continue
 		}
@@ -451,12 +453,13 @@ Loop:
 
 		if point != nil {
 			first = false
-			tasks := constructTasks(point, points)
-			tasks = s.reader.compareCache(tasks)
-			for _, t := range tasks {
-				// could be blocked when downloader tasks queue is full
-				if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
-					break Loop
+			if tasks := constructTasks(point, points); len(tasks) > 0 {
+				tasks = s.reader.compareCache(tasks)
+				for _, t := range tasks {
+					// could be blocked when downloader tasks queue is full
+					if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
+						break Loop
+					}
 				}
 			}
 
