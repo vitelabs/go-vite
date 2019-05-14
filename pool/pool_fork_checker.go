@@ -288,6 +288,15 @@ func (pl *pool) checkIrreversible(point *ledger.SnapshotBlock, proofPoint *ledge
 	return uint64(len(addrs)) >= irreversibleCnt
 }
 
+func (pl *pool) GetIrreversibleBlock() *ledger.SnapshotBlock {
+	pl.updateIrreversibleBlock()
+	info := pl.pendingSc.irreversible
+	if info != nil {
+		return info.point
+	}
+	return nil
+}
+
 func (pl *pool) snapshotInsert(targetHeight uint64) error {
 	err := pl.modifyCurrentAccounts(targetHeight)
 	if err != nil {
