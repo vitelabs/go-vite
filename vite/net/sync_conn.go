@@ -19,6 +19,8 @@
 package net
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -28,6 +30,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
@@ -44,16 +48,18 @@ var errServerNotReady = errors.New("server not ready")
 var errIncompleteChunk = errors.New("incomplete chunk")
 
 type syncHandshake struct {
-	key  []byte
-	time time.Time
-	sign []byte
+	id    peerId
+	key   []byte
+	time  int64
+	token []byte
 }
 
 func (s *syncHandshake) Serialize() ([]byte, error) {
 	pb := &vitepb.SyncConnHandshake{
+		ID:        s.id.Bytes(),
+		Timestamp: s.time,
 		Key:       s.key,
-		Timestamp: s.time.Unix(),
-		Sign:      s.sign,
+		Token:     s.token,
 	}
 	return proto.Marshal(pb)
 }
@@ -65,9 +71,13 @@ func (s *syncHandshake) deserialize(data []byte) error {
 		return err
 	}
 
+	s.id, err = vnode.Bytes2NodeID(pb.ID)
+	if err != nil {
+		return err
+	}
 	s.key = pb.Key
-	s.time = time.Unix(pb.Timestamp, 0)
-	s.sign = pb.Sign
+	s.time = pb.Timestamp
+	s.token = pb.Token
 	return nil
 }
 
@@ -162,9 +172,11 @@ type syncConnInitiator interface {
 }
 
 type defaultSyncConnectionFactory struct {
-	chain      syncCacher
-	peers      *peerSet
-	privateKey ed25519.PrivateKey
+	chain   syncCacher
+	peers   *peerSet
+	id      peerId
+	peerKey ed25519.PrivateKey
+	mineKey ed25519.PrivateKey
 }
 
 func (d *defaultSyncConnectionFactory) makeCodec(conn net2.Conn) *syncConn {
@@ -178,9 +190,23 @@ func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer Peer) (*syn
 	c := d.makeCodec(conn)
 
 	hk := &syncHandshake{
-		key:  d.privateKey.PubByte(),
-		time: time.Now(),
-		sign: nil,
+		id:   d.id,
+		time: time.Now().Unix(),
+	}
+	pub := ed25519.PublicKey(peer.ID().Bytes()).ToX25519Pk()
+	priv := d.peerKey.ToX25519Sk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	if err != nil {
+		return nil, err
+	}
+
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(hk.time))
+	hash := crypto.Hash256(t)
+	hk.token = xor(hash, secret)
+	if len(d.mineKey) != 0 {
+		hk.key = d.mineKey.PubByte()
+		hk.token = ed25519.Sign(d.mineKey, hk.token)
 	}
 
 	data, err := hk.Serialize()
@@ -225,7 +251,7 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 			Code:    p2p.CodeDisconnect,
 			Payload: []byte{byte(p2p.PeerNotHandshakeMsg)},
 		})
-		return nil, errHandshakeError
+		return nil, p2p.PeerNotHandshakeMsg
 	}
 
 	var hk = &syncHandshake{}
@@ -234,22 +260,40 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 		return nil, err
 	}
 
-	id, err := vnode.Bytes2NodeID(hk.key)
+	pub := ed25519.PublicKey(hk.id.Bytes()).ToX25519Pk()
+	priv := d.peerKey.ToX25519Sk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
 	if err != nil {
-		_ = c.c.WriteMsg(p2p.Msg{
-			Code:    p2p.CodeDisconnect,
-			Payload: []byte{byte(p2p.PeerInvalidMessage)},
-		})
-		return nil, errHandshakeError
+		return nil, err
 	}
 
-	p := d.peers.get(id)
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(hk.time))
+	hash := crypto.Hash256(t)
+	token := xor(hash, secret)
+	if len(hk.key) != 0 {
+		if false == ed25519.Verify(hk.key, token, hk.token) {
+			_ = c.c.WriteMsg(p2p.Msg{
+				Code:    p2p.CodeDisconnect,
+				Payload: []byte{byte(p2p.PeerInvalidSignature)},
+			})
+			return nil, p2p.PeerInvalidSignature
+		}
+	} else if false == bytes.Equal(hk.token, token) {
+		_ = c.c.WriteMsg(p2p.Msg{
+			Code:    p2p.CodeDisconnect,
+			Payload: []byte{byte(p2p.PeerInvalidToken)},
+		})
+		return nil, p2p.PeerInvalidToken
+	}
+
+	p := d.peers.get(hk.id)
 	if p == nil {
 		_ = c.c.WriteMsg(p2p.Msg{
 			Code:    p2p.CodeDisconnect,
 			Payload: []byte{byte(p2p.PeerNoPermission)},
 		})
-		return nil, errHandshakeError
+		return nil, p2p.PeerNoPermission
 	}
 
 	err = c.c.WriteMsg(p2p.Msg{
@@ -636,4 +680,12 @@ func (fp *connPoolImpl) reset() {
 	}
 
 	fp.l = nil
+}
+
+func xor(one, other []byte) (xor []byte) {
+	xor = make([]byte, len(one))
+	for i := 0; i < len(one); i++ {
+		xor[i] = one[i] ^ other[i]
+	}
+	return xor
 }

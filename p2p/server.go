@@ -170,12 +170,13 @@ func (srv *server) loop() {
 func (srv *server) handle(c Codec) {
 	defer srv.wg.Done()
 
-	p, err := srv.hkr.Handshake(c, Inbound)
+	p, err := srv.hkr.ReceiveHandshake(c)
 
 	srv.tkt.Return()
 
 	if err != nil {
 		srv.log.Error(fmt.Sprintf("failed to handshake with peer %s: %v", c.Address().String(), err))
+		_ = Disconnect(c, err)
 	} else {
 		srv.pm.register(p)
 	}

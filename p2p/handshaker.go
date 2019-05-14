@@ -1,10 +1,15 @@
 package p2p
 
 import (
+	"bytes"
 	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto"
+
+	"github.com/vitelabs/go-vite/vitepb"
 
 	"github.com/vitelabs/go-vite/p2p/netool"
 
@@ -14,8 +19,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/p2p/protos"
-
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -23,11 +26,9 @@ import (
 
 const (
 	CodeDisconnect  Code = 1
-	CodeEncRequest  Code = 2
-	CodeEncResponse Code = 3
-	CodeHandshake   Code = 4
-	CodeControlFlow Code = 5
-	CodeHeartBeat   Code = 6
+	CodeHandshake   Code = 2
+	CodeControlFlow Code = 3
+	CodeHeartBeat   Code = 4
 
 	CodeGetHashList       Code = 25
 	CodeHashList          Code = 26
@@ -50,13 +51,10 @@ const (
 const version = iota
 const handshakeTimeout = 10 * time.Second
 
-const nonceLen = 32
-const signatureLen = 64
-
 type HandshakeMsg struct {
-	Version uint32
+	Version int64
 
-	NetID uint32
+	NetID int64
 
 	Name string
 
@@ -68,29 +66,32 @@ type HandshakeMsg struct {
 	Head    types.Hash
 	Genesis types.Hash
 
-	Key []byte // is producer
+	Key   ed25519.PublicKey // is producer
+	Token []byte
 
 	FileAddress []byte
 }
 
 func (b *HandshakeMsg) Serialize() (data []byte, err error) {
-	pb := &protos.Handshake{
+	pb := &vitepb.Handshake{
 		Version:     b.Version,
 		NetId:       b.NetID,
 		Name:        b.Name,
 		ID:          b.ID.Bytes(),
 		Timestamp:   b.Timestamp,
-		Height:      b.Height,
 		Genesis:     b.Genesis.Bytes(),
-		Key:         b.Key,
+		Height:      b.Height,
+		Head:        b.Head.Bytes(),
 		FileAddress: b.FileAddress,
+		Key:         b.Key,
+		Token:       b.Token,
 	}
 
 	return proto.Marshal(pb)
 }
 
 func (b *HandshakeMsg) Deserialize(data []byte) (err error) {
-	pb := new(protos.Handshake)
+	pb := new(vitepb.Handshake)
 
 	err = proto.Unmarshal(data, pb)
 	if err != nil {
@@ -107,70 +108,158 @@ func (b *HandshakeMsg) Deserialize(data []byte) (err error) {
 	b.Name = pb.Name
 	b.Timestamp = pb.Timestamp
 	b.Height = pb.Height
+	b.Head, err = types.BytesToHash(pb.Head)
+	if err != nil {
+		return
+	}
 	b.Genesis, err = types.BytesToHash(pb.Genesis)
 	if err != nil {
 		return
 	}
-	b.Key = pb.Key
-
 	b.FileAddress = pb.FileAddress
+
+	b.Key = pb.Key
+	b.Token = pb.Token
 
 	return nil
 }
 
 type handshaker struct {
-	version     uint32
-	netId       uint32
+	version     int
+	netId       int
 	name        string
 	id          vnode.NodeID
 	genesis     types.Hash
 	fileAddress []byte
 
-	priv ed25519.PrivateKey
+	peerKey ed25519.PrivateKey
+	key     ed25519.PrivateKey
 
 	protocol Protocol
 
 	log log15.Logger
 }
 
-func (h *handshaker) catch(codec Codec, err error) {
-	_ = Disconnect(codec, err)
-	_ = codec.Close()
-}
+func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
+	c.SetReadTimeout(handshakeTimeout)
+	msg, err := c.ReadMsg()
+	if err != nil {
+		return nil, PeerNetworkError
+	}
+	if msg.Code == CodeDisconnect {
+		if len(msg.Payload) > 0 {
+			err = PeerError(msg.Payload[0])
+		}
 
-func (h *handshaker) sendHandshake(codec Codec) (err error) {
-	hsm := HandshakeMsg{
-		Version:     h.version,
-		NetID:       h.netId,
+		return
+	}
+	if msg.Code != CodeHandshake {
+		return nil, PeerNotHandshakeMsg
+	}
+
+	their := new(HandshakeMsg)
+	err = their.Deserialize(msg.Payload)
+	if err != nil {
+		return nil, PeerUnmarshalError
+	}
+
+	pub := ed25519.PublicKey(their.ID.Bytes()).ToX25519Pk()
+	priv := h.peerKey.ToX25519Sk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	if err != nil {
+		return nil, PeerInvalidToken
+	}
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
+	hash := crypto.Hash256(t)
+	token := xor(hash, secret)
+	if len(their.Key) != 0 {
+		if false == ed25519.Verify(their.Key, token, their.Token) {
+			return nil, PeerInvalidSignature
+		}
+	} else {
+		if false == bytes.Equal(token, their.Token) {
+			return nil, PeerInvalidToken
+		}
+	}
+
+	response := HandshakeMsg{
+		Version:     int64(h.version),
+		NetID:       int64(h.netId),
 		Name:        h.name,
 		ID:          h.id,
 		Timestamp:   time.Now().Unix(),
 		FileAddress: h.fileAddress,
 	}
-	hsm.Key, hsm.Height, hsm.Genesis = h.protocol.ProtoData()
-	h.genesis = hsm.Genesis
-
-	hspkt, err := hsm.Serialize()
+	response.Height, response.Head, response.Genesis = h.protocol.ProtoData()
+	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
+	hash = crypto.Hash256(t)
+	response.Token = xor(hash, secret)
+	if len(h.key) != 0 {
+		response.Key = h.key.PubByte()
+		response.Token = ed25519.Sign(h.key, response.Token)
+	}
+	data, err := response.Serialize()
 	if err != nil {
-		return
+		return nil, PeerUnmarshalError
 	}
 
-	codec.SetWriteTimeout(handshakeTimeout)
-	err = codec.WriteMsg(Msg{
+	c.SetWriteTimeout(handshakeTimeout)
+	err = c.WriteMsg(Msg{
 		Code:    CodeHandshake,
-		Payload: hspkt,
+		Id:      msg.Id,
+		Payload: data,
 	})
-
 	if err != nil {
-		return
+		return nil, PeerNetworkError
 	}
 
-	return nil
+	return h.doHandshake(c, Inbound, their)
 }
 
-func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error) {
-	codec.SetReadTimeout(handshakeTimeout)
-	msg, err := codec.ReadMsg()
+func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, err error) {
+	request := HandshakeMsg{
+		Version:     int64(h.version),
+		NetID:       int64(h.netId),
+		Name:        h.name,
+		ID:          h.id,
+		Timestamp:   time.Now().Unix(),
+		FileAddress: h.fileAddress,
+	}
+	request.Height, request.Head, request.Genesis = h.protocol.ProtoData()
+	h.genesis = request.Genesis
+
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(request.Timestamp))
+	hash := crypto.Hash256(t)
+	priv := h.peerKey.ToX25519Sk()
+	pub := ed25519.PublicKey(id.Bytes()).ToX25519Pk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	if err != nil {
+		return nil, PeerInvalidToken
+	}
+
+	request.Token = xor(hash, secret)
+	if h.key != nil {
+		request.Key = h.key.PubByte()
+		request.Token = ed25519.Sign(h.key, t)
+	}
+	data, err := request.Serialize()
+	if err != nil {
+		return nil, PeerUnmarshalError
+	}
+
+	c.SetWriteTimeout(handshakeTimeout)
+	err = c.WriteMsg(Msg{
+		Code:    CodeHandshake,
+		Payload: data,
+	})
+	if err != nil {
+		return nil, PeerNetworkError
+	}
+
+	c.SetReadTimeout(handshakeTimeout)
+	msg, err := c.ReadMsg()
 	if err != nil {
 		return nil, PeerNetworkError
 	}
@@ -182,40 +271,42 @@ func (h *handshaker) readHandshake(codec Codec) (their *HandshakeMsg, err error)
 
 		return
 	}
-
 	if msg.Code != CodeHandshake {
 		return nil, PeerNotHandshakeMsg
 	}
 
-	their = new(HandshakeMsg)
+	their := new(HandshakeMsg)
 	err = their.Deserialize(msg.Payload)
 	if err != nil {
 		return nil, PeerUnmarshalError
 	}
 
-	return
+	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
+	hash = crypto.Hash256(t)
+	token := xor(hash, secret)
+	if len(their.Key) != 0 {
+		if false == ed25519.Verify(their.Key, token, their.Token) {
+			return nil, PeerInvalidSignature
+		}
+	} else if false == bytes.Equal(their.Token, token) {
+		return nil, PeerInvalidSignature
+	}
+
+	return h.doHandshake(c, Outbound, their)
 }
 
-func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg, level2 Level, err error) {
-	err = h.sendHandshake(codec)
-	if err != nil {
-		return
-	}
+func (h *handshaker) catch(codec Codec, err error) {
+	_ = Disconnect(codec, err)
+	_ = codec.Close()
+}
 
-	their, err = h.readHandshake(codec)
-	if err != nil {
-		return
-	}
-
-	codec.SetReadTimeout(readMsgTimeout)
-	codec.SetWriteTimeout(writeMsgTimeout)
-
-	if their.NetID != h.netId {
+func (h *handshaker) doHandshake(c Codec, level Level, their *HandshakeMsg) (peer PeerMux, err error) {
+	if their.NetID != int64(h.netId) {
 		err = PeerDifferentNetwork
 		return
 	}
 
-	if their.Version < h.version {
+	if their.Version < int64(h.version) {
 		err = PeerIncompatibleVersion
 		return
 	}
@@ -224,22 +315,17 @@ func (h *handshaker) doHandshake(codec Codec, level Level) (their *HandshakeMsg,
 		err = PeerDifferentGenesis
 	}
 
-	level2, err = h.protocol.ReceiveHandshake(their)
-
-	return
-}
-
-func (h *handshaker) Handshake(codec Codec, level Level) (peer PeerMux, err error) {
-	their, level, err := h.doHandshake(codec, level)
-
+	level2, err := h.protocol.ReceiveHandshake(their)
 	if err != nil {
-		h.catch(codec, err)
 		return
 	}
 
-	fileAddress := extractFileAddress(codec.Address(), their.FileAddress)
+	fileAddress := extractFileAddress(c.Address(), their.FileAddress)
 
-	peer = NewPeer(their.ID, their.Name, their.Height, fileAddress, their.Version, codec, level, h.protocol)
+	if level2 > level {
+		level = level2
+	}
+	peer = NewPeer(their.ID, their.Name, their.Height, their.Head, fileAddress, int(their.Version), c, level, h.protocol)
 
 	return
 }
@@ -281,4 +367,12 @@ func extractFileAddress(sender net.Addr, fileAddressBytes []byte) (fileAddress s
 	}
 
 	return
+}
+
+func xor(one, other []byte) (xor []byte) {
+	xor = make([]byte, len(one))
+	for i := 0; i < len(one); i++ {
+		xor[i] = one[i] ^ other[i]
+	}
+	return xor
 }

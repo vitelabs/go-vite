@@ -188,8 +188,6 @@ func TestExecutor_cancel(t *testing.T) {
 	exec.download(&syncTask{from: 21, to: 30}, false)
 	exec.download(&syncTask{from: 31, to: 40}, false)
 
-	exec.cancel(13)
-
 	if len(exec.tasks) != 2 {
 		t.Errorf("wrong tasks length: %d", len(exec.tasks))
 	}

@@ -16,18 +16,20 @@ message Handshake {
 
     int64 Timestamp = 5;
 
-    uint64 Height = 6;
-
-    bytes Genesis = 7;
-    bytes Key = 8;
-
+    bytes Genesis = 6;
+    uint64 Height = 7;
+    bytes Head = 8;
     bytes FileAddress = 9;
+
+    bytes Key = 10;
+    bytes Token = 11;
 }
 
 message SyncConnHandshake {
-    bytes Key = 1;
+    bytes ID = 1;
     int64 Timestamp = 2;
-    bytes Sign = 3;
+    bytes Key = 3;
+    bytes Token = 4;
 };
 
 message ChunkRequest {

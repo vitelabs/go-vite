@@ -1,11 +1,14 @@
 package net
 
 import (
+	"bytes"
 	crand "crypto/rand"
 	"fmt"
 	mrand "math/rand"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -43,20 +46,34 @@ func TestSpeedToString(t *testing.T) {
 
 func TestSyncHandshakeMsg_Serialize(t *testing.T) {
 	var s = syncHandshake{
-		key:  make([]byte, 32),
-		time: time.Now(),
-		sign: make([]byte, 64),
+		id:    vnode.RandomNodeID(),
+		key:   make([]byte, 32),
+		time:  time.Now().Unix(),
+		token: []byte{1, 2, 3},
 	}
 
-	for i := 0; i < 100; i++ {
-		_, _ = crand.Read(s.key)
-		_, _ = crand.Read(s.sign)
+	data, err := s.Serialize()
+	if err != nil {
+		panic(err)
+	}
 
-		buf, err := s.Serialize()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(len(buf))
+	var s2 = &syncHandshake{}
+	err = s2.deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if s.id != s2.id {
+		t.Errorf("different id: %s %s", s.id, s2.id)
+	}
+	if false == bytes.Equal(s.key, s2.key) {
+		t.Errorf("different key")
+	}
+	if s.time != s2.time {
+		t.Errorf("different time")
+	}
+	if false == bytes.Equal(s.token, s2.token) {
+		t.Errorf("different token")
 	}
 }
 

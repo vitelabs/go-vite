@@ -75,7 +75,8 @@ type P2P interface {
 }
 
 type Handshaker interface {
-	Handshake(c Codec, level Level) (peer PeerMux, err error)
+	ReceiveHandshake(c Codec) (peer PeerMux, err error)
+	InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, err error)
 }
 
 type basePeer interface {
@@ -171,12 +172,13 @@ func New(cfg *Config) P2P {
 
 	hkr := &handshaker{
 		version:     version,
-		netId:       uint32(cfg.NetID),
+		netId:       cfg.NetID,
 		name:        cfg.Name,
 		id:          cfg.Node().ID,
 		genesis:     types.Hash{},
 		fileAddress: cfg.fileAddress,
-		priv:        cfg.PrivateKey(),
+		peerKey:     cfg.PrivateKey(),
+		key:         cfg.MineKey,
 		protocol:    nil, // will be set when protocol registered
 		log:         p2pLog.New("module", "handshaker"),
 	}

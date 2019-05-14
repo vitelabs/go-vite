@@ -11,12 +11,12 @@ type mockNet struct {
 	chain Chain
 }
 
-func (n *mockNet) Init(consensus Consensus) {
-
+func (n *mockNet) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
+	panic("implement me")
 }
 
-func (n *mockNet) ProtoData() (key []byte, height uint64, genesis types.Hash) {
-	return
+func (n *mockNet) Init(consensus Consensus) {
+
 }
 
 func (n *mockNet) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
