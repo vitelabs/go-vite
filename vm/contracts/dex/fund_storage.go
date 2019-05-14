@@ -175,7 +175,7 @@ type UserFund struct {
 	dexproto.Fund
 }
 
-type FundSerializable interface {
+type DexSerializable interface {
 	Serialize() ([]byte, error)
 	DeSerialize([]byte) error
 }
@@ -338,11 +338,11 @@ func (pv *PledgeVip) DeSerialize(data []byte) error {
 	}
 }
 
-func EmitOrderFailLog(db vm_db.VmDb, orderInfo *dexproto.OrderInfo, errCode int) {
-	orderFail := dexproto.OrderFail{}
-	orderFail.OrderInfo = orderInfo
-	orderFail.ErrCode = strconv.Itoa(errCode)
-	event := NewOrderFailEvent{orderFail}
+func EmitNewOrderFailLog(db vm_db.VmDb, order *Order, errCode int) {
+	newOrderFail := dexproto.NewOrderFail{}
+	newOrderFail.Order = &order.Order
+	newOrderFail.ErrCode = strconv.Itoa(errCode)
+	event := NewOrderFailEvent{newOrderFail}
 
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, event.GetTopicId())
@@ -397,7 +397,7 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 
 func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (*UserFund, error) {
 	dexFund := &UserFund{}
-	if err := getFundValueFromDb(db, GetUserFundKey(address), dexFund); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetUserFundKey(address), dexFund); err == NotFoundValueFromDb {
 		return dexFund, nil
 	} else {
 		return dexFund, err
@@ -405,7 +405,7 @@ func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (*UserFund, er
 }
 
 func SaveUserFundToStorage(db vm_db.VmDb, address types.Address, dexFund *UserFund) error {
-	return saveFunValueToDb(db, GetUserFundKey(address), dexFund)
+	return saveValueToDb(db, GetUserFundKey(address), dexFund)
 }
 
 func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
@@ -449,7 +449,7 @@ func GetFeeSumByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (feeSum *Fee
 
 func getFeeSumByKeyFromStorage(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, error) {
 	feeSum := &FeeSumByPeriod{}
-	if err := getFundValueFromDb(db, feeKey, feeSum); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, feeKey, feeSum); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return feeSum, err
@@ -495,7 +495,7 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (
 
 func SaveCurrentFeeSumToStorage(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) error {
 	feeSumKey := GetFeeSumCurrentKeyFromStorage(db, reader)
-	return saveFunValueToDb(db, feeSumKey, feeSum)
+	return saveValueToDb(db, feeSumKey, feeSum)
 }
 
 //fee sum used both by fee dividend and mined vx dividend
@@ -504,7 +504,7 @@ func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint
 		return db.SetValue(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
 		feeSum.FeeDivided = true
-		return saveFunValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
+		return saveValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
@@ -513,7 +513,7 @@ func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId 
 		return db.SetValue(GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
 		feeSum.MinedVxDivided = true
-		return saveFunValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
+		return saveValueToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
@@ -540,7 +540,7 @@ func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) e
 
 func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (*UserFees, error) {
 	userFees := &UserFees{}
-	if err := getFundValueFromDb(db, GetUserFeesKey(address), userFees); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetUserFeesKey(address), userFees); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return userFees, err
@@ -548,7 +548,7 @@ func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (*UserFees, error) {
 }
 
 func SaveUserFeesToStorage(db vm_db.VmDb, address []byte, userFees *UserFees) error {
-	return saveFunValueToDb(db, GetUserFeesKey(address), userFees)
+	return saveValueToDb(db, GetUserFeesKey(address), userFees)
 }
 
 func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) error {
@@ -561,7 +561,7 @@ func GetUserFeesKey(address []byte) []byte {
 
 func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (*VxFunds, error) {
 	var vxFunds = &VxFunds{}
-	if err := getFundValueFromDb(db, GetVxFundsKey(address), vxFunds); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetVxFundsKey(address), vxFunds); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return vxFunds, err
@@ -569,7 +569,7 @@ func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (*VxFunds, error) {
 }
 
 func SaveVxFundsToStorage(db vm_db.VmDb, address []byte, vxFunds *VxFunds) error {
-	return saveFunValueToDb(db, GetVxFundsKey(address), vxFunds)
+	return saveValueToDb(db, GetVxFundsKey(address), vxFunds)
 }
 
 func MatchVxFundsByPeriod(vxFunds *VxFunds, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
@@ -614,7 +614,7 @@ func GetVxFundsKey(address []byte) []byte {
 
 func GetVxSumFundsFromDb(db vm_db.VmDb) (*VxFunds, error) {
 	vxSumFunds := &VxFunds{}
-	if err := getFundValueFromDb(db, vxSumFundsKey, vxSumFunds); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, vxSumFundsKey, vxSumFunds); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return vxSumFunds, err
@@ -689,7 +689,7 @@ func GetDonateFeeSumKey(periodId uint64) []byte {
 
 func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {
 	pendingNewMarkets := &PendingNewMarkets{}
-	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err != nil {
+	if err = getValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err != nil {
 		return nil, err
 	} else {
 		for index, action := range pendingNewMarkets.PendingActions {
@@ -714,7 +714,7 @@ func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quote
 
 func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (err error) {
 	pendingNewMarkets := &PendingNewMarkets{}
-	if err = getFundValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err == nil || err == NotFoundValueFromDb {
+	if err = getValueFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets); err == nil || err == NotFoundValueFromDb {
 		var foundTradeToken bool
 		for _, action := range pendingNewMarkets.PendingActions {
 			if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
@@ -806,7 +806,7 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (*TokenInfo, error) {
 	tokenInfo := &TokenInfo{}
-	if err := getFundValueFromDb(db, GetTokenInfoKey(token), tokenInfo); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetTokenInfoKey(token), tokenInfo); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return tokenInfo, err
@@ -814,7 +814,7 @@ func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (*TokenInfo, error) {
 }
 
 func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo) error {
-	return saveFunValueToDb(db, GetTokenInfoKey(token), tokenInfo)
+	return saveValueToDb(db, GetTokenInfoKey(token), tokenInfo)
 }
 
 func GetTokenInfoKey(token types.TokenTypeId) []byte {
@@ -837,7 +837,7 @@ func NewAndSaveMarketId(db vm_db.VmDb) (int32, error) {
 
 func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (*MarketInfo, error) {
 	marketInfo := &MarketInfo{}
-	if err := getFundValueFromDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo); err == NotFoundValueFromDb {
 		return nil, TradeMarketNotExistsError
 	} else {
 		return marketInfo, err
@@ -845,7 +845,7 @@ func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (*Ma
 }
 
 func SaveMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) error {
-	return saveFunValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
+	return saveValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
 }
 
 func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) error {
@@ -870,7 +870,7 @@ func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
 func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (int32, error) {
 	orderIdSerialNo := &OrderIdSerialNo{}
 	var newSerialNo int32
-	if err := getFundValueFromDb(db, orderIdSerialNoKey, orderIdSerialNo); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, orderIdSerialNoKey, orderIdSerialNo); err == NotFoundValueFromDb {
 		newSerialNo = 0
 	} else if err != nil {
 		return -1, err
@@ -883,7 +883,7 @@ func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (int32, error) {
 	}
 	orderIdSerialNo.Timestamp = timestamp
 	orderIdSerialNo.SerialNo = newSerialNo
-	return newSerialNo, saveFunValueToDb(db, orderIdSerialNoKey, orderIdSerialNo)
+	return newSerialNo, saveValueToDb(db, orderIdSerialNoKey, orderIdSerialNo)
 }
 
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
@@ -948,7 +948,7 @@ func GetPledgeForVxKey(address types.Address) []byte {
 
 func GetPledgeForVip(db vm_db.VmDb, address types.Address) (*PledgeVip, error) {
 	pledgeVip := &PledgeVip{}
-	if err := getFundValueFromDb(db, GetPledgeForVipKey(address), pledgeVip); err == NotFoundValueFromDb {
+	if err := getValueFromDb(db, GetPledgeForVipKey(address), pledgeVip); err == NotFoundValueFromDb {
 		return nil, nil
 	} else {
 		return pledgeVip, err
@@ -956,7 +956,7 @@ func GetPledgeForVip(db vm_db.VmDb, address types.Address) (*PledgeVip, error) {
 }
 
 func SavePledgeForVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) error {
-	return saveFunValueToDb(db, GetPledgeForVipKey(address), pledgeVip)
+	return saveValueToDb(db, GetPledgeForVipKey(address), pledgeVip)
 }
 
 func DeletePledgeForVip(db vm_db.VmDb, address types.Address) error {
@@ -991,9 +991,9 @@ func GetTimestampInt64(db vm_db.VmDb) int64 {
 	return timestamp
 }
 
-func getFundValueFromDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializable) error {
+func getValueFromDb(db vm_db.VmDb, key []byte, serializable DexSerializable) error {
 	if data, err := db.GetValue(key); err == nil && len(data) > 0 {
-		if err = fundSerializable.DeSerialize(data); err != nil {
+		if err = serializable.DeSerialize(data); err != nil {
 			return err
 		} else {
 			return nil
@@ -1003,9 +1003,9 @@ func getFundValueFromDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializ
 	}
 }
 
-func saveFunValueToDb(db vm_db.VmDb, key []byte, fundSerializable FundSerializable) error {
-	if userFeesBytes, err := fundSerializable.Serialize(); err == nil {
-		return db.SetValue(key, userFeesBytes)
+func saveValueToDb(db vm_db.VmDb, key []byte, serializable DexSerializable) error {
+	if data, err := serializable.Serialize(); err == nil {
+		return db.SetValue(key, data)
 	} else {
 		return err
 	}

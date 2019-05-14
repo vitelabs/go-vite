@@ -33,7 +33,7 @@ type OrderEvent interface {
 }
 
 type NewOrderEvent struct {
-	dexproto.OrderInfo
+	dexproto.NewOrderInfo
 }
 
 type OrderUpdateEvent struct {
@@ -45,7 +45,7 @@ type TransactionEvent struct {
 }
 
 type NewOrderFailEvent struct {
-	dexproto.OrderFail
+	dexproto.NewOrderFail
 }
 
 type NewMarketEvent struct {
@@ -65,13 +65,13 @@ func (od NewOrderEvent) GetTopicId() types.Hash {
 }
 
 func (od NewOrderEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&od.OrderInfo)
+	data, _ := proto.Marshal(&od.NewOrderInfo)
 	return data
 }
 
 func (od NewOrderEvent) FromBytes(data []byte) interface{} {
 	event := NewOrderEvent{}
-	if err := proto.Unmarshal(data, &event.OrderInfo); err != nil {
+	if err := proto.Unmarshal(data, &event.NewOrderInfo); err != nil {
 		return nil
 	} else {
 		return event
@@ -119,13 +119,13 @@ func (of NewOrderFailEvent) GetTopicId() types.Hash {
 }
 
 func (of NewOrderFailEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&of.OrderFail)
+	data, _ := proto.Marshal(&of.NewOrderFail)
 	return data
 }
 
 func (of NewOrderFailEvent) FromBytes(data []byte) interface{} {
 	event := NewOrderFailEvent{}
-	if err := proto.Unmarshal(data, &event.OrderFail); err != nil {
+	if err := proto.Unmarshal(data, &event.NewOrderFail); err != nil {
 		return nil
 	} else {
 		return event

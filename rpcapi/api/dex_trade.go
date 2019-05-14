@@ -17,7 +17,7 @@ type DexTradeApi struct {
 
 type OrdersRes struct {
 	Orders []*dex.Order `json:"Orders,omitempty"`
-	Size   int32        `json:"Size"`
+	Size   int        `json:"Size"`
 }
 
 func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
@@ -34,25 +34,32 @@ func (f DexTradeApi) String() string {
 func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken types.TokenTypeId, side bool) (order *dex.Order, err error) {
 	var (
 		orderId []byte
+		db vm_db.VmDb
+		matcher *dex.Matcher
 	)
 	orderId, err = base64.StdEncoding.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
 	}
-	if matcher, err := f.getMatcher(); err != nil {
+	if db, err = f.getDb(); err != nil {
 		return nil, err
 	} else {
-		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-		return matcher.GetOrderByIdAndBookId(makerBookId, orderId)
+		if matcher = dex.NewRawMatcher(db); err != nil {
+			return nil, err
+		} else {
+			return matcher.GetOrderById(orderId)
+		}
 	}
 }
 
-func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
-	if matcher, err := f.getMatcher(); err != nil {
+func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
+	if db, err := f.getDb(); err != nil {
 		return nil, err
 	} else {
-		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-		if ods, size, err := matcher.GetOrdersFromMarket(makerBookId, begin, end); err == nil {
+		var marketInfo *dex.MarketInfo
+		marketInfo, err = dex.GetMarketInfo(db, tradeToken, quoteToken)
+		matcher := dex.NewMatcherWithMarketInfo(db, marketInfo)
+		if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
 			ordersRes = &OrdersRes{ods, size}
 			return ordersRes, err
 		} else {
@@ -61,21 +68,7 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	}
 }
 
-func (f DexTradeApi) TravelMarketOrders(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int32) (ordersRes *OrdersRes, err error) {
-	if matcher, err := f.getMatcher(); err != nil {
-		return nil, err
-	} else {
-		makerBookId := dex.GetBookIdToMake(tradeToken.Bytes(), quoteToken.Bytes(), side)
-		if ods, size, err := matcher.GetOrdersFromMarket(makerBookId, begin, end); err == nil {
-			ordersRes = &OrdersRes{ods, size}
-			return ordersRes, err
-		} else {
-			return &OrdersRes{ods, size}, err
-		}
-	}
-}
-
-func (f DexTradeApi) getMatcher() (matcher *dex.Matcher, err error) {
+func (f DexTradeApi) getDb() (db vm_db.VmDb, err error) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexTrade)
 	if err != nil {
 		return nil, err
@@ -83,7 +76,6 @@ func (f DexTradeApi) getMatcher() (matcher *dex.Matcher, err error) {
 	if db, err := vm_db.NewVmDb(f.chain, &types.AddressDexTrade, &f.chain.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
 		return nil, err
 	} else {
-		storage, _ := db.(dex.BaseStorage)
-		return dex.NewMatcher(&storage), nil
+		return db, nil
 	}
 }

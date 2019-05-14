@@ -5,33 +5,28 @@ package proto;
 message Order {
     bytes Id = 1; //[unset on serialize] MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 21
     bytes Address = 2;
-    bool Side = 3; // //[unset on serialize] false buy, true sell
-    int32 Type = 4; // 0 limit order, 1 market order
-    bytes Price = 5; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
-    int32 FeeType = 6; // 0 mine 1 not mine 2 vip
-    bytes Quantity = 7;
-    bytes Amount = 8; // QuoteAmount
-    bytes LockedBuyFee = 9; // fee locked ahead for buy
-    int32 Status = 10;
-    int32 CancelReason = 11;
-    bytes ExecutedQuantity = 12;
-    bytes ExecutedAmount = 13;
-    bytes ExecutedFee = 14; // fee actually executed
-    bytes RefundToken = 15;
-    bytes RefundQuantity = 16; //refund trade/quote token
-    int64 Timestamp = 17;
+    int32 MarketId = 3; // [unset on serialize]
+    bool Side = 4; // //[unset on serialize] false buy, true sell
+    int32 Type = 5; // 0 limit order, 1 market order
+    bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
+    int32 FeeType = 7; // 0 mine 1 not mine 2 vip
+    bytes Quantity = 8;
+    bytes Amount = 9; // QuoteAmount
+    bytes LockedBuyFee = 10; // fee locked ahead for buy
+    int32 Status = 11;
+    int32 CancelReason = 12;
+    bytes ExecutedQuantity = 13;
+    bytes ExecutedAmount = 14;
+    bytes ExecutedFee = 15; // fee actually executed
+    bytes RefundToken = 16;
+    bytes RefundQuantity = 17; //refund trade/quote token
+    int64 Timestamp = 18; // [unset on serialize]
 }
 
-message OrderMarketInfo {
-    int32 MarketId = 1;
+message NewOrderInfo { // for taker
+    Order Order = 1;
     bytes TradeToken = 2;
     bytes QuoteToken = 3;
-    int32 DecimalsDiff = 4;
-}
-
-message OrderInfo { // for taker
-    Order Order = 1;
-    OrderMarketInfo OrderMarketInfo = 2;
 }
 
 message OrderIdSerialNo {
@@ -41,29 +36,15 @@ message OrderIdSerialNo {
 
 message OrderUpdateInfo {
     bytes Id = 1;
-    int32 Status = 2;
-    int32 CancelReason = 3;
-    bytes ExecutedQuantity = 4;
-    bytes ExecutedAmount = 5;
-    bytes ExecutedFee = 6; // fee actually executed
-    bytes RefundToken = 7;
-    bytes RefundQuantity = 8; //refund trade/quote token
-    OrderMarketInfo OrderMarketInfo = 9;
-}
-
-//maker no need tokenInfo, use taker tokenInfo instead
-message OrderNode {
-    Order Order = 1;
-    repeated bytes ForwardOnLevel = 2;
-    repeated bytes BackwardOnLevel = 3;
-}
-
-message OrderListMeta {
-    bytes Header = 1;
-    bytes Tail = 2;
-    int32 Length = 3;
-    int32 Level = 4;
-    repeated bytes ForwardOnLevel = 5;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+    int32 Status = 4;
+    int32 CancelReason = 5;
+    bytes ExecutedQuantity = 6;
+    bytes ExecutedAmount = 7;
+    bytes ExecutedFee = 8; // fee actually executed
+    bytes RefundToken = 9;
+    bytes RefundQuantity = 10; //refund trade/quote token
 }
 
 message Transaction {
@@ -88,12 +69,14 @@ message TokenInfo {
 message MarketInfo {
     int32 MarketId = 1;
     string MarketSymbol = 2;
-    int32 TradeTokenDecimals = 3;
-    int32 QuoteTokenDecimals = 4;
-    bool AllowMine = 5;
-    bool Valid = 6; // false: pending for tradeToken validate
-    bytes Creator = 7; //creator address
-    int64 Timestamp = 8;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bool AllowMine = 7;
+    bool Valid = 8; // false: pending for tradeToken validate
+    bytes Creator = 9; //creator address
+    int64 Timestamp = 10;
 }
 
 message PendingNewMarketAction {
@@ -117,17 +100,13 @@ message NewMarket {
     bytes Creator = 9; //creator address
 }
 
-message OrderFail {
-    OrderInfo OrderInfo = 1;
+message NewOrderFail {
+    Order Order = 1;
     string ErrCode = 2;
 }
 
 message CancelOrderFail {
     bytes Id = 1;
-    bytes Address = 2;
-    bytes TradeToken = 3;
-    bytes QuoteToken = 4;
-    bool Side = 5;
     string ErrMsg = 6;
 }
 

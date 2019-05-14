@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -82,7 +83,7 @@ func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent
 	newMarketEvent.Creator = marketInfo.Creator
 }
 
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (err error) {
+func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock, err error) {
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.Amount = NewMarketFeeDividendAmount.Bytes()
@@ -102,6 +103,19 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 		return
 	}
 	AddNewMarketEventLog(db, newMarketEvent)
+	var marketBytes, blockData []byte
+	if marketBytes, err = marketInfo.Serialize(); err == nil {
+		if blockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err == nil {
+			block = &ledger.AccountBlock{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressDexTrade,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           blockData,
+			}
+		}
+	}
 	return
 }
 
@@ -122,48 +136,55 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 	}
 }
 
-func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (err error) {
+func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
 	tradeTokenInfo := &TokenInfo{}
 	tradeTokenInfo.Decimals = int32(tokenInfoRes.Decimals)
 	tradeTokenInfo.Symbol = tokenInfoRes.TokenSymbol
 	tradeTokenInfo.Index = int32(tokenInfoRes.Index)
 	if err = SaveTokenInfo(db, tradeTokenId, tradeTokenInfo); err != nil {
-		return err
+		return
 	}
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
-		return err
+		return
 	} else {
 		for _, qt := range quoteTokens {
-			if quoteTokenId, err := types.BytesToTokenTypeId(qt); err != nil {
-				return err
+			var (
+				quoteTokenId types.TokenTypeId
+				marketInfo   *MarketInfo
+			)
+			if quoteTokenId, err = types.BytesToTokenTypeId(qt); err != nil {
+				return nil, err
 			} else {
-				if marketInfo, err := GetMarketInfo(db, tradeTokenId, quoteTokenId); err != nil {
-					return err
+				if marketInfo, err = GetMarketInfo(db, tradeTokenId, quoteTokenId); err != nil {
+					return
 				} else {
 					if marketInfo.Valid {
-						return InvalidStatusForPendingMarketInfoErr
+						return nil, InvalidStatusForPendingMarketInfoErr
 					}
 					var address types.Address
 					address, err = types.BytesToAddress(marketInfo.Creator)
 					if err != nil {
-						return err
+						return
 					}
 					newMarketEvent := &NewMarketEvent{}
 					if err = RenderMarketInfo(db, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
-						return err
+						return
 					}
 					if err = SubPendingNewMarketFeeSum(db); err != nil {
-						return err
+						return
 					}
-					if err = OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address); err != nil {
-						return err
+					var block *ledger.AccountBlock
+					if block, err = OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address); err != nil {
+						return
+					} else {
+						appendBlocks = append(appendBlocks, block)
 					}
 				}
 			}
 		}
+		return
 	}
-	return nil
 }
 
 func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refundBlocks []*ledger.AccountBlock, err error) {
@@ -222,37 +243,31 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 	return nil
 }
 
-func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) *dexError {
-	order := &dexproto.Order{}
-	orderInfo.Order = order
-	order.Address = address.Bytes()
-	order.Side = param.Side
-	order.Type = int32(param.OrderType)
-	order.Price = PriceToBytes(param.Price)
-	order.Quantity = param.Quantity.Bytes()
+func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) (*MarketInfo, *DexError) {
 	var (
 		marketInfo *MarketInfo
 		err        error
 	)
 	if marketInfo, err = GetMarketInfo(db, param.TradeToken, param.QuoteToken); err != nil || !marketInfo.Valid {
-		return TradeMarketNotExistsError
+		return nil, TradeMarketNotExistsError
 	}
 	if order.Id, err = ComposeOrderId(db, marketInfo.MarketId, param); err != nil {
-		return ComposeOrderIdFailErr
+		return nil, ComposeOrderIdFailErr
 	}
-	orderMarketInfo := &dexproto.OrderMarketInfo{}
-	orderMarketInfo.MarketId = marketInfo.MarketId
-	orderMarketInfo.TradeToken = param.TradeToken.Bytes()
-	orderMarketInfo.QuoteToken = param.QuoteToken.Bytes()
-	orderMarketInfo.DecimalsDiff = marketInfo.TradeTokenDecimals - marketInfo.QuoteTokenDecimals
+	order.MarketId = marketInfo.MarketId
+	order.Address = address.Bytes()
+	order.Side = param.Side
+	order.Type = int32(param.OrderType)
+	order.Price = PriceToBytes(param.Price)
+	order.Quantity = param.Quantity.Bytes()
 	if order.Type == Limited {
-		order.Amount = CalculateRawAmount(order.Quantity, order.Price, orderMarketInfo.DecimalsDiff)
+		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
 			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
 		}
 		totalAmount := AddBigInt(order.Amount, order.LockedBuyFee)
 		if new(big.Int).SetBytes(totalAmount).Cmp(QuoteTokenMinAmount[param.QuoteToken]) < 0 {
-			return OrderAmountTooSmallErr
+			return marketInfo, OrderAmountTooSmallErr
 		}
 	}
 	order.Status = Pending
@@ -261,10 +276,8 @@ func RenderOrder(orderInfo *dexproto.OrderInfo, param *ParamDexFundNewOrder, db 
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
-	orderInfo.OrderMarketInfo = orderMarketInfo
-	return nil
+	return marketInfo, nil
 }
-
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {
 	if actions == nil || len(actions.FundActions) == 0 && len(actions.FeeActions) == 0 {
@@ -304,21 +317,21 @@ func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTyp
 	}
 }
 
-func CheckAndLockFundForNewOrder(dexFund *UserFund, orderInfo *dexproto.OrderInfo) (needUpdate bool, err error) {
+func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (needUpdate bool, err error) {
 	var (
 		lockToken, lockAmount []byte
 		lockTokenId           *types.TokenTypeId
 		lockAmountToInc       *big.Int
 	)
-	switch orderInfo.Order.Side {
+	switch order.Side {
 	case false: //buy
-		lockToken = orderInfo.OrderMarketInfo.QuoteToken
-		if orderInfo.Order.Type == Limited {
-			lockAmount = AddBigInt(orderInfo.Order.Amount, orderInfo.Order.LockedBuyFee)
+		lockToken = marketInfo.QuoteToken
+		if order.Type == Limited {
+			lockAmount = AddBigInt(order.Amount, order.LockedBuyFee)
 		}
 	case true: // sell
-		lockToken = orderInfo.OrderMarketInfo.TradeToken
-		lockAmount = orderInfo.Order.Quantity
+		lockToken = marketInfo.TradeToken
+		lockAmount = order.Quantity
 	}
 	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
 		return false, err
@@ -331,20 +344,20 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, orderInfo *dexproto.OrderInf
 	//}
 	account, exists := GetAccountByTokeIdFromFund(dexFund, *lockTokenId)
 	available := new(big.Int).SetBytes(account.Available)
-	if orderInfo.Order.Type != Market || orderInfo.Order.Side { // limited or sell orderInfo
+	if order.Type != Market || order.Side { // limited or sell orderInfo
 		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
 		//fmt.Printf("token %s, available %s , lockAmountToInc %s\n", tokenName, available.String(), lockAmountToInc.String())
 		if available.Cmp(lockAmountToInc) < 0 {
 			return false, fmt.Errorf("orderInfo lock amount exceed fund available")
 		}
 	}
-	if !orderInfo.Order.Side && orderInfo.Order.Type == Market { // buy or market orderInfo
+	if !order.Side && order.Type == Market { // buy or market orderInfo
 		if available.Sign() <= 0 {
 			return false, fmt.Errorf("no quote amount available for market sell orderInfo")
 		} else {
 			lockAmount = available.Bytes()
 			//NOTE: use amount available for orderInfo amount to full fill
-			orderInfo.Order.Amount = lockAmount
+			order.Amount = lockAmount
 			lockAmountToInc = available
 			needUpdate = true
 		}
@@ -472,7 +485,7 @@ func ValidPrice(price string) bool {
 		if idx > priceIntMaxLen { // 10^12 < 2^40(5bytes)
 			return false
 		} else if idx >= 0 {
-			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 12 decimals 10^12 < 2^32(4bytes)
+			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 12 decimals 10^12 < 2^40(5bytes)
 				return false
 			}
 		}

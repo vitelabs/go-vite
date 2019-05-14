@@ -8,6 +8,7 @@ var (
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
+	OrderNotExistsErr = errors.New("order not exists")
 	OrderAmountTooSmallErr  = NewDexError("order amount too small", OrderAmountTooSmallFail)
 
 	TradeMarketExistsError            = errors.New("trade market already exists")
@@ -46,19 +47,19 @@ var (
 	NotFoundValueFromDb               = errors.New("not found value from db")
 )
 
-func NewDexError(str string, code int) *dexError {
-	return &dexError{str, code}
+func NewDexError(str string, code int) *DexError {
+	return &DexError{str, code}
 }
 
-type dexError struct {
+type DexError struct {
 	str string
 	code int
 }
 
-func (e *dexError) Error() string {
+func (e *DexError) Error() string {
 	return e.str
 }
 
-func (e *dexError) Code() int {
+func (e *DexError) Code() int {
 	return e.code
 }

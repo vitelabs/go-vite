@@ -53,8 +53,9 @@ const (
 	dexFundNotifyTimeGas                  uint64 = 300
 	dexFundNotifyTimeReceiveGas           uint64 = 1
 
-	dexTradeNewOrderGas    uint64 = 300
-	dexTradeCancelOrderGas uint64 = 300
+	dexTradeNewOrderGas        uint64 = 300
+	dexTradeCancelOrderGas     uint64 = 300
+	dexTradeNotifyNewMarketGas uint64 = 300
 
 	MintGas                uint64 = 104525
 	MintageCancelPledgeGas uint64 = 83200

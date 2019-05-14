@@ -8,10 +8,7 @@ import (
 	"strings"
 )
 
-const (
-	OrderIdBytesLength = 22
-	PriceBytesLength = 10
-)
+const PriceBytesLength = 10
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
 func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) ([]byte, error) {
@@ -35,17 +32,17 @@ func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder)
 	return idBytes, nil
 }
 
-func DeComposeOrderId(data []byte) (marketId int32, side bool, price[]byte, timestamp int64, err error) {
-	if len(data) != OrderIdBytesLength {
+func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price[]byte, timestamp int64, err error) {
+	if len(idBytes) != OrderIdBytesLength {
 		err = DeComposeOrderIdFailErr
 		return
 	}
 	marketIdBytes := make([]byte, 4)
-	copy(marketIdBytes[1:4], data[:3])
+	copy(marketIdBytes[1:4], idBytes[:3])
 	marketId = int32(BytesToUint32(marketIdBytes))
-	side = int8(data[3]) == 1
+	side = int8(idBytes[3]) == 1
 	price = make([]byte, 10)
-	copy(price[:], data[4:14])
+	copy(price[:], idBytes[4:14])
 	if !side { // buy
 		BitwiseNotBytes(price)
 	}

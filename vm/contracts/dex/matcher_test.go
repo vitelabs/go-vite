@@ -24,7 +24,7 @@ var (
 func TestMatcher(t *testing.T) {
 	localStorage := NewMapStorage()
 	st := BaseStorage(&localStorage)
-	mc := NewMatcher(&st)
+	mc := NewMatcher(st)
 
 	DeleteTerminatedOrder = true
 	SetFeeRate("0.06", "0.05") // takerFee, makerFee
@@ -233,7 +233,7 @@ func TestDustWithOrder(t *testing.T) {
 	mc.MatchOrder(buy1)
 
 	bookNameToMakeForBuy := getBookIdToMakeForTaker(buy1)
-	buy1New, err := mc.GetOrderByIdAndBookId(bookNameToMakeForBuy, orderIdFromInt(301).bytes())
+	buy1New, err := mc.GetOrderById(orderIdFromInt(301).bytes())
 	//fmt.Printf("err %v\n", err.Error())
 	assert.True(t, err == nil)
 	assert.True(t, CheckBigEqualToInt(7, buy1New.Order.LockedBuyFee))

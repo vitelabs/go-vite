@@ -6,29 +6,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/abi"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"sort"
-	"strings"
-)
-
-const (
-	jsonDexTrade = `
-	[
-		{"type":"function","name":"DexTradeNewOrder", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"bytes"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}]}
-]`
-
-	MethodNameDexTradeNewOrder    = "DexTradeNewOrder"
-	MethodNameDexTradeCancelOrder = "DexTradeCancelOrder"
-)
-
-var (
-	ABIDexTrade, _ = abi.JSONToABIContract(strings.NewReader(jsonDexTrade))
 )
 
 type MethodDexTradeNewOrder struct {
@@ -59,29 +43,29 @@ func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		err    error
-		blocks []*ledger.AccountBlock
+		err     error
+		blocks  []*ledger.AccountBlock
+		matcher *dex.Matcher
 	)
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return handleReceiveErr(db, fmt.Errorf("invalid block source"))
 	}
 	param := new(dex.ParamDexSerializedData)
-	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
+	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
 		return handleReceiveErr(db, err)
 	}
-	orderInfo := &dexproto.OrderInfo{}
-	if err = proto.Unmarshal(param.Data, orderInfo); err != nil {
+	order := &dex.Order{}
+	if err = order.DeSerialize(param.Data); err != nil {
 		return handleReceiveErr(db, err)
 	}
-	storage, _ := db.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&storage)
-	if err = matcher.MatchOrder(dex.TakerOrder{*orderInfo}); err != nil {
-		fmt.Printf("MatchOrder err %s\n ", err.Error())
-		return handleNewOrderFailed(db, block, orderInfo, err)
+	if matcher, err = dex.NewMatcher(db, order.MarketId); err != nil {
+		return handleReceiveErr(db, err)
+	}
+	if err = matcher.MatchOrder(order); err != nil {
+		return handleNewOrderFailed(db, block, order, matcher.MarketInfo, err)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
-		fmt.Printf("handleSettleActions err %s\n ", err.Error())
-		return handleNewOrderFailed(db, block, orderInfo, err)
+		return handleNewOrderFailed(db, block, order, matcher.MarketInfo, err)
 	}
 	return blocks, err
 }
@@ -108,7 +92,7 @@ func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
 func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	param := new(dex.ParamDexCancelOrder)
-	if err = ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, block.Data); err != nil {
+	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCancelOrder, block.Data); err != nil {
 		return err
 	}
 	return nil
@@ -116,47 +100,93 @@ func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.Account
 
 func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexCancelOrder)
-	ABIDexTrade.UnpackMethod(param, MethodNameDexTradeCancelOrder, sendBlock.Data)
-	makerBookId := dex.GetBookIdToMake(param.TradeToken.Bytes(), param.QuoteToken.Bytes(), param.Side)
-	storage, _ := db.(dex.BaseStorage)
-	matcher := dex.NewMatcher(&storage)
+	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCancelOrder, sendBlock.Data)
 	var (
-		order  *dex.Order
-		err    error
-		blocks []*ledger.AccountBlock
+		order        *dex.Order
+		err          error
+		marketId     int32
+		matcher      *dex.Matcher
+		appendBlocks []*ledger.AccountBlock
 	)
-	if order, err = matcher.GetOrderByIdAndBookId(makerBookId, param.OrderId); err != nil {
+	if marketId, _, _, _, err = dex.DeComposeOrderId(param.OrderId); err != nil {
+		return handleReceiveErr(db, dex.OrderNotExistsErr)
+	}
+	if matcher, err = dex.NewMatcher(db, marketId); err != nil {
 		return handleReceiveErr(db, err)
+	}
+	if order, err = matcher.GetOrderById(param.OrderId); err != nil {
+		return handleReceiveErr(db, err)
+	} else if order == nil {
+		return handleReceiveErr(db, dex.OrderNotExistsErr)
 	}
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
 		return handleReceiveErr(db, dex.CancelOrderOwnerInvalidErr)
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return handleCancelOrderFail(db, param, order.Address, dex.CancelOrderInvalidStatusErr)
+		return handleCancelOrderFail(db, param, dex.CancelOrderInvalidStatusErr)
 	}
-	if err = matcher.CancelOrderByIdAndBookId(order, makerBookId, param.TradeToken, param.QuoteToken); err != nil {
-		return handleCancelOrderFail(db, param, order.Address, err)
+	if err = matcher.CancelOrderById(order); err != nil {
+		return handleCancelOrderFail(db, param, err)
 	}
-	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
-		return handleCancelOrderFail(db, param, order.Address, err)
+	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
+		return handleCancelOrderFail(db, param, err)
 	} else {
-		return blocks, nil
+		return appendBlocks, nil
 	}
 }
 
-func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, orderInfo *dexproto.OrderInfo, inputErr error) ([]*ledger.AccountBlock, error) {
+type MethodDexTradeNotifyNewMarket struct {
+}
+
+func (md *MethodDexTradeNotifyNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexTradeNotifyNewMarket) GetRefundData() ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexTradeNotifyNewMarket) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexTradeNotifyNewMarketGas, data)
+}
+
+func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota() uint64 {
+	return 0
+}
+
+func (md *MethodDexTradeNotifyNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	var err error
+	param := new(dex.ParamDexSerializedData)
+	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNotifyNewMarket, block.Data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	param := new(dex.ParamDexSerializedData)
+	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNotifyNewMarket, sendBlock.Data)
+	marketInfo := &dex.MarketInfo{}
+	if err := marketInfo.DeSerialize(param.Data); err != nil {
+		return nil, err
+	} else {
+		return nil, dex.SaveMarketInfoById(db, marketInfo)
+	}
+}
+
+func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, order *dex.Order, marketInfo *dex.MarketInfo, inputErr error) ([]*ledger.AccountBlock, error) {
 	dex.EmitErrLog(db, inputErr)
 	fundSettle := &dexproto.FundSettle{}
-	switch orderInfo.Order.Side {
+	switch order.Side {
 	case false: // buy
-		fundSettle.Token = orderInfo.OrderMarketInfo.QuoteToken
-		fundSettle.ReleaseLocked = dex.AddBigInt(orderInfo.Order.Amount, orderInfo.Order.LockedBuyFee)
+		fundSettle.Token = marketInfo.QuoteToken
+		fundSettle.ReleaseLocked = dex.AddBigInt(order.Amount, order.LockedBuyFee)
 	case true: // sell
-		fundSettle.Token = orderInfo.OrderMarketInfo.TradeToken
-		fundSettle.ReleaseLocked = orderInfo.Order.Quantity
+		fundSettle.Token = marketInfo.TradeToken
+		fundSettle.ReleaseLocked = order.Quantity
 	}
 	userFundSettle := &dexproto.UserFundSettle{}
-	userFundSettle.Address = orderInfo.Order.Address
+	userFundSettle.Address = order.Address
 	userFundSettle.FundSettles = append(userFundSettle.FundSettles, fundSettle)
 	settleActions := &dexproto.SettleActions{}
 	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
@@ -168,7 +198,7 @@ func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, orderInfo *
 		dex.EmitErrLog(db, newErr)
 		return nil, newErr
 	}
-	if dexSettleBlockData, newErr = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); newErr != nil {
+	if dexSettleBlockData, newErr = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); newErr != nil {
 		dex.EmitErrLog(db, newErr)
 		return nil, newErr
 	}
@@ -184,8 +214,8 @@ func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, orderInfo *
 	}, nil
 }
 
-func handleCancelOrderFail(db vm_db.VmDb, param *dex.ParamDexCancelOrder, address []byte, err error) ([]*ledger.AccountBlock, error) {
-	dex.EmitCancelOrderFailLog(db, param, address, err)
+func handleCancelOrderFail(db vm_db.VmDb, param *dex.ParamDexCancelOrder, err error) ([]*ledger.AccountBlock, error) {
+	dex.EmitCancelOrderFailLog(db, param, err)
 	return nil, nil
 }
 
@@ -202,7 +232,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			for _, fundAction := range fundSettleMap {
 				settles = append(settles, fundAction)
 			}
-			sort.Sort(FundSettleSorter(settles))
+			sort.Sort(dex.FundSettleSorter(settles))
 
 			userFundSettle := &dexproto.UserFundSettle{}
 			userFundSettle.Address = address.Bytes()
@@ -210,7 +240,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			fundActions = append(fundActions, userFundSettle)
 		}
 		//sort fundActions for stable marsh result
-		sort.Sort(UserFundSettleSorter(fundActions))
+		sort.Sort(dex.UserFundSettleSorter(fundActions))
 		//fmt.Printf("fundActions.size %d\n", len(fundActions))
 		settleActions.FundActions = fundActions
 	}
@@ -222,14 +252,14 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			for _, userFeeSettle := range userFeeSettleMap {
 				userFeeSettles = append(userFeeSettles, userFeeSettle)
 			}
-			sort.Sort(UserFeeSettleSorter(userFeeSettles))
+			sort.Sort(dex.UserFeeSettleSorter(userFeeSettles))
 
 			feeSettle := &dexproto.FeeSettle{}
 			feeSettle.Token = token.Bytes()
 			feeSettle.UserFeeSettles = userFeeSettles
 			feeActions = append(feeActions, feeSettle)
 		}
-		sort.Sort(FeeSettleSorter(feeActions))
+		sort.Sort(dex.FeeSettleSorter(feeActions))
 		settleActions.FeeActions = feeActions
 	}
 
@@ -240,7 +270,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	if settleData, err = proto.Marshal(settleActions); err != nil {
 		return nil, err
 	}
-	if dexSettleBlockData, err = ABIDexFund.PackMethod(MethodNameDexFundSettleOrders, settleData); err != nil {
+	if dexSettleBlockData, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); err != nil {
 		return nil, err
 	}
 	return []*ledger.AccountBlock{
@@ -253,80 +283,4 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			Data:           dexSettleBlockData,
 		},
 	}, nil
-}
-
-type FundSettleSorter []*dexproto.FundSettle
-
-func (st FundSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st FundSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st FundSettleSorter) Less(i, j int) bool {
-	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
-	if tkCmp < 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-type UserFundSettleSorter []*dexproto.UserFundSettle
-
-func (st UserFundSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st UserFundSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st UserFundSettleSorter) Less(i, j int) bool {
-	addCmp := bytes.Compare(st[i].Address, st[j].Address)
-	if addCmp < 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-type UserFeeSettleSorter []*dexproto.UserFeeSettle
-
-func (st UserFeeSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st UserFeeSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st UserFeeSettleSorter) Less(i, j int) bool {
-	addCmp := bytes.Compare(st[i].Address, st[j].Address)
-	if addCmp < 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-type FeeSettleSorter []*dexproto.FeeSettle
-
-func (st FeeSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st FeeSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st FeeSettleSorter) Less(i, j int) bool {
-	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
-	if tkCmp < 0 {
-		return true
-	} else {
-		return false
-	}
 }
