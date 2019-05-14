@@ -8,7 +8,7 @@ import (
 // A Protocol usually has many different message codes, each code has a handler to handle the message from peer.
 type Protocol interface {
 	// ProtoData return the data to handshake, will transmit to peer with HandshakeMsg.
-	ProtoData() (key []byte, height uint64, genesis types.Hash)
+	ProtoData() (height uint64, head types.Hash, genesis types.Hash)
 
 	// ReceiveHandshake handle the HandshakeMsg and protoData from peer.
 	// The connection will be disconnected if err is not nil.

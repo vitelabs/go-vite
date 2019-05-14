@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+
 	"github.com/vitelabs/go-vite/p2p/discovery"
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
@@ -74,6 +76,7 @@ type Config struct {
 	FilePort          int
 
 	fileAddress []byte
+	MineKey     ed25519.PrivateKey // will be set in net
 }
 
 func (cfg *Config) Ensure() (err error) {

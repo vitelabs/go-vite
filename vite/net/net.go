@@ -64,9 +64,12 @@ type net struct {
 	p2p       p2p.P2P
 }
 
-func (n *net) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+func (n *net) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
 	genesis = n.Chain.GetGenesisSnapshotBlock().Hash
-	height = n.Chain.GetLatestSnapshotBlock().Height
+	current := n.Chain.GetLatestSnapshotBlock()
+
+	height = current.Height
+	head = current.Hash
 
 	return
 }
@@ -76,12 +79,6 @@ func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err erro
 	var key string
 
 	if msg.Key != nil {
-		//	right := ed25519.Verify(msg.Key, msg.ID.Bytes(), msg.Signature)
-		//	if !right {
-		//		err = errInvalidSignature
-		//		return
-		//	}
-		//
 		addr := types.PubkeyToAddress(msg.Key)
 		if n.sn != nil && n.sn.isSbp(addr) {
 			level = p2p.Superior
@@ -94,6 +91,7 @@ func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err erro
 			return
 		}
 	}
+
 	if n.Config.AccessControl == "any" {
 		return
 	}
@@ -194,10 +192,14 @@ func New(cfg Config) Net {
 		Verifier:    cfg.Verifier,
 	}
 
+	var id peerId
+	id, _ = vnode.Bytes2NodeID(cfg.P2PPrivateKey.PubByte())
 	syncConnFac := &defaultSyncConnectionFactory{
-		chain:      cfg.Chain,
-		peers:      peers,
-		privateKey: cfg.P2PPrivateKey,
+		chain:   cfg.Chain,
+		peers:   peers,
+		id:      id,
+		peerKey: cfg.P2PPrivateKey,
+		mineKey: cfg.MinePrivateKey,
 	}
 	downloader := newExecutor(50, 10, peers, syncConnFac)
 	syncServer := newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac)
@@ -276,14 +278,14 @@ func New(cfg Config) Net {
 type heartBeater struct {
 	chain     chainReader
 	last      time.Time
-	lastPeers map[vnode.NodeID]struct{}
+	lastPeers map[peerId]struct{}
 	ps        *peerSet
 }
 
 func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
 	return &heartBeater{
 		chain:     chain,
-		lastPeers: make(map[vnode.NodeID]struct{}),
+		lastPeers: make(map[peerId]struct{}),
 		ps:        ps,
 	}
 }
@@ -361,9 +363,14 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 
 		n.fetcher.start()
 
-		if svr.Discovery() != nil && n.MinePrivateKey != nil {
+		var addr types.Address
+		if len(n.MinePrivateKey) != 0 {
+			addr = types.PubkeyToAddress(n.MinePrivateKey.PubByte())
 			setNodeExt(n.MinePrivateKey, svr.Node())
-			n.sn = newSbpn(n.MinePrivateKey, n.peers, svr, n.consensus)
+		}
+		n.sn = newSbpn(addr, n.peers, svr, n.consensus)
+		if discv := svr.Discovery(); discv != nil {
+			discv.SubscribeNode(n.sn.receiveNode)
 		}
 
 		return
@@ -386,9 +393,7 @@ func (n *net) Stop() error {
 
 		n.fetcher.stop()
 
-		if n.sn != nil {
-			n.sn.clean()
-		}
+		n.sn.clean()
 
 		return nil
 	}
