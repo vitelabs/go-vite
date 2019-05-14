@@ -100,6 +100,7 @@ type syncer struct {
 	chain      syncChain // query current block and height
 	downloader syncDownloader
 	reader     syncCacheReader
+	irreader   IrreversibleReader
 
 	curSubId int // for subscribe
 	subs     map[int]SyncStateCallback

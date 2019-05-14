@@ -338,8 +338,9 @@ func (h *heartBeater) state() []byte {
 	return data
 }
 
-func (n *net) Init(consensus Consensus) {
+func (n *net) Init(consensus Consensus, reader IrreversibleReader) {
 	n.consensus = consensus
+	n.syncer.irreader = reader
 }
 
 func (n *net) State() []byte {
