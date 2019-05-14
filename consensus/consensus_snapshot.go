@@ -81,7 +81,7 @@ func getBaseStats(genesisHash types.Hash, array LinkedArray, startIndex uint64, 
 	points := make(map[uint64]*consensus_db.Point)
 
 	var proofHash *types.Hash
-	for i := endIndex; i >= startIndex; i-- {
+	for i := endIndex; i >= startIndex && i <= endIndex; i-- {
 		var point *consensus_db.Point
 		if proofHash == nil {
 			tmp, err := array.GetByIndex(i)
@@ -141,7 +141,7 @@ func (self *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*core.Da
 	points := make(map[uint64]*consensus_db.Point)
 
 	var proofHash *types.Hash
-	for i := endIndex; i >= startIndex; i-- {
+	for i := endIndex; i >= startIndex && i <= endIndex; i-- {
 
 		var point *consensus_db.Point
 		if proofHash == nil {

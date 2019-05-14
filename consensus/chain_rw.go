@@ -116,11 +116,22 @@ func (cRw *chainRw) Start() error {
 				t := block.Timestamp
 
 				index := cRw.dayPoints.Time2Index(*t)
+
 				point, err := cRw.dayPoints.GetByIndex(index)
 				if err != nil {
 					cRw.log.Error("can't get day info by index", "index", index, "time", t)
 				} else {
 					cRw.log.Info("get day by info index", "index", index, "time", t, "point", point.Json())
+				}
+
+				if index > 0 {
+					lastIdx := index - 1
+					point, err := cRw.dayPoints.GetByIndex(lastIdx)
+					if err != nil {
+						cRw.log.Error("can't get day info by last index", "index", lastIdx, "time", t)
+					} else {
+						cRw.log.Info("get day by info last index", "index", lastIdx, "time", t, "point", point.Json())
+					}
 				}
 			case <-startedCh:
 				return
