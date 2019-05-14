@@ -54,6 +54,10 @@ type Chain interface {
 	syncCacher
 }
 
+type IrreversibleReader interface {
+	GetIrreversibleBlock() *ledger.SnapshotBlock
+}
+
 type Consensus interface {
 	SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent))
 	UnSubscribe(gid types.Gid, id string)
@@ -242,7 +246,7 @@ type Net interface {
 	Fetcher
 	Broadcaster
 	BlockSubscriber
-	Init(consensus Consensus)
+	Init(consensus Consensus, irreader IrreversibleReader)
 	Start(svr p2p.P2P) error
 	Stop() error
 	Info() NodeInfo

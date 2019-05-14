@@ -30,6 +30,8 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
+const getHashHeightListTimeout = 10 * time.Second
+
 type hashHeightPeers struct {
 	*ledger.HashHeight
 	ps map[peerId]Peer
@@ -156,14 +158,8 @@ func (sk *skeleton) getHashList(p Peer, msg *message.GetHashHeightList) {
 	if err != nil {
 		p.catch(err)
 	} else {
-		time.AfterFunc(5*time.Second, func() {
-			sk.mu.Lock()
-			if _, ok := sk.pending[mid]; ok {
-				delete(sk.pending, mid)
-				sk.wg.Done()
-				// todo handle response timeout
-			}
-			sk.mu.Unlock()
+		time.AfterFunc(getHashHeightListTimeout, func() {
+			sk.removePending(mid)
 		})
 
 		// add pending
@@ -187,14 +183,26 @@ func (sk *skeleton) receiveHashList(msg p2p.Msg, sender Peer) {
 }
 
 func (sk *skeleton) getHashListFailed(id p2p.MsgId, sender Peer, err error) {
+	sk.removePending(id)
+	netLog.Warn(fmt.Sprintf("failed to get HashHeight list from %s: %v", sender, err))
+}
+
+func (sk *skeleton) removePending(id p2p.MsgId) {
 	sk.mu.Lock()
 	if _, ok := sk.pending[id]; ok {
 		delete(sk.pending, id)
+		sk.mu.Unlock()
 		sk.wg.Done()
 
-		if err != nil {
-			go sender.catch(fmt.Errorf("wait checking chain failed: %v", err))
-		}
+		// todo handle response error
+	} else {
+		sk.mu.Unlock()
 	}
+}
+
+func (sk *skeleton) reset() {
+	sk.mu.Lock()
+	sk.pending = make(map[p2p.MsgId]Peer)
+	sk.tree = nil
 	sk.mu.Unlock()
 }

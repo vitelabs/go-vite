@@ -39,109 +39,109 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func TestMissingChunks(t *testing.T) {
-	var chunks = [][2]uint64{
-		{10, 20},
-		{30, 40},
-		{35, 45},
-		{40, 50},
-	}
+//func TestMissingChunks(t *testing.T) {
+//	var chunks = [][2]uint64{
+//		{10, 20},
+//		{30, 40},
+//		{35, 45},
+//		{40, 50},
+//	}
+//
+//	mis := missingChunks(chunks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 0, 10)
+//	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 60, 70)
+//	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
-	mis := missingChunks(chunks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
+//func TestMissingSegments(t *testing.T) {
+//	var chunks = interfaces.SegmentList{
+//		{Bound: [2]uint64{10, 20}},
+//		{Bound: [2]uint64{30, 40}},
+//		{Bound: [2]uint64{35, 45}},
+//		{Bound: [2]uint64{40, 50}},
+//	}
+//
+//	mis := missingSegments(chunks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 0, 10)
+//	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 60, 70)
+//	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
-	mis = missingChunks(chunks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingChunks(chunks, 0, 10)
-	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingChunks(chunks, 60, 70)
-	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
-
-func TestMissingSegments(t *testing.T) {
-	var chunks = interfaces.SegmentList{
-		{Bound: [2]uint64{10, 20}},
-		{Bound: [2]uint64{30, 40}},
-		{Bound: [2]uint64{35, 45}},
-		{Bound: [2]uint64{40, 50}},
-	}
-
-	mis := missingSegments(chunks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 0, 10)
-	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 60, 70)
-	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
-
-func TestMissingTasks(t *testing.T) {
-	var tasks syncTasks
-	var mis syncTasks
-
-	mis = missingTasks(tasks, 2, 60)
-	if len(mis) != 1 || mis[0].from != 2 || mis[0].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	tasks = syncTasks{
-		&syncTask{from: 10, to: 20},
-		&syncTask{from: 30, to: 40},
-		&syncTask{from: 35, to: 45},
-		&syncTask{from: 40, to: 50},
-	}
-
-	mis = missingTasks(tasks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 ||
-		mis[0].from != 2 || mis[0].to != 9 ||
-		mis[1].from != 21 || mis[1].to != 29 ||
-		mis[2].from != 51 || mis[2].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0].from != 51 || mis[0].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 0, 10)
-	if len(mis) != 1 || mis[0].from != 0 || mis[0].to != 9 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 60, 70)
-	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
+//func TestMissingTasks(t *testing.T) {
+//	var tasks syncTasks
+//	var mis syncTasks
+//
+//	mis = missingTasks(tasks, 2, 60)
+//	if len(mis) != 1 || mis[0].from != 2 || mis[0].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	tasks = syncTasks{
+//		&syncTask{from: 10, to: 20},
+//		&syncTask{from: 30, to: 40},
+//		&syncTask{from: 35, to: 45},
+//		&syncTask{from: 40, to: 50},
+//	}
+//
+//	mis = missingTasks(tasks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 ||
+//		mis[0].from != 2 || mis[0].to != 9 ||
+//		mis[1].from != 21 || mis[1].to != 29 ||
+//		mis[2].from != 51 || mis[2].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0].from != 51 || mis[0].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 0, 10)
+//	if len(mis) != 1 || mis[0].from != 0 || mis[0].to != 9 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 60, 70)
+//	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
 func TestChunksOverlap(t *testing.T) {
 	var cs = make(chunks, 0, 1)
@@ -183,27 +183,67 @@ func TestExecutor_cancel(t *testing.T) {
 	exec := newExecutor(100, 3, nil, nil)
 	exec.start()
 
-	exec.download(&syncTask{from: 1, to: 10}, false)
-	exec.download(&syncTask{from: 11, to: 20}, false)
-	exec.download(&syncTask{from: 21, to: 30}, false)
-	exec.download(&syncTask{from: 31, to: 40}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{1, 10},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{11, 20},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{21, 30},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{31, 40},
+		},
+	}, false)
 
 	if len(exec.tasks) != 2 {
 		t.Errorf("wrong tasks length: %d", len(exec.tasks))
 	}
-	if exec.tasks[1].from != 11 || exec.tasks[1].to != 12 {
+	if exec.tasks[1].Bound != [2]uint64{11, 12} {
 		t.Errorf("wrong task")
 	}
 }
 
 func TestCancelTasks(t *testing.T) {
 	var tasks = syncTasks{
-		{from: 1, to: 10},
-		{from: 11, to: 20},
-		{from: 21, to: 30},
-		{from: 31, to: 40},
-		{from: 41, to: 50},
-		{from: 51, to: 60},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{1, 10},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{11, 20},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{21, 30},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{31, 40},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{41, 50},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{61, 60},
+			},
+		},
 	}
 
 	tasks, end := cancelTasks(tasks, 15)
@@ -215,7 +255,7 @@ func TestCancelTasks(t *testing.T) {
 			t.Errorf("wrong end: %d", end)
 		}
 		for i, t2 := range tasks {
-			if t2.from != cs[i][0] || t2.to != cs[i][1] {
+			if t2.Bound != cs[i] {
 				t.Errorf("wrong task: %v", t2)
 			}
 		}
@@ -225,44 +265,50 @@ func TestCancelTasks(t *testing.T) {
 func TestRunTasks(t *testing.T) {
 	var tasks = syncTasks{
 		{
-			from:   3,
-			to:     10,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{3, 10},
+			},
 			st:     reqDone,
 			doneAt: time.Unix(time.Now().Unix()-10, 0), // will be clean
 		},
 		{
-			from: 11,
-			to:   15,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{11, 15},
+			},
 		},
 		{
-			from:   16,
-			to:     20,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{16, 20},
+			},
 			st:     reqDone,
 			doneAt: time.Now(),
 		},
 		{
-			from: 21,
-			to:   25,
-			st:   reqError,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{21, 25},
+			},
+			st: reqError,
 		},
 		{
-			from: 26,
-			to:   30,
-			st:   reqCancel,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{26, 30},
+			},
+			st: reqCancel,
 		},
 		{
-			from: 31,
-			to:   35,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{31, 35},
+			},
 		},
 	}
 
 	var wg sync.WaitGroup
 	var run = func(t *syncTask) {
 		if t.st == reqDone || t.st == reqPending {
-			panic(fmt.Sprintf("run task %d-%d repeatedly", t.from, t.to))
+			panic(fmt.Sprintf("run task %d-%d repeatedly", t.Bound[0], t.Bound[1]))
 		}
 
-		fmt.Printf("run task %d-%d\n", t.from, t.to)
+		fmt.Printf("run task %d-%d\n", t.Bound[0], t.Bound[1])
 		t.st = reqPending
 
 		wg.Add(1)
@@ -292,23 +338,27 @@ func TestAddTasks(t *testing.T) {
 	reset := func() {
 		tasks = syncTasks{
 			{
-				from: 1,
-				to:   100,
-				st:   reqDone,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+				st: reqDone,
 			},
 			{
-				from: 101,
-				to:   200,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
 			},
 			{
-				from: 301,
-				to:   400,
-				st:   reqDone,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{301, 400},
+				},
+				st: reqDone,
 			},
 			{
-				from: 501,
-				to:   600,
-				st:   reqError,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
 			},
 		}
 	}
@@ -320,27 +370,66 @@ func TestAddTasks(t *testing.T) {
 	}
 	var samples = []sample{
 		{1, 100, true, syncTasks{
-			{from: 1, to: 100},
-			{from: 101, to: 200},
-			{from: 501, to: 600, st: reqError},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
+			},
 		}},
 		{601, 700, false, syncTasks{
-			{from: 1, to: 100, st: reqDone},
-			{from: 101, to: 200},
-			{from: 301, to: 400, st: reqDone},
-			{from: 501, to: 600, st: reqError},
-			{from: 601, to: 700},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+				st: reqDone,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{301, 400},
+				},
+				st: reqDone,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{601, 700},
+				},
+			},
 		}},
 	}
 
 	for _, samp := range samples {
 		reset()
-		tasks = addTasks(tasks, &syncTask{from: samp.from, to: samp.to}, samp.must)
+		tasks = addTasks(tasks, &syncTask{Segment: interfaces.Segment{
+			Bound: [2]uint64{samp.from, samp.to},
+		},
+		}, samp.must)
 		for i, tt := range samp.ts {
 			if tasks[i].equal(tt) && tasks[i].st == tt.st {
 				continue
 			}
-			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].from, tasks[i].to, tt.from, tt.to)
+			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].Bound[0], tasks[i].Bound[1], tt.Bound[0], tt.Bound[1])
 		}
 	}
 }
@@ -602,7 +691,7 @@ func (m *mockQueue) run(t *syncTask) {
 	go func() {
 		n := time.Duration(rand.Intn(500))
 		time.Sleep(n * time.Millisecond)
-		fmt.Printf("task %d-%d done\n", t.from, t.to)
+		fmt.Printf("task %d-%d done\n", t.Bound[0], t.Bound[1])
 		t.st = reqDone
 		t.doneAt = time.Now()
 		m.cond.Signal()
@@ -626,8 +715,9 @@ func (m *mockQueue) add(from, to uint64) bool {
 	}
 
 	m.tasks = append(m.tasks, &syncTask{
-		from: from,
-		to:   to,
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{from, to},
+		},
 	})
 
 	sort.Sort(m.tasks)
