@@ -92,10 +92,9 @@ type syncer struct {
 	peers     syncPeerSet
 	eventChan chan peerEvent // get peer add/delete event
 
-	cancel      chan struct{}
-	batchHead   types.Hash
-	batchHeight uint64
-	sk          *skeleton
+	taskCanceled int32
+	sk           *skeleton
+	syncWG       sync.WaitGroup
 
 	chain      syncChain // query current block and height
 	downloader syncDownloader
@@ -152,7 +151,6 @@ func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downl
 		timeout:    timeout,
 		sk:         newSkeleton(chain, peers, new(gid)),
 		log:        netLog.New("module", "syncer"),
-		cancel:     make(chan struct{}),
 	}
 
 	s.state = syncStateInit{s}
@@ -202,6 +200,7 @@ func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.peers.unSub(s.eventChan)
 		close(s.term)
+		s.stopSync()
 	}
 }
 
@@ -236,6 +235,7 @@ Wait:
 
 	start.Stop()
 
+Prepare:
 	syncPeer := s.peers.syncPeer()
 	// all peers disconnected
 	if syncPeer == nil {
@@ -255,9 +255,10 @@ Wait:
 		return
 	}
 
-	s.state.sync()
+	// prevent chain check
 	s.from = current + 1
 	s.to = syncPeerHeight
+
 	go s.sync()
 
 	// check chain height
@@ -275,19 +276,11 @@ Wait:
 					// we are taller than the best peer, no need sync
 					s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", bestPeer.String(), bestPeer.Height(), current))
 					s.state.done()
-
-					// cancel rest tasks
-					s.cancelDownload()
-					s.reader.pause()
 					return
 				}
 			} else {
 				s.log.Error("sync error: no peers")
 				s.state.error(syncErrorNoPeers)
-				// no peers
-				// cancel rest tasks, keep cache
-				s.cancelDownload()
-				s.reader.pause()
 				return
 			}
 
@@ -295,10 +288,6 @@ Wait:
 			current = s.getHeight()
 			if current >= s.to {
 				s.state.done()
-
-				// clean cache, cancel rest tasks
-				s.cancelDownload()
-				s.reader.pause()
 				return
 			}
 
@@ -306,10 +295,10 @@ Wait:
 				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: stuck")
 					s.state.error(syncErrorStuck)
-					// watching chain grow through fetcher
-					// clean cache, cancel rest tasks
-					s.cancelDownload()
-					s.reader.clean()
+					s.stopSync()
+					s.syncWG.Wait()
+
+					goto Prepare
 				}
 			} else {
 				oldHeight = current
@@ -318,10 +307,6 @@ Wait:
 
 		case <-s.term:
 			s.state.cancel()
-
-			// cancel rest tasks, keep cache
-			s.cancelDownload()
-			s.reader.pause()
 			return
 		}
 	}
@@ -331,30 +316,17 @@ func (s *syncer) getHeight() uint64 {
 	return s.chain.GetLatestSnapshotBlock().Height
 }
 
-func (s *syncer) chooseBatch(syncHeight uint64) (start []*ledger.HashHeight, end uint64) {
-	start = append(start, &ledger.HashHeight{
-		Height: s.batchHeight,
-		Hash:   s.batchHead,
-	})
-
-	end = s.batchHeight + maxBatchChunkSize - 1
-	if end > syncHeight {
-		end = syncHeight
-	}
-
-	return
-}
-
 func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts syncTasks) {
 	count := len(hhs) - 1
 	ts = make(syncTasks, count)
 
 	for i := 0; i < count; i++ {
 		ts[i] = &syncTask{
-			from:     start.Height + 1,
-			to:       hhs[i+1].Height,
-			prevHash: start.Hash,
-			endHash:  hhs[i+1].Hash,
+			Segment: interfaces.Segment{
+				Bound:    [2]uint64{start.Height + 1, hhs[i+1].Height},
+				PrevHash: start.Hash,
+				Hash:     hhs[i+1].Hash,
+			},
 		}
 		start = hhs[i+1]
 	}
@@ -362,46 +334,104 @@ func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts sync
 	return
 }
 
+// start [start0 = currentHeight / syncTaskSize * syncTaskSize, start1 = start0 - 100, start2 = irrevHeight ]
 func (s *syncer) sync() {
+	s.syncWG.Add(1)
+	defer s.syncWG.Done()
+
+	s.state.sync()
+
+	var start = make([]*ledger.HashHeight, 0, 3)
+	var end uint64
+	var err error
+	var block *ledger.SnapshotBlock
+
 Start:
 	genesis := s.chain.GetGenesisSnapshotBlock()
 
-	s.batchHeight = s.getHeight() / syncTaskSize * syncTaskSize
-	// local chain is too low
-	if s.batchHeight <= genesis.Height {
-		s.batchHeight = genesis.Height
-		s.batchHead = genesis.Hash
-	} else {
-		block, err := s.chain.GetSnapshotBlockByHeight(s.batchHeight)
-		if err != nil || block == nil {
-			// maybe rollback
-			time.Sleep(200 * time.Millisecond)
-			goto Start
+	block = s.irreader.GetIrreversibleBlock()
+	var irrevHeight uint64
+	var irrevHash types.Hash
+	if block != nil {
+		irrevHeight = block.Height / syncTaskSize * syncTaskSize
+		if irrevHeight > genesis.Height {
+			block, err = s.chain.GetSnapshotBlockByHeight(irrevHeight)
+			if err != nil || block == nil {
+				s.log.Error(fmt.Sprintf("failed to find snapshot block at %d", irrevHeight))
+				block = genesis
+			}
 		} else {
-			s.batchHead = block.Hash
+			block = genesis
+		}
+	} else {
+		block = genesis
+	}
+	irrevHeight = block.Height
+	irrevHash = block.Hash
+
+	height := s.getHeight()
+	startHeight := height / syncTaskSize * syncTaskSize
+	addIrreverse := false
+	for i := 0; i < 2; i++ {
+		if startHeight <= irrevHeight {
+			startHeight = irrevHeight
+
+			start = append(start, &ledger.HashHeight{
+				Height: irrevHeight,
+				Hash:   irrevHash,
+			})
+			addIrreverse = true
+			break
+		} else {
+			block, err = s.chain.GetSnapshotBlockByHeight(startHeight)
+			if err != nil || block == nil {
+				s.log.Error(fmt.Sprintf("failed to find snapshot block at %d", startHeight))
+				// maybe rollback
+				time.Sleep(200 * time.Millisecond)
+				goto Start
+			} else {
+				start = append(start, &ledger.HashHeight{
+					Height: startHeight,
+					Hash:   block.Hash,
+				})
+
+				if startHeight > syncTaskSize {
+					startHeight -= syncTaskSize
+				} else {
+					break
+				}
+			}
 		}
 	}
 
-	s.from = s.batchHeight + 1
+	if addIrreverse == false {
+		start = append(start, &ledger.HashHeight{
+			Height: irrevHeight,
+			Hash:   irrevHash,
+		})
+	}
 
+	atomic.StoreInt32(&s.taskCanceled, 0)
+	first := true
+
+Loop:
 	for {
-		select {
-		case <-s.cancel:
-			return
-		default:
-
+		if atomic.LoadInt32(&s.taskCanceled) == 1 {
+			break Loop
 		}
 
 		syncPeer := s.peers.syncPeer()
 		if syncPeer == nil {
-			return
+			break Loop
 		}
 
 		syncHeight := syncPeer.Height()
-		syncHeight = syncHeight / syncTaskSize * syncTaskSize
 		atomic.StoreUint64(&s.to, syncHeight)
 
-		start, end := s.chooseBatch(syncHeight)
+		end = (startHeight + maxBatchChunkSize) / syncTaskSize * syncTaskSize
+		if end > syncHeight {
+			end = syncHeight
+		}
 		points := s.sk.construct(start, end)
 		if len(points) == 0 {
 			time.Sleep(time.Second)
@@ -411,38 +441,46 @@ Start:
 		var point *ledger.HashHeight
 		for _, point = range start {
 			if point.Height+1 == points[0].Height {
+				if first {
+					s.from = point.Height + 1
+				}
+
 				break
 			}
 		}
 
 		if point != nil {
+			first = false
 			tasks := constructTasks(point, points)
 			tasks = s.reader.compareCache(tasks)
-			s.runTasks(tasks)
+			for _, t := range tasks {
+				// could be blocked when downloader tasks queue is full
+				if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
+					break Loop
+				}
+			}
 
 			point = points[len(points)-1]
-			s.batchHeight = point.Height
-			s.batchHead = point.Hash
+			startHeight = point.Height
+			start = start[:1]
+			start[0] = &ledger.HashHeight{
+				Height: point.Height,
+				Hash:   point.Hash,
+			}
 		} else {
 			// wrong points
 			time.Sleep(200 * time.Millisecond)
 		}
 	}
-}
 
-func (s *syncer) runTasks(ts syncTasks) {
-	for _, t := range ts {
-		if false == s.downloader.download(t, false) {
-			s.log.Warn(fmt.Sprintf("failed to download %s", t))
-			break
-		}
-	}
-}
-
-func (s *syncer) cancelDownload() {
+	s.sk.reset()
 	s.downloader.cancelAllTasks()
+}
 
-	s.cancel <- struct{}{}
+func (s *syncer) stopSync() {
+	s.downloader.cancelAllTasks()
+	atomic.StoreInt32(&s.taskCanceled, 1)
+	s.reader.pause()
 }
 
 type SyncStatus struct {

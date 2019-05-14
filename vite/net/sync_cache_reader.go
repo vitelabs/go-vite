@@ -45,7 +45,6 @@ type syncCacheReader interface {
 	start()
 	stop()
 	compareCache(ts syncTasks) syncTasks
-	clean() // clean cache and reset
 	chunks() interfaces.SegmentList
 	queue() [][2]*ledger.HashHeight
 	pause()
@@ -82,6 +81,8 @@ type cacheReader struct {
 
 	buffer Chunks
 	index  int
+
+	downloadRecord map[interfaces.Segment]peerId
 
 	wg  sync.WaitGroup
 	log log15.Logger
@@ -156,12 +157,13 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 
 func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) syncCacheReader {
 	s := &cacheReader{
-		chain:      chain,
-		verifier:   verifier,
-		downloader: downloader,
-		buffer:     make(Chunks, 0, maxQueueLength),
-		log:        netLog.New("module", "cache"),
-		readable:   1,
+		chain:          chain,
+		verifier:       verifier,
+		downloader:     downloader,
+		buffer:         make(Chunks, 0, maxQueueLength),
+		log:            netLog.New("module", "cache"),
+		readable:       1,
+		downloadRecord: make(map[interfaces.Segment]peerId),
 	}
 
 	s.cond = sync.NewCond(&s.mu)
@@ -207,17 +209,17 @@ Loop:
 	for _, c := range cs {
 		for i < len(ts) {
 			t = ts[i]
-			if c.Bound[1] < t.from {
+			if c.Bound[1] < t.Bound[0] {
 				continue Loop
 			}
 
-			if c.Bound[0] > t.to {
+			if c.Bound[0] > t.Bound[1] {
 				i++
 				continue
 			}
 
 			// task and segment is overlapped
-			if c.PrevHash != t.prevHash || c.Bound[0] != t.from || c.Bound[1] != t.to || c.Hash != t.endHash {
+			if c != t.Segment {
 				catch(c, t)
 				continue Loop
 			}
@@ -253,7 +255,7 @@ func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
 	}
 
 	last := cs[len(cs)-1]
-	if last.Bound[1] < ts[0].from {
+	if last.Bound[1] < ts[0].Bound[0] {
 		return ts
 	}
 
@@ -293,7 +295,7 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 					last := s.buffer[len(s.buffer)-1]
 					s.readHeight = last.SnapshotRange[1].Height
 				} else {
-					s.readHeight = t.from - 1
+					s.readHeight = t.Bound[0] - 1
 				}
 
 				break
@@ -308,19 +310,28 @@ func (s *cacheReader) chunks() interfaces.SegmentList {
 }
 
 func (s *cacheReader) chunkDownloaded(t syncTask, err error) {
-	s.cond.Signal()
+	if err == nil {
+		s.mu.Lock()
+		s.downloadRecord[t.Segment] = t.source
+		s.mu.Unlock()
+		s.cond.Signal()
+	}
 }
 
 func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
 	if fatal {
+		s.mu.Lock()
+		id := s.downloadRecord[segment]
+		s.mu.Unlock()
+
+		s.downloader.addBlackList(id)
+		s.log.Warn(fmt.Sprintf("block sync peer: %s", id))
+
 		cache := s.chain.GetSyncCache()
 		err := cache.Delete(segment)
 		if err == nil {
 			s.downloader.download(&syncTask{
-				from:     segment.Bound[0],
-				to:       segment.Bound[1],
-				prevHash: segment.PrevHash,
-				endHash:  segment.Hash,
+				Segment: segment,
 			}, true)
 		}
 	}
@@ -347,21 +358,28 @@ func (s *cacheReader) reset() {
 	s.cond.Signal()
 }
 
-func (s *cacheReader) removeUselessChunks(cleanWrongEnd bool) {
+func (s *cacheReader) removeUselessChunks(cleanWrong bool) {
 	height := s.getHeight()
 	cache := s.chain.GetSyncCache()
 	cs := cache.Chunks()
+	genesisHeight := s.chain.GetGenesisSnapshotBlock().Height
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	for _, c := range cs {
 		if c.Bound[1] > height {
-			if cleanWrongEnd {
-				if c.Bound[1]%syncTaskSize != 0 {
+			if cleanWrong {
+				if c.Bound[0]%syncTaskSize != 1 && c.Bound[0] != genesisHeight+1 {
+					_ = cache.Delete(c)
+				} else if c.Bound[1]%syncTaskSize != 0 {
 					_ = cache.Delete(c)
 				}
 			} else {
 				break
 			}
 		} else {
+			delete(s.downloadRecord, c)
 			_ = cache.Delete(c)
 		}
 	}
@@ -453,6 +471,7 @@ func (s *cacheReader) pause() {
 
 func (s *cacheReader) resume() {
 	atomic.StoreInt32(&s.readable, 1)
+	s.cond.Signal()
 }
 
 func (s *cacheReader) canRead() bool {
