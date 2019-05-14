@@ -483,8 +483,8 @@ func (pl *pool) ForkAccountTo(addr types.Address, h *ledger.HashHeight) error {
 		return err
 	}
 	if keyPoint == nil {
-		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTail:%s, currentTail:%s",
-			targetChain.ID(), cu.ID(), targetChain.SprintTail(), cu.SprintTail())
+		return errors.Errorf("forkAccountTo key point is nil, target:%s, current:%s, targetTail:%s, targetHead:%s, currentTail:%s, currentHead:%s",
+			targetChain.ID(), cu.ID(), targetChain.SprintTail(), targetChain.SprintHead(), cu.SprintTail(), cu.SprintHead())
 	}
 	// fork point in disk chain
 	if keyPoint.Height() <= curTailHeight {
