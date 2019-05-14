@@ -188,7 +188,7 @@ func (self *tree) SwitchMainTo(b Branch) error {
 	target := b.(*branch)
 
 	// first prune
-	target.prune(self)
+	//target.prune(self)
 
 	// second modify
 	err := target.exchangeAllRoot()
@@ -285,7 +285,7 @@ func (self *tree) Branches() map[string]Branch {
 func (self *tree) PruneTree() []Branch {
 	err := CheckTreeRing(self)
 	if err != nil {
-		self.log.Info(fmt.Sprintf("ring for tree:%s", PrintTree(self)))
+		self.log.Info(fmt.Sprintf("ring for tree:%s", PrintTreeJson(self)))
 		panic("ring for tree")
 	}
 

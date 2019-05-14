@@ -67,7 +67,7 @@ func (disk *branchChain) GetKnot(height uint64, flag bool) tree.Knot {
 }
 
 func (disk *branchChain) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {
-	fmt.Printf("%d, %s, %t, tree:%s\n", height, hash, flag, tree.PrintTree(disk.t))
+	fmt.Printf("%d, %s, %t, tree:%s\n", height, hash, flag, tree.PrintTreeJson(disk.t))
 	panic("implement me")
 }
 
