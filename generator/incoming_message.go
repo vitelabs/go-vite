@@ -10,6 +10,7 @@ import (
 	"math/big"
 )
 
+// IncomingMessageToBlock returns a complete block by a IncomingMessage.
 func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{
 		BlockType:      im.BlockType,
@@ -33,16 +34,16 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 			return nil, errors.New("pack send failed, toAddress can't be nil")
 		}
 
-		zero_amount := big.NewInt(0)
+		zeroAmount := big.NewInt(0)
 		if im.TokenId == nil || *im.TokenId == types.ZERO_TOKENID {
-			if im.Amount != nil && im.Amount.Cmp(zero_amount) <= 0 {
+			if im.Amount != nil && im.Amount.Cmp(zeroAmount) <= 0 {
 				return nil, errors.New("pack send failed, tokenId can't be empty when amount have actual value")
 			}
-			block.Amount = zero_amount
+			block.Amount = zeroAmount
 			block.TokenId = types.ZERO_TOKENID
 		} else {
 			if im.Amount == nil {
-				block.Amount = zero_amount
+				block.Amount = zeroAmount
 			} else {
 				if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
 					return nil, errors.New("pack send failed, amount out of bounds")
@@ -97,7 +98,7 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 			return nil, err
 		}
 		var prevHash types.Hash
-		var preHeight uint64 = 0
+		var preHeight uint64
 		if prevBlock != nil {
 			prevHash = prevBlock.Hash
 			preHeight = prevBlock.Height
@@ -121,6 +122,7 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 	return block, nil
 }
 
+// IncomingMessage carries the necessary transaction info.
 type IncomingMessage struct {
 	BlockType byte
 

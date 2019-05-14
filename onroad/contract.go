@@ -54,7 +54,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
 		manager: manager,
 
-		status:       Create,
+		status:       create,
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
@@ -82,7 +82,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	log.Info("Start() current status" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status != Start {
+	if w.status != start {
 		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
@@ -98,7 +98,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.contractAddressList = addressList
 		log.Info("get addresslist", "len", len(addressList))
 
-		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in Start
+		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in start
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
@@ -123,7 +123,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		}
 		log.Info("end start all tp")
 
-		w.status = Start
+		w.status = start
 	} else {
 		// awake it in order to run at least once
 		w.WakeupAllTps()
@@ -135,7 +135,7 @@ func (w *ContractWorker) Stop() {
 	w.log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status == Start {
+	if w.status == start {
 		w.manager.removeContractLis(w.gid)
 
 		w.isCancel.Store(true)
@@ -150,7 +150,7 @@ func (w *ContractWorker) Stop() {
 
 		w.clearSelectiveBlocksCache()
 
-		w.status = Stop
+		w.status = stop
 	}
 	w.log.Info("stopped")
 }
@@ -360,7 +360,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	return quotas
 }
 
-func (w *ContractWorker) VerifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
+func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
 	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
 	if err != nil {
 		return err

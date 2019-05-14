@@ -51,11 +51,11 @@ func (t *testProducer) SetAccountEventFunc(f func(event producerevent.AccountEve
 type testVite struct {
 	chain    chain.Chain
 	wallet   *wallet.Manager
-	producer Producer
-	pool     Pool
+	producer producer
+	pool     pool
 }
 
-func (testVite) Net() Net {
+func (testVite) Net() netReader {
 	return new(testNet)
 }
 
@@ -67,10 +67,10 @@ func (t testVite) WalletManager() *wallet.Manager {
 	return t.wallet
 }
 
-func (t testVite) Producer() Producer {
+func (t testVite) Producer() producer {
 	return t.producer
 }
-func (t testVite) Pool() Pool {
+func (t testVite) Pool() pool {
 	return t.pool
 }
 

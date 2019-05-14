@@ -117,7 +117,7 @@ func (c *testChainDb) CheckQuota(addr *types.Address) bool {
 
 func (w *testChainDb) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCount uint8) ([]*ledger.AccountBlock, error) {
 	blocks := make([]*ledger.AccountBlock, 0)
-	var index uint8 = 0
+	var index uint8
 	if _, ok := w.db[*addr]; ok {
 		for _, v := range w.db[*addr] {
 			if index >= pageCount*pageNum {
@@ -218,10 +218,9 @@ func (c *testChainDb) modifyQuotaMap_Sub(addr *types.Address) bool {
 	qUsed := uint64(rand.Intn(10) + 1)
 	if c.quotaMap[*addr] < qUsed {
 		return false
-	} else {
-		c.quotaMap[*addr] = c.quotaMap[*addr] - qUsed
-		return true
 	}
+	c.quotaMap[*addr] = c.quotaMap[*addr] - qUsed
+	return true
 }
 
 type testContractWoker struct {
@@ -254,7 +253,7 @@ func newTestContractWoker(c *testChainDb) *testContractWoker {
 		blackList:        make(map[types.Address]bool),
 		workingAddrList:  make(map[types.Address]bool),
 
-		status:       Create,
+		status:       create,
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 	}
@@ -269,7 +268,7 @@ func newTestContractWoker(c *testChainDb) *testContractWoker {
 func (w *testContractWoker) stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status == Start {
+	if w.status == start {
 
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
@@ -281,14 +280,14 @@ func (w *testContractWoker) stop() {
 		slog.Info("stop all task")
 		w.wg.Wait()
 		slog.Info("end stop all task")
-		w.status = Stop
+		w.status = stop
 	}
 }
 
 func (w *testContractWoker) Work() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
-	if w.status != Start {
+	if w.status != start {
 		w.isCancel.Store(false)
 
 		w.initContractTask()
@@ -313,7 +312,7 @@ func (w *testContractWoker) Work() {
 		for _, v := range w.testProcessors {
 			common.Go(v.work)
 		}
-		w.status = Start
+		w.status = start
 	} else {
 		w.WakeupAllTps()
 	}
@@ -379,7 +378,7 @@ func (w *testContractWoker) getPendingOnroadBlock(contractAddr *types.Address) *
 func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) *ledger.AccountBlock {
 	acqlog := testlog.New("acquireOnRoadBlocks", contractAddr)
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
-		var pageNum uint8 = 0
+		var pageNum uint8
 		for pendingMap.isPendingMapNotSufficient() {
 			blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, pageNum, DefaultPullCount)
 			if len(blocks) <= 0 {
@@ -412,6 +411,16 @@ func (w *testContractWoker) addContractCallerToInferiorList(contract, caller *ty
 	if pendingCache, ok := w.testPendingCache[*contract]; ok && pendingCache != nil {
 		pendingCache.addIntoInferiorList(*caller, state)
 	}
+}
+
+func (w *testContractWoker) deletePendingOnroadBlock(contractAddr *types.Address, sendBlock *ledger.AccountBlock) {
+	w.chain.deleteOnroad(contractAddr, &sendBlock.Hash)
+	/*if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
+		success := pendingMap.deletePendingMap(sendBlock.AccountAddress, &sendBlock.Hash)
+		if success && pendingMap.isInferiorStateRetry(sendBlock.AccountAddress) {
+			pendingMap.removeFromInferiorList(sendBlock.AccountAddress)
+		}
+	}*/
 }
 
 func (w *testContractWoker) clearWorkingAddrList() {

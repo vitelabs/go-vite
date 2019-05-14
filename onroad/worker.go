@@ -1,11 +1,12 @@
 package onroad
 
 const (
-	Create = iota
-	Start
-	Stop
+	create = iota
+	start
+	stop
 )
 
+// Worker lists the methods that the "Worker" need to be implemented.
 type Worker interface {
 	Status() int
 	Start()
@@ -14,6 +15,8 @@ type Worker interface {
 }
 
 var (
-	POMAXPROCS                = 2
+	// POMAXPROCS is used to limit the use of number of operating system threads.
+	POMAXPROCS = 2
+	// ContractTaskProcessorSize is used to limit the number of processors.
 	ContractTaskProcessorSize = POMAXPROCS
 )
