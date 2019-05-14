@@ -1,4 +1,4 @@
-package consensus_db
+package cdb
 
 import (
 	"testing"

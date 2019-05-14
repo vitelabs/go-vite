@@ -92,7 +92,7 @@ func newSimpleInstructionSet() [256]operation {
 		valid:         true,
 	}
 	instructionSet[TOKENID] = operation{
-		execute:       opTokenId,
+		execute:       opTokenID,
 		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
@@ -220,7 +220,7 @@ func newOffchainSimpleInstructionSet() [256]operation {
 		valid:         true,
 	}
 	instructionSet[TOKENID] = operation{
-		execute:       opOffchainTokenId,
+		execute:       opOffchainTokenID,
 		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,

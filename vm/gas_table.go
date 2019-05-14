@@ -328,15 +328,15 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 	if err != nil {
 		return 0, true, err
 	}
-	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
+	toAddrBig, tokenIDBig, amount, inOffset, inSize := stack.back(0), stack.back(1), stack.back(2), stack.back(3), stack.back(4)
 	toAddress, _ := types.BigToAddress(toAddrBig)
-	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
-	cost, err := GasRequiredForSendBlock(util.MakeSendBlock(
+	tokenID, _ := types.BigToTokenTypeId(tokenIDBig)
+	cost, err := gasRequiredForSendBlock(util.MakeSendBlock(
 		c.block.AccountAddress,
 		toAddress,
 		ledger.BlockTypeSendCall,
 		amount,
-		tokenId,
+		tokenID,
 		mem.get(inOffset.Int64(), inSize.Int64())))
 	if err != nil {
 		return 0, true, err
@@ -368,30 +368,30 @@ func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 	return memoryGasCost(mem, memorySize)
 }
 
+// GasRequiredForBlock calculates gas required for a user account block.
 func GasRequiredForBlock(db vm_db.VmDb, block *ledger.AccountBlock) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeReceive {
 		return gasReceive(block, nil)
-	} else {
-		cost, err := GasRequiredForSendBlock(block)
-		if err != nil {
-			return 0, err
-		}
-		if block.BlockType != ledger.BlockTypeSendCall {
-			return cost, nil
-		}
-		quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
-		if err != nil {
-			return 0, err
-		}
-		cost, err = util.MultipleCost(cost, quotaRatio)
-		if err != nil {
-			return 0, err
-		}
+	}
+	cost, err := gasRequiredForSendBlock(block)
+	if err != nil {
+		return 0, err
+	}
+	if block.BlockType != ledger.BlockTypeSendCall {
 		return cost, nil
 	}
+	quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
+	if err != nil {
+		return 0, err
+	}
+	cost, err = util.MultipleCost(cost, quotaRatio)
+	if err != nil {
+		return 0, err
+	}
+	return cost, nil
 }
 
-func GasRequiredForSendBlock(block *ledger.AccountBlock) (uint64, error) {
+func gasRequiredForSendBlock(block *ledger.AccountBlock) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeSendCreate {
 		return gasNormalSendCall(block)
 	} else if block.BlockType == ledger.BlockTypeSendCall {
@@ -419,14 +419,13 @@ func gasReceive(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, 
 
 func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
 	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
-		if method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); !ok || err != nil {
+		method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data)
+		if !ok || err != nil {
 			return 0, util.ErrAbiMethodNotFound
-		} else {
-			return method.GetSendQuota(block.Data)
 		}
-	} else {
-		return gasNormalSendCall(block)
+		return method.GetSendQuota(block.Data)
 	}
+	return gasNormalSendCall(block)
 }
 func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
 	return util.IntrinsicGasCost(block.Data, false, 0)

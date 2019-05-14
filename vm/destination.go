@@ -73,7 +73,7 @@ var (
 	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
 )
 
-// Check whether code includes status reading opcode
+// ContainsStatusCode checks whether code includes status reading opcode.
 func ContainsStatusCode(code []byte) bool {
 	if containsAuxCode(code) {
 		code = code[:len(code)-43]

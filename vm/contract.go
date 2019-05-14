@@ -58,5 +58,5 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		c.intPool = nil
 	}()
 
-	return vm.i.Run(vm, c)
+	return vm.i.runLoop(vm, c)
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -29,8 +28,8 @@ func newContractCs(rw *chainRw, log log15.Logger) *contractsCs {
 	return cs
 }
 
-func (self *contractsCs) LoadGid(gid types.Gid) error {
-	result, err := self.reloadGid(gid)
+func (contract *contractsCs) LoadGid(gid types.Gid) error {
+	result, err := contract.reloadGid(gid)
 	if err != nil {
 		return err
 	}
@@ -40,8 +39,8 @@ func (self *contractsCs) LoadGid(gid types.Gid) error {
 	return nil
 }
 
-func (self *contractsCs) ElectionTime(gid types.Gid, t time.Time) (*electionResult, error) {
-	result, err := self.getOrLoadGid(gid)
+func (contract *contractsCs) ElectionTime(gid types.Gid, t time.Time) (*electionResult, error) {
+	result, err := contract.getOrLoadGid(gid)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +50,8 @@ func (self *contractsCs) ElectionTime(gid types.Gid, t time.Time) (*electionResu
 	return result.electionTime(t)
 }
 
-func (self *contractsCs) ElectionIndex(gid types.Gid, index uint64) (*electionResult, error) {
-	result, err := self.getOrLoadGid(gid)
+func (contract *contractsCs) ElectionIndex(gid types.Gid, index uint64) (*electionResult, error) {
+	result, err := contract.getOrLoadGid(gid)
 	if err != nil {
 		return nil, err
 	}
@@ -62,10 +61,10 @@ func (self *contractsCs) ElectionIndex(gid types.Gid, index uint64) (*electionRe
 	return result.ElectionIndex(index)
 }
 
-func (self *contractsCs) getOrLoadGid(gid types.Gid) (*contractDposCs, error) {
-	cs := self.getForGid(gid)
+func (contract *contractsCs) getOrLoadGid(gid types.Gid) (*contractDposCs, error) {
+	cs := contract.getForGid(gid)
 	if cs == nil {
-		tmp, err := self.reloadGid(gid)
+		tmp, err := contract.reloadGid(gid)
 		if err != nil {
 			return nil, err
 		}
@@ -74,26 +73,26 @@ func (self *contractsCs) getOrLoadGid(gid types.Gid) (*contractDposCs, error) {
 	return cs, nil
 }
 
-func (self *contractsCs) reloadGid(gid types.Gid) (*contractDposCs, error) {
-	self.contractsMu.Lock()
-	defer self.contractsMu.Unlock()
-	info, err := self.rw.GetMemberInfo(gid)
+func (contract *contractsCs) reloadGid(gid types.Gid) (*contractDposCs, error) {
+	contract.contractsMu.Lock()
+	defer contract.contractsMu.Unlock()
+	info, err := contract.rw.GetMemberInfo(gid)
 	if err != nil {
 		return nil, err
 	}
 	if info == nil {
 		return nil, errors.Errorf("can't load consensus gid:%s", gid)
 	}
-	cs := newContractDposCs(info, self.rw, self.log)
-	self.contracts[gid] = cs
+	cs := newContractDposCs(info, contract.rw, contract.log)
+	contract.contracts[gid] = cs
 	return cs, nil
 }
 
-func (self *contractsCs) getForGid(gid types.Gid) *contractDposCs {
-	self.contractsMu.Lock()
-	defer self.contractsMu.Unlock()
+func (contract *contractsCs) getForGid(gid types.Gid) *contractDposCs {
+	contract.contractsMu.Lock()
+	defer contract.contractsMu.Unlock()
 
-	cs, ok := self.contracts[gid]
+	cs, ok := contract.contracts[gid]
 	if ok {
 		return cs
 	}

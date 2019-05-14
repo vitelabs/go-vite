@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -52,14 +50,14 @@ var reqStatus = map[reqState]string{
 }
 
 type syncTask struct {
-	from, to          uint64
-	prevHash, endHash types.Hash
-	st                reqState
-	doneAt            time.Time
+	interfaces.Segment
+	st     reqState
+	doneAt time.Time
+	source peerId
 }
 
 func (t *syncTask) String() string {
-	return strconv.FormatUint(t.from, 10) + "-" + strconv.FormatUint(t.to, 10) + " " + t.prevHash.String() + "-" + t.endHash.String()
+	return strconv.FormatUint(t.Bound[0], 10) + "-" + strconv.FormatUint(t.Bound[1], 10) + " " + t.PrevHash.String() + "-" + t.Hash.String()
 }
 
 func (t *syncTask) status() string {
@@ -90,7 +88,7 @@ func (t *syncTask) error() {
 }
 
 func (t *syncTask) equal(t2 *syncTask) bool {
-	return t.from == t2.from && t.to == t2.to && t.prevHash == t2.prevHash && t.endHash == t2.endHash
+	return t.Segment == t2.Segment
 }
 
 type syncTasks []*syncTask
@@ -100,7 +98,7 @@ func (s syncTasks) Len() int {
 }
 
 func (s syncTasks) Less(i, j int) bool {
-	return s[i].from < s[j].from
+	return s[i].Bound[0] < s[j].Bound[0]
 }
 
 func (s syncTasks) Swap(i, j int) {
@@ -155,108 +153,108 @@ func (cs chunks) overlap(from, to uint64) (conflict [2]uint64, ok bool) {
 	return
 }
 
-func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis [][2]uint64) {
-	for _, segment := range sortedList {
-		// useless
-		if segment.Bound[1] < from {
-			continue
-		}
-
-		if segment.Bound[0] > to {
-			break
-		}
-
-		// missing front piece
-		if segment.Bound[0] > from {
-			mis = append(mis, [2]uint64{
-				from,
-				segment.Bound[0] - 1,
-			})
-		}
-
-		// next response
-		from = segment.Bound[1] + 1
-	}
-
-	// from should equal (cr.to + 1)
-	if from-1 < to {
-		mis = append(mis, [2]uint64{
-			from,
-			to,
-		})
-	}
-
-	return
-}
+//func missingSegments(sortedList interfaces.SegmentList, from, to uint64) (mis [][2]uint64) {
+//	for _, segment := range sortedList {
+//		// useless
+//		if segment.Bound[1] < from {
+//			continue
+//		}
+//
+//		if segment.Bound[0] > to {
+//			break
+//		}
+//
+//		// missing front piece
+//		if segment.Bound[0] > from {
+//			mis = append(mis, [2]uint64{
+//				from,
+//				segment.Bound[0] - 1,
+//			})
+//		}
+//
+//		// next response
+//		from = segment.Bound[1] + 1
+//	}
+//
+//	// from should equal (cr.to + 1)
+//	if from-1 < to {
+//		mis = append(mis, [2]uint64{
+//			from,
+//			to,
+//		})
+//	}
+//
+//	return
+//}
 
 // chunks should be continuous [from, to]
-func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
-	for _, chunk := range chunks {
-		// useless
-		if chunk[1] < from {
-			continue
-		}
+//func missingChunks(chunks [][2]uint64, from, to uint64) (mis [][2]uint64) {
+//	for _, chunk := range chunks {
+//		// useless
+//		if chunk[1] < from {
+//			continue
+//		}
+//
+//		if chunk[0] > to {
+//			break
+//		}
+//
+//		// missing front piece
+//		if chunk[0] > from {
+//			mis = append(mis, [2]uint64{
+//				from,
+//				chunk[0] - 1,
+//			})
+//		}
+//
+//		// next response
+//		from = chunk[1] + 1
+//	}
+//
+//	// from should equal (cr.to + 1)
+//	if from-1 < to {
+//		mis = append(mis, [2]uint64{
+//			from,
+//			to,
+//		})
+//	}
+//
+//	return
+//}
 
-		if chunk[0] > to {
-			break
-		}
-
-		// missing front piece
-		if chunk[0] > from {
-			mis = append(mis, [2]uint64{
-				from,
-				chunk[0] - 1,
-			})
-		}
-
-		// next response
-		from = chunk[1] + 1
-	}
-
-	// from should equal (cr.to + 1)
-	if from-1 < to {
-		mis = append(mis, [2]uint64{
-			from,
-			to,
-		})
-	}
-
-	return
-}
-
-func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
-	for _, t := range tasks {
-		// useless
-		if t.to < from {
-			continue
-		}
-
-		if t.from > to {
-			break
-		}
-
-		// missing front piece
-		if t.from > from {
-			mis = append(mis, &syncTask{
-				from: from,
-				to:   t.from - 1,
-			})
-		}
-
-		// next response
-		from = t.to + 1
-	}
-
-	// from should equal (cr.to + 1)
-	if from-1 < to {
-		mis = append(mis, &syncTask{
-			from: from,
-			to:   to,
-		})
-	}
-
-	return
-}
+//func missingTasks(tasks syncTasks, from, to uint64) (mis syncTasks) {
+//	for _, t := range tasks {
+//		// useless
+//		if t.to < from {
+//			continue
+//		}
+//
+//		if t.from > to {
+//			break
+//		}
+//
+//		// missing front piece
+//		if t.from > from {
+//			mis = append(mis, &syncTask{
+//				from: from,
+//				to:   t.from - 1,
+//			})
+//		}
+//
+//		// next response
+//		from = t.to + 1
+//	}
+//
+//	// from should equal (cr.to + 1)
+//	if from-1 < to {
+//		mis = append(mis, &syncTask{
+//			from: from,
+//			to:   to,
+//		})
+//	}
+//
+//	return
+//}
 
 type DownloaderStatus struct {
 	Tasks       []string               `json:"tasks"`
@@ -274,6 +272,7 @@ type syncDownloader interface {
 	cancelAllTasks()
 	cancelTask(t *syncTask)
 	addListener(listener taskListener)
+	addBlackList(id peerId)
 }
 
 type taskListener = func(t syncTask, err error)
@@ -435,9 +434,10 @@ func (e *executor) cancelTask(t *syncTask) {
 
 func (e *executor) cancelAllTasks() {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	e.tasks = e.tasks[:0]
+	e.mu.Unlock()
+
+	e.cond.Broadcast()
 	return
 }
 
@@ -453,7 +453,7 @@ func cancelTasks(tasks syncTasks, from uint64) (tasks2 syncTasks, end uint64) {
 	var t *syncTask
 	for i := total - 1; i > -1; i-- {
 		t = tasks[i]
-		if t.to > from {
+		if t.Bound[1] > from {
 			t.cancel()
 			j++
 			continue
@@ -465,7 +465,7 @@ func cancelTasks(tasks syncTasks, from uint64) (tasks2 syncTasks, end uint64) {
 	total = total - j
 	tasks = tasks[:total]
 	if total > 0 {
-		end = tasks[total-1].to
+		end = tasks[total-1].Bound[1]
 	}
 
 	return tasks, end
@@ -565,7 +565,7 @@ func (e *executor) doJob(c *syncConn, t *syncTask) error {
 
 	e.log.Info(fmt.Sprintf("download chunk %s from %s", t.String(), c.address()))
 
-	if fatal, err := c.download(*t); err != nil {
+	if fatal, err := c.download(t); err != nil {
 		e.log.Warn(fmt.Sprintf("failed to download chunk %s from %s: %v", t, c.address(), err))
 
 		if fatal {
@@ -653,7 +653,7 @@ func (e *executor) do(t *syncTask) {
 		e.notify(t, err)
 	} else {
 		// maybe syncConn is busy, should wait
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 }
 
@@ -661,4 +661,8 @@ func (e *executor) notify(t *syncTask, err error) {
 	for _, listener := range e.listeners {
 		listener(*t, err)
 	}
+}
+
+func (e *executor) addBlackList(id peerId) {
+	e.pool.blockPeer(id)
 }

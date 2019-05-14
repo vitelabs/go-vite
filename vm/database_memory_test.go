@@ -14,8 +14,8 @@ var (
 	codeKey    = "$CODE"
 )
 
-func getBalanceKey(tokenId *types.TokenTypeId) string {
-	return balanceKey + tokenId.String()
+func getBalanceKey(tokenID *types.TokenTypeId) string {
+	return balanceKey + tokenID.String()
 }
 
 func getCodeKey(addr types.Address) string {
@@ -31,7 +31,7 @@ type memoryDatabase struct {
 	sb              *ledger.SnapshotBlock
 }
 
-func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryDatabase {
+func newMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryDatabase {
 	return &memoryDatabase{
 		addr:            addr,
 		storage:         make(map[string][]byte),
@@ -40,18 +40,17 @@ func NewMemoryDatabase(addr types.Address, sb *ledger.SnapshotBlock) *memoryData
 		sb:              sb,
 	}
 }
-func (db *memoryDatabase) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	if balance, ok := db.storage[getBalanceKey(tokenTypeId)]; ok {
+func (db *memoryDatabase) GetBalance(tokenTypeID *types.TokenTypeId) (*big.Int, error) {
+	if balance, ok := db.storage[getBalanceKey(tokenTypeID)]; ok {
 		return new(big.Int).SetBytes(balance), nil
-	} else {
-		return big.NewInt(0), nil
 	}
+	return big.NewInt(0), nil
 }
-func (db *memoryDatabase) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+func (db *memoryDatabase) SetBalance(tokenTypeID *types.TokenTypeId, amount *big.Int) {
 	if amount == nil {
-		delete(db.storage, getBalanceKey(tokenTypeId))
+		delete(db.storage, getBalanceKey(tokenTypeID))
 	} else {
-		db.storage[getBalanceKey(tokenTypeId)] = amount.Bytes()
+		db.storage[getBalanceKey(tokenTypeID)] = amount.Bytes()
 	}
 }
 func (db *memoryDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
@@ -81,17 +80,15 @@ func (db *memoryDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, sn
 func (db *memoryDatabase) GetOriginalValue(key []byte) ([]byte, error) {
 	if data, ok := db.originalStorage[hex.EncodeToString(key)]; ok {
 		return data, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (db *memoryDatabase) GetValue(key []byte) ([]byte, error) {
 	if data, ok := db.storage[hex.EncodeToString(key)]; ok {
 		return data, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 func (db *memoryDatabase) SetValue(key []byte, value []byte) error {
 	if len(value) == 0 {
@@ -118,18 +115,17 @@ func (db *memoryDatabase) AddLog(log *ledger.VmLog) {
 func (db *memoryDatabase) GetLogListHash() *types.Hash {
 	if len(db.logList) == 0 {
 		return nil
-	} else {
-		var source []byte
-		for _, vmLog := range db.logList {
-			for _, topic := range vmLog.Topics {
-				source = append(source, topic.Bytes()...)
-			}
-			source = append(source, vmLog.Data...)
-		}
-
-		hash, _ := types.BytesToHash(crypto.Hash256(source))
-		return &hash
 	}
+	var source []byte
+	for _, vmLog := range db.logList {
+		for _, topic := range vmLog.Topics {
+			source = append(source, topic.Bytes()...)
+		}
+		source = append(source, vmLog.Data...)
+	}
+
+	hash, _ := types.BytesToHash(crypto.Hash256(source))
+	return &hash
 }
 
 func (db *memoryDatabase) GetLogList() ledger.VmLogList {
@@ -199,7 +195,7 @@ func (db *memoryDatabase) GetUnconfirmedBlocks(address types.Address) []*ledger.
 }
 func (db *memoryDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	list := make([]types.QuotaInfo, 75)
-	for i, _ := range list {
+	for i := range list {
 		list[i] = types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0}
 	}
 	return list
