@@ -346,13 +346,13 @@ func opAddress(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 }
 
 func opBalance(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	tokenTypeIdBig := stack.pop()
-	tokenTypeId, _ := types.BigToTokenTypeId(tokenTypeIdBig)
-	b, err := c.db.GetBalance(&tokenTypeId)
+	tokenTypeIDBig := stack.pop()
+	tokenTypeID, _ := types.BigToTokenTypeId(tokenTypeIDBig)
+	b, err := c.db.GetBalance(&tokenTypeID)
 	util.DealWithErr(err)
 	stack.push(c.intPool.get().Set(b))
 
-	c.intPool.put(tokenTypeIdBig, b)
+	c.intPool.put(tokenTypeIDBig, b)
 	return nil, nil
 }
 
@@ -491,12 +491,12 @@ func opOffchainHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 	return nil, nil
 }
 
-func opTokenId(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+func opTokenID(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.get().SetBytes(c.sendBlock.TokenId.Bytes()))
 	return nil, nil
 }
 
-func opOffchainTokenId(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+func opOffchainTokenID(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.getZero())
 	return nil, nil
 }
@@ -754,9 +754,9 @@ func opDelegateCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 }
 
 func opCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	toAddrBig, tokenIdBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
+	toAddrBig, tokenIDBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	toAddress, _ := types.BigToAddress(toAddrBig)
-	tokenId, _ := types.BigToTokenTypeId(tokenIdBig)
+	tokenID, _ := types.BigToTokenTypeId(tokenIDBig)
 	data := mem.get(inOffset.Int64(), inSize.Int64())
 	vm.AppendBlock(
 		util.MakeSendBlock(
@@ -764,7 +764,7 @@ func opCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte,
 			toAddress,
 			ledger.BlockTypeSendCall,
 			amount,
-			tokenId,
+			tokenID,
 			data))
 	return nil, nil
 }
