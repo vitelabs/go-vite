@@ -34,7 +34,7 @@ func (pl *pool) checkFork() {
 
 	err = pl.snapshotFork(longest, longestH)
 	if err != nil {
-		pl.log.Error(fmt.Sprintf("fork snapshot fail. targetId:%s, targetHeight:%d, switch to current[%s].", longest.ID(), longestH, current.ID()))
+		pl.log.Error(fmt.Sprintf("fork snapshot fail. targetId:%s, targetHeight:%d, switch to current[%s].", longest.ID(), longestH, current.ID()), "err", err)
 		err = pl.snapshotFork(current, curTailHeight)
 		if err != nil {
 			panic(err)
@@ -105,16 +105,16 @@ func (pl *pool) findForkKeyPoint(longest tree.Branch) (*snapshotPoolBlock, error
 
 	pl.log.Warn("snapshot find fork point.", "longest", longest.ID(), "current", current.ID())
 
-	k, forked, err := pl.pendingSc.chainpool.tree.FindForkPointFromMain(longest)
+	_, forked, err := pl.pendingSc.chainpool.tree.FindForkPointFromMain(longest)
 	if err != nil {
 		pl.log.Error("get snapshot forkPoint err.", "err", err)
 		return nil, err
 	}
-	if k == nil {
-		pl.log.Error("keypoint is empty.", "forked", forked.Height())
+	if forked == nil {
+		pl.log.Error("forked point is empty.")
 		return nil, errors.New("key point is nil")
 	}
-	keyPoint := k.(*snapshotPoolBlock)
+	keyPoint := forked.(*snapshotPoolBlock)
 	pl.log.Info("fork point", "height", keyPoint.Height(), "hash", keyPoint.Hash())
 	return keyPoint, nil
 }
