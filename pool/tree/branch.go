@@ -114,7 +114,7 @@ func (self *branch) updateChildrenForRemoveTail(root Branch, t *tree) {
 			continue
 		}
 
-		fmt.Printf("tree info:%s\n", PrintTree(t))
+		fmt.Printf("tree info:%s\n", PrintTreeJson(t))
 		panic(fmt.Sprintf("[%s][%s]children[%s] fail[%d]", self.ID(), self.SprintTail(), v.ID(), height))
 	}
 }
@@ -136,6 +136,10 @@ func (self *branch) exchangeAllRoot() error {
 func (self *branch) exchangeRoot(root *branch) error {
 	if root.ID() != self.root.ID() {
 		return errors.New("root not match")
+	}
+
+	if root.root.Type() == Normal {
+		root.root.(*branch).removeChild(root)
 	}
 
 	if tailEquals(root, self) {

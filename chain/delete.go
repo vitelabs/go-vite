@@ -74,14 +74,14 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	c.flushMu.RLock()
 	defer func() {
 		if e := recover(); e != nil {
-			c.flusher.Stop()
+			c.flusher.Abort()
 			c.flushMu.RUnlock()
 			panic(e)
-		} else {
-			c.flushMu.RUnlock()
-			if returnErr != nil {
-				c.flusher.Flush()
-			}
+		}
+
+		c.flushMu.RUnlock()
+		if returnErr != nil {
+			c.flusher.Flush()
 		}
 
 	}()
@@ -109,11 +109,11 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	}
 
 	// block db rollback
-	snapshotChunks, err := c.blockDB.Rollback(location)
+	snapshotChunks, err := c.blockDB.PrepareRollback(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.RollbackAccountBlocks failed, location is %d. Error: %s,", location, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		cErr := errors.New(fmt.Sprintf("c.blockDB.PrepareRollback failed, location is %d. Error: %s,", location, err.Error()))
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 	if len(snapshotChunks) <= 0 {
 		return nil, nil
@@ -124,7 +124,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
@@ -172,6 +172,12 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 
 	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.em.Trigger(prepareDeleteSbsEvent) failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+	}
+
+	// rollback block db
+	if err := c.blockDB.Rollback(location); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Rollback(location) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
