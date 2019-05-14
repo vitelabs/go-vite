@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -57,8 +58,13 @@ func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) 
 	return m
 }
 
-func (api DebugApi) PoolIrreversible() *ledger.SnapshotBlock {
-	return api.v.Pool().GetIrreversibleBlock()
+func (api DebugApi) PoolIrreversible() string {
+	block := api.v.Pool().GetIrreversibleBlock()
+	if block == nil {
+		return "empty"
+	}
+	bytes, _ := json.Marshal(block)
+	return string(bytes)
 }
 
 func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64) map[string]interface{} {

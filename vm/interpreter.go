@@ -7,24 +7,23 @@ import (
 	"sync/atomic"
 )
 
-type Interpreter struct {
+type interpreter struct {
 	instructionSet [256]operation
 }
 
 var (
-	simpleInterpreter         = &Interpreter{simpleInstructionSet}
-	offchainSimpleInterpreter = &Interpreter{offchainSimpleInstructionSet}
+	simpleInterpreter         = &interpreter{simpleInstructionSet}
+	offchainSimpleInterpreter = &interpreter{offchainSimpleInstructionSet}
 )
 
-func NewInterpreter(blockHeight uint64, offChain bool) *Interpreter {
+func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
 	if offChain {
 		return offchainSimpleInterpreter
-	} else {
-		return simpleInterpreter
 	}
+	return simpleInterpreter
 }
 
-func (i *Interpreter) Run(vm *VM, c *contract) (ret []byte, err error) {
+func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 	c.returnData = nil
 	var (
 		op   opCode

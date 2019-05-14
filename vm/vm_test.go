@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	InitVmConfig(false, false, true, common.HomeDir())
+	InitVMConfig(false, false, true, common.HomeDir())
 	initFork()
 }
 
@@ -236,7 +236,7 @@ func TestVmRun(t *testing.T) {
 
 /*func TestDelegateCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
-	db := NewNoDatabase()
+	db := newNoDatabase()
 	// code1 return 1+2
 	addr1, _, _ := types.CreateAddress()
 	code1 := []byte{1, byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
@@ -249,7 +249,7 @@ func TestVmRun(t *testing.T) {
 
 	vm := NewVM(nil)
 	vm.globalStatus = &util.GlobalStatus{0, &ledger.SnapshotBlock{}}
-	vm.i = NewInterpreter(1, false)
+	vm.i = newInterpreter(1, false)
 	//vm.Debug = true
 	sendCallBlock := ledger.AccountBlock{
 		AccountAddress: addr1,
@@ -436,7 +436,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVmConfig(true, true, false, "")
+	InitVMConfig(true, true, false, "")
 	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()
@@ -463,7 +463,7 @@ type TestCaseMap map[string]TestCase
 type TestCaseSendBlock struct {
 	ToAddress types.Address
 	Amount    string
-	TokenId   types.TokenTypeId
+	TokenID   types.TokenTypeId
 	Data      string
 }
 type TestLog struct {
@@ -477,7 +477,7 @@ type TestCase struct {
 	ToAddress     types.Address
 	InputData     string
 	Amount        string
-	TokenId       types.TokenTypeId
+	TokenID       types.TokenTypeId
 	Code          string
 	ReturnData    string
 	QuotaTotal    uint64
@@ -526,7 +526,7 @@ func TestVm(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM(nil)
-			vm.i = NewInterpreter(1, false)
+			vm.i = newInterpreter(1, false)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
@@ -538,13 +538,13 @@ func TestVm(t *testing.T) {
 				Data:           inputData,
 				Amount:         new(big.Int).SetBytes(amount),
 				Fee:            big.NewInt(0),
-				TokenId:        testCase.TokenId,
+				TokenId:        testCase.TokenID,
 			}
 			receiveCallBlock := &ledger.AccountBlock{
 				AccountAddress: testCase.ToAddress,
 				BlockType:      ledger.BlockTypeReceive,
 			}
-			db := NewMemoryDatabase(testCase.ToAddress, &sb)
+			db := newMemoryDatabase(testCase.ToAddress, &sb)
 			if len(testCase.PreStorage) > 0 {
 				for k, v := range testCase.PreStorage {
 					vByte, _ := hex.DecodeString(v)
@@ -640,8 +640,8 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBloc
 			return "expected toAddress " + expectedSendBlock.ToAddress.String() + ", got toAddress " + gotSendBlock.ToAddress.String()
 		} else if gotAmount := hex.EncodeToString(gotSendBlock.Amount.Bytes()); gotAmount != expectedSendBlock.Amount {
 			return "expected amount " + expectedSendBlock.Amount + ", got amount " + gotAmount
-		} else if gotSendBlock.TokenId != expectedSendBlock.TokenId {
-			return "expected tokenId " + expectedSendBlock.TokenId.String() + ", got tokenId " + gotSendBlock.TokenId.String()
+		} else if gotSendBlock.TokenId != expectedSendBlock.TokenID {
+			return "expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
 		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
 			return "expected data " + expectedSendBlock.Data + ", got data " + gotData
 		}
@@ -673,7 +673,7 @@ func TestOffChainReader(t *testing.T) {
 
 	for k, testCase := range *testCaseMap {
 		vm := NewVM(nil)
-		vm.i = NewInterpreter(1, true)
+		vm.i = newInterpreter(1, true)
 		var sbTime time.Time
 		if testCase.SBTime > 0 {
 			sbTime = time.Unix(testCase.SBTime, 0)
@@ -685,7 +685,7 @@ func TestOffChainReader(t *testing.T) {
 			Timestamp: &sbTime,
 			Hash:      types.DataHash([]byte{1, 1}),
 		}
-		db := NewMemoryDatabase(testCase.ToAddress, &sb)
+		db := newMemoryDatabase(testCase.ToAddress, &sb)
 		if len(testCase.PreStorage) > 0 {
 			for k, v := range testCase.PreStorage {
 				vByte, _ := hex.DecodeString(v)

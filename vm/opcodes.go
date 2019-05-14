@@ -53,6 +53,7 @@ const (
 	SAR
 )
 
+// 0x20 range - hash ops.
 const (
 	BLAKE2B opCode = 0x21
 )
@@ -517,9 +518,4 @@ var stringToOp = map[string]opCode{
 	"CALLCODE":       CALLCODE,
 	"REVERT":         REVERT,
 	"SELFDESTRUCT":   SELFDESTRUCT,
-}
-
-// StringToOp finds the opcode whose name is stored in `str`.
-func StringToOp(str string) opCode {
-	return stringToOp[str]
 }
