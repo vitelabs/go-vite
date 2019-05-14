@@ -47,6 +47,7 @@ type SnapshotProducerWriter interface {
 
 // Reader is a reader of BlockPool
 type Reader interface {
+	GetIrreversibleBlock() *ledger.SnapshotBlock
 }
 
 // Debug provide more detail info for BlockPool
