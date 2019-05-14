@@ -18,8 +18,8 @@ type mockProtocol struct {
 	interval time.Duration
 }
 
-func (m *mockProtocol) ProtoData() (key []byte, height uint64, genesis types.Hash) {
-	return
+func (m *mockProtocol) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
+	return 0, types.Hash{1, 2, 3}, types.Hash{4, 5, 6}
 }
 
 func (m *mockProtocol) Name() string {
