@@ -344,8 +344,8 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	if result.Err != nil {
 		return nil, result.Err
 	}
-	if result.VmBlock != nil {
-		return &result.VmBlock.AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.VmBlock)
+	if result.VMBlock != nil {
+		return &result.VMBlock.AccountBlock.Hash, m.pool.AddDirectAccountBlock(params.SelfAddr, result.VMBlock)
 	} else {
 		return nil, errors.New("generator gen an empty block")
 	}

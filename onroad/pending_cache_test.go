@@ -18,9 +18,9 @@ func (m tMap) Add(key string, value *big.Int) {
 			fmt.Printf("copy, not pointer")
 		}
 	} else {
-		new_l := make([]*big.Int, 0)
-		new_l = append(new_l, value)
-		m[key] = new_l
+		newL := make([]*big.Int, 0)
+		newL = append(newL, value)
+		m[key] = newL
 	}
 }
 
