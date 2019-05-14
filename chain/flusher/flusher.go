@@ -183,6 +183,12 @@ func (flusher *Flusher) loopFlush() {
 		for {
 			select {
 			case <-flusher.terminal:
+				status := atomic.LoadInt32(&flusher.flusherStatus)
+				if status == aborted {
+					flusher.log.Warn(fmt.Sprintf("flusher is aborted"), "method", "loopFlush")
+					return
+				}
+
 				flusher.flush()
 				return
 

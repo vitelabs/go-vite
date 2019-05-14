@@ -34,7 +34,7 @@ type RawTxBlock struct {
 	PublicKey      []byte        `json:"publicKey"`
 
 	FromAddress   types.Address     `json:"fromAddress"`
-	ToAddress     types.Address     `json:"toAddress""`
+	ToAddress     types.Address     `json:"toAddress"`
 	FromBlockHash types.Hash        `json:"fromBlockHash"`
 	TokenId       types.TokenTypeId `json:"tokenId"`
 	Amount        *string           `json:"amount"`
