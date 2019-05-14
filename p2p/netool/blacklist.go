@@ -20,6 +20,7 @@ package netool
 
 import (
 	"encoding/hex"
+	"sync"
 	"time"
 )
 
@@ -40,6 +41,7 @@ type record struct {
 type blackList struct {
 	records  map[string]*record
 	strategy Strategy
+	mu       sync.RWMutex
 }
 
 func NewBlackList(strategy Strategy) BlackList {
@@ -50,6 +52,9 @@ func NewBlackList(strategy Strategy) BlackList {
 }
 
 func (b *blackList) Ban(buf []byte) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	id := hex.EncodeToString(buf)
 	if r, ok := b.records[id]; ok {
 		r.t = time.Now()
@@ -63,11 +68,17 @@ func (b *blackList) Ban(buf []byte) {
 }
 
 func (b *blackList) UnBan(buf []byte) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	id := hex.EncodeToString(buf)
 	delete(b.records, id)
 }
 
 func (b *blackList) Banned(buf []byte) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	id := hex.EncodeToString(buf)
 
 	if r, ok := b.records[id]; ok {
