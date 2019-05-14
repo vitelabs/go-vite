@@ -188,10 +188,10 @@ func (self *tree) SwitchMainTo(b Branch) error {
 	target := b.(*branch)
 
 	// first prune
-	//target.prune(self)
+	target.prune(self)
 
 	// second modify
-	err := target.exchangeAllRoot()
+	err := target.exchangeAllRoot(self)
 	if err != nil {
 		return err
 	}
