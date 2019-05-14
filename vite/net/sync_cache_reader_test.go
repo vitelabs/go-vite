@@ -261,6 +261,10 @@ type mockSyncDownloader struct {
 	}
 }
 
+func (m *mockSyncDownloader) cancelAllTasks() {
+	panic("implement me")
+}
+
 func (m *mockSyncDownloader) cancelTask(t *syncTask) {
 	panic("implement me")
 }

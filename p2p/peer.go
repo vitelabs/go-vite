@@ -148,7 +148,7 @@ func (p *peerMux) Address() net.Addr {
 	return p.codec.Address()
 }
 
-func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
+func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
 	pm := &peerMux{
 		codec:       c,
 		id:          id,
@@ -165,6 +165,7 @@ func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, ve
 		proto:       proto,
 		fileAddress: fileAddress,
 		height:      height,
+		head:        head,
 	}
 
 	return pm

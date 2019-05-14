@@ -57,7 +57,10 @@ func (d *dl) dialNode(n *vnode.Node) (p PeerMux, err error) {
 	}
 
 	c := d.codecFactory.CreateCodec(conn)
-	p, err = d.handshaker.Handshake(c, Inbound)
+	p, err = d.handshaker.InitiateHandshake(c, n.ID)
+	if err != nil {
+		_ = Disconnect(c, err)
+	}
 
 	return
 }

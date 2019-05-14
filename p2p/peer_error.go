@@ -22,6 +22,7 @@ const (
 	PeerInvalidBlock
 	PeerInvalidMessage
 	PeerResponseTimeout
+	PeerInvalidToken
 )
 
 var peerErrStr = [...]string{
@@ -44,6 +45,7 @@ var peerErrStr = [...]string{
 	PeerInvalidMessage:      "invalid message",
 	PeerBanned:              "banned",
 	PeerResponseTimeout:     "response timeout",
+	PeerInvalidToken:        "invalid token",
 }
 
 func (e PeerError) String() string {

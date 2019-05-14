@@ -64,9 +64,12 @@ type net struct {
 	p2p       p2p.P2P
 }
 
-func (n *net) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+func (n *net) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
 	genesis = n.Chain.GetGenesisSnapshotBlock().Hash
-	height = n.Chain.GetLatestSnapshotBlock().Height
+	current := n.Chain.GetLatestSnapshotBlock()
+
+	height = current.Height
+	head = current.Hash
 
 	return
 }
@@ -88,6 +91,7 @@ func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err erro
 			return
 		}
 	}
+
 	if n.Config.AccessControl == "any" {
 		return
 	}
@@ -188,10 +192,14 @@ func New(cfg Config) Net {
 		Verifier:    cfg.Verifier,
 	}
 
+	var id peerId
+	id, _ = vnode.Bytes2NodeID(cfg.P2PPrivateKey.PubByte())
 	syncConnFac := &defaultSyncConnectionFactory{
-		chain:      cfg.Chain,
-		peers:      peers,
-		privateKey: cfg.P2PPrivateKey,
+		chain:   cfg.Chain,
+		peers:   peers,
+		id:      id,
+		peerKey: cfg.P2PPrivateKey,
+		mineKey: cfg.MinePrivateKey,
 	}
 	downloader := newExecutor(50, 10, peers, syncConnFac)
 	syncServer := newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac)
@@ -270,14 +278,14 @@ func New(cfg Config) Net {
 type heartBeater struct {
 	chain     chainReader
 	last      time.Time
-	lastPeers map[vnode.NodeID]struct{}
+	lastPeers map[peerId]struct{}
 	ps        *peerSet
 }
 
 func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
 	return &heartBeater{
 		chain:     chain,
-		lastPeers: make(map[vnode.NodeID]struct{}),
+		lastPeers: make(map[peerId]struct{}),
 		ps:        ps,
 	}
 }

@@ -75,7 +75,8 @@ type P2P interface {
 }
 
 type Handshaker interface {
-	Handshake(c Codec, level Level) (peer PeerMux, err error)
+	ReceiveHandshake(c Codec) (peer PeerMux, err error)
+	InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, err error)
 }
 
 type basePeer interface {
