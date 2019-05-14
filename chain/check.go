@@ -213,3 +213,38 @@ func (c *chain) CheckOnRoad() error {
 	return err
 
 }
+
+func (c *chain) CheckHash() error {
+	store := c.indexDB.Store()
+	iter := store.NewIterator(util.BytesPrefix([]byte{chain_utils.AccountBlockHashKeyPrefix}))
+	defer iter.Release()
+	for iter.Next() {
+		key := iter.Key()
+		hash, err := types.BytesToHash(key[1:])
+		if err != nil {
+			return errors.New(fmt.Sprintf("BytesToHash failed, key is %d. Error: %s", key, err))
+		}
+
+		block, err := c.GetAccountBlockByHash(hash)
+		if err != nil {
+			return errors.New(fmt.Sprintf("c.GetAccountBlockByHash failed, hash is %s. Error: %s", hash, err))
+		}
+
+		if block == nil {
+			return errors.New(fmt.Sprintf("block is nil, hash is %s.", hash))
+		}
+		if !(block.IsSendBlock() && block.Height == 0 && block.PrevHash.IsZero()) {
+			if block.Hash != block.ComputeHash() {
+				c.log.Error(fmt.Sprintf("error. block.Hash != block.ComputeHash(), block is %+v, computedHash is %s", block, block.ComputeHash()), "method", "CheckHash")
+				continue
+			}
+		}
+
+		c.log.Info(fmt.Sprintf("check account block, blockHash: %s", block.Hash), "method", "CheckHash")
+	}
+	if err := iter.Error(); err != nil {
+		return err
+	}
+
+	return nil
+}

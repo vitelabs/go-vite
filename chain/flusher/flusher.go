@@ -11,7 +11,14 @@ import (
 	"os"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
+)
+
+const (
+	stop    = 0
+	start   = 1
+	aborted = 2
 )
 
 type Storage interface {
@@ -53,7 +60,8 @@ type Flusher struct {
 	startCommitFlag types.Hash
 	commitWg        sync.WaitGroup
 
-	terminal chan struct{}
+	terminal      chan struct{}
+	flusherStatus int32
 }
 
 func NewFlusher(storeList []Storage, flushMu *sync.RWMutex, chainDir string) (*Flusher, error) {
@@ -115,12 +123,27 @@ func (flusher *Flusher) ReplaceStore(id types.Hash, store Storage) {
 	}
 }
 
+func (flusher *Flusher) Abort() {
+	if !atomic.CompareAndSwapInt32(&flusher.flusherStatus, start, aborted) {
+		return
+	}
+
+	close(flusher.terminal)
+	flusher.wg.Wait()
+}
+
 func (flusher *Flusher) Start() {
+	if !atomic.CompareAndSwapInt32(&flusher.flusherStatus, stop, start) {
+		return
+	}
 	flusher.terminal = make(chan struct{})
 	flusher.loopFlush()
 }
 
 func (flusher *Flusher) Stop() {
+	if !atomic.CompareAndSwapInt32(&flusher.flusherStatus, start, stop) {
+		return
+	}
 	close(flusher.terminal)
 	flusher.wg.Wait()
 }
@@ -160,6 +183,12 @@ func (flusher *Flusher) loopFlush() {
 		for {
 			select {
 			case <-flusher.terminal:
+				status := atomic.LoadInt32(&flusher.flusherStatus)
+				if status == aborted {
+					flusher.log.Warn(fmt.Sprintf("flusher is aborted"), "method", "loopFlush")
+					return
+				}
+
 				flusher.flush()
 				return
 
@@ -178,7 +207,10 @@ func (flusher *Flusher) flush() {
 
 	// prepare, lock write
 	flusher.log.Info("start prepare")
-	flusher.prepare()
+	if err := flusher.prepare(); err != nil {
+		flusher.log.Warn(fmt.Sprintf("flusher.prepare failed, error is %s", err), "method", "flush")
+		return
+	}
 	flusher.log.Info("prepare finish")
 
 	// write redo log
@@ -322,15 +354,20 @@ func (flusher *Flusher) cleanRedoLog() error {
 	return err
 }
 
-func (flusher *Flusher) prepare() {
+func (flusher *Flusher) prepare() error {
 	// prepare, lock write
 	flusher.mu.Lock()
+	status := atomic.LoadInt32(&flusher.flusherStatus)
+	if status == aborted {
+		return errors.New("flusher is aborted")
+	}
 
 	for _, store := range flusher.storeList {
 		store.Prepare()
 	}
 
 	flusher.mu.Unlock()
+	return nil
 }
 
 func (flusher *Flusher) writeRedoLog() error {

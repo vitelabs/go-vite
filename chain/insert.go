@@ -90,7 +90,15 @@ func (c *chain) getBlocksToBeConfirmed(sc ledger.SnapshotContent) ([]*ledger.Acc
 
 func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	c.flushMu.RLock()
-	defer c.flushMu.RUnlock()
+	defer func() {
+		if e := recover(); e != nil {
+			c.flusher.Abort()
+			c.flushMu.RUnlock()
+			panic(e)
+		}
+
+		c.flushMu.RUnlock()
+	}()
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {

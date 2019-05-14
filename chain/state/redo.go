@@ -238,7 +238,7 @@ func (redo *Redo) Rollback(chunks []*ledger.SnapshotChunk) {
 	for _, chunk := range chunks {
 		if chunk != nil && chunk.SnapshotBlock != nil {
 			// FOR DEBUG
-			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "Rollback")
+			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "PrepareRollback")
 
 			redo.cache.Delete(chunk.SnapshotBlock.Height)
 			batch.Delete(chain_utils.CreateRedoSnapshot(chunk.SnapshotBlock.Height))

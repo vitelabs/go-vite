@@ -34,7 +34,7 @@ type RawTxBlock struct {
 	PublicKey      []byte        `json:"publicKey"`
 
 	FromAddress   types.Address     `json:"fromAddress"`
-	ToAddress     types.Address     `json:"toAddress""`
+	ToAddress     types.Address     `json:"toAddress"`
 	FromBlockHash types.Hash        `json:"fromBlockHash"`
 	TokenId       types.TokenTypeId `json:"tokenId"`
 	Amount        *string           `json:"amount"`
@@ -55,6 +55,15 @@ type RawTxBlock struct {
 
 func (block *RawTxBlock) RpcToLedgerBlock() (*ledger.AccountBlock, error) {
 	return copyRawTxToLedgerBlock(block)
+}
+
+func (block *RawTxBlock) ComputeHash() (*types.Hash, error) {
+	lAb, err := copyRawTxToLedgerBlock(block)
+	if err != nil {
+		return nil, err
+	}
+	hash := lAb.ComputeHash()
+	return &hash, nil
 }
 
 func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBlock, error) {
@@ -250,6 +259,10 @@ func copyRawTxToLedgerBlock(rawTxAb *RawTxBlock) (*ledger.AccountBlock, error) {
 		lAb.LogHash = rawTxAb.LogHash
 	}
 
+	if !types.IsContractAddr(rawTxAb.AccountAddress) {
+		return lAb, nil
+	}
+
 	if len(rawTxAb.SendBlockList) > 0 {
 		subLAbList := make([]*ledger.AccountBlock, len(rawTxAb.SendBlockList))
 		for k, v := range rawTxAb.SendBlockList {
@@ -278,45 +291,35 @@ type RpcTokenBalanceInfo struct {
 }
 
 type RpcTokenInfo struct {
-	TokenName      string            `json:"tokenName"`
-	TokenSymbol    string            `json:"tokenSymbol"`
-	TotalSupply    *string           `json:"totalSupply,omitempty"` // *big.Int
-	Decimals       uint8             `json:"decimals"`
-	Owner          types.Address     `json:"owner"`
-	PledgeAmount   *string           `json:"pledgeAmount,omitempty"` // *big.Int
-	WithdrawHeight string            `json:"withdrawHeight"`         // uint64
-	PledgeAddr     types.Address     `json:"pledgeAddr"`
-	TokenId        types.TokenTypeId `json:"tokenId"`
-	MaxSupply      *string           `json:"maxSupply"` // *big.Int
-	OwnerBurnOnly  bool              `json:"ownerBurnOnly"`
-	IsReIssuable   bool              `json:"isReIssuable"`
-	Index          uint16            `json:"index"`
+	TokenName     string            `json:"tokenName"`
+	TokenSymbol   string            `json:"tokenSymbol"`
+	TotalSupply   *string           `json:"totalSupply,omitempty"` // *big.Int
+	Decimals      uint8             `json:"decimals"`
+	Owner         types.Address     `json:"owner"`
+	TokenId       types.TokenTypeId `json:"tokenId"`
+	MaxSupply     *string           `json:"maxSupply"` // *big.Int
+	OwnerBurnOnly bool              `json:"ownerBurnOnly"`
+	IsReIssuable  bool              `json:"isReIssuable"`
+	Index         uint16            `json:"index"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
 	var rt *RpcTokenInfo = nil
 	if tinfo != nil {
 		rt = &RpcTokenInfo{
-			TokenName:      tinfo.TokenName,
-			TokenSymbol:    tinfo.TokenSymbol,
-			TotalSupply:    nil,
-			Decimals:       tinfo.Decimals,
-			Owner:          tinfo.Owner,
-			PledgeAmount:   nil,
-			WithdrawHeight: strconv.FormatUint(tinfo.WithdrawHeight, 10),
-			PledgeAddr:     tinfo.PledgeAddr,
-			TokenId:        tti,
-			OwnerBurnOnly:  tinfo.OwnerBurnOnly,
-			IsReIssuable:   tinfo.IsReIssuable,
-			Index:          tinfo.Index,
+			TokenName:     tinfo.TokenName,
+			TokenSymbol:   tinfo.TokenSymbol,
+			TotalSupply:   nil,
+			Decimals:      tinfo.Decimals,
+			Owner:         tinfo.Owner,
+			TokenId:       tti,
+			OwnerBurnOnly: tinfo.OwnerBurnOnly,
+			IsReIssuable:  tinfo.IsReIssuable,
+			Index:         tinfo.Index,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()
 			rt.TotalSupply = &s
-		}
-		if tinfo.PledgeAmount != nil {
-			s := tinfo.PledgeAmount.String()
-			rt.PledgeAmount = &s
 		}
 		if tinfo.MaxSupply != nil {
 			s := tinfo.MaxSupply.String()

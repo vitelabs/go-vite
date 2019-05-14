@@ -5,6 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/vite/net/protos"
+
 	"github.com/vitelabs/go-vite/log15"
 
 	"github.com/pkg/errors"
@@ -16,45 +19,23 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-type code = p2p.Code
-
-const (
-	GetSnapshotBlocksCode code = 25
-	GetAccountBlocksCode  code = 26 // query single AccountChain
-
-	SnapshotBlocksCode code = 27
-	AccountBlocksCode  code = 28
-
-	NewSnapshotBlockCode code = 29
-	NewAccountBlockCode  code = 30
-
-	CodeCheckChain  code = 31 // send []hashHeight to peer, find which hashHeight is in peer`s chain
-	CodeCheckResult code = 32 // send which hashHeight is in our chain
-
-	CodeGetHashList code = 33
-	CodeHashList    code = 34
-
-	ExceptionCode = 127
-	codeTrace     = 128
-)
-
 const step = 100
 
 type msgHandler interface {
 	name() string
-	codes() []code
+	codes() []p2p.Code
 	handle(msg p2p.Msg, sender Peer) error
 }
 
 type msgHandlers struct {
 	_name    string
-	handlers map[code]msgHandler
+	handlers map[p2p.Code]msgHandler
 }
 
 func newHandlers(name string) *msgHandlers {
 	return &msgHandlers{
 		_name:    name,
-		handlers: make(map[code]msgHandler),
+		handlers: make(map[p2p.Code]msgHandler),
 	}
 }
 
@@ -62,7 +43,7 @@ func (m msgHandlers) name() string {
 	return m._name
 }
 
-func (m msgHandlers) codes() (codes []code) {
+func (m msgHandlers) codes() (codes []p2p.Code) {
 	for c := range m.handlers {
 		codes = append(codes, c)
 	}
@@ -90,7 +71,7 @@ func (m msgHandlers) register(h msgHandler) error {
 }
 
 func (m msgHandlers) unregister(h msgHandler) (err error) {
-	var codes []code
+	var codes []p2p.Code
 
 	for _, c := range h.codes() {
 		if _, ok := m.handlers[c]; ok {
@@ -216,22 +197,21 @@ func (c *checkHandler) name() string {
 	return "Check"
 }
 
-func (c *checkHandler) codes() []code {
-	return []code{CodeCheckChain, CodeGetHashList}
+func (c *checkHandler) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeGetHashList}
 }
 
-func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code, payload p2p.Serializable) {
+func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (code p2p.Code, payload p2p.Serializable) {
 	var block *ledger.SnapshotBlock
 	var err error
-	for i := len(check.Points) - 1; i > -1; i-- {
-		hh := check.Points[i]
+	for _, hh := range get.From {
 		block, err = c.chain.GetSnapshotBlockByHeight(hh.Height)
 		if err != nil || block == nil {
-			c.log.Warn(fmt.Sprintf("failed to search snapshotblock %s/%d", hh.Hash, hh.Height))
+			c.log.Warn(fmt.Sprintf("failed to find snapshotblock %s/%d", hh.Hash, hh.Height))
 			continue
 		}
 		if block.Hash != hh.Hash {
-			c.log.Warn(fmt.Sprintf("failed to find the same snapshotblock at %d: want %s, find %s", hh.Height, hh.Hash, block.Hash))
+			c.log.Warn(fmt.Sprintf("snapshotblock at %d is %s not %s", hh.Height, block.Hash, hh.Hash))
 			continue
 		}
 
@@ -239,48 +219,50 @@ func (c *checkHandler) handleCheck(check *message.HashHeightList) (code p2p.Code
 	}
 
 	if block == nil {
-		return ExceptionCode, message.Missing
+		return p2p.CodeException, p2p.ExpMissing
 	}
 
-	var checkResult = &ledger.HashHeight{
-		Height: block.Height,
-		Hash:   block.Hash,
+	step := get.Step
+	start := (block.Height + 1) / step * step
+	if start < block.Height+1 {
+		start = block.Height + 1
 	}
 
-	return CodeCheckResult, checkResult
-}
+	var points []*ledger.HashHeight
+	for start <= get.To {
+		block, err = c.chain.GetSnapshotBlockByHeight(start)
+		if err != nil || block == nil {
+			c.log.Warn(fmt.Sprintf("failed to find snapshotblock at %d", start))
+			break
+		}
 
-func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) []*ledger.HashHeight {
+		points = append(points, &ledger.HashHeight{
+			Height: block.Height,
+			Hash:   block.Hash,
+		})
 
-	return nil
+		start += step
+		start = start / step * step
+	}
+
+	if len(points) == 0 {
+		return p2p.CodeException, p2p.ExpMissing
+	}
+
+	return p2p.CodeHashList, &message.HashHeightList{
+		Points: points,
+	}
 }
 
 func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {
-	switch msg.Code {
-	case CodeCheckChain:
-		var check = &message.HashHeightList{}
-		err = check.Deserialize(msg.Payload)
-		if err != nil {
-			return err
-		}
-
-		cd, payload := c.handleCheck(check)
-
-		return sender.send(cd, msg.Id, payload)
-
-	case CodeGetHashList:
-		var get = &message.GetHashHeightList{}
-		err = get.Deserialize(msg.Payload)
-		if err != nil {
-			return err
-		}
-
-		// todo
-		hashList := c.handleGetHashHeightList(get)
-		return sender.send(CodeHashList, msg.Id, &message.HashHeightList{hashList})
+	var get = &message.GetHashHeightList{}
+	err = get.Deserialize(msg.Payload)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	cd, payload := c.handleGetHashHeightList(get)
+	return sender.send(cd, msg.Id, payload)
 }
 
 type getSnapshotBlocksHandler struct {
@@ -291,8 +273,8 @@ func (s *getSnapshotBlocksHandler) name() string {
 	return "GetSnapshotBlocks"
 }
 
-func (s *getSnapshotBlocksHandler) codes() []code {
-	return []code{GetSnapshotBlocksCode}
+func (s *getSnapshotBlocksHandler) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeGetSnapshotBlocks}
 }
 
 func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
@@ -317,7 +299,7 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 
 	if err != nil || block == nil {
 		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-		return sender.send(ExceptionCode, msg.Id, message.Missing)
+		return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
 	}
 
 	// use for split
@@ -341,7 +323,7 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) 
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], true, c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-			return sender.send(ExceptionCode, msg.Id, message.Missing)
+			return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
 		}
 
 		if err = sender.sendSnapshotBlocks(blocks, msg.Id); err != nil {
@@ -364,8 +346,8 @@ func (a *getAccountBlocksHandler) name() string {
 	return "GetAccountBlocks Handler"
 }
 
-func (a *getAccountBlocksHandler) codes() []code {
-	return []code{GetAccountBlocksCode}
+func (a *getAccountBlocksHandler) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeGetAccountBlocks}
 }
 
 var nilAddress = types.Address{}
@@ -398,7 +380,7 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 
 	if err != nil || block == nil {
 		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-		return sender.send(ExceptionCode, msg.Id, message.Missing)
+		return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
 	}
 
 	address := block.AccountAddress
@@ -424,7 +406,7 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
 		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[1], c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
 			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-			return sender.send(ExceptionCode, msg.Id, message.Missing)
+			return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
 		}
 
 		if err = sender.sendAccountBlocks(blocks, msg.Id); err != nil {
@@ -480,6 +462,55 @@ func splitAccountMap(mblocks accountBlockMap) (ret [][]*ledger.AccountBlock) {
 
 	if !add && len(s) != 0 {
 		ret = append(ret, s)
+	}
+
+	return
+}
+
+type stateHandler struct {
+	maxNeighbors int
+	peers        *peerSet
+}
+
+func (s stateHandler) name() string {
+	return "state"
+}
+
+func (s stateHandler) codes() []p2p.Code {
+	return []p2p.Code{p2p.CodeHeartBeat}
+}
+
+func (s stateHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+	var heartbeat = &protos.State{}
+
+	err = proto.Unmarshal(msg.Payload, heartbeat)
+	if err != nil {
+		return
+	}
+
+	var head types.Hash
+	head, err = types.BytesToHash(heartbeat.Head)
+	if err != nil {
+		return
+	}
+
+	sender.SetHead(head, heartbeat.Height)
+
+	if p := s.peers.get(sender.ID()); p != nil {
+		// max 100 neighbors
+		var count = len(heartbeat.Peers)
+		if count > maxNeighbors {
+			count = maxNeighbors
+		}
+		var pl = make([]peerConn, count)
+		for i := 0; i < count; i++ {
+			hp := heartbeat.Peers[i]
+			pl[i] = peerConn{
+				id:  hp.ID,
+				add: hp.Status != protos.State_Disconnected,
+			}
+		}
+		p.setPeers(pl, heartbeat.Patch)
 	}
 
 	return

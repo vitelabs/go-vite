@@ -11,6 +11,10 @@ type mockNet struct {
 	chain Chain
 }
 
+func (n *mockNet) Init(consensus Consensus) {
+
+}
+
 func (n *mockNet) ProtoData() (key []byte, height uint64, genesis types.Hash) {
 	return
 }
@@ -48,10 +52,10 @@ func (n *mockNet) Status() SyncStatus {
 
 func (n *mockNet) Detail() SyncDetail {
 	return SyncDetail{
-		From:    0,
-		To:      0,
-		Current: n.chain.GetLatestSnapshotBlock().Height,
-		State:   SyncDone,
+		SyncStatus:       n.Status(),
+		DownloaderStatus: DownloaderStatus{},
+		Cache:            nil,
+		Chunks:           nil,
 	}
 }
 

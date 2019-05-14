@@ -30,21 +30,23 @@ type dialer interface {
 
 type dl struct {
 	net.Dialer
-	handshaker Handshaker
-	cur        int
-	tkt        ticket.Ticket
-	wg         sync.WaitGroup
+	handshaker   Handshaker
+	codecFactory CodecFactory
+	cur          int
+	tkt          ticket.Ticket
+	wg           sync.WaitGroup
 }
 
-func newDialer(timeout time.Duration, cur int, hkr Handshaker) *dl {
+func newDialer(timeout time.Duration, cur int, hkr Handshaker, codecFactory CodecFactory) *dl {
 	return &dl{
 		Dialer: net.Dialer{
 			Timeout:   timeout,
 			KeepAlive: 5 * time.Second,
 		},
-		handshaker: hkr,
-		cur:        cur,
-		tkt:        ticket.New(cur),
+		handshaker:   hkr,
+		cur:          cur,
+		tkt:          ticket.New(cur),
+		codecFactory: codecFactory,
 	}
 }
 
@@ -54,7 +56,8 @@ func (d *dl) dialNode(n *vnode.Node) (p PeerMux, err error) {
 		return
 	}
 
-	p, err = d.handshaker.Handshake(conn, Inbound)
+	c := d.codecFactory.CreateCodec(conn)
+	p, err = d.handshaker.Handshake(c, Inbound)
 
 	return
 }
