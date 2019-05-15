@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/vite/net/message"
+
 	"github.com/vitelabs/go-vite/p2p"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -80,6 +82,7 @@ type syncPeerSet interface {
 	syncPeer() Peer
 	bestPeer() Peer
 	pick(height uint64) (l []Peer)
+	count() int
 }
 
 type syncer struct {
@@ -149,7 +152,7 @@ func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downl
 		downloader: downloader,
 		reader:     reader,
 		timeout:    timeout,
-		sk:         newSkeleton(chain, peers, new(gid)),
+		sk:         newSkeleton(peers, new(gid)),
 		log:        netLog.New("module", "syncer"),
 	}
 
@@ -219,32 +222,34 @@ func (s *syncer) start() {
 
 	defer s.stop()
 
-	start := time.NewTimer(waitEnoughPeers)
+	if s.peers.count() < enoughPeers {
+		start := time.NewTimer(waitEnoughPeers)
 
-Wait:
-	for {
-		select {
-		case e := <-s.eventChan:
-			if e.count >= enoughPeers {
+	Wait:
+		for {
+			select {
+			case e := <-s.eventChan:
+				if e.count >= enoughPeers {
+					break Wait
+				}
+			case <-start.C:
 				break Wait
+			case <-s.term:
+				s.state.cancel()
+				start.Stop()
+				return
 			}
-		case <-start.C:
-			break Wait
-		case <-s.term:
-			s.state.cancel()
-			start.Stop()
-			return
 		}
-	}
 
-	start.Stop()
+		start.Stop()
+	}
 
 Prepare:
 	syncPeer := s.peers.syncPeer()
 	// all peers disconnected
 	if syncPeer == nil {
-		s.state.error(syncErrorNoPeers)
 		s.log.Error("sync error: no peers")
+		s.state.error(syncErrorNoPeers)
 		return
 	}
 
@@ -322,7 +327,7 @@ func (s *syncer) getHeight() uint64 {
 	return s.chain.GetLatestSnapshotBlock().Height
 }
 
-func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts syncTasks) {
+func constructTasks(start *ledger.HashHeight, hhs []*message.HashHeightPoint) (ts syncTasks) {
 	count := len(hhs) - 1
 	ts = make(syncTasks, count)
 
@@ -334,7 +339,7 @@ func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts sync
 				Hash:     hhs[i+1].Hash,
 			},
 		}
-		start = hhs[i+1]
+		start = &(hhs[i+1].HashHeight)
 	}
 
 	return
@@ -471,7 +476,7 @@ Loop:
 				}
 			}
 
-			point = points[len(points)-1]
+			point = &(points[len(points)-1].HashHeight)
 			startHeight = point.Height
 			start = start[:1]
 			start[0] = &ledger.HashHeight{

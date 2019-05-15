@@ -67,8 +67,13 @@ message HashHeight {
     uint64 Height = 2;
 }
 
+message HashHeightPoint {
+    HashHeight Point = 1;
+    uint64 Size = 2;
+}
+
 message HashHeightList {
-    repeated HashHeight Points = 1;
+    repeated HashHeightPoint Points = 1;
 }
 
 message GetHashHeightList {
