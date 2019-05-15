@@ -33,7 +33,7 @@ import (
 const getHashHeightListTimeout = 10 * time.Second
 
 type hashHeightPeers struct {
-	*ledger.HashHeight
+	*message.HashHeightPoint
 	ps map[peerId]Peer
 }
 
@@ -48,7 +48,7 @@ func newHashHeightTree() *hashHeightNode {
 	}
 }
 
-func (t *hashHeightNode) addBranch(list []*ledger.HashHeight, sender Peer) {
+func (t *hashHeightNode) addBranch(list []*message.HashHeightPoint, sender Peer) {
 	var tree = t
 	var subTree *hashHeightNode
 	var ok bool
@@ -73,7 +73,7 @@ func (t *hashHeightNode) addBranch(list []*ledger.HashHeight, sender Peer) {
 	}
 }
 
-func (t *hashHeightNode) bestBranch() (list []*ledger.HashHeight) {
+func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
 	var tree = t
 	var subTree *hashHeightNode
 	var weight int
@@ -175,7 +175,7 @@ func (sk *skeleton) getHashList(p Peer, msg *message.GetHashHeightList) {
 
 func (sk *skeleton) receiveHashList(msg p2p.Msg, sender Peer) {
 	if atomic.LoadInt32(&sk.checking) == 1 {
-		var hh = &message.HashHeightList{}
+		var hh = &message.HashHeightPointList{}
 		err := hh.Deserialize(msg.Payload)
 		if err != nil {
 			sk.getHashListFailed(msg.Id, sender, err)
