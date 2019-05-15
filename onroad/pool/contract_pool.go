@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+var initLog = log15.New("initOnRoadPool", nil)
+
 type contractOnRoadPool struct {
 	gid   types.Gid
 	cache sync.Map //map[types.Address]*callerCache
@@ -26,7 +28,7 @@ func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
 		log:   log15.New("contractOnRoadPool", gid),
 	}
 	if err := or.loadOnRoad(); err != nil {
-		return nil
+		panic(fmt.Sprintf("loadOnRoad, err is %v", err))
 	}
 	return or
 }
@@ -114,12 +116,14 @@ func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []
 		sort.Sort(pendingList)
 		for _, v := range pendingList {
 			if v.block.IsSendBlock() {
+				mlog.Debug(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.insertOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
+				mlog.Debug(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
 				if err := p.deleteOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
@@ -144,12 +148,14 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 		for i := pendingList.Len() - 1; i >= 0; i-- {
 			v := pendingList[i]
 			if v.block.IsSendBlock() {
+				mlog.Debug(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.deleteOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
+				mlog.Debug(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
 				if err := p.insertOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
@@ -248,6 +254,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	}
 	sort.Sort(orSortedList)
 	for _, v := range orSortedList {
+		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
 		isCallerContract := types.IsContractAddr(caller)
 		if err := cc.addTx(&caller, isCallerContract, v, true); err != nil {
 			return err
