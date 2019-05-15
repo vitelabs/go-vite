@@ -7,14 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (manager *Manager) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {
-	return manager.chain.GetOnRoadBlocksByAddr(addr, pageNum, pageSize)
-}
-
-func (manager *Manager) GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error) {
-	return manager.chain.GetAccountOnRoadInfo(addr)
-}
-
+// GetOnRoadTotalNumByAddr method returns the total num of the contract' OnRoad blocks.
 func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Address) (uint64, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
@@ -28,6 +21,8 @@ func (manager *Manager) GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Addres
 	return num, nil
 }
 
+// GetAllCallersFrontOnRoad method returns all callers's front OnRoad blocks, those with the lowest height,
+// in a contract OnRoad pool.
 func (manager *Manager) GetAllCallersFrontOnRoad(gid types.Gid, addr types.Address) ([]*ledger.AccountBlock, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {
@@ -41,6 +36,7 @@ func (manager *Manager) GetAllCallersFrontOnRoad(gid types.Gid, addr types.Addre
 	return blockList, nil
 }
 
+// IsFrontOnRoadOfCaller method judges whether is the front OnRoad of a caller in a contract OnRoad pool.
 func (manager *Manager) IsFrontOnRoadOfCaller(gid types.Gid, orAddr, caller types.Address, hash types.Hash) (bool, error) {
 	onRoadPool, ok := manager.onRoadPools.Load(gid)
 	if !ok || onRoadPool == nil {

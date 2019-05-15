@@ -8,14 +8,14 @@ import (
 )
 
 type testProcessor struct {
-	taskId int
+	taskID int
 	w      *testContractWoker
 	log    log15.Logger
 }
 
 func newTestProcessor(w *testContractWoker, i int) *testProcessor {
 	return &testProcessor{
-		taskId: i,
+		taskID: i,
 		w:      w,
 		log:    testlog.New("tp", i),
 	}
@@ -32,7 +32,7 @@ func (tp *testProcessor) work() {
 		}
 		task := tp.w.popContractTask()
 		if task != nil {
-			signal.Info(fmt.Sprintf("tp %v wakeup addr %v quota %v", tp.taskId, task.Addr, task.Quota))
+			signal.Info(fmt.Sprintf("tp %v wakeup addr %v quota %v", tp.taskID, task.Addr, task.Quota))
 			if tp.w.isContractInBlackList(&task.Addr) || !tp.w.addContractIntoWorkingList(&task.Addr) {
 				continue
 			}
@@ -50,7 +50,7 @@ func (tp *testProcessor) work() {
 		if tp.w.isCancel.Load() {
 			break
 		}
-		tp.w.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskId*2+500))
+		tp.w.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskID*2+500))
 	}
 	tp.log.Info("tp end work")
 }

@@ -230,7 +230,7 @@ func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock)
 		if err != nil {
 			return nil, err
 		}
-		if block.Hash == lastProofPoint.Hash {
+		if block != nil && block.Hash == lastProofPoint.Hash {
 			lastIdx = ti.Time2Index(*block.Timestamp)
 		}
 	}

@@ -11,31 +11,58 @@ import (
 )
 
 func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
-	/*	hash, err := types.HexToHash("16565a78cd861c8e51e7194f761452e17f31d9b586483fdbbfd1a5fe1083ed6d")
+	/*	hash, err := types.HexToHash("")
 		if err != nil {
 			t.Fatal(err)
 		}
-		sigSlice, err := base64.StdEncoding.DecodeString("QlTGpop8q7LrWkVbzMCnffOohDYspQHEF7tmvIu1keF5KNDbCBk7BSosDEBzNjKMLdK3w47JeJt7IQXyNUM8Bg==")
+		sigSlice, err := base64.StdEncoding.DecodeString("")
 		if err != nil {
 			t.Fatal(err)
 		}
 		publicKey, err := base64.StdEncoding.DecodeString("P8UiTllDO/9PSMg8DrTt6g5MQuppfgTN7HF9A+UNUgA=")
-			if err != nil {
+		if err != nil {
 			t.Fatal(err)
 		}
-	*/
+
+		data, err := base64.StdEncoding.DecodeString("5L2g5aW9")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fromBlockHash, err := types.HexToHash("")
+		if err != nil {
+			t.Fatal(err)
+		}*/
+
+	zeroAddr, err := types.BytesToAddress(types.ZERO_ADDRESS.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	zeroTkId, err := types.BytesToTokenTypeId(types.ZERO_TOKENID.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
-	zeroAddr, err := types.BytesToAddress(types.ZERO_ADDRESS.Bytes())
+	tokenId, err := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
 	if err != nil {
 		t.Fatal(err)
 	}
+	prevHash, err := types.HexToHash("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	fmt.Printf("zero-tkId %v zero-addr %v\n", zeroTkId, zeroAddr)
 
-	addr, err := types.HexToAddress("")
+	addr, err := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	difficulty := "65535"
+	powDataHash := types.DataHash(append(addr.Bytes(), prevHash.Bytes()...))
+	fmt.Printf("pow difficulty %v dataHash %v\n", difficulty, powDataHash)
+	nonce, err := base64.StdEncoding.DecodeString("dfBL1GFpMNA=")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,32 +78,20 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 		t.Fatal("publicKey doesn't match address")
 	}
 
-	tokenId, err := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	prevHash, err := types.HexToHash("e8b7c2b3264b1051cc1343f2b78c11158482f7d8a09f09101f370b88d1bbea25")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fromBlockHash, err := types.HexToHash("e8b7c2b3264b1051cc1343f2b78c11158482f7d8a09f09101f370b88d1bbea25")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	amount := big.NewInt(10000)
 	block := &ledger.AccountBlock{
-		BlockType:      4,
+		BlockType:      2,
 		PrevHash:       prevHash,
-		Height:         15,
+		Height:         2,
 		AccountAddress: addr,
 		PublicKey:      pubKey,
 		ToAddress:      addr,
 		Amount:         amount,
 		TokenId:        tokenId,
-		FromBlockHash:  fromBlockHash,
+		/*		FromBlockHash:  fromBlockHash*/
+		/*		Data: data,*/
+		Difficulty: big.NewInt(65535),
+		Nonce:      nonce,
 	}
 
 	hashData := block.ComputeHash()

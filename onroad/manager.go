@@ -18,17 +18,18 @@ import (
 
 var (
 	slog           = log15.New("module", "onroad")
-	ErrNotSyncDone = errors.New("network synchronization is not complete")
+	errNotSyncDone = errors.New("network synchronization is not complete")
 
-	DefaultContractGidList = []types.Gid{types.DELEGATE_GID}
+	defaultContractGidList = []types.Gid{types.DELEGATE_GID}
 )
 
+// Manager implements contract's onRoad processing and cache management.
 type Manager struct {
-	net      Net
-	producer Producer
+	net      netReader
+	producer producer
 	wallet   *wallet.Manager
 
-	pool      Pool
+	pool      pool
 	chain     chain.Chain
 	consensus generator.Consensus
 
@@ -45,7 +46,7 @@ type Manager struct {
 	log log15.Logger
 }
 
-func NewManager(net Net, pool Pool, producer Producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
+func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
 	m := &Manager{
 		net:             net,
 		producer:        producer,
@@ -60,7 +61,7 @@ func NewManager(net Net, pool Pool, producer Producer, consensus generator.Conse
 
 func (manager *Manager) Init(chain chain.Chain) {
 	manager.chain = chain
-	for _, gid := range DefaultContractGidList {
+	for _, gid := range defaultContractGidList {
 		manager.prepareOnRoadPool(gid)
 	}
 }
@@ -113,7 +114,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 	netstate := manager.Net().SyncState()
 	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
 	if netstate != net.SyncDone {
-		manager.log.Error(ErrNotSyncDone.Error())
+		manager.log.Error(errNotSyncDone.Error())
 		return
 	}
 
@@ -183,11 +184,11 @@ func (manager Manager) Chain() chain.Chain {
 	return manager.chain
 }
 
-func (manager Manager) Net() Net {
+func (manager Manager) Net() netReader {
 	return manager.net
 }
 
-func (manager Manager) Producer() Producer {
+func (manager Manager) Producer() producer {
 	return manager.producer
 }
 

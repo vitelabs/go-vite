@@ -10,6 +10,25 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
+// Verifier provides methods that external modules can use.
+type Verifier interface {
+	VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyNetAb(block *ledger.AccountBlock) error
+
+	VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error)
+	VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
+
+	VerifyAccBlockNonce(block *ledger.AccountBlock) error
+	VerifyAccBlockHash(block *ledger.AccountBlock) error
+	VerifyAccBlockSignature(block *ledger.AccountBlock) error
+	VerifyAccBlockProducerLegality(block *ledger.AccountBlock) error
+
+	GetSnapshotVerifier() *SnapshotVerifier
+
+	InitOnRoadPool(manager *onroad.Manager)
+}
+
+// VerifyResult explains the states of transaction validation.
 type VerifyResult int
 
 type verifier struct {
@@ -19,6 +38,7 @@ type verifier struct {
 	log log15.Logger
 }
 
+// NewVerifier needs instances of SnapshotVerifier and AccountVerifier.
 func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
 	return &verifier{
 		Sv:  sv,
