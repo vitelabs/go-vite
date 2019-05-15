@@ -62,6 +62,11 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	}
 	or := cc.(*callerCache).getFrontTxByCaller(&caller)
 	if or == nil || or.Hash != hash {
+		var frontHash *types.Hash
+		if or != nil {
+			frontHash = &or.Hash
+		}
+		p.log.Error(fmt.Sprintf("check IsFrontOnRoadOfCaller fail target=%v front=%v", hash, frontHash))
 		return false, ErrCheckIsCallerFrontOnRoadFailed
 	}
 	return true, nil
