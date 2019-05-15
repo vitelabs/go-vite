@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/vite/net/message"
+
 	"github.com/vitelabs/go-vite/p2p"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -80,6 +82,7 @@ type syncPeerSet interface {
 	syncPeer() Peer
 	bestPeer() Peer
 	pick(height uint64) (l []Peer)
+	count() int
 }
 
 type syncer struct {
@@ -134,6 +137,7 @@ func (s *syncer) codes() []p2p.Code {
 func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 	switch msg.Code {
 	case p2p.CodeHashList:
+		s.log.Info(fmt.Sprintf("receive HashHeightList from %s", sender))
 		s.sk.receiveHashList(msg, sender)
 	}
 
@@ -149,7 +153,7 @@ func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downl
 		downloader: downloader,
 		reader:     reader,
 		timeout:    timeout,
-		sk:         newSkeleton(chain, peers, new(gid)),
+		sk:         newSkeleton(peers, new(gid)),
 		log:        netLog.New("module", "syncer"),
 	}
 
@@ -219,32 +223,36 @@ func (s *syncer) start() {
 
 	defer s.stop()
 
-	start := time.NewTimer(waitEnoughPeers)
+	if s.peers.count() < enoughPeers {
+		start := time.NewTimer(waitEnoughPeers)
 
-Wait:
-	for {
-		select {
-		case e := <-s.eventChan:
-			if e.count >= enoughPeers {
+	Wait:
+		for {
+			select {
+			case e := <-s.eventChan:
+				if e.count >= enoughPeers {
+					break Wait
+				}
+			case <-start.C:
 				break Wait
+			case <-s.term:
+				s.state.cancel()
+				start.Stop()
+				return
 			}
-		case <-start.C:
-			break Wait
-		case <-s.term:
-			s.state.cancel()
-			start.Stop()
-			return
 		}
+
+		start.Stop()
 	}
 
-	start.Stop()
+	var retrySync int
 
 Prepare:
 	syncPeer := s.peers.syncPeer()
 	// all peers disconnected
 	if syncPeer == nil {
-		s.state.error(syncErrorNoPeers)
 		s.log.Error("sync error: no peers")
+		s.state.error(syncErrorNoPeers)
 		return
 	}
 
@@ -280,7 +288,6 @@ Prepare:
 					// we are taller than the best peer, no need sync
 					s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", bestPeer.String(), bestPeer.Height(), current))
 					s.state.done()
-					s.reader.clean()
 					return
 				}
 			} else {
@@ -293,18 +300,21 @@ Prepare:
 			current = s.getHeight()
 			if current >= s.to {
 				s.state.done()
-				s.reader.clean()
 				return
 			}
 
 			if current == oldHeight {
 				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: stuck")
-					s.state.error(syncErrorStuck)
 					s.stopSync()
 					s.syncWG.Wait()
 
-					goto Prepare
+					if retrySync > 3 {
+						s.state.error(syncErrorStuck)
+					} else {
+						retrySync++
+						goto Prepare
+					}
 				}
 			} else {
 				oldHeight = current
@@ -322,7 +332,7 @@ func (s *syncer) getHeight() uint64 {
 	return s.chain.GetLatestSnapshotBlock().Height
 }
 
-func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts syncTasks) {
+func constructTasks(start *ledger.HashHeight, hhs []*message.HashHeightPoint) (ts syncTasks) {
 	count := len(hhs) - 1
 	ts = make(syncTasks, count)
 
@@ -334,7 +344,7 @@ func constructTasks(start *ledger.HashHeight, hhs []*ledger.HashHeight) (ts sync
 				Hash:     hhs[i+1].Hash,
 			},
 		}
-		start = hhs[i+1]
+		start = &(hhs[i+1].HashHeight)
 	}
 
 	return
@@ -346,6 +356,7 @@ func (s *syncer) sync() {
 	defer s.syncWG.Done()
 
 	s.state.sync()
+	s.log.Info("syncing")
 
 	var start = make([]*ledger.HashHeight, 0, 3)
 	var end uint64
@@ -443,7 +454,7 @@ Loop:
 		}
 		points := s.sk.construct(start, end)
 		if len(points) == 0 {
-			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %+v %d", start, end))
+			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %d-%d", start[len(start)-1].Height, end))
 			time.Sleep(time.Second)
 			continue
 		}
@@ -460,6 +471,8 @@ Loop:
 		}
 
 		if point != nil {
+			s.log.Info(fmt.Sprintf("construct skeleton: %d-%d", point.Height, end))
+
 			first = false
 			if tasks := constructTasks(point, points); len(tasks) > 0 {
 				tasks = s.reader.compareCache(tasks)
@@ -471,7 +484,7 @@ Loop:
 				}
 			}
 
-			point = points[len(points)-1]
+			point = &(points[len(points)-1].HashHeight)
 			startHeight = point.Height
 			start = start[:1]
 			start[0] = &ledger.HashHeight{
@@ -516,15 +529,15 @@ func (s *syncer) Status() SyncStatus {
 type SyncDetail struct {
 	SyncStatus
 	DownloaderStatus
-	Cache  interfaces.SegmentList  `json:"cache"`
 	Chunks [][2]*ledger.HashHeight `json:"chunks"`
+	Caches interfaces.SegmentList  `json:"caches"`
 }
 
 func (s *syncer) Detail() SyncDetail {
 	return SyncDetail{
 		SyncStatus:       s.Status(),
 		DownloaderStatus: s.downloader.status(),
-		Cache:            s.reader.chunks(),
-		Chunks:           s.reader.queue(),
+		Chunks:           s.reader.chunks(),
+		Caches:           s.reader.caches(),
 	}
 }

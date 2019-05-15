@@ -62,6 +62,11 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	}
 	or := cc.(*callerCache).getFrontTxByCaller(&caller)
 	if or == nil || or.Hash != hash {
+		var frontHash *types.Hash
+		if or != nil {
+			frontHash = &or.Hash
+		}
+		p.log.Error(fmt.Sprintf("check IsFrontOnRoadOfCaller fail target=%v front=%v", hash, frontHash))
 		return false, ErrCheckIsCallerFrontOnRoadFailed
 	}
 	return true, nil
@@ -188,6 +193,11 @@ func (p *contractOnRoadPool) ledgerBlockListToOnRoad(orAddr types.Address, block
 		}
 		onroad, err := LedgerBlockToOnRoad(p.chain, b)
 		if err != nil {
+			if b.IsSendBlock() {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad s fail self=%v t=%v hash=%v height=%v", b.AccountAddress, b.ToAddress, b.Hash, b.Height), "err", err)
+			} else {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad r fail self=%v fHash=%v hash=%v height%v", b.AccountAddress, b.FromBlockHash, b.Hash, b.Height), "err", err)
+			}
 			return nil, err
 		}
 		_, ok := onroadMap[onroad.caller]
@@ -222,7 +232,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			return err
 		}
 		if completeBlock == nil {
-			return errors.New("failed to find complete block by hash")
+			return ErrFindCompleteBlock
 		}
 		if completeBlock.IsReceiveBlock() {
 			or.Height = completeBlock.Height // refer to its parent receive's height
