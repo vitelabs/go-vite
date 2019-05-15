@@ -240,10 +240,11 @@ func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock)
 func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeIndex) (*irreversibleInfo, error) {
 	irreversibleCnt := uint64(nodeCnt/3*2 + 1)
 
-	latest := pl.bc.GetLatestSnapshotBlock()
+	head := pl.bc.GetLatestSnapshotBlock()
+	latest := head
 	for {
 		if latest.Height <= irreversibleCnt {
-			return &irreversibleInfo{point: nil, proofPoint: latest, rollbackV: pl.rollbackVersion.Val()}, nil
+			return &irreversibleInfo{point: nil, proofPoint: head, rollbackV: pl.rollbackVersion.Val()}, nil
 		}
 
 		endTime := latest.Timestamp
@@ -265,7 +266,7 @@ func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeI
 		}
 
 		if pl.checkIrreversible(point, latest, irreversibleCnt) {
-			return &irreversibleInfo{point: point, proofPoint: latest, rollbackV: pl.rollbackVersion.Val()}, nil
+			return &irreversibleInfo{point: point, proofPoint: head, rollbackV: pl.rollbackVersion.Val()}, nil
 		}
 		latest = block
 	}
