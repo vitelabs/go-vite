@@ -318,9 +318,13 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 	}
 	var withinOneDayFlag bool
 	timeLimit := getRewardTimeLimit(current)
-	if !old.IsActive() && old.CancelTime <= timeLimit {
-		drained = true
+	if !old.IsActive() {
 		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(old.CancelTime, genesisTime)
+		if endTime <= timeLimit {
+			drained = true
+		} else {
+			endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(timeLimit, genesisTime)
+		}
 	} else {
 		endIndex, endTime, withinOneDayFlag = reader.GetIndexByEndTime(timeLimit, genesisTime)
 	}
