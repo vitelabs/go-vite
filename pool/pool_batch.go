@@ -277,7 +277,45 @@ func (pl *pool) accountExists(hash types.Hash) error {
 	return errNotFound
 }
 
+func (pl *pool) accountHHExists(addr types.Address, height uint64, hash types.Hash) error {
+	block, err := pl.bc.GetLatestAccountBlock(addr)
+	if err != nil {
+		return err
+	}
+	if block == nil {
+		return errNotFound
+	}
+	if block.Height < height {
+		return errNotFound
+	}
+	ab, err := pl.bc.GetAccountBlockByHash(hash)
+	if err != nil {
+		return err
+	}
+	if ab != nil {
+		return nil
+	}
+	return errNotFound
+}
+
 func (pl *pool) snapshotExists(hash types.Hash) error {
+	sb, err := pl.bc.GetSnapshotHeaderByHash(hash)
+	if err != nil {
+		return err
+	}
+	if sb != nil {
+		return nil
+	}
+	return errors.New("Not Found")
+}
+func (pl *pool) snapshotHHExists(height uint64, hash types.Hash) error {
+	block := pl.bc.GetLatestSnapshotBlock()
+	if block == nil {
+		return errNotFound
+	}
+	if block.Height < height {
+		return errNotFound
+	}
 	sb, err := pl.bc.GetSnapshotHeaderByHash(hash)
 	if err != nil {
 		return err
