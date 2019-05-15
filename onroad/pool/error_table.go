@@ -9,4 +9,5 @@ var (
 
 	//panic
 	ErrLoadCallerCacheFailed = errors.New("load callerCache failed")
+	ErrFindCompleteBlock     = errors.New("failed to find complete block by hash")
 )

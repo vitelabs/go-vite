@@ -11,6 +11,11 @@ import (
 
 // PrepareInsertAccountBlocks method implements and listens to chain trigger event.
 func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+	return nil
+}
+
+// InsertAccountBlocks method implements and listens to chain trigger event.
+func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	sendCreateGidCache := make(map[types.Address]types.Gid)
 	blockList := make([]*ledger.AccountBlock, 0)
 	for _, v := range blocks {
@@ -64,11 +69,6 @@ func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBloc
 			}
 		}
 	}
-	return nil
-}
-
-// InsertAccountBlocks method implements and listens to chain trigger event.
-func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	return nil
 }
 
