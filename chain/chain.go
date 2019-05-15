@@ -426,7 +426,12 @@ func (c *chain) ResetLog(dir string, lvl string) {
 	}
 	path := filepath.Join(dir, "chain_logs", time.Now().Format("2006-01-02T15-04"))
 	filename := filepath.Join(path, "chain.log")
+
+	h := log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat()))
+
 	c.log.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
+		h,
 	)
+
+	c.blockDB.SetLog(h)
 }
