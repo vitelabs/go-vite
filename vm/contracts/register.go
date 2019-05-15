@@ -250,7 +250,7 @@ func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 
 		if reward != nil && reward.TotalReward.Sign() > 0 {
 			// send reward by issue vite token
-			issueData, _ := abi.ABIMintage.PackMethod(abi.MethodNameIssue, ledger.ViteTokenId, reward, param.BeneficialAddr)
+			issueData, _ := abi.ABIMintage.PackMethod(abi.MethodNameIssue, ledger.ViteTokenId, reward.TotalReward, param.BeneficialAddr)
 			return []*ledger.AccountBlock{
 				{
 					AccountAddress: block.AccountAddress,
@@ -339,7 +339,7 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 }
 
 func getRewardTimeLimit(current *ledger.SnapshotBlock) int64 {
-	return current.Timestamp.Unix() - nodeConfig.params.GetRewardTimeLimit
+	return current.Timestamp.Unix() - GetRewardTimeLimit
 }
 
 func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {

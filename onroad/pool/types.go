@@ -73,7 +73,7 @@ func LedgerBlockToOnRoad(chain chainReader, block *ledger.AccountBlock) (*OnRoad
 			return nil, err
 		}
 		if completeBlock == nil {
-			return nil, errors.New("failed to find complete send's parent receive")
+			return nil, ErrFindCompleteBlock
 		}
 		or.hashHeight.Height = completeBlock.Height // refer to its parent receive's height
 
