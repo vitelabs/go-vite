@@ -111,8 +111,8 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if result.Err != nil {
 		return result.Err
 	}
-	if result.VmBlock != nil {
-		return t.walletApi.pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)
+	if result.VMBlock != nil {
+		return t.walletApi.pool.AddDirectAccountBlock(msg.AccountAddress, result.VMBlock)
 	} else {
 		return errors.New("generator gen an empty block")
 	}
@@ -177,8 +177,8 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if result.Err != nil {
 		return result.Err
 	}
-	if result.VmBlock != nil {
-		return pool.AddDirectAccountBlock(msg.AccountAddress, result.VmBlock)
+	if result.VMBlock != nil {
+		return pool.AddDirectAccountBlock(msg.AccountAddress, result.VMBlock)
 	} else {
 		return errors.New("generator gen an empty block")
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 type ContractTaskProcessor struct {
-	taskId int
+	taskID int
 	worker *ContractWorker
 
 	log log15.Logger
@@ -18,7 +18,7 @@ type ContractTaskProcessor struct {
 
 func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	return &ContractTaskProcessor{
-		taskId: index,
+		taskID: index,
 		worker: worker,
 
 		log: slog.New("tp", index),
@@ -38,7 +38,7 @@ func (tp *ContractTaskProcessor) work() {
 		}
 		task := tp.worker.popContractTask()
 		if task != nil {
-			signalLog.Info(fmt.Sprintf("tp %v wakeup, pop addr %v quota %v", tp.taskId, task.Addr, task.Quota))
+			signalLog.Info(fmt.Sprintf("tp %v wakeup, pop addr %v quota %v", tp.taskID, task.Addr, task.Quota))
 			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}
@@ -55,7 +55,7 @@ func (tp *ContractTaskProcessor) work() {
 			tp.log.Info("found cancel true")
 			break
 		}
-		tp.worker.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskId*2+500))
+		tp.worker.newBlockCond.WaitTimeout(time.Millisecond * time.Duration(tp.taskID*2+500))
 	}
 	tp.log.Info("work end t")
 }
@@ -71,8 +71,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 
 	// fixme checkReceivedSuccess
 	// fixme: check confirmedTimes, consider sb trigger
-	if err := tp.worker.VerifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
-		blog.Info(fmt.Sprintf("VerifyConfirmedTimes failed, err:%v", err))
+	if err := tp.worker.verifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
+		blog.Info(fmt.Sprintf("verifyConfirmedTimes failed, err:%v", err))
 		// tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
 		return true
 	}
@@ -108,8 +108,8 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	if genResult.Err != nil {
 		blog.Info(fmt.Sprintf("vm.Run error, can ignore, err:%v", genResult.Err))
 	}
-	if genResult.VmBlock != nil {
-		if err := tp.worker.manager.insertBlockToPool(genResult.VmBlock); err != nil {
+	if genResult.VMBlock != nil {
+		if err := tp.worker.manager.insertBlockToPool(genResult.VMBlock); err != nil {
 			blog.Error(fmt.Sprintf("insertContractBlocksToPool failed, err:%v", err))
 			tp.worker.addContractCallerToInferiorList(task.Addr, sBlock.AccountAddress, OUT)
 			return true
@@ -135,7 +135,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}
-				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVmDb(), *q, task.Addr); !canRetryDuringNextSnapshot {
+				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
 					blog.Info("Check quota is gone to be insufficient",
 						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.PledgeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
 					tp.worker.addContractIntoBlackList(task.Addr)

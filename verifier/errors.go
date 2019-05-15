@@ -2,10 +2,10 @@ package verifier
 
 import "errors"
 
+// Errors that the external module needs to be aware of.
 var (
-	ErrVerifyForVmGeneratorFailed = errors.New("generator in verifier failed")
+	ErrVerifyForVMGeneratorFailed = errors.New("generator in verifier failed")
 
-	//ErrVerifyAccountAddrFailed       = errors.New("account address doesn't exist, need receiveTx for more balance first")
 	ErrVerifyAccountTypeNotSure      = errors.New("general account's sendBlock.Height must be larger than 1")
 	ErrVerifyConfirmedTimesNotEnough = errors.New("verify referred confirmedTimes not enough")
 
