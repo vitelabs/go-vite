@@ -90,7 +90,7 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 	for _, v := range chunks {
 		if v.AccountBlocks != nil {
 			for _, vv := range v.AccountBlocks {
-				if err := pl.accountExists(vv.Hash); err == nil {
+				if err := pl.accountHHExists(vv.AccountAddress, vv.Height, vv.Hash); err == nil {
 					pl.log.Info("[A]block exist, ignore.", "block", vv.Hash)
 					continue
 				}
@@ -115,7 +115,7 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 			}
 		}
 		if v.SnapshotBlock != nil {
-			if err := pl.snapshotExists(v.SnapshotBlock.Hash); err == nil {
+			if err := pl.snapshotHHExists(v.SnapshotBlock.Height, v.SnapshotBlock.Hash); err == nil {
 				pl.log.Info("[S]block exist, ignore.", "block", v.SnapshotBlock.Hash)
 				continue
 			}
