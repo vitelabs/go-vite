@@ -48,8 +48,6 @@ func (n *mockNet) Pop(endHash types.Hash) {
 
 func (n *mockNet) Status() SyncStatus {
 	return SyncStatus{
-		From:    0,
-		To:      0,
 		Current: n.chain.GetLatestSnapshotBlock().Height,
 		State:   SyncDone,
 	}
@@ -59,8 +57,6 @@ func (n *mockNet) Detail() SyncDetail {
 	return SyncDetail{
 		SyncStatus:       n.Status(),
 		DownloaderStatus: DownloaderStatus{},
-		Cache:            nil,
-		Chunks:           nil,
 	}
 }
 
