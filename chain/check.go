@@ -189,10 +189,10 @@ func (c *chain) CheckOnRoad() error {
 
 		existed, err := c.IsAccountBlockExisted(sendBlockHash)
 		if err != nil {
-			return errors.New(fmt.Sprintf("c.IsAccountBlockExisted failed, sendBlockHash is %s", sendBlockHash))
+			return errors.New(fmt.Sprintf("c.IsAccountBlockExisted failed, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr))
 		}
 		if !existed {
-			return errors.New(fmt.Sprintf("send block is not exsited, sendBlockHash is %s", sendBlockHash))
+			return errors.New(fmt.Sprintf("send block is not exsited, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr))
 		}
 
 		received, err := c.IsReceived(sendBlockHash)

@@ -248,7 +248,7 @@ func (c *chain) newDbAndRecover() error {
 		var err error
 		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			c.log.Error(cErr.Error(), "method", "newDbAndRecover")
 			return cErr
 		}
 		c.Register(c.plugins)
@@ -387,7 +387,6 @@ func (c *chain) closeAndCleanData() error {
 			c.log.Error(cErr.Error(), "method", "closeAndCleanData")
 			return err
 		}
-
 	}
 
 	// clean all data
