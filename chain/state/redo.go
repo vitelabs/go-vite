@@ -113,6 +113,7 @@ func (redo *Redo) initCache() error {
 		height = latestSnapshotBlock.Height
 	}
 	redo.cache.Init(height + 1)
+	return nil
 }
 
 func (redo *Redo) Close() error {
