@@ -31,7 +31,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 		}
 
 		if block == nil || block.Hash.IsZero() {
-			panic("error error error")
+			panic(fmt.Sprintf("block is %+v", block))
 		}
 	}
 
@@ -48,57 +48,96 @@ func TestInsertAccountBlocks(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for {
-			mu.RLock()
-			count := 0
-			for addr, account := range accounts {
+			//mu.RLock()
+			//count := 0
+			//for addr, account := range accounts {
+			//
+			//	block, err := chainInstance.GetLatestAccountBlock(addr)
+			//	if err != nil {
+			//		panic(err)
+			//	}
+			//
+			//	if block == nil || block.Hash.IsZero() {
+			//		panic("error")
+			//	}
+			//	if block.Hash != account.LatestBlock.Hash {
+			//		//block, err := chainInstance.GetLatestAccountBlock(addr)
+			//		panic(fmt.Sprintf("%+v\n %+v", block, account.LatestBlock))
+			//	}
+			//	count++
+			//
+			//	if count >= 3 {
+			//		break
+			//	}
+			//}
+			//mu.RUnlock()
 
-				block, err := chainInstance.GetLatestAccountBlock(addr)
+			for i := 0; i < 10; i++ {
+				sb := chainInstance.GetLatestSnapshotBlock()
+				maxHeight := sb.Height
+
+				var h uint64
+				for {
+					h = rand.Uint64() % maxHeight
+					if h > 0 {
+						break
+					}
+				}
+
+				hsb, err := chainInstance.GetSnapshotBlockByHeight(h)
 				if err != nil {
 					panic(err)
 				}
+				if hsb == nil {
+					existed, err := chainInstance.IsSnapshotBlockExisted(sb.Hash)
 
-				if block == nil || block.Hash.IsZero() {
-					panic("error")
+					if err != nil {
+						panic(err)
+					}
+					if existed {
+						panic(fmt.Sprintf("hsb is nil, height is %d, latest height is %d", h, sb.Height))
+					}
+				} else if hsb.Height != h {
+					panic(fmt.Sprintf("sb.height is error, h is %d, snapshot is %+v", h, sb))
 				}
-				if block.Hash != account.LatestBlock.Hash {
-					//block, err := chainInstance.GetLatestAccountBlock(addr)
-					panic(fmt.Sprintf("%+v\n %+v", block, account.LatestBlock))
-				}
-				count++
-
-				if count >= 3 {
-					break
-				}
-
 			}
-			mu.RUnlock()
 
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 10000000; i++ {
+			num := rand.Intn(100)
+			if num > 90 && len(snapshotBlockList) > 0 {
+				deleteCount := rand.Uint64() % 5
 
-			InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(1000))
-			mu.Lock()
+				deleteSnapshotBlocks(chainInstance, accounts, deleteCount)
+				snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-int(deleteCount)]
 
-			snapshotBlock := createSnapshotBlock(chainInstance, false)
+				fmt.Println("Delete")
+			} else {
+				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(10))
+				mu.Lock()
 
-			snapshotBlockList = append(snapshotBlockList, snapshotBlock)
-			Snapshot(accounts, snapshotBlock)
+				snapshotBlock := createSnapshotBlock(chainInstance, false)
 
-			invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
-			if err != nil {
-				panic(err)
+				snapshotBlockList = append(snapshotBlockList, snapshotBlock)
+				Snapshot(accounts, snapshotBlock)
+
+				invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+				if err != nil {
+					panic(err)
+				}
+
+				DeleteInvalidBlocks(accounts, invalidBlocks)
+				mu.Unlock()
+
+				//t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
+				//})
+				fmt.Println("Insert")
 			}
 
-			DeleteInvalidBlocks(accounts, invalidBlocks)
-			mu.Unlock()
-
-			//t.Run("InsertAccountBlockAndSnapshot", func(t *testing.T) {
-			//})
-			fmt.Println("Insert")
 		}
 
 	}()

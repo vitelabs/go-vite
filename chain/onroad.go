@@ -18,6 +18,7 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err))
 		c.log.Error(cErr.Error(), "method", "LoadOnRoad")
+		return nil, cErr
 	}
 
 	return onRoadData, nil
