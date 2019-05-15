@@ -47,8 +47,8 @@ type syncCacheReader interface {
 	compareCache(ts syncTasks) syncTasks
 	chunks() interfaces.SegmentList
 	queue() [][2]*ledger.HashHeight
-	pause()
-	resume()
+	clean()
+	reset()
 }
 
 type Chunks []*Chunk
@@ -77,7 +77,6 @@ type cacheReader struct {
 	readHeight uint64
 
 	readable int32
-	reading  *interfaces.Segment
 
 	buffer Chunks
 	index  int
@@ -247,7 +246,12 @@ Loop:
 }
 
 func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
-	defer s.resume()
+	s.pause()
+	defer s.resume() // will signal reader
+
+	if s.readHeight == 0 {
+		s.readHeight = ts[0].Bound[0] - 1
+	}
 
 	cs := s.chunks()
 	if len(cs) == 0 {
@@ -260,10 +264,7 @@ func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
 	}
 
 	// chunk and tasks are overlapped
-	s.pause()
 	ts = compareCache(cs, ts, s.deleteChunk)
-
-	s.cond.Signal()
 
 	return ts
 }
@@ -271,14 +272,6 @@ func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
 func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(segment)
-
-	s.mu.Lock()
-	reading := s.reading
-	s.mu.Unlock()
-
-	if reading != nil && reading.Bound[1] <= segment.Bound[1] {
-		s.pause()
-	}
 
 	// chunk has been read to buffer
 	if segment.Bound[1] <= s.readHeight {
@@ -288,7 +281,7 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 				s.buffer = s.buffer[:i]
 				s.index = i
 
-				// signal reader
+				// signal reader, maybe blocked when addChunkToBuffer
 				s.cond.Signal()
 
 				if len(s.buffer) > 0 {
@@ -337,25 +330,21 @@ func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
 	}
 }
 
-func (s *cacheReader) clean() {
-	cache := s.chain.GetSyncCache()
-	cs := cache.Chunks()
-	for _, c := range cs {
-		_ = cache.Delete(c)
-	}
-
-	s.reset()
-}
-
 func (s *cacheReader) reset() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.readHeight = s.getHeight()
+	s.readHeight = 0
 	s.buffer = s.buffer[:0]
 	s.index = 0
+	s.mu.Unlock()
 
 	s.cond.Signal()
+}
+
+func (s *cacheReader) clean() {
+	cache := s.chain.GetSyncCache()
+	for _, c := range cache.Chunks() {
+		_ = cache.Delete(c)
+	}
 }
 
 func (s *cacheReader) removeUselessChunks(cleanWrong bool) {
@@ -394,10 +383,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 		return
 	}
 
-	s.mu.Lock()
-	s.reading = &c
-	s.mu.Unlock()
-
 	verified := reader.Verified()
 
 	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1], types.RemoteSync)
@@ -406,10 +391,14 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 	var ab *ledger.AccountBlock
 	var sb *ledger.SnapshotBlock
 	for {
-		if false == s.running {
+		if false == s.running || false == s.canRead() {
 			_ = reader.Close()
 			fatal = false
-			err = errReaderStopped
+			if false == s.running {
+				err = errReaderStopped
+			} else {
+				err = errReaderInterrupt
+			}
 			return
 		}
 
@@ -438,13 +427,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 				break
 			}
 		}
-
-		if false == s.canRead() {
-			_ = reader.Close()
-			fatal = false
-			err = errReaderInterrupt
-			return
-		}
 	}
 
 	_ = reader.Close()
@@ -457,10 +439,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 	if err == nil {
 		reader.Verify()
 	}
-
-	s.mu.Lock()
-	s.reading = nil
-	s.mu.Unlock()
 
 	return
 }
@@ -481,8 +459,7 @@ func (s *cacheReader) canRead() bool {
 func (s *cacheReader) readLoop() {
 	defer s.wg.Done()
 
-	s.removeUselessChunks(true)
-	s.readHeight = s.getHeight()
+	s.readHeight = 0
 
 	cache := s.chain.GetSyncCache()
 
@@ -493,8 +470,6 @@ func (s *cacheReader) readLoop() {
 
 Loop:
 	for {
-		s.removeUselessChunks(false)
-
 		for {
 			if false == s.running {
 				break Loop
