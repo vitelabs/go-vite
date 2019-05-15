@@ -172,7 +172,7 @@ func (snapshot *snapshotCs) DayStats(startIndex uint64, endIndex uint64) ([]*cor
 	// get register map for address->name
 	registerMap := make(map[types.Address]string)
 	lastHash := snapshot.rw.GetLatestSnapshotBlock().Hash
-	registers, err := snapshot.rw.rw.GetRegisterList(lastHash, types.SNAPSHOT_GID)
+	registers, err := snapshot.rw.rw.GetAllRegisterList(lastHash, types.SNAPSHOT_GID)
 	if err != nil {
 		return nil, err
 	}
