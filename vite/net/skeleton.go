@@ -129,7 +129,6 @@ func newSkeleton(chain syncChain, peers syncPeerSet, idGen MsgIder) *skeleton {
 // construct return a slice of HashHeight, every 100 step
 func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*ledger.HashHeight) {
 	atomic.StoreInt32(&sk.checking, 1)
-	defer atomic.StoreInt32(&sk.checking, 0)
 
 	sk.tree = newHashHeightTree()
 
@@ -148,8 +147,13 @@ func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*l
 	}
 
 	sk.wg.Wait()
+	atomic.StoreInt32(&sk.checking, 0)
 
-	return sk.tree.bestBranch()
+	sk.mu.Lock()
+	list = sk.tree.bestBranch()
+	sk.mu.Unlock()
+
+	return
 }
 
 func (sk *skeleton) getHashList(p Peer, msg *message.GetHashHeightList) {
@@ -178,7 +182,9 @@ func (sk *skeleton) receiveHashList(msg p2p.Msg, sender Peer) {
 			return
 		}
 
+		sk.mu.Lock()
 		sk.tree.addBranch(hh.Points, sender)
+		sk.mu.Unlock()
 	}
 }
 

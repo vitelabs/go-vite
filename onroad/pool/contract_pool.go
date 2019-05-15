@@ -188,6 +188,11 @@ func (p *contractOnRoadPool) ledgerBlockListToOnRoad(orAddr types.Address, block
 		}
 		onroad, err := LedgerBlockToOnRoad(p.chain, b)
 		if err != nil {
+			if b.IsSendBlock() {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad s fail self=%v t=%v hash=%v height=%v", b.AccountAddress, b.ToAddress, b.Hash, b.Height), "err", err)
+			} else {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad r fail self=%v fHash=%v hash=%v height%v", b.AccountAddress, b.FromBlockHash, b.Hash, b.Height), "err", err)
+			}
 			return nil, err
 		}
 		_, ok := onroadMap[onroad.caller]
@@ -222,7 +227,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			return err
 		}
 		if completeBlock == nil {
-			return errors.New("failed to find complete block by hash")
+			return ErrFindCompleteBlock
 		}
 		if completeBlock.IsReceiveBlock() {
 			or.Height = completeBlock.Height // refer to its parent receive's height

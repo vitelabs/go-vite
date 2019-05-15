@@ -14,7 +14,7 @@ import (
 var (
 	genesisTime           = int64(1546275661)
 	oneDay                = int64(150)
-	limit                 = int64(75)
+	limit                 = int64(3600)
 	oneDayTimeWithinLimit = time.Unix(genesisTime+oneDay+limit-1, 0)
 	oneDayTime            = time.Unix(genesisTime+oneDay+limit, 0)
 	twoDayTimeWithinLimit = time.Unix(genesisTime+oneDay*2+limit-1, 0)

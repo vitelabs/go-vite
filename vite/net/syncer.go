@@ -199,7 +199,11 @@ func (s *syncer) setState(state syncState) {
 func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.peers.unSub(s.eventChan)
-		close(s.term)
+		select {
+		case <-s.term:
+		default:
+			close(s.term)
+		}
 		s.stopSync()
 	}
 }
@@ -276,6 +280,7 @@ Prepare:
 					// we are taller than the best peer, no need sync
 					s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", bestPeer.String(), bestPeer.Height(), current))
 					s.state.done()
+					s.reader.clean()
 					return
 				}
 			} else {
@@ -288,6 +293,7 @@ Prepare:
 			current = s.getHeight()
 			if current >= s.to {
 				s.state.done()
+				s.reader.clean()
 				return
 			}
 
@@ -381,6 +387,7 @@ Start:
 				Hash:   irrevHash,
 			})
 			addIrreverse = true
+			s.log.Warn(fmt.Sprintf("getIrreversibleBlock: %s/%d", irrevHash, irrevHeight))
 			break
 		} else {
 			block, err = s.chain.GetSnapshotBlockByHeight(startHeight)
@@ -409,6 +416,7 @@ Start:
 			Height: irrevHeight,
 			Hash:   irrevHash,
 		})
+		s.log.Warn(fmt.Sprintf("getIrreversibleBlock: %s/%d", irrevHash, irrevHeight))
 	}
 
 	atomic.StoreInt32(&s.taskCanceled, 0)
@@ -483,7 +491,7 @@ Loop:
 func (s *syncer) stopSync() {
 	s.downloader.cancelAllTasks()
 	atomic.StoreInt32(&s.taskCanceled, 1)
-	s.reader.pause()
+	s.reader.reset()
 }
 
 type SyncStatus struct {
