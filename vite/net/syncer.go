@@ -137,6 +137,7 @@ func (s *syncer) codes() []p2p.Code {
 func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 	switch msg.Code {
 	case p2p.CodeHashList:
+		s.log.Info(fmt.Sprintf("receive HashHeightList from %s", sender))
 		s.sk.receiveHashList(msg, sender)
 	}
 
@@ -244,6 +245,8 @@ func (s *syncer) start() {
 		start.Stop()
 	}
 
+	var retrySync int
+
 Prepare:
 	syncPeer := s.peers.syncPeer()
 	// all peers disconnected
@@ -285,7 +288,6 @@ Prepare:
 					// we are taller than the best peer, no need sync
 					s.log.Info(fmt.Sprintf("sync done: bestPeer %s at %d, our height: %d", bestPeer.String(), bestPeer.Height(), current))
 					s.state.done()
-					s.reader.clean()
 					return
 				}
 			} else {
@@ -298,18 +300,21 @@ Prepare:
 			current = s.getHeight()
 			if current >= s.to {
 				s.state.done()
-				s.reader.clean()
 				return
 			}
 
 			if current == oldHeight {
 				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: stuck")
-					s.state.error(syncErrorStuck)
 					s.stopSync()
 					s.syncWG.Wait()
 
-					goto Prepare
+					if retrySync > 3 {
+						s.state.error(syncErrorStuck)
+					} else {
+						retrySync++
+						goto Prepare
+					}
 				}
 			} else {
 				oldHeight = current
@@ -351,6 +356,7 @@ func (s *syncer) sync() {
 	defer s.syncWG.Done()
 
 	s.state.sync()
+	s.log.Info("syncing")
 
 	var start = make([]*ledger.HashHeight, 0, 3)
 	var end uint64
@@ -448,7 +454,7 @@ Loop:
 		}
 		points := s.sk.construct(start, end)
 		if len(points) == 0 {
-			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %+v %d", start, end))
+			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %d-%d", start[len(start)-1].Height, end))
 			time.Sleep(time.Second)
 			continue
 		}
@@ -465,6 +471,8 @@ Loop:
 		}
 
 		if point != nil {
+			s.log.Info(fmt.Sprintf("construct skeleton: %d-%d", point.Height, end))
+
 			first = false
 			if tasks := constructTasks(point, points); len(tasks) > 0 {
 				tasks = s.reader.compareCache(tasks)
@@ -521,15 +529,15 @@ func (s *syncer) Status() SyncStatus {
 type SyncDetail struct {
 	SyncStatus
 	DownloaderStatus
-	Cache  interfaces.SegmentList  `json:"cache"`
 	Chunks [][2]*ledger.HashHeight `json:"chunks"`
+	Caches interfaces.SegmentList  `json:"caches"`
 }
 
 func (s *syncer) Detail() SyncDetail {
 	return SyncDetail{
 		SyncStatus:       s.Status(),
 		DownloaderStatus: s.downloader.status(),
-		Cache:            s.reader.chunks(),
-		Chunks:           s.reader.queue(),
+		Chunks:           s.reader.chunks(),
+		Caches:           s.reader.caches(),
 	}
 }

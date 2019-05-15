@@ -236,6 +236,10 @@ func (p *peerMux) readLoop() (err error) {
 
 		switch msg.Code {
 		case CodeDisconnect:
+			if len(msg.Payload) > 0 {
+				err = PeerError(msg.Payload[0])
+				return
+			}
 			return PeerQuitting
 		case CodeControlFlow:
 		// todo
@@ -279,9 +283,14 @@ func (p *peerMux) handleLoop() (err error) {
 
 func (p *peerMux) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if pe, ok := err.(PeerError); ok {
+			_ = p.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(pe)},
+			})
+		}
 
-		_ = Disconnect(p, err)
-
+		time.Sleep(100 * time.Millisecond)
 		atomic.StoreInt32(&p.writable, 0)
 
 		// ensure nobody is writing

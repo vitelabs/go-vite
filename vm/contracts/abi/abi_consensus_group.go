@@ -233,7 +233,15 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) (bool,
 	return false, util.ErrDataNotExist
 }
 
+func GetAllRegistrationList(db StorageDatabase, gid types.Gid) ([]*types.Registration, error) {
+	return getRegistrationList(db, gid, false)
+}
+
 func GetCandidateList(db StorageDatabase, gid types.Gid) ([]*types.Registration, error) {
+	return getRegistrationList(db, gid, true)
+}
+
+func getRegistrationList(db StorageDatabase, gid types.Gid, filter bool) ([]*types.Registration, error) {
 	if *db.Address() != types.AddressConsensusGroup {
 		return nil, util.ErrAddressNotMatch
 	}
@@ -261,8 +269,14 @@ func GetCandidateList(db StorageDatabase, gid types.Gid) ([]*types.Registration,
 			continue
 		}
 		registration := new(types.Registration)
-		if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, iterator.Value()); err == nil && registration.IsActive() {
-			registerList = append(registerList, registration)
+		if err := ABIConsensusGroup.UnpackVariable(registration, VariableNameRegistration, iterator.Value()); err == nil {
+			if filter {
+				if registration.IsActive() {
+					registerList = append(registerList, registration)
+				}
+			} else {
+				registerList = append(registerList, registration)
+			}
 		}
 	}
 	return registerList, nil
