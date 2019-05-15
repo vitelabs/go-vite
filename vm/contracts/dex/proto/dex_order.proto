@@ -23,28 +23,9 @@ message Order {
     int64 Timestamp = 18; // [unset on serialize]
 }
 
-message NewOrderInfo { // for taker
-    Order Order = 1;
-    bytes TradeToken = 2;
-    bytes QuoteToken = 3;
-}
-
 message OrderIdSerialNo {
     int32 SerialNo = 1;
     int64 Timestamp = 2;
-}
-
-message OrderUpdateInfo {
-    bytes Id = 1;
-    bytes TradeToken = 2;
-    bytes QuoteToken = 3;
-    int32 Status = 4;
-    int32 CancelReason = 5;
-    bytes ExecutedQuantity = 6;
-    bytes ExecutedAmount = 7;
-    bytes ExecutedFee = 8; // fee actually executed
-    bytes RefundToken = 9;
-    bytes RefundQuantity = 10; //refund trade/quote token
 }
 
 message Transaction {
@@ -88,6 +69,25 @@ message PendingNewMarkets {
     repeated PendingNewMarketAction pendingActions = 1;
 }
 
+message NewOrderInfo { // for taker
+    Order Order = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+}
+
+message OrderUpdateInfo {
+    bytes Id = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+    int32 Status = 4;
+    int32 CancelReason = 5;
+    bytes ExecutedQuantity = 6;
+    bytes ExecutedAmount = 7;
+    bytes ExecutedFee = 8; // fee actually executed
+    bytes RefundToken = 9;
+    bytes RefundQuantity = 10; //refund trade/quote token
+}
+
 message NewMarket {
     int32 MarketId = 1;
     string MarketSymbol = 2;
@@ -99,14 +99,3 @@ message NewMarket {
     int32 QuoteTokenDecimals = 8;
     bytes Creator = 9; //creator address
 }
-
-message NewOrderFail {
-    Order Order = 1;
-    string ErrCode = 2;
-}
-
-message CancelOrderFail {
-    bytes Id = 1;
-    string ErrMsg = 6;
-}
-

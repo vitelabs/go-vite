@@ -2,7 +2,6 @@ package dex
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -14,33 +13,18 @@ type ParamDexCancelOrder struct {
 	OrderId    []byte
 }
 
-func GetMarketInfoById(storage vm_db.VmDb, marketId int32) (*MarketInfo, error) {
-	marketInfo := &MarketInfo{}
-	if err := getValueFromDb(storage, GetMarketInfoKeyById(marketId), marketInfo); err == NotFoundValueFromDb {
-		return nil, TradeMarketNotExistsError
-	} else {
-		return marketInfo, err
-	}
+func GetMarketInfoById(db vm_db.VmDb, marketId int32) (marketInfo *MarketInfo, ok bool) {
+	marketInfo = &MarketInfo{}
+	ok = deserializeFromDb(db, GetMarketInfoKeyById(marketId), marketInfo)
+	return
 }
 
-func SaveMarketInfoById(storage vm_db.VmDb, marketInfo *MarketInfo) error {
-	return saveValueToDb(storage, GetMarketInfoKeyById(marketInfo.MarketId), marketInfo)
+func SaveMarketInfoById(db vm_db.VmDb, marketInfo *MarketInfo) {
+	serializeToDb(db, GetMarketInfoKeyById(marketInfo.MarketId), marketInfo)
 }
 
 func GetMarketInfoKeyById(marketId int32) []byte {
 	return append(marketByMarketIdPrefix, Uint32ToBytes(uint32(marketId))...)
-}
-
-func EmitCancelOrderFailLog(db vm_db.VmDb, param *ParamDexCancelOrder, err error) {
-	cancelFail := dexproto.CancelOrderFail{}
-	cancelFail.Id = param.OrderId
-	cancelFail.ErrMsg = err.Error()
-	event := CancelOrderFailEvent{cancelFail}
-
-	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, event.GetTopicId())
-	log.Data = event.toDataBytes()
-	db.AddLog(log)
 }
 
 type FundSettleSorter []*dexproto.FundSettle

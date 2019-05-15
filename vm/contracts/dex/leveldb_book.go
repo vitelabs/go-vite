@@ -18,12 +18,14 @@ func getMakerBook(db vm_db.VmDb, marketId int32, side bool) (book *levelDbBook, 
 	return
 }
 
-func (book *levelDbBook) nextOrder() (order *Order, ok bool, err error) {
+func (book *levelDbBook) nextOrder() (order *Order, ok bool) {
 	if ok = book.iterator.Next(); ok {
 		orderId := book.iterator.Key()
 		orderData := book.iterator.Value()
 		order = &Order{}
-		err = order.DeSerializeCompact(orderData, orderId)
+		if err := order.DeSerializeCompact(orderData, orderId); err != nil {
+			panic(err)
+		}
 	}
 	return
 }

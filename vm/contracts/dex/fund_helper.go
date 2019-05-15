@@ -36,19 +36,20 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	return nil
 }
 
-func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) (err error) {
+func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) {
 	quoteTokenInfo := QuoteTokenInfos[quoteToken]
 	marketInfo.MarketSymbol = getDexTokenSymbol(quoteTokenInfo)
+	marketInfo.TradeToken = tradeToken.Bytes()
+	marketInfo.QuoteToken = quoteToken.Bytes()
 	marketInfo.QuoteTokenDecimals = quoteTokenInfo.Decimals
+	var tradeTokenExists bool
 	if tradeTokenInfo == nil {
-		if tradeTokenInfo, err = GetTokenInfo(db, tradeToken); err != nil {
-			return err
-		}
+		tradeTokenInfo, tradeTokenExists = GetTokenInfo(db, tradeToken)
+	} else {
+		tradeTokenExists = true
 	}
-	if tradeTokenInfo != nil {
-		if err = renderMarketInfoWithTradeTokenInfo(db, marketInfo, tradeTokenInfo); err != nil {
-			return err
-		}
+	if tradeTokenExists {
+		renderMarketInfoWithTradeTokenInfo(db, marketInfo, tradeTokenInfo)
 		renderNewMarketEvent(marketInfo, newMarketEvent, tradeToken, quoteToken, tradeTokenInfo, quoteTokenInfo)
 	}
 
@@ -58,17 +59,13 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *New
 	if marketInfo.Timestamp == 0 {
 		marketInfo.Timestamp = GetTimestampInt64(db)
 	}
-	return nil
 }
 
-func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeTokenInfo *TokenInfo) (err error) {
-	if marketInfo.MarketId, err = NewAndSaveMarketId(db); err != nil {
-		return err
-	}
+func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeTokenInfo *TokenInfo) {
+	marketInfo.MarketId = NewAndSaveMarketId(db)
 	marketInfo.MarketSymbol = fmt.Sprintf("%s_%s", getDexTokenSymbol(tradeTokenInfo), marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
-	return nil
 }
 
 func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo, quoteTokenInfo *TokenInfo) {
@@ -83,30 +80,27 @@ func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent
 	newMarketEvent.Creator = marketInfo.Creator
 }
 
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock, err error) {
+func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock) {
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.Amount = NewMarketFeeDividendAmount.Bytes()
 	fee := &dexproto.FeeSettle{}
 	fee.Token = ledger.ViteTokenId.Bytes()
 	fee.UserFeeSettles = append(fee.UserFeeSettles, userFee)
-	if err = SettleFeeSum(db, reader, []*dexproto.FeeSettle{fee}); err != nil {
-		return
-	}
-	if err = SettleUserFees(db, reader, fee); err != nil {
-		return
-	}
-	if err = AddDonateFeeSum(db, reader); err != nil {
-		return
-	}
-	if err = SaveMarketInfo(db, marketInfo, tradeToken, quoteToken); err != nil {
-		return
-	}
+	SettleFeeSum(db, reader, []*dexproto.FeeSettle{fee})
+	SettleUserFees(db, reader, fee)
+	AddDonateFeeSum(db, reader)
+	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddNewMarketEventLog(db, newMarketEvent)
 	var marketBytes, blockData []byte
-	if marketBytes, err = marketInfo.Serialize(); err == nil {
-		if blockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err == nil {
-			block = &ledger.AccountBlock{
+	var err error
+	if marketBytes, err = marketInfo.Serialize(); err != nil {
+		panic(err)
+	} else {
+		if blockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err != nil {
+			panic(err)
+		} else {
+			return &ledger.AccountBlock{
 				AccountAddress: types.AddressDexFund,
 				ToAddress:      types.AddressDexTrade,
 				BlockType:      ledger.BlockTypeSendCall,
@@ -116,23 +110,16 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 			}
 		}
 	}
-	return
 }
 
-func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
-	if err = SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken); err != nil {
-		return
-	}
-	if err = AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken); err != nil {
-		return
-	}
-	if err = AddPendingNewMarketFeeSum(db); err != nil {
-		return
-	}
-	if data, err = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken); err != nil {
-		return
+func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) []byte {
+	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+	AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken)
+	AddPendingNewMarketFeeSum(db)
+	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken); err != nil {
+		panic(err)
 	} else {
-		return
+		return data
 	}
 }
 
@@ -141,9 +128,7 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 	tradeTokenInfo.Decimals = int32(tokenInfoRes.Decimals)
 	tradeTokenInfo.Symbol = tokenInfoRes.TokenSymbol
 	tradeTokenInfo.Index = int32(tokenInfoRes.Index)
-	if err = SaveTokenInfo(db, tradeTokenId, tradeTokenInfo); err != nil {
-		return
-	}
+	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
 		return
@@ -152,34 +137,22 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 			var (
 				quoteTokenId types.TokenTypeId
 				marketInfo   *MarketInfo
+				ok           bool
 			)
 			if quoteTokenId, err = types.BytesToTokenTypeId(qt); err != nil {
-				return nil, err
+				panic(err)
 			} else {
-				if marketInfo, err = GetMarketInfo(db, tradeTokenId, quoteTokenId); err != nil {
-					return
+				if marketInfo, ok = GetMarketInfo(db, tradeTokenId, quoteTokenId); !ok || marketInfo.Valid {
+					continue
 				} else {
-					if marketInfo.Valid {
-						return nil, InvalidStatusForPendingMarketInfoErr
-					}
 					var address types.Address
-					address, err = types.BytesToAddress(marketInfo.Creator)
-					if err != nil {
-						return
+					if address, err = types.BytesToAddress(marketInfo.Creator); err != nil {
+						panic(err)
 					}
 					newMarketEvent := &NewMarketEvent{}
-					if err = RenderMarketInfo(db, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
-						return
-					}
-					if err = SubPendingNewMarketFeeSum(db); err != nil {
-						return
-					}
-					var block *ledger.AccountBlock
-					if block, err = OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address); err != nil {
-						return
-					} else {
-						appendBlocks = append(appendBlocks, block)
-					}
+					RenderMarketInfo(db, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, tradeTokenInfo, nil)
+					SubPendingNewMarketFeeSum(db)
+					appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address))
 				}
 			}
 		}
@@ -192,25 +165,18 @@ func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refund
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
 		return nil, err
 	} else {
-		refundBlocks := make([]*ledger.AccountBlock, len(quoteTokens))
+		refundBlocks = make([]*ledger.AccountBlock, len(quoteTokens))
 		for index, qt := range quoteTokens {
 			if quoteTokenId, err := types.BytesToTokenTypeId(qt); err != nil {
-				return nil, err
+				panic(err)
 			} else {
-				if marketInfo, err := GetMarketInfo(db, tradeTokenId, quoteTokenId); err != nil {
-					return nil, err
+				if marketInfo, ok := GetMarketInfo(db, tradeTokenId, quoteTokenId); !ok || marketInfo.Valid {
+					continue
 				} else {
-					if marketInfo.Valid {
-						return nil, InvalidStatusForPendingMarketInfoErr
-					}
-					if err = SubPendingNewMarketFeeSum(db); err != nil {
-						return nil, err
-					}
-					if err = DeleteMarketInfo(db, tradeTokenId, quoteTokenId); err != nil {
-						return nil, err
-					}
+					SubPendingNewMarketFeeSum(db)
+					DeleteMarketInfo(db, tradeTokenId, quoteTokenId)
 					if address, err := types.BytesToAddress(marketInfo.Creator); err != nil {
-						return nil, err
+						panic(err)
 					} else {
 						refundBlocks[index] = &ledger.AccountBlock{
 							AccountAddress: types.AddressDexFund,
@@ -223,7 +189,7 @@ func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refund
 				}
 			}
 		}
-		return refundBlocks, nil
+		return
 	}
 }
 
@@ -243,17 +209,15 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 	return nil
 }
 
-func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) (*MarketInfo, *DexError) {
+func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
-		err        error
+		ok         bool
 	)
-	if marketInfo, err = GetMarketInfo(db, param.TradeToken, param.QuoteToken); err != nil || !marketInfo.Valid {
+	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
 		return nil, TradeMarketNotExistsError
 	}
-	if order.Id, err = ComposeOrderId(db, marketInfo.MarketId, param); err != nil {
-		return nil, ComposeOrderIdFailErr
-	}
+	order.Id = ComposeOrderId(db, marketInfo.MarketId, param)
 	order.MarketId = marketInfo.MarketId
 	order.Address = address.Bytes()
 	order.Side = param.Side
@@ -303,25 +267,24 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	return nil
 }
 
-func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account, error) {
-	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
-		return nil, err
-	} else {
-		account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-		available := new(big.Int).SetBytes(account.Available)
-		account.Available = available.Add(available, amount).Bytes()
-		if !exists {
-			dexFund.Accounts = append(dexFund.Accounts, account)
-		}
-		return account, SaveUserFundToStorage(db, address, dexFund)
+func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account) {
+	dexFund, _ := GetUserFundFromStorage(db, address)
+	account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
+	available := new(big.Int).SetBytes(account.Available)
+	account.Available = available.Add(available, amount).Bytes()
+	if !exists {
+		dexFund.Accounts = append(dexFund.Accounts, account)
 	}
+	SaveUserFundToStorage(db, address, dexFund)
+	return account
 }
 
-func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (needUpdate bool, err error) {
+func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (err error) {
 	var (
 		lockToken, lockAmount []byte
-		lockTokenId           *types.TokenTypeId
-		lockAmountToInc       *big.Int
+		lockTokenId           types.TokenTypeId
+		account               *dexproto.Account
+		exists                bool
 	)
 	switch order.Side {
 	case false: //buy
@@ -334,112 +297,128 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 		lockAmount = order.Quantity
 	}
 	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
-		return false, err
+		panic(err)
 	} else {
-		lockTokenId = &tkId
+		lockTokenId = tkId
 	}
-	//var tokenName string
-	//if tokenInfo := cabi.GetTokenById(db, *lockTokenId); tokenInfo != nil {
-	//	tokenName = tokenInfo.TokenName
-	//}
-	account, exists := GetAccountByTokeIdFromFund(dexFund, *lockTokenId)
+	if account, exists = GetAccountByTokeIdFromFund(dexFund, lockTokenId); !exists {
+		return ExceedFundAvailableErr
+	}
 	available := new(big.Int).SetBytes(account.Available)
-	if order.Type != Market || order.Side { // limited or sell orderInfo
-		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
-		//fmt.Printf("token %s, available %s , lockAmountToInc %s\n", tokenName, available.String(), lockAmountToInc.String())
-		if available.Cmp(lockAmountToInc) < 0 {
-			return false, fmt.Errorf("orderInfo lock amount exceed fund available")
-		}
-	}
-	if !order.Side && order.Type == Market { // buy or market orderInfo
-		if available.Sign() <= 0 {
-			return false, fmt.Errorf("no quote amount available for market sell orderInfo")
-		} else {
-			lockAmount = available.Bytes()
-			//NOTE: use amount available for orderInfo amount to full fill
-			order.Amount = lockAmount
-			lockAmountToInc = available
-			needUpdate = true
-		}
-	}
+	lockAmountToInc := new(big.Int).SetBytes(lockAmount)
 	available = available.Sub(available, lockAmountToInc)
-	lockedInBig := new(big.Int).SetBytes(account.Locked)
-	lockedInBig = lockedInBig.Add(lockedInBig, lockAmountToInc)
-	account.Available = available.Bytes()
-	account.Locked = lockedInBig.Bytes()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
+	if available.Sign() < 0 {
+		return ExceedFundAvailableErr
 	}
-	return needUpdate, nil
+	account.Available = available.Bytes()
+	account.Locked = AddBigInt(account.Locked, lockAmountToInc.Bytes())
+	return
 }
 
 func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
-	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
-		return err
-	} else {
-		for _, fundSettle := range action.FundSettles {
-			if tokenId, err := types.BytesToTokenTypeId(fundSettle.Token); err != nil {
-				return err
-			} else {
-				if tokenInfo, _ := GetTokenInfo(db, tokenId); tokenInfo == nil {
-					return InvalidTokenErr
-				}
-				account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-				//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
-				if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
-					if CmpForBigInt(fundSettle.ReduceLocked, account.Locked) > 0 {
-						return fmt.Errorf("try reduce locked amount execeed locked")
-					}
-					account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReduceLocked)
-				}
-				if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
-					if CmpForBigInt(fundSettle.ReleaseLocked, account.Locked) > 0 {
-						return fmt.Errorf("try release locked amount execeed locked")
-					}
-					account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReleaseLocked)
-					account.Available = AddBigInt(account.Available, fundSettle.ReleaseLocked)
-				}
-				if CmpToBigZero(fundSettle.IncAvailable) != 0 {
-					account.Available = AddBigInt(account.Available, fundSettle.IncAvailable)
-				}
-				if !exists {
-					dexFund.Accounts = append(dexFund.Accounts, account)
-				}
-				// must do after account updated by settle
-				if bytes.Equal(fundSettle.Token, VxTokenBytes) {
-					if err = OnSettleVx(db, reader, action.Address, fundSettle, account); err != nil {
-						return err
-					}
-				}
-				//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
-			}
-		}
-		if err = SaveUserFundToStorage(db, address, dexFund); err != nil {
+	dexFund, _ := GetUserFundFromStorage(db, address)
+	for _, fundSettle := range action.FundSettles {
+		if tokenId, err := types.BytesToTokenTypeId(fundSettle.Token); err != nil {
 			return err
+		} else {
+			if _, ok := GetTokenInfo(db, tokenId); !ok {
+				return InvalidTokenErr
+			}
+			account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
+			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
+			if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
+				if CmpForBigInt(fundSettle.ReduceLocked, account.Locked) > 0 {
+					return fmt.Errorf("try reduce locked amount execeed locked")
+				}
+				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReduceLocked)
+			}
+			if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
+				if CmpForBigInt(fundSettle.ReleaseLocked, account.Locked) > 0 {
+					return fmt.Errorf("try release locked amount execeed locked")
+				}
+				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReleaseLocked)
+				account.Available = AddBigInt(account.Available, fundSettle.ReleaseLocked)
+			}
+			if CmpToBigZero(fundSettle.IncAvailable) != 0 {
+				account.Available = AddBigInt(account.Available, fundSettle.IncAvailable)
+			}
+			if !exists {
+				dexFund.Accounts = append(dexFund.Accounts, account)
+			}
+			// must do after account updated by settle
+			if bytes.Equal(fundSettle.Token, VxTokenBytes) {
+				OnSettleVx(db, reader, action.Address, fundSettle, account)
+			}
+			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
 		}
 	}
+	SaveUserFundToStorage(db, address, dexFund)
 	return nil
 }
 
-func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
+func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType int8, address types.Address, amount *big.Int) ([]*ledger.AccountBlock, error) {
+	var (
+		methodData []byte
+		err        error
+	)
+	if actionType == Pledge {
+		if methodData, err = pledgeRequest(db, address, pledgeType, amount); err != nil {
+			return []*ledger.AccountBlock{}, err
+		} else {
+			return []*ledger.AccountBlock{
+				{
+					AccountAddress: block.AccountAddress,
+					ToAddress:      types.AddressPledge,
+					BlockType:      ledger.BlockTypeSendCall,
+					Amount:         amount,
+					TokenId:        ledger.ViteTokenId,
+					Data:           methodData,
+				},
+			}, nil
+		}
+	} else {
+		return DoCancelPledge(db, block, address, pledgeType, amount)
+	}
+}
+
+func DoCancelPledge(db vm_db.VmDb, block *ledger.AccountBlock, address types.Address, pledgeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
+	var (
+		methodData []byte
+		err        error
+	)
+	if methodData, err = cancelPledgeRequest(db, address, pledgeType, amount); err != nil {
+		return []*ledger.AccountBlock{}, err
+	} else {
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: block.AccountAddress,
+				ToAddress:      types.AddressPledge,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           methodData,
+			},
+		}, nil
+	}
+}
+
+func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVip {
-		if pledgeVip, _ := GetPledgeForVip(db, address); pledgeVip != nil {
+		if _, ok := GetPledgeForVip(db, address); ok {
 			return nil, PledgeForVipExistsErr
 		}
 	}
-	if dexFund, err := GetUserFundFromStorage(db, address); err != nil {
-		return nil, err
+	if dexFund, ok := GetUserFundFromStorage(db, address); !ok {
+		return nil, ExceedFundAvailableErr
 	} else {
 		account, exists := GetAccountByTokeIdFromFund(dexFund, ledger.ViteTokenId)
 		if !exists || CmpForBigInt(account.Available, amount.Bytes()) < 0 {
 			return nil, ExceedFundAvailableErr
 		} else {
 			account.Available = SubBigInt(account.Available, amount.Bytes()).Bytes()
-			if err = SaveUserFundToStorage(db, address, dexFund); err != nil {
-				return nil, err
-			}
+			SaveUserFundToStorage(db, address, dexFund)
 			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
 				return nil, err
 			} else {
@@ -449,7 +428,7 @@ func PledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 	}
 }
 
-func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
+func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
 	if pledgeType == PledgeForVx {
 		available := GetPledgeForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)
@@ -457,8 +436,7 @@ func CancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 			return nil, ExceedPledgeAvailableErr
 		}
 	} else {
-		pledgeVip, _ := GetPledgeForVip(db, address)
-		if pledgeVip == nil {
+		if pledgeVip, ok := GetPledgeForVip(db, address); !ok {
 			return nil, PledgeForVipNotExistsErr
 		} else {
 			if pledgeVip.PledgeTimes == 1 && GetTimestampInt64(db)-pledgeVip.Timestamp < PledgeForVipDuration {

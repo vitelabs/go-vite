@@ -11,8 +11,8 @@ import (
 const PriceBytesLength = 10
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
-func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) ([]byte, error) {
-	idBytes := make([]byte, OrderIdBytesLength)
+func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) (idBytes []byte) {
+	idBytes = make([]byte, OrderIdBytesLength)
 	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
 	if param.Side {
 		idBytes[3] = 1
@@ -24,12 +24,9 @@ func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder)
 	copy(idBytes[4:14], priceBytes)
 	timestamp := GetTimestampInt64(db)
 	copy(idBytes[14:19], Uint64ToBytes(uint64(timestamp))[3:])
-	if serialNo, err := NewAndSaveOrderSerialNo(db, timestamp); err != nil {
-		return nil, err
-	} else {
-		copy(idBytes[19:], Uint32ToBytes(uint32(serialNo))[1:])
-	}
-	return idBytes, nil
+	serialNo := NewAndSaveOrderSerialNo(db, timestamp)
+	copy(idBytes[19:], Uint32ToBytes(uint32(serialNo))[1:])
+	return
 }
 
 func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price[]byte, timestamp int64, err error) {
@@ -123,6 +120,20 @@ func BytesToPrice(priceBytes []byte) string {
 			}
 		}
 		return fmt.Sprintf("%s.%s", intStr, string(decimalPartArr[:priceDecimalMaxLen-rightTruncate]))
+	}
+}
+
+func getValueFromDb(db vm_db.VmDb, key []byte) []byte {
+	if data, err := db.GetValue(key); err != nil {
+		panic(err)
+	} else {
+		return data
+	}
+}
+
+func setValueToDb(db vm_db.VmDb, key, value []byte) {
+	if err := db.SetValue(key, value); err != nil {
+		panic(err)
 	}
 }
 

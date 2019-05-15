@@ -42,10 +42,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 	if err != nil {
 		return nil, err
 	}
-	dexFund, err := dex.GetUserFundFromStorage(db, addr)
-	if err != nil {
-		return nil, err
-	}
+	dexFund, _ := dex.GetUserFundFromStorage(db, addr)
 	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
 	if err != nil {
 		return nil, err
@@ -88,10 +85,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	if err != nil {
 		return nil, err
 	}
-	dexFund, err := dex.GetUserFundFromStorage(db, addr)
-	if err != nil {
-		return nil, err
-	}
+	dexFund, _ := dex.GetUserFundFromStorage(db, addr)
 	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
 	if err != nil {
 		return nil, err
@@ -151,14 +145,14 @@ func (f DexFundApi) GetTime() (int64, error) {
 	return dex.GetTimestampInt64(db), nil
 }
 
-func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, error) {
+func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, bool) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 	return dex.GetMarketInfo(db, tradeToken, quoteToken)
 }
@@ -175,14 +169,14 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
-func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
+func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, bool) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 	return dex.GetPledgeForVip(db, address)
 }

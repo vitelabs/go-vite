@@ -2,7 +2,6 @@ package dex
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
@@ -32,17 +31,20 @@ type OrderTx struct {
 }
 
 var (
-	TakerFeeRate          = "0.0025"
-	MakerFeeRate          = "0.0025"
+	TakerFeeRate = "0.0025"
+	MakerFeeRate = "0.0025"
 )
 
 func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
 	mc = NewRawMatcher(db)
-	mc.MarketInfo, err = GetMarketInfoById(db, marketId)
+	var ok bool
+	if mc.MarketInfo, ok = GetMarketInfoById(db, marketId); !ok {
+		return nil, TradeMarketNotExistsError
+	}
 	return
 }
 
-func NewMatcherWithMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo) (mc *Matcher)  {
+func NewMatcherWithMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo) (mc *Matcher) {
 	mc = NewRawMatcher(db)
 	mc.MarketInfo = marketInfo
 	return
@@ -57,11 +59,6 @@ func NewRawMatcher(db vm_db.VmDb) (mc *Matcher) {
 }
 
 func (mc *Matcher) MatchOrder(taker *Order) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("matchOrder failed with exception %v", r)
-		}
-	}()
 	var bookToTake *levelDbBook
 	if bookToTake, err = mc.getMakerBookToTaker(taker.Side); err != nil {
 		return err
@@ -85,26 +82,22 @@ func (mc *Matcher) GetFees() map[types.TokenTypeId]map[types.Address]*proto.User
 }
 
 func (mc *Matcher) GetOrderById(orderId []byte) (*Order, error) {
-	if data, err := mc.db.GetValue(orderId); err == nil {
-		return nil, err
-	} else {
-		if len(data) > 0 {
-			order := &Order{}
-			if err = order.DeSerializeCompact(data, orderId); err != nil {
-				return nil, err
-			} else {
-				return order, nil
-			}
+	if data := getValueFromDb(mc.db, orderId); len(data) > 0 {
+		order := &Order{}
+		if err := order.DeSerializeCompact(data, orderId); err != nil {
+			return nil, err
 		} else {
-			return nil, OrderNotExistsErr
+			return order, nil
 		}
+	} else {
+		return nil, OrderNotExistsErr
 	}
 }
 
 func (mc *Matcher) GetOrdersFromMarket(side bool, begin, end int) ([]*Order, int, error) {
 	var (
-		book    *levelDbBook
-		err     error
+		book *levelDbBook
+		err  error
 	)
 	if begin >= end {
 		return nil, 0, nil
@@ -118,7 +111,7 @@ func (mc *Matcher) GetOrdersFromMarket(side bool, begin, end int) ([]*Order, int
 	}
 	orders := make([]*Order, 0, end-begin)
 	for i := 0; i < end; i++ {
-		if order, ok, err := book.nextOrder(); err != nil {
+		if order, ok := book.nextOrder(); err != nil {
 			return nil, 0, err
 		} else if !ok {
 			return orders, len(orders), nil
@@ -131,7 +124,7 @@ func (mc *Matcher) GetOrdersFromMarket(side bool, begin, end int) ([]*Order, int
 	return orders, len(orders), nil
 }
 
-func (mc *Matcher) CancelOrderById(order *Order) error {
+func (mc *Matcher) CancelOrderById(order *Order) {
 	switch order.Status {
 	case Pending:
 		order.CancelReason = cancelledByUser
@@ -141,32 +134,27 @@ func (mc *Matcher) CancelOrderById(order *Order) error {
 	order.Status = Cancelled
 	mc.handleRefund(order)
 	mc.emitOrderUpdate(order)
-	return mc.deleteOrder(order.Id)
+	mc.deleteOrder(order.Id)
 
 }
 
-func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) error {
+func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) (err error) {
 	modifiedMakers := make([]*Order, 0, 20)
 	txs := make([]*OrderTx, 0, 20)
-	if maker, ok, err := makerBook.nextOrder(); err != nil {
-		return err
+	if maker, ok := makerBook.nextOrder(); !ok {
+		mc.handleTakerRes(taker)
+		return
 	} else {
-		if !ok {
-			mc.handleTakerRes(taker)
-		}
-		if err := mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs); err != nil {
-			return err
+		// must not set db in recursiveTakeOrder
+		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs); err != nil {
+			return
 		} else {
-			if err = mc.handleTakerRes(taker); err != nil {
-				return err
-			}
-			if err = mc.handleModifiedMakers(modifiedMakers); err != nil {
-				return err
-			}
+			mc.handleTakerRes(taker)
+			mc.handleModifiedMakers(modifiedMakers)
 			mc.handleTxs(txs)
-			return nil
 		}
 	}
+	return
 }
 
 //TODO add assertion for order calculation correctness
@@ -189,28 +177,23 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 	if taker.Status == FullyExecuted || taker.Status == Cancelled {
 		return nil
 	}
-	if newMaker, ok, err := makerBook.nextOrder(); err != nil {
-		return err
-	} else if ok {
+	if newMaker, ok := makerBook.nextOrder(); ok {
 		return mc.recursiveTakeOrder(taker, newMaker, makerBook, modifiedMakers, txs)
 	} else {
 		return nil
 	}
 }
 
-func (mc *Matcher) handleTakerRes(taker *Order) error {
+func (mc *Matcher) handleTakerRes(taker *Order) {
 	if taker.Status == PartialExecuted || taker.Status == Pending {
-		if err := mc.saveOrder(taker); err != nil {
-			return err
-		}
+		mc.saveOrder(taker)
 	} else if taker.Status == Cancelled {
 		mc.handleRefund(taker)
 	}
 	mc.emitNewOrder(taker)
-	return nil
 }
 
-func (mc *Matcher) handleModifiedMakers(makers []*Order) (err error) {
+func (mc *Matcher) handleModifiedMakers(makers []*Order) {
 	for _, maker := range makers {
 		if maker.Status == FullyExecuted || maker.Status == Cancelled {
 			if maker.Status == Cancelled {
@@ -222,7 +205,6 @@ func (mc *Matcher) handleModifiedMakers(makers []*Order) (err error) {
 		}
 		mc.emitOrderUpdate(maker)
 	}
-	return nil
 }
 
 func (mc *Matcher) handleRefund(order *Order) {
@@ -363,16 +345,16 @@ func (mc *Matcher) getMakerBookToTaker(takerSide bool) (*levelDbBook, error) {
 	return getMakerBook(mc.db, mc.MarketInfo.MarketId, !takerSide)
 }
 
-func (mc *Matcher) saveOrder(order *Order) error {
+func (mc *Matcher) saveOrder(order *Order) {
 	if data, err := order.SerializeCompact(); err != nil {
-		return err
+		panic(err)
 	} else {
-		return mc.db.SetValue(order.Id, data)
+		setValueToDb(mc.db, order.Id, data)
 	}
 }
 
-func (mc *Matcher) deleteOrder(orderId []byte) error {
-	return mc.db.SetValue(orderId, nil)
+func (mc *Matcher) deleteOrder(orderId []byte) {
+	setValueToDb(mc.db, orderId, nil)
 }
 
 func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *OrderTx) {

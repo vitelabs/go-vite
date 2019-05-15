@@ -41,17 +41,12 @@ func (md *MethodDexFundUserDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountB
 }
 
 func (md *MethodDexFundUserDeposit) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	if account, err := dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount); err != nil {
-		return nil, err
-	} else {
-		// must do after account updated by deposit
-		if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
-			if err = dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
+	account := dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
+	// must do after account updated by deposit
+	if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
+		dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account)
 	}
+	return nil, nil
 }
 
 type MethodDexFundUserWithdraw struct {
@@ -90,28 +85,25 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	var (
 		dexFund = &dex.UserFund{}
 		err     error
+		ok      bool
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
-	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
-		return handleReceiveErr(db, err)
+	if dexFund, ok = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); !ok {
+		return handleReceiveErr(dex.ExceedFundAvailableErr)
 	}
 	account, _ := dex.GetAccountByTokeIdFromFund(dexFund, param.Token)
 	available := dex.SubBigInt(account.Available, param.Amount.Bytes())
 	if available.Sign() < 0 {
-		return handleReceiveErr(db, fmt.Errorf("withdraw amount exceed fund available"))
+		return handleReceiveErr(dex.ExceedFundAvailableErr)
 	}
 	account.Available = available.Bytes()
 	// must do after account updated by withdraw
 	if bytes.Equal(param.Token.Bytes(), dex.VxTokenBytes) {
-		if err = dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, account); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, account)
 	}
-	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -143,16 +135,13 @@ func (md *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
 	return dexFundNewOrderReceiveGas
 }
 
-func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var err error
+func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	param := new(dex.ParamDexFundNewOrder)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, block.Data); err != nil {
 		return err
 	}
-	if err = dex.PreCheckOrderParam(param); err != nil {
-		return err
-	}
-	return nil
+	err = dex.PreCheckOrderParam(param)
+	return
 }
 
 func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -162,31 +151,26 @@ func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		err            error
 		orderInfoBytes []byte
 		marketInfo     *dex.MarketInfo
-		dexErr         *dex.DexError
+		ok             bool
 	)
 	param := new(dex.ParamDexFundNewOrder)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, sendBlock.Data)
 	order := &dex.Order{}
-	if marketInfo, dexErr = dex.RenderOrder(order, param, db, sendBlock.AccountAddress); dexErr != nil {
-		return handleNewOrderFail(db, order, dexErr.Code())
+	if marketInfo, err = dex.RenderOrder(order, param, db, sendBlock.AccountAddress); err != nil {
+		return handleReceiveErr(err)
 	}
-	if dexFund, err = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); err != nil {
-		return handleNewOrderFail(db, order, dex.NewOrderGetFundFail)
+	if dexFund, ok = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); !ok {
+		return handleReceiveErr(dex.ExceedFundAvailableErr)
 	}
-	if _, err = dex.CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
-		return handleNewOrderFail(db, order, dex.NewOrderLockFundFail)
+	if err = dex.CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
+		return handleReceiveErr(err)
 	}
-	if err = dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund); err != nil {
-		return handleNewOrderFail(db, order, dex.NewOrderSaveFundFail)
-	}
-
+	dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
 	if orderInfoBytes, err = order.Serialize(); err != nil {
-		return handleNewOrderFail(db, order, dex.NewOrderInternalErr)
+		panic(err)
 	}
 	if tradeBlockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
-		return handleNewOrderFail(db, order, dex.NewOrderInternalErr)
+		panic(err)
 	}
 	return []*ledger.AccountBlock{
 		{
@@ -222,7 +206,7 @@ func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
 func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
-		return fmt.Errorf("invalid block source")
+		return dex.InvalidSourceAddressErr
 	}
 	param := new(dex.ParamDexSerializedData)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundSettleOrders, block.Data); err != nil {
@@ -242,25 +226,21 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	param := new(dex.ParamDexSerializedData)
 	var err error
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundSettleOrders, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	settleActions := &dexproto.SettleActions{}
 	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	for _, fundAction := range settleActions.FundActions {
 		if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		}
 	}
 	if len(settleActions.FeeActions) > 0 {
-		if err = dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions)
 		for _, feeAction := range settleActions.FeeActions {
-			if err = dex.SettleUserFees(db, vm.ConsensusReader(), feeAction); err != nil {
-				return handleReceiveErr(db, err)
-			}
+			dex.SettleUserFees(db, vm.ConsensusReader(), feeAction)
 		}
 	}
 	return nil, nil
@@ -294,24 +274,22 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		err error
 	)
 	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(db, dex.OnlyOwnerAllowErr)
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	param := new(dex.ParamDexFundDividend)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if param.PeriodId >= dex.GetCurrentPeriodIdFromStorage(db, vm.ConsensusReader()) {
-		return handleReceiveErr(db, fmt.Errorf("dividend periodId not before current periodId"))
+		return handleReceiveErr(fmt.Errorf("dividend periodId not before current periodId"))
 	}
 	if lastDividendId := dex.GetLastFeeDividendIdFromStorage(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
-		return handleReceiveErr(db, fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1))
+		return handleReceiveErr(fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1))
 	}
 	if err = dex.DoDivideFees(db, param.PeriodId); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	} else {
-		if err = dex.SaveLastFeeDividendIdToStorage(db, param.PeriodId); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.SaveLastFeeDividendIdToStorage(db, param.PeriodId)
 	}
 	return nil, nil
 }
@@ -345,39 +323,37 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		err       error
 	)
 	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(db, dex.OnlyOwnerAllowErr)
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	param := new(dex.ParamDexFundDividend)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMinedVxDividend, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if param.PeriodId >= dex.GetCurrentPeriodIdFromStorage(db, vm.ConsensusReader()) {
-		return handleReceiveErr(db, fmt.Errorf("specified periodId for mined vx dividend not before current periodId"))
+		return handleReceiveErr(fmt.Errorf("specified periodId for mined vx dividend not before current periodId"))
 	}
 	if lastMinedVxDividendId := dex.GetLastMinedVxDividendIdFromStorage(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
-		return handleReceiveErr(db, fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
+		return handleReceiveErr(fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
 	}
 	vxTokenId := &types.TokenTypeId{}
 	vxTokenId.SetBytes(dex.VxTokenBytes)
 	if vxBalance, err = db.GetBalance(vxTokenId); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if amtForFeePerMarket, amtForPledge, amtForViteLabs, success := dex.GetMindedVxAmt(vxBalance); !success {
-		return handleReceiveErr(db, fmt.Errorf("no vx available for mine"))
+		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = dex.DoDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		}
 		if err = dex.DoDivideMinedVxForPledge(db, amtForPledge); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		}
 		if err = dex.DoDivideMinedVxForViteLabs(db, amtForViteLabs); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		}
 	}
-	if err = dex.SaveLastMinedVxDividendIdToStorage(db, param.PeriodId); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	dex.SaveLastMinedVxDividendIdToStorage(db, param.PeriodId)
 	return nil, nil
 }
 
@@ -418,43 +394,31 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
 		return nil, err
 	}
-	if mi, _ := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); mi != nil {
+	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
 		return nil, dex.TradeMarketExistsError
 	}
 	marketInfo := &dex.MarketInfo{}
 	newMarketEvent := &dex.NewMarketEvent{}
-	if err = dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
-		return nil, err
-	}
+	dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress)
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
 	if exceedAmount.Sign() > 0 {
-		if _, err = dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount); err != nil {
-			return nil, err
-		}
+		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
 	if marketInfo.Valid {
-		var appendBlock *ledger.AccountBlock
-		if appendBlock, err = dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress); err != nil {
-			return nil, err
-		} else {
-			return []*ledger.AccountBlock{appendBlock}, nil
-		}
+		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
+		return []*ledger.AccountBlock{appendBlock}, nil
 	} else {
-		if getTokenInfoData, err := dex.OnNewMarketPending(db, param, marketInfo); err != nil {
-			return nil, err
-		} else {
-			return []*ledger.AccountBlock{
-				{
-					AccountAddress: types.AddressDexFund,
-					ToAddress:      types.AddressMintage,
-					BlockType:      ledger.BlockTypeSendCall,
-					//TODO check TokenId and Amount force set
-					TokenId: ledger.ViteTokenId,
-					Amount:  big.NewInt(0),
-					Data:    getTokenInfoData,
-				},
-			}, nil
-		}
+		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressMintage,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           getTokenInfoData,
+			},
+		}, nil
 	}
 	return nil, nil
 }
@@ -486,14 +450,12 @@ func (md MethodDexFundSetOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBl
 	var err error
 	var param = new(dex.ParamDexFundSetOwner)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundSetOwner, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		if err = dex.SetOwner(db, param.NewOwner); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.SetOwner(db, param.NewOwner)
 	} else {
-		return handleReceiveErr(db, dex.OnlyOwnerAllowErr)
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	return nil, nil
 }
@@ -525,27 +487,25 @@ func (md MethodDexFundConfigMineMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 	var err error
 	var param = new(dex.ParamDexFundConfigMineMarket)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMineMarket, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		if marketInfo, err := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); err == nil {
+		if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
 			if param.AllowMine != marketInfo.AllowMine {
 				marketInfo.AllowMine = param.AllowMine
-				if err = dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken); err != nil {
-					return handleReceiveErr(db, err)
-				}
+				dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 			} else {
 				if marketInfo.AllowMine {
-					return handleReceiveErr(db, dex.TradeMarketAllowMineError)
+					return handleReceiveErr(dex.TradeMarketAllowMineError)
 				} else {
-					return handleReceiveErr(db, dex.TradeMarketNotAllowMineError)
+					return handleReceiveErr(dex.TradeMarketNotAllowMineError)
 				}
 			}
 		} else {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(dex.TradeMarketNotExistsError)
 		}
 	} else {
-		return handleReceiveErr(db, dex.OnlyOwnerAllowErr)
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	return nil, nil
 }
@@ -592,7 +552,7 @@ func (md MethodDexFundPledgeForVx) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForVx, sendBlock.Data); err != nil {
 		return []*ledger.AccountBlock{}, err
 	}
-	return handlePledgeAction(db, block, dex.PledgeForVx, param.ActionType, sendBlock.AccountAddress, param.Amount)
+	return dex.HandlePledgeAction(db, block, dex.PledgeForVx, param.ActionType, sendBlock.AccountAddress, param.Amount)
 }
 
 type MethodDexFundPledgeForVip struct {
@@ -631,9 +591,9 @@ func (md *MethodDexFundPledgeForVip) DoSend(db vm_db.VmDb, block *ledger.Account
 func (md MethodDexFundPledgeForVip) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamDexFundPledgeForVip)
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForVip, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
-	return handlePledgeAction(db, block, dex.PledgeForVip, param.ActionType, sendBlock.AccountAddress, dex.PledgeForVipAmount)
+	return dex.HandlePledgeAction(db, block, dex.PledgeForVip, param.ActionType, sendBlock.AccountAddress, dex.PledgeForVipAmount)
 }
 
 type MethodDexFundPledgeCallback struct {
@@ -669,49 +629,36 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 		callbackParam   = new(dex.ParamDexFundPledgeCallBack)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundPledgeCallback, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
 		panic(err)
 	}
 	pledgeParam := new(dex.ParamDexFundPledge)
 	if err = cabi.ABIPledge.UnpackMethod(pledgeParam, cabi.MethodNameAgentPledge, originSendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if callbackParam.Success {
 		if pledgeParam.Bid == dex.PledgeForVip {
-			var pledgeVip *dex.PledgeVip
-			if pledgeVip, err = dex.GetPledgeForVip(db, pledgeParam.PledgeAddress); err != nil {
-				return handleReceiveErr(db, err)
-			}
-			if pledgeVip != nil {
+			if pledgeVip, ok := dex.GetPledgeForVip(db, pledgeParam.PledgeAddress); ok {
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
-				if err = dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip); err != nil {
-					return handleReceiveErr(db, err)
-				}
-				return doCancelPledge(db, block, pledgeParam.PledgeAddress, pledgeParam.Bid, originSendBlock.Amount)
+				dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip)
+				return dex.DoCancelPledge(db, block, pledgeParam.PledgeAddress, pledgeParam.Bid, originSendBlock.Amount)
 			} else {
-				pledgeVip = &dex.PledgeVip{}
 				pledgeVip.Timestamp = dex.GetTimestampInt64(db)
 				pledgeVip.PledgeTimes = 1
-				if err = dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip); err != nil {
-					return handleReceiveErr(db, err)
-				}
+				dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip)
 			}
 		} else {
 			pledgeAmount := dex.GetPledgeForVx(db, pledgeParam.PledgeAddress)
 			pledgeAmount.Add(pledgeAmount, originSendBlock.Amount)
-			if err = dex.SavePledgeForVx(db, pledgeParam.PledgeAddress, pledgeAmount); err != nil {
-				return handleReceiveErr(db, err)
-			}
+			dex.SavePledgeForVx(db, pledgeParam.PledgeAddress, pledgeAmount)
 		}
 	} else {
 		if sendBlock.Amount.Cmp(originSendBlock.Amount) != 0 {
-			return handleReceiveErr(db, dex.InvalidAmountForPledgeCallbackErr)
+			return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
 		}
-		if _, err = dex.DepositAccount(db, pledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.DepositAccount(db, pledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
@@ -749,56 +696,42 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 		callbackParam   = new(dex.ParamDexFundPledgeCallBack)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundCancelPledgeCallback, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
 		panic(err)
 	}
 	cancelPledgeParam := new(dex.ParamDexFundCancelPledge)
 	if err = cabi.ABIPledge.UnpackMethod(cancelPledgeParam, cabi.MethodNameAgentCancelPledge, originSendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if callbackParam.Success {
 		if sendBlock.Amount.Cmp(cancelPledgeParam.Amount) != 0 {
-			return handleReceiveErr(db, dex.InvalidAmountForPledgeCallbackErr)
+			return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
 		}
 		if cancelPledgeParam.Bid == dex.PledgeForVip {
-			var pledgeVip *dex.PledgeVip
-			if pledgeVip, err = dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); err != nil {
-				return handleReceiveErr(db, err)
-			}
-			if pledgeVip != nil {
+			if pledgeVip, ok := dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); ok {
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes - 1
 				if pledgeVip.PledgeTimes == 0 {
-					if err = dex.DeletePledgeForVip(db, cancelPledgeParam.PledgeAddress); err != nil {
-						return handleReceiveErr(db, err)
-					}
+					dex.DeletePledgeForVip(db, cancelPledgeParam.PledgeAddress)
 				} else {
-					if err = dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip); err != nil {
-						return handleReceiveErr(db, err)
-					}
+					dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip)
 				}
 			} else {
-				return handleReceiveErr(db, dex.PledgeForVipNotExistsErr)
+				return handleReceiveErr(dex.PledgeForVipNotExistsErr)
 			}
 		} else {
 			pledgeAmount := dex.GetPledgeForVx(db, cancelPledgeParam.PledgeAddress)
 			leaved := new(big.Int).Sub(pledgeAmount, sendBlock.Amount)
 			if leaved.Sign() < 0 {
-				return handleReceiveErr(db, dex.InvalidAmountForPledgeCallbackErr)
+				return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
 			} else if leaved.Sign() == 0 {
-				if err = dex.DeletePledgeForVx(db, cancelPledgeParam.PledgeAddress); err != nil {
-					return handleReceiveErr(db, err)
-				}
+				dex.DeletePledgeForVx(db, cancelPledgeParam.PledgeAddress)
 			} else {
-				if err = dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved); err != nil {
-					return handleReceiveErr(db, err)
-				}
+				dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved)
 			}
 		}
-		if _, err = dex.DepositAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount); err != nil {
-			return handleReceiveErr(db, err)
-		}
+		dex.DepositAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
@@ -835,25 +768,23 @@ func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledg
 		originSendBlock *ledger.AccountBlock
 		callbackParam   = new(dex.ParamDexFundGetTokenInfoCallback)
 	)
-	if err = cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, sendBlock.Data)
 	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
 		panic(err)
 	}
 	tradeTokenId := new(types.TokenTypeId)
 	if err = cabi.ABIMintage.UnpackMethod(tradeTokenId, cabi.MethodNameGetTokenInfo, originSendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		panic(err)
 	}
 	if callbackParam.Exist {
 		if appendBlocks, err := dex.OnGetTokenInfoSuccess(db, vm.ConsensusReader(), *tradeTokenId, callbackParam); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		} else {
 			return appendBlocks, nil
 		}
 	} else {
 		if refundBlocks, err := dex.OnGetTokenInfoFailed(db, *tradeTokenId); err != nil {
-			return handleReceiveErr(db, err)
+			return handleReceiveErr(err)
 		} else {
 			return refundBlocks, nil
 		}
@@ -890,14 +821,12 @@ func (md MethodDexFundConfigTimerAddress) DoReceive(db vm_db.VmDb, block *ledger
 		ConfigTimerAddressParam = new(dex.ParamDexConfigTimerAddress)
 	)
 	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(db, dex.OnlyOwnerAllowErr)
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	if err = cabi.ABIDexFund.UnpackMethod(ConfigTimerAddressParam, cabi.MethodNameDexFundConfigTimerAddress, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
-	if err = dex.SetTimerAddress(db, ConfigTimerAddressParam.Address); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	dex.SetTimerAddress(db, ConfigTimerAddressParam.Address)
 	return nil, nil
 }
 
@@ -930,70 +859,17 @@ func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.Account
 		notifyTimeParam = new(dex.ParamDexFundNotifyTime)
 	)
 	if !dex.ValidTimerAddress(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(db, dex.InvalidSourceAddressErr)
+		return handleReceiveErr(dex.InvalidSourceAddressErr)
 	}
 	if err = cabi.ABIDexFund.UnpackMethod(notifyTimeParam, cabi.MethodNameDexFundNotifyTime, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if err = dex.SetTimerTimestamp(db, notifyTimeParam.Timestamp); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	return nil, nil
 }
 
-func handlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType int8, address types.Address, amount *big.Int) ([]*ledger.AccountBlock, error) {
-	var (
-		methodData []byte
-		err        error
-	)
-	if actionType == dex.Pledge {
-		if methodData, err = dex.PledgeRequest(db, address, pledgeType, amount); err != nil {
-			return []*ledger.AccountBlock{}, err
-		} else {
-			return []*ledger.AccountBlock{
-				{
-					AccountAddress: block.AccountAddress,
-					ToAddress:      types.AddressPledge,
-					BlockType:      ledger.BlockTypeSendCall,
-					Amount:         amount,
-					TokenId:        ledger.ViteTokenId,
-					Data:           methodData,
-				},
-			}, nil
-		}
-	} else {
-		return doCancelPledge(db, block, address, pledgeType, amount)
-	}
-}
-
-func doCancelPledge(db vm_db.VmDb, block *ledger.AccountBlock, address types.Address, pledgeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
-	var (
-		methodData []byte
-		err        error
-	)
-	if methodData, err = dex.CancelPledgeRequest(db, address, pledgeType, amount); err != nil {
-		return []*ledger.AccountBlock{}, err
-	} else {
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: block.AccountAddress,
-				ToAddress:      types.AddressPledge,
-				BlockType:      ledger.BlockTypeSendCall,
-				TokenId:        ledger.ViteTokenId,
-				Amount:         big.NewInt(0),
-				Data:           methodData,
-			},
-		}, nil
-	}
-}
-
-func handleNewOrderFail(db vm_db.VmDb, orderInfo *dex.Order, errCode int) ([]*ledger.AccountBlock, error) {
-	orderInfo.Order.Status = dex.NewFailed
-	dex.EmitNewOrderFailLog(db, orderInfo, errCode)
-	return nil, nil
-}
-
-func handleReceiveErr(db vm_db.VmDb, err error) ([]*ledger.AccountBlock, error) {
-	dex.EmitErrLog(db, err)
-	return nil, nil
+func handleReceiveErr(err error) ([]*ledger.AccountBlock, error) {
+	return nil, err
 }

@@ -5,61 +5,44 @@ import (
 )
 
 var (
+	InvalidOrderIdErr       = errors.New("invalid order id")
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
-	OrderNotExistsErr = errors.New("order not exists")
-	OrderAmountTooSmallErr  = NewDexError("order amount too small", OrderAmountTooSmallFail)
+	OrderNotExistsErr       = errors.New("order not exists")
+	OrderAmountTooSmallErr  = errors.New("order amount too small")
 
 	TradeMarketExistsError            = errors.New("trade market already exists")
-	TradeMarketNotExistsError         = NewDexError("trade market not exists", TradeMarketNotExistsFail)
-	ComposeOrderIdFailErr             = NewDexError("compose order id fail", CompositeOrderIdFail)
+	TradeMarketNotExistsError         = errors.New("trade market not exists")
+	ComposeOrderIdFailErr             = errors.New("compose order id fail")
 	DeComposeOrderIdFailErr           = errors.New("decompose order id fail")
 	TradeMarketInvalidQuoteTokenError = errors.New("invalid quote token")
 	TradeMarketInvalidTokenPairError  = errors.New("invalid token pair")
 	TradeMarketAllowMineError         = errors.New("token pair already allow mine")
 	TradeMarketNotAllowMineError      = errors.New("token pair already not allow mine")
 
-	GetOrderByIdFailedErr = errors.New("failed get order by orderId")
-	CancelOrderOwnerInvalidErr = errors.New("order to cancel not own to initiator")
+	GetOrderByIdFailedErr       = errors.New("failed get order by orderId")
+	CancelOrderOwnerInvalidErr  = errors.New("order to cancel not own to initiator")
 	CancelOrderInvalidStatusErr = errors.New("order status is invalid to cancel")
 
 	OnlyOwnerAllowErr = errors.New("only owner allow")
 
-	ExceedFundAvailableErr = errors.New("exceed fund available")
-	InvalidPledgeAmountErr = errors.New("invalid pledge amount")
+	ExceedFundAvailableErr     = errors.New("exceed fund available")
+	InvalidPledgeAmountErr     = errors.New("invalid pledge amount")
 	InvalidPledgeActionTypeErr = errors.New("invalid pledge action type")
-	ExceedPledgeAvailableErr = errors.New("exceed pledge available")
-	PledgeForVipExistsErr = errors.New("pledge for vip exists")
-	PledgeForVipNotExistsErr = errors.New("pledge for vip not exists")
-	PledgeForVipNotExpireErr = errors.New("pledge for vip not expire")
+	ExceedPledgeAvailableErr   = errors.New("exceed pledge available")
+	PledgeForVipExistsErr      = errors.New("pledge for vip exists")
+	PledgeForVipNotExistsErr   = errors.New("pledge for vip not exists")
+	PledgeForVipNotExpireErr   = errors.New("pledge for vip not expire")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amount for pledge callback")
 
-	InvalidTokenErr = errors.New("invalid token")
-	PendingDonateAmountSubExceedErr = errors.New("pending donate amount sub exceed")
-	PendingNewMarketInnerConflictErr = errors.New("pending new market inner conflict")
+	InvalidTokenErr                      = errors.New("invalid token")
+	PendingDonateAmountSubExceedErr      = errors.New("pending donate amount sub exceed")
+	PendingNewMarketInnerConflictErr     = errors.New("pending new market inner conflict")
 	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
-	InvalidStatusForPendingMarketInfoErr = errors.New("invalid status for pending market info")
-	InvalidTimestampFromTimerErr = errors.New("invalid timestamp from timer")
+	InvalidTimestampFromTimerErr         = errors.New("invalid timestamp from timer")
 
-	NotFoundValueFromDb               = errors.New("not found value from db")
+	NotSetTimestampErr   = errors.New("not set timestamp")
 )
-
-func NewDexError(str string, code int) *DexError {
-	return &DexError{str, code}
-}
-
-type DexError struct {
-	str string
-	code int
-}
-
-func (e *DexError) Error() string {
-	return e.str
-}
-
-func (e *DexError) Code() int {
-	return e.code
-}

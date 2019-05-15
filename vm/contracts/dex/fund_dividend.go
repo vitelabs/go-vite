@@ -11,67 +11,41 @@ import (
 	"math/big"
 )
 
-func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle) error {
-	var (
-		feeSumByPeriod *FeeSumByPeriod
-		err            error
-	)
-	if feeSumByPeriod, err = GetCurrentFeeSumFromStorage(db, reader); err != nil {
-		return err
-	} else {
-		if feeSumByPeriod == nil { // need roll period when current period feeSum not saved yet
-			if formerPeriodId, err := rollFeeSumPeriodId(db, reader); err != nil {
-				return err
-			} else {
-				feeSumByPeriod = &FeeSumByPeriod{}
-				feeSumByPeriod.LastValidPeriod = formerPeriodId
-			}
+func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle) {
+	feeSumByPeriod, ok := GetCurrentFeeSumFromStorage(db, reader)
+	if !ok { // need roll period when current period feeSum not saved yet
+		formerPeriodId := rollFeeSumPeriodId(db, reader)
+		feeSumByPeriod.LastValidPeriod = formerPeriodId
+	}
+	feeAmountMap := make(map[types.TokenTypeId][]byte)
+	for _, feeAction := range feeActions {
+		tokenId, _ := types.BytesToTokenTypeId(feeAction.Token)
+		for _, feeAcc := range feeAction.UserFeeSettles {
+			feeAmountMap[tokenId] = AddBigInt(feeAmountMap[tokenId], feeAcc.Amount)
 		}
-		feeAmountMap := make(map[types.TokenTypeId][]byte)
-		for _, feeAction := range feeActions {
-			tokenId, _ := types.BytesToTokenTypeId(feeAction.Token)
-			for _, feeAcc := range feeAction.UserFeeSettles {
-				feeAmountMap[tokenId] = AddBigInt(feeAmountMap[tokenId], feeAcc.Amount)
-			}
-		}
+	}
 
-		for _, feeAcc := range feeSumByPeriod.Fees {
-			tokenId, _ := types.BytesToTokenTypeId(feeAcc.Token)
-			if _, ok := feeAmountMap[tokenId]; ok {
-				feeAcc.Amount = AddBigInt(feeAcc.Amount, feeAmountMap[tokenId])
-				delete(feeAmountMap, tokenId)
-			}
-		}
-		for tokenId, feeAmount := range feeAmountMap {
-			newFeeAcc := &dexproto.FeeAccount{}
-			newFeeAcc.Token = tokenId.Bytes()
-			newFeeAcc.Amount = feeAmount
-			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAcc)
+	for _, feeAcc := range feeSumByPeriod.Fees {
+		tokenId, _ := types.BytesToTokenTypeId(feeAcc.Token)
+		if _, ok := feeAmountMap[tokenId]; ok {
+			feeAcc.Amount = AddBigInt(feeAcc.Amount, feeAmountMap[tokenId])
+			delete(feeAmountMap, tokenId)
 		}
 	}
-	if err = SaveCurrentFeeSumToStorage(db, reader, feeSumByPeriod); err != nil {
-		return err
-	} else {
-		return nil
+	for tokenId, feeAmount := range feeAmountMap {
+		newFeeAcc := &dexproto.FeeAccount{}
+		newFeeAcc.Token = tokenId.Bytes()
+		newFeeAcc.Amount = feeAmount
+		feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAcc)
 	}
+
+	SaveCurrentFeeSumToStorage(db, reader, feeSumByPeriod)
 }
 
-func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexproto.FeeSettle) error {
-	var (
-		userFees *UserFees
-		periodId uint64
-		err      error
-	)
-	if periodId = GetCurrentPeriodIdFromStorage(db, reader); err != nil {
-		return err
-	}
+func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexproto.FeeSettle) {
+	periodId := GetCurrentPeriodIdFromStorage(db, reader)
 	for _, userFeeSettle := range feeAction.UserFeeSettles {
-		if userFees, err = GetUserFeesFromStorage(db, userFeeSettle.Address); err != nil {
-			return err
-		}
-		if userFees == nil || len(userFees.Fees) == 0 {
-			userFees = &UserFees{}
-		}
+		userFees, _ := GetUserFeesFromStorage(db, userFeeSettle.Address)
 		feeLen := len(userFees.Fees)
 		if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 			var foundToken = false
@@ -97,140 +71,116 @@ func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexpr
 			userFeeByPeriodId.UserFees = []*dexproto.FeeAccount{feeAcc}
 			userFees.Fees = append(userFees.Fees, userFeeByPeriodId)
 		}
-		if err = SaveUserFeesToStorage(db, userFeeSettle.Address, userFees); err != nil {
-			return err
-		}
+		SaveUserFeesToStorage(db, userFeeSettle.Address, userFees)
 	}
-	return nil
 }
 
-func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) {
+	doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
 }
 
-func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) {
+	doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 }
 
-func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
+func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) {
 	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 }
 
-func rollFeeSumPeriodId(db vm_db.VmDb, reader util.ConsensusReader) (uint64, error) {
+func rollFeeSumPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
 	formerId := GetFeeSumLastPeriodIdForRoll(db)
-	if err := SaveFeeSumLastPeriodIdForRoll(db, reader); err != nil {
-		return 0, err
-	} else {
-		return formerId, err
-	}
+	SaveFeeSumLastPeriodIdForRoll(db, reader)
+	return formerId
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
-		err                   error
 		periodId              uint64
 		fundsLen              int
 		needUpdate            bool
 	)
-	if vxFunds, err = GetVxFundsFromStorage(db, addressBytes); err != nil {
-		return err
-	} else {
-		if vxFunds == nil {
-			vxFunds = &VxFunds{}
-		}
-		if periodId = GetCurrentPeriodIdFromStorage(db, reader); err != nil {
-			return err
-		}
-		fundsLen = len(vxFunds.Funds)
-		userNewAmt = new(big.Int).SetBytes(AddBigInt(updatedVxAccount.Available, updatedVxAccount.Locked))
-		if fundsLen == 0 { //need append new period
-			if IsValidVxAmountForDividend(userNewAmt) {
-				fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
-				vxFunds.Funds = append(vxFunds.Funds, fundWithPeriod)
-				sumChange = userNewAmt
-				needUpdate = true
-			}
-		} else if vxFunds.Funds[fundsLen-1].Period == periodId { //update current period
-			if IsValidVxAmountForDividend(userNewAmt) {
-				if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
-					sumChange = amtChange
-				} else {
-					sumChange = userNewAmt
-				}
-				vxFunds.Funds[fundsLen-1].Amount = userNewAmt.Bytes()
-			} else {
-				if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
-					sumChange = NegativeAmount(vxFunds.Funds[fundsLen-1].Amount)
-				}
-				if fundsLen > 1 { // in case fundsLen > 1, update last period to diff the condition of current period not changed ever from last saved period
-					vxFunds.Funds[fundsLen-1].Amount = userNewAmt.Bytes()
-				} else { // clear funds in case only current period saved and not valid any more
-					vxFunds.Funds = nil
-				}
-			}
+	vxFunds, _ = GetVxFundsFromStorage(db, addressBytes)
+	periodId = GetCurrentPeriodIdFromStorage(db, reader)
+	fundsLen = len(vxFunds.Funds)
+	userNewAmt = new(big.Int).SetBytes(AddBigInt(updatedVxAccount.Available, updatedVxAccount.Locked))
+	if fundsLen == 0 { //need append new period
+		if IsValidVxAmountForDividend(userNewAmt) {
+			fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
+			vxFunds.Funds = append(vxFunds.Funds, fundWithPeriod)
+			sumChange = userNewAmt
 			needUpdate = true
-		} else { // need save new status, whether new amt is valid or not, in order to diff last saved period
-			if IsValidVxAmountForDividend(userNewAmt) {
-				if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
-					sumChange = amtChange
-				} else {
-					sumChange = userNewAmt
-				}
+		}
+	} else if vxFunds.Funds[fundsLen-1].Period == periodId { //update current period
+		if IsValidVxAmountForDividend(userNewAmt) {
+			if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
+				sumChange = amtChange
+			} else {
+				sumChange = userNewAmt
+			}
+			vxFunds.Funds[fundsLen-1].Amount = userNewAmt.Bytes()
+		} else {
+			if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
+				sumChange = NegativeAmount(vxFunds.Funds[fundsLen-1].Amount)
+			}
+			if fundsLen > 1 { // in case fundsLen > 1, update last period to diff the condition of current period not changed ever from last saved period
+				vxFunds.Funds[fundsLen-1].Amount = userNewAmt.Bytes()
+			} else { // clear funds in case only current period saved and not valid any more
+				vxFunds.Funds = nil
+			}
+		}
+		needUpdate = true
+	} else { // need save new status, whether new amt is valid or not, in order to diff last saved period
+		if IsValidVxAmountForDividend(userNewAmt) {
+			if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
+				sumChange = amtChange
+			} else {
+				sumChange = userNewAmt
+			}
+			fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
+			vxFunds.Funds = append(vxFunds.Funds, fundWithPeriod)
+			needUpdate = true
+		} else {
+			if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
+				sumChange = NegativeAmount(vxFunds.Funds[fundsLen-1].Amount)
 				fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
 				vxFunds.Funds = append(vxFunds.Funds, fundWithPeriod)
 				needUpdate = true
-			} else {
-				if IsValidVxAmountBytesForDividend(vxFunds.Funds[fundsLen-1].Amount) {
-					sumChange = NegativeAmount(vxFunds.Funds[fundsLen-1].Amount)
-					fundWithPeriod := &dexproto.VxFundWithPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
-					vxFunds.Funds = append(vxFunds.Funds, fundWithPeriod)
-					needUpdate = true
-				}
 			}
 		}
 	}
+
 	if len(vxFunds.Funds) > 0 && needUpdate {
-		if err = SaveVxFundsToStorage(db, addressBytes, vxFunds); err != nil {
-			return err
-		}
+		SaveVxFundsToStorage(db, addressBytes, vxFunds)
 	} else if len(vxFunds.Funds) == 0 && fundsLen > 0 {
 		DeleteVxFundsFromStorage(db, addressBytes)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		var vxSumFunds *VxFunds
-		if vxSumFunds, err = GetVxSumFundsFromDb(db); err != nil {
-			return err
-		} else {
-			if vxSumFunds == nil {
-				vxSumFunds = &VxFunds{}
-			}
-			sumFundsLen := len(vxSumFunds.Funds)
-			if sumFundsLen == 0 {
-				if sumChange.Sign() > 0 {
-					vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundWithPeriod{Period: periodId, Amount: sumChange.Bytes()})
-				} else {
-					return fmt.Errorf("vxFundSum initiation get negative value")
-				}
+		vxSumFunds, _ := GetVxSumFundsFromDb(db)
+		sumFundsLen := len(vxSumFunds.Funds)
+		if sumFundsLen == 0 {
+			if sumChange.Sign() > 0 {
+				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundWithPeriod{Period: periodId, Amount: sumChange.Bytes()})
 			} else {
-				sumRes := new(big.Int).Add(new(big.Int).SetBytes(vxSumFunds.Funds[sumFundsLen-1].Amount), sumChange)
-				if sumRes.Sign() < 0 {
-					return fmt.Errorf("vxFundSum updated res get negative value")
-				}
-				if vxSumFunds.Funds[sumFundsLen-1].Period == periodId {
-					vxSumFunds.Funds[sumFundsLen-1].Amount = sumRes.Bytes()
-				} else {
-					vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundWithPeriod{Amount: sumRes.Bytes(), Period: periodId})
-				}
+				panic(fmt.Errorf("vxFundSum initiation get negative value"))
 			}
-			SaveVxSumFundsToDb(db, vxSumFunds)
+		} else {
+			sumRes := new(big.Int).Add(new(big.Int).SetBytes(vxSumFunds.Funds[sumFundsLen-1].Amount), sumChange)
+			if sumRes.Sign() < 0 {
+				panic(fmt.Errorf("vxFundSum updated res get negative value"))
+			}
+			if vxSumFunds.Funds[sumFundsLen-1].Period == periodId {
+				vxSumFunds.Funds[sumFundsLen-1].Amount = sumRes.Bytes()
+			} else {
+				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundWithPeriod{Amount: sumRes.Bytes(), Period: periodId})
+			}
 		}
+		SaveVxSumFundsToDb(db, vxSumFunds)
 	}
-	return nil
 }
 
 func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
@@ -239,18 +189,14 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		donateFeeSums = make(map[uint64]*big.Int)
 		vxSumFunds    *VxFunds
 		err           error
+		ok            bool
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap, donateFeeSums, err = GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); err != nil {
-		return err
-	} else if len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
+	if feeSumsMap, donateFeeSums = GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
 		return nil
 	}
-
-	if vxSumFunds, err = GetVxSumFundsFromDb(db); err != nil {
-		return err
-	} else if vxSumFunds == nil {
+	if vxSumFunds, ok = GetVxSumFundsFromDb(db); !ok {
 		return nil
 	}
 	foundVxSumFunds, vxSumAmtBytes, needUpdateVxSum, _ := MatchVxFundsByPeriod(vxSumFunds, periodId, false)
@@ -259,9 +205,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		return nil
 	}
 	if needUpdateVxSum {
-		if err := SaveVxSumFundsToDb(db, vxSumFunds); err != nil {
-			return err
-		}
+		SaveVxSumFundsToDb(db, vxSumFunds)
 	}
 	vxSumAmt := new(big.Int).SetBytes(vxSumAmtBytes)
 	if vxSumAmt.Sign() <= 0 {
@@ -281,7 +225,6 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 				}
 			}
 		}
-
 		MarkFeeSumAsFeeDivided(db, fee, pId)
 	}
 
@@ -292,7 +235,6 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 
 	var (
 		userVxFundsKey, userVxFundsBytes []byte
-		ok                               bool
 	)
 
 	iterator, err := db.NewStorageIterator(VxFundKeyPrefix)
@@ -332,9 +274,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		if needDeleteVxFunds {
 			DeleteVxFundsFromStorage(db, address.Bytes())
 		} else if needUpdateVxFunds {
-			if err = SaveVxFundsToStorage(db, address.Bytes(), userVxFunds); err != nil {
-				return err
-			}
+			SaveVxFundsToStorage(db, address.Bytes(), userVxFunds)
 		}
 		userVxAmount := new(big.Int).SetBytes(userVxAmtBytes)
 		//fmt.Printf("address %s, userVxAmount %s, needDeleteVxFunds %v\n", string(address.Bytes()), userVxAmount.String(), needDeleteVxFunds)
@@ -369,10 +309,9 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 		toDivideVxLeaveAmtMap = make(map[types.TokenTypeId]*big.Int)
 		tokenId               types.TokenTypeId
 		err                   error
+		ok                    bool
 	)
-	if feeSum, err = GetFeeSumByPeriodIdFromStorage(db, periodId); err != nil {
-		return err
-	} else if feeSum == nil { // no fee to divide
+	if feeSum, ok = GetFeeSumByPeriodIdFromStorage(db, periodId); !ok {
 		return nil
 	}
 	for _, feeSum := range feeSum.Fees {
@@ -388,7 +327,6 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 
 	var (
 		userFeesKey, userFeesBytes []byte
-		ok                         bool
 	)
 
 	vxTokenId := types.TokenTypeId{}
@@ -444,9 +382,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 			DeleteUserFeesFromStorage(db, addressBytes)
 		} else {
 			userFees.Fees = userFees.Fees[1:]
-			if err = SaveUserFeesToStorage(db, addressBytes, userFees); err != nil {
-				return err
-			}
+			SaveUserFeesToStorage(db, addressBytes, userFees)
 		}
 	}
 	return nil

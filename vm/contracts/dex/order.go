@@ -2,12 +2,7 @@ package dex
 
 import (
 	"bytes"
-	"encoding/base64"
-	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 )
 
@@ -36,40 +31,6 @@ const (
 
 const OrderIdBytesLength = 22
 
-type BaseStorage interface {
-	GetValue(key []byte) ([]byte, error)
-	SetValue(key []byte, value []byte) error
-	AddLog(log *ledger.VmLog)
-	GetLogListHash() *types.Hash
-	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
-}
-
-type OrderId [OrderIdBytesLength]byte
-
-func NewOrderId(value []byte) (OrderId, error) {
-	key := &OrderId{}
-	if err := key.setBytes(value); err != nil {
-		return *key, err
-	}
-	return *key, nil
-}
-
-func (id OrderId) toString() string {
-	return base64.StdEncoding.EncodeToString(id.bytes())
-}
-
-func (id OrderId) bytes() []byte {
-	return id[:]
-}
-
-func (id *OrderId) setBytes(value []byte) error {
-	if len(value) != OrderIdBytesLength {
-		return fmt.Errorf("invalid OrderId length error %d", len(value))
-	}
-	copy(id[:], value)
-	return nil
-}
-
 type Order struct {
 	dexproto.Order
 }
@@ -79,7 +40,11 @@ func (od *Order) Serialize() ([]byte, error) {
 	od.Side = false
 	od.Price = nil
 	od.Timestamp = 0
-	return proto.Marshal(&od.Order)
+	if data, err := proto.Marshal(&od.Order); err != nil {
+		return nil, err
+	} else {
+		return data, err
+	}
 }
 
 func (od *Order) DeSerialize(orderData []byte) error {

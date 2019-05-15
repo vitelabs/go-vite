@@ -56,8 +56,7 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	if db, err := f.getDb(); err != nil {
 		return nil, err
 	} else {
-		var marketInfo *dex.MarketInfo
-		marketInfo, err = dex.GetMarketInfo(db, tradeToken, quoteToken)
+		marketInfo, _ := dex.GetMarketInfo(db, tradeToken, quoteToken)
 		matcher := dex.NewMatcherWithMarketInfo(db, marketInfo)
 		if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
 			ordersRes = &OrdersRes{ods, size}

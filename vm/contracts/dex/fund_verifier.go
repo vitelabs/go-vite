@@ -139,13 +139,10 @@ func accumulateFeeDonate(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big
 	return nil
 }
 
-func accumulatePendingNewMarketFeeSum(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
-	if bs, err := db.GetValue(pendingNewMarketFeeSumKey); err != nil {
-		return err
-	} else {
+func accumulatePendingNewMarketFeeSum(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) {
+	if bs := getValueFromDb(db, pendingNewMarketFeeSumKey); len(bs) > 0 {
 		accAccount(ledger.ViteTokenId, bs, accumulateRes)
 	}
-	return nil
 }
 
 func accAccount(tokenId types.TokenTypeId, amount []byte, accAccount map[types.TokenTypeId]*big.Int) {

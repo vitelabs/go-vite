@@ -10,21 +10,9 @@ import (
 
 const newOrderEventName = "newOrderEvent"
 const orderUpdateEventName = "orderUpdateEvent"
-const newOrderFailEventName = "newOrderFailEvent"
 const txEventName = "txEvent"
 const newMarketEventName = "newMarketEvent"
 const errEventName = "errEvent"
-const cancelOrderFailEventName = "cancelOrderFailEvent"
-
-const (
-	NewOrderGetFundFail = iota
-	NewOrderLockFundFail
-	NewOrderSaveFundFail
-	NewOrderInternalErr
-	TradeMarketNotExistsFail
-	OrderAmountTooSmallFail
-	CompositeOrderIdFail
-)
 
 type OrderEvent interface {
 	GetTopicId() types.Hash
@@ -44,18 +32,9 @@ type TransactionEvent struct {
 	dexproto.Transaction
 }
 
-type NewOrderFailEvent struct {
-	dexproto.NewOrderFail
-}
-
 type NewMarketEvent struct {
 	dexproto.NewMarket
 }
-
-type CancelOrderFailEvent struct {
-	dexproto.CancelOrderFail
-}
-
 type ErrEvent struct {
 	error
 }
@@ -114,24 +93,6 @@ func (tx TransactionEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (of NewOrderFailEvent) GetTopicId() types.Hash {
-	return fromNameToHash(newOrderFailEventName)
-}
-
-func (of NewOrderFailEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&of.NewOrderFail)
-	return data
-}
-
-func (of NewOrderFailEvent) FromBytes(data []byte) interface{} {
-	event := NewOrderFailEvent{}
-	if err := proto.Unmarshal(data, &event.NewOrderFail); err != nil {
-		return nil
-	} else {
-		return event
-	}
-}
-
 func (me NewMarketEvent) GetTopicId() types.Hash {
 	return fromNameToHash(newMarketEventName)
 }
@@ -160,24 +121,6 @@ func (err ErrEvent) toDataBytes() []byte {
 
 func (err ErrEvent) FromBytes(data []byte) interface{} {
 	return ErrEvent{fmt.Errorf(string(data))}
-}
-
-func (ce CancelOrderFailEvent) GetTopicId() types.Hash {
-	return fromNameToHash(cancelOrderFailEventName)
-}
-
-func (ce CancelOrderFailEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&ce.CancelOrderFail)
-	return data
-}
-
-func (ce CancelOrderFailEvent) FromBytes(data []byte) interface{} {
-	event := CancelOrderFailEvent{}
-	if err := proto.Unmarshal(data, &event.CancelOrderFail); err != nil {
-		return nil
-	} else {
-		return event
-	}
 }
 
 func fromNameToHash(name string) types.Hash {

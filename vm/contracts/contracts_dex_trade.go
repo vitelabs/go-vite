@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -34,11 +33,12 @@ func (md *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
-		return fmt.Errorf("invalid block source")
+		return dex.InvalidSourceAddressErr
 	}
-	return nil
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), cabi.MethodNameDexTradeNewOrder, block.Data)
+	return
 }
 
 func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -47,25 +47,20 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 		blocks  []*ledger.AccountBlock
 		matcher *dex.Matcher
 	)
-	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
-		return handleReceiveErr(db, fmt.Errorf("invalid block source"))
-	}
 	param := new(dex.ParamDexSerializedData)
-	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNewOrder, sendBlock.Data); err != nil {
-		return handleReceiveErr(db, err)
-	}
+	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNewOrder, sendBlock.Data)
 	order := &dex.Order{}
 	if err = order.DeSerialize(param.Data); err != nil {
-		return handleReceiveErr(db, err)
+		panic(err)
 	}
 	if matcher, err = dex.NewMatcher(db, order.MarketId); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if err = matcher.MatchOrder(order); err != nil {
-		return handleNewOrderFailed(db, block, order, matcher.MarketInfo, err)
+		return onNewOrderFailed(order, matcher.MarketInfo)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
-		return handleNewOrderFailed(db, block, order, matcher.MarketInfo, err)
+		return onNewOrderFailed(order, matcher.MarketInfo)
 	}
 	return blocks, err
 }
@@ -89,13 +84,9 @@ func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var err error
-	param := new(dex.ParamDexCancelOrder)
-	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCancelOrder, block.Data); err != nil {
-		return err
-	}
-	return nil
+func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexCancelOrder), cabi.MethodNameDexTradeCancelOrder, block.Data)
+	return
 }
 
 func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -109,27 +100,23 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		appendBlocks []*ledger.AccountBlock
 	)
 	if marketId, _, _, _, err = dex.DeComposeOrderId(param.OrderId); err != nil {
-		return handleReceiveErr(db, dex.OrderNotExistsErr)
+		return handleReceiveErr(dex.InvalidOrderIdErr)
 	}
 	if matcher, err = dex.NewMatcher(db, marketId); err != nil {
-		return handleReceiveErr(db, err)
+		return handleReceiveErr(err)
 	}
 	if order, err = matcher.GetOrderById(param.OrderId); err != nil {
-		return handleReceiveErr(db, err)
-	} else if order == nil {
-		return handleReceiveErr(db, dex.OrderNotExistsErr)
+		return handleReceiveErr(err)
 	}
 	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
-		return handleReceiveErr(db, dex.CancelOrderOwnerInvalidErr)
+		return handleReceiveErr(dex.CancelOrderOwnerInvalidErr)
 	}
 	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return handleCancelOrderFail(db, param, dex.CancelOrderInvalidStatusErr)
+		return handleReceiveErr(dex.CancelOrderInvalidStatusErr)
 	}
-	if err = matcher.CancelOrderById(order); err != nil {
-		return handleCancelOrderFail(db, param, err)
-	}
+	matcher.CancelOrderById(order)
 	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
-		return handleCancelOrderFail(db, param, err)
+		return handleReceiveErr(err)
 	} else {
 		return appendBlocks, nil
 	}
@@ -154,13 +141,12 @@ func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota() uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeNotifyNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var err error
-	param := new(dex.ParamDexSerializedData)
-	if err = cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNotifyNewMarket, block.Data); err != nil {
-		return err
+func (md *MethodDexTradeNotifyNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
+		return dex.InvalidSourceAddressErr
 	}
-	return nil
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), cabi.MethodNameDexTradeNotifyNewMarket, block.Data)
+	return
 }
 
 func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -168,14 +154,14 @@ func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNotifyNewMarket, sendBlock.Data)
 	marketInfo := &dex.MarketInfo{}
 	if err := marketInfo.DeSerialize(param.Data); err != nil {
-		return nil, err
+		return handleReceiveErr(err)
 	} else {
-		return nil, dex.SaveMarketInfoById(db, marketInfo)
+		dex.SaveMarketInfoById(db, marketInfo)
+		return nil, nil
 	}
 }
 
-func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, order *dex.Order, marketInfo *dex.MarketInfo, inputErr error) ([]*ledger.AccountBlock, error) {
-	dex.EmitErrLog(db, inputErr)
+func onNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	fundSettle := &dexproto.FundSettle{}
 	switch order.Side {
 	case false: // buy
@@ -195,16 +181,14 @@ func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, order *dex.
 		newErr                         error
 	)
 	if settleData, newErr = proto.Marshal(settleActions); newErr != nil {
-		dex.EmitErrLog(db, newErr)
-		return nil, newErr
+		panic(newErr)
 	}
 	if dexSettleBlockData, newErr = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); newErr != nil {
-		dex.EmitErrLog(db, newErr)
-		return nil, newErr
+		panic(newErr)
 	}
 	return []*ledger.AccountBlock{
 		{
-			AccountAddress: block.AccountAddress,
+			AccountAddress: types.AddressDexTrade,
 			ToAddress:      types.AddressDexFund,
 			BlockType:      ledger.BlockTypeSendCall,
 			TokenId:        ledger.ViteTokenId,
@@ -212,11 +196,6 @@ func handleNewOrderFailed(db vm_db.VmDb, block *ledger.AccountBlock, order *dex.
 			Data:           dexSettleBlockData,
 		},
 	}, nil
-}
-
-func handleCancelOrderFail(db vm_db.VmDb, param *dex.ParamDexCancelOrder, err error) ([]*ledger.AccountBlock, error) {
-	dex.EmitCancelOrderFailLog(db, param, err)
-	return nil, nil
 }
 
 func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*ledger.AccountBlock, error) {
@@ -268,10 +247,10 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 		err                            error
 	)
 	if settleData, err = proto.Marshal(settleActions); err != nil {
-		return nil, err
+		panic(err)
 	}
 	if dexSettleBlockData, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); err != nil {
-		return nil, err
+		panic(err)
 	}
 	return []*ledger.AccountBlock{
 		{
