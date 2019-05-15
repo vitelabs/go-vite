@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-func compareHashHeightList(c1, c2 *HashHeightList) error {
+func compareHashHeightList(c1, c2 *HashHeightPointList) error {
 	if len(c1.Points) != len(c2.Points) {
 		return fmt.Errorf("different points length")
 	}
@@ -23,17 +23,23 @@ func compareHashHeightList(c1, c2 *HashHeightList) error {
 		if p1.Hash != p2.Hash {
 			return fmt.Errorf("different point hash %s %s", p1.Hash, p2.Hash)
 		}
+		if p1.Size != p2.Size {
+			return fmt.Errorf("different point size %d %d", p1.Size, p2.Size)
+		}
 	}
 
 	return nil
 }
 
 func TestHashHeightList_Serialize(t *testing.T) {
-	var c = &HashHeightList{}
+	var c = &HashHeightPointList{}
 
-	for i := 0; i < 5; i++ {
-		hh := &ledger.HashHeight{
-			Height: uint64(i),
+	for i := uint64(0); i < 5; i++ {
+		hh := &HashHeightPoint{
+			HashHeight: ledger.HashHeight{
+				Height: i,
+			},
+			Size: i,
 		}
 		_, _ = rand.Read(hh.Hash[:])
 
@@ -45,7 +51,7 @@ func TestHashHeightList_Serialize(t *testing.T) {
 		panic(err)
 	}
 
-	var c2 = &HashHeightList{}
+	var c2 = &HashHeightPointList{}
 	err = c2.Deserialize(data)
 	if err != nil {
 		panic(err)

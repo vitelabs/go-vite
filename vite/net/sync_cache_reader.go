@@ -106,33 +106,37 @@ func (s *cacheReader) Peek() (c *Chunk) {
 	if s.index < len(s.buffer) {
 		c = s.buffer[s.index]
 		s.index++
+		s.log.Info(fmt.Sprintf("peek cache %d-%d", c.SnapshotRange[0].Height, c.SnapshotRange[1].Height))
 	}
 
 	return
 }
 
 func (s *cacheReader) Pop(endHash types.Hash) {
-	s.log.Info(fmt.Sprintf("pop cache %s", endHash))
-
 	s.mu.Lock()
 	if len(s.buffer) > 0 {
 		if s.buffer[0].SnapshotRange[1].Hash == endHash {
+			s.log.Info(fmt.Sprintf("pop cache %d-%d %s", s.buffer[0].SnapshotRange[0].Height, s.buffer[0].SnapshotRange[1].Height, endHash))
+
 			s.buffer = s.buffer[1:]
 			s.index--
+			if s.index < 0 {
+				s.index = 0
+			}
+
+			s.cond.Signal()
 		}
 	}
 	s.mu.Unlock()
-
-	s.cond.Signal()
 }
 
-func (s *cacheReader) bufferSize() (n int64) {
-	for _, c := range s.buffer {
-		n += c.size
-	}
-
-	return
-}
+//func (s *cacheReader) bufferSize() (n int64) {
+//	for _, c := range s.buffer {
+//		n += c.size
+//	}
+//
+//	return
+//}
 
 // will blocked if queue is full
 func (s *cacheReader) addChunkToBuffer(c *Chunk) {
@@ -140,11 +144,11 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	defer s.mu.Unlock()
 
 	for {
-		if false == s.running {
+		if false == s.running || s.canRead() == false {
 			return
 		}
 
-		if s.bufferSize() >= maxQueueSize || len(s.buffer) > maxQueueLength {
+		if len(s.buffer) > maxQueueLength {
 			s.cond.Wait()
 		} else {
 			break
@@ -273,16 +277,17 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(segment)
 
+	s.log.Warn(fmt.Sprintf("delete chunk %d-%d/%s/%s, task %d-%d/%s/%s", segment.Bound[0], segment.Bound[1], segment.PrevHash, segment.Hash, t.Bound[0], t.Bound[1], t.PrevHash, t.Hash))
+
 	// chunk has been read to buffer
 	if segment.Bound[1] <= s.readHeight {
 		s.mu.Lock()
 		for i, c := range s.buffer {
 			if c.SnapshotRange[1].Height == segment.Bound[1] {
 				s.buffer = s.buffer[:i]
-				s.index = i
-
-				// signal reader, maybe blocked when addChunkToBuffer
-				s.cond.Signal()
+				if s.index > len(s.buffer) {
+					s.index = len(s.buffer)
+				}
 
 				if len(s.buffer) > 0 {
 					last := s.buffer[len(s.buffer)-1]
@@ -290,6 +295,11 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 				} else {
 					s.readHeight = t.Bound[0] - 1
 				}
+
+				s.log.Warn(fmt.Sprintf("delete chunk in buffer from %d", i))
+
+				// signal reader, maybe blocked when addChunkToBuffer
+				s.cond.Signal()
 
 				break
 			}
@@ -331,6 +341,8 @@ func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
 }
 
 func (s *cacheReader) reset() {
+	s.pause()
+
 	s.mu.Lock()
 	s.readHeight = 0
 	s.buffer = s.buffer[:0]
@@ -475,12 +487,7 @@ Loop:
 				break Loop
 			}
 
-			if cs = cache.Chunks(); len(cs) == 0 {
-				s.mu.Lock()
-				s.cond.Wait()
-				s.mu.Unlock()
-				continue
-			} else if s.canRead() == false {
+			if cs = cache.Chunks(); len(cs) == 0 || s.canRead() == false {
 				s.mu.Lock()
 				s.cond.Wait()
 				s.mu.Unlock()
@@ -507,16 +514,16 @@ Loop:
 			s.log.Info(fmt.Sprintf("begin read cache %d-%d", c.Bound[0], c.Bound[1]))
 			chunk, fatal, err = s.read(c)
 
-			// read chunk error
 			if err != nil {
+				// read chunk error
 				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
 				s.chunkReadFailed(c, fatal)
 			} else {
+				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
+				// set readHeight should be very seriously
+				s.readHeight = c.Bound[1]
 				// will be block
 				s.addChunkToBuffer(chunk)
-				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
-				// set readTo should be very seriously
-				s.readHeight = c.Bound[1]
 			}
 		}
 
