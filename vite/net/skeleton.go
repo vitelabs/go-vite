@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/p2p"
@@ -32,8 +34,10 @@ import (
 
 const getHashHeightListTimeout = 10 * time.Second
 
+var errTimeout = errors.New("timeout")
+
 type hashHeightPeers struct {
-	*ledger.HashHeight
+	*message.HashHeightPoint
 	ps map[peerId]Peer
 }
 
@@ -48,7 +52,7 @@ func newHashHeightTree() *hashHeightNode {
 	}
 }
 
-func (t *hashHeightNode) addBranch(list []*ledger.HashHeight, sender Peer) {
+func (t *hashHeightNode) addBranch(list []*message.HashHeightPoint, sender Peer) {
 	var tree = t
 	var subTree *hashHeightNode
 	var ok bool
@@ -73,7 +77,7 @@ func (t *hashHeightNode) addBranch(list []*ledger.HashHeight, sender Peer) {
 	}
 }
 
-func (t *hashHeightNode) bestBranch() (list []*ledger.HashHeight) {
+func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
 	var tree = t
 	var subTree *hashHeightNode
 	var weight int
@@ -92,18 +96,13 @@ func (t *hashHeightNode) bestBranch() (list []*ledger.HashHeight) {
 			}
 		}
 
-		list = append(list, subTree.HashHeight)
+		list = append(list, subTree.HashHeightPoint)
 
 		tree = subTree
 	}
 }
 
 type skeleton struct {
-	chain syncChain
-
-	batchHead   types.Hash
-	batchHeight uint64
-
 	checking int32
 
 	tree *hashHeightNode
@@ -117,9 +116,8 @@ type skeleton struct {
 	wg sync.WaitGroup
 }
 
-func newSkeleton(chain syncChain, peers syncPeerSet, idGen MsgIder) *skeleton {
+func newSkeleton(peers syncPeerSet, idGen MsgIder) *skeleton {
 	return &skeleton{
-		chain:   chain,
 		peers:   peers,
 		idGen:   idGen,
 		pending: make(map[p2p.MsgId]Peer),
@@ -127,7 +125,7 @@ func newSkeleton(chain syncChain, peers syncPeerSet, idGen MsgIder) *skeleton {
 }
 
 // construct return a slice of HashHeight, every 100 step
-func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*ledger.HashHeight) {
+func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*message.HashHeightPoint) {
 	atomic.StoreInt32(&sk.checking, 1)
 
 	sk.tree = newHashHeightTree()
@@ -162,25 +160,27 @@ func (sk *skeleton) getHashList(p Peer, msg *message.GetHashHeightList) {
 	if err != nil {
 		p.catch(err)
 	} else {
-		time.AfterFunc(getHashHeightListTimeout, func() {
-			sk.removePending(mid)
-		})
-
 		// add pending
 		sk.mu.Lock()
 		sk.pending[mid] = p
 		sk.mu.Unlock()
+
+		time.AfterFunc(getHashHeightListTimeout, func() {
+			sk.getHashListFailed(mid, p, errTimeout)
+		})
 	}
 }
 
 func (sk *skeleton) receiveHashList(msg p2p.Msg, sender Peer) {
 	if atomic.LoadInt32(&sk.checking) == 1 {
-		var hh = &message.HashHeightList{}
+		var hh = &message.HashHeightPointList{}
 		err := hh.Deserialize(msg.Payload)
 		if err != nil {
 			sk.getHashListFailed(msg.Id, sender, err)
 			return
 		}
+
+		sk.removePending(msg.Id)
 
 		sk.mu.Lock()
 		sk.tree.addBranch(hh.Points, sender)
