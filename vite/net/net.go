@@ -49,7 +49,7 @@ type net struct {
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
-	reader     syncCacheReader
+	reader     *cacheReader
 	downloader syncDownloader
 	BlockSubscriber
 	server    *syncServer
@@ -341,6 +341,7 @@ func (h *heartBeater) state() []byte {
 func (n *net) Init(consensus Consensus, reader IrreversibleReader) {
 	n.consensus = consensus
 	n.syncer.irreader = reader
+	n.reader.irreader = reader
 }
 
 func (n *net) State() []byte {
