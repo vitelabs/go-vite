@@ -141,6 +141,8 @@ type handshaker struct {
 }
 
 func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
+	_, _, h.genesis = h.protocol.ProtoData()
+
 	c.SetReadTimeout(handshakeTimeout)
 	msg, err := c.ReadMsg()
 	if err != nil {
@@ -296,11 +298,6 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 	}
 
 	return h.doHandshake(c, Outbound, their)
-}
-
-func (h *handshaker) catch(codec Codec, err error) {
-	_ = Disconnect(codec, err)
-	_ = codec.Close()
 }
 
 func (h *handshaker) doHandshake(c Codec, level Level, their *HandshakeMsg) (peer PeerMux, err error) {

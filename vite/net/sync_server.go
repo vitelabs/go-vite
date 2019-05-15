@@ -140,7 +140,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 	// is running
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		delete(s.sconnMap, c.ID())
+		delete(s.sconnMap, c.peer.ID())
 		s.mu.Unlock()
 	}
 }
@@ -148,7 +148,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 func (s *syncServer) addConn(c *syncConn) {
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		s.sconnMap[c.ID()] = c
+		s.sconnMap[c.peer.ID()] = c
 		s.mu.Unlock()
 	}
 }
