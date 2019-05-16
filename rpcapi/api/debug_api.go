@@ -62,6 +62,9 @@ func (api DebugApi) PoolIrreversible() string {
 	bytes, _ := json.Marshal(block)
 	return string(bytes)
 }
+func (api DebugApi) RoadInfo() map[string]interface{} {
+	return api.v.OnRoad().Info()
+}
 
 func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64) map[string]interface{} {
 	result := make(map[string]interface{})
