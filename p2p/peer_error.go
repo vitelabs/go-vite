@@ -23,7 +23,7 @@ const (
 	PeerInvalidMessage
 	PeerResponseTimeout
 	PeerInvalidToken
-	PeerUnknownReason = 255
+	PeerUnknownReason PeerError = 255
 )
 
 var peerErrStr = map[PeerError]string{

@@ -310,6 +310,7 @@ func (p *p2p) Register(pt Protocol) error {
 
 	p.protocol = pt
 	p.handshaker.protocol = pt
+	_, _, p.handshaker.genesis = pt.ProtoData()
 
 	return nil
 }
