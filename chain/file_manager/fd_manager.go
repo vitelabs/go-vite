@@ -291,6 +291,7 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 			}
 
 			fdSet.fileCache.Remove(fdSet.fileCache.Front())
+			delete(fdSet.fileFdCache, item.FileId)
 		}
 
 		// ring buffer. reuse cache
