@@ -239,7 +239,7 @@ func (c *Config) makeP2PConfig() (cfg *p2p.Config, err error) {
 			ListenAddress: listenAddress,
 			PublicAddress: c.PublicAddress,
 			DataDir:       p2pDataDir,
-			PeerKey:       c.PeerKey,
+			PeerKey:       peerKey,
 			BootNodes:     c.BootNodes,
 			BootSeeds:     c.BootSeeds,
 			NetID:         c.NetID,
