@@ -81,7 +81,6 @@ type cacheReader struct {
 	readable int32
 
 	buffer Chunks
-	index  int
 
 	downloadRecord map[interfaces.Segment]peerId
 
@@ -153,9 +152,8 @@ func (s *cacheReader) Peek() (c *Chunk) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.index < len(s.buffer) {
-		c = s.buffer[s.index]
-		s.index++
+	if len(s.buffer) > 0 {
+		c = s.buffer[0]
 		s.log.Info(fmt.Sprintf("peek cache %d-%d", c.SnapshotRange[0].Height, c.SnapshotRange[1].Height))
 	}
 
@@ -169,10 +167,6 @@ func (s *cacheReader) Pop(endHash types.Hash) {
 			s.log.Info(fmt.Sprintf("pop cache %d-%d %s", s.buffer[0].SnapshotRange[0].Height, s.buffer[0].SnapshotRange[1].Height, endHash))
 
 			s.buffer = s.buffer[1:]
-			s.index--
-			if s.index < 0 {
-				s.index = 0
-			}
 
 			s.cond.Signal()
 		}
@@ -338,9 +332,6 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 		for i, c := range s.buffer {
 			if c.SnapshotRange[1].Height == segment.Bound[1] {
 				s.buffer = s.buffer[:i]
-				if s.index > len(s.buffer) {
-					s.index = len(s.buffer)
-				}
 
 				s.readHeight = c.SnapshotRange[0].Height
 				if s.readHeight >= t.Bound[0] {
@@ -396,7 +387,6 @@ func (s *cacheReader) reset() {
 	s.mu.Lock()
 	s.readHeight = 0
 	s.buffer = s.buffer[:0]
-	s.index = 0
 	s.mu.Unlock()
 
 	s.cond.Signal()
