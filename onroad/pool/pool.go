@@ -13,6 +13,7 @@ type OnRoadPool interface {
 	GetFrontOnRoadBlocksByAddr(addr types.Address) ([]*ledger.AccountBlock, error)
 
 	IsFrontOnRoadOfCaller(orAddr, caller types.Address, hash types.Hash) (bool, error)
+	Info() map[string]interface{}
 }
 
 type chainReader interface {
