@@ -105,7 +105,7 @@ type peerMux struct {
 }
 
 func (p *peerMux) Weight() int64 {
-	return time.Now().Unix() - p.createAt.Unix()
+	return int64(p.level)
 }
 
 func (p *peerMux) Head() types.Hash {
@@ -238,9 +238,10 @@ func (p *peerMux) readLoop() (err error) {
 		case CodeDisconnect:
 			if len(msg.Payload) > 0 {
 				err = PeerError(msg.Payload[0])
-				return
+			} else {
+				err = PeerUnknownReason
 			}
-			return PeerQuitting
+			return
 		case CodeControlFlow:
 		// todo
 
