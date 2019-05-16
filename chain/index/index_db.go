@@ -3,9 +3,12 @@ package chain_index
 import (
 	"fmt"
 	"github.com/allegro/bigcache"
+	"github.com/gin-gonic/gin/json"
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"path"
 )
@@ -90,4 +93,40 @@ func (iDB *IndexDB) Close() error {
 	iDB.store = nil
 
 	return nil
+}
+
+func (iDB *IndexDB) GetStatus() []interfaces.DBStatus {
+	iDBCacheStatus, err := json.Marshal(iDB.cache.Stats())
+	if err != nil {
+		iDBCacheStatus = []byte("Error: " + err.Error())
+	}
+
+	statusList := iDB.store.GetStatus()
+
+	return []interfaces.DBStatus{{
+		Name:   "indexDB.cache",
+		Count:  uint64(iDB.cache.Len()),
+		Size:   uint64(iDB.cache.Capacity()),
+		Status: string(iDBCacheStatus),
+	}, {
+		Name:   "indexDB.sendCreateBlockHashCache",
+		Count:  uint64(iDB.sendCreateBlockHashCache.Len()),
+		Size:   uint64(iDB.sendCreateBlockHashCache.Len() * (types.HashSize + 8)),
+		Status: "",
+	}, {
+		Name:   "indexDB.accountCache",
+		Count:  uint64(iDB.accountCache.Len()),
+		Size:   uint64(iDB.accountCache.Len() * types.AddressSize),
+		Status: "",
+	}, {
+		Name:   "indexDB.store.mem",
+		Count:  uint64(statusList[0].Count),
+		Size:   uint64(statusList[0].Size),
+		Status: statusList[0].Status,
+	}, {
+		Name:   "indexDB.store.levelDB",
+		Count:  uint64(statusList[1].Count),
+		Size:   uint64(statusList[1].Size),
+		Status: statusList[1].Status,
+	}}
 }

@@ -80,3 +80,10 @@ type SyncCache interface {
 	NewReader(segment Segment) (ChunkReader, error)
 	Delete(seg Segment) error
 }
+
+type DBStatus struct {
+	Name   string
+	Count  uint64
+	Size   uint64
+	Status string
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
@@ -262,6 +263,10 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) error {
 func (bDB *BlockDB) SetLog(h log15.Handler) {
 	bDB.log.SetHandler(h)
 	bDB.fm.SetLog(h)
+}
+
+func (bDB *BlockDB) GetStatus() []interfaces.DBStatus {
+	return bDB.fm.GetCacheStatusList()
 }
 
 func (bDB *BlockDB) maxLocation(location *chain_file_manager.Location) *chain_file_manager.Location {

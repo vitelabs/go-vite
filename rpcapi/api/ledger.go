@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -332,4 +333,8 @@ func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint6
 		return 0, err
 	}
 	return l.chain.GetSeed(sb, fromHash)
+}
+
+func (l *LedgerApi) GetChainStatus() []interfaces.DBStatus {
+	return l.chain.GetStatus()
 }
