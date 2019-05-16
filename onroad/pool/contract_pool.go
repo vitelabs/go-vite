@@ -116,16 +116,17 @@ func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []
 	for _, pendingList := range onroadMap {
 		sort.Sort(pendingList)
 		for _, v := range pendingList {
+			or := &v.hashHeight
 			if v.block.IsSendBlock() {
 				mlog.Debug(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
-				if err := p.insertOnRoad(v, isWrite); err != nil {
+				if err := p.insertOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
 				mlog.Debug(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
-				if err := p.deleteOnRoad(v, isWrite); err != nil {
+				if err := p.deleteOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
@@ -148,16 +149,17 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 		sort.Sort(pendingList)
 		for i := pendingList.Len() - 1; i >= 0; i-- {
 			v := pendingList[i]
+			or := &v.hashHeight
 			if v.block.IsSendBlock() {
 				mlog.Debug(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
-				if err := p.deleteOnRoad(v, isWrite); err != nil {
+				if err := p.deleteOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
 				mlog.Debug(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
-				if err := p.insertOnRoad(v, isWrite); err != nil {
+				if err := p.insertOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
@@ -168,25 +170,25 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 	return nil
 }
 
-func (p *contractOnRoadPool) insertOnRoad(onroad *OnRoadBlock, isWrite bool) error {
-	isCallerContract := types.IsContractAddr(onroad.caller)
-	cc, exist := p.cache.Load(onroad.orAddr)
+func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or *orHashHeight, isWrite bool) error {
+	isCallerContract := types.IsContractAddr(caller)
+	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
-		cc, _ = p.cache.LoadOrStore(onroad.orAddr, NewCallerCache())
+		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache())
 	}
-	if err := cc.(*callerCache).addTx(&onroad.caller, isCallerContract, &onroad.hashHeight, isWrite); err != nil {
+	if err := cc.(*callerCache).addTx(&caller, isCallerContract, or, isWrite); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *contractOnRoadPool) deleteOnRoad(onroad *OnRoadBlock, isWrite bool) error {
-	isCallerContract := types.IsContractAddr(onroad.caller)
-	cc, exist := p.cache.Load(onroad.orAddr)
+func (p *contractOnRoadPool) deleteOnRoad(orAddr, caller types.Address, or *orHashHeight, isWrite bool) error {
+	isCallerContract := types.IsContractAddr(caller)
+	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
 		return ErrLoadCallerCacheFailed
 	}
-	if err := cc.(*callerCache).rmTx(&onroad.caller, isCallerContract, &onroad.hashHeight, isWrite); err != nil {
+	if err := cc.(*callerCache).rmTx(&caller, isCallerContract, or, isWrite); err != nil {
 		return err
 	}
 	return nil

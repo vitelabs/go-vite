@@ -35,7 +35,8 @@ type Manager struct {
 	consensus generator.Consensus
 
 	contractWorkers     map[types.Gid]*ContractWorker
-	newContractListener sync.Map //map[types.Gid]func(address types.Address)
+	newContractListener sync.Map //map[types.Gid]contractReactFunc
+	newSnapshotListener sync.Map //map[types.Gid]snapshotEventReactFunc
 
 	onRoadPools sync.Map //map[types.Gid]contract_pool.OnRoadPool
 
