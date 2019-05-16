@@ -892,8 +892,17 @@ func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipPrefix, address.Bytes()...)
 }
 
+func GetTimestampInt64(db vm_db.VmDb) int64 {
+	timestamp := GetTimerTimestamp(db)
+	if timestamp == 0 {
+		panic(NotSetTimestampErr)
+	} else {
+		return timestamp
+	}
+}
+
 func SetTimerTimestamp(db vm_db.VmDb, timestamp int64) error {
-	if timestamp > GetTimestampInt64(db) {
+	if timestamp > GetTimerTimestamp(db) {
 		setValueToDb(db, timestampKey, Uint64ToBytes(uint64(timestamp)))
 		return nil
 	} else {
@@ -901,11 +910,11 @@ func SetTimerTimestamp(db vm_db.VmDb, timestamp int64) error {
 	}
 }
 
-func GetTimestampInt64(db vm_db.VmDb) int64 {
+func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	if bs := getValueFromDb(db, timestampKey); len(bs) == 8 {
 		return int64(BytesToUint64(bs))
 	} else {
-		panic(NotSetTimestampErr)
+		return 0
 	}
 }
 

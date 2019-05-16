@@ -14,19 +14,8 @@ import (
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
-)
-
-type tokenInfo struct {
-	tokenId  types.TokenTypeId
-	decimals int32
-}
-
-var (
-	ETH  = tokenInfo{types.TokenTypeId{'E', 'T', 'H', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}, 12} //tradeToken
-	VITE = tokenInfo{ledger.ViteTokenId, 14}                                                  //quoteToken
 )
 
 func TestDexFund(t *testing.T) {
@@ -52,7 +41,7 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	depositSendAccBlock.TokenId = VITE.tokenId
 	depositSendAccBlock.Amount = big.NewInt(3000)
 
-	depositSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserDeposit)
+	depositSendAccBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserDeposit)
 	err = depositMethod.DoSend(db, depositSendAccBlock)
 	assert.True(t, err == nil)
 	assert.True(t, bytes.Equal(depositSendAccBlock.TokenId.Bytes(), VITE.tokenId.Bytes()))
@@ -67,26 +56,26 @@ func innerTestDepositAndWithdraw(t *testing.T, db *testDatabase, userAddress typ
 	assert.Equal(t, 1, len(dexFund.Accounts))
 	acc := dexFund.Accounts[0]
 	assert.True(t, bytes.Equal(acc.Token, VITE.tokenId.Bytes()))
-	assert.True(t, CheckBigEqualToInt(3000, acc.Available))
-	assert.True(t, CheckBigEqualToInt(0, acc.Locked))
+	assert.True(t, checkBigEqualToInt(3000, acc.Available))
+	assert.True(t, checkBigEqualToInt(0, acc.Locked))
 
 	//withdraw
 	withdrawMethod := contracts.MethodDexFundUserWithdraw{}
 
 	withdrawSendAccBlock := &ledger.AccountBlock{}
 	withdrawSendAccBlock.AccountAddress = userAddress
-	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
+	withdrawSendAccBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
 	err = withdrawMethod.DoSend(db, withdrawSendAccBlock)
 	assert.True(t, err == nil)
 
 	withdrawReceiveBlock := &ledger.AccountBlock{}
 
-	clearContext(db)
-	withdrawSendAccBlock.Data, err = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
+	clearLogs(db)
+	withdrawSendAccBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserWithdraw, VITE.tokenId, big.NewInt(200))
 	appendedBlocks, _ := doWithdraw(db, withdrawMethod, withdrawReceiveBlock, withdrawSendAccBlock)
 	dexFund, _ = dex.GetUserFundFromStorage(db, userAddress)
 	acc = dexFund.Accounts[0]
-	assert.True(t, CheckBigEqualToInt(2800, acc.Available))
+	assert.True(t, checkBigEqualToInt(2800, acc.Available))
 	assert.Equal(t, 1, len(appendedBlocks))
 
 }
@@ -97,7 +86,7 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	senderAccBlock.AccountAddress = userAddress1
 	senderAccBlock.TokenId = ETH.tokenId
 	senderAccBlock.Amount = new(big.Int).Div(dex.NewMarketFeeDividendAmount, big.NewInt(2))
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewMarket, VITE.tokenId, ETH.tokenId)
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewMarket, VITE.tokenId, ETH.tokenId)
 	method := contracts.MethodDexFundNewMarket{}
 	err := method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "token type of fee for create market not valid", err.Error())
@@ -113,8 +102,8 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	acc := dexFund.Accounts[0]
 	assert.True(t, dex.CmpForBigInt(dex.NewMarketFeeDividendAmount.Bytes(), acc.Available) == 0)
 
-	marketInfo, err := dex.GetMarketInfo(db, VITE.tokenId, ETH.tokenId)
-	assert.True(t, marketInfo != nil)
+	marketInfo, ok := dex.GetMarketInfo(db, VITE.tokenId, ETH.tokenId)
+	assert.True(t, ok)
 	assert.True(t, bytes.Equal(marketInfo.Creator, userAddress1.Bytes()))
 	assert.Equal(t, VITE.decimals, marketInfo.TradeTokenDecimals)
 	assert.Equal(t, ETH.decimals, marketInfo.QuoteTokenDecimals)
@@ -145,28 +134,21 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	receiveBlock := &ledger.AccountBlock{}
 
-	clearContext(db)
+	clearLogs(db)
 
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(1000))
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(1000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
 	_, err := method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	assert.Equal(t, err, nil)
-	invalidMarketEvent := dex.NewOrderFailEvent{}
-	assert.Equal(t, invalidMarketEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
-	invalidMarketEvent, _ = invalidMarketEvent.FromBytes(db.logList[0].Data).(dex.NewOrderFailEvent)
-	assert.Equal(t, strconv.Itoa(dex.TradeMarketNotExistsFail), invalidMarketEvent.ErrCode)
+	assert.Equal(t, err, dex.TradeMarketNotExistsError)
 
 	innerTestNewMarket(t, db)
-	clearContext(db)
+	clearLogs(db)
 
 	_, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	tooSmallAmountEvent := dex.NewOrderFailEvent{}
-	assert.Equal(t, tooSmallAmountEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
-	tooSmallAmountEvent, _ = tooSmallAmountEvent.FromBytes(db.logList[0].Data).(dex.NewOrderFailEvent)
-	assert.Equal(t, strconv.Itoa(dex.OrderAmountTooSmallFail), tooSmallAmountEvent.ErrCode)
+	assert.Equal(t, err, dex.OrderAmountTooSmallErr)
 
-	clearContext(db)
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(2000))
+	clearLogs(db)
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(2000))
 	var appendedBlocks []*ledger.AccountBlock
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.True(t, err == nil)
@@ -175,15 +157,16 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	dexFund, _ := dex.GetUserFundFromStorage(db, userAddress)
 	acc := dexFund.Accounts[0]
 	assert.Equal(t, 1, len(appendedBlocks))
-	assert.True(t, CheckBigEqualToInt(800, acc.Available))
-	assert.True(t, CheckBigEqualToInt(2000, acc.Locked))
+	assert.True(t, checkBigEqualToInt(800, acc.Available))
+	assert.True(t, checkBigEqualToInt(2000, acc.Locked))
 
 	param1 := new(dex.ParamDexSerializedData)
-	err = contracts.ABIDexTrade.UnpackMethod(param1, contracts.MethodNameDexTradeNewOrder, appendedBlocks[0].Data)
-	order1 := &dexproto.OrderInfo{}
-	proto.Unmarshal(param1.Data, order1)
-	assert.True(t, CheckBigEqualToInt(6, order1.Order.Amount))
-	assert.Equal(t, order1.Order.Status, int32(dex.Pending))
+	err = abi.ABIDexTrade.UnpackMethod(param1, abi.MethodNameDexTradeNewOrder, appendedBlocks[0].Data)
+	order := &dex.Order{}
+	err = order.DeSerialize(param1.Data)
+	assert.Equal(t, err, nil)
+	assert.True(t, checkBigEqualToInt(6, order.Amount))
+	assert.Equal(t, order.Status, int32(dex.Pending))
 }
 
 func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Address) {
@@ -217,13 +200,13 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	actions.FeeActions = append(actions.FeeActions, &feeAction)
 	data, _ := proto.Marshal(&actions)
 
-	senderAccBlock.Data, _ = contracts.ABIDexFund.PackMethod(contracts.MethodNameDexFundSettleOrders, data)
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundSettleOrders, data)
 	err := method.DoSend(db, senderAccBlock)
 	assert.True(t, err == nil)
 
 	receiveBlock := &ledger.AccountBlock{}
 
-	clearContext(db)
+	clearLogs(db)
 
 	_, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, 0, len(db.logList))
@@ -239,21 +222,20 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 		ethAcc = dexFund.Accounts[1]
 		viteAcc = dexFund.Accounts[0]
 	}
-	assert.True(t, CheckBigEqualToInt(0, ethAcc.Locked))
-	assert.True(t, CheckBigEqualToInt(30, ethAcc.Available))
-	assert.True(t, CheckBigEqualToInt(900, viteAcc.Locked))
-	assert.True(t, CheckBigEqualToInt(900, viteAcc.Available))
+	assert.True(t, checkBigEqualToInt(0, ethAcc.Locked))
+	assert.True(t, checkBigEqualToInt(30, ethAcc.Available))
+	assert.True(t, checkBigEqualToInt(900, viteAcc.Locked))
+	assert.True(t, checkBigEqualToInt(900, viteAcc.Available))
 
-	dexFee, err := dex.GetCurrentFeeSumFromStorage(db, getConsensusReader()) // initDexFundDatabase snapshotBlock Height
+	dexFee, _ := dex.GetCurrentFeeSumFromStorage(db, getConsensusReader()) // initDexFundDatabase snapshotBlock Height
 	assert.Equal(t, 2, len(dexFee.Fees))
 	if bytes.Equal(dexFee.Fees[0].Token, ETH.tokenId.Bytes()) {
-		assert.True(t, CheckBigEqualToInt(15, dexFee.Fees[0].Amount))
+		assert.True(t, checkBigEqualToInt(15, dexFee.Fees[0].Amount))
 		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[1].Amount))
 	} else {
-		assert.True(t, CheckBigEqualToInt(15, dexFee.Fees[1].Amount))
+		assert.True(t, checkBigEqualToInt(15, dexFee.Fees[1].Amount))
 		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[0].Amount))
 	}
-
 }
 
 func initDexFundDatabase() *testDatabase {
@@ -309,25 +291,12 @@ func registerToken(db *testDatabase, tokenInput tokenInfo) {
 	token.Decimals = tokenInput.decimals
 	tokenInfo := &dex.TokenInfo{token}
 	dex.SaveTokenInfo(db, tokenInput.tokenId, tokenInfo)
-	//tokenName := string(token.tokenId.Bytes()[0:4])
-	//tokenSymbol := string(token.tokenId.Bytes()[5:10])
-	//decimals := uint8(token.decimals)
-	//tokenData, _ := abi.ABIMintage.PackVariable(abi.VariableNameMintage, tokenName, tokenSymbol, big.NewInt(1e16), decimals, ledger.GenesisAccountAddress, big.NewInt(0), uint64(0))
-	//if _, ok := db.storageMap[types.AddressMintage]; !ok {
-	//	db.storageMap[types.AddressMintage] = make(map[string][]byte)
-	//}
-	//mintageKey := string(cabi.GetMintageKey(token.tokenId))
-	//db.storageMap[types.AddressMintage][mintageKey] = tokenData
-}
-
-func CheckBigEqualToInt(expected int, value []byte) bool {
-	return new(big.Int).SetUint64(uint64(expected)).Cmp(new(big.Int).SetBytes(value)) == 0
 }
 
 func orderIdBytesFromInt(v int) []byte {
 	bs := make([]byte, 4)
 	binary.BigEndian.PutUint32(bs, uint32(v))
-	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
+	return append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, bs...)
 }
 
 func doDeposit(db *testDatabase, depositMethod contracts.MethodDexFundUserDeposit, receiveBlock, sendBlock *ledger.AccountBlock) (err error) {
@@ -340,7 +309,7 @@ func doDeposit(db *testDatabase, depositMethod contracts.MethodDexFundUserDeposi
 func doWithdraw(db *testDatabase, withdrawMethod contracts.MethodDexFundUserWithdraw, receiveBlock, sendBlock *ledger.AccountBlock) (appendedBlocks []*ledger.AccountBlock, err error) {
 	if appendedBlocks, err = withdrawMethod.DoReceive(db, receiveBlock, sendBlock, nil); err == nil {
 		param := new(dex.ParamDexFundWithDraw)
-		contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundUserWithdraw, sendBlock.Data)
+		abi.ABIDexFund.UnpackMethod(param, abi.MethodNameDexFundUserWithdraw, sendBlock.Data)
 		subBalance(db, param.Token, param.Amount)
 	}
 	return appendedBlocks, err

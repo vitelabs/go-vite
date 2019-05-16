@@ -134,8 +134,8 @@ var (
 		Message: dex.TradeMarketNotExistsError.Error(),
 		Code:    -37007,
 	}
-	ErrDexGetOrderByIdFailed = JsonRpc2Error{
-		Message: dex.GetOrderByIdFailedErr.Error(),
+	ErrDexTradeOrderNotExistsErr = JsonRpc2Error{
+		Message: dex.OrderNotExistsErr.Error(),
 		Code:    -37008,
 	}
 	ErrDexCancelOrderOwnerInvalid = JsonRpc2Error{
@@ -188,7 +188,7 @@ func init() {
 	concernedErrorMap[ErrDexOrderAmountTooSmall.Error()] = ErrDexOrderAmountTooSmall
 	concernedErrorMap[ErrDexTradeMarketExists.Error()] = ErrDexTradeMarketExists
 	concernedErrorMap[ErrDexTradeMarketNotExists.Error()] = ErrDexTradeMarketNotExists
-	concernedErrorMap[ErrDexGetOrderByIdFailed.Error()] = ErrDexGetOrderByIdFailed
+	concernedErrorMap[ErrDexTradeOrderNotExistsErr.Error()] = ErrDexTradeOrderNotExistsErr
 	concernedErrorMap[ErrDexCancelOrderOwnerInvalid.Error()] = ErrDexCancelOrderOwnerInvalid
 	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
 	concernedErrorMap[ErrDexTradeMarketInvalidQuoteToken.Error()] = ErrDexTradeMarketInvalidQuoteToken

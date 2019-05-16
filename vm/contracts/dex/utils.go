@@ -11,14 +11,14 @@ import (
 const PriceBytesLength = 10
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
-func ComposeOrderId(db vm_db.VmDb,  marketId int32, param *ParamDexFundNewOrder) (idBytes []byte) {
+func ComposeOrderId(db vm_db.VmDb,  marketId int32, side bool, price string) (idBytes []byte) {
 	idBytes = make([]byte, OrderIdBytesLength)
 	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
-	if param.Side {
+	if side {
 		idBytes[3] = 1
 	}
-	priceBytes := PriceToBytes(param.Price)
-	if !param.Side { // buy
+	priceBytes := PriceToBytes(price)
+	if !side { // buy
 		BitwiseNotBytes(priceBytes)
 	}
 	copy(idBytes[4:14], priceBytes)

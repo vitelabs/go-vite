@@ -2,27 +2,29 @@ package vm
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"math/big"
 	"testing"
 )
 
 func TestDexTrade(t *testing.T) {
-	db := initDexTradeDatabase()
+	initDexTradeDbAndMarket()
 	dex.SetFeeRate("0.001", "0.001")
-	innerTestTradeNewOrder(t, db)
-	innerTestTradeCancelOrder(t, db)
+	innerTestTradeNewOrder(t)
+	innerTestTradeCancelOrder(t)
+	innerTestOnNewOrderFailed(t)
 }
 
-func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
+var buyOrder0, sellOrder0, buyOrder1 []byte
+var sellOrder0Id, buyOrder1Id []byte
+
+func innerTestTradeNewOrder(t *testing.T) {
 	buyAddress0, _ := types.BytesToAddress([]byte("123456789012345678901"))
 	buyAddress1, _ := types.BytesToAddress([]byte("123456789012345678902"))
 
@@ -32,10 +34,10 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = buyAddress0
-	buyOrder0 := getNewOrderData(101, buyAddress0, ETH, VITE, false, "30", 10)
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder0)
+	buyOrder0, _ = getNewOrderData(buyAddress0, ETH, VITE, false, "30", 10)//101
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeNewOrder, buyOrder0)
 	err := method.DoSend(db, senderAccBlock)
-	assert.Equal(t, "invalid block source", err.Error())
+	assert.Equal(t, dex.InvalidSourceAddressErr, err)
 
 	senderAccBlock.AccountAddress = types.AddressDexFund
 	err = method.DoSend(db, senderAccBlock)
@@ -49,25 +51,25 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.True(t, len(db.logList) == 1)
 	assert.Equal(t, 0, len(appendedBlocks))
 
-	clearContext(db)
-	sellOrder0 := getNewOrderData(202, sellAddress0, ETH, VITE, true, "31", 300)
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, sellOrder0)
+	clearLogs(db)
+	sellOrder0, sellOrder0Id = getNewOrderData(sellAddress0, ETH, VITE, true, "31", 300) //201
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeNewOrder, sellOrder0)
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.True(t, err == nil)
 	assert.Equal(t, 1, len(db.logList))
 	assert.Equal(t, 0, len(appendedBlocks))
 
-	clearContext(db)
+	clearLogs(db)
 	// locked = 400 * 32 * 1.001 * 100 = 1281280
-	buyOrder1 := getNewOrderData(102, buyAddress1, ETH, VITE, false, "32", 400)
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, buyOrder1)
+	buyOrder1, buyOrder1Id = getNewOrderData(buyAddress1, ETH, VITE, false, "32", 400) //102
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeNewOrder, buyOrder1)
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, 3, len(db.logList))
 	assert.Equal(t, 1, len(appendedBlocks))
 	assert.True(t, bytes.Equal(appendedBlocks[0].AccountAddress.Bytes(), types.AddressDexTrade.Bytes()))
 	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 	param := new(dex.ParamDexSerializedData)
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
+	err = abi.ABIDexFund.UnpackMethod(param, abi.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
@@ -78,29 +80,35 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 		if bytes.Equal([]byte(ac.Address), sellAddress0.Bytes()) {
 			for _, fundSettle := range ac.FundSettles {
 				if bytes.Equal(fundSettle.Token, ETH.tokenId.Bytes()) {
-					assert.True(t, CheckBigEqualToInt(300, fundSettle.ReduceLocked))
+					assert.True(t, checkBigEqualToInt(300, fundSettle.ReduceLocked))
 				} else if bytes.Equal(fundSettle.Token, VITE.tokenId.Bytes()) {
-					assert.True(t, CheckBigEqualToInt(929070, fundSettle.IncAvailable)) // amount - feeExecuted
+					assert.True(t, checkBigEqualToInt(929070, fundSettle.IncAvailable)) // amount - feeExecuted
 				}
 			}
 		} else { // buyOrder1
 			for _, fundSettle := range ac.FundSettles {
 				if bytes.Equal(fundSettle.Token, ETH.tokenId.Bytes()) {
-					assert.True(t, CheckBigEqualToInt(300, fundSettle.IncAvailable))
+					assert.True(t, checkBigEqualToInt(300, fundSettle.IncAvailable))
 				} else if bytes.Equal(fundSettle.Token, VITE.tokenId.Bytes()) {
-					assert.True(t, CheckBigEqualToInt(930930, fundSettle.ReduceLocked)) // amount + feeExecuted
+					assert.True(t, checkBigEqualToInt(930930, fundSettle.ReduceLocked)) // amount + feeExecuted
 				}
 			}
 		}
 	}
+}
 
-	duplicateOrder := getNewOrderData(102, buyAddress0, ETH, VITE, false, "100", 10)
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeNewOrder, duplicateOrder)
-	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
+func innerTestOnNewOrderFailed(t *testing.T) {
+	buyAddress0, _ := types.BytesToAddress([]byte("123456789012345678901"))
+	order, _ := newOrderInfo(ETH.tokenId, VITE.tokenId, false, dex.Limited, "100", 10)
+	order.Address = buyAddress0.Bytes()
+	marketInfo, _ := dex.GetMarketInfoById(db,1)
+	appendedBlocks, err := contracts.OnNewOrderFailed(order, marketInfo)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(appendedBlocks))
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
+	param := new(dex.ParamDexSerializedData)
+	err = abi.ABIDexFund.UnpackMethod(param, abi.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
+	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(actions.FundActions))
@@ -109,10 +117,10 @@ func innerTestTradeNewOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(userFundSettle.FundSettles))
 	fundSettle := userFundSettle.FundSettles[0]
 	assert.Equal(t, VITE.tokenId.Bytes(), fundSettle.Token)
-	assert.True(t, CheckBigEqualToInt(100100, fundSettle.ReleaseLocked))
+	assert.True(t, checkBigEqualToInt(100100, fundSettle.ReleaseLocked))
 }
 
-func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
+func innerTestTradeCancelOrder(t *testing.T) {
 	userAddress, _ := types.BytesToAddress([]byte("123456789012345678902"))
 	userAddress1, _ := types.BytesToAddress([]byte("123456789012345678903"))
 
@@ -124,30 +132,24 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	receiveBlock := &ledger.AccountBlock{}
 	receiveBlock.AccountAddress = types.AddressDexTrade
 
-	clearContext(db)
+	clearLogs(db)
 
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeCancelOrder, buyOrder1Id)
 	_, err := method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	invalidOwnerEvent := dex.ErrEvent{}
-	assert.Equal(t, invalidOwnerEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
-	invalidOwnerEvent, _ = invalidOwnerEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
-	assert.Equal(t, dex.CancelOrderOwnerInvalidErr.Error(), invalidOwnerEvent.Error())
+	assert.Equal(t, dex.CancelOrderOwnerInvalidErr, err)
 
-	clearContext(db)
+	clearLogs(db)
 
 	senderAccBlock.AccountAddress = userAddress2
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(202), ETH.tokenId, VITE.tokenId, true)
-	method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	getOrderFailEvent := dex.ErrEvent{}
-	assert.Equal(t, getOrderFailEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
-	getOrderFailEvent, _ = getOrderFailEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
-	assert.Equal(t, dex.GetOrderByIdFailedErr.Error(), getOrderFailEvent.Error())
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeCancelOrder, sellOrder0Id)
+	_, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
+	assert.Equal(t, dex.OrderNotExistsErr, err)
 
-	clearContext(db)
+	clearLogs(db)
 
 	// executedQuantity = 100,
 	senderAccBlock.AccountAddress = userAddress
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeCancelOrder, buyOrder1Id)
 
 	var appendedBlocks []*ledger.AccountBlock
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
@@ -157,65 +159,39 @@ func innerTestTradeCancelOrder(t *testing.T, db *testDatabase) {
 	assert.Equal(t, 1, len(appendedBlocks))
 	assert.True(t, bytes.Equal(appendedBlocks[0].ToAddress.Bytes(), types.AddressDexFund.Bytes()))
 	param := new(dex.ParamDexSerializedData)
-	err = contracts.ABIDexFund.UnpackMethod(param, contracts.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
+	err = abi.ABIDexFund.UnpackMethod(param, abi.MethodNameDexFundSettleOrders, appendedBlocks[0].Data)
 	assert.Equal(t, nil, err)
 	actions := &dexproto.SettleActions{}
 	err = proto.Unmarshal(param.Data, actions)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(actions.FundActions))
 	assert.True(t, bytes.Equal(actions.FundActions[0].FundSettles[0].Token, VITE.tokenId.Bytes()))
-	assert.True(t, CheckBigEqualToInt(350350, actions.FundActions[0].FundSettles[0].ReleaseLocked)) // 1281280 - 930930
+	assert.True(t, checkBigEqualToInt(350350, actions.FundActions[0].FundSettles[0].ReleaseLocked)) // 1281280 - 930930
 
-	clearContext(db)
+	clearLogs(db)
 
-	senderAccBlock.Data, _ = contracts.ABIDexTrade.PackMethod(contracts.MethodNameDexTradeCancelOrder, orderIdBytesFromInt(102), ETH.tokenId, VITE.tokenId, false)
-	method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	assert.Equal(t, getOrderFailEvent.GetTopicId().Bytes(), db.logList[0].Topics[0].Bytes())
-	getOrderFailEvent, _ = getOrderFailEvent.FromBytes(db.logList[0].Data).(dex.ErrEvent)
-	assert.Equal(t, dex.GetOrderByIdFailedErr.Error(), getOrderFailEvent.Error())
+	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeCancelOrder, buyOrder1Id)
+	_, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
+	assert.Equal(t, err, dex.OrderNotExistsErr)
 }
 
-func initDexTradeDatabase()  *testDatabase {
-	db := NewNoDatabase()
+func initDexTradeDbAndMarket() int32 {
+	var marketId int32 = 1
+	db = NewNoDatabase()
 	db.addr = types.AddressDexTrade
-	return db
+	initTimerTimestamp()
+	dex.SaveMarketInfo(db, getMarketInfo(marketId, ETH, VITE), ETH.tokenId, VITE.tokenId)
+	dex.SaveMarketInfoById(db, getMarketInfo(marketId, ETH, VITE))
+	return marketId
 }
 
-func getNewOrderData(id int, address types.Address, tradeToken tokenInfo, quoteToken tokenInfo, side bool, price string, quantity int64) []byte {
-	orderMarketInfo := &dexproto.OrderMarketInfo{}
-	marketId := make([]byte, 4)
-	copy(marketId, tradeToken.tokenId.Bytes()[:2])
-	copy(marketId[2:], tradeToken.tokenId.Bytes()[:2])
-	orderMarketInfo.MarketId = int32(binary.BigEndian.Uint32(marketId))
-	orderMarketInfo.TradeToken = tradeToken.tokenId.Bytes()
-	orderMarketInfo.QuoteToken = quoteToken.tokenId.Bytes()
-	orderMarketInfo.DecimalsDiff = tradeToken.decimals - quoteToken.decimals
-	fmt.Printf("")
-	order := &dexproto.Order{}
-	order.Id = orderIdBytesFromInt(id)
+func getNewOrderData(address types.Address, tradeToken tokenInfo, quoteToken tokenInfo, side bool, price string, quantity uint64) ([]byte, []byte) {
+	order, orderId := newOrderInfo(tradeToken.tokenId, quoteToken.tokenId, side, dex.Limited, price, quantity)
 	order.Address = address.Bytes()
-	order.Side = side
-	order.Type = dex.Limited
-	order.Price = dex.PriceToBytes(price)
-	order.Quantity = big.NewInt(quantity).Bytes()
-	order.Status =  dex.Pending
-	order.Amount = dex.CalculateRawAmount(order.Quantity, order.Price, orderMarketInfo.DecimalsDiff)
-	if order.Type == dex.Limited && !order.Side {//buy
-		//fmt.Printf("newOrderInfo set LockedBuyFee id %v, order.Type %v, order.Side %v, order.Amount %v\n", id, order.Type, order.Side, order.Amount)
-		order.LockedBuyFee = dex.CalculateRawFee(order.Amount, dex.MaxFeeRate())
-	}
-	//order.Timestamp = time.Now().Unix()
-	order.ExecutedQuantity = big.NewInt(0).Bytes()
-	order.ExecutedAmount = big.NewInt(0).Bytes()
-	order.RefundToken = []byte{}
-	order.RefundQuantity = big.NewInt(0).Bytes()
-	orderInfo := &dexproto.OrderInfo{}
-	orderInfo.OrderMarketInfo = orderMarketInfo
-	orderInfo.Order = order
-	data, _ := proto.Marshal(orderInfo)
-	return data
+	data, _ := order.Serialize()
+	return data, orderId
 }
 
-func clearContext(db *testDatabase) {
+func clearLogs(db *testDatabase) {
 	db.logList = make([]*ledger.VmLog, 0)
 }

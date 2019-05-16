@@ -57,10 +57,10 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 		return handleReceiveErr(err)
 	}
 	if err = matcher.MatchOrder(order); err != nil {
-		return onNewOrderFailed(order, matcher.MarketInfo)
+		return OnNewOrderFailed(order, matcher.MarketInfo)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
-		return onNewOrderFailed(order, matcher.MarketInfo)
+		return OnNewOrderFailed(order, matcher.MarketInfo)
 	}
 	return blocks, err
 }
@@ -161,7 +161,7 @@ func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 	}
 }
 
-func onNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	fundSettle := &dexproto.FundSettle{}
 	switch order.Side {
 	case false: // buy

@@ -133,9 +133,8 @@ func (mc *Matcher) CancelOrderById(order *Order) {
 	}
 	order.Status = Cancelled
 	mc.handleRefund(order)
-	mc.emitOrderUpdate(order)
+	mc.emitOrderUpdate(*order)
 	mc.deleteOrder(order.Id)
-
 }
 
 func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) (err error) {
@@ -186,24 +185,22 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 
 func (mc *Matcher) handleTakerRes(taker *Order) {
 	if taker.Status == PartialExecuted || taker.Status == Pending {
-		mc.saveOrder(taker)
-	} else if taker.Status == Cancelled {
+		mc.saveOrder(*taker)
+	} else {// in case isDust still need refund FullExecuted status order
 		mc.handleRefund(taker)
 	}
-	mc.emitNewOrder(taker)
+	mc.emitNewOrder(*taker)
 }
 
 func (mc *Matcher) handleModifiedMakers(makers []*Order) {
 	for _, maker := range makers {
 		if maker.Status == FullyExecuted || maker.Status == Cancelled {
-			if maker.Status == Cancelled {
-				mc.handleRefund(maker)
-			}
+			mc.handleRefund(maker)// in case isDust still need refund FullExecuted status order
 			mc.deleteOrder(maker.Id)
 		} else {
-			mc.saveOrder(maker)
+			mc.saveOrder(*maker)
 		}
-		mc.emitOrderUpdate(maker)
+		mc.emitOrderUpdate(*maker)
 	}
 }
 
@@ -219,11 +216,16 @@ func (mc *Matcher) handleRefund(order *Order) {
 			order.RefundToken = mc.MarketInfo.TradeToken
 			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
-		mc.updateFundSettle(order.Address, proto.FundSettle{Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})
+		if CmpToBigZero(order.RefundQuantity) > 0 {
+			mc.updateFundSettle(order.Address, proto.FundSettle{Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})
+		} else {
+			order.RefundToken = nil
+			order.RefundQuantity = nil
+		}
 	}
 }
 
-func (mc *Matcher) emitNewOrder(taker *Order) {
+func (mc *Matcher) emitNewOrder(taker Order) {
 	newOrderInfo := proto.NewOrderInfo{}
 	newOrderInfo.Order = &taker.Order
 	newOrderInfo.TradeToken = mc.MarketInfo.TradeToken
@@ -232,7 +234,7 @@ func (mc *Matcher) emitNewOrder(taker *Order) {
 	(mc.db).AddLog(newLog(event))
 }
 
-func (mc *Matcher) emitOrderUpdate(order *Order) {
+func (mc *Matcher) emitOrderUpdate(order Order) {
 	updateInfo := proto.OrderUpdateInfo{}
 	updateInfo.Id = order.Id
 	updateInfo.TradeToken = mc.MarketInfo.TradeToken
@@ -251,14 +253,14 @@ func (mc *Matcher) emitOrderUpdate(order *Order) {
 func (mc *Matcher) handleTxs(txs []*OrderTx) {
 	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
-		mc.handleTxFundSettle(tx)
+		mc.handleTxFundSettle(*tx)
 		txEvent := TransactionEvent{tx.Transaction}
 		mc.db.AddLog(newLog(txEvent))
 		//fmt.Printf("matched tx is : %s\n", tx.String())
 	}
 }
 
-func (mc *Matcher) handleTxFundSettle(tx *OrderTx) {
+func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
 	takerInSettle := proto.FundSettle{}
 	takerOutSettle := proto.FundSettle{}
 	makerInSettle := proto.FundSettle{}
@@ -345,11 +347,12 @@ func (mc *Matcher) getMakerBookToTaker(takerSide bool) (*levelDbBook, error) {
 	return getMakerBook(mc.db, mc.MarketInfo.MarketId, !takerSide)
 }
 
-func (mc *Matcher) saveOrder(order *Order) {
+func (mc *Matcher) saveOrder(order Order) {
+	orderId := order.Id
 	if data, err := order.SerializeCompact(); err != nil {
 		panic(err)
 	} else {
-		setValueToDb(mc.db, order.Id, data)
+		setValueToDb(mc.db, orderId, data)
 	}
 }
 
@@ -369,8 +372,8 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *Order
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
 	//fmt.Printf("calculateOrderAndTx executeQuantity %v, takerAmount %v, makerAmount %v, executeAmount %v\n", new(big.Int).SetBytes(executeQuantity).String(), new(big.Int).SetBytes(takerAmount).String(), new(big.Int).SetBytes(makerAmount).String(), new(big.Int).SetBytes(executeAmount).String())
-	takerFee, takerExecutedFee := calculateFeeAndExecutedFee(taker, executeAmount, TakerFeeRate)
-	makerFee, makerExecutedFee := calculateFeeAndExecutedFee(maker, executeAmount, MakerFeeRate)
+	takerFee, takerExecutedFee := CalculateFeeAndExecutedFee(taker, executeAmount, TakerFeeRate)
+	makerFee, makerExecutedFee := CalculateFeeAndExecutedFee(maker, executeAmount, MakerFeeRate)
 	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	tx.Quantity = executeQuantity
@@ -398,7 +401,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byt
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
 	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
 		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order
-		isDust(order, quantity, decimalsDiff) {
+		IsDust(order, quantity, decimalsDiff) {
 		order.Status = FullyExecuted
 	} else {
 		order.Status = PartialExecuted
@@ -409,7 +412,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedFee []byt
 }
 
 // leave quantity is too small for calculate precision
-func isDust(order *Order, quantity []byte, decimalsDiff int32) bool {
+func IsDust(order *Order, quantity []byte, decimalsDiff int32) bool {
 	return CalculateRawAmountF(SubBigIntAbs(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity), order.Price, decimalsDiff).Cmp(new(big.Float).SetInt64(int64(1))) < 0
 }
 
@@ -430,7 +433,7 @@ func CalculateRawFee(amount []byte, feeRate string) []byte {
 	return RoundAmount(amtFee).Bytes()
 }
 
-func calculateFeeAndExecutedFee(order *Order, amount []byte, feeRate string) (feeBytes, executedFee []byte) {
+func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate string) (feeBytes, executedFee []byte) {
 	feeBytes = CalculateRawFee(amount, feeRate)
 	switch order.Side {
 	case false: //buy

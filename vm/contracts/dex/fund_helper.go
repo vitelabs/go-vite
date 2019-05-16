@@ -217,7 +217,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
 		return nil, TradeMarketNotExistsError
 	}
-	order.Id = ComposeOrderId(db, marketInfo.MarketId, param)
+	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
 	order.Address = address.Bytes()
 	order.Side = param.Side
