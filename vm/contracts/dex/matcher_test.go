@@ -2,6 +2,7 @@ package dex
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
@@ -231,6 +232,9 @@ func TestDustWithOrder(t *testing.T) {
 	SetFeeRate("0.06", "0.05") // takerFee, makerFee
 	// buy quantity = origin * 100,000,000
 	buy1 := newOrderInfo(301, ETH, VITE,false, Limited, "0.00012345", 10000, time.Now().UnixNano()/1000) //amount 123.45
+	fmt.Printf("buy1.Amount %s\n", new(big.Int).SetBytes(buy1.Order.Amount))
+	fmt.Printf("buy1.LockedBuyFee %s\n", new(big.Int).SetBytes(buy1.Order.LockedBuyFee))
+
 	mc.MatchOrder(buy1)
 
 	bookNameToMakeForBuy := getBookIdToMakeForTaker(buy1)
@@ -242,6 +246,8 @@ func TestDustWithOrder(t *testing.T) {
 	// sell
 	sell1 := newOrderInfo(401, ETH, VITE,true, Limited, "0.00012342", 10002, time.Now().UnixNano()/1000) // amount 123.44
 	mc.MatchOrder(sell1)
+	fmt.Printf("sell1.Amount %s\n", new(big.Int).SetBytes(sell1.Order.Amount))
+	fmt.Printf("sell1.LockedBuyFee %s\n", new(big.Int).SetBytes(sell1.Order.LockedBuyFee))
 	// sell order.Quantity 10002 order.ExecutedQuantity 10000
 	// roundAmount((10002-10000) * 0.00012345 * 100) = 0
 
