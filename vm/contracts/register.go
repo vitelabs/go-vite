@@ -370,6 +370,9 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 		}
 	}()
 	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
+	if timestamp < genesisTime {
+		return nil, util.ErrInvalidMethodParam
+	}
 	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
 	if err != nil {
 		return nil, err
