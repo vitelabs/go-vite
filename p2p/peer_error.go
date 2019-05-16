@@ -23,35 +23,39 @@ const (
 	PeerInvalidMessage
 	PeerResponseTimeout
 	PeerInvalidToken
+	PeerUnknownReason = 255
 )
 
-var peerErrStr = [...]string{
+var peerErrStr = map[PeerError]string{
 	PeerNetworkError:        "network error",
 	PeerDifferentNetwork:    "different network",
 	PeerTooManyPeers:        "too many peers",
 	PeerTooManySameNetPeers: "too many peers in the same net",
 	PeerTooManyInboundPeers: "too many inbound peers",
 	PeerAlreadyConnected:    "already connected",
-	PeerIncompatibleVersion: "incompatible p2p version",
-	PeerConnectSelf:         "connected to self",
-	PeerNotHandshakeMsg:     "not handshake message",
+	PeerIncompatibleVersion: "incompatible version",
 	PeerQuitting:            "client quitting",
+	PeerNotHandshakeMsg:     "not handshake message",
 	PeerInvalidSignature:    "invalid signature",
+	PeerConnectSelf:         "connected to self",
 	PeerUnknownMessage:      "unknown message code",
 	PeerUnmarshalError:      "message unmarshal error",
 	PeerNoPermission:        "no permission",
+	PeerBanned:              "banned",
 	PeerDifferentGenesis:    "different genesis",
 	PeerInvalidBlock:        "invalid block",
 	PeerInvalidMessage:      "invalid message",
-	PeerBanned:              "banned",
 	PeerResponseTimeout:     "response timeout",
 	PeerInvalidToken:        "invalid token",
+	PeerUnknownReason:       "unknown reason",
 }
 
 func (e PeerError) String() string {
-	if int(e) < len(peerErrStr) {
-		return peerErrStr[e]
+	str, ok := peerErrStr[e]
+	if ok {
+		return str
 	}
+
 	return "unknown error"
 }
 
