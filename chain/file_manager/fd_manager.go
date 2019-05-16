@@ -221,18 +221,6 @@ func (fdSet *fdManager) CreateNextFd() error {
 	return nil
 }
 
-func (fdSet *fdManager) RemoveAllFiles() error {
-	fdSet.changeFdMu.Lock()
-	defer fdSet.changeFdMu.Unlock()
-
-	fdSet.reset()
-
-	if err := os.RemoveAll(fdSet.dirName); err != nil {
-		return err
-	}
-
-	return nil
-}
 func (fdSet *fdManager) Close() error {
 	fdSet.changeFdMu.Lock()
 	defer fdSet.changeFdMu.Unlock()
@@ -262,7 +250,18 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		}
 		return nil
 	}
+
 	fileId := location.FileId
+
+	if cacheFd, ok := fdSet.fileFdCache[fileId]; ok {
+		fdSet.writeFd = cacheFd
+		cacheItem := cacheFd.cacheItem
+		cacheItem.Mu.Lock()
+		cacheItem.BufferLen = location.Offset
+		cacheItem.Mu.Unlock()
+
+		return nil
+	}
 
 	var fd *os.File
 	var err error
@@ -274,7 +273,6 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 
 		if fd == nil {
 			return errors.New(fmt.Sprintf("fd is nil, fileId is %d, location is %+v\n", fileId, location))
-
 		}
 	}
 
@@ -293,6 +291,7 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 			}
 
 			fdSet.fileCache.Remove(fdSet.fileCache.Front())
+			delete(fdSet.fileFdCache, item.FileId)
 		}
 
 		// ring buffer. reuse cache
@@ -330,9 +329,12 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 	newItem.Mu.Unlock()
 
 	if bufferLen > 0 && fd != nil {
-		if _, err := fd.Read(newItem.Buffer[:bufferLen]); err != nil {
+		if n, err := fd.Read(newItem.Buffer[:bufferLen]); err != nil {
 			return err
+		} else if int64(n) != bufferLen {
+			return errors.New(fmt.Sprintf("fd.Read, bufferLen is %d, n is %d, fileId is %d", bufferLen, n, fileId))
 		}
+
 	}
 
 	fdSet.writeFd = NewFdByBuffer(fdSet, newItem)

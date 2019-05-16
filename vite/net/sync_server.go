@@ -140,7 +140,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 	// is running
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		delete(s.sconnMap, c.ID())
+		delete(s.sconnMap, c.peer.ID())
 		s.mu.Unlock()
 	}
 }
@@ -148,7 +148,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 func (s *syncServer) addConn(c *syncConn) {
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		s.sconnMap[c.ID()] = c
+		s.sconnMap[c.peer.ID()] = c
 		s.mu.Unlock()
 	}
 }
@@ -203,7 +203,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 
 		segment := reader.Seg()
 		if segment.PrevHash != request.prevHash || segment.Hash != request.endHash {
-			s.log.Warn(fmt.Sprintf("different chunk<%d-%d> %s/%s %s/%s from %s", request.from, request.to, request.prevHash, request.endHash, segment.PrevHash, segment.PrevHash, conn.RemoteAddr()))
+			s.log.Warn(fmt.Sprintf("different chunk<%d-%d> %s/%s %s/%s from %s", request.from, request.to, request.prevHash, request.endHash, segment.PrevHash, segment.Hash, conn.RemoteAddr()))
 
 			_ = sconn.c.WriteMsg(p2p.Msg{
 				Code:    p2p.CodeException,

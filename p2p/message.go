@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"io"
 	"time"
 
 	"github.com/vitelabs/go-vite/tools/bytes_pool"
@@ -35,11 +36,16 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+type MsgWriteCloser interface {
+	MsgWriter
+	io.Closer
+}
+
 type Serializable interface {
 	Serialize() ([]byte, error)
 }
 
-func Disconnect(w MsgWriter, err error) (e2 error) {
+func Disconnect(c MsgWriteCloser, err error) (e2 error) {
 	var msg = Msg{
 		Code: CodeDisconnect,
 	}
@@ -52,7 +58,8 @@ func Disconnect(w MsgWriter, err error) (e2 error) {
 		msg.Payload, _ = PeerQuitting.Serialize()
 	}
 
-	e2 = w.WriteMsg(msg)
+	e2 = c.WriteMsg(msg)
 
+	_ = c.Close()
 	return nil
 }

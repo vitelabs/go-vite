@@ -96,13 +96,18 @@ func (b *SnapshotBlocks) Deserialize(buf []byte) error {
 	}
 
 	b.Blocks = make([]*ledger.SnapshotBlock, len(pb.Blocks))
-	for i, bp := range pb.Blocks {
+	var j int
+	for _, bp := range pb.Blocks {
+		if bp == nil {
+			return errDeserialize
+		}
 		block := new(ledger.SnapshotBlock)
 		err = block.DeProto(bp)
 		if err != nil {
 			return err
 		}
-		b.Blocks[i] = block
+		b.Blocks[j] = block
+		j++
 	}
 
 	return nil
@@ -196,13 +201,19 @@ func (a *AccountBlocks) Deserialize(buf []byte) error {
 	}
 
 	a.Blocks = make([]*ledger.AccountBlock, len(pb.Blocks))
-	for i, bp := range pb.Blocks {
+	var j int
+	for _, bp := range pb.Blocks {
+		if bp == nil {
+			return errDeserialize
+		}
+
 		block := new(ledger.AccountBlock)
 		err = block.DeProto(bp)
 		if err != nil {
 			return err
 		}
-		a.Blocks[i] = block
+		a.Blocks[j] = block
+		j++
 	}
 
 	return nil
@@ -230,6 +241,10 @@ func (b *NewSnapshotBlock) Deserialize(buf []byte) error {
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	if pb.Block == nil {
+		return errDeserialize
 	}
 
 	b.Block = new(ledger.SnapshotBlock)
@@ -265,6 +280,10 @@ func (b *NewAccountBlock) Deserialize(buf []byte) error {
 	err := proto.Unmarshal(buf, pb)
 	if err != nil {
 		return err
+	}
+
+	if pb.Block == nil {
+		return errDeserialize
 	}
 
 	b.Block = new(ledger.AccountBlock)

@@ -179,7 +179,7 @@ type defaultSyncConnectionFactory struct {
 	mineKey ed25519.PrivateKey
 }
 
-func (d *defaultSyncConnectionFactory) makeCodec(conn net2.Conn) *syncConn {
+func (d *defaultSyncConnectionFactory) makeSyncConn(conn net2.Conn) *syncConn {
 	return &syncConn{
 		conn: conn,
 		c:    p2p.NewTransport(conn, 100, 10*time.Second, 10*time.Second),
@@ -187,7 +187,7 @@ func (d *defaultSyncConnectionFactory) makeCodec(conn net2.Conn) *syncConn {
 }
 
 func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer Peer) (*syncConn, error) {
-	c := d.makeCodec(conn)
+	c := d.makeSyncConn(conn)
 
 	hk := &syncHandshake{
 		id:   d.id,
@@ -232,14 +232,14 @@ func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer Peer) (*syn
 		return nil, errHandshakeError
 	}
 
-	c.Peer = peer
+	c.peer = peer
 	c.cacher = d.chain
 
 	return c, nil
 }
 
 func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error) {
-	c := d.makeCodec(conn)
+	c := d.makeSyncConn(conn)
 
 	msg, err := c.c.ReadMsg()
 	if err != nil {
@@ -303,16 +303,16 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 		return nil, err
 	}
 
-	c.Peer = p
+	c.peer = p
 	c.cacher = d.chain
 
 	return c, nil
 }
 
 type syncConn struct {
-	conn net2.Conn
-	c    p2p.Codec
-	Peer
+	conn   net2.Conn
+	c      p2p.Codec
+	peer   Peer
 	busy   int32  // atomic
 	_speed uint64 // download speed, byte/s
 	task   syncTask
@@ -351,7 +351,7 @@ func speedToString(s float64) string {
 
 func (f *syncConn) status() SyncConnectionStatus {
 	st := SyncConnectionStatus{
-		Address: f.ID().Brief() + "@" + f.address(),
+		Address: f.peer.ID().Brief() + "@" + f.address(),
 		Speed:   speedToString(float64(f._speed)),
 		Task:    "",
 	}
@@ -381,37 +381,33 @@ func (f *syncConn) isBusy() bool {
 	return atomic.LoadInt32(&f.busy) == 1
 }
 
-func isRightChunk(msg *syncResponse, t syncTask) (seg interfaces.Segment, err error) {
-	if msg.from != t.from || msg.to != t.to {
-		err = fmt.Errorf("different bound: %d-%d %d-%d", msg.from, msg.to, t.from, t.to)
+func isRightChunk(msg *syncResponse, t *syncTask) (seg interfaces.Segment, err error) {
+	if msg.from != t.Bound[0] || msg.to != t.Bound[1] {
+		err = fmt.Errorf("bound not equal: %d-%d %d-%d", msg.from, msg.to, t.Bound[0], t.Bound[1])
 		return
 	}
 
-	if msg.prevHash != t.prevHash || msg.endHash != t.endHash {
-		err = fmt.Errorf("hash not equal: %s-%s %s-%s", msg.prevHash, msg.endHash, t.prevHash, t.endHash)
+	if msg.prevHash != t.PrevHash || msg.endHash != t.Hash {
+		err = fmt.Errorf("hash not equal: %s-%s %s-%s", msg.prevHash, msg.endHash, t.PrevHash, t.Hash)
 		return
 	}
 
-	seg.Bound = [2]uint64{t.from, t.to}
-	seg.PrevHash = t.prevHash
-	seg.Hash = t.endHash
-
-	return
+	return t.Segment, err
 }
 
-func (f *syncConn) download(t syncTask) (fatal bool, err error) {
+func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 	if false == atomic.CompareAndSwapInt32(&f.busy, 0, 1) {
 		err = fmt.Errorf("task %s is downloading", f.task.String())
 		return
 	}
 	defer atomic.StoreInt32(&f.busy, 0)
-	f.task = t
+	f.task = *t
 
 	request := &syncRequest{
-		from:     t.from,
-		to:       t.to,
-		prevHash: t.prevHash,
-		endHash:  t.endHash,
+		from:     t.Bound[0],
+		to:       t.Bound[1],
+		prevHash: t.PrevHash,
+		endHash:  t.Hash,
 	}
 	data, err := request.Serialize()
 	if err != nil {
@@ -505,6 +501,7 @@ func (f *syncConn) download(t syncTask) (fatal bool, err error) {
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)
 
+	t.source = f.peer.ID()
 	return
 }
 
@@ -549,16 +546,30 @@ type FilePoolStatus struct {
 }
 
 type connPoolImpl struct {
-	mu    sync.Mutex
-	peers *peerSet
-	mi    map[peerId]int // value is the index of `connPoolImpl.l`
-	l     connections    // connections sort by speed, from fast to slow
+	mu        sync.Mutex
+	peers     *peerSet
+	mi        map[peerId]int // value is the index of `connPoolImpl.l`
+	l         connections    // connections sort by speed, from fast to slow
+	blackList map[peerId]int64
 }
 
 func newPool(peers *peerSet) *connPoolImpl {
 	return &connPoolImpl{
-		mi:    make(map[peerId]int),
-		peers: peers,
+		mi:        make(map[peerId]int),
+		peers:     peers,
+		blackList: make(map[peerId]int64),
+	}
+}
+
+func (fp *connPoolImpl) blockPeer(id peerId) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+	fp.blackList[id] = time.Now().Unix()
+
+	if index, ok := fp.mi[id]; ok {
+		c := fp.l[index]
+		_ = p2p.Disconnect(c.c, p2p.PeerBanned)
+		fp.delConnLocked(id)
 	}
 }
 
@@ -582,7 +593,7 @@ func (fp *connPoolImpl) delConn(c *syncConn) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.delConnLocked(c.ID())
+	fp.delConnLocked(c.peer.ID())
 }
 
 func (fp *connPoolImpl) delConnLocked(id peerId) {
@@ -597,12 +608,12 @@ func (fp *connPoolImpl) addConn(c *syncConn) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if _, ok := fp.mi[c.ID()]; ok {
+	if _, ok := fp.mi[c.peer.ID()]; ok {
 		return errSyncConnExist
 	}
 
 	fp.l = append(fp.l, c)
-	fp.mi[c.ID()] = len(fp.l) - 1
+	fp.mi[c.peer.ID()] = len(fp.l) - 1
 	return nil
 }
 
@@ -617,13 +628,13 @@ func (fp *connPoolImpl) sort() {
 func (fp *connPoolImpl) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
-		fp.mi[c.ID()] = i
+		fp.mi[c.peer.ID()] = i
 	}
 }
 
 // choose the fast fileConn, or create new conn randomly
 func (fp *connPoolImpl) chooseSource(t *syncTask) (Peer, *syncConn, error) {
-	peerMap := fp.peers.pickDownloadPeers(t.to)
+	peerMap := fp.peers.pickDownloadPeers(t.Bound[1])
 
 	if len(peerMap) == 0 {
 		return nil, nil, errNoSuitablePeer
@@ -634,7 +645,15 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (Peer, *syncConn, error) {
 
 	// only peers without sync connection
 	for _, c := range fp.l {
-		delete(peerMap, c.ID())
+		delete(peerMap, c.peer.ID())
+	}
+
+	// is in blackList
+	now := time.Now().Unix()
+	for k, p := range peerMap {
+		if tt, ok := fp.blackList[p.ID()]; ok && now-tt < 60 {
+			delete(peerMap, k)
+		}
 	}
 
 	var createNew bool
@@ -644,7 +663,7 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (Peer, *syncConn, error) {
 
 	fp.sortLocked()
 	for i, c := range fp.l {
-		if c.isBusy() || c.Height() < t.to {
+		if c.isBusy() || c.peer.Height() < t.Bound[1] {
 			continue
 		}
 

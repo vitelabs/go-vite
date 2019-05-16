@@ -7,7 +7,7 @@ package consensus
 import (
 	gomock "github.com/golang/mock/gomock"
 	types "github.com/vitelabs/go-vite/common/types"
-	db "github.com/vitelabs/go-vite/consensus/db"
+	cdb "github.com/vitelabs/go-vite/consensus/cdb"
 	reflect "reflect"
 	time "time"
 )
@@ -36,10 +36,10 @@ func (m *MockLinkedArray) EXPECT() *MockLinkedArrayMockRecorder {
 }
 
 // GetByIndex mocks base method
-func (m *MockLinkedArray) GetByIndex(arg0 uint64) (*db.Point, error) {
+func (m *MockLinkedArray) GetByIndex(arg0 uint64) (*cdb.Point, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByIndex", arg0)
-	ret0, _ := ret[0].(*db.Point)
+	ret0, _ := ret[0].(*cdb.Point)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -51,10 +51,10 @@ func (mr *MockLinkedArrayMockRecorder) GetByIndex(arg0 interface{}) *gomock.Call
 }
 
 // GetByIndexWithProof mocks base method
-func (m *MockLinkedArray) GetByIndexWithProof(arg0 uint64, arg1 types.Hash) (*db.Point, error) {
+func (m *MockLinkedArray) GetByIndexWithProof(arg0 uint64, arg1 types.Hash) (*cdb.Point, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByIndexWithProof", arg0, arg1)
-	ret0, _ := ret[0].(*db.Point)
+	ret0, _ := ret[0].(*cdb.Point)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

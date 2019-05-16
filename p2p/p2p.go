@@ -310,6 +310,7 @@ func (p *p2p) Register(pt Protocol) error {
 
 	p.protocol = pt
 	p.handshaker.protocol = pt
+	_, _, p.handshaker.genesis = pt.ProtoData()
 
 	return nil
 }
@@ -453,13 +454,15 @@ Loop:
 		case <-markChan:
 			ps := p.peers.peers()
 			for _, peer := range ps {
-				addr := peer.Address().String()
-				ep, err := vnode.ParseEndPoint(addr)
-				if err != nil {
-					continue
-				}
+				if peer.Level() > Inbound {
+					addr := peer.Address().String()
+					ep, err := vnode.ParseEndPoint(addr)
+					if err != nil {
+						continue
+					}
 
-				db.StoreEndPoint(peer.ID(), ep, peer.Weight())
+					db.StoreEndPoint(peer.ID(), ep, peer.Weight())
+				}
 			}
 
 		case <-p.term:

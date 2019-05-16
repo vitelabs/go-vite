@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// rollback account blocks
 func (iDB *IndexDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) error {
 	batch := iDB.store.NewBatch()
 	if err := iDB.rollback(batch, []*ledger.SnapshotChunk{{
@@ -19,6 +20,7 @@ func (iDB *IndexDB) RollbackAccountBlocks(accountBlocks []*ledger.AccountBlock) 
 	return nil
 }
 
+// rollback snapshot blocks
 func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk, unconfirmedBlocks []*ledger.AccountBlock) error {
 	batch := iDB.store.NewBatch()
 
@@ -40,6 +42,7 @@ func (iDB *IndexDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 	return nil
 }
 
+// delete onroad directly
 func (iDB *IndexDB) DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) {
 	batch := iDB.store.NewBatch()
 	iDB.deleteOnRoad(batch, toAddress, sendBlockHash)
@@ -56,6 +59,7 @@ func (iDB *IndexDB) rollback(batch *leveldb.Batch, deletedSnapshotSegments []*le
 		iDB.deleteSnapshotBlock(batch, seg.SnapshotBlock)
 	}
 
+	// delete open send
 	for sendBlockHash, sendBlock := range openSendBlock {
 		iDB.deleteOnRoad(batch, sendBlock.ToAddress, sendBlockHash)
 		iDB.deleteReceiveInfo(batch, sendBlockHash)

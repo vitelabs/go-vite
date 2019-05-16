@@ -41,7 +41,8 @@ const (
 	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
 	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
 
-	tokenNameIndexMax uint16 = 1000
+	tokenNameIndexMax  uint16 = 1000
+	GetRewardTimeLimit int64  = 3600 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
 )
 
 var (
@@ -57,7 +58,6 @@ type ContractsParams struct {
 	PledgeHeight                     uint64 // pledge height for stake
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
-	GetRewardTimeLimit               int64  // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
 }
 
 var (
@@ -66,13 +66,11 @@ var (
 		PledgeHeight:                     1,
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
-		GetRewardTimeLimit:               75,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
 		PledgeHeight:                     3600 * 24 * 3,
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
-		GetRewardTimeLimit:               3600,
 	}
 )

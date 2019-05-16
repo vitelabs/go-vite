@@ -3,6 +3,9 @@ package onroad
 import (
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/wallet"
-	"sync"
-	"time"
 )
 
 var (
@@ -195,4 +196,14 @@ func (manager Manager) Producer() producer {
 
 func (manager Manager) Consensus() generator.Consensus {
 	return manager.consensus
+}
+
+func (manager Manager) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	manager.onRoadPools.Range(func(k, v interface{}) bool {
+		result[k.(types.Gid).String()] = v.(onroad_pool.OnRoadPool).Info()
+		return true
+	})
+	return result
 }

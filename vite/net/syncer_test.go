@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/ledger"
@@ -58,9 +62,9 @@ func TestHashHeightTree(t *testing.T) {
 	})
 
 	tree := newHashHeightTree()
-	tree.addBranch(hashHeightList1, nil)
-	tree.addBranch(hashHeightList2, nil)
-	tree.addBranch(hashHeightList3, nil)
+	tree.addBranch(hashHeightList1, newMockPeer(vnode.RandomNodeID(), 100))
+	tree.addBranch(hashHeightList2, newMockPeer(vnode.RandomNodeID(), 100))
+	tree.addBranch(hashHeightList3, newMockPeer(vnode.RandomNodeID(), 100))
 
 	list := tree.bestBranch()
 
@@ -98,11 +102,13 @@ func TestConstructTasks(t *testing.T) {
 	fmt.Printf("%d tasks\n", len(ts))
 
 	prevTask := &syncTask{
-		to:      point.Height,
-		endHash: point.Hash,
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{2, point.Height},
+			Hash:  point.Hash,
+		},
 	}
 	for _, tt := range ts {
-		if tt.from != prevTask.to+1 || tt.prevHash != prevTask.endHash {
+		if tt.Bound[0] != prevTask.Bound[1]+1 || tt.PrevHash != prevTask.Hash {
 			t.Errorf("not continuous")
 		}
 		prevTask = tt

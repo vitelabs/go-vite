@@ -1,27 +1,32 @@
-package consensus_db
+package cdb
 
 import (
 	"encoding/binary"
 	"fmt"
 
 	"github.com/go-errors/errors"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
 const (
-	INDEX_ElectionResult = byte(0)
-	INDEX_Point_PERIOD   = byte(1)
-	INDEX_Point_HOUR     = byte(2)
-	INDEX_Point_DAY      = byte(3)
+	// IndexElectionResult is store prefix for election result
+	IndexElectionResult = byte(0)
+	// IndexPointPeriod is store prefix for period sbp info
+	IndexPointPeriod = byte(1)
+	// IndexPointHour is store prefix for hour sbp info
+	IndexPointHour = byte(2)
+	// IndexPointDay is store prefix for day sbp info
+	IndexPointDay = byte(3)
 )
 
+// AddrArr is slice of types.Address
 type AddrArr []types.Address
 
-func (self AddrArr) Bytes() []byte {
-	arr := []types.Address(self)
+// Bytes implement AddrArr to byte slice
+func (addrs AddrArr) Bytes() []byte {
+	arr := []types.Address(addrs)
 	var result []byte
 	for _, v := range arr {
 		result = append(result, v.Bytes()...)
@@ -29,7 +34,8 @@ func (self AddrArr) Bytes() []byte {
 	return result
 }
 
-func (self AddrArr) SetBytes(byt []byte) ([]types.Address, error) {
+// SetBytes implement byte slice to types.Address slice
+func (addrs AddrArr) SetBytes(byt []byte) ([]types.Address, error) {
 	size := len(byt) / types.AddressSize
 	result := make([]types.Address, size)
 	for i := 0; i < size; i++ {
@@ -43,6 +49,7 @@ func (self AddrArr) SetBytes(byt []byte) ([]types.Address, error) {
 	return arr, nil
 }
 
+// ConsensusDB is leveldb for
 type ConsensusDB struct {
 	db *leveldb.DB
 }
@@ -134,13 +141,13 @@ func (self *ConsensusDB) Check() {
 
 func CreateElectionResultPrefixKey() []byte {
 	key := make([]byte, 1)
-	key[0] = INDEX_ElectionResult
+	key[0] = IndexElectionResult
 	return key
 }
 
 func CreateElectionResultKey(hash types.Hash) []byte {
 	key := make([]byte, 1+types.HashSize)
-	key[0] = INDEX_ElectionResult
+	key[0] = IndexElectionResult
 
 	copy(key[1:types.HashSize+1], hash.Bytes())
 

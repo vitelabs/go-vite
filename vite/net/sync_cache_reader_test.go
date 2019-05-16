@@ -261,6 +261,10 @@ type mockSyncDownloader struct {
 	}
 }
 
+func (m *mockSyncDownloader) addBlackList(id peerId) {
+	panic("implement me")
+}
+
 func (m *mockSyncDownloader) cancelAllTasks() {
 	panic("implement me")
 }
@@ -278,15 +282,11 @@ func (m *mockSyncDownloader) status() DownloaderStatus {
 }
 
 func (m *mockSyncDownloader) download(t *syncTask, must bool) bool {
-	fmt.Println("download", t.from, t.to, must)
+	fmt.Println("download", t.Bound[0], t.Bound[1], must)
 	time.Sleep(time.Second)
-	w, err := m.chain.GetSyncCache().NewWriter(interfaces.Segment{
-		Bound:    [2]uint64{t.from, t.to},
-		Hash:     t.endHash,
-		PrevHash: t.prevHash,
-	})
+	w, err := m.chain.GetSyncCache().NewWriter(t.Segment)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create writer %d-%d: %v", t.from, t.to, err))
+		panic(fmt.Sprintf("failed to create writer %d-%d: %v", t.Bound[0], t.Bound[1], err))
 	}
 	_ = w.Close()
 	m.listener(*t, nil)
@@ -456,28 +456,32 @@ func TestCompareCache(t *testing.T) {
 
 	var tasks = syncTasks{
 		{
-			from:     2,
-			to:       100,
-			prevHash: types.Hash{0, 0, 0},
-			endHash:  types.Hash{1, 3, 5},
+			Segment: interfaces.Segment{
+				Bound:    [2]uint64{2, 100},
+				PrevHash: types.Hash{0, 0, 0},
+				Hash:     types.Hash{1, 3, 5},
+			},
 		},
 		{
-			from:     101,
-			to:       200,
-			prevHash: types.Hash{1, 3, 5},
-			endHash:  types.Hash{2, 4, 6},
+			Segment: interfaces.Segment{
+				Bound:    [2]uint64{101, 200},
+				PrevHash: types.Hash{1, 3, 5},
+				Hash:     types.Hash{2, 4, 6},
+			},
 		},
 		{
-			from:     201,
-			to:       300,
-			prevHash: types.Hash{2, 4, 6},
-			endHash:  types.Hash{90, 194},
+			Segment: interfaces.Segment{
+				Bound:    [2]uint64{201, 300},
+				PrevHash: types.Hash{2, 4, 6},
+				Hash:     types.Hash{90, 194},
+			},
 		},
 		{
-			from:     301,
-			to:       400,
-			prevHash: types.Hash{90, 194},
-			endHash:  types.Hash{195, 49},
+			Segment: interfaces.Segment{
+				Bound:    [2]uint64{301, 400},
+				PrevHash: types.Hash{90, 194},
+				Hash:     types.Hash{195, 49},
+			},
 		},
 	}
 

@@ -1,6 +1,8 @@
 package chain_index
 
 import (
+	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
@@ -28,6 +30,10 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 
 			if err != nil {
 				return nil, err
+			}
+
+			if fromAddr == nil {
+				return nil, errors.New(fmt.Sprintf("block hash is %s, fromAddr is %s, height is %d", blockHash, fromAddr, height))
 			}
 
 			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{

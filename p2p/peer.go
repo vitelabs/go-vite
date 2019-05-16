@@ -105,7 +105,7 @@ type peerMux struct {
 }
 
 func (p *peerMux) Weight() int64 {
-	return time.Now().Unix() - p.createAt.Unix()
+	return int64(p.level)
 }
 
 func (p *peerMux) Head() types.Hash {
@@ -236,7 +236,12 @@ func (p *peerMux) readLoop() (err error) {
 
 		switch msg.Code {
 		case CodeDisconnect:
-			return PeerQuitting
+			if len(msg.Payload) > 0 {
+				err = PeerError(msg.Payload[0])
+			} else {
+				err = PeerUnknownReason
+			}
+			return
 		case CodeControlFlow:
 		// todo
 
@@ -279,9 +284,14 @@ func (p *peerMux) handleLoop() (err error) {
 
 func (p *peerMux) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if pe, ok := err.(PeerError); ok {
+			_ = p.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(pe)},
+			})
+		}
 
-		_ = Disconnect(p, err)
-
+		time.Sleep(100 * time.Millisecond)
 		atomic.StoreInt32(&p.writable, 0)
 
 		// ensure nobody is writing

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/vite/net/protos"
 
@@ -18,8 +20,6 @@ import (
 	"github.com/vitelabs/go-vite/tools/list"
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
-
-const step = 100
 
 type msgHandler interface {
 	name() string
@@ -189,8 +189,11 @@ func (q *queryHandler) loop() {
 }
 
 type checkHandler struct {
-	chain snapshotBlockReader
-	log   log15.Logger
+	chain interface {
+		GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+		GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
+	}
+	log log15.Logger
 }
 
 func (c *checkHandler) name() string {
@@ -201,6 +204,7 @@ func (c *checkHandler) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeGetHashList}
 }
 
+// return [startHeight+1 ... end]
 func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (code p2p.Code, payload p2p.Serializable) {
 	var block *ledger.SnapshotBlock
 	var err error
@@ -228,7 +232,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 		start = block.Height + 1
 	}
 
-	var points []*ledger.HashHeight
+	var points []*message.HashHeightPoint
 	for start <= get.To {
 		block, err = c.chain.GetSnapshotBlockByHeight(start)
 		if err != nil || block == nil {
@@ -236,20 +240,40 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 			break
 		}
 
-		points = append(points, &ledger.HashHeight{
-			Height: block.Height,
-			Hash:   block.Hash,
+		points = append(points, &message.HashHeightPoint{
+			HashHeight: ledger.HashHeight{
+				Height: block.Height,
+				Hash:   block.Hash,
+			},
 		})
 
-		start += step
-		start = start / step * step
+		if start == get.To {
+			break
+		}
+
+		start = (start + step) / step * step
+		if start > get.To {
+			start = get.To
+		}
 	}
 
 	if len(points) == 0 {
 		return p2p.CodeException, p2p.ExpMissing
 	}
 
-	return p2p.CodeHashList, &message.HashHeightList{
+	var reader interfaces.LedgerReader
+	start = points[0].Height
+	for i := 1; i < len(points); i++ {
+		point := points[i]
+		reader, err = c.chain.GetLedgerReaderByHeight(start, point.Height)
+		if err != nil {
+			break
+		}
+		point.Size = uint64(reader.Size())
+		start = point.Height + 1
+	}
+
+	return p2p.CodeHashList, &message.HashHeightPointList{
 		Points: points,
 	}
 }

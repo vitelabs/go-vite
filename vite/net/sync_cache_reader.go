@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,11 +46,10 @@ type syncCacheReader interface {
 	start()
 	stop()
 	compareCache(ts syncTasks) syncTasks
-	clean() // clean cache and reset
-	chunks() interfaces.SegmentList
-	queue() [][2]*ledger.HashHeight
-	pause()
-	resume()
+	chunks() [][2]*ledger.HashHeight
+	cache(from, to uint64) interfaces.SegmentList
+	caches() interfaces.SegmentList
+	reset()
 }
 
 type Chunks []*Chunk
@@ -70,6 +70,7 @@ type cacheReader struct {
 	chain      syncChain
 	verifier   Verifier
 	downloader syncDownloader
+	irreader   IrreversibleReader
 
 	running bool
 	mu      sync.Mutex
@@ -78,16 +79,64 @@ type cacheReader struct {
 	readHeight uint64
 
 	readable int32
-	reading  *interfaces.Segment
 
 	buffer Chunks
-	index  int
+
+	downloadRecord map[interfaces.Segment]peerId
 
 	wg  sync.WaitGroup
 	log log15.Logger
 }
 
-func (s *cacheReader) queue() (ret [][2]*ledger.HashHeight) {
+func (s *cacheReader) cache(from, to uint64) (ret interfaces.SegmentList) {
+	cs := s.localChunk()
+	return retrieveSegments(cs, from, to)
+}
+
+func retrieveSegments(cs interfaces.SegmentList, from, to uint64) (ret interfaces.SegmentList) {
+	if len(cs) == 0 {
+		return nil
+	}
+
+	index := sort.Search(len(cs), func(i int) bool {
+		return cs[i].Bound[1] >= from
+	})
+
+	for i := index; i < len(cs); i++ {
+		if cs[i].Bound[0] > to {
+			break
+		}
+		ret = append(ret, cs[i])
+	}
+
+	return
+}
+
+func (s *cacheReader) caches() interfaces.SegmentList {
+	cs := s.localChunk()
+	return mergeSegments(cs)
+}
+
+func mergeSegments(cs interfaces.SegmentList) (cs2 interfaces.SegmentList) {
+	if len(cs) == 0 {
+		return
+	}
+
+	segment := cs[0]
+	for i := 1; i < len(cs); i++ {
+		if cs[i].PrevHash == segment.Hash && cs[i].Bound[0] == segment.Bound[1]+1 {
+			segment.Hash = cs[i].Hash
+			segment.Bound[1] = cs[i].Bound[1]
+		} else {
+			cs2 = append(cs2, segment)
+			segment = cs[i]
+		}
+	}
+
+	return
+}
+
+func (s *cacheReader) chunks() (ret [][2]*ledger.HashHeight) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -103,36 +152,35 @@ func (s *cacheReader) Peek() (c *Chunk) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.index < len(s.buffer) {
-		c = s.buffer[s.index]
-		s.index++
+	if len(s.buffer) > 0 {
+		c = s.buffer[0]
+		s.log.Info(fmt.Sprintf("peek cache %d-%d", c.SnapshotRange[0].Height, c.SnapshotRange[1].Height))
 	}
 
 	return
 }
 
 func (s *cacheReader) Pop(endHash types.Hash) {
-	s.log.Info(fmt.Sprintf("pop cache %s", endHash))
-
 	s.mu.Lock()
 	if len(s.buffer) > 0 {
 		if s.buffer[0].SnapshotRange[1].Hash == endHash {
+			s.log.Info(fmt.Sprintf("pop cache %d-%d %s", s.buffer[0].SnapshotRange[0].Height, s.buffer[0].SnapshotRange[1].Height, endHash))
+
 			s.buffer = s.buffer[1:]
-			s.index--
+
+			s.cond.Signal()
 		}
 	}
 	s.mu.Unlock()
-
-	s.cond.Signal()
 }
 
-func (s *cacheReader) bufferSize() (n int64) {
-	for _, c := range s.buffer {
-		n += c.size
-	}
-
-	return
-}
+//func (s *cacheReader) bufferSize() (n int64) {
+//	for _, c := range s.buffer {
+//		n += c.size
+//	}
+//
+//	return
+//}
 
 // will blocked if queue is full
 func (s *cacheReader) addChunkToBuffer(c *Chunk) {
@@ -140,11 +188,11 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	defer s.mu.Unlock()
 
 	for {
-		if false == s.running {
+		if false == s.running || s.canRead() == false {
 			return
 		}
 
-		if s.bufferSize() >= maxQueueSize || len(s.buffer) > maxQueueLength {
+		if len(s.buffer) > maxQueueLength {
 			s.cond.Wait()
 		} else {
 			break
@@ -154,14 +202,15 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	s.buffer = append(s.buffer, c)
 }
 
-func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) syncCacheReader {
+func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) *cacheReader {
 	s := &cacheReader{
-		chain:      chain,
-		verifier:   verifier,
-		downloader: downloader,
-		buffer:     make(Chunks, 0, maxQueueLength),
-		log:        netLog.New("module", "cache"),
-		readable:   1,
+		chain:          chain,
+		verifier:       verifier,
+		downloader:     downloader,
+		buffer:         make(Chunks, 0, maxQueueLength),
+		log:            netLog.New("module", "cache"),
+		readable:       1,
+		downloadRecord: make(map[interfaces.Segment]peerId),
 	}
 
 	s.cond = sync.NewCond(&s.mu)
@@ -186,6 +235,9 @@ func (s *cacheReader) start() {
 
 	s.wg.Add(1)
 	go s.readLoop()
+
+	s.wg.Add(1)
+	go s.cleanLoop()
 }
 
 func (s *cacheReader) stop() {
@@ -207,17 +259,17 @@ Loop:
 	for _, c := range cs {
 		for i < len(ts) {
 			t = ts[i]
-			if c.Bound[1] < t.from {
+			if c.Bound[1] < t.Bound[0] {
 				continue Loop
 			}
 
-			if c.Bound[0] > t.to {
+			if c.Bound[0] > t.Bound[1] {
 				i++
 				continue
 			}
 
 			// task and segment is overlapped
-			if c.PrevHash != t.prevHash || c.Bound[0] != t.from || c.Bound[1] != t.to || c.Hash != t.endHash {
+			if c != t.Segment {
 				catch(c, t)
 				continue Loop
 			}
@@ -245,23 +297,25 @@ Loop:
 }
 
 func (s *cacheReader) compareCache(ts syncTasks) syncTasks {
-	defer s.resume()
+	s.pause()
+	defer s.resume() // will signal reader
 
-	cs := s.chunks()
+	if s.readHeight == 0 {
+		s.readHeight = ts[0].Bound[0] - 1
+	}
+
+	cs := s.localChunk()
 	if len(cs) == 0 {
 		return ts
 	}
 
 	last := cs[len(cs)-1]
-	if last.Bound[1] < ts[0].from {
+	if last.Bound[1] < ts[0].Bound[0] {
 		return ts
 	}
 
 	// chunk and tasks are overlapped
-	s.pause()
 	ts = compareCache(cs, ts, s.deleteChunk)
-
-	s.cond.Signal()
 
 	return ts
 }
@@ -270,13 +324,7 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 	cache := s.chain.GetSyncCache()
 	_ = cache.Delete(segment)
 
-	s.mu.Lock()
-	reading := s.reading
-	s.mu.Unlock()
-
-	if reading != nil && reading.Bound[1] <= segment.Bound[1] {
-		s.pause()
-	}
+	s.log.Warn(fmt.Sprintf("delete chunk %d-%d/%s/%s, task %d-%d/%s/%s", segment.Bound[0], segment.Bound[1], segment.PrevHash, segment.Hash, t.Bound[0], t.Bound[1], t.PrevHash, t.Hash))
 
 	// chunk has been read to buffer
 	if segment.Bound[1] <= s.readHeight {
@@ -284,17 +332,16 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 		for i, c := range s.buffer {
 			if c.SnapshotRange[1].Height == segment.Bound[1] {
 				s.buffer = s.buffer[:i]
-				s.index = i
 
-				// signal reader
-				s.cond.Signal()
-
-				if len(s.buffer) > 0 {
-					last := s.buffer[len(s.buffer)-1]
-					s.readHeight = last.SnapshotRange[1].Height
-				} else {
-					s.readHeight = t.from - 1
+				s.readHeight = c.SnapshotRange[0].Height
+				if s.readHeight >= t.Bound[0] {
+					s.readHeight = t.Bound[0] - 1
 				}
+
+				s.log.Warn(fmt.Sprintf("delete chunk in buffer from %d", i))
+
+				// signal reader, maybe blocked when addChunkToBuffer
+				s.cond.Signal()
 
 				break
 			}
@@ -303,65 +350,70 @@ func (s *cacheReader) deleteChunk(segment interfaces.Segment, t *syncTask) {
 	}
 }
 
-func (s *cacheReader) chunks() interfaces.SegmentList {
+func (s *cacheReader) localChunk() interfaces.SegmentList {
 	return s.chain.GetSyncCache().Chunks()
 }
 
 func (s *cacheReader) chunkDownloaded(t syncTask, err error) {
-	s.cond.Signal()
+	if err == nil {
+		s.mu.Lock()
+		s.downloadRecord[t.Segment] = t.source
+		s.mu.Unlock()
+	}
 }
 
 func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
 	if fatal {
+		s.mu.Lock()
+		id := s.downloadRecord[segment]
+		s.mu.Unlock()
+
+		s.downloader.addBlackList(id)
+		s.log.Warn(fmt.Sprintf("block sync peer: %s", id))
+
 		cache := s.chain.GetSyncCache()
 		err := cache.Delete(segment)
 		if err == nil {
 			s.downloader.download(&syncTask{
-				from:     segment.Bound[0],
-				to:       segment.Bound[1],
-				prevHash: segment.PrevHash,
-				endHash:  segment.Hash,
+				Segment: segment,
 			}, true)
 		}
 	}
 }
 
-func (s *cacheReader) clean() {
-	cache := s.chain.GetSyncCache()
-	cs := cache.Chunks()
-	for _, c := range cs {
-		_ = cache.Delete(c)
-	}
-
-	s.reset()
-}
-
 func (s *cacheReader) reset() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.pause()
 
-	s.readHeight = s.getHeight()
+	s.mu.Lock()
+	s.readHeight = 0
 	s.buffer = s.buffer[:0]
-	s.index = 0
+	s.mu.Unlock()
 
 	s.cond.Signal()
 }
 
-func (s *cacheReader) removeUselessChunks(cleanWrongEnd bool) {
+func (s *cacheReader) removeUselessChunks(cleanWrong bool) {
 	height := s.getHeight()
 	cache := s.chain.GetSyncCache()
 	cs := cache.Chunks()
+	genesisHeight := s.chain.GetGenesisSnapshotBlock().Height
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	for _, c := range cs {
 		if c.Bound[1] > height {
-			if cleanWrongEnd {
-				if c.Bound[1]%syncTaskSize != 0 {
+			if cleanWrong {
+				if c.Bound[0]%syncTaskSize != 1 && c.Bound[0] != genesisHeight+1 {
+					_ = cache.Delete(c)
+				} else if c.Bound[1]%syncTaskSize != 0 {
 					_ = cache.Delete(c)
 				}
 			} else {
 				break
 			}
 		} else {
+			delete(s.downloadRecord, c)
 			_ = cache.Delete(c)
 		}
 	}
@@ -376,10 +428,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 		return
 	}
 
-	s.mu.Lock()
-	s.reading = &c
-	s.mu.Unlock()
-
 	verified := reader.Verified()
 
 	chunk = newChunk(c.PrevHash, c.Bound[0]-1, c.Hash, c.Bound[1], types.RemoteSync)
@@ -388,10 +436,14 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 	var ab *ledger.AccountBlock
 	var sb *ledger.SnapshotBlock
 	for {
-		if false == s.running {
+		if false == s.running || false == s.canRead() {
 			_ = reader.Close()
 			fatal = false
-			err = errReaderStopped
+			if false == s.running {
+				err = errReaderStopped
+			} else {
+				err = errReaderInterrupt
+			}
 			return
 		}
 
@@ -420,13 +472,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 				break
 			}
 		}
-
-		if false == s.canRead() {
-			_ = reader.Close()
-			fatal = false
-			err = errReaderInterrupt
-			return
-		}
 	}
 
 	_ = reader.Close()
@@ -440,10 +485,6 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 		reader.Verify()
 	}
 
-	s.mu.Lock()
-	s.reading = nil
-	s.mu.Unlock()
-
 	return
 }
 
@@ -453,6 +494,7 @@ func (s *cacheReader) pause() {
 
 func (s *cacheReader) resume() {
 	atomic.StoreInt32(&s.readable, 1)
+	s.cond.Signal()
 }
 
 func (s *cacheReader) canRead() bool {
@@ -462,38 +504,22 @@ func (s *cacheReader) canRead() bool {
 func (s *cacheReader) readLoop() {
 	defer s.wg.Done()
 
-	s.removeUselessChunks(true)
-	s.readHeight = s.getHeight()
+	s.readHeight = 0
 
 	cache := s.chain.GetSyncCache()
 
-	var chunk *Chunk
-	var fatal bool
-	var err error
 	var cs interfaces.SegmentList
 
 Loop:
 	for {
-		s.removeUselessChunks(false)
+		if false == s.running {
+			break Loop
+		}
 
-		for {
-			if false == s.running {
-				break Loop
-			}
-
-			if cs = cache.Chunks(); len(cs) == 0 {
-				s.mu.Lock()
-				s.cond.Wait()
-				s.mu.Unlock()
-				continue
-			} else if s.canRead() == false {
-				s.mu.Lock()
-				s.cond.Wait()
-				s.mu.Unlock()
-				continue
-			} else {
-				break
-			}
+		cs = cache.Chunks()
+		if len(cs) == 0 || s.canRead() == false {
+			time.Sleep(time.Second)
+			continue
 		}
 
 		// read chunks
@@ -511,21 +537,61 @@ Loop:
 			}
 
 			s.log.Info(fmt.Sprintf("begin read cache %d-%d", c.Bound[0], c.Bound[1]))
-			chunk, fatal, err = s.read(c)
+			chunk, fatal, err := s.read(c)
 
-			// read chunk error
 			if err != nil {
+				// read chunk error
 				s.log.Error(fmt.Sprintf("failed to read cache %d-%d: %v", c.Bound[0], c.Bound[1], err))
 				s.chunkReadFailed(c, fatal)
 			} else {
+				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
+				// set readHeight should be very seriously
+				s.readHeight = c.Bound[1]
 				// will be block
 				s.addChunkToBuffer(chunk)
-				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.Bound[0], c.Bound[1]))
-				// set readTo should be very seriously
-				s.readHeight = c.Bound[1]
 			}
 		}
 
 		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func (s *cacheReader) cleanLoop() {
+	defer s.wg.Done()
+
+	cache := s.chain.GetSyncCache()
+
+	var initDuration = 10 * time.Second
+	var maxDuration = 10 * time.Minute
+	var duration = initDuration
+
+	var cs interfaces.SegmentList
+	var irevBlock *ledger.SnapshotBlock
+
+Loop:
+	for {
+		if false == s.running {
+			break Loop
+		}
+
+		irevBlock = s.irreader.GetIrreversibleBlock()
+		cs = cache.Chunks()
+		if len(cs) == 0 || irevBlock == nil {
+			duration *= 2
+			if duration > maxDuration {
+				duration = initDuration
+			}
+			time.Sleep(duration)
+			continue
+		}
+
+		// read chunks
+		for _, c := range cs {
+			if c.Bound[1] < irevBlock.Height {
+				_ = cache.Delete(c)
+			}
+		}
+
+		time.Sleep(duration)
 	}
 }

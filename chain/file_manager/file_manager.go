@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"sync"
 )
@@ -16,11 +17,13 @@ type FileManager struct {
 	prevFlushLocation      *Location
 
 	fSyncWg sync.WaitGroup
+	log     log15.Logger
 }
 
 func NewFileManager(dirName string, fileSize int64, cacheCount int) (*FileManager, error) {
 	fm := &FileManager{
 		fileSize: fileSize,
+		log:      log15.New("module", "fileManager"),
 	}
 
 	fdSet, err := newFdManager(fm, dirName, int(fileSize), cacheCount)
@@ -51,9 +54,13 @@ func (fm *FileManager) LatestLocation() *Location {
 }
 
 func (fm *FileManager) Write(buf []byte) (*Location, error) {
+
 	bufSize := len(buf)
 
 	location := fm.fdSet.LatestLocation()
+	// FOR DEBUG
+	//fm.log.Info(fmt.Sprintf("file manager write %d bytes, location is %+v", bufSize, location), "method", "Write")
+
 	n := 0
 	for n < bufSize {
 		count, err := fm.write(buf[n:])
@@ -77,6 +84,9 @@ func (fm *FileManager) DeleteTo(location *Location) error {
 	if location.Compare(fm.nextFlushStartLocation) < 0 {
 		fm.nextFlushStartLocation = location
 	}
+
+	// FOR DEBUG
+	//fm.log.Info(fmt.Sprintf("file manager delete to %+v, fm.nextFlushStartLocation is %+v, latest location is %+v", location, fm.nextFlushStartLocation, fm.LatestLocation()), "method", "DeleteTo")
 	return nil
 }
 
@@ -125,11 +135,16 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 		}
 	}
 
+	// FOR DEBUG
+	//fm.log.Info(fmt.Sprintf("file manager flush, start location is %+v, target location is %+v, buf size is %d", startLocation, targetLocation, len(buf)), "method", "Flush")
+
 	if fm.prevFlushLocation.Compare(targetLocation) > 0 {
 		// Disk delete
 		if err := fm.fdSet.DiskDelete(fm.prevFlushLocation, targetLocation); err != nil {
 			return err
 		}
+		// FOR DEBUG
+		//fm.log.Info(fmt.Sprintf("file manager disk delete, prevFlushLocation is %+v, targetLocation is %+v", fm.prevFlushLocation, targetLocation), "method", "Flush")
 	}
 
 	fm.prevFlushLocation = targetLocation
@@ -263,6 +278,10 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 
 		currentLocation = NewLocation(currentLocation.FileId+1, 0)
 	}
+}
+
+func (fm *FileManager) SetLog(h log15.Handler) {
+	fm.log.SetHandler(h)
 }
 
 func (fm *FileManager) Close() error {
