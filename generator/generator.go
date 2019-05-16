@@ -141,6 +141,13 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	}
 
 	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
+	if err != nil {
+		bDetail := fmt.Sprintf("block(addr:%v prevHash:%v)", block.AccountAddress, block.PrevHash)
+		if fromBlock != nil {
+			bDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
+		}
+		gen.log.Info(fmt.Sprintf("vm Run err %v", err), "detail", bDetail)
+	}
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
 		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
