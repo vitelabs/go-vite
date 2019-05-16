@@ -59,6 +59,7 @@ type accountCh struct {
 func (accCh *accountCh) insertBlock(b commonBlock) error {
 	monitor.LogEvent("pool", "insertChain")
 	block := b.(*accountPoolBlock)
+	accCh.log.Info("insert account block", "addr", block.block.AccountAddress, "height", block.block.Height, "hash", block.block.Hash)
 	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
 	return accCh.rw.InsertAccountBlock(accountBlock)
 }
@@ -129,6 +130,9 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	block, err := accCh.rw.GetLatestAccountBlock(accCh.address)
 	if err != nil {
 		panic(err)
+	}
+	if block == nil && height != 1 {
+		panic(fmt.Sprintf("latest block is nil"))
 	}
 	if block.Height > height {
 		panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))

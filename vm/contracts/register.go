@@ -271,10 +271,14 @@ func checkRewardDrained(reader util.ConsensusReader, db vm_db.VmDb, old *types.R
 	if err != nil {
 		return false, err
 	}
+	return RewardDrained(reward, drained), nil
+}
+
+func RewardDrained(reward *Reward, drained bool) bool {
 	if drained && (reward == nil || reward.TotalReward.Sign() == 0) {
-		return drained, nil
+		return drained
 	}
-	return false, nil
+	return false
 }
 
 type Reward struct {
@@ -366,6 +370,9 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 		}
 	}()
 	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
+	if timestamp < genesisTime {
+		return nil, util.ErrInvalidMethodParam
+	}
 	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
 	if err != nil {
 		return nil, err

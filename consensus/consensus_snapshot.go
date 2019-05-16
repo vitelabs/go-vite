@@ -251,18 +251,18 @@ func (snapshot *snapshotCs) ElectionTime(t time.Time) (*electionResult, error) {
 }
 
 func (snapshot *snapshotCs) ElectionIndex(index uint64) (*electionResult, error) {
-	proofTime, proofIndex := snapshot.genSnapshotProofTimeIndx(index)
+	proofTime, _ := snapshot.genSnapshotProofTimeIndx(index)
 
-	block, e := snapshot.rw.GetSnapshotBeforeTime(proofTime)
+	proofBlock, e := snapshot.rw.GetSnapshotBeforeTime(proofTime)
 	if e != nil {
 		snapshot.log.Error("geSnapshotBeferTime fail.", "err", e)
 		return nil, e
 	}
 
 	// todo
-	snapshot.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, block.Hash, proofTime))
+	snapshot.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, proofBlock.Hash, proofTime))
 
-	voteResults, err := snapshot.calVotes(ledger.HashHeight{Hash: block.Hash, Height: block.Height}, index, proofIndex)
+	voteResults, err := snapshot.calVotes(proofBlock, index)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,8 @@ func (snapshot *snapshotCs) ElectionIndex(index uint64) (*electionResult, error)
 	return plans, nil
 }
 
-func (snapshot *snapshotCs) calVotes(hashH ledger.HashHeight, index uint64, proofIndex uint64) ([]types.Address, error) {
+func (snapshot *snapshotCs) calVotes(proofBlock *ledger.SnapshotBlock, index uint64) ([]types.Address, error) {
+	hashH := ledger.HashHeight{Hash: proofBlock.Hash, Height: proofBlock.Height}
 	// load from cache
 	r, ok := snapshot.rw.getSnapshotVoteCache(hashH.Hash)
 	if ok {
@@ -287,6 +288,7 @@ func (snapshot *snapshotCs) calVotes(hashH ledger.HashHeight, index uint64, proo
 
 	var successRate map[types.Address]int32
 
+	_, proofIndex := snapshot.genSnapshotProofTimeIndx(snapshot.Time2Index(*proofBlock.Timestamp))
 	if proofIndex > 0 {
 		successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
 		if err != nil {
