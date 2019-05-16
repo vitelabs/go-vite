@@ -332,7 +332,9 @@ func (db *nodeDB) RetrieveEndPoints(count int) (nodes []*vnode.Node) {
 	defer itr.Release()
 
 	prefixLen := len(nodeMarkPrefix)
-	ms := make(marks, 0, count*2)
+
+	need := count * 2
+	ms := make(marks, 0, need)
 
 	for itr.Next() {
 		key := itr.Key()
@@ -342,15 +344,21 @@ func (db *nodeDB) RetrieveEndPoints(count int) (nodes []*vnode.Node) {
 			continue
 		}
 
-		ms = append(ms, mark{
-			mark: db.RetrieveInt64(key),
-			id:   id,
-		})
+		weight := db.RetrieveInt64(key)
+		if weight >= int64(Superior) || len(ms) < need {
+			ms = append(ms, mark{
+				mark: weight,
+				id:   id,
+			})
+		} else {
+			continue
+		}
 	}
 
 	sort.Sort(ms)
 
-	nodes = make([]*vnode.Node, 0, count)
+	nodes = make([]*vnode.Node, len(ms))
+	var j int
 	for _, m := range ms {
 		key := append(nodeEndPointPrefix, m.id.Bytes()...)
 
@@ -367,18 +375,15 @@ func (db *nodeDB) RetrieveEndPoints(count int) (nodes []*vnode.Node) {
 			continue
 		}
 
-		var n = &vnode.Node{
+		nodes[j] = &vnode.Node{
 			ID:       m.id,
 			EndPoint: e,
 		}
-		nodes = append(nodes, n)
 
-		if len(nodes) >= count {
-			break
-		}
+		j++
 	}
 
-	return nodes
+	return nodes[:j]
 }
 
 func (db *nodeDB) Iterate(prefix []byte, fn func(key, value []byte) bool) {
