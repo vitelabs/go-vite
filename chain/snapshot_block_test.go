@@ -32,11 +32,11 @@ func TestSnapshotBlocks(t *testing.T) {
 				panic(err)
 			}
 			//panic(fmt.Sprintf("sb is nil, height is %d", h))
-			fmt.Printf("Error: sb is nil, height is %d, location is %+v\n", h, l)
+			panic(fmt.Sprintf("Error: sb is nil, height is %d, location is %+v", h, l))
 
 		}
 
-		//fmt.Printf("check snapshot block %d\n", sb.Height)
+		fmt.Printf("check snapshot block %d\n", sb.Height)
 	}
 }
 

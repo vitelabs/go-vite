@@ -48,31 +48,31 @@ func TestInsertAccountBlocks(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for {
-			//mu.RLock()
-			//count := 0
-			//for addr, account := range accounts {
-			//
-			//	block, err := chainInstance.GetLatestAccountBlock(addr)
-			//	if err != nil {
-			//		panic(err)
-			//	}
-			//
-			//	if block == nil || block.Hash.IsZero() {
-			//		panic("error")
-			//	}
-			//	if block.Hash != account.LatestBlock.Hash {
-			//		//block, err := chainInstance.GetLatestAccountBlock(addr)
-			//		panic(fmt.Sprintf("%+v\n %+v", block, account.LatestBlock))
-			//	}
-			//	count++
-			//
-			//	if count >= 3 {
-			//		break
-			//	}
-			//}
-			//mu.RUnlock()
+			mu.RLock()
+			count := 0
+			for addr, account := range accounts {
 
-			for i := 0; i < 10; i++ {
+				block, err := chainInstance.GetLatestAccountBlock(addr)
+				if err != nil {
+					panic(err)
+				}
+
+				if block == nil || block.Hash.IsZero() {
+					panic("error")
+				}
+				if block.Hash != account.LatestBlock.Hash {
+					//block, err := chainInstance.GetLatestAccountBlock(addr)
+					panic(fmt.Sprintf("%+v\n %+v", block, account.LatestBlock))
+				}
+				count++
+
+				if count >= 5 {
+					break
+				}
+			}
+			mu.RUnlock()
+
+			for i := 0; i < 3; i++ {
 				sb := chainInstance.GetLatestSnapshotBlock()
 				maxHeight := sb.Height
 
@@ -109,15 +109,24 @@ func TestInsertAccountBlocks(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 10000000; i++ {
 			num := rand.Intn(100)
+
 			if num > 90 && len(snapshotBlockList) > 0 {
 				deleteCount := rand.Uint64() % 5
 
+				mu.Lock()
 				deleteSnapshotBlocks(chainInstance, accounts, deleteCount)
+				mu.Unlock()
+
 				snapshotBlockList = snapshotBlockList[:len(snapshotBlockList)-int(deleteCount)]
 
 				fmt.Println("Delete")
+			} else if num > 80 {
+				mu.Lock()
+				deleteAccountBlocks(chainInstance, accounts)
+				mu.Unlock()
+				fmt.Println("Delete account blocks")
 			} else {
-				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(10))
+				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(23))
 				mu.Lock()
 
 				snapshotBlock := createSnapshotBlock(chainInstance, false)
