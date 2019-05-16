@@ -147,7 +147,9 @@ type Reward struct {
 
 func ToReward(source *contracts.Reward) *Reward {
 	if source == nil {
-		return nil
+		return &Reward{TotalReward: "0",
+			VoteReward:  "0",
+			BlockReward: "0"}
 	} else {
 		return &Reward{TotalReward: *bigIntToString(source.TotalReward),
 			VoteReward:  *bigIntToString(source.VoteReward),
