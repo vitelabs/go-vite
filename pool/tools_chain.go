@@ -131,6 +131,9 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 	if err != nil {
 		panic(err)
 	}
+	if block == nil && height != 1 {
+		panic(fmt.Sprintf("latest block is nil"))
+	}
 	if block.Height > height {
 		panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))
 	}
