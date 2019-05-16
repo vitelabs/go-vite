@@ -214,7 +214,7 @@ func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
 		FileAddress: h.fileAddress,
 	}
 	response.Height, response.Head, response.Genesis = h.protocol.ProtoData()
-	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
+	binary.BigEndian.PutUint64(t, uint64(response.Timestamp))
 	hash = crypto.Hash256(t)
 	response.Token = xor(hash, secret)
 	if len(h.key) != 0 {
@@ -292,7 +292,7 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 			return nil, PeerInvalidSignature
 		}
 	} else if false == bytes.Equal(their.Token, token) {
-		return nil, PeerInvalidSignature
+		return nil, PeerInvalidToken
 	}
 
 	return h.doHandshake(c, Outbound, their)
