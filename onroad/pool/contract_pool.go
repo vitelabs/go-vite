@@ -4,11 +4,12 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"sort"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"sort"
-	"sync"
 )
 
 var initLog = log15.New("initOnRoadPool", nil)
@@ -213,6 +214,20 @@ func (p *contractOnRoadPool) ledgerBlockListToOnRoad(orAddr types.Address, block
 		onroadMap[onroad.caller] = append(onroadMap[onroad.caller], onroad)
 	}
 	return onroadMap, nil
+}
+
+func (c *contractOnRoadPool) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+	sum := 0
+	c.cache.Range(func(key, value interface{}) bool {
+		len := value.(*callerCache).len()
+		result[key.(types.Address).String()] = len
+		sum += len
+		return true
+	})
+
+	result["Sum"] = sum
+	return result
 }
 
 type callerCache struct {
