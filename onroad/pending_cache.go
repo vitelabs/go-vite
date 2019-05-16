@@ -114,6 +114,32 @@ func (p *callerPendingMap) addIntoInferiorList(caller types.Address, state infer
 	delete(p.pmap, caller)
 }
 
+func (p *callerPendingMap) releaseCallerByState(state inferiorState) int {
+	var count int
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
+	for caller, s := range p.inferiorList {
+		if s == state {
+			delete(p.inferiorList, caller)
+			count++
+		}
+	}
+	return count
+}
+
+func (p *callerPendingMap) lenOfCallersByState(state inferiorState) int {
+	var count int
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
+	for _, s := range p.inferiorList {
+		if s == state {
+			count++
+		}
+	}
+	return count
+
+}
+
 func (p *callerPendingMap) existInInferiorList(caller types.Address) bool {
 	p.addrMutex.RLock()
 	defer p.addrMutex.RUnlock()

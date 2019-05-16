@@ -61,7 +61,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		blackList:       make(map[types.Address]bool),
 		workingAddrList: make(map[types.Address]bool),
 
-		log: slog.New("worker", nil),
+		log: slog.New("worker", "contract"),
 	}
 	processors := make([]*ContractTaskProcessor, ContractTaskProcessorSize)
 	for i, _ := range processors {
@@ -76,7 +76,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
 
-	w.log = slog.New("worker", accEvent.Address, "gid", accEvent.Gid)
+	w.log = slog.New("worker", "contract", "gid", accEvent.Gid)
 
 	log := w.log.New("method", "start")
 	log.Info("Start() current status" + strconv.Itoa(w.status))
@@ -117,6 +117,26 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			w.WakeupOneTp()
 		})
 
+		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
+		w.manager.addSnapshotEventLis(w.gid, func(latestHeight uint64) {
+			for _, addr := range w.contractAddressList {
+				if w.isContractInBlackList(addr) {
+					continue
+				}
+				count := w.releaseContractCallers(addr, RETRY)
+				signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
+				if count > 0 {
+					q := w.GetPledgeQuota(addr)
+					c := &contractTask{
+						Addr:  addr,
+						Quota: q,
+					}
+					w.pushContractTask(c)
+					w.WakeupOneTp()
+				}
+			}
+		})
+
 		log.Info("start all tp")
 		for _, v := range w.contractTaskProcessors {
 			common.Go(v.work)
@@ -132,11 +152,15 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 }
 
 func (w *ContractWorker) Stop() {
-	w.log.Info("Stop()", "current status", w.status)
+	log := w.log.New("method", "stop")
+	log.Info("Stop()", "current status", w.status)
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == start {
 		w.manager.removeContractLis(w.gid)
+
+		log.Info("removeSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
+		w.manager.removeSnapshotEventLis(w.gid)
 
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
@@ -144,9 +168,9 @@ func (w *ContractWorker) Stop() {
 		w.clearContractBlackList()
 		w.clearWorkingAddrList()
 
-		w.log.Info("stop all task")
+		log.Info("stop all task")
 		w.wg.Wait()
-		w.log.Info("end stop all task")
+		log.Info("end stop all task")
 
 		w.clearSelectiveBlocksCache()
 
@@ -300,7 +324,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 
 		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
 		for _, v := range blocks {
-			if p.isInferiorStateOut(v.AccountAddress) {
+			if p.existInInferiorList(v.AccountAddress) {
 				continue
 			}
 			if isExist := p.addPendingMap(v); !isExist {
@@ -309,7 +333,7 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		}
 	}
 
-	w.log.Info(fmt.Sprintf("acquire new %v, current %v revert %v", addNewCount, p.Len(), revertHappened), "contract", contractAddr)
+	w.log.Info(fmt.Sprintf("acquire new %v, current %v revert %v", addNewCount, p.Len(), revertHappened), "contract", contractAddr, "waitSBCallerLen", p.lenOfCallersByState(RETRY))
 	return p.getOnePending()
 }
 
@@ -318,6 +342,15 @@ func (w *ContractWorker) addContractCallerToInferiorList(contract, caller types.
 	if ok && value != nil {
 		value.(*callerPendingMap).addIntoInferiorList(caller, state)
 	}
+}
+
+func (w *ContractWorker) releaseContractCallers(contract types.Address, state inferiorState) int {
+	value, ok := w.selectivePendingCache.Load(contract)
+	var count int
+	if ok && value != nil {
+		count = value.(*callerPendingMap).releaseCallerByState(state)
+	}
+	return count
 }
 
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
