@@ -16,6 +16,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	vmDb := block.VmDb
 	accountBlock := block.AccountBlock
+
 	var redoLog LogItem
 
 	// write unsaved storage
@@ -23,11 +24,10 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	for _, kv := range unsavedStorage {
 		// set latest kv
-		if kv[1] == nil {
+		if len(kv[1]) <= 0 {
 			batch.Delete(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]))
 		} else {
 			batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]), kv[1])
-
 		}
 	}
 
@@ -124,7 +124,12 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	// write unsaved storage
 	for _, kv := range redoLog.Storage {
 		// set latest kv
-		batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]), kv[1])
+		if len(kv[1]) <= 0 {
+			batch.Delete(chain_utils.CreateStorageValueKey(&addr, kv[0]))
+		} else {
+			batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]), kv[1])
+		}
+
 	}
 
 	// write unsaved balance
@@ -161,7 +166,6 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	// write vm log
 
 	for logHash, vmLogListBytes := range redoLog.VmLogList {
-
 		batch.Put(chain_utils.CreateVmLogListKey(&logHash), vmLogListBytes)
 	}
 

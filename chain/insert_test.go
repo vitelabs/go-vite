@@ -291,6 +291,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 
 		// snapshot
 		Snapshot(accounts, snapshotBlock)
+
 		// delete
 		DeleteInvalidBlocks(accounts, invalidBlocks)
 
