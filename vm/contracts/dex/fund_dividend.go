@@ -251,6 +251,9 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		if ok = iterator.Next(); ok {
 			userVxFundsKey = iterator.Key()
 			userVxFundsBytes = iterator.Value()
+			if len(userVxFundsBytes) == 0 {
+				continue
+			}
 		} else {
 			break
 		}
@@ -341,6 +344,9 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 		} else {
 			userFeesKey = iterator.Key()
 			userFeesBytes = iterator.Value()
+			if len(userFeesBytes) == 0 {
+				continue
+			}
 		}
 
 		addressBytes := userFeesKey[len(UserFeeKeyPrefix):]

@@ -750,9 +750,13 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 }
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
-	tokenInfo = &TokenInfo{}
-	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
-	return
+	if tokenInfo, ok = QuoteTokenInfos[token]; ok {
+		return
+	} else {
+		tokenInfo = &TokenInfo{}
+		ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
+		return
+	}
 }
 
 func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo) {

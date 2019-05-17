@@ -19,6 +19,11 @@ import (
 )
 
 func TestDexFund(t *testing.T) {
+	ethTokenInfo := dexproto.TokenInfo{}
+	ethTokenInfo.Decimals = ETH.decimals
+	ethTokenInfo.Symbol = ETH.Symbol
+	ethTokenInfo.Index = int32(ETH.Index)
+	dex.QuoteTokenInfos[ETH.tokenId] = &dex.TokenInfo{ethTokenInfo}
 	dex.QuoteTokenMinAmount[ETH.tokenId] = big.NewInt(6)
 	db := initDexFundDatabase()
 	userAddress, _ := types.BytesToAddress([]byte("123456789012345678901"))
@@ -136,7 +141,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 
 	clearLogs(db)
 
-	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(1000))
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(1000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
 	_, err := method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.Equal(t, err, dex.TradeMarketNotExistsError)
@@ -148,7 +153,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	assert.Equal(t, err, dex.OrderAmountTooSmallErr)
 
 	clearLogs(db)
-	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, orderIdBytesFromInt(1), VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(2000))
+	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(2000))
 	var appendedBlocks []*ledger.AccountBlock
 	appendedBlocks, err = method.DoReceive(db, receiveBlock, senderAccBlock, nil)
 	assert.True(t, err == nil)
@@ -239,7 +244,7 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 }
 
 func initDexFundDatabase() *testDatabase {
-	db := NewNoDatabase()
+	db := newNoDatabase()
 	db.addr = types.AddressDexFund
 	t1 := time.Unix(1536214502, 0)
 	snapshot1 := &ledger.SnapshotBlock{Height: 123, Timestamp: &t1, Hash: types.DataHash([]byte{10, 1})}

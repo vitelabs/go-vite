@@ -75,6 +75,9 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 	for {
 		if ok = iterator.Next(); ok {
 			userAccountValue = iterator.Value()
+			if len(userAccountValue) == 0 {
+				continue
+			}
 		} else {
 			break
 		}
@@ -106,6 +109,9 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 	for {
 		if ok = iterator.Next(); ok {
 			feeSumValue = iterator.Value()
+			if len(feeSumValue) == 0 {
+				continue
+			}
 		} else {
 			break
 		}
@@ -131,7 +137,11 @@ func accumulateFeeDonate(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big
 	defer iterator.Release()
 	for {
 		if ok := iterator.Next(); ok {
-			accAccount(ledger.ViteTokenId, iterator.Value(), accumulateRes)
+			feeDonateValue := iterator.Value()
+			if len(feeDonateValue) == 0 {
+				continue
+			}
+			accAccount(ledger.ViteTokenId, feeDonateValue, accumulateRes)
 		} else {
 			break
 		}

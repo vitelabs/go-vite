@@ -63,9 +63,7 @@ func (mc *Matcher) MatchOrder(taker *Order) (err error) {
 	if bookToTake, err = mc.getMakerBookToTaker(taker.Side); err != nil {
 		return err
 	} else {
-		defer func() {
-			bookToTake.release()
-		}()
+		defer bookToTake.release()
 	}
 	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
 		return err
@@ -105,15 +103,11 @@ func (mc *Matcher) GetOrdersFromMarket(side bool, begin, end int) ([]*Order, int
 	if book, err = getMakerBook(mc.db, mc.MarketInfo.MarketId, side); err != nil {
 		return nil, 0, err
 	} else {
-		defer func() {
-			book.release()
-		}()
+		defer book.release()
 	}
 	orders := make([]*Order, 0, end-begin)
 	for i := 0; i < end; i++ {
-		if order, ok := book.nextOrder(); err != nil {
-			return nil, 0, err
-		} else if !ok {
+		if order, ok := book.nextOrder(); !ok {
 			return orders, len(orders), nil
 		} else {
 			if i >= begin {
