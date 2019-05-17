@@ -4,12 +4,15 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"sort"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"sort"
-	"sync"
 )
+
+var initLog = log15.New("initOnRoadPool", nil)
 
 type contractOnRoadPool struct {
 	gid   types.Gid
@@ -26,7 +29,7 @@ func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
 		log:   log15.New("contractOnRoadPool", gid),
 	}
 	if err := or.loadOnRoad(); err != nil {
-		return nil
+		panic(fmt.Sprintf("loadOnRoad, err is %v", err))
 	}
 	return or
 }
@@ -62,6 +65,11 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	}
 	or := cc.(*callerCache).getFrontTxByCaller(&caller)
 	if or == nil || or.Hash != hash {
+		var frontHash *types.Hash
+		if or != nil {
+			frontHash = &or.Hash
+		}
+		p.log.Error(fmt.Sprintf("check IsFrontOnRoadOfCaller fail target=%v front=%v", hash, frontHash))
 		return false, ErrCheckIsCallerFrontOnRoadFailed
 	}
 	return true, nil
@@ -109,12 +117,14 @@ func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []
 		sort.Sort(pendingList)
 		for _, v := range pendingList {
 			if v.block.IsSendBlock() {
+				mlog.Debug(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.insertOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
+				mlog.Debug(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
 				if err := p.deleteOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("write block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
@@ -139,12 +149,14 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 		for i := pendingList.Len() - 1; i >= 0; i-- {
 			v := pendingList[i]
 			if v.block.IsSendBlock() {
+				mlog.Debug(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.deleteOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite),
 						"err", err)
 					panic("onRoadPool conflict," + err.Error())
 				}
 			} else {
+				mlog.Debug(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite))
 				if err := p.insertOnRoad(v, isWrite); err != nil {
 					mlog.Error(fmt.Sprintf("delete block-r: %v %v %v fromHash=%v isWrite=%v", v.block.AccountAddress, v.block.Height, v.block.Hash, v.block.FromBlockHash, isWrite),
 						"err", err)
@@ -188,6 +200,11 @@ func (p *contractOnRoadPool) ledgerBlockListToOnRoad(orAddr types.Address, block
 		}
 		onroad, err := LedgerBlockToOnRoad(p.chain, b)
 		if err != nil {
+			if b.IsSendBlock() {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad s fail self=%v t=%v hash=%v height=%v", b.AccountAddress, b.ToAddress, b.Hash, b.Height), "err", err)
+			} else {
+				p.log.Error(fmt.Sprintf("LedgerBlockToOnRoad r fail self=%v fHash=%v hash=%v height%v", b.AccountAddress, b.FromBlockHash, b.Hash, b.Height), "err", err)
+			}
 			return nil, err
 		}
 		_, ok := onroadMap[onroad.caller]
@@ -197,6 +214,20 @@ func (p *contractOnRoadPool) ledgerBlockListToOnRoad(orAddr types.Address, block
 		onroadMap[onroad.caller] = append(onroadMap[onroad.caller], onroad)
 	}
 	return onroadMap, nil
+}
+
+func (c *contractOnRoadPool) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+	sum := 0
+	c.cache.Range(func(key, value interface{}) bool {
+		len := value.(*callerCache).len()
+		result[key.(types.Address).String()] = len
+		sum += len
+		return true
+	})
+
+	result["Sum"] = sum
+	return result
 }
 
 type callerCache struct {
@@ -222,7 +253,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			return err
 		}
 		if completeBlock == nil {
-			return errors.New("failed to find complete block by hash")
+			return ErrFindCompleteBlock
 		}
 		if completeBlock.IsReceiveBlock() {
 			or.Height = completeBlock.Height // refer to its parent receive's height
@@ -238,6 +269,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	}
 	sort.Sort(orSortedList)
 	for _, v := range orSortedList {
+		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
 		isCallerContract := types.IsContractAddr(caller)
 		if err := cc.addTx(&caller, isCallerContract, v, true); err != nil {
 			return err

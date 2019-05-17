@@ -12,7 +12,7 @@ import (
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	//FOR DEBUG
-	//c.log.Info(fmt.Sprintf("insert ab %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
+	//c.log.Info(fmt.Sprintf("insert account block %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 	c.flushMu.RLock()
 	defer c.flushMu.RUnlock()
 
@@ -43,6 +43,9 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 }
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
+	//FOR DEBUG
+	//c.log.Info(fmt.Sprintf("insert snapshot block %s %d\n", snapshotBlock.Hash, snapshotBlock.Height))
+
 	if err := c.insertSnapshotBlock(snapshotBlock); err != nil {
 		return nil, err
 	}
@@ -90,7 +93,15 @@ func (c *chain) getBlocksToBeConfirmed(sc ledger.SnapshotContent) ([]*ledger.Acc
 
 func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	c.flushMu.RLock()
-	defer c.flushMu.RUnlock()
+	defer func() {
+		if e := recover(); e != nil {
+			c.flusher.Abort()
+			c.flushMu.RUnlock()
+			panic(e)
+		}
+
+		c.flushMu.RUnlock()
+	}()
 
 	canBeSnappedBlocks, err := c.getBlocksToBeConfirmed(snapshotBlock.SnapshotContent)
 	if err != nil {

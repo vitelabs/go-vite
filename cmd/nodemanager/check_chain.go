@@ -72,6 +72,7 @@ func (nodeManager *CheckChainNodeManager) Start() error {
 	nodeManager.log.Info("finish checking onroad")
 
 	fmt.Println("check onroad success.")
+
 	fmt.Println("check success.")
 
 	return nil

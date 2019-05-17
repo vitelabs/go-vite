@@ -145,16 +145,17 @@ func (f DexFundApi) GetTime() (int64, error) {
 	return dex.GetTimestampInt64(db), nil
 }
 
-func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, bool) {
+func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, error) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
-	return dex.GetMarketInfo(db, tradeToken, quoteToken)
+	marketInfo, _ := dex.GetMarketInfo(db, tradeToken, quoteToken)
+	return marketInfo, nil
 }
 
 func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
@@ -169,14 +170,15 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
-func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, bool) {
+func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
-	return dex.GetPledgeForVip(db, address)
+	pledgeVip, _ := dex.GetPledgeForVip(db, address)
+	return pledgeVip, nil
 }

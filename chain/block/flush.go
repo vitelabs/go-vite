@@ -63,9 +63,7 @@ func (bDB *BlockDB) Prepare() {
 			bDB.flushStartLocation, bDB.flushTargetLocation, bufWriter.Err))
 	}
 
-	bDB.flushBuf = bufWriter.Buffer.Bytes()
-
-	bufWriter.Release()
+	bDB.flushBuf = bufWriter
 
 	// set next flush start location
 	bDB.fm.SetNextFlushStartLocation(bDB.flushTargetLocation)
@@ -80,30 +78,36 @@ func (bDB *BlockDB) CancelPrepare() {
 
 	bDB.flushStartLocation = nil
 	bDB.flushTargetLocation = nil
+
+	bDB.flushBuf.Release()
 	bDB.flushBuf = nil
 }
 
 func (bDB *BlockDB) RedoLog() ([]byte, error) {
 	var redoLog []byte
-	redoLog = make([]byte, 0, 24+len(bDB.flushBuf))
+	data := bDB.flushBuf.Buffer.Bytes()
+	redoLog = make([]byte, 0, 24+len(data))
 
 	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushStartLocation)...)
 	redoLog = append(redoLog, chain_utils.SerializeLocation(bDB.flushTargetLocation)...)
-	redoLog = append(redoLog, bDB.flushBuf...)
+	redoLog = append(redoLog, data...)
 
 	return redoLog, nil
 
 }
 
 func (bDB *BlockDB) Commit() error {
-	return bDB.fm.Flush(bDB.flushStartLocation, bDB.flushTargetLocation, bDB.flushBuf)
+	return bDB.fm.Flush(bDB.flushStartLocation, bDB.flushTargetLocation, bDB.flushBuf.Buffer.Bytes())
 }
 
 // lock write
 func (bDB *BlockDB) AfterCommit() {
 	bDB.flushStartLocation = nil
 	bDB.flushTargetLocation = nil
+
+	bDB.flushBuf.Release()
 	bDB.flushBuf = nil
+
 }
 
 func (bDB *BlockDB) BeforeRecover(redoLog []byte) {

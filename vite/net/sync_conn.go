@@ -1,6 +1,26 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -11,224 +31,99 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/interfaces"
-
-	"github.com/vitelabs/go-vite/p2p/vnode"
-
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/crypto"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/vitelabs/go-vite/vite/net/protos"
-
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/p2p/vnode"
+	"github.com/vitelabs/go-vite/vitepb"
 )
 
-var errReadTooShort = errors.New("read too short")
 var errWriteTooShort = errors.New("write too short")
-var errPayloadTooLarge = errors.New("payload too large")
 var errHandshakeError = errors.New("sync handshake error")
 var errServerNotReady = errors.New("server not ready")
 var errIncompleteChunk = errors.New("incomplete chunk")
 
-type syncCode byte
-
-func (s syncCode) code() syncCode {
-	return s
+type syncHandshake struct {
+	id    peerId
+	key   []byte
+	time  int64
+	token []byte
 }
 
-func (s syncCode) Serialize() ([]byte, error) {
-	return nil, nil
-}
-
-const (
-	syncHandshake syncCode = iota
-	syncHandshakeDone
-	syncHandshakeErr
-	syncRequest
-	syncReady // server begin transmit data
-	syncMissing
-	syncNoAuth
-	syncServerError // server error, like open reader failed
-	syncQuit
-)
-
-type syncMsg interface {
-	code() syncCode
-	p2p.Serializable
-}
-
-type syncCodecer interface {
-	read() (syncMsg, error)
-	write(msg syncMsg) error
-}
-
-func syncMsgParser(code syncCode, payload []byte) (syncMsg, error) {
-	switch code {
-	case syncHandshake:
-		var msg = new(syncHandshakeMsg)
-		err := msg.deserialize(payload)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
-	case syncRequest:
-		var msg = new(syncRequestMsg)
-		err := msg.deserialize(payload)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
-	case syncReady:
-		var msg = new(syncReadyMsg)
-		err := msg.deserialize(payload)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
-	default:
-		return code, nil
-	}
-}
-
-type syncCodec struct {
-	net2.Conn
-	builder func(code syncCode, payload []byte) (syncMsg, error)
-	buf     [257]byte
-	timeout time.Duration
-}
-
-// 1 byte code
-// 1 byte length
-// 0 ~ 255 byte payload
-func (s *syncCodec) read() (syncMsg, error) {
-	_ = s.Conn.SetReadDeadline(time.Now().Add(s.timeout))
-
-	n, err := s.Conn.Read(s.buf[:2])
-	if err != nil {
-		return nil, err
-	}
-	if n != 2 {
-		return nil, errReadTooShort
-	}
-
-	scode := syncCode(s.buf[0])
-
-	length := s.buf[1]
-	n, err = s.Conn.Read(s.buf[:length])
-	if err != nil {
-		return nil, err
-	}
-	if n != int(length) {
-		return nil, errReadTooShort
-	}
-
-	return s.builder(scode, s.buf[:length])
-}
-
-func (s *syncCodec) write(msg syncMsg) error {
-	_ = s.Conn.SetWriteDeadline(time.Now().Add(s.timeout))
-
-	payload, err := msg.Serialize()
-	if err != nil {
-		return err
-	}
-
-	length := len(payload)
-
-	if length > 255 {
-		return errPayloadTooLarge
-	}
-
-	s.buf[0] = byte(msg.code())
-	s.buf[1] = byte(length)
-	copy(s.buf[2:], payload)
-
-	n, err := s.Conn.Write(s.buf[:2+length])
-	if err != nil {
-		return err
-	}
-	if n != 2+length {
-		return errWriteTooShort
-	}
-
-	return nil
-}
-
-type syncHandshakeMsg struct {
-	key  []byte
-	time time.Time
-	sign []byte
-}
-
-func (s *syncHandshakeMsg) code() syncCode {
-	return syncHandshake
-}
-
-func (s *syncHandshakeMsg) Serialize() ([]byte, error) {
-	pb := &protos.SyncConnHandshake{
+func (s *syncHandshake) Serialize() ([]byte, error) {
+	pb := &vitepb.SyncConnHandshake{
+		ID:        s.id.Bytes(),
+		Timestamp: s.time,
 		Key:       s.key,
-		Timestamp: s.time.Unix(),
-		Sign:      s.sign,
+		Token:     s.token,
 	}
 	return proto.Marshal(pb)
 }
 
-func (s *syncHandshakeMsg) deserialize(data []byte) error {
-	pb := &protos.SyncConnHandshake{}
+func (s *syncHandshake) deserialize(data []byte) error {
+	pb := &vitepb.SyncConnHandshake{}
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
 
+	s.id, err = vnode.Bytes2NodeID(pb.ID)
+	if err != nil {
+		return err
+	}
 	s.key = pb.Key
-	s.time = time.Unix(pb.Timestamp, 0)
-	s.sign = pb.Sign
+	s.time = pb.Timestamp
+	s.token = pb.Token
 	return nil
 }
 
-type syncRequestMsg struct {
-	from, to uint64
+type syncRequest struct {
+	from, to          uint64
+	prevHash, endHash types.Hash
 }
 
-func (s *syncRequestMsg) code() syncCode {
-	return syncRequest
-}
-
-func (s *syncRequestMsg) Serialize() ([]byte, error) {
-	pb := &protos.ChunkRequest{
-		From: s.from,
-		To:   s.to,
+func (s *syncRequest) Serialize() ([]byte, error) {
+	pb := &vitepb.ChunkRequest{
+		From:     s.from,
+		To:       s.to,
+		PrevHash: s.prevHash.Bytes(),
+		EndHash:  s.endHash.Bytes(),
 	}
 
 	return proto.Marshal(pb)
 }
 
-func (s *syncRequestMsg) deserialize(data []byte) error {
-	pb := &protos.ChunkRequest{}
+func (s *syncRequest) deserialize(data []byte) error {
+	pb := &vitepb.ChunkRequest{}
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
 	}
 	s.from = pb.From
 	s.to = pb.To
-	return nil
+
+	s.prevHash, err = types.BytesToHash(pb.PrevHash)
+	if err != nil {
+		return err
+	}
+
+	s.endHash, err = types.BytesToHash(pb.EndHash)
+
+	return err
 }
 
-type syncReadyMsg struct {
+type syncResponse struct {
 	from, to          uint64
 	size              uint64
 	prevHash, endHash types.Hash
 }
 
-func (s *syncReadyMsg) code() syncCode {
-	return syncReady
-}
-
-func (s *syncReadyMsg) Serialize() ([]byte, error) {
-	pb := &protos.ChunkInfo{
+func (s *syncResponse) Serialize() ([]byte, error) {
+	pb := &vitepb.ChunkResponse{
 		From:     s.from,
 		To:       s.to,
 		Size:     s.size,
@@ -239,8 +134,8 @@ func (s *syncReadyMsg) Serialize() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
-func (s *syncReadyMsg) deserialize(data []byte) error {
-	pb := &protos.ChunkInfo{}
+func (s *syncResponse) deserialize(data []byte) error {
+	pb := &vitepb.ChunkResponse{}
 	err := proto.Unmarshal(data, pb)
 	if err != nil {
 		return err
@@ -262,140 +157,165 @@ func (s *syncReadyMsg) deserialize(data []byte) error {
 	return nil
 }
 
-type syncConnState byte
-
-const (
-	fileConnStateNew syncConnState = iota
-	fileConnStateIdle
-	fileConnStateBusy
-	fileConnStateClosed
-)
-
 type SyncConnectionStatus struct {
 	Address string `json:"address"`
 	Speed   string `json:"speed"`
 	Task    string `json:"task"`
 }
 
-type syncConnection interface {
-	net2.Conn
-	syncCodecer
-	ID() peerId
-	download(from, to uint64) (fatal bool, err error)
-	speed() uint64
-	state() syncConnState
-	status() SyncConnectionStatus
-	isBusy() bool
-	height() uint64
-}
-
-type syncConnectionFactory interface {
-	syncConnInitiator
-	syncConnReceiver
-}
-
 type syncConnReceiver interface {
-	receive(conn net2.Conn) (syncConnection, error)
+	receive(conn net2.Conn) (*syncConn, error)
 }
 
 type syncConnInitiator interface {
-	initiate(conn net2.Conn, peer downloadPeer) (syncConnection, error)
+	initiate(conn net2.Conn, peer Peer) (*syncConn, error)
 }
 
 type defaultSyncConnectionFactory struct {
-	chain      syncCacher
-	peers      *peerSet
-	privateKey ed25519.PrivateKey
+	chain   syncCacher
+	peers   *peerSet
+	id      peerId
+	peerKey ed25519.PrivateKey
+	mineKey ed25519.PrivateKey
 }
 
-func (d *defaultSyncConnectionFactory) makeCodec(conn net2.Conn) syncCodecer {
-	return &syncCodec{
-		Conn:    conn,
-		builder: syncMsgParser,
-		timeout: 10 * time.Second,
+func (d *defaultSyncConnectionFactory) makeSyncConn(conn net2.Conn) *syncConn {
+	return &syncConn{
+		conn: conn,
+		c:    p2p.NewTransport(conn, 100, 10*time.Second, 10*time.Second),
 	}
 }
 
-func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer downloadPeer) (syncConnection, error) {
-	codec := d.makeCodec(conn)
-	err := codec.write(&syncHandshakeMsg{
-		key:  d.privateKey.PubByte(),
-		time: time.Now(),
-		sign: nil,
+func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer Peer) (*syncConn, error) {
+	c := d.makeSyncConn(conn)
+
+	hk := &syncHandshake{
+		id:   d.id,
+		time: time.Now().Unix(),
+	}
+	pub := ed25519.PublicKey(peer.ID().Bytes()).ToX25519Pk()
+	priv := d.peerKey.ToX25519Sk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	if err != nil {
+		return nil, err
+	}
+
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(hk.time))
+	hash := crypto.Hash256(t)
+	hk.token = xor(hash, secret)
+	if len(d.mineKey) != 0 {
+		hk.key = d.mineKey.PubByte()
+		hk.token = ed25519.Sign(d.mineKey, hk.token)
+	}
+
+	data, err := hk.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.c.WriteMsg(p2p.Msg{
+		Code:    p2p.CodeSyncHandshake,
+		Payload: data,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := c.c.ReadMsg()
+	if err != nil {
+		return nil, err
+	}
+
+	if msg.Code != p2p.CodeSyncHandshakeOK {
+		return nil, errHandshakeError
+	}
+
+	c.peer = peer
+	c.cacher = d.chain
+
+	return c, nil
+}
+
+func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error) {
+	c := d.makeSyncConn(conn)
+
+	msg, err := c.c.ReadMsg()
+	if err != nil {
+		return nil, err
+	}
+
+	if msg.Code != p2p.CodeSyncHandshake {
+		_ = c.c.WriteMsg(p2p.Msg{
+			Code:    p2p.CodeDisconnect,
+			Payload: []byte{byte(p2p.PeerNotHandshakeMsg)},
+		})
+		return nil, p2p.PeerNotHandshakeMsg
+	}
+
+	var hk = &syncHandshake{}
+	err = hk.deserialize(msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	pub := ed25519.PublicKey(hk.id.Bytes()).ToX25519Pk()
+	priv := d.peerKey.ToX25519Sk()
+	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	if err != nil {
+		return nil, err
+	}
+
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(hk.time))
+	hash := crypto.Hash256(t)
+	token := xor(hash, secret)
+	if len(hk.key) != 0 {
+		if false == ed25519.Verify(hk.key, token, hk.token) {
+			_ = c.c.WriteMsg(p2p.Msg{
+				Code:    p2p.CodeDisconnect,
+				Payload: []byte{byte(p2p.PeerInvalidSignature)},
+			})
+			return nil, p2p.PeerInvalidSignature
+		}
+	} else if false == bytes.Equal(hk.token, token) {
+		_ = c.c.WriteMsg(p2p.Msg{
+			Code:    p2p.CodeDisconnect,
+			Payload: []byte{byte(p2p.PeerInvalidToken)},
+		})
+		return nil, p2p.PeerInvalidToken
+	}
+
+	p := d.peers.get(hk.id)
+	if p == nil {
+		_ = c.c.WriteMsg(p2p.Msg{
+			Code:    p2p.CodeDisconnect,
+			Payload: []byte{byte(p2p.PeerNoPermission)},
+		})
+		return nil, p2p.PeerNoPermission
+	}
+
+	err = c.c.WriteMsg(p2p.Msg{
+		Code: p2p.CodeSyncHandshakeOK,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := codec.read()
-	if err != nil {
-		return nil, err
-	}
+	c.peer = p
+	c.cacher = d.chain
 
-	if msg.code() != syncHandshakeDone {
-		return nil, errHandshakeError
-	}
-
-	return &syncConn{
-		Conn:         conn,
-		syncCodecer:  codec,
-		downloadPeer: peer,
-		cacher:       d.chain,
-	}, nil
-}
-
-func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (syncConnection, error) {
-	codec := d.makeCodec(conn)
-
-	msg, err := codec.read()
-	if err != nil {
-		return nil, err
-	}
-
-	if msg.code() != syncHandshake {
-		_ = codec.write(syncHandshakeErr)
-		return nil, errHandshakeError
-	}
-
-	var id peerId
-	if h, ok := msg.(*syncHandshakeMsg); ok {
-		id, err = vnode.Bytes2NodeID(h.key)
-		if err != nil {
-			_ = codec.write(syncHandshakeErr)
-			return nil, errHandshakeError
-		}
-	} else {
-		_ = codec.write(syncHandshakeErr)
-		return nil, errHandshakeError
-	}
-
-	p := d.peers.get(id)
-	if p == nil {
-		_ = codec.write(syncNoAuth)
-		return nil, errHandshakeError
-	}
-
-	err = codec.write(syncHandshakeDone)
-	if err != nil {
-		return nil, err
-	}
-
-	return &syncConn{
-		Conn:         conn,
-		syncCodecer:  codec,
-		downloadPeer: p,
-	}, nil
+	return c, nil
 }
 
 type syncConn struct {
-	net2.Conn
-	syncCodecer
-	downloadPeer
-	busy   int32 // atomic
-	st     syncConnState
-	t      int64     // timestamp
-	_speed uint64    // download speed, byte/s
-	chunk  [2]uint64 // task
+	conn   net2.Conn
+	c      p2p.Codec
+	peer   Peer
+	busy   int32  // atomic
+	_speed uint64 // download speed, byte/s
+	task   syncTask
 	closed int32
 	cacher syncCacher
 	buf    [1024]byte
@@ -431,20 +351,20 @@ func speedToString(s float64) string {
 
 func (f *syncConn) status() SyncConnectionStatus {
 	st := SyncConnectionStatus{
-		Address: f.downloadPeer.ID().Brief() + "@" + f.Conn.RemoteAddr().String(),
+		Address: f.peer.ID().Brief() + "@" + f.address(),
 		Speed:   speedToString(float64(f._speed)),
 		Task:    "",
 	}
 
 	if f.isBusy() {
-		st.Task = strconv.FormatUint(f.chunk[0], 10) + "-" + strconv.FormatUint(f.chunk[1], 10)
+		st.Task = f.task.String()
 	}
 
 	return st
 }
 
-func (f *syncConn) state() syncConnState {
-	return f.st
+func (f *syncConn) address() string {
+	return f.conn.RemoteAddr().String()
 }
 
 func (f *syncConn) fail() bool {
@@ -461,42 +381,70 @@ func (f *syncConn) isBusy() bool {
 	return atomic.LoadInt32(&f.busy) == 1
 }
 
-func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
-	f.setBusy()
-	defer f.idle()
+func isRightChunk(msg *syncResponse, t *syncTask) (seg interfaces.Segment, err error) {
+	if msg.from != t.Bound[0] || msg.to != t.Bound[1] {
+		err = fmt.Errorf("bound not equal: %d-%d %d-%d", msg.from, msg.to, t.Bound[0], t.Bound[1])
+		return
+	}
 
-	f.chunk = [2]uint64{from, to}
+	if msg.prevHash != t.PrevHash || msg.endHash != t.Hash {
+		err = fmt.Errorf("hash not equal: %s-%s %s-%s", msg.prevHash, msg.endHash, t.PrevHash, t.Hash)
+		return
+	}
 
-	err = f.write(&syncRequestMsg{
-		from: from,
-		to:   to,
+	return t.Segment, err
+}
+
+func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
+	if false == atomic.CompareAndSwapInt32(&f.busy, 0, 1) {
+		err = fmt.Errorf("task %s is downloading", f.task.String())
+		return
+	}
+	defer atomic.StoreInt32(&f.busy, 0)
+	f.task = *t
+
+	request := &syncRequest{
+		from:     t.Bound[0],
+		to:       t.Bound[1],
+		prevHash: t.PrevHash,
+		endHash:  t.Hash,
+	}
+	data, err := request.Serialize()
+	if err != nil {
+		return false, err
+	}
+
+	err = f.c.WriteMsg(p2p.Msg{
+		Code:    p2p.CodeSyncRequest,
+		Payload: data,
 	})
 
 	if err != nil {
-		f.fail()
 		return true, err
 	}
 
-	var msg syncMsg
-	msg, err = f.read()
+	msg, err := f.c.ReadMsg()
 	if err != nil {
-		f.fail()
 		return true, err
 	}
 
-	if msg.code() != syncReady {
+	if msg.Code != p2p.CodeSyncReady {
 		fatal = f.fail()
 		return fatal, errServerNotReady
 	}
 
-	chunkInfo := msg.(*syncReadyMsg)
+	var chunkInfo = &syncResponse{}
+	err = chunkInfo.deserialize(msg.Payload)
+	if err != nil {
+		return true, err
+	}
+
+	segment, err := isRightChunk(chunkInfo, t)
+	if err != nil {
+		return true, err
+	}
 
 	cache := f.cacher.GetSyncCache()
-	segment := interfaces.Segment{
-		Bound:    [2]uint64{from, to},
-		Hash:     chunkInfo.endHash,
-		PrevHash: chunkInfo.prevHash,
-	}
 	writer, err := cache.NewWriter(segment)
 	if err != nil {
 		return false, err
@@ -506,14 +454,14 @@ func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	var nr, nw int
 	var total, count uint64
 	var rerr, werr error
-	_ = f.Conn.SetReadDeadline(time.Now().Add(fileTimeout))
+	_ = f.conn.SetReadDeadline(time.Now().Add(fileTimeout))
 	for {
 		count = chunkInfo.size - total
 		if count > 1024 {
 			count = 1024
 		}
 
-		nr, rerr = f.Conn.Read(f.buf[:count])
+		nr, rerr = f.conn.Read(f.buf[:count])
 		total += uint64(nr)
 
 		nw, werr = writer.Write(f.buf[:nr])
@@ -539,7 +487,7 @@ func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 	}
 
 	if werr != nil {
-		err = fmt.Errorf("failed to write cache %d-%d: %v", from, to, werr)
+		err = fmt.Errorf("failed to write cache %s: %v", t.String(), werr)
 		_ = cache.Delete(segment)
 		return
 	}
@@ -553,22 +501,13 @@ func (f *syncConn) download(from, to uint64) (fatal bool, err error) {
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)
 
+	t.source = f.peer.ID()
 	return
-}
-
-func (f *syncConn) setBusy() {
-	atomic.StoreInt32(&f.busy, 1)
-	atomic.StoreInt64(&f.t, time.Now().Unix())
-}
-
-func (f *syncConn) idle() {
-	atomic.StoreInt32(&f.busy, 0)
-	atomic.StoreInt64(&f.t, time.Now().Unix())
 }
 
 func (f *syncConn) close() error {
 	if atomic.CompareAndSwapInt32(&f.closed, 0, 1) {
-		return f.Conn.Close()
+		return f.conn.Close()
 	}
 
 	return errSyncConnClosed
@@ -578,7 +517,7 @@ var errSyncConnExist = errors.New("sync connection has exist")
 var errSyncConnClosed = errors.New("sync connection has closed")
 var errPeerDialing = errors.New("peer is dialing")
 
-type connections []syncConnection
+type connections []*syncConn
 
 func (fl connections) Len() int {
 	return len(fl)
@@ -606,35 +545,31 @@ type FilePoolStatus struct {
 	Connections []SyncConnectionStatus `json:"connections"`
 }
 
-type downloadPeer interface {
-	ID() peerId
-	height() uint64
-	fileAddress() string
-}
-
-type downloadPeerSet interface {
-	pickDownloadPeers(height uint64) (m map[peerId]downloadPeer)
-}
-
-type connPool interface {
-	addConn(c syncConnection) error
-	delConn(c syncConnection)
-	chooseSource(to uint64) (downloadPeer, syncConnection, error)
-	reset()
-	connections() []SyncConnectionStatus
-}
-
 type connPoolImpl struct {
-	mu    sync.Mutex
-	peers downloadPeerSet
-	mi    map[peerId]int // value is the index of `connPoolImpl.l`
-	l     connections    // connections sort by speed, from fast to slow
+	mu        sync.Mutex
+	peers     *peerSet
+	mi        map[peerId]int // value is the index of `connPoolImpl.l`
+	l         connections    // connections sort by speed, from fast to slow
+	blackList map[peerId]int64
 }
 
-func newPool(peers downloadPeerSet) *connPoolImpl {
+func newPool(peers *peerSet) *connPoolImpl {
 	return &connPoolImpl{
-		mi:    make(map[peerId]int),
-		peers: peers,
+		mi:        make(map[peerId]int),
+		peers:     peers,
+		blackList: make(map[peerId]int64),
+	}
+}
+
+func (fp *connPoolImpl) blockPeer(id peerId) {
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+	fp.blackList[id] = time.Now().Unix()
+
+	if index, ok := fp.mi[id]; ok {
+		c := fp.l[index]
+		_ = p2p.Disconnect(c.c, p2p.PeerBanned)
+		fp.delConnLocked(id)
 	}
 }
 
@@ -652,13 +587,13 @@ func (fp *connPoolImpl) connections() []SyncConnectionStatus {
 }
 
 // delete filePeer and connection
-func (fp *connPoolImpl) delConn(c syncConnection) {
-	_ = c.Close()
+func (fp *connPoolImpl) delConn(c *syncConn) {
+	_ = c.close()
 
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.delConnLocked(c.ID())
+	fp.delConnLocked(c.peer.ID())
 }
 
 func (fp *connPoolImpl) delConnLocked(id peerId) {
@@ -669,16 +604,16 @@ func (fp *connPoolImpl) delConnLocked(id peerId) {
 	}
 }
 
-func (fp *connPoolImpl) addConn(c syncConnection) error {
+func (fp *connPoolImpl) addConn(c *syncConn) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if _, ok := fp.mi[c.ID()]; ok {
+	if _, ok := fp.mi[c.peer.ID()]; ok {
 		return errSyncConnExist
 	}
 
 	fp.l = append(fp.l, c)
-	fp.mi[c.ID()] = len(fp.l) - 1
+	fp.mi[c.peer.ID()] = len(fp.l) - 1
 	return nil
 }
 
@@ -693,13 +628,13 @@ func (fp *connPoolImpl) sort() {
 func (fp *connPoolImpl) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
-		fp.mi[c.ID()] = i
+		fp.mi[c.peer.ID()] = i
 	}
 }
 
 // choose the fast fileConn, or create new conn randomly
-func (fp *connPoolImpl) chooseSource(to uint64) (downloadPeer, syncConnection, error) {
-	peerMap := fp.peers.pickDownloadPeers(to)
+func (fp *connPoolImpl) chooseSource(t *syncTask) (Peer, *syncConn, error) {
+	peerMap := fp.peers.pickDownloadPeers(t.Bound[1])
 
 	if len(peerMap) == 0 {
 		return nil, nil, errNoSuitablePeer
@@ -710,7 +645,15 @@ func (fp *connPoolImpl) chooseSource(to uint64) (downloadPeer, syncConnection, e
 
 	// only peers without sync connection
 	for _, c := range fp.l {
-		delete(peerMap, c.ID())
+		delete(peerMap, c.peer.ID())
+	}
+
+	// is in blackList
+	now := time.Now().Unix()
+	for k, p := range peerMap {
+		if tt, ok := fp.blackList[p.ID()]; ok && now-tt < 60 {
+			delete(peerMap, k)
+		}
 	}
 
 	var createNew bool
@@ -720,7 +663,7 @@ func (fp *connPoolImpl) chooseSource(to uint64) (downloadPeer, syncConnection, e
 
 	fp.sortLocked()
 	for i, c := range fp.l {
-		if c.isBusy() || c.height() < to {
+		if c.isBusy() || c.peer.Height() < t.Bound[1] {
 			continue
 		}
 
@@ -752,8 +695,16 @@ func (fp *connPoolImpl) reset() {
 	fp.mi = make(map[peerId]int)
 
 	for _, c := range fp.l {
-		_ = c.Close()
+		_ = c.close()
 	}
 
 	fp.l = nil
+}
+
+func xor(one, other []byte) (xor []byte) {
+	xor = make([]byte, len(one))
+	for i := 0; i < len(one); i++ {
+		xor[i] = one[i] ^ other[i]
+	}
+	return xor
 }

@@ -19,6 +19,7 @@ import (
 	_ "net/http/pprof"
 
 	"fmt"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/ledger"
 	"net/http"
 	"time"
@@ -54,6 +55,114 @@ func NewChainInstance(dirName string, clear bool) (chain.Chain, error) {
 	return chainInstance, nil
 }
 
+func TestTmpInsert(t *testing.T) {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	//snapshotPerNum := 0
+	quota.InitQuotaConfig(true, true)
+	vm.InitVMConfig(true, true, false, "")
+
+	chainInstance, err := NewChainInstance("bench_test", false)
+	if err != nil {
+		panic(err)
+	}
+
+	//accountVerifier := verifier.NewAccountVerifier(chainInstance, &test_tools.MockConsensus{})
+	//snapshotVerifier := verifier.NewSnapshotVerifier(chainInstance, &test_tools.MockCssVerifier{})
+	//verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
+
+	accounts := MakeAccounts(chainInstance, 100)
+
+	sbCount := 0
+	abCount := 0
+
+	t.Run("CheckAndInsert", func(t *testing.T) {
+		for i := 1; i <= 14872849; i++ {
+			//if i%snapshotPerNum == 0 {
+			sbCount++
+			snapshotBlock := createSnapshotBlock(chainInstance, true)
+
+			//stat := snapshotVerifier.VerifyReferred(snapshotBlock)
+
+			//queryTime := snapshotBlock.Timestamp.Add(-75 * time.Second)
+			//chainInstance.GetSnapshotHeaderBeforeTime(&queryTime)
+			//chainInstance.GetRandomSeed(snapshotBlock.Hash, 25)
+			//
+			//if stat.VerifyResult() != verifier.SUCCESS {
+			//	panic(stat.ErrMsg())
+			//}
+			_, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+
+			if err != nil {
+				panic(err)
+			}
+
+			if sbCount%1000 == 0 {
+				fmt.Println("sbCount", sbCount)
+			}
+
+			//}
+
+			randN := rand.Intn(100)
+			if randN > 15 {
+				continue
+			}
+			abCount++
+
+			// get random account
+			var vmBlock *vm_db.VmAccountBlock
+
+			var account *Account
+
+			for {
+				account = getRandomAccount(accounts)
+
+				// create vm block
+				vmBlock, err = createVmBlock(account, accounts)
+				if err != nil {
+					panic(err)
+				}
+
+				if vmBlock != nil {
+					break
+				}
+			}
+
+			//latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
+			//if vmBlock.AccountBlock.Height > 1 {
+			//	_, blocks, err := verify.VerifyPoolAccBlock(vmBlock.AccountBlock, &latestSnapshotBlock.Hash)
+			//	if err != nil {
+			//		panic(err)
+			//	}
+			//	if blocks == nil {
+			//		panic("verify error!")
+			//	}
+			//}
+
+			// insert vm block
+			account.InsertBlock(vmBlock, accounts)
+
+			// insert vm block to chain
+			if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+				panic(err)
+			}
+		}
+	})
+
+	indexDB, _, stateDB := chainInstance.DBs()
+
+	// compact
+	indexDB.Store().CompactRange(util.Range{})
+	// compact
+	stateDB.Store().CompactRange(util.Range{})
+
+	fmt.Println(chainInstance.GetLatestSnapshotBlock().Height)
+	fmt.Println("sb count", sbCount, "ab count", abCount)
+}
+
 func BenchmarkInsert(b *testing.B) {
 
 	go func() {
@@ -62,7 +171,7 @@ func BenchmarkInsert(b *testing.B) {
 
 	snapshotPerNum := 1
 	quota.InitQuotaConfig(true, true)
-	vm.InitVmConfig(true, true, false, "")
+	vm.InitVMConfig(true, true, false, "")
 
 	chainInstance, err := NewChainInstance("bench_test", false)
 	if err != nil {
@@ -74,6 +183,7 @@ func BenchmarkInsert(b *testing.B) {
 	verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
 
 	accounts := MakeAccounts(chainInstance, 100)
+
 	b.Run("CheckAndInsert", func(b *testing.B) {
 		for i := 1; i <= b.N; i++ {
 			if i%snapshotPerNum == 0 {

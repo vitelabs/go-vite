@@ -87,27 +87,33 @@ func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 		log: log15.New("module", "state_redo"),
 	}
 
-	redo.initCache()
+	if err := redo.initCache(); err != nil {
+		redo.log.Warn("redo.initCache failed, Error: %s", err, "method", "NewStorageRedo")
+	}
 
 	store.RegisterAfterRecover(func() {
-		redo.initCache()
+		redo.log.Info("after recover, redo.initCache()")
+		if err := redo.initCache(); err != nil {
+			panic(errors.New(fmt.Sprintf("after recover, redo.initCache failed, Error: %s", err.Error())))
+		}
 	})
 	return redo, nil
 }
 
 // init
-func (redo *Redo) initCache() {
+func (redo *Redo) initCache() error {
 
 	height := uint64(0)
 
 	latestSnapshotBlock, err := redo.chain.QueryLatestSnapshotBlock()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if latestSnapshotBlock != nil {
 		height = latestSnapshotBlock.Height
 	}
 	redo.cache.Init(height + 1)
+	return nil
 }
 
 func (redo *Redo) Close() error {
@@ -238,7 +244,7 @@ func (redo *Redo) Rollback(chunks []*ledger.SnapshotChunk) {
 	for _, chunk := range chunks {
 		if chunk != nil && chunk.SnapshotBlock != nil {
 			// FOR DEBUG
-			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "Rollback")
+			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "PrepareRollback")
 
 			redo.cache.Delete(chunk.SnapshotBlock.Height)
 			batch.Delete(chain_utils.CreateRedoSnapshot(chunk.SnapshotBlock.Height))

@@ -59,7 +59,7 @@ func (pri PrivateOnroadApi) GetContractAddrListByGid(gid types.Gid) ([]types.Add
 
 func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	log.Info("GetOnroadBlocksByAddress", "addr", address, "index", index, "count", count)
-	blockList, err := pri.manager.GetOnRoadBlocksByAddr(address, int(index), int(count))
+	blockList, err := pri.manager.Chain().GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 
 func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	log.Info("GetAccountOnroadInfo", "addr", address)
-	info, e := pri.manager.GetAccountOnRoadInfo(address)
+	info, e := pri.manager.Chain().GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}

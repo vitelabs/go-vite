@@ -129,22 +129,27 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 	if err != nil {
 		return nil, err
 	}
-	_, _, reward, _, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), vmDb, info, sb)
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), vmDb, info, sb)
 	if err != nil {
 		return nil, err
 	}
-	return ToReward(reward), nil
+	result := ToReward(reward)
+	result.Drained = contracts.RewardDrained(reward, drained)
+	return result, nil
 }
 
 type Reward struct {
 	BlockReward string `json:"blockReward"`
 	VoteReward  string `json:"voteReward"`
 	TotalReward string `json:"totalReward"`
+	Drained     bool   `json:"drained"`
 }
 
 func ToReward(source *contracts.Reward) *Reward {
 	if source == nil {
-		return nil
+		return &Reward{TotalReward: "0",
+			VoteReward:  "0",
+			BlockReward: "0"}
 	} else {
 		return &Reward{TotalReward: *bigIntToString(source.TotalReward),
 			VoteReward:  *bigIntToString(source.VoteReward),

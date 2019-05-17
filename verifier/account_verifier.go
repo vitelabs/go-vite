@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -18,15 +17,17 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
+// AccountVerifier implements all method to verify the transaction.
 type AccountVerifier struct {
-	chain     chain.Chain
+	chain     accountChain
 	consensus consensus
 	orManager onRoadPool
 
 	log log15.Logger
 }
 
-func NewAccountVerifier(chain chain.Chain, consensus consensus) *AccountVerifier {
+// NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "consensus"
+func NewAccountVerifier(chain accountChain, consensus consensus) *AccountVerifier {
 	return &AccountVerifier{
 		chain:     chain,
 		consensus: consensus,
@@ -35,7 +36,9 @@ func NewAccountVerifier(chain chain.Chain, consensus consensus) *AccountVerifier
 	}
 }
 
+// InitOnRoadPool method implements the inspection on whether the Contract's onRoad block is at the lowest height.
 func (v *AccountVerifier) InitOnRoadPool(manager *onroad.Manager) {
+	v.log.Info("InitOnRoadPool")
 	v.orManager = manager
 }
 
@@ -371,25 +374,25 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 	}
 	gen, err := generator.NewGenerator(v.chain, v.consensus, block.AccountAddress, snapshotHash, &block.PrevHash)
 	if err != nil {
-		return nil, ErrVerifyForVmGeneratorFailed
+		return nil, ErrVerifyForVMGeneratorFailed
 	}
 	genResult, err := gen.GenerateWithBlock(block, fromBlock)
 	if err != nil {
-		return nil, ErrVerifyForVmGeneratorFailed
+		return nil, ErrVerifyForVMGeneratorFailed
 	}
 	if genResult == nil {
 		return nil, errors.New("genResult is nil")
 	}
-	if genResult.VmBlock == nil {
+	if genResult.VMBlock == nil {
 		if genResult.Err != nil {
 			return nil, genResult.Err
 		}
 		return nil, errors.New("vm failed, blockList is empty")
 	}
-	if err := v.verifyVMResult(block, genResult.VmBlock.AccountBlock); err != nil {
+	if err := v.verifyVMResult(block, genResult.VMBlock.AccountBlock); err != nil {
 		return nil, errors.New("Inconsistent execution results in vm, err:" + err.Error())
 	}
-	return genResult.VmBlock, nil
+	return genResult.VMBlock, nil
 }
 
 func (v *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBlock *ledger.AccountBlock) error {
@@ -457,6 +460,7 @@ func (v *AccountVerifier) verifyIsReceivedSucceed(block *ledger.AccountBlock) (b
 	return v.chain.IsReceived(block.FromBlockHash)
 }
 
+// AccBlockPendingTask defines a data structure for a pending transaction
 type AccBlockPendingTask struct {
 	AccountTask []*AccountPendingTask
 }

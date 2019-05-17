@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -64,7 +66,7 @@ func (p *peerMux) writeDone() {
 type PeerInfo struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
-	Version    uint32 `json:"version"`
+	Version    int    `json:"version"`
 	Height     uint64 `json:"height"`
 	Address    string `json:"address"`
 	Level      Level  `json:"level"`
@@ -85,7 +87,8 @@ type peerMux struct {
 	id          vnode.NodeID
 	name        string
 	height      uint64
-	version     uint32
+	head        types.Hash
+	version     int
 	level       Level
 	pm          levelManager
 	createAt    time.Time
@@ -99,6 +102,18 @@ type peerMux struct {
 	log         log15.Logger
 	proto       Protocol
 	fileAddress string
+}
+
+func (p *peerMux) Weight() int64 {
+	return int64(p.level)
+}
+
+func (p *peerMux) Head() types.Hash {
+	return p.head
+}
+
+func (p *peerMux) SetHead(head types.Hash, height uint64) {
+	p.head, p.height = head, height
 }
 
 // Level return the peer`s level
@@ -133,7 +148,7 @@ func (p *peerMux) Address() net.Addr {
 	return p.codec.Address()
 }
 
-func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, version uint32, c Codec, level Level, proto Protocol) PeerMux {
+func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
 	pm := &peerMux{
 		codec:       c,
 		id:          id,
@@ -150,6 +165,7 @@ func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, ve
 		proto:       proto,
 		fileAddress: fileAddress,
 		height:      height,
+		head:        head,
 	}
 
 	return pm
@@ -157,10 +173,6 @@ func NewPeer(id vnode.NodeID, name string, height uint64, fileAddress string, ve
 
 func (p *peerMux) ID() vnode.NodeID {
 	return p.id
-}
-
-func (p *peerMux) SetHeight(height uint64) {
-	p.height = height
 }
 
 func (p *peerMux) Height() uint64 {
@@ -215,21 +227,25 @@ func (p *peerMux) readLoop() (err error) {
 		msg, err = p.codec.ReadMsg()
 		p.log.Debug(fmt.Sprintf("read message %d %d bytes done", msg.Code, len(msg.Payload)))
 		if err != nil {
+			atomic.StoreInt32(&p.writable, 0)
 			return
 		}
 
 		msg.ReceivedAt = time.Now()
+		msg.Sender = p
 
 		switch msg.Code {
-		case baseDisconnect:
-			return PeerQuitting
-		case baseTooManyMsg:
+		case CodeDisconnect:
+			if len(msg.Payload) > 0 {
+				err = PeerError(msg.Payload[0])
+			} else {
+				err = PeerUnknownReason
+			}
+			return
+		case CodeControlFlow:
 		// todo
-		case baseHeartBeat:
-			p.proto.SetState(msg.Payload, p)
 
 		default:
-			msg.Sender = p
 			p.readQueue <- msg
 		}
 	}
@@ -266,11 +282,16 @@ func (p *peerMux) handleLoop() (err error) {
 	return nil
 }
 
-func (p *peerMux) Close(err PeerError) (err2 error) {
+func (p *peerMux) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if pe, ok := err.(PeerError); ok {
+			_ = p.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(pe)},
+			})
+		}
 
-		_ = Disconnect(p, err)
-
+		time.Sleep(100 * time.Millisecond)
 		atomic.StoreInt32(&p.writable, 0)
 
 		// ensure nobody is writing

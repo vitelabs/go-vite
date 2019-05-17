@@ -69,12 +69,21 @@ func (c *chain) DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	return allChunksDeleted, nil
 }
-func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error) {
+func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.SnapshotChunk, returnErr error) {
 	// lock flush
 	c.flushMu.RLock()
 	defer func() {
+		if e := recover(); e != nil {
+			c.flusher.Abort()
+			c.flushMu.RUnlock()
+			panic(e)
+		}
+
 		c.flushMu.RUnlock()
-		c.flusher.Flush()
+		if returnErr != nil {
+			c.flusher.Flush()
+		}
+
 	}()
 
 	tmpLocation, err := c.indexDB.GetSnapshotBlockLocation(toHeight - 1)
@@ -100,11 +109,11 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	}
 
 	// block db rollback
-	snapshotChunks, err := c.blockDB.Rollback(location)
+	snapshotChunks, err := c.blockDB.PrepareRollback(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.RollbackAccountBlocks failed, location is %d. Error: %s,", location, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		cErr := errors.New(fmt.Sprintf("c.blockDB.PrepareRollback failed, location is %d. Error: %s,", location, err.Error()))
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 	if len(snapshotChunks) <= 0 {
 		return nil, nil
@@ -115,7 +124,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	var newUnconfirmedBlocks []*ledger.AccountBlock
@@ -145,9 +154,9 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 	//FOR DEBUG
 	for _, chunk := range snapshotChunks {
 		if chunk.SnapshotBlock != nil {
-			c.log.Info(fmt.Sprintf("Delete snapshot block %d\n", chunk.SnapshotBlock.Height))
+			c.log.Info(fmt.Sprintf("delete snapshot block %d\n", chunk.SnapshotBlock.Height))
 			for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-				c.log.Info(fmt.Sprintf("Delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
+				c.log.Info(fmt.Sprintf("delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
 			}
 		}
 
@@ -163,6 +172,12 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.Snapsho
 
 	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.em.Trigger(prepareDeleteSbsEvent) failed, error is %s", err.Error()))
+		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+	}
+
+	// rollback block db
+	if err := c.blockDB.Rollback(location); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Rollback(location) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 

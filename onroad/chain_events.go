@@ -9,7 +9,13 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
+// PrepareInsertAccountBlocks method implements and listens to chain trigger event.
 func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+	return nil
+}
+
+// InsertAccountBlocks method implements and listens to chain trigger event.
+func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	sendCreateGidCache := make(map[types.Address]types.Gid)
 	blockList := make([]*ledger.AccountBlock, 0)
 	for _, v := range blocks {
@@ -66,10 +72,7 @@ func (manager *Manager) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBloc
 	return nil
 }
 
-func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
-	return nil
-}
-
+// PrepareDeleteAccountBlocks method implements and listens to chain trigger event.
 func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	cutMap := ExcludePairTrades(manager.chain, blocks)
 	for addr, list := range cutMap {
@@ -100,18 +103,22 @@ func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock
 	return nil
 }
 
+// DeleteAccountBlocks method implements and listens to chain trigger event.
 func (manager *Manager) DeleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	return nil
 }
 
+// PrepareInsertSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
 
+// InsertSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
 
+// PrepareDeleteSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	blocks := make([]*ledger.AccountBlock, 0)
 	for _, v := range chunks {
@@ -147,6 +154,7 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 	return nil
 }
 
+// DeleteSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }

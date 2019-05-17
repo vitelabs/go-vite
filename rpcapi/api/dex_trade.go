@@ -41,7 +41,7 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 	if err != nil {
 		return nil, err
 	}
-	if db, err = f.getDb(); err != nil {
+	if db, err = f.getDb(types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
 		if matcher = dex.NewRawMatcher(db); err != nil {
@@ -53,26 +53,33 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 }
 
 func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
-	if db, err := f.getDb(); err != nil {
+	if fundDb, err := f.getDb(types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
-		marketInfo, _ := dex.GetMarketInfo(db, tradeToken, quoteToken)
-		matcher := dex.NewMatcherWithMarketInfo(db, marketInfo)
-		if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-			ordersRes = &OrdersRes{ods, size}
-			return ordersRes, err
+		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
+			return nil, dex.TradeMarketNotExistsError
 		} else {
-			return &OrdersRes{ods, size}, err
+			if tradeDb, err := f.getDb(types.AddressDexTrade); err != nil {
+				return nil, err
+			} else {
+				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
+				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
+					ordersRes = &OrdersRes{ods, size}
+					return ordersRes, err
+				} else {
+					return &OrdersRes{ods, size}, err
+				}
+			}
 		}
 	}
 }
 
-func (f DexTradeApi) getDb() (db vm_db.VmDb, err error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexTrade)
+func (f DexTradeApi) getDb(address types.Address) (db vm_db.VmDb, err error) {
+	prevHash, err := getPrevBlockHash(f.chain, address)
 	if err != nil {
 		return nil, err
 	}
-	if db, err := vm_db.NewVmDb(f.chain, &types.AddressDexTrade, &f.chain.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
+	if db, err := vm_db.NewVmDb(f.chain, &address, &f.chain.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
 		return nil, err
 	} else {
 		return db, nil

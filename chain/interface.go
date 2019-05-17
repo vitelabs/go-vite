@@ -223,6 +223,8 @@ type Chain interface {
 
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
 
+	GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
 
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
@@ -272,4 +274,6 @@ type Chain interface {
 	CheckRecentBlocks() error
 
 	CheckOnRoad() error
+
+	GetStatus() []interfaces.DBStatus
 }

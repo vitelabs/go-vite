@@ -24,6 +24,19 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*type
 	return abi.GetCandidateList(sd, gid)
 }
 
+func (c *chain) GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
+			snapshotHash))
+		c.log.Error(cErr.Error(), "method", "GetAllRegisterList")
+		return nil, cErr
+	}
+
+	// do something
+	return abi.GetAllRegistrationList(sd, gid)
+}
+
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
 	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
 	if err != nil {

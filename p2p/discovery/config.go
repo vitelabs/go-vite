@@ -31,7 +31,7 @@ import (
 const (
 	DefaultNetID           = 3
 	DefaultListenAddress   = "0.0.0.0:8483"
-	PeerKeyFileName        = "key"
+	PeerKeyFileName        = "peerKey"
 	DefaultPort            = 8483
 	DefaultListenInterface = "0.0.0.0"
 	DefaultBucketSize      = 32
@@ -74,6 +74,9 @@ type Config struct {
 
 // Node MUST NOT be invoked before Ensure
 func (cfg *Config) Node() *vnode.Node {
+	if cfg.node == nil {
+		_ = cfg.constructNode(false)
+	}
 	return cfg.node
 }
 
@@ -157,12 +160,16 @@ func (cfg *Config) Ensure() (err error) {
 		}
 	}
 
+	return cfg.constructNode(true)
+}
+
+func (cfg *Config) constructNode(must bool) (err error) {
 	id, _ := vnode.Bytes2NodeID(cfg.privateKey.PubByte())
 
 	var e vnode.EndPoint
 	if cfg.PublicAddress != "" {
 		e, err = vnode.ParseEndPoint(cfg.PublicAddress)
-		if err != nil {
+		if err != nil && must {
 			return fmt.Errorf("failed to parse PublicAddress: %v", err)
 		}
 	}
@@ -174,5 +181,5 @@ func (cfg *Config) Ensure() (err error) {
 		Ext:      nil,
 	}
 
-	return nil
+	return
 }

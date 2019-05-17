@@ -3,6 +3,7 @@ package pool
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -143,9 +144,9 @@ func (bcp *BCPool) init(tools *tools) {
 }
 
 func (bcp *BCPool) initPool() {
-	diskChain := &branchChain{chainID: bcp.ID + "-diskchain", rw: bcp.tools.rw, v: bcp.version}
-
 	t := tree.NewTree()
+	diskChain := &branchChain{chainID: bcp.ID + "-diskchain", rw: bcp.tools.rw, v: bcp.version, t: t}
+
 	chainpool := &chainPool{
 		poolID:    bcp.ID,
 		diskChain: diskChain,
@@ -474,7 +475,7 @@ func (bcp *BCPool) CurrentModifyToEmpty() error {
 	return bcp.chainpool.tree.SwitchMainToEmpty()
 }
 
-// LongerChain looks for branches that are longer than the main branch
+// LongerChain looks for branches that are longer than insert new chainthe main branch
 func (bcp *BCPool) LongerChain(minHeight uint64) []tree.Branch {
 	var result []tree.Branch
 	readers := bcp.chainpool.allChain()
@@ -525,6 +526,16 @@ func (bcp *BCPool) loopDelUselessChain() {
 	}
 }
 
+func (bcp *BCPool) delForIrreversible(height uint64, hash types.Hash) error {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
+
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
+
+	return nil
+}
+
 func (bcp *BCPool) delSnippet(c *snippetChain) {
 	delete(bcp.chainpool.snippetChains, c.id())
 	bcp.blockpool.delFromCompound(c.heightBlocks)
@@ -560,8 +571,17 @@ func (bcp *BCPool) detailChain(id string) map[string]interface{} {
 	// todo
 	return nil
 }
+func (bcp *BCPool) checkPool() {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
 
-func (bcp *BCPool) checkCurrent() {
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
+
+	bcp.check()
+}
+
+func (bcp *BCPool) check() {
 	main := bcp.CurrentChain()
 	tailHeight, tailHash := main.TailHH()
 	headHeight, headHash := bcp.chainpool.diskChain.HeadHH()
@@ -573,6 +593,13 @@ func (bcp *BCPool) checkCurrent() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (bcp *BCPool) checkCurrent() {
+	if rand.Intn(10000) > 10 {
+		return
+	}
+	bcp.check()
 }
 
 func splitToMap(chains []*snippetChain) map[types.Hash]*snippetChain {

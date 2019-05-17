@@ -5,10 +5,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// JudgeGenesis is used for the method ExcludePairTrades.
 type JudgeGenesis interface {
 	IsGenesisAccountBlock(block types.Hash) bool
 }
 
+// ExcludePairTrades is to exclude the trade pairs.
 func ExcludePairTrades(chain JudgeGenesis, blockList []*ledger.AccountBlock) map[types.Address][]*ledger.AccountBlock {
 	cutMap := make(map[types.Hash]*ledger.AccountBlock)
 	for _, block := range blockList {

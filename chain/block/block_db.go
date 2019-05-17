@@ -8,7 +8,9 @@ import (
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"path"
 	"sync"
@@ -25,7 +27,9 @@ type BlockDB struct {
 
 	flushStartLocation  *chain_file_manager.Location
 	flushTargetLocation *chain_file_manager.Location
-	flushBuf            []byte
+	flushBuf            *BufWriter
+
+	log log15.Logger
 }
 
 func NewBlockDB(chainDir string) (*BlockDB, error) {
@@ -42,6 +46,7 @@ func NewBlockDB(chainDir string) (*BlockDB, error) {
 		fileSize:          fileSize,
 		snappyWriteBuffer: make([]byte, fileSize),
 		id:                id,
+		log:               log15.New("module", "blockDB"),
 	}, nil
 }
 
@@ -81,6 +86,8 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Locat
 	}
 
 	snapshotBlockLocation, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeSnapshotBlock, buf))
+
+	//bDB.log.Info(fmt.Sprintf("sb %s %d %d", ss.SnapshotBlock.Hash, ss.SnapshotBlock.Height, data), "method", "Write")
 
 	if err != nil {
 		return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock))
@@ -192,7 +199,7 @@ func (bDB *BlockDB) GetNextLocation(location *chain_file_manager.Location) (*cha
 	return nextLocation, nil
 }
 
-func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
+func (bDB *BlockDB) PrepareRollback(location *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 	bfp := newBlockFileParser()
 
 	bDB.wg.Add(1)
@@ -204,7 +211,7 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 
 	var segList []*ledger.SnapshotChunk
 	var seg *ledger.SnapshotChunk
-	var snappyReadBuffer = make([]byte, 0, 512*1024) // 512KB
+	var snappyReadBuffer = make([]byte, 0, 4*1024) // 4KB
 
 	iterator := bfp.Iterator()
 
@@ -245,10 +252,21 @@ func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) ([]*ledger.S
 		return nil, err
 	}
 
-	bDB.fm.DeleteTo(location)
-
 	return segList, nil
 
+}
+
+func (bDB *BlockDB) Rollback(location *chain_file_manager.Location) error {
+	return bDB.fm.DeleteTo(location)
+}
+
+func (bDB *BlockDB) SetLog(h log15.Handler) {
+	bDB.log.SetHandler(h)
+	bDB.fm.SetLog(h)
+}
+
+func (bDB *BlockDB) GetStatus() []interfaces.DBStatus {
+	return bDB.fm.GetCacheStatusList()
 }
 
 func (bDB *BlockDB) maxLocation(location *chain_file_manager.Location) *chain_file_manager.Location {

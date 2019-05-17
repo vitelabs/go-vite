@@ -59,8 +59,8 @@ type simpleCs struct {
 	log log15.Logger
 }
 
-func (self *simpleCs) GetInfo() *core.GroupInfo {
-	return &self.GroupInfo
+func (simple *simpleCs) GetInfo() *core.GroupInfo {
+	return &simple.GroupInfo
 }
 
 func newSimpleCs(log log15.Logger) *simpleCs {
@@ -72,31 +72,31 @@ func newSimpleCs(log log15.Logger) *simpleCs {
 	return cs
 }
 
-func (self *simpleCs) GenProofTime(h uint64) time.Time {
-	_, end := self.Index2Time(h)
+func (simple *simpleCs) GenProofTime(h uint64) time.Time {
+	_, end := simple.Index2Time(h)
 	return end
 }
 
-func (self *simpleCs) ElectionTime(t time.Time) (*electionResult, error) {
-	index := self.Time2Index(t)
-	return self.ElectionIndex(index)
+func (simple *simpleCs) ElectionTime(t time.Time) (*electionResult, error) {
+	index := simple.Time2Index(t)
+	return simple.ElectionIndex(index)
 }
 
-func (self *simpleCs) ElectionIndex(index uint64) (*electionResult, error) {
-	plans := genElectionResult(&self.GroupInfo, index, simpleAddrs)
+func (simple *simpleCs) ElectionIndex(index uint64) (*electionResult, error) {
+	plans := genElectionResult(&simple.GroupInfo, index, simpleAddrs)
 	return plans, nil
 }
 
-func (self *simpleCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {
-	electionResult, err := self.ElectionTime(t)
+func (simple *simpleCs) VerifyProducer(address types.Address, t time.Time) (bool, error) {
+	electionResult, err := simple.ElectionTime(t)
 	if err != nil {
 		return false, err
 	}
 
-	return self.verifyProducer(t, address, electionResult), nil
+	return simple.verifyProducer(t, address, electionResult), nil
 }
 
-func (self *simpleCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
+func (simple *simpleCs) verifyProducer(t time.Time, address types.Address, result *electionResult) bool {
 	if result == nil {
 		return false
 	}

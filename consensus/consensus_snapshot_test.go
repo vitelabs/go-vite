@@ -161,3 +161,8 @@ func TestSnapshotCs_Tools(t *testing.T) {
 		t.Log(cs.VerifyProducer(v.Member, v.STime))
 	}
 }
+
+func TestNumber(t *testing.T) {
+	i := uint64(25)/3*2 + 1
+	assert.Equal(t, uint64(17), i)
+}

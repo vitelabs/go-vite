@@ -88,7 +88,7 @@ func (self *branch) prune(t *tree) {
 	}
 
 	if removed {
-		self.updateChildrenForRemoveTail(self.root)
+		self.updateChildrenForRemoveTail(self.root, t)
 		if self.ID() != t.main.ID() && self.Size() == 0 {
 			err := t.removeBranch(self)
 			if err != nil {
@@ -98,7 +98,7 @@ func (self *branch) prune(t *tree) {
 	}
 }
 
-func (self *branch) updateChildrenForRemoveTail(root Branch) {
+func (self *branch) updateChildrenForRemoveTail(root Branch, t *tree) {
 	if root.Type() == Disk {
 		return
 	}
@@ -114,17 +114,18 @@ func (self *branch) updateChildrenForRemoveTail(root Branch) {
 			continue
 		}
 
+		fmt.Printf("tree info:%s\n", PrintTreeJson(t))
 		panic(fmt.Sprintf("[%s][%s]children[%s] fail[%d]", self.ID(), self.SprintTail(), v.ID(), height))
 	}
 }
 
-func (self *branch) exchangeAllRoot() error {
+func (self *branch) exchangeAllRoot(t *tree) error {
 	for {
 		root := self.root
 		if root.Type() == Disk {
 			break
 		}
-		err := self.exchangeRoot(self.root.(*branch))
+		err := self.exchangeRoot(self.root.(*branch), t)
 		if err != nil {
 			return err
 		}
@@ -132,9 +133,13 @@ func (self *branch) exchangeAllRoot() error {
 	return nil
 }
 
-func (self *branch) exchangeRoot(root *branch) error {
+func (self *branch) exchangeRoot(root *branch, t *tree) error {
 	if root.ID() != self.root.ID() {
 		return errors.New("root not match")
+	}
+
+	if root.root.Type() == Normal {
+		root.root.(*branch).removeChild(root)
 	}
 
 	if tailEquals(root, self) {
@@ -165,6 +170,7 @@ func (self *branch) exchangeRoot(root *branch) error {
 		root.updateRoot(root.root, self)
 		return nil
 	} else {
+		fmt.Printf("exchangeRoot fail, %s", PrintTreeJson(t))
 		return errors.Errorf("err for exchangeRoot.root:%s, self:%s, rootTail:%s, rootHead:%s, selfTail:%s, selfHead:%s",
 			root.ID(), self.ID(), root.SprintTail(), root.SprintHead(), self.SprintTail(), self.SprintHead())
 

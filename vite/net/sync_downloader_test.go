@@ -1,8 +1,28 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,112 +32,116 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/ledger"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func TestMissingChunks(t *testing.T) {
-	var chunks = [][2]uint64{
-		{10, 20},
-		{30, 40},
-		{35, 45},
-		{40, 50},
-	}
+//func TestMissingChunks(t *testing.T) {
+//	var chunks = [][2]uint64{
+//		{10, 20},
+//		{30, 40},
+//		{35, 45},
+//		{40, 50},
+//	}
+//
+//	mis := missingChunks(chunks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 0, 10)
+//	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingChunks(chunks, 60, 70)
+//	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
-	mis := missingChunks(chunks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
+//func TestMissingSegments(t *testing.T) {
+//	var chunks = interfaces.SegmentList{
+//		{Bound: [2]uint64{10, 20}},
+//		{Bound: [2]uint64{30, 40}},
+//		{Bound: [2]uint64{35, 45}},
+//		{Bound: [2]uint64{40, 50}},
+//	}
+//
+//	mis := missingSegments(chunks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 0, 10)
+//	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingSegments(chunks, 60, 70)
+//	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
-	mis = missingChunks(chunks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingChunks(chunks, 0, 10)
-	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingChunks(chunks, 60, 70)
-	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
-
-func TestMissingSegments(t *testing.T) {
-	var chunks = interfaces.SegmentList{
-		{Bound: [2]uint64{10, 20}},
-		{Bound: [2]uint64{30, 40}},
-		{Bound: [2]uint64{35, 45}},
-		{Bound: [2]uint64{40, 50}},
-	}
-
-	mis := missingSegments(chunks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 || mis[0] != [2]uint64{2, 9} || mis[1] != [2]uint64{21, 29} || mis[2] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0] != [2]uint64{51, 60} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 0, 10)
-	if len(mis) != 1 || mis[0] != [2]uint64{0, 9} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingSegments(chunks, 60, 70)
-	if len(mis) != 1 || mis[0] != [2]uint64{60, 70} {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
-
-func TestMissingTasks(t *testing.T) {
-	var tasks syncTasks
-	var mis syncTasks
-
-	mis = missingTasks(tasks, 2, 60)
-	if len(mis) != 1 || mis[0].from != 2 || mis[0].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	tasks = syncTasks{
-		&syncTask{from: 10, to: 20},
-		&syncTask{from: 30, to: 40},
-		&syncTask{from: 35, to: 45},
-		&syncTask{from: 40, to: 50},
-	}
-
-	mis = missingTasks(tasks, 2, 60)
-	// mis should be [2, 9] [21, 29] [51, 60]
-	if len(mis) != 3 ||
-		mis[0].from != 2 || mis[0].to != 9 ||
-		mis[1].from != 21 || mis[1].to != 29 ||
-		mis[2].from != 51 || mis[2].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 30, 60)
-	// mis should be [51, 60]
-	if len(mis) != 1 || mis[0].from != 51 || mis[0].to != 60 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 0, 10)
-	if len(mis) != 1 || mis[0].from != 0 || mis[0].to != 9 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-
-	mis = missingTasks(tasks, 60, 70)
-	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
-		t.Errorf("wrong mis: %v", mis)
-	}
-}
+//func TestMissingTasks(t *testing.T) {
+//	var tasks syncTasks
+//	var mis syncTasks
+//
+//	mis = missingTasks(tasks, 2, 60)
+//	if len(mis) != 1 || mis[0].from != 2 || mis[0].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	tasks = syncTasks{
+//		&syncTask{from: 10, to: 20},
+//		&syncTask{from: 30, to: 40},
+//		&syncTask{from: 35, to: 45},
+//		&syncTask{from: 40, to: 50},
+//	}
+//
+//	mis = missingTasks(tasks, 2, 60)
+//	// mis should be [2, 9] [21, 29] [51, 60]
+//	if len(mis) != 3 ||
+//		mis[0].from != 2 || mis[0].to != 9 ||
+//		mis[1].from != 21 || mis[1].to != 29 ||
+//		mis[2].from != 51 || mis[2].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 30, 60)
+//	// mis should be [51, 60]
+//	if len(mis) != 1 || mis[0].from != 51 || mis[0].to != 60 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 0, 10)
+//	if len(mis) != 1 || mis[0].from != 0 || mis[0].to != 9 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//
+//	mis = missingTasks(tasks, 60, 70)
+//	if len(mis) != 1 || mis[0].from != 60 || mis[0].to != 70 {
+//		t.Errorf("wrong mis: %v", mis)
+//	}
+//}
 
 func TestChunksOverlap(t *testing.T) {
 	var cs = make(chunks, 0, 1)
@@ -159,29 +183,67 @@ func TestExecutor_cancel(t *testing.T) {
 	exec := newExecutor(100, 3, nil, nil)
 	exec.start()
 
-	exec.download(1, 10, false)
-	exec.download(11, 20, false)
-	exec.download(21, 30, false)
-	exec.download(31, 40, false)
-
-	exec.cancel(13)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{1, 10},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{11, 20},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{21, 30},
+		},
+	}, false)
+	exec.download(&syncTask{
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{31, 40},
+		},
+	}, false)
 
 	if len(exec.tasks) != 2 {
 		t.Errorf("wrong tasks length: %d", len(exec.tasks))
 	}
-	if exec.tasks[1].from != 11 || exec.tasks[1].to != 12 {
+	if exec.tasks[1].Bound != [2]uint64{11, 12} {
 		t.Errorf("wrong task")
 	}
 }
 
 func TestCancelTasks(t *testing.T) {
 	var tasks = syncTasks{
-		{from: 1, to: 10},
-		{from: 11, to: 20},
-		{from: 21, to: 30},
-		{from: 31, to: 40},
-		{from: 41, to: 50},
-		{from: 51, to: 60},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{1, 10},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{11, 20},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{21, 30},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{31, 40},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{41, 50},
+			},
+		},
+		{
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{61, 60},
+			},
+		},
 	}
 
 	tasks, end := cancelTasks(tasks, 15)
@@ -193,7 +255,7 @@ func TestCancelTasks(t *testing.T) {
 			t.Errorf("wrong end: %d", end)
 		}
 		for i, t2 := range tasks {
-			if t2.from != cs[i][0] || t2.to != cs[i][1] {
+			if t2.Bound != cs[i] {
 				t.Errorf("wrong task: %v", t2)
 			}
 		}
@@ -203,44 +265,50 @@ func TestCancelTasks(t *testing.T) {
 func TestRunTasks(t *testing.T) {
 	var tasks = syncTasks{
 		{
-			from:   3,
-			to:     10,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{3, 10},
+			},
 			st:     reqDone,
 			doneAt: time.Unix(time.Now().Unix()-10, 0), // will be clean
 		},
 		{
-			from: 11,
-			to:   15,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{11, 15},
+			},
 		},
 		{
-			from:   16,
-			to:     20,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{16, 20},
+			},
 			st:     reqDone,
 			doneAt: time.Now(),
 		},
 		{
-			from: 21,
-			to:   25,
-			st:   reqError,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{21, 25},
+			},
+			st: reqError,
 		},
 		{
-			from: 26,
-			to:   30,
-			st:   reqCancel,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{26, 30},
+			},
+			st: reqCancel,
 		},
 		{
-			from: 31,
-			to:   35,
+			Segment: interfaces.Segment{
+				Bound: [2]uint64{31, 35},
+			},
 		},
 	}
 
 	var wg sync.WaitGroup
 	var run = func(t *syncTask) {
 		if t.st == reqDone || t.st == reqPending {
-			panic(fmt.Sprintf("run task %d-%d repeatedly", t.from, t.to))
+			panic(fmt.Sprintf("run task %d-%d repeatedly", t.Bound[0], t.Bound[1]))
 		}
 
-		fmt.Printf("run task %d-%d\n", t.from, t.to)
+		fmt.Printf("run task %d-%d\n", t.Bound[0], t.Bound[1])
 		t.st = reqPending
 
 		wg.Add(1)
@@ -270,23 +338,27 @@ func TestAddTasks(t *testing.T) {
 	reset := func() {
 		tasks = syncTasks{
 			{
-				from: 1,
-				to:   10,
-				st:   reqDone,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+				st: reqDone,
 			},
 			{
-				from: 11,
-				to:   20,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
 			},
 			{
-				from: 31,
-				to:   40,
-				st:   reqDone,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{301, 400},
+				},
+				st: reqDone,
 			},
 			{
-				from: 51,
-				to:   60,
-				st:   reqError,
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
 			},
 		}
 	}
@@ -294,43 +366,72 @@ func TestAddTasks(t *testing.T) {
 	type sample struct {
 		from, to uint64
 		must     bool
-		cs       [][2]uint64
+		ts       syncTasks
 	}
 	var samples = []sample{
-		{1, 70, false, [][2]uint64{{1, 10}, {11, 20}, {21, 30}, {31, 40}, {41, 50}, {51, 60}, {61, 70}}},
-		{1, 70, true, [][2]uint64{{1, 10}, {11, 20}, {21, 50}, {51, 60}, {61, 70}}},
+		{1, 100, true, syncTasks{
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
+			},
+		}},
+		{601, 700, false, syncTasks{
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{1, 100},
+				},
+				st: reqDone,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{101, 200},
+				},
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{301, 400},
+				},
+				st: reqDone,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{501, 600},
+				},
+				st: reqError,
+			},
+			{
+				Segment: interfaces.Segment{
+					Bound: [2]uint64{601, 700},
+				},
+			},
+		}},
 	}
 
 	for _, samp := range samples {
 		reset()
-		tasks = addTasks(tasks, samp.from, samp.to, samp.must)
-		if len(tasks) != len(samp.cs) {
-			t.Errorf("wrong tasks length: %d", len(tasks))
-		} else {
-			for i, c := range samp.cs {
-				if tasks[i].from != c[0] || tasks[i].to != c[1] {
-					t.Errorf("wrong task: %d - %d", tasks[i].from, tasks[i].to)
-				}
+		tasks = addTasks(tasks, &syncTask{Segment: interfaces.Segment{
+			Bound: [2]uint64{samp.from, samp.to},
+		},
+		}, samp.must)
+		for i, tt := range samp.ts {
+			if tasks[i].equal(tt) && tasks[i].st == tt.st {
+				continue
 			}
+			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].Bound[0], tasks[i].Bound[1], tt.Bound[0], tt.Bound[1])
 		}
 	}
-}
-
-type mockDownloader struct {
-}
-
-func (m mockDownloader) download(ctx context.Context, from, to uint64) <-chan error {
-	ch := make(chan error, 1)
-	ch <- nil
-	return ch
-}
-
-func (m mockDownloader) start() {
-	return
-}
-
-func (m mockDownloader) stop() {
-	return
 }
 
 //func TestExecutor_Add(t *testing.T) {
@@ -590,7 +691,7 @@ func (m *mockQueue) run(t *syncTask) {
 	go func() {
 		n := time.Duration(rand.Intn(500))
 		time.Sleep(n * time.Millisecond)
-		fmt.Printf("task %d-%d done\n", t.from, t.to)
+		fmt.Printf("task %d-%d done\n", t.Bound[0], t.Bound[1])
 		t.st = reqDone
 		t.doneAt = time.Now()
 		m.cond.Signal()
@@ -614,8 +715,9 @@ func (m *mockQueue) add(from, to uint64) bool {
 	}
 
 	m.tasks = append(m.tasks, &syncTask{
-		from: from,
-		to:   to,
+		Segment: interfaces.Segment{
+			Bound: [2]uint64{from, to},
+		},
 	})
 
 	sort.Sort(m.tasks)
@@ -684,4 +786,113 @@ func TestMockQueue(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+type mockLedgerReader struct {
+	segment interfaces.Segment
+	size    int
+	buf     *bytes.Buffer
+}
+
+func (m *mockLedgerReader) Seg() interfaces.Segment {
+	return m.segment
+}
+
+func (m *mockLedgerReader) Size() int {
+	return m.size
+}
+
+func (m *mockLedgerReader) Read(p []byte) (n int, err error) {
+	return m.buf.Read(p)
+}
+
+func (m *mockLedgerReader) Close() error {
+	return nil
+}
+
+type mockChunk struct {
+	seg      interfaces.Segment
+	buf      *bytes.Buffer
+	cache    *mockSyncCacher
+	verified bool
+}
+
+func (mc *mockChunk) Verified() bool {
+	return mc.verified
+}
+
+func (mc *mockChunk) Verify() {
+	mc.verified = true
+}
+
+func (mc *mockChunk) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
+	panic("implement me")
+}
+
+func (mc *mockChunk) Size() int64 {
+	return int64(len(mc.buf.Bytes()))
+}
+
+func (mc *mockChunk) Write(p []byte) (n int, err error) {
+	return mc.buf.Write(p)
+}
+
+func (mc *mockChunk) Close() error {
+	mc.cache.r[mc.seg] = mc
+	delete(mc.cache.w, mc.seg)
+	return nil
+}
+
+type mockSyncCacher struct {
+	w map[interfaces.Segment]*mockChunk
+	r map[interfaces.Segment]*mockChunk
+}
+
+func (m *mockSyncCacher) NewWriter(segment interfaces.Segment) (io.WriteCloser, error) {
+	c := &mockChunk{}
+	m.w[segment] = c
+	return c, nil
+}
+
+func (m *mockSyncCacher) Chunks() (cs interfaces.SegmentList) {
+	for seg := range m.r {
+		cs = append(cs, seg)
+	}
+
+	sort.Sort(cs)
+	return
+}
+
+func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
+	r, ok := m.r[segment]
+	if ok {
+		return r, nil
+	}
+
+	return nil, errors.New("no resource")
+}
+
+func (m *mockSyncCacher) Delete(seg interfaces.Segment) error {
+	delete(m.r, seg)
+	return nil
+}
+
+type mockDownloaderChain struct {
+	readers []*mockLedgerReader
+	cache   *mockSyncCacher
+}
+
+func (m *mockDownloaderChain) GetSyncCache() interfaces.SyncCache {
+	return m.cache
+}
+
+func (m *mockDownloaderChain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
+	for _, r := range m.readers {
+		seg := r.Seg()
+		if seg.Bound == [2]uint64{startHeight, endHeight} {
+			return r, nil
+		}
+	}
+
+	return nil, errors.New("no resource")
 }

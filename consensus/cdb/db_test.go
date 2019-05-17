@@ -1,4 +1,4 @@
-package consensus_db
+package cdb
 
 import (
 	"encoding/json"
@@ -43,7 +43,7 @@ func TestConsensusDB_Point(t *testing.T) {
 	defer clearConsensusDB(db)
 
 	// get empty
-	p1, err := db.GetPointByHeight(INDEX_Point_DAY, 1)
+	p1, err := db.GetPointByHeight(IndexPointDay, 1)
 	if err != nil {
 		panic(err)
 	}
@@ -61,13 +61,13 @@ func TestConsensusDB_Point(t *testing.T) {
 	infos[addr2] = &Content{9, 7}
 	p := &Point{PrevHash: h1, Hash: h2, Sbps: infos}
 
-	err = db.StorePointByHeight(INDEX_Point_DAY, 1, p)
+	err = db.StorePointByHeight(IndexPointDay, 1, p)
 	if err != nil {
 		panic(err)
 	}
 
 	// get point
-	p1, err = db.GetPointByHeight(INDEX_Point_DAY, 1)
+	p1, err = db.GetPointByHeight(IndexPointDay, 1)
 	if err != nil {
 		panic(err)
 	}

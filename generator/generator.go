@@ -14,20 +14,24 @@ import (
 	"math/big"
 )
 
-type Chain interface {
+// Consensus is for Vm to read the SBP information
+type Consensus interface {
+	SBPReader() core.SBPStatReader
+}
+
+type chain interface {
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 
-type Consensus interface {
-	SBPReader() core.SBPStatReader
-}
-
+// SignFunc is the function type defining the callback when a block requires a
+// method to sign the transaction in generator.
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
+// Generator implements the logic to generate a account transaction block.
 type Generator struct {
-	chain Chain
+	chain chain
 
 	vmDb vm_db.VmDb
 	vm   *vm.VM
@@ -35,12 +39,17 @@ type Generator struct {
 	log log15.Logger
 }
 
+// GenResult represents the result of a block being validated by vm.
 type GenResult struct {
-	VmBlock *vm_db.VmAccountBlock
+	VMBlock *vm_db.VmAccountBlock
 	IsRetry bool
 	Err     error
 }
 
+// NewGenerator needs to new a vm_db.VmDb with state of the world and SBP information for Vm,
+//
+// the third "addr" needs to be filled with the address of the account chain to be blocked,
+// and the last needs to be filled with the previous/latest block's hash on the account chain.
 func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
 	gen := &Generator{
 		log: log15.New("module", "Generator"),
@@ -58,6 +67,8 @@ func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, la
 	return gen, nil
 }
 
+// GenerateWithBlock implements the method to generate a transaction with VM execution results
+// from a block which contains the complete transaction info.
 func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*GenResult, error) {
 	genResult, err := gen.generateBlock(block, fromBlock, nil, nil)
 	if err != nil {
@@ -66,6 +77,8 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *l
 	return genResult, nil
 }
 
+// GenerateWithMessage implements the method to generate a transaction with VM execution results
+// from a IncomingMessage which contains the necessary transaction info.
 func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error) {
 	block, err := IncomingMessageToBlock(gen.vmDb, message)
 	if err != nil {
@@ -85,6 +98,8 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 	return gen.generateBlock(block, fromBlock, producer, signFunc)
 }
 
+// GenerateWithOnRoad implements the method to generate a transaction with VM execution results
+// from a sendBlock(onroad block).
 func (gen *Generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
 	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
@@ -118,7 +133,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 		sb, stateErr := gen.chain.GetSnapshotBlockByContractMeta(&block.AccountAddress, &fromBlock.Hash)
 		if stateErr != nil {
-			return nil, errors.New(fmt.Sprintf("GetSnapshotBlockByContractMeta failed, err:%v", stateErr))
+			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", stateErr)
 		}
 		if sb != nil {
 			state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
@@ -126,6 +141,13 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	}
 
 	vmBlock, isRetry, err := gen.vm.RunV2(gen.vmDb, block, fromBlock, state)
+	if err != nil {
+		bDetail := fmt.Sprintf("block(addr:%v prevHash:%v)", block.AccountAddress, block.PrevHash)
+		if fromBlock != nil {
+			bDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
+		}
+		gen.log.Info(fmt.Sprintf("vm Run err %v", err), "detail", bDetail)
+	}
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
 		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
@@ -148,7 +170,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	}
 
 	return &GenResult{
-		VmBlock: vmBlock,
+		VMBlock: vmBlock,
 		IsRetry: isRetry,
 		Err:     err,
 	}, nil
@@ -181,7 +203,7 @@ func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 		return nil, err
 	}
 	var prevHash types.Hash
-	var preHeight uint64 = 0
+	var preHeight uint64
 	if prevBlock != nil {
 		prevHash = prevBlock.Hash
 		preHeight = prevBlock.Height
@@ -201,6 +223,7 @@ func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 	return recvBlock, nil
 }
 
-func (gen *Generator) GetVmDb() vm_db.VmDb {
+// GetVMDB returns the vm_db.VmDb the current Generator used.
+func (gen *Generator) GetVMDB() vm_db.VmDb {
 	return gen.vmDb
 }

@@ -1,12 +1,10 @@
 package p2p
 
 import (
+	"io"
 	"time"
 
 	"github.com/vitelabs/go-vite/tools/bytes_pool"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
 type Code = byte
@@ -38,69 +36,30 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+type MsgWriteCloser interface {
+	MsgWriter
+	io.Closer
+}
+
 type Serializable interface {
 	Serialize() ([]byte, error)
 }
 
-type Error struct {
-	Code    uint32
-	Message string
-}
-
-func (e *Error) Error() string {
-	return e.Message
-}
-
-func (e *Error) Serialize() ([]byte, error) {
-	pb := new(protos.Error)
-	pb.Code = e.Code
-	pb.Message = e.Message
-
-	return proto.Marshal(pb)
-}
-
-func (e *Error) Deserialize(data []byte) (err error) {
-	pb := new(protos.Error)
-	err = proto.Unmarshal(data, pb)
-	if err != nil {
-		return
-	}
-
-	e.Code = pb.Code
-	e.Message = pb.Message
-
-	return nil
-}
-
-func Disconnect(w MsgWriter, err error) (e2 error) {
+func Disconnect(c MsgWriteCloser, err error) (e2 error) {
 	var msg = Msg{
-		Code: baseDisconnect,
+		Code: CodeDisconnect,
 	}
 
 	if err != nil {
-		var e *Error
 		if pe, ok := err.(PeerError); ok {
-			e = &Error{
-				Code:    uint32(pe),
-				Message: pe.Error(),
-			}
-		} else if e, ok = err.(*Error); ok {
-			// do nothing
-		} else {
-			e = &Error{
-				Message: err.Error(),
-			}
+			msg.Payload, _ = pe.Serialize()
 		}
-
-		msg.Payload, e2 = e.Serialize()
-		if e2 != nil {
-			return e2
-		}
-
-		return
+	} else {
+		msg.Payload, _ = PeerQuitting.Serialize()
 	}
 
-	e2 = w.WriteMsg(msg)
+	e2 = c.WriteMsg(msg)
 
+	_ = c.Close()
 	return nil
 }

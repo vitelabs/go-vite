@@ -8,17 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/types"
+
 	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
 func TestPeerMux(t *testing.T) {
 	c1, c2 := MockPipe()
 
-	p1 := NewPeer(vnode.ZERO, "hello", 100, "", 1, c1, 1, &mockProtocol{})
+	p1 := NewPeer(vnode.ZERO, "hello", 100, types.Hash{1, 2, 3}, "", 1, c1, 1, &mockProtocol{})
 
 	var id vnode.NodeID
 	id[0] = 1
-	p2 := NewPeer(id, "world", 100, "", 1, c2, 1, &mockProtocol{})
+	p2 := NewPeer(id, "world", 100, types.Hash{1, 2, 3}, "", 1, c2, 1, &mockProtocol{})
 
 	go func() {
 		err := p1.WriteMsg(Msg{
@@ -53,8 +55,8 @@ func TestPeerMux_Close(t *testing.T) {
 	c1, c2 := MockPipe()
 	id1, id2 := vnode.RandomNodeID(), vnode.RandomNodeID()
 
-	p1 := NewPeer(id1, "peer1", 100, "", 1, c1, 1, &mockProtocol{})
-	p2 := NewPeer(id2, "peer2", 100, "", 1, c2, 1, &mockProtocol{})
+	p1 := NewPeer(id1, "peer1", 100, types.Hash{1, 2, 3}, "", 1, c1, 1, &mockProtocol{})
+	p2 := NewPeer(id2, "peer2", 100, types.Hash{1, 2, 3}, "", 1, c2, 1, &mockProtocol{})
 
 	var wg sync.WaitGroup
 

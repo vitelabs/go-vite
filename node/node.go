@@ -185,6 +185,7 @@ func (node *Node) Prepare() (err error) {
 		}
 		// pub + sign(nodeID)
 		p2pConfig.Node().Ext = append(minePublicKey, ed25519.Sign(minePrivateKey, p2pConfig.Node().ID.Bytes())...)
+		p2pConfig.MineKey = minePrivateKey
 	}
 
 	node.p2pServer = p2p.New(p2pConfig)

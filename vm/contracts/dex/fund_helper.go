@@ -324,19 +324,19 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 			return err
 		} else {
 			if _, ok := GetTokenInfo(db, tokenId); !ok {
-				return InvalidTokenErr
+				panic(InvalidTokenErr)
 			}
 			account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
 				if CmpForBigInt(fundSettle.ReduceLocked, account.Locked) > 0 {
-					return fmt.Errorf("try reduce locked amount execeed locked")
+					panic(ExceedFundLockedErr)
 				}
 				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReduceLocked)
 			}
 			if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
 				if CmpForBigInt(fundSettle.ReleaseLocked, account.Locked) > 0 {
-					return fmt.Errorf("try release locked amount execeed locked")
+					panic(ExceedFundLockedErr)
 				}
 				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReleaseLocked)
 				account.Available = AddBigInt(account.Available, fundSettle.ReleaseLocked)

@@ -63,4 +63,5 @@ type SBPStatReader interface {
 	GetPeriodTimeIndex() TimeIndex
 
 	GetSuccessRateByHour(index uint64) (map[types.Address]int32, error)
+	GetNodeCount() int
 }

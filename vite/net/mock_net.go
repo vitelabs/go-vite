@@ -11,8 +11,17 @@ type mockNet struct {
 	chain Chain
 }
 
-func (n *mockNet) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+func (n *mockNet) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
+	genesis = n.chain.GetGenesisSnapshotBlock().Hash
+	current := n.chain.GetLatestSnapshotBlock()
+	height = current.Height
+	head = current.Hash
+
 	return
+}
+
+func (n *mockNet) Init(consensus Consensus, reader IrreversibleReader) {
+
 }
 
 func (n *mockNet) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
@@ -39,8 +48,6 @@ func (n *mockNet) Pop(endHash types.Hash) {
 
 func (n *mockNet) Status() SyncStatus {
 	return SyncStatus{
-		From:    0,
-		To:      0,
 		Current: n.chain.GetLatestSnapshotBlock().Height,
 		State:   SyncDone,
 	}
@@ -48,10 +55,8 @@ func (n *mockNet) Status() SyncStatus {
 
 func (n *mockNet) Detail() SyncDetail {
 	return SyncDetail{
-		From:    0,
-		To:      0,
-		Current: n.chain.GetLatestSnapshotBlock().Height,
-		State:   SyncDone,
+		SyncStatus:       n.Status(),
+		DownloaderStatus: DownloaderStatus{},
 	}
 }
 
@@ -105,28 +110,12 @@ func (n *mockNet) Start(svr p2p.P2P) error {
 	return nil
 }
 
-func (n *mockNet) Name() string {
-	return "mock_net"
-}
-
-func (n *mockNet) Auth(input []byte) (output []byte) {
-	return nil
-}
-
-func (n *mockNet) Handshake(their []byte) error {
-	return nil
-}
-
 func (n *mockNet) Handle(msg p2p.Msg) error {
 	return nil
 }
 
 func (n *mockNet) State() []byte {
 	return nil
-}
-
-func (n *mockNet) SetState(state []byte, peer p2p.Peer) {
-	return
 }
 
 func (n *mockNet) OnPeerAdded(peer p2p.Peer) error {

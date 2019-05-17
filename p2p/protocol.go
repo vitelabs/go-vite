@@ -8,7 +8,7 @@ import (
 // A Protocol usually has many different message codes, each code has a handler to handle the message from peer.
 type Protocol interface {
 	// ProtoData return the data to handshake, will transmit to peer with HandshakeMsg.
-	ProtoData() (key []byte, height uint64, genesis types.Hash)
+	ProtoData() (height uint64, head types.Hash, genesis types.Hash)
 
 	// ReceiveHandshake handle the HandshakeMsg and protoData from peer.
 	// The connection will be disconnected if err is not nil.
@@ -22,9 +22,6 @@ type Protocol interface {
 
 	// State get the Protocol state, will be sent to peers by heartbeat
 	State() []byte
-
-	// SetState handle the state data from sender
-	SetState(state []byte, peer Peer)
 
 	// OnPeerAdded will be invoked after Peer run
 	// peer will be closed if return error is not nil

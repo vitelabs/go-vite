@@ -3,6 +3,7 @@ package ledger
 import (
 	"github.com/vitelabs/go-vite/common/types"
 
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -78,14 +79,15 @@ func createBlock() *AccountBlock {
 
 func TestAccountBlock_ComputeHash(t *testing.T) {
 	//prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
-	prevHash, err := types.HexToHash("610414b4ba51937e83c5e9e48f07bdf52a3568c2608457a966853b16057e2739")
+	prevHash, err := types.HexToHash("0000000000000000000000000000000000000000000000000000000000000000")
 	if err != nil {
 		panic(err)
 	}
-	//fromBlockHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is fromBlockHash")))
+
+	fromBlockHash, _ := types.HexToHash("4b4d6cf7d2f0f6ef25f8b63c1e8d58cecbf29bd3b5fb484a9b53060ecea19f34")
 	//logHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is logHash")))
 
-	addr1, err := types.HexToAddress("vite_ca009c7da35b45fe16d945e15f3fea95e7f7bffaa83f4a71cc")
+	addr1, err := types.HexToAddress("vite_afc922b148b3b792ecff2e79fa17255c22f15d43a77dd79f15")
 	if err != nil {
 		panic(err)
 	}
@@ -102,33 +104,58 @@ func TestAccountBlock_ComputeHash(t *testing.T) {
 	//	panic(err)
 	//}
 
-	amount, ok := big.NewInt(0).SetString("1293523228570825505871", 10)
-	if !ok {
-		panic("err")
-	}
+	//amount, ok := big.NewInt(0).SetString("1293523228570825505871", 10)
+	//if !ok {
+	//	panic("err")
+	//}
+
+	//fee, ok := big.NewInt(0).SetString("10000000000000000000", 10)
+	//if !ok {
+	//	panic("false")
+	//}
+
+	//data, err := hex.DecodeString("EanfpRVAa7OSHYn9MSXMmicAOWVDaoHqyVKGSwVqLoA")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//data, err := base64.StdEncoding.DecodeString("EanfpRVAa7OSHYn9MSXMmicAOWVDaoHqyVKGSwVqLoA")
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	//ab := &AccountBlock{}
+	//json.Unmarshal([]byte(`{"blockType":4,"hash":"57410f8496598113220fd7f8780cedec5f23f13bbe0d4852e1c0e782092b3a46","prevHash":"0000000000000000000000000000000000000000000000000000000000000000","height":1,"accountAddress":"vite_afc922b148b3b792ecff2e79fa17255c22f15d43a77dd79f15","publicKey":"P8UiTllDO9PSMg8DrTt6g5MQuppfgTN7HF9A+UNUgA=","toAddress":"vite_0000000000000000000000000000000000000000a4f3a0cb58","amount":null,"tokenId":"tti_000000000000000000004cfd","fromBlockHash":"4b4d6cf7d2f0f6ef25f8b63c1e8d58cecbf29bd3b5fb484a9b53060ecea19f34","data":"EanfpRVAa7OSHYn9MSXMmicAOWVDaoHqyVKGSwVqLoA","quota":0,"quotaUsed":0,"fee":10000000000000000000,"logHash":null,"difficulty":null,"nonce":null,"sendBlockList":[],"signature":"s5puuFRSREH7eug1lAEcl9RORNNf04KvZQa0ghBgy80lVvl8K1VOp7H4vZ88nxfQecSmMP3ges91iU0RzVlDg=="}`), ab)
+	//fmt.Printf("haha:%+v\n", ab)
 
 	block := &AccountBlock{
-		BlockType: BlockTypeSendCall,
+		BlockType: BlockTypeReceive,
 		PrevHash:  prevHash,
-		Height:    3,
+		Height:    1,
 
 		AccountAddress: addr1,
 		PublicKey:      publicKey,
 		ToAddress:      addr2,
 
-		Amount:  amount,
-		TokenId: ViteTokenId,
-		//FromBlockHash: fromBlockHash,
+		//Amount:        amount,
+		//TokenId:       ViteTokenId,
+		FromBlockHash: fromBlockHash,
 
-		//Data: []byte("ca-43"),
+		Data: []byte{17, 169, 223, 165, 21, 64, 107, 179, 146, 29, 137, 253, 49, 37, 204, 154, 39, 0, 57, 101, 67, 106, 129, 234, 203, 245, 74, 25, 44, 21, 168, 186, 0},
 
 		//Quota: 1234,
-		//Fee:   big.NewInt(10),
+		//Fee: fee,
 		//LogHash: &logHash,
 
 		//Difficulty: big.NewInt(10),
 		//Nonce:      []byte("12345678"),
 	}
+
+	str, err := json.Marshal(block)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", str)
 
 	if block.ComputeHash().String() != "6d54436d78a3bae0b4aacbeb91a0af3c666c6ed3339fbcc6610e12844736d091" {
 		t.Fatal(block.ComputeHash().String())

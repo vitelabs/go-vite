@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/cdb"
+
 	"github.com/vitelabs/go-vite/pool/lock"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -16,7 +18,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
-	"github.com/vitelabs/go-vite/consensus/db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -35,6 +36,7 @@ type Chain interface {
 	// todo
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
+	GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                           // Get register for consensus group
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
 	GetConfirmedBalanceList(addrList []types.Address, tokenID types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
@@ -59,7 +61,7 @@ type chainRw struct {
 	dayPoints    LinkedArray
 	periodPoints *periodLinkedArray
 
-	dbCache  *consensus_db.ConsensusDB
+	dbCache  *cdb.ConsensusDB
 	lruCache *lru.Cache
 
 	started chan struct{}
@@ -77,7 +79,7 @@ func newChainRw(rw Chain, log log15.Logger, rollbackLock lock.ChainRollback) *ch
 	if err != nil {
 		panic(err)
 	}
-	cRw.dbCache = consensus_db.NewConsensusDB(db)
+	cRw.dbCache = cdb.NewConsensusDB(db)
 	cache, err := lru.New(1024 * 10)
 	if err != nil {
 		panic(err)
@@ -116,11 +118,22 @@ func (cRw *chainRw) Start() error {
 				t := block.Timestamp
 
 				index := cRw.dayPoints.Time2Index(*t)
+
 				point, err := cRw.dayPoints.GetByIndex(index)
 				if err != nil {
 					cRw.log.Error("can't get day info by index", "index", index, "time", t)
 				} else {
 					cRw.log.Info("get day by info index", "index", index, "time", t, "point", point.Json())
+				}
+
+				if index > 0 {
+					lastIdx := index - 1
+					point, err := cRw.dayPoints.GetByIndex(lastIdx)
+					if err != nil {
+						cRw.log.Error("can't get day info by last index", "index", lastIdx, "time", t)
+					} else {
+						cRw.log.Info("get day by info last index", "index", lastIdx, "time", t, "point", point.Json())
+					}
 				}
 			case <-startedCh:
 				return
@@ -286,7 +299,7 @@ func (cRw *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.H
 // an hour = 48 * period
 func (cRw *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
 	result := make(map[types.Address]int32)
-	hourInfos := make(map[types.Address]*consensus_db.Content)
+	hourInfos := make(map[types.Address]*cdb.Content)
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break
@@ -317,8 +330,8 @@ func (cRw *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32,
 }
 
 // an hour = 48 * period
-func (cRw *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*consensus_db.Content, error) {
-	hourInfos := make(map[types.Address]*consensus_db.Content)
+func (cRw *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*cdb.Content, error) {
+	hourInfos := make(map[types.Address]*cdb.Content)
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break

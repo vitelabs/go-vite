@@ -92,25 +92,28 @@ func TestCalcDifficultySection(t *testing.T) {
 
 	InitQuotaConfig(false, false)
 	p := nodeConfig.paramB
-	fmt.Printf("difficultyListMainnet = []*big.Int{\n")
+	resultmainnet := "difficultyListMainnet = []*big.Int{"
+
 	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), \n", amount.String())
+		resultmainnet = resultmainnet + "big.NewInt(" + amount.String() + "), "
 	}
-	fmt.Printf("}\n")
+	resultmainnet = resultmainnet + "}"
+	fmt.Println(resultmainnet)
 
 	InitQuotaConfig(false, true)
 	p = nodeConfig.paramB
-	fmt.Printf("difficultyListTestnet = []*big.Int{\n")
+	resulttestnet := "difficultyListTestnet = []*big.Int{"
 	for _, sec := range nodeConfig.sectionList {
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
 		amount = getNextBigInt(amount, p, sec, tmpFloatForCalc)
-		fmt.Printf("big.NewInt(%v), \n", amount.String())
+		resulttestnet = resulttestnet + "big.NewInt(" + amount.String() + "), "
 	}
-	fmt.Printf("}\n")
+	resulttestnet = resulttestnet + "}"
+	fmt.Println(resulttestnet)
 }
 
 func TestCheckNodeConfig(t *testing.T) {
@@ -667,5 +670,35 @@ func TestPrintQuota(t *testing.T) {
 	for i := 75; i < len(nodeConfig.sectionList); i = i + 75 {
 		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
 		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v |\n", nodeConfig.sectionList[i-75], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i/75, pledgeAmount, nodeConfig.difficultyList[i])
+	}
+}
+
+func TestValidParams(t *testing.T) {
+	InitQuotaConfig(false, false)
+	checkFloatList(nodeConfig.sectionList, "section list", t)
+	checkList(nodeConfig.pledgeAmountList, "mainnet pledge amount", t)
+	checkList(nodeConfig.difficultyList, "mainnet difficulty", t)
+	InitQuotaConfig(false, true)
+	checkList(nodeConfig.pledgeAmountList, "testnet pledge amount", t)
+	checkList(nodeConfig.difficultyList, "testnet difficulty", t)
+}
+
+func checkList(list []*big.Int, s string, t *testing.T) {
+	lastAmount := list[0]
+	for _, amount := range list[1:] {
+		if lastAmount.Cmp(amount) > 0 {
+			t.Fatalf("invalid " + s + " list")
+		}
+		lastAmount = amount
+	}
+}
+
+func checkFloatList(list []*big.Float, s string, t *testing.T) {
+	lastAmount := list[0]
+	for _, amount := range list[1:] {
+		if lastAmount.Cmp(amount) > 0 {
+			t.Fatalf("invalid " + s + " list")
+		}
+		lastAmount = amount
 	}
 }

@@ -1,5 +1,7 @@
 package tree
 
+import "encoding/json"
+
 func PrintTree(b Tree) map[string]interface{} {
 	result := make(map[string]interface{})
 	var branchInfos []map[string]interface{}
@@ -8,6 +10,17 @@ func PrintTree(b Tree) map[string]interface{} {
 	}
 	result["branches"] = branchInfos
 	return result
+}
+
+func PrintTreeJson(b Tree) string {
+	result := make(map[string]interface{})
+	var branchInfos []map[string]interface{}
+	for _, v := range b.Branches() {
+		branchInfos = append(branchInfos, PrintBranchInfo(v))
+	}
+	result["branches"] = branchInfos
+	bytes, _ := json.Marshal(result)
+	return string(bytes)
 }
 
 func PrintBranchInfo(b Branch) map[string]interface{} {

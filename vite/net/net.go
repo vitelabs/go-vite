@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -20,19 +21,20 @@ var netLog = log15.New("module", "net")
 
 var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
-var errInvalidSignature = errors.New("invalid signature")
-var errDiffGenesisBlock = errors.New("different genesis block")
-var errErrorHeadToHash = errors.New("error head to hash")
 
 type Config struct {
 	Single            bool
 	FileListenAddress string
-	MinePrivateKey    ed25519.PrivateKey
-	P2PPrivateKey     ed25519.PrivateKey
-	ForwardStrategy   string // default `cross`
+	TraceEnabled      bool
+	ForwardStrategy   string   // default `cross`
+	AccessControl     string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys   []string `json:"AccessAllowKeys"`
+	AccessDenyKeys    []string `json:"AccessDenyKeys"`
+
+	MinePrivateKey ed25519.PrivateKey
+	P2PPrivateKey  ed25519.PrivateKey
 	Chain
 	Verifier
-	Producer
 }
 
 const DefaultForwardStrategy = "cross"
@@ -47,39 +49,64 @@ type net struct {
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
 	*broadcaster
-	reader     syncCacheReader
+	reader     *cacheReader
 	downloader syncDownloader
 	BlockSubscriber
-	server   *syncServer
-	handlers *msgHandlers
-	query    *queryHandler
-	hb       *heartBeater
-	running  int32
-	log      log15.Logger
-	tracer   *tracer
+	server    *syncServer
+	handlers  *msgHandlers
+	query     *queryHandler
+	hb        *heartBeater
+	running   int32
+	log       log15.Logger
+	tracer    Tracer
+	sn        *sbpn
+	consensus Consensus
+	p2p       p2p.P2P
 }
 
-func (n *net) ProtoData() (key []byte, height uint64, genesis types.Hash) {
+func (n *net) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
 	genesis = n.Chain.GetGenesisSnapshotBlock().Hash
-	height = n.Chain.GetLatestSnapshotBlock().Height
+	current := n.Chain.GetLatestSnapshotBlock()
+
+	height = current.Height
+	head = current.Hash
 
 	return
 }
 
 func (n *net) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
-	//if msg.Key != nil {
-	//	right := ed25519.Verify(msg.Key, msg.ID.Bytes(), msg.Signature)
-	//	if !right {
-	//		err = errInvalidSignature
-	//		return
-	//	}
-	//
-	//	addr := types.PubkeyToAddress(msg.Key)
-	//	if n.Producer != nil && n.Producer.IsProducer(addr) {
-	//		level = p2p.Superior
-	//	}
-	//}
+	var id = msg.ID.String()
+	var key string
 
+	if msg.Key != nil {
+		addr := types.PubkeyToAddress(msg.Key)
+		if n.sn != nil && n.sn.isSbp(addr) {
+			level = p2p.Superior
+		}
+	}
+
+	for _, key2 := range n.AccessDenyKeys {
+		if key2 == id || key2 == key {
+			err = p2p.PeerNoPermission
+			return
+		}
+	}
+
+	if n.Config.AccessControl == "any" {
+		return
+	}
+
+	if strings.Contains(n.Config.AccessControl, "producer") && level == p2p.Superior {
+		return
+	}
+
+	for _, key2 := range n.AccessAllowKeys {
+		if key2 == id || key2 == key {
+			return
+		}
+	}
+
+	err = p2p.PeerNoPermission
 	return
 }
 
@@ -109,7 +136,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 			return
 		}
 
-		p.setHead(head, heartbeat.Height)
+		p.SetHead(head, heartbeat.Height)
 
 		// max 100 neighbors
 		var count = len(heartbeat.Peers)
@@ -148,9 +175,6 @@ func (n *net) OnPeerRemoved(peer p2p.Peer) (err error) {
 }
 
 func New(cfg Config) Net {
-	// wraper_verifier
-	//cfg.Verifier = newVerifier(cfg.Verifier)
-
 	// for test
 	if cfg.Single {
 		return mock(cfg)
@@ -168,12 +192,18 @@ func New(cfg Config) Net {
 		Verifier:    cfg.Verifier,
 	}
 
+	var id peerId
+	id, _ = vnode.Bytes2NodeID(cfg.P2PPrivateKey.PubByte())
 	syncConnFac := &defaultSyncConnectionFactory{
-		chain:      cfg.Chain,
-		peers:      peers,
-		privateKey: cfg.P2PPrivateKey,
+		chain:   cfg.Chain,
+		peers:   peers,
+		id:      id,
+		peerKey: cfg.P2PPrivateKey,
+		mineKey: cfg.MinePrivateKey,
 	}
-	downloader := newExecutor(100, 10, newPool(peers), syncConnFac)
+	downloader := newExecutor(50, 10, peers, syncConnFac)
+	syncServer := newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac)
+
 	reader := newCacheReader(cfg.Chain, cfg.Verifier, downloader)
 	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
 
@@ -191,36 +221,53 @@ func New(cfg Config) Net {
 		fetcher:         fetcher,
 		broadcaster:     broadcaster,
 		downloader:      downloader,
-		server:          newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac),
+		server:          syncServer,
 		handlers:        newHandlers("vite"),
 		hb:              newHeartBeater(peers, cfg.Chain),
 		log:             netLog,
 	}
 
 	var err error
+	err = n.handlers.register(&stateHandler{
+		maxNeighbors: 100,
+		peers:        peers,
+	})
+	if err != nil {
+		panic(fmt.Errorf("cannot register handler: broadcaster: %v", err))
+	}
+
 	n.query, err = newQueryHandler(cfg.Chain)
 	if err != nil {
 		panic(fmt.Errorf("cannot construct query handler: %v", err))
 	}
 
-	// GetSubLedgerCode, GetSnapshotBlocksCode, GetAccountBlocksCode, GetChunkCode
+	// GetSubLedgerCode, CodeGetSnapshotBlocks, CodeGetAccountBlocks, GetChunkCode
 	if err = n.handlers.register(n.query); err != nil {
 		panic(fmt.Errorf("cannot register handler: query: %v", err))
 	}
 
-	// NewSnapshotBlockCode, NewAccountBlockCode
+	// CodeNewSnapshotBlock, CodeNewAccountBlock
 	if err = n.handlers.register(broadcaster); err != nil {
 		panic(fmt.Errorf("cannot register handler: broadcaster: %v", err))
 	}
 
-	// SnapshotBlocksCode, AccountBlocksCode
+	// CodeSnapshotBlocks, CodeAccountBlocks
 	if err = n.handlers.register(fetcher); err != nil {
 		panic(fmt.Errorf("cannot register handler: fetcher: %v", err))
 	}
 
+	// CodeSnapshotBlocks, CodeAccountBlocks
+	if err = n.handlers.register(syncer); err != nil {
+		panic(fmt.Errorf("cannot register handler: syncer: %v", err))
+	}
+
 	// trace
-	var p2pPub = cfg.P2PPrivateKey.PubByte()
-	n.tracer = newTracer(hex.EncodeToString(p2pPub), peers, forward)
+	if cfg.TraceEnabled {
+		var p2pPub = cfg.P2PPrivateKey.PubByte()
+		n.tracer = newTracer(hex.EncodeToString(p2pPub), peers, forward)
+	} else {
+		n.tracer = newMockTracer()
+	}
 	if err = n.handlers.register(n.tracer); err != nil {
 		panic(fmt.Errorf("cannot register handler: tracer: %v", err))
 	}
@@ -231,14 +278,14 @@ func New(cfg Config) Net {
 type heartBeater struct {
 	chain     chainReader
 	last      time.Time
-	lastPeers map[vnode.NodeID]struct{}
+	lastPeers map[peerId]struct{}
 	ps        *peerSet
 }
 
 func newHeartBeater(ps *peerSet, chain chainReader) *heartBeater {
 	return &heartBeater{
 		chain:     chain,
-		lastPeers: make(map[vnode.NodeID]struct{}),
+		lastPeers: make(map[peerId]struct{}),
 		ps:        ps,
 	}
 }
@@ -291,6 +338,12 @@ func (h *heartBeater) state() []byte {
 	return data
 }
 
+func (n *net) Init(consensus Consensus, reader IrreversibleReader) {
+	n.consensus = consensus
+	n.syncer.irreader = reader
+	n.reader.irreader = reader
+}
+
 func (n *net) State() []byte {
 	return n.hb.state()
 }
@@ -298,15 +351,7 @@ func (n *net) State() []byte {
 func (n *net) Start(svr p2p.P2P) (err error) {
 	if atomic.CompareAndSwapInt32(&n.running, 0, 1) {
 		n.nodeID = svr.Config().Node().ID
-
-		if n.Producer != nil && n.MinePrivateKey != nil {
-			addr := types.PubkeyToAddress(n.MinePrivateKey.PubByte())
-			if n.Producer.IsProducer(addr) {
-				// todo set finder
-			}
-		}
-
-		fmt.Println(n.Chain.GetLatestSnapshotBlock().Height)
+		n.p2p = svr
 
 		if err = n.server.start(); err != nil {
 			return
@@ -319,6 +364,16 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 		n.query.start()
 
 		n.fetcher.start()
+
+		var addr types.Address
+		if len(n.MinePrivateKey) != 0 {
+			addr = types.PubkeyToAddress(n.MinePrivateKey.PubByte())
+			setNodeExt(n.MinePrivateKey, svr.Node())
+		}
+		n.sn = newSbpn(addr, n.peers, svr, n.consensus)
+		if discv := svr.Discovery(); discv != nil {
+			discv.SubscribeNode(n.sn.receiveNode)
+		}
 
 		return
 	}
@@ -340,6 +395,8 @@ func (n *net) Stop() error {
 
 		n.fetcher.stop()
 
+		n.sn.clean()
+
 		return nil
 	}
 
@@ -354,8 +411,10 @@ func (n *net) Trace() {
 
 func (n *net) Info() NodeInfo {
 	info := NodeInfo{
-		Latency: n.broadcaster.Statistic(),
-		Peers:   n.peers.info(),
+		NodeInfo: n.p2p.Info(),
+		Latency:  n.broadcaster.Statistic(),
+		Peers:    n.peers.info(),
+		Height:   n.Chain.GetLatestSnapshotBlock().Height,
 	}
 
 	if n.server != nil {
@@ -366,6 +425,8 @@ func (n *net) Info() NodeInfo {
 }
 
 type NodeInfo struct {
+	p2p.NodeInfo
+	Height  uint64           `json:"height"`
 	Peers   []PeerInfo       `json:"peers"`
 	Latency []int64          `json:"latency"` // [0,1,12,24]
 	Server  FileServerStatus `json:"server"`

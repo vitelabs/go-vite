@@ -26,7 +26,7 @@ func startManager() (*l.Manager, types.Address) {
 	addr := generateAddress()
 
 		c := chain.NewChain(&config.Config{
-			Net:     nil,
+			netReader:     nil,
 			DataDir: common.GoViteTestDataDir(),
 		})
 		c.Init()

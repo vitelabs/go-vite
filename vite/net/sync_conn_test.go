@@ -1,14 +1,14 @@
 package net
 
 import (
+	"bytes"
 	crand "crypto/rand"
-	"errors"
 	"fmt"
 	mrand "math/rand"
-	net2 "net"
-	"sync"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -45,21 +45,35 @@ func TestSpeedToString(t *testing.T) {
 }
 
 func TestSyncHandshakeMsg_Serialize(t *testing.T) {
-	var s = syncHandshakeMsg{
-		key:  make([]byte, 32),
-		time: time.Now(),
-		sign: make([]byte, 64),
+	var s = syncHandshake{
+		id:    vnode.RandomNodeID(),
+		key:   make([]byte, 32),
+		time:  time.Now().Unix(),
+		token: []byte{1, 2, 3},
 	}
 
-	for i := 0; i < 100; i++ {
-		_, _ = crand.Read(s.key)
-		_, _ = crand.Read(s.sign)
+	data, err := s.Serialize()
+	if err != nil {
+		panic(err)
+	}
 
-		buf, err := s.Serialize()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(len(buf))
+	var s2 = &syncHandshake{}
+	err = s2.deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if s.id != s2.id {
+		t.Errorf("different id: %s %s", s.id, s2.id)
+	}
+	if false == bytes.Equal(s.key, s2.key) {
+		t.Errorf("different key")
+	}
+	if s.time != s2.time {
+		t.Errorf("different time")
+	}
+	if false == bytes.Equal(s.token, s2.token) {
+		t.Errorf("different token")
 	}
 }
 
@@ -148,127 +162,127 @@ func Test_wait_all(t *testing.T) {
 	}
 }
 
-func TestCodec(t *testing.T) {
-	const addr = "localhost:8888"
-	ln, err := net2.Listen("tcp", addr)
-	if err != nil {
-		panic(err)
-	}
+//func TestCodec(t *testing.T) {
+//	const addr = "localhost:8888"
+//	ln, err := net2.Listen("tcp", addr)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	messages := []syncMsg{
+//		&syncHandshakeMsg{
+//			key:  []byte("hello"),
+//			time: time.Now(),
+//			sign: []byte("world"),
+//		},
+//		syncHandshakeDone,
+//		syncHandshakeErr,
+//		&syncRequestMsg{
+//			from: 1,
+//			to:   10,
+//		},
+//		&syncReadyMsg{
+//			from: 1,
+//			to:   10,
+//			size: 100,
+//		},
+//		syncMissing,
+//	}
+//
+//	var wg sync.WaitGroup
+//
+//	wg.Add(1)
+//	go func() {
+//		defer wg.Done()
+//
+//		conn, err := ln.Accept()
+//		if err != nil {
+//			panic(err)
+//		}
+//		_ = ln.Close()
+//
+//		codec := &syncCodec{
+//			Conn:    conn,
+//			builder: syncMsgParser,
+//		}
+//
+//		receive := func(msg syncMsg, i int) error {
+//			msg2 := messages[i]
+//
+//			if msg.code() != msg2.code() {
+//				t.Errorf("error message %d", msg.code())
+//			}
+//
+//			if msg.code() == syncHandshake {
+//				h := msg.(*syncHandshakeMsg)
+//				if string(h.key) != "hello" {
+//					return fmt.Errorf("error key: %s", h.key)
+//				}
+//				if string(h.sign) != "world" {
+//					return fmt.Errorf("error sign: %s", h.sign)
+//				}
+//				if h.time.Unix() != time.Now().Unix() {
+//					return errors.New("diff time")
+//				}
+//			}
+//			if msg.code() == syncRequest {
+//				h := msg.(*syncRequestMsg)
+//				if h.from != 1 || h.to != 10 {
+//					return fmt.Errorf("error bound: %d - %d", h.from, h.to)
+//				}
+//			}
+//			if msg.code() == syncReady {
+//				h := msg.(*syncReadyMsg)
+//				if h.from != 1 || h.to != 10 || h.size != 100 {
+//					return fmt.Errorf("error ready: %d - %d - %d", h.from, h.to, h.size)
+//				}
+//			}
+//
+//			return nil
+//		}
+//
+//		for i := range messages {
+//			msg, err := codec.read()
+//			if err != nil {
+//				panic(err)
+//			}
+//
+//			if err = receive(msg, i); err != nil {
+//				t.Error(err)
+//			}
+//		}
+//
+//		_ = conn.Close()
+//	}()
+//
+//	wg.Add(1)
+//	go func() {
+//		defer wg.Done()
+//
+//		conn, err := net2.Dial("tcp", addr)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		codec := &syncCodec{
+//			Conn:    conn,
+//			builder: syncMsgParser,
+//		}
+//
+//		for _, msg := range messages {
+//			err = codec.write(msg)
+//			if err != nil {
+//				panic(err)
+//			}
+//		}
+//
+//		_ = conn.Close()
+//	}()
+//
+//	wg.Done()
+//}
 
-	messages := []syncMsg{
-		&syncHandshakeMsg{
-			key:  []byte("hello"),
-			time: time.Now(),
-			sign: []byte("world"),
-		},
-		syncHandshakeDone,
-		syncHandshakeErr,
-		&syncRequestMsg{
-			from: 1,
-			to:   10,
-		},
-		&syncReadyMsg{
-			from: 1,
-			to:   10,
-			size: 100,
-		},
-		syncMissing,
-	}
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		conn, err := ln.Accept()
-		if err != nil {
-			panic(err)
-		}
-		_ = ln.Close()
-
-		codec := &syncCodec{
-			Conn:    conn,
-			builder: syncMsgParser,
-		}
-
-		receive := func(msg syncMsg, i int) error {
-			msg2 := messages[i]
-
-			if msg.code() != msg2.code() {
-				t.Errorf("error message %d", msg.code())
-			}
-
-			if msg.code() == syncHandshake {
-				h := msg.(*syncHandshakeMsg)
-				if string(h.key) != "hello" {
-					return fmt.Errorf("error key: %s", h.key)
-				}
-				if string(h.sign) != "world" {
-					return fmt.Errorf("error sign: %s", h.sign)
-				}
-				if h.time.Unix() != time.Now().Unix() {
-					return errors.New("diff time")
-				}
-			}
-			if msg.code() == syncRequest {
-				h := msg.(*syncRequestMsg)
-				if h.from != 1 || h.to != 10 {
-					return fmt.Errorf("error bound: %d - %d", h.from, h.to)
-				}
-			}
-			if msg.code() == syncReady {
-				h := msg.(*syncReadyMsg)
-				if h.from != 1 || h.to != 10 || h.size != 100 {
-					return fmt.Errorf("error ready: %d - %d - %d", h.from, h.to, h.size)
-				}
-			}
-
-			return nil
-		}
-
-		for i := range messages {
-			msg, err := codec.read()
-			if err != nil {
-				panic(err)
-			}
-
-			if err = receive(msg, i); err != nil {
-				t.Error(err)
-			}
-		}
-
-		_ = conn.Close()
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		conn, err := net2.Dial("tcp", addr)
-		if err != nil {
-			panic(err)
-		}
-
-		codec := &syncCodec{
-			Conn:    conn,
-			builder: syncMsgParser,
-		}
-
-		for _, msg := range messages {
-			err = codec.write(msg)
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		_ = conn.Close()
-	}()
-
-	wg.Done()
-}
-
-func compare(m1, m2 *syncReadyMsg) error {
+func compare(m1, m2 *syncResponse) error {
 	if m1.from != m2.from {
 		return fmt.Errorf("different from %d %d", m1.from, m2.from)
 	}
@@ -288,7 +302,7 @@ func compare(m1, m2 *syncReadyMsg) error {
 	return nil
 }
 func TestSyncReadyMsg(t *testing.T) {
-	var msg = &syncReadyMsg{
+	var msg = &syncResponse{
 		from:     117,
 		to:       1189,
 		size:     20293,
@@ -304,7 +318,7 @@ func TestSyncReadyMsg(t *testing.T) {
 		panic(err)
 	}
 
-	var msg2 = &syncReadyMsg{}
+	var msg2 = &syncResponse{}
 	err = msg2.deserialize(data)
 	if err != nil {
 		panic(err)

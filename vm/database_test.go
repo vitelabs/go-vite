@@ -28,7 +28,7 @@ type testDatabase struct {
 	addr              types.Address
 }
 
-func NewNoDatabase() *testDatabase {
+func newNoDatabase() *testDatabase {
 	return &testDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[string][]byte),
@@ -80,21 +80,20 @@ func (db *testDatabase) Finish() {
 
 }
 
-func (db *testDatabase) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	if balance, ok := db.balanceMap[db.addr][*tokenTypeId]; ok {
+func (db *testDatabase) GetBalance(tokenTypeID *types.TokenTypeId) (*big.Int, error) {
+	if balance, ok := db.balanceMap[db.addr][*tokenTypeID]; ok {
 		return new(big.Int).Set(balance), nil
-	} else {
-		return big.NewInt(0), nil
 	}
+	return big.NewInt(0), nil
 }
-func (db *testDatabase) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
+func (db *testDatabase) SetBalance(tokenTypeID *types.TokenTypeId, amount *big.Int) {
 	if amount == nil {
-		delete(db.balanceMap[db.addr], *tokenTypeId)
+		delete(db.balanceMap[db.addr], *tokenTypeID)
 	} else {
 		if _, ok := db.balanceMap[db.addr]; !ok {
 			db.balanceMap[db.addr] = make(map[types.TokenTypeId]*big.Int)
 		}
-		db.balanceMap[db.addr][*tokenTypeId] = new(big.Int).Set(amount)
+		db.balanceMap[db.addr][*tokenTypeID] = new(big.Int).Set(amount)
 
 	}
 }
@@ -110,16 +109,14 @@ func (db *testDatabase) SetContractCode(code []byte) {
 func (db *testDatabase) GetContractCode() ([]byte, error) {
 	if code, ok := db.codeMap[db.addr]; ok {
 		return code, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 func (db *testDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	if code, ok := db.codeMap[*addr]; ok {
 		return code, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 func (db *testDatabase) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {
 	return nil
@@ -134,9 +131,8 @@ func (db *testDatabase) GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int {
 func (db *testDatabase) GetValue(key []byte) ([]byte, error) {
 	if data, ok := db.storageMap[db.addr][ToKey(key)]; ok {
 		return data, nil
-	} else {
-		return []byte{}, nil
 	}
+	return []byte{}, nil
 }
 func (db *testDatabase) SetValue(key []byte, value []byte) error {
 	if _, ok := db.storageMap[db.addr]; !ok {
@@ -165,9 +161,8 @@ func (db *testDatabase) PrintStorage(addr types.Address) string {
 			str += key + "=>" + hex.EncodeToString(value) + ", "
 		}
 		return str
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func (db *testDatabase) AddLog(log *ledger.VmLog) {
@@ -284,7 +279,7 @@ func (db *testDatabase) GetUnconfirmedBlocks(address types.Address) []*ledger.Ac
 }
 func (db *testDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	list := make([]types.QuotaInfo, 75)
-	for i, _ := range list {
+	for i := range list {
 		list[i] = types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0}
 	}
 	return list
@@ -315,11 +310,11 @@ func (db *testDatabase) DebugGetStorage() (map[string][]byte, error) {
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
-	db = NewNoDatabase()
+	db = newNoDatabase()
 	db.storageMap[types.AddressMintage] = make(map[string][]byte)
-	viteTokenIdKey := abi.GetMintageKey(ledger.ViteTokenId)
+	viteTokenIDKey := abi.GetMintageKey(ledger.ViteTokenId)
 	var err error
-	db.storageMap[types.AddressMintage][ToKey(viteTokenIdKey)], err = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
+	db.storageMap[types.AddressMintage][ToKey(viteTokenIDKey)], err = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
 	if err != nil {
 		panic(err)
 	}

@@ -38,7 +38,6 @@ func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexp
 		newFeeAcc.Amount = feeAmount
 		feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAcc)
 	}
-
 	SaveCurrentFeeSumToStorage(db, reader, feeSumByPeriod)
 }
 

@@ -1,20 +1,11 @@
 package config_gen
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"os"
-	"strconv"
-
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
+	"os"
 )
 
 func MakeGenesisConfig(genesisFile string) *config.Genesis {
@@ -51,80 +42,13 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 	}
 }
 
-func makeGenesisAccountConfig() *config.Genesis {
-	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
-	registrationConditionParam := config.RegisterConditionParam{new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite), ledger.ViteTokenId, 3600 * 24 * 90}
-	voteConditionParam := config.VoteConditionParam{}
-	consensusGroupInfoMap := map[string]config.ConsensusGroupInfo{
-		types.SNAPSHOT_GID.String(): {
-			25, 1, 3, 2, 50, 1, 0, ledger.ViteTokenId,
-			1, registrationConditionParam, 1, voteConditionParam,
-			defaultGenesisAccountAddress, big.NewInt(0), 1},
-		types.DELEGATE_GID.String(): {25, 1, 3, 2, 50, 48, 1, ledger.ViteTokenId,
-			1, registrationConditionParam, 1, voteConditionParam,
-			defaultGenesisAccountAddress, big.NewInt(0), 1},
-	}
-	addrStrList := []string{
-		"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87",
-		"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08",
-		"vite_1630f8c0cf5eda3ce64bd49a0523b826f67b19a33bc2a5dcfb",
-		"vite_1b1dfa00323aea69465366d839703547fec5359d6c795c8cef",
-		"vite_27a258dd1ed0ce0de3f4abd019adacd1b4b163b879389d3eca",
-		"vite_31a02e4f4b536e2d6d9bde23910cdffe72d3369ef6fe9b9239",
-		"vite_383fedcbd5e3f52196a4e8a1392ed3ddc4d4360e4da9b8494e",
-		"vite_41ba695ff63caafd5460dcf914387e95ca3a900f708ac91f06",
-		"vite_545c8e4c74e7bb6911165e34cbfb83bc513bde3623b342d988",
-		"vite_5a1b5ece654138d035bdd9873c1892fb5817548aac2072992e",
-		"vite_70cfd586185e552635d11f398232344f97fc524fa15952006d",
-		"vite_76df2a0560694933d764497e1b9b11f9ffa1524b170f55dda0",
-		"vite_7b76ca2433c7ddb5a5fa315ca861e861d432b8b05232526767",
-		"vite_7caaee1d51abad4047a58f629f3e8e591247250dad8525998a",
-		"vite_826a1ab4c85062b239879544dc6b67e3b5ce32d0a1eba21461",
-		"vite_89007189ad81c6ee5cdcdc2600a0f0b6846e0a1aa9a58e5410",
-		"vite_9abcb7324b8d9029e4f9effe76f7336bfd28ed33cb5b877c8d",
-		"vite_af60cf485b6cc2280a12faac6beccfef149597ea518696dcf3",
-		"vite_c1090802f735dfc279a6c24aacff0e3e4c727934e547c24e5e",
-		"vite_c10ae7a14649800b85a7eaaa8bd98c99388712412b41908cc0",
-		"vite_d45ac37f6fcdb1c362a33abae4a7d324a028aa49aeea7e01cb",
-		"vite_d8974670af8e1f3c4378d01d457be640c58644bc0fa87e3c30",
-		"vite_e289d98f33c3ef5f1b41048c2cb8b389142f033d1df9383818",
-		"vite_f53dcf7d40b582cd4b806d2579c6dd7b0b131b96c2b2ab5218",
-		"vite_fac06662d84a7bea269265e78ea2d9151921ba2fae97595608",
-	}
-	snapshotRegistrationInfoMap := make(map[string]config.RegistrationInfo, len(addrStrList))
-	snapshotHisNameMap := make(map[string]string, len(addrStrList))
-	for index, addrStr := range addrStrList {
-		nodeName := "s" + strconv.Itoa(index)
-		addr, _ := types.HexToAddress(addrStr)
-		snapshotRegistrationInfoMap[nodeName] = config.RegistrationInfo{addr, addr, helper.Big0, 1, 1, 0, []types.Address{addr}}
-		snapshotHisNameMap[addrStr] = nodeName
-	}
-	consensusGroupContractInfo := &config.ConsensusGroupContractInfo{consensusGroupInfoMap,
-		map[string]map[string]config.RegistrationInfo{types.SNAPSHOT_GID.String(): snapshotRegistrationInfoMap},
-		map[string]map[string]string{types.SNAPSHOT_GID.String(): snapshotHisNameMap},
-		nil}
+var genesisJsonStr = "{\"GenesisAccountAddress\": \"vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122\",\"ForkPoints\": null,\"ConsensusGroupInfo\": {\"ConsensusGroupInfoMap\": {\"00000000000000000001\": {\"NodeCount\": 25,\"Interval\": 1,\"PerCount\": 3,\"RandCount\": 2,\"RandRank\": 100,\"Repeat\": 1,\"CheckLevel\": 0,\"CountingTokenId\": \"tti_5649544520544f4b454e6e40\",\"RegisterConditionId\": 1,\"RegisterConditionParam\": {\"PledgeAmount\": 500000000000000000000000,\"PledgeToken\": \"tti_5649544520544f4b454e6e40\",\"PledgeHeight\": 7776000},\"VoteConditionId\": 1,\"VoteConditionParam\": {},\"Owner\": \"vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122\",\"PledgeAmount\": 0,\"WithdrawHeight\": 1},\"00000000000000000002\": {\"NodeCount\": 25,\"Interval\": 3,\"PerCount\": 1,\"RandCount\": 2,\"RandRank\": 100,\"Repeat\": 48,\"CheckLevel\": 1,\"CountingTokenId\": \"tti_5649544520544f4b454e6e40\",\"RegisterConditionId\": 1,\"RegisterConditionParam\": {\"PledgeAmount\": 500000000000000000000000,\"PledgeToken\": \"tti_5649544520544f4b454e6e40\",\"PledgeHeight\": 7776000},\"VoteConditionId\": 1,\"VoteConditionParam\": {},\"Owner\": \"vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122\",\"PledgeAmount\": 0,\"WithdrawHeight\": 1}},\"RegistrationInfoMap\": {\"00000000000000000001\": {\"Vite_SBP01\": {\"NodeAddr\": \"vite_9065ff0e14ebf983e090cde47d59fe77d7164b576a6d2d0eda\",\"PledgeAddr\": \"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\",\"Amount\": 500000000000000000000000,\"WithdrawHeight\": 7776000,\"RewardTime\": 1,\"CancelTime\": 0,\"HisAddrList\": [\"vite_9065ff0e14ebf983e090cde47d59fe77d7164b576a6d2d0eda\"]},\"Vite_SBP02\": {\"NodeAddr\": \"vite_995769283a01ba8d00258dbb5371c915df59c8657335bfb1b2\",\"PledgeAddr\": \"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\",\"Amount\": 500000000000000000000000,\"WithdrawHeight\": 7776000,\"RewardTime\": 1,\"CancelTime\": 0,\"HisAddrList\": [\"vite_995769283a01ba8d00258dbb5371c915df59c8657335bfb1b2\"]},\"Vite_SBP03\": {\"NodeAddr\": \"vite_9b33ce9fc70f14407db75cfa8453680f364e6674c7cc1fb785\",\"PledgeAddr\": \"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\",\"Amount\": 500000000000000000000000,\"WithdrawHeight\": 7776000,\"RewardTime\": 1,\"CancelTime\": 0,\"HisAddrList\": [\"vite_9b33ce9fc70f14407db75cfa8453680f364e6674c7cc1fb785\"]},\"Vite_SBP04\": {\"NodeAddr\": \"vite_aadf6275ecbf07181c5c37c7d709aebf06553e470345d3f699\",\"PledgeAddr\": \"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\",\"Amount\": 500000000000000000000000,\"WithdrawHeight\": 7776000,\"RewardTime\": 1,\"CancelTime\": 0,\"HisAddrList\": [\"vite_aadf6275ecbf07181c5c37c7d709aebf06553e470345d3f699\"]},\"Vite_SBP05\": {\"NodeAddr\": \"vite_c1d11e6eda9a9b80e388a38e0ac541cbc3333736233b4eaaab\",\"PledgeAddr\": \"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\",\"Amount\": 500000000000000000000000,\"WithdrawHeight\": 7776000,\"RewardTime\": 1,\"CancelTime\": 0,\"HisAddrList\": [\"vite_c1d11e6eda9a9b80e388a38e0ac541cbc3333736233b4eaaab\"]}}},\"VoteStatusMap\": {\"00000000000000000001\": {\"vite_002f9cc5863815d27679b3a5e4f47675e680926a7ae5365d5e\": \"Vite_SBP01\",\"vite_00306f5d2904c8b2e4fbb0ff07635130bd6c4f14f3c2cc9d32\": \"Vite_SBP02\",\"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\": \"Vite_SBP03\",\"vite_0047b193c7d7791a94de7e45b7febf6eac8139fd81695cfdb5\": \"Vite_SBP04\",\"vite_0097b268fb1954e8acbd7ff6d90788e2a118c7a8c48207bc83\": \"Vite_SBP05\"}}},\"MintageInfo\": {\"TokenInfoMap\": {\"tti_251a3e67a41b5ea2373936c8\": {\"TokenName\": \"Vite Community Point\",\"TokenSymbol\": \"VCP\",\"TotalSupply\": 10000000000,\"Decimals\": 0,\"Owner\": \"vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122\",\"MaxSupply\": 0,\"OwnerBurnOnly\": false,\"IsReIssuable\": false},\"tti_5649544520544f4b454e6e40\": {\"TokenName\": \"Vite Token\",\"TokenSymbol\": \"VITE\",\"TotalSupply\": 1000000000000000000000000000,\"Decimals\": 18,\"Owner\": \"vite_0000000000000000000000000000000000000004d28108e76b\",\"MaxSupply\": 115792089237316195423570985008687907853269984665640564039457584007913129639935,\"OwnerBurnOnly\": false,\"IsReIssuable\": true}},\"LogList\": [{\"Data\": \"\",\"Topics\": [\"3f9dcc00d5e929040142c3fb2b67a3be1b0e91e98dac18d5bc2b7817a4cfecb6\",\"000000000000000000000000000000000000000000005649544520544f4b454e\"]},{\"Data\": \"\",\"Topics\": [\"3f9dcc00d5e929040142c3fb2b67a3be1b0e91e98dac18d5bc2b7817a4cfecb6\",\"00000000000000000000000000000000000000000000251a3e67a41b5ea23739\"]}]},\"PledgeInfo\": {\"PledgeInfoMap\": {\"vite_002f9cc5863815d27679b3a5e4f47675e680926a7ae5365d5e\": [{\"Amount\": 1100000000000000000000,\"WithdrawHeight\": 1,\"BeneficialAddr\": \"vite_002f9cc5863815d27679b3a5e4f47675e680926a7ae5365d5e\"}],\"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\": [{\"Amount\": 1000000000000000000000,\"WithdrawHeight\": 1,\"BeneficialAddr\": \"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\"}]},\"PledgeBeneficialMap\": {\"vite_002f9cc5863815d27679b3a5e4f47675e680926a7ae5365d5e\": 1100000000000000000000,\"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\": 1000000000000000000000}},\"AccountBalanceMap\": {\"vite_002f9cc5863815d27679b3a5e4f47675e680926a7ae5365d5e\": {\"tti_251a3e67a41b5ea2373936c8\": 1000000,\"tti_5649544520544f4b454e6e40\": 27068892782446871294625},\"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\": {\"tti_251a3e67a41b5ea2373936c8\": 5000,\"tti_5649544520544f4b454e6e40\": 13575090107549484290851},\"vite_0040b24dacaa808b4fccec4a482b127e40542398e5880d21ad\": {\"tti_251a3e67a41b5ea2373936c8\": 9998995000,\"tti_5649544520544f4b454e6e40\": 999959356017110003644414524},\"vite_79f6168f60d19dbf74c9f180264a14a47675f2840696873ff7\": {}}}"
 
-	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	topics, data, err := abi.ABIMintage.PackEvent(abi.EventNameMint, ledger.ViteTokenId)
+func makeGenesisAccountConfig() *config.Genesis {
+	g := new(config.Genesis)
+	err := json.Unmarshal([]byte(genesisJsonStr), g)
 	if err != nil {
 		panic(err)
 	}
-	mintageContractInfo := &config.MintageContractInfo{
-		map[string]config.TokenInfo{
-			ledger.ViteTokenId.String(): {"Vite Token", "VITE", viteTotalSupply, uint8(18),
-				defaultGenesisAccountAddress, big.NewInt(0), defaultGenesisAccountAddress, uint64(0),
-				helper.Tt256m1, false, true},
-		},
-		[]config.GenesisVmLog{{Data: hex.EncodeToString(data), Topics: topics}},
-	}
-
-	accountBalanceMap := make(map[string]map[string]*big.Int, 1)
-	accountBalanceMap[defaultGenesisAccountAddress.String()] = map[string]*big.Int{ledger.ViteTokenId.String(): viteTotalSupply}
-	return &config.Genesis{
-		GenesisAccountAddress: &defaultGenesisAccountAddress,
-		ConsensusGroupInfo:    consensusGroupContractInfo,
-		MintageInfo:           mintageContractInfo,
-		AccountBalanceMap:     accountBalanceMap,
-		PledgeInfo:            &config.PledgeContractInfo{},
-	}
+	return g
 }

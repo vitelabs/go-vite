@@ -18,6 +18,28 @@ func TestChain_SnapshotBlock(t *testing.T) {
 	TearDown(chainInstance)
 }
 
+func TestSnapshotBlocks(t *testing.T) {
+	chainInstance, _, _ := SetUp(10, 0, 0)
+	latestSb := chainInstance.GetLatestSnapshotBlock()
+	for h := latestSb.Height; h >= 1; h-- {
+		sb, err := chainInstance.GetSnapshotBlockByHeight(h)
+		if err != nil {
+			panic(err)
+		}
+		if sb == nil {
+			l, err := chainInstance.indexDB.GetSnapshotBlockLocation(h)
+			if err != nil {
+				panic(err)
+			}
+			//panic(fmt.Sprintf("sb is nil, height is %d", h))
+			panic(fmt.Sprintf("Error: sb is nil, height is %d, location is %+v", h, l))
+
+		}
+
+		fmt.Printf("check snapshot block %d\n", sb.Height)
+	}
+}
+
 func IsSnapshotBlockExisted(chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {
 	for _, snapshotBlock := range snapshotBlockList {
 		result, err := chainInstance.IsSnapshotBlockExisted(snapshotBlock.Hash)

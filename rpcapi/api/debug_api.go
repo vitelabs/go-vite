@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -53,6 +54,18 @@ func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) 
 	m := make(map[string]interface{})
 	m["block"] = info
 	return m
+}
+
+func (api DebugApi) PoolIrreversible() string {
+	block := api.v.Pool().GetIrreversibleBlock()
+	if block == nil {
+		return "empty"
+	}
+	bytes, _ := json.Marshal(block)
+	return string(bytes)
+}
+func (api DebugApi) RoadInfo() map[string]interface{} {
+	return api.v.OnRoad().Info()
 }
 
 func (api DebugApi) ConsensusProducers(gid types.Gid, offset int64, index uint64) map[string]interface{} {
