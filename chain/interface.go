@@ -274,4 +274,6 @@ type Chain interface {
 	CheckRecentBlocks() error
 
 	CheckOnRoad() error
+
+	GetStatus() []interfaces.DBStatus
 }

@@ -597,7 +597,7 @@ func (pl *pool) delUseLessChains() {
 	if pl.sync.SyncState() != net.Syncing {
 		info := pl.pendingSc.irreversible
 		pl.delChainsForIrreversible(info)
-
+		pl.pendingSc.checkPool()
 		pl.pendingSc.loopDelUselessChain()
 		var pendings []*accountPool
 		pl.pendingAc.Range(func(_, v interface{}) bool {
@@ -607,6 +607,7 @@ func (pl *pool) delUseLessChains() {
 		})
 		for _, v := range pendings {
 			v.loopDelUselessChain()
+			v.checkPool()
 		}
 	}
 }

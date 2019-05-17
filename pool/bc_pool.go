@@ -3,6 +3,7 @@ package pool
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -570,8 +571,17 @@ func (bcp *BCPool) detailChain(id string) map[string]interface{} {
 	// todo
 	return nil
 }
+func (bcp *BCPool) checkPool() {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
 
-func (bcp *BCPool) checkCurrent() {
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
+
+	bcp.check()
+}
+
+func (bcp *BCPool) check() {
 	main := bcp.CurrentChain()
 	tailHeight, tailHash := main.TailHH()
 	headHeight, headHash := bcp.chainpool.diskChain.HeadHH()
@@ -583,6 +593,13 @@ func (bcp *BCPool) checkCurrent() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (bcp *BCPool) checkCurrent() {
+	if rand.Intn(10000) > 10 {
+		return
+	}
+	bcp.check()
 }
 
 func splitToMap(chains []*snippetChain) map[types.Hash]*snippetChain {

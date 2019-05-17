@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -52,6 +53,23 @@ func (l *LedgerApi) ledgerBlocksToRpcBlocks(list []*ledger.AccountBlock) ([]*Acc
 		}
 		blocks = append(blocks, rpcBlock)
 	}
+	return blocks, nil
+}
+
+func (l *LedgerApi) ledgerSnapshotBlockToRpcBlock(block *ledger.SnapshotBlock) (*SnapshotBlock, error) {
+	return ledgerSnapshotBlockToRpcBlock(block)
+}
+
+func (l *LedgerApi) ledgerSnapshotBlocksToRpcBlocks(list []*ledger.SnapshotBlock) ([]*SnapshotBlock, error) {
+	var blocks []*SnapshotBlock
+	for _, item := range list {
+		rpcBlock, err := l.ledgerSnapshotBlockToRpcBlock(item)
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, rpcBlock)
+	}
+
 	return blocks, nil
 }
 
@@ -150,8 +168,13 @@ func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, er
 	return logList, err
 }
 
-func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*AccountBlock, error) {
-	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, height, count)
+func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, count uint64) ([]*AccountBlock, error) {
+	heightUint64, err := parseHeight(height)
+	if err != nil {
+		return nil, err
+	}
+
+	accountBlocks, err := l.chain.GetAccountBlocksByHeight(addr, heightUint64, count)
 	if err != nil {
 		l.log.Error("GetAccountBlocksByHeight failed, error is "+err.Error(), "method", "GetBlocksByHeight")
 		return nil, err
@@ -162,13 +185,13 @@ func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height uint64, count u
 	return l.ledgerBlocksToRpcBlocks(accountBlocks)
 }
 
-func (l *LedgerApi) GetBlockByHeight(addr types.Address, heightStr string) (*AccountBlock, error) {
-	height, err := strconv.ParseUint(heightStr, 10, 64)
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
+	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	accountBlock, err := l.chain.GetAccountBlockByHeight(addr, height)
+	accountBlock, err := l.chain.GetAccountBlockByHeight(addr, heightUint64)
 	if err != nil {
 		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
 		return nil, err
@@ -251,37 +274,61 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	return rpcAccount, nil
 }
 
-func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error) {
+func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error) {
 	block, err := l.chain.GetSnapshotBlockByHash(hash)
 	if err != nil {
 		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHash")
+		return nil, err
 	}
-	return block, err
+	return l.ledgerSnapshotBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	block, err := l.chain.GetSnapshotBlockByHeight(height)
+func (l *LedgerApi) GetSnapshotBlockByHeight(height interface{}) (*SnapshotBlock, error) {
+	heightUint64, err := parseHeight(height)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := l.chain.GetSnapshotBlockByHeight(heightUint64)
 	if err != nil {
 		l.log.Error("GetSnapshotBlockByHash failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
+		return nil, err
 	}
-	return block, err
+	return l.ledgerSnapshotBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetSnapshotBlocks(height uint64, count int) ([]*ledger.SnapshotBlock, error) {
-	blocks, err := l.chain.GetSnapshotBlocksByHeight(height, false, uint64(count))
+func (l *LedgerApi) GetSnapshotBlocks(height interface{}, count int) ([]*SnapshotBlock, error) {
+	heightUint64, err := parseHeight(height)
+	if err != nil {
+		return nil, err
+	}
+
+	blocks, err := l.chain.GetSnapshotBlocksByHeight(heightUint64, false, uint64(count))
 	if err != nil {
 		l.log.Error("GetSnapshotBlocksByHeight failed, error is "+err.Error(), "method", "GetSnapshotBlocks")
+		return nil, err
 	}
-	return blocks, nil
+	return l.ledgerSnapshotBlocksToRpcBlocks(blocks)
 }
 
-func (l *LedgerApi) GetChunks(startHeight uint64, endHeight uint64) ([]*ledger.SnapshotChunk, error) {
-	chunks, err := l.chain.GetSubLedger(startHeight-1, endHeight)
+func (l *LedgerApi) GetChunks(startHeight interface{}, endHeight interface{}) ([]*ledger.SnapshotChunk, error) {
+
+	startHeightUint64, err := parseHeight(startHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	endHeightUint64, err := parseHeight(endHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	chunks, err := l.chain.GetSubLedger(startHeightUint64-1, endHeightUint64)
 	if err != nil {
 		return nil, err
 	}
 	if len(chunks) > 0 {
-		if chunks[0].SnapshotBlock == nil || chunks[0].SnapshotBlock.Height == startHeight-1 {
+		if chunks[0].SnapshotBlock == nil || chunks[0].SnapshotBlock.Height == startHeightUint64-1 {
 			chunks = chunks[1:]
 		}
 	}
@@ -332,4 +379,33 @@ func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint6
 		return 0, err
 	}
 	return l.chain.GetSeed(sb, fromHash)
+}
+
+func (l *LedgerApi) GetChainStatus() []interfaces.DBStatus {
+	return l.chain.GetStatus()
+}
+
+func parseHeight(height interface{}) (uint64, error) {
+	var heightUint64 uint64
+	switch height.(type) {
+	case float64:
+		heightUint64 = uint64(height.(float64))
+
+	case int:
+		heightUint64 = uint64(height.(int))
+
+	case uint64:
+		heightUint64 = height.(uint64)
+
+	case string:
+		heightStr := height.(string)
+
+		var err error
+		heightUint64, err = strconv.ParseUint(heightStr, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return heightUint64, nil
+
 }
