@@ -571,6 +571,16 @@ func (bcp *BCPool) detailChain(id string) map[string]interface{} {
 	// todo
 	return nil
 }
+func (bcp *BCPool) checkPool() {
+	bcp.chainHeadMu.Lock()
+	defer bcp.chainHeadMu.Unlock()
+
+	bcp.chainTailMu.Lock()
+	defer bcp.chainTailMu.Unlock()
+
+	bcp.check()
+}
+
 func (bcp *BCPool) check() {
 	main := bcp.CurrentChain()
 	tailHeight, tailHash := main.TailHH()
