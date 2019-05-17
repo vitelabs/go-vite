@@ -23,8 +23,14 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	for _, kv := range unsavedStorage {
 		// set latest kv
-		batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]), kv[1])
+		if kv[1] == nil {
+			batch.Delete(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]))
+		} else {
+			batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]), kv[1])
+
+		}
 	}
+
 	redoLog.Storage = unsavedStorage
 
 	// write unsaved balance

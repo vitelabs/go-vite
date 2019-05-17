@@ -10,6 +10,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+type SnapshotChunk struct {
+	AccountBlocks []*ledger.AccountBlock
+	SnapshotBlock *SnapshotBlock
+}
+
 type AccountBlock struct {
 	*RawTxBlock
 
@@ -53,6 +58,11 @@ type RawTxBlock struct {
 	SendBlockList []*RawTxBlock `json:"sendBlockList"`
 }
 
+type SnapshotBlock struct {
+	*ledger.SnapshotBlock
+	Timestamp int64 `json:"timestamp"`
+}
+
 func (block *RawTxBlock) RpcToLedgerBlock() (*ledger.AccountBlock, error) {
 	return copyRawTxToLedgerBlock(block)
 }
@@ -64,6 +74,18 @@ func (block *RawTxBlock) ComputeHash() (*types.Hash, error) {
 	}
 	hash := lAb.ComputeHash()
 	return &hash, nil
+}
+
+func ledgerSnapshotBlockToRpcBlock(sb *ledger.SnapshotBlock) (*SnapshotBlock, error) {
+	if sb == nil {
+		return nil, nil
+	}
+	rpcBlock := &SnapshotBlock{
+		SnapshotBlock: sb,
+	}
+
+	rpcBlock.Timestamp = sb.Timestamp.Unix()
+	return rpcBlock, nil
 }
 
 func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBlock, error) {

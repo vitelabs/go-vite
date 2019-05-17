@@ -291,13 +291,15 @@ func RewardDrained(reward *Reward, drained bool) bool {
 }
 
 type Reward struct {
-	VoteReward  *big.Int
-	BlockReward *big.Int
-	TotalReward *big.Int
+	VoteReward       *big.Int
+	BlockReward      *big.Int
+	TotalReward      *big.Int
+	BlockNum         uint64
+	ExpectedBlockNum uint64
 }
 
 func newZeroReward() *Reward {
-	return &Reward{big.NewInt(0), big.NewInt(0), big.NewInt(0)}
+	return &Reward{big.NewInt(0), big.NewInt(0), big.NewInt(0), 0, 0}
 }
 
 func (r *Reward) Add(a *Reward) {
@@ -451,6 +453,8 @@ func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big
 	reward.BlockReward = tmp2
 
 	reward.TotalReward = new(big.Int).Add(tmp1, tmp2)
+	reward.BlockNum = selfDetail.BlockNum
+	reward.ExpectedBlockNum = selfDetail.ExceptedBlockNum
 	return reward
 }
 
