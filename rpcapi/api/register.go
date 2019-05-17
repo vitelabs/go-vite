@@ -139,21 +139,27 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 }
 
 type Reward struct {
-	BlockReward string `json:"blockReward"`
-	VoteReward  string `json:"voteReward"`
-	TotalReward string `json:"totalReward"`
-	Drained     bool   `json:"drained"`
+	BlockReward      string `json:"blockReward"`
+	VoteReward       string `json:"voteReward"`
+	TotalReward      string `json:"totalReward"`
+	BlockNum         string `json:"blockNum"`
+	ExpectedBlockNum string `json:"expectedBlockNum"`
+	Drained          bool   `json:"drained"`
 }
 
 func ToReward(source *contracts.Reward) *Reward {
 	if source == nil {
 		return &Reward{TotalReward: "0",
-			VoteReward:  "0",
-			BlockReward: "0"}
+			VoteReward:       "0",
+			BlockReward:      "0",
+			BlockNum:         "0",
+			ExpectedBlockNum: "0"}
 	} else {
 		return &Reward{TotalReward: *bigIntToString(source.TotalReward),
-			VoteReward:  *bigIntToString(source.VoteReward),
-			BlockReward: *bigIntToString(source.BlockReward)}
+			VoteReward:       *bigIntToString(source.VoteReward),
+			BlockReward:      *bigIntToString(source.BlockReward),
+			BlockNum:         uint64ToString(source.BlockNum),
+			ExpectedBlockNum: uint64ToString(source.ExpectedBlockNum)}
 	}
 }
 
