@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"sync"
@@ -290,6 +291,15 @@ func (fm *FileManager) Close() error {
 	}
 
 	return nil
+}
+
+func (fm *FileManager) GetCacheStatusList() []interfaces.DBStatus {
+	return []interfaces.DBStatus{{
+		Name:   "blockDB.fm.cache",
+		Count:  uint64(len(fm.fdSet.fileFdCache)),
+		Size:   uint64(int64(len(fm.fdSet.fileFdCache)) * fm.fileSize),
+		Status: "",
+	}}
 }
 
 func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toLocation *Location) ([]byte, error) {

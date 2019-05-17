@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"math/big"
@@ -18,6 +19,7 @@ import (
 
 type StateDB struct {
 	chain Chain
+
 	store *chain_db.Store
 	cache *cache.Cache
 
@@ -303,4 +305,24 @@ func (sDB *StateDB) RedoStore() *chain_db.Store {
 
 func (sDB *StateDB) StorageRedo() *Redo {
 	return sDB.redo
+}
+
+func (sDB *StateDB) GetStatus() []interfaces.DBStatus {
+	statusList := sDB.store.GetStatus()
+	return []interfaces.DBStatus{{
+		Name:   "stateDB.cache",
+		Count:  uint64(sDB.cache.ItemCount()),
+		Size:   uint64(sDB.cache.ItemCount() * 65),
+		Status: "",
+	}, {
+		Name:   "stateDB.store.mem",
+		Count:  uint64(statusList[0].Count),
+		Size:   uint64(statusList[0].Size),
+		Status: statusList[0].Status,
+	}, {
+		Name:   "stateDB.store.levelDB",
+		Count:  uint64(statusList[1].Count),
+		Size:   uint64(statusList[1].Size),
+		Status: statusList[1].Status,
+	}}
 }
