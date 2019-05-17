@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"strconv"
 )
 
 // ErrBatchCorrupted records reason of batch corruption. This error will be
@@ -157,6 +158,10 @@ func (b *Batch) Replay(r BatchReplay) error {
 // Len returns number of records in the batch.
 func (b *Batch) Len() int {
 	return len(b.index)
+}
+
+func (b *Batch) Size() int {
+	return len(b.data) + (len(b.index) * 3 * strconv.IntSize)
 }
 
 // Reset resets the batch.
