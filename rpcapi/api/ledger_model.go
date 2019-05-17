@@ -10,6 +10,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+type SnapshotChunk struct {
+	AccountBlocks []*ledger.AccountBlock
+	SnapshotBlock *SnapshotBlock
+}
+
 type AccountBlock struct {
 	*RawTxBlock
 

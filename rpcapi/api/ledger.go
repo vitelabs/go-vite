@@ -40,6 +40,22 @@ func (l LedgerApi) String() string {
 	return "LedgerApi"
 }
 
+func (l *LedgerApi) ledgerChunksToRpcChunks(list []*ledger.SnapshotChunk) ([]*SnapshotChunk, error) {
+	chunks := make([]*SnapshotChunk, 0, len(list))
+	for _, item := range list {
+		sb, err := l.ledgerSnapshotBlockToRpcBlock(item.SnapshotBlock)
+		if err != nil {
+			return nil, err
+		}
+
+		chunks = append(chunks, &SnapshotChunk{
+			AccountBlocks: item.AccountBlocks,
+			SnapshotBlock: sb,
+		})
+	}
+	return chunks, nil
+}
+
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
 	return ledgerToRpcBlock(l.chain, block)
 }
@@ -311,8 +327,7 @@ func (l *LedgerApi) GetSnapshotBlocks(height interface{}, count int) ([]*Snapsho
 	return l.ledgerSnapshotBlocksToRpcBlocks(blocks)
 }
 
-func (l *LedgerApi) GetChunks(startHeight interface{}, endHeight interface{}) ([]*ledger.SnapshotChunk, error) {
-
+func (l *LedgerApi) GetChunks(startHeight interface{}, endHeight interface{}) ([]*SnapshotChunk, error) {
 	startHeightUint64, err := parseHeight(startHeight)
 	if err != nil {
 		return nil, err
@@ -332,7 +347,8 @@ func (l *LedgerApi) GetChunks(startHeight interface{}, endHeight interface{}) ([
 			chunks = chunks[1:]
 		}
 	}
-	return chunks, nil
+
+	return l.ledgerChunksToRpcChunks(chunks)
 
 }
 
