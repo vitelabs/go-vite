@@ -1,16 +1,17 @@
 package chain_index
 
 import (
+	"encoding/json"
 	"fmt"
+	"path"
+
 	"github.com/allegro/bigcache"
-	"github.com/gin-gonic/gin/json"
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
-	"path"
 )
 
 type IndexDB struct {
