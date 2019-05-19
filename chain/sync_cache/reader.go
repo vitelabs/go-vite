@@ -7,11 +7,15 @@ import (
 	"io"
 	"os"
 
+	"github.com/vitelabs/go-vite/log15"
+
 	"github.com/golang/snappy"
 	"github.com/vitelabs/go-vite/chain/block"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
+
+var cacheLog = log15.New("module", "syncCache")
 
 func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
 	cache.segMu.RLock()
@@ -57,9 +61,11 @@ func (reader *Reader) Verified() bool {
 func (reader *Reader) Verify() {
 	if false == reader.verified {
 		reader.verified = true
-		err := os.Rename(reader.file.Name(), reader.cache.toVerifiedFileName(reader.segment))
+		oldName := reader.file.Name()
+		newName := reader.cache.toVerifiedFileName(reader.segment)
+		err := os.Rename(oldName, newName)
 		if err != nil {
-			panic(err)
+			cacheLog.Error(fmt.Sprintf("failed to rename file %s to %s", oldName, newName))
 		}
 	}
 }
