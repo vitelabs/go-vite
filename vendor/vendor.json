@@ -111,12 +111,6 @@
 			"revisionTime": "2017-10-21T19:38:02Z"
 		},
 		{
-			"checksumSHA1": "woO1qIxIeQ1bcbPSiMfAKk3r4xg=",
-			"path": "github.com/gin-gonic/gin/json",
-			"revision": "c00f21ff239822d013b80e54bd403fbc08a0b5ff",
-			"revisionTime": "2018-06-26T10:56:43Z"
-		},
-		{
 			"checksumSHA1": "kxja3mICEw4DKBlGQdK4tmIAkCQ=",
 			"path": "github.com/go-errors/errors",
 			"revision": "d98b870cc4e05f1545532a80e9909be8216095b6",
