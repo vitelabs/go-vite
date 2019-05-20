@@ -98,10 +98,11 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 		hisAddrList = append(hisAddrList, param.NodeAddr)
 		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, param.Name)
 		util.SetValue(db, hisNameKey, hisNameData)
-	}
-	err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, v)
-	if err != nil || (err == nil && *hisName != param.Name) {
-		return nil, util.ErrInvalidMethodParam
+	} else {
+		err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, v)
+		if err != nil || (err == nil && *hisName != param.Name) {
+			return nil, util.ErrInvalidMethodParam
+		}
 	}
 
 	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
@@ -491,10 +492,11 @@ func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		old.HisAddrList = append(old.HisAddrList, param.NodeAddr)
 		hisNameData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, param.Name)
 		util.SetValue(db, hisNameKey, hisNameData)
-	}
-	err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, v)
-	if err != nil || (err == nil && *hisName != param.Name) {
-		return nil, util.ErrInvalidMethodParam
+	} else {
+		err = abi.ABIConsensusGroup.UnpackVariable(hisName, abi.VariableNameHisName, v)
+		if err != nil || (err == nil && *hisName != param.Name) {
+			return nil, util.ErrInvalidMethodParam
+		}
 	}
 	registerInfo, _ := abi.ABIConsensusGroup.PackVariable(
 		abi.VariableNameRegistration,
