@@ -49,10 +49,10 @@ type builtinContract struct {
 var simpleContracts = map[types.Address]*builtinContract{
 	types.AddressPledge: {
 		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:            &MethodPledge{},
-			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
-			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
-			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
+			cabi.MethodNamePledge:       &MethodPledge{},
+			cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+			/*cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
+			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},*/
 		},
 		cabi.ABIPledge,
 	},
@@ -77,13 +77,13 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameBurn:            &MethodBurn{},
 			cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
 			cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
-			cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},
+			/*cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},*/
 		},
 		cabi.ABIMintage,
 	},
 }
 
-func GetBuiltinContract(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
+func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
 	p, ok := simpleContracts[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {

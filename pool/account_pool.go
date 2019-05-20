@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -73,7 +72,6 @@ func (accB *accountPoolBlock) ReferHashes() (keys []types.Hash, accounts []types
 			keys = append(keys, sendB.Hash)
 		}
 	}
-	// todo add send hashes for RS block
 	return keys, accounts, snapshot
 }
 
@@ -192,32 +190,6 @@ func (accP *accountPool) verifySuccess(bs *accountPoolBlock) (uint64, error) {
 		return 0, err
 	}
 	return 1, nil
-}
-
-func (accP *accountPool) verifyPending(b *accountPoolBlock) error {
-	if !b.recover.inc() {
-		b.recover.reset()
-		monitor.LogEvent("pool", "accountPendingFail")
-		// todo
-		//return accP.modifyToOther(b)
-	}
-	return nil
-}
-func (accP *accountPool) verifyFail(b *accountPoolBlock) error {
-	if b.fail {
-		if !b.delStat.inc() {
-			accP.log.Warn("account block delete.", "hash", b.Hash(), "height", b.Height())
-			accP.CurrentModifyToEmpty()
-		}
-	} else {
-		if !b.failStat.inc() {
-			byt, _ := b.block.Serialize()
-			accP.log.Warn("account block verify fail.", "hash", b.Hash(), "height", b.Height(), "byt", base64.StdEncoding.EncodeToString(byt))
-			b.fail = true
-		}
-	}
-	// todo
-	return nil
 }
 
 func (accP *accountPool) findInPool(hash types.Hash, height uint64) bool {
@@ -446,8 +418,8 @@ func (accP *accountPool) genForSnapshotContents(p batch.Batch, b *snapshotPoolBl
 		return true, nil
 	}
 	if ab.Hash() != v.Hash {
-		fmt.Printf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
-			b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash())
+		accP.log.Info(fmt.Sprintf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
+			b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash()))
 		// todo switch account chain
 
 		return true, nil

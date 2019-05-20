@@ -93,6 +93,7 @@ type basePeer interface {
 	SetHead(head types.Hash, height uint64)
 	FileAddress() string
 	Weight() int64
+	Disconnect(err error)
 }
 
 type Peer interface {
@@ -325,7 +326,7 @@ func (p *p2p) register(peer PeerMux) {
 	defer p.wg.Done()
 
 	if pe, ok := p.tryAdd(peer); !ok {
-		_ = peer.Close(pe)
+		peer.Disconnect(pe)
 
 		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", peer, pe))
 		return

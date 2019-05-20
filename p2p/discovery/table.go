@@ -342,7 +342,9 @@ func (tab *table) nodes(count int) (nodes []*Node) {
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
 
-	for _, bkt := range tab.buckets {
+	ids := rand.Perm(tab.bucketNum)
+	for _, idx := range ids {
+		bkt := tab.buckets[idx]
 		ns := bkt.nodes(count)
 		nodes = append(nodes, ns...)
 		count -= len(ns)

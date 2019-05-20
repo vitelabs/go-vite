@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"path/filepath"
 	"strconv"
@@ -148,4 +149,13 @@ func getPrevBlockHash(c chain.Chain, addr types.Address) (*types.Hash, error) {
 		return &b.Hash, nil
 	}
 	return &types.Hash{}, nil
+}
+
+func getVmDb(c chain.Chain, addr types.Address) (vm_db.VmDb, error) {
+	prevHash, err := getPrevBlockHash(c, addr)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(c, &addr, &c.GetLatestSnapshotBlock().Hash, prevHash)
+	return db, err
 }

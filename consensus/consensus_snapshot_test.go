@@ -148,7 +148,7 @@ func TestSnapshotCs_Tools(t *testing.T) {
 	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
 	cs := newSnapshotCs(rw, log15.New())
 
-	rw.initArray(cs)
+	rw.init(cs)
 
 	result, err := cs.ElectionIndex(251694)
 	if err != nil {

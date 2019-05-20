@@ -311,6 +311,7 @@ func (pl *pool) Start() {
 	pl.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	pl.newAccBlockCond.Start(time.Millisecond * 40)
 	pl.worker.closed = pl.closed
+	pl.bc.Register(pl)
 	common.Go(func() {
 		pl.wg.Add(1)
 		defer pl.wg.Done()
@@ -320,6 +321,7 @@ func (pl *pool) Start() {
 func (pl *pool) Stop() {
 	pl.log.Info("pool stop.")
 	defer pl.log.Info("pool stopped.")
+	pl.bc.UnRegister(pl)
 	pl.sync.UnsubscribeAccountBlock(pl.accountSubID)
 	pl.accountSubID = 0
 	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubID)
@@ -424,27 +426,6 @@ func (pl *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Account
 	pl.worker.bus.newABlockEvent()
 	return nil
 }
-
-//func (self *pool) AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error {
-//	self.log.Info(fmt.Sprintf("receive account blocks from direct. addr:%s, height:%d, hash:%s.", address, received.AccountBlock.Height, received.AccountBlock.Hash))
-//	defer monitor.LogTime("pool", "addDirectAccountArr", time.Now())
-//	self.RLock()
-//	defer self.RUnLock()
-//	ac := self.selfPendingAc(address)
-//	// todo
-//	var accountPoolBlocks []*accountPoolBlock
-//	for _, v := range sendBlocks {
-//		accountPoolBlocks = append(accountPoolBlocks, newAccountPoolBlock(v.AccountBlock, v.VmDb, self.version, types.Local))
-//	}
-//	err := ac.AddDirectBlocks(newAccountPoolBlock(received.AccountBlock, received.VmDb, self.version, types.Local), accountPoolBlocks)
-//	if err != nil {
-//		return err
-//	}
-//	ac.f.broadcastReceivedBlocks(received, sendBlocks)
-//
-//	self.addrCache.Add(address, time.Now().Add(time.Hour*24))
-//	return nil
-//}
 
 func (pl *pool) ForkAccounts(accounts map[types.Address][]commonBlock) error {
 
@@ -662,35 +643,6 @@ func (pl *pool) accountsCompact() int {
 		}
 	}
 	return sum
-}
-func (pl *pool) fetchForTask(task verifyTask) {
-	reqs := task.requests()
-	if len(reqs) <= 0 {
-		return
-	}
-	// if something in pool, deal with it.
-	for _, r := range reqs {
-		exist := false
-		if r.snapshot {
-			exist = pl.pendingSc.existInPool(r.hash)
-		} else {
-			if r.chain != nil {
-				exist = pl.selfPendingAc(*r.chain).existInPool(r.hash)
-			}
-		}
-		if exist {
-			pl.log.Info(fmt.Sprintf("block[%s] exist, should not fetch.", r.String()))
-			continue
-		}
-
-		if r.snapshot {
-			pl.pendingSc.f.fetchByHash(r.hash, 5)
-		} else {
-			// todo
-			pl.sync.FetchAccountBlocks(r.hash, 5, r.chain)
-		}
-	}
-	return
 }
 
 func (pl *pool) checkBlock(block *snapshotPoolBlock) bool {

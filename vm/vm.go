@@ -404,7 +404,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCall"}, time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); ok {
+	if p, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -434,19 +434,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 	} else {
 		block.Fee = helper.Big0
 		if useQuota {
-			cost, err := gasNormalSendCall(block)
-			if err != nil {
-				return nil, err
-			}
-			quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
-			if err != nil {
-				return nil, err
-			}
-			cost, err = util.MultipleCost(cost, quotaRatio)
-			if err != nil {
-				return nil, err
-			}
-			quotaLeft, err = util.UseQuota(quotaLeft, cost)
+			quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
 			if err != nil {
 				return nil, err
 			}
@@ -486,7 +474,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		vm.updateBlock(db, block, util.ErrDepth, 0, 0)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, util.ErrDepth
 	}
-	if p, ok, _ := contracts.GetBuiltinContract(block.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data); ok {
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm)
 		if err == nil {
@@ -661,11 +649,8 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	// check can make transaction
 	quotaLeft := quotaTotal
 	if useQuota {
-		cost, err := gasNormalSendCall(block)
-		if err != nil {
-			return nil, err
-		}
-		quotaLeft, err = util.UseQuota(quotaLeft, cost)
+		var err error
+		quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
 		if err != nil {
 			return nil, err
 		}
@@ -684,11 +669,8 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	block.Fee = helper.Big0
 	quotaLeft := quotaTotal
 	if useQuota {
-		cost, err := gasNormalSendCall(block)
-		if err != nil {
-			return nil, err
-		}
-		quotaLeft, err = util.UseQuota(quotaLeft, cost)
+		var err error
+		quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
 		if err != nil {
 			return nil, err
 		}
@@ -829,4 +811,21 @@ func getPledgeAmount(db vm_db.VmDb) *big.Int {
 	pledgeAmount, err := db.GetPledgeBeneficialAmount(db.Address())
 	util.DealWithErr(err)
 	return pledgeAmount
+}
+
+func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64) (uint64, error) {
+	cost, err := gasNormalSendCall(block)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
+	if err != nil {
+		return quotaLeft, err
+	}
+	cost, err = util.MultipleCost(cost, quotaRatio)
+	if err != nil {
+		return quotaLeft, err
+	}
+	quotaLeft, err = util.UseQuota(quotaLeft, cost)
+	return quotaLeft, err
 }

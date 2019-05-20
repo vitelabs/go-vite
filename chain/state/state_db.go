@@ -264,8 +264,8 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		key := iter.Key()
 		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
 			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
-			//FOR DEBUG
-			//fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
+			// FOR DEBUG
+			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
 		}
 
 	}

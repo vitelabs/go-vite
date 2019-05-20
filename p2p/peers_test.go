@@ -15,6 +15,10 @@ type mockPeer struct {
 	height uint64
 }
 
+func (mp *mockPeer) Disconnect(err error) {
+	panic("implement me")
+}
+
 func (mp *mockPeer) Weight() int64 {
 	panic("implement me")
 }
