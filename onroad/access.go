@@ -53,19 +53,3 @@ func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) {
 func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }
-
-type reactFunc func(address types.Address)
-
-func (manager *Manager) addContractLis(gid types.Gid, f reactFunc) {
-	manager.newContractListener.Store(gid, f)
-}
-
-func (manager *Manager) removeContractLis(gid types.Gid) {
-	manager.newContractListener.Delete(gid)
-}
-
-func (manager *Manager) newSignalToWorker(gid types.Gid, contract types.Address) {
-	if f, ok := manager.newContractListener.Load(gid); ok {
-		f.(reactFunc)(contract)
-	}
-}

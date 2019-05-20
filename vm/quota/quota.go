@@ -211,7 +211,7 @@ func getIndexByQuota(q uint64) (int, error) {
 
 func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
 	if left == right {
-		return left
+		return getExactIndex(x, list, left)
 	}
 	mid := (left + right + 1) / 2
 	cmp := list[mid].Cmp(x)
@@ -221,6 +221,14 @@ func getIndexInBigIntList(x *big.Int, list []*big.Int, left, right int) int {
 		return getIndexInBigIntList(x, list, left, mid-1)
 	} else {
 		return getIndexInBigIntList(x, list, mid, right)
+	}
+}
+
+func getExactIndex(x *big.Int, list []*big.Int, index int) int {
+	if index == 0 || list[index].Cmp(x) <= 0 {
+		return index
+	} else {
+		return index - 1
 	}
 }
 

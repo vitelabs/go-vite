@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -17,7 +18,6 @@ import (
 )
 
 var (
-	OneInt        = big.NewInt(1)
 	oLog          = log15.New("plugin", "onroad_info")
 	updateInfoErr = errors.New("conflict, fail to update onroad info")
 )
@@ -305,18 +305,6 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			diffNum := num.Add(num, &signOm.number)
 			diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
-			/*			if diffAmount.Sign() != 0 {
-						fmt.Printf("addr=%v tk=%v diff[%v %v] hash:\n", addr, tkId, diffNum.String(), diffAmount.String())
-						for _, v := range pendingList {
-							if v.IsReceiveBlock() {
-								fromBlock, _ := or.chain.GetAccountBlockByHash(v.FromBlockHash)
-								fmt.Printf("-- Recv addr=%v hash=%v amount=%v recvHash=%v\n", addr, fromBlock.Hash, fromBlock.Amount, v.Hash)
-							} else {
-								fmt.Printf("-- Send addr=%v hash=%v amount=%v\n", addr, v.Hash, v.Amount)
-							}
-						}
-					}*/
-
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
 				oLog.Error(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
 				return updateInfoErr
@@ -445,7 +433,7 @@ func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.
 			if block.Amount != nil {
 				v.amount.Add(&v.amount, block.Amount)
 			}
-			v.number.Add(&v.number, OneInt)
+			v.number.Add(&v.number, helper.Big1)
 			addMap[block.TokenId] = v
 		} else {
 			fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
@@ -465,7 +453,7 @@ func (or *OnRoadInfo) aggregateBlocks(blocks []*ledger.AccountBlock) (map[types.
 			if fromBlock.Amount != nil {
 				v.amount.Sub(&v.amount, fromBlock.Amount)
 			}
-			v.number.Sub(&v.number, OneInt)
+			v.number.Sub(&v.number, helper.Big1)
 			addMap[fromBlock.TokenId] = v
 		}
 	}
@@ -558,12 +546,9 @@ func excludePairTrades(chain Chain, blockList []*ledger.AccountBlock) map[types.
 		}
 		_, ok := pendingMap[*addr]
 		if !ok {
-			list := make([]*ledger.AccountBlock, 0)
-			list = append(list, v)
-			pendingMap[*addr] = list
-		} else {
-			pendingMap[*addr] = append(pendingMap[*addr], v)
+			pendingMap[*addr] = make([]*ledger.AccountBlock, 0)
 		}
+		pendingMap[*addr] = append(pendingMap[*addr], v)
 	}
 	return pendingMap
 }

@@ -35,7 +35,8 @@ type Manager struct {
 	consensus generator.Consensus
 
 	contractWorkers     map[types.Gid]*ContractWorker
-	newContractListener sync.Map //map[types.Gid]func(address types.Address)
+	newContractListener sync.Map //map[types.Gid]contractReactFunc
+	newSnapshotListener sync.Map //map[types.Gid]snapshotEventReactFunc
 
 	onRoadPools sync.Map //map[types.Gid]contract_pool.OnRoadPool
 
@@ -47,6 +48,7 @@ type Manager struct {
 	log log15.Logger
 }
 
+// NewManager creates a onroad Manager.
 func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
 	m := &Manager{
 		net:             net,
@@ -60,6 +62,9 @@ func NewManager(net netReader, pool pool, producer producer, consensus generator
 	return m
 }
 
+// Init is used to load all onroad into pool cache,
+// for super node generating new contract receive block
+// and for verifier module verifying the sequence of contract receive.
 func (manager *Manager) Init(chain chain.Chain) {
 	manager.chain = chain
 	for _, gid := range defaultContractGidList {
@@ -67,6 +72,7 @@ func (manager *Manager) Init(chain chain.Chain) {
 	}
 }
 
+// Start method subscribes the info of net, pool and chain module.
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
 	if manager.producer != nil {
@@ -75,6 +81,7 @@ func (manager *Manager) Start() {
 	manager.Chain().Register(manager)
 }
 
+// Stop method cancel all subscriptions from other modules.
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
@@ -87,6 +94,7 @@ func (manager *Manager) Stop() {
 	manager.log.Info("Close end")
 }
 
+// Close the model
 func (manager *Manager) Close() error {
 	return nil
 }
@@ -181,22 +189,27 @@ func (manager *Manager) resumeContractWorks() {
 	manager.log.Info("end resumeContractWorks")
 }
 
+// Chain returns the instance of chain.
 func (manager Manager) Chain() chain.Chain {
 	return manager.chain
 }
 
+// Net returns the implementation of Net which manager is dependent on.
 func (manager Manager) Net() netReader {
 	return manager.net
 }
 
+// Producer returns the implementation of Producer which manager is dependent on.
 func (manager Manager) Producer() producer {
 	return manager.producer
 }
 
+// Consensus returns the implementation of Consensus which manager is dependent on.
 func (manager Manager) Consensus() generator.Consensus {
 	return manager.consensus
 }
 
+// Info returns the info of all contract.
 func (manager Manager) Info() map[string]interface{} {
 	result := make(map[string]interface{})
 

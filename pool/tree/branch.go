@@ -5,10 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/go-errors/errors"
-	"github.com/vitelabs/go-vite/monitor"
 )
 
 type branch struct {
@@ -235,7 +233,6 @@ func (self *branch) getKnotAndBranch(height uint64) (Knot, Branch) {
 				return nil, nil
 			}
 			if _, ok := refers[refer.ID()]; ok {
-				monitor.LogEvent("pool", "GetKnotError")
 				return nil, nil
 			}
 			refers[refer.ID()] = refer

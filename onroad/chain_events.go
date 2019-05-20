@@ -64,7 +64,7 @@ func (manager *Manager) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) erro
 		for _, v := range list {
 			// new signal to worker
 			if v.IsSendBlock() {
-				manager.newSignalToWorker(gid, addr)
+				manager.newContractSignalToWorker(gid, addr)
 				break
 			}
 		}
@@ -95,7 +95,7 @@ func (manager *Manager) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock
 		for _, v := range list {
 			// new signal to worker
 			if v.IsReceiveBlock() {
-				manager.newSignalToWorker(meta.Gid, addr)
+				manager.newContractSignalToWorker(meta.Gid, addr)
 				break
 			}
 		}
@@ -115,6 +115,18 @@ func (manager *Manager) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChu
 
 // InsertSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	var latestHeight uint64
+	for _, v := range chunks {
+		if v.SnapshotBlock.Height > latestHeight {
+			latestHeight = v.SnapshotBlock.Height
+		}
+	}
+	manager.log.Debug(fmt.Sprintf("InsertSnapshotBlocks latestHeight %v", latestHeight), "event", "snapshotEvent")
+	manager.newSnapshotListener.Range(func(key interface{}, value interface{}) bool {
+		manager.log.Info(fmt.Sprintf("snapshot line changed, latestHeight %v gid %v", latestHeight, key.(types.Gid)), "event", "snapshotEvent")
+		value.(snapshotEventReactFunc)(latestHeight)
+		return true
+	})
 	return nil
 }
 
@@ -146,7 +158,7 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 		for _, v := range list {
 			// new signal to worker
 			if v.IsReceiveBlock() {
-				manager.newSignalToWorker(meta.Gid, addr)
+				manager.newContractSignalToWorker(meta.Gid, addr)
 				break
 			}
 		}
@@ -157,4 +169,39 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 // DeleteSnapshotBlocks method implements and listens to chain trigger event.
 func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
+}
+
+type contractReactFunc func(address types.Address)
+
+func (manager *Manager) addContractLis(gid types.Gid, f contractReactFunc) {
+	manager.newContractListener.Store(gid, f)
+}
+
+func (manager *Manager) removeContractLis(gid types.Gid) {
+	manager.newContractListener.Delete(gid)
+}
+
+func (manager *Manager) newContractSignalToWorker(gid types.Gid, contract types.Address) {
+	if f, ok := manager.newContractListener.Load(gid); ok {
+		f.(contractReactFunc)(contract)
+	}
+}
+
+type snapshotEventReactFunc func(height uint64)
+
+func (manager *Manager) addSnapshotEventLis(gid types.Gid, f snapshotEventReactFunc) {
+	manager.newSnapshotListener.Store(gid, f)
+}
+
+func (manager *Manager) removeSnapshotEventLis(gid types.Gid) {
+	manager.newSnapshotListener.Delete(gid)
+}
+
+func (manager *Manager) snapshotEventSignalToWorker(gid types.Gid, height uint64) {
+	//manager.snapshotMutex.RLock()
+	if f, ok := manager.newSnapshotListener.Load(gid); ok {
+		manager.log.Info(fmt.Sprintf("snapshot line changed, latestHeight %v gid %v", height, gid), "event", "snapshotEvent")
+		f.(snapshotEventReactFunc)(height)
+	}
+	// manager.snapshotMutex.RUnlock()
 }
