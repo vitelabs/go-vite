@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 )
 
@@ -100,12 +99,7 @@ func (a byWithdrawHeight) Less(i, j int) bool {
 }
 
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
-	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(p.chain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	db, err := getVmDb(p.chain, types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +116,10 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 		endHeight = len(list)
 	}
 	targetList := make([]*PledgeInfo, endHeight-startHeight)
+	snapshotBlock, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
 	for i, info := range list[startHeight:endHeight] {
 		targetList[i] = &PledgeInfo{
 			*bigIntToString(info.Amount),
@@ -144,12 +142,7 @@ func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error
 }
 
 func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, error) {
-	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	prevHash, err := getPrevBlockHash(p.chain, types.AddressPledge)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(p.chain, &types.AddressPledge, &snapshotBlock.Hash, prevHash)
+	db, err := getVmDb(p.chain, types.AddressPledge)
 	if err != nil {
 		return nil, err
 	}
