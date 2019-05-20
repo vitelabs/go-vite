@@ -170,3 +170,38 @@ func (manager *Manager) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChu
 func (manager *Manager) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
+
+type contractReactFunc func(address types.Address)
+
+func (manager *Manager) addContractLis(gid types.Gid, f contractReactFunc) {
+	manager.newContractListener.Store(gid, f)
+}
+
+func (manager *Manager) removeContractLis(gid types.Gid) {
+	manager.newContractListener.Delete(gid)
+}
+
+func (manager *Manager) newContractSignalToWorker(gid types.Gid, contract types.Address) {
+	if f, ok := manager.newContractListener.Load(gid); ok {
+		f.(contractReactFunc)(contract)
+	}
+}
+
+type snapshotEventReactFunc func(height uint64)
+
+func (manager *Manager) addSnapshotEventLis(gid types.Gid, f snapshotEventReactFunc) {
+	manager.newSnapshotListener.Store(gid, f)
+}
+
+func (manager *Manager) removeSnapshotEventLis(gid types.Gid) {
+	manager.newSnapshotListener.Delete(gid)
+}
+
+func (manager *Manager) snapshotEventSignalToWorker(gid types.Gid, height uint64) {
+	//manager.snapshotMutex.RLock()
+	if f, ok := manager.newSnapshotListener.Load(gid); ok {
+		manager.log.Info(fmt.Sprintf("snapshot line changed, latestHeight %v gid %v", height, gid), "event", "snapshotEvent")
+		f.(snapshotEventReactFunc)(height)
+	}
+	// manager.snapshotMutex.RUnlock()
+}
