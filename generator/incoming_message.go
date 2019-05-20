@@ -36,16 +36,15 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 			return nil, errors.New("pack send failed, toAddress can't be nil")
 		}
 
-		zeroAmount := big.NewInt(0)
 		if im.TokenId == nil || *im.TokenId == types.ZERO_TOKENID {
-			if im.Amount != nil && im.Amount.Cmp(zeroAmount) != 0 {
+			if im.Amount != nil && im.Amount.Cmp(helper.Big0) != 0 {
 				return nil, errors.New("pack send failed, tokenId can't be empty when amount have actual value")
 			}
-			block.Amount = zeroAmount
+			block.Amount = big.NewInt(0)
 			block.TokenId = types.ZERO_TOKENID
 		} else {
 			if im.Amount == nil {
-				block.Amount = zeroAmount
+				block.Amount = big.NewInt(0)
 			} else {
 				if im.Amount.Sign() < 0 || im.Amount.BitLen() > math.MaxBigIntLen {
 					return nil, errors.New("pack send failed, amount out of bounds")
