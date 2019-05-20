@@ -336,6 +336,9 @@ func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, 
 	m := make(map[string]string)
 	for {
 		if !iter.Next() {
+			if iter.Error() != nil {
+				return nil, err
+			}
 			return m, nil
 		}
 		if !bytes.HasPrefix(iter.Key(), []byte("$code")) && !bytes.HasPrefix(iter.Key(), []byte("$balance")) {

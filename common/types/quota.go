@@ -13,8 +13,8 @@ type Quota struct {
 	unconfirmed                 uint64
 }
 
-func NewQuota(utps, current, avg, unconfirmed uint64) Quota {
-	return Quota{current, utps, avg, unconfirmed}
+func NewQuota(pledgeQuota, current, avg, unconfirmed uint64) Quota {
+	return Quota{current, pledgeQuota, avg, unconfirmed}
 }
 
 func (q *Quota) PledgeQuotaPerSnapshotBlock() uint64 {
