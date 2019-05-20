@@ -389,7 +389,7 @@ func (bcp *BCPool) loopAppendChains() int {
 			if err == nil {
 				bcp.delSnippet(w)
 				// todo
-				bcp.log.Info(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.ID(), c.SprintHead(), c.SprintTail(), newChain.ID(), newChain.SprintHead(), newChain.SprintTail()))
+				bcp.log.Debug(fmt.Sprintf("insert new chain[%s][%s][%s],[%s][%s][%s]", c.ID(), c.SprintHead(), c.SprintTail(), newChain.ID(), newChain.SprintHead(), newChain.SprintTail()))
 			}
 			continue
 		}
@@ -568,8 +568,7 @@ func (bcp *BCPool) info() map[string]interface{} {
 }
 
 func (bcp *BCPool) detailChain(id string) map[string]interface{} {
-	// todo
-	return nil
+	return tree.PrintTree(bcp.chainpool.tree)
 }
 func (bcp *BCPool) checkPool() {
 	bcp.chainHeadMu.Lock()

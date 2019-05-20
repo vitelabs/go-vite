@@ -54,6 +54,9 @@ func (cache *syncCache) createNewFile(segment interfaces.Segment) (io.WriteClose
 }
 
 func (cache *syncCache) addSeg(segment interfaces.Segment) {
+	cache.segMu.Lock()
+	defer cache.segMu.Unlock()
+
 	cache.segments = append(cache.segments, segment)
 	sort.Sort(cache.segments)
 }

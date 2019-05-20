@@ -31,8 +31,6 @@ func (self *rollbackProof) ProofEmpty(stime time.Time, etime time.Time) (bool, e
 	if !etime.After(*block.Timestamp) {
 		return false, errors.Errorf("GetSnapshotHeaderBeforeTime fail. [%s]-[%s]", etime, block.Timestamp)
 	}
-	// todo
-	//fmt.Printf("[%s]\t[%s]\t[%s], height:%d\n", stime, block.Timestamp, etime, block.Height)
 	if block.Timestamp.Before(stime) {
 		return true, nil
 	} else {

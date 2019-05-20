@@ -315,6 +315,10 @@ func (p *peerMux) Close(err error) (err2 error) {
 	return errPeerNotRunning
 }
 
+func (p *peerMux) Disconnect(err error) {
+	_ = Disconnect(p.codec, err)
+}
+
 func (p *peerMux) onAdded() (err error) {
 	err = p.proto.OnPeerAdded(p)
 	if err != nil {

@@ -5,12 +5,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/vitelabs/go-vite/pool/batch"
-
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/pool/batch"
 )
 
 /**
@@ -59,7 +58,6 @@ func (pl *pool) makeQueue() batch.Batch {
 				if p.Size() > 0 {
 					// todo remove
 					msg := fmt.Sprintf("[%d]just make accounts[%d].", p.Id(), p.Size())
-					fmt.Println(msg)
 					pl.log.Info(msg)
 					return p
 				}
@@ -68,7 +66,7 @@ func (pl *pool) makeQueue() batch.Batch {
 		} else { // snapshot block
 			err := pl.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
-				fmt.Println("from snapshot", err)
+				pl.log.Info("from snapshot", "err", err)
 				break
 			}
 			snapshotOffset.offset = newOffset
@@ -76,7 +74,6 @@ func (pl *pool) makeQueue() batch.Batch {
 	}
 	if p.Size() > 0 {
 		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
-		fmt.Println(msg)
 		pl.log.Info(msg)
 	}
 	return p
@@ -156,10 +153,10 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 				err := p.AddItem(ab)
 				if err != nil {
 					if err == batch.MAX_ERROR {
-						fmt.Printf("account[%s] max. %s\n", ab.Hash(), err)
+						pl.log.Info(fmt.Sprintf("account[%s] max. %s\n", ab.Hash(), err))
 						return err
 					}
-					fmt.Printf("account[%s] add fail. %s\n", ab.Hash(), err)
+					pl.log.Info(fmt.Sprintf("account[%s] add fail. %s\n", ab.Hash(), err))
 					break
 				}
 				sum++
@@ -175,7 +172,7 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 	if b.isEmpty() {
 		err := p.AddItem(b.cur)
 		if err != nil {
-			fmt.Printf("add snapshot[%s] error. %s\n", b.cur.Hash(), err)
+			pl.log.Info(fmt.Sprintf("add snapshot[%s] error. %s\n", b.cur.Hash(), err))
 			return err
 		}
 		return nil
@@ -217,7 +214,7 @@ func (pl *pool) insertQueue(q batch.Batch) error {
 	defer func() {
 		sub := time.Now().Sub(t0)
 		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
-		fmt.Println(queueResult)
+		pl.log.Info(fmt.Sprintln(queueResult))
 	}()
 	return q.Batch(pl.insertSnapshotBucketForTree, pl.insertAccountBucketForTree)
 }

@@ -1,12 +1,16 @@
 package p2p
 
 import (
+	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/common/types"
 
@@ -127,6 +131,99 @@ func BenchmarkWG(b *testing.B) {
 			wg.Done()
 		}()
 	}
+
+	wg.Wait()
+}
+
+func TestPeerMux_Disconnect(t *testing.T) {
+	const addr = "localhost:9999"
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+
+	pub1, priv1, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+	id1, _ := vnode.Bytes2NodeID(pub1)
+
+	pub2, priv2, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+	id2, _ := vnode.Bytes2NodeID(pub2)
+
+	codecFactory := &transportFactory{
+		minCompressLength: 100,
+		readTimeout:       readMsgTimeout,
+		writeTimeout:      writeMsgTimeout,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		hkr := &handshaker{
+			version:     version,
+			netId:       2,
+			name:        "server",
+			id:          id1,
+			genesis:     types.Hash{4, 5, 6},
+			fileAddress: nil,
+			peerKey:     priv1,
+			key:         nil,
+			protocol:    &mockProtocol{}, // will be set when protocol registered
+			log:         p2pLog.New("module", "handshaker"),
+		}
+
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(err)
+		}
+		c := codecFactory.CreateCodec(conn)
+		p, err := hkr.ReceiveHandshake(c)
+		if err != nil {
+			panic(err)
+		}
+
+		err = p.run()
+		log.Println("client quit", err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		hkr := &handshaker{
+			version:     version,
+			netId:       2,
+			name:        "client",
+			id:          id2,
+			genesis:     types.Hash{4, 5, 6},
+			fileAddress: nil,
+			peerKey:     priv2,
+			key:         nil,
+			protocol:    &mockProtocol{}, // will be set when protocol registered
+			log:         p2pLog.New("module", "handshaker"),
+		}
+
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			panic(err)
+		}
+
+		c := codecFactory.CreateCodec(conn)
+
+		p, err := hkr.InitiateHandshake(c, id1)
+		if err != nil {
+			panic(err)
+		}
+
+		p.Disconnect(PeerQuitting)
+	}()
 
 	wg.Wait()
 }
