@@ -3,6 +3,7 @@ package verifier
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -60,9 +61,6 @@ func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResu
 }
 
 func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock) error {
-	if !types.IsContractAddr(recvBlock.AccountAddress) {
-		return nil
-	}
 	meta, err := v.chain.GetContractMeta(recvBlock.AccountAddress)
 	if err != nil {
 		return errors.New("call GetContractMeta failed," + err.Error())
@@ -150,20 +148,20 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 		}
 
 		// check whether the send referred is already received
-		isReceived, err := v.chain.IsReceived(sendBlock.Hash)
+		isReceived, err := v.chain.IsReceived(block.FromBlockHash)
 		if err != nil {
 			return FAIL, err
 		}
 		if isReceived {
 			received, err := v.chain.GetReceiveAbBySendAb(block.FromBlockHash)
 			if err == nil && received != nil {
-				return FAIL, errors.Errorf("block is already received successfully[received:%s, from:%s]", received.Hash, sendBlock.Hash)
+				return FAIL, errors.Errorf("block is already received successfully[received:%s, from:%s]", received.Hash, block.FromBlockHash)
 			}
 			return FAIL, errors.New("block is already received successfully")
 		}
 
-		// check contract receive sequence
-		if types.IsContractAddr(sendBlock.ToAddress) {
+		if types.IsContractAddr(block.AccountAddress) {
+			// check contract receive sequence
 			isCorrect, err := v.verifySequenceOfContractReceive(sendBlock)
 			if err != nil {
 				return FAIL, errors.New(fmt.Sprintf("verifySequenceOfContractReceive failed, err:%v", err))
@@ -171,13 +169,14 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			if !isCorrect {
 				return FAIL, errors.New("verifySequenceOfContractReceive failed")
 			}
-		}
 
-		// check confirmedTimes of the send referred
-		if err := v.verifyConfirmedTimes(block); err != nil {
-			return FAIL, err
+			// check confirmedTimes of the send referred
+			if err := v.verifyConfirmedTimes(block); err != nil {
+				return FAIL, err
+			}
 		}
 	}
+
 	return SUCCESS, nil
 }
 
@@ -194,7 +193,7 @@ func (v *AccountVerifier) verifySequenceOfContractReceive(send *ledger.AccountBl
 
 func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) error {
 	if block.TokenId == types.ZERO_TOKENID {
-		if block.Amount != nil && block.Amount.Cmp(math.ZeroInt) > 0 {
+		if block.Amount != nil && block.Amount.Cmp(helper.Big0) != 0 {
 			return errors.New("sendBlock.TokenId can't be ZERO_TOKENID when amount has value")
 		}
 	}
@@ -237,10 +236,10 @@ func (v *AccountVerifier) verifyReceiveBlockIntegrity(block *ledger.AccountBlock
 	if block.TokenId != types.ZERO_TOKENID {
 		return errors.New("receive.TokenId must be ZERO_TOKENID")
 	}
-	if block.Amount != nil && block.Amount.Cmp(math.ZeroInt) != 0 {
+	if block.Amount != nil && block.Amount.Cmp(helper.Big0) != 0 {
 		return errors.New("receive.Amount can't be anything other than nil or 0 ")
 	}
-	if block.Fee != nil && block.Fee.Cmp(math.ZeroInt) != 0 {
+	if block.Fee != nil && block.Fee.Cmp(helper.Big0) != 0 {
 		return errors.New("receive.Fee can't be anything other than nil or 0")
 	}
 	if block.ToAddress != types.ZERO_ADDRESS {

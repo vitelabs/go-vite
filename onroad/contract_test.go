@@ -135,7 +135,7 @@ func (w *testChainDb) GetOnRoadBlockByAddr(addr *types.Address, pageNum, pageCou
 func (c *testChainDb) writeOnroad() {
 	rand.Seed(time.Now().UnixNano())
 	blocks := make([]*ledger.AccountBlock, 0)
-	for i := 0; i < int(DefaultPullCount); i++ {
+	for i := 0; i < int(defaultPullCount); i++ {
 		u8height := rand.Intn(math.MaxUint8 + 1)
 		b := &ledger.AccountBlock{
 			BlockType:      ledger.BlockTypeSendCall,
@@ -318,7 +318,7 @@ func (w *testContractWoker) Work() {
 	}
 }
 func (w *testContractWoker) WakeupOneTp() {
-	testlog.Info("WakeupOneTp")
+	testlog.Info("wakeupOneTp")
 	w.newBlockCond.Signal()
 }
 
@@ -380,7 +380,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 	if pendingMap, ok := w.testPendingCache[*contractAddr]; ok && pendingMap != nil {
 		var pageNum uint8
 		for pendingMap.isPendingMapNotSufficient() {
-			blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, pageNum, DefaultPullCount)
+			blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, pageNum, defaultPullCount)
 			if len(blocks) <= 0 {
 				break
 			}
@@ -394,7 +394,7 @@ func (w *testContractWoker) acquireNewOnroadBlocks(contractAddr *types.Address) 
 		}
 	} else {
 		callerMap := newCallerPendingMap()
-		blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, 0, DefaultPullCount)
+		blocks, _ := w.chain.GetOnRoadBlockByAddr(contractAddr, 0, defaultPullCount)
 		if len(blocks) <= 0 {
 			return nil
 		}
