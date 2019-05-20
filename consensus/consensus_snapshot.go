@@ -418,8 +418,6 @@ func (snapshot *snapshotCs) VerifySnapshotProducer(header *ledger.SnapshotBlock)
 	if err != nil {
 		return false, err
 	}
-
-	return true, nil
 	return snapshot.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
 
@@ -428,7 +426,6 @@ func (snapshot *snapshotCs) VerifyProducer(address types.Address, t time.Time) (
 	if err != nil {
 		return false, err
 	}
-	return true, nil
 	return snapshot.verifyProducer(t, address, electionResult), nil
 }
 
