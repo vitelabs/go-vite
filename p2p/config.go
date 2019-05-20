@@ -33,7 +33,7 @@ const (
 	DefaultMaxPeers        = 10
 	DefaultMaxInboundRatio = 2
 	DefaultOutboundPeers   = 5
-	DefaultSuperiorPeers   = 30
+	DefaultSuperiorPeers   = 70
 	DefaultMinPeers        = DefaultOutboundPeers
 	DefaultMaxPendingPeers = 10
 	DefaultFilePort        = 8484
