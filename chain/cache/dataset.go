@@ -6,6 +6,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
@@ -134,6 +135,16 @@ func (ds *dataSet) IsSnapshotBlockExisted(hash types.Hash) bool {
 	hashKey := chain_utils.CreateSnapshotBlockHashKey(&hash)
 	_, ok := ds.store.Get(string(hashKey))
 	return ok
+}
+
+func (ds *dataSet) GetStatus() []interfaces.DBStatus {
+	count := uint64(ds.store.ItemCount())
+	return []interfaces.DBStatus{{
+		Name:   "dataSet.store",
+		Count:  count,
+		Size:   count * 400,
+		Status: "",
+	}}
 }
 
 func (ds *dataSet) insertAccountBlock(accountBlock *ledger.AccountBlock, delay time.Duration) {
