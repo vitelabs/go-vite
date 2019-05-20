@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -17,6 +18,7 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 		AccountAddress: im.AccountAddress,
 		// after vm
 		Quota:         0,
+		QuotaUsed:     0,
 		SendBlockList: nil,
 		LogHash:       nil,
 		Hash:          types.Hash{},
@@ -36,7 +38,7 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 
 		zeroAmount := big.NewInt(0)
 		if im.TokenId == nil || *im.TokenId == types.ZERO_TOKENID {
-			if im.Amount != nil && im.Amount.Cmp(zeroAmount) <= 0 {
+			if im.Amount != nil && im.Amount.Cmp(zeroAmount) != 0 {
 				return nil, errors.New("pack send failed, tokenId can't be empty when amount have actual value")
 			}
 			block.Amount = zeroAmount
@@ -82,13 +84,13 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.Accou
 			return nil, errors.New("pack recvBlock failed, cause sendBlock.Hash is invaild")
 		}
 
-		if im.Amount != nil && im.Amount.Cmp(big.NewInt(0)) != 0 {
+		if im.Amount != nil && im.Amount.Cmp(helper.Big0) != 0 {
 			return nil, errors.New("pack recvBlock failed, amount is invalid")
 		}
 		if im.TokenId != nil && *im.TokenId != types.ZERO_TOKENID {
 			return nil, errors.New("pack recvBlock failed, cause tokenId is invaild")
 		}
-		if im.Fee != nil && im.Fee.Cmp(big.NewInt(0)) != 0 {
+		if im.Fee != nil && im.Fee.Cmp(helper.Big0) != 0 {
 			return nil, errors.New("pack recvBlock failed, fee is invalid")
 		}
 
