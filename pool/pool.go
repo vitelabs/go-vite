@@ -311,6 +311,7 @@ func (pl *pool) Start() {
 	pl.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	pl.newAccBlockCond.Start(time.Millisecond * 40)
 	pl.worker.closed = pl.closed
+	pl.bc.Register(pl)
 	common.Go(func() {
 		pl.wg.Add(1)
 		defer pl.wg.Done()
@@ -320,6 +321,7 @@ func (pl *pool) Start() {
 func (pl *pool) Stop() {
 	pl.log.Info("pool stop.")
 	defer pl.log.Info("pool stopped.")
+	pl.bc.UnRegister(pl)
 	pl.sync.UnsubscribeAccountBlock(pl.accountSubID)
 	pl.accountSubID = 0
 	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubID)
