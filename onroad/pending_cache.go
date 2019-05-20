@@ -7,12 +7,16 @@ import (
 	"sync"
 )
 
-const DefaultPullCount uint8 = 5
+const defaultPullCount uint8 = 5
 
 type inferiorState int
 
 const (
+	// RETRY represents a state which the processor can retry to handle the onroad from a particular caller
+	// to a particular contract in the next second during a block period.
 	RETRY inferiorState = iota
+	// OUT represents a state which the processor won't handle the onroad from a particular caller
+	// to a particular contract during a block period any more.
 	OUT
 )
 
@@ -40,7 +44,7 @@ func (p *callerPendingMap) isPendingMapNotSufficient() bool {
 	for _, list := range p.pmap {
 		count += list.Len()
 	}
-	if count < int(DefaultPullCount) {
+	if count < int(defaultPullCount) {
 		return true
 	}
 	return false

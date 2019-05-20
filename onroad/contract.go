@@ -18,6 +18,7 @@ import (
 
 var signalLog = slog.New("signal", "contract")
 
+// ContractWorker managers the task processor, it also maintains the blacklist and queues with priority for callers.
 type ContractWorker struct {
 	manager *Manager
 
@@ -50,6 +51,7 @@ type ContractWorker struct {
 	log log15.Logger
 }
 
+// NewContractWorker creates a ContractWorker.
 func NewContractWorker(manager *Manager) *ContractWorker {
 	worker := &ContractWorker{
 		manager: manager,
@@ -72,6 +74,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 	return worker
 }
 
+// Start is to start the ContractWorker's work, it listens to the event triggered by other module.
 func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.gid = accEvent.Gid
 	w.address = accEvent.Address
@@ -114,7 +117,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			}
 			w.pushContractTask(c)
 			signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
-			w.WakeupOneTp()
+			w.wakeupOneTp()
 		})
 
 		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
@@ -132,7 +135,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 						Quota: q,
 					}
 					w.pushContractTask(c)
-					w.WakeupOneTp()
+					w.wakeupOneTp()
 				}
 			}
 		})
@@ -146,11 +149,12 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.status = start
 	} else {
 		// awake it in order to run at least once
-		w.WakeupAllTps()
+		w.wakeupAllTps()
 	}
 	w.log.Info("end start")
 }
 
+// Stop is to stop the ContractWorker and free up memory.
 func (w *ContractWorker) Stop() {
 	log := w.log.New("method", "stop")
 	log.Info("Stop()", "current status", w.status)
@@ -179,11 +183,13 @@ func (w *ContractWorker) Stop() {
 	w.log.Info("stopped")
 }
 
+// Close is to stop the ContractWorker.
 func (w *ContractWorker) Close() error {
 	w.Stop()
 	return nil
 }
 
+// Status returns the status of a ContractWorker.
 func (w ContractWorker) Status() int {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
@@ -208,12 +214,12 @@ func (w *ContractWorker) getAndSortAllAddrQuota() {
 	heap.Init(&w.contractTaskPQueue)
 }
 
-func (w *ContractWorker) WakeupOneTp() {
+func (w *ContractWorker) wakeupOneTp() {
 	w.newBlockCond.Signal()
 }
 
-func (w *ContractWorker) WakeupAllTps() {
-	w.log.Info("WakeupAllTPs")
+func (w *ContractWorker) wakeupAllTps() {
+	w.log.Info("wakeupAllTps")
 	w.newBlockCond.Broadcast()
 }
 
@@ -353,17 +359,19 @@ func (w *ContractWorker) releaseContractCallers(contract types.Address, state in
 	return count
 }
 
+// GetPledgeQuota returns the available quota the contract can use at current.
 func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
 	quota, err := w.manager.Chain().GetPledgeQuota(addr)
 	if err != nil {
-		w.log.Error("GetPledgeQuotas err", "error", err)
+		w.log.Error("GetPledgeQuota err", "error", err)
 	}
 	return quota.Current()
 }
 
+// GetPledgeQuotas returns the available quota the contract can use at current in batch.
 func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
 	if w.gid == types.DELEGATE_GID {
