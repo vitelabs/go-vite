@@ -293,10 +293,10 @@ func (snapshot *snapshotCs) calVotes(proofBlock *ledger.SnapshotBlock, index uin
 
 	_, proofIndex := snapshot.genSnapshotProofTimeIndx(snapshot.Time2Index(*proofBlock.Timestamp))
 	if proofIndex > 0 {
-		//successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
-		//if err != nil {
-		//	return nil, err
-		//}
+		successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	all := ""
