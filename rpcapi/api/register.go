@@ -91,9 +91,6 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
-			if err != nil {
-				return nil, err
-			}
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
 				NodeAddr:       info.NodeAddr,
@@ -128,6 +125,9 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 	info, err := abi.GetRegistration(vmDb, gid, name)
 	if err != nil {
 		return nil, err
+	}
+	if info == nil {
+		return nil, nil
 	}
 	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), vmDb, info, sb)
 	if err != nil {

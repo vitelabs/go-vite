@@ -585,8 +585,7 @@ func opMstore8(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]by
 func opSLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	loc := stack.peek()
 	locHash, _ := types.BigToHash(loc)
-	val, err := c.db.GetValue(locHash.Bytes())
-	util.DealWithErr(err)
+	val := util.GetValue(c.db, locHash.Bytes())
 	loc.SetBytes(val)
 	return nil, nil
 }
@@ -594,7 +593,7 @@ func opSLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte
 func opSStore(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	loc, val := stack.pop(), stack.pop()
 	locHash, _ := types.BigToHash(loc)
-	c.db.SetValue(locHash.Bytes(), val.Bytes())
+	util.SetValue(c.db, locHash.Bytes(), val.Bytes())
 
 	c.intPool.put(loc, val)
 	return nil, nil

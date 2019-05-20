@@ -232,8 +232,8 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
 	)
-	currentValue, err := c.db.GetValue(locHash.Bytes())
-	util.DealWithErr(err)
+
+	currentValue := util.GetValue(c.db, locHash.Bytes())
 	if bytes.Equal(currentValue, newValue.Bytes()) {
 		return sstoreNoopGas, true, nil
 	}
@@ -419,7 +419,7 @@ func gasReceive(block *ledger.AccountBlock, meta *ledger.ContractMeta) (uint64, 
 
 func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
 	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
-		method, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data)
+		method, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data)
 		if !ok || err != nil {
 			return 0, util.ErrAbiMethodNotFound
 		}
