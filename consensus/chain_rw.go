@@ -33,7 +33,6 @@ type Chain interface {
 	Register(listener chain.EventListener)
 	UnRegister(listener chain.EventListener)
 
-	// todo
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
 	GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                           // Get register for consensus group

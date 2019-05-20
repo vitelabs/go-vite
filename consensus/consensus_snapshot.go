@@ -259,7 +259,6 @@ func (snapshot *snapshotCs) ElectionIndex(index uint64) (*electionResult, error)
 		return nil, e
 	}
 
-	// todo
 	snapshot.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, proofBlock.Hash, proofTime))
 
 	voteResults, err := snapshot.calVotes(proofBlock, index)
@@ -354,10 +353,10 @@ func (snapshot *snapshotCs) loadVotes(proofBlock *ledger.SnapshotBlock) ([]types
 
 	_, proofIndex := snapshot.genSnapshotProofTimeIndx(snapshot.Time2Index(*proofBlock.Timestamp))
 	if proofIndex > 0 {
-		//successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
-		//if err != nil {
-		//	return nil, err
-		//}
+		successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	all := ""
