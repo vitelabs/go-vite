@@ -39,8 +39,8 @@ import (
 type mockProtocol struct {
 }
 
-func (mp *mockProtocol) ProtoData() (key []byte, height uint64, genesis types.Hash) {
-	return nil, 100, types.Hash{}
+func (mp *mockProtocol) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
+	return
 }
 
 func (mp *mockProtocol) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
@@ -91,7 +91,7 @@ func main() {
 	}
 
 	var port = 8081
-	const total = 5
+	const total = 55
 	type sample struct {
 		port int
 		dir  string
