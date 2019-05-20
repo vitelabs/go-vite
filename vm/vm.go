@@ -404,7 +404,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCall"}, time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := contracts.GetBuiltinContract(block.ToAddress, block.Data); ok {
+	if p, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data); ok {
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +486,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		vm.updateBlock(db, block, util.ErrDepth, 0, 0)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, util.ErrDepth
 	}
-	if p, ok, _ := contracts.GetBuiltinContract(block.AccountAddress, sendBlock.Data); ok {
+	if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data); ok {
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm)
 		if err == nil {

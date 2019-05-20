@@ -127,3 +127,18 @@ func TestChainRw_GetMemberInfo2(t *testing.T) {
 		}
 	}
 }
+
+func TestChainRw_GenLruKey(t *testing.T) {
+	gid := types.SNAPSHOT_GID
+	hash := types.Hash{}
+
+	rw := chainRw{}
+	key := rw.genLruKey(gid, hash)
+
+	result := make(map[interface{}]string)
+	result[key] = "1"
+
+	for k, v := range key {
+		println(k, v)
+	}
+}

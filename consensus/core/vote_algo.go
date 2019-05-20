@@ -196,7 +196,7 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 
 	length := len(groupA) + len(groupB)
 
-	seed := self.findSeedTmp(mergeGroup(groupA, groupB), hashH.Height, seedInfo, successRate)
+	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
 	randCnt := self.calRandCnt(total, int(self.info.RandCount))
 	topTotal := total - randCnt
 

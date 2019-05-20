@@ -3,6 +3,7 @@ package chain_db
 import (
 	"errors"
 
+	"encoding/json"
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
@@ -127,6 +128,43 @@ func (store *Store) Clean() error {
 
 func (store *Store) RegisterAfterRecover(f func()) {
 	store.afterRecoverFuncs = append(store.afterRecoverFuncs, f)
+}
+
+func (store *Store) GetStatus() []interfaces.DBStatus {
+	count := 0
+	size := 0
+	if store.memDb != nil {
+		count += store.memDb.Len()
+		size += store.memDb.Size()
+	}
+	if store.snapshotBatch != nil {
+		count += store.snapshotBatch.Len()
+		size += store.snapshotBatch.Size()
+	}
+	if store.flushingBatch != nil {
+		count += store.flushingBatch.Len()
+		size += store.snapshotBatch.Size()
+	}
+
+	s := &leveldb.DBStats{}
+	store.db.Stats(s)
+
+	status, err := json.Marshal(s)
+	if err != nil {
+		status = []byte("Error:" + err.Error())
+	}
+
+	return []interfaces.DBStatus{{
+		Name:   "mem",
+		Count:  uint64(count),
+		Size:   uint64(size),
+		Status: "",
+	}, {
+		Name:   "levelDB",
+		Count:  0,
+		Size:   0,
+		Status: string(status),
+	}}
 }
 
 func (store *Store) getSnapshotMemDb() (*memdb.DB, uint64) {

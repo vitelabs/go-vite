@@ -9,7 +9,6 @@ const (
 	txDataGas             uint64 = 68
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
-	QuotaRange            uint64 = 75
 	ConfirmGas            uint64 = 200
 	CommonQuotaRatio      uint8  = 10
 	QuotaRatioDivision    uint64 = 10
@@ -81,11 +80,11 @@ func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, e
 	if !useQuota {
 		return 0, 0
 	}
-	qUsed = quotaTotal - quotaLeft
 	if vmErr, ok := err.(VMError); ok && vmErr.CostAllGas() {
-		return quotaTotal - quotaAddition, qUsed
+		return quotaTotal - quotaAddition, quotaTotal
 	} else {
-		if quotaTotal-quotaLeft < quotaAddition {
+		qUsed = quotaTotal - quotaLeft
+		if qUsed < quotaAddition {
 			return 0, qUsed
 		} else {
 			return quotaTotal - quotaAddition - quotaLeft, qUsed

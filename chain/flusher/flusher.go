@@ -206,47 +206,47 @@ func (flusher *Flusher) flush() {
 	defer flusher.flushingMu.Unlock()
 
 	// prepare, lock write
-	flusher.log.Info("start prepare")
+	//flusher.log.Info("start prepare")
 	if err := flusher.prepare(); err != nil {
 		flusher.log.Warn(fmt.Sprintf("flusher.prepare failed, error is %s", err), "method", "flush")
 		return
 	}
-	flusher.log.Info("prepare finish")
+	//flusher.log.Info("prepare finish")
 
 	// write redo log
-	flusher.log.Info("start write redo log")
+	//flusher.log.Info("start write redo log")
 	if err := flusher.writeRedoLog(); err != nil {
 		return
 	}
-	flusher.log.Info("finish writing redo log")
+	//flusher.log.Info("finish writing redo log")
 
 	// sync redo log
 	// if sync redo log failed, stop flushing and cancel prepare
 	// lock write when cancel prepare
 
-	flusher.log.Info("sync write redo log")
+	//flusher.log.Info("sync write redo log")
 	if !flusher.syncRedoLog() {
 		return
 	}
-	flusher.log.Info("finish sync writing redo log")
+	//flusher.log.Info("finish sync writing redo log")
 
 	// commit
-	flusher.log.Info("start commit")
+	//flusher.log.Info("start commit")
 	err := flusher.commit()
-	flusher.log.Info("finish committing")
+	//flusher.log.Info("finish committing")
 
 	// after commit, lock write
-	flusher.log.Info("after commit")
+	//flusher.log.Info("after commit")
 	flusher.afterCommit()
-	flusher.log.Info("finish after committing")
+	//flusher.log.Info("finish after committing")
 
 	// redo
 	if err != nil {
-		flusher.log.Info("commit redo")
+		//flusher.log.Info("commit redo")
 		if err := flusher.commitRedo(); err != nil {
 			panic(err)
 		}
-		flusher.log.Info("finish committing redo")
+		//flusher.log.Info("finish committing redo")
 	}
 
 	// clean redo log

@@ -291,6 +291,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 
 		// snapshot
 		Snapshot(accounts, snapshotBlock)
+
 		// delete
 		DeleteInvalidBlocks(accounts, invalidBlocks)
 
@@ -358,7 +359,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 	latestHeight := account.GetLatestHeight()
 
 	// FOR DEBUG
-	//fmt.Printf("%s add key value: %+v\n", account.Addr, keyValue)
+	// fmt.Printf("%s add key value: %+v\n", account.Addr, keyValue)
 
 	cTxOptions := &CreateTxOptions{
 		MockSignature: true,                         // mock signature

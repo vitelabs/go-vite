@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"sync"
@@ -149,26 +150,6 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 
 	fm.prevFlushLocation = targetLocation
 
-	// sync
-	//fdListLen := len(fdList)
-	//if fdListLen <= 0 {
-	//	return nil
-	//} else if fdListLen <= 1 {
-	//	fdList[0].Sync()
-	//} else {
-	//	fm.fSyncWg.Add(len(fdList))
-	//	for _, fd := range fdList {
-	//		tmpFd := fd
-	//		go func() {
-	//			defer fm.fSyncWg.Done()
-	//			tmpFd.Sync()
-	//		}()
-	//	}
-	//	fm.fSyncWg.Wait()
-	//}
-
-	//fmt.Printf("flush finish %+v - %+v\n", startLocation, targetLocation)
-
 	return nil
 }
 func (fm *FileManager) GetNextLocation(location *Location) (*Location, error) {
@@ -290,6 +271,15 @@ func (fm *FileManager) Close() error {
 	}
 
 	return nil
+}
+
+func (fm *FileManager) GetCacheStatusList() []interfaces.DBStatus {
+	return []interfaces.DBStatus{{
+		Name:   "blockDB.fm.cache",
+		Count:  uint64(len(fm.fdSet.fileFdCache)),
+		Size:   uint64(int64(len(fm.fdSet.fileFdCache)) * fm.fileSize),
+		Status: "",
+	}}
 }
 
 func (fm *FileManager) readFile(fd *fileDescription, fromLocation *Location, toLocation *Location) ([]byte, error) {

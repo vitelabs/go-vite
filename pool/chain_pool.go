@@ -120,7 +120,7 @@ LOOP:
 				reader = r2
 				block = b2
 				// todo
-				cp.log.Info(fmt.Sprintf("block[%s-%d] exists. del from tail.", sb.Hash(), sb.Height()))
+				cp.log.Debug(fmt.Sprintf("block[%s-%d] exists. del from tail.", sb.Hash(), sb.Height()))
 				tail := snippet.remTail()
 				if tail == nil {
 					delete(cp.snippetChains, snippet.id())
@@ -199,10 +199,9 @@ func (cp *chainPool) insertSnippet(c tree.Branch, snippet *snippetChain) error {
 
 func (cp *chainPool) insert(c tree.Branch, wrapper commonBlock) error {
 	if cp.tree.Main().ID() == c.ID() {
-		// todo remove
-		cp.log.Info(fmt.Sprintf("insert to current[%s]:[%s-%d]%s", c.ID(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+		cp.log.Debug(fmt.Sprintf("insert to current[%s]:[%s-%d]%s", c.ID(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
 	} else {
-		cp.log.Info(fmt.Sprintf("insert to chain[%s]:[%s-%d]%s", c.ID(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
+		cp.log.Debug(fmt.Sprintf("insert to chain[%s]:[%s-%d]%s", c.ID(), wrapper.Hash(), wrapper.Height(), wrapper.Latency()))
 	}
 	height, hash := c.HeadHH()
 	if wrapper.Height() == height+1 {

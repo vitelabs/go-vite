@@ -46,3 +46,11 @@ func (mDb *MemDB) Delete(key []byte) {
 
 	mDb.storage.Put(leveldb.MakeInternalKey(nil, key, mDb.seq, leveldb.KeyTypeDel), nil)
 }
+
+func (mDb *MemDB) Len() int {
+	return mDb.storage.Len()
+}
+
+func (mDb *MemDB) Size() int {
+	return mDb.storage.Size()
+}

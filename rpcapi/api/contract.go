@@ -131,11 +131,11 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	coedBytes, err := hex.DecodeString(param.OffChainCode)
+	codeBytes, err := hex.DecodeString(param.OffChainCode)
 	if err != nil {
 		return nil, err
 	}
-	return vm.NewVM(nil).OffChainReader(db, coedBytes, param.Data)
+	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
@@ -151,9 +151,13 @@ func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map
 	if err != nil {
 		return nil, err
 	}
+	defer iter.Release()
 	m := make(map[string]string)
 	for {
 		if !iter.Next() {
+			if iter.Error() != nil {
+				return nil, err
+			}
 			return m, nil
 		}
 		if len(iter.Key()) > 0 && len(iter.Value()) > 0 {
@@ -177,6 +181,9 @@ func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error)
 	meta, err := c.chain.GetContractMeta(addr)
 	if err != nil {
 		return nil, err
+	}
+	if meta == nil {
+		return nil, nil
 	}
 	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes, QuotaRatio: meta.QuotaRatio}, nil
 }

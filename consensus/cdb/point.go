@@ -135,12 +135,12 @@ func (self *Point) Unmarshal(buf []byte) error {
 	return nil
 }
 func (self *Point) LeftAppend(p *Point) error {
-	if self.Hash == self.PrevHash {
-		self.Hash = p.Hash
-		self.PrevHash = p.PrevHash
-		self.Sbps = p.Sbps
-		return nil
-	}
+	//if self.Hash == self.PrevHash {
+	//	self.Hash = p.Hash
+	//	self.PrevHash = p.PrevHash
+	//	self.Sbps = p.Sbps
+	//	return nil
+	//}
 
 	if p.Hash != self.PrevHash {
 		return errors.Errorf("hash[%s] and prev[%s] hash can't match", self.Hash, p.PrevHash)
@@ -151,12 +151,12 @@ func (self *Point) LeftAppend(p *Point) error {
 	return nil
 }
 func (self *Point) RightAppend(p *Point) error {
-	if self.Hash == self.PrevHash {
-		self.Hash = p.Hash
-		self.PrevHash = p.PrevHash
-		self.Sbps = p.Sbps
-		return nil
-	}
+	//if self.Hash == self.PrevHash {
+	//	self.Hash = p.Hash
+	//	self.PrevHash = p.PrevHash
+	//	self.Sbps = p.Sbps
+	//	return nil
+	//}
 
 	if self.Hash != p.PrevHash {
 		return errors.Errorf("hash[%s] and prev[%s] hash can't match", self.Hash, p.PrevHash)
@@ -167,12 +167,12 @@ func (self *Point) RightAppend(p *Point) error {
 	return nil
 }
 func (self *Point) IsEmpty() bool {
-	return self.Hash == types.Hash{}
+	return self.Hash == self.PrevHash
 }
-func NewEmptyPoint() *Point {
+func NewEmptyPoint(proofHash types.Hash) *Point {
 	return &Point{
-		PrevHash: types.Hash{},
-		Hash:     types.Hash{},
+		PrevHash: proofHash,
+		Hash:     proofHash,
 		Sbps:     make(map[types.Address]*Content),
 	}
 }

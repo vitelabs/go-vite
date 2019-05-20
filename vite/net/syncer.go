@@ -40,7 +40,7 @@ const minHeightDifference = 100
 const waitEnoughPeers = 5 * time.Second
 const enoughPeers = 3
 const checkChainInterval = time.Second
-const syncTaskSize = 100
+const syncTaskSize = 1000
 const maxBatchChunkSize = 100 * syncTaskSize
 
 func shouldSync(from, to uint64) bool {
