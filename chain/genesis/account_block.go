@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+	"sort"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -136,6 +137,18 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 	return list, addrSet
 }
 
+type tokenInfoForSort struct {
+	tokenId types.TokenTypeId
+	config.TokenInfo
+}
+type byTokenId []*tokenInfoForSort
+
+func (a byTokenId) Len() int      { return len(a) }
+func (a byTokenId) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byTokenId) Less(i, j int) bool {
+	return a[i].tokenId.Hex() > a[j].tokenId.Hex()
+}
+
 func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.MintageInfo != nil {
 		nextIndexMap := make(map[string]uint16)
@@ -148,9 +161,14 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			Fee:            big.NewInt(0),
 		}
 		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
+		tokenList := make([]*tokenInfoForSort, 0, len(cfg.MintageInfo.TokenInfoMap))
 		for tokenIdStr, tokenInfo := range cfg.MintageInfo.TokenInfoMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 			dealWithError(err)
+			tokenList = append(tokenList, &tokenInfoForSort{tokenId, tokenInfo})
+		}
+		sort.Sort(byTokenId(tokenList))
+		for _, tokenInfo := range tokenList {
 			nextIndex := uint16(0)
 			if index, ok := nextIndexMap[tokenInfo.TokenSymbol]; ok {
 				nextIndex = index
@@ -171,7 +189,7 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			nextIndexValue, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenNameIndex, nextIndex)
 			dealWithError(err)
 			util.SetValue(vmdb, abi.GetNextIndexKey(tokenInfo.TokenSymbol), nextIndexValue)
-			util.SetValue(vmdb, abi.GetMintageKey(tokenId), value)
+			util.SetValue(vmdb, abi.GetMintageKey(tokenInfo.tokenId), value)
 		}
 
 		if len(cfg.MintageInfo.LogList) > 0 {

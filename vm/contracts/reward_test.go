@@ -325,3 +325,62 @@ func stringToBigInt(s string) *big.Int {
 	i, _ := new(big.Int).SetString(s, 10)
 	return i
 }
+
+func TestGetIndexByStartTime(t *testing.T) {
+	var genesisTime int64 = 1557849600
+	var interval int64 = 86400
+	cr := util.NewVmConsensusReader(newConsensusReaderTest(genesisTime, interval, map[uint64]map[string]*consensusDetail{}))
+	testCases := []struct {
+		t          int64
+		startIndex uint64
+		startTime  int64
+		drained    bool
+	}{
+		{-1, 0, 0, true},
+		{0, 0, genesisTime, false},
+		{genesisTime - 1, 0, genesisTime, false},
+		{genesisTime, 0, genesisTime, false},
+		{genesisTime + 1, 1, genesisTime + interval, false},
+		{genesisTime + interval - 1, 1, genesisTime + interval, false},
+		{genesisTime + interval, 1, genesisTime + interval, false},
+		{genesisTime + interval + 1, 2, genesisTime + interval*2, false},
+	}
+	for _, testCase := range testCases {
+		startIndex, startTime, drained := cr.GetIndexByStartTime(testCase.t, genesisTime)
+		if testCase.startIndex != startIndex || testCase.startTime != startTime || testCase.drained != drained {
+			t.Fatalf("get index by start time error, param: %v, expected [%v,%v,%v], got [%v,%v,%v]",
+				testCase.t, testCase.startIndex, testCase.startTime, testCase.drained, startIndex, startTime, drained)
+		}
+	}
+}
+
+func TestGetIndexByEndTime(t *testing.T) {
+	var genesisTime int64 = 1557849600
+	var interval int64 = 86400
+	cr := util.NewVmConsensusReader(newConsensusReaderTest(genesisTime, interval, map[uint64]map[string]*consensusDetail{}))
+	testCases := []struct {
+		t          int64
+		endIndex   uint64
+		endTime    int64
+		withinADay bool
+	}{
+		{-1, 0, genesisTime, true},
+		{0, 0, genesisTime, true},
+		{genesisTime - 1, 0, genesisTime, true},
+		{genesisTime, 0, genesisTime, true},
+		{genesisTime + 1, 0, genesisTime, true},
+		{genesisTime + interval - 1, 0, genesisTime, true},
+		{genesisTime + interval, 0, genesisTime + interval, false},
+		{genesisTime + interval + 1, 0, genesisTime + interval, false},
+		{genesisTime + interval*2 - 1, 0, genesisTime + interval, false},
+		{genesisTime + interval*2, 1, genesisTime + interval*2, false},
+		{genesisTime + interval*2 + 1, 1, genesisTime + interval*2, false},
+	}
+	for _, testCase := range testCases {
+		endIndex, endTime, withinADay := cr.GetIndexByEndTime(testCase.t, genesisTime)
+		if testCase.endIndex != endIndex || testCase.endTime != endTime || testCase.withinADay != withinADay {
+			t.Fatalf("get index by end time error, param: %v, expected [%v,%v,%v], got [%v,%v,%v]",
+				testCase.t, testCase.endIndex, testCase.endTime, testCase.withinADay, endIndex, endTime, withinADay)
+		}
+	}
+}
