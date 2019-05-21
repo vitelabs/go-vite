@@ -278,10 +278,6 @@ func (snapshot *snapshotCs) calVotes(proofBlock *ledger.SnapshotBlock, index uin
 		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
 	}
-	t1 := time.Now()
-	defer func() {
-		snapshot.log.Info("[doublejie]calVote time duration", "index", index, "hash", proofBlock.Hash, "diff", time.Now().Sub(t1))
-	}()
 	seed := core.NewSeedInfo(snapshot.rw.GetSeedsBeforeHashH(hashH.Hash))
 	// record vote
 	votes, err := snapshot.rw.CalVotes(&snapshot.GroupInfo, hashH)

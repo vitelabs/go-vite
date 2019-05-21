@@ -199,10 +199,6 @@ func (cRw *chainRw) GetSeedsBeforeHashH(hash types.Hash) uint64 {
 }
 
 func (cRw *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
-	t1 := time.Now()
-	defer func() {
-		cRw.log.Info("[doublejie]core time duration", "diff", time.Now().Sub(t1))
-	}()
 	return core.CalVotes(info.ConsensusGroupInfo, hashH.Hash, cRw.rw)
 }
 

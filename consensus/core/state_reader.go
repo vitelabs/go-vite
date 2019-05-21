@@ -6,7 +6,6 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
 )
 
 type stateCh interface {
@@ -19,25 +18,20 @@ type stateCh interface {
 }
 
 func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vote, error) {
-	t0 := time.Now()
 	// query register info
 	registerList, err := rw.GetRegisterList(hash, info.Gid)
 	if err != nil {
 		return nil, err
 	}
 
-	log15.Info("[doublejie]GetRegisterList time duration", "diff", time.Now().Sub(t0))
-	t1 := time.Now()
 	// query vote info
 	votes, err := rw.GetVoteList(hash, info.Gid)
 	if err != nil {
 		return nil, err
 	}
-	log15.Info("[doublejie]GetVoteList time duration", "diff", time.Now().Sub(t1))
 
 	var registers []*Vote
 
-	t2 := time.Now()
 	// cal candidate
 	for _, v := range registerList {
 		register := &Vote{Balance: big.NewInt(0), Name: v.Name, Addr: v.NodeAddr}
@@ -49,7 +43,6 @@ func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vo
 		registers = append(registers, register)
 	}
 
-	log15.Info("[doublejie]voteCompleting time duration", "diff", time.Now().Sub(t2))
 	return registers, nil
 }
 func voteCompleting(snapshotHash types.Hash, vote *Vote, infos []*types.VoteInfo, id types.TokenTypeId, rw stateCh) error {
