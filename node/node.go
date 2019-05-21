@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/monitor"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
@@ -245,6 +247,7 @@ func (node *Node) Start() error {
 		log.Error(fmt.Sprintf("Node startRPC error: %v", err))
 		return err
 	}
+	monitor.InitNTPChecker(log)
 
 	return nil
 }
