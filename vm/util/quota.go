@@ -80,7 +80,7 @@ func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, e
 	if !useQuota {
 		return 0, 0
 	}
-	if vmErr, ok := err.(VMError); ok && vmErr.CostAllGas() {
+	if err == ErrOutOfQuota {
 		return quotaTotal - quotaAddition, quotaTotal
 	} else {
 		qUsed = quotaTotal - quotaLeft
