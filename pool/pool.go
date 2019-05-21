@@ -656,12 +656,13 @@ func (pl *pool) checkBlock(block *snapshotPoolBlock) bool {
 	var result = true
 	for k, v := range block.block.SnapshotContent {
 		ac := pl.selfPendingAc(k)
-		if ac.findInPool(v.Hash, v.Height) {
-			continue
-		}
+
 		fc := ac.findInTreeDisk(v.Hash, v.Height, true)
 		if fc == nil {
 			result = false
+			if ac.findInPool(v.Hash, v.Height) {
+				continue
+			}
 			if block.ShouldFetch() {
 				ac.f.fetchBySnapshot(ledger.HashHeight{Hash: v.Hash, Height: v.Height}, k, 1, block.Height(), block.Hash())
 			}
