@@ -61,7 +61,7 @@ func (self *batchExecutor) insertSnapshotLevel(l Level) error {
 	version := self.p.Version()
 	for _, b := range l.Buckets() {
 		num = num + len(b.Items())
-		return self.snapshotFn(self.p, b, version)
+		return self.snapshotFn(self.p, l, b, version)
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (self *batchExecutor) insertAccountLevel(l Level) error {
 				if globalErr != nil {
 					return
 				}
-				err := self.accountFn(self.p, b, version)
+				err := self.accountFn(self.p, l, b, version)
 				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err

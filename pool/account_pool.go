@@ -330,7 +330,7 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 			return uint64(i - minH), err
 		}
 
-		err := q.AddItem(block)
+		err := q.AddAItem(block, nil)
 		if err != nil {
 			return uint64(i - minH), err
 		}
@@ -390,6 +390,9 @@ func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 }
 func (accP *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
 	if block.block.IsReceiveBlock() {
+		if !types.IsContractAddr(block.block.AccountAddress) {
+			return nil
+		}
 		num, e := accP.rw.needSnapshot(block.block.AccountAddress)
 		if e != nil {
 			return e

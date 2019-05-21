@@ -31,11 +31,11 @@ func (self *level) HasDone() bool {
 	return self.done
 }
 
-func newLevel(snapshot bool, index int) Level {
+func newLevel(snapshot bool, index int, sHash *types.Hash) Level {
 	if snapshot {
 		return newSnapshotLevel(index)
 	} else {
-		return newAccountLevel(index)
+		return newAccountLevel(index, sHash)
 	}
 }
 

@@ -89,6 +89,11 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 	b := batch.NewBatch(pl.snapshotExists, pl.accountExists, pl.version.Val(), 50)
 	for _, v := range chunks {
 		if v.AccountBlocks != nil {
+			var sHash *types.Hash
+
+			if v.SnapshotBlock != nil {
+				sHash = &v.SnapshotBlock.Hash
+			}
 			for _, vv := range v.AccountBlocks {
 				if err := pl.accountHHExists(vv.AccountAddress, vv.Height, vv.Hash); err == nil {
 					pl.log.Info("[A]block exist, ignore.", "block", vv.Hash)
@@ -96,14 +101,14 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 				}
 				block := newAccountPoolBlock(vv, nil, pl.version, source)
 				pl.log.Info("[A]add block to batch.", "account", vv.AccountAddress, "height", vv.Height, "block", vv.Hash, "batchId", b.Id())
-				err := b.AddItem(block)
+				err := b.AddAItem(block, sHash)
 				if err != nil && err == batch.MAX_ERROR {
 					err := b.Batch(pl.insertSnapshotBucketForChunks, pl.insertAccountsBucketForChunks)
 					if err != nil {
 						return err
 					}
 					b = batch.NewBatch(pl.snapshotExists, pl.accountExists, pl.version.Val(), 50)
-					err = b.AddItem(block)
+					err = b.AddAItem(block, sHash)
 					if err != nil {
 						return err
 					}
@@ -122,14 +127,14 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 
 			block := newSnapshotPoolBlock(v.SnapshotBlock, pl.version, source)
 			pl.log.Info("[S]add block to batch.", "block", v.SnapshotBlock.Hash, "batchId", b.Id())
-			err := b.AddItem(block)
+			err := b.AddSItem(block)
 			if err != nil && err == batch.MAX_ERROR {
 				err := b.Batch(pl.insertSnapshotBucketForChunks, pl.insertAccountsBucketForChunks)
 				if err != nil {
 					return err
 				}
 				b = batch.NewBatch(pl.snapshotExists, pl.accountExists, pl.version.Val(), 50)
-				err = b.AddItem(block)
+				err = b.AddSItem(block)
 				if err != nil {
 					return err
 				}
@@ -147,12 +152,12 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 	return nil
 }
 
-func (pl *pool) insertSnapshotBucketForChunks(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertSnapshotBucket(p, bucket, version)
+func (pl *pool) insertSnapshotBucketForChunks(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertSnapshotBucket(p, l, bucket, version)
 }
 
-func (pl *pool) insertAccountsBucketForChunks(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertAccountBucket(p, bucket, version)
+func (pl *pool) insertAccountsBucketForChunks(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertAccountBucket(p, l, bucket, version)
 }
 
 func (pl *pool) checkSnapshotInsert(headHH ledger.HashHeight, tailHH ledger.HashHeight, hashes map[types.Hash]struct{}) ChainState {
