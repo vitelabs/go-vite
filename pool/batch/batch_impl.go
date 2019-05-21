@@ -100,11 +100,27 @@ func (self *batchSnapshot) Levels() []Level {
 	return levels
 }
 
-func (self *batchSnapshot) AddItem(b Item) error {
+//func (self *batchSnapshot) AddItem(b Item) error {
+//	if b.Owner() == nil {
+//		return self.addSnapshotItem(b)
+//	} else {
+//		return self.addAccountItem(b)
+//	}
+//}
+
+func (self *batchSnapshot) AddSItem(b Item) error {
 	if b.Owner() == nil {
 		return self.addSnapshotItem(b)
 	} else {
-		return self.addAccountItem(b)
+		return self.addAccountItem(b, nil)
+	}
+}
+
+func (self *batchSnapshot) AddAItem(b Item, sHash *types.Hash) error {
+	if b.Owner() == nil {
+		return self.addSnapshotItem(b)
+	} else {
+		return self.addAccountItem(b, sHash)
 	}
 }
 
@@ -134,7 +150,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 	max := self.current
 	if max < 0 {
 		max = 0
-		self.ls[max] = newLevel(owner == nil, max)
+		self.ls[max] = newLevel(owner == nil, max, nil)
 	}
 
 	tmp := self.ls[max]
@@ -144,7 +160,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 		if max > self.maxLevel-1 {
 			return MAX_ERROR
 		}
-		tmp = newLevel(owner == nil, max)
+		tmp = newLevel(owner == nil, max, nil)
 		self.ls[max] = tmp
 	}
 
@@ -163,7 +179,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 	return err
 }
 
-func (self *batchSnapshot) addAccountItem(b Item) error {
+func (self *batchSnapshot) addAccountItem(b Item, sHash *types.Hash) error {
 	max := -1
 	owner := b.Owner()
 	keys, accounts, _ := b.ReferHashes()
@@ -204,7 +220,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 
 	var tmp Level
 	if max > self.current {
-		tmp = newLevel(false, max)
+		tmp = newLevel(false, max, sHash)
 		self.ls[max] = tmp
 	} else {
 		if self.current >= 0 {
@@ -214,7 +230,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 				if max > self.maxLevel-1 {
 					return MAX_ERROR
 				}
-				tmp = newLevel(false, max)
+				tmp = newLevel(false, max, sHash)
 				self.ls[max] = tmp
 			} else {
 				if self.current > max {
@@ -224,7 +240,7 @@ func (self *batchSnapshot) addAccountItem(b Item) error {
 		} else {
 			// first account block
 			max = 0
-			tmp = newLevel(false, max)
+			tmp = newLevel(false, max, sHash)
 			self.ls[max] = tmp
 		}
 	}

@@ -1,6 +1,9 @@
 package batch
 
-import "github.com/go-errors/errors"
+import (
+	"github.com/go-errors/errors"
+	"github.com/vitelabs/go-vite/common/types"
+)
 
 type snapshotLevel struct {
 	level
@@ -16,6 +19,10 @@ func (self *snapshotLevel) Add(b Item) error {
 		panic(errors.New("snapshot level is closed."))
 	}
 	return self.bu.add(b)
+}
+
+func (self *snapshotLevel) SHash() *types.Hash {
+	return nil
 }
 
 func (self *snapshotLevel) Snapshot() bool {

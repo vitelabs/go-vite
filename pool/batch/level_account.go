@@ -7,7 +7,8 @@ import (
 
 type accountLevel struct {
 	level
-	bs map[types.Address]*bucket
+	bs    map[types.Address]*bucket
+	sHash *types.Hash
 }
 
 func (self *accountLevel) Buckets() (result []Bucket) {
@@ -17,12 +18,16 @@ func (self *accountLevel) Buckets() (result []Bucket) {
 	return
 }
 
-func newAccountLevel(index int) *accountLevel {
-	return &accountLevel{bs: make(map[types.Address]*bucket), level: level{index: index}}
+func newAccountLevel(index int, sHash *types.Hash) *accountLevel {
+	return &accountLevel{bs: make(map[types.Address]*bucket), level: level{index: index}, sHash: sHash}
 }
 
 func (self *accountLevel) Snapshot() bool {
 	return false
+}
+
+func (self *accountLevel) SHash() *types.Hash {
+	return self.sHash
 }
 
 func (self *accountLevel) Add(b Item) error {
