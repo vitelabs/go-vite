@@ -83,7 +83,7 @@ func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent
 func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock) {
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
-	userFee.Amount = NewMarketFeeDividendAmount.Bytes()
+	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
 	fee := &dexproto.FeeSettle{}
 	fee.Token = ledger.ViteTokenId.Bytes()
 	fee.UserFeeSettles = append(fee.UserFeeSettles, userFee)
@@ -224,10 +224,11 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	order.Type = int32(param.OrderType)
 	order.Price = PriceToBytes(param.Price)
 	order.Quantity = param.Quantity.Bytes()
+	RenderFeeRate(address, param.VipActive, order, marketInfo, db)
 	if order.Type == Limited {
 		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
-			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxFeeRate())
+			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxTotalFeeRate(*order))
 		}
 		totalAmount := AddBigInt(order.Amount, order.LockedBuyFee)
 		if new(big.Int).SetBytes(totalAmount).Cmp(QuoteTokenMinAmount[param.QuoteToken]) < 0 {
@@ -241,6 +242,19 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
 	return marketInfo, nil
+}
+
+func RenderFeeRate(address types.Address, vipActive bool, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
+	var vipMitigateFeeRate int32 = 0
+	if vipActive {
+		if _, ok := GetPledgeForVip(db, address); ok {
+			vipMitigateFeeRate = VipMitigateFeeRate
+		}
+	}
+	order.TakerFeeRate = BaseFeeRate - vipMitigateFeeRate
+	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
+	order.MakerFeeRate = BaseFeeRate - vipMitigateFeeRate
+	order.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
 }
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {
@@ -268,14 +282,14 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 }
 
 func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account) {
-	dexFund, _ := GetUserFundFromStorage(db, address)
+	dexFund, _ := GetUserFund(db, address)
 	account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
 	available := new(big.Int).SetBytes(account.Available)
 	account.Available = available.Add(available, amount).Bytes()
 	if !exists {
 		dexFund.Accounts = append(dexFund.Accounts, account)
 	}
-	SaveUserFundToStorage(db, address, dexFund)
+	SaveUserFund(db, address, dexFund)
 	return account
 }
 
@@ -318,7 +332,7 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
-	dexFund, _ := GetUserFundFromStorage(db, address)
+	dexFund, _ := GetUserFund(db, address)
 	for _, fundSettle := range action.FundSettles {
 		if tokenId, err := types.BytesToTokenTypeId(fundSettle.Token); err != nil {
 			return err
@@ -354,7 +368,7 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
 		}
 	}
-	SaveUserFundToStorage(db, address, dexFund)
+	SaveUserFund(db, address, dexFund)
 	return nil
 }
 
@@ -410,7 +424,7 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 			return nil, PledgeForVipExistsErr
 		}
 	}
-	if dexFund, ok := GetUserFundFromStorage(db, address); !ok {
+	if dexFund, ok := GetUserFund(db, address); !ok {
 		return nil, ExceedFundAvailableErr
 	} else {
 		account, exists := GetAccountByTokeIdFromFund(dexFund, ledger.ViteTokenId)
@@ -418,7 +432,7 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 			return nil, ExceedFundAvailableErr
 		} else {
 			account.Available = SubBigInt(account.Available, amount.Bytes()).Bytes()
-			SaveUserFundToStorage(db, address, dexFund)
+			SaveUserFund(db, address, dexFund)
 			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
 				return nil, err
 			} else {

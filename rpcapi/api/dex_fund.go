@@ -42,7 +42,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 	if err != nil {
 		return nil, err
 	}
-	dexFund, _ := dex.GetUserFundFromStorage(db, addr)
+	dexFund, _ := dex.GetUserFund(db, addr)
 	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	if err != nil {
 		return nil, err
 	}
-	dexFund, _ := dex.GetUserFundFromStorage(db, addr)
+	dexFund, _ := dex.GetUserFund(db, addr)
 	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
 	if err != nil {
 		return nil, err

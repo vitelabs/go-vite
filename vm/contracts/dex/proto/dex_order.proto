@@ -9,18 +9,22 @@ message Order {
     bool Side = 4; // //[unset on serialize] false buy, true sell
     int32 Type = 5; // 0 limit order, 1 market order
     bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
-    int32 FeeType = 7; // 0 mine 1 not mine 2 vip
-    bytes Quantity = 8;
-    bytes Amount = 9; // QuoteAmount
-    bytes LockedBuyFee = 10; // fee locked ahead for buy
-    int32 Status = 11;
-    int32 CancelReason = 12;
-    bytes ExecutedQuantity = 13;
-    bytes ExecutedAmount = 14;
-    bytes ExecutedFee = 15; // fee actually executed
-    bytes RefundToken = 16;
-    bytes RefundQuantity = 17; //refund trade/quote token
-    int64 Timestamp = 18; // [unset on serialize]
+    int32 TakerFeeRate = 7; // rate/1,000,000
+    int32 MakerFeeRate = 8; // rate/1,000,000
+    int32 TakerBrokerFeeRate = 9;
+    int32 MakerBrokerFeeRate = 10;
+    bytes Quantity = 11;
+    bytes Amount = 12; // QuoteAmount
+    bytes LockedBuyFee = 13; // fee locked ahead for buy (Fee + BrokerFee)
+    int32 Status = 14;
+    int32 CancelReason = 15;
+    bytes ExecutedQuantity = 16;
+    bytes ExecutedAmount = 17;
+    bytes ExecutedFee = 18; // fee actually executed
+    bytes ExecutedBrokerFee = 19;
+    bytes RefundToken = 20;
+    bytes RefundQuantity = 21; //refund trade/quote token
+    int64 Timestamp = 22; // [unset on serialize]
 }
 
 message OrderIdSerialNo {
@@ -38,7 +42,9 @@ message Transaction {
     bytes Amount = 7;
     bytes TakerFee = 8;
     bytes MakerFee = 9;
-    int64 Timestamp = 10;
+    bytes TakerBrokerFee = 10;
+    bytes MakerBrokerFee = 11;
+    int64 Timestamp = 12;
 }
 
 message TokenInfo {
@@ -54,10 +60,13 @@ message MarketInfo {
     bytes QuoteToken = 4;
     int32 TradeTokenDecimals = 5;
     int32 QuoteTokenDecimals = 6;
-    bool AllowMine = 7;
-    bool Valid = 8; // false: pending for tradeToken validate
-    bytes Creator = 9; //creator address
-    int64 Timestamp = 10;
+    int32 TakerBrokerFeeRate = 7; // broker
+    int32 MakerBrokerFeeRate = 8;
+    bool AllowMine = 9;
+    bool Valid = 10; // false: pending for tradeToken validate
+    bytes Owner = 11;
+    bytes Creator = 12; //creator address
+    int64 Timestamp = 13;
 }
 
 message PendingNewMarketAction {
@@ -83,7 +92,7 @@ message OrderUpdateInfo {
     int32 CancelReason = 5;
     bytes ExecutedQuantity = 6;
     bytes ExecutedAmount = 7;
-    bytes ExecutedFee = 8; // fee actually executed
+    bytes ExecutedFeeTotal = 8; // fee actually executed(ExecutedFee + ExecutedBrokerFee)
     bytes RefundToken = 9;
     bytes RefundQuantity = 10; //refund trade/quote token
 }

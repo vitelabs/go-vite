@@ -11,67 +11,101 @@ import (
 	"math/big"
 )
 
+//include
 func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle) {
-	feeSumByPeriod, ok := GetCurrentFeeSumFromStorage(db, reader)
+	feeSumByPeriod, ok := GetCurrentFeeSum(db, reader)
 	if !ok { // need roll period when current period feeSum not saved yet
 		formerPeriodId := rollFeeSumPeriodId(db, reader)
 		feeSumByPeriod.LastValidPeriod = formerPeriodId
 	}
 	feeAmountMap := make(map[types.TokenTypeId][]byte)
+	brokerFeeAmountMap := make(map[types.TokenTypeId][]byte)
 	for _, feeAction := range feeActions {
 		tokenId, _ := types.BytesToTokenTypeId(feeAction.Token)
 		for _, feeAcc := range feeAction.UserFeeSettles {
-			feeAmountMap[tokenId] = AddBigInt(feeAmountMap[tokenId], feeAcc.Amount)
+			feeAmountMap[tokenId] = AddBigInt(feeAmountMap[tokenId], feeAcc.BaseFee)
+			brokerFeeAmountMap[tokenId] = AddBigInt(brokerFeeAmountMap[tokenId], feeAcc.BrokerFee)
 		}
 	}
 
 	for _, feeAcc := range feeSumByPeriod.Fees {
 		tokenId, _ := types.BytesToTokenTypeId(feeAcc.Token)
-		if _, ok := feeAmountMap[tokenId]; ok {
-			feeAcc.Amount = AddBigInt(feeAcc.Amount, feeAmountMap[tokenId])
+		if incFeeAmount, ok := feeAmountMap[tokenId]; ok {
+			feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, incFeeAmount)
+			feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, brokerFeeAmountMap[tokenId])
 			delete(feeAmountMap, tokenId)
+			delete(brokerFeeAmountMap, tokenId)
 		}
 	}
 	for tokenId, feeAmount := range feeAmountMap {
-		newFeeAcc := &dexproto.FeeAccount{}
-		newFeeAcc.Token = tokenId.Bytes()
-		newFeeAcc.Amount = feeAmount
-		feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAcc)
+		feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeAccount(tokenId.Bytes(), feeAmount, brokerFeeAmountMap[tokenId]))
 	}
-	SaveCurrentFeeSumToStorage(db, reader, feeSumByPeriod)
+	SaveCurrentFeeSum(db, reader, feeSumByPeriod)
 }
 
+//baseAmount + brokerAmount for vx mine,
 func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexproto.FeeSettle) {
-	periodId := GetCurrentPeriodIdFromStorage(db, reader)
+	periodId := GetCurrentPeriodId(db, reader)
 	for _, userFeeSettle := range feeAction.UserFeeSettles {
-		userFees, _ := GetUserFeesFromStorage(db, userFeeSettle.Address)
+		userFees, _ := GetUserFees(db, userFeeSettle.Address)
 		feeLen := len(userFees.Fees)
 		if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 			var foundToken = false
 			for _, feeAcc := range userFees.Fees[feeLen-1].UserFees {
 				if bytes.Equal(feeAcc.Token, feeAction.Token) {
-					feeAcc.Amount = AddBigInt(feeAcc.Amount, userFeeSettle.Amount)
+					feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, userFeeSettle.BaseFee)
+					feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, userFeeSettle.BrokerFee)
 					foundToken = true
 					break
 				}
 			}
 			if !foundToken {
-				feeAcc := &dexproto.FeeAccount{}
-				feeAcc.Token = feeAction.Token
-				feeAcc.Amount = userFeeSettle.Amount
-				userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, feeAcc)
+				userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, newFeeAccount(feeAction.Token, userFeeSettle.BaseFee, userFeeSettle.BrokerFee))
 			}
 		} else {
 			userFeeByPeriodId := &dexproto.UserFeeWithPeriod{}
 			userFeeByPeriodId.Period = periodId
-			feeAcc := &dexproto.FeeAccount{}
-			feeAcc.Token = feeAction.Token
-			feeAcc.Amount = userFeeSettle.Amount
-			userFeeByPeriodId.UserFees = []*dexproto.FeeAccount{feeAcc}
+			userFeeByPeriodId.UserFees = []*dexproto.FeeAccount{newFeeAccount(feeAction.Token, userFeeSettle.BaseFee, userFeeSettle.BrokerFee)}
 			userFees.Fees = append(userFees.Fees, userFeeByPeriodId)
 		}
-		SaveUserFeesToStorage(db, userFeeSettle.Address, userFees)
+		SaveUserFees(db, userFeeSettle.Address, userFees)
 	}
+}
+
+func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle) {
+	var incAmt []byte
+	for _, feeAction := range feeActions {
+		for _, feeAcc := range feeAction.UserFeeSettles {
+			incAmt = AddBigInt(incAmt, feeAcc.BrokerFee)
+		}
+	}
+
+	var feeToken = feeActions[0].Token
+	var settleBrokerAddress = feeActions[0].Broker
+	var foundBroker bool
+	brokerFeeSumByPeriod, _ := GetCurrentBrokerFeeSum(db, reader)
+	for _, brokerFeeSum := range brokerFeeSumByPeriod.BrokerFees {
+		if bytes.Equal(settleBrokerAddress, brokerFeeSum.Broker) {
+			var found bool
+			for _, feeAcc := range brokerFeeSum.Fees {
+				if bytes.Equal(feeAcc.Token, feeToken) {
+					feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, incAmt)
+					found = true
+				}
+			}
+			if !found {
+				brokerFeeSum.Fees = append(brokerFeeSum.Fees, newFeeAccount(feeToken, nil, incAmt))
+			}
+			foundBroker = true
+		}
+	}
+	if !foundBroker {
+		brokerFeeSum := &dexproto.BrokerFeeSum{}
+		brokerFeeSum.Broker = settleBrokerAddress
+		brokerFeeSum.Fees = append(brokerFeeSum.Fees, newFeeAccount(feeToken, nil, incAmt))
+		brokerFeeSumByPeriod.BrokerFees = append(nil, brokerFeeSum)
+	}
+	SaveCurrentBrokerFeeSum(db, reader, brokerFeeSumByPeriod)
 }
 
 func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) {
@@ -102,8 +136,8 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 		fundsLen              int
 		needUpdate            bool
 	)
-	vxFunds, _ = GetVxFundsFromStorage(db, addressBytes)
-	periodId = GetCurrentPeriodIdFromStorage(db, reader)
+	vxFunds, _ = GetVxFundsFrom(db, addressBytes)
+	periodId = GetCurrentPeriodId(db, reader)
 	fundsLen = len(vxFunds.Funds)
 	userNewAmt = new(big.Int).SetBytes(AddBigInt(updatedVxAccount.Available, updatedVxAccount.Locked))
 	if fundsLen == 0 { //need append new period
@@ -153,9 +187,9 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 	}
 
 	if len(vxFunds.Funds) > 0 && needUpdate {
-		SaveVxFundsToStorage(db, addressBytes, vxFunds)
+		SaveVxFunds(db, addressBytes, vxFunds)
 	} else if len(vxFunds.Funds) == 0 && fundsLen > 0 {
-		DeleteVxFundsFromStorage(db, addressBytes)
+		DeleteVxFunds(db, addressBytes)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
@@ -186,13 +220,14 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	var (
 		feeSumsMap    map[uint64]*FeeSumByPeriod
 		donateFeeSums = make(map[uint64]*big.Int)
+		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
 		vxSumFunds    *VxFunds
 		err           error
 		ok            bool
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap, donateFeeSums = GetNotDividedFeeSumsByPeriodIdFromStorage(db, periodId); len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
+	if feeSumsMap, donateFeeSums, brokerFeeSums = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 || len(feeSumsMap) > 4 { // no fee to divide, or fee types more than 4
 		return nil
 	}
 	if vxSumFunds, ok = GetVxSumFundsFromDb(db); !ok {
@@ -218,9 +253,9 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 				return err
 			} else {
 				if amt, ok := feeSumMap[tokenId]; !ok {
-					feeSumMap[tokenId] = new(big.Int).SetBytes(feeAccount.Amount)
+					feeSumMap[tokenId] = new(big.Int).SetBytes(feeAccount.BaseAmount)
 				} else {
-					feeSumMap[tokenId] = amt.Add(amt, new(big.Int).SetBytes(feeAccount.Amount))
+					feeSumMap[tokenId] = amt.Add(amt, new(big.Int).SetBytes(feeAccount.BaseAmount))
 				}
 			}
 		}
@@ -274,9 +309,9 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			continue
 		}
 		if needDeleteVxFunds {
-			DeleteVxFundsFromStorage(db, address.Bytes())
+			DeleteVxFunds(db, address.Bytes())
 		} else if needUpdateVxFunds {
-			SaveVxFundsToStorage(db, address.Bytes(), userVxFunds)
+			SaveVxFunds(db, address.Bytes(), userVxFunds)
 		}
 		userVxAmount := new(big.Int).SetBytes(userVxAmtBytes)
 		//fmt.Printf("address %s, userVxAmount %s, needDeleteVxFunds %v\n", string(address.Bytes()), userVxAmount.String(), needDeleteVxFunds)
@@ -300,6 +335,11 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			return err
 		}
 	}
+	return DoSettleBrokerFee(brokerFeeSums)
+}
+
+func DoSettleBrokerFee(brokerFeeSums map[uint64]*BrokerFeeSumByPeriod) error {
+
 	return nil
 }
 
@@ -313,14 +353,14 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 		err                   error
 		ok                    bool
 	)
-	if feeSum, ok = GetFeeSumByPeriodIdFromStorage(db, periodId); !ok {
+	if feeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
 		return nil
 	}
 	for _, feeSum := range feeSum.Fees {
 		if tokenId, err = types.BytesToTokenTypeId(feeSum.Token); err != nil {
 			return err
 		}
-		feeSumMap[tokenId] = new(big.Int).SetBytes(feeSum.Amount)
+		feeSumMap[tokenId] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.BrokerAmount))
 		toDivideVxLeaveAmtMap[tokenId] = minedVxAmtPerMarket
 		dividedFeeMap[tokenId] = big.NewInt(0)
 	}
@@ -372,7 +412,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 					return fmt.Errorf("user with valid userFee, but no valid feeSum")
 					//continue
 				} else {
-					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.Amount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
+					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(AddBigInt(userFee.BaseAmount, userFee.BrokerAmount)), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
 					userVxDividend.Add(userVxDividend, vxDividend)
 					if finished {
 						delete(feeSumMap, tokenId)
@@ -384,10 +424,10 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 			}
 		}
 		if len(userFees.Fees) == 1 {
-			DeleteUserFeesFromStorage(db, addressBytes)
+			DeleteUserFees(db, addressBytes)
 		} else {
 			userFees.Fees = userFees.Fees[1:]
-			SaveUserFeesToStorage(db, addressBytes, userFees)
+			SaveUserFees(db, addressBytes, userFees)
 		}
 	}
 	return nil
@@ -420,4 +460,12 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 		toDivideLeaveAmt.Set(toDivideLeaveNewAmt)
 	}
 	return proportionAmt, finished
+}
+
+func newFeeAccount(token, baseAmount, brokerAmount []byte) *dexproto.FeeAccount {
+	account := &dexproto.FeeAccount{}
+	account.Token = token
+	account.BaseAmount = baseAmount
+	account.BrokerAmount = brokerAmount
+	return account
 }

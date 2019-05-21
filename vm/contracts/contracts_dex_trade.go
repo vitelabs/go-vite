@@ -59,7 +59,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if err = matcher.MatchOrder(order); err != nil {
 		return OnNewOrderFailed(order, matcher.MarketInfo)
 	}
-	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees()); err != nil {
+	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees(), matcher.MarketInfo); err != nil {
 		return OnNewOrderFailed(order, matcher.MarketInfo)
 	}
 	return blocks, err
@@ -115,7 +115,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		return handleReceiveErr(dex.CancelOrderInvalidStatusErr)
 	}
 	matcher.CancelOrderById(order)
-	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil); err != nil {
+	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil, matcher.MarketInfo); err != nil {
 		return handleReceiveErr(err)
 	} else {
 		return appendBlocks, nil
@@ -198,7 +198,7 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 	}, nil
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle) ([]*ledger.AccountBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return nil, nil
@@ -235,6 +235,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 
 			feeSettle := &dexproto.FeeSettle{}
 			feeSettle.Token = token.Bytes()
+			feeSettle.Broker = marketInfo.Owner
 			feeSettle.UserFeeSettles = userFeeSettles
 			feeActions = append(feeActions, feeSettle)
 		}

@@ -90,7 +90,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if dexFund, ok = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); !ok {
+	if dexFund, ok = dex.GetUserFund(db, sendBlock.AccountAddress); !ok {
 		return handleReceiveErr(dex.ExceedFundAvailableErr)
 	}
 	account, _ := dex.GetAccountByTokeIdFromFund(dexFund, param.Token)
@@ -103,7 +103,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	if bytes.Equal(param.Token.Bytes(), dex.VxTokenBytes) {
 		dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, account)
 	}
-	dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
+	dex.SaveUserFund(db, sendBlock.AccountAddress, dexFund)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -159,13 +159,13 @@ func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	if marketInfo, err = dex.RenderOrder(order, param, db, sendBlock.AccountAddress); err != nil {
 		return handleReceiveErr(err)
 	}
-	if dexFund, ok = dex.GetUserFundFromStorage(db, sendBlock.AccountAddress); !ok {
+	if dexFund, ok = dex.GetUserFund(db, sendBlock.AccountAddress); !ok {
 		return handleReceiveErr(dex.ExceedFundAvailableErr)
 	}
 	if err = dex.CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
 		return handleReceiveErr(err)
 	}
-	dex.SaveUserFundToStorage(db, sendBlock.AccountAddress, dexFund)
+	dex.SaveUserFund(db, sendBlock.AccountAddress, dexFund)
 	if orderInfoBytes, err = order.Serialize(); err != nil {
 		panic(err)
 	}
@@ -239,6 +239,7 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	}
 	if len(settleActions.FeeActions) > 0 {
 		dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions)
+		dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions)
 		for _, feeAction := range settleActions.FeeActions {
 			dex.SettleUserFees(db, vm.ConsensusReader(), feeAction)
 		}
@@ -280,16 +281,16 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if param.PeriodId >= dex.GetCurrentPeriodIdFromStorage(db, vm.ConsensusReader()) {
+	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
 		return handleReceiveErr(fmt.Errorf("dividend periodId not before current periodId"))
 	}
-	if lastDividendId := dex.GetLastFeeDividendIdFromStorage(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
+	if lastDividendId := dex.GetLastFeeDividendId(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
 		return handleReceiveErr(fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1))
 	}
 	if err = dex.DoDivideFees(db, param.PeriodId); err != nil {
 		return handleReceiveErr(err)
 	} else {
-		dex.SaveLastFeeDividendIdToStorage(db, param.PeriodId)
+		dex.SaveLastFeeDividendId(db, param.PeriodId)
 	}
 	return nil, nil
 }
@@ -329,10 +330,10 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMinedVxDividend, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if param.PeriodId >= dex.GetCurrentPeriodIdFromStorage(db, vm.ConsensusReader()) {
+	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
 		return handleReceiveErr(fmt.Errorf("specified periodId for mined vx dividend not before current periodId"))
 	}
-	if lastMinedVxDividendId := dex.GetLastMinedVxDividendIdFromStorage(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
+	if lastMinedVxDividendId := dex.GetLastMinedVxDividendId(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
 		return handleReceiveErr(fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
 	}
 	vxTokenId := &types.TokenTypeId{}
@@ -353,7 +354,7 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 			return handleReceiveErr(err)
 		}
 	}
-	dex.SaveLastMinedVxDividendIdToStorage(db, param.PeriodId)
+	dex.SaveLastMinedVxDividendId(db, param.PeriodId)
 	return nil, nil
 }
 

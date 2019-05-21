@@ -24,6 +24,8 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
+	brokerFeeSumKeyPrefix     = []byte("bfS:")     // brokerFeeSum:periodId
+
 	donateFeeSumKeyPrefix      = []byte("dfS:")   // donateFeeSum:periodId, feeSum for new market fee
 	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
 	pendingNewMarketActionsKey = []byte("pmkas:")
@@ -100,6 +102,7 @@ type ParamDexFundNewOrder struct {
 	OrderType  int8
 	Price      string
 	Quantity   *big.Int
+	VipActive  bool
 }
 
 type ParamDexFundDividend struct {
@@ -207,6 +210,24 @@ func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (err error) {
 		return err
 	} else {
 		df.FeeSumByPeriod = protoFeeSum
+		return nil
+	}
+}
+
+type BrokerFeeSumByPeriod struct {
+	dexproto.BrokerFeeSumByPeriod
+}
+
+func (bfs *BrokerFeeSumByPeriod) Serialize() (data []byte, err error) {
+	return proto.Marshal(&bfs.BrokerFeeSumByPeriod)
+}
+
+func (bfs *BrokerFeeSumByPeriod) DeSerialize(data []byte) (err error) {
+	protoBrokerFeeSumByPeriod := dexproto.BrokerFeeSumByPeriod{}
+	if err := proto.Unmarshal(data, &protoBrokerFeeSumByPeriod); err != nil {
+		return err
+	} else {
+		bfs.BrokerFeeSumByPeriod = protoBrokerFeeSumByPeriod
 		return nil
 	}
 }
@@ -374,18 +395,18 @@ func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Accou
 	return dexAccount, nil
 }
 
-func GetUserFundFromStorage(db vm_db.VmDb, address types.Address) (dexFund *UserFund, ok bool) {
+func GetUserFund(db vm_db.VmDb, address types.Address) (dexFund *UserFund, ok bool) {
 	dexFund = &UserFund{}
 	ok = deserializeFromDb(db, GetUserFundKey(address), dexFund)
 	return
 }
 
-func SaveUserFundToStorage(db vm_db.VmDb, address types.Address, dexFund *UserFund) {
+func SaveUserFund(db vm_db.VmDb, address types.Address, dexFund *UserFund) {
 	serializeToDb(db, GetUserFundKey(address), dexFund)
 }
 
 func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
-	userFund, _ := GetUserFundFromStorage(db, address)
+	userFund, _ := GetUserFund(db, address)
 	for _, acc := range userFund.Accounts {
 		if tk, err := types.BytesToTokenTypeId(acc.Token); err != nil {
 			return err
@@ -402,7 +423,7 @@ func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.Tok
 		acc.Available = amt.Bytes()
 		userFund.Accounts = append(userFund.Accounts, acc)
 	}
-	SaveUserFundToStorage(db, address, userFund)
+	SaveUserFund(db, address, userFund)
 	return nil
 }
 
@@ -410,35 +431,36 @@ func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func GetCurrentFeeSumFromStorage(db vm_db.VmDb, reader util.ConsensusReader) (*FeeSumByPeriod, bool) {
-	return getFeeSumByKeyFromStorage(db, GetFeeSumCurrentKeyFromStorage(db, reader))
+func GetCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*FeeSumByPeriod, bool) {
+	return getFeeSumByKey(db, GetFeeSumCurrentKey(db, reader))
 }
 
-func GetFeeSumByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (*FeeSumByPeriod, bool) {
-	return getFeeSumByKeyFromStorage(db, GetFeeSumKeyByPeriodId(periodId))
+func GetFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*FeeSumByPeriod, bool) {
+	return getFeeSumByKey(db, GetFeeSumKeyByPeriodId(periodId))
 }
 
-func getFeeSumByKeyFromStorage(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
+func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
 	feeSum := &FeeSumByPeriod{}
 	ok := deserializeFromDb(db, feeKey, feeSum)
 	return feeSum, ok
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int) {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int, map[uint64]*BrokerFeeSumByPeriod) {
 	var (
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
 		donateFeeSums = make(map[uint64]*big.Int)
+		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
 		ok            bool
 	)
 	for {
-		if dexFeeSum, ok = GetFeeSumByPeriodIdFromStorage(db, periodId); !ok {
+		if dexFeeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
 			if periodId > 0 {
 				periodId--
 				continue
 			} else {
-				return nil, nil
+				return nil, nil, nil
 			}
 		} else {
 			if !dexFeeSum.FeeDivided {
@@ -446,19 +468,22 @@ func GetNotDividedFeeSumsByPeriodIdFromStorage(db vm_db.VmDb, periodId uint64) (
 				if donateFeeSum := GetDonateFeeSum(db, periodId); donateFeeSum.Sign() > 0 { // when donateFee exists feeSum must exists
 					donateFeeSums[periodId] = donateFeeSum
 				}
+				if brokerFeeSum, ok := GetBrokerFeeSumByPeriodId(db, periodId); ok {
+					brokerFeeSums[periodId] = brokerFeeSum
+				}
 			} else {
-				return dexFeeSums, donateFeeSums
+				return dexFeeSums, donateFeeSums, brokerFeeSums
 			}
 		}
 		periodId = dexFeeSum.LastValidPeriod
 		if periodId == 0 {
-			return dexFeeSums, donateFeeSums
+			return dexFeeSums, donateFeeSums, brokerFeeSums
 		}
 	}
 }
 
-func SaveCurrentFeeSumToStorage(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) {
-	feeSumKey := GetFeeSumCurrentKeyFromStorage(db, reader)
+func SaveCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) {
+	feeSumKey := GetFeeSumCurrentKey(db, reader)
 	serializeToDb(db, feeSumKey, feeSum)
 }
 
@@ -485,8 +510,8 @@ func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
 }
 
-func GetFeeSumCurrentKeyFromStorage(db vm_db.VmDb, reader util.ConsensusReader) []byte {
-	return GetFeeSumKeyByPeriodId(GetCurrentPeriodIdFromStorage(db, reader))
+func GetFeeSumCurrentKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
+	return GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader))
 }
 
 func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
@@ -498,21 +523,49 @@ func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 }
 
 func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) {
-	periodId := GetCurrentPeriodIdFromStorage(db, reader)
+	periodId := GetCurrentPeriodId(db, reader)
 	setValueToDb(db, lastFeeSumPeriodKey, Uint64ToBytes(periodId))
 }
 
-func GetUserFeesFromStorage(db vm_db.VmDb, address []byte) (userFees *UserFees, ok bool) {
+func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, brokerFeeSum *BrokerFeeSumByPeriod) {
+	feeSumKey := GetCurrentBrokerFeeSumKey(db, reader)
+	serializeToDb(db, feeSumKey, brokerFeeSum)
+}
+
+func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*BrokerFeeSumByPeriod, bool) {
+	currentBrokerFeeSumKey := GetCurrentBrokerFeeSumKey(db, reader)
+	return getBrokerFeeSumByKey(db, currentBrokerFeeSumKey)
+}
+
+func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*BrokerFeeSumByPeriod, bool) {
+	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodId(periodId))
+}
+
+func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
+	return GetBrokerFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader))
+}
+
+func getBrokerFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*BrokerFeeSumByPeriod, bool) {
+	brokerFeeSum := &BrokerFeeSumByPeriod{}
+	ok := deserializeFromDb(db, feeKey, brokerFeeSum)
+	return brokerFeeSum, ok
+}
+
+func GetBrokerFeeSumKeyByPeriodId(periodId uint64) []byte {
+	return append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...)
+}
+
+func GetUserFees(db vm_db.VmDb, address []byte) (userFees *UserFees, ok bool) {
 	userFees = &UserFees{}
 	ok = deserializeFromDb(db, GetUserFeesKey(address), userFees)
 	return
 }
 
-func SaveUserFeesToStorage(db vm_db.VmDb, address []byte, userFees *UserFees) {
+func SaveUserFees(db vm_db.VmDb, address []byte, userFees *UserFees) {
 	serializeToDb(db, GetUserFeesKey(address), userFees)
 }
 
-func DeleteUserFeesFromStorage(db vm_db.VmDb, address []byte) {
+func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
 }
 
@@ -520,13 +573,13 @@ func GetUserFeesKey(address []byte) []byte {
 	return append(UserFeeKeyPrefix, address...)
 }
 
-func GetVxFundsFromStorage(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
+func GetVxFundsFrom(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
 	vxFunds = &VxFunds{}
 	ok = deserializeFromDb(db, GetVxFundsKey(address), vxFunds)
 	return
 }
 
-func SaveVxFundsToStorage(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
+func SaveVxFunds(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
 	serializeToDb(db, GetVxFundsKey(address), vxFunds)
 }
 
@@ -562,7 +615,7 @@ func CheckUserVxFundsCanBeDelete(vxFunds *VxFunds) bool {
 	return len(vxFunds.Funds) == 1 && !IsValidVxAmountBytesForDividend(vxFunds.Funds[0].Amount)
 }
 
-func DeleteVxFundsFromStorage(db vm_db.VmDb, address []byte) {
+func DeleteVxFunds(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetVxFundsKey(address), nil)
 }
 
@@ -580,7 +633,7 @@ func SaveVxSumFundsToDb(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
 }
 
-func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
+func GetLastFeeDividendId(db vm_db.VmDb) uint64 {
 	if lastFeeDividendIdBytes := getValueFromDb(db, lastFeeDividendIdKey); len(lastFeeDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastFeeDividendIdBytes)
 	} else {
@@ -588,11 +641,11 @@ func GetLastFeeDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	}
 }
 
-func SaveLastFeeDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
+func SaveLastFeeDividendId(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, lastFeeDividendIdKey, Uint64ToBytes(periodId))
 }
 
-func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
+func GetLastMinedVxDividendId(db vm_db.VmDb) uint64 {
 	if lastMinedVxDividendIdBytes := getValueFromDb(db, lastMinedVxDividendIdKey); len(lastMinedVxDividendIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastMinedVxDividendIdBytes)
 	} else {
@@ -600,7 +653,7 @@ func GetLastMinedVxDividendIdFromStorage(db vm_db.VmDb) uint64 {
 	}
 }
 
-func SaveLastMinedVxDividendIdToStorage(db vm_db.VmDb, periodId uint64) {
+func SaveLastMinedVxDividendId(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
 }
 
@@ -612,7 +665,7 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 	return amount.Cmp(VxDividendThreshold) >= 0
 }
 
-func GetCurrentPeriodIdFromStorage(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
+func GetCurrentPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
 	return reader.GetIndexByTime(GetTimestampInt64(db), 0)
 }
 
@@ -625,7 +678,7 @@ func GetDonateFeeSum(db vm_db.VmDb, periodId uint64) *big.Int {
 }
 
 func AddDonateFeeSum(db vm_db.VmDb, reader util.ConsensusReader) {
-	period := GetCurrentPeriodIdFromStorage(db, reader)
+	period := GetCurrentPeriodId(db, reader)
 	donateFeeSum := GetDonateFeeSum(db, period)
 	setValueToDb(db, GetDonateFeeSumKey(period), new(big.Int).Add(donateFeeSum, NewMarketFeeDonateAmount).Bytes())
 }
