@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
-const defaultBroadcastTTL = 10
+const defaultBroadcastTTL = 32
 
 // A blockStore implementation can store blocks in queue,
 // when node is syncing, blocks from remote broadcaster can be stored.
@@ -582,16 +582,6 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 			b.log.Info(fmt.Sprintf("broadcast snapshotblock %s/%d to %s", block.Hash, block.Height, p))
 		}
 	}
-
-	if b.chain != nil {
-		current := b.chain.GetLatestSnapshotBlock().Height
-		if block.Timestamp != nil && block.Height > current {
-			delta := now.Sub(*block.Timestamp)
-			b.mu.Lock()
-			b.statistic.Put(delta.Nanoseconds() / 1e6)
-			b.mu.Unlock()
-		}
-	}
 }
 
 func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
@@ -646,6 +636,17 @@ func (b *broadcaster) forwardSnapshotBlock(msg *message.NewSnapshotBlock, sender
 			b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
 		} else {
 			b.log.Info(fmt.Sprintf("forward snapshotblock %s/%d to %s", msg.Block.Hash, msg.Block.Height, p))
+		}
+	}
+
+	if b.chain != nil {
+		now := time.Now()
+		current := b.chain.GetLatestSnapshotBlock().Height
+		if msg.Block.Timestamp != nil && msg.Block.Height > current {
+			delta := now.Sub(*msg.Block.Timestamp)
+			b.mu.Lock()
+			b.statistic.Put(delta.Nanoseconds() / 1e6)
+			b.mu.Unlock()
 		}
 	}
 }

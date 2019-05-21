@@ -20,6 +20,10 @@ type mockPeer struct {
 	peerMap map[vnode.NodeID]struct{}
 }
 
+func (mp *mockPeer) Disconnect(err error) {
+	panic("implement me")
+}
+
 func (mp *mockPeer) Weight() int64 {
 	panic("implement me")
 }
