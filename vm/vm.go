@@ -705,7 +705,6 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, q, qUsed)
-	block.Data = getReceiveCallData(db, err, 0)
 	return &vm_db.VmAccountBlock{block, db}, noRetry, nil
 }
 
