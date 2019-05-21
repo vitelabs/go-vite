@@ -49,7 +49,7 @@ func (mp *mockPeer) FileAddress() string {
 }
 
 func (mp *mockPeer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
-	panic("implement me")
+	return nil
 }
 
 func newMockPeer(id vnode.NodeID, height uint64) *mockPeer {
