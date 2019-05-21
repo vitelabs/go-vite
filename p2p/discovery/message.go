@@ -34,7 +34,7 @@ import (
 )
 
 const version byte = 0
-const expiration = 5 * time.Second
+const expiration = 15 * time.Second
 const maxPacketLength = 1200
 const signatureLength = 64
 const packetHeadLength = 1 + 1 + len(vnode.ZERO)
