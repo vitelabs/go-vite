@@ -382,7 +382,6 @@ func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 				return err
 			}
 		} else {
-			fmt.Println(accP.address, block.block.IsSendBlock())
 			return errors.New("tail not match")
 		}
 		accP.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))

@@ -45,7 +45,7 @@ func (pl *pool) insertQueueForFork(q batch.Batch) error {
 	defer func() {
 		sub := time.Now().Sub(t0)
 		queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
-		fmt.Println(queueResult)
+		pl.log.Info(fmt.Sprintln(queueResult))
 	}()
 	return q.Batch(pl.insertSnapshotBucketForFork, pl.insertAccountsBucketForFork)
 }
@@ -83,7 +83,8 @@ func (pl *pool) makeQueueOnly() batch.Batch {
 			// snapshot block
 			err := pl.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
-				fmt.Println("from snapshot", err)
+
+				pl.log.Info(fmt.Sprintf("from snapshot, %v", err))
 				break
 			}
 			snapshotOffset.offset = newOffset
@@ -91,7 +92,6 @@ func (pl *pool) makeQueueOnly() batch.Batch {
 	}
 	if p.Size() > 0 {
 		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
-		fmt.Println(msg)
 		pl.log.Info(msg)
 	}
 	return p
