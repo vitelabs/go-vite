@@ -83,7 +83,7 @@ func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
 	var weight int
 
 	for {
-		if len(tree.nodes) == 0 {
+		if tree == nil || len(tree.nodes) == 0 {
 			return
 		}
 
@@ -209,6 +209,6 @@ func (sk *skeleton) removePending(id p2p.MsgId) {
 func (sk *skeleton) reset() {
 	sk.mu.Lock()
 	sk.pending = make(map[p2p.MsgId]Peer)
-	sk.tree = nil
+	sk.tree = newHashHeightTree()
 	sk.mu.Unlock()
 }
