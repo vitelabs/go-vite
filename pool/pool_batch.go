@@ -113,6 +113,10 @@ func (pl *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.Hash
 	if block.PrevHash() != info.offset.Hash {
 		return nil, nil, nil
 	}
+
+	if pl.hashBlacklist.Exists(block.Hash()) {
+		return nil, nil, nil
+	}
 	newOffset := &ledger.HashHeight{Hash: block.Hash(), Height: block.Height()}
 	b := block.(*snapshotPoolBlock)
 	result := &completeSnapshotBlock{cur: b}
@@ -150,7 +154,7 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 		for _, v := range b.addrM {
 			for v.Len() > 0 {
 				ab := v.Peek().(*accountPoolBlock)
-				err := p.AddItem(ab)
+				err := p.AddSItem(ab)
 				if err != nil {
 					if err == batch.MAX_ERROR {
 						pl.log.Info(fmt.Sprintf("account[%s] max. %s\n", ab.Hash(), err))
@@ -170,7 +174,7 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 		}
 	}
 	if b.isEmpty() {
-		err := p.AddItem(b.cur)
+		err := p.AddSItem(b.cur)
 		if err != nil {
 			pl.log.Info(fmt.Sprintf("add snapshot[%s] error. %s\n", b.cur.Hash(), err))
 			return err
@@ -219,29 +223,33 @@ func (pl *pool) insertQueue(q batch.Batch) error {
 	return q.Batch(pl.insertSnapshotBucketForTree, pl.insertAccountBucketForTree)
 }
 
-func (pl *pool) insertSnapshotBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+func (pl *pool) insertSnapshotBucketForTree(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
 	// stop the world for snapshot insert
 	pl.LockInsert()
 	defer pl.UnLockInsert()
-	return pl.insertSnapshotBucket(p, bucket, version)
+	return pl.insertSnapshotBucket(p, l, bucket, version)
 }
 
-func (pl *pool) insertAccountBucketForTree(p batch.Batch, bucket batch.Bucket, version uint64) error {
+func (pl *pool) insertAccountBucketForTree(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
 	pl.RLockInsert()
 	defer pl.RUnLockInsert()
-	return pl.insertAccountBucket(p, bucket, version)
+	return pl.insertAccountBucket(p, l, bucket, version)
 }
 
-func (pl *pool) insertAccountBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
+func (pl *pool) insertAccountBucket(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
 	latestSb := pl.bc.GetLatestSnapshotBlock()
 	err := pl.selfPendingAc(*bucket.Owner()).tryInsertItems(p, bucket.Items(), latestSb, version)
 	if err != nil {
+		sHash := l.SHash()
+		if sHash != nil {
+			pl.hashBlacklist.AddAddTimeout(*sHash, time.Second*50)
+		}
 		return err
 	}
 	return nil
 }
 
-func (pl *pool) insertSnapshotBucket(p batch.Batch, bucket batch.Bucket, version uint64) error {
+func (pl *pool) insertSnapshotBucket(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
 	accBlocks, item, err := pl.pendingSc.snapshotInsertItems(p, bucket.Items(), version)
 	if err != nil {
 		return err

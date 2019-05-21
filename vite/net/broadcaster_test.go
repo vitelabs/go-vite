@@ -404,3 +404,16 @@ func TestCommonPeers2(t *testing.T) {
 		t.Errorf("wrong commons count: %d", len(commons))
 	}
 }
+
+func TestForward(t *testing.T) {
+	b := newBroadcaster(mockBroadcastPeerSet{}, mockVerifier{}, newBlockFeeder(), newMemBlockStore(10), newFullForwardStrategy(newPeerSet()), nil, &mockCacheChain{})
+	now := time.Time{}
+	b.forwardSnapshotBlock(&message.NewSnapshotBlock{
+		Block: &ledger.SnapshotBlock{
+			Height:    100,
+			Timestamp: &now,
+		},
+	}, &mockPeer{})
+
+	fmt.Println(b.Statistic())
+}

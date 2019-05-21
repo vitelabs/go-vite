@@ -50,12 +50,12 @@ func (pl *pool) insertQueueForFork(q batch.Batch) error {
 	return q.Batch(pl.insertSnapshotBucketForFork, pl.insertAccountsBucketForFork)
 }
 
-func (pl *pool) insertSnapshotBucketForFork(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertSnapshotBucket(p, bucket, version)
+func (pl *pool) insertSnapshotBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertSnapshotBucket(p, l, bucket, version)
 }
 
-func (pl *pool) insertAccountsBucketForFork(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertAccountBucket(p, bucket, version)
+func (pl *pool) insertAccountsBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertAccountBucket(p, l, bucket, version)
 }
 
 func (pl *pool) checkTarget(height uint64) error {

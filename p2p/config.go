@@ -30,7 +30,7 @@ import (
 
 const (
 	DefaultNodeName        = "vite-node"
-	DefaultMaxPeers        = 10
+	DefaultMaxPeers        = 60
 	DefaultMaxInboundRatio = 2
 	DefaultOutboundPeers   = 5
 	DefaultSuperiorPeers   = 70
