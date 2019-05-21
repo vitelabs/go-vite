@@ -11,8 +11,9 @@ const (
 	quotaForSection      uint64 = 280
 	quotaLimitForAccount        = 74025000
 
-	precForFloat  uint   = 64
-	maxWaitHeight uint64 = 75
+	precForFloat        uint   = 64
+	maxWaitHeight       uint64 = 75
+	outOfQuotaBlockTime uint64 = 75
 )
 
 type QuotaParams struct {
