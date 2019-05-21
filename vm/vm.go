@@ -460,10 +460,6 @@ func getReceiveCallData(db vm_db.VmDb, err error, qUsed uint64) []byte {
 		return append(db.GetReceiptHash().Bytes(), resultSuccess)
 	} else if err == util.ErrDepth {
 		return append(db.GetReceiptHash().Bytes(), resultDepthErr)
-	} else if err == util.ErrOutOfQuota {
-		tmp := new(big.Int).SetBytes(db.GetReceiptHash().Bytes())
-		tmp.Add(tmp, new(big.Int).SetUint64(qUsed))
-		return append(helper.LeftPadBytes(tmp.Bytes(), 32), resultFail)
 	} else {
 		return append(db.GetReceiptHash().Bytes(), resultFail)
 	}

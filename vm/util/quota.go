@@ -81,7 +81,7 @@ func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, e
 		return 0, 0
 	}
 	if err == ErrOutOfQuota {
-		return quotaTotal - quotaAddition, quotaTotal
+		return 0, 0
 	} else {
 		qUsed = quotaTotal - quotaLeft
 		if qUsed < quotaAddition {
