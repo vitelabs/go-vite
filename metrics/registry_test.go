@@ -110,7 +110,7 @@ func TestGetOrRegister_NilMetrics(t *testing.T) {
 	r := NewRegistry()
 	m := r.GetOrRegister("Oooooops", newStandardMeter())
 	if _, ok := m.(*NilMeter); ok {
-		t.Log("new object is a nil object")
+		t.Log("new object is chain nil object")
 		return
 	}
 	if _, ok := m.(*StandardMeter); !ok {
@@ -338,7 +338,7 @@ func TestWalkRegistries(t *testing.T) {
 }
 
 func TestNewPrefixedRegistry(t *testing.T) {
-	r0 := NewPrefixedRegistry("a.")
+	r0 := NewPrefixedRegistry("chain.")
 	NewPrefixedChildRegistry(r0, "b.c.")
 	r0sr, name0 := findPrefix(r0, "b.")
 	if r0sr == nil {
@@ -430,7 +430,7 @@ func TestConcurrentRegistryAccess(t *testing.T) {
 			iface := r.GetOrRegister("foo", counter)
 			retCounter, ok := iface.(Counter)
 			if !ok {
-				t.Fatal("Expected a Counter type")
+				t.Fatal("Expected chain Counter type")
 			}
 			if retCounter != counter {
 				t.Fatal("Counter references don't match")
@@ -441,7 +441,7 @@ func TestConcurrentRegistryAccess(t *testing.T) {
 	close(signalChan) // Closing will cause all go routines to execute at the same time
 	wg.Wait()         // Wait for all go routines to do their work
 
-	// At the end of the test we should still only have a single "foo" Counter
+	// At the end of the test we should still only have chain single "foo" Counter
 	i := 0
 	r.Each(func(name string, iface interface{}) {
 		i++

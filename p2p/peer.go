@@ -1,587 +1,352 @@
+/*
+ * Copyright 2019 The go-vite Authors
+ * This file is part of the go-vite library.
+ *
+ * The go-vite library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The go-vite library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package p2p
 
 import (
+	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/p2p/protos"
 )
 
-const writeBufferLen = 100
-const readBufferLen = 100
+var errPeerAlreadyRunning = errors.New("peer is already running")
+var errPeerNotRunning = errors.New("peer is not running")
+var errPeerWriteBusy = errors.New("peer is busy")
+var errPeerCannotWrite = errors.New("peer is not writable")
 
-var msgReadTimeout = 40 * time.Second
-var msgWriteTimeout = 20 * time.Second
+// WriteMsg will put msg into queue, then write asynchronously
+func (p *peerMux) WriteMsg(msg Msg) (err error) {
+	p.write()
+	defer p.writeDone()
 
-var errMsgTooLarge = errors.New("message payload is too large")
-var errMsgNull = errors.New("message payload is 0 byte")
-var errPeerTermed = errors.New("peer has been terminated")
-
-type transport struct {
-	net.Conn
-	flags      connFlag
-	cmdSets    []CmdSet
-	name       string
-	localID    discovery.NodeID
-	localIP    net.IP
-	localPort  uint16
-	remoteID   discovery.NodeID
-	remoteIP   net.IP
-	remotePort uint16
-}
-
-func (t *transport) ReadMsg() (*Msg, error) {
-	//t.SetReadDeadline(time.Now().Add(msgReadTimeout))
-	return ReadMsg(t)
-}
-
-func (t *transport) WriteMsg(msg *Msg) error {
-	//t.SetWriteDeadline(time.Now().Add(msgWriteTimeout))
-	return WriteMsg(t, msg)
-}
-
-func (t *transport) is(flag connFlag) bool {
-	return t.flags.is(flag)
-}
-
-func (t *transport) Handshake(key ed25519.PrivateKey, our *Handshake) (their *Handshake, err error) {
-	data, err := our.Serialize()
-	if err != nil {
-		return
-	}
-	sig := ed25519.Sign(key, data)
-	// unshift signature before data
-	data = append(sig, data...)
-
-	send := make(chan error, 1)
-	common.Go(func() {
-		msg := NewMsg()
-		msg.CmdSet = baseProtocolCmdSet
-		msg.Cmd = handshakeCmd
-		msg.Payload = data
-
-		t.SetWriteDeadline(time.Now().Add(shakeTimeout))
-		defer t.SetWriteDeadline(time.Time{})
-
-		send <- WriteMsg(t, msg)
-	})
-
-	t.SetReadDeadline(time.Now().Add(shakeTimeout))
-	defer t.SetReadDeadline(time.Time{})
-	if their, err = readHandshake(t); err != nil {
-		return
+	if atomic.LoadInt32(&p.writable) == 0 {
+		return errPeerCannotWrite
 	}
 
-	if err = <-send; err != nil {
-		return
-	}
-
-	return
-}
-
-type ProtoFrame struct {
-	*Protocol
-	r         chan *Msg
-	w         chan<- *Msg   // use peer`s wqueue
-	term      chan struct{} // use peer`s term
-	Received  map[Cmd]uint64
-	Discarded map[Cmd]uint64
-	Send      map[Cmd]uint64
-	log       log15.Logger
-	addr      string
-}
-
-func newProtoFrame(protocol *Protocol) *ProtoFrame {
-	return &ProtoFrame{
-		Protocol:  protocol,
-		r:         make(chan *Msg, readBufferLen),
-		Received:  make(map[Cmd]uint64),
-		Discarded: make(map[Cmd]uint64),
-		Send:      make(map[Cmd]uint64),
-	}
-}
-
-func (pf *ProtoFrame) ReadMsg() (msg *Msg, err error) {
 	select {
-	case <-pf.term:
-		return msg, io.EOF
-	case msg = <-pf.r:
-		return
-	}
-}
-
-func (pf *ProtoFrame) WriteMsg(msg *Msg) (err error) {
-	select {
-	case <-pf.term:
-		return errPeerTermed
-	case pf.w <- msg:
+	case p.writeQueue <- msg:
+		return nil
 	default:
-		pf.log.Warn(fmt.Sprintf("pf %s write is busy, discard message %d/%d", pf.addr, msg.CmdSet, msg.Cmd))
-	}
-
-	return
-}
-
-// create multiple pfs above the rw
-func createProtoFrames(ourSet []*Protocol, theirSet []CmdSet) pfMap {
-	pfs := make(pfMap)
-	for _, our := range ourSet {
-		for _, their := range theirSet {
-			if our.ID == their {
-				pfs[our.ID] = newProtoFrame(our)
-			}
-		}
-	}
-
-	return pfs
-}
-
-// event
-type protoDone struct {
-	id  CmdSet
-	err error
-}
-
-// @section Peer
-type pfMap = map[CmdSet]*ProtoFrame
-type Peer struct {
-	ts        *transport
-	tsError   int32 // atomic if transport occur an error
-	pfs       pfMap
-	Created   time.Time
-	wg        sync.WaitGroup
-	term      chan struct{}
-	disc      chan DiscReason // disconnect proactively
-	errch     chan error      // for common error
-	protoDone chan *protoDone // for protocols
-	wqueue    chan *Msg
-	speed     float64
-	rwLock    sync.RWMutex
-	log       log15.Logger
-}
-
-func NewPeer(conn *transport, ourSet []*Protocol) (*Peer, error) {
-	pfs := createProtoFrames(ourSet, conn.cmdSets)
-
-	if len(pfs) == 0 {
-		return nil, DiscUselessPeer
-	}
-
-	p := &Peer{
-		ts:        conn,
-		pfs:       pfs,
-		term:      make(chan struct{}),
-		Created:   time.Now(),
-		disc:      make(chan DiscReason, 1),
-		errch:     make(chan error),
-		protoDone: make(chan *protoDone, len(pfs)),
-		wqueue:    make(chan *Msg, writeBufferLen),
-		log:       log15.New("module", "p2p/peer"),
-	}
-
-	return p, nil
-}
-
-func (p *Peer) Disconnect(reason DiscReason) {
-	select {
-	case <-p.term:
-	case p.disc <- reason:
+		return errPeerWriteBusy
 	}
 }
 
-func (p *Peer) startProtocols() {
-	p.wg.Add(len(p.pfs))
-
-	for _, pf := range p.pfs {
-		// closure
-		pf := pf
-		common.Go(func() {
-			defer p.wg.Done()
-
-			//p.runProtocol(protoFrame)
-			pf.term = p.term
-			pf.w = p.wqueue
-			pf.log = p.log
-			pf.addr = p.RemoteAddr().String()
-
-			err := pf.Handle(p, pf)
-			p.protoDone <- &protoDone{pf.ID, err}
-		})
-	}
+func (p *peerMux) write() {
+	atomic.AddInt32(&p.writing, 1)
 }
 
-func (p *Peer) readLoop() {
-	defer p.wg.Done()
-
-	for {
-		select {
-		case <-p.term:
-			return
-		default:
-			if msg, err := p.ts.ReadMsg(); err == nil {
-				monitor.LogEvent("p2p_ts", "read")
-				monitor.LogDuration("p2p_ts", "read_bytes", int64(len(msg.Payload)))
-				monitor.LogDuration("p2p_ts", "stt", msg.ReceivedAt.Sub(msg.SendAt).Nanoseconds())
-
-				p.handleMsg(msg)
-			} else {
-				select {
-				case p.errch <- err:
-					atomic.StoreInt32(&p.tsError, 1)
-				default:
-					return
-				}
-			}
-		}
-	}
+func (p *peerMux) writeDone() {
+	atomic.AddInt32(&p.writing, -1)
 }
 
-func (p *Peer) writeLoop() {
-	defer p.wg.Done()
-
-loop:
-	for {
-		select {
-		case <-p.term:
-			break loop
-		case msg := <-p.wqueue:
-			if pf, ok := p.pfs[msg.CmdSet]; ok {
-				pf.Send[msg.Cmd]++
-			}
-
-			before := time.Now()
-			if err := p.ts.WriteMsg(msg); err != nil {
-				select {
-				case p.errch <- err:
-					atomic.StoreInt32(&p.tsError, 2)
-				default:
-					return
-				}
-			}
-
-			monitor.LogEvent("p2p_ts", "write")
-			monitor.LogDuration("p2p_ts", "write_bytes", int64(len(msg.Payload)))
-			monitor.LogDuration("p2p_ts", "write_queue", int64(len(p.wqueue)))
-			monitor.LogTime("p2p_ts", "write_time", before)
-			p.log.Debug(fmt.Sprintf("write message %d/%d to %s, spend %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), time.Now().Sub(before), len(p.wqueue)))
-		}
-	}
-
-	// no error, disconnected initiative
-	if atomic.LoadInt32(&p.tsError) == 0 {
-		for i := 0; i < len(p.wqueue); i++ {
-			if err := p.ts.WriteMsg(<-p.wqueue); err != nil {
-				return
-			}
-		}
-	}
+type PeerInfo struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Version    int    `json:"version"`
+	Height     uint64 `json:"height"`
+	Address    string `json:"address"`
+	Level      Level  `json:"level"`
+	CreateAt   string `json:"createAt"`
+	ReadQueue  int    `json:"readQueue"`
+	WriteQueue int    `json:"writeQueue"`
 }
 
-func (p *Peer) run() (err error) {
-	p.log.Info(fmt.Sprintf("peer %s run", p))
+const peerReadMsgBufferSize = 10
+const peerWriteMsgBufferSize = 100
 
-	p.startProtocols()
+type levelManager interface {
+	changeLevel(p PeerMux, old Level) error
+}
 
-	p.wg.Add(1)
-	common.Go(p.readLoop)
+type peerMux struct {
+	codec       Codec
+	id          vnode.NodeID
+	name        string
+	height      uint64
+	head        types.Hash
+	version     int
+	level       Level
+	pm          levelManager
+	createAt    time.Time
+	running     int32
+	writable    int32 // set to 0 when write error in writeLoop, or close actively
+	writing     int32
+	readQueue   chan Msg // will be closed when read error in readLoop
+	writeQueue  chan Msg // will be closed in method Close
+	errChan     chan error
+	wg          sync.WaitGroup
+	log         log15.Logger
+	proto       Protocol
+	fileAddress string
+}
 
-	p.wg.Add(1)
-	common.Go(p.writeLoop)
+func (p *peerMux) Weight() int64 {
+	return int64(p.level)
+}
 
-	var proactively bool // whether we want to disconnect or not
-	var reason DiscReason
+func (p *peerMux) Head() types.Hash {
+	return p.head
+}
 
-wait:
-	select {
-	case reason = <-p.disc:
-		err = reason
-		p.log.Warn(fmt.Sprintf("disconnect with peer %s: %v", p.RemoteAddr(), err))
-		proactively = true
+func (p *peerMux) SetHead(head types.Hash, height uint64) {
+	p.head, p.height = head, height
+}
 
-	case e := <-p.protoDone:
-		if pf, ok := p.pfs[e.id]; ok {
-			p.log.Error(fmt.Sprintf("peer %s protocol %s is done: %v", p.RemoteAddr(), pf, e.err))
+// Level return the peer`s level
+func (p *peerMux) Level() Level {
+	return p.level
+}
 
-			if err = e.err; err != nil {
-				reason = DiscProtocolError
-				proactively = true
-
-				// todo block it
-
-				break
-			}
-
-			p.rwLock.Lock()
-			delete(p.pfs, e.id)
-			p.rwLock.Unlock()
-
-			if len(p.pfs) == 0 {
-				err = DiscAllProtocolDone
-				reason = DiscAllProtocolDone
-				proactively = true
-				break
-			}
-		}
-
-		// wait for rest protocols
-		goto wait
-
-	case err = <-p.errch:
-		p.log.Error(fmt.Sprintf("peer %s error: %v", p.RemoteAddr(), err))
-		proactively = false
+// SetLevel change the peer`s level, return error is not nil if peer is not running, or change failed
+func (p *peerMux) SetLevel(level Level) error {
+	if atomic.LoadInt32(&p.running) == 0 {
+		return errPeerNotRunning
 	}
 
-	if proactively && atomic.LoadInt32(&p.tsError) == 0 {
-		if m, e := PackMsg(baseProtocolCmdSet, discCmd, 0, reason); e == nil {
-			p.ts.WriteMsg(m)
-		}
+	old := p.level
+	p.level = level
+
+	err := p.pm.changeLevel(p, old)
+	if err != nil {
+		p.log.Warn(fmt.Sprintf("failed to change peer %s from level %d to level %d", p.Address(), old, level))
 	}
 
-	close(p.term)
-	p.ts.Close()
-
-	p.wg.Wait()
-
-	p.log.Info(fmt.Sprintf("peer %s run done: %v", p.RemoteAddr(), err))
 	return err
 }
 
-func (p *Peer) handleMsg(msg *Msg) {
-	cmdset, cmd := msg.CmdSet, msg.Cmd
+// String return `id@address`
+func (p *peerMux) String() string {
+	return p.id.Brief() + "@" + p.codec.Address().String()
+}
 
-	if cmdset == baseProtocolCmdSet {
-		if cmd == discCmd {
-			p.log.Warn(fmt.Sprintf("receive disc from %s", p.RemoteAddr()))
+// Address return the remote net address
+func (p *peerMux) Address() net.Addr {
+	return p.codec.Address()
+}
 
-			var disc error
-			if reason, err := DeserializeDiscReason(msg.Payload); err == nil {
-				disc = reason
-			} else {
-				disc = err
-			}
+func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
+	pm := &peerMux{
+		codec:       c,
+		id:          id,
+		name:        name,
+		version:     version,
+		level:       level,
+		createAt:    time.Now(),
+		readQueue:   make(chan Msg, peerReadMsgBufferSize),
+		writeQueue:  make(chan Msg, peerWriteMsgBufferSize),
+		running:     0,
+		writable:    1,
+		errChan:     make(chan error, 3),
+		log:         p2pLog.New("peer", id.Brief()),
+		proto:       proto,
+		fileAddress: fileAddress,
+		height:      height,
+		head:        head,
+	}
 
-			select {
-			case <-p.term:
-			case p.errch <- disc:
-			default:
-			}
+	return pm
+}
+
+func (p *peerMux) ID() vnode.NodeID {
+	return p.id
+}
+
+func (p *peerMux) Height() uint64 {
+	return p.height
+}
+
+func (p *peerMux) FileAddress() string {
+	return p.fileAddress
+}
+
+// setManager will be invoked before run by module p2p
+func (p *peerMux) setManager(pm levelManager) {
+	p.pm = pm
+}
+
+func (p *peerMux) run() (err error) {
+	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
+		err = p.onAdded()
+		if err != nil {
+			return
 		}
 
-		msg.Recycle()
-	} else if pf := p.pfs[cmdset]; pf != nil {
-		select {
-		case <-p.term:
-			p.log.Error(fmt.Sprintf("peer has been terminated, can`t handle message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
-			msg.Recycle()
+		defer p.onRemoved()
 
-		case pf.r <- msg:
-			pf.Received[msg.Cmd]++
-			monitor.LogDuration("p2p_ts", "read_queue_"+pf.String(), int64(len(pf.r)))
-			p.log.Debug(fmt.Sprintf("read message %d/%d from %s, rest %d messages", msg.CmdSet, msg.Cmd, p.RemoteAddr(), len(pf.r)))
+		p.goLoop(p.readLoop, p.errChan)
+		p.goLoop(p.writeLoop, p.errChan)
+		p.goLoop(p.handleLoop, p.errChan)
+
+		err = <-p.errChan
+		return
+	}
+
+	return errPeerAlreadyRunning
+}
+
+func (p *peerMux) goLoop(fn func() error, ch chan<- error) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		err := fn()
+		ch <- err
+	}()
+}
+
+func (p *peerMux) readLoop() (err error) {
+	defer close(p.readQueue)
+
+	var msg Msg
+
+	for {
+		p.log.Debug(fmt.Sprintf("begin read message"))
+		msg, err = p.codec.ReadMsg()
+		p.log.Debug(fmt.Sprintf("read message %d %d bytes done", msg.Code, len(msg.Payload)))
+		if err != nil {
+			atomic.StoreInt32(&p.writable, 0)
+			return
+		}
+
+		msg.ReceivedAt = time.Now()
+		msg.Sender = p
+
+		switch msg.Code {
+		case CodeDisconnect:
+			if len(msg.Payload) > 0 {
+				err = PeerError(msg.Payload[0])
+			} else {
+				err = PeerUnknownReason
+			}
+			return
+		case CodeControlFlow:
+		// todo
 
 		default:
-			p.log.Warn(fmt.Sprintf("protocol is busy, discard message %d/%d from %s", cmdset, cmd, p.RemoteAddr()))
-			pf.Discarded[msg.Cmd]++
-			monitor.LogEvent("p2p_ts", "discard")
-			msg.Recycle()
+			p.readQueue <- msg
 		}
-	} else {
-		msg.Recycle()
 	}
 }
 
-func (p *Peer) ID() discovery.NodeID {
-	return p.ts.remoteID
-}
-
-func (p *Peer) Name() string {
-	return p.ts.name
-}
-
-func (p *Peer) String() string {
-	return p.ID().String() + "@" + p.RemoteAddr().String()
-}
-
-func (p *Peer) CmdSets() []CmdSet {
-	return p.ts.cmdSets
-}
-
-func (p *Peer) RemoteAddr() *net.TCPAddr {
-	return p.ts.RemoteAddr().(*net.TCPAddr)
-}
-
-func (p *Peer) IP() net.IP {
-	return p.RemoteAddr().IP
-}
-
-func (p *Peer) Info() *PeerInfo {
-	caps := make([]string, len(p.pfs))
-
-	i := 0
-	for _, pf := range p.pfs {
-		caps[i] = pf.String()
-		i++
+func (p *peerMux) writeLoop() (err error) {
+	var msg Msg
+	for msg = range p.writeQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin write msg %d %d bytes", msg.Code, len(msg.Payload)))
+		if err = p.codec.WriteMsg(msg); err != nil {
+			p.log.Debug(fmt.Sprintf("write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
+			atomic.StoreInt32(&p.writable, 0)
+			return
+		}
+		p.log.Debug(fmt.Sprintf("write msg %d %d bytes done[%d][%s]", msg.Code, len(msg.Payload), len(p.writeQueue), time.Now().Sub(t1)))
 	}
 
-	return &PeerInfo{
-		ID:      p.ID().String(),
-		Name:    p.Name(),
-		CmdSets: caps,
-		Address: p.RemoteAddr().String(),
-		Inbound: p.ts.is(inbound),
-	}
-}
-
-// @section PeerSet
-type PeerSet struct {
-	mu       sync.Mutex
-	m        map[discovery.NodeID]*Peer
-	inbound  int
-	outbound int
-}
-
-func NewPeerSet() *PeerSet {
-	return &PeerSet{
-		m: make(map[discovery.NodeID]*Peer),
-	}
-}
-
-func (s *PeerSet) Add(p *Peer) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.m[p.ID()] = p
-	if p.ts.is(inbound) {
-		s.inbound++
-	} else {
-		s.outbound++
-	}
-}
-
-func (s *PeerSet) Del(p *Peer) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	delete(s.m, p.ID())
-
-	if p.ts.is(inbound) {
-		s.inbound--
-	} else {
-		s.outbound--
-	}
-}
-
-func (s *PeerSet) Has(id discovery.NodeID) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	_, ok := s.m[id]
-	return ok
-}
-
-func (s *PeerSet) Size() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return len(s.m)
-}
-
-func (s *PeerSet) Info() []*PeerInfo {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	info := make([]*PeerInfo, len(s.m))
-	i := 0
-	for _, p := range s.m {
-		info[i] = p.Info()
-		i++
-	}
-
-	return info
-}
-
-func (s *PeerSet) DisconnectAll() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, peer := range s.m {
-		peer.Disconnect(DiscQuitting)
-		delete(s.m, id)
-	}
-}
-
-// @section PeerInfo
-type PeerInfo struct {
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	CmdSets []string `json:"cmdSets"`
-	Address string   `json:"address"`
-	Inbound bool     `json:"inbound"`
-}
-
-// @section ConnProperty
-type ConnProperty struct {
-	LocalID    string `json:"localID"`
-	LocalIP    net.IP `json:"localIP"`
-	LocalPort  uint16 `json:"localPort"`
-	RemoteID   string `json:"remoteID"`
-	RemoteIP   net.IP `json:"remoteIP"`
-	RemotePort uint16 `json:"remotePort"`
-}
-
-func (cp *ConnProperty) Serialize() ([]byte, error) {
-	return proto.Marshal(cp.Proto())
-}
-
-func (cp *ConnProperty) Deserialize(buf []byte) error {
-	pb := new(protos.ConnProperty)
-	err := proto.Unmarshal(buf, pb)
-	if err != nil {
-		return err
-	}
-
-	cp.Deproto(pb)
 	return nil
 }
 
-func (cp *ConnProperty) Proto() *protos.ConnProperty {
-	return &protos.ConnProperty{
-		LocalID:    cp.LocalID,
-		LocalIP:    cp.LocalIP,
-		LocalPort:  uint32(cp.LocalPort),
-		RemoteID:   cp.RemoteID,
-		RemoteIP:   cp.RemoteIP,
-		RemotePort: uint32(cp.RemotePort),
+func (p *peerMux) handleLoop() (err error) {
+	var msg Msg
+	for msg = range p.readQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin handle msg %d", msg.Code))
+		err = p.proto.Handle(msg)
+		p.log.Debug(fmt.Sprintf("handle msg %d done[%d][%s]", msg.Code, len(p.readQueue), time.Now().Sub(t1)))
+		if err != nil {
+			return
+		}
 	}
+
+	return nil
 }
 
-func (cp *ConnProperty) Deproto(pb *protos.ConnProperty) {
-	cp.LocalID = pb.LocalID
-	cp.LocalIP = pb.LocalIP
-	cp.LocalPort = uint16(pb.LocalPort)
+func (p *peerMux) Close(err error) (err2 error) {
+	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if pe, ok := err.(PeerError); ok {
+			_ = p.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(pe)},
+			})
+		}
 
-	cp.RemoteID = pb.RemoteID
-	cp.RemoteIP = pb.RemoteIP
-	cp.RemotePort = uint16(pb.RemotePort)
+		time.Sleep(100 * time.Millisecond)
+		atomic.StoreInt32(&p.writable, 0)
+
+		// ensure nobody is writing
+		for {
+			if atomic.LoadInt32(&p.writing) == 0 {
+				break
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		close(p.writeQueue)
+
+		if err3 := p.codec.Close(); err3 != nil {
+			err2 = err3
+		}
+
+		p.wg.Wait()
+	}
+
+	return errPeerNotRunning
 }
 
-func (p *Peer) GetConnProperty() *ConnProperty {
-	return &ConnProperty{
-		LocalID:    p.ts.localID.String(),
-		LocalIP:    p.ts.localIP,
-		LocalPort:  p.ts.localPort,
-		RemoteID:   p.ts.remoteID.String(),
-		RemoteIP:   p.ts.remoteIP,
-		RemotePort: p.ts.remotePort,
+func (p *peerMux) Disconnect(err error) {
+	_ = Disconnect(p.codec, err)
+}
+
+func (p *peerMux) onAdded() (err error) {
+	err = p.proto.OnPeerAdded(p)
+	if err != nil {
+		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", p, err))
+	}
+
+	return
+}
+
+func (p *peerMux) onRemoved() {
+	err := p.proto.OnPeerRemoved(p)
+	if err != nil {
+		p.log.Error(fmt.Sprintf("failed to remove peer %s: %v", p, err))
+	}
+
+	return
+}
+
+func (p *peerMux) Info() PeerInfo {
+	return PeerInfo{
+		ID:         p.id.String(),
+		Name:       p.name,
+		Version:    p.version,
+		Height:     p.height,
+		Address:    p.codec.Address().String(),
+		Level:      p.level,
+		CreateAt:   p.createAt.Format("2006-01-02 15:04:05"),
+		ReadQueue:  len(p.readQueue),
+		WriteQueue: len(p.writeQueue),
 	}
 }

@@ -53,6 +53,7 @@ const (
 	SAR
 )
 
+// 0x20 range - hash ops.
 const (
 	BLAKE2B opCode = 0x21
 )
@@ -87,8 +88,9 @@ const (
 	GASLIMIT
 	TOKENID
 	ACCOUNTHEIGHT
-	ACCOUNTHASH
+	PREVHASH
 	FROMHASH
+	SEED
 )
 
 // 0x50 range - 'storage' and execution.
@@ -259,8 +261,9 @@ var opCodeToString = map[opCode]string{
 	GASLIMIT:      "GASLIMIT",
 	TOKENID:       "TOKENID",
 	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
-	ACCOUNTHASH:   "ACCOUNTHASH",
+	PREVHASH:      "PREVHASH",
 	FROMHASH:      "FROMHASH",
+	SEED:          "SEED",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -425,8 +428,9 @@ var stringToOp = map[string]opCode{
 	"GASLIMIT":       GASLIMIT,
 	"TOKENID":        TOKENID,
 	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
-	"ACCOUNTHASH":    ACCOUNTHASH,
+	"PREVHASH":       PREVHASH,
 	"FROMHASH":       FROMHASH,
+	"SEED":           SEED,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,
@@ -514,9 +518,4 @@ var stringToOp = map[string]opCode{
 	"CALLCODE":       CALLCODE,
 	"REVERT":         REVERT,
 	"SELFDESTRUCT":   SELFDESTRUCT,
-}
-
-// StringToOp finds the opcode whose name is stored in `str`.
-func StringToOp(str string) opCode {
-	return stringToOp[str]
 }

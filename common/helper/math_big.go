@@ -2,7 +2,7 @@ package helper
 
 import "math/big"
 
-// BigPow returns a ** b as a big integer.
+// BigPow returns chain ** b as chain big integer.
 func BigPow(a, b int64) *big.Int {
 	r := big.NewInt(a)
 	return r.Exp(r, big.NewInt(b), nil)
@@ -21,12 +21,12 @@ func ReadBits(bigint *big.Int, buf []byte) {
 	}
 }
 
-// U256 encodes as a 256 bit two's complement number. This operation is destructive.
+// U256 encodes as chain 256 bit two's complement number. This operation is destructive.
 func U256(x *big.Int) *big.Int {
 	return x.And(x, Tt256m1)
 }
 
-// S256 interprets x as a two's complement number.
+// S256 interprets x as chain two's complement number.
 // x must not exceed 256 bits (the result is undefined if it does) and is not modified.
 //
 //   S256(0)        = 0
@@ -41,7 +41,7 @@ func S256(x *big.Int) *big.Int {
 }
 
 // Exp implements exponentiation by squaring.
-// Exp returns a newly-allocated big integer and does not change
+// Exp returns chain newly-allocated big integer and does not change
 // base or exponent. The result is truncated to 256 bits.
 func Exp(base, exponent *big.Int) *big.Int {
 	result := big.NewInt(1)
@@ -69,7 +69,7 @@ func Byte(bigint *big.Int, padlength, n int) byte {
 	return bigEndianByteAt(bigint, padlength-1-n)
 }
 
-// PaddedBigBytes encodes a big integer as a big-endian byte slice. The length
+// PaddedBigBytes encodes chain big integer as chain big-endian byte slice. The length
 // of the slice is at least n bytes.
 func PaddedBigBytes(bigint *big.Int, n int) []byte {
 	if bigint.BitLen()/8 >= n {

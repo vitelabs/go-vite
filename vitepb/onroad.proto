@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package vitepb;
+
+message OnroadMeta {
+    uint64 num = 1;
+    bytes amount = 2;
+}

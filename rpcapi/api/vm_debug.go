@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm_context"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -60,19 +59,20 @@ type AccountInfo struct {
 
 func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	// check genesis account status
-	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(&ledger.GenesisAccountAddress)
+
+	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(*v.vite.Config().GenesisAccountAddress)
 	if err != nil {
 		return nil, err
 	}
 	// receive genesis onroad tx
 	if prevBlock == nil {
-		onroadList, err := v.onroad.GetOnroadBlocksByAddress(ledger.GenesisAccountAddress, 0, 10)
+		onroadList, err := v.onroad.GetOnroadBlocksByAddress(*v.vite.Config().GenesisAccountAddress, 0, 10)
 		if err != nil {
 			return nil, err
 		}
 		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressMintage && onroadList[0].Height == "2" {
 			err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-				SelfAddr:   ledger.GenesisAccountAddress,
+				SelfAddr:   *v.vite.Config().GenesisAccountAddress,
 				FromHash:   onroadList[0].Hash,
 				PrivKeyStr: testapi_hexPrivKey,
 			})
@@ -111,7 +111,7 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 	// transfer from genesis account to user account
 	tid, _ := types.HexToTokenTypeId(testapi_tti)
 	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
-		SelfAddr:    &ledger.GenesisAccountAddress,
+		SelfAddr:    v.vite.Config().GenesisAccountAddress,
 		ToAddr:      &acc.Addr,
 		TokenTypeId: tid,
 		PrivateKey:  &testapi_hexPrivKey,
@@ -173,7 +173,11 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 	for _, c := range compileResultList {
 		txParam := param.Params[c.name]
 		// send create contract tx
-		createContractData, err := v.contract.GetCreateContractData(types.DELEGATE_GID, c.code, c.abiJson, txParam.Params)
+		paramBytes, err := v.contract.GetCreateContractParams(c.abiJson, txParam.Params)
+		if err != nil {
+			return nil, err
+		}
+		createContractData, err := v.contract.GetCreateContractData(CreateContractDataParam{types.DELEGATE_GID, 1, 10, c.code, paramBytes})
 		if err != nil {
 			return nil, err
 		}
@@ -314,22 +318,25 @@ func (v *VmDebugApi) ClearData() error {
 }
 
 func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, error) {
-	db, err := vm_context.NewVmContext(v.vite.Chain(), nil, nil, &addr)
+	db, err := getVmDb(v.vite.Chain(), addr)
 	if err != nil {
 		return nil, err
 	}
-	iter := db.NewStorageIterator(&addr, nil)
-	if iter == nil {
-		return nil, nil
+	iter, err := db.NewStorageIterator(nil)
+	if err != nil {
+		return nil, err
 	}
+	defer iter.Release()
 	m := make(map[string]string)
 	for {
-		key, value, ok := iter.Next()
-		if !ok {
+		if !iter.Next() {
+			if iter.Error() != nil {
+				return nil, err
+			}
 			return m, nil
 		}
-		if !bytes.HasPrefix(key, []byte("$code")) && !bytes.HasPrefix(key, []byte("$balance")) {
-			m["0x"+hex.EncodeToString(key)] = "0x" + hex.EncodeToString(value)
+		if !bytes.HasPrefix(iter.Key(), []byte("$code")) && !bytes.HasPrefix(iter.Key(), []byte("$balance")) {
+			m["0x"+hex.EncodeToString(iter.Key())] = "0x" + hex.EncodeToString(iter.Value())
 		}
 	}
 }

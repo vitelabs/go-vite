@@ -10,4 +10,5 @@ const (
 	RollbackChain               = 40
 	QueryChain                  = 41
 	RemoteSync                  = 50
+	RemoteCache                 = 60
 )

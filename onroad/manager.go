@@ -2,86 +2,86 @@ package onroad
 
 import (
 	"errors"
-	"math/big"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad/model"
+	"github.com/vitelabs/go-vite/onroad/pool"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vite/net"
-	"github.com/vitelabs/go-vite/vm_context"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 var (
 	slog           = log15.New("module", "onroad")
-	ErrNotSyncDone = errors.New("network synchronization is not complete")
+	errNotSyncDone = errors.New("network synchronization is not complete")
+
+	defaultContractGidList = []types.Gid{types.DELEGATE_GID}
 )
 
+// Manager implements contract's onRoad processing and cache management.
 type Manager struct {
-	pool     Pool
-	net      Net
-	chain    chain.Chain
-	producer Producer
+	net      netReader
+	producer producer
 	wallet   *wallet.Manager
 
-	uAccess          *model.UAccess
-	onroadBlocksPool *model.OnroadBlocksPool
+	pool      pool
+	chain     chain.Chain
+	consensus generator.Consensus
 
-	autoReceiveWorkers map[types.Address]*AutoReceiveWorker
-	contractWorkers    map[types.Gid]*ContractWorker
+	contractWorkers     map[types.Gid]*ContractWorker
+	newContractListener sync.Map //map[types.Gid]contractReactFunc
+	newSnapshotListener sync.Map //map[types.Gid]snapshotEventReactFunc
 
-	unlockLid       int
-	netStateLid     int
-	writeOnRoadLid  uint64
-	deleteOnRoadLid uint64
-	writeSuccLid    uint64
-	deleteSuccLid   uint64
+	onRoadPools sync.Map //map[types.Gid]contract_pool.OnRoadPool
+
+	unlockLid   int
+	netStateLid int
 
 	lastProducerAccEvent *producerevent.AccountStartEvent
 
 	log log15.Logger
 }
 
-func NewManager(net Net, pool Pool, producer Producer, wallet *wallet.Manager) *Manager {
+// NewManager creates a onroad Manager.
+func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
 	m := &Manager{
-		pool:               pool,
-		net:                net,
-		producer:           producer,
-		wallet:             wallet,
-		autoReceiveWorkers: make(map[types.Address]*AutoReceiveWorker),
-		contractWorkers:    make(map[types.Gid]*ContractWorker),
-		log:                slog.New("w", "manager"),
+		net:             net,
+		producer:        producer,
+		wallet:          wallet,
+		pool:            pool,
+		consensus:       consensus,
+		contractWorkers: make(map[types.Gid]*ContractWorker),
+		log:             slog.New("w", "manager"),
 	}
-	m.uAccess = model.NewUAccess()
-	m.onroadBlocksPool = model.NewOnroadBlocksPool(m.uAccess)
 	return m
 }
 
+// Init is used to load all onroad into pool cache,
+// for super node generating new contract receive block
+// and for verifier module verifying the sequence of contract receive.
 func (manager *Manager) Init(chain chain.Chain) {
-	manager.uAccess.Init(chain)
 	manager.chain = chain
+	for _, gid := range defaultContractGidList {
+		manager.prepareOnRoadPool(gid)
+	}
 }
 
+// Start method subscribes the info of net, pool and chain module.
 func (manager *Manager) Start() {
 	manager.netStateLid = manager.Net().SubscribeSyncStatus(manager.netStateChangedFunc)
-	manager.unlockLid = manager.wallet.AddLockEventListener(manager.addressLockStateChangeFunc)
 	if manager.producer != nil {
 		manager.producer.SetAccountEventFunc(manager.producerStartEventFunc)
 	}
-
-	manager.writeSuccLid = manager.Chain().RegisterInsertAccountBlocksSuccess(manager.onroadBlocksPool.WriteOnroadSuccess)
-	manager.writeOnRoadLid = manager.Chain().RegisterInsertAccountBlocks(manager.onroadBlocksPool.WriteOnroad)
-
-	manager.deleteSuccLid = manager.Chain().RegisterDeleteAccountBlocksSuccess(manager.onroadBlocksPool.RevertOnroadSuccess)
-	manager.deleteOnRoadLid = manager.Chain().RegisterDeleteAccountBlocks(manager.onroadBlocksPool.RevertOnroad)
+	manager.Chain().Register(manager)
 }
 
+// Stop method cancel all subscriptions from other modules.
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
@@ -89,25 +89,29 @@ func (manager *Manager) Stop() {
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}
-
-	manager.Chain().UnRegister(manager.writeOnRoadLid)
-	manager.Chain().UnRegister(manager.deleteOnRoadLid)
-	manager.Chain().UnRegister(manager.writeSuccLid)
-	manager.Chain().UnRegister(manager.deleteSuccLid)
-
+	manager.Chain().UnRegister(manager)
 	manager.stopAllWorks()
 	manager.log.Info("Close end")
 }
 
+// Close the model
 func (manager *Manager) Close() error {
-
 	return nil
 }
 
+func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
+	orPool, exist := manager.onRoadPools.Load(gid)
+	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
+	if !exist || orPool == nil {
+		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain))
+		return
+	}
+}
+
 func (manager *Manager) netStateChangedFunc(state net.SyncState) {
-	manager.log.Info("receive a net event", "state", state)
+	manager.log.Info("receive chain net event", "state_bak", state)
 	common.Go(func() {
-		if state == net.Syncdone {
+		if state == net.SyncDone {
 			manager.resumeContractWorks()
 		} else {
 			manager.stopAllWorks()
@@ -115,28 +119,11 @@ func (manager *Manager) netStateChangedFunc(state net.SyncState) {
 	})
 }
 
-func (manager *Manager) addressLockStateChangeFunc(event entropystore.UnlockEvent) {
-	manager.log.Info("addressLockStateChangeFunc ", "event", event)
-
-	if !event.Unlocked() {
-		for _, w := range manager.autoReceiveWorkers {
-			if w.GetEntropystore() == event.EntropyStoreFile {
-				common.Go(w.Stop)
-			}
-		}
-	}
-
-	//w, found := manager.autoReceiveWorkers[event.Address]
-	//if found && !event.Unlocked() {
-	//	manager.log.Info("found in autoReceiveWorkers stop it")
-	//	common.Go(w.Stop)
-	//}
-}
-
 func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEvent) {
 	netstate := manager.Net().SyncState()
 	manager.log.Info("producerStartEventFunc receive event", "netstate", netstate)
-	if netstate != net.Syncdone {
+	if netstate != net.SyncDone {
+		manager.log.Error(errNotSyncDone.Error())
 		return
 	}
 
@@ -147,7 +134,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 	}
 
 	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
-		manager.log.Error("receive a right event but address locked", "event", event)
+		manager.log.Error("receive chain right event but address locked", "event", event)
 		return
 	}
 
@@ -173,13 +160,6 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 func (manager *Manager) stopAllWorks() {
 	manager.log.Info("stopAllWorks called")
 	var wg = sync.WaitGroup{}
-	for _, v := range manager.autoReceiveWorkers {
-		wg.Add(1)
-		common.Go(func() {
-			v.Stop()
-			wg.Done()
-		})
-	}
 	for _, v := range manager.contractWorkers {
 		wg.Add(1)
 		common.Go(func() {
@@ -209,98 +189,33 @@ func (manager *Manager) resumeContractWorks() {
 	manager.log.Info("end resumeContractWorks")
 }
 
-func (manager *Manager) insertCommonBlockToPool(blockList []*vm_context.VmAccountBlock) error {
-	return manager.pool.AddDirectAccountBlock(blockList[0].AccountBlock.AccountAddress, blockList[0])
-}
-
-func (manager *Manager) insertContractBlocksToPool(blockList []*vm_context.VmAccountBlock) error {
-	if len(blockList) > 1 {
-		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress, blockList[0], blockList[1:])
-	} else {
-		return manager.pool.AddDirectAccountBlocks(blockList[0].AccountBlock.AccountAddress, blockList[0], nil)
-	}
-}
-
-func (manager *Manager) checkExistInPool(addr types.Address, fromBlockHash types.Hash) bool {
-	return manager.pool.ExistInPool(addr, fromBlockHash)
-}
-
-func (manager *Manager) ResetAutoReceiveFilter(addr types.Address, filter map[types.TokenTypeId]big.Int) {
-	if w, ok := manager.autoReceiveWorkers[addr]; ok {
-		w.ResetAutoReceiveFilter(filter)
-	}
-}
-
-//func (manager *Manager) StartPrimaryAutoReceiveWorker(primaryAddr types.Address, filter map[types.TokenTypeId]big.Int) error {
-//	return manager.StartAutoReceiveWorker(primaryAddr.String(), primaryAddr, filter)
-//}
-
-func (manager *Manager) StartAutoReceiveWorker(entropystore string, addr types.Address, filter map[types.TokenTypeId]big.Int, powDifficulty *big.Int) error {
-	netstate := manager.Net().SyncState()
-	manager.log.Info("StartAutoReceiveWorker ", "addr", addr, "netstate", netstate)
-
-	if netstate != net.Syncdone {
-		return ErrNotSyncDone
-	}
-
-	entropyStoreManager, e := manager.wallet.GetEntropyStoreManager(entropystore)
-	if e != nil {
-		return e
-	}
-
-	if _, _, e = entropyStoreManager.FindAddr(addr); e != nil {
-		return e
-	}
-
-	w, found := manager.autoReceiveWorkers[addr]
-	if !found {
-		w = NewAutoReceiveWorker(manager, entropyStoreManager.GetEntropyStoreFile(), addr, filter, powDifficulty)
-		manager.log.Info("Manager get event new Worker")
-		manager.autoReceiveWorkers[addr] = w
-	}
-	w.ResetPowDifficulty(powDifficulty)
-	w.ResetAutoReceiveFilter(filter)
-	w.Start()
-	return nil
-}
-
-func (manager *Manager) StopAutoReceiveWorker(addr types.Address) error {
-	manager.log.Info("StopAutoReceiveWorker ", "addr", addr)
-	w, found := manager.autoReceiveWorkers[addr]
-	if found {
-		w.Stop()
-		delete(manager.autoReceiveWorkers, addr)
-	}
-	return nil
-}
-
-func (manager Manager) ListWorkingAutoReceiveWorker() []types.Address {
-	addr := make([]types.Address, 0)
-	for _, v := range manager.autoReceiveWorkers {
-		if v != nil && v.Status() == Start {
-			addr = append(addr, v.address)
-		}
-	}
-
-	return addr
-}
-
-func (manager Manager) GetOnroadBlocksPool() *model.OnroadBlocksPool {
-	return manager.onroadBlocksPool
-}
-
+// Chain returns the instance of chain.
 func (manager Manager) Chain() chain.Chain {
 	return manager.chain
 }
 
-func (manager Manager) Net() Net {
+// Net returns the implementation of Net which manager is dependent on.
+func (manager Manager) Net() netReader {
 	return manager.net
 }
 
-func (manager Manager) Producer() Producer {
+// Producer returns the implementation of Producer which manager is dependent on.
+func (manager Manager) Producer() producer {
 	return manager.producer
 }
 
-func (manager Manager) DbAccess() *model.UAccess {
-	return manager.uAccess
+// Consensus returns the implementation of Consensus which manager is dependent on.
+func (manager Manager) Consensus() generator.Consensus {
+	return manager.consensus
+}
+
+// Info returns the info of all contract.
+func (manager Manager) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	manager.onRoadPools.Range(func(k, v interface{}) bool {
+		result[k.(types.Gid).String()] = v.(onroad_pool.OnRoadPool).Info()
+		return true
+	})
+	return result
 }

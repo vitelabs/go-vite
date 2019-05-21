@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package hexutil
@@ -32,7 +32,7 @@ var (
 	uint64T = reflect.TypeOf(Uint64(0))
 )
 
-// Bytes marshals/unmarshals as a JSON string with 0x prefix.
+// Bytes marshals/unmarshals as chain JSON string with 0x prefix.
 // The empty slice marshals as "0x".
 type Bytes []byte
 
@@ -72,7 +72,7 @@ func (b Bytes) String() string {
 	return Encode(b)
 }
 
-// UnmarshalFixedJSON decodes the input as a string with 0x prefix. The length of out
+// UnmarshalFixedJSON decodes the input as chain string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
 // UnmarshalJSON method for fixed-size types.
 func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
@@ -82,7 +82,7 @@ func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
 	return wrapTypeError(UnmarshalFixedText(typ.String(), input[1:len(input)-1], out), typ)
 }
 
-// UnmarshalFixedText decodes the input as a string with 0x prefix. The length of out
+// UnmarshalFixedText decodes the input as chain string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
 // UnmarshalText method for fixed-size types.
 func UnmarshalFixedText(typname string, input, out []byte) error {
@@ -103,7 +103,7 @@ func UnmarshalFixedText(typname string, input, out []byte) error {
 	return nil
 }
 
-// UnmarshalFixedUnprefixedText decodes the input as a string with optional 0x prefix. The
+// UnmarshalFixedUnprefixedText decodes the input as chain string with optional 0x prefix. The
 // length of out determines the required input length. This function is commonly used to
 // implement the UnmarshalText method for fixed-size types.
 func UnmarshalFixedUnprefixedText(typname string, input, out []byte) error {
@@ -124,7 +124,7 @@ func UnmarshalFixedUnprefixedText(typname string, input, out []byte) error {
 	return nil
 }
 
-// Big marshals/unmarshals as a JSON string with 0x prefix.
+// Big marshals/unmarshals as chain JSON string with 0x prefix.
 // The zero value marshals as "0x0".
 //
 // Negative integers are not supported at this time. Attempting to marshal them will
@@ -177,7 +177,7 @@ func (b *Big) UnmarshalText(input []byte) error {
 	return nil
 }
 
-// ToInt converts b to a big.Int.
+// ToInt converts b to chain big.Int.
 func (b *Big) ToInt() *big.Int {
 	return (*big.Int)(b)
 }
@@ -187,7 +187,7 @@ func (b *Big) String() string {
 	return EncodeBig(b.ToInt())
 }
 
-// Uint64 marshals/unmarshals as a JSON string with 0x prefix.
+// Uint64 marshals/unmarshals as chain JSON string with 0x prefix.
 // The zero value marshals as "0x0".
 type Uint64 uint64
 
@@ -234,7 +234,7 @@ func (b Uint64) String() string {
 	return EncodeUint64(uint64(b))
 }
 
-// Uint marshals/unmarshals as a JSON string with 0x prefix.
+// Uint marshals/unmarshals as chain JSON string with 0x prefix.
 // The zero value marshals as "0x0".
 type Uint uint
 

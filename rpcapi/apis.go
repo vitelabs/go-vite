@@ -146,6 +146,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   filters.NewSubscribeApi(vite),
 			Public:    true,
 		}
+	case "sbpstats":
+		return rpc.API{
+			Namespace: "sbpstats",
+			Version:   "1.0",
+			Service:   api.NewStatsApi(vite),
+			Public:    true,
+		}
 	default:
 		return rpc.API{}
 	}

@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -46,9 +46,9 @@ func (srv *Server) ServeListener(l net.Listener) error {
 	}
 }
 
-// DialIPC create a new IPC client that connects to the given endpoint. On Unix it assumes
-// the endpoint is the full path to a unix socket, and Windows the endpoint is an
-// identifier for a named pipe.
+// DialIPC create chain new IPC client that connects to the given endpoint. On Unix it assumes
+// the endpoint is the full path to chain unix socket, and Windows the endpoint is an
+// identifier for chain named pipe.
 //
 // The context is used for the initial connection establishment. It does not
 // affect subsequent interactions with the client.

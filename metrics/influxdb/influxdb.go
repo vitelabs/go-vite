@@ -16,12 +16,12 @@ var log = log15.New("module", "influxdb")
 // DefaultTimeout is the default connection timeout used to connect to an InfluxDB instance
 const DefaultTimeout = 0
 
-// InfluxDB starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval.
+// InfluxDB starts chain InfluxDB reporter which will post the from the given metrics.Registry at each d interval.
 func InfluxDB(r metrics.Registry, d time.Duration, url, database, username, password, namespace string) {
 	InfluxDBWithTags(r, d, url, database, username, password, namespace, nil)
 }
 
-// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
+// InfluxDBWithTags starts chain InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
 func InfluxDBWithTags(r metrics.Registry, d time.Duration, url, database, username, password, namespace string, tags map[string]string) {
 	if !metrics.InfluxDBExportEnable {
 		log.Info("influxdb export disable")
@@ -100,7 +100,7 @@ func NewReporter(r metrics.Registry, d time.Duration, url, database, username, p
 	return rep, nil
 }
 
-// InfluxDBWithTags starts a InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
+// InfluxDBWithTags starts chain InfluxDB reporter which will post the from the given metrics.Registry at each d interval with the specified tags
 func (r *Reporter) Start() {
 	log.Info("reporter be called to start")
 
@@ -148,7 +148,7 @@ LOOP:
 		case <-pingTicker:
 			_, _, err := r.client.Ping(r.interval)
 			if err != nil {
-				log.Info("got error while sending a ping to influxdb, trying to recreate client", "err", err)
+				log.Info("got error while sending chain ping to influxdb, trying to recreate client", "err", err)
 
 				if err = r.makeClient(); err != nil {
 					log.Error("unable to make influxdb client", "err", err)

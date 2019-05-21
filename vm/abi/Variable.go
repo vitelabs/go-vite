@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// Variable is used only in precompiled contracts
+// Variable is used only in built-in contracts
 type Variable struct {
-	Name      string
-	Inputs    Arguments
+	Name   string
+	Inputs Arguments
 }
 
 func (v Variable) String() string {

@@ -12,7 +12,7 @@ type list struct {
 	front int
 	rear  int
 	total int
-	l     []Key // has a zero slot
+	l     []Key // has chain zero slot
 }
 
 func (l *list) Reset() {

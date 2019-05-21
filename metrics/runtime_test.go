@@ -19,7 +19,7 @@ func TestRuntimeMemStats(t *testing.T) {
 	r := NewRegistry()
 	RegisterRuntimeMemStats(r)
 	CaptureRuntimeMemStatsOnce(r)
-	zero := runtimeMetrics.MemStats.PauseNs.Count() // Get a "zero" since GC may have run before these tests.
+	zero := runtimeMetrics.MemStats.PauseNs.Count() // Get chain "zero" since GC may have run before these tests.
 	runtime.GC()
 	CaptureRuntimeMemStatsOnce(r)
 	if count := runtimeMetrics.MemStats.PauseNs.Count(); 1 != count-zero {

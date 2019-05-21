@@ -41,7 +41,7 @@ func DefaultDataDir() string {
 			return filepath.Join(home, ".gvite")
 		}
 	}
-	// As we cannot guess a stable location, return empty and handle later
+	// As we cannot guess chain stable location, return empty and handle later
 	return ""
 }
 

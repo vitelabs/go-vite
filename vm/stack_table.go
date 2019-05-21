@@ -1,8 +1,6 @@
 package vm
 
-import (
-	"fmt"
-)
+import "github.com/vitelabs/go-vite/vm/util"
 
 func makeStackFunc(pop, push int) stackValidationFunc {
 	return func(stack *stack) error {
@@ -11,7 +9,7 @@ func makeStackFunc(pop, push int) stackValidationFunc {
 		}
 
 		if stack.len()+push-pop > int(stackLimit) {
-			return fmt.Errorf("stack limit reached %d (%d)", stack.len(), stackLimit)
+			return util.ErrStackLimitReached
 		}
 		return nil
 	}

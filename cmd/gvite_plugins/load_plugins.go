@@ -153,6 +153,8 @@ func init() {
 		attachCommand,
 		ledgerRecoverCommand,
 		exportCommand,
+		pluginDataCommand,
+		checkChainCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -174,7 +176,9 @@ func Loading() {
 }
 
 func beforeAction(ctx *cli.Context) error {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	max := runtime.NumCPU() + 1
+	log.Info("runtime num", "max", max)
+	runtime.GOMAXPROCS(max)
 
 	//TODO: we can add dashboard here
 	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {
@@ -187,7 +191,7 @@ func beforeAction(ctx *cli.Context) error {
 		var visitAddress = fmt.Sprintf("http://localhost:%d/debug/pprof", pprofPort)
 
 		go func() {
-			log.Info("Enable a performance analysis tool, you can visit the address of `" + visitAddress + "`")
+			log.Info("Enable chain performance analysis tool, you can visit the address of `" + visitAddress + "`")
 			http.ListenAndServe(listenAddress, nil)
 		}()
 	}

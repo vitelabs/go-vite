@@ -3,6 +3,7 @@ package circle
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestList_Put(t *testing.T) {
@@ -56,7 +57,7 @@ func TestList_Size(t *testing.T) {
 
 func TestList_Traverse(t *testing.T) {
 	const total = 3
-	l := NewList(3)
+	l := NewList(total)
 	const count = 10
 	for i := 1; i < count; i++ {
 		l.Put(i)
@@ -79,7 +80,7 @@ func TestList_Traverse(t *testing.T) {
 
 func TestList_TraverseR(t *testing.T) {
 	const total = 3
-	l := NewList(3)
+	l := NewList(total)
 	const count = 10
 	for i := 1; i < count; i++ {
 		l.Put(i)
@@ -105,7 +106,7 @@ func TestList_TraverseR(t *testing.T) {
 
 func TestList_Reset(t *testing.T) {
 	const total = 3
-	l := NewList(3)
+	l := NewList(total)
 	const count = 10
 	for i := 1; i < count; i++ {
 		l.Put(i)
@@ -125,4 +126,36 @@ func TestList_Reset(t *testing.T) {
 	if k != 0 {
 		t.Fail()
 	}
+}
+
+func TestList_Put_Concurrent(t *testing.T) {
+	const total = 86400
+	l := NewList(total)
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			for j := 0; j < 100000; j++ {
+				l.Put(j)
+			}
+		}()
+	}
+
+	go func() {
+		for {
+			var amount int
+			l.TraverseR(func(key Key) bool {
+				k, ok := key.(int)
+				if ok {
+					amount += k
+				} else {
+					panic(fmt.Errorf("invalid value: %v", key))
+				}
+				return true
+			})
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	time.Sleep(5 * time.Second)
 }

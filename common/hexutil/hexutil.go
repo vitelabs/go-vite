@@ -88,7 +88,7 @@ func Encode(b []byte) string {
 	return string(enc)
 }
 
-// DecodeUint64 decodes a hex string with 0x prefix as a quantity.
+// DecodeUint64 decodes a hex string with 0x prefix as chain quantity.
 func DecodeUint64(input string) (uint64, error) {
 	raw, err := checkNumber(input)
 	if err != nil {
@@ -101,7 +101,7 @@ func DecodeUint64(input string) (uint64, error) {
 	return dec, err
 }
 
-// MustDecodeUint64 decodes a hex string with 0x prefix as a quantity.
+// MustDecodeUint64 decodes a hex string with 0x prefix as chain quantity.
 // It panics for invalid input.
 func MustDecodeUint64(input string) uint64 {
 	dec, err := DecodeUint64(input)
@@ -134,7 +134,7 @@ func init() {
 	}
 }
 
-// DecodeBig decodes a hex string with 0x prefix as a quantity.
+// DecodeBig decodes a hex string with 0x prefix as chain quantity.
 // Numbers larger than 256 bits are not accepted.
 func DecodeBig(input string) (*big.Int, error) {
 	raw, err := checkNumber(input)
@@ -165,7 +165,7 @@ func DecodeBig(input string) (*big.Int, error) {
 	return dec, nil
 }
 
-// MustDecodeBig decodes a hex string with 0x prefix as a quantity.
+// MustDecodeBig decodes a hex string with 0x prefix as chain quantity.
 // It panics for invalid input.
 func MustDecodeBig(input string) *big.Int {
 	dec, err := DecodeBig(input)

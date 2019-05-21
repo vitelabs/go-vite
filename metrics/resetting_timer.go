@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Initial slice capacity for the values stored in a ResettingTimer
+// Initial slice capacity for the values stored in chain ResettingTimer
 const InitialResettingTimerSliceCap = 10
 
 // ResettingTimer is used for storing aggregated values for timers, which are reset on every flush interval.
@@ -21,7 +21,7 @@ type ResettingTimer interface {
 	UpdateSince(time.Time)
 }
 
-// GetOrRegisterResettingTimer returns an existing ResettingTimer or constructs and registers a
+// GetOrRegisterResettingTimer returns an existing ResettingTimer or constructs and registers chain
 // new StandardResettingTimer.
 func GetOrRegisterResettingTimer(name string, r Registry) ResettingTimer {
 	if nil == r {
@@ -30,7 +30,7 @@ func GetOrRegisterResettingTimer(name string, r Registry) ResettingTimer {
 	return r.GetOrRegister(name, NewResettingTimer).(ResettingTimer)
 }
 
-// NewRegisteredResettingTimer constructs and registers a new StandardResettingTimer.
+// NewRegisteredResettingTimer constructs and registers chain new StandardResettingTimer.
 func NewRegisteredResettingTimer(name string, r Registry) ResettingTimer {
 	c := NewResettingTimer()
 	if nil == r {
@@ -40,7 +40,7 @@ func NewRegisteredResettingTimer(name string, r Registry) ResettingTimer {
 	return c
 }
 
-// NewResettingTimer constructs a new StandardResettingTimer
+// NewResettingTimer constructs chain new StandardResettingTimer
 func NewResettingTimer() ResettingTimer {
 	if !MetricsEnabled {
 		return NilResettingTimer{}
@@ -50,52 +50,52 @@ func NewResettingTimer() ResettingTimer {
 	}
 }
 
-// NilResettingTimer is a no-op ResettingTimer.
+// NilResettingTimer is chain no-op ResettingTimer.
 type NilResettingTimer struct {
 }
 
-// Values is a no-op.
+// Values is chain no-op.
 func (NilResettingTimer) Values() []int64 { return nil }
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilResettingTimer) Snapshot() ResettingTimer {
 	return &ResettingTimerSnapshot{
 		values: []int64{},
 	}
 }
 
-// Time is a no-op.
+// Time is chain no-op.
 func (NilResettingTimer) Time(func()) {}
 
-// Update is a no-op.
+// Update is chain no-op.
 func (NilResettingTimer) Update(time.Duration) {}
 
 // Percentiles panics.
 func (NilResettingTimer) Percentiles([]float64) []int64 {
-	panic("Percentiles called on a NilResettingTimer")
+	panic("Percentiles called on chain NilResettingTimer")
 }
 
 // Mean panics.
 func (NilResettingTimer) Mean() float64 {
-	panic("Mean called on a NilResettingTimer")
+	panic("Mean called on chain NilResettingTimer")
 }
 
-// UpdateSince is a no-op.
+// UpdateSince is chain no-op.
 func (NilResettingTimer) UpdateSince(time.Time) {}
 
-// StandardResettingTimer is the standard implementation of a ResettingTimer.
+// StandardResettingTimer is the standard implementation of chain ResettingTimer.
 // and Meter.
 type StandardResettingTimer struct {
 	values []int64
 	mutex  sync.Mutex
 }
 
-// Values returns a slice with all measurements.
+// Values returns chain slice with all measurements.
 func (t *StandardResettingTimer) Values() []int64 {
 	return t.values
 }
 
-// Snapshot resets the timer and returns a read-only copy of its contents.
+// Snapshot resets the timer and returns chain read-only copy of its contents.
 func (t *StandardResettingTimer) Snapshot() ResettingTimer {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -109,12 +109,12 @@ func (t *StandardResettingTimer) Snapshot() ResettingTimer {
 
 // Percentiles panics.
 func (t *StandardResettingTimer) Percentiles([]float64) []int64 {
-	panic("Percentiles called on a StandardResettingTimer")
+	panic("Percentiles called on chain StandardResettingTimer")
 }
 
 // Mean panics.
 func (t *StandardResettingTimer) Mean() float64 {
-	panic("Mean called on a StandardResettingTimer")
+	panic("Mean called on chain StandardResettingTimer")
 }
 
 // Record the duration of the execution of the given function.
@@ -131,14 +131,14 @@ func (t *StandardResettingTimer) Update(d time.Duration) {
 	t.values = append(t.values, int64(d))
 }
 
-// Record the duration of an event that started at a time and ends now.
+// Record the duration of an event that started at chain time and ends now.
 func (t *StandardResettingTimer) UpdateSince(ts time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.values = append(t.values, int64(time.Since(ts)))
 }
 
-// ResettingTimerSnapshot is a point-in-time copy of another ResettingTimer.
+// ResettingTimerSnapshot is chain point-in-time copy of another ResettingTimer.
 type ResettingTimerSnapshot struct {
 	values              []int64
 	mean                float64
@@ -151,17 +151,17 @@ func (t *ResettingTimerSnapshot) Snapshot() ResettingTimer { return t }
 
 // Time panics.
 func (*ResettingTimerSnapshot) Time(func()) {
-	panic("Time called on a ResettingTimerSnapshot")
+	panic("Time called on chain ResettingTimerSnapshot")
 }
 
 // Update panics.
 func (*ResettingTimerSnapshot) Update(time.Duration) {
-	panic("Update called on a ResettingTimerSnapshot")
+	panic("Update called on chain ResettingTimerSnapshot")
 }
 
 // UpdateSince panics.
 func (*ResettingTimerSnapshot) UpdateSince(time.Time) {
-	panic("UpdateSince called on a ResettingTimerSnapshot")
+	panic("UpdateSince called on chain ResettingTimerSnapshot")
 }
 
 // Values returns all values from snapshot.

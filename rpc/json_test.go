@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -54,7 +54,7 @@ func TestJSONRequestParsing(t *testing.T) {
 	}
 
 	if batch {
-		t.Fatalf("Request isn't a batch")
+		t.Fatalf("Request isn't chain batch")
 	}
 
 	if len(requests) != 1 {

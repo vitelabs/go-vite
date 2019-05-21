@@ -1,8 +1,0 @@
-syntax="proto3";
-
-package vitepb;
-
-message Producer {
-    repeated string brokerList = 1;
-    string topic = 2;
-}

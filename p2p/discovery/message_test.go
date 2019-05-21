@@ -2,180 +2,385 @@ package discovery
 
 import (
 	"bytes"
-	crand "crypto/rand"
-	"math/rand"
+	"crypto/rand"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/p2p/network"
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-func TestUnpack(t *testing.T) {
-	pub, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatal(err)
+func equalPing(p, p2 *ping) bool {
+	if p.from != nil {
+		if !p.from.Equal(p2.from) {
+			return false
+		}
+	} else if p2.from != nil {
+		return false
 	}
 
-	var id NodeID
-	copy(id[:], pub)
-	p := new(Ping)
-	p.ID = id
-	p.Expiration = getExpiration()
-
-	data, _, err := p.pack(priv)
-	if err != nil {
-		t.Fatal(err)
+	if p.to != nil {
+		if !p.to.Equal(p2.to) {
+			return false
+		}
+	} else if p2.to != nil {
+		return false
 	}
 
-	pkt, err := unPacket(data)
-	if err != nil {
-		t.Fatal(err)
+	if p.net != p2.net {
+		return false
 	}
-
-	p2, ok := pkt.msg.(*Ping)
-	if !ok {
-		t.Fatal()
+	if !bytes.Equal(p.ext, p2.ext) {
+		return false
 	}
-	if p2.Expiration.Unix() != p.Expiration.Unix() {
-		t.Fatal()
+	if p.time.Unix() != p2.time.Unix() {
+		return false
 	}
-
+	return true
 }
 
-func TestPing_serialize(t *testing.T) {
-	p1 := &Ping{
-		TCP: mockPort(),
-		Net: network.ID(rand.Uint32()),
-		Ext: mockRest(),
+func TestPing_Serialize(t *testing.T) {
+	var p = &ping{
+		from: nil,
+		to:   nil,
+		net:  0,
+		ext:  []byte("hello"),
+		time: time.Time{}.Add(time.Hour),
 	}
-	p1.ID = mockID()
-	p1.Expiration = time.Now()
 
-	data, err := p1.serialize()
+	data, err := p.serialize()
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to serialize ping: %v", err)
 	}
-	p2 := new(Ping)
+
+	var p2 = new(ping)
 	err = p2.deserialize(data)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to deserialize ping: %v", err)
 	}
 
-	if p1.ID != p2.ID {
-		t.Fail()
+	if !equalPing(p, p2) {
+		t.Error("not equal")
 	}
-	if p1.TCP != p2.TCP {
-		t.Fail()
-	}
-	if p1.Net != p2.Net {
-		t.Fail()
-	}
-	if !bytes.Equal(p1.Ext, p2.Ext) {
-		t.Fail()
-	}
-	if p1.Expiration.Unix() != p2.Expiration.Unix() {
-		t.Fail()
-	}
-}
 
-func TestPong_serialize(t *testing.T) {
-	var hash types.Hash
-	crand.Read(hash[:])
-	p1 := &Pong{
-		Ping: hash,
-	}
-	p1.ID = mockID()
-	p1.Expiration = time.Now()
-
-	data, err := p1.serialize()
+	// init endpoint
+	p.from = &vnode.EndPoint{}
+	p.to = &vnode.EndPoint{}
+	data, err = p.serialize()
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to serialize ping: %v", err)
 	}
-	p2 := new(Pong)
+
 	err = p2.deserialize(data)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to deserialize ping: %v", err)
 	}
-
-	if p1.ID != p2.ID {
-		t.Fail()
-	}
-	if p1.Ping != p2.Ping {
-		t.Fail()
-	}
-	if p1.Expiration.Unix() != p2.Expiration.Unix() {
-		t.Fail()
+	if p2.from != nil || p2.to != nil {
+		t.Error("endpoint should be nil")
 	}
 }
 
-func TestFindNode_serialize(t *testing.T) {
-	p1 := &FindNode{
-		ID:         mockID(),
-		Target:     mockID(),
-		Expiration: time.Now(),
+func equalPong(p, p2 *pong) bool {
+	if p.from != nil {
+		if !p.from.Equal(p2.from) {
+			return false
+		}
+	} else if p2.from != nil {
+		return false
 	}
 
-	data, err := p1.serialize()
-	if err != nil {
-		t.Error(err)
+	if p.to != nil {
+		if !p.to.Equal(p2.to) {
+			return false
+		}
+	} else if p2.to != nil {
+		return false
 	}
-	p2 := new(FindNode)
+
+	if p.net != p2.net {
+		return false
+	}
+	if !bytes.Equal(p.ext, p2.ext) {
+		return false
+	}
+	if !bytes.Equal(p.echo, p2.echo) {
+		return false
+	}
+	if p.time.Unix() != p2.time.Unix() {
+		return false
+	}
+	return true
+}
+
+func TestPong_Serialize(t *testing.T) {
+	var p = &pong{
+		echo: []byte("hello"),
+		from: nil,
+		to:   nil,
+		net:  0,
+		ext:  []byte("hello"),
+		time: time.Time{}.Add(time.Hour),
+	}
+
+	data, err := p.serialize()
+	if err != nil {
+		t.Errorf("failed to serialize ping: %v", err)
+	}
+
+	var p2 = new(pong)
 	err = p2.deserialize(data)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to deserialize ping: %v", err)
 	}
 
-	if p1.ID != p2.ID {
-		t.Fail()
+	if !equalPong(p, p2) {
+		t.Error("not equal")
 	}
-	if p1.Target != p2.Target {
-		t.Fail()
+
+	// init endpoint
+	p.from = &vnode.EndPoint{}
+	p.to = &vnode.EndPoint{}
+	data, err = p.serialize()
+	if err != nil {
+		t.Errorf("failed to serialize ping: %v", err)
 	}
-	if p1.Expiration.Unix() != p2.Expiration.Unix() {
-		t.Fail()
+
+	err = p2.deserialize(data)
+	if err != nil {
+		t.Errorf("failed to deserialize ping: %v", err)
+	}
+	if p2.from != nil || p2.to != nil {
+		t.Error("endpoint should be nil")
 	}
 }
 
-func TestNeighbors_serialize(t *testing.T) {
-	p1 := &Neighbors{
-		Nodes: []*Node{
-			mockNode(true),
-			mockNode(true),
-			mockNode(true),
-			mockNode(true),
-			mockNode(true),
-			mockNode(true),
-			mockNode(true),
-		},
+func equalFindNode(p, p2 *findnode) bool {
+	if p.count != p2.count {
+		return false
 	}
-	p1.ID = mockID()
-	p1.Expiration = time.Now()
+	if p.target != p2.target {
+		return false
+	}
+	if p.time.Unix() != p2.time.Unix() {
+		return false
+	}
+	return true
+}
 
-	data, err := p1.serialize()
-	if err != nil {
-		t.Error(err)
+func TestFindNode_Serialize(t *testing.T) {
+	var p = &findnode{
+		count:  10,
+		target: vnode.ZERO,
+		time:   time.Time{}.Add(time.Hour),
 	}
-	p2 := new(Neighbors)
+	_, _ = rand.Read(p.target.Bytes())
+
+	data, err := p.serialize()
+	if err != nil {
+		t.Errorf("failed to serialize ping: %v", err)
+	}
+
+	var p2 = new(findnode)
 	err = p2.deserialize(data)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to deserialize ping: %v", err)
 	}
 
-	if p1.ID != p2.ID {
-		t.Fail()
+	if !equalFindNode(p, p2) {
+		t.Error("not equal")
 	}
-	if len(p1.Nodes) != len(p2.Nodes) {
-		t.Fail()
+}
+
+func equalNeighbors(p, p2 *neighbors) bool {
+	if p.last != p2.last {
+		return false
 	}
-	for i, node := range p1.Nodes {
-		if !compare(node, p2.Nodes[i], true) {
-			t.Fail()
+	if len(p.endpoints) != len(p2.endpoints) {
+		return false
+	}
+	for i, ep := range p.endpoints {
+		ep2 := p2.endpoints[i]
+		if !ep.Equal(ep2) {
+			return false
 		}
 	}
-	if p1.Expiration.Unix() != p2.Expiration.Unix() {
-		t.Fail()
+	if p.time.Unix() != p2.time.Unix() {
+		return false
 	}
+	return true
+}
+
+func TestNeighbors_Serialize(t *testing.T) {
+	var p = &neighbors{
+		endpoints: nil,
+		last:      true,
+		time:      time.Time{}.Add(time.Hour),
+	}
+	p.endpoints = append(p.endpoints, &vnode.EndPoint{
+		Host: []byte{0, 0, 0, 0},
+		Port: 8888,
+		Typ:  vnode.HostIPv4,
+	}, &vnode.EndPoint{
+		Host: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		Port: 8889,
+		Typ:  vnode.HostIPv6,
+	}, &vnode.EndPoint{
+		Host: []byte("vite.org"),
+		Port: 9000,
+		Typ:  vnode.HostDomain,
+	})
+
+	data, err := p.serialize()
+	if err != nil {
+		t.Errorf("failed to serialize ping: %v", err)
+	}
+
+	var p2 = new(neighbors)
+	err = p2.deserialize(data)
+	if err != nil {
+		t.Errorf("failed to deserialize ping: %v", err)
+	}
+
+	if !equalNeighbors(p, p2) {
+		t.Error("not equal")
+	}
+}
+
+func equalMessage(m1, m2 message) bool {
+	if m1.c != m2.c {
+		return false
+	}
+	if m1.id != m2.id {
+		return false
+	}
+	if m1.c == codePing {
+		p1 := m1.body.(*ping)
+		p2 := m2.body.(*ping)
+		return equalPing(p1, p2)
+	}
+	if m1.c == codePong {
+		p1 := m1.body.(*pong)
+		p2 := m2.body.(*pong)
+		return equalPong(p1, p2)
+	}
+	if m1.c == codeFindnode {
+		p1 := m1.body.(*findnode)
+		p2 := m2.body.(*findnode)
+		return equalFindNode(p1, p2)
+	}
+	if m1.c == codeNeighbors {
+		p1 := m1.body.(*neighbors)
+		p2 := m2.body.(*neighbors)
+		return equalNeighbors(p1, p2)
+	}
+
+	return false
+}
+
+func TestMessage_Pack(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	id, _ := vnode.Bytes2NodeID(publicKey)
+
+	messages := []message{
+		{
+			c:  codePing,
+			id: id,
+			body: &ping{
+				from: &vnode.EndPoint{
+					Host: []byte{127, 0, 0, 1},
+					Port: 8483,
+					Typ:  vnode.HostIPv4,
+				},
+				to: &vnode.EndPoint{
+					Host: []byte{127, 0, 0, 1},
+					Port: 8484,
+					Typ:  vnode.HostIPv4,
+				},
+				net:  1,
+				ext:  []byte("hello world"),
+				time: time.Time{}.Add(time.Hour),
+			},
+		},
+		{
+			c:  codePong,
+			id: id,
+			body: &pong{
+				from: &vnode.EndPoint{
+					Host: []byte{127, 0, 0, 1},
+					Port: 8483,
+					Typ:  vnode.HostIPv4,
+				},
+				to: &vnode.EndPoint{
+					Host: []byte{127, 0, 0, 1},
+					Port: 8484,
+					Typ:  vnode.HostIPv4,
+				},
+				net:  1,
+				ext:  []byte("hello world"),
+				time: time.Time{}.Add(2 * time.Hour),
+				echo: []byte("world"),
+			},
+		},
+		{
+			c:  codeFindnode,
+			id: id,
+			body: &findnode{
+				target: vnode.ZERO,
+				count:  100,
+				time:   time.Time{}.Add(3 * time.Hour),
+			},
+		},
+		{
+			c:  codeNeighbors,
+			id: id,
+			body: &neighbors{
+				endpoints: []*vnode.EndPoint{
+					{
+						Host: []byte("vite.org"),
+						Port: 8888,
+						Typ:  vnode.HostDomain,
+					},
+				},
+				last: true,
+				time: time.Time{}.Add(time.Hour),
+			},
+		},
+	}
+
+	var data, hash []byte
+	var p *packet
+	for _, msg := range messages {
+		data, hash, err = msg.pack(privateKey)
+		if err != nil {
+			t.Error(err)
+		}
+
+		p = retrievePacket()
+		err = unPacket(data, p)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if !equalMessage(p.message, msg) {
+			t.Error("not equal message")
+		}
+
+		if !bytes.Equal(p.hash, hash) {
+			t.Error("not equal hash")
+		}
+	}
+}
+
+func TestUnpack(t *testing.T) {
+	var buf []byte
+	var p = retrievePacket()
+	for i := 0; i < minPacketLength; i++ {
+		_ = unPacket(buf, p)
+		buf = append(buf, 1)
+	}
+	_ = unPacket(buf, p)
 }

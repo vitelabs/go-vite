@@ -3,14 +3,15 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -84,15 +85,15 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
+		cfg.MaxPeers = ctx.GlobalInt(utils.MaxPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
+		cfg.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(utils.ListenPortFlag.Name)
+		cfg.ListenAddress = "0.0.0.0:" + utils.ListenPortFlag.Name
 	}
 
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
@@ -174,7 +175,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
-		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+		cfg.FileListenAddress = "0.0.0.0:" + utils.FilePortFlag.Name
 	}
 
 	//metrics
@@ -282,8 +283,7 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 		return err
 	}
 
-	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
-	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+	log.Crit(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
 	return nil
 }
 

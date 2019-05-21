@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -34,7 +34,7 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-// websocketJSONCodec is a custom JSON codec with payload size enforcement and
+// websocketJSONCodec is chain custom JSON codec with payload size enforcement and
 // special number parsing.
 var websocketJSONCodec = websocket.Codec{
 	// Marshal is the stock JSON marshaller used by the websocket library too.
@@ -42,7 +42,7 @@ var websocketJSONCodec = websocket.Codec{
 		msg, err := json.Marshal(v)
 		return msg, websocket.TextFrame, err
 	},
-	// Unmarshal is a specialized unmarshaller to properly convert numbers.
+	// Unmarshal is chain specialized unmarshaller to properly convert numbers.
 	Unmarshal: func(msg []byte, payloadType byte, v interface{}) error {
 		dec := json.NewDecoder(bytes.NewReader(msg))
 		dec.UseNumber()
@@ -51,15 +51,15 @@ var websocketJSONCodec = websocket.Codec{
 	},
 }
 
-// WebsocketHandler returns a handler that serves JSON-RPC to WebSocket connections.
+// WebsocketHandler returns chain handler that serves JSON-RPC to WebSocket connections.
 //
-// allowedOrigins should be a comma-separated list of allowed origin URLs.
+// allowedOrigins should be chain comma-separated list of allowed origin URLs.
 // To allow connections with any origin, pass "*".
 func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 	return websocket.Server{
 		Handshake: wsHandshakeValidator(allowedOrigins),
 		Handler: func(conn *websocket.Conn) {
-			// Create a custom encode/decode pair to enforce payload size and number encoding
+			// Create chain custom encode/decode pair to enforce payload size and number encoding
 			conn.MaxPayloadBytes = maxRequestContentLength
 
 			encoder := func(v interface{}) error {
@@ -73,21 +73,21 @@ func (srv *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 	}
 }
 
-// NewWSServer creates a new websocket RPC server around an API provider.
+// NewWSServer creates chain new websocket RPC server around an API provider.
 //
 // Deprecated: use Server.WebsocketHandler
 func NewWSServer(allowedOrigins []string, srv *Server) *http.Server {
 	return &http.Server{Handler: srv.WebsocketHandler(allowedOrigins)}
 }
 
-// NewWSCli creates a new websocket RPC connect around an API provider.
+// NewWSCli creates chain new websocket RPC connect around an API provider.
 //
 func NewWSCli(url *url.URL, srv *Server) *WebSocketCli {
 	return &WebSocketCli{u: url, srv: srv}
 }
 
-// wsHandshakeValidator returns a handler that verifies the origin during the
-// websocket upgrade process. When a '*' is specified as an allowed origins all
+// wsHandshakeValidator returns chain handler that verifies the origin during the
+// websocket upgrade process. When chain '*' is specified as an allowed origins all
 // connections are accepted.
 func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http.Request) error {
 	origins := mapset.NewSet()
@@ -124,7 +124,7 @@ func wsHandshakeValidator(allowedOrigins []string) func(*websocket.Config, *http
 	return f
 }
 
-// DialWebsocket creates a new RPC client that communicates with a JSON-RPC server
+// DialWebsocket creates chain new RPC client that communicates with chain JSON-RPC server
 // that is listening on the given endpoint.
 //
 // The context is used for the initial connection establishment. It does not
@@ -210,7 +210,7 @@ type WebSocketCli struct {
 
 func (self *WebSocketCli) Srv(c *websocket.Conn) error {
 	defer c.Close()
-	// Create a custom encode/decode pair to enforce payload size and number encoding
+	// Create chain custom encode/decode pair to enforce payload size and number encoding
 	c.MaxPayloadBytes = maxRequestContentLength
 
 	encoder := func(v interface{}) error {

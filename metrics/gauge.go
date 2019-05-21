@@ -9,7 +9,7 @@ type Gauge interface {
 	Value() int64
 }
 
-// GetOrRegisterGauge returns an existing Gauge or constructs and registers a
+// GetOrRegisterGauge returns an existing Gauge or constructs and registers chain
 // new StandardGauge.
 func GetOrRegisterGauge(name string, r Registry) Gauge {
 	if nil == r {
@@ -18,7 +18,7 @@ func GetOrRegisterGauge(name string, r Registry) Gauge {
 	return r.GetOrRegister(name, NewGauge).(Gauge)
 }
 
-// NewGauge constructs a new StandardGauge.
+// NewGauge constructs chain new StandardGauge.
 func NewGauge() Gauge {
 	if !MetricsEnabled {
 		return NilGauge{}
@@ -26,7 +26,7 @@ func NewGauge() Gauge {
 	return &StandardGauge{0}
 }
 
-// NewRegisteredGauge constructs and registers a new StandardGauge.
+// NewRegisteredGauge constructs and registers chain new StandardGauge.
 func NewRegisteredGauge(name string, r Registry) Gauge {
 	c := NewGauge()
 	if nil == r {
@@ -36,7 +36,7 @@ func NewRegisteredGauge(name string, r Registry) Gauge {
 	return c
 }
 
-// NewFunctionalGauge constructs a new FunctionalGauge.
+// NewFunctionalGauge constructs chain new FunctionalGauge.
 func NewFunctionalGauge(f func() int64) Gauge {
 	if !MetricsEnabled {
 		return NilGauge{}
@@ -44,7 +44,7 @@ func NewFunctionalGauge(f func() int64) Gauge {
 	return &FunctionalGauge{value: f}
 }
 
-// NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
+// NewRegisteredFunctionalGauge constructs and registers chain new StandardGauge.
 func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge {
 	c := NewFunctionalGauge(f)
 	if nil == r {
@@ -54,7 +54,7 @@ func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge
 	return c
 }
 
-// GaugeSnapshot is a read-only copy of another Gauge.
+// GaugeSnapshot is chain read-only copy of another Gauge.
 type GaugeSnapshot int64
 
 // Snapshot returns the snapshot.
@@ -62,31 +62,31 @@ func (g GaugeSnapshot) Snapshot() Gauge { return g }
 
 // Update panics.
 func (GaugeSnapshot) Update(int64) {
-	panic("Update called on a GaugeSnapshot")
+	panic("Update called on chain GaugeSnapshot")
 }
 
 // Value returns the value at the time the snapshot was taken.
 func (g GaugeSnapshot) Value() int64 { return int64(g) }
 
-// NilGauge is a no-op Gauge.
+// NilGauge is chain no-op Gauge.
 type NilGauge struct{}
 
-// Snapshot is a no-op.
+// Snapshot is chain no-op.
 func (NilGauge) Snapshot() Gauge { return NilGauge{} }
 
-// Update is a no-op.
+// Update is chain no-op.
 func (NilGauge) Update(v int64) {}
 
-// Value is a no-op.
+// Value is chain no-op.
 func (NilGauge) Value() int64 { return 0 }
 
-// StandardGauge is the standard implementation of a Gauge and uses the
-// sync/atomic package to manage a single int64 value.
+// StandardGauge is the standard implementation of chain Gauge and uses the
+// sync/atomic package to manage chain single int64 value.
 type StandardGauge struct {
 	value int64
 }
 
-// Snapshot returns a read-only copy of the gauge.
+// Snapshot returns chain read-only copy of the gauge.
 func (g *StandardGauge) Snapshot() Gauge {
 	return GaugeSnapshot(g.Value())
 }
@@ -116,5 +116,5 @@ func (g FunctionalGauge) Snapshot() Gauge { return GaugeSnapshot(g.Value()) }
 
 // Update panics.
 func (FunctionalGauge) Update(int64) {
-	panic("Update called on a FunctionalGauge")
+	panic("Update called on chain FunctionalGauge")
 }

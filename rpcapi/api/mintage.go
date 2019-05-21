@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
 	"sort"
 )
 
@@ -26,27 +25,7 @@ func (m MintageApi) String() string {
 	return "MintageApi"
 }
 
-type NewTokenIdParams struct {
-	SelfAddr     types.Address
-	Height       string
-	PrevHash     types.Hash
-	SnapshotHash types.Hash
-}
-
-func (m *MintageApi) NewTokenId(param NewTokenIdParams) (*types.TokenTypeId, error) {
-	h, err := StringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tid := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
-	return &tid, nil
-}
-
 type MintageParams struct {
-	SelfAddr      types.Address
-	Height        string
-	PrevHash      types.Hash
-	SnapshotHash  types.Hash
 	TokenName     string
 	TokenSymbol   string
 	TotalSupply   string
@@ -56,28 +35,7 @@ type MintageParams struct {
 	OwnerBurnOnly bool
 }
 
-func (m *MintageApi) GetMintageData(param MintageParams) ([]byte, error) {
-	h, err := StringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
-	totalSupply, err := stringToBigInt(&param.TotalSupply)
-	if err != nil {
-		return nil, err
-	}
-	return abi.ABIMintage.PackMethod(abi.MethodNameMintage, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals)
-}
-func (m *MintageApi) GetMintageCancelPledgeData(tokenId types.TokenTypeId) ([]byte, error) {
-	return abi.ABIMintage.PackMethod(abi.MethodNameMintageCancelPledge, tokenId)
-}
-
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
-	h, err := StringToUint64(param.Height)
-	if err != nil {
-		return nil, err
-	}
-	tokenId := abi.NewTokenId(param.SelfAddr, h, param.PrevHash, param.SnapshotHash)
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err
@@ -86,7 +44,7 @@ func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, tokenId, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
+	return abi.ABIMintage.PackMethod(abi.MethodNameMint, param.IsReIssuable, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
 }
 
 type IssueParams struct {
@@ -135,12 +93,14 @@ func (a byName) Less(i, j int) bool {
 }
 
 func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
+	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}
-	tokenMap := abi.GetTokenMap(vmContext)
+	tokenMap, err := abi.GetTokenMap(db)
+	if err != nil {
+		return nil, err
+	}
 	listLen := len(tokenMap)
 	tokenList := make([]*RpcTokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
@@ -152,24 +112,29 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 }
 
 func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
+	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}
-	tokenInfo := abi.GetTokenById(vmContext, tokenId)
+	tokenInfo, err := abi.GetTokenById(db, tokenId)
+	if err != nil {
+		return nil, err
+	}
 	if tokenInfo != nil {
 		return RawTokenInfoToRpc(tokenInfo, tokenId), nil
 	}
 	return nil, nil
 }
+
 func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
-	snapshotBlock := m.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(m.chain, &snapshotBlock.Hash, nil, nil)
+	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
 	}
-	tokenMap := abi.GetTokenMapByOwner(vmContext, owner)
+	tokenMap, err := abi.GetTokenMapByOwner(db, owner)
+	if err != nil {
+		return nil, err
+	}
 	tokenList := make([]*RpcTokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))

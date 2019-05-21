@@ -8,17 +8,13 @@ import (
 	"io"
 )
 
-const (
-	MethodTypeFunction string = "function"
-	MethodTypeOffChain string = "offchain"
-)
-
 // The ABIContract holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.
 type ABIContract struct {
 	Constructor Method
 	Methods     map[string]Method
+	Callbacks   map[string]Method
 	OffChains   map[string]Method
 	Events      map[string]Event
 	Variables   map[string]Variable
@@ -51,6 +47,17 @@ func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, err
 		return nil, fmt.Errorf("method '%s' not found", name)
 	}
 	return abi.packMethod(method, name, args...)
+}
+func getCallBackName(name string) string {
+	return name + "Callback"
+}
+func (abi ABIContract) PackCallback(name string, args ...interface{}) ([]byte, error) {
+	callbackName := getCallBackName(name)
+	method, exist := abi.Callbacks[callbackName]
+	if !exist {
+		return nil, fmt.Errorf("callback '%s' not found", name)
+	}
+	return abi.packMethod(method, callbackName, args...)
 }
 
 func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, error) {
@@ -144,6 +151,7 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	}
 
 	abi.Methods = make(map[string]Method)
+	abi.Callbacks = make(map[string]Method)
 	abi.OffChains = make(map[string]Method)
 	abi.Events = make(map[string]Event)
 	abi.Variables = make(map[string]Variable)
@@ -157,6 +165,13 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 		case "function", "":
 			abi.Methods[field.Name] = Method{
 				Name:   field.Name,
+				Const:  field.Constant,
+				Inputs: field.Inputs,
+			}
+		case "callback":
+			callbackName := getCallBackName(field.Name)
+			abi.Callbacks[callbackName] = Method{
+				Name:   callbackName,
 				Const:  field.Constant,
 				Inputs: field.Inputs,
 			}
