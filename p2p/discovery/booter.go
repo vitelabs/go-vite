@@ -175,7 +175,7 @@ func (n *netBooter) getBootNodes(count int) (nodes []*Node) {
 	}
 
 	var ret []byte
-	var buf = make([]byte, 1024)
+	var buf = make([]byte, 1024000)
 
 	i, err := resp.Body.Read(buf)
 	ret = append(ret, buf[:i]...)
