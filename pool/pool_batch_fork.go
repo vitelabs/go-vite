@@ -43,9 +43,15 @@ func (pl *pool) insertTo(height uint64) error {
 func (pl *pool) insertQueueForFork(q batch.Batch) error {
 	t0 := time.Now()
 	defer func() {
-		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
-		pl.log.Info(fmt.Sprintln(queueResult))
+		now := time.Now()
+		if !t0.After(now) {
+			queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), "-1", -1, q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		} else {
+			sub := now.Sub(t0)
+			queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		}
 	}()
 	return q.Batch(pl.insertSnapshotBucketForFork, pl.insertAccountsBucketForFork)
 }
