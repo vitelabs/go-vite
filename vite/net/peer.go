@@ -226,7 +226,10 @@ func (m *peerSet) unSub(ch chan<- peerEvent) {
 
 func (m *peerSet) notify(e peerEvent) {
 	for _, c := range m.subs {
-		c <- e
+		select {
+		case c <- e:
+		default:
+		}
 	}
 }
 

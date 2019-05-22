@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"io"
 	mrand "math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"testing"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -144,4 +146,19 @@ func BenchmarkCrypto(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = rand.Read(hash[:])
 	}
+}
+
+func TestBlockFilter(t *testing.T) {
+	var m = make(map[int]blockFilter)
+
+	go func() {
+		http.ListenAndServe("localhost:8081", nil)
+	}()
+
+	for i := 0; i < 2000; i++ {
+		m[i] = newBlockFilter(filterCap)
+	}
+
+	ch := make(chan struct{})
+	ch <- struct{}{}
 }

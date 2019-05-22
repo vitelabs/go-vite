@@ -216,9 +216,15 @@ func (pl *pool) makeQueueFromAccounts(p batch.Batch) {
 func (pl *pool) insertQueue(q batch.Batch) error {
 	t0 := time.Now()
 	defer func() {
-		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
-		pl.log.Info(fmt.Sprintln(queueResult))
+		now := time.Now()
+		if !t0.After(now) {
+			queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), "-1", -1, q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		} else {
+			sub := now.Sub(t0)
+			queueResult := fmt.Sprintf("[%d]queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		}
 	}()
 	return q.Batch(pl.insertSnapshotBucketForTree, pl.insertAccountBucketForTree)
 }

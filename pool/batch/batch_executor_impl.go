@@ -54,9 +54,15 @@ func (self *batchExecutor) insertSnapshotLevel(l Level) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
-		sub := time.Now().Sub(t1)
-		levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
-		self.log.Info(levelInfo)
+		now := time.Now()
+		if !t1.After(now) {
+			levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), -1, "-1", num, num)
+			self.log.Info(levelInfo)
+		} else {
+			sub := now.Sub(t1)
+			levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
+			self.log.Info(levelInfo)
+		}
 	}()
 	version := self.p.Version()
 	for _, b := range l.Buckets() {
@@ -111,10 +117,16 @@ func (self *batchExecutor) insertAccountLevel(l Level) error {
 	}
 	close(bucketCh)
 	wg.Wait()
-	sub := time.Now().Sub(t1)
-	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
-	self.log.Info(levelInfo)
 
+	now := time.Now()
+	if !t1.After(now) {
+		levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), -1, "-1", num, levelInfo, globalErr)
+		self.log.Info(levelInfo)
+	} else {
+		sub := now.Sub(t1)
+		levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
+		self.log.Info(levelInfo)
+	}
 	if globalErr != nil {
 		return globalErr
 	}
