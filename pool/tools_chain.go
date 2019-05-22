@@ -132,15 +132,24 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 		results[b.AccountAddress] = append(results[b.AccountAddress], newAccountPoolBlock(b, nil, accCh.version, types.RollbackChain))
 		accCh.log.Info("actual delToHeight", "height", b.Height, "hash", b.Hash, "address", b.AccountAddress)
 	}
-	block, err := accCh.rw.GetLatestAccountBlock(accCh.address)
-	if err != nil {
-		panic(err)
-	}
-	if block == nil && height != 1 {
-		panic(fmt.Sprintf("latest block is nil"))
-	}
-	if block.Height > height {
-		panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))
+
+	{ // todo delete
+		block, err := accCh.rw.GetLatestAccountBlock(accCh.address)
+		if err != nil {
+			panic(err)
+		}
+		if height == 1 {
+			if block != nil {
+				panic(fmt.Sprintf("latest block should be nil"))
+			}
+		} else {
+			if block == nil {
+				panic(fmt.Sprintf("latest block is nil"))
+			}
+			if block.Height > height {
+				panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))
+			}
+		}
 	}
 	return nil, results, nil
 }
