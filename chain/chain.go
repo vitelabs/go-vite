@@ -439,6 +439,7 @@ func (c *chain) ResetLog(dir string, lvl string) {
 func (c *chain) GetStatus() []interfaces.DBStatus {
 	var statusList = make([]interfaces.DBStatus, 0)
 
+	statusList = append(statusList, c.cache.GetStatus()...)
 	statusList = append(statusList, c.indexDB.GetStatus()...)
 	statusList = append(statusList, c.blockDB.GetStatus()...)
 	statusList = append(statusList, c.stateDB.GetStatus()...)

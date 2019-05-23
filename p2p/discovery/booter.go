@@ -175,7 +175,7 @@ func (n *netBooter) getBootNodes(count int) (nodes []*Node) {
 	}
 
 	var ret []byte
-	var buf = make([]byte, 1024)
+	var buf = make([]byte, 1024000)
 
 	i, err := resp.Body.Read(buf)
 	ret = append(ret, buf[:i]...)
@@ -203,6 +203,7 @@ func (n *netBooter) getBootNodes(count int) (nodes []*Node) {
 		if err != nil {
 			n.log.Error(fmt.Sprintf("failed to parse bootNode %s from seed %s: %v", str, seed, err))
 		} else {
+			node.Net = n.self.Net
 			nodes = append(nodes, &Node{
 				Node: *node,
 			})

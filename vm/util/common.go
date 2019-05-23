@@ -125,20 +125,11 @@ func PrintMap(m map[string][]byte) string {
 	return result
 }
 
-func IsUserAccount(db CommonDb) bool {
-	ok, err := db.IsContractAccount()
-	DealWithErr(err)
-	return !ok
+func IsUserAccount(addr types.Address) bool {
+	return !types.IsContractAddr(addr)
 }
 
 func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
 	topics, data, _ := c.PackEvent(name, params...)
 	return &ledger.VmLog{Topics: topics, Data: data}
-}
-
-func IsRetryAfterLatestSnapshotBlockChanged(block *ledger.AccountBlock, useGlobalStatus bool) bool {
-	if useGlobalStatus || IsPoW(block) || block.BlockType == ledger.BlockTypeReceiveError {
-		return true
-	}
-	return false
 }

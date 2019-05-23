@@ -39,7 +39,7 @@ func main() {
 	}
 
 	var port = 8081
-	const total = 5
+	const total = 55
 	type sample struct {
 		port int
 		dir  string
@@ -109,7 +109,7 @@ func main() {
 			select {
 			case <-ticker.C:
 				for i, d := range ds {
-					fmt.Println(i, d.AllNodes())
+					fmt.Println(i, len(d.AllNodes()))
 				}
 				fmt.Println("------------")
 			}

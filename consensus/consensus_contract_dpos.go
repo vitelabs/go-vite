@@ -63,7 +63,7 @@ func (contract *contractDposCs) electionAddrsIndex(index uint64) ([]types.Addres
 
 func (contract *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.Address, error) {
 	// load from cache
-	r, ok := contract.rw.getContractVoteCache(block.Hash)
+	r, ok := contract.rw.getVoteLRUCache(contract.Gid, block.Hash)
 	if ok {
 		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
 		return r, nil
@@ -87,7 +87,7 @@ func (contract *contractDposCs) calVotes(block *ledger.SnapshotBlock) ([]types.A
 	address := core.ConvertVoteToAddress(finalVotes)
 
 	// update cache
-	contract.rw.updateContractVoteCache(hashH.Hash, address)
+	contract.rw.updateVoteLRUCache(contract.Gid, hashH.Hash, address)
 	return address, nil
 }
 

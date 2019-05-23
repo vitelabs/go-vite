@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// ContractTaskProcessor is to handle onroad and generate new contract receive block.
 type ContractTaskProcessor struct {
 	taskID int
 	worker *ContractWorker
@@ -16,6 +17,7 @@ type ContractTaskProcessor struct {
 	log log15.Logger
 }
 
+// NewContractTaskProcessor creates a ContractTaskProcessor.
 func NewContractTaskProcessor(worker *ContractWorker, index int) *ContractTaskProcessor {
 	return &ContractTaskProcessor{
 		taskID: index,
@@ -67,13 +69,11 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	if sBlock == nil {
 		return false
 	}
-	blog := tp.log.New("l", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
+	blog := tp.log.New("s", sBlock.Hash, "caller", sBlock.AccountAddress, "contract", task.Addr)
 
-	// fixme checkReceivedSuccess
-	// fixme: check confirmedTimes, consider sb trigger
 	if err := tp.worker.verifyConfirmedTimes(&task.Addr, &sBlock.Hash); err != nil {
 		blog.Info(fmt.Sprintf("verifyConfirmedTimes failed, err:%v", err))
-		// tp.worker.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
+		tp.worker.addContractCallerToInferiorList(task.Addr, sBlock.AccountAddress, RETRY)
 		return true
 	}
 

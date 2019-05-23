@@ -24,7 +24,6 @@ func newContractCs(rw *chainRw, log log15.Logger) *contractsCs {
 	cs.rw = rw
 	cs.log = log.New("gid", "contracts")
 	cs.contracts = make(map[types.Gid]*contractDposCs)
-	// todo
 	return cs
 }
 

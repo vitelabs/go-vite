@@ -1,6 +1,7 @@
 package chain_cache
 
 import (
+	"github.com/vitelabs/go-vite/interfaces"
 	"sync"
 )
 
@@ -37,4 +38,15 @@ func (cache *Cache) Destroy() {
 	cache.ds = nil
 	cache.unconfirmedPool = nil
 	cache.hd = nil
+}
+
+func (cache *Cache) GetStatus() []interfaces.DBStatus {
+	dsCacheStatus := cache.ds.GetStatus()
+
+	return []interfaces.DBStatus{{
+		Name:   "blockCache.ds.cache",
+		Count:  dsCacheStatus[0].Count,
+		Size:   dsCacheStatus[0].Size,
+		Status: "",
+	}}
 }

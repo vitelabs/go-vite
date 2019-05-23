@@ -259,7 +259,6 @@ func (snapshot *snapshotCs) ElectionIndex(index uint64) (*electionResult, error)
 		return nil, e
 	}
 
-	// todo
 	snapshot.log.Debug(fmt.Sprintf("election index:%d,%s, proofTime:%s", index, proofBlock.Hash, proofTime))
 
 	voteResults, err := snapshot.calVotes(proofBlock, index)
@@ -323,6 +322,66 @@ func (snapshot *snapshotCs) calVotes(proofBlock *ledger.SnapshotBlock, index uin
 	snapshot.rw.updateSnapshotVoteCache(hashH.Hash, address)
 	return address, nil
 }
+func (snapshot *snapshotCs) triggerLoad(proofBlock *ledger.SnapshotBlock) {
+	select {
+	case snapshot.rw.snapshotLoadCh <- proofBlock:
+	default:
+	}
+}
+
+func (snapshot *snapshotCs) loadVotes(proofBlock *ledger.SnapshotBlock) ([]types.Address, error) {
+	snapshot.log.Info("loadVotes ", "hash", proofBlock.Hash, "height", proofBlock.Height)
+	hashH := ledger.HashHeight{Hash: proofBlock.Hash, Height: proofBlock.Height}
+	// load from cache
+	r, ok := snapshot.rw.getVoteLRUCache(types.SNAPSHOT_GID, hashH.Hash)
+	if ok {
+		//fmt.Println(fmt.Sprintf("hit cache voteIndex:%d,%s,%+v", voteIndex, hashH.Hash, r))
+		return r, nil
+	}
+	seed := core.NewSeedInfo(snapshot.rw.GetSeedsBeforeHashH(hashH.Hash))
+	// record vote
+	votes, err := snapshot.rw.CalVotes(&snapshot.GroupInfo, hashH)
+	if err != nil {
+		return nil, err
+	}
+
+	var successRate map[types.Address]int32
+
+	_, proofIndex := snapshot.genSnapshotProofTimeIndx(snapshot.Time2Index(*proofBlock.Timestamp))
+	if proofIndex > 0 {
+		successRate, err = snapshot.rw.GetSuccessRateByHour(proofIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	all := ""
+	for _, v := range votes {
+		all += fmt.Sprintf("[%s-%s]", v.Name, v.Balance.String())
+	}
+	snapshot.log.Info(fmt.Sprintf("[load][%d][%d]pre success rate log: %+v, %s, seed:%d", hashH.Height, hashH.Hash, successRate, all, seed))
+
+	context := core.NewVoteAlgoContext(votes, &hashH, successRate, seed)
+	// filter size of members
+	finalVotes := snapshot.algo.FilterVotes(context)
+	// shuffle the members
+	finalVotes = snapshot.algo.ShuffleVotes(finalVotes, &hashH, seed)
+
+	result := fmt.Sprintf("[loadpw]CalVotes result: %d:%s, ", hashH.Height, hashH.Hash)
+	for _, v := range finalVotes {
+		if len(v.Type) > 0 {
+			result += fmt.Sprintf("[%s:%+v],", v.Name, v.Type)
+		} else {
+			result += fmt.Sprintf("[%s],", v.Name)
+		}
+	}
+	snapshot.log.Info(result)
+	address := core.ConvertVoteToAddress(finalVotes)
+
+	// update cache
+	snapshot.rw.updateVoteLRUCache(types.SNAPSHOT_GID, hashH.Hash, address)
+	return address, nil
+}
 
 // generate the vote time for snapshot consensus group
 func (snapshot *snapshotCs) GenProofTime(idx uint64) time.Time {
@@ -355,7 +414,6 @@ func (snapshot *snapshotCs) VerifySnapshotProducer(header *ledger.SnapshotBlock)
 	if err != nil {
 		return false, err
 	}
-
 	return snapshot.verifyProducer(*header.Timestamp, header.Producer(), electionResult), nil
 }
 
@@ -364,7 +422,6 @@ func (snapshot *snapshotCs) VerifyProducer(address types.Address, t time.Time) (
 	if err != nil {
 		return false, err
 	}
-
 	return snapshot.verifyProducer(t, address, electionResult), nil
 }
 

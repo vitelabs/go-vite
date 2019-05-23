@@ -114,7 +114,7 @@ var simpleContracts = map[types.Address]*builtinContract{
 	},
 }
 
-func GetBuiltinContract(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
+func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
 	p, ok := simpleContracts[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {

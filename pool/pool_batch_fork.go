@@ -43,19 +43,25 @@ func (pl *pool) insertTo(height uint64) error {
 func (pl *pool) insertQueueForFork(q batch.Batch) error {
 	t0 := time.Now()
 	defer func() {
-		sub := time.Now().Sub(t0)
-		queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
-		fmt.Println(queueResult)
+		now := time.Now()
+		if !t0.After(now) {
+			queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), "-1", -1, q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		} else {
+			sub := now.Sub(t0)
+			queueResult := fmt.Sprintf("[%d][fork] queue[%s][%d][%d]", q.Id(), sub, (int64(q.Size())*time.Second.Nanoseconds())/sub.Nanoseconds(), q.Size())
+			pl.log.Info(fmt.Sprintln(queueResult))
+		}
 	}()
 	return q.Batch(pl.insertSnapshotBucketForFork, pl.insertAccountsBucketForFork)
 }
 
-func (pl *pool) insertSnapshotBucketForFork(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertSnapshotBucket(p, bucket, version)
+func (pl *pool) insertSnapshotBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertSnapshotBucket(p, l, bucket, version)
 }
 
-func (pl *pool) insertAccountsBucketForFork(p batch.Batch, bucket batch.Bucket, version uint64) error {
-	return pl.insertAccountBucket(p, bucket, version)
+func (pl *pool) insertAccountsBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	return pl.insertAccountBucket(p, l, bucket, version)
 }
 
 func (pl *pool) checkTarget(height uint64) error {
@@ -83,7 +89,8 @@ func (pl *pool) makeQueueOnly() batch.Batch {
 			// snapshot block
 			err := pl.makeQueueFromSnapshotBlock(p, tmpSb)
 			if err != nil {
-				fmt.Println("from snapshot", err)
+
+				pl.log.Info(fmt.Sprintf("from snapshot, %v", err))
 				break
 			}
 			snapshotOffset.offset = newOffset
@@ -91,7 +98,6 @@ func (pl *pool) makeQueueOnly() batch.Batch {
 	}
 	if p.Size() > 0 {
 		msg := fmt.Sprintf("[%d]make from snapshot, accounts[%d].", p.Id(), p.Size())
-		fmt.Println(msg)
 		pl.log.Info(msg)
 	}
 	return p

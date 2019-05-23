@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/consensus/cdb"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common"
@@ -95,7 +97,7 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 	defer ctrl.Finish()
 	db := NewDb(t, UnitTestDir)
 	defer ClearDb(t, UnitTestDir)
-	consensusDB := db.NewConsensusDB(db)
+	consensusDB := cdb.NewConsensusDB(db)
 
 	num := 48
 	hashArr := genHashArr(num + 1)
@@ -103,20 +105,20 @@ func TestHourLinkedArray_GetByIndex(t *testing.T) {
 	mockPerids := NewMockLinkedArray(ctrl)
 	mockProof := NewMockRollbackProof(ctrl)
 
-	sbps := make(map[types.Address]*db.Content)
+	sbps := make(map[types.Address]*cdb.Content)
 	addr1 := types.HexToAddressPanic("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
-	sbps[addr1] = &db.Content{
+	sbps[addr1] = &cdb.Content{
 		ExpectedNum: 10,
 		FactualNum:  8,
 	}
 	addr2 := types.HexToAddressPanic("vite_826a1ab4c85062b239879544dc6b67e3b5ce32d0a1eba21461")
-	sbps[addr2] = &db.Content{
+	sbps[addr2] = &cdb.Content{
 		ExpectedNum: 9,
 		FactualNum:  7,
 	}
 
 	for i := 0; i < num; i++ {
-		mockPerids.EXPECT().GetByIndexWithProof(gomock.Eq(uint64(i)), gomock.Any()).Return(&db.Point{
+		mockPerids.EXPECT().GetByIndexWithProof(gomock.Eq(uint64(i)), gomock.Any()).Return(&cdb.Point{
 			PrevHash: hashArr[i],
 			Hash:     hashArr[i+1],
 			Sbps:     sbps,

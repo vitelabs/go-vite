@@ -34,7 +34,7 @@ import (
 )
 
 const version byte = 0
-const expiration = 5 * time.Second
+const expiration = 4 * time.Second
 const maxPacketLength = 1200
 const signatureLength = 64
 const packetHeadLength = 1 + 1 + len(vnode.ZERO)
@@ -148,7 +148,11 @@ func (p *ping) deserialize(buf []byte) error {
 }
 
 func (p *ping) expired() bool {
-	return time.Now().Sub(p.time) > expiration
+	now := time.Now()
+	if now.Before(p.time) {
+		return false
+	}
+	return now.Sub(p.time) > 2*expiration
 }
 
 type pong struct {
@@ -225,7 +229,11 @@ func (p *pong) deserialize(data []byte) error {
 }
 
 func (p *pong) expired() bool {
-	return time.Now().Sub(p.time) > expiration
+	now := time.Now()
+	if now.Before(p.time) {
+		return false
+	}
+	return now.Sub(p.time) > 2*expiration
 }
 
 type findnode struct {
@@ -262,7 +270,11 @@ func (f *findnode) deserialize(buf []byte) error {
 }
 
 func (f *findnode) expired() bool {
-	return time.Now().Sub(f.time) > expiration
+	now := time.Now()
+	if now.Before(f.time) {
+		return false
+	}
+	return now.Sub(f.time) > 2*expiration
 }
 
 type neighbors struct {
@@ -314,7 +326,11 @@ func (n *neighbors) deserialize(buf []byte) (err error) {
 }
 
 func (n *neighbors) expired() bool {
-	return time.Now().Sub(n.time) > expiration
+	now := time.Now()
+	if now.Before(n.time) {
+		return false
+	}
+	return now.Sub(n.time) > 2*expiration
 }
 
 // pack a message to []byte, structure as following:

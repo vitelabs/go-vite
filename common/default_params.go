@@ -62,8 +62,8 @@ func MakeDefaultLogger(absFilePath string) *lumberjack.Logger {
 	return &lumberjack.Logger{
 		Filename:   absFilePath,
 		MaxSize:    100,
-		MaxBackups: 100000,
-		MaxAge:     100000,
+		MaxBackups: 14,
+		MaxAge:     14,
 		Compress:   true,
 		LocalTime:  true,
 	}

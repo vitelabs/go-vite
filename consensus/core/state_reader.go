@@ -23,6 +23,7 @@ func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vo
 	if err != nil {
 		return nil, err
 	}
+
 	// query vote info
 	votes, err := rw.GetVoteList(hash, info.Gid)
 	if err != nil {
@@ -41,6 +42,7 @@ func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vo
 
 		registers = append(registers, register)
 	}
+
 	return registers, nil
 }
 func voteCompleting(snapshotHash types.Hash, vote *Vote, infos []*types.VoteInfo, id types.TokenTypeId, rw stateCh) error {

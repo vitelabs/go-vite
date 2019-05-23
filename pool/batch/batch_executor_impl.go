@@ -54,14 +54,20 @@ func (self *batchExecutor) insertSnapshotLevel(l Level) error {
 	t1 := time.Now()
 	num := 0
 	defer func() {
-		sub := time.Now().Sub(t1)
-		levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
-		fmt.Println(levelInfo)
+		now := time.Now()
+		if !t1.After(now) {
+			levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), -1, "-1", num, num)
+			self.log.Info(levelInfo)
+		} else {
+			sub := now.Sub(t1)
+			levelInfo := fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%dS", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, num)
+			self.log.Info(levelInfo)
+		}
 	}()
 	version := self.p.Version()
 	for _, b := range l.Buckets() {
 		num = num + len(b.Items())
-		return self.snapshotFn(self.p, b, version)
+		return self.snapshotFn(self.p, l, b, version)
 	}
 	return nil
 }
@@ -90,11 +96,11 @@ func (self *batchExecutor) insertAccountLevel(l Level) error {
 				if globalErr != nil {
 					return
 				}
-				err := self.accountFn(self.p, b, version)
+				err := self.accountFn(self.p, l, b, version)
 				atomic.AddInt32(&num, int32(len(b.Items())))
 				if err != nil {
 					globalErr = err
-					fmt.Printf("error[%s] for insert account block.\n", err)
+					self.log.Info(fmt.Sprintf("error[%s] for insert account block.\n", err))
 					return
 				}
 			}
@@ -111,10 +117,16 @@ func (self *batchExecutor) insertAccountLevel(l Level) error {
 	}
 	close(bucketCh)
 	wg.Wait()
-	sub := time.Now().Sub(t1)
-	levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
-	fmt.Println(levelInfo)
 
+	now := time.Now()
+	if !t1.After(now) {
+		levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), -1, "-1", num, levelInfo, globalErr)
+		self.log.Info(levelInfo)
+	} else {
+		sub := now.Sub(t1)
+		levelInfo = fmt.Sprintf("\tlevel[%d][%d][%s][%d]->%s, %s", l.Index(), (int64(num)*time.Second.Nanoseconds())/sub.Nanoseconds(), sub, num, levelInfo, globalErr)
+		self.log.Info(levelInfo)
+	}
 	if globalErr != nil {
 		return globalErr
 	}

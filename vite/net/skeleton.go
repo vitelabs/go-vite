@@ -83,7 +83,7 @@ func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
 	var weight int
 
 	for {
-		if len(tree.nodes) == 0 {
+		if tree == nil || len(tree.nodes) == 0 {
 			return
 		}
 
@@ -99,6 +99,26 @@ func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
 		list = append(list, subTree.HashHeightPoint)
 
 		tree = subTree
+	}
+}
+
+type pending struct {
+	wg   *sync.WaitGroup
+	tree *hashHeightNode
+}
+
+func (p *pending) done(msg p2p.Msg, sender Peer, err error) {
+	p.wg.Done()
+	if err != nil {
+		netLog.Warn(fmt.Sprintf("failed to get HashHeight list from %s: %v", sender, err))
+	} else {
+		var hh = &message.HashHeightPointList{}
+		err = hh.Deserialize(msg.Payload)
+		if err != nil {
+			return
+		}
+
+		p.tree.addBranch(hh.Points, sender)
 	}
 }
 
@@ -126,7 +146,11 @@ func newSkeleton(peers syncPeerSet, idGen MsgIder) *skeleton {
 
 // construct return a slice of HashHeight, every 100 step
 func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*message.HashHeightPoint) {
-	atomic.StoreInt32(&sk.checking, 1)
+	if false == atomic.CompareAndSwapInt32(&sk.checking, 0, 1) {
+		netLog.Warn(fmt.Sprintf("skeleton is checking"))
+		return
+	}
+	defer atomic.StoreInt32(&sk.checking, 0)
 
 	sk.tree = newHashHeightTree()
 
@@ -145,7 +169,6 @@ func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*m
 	}
 
 	sk.wg.Wait()
-	atomic.StoreInt32(&sk.checking, 0)
 
 	sk.mu.Lock()
 	list = sk.tree.bestBranch()
@@ -158,6 +181,7 @@ func (sk *skeleton) getHashList(p Peer, msg *message.GetHashHeightList) {
 	mid := sk.idGen.MsgID()
 	err := p.send(p2p.CodeGetHashList, mid, msg)
 	if err != nil {
+		sk.wg.Done()
 		p.catch(err)
 	} else {
 		// add pending
@@ -208,7 +232,11 @@ func (sk *skeleton) removePending(id p2p.MsgId) {
 
 func (sk *skeleton) reset() {
 	sk.mu.Lock()
+	for id := range sk.pending {
+		delete(sk.pending, id)
+		sk.wg.Done()
+	}
 	sk.pending = make(map[p2p.MsgId]Peer)
-	sk.tree = nil
+	sk.tree = newHashHeightTree()
 	sk.mu.Unlock()
 }

@@ -4,17 +4,14 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-errors/errors"
-	"github.com/vitelabs/go-vite/vm/contracts"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type RegisterApi struct {
@@ -74,12 +71,11 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
-	snapshotBlock := r.chain.GetLatestSnapshotBlock()
-	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &snapshotBlock.Hash, prevHash)
+	snapshotBlock, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +87,6 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
 		for i, info := range list {
-			if err != nil {
-				return nil, err
-			}
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
 				NodeAddr:       info.NodeAddr,
@@ -109,27 +102,22 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 }
 
 func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
-	ab, err := r.chain.GetLatestAccountBlock(types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	var prevHash *types.Hash
-	if ab != nil {
-		prevHash = &ab.Hash
-	}
-	sb := r.chain.GetLatestSnapshotBlock()
-	if sb == nil {
-		return nil, errors.New("unexpected error, latest snapshot block is nil")
-	}
-	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &sb.Hash, prevHash)
+	info, err := abi.GetRegistration(db, gid, name)
 	if err != nil {
 		return nil, err
 	}
-	info, err := abi.GetRegistration(vmDb, gid, name)
+	if info == nil {
+		return nil, nil
+	}
+	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, err
 	}
-	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), vmDb, info, sb)
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
 	if err != nil {
 		return nil, err
 	}
@@ -164,15 +152,11 @@ func ToReward(source *contracts.Reward) *Reward {
 }
 
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
-	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	vmDb, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
-	if err != nil {
-		return nil, err
-	}
-	m, err := contracts.CalcRewardByDay(vmDb, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	m, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -184,11 +168,7 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -204,11 +184,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if len(paramList) == 0 {
 		return nil, nil
 	}
-	prevHash, err := getPrevBlockHash(r.chain, types.AddressConsensusGroup)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(r.chain, &types.AddressConsensusGroup, &r.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}

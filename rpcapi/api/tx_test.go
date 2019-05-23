@@ -3,11 +3,12 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"testing"
 )
 
 func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
@@ -113,4 +114,8 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 		if !isVerified {
 			t.Fatal("verify hash failed")
 		}*/
+}
+
+func TestTx_Auto(t *testing.T) {
+
 }

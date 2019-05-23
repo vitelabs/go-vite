@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type VoteApi struct {
@@ -50,11 +49,7 @@ type VoteInfo struct {
 }
 
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	prevHash, err := getPrevBlockHash(v.chain, types.AddressConsensusGroup)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(v.chain, &types.AddressConsensusGroup, &v.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getVmDb(v.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}

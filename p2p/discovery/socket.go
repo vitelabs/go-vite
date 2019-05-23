@@ -173,7 +173,7 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 			hash: hash,
 			done: ch,
 		},
-		expiration: now.Add(expiration),
+		expiration: now.Add(2 * expiration),
 	})
 
 	return
@@ -234,7 +234,7 @@ func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*v
 			count: count,
 			ch:    ch,
 		},
-		expiration: time.Now().Add(expiration),
+		expiration: time.Now().Add(2 * expiration),
 	})
 
 	return
