@@ -255,7 +255,7 @@ func TestCalcQuotaV3(t *testing.T) {
 		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
 			[]types.QuotaInfo{},
 			[]*ledger.AccountBlock{},
-			21000, 0, 21000, 21000, 0, nil, "new_pow",
+			21000, 0, 21000, 0, 0, nil, "new_pow",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -337,7 +337,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 105000, QuotaUsed: 105000},
 			},
-			31500, 21000, 0, 273000, 59500, nil, "pledge_5",
+			31500, 21000, 0, 136500, 59500, nil, "pledge_5",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -352,7 +352,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 1, QuotaUsedTotal: 105000, QuotaTotal: 105000},
 			},
 			[]*ledger.AccountBlock{},
-			31500, 21000, 0, 0, 91000, nil, "pledge_6",
+			31500, 21000, 0, 31500, 59500, nil, "pledge_6",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -369,8 +369,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 50000, QuotaUsed: 50000},
 			},
-			// TODO
-			0, 0, 0, 0, 0, util.ErrInvalidUnconfirmedQuota, "pledge_7",
+			0, 21000, 0, 31500, 57125, util.ErrInvalidUnconfirmedQuota, "pledge_7",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -402,7 +401,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 1, QuotaUsedTotal: 31500, QuotaTotal: 31500},
 			},
 			[]*ledger.AccountBlock{},
-			21000, 21000, 0, 0, 52500, nil, "pledge_9",
+			21000, 21000, 0, 21000, 52500, nil, "pledge_9",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -417,7 +416,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 0, QuotaUsedTotal: 0, QuotaTotal: 0},
 			},
 			[]*ledger.AccountBlock{},
-			42000, 21000, 0, 0, 52500, nil, "pledge_10",
+			42000, 21000, 0, 42000, 52500, nil, "pledge_10",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
 			[]types.QuotaInfo{
@@ -432,7 +431,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 0, QuotaUsedTotal: 0, QuotaTotal: 0},
 			},
 			[]*ledger.AccountBlock{},
-			63000, 21000, 21000, 0, 52500, nil, "pledge_and_pow",
+			63000, 21000, 21000, 42000, 52500, nil, "pledge_and_pow",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
 			[]types.QuotaInfo{
@@ -466,7 +465,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 31500, QuotaUsed: 31500},
 			},
-			31500, 21000, 21000, 31500, 48300, nil, "pledge_and_pow_2",
+			31500, 21000, 21000, 42000, 48300, nil, "pledge_and_pow_2",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(67108863),
 			[]types.QuotaInfo{
@@ -483,7 +482,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 31500, QuotaUsed: 31500},
 			},
-			41000, 21000, 21000, 31500, 48300, nil, "calc_quota_used",
+			41000, 21000, 21000, 51500, 48300, nil, "calc_quota_used",
 		},
 	}
 	InitQuotaConfig(false, false)
@@ -493,7 +492,7 @@ func TestCalcQuotaV3(t *testing.T) {
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
-		if err == nil && (quotaTotal != testCase.quotaTotal || pledgeQuota != testCase.pledgeQuota || quotaAddition != testCase.quotaAddition || quotaUnconfirmed != testCase.snapshotCurrentQuota || quotaAvg != testCase.quotaAvg) {
+		if err == nil && (quotaTotal != testCase.quotaTotal || pledgeQuota != testCase.pledgeQuota || quotaAddition != testCase.quotaAddition || snapshotCurrentQuota != testCase.snapshotCurrentQuota || quotaAvg != testCase.quotaAvg) {
 			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v,%v), got (%v,%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.pledgeQuota, testCase.quotaAddition, testCase.snapshotCurrentQuota, testCase.quotaAvg, quotaTotal, pledgeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg)
 		}
 	}

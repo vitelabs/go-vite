@@ -94,7 +94,7 @@ func TestContractsRefund(t *testing.T) {
 		receiveRegisterBlock.AccountBlock.SendBlockList[0].AccountAddress != block13.ToAddress ||
 		receiveRegisterBlock.AccountBlock.SendBlockList[0].ToAddress != block13.AccountAddress ||
 		newBalance.Cmp(contractBalance) != 0 ||
-		!bytes.Equal(receiveRegisterBlock.AccountBlock.SendBlockList[0].Data, []byte{0}) {
+		!bytes.Equal(receiveRegisterBlock.AccountBlock.SendBlockList[0].Data, []byte{}) {
 		t.Fatalf("receive register transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
