@@ -19,7 +19,7 @@ func (p *MethodMint) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	}
 	return new(big.Int).Set(mintageFee), nil
 }
-func (p *MethodMint) GetRefundData() ([]byte, bool) {
+func (p *MethodMint) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
@@ -134,7 +134,7 @@ type MethodIssue struct{}
 func (p *MethodIssue) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodIssue) GetRefundData() ([]byte, bool) {
+func (p *MethodIssue) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
@@ -195,7 +195,7 @@ type MethodBurn struct{}
 func (p *MethodBurn) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodBurn) GetRefundData() ([]byte, bool) {
+func (p *MethodBurn) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
@@ -241,7 +241,7 @@ type MethodTransferOwner struct{}
 func (p *MethodTransferOwner) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodTransferOwner) GetRefundData() ([]byte, bool) {
+func (p *MethodTransferOwner) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
@@ -302,7 +302,7 @@ type MethodChangeTokenType struct{}
 func (p *MethodChangeTokenType) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodChangeTokenType) GetRefundData() ([]byte, bool) {
+func (p *MethodChangeTokenType) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
@@ -353,8 +353,10 @@ type MethodGetTokenInfo struct{}
 func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodGetTokenInfo) GetRefundData() ([]byte, bool) {
-	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, false, uint8(0), "", uint16(0))
+func (p *MethodGetTokenInfo) GetRefundData(sendData []byte) ([]byte, bool) {
+	tokenId := new(types.TokenTypeId)
+	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, sendData)
+	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0))
 	return callbackData, true
 }
 func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
@@ -383,9 +385,9 @@ func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	util.DealWithErr(err)
 	var callbackData []byte
 	if tokenInfo != nil {
-		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index)
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index)
 	} else {
-		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, false, uint8(0), "", uint16(0))
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0))
 	}
 	return []*ledger.AccountBlock{
 		{

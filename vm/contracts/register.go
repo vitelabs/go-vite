@@ -20,7 +20,7 @@ type MethodRegister struct {
 func (p *MethodRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodRegister) GetRefundData() ([]byte, bool) {
+func (p *MethodRegister) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
@@ -128,7 +128,7 @@ type MethodCancelRegister struct {
 func (p *MethodCancelRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodCancelRegister) GetRefundData() ([]byte, bool) {
+func (p *MethodCancelRegister) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
@@ -203,7 +203,7 @@ func (p *MethodReward) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodReward) GetRefundData() ([]byte, bool) {
+func (p *MethodReward) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
@@ -460,7 +460,7 @@ func (p *MethodUpdateRegistration) GetFee(block *ledger.AccountBlock) (*big.Int,
 	return big.NewInt(0), nil
 }
 
-func (p *MethodUpdateRegistration) GetRefundData() ([]byte, bool) {
+func (p *MethodUpdateRegistration) GetRefundData(sendData []byte) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {

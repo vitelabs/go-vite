@@ -40,7 +40,7 @@ type BuiltinContractMethod interface {
 	// receive block quota
 	GetReceiveQuota() uint64
 	// refund data at receive error
-	GetRefundData() ([]byte, bool)
+	GetRefundData(sendData []byte) ([]byte, bool)
 }
 
 type builtinContract struct {

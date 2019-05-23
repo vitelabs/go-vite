@@ -172,6 +172,15 @@ func (db *testQuotaDb) GetQuotaUsedList(address types.Address) []types.QuotaInfo
 func (db *testQuotaDb) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
 	return db.unconfirmedBlockList
 }
+func (db *testQuotaDb) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
+	return 1, nil
+}
+func (db *testQuotaDb) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
+	if len(db.unconfirmedBlockList) > 0 {
+		return db.unconfirmedBlockList[len(db.unconfirmedBlockList)-1], nil
+	}
+	return nil, nil
+}
 
 func TestCalcPoWDifficulty(t *testing.T) {
 	testCases := []struct {
@@ -181,11 +190,11 @@ func TestCalcPoWDifficulty(t *testing.T) {
 		err           error
 		name          string
 	}{
-		{1000001, types.NewQuota(0, 0, 0, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
-		{21000, types.NewQuota(0, 0, 0, 0), big.NewInt(67108863), nil, "no_pledge_quota"},
-		{22000, types.NewQuota(0, 0, 0, 0), big.NewInt(70689140), nil, "pledge_quota_not_enough"},
-		{21000, types.NewQuota(0, 21000, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
-		{21000, types.NewQuota(0, 21001, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
+		{1000001, types.NewQuota(0, 0, 0, 0, false), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
+		{21000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(67108863), nil, "no_pledge_quota"},
+		{22000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(70689140), nil, "pledge_quota_not_enough"},
+		{21000, types.NewQuota(0, 21000, 0, 0, false), big.NewInt(0), nil, "current_quota_enough"},
+		{21000, types.NewQuota(0, 21001, 0, 0, false), big.NewInt(0), nil, "current_quota_enough"},
 	}
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
@@ -478,7 +487,7 @@ func TestCalcQuotaV3(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList}
-		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg, err := calcQuotaV3(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
+		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg, _, err := calcQuotaV3(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
