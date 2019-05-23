@@ -172,6 +172,16 @@ func (db *testQuotaDb) GetQuotaUsedList(address types.Address) []types.QuotaInfo
 func (db *testQuotaDb) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
 	return db.unconfirmedBlockList
 }
+func (db *testQuotaDb) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
+	return 0, nil
+}
+func (db *testQuotaDb) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
+	if len(db.unconfirmedBlockList) > 0 {
+		return db.unconfirmedBlockList[len(db.unconfirmedBlockList)-1], nil
+	} else {
+		return nil, nil
+	}
+}
 
 func TestCalcPoWDifficulty(t *testing.T) {
 	testCases := []struct {
@@ -181,11 +191,11 @@ func TestCalcPoWDifficulty(t *testing.T) {
 		err           error
 		name          string
 	}{
-		{1000001, types.NewQuota(0, 0, 0, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
-		{21000, types.NewQuota(0, 0, 0, 0), big.NewInt(67108863), nil, "no_pledge_quota"},
-		{22000, types.NewQuota(0, 0, 0, 0), big.NewInt(70689140), nil, "pledge_quota_not_enough"},
-		{21000, types.NewQuota(0, 21000, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
-		{21000, types.NewQuota(0, 21001, 0, 0), big.NewInt(0), nil, "current_quota_enough"},
+		{1000001, types.NewQuota(0, 0, 0, 0, false), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached"},
+		{21000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(67108863), nil, "no_pledge_quota"},
+		{22000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(70689140), nil, "pledge_quota_not_enough"},
+		{21000, types.NewQuota(0, 21000, 0, 0, false), big.NewInt(0), nil, "current_quota_enough"},
+		{21000, types.NewQuota(0, 21001, 0, 0, false), big.NewInt(0), nil, "current_quota_enough"},
 	}
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
@@ -223,14 +233,14 @@ func TestCanPoW(t *testing.T) {
 
 func TestCalcQuotaV3(t *testing.T) {
 	testCases := []struct {
-		addr                                                               types.Address
-		pledgeAmount                                                       *big.Int
-		difficulty                                                         *big.Int
-		quotaInfoList                                                      []types.QuotaInfo
-		unconfirmedList                                                    []*ledger.AccountBlock
-		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg uint64
-		err                                                                error
-		name                                                               string
+		addr                                                                   types.Address
+		pledgeAmount                                                           *big.Int
+		difficulty                                                             *big.Int
+		quotaInfoList                                                          []types.QuotaInfo
+		unconfirmedList                                                        []*ledger.AccountBlock
+		quotaTotal, pledgeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg uint64
+		err                                                                    error
+		name                                                                   string
 	}{
 		{types.Address{}, big.NewInt(0), big.NewInt(0),
 			[]types.QuotaInfo{},
@@ -240,12 +250,12 @@ func TestCalcQuotaV3(t *testing.T) {
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{},
 			[]*ledger.AccountBlock{},
-			21000, 21000, 0, 0, 0, nil, "new_pledge",
+			21000, 21000, 0, 21000, 0, nil, "new_pledge",
 		},
 		{types.Address{}, big.NewInt(0), big.NewInt(67108863),
 			[]types.QuotaInfo{},
 			[]*ledger.AccountBlock{},
-			21000, 0, 21000, 0, 0, nil, "new_pow",
+			21000, 0, 21000, 21000, 0, nil, "new_pow",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -260,7 +270,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 0, QuotaUsedTotal: 0, QuotaTotal: 0},
 			},
 			[]*ledger.AccountBlock{},
-			210000, 21000, 0, 0, 0, nil, "pledge_1",
+			210000, 21000, 0, 210000, 0, nil, "pledge_1",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -277,7 +287,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 10500, QuotaUsed: 10500},
 			},
-			199500, 21000, 0, 10500, 10500, nil, "pledge_2",
+			199500, 21000, 0, 210000, 10500, nil, "pledge_2",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -295,7 +305,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{Quota: 10500, QuotaUsed: 10500},
 				{Quota: 63000, QuotaUsed: 63000},
 			},
-			136500, 21000, 0, 73500, 36750, nil, "pledge_3",
+			136500, 21000, 0, 210000, 36750, nil, "pledge_3",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -310,7 +320,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 2, QuotaUsedTotal: 73500, QuotaTotal: 73500},
 			},
 			[]*ledger.AccountBlock{},
-			136500, 21000, 0, 0, 36750, nil, "pledge_4",
+			136500, 21000, 0, 136500, 36750, nil, "pledge_4",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -327,7 +337,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 105000, QuotaUsed: 105000},
 			},
-			31500, 21000, 0, 105000, 59500, nil, "pledge_5",
+			31500, 21000, 0, 273000, 59500, nil, "pledge_5",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -342,7 +352,7 @@ func TestCalcQuotaV3(t *testing.T) {
 				{BlockCount: 1, QuotaUsedTotal: 105000, QuotaTotal: 105000},
 			},
 			[]*ledger.AccountBlock{},
-			31500, 21000, 0, 0, 59500, nil, "pledge_6",
+			31500, 21000, 0, 0, 91000, nil, "pledge_6",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
 			[]types.QuotaInfo{
@@ -359,6 +369,7 @@ func TestCalcQuotaV3(t *testing.T) {
 			[]*ledger.AccountBlock{
 				{Quota: 50000, QuotaUsed: 50000},
 			},
+			// TODO
 			0, 0, 0, 0, 0, util.ErrInvalidUnconfirmedQuota, "pledge_7",
 		},
 		{types.Address{}, big.NewInt(10000), big.NewInt(0),
@@ -478,12 +489,12 @@ func TestCalcQuotaV3(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList}
-		quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg, err := calcQuotaV3(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
+		quotaTotal, pledgeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg, _, err := calcQuotaV3(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
-		if err == nil && (quotaTotal != testCase.quotaTotal || pledgeQuota != testCase.pledgeQuota || quotaAddition != testCase.quotaAddition || quotaUnconfirmed != testCase.quotaUnconfirmed || quotaAvg != testCase.quotaAvg) {
-			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v,%v), got (%v,%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.pledgeQuota, testCase.quotaAddition, testCase.quotaUnconfirmed, testCase.quotaAvg, quotaTotal, pledgeQuota, quotaAddition, quotaUnconfirmed, quotaAvg)
+		if err == nil && (quotaTotal != testCase.quotaTotal || pledgeQuota != testCase.pledgeQuota || quotaAddition != testCase.quotaAddition || quotaUnconfirmed != testCase.snapshotCurrentQuota || quotaAvg != testCase.quotaAvg) {
+			t.Fatalf("%v calcQuotaV3 failed, quota not match, expected (%v,%v,%v,%v,%v), got (%v,%v,%v,%v,%v)", testCase.name, testCase.quotaTotal, testCase.pledgeQuota, testCase.quotaAddition, testCase.snapshotCurrentQuota, testCase.quotaAvg, quotaTotal, pledgeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg)
 		}
 	}
 }
