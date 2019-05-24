@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 )
 
 var packageId uint64
@@ -22,7 +21,6 @@ type batchSnapshot struct {
 	snapshotExistsF SnapshotExistsFunc
 	accountExistsF  AccountExistsFunc
 	maxLevel        int
-	snapshot        *ledger.SnapshotBlock
 	id              uint64
 }
 
@@ -67,10 +65,6 @@ func (self *batchSnapshot) Version() uint64 {
 
 func (self *batchSnapshot) Size() int {
 	return len(self.all)
-}
-
-func (self *batchSnapshot) IsUnconfirmed() bool {
-	return self.snapshot != nil
 }
 
 type SnapshotExistsFunc func(hash types.Hash) error
