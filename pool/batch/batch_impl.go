@@ -100,14 +100,6 @@ func (self *batchSnapshot) Levels() []Level {
 	return levels
 }
 
-//func (self *batchSnapshot) AddItem(b Item) error {
-//	if b.Owner() == nil {
-//		return self.addSnapshotItem(b)
-//	} else {
-//		return self.addAccountItem(b)
-//	}
-//}
-
 func (self *batchSnapshot) AddSItem(b Item) error {
 	if b.Owner() == nil {
 		return self.addSnapshotItem(b)
@@ -133,7 +125,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[S]account[%s] not exist.", r))
+				return errors.WithMessage(ErrorReference, fmt.Sprintf("[S]account[%s] not exist.", r))
 			}
 		}
 	}
@@ -142,7 +134,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 		if !ok {
 			err := self.snapshotExistsF(*sHash)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[S]snapshot[%s] not exist.", sHash))
+				return errors.WithMessage(ErrorReference, fmt.Sprintf("[S]snapshot[%s] not exist.", sHash))
 			}
 		}
 	}
@@ -158,7 +150,7 @@ func (self *batchSnapshot) addSnapshotItem(b Item) error {
 	if !tmp.Snapshot() {
 		max = self.current + 1
 		if max > self.maxLevel-1 {
-			return MAX_ERROR
+			return ErrorArrivedToMax
 		}
 		tmp = newLevel(owner == nil, max, nil)
 		self.ls[max] = tmp
@@ -189,7 +181,7 @@ func (self *batchSnapshot) addAccountItem(b Item, sHash *types.Hash) error {
 		if !ok {
 			err := self.accountExistsF(r)
 			if err != nil {
-				return errors.WithMessage(REFER_ERROR, fmt.Sprintf("[A][%d]account[%s][%s] not exist.", self.Id(), b.Hash(), r))
+				return errors.WithMessage(ErrorReference, fmt.Sprintf("[A][%d]account[%s][%s] not exist.", self.Id(), b.Hash(), r))
 			}
 			continue
 		}
@@ -208,14 +200,14 @@ func (self *batchSnapshot) addAccountItem(b Item, sHash *types.Hash) error {
 			}
 		}
 		if max > self.maxLevel-1 {
-			return MAX_ERROR
+			return ErrorArrivedToMax
 		}
 	}
 	if max < 0 {
 		max = self.lastSnapshot + 1
 	}
 	if max > self.maxLevel-1 {
-		return MAX_ERROR
+		return ErrorArrivedToMax
 	}
 
 	var tmp Level
@@ -228,7 +220,7 @@ func (self *batchSnapshot) addAccountItem(b Item, sHash *types.Hash) error {
 			if tmp.Snapshot() {
 				max = self.current + 1
 				if max > self.maxLevel-1 {
-					return MAX_ERROR
+					return ErrorArrivedToMax
 				}
 				tmp = newLevel(false, max, sHash)
 				self.ls[max] = tmp
