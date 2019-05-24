@@ -82,7 +82,7 @@ func (v *VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, error
 		t = etime
 	}
 
-	details, _, err := v.cs.API().ReadVoteMap((t).Add(time.Second))
+	details, _, err := v.cs.API().ReadVoteMap(t)
 	if err != nil {
 		return nil, err
 	}
