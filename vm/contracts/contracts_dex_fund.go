@@ -116,6 +116,72 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	}, nil
 }
 
+type MethodDexFundNewMarket struct {
+}
+
+func (md *MethodDexFundNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundNewMarket) GetRefundData() ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundNewMarket) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewMarketGas, data)
+}
+
+func (md *MethodDexFundNewMarket) GetReceiveQuota() uint64 {
+	return dexFundNewMarketReceiveGas
+}
+
+func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	var err error
+	param := new(dex.ParamDexFundNewMarket)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
+		return err
+	}
+	if err = dex.CheckMarketParam(param, block.TokenId, block.Amount); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var err error
+	param := new(dex.ParamDexFundNewMarket)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
+		return nil, err
+	}
+	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
+		return nil, dex.TradeMarketExistsError
+	}
+	marketInfo := &dex.MarketInfo{}
+	newMarketEvent := &dex.NewMarketEvent{}
+	dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress)
+	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
+	if exceedAmount.Sign() > 0 {
+		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	}
+	if marketInfo.Valid {
+		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
+		return []*ledger.AccountBlock{appendBlock}, nil
+	} else {
+		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressMintage,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           getTokenInfoData,
+			},
+		}, nil
+	}
+	return nil, nil
+}
+
 type MethodDexFundNewOrder struct {
 }
 
@@ -232,19 +298,23 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	if err = proto.Unmarshal(param.Data, settleActions); err != nil {
 		return handleReceiveErr(err)
 	}
-	for _, fundAction := range settleActions.FundActions {
-		if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction); err != nil {
-			return handleReceiveErr(err)
+	if marketInfo, ok := dex.GetMarketInfoByTokens(db, settleActions.TradeToken, settleActions.QuoteToken); !ok {
+		return handleReceiveErr(dex.TradeMarketNotExistsError)
+	} else {
+		for _, fundAction := range settleActions.FundActions {
+			if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction, marketInfo); err != nil {
+				return handleReceiveErr(err)
+			}
 		}
-	}
-	if len(settleActions.FeeActions) > 0 {
-		dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions)
-		dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions)
-		for _, feeAction := range settleActions.FeeActions {
-			dex.SettleUserFees(db, vm.ConsensusReader(), feeAction)
+		if len(settleActions.FeeActions) > 0 {
+			dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, nil, marketInfo.QuoteToken)
+			dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, marketInfo)
+			for _, feeAction := range settleActions.FeeActions {
+				dex.SettleUserFees(db, vm.ConsensusReader(), feeAction, marketInfo.QuoteToken)
+			}
 		}
+		return nil, nil
 	}
-	return nil, nil
 }
 
 type MethodDexFundFeeDividend struct {
@@ -336,12 +406,8 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 	if lastMinedVxDividendId := dex.GetLastMinedVxDividendId(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
 		return handleReceiveErr(fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
 	}
-	vxTokenId := &types.TokenTypeId{}
-	vxTokenId.SetBytes(dex.VxTokenBytes)
-	if vxBalance, err = db.GetBalance(vxTokenId); err != nil {
-		return handleReceiveErr(err)
-	}
-	if amtForFeePerMarket, amtForPledge, amtForViteLabs, success := dex.GetMindedVxAmt(vxBalance); !success {
+	vxBalance = dex.GetVxAmountForMine(db)
+	if amtForFeePerMarket, amtForPledge, amtForViteLabs, balanceLeaved, success := dex.GetMindedVxAmt(vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = dex.DoDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
@@ -350,77 +416,11 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		if err = dex.DoDivideMinedVxForPledge(db, amtForPledge); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoDivideMinedVxForViteLabs(db, amtForViteLabs); err != nil {
+		if err = dex.DoDivideMinedVxForViteXMaintainer(db, amtForViteLabs); err != nil {
 			return handleReceiveErr(err)
 		}
 	}
 	dex.SaveLastMinedVxDividendId(db, param.PeriodId)
-	return nil, nil
-}
-
-type MethodDexFundNewMarket struct {
-}
-
-func (md *MethodDexFundNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFundNewMarket) GetRefundData() ([]byte, bool) {
-	return []byte{}, false
-}
-
-func (md *MethodDexFundNewMarket) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundNewMarketGas, data)
-}
-
-func (md *MethodDexFundNewMarket) GetReceiveQuota() uint64 {
-	return dexFundNewMarketReceiveGas
-}
-
-func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var err error
-	param := new(dex.ParamDexFundNewMarket)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
-		return err
-	}
-	if err = dex.CheckMarketParam(param, block.TokenId, block.Amount); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var err error
-	param := new(dex.ParamDexFundNewMarket)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
-		return nil, err
-	}
-	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
-		return nil, dex.TradeMarketExistsError
-	}
-	marketInfo := &dex.MarketInfo{}
-	newMarketEvent := &dex.NewMarketEvent{}
-	dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress)
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
-	}
-	if marketInfo.Valid {
-		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
-		return []*ledger.AccountBlock{appendBlock}, nil
-	} else {
-		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressMintage,
-				BlockType:      ledger.BlockTypeSendCall,
-				TokenId:        ledger.ViteTokenId,
-				Amount:         big.NewInt(0),
-				Data:           getTokenInfoData,
-			},
-		}, nil
-	}
 	return nil, nil
 }
 

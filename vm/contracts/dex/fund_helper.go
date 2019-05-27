@@ -1,7 +1,6 @@
 package dex
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -84,12 +83,8 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
-	fee := &dexproto.FeeSettle{}
-	fee.Token = ledger.ViteTokenId.Bytes()
-	fee.UserFeeSettles = append(fee.UserFeeSettles, userFee)
-	SettleFeeSum(db, reader, []*dexproto.FeeSettle{fee})
-	SettleUserFees(db, reader, fee)
-	AddDonateFeeSum(db, reader)
+	SettleFeeSum(db, reader, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, ledger.ViteTokenId.Bytes())
+	SettleUserFees(db, reader, userFee, ledger.ViteTokenId.Bytes())
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddNewMarketEventLog(db, newMarketEvent)
 	var marketBytes, blockData []byte
@@ -269,15 +264,6 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 			return fmt.Errorf("no user funds to settle")
 		}
 	}
-
-	for _, fee := range actions.FeeActions {
-		if len(fee.Token) != types.TokenTypeIdSize {
-			return fmt.Errorf("invalid tokenId format for fee settle")
-		}
-		if len(fee.UserFeeSettles) == 0 {
-			return fmt.Errorf("no userFees to settle")
-		}
-	}
 	return nil
 }
 
@@ -327,49 +313,6 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 	account.Available = available.Bytes()
 	account.Locked = AddBigInt(account.Locked, lockAmountToInc.Bytes())
 	return
-}
-
-func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle) error {
-	address := types.Address{}
-	address.SetBytes([]byte(action.Address))
-	dexFund, _ := GetUserFund(db, address)
-	for _, fundSettle := range action.FundSettles {
-		if tokenId, err := types.BytesToTokenTypeId(fundSettle.Token); err != nil {
-			return err
-		} else {
-			if _, ok := GetTokenInfo(db, tokenId); !ok {
-				panic(InvalidTokenErr)
-			}
-			account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
-			if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
-				if CmpForBigInt(fundSettle.ReduceLocked, account.Locked) > 0 {
-					panic(ExceedFundLockedErr)
-				}
-				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReduceLocked)
-			}
-			if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
-				if CmpForBigInt(fundSettle.ReleaseLocked, account.Locked) > 0 {
-					panic(ExceedFundLockedErr)
-				}
-				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReleaseLocked)
-				account.Available = AddBigInt(account.Available, fundSettle.ReleaseLocked)
-			}
-			if CmpToBigZero(fundSettle.IncAvailable) != 0 {
-				account.Available = AddBigInt(account.Available, fundSettle.IncAvailable)
-			}
-			if !exists {
-				dexFund.Accounts = append(dexFund.Accounts, account)
-			}
-			// must do after account updated by settle
-			if bytes.Equal(fundSettle.Token, VxTokenBytes) {
-				OnSettleVx(db, reader, action.Address, fundSettle, account)
-			}
-			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
-		}
-	}
-	SaveUserFund(db, address, dexFund)
-	return nil
 }
 
 func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType int8, address types.Address, amount *big.Int) ([]*ledger.AccountBlock, error) {

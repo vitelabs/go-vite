@@ -3,7 +3,6 @@ package dex
 import (
 	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -18,8 +17,8 @@ const bigFloatPrec = 120
 type Matcher struct {
 	db          vm_db.VmDb
 	MarketInfo  *MarketInfo
-	fundSettles map[types.Address]map[types.TokenTypeId]*proto.FundSettle
-	feeSettles  map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle
+	fundSettles map[types.Address]map[bool]*proto.FundSettle
+	feeSettles  map[types.Address]*proto.UserFeeSettle
 }
 
 type OrderTx struct {
@@ -31,9 +30,10 @@ type OrderTx struct {
 }
 
 var (
-	BaseFeeRate        int32 = 2000 // 2000/1000000 = 0.002
-	VipMitigateFeeRate int32 = 1000
-	FeeRateCardinalNum int32 = 1000000
+	BaseFeeRate           int32 = 2000 // 2000/1000000 = 0.002
+	VipMitigateFeeRate    int32 = 1000
+	PerPeriodDividendRate int32 = 1000
+	FeeRateCardinalNum    int32 = 1000000
 )
 
 func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
@@ -54,8 +54,8 @@ func NewMatcherWithMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo) (mc *Matche
 func NewRawMatcher(db vm_db.VmDb) (mc *Matcher) {
 	mc = &Matcher{}
 	mc.db = db
-	mc.fundSettles = make(map[types.Address]map[types.TokenTypeId]*proto.FundSettle)
-	mc.feeSettles = make(map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle)
+	mc.fundSettles = make(map[types.Address]map[bool]*proto.FundSettle)
+	mc.feeSettles = make(map[types.Address]*proto.UserFeeSettle)
 	return
 }
 
@@ -72,11 +72,11 @@ func (mc *Matcher) MatchOrder(taker *Order) (err error) {
 	return nil
 }
 
-func (mc *Matcher) GetFundSettles() map[types.Address]map[types.TokenTypeId]*proto.FundSettle {
+func (mc *Matcher) GetFundSettles() map[types.Address]map[bool]*proto.FundSettle {
 	return mc.fundSettles
 }
 
-func (mc *Matcher) GetFees() map[types.TokenTypeId]map[types.Address]*proto.UserFeeSettle {
+func (mc *Matcher) GetFees() map[types.Address]*proto.UserFeeSettle {
 	return mc.feeSettles
 }
 
@@ -212,7 +212,7 @@ func (mc *Matcher) handleRefund(order *Order) {
 			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
 		if CmpToBigZero(order.RefundQuantity) > 0 {
-			mc.updateFundSettle(order.Address, proto.FundSettle{Token: order.RefundToken, ReleaseLocked: order.RefundQuantity})
+			mc.updateFundSettle(order.Address, proto.FundSettle{IsTradeToken:order.Side, ReleaseLocked: order.RefundQuantity})
 		} else {
 			order.RefundToken = nil
 			order.RefundQuantity = nil
@@ -262,25 +262,25 @@ func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
 	makerOutSettle := proto.FundSettle{}
 	switch tx.TakerSide {
 	case false: //buy
-		takerInSettle.Token = tx.tradeToken
+		takerInSettle.IsTradeToken = true
 		takerInSettle.IncAvailable = tx.Quantity
-		makerOutSettle.Token = tx.tradeToken
+		makerOutSettle.IsTradeToken = true
 		makerOutSettle.ReduceLocked = tx.Quantity
 
-		takerOutSettle.Token = tx.quoteToken
+		takerOutSettle.IsTradeToken = false
 		takerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
-		makerInSettle.Token = tx.quoteToken
+		makerInSettle.IsTradeToken = false
 		makerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.MakerFee)
 
 	case true: //sell
-		takerInSettle.Token = tx.quoteToken
+		takerInSettle.IsTradeToken = false
 		takerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.TakerFee)
-		makerOutSettle.Token = tx.quoteToken
+		makerOutSettle.IsTradeToken = false
 		makerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
 
-		takerOutSettle.Token = tx.tradeToken
+		takerOutSettle.IsTradeToken = true
 		takerOutSettle.ReduceLocked = tx.Quantity
-		makerInSettle.Token = tx.tradeToken
+		makerInSettle.IsTradeToken = true
 		makerInSettle.IncAvailable = tx.Quantity
 	}
 	mc.updateFundSettle(tx.takerAddress, takerInSettle)
@@ -288,51 +288,41 @@ func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
 	mc.updateFundSettle(tx.makerAddress, makerInSettle)
 	mc.updateFundSettle(tx.makerAddress, makerOutSettle)
 
-	mc.updateFee(tx.quoteToken, tx.takerAddress, tx.TakerFee, tx.TakerBrokerFee)
-	mc.updateFee(tx.quoteToken, tx.makerAddress, tx.MakerFee, tx.MakerBrokerFee)
+	mc.updateFee(tx.takerAddress, tx.TakerFee, tx.TakerBrokerFee)
+	mc.updateFee(tx.makerAddress, tx.MakerFee, tx.MakerBrokerFee)
 }
 
 func (mc *Matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle) {
 	var (
-		settleMap map[types.TokenTypeId]*proto.FundSettle // token -> settle
+		settleMap map[bool]*proto.FundSettle // token -> settle
 		ok        bool
 		ac        *proto.FundSettle
 		address   = types.Address{}
 	)
 	address.SetBytes(addressBytes)
 	if settleMap, ok = mc.fundSettles[address]; !ok {
-		settleMap = make(map[types.TokenTypeId]*proto.FundSettle)
+		settleMap = make(map[bool]*proto.FundSettle)
 		mc.fundSettles[address] = settleMap
 	}
-	token := types.TokenTypeId{}
-	token.SetBytes(settle.Token)
-	if ac, ok = settleMap[token]; !ok {
-		ac = &proto.FundSettle{Token: settle.Token}
-		settleMap[token] = ac
+	if ac, ok = settleMap[settle.IsTradeToken]; !ok {
+		ac = &proto.FundSettle{IsTradeToken: settle.IsTradeToken}
+		settleMap[settle.IsTradeToken] = ac
 	}
 	ac.IncAvailable = AddBigInt(ac.IncAvailable, settle.IncAvailable)
 	ac.ReleaseLocked = AddBigInt(ac.ReleaseLocked, settle.ReleaseLocked)
 	ac.ReduceLocked = AddBigInt(ac.ReduceLocked, settle.ReduceLocked)
 }
 
-func (mc *Matcher) updateFee(quoteToken []byte, address []byte, feeAmt, brokerFeeAmt []byte) {
+func (mc *Matcher) updateFee(address []byte, feeAmt, brokerFeeAmt []byte) {
 	var (
-		userFeeSettles map[types.Address]*proto.UserFeeSettle
 		userFeeSettle  *proto.UserFeeSettle
 		ok             bool
 	)
-
-	token := types.TokenTypeId{}
-	token.SetBytes(quoteToken)
-	if userFeeSettles, ok = mc.feeSettles[token]; !ok {
-		userFeeSettles = make(map[types.Address]*proto.UserFeeSettle)
-		mc.feeSettles[token] = userFeeSettles
-	}
 	addr := types.Address{}
 	addr.SetBytes(address)
-	if userFeeSettle, ok = userFeeSettles[addr]; !ok {
+	if userFeeSettle, ok = mc.feeSettles[addr]; !ok {
 		userFeeSettle = &proto.UserFeeSettle{Address: address, BaseFee: feeAmt, BrokerFee:brokerFeeAmt}
-		userFeeSettles[addr] = userFeeSettle
+		mc.feeSettles[addr] = userFeeSettle
 	} else {
 		userFeeSettle.BaseFee = AddBigInt(userFeeSettle.BaseFee, feeAmt)
 		userFeeSettle.BrokerFee = AddBigInt(userFeeSettle.BrokerFee, brokerFeeAmt)

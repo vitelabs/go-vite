@@ -165,10 +165,10 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 	fundSettle := &dexproto.FundSettle{}
 	switch order.Side {
 	case false: // buy
-		fundSettle.Token = marketInfo.QuoteToken
+		fundSettle.IsTradeToken = false
 		fundSettle.ReleaseLocked = dex.AddBigInt(order.Amount, order.LockedBuyFee)
 	case true: // sell
-		fundSettle.Token = marketInfo.TradeToken
+		fundSettle.IsTradeToken = true
 		fundSettle.ReleaseLocked = order.Quantity
 	}
 	userFundSettle := &dexproto.UserFundSettle{}
@@ -198,7 +198,7 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 	}, nil
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[types.TokenTypeId]*dexproto.FundSettle, feeSettles map[types.TokenTypeId]map[types.Address]*dexproto.UserFeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.FundSettle, feeSettles map[types.Address]*dexproto.UserFeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return nil, nil
@@ -225,24 +225,15 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	}
 	//every block will trigger exactly one market, fee token type should also be single
 	if len(feeSettles) > 0 {
-		feeActions := make([]*dexproto.FeeSettle, 0, 10)
-		for token, userFeeSettleMap := range feeSettles {
-			userFeeSettles := make([]*dexproto.UserFeeSettle, 0, len(userFeeSettleMap))
-			for _, userFeeSettle := range userFeeSettleMap {
-				userFeeSettles = append(userFeeSettles, userFeeSettle)
-			}
-			sort.Sort(dex.UserFeeSettleSorter(userFeeSettles))
-
-			feeSettle := &dexproto.FeeSettle{}
-			feeSettle.Token = token.Bytes()
-			feeSettle.Broker = marketInfo.Owner
-			feeSettle.UserFeeSettles = userFeeSettles
+		feeActions := make([]*dexproto.UserFeeSettle, 0, len(feeSettles))
+		for _, feeSettle := range feeSettles {
 			feeActions = append(feeActions, feeSettle)
 		}
-		sort.Sort(dex.FeeSettleSorter(feeActions))
+		sort.Sort(dex.UserFeeSettleSorter(feeActions))
 		settleActions.FeeActions = feeActions
 	}
-
+	settleActions.TradeToken = marketInfo.TradeToken
+	settleActions.QuoteToken = marketInfo.QuoteToken
 	var (
 		settleData, dexSettleBlockData []byte
 		err                            error

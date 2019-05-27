@@ -10,11 +10,12 @@ const (
 	[
 		{"type":"function","name":"DexFundUserDeposit", "inputs":[]},
 		{"type":"function","name":"DexFundUserWithdraw", "inputs":[{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
+
+		{"type":"function","name":"DexFundNewMarket", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]},
 		{"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"int8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}, {"name":"vipActive", "type":"bool"}]},
 		{"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexFundFeeDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
 		{"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
-		{"type":"function","name":"DexFundNewMarket", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]},
 		{"type":"function","name":"DexFundSetOwner", "inputs":[{"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"DexFundConfigMineMarket", "inputs":[{"name":"allowMine","type":"bool"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]},
 		{"type":"function","name":"DexFundPledgeForVx", "inputs":[{"name":"actionType","type":"int8"}, {"name":"amount","type":"uint256"}]},

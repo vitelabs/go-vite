@@ -87,11 +87,11 @@ var simpleContracts = map[types.Address]*builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
 			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
+			cabi.MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{},
 			cabi.MethodNameDexFundNewOrder:             &MethodDexFundNewOrder{},
 			cabi.MethodNameDexFundSettleOrders:         &MethodDexFundSettleOrders{},
 			cabi.MethodNameDexFundFeeDividend:          &MethodDexFundFeeDividend{},
 			cabi.MethodNameDexFundMinedVxDividend:      &MethodDexFundMinedVxDividend{},
-			cabi.MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{},
 			cabi.MethodNameDexFundSetOwner:             &MethodDexFundSetOwner{},
 			cabi.MethodNameDexFundConfigMineMarket:     &MethodDexFundConfigMineMarket{},
 			cabi.MethodNameDexFundPledgeForVx:          &MethodDexFundPledgeForVx{},

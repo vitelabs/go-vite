@@ -14,10 +14,10 @@ message Fund {
 }
 
 message FundSettle {
-    bytes Token = 2;
-    bytes IncAvailable = 3;
-    bytes ReduceLocked = 4;
-    bytes ReleaseLocked = 5;
+    bool isTradeToken = 1;
+    bytes IncAvailable = 2;
+    bytes ReduceLocked = 3;
+    bytes ReleaseLocked = 4;
 }
 
 message UserFundSettle {
@@ -37,26 +37,35 @@ message FeeSettle {
     repeated UserFeeSettle userFeeSettles = 3;
 }
 
-message SettleActions {
-    int32 marketId = 1;
-    repeated UserFundSettle fundActions = 2;
-    repeated FeeSettle feeActions = 3;
-}
-
 message FeeAccount {
     bytes Token = 1;
     bytes BaseAmount = 2; // for vx mine and dividend
     bytes BrokerAmount = 3; // only vx mine
 }
 
+message SettleActions {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    repeated UserFundSettle fundActions = 3;
+    repeated UserFeeSettle feeActions = 4;
+}
+
+message FeeSumAccount {
+    bytes Token = 1;
+    bytes BaseAmount = 2; // for vx mine and dividend
+    bytes BrokerAmount = 3; // only vx mine
+    // 99% part of last period BaseAmount rolled to this period for dividend + new market fee of current period
+    bytes DividendPoolAmount = 4;
+}
+
 message FeeSumByPeriod {
-    repeated FeeAccount fees = 1;
+    repeated FeeSumAccount fees = 1;
     uint64 lastValidPeriod = 2;
     bool FeeDivided = 3;
     bool MinedVxDivided = 4;
 }
 
-message UserFees { // only for vx mine
+message UserFees {
     repeated UserFeeWithPeriod fees = 1;
 }
 

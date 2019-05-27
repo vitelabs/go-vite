@@ -24,6 +24,8 @@ const (
 	dexFundDepositReceiveGas              uint64 = 1
 	dexFundWithdrawGas                    uint64 = 300
 	dexFundWithdrawReceiveGas             uint64 = 1
+	dexFundNewMarketGas                   uint64 = 300
+	dexFundNewMarketReceiveGas            uint64 = 1
 	dexFundNewOrderGas                    uint64 = 300
 	dexFundNewOrderReceiveGas             uint64 = 1
 	dexFundSettleOrdersGas                uint64 = 300
@@ -32,8 +34,6 @@ const (
 	dexFundFeeDividendReceiveGas          uint64 = 1
 	dexFundMinedVxDividendGas             uint64 = 300
 	dexFundMinedVxDividendReceiveGas      uint64 = 1
-	dexFundNewMarketGas                   uint64 = 300
-	dexFundNewMarketReceiveGas            uint64 = 1
 	dexFundSetOwnerGas                    uint64 = 300
 	dexFundSetOwnerReceiveGas             uint64 = 1
 	dexFundConfigMineMarketGas            uint64 = 300

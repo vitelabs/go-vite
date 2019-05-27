@@ -26,7 +26,6 @@ var (
 
 	brokerFeeSumKeyPrefix     = []byte("bfS:")     // brokerFeeSum:periodId
 
-	donateFeeSumKeyPrefix      = []byte("dfS:")   // donateFeeSum:periodId, feeSum for new market fee
 	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
 	pendingNewMarketActionsKey = []byte("pmkas:")
 	marketIdKey                = []byte("mkId:")
@@ -38,12 +37,13 @@ var (
 	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
 	lastFeeDividendIdKey     = []byte("lDId:")
 	lastMinedVxDividendIdKey = []byte("lMVDId:") //
-	marketKeyPrefix          = []byte("mk:")     // market: types.TokenTypeId,types.TokenTypeId
+	marketInfoKeyPrefix      = []byte("mk:")     // market: tradeToke,quoteToken
 
 	pledgeForVipPrefix = []byte("pldVip:") // pledgeForVip: types.Address
 	pledgeForVxPrefix  = []byte("pldVx:")  // pledgeForVx: types.Address
 
-	tokenInfoPrefix = []byte("tk:") // token:tokenId
+	tokenInfoPrefix   = []byte("tk:") // token:tokenId
+	vxAmountToMineKey = []byte("vxAmt:")
 
 	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
@@ -446,11 +446,10 @@ func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*big.Int, map[uint64]*BrokerFeeSumByPeriod) {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*BrokerFeeSumByPeriod) {
 	var (
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
-		donateFeeSums = make(map[uint64]*big.Int)
 		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
 		ok            bool
 	)
@@ -460,24 +459,21 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]
 				periodId--
 				continue
 			} else {
-				return nil, nil, nil
+				return nil, nil
 			}
 		} else {
 			if !dexFeeSum.FeeDivided {
 				dexFeeSums[periodId] = dexFeeSum
-				if donateFeeSum := GetDonateFeeSum(db, periodId); donateFeeSum.Sign() > 0 { // when donateFee exists feeSum must exists
-					donateFeeSums[periodId] = donateFeeSum
-				}
 				if brokerFeeSum, ok := GetBrokerFeeSumByPeriodId(db, periodId); ok {
 					brokerFeeSums[periodId] = brokerFeeSum
 				}
 			} else {
-				return dexFeeSums, donateFeeSums, brokerFeeSums
+				return dexFeeSums, brokerFeeSums
 			}
 		}
 		periodId = dexFeeSum.LastValidPeriod
 		if periodId == 0 {
-			return dexFeeSums, donateFeeSums, brokerFeeSums
+			return dexFeeSums, brokerFeeSums
 		}
 	}
 }
@@ -669,28 +665,6 @@ func GetCurrentPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
 	return reader.GetIndexByTime(GetTimestampInt64(db), 0)
 }
 
-func GetDonateFeeSum(db vm_db.VmDb, periodId uint64) *big.Int {
-	if amountBytes := getValueFromDb(db, GetDonateFeeSumKey(periodId)); len(amountBytes) > 0 {
-		return new(big.Int).SetBytes(amountBytes)
-	} else {
-		return big.NewInt(0)
-	}
-}
-
-func AddDonateFeeSum(db vm_db.VmDb, reader util.ConsensusReader) {
-	period := GetCurrentPeriodId(db, reader)
-	donateFeeSum := GetDonateFeeSum(db, period)
-	setValueToDb(db, GetDonateFeeSumKey(period), new(big.Int).Add(donateFeeSum, NewMarketFeeDonateAmount).Bytes())
-}
-
-func DeleteDonateFeeSum(db vm_db.VmDb, period uint64) {
-	setValueToDb(db, GetDonateFeeSumKey(period), nil)
-}
-
-func GetDonateFeeSumKey(periodId uint64) []byte {
-	return append(donateFeeSumKeyPrefix, Uint64ToBytes(periodId)...)
-}
-
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {
 	pendingNewMarkets := &PendingNewMarkets{}
@@ -780,7 +754,7 @@ func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) {
 	}
 }
 
-func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtForViteLabs *big.Int, success bool) {
+func GetMindedVxAmt(vxBalance *big.Int) (amtForFeePerMarket, amtForPledge, amtForViteLabs, vxAmtLeaved *big.Int, success bool) {
 	var toDivideTotal *big.Int
 	if vxBalance.Sign() > 0 {
 		if vxBalance.Cmp(VxMinedAmtPerPeriod) < 0 {
@@ -790,15 +764,16 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtFroFeePerMarket, amtForPledge, amtFo
 		}
 		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
 		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString("0.2")
-		amtFroFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		amtForFeeTotal := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
+		amtForFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
+		amtForFeeTotal := new(big.Int).Mul(amtForFeePerMarket, big.NewInt(4))
 		proportion, _ = new(big.Float).SetPrec(bigFloatPrec).SetString("0.1")
 		amtForViteLabs = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
 		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
 		amtForPledge.Sub(amtForPledge, amtForViteLabs)
-		return amtFroFeePerMarket, amtForPledge, amtForViteLabs, true
+		//TODO complete
+		return amtForFeePerMarket, amtForPledge, amtForViteLabs, nil, true
 	} else {
-		return nil, nil, nil, false
+		return nil, nil, nil, nil,false
 	}
 }
 
@@ -830,6 +805,16 @@ func NewAndSaveMarketId(db vm_db.VmDb) (newId int32) {
 	return
 }
 
+func GetMarketInfoByTokens(db vm_db.VmDb, tradeTokenData, quoteTokenData []byte) (marketInfo *MarketInfo, ok bool) {
+	if tradeToken, err := types.BytesToTokenTypeId(tradeTokenData); err != nil {
+		panic(InvalidTokenErr)
+	} else if quoteToken, err := types.BytesToTokenTypeId(quoteTokenData); err != nil {
+		panic(InvalidTokenErr)
+	} else {
+		return GetMarketInfo(db, tradeToken, quoteToken)
+	}
+}
+
 func GetMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) (marketInfo *MarketInfo, ok bool) {
 	marketInfo = &MarketInfo{}
 	ok = deserializeFromDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
@@ -845,10 +830,10 @@ func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
 }
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
-	re := make([]byte, len(marketKeyPrefix)+2*types.TokenTypeIdSize)
-	copy(re[:len(marketKeyPrefix)], marketKeyPrefix)
-	copy(re[len(marketKeyPrefix):], tradeToken.Bytes())
-	copy(re[len(marketKeyPrefix)+types.TokenTypeIdSize:], quoteToken.Bytes())
+	re := make([]byte, len(marketInfoKeyPrefix)+2*types.TokenTypeIdSize)
+	copy(re[:len(marketInfoKeyPrefix)], marketInfoKeyPrefix)
+	copy(re[len(marketInfoKeyPrefix):], tradeToken.Bytes())
+	copy(re[len(marketInfoKeyPrefix)+types.TokenTypeIdSize:], quoteToken.Bytes())
 	return re
 }
 
@@ -973,6 +958,18 @@ func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	} else {
 		return 0
 	}
+}
+
+func GetVxAmountForMine(db vm_db.VmDb) *big.Int {
+	if data := getValueFromDb(db, vxAmountToMineKey); len(data) > 0 {
+		return new(big.Int).SetBytes(data)
+	} else {
+		return big.NewInt(0)
+	}
+}
+
+func SaveVxAmountForMine(db vm_db.VmDb, amount *big.Int) {
+	setValueToDb(db, vxAmountToMineKey, amount.Bytes())
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {

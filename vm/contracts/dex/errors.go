@@ -44,5 +44,7 @@ var (
 	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
 	InvalidTimestampFromTimerErr         = errors.New("invalid timestamp from timer")
 
+	NoFeeSumFoundForValidPeriodErr = errors.New("No fee sum found for valid period")
 	NotSetTimestampErr = errors.New("not set timestamp")
+	IterateVmDbFailedErr = errors.New("iterate vm db failed")
 )

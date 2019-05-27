@@ -23,15 +23,14 @@ func (book *levelDbBook) nextOrder() (order *Order, ok bool) {
 		if ok = book.iterator.Next(); ok {
 			orderId := book.iterator.Key()
 			orderData := book.iterator.Value()
-			if len(orderId) == OrderIdBytesLength && len(orderData) > 0 {
-				order = &Order{}
-				if err := order.DeSerializeCompact(orderData, orderId); err != nil {
-					panic(err)
-				}
-				return
-			} else {
-				continue
+			if len(orderId) != OrderIdBytesLength || len(orderData) == 0 {
+				panic(IterateVmDbFailedErr)
 			}
+			order = &Order{}
+			if err := order.DeSerializeCompact(orderData, orderId); err != nil {
+				panic(err)
+			}
+			return
 		} else {
 			return
 		}
