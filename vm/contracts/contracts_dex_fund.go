@@ -21,7 +21,7 @@ func (md *MethodDexFundUserDeposit) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundUserDeposit) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundUserDeposit) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -56,7 +56,7 @@ func (md *MethodDexFundUserWithdraw) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundUserWithdraw) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundUserWithdraw) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -123,7 +123,7 @@ func (md *MethodDexFundNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, e
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNewOrder) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -191,7 +191,7 @@ func (md *MethodDexFundSettleOrders) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundSettleOrders) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundSettleOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -253,7 +253,7 @@ func (md *MethodDexFundFeeDividend) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundFeeDividend) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundFeeDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -301,7 +301,7 @@ func (md *MethodDexFundMinedVxDividend) GetFee(block *ledger.AccountBlock) (*big
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundMinedVxDividend) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundMinedVxDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -364,7 +364,7 @@ func (md *MethodDexFundNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNewMarket) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -430,7 +430,7 @@ func (md *MethodDexFundSetOwner) GetFee(block *ledger.AccountBlock) (*big.Int, e
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundSetOwner) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundSetOwner) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -467,7 +467,7 @@ func (md *MethodDexFundConfigMineMarket) GetFee(block *ledger.AccountBlock) (*bi
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigMineMarket) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundConfigMineMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -517,7 +517,7 @@ func (md *MethodDexFundPledgeForVx) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeForVx) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundPledgeForVx) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -562,7 +562,7 @@ func (md *MethodDexFundPledgeForVip) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeForVip) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundPledgeForVip) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -603,7 +603,7 @@ func (md *MethodDexFundPledgeCallback) GetFee(block *ledger.AccountBlock) (*big.
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeCallback) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundPledgeCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -659,7 +659,7 @@ func (md *MethodDexFundCancelPledgeCallback) GetFee(block *ledger.AccountBlock) 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundCancelPledgeCallback) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundCancelPledgeCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -724,7 +724,7 @@ func (md *MethodDexFundGetTokenInfoCallback) GetFee(block *ledger.AccountBlock) 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundGetTokenInfoCallback) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundGetTokenInfoCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -769,7 +769,7 @@ func (md *MethodDexFundConfigTimerAddress) GetFee(block *ledger.AccountBlock) (*
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundConfigTimerAddress) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -807,7 +807,7 @@ func (md *MethodDexFundNotifyTime) GetFee(block *ledger.AccountBlock) (*big.Int,
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNotifyTime) GetRefundData(sendData []byte) ([]byte, bool) {
+func (md *MethodDexFundNotifyTime) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 

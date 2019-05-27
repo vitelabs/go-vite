@@ -23,7 +23,7 @@ func (p *MethodPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodPledge) GetRefundData(sendData []byte) ([]byte, bool) {
+func (p *MethodPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -120,7 +120,7 @@ func (p *MethodCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelPledge) GetRefundData(sendData []byte) ([]byte, bool) {
+func (p *MethodCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -198,10 +198,10 @@ func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentPledge) GetRefundData(sendData []byte) ([]byte, bool) {
+func (p *MethodAgentPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	param := new(abi.ParamAgentPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendData)
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, big.NewInt(0), param.Bid, false)
+	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendBlock.Data)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, sendBlock.Amount, param.Bid, false)
 	return callbackData, true
 }
 
@@ -271,9 +271,9 @@ func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentCancelPledge) GetRefundData(sendData []byte) ([]byte, bool) {
+func (p *MethodAgentCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	param := new(abi.ParamAgentCancelPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, sendData)
+	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, sendBlock.Data)
 	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount, param.Bid, false)
 	return callbackData, true
 }
