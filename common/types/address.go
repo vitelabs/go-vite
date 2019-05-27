@@ -35,9 +35,11 @@ var (
 	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, ContractAddrByte})
 	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, ContractAddrByte})
 	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, ContractAddrByte})
+	AddressDexFund, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, ContractAddrByte})
+	AddressDexTrade, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, ContractAddrByte})
 
-	BuiltinContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
-	BuiltinContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexFund, AddressDexTrade}
+	BuiltinContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexTrade}
 	BuiltinContractWithSendConfirm      = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
 )
 

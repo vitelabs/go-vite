@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package proto;
+
+message Order {
+    bytes Id = 1; //[unset on serialize] MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 21
+    bytes Address = 2;
+    int32 MarketId = 3; // [unset on serialize]
+    bool Side = 4; // //[unset on serialize] false buy, true sell
+    int32 Type = 5; // 0 limit order, 1 market order
+    bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
+    int32 FeeType = 7; // 0 mine 1 not mine 2 vip
+    bytes Quantity = 8;
+    bytes Amount = 9; // QuoteAmount
+    bytes LockedBuyFee = 10; // fee locked ahead for buy
+    int32 Status = 11;
+    int32 CancelReason = 12;
+    bytes ExecutedQuantity = 13;
+    bytes ExecutedAmount = 14;
+    bytes ExecutedFee = 15; // fee actually executed
+    bytes RefundToken = 16;
+    bytes RefundQuantity = 17; //refund trade/quote token
+    int64 Timestamp = 18; // [unset on serialize]
+}
+
+message OrderIdSerialNo {
+    int32 SerialNo = 1;
+    int64 Timestamp = 2;
+}
+
+message Transaction {
+    bytes Id = 1;
+    bool TakerSide = 2;
+    bytes TakerId = 3;
+    bytes MakerId = 4;
+    bytes Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7;
+    bytes TakerFee = 8;
+    bytes MakerFee = 9;
+    int64 Timestamp = 10;
+}
+
+message TokenInfo {
+    int32 Decimals = 2;
+    string Symbol = 1;
+    int32 Index = 3;
+}
+
+message MarketInfo {
+    int32 MarketId = 1;
+    string MarketSymbol = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    int32 TradeTokenDecimals = 5;
+    int32 QuoteTokenDecimals = 6;
+    bool AllowMine = 7;
+    bool Valid = 8; // false: pending for tradeToken validate
+    bytes Creator = 9; //creator address
+    int64 Timestamp = 10;
+}
+
+message PendingNewMarketAction {
+    bytes tradeToken = 1;
+    repeated bytes QuoteTokens = 2;
+}
+
+message PendingNewMarkets {
+    repeated PendingNewMarketAction pendingActions = 1;
+}
+
+message NewOrderInfo { // for taker
+    Order Order = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+}
+
+message OrderUpdateInfo {
+    bytes Id = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+    int32 Status = 4;
+    int32 CancelReason = 5;
+    bytes ExecutedQuantity = 6;
+    bytes ExecutedAmount = 7;
+    bytes ExecutedFee = 8; // fee actually executed
+    bytes RefundToken = 9;
+    bytes RefundQuantity = 10; //refund trade/quote token
+}
+
+message NewMarket {
+    int32 MarketId = 1;
+    string MarketSymbol = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    string DexTradeTokenSymbol = 5;
+    string DexQuoteTokenSymbol = 6;
+    int32 TradeTokenDecimals = 7;
+    int32 QuoteTokenDecimals = 8;
+    bytes Creator = 9; //creator address
+}

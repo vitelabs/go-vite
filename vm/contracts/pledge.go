@@ -23,12 +23,15 @@ func (p *MethodPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodPledge) GetRefundData() ([]byte, bool) {
+func (p *MethodPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
 func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
 	return PledgeGas, nil
+}
+func (p *MethodPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -117,12 +120,15 @@ func (p *MethodCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelPledge) GetRefundData() ([]byte, bool) {
+func (p *MethodCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
 func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return CancelPledgeGas, nil
+}
+func (p *MethodCancelPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -192,13 +198,18 @@ func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentPledge) GetRefundData() ([]byte, bool) {
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, false)
+func (p *MethodAgentPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	param := new(abi.ParamAgentPledge)
+	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendBlock.Data)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, sendBlock.Amount, param.Bid, false)
 	return callbackData, true
 }
 
 func (p *MethodAgentPledge) GetSendQuota(data []byte) (uint64, error) {
 	return AgentPledgeGas, nil
+}
+func (p *MethodAgentPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -241,7 +252,7 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	beneficialData, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, beneficialAmount)
 	util.SetValue(db, beneficialKey, beneficialData)
 
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, true)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, sendBlock.Amount, param.Bid, true)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -260,13 +271,19 @@ func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentCancelPledge) GetRefundData() ([]byte, bool) {
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentCancelPledge, false)
+func (p *MethodAgentCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	param := new(abi.ParamAgentCancelPledge)
+	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, sendBlock.Data)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount, param.Bid, false)
 	return callbackData, true
 }
 
 func (p *MethodAgentCancelPledge) GetSendQuota(data []byte) (uint64, error) {
 	return AgentCancelPledgeGas, nil
+}
+
+func (p *MethodAgentCancelPledge) GetReceiveQuota() uint64 {
+	return 0
 }
 
 func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -319,7 +336,7 @@ func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Account
 		util.SetValue(db, beneficialKey, pledgeBeneficial)
 	}
 
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentCancelPledge, true)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentCancelPledge, param.PledgeAddress, param.Beneficial, param.Amount, param.Bid, true)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,

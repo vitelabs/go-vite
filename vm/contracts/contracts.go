@@ -37,8 +37,10 @@ type BuiltinContractMethod interface {
 	GetSendQuota(data []byte) (uint64, error)
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
+	// receive block quota
+	GetReceiveQuota() uint64
 	// refund data at receive error
-	GetRefundData() ([]byte, bool)
+	GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool)
 }
 
 type builtinContract struct {
@@ -49,10 +51,10 @@ type builtinContract struct {
 var simpleContracts = map[types.Address]*builtinContract{
 	types.AddressPledge: {
 		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:       &MethodPledge{},
-			cabi.MethodNameCancelPledge: &MethodCancelPledge{},
-			/*cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
-			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},*/
+			cabi.MethodNamePledge:            &MethodPledge{},
+			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
+			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
+			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
 		},
 		cabi.ABIPledge,
 	},
@@ -77,9 +79,38 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameBurn:            &MethodBurn{},
 			cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
 			cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
-			/*cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},*/
+			cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},
 		},
 		cabi.ABIMintage,
+	},
+	types.AddressDexFund: {
+		map[string]BuiltinContractMethod{
+			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
+			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
+			cabi.MethodNameDexFundNewOrder:             &MethodDexFundNewOrder{},
+			cabi.MethodNameDexFundSettleOrders:         &MethodDexFundSettleOrders{},
+			cabi.MethodNameDexFundFeeDividend:          &MethodDexFundFeeDividend{},
+			cabi.MethodNameDexFundMinedVxDividend:      &MethodDexFundMinedVxDividend{},
+			cabi.MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{},
+			cabi.MethodNameDexFundSetOwner:             &MethodDexFundSetOwner{},
+			cabi.MethodNameDexFundConfigMineMarket:     &MethodDexFundConfigMineMarket{},
+			cabi.MethodNameDexFundPledgeForVx:          &MethodDexFundPledgeForVx{},
+			cabi.MethodNameDexFundPledgeForVip:         &MethodDexFundPledgeForVip{},
+			cabi.MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{},
+			cabi.MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{},
+			cabi.MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{},
+			cabi.MethodNameDexFundConfigTimerAddress:   &MethodDexFundConfigTimerAddress{},
+			cabi.MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{},
+		},
+		cabi.ABIDexFund,
+	},
+	types.AddressDexTrade: {
+		map[string]BuiltinContractMethod{
+			cabi.MethodNameDexTradeNewOrder:        &MethodDexTradeNewOrder{},
+			cabi.MethodNameDexTradeCancelOrder:     &MethodDexTradeCancelOrder{},
+			cabi.MethodNameDexTradeNotifyNewMarket: &MethodDexTradeNotifyNewMarket{},
+		},
+		cabi.ABIDexTrade,
 	},
 }
 
@@ -94,4 +125,22 @@ func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (Builti
 		}
 	}
 	return nil, ok, nil
+}
+
+func GetOriginSendBlock(db vm_db.VmDb, sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
+	receiveBlock, err := db.GetCompleteBlockByHash(sendBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	if receiveBlock == nil {
+		return nil, util.ErrChainForked
+	}
+	sendBlock, err := db.GetAccountBlockByHash(receiveBlock.FromBlockHash)
+	if err != nil {
+		return nil, err
+	}
+	if sendBlock == nil {
+		return nil, util.ErrChainForked
+	}
+	return sendBlock, nil
 }
