@@ -201,7 +201,7 @@ func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error)
 func (p *MethodAgentPledge) GetRefundData(sendData []byte) ([]byte, bool) {
 	param := new(abi.ParamAgentPledge)
 	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendData)
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, param.Bid, false)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, big.NewInt(0), param.Bid, false)
 	return callbackData, true
 }
 
@@ -252,7 +252,7 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	beneficialData, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, beneficialAmount)
 	util.SetValue(db, beneficialKey, beneficialData)
 
-	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, param.Bid, true)
+	callbackData, _ := abi.ABIPledge.PackCallback(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, sendBlock.Amount, param.Bid, true)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,

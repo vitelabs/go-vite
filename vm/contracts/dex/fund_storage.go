@@ -134,10 +134,6 @@ type ParamDexFundPledgeForVip struct {
 	ActionType int8 // 1: pledge 2: cancel pledge
 }
 
-type ParamDexFundPledgeCallBack struct {
-	Success bool
-}
-
 type ParamDexFundPledge struct {
 	PledgeAddress types.Address
 	Beneficial    types.Address
@@ -151,7 +147,16 @@ type ParamDexFundCancelPledge struct {
 	Bid           uint8
 }
 
+type ParamDexFundPledgeCallBack struct {
+	PledgeAddress types.Address
+	Beneficial    types.Address
+	Amount        *big.Int
+	Bid           uint8
+	Success bool
+}
+
 type ParamDexFundGetTokenInfoCallback struct {
+	TokenId types.TokenTypeId
 	Exist       bool
 	Decimals    uint8
 	TokenSymbol string
