@@ -54,6 +54,7 @@ type Discovery interface {
 	AllNodes() []*vnode.Node
 	SubscribeNode(receiver func(n *vnode.Node)) (subId int)
 	Unsubscribe(subId int)
+	Nodes() []*vnode.Node
 }
 
 type NodeDB interface {
@@ -127,6 +128,16 @@ type discovery struct {
 	log log15.Logger
 }
 
+func (d *discovery) Nodes() []*vnode.Node {
+	nodes := d.table.nodes(0)
+	vnodes := make([]*vnode.Node, len(nodes))
+	for i, n := range nodes {
+		vnodes[i] = &n.Node
+	}
+
+	return vnodes
+}
+
 func (d *discovery) SubscribeNode(receiver func(n *vnode.Node)) (subId int) {
 	return d.table.Sub(receiver)
 }
@@ -135,13 +146,6 @@ func (d *discovery) Unsubscribe(subId int) {
 }
 
 func (d *discovery) GetNodes(count int) []*vnode.Node {
-	// can NOT use rw.RLock(), will panic
-	d.mu.Lock()
-	for d.refreshing {
-		d.cond.Wait()
-	}
-	d.mu.Unlock()
-
 	return d.finder.GetNodes(count)
 }
 
@@ -493,9 +497,11 @@ func (d *discovery) getBootNodes(num int) (bootNodes []*Node) {
 }
 
 func (d *discovery) init() {
+	d.log.Info("init")
 	if d.loadBootNodes() {
 		d.refresh()
 	}
+	d.log.Info("init done")
 }
 
 func (d *discovery) loadBootNodes() bool {

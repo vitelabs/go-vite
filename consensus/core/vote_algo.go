@@ -196,7 +196,7 @@ func (self *algo) filterRandV2(groupA, groupB []*Vote, hashH *ledger.HashHeight,
 
 	length := len(groupA) + len(groupB)
 
-	seed := self.findSeedTmp(mergeGroup(groupA, groupB), hashH.Height, seedInfo, successRate)
+	seed := self.findSeed(mergeGroup(groupA, groupB), hashH.Height, seedInfo)
 	randCnt := self.calRandCnt(total, int(self.info.RandCount))
 	topTotal := total - randCnt
 
@@ -309,7 +309,7 @@ func (self *algo) filterBySuccessRate(groupA, groupB []*Vote, height *ledger.Has
 		promotion.Type = append(promotion.Type, SUCCESS_RATE_PROMOTION)
 		demotion.Type = append(demotion.Type, SUCCESS_RATE_DEMOTION)
 		deleteGroupA[lenA-i] = promotion
-		improvementGroupB[i-i] = demotion
+		improvementGroupB[i-1] = demotion
 	}
 
 	var resultGroupA []*Vote

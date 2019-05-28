@@ -25,11 +25,15 @@ type Chain interface {
 
 	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error)
 
+	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+
 	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)
 
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+
+	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 
 	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
 
@@ -57,6 +61,8 @@ type VmDb interface {
 	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 
 	PrevAccountBlock() (*ledger.AccountBlock, error)
+
+	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 
 	IsContractAccount() (bool, error)
 
@@ -105,6 +111,8 @@ type VmDb interface {
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
 	GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 
 	// ====== Meta & Code ======
 	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)

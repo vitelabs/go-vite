@@ -1,11 +1,16 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/magiconair/properties/assert"
+
+	"github.com/vitelabs/go-vite/common"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -142,4 +147,92 @@ func TestAlgo_FilterVotes3(t *testing.T) {
 		println("\""+v.Name+"\"", v.Balance.String(), ",")
 	}
 
+}
+
+func TestAlgo_FilterBySuccessRate(t *testing.T) {
+	a := &algo{}
+
+	var groupA []*Vote
+	for i := 10; i <= 35; i++ {
+		vote := &Vote{
+			Name:    fmt.Sprintf("s%d", i),
+			Addr:    common.MockAddress(i),
+			Balance: big.NewInt(10),
+			Type:    nil,
+		}
+		groupA = append(groupA, vote)
+	}
+
+	var groupB []*Vote
+	for i := 40; i < 50; i++ {
+		vote := &Vote{
+			Name:    fmt.Sprintf("s%d", i),
+			Addr:    common.MockAddress(i),
+			Balance: big.NewInt(10),
+			Type:    nil,
+		}
+		groupB = append(groupB, vote)
+	}
+
+	sort.Sort(ByBalance(groupA))
+	sort.Sort(ByBalance(groupB))
+
+	successRate := make(map[types.Address]int32)
+
+	for _, v := range groupA {
+		successRate[v.Addr] = 1000000
+	}
+	for _, v := range groupB {
+		successRate[v.Addr] = 800001
+	}
+
+	successRate[common.MockAddress(24)] = 0
+	resultA, resultB := a.filterBySuccessRate(groupA, groupB, nil, successRate)
+
+	nameA := []string{"s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23", "s25", "s26", "s27", "s28", "s29", "s30", "s31", "s32", "s33", "s34", "s35", "s40"}
+	for k, v := range resultA {
+		assert.Equal(t, nameA[k], v.Name)
+	}
+
+	nameB := []string{"s42", "s43", "s44", "s45", "s46", "s47", "s48", "s49", "s24", "s41"}
+
+	for k, v := range resultB {
+		assert.Equal(t, nameB[k], v.Name)
+	}
+
+	successRate[common.MockAddress(23)] = 0
+	resultA, resultB = a.filterBySuccessRate(groupA, groupB, nil, successRate)
+
+	nameA = []string{"s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s25", "s26", "s27", "s28", "s29", "s30", "s31", "s32", "s33", "s34", "s35", "s41", "s40"}
+	nameB = []string{"s42", "s43", "s44", "s45", "s46", "s47", "s48", "s49", "s24", "s23"}
+	for k, v := range resultA {
+		assert.Equal(t, nameA[k], v.Name)
+	}
+
+	for k, v := range resultB {
+		assert.Equal(t, nameB[k], v.Name)
+	}
+
+	successRate[common.MockAddress(22)] = 0
+	successRate[common.MockAddress(40)] = 0
+	resultA, resultB = a.filterBySuccessRate(groupA, groupB, nil, successRate)
+
+	nameA = []string{"s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21", "s25", "s26", "s27", "s28", "s29", "s30", "s31", "s32", "s33", "s34", "s35", "s22", "s42", "s41"}
+	nameB = []string{"s43", "s44", "s45", "s46", "s47", "s48", "s49", "s40", "s24", "s23"}
+	for k, v := range resultA {
+		assert.Equal(t, nameA[k], v.Name)
+	}
+
+	for k, v := range resultB {
+		assert.Equal(t, nameB[k], v.Name)
+	}
+	for _, v := range resultA {
+		fmt.Printf("%s \t", v.Name)
+	}
+	fmt.Println()
+
+	for _, v := range resultB {
+		fmt.Printf("%s \t", v.Name)
+	}
+	fmt.Println()
 }

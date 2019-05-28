@@ -161,7 +161,7 @@ func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *
 	}
 	plugins := l.chain.Plugins()
 	if plugins == nil {
-		err := errors.New("config.OpenFilterTokenIndex is false, api can't work")
+		err := errors.New("config.OpenPlugins is false, api can't work")
 		return nil, err
 	}
 

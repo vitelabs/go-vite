@@ -118,7 +118,7 @@ func (arr *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.
 			return nil, exists, err
 		}
 		if emptyProofResult {
-			return cdb.NewEmptyPoint(), exists, nil
+			return cdb.NewEmptyPoint(proofHash), exists, nil
 		}
 	} else {
 		exists = true
@@ -132,7 +132,7 @@ func (arr *linkedArray) getByIndexWithProofFromDb(index uint64, proofHash types.
 
 // result must not nil
 func (arr *linkedArray) getByIndexWithProofFromKernel(index uint64, proofHash types.Hash) (*cdb.Point, error) {
-	result := cdb.NewEmptyPoint()
+	result := cdb.NewEmptyPoint(proofHash)
 	start := index * arr.rate
 	end := start + arr.rate
 	tmpProofHash := proofHash
@@ -188,7 +188,7 @@ func newPeriodPointArray(rw Chain, cs DposReader, proof RollbackProof, log log15
 
 func (period *periodLinkedArray) GetByIndexWithProof(index uint64, proofHash types.Hash) (*cdb.Point, error) {
 	if period.rw.IsGenesisSnapshotBlock(proofHash) {
-		return cdb.NewEmptyPoint(), nil
+		return cdb.NewEmptyPoint(proofHash), nil
 	}
 	point, err := period.getByIndexWithProofFromDb(index, proofHash)
 	if err != nil {
@@ -223,7 +223,7 @@ func (period *periodLinkedArray) getByIndexWithProofFromDb(index uint64, proofHa
 			return nil, err
 		}
 		if proofEmptyResult {
-			return cdb.NewEmptyPoint(), nil
+			return cdb.NewEmptyPoint(proofHash), nil
 		}
 	} else {
 		point := value.(*cdb.Point)
@@ -261,6 +261,10 @@ func (period *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proo
 		return nil, errors.Errorf("period index[%d] proof[%s] not exist.", index, proofHash)
 	}
 
+	if block.Timestamp.Before(stime) {
+		return cdb.NewEmptyPoint(proofHash), nil
+	}
+
 	blocks, err := period.rw.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{Hash: block.Hash, Height: block.Height}, &stime, nil)
 	if err != nil {
 		return nil, err
@@ -272,7 +276,7 @@ func (period *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proo
 
 	// actually no block
 	if len(blocks) == 0 {
-		return cdb.NewEmptyPoint(), nil
+		return cdb.NewEmptyPoint(proofHash), nil
 	}
 
 	result, err := period.snapshot.ElectionIndex(index)
@@ -287,7 +291,10 @@ func (period *periodLinkedArray) getByIndexWithProofFromChain(index uint64, proo
 }
 
 func (period *periodLinkedArray) genPeriodPoint(index uint64, stime *time.Time, etime *time.Time, proofHash types.Hash, blocks []*ledger.SnapshotBlock, result *electionResult) (*cdb.Point, error) {
-	point := cdb.NewEmptyPoint()
+	if proofHash != blocks[0].Hash {
+		return nil, errors.Errorf("gen period point fail[%s][%s]", proofHash, blocks[0].Hash)
+	}
+	point := cdb.NewEmptyPoint(proofHash)
 
 	point.PrevHash = blocks[len(blocks)-1].PrevHash
 	point.Hash = blocks[0].Hash

@@ -20,9 +20,9 @@ const (
 		{"type":"function","name":"DexFundConfigMineMarket", "inputs":[{"name":"allowMine","type":"bool"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]},
 		{"type":"function","name":"DexFundPledgeForVx", "inputs":[{"name":"actionType","type":"int8"}, {"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"DexFundPledgeForVip", "inputs":[{"name":"actionType","type":"int8"}]},
-		{"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"success","type":"bool"}]},
-		{"type":"function","name":"AgentCancelPledgeCallback", "inputs":[{"name":"success","type":"bool"}]},
-		{"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"}]},
+		{"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"function","name":"AgentCancelPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"tokenId","type":"tokenId"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"}]},
 		{"type":"function","name":"DexFundConfigTimerAddress", "inputs":[{"name":"address","type":"address"}]},
 		{"type":"function","name":"NotifyTime", "inputs":[{"name":"timestamp","type":"int64"}]}
 	]`

@@ -42,8 +42,8 @@ func (s durations) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 var ntp_logger log15.Logger
 
-func init() {
-	ntp_logger = log15.New("module", "ntp")
+func InitNTPChecker(logger log15.Logger) {
+	ntp_logger = logger.New("module", "ntp")
 
 	go checkTime()
 

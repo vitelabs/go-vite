@@ -5,10 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/go-errors/errors"
-	"github.com/vitelabs/go-vite/monitor"
 )
 
 type branch struct {
@@ -75,7 +73,7 @@ func (self *branch) prune(t *tree) {
 		selfB := self.getKnot(i, false)
 		block, b := self.root.GetKnotAndBranch(i)
 		if block != nil && block.Hash() == selfB.Hash() {
-			fmt.Printf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.ID(), block.Height(), block.Hash())
+			t.log.Info(fmt.Sprintf("remove tail[%s][%s][%d-%s]\n", self.branchId(), self.root.ID(), block.Height(), block.Hash()))
 			self.RemoveTail(block)
 			if b != nil && b.Type() == Disk {
 				// notify tree
@@ -170,7 +168,7 @@ func (self *branch) exchangeRoot(root *branch, t *tree) error {
 		root.updateRoot(root.root, self)
 		return nil
 	} else {
-		fmt.Printf("exchangeRoot fail, %s", PrintTreeJson(t))
+		t.log.Info(fmt.Sprintf("exchangeRoot fail, %s", PrintTreeJson(t)))
 		return errors.Errorf("err for exchangeRoot.root:%s, self:%s, rootTail:%s, rootHead:%s, selfTail:%s, selfHead:%s",
 			root.ID(), self.ID(), root.SprintTail(), root.SprintHead(), self.SprintTail(), self.SprintHead())
 
@@ -235,7 +233,6 @@ func (self *branch) getKnotAndBranch(height uint64) (Knot, Branch) {
 				return nil, nil
 			}
 			if _, ok := refers[refer.ID()]; ok {
-				monitor.LogEvent("pool", "GetKnotError")
 				return nil, nil
 			}
 			refers[refer.ID()] = refer

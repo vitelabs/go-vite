@@ -7,12 +7,16 @@ import (
 	"sync"
 )
 
-const DefaultPullCount uint8 = 5
+const defaultPullCount uint8 = 5
 
 type inferiorState int
 
 const (
+	// RETRY represents a state which the processor can retry to handle the onroad from a particular caller
+	// to a particular contract in the next second during a block period.
 	RETRY inferiorState = iota
+	// OUT represents a state which the processor won't handle the onroad from a particular caller
+	// to a particular contract during a block period any more.
 	OUT
 )
 
@@ -40,7 +44,7 @@ func (p *callerPendingMap) isPendingMapNotSufficient() bool {
 	for _, list := range p.pmap {
 		count += list.Len()
 	}
-	if count < int(DefaultPullCount) {
+	if count < int(defaultPullCount) {
 		return true
 	}
 	return false
@@ -112,6 +116,32 @@ func (p *callerPendingMap) addIntoInferiorList(caller types.Address, state infer
 	defer p.addrMutex.Unlock()
 	p.inferiorList[caller] = state
 	delete(p.pmap, caller)
+}
+
+func (p *callerPendingMap) releaseCallerByState(state inferiorState) int {
+	var count int
+	p.addrMutex.Lock()
+	defer p.addrMutex.Unlock()
+	for caller, s := range p.inferiorList {
+		if s == state {
+			delete(p.inferiorList, caller)
+			count++
+		}
+	}
+	return count
+}
+
+func (p *callerPendingMap) lenOfCallersByState(state inferiorState) int {
+	var count int
+	p.addrMutex.RLock()
+	defer p.addrMutex.RUnlock()
+	for _, s := range p.inferiorList {
+		if s == state {
+			count++
+		}
+	}
+	return count
+
 }
 
 func (p *callerPendingMap) existInInferiorList(caller types.Address) bool {

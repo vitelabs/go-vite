@@ -3,7 +3,9 @@ package chain_genesis
 import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+	"sort"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -27,9 +29,7 @@ func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb vm_db
 	}
 	for tokenIdStr, balance := range cfg.AccountBalanceMap[addr.String()] {
 		tokenId, err := types.HexToTokenTypeId(tokenIdStr)
-		if err != nil {
-			panic(err)
-		}
+		dealWithError(err)
 		vmdb.SetBalance(&tokenId, balance)
 	}
 }
@@ -73,8 +73,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 				groupInfo.PledgeAmount,
 				groupInfo.WithdrawHeight)
 			dealWithError(err)
-			err = vmdb.SetValue(abi.GetConsensusGroupKey(gid), value)
-			dealWithError(err)
+			util.SetValue(vmdb, abi.GetConsensusGroupKey(gid), value)
 		}
 
 		for gidStr, groupRegistrationInfoMap := range cfg.ConsensusGroupInfo.RegistrationInfoMap {
@@ -94,15 +93,13 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 					registrationInfo.CancelTime,
 					registrationInfo.HisAddrList)
 				dealWithError(err)
-				err = vmdb.SetValue(abi.GetRegisterKey(name, gid), value)
-				dealWithError(err)
+				util.SetValue(vmdb, abi.GetRegisterKey(name, gid), value)
 				if len(cfg.ConsensusGroupInfo.HisNameMap) == 0 ||
 					len(cfg.ConsensusGroupInfo.HisNameMap[gidStr]) == 0 ||
 					len(cfg.ConsensusGroupInfo.HisNameMap[gidStr][registrationInfo.NodeAddr.String()]) == 0 {
 					value, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, name)
 					dealWithError(err)
-					err = vmdb.SetValue(abi.GetHisNameKey(registrationInfo.NodeAddr, gid), value)
-					dealWithError(err)
+					util.SetValue(vmdb, abi.GetHisNameKey(registrationInfo.NodeAddr, gid), value)
 				}
 			}
 		}
@@ -115,8 +112,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 				dealWithError(err)
 				value, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameHisName, name)
 				dealWithError(err)
-				err = vmdb.SetValue(abi.GetHisNameKey(nodeAddr, gid), value)
-				dealWithError(err)
+				util.SetValue(vmdb, abi.GetHisNameKey(nodeAddr, gid), value)
 			}
 		}
 
@@ -128,8 +124,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 				dealWithError(err)
 				value, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, nodeName)
 				dealWithError(err)
-				err = vmdb.SetValue(abi.GetVoteKey(voteAddr, gid), value)
-				dealWithError(err)
+				util.SetValue(vmdb, abi.GetVoteKey(voteAddr, gid), value)
 			}
 		}
 
@@ -140,6 +135,18 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 		addrSet[contractAddr] = struct{}{}
 	}
 	return list, addrSet
+}
+
+type tokenInfoForSort struct {
+	tokenId types.TokenTypeId
+	config.TokenInfo
+}
+type byTokenId []*tokenInfoForSort
+
+func (a byTokenId) Len() int      { return len(a) }
+func (a byTokenId) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byTokenId) Less(i, j int) bool {
+	return a[i].tokenId.Hex() > a[j].tokenId.Hex()
 }
 
 func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
@@ -154,9 +161,14 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			Fee:            big.NewInt(0),
 		}
 		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
+		tokenList := make([]*tokenInfoForSort, 0, len(cfg.MintageInfo.TokenInfoMap))
 		for tokenIdStr, tokenInfo := range cfg.MintageInfo.TokenInfoMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 			dealWithError(err)
+			tokenList = append(tokenList, &tokenInfoForSort{tokenId, tokenInfo})
+		}
+		sort.Sort(byTokenId(tokenList))
+		for _, tokenInfo := range tokenList {
 			nextIndex := uint16(0)
 			if index, ok := nextIndexMap[tokenInfo.TokenSymbol]; ok {
 				nextIndex = index
@@ -176,18 +188,14 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			nextIndexMap[tokenInfo.TokenSymbol] = nextIndex
 			nextIndexValue, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenNameIndex, nextIndex)
 			dealWithError(err)
-			err = vmdb.SetValue(abi.GetNextIndexKey(tokenInfo.TokenSymbol), nextIndexValue)
-			dealWithError(err)
-			err = vmdb.SetValue(abi.GetMintageKey(tokenId), value)
-			dealWithError(err)
+			util.SetValue(vmdb, abi.GetNextIndexKey(tokenInfo.TokenSymbol), nextIndexValue)
+			util.SetValue(vmdb, abi.GetMintageKey(tokenInfo.tokenId), value)
 		}
 
 		if len(cfg.MintageInfo.LogList) > 0 {
 			for _, log := range cfg.MintageInfo.LogList {
 				dataBytes, err := hex.DecodeString(log.Data)
-				if err != nil {
-					panic(err)
-				}
+				dealWithError(err)
 				vmdb.AddLog(&ledger.VmLog{Data: dataBytes, Topics: log.Topics})
 			}
 		}
@@ -223,8 +231,7 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 					types.ZERO_ADDRESS,
 					uint8(0))
 				dealWithError(err)
-				err = vmdb.SetValue(abi.GetPledgeKey(pledgeAddr, uint64(i)), value)
-				dealWithError(err)
+				util.SetValue(vmdb, abi.GetPledgeKey(pledgeAddr, uint64(i)), value)
 			}
 		}
 
@@ -233,8 +240,7 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			dealWithError(err)
 			value, err := abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, amount)
 			dealWithError(err)
-			err = vmdb.SetValue(abi.GetPledgeBeneficialKey(beneficialAddr), value)
-			dealWithError(err)
+			util.SetValue(vmdb, abi.GetPledgeBeneficialKey(beneficialAddr), value)
 		}
 		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 		block.Hash = block.ComputeHash()
@@ -247,9 +253,7 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) []*vm_db.VmAccountBlock {
 	for addrStr, balanceMap := range cfg.AccountBalanceMap {
 		addr, err := types.HexToAddress(addrStr)
-		if err != nil {
-			panic(err)
-		}
+		dealWithError(err)
 		if _, ok := addrSet[addr]; ok {
 			continue
 		}
@@ -263,9 +267,7 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 		vmdb := vm_db.NewEmptyVmDB(&addr)
 		for tokenIdStr, balance := range balanceMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
-			if err != nil {
-				panic(err)
-			}
+			dealWithError(err)
 			vmdb.SetBalance(&tokenId, balance)
 		}
 		block.Hash = block.ComputeHash()

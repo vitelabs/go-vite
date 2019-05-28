@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm_db"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -319,12 +318,7 @@ func (v *VmDebugApi) ClearData() error {
 }
 
 func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, error) {
-	sb := v.vite.Chain().GetLatestSnapshotBlock()
-	prev, err := v.vite.Chain().GetLatestAccountBlock(addr)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(v.vite.Chain(), &addr, &sb.Hash, &prev.Hash)
+	db, err := getVmDb(v.vite.Chain(), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +330,9 @@ func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, 
 	m := make(map[string]string)
 	for {
 		if !iter.Next() {
+			if iter.Error() != nil {
+				return nil, err
+			}
 			return m, nil
 		}
 		if !bytes.HasPrefix(iter.Key(), []byte("$code")) && !bytes.HasPrefix(iter.Key(), []byte("$balance")) {

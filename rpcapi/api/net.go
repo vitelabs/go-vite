@@ -3,6 +3,8 @@ package api
 import (
 	"strconv"
 
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/vite"
@@ -63,4 +65,22 @@ func (n *NetApi) NetInfo() net.NodeInfo {
 
 func (n *NetApi) Trace() {
 	n.net.Trace()
+}
+
+type Nodes struct {
+	Count int
+	Nodes []*vnode.Node
+}
+
+func (n *NetApi) Nodes() Nodes {
+	discv := n.p2p.Discovery()
+	if discv != nil {
+		nodes := discv.AllNodes()
+		return Nodes{
+			Nodes: nodes,
+			Count: len(nodes),
+		}
+	}
+
+	return Nodes{}
 }

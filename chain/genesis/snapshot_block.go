@@ -22,8 +22,8 @@ func newGenesisSnapshotContent(accountBlocks []*vm_db.VmAccountBlock) ledger.Sna
 }
 
 func NewGenesisSnapshotBlock(accountBlocks []*vm_db.VmAccountBlock) *ledger.SnapshotBlock {
-	// 2019/5/15 12:00:00 UTC/GMT +8
-	genesisTimestamp := time.Unix(1557892800, 0)
+	// 2019/05/21 12:00:00 UTC/GMT +8
+	genesisTimestamp := time.Unix(1558411200, 0)
 
 	genesisSnapshotBlock := &ledger.SnapshotBlock{
 		Height:          1,                 // height

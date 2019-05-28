@@ -3,14 +3,12 @@ package api
 import (
 	"encoding/json"
 	"math/big"
+	"runtime/debug"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/config"
-
-	"runtime/debug"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
 )
 

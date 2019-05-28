@@ -54,49 +54,53 @@ func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBl
 	quotaUnusedCache := make(map[types.Address]uint64)
 
 	for _, block := range blocks {
-
 		valid := true
 
 		addr := block.AccountAddress
 		// dependence
 		if _, ok := invalidAddrSet[addr]; ok {
 			valid = false
-			// dependence
-		} else if block.IsReceiveBlock() {
-			if _, ok := invalidHashSet[block.FromBlockHash]; ok {
+		}
+		// dependence
+		if valid && block.IsReceiveBlock() {
+			if block.BlockType == ledger.BlockTypeReceiveError {
+				valid = false
+			} else if _, ok := invalidHashSet[block.FromBlockHash]; ok {
 				valid = false
 			}
-			// quota & consensus
-		} else {
-			// reset quota
+		}
+		// quota
+		if valid {
 			var err error
+			// reset quota
 			block.Quota, err = quota.CalcBlockQuota(c, block)
 
 			if err != nil {
-				panic(errors.New(fmt.Sprintf("quota.CalcBlockQuota failed when filterUnconfirmedBlocks. Error: %s", err)))
+				c.log.Error(fmt.Sprintf("quota.CalcBlockQuota failed when filterUnconfirmedBlocks. Error: %s", err), "method", "filterInvalidUnconfirmedBlocks")
+				valid = false
 			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block); err != nil {
 				cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-				return invalidBlocks
-				// quota
+				valid = false
 			} else if !enough {
 				valid = false
-				// consensus
-			} else if checkConsensus {
-				if isContract, err := c.IsContractAccount(addr); err != nil {
-					cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
+			}
+		}
+		// consensus
+		if valid &&checkConsensus {
+			if isContract, err := c.IsContractAccount(addr); err != nil {
+				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
+				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
+				valid = false
+			} else if isContract {
+				ok, err := c.consensus.VerifyAccountProducer(block)
+				if err != nil {
+					cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
 					c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-					return invalidBlocks
-				} else if isContract {
-					ok, err := c.consensus.VerifyAccountProducer(block)
-					if err != nil {
-						cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
-						c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-						return invalidBlocks
-					}
-					if !ok {
-						valid = false
-					}
+					valid = false
+				}
+				if !ok {
+					valid = false
 				}
 			}
 		}

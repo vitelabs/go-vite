@@ -33,7 +33,6 @@ type Chain interface {
 	Register(listener chain.EventListener)
 	UnRegister(listener chain.EventListener)
 
-	// todo
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
 	GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                           // Get register for consensus group
@@ -64,10 +63,12 @@ type chainRw struct {
 	dbCache  *cdb.ConsensusDB
 	lruCache *lru.Cache
 
-	started chan struct{}
-	wg      sync.WaitGroup
+	started        chan struct{}
+	snapshotLoadCh chan *ledger.SnapshotBlock
+	wg             sync.WaitGroup
 
-	log log15.Logger
+	log      log15.Logger
+	snapshot *snapshotCs
 }
 
 func newChainRw(rw Chain, log log15.Logger, rollbackLock lock.ChainRollback) *chainRw {
@@ -91,7 +92,7 @@ func newChainRw(rw Chain, log log15.Logger, rollbackLock lock.ChainRollback) *ch
 
 }
 
-func (cRw *chainRw) initArray(cs *snapshotCs) {
+func (cRw *chainRw) init(cs *snapshotCs) {
 	if cs == nil {
 		panic("snapshot cs is nil.")
 	}
@@ -99,6 +100,8 @@ func (cRw *chainRw) initArray(cs *snapshotCs) {
 	cRw.periodPoints = newPeriodPointArray(cRw.rw, cs, proof, cRw.log)
 	cRw.hourPoints = newHourLinkedArray(cRw.periodPoints, cRw.dbCache, proof, time.Duration(cs.GetInfo().PlanInterval)*time.Second, cRw.genesisTime, cRw.log)
 	cRw.dayPoints = newDayLinkedArray(cRw.hourPoints, cRw.dbCache, proof, cs.dayVoteStat, cRw.genesisTime, cRw.log)
+	cRw.snapshot = cs
+	cRw.snapshotLoadCh = make(chan *ledger.SnapshotBlock)
 }
 
 func (cRw *chainRw) Start() error {
@@ -109,6 +112,7 @@ func (cRw *chainRw) Start() error {
 		cRw.wg.Add(1)
 		defer cRw.wg.Done()
 		startedCh := cRw.started
+		snapshotLoadCh := cRw.snapshotLoadCh
 		ticker := time.NewTicker(time.Second * 30)
 		defer ticker.Stop()
 		for {
@@ -135,6 +139,8 @@ func (cRw *chainRw) Start() error {
 						cRw.log.Info("get day by info last index", "index", lastIdx, "time", t, "point", point.Json())
 					}
 				}
+			case b := <-snapshotLoadCh:
+				cRw.snapshot.loadVotes(b)
 			case <-startedCh:
 				return
 			}
@@ -300,17 +306,24 @@ func (cRw *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.H
 func (cRw *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
 	result := make(map[types.Address]int32)
 	hourInfos := make(map[types.Address]*cdb.Content)
+	var prevHash *types.Hash
 	for i := uint64(0); i < hour; i++ {
 		if i > index {
 			break
 		}
+		var p *cdb.Point
+		var err error
 		tmpIndex := index - i
-		p, err := cRw.periodPoints.GetByIndex(tmpIndex)
+		if prevHash == nil {
+			p, err = cRw.periodPoints.GetByIndex(tmpIndex)
+		} else {
+			p, err = cRw.periodPoints.GetByIndexWithProof(tmpIndex, *prevHash)
+		}
 		if err != nil {
 			return nil, err
 		}
 		if p == nil {
-			continue
+			break
 		}
 		infos := p.Sbps
 		for k, v := range infos {
@@ -321,6 +334,7 @@ func (cRw *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32,
 				c.Merge(v)
 			}
 		}
+		prevHash = &p.PrevHash
 	}
 
 	for k, v := range hourInfos {
@@ -359,31 +373,46 @@ func (cRw *chainRw) getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bo
 	if b != nil {
 		return nil, false
 	}
-	if result == nil {
-		return nil, false
+	if result != nil {
+		return result, true
 	}
-	return result, true
+	result, _ = cRw.getVoteLRUCache(types.SNAPSHOT_GID, hashes)
+	if result != nil {
+		cRw.updateSnapshotVoteCache(hashes, result)
+		return result, true
+	}
+	return nil, false
 }
 func (cRw *chainRw) updateSnapshotVoteCache(hashes types.Hash, addresses []types.Address) {
 	cRw.dbCache.StoreElectionResultByHash(hashes, addresses)
 }
 
-func (cRw *chainRw) getContractVoteCache(hashes types.Hash) ([]types.Address, bool) {
+func (cRw *chainRw) getVoteLRUCache(gid types.Gid, hashes types.Hash) ([]types.Address, bool) {
 	if cRw.lruCache == nil {
 		return nil, false
 	}
-	value, ok := cRw.lruCache.Get(hashes)
+	value, ok := cRw.lruCache.Get(cRw.genLruKey(gid, hashes))
 	if ok {
 		return value.([]types.Address), ok
 	}
 	return nil, ok
 }
 
-func (cRw *chainRw) updateContractVoteCache(hashes types.Hash, addrArr []types.Address) {
+func (cRw *chainRw) updateVoteLRUCache(gid types.Gid, hashes types.Hash, addrArr []types.Address) {
 	if cRw.lruCache != nil {
 		cRw.log.Info(fmt.Sprintf("store election result %s, %+v\n", hashes, addrArr))
-		cRw.lruCache.Add(hashes, addrArr)
+		cRw.lruCache.Add(cRw.genLruKey(gid, hashes), addrArr)
 	}
+}
+
+func (chainRw) genLruKey(gid types.Gid, hash types.Hash) [types.GidSize + types.HashSize]byte {
+	b1 := gid.Bytes()
+	b2 := hash.Bytes()
+
+	var result [types.GidSize + types.HashSize]byte
+	copy(result[:types.GidSize], b1)
+	copy(result[types.GidSize:], b2)
+	return result
 }
 
 const (

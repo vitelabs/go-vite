@@ -21,7 +21,7 @@ func (md *MethodDexFundUserDeposit) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundUserDeposit) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundUserDeposit) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -56,7 +56,7 @@ func (md *MethodDexFundUserWithdraw) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundUserWithdraw) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundUserWithdraw) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -189,7 +189,7 @@ func (md *MethodDexFundNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, e
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNewOrder) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -257,7 +257,7 @@ func (md *MethodDexFundSettleOrders) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundSettleOrders) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundSettleOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -324,7 +324,7 @@ func (md *MethodDexFundFeeDividend) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundFeeDividend) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundFeeDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -372,7 +372,7 @@ func (md *MethodDexFundMinedVxDividend) GetFee(block *ledger.AccountBlock) (*big
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundMinedVxDividend) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundMinedVxDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -407,7 +407,7 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		return handleReceiveErr(fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
 	}
 	vxBalance = dex.GetVxAmountForMine(db)
-	if amtForFeePerMarket, amtForPledge, amtForViteLabs, balanceLeaved, success := dex.GetMindedVxAmt(vxBalance); !success {
+	if amtForFeePerMarket, amtForPledge, amtForViteLabs, _, success := dex.GetMindedVxAmt(vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = dex.DoDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
@@ -431,7 +431,7 @@ func (md *MethodDexFundSetOwner) GetFee(block *ledger.AccountBlock) (*big.Int, e
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundSetOwner) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundSetOwner) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -468,7 +468,7 @@ func (md *MethodDexFundConfigMineMarket) GetFee(block *ledger.AccountBlock) (*bi
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigMineMarket) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundConfigMineMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -518,7 +518,7 @@ func (md *MethodDexFundPledgeForVx) GetFee(block *ledger.AccountBlock) (*big.Int
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeForVx) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundPledgeForVx) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -563,7 +563,7 @@ func (md *MethodDexFundPledgeForVip) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeForVip) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundPledgeForVip) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -604,7 +604,7 @@ func (md *MethodDexFundPledgeCallback) GetFee(block *ledger.AccountBlock) (*big.
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundPledgeCallback) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundPledgeCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -625,41 +625,30 @@ func (md *MethodDexFundPledgeCallback) DoSend(db vm_db.VmDb, block *ledger.Accou
 
 func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		err             error
-		originSendBlock *ledger.AccountBlock
-		callbackParam   = new(dex.ParamDexFundPledgeCallBack)
+		err           error
+		callbackParam = new(dex.ParamDexFundPledgeCallBack)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundPledgeCallback, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
-		panic(err)
-	}
-	pledgeParam := new(dex.ParamDexFundPledge)
-	if err = cabi.ABIPledge.UnpackMethod(pledgeParam, cabi.MethodNameAgentPledge, originSendBlock.Data); err != nil {
-		return handleReceiveErr(err)
-	}
 	if callbackParam.Success {
-		if pledgeParam.Bid == dex.PledgeForVip {
-			if pledgeVip, ok := dex.GetPledgeForVip(db, pledgeParam.PledgeAddress); ok {
+		if callbackParam.Bid == dex.PledgeForVip {
+			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok {
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
-				dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip)
-				return dex.DoCancelPledge(db, block, pledgeParam.PledgeAddress, pledgeParam.Bid, originSendBlock.Amount)
+				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
+				return dex.DoCancelPledge(db, block, callbackParam.PledgeAddress, callbackParam.Bid, callbackParam.Amount)
 			} else {
 				pledgeVip.Timestamp = dex.GetTimestampInt64(db)
 				pledgeVip.PledgeTimes = 1
-				dex.SavePledgeForVip(db, pledgeParam.PledgeAddress, pledgeVip)
+				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
 			}
 		} else {
-			pledgeAmount := dex.GetPledgeForVx(db, pledgeParam.PledgeAddress)
-			pledgeAmount.Add(pledgeAmount, originSendBlock.Amount)
-			dex.SavePledgeForVx(db, pledgeParam.PledgeAddress, pledgeAmount)
+			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
+			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
+			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
 		}
 	} else {
-		if sendBlock.Amount.Cmp(originSendBlock.Amount) != 0 {
-			return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
-		}
-		dex.DepositAccount(db, pledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		dex.DepositAccount(db, callbackParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
@@ -671,7 +660,7 @@ func (md *MethodDexFundCancelPledgeCallback) GetFee(block *ledger.AccountBlock) 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundCancelPledgeCallback) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundCancelPledgeCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -692,21 +681,13 @@ func (md *MethodDexFundCancelPledgeCallback) DoSend(db vm_db.VmDb, block *ledger
 
 func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		err             error
-		originSendBlock *ledger.AccountBlock
-		callbackParam   = new(dex.ParamDexFundPledgeCallBack)
+		err               error
+		cancelPledgeParam = new(dex.ParamDexFundPledgeCallBack)
 	)
-	if err = cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundCancelPledgeCallback, sendBlock.Data); err != nil {
+	if err = cabi.ABIDexFund.UnpackMethod(cancelPledgeParam, cabi.MethodNameDexFundCancelPledgeCallback, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
-		panic(err)
-	}
-	cancelPledgeParam := new(dex.ParamDexFundCancelPledge)
-	if err = cabi.ABIPledge.UnpackMethod(cancelPledgeParam, cabi.MethodNameAgentCancelPledge, originSendBlock.Data); err != nil {
-		return handleReceiveErr(err)
-	}
-	if callbackParam.Success {
+	if cancelPledgeParam.Success {
 		if sendBlock.Amount.Cmp(cancelPledgeParam.Amount) != 0 {
 			return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
 		}
@@ -744,7 +725,7 @@ func (md *MethodDexFundGetTokenInfoCallback) GetFee(block *ledger.AccountBlock) 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundGetTokenInfoCallback) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundGetTokenInfoCallback) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -764,27 +745,16 @@ func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger
 }
 
 func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var (
-		err             error
-		originSendBlock *ledger.AccountBlock
-		callbackParam   = new(dex.ParamDexFundGetTokenInfoCallback)
-	)
+	var callbackParam = new(dex.ParamDexFundGetTokenInfoCallback)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, sendBlock.Data)
-	if originSendBlock, err = GetOriginSendBlock(db, sendBlock.Hash); err != nil {
-		panic(err)
-	}
-	tradeTokenId := new(types.TokenTypeId)
-	if err = cabi.ABIMintage.UnpackMethod(tradeTokenId, cabi.MethodNameGetTokenInfo, originSendBlock.Data); err != nil {
-		panic(err)
-	}
 	if callbackParam.Exist {
-		if appendBlocks, err := dex.OnGetTokenInfoSuccess(db, vm.ConsensusReader(), *tradeTokenId, callbackParam); err != nil {
+		if appendBlocks, err := dex.OnGetTokenInfoSuccess(db, vm.ConsensusReader(), callbackParam.TokenId, callbackParam); err != nil {
 			return handleReceiveErr(err)
 		} else {
 			return appendBlocks, nil
 		}
 	} else {
-		if refundBlocks, err := dex.OnGetTokenInfoFailed(db, *tradeTokenId); err != nil {
+		if refundBlocks, err := dex.OnGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
 			return handleReceiveErr(err)
 		} else {
 			return refundBlocks, nil
@@ -800,7 +770,7 @@ func (md *MethodDexFundConfigTimerAddress) GetFee(block *ledger.AccountBlock) (*
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundConfigTimerAddress) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -838,7 +808,7 @@ func (md *MethodDexFundNotifyTime) GetFee(block *ledger.AccountBlock) (*big.Int,
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNotifyTime) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundNotifyTime) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 

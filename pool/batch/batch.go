@@ -12,7 +12,8 @@ var (
 )
 
 type Batch interface {
-	AddItem(item Item) error
+	AddAItem(item Item, sHash *types.Hash) error
+	AddSItem(item Item) error
 	Levels() []Level
 	Size() int
 	Info() string
@@ -25,6 +26,7 @@ type Batch interface {
 type Level interface {
 	Buckets() []Bucket
 	Add(item Item) error
+	SHash() *types.Hash
 	Snapshot() bool
 	Index() int
 	Close()
@@ -47,4 +49,4 @@ type Item interface {
 	PrevHash() types.Hash
 }
 
-type BucketExecutorFn func(p Batch, bucket Bucket, version uint64) error
+type BucketExecutorFn func(p Batch, l Level, bucket Bucket, version uint64) error

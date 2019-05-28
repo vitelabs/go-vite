@@ -150,7 +150,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 	}
 	if vmBlock != nil {
 		vb := vmBlock.AccountBlock
-		if vb.IsReceiveBlock() && vb.SendBlockList != nil && len(vb.SendBlockList) > 0 {
+		if vb.IsReceiveBlock() && types.IsContractAddr(vb.AccountAddress) && len(vb.SendBlockList) > 0 {
 			for idx, v := range vb.SendBlockList {
 				v.Hash = v.ComputeSendHash(vb, uint8(idx))
 			}
@@ -191,6 +191,7 @@ func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 			// after vm
 			Data:          nil,
 			Quota:         0,
+			QuotaUsed:         0,
 			SendBlockList: nil,
 			LogHash:       nil,
 			PublicKey:     nil,
