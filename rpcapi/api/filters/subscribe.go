@@ -18,13 +18,14 @@ var (
 )
 
 type filter struct {
-	typ            FilterType
-	deadline       *time.Timer
-	param          filterParam
-	s              *RpcSubscription
-	blocks         []*AccountBlock
-	logs           []*Logs
-	snapshotBlocks []*SnapshotBlock
+	typ              FilterType
+	deadline         *time.Timer
+	param            filterParam
+	s                *RpcSubscription
+	blocks           []*AccountBlock
+	blocksWithHeight []*AccountBlockWithHeight
+	logs             []*Logs
+	snapshotBlocks   []*SnapshotBlock
 }
 
 type SubscribeApi struct {
@@ -129,6 +130,12 @@ type AccountBlock struct {
 	Removed bool       `json:"removed"`
 }
 
+type AccountBlockWithHeight struct {
+	Hash    types.Hash `json:"hash"`
+	Height  uint64     `json:"height"`
+	Removed bool       `json:"removed"`
+}
+
 type SnapshotBlock struct {
 	Hash    types.Hash `json:"hash"`
 	Height  uint64     `json:"height"`
@@ -179,6 +186,70 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 	var (
 		acCh  = make(chan []*AccountBlock)
 		acSub = s.eventSystem.SubscribeAccountBlocks(acCh)
+	)
+
+	s.filterMapMu.Lock()
+	s.filterMap[acSub.ID] = &filter{typ: acSub.sub.typ, deadline: time.NewTimer(deadline), s: acSub}
+	s.filterMapMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case ac := <-acCh:
+				s.filterMapMu.Lock()
+				if f, found := s.filterMap[acSub.ID]; found {
+					f.blocks = append(f.blocks, ac...)
+				}
+				s.filterMapMu.Unlock()
+			case <-acSub.Err():
+				s.filterMapMu.Lock()
+				delete(s.filterMap, acSub.ID)
+				s.filterMapMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return acSub.ID, nil
+}
+
+func (s *SubscribeApi) NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
+	s.log.Info("NewAccountBlocksByAddrFilter")
+	var (
+		acCh  = make(chan []*AccountBlockWithHeight)
+		acSub = s.eventSystem.SubscribeAccountBlocksByAddr(addr, acCh)
+	)
+
+	s.filterMapMu.Lock()
+	s.filterMap[acSub.ID] = &filter{typ: acSub.sub.typ, deadline: time.NewTimer(deadline), s: acSub}
+	s.filterMapMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case ac := <-acCh:
+				s.filterMapMu.Lock()
+				if f, found := s.filterMap[acSub.ID]; found {
+					f.blocksWithHeight = append(f.blocksWithHeight, ac...)
+				}
+				s.filterMapMu.Unlock()
+			case <-acSub.Err():
+				s.filterMapMu.Lock()
+				delete(s.filterMap, acSub.ID)
+				s.filterMapMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return acSub.ID, nil
+}
+
+func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
+	s.log.Info("NewOnroadBlocksByAddrFilter")
+	var (
+		acCh  = make(chan []*AccountBlock)
+		acSub = s.eventSystem.SubscribeOnroadBlocksByAddr(addr, acCh)
 	)
 
 	s.filterMapMu.Lock()
@@ -261,6 +332,11 @@ type AccountBlocksMsg struct {
 	Id     rpc.ID          `json:"subscription"`
 }
 
+type AccountBlocksWithHeightMsg struct {
+	Blocks []*AccountBlockWithHeight `json:"result"`
+	Id     rpc.ID                    `json:"subscription"`
+}
+
 type LogsMsg struct {
 	Logs []*Logs `json:"result"`
 	Id   rpc.ID  `json:"subscription"`
@@ -284,6 +360,14 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 
 		switch f.typ {
 		case AccountBlocksSubscription:
+			blocks := f.blocks
+			f.blocks = nil
+			return AccountBlocksMsg{blocks, id}, nil
+		case AccountBlocksWithHeightSubscription:
+			blocks := f.blocksWithHeight
+			f.blocksWithHeight = nil
+			return AccountBlocksWithHeightMsg{blocks, id}, nil
+		case OnroadBlocksSubscription:
 			blocks := f.blocks
 			f.blocks = nil
 			return AccountBlocksMsg{blocks, id}, nil
@@ -340,6 +424,62 @@ func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription,
 	go func() {
 		accountBlockHashCh := make(chan []*AccountBlock, 128)
 		acSub := s.eventSystem.SubscribeAccountBlocks(accountBlockHashCh)
+		for {
+			select {
+			case h := <-accountBlockHashCh:
+				notifier.Notify(rpcSub.ID, h)
+			case <-rpcSub.Err():
+				acSub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				acSub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
+
+func (s *SubscribeApi) NewAccountBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	s.log.Info("NewAccountBlocksByAddr")
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		accountBlockCh := make(chan []*AccountBlockWithHeight, 128)
+		acSub := s.eventSystem.SubscribeAccountBlocksByAddr(addr, accountBlockCh)
+		for {
+			select {
+			case h := <-accountBlockCh:
+				notifier.Notify(rpcSub.ID, h)
+			case <-rpcSub.Err():
+				acSub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				acSub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
+
+func (s *SubscribeApi) NewOnroadBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	s.log.Info("NewOnroadBlocks")
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		accountBlockHashCh := make(chan []*AccountBlock, 128)
+		acSub := s.eventSystem.SubscribeOnroadBlocksByAddr(addr, accountBlockHashCh)
 		for {
 			select {
 			case h := <-accountBlockHashCh:
