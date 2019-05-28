@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
 	"sync"
 	"time"
@@ -139,7 +140,7 @@ func (es *EventSystem) handleSbEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 	blocks := make([]*SnapshotBlock, len(sbEvent))
 	for i, e := range sbEvent {
-		blocks[i] = &SnapshotBlock{Hash: e.Hash, Height: e.Height, Removed: removed}
+		blocks[i] = &SnapshotBlock{Hash: e.Hash, Height: e.Height, HeightStr: api.Uint64ToString(e.Height), Removed: removed}
 	}
 	for _, f := range filters[SnapshotBlocksSubscription] {
 		f.snapshotBlockCh <- blocks
@@ -158,7 +159,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 		if _, ok := heightMsgs[e.Addr]; !ok {
 			heightMsgs[e.Addr] = make([]*AccountBlockWithHeight, 0)
 		}
-		heightMsgs[e.Addr] = append(heightMsgs[e.Addr], &AccountBlockWithHeight{Height: e.Height, Hash: e.Hash, Removed: removed})
+		heightMsgs[e.Addr] = append(heightMsgs[e.Addr], &AccountBlockWithHeight{Height: e.Height, HeightStr: api.Uint64ToString(e.Height), Hash: e.Hash, Removed: removed})
 		if _, ok := onroadMsgs[e.ToAddr]; !ok {
 			onroadMsgs[e.ToAddr] = make([]*AccountBlock, 0)
 		}

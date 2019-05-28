@@ -131,15 +131,17 @@ type AccountBlock struct {
 }
 
 type AccountBlockWithHeight struct {
-	Hash    types.Hash `json:"hash"`
-	Height  uint64     `json:"height"`
-	Removed bool       `json:"removed"`
+	Hash      types.Hash `json:"hash"`
+	Height    uint64     `json:"height"`
+	HeightStr string     `json:"heightStr"`
+	Removed   bool       `json:"removed"`
 }
 
 type SnapshotBlock struct {
-	Hash    types.Hash `json:"hash"`
-	Height  uint64     `json:"height"`
-	Removed bool       `json:"removed"`
+	Hash      types.Hash `json:"hash"`
+	Height    uint64     `json:"height"`
+	HeightStr string     `json:"heightStr"`
+	Removed   bool       `json:"removed"`
 }
 
 type Logs struct {
