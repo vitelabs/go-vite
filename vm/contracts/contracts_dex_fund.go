@@ -745,7 +745,7 @@ func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger
 
 func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var callbackParam = new(dex.ParamDexFundGetTokenInfoCallback)
-	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, block.Data)
+	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, sendBlock.Data)
 	if callbackParam.Exist {
 		if appendBlocks, err := dex.OnGetTokenInfoSuccess(db, vm.ConsensusReader(), callbackParam.TokenId, callbackParam); err != nil {
 			return handleReceiveErr(err)
