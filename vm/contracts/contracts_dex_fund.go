@@ -123,7 +123,7 @@ func (md *MethodDexFundNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundNewMarket) GetRefundData() ([]byte, bool) {
+func (md *MethodDexFundNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -154,7 +154,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		return nil, err
 	}
 	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
-		return nil, dex.TradeMarketExistsError
+		return nil, dex.TradeMarketExistsErr
 	}
 	marketInfo := &dex.MarketInfo{}
 	newMarketEvent := &dex.NewMarketEvent{}
@@ -299,7 +299,7 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		return handleReceiveErr(err)
 	}
 	if marketInfo, ok := dex.GetMarketInfoByTokens(db, settleActions.TradeToken, settleActions.QuoteToken); !ok {
-		return handleReceiveErr(dex.TradeMarketNotExistsError)
+		return handleReceiveErr(dex.TradeMarketNotExistsErr)
 	} else {
 		for _, fundAction := range settleActions.FundActions {
 			if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction, marketInfo); err != nil {
@@ -421,93 +421,6 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		}
 	}
 	dex.SaveLastMinedVxDividendId(db, param.PeriodId)
-	return nil, nil
-}
-
-type MethodDexFundSetOwner struct {
-}
-
-func (md *MethodDexFundSetOwner) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFundSetOwner) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
-	return []byte{}, false
-}
-
-func (md *MethodDexFundSetOwner) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundSetOwnerGas, data)
-}
-
-func (md *MethodDexFundSetOwner) GetReceiveQuota() uint64 {
-	return dexFundSetOwnerReceiveGas
-}
-
-func (md *MethodDexFundSetOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundSetOwner), cabi.MethodNameDexFundSetOwner, block.Data)
-}
-
-func (md MethodDexFundSetOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var err error
-	var param = new(dex.ParamDexFundSetOwner)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundSetOwner, sendBlock.Data); err != nil {
-		return handleReceiveErr(err)
-	}
-	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		dex.SetOwner(db, param.NewOwner)
-	} else {
-		return handleReceiveErr(dex.OnlyOwnerAllowErr)
-	}
-	return nil, nil
-}
-
-type MethodDexFundConfigMineMarket struct {
-}
-
-func (md *MethodDexFundConfigMineMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFundConfigMineMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
-	return []byte{}, false
-}
-
-func (md *MethodDexFundConfigMineMarket) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundConfigMineMarketGas, data)
-}
-
-func (md *MethodDexFundConfigMineMarket) GetReceiveQuota() uint64 {
-	return dexFundConfigMineMarketReceiveGas
-}
-
-func (md *MethodDexFundConfigMineMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundConfigMineMarket), cabi.MethodNameDexFundConfigMineMarket, block.Data)
-}
-
-func (md MethodDexFundConfigMineMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var err error
-	var param = new(dex.ParamDexFundConfigMineMarket)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMineMarket, sendBlock.Data); err != nil {
-		return handleReceiveErr(err)
-	}
-	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
-			if param.AllowMine != marketInfo.AllowMine {
-				marketInfo.AllowMine = param.AllowMine
-				dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
-			} else {
-				if marketInfo.AllowMine {
-					return handleReceiveErr(dex.TradeMarketAllowMineError)
-				} else {
-					return handleReceiveErr(dex.TradeMarketNotAllowMineError)
-				}
-			}
-		} else {
-			return handleReceiveErr(dex.TradeMarketNotExistsError)
-		}
-	} else {
-		return handleReceiveErr(dex.OnlyOwnerAllowErr)
-	}
 	return nil, nil
 }
 
@@ -763,41 +676,126 @@ func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledg
 	return nil, nil
 }
 
-type MethodDexFundConfigTimerAddress struct {
+type MethodDexFundOwnerConfig struct {
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundOwnerConfig) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexFundOwnerConfig) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundConfigTimerAddressGas, data)
+func (md *MethodDexFundOwnerConfig) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(DexFundOwnerConfigGas, data)
 }
 
-func (md *MethodDexFundConfigTimerAddress) GetReceiveQuota() uint64 {
-	return dexFundConfigTimerAddressReceiveGas
+func (md *MethodDexFundOwnerConfig) GetReceiveQuota() uint64 {
+	return DexFundOwnerConfigReceiveGas
 }
 
-func (md *MethodDexFundConfigTimerAddress) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundNotifyTime), cabi.MethodNameDexFundConfigTimerAddress, block.Data)
+func (md *MethodDexFundOwnerConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundOwnerConfig), cabi.MethodNameDexFundOwnerConfig, block.Data)
 }
 
-func (md MethodDexFundConfigTimerAddress) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var (
-		err                     error
-		ConfigTimerAddressParam = new(dex.ParamDexConfigTimerAddress)
-	)
-	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(dex.OnlyOwnerAllowErr)
-	}
-	if err = cabi.ABIDexFund.UnpackMethod(ConfigTimerAddressParam, cabi.MethodNameDexFundConfigTimerAddress, sendBlock.Data); err != nil {
+func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var err error
+	var param = new(dex.ParamDexFundOwnerConfig)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundOwnerConfig, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	dex.SetTimerAddress(db, ConfigTimerAddressParam.Address)
+	if dex.IsOwner(db, sendBlock.AccountAddress) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigOwner) {
+			dex.SetOwner(db, param.Owner)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineMarket) {
+			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
+				if param.AllowMine != marketInfo.AllowMine {
+					marketInfo.AllowMine = param.AllowMine
+					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+				} else {
+					if marketInfo.AllowMine {
+						return handleReceiveErr(dex.TradeMarketAllowMineErr)
+					} else {
+						return handleReceiveErr(dex.TradeMarketNotAllowMineErr)
+					}
+				}
+			} else {
+				return handleReceiveErr(dex.TradeMarketNotExistsErr)
+			}
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
+			dex.SetTimerAddress(db, param.TimerAddress)
+		}
+	} else {
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	}
+	return nil, nil
+}
+
+type MethodDexFundMarketOwnerConfig struct {
+}
+
+func (md *MethodDexFundMarketOwnerConfig) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundMarketOwnerConfig) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundMarketOwnerConfig) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(DexFundMarketOwnerConfigGas, data)
+}
+
+func (md *MethodDexFundMarketOwnerConfig) GetReceiveQuota() uint64 {
+	return DexFundMarketOwnerConfigReceiveGas
+}
+
+func (md *MethodDexFundMarketOwnerConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundMarketOwnerConfig), cabi.MethodNameDexFundMarketOwnerConfig, block.Data)
+}
+
+func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var (
+		err        error
+		marketInfo *dex.MarketInfo
+		ok         bool
+	)
+	var param = new(dex.ParamDexFundMarketOwnerConfig)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMarketOwnerConfig, sendBlock.Data); err != nil {
+		return handleReceiveErr(err)
+	}
+	if marketInfo, ok = dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
+		return handleReceiveErr(dex.TradeMarketNotExistsErr)
+	}
+	if bytes.Equal(sendBlock.AccountAddress.Bytes(), marketInfo.Owner) {
+		if param.OperationCode == 0 {
+			return nil, nil
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigOwner) {
+			marketInfo.Owner = param.Owner.Bytes()
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigTakerRate) {
+			if !dex.ValidBrokerFeeRate(param.TakerRate) {
+				return handleReceiveErr(dex.InvalidBrokerFeeRateErr)
+			}
+			marketInfo.TakerBrokerFeeRate = param.TakerRate
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigMakerRate) {
+			if !dex.ValidBrokerFeeRate(param.MakerRate) {
+				return handleReceiveErr(dex.InvalidBrokerFeeRateErr)
+			}
+			marketInfo.MakerBrokerFeeRate = param.MakerRate
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigStopMarket) {
+			marketInfo.Stopped = param.StopMarket
+		}
+		dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+	} else {
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	}
 	return nil, nil
 }
 
@@ -838,6 +836,84 @@ func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if err = dex.SetTimerTimestamp(db, notifyTimeParam.Timestamp); err != nil {
 		return handleReceiveErr(err)
 	}
+	return nil, nil
+}
+
+type MethodDexFundNewInviter struct {
+}
+
+func (md *MethodDexFundNewInviter) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundNewInviter) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundNewInviter) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundNewInviterGas, data)
+}
+
+func (md *MethodDexFundNewInviter) GetReceiveQuota() uint64 {
+	return dexFundNewInviterReceiveGas
+}
+
+func (md *MethodDexFundNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	if block.Amount.Cmp(dex.NewInviterFeeAmount) < 0 {
+		return dex.InvalidInviterFeeAmountErr
+	}
+	return nil
+}
+
+func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	if code := dex.GetInviteCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
+		return nil, dex.IsInviterAlreadyErr
+	}
+	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
+	if exceedAmount.Sign() > 0 {
+		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	}
+	inviteCode := dex.NewAndSaveInviteCodeSerialNo(db)
+	dex.SaveInviteCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
+	return nil, nil
+}
+
+type MethodDexFundBindInviteCode struct {
+}
+
+func (md *MethodDexFundBindInviteCode) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundBindInviteCode) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundBindInviteCode) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundBindInviteCodeGas, data)
+}
+
+func (md *MethodDexFundBindInviteCode) GetReceiveQuota() uint64 {
+	return dexFundBindInviteCodeReceiveGas
+}
+
+func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	if block.Amount.Cmp(dex.NewInviterFeeAmount) < 0 {
+		return dex.InvalidInviterFeeAmountErr
+	}
+	return nil
+}
+
+func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	if code := dex.GetInviteCodeByInvitee(db, sendBlock.AccountAddress); code > 0 {
+		return nil, dex.InviteRelationExistsErr
+	}
+	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
+	if exceedAmount.Sign() > 0 {
+		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	}
+	inviteCode := dex.NewAndSaveInviteCodeSerialNo(db)
+	dex.SaveInviteCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
 	return nil, nil
 }
 

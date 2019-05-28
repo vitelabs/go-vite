@@ -22,15 +22,15 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 		return fmt.Errorf("fee for create market not enough")
 	}
 	if _, ok := QuoteTokenInfos[marketParam.QuoteToken]; !ok {
-		return TradeMarketInvalidQuoteTokenError
+		return TradeMarketInvalidQuoteTokenErr
 	}
 	if marketParam.TradeToken == marketParam.QuoteToken {
-		return TradeMarketInvalidTokenPairError
+		return TradeMarketInvalidTokenPairErr
 	}
 	if marketParam.QuoteToken == bitcoinToken && marketParam.TradeToken == usdtToken ||
 		marketParam.QuoteToken == ethToken && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken) ||
 		marketParam.QuoteToken == ledger.ViteTokenId && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken || marketParam.TradeToken == ethToken) {
-		return TradeMarketInvalidTokenPairError
+		return TradeMarketInvalidTokenPairErr
 	}
 	return nil
 }
@@ -65,6 +65,7 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	marketInfo.MarketSymbol = fmt.Sprintf("%s_%s", getDexTokenSymbol(tradeTokenInfo), marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
+	marketInfo.Owner = tradeTokenInfo.Owner
 }
 
 func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo, quoteTokenInfo *TokenInfo) {
@@ -123,6 +124,7 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 	tradeTokenInfo.Decimals = int32(tokenInfoRes.Decimals)
 	tradeTokenInfo.Symbol = tokenInfoRes.TokenSymbol
 	tradeTokenInfo.Index = int32(tokenInfoRes.Index)
+	tradeTokenInfo.Owner = tokenInfoRes.Owner.Bytes()
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
@@ -210,7 +212,9 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 		ok         bool
 	)
 	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
-		return nil, TradeMarketNotExistsError
+		return nil, TradeMarketNotExistsErr
+	} else if marketInfo.Stopped {
+		return nil, TradeMarketStoppedErr
 	}
 	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
@@ -219,11 +223,11 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	order.Type = int32(param.OrderType)
 	order.Price = PriceToBytes(param.Price)
 	order.Quantity = param.Quantity.Bytes()
-	RenderFeeRate(address, param.VipActive, order, marketInfo, db)
+	RenderFeeRate(address, order, marketInfo, db)
 	if order.Type == Limited {
 		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
-			order.LockedBuyFee = CalculateRawFee(order.Amount, MaxTotalFeeRate(*order))
+			order.LockedBuyFee = CalculateAmountForRate(order.Amount, MaxTotalFeeRate(*order))
 		}
 		totalAmount := AddBigInt(order.Amount, order.LockedBuyFee)
 		if new(big.Int).SetBytes(totalAmount).Cmp(QuoteTokenMinAmount[param.QuoteToken]) < 0 {
@@ -239,16 +243,14 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	return marketInfo, nil
 }
 
-func RenderFeeRate(address types.Address, vipActive bool, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
-	var vipMitigateFeeRate int32 = 0
-	if vipActive {
-		if _, ok := GetPledgeForVip(db, address); ok {
-			vipMitigateFeeRate = VipMitigateFeeRate
-		}
+func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
+	var vipReduceFeeRate int32 = 0
+	if _, ok := GetPledgeForVip(db, address); ok {
+		vipReduceFeeRate = VipReduceFeeRate
 	}
-	order.TakerFeeRate = BaseFeeRate - vipMitigateFeeRate
+	order.TakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
-	order.MakerFeeRate = BaseFeeRate - vipMitigateFeeRate
+	order.MakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
 }
 
@@ -426,6 +428,25 @@ func ValidPrice(price string) bool {
 		}
 	}
 	return true
+}
+
+func MaxTotalFeeRate(order Order) int32 {
+	takerRate := order.TakerFeeRate + order.TakerBrokerFeeRate
+	makerRate := order.MakerFeeRate + order.MakerBrokerFeeRate
+	if takerRate > makerRate {
+		return takerRate
+	} else {
+		return takerRate
+	}
+}
+
+// only for unit test
+func SetFeeRate(baseRate int32) {
+	BaseFeeRate = baseRate
+}
+
+func ValidBrokerFeeRate(feeRate int32) bool {
+	return feeRate >= 0 && feeRate <= MaxBrokerFeeRate
 }
 
 func checkPriceChar(price string) bool {

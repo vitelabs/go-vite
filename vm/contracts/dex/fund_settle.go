@@ -200,8 +200,8 @@ func rollFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (rolledFeeSumByPerio
 
 func splitDividendPool(feeSumAcc *dexproto.FeeSumAccount) (toDividendAmt, rolledAmount *big.Int) {
 	dividendPoolTotal := AddBigInt(feeSumAcc.DividendPoolAmount, feeSumAcc.BaseAmount)
-	toDividendAmt = new(big.Int).SetBytes(CalculateRawFee(dividendPoolTotal, PerPeriodDividendRate)) // %1
-	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividendPoolTotal), toDividendAmt)         // 99%
+	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividendPoolTotal, PerPeriodDividendRate)) // %1
+	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividendPoolTotal), toDividendAmt)                // 99%
 	return
 }
 

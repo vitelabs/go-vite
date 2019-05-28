@@ -114,7 +114,7 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	assert.Equal(t, ETH.decimals, marketInfo.QuoteTokenDecimals)
 	err = doNewMarket(db, method, receiveBlock, senderAccBlock)
 
-	assert.Equal(t, dex.TradeMarketExistsError, err)
+	assert.Equal(t, dex.TradeMarketExistsErr, err)
 	userFees, _ := dex.GetUserFees(db, userAddress1.Bytes())
 	assert.Equal(t, 1, len(userFees.Fees))
 	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Token, VITE.tokenId.Bytes()))
@@ -144,7 +144,7 @@ func innerTestFundNewOrder(t *testing.T, db *testDatabase, userAddress types.Add
 	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, VITE.tokenId.Bytes(), ETH.tokenId.Bytes(), true, int8(dex.Limited), "0.3", big.NewInt(1000))
 	//fmt.Printf("PackMethod err for send %s\n", err.Error())
 	_, err := method.DoReceive(db, receiveBlock, senderAccBlock, nil)
-	assert.Equal(t, err, dex.TradeMarketNotExistsError)
+	assert.Equal(t, err, dex.TradeMarketNotExistsErr)
 
 	innerTestNewMarket(t, db)
 	clearLogs(db)

@@ -356,7 +356,7 @@ func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error
 func (p *MethodGetTokenInfo) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	tokenId := new(types.TokenTypeId)
 	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, sendBlock.Data)
-	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0))
+	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0),types.AddressMintage)
 	return callbackData, true
 }
 func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
@@ -385,9 +385,9 @@ func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	util.DealWithErr(err)
 	var callbackData []byte
 	if tokenInfo != nil {
-		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index)
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index, tokenInfo.Owner)
 	} else {
-		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0))
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, *tokenId, false, uint8(0), "", uint16(0),types.AddressMintage)
 	}
 	return []*ledger.AccountBlock{
 		{

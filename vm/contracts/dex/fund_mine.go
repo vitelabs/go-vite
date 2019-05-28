@@ -24,7 +24,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 		if tokenId, err = types.BytesToTokenTypeId(feeSum.Token); err != nil {
 			return err
 		}
-		feeSumMap[tokenId] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.BrokerAmount))
+		feeSumMap[tokenId] = new(big.Int).SetBytes(feeSum.BaseAmount)
 		toDivideVxLeaveAmtMap[tokenId] = minedVxAmtPerMarket
 		dividedFeeMap[tokenId] = big.NewInt(0)
 	}
@@ -76,7 +76,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 					return fmt.Errorf("user with valid userFee, but no valid feeSum")
 					//continue
 				} else {
-					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(AddBigInt(userFee.BaseAmount, userFee.BrokerAmount)), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
+					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
 					userVxDividend.Add(userVxDividend, vxDividend)
 					if finished {
 						delete(feeSumMap, tokenId)

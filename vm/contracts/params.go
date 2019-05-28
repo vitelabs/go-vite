@@ -34,10 +34,6 @@ const (
 	dexFundFeeDividendReceiveGas          uint64 = 1
 	dexFundMinedVxDividendGas             uint64 = 300
 	dexFundMinedVxDividendReceiveGas      uint64 = 1
-	dexFundSetOwnerGas                    uint64 = 300
-	dexFundSetOwnerReceiveGas             uint64 = 1
-	dexFundConfigMineMarketGas            uint64 = 300
-	dexFundConfigMineMarketReceiveGas     uint64 = 1
 	dexFundPledgeForVxGas                 uint64 = 300
 	dexFundPledgeForVxReceiveGas          uint64 = 1
 	dexFundPledgeForVipGas                uint64 = 300
@@ -48,10 +44,16 @@ const (
 	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
 	dexFundGetTokenInfoCallbackGas        uint64 = 300
 	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
-	dexFundConfigTimerAddressGas          uint64 = 300
-	dexFundConfigTimerAddressReceiveGas   uint64 = 1
+	DexFundOwnerConfigGas                 uint64 = 300
+	DexFundOwnerConfigReceiveGas          uint64 = 1
+	DexFundMarketOwnerConfigGas           uint64 = 300
+	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
 	dexFundNotifyTimeGas                  uint64 = 300
 	dexFundNotifyTimeReceiveGas           uint64 = 1
+	dexFundNewInviterGas                  uint64 = 300
+	dexFundNewInviterReceiveGas           uint64 = 1
+	dexFundBindInviteCodeGas              uint64 = 300
+	dexFundBindInviteCodeReceiveGas       uint64 = 1
 
 	dexTradeNewOrderGas        uint64 = 300
 	dexTradeCancelOrderGas     uint64 = 300

@@ -51,6 +51,7 @@ message TokenInfo {
     int32 Decimals = 2;
     string Symbol = 1;
     int32 Index = 3;
+    bytes Owner = 4;
 }
 
 message MarketInfo {
@@ -66,7 +67,8 @@ message MarketInfo {
     bool Valid = 10; // false: pending for tradeToken validate
     bytes Owner = 11;
     bytes Creator = 12; //creator address
-    int64 Timestamp = 13;
+    bool Stopped = 13;
+    int64 Timestamp = 14;
 }
 
 message PendingNewMarketAction {

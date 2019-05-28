@@ -127,11 +127,11 @@ var (
 		Code:    -37005,
 	}
 	ErrDexTradeMarketExists = JsonRpc2Error{
-		Message: dex.TradeMarketExistsError.Error(),
+		Message: dex.TradeMarketExistsErr.Error(),
 		Code:    -37006,
 	}
 	ErrDexTradeMarketNotExists = JsonRpc2Error{
-		Message: dex.TradeMarketNotExistsError.Error(),
+		Message: dex.TradeMarketNotExistsErr.Error(),
 		Code:    -37007,
 	}
 	ErrDexTradeOrderNotExistsErr = JsonRpc2Error{
@@ -147,11 +147,11 @@ var (
 		Code:    -37010,
 	}
 	ErrDexTradeMarketInvalidQuoteToken = JsonRpc2Error{
-		Message: dex.TradeMarketInvalidQuoteTokenError.Error(),
+		Message: dex.TradeMarketInvalidQuoteTokenErr.Error(),
 		Code:    -37011,
 	}
 	ErrDexTradeMarketInvalidTokenPair = JsonRpc2Error{
-		Message: dex.TradeMarketInvalidTokenPairError.Error(),
+		Message: dex.TradeMarketInvalidTokenPairErr.Error(),
 		Code:    -37012,
 	}
 

@@ -24,7 +24,7 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	brokerFeeSumKeyPrefix     = []byte("bfS:")     // brokerFeeSum:periodId
+	brokerFeeSumKeyPrefix = []byte("bfS:") // brokerFeeSum:periodId
 
 	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
 	pendingNewMarketActionsKey = []byte("pmkas:")
@@ -45,6 +45,10 @@ var (
 	tokenInfoPrefix   = []byte("tk:") // token:tokenId
 	vxAmountToMineKey = []byte("vxAmt:")
 
+	inviterPrefix = []byte("ivtr:")
+	inviteePrefix = []byte("ivte:")
+	inviteCodeSerialNoKey = []byte("ivtCS:")
+
 	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10))     // 10
@@ -52,6 +56,7 @@ var (
 	NewMarketFeeAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
+	NewInviterFeeAmount        = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
 	PledgeForVxMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -90,6 +95,19 @@ const (
 	CancelPledge
 )
 
+const (
+	OwnerConfigOwner        = 1
+	OwnerConfigTimerAddress = 2
+	OwnerConfigMineMarket   = 4
+)
+
+const (
+	MarketOwnerConfigOwner      = 1
+	MarketOwnerConfigTakerRate  = 2
+	MarketOwnerConfigMakerRate  = 4
+	MarketOwnerConfigStopMarket = 8
+)
+
 type ParamDexFundWithDraw struct {
 	Token  types.TokenTypeId
 	Amount *big.Int
@@ -102,7 +120,6 @@ type ParamDexFundNewOrder struct {
 	OrderType  int8
 	Price      string
 	Quantity   *big.Int
-	VipActive  bool
 }
 
 type ParamDexFundDividend struct {
@@ -114,16 +131,6 @@ type ParamDexSerializedData struct {
 }
 
 type ParamDexFundNewMarket struct {
-	TradeToken types.TokenTypeId
-	QuoteToken types.TokenTypeId
-}
-
-type ParamDexFundSetOwner struct {
-	NewOwner types.Address
-}
-
-type ParamDexFundConfigMineMarket struct {
-	AllowMine  bool
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 }
@@ -155,23 +162,35 @@ type ParamDexFundPledgeCallBack struct {
 	Beneficial    types.Address
 	Amount        *big.Int
 	Bid           uint8
-	Success bool
+	Success       bool
 }
 
 type ParamDexFundGetTokenInfoCallback struct {
-	TokenId types.TokenTypeId
+	TokenId     types.TokenTypeId
 	Exist       bool
 	Decimals    uint8
 	TokenSymbol string
 	Index       uint16
+	Owner       types.Address
 }
 
-type ParamDexFundGetTokenInfo struct {
-	TokenId types.TokenTypeId
+type ParamDexFundOwnerConfig struct {
+	OperationCode int8
+	Owner         types.Address
+	TimerAddress  types.Address
+	AllowMine     bool
+	TradeToken    types.TokenTypeId
+	QuoteToken    types.TokenTypeId
 }
 
-type ParamDexConfigTimerAddress struct {
-	Address types.Address
+type ParamDexFundMarketOwnerConfig struct {
+	OperationCode int8
+	TradeToken    types.TokenTypeId
+	QuoteToken    types.TokenTypeId
+	Owner         types.Address
+	TakerRate     int32
+	MakerRate     int32
+	StopMarket    bool
 }
 
 type ParamDexFundNotifyTime struct {
@@ -778,7 +797,7 @@ func GetMindedVxAmt(vxBalance *big.Int) (amtForFeePerMarket, amtForPledge, amtFo
 		//TODO complete
 		return amtForFeePerMarket, amtForPledge, amtForViteLabs, nil, true
 	} else {
-		return nil, nil, nil, nil,false
+		return nil, nil, nil, nil, false
 	}
 }
 
@@ -963,6 +982,36 @@ func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	} else {
 		return 0
 	}
+}
+
+func GetInviteCodeByInviter(db vm_db.VmDb, address types.Address) uint32 {
+	if bs := getValueFromDb(db, append(inviterPrefix, address.Bytes()...)); len(bs) == 4 {
+		return BytesToUint32(bs)
+	} else {
+		return 0
+	}
+}
+
+func SaveInviteCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) {
+	setValueToDb(db, append(inviterPrefix, address.Bytes()...), Uint32ToBytes(inviteCode) )
+}
+
+func GetInviteCodeByInvitee(db vm_db.VmDb, address types.Address) uint32 {
+	if bs := getValueFromDb(db, append(inviteePrefix, address.Bytes()...)); len(bs) == 4 {
+		return BytesToUint32(bs)
+	} else {
+		return 0
+	}
+}
+
+func NewAndSaveInviteCodeSerialNo(db vm_db.VmDb) (newSerialNo uint32) {
+	if bs := getValueFromDb(db, inviteCodeSerialNoKey); len(bs) == 4 {
+		newSerialNo = BytesToUint32(bs) + 1
+	} else {
+		newSerialNo = 1
+	}
+	setValueToDb(db, inviteCodeSerialNoKey, Uint32ToBytes(newSerialNo))
+	return
 }
 
 func GetVxAmountForMine(db vm_db.VmDb) *big.Int {

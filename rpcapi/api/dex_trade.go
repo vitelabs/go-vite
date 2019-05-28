@@ -57,7 +57,7 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 		return nil, err
 	} else {
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
-			return nil, dex.TradeMarketNotExistsError
+			return nil, dex.TradeMarketNotExistsErr
 		} else {
 			if tradeDb, err := f.getDb(types.AddressDexTrade); err != nil {
 				return nil, err

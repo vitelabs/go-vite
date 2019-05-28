@@ -3,6 +3,7 @@ package dex
 import (
 	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -30,17 +31,20 @@ type OrderTx struct {
 }
 
 var (
-	BaseFeeRate           int32 = 2000 // 2000/1000000 = 0.002
-	VipMitigateFeeRate    int32 = 1000
-	PerPeriodDividendRate int32 = 1000
-	FeeRateCardinalNum    int32 = 1000000
+	BaseFeeRate      int32 = 200 // 200/100,000 = 0.002
+	VipReduceFeeRate int32 = 100 // 0.001
+	MaxBrokerFeeRate int32 = 200 // 0.002
+
+	PerPeriodDividendRate int32 = 1000 // 0.01
+
+	RateCardinalNum       int32 = 100000 // 100,000
 )
 
 func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
 	mc = NewRawMatcher(db)
 	var ok bool
 	if mc.MarketInfo, ok = GetMarketInfoById(db, marketId); !ok {
-		return nil, TradeMarketNotExistsError
+		return nil, TradeMarketNotExistsErr
 	}
 	return
 }
@@ -212,7 +216,7 @@ func (mc *Matcher) handleRefund(order *Order) {
 			order.RefundQuantity = SubBigIntAbs(order.Quantity, order.ExecutedQuantity)
 		}
 		if CmpToBigZero(order.RefundQuantity) > 0 {
-			mc.updateFundSettle(order.Address, proto.FundSettle{IsTradeToken:order.Side, ReleaseLocked: order.RefundQuantity})
+			mc.updateFundSettle(order.Address, proto.FundSettle{IsTradeToken: order.Side, ReleaseLocked: order.RefundQuantity})
 		} else {
 			order.RefundToken = nil
 			order.RefundQuantity = nil
@@ -315,13 +319,13 @@ func (mc *Matcher) updateFundSettle(addressBytes []byte, settle proto.FundSettle
 
 func (mc *Matcher) updateFee(address []byte, feeAmt, brokerFeeAmt []byte) {
 	var (
-		userFeeSettle  *proto.UserFeeSettle
-		ok             bool
+		userFeeSettle *proto.UserFeeSettle
+		ok            bool
 	)
 	addr := types.Address{}
 	addr.SetBytes(address)
 	if userFeeSettle, ok = mc.feeSettles[addr]; !ok {
-		userFeeSettle = &proto.UserFeeSettle{Address: address, BaseFee: feeAmt, BrokerFee:brokerFeeAmt}
+		userFeeSettle = &proto.UserFeeSettle{Address: address, BaseFee: feeAmt, BrokerFee: brokerFeeAmt}
 		mc.feeSettles[addr] = userFeeSettle
 	} else {
 		userFeeSettle.BaseFee = AddBigInt(userFeeSettle.BaseFee, feeAmt)
@@ -415,10 +419,10 @@ func CalculateRawAmountF(quantity []byte, price []byte, decimalsDiff int32) *big
 	return AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).Mul(prF, qtF), decimalsDiff)
 }
 
-func CalculateRawFee(amount []byte, feeRate int32) []byte {
-	if feeRate > 0 {
+func CalculateAmountForRate(amount []byte, rate int32) []byte {
+	if rate > 0 {
 		amtF := new(big.Int).SetBytes(amount)
-		return new(big.Int).Div(new(big.Int).Mul(amtF, big.NewInt(int64(feeRate))), big.NewInt(int64(FeeRateCardinalNum))).Bytes()
+		return new(big.Int).Div(new(big.Int).Mul(amtF, big.NewInt(int64(rate))), big.NewInt(int64(RateCardinalNum))).Bytes()
 	} else {
 		return nil
 	}
@@ -433,7 +437,7 @@ func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeR
 }
 
 func calculateExecutedFee(amount []byte, feeRate int32, side bool, executedFee, totalAmount []byte, usedAmounts ...[]byte) (feeBytes, newExecutedFee []byte, leaved bool) {
-	feeBytes = CalculateRawFee(amount, feeRate)
+	feeBytes = CalculateAmountForRate(amount, feeRate)
 	switch side {
 	case false:
 		var totalUsedAmount []byte
@@ -503,19 +507,4 @@ func filterTimeout(takerTimestamp int64, maker *Order) bool {
 
 func generateTxId(takerId []byte, makerId []byte) []byte {
 	return crypto.Hash(txIdLength, takerId, makerId)
-}
-
-func MaxTotalFeeRate(order Order) int32 {
-	takerRate := order.TakerFeeRate + order.TakerBrokerFeeRate
-	makerRate := order.MakerFeeRate + order.MakerBrokerFeeRate
-	if takerRate > makerRate {
-		return takerRate
-	} else {
-		return takerRate
-	}
-}
-
-// only for unit test
-func SetFeeRate(baseRate int32) {
-	BaseFeeRate = baseRate
 }
