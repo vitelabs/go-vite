@@ -17,6 +17,8 @@ var Es *EventSystem
 const (
 	LogsSubscription FilterType = iota
 	AccountBlocksSubscription
+	AccountBlocksWithHeightSubscription
+	OnroadBlocksSubscription
 	SnapshotBlocksSubscription
 )
 
@@ -31,15 +33,17 @@ type filterParam struct {
 }
 
 type subscription struct {
-	id              rpc.ID
-	typ             FilterType
-	createTime      time.Time
-	installed       chan struct{}
-	err             chan error
-	param           *filterParam
-	snapshotBlockCh chan []*SnapshotBlock
-	accountBlockCh  chan []*AccountBlock
-	logsCh          chan []*Logs
+	id                       rpc.ID
+	typ                      FilterType
+	createTime               time.Time
+	installed                chan struct{}
+	err                      chan error
+	param                    *filterParam
+	addr                     types.Address
+	snapshotBlockCh          chan []*SnapshotBlock
+	accountBlockCh           chan []*AccountBlock
+	accountBlockWithHeightCh chan []*AccountBlockWithHeight
+	logsCh                   chan []*Logs
 }
 
 type EventSystem struct {
@@ -146,13 +150,35 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	if len(acEvent) == 0 {
 		return
 	}
-	// handle account blocks
 	msgs := make([]*AccountBlock, len(acEvent))
+	heightMsgs := make(map[types.Address][]*AccountBlockWithHeight)
+	onroadMsgs := make(map[types.Address][]*AccountBlock)
 	for i, e := range acEvent {
 		msgs[i] = &AccountBlock{Hash: e.Hash, Removed: removed}
+		if _, ok := heightMsgs[e.Addr]; !ok {
+			heightMsgs[e.Addr] = make([]*AccountBlockWithHeight, 0)
+		}
+		heightMsgs[e.Addr] = append(heightMsgs[e.Addr], &AccountBlockWithHeight{Height: e.Height, Hash: e.Hash, Removed: removed})
+		if _, ok := onroadMsgs[e.ToAddr]; !ok {
+			onroadMsgs[e.ToAddr] = make([]*AccountBlock, 0)
+		}
+		onroadMsgs[e.ToAddr] = append(onroadMsgs[e.ToAddr], &AccountBlock{Hash: e.Hash, Removed: removed})
 	}
+	// handle account blocks
 	for _, f := range filters[AccountBlocksSubscription] {
 		f.accountBlockCh <- msgs
+	}
+	// handle accountBlocksWithHeight
+	for _, f := range filters[AccountBlocksWithHeightSubscription] {
+		if hashHeightMsgs, ok := heightMsgs[f.addr]; ok {
+			f.accountBlockWithHeightCh <- hashHeightMsgs
+		}
+	}
+	// handle onroad blocks
+	for _, f := range filters[OnroadBlocksSubscription] {
+		if onroadMsgs, ok := onroadMsgs[f.addr]; ok {
+			f.accountBlockCh <- onroadMsgs
+		}
 	}
 	// handle logs
 	for _, f := range filters[LogsSubscription] {
@@ -229,6 +255,7 @@ func (s *RpcSubscription) Unsubscribe() {
 			case s.es.uninstall <- s.sub:
 				break uninstallLoop
 			case <-s.sub.accountBlockCh:
+			case <-s.sub.accountBlockWithHeightCh:
 			case <-s.sub.logsCh:
 			case <-s.sub.snapshotBlockCh:
 			}
@@ -239,43 +266,78 @@ func (s *RpcSubscription) Unsubscribe() {
 
 func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlock) *RpcSubscription {
 	sub := &subscription{
-		id:              rpc.NewID(),
-		typ:             AccountBlocksSubscription,
-		createTime:      time.Now(),
-		installed:       make(chan struct{}),
-		err:             make(chan error),
-		snapshotBlockCh: make(chan []*SnapshotBlock),
-		accountBlockCh:  ch,
-		logsCh:          make(chan []*Logs),
+		id:                       rpc.NewID(),
+		typ:                      AccountBlocksSubscription,
+		createTime:               time.Now(),
+		installed:                make(chan struct{}),
+		err:                      make(chan error),
+		snapshotBlockCh:          make(chan []*SnapshotBlock),
+		accountBlockCh:           ch,
+		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
+		logsCh:                   make(chan []*Logs),
+	}
+	return es.subscribe(sub)
+}
+
+func (es *EventSystem) SubscribeAccountBlocksByAddr(addr types.Address, ch chan []*AccountBlockWithHeight) *RpcSubscription {
+	sub := &subscription{
+		id:                       rpc.NewID(),
+		typ:                      AccountBlocksWithHeightSubscription,
+		addr:                     addr,
+		createTime:               time.Now(),
+		installed:                make(chan struct{}),
+		err:                      make(chan error),
+		snapshotBlockCh:          make(chan []*SnapshotBlock),
+		accountBlockCh:           make(chan []*AccountBlock),
+		accountBlockWithHeightCh: ch,
+		logsCh:                   make(chan []*Logs),
+	}
+	return es.subscribe(sub)
+}
+
+func (es *EventSystem) SubscribeOnroadBlocksByAddr(addr types.Address, ch chan []*AccountBlock) *RpcSubscription {
+	sub := &subscription{
+		id:                       rpc.NewID(),
+		typ:                      OnroadBlocksSubscription,
+		addr:                     addr,
+		createTime:               time.Now(),
+		installed:                make(chan struct{}),
+		err:                      make(chan error),
+		snapshotBlockCh:          make(chan []*SnapshotBlock),
+		accountBlockCh:           ch,
+		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
+		logsCh:                   make(chan []*Logs),
 	}
 	return es.subscribe(sub)
 }
 
 func (es *EventSystem) SubscribeSnapshotBlocks(ch chan []*SnapshotBlock) *RpcSubscription {
 	sub := &subscription{
-		id:              rpc.NewID(),
-		typ:             SnapshotBlocksSubscription,
-		createTime:      time.Now(),
-		installed:       make(chan struct{}),
-		err:             make(chan error),
-		snapshotBlockCh: ch,
-		accountBlockCh:  make(chan []*AccountBlock),
-		logsCh:          make(chan []*Logs),
+		id:                       rpc.NewID(),
+		typ:                      SnapshotBlocksSubscription,
+		createTime:               time.Now(),
+		installed:                make(chan struct{}),
+		err:                      make(chan error),
+		snapshotBlockCh:          ch,
+		accountBlockCh:           make(chan []*AccountBlock),
+		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
+		logsCh:                   make(chan []*Logs),
 	}
 	return es.subscribe(sub)
 }
 
 func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*Logs) *RpcSubscription {
 	sub := &subscription{
-		id:              rpc.NewID(),
-		typ:             LogsSubscription,
-		param:           p,
-		createTime:      time.Now(),
-		installed:       make(chan struct{}),
-		err:             make(chan error),
-		snapshotBlockCh: make(chan []*SnapshotBlock),
-		accountBlockCh:  make(chan []*AccountBlock),
-		logsCh:          ch,
+		id:                       rpc.NewID(),
+		typ:                      LogsSubscription,
+		param:                    p,
+		createTime:               time.Now(),
+		installed:                make(chan struct{}),
+		err:                      make(chan error),
+		snapshotBlockCh:          make(chan []*SnapshotBlock),
+		accountBlockCh:           make(chan []*AccountBlock),
+		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
+		logsCh:                   ch,
 	}
 	return es.subscribe(sub)
 }

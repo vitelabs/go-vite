@@ -11,6 +11,7 @@ type AccountChainEvent struct {
 	Hash   types.Hash
 	Height uint64
 	Addr   types.Address
+	ToAddr types.Address
 	Logs   []*ledger.VmLog
 }
 
@@ -43,7 +44,7 @@ func (c *ChainSubscribe) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlo
 func (c *ChainSubscribe) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
 	acEvents := make([]*AccountChainEvent, len(blocks))
 	for i, b := range blocks {
-		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.VmDb.GetLogList()}
+		acEvents[i] = &AccountChainEvent{b.AccountBlock.Hash, b.AccountBlock.Height, b.AccountBlock.AccountAddress, b.AccountBlock.ToAddress, b.VmDb.GetLogList()}
 	}
 	c.es.acCh <- acEvents
 	return nil
@@ -53,9 +54,9 @@ func (c *ChainSubscribe) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotCh
 	return nil
 }
 func (c *ChainSubscribe) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	sbEvents := make([]*SnapshotChainEvent, len(chunks))
-	for i, chunk := range chunks {
-		sbEvents[i] = &SnapshotChainEvent{chunk.SnapshotBlock.Hash, chunk.SnapshotBlock.Height}
+	sbEvents := make([]*SnapshotChainEvent, 0, len(chunks))
+	for _, chunk := range chunks {
+		sbEvents = append(sbEvents, &SnapshotChainEvent{chunk.SnapshotBlock.Hash, chunk.SnapshotBlock.Height})
 	}
 	c.es.sbCh <- sbEvents
 	return nil
@@ -68,9 +69,9 @@ func (c *ChainSubscribe) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBloc
 			if err != nil {
 				c.es.log.Error("get log list failed when preDeleteAccountBlocks", "addr", b.AccountAddress, "hash", b.Hash, "height", b.Height, "err", err)
 			}
-			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, logList})
+			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, b.ToAddress, logList})
 		} else {
-			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, nil})
+			acEvents = append(acEvents, &AccountChainEvent{b.Hash, b.Height, b.AccountAddress, b.ToAddress, nil})
 		}
 	}
 	c.preDeleteAccountBlocks = append(c.preDeleteAccountBlocks, acEvents...)
@@ -86,9 +87,9 @@ func (c *ChainSubscribe) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotCh
 	return nil
 }
 func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	sbEvents := make([]*SnapshotChainEvent, len(chunks))
-	for i, b := range chunks {
-		sbEvents[i] = &SnapshotChainEvent{b.SnapshotBlock.Hash, b.SnapshotBlock.Height}
+	sbEvents := make([]*SnapshotChainEvent, 0, len(chunks))
+	for _, b := range chunks {
+		sbEvents = append(sbEvents, &SnapshotChainEvent{b.SnapshotBlock.Hash, b.SnapshotBlock.Height})
 	}
 	c.es.sbDelCh <- sbEvents
 	return nil
