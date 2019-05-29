@@ -164,6 +164,14 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 			onroadMsgs[e.ToAddr] = make([]*AccountBlock, 0)
 		}
 		onroadMsgs[e.ToAddr] = append(onroadMsgs[e.ToAddr], &AccountBlock{Hash: e.Hash, Removed: removed})
+		if len(e.SendBlockList) > 0 {
+			for _, sendBlock := range e.SendBlockList {
+				if _, ok := onroadMsgs[sendBlock.ToAddr]; !ok {
+					onroadMsgs[sendBlock.ToAddr] = make([]*AccountBlock, 0)
+				}
+				onroadMsgs[sendBlock.ToAddr] = append(onroadMsgs[sendBlock.ToAddr], &AccountBlock{Hash: sendBlock.Hash, Removed: removed})
+			}
+		}
 	}
 	// handle account blocks
 	for _, f := range filters[AccountBlocksSubscription] {
