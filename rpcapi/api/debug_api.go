@@ -39,12 +39,12 @@ func (api DebugApi) PoolAccount(addr types.Address) map[string]interface{} {
 	return api.v.Pool().Account(addr)
 }
 
-func (api DebugApi) PoolSnapshotChainDetail(chainId string) map[string]interface{} {
-	return api.v.Pool().SnapshotChainDetail(chainId)
+func (api DebugApi) PoolSnapshotChainDetail(chainId string, height uint64) map[string]interface{} {
+	return api.v.Pool().SnapshotChainDetail(chainId, height)
 }
 
-func (api DebugApi) PoolAccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
-	return api.v.Pool().AccountChainDetail(addr, chainId)
+func (api DebugApi) PoolAccountChainDetail(addr types.Address, chainId string, height uint64) map[string]interface{} {
+	return api.v.Pool().AccountChainDetail(addr, chainId, height)
 }
 
 func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) map[string]interface{} {

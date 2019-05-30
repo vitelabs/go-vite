@@ -567,8 +567,19 @@ func (bcp *BCPool) info() map[string]interface{} {
 	return result
 }
 
-func (bcp *BCPool) detailChain(id string) map[string]interface{} {
-	return tree.PrintTree(bcp.chainpool.tree)
+func (bcp *BCPool) detailChain(id string, height uint64) map[string]interface{} {
+	result := tree.PrintTree(bcp.chainpool.tree)
+	if height != 0 {
+		for _, v := range bcp.chainpool.tree.Branches() {
+			if v.ID() == id {
+				knot := v.GetKnot(height, false)
+				if knot != nil {
+					result["block"] = knot
+				}
+			}
+		}
+	}
+	return result
 }
 func (bcp *BCPool) checkPool() {
 	bcp.chainHeadMu.Lock()
