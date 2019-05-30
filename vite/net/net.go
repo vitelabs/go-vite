@@ -369,6 +369,7 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 		if len(n.MinePrivateKey) != 0 {
 			addr = types.PubkeyToAddress(n.MinePrivateKey.PubByte())
 			setNodeExt(n.MinePrivateKey, svr.Node())
+			n.fetcher.setSBP()
 		}
 		n.sn = newSbpn(addr, n.peers, svr, n.consensus)
 		if discv := svr.Discovery(); discv != nil {
