@@ -306,8 +306,7 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				oLog.Error(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
-				return updateInfoErr
+				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -345,8 +344,7 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			diffNum := num.Sub(num, &signOm.number)
 			diffAmount := om.TotalAmount.Sub(&om.TotalAmount, &signOm.amount)
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				oLog.Error(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
-				return updateInfoErr
+				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
