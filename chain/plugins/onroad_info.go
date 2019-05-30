@@ -21,7 +21,6 @@ import (
 var (
 	oLog                 = log15.New("plugin", "onroad_info")
 	updateInfoErr        = errors.New("conflict, fail to update onroad info")
-	updateUnconfirmedErr = errors.New("unconfirmed cache inconsistent")
 )
 
 type OnRoadInfo struct {
@@ -120,7 +119,7 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	// or.removeUnconfirmed(blocks)
+	or.removeUnconfirmed(blocks)
 
 	// revert flush the db
 	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, blocks)); err != nil {
