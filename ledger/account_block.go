@@ -45,9 +45,9 @@ type AccountBlock struct {
 
 	Data []byte `json:"data"` // 9	hash
 
-	Quota uint64 `json:"quota"`
+	Quota uint64 `json:"quota"` // quotaUsed = quota + pow quota
 
-	QuotaUsed uint64 `json:"quotaUsed"`
+	QuotaUsed uint64 `json:"quotaUsed"` // quotaUsed = quota + pow quota
 
 	Fee *big.Int `json:"fee"` // 10 padding 32 bytes
 

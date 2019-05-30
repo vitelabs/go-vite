@@ -22,6 +22,8 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 	return nil
 }
 
+// hash -> height、 height -> blockDB location、confirmed、
+// account block height -> blockDB location
 func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) {
 
 	batch := iDB.store.NewBatch()
@@ -55,21 +57,25 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	iDB.store.WriteSnapshot(batch, confirmedBlocks)
 }
 
+// hash、 height、 onroad key set(key:toAddress+sendBlockHash,value:nil)、 receive (key: sendBlockHash, receiveBlockHash)
+// sendCreateBlock confirmed cache
 func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {
 
 	blockHash := &accountBlock.Hash
 
+	//
 	if ok, err := iDB.HasAccount(accountBlock.AccountAddress); err != nil {
 		return err
 	} else if !ok {
 		iDB.createAccount(batch, &accountBlock.AccountAddress)
 	}
+
 	// hash -> addr & height
 	addrHeightValue := append(accountBlock.AccountAddress.Bytes(), chain_utils.Uint64ToBytes(accountBlock.Height)...)
 
 	iDB.insertAbHashHeight(batch, accountBlock, addrHeightValue)
 
-	// height -> hash
+	// addr & accountBlockHeight -> hash
 	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
 
 	if accountBlock.IsReceiveBlock() {
