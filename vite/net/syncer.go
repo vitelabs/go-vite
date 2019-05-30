@@ -206,10 +206,11 @@ func (s *syncer) setState(state syncState) {
 func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.peers.unSub(s.eventChan)
+		term := s.term
 		select {
-		case <-s.term:
+		case <-term:
 		default:
-			close(s.term)
+			close(term)
 		}
 		s.stopSync()
 	}
