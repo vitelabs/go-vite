@@ -37,7 +37,9 @@ var (
 
 	PerPeriodDividendRate int32 = 1000 // 0.01
 
-	RateCardinalNum       int32 = 100000 // 100,000
+	InviteBonusRate       int32 = 500  // 0.005
+
+	RateCardinalNum int32 = 100000 // 100,000
 )
 
 func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
@@ -421,8 +423,8 @@ func CalculateRawAmountF(quantity []byte, price []byte, decimalsDiff int32) *big
 
 func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	if rate > 0 {
-		amtF := new(big.Int).SetBytes(amount)
-		return new(big.Int).Div(new(big.Int).Mul(amtF, big.NewInt(int64(rate))), big.NewInt(int64(RateCardinalNum))).Bytes()
+		amt := new(big.Int).SetBytes(amount)
+		return new(big.Int).Div(new(big.Int).Mul(amt, big.NewInt(int64(rate))), big.NewInt(int64(RateCardinalNum))).Bytes()
 	} else {
 		return nil
 	}

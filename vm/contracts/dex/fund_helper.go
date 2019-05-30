@@ -84,8 +84,8 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
-	SettleFeeSum(db, reader, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, ledger.ViteTokenId.Bytes())
-	SettleUserFees(db, reader, userFee, ledger.ViteTokenId.Bytes())
+	inviteRelations := SettleFeeSumWithTokenId(db, reader, ledger.ViteTokenId, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
+	SettleUserFees(db, reader, ledger.ViteTokenId.Bytes(), userFee, inviteRelations)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddNewMarketEventLog(db, newMarketEvent)
 	var marketBytes, blockData []byte

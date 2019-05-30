@@ -32,6 +32,7 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
 	accumulatePendingNewMarketFeeSum(db, feeAmountMap)
+	accumulateBrokerFeeAccount(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
 			amount    *big.Int
@@ -121,9 +122,42 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 		if !feeSum.FeeDivided {
 			for _, fee := range feeSum.Fees {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
-				feeAmount := AddBigInt(fee.BaseAmount, fee.BrokerAmount)
-				feeAmount = AddBigInt(feeAmount, fee.DividendPoolAmount)
+				feeAmount := AddBigInt(fee.BaseAmount, fee.DividendPoolAmount)
 				accAccount(tokenId, feeAmount, accumulateRes)
+			}
+		}
+	}
+	return nil
+}
+
+func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+	var (
+		brokerFeeSumValue []byte
+		brokerFeeSum      *BrokerFeeSumByPeriod
+		ok                bool
+	)
+	iterator, err := db.NewStorageIterator(brokerFeeSumKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
+	for {
+		if ok = iterator.Next(); ok {
+			brokerFeeSumValue = iterator.Value()
+			if len(brokerFeeSumValue) == 0 {
+				continue
+			}
+		} else {
+			break
+		}
+		brokerFeeSum = &BrokerFeeSumByPeriod{}
+		if err = brokerFeeSum.DeSerialize(brokerFeeSumValue); err != nil {
+			return err
+		}
+		for _, fee := range brokerFeeSum.BrokerFees {
+			for _, brokerFee := range fee.Fees {
+				tokenId, _ := types.BytesToTokenTypeId(brokerFee.Token)
+				accAccount(tokenId, brokerFee.Amount, accumulateRes)
 			}
 		}
 	}

@@ -140,7 +140,7 @@ func DoDividendBrokerFee(db vm_db.VmDb, brokerFeeSums map[uint64]*BrokerFeeSumBy
 				if tokenId, err = types.BytesToTokenTypeId(acc.Token); err != nil {
 					return err
 				}
-				amt := new(big.Int).SetBytes(acc.BrokerAmount)
+				amt := new(big.Int).SetBytes(acc.Amount)
 				if amt.Sign() > 0 {
 					funds[tokenId] = amt
 				}

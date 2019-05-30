@@ -44,13 +44,18 @@ var (
 	PendingNewMarketInnerConflictErr     = errors.New("pending new market inner conflict")
 	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
 	InvalidTimestampFromTimerErr         = errors.New("invalid timestamp from timer")
-	InvalidBrokerFeeRateErr = errors.New("invalid broker fee rate")
+	InvalidBrokerFeeRateErr              = errors.New("invalid broker fee rate")
 
 	NoFeeSumFoundForValidPeriodErr = errors.New("no fee sum found for valid period")
 	NotSetTimestampErr             = errors.New("not set timestamp")
 	IterateVmDbFailedErr           = errors.New("iterate vm db failed")
 
 	InvalidInviterFeeAmountErr = errors.New("invalid inviter fee amount")
-	IsInviterAlreadyErr = errors.New("is inviter already")
-	InviteRelationExistsErr = errors.New("invite relation exists")
+	AlreadyIsInviterErr        = errors.New("already is inviter")
+
+	InvalidInviteCodeErr  = errors.New("invalid invite code")
+	NotBindInviterErr     = errors.New("not bind inviter")
+	AlreadyBindInviterErr = errors.New("already bind inviter")
+	NewInviteCodeFailErr = errors.New("new invite code fail")
+	InternalErr = errors.New("internal error")
 )

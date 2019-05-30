@@ -11,7 +11,7 @@ import (
 const PriceBytesLength = 10
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
-func ComposeOrderId(db vm_db.VmDb,  marketId int32, side bool, price string) (idBytes []byte) {
+func ComposeOrderId(db vm_db.VmDb, marketId int32, side bool, price string) (idBytes []byte) {
 	idBytes = make([]byte, OrderIdBytesLength)
 	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
 	if side {
@@ -29,7 +29,7 @@ func ComposeOrderId(db vm_db.VmDb,  marketId int32, side bool, price string) (id
 	return
 }
 
-func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price[]byte, timestamp int64, err error) {
+func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price []byte, timestamp int64, err error) {
 	if len(idBytes) != OrderIdBytesLength {
 		err = DeComposeOrderIdFailErr
 		return
@@ -123,6 +123,20 @@ func BytesToPrice(priceBytes []byte) string {
 	}
 }
 
+func randomBytesFromBytes(data, recursiveData []byte, begin, end int) ([]byte, bool) {
+	dataLen := len(data)
+	if begin >= end || dataLen < end {
+		return nil, false
+	}
+	resLen := len(recursiveData)
+	for i := begin; i < end; i += resLen {
+		for j := 0; j < resLen && i+j < end; j ++ {
+			recursiveData[j] = byte(int8(recursiveData[j]) + int8(data[i+j]))
+		}
+	}
+	return recursiveData, true
+}
+
 func getValueFromDb(db vm_db.VmDb, key []byte) []byte {
 	if data, err := db.GetValue(key); err != nil {
 		panic(err)
@@ -164,5 +178,5 @@ func BitwiseNotBytes(bytes []byte) {
 }
 
 func IsOperationValidWithMask(operationCode, mask int8) bool {
-	return int8(byte(operationCode) & byte(mask)) == 1
+	return int8(byte(operationCode)&byte(mask)) == 1
 }

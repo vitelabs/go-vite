@@ -307,10 +307,10 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 			}
 		}
 		if len(settleActions.FeeActions) > 0 {
-			dex.SettleFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, nil, marketInfo.QuoteToken)
+			inviteRelations := dex.SettleFeeSum(db, vm.ConsensusReader(), marketInfo.QuoteToken, settleActions.FeeActions, nil, nil)
 			dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, marketInfo)
 			for _, feeAction := range settleActions.FeeActions {
-				dex.SettleUserFees(db, vm.ConsensusReader(), feeAction, marketInfo.QuoteToken)
+				inviteRelations = dex.SettleUserFees(db, vm.ConsensusReader(), marketInfo.QuoteToken, feeAction, inviteRelations)
 			}
 		}
 		return nil, nil
@@ -866,15 +866,20 @@ func (md *MethodDexFundNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 }
 
 func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	if code := dex.GetInviteCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
-		return nil, dex.IsInviterAlreadyErr
+	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
+		return nil, dex.AlreadyIsInviterErr
 	}
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
 	if exceedAmount.Sign() > 0 {
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
-	inviteCode := dex.NewAndSaveInviteCodeSerialNo(db)
-	dex.SaveInviteCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
+	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), ledger.ViteTokenId, nil, dex.NewInviterFeeAmount, nil)
+	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
+		return nil, dex.NewInviteCodeFailErr
+	} else {
+		dex.SaveCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
+		dex.SaveInviterByCode(db, sendBlock.AccountAddress, inviteCode)
+	}
 	return nil, nil
 }
 
@@ -898,22 +903,32 @@ func (md *MethodDexFundBindInviteCode) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Cmp(dex.NewInviterFeeAmount) < 0 {
-		return dex.InvalidInviterFeeAmountErr
+	if err := cabi.ABIDexFund.UnpackMethod(new(string), cabi.MethodNameDexFundBindInviteCode, block.Data); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	if code := dex.GetInviteCodeByInvitee(db, sendBlock.AccountAddress); code > 0 {
-		return nil, dex.InviteRelationExistsErr
+	var (
+		inviter *types.Address
+		code  uint32
+		err     error
+	)
+	if err = cabi.ABIDexFund.UnpackMethod(&code, cabi.MethodNameDexFundBindInviteCode, sendBlock.Data); err != nil {
+		return handleReceiveErr(err)
 	}
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	if _, err = dex.GetInviterByInvitee(db, sendBlock.AccountAddress); err != dex.NotBindInviterErr {
+		if err == nil {
+			return handleReceiveErr(dex.AlreadyBindInviterErr)
+		} else {
+			return handleReceiveErr(err)
+		}
 	}
-	inviteCode := dex.NewAndSaveInviteCodeSerialNo(db)
-	dex.SaveInviteCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
+	if inviter, err = dex.GetInviterByCode(db, code); err != nil {
+		return handleReceiveErr(err)
+	}
+	dex.SaveInviterByInvitee(db, sendBlock.AccountAddress, *inviter)
 	return nil, nil
 }
 

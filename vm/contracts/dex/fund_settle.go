@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -60,74 +59,97 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 	return nil
 }
 
-//include
-func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.UserFeeSettle, feeForDividend *big.Int, feeToken []byte) {
+func SettleFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeToken []byte, feeActions []*dexproto.UserFeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) map[types.Address]*types.Address {
+	tokenId, _ := types.BytesToTokenTypeId(feeToken)
+	return SettleFeeSumWithTokenId(db, reader, tokenId, feeActions, feeForDividend, inviteRelations)
+}
+
+func SettleFeeSumWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, tokenId types.TokenTypeId, feeActions []*dexproto.UserFeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) map[types.Address]*types.Address {
 	feeSumByPeriod, ok := GetCurrentFeeSum(db, reader)
 	if !ok { // need roll period when current period feeSum not saved yet
 		feeSumByPeriod = rollFeeSum(db, reader)
 	}
 	if len(feeActions) > 0 {
-		feeAmountMap := make(map[types.TokenTypeId][]byte)
-		brokerFeeAmountMap := make(map[types.TokenTypeId][]byte)
-		tokenId, _ := types.BytesToTokenTypeId(feeToken)
-		for _, feeAction := range feeActions {
-			feeAmountMap[tokenId] = AddBigInt(feeAmountMap[tokenId], feeAction.BaseFee)
-			brokerFeeAmountMap[tokenId] = AddBigInt(brokerFeeAmountMap[tokenId], feeAction.BrokerFee)
+		if inviteRelations == nil {
+			inviteRelations = make(map[types.Address]*types.Address)
 		}
-
-		for _, feeAcc := range feeSumByPeriod.Fees {
-			tokenId, _ := types.BytesToTokenTypeId(feeAcc.Token)
-			if incFeeAmount, ok := feeAmountMap[tokenId]; ok {
-				feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, incFeeAmount)
-				feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, brokerFeeAmountMap[tokenId])
-				delete(feeAmountMap, tokenId)
-				delete(brokerFeeAmountMap, tokenId)
+		var (
+			incFeeAmt, incInviteBonusAmt []byte
+			foundFeeToken bool
+		)
+		for _, feeAction := range feeActions {
+			incFeeAmt = AddBigInt(incFeeAmt, feeAction.BaseFee)
+			if isInvited, _, inviteBonusAmt := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee); isInvited {
+				incInviteBonusAmt = AddBigInt(incInviteBonusAmt, inviteBonusAmt)
 			}
 		}
-		for tokenId, feeAmount := range feeAmountMap {
-			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeSumAccount(tokenId.Bytes(), feeAmount, brokerFeeAmountMap[tokenId], nil))
+		for _, feeAcc := range feeSumByPeriod.Fees {
+			if bytes.Equal(tokenId.Bytes(), feeAcc.Token) {
+				feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, incFeeAmt)
+				if CmpToBigZero(incInviteBonusAmt) > 0 {
+					feeAcc.InviteBonusAmount = AddBigInt(feeAcc.InviteBonusAmount, incInviteBonusAmt)
+				}
+				foundFeeToken = true
+			}
+		}
+		if !foundFeeToken {
+			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeSumAccount(tokenId.Bytes(), incFeeAmt, incInviteBonusAmt, nil))
 		}
 	}
 	if feeForDividend != nil {
-		var foundVite bool
+		var foundToken bool
 		for _, feeAcc := range feeSumByPeriod.Fees {
-			if bytes.Equal(feeAcc.Token, ledger.ViteTokenId.Bytes()) {
+			if bytes.Equal(feeAcc.Token, tokenId.Bytes()) {
 				feeAcc.DividendPoolAmount = AddBigInt(feeAcc.DividendPoolAmount, feeForDividend.Bytes())
-				foundVite = true
+				foundToken = true
 			}
 		}
-		if !foundVite {
-			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeSumAccount(ledger.ViteTokenId.Bytes(), nil, nil, feeForDividend.Bytes()))
+		if !foundToken {
+			feeSumByPeriod.Fees = append(feeSumByPeriod.Fees, newFeeSumAccount(tokenId.Bytes(), nil, nil, feeForDividend.Bytes()))
 		}
 	}
 	SaveCurrentFeeSum(db, reader, feeSumByPeriod)
+	return inviteRelations
 }
 
 //baseAmount + brokerAmount for vx mine,
-func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeAction *dexproto.UserFeeSettle, feeToken []byte) {
+func SettleUserFees(db vm_db.VmDb, reader util.ConsensusReader, feeToken []byte, feeAction *dexproto.UserFeeSettle, inviteRelations map[types.Address]*types.Address) map[types.Address]*types.Address {
 	periodId := GetCurrentPeriodId(db, reader)
 	userFees, _ := GetUserFees(db, feeAction.Address)
 	feeLen := len(userFees.Fees)
+	if inviteRelations == nil {
+		inviteRelations = make(map[types.Address]*types.Address)
+	}
 	if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 		var foundToken = false
 		for _, feeAcc := range userFees.Fees[feeLen-1].UserFees {
 			if bytes.Equal(feeAcc.Token, feeToken) {
 				feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, feeAction.BaseFee)
-				feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, feeAction.BrokerFee)
 				foundToken = true
 				break
 			}
 		}
 		if !foundToken {
-			userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, newFeeAccount(feeToken, feeAction.BaseFee, feeAction.BrokerFee))
+			userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, newFeeAccount(feeToken, feeAction.BaseFee, nil))
 		}
 	} else {
 		userFeeByPeriodId := &dexproto.UserFeeWithPeriod{}
 		userFeeByPeriodId.Period = periodId
-		userFeeByPeriodId.UserFees = []*dexproto.FeeAccount{newFeeAccount(feeToken, feeAction.BaseFee, feeAction.BrokerFee)}
+		userFeeByPeriodId.UserFees = []*dexproto.UserFeeAccount{newFeeAccount(feeToken, feeAction.BaseFee, nil)}
 		userFees.Fees = append(userFees.Fees, userFeeByPeriodId)
 	}
 	SaveUserFees(db, feeAction.Address, userFees)
+	if isInvited, inviter, inviteBonusAmt := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee); isInvited {
+		SettleInviteFees(db, *inviter, feeToken, inviteBonusAmt)
+	}
+	return inviteRelations
+}
+
+func SettleInviteFees(db vm_db.VmDb, inviter types.Address, feeToken []byte, amount []byte) {
+	tokenId, _ := types.BytesToTokenTypeId(feeToken)
+	if err := BatchSaveUserFund(db, inviter, map[types.TokenTypeId]*big.Int{tokenId:new(big.Int).SetBytes(amount)}); err != nil {
+		panic(err)
+	}
 }
 
 func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.UserFeeSettle, marketInfo *MarketInfo) {
@@ -145,12 +167,12 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 			var found bool
 			for _, feeAcc := range brokerFeeSum.Fees {
 				if bytes.Equal(feeAcc.Token, feeToken) {
-					feeAcc.BrokerAmount = AddBigInt(feeAcc.BrokerAmount, incAmt)
+					feeAcc.Amount = AddBigInt(feeAcc.Amount, incAmt)
 					found = true
 				}
 			}
 			if !found {
-				brokerFeeSum.Fees = append(brokerFeeSum.Fees, newFeeAccount(feeToken, nil, incAmt))
+				brokerFeeSum.Fees = append(brokerFeeSum.Fees, newBrokerFeeAccount(feeToken, incAmt))
 			}
 			foundBroker = true
 		}
@@ -158,7 +180,7 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 	if !foundBroker {
 		brokerFeeSum := &dexproto.BrokerFeeSum{}
 		brokerFeeSum.Broker = settleBrokerAddress
-		brokerFeeSum.Fees = append(brokerFeeSum.Fees, newFeeAccount(feeToken, nil, incAmt))
+		brokerFeeSum.Fees = append(brokerFeeSum.Fees, newBrokerFeeAccount(feeToken, incAmt))
 		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeSum)
 	}
 	SaveCurrentBrokerFeeSum(db, reader, brokerFeeSumByPeriod)
@@ -294,19 +316,51 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 	}
 }
 
-func newFeeAccount(token, baseAmount, brokerAmount []byte) *dexproto.FeeAccount {
-	account := &dexproto.FeeAccount{}
+func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte) {
+	if address, err := types.BytesToAddress(addr); err != nil {
+		panic(InternalErr)
+	} else {
+		var (
+			inviter *types.Address
+			ok      bool
+		)
+		if inviter, ok = (*inviteRelations)[address]; !ok {
+			if inviter, err = GetInviterByInvitee(db, address); err == nil {
+				(*inviteRelations)[address] = inviter
+			} else if err == NotBindInviterErr {
+				(*inviteRelations)[address] = nil
+			} else {
+				panic(InternalErr)
+			}
+		}
+		if inviter != nil {
+			return true, inviter, CalculateAmountForRate(fee, InviteBonusRate)
+		} else {
+			return false, nil, nil
+		}
+	}
+}
+
+func newFeeAccount(token, baseAmount, inviteBonusAmount []byte) *dexproto.UserFeeAccount {
+	account := &dexproto.UserFeeAccount{}
 	account.Token = token
 	account.BaseAmount = baseAmount
-	account.BrokerAmount = brokerAmount
+	account.InviteBonusAmount = inviteBonusAmount
 	return account
 }
 
-func newFeeSumAccount(token, baseAmount, brokerAmount, dividendPoolAmount []byte) *dexproto.FeeSumAccount {
+func newFeeSumAccount(token, baseAmount, inviteBonusAmount, dividendPoolAmount []byte) *dexproto.FeeSumAccount {
 	account := &dexproto.FeeSumAccount{}
 	account.Token = token
 	account.BaseAmount = baseAmount
-	account.BrokerAmount = brokerAmount
+	account.InviteBonusAmount = inviteBonusAmount
 	account.DividendPoolAmount = dividendPoolAmount
+	return account
+}
+
+func newBrokerFeeAccount(token, amount []byte) *dexproto.BrokerFeeAccount {
+	account := &dexproto.BrokerFeeAccount{}
+	account.Token = token
+	account.Amount = amount
 	return account
 }

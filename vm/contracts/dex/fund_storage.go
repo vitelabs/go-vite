@@ -45,9 +45,9 @@ var (
 	tokenInfoPrefix   = []byte("tk:") // token:tokenId
 	vxAmountToMineKey = []byte("vxAmt:")
 
-	inviterPrefix = []byte("ivtr:")
-	inviteePrefix = []byte("ivte:")
-	inviteCodeSerialNoKey = []byte("ivtCS:")
+	codeByInviterPrefix    = []byte("itr2cd:")
+	inviterByCodePrefix    = []byte("cd2itr:")
+	inviterByInviteePrefix = []byte("ite2itr:")
 
 	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
@@ -175,7 +175,7 @@ type ParamDexFundGetTokenInfoCallback struct {
 }
 
 type ParamDexFundOwnerConfig struct {
-	OperationCode int8
+	OperationCode int8 // 1 owner, 2 timerAddress, 4 mineMarket
 	Owner         types.Address
 	TimerAddress  types.Address
 	AllowMine     bool
@@ -184,7 +184,7 @@ type ParamDexFundOwnerConfig struct {
 }
 
 type ParamDexFundMarketOwnerConfig struct {
-	OperationCode int8
+	OperationCode int8 // 1 owner, 2 takerRate, 4 makerRate, 8 stopMarket
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
@@ -984,34 +984,63 @@ func GetTimerTimestamp(db vm_db.VmDb) int64 {
 	}
 }
 
-func GetInviteCodeByInviter(db vm_db.VmDb, address types.Address) uint32 {
-	if bs := getValueFromDb(db, append(inviterPrefix, address.Bytes()...)); len(bs) == 4 {
+func GetCodeByInviter(db vm_db.VmDb, address types.Address) uint32 {
+	if bs := getValueFromDb(db, append(codeByInviterPrefix, address.Bytes()...)); len(bs) == 4 {
 		return BytesToUint32(bs)
 	} else {
 		return 0
 	}
 }
 
-func SaveInviteCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) {
-	setValueToDb(db, append(inviterPrefix, address.Bytes()...), Uint32ToBytes(inviteCode) )
+func SaveCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) {
+	setValueToDb(db, append(codeByInviterPrefix, address.Bytes()...), Uint32ToBytes(inviteCode))
 }
 
-func GetInviteCodeByInvitee(db vm_db.VmDb, address types.Address) uint32 {
-	if bs := getValueFromDb(db, append(inviteePrefix, address.Bytes()...)); len(bs) == 4 {
-		return BytesToUint32(bs)
+func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (inviter *types.Address, err error) {
+	if bs := getValueFromDb(db, append(inviterByCodePrefix, Uint32ToBytes(inviteCode)...)); len(bs) == types.AddressSize {
+		*inviter, err = types.BytesToAddress(bs)
+		return
 	} else {
-		return 0
+		return nil, InvalidInviteCodeErr
 	}
 }
 
-func NewAndSaveInviteCodeSerialNo(db vm_db.VmDb) (newSerialNo uint32) {
-	if bs := getValueFromDb(db, inviteCodeSerialNoKey); len(bs) == 4 {
-		newSerialNo = BytesToUint32(bs) + 1
+func SaveInviterByCode(db vm_db.VmDb, address types.Address, inviteCode uint32) {
+	setValueToDb(db, append(inviterByCodePrefix, Uint32ToBytes(inviteCode)...), address.Bytes())
+}
+
+func SaveInviterByInvitee(db vm_db.VmDb, invitee, inviter types.Address) {
+	setValueToDb(db, append(inviterByInviteePrefix, invitee.Bytes()...), inviter.Bytes())
+}
+
+func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (inviter *types.Address, err error) {
+	if bs := getValueFromDb(db, append(inviterByInviteePrefix, address.Bytes()...)); len(bs) == types.AddressSize {
+		*inviter, err = types.BytesToAddress(bs)
+		return
 	} else {
-		newSerialNo = 1
+		return nil, NotBindInviterErr
 	}
-	setValueToDb(db, inviteCodeSerialNoKey, Uint32ToBytes(newSerialNo))
-	return
+}
+
+func NewInviteCode(db vm_db.VmDb, hash types.Hash) uint32 {
+	var (
+		codeBytes  = []byte{0, 0, 0, 0}
+		inviteCode uint32
+		ok         bool
+		err        error
+	)
+	for i := 1; i < 250; i++ {
+		if codeBytes, ok = randomBytesFromBytes(hash.Bytes(), codeBytes, 0, 32); !ok {
+			return 0
+		}
+		if inviteCode = BytesToUint32(codeBytes); inviteCode == 0 {
+			continue
+		}
+		if _, err = GetInviterByCode(db, inviteCode); err == InvalidInviteCodeErr {
+			return inviteCode
+		}
+	}
+	return 0
 }
 
 func GetVxAmountForMine(db vm_db.VmDb) *big.Int {
