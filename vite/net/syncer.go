@@ -157,6 +157,7 @@ func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downl
 		timeout:     timeout,
 		sk:          newSkeleton(peers, new(gid)),
 		blackBlocks: make(map[types.Hash]struct{}),
+		term:        make(chan struct{}),
 		log:         netLog.New("module", "syncer"),
 	}
 
