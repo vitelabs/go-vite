@@ -94,11 +94,13 @@ func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *l
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	or.removeUnconfirmed(addrOnRoadMap)
+	if err := or.removeUnconfirmed(addrOnRoadMap); err != nil {
+		oLog.Error(fmt.Sprintf("removeUnconfirmed err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
+		// TODO redo the plugin onroad_info
+	}
 
-	err := or.flushWriteBySnapshotLine(batch, addrOnRoadMap)
-	if err != nil {
-		oLog.Error(fmt.Sprintf("err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
+	if err := or.flushWriteBySnapshotLine(batch, addrOnRoadMap); err != nil {
+		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -153,7 +155,10 @@ func (or *OnRoadInfo) DeleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	or.removeUnconfirmed(addrOnRoadMap)
+	if err := or.removeUnconfirmed(addrOnRoadMap); err != nil {
+		oLog.Error(fmt.Sprintf("removeUnconfirmed err:%v", err), "method", "DeleteAccountBlocks")
+		// TODO redo the plugin onroad_info
+	}
 	return nil
 }
 
@@ -258,7 +263,7 @@ func (or *OnRoadInfo) addUnconfirmed(addrMap map[types.Address][]*ledger.Account
 	}
 }
 
-func (or *OnRoadInfo) removeUnconfirmed(addrMap map[types.Address][]*ledger.AccountBlock) {
+func (or *OnRoadInfo) removeUnconfirmed(addrMap map[types.Address][]*ledger.AccountBlock) error {
 	for addr, blockList := range addrMap {
 		if len(blockList) <= 0 {
 			continue
@@ -277,9 +282,20 @@ func (or *OnRoadInfo) removeUnconfirmed(addrMap map[types.Address][]*ledger.Acco
 			value := onRoadMap[hashKey]
 			if value != nil && value.IsSendBlock() == block.IsSendBlock() {
 				delete(onRoadMap, hashKey)
+			} else {
+				if block.IsReceiveBlock() {
+					fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
+					if err != nil {
+						return fmt.Errorf("fail to GetAccountBlockByHash", "onroad", hashKey)
+					}
+					onRoadMap[hashKey] = fromBlock
+				} else {
+					return fmt.Errorf("conflict, Unconfimed cache inconsistent", "onroad", hashKey)
+				}
 			}
 		}
 	}
+	return nil
 }
 
 func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBlocks map[types.Address][]*ledger.AccountBlock) error {
