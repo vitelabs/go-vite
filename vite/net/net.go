@@ -23,13 +23,14 @@ var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
 
 type Config struct {
-	Single            bool
-	FileListenAddress string
-	TraceEnabled      bool
-	ForwardStrategy   string   // default `cross`
-	AccessControl     string   `json:"AccessControl"` // producer special any
-	AccessAllowKeys   []string `json:"AccessAllowKeys"`
-	AccessDenyKeys    []string `json:"AccessDenyKeys"`
+	Single             bool
+	FileListenAddress  string
+	TraceEnabled       bool
+	ForwardStrategy    string   // default `cross`
+	AccessControl      string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys    []string `json:"AccessAllowKeys"`
+	AccessDenyKeys     []string `json:"AccessDenyKeys"`
+	BlackBlockHashList []string
 
 	MinePrivateKey ed25519.PrivateKey
 	P2PPrivateKey  ed25519.PrivateKey
@@ -183,6 +184,7 @@ func New(cfg Config) Net {
 	peers := newPeerSet()
 
 	feed := newBlockFeeder()
+	feed.setBlackHashList(cfg.BlackBlockHashList)
 
 	forward := createForardStrategy(cfg.ForwardStrategy, peers)
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, cfg.Chain)
@@ -205,9 +207,13 @@ func New(cfg Config) Net {
 	syncServer := newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac)
 
 	reader := newCacheReader(cfg.Chain, cfg.Verifier, downloader)
+	reader.setBlackHashList(cfg.BlackBlockHashList)
+
 	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
+	syncer.setBlackHashList(cfg.BlackBlockHashList)
 
 	fetcher := newFetcher(peers, receiver)
+	fetcher.setBlackHashList(cfg.BlackBlockHashList)
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)
 	syncer.SubscribeSyncStatus(broadcaster.subSyncState)

@@ -298,6 +298,8 @@ type fetcher struct {
 
 	log log15.Logger
 
+	blackBlocks map[types.Hash]struct{}
+
 	term chan struct{}
 }
 
@@ -307,8 +309,9 @@ func newFetcher(peers *peerSet, receiver blockReceiver) *fetcher {
 		policy: &fetchTarget{peers, func() bool {
 			return rand.Intn(10) > 5
 		}},
-		receiver: receiver,
-		log:      netLog.New("module", "fetcher"),
+		receiver:    receiver,
+		blackBlocks: make(map[types.Hash]struct{}),
+		log:         netLog.New("module", "fetcher"),
 	}
 }
 
@@ -409,6 +412,10 @@ func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
 }
 
 func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
+	if _, ok := f.blackBlocks[hash]; ok {
+		return
+	}
+
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
@@ -443,6 +450,10 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 // FetchSnapshotBlocksWithHeight fetch blocks:
 //  ... count blocks ... {hash, height}
 func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) {
+	if _, ok := f.blackBlocks[hash]; ok {
+		return
+	}
+
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
@@ -475,6 +486,10 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 }
 
 func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) {
+	if _, ok := f.blackBlocks[start]; ok {
+		return
+	}
+
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
@@ -514,6 +529,10 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 }
 
 func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) {
+	if _, ok := f.blackBlocks[start]; ok {
+		return
+	}
+
 	if !f.st.syncExited() {
 		f.log.Debug("in syncing flow, cannot fetch")
 		return
@@ -549,5 +568,15 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 	} else {
 		f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
 		f.filter.failNoPeers(r.id)
+	}
+}
+
+func (f *fetcher) setBlackHashList(list []string) {
+	for _, str := range list {
+		hash, err := types.HexToHash(str)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
+		}
+		f.blackBlocks[hash] = struct{}{}
 	}
 }
