@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	oLog                 = log15.New("plugin", "onroad_info")
-	updateInfoErr        = errors.New("conflict, fail to update onroad info")
+	oLog          = log15.New("plugin", "onroad_info")
+	updateInfoErr = errors.New("conflict, fail to update onroad info")
 )
 
 type OnRoadInfo struct {
@@ -108,21 +108,26 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		return nil
 	}
 
-	blocks := make([]*ledger.AccountBlock, 0)
+	unConfirmedBlocks := make([]*ledger.AccountBlock, 0)
+	confirmedBlocks := make([]*ledger.AccountBlock, 0)
 	for _, v := range chunks {
 		if len(v.AccountBlocks) <= 0 {
 			continue
 		}
-		blocks = append(blocks, v.AccountBlocks...)
+		if v.SnapshotBlock != nil {
+			confirmedBlocks = append(confirmedBlocks, v.AccountBlocks...)
+		} else {
+			unConfirmedBlocks = append(unConfirmedBlocks, v.AccountBlocks...)
+		}
 	}
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	or.removeUnconfirmed(blocks)
+	or.removeUnconfirmed(unConfirmedBlocks)
 
 	// revert flush the db
-	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, blocks)); err != nil {
+	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
 		heightStr := ""
 		for _, v := range chunks {
 			if v != nil && v.SnapshotBlock != nil {
