@@ -412,6 +412,7 @@ type FeeSumAccount struct {
 	// rolled amount : 99% part of last period BaseAmount rolled to this period +
 	// new market fee of current period +
 	// new inviter fee
+	// not allow mine fee
 	DividendPoolAmount   []byte   `protobuf:"bytes,4,opt,name=DividendPoolAmount,proto3" json:"DividendPoolAmount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

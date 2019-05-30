@@ -84,7 +84,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
-	inviteRelations := SettleFeeSumWithTokenId(db, reader, ledger.ViteTokenId, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
+	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	SettleUserFees(db, reader, ledger.ViteTokenId.Bytes(), userFee, inviteRelations)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddNewMarketEventLog(db, newMarketEvent)
@@ -252,6 +252,12 @@ func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, 
 	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
 	order.MakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
+	if _, err := GetInviterByInvitee(db, address); err == nil { // invited
+		order.TakerFeeRate = order.TakerFeeRate * 9 / 10
+		order.TakerBrokerFeeRate = order.TakerBrokerFeeRate * 9 / 10
+		order.MakerFeeRate = order.MakerFeeRate * 9 / 10
+		order.MakerBrokerFeeRate = order.MakerBrokerFeeRate * 9 / 10
+	}
 }
 
 func CheckSettleActions(actions *dexproto.SettleActions) error {

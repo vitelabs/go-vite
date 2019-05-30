@@ -307,10 +307,12 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 			}
 		}
 		if len(settleActions.FeeActions) > 0 {
-			inviteRelations := dex.SettleFeeSum(db, vm.ConsensusReader(), marketInfo.QuoteToken, settleActions.FeeActions, nil, nil)
+			inviteRelations := dex.SettleFeeSum(db, vm.ConsensusReader(), marketInfo.AllowMine, marketInfo.QuoteToken, settleActions.FeeActions, nil, nil)
 			dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, marketInfo)
-			for _, feeAction := range settleActions.FeeActions {
-				inviteRelations = dex.SettleUserFees(db, vm.ConsensusReader(), marketInfo.QuoteToken, feeAction, inviteRelations)
+			if marketInfo.AllowMine {
+				for _, feeAction := range settleActions.FeeActions {
+					inviteRelations = dex.SettleUserFees(db, vm.ConsensusReader(), marketInfo.QuoteToken, feeAction, inviteRelations)
+				}
 			}
 		}
 		return nil, nil
@@ -873,7 +875,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if exceedAmount.Sign() > 0 {
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
-	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), ledger.ViteTokenId, nil, dex.NewInviterFeeAmount, nil)
+	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
 		return nil, dex.NewInviteCodeFailErr
 	} else {
@@ -912,7 +914,7 @@ func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.Accou
 func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		inviter *types.Address
-		code  uint32
+		code    uint32
 		err     error
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(&code, cabi.MethodNameDexFundBindInviteCode, sendBlock.Data); err != nil {
