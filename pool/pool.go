@@ -8,23 +8,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus"
-
-	"github.com/vitelabs/go-vite/pool/lock"
-	"github.com/vitelabs/go-vite/vite/net"
-
-	"github.com/vitelabs/go-vite/pool/batch"
-
-	"github.com/vitelabs/go-vite/pool/tree"
-
-	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pool/batch"
+	"github.com/vitelabs/go-vite/pool/lock"
+	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -164,7 +159,6 @@ type pool struct {
 
 	stat *recoverStat
 
-	addrCache     *lru.Cache
 	hashBlacklist Blacklist
 	cs            consensus.Consensus
 }
@@ -205,12 +199,7 @@ func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[strin
 func NewPool(bc chainDb) (BlockPool, error) {
 	self := &pool{bc: bc, version: &common.Version{}, rollbackVersion: &common.Version{}}
 	self.log = log15.New("module", "pool")
-	cache, err := lru.New(1024)
-	if err != nil {
-		panic(err)
-	}
-	self.addrCache = cache
-
+	var err error
 	self.hashBlacklist, err = NewBlacklist()
 	self.newAccBlockCond = common.NewCondTimer()
 	self.newSnapshotBlockCond = common.NewCondTimer()
@@ -411,7 +400,6 @@ func (pl *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAcco
 		return err
 	}
 	ac.f.broadcastBlock(block.AccountBlock)
-	pl.addrCache.Add(address, time.Now().Add(time.Hour*24))
 	return nil
 
 }
@@ -567,11 +555,11 @@ func (pl *pool) loopCompact() {
 }
 
 func (pl *pool) broadcastUnConfirmedBlocks() {
-	addrList := pl.listPoolRelAddr()
-	// todo all unconfirmed
-	for _, addr := range addrList {
-		pl.selfPendingAc(addr).broadcastUnConfirmedBlocks()
+	blocks := pl.bc.GetAllUnconfirmedBlocks()
+	for _, v := range blocks {
+		pl.log.Info("broadcast unconfirmed blocks", "address", v.AccountAddress, "Height", v.Height, "Hash", v.Hash)
 	}
+	pl.sync.BroadcastAccountBlocks(blocks)
 }
 
 func (pl *pool) delUseLessChains() {
@@ -601,23 +589,6 @@ func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
 	// todo
 }
 
-func (pl *pool) listPoolRelAddr() []types.Address {
-	var todoAddress []types.Address
-	keys := pl.addrCache.Keys()
-	now := time.Now()
-	for _, k := range keys {
-		value, ok := pl.addrCache.Get(k)
-		if ok {
-			t := value.(time.Time)
-			if t.Before(now) {
-				pl.addrCache.Remove(k)
-			} else {
-				todoAddress = append(todoAddress, k.(types.Address))
-			}
-		}
-	}
-	return todoAddress
-}
 func (pl *pool) compact() int {
 	sum := 0
 	sum += pl.accountsCompact()

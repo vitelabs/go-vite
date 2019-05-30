@@ -4,8 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vitelabs/go-vite/pool/lock"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/chain"
@@ -13,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pool/lock"
 )
 
 func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {

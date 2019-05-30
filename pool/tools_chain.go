@@ -25,7 +25,7 @@ type chainDb interface {
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
 	//DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
-	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 	//GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
 	//GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -152,10 +152,6 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 		}
 	}
 	return nil, results, nil
-}
-
-func (accCh *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
-	return accCh.rw.GetUnconfirmedBlocks(accCh.address)
 }
 
 func (accCh *accountCh) getLatestSnapshotBlock() *ledger.SnapshotBlock {

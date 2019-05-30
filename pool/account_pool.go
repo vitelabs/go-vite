@@ -266,11 +266,6 @@ func (accP *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	}
 }
 
-func (accP *accountPool) broadcastUnConfirmedBlocks() {
-	blocks := accP.rw.getUnConfirmedBlocks()
-	accP.f.broadcastBlocks(blocks)
-}
-
 func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	b := accP.chainpool.tree.Main().GetKnot(i, false)
 	if b != nil {

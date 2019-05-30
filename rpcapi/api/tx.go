@@ -58,6 +58,10 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
+	err = v.VerifyNetAb(lb)
+	if err != nil {
+		return err
+	}
 	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
 	if err != nil {
 		return err

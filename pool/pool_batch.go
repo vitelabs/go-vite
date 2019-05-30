@@ -156,7 +156,7 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 				ab := v.Peek().(*accountPoolBlock)
 				err := p.AddSItem(ab)
 				if err != nil {
-					if err == batch.MAX_ERROR {
+					if err == batch.ErrorArrivedToMax {
 						pl.log.Info(fmt.Sprintf("account[%s] max. %s\n", ab.Hash(), err))
 						return err
 					}
@@ -181,7 +181,7 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 		}
 		return nil
 	}
-	return errors.WithMessage(batch.REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
+	return errors.WithMessage(batch.ErrorReference, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 }
 func (pl *pool) makeQueueFromAccounts(p batch.Batch) {
 	addrOffsets := make(map[types.Address]*offsetInfo)
