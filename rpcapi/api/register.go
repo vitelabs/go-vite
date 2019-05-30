@@ -92,7 +92,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				NodeAddr:       info.NodeAddr,
 				PledgeAddr:     info.PledgeAddr,
 				PledgeAmount:   *bigIntToString(info.Amount),
-				WithdrawHeight: uint64ToString(info.WithdrawHeight),
+				WithdrawHeight: Uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 				CancelTime:     info.CancelTime,
 			}
@@ -146,8 +146,8 @@ func ToReward(source *contracts.Reward) *Reward {
 		return &Reward{TotalReward: *bigIntToString(source.TotalReward),
 			VoteReward:       *bigIntToString(source.VoteReward),
 			BlockReward:      *bigIntToString(source.BlockReward),
-			BlockNum:         uint64ToString(source.BlockNum),
-			ExpectedBlockNum: uint64ToString(source.ExpectedBlockNum)}
+			BlockNum:         Uint64ToString(source.BlockNum),
+			ExpectedBlockNum: Uint64ToString(source.ExpectedBlockNum)}
 	}
 }
 

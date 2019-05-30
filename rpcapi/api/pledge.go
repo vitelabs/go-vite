@@ -70,7 +70,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{uint64ToString(q.PledgeQuotaPerSnapshotBlock()), uint64ToString(q.Current()), uint64ToString(q.Current() / util.TxGas)}, nil
+	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / util.TxGas)}, nil
 }
 
 type PledgeInfoList struct {
@@ -123,7 +123,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	for i, info := range list[startHeight:endHeight] {
 		targetList[i] = &PledgeInfo{
 			*bigIntToString(info.Amount),
-			uint64ToString(info.WithdrawHeight),
+			Uint64ToString(info.WithdrawHeight),
 			info.BeneficialAddr,
 			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 			info.Agent,
