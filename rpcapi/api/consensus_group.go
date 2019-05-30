@@ -124,7 +124,7 @@ func newConsensusGroup(source *types.ConsensusGroupInfo) *ConsensusGroup {
 		RegisterConditionId: source.RegisterConditionId,
 		VoteConditionId:     source.VoteConditionId,
 		Owner:               source.Owner,
-		WithdrawHeight:      uint64ToString(source.WithdrawHeight),
+		WithdrawHeight:      Uint64ToString(source.WithdrawHeight),
 	}
 	if source.PledgeAmount != nil {
 		target.PledgeAmount = *bigIntToString(source.PledgeAmount)
@@ -132,7 +132,7 @@ func newConsensusGroup(source *types.ConsensusGroupInfo) *ConsensusGroup {
 	if param, err := abi.GetRegisterOfPledgeInfo(source.RegisterConditionParam); err == nil {
 		target.RegisterConditionParam = &RegisterConditionParam{PledgeAmount: *bigIntToString(param.PledgeAmount),
 			PledgeToken:  param.PledgeToken,
-			PledgeHeight: uint64ToString(param.PledgeHeight)}
+			PledgeHeight: Uint64ToString(param.PledgeHeight)}
 	}
 	return target
 }
