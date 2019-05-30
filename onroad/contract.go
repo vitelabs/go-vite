@@ -368,6 +368,9 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if err != nil {
 		w.log.Error("GetPledgeQuota err", "error", err)
 	}
+	if quota == nil {
+		return 0
+	}
 	return quota.Current()
 }
 
@@ -388,14 +391,23 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 			w.log.Error("GetPledgeQuotas err", "error", err)
 		} else {
 			for k, v := range commonQuotas {
+				if v == nil {
+					continue
+				}
 				quotas[k] = v.Current()
 			}
 		}
 	} else {
-		var qRrr error
-		_, qRrr = w.manager.Chain().GetPledgeQuotas(beneficialList)
+		quotasMap, qRrr := w.manager.Chain().GetPledgeQuotas(beneficialList)
 		if qRrr != nil {
 			w.log.Error("GetPledgeQuotas err", "error", qRrr)
+		} else {
+			for k, v := range quotasMap {
+				if v == nil {
+					continue
+				}
+				quotas[k] = v.Current()
+			}
 		}
 	}
 	return quotas
