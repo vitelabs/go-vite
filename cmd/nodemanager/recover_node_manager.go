@@ -2,6 +2,7 @@ package nodemanager
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/node"
@@ -20,19 +21,6 @@ func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManag
 	if err != nil {
 		return nil, err
 	}
-
-	// single mode
-	node.Config().Single = true
-	node.ViteConfig().Net.Single = true
-
-	// no miner
-	node.Config().MinerEnabled = false
-	node.ViteConfig().Producer.Producer = false
-
-	// no ledger gc
-	ledgerGc := false
-	node.Config().LedgerGc = &ledgerGc
-	node.ViteConfig().Chain.LedgerGc = ledgerGc
 
 	return &RecoverNodeManager{
 		ctx:  ctx,
@@ -53,14 +41,21 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	// Start up the node
 
 	node := nodeManager.node
+	viteConfig := node.ViteConfig()
 
-	err := StartNode(nodeManager.node)
-	if err != nil {
+	dataDir := viteConfig.DataDir
+	chainCfg := viteConfig.Chain
+	genesisCfg := viteConfig.Genesis
+
+	c := chain.NewChain(dataDir, chainCfg, genesisCfg)
+
+	if err := c.Init(); err != nil {
 		return err
 	}
 
-	node.Vite().Pool().Stop()
-	c := node.Vite().Chain()
+	if err := c.Start(); err != nil {
+		return err
+	}
 
 	deleteToHeight := nodeManager.getDeleteToHeight()
 
@@ -72,7 +67,7 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	fmt.Printf("Latest snapshot block height is %d\n", c.GetLatestSnapshotBlock().Height)
 	fmt.Printf("Delete target height is %d\n", deleteToHeight)
 
-	fmt.Printf("Start deleting, don't shut down. View the deletion process through the log in %s\n", node.Vite().Config().RunLogDir())
+	fmt.Printf("Start deleting, don't shut down. View the deletion process through the log in %s\n", viteConfig.RunLogDir())
 	c.DeleteSnapshotBlocksToHeight(deleteToHeight)
 
 	//	if tmpDeleteToHeight > CountPerDelete {

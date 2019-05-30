@@ -104,6 +104,8 @@ type syncer struct {
 	reader     syncCacheReader
 	irreader   IrreversibleReader
 
+	blackBlocks map[types.Hash]struct{}
+
 	curSubId int // for subscribe
 	subs     map[int]SyncStateCallback
 	mu       sync.Mutex
@@ -146,15 +148,17 @@ func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
 
 func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downloader syncDownloader, timeout time.Duration) *syncer {
 	s := &syncer{
-		chain:      chain,
-		peers:      peers,
-		eventChan:  make(chan peerEvent, 1),
-		subs:       make(map[int]SyncStateCallback),
-		downloader: downloader,
-		reader:     reader,
-		timeout:    timeout,
-		sk:         newSkeleton(peers, new(gid)),
-		log:        netLog.New("module", "syncer"),
+		chain:       chain,
+		peers:       peers,
+		eventChan:   make(chan peerEvent, 1),
+		subs:        make(map[int]SyncStateCallback),
+		downloader:  downloader,
+		reader:      reader,
+		timeout:     timeout,
+		sk:          newSkeleton(peers, new(gid)),
+		blackBlocks: make(map[types.Hash]struct{}),
+		term:        make(chan struct{}),
+		log:         netLog.New("module", "syncer"),
 	}
 
 	s.state = syncStateInit{s}
@@ -203,10 +207,11 @@ func (s *syncer) setState(state syncState) {
 func (s *syncer) stop() {
 	if atomic.CompareAndSwapInt32(&s.running, 1, 0) {
 		s.peers.unSub(s.eventChan)
+		term := s.term
 		select {
-		case <-s.term:
+		case <-term:
 		default:
-			close(s.term)
+			close(term)
 		}
 		s.stopSync()
 	}
@@ -452,11 +457,24 @@ Loop:
 		if end > syncHeight {
 			end = syncHeight
 		}
+
+		if start[0].Height >= end {
+			time.Sleep(time.Second)
+			continue
+		}
+
 		points := s.sk.construct(start, end)
 		if len(points) == 0 {
 			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %d-%d", start[len(start)-1].Height, end))
 			time.Sleep(time.Second)
 			continue
+		}
+
+		// blackList, exit and sync done
+		if s.inBlackList(points) {
+			s.state.done()
+			s.stop()
+			return
 		}
 
 		var point *ledger.HashHeight
@@ -501,10 +519,29 @@ Loop:
 	s.downloader.cancelAllTasks()
 }
 
+func (s *syncer) inBlackList(list []*message.HashHeightPoint) bool {
+	for _, h := range list {
+		if _, ok := s.blackBlocks[h.Hash]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *syncer) stopSync() {
 	s.downloader.cancelAllTasks()
 	atomic.StoreInt32(&s.taskCanceled, 1)
 	s.reader.reset()
+}
+
+func (s *syncer) setBlackHashList(list []string) {
+	for _, str := range list {
+		hash, err := types.HexToHash(str)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
+		}
+		s.blackBlocks[hash] = struct{}{}
+	}
 }
 
 type SyncStatus struct {
