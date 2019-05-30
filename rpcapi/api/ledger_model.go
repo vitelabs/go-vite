@@ -38,6 +38,8 @@ type RawTxBlock struct {
 	AccountAddress types.Address `json:"accountAddress"`
 	PublicKey      []byte        `json:"publicKey"`
 
+	Producer types.Address `json:"producer"`
+
 	FromAddress   types.Address     `json:"fromAddress"`
 	ToAddress     types.Address     `json:"toAddress"`
 	FromBlockHash types.Hash        `json:"fromBlockHash"`
@@ -99,6 +101,9 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 		return nil, err
 	}
 	rpcBlock.RawTxBlock = rawTxBlock
+
+	// Producer
+	rpcBlock.Producer = lAb.Producer()
 
 	// TokenInfo
 	if rawTxBlock.TokenId != types.ZERO_TOKENID {
