@@ -59,6 +59,7 @@ type RawTxBlock struct {
 }
 
 type SnapshotBlock struct {
+	Producer types.Address
 	*ledger.SnapshotBlock
 	Timestamp int64 `json:"timestamp"`
 }
@@ -83,6 +84,8 @@ func ledgerSnapshotBlockToRpcBlock(sb *ledger.SnapshotBlock) (*SnapshotBlock, er
 	rpcBlock := &SnapshotBlock{
 		SnapshotBlock: sb,
 	}
+
+	rpcBlock.Producer = sb.Producer()
 
 	rpcBlock.Timestamp = sb.Timestamp.Unix()
 	return rpcBlock, nil
