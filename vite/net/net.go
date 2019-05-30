@@ -182,6 +182,7 @@ func New(cfg Config) Net {
 	}
 
 	cfg.BlackBlockHashList = append(cfg.BlackBlockHashList, []string{
+		"6771bc124fed97302328c13fb9a97919c8963b7b1f79a431091c7ace00ec28f4",
 		"3963c532b43d476f1cadd01dc36cd5e157b40c86f6848665549e5959626efd39",
 		"f8a9579e36d605e0f1d9e3d2de96e798d3a8218d771cc4d996cf304fac92ed40",
 		"3cdbdd9777eecdd1238675cd0e25b94742af6d5603a926cd331a3b9ce07a1f73",
