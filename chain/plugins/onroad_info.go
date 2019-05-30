@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	oLog          = log15.New("plugin", "onroad_info")
-	updateInfoErr = errors.New("conflict, fail to update onroad info")
+	oLog                 = log15.New("plugin", "onroad_info")
+	updateInfoErr        = errors.New("conflict, fail to update onroad info")
+	updateUnconfirmedErr = errors.New("unconfirmed cache inconsistent")
 )
 
 type OnRoadInfo struct {
@@ -252,8 +253,8 @@ func (or *OnRoadInfo) addUnconfirmed(addrMap map[types.Address][]*ledger.Account
 			} else {
 				hashKey = block.FromBlockHash
 			}
-			value := onRoadMap[hashKey]
-			if value != nil && value.IsSendBlock() != block.IsSendBlock() {
+			value, ok := onRoadMap[hashKey]
+			if ok && value != nil && (value.IsSendBlock() != block.IsSendBlock()) {
 				delete(onRoadMap, hashKey)
 			} else {
 				onRoadMap[hashKey] = block
@@ -279,18 +280,36 @@ func (or *OnRoadInfo) removeUnconfirmed(addrMap map[types.Address][]*ledger.Acco
 			} else {
 				hashKey = block.FromBlockHash
 			}
-			value := onRoadMap[hashKey]
-			if value != nil && value.IsSendBlock() == block.IsSendBlock() {
-				delete(onRoadMap, hashKey)
-			} else {
-				if block.IsReceiveBlock() {
+			// nil, R, S
+			value, ok := onRoadMap[hashKey]
+			if block.IsReceiveBlock() {
+				if ok {
+					if value == nil || value.IsReceiveBlock() {
+						delete(onRoadMap, hashKey)
+					} else {
+						oLog.Error("%v remove R onroad:%v", updateUnconfirmedErr, hashKey)
+						onRoadMap[hashKey] = nil
+					}
+				} else {
 					fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
 					if err != nil {
-						return fmt.Errorf("fail to GetAccountBlockByHash", "onroad", hashKey)
+						oLog.Error("fail to GetAccountBlockByHash, onroad:%v", hashKey)
 					}
+					// fromBlock may be nil
 					onRoadMap[hashKey] = fromBlock
+				}
+			} else {
+				if ok {
+					// value == nil <- (delete-R put nil) || value != nil && value.IsSendBlock || value != nil && value.IsReceiveBlock
+					if value == nil || value.IsSendBlock() {
+						delete(onRoadMap, hashKey)
+					} else {
+						oLog.Error("%v remove S onroad:%v", updateUnconfirmedErr, hashKey)
+						onRoadMap[hashKey] = nil
+					}
 				} else {
-					return fmt.Errorf("conflict, Unconfimed cache inconsistent", "onroad", hashKey)
+					// Nil is a placeholder in the case s&r are all in unconfirmed
+					onRoadMap[hashKey] = nil
 				}
 			}
 		}
