@@ -181,6 +181,14 @@ func New(cfg Config) Net {
 		return mock(cfg)
 	}
 
+	cfg.BlackBlockHashList = append(cfg.BlackBlockHashList, []string{
+		"3963c532b43d476f1cadd01dc36cd5e157b40c86f6848665549e5959626efd39",
+		"f8a9579e36d605e0f1d9e3d2de96e798d3a8218d771cc4d996cf304fac92ed40",
+		"3cdbdd9777eecdd1238675cd0e25b94742af6d5603a926cd331a3b9ce07a1f73",
+		"059aee3dcb367197b2599bcf40b1b02e5bd763cd6c6c65edc5fbc90807129ed3",
+		"3fccebb35716e448a2c08341d0bd5a30b8122a7dd3391eff081013931f25f922",
+	}...)
+
 	peers := newPeerSet()
 
 	feed := newBlockFeeder()
