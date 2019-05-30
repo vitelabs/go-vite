@@ -237,6 +237,7 @@ func (flusher *Flusher) flush() {
 
 	// after commit, lock write
 	//flusher.log.Info("after commit")
+
 	flusher.afterCommit()
 	//flusher.log.Info("finish after committing")
 
@@ -357,6 +358,8 @@ func (flusher *Flusher) cleanRedoLog() error {
 func (flusher *Flusher) prepare() error {
 	// prepare, lock write
 	flusher.mu.Lock()
+	defer flusher.mu.Unlock()
+
 	status := atomic.LoadInt32(&flusher.flusherStatus)
 	if status == aborted {
 		return errors.New("flusher is aborted")
@@ -366,7 +369,6 @@ func (flusher *Flusher) prepare() error {
 		store.Prepare()
 	}
 
-	flusher.mu.Unlock()
 	return nil
 }
 

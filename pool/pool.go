@@ -54,8 +54,8 @@ type Debug interface {
 	SnapshotPendingNum() uint64
 	AccountPendingNum() *big.Int
 	Account(addr types.Address) map[string]interface{}
-	SnapshotChainDetail(chainID string) map[string]interface{}
-	AccountChainDetail(addr types.Address, chainID string) map[string]interface{}
+	SnapshotChainDetail(chainID string, height uint64) map[string]interface{}
+	AccountChainDetail(addr types.Address, chainID string, height uint64) map[string]interface{}
 }
 
 // BlockPool is responsible for organizing blocks and inserting it into the chain
@@ -187,12 +187,12 @@ func (pl *pool) Account(addr types.Address) map[string]interface{} {
 	return pl.selfPendingAc(addr).info()
 }
 
-func (pl *pool) SnapshotChainDetail(chainID string) map[string]interface{} {
-	return pl.pendingSc.detailChain(chainID)
+func (pl *pool) SnapshotChainDetail(chainID string, height uint64) map[string]interface{} {
+	return pl.pendingSc.detailChain(chainID, height)
 }
 
-func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[string]interface{} {
-	return pl.selfPendingAc(addr).detailChain(chainID)
+func (pl *pool) AccountChainDetail(addr types.Address, chainID string, height uint64) map[string]interface{} {
+	return pl.selfPendingAc(addr).detailChain(chainID, height)
 }
 
 // NewPool create a new BlockPool

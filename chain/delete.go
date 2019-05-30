@@ -80,7 +80,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 		}
 
 		c.flushMu.RUnlock()
-		if returnErr != nil {
+		if returnErr == nil {
 			c.flusher.Flush()
 		}
 
@@ -152,18 +152,18 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	}
 
 	// FOR DEBUG
-	//for _, chunk := range snapshotChunks {
-	//	if chunk.SnapshotBlock != nil {
-	//		c.log.Info(fmt.Sprintf("delete snapshot block %d\n", chunk.SnapshotBlock.Height))
-	//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
-	//			c.log.Info(fmt.Sprintf("delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
-	//		}
-	//	}
-	//
-	//	for _, ab := range chunk.AccountBlocks {
-	//		c.log.Info(fmt.Sprintf("delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
-	//	}
-	//}
+	for _, chunk := range snapshotChunks {
+		if chunk.SnapshotBlock != nil {
+			c.log.Info(fmt.Sprintf("delete snapshot block %d\n", chunk.SnapshotBlock.Height))
+			//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
+			//			c.log.Info(fmt.Sprintf("delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
+			//		}
+		}
+		//
+		//	for _, ab := range chunk.AccountBlocks {
+		//		c.log.Info(fmt.Sprintf("delete by sb %s %d %s\n", ab.AccountAddress, ab.Height, ab.Hash))
+		//	}
+	}
 
 	// FOR DEBUG
 	//for _, block := range newUnconfirmedBlocks {
