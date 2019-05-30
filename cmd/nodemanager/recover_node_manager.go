@@ -14,6 +14,8 @@ const CountPerDelete = 10000
 type RecoverNodeManager struct {
 	ctx  *cli.Context
 	node *node.Node
+
+	chain chain.Chain
 }
 
 func NewRecoverNodeManager(ctx *cli.Context, maker NodeMaker) (*RecoverNodeManager, error) {
@@ -49,6 +51,8 @@ func (nodeManager *RecoverNodeManager) Start() error {
 
 	c := chain.NewChain(dataDir, chainCfg, genesisCfg)
 
+	nodeManager.chain = c
+
 	if err := c.Init(); err != nil {
 		return err
 	}
@@ -68,7 +72,9 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	fmt.Printf("Delete target height is %d\n", deleteToHeight)
 
 	fmt.Printf("Start deleting, don't shut down. View the deletion process through the log in %s\n", viteConfig.RunLogDir())
-	c.DeleteSnapshotBlocksToHeight(deleteToHeight)
+	if _, err := c.DeleteSnapshotBlocksToHeight(deleteToHeight); err != nil {
+		return err
+	}
 
 	//	if tmpDeleteToHeight > CountPerDelete {
 	//		tmpDeleteToHeight = tmpDeleteToHeight - CountPerDelete
@@ -104,9 +110,7 @@ func (nodeManager *RecoverNodeManager) Start() error {
 }
 
 func (nodeManager *RecoverNodeManager) Stop() error {
-
-	StopNode(nodeManager.node)
-
+	nodeManager.chain.Stop()
 	return nil
 }
 
