@@ -401,6 +401,14 @@ func (l *LedgerApi) GetChainStatus() []interfaces.DBStatus {
 	return l.chain.GetStatus()
 }
 
+func (l *LedgerApi) GetAllUnconfirmedBlocks() []*ledger.AccountBlock {
+	return l.chain.GetAllUnconfirmedBlocks()
+}
+
+func (l *LedgerApi) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
+	return l.chain.GetUnconfirmedBlocks(addr)
+}
+
 func parseHeight(height interface{}) (uint64, error) {
 	var heightUint64 uint64
 	switch height.(type) {
