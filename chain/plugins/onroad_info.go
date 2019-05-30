@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
+	"strconv"
 	"sync"
 )
 
@@ -131,7 +132,13 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 	// revert flush the db
 	err := or.flushDeleteBySnapshotLine(batch, addrOnRoadMap)
 	if err != nil {
-		oLog.Error(fmt.Sprintf("err:%v", err), "method", "DeleteSnapshotBlocks")
+		heightStr := ""
+		for _, v := range chunks {
+			if v != nil && v.SnapshotBlock != nil {
+				heightStr += strconv.FormatUint(v.SnapshotBlock.Height, 10) + ","
+			}
+		}
+		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -341,7 +348,7 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -379,7 +386,7 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			diffNum := num.Sub(num, &signOm.number)
 			diffAmount := om.TotalAmount.Sub(&om.TotalAmount, &signOm.amount)
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
