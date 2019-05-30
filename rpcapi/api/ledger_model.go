@@ -59,7 +59,7 @@ type RawTxBlock struct {
 }
 
 type SnapshotBlock struct {
-	Producer types.Address
+	Producer types.Address `json:"producer"`
 	*ledger.SnapshotBlock
 	Timestamp int64 `json:"timestamp"`
 }

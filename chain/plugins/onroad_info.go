@@ -14,13 +14,13 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
+	"strconv"
 	"sync"
 )
 
 var (
 	oLog                 = log15.New("plugin", "onroad_info")
 	updateInfoErr        = errors.New("conflict, fail to update onroad info")
-	updateUnconfirmedErr = errors.New("unconfirmed cache inconsistent")
 )
 
 type OnRoadInfo struct {
@@ -90,17 +90,12 @@ func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
 }
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
-	addrOnRoadMap := excludePairTrades(or.chain, confirmedBlocks)
-
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	if err := or.removeUnconfirmed(addrOnRoadMap); err != nil {
-		oLog.Error(fmt.Sprintf("removeUnconfirmed err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
-		// TODO redo the plugin onroad_info
-	}
+	or.removeUnconfirmed(confirmedBlocks)
 
-	if err := or.flushWriteBySnapshotLine(batch, addrOnRoadMap); err != nil {
+	if err := or.flushWriteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
 		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
 		// TODO redo the plugin onroad_info
 	}
@@ -120,18 +115,21 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		}
 		blocks = append(blocks, v.AccountBlocks...)
 	}
-	addrOnRoadMap := excludePairTrades(or.chain, blocks)
 
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	// clean unconfirmed cache
-	or.unconfirmedCache = make(map[types.Address]map[types.Hash]*ledger.AccountBlock)
+	or.removeUnconfirmed(blocks)
 
 	// revert flush the db
-	err := or.flushDeleteBySnapshotLine(batch, addrOnRoadMap)
-	if err != nil {
-		oLog.Error(fmt.Sprintf("err:%v", err), "method", "DeleteSnapshotBlocks")
+	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, blocks)); err != nil {
+		heightStr := ""
+		for _, v := range chunks {
+			if v != nil && v.SnapshotBlock != nil {
+				heightStr += strconv.FormatUint(v.SnapshotBlock.Height, 10) + ","
+			}
+		}
+		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -139,27 +137,22 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 }
 
 func (or *OnRoadInfo) InsertAccountBlock(batch *leveldb.Batch, block *ledger.AccountBlock) error {
-	blocks := make([]*ledger.AccountBlock, 0)
-	blocks = append(blocks, block)
-	addrOnRoadMap := excludePairTrades(or.chain, blocks)
-
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	or.addUnconfirmed(addrOnRoadMap)
+	blocks := make([]*ledger.AccountBlock, 0)
+	blocks = append(blocks, block)
+	or.addUnconfirmed(blocks)
+
 	return nil
 }
 
 func (or *OnRoadInfo) DeleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.AccountBlock) error {
-	addrOnRoadMap := excludePairTrades(or.chain, blocks)
-
 	or.mu.Lock()
 	defer or.mu.Unlock()
 
-	if err := or.removeUnconfirmed(addrOnRoadMap); err != nil {
-		oLog.Error(fmt.Sprintf("removeUnconfirmed err:%v", err), "method", "DeleteAccountBlocks")
-		// TODO redo the plugin onroad_info
-	}
+	or.removeUnconfirmed(blocks)
+
 	return nil
 }
 
@@ -237,84 +230,50 @@ func (or *OnRoadInfo) getUnconfirmed(addr types.Address) (map[types.TokenTypeId]
 	return or.aggregateBlocks(pendingMap)
 }
 
-func (or *OnRoadInfo) addUnconfirmed(addrMap map[types.Address][]*ledger.AccountBlock) {
-	for addr, blockList := range addrMap {
-		if len(blockList) <= 0 {
+func (or *OnRoadInfo) addUnconfirmed(blocks []*ledger.AccountBlock) {
+	for _, v := range blocks {
+		if v == nil {
 			continue
 		}
+		var addr types.Address
+		if v.IsSendBlock() {
+			addr = v.ToAddress
+		} else {
+			addr = v.AccountAddress
+		}
+
 		onRoadMap, ok := or.unconfirmedCache[addr]
 		if !ok || onRoadMap == nil {
 			onRoadMap = make(map[types.Hash]*ledger.AccountBlock)
 		}
-		for _, block := range blockList {
-			var hashKey types.Hash
-			if block.IsSendBlock() {
-				hashKey = block.Hash
-			} else {
-				hashKey = block.FromBlockHash
-			}
-			value, ok := onRoadMap[hashKey]
-			if ok && value != nil && (value.IsSendBlock() != block.IsSendBlock()) {
-				delete(onRoadMap, hashKey)
-			} else {
-				onRoadMap[hashKey] = block
-			}
+		if _, ok := onRoadMap[v.Hash]; !ok {
+			onRoadMap[v.Hash] = v
 			or.unconfirmedCache[addr] = onRoadMap
 		}
 	}
 }
 
-func (or *OnRoadInfo) removeUnconfirmed(addrMap map[types.Address][]*ledger.AccountBlock) error {
-	for addr, blockList := range addrMap {
-		if len(blockList) <= 0 {
+func (or *OnRoadInfo) removeUnconfirmed(blocks []*ledger.AccountBlock) {
+	for _, v := range blocks {
+		if v == nil {
 			continue
 		}
+		var addr types.Address
+		if v.IsSendBlock() {
+			addr = v.ToAddress
+		} else {
+			addr = v.AccountAddress
+		}
+
 		onRoadMap, ok := or.unconfirmedCache[addr]
 		if !ok || onRoadMap == nil {
-			continue
+			onRoadMap = make(map[types.Hash]*ledger.AccountBlock)
 		}
-		for _, block := range blockList {
-			var hashKey types.Hash
-			if block.IsSendBlock() {
-				hashKey = block.Hash
-			} else {
-				hashKey = block.FromBlockHash
-			}
-			// nil, R, S
-			value, ok := onRoadMap[hashKey]
-			if block.IsReceiveBlock() {
-				if ok {
-					if value == nil || value.IsReceiveBlock() {
-						delete(onRoadMap, hashKey)
-					} else {
-						oLog.Error("%v remove R onroad:%v", updateUnconfirmedErr, hashKey)
-						onRoadMap[hashKey] = nil
-					}
-				} else {
-					fromBlock, err := or.chain.GetAccountBlockByHash(block.FromBlockHash)
-					if err != nil {
-						oLog.Error("fail to GetAccountBlockByHash, onroad:%v", hashKey)
-					}
-					// fromBlock may be nil
-					onRoadMap[hashKey] = fromBlock
-				}
-			} else {
-				if ok {
-					// value == nil <- (delete-R put nil) || value != nil && value.IsSendBlock || value != nil && value.IsReceiveBlock
-					if value == nil || value.IsSendBlock() {
-						delete(onRoadMap, hashKey)
-					} else {
-						oLog.Error("%v remove S onroad:%v", updateUnconfirmedErr, hashKey)
-						onRoadMap[hashKey] = nil
-					}
-				} else {
-					// Nil is a placeholder in the case s&r are all in unconfirmed
-					onRoadMap[hashKey] = nil
-				}
-			}
+		if _, ok := onRoadMap[v.Hash]; ok {
+			delete(onRoadMap, v.Hash)
+			or.unconfirmedCache[addr] = onRoadMap
 		}
 	}
-	return nil
 }
 
 func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBlocks map[types.Address][]*ledger.AccountBlock) error {
@@ -341,7 +300,7 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -379,7 +338,7 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			diffNum := num.Sub(num, &signOm.number)
 			diffAmount := om.TotalAmount.Sub(&om.TotalAmount, &signOm.amount)
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf(fmt.Sprintf("addr=%v tkId=%v diffAmount=%v diffNum=%v", addr, tkId, diffAmount, diffNum), "err", updateInfoErr)
+				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
