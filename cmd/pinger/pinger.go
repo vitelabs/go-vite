@@ -72,7 +72,7 @@ import (
 */
 
 func main() {
-	target := "117.50.65.243"
+	target := "119.28.32.48"
 	host := target + ":8483"
 	targetAddr, err := net.ResolveUDPAddr("udp", host)
 	if err != nil {
