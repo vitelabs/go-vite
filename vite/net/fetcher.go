@@ -80,6 +80,56 @@ Loop:
 	return
 }
 
+func (p *fetchTarget) accountSBP(height uint64, r *record) (pe Peer) {
+	var total, top, ran int
+
+	tmp := p.peers.sortPeers()
+	ps := make([]Peer, 0)
+	for _, p := range tmp {
+		if p.Level() >= p2p.Superior {
+			ps = append(ps, p)
+		}
+	}
+
+	// remove failed peers
+	var i, j int
+	var id peerId
+Loop:
+	for i, pe = range ps {
+		if pe.Height()+heightDelta < height {
+			break Loop
+		}
+
+		id = pe.ID()
+		for _, fid := range r.fails {
+			if id == fid {
+				continue Loop
+			}
+		}
+
+		ps[j] = ps[i]
+		j++
+	}
+	ps = ps[:j]
+
+	total = len(ps)
+	if total == 0 {
+		return nil
+	}
+
+	top = total / 3
+
+	if p.chooseTop() && top > 1 {
+		ran = rand.Intn(top)
+	} else {
+		ran = rand.Intn(total)
+	}
+
+	pe = ps[ran]
+
+	return
+}
+
 const heightDelta = 10
 
 func (p *fetchTarget) snapshot(height uint64, r *record) (pe Peer) {
@@ -90,6 +140,33 @@ Loop:
 	for _, pe = range ps {
 		if pe.Height()+heightDelta < height {
 			return nil
+		}
+
+		id = pe.ID()
+		for _, fid := range r.fails {
+			if id == fid {
+				continue Loop
+			}
+		}
+
+		return pe
+	}
+
+	return nil
+}
+
+func (p *fetchTarget) snapshotSBP(height uint64, r *record) (pe Peer) {
+	ps := p.peers.sortPeers()
+
+	var id peerId
+Loop:
+	for _, pe = range ps {
+		if pe.Height()+heightDelta < height {
+			return nil
+		}
+
+		if pe.Level() < p2p.Superior {
+			continue
 		}
 
 		id = pe.ID()
@@ -299,6 +376,7 @@ type fetcher struct {
 	log log15.Logger
 
 	blackBlocks map[types.Hash]struct{}
+	sbp         bool
 
 	term chan struct{}
 }
@@ -313,6 +391,10 @@ func newFetcher(peers *peerSet, receiver blockReceiver) *fetcher {
 		blackBlocks: make(map[types.Hash]struct{}),
 		log:         netLog.New("module", "fetcher"),
 	}
+}
+
+func (f *fetcher) setSBP() {
+	f.sbp = true
 }
 
 func (f *fetcher) start() {
@@ -428,22 +510,34 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 		return
 	}
 
+	ps := make([]Peer, 0, 2)
 	if p := f.policy.snapshot(0, r); p != nil {
-		m := &message.GetSnapshotBlocks{
-			From:    ledger.HashHeight{Hash: hash},
-			Count:   count,
-			Forward: false,
+		ps = append(ps, p)
+	}
+	if f.sbp {
+		if sbp := f.policy.snapshotSBP(0, r); sbp != nil {
+			ps = append(ps, sbp)
 		}
+	}
 
-		if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
-			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
-			f.filter.fail(r.id, p.ID())
+	for _, p := range ps {
+		if p != nil {
+			m := &message.GetSnapshotBlocks{
+				From:    ledger.HashHeight{Hash: hash},
+				Count:   count,
+				Forward: false,
+			}
+
+			if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
+				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
+				f.filter.fail(r.id, p.ID())
+			} else {
+				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+			}
 		} else {
-			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+			f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
+			f.filter.failNoPeers(r.id)
 		}
-	} else {
-		f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
-		f.filter.failNoPeers(r.id)
 	}
 }
 
@@ -466,22 +560,34 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 		return
 	}
 
+	ps := make([]Peer, 0, 2)
 	if p := f.policy.snapshot(height, r); p != nil {
-		m := &message.GetSnapshotBlocks{
-			From:    ledger.HashHeight{Hash: hash},
-			Count:   count,
-			Forward: false,
+		ps = append(ps, p)
+	}
+	if f.sbp {
+		if sbp := f.policy.snapshotSBP(height, r); sbp != nil {
+			ps = append(ps, sbp)
 		}
+	}
 
-		if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
-			f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
-			f.filter.fail(r.id, p.ID())
+	for _, p := range ps {
+		if p != nil {
+			m := &message.GetSnapshotBlocks{
+				From:    ledger.HashHeight{Hash: hash},
+				Count:   count,
+				Forward: false,
+			}
+
+			if err := p.send(p2p.CodeGetSnapshotBlocks, r.id, m); err != nil {
+				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
+				f.filter.fail(r.id, p.ID())
+			} else {
+				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+			}
 		} else {
-			f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+			f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
+			f.filter.failNoPeers(r.id)
 		}
-	} else {
-		f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
-		f.filter.failNoPeers(r.id)
 	}
 }
 
@@ -502,29 +608,41 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
+	ps := make([]Peer, 0, 2)
 	if p := f.policy.account(0, r); p != nil {
-		addr := nilAddress
-		if address != nil {
-			addr = *address
+		ps = append(ps, p)
+	}
+	if f.sbp {
+		if sbp := f.policy.accountSBP(0, r); sbp != nil {
+			ps = append(ps, sbp)
 		}
-		m := &message.GetAccountBlocks{
-			Address: addr,
-			From: ledger.HashHeight{
-				Hash: start,
-			},
-			Count:   count,
-			Forward: false,
-		}
+	}
 
-		if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
-			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
-			f.filter.fail(r.id, p.ID())
+	for _, p := range ps {
+		if p != nil {
+			addr := nilAddress
+			if address != nil {
+				addr = *address
+			}
+			m := &message.GetAccountBlocks{
+				Address: addr,
+				From: ledger.HashHeight{
+					Hash: start,
+				},
+				Count:   count,
+				Forward: false,
+			}
+
+			if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
+				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
+				f.filter.fail(r.id, p.ID())
+			} else {
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+			}
 		} else {
-			f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+			f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
+			f.filter.failNoPeers(r.id)
 		}
-	} else {
-		f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
-		f.filter.failNoPeers(r.id)
 	}
 }
 
@@ -545,29 +663,41 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		return
 	}
 
-	if p := f.policy.account(sHeight, r); p != nil {
-		addr := nilAddress
-		if address != nil {
-			addr = *address
+	ps := make([]Peer, 0, 2)
+	if p := f.policy.account(0, r); p != nil {
+		ps = append(ps, p)
+	}
+	if f.sbp {
+		if sbp := f.policy.accountSBP(0, r); sbp != nil {
+			ps = append(ps, sbp)
 		}
-		m := &message.GetAccountBlocks{
-			Address: addr,
-			From: ledger.HashHeight{
-				Hash: start,
-			},
-			Count:   count,
-			Forward: false,
-		}
+	}
 
-		if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
-			f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
-			f.filter.fail(r.id, p.ID())
+	for _, p := range ps {
+		if p != nil {
+			addr := nilAddress
+			if address != nil {
+				addr = *address
+			}
+			m := &message.GetAccountBlocks{
+				Address: addr,
+				From: ledger.HashHeight{
+					Hash: start,
+				},
+				Count:   count,
+				Forward: false,
+			}
+
+			if err := p.send(p2p.CodeGetAccountBlocks, r.id, m); err != nil {
+				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
+				f.filter.fail(r.id, p.ID())
+			} else {
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+			}
 		} else {
-			f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+			f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
+			f.filter.failNoPeers(r.id)
 		}
-	} else {
-		f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
-		f.filter.failNoPeers(r.id)
 	}
 }
 
