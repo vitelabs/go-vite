@@ -122,7 +122,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	}
 	if genResult.VMBlock != nil {
 
-		blog.Info("insertBlockToPool %v, s[%v, p(%v,%v)]", genResult.VMBlock.AccountBlock.Hash, sBlock.Hash, completeBlockHeight, completeBlockHash)
+		blog.Info(fmt.Sprintf("insertBlockToPool %v, s[%v, p(%v,%v)]", genResult.VMBlock.AccountBlock.Hash, sBlock.Hash, completeBlockHeight, completeBlockHash))
 
 		if err := tp.worker.manager.insertBlockToPool(genResult.VMBlock); err != nil {
 			blog.Error(fmt.Sprintf("insertContractBlocksToPool failed, err:%v", err))
