@@ -119,7 +119,7 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 		if err = feeSum.DeSerialize(feeSumValue); err != nil {
 			return err
 		}
-		if !feeSum.FeeDivided {
+		if !feeSum.FinishFeeDivided {
 			for _, fee := range feeSum.Fees {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				feeAmount := AddBigInt(fee.BaseAmount, fee.DividendPoolAmount)

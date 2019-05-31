@@ -189,7 +189,7 @@ func innerTestFeeDividend(t *testing.T, db *testDatabase) {
 	// userAddress1 userFees 4 -> [VITE : 17]
 	// userAddress2 userFees 4 -> [ETH : 19]
 	assert.True(t, err == nil)
-	assert.Equal(t, uint64(2), dex.GetLastFeeDividendId(db))
+	assert.Equal(t, uint64(2), dex.GetLastFeeDividendPeriodId(db))
 
 	checkFeeSum(t, db, 1, 0, true, 2)
 	checkFeeSum(t, db, 2, 1, true, 2)
@@ -255,7 +255,7 @@ func checkUserVxLen(t *testing.T, db *testDatabase, address []byte, expectedLen 
 func checkFeeSum(t *testing.T, db *testDatabase, periodId, expectedLastPeriod uint64, feeDividedStatus bool, feeLen int) {
 	feeSum1, _ := dex.GetFeeSumByPeriodId(db, periodId)
 	assert.Equal(t, expectedLastPeriod, feeSum1.LastValidPeriod)
-	assert.True(t, feeSum1.FeeDivided == feeDividedStatus)
+	assert.True(t, feeSum1.FinishFeeDivided == feeDividedStatus)
 	assert.Equal(t, feeLen, len(feeSum1.Fees))
 }
 
@@ -318,7 +318,7 @@ func settleFundAndFee(db *testDatabase, address types.Address, tokenId types.Tok
 	if feeAmount > 0 {
 		userFeeSettle := &dexproto.UserFeeSettle{}
 		userFeeSettle.Address = address.Bytes()
-		userFeeSettle.Amount = big.NewInt(feeAmount).Bytes()
+		userFeeSettle.BaseFee = big.NewInt(feeAmount).Bytes()
 
 		feeAction := &dexproto.FeeSettle{}
 		feeAction.Token = feeTokenId.Bytes()

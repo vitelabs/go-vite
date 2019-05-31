@@ -356,13 +356,13 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
 		return handleReceiveErr(fmt.Errorf("dividend periodId not before current periodId"))
 	}
-	if lastDividendId := dex.GetLastFeeDividendId(db); lastDividendId > 0 && param.PeriodId != lastDividendId+1 {
-		return handleReceiveErr(fmt.Errorf("fee dividend period id not equals to expected id %d", lastDividendId+1))
+	if lastPeriodId := dex.GetLastFeeDividendPeriodId(db); lastPeriodId > 0 && param.PeriodId != lastPeriodId+1 {
+		return handleReceiveErr(fmt.Errorf("fee dividend period id not equals to expected id %d", lastPeriodId+1))
 	}
 	if err = dex.DoDivideFees(db, param.PeriodId); err != nil {
 		return handleReceiveErr(err)
 	} else {
-		dex.SaveLastFeeDividendId(db, param.PeriodId)
+		dex.SaveLastFeeDividendPeriodId(db, param.PeriodId)
 	}
 	return nil, nil
 }
@@ -403,13 +403,13 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		return handleReceiveErr(err)
 	}
 	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
-		return handleReceiveErr(fmt.Errorf("specified periodId for mined vx dividend not before current periodId"))
+		return handleReceiveErr(fmt.Errorf("specified periodId for mined vx not before current periodId"))
 	}
-	if lastMinedVxDividendId := dex.GetLastMinedVxDividendId(db); lastMinedVxDividendId > 0 && param.PeriodId != lastMinedVxDividendId+1 {
-		return handleReceiveErr(fmt.Errorf("mined vx dividend period id not equals to expected id %d", lastMinedVxDividendId+1))
+	if lastMinedVxPeriodId := dex.GetLastMinedVxPeriodId(db); lastMinedVxPeriodId > 0 && param.PeriodId != lastMinedVxPeriodId+1 {
+		return handleReceiveErr(fmt.Errorf("mined vx period id not equals to expected id %d", lastMinedVxPeriodId+1))
 	}
-	vxBalance = dex.GetVxAmountForMine(db)
-	if amtForFeePerMarket, amtForPledge, amtForViteLabs, _, success := dex.GetMindedVxAmt(vxBalance); !success {
+	vxBalance = dex.GetVxBalance(db)
+	if amtForFeePerMarket, amtForPledge, amtForViteLabs, vxAmountLeaved, success := dex.GetMindedVxAmt(db, param.PeriodId, vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = dex.DoDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
@@ -418,11 +418,12 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		if err = dex.DoDivideMinedVxForPledge(db, amtForPledge); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoDivideMinedVxForViteXMaintainer(db, amtForViteLabs); err != nil {
+		if err = dex.DoDivideMinedVxForMaintainer(db, amtForViteLabs); err != nil {
 			return handleReceiveErr(err)
 		}
+		dex.SaveVxBalance(db, vxAmountLeaved)
 	}
-	dex.SaveLastMinedVxDividendId(db, param.PeriodId)
+	dex.SaveLastMinedVxPeriodId(db, param.PeriodId)
 	return nil, nil
 }
 
@@ -557,10 +558,12 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 				pledgeVip.PledgeTimes = 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
 			}
+			dex.OnPledgeSuccess(db, callbackParam.PledgeAddress, dex.PledgeForVipAmount)
 		} else {
 			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
 			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
 			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
+			dex.OnPledgeSuccess(db, callbackParam.PledgeAddress, callbackParam.Amount)
 		}
 	} else {
 		dex.DepositAccount(db, callbackParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
@@ -614,6 +617,7 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 				} else {
 					dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip)
 				}
+				dex.OnCancelPledgeSuccess(db, cancelPledgeParam.PledgeAddress, dex.PledgeForVipAmount)
 			} else {
 				return handleReceiveErr(dex.PledgeForVipNotExistsErr)
 			}
@@ -627,6 +631,7 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 			} else {
 				dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved)
 			}
+			dex.OnCancelPledgeSuccess(db, cancelPledgeParam.PledgeAddress, sendBlock.Amount)
 		}
 		dex.DepositAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}

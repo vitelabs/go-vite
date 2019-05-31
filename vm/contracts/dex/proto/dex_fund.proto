@@ -31,12 +31,6 @@ message UserFeeSettle {
     bytes BrokerFee = 3; // BrokerFeeAccount.Amount
 }
 
-message FeeSettle {
-    bytes Token = 1;
-    bytes Broker = 2;
-    repeated UserFeeSettle userFeeSettles = 3;
-}
-
 message SettleActions {
     bytes TradeToken = 1;
     bytes QuoteToken = 2;
@@ -49,17 +43,17 @@ message FeeSumAccount {
     bytes BaseAmount = 2; // for vx mine and dividend
     bytes InviteBonusAmount = 3; // only for vx mine
     // rolled amount : 99% part of last period BaseAmount rolled to this period +
-    // new market fee of current period +
-    // new inviter fee
-    // not allow mine fee
+    // new market fee +
+    // new inviter fee +
+    // baseFee of market not allow mine
     bytes DividendPoolAmount = 4;
 }
 
 message FeeSumByPeriod {
     repeated FeeSumAccount fees = 1;
     uint64 lastValidPeriod = 2;
-    bool FeeDivided = 3;
-    bool MinedVxDivided = 4;
+    bool FinishFeeDividend = 3;
+    bool FinishVxMine = 4;
 }
 
 message UserFees {

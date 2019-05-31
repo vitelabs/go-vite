@@ -24,7 +24,7 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 		if tokenId, err = types.BytesToTokenTypeId(feeSum.Token); err != nil {
 			return err
 		}
-		feeSumMap[tokenId] = new(big.Int).SetBytes(feeSum.BaseAmount)
+		feeSumMap[tokenId] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
 		toDivideVxLeaveAmtMap[tokenId] = minedVxAmtPerMarket
 		dividedFeeMap[tokenId] = big.NewInt(0)
 	}
@@ -66,7 +66,8 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 			continue
 		}
 		if len(userFees.Fees[0].UserFees) > 0 {
-			var userVxDividend = big.NewInt(0)
+			var vxMinedForBase = big.NewInt(0)
+			var vxMinedForInvite = big.NewInt(0)
 			for _, userFee := range userFees.Fees[0].UserFees {
 				if tokenId, err = types.BytesToTokenTypeId(userFee.Token); err != nil {
 					return err
@@ -77,13 +78,19 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 					//continue
 				} else {
 					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
-					userVxDividend.Add(userVxDividend, vxDividend)
+					vxMinedForBase.Add(vxMinedForBase, vxDividend)
 					if finished {
 						delete(feeSumMap, tokenId)
+					} else {
+						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
+						vxMinedForInvite.Add(vxMinedForInvite, vxDividend)
+						if finished {
+							delete(feeSumMap, tokenId)
+						}
 					}
 				}
 			}
-			if err = BatchSaveUserFund(db, address, map[types.TokenTypeId]*big.Int{vxTokenId: userVxDividend}); err != nil {
+			if err = BatchSaveUserFund(db, address, map[types.TokenTypeId]*big.Int{vxTokenId: new(big.Int).Add(vxMinedForBase, vxMinedForInvite)}); err != nil {
 				return err
 			}
 		}
@@ -105,9 +112,52 @@ func DoDivideMinedVxForPledge(db vm_db.VmDb, minedVxAmt *big.Int) error {
 	return nil
 }
 
-func DoDivideMinedVxForViteXMaintainer(db vm_db.VmDb, minedVxAmt *big.Int) error {
+func DoDivideMinedVxForMaintainer(db vm_db.VmDb, minedVxAmt *big.Int) error {
 	if minedVxAmt.Sign() == 0 {
 		return nil
 	}
+	if owner, err := GetOwner(db); owner == nil || err != nil {
+		panic(InternalErr)
+	} else {
+		BatchSaveUserFund(db, *owner, map[types.TokenTypeId]*big.Int{VxToken: minedVxAmt})
+	}
 	return nil
+}
+
+func GetMindedVxAmt(db vm_db.VmDb, periodId uint64, vxBalance *big.Int) (amtForFeePerMarket, amtForPledge, amtForMaintainer, vxAmtLeaved *big.Int, success bool) {
+	if vxBalance.Sign() > 0 {
+		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
+		if vxBalance.Cmp(toDivideTotal) < 0 {
+			toDivideTotal = vxBalance
+		}
+		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
+		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString("0.15")
+		amtForFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
+		amtForFeeTotal := new(big.Int).Mul(amtForFeePerMarket, big.NewInt(4))
+		proportion, _ = new(big.Float).SetPrec(bigFloatPrec).SetString("0.1")
+		amtForMaintainer = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
+		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
+		amtForPledge.Sub(amtForPledge, amtForMaintainer)
+		//TODO complete
+		return amtForFeePerMarket, amtForPledge, amtForMaintainer, new(big.Int).Sub(vxBalance, toDivideTotal), true
+	} else {
+		return nil, nil, nil, nil, false
+	}
+}
+
+func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
+	var firstPeriodId uint64
+	if firstPeriodId = GetFirstMinedVxPeriodId(db); firstPeriodId == 0 {
+		firstPeriodId = periodId
+		SaveFirstMinedVxPeriodId(db, firstPeriodId)
+	}
+	var amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
+	for i := 1; firstPeriodId+uint64(i) <= periodId; i++ {
+		if i <= 364 {
+			amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
+		} else {
+			amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
+		}
+	}
+	return amount
 }

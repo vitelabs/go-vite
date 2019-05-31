@@ -33,26 +33,30 @@ var (
 
 	timerContractAddressKey = []byte("tmA:")
 
-	VxFundKeyPrefix          = []byte("vxF:")  // vxFund:types.Address
-	vxSumFundsKey            = []byte("vxFS:") // vxFundSum
-	lastFeeDividendIdKey     = []byte("lDId:")
-	lastMinedVxDividendIdKey = []byte("lMVDId:") //
-	marketInfoKeyPrefix      = []byte("mk:")     // market: tradeToke,quoteToken
+	VxFundKeyPrefix            = []byte("vxF:")  // vxFund:types.Address
+	vxSumFundsKey              = []byte("vxFS:") // vxFundSum
+	lastFeeDividendPeriodIdKey = []byte("lFDPId:")
+	lastMinedVxPeriodIdKey     = []byte("fMVPId:") //
+	firstMinedVxPeriodIdKey    = []byte("fMVPId:")
+	marketInfoKeyPrefix        = []byte("mk:") // market: tradeToke,quoteToken
 
 	pledgeForVipPrefix = []byte("pldVip:") // pledgeForVip: types.Address
 	pledgeForVxPrefix  = []byte("pldVx:")  // pledgeForVx: types.Address
 
-	tokenInfoPrefix   = []byte("tk:") // token:tokenId
-	vxAmountToMineKey = []byte("vxAmt:")
+	tokenInfoPrefix = []byte("tk:") // token:tokenId
+	vxBalanceKey    = []byte("vxAmt:")
 
 	codeByInviterPrefix    = []byte("itr2cd:")
 	inviterByCodePrefix    = []byte("cd2itr:")
 	inviterByInviteePrefix = []byte("ite2itr:")
 
-	VxTokenBytes               = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
-	commonTokenPow             = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
-	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10))     // 10
-	VxMinedAmtPerPeriod        = new(big.Int).Mul(commonTokenPow, big.NewInt(137000)) // 100,000,000/(365*2) = 136986
+	VxTokenBytes   = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
+	VxToken, _     = types.BytesToTokenTypeId(VxTokenBytes)
+	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
+	VxInitAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(100000000))
+
+	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10)) // 10
+	VxMinedAmtFirstPeriod      = new(big.Int).Mul(commonTokenPow, big.NewInt(477210))
 	NewMarketFeeAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
@@ -475,18 +479,19 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
 		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
-		ok            bool
+		ok, everFound bool
 	)
 	for {
-		if dexFeeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
-			if periodId > 0 {
+		if dexFeeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok { // found first valid period
+			if periodId > 0 && !everFound {
 				periodId--
 				continue
-			} else {
-				return nil, nil
+			} else { // lastValidPeriod is delete
+				return dexFeeSums, brokerFeeSums
 			}
 		} else {
-			if !dexFeeSum.FeeDivided {
+			everFound = true
+			if !dexFeeSum.FinishFeeDividend {
 				dexFeeSums[periodId] = dexFeeSum
 				if brokerFeeSum, ok := GetBrokerFeeSumByPeriodId(db, periodId); ok {
 					brokerFeeSums[periodId] = brokerFeeSum
@@ -509,19 +514,19 @@ func SaveCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSu
 
 //fee sum used both by fee dividend and mined vx dividend
 func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
-	if feeSum.MinedVxDivided {
+	if feeSum.FinishVxMine {
 		setValueToDb(db, GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
-		feeSum.FeeDivided = true
+		feeSum.FinishFeeDividend = true
 		serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
 func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
-	if feeSum.FeeDivided {
+	if feeSum.FinishFeeDividend {
 		setValueToDb(db, GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
-		feeSum.MinedVxDivided = true
+		feeSum.FinishVxMine = true
 		serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
@@ -653,28 +658,40 @@ func SaveVxSumFundsToDb(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
 }
 
-func GetLastFeeDividendId(db vm_db.VmDb) uint64 {
-	if lastFeeDividendIdBytes := getValueFromDb(db, lastFeeDividendIdKey); len(lastFeeDividendIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastFeeDividendIdBytes)
+func GetLastFeeDividendPeriodId(db vm_db.VmDb) uint64 {
+	if lastFeeDividendPeriodIdBytes := getValueFromDb(db, lastFeeDividendPeriodIdKey); len(lastFeeDividendPeriodIdBytes) == 8 {
+		return binary.BigEndian.Uint64(lastFeeDividendPeriodIdBytes)
 	} else {
 		return 0
 	}
 }
 
-func SaveLastFeeDividendId(db vm_db.VmDb, periodId uint64) {
-	setValueToDb(db, lastFeeDividendIdKey, Uint64ToBytes(periodId))
+func SaveLastFeeDividendPeriodId(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, lastFeeDividendPeriodIdKey, Uint64ToBytes(periodId))
 }
 
-func GetLastMinedVxDividendId(db vm_db.VmDb) uint64 {
-	if lastMinedVxDividendIdBytes := getValueFromDb(db, lastMinedVxDividendIdKey); len(lastMinedVxDividendIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastMinedVxDividendIdBytes)
+func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
+	if firstMinedVxPeriodIdBytes := getValueFromDb(db, firstMinedVxPeriodIdKey); len(firstMinedVxPeriodIdBytes) == 8 {
+		return binary.BigEndian.Uint64(firstMinedVxPeriodIdBytes)
 	} else {
 		return 0
 	}
 }
 
-func SaveLastMinedVxDividendId(db vm_db.VmDb, periodId uint64) {
-	setValueToDb(db, lastMinedVxDividendIdKey, Uint64ToBytes(periodId))
+func SaveFirstMinedVxPeriodId(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, firstMinedVxPeriodIdKey, Uint64ToBytes(periodId))
+}
+
+func GetLastMinedVxPeriodId(db vm_db.VmDb) uint64 {
+	if lastMinedVxPeriodIdBytes := getValueFromDb(db, lastMinedVxPeriodIdKey); len(lastMinedVxPeriodIdBytes) == 8 {
+		return binary.BigEndian.Uint64(lastMinedVxPeriodIdBytes)
+	} else {
+		return 0
+	}
+}
+
+func SaveLastMinedVxPeriodId(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, lastMinedVxPeriodIdKey, Uint64ToBytes(periodId))
 }
 
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
@@ -775,29 +792,6 @@ func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) {
 		setValueToDb(db, pendingNewMarketFeeSumKey, nil)
 	} else {
 		setValueToDb(db, pendingNewMarketFeeSumKey, newAmount.Bytes())
-	}
-}
-
-func GetMindedVxAmt(vxBalance *big.Int) (amtForFeePerMarket, amtForPledge, amtForViteLabs, vxAmtLeaved *big.Int, success bool) {
-	var toDivideTotal *big.Int
-	if vxBalance.Sign() > 0 {
-		if vxBalance.Cmp(VxMinedAmtPerPeriod) < 0 {
-			toDivideTotal = vxBalance
-		} else {
-			toDivideTotal = VxMinedAmtPerPeriod
-		}
-		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
-		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString("0.2")
-		amtForFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		amtForFeeTotal := new(big.Int).Mul(amtForFeePerMarket, big.NewInt(4))
-		proportion, _ = new(big.Float).SetPrec(bigFloatPrec).SetString("0.1")
-		amtForViteLabs = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		amtForPledge = new(big.Int).Sub(toDivideTotal, amtForFeeTotal)
-		amtForPledge.Sub(amtForPledge, amtForViteLabs)
-		//TODO complete
-		return amtForFeePerMarket, amtForPledge, amtForViteLabs, nil, true
-	} else {
-		return nil, nil, nil, nil, false
 	}
 }
 
@@ -1043,16 +1037,16 @@ func NewInviteCode(db vm_db.VmDb, hash types.Hash) uint32 {
 	return 0
 }
 
-func GetVxAmountForMine(db vm_db.VmDb) *big.Int {
-	if data := getValueFromDb(db, vxAmountToMineKey); len(data) > 0 {
+func GetVxBalance(db vm_db.VmDb) *big.Int {
+	if data := getValueFromDb(db, vxBalanceKey); len(data) > 0 {
 		return new(big.Int).SetBytes(data)
 	} else {
-		return big.NewInt(0)
+		return VxInitAmount
 	}
 }
 
-func SaveVxAmountForMine(db vm_db.VmDb, amount *big.Int) {
-	setValueToDb(db, vxAmountToMineKey, amount.Bytes())
+func SaveVxBalance(db vm_db.VmDb, amount *big.Int) {
+	setValueToDb(db, vxBalanceKey, amount.Bytes())
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {
