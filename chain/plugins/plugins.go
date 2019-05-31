@@ -263,26 +263,26 @@ func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 }
 
 func (p *Plugins) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	/*	p.mu.RLock()
+		defer p.mu.RUnlock()
 
-	unconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
-	if len(unconfirmedBlocks) <= 0 {
-		return nil
-	}
-
-	for _, block := range unconfirmedBlocks {
-		batch := p.store.NewBatch()
-		for _, plugin := range p.plugins {
-
-			// recover
-			if err := plugin.InsertAccountBlock(batch, block); err != nil {
-				return err
-			}
+		unconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
+		if len(unconfirmedBlocks) <= 0 {
+			return nil
 		}
 
-		p.store.WriteAccountBlock(batch, block)
-	}
+		for _, block := range unconfirmedBlocks {
+			batch := p.store.NewBatch()
+			for _, plugin := range p.plugins {
+
+				// recover
+				if err := plugin.InsertAccountBlock(batch, block); err != nil {
+					return err
+				}
+			}
+
+			p.store.WriteAccountBlock(batch, block)
+		}*/
 	return nil
 }
 
