@@ -91,9 +91,8 @@ func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 	or.mu.Lock()
-	defer or.mu.Unlock()
-
 	or.removeUnconfirmed(confirmedBlocks)
+	or.mu.Unlock()
 
 	if err := or.flushWriteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
 		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
@@ -121,10 +120,10 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		}
 	}
 
-	or.mu.Lock()
-	defer or.mu.Unlock()
-
-	or.removeUnconfirmed(unConfirmedBlocks)
+	/*	or.mu.RLock()
+		// fixme mv to RemoveNewUnconfirmed
+		or.removeUnconfirmed(unConfirmedBlocks)
+		or.mu.RUnlock()*/
 
 	// revert flush the db
 	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
@@ -135,6 +134,30 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 			}
 		}
 		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
+		// TODO redo the plugin onroad_info
+	}
+	return nil
+}
+
+func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnconfirmedBlocks []*ledger.AccountBlock) error {
+	or.mu.RLock()
+	pendingRollBackList := make([]*ledger.AccountBlock, 0)
+	for _, v := range allUnconfirmedBlocks {
+		if v == nil {
+			continue
+		}
+		onRoadMap, ok := or.unconfirmedCache[v.AccountAddress]
+		if ok && onRoadMap != nil {
+			if value, exist := onRoadMap[v.Hash]; exist && value != nil {
+				continue
+			}
+		}
+		pendingRollBackList = append(pendingRollBackList, v)
+	}
+	or.mu.RUnlock()
+
+	if err := or.flushDeleteBySnapshotLine(rollbackBatch, excludePairTrades(or.chain, pendingRollBackList)); err != nil {
+		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v", err), "method", "RemoveNewUnconfirmed")
 		// TODO redo the plugin onroad_info
 	}
 
