@@ -34,4 +34,6 @@ type Plugin interface {
 	DeleteAccountBlocks(*leveldb.Batch, []*ledger.AccountBlock) error
 
 	DeleteSnapshotBlocks(*leveldb.Batch, []*ledger.SnapshotChunk) error
+
+	RemoveNewUnconfirmed(*leveldb.Batch, []*ledger.AccountBlock) error
 }

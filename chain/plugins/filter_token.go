@@ -84,6 +84,9 @@ func (ft *FilterToken) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledg
 	}
 	return nil
 }
+func (ft *FilterToken) RemoveNewUnconfirmed(*leveldb.Batch, []*ledger.AccountBlock) error {
+	return nil
+}
 
 func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, blockHash *types.Hash, count uint64) ([]*ledger.AccountBlock, error) {
 	maxHeight := helper.MaxUint64

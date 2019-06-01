@@ -251,11 +251,15 @@ type Chain interface {
 
 	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 
-	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
-
 	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
 
 	LoadAllOnRoad() (map[types.Address][]types.Hash, error)
+
+	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
+
+	UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error
+
+	GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)

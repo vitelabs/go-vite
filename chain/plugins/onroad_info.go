@@ -91,9 +91,8 @@ func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 	or.mu.Lock()
-	defer or.mu.Unlock()
-
 	or.removeUnconfirmed(confirmedBlocks)
+	or.mu.Unlock()
 
 	if err := or.flushWriteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
 		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
@@ -121,10 +120,10 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		}
 	}
 
-	or.mu.Lock()
-	defer or.mu.Unlock()
-
-	or.removeUnconfirmed(unConfirmedBlocks)
+	/*	or.mu.RLock()
+		// fixme mv to RemoveNewUnconfirmed
+		or.removeUnconfirmed(unConfirmedBlocks)
+		or.mu.RUnlock()*/
 
 	// revert flush the db
 	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
@@ -135,6 +134,30 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 			}
 		}
 		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
+		// TODO redo the plugin onroad_info
+	}
+	return nil
+}
+
+func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnconfirmedBlocks []*ledger.AccountBlock) error {
+	or.mu.RLock()
+	pendingRollBackList := make([]*ledger.AccountBlock, 0)
+	for _, v := range allUnconfirmedBlocks {
+		if v == nil {
+			continue
+		}
+		onRoadMap, ok := or.unconfirmedCache[v.AccountAddress]
+		if ok && onRoadMap != nil {
+			if value, exist := onRoadMap[v.Hash]; exist && value != nil {
+				continue
+			}
+		}
+		pendingRollBackList = append(pendingRollBackList, v)
+	}
+	or.mu.RUnlock()
+
+	if err := or.flushDeleteBySnapshotLine(rollbackBatch, excludePairTrades(or.chain, pendingRollBackList)); err != nil {
+		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v", err), "method", "RemoveNewUnconfirmed")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -159,6 +182,84 @@ func (or *OnRoadInfo) DeleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger
 	or.removeUnconfirmed(blocks)
 
 	return nil
+}
+
+func (or *OnRoadInfo) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error {
+	or.mu.Lock()
+	defer or.mu.Unlock()
+
+	onRoadMap, ok := or.unconfirmedCache[addr]
+	if ok && onRoadMap != nil {
+		pendingMap := make([]*ledger.AccountBlock, 0)
+		for _, v := range onRoadMap {
+			if v == nil {
+				continue
+			}
+			pendingMap = append(pendingMap, v)
+		}
+		uMap := excludePairTrades(or.chain, pendingMap)
+		value, ok := uMap[addr]
+		if ok && len(value) > 0 {
+			return errors.New("can't force to refresh")
+		}
+	}
+
+	batch := or.store.NewBatch()
+	key := CreateOnRoadInfoKey(&addr, &tkId)
+	if number == 0 && amount.Cmp(helper.Big0) <= 0 {
+		or.deleteMeta(batch, key)
+	} else {
+		om, err := or.getMeta(key)
+		if err != nil {
+			return err
+		}
+		if om == nil {
+			om = &onroadMeta{}
+		}
+		om.Number = number
+		om.TotalAmount = amount
+		if err := or.writeMeta(batch, key, om); err != nil {
+			return err
+		}
+	}
+
+	or.store.WriteDirectly(batch)
+	// flush to disk
+	if flusher := or.chain.Flusher(); flusher != nil {
+		flusher.Flush()
+	}
+	return nil
+}
+
+func (or *OnRoadInfo) GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error) {
+	or.mu.RLock()
+	defer or.mu.RUnlock()
+
+	onRoadMap, ok := or.unconfirmedCache[addr]
+	if !ok || onRoadMap == nil {
+		return nil, nil
+	}
+	pendingMap := make([]*ledger.AccountBlock, 0)
+	for _, v := range onRoadMap {
+		if v == nil {
+			continue
+		}
+		pendingMap = append(pendingMap, v)
+	}
+
+	uMap := excludePairTrades(or.chain, pendingMap)
+	value, ok := uMap[addr]
+	if !ok || len(value) <= 0 {
+		return nil, nil
+	}
+	hashList := make([]*types.Hash, 0)
+	for _, v := range uMap[addr] {
+		if v == nil {
+			continue
+		}
+		hashList = append(hashList, &v.Hash)
+	}
+	return hashList, nil
 }
 
 func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, error) {
@@ -282,17 +383,20 @@ func (or *OnRoadInfo) removeUnconfirmed(blocks []*ledger.AccountBlock) {
 }
 
 func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBlocks map[types.Address][]*ledger.AccountBlock) error {
+	var conflictErr string
 	for addr, pendingList := range confirmedBlocks {
 		signOmMap, err := or.aggregateBlocks(pendingList)
 		if err != nil {
-			return err
+			conflictErr += fmt.Sprintf("%v aggregateBlocks addr=%v len=%v", err, addr, len(pendingList)) + " | "
+			continue
 		}
 
 		for tkId, signOm := range signOmMap {
 			key := CreateOnRoadInfoKey(&addr, &tkId)
 			om, err := or.getMeta(key)
 			if err != nil {
-				return err
+				conflictErr += fmt.Sprintf("%v getMeta addr=%v tkId=%v len=%v", err, addr, len(pendingList)) + " | "
+				continue
 			}
 			if om == nil {
 				om = &onroadMeta{
@@ -305,7 +409,8 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
+				conflictErr += fmt.Sprintf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v len=%v", updateInfoErr, addr, tkId, diffAmount, diffNum, len(pendingList)) + " | "
+				continue
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -314,24 +419,31 @@ func (or *OnRoadInfo) flushWriteBySnapshotLine(batch *leveldb.Batch, confirmedBl
 			om.TotalAmount = *diffAmount
 			om.Number = diffNum.Uint64()
 			if err := or.writeMeta(batch, key, om); err != nil {
-				return err
+				conflictErr += fmt.Sprintf("%v writeMeta addr=%v tkId=%v len=%v", err, addr, len(pendingList)) + " | "
+				continue
 			}
 		}
+	}
+	if len(conflictErr) > 0 {
+		return errors.New(conflictErr)
 	}
 	return nil
 }
 
 func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedBlocks map[types.Address][]*ledger.AccountBlock) error {
+	var conflictErr string
 	for addr, pendingList := range confirmedBlocks {
 		signOmMap, err := or.aggregateBlocks(pendingList)
 		if err != nil {
-			return err
+			conflictErr += fmt.Sprintf("%v aggregateBlocks addr=%v len=%v", err, addr, len(pendingList)) + " | "
+			continue
 		}
 		for tkId, signOm := range signOmMap {
 			key := CreateOnRoadInfoKey(&addr, &tkId)
 			om, err := or.getMeta(key)
 			if err != nil {
-				return err
+				conflictErr += fmt.Sprintf("%v getMeta addr=%v tkId=%v len=%v", err, addr, len(pendingList)) + " | "
+				continue
 			}
 			if om == nil {
 				om = &onroadMeta{
@@ -343,7 +455,8 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			diffNum := num.Sub(num, &signOm.number)
 			diffAmount := om.TotalAmount.Sub(&om.TotalAmount, &signOm.amount)
 			if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
-				return fmt.Errorf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v", updateInfoErr, addr, tkId, diffAmount, diffNum)
+				conflictErr += fmt.Sprintf("%v addr=%v tkId=%v diffAmount=%v diffNum=%v len=%v", updateInfoErr, addr, tkId, diffAmount, diffNum, len(pendingList)) + " | "
+				continue
 			}
 			if diffNum.Sign() == 0 {
 				or.deleteMeta(batch, key)
@@ -352,9 +465,13 @@ func (or *OnRoadInfo) flushDeleteBySnapshotLine(batch *leveldb.Batch, confirmedB
 			om.TotalAmount = *diffAmount
 			om.Number = diffNum.Uint64()
 			if err := or.writeMeta(batch, key, om); err != nil {
-				return err
+				conflictErr += fmt.Sprintf("%v writeMeta addr=%v tkId=%v len=%v", err, addr, len(pendingList)) + " | "
+				continue
 			}
 		}
+	}
+	if len(conflictErr) > 0 {
+		return errors.New(conflictErr)
 	}
 	return nil
 }
