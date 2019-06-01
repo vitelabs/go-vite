@@ -257,9 +257,11 @@ type Chain interface {
 
 	GetAccountOnRoadInfo(addr types.Address) (*ledger.AccountInfo, error)
 
+	GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
+
 	UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error
 
-	GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
+	ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
 
 	// ====== Other ======
 	NewDb(dirName string) (*leveldb.DB, error)

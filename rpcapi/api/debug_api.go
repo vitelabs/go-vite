@@ -233,3 +233,7 @@ func (api DebugApi) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId,
 	}
 	return api.v.Chain().UpdateOnRoadInfo(addr, tkId, number, *amount)
 }
+
+func (api DebugApi) ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error {
+	return api.v.Chain().ClearOnRoadUnconfirmedCache(addr, hashList)
+}

@@ -74,6 +74,17 @@ func (c *chain) LoadAllOnRoad() (map[types.Address][]types.Hash, error) {
 	return c.indexDB.LoadAllHash()
 }
 
+func (c *chain) GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error) {
+	if c.plugins == nil {
+		return nil, errors.New("plugins-OnRoadInfo's service not provided")
+	}
+	onRoadInfo, ok := c.plugins.GetPlugin("onRoadInfo").(*chain_plugins.OnRoadInfo)
+	if !ok || onRoadInfo == nil {
+		return nil, errors.New("plugins-OnRoadInfo's service not provided")
+	}
+	return onRoadInfo.GetOnRoadInfoUnconfirmedHashList(addr)
+}
+
 func (c *chain) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error {
 	if c.plugins == nil {
 		return errors.New("plugins-OnRoadInfo's service not provided")
@@ -85,13 +96,13 @@ func (c *chain) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, num
 	return onRoadInfo.UpdateOnRoadInfo(addr, tkId, number, amount)
 }
 
-func (c *chain) GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error) {
+func (c *chain) ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error {
 	if c.plugins == nil {
-		return nil, errors.New("plugins-OnRoadInfo's service not provided")
+		return errors.New("plugins-OnRoadInfo's service not provided")
 	}
 	onRoadInfo, ok := c.plugins.GetPlugin("onRoadInfo").(*chain_plugins.OnRoadInfo)
 	if !ok || onRoadInfo == nil {
-		return nil, errors.New("plugins-OnRoadInfo's service not provided")
+		return errors.New("plugins-OnRoadInfo's service not provided")
 	}
-	return onRoadInfo.GetOnRoadInfoUnconfirmedHashList(addr)
+	return onRoadInfo.RemoveFromUnconfirmedCache(addr, hashList)
 }

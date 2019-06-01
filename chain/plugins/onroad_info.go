@@ -91,8 +91,8 @@ func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
 
 func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error {
 	or.mu.Lock()
+	defer or.mu.Unlock()
 	or.removeUnconfirmed(confirmedBlocks)
-	or.mu.Unlock()
 
 	if err := or.flushWriteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
 		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
@@ -120,10 +120,10 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 		}
 	}
 
-	/*	or.mu.RLock()
-		// fixme mv to RemoveNewUnconfirmed
-		or.removeUnconfirmed(unConfirmedBlocks)
-		or.mu.RUnlock()*/
+	or.mu.Lock()
+	defer or.mu.Unlock()
+	// fixme mv to RemoveNewUnconfirmed
+	//or.removeUnconfirmed(unConfirmedBlocks)
 
 	// revert flush the db
 	if err := or.flushDeleteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
@@ -140,7 +140,9 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 }
 
 func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnconfirmedBlocks []*ledger.AccountBlock) error {
-	or.mu.RLock()
+	or.mu.Lock()
+	defer or.mu.Unlock()
+
 	pendingRollBackList := make([]*ledger.AccountBlock, 0)
 	for _, v := range allUnconfirmedBlocks {
 		if v == nil {
@@ -154,7 +156,6 @@ func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnco
 		}
 		pendingRollBackList = append(pendingRollBackList, v)
 	}
-	or.mu.RUnlock()
 
 	if err := or.flushDeleteBySnapshotLine(rollbackBatch, excludePairTrades(or.chain, pendingRollBackList)); err != nil {
 		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v", err), "method", "RemoveNewUnconfirmed")
@@ -227,6 +228,34 @@ func (or *OnRoadInfo) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeI
 	// flush to disk
 	if flusher := or.chain.Flusher(); flusher != nil {
 		flusher.Flush()
+	}
+	return nil
+}
+
+func (or *OnRoadInfo) RemoveFromUnconfirmedCache(addr types.Address, hashList []*types.Hash) error {
+	or.mu.Lock()
+	defer or.mu.Unlock()
+
+	omMap, err := or.readOnRoadInfo(&addr)
+	if err != nil {
+		return err
+	}
+	if len(omMap) > 0 {
+		return errors.New("can't force to refresh")
+	}
+
+	onRoadMap, ok := or.unconfirmedCache[addr]
+	if !ok || onRoadMap == nil {
+		return nil
+	}
+	for _, v := range hashList {
+		if v == nil {
+			continue
+		}
+		value, ok := onRoadMap[*v]
+		if ok && value != nil {
+			delete(onRoadMap, *v)
+		}
 	}
 	return nil
 }
