@@ -162,6 +162,8 @@ func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnco
 		// TODO redo the plugin onroad_info
 	}
 
+	or.unconfirmedCache = make(map[types.Address]map[types.Hash]*ledger.AccountBlock)
+
 	return nil
 }
 
