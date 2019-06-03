@@ -8,7 +8,7 @@ import (
 )
 
 func TestTree_SwitchMainTo(t *testing.T) {
-	root := newMockBranchRoot()
+	root := NewMockBranchRoot()
 	tr := NewTree()
 
 	{
@@ -97,7 +97,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 }
 
 func TestTree_SwitchMainTo2(t *testing.T) {
-	root := newMockBranchRoot()
+	root := NewMockBranchRoot()
 	tr := NewTree()
 
 	{
@@ -190,7 +190,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 }
 
 func TestTree_RootHeadAdd(t *testing.T) {
-	root := newMockBranchRoot()
+	root := NewMockBranchRoot()
 	tr := NewTree()
 
 	{

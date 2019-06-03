@@ -2,20 +2,18 @@ package pool
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
-
-	"github.com/vitelabs/go-vite/common"
-
-	"github.com/vitelabs/go-vite/pool/batch"
-
-	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pool/batch"
+	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -291,11 +289,14 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	accP.pool.RLockInsert()
 	defer accP.pool.RUnLockInsert()
 
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+
 	accP.chainTailMu.Lock()
 	defer accP.chainTailMu.Unlock()
 
-	cp := accP.chainpool
-	current := cp.tree.Main()
+	// choose current
+	current := accP.chooseAndSwitchCurrentForMake(info)
 
 	if info.offset == nil {
 		tailHeight, tailHash := current.TailHH()
@@ -343,6 +344,31 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	}
 
 	return uint64(headH - minH), ErrAllIn
+}
+
+// choose branch, add random strategy
+func (accP *accountPool) chooseAndSwitchCurrentForMake(info *offsetInfo) tree.Branch {
+	main := accP.chainpool.tree.Main()
+	if info.offset == nil {
+		return main
+	}
+	uTime := main.UTime()
+	if time.Now().After(uTime.Add(time.Second * 5)) {
+		brothers := accP.chainpool.tree.Brothers(main)
+		if len(brothers) == 0 {
+			return main
+		}
+		randN := rand.Intn(len(brothers))
+		branch := brothers[randN]
+		accP.log.Info("current modify for random", "targetId", branch.ID(), "TargetTail", branch.SprintTail(), "currentId", main.ID(), "CurrentTail", main.SprintTail())
+		err := accP.chainpool.tree.SwitchMainTo(branch)
+		if err != nil {
+			accP.log.Error("switch main fail", "err", err)
+			return accP.chainpool.tree.Main()
+		}
+		return accP.chainpool.tree.Main()
+	}
+	return main
 }
 
 func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {

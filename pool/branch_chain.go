@@ -2,12 +2,11 @@ package pool
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/vitelabs/go-vite/common"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool/tree"
 )
 
@@ -78,6 +77,10 @@ func (disk *branchChain) Head() commonBlock {
 	}
 
 	return head
+}
+
+func (disk *branchChain) UTime() time.Time {
+	return time.Now()
 }
 
 func (disk *branchChain) HeadHH() (uint64, types.Hash) {

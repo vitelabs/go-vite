@@ -1,6 +1,8 @@
 package tree
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -21,6 +23,7 @@ type BranchBase interface {
 	MatchHead(hash types.Hash) bool
 	SprintTail() string
 	SprintHead() string
+	UTime() time.Time
 }
 
 type Branch interface {
@@ -42,6 +45,7 @@ type Tree interface {
 	Root() Branch
 	Main() Branch
 	Branches() map[string]Branch
+	Brothers(b Branch) []Branch
 	PruneTree() []Branch
 	FindBranch(height uint64, hash types.Hash) Branch
 	ForkBranch(b Branch, height uint64, hash types.Hash) Branch
