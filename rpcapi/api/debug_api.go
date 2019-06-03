@@ -2,11 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"runtime/debug"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
@@ -22,8 +23,8 @@ func (api DebugApi) Free() {
 	debug.FreeOSMemory()
 }
 
-func (api DebugApi) PoolInfo(addr *types.Address) string {
-	return api.v.Pool().Info(addr)
+func (api DebugApi) PoolInfo() map[string]interface{} {
+	return api.v.Pool().Info()
 }
 
 func (api DebugApi) PoolSnapshot() map[string]interface{} {

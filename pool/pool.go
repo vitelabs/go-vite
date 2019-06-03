@@ -47,7 +47,7 @@ type Reader interface {
 
 // Debug provide more detail info for BlockPool
 type Debug interface {
-	Info(addr *types.Address) string
+	Info() map[string]interface{}
 	AccountBlockInfo(addr types.Address, hash types.Hash) interface{}
 	SnapshotBlockInfo(hash types.Hash) interface{}
 	Snapshot() map[string]interface{}
@@ -233,36 +233,25 @@ func (pl *pool) Init(s syncer,
 	pl.worker.init()
 
 }
-func (pl *pool) Info(addr *types.Address) string {
-	if addr == nil {
-		bp := pl.pendingSc.blockpool
-		cp := pl.pendingSc.chainpool
 
-		freeSize := len(bp.freeBlocks)
-		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
-		snippetSize := len(cp.snippetChains)
-		currentLen := cp.tree.Main().Size()
-		treeSize := cp.tree.Size()
-		chainSize := len(cp.tree.Branches())
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
-	}
-	ac := pl.selfPendingAc(*addr)
-	if ac == nil {
-		return "pool not exist."
-	}
-	bp := ac.blockpool
-	cp := ac.chainpool
+func (pl pool) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+	result["snapshot"] = pl.pendingSc.info()
+	accResult := make(map[types.Address]interface{})
+	accSize := 0
+	pl.pendingAc.Range(func(key, value interface{}) bool {
+		k := key.(types.Address)
+		cp := value.(*accountPool)
+		accResult[k] = cp.info()
+		accSize += 1
+		return true
+	})
 
-	freeSize := len(bp.freeBlocks)
-	compoundSize := common.SyncMapLen(&bp.compoundBlocks)
-	snippetSize := len(cp.snippetChains)
-	treeSize := cp.tree.Size()
-	currentLen := cp.tree.Main().Size()
-	chainSize := len(cp.tree.Branches())
-	return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
-		freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
+	result["accounts"] = accResult
+	result["accLen"] = accSize
+	return result
 }
+
 func (pl *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
 	b, s := pl.selfPendingAc(addr).blockpool.sprint(hash)
 	if b != nil {
