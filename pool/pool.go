@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -365,6 +366,7 @@ func (pl *pool) AddAccountBlock(address types.Address, block *ledger.AccountBloc
 	ac := pl.selfPendingAc(address)
 	ac.addBlock(newAccountPoolBlock(block, nil, pl.version, source))
 
+	ac.setCompactDirty(true)
 	pl.newAccBlockCond.Broadcast()
 	pl.worker.bus.newABlockEvent()
 }
@@ -399,8 +401,6 @@ func (pl *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Account
 		pl.AddAccountBlock(address, b, source)
 	}
 
-	pl.newAccBlockCond.Broadcast()
-	pl.worker.bus.newABlockEvent()
 	return nil
 }
 
@@ -514,6 +514,10 @@ func (pl *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 
+func (pl *pool) destroyPendingAc(addr types.Address) {
+	pl.pendingAc.Delete(addr)
+}
+
 func (pl *pool) ReadDownloadedChunks() *net.Chunk {
 	chunk := pl.sync.Peek()
 	return chunk
@@ -522,25 +526,6 @@ func (pl *pool) ReadDownloadedChunks() *net.Chunk {
 func (pl *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
 	pl.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
 	pl.sync.Pop(hashH.Hash)
-}
-
-func (pl *pool) loopCompact() {
-	pl.wg.Add(1)
-	defer pl.wg.Done()
-
-	sum := 0
-	for {
-		select {
-		case <-pl.closed:
-			return
-		default:
-			if sum == 0 {
-				pl.newAccBlockCond.Wait()
-			}
-			sum = 0
-			sum += pl.accountsCompact()
-		}
-	}
 }
 
 func (pl *pool) broadcastUnConfirmedBlocks() {
@@ -570,6 +555,26 @@ func (pl *pool) delUseLessChains() {
 	}
 }
 
+func (pl *pool) destroyAccounts() {
+	var destroyList []types.Address
+	pl.pendingAc.Range(func(key, value interface{}) bool {
+		addr := key.(types.Address)
+
+		accP := value.(*accountPool)
+		if accP.shouldDestroy() {
+			destroyList = append(destroyList, addr)
+		}
+		return true
+	})
+	for _, v := range destroyList {
+		accP := pl.selfPendingAc(v)
+
+		byt, _ := json.Marshal(accP.info())
+		pl.log.Warn("destroy account pool", "addr", v, "Id", string(byt))
+		pl.destroyPendingAc(v)
+	}
+}
+
 func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
 	rollbackV := pl.rollbackVersion.Val()
 	if info == nil || info.point == nil || info.rollbackV != rollbackV {
@@ -580,7 +585,7 @@ func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
 
 func (pl *pool) compact() int {
 	sum := 0
-	sum += pl.accountsCompact()
+	sum += pl.accountsCompact(true)
 	sum += pl.pendingSc.loopCompactSnapshot()
 	return sum
 }
@@ -588,17 +593,23 @@ func (pl *pool) snapshotCompact() int {
 	return pl.pendingSc.loopCompactSnapshot()
 }
 
-func (pl *pool) accountsCompact() int {
+func (pl *pool) accountsCompact(filterDirty bool) int {
 	sum := 0
 	var pendings []*accountPool
 	pl.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
-		pendings = append(pendings, p)
+		if filterDirty && p.compactDirty {
+			pendings = append(pendings, p)
+			p.setCompactDirty(false)
+		} else if !filterDirty {
+			pendings = append(pendings, p)
+		}
 		return true
 	})
 	if len(pendings) > 0 {
 		monitor.LogEventNum("pool", "AccountsCompact", len(pendings))
 		for _, p := range pendings {
+			pl.log.Debug("account compact", "addr", p.address, "filterDirty", filterDirty)
 			sum = sum + p.Compact()
 		}
 	}

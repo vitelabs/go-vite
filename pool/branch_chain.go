@@ -48,6 +48,11 @@ func (disk *branchChain) GetKnotAndBranch(height uint64) (tree.Knot, tree.Branch
 	return disk.GetKnot(height, true), disk
 }
 
+func (disk *branchChain) GetHashAndBranch(height uint64) (*types.Hash, tree.Branch) {
+	hash := disk.GetHash(height, true)
+	return hash, disk
+}
+
 func (disk *branchChain) TailHH() (uint64, types.Hash) {
 	panic("not support")
 }
@@ -63,6 +68,10 @@ func (disk *branchChain) AddHead(k tree.Knot) error {
 
 func (disk *branchChain) GetKnot(height uint64, flag bool) tree.Knot {
 	return disk.rw.getBlock(height)
+}
+
+func (disk *branchChain) GetHash(height uint64, flag bool) *types.Hash {
+	return disk.rw.getHash(height)
 }
 
 func (disk *branchChain) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {

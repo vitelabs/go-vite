@@ -29,7 +29,9 @@ type BranchBase interface {
 type Branch interface {
 	BranchBase
 	GetKnot(height uint64, flag bool) Knot
+	GetHash(height uint64, flag bool) *types.Hash
 	GetKnotAndBranch(height uint64) (Knot, Branch)
+	GetHashAndBranch(height uint64) (*types.Hash, Branch)
 	ContainsKnot(height uint64, hash types.Hash, flag bool) bool
 	HeadHH() (uint64, types.Hash)
 	TailHH() (uint64, types.Hash)

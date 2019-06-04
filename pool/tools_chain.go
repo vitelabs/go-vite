@@ -24,6 +24,7 @@ type chainDb interface {
 	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
+	GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
 	//DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
 	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 	//GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
@@ -33,6 +34,7 @@ type chainDb interface {
 	GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotHashByHeight(height uint64) (*types.Hash, error)
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
 	DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*ledger.SnapshotChunk, error)
 	DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*ledger.AccountBlock, error)
@@ -52,6 +54,7 @@ type chainRw interface {
 
 	head() commonBlock
 	getBlock(height uint64) commonBlock
+	getHash(height uint64) *types.Hash
 }
 
 type accountCh struct {
@@ -106,6 +109,14 @@ func (accCh *accountCh) getBlock(height uint64) commonBlock {
 	}
 
 	return newAccountPoolBlock(block, nil, accCh.version, types.RollbackChain)
+}
+
+func (accCh *accountCh) getHash(height uint64) *types.Hash {
+	hash, e := accCh.rw.GetAccountBlockHashByHeight(accCh.address, height)
+	if e != nil {
+		return nil
+	}
+	return hash
 }
 
 func (accCh *accountCh) insertBlocks(bs []commonBlock) error {
@@ -206,6 +217,14 @@ func (sCh *snapshotCh) getBlock(height uint64) commonBlock {
 		return nil
 	}
 	return newSnapshotPoolBlock(block, sCh.version, types.QueryChain)
+}
+
+func (sCh *snapshotCh) getHash(height uint64) *types.Hash {
+	hash, e := sCh.bc.GetSnapshotHashByHeight(height)
+	if e != nil {
+		return nil
+	}
+	return hash
 }
 
 func (sCh *snapshotCh) head() commonBlock {
