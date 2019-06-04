@@ -1,6 +1,8 @@
 package tree
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -21,12 +23,15 @@ type BranchBase interface {
 	MatchHead(hash types.Hash) bool
 	SprintTail() string
 	SprintHead() string
+	UTime() time.Time
 }
 
 type Branch interface {
 	BranchBase
 	GetKnot(height uint64, flag bool) Knot
+	GetHash(height uint64, flag bool) *types.Hash
 	GetKnotAndBranch(height uint64) (Knot, Branch)
+	GetHashAndBranch(height uint64) (*types.Hash, Branch)
 	ContainsKnot(height uint64, hash types.Hash, flag bool) bool
 	HeadHH() (uint64, types.Hash)
 	TailHH() (uint64, types.Hash)
@@ -42,6 +47,7 @@ type Tree interface {
 	Root() Branch
 	Main() Branch
 	Branches() map[string]Branch
+	Brothers(b Branch) []Branch
 	PruneTree() []Branch
 	FindBranch(height uint64, hash types.Hash) Branch
 	ForkBranch(b Branch, height uint64, hash types.Hash) Branch
