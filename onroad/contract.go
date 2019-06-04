@@ -88,7 +88,10 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	if w.status != start {
 		w.isCancel.Store(false)
 
-		// 1. get gid`s all contract address if error happened return immediately
+		// 1.init selectivePendingCache
+		w.selectivePendingCache = sync.Map{}
+
+		// 2. get gid`s all contract address if error happened return immediately
 		addressList, err := w.manager.chain.GetContractList(w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
@@ -101,10 +104,11 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.contractAddressList = addressList
 		log.Info("get addresslist", "len", len(addressList))
 
-		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in start
+		// 3. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in start
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
+		// 4. register listening events, including addContractLis and addSnapshotEventLis
 		w.manager.addContractLis(w.gid, func(address types.Address) {
 			if w.isContractInBlackList(address) {
 				return
@@ -175,8 +179,6 @@ func (w *ContractWorker) Stop() {
 		log.Info("stop all task")
 		w.wg.Wait()
 		log.Info("end stop all task")
-
-		w.clearSelectiveBlocksCache()
 
 		w.status = stop
 	}
@@ -292,10 +294,6 @@ func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
-}
-
-func (w *ContractWorker) clearSelectiveBlocksCache() {
-	w.selectivePendingCache = sync.Map{}
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
