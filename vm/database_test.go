@@ -274,6 +274,21 @@ func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int
 func (db *testDatabase) DebugGetStorage() (map[string][]byte, error) {
 	return db.storageMap[db.addr], nil
 }
+func (db *testDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
+	return 1, nil
+}
+func (db *testDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
+	if m, ok := db.accountBlockMap[addr]; ok {
+		var block *ledger.AccountBlock
+		for _, b := range m {
+			if block == nil || block.Height < b.Height {
+				block = b
+			}
+		}
+		return block, nil
+	}
+	return nil, nil
+}
 
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f00"))

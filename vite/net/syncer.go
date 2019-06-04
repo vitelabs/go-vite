@@ -435,6 +435,20 @@ Start:
 		s.log.Warn(fmt.Sprintf("getIrreversibleBlock: %s/%d", irrevHash, irrevHeight))
 	}
 
+	// bugfix: 691500
+	const forkHeight = 691500
+	if irrevHeight > forkHeight {
+		block, err = s.chain.GetSnapshotBlockByHeight(forkHeight)
+		if err != nil {
+			panic(fmt.Sprintf("failed to get block at %d", forkHeight))
+		} else if block != nil {
+			start = append(start, &ledger.HashHeight{
+				Height: block.Height,
+				Hash:   block.Hash,
+			})
+		}
+	}
+
 	atomic.StoreInt32(&s.taskCanceled, 0)
 	first := true
 
