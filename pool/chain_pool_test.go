@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pool/tree"
 )
@@ -332,4 +333,44 @@ func Test_Forkable(t *testing.T) {
 	assert.Equal(t, c.ID(), main.ID())
 	assert.False(t, insertable)
 	assert.True(t, forky)
+}
+
+func Test_Forkable2(t *testing.T) {
+	tr := tree.NewTree()
+	diskChain := tree.NewMockBranchRoot()
+	{
+		height, _ := diskChain.HeadHH()
+		assert.Equal(t, height, uint64(0))
+	}
+
+	cp := &chainPool{
+		poolID: "unittest",
+		//diskChain: diskChain,
+		tree: tr,
+		log:  log15.New("module", "unittest"),
+	}
+	cp.snippetChains = make(map[string]*snippetChain)
+	cp.tree.Init(cp.poolID, diskChain)
+
+	main := tr.Main()
+	height, _ := main.HeadHH()
+	assert.Equal(t, height, uint64(0))
+	height, _ = main.TailHH()
+	assert.Equal(t, height, uint64(0))
+
+	block := newMockCommonBlockByHH(0, types.Hash{}, "snippet")
+	snp := newSnippetChain(block, "snippet1")
+
+	bs := tr.Branches()
+	bm := make(map[string]tree.Branch)
+	for _, v := range bs {
+		bm[v.ID()] = v
+	}
+	forky, insertable, c, err := cp.fork2(snp, bm, nil)
+
+	assert.Empty(t, err)
+	assert.NotEmpty(t, c)
+	assert.Equal(t, c.ID(), main.ID())
+	assert.True(t, insertable)
+	assert.False(t, forky)
 }

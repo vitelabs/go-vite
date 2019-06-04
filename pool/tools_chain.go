@@ -112,6 +112,9 @@ func (accCh *accountCh) getBlock(height uint64) commonBlock {
 }
 
 func (accCh *accountCh) getHash(height uint64) *types.Hash {
+	if height == types.EmptyHeight {
+		return &types.Hash{}
+	}
 	hash, e := accCh.rw.GetAccountBlockHashByHeight(accCh.address, height)
 	if e != nil {
 		return nil
@@ -220,6 +223,9 @@ func (sCh *snapshotCh) getBlock(height uint64) commonBlock {
 }
 
 func (sCh *snapshotCh) getHash(height uint64) *types.Hash {
+	if height == types.EmptyHeight {
+		return &types.Hash{}
+	}
 	hash, e := sCh.bc.GetSnapshotHashByHeight(height)
 	if e != nil {
 		return nil

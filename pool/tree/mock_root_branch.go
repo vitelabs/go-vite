@@ -84,6 +84,9 @@ func (self *mockBranchRoot) GetKnot(height uint64, flag bool) Knot {
 }
 
 func (self *mockBranchRoot) GetHash(height uint64, flag bool) *types.Hash {
+	if height == types.EmptyHeight {
+		return &types.Hash{}
+	}
 	knot := self.base.getHeightBlock(height)
 	if knot == nil {
 		return nil
