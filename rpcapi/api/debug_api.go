@@ -2,11 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"runtime/debug"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
