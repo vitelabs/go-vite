@@ -62,6 +62,23 @@ func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*led
 	return block, nil
 }
 
+func (c *chain) GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error) {
+	// cache
+	if block := c.cache.GetAccountBlockByHeight(addr, height); block != nil {
+		return &block.Hash, nil
+	}
+
+	// query location
+	hash, _, err := c.indexDB.GetAccountBlockLocationByHeight(&addr, height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockHashByHeight failed, error is %s, address is %s, height is %d",
+			err.Error(), addr, height))
+		c.log.Error(cErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, err
+	}
+	return hash, nil
+}
+
 func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 
 	// cache

@@ -2,10 +2,11 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -56,6 +57,23 @@ func (c *chain) GetSnapshotHeightByHash(hash types.Hash) (uint64, error) {
 	}
 
 	return height, nil
+}
+
+func (c *chain) GetSnapshotHashByHeight(height uint64) (*types.Hash, error) {
+	// cache
+	if header := c.cache.GetSnapshotHeaderByHeight(height); header != nil {
+		return &header.Hash, nil
+	}
+
+	// query location
+	hash, _, err := c.indexDB.GetSnapshotBlockByHeight(height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockByHeight failed,  height is %d. Error: %s,",
+			height, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
+		return nil, cErr
+	}
+	return hash, nil
 }
 
 // header without snapshot content

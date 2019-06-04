@@ -2,6 +2,7 @@ package pool
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -28,7 +29,7 @@ func (pl *pool) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 		if block == nil {
 			continue
 		}
-		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer())
+		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now())
 	}
 	return nil
 }

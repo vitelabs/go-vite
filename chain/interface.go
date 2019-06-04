@@ -86,6 +86,8 @@ type Chain interface {
 
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
 
+	GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
+
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	// query receive block of send block
@@ -126,6 +128,9 @@ type Chain interface {
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
+	// return snapshot hash
+	GetSnapshotHashByHeight(height uint64) (*types.Hash, error)
 
 	// block contains header、snapshot content
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)

@@ -55,6 +55,25 @@ func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_file_manager
 	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
+func (iDB *IndexDB) GetSnapshotBlockByHeight(height uint64) (*types.Hash, *chain_file_manager.Location, error) {
+	key := chain_utils.CreateSnapshotBlockHeightKey(height)
+
+	value, err := iDB.getValue(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(value) <= 0 {
+		return nil, nil, nil
+	}
+
+	hash, err := types.BytesToHash(value[:types.HashSize])
+	if err != nil {
+		return nil, nil, err
+	}
+	return &hash, chain_utils.DeserializeLocation(value[types.HashSize:]), nil
+}
+
 func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_file_manager.Location, error) {
 	startKey := chain_utils.CreateSnapshotBlockHeightKey(1)
 	endKey := chain_utils.CreateSnapshotBlockHeightKey(helper.MaxUint64)

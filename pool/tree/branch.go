@@ -26,6 +26,10 @@ func (self *branch) GetKnotAndBranch(height uint64) (Knot, Branch) {
 	return self.getKnotAndBranch(height)
 }
 
+func (self *branch) GetHashAndBranch(height uint64) (*types.Hash, Branch) {
+	return self.getHashAndBranch(height)
+}
+
 func (self *branch) AddHead(k Knot) error {
 	self.addHead(k)
 	return nil
@@ -54,6 +58,14 @@ func (self *branch) GetKnot(height uint64, flag bool) Knot {
 		return nil
 	}
 	return w
+}
+func (self *branch) GetHash(height uint64, flag bool) *types.Hash {
+	w := self.getKnot(height, flag)
+	if w == nil {
+		return nil
+	}
+	hash := w.Hash()
+	return &hash
 }
 
 func (self *branch) ID() string {
@@ -226,6 +238,38 @@ func (self *branch) getKnotAndBranch(height uint64) (Knot, Branch) {
 			return nil, nil
 		}
 		b := refer.GetKnot(height, false)
+		if b != nil {
+			return b, refer
+		} else {
+			if refer.Type() == Disk {
+				return nil, nil
+			}
+			if _, ok := refers[refer.ID()]; ok {
+				return nil, nil
+			}
+			refers[refer.ID()] = refer
+			refer = refer.Root()
+		}
+	}
+	return nil, nil
+}
+
+func (self *branch) getHashAndBranch(height uint64) (*types.Hash, Branch) {
+	if height > self.headHeight {
+		return nil, nil
+	}
+	block := self.getHeightBlock(height)
+	if block != nil {
+		hash := block.Hash()
+		return &hash, self
+	}
+	refers := make(map[string]Branch)
+	refer := self.root
+	for {
+		if refer == nil {
+			return nil, nil
+		}
+		b := refer.GetHash(height, false)
 		if b != nil {
 			return b, refer
 		} else {
