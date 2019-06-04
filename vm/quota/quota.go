@@ -113,10 +113,6 @@ func CheckQuota(db quotaDb, q types.Quota, addr types.Address) bool {
 	if q.Blocked() {
 		return false
 	}
-	if unconfirmedBlocks := db.GetUnconfirmedBlocks(addr); len(unconfirmedBlocks) > 0 &&
-		unconfirmedBlocks[len(unconfirmedBlocks)-1].BlockType == ledger.BlockTypeReceiveError {
-		return false
-	}
 	if q.Current() >= q.Avg() {
 		return true
 	} else {

@@ -1,6 +1,8 @@
 package net
 
 import (
+	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -25,15 +27,27 @@ type blockReceiver interface {
 }
 
 type blockFeed struct {
-	aSubs     map[int]AccountBlockCallback
-	bSubs     map[int]SnapshotBlockCallback
-	currentId int
+	aSubs       map[int]AccountBlockCallback
+	bSubs       map[int]SnapshotBlockCallback
+	currentId   int
+	blackBlocks map[types.Hash]struct{}
 }
 
-func newBlockFeeder() blockFeeder {
+func newBlockFeeder() *blockFeed {
 	return &blockFeed{
-		aSubs: make(map[int]AccountBlockCallback),
-		bSubs: make(map[int]SnapshotBlockCallback),
+		aSubs:       make(map[int]AccountBlockCallback),
+		bSubs:       make(map[int]SnapshotBlockCallback),
+		blackBlocks: make(map[types.Hash]struct{}),
+	}
+}
+
+func (bf *blockFeed) setBlackHashList(list []string) {
+	for _, str := range list {
+		hash, err := types.HexToHash(str)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
+		}
+		bf.blackBlocks[hash] = struct{}{}
 	}
 }
 
@@ -58,6 +72,10 @@ func (bf *blockFeed) UnsubscribeSnapshotBlock(subId int) {
 }
 
 func (bf *blockFeed) notifySnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) {
+	if _, ok := bf.blackBlocks[block.Hash]; ok {
+		return
+	}
+
 	for _, fn := range bf.bSubs {
 		if fn != nil {
 			fn(block, source)
@@ -66,6 +84,10 @@ func (bf *blockFeed) notifySnapshotBlock(block *ledger.SnapshotBlock, source typ
 }
 
 func (bf *blockFeed) notifyAccountBlock(block *ledger.AccountBlock, source types.BlockSource) {
+	if _, ok := bf.blackBlocks[block.Hash]; ok {
+		return
+	}
+
 	for _, fn := range bf.aSubs {
 		if fn != nil {
 			fn(block.AccountAddress, block, source)

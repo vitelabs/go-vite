@@ -266,11 +266,6 @@ func (accP *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	}
 }
 
-func (accP *accountPool) broadcastUnConfirmedBlocks() {
-	blocks := accP.rw.getUnConfirmedBlocks()
-	accP.f.broadcastBlocks(blocks)
-}
-
 func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	b := accP.chainpool.tree.Main().GetKnot(i, false)
 	if b != nil {
@@ -278,10 +273,18 @@ func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	}
 	return nil
 }
+
+var ErrEmptyMain = errors.New("empty chainpool")
+var ErrCurrentChainModify = errors.New("current chain modify")
+var ErrMax = errors.New("arrived to max")
+var ErrBlackList = errors.New("block in blacklist")
+var ErrQuotaNotEnough = errors.New("block quota not enough")
+var ErrAllIn = errors.New("all in")
+
 func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64) (uint64, error) {
 	// if current size is empty, do nothing.
 	if accP.chainpool.tree.Main().Size() <= 0 {
-		return 0, errors.New("empty chainpool")
+		return 0, ErrEmptyMain
 	}
 
 	// lock other chain insert
@@ -301,7 +304,7 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	} else {
 		block := current.GetKnot(info.offset.Height+1, false)
 		if block == nil || block.PrevHash() != info.offset.Hash {
-			return uint64(0), errors.New("current chain modify")
+			return uint64(0), ErrCurrentChainModify
 		}
 	}
 
@@ -309,20 +312,20 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	headH, _ := current.HeadHH()
 	for i := minH; i <= headH; i++ {
 		if i-minH >= max {
-			return uint64(i - minH), errors.New("arrived to max")
+			return uint64(i - minH), ErrMax
 		}
 		block := accP.getCurrentBlock(i)
 		if block == nil {
-			return uint64(i - minH), errors.New("current chain modify")
+			return uint64(i - minH), ErrCurrentChainModify
 		}
 		if accP.hashBlacklist.Exists(block.Hash()) {
-			return uint64(i - minH), errors.New("block in blacklist")
+			return uint64(i - minH), ErrBlackList
 		}
 		// check quota
 		used, unused, enought := info.quotaEnough(block)
 		if !enought {
 			// todo remove
-			return uint64(i - minH), errors.New("block quota not enough")
+			return uint64(i - minH), ErrQuotaNotEnough
 		}
 		accP.log.Debug(fmt.Sprintf("[%s][%d][%s]quota info [used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 		// check request block confirmed time for response block
@@ -339,7 +342,7 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 		info.quotaSub(block)
 	}
 
-	return uint64(headH - minH), errors.New("all in")
+	return uint64(headH - minH), ErrAllIn
 }
 
 func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {

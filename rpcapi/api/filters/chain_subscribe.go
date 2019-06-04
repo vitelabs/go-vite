@@ -111,7 +111,9 @@ func (c *ChainSubscribe) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotCh
 func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	sbEvents := make([]*SnapshotChainEvent, 0, len(chunks))
 	for _, b := range chunks {
-		sbEvents = append(sbEvents, &SnapshotChainEvent{b.SnapshotBlock.Hash, b.SnapshotBlock.Height})
+		if b.SnapshotBlock != nil {
+			sbEvents = append(sbEvents, &SnapshotChainEvent{b.SnapshotBlock.Hash, b.SnapshotBlock.Height})
+		}
 	}
 	c.es.sbDelCh <- sbEvents
 	return nil

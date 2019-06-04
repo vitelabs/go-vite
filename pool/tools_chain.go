@@ -25,7 +25,7 @@ type chainDb interface {
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
 	//DeleteAccountBlocks(addr *types.Address, toHeight uint64) (map[types.Address][]*ledger.AccountBlock, error)
-	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
+	GetAllUnconfirmedBlocks() []*ledger.AccountBlock
 	//GetFirstConfirmedAccountBlockBySbHeight(snapshotBlockHeight uint64, addr *types.Address) (*ledger.AccountBlock, error)
 	//GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
@@ -64,7 +64,15 @@ type accountCh struct {
 func (accCh *accountCh) insertBlock(b commonBlock) error {
 	monitor.LogEvent("pool", "insertChain")
 	block := b.(*accountPoolBlock)
-	accCh.log.Info("insert account block", "addr", block.block.AccountAddress, "height", block.block.Height, "hash", block.block.Hash)
+	sendInfo := "none"
+	reqInfo := "none"
+	if block.block.IsReceiveBlock() {
+		for _, v := range block.block.SendBlockList {
+			sendInfo += v.Hash.String() + "|"
+		}
+		reqInfo = block.block.FromBlockHash.String()
+	}
+	accCh.log.Info("insert account block", "addr", block.block.AccountAddress, "height", block.block.Height, "hash", block.block.Hash, "sendList", sendInfo, "requestHash", reqInfo)
 	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
 	return accCh.rw.InsertAccountBlock(accountBlock)
 }
@@ -152,10 +160,6 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[types.Add
 		}
 	}
 	return nil, results, nil
-}
-
-func (accCh *accountCh) getUnConfirmedBlocks() []*ledger.AccountBlock {
-	return accCh.rw.GetUnconfirmedBlocks(accCh.address)
 }
 
 func (accCh *accountCh) getLatestSnapshotBlock() *ledger.SnapshotBlock {

@@ -23,13 +23,14 @@ var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
 
 type Config struct {
-	Single            bool
-	FileListenAddress string
-	TraceEnabled      bool
-	ForwardStrategy   string   // default `cross`
-	AccessControl     string   `json:"AccessControl"` // producer special any
-	AccessAllowKeys   []string `json:"AccessAllowKeys"`
-	AccessDenyKeys    []string `json:"AccessDenyKeys"`
+	Single             bool
+	FileListenAddress  string
+	TraceEnabled       bool
+	ForwardStrategy    string   // default `cross`
+	AccessControl      string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys    []string `json:"AccessAllowKeys"`
+	AccessDenyKeys     []string `json:"AccessDenyKeys"`
+	BlackBlockHashList []string
 
 	MinePrivateKey ed25519.PrivateKey
 	P2PPrivateKey  ed25519.PrivateKey
@@ -180,9 +181,19 @@ func New(cfg Config) Net {
 		return mock(cfg)
 	}
 
+	cfg.BlackBlockHashList = append(cfg.BlackBlockHashList, []string{
+		"6771bc124fed97302328c13fb9a97919c8963b7b1f79a431091c7ace00ec28f4",
+		"3963c532b43d476f1cadd01dc36cd5e157b40c86f6848665549e5959626efd39",
+		"f8a9579e36d605e0f1d9e3d2de96e798d3a8218d771cc4d996cf304fac92ed40",
+		"3cdbdd9777eecdd1238675cd0e25b94742af6d5603a926cd331a3b9ce07a1f73",
+		"059aee3dcb367197b2599bcf40b1b02e5bd763cd6c6c65edc5fbc90807129ed3",
+		"3fccebb35716e448a2c08341d0bd5a30b8122a7dd3391eff081013931f25f922",
+	}...)
+
 	peers := newPeerSet()
 
 	feed := newBlockFeeder()
+	feed.setBlackHashList(cfg.BlackBlockHashList)
 
 	forward := createForardStrategy(cfg.ForwardStrategy, peers)
 	broadcaster := newBroadcaster(peers, cfg.Verifier, feed, newMemBlockStore(1000), forward, nil, cfg.Chain)
@@ -205,9 +216,13 @@ func New(cfg Config) Net {
 	syncServer := newSyncServer(cfg.FileListenAddress, cfg.Chain, syncConnFac)
 
 	reader := newCacheReader(cfg.Chain, cfg.Verifier, downloader)
+	reader.setBlackHashList(cfg.BlackBlockHashList)
+
 	syncer := newSyncer(cfg.Chain, peers, reader, downloader, 10*time.Minute)
+	syncer.setBlackHashList(cfg.BlackBlockHashList)
 
 	fetcher := newFetcher(peers, receiver)
+	fetcher.setBlackHashList(cfg.BlackBlockHashList)
 
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)
 	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
@@ -369,6 +384,7 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 		if len(n.MinePrivateKey) != 0 {
 			addr = types.PubkeyToAddress(n.MinePrivateKey.PubByte())
 			setNodeExt(n.MinePrivateKey, svr.Node())
+			n.fetcher.setSBP()
 		}
 		n.sn = newSbpn(addr, n.peers, svr, n.consensus)
 		if discv := svr.Discovery(); discv != nil {

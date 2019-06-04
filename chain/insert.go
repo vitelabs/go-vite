@@ -45,7 +45,6 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	// FOR DEBUG
 	// c.log.Info(fmt.Sprintf("insert snapshot block %s %d\n", snapshotBlock.Hash, snapshotBlock.Height))
-
 	if err := c.insertSnapshotBlock(snapshotBlock); err != nil {
 		return nil, err
 	}
@@ -114,12 +113,12 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 		AccountBlocks: canBeSnappedBlocks,
 	}}
 
-	// write block db
-	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
-
 	if err := c.em.TriggerInsertSbs(prepareInsertSbsEvent, chunks); err != nil {
 		return err
 	}
+
+	// write block db
+	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
