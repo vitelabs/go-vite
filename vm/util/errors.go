@@ -52,6 +52,8 @@ var (
 	ErrContractCreationFail = VMError{"contract creation failed", false}
 )
 
+// DealWithErr panics if err is not nil.
+// Used when chain forked or db error.
 func DealWithErr(v interface{}) {
 	if v != nil {
 		panic(v)

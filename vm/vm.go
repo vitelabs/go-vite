@@ -28,22 +28,33 @@ import (
 
 // NodeConfig holds the global status of vm.
 type NodeConfig struct {
-	isTest         bool
-	canTransfer    func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
+	isTest  bool
+	IsDebug bool
+	// interpreterLog is used to print run log of interpreters under debug mode
 	interpreterLog log15.Logger
 	log            log15.Logger
-	IsDebug        bool
+
+	// canTransfer is the signature of a transfer guard function.
+	// This method checks whether there are enough funds in current address
+	// account to pay for transfer token amount and fee.
+	// Note: Fee amount is payed in vite coin.
+	canTransfer func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
 }
 
 var nodeConfig NodeConfig
 
-// IsTest returns whether node is currently running under a test mode or not.
+// IsTest returns whether node is currently running under test mode or not.
 func IsTest() bool {
 	return nodeConfig.isTest
 }
 
-// InitVMConfig init global status of vm. It should be
-// called when the node started.
+// InitVMConfig init global status of vm. This method is supposed be called when
+// the node started.
+// Parameters:
+//   isTest: test mode, quota and balance is not checked under test mode.
+//   isTestParam: use test params for built-in contracts.
+//   isDebug: print debug log.
+//   datadir: print debug log under this directory.
 func InitVMConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
@@ -105,79 +116,37 @@ type vmContext struct {
 	sendBlockList []*ledger.AccountBlock
 }
 
-// VM holds the runtime information of vite vm and provides
-// the necessary tools to run a transfer transaction of a
-// call contract transaction. It also provides an offchain
-// getter method to read contract storage without a
-// transaction.
-// The VM instance should never be reused and is not thread
-// safe.
+// VM holds the runtime information of vite vm and provides the necessary tools
+// to run a transfer transaction of a call contract transaction. It also
+// provides an offchain getter method to read contract storage without sending
+// a transaction.
+// Node: The VM instance should never be reused and is not thread safe.
 type VM struct {
 	abort int32
+	// vmContext holds middle results during current execution
 	vmContext
-	i            *interpreter
+	// interpreter instance,varied by current snapshot block height
+	i *interpreter
+	// globalStatus holds world status during current execution
 	globalStatus util.GlobalStatus
-	reader       util.ConsensusReader
+	// reader holds a consensus reader instance, used for reward calculation
+	reader util.ConsensusReader
 }
 
-// NewVM constructor of VM
+// NewVM is a constructor of VM. This method is called before running an
+// execution.
 func NewVM(cr util.ConsensusReader) *VM {
 	return &VM{reader: cr}
 }
 
-// GlobalStatus getter
+// GlobalStatus is a getter method.
 func (vm *VM) GlobalStatus() util.GlobalStatus {
 	return vm.globalStatus
 }
 
-// ConsensusReader getter
+// ConsensusReader is a getter method.
 func (vm *VM) ConsensusReader() util.ConsensusReader {
 	return vm.reader
-}
-
-func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_db.VmAccountBlock, err error) {
-	var str string
-	if result != nil {
-		if result.AccountBlock.IsSendBlock() {
-			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
-				"ToAddr: " + result.AccountBlock.ToAddress.String() + ", " +
-				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
-				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
-				"Amount: " + result.AccountBlock.Amount.String() + ", " +
-				"TokenId: " + result.AccountBlock.TokenId.String() + ", " +
-				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
-				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
-				"Fee: " + result.AccountBlock.Fee.String() + "}"
-		} else {
-			if len(result.AccountBlock.SendBlockList) > 0 {
-				str = "["
-				for _, sendBlock := range result.AccountBlock.SendBlockList {
-					str = str + "{ToAddr:" + sendBlock.ToAddress.String() + ", " +
-						"BlockType:" + strconv.FormatInt(int64(sendBlock.BlockType), 10) + ", " +
-						"Data:" + hex.EncodeToString(sendBlock.Data) + ", " +
-						"Amount:" + sendBlock.Amount.String() + ", " +
-						"TokenId:" + sendBlock.TokenId.String() + ", " +
-						"Fee:" + sendBlock.Fee.String() + "}"
-				}
-				str = str + "]"
-			}
-			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
-				"FromHash: " + result.AccountBlock.FromBlockHash.String() + ", " +
-				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
-				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
-				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
-				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
-				"SendBlockList: " + str + "}"
-		}
-	}
-	nodeConfig.log.Info("vm run stop",
-		"blockType", block.BlockType,
-		"address", block.AccountAddress.String(),
-		"height", block.Height,
-		"fromHash", block.FromBlockHash.String(),
-		"err", err,
-		"block", str,
-	)
 }
 
 func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
@@ -191,7 +160,31 @@ func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
 	return meta
 }
 
-// RunV2 method executes an account block, performs balance change and storage change, returns execution result
+// RunV2 method executes an account block, checks parameters,
+// performs balance change and storage change, updates specific
+// fields of the account block.
+// Parameters:
+//   db: current status, including current account address,
+//       prev account block and latest snapshot block.
+//   block: account block to be executed.
+//   sendBlock: when executing a receive block,
+//       sendBlock is the referring send block.
+//   status: world status, only presents when executing
+//       a contract receive block and contract confirm time
+//       is greater than zero.
+// Returns:
+//   vmAccountBlock: execute result, including db and block.
+//   isRetry: whether this block should be executed again later.
+//   err: specific error occurred during execution.
+// Notes:
+//   1. Input block and sendBlock will not be changed during execution.
+//      The return block in vmAccountBlock is a copy of input block.
+//   2. Return value of vmAccountBlock should be inserted into chain
+//      regardless of isRetry return value and err return value.
+//   3. Block should be executed again later if isRetry is true,
+//      regardless of vmAccountBlock return value and err return value.
+//   4. This method panics if chain forked during execution, retry later
+//      if panics.
 func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, status util.GlobalStatus) (vmAccountBlock *vm_db.VmAccountBlock, isRetry bool, err error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "run"}, time.Now())
 	defer func() {
@@ -207,32 +200,36 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			"height", block.Height, ""+
 				"fromHash", block.FromBlockHash.String())
 	}
-	blockcopy := block.Copy()
+	// In case vm will update some fields of block, make a copy of block.
+	blockCopy := block.Copy()
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
+	// New interpreter instance according to latest snapshot block height.
 	vm.i = newInterpreter(sb.Height, false)
 	vm.globalStatus = status
-	switch block.BlockType {
+	switch blockCopy.BlockType {
 	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
-		blockcopy.Data = nil
+		blockCopy.Data = nil
 		contractMeta := getContractMeta(db)
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
-			return vm.receiveCreate(db, blockcopy, sendBlock, quota.CalcCreateQuota(sendBlock.Fee), contractMeta)
+			return vm.receiveCreate(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
-			return vm.receiveCall(db, blockcopy, sendBlock, contractMeta)
+			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendRefund {
-			return vm.receiveRefund(db, blockcopy, sendBlock, contractMeta)
+			return vm.receiveRefund(db, blockCopy, sendBlock, contractMeta)
 		}
 	case ledger.BlockTypeSendCreate:
 		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 			db,
-			block.AccountAddress,
+			blockCopy.AccountAddress,
 			getPledgeAmount(db),
-			block.Difficulty)
+			blockCopy.Difficulty)
+		// TODO retry?
 		if err != nil {
 			return nil, noRetry, err
 		}
-		vmAccountBlock, err = vm.sendCreate(db, blockcopy, true, quotaTotal, quotaAddition)
+		vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
+		// TODO return immediately
 		if err != nil {
 			return nil, noRetry, err
 		}
@@ -240,13 +237,14 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 	case ledger.BlockTypeSendCall:
 		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
 			db,
-			block.AccountAddress,
+			blockCopy.AccountAddress,
 			getPledgeAmount(db),
-			block.Difficulty)
+			blockCopy.Difficulty)
+		// TODO retry?
 		if err != nil {
 			return nil, noRetry, err
 		}
-		vmAccountBlock, err = vm.sendCall(db, blockcopy, true, quotaTotal, quotaAddition)
+		vmAccountBlock, err = vm.sendCall(db, blockCopy, true, quotaTotal, quotaAddition)
 		if err != nil {
 			return nil, noRetry, err
 		}
@@ -327,10 +325,9 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 }
 
 // receive contract create transaction, create contract account, run initialization code, set contract code, do send blocks
-func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, quotaTotal uint64, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
+func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
-
-	quotaLeft := quotaTotal
+	quotaLeft := quota.CalcCreateQuota(sendBlock.Fee)
 	prev, err := db.PrevAccountBlock()
 	util.DealWithErr(err)
 	if prev != nil {
@@ -827,4 +824,52 @@ func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64
 	}
 	quotaLeft, err = util.UseQuota(quotaLeft, cost)
 	return quotaLeft, err
+}
+
+// printDebugBlockInfo prints block info after execution.
+func printDebugBlockInfo(block *ledger.AccountBlock, result *vm_db.VmAccountBlock, err error) {
+	var str string
+	if result != nil {
+		if result.AccountBlock.IsSendBlock() {
+			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
+				"ToAddr: " + result.AccountBlock.ToAddress.String() + ", " +
+				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
+				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
+				"QuotaUsed: " + strconv.FormatUint(result.AccountBlock.QuotaUsed, 10) + ", " +
+				"Amount: " + result.AccountBlock.Amount.String() + ", " +
+				"TokenId: " + result.AccountBlock.TokenId.String() + ", " +
+				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
+				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
+				"Fee: " + result.AccountBlock.Fee.String() + "}"
+		} else {
+			if len(result.AccountBlock.SendBlockList) > 0 {
+				str = "["
+				for _, sendBlock := range result.AccountBlock.SendBlockList {
+					str = str + "{ToAddr:" + sendBlock.ToAddress.String() + ", " +
+						"BlockType:" + strconv.FormatInt(int64(sendBlock.BlockType), 10) + ", " +
+						"Data:" + hex.EncodeToString(sendBlock.Data) + ", " +
+						"Amount:" + sendBlock.Amount.String() + ", " +
+						"TokenId:" + sendBlock.TokenId.String() + ", " +
+						"Fee:" + sendBlock.Fee.String() + "},"
+				}
+				str = str + "]"
+			}
+			str = "{SelfAddr: " + result.AccountBlock.AccountAddress.String() + ", " +
+				"FromHash: " + result.AccountBlock.FromBlockHash.String() + ", " +
+				"BlockType: " + strconv.FormatInt(int64(result.AccountBlock.BlockType), 10) + ", " +
+				"Quota: " + strconv.FormatUint(result.AccountBlock.Quota, 10) + ", " +
+				"QuotaUsed: " + strconv.FormatUint(result.AccountBlock.QuotaUsed, 10) + ", " +
+				"Height: " + strconv.FormatUint(result.AccountBlock.Height, 10) + ", " +
+				"Data: " + hex.EncodeToString(result.AccountBlock.Data) + ", " +
+				"SendBlockList: " + str + "}"
+		}
+	}
+	nodeConfig.log.Info("vm run stop",
+		"blockType", block.BlockType,
+		"address", block.AccountAddress.String(),
+		"height", block.Height,
+		"fromHash", block.FromBlockHash.String(),
+		"err", err,
+		"block", str,
+	)
 }
