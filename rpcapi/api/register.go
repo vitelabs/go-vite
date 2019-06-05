@@ -168,9 +168,9 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 }
 
 type RewardInfo struct {
-	RewardMap map[string]*Reward
-	StartTime int64
-	EndTime   int64
+	RewardMap map[string]*Reward `json:"rewardMap"`
+	StartTime int64              `json:"startTime"`
+	EndTime   int64              `json:"endTime"`
 }
 
 func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
