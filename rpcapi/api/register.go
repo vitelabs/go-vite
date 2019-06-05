@@ -167,7 +167,11 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 	return rewardMap, nil
 }
 
-func (r *RegisterApi) GetRewardByIndex(gid types.Gid, index uint64) (map[string]*Reward, error) {
+func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (map[string]*Reward, error) {
+	index, err := StringToUint64(indexStr)
+	if err != nil {
+		return nil, err
+	}
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
