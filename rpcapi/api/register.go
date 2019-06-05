@@ -167,6 +167,22 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 	return rewardMap, nil
 }
 
+func (r *RegisterApi) GetRewardByIndex(gid types.Gid, index uint64) (map[string]*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	m, err := contracts.CalcRewardByDayIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	if err != nil {
+		return nil, err
+	}
+	rewardMap := make(map[string]*Reward, len(m))
+	for name, reward := range m {
+		rewardMap[name] = ToReward(reward)
+	}
+	return rewardMap, nil
+}
+
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
