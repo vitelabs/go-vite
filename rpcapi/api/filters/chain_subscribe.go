@@ -8,6 +8,8 @@ import (
 )
 
 type AccountChainEvent struct {
+	BlockType     byte
+	FromBlockHash types.Hash
 	Hash          types.Hash
 	Height        uint64
 	Addr          types.Address
@@ -22,11 +24,14 @@ type SendBlock struct {
 }
 
 func NewAccountChainEvent(block *ledger.AccountBlock, logs []*ledger.VmLog) *AccountChainEvent {
-	ace := &AccountChainEvent{Hash: block.Hash,
-		Height: block.Height,
-		Addr:   block.AccountAddress,
-		ToAddr: block.ToAddress,
-		Logs:   logs}
+	ace := &AccountChainEvent{
+		BlockType:     block.BlockType,
+		FromBlockHash: block.FromBlockHash,
+		Hash:          block.Hash,
+		Height:        block.Height,
+		Addr:          block.AccountAddress,
+		ToAddr:        block.ToAddress,
+		Logs:          logs}
 	if length := len(block.SendBlockList); length > 0 {
 		sendBlockList := make([]*SendBlock, length)
 		for i, s := range block.SendBlockList {
@@ -106,6 +111,21 @@ func (c *ChainSubscribe) DeleteAccountBlocks(blocks []*ledger.AccountBlock) erro
 	return nil
 }
 func (c *ChainSubscribe) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
+	acEvents := make([]*AccountChainEvent, 0)
+	for _, chunk := range chunks {
+		for _, b := range chunk.AccountBlocks {
+			if b.LogHash != nil {
+				logList, err := c.vite.Chain().GetVmLogList(b.LogHash)
+				if err != nil {
+					c.es.log.Error("get log list failed when preDeleteSnapshotBlocks", "addr", b.AccountAddress, "hash", b.Hash, "height", b.Height, "err", err)
+				}
+				acEvents = append(acEvents, NewAccountChainEvent(b, logList))
+			} else {
+				acEvents = append(acEvents, NewAccountChainEvent(b, nil))
+			}
+		}
+	}
+	c.preDeleteAccountBlocks = append(c.preDeleteAccountBlocks, acEvents...)
 	return nil
 }
 func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
@@ -116,5 +136,11 @@ func (c *ChainSubscribe) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 		}
 	}
 	c.es.sbDelCh <- sbEvents
+
+	if len(c.preDeleteAccountBlocks) > 0 {
+		deletedBlocks := c.preDeleteAccountBlocks
+		c.preDeleteAccountBlocks = nil
+		c.es.acDelCh <- deletedBlocks
+	}
 	return nil
 }
