@@ -167,7 +167,13 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 	return rewardMap, nil
 }
 
-func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (map[string]*Reward, error) {
+type RewardInfo struct {
+	RewardMap map[string]*Reward
+	StartTime int64
+	EndTime   int64
+}
+
+func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
 	index, err := StringToUint64(indexStr)
 	if err != nil {
 		return nil, err
@@ -184,7 +190,8 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (map[stri
 	for name, reward := range m {
 		rewardMap[name] = ToReward(reward)
 	}
-	return rewardMap, nil
+	startTime, endTime := r.cs.SBPReader().GetDayTimeIndex().Index2Time(index)
+	return &RewardInfo{rewardMap, startTime.Unix(), endTime.Unix()}, nil
 }
 
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
