@@ -78,6 +78,7 @@ func (block *AccountBlock) RpcToLedgerBlock() (*ledger.AccountBlock, error) {
 		Data:      block.Data,
 		Nonce:     block.Nonce,
 		Signature: block.Signature,
+		LogHash:   block.LogHash,
 	}
 
 	var err error
@@ -125,10 +126,6 @@ func (block *AccountBlock) RpcToLedgerBlock() (*ledger.AccountBlock, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if block.LogHash != nil {
-		lAb.LogHash = block.LogHash
 	}
 
 	if !types.IsContractAddr(block.AccountAddress) {
