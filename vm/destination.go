@@ -91,6 +91,7 @@ func ContainsStatusCode(code []byte) bool {
 	return false
 }
 
+// TODO bugfix code = code+auxcode+params
 func containsAuxCode(code []byte) bool {
 	l := len(code)
 	if l > 43 && bytes.Equal(code[l-43:l-34], auxCodePrefix) && bytes.Equal(code[l-2:], auxCodeSuffix) {

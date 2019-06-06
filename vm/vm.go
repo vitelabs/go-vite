@@ -149,20 +149,11 @@ func (vm *VM) ConsensusReader() util.ConsensusReader {
 	return vm.reader
 }
 
-func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
-	ok, err := db.IsContractAccount()
-	util.DealWithErr(err)
-	if !ok {
-		return nil
-	}
-	meta, err := db.GetContractMeta()
-	util.DealWithErr(err)
-	return meta
-}
-
 // RunV2 method executes an account block, checks parameters,
 // performs balance change and storage change, updates specific
 // fields of the account block.
+// This method is used to both executes an account block and
+// verify an account block.
 // Parameters:
 //   db: current status, including current account address,
 //       prev account block and latest snapshot block.
@@ -202,13 +193,37 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 	}
 	// In case vm will update some fields of block, make a copy of block.
 	blockCopy := block.Copy()
-	sb, err := db.LatestSnapshotBlock()
-	util.DealWithErr(err)
-	// New interpreter instance according to latest snapshot block height.
-	vm.i = newInterpreter(sb.Height, false)
-	vm.globalStatus = status
-	switch blockCopy.BlockType {
-	case ledger.BlockTypeReceive, ledger.BlockTypeReceiveError:
+	if blockCopy.IsSendBlock() {
+		if blockCopy.BlockType == ledger.BlockTypeSendCreate {
+			quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+				db,
+				blockCopy.AccountAddress,
+				getPledgeAmount(db),
+				blockCopy.Difficulty)
+			if err != nil {
+				return nil, noRetry, err
+			}
+			vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
+			return vmAccountBlock, noRetry, err
+		}
+		if blockCopy.BlockType == ledger.BlockTypeSendCall {
+			quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+				db,
+				blockCopy.AccountAddress,
+				getPledgeAmount(db),
+				blockCopy.Difficulty)
+			if err != nil {
+				return nil, noRetry, err
+			}
+			vmAccountBlock, err = vm.sendCall(db, blockCopy, true, quotaTotal, quotaAddition)
+			return vmAccountBlock, noRetry, err
+		}
+	} else {
+		sb, err := db.LatestSnapshotBlock()
+		util.DealWithErr(err)
+		// New interpreter instance according to latest snapshot block height.
+		vm.i = newInterpreter(sb.Height, false)
+		vm.globalStatus = status
 		blockCopy.Data = nil
 		contractMeta := getContractMeta(db)
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
@@ -218,40 +233,9 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 		} else if sendBlock.BlockType == ledger.BlockTypeSendRefund {
 			return vm.receiveRefund(db, blockCopy, sendBlock, contractMeta)
 		}
-	case ledger.BlockTypeSendCreate:
-		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
-			db,
-			blockCopy.AccountAddress,
-			getPledgeAmount(db),
-			blockCopy.Difficulty)
-		// TODO retry?
-		if err != nil {
-			return nil, noRetry, err
-		}
-		vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
-		// TODO return immediately
-		if err != nil {
-			return nil, noRetry, err
-		}
-		return vmAccountBlock, noRetry, nil
-	case ledger.BlockTypeSendCall:
-		quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
-			db,
-			blockCopy.AccountAddress,
-			getPledgeAmount(db),
-			blockCopy.Difficulty)
-		// TODO retry?
-		if err != nil {
-			return nil, noRetry, err
-		}
-		vmAccountBlock, err = vm.sendCall(db, blockCopy, true, quotaTotal, quotaAddition)
-		if err != nil {
-			return nil, noRetry, err
-		}
-		return vmAccountBlock, noRetry, nil
-	case ledger.BlockTypeSendReward, ledger.BlockTypeSendRefund:
-		return nil, noRetry, util.ErrTransactionTypeNotSupport
 	}
+	// Notice that send reward and send refund type is not supposed to be
+	// dealt with in this method.
 	return nil, noRetry, util.ErrTransactionTypeNotSupport
 }
 
@@ -260,10 +244,21 @@ func (vm *VM) Cancel() {
 	atomic.StoreInt32(&vm.abort, 1)
 }
 
-// send contract create transaction, create address, sub balance and service fee
+// sendCreate executes a send transaction to create a contract.
+// This method whether returns error or returns the success send create block.
+// Parameters:
+//   db: current status.
+//   block: send block to be executed.
+//   useQuota: whether this transaction consumes quota. A transaction sent
+//     by user consumes quota, while a transaction sent by a receive
+//     transaction of a contract does not consume quota since quota is
+//     consumed in receive transaction.
+//   quotaTotal: total quota this transaction can use during execution.
+//     quotaTotal is consists of stake quota and PoW quota.
+//   quotaAddition: PoW quota this transaction can use.
 func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCreate"}, time.Now())
-	// check can make transaction
+	// check quota for transaction
 	quotaLeft := quotaTotal
 	if useQuota {
 		cost, err := gasNormalSendCall(block)
@@ -452,6 +447,7 @@ var (
 	resultDepthErr = byte(2)
 )
 
+// TODO delete qUsed
 func getReceiveCallData(db vm_db.VmDb, err error, qUsed uint64) []byte {
 	if err == nil {
 		return append(db.GetReceiptHash().Bytes(), resultSuccess)
@@ -824,6 +820,18 @@ func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64
 	}
 	quotaLeft, err = util.UseQuota(quotaLeft, cost)
 	return quotaLeft, err
+}
+
+func getContractMeta(db vm_db.VmDb) *ledger.ContractMeta {
+	if !types.IsContractAddr(*db.Address()) {
+		return nil
+	}
+	meta, err := db.GetContractMeta()
+	util.DealWithErr(err)
+	if meta == nil {
+		util.DealWithErr(util.ErrContractNotExists)
+	}
+	return meta
 }
 
 // printDebugBlockInfo prints block info after execution.
