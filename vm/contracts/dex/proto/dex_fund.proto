@@ -56,6 +56,11 @@ message FeeSumByPeriod {
     bool FinishVxMine = 4;
 }
 
+message UserFeeWithPeriod {
+    repeated UserFeeAccount userFees = 1;
+    uint64 Period = 2;
+}
+
 message UserFees {
     repeated UserFeeWithPeriod fees = 1;
 }
@@ -66,32 +71,27 @@ message UserFeeAccount {
     bytes InviteBonusAmount = 3; // for vx mine
 }
 
-message UserFeeWithPeriod {
-    repeated UserFeeAccount userFees = 1;
-    uint64 Period = 2;
+message BrokerMarketFee {
+    int32 MarketId = 1;
+    bytes Amount = 2;
 }
 
 message BrokerFeeAccount {
     bytes Token = 1;
-    bytes Amount = 2;
-}
-
-message BrokerFeeSum {
-    bytes Broker = 1;
-    repeated BrokerFeeAccount fees = 2;
+    repeated BrokerMarketFee MarketFees  = 2;
 }
 
 message BrokerFeeSumByPeriod {
-    repeated BrokerFeeSum brokerFees = 1;
-}
-
-message VxFunds {
-    repeated VxFundWithPeriod funds = 1;
+    repeated BrokerFeeAccount brokerFees = 1;
 }
 
 message VxFundWithPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
+}
+
+message VxFunds {
+    repeated VxFundWithPeriod funds = 1;
 }
 
 message PledgeVip {

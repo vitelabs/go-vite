@@ -24,12 +24,14 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	brokerFeeSumKeyPrefix = []byte("bfS:") // brokerFeeSum:periodId
+	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, must
 
-	pendingNewMarketFeeSumKey  = []byte("pnmfS:") // pending feeSum for new market
-	pendingNewMarketActionsKey = []byte("pmkas:")
-	marketIdKey                = []byte("mkId:")
-	orderIdSerialNoKey         = []byte("orIdSl:")
+	pendingNewMarketFeeSumKey         = []byte("pnmfS:") // pending feeSum for new market
+	pendingNewMarketActionsKey        = []byte("pmkas:")
+	pendingSetQuoteActionsKey         = []byte("psqas:")
+	pendingChangeTokenOwnerActionsKey = []byte("pctoas:")
+	marketIdKey                       = []byte("mkId:")
+	orderIdSerialNoKey                = []byte("orIdSl:")
 
 	timerContractAddressKey = []byte("tmA:")
 
@@ -66,22 +68,16 @@ var (
 	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVipDuration int64 = 3600 * 24 * 30
 
-	bitcoinToken, _ = types.HexToTokenTypeId("tti_4e88a475c675971dab7ec917")
-	ethToken, _     = types.HexToTokenTypeId("tti_2152a3d33c5e2fc90073fad4")
-	usdtToken, _    = types.HexToTokenTypeId("tti_77a7a54d540d5c587dd666d6")
-
-	QuoteTokenInfos = map[types.TokenTypeId]*TokenInfo{
-		ledger.ViteTokenId: &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "VITE", Index: 0}},
-		bitcoinToken:       &TokenInfo{dexproto.TokenInfo{Decimals: 8, Symbol: "BTC", Index: 0}},
-		ethToken:           &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "ETH", Index: 0}},
-		usdtToken:          &TokenInfo{dexproto.TokenInfo{Decimals: 18, Symbol: "USDT", Index: 0}},
+	viteMinAmount    = commonTokenPow       // 1 VITE
+	bitcoinMinAmount = big.NewInt(1000000)  //0.01 BTC
+	ethMinAmount     = big.NewInt(10000000) //0.1 ETH
+	usdtMinAmount    = big.NewInt(100000)   //1 USDT
+	QuoteTokenExtras = map[int]*QuoteTokenExtraInfo{
+		ViteTokenType: &QuoteTokenExtraInfo{Decimals: 18, MinAmount: viteMinAmount},
+		BtcTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
+		EthTokenType:  &QuoteTokenExtraInfo{Decimals: 18, MinAmount: ethMinAmount},
+		UsdTokenType:  &QuoteTokenExtraInfo{Decimals: 5, MinAmount: usdtMinAmount},
 	}
-
-	viteMinAmount       = commonTokenPow       // 1 VITE
-	bitcoinMinAmount    = big.NewInt(1000000)  //0.01 BTC
-	ethMinAmount        = big.NewInt(10000000) //0.1 ETH
-	usdtMinAmount       = big.NewInt(100000)   //1 USDT
-	QuoteTokenMinAmount = map[types.TokenTypeId]*big.Int{ledger.ViteTokenId: viteMinAmount, bitcoinToken: bitcoinMinAmount, ethToken: ethMinAmount, usdtToken: usdtMinAmount}
 )
 
 const (
@@ -100,9 +96,10 @@ const (
 )
 
 const (
-	OwnerConfigOwner        = 1
-	OwnerConfigTimerAddress = 2
-	OwnerConfigMineMarket   = 4
+	OwnerConfigOwner         = 1
+	OwnerConfigTimerAddress  = 2
+	OwnerConfigMineMarket    = 4
+	OwnerConfigNewQuoteToken = 8
 )
 
 const (
@@ -111,6 +108,24 @@ const (
 	MarketOwnerConfigMakerRate  = 4
 	MarketOwnerConfigStopMarket = 8
 )
+
+const (
+	ViteTokenType = iota + 1
+	BtcTokenType
+	EthTokenType
+	UsdTokenType
+)
+
+const (
+	GetTokenForNewMarket   = 1
+	GetTokenForSetQuote    = 2
+	GetTokenForChangeOwner = 3
+)
+
+type QuoteTokenExtraInfo struct {
+	Decimals  int
+	MinAmount *big.Int
+}
 
 type ParamDexFundWithDraw struct {
 	Token  types.TokenTypeId
@@ -171,6 +186,7 @@ type ParamDexFundPledgeCallBack struct {
 
 type ParamDexFundGetTokenInfoCallback struct {
 	TokenId     types.TokenTypeId
+	Bid         uint8
 	Exist       bool
 	Decimals    uint8
 	TokenSymbol string
@@ -179,12 +195,14 @@ type ParamDexFundGetTokenInfoCallback struct {
 }
 
 type ParamDexFundOwnerConfig struct {
-	OperationCode int8 // 1 owner, 2 timerAddress, 4 mineMarket
-	Owner         types.Address
-	TimerAddress  types.Address
-	AllowMine     bool
-	TradeToken    types.TokenTypeId
-	QuoteToken    types.TokenTypeId
+	OperationCode  int8 // 1 owner, 2 timerAddress, 4 mineMarket
+	Owner          types.Address
+	TimerAddress   types.Address
+	AllowMine      bool
+	TradeToken     types.TokenTypeId
+	QuoteToken     types.TokenTypeId
+	NewQuoteToken  types.TokenTypeId
+	QuoteTokenType int8
 }
 
 type ParamDexFundMarketOwnerConfig struct {
@@ -350,6 +368,42 @@ func (pnm *PendingNewMarkets) DeSerialize(data []byte) error {
 	}
 }
 
+type PendingSetQuotes struct {
+	dexproto.PendingSetQuotes
+}
+
+func (psq *PendingSetQuotes) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psq.PendingSetQuotes)
+}
+
+func (psq *PendingSetQuotes) DeSerialize(data []byte) error {
+	pendingSetQuotes := dexproto.PendingSetQuotes{}
+	if err := proto.Unmarshal(data, &pendingSetQuotes); err != nil {
+		return err
+	} else {
+		psq.PendingSetQuotes = pendingSetQuotes
+		return nil
+	}
+}
+
+type PendingChangeTokenOwners struct {
+	dexproto.PendingChangeTokenOwners
+}
+
+func (psq *PendingChangeTokenOwners) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psq.PendingChangeTokenOwners)
+}
+
+func (psq *PendingChangeTokenOwners) DeSerialize(data []byte) error {
+	pendingChangeTokenOwners := dexproto.PendingChangeTokenOwners{}
+	if err := proto.Unmarshal(data, &pendingChangeTokenOwners); err != nil {
+		return err
+	} else {
+		psq.PendingChangeTokenOwners = pendingChangeTokenOwners
+		return nil
+	}
+}
+
 type OrderIdSerialNo struct {
 	dexproto.OrderIdSerialNo
 }
@@ -474,11 +528,10 @@ func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod, map[uint64]*BrokerFeeSumByPeriod) {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod) {
 	var (
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
-		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
 		ok, everFound bool
 	)
 	for {
@@ -487,22 +540,19 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]
 				periodId--
 				continue
 			} else { // lastValidPeriod is delete
-				return dexFeeSums, brokerFeeSums
+				return dexFeeSums
 			}
 		} else {
 			everFound = true
 			if !dexFeeSum.FinishFeeDividend {
 				dexFeeSums[periodId] = dexFeeSum
-				if brokerFeeSum, ok := GetBrokerFeeSumByPeriodId(db, periodId); ok {
-					brokerFeeSums[periodId] = brokerFeeSum
-				}
 			} else {
-				return dexFeeSums, brokerFeeSums
+				return dexFeeSums
 			}
 		}
 		periodId = dexFeeSum.LastValidPeriod
 		if periodId == 0 {
-			return dexFeeSums, brokerFeeSums
+			return dexFeeSums
 		}
 	}
 }
@@ -552,22 +602,25 @@ func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) {
 	setValueToDb(db, lastFeeSumPeriodKey, Uint64ToBytes(periodId))
 }
 
-func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, brokerFeeSum *BrokerFeeSumByPeriod) {
-	feeSumKey := GetCurrentBrokerFeeSumKey(db, reader)
-	serializeToDb(db, feeSumKey, brokerFeeSum)
+func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte, brokerFeeSum *BrokerFeeSumByPeriod) {
+	serializeToDb(db, GetCurrentBrokerFeeSumKey(db, reader, broker), brokerFeeSum)
 }
 
-func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*BrokerFeeSumByPeriod, bool) {
-	currentBrokerFeeSumKey := GetCurrentBrokerFeeSumKey(db, reader)
+func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) (*BrokerFeeSumByPeriod, bool) {
+	currentBrokerFeeSumKey := GetCurrentBrokerFeeSumKey(db, reader, broker)
 	return getBrokerFeeSumByKey(db, currentBrokerFeeSumKey)
 }
 
-func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*BrokerFeeSumByPeriod, bool) {
-	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodId(periodId))
+func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, periodId uint64, broker []byte) (*BrokerFeeSumByPeriod, bool) {
+	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId, broker))
 }
 
-func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
-	return GetBrokerFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader))
+func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) []byte {
+	return GetBrokerFeeSumKeyByPeriodIdAndAddress(GetCurrentPeriodId(db, reader), broker)
+}
+
+func DeleteBrokerFeeSumByKey(db vm_db.VmDb, key []byte) {
+	setValueToDb(db, key, nil)
 }
 
 func getBrokerFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*BrokerFeeSumByPeriod, bool) {
@@ -576,8 +629,8 @@ func getBrokerFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*BrokerFeeSumByPeriod, 
 	return brokerFeeSum, ok
 }
 
-func GetBrokerFeeSumKeyByPeriodId(periodId uint64) []byte {
-	return append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...)
+func GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId uint64, address []byte) []byte {
+	return append(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...), address...)
 }
 
 func GetUserFees(db vm_db.VmDb, address []byte) (userFees *UserFees, ok bool) {
@@ -749,7 +802,7 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 	}
 	if !foundTradeToken {
 		quoteTokens := [][]byte{quoteToken.Bytes()}
-		action := &dexproto.PendingNewMarketAction{TradeToken: tradeToken.Bytes(), QuoteTokens: quoteTokens}
+		action := &dexproto.NewMarketAction{TradeToken: tradeToken.Bytes(), QuoteTokens: quoteTokens}
 		pendingNewMarkets.PendingActions = append(pendingNewMarkets.PendingActions, action)
 	}
 	SavePendingNewMarkets(db, pendingNewMarkets)
@@ -757,6 +810,41 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 
 func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) {
 	serializeToDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
+}
+
+//handle case on duplicate callback for getTokenInfo
+func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteAction, err error) {
+	pendingSetQuotes := &PendingSetQuotes{}
+	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+	for index, action := range pendingSetQuotes.PendingActions {
+		if bytes.Equal(action.Token, token.Bytes()) {
+			actionsLen := len(pendingSetQuotes.PendingActions)
+			if actionsLen > 1 {
+				pendingSetQuotes.PendingActions[index] = pendingSetQuotes.PendingActions[actionsLen-1]
+				pendingSetQuotes.PendingActions = pendingSetQuotes.PendingActions[:actionsLen-1]
+				SavePendingSetQuotes(db, pendingSetQuotes)
+				return action, nil
+			} else {
+				setValueToDb(db, pendingNewMarketActionsKey, nil)
+				return action, nil
+			}
+		}
+	}
+	return nil, GetTokenInfoCallbackInnerConflictErr
+}
+
+func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uint8) {
+	pendingSetQuotes := &PendingSetQuotes{}
+	deserializeFromDb(db, pendingNewMarketActionsKey, pendingSetQuotes)
+	action := &dexproto.SetQuoteAction{}
+	action.Token = token.Bytes()
+	action.QuoteType = int32(quoteType)
+	pendingSetQuotes.PendingActions = append(pendingSetQuotes.PendingActions, action)
+	SavePendingSetQuotes(db, pendingSetQuotes)
+}
+
+func SavePendingSetQuotes(db vm_db.VmDb, pendingSetQuotes *PendingSetQuotes) {
+	serializeToDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
 }
 
 func GetPendingNewMarketFeeSum(db vm_db.VmDb) *big.Int {
@@ -796,13 +884,9 @@ func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) {
 }
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
-	if tokenInfo, ok = QuoteTokenInfos[token]; ok {
-		return
-	} else {
-		tokenInfo = &TokenInfo{}
-		ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
-		return
-	}
+	tokenInfo = &TokenInfo{}
+	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
+	return
 }
 
 func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo) {

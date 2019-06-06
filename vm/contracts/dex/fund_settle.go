@@ -166,37 +166,38 @@ func innerSettleUserFee(db vm_db.VmDb, reader util.ConsensusReader, address []by
 }
 
 func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.UserFeeSettle, marketInfo *MarketInfo) {
-	var incAmt []byte
+	var (
+		incAmt []byte
+		brokerFeeSumByPeriod *BrokerFeeSumByPeriod
+	)
 	for _, feeAction := range feeActions {
 		incAmt = AddBigInt(incAmt, feeAction.BrokerFee)
 	}
 
-	var feeToken = marketInfo.QuoteToken
-	var settleBrokerAddress = marketInfo.Owner
-	var foundBroker bool
-	brokerFeeSumByPeriod, _ := GetCurrentBrokerFeeSum(db, reader)
+	brokerFeeSumByPeriod, _ = GetCurrentBrokerFeeSum(db, reader, marketInfo.Owner)
+	var foundToken bool
 	for _, brokerFeeSum := range brokerFeeSumByPeriod.BrokerFees {
-		if bytes.Equal(settleBrokerAddress, brokerFeeSum.Broker) {
-			var found bool
-			for _, feeAcc := range brokerFeeSum.Fees {
-				if bytes.Equal(feeAcc.Token, feeToken) {
-					feeAcc.Amount = AddBigInt(feeAcc.Amount, incAmt)
-					found = true
+		if bytes.Equal(marketInfo.QuoteToken, brokerFeeSum.Token) {
+			var foundMarket bool
+			for _, mkFee := range brokerFeeSum.MarketFees {
+				if mkFee.MarketId == marketInfo.MarketId {
+					mkFee.Amount = AddBigInt(mkFee.Amount, incAmt)
+					foundMarket = true
 				}
 			}
-			if !found {
-				brokerFeeSum.Fees = append(brokerFeeSum.Fees, newBrokerFeeAccount(feeToken, incAmt))
+			if !foundMarket {
+				brokerFeeSum.MarketFees = append(brokerFeeSum.MarketFees, newBrokerMarketFee(marketInfo.MarketId, incAmt))
 			}
-			foundBroker = true
+			foundToken = true
 		}
 	}
-	if !foundBroker {
-		brokerFeeSum := &dexproto.BrokerFeeSum{}
-		brokerFeeSum.Broker = settleBrokerAddress
-		brokerFeeSum.Fees = append(brokerFeeSum.Fees, newBrokerFeeAccount(feeToken, incAmt))
-		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeSum)
+	if !foundToken {
+		brokerFeeAcc := &dexproto.BrokerFeeAccount{}
+		brokerFeeAcc.MarketFees = append(brokerFeeAcc.MarketFees, newBrokerMarketFee(marketInfo.MarketId, incAmt))
+		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeAcc)
 	}
-	SaveCurrentBrokerFeeSum(db, reader, brokerFeeSumByPeriod)
+
+	SaveCurrentBrokerFeeSum(db, reader, marketInfo.Owner, brokerFeeSumByPeriod)
 }
 
 func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) {
@@ -371,9 +372,9 @@ func newFeeSumAccount(token, baseAmount, inviteBonusAmount, dividendPoolAmount [
 	return account
 }
 
-func newBrokerFeeAccount(token, amount []byte) *dexproto.BrokerFeeAccount {
-	account := &dexproto.BrokerFeeAccount{}
-	account.Token = token
+func newBrokerMarketFee(marketId int32, amount []byte) *dexproto.BrokerMarketFee {
+	account := &dexproto.BrokerMarketFee{}
+	account.MarketId = marketId
 	account.Amount = amount
 	return account
 }

@@ -14,13 +14,13 @@ func TestGetMindedVxAmt(t *testing.T) {
 	_, _, _, _, result := GetMindedVxAmt(big.NewInt(0))
 	assert.False(t, result)
 
-	balance, _ := new(big.Float).Mul(new(big.Float).SetPrec(bigFloatPrec).SetFloat64(1.5), new(big.Float).SetInt(VxMinedAmtPerPeriod)).Int(nil)
+	balance, _ := new(big.Float).Mul(new(big.Float).SetPrec(bigFloatPrec).SetFloat64(1.5), new(big.Float).SetInt()).Int(nil)
 	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result := GetMindedVxAmt(balance)
 	assert.True(t, result)
 	total := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
 	total.Add(total, amtForPledge)
 	total.Add(total, amtForViteLabs)
-	assert.True(t, total.Cmp(VxMinedAmtPerPeriod) == 0)
+	assert.True(t, total.Cmp() == 0)
 
 	balance1 := big.NewInt(13)
 	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result = GetMindedVxAmt(balance1)

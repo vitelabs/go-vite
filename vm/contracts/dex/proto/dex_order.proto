@@ -52,6 +52,7 @@ message TokenInfo {
     string Symbol = 1;
     int32 Index = 3;
     bytes Owner = 4;
+    int32 QuoteType = 5;
 }
 
 message MarketInfo {
@@ -71,13 +72,32 @@ message MarketInfo {
     int64 Timestamp = 14;
 }
 
-message PendingNewMarketAction {
-    bytes tradeToken = 1;
+message NewMarketAction {
+    bytes TradeToken = 1;
     repeated bytes QuoteTokens = 2;
 }
 
 message PendingNewMarkets {
-    repeated PendingNewMarketAction pendingActions = 1;
+    repeated NewMarketAction pendingActions = 1;
+}
+
+message SetQuoteAction {
+    bytes token = 1;
+    int32 QuoteType = 2;
+}
+
+message PendingSetQuotes {
+    repeated SetQuoteAction pendingActions = 1;
+}
+
+message ChangeTokenOwnerAction {
+    bytes token = 1;
+    bytes Origin = 2;
+    bytes New = 3;
+}
+
+message PendingChangeTokenOwners {
+    repeated ChangeTokenOwnerAction pendingActions = 1;
 }
 
 message NewOrderInfo { // for taker

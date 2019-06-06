@@ -37,7 +37,7 @@ var (
 	PledgeForVipNotExpireErr   = errors.New("pledge for vip not expire")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
-	InvalidAmountForPledgeCallbackErr = errors.New("invalid amount for pledge callback")
+	InvalidAmountForPledgeCallbackErr = errors.New("invalid amouznt for pledge callback")
 
 	InvalidTokenErr                      = errors.New("invalid token")
 	PendingDonateAmountSubExceedErr      = errors.New("pending donate amount sub exceed")
@@ -57,5 +57,7 @@ var (
 	NotBindInviterErr     = errors.New("not bind inviter")
 	AlreadyBindInviterErr = errors.New("already bind inviter")
 	NewInviteCodeFailErr = errors.New("new invite code fail")
+	AlreadyQuoteType = errors.New("already quote type")
+
 	InternalErr = errors.New("internal error")
 )

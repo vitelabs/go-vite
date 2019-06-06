@@ -667,18 +667,33 @@ func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger
 func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var callbackParam = new(dex.ParamDexFundGetTokenInfoCallback)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundGetTokenInfoCallback, sendBlock.Data)
-	if callbackParam.Exist {
-		if appendBlocks, err := dex.OnGetTokenInfoSuccess(db, vm.ConsensusReader(), callbackParam.TokenId, callbackParam); err != nil {
-			return handleReceiveErr(err)
+	switch callbackParam.Bid {
+	case dex.GetTokenForNewMarket:
+		if callbackParam.Exist {
+			if appendBlocks, err := dex.OnNewMarketGetTokenInfoSuccess(db, vm.ConsensusReader(), callbackParam.TokenId, callbackParam); err != nil {
+				return handleReceiveErr(err)
+			} else {
+				return appendBlocks, nil
+			}
 		} else {
-			return appendBlocks, nil
+			if refundBlocks, err := dex.OnNewMarketGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
+				return handleReceiveErr(err)
+			} else {
+				return refundBlocks, nil
+			}
 		}
-	} else {
-		if refundBlocks, err := dex.OnGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
-			return handleReceiveErr(err)
+	case dex.GetTokenForSetQuote:
+		if callbackParam.Exist {
+			if err := dex.OnSetQuoteGetTokenInfoSuccess(db, callbackParam); err != nil {
+				return handleReceiveErr(err)
+			}
 		} else {
-			return refundBlocks, nil
+			if err := dex.OnSetQuoteGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
+				return handleReceiveErr(err)
+			}
 		}
+	case dex.GetTokenForChangeOwner:
+
 	}
 	return nil, nil
 }
@@ -734,6 +749,15 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
 			dex.SetTimerAddress(db, param.TimerAddress)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigNewQuoteToken) {
+			if tokenInfo, ok := dex.GetTokenInfo(db, param.NewQuoteToken); ok {
+
+			} else {
+				if tokenInfo.QuoteType > 0 {
+					return handleReceiveErr(dex.AlreadyQuoteType)
+				}
+			}
 		}
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)

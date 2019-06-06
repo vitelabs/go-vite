@@ -21,17 +21,10 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	if feeAmount.Cmp(NewMarketFeeAmount) < 0 {
 		return fmt.Errorf("fee for create market not enough")
 	}
-	if _, ok := QuoteTokenInfos[marketParam.QuoteToken]; !ok {
-		return TradeMarketInvalidQuoteTokenErr
-	}
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
-	if marketParam.QuoteToken == bitcoinToken && marketParam.TradeToken == usdtToken ||
-		marketParam.QuoteToken == ethToken && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken) ||
-		marketParam.QuoteToken == ledger.ViteTokenId && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken || marketParam.TradeToken == ethToken) {
-		return TradeMarketInvalidTokenPairErr
-	}
+
 	return nil
 }
 
@@ -41,6 +34,17 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *New
 	marketInfo.TradeToken = tradeToken.Bytes()
 	marketInfo.QuoteToken = quoteToken.Bytes()
 	marketInfo.QuoteTokenDecimals = quoteTokenInfo.Decimals
+
+	if _, ok := GetTokenInfo(db, marketParam.QuoteToken]; !ok {
+		return TradeMarketInvalidQuoteTokenErr
+	}
+	if marketParam.QuoteToken == bitcoinToken && marketParam.TradeToken == usdtToken ||
+		marketParam.QuoteToken == ethToken && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken) ||
+		marketParam.QuoteToken == ledger.ViteTokenId && (marketParam.TradeToken == usdtToken || marketParam.TradeToken == bitcoinToken || marketParam.TradeToken == ethToken) {
+		return TradeMarketInvalidTokenPairErr
+	}
+
+
 	var tradeTokenExists bool
 	if tradeTokenInfo == nil {
 		tradeTokenInfo, tradeTokenExists = GetTokenInfo(db, tradeToken)
@@ -112,19 +116,15 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 	AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken)
 	AddPendingNewMarketFeeSum(db)
-	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken); err != nil {
+	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
 		panic(err)
 	} else {
 		return data
 	}
 }
 
-func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
-	tradeTokenInfo := &TokenInfo{}
-	tradeTokenInfo.Decimals = int32(tokenInfoRes.Decimals)
-	tradeTokenInfo.Symbol = tokenInfoRes.TokenSymbol
-	tradeTokenInfo.Index = int32(tokenInfoRes.Index)
-	tradeTokenInfo.Owner = tokenInfoRes.Owner.Bytes()
+func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
+	tradeTokenInfo := newTokenInfoFromCallback(tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
@@ -157,7 +157,7 @@ func OnGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeToke
 	}
 }
 
-func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refundBlocks []*ledger.AccountBlock, err error) {
+func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refundBlocks []*ledger.AccountBlock, err error) {
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
 		return nil, err
@@ -188,6 +188,22 @@ func OnGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (refund
 		}
 		return
 	}
+}
+
+func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetTokenInfoCallback) error {
+	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
+		return err
+	} else {
+		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		tokenInfo.QuoteType = int32(action.QuoteType)
+		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+		return nil
+	}
+}
+
+func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
+	_, err = FilterPendingSetQuotes(db, tradeTokenId)
+	return
 }
 
 func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
@@ -414,6 +430,15 @@ func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 	} else {
 		return cancelPledgeData, err
 	}
+}
+
+func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
+	tokenInfo := &TokenInfo{}
+	tokenInfo.Decimals = int32(param.Decimals)
+	tokenInfo.Symbol = param.TokenSymbol
+	tokenInfo.Index = int32(param.Index)
+	tokenInfo.Owner = param.Owner.Bytes()
+	return tokenInfo
 }
 
 func ValidPrice(price string) bool {

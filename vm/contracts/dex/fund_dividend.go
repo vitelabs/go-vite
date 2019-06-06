@@ -1,22 +1,23 @@
 package dex
 
 import (
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
 func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	var (
-		feeSumsMap    map[uint64]*FeeSumByPeriod
-		brokerFeeSums = make(map[uint64]*BrokerFeeSumByPeriod)
-		vxSumFunds    *VxFunds
-		err           error
-		ok            bool
+		feeSumsMap map[uint64]*FeeSumByPeriod
+		vxSumFunds *VxFunds
+		err        error
+		ok         bool
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap, brokerFeeSums = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
+	if feeSumsMap = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
 		return nil
 	}
 	if vxSumFunds, ok = GetVxSumFundsFromDb(db); !ok {
@@ -120,37 +121,68 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			return err
 		}
 	}
-	return DoDividendBrokerFee(db, brokerFeeSums)
+	return DoDivideBrokerFees(db, feeSumsMap)
 }
 
-
-func DoDividendBrokerFee(db vm_db.VmDb, brokerFeeSums map[uint64]*BrokerFeeSumByPeriod) error {
+func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeriod) error {
 	var (
-		address types.Address
-		tokenId types.TokenTypeId
-		err error
+		iterators                          = make([]interfaces.StorageIterator, 0, len(periodIdToFeeSum))
+		userFunds                          = make(map[types.Address]map[types.TokenTypeId]*big.Int)
+		ok                                 bool
+		brokerFeeSumKey, brokerFeeSumBytes []byte
 	)
-	for _, brokerFeeSumByPeriod := range brokerFeeSums {
-		for _, brokerFeeSum := range brokerFeeSumByPeriod.BrokerFees {
-			if address, err = types.BytesToAddress(brokerFeeSum.Broker); err != nil {
-				return err
+
+	defer func() {
+		for _, it := range iterators {
+			it.Release()
+		}
+	}()
+
+	for pId, _ := range periodIdToFeeSum {
+		iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(pId)...))
+		if err != nil {
+			return err
+		}
+		iterators = append(iterators, iterator)
+		if ok = iterator.Next(); ok {
+			brokerFeeSumKey = iterator.Key() //3+8+21
+			brokerFeeSumBytes = iterator.Value()
+			if len(brokerFeeSumBytes) == 0 {
+				continue
 			}
-			funds := make(map[types.TokenTypeId]*big.Int)
-			for _, acc := range brokerFeeSum.Fees {
-				if tokenId, err = types.BytesToTokenTypeId(acc.Token); err != nil {
-					return err
-				}
-				amt := new(big.Int).SetBytes(acc.Amount)
-				if amt.Sign() > 0 {
-					funds[tokenId] = amt
-				}
+			if len(brokerFeeSumKey) != 32 {
+				panic(fmt.Errorf("invalid broker fee type"))
 			}
-			if len(funds) > 0 {
-				if err = BatchSaveUserFund(db, address, funds); err != nil {
-					return err
-				}
+
+			DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
+		} else {
+			break
+		}
+		brokerFeeSum := &BrokerFeeSumByPeriod{}
+		if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
+			panic(err)
+		}
+		addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
+		if err != nil {
+			panic(err)
+		}
+		userFund, ok := userFunds[addr]
+		if !ok {
+			userFund = make(map[types.TokenTypeId]*big.Int)
+			userFunds[addr] = userFund
+		}
+		for _, feeAcc := range brokerFeeSum.BrokerFees {
+			tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
+			if err != nil {
+				panic(err)
+			}
+			for _, mkFee := range feeAcc.MarketFees {
+				userFund[tokenId] = new(big.Int).Add(userFund[tokenId], new(big.Int).SetBytes(mkFee.Amount))
 			}
 		}
+	}
+	for add, fund := range userFunds {
+		BatchSaveUserFund(db, add, fund)
 	}
 	return nil
 }
