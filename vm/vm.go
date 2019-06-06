@@ -258,7 +258,7 @@ func (vm *VM) Cancel() {
 //   quotaAddition: PoW quota this transaction can use.
 func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool, quotaTotal, quotaAddition uint64) (*vm_db.VmAccountBlock, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCreate"}, time.Now())
-	// check quota for transaction
+	// Check quota for transaction.
 	quotaLeft := quotaTotal
 	if useQuota {
 		cost, err := gasNormalSendCall(block)
@@ -270,65 +270,72 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 			return nil, err
 		}
 	}
+
+	// Check params.
+	gid := util.GetGidFromCreateContractData(block.Data)
+	if gid == types.SNAPSHOT_GID {
+		return nil, util.ErrInvalidMethodParam
+	}
+	contractType := util.GetContractTypeFromCreateContractData(block.Data)
+	if !util.IsExistContractType(contractType) {
+		return nil, util.ErrInvalidMethodParam
+	}
+	confirmTime := util.GetConfirmTimeFromCreateContractData(block.Data)
+	if confirmTime < confirmTimeMin || confirmTime > confirmTimeMax {
+		return nil, util.ErrInvalidConfirmTime
+	}
+	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data)
+	if !util.IsValidQuotaRatio(quotaRatio) {
+		return nil, util.ErrInvalidQuotaRatio
+	}
+	if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data)) && confirmTime <= 0 {
+		return nil, util.ErrInvalidConfirmTime
+	}
+
+	// Set contract fee.
 	var err error
 	block.Fee, err = calcContractFee(block.Data)
 	if err != nil {
 		return nil, err
 	}
-
-	gid := util.GetGidFromCreateContractData(block.Data)
-	if gid == types.SNAPSHOT_GID {
-		return nil, util.ErrInvalidMethodParam
-	}
-
-	contractType := util.GetContractTypeFromCreateContractData(block.Data)
-	if !util.IsExistContractType(contractType) {
-		return nil, util.ErrInvalidMethodParam
-	}
-
-	confirmTime := util.GetConfirmTimeFromCreateContractData(block.Data)
-	if confirmTime < confirmTimeMin || confirmTime > confirmTimeMax {
-		return nil, util.ErrInvalidConfirmTime
-	}
-
-	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data)
-	if !util.IsValidQuotaRatio(quotaRatio) {
-		return nil, util.ErrInvalidQuotaRatio
-	}
-
-	if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data)) && confirmTime <= 0 {
-		return nil, util.ErrInvalidConfirmTime
-	}
-
+	// Check balance.
 	if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
 		return nil, util.ErrInsufficientBalance
 	}
-
+	// Generate a new contract address and set block field.
 	contractAddr := util.NewContractAddress(
 		block.AccountAddress,
 		block.Height,
 		block.PrevHash)
-
 	block.ToAddress = contractAddr
-	// sub balance and service fee
+	// Deduct balance and service fee.
 	util.SubBalance(db, &block.TokenId, block.Amount)
 	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
+
 	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, q, qUsed)
+	// Set contract meta at send block, so that contract block producer module
+	// will be informed of the binding between gid and the new contract.
 	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
-// receive contract create transaction, create contract account, run initialization code, set contract code, do send blocks
+// receiveCreate executes a receive transaction to create a contract.
+// Parameters:
+//   db: current status.
+//   block: receive block to be executed.
+//   sendBlock: send create block.
+//   meta: contract meta set by send create block.
 func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
 	quotaLeft := quota.CalcCreateQuota(sendBlock.Fee)
+	// Check contract address collision.
 	prev, err := db.PrevAccountBlock()
 	util.DealWithErr(err)
 	if prev != nil {
 		return nil, noRetry, util.ErrAddressCollision
 	}
-	// check can make transaction
+	// Check quota for transaction.
 	cost, err := gasReceiveCreate(block, meta)
 	if err != nil {
 		return nil, noRetry, err
@@ -338,7 +345,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		return nil, noRetry, err
 	}
 
-	// create contract account and add balance
+	// Create contract account and add balance.
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 
 	// init contract state_bak and set contract code
