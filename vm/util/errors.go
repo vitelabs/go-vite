@@ -50,6 +50,8 @@ var (
 
 	ErrChainForked          = VMError{"chain forked", false}
 	ErrContractCreationFail = VMError{"contract creation failed", false}
+
+	ErrExecutionCanceled = VMError{"vm execution canceled", false}
 )
 
 // DealWithErr panics if err is not nil.
