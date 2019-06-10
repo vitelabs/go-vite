@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/cdb"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -437,4 +438,31 @@ func (snapshot *snapshotCs) verifyProducer(t time.Time, address types.Address, r
 		}
 	}
 	return false
+}
+
+func (snapshot *snapshotCs) verifyProducerAndSeed(block *ledger.SnapshotBlock) (bool, error) {
+	producerTime := *block.Timestamp
+	electionResult, err := snapshot.ElectionTime(producerTime)
+	if err != nil {
+		return false, err
+	}
+	result := snapshot.verifyProducer(producerTime, block.Producer(), electionResult)
+	if !result {
+		return false, nil
+	}
+
+	if block.Seed != 0 {
+		seedBlock, err := snapshot.rw.rw.GetLastUnpublishedSeedSnapshotHeader(block.Producer(), electionResult.STime)
+		if err != nil {
+			return false, err
+		}
+		if seedBlock == nil {
+			return false, errors.New("get last seed snapshot header nil.")
+		}
+		hash := ledger.ComputeSeedHash(block.Seed, seedBlock.PrevHash, seedBlock.Timestamp)
+		if hash != *seedBlock.SeedHash {
+			return false, errors.Errorf("seed verify fail. %s-%d", seedBlock.Hash, seedBlock.Height)
+		}
+	}
+	return true, nil
 }

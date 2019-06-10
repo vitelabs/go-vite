@@ -47,6 +47,7 @@ type Chain interface {
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 	IsGenesisSnapshotBlock(hash types.Hash) bool
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
+	GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error)
 	NewDb(dbDir string) (*leveldb.DB, error)
 }
 

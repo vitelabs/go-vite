@@ -23,6 +23,7 @@ type producerSubscribeEvent struct {
 }
 
 func (cs *consensus) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
+	cs.snapshot.verifyProducerAndSeed(header)
 	return cs.snapshot.VerifyProducer(header.Producer(), *header.Timestamp)
 }
 
