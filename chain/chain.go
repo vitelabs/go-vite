@@ -236,7 +236,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new state db
-	if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+	if c.stateDB, err = chain_state.NewStateDB(c, c.chainCfg, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")

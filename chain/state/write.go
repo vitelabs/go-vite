@@ -77,7 +77,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	}
 
 	// write vm log
-	if accountBlock.LogHash != nil {
+	if accountBlock.LogHash != nil && sDB.canWriteVmLog(accountBlock.AccountAddress) {
 		vmLogListKey := chain_utils.CreateVmLogListKey(accountBlock.LogHash)
 
 		bytes, err := vmDb.GetLogList().Serialize()
@@ -262,4 +262,14 @@ func (sDB *StateDB) writeHistoryKey(batch interfaces.Batch, key, value []byte) {
 	if types.IsBuiltinContractAddr(addr) {
 		sDB.cache.Set(snapshotValuePrefix+string(addrBytes)+string(sDB.parseStorageKey(key)), sDB.copyValue(value), cache.NoExpiration)
 	}
+}
+
+func (sDB *StateDB) canWriteVmLog(addr types.Address) bool {
+	// save all vm log when sDB.vmLogAll is true
+	if sDB.vmLogAll {
+		return true
+	}
+
+	_, ok := sDB.vmLogWhiteListSet[addr]
+	return ok
 }
