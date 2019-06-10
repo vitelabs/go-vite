@@ -112,5 +112,6 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 			pc++
 		}
 	}
+	// TODO panic
 	return nil, nil
 }

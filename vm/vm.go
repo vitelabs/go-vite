@@ -362,7 +362,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 			vm.updateBlock(db, block, err, 0, 0)
 			db, err = vm.doSendBlockList(db)
 			if err == nil {
-				block.Data = getReceiveCallData(db, err, 0)
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, nil
 			}
 		}
@@ -383,14 +383,14 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		var refundErr error
 		if db, refundErr = vm.doSendBlockList(db); refundErr == nil {
-			block.Data = getReceiveCallData(db, err, 0)
+			block.Data = getReceiveCallData(db, err)
 			return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, err
 		}
 		monitor.LogEvent("vm", "impossibleReceiveError")
 		nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
 		return nil, retry, err
 	}
-	block.Data = getReceiveCallData(db, err, 0)
+	block.Data = getReceiveCallData(db, err)
 	return &vm_db.VmAccountBlock{block, db}, noRetry, err
 }
 
@@ -454,8 +454,7 @@ var (
 	resultDepthErr = byte(2)
 )
 
-// TODO delete qUsed
-func getReceiveCallData(db vm_db.VmDb, err error, qUsed uint64) []byte {
+func getReceiveCallData(db vm_db.VmDb, err error) []byte {
 	if err == nil {
 		return append(db.GetReceiptHash().Bytes(), resultSuccess)
 	} else if err == util.ErrDepth {
@@ -470,7 +469,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 
 	if checkDepth(db, sendBlock) {
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
-		block.Data = getReceiveCallData(db, util.ErrDepth, 0)
+		block.Data = getReceiveCallData(db, util.ErrDepth)
 		vm.updateBlock(db, block, util.ErrDepth, 0, 0)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, util.ErrDepth
 	}
@@ -481,7 +480,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			vm.updateBlock(db, block, err, 0, 0)
 			vm.vmContext.sendBlockList = blockListToSend
 			if db, err = vm.doSendBlockList(db); err == nil {
-				block.Data = getReceiveCallData(db, err, 0)
+				block.Data = getReceiveCallData(db, err)
 				return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, nil
 			}
 		}
@@ -497,10 +496,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
 				return nil, retry, err
 			}
-			block.Data = getReceiveCallData(db, err, 0)
+			block.Data = getReceiveCallData(db, err)
 			return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, err
 		}
-		block.Data = getReceiveCallData(db, err, 0)
+		block.Data = getReceiveCallData(db, err)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, err
 	}
 	// check can make transaction
@@ -537,7 +536,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		vm.updateBlock(db, block, err, q, qUsed)
 		db, err = vm.doSendBlockList(db)
 		if err == nil {
-			block.Data = getReceiveCallData(db, err, qUsed)
+			block.Data = getReceiveCallData(db, err)
 			return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, nil
 		}
 	}
@@ -565,10 +564,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
 				return nil, retry, err
 			}
-			block.Data = getReceiveCallData(db, err, qUsed)
+			block.Data = getReceiveCallData(db, err)
 			return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, err
 		}
-		block.Data = getReceiveCallData(db, err, qUsed)
+		block.Data = getReceiveCallData(db, err)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, err
 	}
 
@@ -582,10 +581,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 			nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
 			return nil, retry, err
 		}
-		block.Data = getReceiveCallData(db, err, qUsed)
+		block.Data = getReceiveCallData(db, err)
 		return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, err
 	}
-	block.Data = getReceiveCallData(db, err, qUsed)
+	block.Data = getReceiveCallData(db, err)
 	return &vm_db.VmAccountBlock{block, db}, noRetry, err
 }
 
