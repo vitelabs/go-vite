@@ -48,6 +48,8 @@ const (
 	DexFundOwnerConfigReceiveGas          uint64 = 1
 	DexFundMarketOwnerConfigGas           uint64 = 300
 	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
+	dexFundTransferTokenOwnerGas          uint64 = 300
+	dexFundTransferTokenOwnerReceiveGas   uint64 = 1
 	dexFundNotifyTimeGas                  uint64 = 300
 	dexFundNotifyTimeReceiveGas           uint64 = 1
 	dexFundNewInviterGas                  uint64 = 300

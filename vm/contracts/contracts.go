@@ -99,6 +99,7 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{},
 			cabi.MethodNameDexFundOwnerConfig:          &MethodDexFundOwnerConfig{},
 			cabi.MethodNameDexFundMarketOwnerConfig:    &MethodDexFundMarketOwnerConfig{},
+			cabi.MethodNameDexFundTransferTokenOwner:   &MethodDexFundTransferTokenOwner{},
 			cabi.MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{},
 			cabi.MethodNameDexFundNewInviter:           &MethodDexFundNewInviter{},
 			cabi.MethodNameDexFundBindInviteCode:       &MethodDexFundBindInviteCode{},

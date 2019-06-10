@@ -158,7 +158,9 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	}
 	marketInfo := &dex.MarketInfo{}
 	newMarketEvent := &dex.NewMarketEvent{}
-	dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress)
+	if err = dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
+		return nil, err
+	}
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
 	if exceedAmount.Sign() > 0 {
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
@@ -692,8 +694,16 @@ func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledg
 				return handleReceiveErr(err)
 			}
 		}
-	case dex.GetTokenForChangeOwner:
-
+	case dex.GetTokenForTransferOwner:
+		if callbackParam.Exist {
+			if err := dex.OnTransferOwnerGetTokenInfoSuccess(db, callbackParam); err != nil {
+				return handleReceiveErr(err)
+			}
+		} else {
+			if err := dex.OnTransferOwnerGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
+				return handleReceiveErr(err)
+			}
+		}
 	}
 	return nil, nil
 }
@@ -731,6 +741,9 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigOwner) {
 			dex.SetOwner(db, param.Owner)
 		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
+			dex.SetTimerAddress(db, param.TimerAddress)
+		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineMarket) {
 			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
 				if param.AllowMine != marketInfo.AllowMine {
@@ -747,15 +760,25 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				return handleReceiveErr(dex.TradeMarketNotExistsErr)
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
-			dex.SetTimerAddress(db, param.TimerAddress)
-		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigNewQuoteToken) {
-			if tokenInfo, ok := dex.GetTokenInfo(db, param.NewQuoteToken); ok {
-
+			if tokenInfo, ok := dex.GetTokenInfo(db, param.NewQuoteToken); !ok {
+				getTokenInfoData := dex.OnSetQuoteTokenPending(db, param.NewQuoteToken, param.QuoteTokenType)
+				return []*ledger.AccountBlock{
+					{
+						AccountAddress: types.AddressDexFund,
+						ToAddress:      types.AddressMintage,
+						BlockType:      ledger.BlockTypeSendCall,
+						TokenId:        ledger.ViteTokenId,
+						Amount:         big.NewInt(0),
+						Data:           getTokenInfoData,
+					},
+				}, nil
 			} else {
 				if tokenInfo.QuoteType > 0 {
 					return handleReceiveErr(dex.AlreadyQuoteType)
+				} else {
+					tokenInfo.QuoteType = int32(param.QuoteTokenType)
+					dex.SaveTokenInfo(db, param.NewQuoteToken, tokenInfo)
 				}
 			}
 		}
@@ -805,7 +828,7 @@ func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.
 		if param.OperationCode == 0 {
 			return nil, nil
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigOwner) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerTransferOwner) {
 			marketInfo.Owner = param.Owner.Bytes()
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigTakerRate) {
@@ -820,12 +843,65 @@ func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.
 			}
 			marketInfo.MakerBrokerFeeRate = param.MakerRate
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigStopMarket) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerStopMarket) {
 			marketInfo.Stopped = param.StopMarket
 		}
 		dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	}
+	return nil, nil
+}
+
+type MethodDexFundTransferTokenOwner struct {
+}
+
+func (md *MethodDexFundTransferTokenOwner) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundTransferTokenOwner) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundTransferTokenOwner) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundTransferTokenOwnerGas, data)
+}
+
+func (md *MethodDexFundTransferTokenOwner) GetReceiveQuota() uint64 {
+	return dexFundTransferTokenOwnerReceiveGas
+}
+
+func (md *MethodDexFundTransferTokenOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundNotifyTime), cabi.MethodNameDexFundTransferTokenOwner, block.Data)
+}
+
+func (md MethodDexFundTransferTokenOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var (
+		err   error
+		param = new(dex.ParamDexFundTransferTokenOwner)
+	)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundTransferTokenOwner, sendBlock.Data); err != nil {
+		return handleReceiveErr(err)
+	}
+	if tokenInfo, ok := dex.GetTokenInfo(db, param.Token); ok {
+		if bytes.Equal(tokenInfo.Owner, sendBlock.AccountAddress.Bytes()) {
+			tokenInfo.Owner = param.Owner.Bytes()
+		} else {
+			return handleReceiveErr(dex.OnlyOwnerAllowErr)
+		}
+	} else {
+		getTokenInfoData := dex.OnTransferTokenOwnerPending(db, param.Token, sendBlock.AccountAddress, param.Owner)
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressMintage,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           getTokenInfoData,
+			},
+		}, nil
 	}
 	return nil, nil
 }

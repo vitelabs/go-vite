@@ -26,12 +26,12 @@ var (
 
 	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, must
 
-	pendingNewMarketFeeSumKey         = []byte("pnmfS:") // pending feeSum for new market
-	pendingNewMarketActionsKey        = []byte("pmkas:")
-	pendingSetQuoteActionsKey         = []byte("psqas:")
-	pendingChangeTokenOwnerActionsKey = []byte("pctoas:")
-	marketIdKey                       = []byte("mkId:")
-	orderIdSerialNoKey                = []byte("orIdSl:")
+	pendingNewMarketFeeSumKey           = []byte("pnmfS:") // pending feeSum for new market
+	pendingNewMarketActionsKey          = []byte("pmkas:")
+	pendingSetQuoteActionsKey           = []byte("psqas:")
+	pendingTransferTokenOwnerActionsKey = []byte("ptoas:")
+	marketIdKey                         = []byte("mkId:")
+	orderIdSerialNoKey                  = []byte("orIdSl:")
 
 	timerContractAddressKey = []byte("tmA:")
 
@@ -68,11 +68,13 @@ var (
 	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVipDuration int64 = 3600 * 24 * 30
 
+	viteTokenInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteType: 1}
+
 	viteMinAmount    = commonTokenPow       // 1 VITE
 	bitcoinMinAmount = big.NewInt(1000000)  //0.01 BTC
 	ethMinAmount     = big.NewInt(10000000) //0.1 ETH
 	usdtMinAmount    = big.NewInt(100000)   //1 USDT
-	QuoteTokenExtras = map[int]*QuoteTokenExtraInfo{
+	QuoteTokenExtras = map[int32]*QuoteTokenExtraInfo{
 		ViteTokenType: &QuoteTokenExtraInfo{Decimals: 18, MinAmount: viteMinAmount},
 		BtcTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
 		EthTokenType:  &QuoteTokenExtraInfo{Decimals: 18, MinAmount: ethMinAmount},
@@ -103,10 +105,10 @@ const (
 )
 
 const (
-	MarketOwnerConfigOwner      = 1
-	MarketOwnerConfigTakerRate  = 2
-	MarketOwnerConfigMakerRate  = 4
-	MarketOwnerConfigStopMarket = 8
+	MarketOwnerTransferOwner   = 1
+	MarketOwnerConfigTakerRate = 2
+	MarketOwnerConfigMakerRate = 4
+	MarketOwnerStopMarket      = 8
 )
 
 const (
@@ -117,13 +119,13 @@ const (
 )
 
 const (
-	GetTokenForNewMarket   = 1
-	GetTokenForSetQuote    = 2
-	GetTokenForChangeOwner = 3
+	GetTokenForNewMarket     = 1
+	GetTokenForSetQuote      = 2
+	GetTokenForTransferOwner = 3
 )
 
 type QuoteTokenExtraInfo struct {
-	Decimals  int
+	Decimals  int32
 	MinAmount *big.Int
 }
 
@@ -136,7 +138,7 @@ type ParamDexFundNewOrder struct {
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 	Side       bool
-	OrderType  int8
+	OrderType  uint8
 	Price      string
 	Quantity   *big.Int
 }
@@ -155,12 +157,12 @@ type ParamDexFundNewMarket struct {
 }
 
 type ParamDexFundPledgeForVx struct {
-	ActionType int8 // 1: pledge 2: cancel pledge
+	ActionType uint8 // 1: pledge 2: cancel pledge
 	Amount     *big.Int
 }
 
 type ParamDexFundPledgeForVip struct {
-	ActionType int8 // 1: pledge 2: cancel pledge
+	ActionType uint8 // 1: pledge 2: cancel pledge
 }
 
 type ParamDexFundPledge struct {
@@ -195,24 +197,29 @@ type ParamDexFundGetTokenInfoCallback struct {
 }
 
 type ParamDexFundOwnerConfig struct {
-	OperationCode  int8 // 1 owner, 2 timerAddress, 4 mineMarket
+	OperationCode  uint8 // 1 owner, 2 timerAddress, 4 mineMarket
 	Owner          types.Address
 	TimerAddress   types.Address
 	AllowMine      bool
-	TradeToken     types.TokenTypeId
-	QuoteToken     types.TokenTypeId
-	NewQuoteToken  types.TokenTypeId
-	QuoteTokenType int8
+	TradeToken     types.TokenTypeId // for new market
+	QuoteToken     types.TokenTypeId // for new market
+	NewQuoteToken  types.TokenTypeId // for set quote token
+	QuoteTokenType uint8             // for set quote token
 }
 
 type ParamDexFundMarketOwnerConfig struct {
-	OperationCode int8 // 1 owner, 2 takerRate, 4 makerRate, 8 stopMarket
+	OperationCode uint8 // 1 owner, 2 takerRate, 4 makerRate, 8 stopMarket
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
 	TakerRate     int32
 	MakerRate     int32
 	StopMarket    bool
+}
+
+type ParamDexFundTransferTokenOwner struct {
+	Token types.TokenTypeId
+	Owner types.Address
 }
 
 type ParamDexFundNotifyTime struct {
@@ -386,20 +393,20 @@ func (psq *PendingSetQuotes) DeSerialize(data []byte) error {
 	}
 }
 
-type PendingChangeTokenOwners struct {
-	dexproto.PendingChangeTokenOwners
+type PendingTransferTokenOwners struct {
+	dexproto.PendingTransferTokenOwners
 }
 
-func (psq *PendingChangeTokenOwners) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psq.PendingChangeTokenOwners)
+func (psq *PendingTransferTokenOwners) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psq.PendingTransferTokenOwners)
 }
 
-func (psq *PendingChangeTokenOwners) DeSerialize(data []byte) error {
-	pendingChangeTokenOwners := dexproto.PendingChangeTokenOwners{}
-	if err := proto.Unmarshal(data, &pendingChangeTokenOwners); err != nil {
+func (psq *PendingTransferTokenOwners) DeSerialize(data []byte) error {
+	pendingTransferTokenOwners := dexproto.PendingTransferTokenOwners{}
+	if err := proto.Unmarshal(data, &pendingTransferTokenOwners); err != nil {
 		return err
 	} else {
-		psq.PendingChangeTokenOwners = pendingChangeTokenOwners
+		psq.PendingTransferTokenOwners = pendingTransferTokenOwners
 		return nil
 	}
 }
@@ -812,41 +819,6 @@ func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) 
 	serializeToDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
 }
 
-//handle case on duplicate callback for getTokenInfo
-func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteAction, err error) {
-	pendingSetQuotes := &PendingSetQuotes{}
-	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
-	for index, action := range pendingSetQuotes.PendingActions {
-		if bytes.Equal(action.Token, token.Bytes()) {
-			actionsLen := len(pendingSetQuotes.PendingActions)
-			if actionsLen > 1 {
-				pendingSetQuotes.PendingActions[index] = pendingSetQuotes.PendingActions[actionsLen-1]
-				pendingSetQuotes.PendingActions = pendingSetQuotes.PendingActions[:actionsLen-1]
-				SavePendingSetQuotes(db, pendingSetQuotes)
-				return action, nil
-			} else {
-				setValueToDb(db, pendingNewMarketActionsKey, nil)
-				return action, nil
-			}
-		}
-	}
-	return nil, GetTokenInfoCallbackInnerConflictErr
-}
-
-func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uint8) {
-	pendingSetQuotes := &PendingSetQuotes{}
-	deserializeFromDb(db, pendingNewMarketActionsKey, pendingSetQuotes)
-	action := &dexproto.SetQuoteAction{}
-	action.Token = token.Bytes()
-	action.QuoteType = int32(quoteType)
-	pendingSetQuotes.PendingActions = append(pendingSetQuotes.PendingActions, action)
-	SavePendingSetQuotes(db, pendingSetQuotes)
-}
-
-func SavePendingSetQuotes(db vm_db.VmDb, pendingSetQuotes *PendingSetQuotes) {
-	serializeToDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
-}
-
 func GetPendingNewMarketFeeSum(db vm_db.VmDb) *big.Int {
 	if amountBytes := getValueFromDb(db, pendingNewMarketFeeSumKey); len(amountBytes) > 0 {
 		return new(big.Int).SetBytes(amountBytes)
@@ -883,8 +855,83 @@ func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) {
 	}
 }
 
+//handle case on duplicate callback for getTokenInfo
+func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteAction, err error) {
+	pendingSetQuotes := &PendingSetQuotes{}
+	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+	for index, action := range pendingSetQuotes.PendingActions {
+		if bytes.Equal(action.Token, token.Bytes()) {
+			actionsLen := len(pendingSetQuotes.PendingActions)
+			if actionsLen > 1 {
+				pendingSetQuotes.PendingActions[index] = pendingSetQuotes.PendingActions[actionsLen-1]
+				pendingSetQuotes.PendingActions = pendingSetQuotes.PendingActions[:actionsLen-1]
+				SavePendingSetQuotes(db, pendingSetQuotes)
+				return action, nil
+			} else {
+				setValueToDb(db, pendingSetQuoteActionsKey, nil)
+				return action, nil
+			}
+		}
+	}
+	return nil, GetTokenInfoCallbackInnerConflictErr
+}
+
+func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uint8) {
+	pendingSetQuotes := &PendingSetQuotes{}
+	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+	action := &dexproto.SetQuoteAction{}
+	action.Token = token.Bytes()
+	action.QuoteType = int32(quoteType)
+	pendingSetQuotes.PendingActions = append(pendingSetQuotes.PendingActions, action)
+	SavePendingSetQuotes(db, pendingSetQuotes)
+}
+
+func SavePendingSetQuotes(db vm_db.VmDb, pendingSetQuotes *PendingSetQuotes) {
+	serializeToDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+}
+
+//handle case on duplicate callback for getTokenInfo
+func FilterPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.TransferTokenOwnerAction, err error) {
+	pendings := &PendingTransferTokenOwners{}
+	deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+	for index, action := range pendings.PendingActions {
+		if bytes.Equal(action.Token, token.Bytes()) {
+			actionsLen := len(pendings.PendingActions)
+			if actionsLen > 1 {
+				pendings.PendingActions[index] = pendings.PendingActions[actionsLen-1]
+				pendings.PendingActions = pendings.PendingActions[:actionsLen-1]
+				SavePendingTransferTokenOwners(db, pendings)
+				return action, nil
+			} else {
+				setValueToDb(db, pendingTransferTokenOwnerActionsKey, nil)
+				return action, nil
+			}
+		}
+	}
+	return nil, GetTokenInfoCallbackInnerConflictErr
+}
+
+func AddToPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId, origin, new types.Address) {
+	pendings := &PendingTransferTokenOwners{}
+	deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+	action := &dexproto.TransferTokenOwnerAction{}
+	action.Token = token.Bytes()
+	action.Origin = origin.Bytes()
+	action.New = new.Bytes()
+	pendings.PendingActions = append(pendings.PendingActions, action)
+	SavePendingTransferTokenOwners(db, pendings)
+}
+
+func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferTokenOwners) {
+	serializeToDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+}
+
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
 	tokenInfo = &TokenInfo{}
+	if token == ledger.ViteTokenId {
+		tokenInfo.TokenInfo = viteTokenInfo
+		return tokenInfo, true
+	}
 	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
 	return
 }

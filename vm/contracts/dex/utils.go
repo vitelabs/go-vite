@@ -177,6 +177,6 @@ func BitwiseNotBytes(bytes []byte) {
 	}
 }
 
-func IsOperationValidWithMask(operationCode, mask int8) bool {
-	return int8(byte(operationCode)&byte(mask)) == 1
+func IsOperationValidWithMask(operationCode, mask uint8) bool {
+	return uint8(byte(operationCode)&byte(mask)) == 1
 }
