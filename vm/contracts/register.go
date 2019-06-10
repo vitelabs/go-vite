@@ -389,6 +389,29 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	return calcRewardByDay(reader, index, pledgeAmount)
 }
 
+func CalcRewardByDayIndex(db vm_db.VmDb, reader util.ConsensusReader, index uint64) (m map[string]*Reward, err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			debug.PrintStack()
+			err = util.ErrChainForked
+		}
+	}()
+	endTime := reader.GetEndTimeByIndex(index)
+	current, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	timeLimit := getRewardTimeLimit(current)
+	if endTime > timeLimit {
+		return nil, util.ErrRewardNotDue
+	}
+	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
+	if err != nil {
+		return nil, err
+	}
+	return calcRewardByDay(reader, index, pledgeAmount)
+}
+
 func calcRewardByDay(reader util.ConsensusReader, index uint64, pledgeAmount *big.Int) (m map[string]*Reward, err error) {
 	detailList, err := reader.GetConsensusDetailByDay(index, index)
 	if err != nil {

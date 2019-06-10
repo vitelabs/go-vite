@@ -2,6 +2,7 @@ package tree
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -12,7 +13,7 @@ type mockBranchRoot struct {
 	headHeight uint64
 }
 
-func newMockBranchRoot() *mockBranchRoot {
+func NewMockBranchRoot() *mockBranchRoot {
 	root := &mockBranchRoot{chainId: "disk", headHeight: 0}
 	root.base = newBranchBase(emptyKnot.Height(), emptyKnot.Hash(), emptyKnot.Height(), emptyKnot.Hash(), "disk-base")
 	return root
@@ -48,6 +49,11 @@ func (self *mockBranchRoot) GetKnotAndBranch(height uint64) (Knot, Branch) {
 	return self.GetKnot(height, true), self
 }
 
+func (self *mockBranchRoot) GetHashAndBranch(height uint64) (*types.Hash, Branch) {
+	hash := self.GetKnot(height, true).Hash()
+	return &hash, self
+}
+
 func (self *mockBranchRoot) TailHH() (uint64, types.Hash) {
 	panic("not support")
 }
@@ -58,7 +64,7 @@ func (self *mockBranchRoot) Size() uint64 {
 }
 
 func (self *mockBranchRoot) AddHead(k Knot) error {
-	panic("not support")
+	return self.addHead(k)
 }
 
 func (self *mockBranchRoot) addHead(ks ...Knot) error {
@@ -75,6 +81,22 @@ func (self *mockBranchRoot) GetKnot(height uint64, flag bool) Knot {
 		return nil
 	}
 	return knot
+}
+
+func (self *mockBranchRoot) GetHash(height uint64, flag bool) *types.Hash {
+	if height == types.EmptyHeight {
+		return &types.Hash{}
+	}
+	knot := self.base.getHeightBlock(height)
+	if knot == nil {
+		return nil
+	}
+	hash := knot.Hash()
+	return &hash
+}
+
+func (self mockBranchRoot) UTime() time.Time {
+	return time.Now()
 }
 
 func (self *mockBranchRoot) ContainsKnot(height uint64, hash types.Hash, flag bool) bool {

@@ -125,12 +125,16 @@ func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedC
 	// get quota total
 	quotaUnused, ok := quotaUnusedCache[block.AccountAddress]
 	if !ok {
-		quotaInfo, err := c.GetPledgeQuota(block.AccountAddress)
+
+		amount, err := c.GetPledgeBeneficialAmount(block.AccountAddress)
 		if err != nil {
 			return false, err
 		}
 
-		quotaUnused = quotaInfo.SnapshotCurrent()
+		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount)
+		if err != nil {
+			return false, err
+		}
 		quotaUnusedCache[block.AccountAddress] = quotaUnused
 
 	}

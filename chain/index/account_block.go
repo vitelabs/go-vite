@@ -63,6 +63,24 @@ func (iDB *IndexDB) GetAccountBlockLocation(addr *types.Address, height uint64) 
 	return chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
+func (iDB *IndexDB) GetAccountBlockLocationByHeight(addr *types.Address, height uint64) (*types.Hash, *chain_file_manager.Location, error) {
+	key := chain_utils.CreateAccountBlockHeightKey(addr, height)
+	value, err := iDB.getValue(key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(value) <= types.HashSize {
+		return nil, nil, nil
+	}
+
+	hash, err := types.BytesToHash(value[:types.HashSize])
+	if err != nil {
+		return nil, nil, err
+	}
+	return &hash, chain_utils.DeserializeLocation(value[types.HashSize:]), nil
+}
+
 func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
 	startHeight := uint64(1)
 

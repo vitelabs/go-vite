@@ -82,14 +82,14 @@ LOOP:
 	for _, c := range chains {
 		tH := snippet.tailHeight
 		tHash := snippet.tailHash
-		block, reader := c.GetKnotAndBranch(tH)
-		if block == nil || block.Hash() != tHash {
+		hash, reader := c.GetHashAndBranch(tH)
+		if hash == nil || *hash != tHash {
 			continue
 		}
 
 		for i := tH + 1; i <= snippet.headHeight; i++ {
 			trace = ""
-			b2, r2 := c.GetKnotAndBranch(i)
+			b2, r2 := c.GetHashAndBranch(i)
 			sb := snippet.getBlock(i)
 			if b2 == nil {
 				forky = false
@@ -98,7 +98,7 @@ LOOP:
 				trace += "[1]"
 				break LOOP
 			}
-			if b2.Hash() != sb.Hash() {
+			if *b2 != sb.Hash() {
 				if r2.ID() == reader.ID() {
 					forky = true
 					insertable = false
@@ -118,7 +118,7 @@ LOOP:
 				break
 			} else {
 				reader = r2
-				block = b2
+				hash = b2
 				// todo
 				cp.log.Debug(fmt.Sprintf("block[%s-%d] exists. del from tail.", sb.Hash(), sb.Height()))
 				tail := snippet.remTail()

@@ -407,14 +407,22 @@ func (ab *AccountBlock) Deserialize(buf []byte) error {
 }
 
 func (ab *AccountBlock) IsSendBlock() bool {
-	return ab.BlockType == BlockTypeSendCreate ||
-		ab.BlockType == BlockTypeSendCall ||
-		ab.BlockType == BlockTypeSendReward ||
-		ab.BlockType == BlockTypeSendRefund
+	return IsSendBlock(ab.BlockType)
+}
+
+func IsSendBlock(blockType byte) bool {
+	return blockType == BlockTypeSendCreate ||
+		blockType == BlockTypeSendCall ||
+		blockType == BlockTypeSendReward ||
+		blockType == BlockTypeSendRefund
 }
 
 func (ab *AccountBlock) IsReceiveBlock() bool {
-	return ab.BlockType == BlockTypeReceive ||
-		ab.BlockType == BlockTypeReceiveError ||
-		ab.BlockType == BlockTypeGenesisReceive
+	return IsReceiveBlock(ab.BlockType)
+}
+
+func IsReceiveBlock(blockType byte) bool {
+	return blockType == BlockTypeReceive ||
+		blockType == BlockTypeReceiveError ||
+		blockType == BlockTypeGenesisReceive
 }
