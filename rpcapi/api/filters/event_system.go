@@ -154,7 +154,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	msgs := make([]*AccountBlock, len(acEvent))
 	heightMsgs := make(map[types.Address][]*AccountBlockWithHeight)
 	onroadMsgs := make(map[types.Address][]*AccountBlock)
-	deletedSendBlockHash := make(map[types.Hash]interface{})
+	deletedSendBlockHash := make(map[types.Hash]types.Address)
 	for i, e := range acEvent {
 		msgs[i] = &AccountBlock{Hash: e.Hash, Removed: removed}
 		if _, ok := heightMsgs[e.Addr]; !ok {
@@ -164,15 +164,31 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 
 		if removed {
 			if ledger.IsSendBlock(e.BlockType) {
-				deletedSendBlockHash[e.Hash] = struct{}{}
+				deletedSendBlockHash[e.Hash] = e.ToAddr
 			} else {
+				if len(e.SendBlockList) > 0 {
+					for _, sendBlock := range e.SendBlockList {
+						deletedSendBlockHash[sendBlock.Hash] = sendBlock.ToAddr
+					}
+				}
 				if _, ok := deletedSendBlockHash[e.FromBlockHash]; !ok {
-					onroadMsgs = appendOnroadMsg(onroadMsgs, e, removed)
+					onroadMsgs = appendOnroadMsg(onroadMsgs, e.Addr, e.FromBlockHash, true)
+				} else {
+					delete(deletedSendBlockHash, e.FromBlockHash)
 				}
 			}
 		} else {
-			onroadMsgs = appendOnroadMsg(onroadMsgs, e, removed)
+			if ledger.IsSendBlock(e.BlockType) {
+				onroadMsgs = appendOnroadMsg(onroadMsgs, e.ToAddr, e.Hash, removed)
+			} else if len(e.SendBlockList) > 0 {
+				for _, sendBlock := range e.SendBlockList {
+					onroadMsgs = appendOnroadMsg(onroadMsgs, sendBlock.ToAddr, sendBlock.Hash, removed)
+				}
+			}
 		}
+	}
+	for deletedSendHash, toAddr := range deletedSendBlockHash {
+		onroadMsgs = appendOnroadMsg(onroadMsgs, toAddr, deletedSendHash, false)
 	}
 	// handle account blocks
 	for _, f := range filters[AccountBlocksSubscription] {
@@ -204,19 +220,11 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 }
 
-func appendOnroadMsg(onroadMsgs map[types.Address][]*AccountBlock, e *AccountChainEvent, removed bool) map[types.Address][]*AccountBlock {
-	if _, ok := onroadMsgs[e.ToAddr]; !ok {
-		onroadMsgs[e.ToAddr] = make([]*AccountBlock, 0)
+func appendOnroadMsg(onroadMsgs map[types.Address][]*AccountBlock, toAddr types.Address, hash types.Hash, removed bool) map[types.Address][]*AccountBlock {
+	if _, ok := onroadMsgs[toAddr]; !ok {
+		onroadMsgs[toAddr] = make([]*AccountBlock, 0)
 	}
-	onroadMsgs[e.ToAddr] = append(onroadMsgs[e.ToAddr], &AccountBlock{Hash: e.Hash, Removed: removed})
-	if len(e.SendBlockList) > 0 {
-		for _, sendBlock := range e.SendBlockList {
-			if _, ok := onroadMsgs[sendBlock.ToAddr]; !ok {
-				onroadMsgs[sendBlock.ToAddr] = make([]*AccountBlock, 0)
-			}
-			onroadMsgs[sendBlock.ToAddr] = append(onroadMsgs[sendBlock.ToAddr], &AccountBlock{Hash: sendBlock.Hash, Removed: removed})
-		}
-	}
+	onroadMsgs[toAddr] = append(onroadMsgs[toAddr], &AccountBlock{Hash: hash, Removed: removed})
 	return onroadMsgs
 }
 
