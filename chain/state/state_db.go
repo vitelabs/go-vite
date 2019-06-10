@@ -45,7 +45,16 @@ func NewStateDB(chain Chain, chainCfg *config.Chain, chainDir string) (*StateDB,
 		return nil, err
 	}
 
-	storageRedo, err := NewStorageRedo(chain, chainDir)
+	redoStore, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), "stateDbRedo")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStateDBWithStore(chain, chainCfg, store, redoStore)
+}
+
+func NewStateDBWithStore(chain Chain, chainCfg *config.Chain, store *chain_db.Store, redoStore *chain_db.Store) (*StateDB, error) {
+	storageRedo, err := NewStorageRedoWithStore(chain, redoStore)
 	if err != nil {
 		return nil, err
 	}
@@ -58,13 +67,11 @@ func NewStateDB(chain Chain, chainCfg *config.Chain, chainDir string) (*StateDB,
 		log:               log15.New("module", "stateDB"),
 		store:             store,
 		useCache:          false,
-
-		redo: storageRedo,
+		redo:              storageRedo,
 	}
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
 	}
-
 	return stateDb, nil
 }
 
