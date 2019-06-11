@@ -287,12 +287,28 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	if confirmTime < confirmTimeMin || confirmTime > confirmTimeMax {
 		return nil, util.ErrInvalidConfirmTime
 	}
-	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data)
+	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data, vm.latestSnapshotHeight)
 	if !util.IsValidQuotaRatio(quotaRatio) {
 		return nil, util.ErrInvalidQuotaRatio
 	}
-	if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data)) && confirmTime <= 0 {
-		return nil, util.ErrInvalidConfirmTime
+
+	if !util.IsForked(vm.latestSnapshotHeight) {
+		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && confirmTime <= 0 {
+			return nil, util.ErrInvalidConfirmTime
+		}
+	} else {
+		seedCount := util.GetSeedCountFromCreateContractData(block.Data)
+		if seedCount < seedCountMin || seedCount > seedCountMax || confirmTime < seedCount {
+			return nil, util.ErrInvalidSeedCount
+		}
+		code := util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)
+		containsConfirmTimeCode, containsSeedCountCode := ContainsCertainStatusCode(code)
+		if containsConfirmTimeCode && confirmTime <= 0 {
+			return nil, util.ErrInvalidConfirmTime
+		}
+		if containsSeedCountCode && seedCount <= 0 {
+			return nil, util.ErrInvalidSeedCount
+		}
 	}
 
 	// Set contract fee.
@@ -319,6 +335,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	vm.updateBlock(db, block, nil, q, qUsed)
 	// Set contract meta at send block, so that contract block producer module
 	// will be informed of the binding between gid and the new contract.
+	// TODO set seed count
 	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
@@ -352,7 +369,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 
 	// init contract state_bak and set contract code
-	initCode := util.GetCodeFromCreateContractData(sendBlock.Data)
+	initCode := util.GetCodeFromCreateContractData(sendBlock.Data, vm.latestSnapshotHeight)
 	c := newContract(block, db, sendBlock, initCode, quotaLeft)
 	c.setCallCode(block.AccountAddress, initCode)
 	code, err := c.run(vm)

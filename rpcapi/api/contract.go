@@ -62,6 +62,7 @@ func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([
 type CreateContractDataParam struct {
 	Gid         types.Gid `json:"gid"`
 	ConfirmTime uint8     `json:"confirmTime"`
+	SeedCount   uint8     `json:"seedCount"`
 	QuotaRatio  uint8     `json:"quotaRatio"`
 	HexCode     string    `json:"hexCode"`
 	Params      []byte    `json:"params"`
@@ -75,11 +76,26 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 	if !util.IsValidQuotaRatio(param.QuotaRatio) {
 		return nil, util.ErrInvalidQuotaRatio
 	}
+	sb := c.chain.GetLatestSnapshotBlock()
 	if len(param.Params) > 0 {
-		data := util.GetCreateContractData(helper.JoinBytes(code, param.Params), util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
+		data := util.GetCreateContractData(
+			helper.JoinBytes(code, param.Params),
+			util.SolidityPPContractType,
+			param.ConfirmTime,
+			param.SeedCount,
+			param.QuotaRatio,
+			param.Gid,
+			sb.Height)
 		return data, nil
 	} else {
-		data := util.GetCreateContractData(code, util.SolidityPPContractType, param.ConfirmTime, param.QuotaRatio, param.Gid)
+		data := util.GetCreateContractData(
+			code,
+			util.SolidityPPContractType,
+			param.ConfirmTime,
+			param.SeedCount,
+			param.QuotaRatio,
+			param.Gid,
+			sb.Height)
 		return data, nil
 	}
 }

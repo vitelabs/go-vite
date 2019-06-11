@@ -20,6 +20,7 @@ var (
 	ErrCalcPoWTwice              = VMError{"calc PoW twice referring to one snapshot block", false}
 	ErrAbiMethodNotFound         = VMError{"abi: method not found", false}
 	ErrInvalidConfirmTime        = VMError{"invalid confirm time", false}
+	ErrInvalidSeedCount          = VMError{"invalid seed count", false}
 	ErrAddressNotMatch           = VMError{"current address not match", false}
 	ErrTransactionTypeNotSupport = VMError{"transaction type not supported", false}
 	ErrVersionNotSupport         = VMError{"feature not supported in current snapshot height", false}

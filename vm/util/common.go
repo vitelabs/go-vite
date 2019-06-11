@@ -41,6 +41,7 @@ var (
 	SolidityPPContractType = []byte{1}
 	contractTypeSize       = 1
 	confirmTimeSize        = 1
+	seedCountSize          = 1
 	quotaRatioSize         = 1
 )
 
@@ -48,8 +49,12 @@ func IsValidQuotaRatio(quotaRatio uint8) bool {
 	return quotaRatio >= 10 && quotaRatio <= 100
 }
 
-func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, quotaRatio uint8, gid types.Gid) []byte {
-	return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
+func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid, snapshotHeight uint64) []byte {
+	if !IsForked(snapshotHeight) {
+		return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
+	} else {
+		return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
+	}
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -57,9 +62,6 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 	return gid
 }
 
-func GetCodeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize+contractTypeSize+confirmTimeSize+quotaRatioSize:]
-}
 func GetContractTypeFromCreateContractData(data []byte) []byte {
 	return data[types.GidSize : types.GidSize+contractTypeSize]
 }
@@ -72,10 +74,21 @@ func IsExistContractType(contractType []byte) bool {
 func GetConfirmTimeFromCreateContractData(data []byte) uint8 {
 	return uint8(data[types.GidSize+contractTypeSize])
 }
-func GetQuotaRatioFromCreateContractData(data []byte) uint8 {
+func GetSeedCountFromCreateContractData(data []byte) uint8 {
 	return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize])
 }
-
+func GetQuotaRatioFromCreateContractData(data []byte, snapshotHeight uint64) uint8 {
+	if !IsForked(snapshotHeight) {
+		return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize])
+	}
+	return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize+seedCountSize])
+}
+func GetCodeFromCreateContractData(data []byte, snapshotHeight uint64) []byte {
+	if !IsForked(snapshotHeight) {
+		return data[types.GidSize+contractTypeSize+confirmTimeSize+quotaRatioSize:]
+	}
+	return data[types.GidSize+contractTypeSize+confirmTimeSize+seedCountSize+quotaRatioSize:]
+}
 func PackContractCode(contractType, code []byte) []byte {
 	return helper.JoinBytes(contractType, code)
 }

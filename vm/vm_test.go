@@ -714,7 +714,7 @@ type TestGlobalStatus struct {
 func NewTestGlobalStatus(seed uint64, snapshotBlock *ledger.SnapshotBlock) *TestGlobalStatus {
 	return &TestGlobalStatus{seed, snapshotBlock}
 }
-func (g *TestGlobalStatus) Seed() (uint64, error) {
+func (g *TestGlobalStatus) Seed(uint64) (uint64, error) {
 	return g.seed, nil
 }
 func (g *TestGlobalStatus) SnapshotBlock() *ledger.SnapshotBlock {
