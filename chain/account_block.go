@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
