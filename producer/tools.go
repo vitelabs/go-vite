@@ -36,7 +36,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		Timestamp:       &e.Timestamp,
 		SnapshotContent: accounts,
 	}
-	lastBlock := self.getLastSeedBlock(e, head)
+	lastBlock := self.getLastSeedBlock(e, head, e.PeriodStime)
 	if lastBlock != nil {
 		if lastBlock.Timestamp.Before(e.PeriodStime) {
 			lastSeed := fn(lastBlock.SeedHash)
@@ -114,8 +114,8 @@ func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.Snapshot
 	return needSnapshotAccounts, nil
 }
 
-func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock) *ledger.SnapshotBlock {
-	block, err := self.chain.GetLastSeedSnapshotHeader(e.Address)
+func (self *tools) getLastSeedBlock(e *consensus.Event, head *ledger.SnapshotBlock, beforeTime time.Time) *ledger.SnapshotBlock {
+	block, err := self.chain.GetLastUnpublishedSeedSnapshotHeader(e.Address, beforeTime)
 	if err != nil {
 		return nil
 	}
