@@ -51,6 +51,7 @@ func (w *worker) work() {
 		}
 
 		if bus.snapshotContext.compactDirty {
+			bus.snapshotContext.setCompactDirty(false)
 			sum += w.p.snapshotCompact()
 		}
 
