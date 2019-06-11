@@ -13,11 +13,11 @@ type ForkPointItem struct {
 	forkName string
 }
 
-var forkPointList ForkPointList
-var forkPointMap ForkPointMap
-
 type ForkPointList []*ForkPointItem
 type ForkPointMap map[string]*ForkPointItem
+
+var forkPointList ForkPointList
+var forkPointMap = make(ForkPointMap)
 
 func (a ForkPointList) Len() int           { return len(a) }
 func (a ForkPointList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
