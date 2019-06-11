@@ -1,4 +1,4 @@
-package util
+package helper
 
 const (
 	rngLen   = 607

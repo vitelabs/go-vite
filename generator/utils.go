@@ -1,8 +1,10 @@
 package generator
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 // EnvPrepareForGenerator carries the info about the latest state of the world.
@@ -42,11 +44,12 @@ func GetAddressStateForGenerator(chain stateChain, addr *types.Address) (*EnvPre
 
 // VMGlobalStatus provides data about random seed.
 type VMGlobalStatus struct {
-	c        chain
-	sb       *ledger.SnapshotBlock
-	fromHash types.Hash
-	seed     uint64
-	setSeed  bool
+	c          chain
+	sb         *ledger.SnapshotBlock
+	fromHash   types.Hash
+	seed       uint64
+	setSeed    bool
+	randSource helper.Source64
 }
 
 // NewVMGlobalStatus needs method to get the seed from the snapshot block.
@@ -55,16 +58,28 @@ func NewVMGlobalStatus(c chain, sb *ledger.SnapshotBlock, fromHash types.Hash) *
 }
 
 // Seed return the random seed.
-func (g *VMGlobalStatus) Seed() (uint64, error) {
+func (g *VMGlobalStatus) Seed(snapshotHeight uint64) (uint64, error) {
+	if !util.IsForked(snapshotHeight) {
+		if g.setSeed {
+			return g.seed, nil
+		}
+		s, err := g.c.GetSeed(g.sb, g.fromHash)
+		if err == nil {
+			g.seed = s
+			g.setSeed = true
+		}
+		return s, err
+	}
 	if g.setSeed {
-		return g.seed, nil
+		return g.randSource.Uint64(), nil
 	}
 	s, err := g.c.GetSeed(g.sb, g.fromHash)
-	if err == nil {
-		g.seed = s
-		g.setSeed = true
+	if err != nil {
+		return 0, err
 	}
-	return s, err
+	g.randSource = helper.NewSource64(int64(s))
+	g.setSeed = true
+	return g.randSource.Uint64(), nil
 }
 
 // SnapshotBlock returns the SnapshotBlock to which the seed referred.

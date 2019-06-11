@@ -131,6 +131,8 @@ type VM struct {
 	globalStatus util.GlobalStatus
 	// reader holds a consensus reader instance, used for reward calculation
 	reader util.ConsensusReader
+	// latest snapshot block height, used for fork check
+	latestSnapshotHeight uint64
 }
 
 // NewVM is a constructor of VM. This method is called before running an
@@ -191,6 +193,9 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			"height", block.Height, ""+
 				"fromHash", block.FromBlockHash.String())
 	}
+	sb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	vm.latestSnapshotHeight = sb.Height
 	// In case vm will update some fields of block, make a copy of block.
 	blockCopy := block.Copy()
 	if blockCopy.IsSendBlock() {
@@ -219,8 +224,6 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			return vmAccountBlock, noRetry, err
 		}
 	} else {
-		sb, err := db.LatestSnapshotBlock()
-		util.DealWithErr(err)
 		// New interpreter instance according to latest snapshot block height.
 		vm.i = newInterpreter(sb.Height, false)
 		vm.globalStatus = status

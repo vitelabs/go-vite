@@ -541,7 +541,7 @@ func opOffchainFromHash(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 }
 
 func opSeed(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	seed, err := vm.globalStatus.Seed()
+	seed, err := vm.globalStatus.Seed(vm.latestSnapshotHeight)
 	util.DealWithErr(err)
 	stack.push(c.intPool.get().SetUint64(seed))
 	return nil, nil

@@ -133,7 +133,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 		sb, stateErr := gen.chain.GetSnapshotBlockByContractMeta(&block.AccountAddress, &fromBlock.Hash)
 		if stateErr != nil {
-			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", stateErr)
+			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed, err: %v", stateErr)
 		}
 		if sb != nil {
 			state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
