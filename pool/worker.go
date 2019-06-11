@@ -98,6 +98,9 @@ func (w *worker) work() {
 			w.p.insert()
 			continue
 		}
+		if bus.accContext.compactDirty || bus.snapshotContext.compactDirty {
+			continue
+		}
 		bus.wait.Wait()
 	}
 }
