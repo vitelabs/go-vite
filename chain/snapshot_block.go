@@ -566,39 +566,6 @@ func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uin
 }
 
 func (c *chain) GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error) {
-	//	headHeight := c.GetLatestSnapshotBlock().Height
-	//
-	//	tailHeight := uint64(1)
-	//	count := uint64(10 * 60)
-	//	if headHeight > count {
-	//		tailHeight = headHeight - count
-	//	}
-	//
-	//	for h := headHeight; h >= tailHeight; h-- {
-	//
-	//		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
-	//		if err != nil {
-	//			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
-	//			c.log.Error(cErr.Error(), "method", "GetLastUnpublishedSeedSnapshotHeader")
-	//			return nil, nil
-	//		}
-	//
-	//		if snapshotHeader == nil {
-	//			cErr := errors.New(fmt.Sprintf("snapshotHeader is nil. height is %d", h))
-	//
-	//			c.log.Error(cErr.Error(), "method", "GetRandomSeed")
-	//			return nil, nil
-	//		}
-	//
-	//		if snapshotHeader.Producer() == producer && snapshotHeader.SeedHash != nil && snapshotHeader.Timestamp.Before(beforeTime) {
-	//			return snapshotHeader, nil
-	//		}
-	//	}
-	//
-	//	return nil, nil
-	//}
-	//
-	//func (c *chain) GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error) {
 	headHeight := c.GetLatestSnapshotBlock().Height
 
 	tailHeight := uint64(1)
