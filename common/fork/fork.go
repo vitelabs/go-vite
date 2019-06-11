@@ -60,8 +60,28 @@ func IsDexFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexForkPoint.Height
 }
 
+func IsForkPoint(snapshotHeight uint64) bool {
+	// assume that fork point list is sorted by height asc
+	for i := len(forkPointList) - 1; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		if forkPoint.Height == snapshotHeight {
+			return true
+		}
+
+		if forkPoint.Height < snapshotHeight {
+			break
+		}
+	}
+
+	return false
+}
+
 func GetForkPoints() config.ForkPoints {
 	return forkPoints
+}
+
+func GetForkPointList() ForkPointList {
+	return forkPointList
 }
 
 func GetRecentForkName(blockHeight uint64) string {

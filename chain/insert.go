@@ -50,7 +50,7 @@ func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*led
 	}
 
 	// delete invalidBlocks
-	invalidBlocks := c.filterUnconfirmedBlocks(true)
+	invalidBlocks := c.filterUnconfirmedBlocks(snapshotBlock, true)
 
 	if len(invalidBlocks) > 0 {
 		if err := c.deleteAccountBlocks(invalidBlocks); err != nil {
