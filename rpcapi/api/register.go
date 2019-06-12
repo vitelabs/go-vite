@@ -216,9 +216,6 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 		return nil, err
 	}
 	addrList := make([]*types.Address, len(paramList))
-	if err != nil {
-		return nil, err
-	}
 	for k, v := range paramList {
 		var r *types.Registration
 		if v.Gid == nil || *v.Gid == types.DELEGATE_GID {
