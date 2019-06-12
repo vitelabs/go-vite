@@ -720,3 +720,53 @@ func checkFloatList(list []*big.Float, s string, t *testing.T) {
 		lastAmount = amount
 	}
 }
+
+func TestCalcPledgeAmountByUtps(t *testing.T) {
+	InitQuotaConfig(false, false)
+	testCases := []struct {
+		utps           float64
+		expectedResult *big.Int
+		err            error
+	}{
+		{
+			-1,
+			nil,
+			util.ErrInvalidMethodParam,
+		},
+		{
+			0,
+			big.NewInt(0),
+			nil,
+		},
+		{
+			0.013,
+			new(big.Int).Mul(big.NewInt(134), big.NewInt(1e18)),
+			nil,
+		},
+		{
+			0.026,
+			new(big.Int).Mul(big.NewInt(267), big.NewInt(1e18)),
+			nil,
+		},
+		{
+			1.0,
+			new(big.Int).Mul(big.NewInt(1e4), big.NewInt(1e18)),
+			nil,
+		},
+		{
+			48,
+			nil,
+			util.ErrInvalidMethodParam,
+		},
+	}
+	for _, utps := range testCases {
+		result, error := CalcPledgeAmountByUtps(utps.utps)
+		if (error == nil && utps.err != nil) || (error != nil && utps.err == nil) ||
+			(error != nil && utps.err != nil && error.Error() != utps.err.Error()) {
+			t.Fatalf("param: %v, error expected %v, but got %v", utps.utps, utps.err, error)
+		}
+		if error == nil && utps.err == nil && result.Cmp(utps.expectedResult) != 0 {
+			t.Fatalf("param: %v, result expected %v, but got %v", utps.utps, utps.expectedResult, result)
+		}
+	}
+}
