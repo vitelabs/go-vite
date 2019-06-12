@@ -328,6 +328,10 @@ func (c *chain) checkForkPointsAndRollback() error {
 			return err
 		}
 
+		if sb == nil {
+			continue
+		}
+
 		if sb.ComputeHash() == sb.Hash {
 			break
 		}
