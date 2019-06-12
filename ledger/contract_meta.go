@@ -51,7 +51,7 @@ func (cm *ContractMeta) Deserialize(buf []byte) error {
 		return nil
 	}
 
-	cm.SeedConfirmedTimes = buf[types.GidSize+1+types.HashSize+1]
+	cm.SeedConfirmedTimes = buf[LengthBeforeDexFork]
 	return nil
 }
 
