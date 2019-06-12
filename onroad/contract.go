@@ -46,7 +46,7 @@ type ContractWorker struct {
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	selectivePendingCache sync.Map //map[types.Address]*callerPendingMap
+	selectivePendingCache *sync.Map //map[types.Address]*callerPendingMap
 
 	log log15.Logger
 }
@@ -60,8 +60,9 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList:       make(map[types.Address]bool),
-		workingAddrList: make(map[types.Address]bool),
+		blackList:             make(map[types.Address]bool),
+		workingAddrList:       make(map[types.Address]bool),
+		selectivePendingCache: &sync.Map{},
 
 		log: slog.New("worker", "contract"),
 	}
@@ -105,19 +106,22 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		w.getAndSortAllAddrQuota()
 		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
 
+		// 3. register listening events, including addContractLis and addSnapshotEventLis
 		w.manager.addContractLis(w.gid, func(address types.Address) {
 			if w.isContractInBlackList(address) {
 				return
 			}
-
 			q := w.GetPledgeQuota(address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
 			}
-			w.pushContractTask(c)
-			signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
-			w.wakeupOneTp()
+
+			if !w.isCancel.Load() {
+				w.pushContractTask(c)
+				signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
+				w.wakeupOneTp()
+			}
 		})
 
 		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
@@ -127,14 +131,18 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 					continue
 				}
 				count := w.releaseContractCallers(addr, RETRY)
-				signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
-				if count > 0 {
-					q := w.GetPledgeQuota(addr)
-					c := &contractTask{
-						Addr:  addr,
-						Quota: q,
-					}
+				if count <= 0 {
+					continue
+				}
+
+				q := w.GetPledgeQuota(addr)
+				c := &contractTask{
+					Addr:  addr,
+					Quota: q,
+				}
+				if !w.isCancel.Load() {
 					w.pushContractTask(c)
+					signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
 					w.wakeupOneTp()
 				}
 			}
@@ -169,13 +177,12 @@ func (w *ContractWorker) Stop() {
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
-		w.clearContractBlackList()
-		w.clearWorkingAddrList()
-
 		log.Info("stop all task")
 		w.wg.Wait()
 		log.Info("end stop all task")
 
+		w.clearContractBlackList()
+		w.clearWorkingAddrList()
 		w.clearSelectiveBlocksCache()
 
 		w.status = stop
@@ -251,6 +258,10 @@ func (w *ContractWorker) clearWorkingAddrList() {
 	w.workingAddrList = make(map[types.Address]bool)
 }
 
+func (w *ContractWorker) clearSelectiveBlocksCache() {
+	w.selectivePendingCache = &sync.Map{}
+}
+
 // Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addContractIntoWorkingList(addr types.Address) bool {
 	w.workingAddrListMutex.Lock()
@@ -292,10 +303,6 @@ func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
-}
-
-func (w *ContractWorker) clearSelectiveBlocksCache() {
-	w.selectivePendingCache = sync.Map{}
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {

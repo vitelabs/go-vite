@@ -185,7 +185,7 @@ func (pl *pool) checkIrreversiblePrinciple(keyPoint *snapshotPoolBlock) error {
 	if info.point.Height < keyPoint.Height() {
 		return nil
 	}
-	return errors.Errorf("check Irreversible Principle Fail, %s, keyPoint:%s"+info.String(), keyPoint.Height())
+	return errors.Errorf("check Irreversible Principle Fail, %s, keyPoint:%d", info.String(), keyPoint.Height())
 }
 
 func (pl *pool) updateIrreversibleBlock() error {

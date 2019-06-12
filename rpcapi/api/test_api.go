@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+	"math/rand"
+
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"math/rand"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -182,5 +183,4 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	} else {
 		return errors.New("generator gen an empty block")
 	}
-	return nil
 }

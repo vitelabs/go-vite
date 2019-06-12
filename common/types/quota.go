@@ -10,12 +10,12 @@ type Quota struct {
 	current                     uint64
 	pledgeQuotaPerSnapshotBlock uint64
 	avg                         uint64
-	unconfirmed                 uint64
+	snapshotCurrent             uint64
 	blocked                     bool
 }
 
-func NewQuota(pledgeQuota, current, avg, unconfirmed uint64, blocked bool) Quota {
-	return Quota{current, pledgeQuota, avg, unconfirmed, blocked}
+func NewQuota(pledgeQuota, current, avg, snapshotCurrent uint64, blocked bool) Quota {
+	return Quota{current, pledgeQuota, avg, snapshotCurrent, blocked}
 }
 
 func (q *Quota) PledgeQuotaPerSnapshotBlock() uint64 {
@@ -27,9 +27,9 @@ func (q *Quota) Current() uint64 {
 	return q.current
 }
 
-// Quota used of a single account in past 74 snapshot blocks and unconfirmed account blocks
+// Available quota in current snapshot block, excluding unconfirmed blocks
 func (q *Quota) SnapshotCurrent() uint64 {
-	return q.current + q.unconfirmed
+	return q.snapshotCurrent
 }
 
 func (q *Quota) Avg() uint64 {
