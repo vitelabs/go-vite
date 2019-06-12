@@ -675,6 +675,14 @@ func TestCalcQuotaTable(t *testing.T) {
 	}
 }
 
+func TestPrintQuotaUnder1UTPS(t *testing.T) {
+	InitQuotaConfig(false, false)
+	for i := 1; i < 75; i = i + 1 {
+		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
+		fmt.Printf("| $(%v, %v]$ | %v | %v/75 | %v | %v |\n", nodeConfig.sectionList[i-1], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i, pledgeAmount, nodeConfig.difficultyList[i])
+	}
+}
+
 func TestPrintQuota(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for i := 75; i < len(nodeConfig.sectionList); i = i + 75 {

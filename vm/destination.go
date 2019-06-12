@@ -158,7 +158,7 @@ func getCodeWithoutAuxCodeAndParams(code []byte) []byte {
 			newIndex := index + len(auxCodePrefixWithFE)
 			resultCode = append(resultCode, code[:newIndex]...)
 			code = code[newIndex:]
-			prevIndex = newIndex
+			prevIndex = prevIndex + newIndex
 		} else {
 			resultCode = append(resultCode, code[:index+1]...)
 			break
