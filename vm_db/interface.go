@@ -55,6 +55,8 @@ type Chain interface {
 
 type VmDb interface {
 	// ====== Context ======
+	CanWrite() bool
+
 	Address() *types.Address
 
 	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)

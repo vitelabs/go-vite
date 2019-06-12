@@ -19,10 +19,14 @@ func (vdb *vmDb) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error
 }
 
 func (vdb *vmDb) GetLogListHash() *types.Hash {
-	latestSb, err := vdb.LatestSnapshotBlock()
-	if err != nil {
-		panic(fmt.Sprintf("Error: %s", err.Error()))
+	var sbHeight uint64
+	if !vdb.isGenesis {
+		latestSb, err := vdb.LatestSnapshotBlock()
+		if err != nil {
+			panic(fmt.Sprintf("Error: %s", err.Error()))
+		}
+		sbHeight = latestSb.Height
 	}
 
-	return vdb.unsaved().GetLogListHash(latestSb, *vdb.Address(), vdb.PrevAccountBlockHash())
+	return vdb.unsaved().GetLogListHash(sbHeight, *vdb.Address(), vdb.PrevAccountBlockHash())
 }

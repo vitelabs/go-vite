@@ -5,6 +5,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -15,6 +16,10 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	batch := sDB.store.NewBatch()
 
 	vmDb := block.VmDb
+	if !vmDb.CanWrite() {
+		return errors.New("vmDb.CanWrite() is false")
+	}
+
 	accountBlock := block.AccountBlock
 
 	var redoLog LogItem

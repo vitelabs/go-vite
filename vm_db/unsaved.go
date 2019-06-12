@@ -134,8 +134,8 @@ func (unsaved *Unsaved) GetLogList() ledger.VmLogList {
 	return unsaved.logList
 }
 
-func (unsaved *Unsaved) GetLogListHash(latestSb *ledger.SnapshotBlock, address types.Address, prevHash types.Hash) *types.Hash {
-	return unsaved.logList.Hash(latestSb.Height, address, prevHash)
+func (unsaved *Unsaved) GetLogListHash(snapshotBlockHeight uint64, address types.Address, prevHash types.Hash) *types.Hash {
+	return unsaved.logList.Hash(snapshotBlockHeight, address, prevHash)
 }
 
 func (unsaved *Unsaved) SetContractMeta(addr types.Address, contractMeta *ledger.ContractMeta) {
