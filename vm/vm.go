@@ -4,6 +4,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"runtime/debug"
 
 	"github.com/vitelabs/go-vite/common"
@@ -292,12 +293,13 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 		return nil, util.ErrInvalidQuotaRatio
 	}
 
-	if !util.IsForked(vm.latestSnapshotHeight) {
+	seedCount := confirmTime
+	if !fork.IsDexFork(vm.latestSnapshotHeight) {
 		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && confirmTime <= 0 {
 			return nil, util.ErrInvalidConfirmTime
 		}
 	} else {
-		seedCount := util.GetSeedCountFromCreateContractData(block.Data)
+		seedCount = util.GetSeedCountFromCreateContractData(block.Data)
 		if seedCount < seedCountMin || seedCount > seedCountMax || confirmTime < seedCount {
 			return nil, util.ErrInvalidSeedCount
 		}
@@ -335,8 +337,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	vm.updateBlock(db, block, nil, q, qUsed)
 	// Set contract meta at send block, so that contract block producer module
 	// will be informed of the binding between gid and the new contract.
-	// TODO set seed count
-	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio})
+	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio, SeedConfirmedTimes: seedCount})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 

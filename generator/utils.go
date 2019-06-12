@@ -1,10 +1,10 @@
 package generator
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 )
 
 // EnvPrepareForGenerator carries the info about the latest state of the world.
@@ -59,7 +59,7 @@ func NewVMGlobalStatus(c chain, sb *ledger.SnapshotBlock, fromHash types.Hash) *
 
 // Seed return the random seed.
 func (g *VMGlobalStatus) Seed(snapshotHeight uint64) (uint64, error) {
-	if !util.IsForked(snapshotHeight) {
+	if !fork.IsDexFork(snapshotHeight) {
 		if g.setSeed {
 			return g.seed, nil
 		}
