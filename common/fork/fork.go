@@ -13,9 +13,11 @@ type ForkPointItem struct {
 	forkName string
 }
 
-var forkPointList ForkPointList
-
 type ForkPointList []*ForkPointItem
+type ForkPointMap map[string]*ForkPointItem
+
+var forkPointList ForkPointList
+var forkPointMap = make(ForkPointMap)
 
 func (a ForkPointList) Len() int           { return len(a) }
 func (a ForkPointList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
@@ -29,17 +31,57 @@ func SetForkPoints(points *config.ForkPoints) {
 
 	for k := 0; k < t.NumField(); k++ {
 		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
-		forkPointList = append(forkPointList, &ForkPointItem{
+
+		forkName := t.Field(k).Name
+		forkPointItem := &ForkPointItem{
 			ForkPoint: *forkPoint,
-			forkName:  t.Field(k).Name,
-		})
+			forkName:  forkName,
+		}
+
+		// set fork point list
+		forkPointList = append(forkPointList, forkPointItem)
+		// set fork point map
+		forkPointMap[forkName] = forkPointItem
 	}
 
 	sort.Sort(forkPointList)
 }
 
+/**
+@TODO add feature affected by this fork
+use by a. xxx eg.
+       b. xxx eg.
+*/
+func IsDexFork(snapshotHeight uint64) bool {
+	dexForkPoint, ok := forkPointMap["DexFork"]
+	if !ok {
+		panic("check dex fork failed. DexFork is not existed.")
+	}
+	return snapshotHeight >= dexForkPoint.Height
+}
+
+func IsForkPoint(snapshotHeight uint64) bool {
+	// assume that fork point list is sorted by height asc
+	for i := len(forkPointList) - 1; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		if forkPoint.Height == snapshotHeight {
+			return true
+		}
+
+		if forkPoint.Height < snapshotHeight {
+			break
+		}
+	}
+
+	return false
+}
+
 func GetForkPoints() config.ForkPoints {
 	return forkPoints
+}
+
+func GetForkPointList() ForkPointList {
+	return forkPointList
 }
 
 func GetRecentForkName(blockHeight uint64) string {
