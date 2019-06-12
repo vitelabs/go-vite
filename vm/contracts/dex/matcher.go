@@ -244,7 +244,8 @@ func (mc *Matcher) emitOrderUpdate(order Order) {
 	updateInfo.CancelReason = order.CancelReason
 	updateInfo.ExecutedQuantity = order.ExecutedQuantity
 	updateInfo.ExecutedAmount = order.ExecutedAmount
-	updateInfo.ExecutedFeeTotal = AddBigInt(order.ExecutedFee, order.ExecutedBrokerFee)
+	updateInfo.ExecutedFee = order.ExecutedFee
+	updateInfo.ExecutedBrokerFee = order.ExecutedBrokerFee
 	updateInfo.RefundToken = order.RefundToken
 	updateInfo.RefundQuantity = order.RefundQuantity
 	event := OrderUpdateEvent{updateInfo}

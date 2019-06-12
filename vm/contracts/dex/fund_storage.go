@@ -70,15 +70,15 @@ var (
 
 	viteTokenInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteType: 1}
 
-	viteMinAmount    = commonTokenPow       // 1 VITE
-	bitcoinMinAmount = big.NewInt(1000000)  //0.01 BTC
-	ethMinAmount     = big.NewInt(10000000) //0.1 ETH
-	usdtMinAmount    = big.NewInt(100000)   //1 USDT
+	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
+	bitcoinMinAmount = big.NewInt(50000)  // 0.0005 BTC
+	usdtMinAmount    = big.NewInt(100000000)   //1 USDT
 	QuoteTokenExtras = map[int32]*QuoteTokenExtraInfo{
 		ViteTokenType: &QuoteTokenExtraInfo{Decimals: 18, MinAmount: viteMinAmount},
 		BtcTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
 		EthTokenType:  &QuoteTokenExtraInfo{Decimals: 18, MinAmount: ethMinAmount},
-		UsdTokenType:  &QuoteTokenExtraInfo{Decimals: 5, MinAmount: usdtMinAmount},
+		UsdTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: usdtMinAmount},
 	}
 )
 

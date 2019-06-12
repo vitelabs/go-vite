@@ -116,9 +116,10 @@ message OrderUpdateInfo {
     int32 CancelReason = 5;
     bytes ExecutedQuantity = 6;
     bytes ExecutedAmount = 7;
-    bytes ExecutedFeeTotal = 8; // fee actually executed(ExecutedFee + ExecutedBrokerFee)
-    bytes RefundToken = 9;
-    bytes RefundQuantity = 10; //refund trade/quote token
+    bytes ExecutedFee = 8;
+    bytes ExecutedBrokerFee = 9;
+    bytes RefundToken = 10;
+    bytes RefundQuantity = 11; //refund trade/quote token
 }
 
 message NewMarket {
