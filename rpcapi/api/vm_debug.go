@@ -184,6 +184,11 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		if len(txParam.Amount) == 0 {
 			txParam.Amount = "0"
 		}
+		abiContract, err := abi.JSONToABIContract(strings.NewReader(c.abiJson))
+		if err != nil {
+			return nil, err
+		}
+
 		sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
 			SelfAddr:    &testAccount.Addr,
 			TokenTypeId: ledger.ViteTokenId,
@@ -195,6 +200,9 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		if err != nil {
 			return nil, err
 		}
+
+		vm.AddContractABI(sendBlock.ToAddress, abiContract)
+
 		// save contractAddress and contract data
 		if err := writeContractData(c.abiJson, sendBlock.ToAddress); err != nil {
 			return nil, err

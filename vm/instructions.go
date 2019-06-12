@@ -710,6 +710,7 @@ func makeLog(size int) executionFunc {
 				}
 				topicsStr = topicsStr[:len(topicsStr)-1]
 			}
+			// TODO unpack log and print
 			nodeConfig.log.Info("vm log",
 				"blockType", c.block.BlockType,
 				"address", c.block.AccountAddress.String(),

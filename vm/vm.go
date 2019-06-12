@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/vm/abi"
 	"runtime/debug"
+	"sync"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -40,6 +42,23 @@ type NodeConfig struct {
 	// account to pay for transfer token amount and fee.
 	// Note: Fee amount is payed in vite coin.
 	canTransfer func(db vm_db.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool
+
+	ContractABIMap   map[types.Address]abi.ABIContract
+	contractABIMapRW sync.RWMutex
+}
+
+func AddContractABI(addr types.Address, info abi.ABIContract) {
+	nodeConfig.contractABIMapRW.Lock()
+	defer nodeConfig.contractABIMapRW.Unlock()
+	if nodeConfig.ContractABIMap == nil {
+		nodeConfig.ContractABIMap = make(map[types.Address]abi.ABIContract)
+	}
+	nodeConfig.ContractABIMap[addr] = info
+}
+func GetContractABI(addr types.Address) abi.ABIContract {
+	nodeConfig.contractABIMapRW.RLock()
+	defer nodeConfig.contractABIMapRW.RUnlock()
+	return nodeConfig.ContractABIMap[addr]
 }
 
 var nodeConfig NodeConfig
