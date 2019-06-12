@@ -7,9 +7,11 @@ import (
 )
 
 type vmDb struct {
-	uns   *Unsaved
+	uns *Unsaved // the unsaved memory
+
 	chain Chain
 
+	// context
 	address *types.Address
 
 	latestSnapshotBlockHash *types.Hash

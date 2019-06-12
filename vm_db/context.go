@@ -27,6 +27,13 @@ func (vdb *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return vdb.latestSnapshotBlock, nil
 }
 
+func (vdb *vmDb) PrevAccountBlockHash() types.Hash {
+	if vdb.prevAccountBlockHash == nil {
+		return types.Hash{}
+	}
+	return *vdb.prevAccountBlockHash
+}
+
 func (vdb *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	if vdb.prevAccountBlock == nil {
 		if vdb.prevAccountBlockHash == nil {
