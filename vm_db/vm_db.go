@@ -51,9 +51,9 @@ func (vdb *vmDb) unsaved() *Unsaved {
 }
 
 func (vdb *vmDb) CanWrite() bool {
-	return vdb.address != nil &&
+	return vdb.isGenesis || (vdb.address != nil &&
 		vdb.prevAccountBlockHash != nil &&
-		vdb.latestSnapshotBlockHash != nil
+		vdb.latestSnapshotBlockHash != nil)
 }
 
 func NewNoContextVmDb(chain Chain) VmDb {
