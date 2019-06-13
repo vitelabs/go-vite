@@ -16,6 +16,8 @@ type mockItem struct {
 	keys      []types.Hash
 	accBlocks []types.Hash
 	sBlock    *types.Hash
+
+	expectedErr error
 }
 
 func (m mockItem) ReferHashes() ([]types.Hash, []types.Hash, *types.Hash) {

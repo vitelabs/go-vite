@@ -33,3 +33,7 @@ func (self *snapshotLevel) Buckets() (result []Bucket) {
 	result = append(result, self.bu)
 	return
 }
+
+func (self *snapshotLevel) Size() int {
+	return len(self.bu.Items())
+}
