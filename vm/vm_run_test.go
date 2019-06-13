@@ -16,31 +16,27 @@ var (
 	testTokenId = types.TokenTypeId{'T', 'E', 'S', 'T', ' ', 'T', 'O', 'K', 'E', 'N'}
 )
 
-func TestVM_RunSendCreate(t *testing.T) {
-	vm := NewVM(nil)
-	addr, _ := types.HexToAddress("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
-	prevHash, _ := types.HexToHash("82a8ecfe0df3dea6256651ee3130747386d4d6ab61201ce0050a6fe394a0f595")
-	latestHeight := uint64(1)
-	latestSnapshotHash, _ := types.HexToHash("41257eb3d17c4cd860a704a9f3aada83a479a3e634879049892587c009be93a3")
+type RunV2TestCase struct {
+	caseType               string
+	code                   []byte
+	contractType           uint8
+	confirmTimes           uint8
+	seedCount              uint8
+	quotaRatio             uint8
+	gid                    types.Gid
+	snapshotHeight         uint64
+	data                   []byte
+	amount                 *big.Int
+	tokenId                *types.TokenTypeId
+	pledgeBeneficialAmount *big.Int
+	balanceMap             map[types.TokenTypeId]*big.Int
+	err                    error
+	isRetry                bool
+	returnBlock            *ledger.AccountBlock
+}
 
-	testCases := []struct {
-		caseType               string
-		code                   []byte
-		contractType           uint8
-		confirmTimes           uint8
-		seedCount              uint8
-		quotaRatio             uint8
-		gid                    types.Gid
-		snapshotHeight         uint64
-		data                   []byte
-		amount                 *big.Int
-		tokenId                *types.TokenTypeId
-		pledgeBeneficialAmount *big.Int
-		balanceMap             map[types.TokenTypeId]*big.Int
-		err                    error
-		isRetry                bool
-		returnBlock            *ledger.AccountBlock
-	}{
+func TestVM_RunSendCreate(t *testing.T) {
+	testCases := []RunV2TestCase{
 		{
 			caseType:               "quota_not_enough",
 			contractType:           util.SolidityPPContractType,
@@ -301,6 +297,15 @@ func TestVM_RunSendCreate(t *testing.T) {
 			},
 		},
 	}
+	runTest(testCases, t)
+}
+
+func runTest(testCases []RunV2TestCase, t *testing.T) {
+	vm := NewVM(nil)
+	addr, _ := types.HexToAddress("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
+	prevHash, _ := types.HexToHash("82a8ecfe0df3dea6256651ee3130747386d4d6ab61201ce0050a6fe394a0f595")
+	latestHeight := uint64(1)
+	latestSnapshotHash, _ := types.HexToHash("41257eb3d17c4cd860a704a9f3aada83a479a3e634879049892587c009be93a3")
 
 	for _, testCase := range testCases {
 		var sendCreateData []byte
