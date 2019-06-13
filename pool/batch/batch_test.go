@@ -101,7 +101,7 @@ func initChain(addrs []types.Address, chain *mockChain) (map[types.Address]Item,
 
 /**
 1. S1,S2
-2. AS1,AS2,CS1,BS1,CS2
+2. AS2,AS1,CS1,BS1,CS2
 3. BR2[AS1],BR3[AS2]
 4. CR3[BS1],AR3[CS1]
 5. S3[AR3,BR3,CR3],S4,S5
