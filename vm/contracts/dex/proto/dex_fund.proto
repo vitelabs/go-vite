@@ -2,12 +2,14 @@ syntax="proto3";
 
 package proto;
 
+//storage
 message Account {
     bytes Token = 1;
     bytes Available = 2;
     bytes Locked   = 3;
 }
 
+//storage
 message Fund {
     bytes Address = 1;
     repeated Account Accounts = 2;
@@ -98,3 +100,33 @@ message PledgeVip {
     int64 Timestamp = 1;
     int32 PledgeTimes = 2; //sum pledge times in case duplicate pledge happen
 }
+
+//event
+message FeeDividendForVxHolder {
+    bytes Address = 1;
+    bytes VxAmount = 2;
+    bytes FeeToken = 3; // fee token to dividend
+    bytes FeeDividend = 4;
+}
+
+//event
+message MinedVxForFee { // reused by trade fee and invitee fee
+    bytes Address = 1;
+    bytes QuoteTokenType = 2; // 1 vite, 2 eth, 3 btc, 4 usd
+    bytes FeeAmount = 3; // decimals depends on QuoteTokenType
+    bytes MinedAmount = 4; // mined vx amount
+}
+
+//event
+message MinedVxForPledge {
+    bytes Address = 1;
+    bytes PledgeAmount = 2; // pledged vite amount
+    bytes MinedAmount = 3; // mined vx amount
+}
+
+//event
+message BrokerFeeDividend {
+    int32 MarketId = 1;
+    bytes Amount = 2; //depend on marketInfo.QuoteToken
+}
+

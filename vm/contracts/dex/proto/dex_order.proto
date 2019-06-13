@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package proto;
 
+//storage
 message Order {
     bytes Id = 1; //[unset on serialize] MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 21
     bytes Address = 2;
@@ -9,10 +10,10 @@ message Order {
     bool Side = 4; // //[unset on serialize] false buy, true sell
     int32 Type = 5; // 0 limit order, 1 market order
     bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
-    int32 TakerFeeRate = 7; // rate/1,000,000
-    int32 MakerFeeRate = 8; // rate/1,000,000
-    int32 TakerBrokerFeeRate = 9;
-    int32 MakerBrokerFeeRate = 10;
+    int32 TakerFeeRate = 7; // rate/100,000
+    int32 MakerFeeRate = 8; // rate/100,000
+    int32 TakerBrokerFeeRate = 9; // rate/100,000
+    int32 MakerBrokerFeeRate = 10; // rate/100,000
     bytes Quantity = 11;
     bytes Amount = 12; // QuoteAmount
     bytes LockedBuyFee = 13; // fee locked ahead for buy (Fee + BrokerFee)
@@ -27,6 +28,7 @@ message Order {
     int64 Timestamp = 22; // [unset on serialize]
 }
 
+//storage
 message OrderIdSerialNo {
     int32 SerialNo = 1;
     int64 Timestamp = 2;
@@ -47,25 +49,27 @@ message Transaction {
     int64 Timestamp = 12;
 }
 
+//storage+event
 message TokenInfo {
     bytes TokenId = 1;
     int32 Decimals = 2;
     string Symbol = 3;
     int32 Index = 4;
     bytes Owner = 5;
-    int32 QuoteType = 6; // 1 vite 2 eth 3 btc 4 usdt
+    int32 QuoteTokenType = 6; // 1 vite 2 eth 3 btc 4 usdt
 }
 
+//storage+event
 message MarketInfo {
     int32 MarketId = 1;
     string MarketSymbol = 2;
     bytes TradeToken = 3;
     bytes QuoteToken = 4;
-    int32 QuoteType = 5;
+    int32 QuoteTokenType = 5;
     int32 TradeTokenDecimals = 6;
     int32 QuoteTokenDecimals = 7;
-    int32 TakerBrokerFeeRate = 8; // broker
-    int32 MakerBrokerFeeRate = 9;
+    int32 TakerBrokerFeeRate = 8; // rate/100,000
+    int32 MakerBrokerFeeRate = 9; // rate/100,000
     bool AllowMine = 10;
     bool Valid = 11; // false: pending for tradeToken validate
     bytes Owner = 12;
@@ -74,40 +78,14 @@ message MarketInfo {
     int64 Timestamp = 15;
 }
 
-message NewMarketAction {
-    bytes TradeToken = 1;
-    repeated bytes QuoteTokens = 2;
-}
-
-message PendingNewMarkets {
-    repeated NewMarketAction pendingActions = 1;
-}
-
-message SetQuoteAction {
-    bytes token = 1;
-    int32 QuoteType = 2;
-}
-
-message PendingSetQuotes {
-    repeated SetQuoteAction pendingActions = 1;
-}
-
-message TransferTokenOwnerAction {
-    bytes token = 1;
-    bytes Origin = 2;
-    bytes New = 3;
-}
-
-message PendingTransferTokenOwners {
-    repeated TransferTokenOwnerAction pendingActions = 1;
-}
-
+//event
 message NewOrderInfo { // for taker
     Order Order = 1;
     bytes TradeToken = 2;
     bytes QuoteToken = 3;
 }
 
+//event
 message OrderUpdateInfo {
     bytes Id = 1;
     bytes TradeToken = 2;
@@ -122,14 +100,32 @@ message OrderUpdateInfo {
     bytes RefundQuantity = 11; //refund trade/quote token
 }
 
-message NewMarket {
-    int32 MarketId = 1;
-    string MarketSymbol = 2;
-    bytes TradeToken = 3;
-    bytes QuoteToken = 4;
-    string DexTradeTokenSymbol = 5;
-    string DexQuoteTokenSymbol = 6;
-    int32 TradeTokenDecimals = 7;
-    int32 QuoteTokenDecimals = 8;
-    bytes Creator = 9; //creator address
+//pending actions
+
+message NewMarketAction {
+    bytes TradeToken = 1;
+    repeated bytes QuoteTokens = 2;
+}
+
+message PendingNewMarkets {
+    repeated NewMarketAction pendingActions = 1;
+}
+
+message SetQuoteAction {
+    bytes token = 1;
+    int32 QuoteTokenType = 2;
+}
+
+message PendingSetQuotes {
+    repeated SetQuoteAction pendingActions = 1;
+}
+
+message TransferTokenOwnerAction {
+    bytes token = 1;
+    bytes Origin = 2;
+    bytes New = 3;
+}
+
+message PendingTransferTokenOwners {
+    repeated TransferTokenOwnerAction pendingActions = 1;
 }

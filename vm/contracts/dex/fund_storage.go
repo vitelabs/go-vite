@@ -68,7 +68,7 @@ var (
 	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVipDuration int64 = 3600 * 24 * 30
 
-	viteTokenInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteType: 1}
+	viteTokenInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -113,8 +113,8 @@ const (
 
 const (
 	ViteTokenType = iota + 1
-	BtcTokenType
 	EthTokenType
+	BtcTokenType
 	UsdTokenType
 )
 
@@ -940,6 +940,15 @@ func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo)
 	serializeToDb(db, GetTokenInfoKey(token), tokenInfo)
 }
 
+func AddTokenEventLog(db vm_db.VmDb, tokenInfo *TokenInfo) {
+	log := &ledger.VmLog{}
+	event := TokenEvent{}
+	event.TokenInfo = tokenInfo.TokenInfo
+	log.Topics = append(log.Topics, event.GetTopicId())
+	log.Data = event.toDataBytes()
+	db.AddLog(log)
+}
+
 func GetTokenInfoKey(token types.TokenTypeId) []byte {
 	return append(tokenInfoPrefix, token.Bytes()...)
 }
@@ -978,19 +987,21 @@ func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
 	setValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), nil)
 }
 
+func AddMarketEventLog(db vm_db.VmDb, marketInfo *MarketInfo) {
+	log := &ledger.VmLog{}
+	event := MarketEvent{}
+	event.MarketInfo = marketInfo.MarketInfo
+	log.Topics = append(log.Topics, event.GetTopicId())
+	log.Data = event.toDataBytes()
+	db.AddLog(log)
+}
+
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
 	re := make([]byte, len(marketInfoKeyPrefix)+2*types.TokenTypeIdSize)
 	copy(re[:len(marketInfoKeyPrefix)], marketInfoKeyPrefix)
 	copy(re[len(marketInfoKeyPrefix):], tradeToken.Bytes())
 	copy(re[len(marketInfoKeyPrefix)+types.TokenTypeIdSize:], quoteToken.Bytes())
 	return re
-}
-
-func AddNewMarketEventLog(db vm_db.VmDb, newMarketEvent *NewMarketEvent) {
-	log := &ledger.VmLog{}
-	log.Topics = append(log.Topics, newMarketEvent.GetTopicId())
-	log.Data = newMarketEvent.toDataBytes()
-	db.AddLog(log)
 }
 
 func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (newSerialNo int32) {

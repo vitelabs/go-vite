@@ -157,8 +157,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		return nil, dex.TradeMarketExistsErr
 	}
 	marketInfo := &dex.MarketInfo{}
-	newMarketEvent := &dex.NewMarketEvent{}
-	if err = dex.RenderMarketInfo(db, marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
+	if err = dex.RenderMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
 		return nil, err
 	}
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
@@ -166,7 +165,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
 	if marketInfo.Valid {
-		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, newMarketEvent, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
+		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
 		return []*ledger.AccountBlock{appendBlock}, nil
 	} else {
 		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
@@ -749,6 +748,7 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				if param.AllowMine != marketInfo.AllowMine {
 					marketInfo.AllowMine = param.AllowMine
 					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+					dex.AddMarketEventLog(db, marketInfo)
 				} else {
 					if marketInfo.AllowMine {
 						return handleReceiveErr(dex.TradeMarketAllowMineErr)
@@ -779,6 +779,7 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				} else {
 					tokenInfo.QuoteType = int32(param.QuoteTokenType)
 					dex.SaveTokenInfo(db, param.NewQuoteToken, tokenInfo)
+					dex.AddTokenEventLog(db, tokenInfo)
 				}
 			}
 		}
@@ -847,6 +848,7 @@ func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.
 			marketInfo.Stopped = param.StopMarket
 		}
 		dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+		dex.AddMarketEventLog(db, marketInfo)
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
@@ -887,6 +889,8 @@ func (md MethodDexFundTransferTokenOwner) DoReceive(db vm_db.VmDb, block *ledger
 	if tokenInfo, ok := dex.GetTokenInfo(db, param.Token); ok {
 		if bytes.Equal(tokenInfo.Owner, sendBlock.AccountAddress.Bytes()) {
 			tokenInfo.Owner = param.Owner.Bytes()
+			dex.SaveTokenInfo(db, param.Token, tokenInfo)
+			dex.AddTokenEventLog(db, tokenInfo)
 		} else {
 			return handleReceiveErr(dex.OnlyOwnerAllowErr)
 		}

@@ -29,15 +29,15 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	return nil
 }
 
-func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) error {
+func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) error {
 	quoteTokenInfo, ok := GetTokenInfo(db, quoteToken)
-	if !ok || quoteTokenInfo.QuoteType <= 0 {
+	if !ok || quoteTokenInfo.QuoteTokenType <= 0 {
 		return TradeMarketInvalidQuoteTokenErr
 	}
 	marketInfo.MarketSymbol = getDexTokenSymbol(quoteTokenInfo)
 	marketInfo.TradeToken = tradeToken.Bytes()
 	marketInfo.QuoteToken = quoteToken.Bytes()
-	marketInfo.QuoteType = quoteTokenInfo.QuoteType
+	marketInfo.QuoteTokenType = quoteTokenInfo.QuoteTokenType
 	marketInfo.QuoteTokenDecimals = quoteTokenInfo.Decimals
 
 	var tradeTokenExists bool
@@ -47,11 +47,10 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, newMarketEvent *New
 		tradeTokenExists = true
 	}
 	if tradeTokenExists {
-		if tradeTokenInfo.QuoteType > quoteTokenInfo.QuoteType {
+		if tradeTokenInfo.QuoteTokenType > quoteTokenInfo.QuoteTokenType {
 			return TradeMarketInvalidTokenPairErr
 		}
 		renderMarketInfoWithTradeTokenInfo(db, marketInfo, tradeTokenInfo)
-		renderNewMarketEvent(marketInfo, newMarketEvent, tradeToken, quoteToken, tradeTokenInfo, quoteTokenInfo)
 	}
 
 	if marketInfo.Creator == nil {
@@ -71,26 +70,14 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	marketInfo.Owner = tradeTokenInfo.Owner
 }
 
-func renderNewMarketEvent(marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo, quoteTokenInfo *TokenInfo) {
-	newMarketEvent.MarketId = marketInfo.MarketId
-	newMarketEvent.MarketSymbol = marketInfo.MarketSymbol
-	newMarketEvent.TradeToken = tradeToken.Bytes()
-	newMarketEvent.TradeTokenDecimals = tradeTokenInfo.Decimals
-	newMarketEvent.DexTradeTokenSymbol = getDexTokenSymbol(tradeTokenInfo)
-	newMarketEvent.QuoteToken = quoteToken.Bytes()
-	newMarketEvent.QuoteTokenDecimals = quoteTokenInfo.Decimals
-	newMarketEvent.DexQuoteTokenSymbol = getDexTokenSymbol(quoteTokenInfo)
-	newMarketEvent.Creator = marketInfo.Creator
-}
-
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, newMarketEvent *NewMarketEvent, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock) {
+func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock) {
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
 	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	SettleUserFees(db, reader, ledger.ViteTokenId.Bytes(), userFee, inviteRelations)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
-	AddNewMarketEventLog(db, newMarketEvent)
+	AddMarketEventLog(db, marketInfo)
 	var marketBytes, blockData []byte
 	var err error
 	if marketBytes, err = marketInfo.Serialize(); err != nil {
@@ -145,12 +132,11 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 					if address, err = types.BytesToAddress(marketInfo.Creator); err != nil {
 						panic(err)
 					}
-					newMarketEvent := &NewMarketEvent{}
-					if err = RenderMarketInfo(db, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
+					if err = RenderMarketInfo(db, marketInfo, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
 						return
 					}
 					SubPendingNewMarketFeeSum(db)
-					appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, newMarketEvent, tradeTokenId, quoteTokenId, &address))
+					appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &address))
 				}
 			}
 		}
@@ -205,8 +191,9 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 		return err
 	} else {
 		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
-		tokenInfo.QuoteType = int32(action.QuoteType)
+		tokenInfo.QuoteTokenType = int32(action.QuoteTokenType)
 		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+		AddTokenEventLog(db, tokenInfo)
 		return nil
 	}
 }
@@ -234,6 +221,7 @@ func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFun
 			tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
 			tokenInfo.Owner = action.New
 			SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+			AddTokenEventLog(db, tokenInfo)
 			return nil
 		} else {
 			return OnlyOwnerAllowErr
@@ -300,7 +288,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 }
 
 func isAmountTooSmall(amount []byte, marketInfo *MarketInfo) bool {
-	extra, _ := QuoteTokenExtras[marketInfo.QuoteType]
+	extra, _ := QuoteTokenExtras[marketInfo.QuoteTokenType]
 	if extra.Decimals == marketInfo.QuoteTokenDecimals {
 		return new(big.Int).SetBytes(amount).Cmp(extra.MinAmount) < 0
 	} else {
