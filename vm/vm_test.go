@@ -26,7 +26,7 @@ func init() {
 }
 
 func initFork() {
-	fork.SetForkPoints(&config.ForkPoints{})
+	fork.SetForkPoints(&config.ForkPoints{DexFork: &config.ForkPoint{Height: 100}})
 }
 
 func TestVmRun(t *testing.T) {

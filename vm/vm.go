@@ -295,6 +295,16 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 
 	// Check params.
+	isDexFork := fork.IsDexFork(vm.latestSnapshotHeight)
+	if !isDexFork {
+		if len(block.Data) < util.CreateContractDataLengthMin {
+			return nil, util.ErrInvalidMethodParam
+		}
+	} else {
+		if len(block.Data) < util.CreateContractDataLengthMinDex {
+			return nil, util.ErrInvalidMethodParam
+		}
+	}
 	gid := util.GetGidFromCreateContractData(block.Data)
 	if gid == types.SNAPSHOT_GID {
 		return nil, util.ErrInvalidMethodParam
@@ -313,7 +323,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 
 	seedCount := confirmTime
-	if !fork.IsDexFork(vm.latestSnapshotHeight) {
+	if !isDexFork {
 		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && confirmTime <= 0 {
 			return nil, util.ErrInvalidConfirmTime
 		}

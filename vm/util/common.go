@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -13,7 +12,9 @@ import (
 )
 
 var (
-	AttovPerVite = big.NewInt(1e18)
+	AttovPerVite                   = big.NewInt(1e18)
+	CreateContractDataLengthMin    = 13
+	CreateContractDataLengthMinDex = 14
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {
@@ -39,22 +40,22 @@ func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType
 }
 
 var (
-	SolidityPPContractType = []byte{1}
-	contractTypeSize       = 1
-	confirmTimeSize        = 1
-	seedCountSize          = 1
-	quotaRatioSize         = 1
+	SolidityPPContractType uint8 = 1
+	contractTypeSize             = 1
+	confirmTimeSize              = 1
+	seedCountSize                = 1
+	quotaRatioSize               = 1
 )
 
 func IsValidQuotaRatio(quotaRatio uint8) bool {
 	return quotaRatio >= 10 && quotaRatio <= 100
 }
 
-func GetCreateContractData(bytecode []byte, contractType []byte, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid, snapshotHeight uint64) []byte {
+func GetCreateContractData(bytecode []byte, contractType uint8, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid, snapshotHeight uint64) []byte {
 	if !fork.IsDexFork(snapshotHeight) {
-		return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
+		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
 	} else {
-		return helper.JoinBytes(gid.Bytes(), contractType, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
+		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
 	}
 }
 
@@ -63,11 +64,11 @@ func GetGidFromCreateContractData(data []byte) types.Gid {
 	return gid
 }
 
-func GetContractTypeFromCreateContractData(data []byte) []byte {
-	return data[types.GidSize : types.GidSize+contractTypeSize]
+func GetContractTypeFromCreateContractData(data []byte) uint8 {
+	return uint8(data[types.GidSize])
 }
-func IsExistContractType(contractType []byte) bool {
-	if bytes.Equal(contractType, SolidityPPContractType) {
+func IsExistContractType(contractType uint8) bool {
+	if contractType == SolidityPPContractType {
 		return true
 	}
 	return false
@@ -90,8 +91,8 @@ func GetCodeFromCreateContractData(data []byte, snapshotHeight uint64) []byte {
 	}
 	return data[types.GidSize+contractTypeSize+confirmTimeSize+seedCountSize+quotaRatioSize:]
 }
-func PackContractCode(contractType, code []byte) []byte {
-	return helper.JoinBytes(contractType, code)
+func PackContractCode(contractType uint8, code []byte) []byte {
+	return helper.JoinBytes([]byte{contractType}, code)
 }
 
 type CommonDb interface {
