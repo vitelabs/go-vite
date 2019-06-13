@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestBatchSnapshot_AddAItem(t *testing.T) {
@@ -106,7 +106,7 @@ func initChain(addrs []types.Address, chain *mockChain) (map[types.Address]Item,
 4. CR3[BS1],AR3[CS1]
 5. S3[AR3,BR3,CR3],S4,S5
 6. AS4,BS4,CS4
- */
+*/
 func genCase4(chain *mockChain) []*mockItem {
 	var all []*mockItem
 
@@ -177,7 +177,7 @@ func genCase4(chain *mockChain) []*mockItem {
 4. CR3[BS1],AR3[CS1]
 5. S3[AR3,BR3,CR3],S4,S5
 6. AS4,BS4,CS4
- */
+*/
 func genCase3(chain *mockChain) []*mockItem {
 	var all []*mockItem
 
@@ -253,7 +253,7 @@ func verifyCase4(t *testing.T, batch Batch) {
 2. BR1[AS1]
 3. AS2
 4. S1[AS2,BR1]
- */
+*/
 func genCase2(chain *mockChain) []*mockItem {
 	var all []*mockItem
 
