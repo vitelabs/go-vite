@@ -67,7 +67,10 @@ func (self *batchSnapshot) Size() int {
 	return len(self.all)
 }
 
+// return nil, if hash is exists
 type SnapshotExistsFunc func(hash types.Hash) error
+
+// return nil, if hash is exists
 type AccountExistsFunc func(hash types.Hash) error
 
 func NewBatch(snapshotF SnapshotExistsFunc, accountF AccountExistsFunc, version uint64, max int) Batch {
