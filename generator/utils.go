@@ -7,9 +7,10 @@ import (
 
 // EnvPrepareForGenerator carries the info about the latest state of the world.
 type EnvPrepareForGenerator struct {
-	LatestSnapshotHash  *types.Hash
-	LatestAccountHash   *types.Hash
-	LatestAccountHeight uint64
+	LatestSnapshotHash   *types.Hash
+	LatestSnapshotHeight uint64
+	LatestAccountHash    *types.Hash
+	LatestAccountHeight  uint64
 }
 
 type stateChain interface {
@@ -34,9 +35,10 @@ func GetAddressStateForGenerator(chain stateChain, addr *types.Address) (*EnvPre
 		prevAccHeight = prevAccountBlock.Height
 	}
 	return &EnvPrepareForGenerator{
-		LatestSnapshotHash:  &latestSnapshot.Hash,
-		LatestAccountHash:   &prevAccHash,
-		LatestAccountHeight: prevAccHeight,
+		LatestSnapshotHash:   &latestSnapshot.Hash,
+		LatestSnapshotHeight: latestSnapshot.Height,
+		LatestAccountHash:    &prevAccHash,
+		LatestAccountHeight:  prevAccHeight,
 	}, nil
 }
 
