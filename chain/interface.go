@@ -173,6 +173,8 @@ type Chain interface {
 
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
 
+	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
 	GetSubLedger(startHeight, endHeight uint64) ([]*ledger.SnapshotChunk, error)

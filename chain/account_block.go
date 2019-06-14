@@ -252,7 +252,7 @@ func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, err
 		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
-				confirmedHeight, err.Error()))
+				h, err.Error()))
 			c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
 			return false, cErr
 		}
@@ -265,7 +265,6 @@ func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, err
 	}
 
 	return true, nil
-
 }
 
 func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
