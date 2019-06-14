@@ -229,6 +229,45 @@ func (c *chain) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 	return latestHeight + 1 - confirmHeight, nil
 }
 
+func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error) {
+	if n <= 0 {
+		return false, errors.New("n can't be 0")
+	}
+
+	confirmedHeight, err := c.indexDB.GetConfirmHeightByHash(&blockHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
+			blockHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
+		return false, cErr
+	}
+
+	if confirmedHeight <= 0 {
+		return false, nil
+	}
+
+	seedCount := uint64(0)
+
+	for h := confirmedHeight; seedCount < n; h++ {
+		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
+				confirmedHeight, err.Error()))
+			c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
+			return false, cErr
+		}
+
+		if snapshotBlock == nil {
+			return false, nil
+		} else if snapshotBlock.Seed > 0 {
+			seedCount += 1
+		}
+	}
+
+	return true, nil
+
+}
+
 func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	if block := c.cache.GetLatestAccountBlock(addr); block != nil {
 		return block, nil
