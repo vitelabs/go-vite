@@ -184,12 +184,12 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 			packed = append(packed, val...)
 		}
 		if t.T == SliceTy {
-			return packBytesSlice(packed, v.Len()), nil
+			return packBytesSlice(packed, v.Len())
 		} else if t.T == ArrayTy {
 			return packed, nil
 		}
 	}
-	return packElement(t, v), nil
+	return packElement(t, v)
 }
 
 // requireLengthPrefix returns whether the type requires any sort of length

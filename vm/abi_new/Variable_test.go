@@ -26,7 +26,11 @@ func TestVariableMultiValueWithArray(t *testing.T) {
 	var b bytes.Buffer
 	var i uint8 = 1
 	for ; i <= 3; i++ {
-		b.Write(packNum(reflect.ValueOf(i)))
+		packedi, err := packNum(reflect.ValueOf(i))
+		if err != nil {
+			t.Fatalf("pack number failed, %v", err)
+		}
+		b.Write(packedi)
 	}
 	exp := testStruct{
 		[2]uint8{1, 2},
@@ -342,8 +346,16 @@ func TestVariableUnpackIndexed(t *testing.T) {
 	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
-	b.Write(packNum(reflect.ValueOf(uint8(0))))
-	b.Write(packNum(reflect.ValueOf(uint8(8))))
+	packed0, err := packNum(reflect.ValueOf(uint8(0)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packed8, err := packNum(reflect.ValueOf(uint8(8)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packed0)
+	b.Write(packed8)
 	var rst testStruct
 	require.NoError(t, abi.UnpackVariable(&rst, "test", b.Bytes()))
 	require.Equal(t, uint8(0), rst.Value1)
@@ -362,10 +374,26 @@ func TestVariableIndexedWithArrayUnpack(t *testing.T) {
 	stringOut := "abc"
 
 	var b bytes.Buffer
-	b.Write(packNum(reflect.ValueOf(1)))
-	b.Write(packNum(reflect.ValueOf(2)))
-	b.Write(packNum(reflect.ValueOf(96)))
-	b.Write(packNum(reflect.ValueOf(len(stringOut))))
+	packed1, err := packNum(reflect.ValueOf(1))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packed2, err := packNum(reflect.ValueOf(2))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packed96, err := packNum(reflect.ValueOf(96))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packedOut, err := packNum(reflect.ValueOf(len(stringOut)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packed1)
+	b.Write(packed2)
+	b.Write(packed96)
+	b.Write(packedOut)
 	b.Write(helper.RightPadBytes([]byte(stringOut), 32))
 
 	data, err := abi.PackVariable("test", [2]uint8{1, 2}, stringOut)

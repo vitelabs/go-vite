@@ -66,6 +66,15 @@ func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, e
 	return abi.packMethod(method, args...)
 }
 
+func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, error) {
+	variable, exist := abi.Variables[name]
+	if !exist {
+		return nil, errVariableNotFound(name)
+	}
+
+	return variable.Inputs.Pack(args...)
+}
+
 // Pack the given method name to conform the ABI. Method call's data
 // will consist of method_id, args0, arg1, ... argN. Method id consists
 // of 4 bytes and arguments are all 32 bytes.
@@ -78,19 +87,6 @@ func (abi ABIContract) packMethod(method Method, args ...interface{}) ([]byte, e
 	}
 	// Pack up the method ID too if not a constructor and return
 	return append(method.Id(), arguments...), nil
-}
-
-func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, error) {
-	variable, exist := abi.Variables[name]
-	if !exist {
-		return nil, errVariableNotFound(name)
-	}
-
-	arguments, err := variable.Inputs.Pack(args...)
-	if err != nil {
-		return nil, err
-	}
-	return arguments, nil
 }
 
 func (abi ABIContract) PackEvent(name string, args ...interface{}) (topics []types.Hash, data []byte, err error) {

@@ -12,6 +12,7 @@ var (
 	errCouldNotLocateNamedMethod  = errors.New("abi: could not locate named method")
 	errInvalidZeroVariableSize    = errors.New("abi: invalid zero variable size")
 	errInvalidArrayTypeFormatting = errors.New("invalid formatting of array type")
+	errPackFailed                 = errors.New("abi: pack element failed")
 )
 
 func errMethodNotFound(name string) error {
@@ -60,7 +61,6 @@ func sliceTypeCheck(t Type, val reflect.Value) error {
 	}
 
 	if t.Elem.T == SliceTy {
-		// TODO no recursive type
 		if val.Len() > 0 {
 			return sliceTypeCheck(*t.Elem, val.Index(0))
 		}
@@ -70,7 +70,7 @@ func sliceTypeCheck(t Type, val reflect.Value) error {
 
 	if elemKind := val.Type().Elem().Kind(); (elemKind != reflect.Slice && elemKind != t.Elem.Kind) ||
 		(elemKind == reflect.Slice && t.Elem.Kind != reflect.Slice && t.Elem.Kind != reflect.Array) ||
-		(elemKind == reflect.Slice && t.Elem.Kind == reflect.Array) {
+		(elemKind != reflect.Slice && elemKind != reflect.Array && t.Elem.Kind == reflect.Array) {
 		return errType(formatSliceString(t.Elem.Kind, t.Size), val.Type())
 	}
 	return nil
@@ -84,7 +84,9 @@ func typeCheck(t Type, value reflect.Value) error {
 	}
 
 	// Check base type validity. Element types will be checked later on.
-	if t.T == FixedBytesTy && t.Size != value.Len() {
+	if t.Kind != reflect.Array && t.Kind != value.Kind() {
+		return errType(t.Kind, value.Kind())
+	} else if t.T == FixedBytesTy && t.Size != value.Len() {
 		return errType(t.Type, value.Type())
 	} else {
 		return nil

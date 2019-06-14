@@ -107,7 +107,11 @@ func TestEventMultiValueWithArrayUnpack(t *testing.T) {
 	var b bytes.Buffer
 	var i uint8 = 1
 	for ; i <= 3; i++ {
-		b.Write(packNum(reflect.ValueOf(i)))
+		packedi, err := packNum(reflect.ValueOf(i))
+		if err != nil {
+			t.Fatalf("pack number failed, %v", err)
+		}
+		b.Write(packedi)
 	}
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
@@ -315,7 +319,11 @@ func TestEventUnpackIndexed(t *testing.T) {
 	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
-	b.Write(packNum(reflect.ValueOf(uint8(8))))
+	packedi, err := packNum(reflect.ValueOf(uint8(8)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packedi)
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, uint8(0), rst.Value1)
@@ -334,8 +342,16 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 	var b bytes.Buffer
 	stringOut := "abc"
 	// number of fields that will be encoded * 32
-	b.Write(packNum(reflect.ValueOf(32)))
-	b.Write(packNum(reflect.ValueOf(len(stringOut))))
+	packed32, err := packNum(reflect.ValueOf(32))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packedout, err := packNum(reflect.ValueOf(len(stringOut)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packed32)
+	b.Write(packedout)
 	b.Write(helper.RightPadBytes([]byte(stringOut), helper.WordSize))
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))

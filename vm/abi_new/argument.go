@@ -257,7 +257,11 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 			// calculate the offset
 			offset := inputOffset + len(variableInput)
 			// set the offset
-			ret = append(ret, packNum(reflect.ValueOf(offset))...)
+			packedOffset, err := packNum(reflect.ValueOf(offset))
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, packedOffset...)
 			// Append the packed output to the variable input. The variable input
 			// will be appended at the end of the input.
 			variableInput = append(variableInput, packed...)
