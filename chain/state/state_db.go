@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
+	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -17,6 +18,11 @@ import (
 	"path"
 )
 
+const (
+	ConsensusNoCache   = 0
+	ConsensusReadCache = 1
+)
+
 type StateDB struct {
 	chain Chain
 
@@ -27,6 +33,8 @@ type StateDB struct {
 
 	redo     *Redo
 	useCache bool
+
+	consensusCacheLevel uint32
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -293,6 +301,10 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 	}
 
 	return nil, nil
+}
+
+func (sDB *StateDB) SetCacheLevelForConsensus(level uint32) {
+	atomic.SwapUint32(&sDB.consensusCacheLevel, level)
 }
 
 func (sDB *StateDB) Store() *chain_db.Store {

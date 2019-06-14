@@ -20,7 +20,11 @@ func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) inter
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr *types.Address, prefix []byte) (interfaces.StorageIterator, error) {
+
 	storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
+
+	//storeIterator := sDB.store.NewIterator(util.BytesPrefix(chain_utils.CreateHistoryStorageValueKeyPrefix(addr, prefix)))
+
 	iterator := newStateStorageIterator(newSnapshotStorageIterator(storeIterator, snapshotHeight))
 
 	return iterator, nil

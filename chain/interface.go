@@ -269,6 +269,8 @@ type Chain interface {
 	ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
 
 	// ====== Other ======
+	SetCacheLevelForConsensus(level uint32) // affect `GetVoteList` and `GetConfirmedBalanceList`. 0 means no cache, 1 means cache
+
 	NewDb(dirName string) (*leveldb.DB, error)
 
 	Plugins() *chain_plugins.Plugins

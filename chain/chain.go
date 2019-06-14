@@ -446,3 +446,7 @@ func (c *chain) GetStatus() []interfaces.DBStatus {
 
 	return statusList
 }
+
+func (c *chain) SetCacheLevelForConsensus(level uint32) {
+	c.stateDB.SetCacheLevelForConsensus(level)
+}

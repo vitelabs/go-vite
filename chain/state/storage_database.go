@@ -40,7 +40,6 @@ func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
 }
 
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
-
 	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, &sd.addr, prefix)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %s, addr is %s, prefix is %s",
