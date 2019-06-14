@@ -200,6 +200,17 @@ func Clear(c *chain) error {
 }
 
 func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+	// set fork point
+
+	if len(fork.GetForkPointList())<=0 {
+		fork.SetForkPoints(&config.ForkPoints{
+			DexFork: &config.ForkPoint{
+				Version: 1,
+				Height:  10000000,
+			},
+		})
+	}
+
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
@@ -417,7 +428,9 @@ func randomPanic() {
 		//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
 
 		// insert snapshot block
-		snapshotBlock := createSnapshotBlock(chainInstance, false)
+		snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{
+			SnapshotAll: false,
+		})
 
 		mu.Lock()
 		snapshotBlockList = append(snapshotBlockList, snapshotBlock)
