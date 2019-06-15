@@ -1,0 +1,7 @@
+{
+  "Disable": [
+    "gocyclo",
+    "varcheck",
+    "structcheck"
+  ]
+}

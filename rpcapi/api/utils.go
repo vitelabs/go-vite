@@ -5,8 +5,11 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"path/filepath"
 	"strconv"
@@ -22,9 +25,16 @@ var (
 	testapi_testtokenlru  *lru.Cache = nil
 	testtokenlruCron      *cron.Cron = nil
 	testtokenlruLimitSize            = 20
+	dataDir                          = ""
+	netId                            = uint(0)
 )
 
+func InitConfig(id uint) {
+	netId = id
+}
+
 func InitLog(dir, lvl string) {
+	dataDir = dir
 	logLevel, err := log15.LvlFromString(lvl)
 	if err != nil {
 		logLevel = log15.LvlInfo
@@ -102,8 +112,12 @@ func bigIntToString(big *big.Int) *string {
 	return &s
 }
 
-func uint64ToString(u uint64) string {
+func Uint64ToString(u uint64) string {
 	return strconv.FormatUint(u, 10)
+}
+
+func StringToUint64(s string) (uint64, error) {
+	return strconv.ParseUint(s, 10, 64)
 }
 
 const (
@@ -112,4 +126,36 @@ const (
 
 func getWithdrawTime(snapshotTime *time.Time, snapshotHeight uint64, withdrawHeight uint64) int64 {
 	return snapshotTime.Unix() + int64(withdrawHeight-snapshotHeight)*secondBetweenSnapshotBlocks
+}
+
+func getRange(index, count, listLen int) (int, int) {
+	start := index * count
+	if start >= listLen {
+		return listLen, listLen
+	}
+	end := start + count
+	if end >= listLen {
+		return start, listLen
+	}
+	return start, end
+}
+
+func getPrevBlockHash(c chain.Chain, addr types.Address) (*types.Hash, error) {
+	b, err := c.GetLatestAccountBlock(addr)
+	if err != nil {
+		return nil, err
+	}
+	if b != nil {
+		return &b.Hash, nil
+	}
+	return &types.Hash{}, nil
+}
+
+func getVmDb(c chain.Chain, addr types.Address) (vm_db.VmDb, error) {
+	prevHash, err := getPrevBlockHash(c, addr)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(c, &addr, &c.GetLatestSnapshotBlock().Hash, prevHash)
+	return db, err
 }

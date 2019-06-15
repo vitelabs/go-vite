@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 var (
@@ -12,26 +12,26 @@ var (
 )
 
 type contract struct {
-	caller                 types.Address
-	address                types.Address
-	jumpdests              destinations
-	code                   []byte
-	codeAddr               types.Address
-	block                  *vm_context.VmAccountBlock
-	sendBlock              *ledger.AccountBlock
-	quotaLeft, quotaRefund uint64
-	intPool                *intPool
-	returnData             []byte
+	jumpdests  destinations
+	data       []byte
+	code       []byte
+	codeAddr   types.Address
+	block      *ledger.AccountBlock
+	db         vm_db.VmDb
+	sendBlock  *ledger.AccountBlock
+	quotaLeft  uint64
+	intPool    *intPool
+	returnData []byte
 }
 
-func newContract(caller types.Address, address types.Address, block *vm_context.VmAccountBlock, sendBlock *ledger.AccountBlock, quotaLeft, quotaRefund uint64) *contract {
-	return &contract{caller: caller,
-		address:     address,
-		block:       block,
-		sendBlock:   sendBlock,
-		quotaLeft:   quotaLeft,
-		quotaRefund: quotaRefund,
-		jumpdests:   make(destinations),
+func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft uint64) *contract {
+	return &contract{
+		block:     block,
+		db:        db,
+		sendBlock: sendBlock,
+		data:      data,
+		quotaLeft: quotaLeft,
+		jumpdests: make(destinations),
 	}
 }
 
@@ -43,7 +43,6 @@ func (c *contract) getByte(n uint64) byte {
 	if n < uint64(len(c.code)) {
 		return c.code[n]
 	}
-
 	return 0
 }
 
@@ -59,5 +58,5 @@ func (c *contract) run(vm *VM) (ret []byte, err error) {
 		c.intPool = nil
 	}()
 
-	return vm.i.Run(vm, c)
+	return vm.i.runLoop(vm, c)
 }

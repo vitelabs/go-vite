@@ -3,8 +3,9 @@ package types
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/crypto"
 )
 
 const (
@@ -30,6 +31,14 @@ func HexToHash(hexstr string) (Hash, error) {
 		return Hash{}, err
 	}
 	return BytesToHash(b)
+}
+
+func HexToHashPanic(hexstr string) Hash {
+	h, err := HexToHash(hexstr)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 func (h *Hash) SetBytes(b []byte) error {

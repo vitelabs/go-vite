@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -40,7 +40,7 @@ func TestBlockNumberJSONUnmarshal(t *testing.T) {
 		8:  {`"0x8000000000000000"`, true, BlockNumber(0)},
 		9:  {"0", true, BlockNumber(0)},
 		10: {`"ff"`, true, BlockNumber(0)},
-		11: {`"pending"`, false, PendingBlockNumber},
+		11: {`"db"`, false, PendingBlockNumber},
 		12: {`"latest"`, false, LatestBlockNumber},
 		13: {`"earliest"`, false, EarliestBlockNumber},
 		14: {`someString`, true, BlockNumber(0)},

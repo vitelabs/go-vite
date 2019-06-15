@@ -10,11 +10,13 @@ type ring struct {
 	mu    sync.Mutex
 }
 
+// public
 func newRing(n int) *ring {
 	r := &ring{cap: 0, i: 0, datas: make([]interface{}, n)}
 	return r
 }
 
+// public
 func (self *ring) add(data interface{}) *ring {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -27,6 +29,7 @@ func (self *ring) add(data interface{}) *ring {
 	return self
 }
 
+// public
 func (self *ring) reset() *ring {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -36,6 +39,7 @@ func (self *ring) reset() *ring {
 	return self
 }
 
+// public
 func (self *ring) all() []interface{} {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -50,6 +54,7 @@ func (self *ring) all() []interface{} {
 	return result
 }
 
+// private
 func (self *ring) lastI(i int) int {
 	if i == 0 {
 		l := len(self.datas)
@@ -58,6 +63,8 @@ func (self *ring) lastI(i int) int {
 		return i - 1
 	}
 }
+
+// private
 func (self *ring) nextI(i int) int {
 	l := len(self.datas)
 	i = i + 1

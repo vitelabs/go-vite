@@ -1,40 +1,40 @@
 package pool
 
 import (
-	"sync"
+	"fmt"
+	"math/rand"
 	"time"
 
-	"math/rand"
-
-	"fmt"
-
-	"encoding/base64"
-
+	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pool/batch"
+	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vm_context/vmctxt_interface"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type accountPool struct {
 	BCPool
+	poolContext
 	rw            *accountCh
-	verifyTask    verifyTask
 	loopTime      time.Time
 	loopFetchTime time.Time
 	address       types.Address
 	v             *accountVerifier
 	f             *accountSyncer
-	receivedIndex sync.Map
+
 	pool          *pool
+	hashBlacklist Blacklist
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
-	vmBlock vmctxt_interface.VmDatabase,
-	version *ForkVersion,
+	vmBlock vm_db.VmDb,
+	version *common.Version,
 	source types.BlockSource) *accountPoolBlock {
 	return &accountPoolBlock{
 		forkBlock: *newForkBlock(version, source),
@@ -50,44 +50,62 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 type accountPoolBlock struct {
 	forkBlock
 	block    *ledger.AccountBlock
-	vmBlock  vmctxt_interface.VmDatabase
+	vmBlock  vm_db.VmDb
 	recover  *recoverStat
 	failStat *recoverStat
 	delStat  *recoverStat
 	fail     bool
 }
 
-func (self *accountPoolBlock) Height() uint64 {
-	return self.block.Height
+func (accB *accountPoolBlock) ReferHashes() (keys []types.Hash, accounts []types.Hash, snapshot *types.Hash) {
+	if accB.block.IsReceiveBlock() {
+		accounts = append(accounts, accB.block.FromBlockHash)
+	}
+	if accB.Height() > types.GenesisHeight {
+		accounts = append(accounts, accB.PrevHash())
+	}
+	keys = append(keys, accB.Hash())
+	if len(accB.block.SendBlockList) > 0 {
+		for _, sendB := range accB.block.SendBlockList {
+			keys = append(keys, sendB.Hash)
+		}
+	}
+	return keys, accounts, snapshot
 }
 
-func (self *accountPoolBlock) Hash() types.Hash {
-	return self.block.Hash
+func (accB *accountPoolBlock) Height() uint64 {
+	return accB.block.Height
 }
 
-func (self *accountPoolBlock) PrevHash() types.Hash {
-	return self.block.PrevHash
-}
-func (self *accountPoolBlock) Source() types.BlockSource {
-	return self.source
+func (accB *accountPoolBlock) Hash() types.Hash {
+	return accB.block.Hash
 }
 
-func newAccountPool(name string, rw *accountCh, v *ForkVersion, log log15.Logger) *accountPool {
+func (accB *accountPoolBlock) PrevHash() types.Hash {
+	return accB.block.PrevHash
+}
+
+func (accB *accountPoolBlock) Owner() *types.Address {
+	return &accB.block.AccountAddress
+}
+
+func newAccountPool(name string, rw *accountCh, v *common.Version, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}
-	pool.Id = name
+	pool.ID = name
 	pool.rw = rw
 	pool.version = v
 	pool.loopTime = time.Now()
 	pool.log = log.New("account", name)
+	pool.hashBlacklist = hashBlacklist
 	return pool
 }
 
-func (self *accountPool) Init(
+func (accP *accountPool) Init(
 	tools *tools, pool *pool, v *accountVerifier, f *accountSyncer) {
-	self.pool = pool
-	self.v = v
-	self.f = f
-	self.BCPool.init(tools)
+	accP.pool = pool
+	accP.v = v
+	accP.f = f
+	accP.BCPool.init(tools)
 }
 
 /**
@@ -96,346 +114,101 @@ func (self *accountPool) Init(
 	1.2. snippet chain
 2. fetch block for snippet chain.
 */
-func (self *accountPool) Compact() int {
-	// if an insert operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
-		return 0
-	} else {
-		defer self.compactLock.UnLock()
-	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type,%+v", err)
-			}
-
-			self.log.Warn("Compact start recover.", "err", err, "withstack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("Compact end recover.")
-			self.pool.RLock()
-			defer self.pool.RUnLock()
-			self.rMu.Lock()
-			defer self.rMu.Unlock()
-			self.initPool()
-		}
-	}()
-
-	defer monitor.LogTime("pool", "accountCompact", time.Now())
-	self.pool.RLock()
-	defer self.pool.RUnLock()
-	defer monitor.LogTime("pool", "accountCompactRMu", time.Now())
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+func (accP *accountPool) Compact() int {
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
-	if now.After(self.loopTime.Add(time.Millisecond * 2)) {
-		defer monitor.LogTime("pool", "accountSnippet", now)
-		self.loopTime = now
-		sum = sum + self.loopGenSnippetChains()
-		sum = sum + self.loopAppendChains()
-	}
-	if now.After(self.loopFetchTime.Add(time.Millisecond * 200)) {
+
+	defer monitor.LogTime("pool", "accountSnippet", now)
+	accP.loopTime = now
+	sum = sum + accP.loopGenSnippetChains()
+	sum = sum + accP.loopAppendChains()
+
+	if now.After(accP.loopFetchTime.Add(time.Millisecond * 200)) {
 		defer monitor.LogTime("pool", "loopFetchForSnippets", now)
-		self.loopFetchTime = now
-		sum = sum + self.loopFetchForSnippets()
+		accP.loopFetchTime = now
+		sum = sum + accP.loopFetchForSnippets()
+		accP.checkCurrent()
 	}
 	return sum
-}
-
-func (self *accountPool) LockForInsert() {
-	// if an compact operation is in progress, do nothing.
-	self.compactLock.Lock()
-	// lock other chain insert
-	self.pool.RLock()
-	self.rMu.Lock()
-}
-
-func (self *accountPool) UnLockForInsert() {
-	self.compactLock.UnLock()
-	self.pool.RUnLock()
-	self.rMu.Unlock()
 }
 
 /**
 try insert block to real chain.
 */
-func (self *accountPool) TryInsert() verifyTask {
-	// if current size is empty, do nothing.
-	if self.chainpool.current.size() <= 0 {
-		return nil
-	}
+func (accP *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
 
-	// if an compact operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
-		return nil
-	} else {
-		defer self.compactLock.UnLock()
-	}
+	targetChain := accP.findInTree(h.Hash, h.Height)
+	if targetChain != nil {
+		current := accP.CurrentChain()
 
-	// if last verify task has not done
-	if self.verifyTask != nil && !self.verifyTask.done(self.rw.rw) {
-		return nil
-	}
-	// lock other chain insert
-	self.pool.RLock()
-	defer self.pool.RUnLock()
+		if targetChain.ID() == current.ID() {
+			return nil, nil
+		}
 
-	// try insert block to real chain
-	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
-
-	task := self.tryInsert()
-	self.verifyTask = task
-	if task != nil {
-		return task
-	} else {
-		return nil
+		_, forkPoint, err := accP.chainpool.tree.FindForkPointFromMain(targetChain)
+		if err != nil {
+			return nil, err
+		}
+		tailHeight, _ := current.TailHH()
+		// key point in disk chain
+		if forkPoint.Height() < tailHeight {
+			return h, nil
+		}
+		accP.log.Info("PendingAccountTo->CurrentModifyToChain", "addr", accP.address, "hash", h.Hash, "height", h.Height, "targetChain",
+			targetChain.ID(), "targetChainTailt", targetChain.SprintTail(), "targetChainHead", targetChain.SprintHead(),
+			"forkPoint", fmt.Sprintf("[%s-%d]", forkPoint.Hash(), forkPoint.Height()))
+		err = accP.CurrentModifyToChain(targetChain)
+		if err != nil {
+			accP.log.Error("PendingAccountTo->CurrentModifyToChain err", "err", err, "targetId", targetChain.ID())
+			panic(err)
+		}
+		return nil, nil
 	}
+	return nil, nil
 }
 
-/**
-1. fail    something is wrong.
-2. pending
-	2.1 pending for snapshot
-	2.2 pending for other account chain(specific block height)
-3. success
+func (accP *accountPool) verifySuccess(bs *accountPoolBlock) (uint64, error) {
+	cp := accP.chainpool
 
-
-
-fail: If no fork version increase, don't do anything.
-pending:
-	pending(2.1): If snapshot height is not reached, fetch snapshot block, and wait..
-	pending(2.2): If other account chain height is not reached, fetch other account block, and wait.
-success:
-	really insert to chain.
-*/
-func (self *accountPool) tryInsert() verifyTask {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	// recover logic
-	defer func() {
-		if err := recover(); err != nil {
-			var e error
-			switch t := err.(type) {
-			case error:
-				e = errors.WithStack(t)
-			case string:
-				e = errors.New(t)
-			default:
-				e = errors.Errorf("unknown type, %+v", err)
-			}
-			self.log.Warn("tryInsert start recover.", "err", err, "stack", fmt.Sprintf("%+v", e))
-			fmt.Printf("%+v", e)
-			defer self.log.Warn("tryInsert end recover.")
-			self.initPool()
-		}
-	}()
-
-	cp := self.chainpool
-	current := cp.current
-	minH := current.tailHeight + 1
-	headH := current.headHeight
-	n := 0
-	for i := minH; i <= headH; {
-		block := self.getCurrentBlock(i)
-		if block == nil {
-			return self.v.newSuccessTask()
-		}
-
-		block.resetForkVersion()
-		n++
-		stat := self.v.verifyAccount(block)
-		if !block.checkForkVersion() {
-			block.resetForkVersion()
-			self.log.Warn("snapshot fork happen. account should verify again.", "blockHash", block.Hash(), "blockHeight", block.Height())
-			return self.v.newSuccessTask()
-		}
-		result := stat.verifyResult()
-		switch result {
-		case verifier.PENDING:
-			monitor.LogEvent("pool", "AccountPending")
-			t := stat.task()
-			if t == nil || len(t.requests()) == 0 {
-				monitor.LogEvent("pool", "AccountPendingNotFound")
-			}
-
-			err := self.verifyPending(block)
-			if err != nil {
-				self.log.Error("account pending fail. ",
-					"hash", block.Hash(), "height", block.Height(), "err", err)
-			}
-			return t
-		case verifier.FAIL:
-			monitor.LogEvent("pool", "AccountFail")
-			err := self.verifyFail(block)
-			self.log.Error("account block verify fail. ",
-				"hash", block.Hash(), "height", block.Height(), "err", stat.errMsg(), "err2", err)
-			return self.v.newFailTask()
-		case verifier.SUCCESS:
-			monitor.LogEvent("pool", "AccountSuccess")
-
-			if len(stat.blocks) == 0 {
-				self.log.Error("account block fail. ",
-					"hash", block.Hash(), "height", block.Height(), "error", "stat.blocks is empty.")
-				return self.v.newFailTask()
-			}
-			if block.Height() == current.tailHeight+1 {
-				err, cnt := self.verifySuccess(stat.blocks)
-				if err != nil {
-					self.log.Error("account block write fail. ",
-						"hash", block.Hash(), "height", block.Height(), "error", err)
-					return self.v.newFailTask()
-				}
-				i = i + cnt
-			} else {
-				self.log.Error("account block forked", "height", block.Height())
-				return self.v.newSuccessTask()
-			}
-		default:
-			// shutdown process
-			self.log.Crit("Unexpected things happened.",
-				"hash", block.Hash(), "height", block.Height(), "result", result)
-			return self.v.newFailTask()
-		}
-	}
-
-	return self.v.newSuccessTask()
-}
-func (self *accountPool) verifySuccess(bs []*accountPoolBlock) (error, uint64) {
-	cp := self.chainpool
-
-	blocks, forked, err := genBlocks(cp, bs)
+	err := accP.rw.insertBlock(bs)
 	if err != nil {
-		return err, 0
+		return 0, err
 	}
 
-	self.log.Debug("verifySuccess", "id", forked.id(), "TailHeight", forked.tailHeight, "HeadHeight", forked.headHeight)
-	err = cp.currentModifyToChain(forked)
+	cp.insertNotify(bs)
+
 	if err != nil {
-		return err, 0
+		return 0, err
 	}
-	err = cp.writeBlocksToChain(forked, blocks)
-	if err != nil {
-		return err, 0
-	}
-	for _, b := range blocks {
-		self.blockpool.afterInsert(b)
-		self.afterInsertBlock(b)
-	}
-	return nil, uint64(len(bs))
+	return 1, nil
 }
 
-func (self *accountPool) verifyPending(b *accountPoolBlock) error {
-	if !b.recover.inc() {
-		b.recover.reset()
-		monitor.LogEvent("pool", "accountPendingFail")
-		return self.modifyToOther(b)
-	}
-	return nil
-}
-func (self *accountPool) verifyFail(b *accountPoolBlock) error {
-	if b.fail {
-		if !b.delStat.inc() {
-			self.log.Warn("account block delete.", "hash", b.Hash(), "height", b.Height())
-			self.CurrentModifyToEmpty()
-		}
-	} else {
-		if !b.failStat.inc() {
-			byt, _ := b.block.DbSerialize()
-			self.log.Warn("account block verify fail.", "hash", b.Hash(), "height", b.Height(), "byt", base64.StdEncoding.EncodeToString(byt))
-			b.fail = true
-		}
-	}
-	return self.modifyToOther(b)
-}
-func (self *accountPool) modifyToOther(b *accountPoolBlock) error {
-	cp := self.chainpool
-	cur := cp.current
-
-	cs := cp.findOtherChainsByTail(cur, cur.tailHash, cur.tailHeight)
-
-	if len(cs) == 0 {
-		return nil
-	}
-
-	monitor.LogEvent("pool", "accountVerifyFailModify")
-	r := rand.Intn(len(cs))
-
-	err := cp.currentModifyToChain(cs[r])
-
-	return err
+func (accP *accountPool) findInPool(hash types.Hash, height uint64) bool {
+	accP.blockpool.pendingMu.Lock()
+	defer accP.blockpool.pendingMu.Unlock()
+	return accP.blockpool.containsHash(hash)
 }
 
-// result,(need fork)
-func genBlocks(cp *chainPool, bs []*accountPoolBlock) ([]commonBlock, *forkedChain, error) {
-	current := cp.current
-
-	var newChain *forkedChain
-	var err error
-	var result = []commonBlock{}
-
-	for _, b := range bs {
-		tmp := current.getHeightBlock(b.Height())
-		if newChain != nil {
-			err := newChain.canAddHead(b)
-			if err != nil {
-				return nil, nil, err
-			}
-			// forked chain
-			newChain.addHead(tmp)
-		} else {
-			if tmp == nil || tmp.Hash() != b.Hash() {
-				// forked chain
-				newChain, err = cp.forkFrom(current, b.Height()-1, b.PrevHash())
-				if err != nil {
-					return nil, nil, err
-				}
-				err := newChain.canAddHead(b)
-				if err != nil {
-					return nil, nil, err
-				}
-				newChain.addHead(b)
-			}
-		}
-		result = append(result, b)
-	}
-
-	if newChain == nil {
-		return result, current, nil
-	} else {
-		return result, newChain, nil
-	}
+func (accP *accountPool) findInTree(hash types.Hash, height uint64) tree.Branch {
+	return accP.chainpool.tree.FindBranch(height, hash)
 }
 
-func (self *accountPool) findInPool(hash types.Hash, height uint64) bool {
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return true
-			}
-		}
+func (accP *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) tree.Branch {
+	cur := accP.CurrentChain()
+	targetHash := cur.GetHash(height, disk)
+	if targetHash != nil && *targetHash == hash {
+		return cur
 	}
-	return false
-}
 
-func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain {
-	block := self.chainpool.current.getBlock(height, false)
-	if block != nil && block.Hash() == hash {
-		return self.chainpool.current
-	}
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
+	for _, c := range accP.chainpool.allChain() {
+		b := c.GetKnot(height, false)
 
 		if b == nil {
 			continue
@@ -448,120 +221,277 @@ func (self *accountPool) findInTree(hash types.Hash, height uint64) *forkedChain
 	return nil
 }
 
-func (self *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) *forkedChain {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
+func (accP *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
+	latestSb := accP.rw.getLatestSnapshotBlock()
+	//accP.rMu.Lock()
+	//defer accP.rMu.Unlock()
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
 
-	block := self.chainpool.current.getBlock(height, disk)
-	if block != nil && block.Hash() == hash {
-		return self.chainpool.current
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+
+	current := accP.CurrentChain()
+	tailHeight, tailHash := current.TailHH()
+	if received.Height() != tailHeight+1 ||
+		received.PrevHash() != tailHash {
+		return errors.Errorf("account head not match[%d-%s][%s]", received.Height(), received.PrevHash(), current.SprintTail())
 	}
 
-	for _, c := range self.chainpool.allChain() {
-		b := c.getBlock(height, false)
-
-		if b == nil {
-			continue
-		} else {
-			if b.Hash() == hash {
-				return c
-			}
-		}
-	}
-	return nil
-}
-
-func (self *accountPool) AddDirectBlocks(received *accountPoolBlock, sendBlocks []*accountPoolBlock) error {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-
-	stat := self.v.verifyDirectAccount(received, sendBlocks)
+	accP.checkCurrent()
+	stat := accP.v.verifyAccount(received, latestSb)
 	result := stat.verifyResult()
 	switch result {
 	case verifier.PENDING:
-		return errors.New("pending for something")
+		msg := fmt.Sprintf("db for directly adding account block[%s-%s-%d].", received.block.AccountAddress, received.Hash(), received.Height())
+		return errors.New(msg)
 	case verifier.FAIL:
-		return errors.New(stat.errMsg())
+		if stat.err != nil {
+			return stat.err
+		}
+		return errors.Errorf("directly adding account block[%s-%s-%d] fail.", received.block.AccountAddress, received.Hash(), received.Height())
 	case verifier.SUCCESS:
-		fchain, blocks, err := self.genDirectBlocks(stat.blocks)
-		if err != nil {
-			return err
-		}
-		self.log.Debug("AddDirectBlocks", "id", fchain.id(), "TailHeight", fchain.tailHeight, "HeadHeight", fchain.headHeight)
-		err = self.chainpool.currentModifyToChain(fchain)
-		if err != nil {
-			return err
-		}
-		err = self.chainpool.writeBlocksToChain(fchain, blocks)
+
+		accP.log.Debug("AddDirectBlocks", "height", received.Height(), "hash", received.Hash())
+		_, err := accP.verifySuccess(stat.block)
 		if err != nil {
 			return err
 		}
 		return nil
 	default:
-		self.log.Crit("verify unexpected.")
+		accP.log.Crit("verify unexpected.")
 		return errors.New("verify unexpected")
 	}
 }
 
-func (self *accountPool) broadcastUnConfirmedBlocks() {
-	blocks := self.rw.getUnConfirmedBlocks()
-	self.f.broadcastBlocks(blocks)
-}
-
-func (self *accountPool) AddReceivedBlock(block *ledger.AccountBlock) {
-	if block.IsReceiveBlock() {
-		self.receivedIndex.Store(block.FromBlockHash, block)
-	}
-}
-func (self *accountPool) afterInsertBlock(b commonBlock) {
-	block := b.(*accountPoolBlock)
-	if block.block.IsReceiveBlock() {
-		self.receivedIndex.Delete(block.block.FromBlockHash)
-	}
-}
-
-func (self *accountPool) ExistInCurrent(fromHash types.Hash) bool {
-	// received in pool
-	b, ok := self.receivedIndex.Load(fromHash)
-	if !ok {
-		return false
-	}
-
-	block := b.(*ledger.AccountBlock)
-	h := block.Height
-	// block in current
-	received := self.chainpool.current.getBlock(h, false)
-	if received == nil || received.Hash() != block.Hash {
-		return false
-	} else {
-		return true
-	}
-	return ok
-}
-func (self *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
-	b := self.chainpool.current.getBlock(i, false)
+func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
+	b := accP.chainpool.tree.Main().GetKnot(i, false)
 	if b != nil {
 		return b.(*accountPoolBlock)
-	} else {
-		return nil
 	}
+	return nil
 }
-func (self *accountPool) genDirectBlocks(blocks []*accountPoolBlock) (*forkedChain, []commonBlock, error) {
-	var results []commonBlock
-	fchain, err := self.chainpool.forkFrom(self.chainpool.current, blocks[0].Height()-1, blocks[0].PrevHash())
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, b := range blocks {
-		err := fchain.canAddHead(b)
-		if err != nil {
-			return nil, nil, err
-		}
-		fchain.addHead(b)
-		results = append(results, b)
-	}
-	return fchain, results, nil
-}
-func (self *accountPool) deleteBlock(block *accountPoolBlock) {
 
+var ErrEmptyMain = errors.New("empty chainpool")
+var ErrCurrentChainModify = errors.New("current chain modify")
+var ErrMax = errors.New("arrived to max")
+var ErrBlackList = errors.New("block in blacklist")
+var ErrQuotaNotEnough = errors.New("block quota not enough")
+var ErrAllIn = errors.New("all in")
+
+func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64) (uint64, error) {
+	// if current size is empty, do nothing.
+	if accP.chainpool.tree.Main().Size() <= 0 {
+		return 0, ErrEmptyMain
+	}
+
+	// lock other chain insert
+	accP.pool.RLockInsert()
+	defer accP.pool.RUnLockInsert()
+
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+
+	// choose current
+	current := accP.chooseAndSwitchCurrentForMake(info)
+
+	if info.offset == nil {
+		tailHeight, tailHash := current.TailHH()
+		info.offset = &ledger.HashHeight{Hash: tailHash, Height: tailHeight}
+		info.quotaUnused = accP.rw.getQuotaUnused()
+	} else {
+		block := current.GetKnot(info.offset.Height+1, false)
+		if block == nil || block.PrevHash() != info.offset.Hash {
+			return uint64(0), ErrCurrentChainModify
+		}
+	}
+
+	minH := info.offset.Height + 1
+	headH, _ := current.HeadHH()
+	for i := minH; i <= headH; i++ {
+		if i-minH >= max {
+			return uint64(i - minH), ErrMax
+		}
+		block := accP.getCurrentBlock(i)
+		if block == nil {
+			return uint64(i - minH), ErrCurrentChainModify
+		}
+		if accP.hashBlacklist.Exists(block.Hash()) {
+			return uint64(i - minH), ErrBlackList
+		}
+		// check quota
+		used, unused, enought := info.quotaEnough(block)
+		if !enought {
+			// todo remove
+			return uint64(i - minH), ErrQuotaNotEnough
+		}
+		accP.log.Debug(fmt.Sprintf("[%s][%d][%s]quota info [used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
+		// check request block confirmed time for response block
+		if err := accP.checkSnapshotSuccess(block); err != nil {
+			return uint64(i - minH), err
+		}
+
+		err := q.AddAItem(block, nil)
+		if err != nil {
+			return uint64(i - minH), err
+		}
+		info.offset.Hash = block.Hash()
+		info.offset.Height = block.Height()
+		info.quotaSub(block)
+	}
+
+	return uint64(headH - minH), ErrAllIn
+}
+
+// choose branch, add random strategy
+func (accP *accountPool) chooseAndSwitchCurrentForMake(info *offsetInfo) tree.Branch {
+	main := accP.chainpool.tree.Main()
+	if info.offset == nil {
+		return main
+	}
+	uTime := main.UTime()
+	if time.Now().After(uTime.Add(time.Second * 5)) {
+		brothers := accP.chainpool.tree.Brothers(main)
+		if len(brothers) == 0 {
+			return main
+		}
+		randN := rand.Intn(len(brothers))
+		branch := brothers[randN]
+		accP.log.Info("current modify for random", "targetId", branch.ID(), "TargetTail", branch.SprintTail(), "currentId", main.ID(), "CurrentTail", main.SprintTail())
+		err := accP.chainpool.tree.SwitchMainTo(branch)
+		if err != nil {
+			accP.log.Error("switch main fail", "err", err)
+			return accP.chainpool.tree.Main()
+		}
+		return accP.chainpool.tree.Main()
+	}
+	return main
+}
+
+func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+
+	cp := accP.chainpool
+
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		block := item.(*accountPoolBlock)
+		accP.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d.", p.Id(), block.Height(), block.Hash(), i, len(items)))
+		current := cp.tree.Root()
+		tailHeight, tailHash := current.HeadHH()
+		if block.Height() == tailHeight+1 &&
+			block.PrevHash() == tailHash {
+			block.resetForkVersion()
+			if block.forkVersion() != version {
+				return errors.New("snapshot version update")
+			}
+
+			stat := accP.v.verifyAccount(block, latestSb)
+			if !block.checkForkVersion() {
+				block.resetForkVersion()
+				return errors.New("new fork version")
+			}
+			switch stat.verifyResult() {
+			case verifier.FAIL:
+				accP.log.Warn("add account block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
+				accP.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				return errors.Wrap(stat.err, "fail verifier")
+			case verifier.PENDING:
+				accP.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
+				return errors.Wrap(stat.err, "fail verifier db.")
+			}
+			err := cp.writeBlockToChain(stat.block)
+			if err != nil {
+				accP.log.Error("account block write fail. ",
+					"hash", block.Hash(), "height", block.Height(), "error", err)
+				return err
+			}
+		} else {
+			return errors.New("tail not match")
+		}
+		accP.log.Info(fmt.Sprintf("[%d]try to insert account block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))
+	}
+	return nil
+}
+func (accP *accountPool) checkSnapshotSuccess(block *accountPoolBlock) error {
+	if block.block.IsReceiveBlock() {
+		if !types.IsContractAddr(block.block.AccountAddress) {
+			return nil
+		}
+		num, e := accP.rw.needSnapshot(block.block.AccountAddress)
+		if e != nil {
+			return e
+		}
+		if num > 0 {
+			b, err := accP.rw.getConfirmedTimes(block.block.FromBlockHash)
+			if err != nil {
+				return err
+			}
+			if b >= uint64(num) {
+				return nil
+			}
+			return errors.New("send block need to snapshot")
+		}
+	}
+	return nil
+}
+func (accP *accountPool) genForSnapshotContents(p batch.Batch, b *snapshotPoolBlock, k types.Address, v *ledger.HashHeight) (bool, *stack.Stack) {
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+	acurr := accP.CurrentChain()
+	tailHeight, _ := acurr.TailHH()
+	targetHash := acurr.GetHash(v.Height, true)
+	if targetHash == nil {
+		return true, nil
+	}
+	if *targetHash != v.Hash {
+		accP.log.Info(fmt.Sprintf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
+			b.block.Height, b.block.Hash, k, v.Height, v.Hash, *targetHash))
+		// todo switch account chain
+
+		return true, nil
+	}
+
+	if v.Height > tailHeight {
+		// account block is in pool.
+		tmp := stack.New()
+		for h := v.Height; h > tailHeight; h-- {
+			currB := accP.getCurrentBlock(h)
+			if p.Exists(currB.Hash()) {
+				break
+			}
+			tmp.Push(currB)
+		}
+		if tmp.Len() > 0 {
+			return false, tmp
+		}
+	}
+	return false, nil
+}
+
+func (accP *accountPool) shouldDestroy() bool {
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+	if accP.blockpool.size() > 0 {
+		return false
+	}
+
+	if len(accP.chainpool.snippetChains) > 0 {
+		return false
+	}
+
+	if accP.chainpool.tree.Size() > 0 {
+		return false
+	}
+	if !time.Now().After(accP.chainpool.tree.Main().UTime().Add(time.Minute * 8)) {
+		return false
+	}
+	return true
 }

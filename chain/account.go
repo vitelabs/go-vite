@@ -1,66 +1,57 @@
 package chain
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
+	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-// 0 means error, 1 means not exist, 2 means general account, 3 means contract account.
-func (c *chain) AccountType(address *types.Address) (uint64, error) {
-	if types.IsPrecompiledContractAddress(*address) {
-		return ledger.AccountTypeContract, nil
+func (c *chain) IsContractAccount(address types.Address) (bool, error) {
+	if ok := types.IsBuiltinContractAddrInUse(address); ok {
+		return ok, nil
 	}
 
-	account, err := c.GetAccount(address)
+	result, err := c.stateDB.HasContractMeta(address)
+
 	if err != nil {
-		return ledger.AccountTypeError, err
+		cErr := errors.New(fmt.Sprintf("c.stateDB.HasContractMeta failed, error is %s, address is %s", err.Error(), address))
+		c.log.Error(cErr.Error(), "method", "IsContractAccount")
+		return false, cErr
 	}
 
-	if account == nil {
-		return ledger.AccountTypeNotExist, nil
-	}
-
-	gid, getGidErr := c.GetContractGid(address)
-	if getGidErr != nil {
-		return ledger.AccountTypeError, getGidErr
-	}
-
-	if gid == nil {
-		return ledger.AccountTypeGeneral, nil
-	}
-	return ledger.AccountTypeContract, nil
+	return result, nil
 }
 
-// TODO cache
-func (c *chain) GetAccount(address *types.Address) (*ledger.Account, error) {
-	account, err := c.chainDb.Account.GetAccountByAddress(address)
+func (c *chain) GetAccountId(address types.Address) (uint64, error) {
+	accountId, err := c.indexDB.GetAccountId(&address)
+
 	if err != nil {
-		c.log.Error("Query account failed, error is "+err.Error(), "method", "GetAccount")
-		return nil, err
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountId failed, error is %s, address is %s", err.Error(), address))
+		c.log.Error(cErr.Error(), "method", "GetAccountId")
+		return 0, cErr
 	}
-	return account, nil
+
+	return accountId, nil
 }
 
-func (c *chain) newAccountId() (uint64, error) {
-	lastAccountId, err := c.chainDb.Account.GetLastAccountId()
+func (c *chain) GetAccountAddress(accountId uint64) (*types.Address, error) {
+	addr, err := c.indexDB.GetAccountAddress(accountId)
+
 	if err != nil {
-		return 0, err
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountAddress failed, error is %s, accountId is %d", err.Error(), accountId))
+		c.log.Error(cErr.Error(), "method", "getAccountAddress")
+		return nil, cErr
 	}
-	return lastAccountId + 1, nil
+
+	return addr, nil
 }
 
-func (c *chain) createAccount(batch *leveldb.Batch, accountId uint64, address *types.Address, publicKey ed25519.PublicKey) (*ledger.Account, error) {
-	account := &ledger.Account{
-		AccountAddress: *address,
-		AccountId:      accountId,
-		PublicKey:      publicKey,
-	}
+func (c *chain) IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool) {
+	c.indexDB.IterateAccounts(iterateFunc)
 
-	c.chainDb.Account.WriteAccountIndex(batch, accountId, address)
-	if err := c.chainDb.Account.WriteAccount(batch, account); err != nil {
-		return nil, err
-	}
-	return account, nil
+}
+
+func (c *chain) IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool) {
+	c.stateDB.IterateContracts(iterateFunc)
 }

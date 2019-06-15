@@ -6,21 +6,26 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/vitelabs/go-vite/config/biz"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/config/biz"
+	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/network"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Config struct {
+	NetSelect string
+
 	DataDir string `json:"DataDir"`
 
 	KeyStoreDir string `json:"KeyStoreDir"`
@@ -29,23 +34,34 @@ type Config struct {
 	KafkaProducers []string `json:"KafkaProducers"`
 
 	// chain
-	OpenBlackBlock bool   `json:"OpenBlackBlock"`
 	LedgerGcRetain uint64 `json:"LedgerGcRetain"`
-	GenesisFile    string `json:"GenesisFile"`
-	LedgerGc       bool   `json:"LedgerGc"`
+	LedgerGc       *bool  `json:"LedgerGc"`
+	OpenPlugins    *bool  `json:"OpenPlugins"`
+
+	// genesis
+	GenesisFile string `json:"GenesisFile"`
 
 	// p2p
-	NetSelect            string
-	Identity             string   `json:"Identity"`
-	PrivateKey           string   `json:"PrivateKey"`
-	MaxPeers             uint     `json:"MaxPeers"`
-	MaxPassivePeersRatio uint     `json:"MaxPassivePeersRatio"`
-	MaxPendingPeers      uint     `json:"MaxPendingPeers"`
-	BootNodes            []string `json:"BootNodes"`
-	StaticNodes          []string `json:"StaticNodes"`
-	Port                 uint     `json:"Port"`
-	NetID                uint     `json:"NetID"`
-	Discovery            bool     `json:"Discovery"`
+	Identity           string   `json:"Identity"`
+	PeerKey            string   `json:"PeerKey"`
+	PrivateKey         string   `json:"PrivateKey"`
+	MaxPeers           int      `json:"MaxPeers"`
+	MinPeers           int      `json:"MinPeers"`
+	MaxInboundRatio    int      `json:"MaxInboundRatio"`
+	MaxPendingPeers    int      `json:"MaxPendingPeers"`
+	BootNodes          []string `json:"BootNodes"`
+	BootSeeds          []string `json:"BootSeeds"`
+	StaticNodes        []string `json:"StaticNodes"`
+	ListenInterface    string   `json:"ListenInterface"`
+	Port               int      `json:"Port"`
+	ListenAddress      string   `json:"ListenAddress"`
+	PublicAddress      string   `json:"PublicAddress"`
+	NetID              int      `json:"NetID"`
+	Discover           bool     `json:"Discover"`
+	AccessControl      string   `json:"AccessControl"` // producer special any
+	AccessAllowKeys    []string `json:"AccessAllowKeys"`
+	AccessDenyKeys     []string `json:"AccessDenyKeys"`
+	BlackBlockHashList []string `json:"BlackBlockHashList"`
 
 	//producer
 	EntropyStorePath     string `json:"EntropyStorePath"`
@@ -74,7 +90,7 @@ type Config struct {
 	TestTokenHexPrivKey string   `json:"TestTokenHexPrivKey"`
 	TestTokenTti        string   `json:"TestTokenTti"`
 
-	PowServerUrl string `json:"PowServerUrl”`
+	PowServerUrl string `json:"PowServerUrl"`
 
 	//Log level
 	LogLevel    string `json:"LogLevel"`
@@ -83,18 +99,33 @@ type Config struct {
 	//VM
 	VMTestEnabled      bool `json:"VMTestEnabled"`
 	VMTestParamEnabled bool `json:"VMTestParamEnabled"`
+	VMDebug            bool `json:"VMDebug"`
 
-	//Net TODO: cmd after ？
-	Single                 bool     `json:"Single"`
-	FilePort               int      `json:"FilePort"`
-	Topology               []string `json:"Topology"`
-	TopologyTopic          string   `json:"TopologyTopic"`
-	TopologyReportInterval int      `json:"TopologyReportInterval"`
-	TopoDisabled           bool     `json:"TopoDisabled"`
-	DashboardTargetURL     string
+	// subscribe
+	SubscribeEnabled bool `json:"SubscribeEnabled"`
+
+	// net
+	Single            bool   `json:"Single"`
+	FilePort          int    `json:"FilePort"`
+	FileListenAddress string `json:"FileListenAddress"`
+	FilePublicAddress string `json:"FileAddress"`
+	ForwardStrategy   string `json:"ForwardStrategy"`
+	TraceEnabled      bool   `json:"TraceEnabled"`
+
+	// dashboard
+	DashboardTargetURL string
 
 	// reward
 	RewardAddr string `json:"RewardAddr"`
+
+	//metrics
+	MetricsEnable    *bool   `json:"MetricsEnable"`
+	InfluxDBEnable   *bool   `json:"InfluxDBEnable"`
+	InfluxDBEndpoint *string `json:"InfluxDBEndpoint"`
+	InfluxDBDatabase *string `json:"InfluxDBDatabase"`
+	InfluxDBUsername *string `json:"InfluxDBUsername"`
+	InfluxDBPassword *string `json:"InfluxDBPassword"`
+	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
 func (c *Config) makeWalletConfig() *wallet.Config {
@@ -103,24 +134,33 @@ func (c *Config) makeWalletConfig() *wallet.Config {
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:    c.makeChainConfig(),
-		Producer: c.makeMinerConfig(),
-		DataDir:  c.DataDir,
-		Net:      c.makeNetConfig(),
-		Vm:       c.makeVmConfig(),
-		Reward:   c.makeRewardConfig(),
-		LogLevel: c.LogLevel,
+		Chain:     c.makeChainConfig(),
+		Producer:  c.makeMinerConfig(),
+		DataDir:   c.DataDir,
+		Net:       c.makeNetConfig(),
+		Vm:        c.makeVmConfig(),
+		Subscribe: c.makeSubscribeConfig(),
+		Reward:    c.makeRewardConfig(),
+		Genesis:   config_gen.MakeGenesisConfig(c.GenesisFile),
+		LogLevel:  c.LogLevel,
 	}
 }
 
 func (c *Config) makeNetConfig() *config.Net {
+	var fileListenAddress = c.FileListenAddress
+	if fileListenAddress == "" {
+		fileListenAddress = c.ListenInterface + ":" + strconv.Itoa(c.FilePort)
+	}
+
 	return &config.Net{
-		Single:       c.Single,
-		FilePort:     uint16(c.FilePort),
-		Topology:     c.Topology,
-		Topic:        c.TopologyTopic,
-		Interval:     int64(c.TopologyReportInterval),
-		TopoDisabled: c.TopoDisabled,
+		Single:             c.Single,
+		FileListenAddress:  fileListenAddress,
+		ForwardStrategy:    c.ForwardStrategy,
+		TraceEnabled:       c.TraceEnabled,
+		AccessControl:      c.AccessControl,
+		AccessAllowKeys:    c.AccessAllowKeys,
+		AccessDenyKeys:     c.AccessDenyKeys,
+		BlackBlockHashList: c.BlackBlockHashList,
 	}
 }
 
@@ -135,7 +175,39 @@ func (c *Config) makeVmConfig() *config.Vm {
 	return &config.Vm{
 		IsVmTest:         c.VMTestEnabled,
 		IsUseVmTestParam: c.VMTestParamEnabled,
+		IsVmDebug:        c.VMDebug,
 	}
+}
+
+func (c *Config) makeSubscribeConfig() *config.Subscribe {
+	return &config.Subscribe{
+		IsSubscribe: c.SubscribeEnabled,
+	}
+}
+
+func (c *Config) makeMetricsConfig() *metrics.Config {
+	mc := &metrics.Config{
+		IsEnable:         false,
+		IsInfluxDBEnable: false,
+		InfluxDBInfo:     nil,
+	}
+	if c.MetricsEnable != nil && *c.MetricsEnable == true {
+		mc.IsEnable = true
+		if c.InfluxDBEnable != nil && *c.InfluxDBEnable == true &&
+			c.InfluxDBEndpoint != nil && len(*c.InfluxDBEndpoint) > 0 &&
+			(c.InfluxDBEndpoint != nil && c.InfluxDBDatabase != nil && c.InfluxDBPassword != nil && c.InfluxDBHostTag != nil) {
+			mc.IsInfluxDBEnable = true
+			mc.InfluxDBInfo = &metrics.InfluxDBConfig{
+				Endpoint: *c.InfluxDBEndpoint,
+				Database: *c.InfluxDBDatabase,
+				Username: *c.InfluxDBUsername,
+				Password: *c.InfluxDBPassword,
+				HostTag:  *c.InfluxDBHostTag,
+			}
+		}
+	}
+
+	return mc
 }
 
 func (c *Config) makeMinerConfig() *config.Producer {
@@ -146,62 +218,71 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	}
 }
 
-func (c *Config) makeP2PConfig() *p2p.Config {
-	return &p2p.Config{
-		Name:            c.Identity,
-		NetID:           network.ID(c.NetID),
-		MaxPeers:        c.MaxPeers,
-		MaxPendingPeers: c.MaxPendingPeers,
-		MaxInboundRatio: c.MaxPassivePeersRatio,
-		Port:            c.Port,
-		DataDir:         filepath.Join(c.DataDir, p2p.Dirname),
-		PrivateKey:      c.GetPrivateKey(),
-		BootNodes:       c.BootNodes,
-		StaticNodes:     c.StaticNodes,
-		Discovery:       c.Discovery,
+func (c *Config) makeP2PConfig() (cfg *p2p.Config, err error) {
+	var listenAddress = c.ListenAddress
+	if listenAddress == "" {
+		listenAddress = c.ListenInterface + ":" + strconv.Itoa(c.Port)
 	}
+
+	p2pDataDir := filepath.Join(c.DataDir, p2p.DirName)
+
+	// create data dir
+	if err = os.MkdirAll(p2pDataDir, 0700); err != nil {
+		return nil, err
+	}
+
+	peerKey := c.PeerKey
+	if peerKey == "" {
+		peerKey = c.PrivateKey
+	}
+
+	cfg = &p2p.Config{
+		Config: &discovery.Config{
+			ListenAddress: listenAddress,
+			PublicAddress: c.PublicAddress,
+			DataDir:       p2pDataDir,
+			PeerKey:       peerKey,
+			BootNodes:     c.BootNodes,
+			BootSeeds:     c.BootSeeds,
+			NetID:         c.NetID,
+		},
+		Discover:          c.Discover,
+		Name:              c.Identity,
+		MaxPeers:          c.MaxPeers,
+		MaxInboundRatio:   c.MaxInboundRatio,
+		MinPeers:          c.MinPeers,
+		MaxPendingPeers:   c.MaxPendingPeers,
+		StaticNodes:       c.StaticNodes,
+		FilePublicAddress: c.FilePublicAddress,
+		FilePort:          c.FilePort,
+	}
+
+	err = cfg.Ensure()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func (c *Config) makeChainConfig() *config.Chain {
 
-	if len(c.KafkaProducers) == 0 {
-		return &config.Chain{
-			KafkaProducers: nil,
-			OpenBlackBlock: c.OpenBlackBlock,
-			LedgerGcRetain: c.LedgerGcRetain,
-			GenesisFile:    c.GenesisFile,
-			LedgerGc:       true,
-		}
+	// is open ledger gc
+	ledgerGc := true
+	if c.LedgerGc != nil {
+		ledgerGc = *c.LedgerGc
+	}
+	// is open plugins
+	openPlugins := false
+	if c.OpenPlugins != nil {
+		openPlugins = *c.OpenPlugins
 	}
 
-	// init kafkaProducers
-	kafkaProducers := make([]*config.KafkaProducer, len(c.KafkaProducers))
-
-	for i, kafkaProducer := range c.KafkaProducers {
-		splitKafkaProducer := strings.Split(kafkaProducer, "|")
-		if len(splitKafkaProducer) != 2 {
-			log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-			goto END
-		}
-
-		splitKafkaBroker := strings.Split(splitKafkaProducer[0], ",")
-		if len(splitKafkaBroker) == 0 {
-			log.Warn(fmt.Sprintf("KafkaProducers is setting error，The program will skip here and continue processing"))
-			goto END
-		}
-
-		kafkaProducers[i] = &config.KafkaProducer{
-			BrokerList: splitKafkaBroker,
-			Topic:      splitKafkaProducer[1],
-		}
-	}
-END:
 	return &config.Chain{
-		KafkaProducers: kafkaProducers,
-		OpenBlackBlock: c.OpenBlackBlock,
 		LedgerGcRetain: c.LedgerGcRetain,
-		GenesisFile:    c.GenesisFile,
-		LedgerGc:       c.LedgerGc,
+		LedgerGc:       ledgerGc,
+		OpenPlugins:    openPlugins,
 	}
 }
 
@@ -220,13 +301,12 @@ func (c *Config) WSEndpoint() string {
 }
 
 func (c *Config) SetPrivateKey(privateKey string) {
-	c.PrivateKey = privateKey
+	c.PeerKey = privateKey
 }
 
 func (c *Config) GetPrivateKey() ed25519.PrivateKey {
-
-	if c.PrivateKey != "" {
-		privateKey, err := hex.DecodeString(c.PrivateKey)
+	if c.PeerKey != "" {
+		privateKey, err := hex.DecodeString(c.PeerKey)
 		if err == nil {
 			return ed25519.PrivateKey(privateKey)
 		}
@@ -273,7 +353,7 @@ func (c *Config) RunErrorLogHandler() log15.Handler {
 	return log15.StreamHandler(logger, log15.LogfmtFormat())
 }
 
-//resolve the dataDir so future changes to the current working directory don't affect the node
+// resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
 
 	if c.DataDir != "" {

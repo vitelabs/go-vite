@@ -1,6 +1,8 @@
 package types
 
-import "math/big"
+import (
+	"math/big"
+)
 
 type ConsensusGroupInfo struct {
 	Gid                    Gid         // Consensus group id
@@ -8,7 +10,9 @@ type ConsensusGroupInfo struct {
 	Interval               int64       // Timestamp gap between two continuous block
 	PerCount               int64       // Continuous block generation interval count
 	RandCount              uint8       // Random miner count
-	RandRank               uint8       // Chose random miner with a rank limit of vote
+	RandRank               uint8       // Chose random miner with chain rank limit of vote
+	Repeat                 uint16      // reuse consensus info to produce blocks within repeat times
+	CheckLevel             uint8       // consensus check param, 0-check address and sequence, 1-check address only
 	CountingTokenId        TokenTypeId // Token id for selecting miner through vote
 	RegisterConditionId    uint8
 	RegisterConditionParam []byte
@@ -34,21 +38,23 @@ type Registration struct {
 	PledgeAddr     Address
 	Amount         *big.Int
 	WithdrawHeight uint64
-	RewardIndex    uint64
-	CancelHeight   uint64
+	RewardTime     int64
+	CancelTime     int64
 	HisAddrList    []Address
 }
 
 func (r *Registration) IsActive() bool {
-	return r.CancelHeight == 0
+	return r.CancelTime == 0
 }
 
 type TokenInfo struct {
-	TokenName      string   `json:"tokenName"`
-	TokenSymbol    string   `json:"tokenSymbol"`
-	TotalSupply    *big.Int `json:"totalSupply"`
-	Decimals       uint8    `json:"decimals"`
-	Owner          Address  `json:"owner"`
-	PledgeAmount   *big.Int `json:"pledgeAmount"`
-	WithdrawHeight uint64   `json:"withdrawHeight"`
+	TokenName     string   `json:"tokenName"`
+	TokenSymbol   string   `json:"tokenSymbol"`
+	TotalSupply   *big.Int `json:"totalSupply"`
+	Decimals      uint8    `json:"decimals"`
+	Owner         Address  `json:"owner"`
+	MaxSupply     *big.Int `json:"maxSupply"`
+	OwnerBurnOnly bool     `json:"ownerBurnOnly"`
+	IsReIssuable  bool     `json:"isReIssuable"`
+	Index         uint16   `json:"index"`
 }

@@ -53,8 +53,9 @@ const (
 	SAR
 )
 
+// 0x20 range - hash ops.
 const (
-	BLAKE2B opCode = 0x20 + iota
+	BLAKE2B opCode = 0x21
 )
 
 // 0x30 range - closure state.
@@ -86,6 +87,10 @@ const (
 	DIFFICULTY
 	GASLIMIT
 	TOKENID
+	ACCOUNTHEIGHT
+	PREVHASH
+	FROMHASH
+	SEED
 )
 
 // 0x50 range - 'storage' and execution.
@@ -248,13 +253,17 @@ var opCodeToString = map[opCode]string{
 	EXTCODEHASH:    "EXTCODEHASH",
 
 	// 0x40 range - block operations.
-	BLOCKHASH:  "BLOCKHASH",
-	COINBASE:   "COINBASE",
-	TIMESTAMP:  "TIMESTAMP",
-	HEIGHT:     "HEIGHT",
-	DIFFICULTY: "DIFFICULTY",
-	GASLIMIT:   "GASLIMIT",
-	TOKENID:    "TOKENID",
+	BLOCKHASH:     "BLOCKHASH",
+	COINBASE:      "COINBASE",
+	TIMESTAMP:     "TIMESTAMP",
+	HEIGHT:        "HEIGHT",
+	DIFFICULTY:    "DIFFICULTY",
+	GASLIMIT:      "GASLIMIT",
+	TOKENID:       "TOKENID",
+	ACCOUNTHEIGHT: "ACCOUNTHEIGHT",
+	PREVHASH:      "PREVHASH",
+	FROMHASH:      "FROMHASH",
+	SEED:          "SEED",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -418,6 +427,10 @@ var stringToOp = map[string]opCode{
 	"DIFFICULTY":     DIFFICULTY,
 	"GASLIMIT":       GASLIMIT,
 	"TOKENID":        TOKENID,
+	"ACCOUNTHEIGHT":  ACCOUNTHEIGHT,
+	"PREVHASH":       PREVHASH,
+	"FROMHASH":       FROMHASH,
+	"SEED":           SEED,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,
@@ -505,9 +518,4 @@ var stringToOp = map[string]opCode{
 	"CALLCODE":       CALLCODE,
 	"REVERT":         REVERT,
 	"SELFDESTRUCT":   SELFDESTRUCT,
-}
-
-// StringToOp finds the opcode whose name is stored in `str`.
-func StringToOp(str string) opCode {
-	return stringToOp[str]
 }

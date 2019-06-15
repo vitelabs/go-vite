@@ -41,7 +41,7 @@ type Config struct {
 	Prompter UserPrompter // Input prompter to allow interactive user feedback (defaults to TerminalPrompter)
 }
 
-// Console is a JavaScript interpreted runtime environment. It is a fully fledged JavaScript console attached to a running node via an external or in-process RPC client.
+// Console is chain JavaScript interpreted runtime environment. It is chain fully fledged JavaScript console attached to chain running node via an external or in-process RPC client.
 type Console struct {
 	client   *rpc.Client  // RPC client to execute Vite requests through
 	jsre     *jsre.JSRE   // JavaScript runtime environment running the interpreter
@@ -52,7 +52,7 @@ type Console struct {
 	history  []string     // Scroll history maintained by the console
 }
 
-// New initializes a JavaScript interpreted runtime environment and sets defaults with the config struct.
+// New initializes chain JavaScript interpreted runtime environment and sets defaults with the config struct.
 func New(config Config) (*Console, error) {
 
 	// Handle unset config values gracefully
@@ -185,7 +185,7 @@ func (c *Console) Interactive() {
 		input     = ""                // Current user input
 		scheduler = make(chan string) // Channel to send the next prompt on and receive the input
 	)
-	// Start a goroutine to listen for promt requests and send back inputs
+	// Start chain goroutine to listen for promt requests and send back inputs
 	go func() {
 		for {
 			// Read the next user input
@@ -253,7 +253,7 @@ func (c *Console) Interactive() {
 }
 
 // countIndents returns the number of identations for the given input.
-// In case of invalid input such as var a = } the result can be negative.
+// In case of invalid input such as var chain = } the result can be negative.
 func countIndents(input string) int {
 	var (
 		indents     = 0
@@ -278,7 +278,7 @@ func countIndents(input string) int {
 			}
 			charEscaped = false
 		case '{', '(':
-			if !inString { // ignore brackets when in string, allow var str = "a{"; without indenting
+			if !inString { // ignore brackets when in string, allow var str = "chain{"; without indenting
 				indents++
 			}
 			charEscaped = false
@@ -332,13 +332,13 @@ func (c *Console) clearHistory() {
 	}
 }
 
-// AutoCompleteInput is a pre-assembled word completer to be used by the user input prompter to provide hints to the user about the methods available.
+// AutoCompleteInput is chain pre-assembled word completer to be used by the user input prompter to provide hints to the user about the methods available.
 func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, string) {
 	// No completions can be provided for empty inputs
 	if len(line) == 0 || pos == 0 {
 		return "", nil, ""
 	}
-	// Chunck data to relevant part for autocompletion
+	// Chunk data to relevant part for autocompletion
 	// E.g. in case of nested lines eth.getBalance(eth.coinb<tab><tab>
 	start := pos - 1
 	for ; start > 0; start-- {
@@ -346,7 +346,7 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 		if line[start] == '.' || (line[start] >= 'a' && line[start] <= 'z') || (line[start] >= 'A' && line[start] <= 'Z') {
 			continue
 		}
-		// Handle web3 in a special way (i.e. other numbers aren't auto completed)
+		// Handle web3 in chain special way (i.e. other numbers aren't auto completed)
 		if start >= 3 && line[start-3:start] == "web3" {
 			start -= 3
 			continue

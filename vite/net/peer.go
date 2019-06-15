@@ -1,270 +1,170 @@
 package net
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
-	"github.com/seiflotfy/cuckoofilter"
-	"github.com/vitelabs/go-vite/common"
+	"errors"
+	"sort"
+	"sync"
+
+	"github.com/vitelabs/go-vite/vite/net/message"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/vite/net/message"
-	net2 "net"
-	"sort"
-	"strconv"
-	"sync"
 )
 
-const filterCap = 100000
+var errPeerExisted = errors.New("peer has existed")
+var errPeerNotExist = errors.New("peer not exist")
 
-var errDiffGesis = errors.New("different genesis block")
+type peerId = vnode.NodeID
 
-// @section Peer for protocol handle, not p2p Peer.
-//var errPeerTermed = errors.New("peer has been terminated")
-type Peer interface {
-	RemoteAddr() *net2.TCPAddr
-	FileAddress() *net2.TCPAddr
-	SetHead(head types.Hash, height uint64)
-	SeeBlock(hash types.Hash)
-	SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error)
-	SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error)
-	SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error)
-	SendNewAccountBlock(b *ledger.AccountBlock) (err error)
-	Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error)
-	Report(err error)
-	ID() string
-	Height() uint64
+type peerConn struct {
+	id  []byte
+	add bool // add or remove
 }
 
-const peerMsgConcurrency = 10
+// Peer for protocol handle, not p2p Peer.
+type Peer interface {
+	p2p.Peer
+	setPeers(ps []peerConn, patch bool)
+	peers() map[peerId]struct{}
+	seeBlock(hash types.Hash) bool
+	catch(err error)
+	send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error
+	sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) error
+	sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) error
+	info() PeerInfo
+}
+
+// PeerInfo is for api
+type PeerInfo struct {
+	p2p.PeerInfo
+	Peers []string `json:"peers"`
+}
 
 type peer struct {
-	*p2p.Peer
-	mrw         *p2p.ProtoFrame
-	id          string
-	head        types.Hash // hash of the top snapshotblock in snapshotchain
-	height      uint64     // height of the snapshotchain
-	filePort    uint16     // fileServer port, for request file
-	CmdSet      p2p.CmdSet // which cmdSet it belongs
-	KnownBlocks *cuckoofilter.CuckooFilter
-	log         log15.Logger
+	p2p.Peer
+
+	_head types.Hash
+
+	m  map[peerId]struct{}
+	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
+
+	knownBlocks blockFilter
 	errChan     chan error
-	term        chan struct{}
-	msgHandled  map[ViteCmd]uint64 // message statistic
-	wg          sync.WaitGroup
+	once        sync.Once
+
+	log log15.Logger
 }
 
-func (p *peer) Height() uint64 {
-	return p.height
+func (p *peer) info() PeerInfo {
+	var ps []string
+
+	if total := len(p.m2); total > 0 {
+		ps = make([]string, total)
+		var i int
+		// m2 maybe replaced concurrently, more peers than total.
+		for id := range p.m2 {
+			ps[i] = id.String()
+			i++
+			if i == total {
+				break
+			}
+		}
+		ps = ps[:i]
+	}
+
+	return PeerInfo{
+		PeerInfo: p.Info(),
+		Peers:    ps,
+	}
 }
 
-func (p *peer) ID() string {
-	return p.id
-}
-
-func newPeer(p *p2p.Peer, mrw *p2p.ProtoFrame, cmdSet p2p.CmdSet) *peer {
+func newPeer(p p2p.Peer, log log15.Logger) Peer {
 	return &peer{
 		Peer:        p,
-		mrw:         mrw,
-		id:          p.ID().String(),
-		CmdSet:      cmdSet,
-		KnownBlocks: cuckoofilter.NewCuckooFilter(filterCap),
-		log:         log15.New("module", "net/peer"),
+		knownBlocks: newBlockFilter(filterCap),
+		m:           make(map[peerId]struct{}),
+		log:         log,
 		errChan:     make(chan error, 1),
-		term:        make(chan struct{}),
-		msgHandled:  make(map[ViteCmd]uint64),
 	}
 }
 
-func (p *peer) Report(err error) {
-	select {
-	case p.errChan <- err:
-	default:
-		// nothing
-	}
-}
-
-func (p *peer) FileAddress() *net2.TCPAddr {
-	return &net2.TCPAddr{
-		IP:   p.IP(),
-		Port: int(p.filePort),
-	}
-}
-
-func (p *peer) Handshake(our *message.HandShake) error {
-	errch := make(chan error, 1)
-	common.Go(func() {
-		errch <- p.Send(HandshakeCode, 0, our)
+func (p *peer) catch(err error) {
+	p.once.Do(func() {
+		p.errChan <- err
 	})
+}
 
-	their, err := p.ReadHandshake()
+func (p *peer) setPeers(ps []peerConn, patch bool) {
+	var id vnode.NodeID
+	var err error
+
+	if false == patch {
+		p.m = make(map[peerId]struct{})
+	}
+
+	for _, c := range ps {
+		if c.add {
+			id, err = vnode.Bytes2NodeID(c.id)
+			if err != nil {
+				continue
+			}
+			p.m[id] = struct{}{}
+		} else {
+			delete(p.m, id)
+		}
+	}
+
+	// make copy
+	m2 := make(map[peerId]struct{}, len(p.m))
+	for id = range p.m {
+		m2[id] = struct{}{}
+	}
+
+	p.m2 = m2
+}
+
+func (p *peer) peers() map[peerId]struct{} {
+	return p.m2
+}
+
+func (p *peer) seeBlock(hash types.Hash) (existed bool) {
+	return p.knownBlocks.lookAndRecord(hash[:])
+}
+
+func (p *peer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
+	buf, err := data.Serialize()
 	if err != nil {
 		return err
 	}
 
-	if err = <-errch; err != nil {
-		return err
+	var msg = p2p.Msg{
+		Code:    c,
+		Id:      id,
+		Payload: buf,
 	}
 
-	if their.Genesis != our.Genesis {
-		return errDiffGesis
+	return p.WriteMsg(msg)
+}
+
+func (p *peer) sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) (err error) {
+	ms := &message.SnapshotBlocks{
+		Blocks: bs,
 	}
 
-	p.SetHead(their.Current, their.Height)
-	p.filePort = their.Port
-	if p.filePort == 0 {
-		p.filePort = DefaultPort
+	return p.send(p2p.CodeSnapshotBlocks, msgId, ms)
+}
+
+func (p *peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) (err error) {
+	ms := &message.AccountBlocks{
+		Blocks: bs,
 	}
 
-	return nil
+	return p.send(p2p.CodeAccountBlocks, msgId, ms)
 }
-
-func (p *peer) ReadHandshake() (their *message.HandShake, err error) {
-	msg, err := p.mrw.ReadMsg()
-
-	if err != nil {
-		return
-	}
-
-	if msg.Cmd != p2p.Cmd(HandshakeCode) {
-		err = fmt.Errorf("should be HandshakeCode %d, got %d\n", HandshakeCode, msg.Cmd)
-		return
-	}
-
-	their = new(message.HandShake)
-
-	err = their.Deserialize(msg.Payload)
-
-	return
-}
-
-func (p *peer) SetHead(head types.Hash, height uint64) {
-	p.head = head
-	p.height = height
-
-	p.log.Debug(fmt.Sprintf("update peers %s to status %s/%d", p.RemoteAddr(), head, height))
-}
-
-func (p *peer) SeeBlock(hash types.Hash) {
-	p.KnownBlocks.InsertUnique(hash[:])
-}
-
-// send
-
-func (p *peer) SendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId uint64) (err error) {
-	return p.Send(SnapshotBlocksCode, msgId, &message.SnapshotBlocks{bs})
-}
-
-func (p *peer) SendAccountBlocks(bs []*ledger.AccountBlock, msgId uint64) (err error) {
-	return p.Send(AccountBlocksCode, msgId, &message.AccountBlocks{bs})
-}
-
-func (p *peer) SendNewSnapshotBlock(b *ledger.SnapshotBlock) (err error) {
-	err = p.Send(NewSnapshotBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
-	p.SeeBlock(b.Hash)
-
-	return
-}
-
-func (p *peer) SendNewAccountBlock(b *ledger.AccountBlock) (err error) {
-	err = p.Send(NewAccountBlockCode, 0, b)
-
-	if err != nil {
-		return
-	}
-
-	p.SeeBlock(b.Hash)
-
-	return
-}
-
-func (p *peer) Send(code ViteCmd, msgId uint64, payload p2p.Serializable) (err error) {
-	var msg *p2p.Msg
-
-	if msg, err = p2p.PackMsg(p.CmdSet, p2p.Cmd(code), msgId, payload); err != nil {
-		p.log.Error(fmt.Sprintf("pack message %s to %s error: %v", code, p.RemoteAddr(), err))
-		return err
-	} else if err = p.mrw.WriteMsg(msg); err != nil {
-		p.log.Error(fmt.Sprintf("send message %s to %s error: %v", code, p.RemoteAddr(), err))
-		return err
-	}
-
-	p.log.Info(fmt.Sprintf("send message %s to %s", code, p.RemoteAddr()))
-
-	return nil
-}
-
-type PeerInfo struct {
-	ID     string `json:"id"`
-	Addr   string `json:"addr"`
-	Head   string `json:"head"`
-	Height uint64 `json:"height"`
-	// MsgReceived        uint64            `json:"msgReceived"`
-	// MsgHandled         uint64            `json:"msgHandled"`
-	// MsgSend            uint64            `json:"msgSend"`
-	// MsgDiscarded       uint64            `json:"msgDiscarded"`
-	// MsgReceivedDetail  map[string]uint64 `json:"msgReceived"`
-	// MsgDiscardedDetail map[string]uint64 `json:"msgDiscarded"`
-	// MsgHandledDetail   map[string]uint64 `json:"msgHandledDetail"`
-	// MsgSendDetail      map[string]uint64 `json:"msgSendDetail"`
-	Created string `json:"created"`
-}
-
-func (p *PeerInfo) String() string {
-	return p.ID + "@" + p.Addr + "/" + strconv.FormatUint(p.Height, 10)
-}
-
-func (p *peer) Info() *PeerInfo {
-	// var handled, send, received, discard uint64
-	// handMap := make(map[string]uint64, len(p.msgHandled))
-	// for cmd, num := range p.msgHandled {
-	// 	handMap[cmd.String()] = num
-	// 	handled += num
-	// }
-	//
-	// sendMap := make(map[string]uint64, len(p.mrw.Send))
-	// for code, num := range p.mrw.Send {
-	// 	sendMap[ViteCmd(code).String()] = num
-	// 	send += num
-	// }
-	//
-	// recMap := make(map[string]uint64, len(p.mrw.Received))
-	// for code, num := range p.mrw.Received {
-	// 	recMap[ViteCmd(code).String()] = num
-	// 	received += num
-	// }
-	//
-	// discMap := make(map[string]uint64, len(p.mrw.Discarded))
-	// for code, num := range p.mrw.Discarded {
-	// 	discMap[ViteCmd(code).String()] = num
-	// 	discard += num
-	// }
-
-	return &PeerInfo{
-		ID:     p.id,
-		Addr:   p.RemoteAddr().String(),
-		Head:   p.head.String(),
-		Height: p.height,
-		// MsgReceived:        received,
-		// MsgHandled:         handled,
-		// MsgSend:            send,
-		// MsgDiscarded:       discard,
-		// MsgReceivedDetail:  recMap,
-		// MsgDiscardedDetail: discMap,
-		// MsgHandledDetail:   handMap,
-		// MsgSendDetail:      sendMap,
-		Created: p.Created.Format("2006-01-02 15:04:05"),
-	}
-}
-
-// @section PeerSet
-var errSetHasPeer = errors.New("peer is existed")
 
 type peerEventCode byte
 
@@ -275,45 +175,56 @@ const (
 
 type peerEvent struct {
 	code  peerEventCode
-	peer  *peer
+	peer  Peer
 	count int
-	err   error
 }
 
 type peerSet struct {
-	peers map[string]*peer
-	rw    sync.RWMutex
-	subs  []chan<- *peerEvent
+	m   map[peerId]Peer
+	prw sync.RWMutex
+
+	subs []chan<- peerEvent
+}
+
+// pickDownloadPeers implement downloadPeerSet
+func (m *peerSet) pickDownloadPeers(height uint64) (m2 map[peerId]Peer) {
+	m2 = make(map[peerId]Peer)
+
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for id, p := range m.m {
+		if p.Height() >= height {
+			m2[id] = p
+		}
+	}
+
+	return
 }
 
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers: make(map[string]*peer),
+		m: make(map[peerId]Peer),
 	}
 }
 
-func (m *peerSet) Sub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	m.subs = append(m.subs, c)
+func (m *peerSet) sub(ch chan<- peerEvent) {
+	m.subs = append(m.subs, ch)
 }
 
-func (m *peerSet) UnSub(c chan<- *peerEvent) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
-
-	var i, j int
-	for i, j = 0, 0; i < len(m.subs); i++ {
-		if m.subs[i] != c {
-			m.subs[j] = m.subs[i]
-			j++
+func (m *peerSet) unSub(ch chan<- peerEvent) {
+	for i, c := range m.subs {
+		if c == ch {
+			if i != len(m.subs)-1 {
+				copy(m.subs[i:], m.subs[i+1:])
+			}
+			m.subs = m.subs[:len(m.subs)-1]
+			return
 		}
 	}
-	m.subs = m.subs[:j]
 }
 
-func (m *peerSet) Notify(e *peerEvent) {
+func (m *peerSet) notify(e peerEvent) {
 	for _, c := range m.subs {
 		select {
 		case c <- e:
@@ -322,79 +233,91 @@ func (m *peerSet) Notify(e *peerEvent) {
 	}
 }
 
-// the tallest peer
-func (m *peerSet) BestPeer() (best *peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+// bestPeer is the tallest peer
+func (m *peerSet) bestPeer() (best Peer) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
 	var maxHeight uint64
-	for _, peer := range m.peers {
-		peerHeight := peer.height
+	for _, p := range m.m {
+		peerHeight := p.Height()
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
-			best = peer
+			best = p
 		}
 	}
 
 	return
 }
 
-func (m *peerSet) SyncPeer() *peer {
-	s := m.Peers()
-	if len(s) == 0 {
+// syncPeer choose the middle peer from all peers sorted by height from high to low, eg:
+// peerList [10, 8, 7, 7, 7, 5, 4] represent all 7 peers,
+// middle peer is `peerList[ len(peerList)/3 ]` at height 7.
+// choose middle peer but not the highest peer is to defend fake height attack. because
+// it`s more hard to fake.
+func (m *peerSet) syncPeer() Peer {
+	l := m.sortPeers()
+	if len(l) == 0 {
 		return nil
 	}
 
-	sort.Sort(ps(s))
-	mid := len(s) / 2
+	sort.Sort(l)
+	mid := len(l) / 3
 
-	return s[mid]
+	return l[mid]
 }
 
-func (m *peerSet) Add(peer *peer) error {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+// add will return error if another peer with the same id has in the set
+func (m *peerSet) add(peer Peer) error {
+	m.prw.Lock()
+	defer m.prw.Unlock()
 
-	if _, ok := m.peers[peer.id]; ok {
-		return errSetHasPeer
+	id := peer.ID()
+
+	if _, ok := m.m[id]; ok {
+		return errPeerExisted
 	}
 
-	m.peers[peer.id] = peer
-	m.Notify(&peerEvent{
+	m.m[id] = peer
+
+	go m.notify(peerEvent{
 		code:  addPeer,
 		peer:  peer,
-		count: len(m.peers),
+		count: len(m.m),
 	})
 	return nil
 }
 
-func (m *peerSet) Del(peer *peer) {
-	m.rw.Lock()
-	defer m.rw.Unlock()
+// remove and return the specific peer, err is not nil if cannot find the peer
+func (m *peerSet) remove(id peerId) (p Peer, err error) {
+	m.prw.Lock()
 
-	delete(m.peers, peer.id)
-	m.Notify(&peerEvent{
-		code:  delPeer,
-		peer:  peer,
-		count: len(m.peers),
-	})
+	p, ok := m.m[id]
+	if ok {
+		delete(m.m, id)
+		var count = len(m.m)
+		m.prw.Unlock()
+
+		go m.notify(peerEvent{
+			code:  delPeer,
+			peer:  p,
+			count: count,
+		})
+	} else {
+		m.prw.Unlock()
+		err = errPeerNotExist
+	}
+
+	return
 }
 
-func (m *peerSet) Count() int {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+// pick peers satisfy p.height() >= height, unsorted
+func (m *peerSet) pick(height uint64) (l []Peer) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	return len(m.peers)
-}
-
-// pick peers whose height taller than the target height
-// has sorted from low to high
-func (m *peerSet) Pick(height uint64) (l []*peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
-
-	for _, p := range m.peers {
-		if p.height >= height {
+	for _, p := range m.m {
+		if p.Height() >= height {
 			l = append(l, p)
 		}
 	}
@@ -402,56 +325,95 @@ func (m *peerSet) Pick(height uint64) (l []*peer) {
 	return
 }
 
-func (m *peerSet) Info() (info []*PeerInfo) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+// peers return all peers sort from low to high
+func (m *peerSet) sortPeers() (l peers) {
+	m.prw.RLock()
 
-	info = make([]*PeerInfo, len(m.peers))
+	l = make(peers, len(m.m))
+	i := 0
+	for _, p := range m.m {
+		l[i] = p
+		i++
+	}
+	m.prw.RUnlock()
+
+	sort.Sort(l)
+
+	return
+}
+
+// broadcastPeers return all peers unsorted.
+// for broadcaster, use interface `[]broadcastPeer` other than `[]Peer` let easier to mock.
+func (m *peerSet) broadcastPeers() (l []broadcastPeer) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	l = make([]broadcastPeer, len(m.m))
 
 	i := 0
-	for _, peer := range m.peers {
-		info[i] = peer.Info()
+	for _, p := range m.m {
+		l[i] = p
 		i++
 	}
 
 	return
 }
 
-func (m *peerSet) UnknownBlock(hash types.Hash) (peers []*peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+// idMap generate a map of peers ID, to heartbeat
+func (m *peerSet) idMap() map[peerId]struct{} {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make([]*peer, len(m.peers))
+	var count = len(m.m)
+	if count > maxNeighbors {
+		count = maxNeighbors
+	}
 
-	i := 0
-	for _, peer := range m.peers {
-		if !peer.KnownBlocks.Lookup(hash[:]) {
-			peers[i] = peer
-			i++
-		} else {
-			peer.log.Debug(fmt.Sprintf("peer %s has seen block %s", peer.RemoteAddr(), hash))
+	mp := make(map[peerId]struct{}, count)
+
+	var i int
+	for id := range m.m {
+		i++
+		if i > count {
+			break
 		}
+		mp[id] = struct{}{}
 	}
 
-	return peers[:i]
+	return mp
 }
 
-func (m *peerSet) Peers() (peers []*peer) {
-	m.rw.RLock()
-	defer m.rw.RUnlock()
+// get the specific peer
+func (m *peerSet) get(id peerId) Peer {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
 
-	peers = make([]*peer, len(m.peers))
+	return m.m[id]
+}
 
-	i := 0
-	for _, peer := range m.peers {
-		peers[i] = peer
+func (m *peerSet) count() int {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	return len(m.m)
+}
+
+func (m *peerSet) info() []PeerInfo {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	infos := make([]PeerInfo, len(m.m))
+
+	var i int
+	for _, p := range m.m {
+		infos[i] = p.info()
 		i++
 	}
 
-	return
+	return infos
 }
 
-// @implementation sort.Interface
+// peers can be sort by height, from high to low
 type peers []Peer
 
 func (s peers) Len() int {
@@ -459,38 +421,23 @@ func (s peers) Len() int {
 }
 
 func (s peers) Less(i, j int) bool {
-	return s[i].Height() < s[j].Height()
+	return s[i].Height() > s[j].Height()
 }
 
 func (s peers) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s peers) delete(id string) peers {
+func (s peers) delete(id peerId) peers {
 	for i, p := range s {
 		if p.ID() == id {
-			lastIndex := len(s) - 1
-			if i != lastIndex {
+			last := len(s) - 1
+			if i != last {
 				copy(s[i:], s[i+1:])
 			}
-			return s[:lastIndex]
+			return s[:last]
 		}
 	}
 
 	return s
-}
-
-// @section
-type ps []*peer
-
-func (s ps) Len() int {
-	return len(s)
-}
-
-func (s ps) Less(i, j int) bool {
-	return s[i].Height() < s[j].Height()
-}
-
-func (s ps) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
 }

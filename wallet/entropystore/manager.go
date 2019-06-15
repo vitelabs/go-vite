@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
@@ -33,76 +34,53 @@ func (ue UnlockEvent) Unlocked() bool {
 
 type Manager struct {
 	primaryAddr    types.Address
-	ks             *CryptoStore
+	ks             CryptoStore
 	maxSearchIndex uint32
 
-	unlockedEntropy *EntropyProfile
-	seed            []byte
+	unlockedSeed    []byte
+	unlockedEntropy []byte
 
 	unlockChangedLis func(event UnlockEvent)
 
 	log log15.Logger
 }
 
-func StoreNewEntropy(storeDir, passphrase string, entropyprofile *EntropyProfile, config *Config) (*Manager, error) {
-
-	filename := FullKeyFileName(storeDir, *entropyprofile.PrimaryAddress)
-	ss := NewCryptoStore(filename, config.UseLightScrypt)
-	e := ss.StoreEntropy(*entropyprofile, passphrase)
-	if e != nil {
-		return nil, e
-	}
-	return NewManager(filename, *entropyprofile.PrimaryAddress, config), nil
-}
-
-func NewManager(entropyStoreFilename string, primaryAddr types.Address, config *Config) *Manager {
+func NewManager(entropyStoreFilename string, primaryAddr types.Address, maxSearchIndex uint32) *Manager {
 	return &Manager{
 		primaryAddr:    primaryAddr,
-		ks:             NewCryptoStore(entropyStoreFilename, config.UseLightScrypt),
-		maxSearchIndex: config.MaxSearchIndex,
+		ks:             CryptoStore{entropyStoreFilename},
+		maxSearchIndex: maxSearchIndex,
 
 		log: log15.New("module", "wallet/keystore/Manager"),
 	}
 }
 
-func (km *Manager) IsAddrUnlocked(addr types.Address, extensionWord *string) bool {
-	_, _, e := FindAddrFromEntropy(*km.unlockedEntropy, addr, extensionWord, km.maxSearchIndex)
+func (km *Manager) IsAddrUnlocked(addr types.Address) bool {
+	if !km.IsUnlocked() {
+		return false
+	}
+	_, _, e := FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
 	if e != nil {
 		return false
 	}
 	return true
 }
 
-func (km *Manager) FindAddr(addr types.Address, extensionWord *string) (key *derivation.Key, index uint32, e error) {
-	if !km.IsUnlocked() {
-		return nil, 0, walleterrors.ErrLocked
-	}
-	return FindAddrFromEntropy(*km.unlockedEntropy, addr, extensionWord, km.maxSearchIndex)
-}
-
 func (km *Manager) IsUnlocked() bool {
-	return km.unlockedEntropy != nil
+	return km.unlockedSeed != nil
 }
 
-func (km *Manager) ExtractMnemonic(passphrase string) (string, error) {
-	ep, err := km.ks.ExtractEntropy(passphrase)
-	if err != nil {
-		return "", err
-	}
-	return ep.ExtractMnemonic()
-}
-
-func (km *Manager) ListAddress(from, to uint32, extensionWord *string) ([]types.Address, error) {
+func (km *Manager) ListAddress(from, to uint32) ([]types.Address, error) {
 	if from > to {
 		return nil, errors.New("from > to")
 	}
-	if km.unlockedEntropy == nil {
+	if km.unlockedSeed == nil {
 		return nil, walleterrors.ErrLocked
 	}
 	addr := make([]types.Address, to-from)
 	addrIndex := 0
 	for i := from; i < to; i++ {
-		_, key, e := km.DeriveForIndexPath(i, extensionWord)
+		_, key, e := km.DeriveForIndexPath(i)
 		if e != nil {
 			return nil, e
 		}
@@ -118,10 +96,11 @@ func (km *Manager) ListAddress(from, to uint32, extensionWord *string) ([]types.
 }
 
 func (km *Manager) Unlock(passphrase string) error {
-	entropy, e := km.ks.ExtractEntropy(passphrase)
+	seed, entropy, e := km.ks.ExtractSeed(passphrase)
 	if e != nil {
 		return e
 	}
+	km.unlockedSeed = seed
 	km.unlockedEntropy = entropy
 
 	if km.unlockChangedLis != nil {
@@ -134,7 +113,8 @@ func (km *Manager) Unlock(passphrase string) error {
 }
 
 func (km *Manager) Lock() {
-	km.unlockedEntropy = nil
+
+	km.unlockedSeed = nil
 	if km.unlockChangedLis != nil {
 		km.unlockChangedLis(UnlockEvent{
 			EntropyStoreFile: km.GetEntropyStoreFile(),
@@ -143,56 +123,39 @@ func (km *Manager) Lock() {
 	}
 }
 
-func (km *Manager) FindAddrWithPassphrase(passphrase string, addr types.Address, extensionWord *string) (key *derivation.Key, index uint32, e error) {
-	entropy, err := km.ks.ExtractEntropy(passphrase)
+func (km *Manager) FindAddrWithPassphrase(passphrase string, addr types.Address) (key *derivation.Key, index uint32, e error) {
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return nil, 0, err
 	}
-	return FindAddrFromEntropy(*entropy, addr, extensionWord, km.maxSearchIndex)
+	return FindAddrFromSeed(seed, addr, km.maxSearchIndex)
 }
 
-func (km *Manager) SignData(a types.Address, data []byte, bip44index *uint32, extensionWord *string) (signedData, pubkey []byte, err error) {
+func (km *Manager) FindAddr(addr types.Address) (key *derivation.Key, index uint32, e error) {
+	if !km.IsUnlocked() {
+		return nil, 0, walleterrors.ErrLocked
+	}
+
+	return FindAddrFromSeed(km.unlockedSeed, addr, km.maxSearchIndex)
+}
+
+func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []byte, err error) {
 	if !km.IsUnlocked() {
 		return nil, nil, walleterrors.ErrLocked
 	}
-
-	if bip44index != nil {
-		_, key, e := km.DeriveForIndexPath(*bip44index, extensionWord)
-		if e != nil {
-			return nil, nil, e
-		}
-		return key.SignData(data)
-	}
-
-	key, _, e := FindAddrFromEntropy(*km.unlockedEntropy, a, extensionWord, km.maxSearchIndex)
+	key, _, e := FindAddrFromSeed(km.unlockedSeed, a, km.maxSearchIndex)
 	if e != nil {
 		return nil, nil, walleterrors.ErrAddressNotFound
 	}
 	return key.SignData(data)
 }
 
-func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte, bip44index *uint32, extensionWord *string) (signedData, pubkey []byte, err error) {
-
-	entropyProfile, err := km.ks.ExtractEntropy(passphrase)
+func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	if bip44index != nil {
-		seed, err := km.unlockedEntropy.GetSeed(extensionWord)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		key, e := derivation.DeriveWithIndex(*bip44index, seed)
-		if e != nil {
-			return nil, nil, e
-		}
-
-		return key.SignData(data)
-	}
-
-	key, _, e := FindAddrFromEntropy(*entropyProfile, addr, extensionWord, km.maxSearchIndex)
+	key, _, e := FindAddrFromSeed(seed, addr, km.maxSearchIndex)
 	if e != nil {
 		return nil, nil, e
 	}
@@ -200,12 +163,25 @@ func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string,
 	return key.SignData(data)
 }
 
-func (km *Manager) DeriveForFullPath(path string, extensionWord *string) (fpath string, key *derivation.Key, err error) {
-	if !km.IsUnlocked() {
+func (km *Manager) DeriveForFullPath(path string) (fpath string, key *derivation.Key, err error) {
+	if km.unlockedSeed == nil {
 		return "", nil, walleterrors.ErrLocked
 	}
 
-	seed, err := km.unlockedEntropy.GetSeed(extensionWord)
+	key, e := derivation.DeriveForPath(path, km.unlockedSeed)
+	if e != nil {
+		return "", nil, e
+	}
+
+	return path, key, nil
+}
+
+func (km *Manager) DeriveForIndexPath(index uint32) (path string, key *derivation.Key, err error) {
+	return km.DeriveForFullPath(fmt.Sprintf(derivation.ViteAccountPathFormat, index))
+}
+
+func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string) (fpath string, key *derivation.Key, err error) {
+	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
 		return "", nil, err
 	}
@@ -218,26 +194,8 @@ func (km *Manager) DeriveForFullPath(path string, extensionWord *string) (fpath 
 	return path, key, nil
 }
 
-func (km *Manager) DeriveForIndexPath(index uint32, extensionWord *string) (path string, key *derivation.Key, err error) {
-	return km.DeriveForFullPath(fmt.Sprintf(derivation.ViteAccountPathFormat, index), extensionWord)
-}
-
-func (km *Manager) DeriveForFullPathWithPassphrase(path, passphrase string, extensionWord *string) (fpath string, key *derivation.Key, err error) {
-	seed, err := km.unlockedEntropy.GetSeed(extensionWord)
-	if err != nil {
-		return "", nil, err
-	}
-
-	key, e := derivation.DeriveForPath(path, seed)
-	if e != nil {
-		return "", nil, e
-	}
-
-	return path, key, nil
-}
-
-func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase string, extensionWord *string) (path string, key *derivation.Key, err error) {
-	return km.DeriveForFullPathWithPassphrase(fmt.Sprintf(derivation.ViteAccountPathFormat, index), passphrase, extensionWord)
+func (km *Manager) DeriveForIndexPathWithPassphrase(index uint32, passphrase string) (path string, key *derivation.Key, err error) {
+	return km.DeriveForFullPathWithPassphrase(fmt.Sprintf(derivation.ViteAccountPathFormat, index), passphrase)
 }
 
 func (km Manager) GetPrimaryAddr() (primaryAddr types.Address) {
@@ -246,6 +204,58 @@ func (km Manager) GetPrimaryAddr() (primaryAddr types.Address) {
 
 func (km Manager) GetEntropyStoreFile() string {
 	return km.ks.EntropyStoreFilename
+}
+
+func (km Manager) ExtractMnemonic(passphrase string) (string, error) {
+	entropy, err := km.ks.ExtractEntropy(passphrase)
+	if err != nil {
+		return "", err
+	}
+	return bip39.NewMnemonic(entropy)
+}
+
+func StoreNewEntropy(storeDir string, mnemonic string, pwd string, maxSearchIndex uint32) (*Manager, error) {
+	entropy, e := bip39.EntropyFromMnemonic(mnemonic)
+	if e != nil {
+		return nil, e
+	}
+
+	primaryAddress, e := MnemonicToPrimaryAddr(mnemonic)
+
+	filename := FullKeyFileName(storeDir, *primaryAddress)
+	ss := CryptoStore{filename}
+	e = ss.StoreEntropy(entropy, *primaryAddress, pwd)
+	if e != nil {
+		return nil, e
+	}
+	return NewManager(filename, *primaryAddress, maxSearchIndex), nil
+}
+
+func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e error) {
+	seed := bip39.NewSeed(mnemonic, "")
+	primaryAddress, e = derivation.GetPrimaryAddress(seed)
+	if e != nil {
+		return nil, e
+	}
+	return primaryAddress, nil
+}
+
+// it is very fast(in my mac 2.8GHZ intel cpu 10Ks search cost 728ms) so we dont need cache the relation
+func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (key *derivation.Key, index uint32, e error) {
+	for i := uint32(0); i < maxSearchIndex; i++ {
+		key, e := derivation.DeriveWithIndex(i, seed)
+		if e != nil {
+			return nil, 0, e
+		}
+		genAddr, e := key.Address()
+		if e != nil {
+			return nil, 0, e
+		}
+		if addr == *genAddr {
+			return key, i, nil
+		}
+	}
+	return nil, 0, walleterrors.ErrAddressNotFound
 }
 
 func (km *Manager) SetLockEventListener(lis func(event UnlockEvent)) {

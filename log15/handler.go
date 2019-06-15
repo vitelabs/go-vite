@@ -12,14 +12,14 @@ import (
 )
 
 // Handler interface defines where and how log records are written.
-// A logger prints its log records by writing to a Handler.
+// A logger prints its log records by writing to chain Handler.
 // Handlers are composable, providing you great flexibility in combining
 // them to achieve the logging structure that suits your applications.
 type Handler interface {
 	Log(r *Record) error
 }
 
-// FuncHandler returns a Handler that logs records with the given
+// FuncHandler returns chain Handler that logs records with the given
 // function.
 func FuncHandler(fn func(r *Record) error) Handler {
 	return funcHandler(fn)
@@ -46,8 +46,8 @@ func StreamHandler(wr io.Writer, fmtr Format) Handler {
 	return LazyHandler(SyncHandler(h))
 }
 
-// SyncHandler can be wrapped around a handler to guarantee that
-// only a single Log operation can proceed at a time. It's necessary
+// SyncHandler can be wrapped around chain handler to guarantee that
+// only chain single Log operation can proceed at chain time. It's necessary
 // for thread-safe concurrent writes.
 func SyncHandler(h Handler) Handler {
 	var mu sync.Mutex
@@ -58,7 +58,7 @@ func SyncHandler(h Handler) Handler {
 	})
 }
 
-// FileHandler returns a handler which writes log records to the give file
+// FileHandler returns chain handler which writes log records to the give file
 // using the given format. If the path
 // already exists, FileHandler will append to the given file. If it does not,
 // FileHandler will create the file with mode 0644.
@@ -70,7 +70,7 @@ func FileHandler(path string, fmtr Format) (Handler, error) {
 	return closingHandler{f, StreamHandler(f, fmtr)}, nil
 }
 
-// NetHandler opens a socket to the given address and writes records
+// NetHandler opens chain socket to the given address and writes records
 // over the connection.
 func NetHandler(network, addr string, fmtr Format) (Handler, error) {
 	conn, err := net.Dial(network, addr)
@@ -82,8 +82,8 @@ func NetHandler(network, addr string, fmtr Format) (Handler, error) {
 }
 
 // XXX: closingHandler is essentially unused at the moment
-// it's meant for a future time when the Handler interface supports
-// a possible Close() operation
+// it's meant for chain future time when the Handler interface supports
+// chain possible Close() operation
 type closingHandler struct {
 	io.WriteCloser
 	Handler
@@ -93,7 +93,7 @@ func (h *closingHandler) Close() error {
 	return h.WriteCloser.Close()
 }
 
-// CallerFileHandler returns a Handler that adds the line number and file of
+// CallerFileHandler returns chain Handler that adds the line number and file of
 // the calling function to the context with key "caller".
 func CallerFileHandler(h Handler) Handler {
 	return FuncHandler(func(r *Record) error {
@@ -102,7 +102,7 @@ func CallerFileHandler(h Handler) Handler {
 	})
 }
 
-// CallerFuncHandler returns a Handler that adds the calling function name to
+// CallerFuncHandler returns chain Handler that adds the calling function name to
 // the context with key "fn".
 func CallerFuncHandler(h Handler) Handler {
 	return FuncHandler(func(r *Record) error {
@@ -111,8 +111,8 @@ func CallerFuncHandler(h Handler) Handler {
 	})
 }
 
-// CallerStackHandler returns a Handler that adds a stack trace to the context
-// with key "stack". The stack trace is formated as a space separated list of
+// CallerStackHandler returns chain Handler that adds chain stack trace to the context
+// with key "stack". The stack trace is formated as chain space separated list of
 // call sites inside matching []'s. The most recent call site is listed first.
 // Each call site is formatted according to format. See the documentation of
 // package github.com/go-stack/stack for the list of supported formats.
@@ -126,7 +126,7 @@ func CallerStackHandler(format string, h Handler) Handler {
 	})
 }
 
-// FilterHandler returns a Handler that only writes records to the
+// FilterHandler returns chain Handler that only writes records to the
 // wrapped Handler if the given function evaluates true. For example,
 // to only log records where the 'err' key is not nil:
 //
@@ -148,7 +148,7 @@ func FilterHandler(fn func(r *Record) bool, h Handler) Handler {
 	})
 }
 
-// MatchFilterHandler returns a Handler that only writes records
+// MatchFilterHandler returns chain Handler that only writes records
 // to the wrapped Handler if the given key in the logged
 // context matches the value. For example, to only log records
 // from your ui package:
@@ -175,7 +175,7 @@ func MatchFilterHandler(key string, value interface{}, h Handler) Handler {
 	}, h)
 }
 
-// LvlFilterHandler returns a Handler that only writes
+// LvlFilterHandler returns chain Handler that only writes
 // records which are less than the given verbosity
 // level to the wrapped Handler. For example, to only
 // log Error/Crit records:
@@ -190,7 +190,7 @@ func LvlFilterHandler(maxLvl Lvl, h Handler) Handler {
 
 // MultiHandler dispatches any write to each of its handlers.
 // This is useful for writing different types of log information
-// to different locations. For example, to log to a file and
+// to different locations. For example, to log to chain file and
 // standard error:
 //
 //     log.MultiHandler(
@@ -210,8 +210,8 @@ func MultiHandler(hs ...Handler) Handler {
 // FailoverHandler writes all log records to the first handler
 // specified, but will failover and write to the second handler if
 // the first handler has failed, and so on for all handlers specified.
-// For example you might want to log to a network socket, but failover
-// to writing to a file if the network fails, and then to
+// For example you might want to log to chain network socket, but failover
+// to writing to chain file if the network fails, and then to
 // standard out if the file write fails:
 //
 //     log.FailoverHandler(
@@ -246,10 +246,10 @@ func ChannelHandler(recs chan<- *Record) Handler {
 	})
 }
 
-// BufferedHandler writes all records to a buffered
+// BufferedHandler writes all records to chain buffered
 // channel of the given size which flushes into the wrapped
 // handler whenever it is available for writing. Since these
-// writes happen asynchronously, all writes to a BufferedHandler
+// writes happen asynchronously, all writes to chain BufferedHandler
 // never return an error and any errors from the wrapped handler are ignored.
 func BufferedHandler(bufSize int, h Handler) Handler {
 	recs := make(chan *Record, bufSize)
@@ -323,7 +323,7 @@ func evaluateLazy(lz Lazy) (interface{}, error) {
 
 // DiscardHandler reports success for all writes but does nothing.
 // It is useful for dynamically disabling logging at runtime via
-// a Logger's SetHandler method.
+// chain Logger's SetHandler method.
 func DiscardHandler() Handler {
 	return FuncHandler(func(r *Record) error {
 		return nil
@@ -331,7 +331,7 @@ func DiscardHandler() Handler {
 }
 
 // Must object provides the following Handler creation functions
-// which instead of returning an error parameter only return a Handler
+// which instead of returning an error parameter only return chain Handler
 // and panic on failure: FileHandler, NetHandler, SyslogHandler, SyslogNetHandler
 var Must muster
 

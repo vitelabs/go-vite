@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"bytes"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"fmt"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (
@@ -91,4 +92,40 @@ func TestGenerateKey(t *testing.T) {
 	fmt.Println(hex.EncodeToString(publicKey))
 	fmt.Println(hex.EncodeToString(privateKey))
 
+}
+
+func TestX25519ComputeSecret(t *testing.T) {
+	pub1, priv1, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Errorf("Failed to generate ed25519 key: %v", err)
+	}
+	fmt.Println("ed25519", hex.EncodeToString(pub1), hex.EncodeToString(priv1))
+
+	cpub1, cpriv1 := pub1.ToX25519Pk(), priv1.ToX25519Sk()
+	fmt.Println("curve25519", hex.EncodeToString(cpub1), hex.EncodeToString(cpriv1))
+
+	pub2, priv2, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Errorf("Failed to generate ed25519 key: %v", err)
+	}
+	fmt.Println("ed25519", hex.EncodeToString(pub2), hex.EncodeToString(priv2))
+
+	cpub2, cpriv2 := pub2.ToX25519Pk(), priv2.ToX25519Sk()
+	fmt.Println("curve25519", hex.EncodeToString(cpub2), hex.EncodeToString(cpriv2))
+
+	b1, err := X25519ComputeSecret(cpriv1, cpub2)
+	if err != nil {
+		t.Errorf("Failed to computed x25519 secret: %v", err)
+	}
+
+	b2, err := X25519ComputeSecret(cpriv2, cpub1)
+	if err != nil {
+		t.Errorf("Failed to computed x25519 secret: %v", err)
+	}
+
+	if !bytes.Equal(b1, b2) {
+		t.Error("Different secret")
+	}
+
+	fmt.Println("x25519 secret", hex.EncodeToString(b1))
 }

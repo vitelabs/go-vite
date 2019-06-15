@@ -8,7 +8,7 @@ import (
 )
 
 // swapHandler wraps another handler that may be swapped out
-// dynamically at runtime in a thread-safe fashion.
+// dynamically at runtime in chain thread-safe fashion.
 type swapHandler struct {
 	handler unsafe.Pointer
 }

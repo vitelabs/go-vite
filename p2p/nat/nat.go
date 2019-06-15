@@ -1,11 +1,12 @@
 package nat
 
 import (
-	"github.com/syaka-yin/go-nat"
-	"github.com/vitelabs/go-vite/log15"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/syaka-yin/go-nat"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var natLog = log15.New("module", "p2p/nat")

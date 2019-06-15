@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"io"
 )
 
@@ -13,6 +14,8 @@ import (
 type ABIContract struct {
 	Constructor Method
 	Methods     map[string]Method
+	Callbacks   map[string]Method
+	OffChains   map[string]Method
 	Events      map[string]Event
 	Variables   map[string]Variable
 }
@@ -29,13 +32,7 @@ func JSONToABIContract(reader io.Reader) (ABIContract, error) {
 	return abi, nil
 }
 
-// Pack the given method name to conform the ABI. Method call's data
-// will consist of method_id, args0, arg1, ... argN. Method id consists
-// of 4 bytes and arguments are all 32 bytes.
-// Method ids are created from the first 4 bytes of the hash of the
-// methods string signature. (signature = baz(uint32,string32))
 func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, error) {
-	// Fetch the ABI of the requested method
 	if name == "" {
 		// constructor
 		arguments, err := abi.Constructor.Inputs.Pack(args...)
@@ -49,7 +46,34 @@ func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, err
 	if !exist {
 		return nil, fmt.Errorf("method '%s' not found", name)
 	}
+	return abi.packMethod(method, name, args...)
+}
+func getCallBackName(name string) string {
+	return name + "Callback"
+}
+func (abi ABIContract) PackCallback(name string, args ...interface{}) ([]byte, error) {
+	callbackName := getCallBackName(name)
+	method, exist := abi.Callbacks[callbackName]
+	if !exist {
+		return nil, fmt.Errorf("callback '%s' not found", name)
+	}
+	return abi.packMethod(method, callbackName, args...)
+}
 
+func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, error) {
+	method, exist := abi.OffChains[name]
+	if !exist {
+		return nil, fmt.Errorf("offchain '%s' not found", name)
+	}
+	return abi.packMethod(method, name, args...)
+}
+
+// Pack the given method name to conform the ABI. Method call's data
+// will consist of method_id, args0, arg1, ... argN. Method id consists
+// of 4 bytes and arguments are all 32 bytes.
+// Method ids are created from the first 4 bytes of the hash of the
+// methods string signature. (signature = baz(uint32,string32))
+func (abi ABIContract) packMethod(method Method, name string, args ...interface{}) ([]byte, error) {
 	arguments, err := method.Inputs.Pack(args...)
 	if err != nil {
 		return nil, err
@@ -69,6 +93,14 @@ func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, e
 		return nil, err
 	}
 	return arguments, nil
+}
+
+func (abi ABIContract) PackEvent(name string, args ...interface{}) ([]types.Hash, []byte, error) {
+	e, exist := abi.Events[name]
+	if !exist {
+		return nil, nil, fmt.Errorf("event '%s' not found", name)
+	}
+	return e.Pack(args...)
 }
 
 // UnpackMethod output in v according to the abi specification
@@ -119,6 +151,8 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	}
 
 	abi.Methods = make(map[string]Method)
+	abi.Callbacks = make(map[string]Method)
+	abi.OffChains = make(map[string]Method)
 	abi.Events = make(map[string]Event)
 	abi.Variables = make(map[string]Variable)
 	for _, field := range fields {
@@ -130,6 +164,19 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 			// empty defaults to function according to the abi spec
 		case "function", "":
 			abi.Methods[field.Name] = Method{
+				Name:   field.Name,
+				Const:  field.Constant,
+				Inputs: field.Inputs,
+			}
+		case "callback":
+			callbackName := getCallBackName(field.Name)
+			abi.Callbacks[callbackName] = Method{
+				Name:   callbackName,
+				Const:  field.Constant,
+				Inputs: field.Inputs,
+			}
+		case "offchain":
+			abi.OffChains[field.Name] = Method{
 				Name:   field.Name,
 				Const:  field.Constant,
 				Inputs: field.Inputs,

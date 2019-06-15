@@ -105,6 +105,28 @@ var (
 		utils.PProfEnabledFlag,
 		utils.PProfPortFlag,
 	}
+
+	// Metrics
+	metricsFlags = []cli.Flag{
+		utils.MetricsEnabledFlag,
+		utils.InfluxDBEnableFlag,
+		utils.InfluxDBEndpointFlag,
+		utils.InfluxDBDatabaseFlag,
+		utils.InfluxDBUsernameFlag,
+		utils.InfluxDBPasswordFlag,
+		utils.InfluxDBHostTagFlag,
+	}
+
+	// Ledger
+	ledgerFlags = []cli.Flag{
+		utils.LedgerDeleteToHeight,
+		utils.RecoverTrieFlag,
+	}
+
+	// Export
+	exportFlags = []cli.Flag{
+		utils.ExportSbHeightFlags,
+	}
 )
 
 func init() {
@@ -129,11 +151,17 @@ func init() {
 		licenseCommand,
 		consoleCommand,
 		attachCommand,
+		ledgerRecoverCommand,
+		exportCommand,
+		pluginDataCommand,
+		checkChainCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
+	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
+		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
+		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags)
 
 	app.Before = beforeAction
 	app.Action = action
@@ -148,7 +176,9 @@ func Loading() {
 }
 
 func beforeAction(ctx *cli.Context) error {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	max := runtime.NumCPU() + 1
+	log.Info("runtime num", "max", max)
+	runtime.GOMAXPROCS(max)
 
 	//TODO: we can add dashboard here
 	if ctx.GlobalIsSet(utils.PProfEnabledFlag.Name) {
@@ -161,7 +191,7 @@ func beforeAction(ctx *cli.Context) error {
 		var visitAddress = fmt.Sprintf("http://localhost:%d/debug/pprof", pprofPort)
 
 		go func() {
-			log.Info("Enable a performance analysis tool, you can visit the address of `" + visitAddress + "`")
+			log.Info("Enable chain performance analysis tool, you can visit the address of `" + visitAddress + "`")
 			http.ListenAndServe(listenAddress, nil)
 		}()
 	}

@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc_test
@@ -32,7 +32,7 @@ import (
 //    returns the latest block object.
 //
 // eth_subscribe("newBlocks")
-//    creates a subscription which fires block objects when new blocks arrive.
+//    creates chain subscription which fires block objects when new blocks arrive.
 
 type Block struct {
 	Number *big.Int
@@ -60,7 +60,7 @@ func ExampleClientSubscription() {
 }
 
 // subscribeBlocks runs in its own goroutine and maintains
-// a subscription for new blocks.
+// chain subscription for new blocks.
 func subscribeBlocks(client *rpc.Client, subch chan Block) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

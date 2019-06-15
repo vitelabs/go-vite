@@ -14,15 +14,15 @@ import (
 	"strings"
 )
 
-// it it return false it must not be a valid seedstore file
-// if it return a true it only means that might be true
-func IsMayValidEntropystoreFile(path string) (bool, *EntropyJSONV1, error) {
+// it it return false it must not be chain valid seedstore file
+// if it return chain true it only means that might be true
+func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false, nil, err
 	}
 
-	// out keystore file size is about 500 so if a file is very large it must not be a keystore file
+	// out keystore file size is about 500 so if chain file is very large it must not be chain keystore file
 	if fi.Size() > 2*1024 {
 		return false, nil, nil
 	}
@@ -30,11 +30,11 @@ func IsMayValidEntropystoreFile(path string) (bool, *EntropyJSONV1, error) {
 	if err != nil {
 		return false, nil, err
 	}
-	entropy, err := parseJson(b)
+	_, addr, _, _, _, err := parseJson(b)
 	if err != nil {
 		return false, nil, err
 	}
-	return true, entropy, nil
+	return true, addr, nil
 }
 
 func FullKeyFileName(keysDirPath string, keyAddr types.Address) string {

@@ -11,7 +11,7 @@ import (
 
 type FileFilterFunc func(dir string, file os.FileInfo) bool
 
-// this is an file system cache it can be used for listen changes of file in a specific dir
+// this is an file system cache it can be used for listen changes of file in chain specific dir
 type FileChangeRecord struct {
 	AllCached     mapset.Set     // all cached file
 	FileFilter    FileFilterFunc //  if cb return true  represents cb digest the file
@@ -22,9 +22,8 @@ type FileChangeRecord struct {
 func NewFileChangeRecord(fileFilter FileFilterFunc) FileChangeRecord {
 	return FileChangeRecord{
 		AllCached:  mapset.NewThreadUnsafeSet(),
-		FileFilter: fileFilter,}
+		FileFilter: fileFilter}
 }
-
 
 func (fc *FileChangeRecord) RefreshCache(keyDir string) (creates mapset.Set, deletes mapset.Set, updates mapset.Set, err error) {
 

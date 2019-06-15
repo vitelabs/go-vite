@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"github.com/vitelabs/go-vite/metrics"
+	"github.com/vitelabs/go-vite/metrics/influxdb"
 	"gopkg.in/urfave/cli.v1"
+	"time"
 )
 
 var (
@@ -55,14 +58,14 @@ var (
 	}
 	MaxPendingPeersFlag = cli.UintFlag{
 		Name:  "maxpendpeers", //mapping:p2p.MaxPendingPeers
-		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
+		Usage: "Maximum number of db connection attempts (defaults used if set to 0)",
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port", //mapping:p2p.Addr
 		Usage: "Network listening port",
 	}
 	NodeKeyHexFlag = cli.StringFlag{
-		Name:  "nodekeyhex", //mapping:p2p.PrivateKey
+		Name:  "nodekeyhex", //mapping:p2p.PeerKey
 		Usage: "P2P node key as hex",
 	}
 	DiscoveryFlag = cli.StringFlag{
@@ -148,11 +151,39 @@ var (
 	//VM
 	VMTestFlag = cli.BoolFlag{
 		Name:  "vmtest",
-		Usage: "Enable the Vm Test ",
+		Usage: "Enable the VM Test ",
 	}
 	VMTestParamFlag = cli.BoolFlag{
 		Name:  "vmtestparam",
-		Usage: "Enable the Vm Test params ",
+		Usage: "Enable the VM Test params ",
+	}
+	VMDebugFlag = cli.BoolFlag{
+		Name:  "vmdebug",
+		Usage: "Enable VM debug",
+	}
+
+	// Subscribe
+	SubscribeFlag = cli.BoolFlag{
+		Name:  "subscribe",
+		Usage: "Enable Subscribe",
+	}
+
+	// Ledger
+	LedgerDeleteToHeight = cli.Uint64Flag{
+		Name:  "del",
+		Usage: "Delete to height",
+	}
+
+	// Trie
+	RecoverTrieFlag = cli.BoolFlag{
+		Name:  "trie",
+		Usage: "Recover trie",
+	}
+
+	// Export sb height
+	ExportSbHeightFlags = cli.Uint64Flag{
+		Name:  "sbHeight",
+		Usage: "The snapshot block height",
 	}
 
 	//Net
@@ -169,12 +200,50 @@ var (
 	//Stat
 	PProfEnabledFlag = cli.BoolFlag{
 		Name:  "pprof",
-		Usage: "Enable a performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
+		Usage: "Enable chain performance analysis tool, you can visit the address[http://localhost:8080/debug/pprof]",
 	}
 
 	PProfPortFlag = cli.UintFlag{
 		Name:  "pprofport",
 		Usage: "pporof visit `port`, you can visit the address[http://localhost:`port`/debug/pprof]",
+	}
+
+	// Metrics flags
+	MetricsEnabledFlag = cli.BoolFlag{
+		Name:  "metrics",
+		Usage: "Enable metrics collection and reporting",
+	}
+	InfluxDBEnableFlag = cli.BoolFlag{
+		Name:  "metrics.influxdb",
+		Usage: "Enable metrics export/push to an external InfluxDB database",
+	}
+	InfluxDBEndpointFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.endpoint",
+		Usage: "InfluxDB API endpoint to report metrics to",
+	}
+	InfluxDBDatabaseFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.database",
+		Usage: "InfluxDB database name to push reported metrics to",
+		Value: "metrics",
+	}
+	InfluxDBUsernameFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.username",
+		Usage: "Username to authorize access to the database",
+		Value: "test",
+	}
+	InfluxDBPasswordFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.password",
+		Usage: "Password to authorize access to the database",
+		Value: "test",
+	}
+	// The `host` tag is part of every measurement sent to InfluxDB. Queries on tags are faster in InfluxDB.
+	// It is used so that we can group all nodes and average chain measurement across all of them, but also so
+	// that we can select chain specific node and inspect its measurements.
+	// https://docs.influxdata.com/influxdb/v1.4/concepts/key_concepts/#tag-key
+	InfluxDBHostTagFlag = cli.StringFlag{
+		Name:  "metrics.influxdb.host.tag",
+		Usage: "InfluxDB `host` tag attached to all measurements",
+		Value: "localhost",
 	}
 )
 
@@ -202,4 +271,20 @@ func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
 		mergeFlags = append(mergeFlags, flags...)
 	}
 	return mergeFlags
+}
+
+func SetupMetricsExport(ctx *cli.Context) {
+	if metrics.MetricsEnabled {
+		var (
+			endpoint  = ctx.GlobalString(InfluxDBEndpointFlag.Name)
+			database  = ctx.GlobalString(InfluxDBDatabaseFlag.Name)
+			username  = ctx.GlobalString(InfluxDBUsernameFlag.Name)
+			password  = ctx.GlobalString(InfluxDBPasswordFlag.Name)
+			hosttag   = ctx.GlobalString(InfluxDBHostTagFlag.Name)
+			namespace = "monitor"
+		)
+		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, namespace,
+			map[string]string{"host": hosttag})
+
+	}
 }

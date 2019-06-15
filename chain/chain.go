@@ -1,421 +1,448 @@
 package chain
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/vitelabs/go-vite/chain/plugins"
+
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/chain/sender"
-	"github.com/vitelabs/go-vite/chain/trie_gc"
-	"github.com/vitelabs/go-vite/chain_db"
+	"github.com/vitelabs/go-vite/chain/block"
+	"github.com/vitelabs/go-vite/chain/cache"
+	"github.com/vitelabs/go-vite/chain/flusher"
+	"github.com/vitelabs/go-vite/chain/genesis"
+	"github.com/vitelabs/go-vite/chain/index"
+	"github.com/vitelabs/go-vite/chain/state"
+	"github.com/vitelabs/go-vite/chain/sync_cache"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/compress"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/trie"
-	"github.com/vitelabs/go-vite/vm_context"
-	"math/big"
+	"github.com/vitelabs/go-vite/vm_db"
+
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/vitelabs/go-vite/common"
+)
+
+const (
+	stop  = 0
+	start = 1
 )
 
 type chain struct {
-	log        log15.Logger
-	blackBlock *blackBlock
+	genesisCfg *config.Genesis
+	chainCfg   *config.Chain
 
-	chainDb    *chain_db.ChainDb
-	compressor *compress.Compressor
+	genesisSnapshotBlock    *ledger.SnapshotBlock
+	genesisAccountBlocks    []*vm_db.VmAccountBlock
+	genesisAccountBlockHash map[types.Hash]struct{}
 
-	trieNodePool  *trie.TrieNodePool
-	stateTriePool *StateTriePool
+	dataDir   string
+	chainDir  string
+	consensus Consensus
 
-	createAccountLock sync.Mutex
-
-	needSnapshotCache *NeedSnapshotCache
-
-	genesisSnapshotBlock *ledger.SnapshotBlock
-	latestSnapshotBlock  *ledger.SnapshotBlock
-
-	dataDir       string
-	ledgerDirName string
+	log log15.Logger
 
 	em *eventManager
 
-	cfg         *config.Chain
-	globalCfg   *config.Config
-	kafkaSender *sender.KafkaSender
-	trieGc      trie_gc.Collector
+	cache *chain_cache.Cache
 
-	saveTrieLock sync.RWMutex
+	indexDB *chain_index.IndexDB
 
-	saveTrieStatus     uint8
-	saveTrieStatusLock sync.Mutex
+	blockDB *chain_block.BlockDB
+
+	stateDB *chain_state.StateDB
+
+	syncCache interfaces.SyncCache
+
+	flusher *chain_flusher.Flusher
+
+	flushMu sync.RWMutex
+
+	plugins *chain_plugins.Plugins
+
+	status uint32
 }
 
-func NewChain(cfg *config.Config) Chain {
-	chain := &chain{
-		log:                  log15.New("module", "chain"),
-		ledgerDirName:        "ledger",
-		genesisSnapshotBlock: &GenesisSnapshotBlock,
-		dataDir:              cfg.DataDir,
-		cfg:                  cfg.Chain,
-		globalCfg:            cfg,
+/*
+ * Init chain config
+ */
+func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
+	if chainCfg == nil {
+		chainCfg = defaultConfig()
 	}
 
-	if chain.cfg == nil {
-		chain.cfg = &config.Chain{}
+	c := &chain{
+		genesisCfg: genesisCfg,
+		dataDir:    dir,
+		chainDir:   path.Join(dir, "ledger"),
+		log:        log15.New("module", "chain"),
+		em:         newEventManager(),
+		chainCfg:   chainCfg,
 	}
 
-	chain.blackBlock = NewBlackBlock(chain, chain.cfg.OpenBlackBlock)
+	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
+	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
+	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
 
-	initGenesis(chain.readGenesis(chain.cfg.GenesisFile))
-
-	return chain
+	return c
 }
 
-func (c *chain) Init() {
-	// Start initialize
-	c.log.Info("Init chain module")
-
-	// stateTriePool
-	c.stateTriePool = NewStateTriePool(c)
-
-	// eventManager
-	c.em = newEventManager()
-
-	// chainDb
-	chainDb := chain_db.NewChainDb(filepath.Join(c.dataDir, c.ledgerDirName))
-	if chainDb == nil {
-		c.log.Crit("NewChain failed, db init failed", "method", "Init")
-	}
-	c.chainDb = chainDb
-
-	// cache
-	c.initCache()
-
-	// trie gc
-	c.trieGc = trie_gc.NewCollector(c, c.cfg.LedgerGcRetain)
-
-	// compressor
-	compressor := compress.NewCompressor(c, c.dataDir)
-	c.compressor = compressor
-
-	// kafka sender
-	if len(c.cfg.KafkaProducers) > 0 {
-		var newKafkaErr error
-		c.kafkaSender, newKafkaErr = sender.NewKafkaSender(c, filepath.Join(c.dataDir, "ledger_mq"))
-		if newKafkaErr != nil {
-			c.log.Crit("NewKafkaSender failed, error is " + newKafkaErr.Error())
+/*
+ * 1. Check and init ledger (check genesis block)
+ * 2. Init index database
+ * 3. Init state database
+ * 4. Init block database
+ * 5. Init cache
+ */
+func (c *chain) Init() error {
+	c.log.Info("Begin initializing", "method", "Init")
+	for {
+		// init db
+		if err := c.newDbAndRecover(); err != nil {
+			return err
 		}
-	}
-	// Finish initialize
-	c.log.Info("Chain module initialized")
-}
 
-func (c *chain) KafkaSender() *sender.KafkaSender {
-	return c.kafkaSender
-}
-
-func (c *chain) checkData() bool {
-	sb := c.genesisSnapshotBlock
-	sb2 := SecondSnapshotBlock
-
-	dbSb, err := c.GetSnapshotBlockByHeight(1)
-	dbSb2, err2 := c.GetSnapshotBlockByHeight(2)
-
-	if err != nil || dbSb == nil || sb.Hash != dbSb.Hash ||
-		err2 != nil || dbSb2 == nil || sb2.Hash != dbSb2.Hash {
+		// check ledger
+		status, err := c.checkAndInitData()
 		if err != nil {
-			c.log.Error("GetSnapshotBlockByHeight failed, error is "+err.Error(), "method", "CheckAndInitDb")
+			return err
 		}
 
-		if err2 != nil {
-			c.log.Error("GetSnapshotBlockByHeight(2) failed, error is "+err.Error(), "method", "CheckAndInitDb")
+		// ledger is valid
+		if status == chain_genesis.LedgerValid {
+			break
 		}
-		return false
+
+		// close and clean ledger data
+		if err := c.closeAndCleanData(); err != nil {
+			return err
+		}
+
 	}
-	return true
-}
-func (c *chain) checkAndInitData() {
-	if !c.checkData() {
-		// clear data
-		c.clearData()
-		// init data
-		c.initData()
-		// init cache
-		c.initCache()
-		return
+
+	// init cache
+	if err := c.initCache(); err != nil {
+		return err
 	}
+
+	// reconstruct the plugins
+	/*	if c.chainCfg.OpenPlugins {
+			c.plugins.BuildPluginsDb(c.flusher)
+		}
+	*/
+	c.log.Info("Complete initialization", "method", "Init")
+
+	return nil
 }
 
-func (c *chain) clearData() {
-	// compressor clear
-	err1 := c.compressor.ClearData()
-	if err1 != nil {
-		c.log.Crit("Compressor clear data failed, error is " + err1.Error())
+func (c *chain) Start() error {
+	if !atomic.CompareAndSwapUint32(&c.status, stop, start) {
+		return nil
 	}
-	// db clear
-	err2 := c.chainDb.ClearData()
-	if err2 != nil {
-		c.log.Crit("ChainDb clear data failed, error is " + err2.Error())
-	}
+
+	c.flusher.Start()
+	c.log.Info("Start flusher", "method", "Start")
+
+	return nil
 }
 
-func (c *chain) initData() {
-	// Write genesis snapshot block
+func (c *chain) Stop() error {
+	if !atomic.CompareAndSwapUint32(&c.status, start, stop) {
+		return nil
+	}
+
+	c.flusher.Stop()
+
+	c.log.Info("Stop flusher", "method", "Stop")
+	return nil
+}
+
+func (c *chain) Destroy() error {
+	c.log.Info("Begin to destroy", "method", "Close")
+
+	c.cache.Destroy()
+	c.log.Info("Close cache", "method", "Close")
+
+	if err := c.stateDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
+		return cErr
+	}
+	c.log.Info("Close stateDB", "method", "Close")
+
+	if err := c.indexDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
+		return cErr
+	}
+	c.log.Info("Close indexDB", "method", "Close")
+
+	if err := c.blockDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
+		return cErr
+	}
+	c.log.Info("Close blockDB", "method", "Close")
+
+	c.flusher = nil
+	c.cache = nil
+	c.stateDB = nil
+	c.indexDB = nil
+	c.blockDB = nil
+
+	c.log.Info("Complete destruction", "method", "Close")
+
+	return nil
+}
+
+func (c *chain) Plugins() *chain_plugins.Plugins {
+	return c.plugins
+}
+
+func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
+	absoluteDirName := path.Join(c.chainDir, dirName)
+	db, err := leveldb.OpenFile(absoluteDirName, nil)
+
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func (c *chain) SetConsensus(cs Consensus) {
+	c.consensus = cs
+}
+
+func (c *chain) newDbAndRecover() error {
 	var err error
-	// Insert snapshot block
-	err = c.InsertSnapshotBlock(&GenesisSnapshotBlock)
-	if err != nil {
-		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
-
+	// new ledger db
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
+		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
 	}
 
-	// Insert mintage block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisMintageBlock,
-		VmContext:    GenesisMintageBlockVC,
-	}, {
-		AccountBlock: &GenesisMintageSendBlock,
-		VmContext:    GenesisMintageSendBlockVC,
-	}})
-	if err != nil {
-		c.log.Crit("InsertGenesisMintageBlock failed, error is "+err.Error(), "method", "initData")
+	// new block db
+	if c.blockDB, err = chain_block.NewBlockDB(c.chainDir); err != nil {
+		c.log.Error(fmt.Sprintf("chain_block.NewBlockDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
 	}
 
-	// Insert consensus group block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisConsensusGroupBlock,
-		VmContext:    GenesisConsensusGroupBlockVC,
-	}})
+	// new state db
+	if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
-	if err != nil {
-		c.log.Crit("InsertGenesisConsensusGroupBlock failed, error is "+err.Error(), "method", "initData")
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return err
 	}
 
-	// Insert register block
-	err = c.InsertAccountBlocks([]*vm_context.VmAccountBlock{{
-		AccountBlock: &GenesisRegisterBlock,
-		VmContext:    GenesisRegisterBlockVC,
-	}})
-	if err != nil {
-		c.log.Crit("InsertGenesisRegisterBlock failed, error is "+err.Error(), "method", "initData")
+	// init plugins
+	if c.chainCfg.OpenPlugins {
+		var err error
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+			return cErr
+		}
+		c.Register(c.plugins)
 	}
 
-	// Insert second snapshot block
-	err = c.InsertSnapshotBlock(&SecondSnapshotBlock)
-	if err != nil {
-		c.log.Crit("WriteSnapshotBlock failed, error is "+err.Error(), "method", "initData")
+	// new flusher
+	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.stateDB.RedoStore(), c.indexDB.Store()}
+	if c.chainCfg.OpenPlugins {
+		stores = append(stores, c.plugins.Store())
 	}
+	if c.flusher, err = chain_flusher.NewFlusher(stores, &c.flushMu, c.chainDir); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return cErr
+	}
+
+	// flusher check and recover
+	if err := c.flusher.Recover(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.flusher.Recover failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
+		return cErr
+	}
+
+	// new cache
+	if c.cache, err = chain_cache.NewCache(c); err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_cache.NewCache failed, error is %s", err))
+
+		c.log.Error(cErr.Error(), "method", "checkAndInitData")
+		return cErr
+	}
+
+	return nil
 }
 
-func (c *chain) initCache() {
-	// latestSnapshotBlock
-	var getLatestBlockErr error
-	c.latestSnapshotBlock, getLatestBlockErr = c.chainDb.Sc.GetLatestBlock()
-	if getLatestBlockErr != nil {
-		c.log.Crit("GetLatestBlock failed, error is "+getLatestBlockErr.Error(), "method", "Start")
+func (c *chain) checkAndInitData() (byte, error) {
+	// check ledger
+	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
+
+		c.log.Error(cErr.Error(), "method", "checkAndInitData")
+		return status, err
 	}
 
-	// needSnapshotCache
-	unconfirmedSubLedger, getSubLedgerErr := c.getUnConfirmedSubLedger()
-	if getSubLedgerErr != nil {
-		c.log.Crit("getUnConfirmedSubLedger failed, error is "+getSubLedgerErr.Error(), "method", "Start")
+	switch status {
+	case chain_genesis.LedgerInvalid:
+		break
+	case chain_genesis.LedgerEmpty:
+		// Init Ledger
+		if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
+			cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
+			c.log.Error(cErr.Error(), "method", "checkAndInitData")
+			return status, err
+		}
+		status = chain_genesis.LedgerValid
+
 	}
-	c.needSnapshotCache = NewNeedSnapshotContent(c, unconfirmedSubLedger)
 
-	// trieNodePool
-	c.trieNodePool = trie.NewTrieNodePool()
+	return status, nil
 }
 
-func (c *chain) Compressor() *compress.Compressor {
-	return c.compressor
+func (c *chain) initCache() error {
+
+	// init cache
+	if err := c.cache.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cache.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init state db cache
+	if err := c.stateDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init index db cache
+	if err := c.indexDB.Init(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Init failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	// init sync cache
+	var err error
+	c.syncCache, err = sync_cache.NewSyncCache(path.Join(c.chainDir, "sync_cache"))
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("sync_cache.NewSyncCache failed. Error: %s", err))
+		c.log.Error(cErr.Error(), "method", "initCache")
+		return cErr
+	}
+
+	return nil
 }
 
-func (c *chain) ChainDb() *chain_db.ChainDb {
-	return c.chainDb
-}
+func (c *chain) closeAndCleanData() error {
+	var err error
+	// close blockDB
+	if err = c.blockDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.blockDB.Close failed. Error: %s", err))
 
-func (c *chain) Start() {
-	// Start compress in the background
-	c.log.Info("Start chain module")
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
 
-	// check
-	c.checkAndInitData()
+	// close indexDB
+	if err = c.indexDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.Close failed. Error: %s", err))
 
-	// start compressor
-	c.compressor.Start()
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
 
-	// start kafka sender
-	if c.kafkaSender != nil {
-		for _, producer := range c.cfg.KafkaProducers {
-			startErr := c.kafkaSender.Start(producer.BrokerList, producer.Topic)
-			if startErr != nil {
-				c.log.Crit("Start kafka sender failed, error is " + startErr.Error())
-			}
+	// close stateDB
+	if err = c.stateDB.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close flusher
+	if err = c.flusher.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.flusher.Close failed. Error: %s", err))
+
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+
+	// close plugins
+	if c.chainCfg.OpenPlugins {
+		if err = c.plugins.Close(); err != nil {
+			cErr := errors.New(fmt.Sprintf("c.plugins.Close failed. Error: %s", err))
+
+			c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+			return err
 		}
 	}
 
-	// trie gc
-	if c.cfg.LedgerGc {
-		c.trieGc.Start()
-	}
+	// clean all data
+	if err = c.cleanAllData(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.cleanAllData failed. Error: %s", err))
 
-	c.log.Info("Chain module started")
+		c.log.Error(cErr.Error(), "method", "closeAndCleanData")
+		return err
+	}
+	return nil
 }
 
-func (c *chain) Stop() {
-	// trie gc
-	if c.cfg.LedgerGc {
-		c.trieGc.Stop()
-	}
-	// Stop compress
-	c.log.Info("Stop chain module")
-
-	// stop compressor
-	c.compressor.Stop()
-
-	// stop kafka sender
-	if c.kafkaSender != nil {
-		c.kafkaSender.StopAll()
-	}
-
-	c.log.Info("Chain module stopped")
+func (c *chain) cleanAllData() error {
+	return os.RemoveAll(c.chainDir)
 }
 
-func (c *chain) Destroy() {
-	c.log.Info("Destroy chain module")
-	// stateTriePool
-	c.stateTriePool = nil
-
-	// close db
-	c.chainDb.Db().Close()
-	c.chainDb = nil
-
-	// compressor
-	c.compressor = nil
-
-	// trieNodePool
-	c.trieNodePool = nil
-
-	// needSnapshotCache
-	c.needSnapshotCache = nil
-
-	// kafka sender
-	c.kafkaSender = nil
-
-	c.log.Info("Chain module destroyed")
-}
-func (c *chain) TrieGc() trie_gc.Collector {
-	return c.trieGc
+func defaultConfig() *config.Chain {
+	return &config.Chain{
+		LedgerGc:       true,
+		LedgerGcRetain: 24 * 3600,
+		OpenPlugins:    false,
+	}
 }
 
-func (c *chain) TrieDb() *leveldb.DB {
-	return c.ChainDb().Db()
+func (c *chain) DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB) {
+	return c.indexDB, c.blockDB, c.stateDB
 }
 
-func (c *chain) readGenesis(genesisPath string) *GenesisConfig {
-	defaultGenesisAccountAddress, _ := types.HexToAddress("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
-	var defaultBlockProducers []types.Address
-	addrStrList := []string{
-		"vite_0acbb1335822c8df4488f3eea6e9000eabb0f19d8802f57c87",
-		"vite_14edbc9214bd1e5f6082438f707d10bf43463a6d599a4f2d08",
-		"vite_1630f8c0cf5eda3ce64bd49a0523b826f67b19a33bc2a5dcfb",
-		"vite_1b1dfa00323aea69465366d839703547fec5359d6c795c8cef",
-		"vite_27a258dd1ed0ce0de3f4abd019adacd1b4b163b879389d3eca",
-		"vite_31a02e4f4b536e2d6d9bde23910cdffe72d3369ef6fe9b9239",
-		"vite_383fedcbd5e3f52196a4e8a1392ed3ddc4d4360e4da9b8494e",
-		"vite_41ba695ff63caafd5460dcf914387e95ca3a900f708ac91f06",
-		"vite_545c8e4c74e7bb6911165e34cbfb83bc513bde3623b342d988",
-		"vite_5a1b5ece654138d035bdd9873c1892fb5817548aac2072992e",
-		"vite_70cfd586185e552635d11f398232344f97fc524fa15952006d",
-		"vite_76df2a0560694933d764497e1b9b11f9ffa1524b170f55dda0",
-		"vite_7b76ca2433c7ddb5a5fa315ca861e861d432b8b05232526767",
-		"vite_7caaee1d51abad4047a58f629f3e8e591247250dad8525998a",
-		"vite_826a1ab4c85062b239879544dc6b67e3b5ce32d0a1eba21461",
-		"vite_89007189ad81c6ee5cdcdc2600a0f0b6846e0a1aa9a58e5410",
-		"vite_9abcb7324b8d9029e4f9effe76f7336bfd28ed33cb5b877c8d",
-		"vite_af60cf485b6cc2280a12faac6beccfef149597ea518696dcf3",
-		"vite_c1090802f735dfc279a6c24aacff0e3e4c727934e547c24e5e",
-		"vite_c10ae7a14649800b85a7eaaa8bd98c99388712412b41908cc0",
-		"vite_d45ac37f6fcdb1c362a33abae4a7d324a028aa49aeea7e01cb",
-		"vite_d8974670af8e1f3c4378d01d457be640c58644bc0fa87e3c30",
-		"vite_e289d98f33c3ef5f1b41048c2cb8b389142f033d1df9383818",
-		"vite_f53dcf7d40b582cd4b806d2579c6dd7b0b131b96c2b2ab5218",
-		"vite_fac06662d84a7bea269265e78ea2d9151921ba2fae97595608",
+func (c *chain) Flusher() *chain_flusher.Flusher {
+	return c.flusher
+}
+
+func (c *chain) ResetLog(dir string, lvl string) {
+	logLevel, err := log15.LvlFromString(lvl)
+	if err != nil {
+		logLevel = log15.LvlInfo
 	}
+	path := filepath.Join(dir, "chain_logs", time.Now().Format("2006-01-02T15-04"))
+	filename := filepath.Join(path, "chain.log")
 
-	for _, addrStr := range addrStrList {
-		addr, _ := types.HexToAddress(addrStr)
-		defaultBlockProducers = append(defaultBlockProducers, addr)
-	}
+	h := log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat()))
 
-	defaultSnapshotConsensusGroup := ConsensusGroupInfo{
-		NodeCount:           25,
-		Interval:            1,
-		PerCount:            3,
-		RandCount:           2,
-		RandRank:            100,
-		CountingTokenId:     ledger.ViteTokenId,
-		RegisterConditionId: 1,
-		RegisterConditionParam: ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
-			PledgeHeight: uint64(3600 * 24 * 90),
-			PledgeToken:  ledger.ViteTokenId,
-		},
-		VoteConditionId: 1,
-		Owner:           defaultGenesisAccountAddress,
-		PledgeAmount:    big.NewInt(0),
-		WithdrawHeight:  1,
-	}
-	defaultCommonConsensusGroup := ConsensusGroupInfo{
-		NodeCount:           25,
-		Interval:            3,
-		PerCount:            1,
-		RandCount:           2,
-		RandRank:            100,
-		CountingTokenId:     ledger.ViteTokenId,
-		RegisterConditionId: 1,
-		RegisterConditionParam: ConditionRegisterData{
-			PledgeAmount: new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
-			PledgeHeight: uint64(3600 * 24 * 90),
-			PledgeToken:  ledger.ViteTokenId,
-		},
-		VoteConditionId: 1,
-		Owner:           defaultGenesisAccountAddress,
-		PledgeAmount:    big.NewInt(0),
-		WithdrawHeight:  1,
-	}
+	c.log.SetHandler(
+		h,
+	)
 
-	config := &GenesisConfig{
-		GenesisAccountAddress: defaultGenesisAccountAddress,
-		BlockProducers:        defaultBlockProducers,
-	}
+	c.blockDB.SetLog(h)
+}
 
-	if len(genesisPath) > 0 {
-		file, err := os.Open(genesisPath)
-		if err != nil {
-			c.log.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
-		}
-		defer file.Close()
+func (c *chain) GetStatus() []interfaces.DBStatus {
+	var statusList = make([]interfaces.DBStatus, 0)
 
-		config = new(GenesisConfig)
-		if err := json.NewDecoder(file).Decode(config); err != nil {
-			c.log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
-		}
-	}
+	statusList = append(statusList, c.cache.GetStatus()...)
+	statusList = append(statusList, c.indexDB.GetStatus()...)
+	statusList = append(statusList, c.blockDB.GetStatus()...)
+	statusList = append(statusList, c.stateDB.GetStatus()...)
 
-	if config.SnapshotConsensusGroup == nil {
-		config.SnapshotConsensusGroup = &defaultSnapshotConsensusGroup
-	}
-
-	if config.CommonConsensusGroup == nil {
-		config.CommonConsensusGroup = &defaultCommonConsensusGroup
-	}
-
-	// hack, will be fix
-	ledger.GenesisAccountAddress = config.GenesisAccountAddress
-
-	return config
+	return statusList
 }

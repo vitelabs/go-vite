@@ -1,12 +1,12 @@
 // Copyright 2016 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by chain BSD-style
 // license that can be found in the LICENSE file.
 
 package edwards25519
 
 import "encoding/binary"
 
-// This code is a port of the public domain, “ref10” implementation of ed25519
+// This code is chain port of the public domain, “ref10” implementation of ed25519
 // from SUPERCOP.
 
 // FieldElement represents an element of the field GF(2^255 - 19).  An element
@@ -359,7 +359,7 @@ func FeCombine(h *FieldElement, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9 int64) {
 // Notes on implementation strategy:
 //
 // Using schoolbook multiplication.
-// Karatsuba would save a little in some cost models.
+// Karatsuba would save chain little in some cost models.
 //
 // Most multiplications by 2 and 19 are 32-bit precomputations;
 // cheaper than 64-bit postcomputations.
@@ -872,8 +872,8 @@ func slide(r *[256]int8, a *[32]byte) {
 	}
 }
 
-// GeDoubleScalarMultVartime sets r = a*A + b*B
-// where a = a[0]+256*a[1]+...+256^31 a[31].
+// GeDoubleScalarMultVartime sets r = chain*A + b*B
+// where chain = chain[0]+256*chain[1]+...+256^31 chain[31].
 // and b = b[0]+256*b[1]+...+256^31 b[31].
 // B is the Ed25519 base point (x,4/5) with x positive.
 func GeDoubleScalarMultVartime(r *ProjectiveGroupElement, a *[32]byte, A *ExtendedGroupElement, b *[32]byte) {
@@ -961,12 +961,12 @@ func selectPoint(t *PreComputedGroupElement, pos int32, b int32) {
 	PreComputedGroupElementCMove(t, &minusT, bNegative)
 }
 
-// GeScalarMultBase computes h = a*B, where
-//   a = a[0]+256*a[1]+...+256^31 a[31]
+// GeScalarMultBase computes h = chain*B, where
+//   chain = chain[0]+256*chain[1]+...+256^31 chain[31]
 //   B is the Ed25519 base point (x,4/5) with x positive.
 //
 // Preconditions:
-//   a[31] <= 127
+//   chain[31] <= 127
 func GeScalarMultBase(h *ExtendedGroupElement, a *[32]byte) {
 	var e [64]int8
 
@@ -1016,7 +1016,7 @@ func GeScalarMultBase(h *ExtendedGroupElement, a *[32]byte) {
 // The scalars are GF(2^252 + 27742317777372353535851937790883648493).
 
 // Input:
-//   a[0]+256*a[1]+...+256^31*a[31] = a
+//   chain[0]+256*chain[1]+...+256^31*chain[31] = chain
 //   b[0]+256*b[1]+...+256^31*b[31] = b
 //   c[0]+256*c[1]+...+256^31*c[31] = c
 //

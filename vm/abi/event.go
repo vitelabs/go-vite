@@ -2,7 +2,9 @@ package abi
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"reflect"
 	"strings"
 )
 
@@ -37,4 +39,40 @@ func (e Event) Id() types.Hash {
 		i++
 	}
 	return types.DataHash([]byte(fmt.Sprintf("%v(%v)", e.Name, strings.Join(typeList, ","))))
+}
+
+func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
+	if len(args) != len(e.Inputs) {
+		return nil, nil, fmt.Errorf("event argument count mismatch: %d for %d", len(args), len(e.Inputs))
+	}
+	topics := make([]types.Hash, e.Inputs.LengthIndexed()+1)
+	topics[0] = e.Id()
+	var nonIndexedArgList []interface{}
+	topicIndex := 1
+	for i := 0; i < len(args); i++ {
+		if e.Inputs[i].Indexed {
+			topic, err := e.Inputs[i].Type.pack(reflect.ValueOf(args[i]))
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(topic) <= types.HashSize {
+				topics[topicIndex], _ = types.BytesToHash(helper.LeftPadBytes(topic, types.HashSize))
+			} else {
+				topics[topicIndex] = types.DataHash(topic)
+			}
+			topicIndex = topicIndex + 1
+		} else {
+			nonIndexedArgList = append(nonIndexedArgList, args[i])
+		}
+	}
+	if len(nonIndexedArgList) > 0 {
+		d, err := e.Inputs.NonIndexed().Pack(nonIndexedArgList...)
+		if err != nil {
+			return nil, nil, err
+		}
+		return topics, d, nil
+	} else {
+		return topics, nil, nil
+	}
+
 }

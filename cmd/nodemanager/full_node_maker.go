@@ -85,15 +85,15 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalUint(utils.MaxPeersFlag.Name)
+		cfg.MaxPeers = ctx.GlobalInt(utils.MaxPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalUint(utils.MaxPendingPeersFlag.Name)
+		cfg.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.Port = ctx.GlobalUint(utils.ListenPortFlag.Name)
+		cfg.ListenAddress = "0.0.0.0:" + utils.ListenPortFlag.Name
 	}
 
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
@@ -160,6 +160,14 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.VMTestParamFlag.Name) {
 		cfg.VMTestParamEnabled = ctx.GlobalBool(utils.VMTestParamFlag.Name)
 	}
+	if ctx.GlobalIsSet(utils.VMDebugFlag.Name) {
+		cfg.VMDebug = ctx.GlobalBool(utils.VMDebugFlag.Name)
+	}
+
+	// Subscribe
+	if ctx.GlobalIsSet(utils.SubscribeFlag.Name) {
+		cfg.SubscribeEnabled = ctx.GlobalBool(utils.SubscribeFlag.Name)
+	}
 
 	//Net
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
@@ -167,7 +175,32 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 
 	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
-		cfg.FilePort = ctx.GlobalInt(utils.FilePortFlag.Name)
+		cfg.FileListenAddress = "0.0.0.0:" + utils.FilePortFlag.Name
+	}
+
+	//metrics
+	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
+		mBool := ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
+		cfg.MetricsEnable = &mBool
+	}
+	if ctx.GlobalIsSet(utils.InfluxDBEnableFlag.Name) {
+		iBool := ctx.GlobalBool(utils.InfluxDBEnableFlag.Name)
+		cfg.InfluxDBEnable = &iBool
+	}
+	if endpoint := ctx.GlobalString(utils.InfluxDBEndpointFlag.Name); len(endpoint) > 0 {
+		cfg.InfluxDBEndpoint = &endpoint
+	}
+	if database := ctx.GlobalString(utils.InfluxDBDatabaseFlag.Name); len(database) > 0 {
+		cfg.InfluxDBDatabase = &database
+	}
+	if username := ctx.GlobalString(utils.InfluxDBUsernameFlag.Name); len(username) > 0 {
+		cfg.InfluxDBUsername = &username
+	}
+	if password := ctx.GlobalString(utils.InfluxDBPasswordFlag.Name); len(password) > 0 {
+		cfg.InfluxDBPassword = &password
+	}
+	if tag := ctx.GlobalString(utils.InfluxDBHostTagFlag.Name); len(tag) > 0 {
+		cfg.InfluxDBHostTag = &tag
 	}
 }
 
@@ -250,8 +283,7 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 		return err
 	}
 
-	log.Warn(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
-	log.Info(fmt.Sprintf("The program will skip here and continue processing"))
+	log.Crit(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
 	return nil
 }
 

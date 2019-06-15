@@ -1,41 +1,173 @@
 package consensus
 
 import (
+	"fmt"
 	"math/big"
+	"sort"
+	"sync"
 	"time"
 
-	"sort"
+	"github.com/vitelabs/go-vite/consensus/cdb"
 
+	"github.com/vitelabs/go-vite/pool/lock"
+
+	"github.com/vitelabs/go-vite/chain"
+
+	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 )
 
-type ch interface {
+// Chain refer to chain.Chain
+type Chain interface {
+	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock
 
-	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                     // Get all consensus group
-	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                                  // Get register for consensus group
-	GetVoteMap(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                           // Get the candidate's vote
-	GetBalanceList(snapshotHash types.Hash, tokenTypeId types.TokenTypeId, addressList []types.Address) (map[types.Address]*big.Int, error) // Get balance for addressList
-	GetSnapshotBlockBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+	/*
+	*	Event Manager
+	 */
+	Register(listener chain.EventListener)
+	UnRegister(listener chain.EventListener)
 
-	GetContractGidByAccountBlock(block *ledger.AccountBlock) (*types.Gid, error)
+	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
+	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
+	GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                           // Get register for consensus group
+	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
+	GetConfirmedBalanceList(addrList []types.Address, tokenID types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+
+	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+
 	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockByHash(hash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+	IsGenesisSnapshotBlock(hash types.Hash) bool
+	GetRandomSeed(snapshotHash types.Hash, n int) uint64
+	GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error)
+	NewDb(dbDir string) (*leveldb.DB, error)
 }
 
 type chainRw struct {
-	rw ch
+	// todo
+	genesisTime  time.Time
+	rw           Chain
+	rollbackLock lock.ChainRollback
+
+	hourPoints   LinkedArray
+	dayPoints    LinkedArray
+	periodPoints *periodLinkedArray
+
+	dbCache  *cdb.ConsensusDB
+	lruCache *lru.Cache
+
+	started        chan struct{}
+	snapshotLoadCh chan *ledger.SnapshotBlock
+	wg             sync.WaitGroup
+
+	log      log15.Logger
+	snapshot *snapshotCs
 }
 
+func newChainRw(rw Chain, log log15.Logger, rollbackLock lock.ChainRollback) *chainRw {
+	cRw := &chainRw{rw: rw}
+
+	cRw.genesisTime = *rw.GetGenesisSnapshotBlock().Timestamp
+
+	db, err := rw.NewDb("consensus")
+	if err != nil {
+		panic(err)
+	}
+	cRw.dbCache = cdb.NewConsensusDB(db)
+	cache, err := lru.New(1024 * 10)
+	if err != nil {
+		panic(err)
+	}
+	cRw.lruCache = cache
+	cRw.log = log
+	cRw.rollbackLock = rollbackLock
+	return cRw
+
+}
+
+func (cRw *chainRw) init(cs *snapshotCs) {
+	if cs == nil {
+		panic("snapshot cs is nil.")
+	}
+	proof := newRollbackProof(cRw.rw)
+	cRw.periodPoints = newPeriodPointArray(cRw.rw, cs, proof, cRw.log)
+	cRw.hourPoints = newHourLinkedArray(cRw.periodPoints, cRw.dbCache, proof, time.Duration(cs.GetInfo().PlanInterval)*time.Second, cRw.genesisTime, cRw.log)
+	cRw.dayPoints = newDayLinkedArray(cRw.hourPoints, cRw.dbCache, proof, cs.dayVoteStat, cRw.genesisTime, cRw.log)
+	cRw.snapshot = cs
+	cRw.snapshotLoadCh = make(chan *ledger.SnapshotBlock)
+}
+
+func (cRw *chainRw) Start() error {
+	cRw.started = make(chan struct{})
+
+	// todo register chain
+	go func() {
+		cRw.wg.Add(1)
+		defer cRw.wg.Done()
+		startedCh := cRw.started
+		snapshotLoadCh := cRw.snapshotLoadCh
+		ticker := time.NewTicker(time.Second * 30)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				block := cRw.GetLatestSnapshotBlock()
+				t := block.Timestamp
+
+				index := cRw.dayPoints.Time2Index(*t)
+
+				point, err := cRw.dayPoints.GetByIndex(index)
+				if err != nil {
+					cRw.log.Error("can't get day info by index", "index", index, "time", t)
+				} else {
+					cRw.log.Info("get day by info index", "index", index, "time", t, "point", point.Json())
+				}
+
+				if index > 0 {
+					lastIdx := index - 1
+					point, err := cRw.dayPoints.GetByIndex(lastIdx)
+					if err != nil {
+						cRw.log.Error("can't get day info by last index", "index", lastIdx, "time", t)
+					} else {
+						cRw.log.Info("get day by info last index", "index", lastIdx, "time", t, "point", point.Json())
+					}
+				}
+			case b := <-snapshotLoadCh:
+				cRw.snapshot.loadVotes(b)
+			case <-startedCh:
+				return
+			}
+		}
+	}()
+	return nil
+
+}
+
+func (cRw *chainRw) Stop() error {
+	// todo register chain
+	close(cRw.started)
+	cRw.wg.Wait()
+	return nil
+}
+
+// VoteDetails is an extension for core.Vote
 type VoteDetails struct {
 	core.Vote
 	CurrentAddr  types.Address
 	RegisterList []types.Address
 	Addr         map[types.Address]*big.Int
 }
+
+// ByBalance sorts a slice of VoteDetails in decreasing order.
+// Sorts by name for equal balance
 type ByBalance []*VoteDetails
 
 func (a ByBalance) Len() int      { return len(a) }
@@ -45,13 +177,13 @@ func (a ByBalance) Less(i, j int) bool {
 	r := a[j].Balance.Cmp(a[i].Balance)
 	if r == 0 {
 		return a[i].Name < a[j].Name
-	} else {
-		return r < 0
 	}
+	return r < 0
 }
 
-func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
-	block, e := self.rw.GetSnapshotBlockBeforeTime(&t)
+func (cRw *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, error) {
+	// todo if t < genesisTime, return genesis block
+	block, e := cRw.rw.GetSnapshotHeaderBeforeTime(&t)
 
 	if e != nil {
 		return nil, e
@@ -63,34 +195,38 @@ func (self *chainRw) GetSnapshotBeforeTime(t time.Time) (*ledger.SnapshotBlock, 
 	return block, nil
 }
 
-func (self *chainRw) CalVotes(info *core.GroupInfo, block ledger.HashHeight) ([]*core.Vote, error) {
-	return core.CalVotes(info, block, self.rw)
+func (cRw *chainRw) GetSeedsBeforeHashH(hash types.Hash) uint64 {
+	return cRw.rw.GetRandomSeed(hash, 25)
 }
 
-func (self *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
+func (cRw *chainRw) CalVotes(info *core.GroupInfo, hashH ledger.HashHeight) ([]*core.Vote, error) {
+	return core.CalVotes(info.ConsensusGroupInfo, hashH.Hash, cRw.rw)
+}
+
+func (cRw *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block ledger.HashHeight) ([]*VoteDetails, error) {
 	// query register info
-	registerList, _ := self.rw.GetRegisterList(block.Hash, gid)
+	registerList, _ := cRw.rw.GetRegisterList(block.Hash, gid)
 	// query vote info
-	votes, _ := self.rw.GetVoteMap(block.Hash, gid)
+	votes, _ := cRw.rw.GetVoteList(block.Hash, gid)
 
 	var registers []*VoteDetails
 
 	// cal candidate
 	for _, v := range registerList {
-		registers = append(registers, self.GenVoteDetails(block.Hash, v, votes, info.CountingTokenId))
+		registers = append(registers, cRw.genVoteDetails(block.Hash, v, votes, info.CountingTokenId))
 	}
 	sort.Sort(ByBalance(registers))
 	return registers, nil
 }
 
-func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
+func (cRw *chainRw) genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
 		if v.NodeName == registration.Name {
 			addrs = append(addrs, v.VoterAddr)
 		}
 	}
-	balanceMap, _ := self.rw.GetBalanceList(snapshotHash, id, addrs)
+	balanceMap, _ := cRw.rw.GetConfirmedBalanceList(addrs, id, snapshotHash)
 	balanceTotal := big.NewInt(0)
 	for _, v := range balanceMap {
 		balanceTotal.Add(balanceTotal, v)
@@ -107,47 +243,181 @@ func (self *chainRw) GenVoteDetails(snapshotHash types.Hash, registration *types
 	}
 }
 
-func (self *chainRw) GetMemberInfo(gid types.Gid, genesis time.Time) *core.GroupInfo {
+func (cRw *chainRw) GetMemberInfo(gid types.Gid) (*core.GroupInfo, error) {
 	// todo consensus group maybe change ??
 	var result *core.GroupInfo
-	head := self.rw.GetLatestSnapshotBlock()
-	consensusGroupList, _ := self.rw.GetConsensusGroupList(head.Hash)
+	head := cRw.rw.GetLatestSnapshotBlock()
+	consensusGroupList, err := cRw.rw.GetConsensusGroupList(head.Hash)
+	if err != nil {
+		return nil, err
+	}
 	for _, v := range consensusGroupList {
 		if v.Gid == gid {
-			result = core.NewGroupInfo(genesis, *v)
+			result = core.NewGroupInfo(cRw.genesisTime, *v)
 		}
 	}
+	if result == nil {
+		return nil, errors.Errorf("can't get consensus group[%s] info by [%s-%d].", gid, head.Hash, head.Height)
+	}
 
-	return result
+	return result, nil
 }
 
-func (self *chainRw) getGid(block *ledger.AccountBlock) (types.Gid, error) {
-	gid, e := self.rw.GetContractGidByAccountBlock(block)
-	return *gid, e
+func (cRw *chainRw) getGid(block *ledger.AccountBlock) (*types.Gid, error) {
+	meta, e := cRw.rw.GetContractMeta(block.AccountAddress)
+	if e != nil {
+		return nil, e
+	}
+	return &meta.Gid, nil
 }
-func (self *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
-	return self.rw.GetLatestSnapshotBlock()
+func (cRw *chainRw) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
+	return cRw.rw.GetLatestSnapshotBlock()
 }
-func (self *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash) error {
+func (cRw *chainRw) checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash, voteTime time.Time) error {
 	if startHash == actual {
 		return nil
 	}
-	startB, e := self.rw.GetSnapshotBlockByHash(&startHash)
+	startB, e := cRw.rw.GetSnapshotBlockByHash(startHash)
 	if e != nil {
 		return e
 	}
 	if startB == nil {
 		return errors.Errorf("start snapshot block is nil. hashH:%s-%d", startHash, startHeight)
 	}
-	actualB, e := self.rw.GetSnapshotBlockByHash(&actual)
+	actualB, e := cRw.rw.GetSnapshotBlockByHash(actual)
 	if e != nil {
 		return e
 	}
 	if actualB == nil {
 		return errors.Errorf("refer snapshot block is nil. hashH:%s", actual)
 	}
+
+	header := cRw.rw.GetLatestSnapshotBlock()
+	if header.Timestamp.Before(voteTime) {
+		return errors.Errorf("snapshot header time must >= voteTime, headerTime:%s, voteTime:%s, headerHash:%s:%d", header.Timestamp, voteTime, header.Hash, header.Height)
+	}
+
 	if actualB.Height < startB.Height {
 		return errors.Errorf("refer snapshot block height must >= start snapshot block height")
 	}
 	return nil
 }
+
+// an hour = 48 * period
+func (cRw *chainRw) GetSuccessRateByHour(index uint64) (map[types.Address]int32, error) {
+	result := make(map[types.Address]int32)
+	hourInfos := make(map[types.Address]*cdb.Content)
+	var prevHash *types.Hash
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		var p *cdb.Point
+		var err error
+		tmpIndex := index - i
+		if prevHash == nil {
+			p, err = cRw.periodPoints.GetByIndex(tmpIndex)
+		} else {
+			p, err = cRw.periodPoints.GetByIndexWithProof(tmpIndex, *prevHash)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			break
+		}
+		infos := p.Sbps
+		for k, v := range infos {
+			c, ok := hourInfos[k]
+			if !ok {
+				hourInfos[k] = v.Copy()
+			} else {
+				c.Merge(v)
+			}
+		}
+		prevHash = &p.PrevHash
+	}
+
+	for k, v := range hourInfos {
+		result[k] = v.Rate()
+	}
+	return result, nil
+}
+
+// an hour = 48 * period
+func (cRw *chainRw) GetSuccessRateByHour2(index uint64) (map[types.Address]*cdb.Content, error) {
+	hourInfos := make(map[types.Address]*cdb.Content)
+	for i := uint64(0); i < hour; i++ {
+		if i > index {
+			break
+		}
+		tmpIndex := index - i
+		p, err := cRw.periodPoints.GetByIndex(tmpIndex)
+		if err != nil {
+			return nil, err
+		}
+		infos := p.Sbps
+		for k, v := range infos {
+			c, ok := hourInfos[k]
+			if !ok {
+				hourInfos[k] = v.Copy()
+			} else {
+				c.Merge(v)
+			}
+		}
+	}
+
+	return hourInfos, nil
+}
+func (cRw *chainRw) getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bool) {
+	result, b := cRw.dbCache.GetElectionResultByHash(hashes)
+	if b != nil {
+		return nil, false
+	}
+	if result != nil {
+		return result, true
+	}
+	result, _ = cRw.getVoteLRUCache(types.SNAPSHOT_GID, hashes)
+	if result != nil {
+		cRw.updateSnapshotVoteCache(hashes, result)
+		return result, true
+	}
+	return nil, false
+}
+func (cRw *chainRw) updateSnapshotVoteCache(hashes types.Hash, addresses []types.Address) {
+	cRw.dbCache.StoreElectionResultByHash(hashes, addresses)
+}
+
+func (cRw *chainRw) getVoteLRUCache(gid types.Gid, hashes types.Hash) ([]types.Address, bool) {
+	if cRw.lruCache == nil {
+		return nil, false
+	}
+	value, ok := cRw.lruCache.Get(cRw.genLruKey(gid, hashes))
+	if ok {
+		return value.([]types.Address), ok
+	}
+	return nil, ok
+}
+
+func (cRw *chainRw) updateVoteLRUCache(gid types.Gid, hashes types.Hash, addrArr []types.Address) {
+	if cRw.lruCache != nil {
+		cRw.log.Info(fmt.Sprintf("store election result %s, %+v\n", hashes, addrArr))
+		cRw.lruCache.Add(cRw.genLruKey(gid, hashes), addrArr)
+	}
+}
+
+func (chainRw) genLruKey(gid types.Gid, hash types.Hash) [types.GidSize + types.HashSize]byte {
+	b1 := gid.Bytes()
+	b2 := hash.Bytes()
+
+	var result [types.GidSize + types.HashSize]byte
+	copy(result[:types.GidSize], b1)
+	copy(result[types.GidSize:], b2)
+	return result
+}
+
+const (
+	period = 1
+	hour   = 48 * period
+	day    = 24 * hour
+)

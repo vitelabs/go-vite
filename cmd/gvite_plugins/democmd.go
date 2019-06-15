@@ -31,7 +31,7 @@ var (
 	}
 )
 
-// localConsole starts a new gvite node, attaching a JavaScript console to it at the same time.
+// localConsole starts chain new gvite node, attaching chain JavaScript console to it at the same time.
 func demoAction(ctx *cli.Context) error {
 
 	// Create and start the node based on the CLI flags

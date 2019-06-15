@@ -1,384 +1,179 @@
 package discovery
 
 import (
-	"encoding/hex"
-	"errors"
-	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/p2p/discovery/protos"
-	"github.com/vitelabs/go-vite/p2p/network"
-	"math"
-	mrand "math/rand"
 	"net"
-	"net/url"
-	"strconv"
-	"strings"
+	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/p2p/netool"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
-// @section NodeID
-var errUnmatchedLength = errors.New("unmatch length, needs 64 hex chars")
-
-var ZERO_NODE_ID NodeID
-
-type NodeID [32]byte
-
-func (id NodeID) Bytes() []byte {
-	return id[:]
-}
-
-func (id NodeID) String() string {
-	return hex.EncodeToString(id[:])
-}
-
-func (id NodeID) Brief() string {
-	return hex.EncodeToString(id[:4])
-}
-
-func (id NodeID) IsZero() bool {
-	for _, byt := range id {
-		if byt|0 != 0 {
-			return false
+var nodePool = sync.Pool{
+	New: func() interface{} {
+		return &Node{
+			Node: vnode.Node{
+				ID:       vnode.ZERO,
+				EndPoint: vnode.EndPoint{},
+				Net:      0,
+				Ext:      nil,
+			},
+			checkAt:  time.Time{},
+			addAt:    time.Time{},
+			activeAt: time.Time{},
+			checking: false,
+			finding:  false,
+			addr:     nil,
 		}
-	}
-	return true
+	},
 }
 
-func (id NodeID) Equal(id2 NodeID) bool {
-	for i := 0; i < 32; i++ {
-		if id[i]^id2[i] != 0 {
-			return false
+func newNode() *Node {
+	return nodePool.Get().(*Node)
+}
+
+func putBack(n *Node) {
+	n.ID = vnode.ZERO
+	n.EndPoint = vnode.EndPoint{}
+	n.Net = 0
+	n.Ext = nil
+	n.checkAt = time.Time{}
+	n.addAt = time.Time{}
+	n.activeAt = time.Time{}
+	n.checking = false
+	n.finding = false
+	n.addr = nil
+	nodePool.Put(n)
+}
+
+type Node struct {
+	vnode.Node
+	checkAt  time.Time
+	addAt    time.Time
+	activeAt time.Time
+	checking bool // is in check flow
+	finding  bool // is finding some target from this node
+	addr     *net.UDPAddr
+	parseAt  time.Time // last time addr parsed
+}
+
+func (n *Node) udpAddr() (addr *net.UDPAddr, err error) {
+	now := time.Now()
+
+	if now.Sub(n.parseAt) > 15*time.Minute || n.addr == nil {
+		addr, err = net.ResolveUDPAddr("udp", n.Address())
+		if err != nil {
+			return
 		}
-	}
 
-	return true
-}
-
-func HexStr2NodeID(str string) (id NodeID, err error) {
-	bytes, err := hex.DecodeString(strings.TrimPrefix(str, "0x"))
-	if err != nil {
+		n.addr = addr
+		n.parseAt = now
 		return
 	}
 
-	return Bytes2NodeID(bytes)
+	return n.addr, nil
 }
 
-func Bytes2NodeID(buf []byte) (id NodeID, err error) {
-	if len(buf) != len(id) {
-		return id, errUnmatchedLength
+// couldFind return false, if there has a find task
+func (n *Node) couldFind() bool {
+	return !n.finding
+}
+
+// is not checking and last check is too long ago
+func (n *Node) shouldCheck() bool {
+	return !n.checking && time.Now().Sub(n.checkAt) > checkExpiration
+}
+
+func (n *Node) update(n2 *Node) {
+	n.ID = n2.ID
+	n.Ext = n2.Ext
+	n.Net = n2.Net
+	n.EndPoint = n2.EndPoint
+}
+
+func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint, addr2 *net.UDPAddr) {
+	var err error
+	var done bool
+	if from != nil {
+		// from is available
+		addr2, err = net.ResolveUDPAddr("udp", from.String())
+		if err == nil {
+			if from.Typ.Is(vnode.HostDomain) || netool.CheckRelayIP(addr.IP, from.Host) == nil {
+				// from is domain, or IP is available
+				done = true
+				e = from
+			}
+		}
 	}
 
-	copy(id[:], buf)
+	if !done {
+		e = udpAddrToEndPoint(addr)
+		addr2 = addr
+	}
+
 	return
 }
 
-// @section Node
-var errMissID = errors.New("missing NodeID")
-var errMissIP = errors.New("missing IP")
-var errInvalidIP = errors.New("invalid IP")
-var errMissPort = errors.New("missing port")
-var errInvalidScheme = errors.New("invalid scheme")
-
-type Node struct {
-	ID       NodeID
-	IP       net.IP
-	UDP      uint16
-	TCP      uint16
-	Net      network.ID
-	addAt    time.Time
-	lastPing time.Time
-	activeAt time.Time
-	weight   int64 // tcp connection lifetime, longer is better
-	findfail int
-}
-
-func (n *Node) proto() *protos.Node {
-	return &protos.Node{
-		ID:  n.ID[:],
-		IP:  n.IP,
-		UDP: uint32(n.UDP),
-		TCP: uint32(n.TCP),
-		Net: uint64(n.Net),
-	}
-}
-
-func protoToNode(pb *protos.Node) (*Node, error) {
-	id, err := Bytes2NodeID(pb.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	node := new(Node)
-	node.ID = id
-	node.IP = pb.IP
-	node.UDP = uint16(pb.UDP)
-	node.TCP = uint16(pb.TCP)
-	node.Net = network.ID(pb.Net)
-
-	return node, nil
-}
-
-func (n *Node) Validate() error {
-	if n.ID.IsZero() {
-		return errMissID
-	}
-
-	if n.IP == nil {
-		return errMissIP
-	}
-
-	//if n.IP.IsLoopback() || n.IP.IsMulticast() || n.IP.IsUnspecified() {
-	//	return errInvalidIP
-	//}
-
-	if n.UDP == 0 {
-		return errMissPort
-	}
-
-	return nil
-}
-
-func (n *Node) Serialize() ([]byte, error) {
-	return proto.Marshal(n.proto())
-}
-
-func (n *Node) Deserialize(bytes []byte) error {
-	pb := new(protos.Node)
-	err := proto.Unmarshal(bytes, pb)
-	if err != nil {
-		return err
-	}
-
-	n2, err := protoToNode(pb)
-	if err != nil {
-		return err
-	}
-
-	*n = *n2
-
-	return nil
-}
-
-func (n *Node) UDPAddr() *net.UDPAddr {
-	return &net.UDPAddr{
-		IP:   n.IP,
-		Port: int(n.UDP),
-	}
-}
-
-func (n *Node) TCPAddr() *net.TCPAddr {
-	port := n.TCP
-	if port == 0 {
-		port = n.UDP
-	}
-	return &net.TCPAddr{
-		IP:   n.IP,
-		Port: int(port),
-	}
-}
-
-// @section NodeURL
-const NodeURLScheme = "vnode"
-
-// marshal node to url-like string which looks like:
-// vnode://<hex node id>
-// vnode://<hex node id>@<ip>:<udpPort>#<tcpPort>
-func (n *Node) String() string {
-	nodeURL := url.URL{
-		Scheme: NodeURLScheme,
-	}
-
-	err := n.Validate()
-	if err == nil {
-		nodeURL.User = url.User(n.ID.String())
-		nodeURL.Host = n.UDPAddr().String()
-		if n.TCP != 0 && n.TCP != n.UDP {
-			nodeURL.Fragment = strconv.Itoa(int(n.TCP))
-		}
-	} else {
-		nodeURL.Host = n.ID.String()
-	}
-
-	nodeURL.RawQuery = "netid=" + strconv.FormatUint(uint64(n.Net), 10)
-
-	return nodeURL.String()
-}
-
-// parse a url-like string to Node
-func ParseNode(u string) (*Node, error) {
-	nodeURL, err := url.Parse(u)
-	if err != nil {
-		return nil, err
-	}
-	if nodeURL.Scheme != NodeURLScheme {
-		return nil, errInvalidScheme
-	}
-	if nodeURL.User == nil {
-		return nil, errMissID
-	}
-
-	id, err := HexStr2NodeID(nodeURL.User.String())
-	if err != nil {
-		return nil, err
-	}
-
-	host, port, err := net.SplitHostPort(nodeURL.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return nil, errInvalidIP
-	}
-
-	var udp, tcp uint16
-	udp, err = parsePort(port)
-	if err != nil {
-		return nil, err
-	}
-
-	if nodeURL.Fragment != "" {
-		tcp, err = parsePort(nodeURL.Fragment)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		tcp = udp
-	}
-
-	var netid uint64
-	query := nodeURL.Query()
-	if query.Get("netid") != "" {
-		var nid uint64
-		if nid, err = strconv.ParseUint(query.Get("netid"), 10, 64); err == nil {
-			netid = nid
-		}
-	}
-
-	return &Node{
-		ID:  id,
-		IP:  ip,
-		UDP: udp,
-		TCP: tcp,
-		Net: network.ID(netid),
-	}, nil
-}
-
-func parsePort(str string) (port uint16, err error) {
-	i, err := strconv.ParseUint(str, 10, 16)
+func nodeFromEndPoint(e vnode.EndPoint) (n *Node, err error) {
+	udp, err := net.ResolveUDPAddr("udp", e.String())
 	if err != nil {
 		return
 	}
 
-	return uint16(i), nil
+	return &Node{
+		Node: vnode.Node{
+			EndPoint: e,
+		},
+		addr:    udp,
+		parseAt: time.Now(),
+	}, nil
 }
 
-// @section distance
-
-// bytes xor to distance mapping table
-var matrix = [256]int{
-	0, 1, 2, 2, 3, 3, 3, 3,
-	4, 4, 4, 4, 4, 4, 4, 4,
-	5, 5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5, 5, 5, 5, 5, 5,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 6, 6, 6, 6, 6, 6,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 7, 7, 7, 7,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-	8, 8, 8, 8, 8, 8, 8, 8,
-}
-
-// xor every byte of a and b from left to right.
-// term at the first different byte (for brevity, we call it FDB).
-// distance of a and b is bits-count of the FDB plus the bits-count of rest bytes.
-func calcDistance(a, b NodeID) int {
-	delta := 0
-	var i int
-	for i := range a {
-		x := a[i] ^ b[i]
-		if x != 0 {
-			delta += matrix[x]
-			break
-		}
-	}
-
-	return delta + (len(a)-i-1)*8
-}
-
-// (distance between target and a) compare to (distance between target and b)
-func disCmp(target, a, b NodeID) int {
-	var cmp byte
-	for i := range target {
-		cmp = a[i] ^ target[i] - b[i] ^ target[i]
-		if cmp > 0 {
-			return 1
-		}
-		if cmp < 0 {
-			return -1
-		}
-	}
-
-	return 0
-}
-
-func findNodeIDFromDistance(a NodeID, d int) NodeID {
-	if d == 0 {
-		return a
-	}
-	b := a
-
-	// pos mean the FDB between a and b from left to right.
-	pos := len(a) - d/8 - 1
-
-	xor := byte(d % 8)
-	// mean the xor of FDB is greater or equal 127.
-	if xor == 0 {
-		pos++
-		xor = byte(randInt(127, 256))
+func udpAddrToEndPoint(addr *net.UDPAddr) (e *vnode.EndPoint) {
+	e = new(vnode.EndPoint)
+	if ip4 := addr.IP.To4(); len(ip4) != 0 {
+		e.Host = ip4
+		e.Typ = vnode.HostIPv4
 	} else {
-		xor = expRand(xor)
+		e.Host = addr.IP
+		e.Typ = vnode.HostIPv6
 	}
-	// if byte1 xor byte2 get d,
-	// then byte2 can be calc from (byte1^d | ^byte1&d)
-	b[pos] = a[pos]&^xor | ^a[pos]&xor
+	e.Port = addr.Port
 
-	// fill the rest bytes.
-	for i := pos + 1; i < len(a); i++ {
-		b[i] = byte(mrand.Intn(255))
-	}
-
-	return b
+	return
 }
 
-func randInt(min, max int) int {
-	return mrand.Intn(max-min) + min
+func nodeFromPing(res *packet) *Node {
+	p := res.body.(*ping)
+
+	e, addr := extractEndPoint(res.from, p.from)
+
+	return &Node{
+		Node: vnode.Node{
+			ID:       res.id,
+			EndPoint: *e,
+			Net:      p.net,
+			Ext:      p.ext,
+		},
+		addr:    addr,
+		parseAt: time.Now(),
+	}
 }
 
-// get rand int in [2**(n-1), 2**n)
-func expRand(n byte) byte {
-	low, up := int(math.Pow(2.0, float64(n-1))), int(math.Pow(2.0, float64(n)))
-	return byte(randInt(low, up))
+func nodeFromPong(res *packet) *Node {
+	p := res.body.(*pong)
+
+	e, addr := extractEndPoint(res.from, p.from)
+
+	return &Node{
+		Node: vnode.Node{
+			ID:       res.id,
+			EndPoint: *e,
+			Net:      p.net,
+			Ext:      p.ext,
+		},
+		addr:    addr,
+		parseAt: time.Now(),
+	}
 }

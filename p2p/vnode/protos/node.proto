@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package protos;
+
+message Node {
+    bytes ID = 1;
+    bytes Hostname = 2;
+    uint32 HostType = 3;
+    uint32 Port = 4;
+    uint32 Net = 5;
+    bytes Ext = 6;
+}
+
+message EndPoint {
+    bytes Host = 1;
+	int32 Port = 2;
+	int32 HostType = 3;
+}

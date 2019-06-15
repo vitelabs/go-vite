@@ -9,8 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_context"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type RegisterApi struct {
@@ -32,16 +33,16 @@ func (r RegisterApi) String() string {
 }
 
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameCancelRegister, gid, name)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIRegister.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
+	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
 
 type RegistrationInfo struct {
@@ -51,7 +52,7 @@ type RegistrationInfo struct {
 	PledgeAmount   string        `json:"pledgeAmount"`
 	WithdrawHeight string        `json:"withdrawHeight"`
 	WithdrawTime   int64         `json:"withdrawTime"`
-	CancelHeight   string        `json:"cancelHeight"`
+	CancelTime     int64         `json:"cancelTime"`
 }
 
 type byRegistrationWithdrawHeight []*types.Registration
@@ -60,18 +61,28 @@ func (a byRegistrationWithdrawHeight) Len() int      { return len(a) }
 func (a byRegistrationWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 	if a[i].WithdrawHeight == a[j].WithdrawHeight {
-		return a[i].CancelHeight > a[j].CancelHeight
+		if a[i].CancelTime == a[j].CancelTime {
+			return a[i].Name > a[j].Name
+		} else {
+			return a[i].CancelTime > a[j].CancelTime
+		}
 	}
 	return a[i].WithdrawHeight > a[j].WithdrawHeight
 }
 
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
-	snapshotBlock := r.chain.GetLatestSnapshotBlock()
-	vmContext, err := vm_context.NewVmContext(r.chain, &snapshotBlock.Hash, nil, nil)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	list := abi.GetRegistrationList(vmContext, gid, pledgeAddr)
+	snapshotBlock, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	list, err := abi.GetRegistrationList(db, gid, pledgeAddr)
+	if err != nil {
+		return nil, err
+	}
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
 		sort.Sort(byRegistrationWithdrawHeight(list))
@@ -81,39 +92,114 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 				NodeAddr:       info.NodeAddr,
 				PledgeAddr:     info.PledgeAddr,
 				PledgeAmount:   *bigIntToString(info.Amount),
-				WithdrawHeight: uint64ToString(info.WithdrawHeight),
+				WithdrawHeight: Uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-				CancelHeight:   uint64ToString(info.CancelHeight),
+				CancelTime:     info.CancelTime,
 			}
 		}
 	}
 	return targetList, nil
 }
 
-func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	return abi.GetRegistration(vmContext, gid, name), nil
+	info, err := abi.GetRegistration(db, gid, name)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	if err != nil {
+		return nil, err
+	}
+	result := ToReward(reward)
+	result.Drained = contracts.RewardDrained(reward, drained)
+	return result, nil
 }
 
-// Deprecated: Use GetRegistration instead
-func (r *RegisterApi) GetRegisterPledgeAddr(name string, gid *types.Gid) (*types.Address, error) {
-	var g types.Gid
-	if gid == nil || *gid == types.DELEGATE_GID {
-		g = types.SNAPSHOT_GID
+type Reward struct {
+	BlockReward      string `json:"blockReward"`
+	VoteReward       string `json:"voteReward"`
+	TotalReward      string `json:"totalReward"`
+	BlockNum         string `json:"blockNum"`
+	ExpectedBlockNum string `json:"expectedBlockNum"`
+	Drained          bool   `json:"drained"`
+}
+
+func ToReward(source *contracts.Reward) *Reward {
+	if source == nil {
+		return &Reward{TotalReward: "0",
+			VoteReward:       "0",
+			BlockReward:      "0",
+			BlockNum:         "0",
+			ExpectedBlockNum: "0"}
 	} else {
-		g = *gid
+		return &Reward{TotalReward: *bigIntToString(source.TotalReward),
+			VoteReward:       *bigIntToString(source.VoteReward),
+			BlockReward:      *bigIntToString(source.BlockReward),
+			BlockNum:         Uint64ToString(source.BlockNum),
+			ExpectedBlockNum: Uint64ToString(source.ExpectedBlockNum)}
 	}
-	registration, err := r.GetRegistration(name, g)
+}
+
+func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	if registration != nil {
-		return &registration.PledgeAddr, nil
+	m, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	rewardMap := make(map[string]*Reward, len(m))
+	for name, reward := range m {
+		rewardMap[name] = ToReward(reward)
+	}
+	return rewardMap, nil
+}
+
+type RewardInfo struct {
+	RewardMap map[string]*Reward `json:"rewardMap"`
+	StartTime int64              `json:"startTime"`
+	EndTime   int64              `json:"endTime"`
+}
+
+func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
+	index, err := StringToUint64(indexStr)
+	if err != nil {
+		return nil, err
+	}
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	m, err := contracts.CalcRewardByDayIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	if err != nil {
+		return nil, err
+	}
+	rewardMap := make(map[string]*Reward, len(m))
+	for name, reward := range m {
+		rewardMap[name] = ToReward(reward)
+	}
+	startTime, endTime := r.cs.SBPReader().GetDayTimeIndex().Index2Time(index)
+	return &RewardInfo{rewardMap, startTime.Unix(), endTime.Unix()}, nil
+}
+
+func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	return abi.GetRegistration(db, gid, name)
 }
 
 type RegistParam struct {
@@ -125,17 +211,21 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if len(paramList) == 0 {
 		return nil, nil
 	}
-	addrList := make([]*types.Address, len(paramList))
-	vmContext, err := vm_context.NewVmContext(r.chain, nil, nil, nil)
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
+	addrList := make([]*types.Address, len(paramList))
 	for k, v := range paramList {
 		var r *types.Registration
 		if v.Gid == nil || *v.Gid == types.DELEGATE_GID {
-			r = abi.GetRegistration(vmContext, types.SNAPSHOT_GID, v.Name)
+			if r, err = abi.GetRegistration(db, types.SNAPSHOT_GID, v.Name); err != nil {
+				return nil, err
+			}
 		} else {
-			r = abi.GetRegistration(vmContext, *v.Gid, v.Name)
+			if r, err = abi.GetRegistration(db, *v.Gid, v.Name); err != nil {
+				return nil, err
+			}
 		}
 		if r != nil {
 			addrList[k] = &r.PledgeAddr
@@ -150,9 +240,9 @@ type CandidateInfo struct {
 	VoteNum  string        `json:"voteNum"`
 }
 
-func (r *RegisterApi) GetCandidateList(gid types.Gid) ([]*CandidateInfo, error) {
+func (r *RegisterApi) GetCandidateList() ([]*CandidateInfo, error) {
 	head := r.chain.GetLatestSnapshotBlock()
-	details, _, err := r.cs.ReadVoteMapForAPI(gid, (*head.Timestamp).Add(time.Second))
+	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
 	if err != nil {
 		return nil, err
 	}

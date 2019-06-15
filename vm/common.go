@@ -1,6 +1,6 @@
 package vm
 
 const (
-	Retry   = true
-	NoRetry = false
+	retry   = true
+	noRetry = false
 )

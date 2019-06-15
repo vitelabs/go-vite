@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -136,13 +137,13 @@ func (self *producer) Start() error {
 
 	self.cs.Subscribe(types.SNAPSHOT_GID, snapshotId, &self.coinbase.Address, func(e consensus.Event) {
 		mLog.Info("snapshot producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
-		if self.syncState == net.Syncdone {
+		if self.syncState == net.SyncDone {
 			self.worker.produceSnapshot(e)
 		}
 	})
 	self.cs.Subscribe(types.DELEGATE_GID, contractId, &self.coinbase.Address, func(e consensus.Event) {
 		mLog.Info("contract producer trigger.", "addr", self.coinbase.Address, "syncState", self.syncState, "e", e)
-		if self.syncState == net.Syncdone {
+		if self.syncState == net.SyncDone {
 			self.producerContract(e)
 		}
 	})
@@ -188,16 +189,21 @@ func (self *producer) producerContract(e consensus.Event) {
 			return
 		}
 
+		header := self.tools.chain.GetLatestSnapshotBlock()
+		if header.Timestamp.Before(e.VoteTime) {
+			mLog.Error(fmt.Sprintf("contract producer fail. snapshot is too lower. voteTime:%s, headerTime:%s, headerHeight:%d, headerHash:%s", e.VoteTime, header.Timestamp, header.Height, header.Hash))
+			return
+		}
+		if err := self.tools.checkStableSnapshotChain(header); err != nil {
+			mLog.Error(fmt.Sprintf("contract producer fail. snapshot is not stable version. voteTime:%s, startTime:%s, endTime:%s", e.VoteTime, e.Stime, e.Etime))
+			return
+		}
+
 		tmpEvent := producerevent.AccountStartEvent{
-			Gid:              e.Gid,
-			EntropyStorePath: self.coinbase.EntryPath,
-			Bip44Index:       self.coinbase.Index,
-			Address:          e.Address,
-			Stime:            e.Stime,
-			Etime:            e.Etime,
-			Timestamp:        e.Timestamp,
-			SnapshotHash:     e.SnapshotHash,
-			SnapshotHeight:   e.SnapshotHeight,
+			Gid:     e.Gid,
+			Address: e.Address,
+			Stime:   e.Stime,
+			Etime:   e.Etime,
 		}
 		common.Go(func() {
 			fn(tmpEvent)

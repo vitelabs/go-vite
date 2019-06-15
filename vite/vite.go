@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
@@ -28,57 +29,67 @@ var (
 type Vite struct {
 	config *config.Config
 
-	walletManager    *wallet.Manager
-	snapshotVerifier *verifier.SnapshotVerifier
-	accountVerifier  *verifier.AccountVerifier
-	chain            chain.Chain
-	producer         producer.Producer
-	net              net.Net
-	pool             pool.BlockPool
-	consensus        consensus.Consensus
-	onRoad           *onroad.Manager
-	p2p              *p2p.Server
+	walletManager   *wallet.Manager
+	accountVerifier verifier.Verifier
+	chain           chain.Chain
+	producer        producer.Producer
+	net             net.Net
+	pool            pool.BlockPool
+	consensus       consensus.Consensus
+	onRoad          *onroad.Manager
+	p2p             p2p.P2P
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
+	// set fork points
+	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain
-	chain := chain.NewChain(cfg)
+	chain := chain.NewChain(cfg.DataDir, cfg.Chain, cfg.Genesis)
 
+	err = chain.Init()
+	if err != nil {
+		return nil, err
+	}
 	// pool
-	pl := pool.NewPool(chain)
-	genesis := chain.GetGenesisSnapshotBlock()
-
+	pl, err := pool.NewPool(chain)
+	if err != nil {
+		return nil, err
+	}
 	// consensus
-	cs := consensus.NewConsensus(*genesis.Timestamp, chain)
+	cs := consensus.NewConsensus(chain, pl)
 
 	// sb verifier
 	aVerifier := verifier.NewAccountVerifier(chain, cs)
 	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
 
+	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	// net
-	netVerifier := verifier.NewNetVerifier(sbVerifier, aVerifier)
-	net := net.New(&net.Config{
-		Single:       cfg.Single,
-		Port:         uint16(cfg.FilePort),
-		Chain:        chain,
-		Verifier:     netVerifier,
-		Topology:     cfg.Topology,
-		Topic:        cfg.Topic,
-		Interval:     cfg.Interval,
-		TopoDisabled: cfg.TopoDisabled,
+	var net = net.New(net.Config{
+		Single:             cfg.Single,
+		FileListenAddress:  cfg.FileListenAddress,
+		TraceEnabled:       false,
+		ForwardStrategy:    cfg.ForwardStrategy,
+		AccessControl:      cfg.AccessControl,
+		AccessAllowKeys:    cfg.AccessAllowKeys,
+		AccessDenyKeys:     cfg.AccessDenyKeys,
+		BlackBlockHashList: cfg.BlackBlockHashList,
+		MinePrivateKey:     cfg.MinePrivateKey,
+		P2PPrivateKey:      cfg.P2PPrivateKey,
+		Chain:              chain,
+		Verifier:           verifier,
 	})
+	net.Init(cs, pl)
 
 	// vite
 	vite = &Vite{
-		config:           cfg,
-		walletManager:    walletManager,
-		net:              net,
-		chain:            chain,
-		pool:             pl,
-		consensus:        cs,
-		snapshotVerifier: sbVerifier,
-		accountVerifier:  aVerifier,
+		config:          cfg,
+		walletManager:   walletManager,
+		net:             net,
+		chain:           chain,
+		pool:            pl,
+		consensus:       cs,
+		accountVerifier: verifier,
 	}
 
 	// producer
@@ -104,7 +115,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	// onroad
-	or := onroad.NewManager(net, pl, vite.producer, walletManager)
+	or := onroad.NewManager(net, pl, vite.producer, vite.consensus, walletManager)
 
 	// set onroad
 	vite.onRoad = or
@@ -112,9 +123,9 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 }
 
 func (v *Vite) Init() (err error) {
-	vm.InitVmConfig(v.config.IsVmTest, v.config.IsUseVmTestParam)
+	vm.InitVMConfig(v.config.IsVmTest, v.config.IsUseVmTestParam, v.config.IsVmDebug, v.config.DataDir)
 
-	v.chain.Init()
+	//v.chain.Init()
 	if v.producer != nil {
 		if err := v.producer.Init(); err != nil {
 			log.Error("Init producer failed, error is "+err.Error(), "method", "vite.Init")
@@ -122,12 +133,14 @@ func (v *Vite) Init() (err error) {
 		}
 	}
 
+	// initOnRoadPool
 	v.onRoad.Init(v.chain)
+	v.accountVerifier.InitOnRoadPool(v.onRoad)
 
 	return nil
 }
 
-func (v *Vite) Start(p2p *p2p.Server) (err error) {
+func (v *Vite) Start(p2p p2p.P2P) (err error) {
 	v.p2p = p2p
 
 	v.onRoad.Start()
@@ -139,7 +152,7 @@ func (v *Vite) Start(p2p *p2p.Server) (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.snapshotVerifier, v.accountVerifier)
+	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier, v.consensus)
 
 	v.consensus.Start()
 
@@ -208,7 +221,7 @@ func (v *Vite) Config() *config.Config {
 	return v.config
 }
 
-func (v *Vite) P2P() *p2p.Server {
+func (v *Vite) P2P() p2p.P2P {
 	return v.p2p
 }
 

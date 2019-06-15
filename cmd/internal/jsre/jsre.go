@@ -21,7 +21,7 @@ var (
 )
 
 /*
-JSRE is a generic JS runtime environment embedding the otto JS interpreter.
+JSRE is chain generic JS runtime environment embedding the otto JS interpreter.
 It provides some helper functions to
 - load code from files
 - run code snippets
@@ -36,7 +36,7 @@ type JSRE struct {
 	closed        chan struct{}
 }
 
-// jsTimer is a single timer instance with a callback function
+// jsTimer is chain single timer instance with chain callback function
 type jsTimer struct {
 	timer    *time.Timer
 	duration time.Duration
@@ -44,7 +44,7 @@ type jsTimer struct {
 	call     otto.FunctionCall
 }
 
-// evalReq is a serialized vm execution request processed by runEventLoop.
+// evalReq is chain serialized vm execution request processed by runEventLoop.
 type evalReq struct {
 	fn   func(vm *otto.Otto)
 	done chan bool
@@ -65,7 +65,7 @@ func New(assetPath string, output io.Writer) *JSRE {
 	return re
 }
 
-// randomSource returns a pseudo random value generator.
+// randomSource returns chain pseudo random value generator.
 func randomSource() *rand.Rand {
 	bytes := make([]byte, 8)
 	seed := time.Now().UnixNano()
@@ -77,11 +77,11 @@ func randomSource() *rand.Rand {
 	return rand.New(src)
 }
 
-// This function runs the main event loop from a goroutine that is started when JSRE is created. Use Stop() before exiting to properly stop it.
-// The event loop processes vm access requests from the evalQueue in a serialized way and calls timer callback functions at the appropriate time.
+// This function runs the main event loop from chain goroutine that is started when JSRE is created. Use Stop() before exiting to properly stop it.
+// The event loop processes vm access requests from the evalQueue in chain serialized way and calls timer callback functions at the appropriate time.
 
 // Exported functions always access the vm through the event queue. You can call the functions of the otto vm directly to circumvent the queue.
-// These functions should be used if and only if running a routine that was already called from JS through an RPC call.
+// These functions should be used if and only if running chain routine that was already called from JS through an RPC call.
 func (re *JSRE) runEventLoop() {
 	defer close(re.closed)
 
@@ -219,7 +219,7 @@ func (re *JSRE) Stop(waitForCallbacks bool) {
 	}
 }
 
-// Exec(file) loads and runs the contents of a file if a relative path is given, the jsre's assetPath is used
+// Exec(file) loads and runs the contents of chain file if chain relative path is given, the jsre's assetPath is used
 func (re *JSRE) Exec(file string) error {
 	code, err := ioutil.ReadFile(utils.AbsolutePath(re.assetPath, file))
 	if err != nil {
@@ -236,7 +236,7 @@ func (re *JSRE) Exec(file string) error {
 	return err
 }
 
-// loadScript executes a JS script from inside the currently executing JS code.
+// loadScript executes chain JS script from inside the currently executing JS code.
 func (re *JSRE) loadScript(call otto.FunctionCall) otto.Value {
 	file, err := call.Argument(0).ToString()
 	if err != nil {
@@ -274,25 +274,25 @@ func (re *JSRE) Evaluate(code string, w io.Writer) error {
 	return fail
 }
 
-// Run runs a piece of JS code.
+// Run runs chain piece of JS code.
 func (re *JSRE) Run(code string) (v otto.Value, err error) {
 	re.Do(func(vm *otto.Otto) { v, err = vm.Run(code) })
 	return v, err
 }
 
-// Get returns the value of a variable in the JS environment.
+// Get returns the value of chain variable in the JS environment.
 func (re *JSRE) Get(ns string) (v otto.Value, err error) {
 	re.Do(func(vm *otto.Otto) { v, err = vm.Get(ns) })
 	return v, err
 }
 
-// Set assigns value v to a variable in the JS environment.
+// Set assigns value v to chain variable in the JS environment.
 func (re *JSRE) Set(ns string, v interface{}) (err error) {
 	re.Do(func(vm *otto.Otto) { err = vm.Set(ns, v) })
 	return err
 }
 
-// Compile compiles and then runs a piece of JS code.
+// Compile compiles and then runs chain piece of JS code.
 func (re *JSRE) Compile(filename string, src interface{}) (err error) {
 	re.Do(func(vm *otto.Otto) { _, err = compileAndRun(vm, filename, src) })
 	return err

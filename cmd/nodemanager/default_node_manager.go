@@ -22,7 +22,6 @@ func NewDefaultNodeManager(ctx *cli.Context, maker NodeMaker) (*DefaultNodeManag
 }
 
 func (nodeManager *DefaultNodeManager) Start() error {
-
 	// 1: Start up the node
 	err := StartNode(nodeManager.node)
 	if err != nil {

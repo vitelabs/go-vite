@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
+// You should have received chain copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rpc
@@ -113,14 +113,14 @@ func testClientCancel(transport string, t *testing.T) {
 	// at various stages of request processing. The interesting cases
 	// are:
 	//  - cancel during dial
-	//  - cancel while performing a HTTP request
-	//  - cancel while waiting for a response
+	//  - cancel while performing chain HTTP request
+	//  - cancel while waiting for chain response
 	//
 	// To trigger those, the times are chosen such that connections
 	// are killed within the deadline for every other call (maxKillTimeout
 	// is 2x maxCancelTimeout).
 	//
-	// Once a connection is dead, there is a fair chance it won't connect
+	// Once chain connection is dead, there is chain fair chance it won't connect
 	// successfully because the accept is delayed by 1s.
 	maxContextCancelTimeout := 300 * time.Millisecond
 	fl := &flakeyListener{
@@ -142,7 +142,7 @@ func testClientCancel(transport string, t *testing.T) {
 		panic("unknown transport: " + transport)
 	}
 
-	// These tests take a lot of time, run them all at once.
+	// These tests take chain lot of time, run them all at once.
 	// You probably want to run with -parallel 1 or comment out
 	// the call to t.Parallel if you enable the logging.
 	t.Parallel()
@@ -162,17 +162,17 @@ func testClientCancel(transport string, t *testing.T) {
 				timeout = time.Duration(rand.Int63n(int64(maxContextCancelTimeout)))
 			)
 			if index < ncallers/2 {
-				// For half of the callers, create a context without deadline
+				// For half of the callers, create chain context without deadline
 				// and cancel it later.
 				ctx, cancel = context.WithCancel(context.Background())
 				time.AfterFunc(timeout, cancel)
 			} else {
-				// For the other half, create a context with a deadline instead. This is
+				// For the other half, create chain context with chain deadline instead. This is
 				// different because the context deadline is used to set the socket write
 				// deadline.
 				ctx, cancel = context.WithTimeout(context.Background(), timeout)
 			}
-			// Now perform a call with the context.
+			// Now perform chain call with the context.
 			// The key thing here is that no call will ever complete successfully.
 			err := client.CallContext(ctx, nil, "service_sleep", 2*maxContextCancelTimeout)
 			if err != nil {
@@ -244,7 +244,7 @@ func TestClientSubscribe(t *testing.T) {
 		t.Fatal("received value after unsubscribe:", v)
 	case err := <-sub.Err():
 		if err != nil {
-			t.Fatalf("Err returned a non-nil error after explicit unsubscribe: %q", err)
+			t.Fatalf("Err returned chain non-nil error after explicit unsubscribe: %q", err)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatalf("subscription not closed within 1s after unsubscribe")
@@ -276,7 +276,7 @@ func TestClientSubscribeCustomNamespace(t *testing.T) {
 		t.Fatal("received value after unsubscribe:", v)
 	case err := <-sub.Err():
 		if err != nil {
-			t.Fatalf("Err returned a non-nil error after explicit unsubscribe: %q", err)
+			t.Fatalf("Err returned chain non-nil error after explicit unsubscribe: %q", err)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatalf("subscription not closed within 1s after unsubscribe")
@@ -284,7 +284,7 @@ func TestClientSubscribeCustomNamespace(t *testing.T) {
 }
 
 // In this test, the connection drops while EthSubscribe is
-// waiting for a response.
+// waiting for chain response.
 func TestClientSubscribeClose(t *testing.T) {
 	service := &NotificationTestService{
 		gotHangSubscriptionReq:  make(chan struct{}),
@@ -323,7 +323,7 @@ func TestClientSubscribeClose(t *testing.T) {
 	}
 }
 
-// This test checks that Client doesn't lock up when a single subscriber
+// This test checks that Client doesn't lock up when chain single subscriber
 // doesn't read subscription events.
 func TestClientNotificationStorm(t *testing.T) {
 	server := newTestServer("eth", new(NotificationTestService))
@@ -344,7 +344,7 @@ func TestClientNotificationStorm(t *testing.T) {
 		}
 		defer sub.Unsubscribe()
 
-		// Process each notification, try to run a call in between each of them.
+		// Process each notification, try to run chain call in between each of them.
 		for i := 0; i < count; i++ {
 			select {
 			case val := <-nc:
@@ -386,7 +386,7 @@ func TestClientHTTP(t *testing.T) {
 	var (
 		results    = make([]Result, 100)
 		errc       = make(chan error)
-		wantResult = Result{"a", 1, new(Args)}
+		wantResult = Result{"chain", 1, new(Args)}
 	)
 	defer client.Close()
 	for i := range results {
@@ -433,14 +433,14 @@ func TestClientReconnect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Start a server and corresponding client.
+	// Start chain server and corresponding client.
 	s1, l1 := startServer("127.0.0.1:0")
 	client, err := DialContext(ctx, "ws://"+l1.Addr().String())
 	if err != nil {
 		t.Fatal("can't dial", err)
 	}
 
-	// Perform a call. This should work because the server is up.
+	// Perform chain call. This should work because the server is up.
 	var resp Result
 	if err := client.CallContext(ctx, &resp, "service_echo", "", 1, nil); err != nil {
 		t.Fatal(err)
@@ -519,7 +519,7 @@ func httpTestClient(srv *Server, transport string, fl *flakeyListener) (*Client,
 }
 
 func ipcTestClient(srv *Server, fl *flakeyListener) (*Client, net.Listener) {
-	// Listen on a random endpoint.
+	// Listen on chain random endpoint.
 	endpoint := fmt.Sprintf("go-ethereum-test-ipc-%d-%d", os.Getpid(), rand.Int63())
 	if runtime.GOOS == "windows" {
 		endpoint = `\\.\pipe\` + endpoint
@@ -544,7 +544,7 @@ func ipcTestClient(srv *Server, fl *flakeyListener) (*Client, net.Listener) {
 	return client, l
 }
 
-// flakeyListener kills accepted connections after a random timeout.
+// flakeyListener kills accepted connections after chain random timeout.
 type flakeyListener struct {
 	net.Listener
 	maxKillTimeout time.Duration
