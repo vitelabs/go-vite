@@ -151,19 +151,20 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 		return
 	}
 
-	err = client.SubmitRequestTx(RequestTxParams{
+	hashH, err := client.SubmitRequestTx(RequestTxParams{
 		ToAddr:   to,
 		SelfAddr: self,
 		Amount:   big.NewInt(10000),
 		TokenId:  ledger.ViteTokenId,
 		Data:     []byte("hello pow"),
-	}, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
+	}, nil, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
 		return Wallet3.SignData(addr, data)
 	})
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	t.Log("submit request tx success.", hashH.Hash, hashH.Height)
 }
 
 func TestClient_SubmitRequestTxWithPow(t *testing.T) {

@@ -44,7 +44,7 @@ type BalanceAllQuery struct {
 }
 
 type ledgerClient interface {
-	SubmitRequestTx(params RequestTxParams, f SignFunc) error
+	SubmitRequestTx(params RequestTxParams, prev *ledger.HashHeight, f SignFunc) (*ledger.HashHeight, error)
 	SubmitRequestTxWithPow(params RequestTxParams, f SignFunc) error
 	SubmitResponseTx(params ResponseTxParams, f SignFunc) error
 	SubmitResponseTxWithPow(params ResponseTxParams, f SignFunc) error
@@ -67,27 +67,29 @@ type client struct {
 
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
-func (c *client) SubmitRequestTx(params RequestTxParams, f SignFunc) error {
-	latest, err := c.rpc.GetLatest(params.SelfAddr)
+func (c *client) SubmitRequestTx(params RequestTxParams, prev *ledger.HashHeight, f SignFunc) (*ledger.HashHeight, error) {
+	if prev == nil {
+		latest, err := c.rpc.GetLatest(params.SelfAddr)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return nil, err
+		}
+		prevHeight := uint64(0)
+		if latest.Height != "" {
+			prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		}
+		prev = &ledger.HashHeight{Height: prevHeight, Hash: latest.Hash}
 	}
+
 	amount := params.Amount.String()
 
-	prevHeight := uint64(0)
-	var prevHash types.Hash
-	if latest.Height != "" {
-		prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
-		if err != nil {
-			return err
-		}
-		prevHash = latest.Hash
-	}
 	b := api.NormalRequestRawTxParam{
 		BlockType:      ledger.BlockTypeSendCall,
 		Hash:           types.Hash{},
-		PrevHash:       prevHash,
+		PrevHash:       prev.Hash,
 		AccountAddress: params.SelfAddr,
 		PublicKey:      nil,
 		ToAddress:      params.ToAddr,
@@ -95,25 +97,28 @@ func (c *client) SubmitRequestTx(params RequestTxParams, f SignFunc) error {
 		Data:           params.Data,
 		Nonce:          nil,
 		Signature:      nil,
-		Height:         strconv.FormatUint(prevHeight+1, 10),
+		Height:         strconv.FormatUint(prev.Height+1, 10),
 		Amount:         amount,
 		Difficulty:     nil,
 	}
 
 	accBlock, err := b.LedgerAccountBlock()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	b.Hash = accBlock.ComputeHash()
 
 	signedData, pubkey, err := f(params.SelfAddr, b.Hash.Bytes())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	b.Signature = signedData
 	b.PublicKey = pubkey
-
-	return c.rpc.SubmitRaw(b)
+	err = c.rpc.SubmitRaw(b)
+	if err != nil {
+		return nil, err
+	}
+	return &ledger.HashHeight{Hash: b.Hash, Height: prev.Height + 1}, nil
 }
 
 func (c *client) SubmitRequestTxWithPow(params RequestTxParams, f SignFunc) error {
