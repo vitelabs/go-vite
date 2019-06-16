@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"strconv"
 	"testing"
 
@@ -9,9 +10,9 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
-var RawUrl = "http://127.0.0.1:48130"
+//var RawUrl = "http://127.0.0.1:48130"
 
-//var RawUrl = "http://45.40.197.46:48132"
+var RawUrl = "http://118.25.182.202:48132"
 
 func TestSendRaw(t *testing.T) {
 	//client, err := NewRpcClient("http://45.40.197.46:48132")
@@ -232,4 +233,38 @@ func TestQueryDifficulty(t *testing.T) {
 		return
 	}
 	t.Log(bs)
+}
+
+func TestQueryReward(t *testing.T) {
+	client, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	bs, e := client.GetRewardByIndex(0)
+
+	if e != nil {
+		t.Error(e)
+		return
+	}
+	byt, _ := json.Marshal(bs)
+	t.Log(string(byt))
+}
+
+func TestQueryVoteDetails(t *testing.T) {
+	client, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	bs, e := client.GetVoteDetailsByIndex(0)
+
+	if e != nil {
+		t.Error(e)
+		return
+	}
+	byt, _ := json.Marshal(bs)
+	t.Log(string(byt))
 }

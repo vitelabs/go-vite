@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 )
@@ -55,6 +56,9 @@ type RpcClient interface {
 	Balance(query BalanceQuery) (*TokenBalance, error)
 	BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error)
 	GetDifficulty(query DifficultyQuery) (diffculty string, err error)
+
+	GetRewardByIndex(index uint64) (reward *api.RewardInfo, err error)
+	GetVoteDetailsByIndex(index uint64) (details []*consensus.VoteDetails, err error)
 }
 
 func NewRpcClient(rawurl string) (RpcClient, error) {
