@@ -92,7 +92,7 @@ func (c *client) SubmitRequestTx(params RequestTxParams, f SignFunc) error {
 		PublicKey:      nil,
 		ToAddress:      params.ToAddr,
 		TokenId:        params.TokenId,
-		Data:           nil,
+		Data:           params.Data,
 		Nonce:          nil,
 		Signature:      nil,
 		Height:         strconv.FormatUint(prevHeight+1, 10),
