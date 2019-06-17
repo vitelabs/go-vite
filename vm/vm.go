@@ -55,10 +55,11 @@ func AddContractABI(addr types.Address, info abi.ABIContract) {
 	}
 	nodeConfig.ContractABIMap[addr] = info
 }
-func GetContractABI(addr types.Address) abi.ABIContract {
+func GetContractABI(addr types.Address) (abi.ABIContract, bool) {
 	nodeConfig.contractABIMapRW.RLock()
 	defer nodeConfig.contractABIMapRW.RUnlock()
-	return nodeConfig.ContractABIMap[addr]
+	contractAbi, ok := nodeConfig.ContractABIMap[addr]
+	return contractAbi, ok
 }
 
 var nodeConfig NodeConfig
