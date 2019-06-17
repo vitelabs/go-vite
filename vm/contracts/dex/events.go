@@ -20,7 +20,7 @@ const minedVxForPledgeEventName = "minedVxForPledgeEvent"
 const brokerFeeDividendEventName = "brokerFeeDividendEvent"
 const errEventName = "errEvent"
 
-type OrderEvent interface {
+type DexEvent interface {
 	GetTopicId() types.Hash
 	toDataBytes() []byte
 	FromBytes([]byte) interface{}

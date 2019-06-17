@@ -75,7 +75,9 @@ message UserFeeAccount {
 
 message BrokerMarketFee {
     int32 MarketId = 1;
-    bytes Amount = 2;
+    int32 TakerBrokerFeeRate = 2;
+    int32 MakerBrokerFeeRate = 3;
+    bytes Amount = 4;
 }
 
 message BrokerFeeAccount {
@@ -112,7 +114,7 @@ message FeeDividendForVxHolder {
 //event
 message MinedVxForFee { // reused by trade fee and invitee fee
     bytes Address = 1;
-    bytes QuoteTokenType = 2; // 1 vite, 2 eth, 3 btc, 4 usd
+    int32 QuoteTokenType = 2; // 1 vite, 2 eth, 3 btc, 4 usd
     bytes FeeAmount = 3; // decimals depends on QuoteTokenType
     bytes MinedAmount = 4; // mined vx amount
 }
@@ -126,7 +128,10 @@ message MinedVxForPledge {
 
 //event
 message BrokerFeeDividend {
-    int32 MarketId = 1;
-    bytes Amount = 2; //depend on marketInfo.QuoteToken
+    bytes Address = 1;
+    int32 MarketId = 2;
+    int32 TakerBrokerFeeRate = 3;
+    int32 MakerBrokerFeeRate = 4;
+    bytes Amount = 5; //depend on marketInfo.QuoteToken
 }
 

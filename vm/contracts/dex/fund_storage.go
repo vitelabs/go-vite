@@ -881,7 +881,7 @@ func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uin
 	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
 	action := &dexproto.SetQuoteAction{}
 	action.Token = token.Bytes()
-	action.QuoteType = int32(quoteType)
+	action.QuoteTokenType = int32(quoteType)
 	pendingSetQuotes.PendingActions = append(pendingSetQuotes.PendingActions, action)
 	SavePendingSetQuotes(db, pendingSetQuotes)
 }
@@ -940,15 +940,6 @@ func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo)
 	serializeToDb(db, GetTokenInfoKey(token), tokenInfo)
 }
 
-func AddTokenEventLog(db vm_db.VmDb, tokenInfo *TokenInfo) {
-	log := &ledger.VmLog{}
-	event := TokenEvent{}
-	event.TokenInfo = tokenInfo.TokenInfo
-	log.Topics = append(log.Topics, event.GetTopicId())
-	log.Data = event.toDataBytes()
-	db.AddLog(log)
-}
-
 func GetTokenInfoKey(token types.TokenTypeId) []byte {
 	return append(tokenInfoPrefix, token.Bytes()...)
 }
@@ -985,15 +976,6 @@ func SaveMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToke
 
 func DeleteMarketInfo(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
 	setValueToDb(db, GetMarketInfoKey(tradeToken, quoteToken), nil)
-}
-
-func AddMarketEventLog(db vm_db.VmDb, marketInfo *MarketInfo) {
-	log := &ledger.VmLog{}
-	event := MarketEvent{}
-	event.MarketInfo = marketInfo.MarketInfo
-	log.Topics = append(log.Topics, event.GetTopicId())
-	log.Data = event.toDataBytes()
-	db.AddLog(log)
 }
 
 func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {

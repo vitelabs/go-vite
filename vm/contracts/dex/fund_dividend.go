@@ -127,7 +127,6 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeriod) error {
 	var (
 		iterators                          = make([]interfaces.StorageIterator, 0, len(periodIdToFeeSum))
-		userFunds                          = make(map[types.Address]map[types.TokenTypeId]*big.Int)
 		ok                                 bool
 		brokerFeeSumKey, brokerFeeSumBytes []byte
 	)
@@ -153,7 +152,6 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 			if len(brokerFeeSumKey) != 32 {
 				panic(fmt.Errorf("invalid broker fee type"))
 			}
-
 			DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
 		} else {
 			break
@@ -166,23 +164,22 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 		if err != nil {
 			panic(err)
 		}
-		userFund, ok := userFunds[addr]
-		if !ok {
-			userFund = make(map[types.TokenTypeId]*big.Int)
-			userFunds[addr] = userFund
-		}
+		userFund := make(map[types.TokenTypeId]*big.Int)
 		for _, feeAcc := range brokerFeeSum.BrokerFees {
 			tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
 			if err != nil {
 				panic(err)
 			}
 			for _, mkFee := range feeAcc.MarketFees {
-				userFund[tokenId] = new(big.Int).Add(userFund[tokenId], new(big.Int).SetBytes(mkFee.Amount))
+				if fd, ok1 := userFund[tokenId]; ok1 {
+					userFund[tokenId] = new(big.Int).Add(fd, new(big.Int).SetBytes(mkFee.Amount))
+				} else {
+					userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
+				}
+				AddBrokerFeeDividendLog(db, addr, mkFee)
 			}
 		}
-	}
-	for add, fund := range userFunds {
-		BatchSaveUserFund(db, add, fund)
+		BatchSaveUserFund(db, addr, userFund)
 	}
 	return nil
 }

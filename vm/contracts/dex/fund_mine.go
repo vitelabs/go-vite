@@ -79,11 +79,13 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 				} else {
 					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
 					vxMinedForBase.Add(vxMinedForBase, vxDividend)
+					AddMinedVxForTradeFeeEventLog(db, address, ViteTokenType, userFee.BaseAmount, vxDividend)
 					if finished {
 						delete(feeSumMap, tokenId)
 					} else {
 						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
 						vxMinedForInvite.Add(vxMinedForInvite, vxDividend)
+						AddMinedVxForTradeFeeEventLog(db, address, ViteTokenType, userFee.InviteBonusAmount, vxDividend)
 						if finished {
 							delete(feeSumMap, tokenId)
 						}

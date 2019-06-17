@@ -181,19 +181,19 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 			var foundMarket bool
 			for _, mkFee := range brokerFeeSum.MarketFees {
 				if mkFee.MarketId == marketInfo.MarketId {
-					mkFee.Amount = AddBigInt(mkFee.Amount, incAmt)
+					incBrokerMarketFee(marketInfo, mkFee, incAmt)
 					foundMarket = true
 				}
 			}
 			if !foundMarket {
-				brokerFeeSum.MarketFees = append(brokerFeeSum.MarketFees, newBrokerMarketFee(marketInfo.MarketId, incAmt))
+				brokerFeeSum.MarketFees = append(brokerFeeSum.MarketFees, newBrokerMarketFee(marketInfo, incAmt))
 			}
 			foundToken = true
 		}
 	}
 	if !foundToken {
 		brokerFeeAcc := &dexproto.BrokerFeeAccount{}
-		brokerFeeAcc.MarketFees = append(brokerFeeAcc.MarketFees, newBrokerMarketFee(marketInfo.MarketId, incAmt))
+		brokerFeeAcc.MarketFees = append(brokerFeeAcc.MarketFees, newBrokerMarketFee(marketInfo, incAmt))
 		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeAcc)
 	}
 
@@ -372,9 +372,17 @@ func newFeeSumAccount(token, baseAmount, inviteBonusAmount, dividendPoolAmount [
 	return account
 }
 
-func newBrokerMarketFee(marketId int32, amount []byte) *dexproto.BrokerMarketFee {
+func newBrokerMarketFee(marketInfo *MarketInfo, amount []byte) *dexproto.BrokerMarketFee {
 	account := &dexproto.BrokerMarketFee{}
-	account.MarketId = marketId
+	account.MarketId = marketInfo.MarketId
+	account.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
+	account.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
 	account.Amount = amount
 	return account
+}
+
+func incBrokerMarketFee(marketInfo *MarketInfo, marketFee *dexproto.BrokerMarketFee, incAmt []byte) {
+	marketFee.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
+	marketFee.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
+	marketFee.Amount = AddBigInt(marketFee.Amount, incAmt)
 }
