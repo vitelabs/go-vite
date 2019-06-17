@@ -75,7 +75,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	var completeBlockHash *types.Hash
 	var completeBlockHeight = sBlock.Height
 	if types.IsContractAddr(sBlock.AccountAddress) {
-		completeBlock, cErr := tp.worker.manager.chain.GetCompleteBlockByHash(sBlock.Hash)
+		completeBlock, cErr := tp.worker.manager.Chain().GetCompleteBlockByHash(sBlock.Hash)
 		if cErr != nil || completeBlock == nil {
 			blog.Error(fmt.Sprintf("GetCompleteBlockByHash failed, err:%v", cErr))
 			return true
