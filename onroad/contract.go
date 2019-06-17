@@ -84,14 +84,14 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.log = slog.New("worker", "contract", "gid", accEvent.Gid)
 
 	log := w.log.New("method", "start")
-	log.Info("Start() current status" + strconv.Itoa(w.status))
+	log.Info("Start() status=" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != start {
 		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.chain.GetContractList(w.gid)
+		addressList, err := w.manager.Chain().GetContractList(w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -101,11 +101,11 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			return
 		}
 		w.contractAddressList = addressList
-		log.Info("get addresslist", "len", len(addressList))
+		log.Info(fmt.Sprintf("get addresslist len %v", len(addressList)))
 
 		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in start
 		w.getAndSortAllAddrQuota()
-		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
+		log.Info(fmt.Sprintf("getAndSortAllAddrQuota len %v", len(w.contractTaskPQueue)))
 
 		// 3. register listening events, including addContractLis and addSnapshotEventLis
 		w.manager.addContractLis(w.gid, func(address types.Address) {
@@ -166,7 +166,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 // Stop is to stop the ContractWorker and free up memory.
 func (w *ContractWorker) Stop() {
 	log := w.log.New("method", "stop")
-	log.Info("Stop()", "current status", w.status)
+	log.Info("Stop() status=" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == start {
@@ -422,7 +422,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 }
 
 func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash, sbHeight uint64) error {
-	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
+	meta, err := w.manager.Chain().GetContractMeta(*contractAddr)
 	if err != nil {
 		return err
 	}
@@ -432,7 +432,7 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 	if meta.SendConfirmedTimes == 0 {
 		return nil
 	}
-	sendConfirmedTimes, err := w.manager.chain.GetConfirmedTimes(*fromHash)
+	sendConfirmedTimes, err := w.manager.Chain().GetConfirmedTimes(*fromHash)
 	if err != nil {
 		return err
 	}
@@ -441,7 +441,7 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 	}
 
 	if fork.IsForkPoint(sbHeight) {
-		isSeedCountOk, err := w.manager.chain.IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
+		isSeedCountOk, err := w.manager.Chain().IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
 		if err != nil {
 			return err
 		}
