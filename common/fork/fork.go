@@ -1,6 +1,8 @@
 package fork
 
 import (
+	"fmt"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/config"
 	"reflect"
 	"sort"
@@ -45,6 +47,33 @@ func SetForkPoints(points *config.ForkPoints) {
 	}
 
 	sort.Sort(forkPointList)
+}
+
+func CheckForkPoints(points config.ForkPoints) error {
+	t := reflect.TypeOf(points)
+	v := reflect.ValueOf(points)
+
+	for k := 0; k < t.NumField(); k++ {
+		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+
+		if forkPoint == nil {
+			return errors.New(fmt.Sprintf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
+				"you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+		}
+
+		if forkPoint.Height <= 0 {
+			return errors.New(fmt.Sprintf("The height of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+		}
+
+		if forkPoint.Version <= 0 {
+			return errors.New(fmt.Sprintf("The version of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+		}
+
+	}
+
+	return nil
 }
 
 /**

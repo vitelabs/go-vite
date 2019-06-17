@@ -106,6 +106,9 @@ type Chain interface {
 	// get call depth
 	GetCallDepth(sendBlock types.Hash) (uint16, error)
 
+	// judge the account block is confirmed by the N or more than N snapshot blocks with seed
+	IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
+
 	// get confirmed times
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 
@@ -169,6 +172,8 @@ type Chain interface {
 	GetRandomSeed(snapshotHash types.Hash, n int) uint64
 
 	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 
