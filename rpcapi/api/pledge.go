@@ -6,8 +6,10 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"sort"
+	"strconv"
 )
 
 type PledgeApi struct {
@@ -147,4 +149,16 @@ func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, err
 		return nil, err
 	}
 	return db.GetQuotaUsedList(addr), nil
+}
+
+func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
+	utpfF, err := strconv.ParseFloat(utps, 64)
+	if err != nil {
+		return nil, err
+	}
+	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
+	if err != nil {
+		return nil, err
+	}
+	return bigIntToString(amount), nil
 }

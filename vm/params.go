@@ -52,6 +52,8 @@ const (
 
 	confirmTimeMin = 0
 	confirmTimeMax = 75
+	seedCountMin   = 0
+	seedCountMax   = 75
 )
 
 var (
