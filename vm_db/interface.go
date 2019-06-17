@@ -49,7 +49,10 @@ type Chain interface {
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
 
-	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+
+	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 

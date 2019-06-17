@@ -530,15 +530,15 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
-	meta, err := c.GetContractMeta(*addr)
+func (c *chain) GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
 	if err != nil {
 		return nil, err
 	}
 	if meta == nil || meta.SendConfirmedTimes == 0 {
 		return nil, nil
 	}
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
 	if err != nil {
 		return nil, err
 	}

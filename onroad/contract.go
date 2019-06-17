@@ -3,6 +3,7 @@ package onroad
 import (
 	"container/heap"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"strconv"
 	"sync"
 
@@ -20,10 +21,12 @@ var signalLog = slog.New("signal", "contract")
 
 // ContractWorker managers the task processor, it also maintains the blacklist and queues with priority for callers.
 type ContractWorker struct {
+	address types.Address
+
 	manager *Manager
 
-	gid     types.Gid
-	address types.Address
+	gid                 types.Gid
+	contractAddressList []types.Address
 
 	status      int
 	statusMutex sync.Mutex
@@ -34,8 +37,6 @@ type ContractWorker struct {
 	wg           sync.WaitGroup
 
 	contractTaskProcessors []*ContractTaskProcessor
-
-	contractAddressList []types.Address
 
 	blackList      map[types.Address]bool
 	blackListMutex sync.RWMutex
@@ -420,7 +421,7 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	return quotas
 }
 
-func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
+func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash, sbHeight uint64) error {
 	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
 	if err != nil {
 		return err
@@ -436,8 +437,17 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 		return err
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
-		//w.log.Info(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
-		return errors.New("sendBlock is not ready")
+		return errors.New("sendBlock confirmedTimes is not ready")
+	}
+
+	if fork.IsForkPoint(sbHeight) {
+		isSeedCountOk, err := w.manager.chain.IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
+		if err != nil {
+			return err
+		}
+		if !isSeedCountOk {
+			return errors.New("sendBlock seed confirmedTimes is not ready")
+		}
 	}
 	return nil
 }
