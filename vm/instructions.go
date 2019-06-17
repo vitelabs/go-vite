@@ -541,13 +541,25 @@ func opOffchainFromHash(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 }
 
 func opSeed(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	seed, err := vm.globalStatus.Seed(vm.latestSnapshotHeight)
+	seed, err := vm.globalStatus.Seed()
 	util.DealWithErr(err)
 	stack.push(c.intPool.get().SetUint64(seed))
 	return nil, nil
 }
 
 func opOffchainSeed(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.getZero())
+	return nil, nil
+}
+
+func opRandom(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	seed, err := vm.globalStatus.Random()
+	util.DealWithErr(err)
+	stack.push(c.intPool.get().SetUint64(seed))
+	return nil, nil
+}
+
+func opOffchainRandom(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.getZero())
 	return nil, nil
 }

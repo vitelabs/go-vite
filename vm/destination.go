@@ -103,7 +103,7 @@ var (
 	auxCodePrefixWithFE          = []byte{0xfe, 0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
 	pushCheckCount               = 3
 	statusCodeListOfConfirmTimes = []opCode{HEIGHT, TIMESTAMP, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
-	statusCodeListOfSeedCount    = []opCode{SEED}
+	statusCodeListOfSeedCount    = []opCode{SEED, RANDOM}
 )
 
 func ContainsCertainStatusCode(code []byte) (containsConfirmTimeCode, containsSeedCountCode bool) {

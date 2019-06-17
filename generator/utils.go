@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -44,12 +43,13 @@ func GetAddressStateForGenerator(chain stateChain, addr *types.Address) (*EnvPre
 
 // VMGlobalStatus provides data about random seed.
 type VMGlobalStatus struct {
-	c          chain
-	sb         *ledger.SnapshotBlock
-	fromHash   types.Hash
-	seed       uint64
-	setSeed    bool
-	randSource helper.Source64
+	c           chain
+	sb          *ledger.SnapshotBlock
+	fromHash    types.Hash
+	seed        uint64
+	setSeed     bool
+	randSource  helper.Source64
+	setRandSeed bool
 }
 
 // NewVMGlobalStatus needs method to get the seed from the snapshot block.
@@ -57,20 +57,22 @@ func NewVMGlobalStatus(c chain, sb *ledger.SnapshotBlock, fromHash types.Hash) *
 	return &VMGlobalStatus{c: c, sb: sb, fromHash: fromHash, setSeed: false}
 }
 
-// Seed return the random seed.
-func (g *VMGlobalStatus) Seed(snapshotHeight uint64) (uint64, error) {
-	if !fork.IsDexFork(snapshotHeight) {
-		if g.setSeed {
-			return g.seed, nil
-		}
-		s, err := g.c.GetSeed(g.sb, g.fromHash)
-		if err == nil {
-			g.seed = s
-			g.setSeed = true
-		}
-		return s, err
-	}
+// Seed returns the random seed.
+func (g *VMGlobalStatus) Seed() (uint64, error) {
 	if g.setSeed {
+		return g.seed, nil
+	}
+	s, err := g.c.GetSeed(g.sb, g.fromHash)
+	if err == nil {
+		g.seed = s
+		g.setSeed = true
+	}
+	return s, err
+}
+
+// Random returns a new random number
+func (g *VMGlobalStatus) Random() (uint64, error) {
+	if g.setRandSeed {
 		return g.randSource.Uint64(), nil
 	}
 	s, err := g.c.GetSeed(g.sb, g.fromHash)
@@ -78,8 +80,9 @@ func (g *VMGlobalStatus) Seed(snapshotHeight uint64) (uint64, error) {
 		return 0, err
 	}
 	g.randSource = helper.NewSource64(int64(s))
-	g.setSeed = true
+	g.setRandSeed = true
 	return g.randSource.Uint64(), nil
+
 }
 
 // SnapshotBlock returns the SnapshotBlock to which the seed referred.

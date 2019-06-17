@@ -17,22 +17,28 @@ var (
 )
 
 type RunV2TestCase struct {
-	caseType               string
-	code                   []byte
-	contractType           uint8
-	confirmTimes           uint8
-	seedCount              uint8
-	quotaRatio             uint8
-	gid                    types.Gid
-	snapshotHeight         uint64
-	data                   []byte
-	amount                 *big.Int
-	tokenId                *types.TokenTypeId
+	caseType string
+	// send create params
+	code         []byte
+	contractType uint8
+	confirmTimes uint8
+	seedCount    uint8
+	quotaRatio   uint8
+	gid          types.Gid
+	// latest snapshot block
+	snapshotHeight uint64
+	// block info
+	data    []byte
+	amount  *big.Int
+	tokenId *types.TokenTypeId
+	// quota
 	pledgeBeneficialAmount *big.Int
-	balanceMap             map[types.TokenTypeId]*big.Int
-	err                    error
-	isRetry                bool
-	returnBlock            *ledger.AccountBlock
+	// balance and storage
+	balanceMap map[types.TokenTypeId]*big.Int
+	// return data
+	err         error
+	isRetry     bool
+	returnBlock *ledger.AccountBlock
 }
 
 func TestVM_RunSendCreate(t *testing.T) {
@@ -392,7 +398,7 @@ func runTest(testCases []RunV2TestCase, t *testing.T) {
 			if amount.Sign() > 0 {
 				testCase.balanceMap[tokenId].Sub(testCase.balanceMap[tokenId], amount)
 			}
-			testCase.balanceMap[ledger.ViteTokenId].Sub(testCase.balanceMap[ledger.ViteTokenId], createContractFee)
+			testCase.balanceMap[ledger.ViteTokenId].Sub(testCase.balanceMap[ledger.ViteTokenId], testCase.returnBlock.Fee)
 			if checkBalanceMapResult := checkBalanceMap(db.balanceMap, testCase.balanceMap); len(checkBalanceMapResult) > 0 {
 				t.Fatalf("name: %v, %v", testCase.caseType, checkBalanceMapResult)
 			}
