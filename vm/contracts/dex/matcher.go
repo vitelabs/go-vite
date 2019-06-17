@@ -211,7 +211,7 @@ func (mc *Matcher) handleRefund(order *Order) {
 		case false: //buy
 			order.RefundToken = mc.MarketInfo.QuoteToken
 			refundAmount := SubBigIntAbs(order.Amount, order.ExecutedAmount)
-			refundFee := SubBigIntAbs(order.LockedBuyFee, order.ExecutedFee)
+			refundFee := SubBigIntAbs(SubBigIntAbs(order.LockedBuyFee, order.ExecutedBaseFee), order.ExecutedBrokerFee)
 			order.RefundQuantity = AddBigInt(refundAmount, refundFee)
 		case true:
 			order.RefundToken = mc.MarketInfo.TradeToken
@@ -244,7 +244,7 @@ func (mc *Matcher) emitOrderUpdate(order Order) {
 	updateInfo.CancelReason = order.CancelReason
 	updateInfo.ExecutedQuantity = order.ExecutedQuantity
 	updateInfo.ExecutedAmount = order.ExecutedAmount
-	updateInfo.ExecutedFee = order.ExecutedFee
+	updateInfo.ExecutedBaseFee = order.ExecutedBaseFee
 	updateInfo.ExecutedBrokerFee = order.ExecutedBrokerFee
 	updateInfo.RefundToken = order.RefundToken
 	updateInfo.RefundQuantity = order.RefundQuantity
@@ -392,7 +392,7 @@ func calculateOrderAmount(order *Order, quantity []byte, price []byte, decimalsD
 	return amount
 }
 
-func updateOrder(order *Order, quantity []byte, amount []byte, executedFee, executedBrokerFee []byte, decimalsDiff int32) []byte {
+func updateOrder(order *Order, quantity []byte, amount []byte, executedBaseFee, executedBrokerFee []byte, decimalsDiff int32) []byte {
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
 	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
 		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order
@@ -401,7 +401,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedFee, exec
 	} else {
 		order.Status = PartialExecuted
 	}
-	order.ExecutedFee = executedFee
+	order.ExecutedBaseFee = executedBaseFee
 	order.ExecutedBrokerFee = executedBrokerFee
 	order.ExecutedQuantity = AddBigInt(order.ExecutedQuantity, quantity)
 	return amount
@@ -431,36 +431,36 @@ func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	}
 }
 
-func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeRate int32) (feeBytes, executedFee, brokerFeeBytes, executedBrokerFeeBytes []byte) {
+func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeRate int32) (incBaseFee, executedBaseFee, incBrokerFee, executedBrokerFee []byte) {
 	var leaved bool
-	if feeBytes, executedFee, leaved = calculateExecutedFee(amount, feeRate, order.Side, order.ExecutedFee, order.LockedBuyFee, order.ExecutedFee, order.ExecutedBrokerFee); leaved {
-		brokerFeeBytes, executedBrokerFeeBytes, _ = calculateExecutedFee(amount, brokerFeeRate, order.Side, order.ExecutedBrokerFee, order.LockedBuyFee, executedFee, order.ExecutedBrokerFee)
+	if incBaseFee, executedBaseFee, leaved = calculateExecutedFee(amount, feeRate, order.Side, order.ExecutedBaseFee, order.LockedBuyFee, order.ExecutedBaseFee, order.ExecutedBrokerFee); leaved {
+		incBrokerFee, executedBrokerFee, _ = calculateExecutedFee(amount, brokerFeeRate, order.Side, order.ExecutedBrokerFee, order.LockedBuyFee, executedBaseFee, order.ExecutedBrokerFee)
 	}
 	return
 }
 
-func calculateExecutedFee(amount []byte, feeRate int32, side bool, executedFee, totalAmount []byte, usedAmounts ...[]byte) (feeBytes, newExecutedFee []byte, leaved bool) {
-	feeBytes = CalculateAmountForRate(amount, feeRate)
+func calculateExecutedFee(amount []byte, feeRate int32, side bool, originExecutedFee, totalLockedAmount []byte, usedAmounts ...[]byte) (incFee, newExecutedFee []byte, leaved bool) {
+	incFee = CalculateAmountForRate(amount, feeRate)
 	switch side {
 	case false:
 		var totalUsedAmount []byte
 		for _, usedAmt := range usedAmounts {
 			totalUsedAmount = AddBigInt(totalUsedAmount, usedAmt)
 		}
-		if CmpForBigInt(totalAmount, totalUsedAmount) <= 0 {
-			feeBytes = nil
-			newExecutedFee = executedFee
+		if CmpForBigInt(totalLockedAmount, totalUsedAmount) <= 0 {
+			incFee = nil
+			newExecutedFee = originExecutedFee
 		} else {
-			totalUsedAmountNew := AddBigInt(totalUsedAmount, feeBytes)
-			if CmpForBigInt(totalAmount, totalUsedAmountNew) <= 0 {
-				feeBytes = SubBigIntAbs(totalAmount, totalUsedAmount)
+			totalUsedAmountNew := AddBigInt(totalUsedAmount, incFee)
+			if CmpForBigInt(totalLockedAmount, totalUsedAmountNew) <= 0 {
+				incFee = SubBigIntAbs(totalLockedAmount, totalUsedAmount)
 			} else {
 				leaved = true
 			}
-			newExecutedFee = AddBigInt(executedFee, feeBytes)
+			newExecutedFee = AddBigInt(originExecutedFee, incFee)
 		}
 	case true:
-		newExecutedFee = AddBigInt(executedFee, feeBytes)
+		newExecutedFee = AddBigInt(originExecutedFee, incFee)
 		leaved = true
 	}
 	return

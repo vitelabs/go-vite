@@ -10,23 +10,19 @@ import (
 func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *big.Int) error {
 	var (
 		feeSum                *FeeSumByPeriod
-		feeSumMap             = make(map[types.TokenTypeId]*big.Int)
-		dividedFeeMap         = make(map[types.TokenTypeId]*big.Int)
-		toDivideVxLeaveAmtMap = make(map[types.TokenTypeId]*big.Int)
-		tokenId               types.TokenTypeId
+		feeSumMap             = make(map[int32]*big.Int)
+		dividedFeeMap         = make(map[int32]*big.Int)
+		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
 		err                   error
 		ok                    bool
 	)
 	if feeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
 		return nil
 	}
-	for _, feeSum := range feeSum.Fees {
-		if tokenId, err = types.BytesToTokenTypeId(feeSum.Token); err != nil {
-			return err
-		}
-		feeSumMap[tokenId] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
-		toDivideVxLeaveAmtMap[tokenId] = minedVxAmtPerMarket
-		dividedFeeMap[tokenId] = big.NewInt(0)
+	for _, feeSum := range feeSum.FeesForMine {
+		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
+		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = minedVxAmtPerMarket
+		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
@@ -69,25 +65,22 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 			var vxMinedForBase = big.NewInt(0)
 			var vxMinedForInvite = big.NewInt(0)
 			for _, userFee := range userFees.Fees[0].UserFees {
-				if tokenId, err = types.BytesToTokenTypeId(userFee.Token); err != nil {
-					return err
-				}
-				if feeSumAmt, ok := feeSumMap[tokenId]; !ok { //no counter part in feeSum for userFees
+				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
 					return fmt.Errorf("user with valid userFee, but no valid feeSum")
 					//continue
 				} else {
-					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
+					vxDividend, finished := DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 					vxMinedForBase.Add(vxMinedForBase, vxDividend)
 					AddMinedVxForTradeFeeEventLog(db, address, ViteTokenType, userFee.BaseAmount, vxDividend)
 					if finished {
-						delete(feeSumMap, tokenId)
+						delete(feeSumMap, userFee.QuoteTokenType)
 					} else {
-						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[tokenId], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[tokenId])
+						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], minedVxAmtPerMarket, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 						vxMinedForInvite.Add(vxMinedForInvite, vxDividend)
 						AddMinedVxForTradeFeeEventLog(db, address, ViteTokenType, userFee.InviteBonusAmount, vxDividend)
 						if finished {
-							delete(feeSumMap, tokenId)
+							delete(feeSumMap, userFee.QuoteTokenType)
 						}
 					}
 				}

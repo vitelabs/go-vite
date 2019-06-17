@@ -38,7 +38,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	// sum fees from multi period not divided
 	feeSumMap := make(map[types.TokenTypeId]*big.Int)
 	for pId, fee := range feeSumsMap {
-		for _, feeAccount := range fee.Fees {
+		for _, feeAccount := range fee.FeesForDividend {
 			if tokenId, err := types.BytesToTokenTypeId(feeAccount.Token); err != nil {
 				return err
 			} else {

@@ -308,11 +308,11 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 			}
 		}
 		if len(settleActions.FeeActions) > 0 {
-			inviteRelations := dex.SettleFeeSum(db, vm.ConsensusReader(), marketInfo.AllowMine, marketInfo.QuoteToken, settleActions.FeeActions, nil, nil)
+			inviteRelations := dex.SettleFeeSum(db, vm.ConsensusReader(), marketInfo.AllowMine, marketInfo.QuoteToken, marketInfo.QuoteTokenDecimals, marketInfo.QuoteTokenType, settleActions.FeeActions, nil, nil)
 			dex.SettleBrokerFeeSum(db, vm.ConsensusReader(), settleActions.FeeActions, marketInfo)
 			if marketInfo.AllowMine {
 				for _, feeAction := range settleActions.FeeActions {
-					inviteRelations = dex.SettleUserFees(db, vm.ConsensusReader(), marketInfo.QuoteToken, feeAction, inviteRelations)
+					inviteRelations = dex.SettleUserFees(db, vm.ConsensusReader(), marketInfo.QuoteTokenDecimals, marketInfo.QuoteTokenType, feeAction, inviteRelations)
 				}
 			}
 		}
@@ -774,14 +774,17 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 					},
 				}, nil
 			} else {
-				if tokenInfo.QuoteType > 0 {
+				if tokenInfo.QuoteTokenType > 0 {
 					return handleReceiveErr(dex.AlreadyQuoteType)
 				} else {
-					tokenInfo.QuoteType = int32(param.QuoteTokenType)
+					tokenInfo.QuoteTokenType = int32(param.QuoteTokenType)
 					dex.SaveTokenInfo(db, param.NewQuoteToken, tokenInfo)
 					dex.AddTokenEventLog(db, tokenInfo)
 				}
 			}
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
+			dex.StopViteX(db)
 		}
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
@@ -875,7 +878,7 @@ func (md *MethodDexFundTransferTokenOwner) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundTransferTokenOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundNotifyTime), cabi.MethodNameDexFundTransferTokenOwner, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundTransferTokenOwner), cabi.MethodNameDexFundTransferTokenOwner, block.Data)
 }
 
 func (md MethodDexFundTransferTokenOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -984,7 +987,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if exceedAmount.Sign() > 0 {
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
-	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, nil, dex.NewInviterFeeAmount, nil)
+	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
 		return nil, dex.NewInviteCodeFailErr
 	} else {

@@ -16,8 +16,9 @@ import (
 
 var (
 	ownerKey      = []byte("own:")
-	fundKeyPrefix = []byte("fd:") // fund:types.Address
-	timestampKey  = []byte("tts") // timerTimestamp
+	dexStoppedKey = []byte("dexStp:")
+	fundKeyPrefix = []byte("fd:")  // fund:types.Address
+	timestampKey  = []byte("tts:") // timerTimestamp
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
@@ -68,17 +69,17 @@ var (
 	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVipDuration int64 = 3600 * 24 * 30
 
-	viteTokenInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
+	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 
-	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
-	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
-	bitcoinMinAmount = big.NewInt(50000)  // 0.0005 BTC
-	usdtMinAmount    = big.NewInt(100000000)   //1 USDT
-	QuoteTokenExtras = map[int32]*QuoteTokenExtraInfo{
-		ViteTokenType: &QuoteTokenExtraInfo{Decimals: 18, MinAmount: viteMinAmount},
-		BtcTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
-		EthTokenType:  &QuoteTokenExtraInfo{Decimals: 18, MinAmount: ethMinAmount},
-		UsdTokenType:  &QuoteTokenExtraInfo{Decimals: 8, MinAmount: usdtMinAmount},
+	viteMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+	ethMinAmount        = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
+	bitcoinMinAmount    = big.NewInt(50000)                                 // 0.0005 BTC
+	usdtMinAmount       = big.NewInt(100000000)                             //1 USDT
+	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
+		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, MinAmount: viteMinAmount},
+		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
+		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, MinAmount: ethMinAmount},
+		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinAmount: usdtMinAmount},
 	}
 )
 
@@ -102,6 +103,7 @@ const (
 	OwnerConfigTimerAddress  = 2
 	OwnerConfigMineMarket    = 4
 	OwnerConfigNewQuoteToken = 8
+	OwnerConfigStopViteX     = 16
 )
 
 const (
@@ -124,7 +126,7 @@ const (
 	GetTokenForTransferOwner = 3
 )
 
-type QuoteTokenExtraInfo struct {
+type QuoteTokenTypeInfo struct {
 	Decimals  int32
 	MinAmount *big.Int
 }
@@ -929,7 +931,7 @@ func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferToke
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
 	tokenInfo = &TokenInfo{}
 	if token == ledger.ViteTokenId {
-		tokenInfo.TokenInfo = viteTokenInfo
+		tokenInfo.TokenInfo = ViteTokenTypeInfo
 		return tokenInfo, true
 	}
 	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
@@ -1025,6 +1027,15 @@ func GetOwner(db vm_db.VmDb) (*types.Address, error) {
 
 func SetOwner(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, ownerKey, address.Bytes())
+}
+
+func IsViteXStopped(db vm_db.VmDb) bool {
+	stopped := getValueFromDb(db, dexStoppedKey)
+	return len(stopped) > 0
+}
+
+func StopViteX(db vm_db.VmDb) {
+	setValueToDb(db, dexStoppedKey, []byte{1})
 }
 
 func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {

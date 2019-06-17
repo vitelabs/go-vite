@@ -120,7 +120,7 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 			return err
 		}
 		if !feeSum.FinishFeeDividend {
-			for _, fee := range feeSum.Fees {
+			for _, fee := range feeSum.FeesForDividend {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				feeAmount := AddBigInt(fee.BaseAmount, fee.DividendPoolAmount)
 				accAccount(tokenId, feeAmount, accumulateRes)
@@ -155,8 +155,8 @@ func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenType
 			return err
 		}
 		for _, fee := range brokerFeeSum.BrokerFees {
-			for _, brokerFee := range fee.Fees {
-				tokenId, _ := types.BytesToTokenTypeId(brokerFee.Token)
+			for _, brokerFee := range fee.MarketFees {
+				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				accAccount(tokenId, brokerFee.Amount, accumulateRes)
 			}
 		}

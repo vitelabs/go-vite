@@ -74,8 +74,8 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
-	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
-	SettleUserFees(db, reader, ledger.ViteTokenId.Bytes(), userFee, inviteRelations)
+	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenTypeInfo.Decimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
+	SettleUserFees(db, reader, ViteTokenTypeInfo.Decimals, ViteTokenType, userFee, inviteRelations)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEventLog(db, marketInfo)
 	var marketBytes, blockData []byte
@@ -203,7 +203,6 @@ func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId)
 	return
 }
 
-
 func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin, new types.Address) []byte {
 	AddToPendingTransferTokenOwners(db, token, origin, new)
 	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForTransferOwner)); err != nil {
@@ -255,6 +254,9 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 		marketInfo *MarketInfo
 		ok         bool
 	)
+	if IsViteXStopped(db) {
+		return nil, ViteXStoppedErr
+	}
 	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
 		return nil, TradeMarketNotExistsErr
 	} else if marketInfo.Stopped {
@@ -288,11 +290,11 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 }
 
 func isAmountTooSmall(amount []byte, marketInfo *MarketInfo) bool {
-	extra, _ := QuoteTokenExtras[marketInfo.QuoteTokenType]
-	if extra.Decimals == marketInfo.QuoteTokenDecimals {
-		return new(big.Int).SetBytes(amount).Cmp(extra.MinAmount) < 0
+	typeInfo, _ := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
+	if typeInfo.Decimals == marketInfo.QuoteTokenDecimals {
+		return new(big.Int).SetBytes(amount).Cmp(typeInfo.MinAmount) < 0
 	} else {
-		return RoundAmount(AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount)), marketInfo.QuoteTokenDecimals-extra.Decimals)).Cmp(extra.MinAmount) < 0
+		return AdjustAmountForDecimalsDiff(amount, marketInfo.QuoteTokenDecimals-typeInfo.Decimals).Cmp(typeInfo.MinAmount) < 0
 	}
 }
 

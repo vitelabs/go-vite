@@ -11,6 +11,7 @@ var (
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
 	OrderNotExistsErr       = errors.New("order not exists")
 	OrderAmountTooSmallErr  = errors.New("order amount too small")
+	ViteXStoppedErr         = errors.New("viteX stopped")
 
 	TradeMarketExistsErr            = errors.New("trade market already exists")
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
@@ -53,11 +54,12 @@ var (
 	InvalidInviterFeeAmountErr = errors.New("invalid inviter fee amount")
 	AlreadyIsInviterErr        = errors.New("already is inviter")
 
-	InvalidInviteCodeErr  = errors.New("invalid invite code")
-	NotBindInviterErr     = errors.New("not bind inviter")
-	AlreadyBindInviterErr = errors.New("already bind inviter")
-	NewInviteCodeFailErr = errors.New("new invite code fail")
-	AlreadyQuoteType = errors.New("already quote type")
+	InvalidInviteCodeErr     = errors.New("invalid invite code")
+	NotBindInviterErr        = errors.New("not bind inviter")
+	AlreadyBindInviterErr    = errors.New("already bind inviter")
+	NewInviteCodeFailErr     = errors.New("new invite code fail")
+	AlreadyQuoteType         = errors.New("already quote type")
+	InvalidQuoteTokenTypeErr = errors.New("invalid quote token type")
 
 	InternalErr = errors.New("internal error")
 )

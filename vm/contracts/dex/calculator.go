@@ -62,11 +62,23 @@ func AdjustForDecimalsDiff(sourceAmountF *big.Float, decimalsDiff int32) *big.Fl
 	}
 }
 
-func NegativeAmount(amount []byte) *big.Int {
-	return new(big.Int).Neg(new(big.Int).SetBytes(amount))
+func AdjustAmountForDecimalsDiff(amount []byte, decimalsDiff int32) *big.Int {
+	return RoundAmount(AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount)), decimalsDiff))
+}
+
+func AdjustAmountToQuoteTokenType(amount []byte, tokenDecimals, quoteTokenType int32) *big.Int {
+	if info, ok := QuoteTokenTypeInfos[quoteTokenType]; !ok {
+		panic(InvalidQuoteTokenTypeErr)
+	} else {
+		return AdjustAmountForDecimalsDiff(amount, tokenDecimals-info.Decimals)
+	}
 }
 
 func RoundAmount(amountF *big.Float) *big.Int {
 	amount, _ := new(big.Float).SetPrec(bigFloatPrec).Add(amountF, big.NewFloat(0.5)).Int(nil)
 	return amount
+}
+
+func NegativeAmount(amount []byte) *big.Int {
+	return new(big.Int).Neg(new(big.Int).SetBytes(amount))
 }

@@ -109,6 +109,35 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	return fundInfoMap, nil
 }
 
+func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*RpcMarketInfo, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+	if marketInfo, ok := dex.GetMarketInfo(db, tradeToken, quoteToken); ok {
+		return MarketInfoToRpc(marketInfo), nil
+	} else {
+		return nil, dex.TradeMarketNotExistsErr
+	}
+}
+
+func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
+	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	if err != nil {
+		return false, err
+	}
+	_, ok := dex.GetPledgeForVip(db, address)
+	return ok, nil
+}
+
 func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -145,19 +174,6 @@ func (f DexFundApi) GetTime() (int64, error) {
 	return dex.GetTimestampInt64(db), nil
 }
 
-func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*dex.MarketInfo, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
-	if err != nil {
-		return nil, err
-	}
-	marketInfo, _ := dex.GetMarketInfo(db, tradeToken, quoteToken)
-	return marketInfo, nil
-}
-
 func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -170,15 +186,46 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
-func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
+type RpcMarketInfo struct {
+	MarketId           int32  `json:"marketId"`
+	MarketSymbol       string  `json:"marketSymbol"`
+	TradeToken         string  `json:"tradeToken"`
+	QuoteToken         string  `json:"quoteToken"`
+	QuoteTokenType     int32   `json:"quoteTokenType"`
+	TradeTokenDecimals int32   `json:"tradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals int32   `json:"quoteTokenDecimals"`
+	TakerBrokerFeeRate int32 `json:"takerBrokerFeeRate,omitempty"`
+	MakerBrokerFeeRate int32 `json:"makerBrokerFeeRate,omitempty"`
+	AllowMine          bool    `json:"allowMine"`
+	Owner              string  `json:"owner"`
+	Creator            string  `json:"creator"`
+	Stopped            bool    `json:"stopped"`
+	Timestamp          int64   `json:"timestamp"`
+}
+
+func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
+	var rmk *RpcMarketInfo = nil
+	if mkInfo != nil {
+		tradeToken, _ := types.BytesToTokenTypeId(mkInfo.TradeToken)
+		quoteToken, _ := types.BytesToTokenTypeId(mkInfo.QuoteToken)
+		owner, _ := types.BytesToAddress(mkInfo.Owner)
+		creator, _ := types.BytesToAddress(mkInfo.Creator)
+		rmk = &RpcMarketInfo{
+			MarketId:           mkInfo.MarketId,
+			MarketSymbol:       mkInfo.MarketSymbol,
+			TradeToken:         tradeToken.String(),
+			QuoteToken:         quoteToken.String(),
+			QuoteTokenType:     mkInfo.QuoteTokenType,
+			TradeTokenDecimals: mkInfo.TradeTokenDecimals,
+			QuoteTokenDecimals: mkInfo.QuoteTokenDecimals,
+			TakerBrokerFeeRate: mkInfo.TakerBrokerFeeRate,
+			MakerBrokerFeeRate: mkInfo.MakerBrokerFeeRate,
+			AllowMine:          mkInfo.AllowMine,
+			Owner:              owner.String(),
+			Creator:            creator.String(),
+			Stopped:            mkInfo.Stopped,
+			Timestamp:          mkInfo.Timestamp,
+		}
 	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
-	if err != nil {
-		return nil, err
-	}
-	pledgeVip, _ := dex.GetPledgeForVip(db, address)
-	return pledgeVip, nil
+	return rmk
 }
