@@ -710,14 +710,34 @@ func makeLog(size int) executionFunc {
 				}
 				topicsStr = topicsStr[:len(topicsStr)-1]
 			}
-			// TODO unpack log and print
-			nodeConfig.log.Info("vm log",
-				"blockType", c.block.BlockType,
-				"address", c.block.AccountAddress.String(),
-				"height", c.block.Height,
-				"fromHash", c.block.FromBlockHash.String(),
-				"topics", topicsStr,
-				"data", hex.EncodeToString(d))
+			var params []interface{}
+			var name string
+			var err error
+			if contractAbi, ok := GetContractABI(c.block.AccountAddress); ok {
+				name, params, err = contractAbi.DirectUnpackEvent(topics, d)
+				if err != nil {
+					nodeConfig.log.Warn("unpack event failed", "topics", topics, "data", d, "err", err)
+				}
+			}
+			if len(name) > 0 {
+				nodeConfig.log.Info("vm log",
+					"blockType", c.block.BlockType,
+					"address", c.block.AccountAddress.String(),
+					"height", c.block.Height,
+					"fromHash", c.block.FromBlockHash.String(),
+					"topics", topicsStr,
+					"data", hex.EncodeToString(d),
+					"logName", name,
+					"params", params)
+			} else {
+				nodeConfig.log.Info("vm log",
+					"blockType", c.block.BlockType,
+					"address", c.block.AccountAddress.String(),
+					"height", c.block.Height,
+					"fromHash", c.block.FromBlockHash.String(),
+					"topics", topicsStr,
+					"data", hex.EncodeToString(d))
+			}
 		}
 
 		c.intPool.put(mStart, mSize)

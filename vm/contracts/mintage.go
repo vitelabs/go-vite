@@ -27,7 +27,7 @@ func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
 }
 func (p *MethodMint) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamMintage)
-	err := abi.ABIMintage.UnpackMethod(param, abi.MethodNameMint, block.Data)
+	err := abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameMint, block.Data)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func CheckMintToken(param abi.ParamMintage) error {
 }
 func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamMintage)
-	abi.ABIMintage.UnpackMethod(param, abi.MethodNameMint, sendBlock.Data)
+	abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameMint, sendBlock.Data)
 	tokenId := abi.NewTokenId(sendBlock.AccountAddress, block.Height, sendBlock.Hash)
 	key := abi.GetMintageKey(tokenId)
 	v := util.GetValue(db, key)
@@ -139,7 +139,7 @@ func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
 }
 func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamIssue)
-	err := abi.ABIMintage.UnpackMethod(param, abi.MethodNameIssue, block.Data)
+	err := abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameIssue, block.Data)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 }
 func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamIssue)
-	abi.ABIMintage.UnpackMethod(param, abi.MethodNameIssue, sendBlock.Data)
+	abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameIssue, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, param.TokenId)
 	util.DealWithErr(err)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != sendBlock.AccountAddress ||
@@ -243,7 +243,7 @@ func (p *MethodTransferOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamTransferOwner)
-	err := abi.ABIMintage.UnpackMethod(param, abi.MethodNameTransferOwner, block.Data)
+	err := abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameTransferOwner, block.Data)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (p *MethodTransferOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 }
 func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamTransferOwner)
-	abi.ABIMintage.UnpackMethod(param, abi.MethodNameTransferOwner, sendBlock.Data)
+	abi.ABIMintage.UnpackMethodInput(param, abi.MethodNameTransferOwner, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, param.TokenId)
 	util.DealWithErr(err)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != sendBlock.AccountAddress {
@@ -298,7 +298,7 @@ func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
 }
 func (p *MethodChangeTokenType) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)
-	err := abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameChangeTokenType, block.Data)
+	err := abi.ABIMintage.UnpackMethodInput(tokenId, abi.MethodNameChangeTokenType, block.Data)
 	if err != nil {
 		return err
 	}
@@ -310,7 +310,7 @@ func (p *MethodChangeTokenType) DoSend(db vm_db.VmDb, block *ledger.AccountBlock
 }
 func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenId := new(types.TokenTypeId)
-	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameChangeTokenType, sendBlock.Data)
+	abi.ABIMintage.UnpackMethodInput(tokenId, abi.MethodNameChangeTokenType, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenById(db, *tokenId)
 	util.DealWithErr(err)
 	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable || oldTokenInfo.Owner != sendBlock.AccountAddress {
@@ -347,7 +347,7 @@ func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
 }
 func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	tokenId := new(types.TokenTypeId)
-	err := abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, block.Data)
+	err := abi.ABIMintage.UnpackMethodInput(tokenId, abi.MethodNameGetTokenInfo, block.Data)
 	if err != nil {
 		return err
 	}
@@ -360,7 +360,7 @@ func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 
 func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenId := new(types.TokenTypeId)
-	abi.ABIMintage.UnpackMethod(tokenId, abi.MethodNameGetTokenInfo, block.Data)
+	abi.ABIMintage.UnpackMethodInput(tokenId, abi.MethodNameGetTokenInfo, block.Data)
 	tokenInfo, err := abi.GetTokenById(db, *tokenId)
 	util.DealWithErr(err)
 	var callbackData []byte

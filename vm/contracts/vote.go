@@ -29,7 +29,7 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethodInput(param, abi.MethodNameVote, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !checkRegisterAndVoteParam(param.Gid, param.NodeName) {
@@ -41,7 +41,7 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 
 func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamVote)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethodInput(param, abi.MethodNameVote, sendBlock.Data)
 	consensusGroupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
 	if consensusGroupInfo == nil {
@@ -79,7 +79,7 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		return util.ErrInvalidMethodParam
 	}
 	gid := new(types.Gid)
-	err := abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
+	err := abi.ABIConsensusGroup.UnpackMethodInput(gid, abi.MethodNameCancelVote, block.Data)
 	if err != nil || util.IsDelegateGid(*gid) {
 		return util.ErrInvalidMethodParam
 	}
@@ -89,7 +89,7 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 
 func (p *MethodCancelVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	gid := new(types.Gid)
-	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethodInput(gid, abi.MethodNameCancelVote, sendBlock.Data)
 	util.SetValue(db, abi.GetVoteKey(sendBlock.AccountAddress, *gid), nil)
 	return nil, nil
 }

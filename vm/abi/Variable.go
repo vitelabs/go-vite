@@ -16,5 +16,5 @@ func (v Variable) String() string {
 	for i, input := range v.Inputs {
 		inputs[i] = fmt.Sprintf("%v %v", input.Type, input.Name)
 	}
-	return fmt.Sprintf("struct %v{%v}", v.Name, strings.Join(inputs, "; "))
+	return fmt.Sprintf("struct %v { %v }", v.Name, strings.Join(inputs, ","))
 }
