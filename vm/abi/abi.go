@@ -3,7 +3,6 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"io"
 )
@@ -127,7 +126,7 @@ func (abi ABIContract) UnpackEvent(v interface{}, name string, input []byte) (er
 	if event, ok := abi.Events[name]; ok {
 		return event.Inputs.Unpack(v, input)
 	}
-	return fmt.Errorf("abi: could not locate named event")
+	return errCouldNotLocateNamedEvent
 }
 
 // DirectUnpackEvent output in param list according to the abi specification
@@ -141,7 +140,7 @@ func (abi ABIContract) DirectUnpackEvent(topics []types.Hash, data []byte) (stri
 			return event.String(), params, err
 		}
 	}
-	return "", nil, fmt.Errorf("abi: could not locate named event")
+	return "", nil, errCouldNotLocateNamedEvent
 }
 
 func (abi ABIContract) UnpackVariable(v interface{}, name string, input []byte) (err error) {
@@ -151,21 +150,21 @@ func (abi ABIContract) UnpackVariable(v interface{}, name string, input []byte) 
 	if variable, ok := abi.Variables[name]; ok {
 		return variable.Inputs.Unpack(v, input)
 	}
-	return fmt.Errorf("abi: could not locate named variable")
+	return errCouldNotLocateNamedVariable
 }
 
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
 	if len(sigdata) < 4 {
-		return nil, fmt.Errorf("method id is not specified")
+		return nil, errMethodIdNotSpecified
 	}
 	for _, method := range abi.Methods {
 		if bytes.Equal(method.Id(), sigdata[:4]) {
 			return &method, nil
 		}
 	}
-	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
+	return nil, errNoMethodId(sigdata[:4])
 }
 
 // UnmarshalJSON implements json.Unmarshaler interface
@@ -217,7 +216,7 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 			}
 		case "variable":
 			if len(field.Inputs) == 0 {
-				return fmt.Errorf("abi: variable inputs should not be empty")
+				return errInvalidEmptyVariableInput
 			}
 			abi.Variables[field.Name] = Variable{
 				Name:   field.Name,

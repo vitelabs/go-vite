@@ -186,6 +186,9 @@ func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address,
 	meta := db.contractMetaMap[contractAddress]
 	return meta, nil
 }
+func (db *testDatabase) CanWrite() bool {
+	return false
+}
 
 type testIteratorItem struct {
 	key, value []byte

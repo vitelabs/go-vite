@@ -2,7 +2,6 @@ package abi
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"reflect"
 	"strings"
@@ -27,7 +26,7 @@ func (argument *Argument) UnmarshalJSON(data []byte) error {
 	}
 	err := json.Unmarshal(data, &extarg)
 	if err != nil {
-		return fmt.Errorf("argument json err: %v", err)
+		return errArgumentJsonErr(err)
 	}
 
 	argument.Type, err = NewType(extarg.Type)
@@ -82,7 +81,7 @@ func (arguments Arguments) isTuple() bool {
 func (arguments Arguments) Unpack(v interface{}, data []byte) error {
 	// make sure the passed value is arguments pointer
 	if reflect.Ptr != reflect.ValueOf(v).Kind() {
-		return fmt.Errorf("abi: Unpack(non-pointer %T)", v)
+		return errInvalidStruct(v)
 	}
 	marshalledValues, err := arguments.UnpackValues(data)
 	if err != nil {
@@ -134,7 +133,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 			}
 		case reflect.Slice, reflect.Array:
 			if value.Len() < i {
-				return fmt.Errorf("abi: insufficient number of arguments for unpack, want %d, got %d", len(arguments), value.Len())
+				return errInsufficientArgumentSize(arguments, value)
 			}
 			v := value.Index(i)
 			if err := requireAssignable(v, reflectValue); err != nil {
@@ -145,7 +144,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 				return err
 			}
 		default:
-			return fmt.Errorf("abi:[2] cannot unmarshal tuple in to %v", typ)
+			return errInvalidTuple(typ)
 		}
 	}
 	return nil
@@ -154,7 +153,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 // unpackAtomic unpacks ( hexdata -> go ) a single value
 func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues []interface{}) error {
 	if len(marshalledValues) != 1 {
-		return fmt.Errorf("abi: wrong length, expected single value, got %d", len(marshalledValues))
+		return errWrongPackedLength(marshalledValues)
 	}
 
 	elem := reflect.ValueOf(v).Elem()
@@ -233,7 +232,7 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	// Make sure arguments match up and pack them
 	abiArgs := arguments
 	if len(args) != len(abiArgs) {
-		return nil, fmt.Errorf("argument count mismatch: %d for %d", len(args), len(abiArgs))
+		return nil, errArgLengthMismatch(args, abiArgs)
 	}
 	// variable input is the output appended at the end of packed
 	// output. This is used for strings and bytes types input.
