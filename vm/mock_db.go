@@ -172,3 +172,6 @@ func (db *mockDB) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, erro
 func (db *mockDB) DebugGetStorage() (map[string][]byte, error) {
 	return nil, nil
 }
+func (db *mockDB) CanWrite() bool {
+	return false
+}

@@ -42,7 +42,7 @@ func (e Event) Id() types.Hash {
 
 func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 	if len(args) != len(e.Inputs) {
-		return nil, nil, fmt.Errorf("event argument count mismatch: %d for %d", len(args), len(e.Inputs))
+		return nil, nil, errArgLengthMismatch(args, e.Inputs)
 	}
 	topics := make([]types.Hash, e.Inputs.LengthIndexed()+1)
 	topics[0] = e.Id()
