@@ -80,7 +80,6 @@ func (arguments Arguments) isTuple() bool {
 
 // Unpack performs the operation hexdata -> Go format
 func (arguments Arguments) Unpack(v interface{}, data []byte) error {
-
 	// make sure the passed value is arguments pointer
 	if reflect.Ptr != reflect.ValueOf(v).Kind() {
 		return fmt.Errorf("abi: Unpack(non-pointer %T)", v)
@@ -93,6 +92,11 @@ func (arguments Arguments) Unpack(v interface{}, data []byte) error {
 		return arguments.unpackTuple(v, marshalledValues)
 	}
 	return arguments.unpackAtomic(v, marshalledValues)
+}
+
+// Unpack performs the operation hexdata -> Go format
+func (arguments Arguments) DirectUnpack(data []byte) ([]interface{}, error) {
+	return arguments.UnpackValues(data)
 }
 
 func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interface{}) error {
@@ -257,7 +261,11 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 			// calculate the offset
 			offset := inputOffset + len(variableInput)
 			// set the offset
-			ret = append(ret, packNum(reflect.ValueOf(offset))...)
+			packedOffset, err := packNum(reflect.ValueOf(offset))
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, packedOffset...)
 			// Append the packed output to the variable input. The variable input
 			// will be appended at the end of the input.
 			variableInput = append(variableInput, packed...)

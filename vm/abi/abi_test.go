@@ -48,23 +48,23 @@ func TestReader(t *testing.T) {
 	typeAddress, _ := NewType("address")
 	exp := ABIContract{
 		Constructor: Method{
-			"", false, []Argument{
+			"", []Argument{
 				{"owner", typeAddress, false},
-			},
+			}, nil,
 		},
 		Methods: map[string]Method{
 			"balance": {
-				"balance", true, nil,
+				"balance", nil, nil,
 			},
 			"send": {
-				"send", false, []Argument{
+				"send", []Argument{
 					{"amount", typeUint256, false},
-				},
+				}, nil,
 			},
 		},
 		Events: map[string]Event{
 			"Transfer": {
-				"Transfer", false, []Argument{
+				"Transfer", []Argument{
 					{"from", typeAddress, true},
 					{"to", typeAddress, true},
 					{"value", typeUint256, false},
@@ -215,7 +215,7 @@ func TestTestSlice(t *testing.T) {
 
 func TestMethodSignature(t *testing.T) {
 	String, _ := NewType("string")
-	m := Method{"foo", false, []Argument{{"bar", String, false}, {"baz", String, false}}}
+	m := Method{"foo", []Argument{{"bar", String, false}, {"baz", String, false}}, nil}
 	exp := "foo(string,string)"
 	if m.Sig() != exp {
 		t.Error("signature mismatch", exp, "!=", m.Sig())
@@ -227,7 +227,7 @@ func TestMethodSignature(t *testing.T) {
 	}
 
 	uintt, _ := NewType("uint256")
-	m = Method{"foo", false, []Argument{{"bar", uintt, false}}}
+	m = Method{"foo", []Argument{{"bar", uintt, false}}, nil}
 	exp = "foo(uint256)"
 	if m.Sig() != exp {
 		t.Error("signature mismatch", exp, "!=", m.Sig())
@@ -634,9 +634,6 @@ func TestBareEvents(t *testing.T) {
 		if !ok {
 			t.Errorf("could not found event %s", name)
 			continue
-		}
-		if got.Anonymous != exp.Anonymous {
-			t.Errorf("invalid anonymous indication for event %s, want %v, got %v", name, exp.Anonymous, got.Anonymous)
 		}
 		if len(got.Inputs) != len(exp.Args) {
 			t.Errorf("invalid number of args, want %d, got %d", len(exp.Args), len(got.Inputs))

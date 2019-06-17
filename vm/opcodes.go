@@ -91,6 +91,7 @@ const (
 	PREVHASH
 	FROMHASH
 	SEED
+	RANDOM
 )
 
 // 0x50 range - 'storage' and execution.
@@ -264,6 +265,7 @@ var opCodeToString = map[opCode]string{
 	PREVHASH:      "PREVHASH",
 	FROMHASH:      "FROMHASH",
 	SEED:          "SEED",
+	RANDOM:        "RANDOM",
 
 	// 0x50 range - 'storage' and execution.
 	POP: "POP",
@@ -431,6 +433,7 @@ var stringToOp = map[string]opCode{
 	"PREVHASH":       PREVHASH,
 	"FROMHASH":       FROMHASH,
 	"SEED":           SEED,
+	"RANDOM":         RANDOM,
 	"POP":            POP,
 	"MLOAD":          MLOAD,
 	"MSTORE":         MSTORE,

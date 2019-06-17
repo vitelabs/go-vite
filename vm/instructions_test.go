@@ -13,7 +13,9 @@ type twoOperandTest struct {
 }
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
-	vm := &VM{}
+	vm := &VM{
+		globalStatus: NewTestGlobalStatus(100, nil),
+	}
 	//vm.Debug = true
 	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
 	stack := newStack()
@@ -438,4 +440,8 @@ func BenchmarkOpMstore(bench *testing.B) {
 		opMstore(&pc, vm, c, mem, stack)
 	}
 	poolOfIntPools.put(c.intPool)
+}
+
+func BenchmarkRandom(b *testing.B) {
+	opBenchmark(b, opRandom)
 }

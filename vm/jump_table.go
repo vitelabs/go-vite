@@ -32,7 +32,31 @@ type operation struct {
 var (
 	simpleInstructionSet         = newSimpleInstructionSet()
 	offchainSimpleInstructionSet = newOffchainSimpleInstructionSet()
+	dexInstructionSet            = newDexInstructionSet()
+	offchainDexInstructionSet    = newDexOffchainInstructionSet()
 )
+
+func newDexInstructionSet() [256]operation {
+	instructionSet := newSimpleInstructionSet()
+	instructionSet[RANDOM] = operation{
+		execute:       opRandom,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
+
+func newDexOffchainInstructionSet() [256]operation {
+	instructionSet := newOffchainSimpleInstructionSet()
+	instructionSet[RANDOM] = operation{
+		execute:       opOffchainRandom,
+		gasCost:       constGasFunc(quickStepGas),
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
 
 func newSimpleInstructionSet() [256]operation {
 	instructionSet := newBaseInstructionSet()

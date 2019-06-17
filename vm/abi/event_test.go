@@ -107,7 +107,11 @@ func TestEventMultiValueWithArrayUnpack(t *testing.T) {
 	var b bytes.Buffer
 	var i uint8 = 1
 	for ; i <= 3; i++ {
-		b.Write(packNum(reflect.ValueOf(i)))
+		packedi, err := packNum(reflect.ValueOf(i))
+		if err != nil {
+			t.Fatalf("pack number failed, %v", err)
+		}
+		b.Write(packedi)
 	}
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
@@ -315,7 +319,11 @@ func TestEventUnpackIndexed(t *testing.T) {
 	abi, err := JSONToABIContract(strings.NewReader(definition))
 	require.NoError(t, err)
 	var b bytes.Buffer
-	b.Write(packNum(reflect.ValueOf(uint8(8))))
+	packedi, err := packNum(reflect.ValueOf(uint8(8)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packedi)
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, uint8(0), rst.Value1)
@@ -334,11 +342,41 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 	var b bytes.Buffer
 	stringOut := "abc"
 	// number of fields that will be encoded * 32
-	b.Write(packNum(reflect.ValueOf(32)))
-	b.Write(packNum(reflect.ValueOf(len(stringOut))))
+	packed32, err := packNum(reflect.ValueOf(32))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	packedout, err := packNum(reflect.ValueOf(len(stringOut)))
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	b.Write(packed32)
+	b.Write(packedout)
 	b.Write(helper.RightPadBytes([]byte(stringOut), helper.WordSize))
 	var rst testStruct
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, [2]uint8{0, 0}, rst.Value1)
 	require.Equal(t, stringOut, rst.Value2)
+}
+
+func TestDirectUnpackEvent(t *testing.T) {
+	definition := `[{"name": "test", "type": "event", "inputs": [{"indexed": true, "name":"value1", "type":"uint8"},{"indexed": true, "name":"value2", "type":"string"},{"indexed": false, "name":"value3", "type":"uint8"}]}]`
+	abi, err := JSONToABIContract(strings.NewReader(definition))
+	require.NoError(t, err)
+	value1 := uint8(1)
+	value2 := "abc"
+	value3 := uint8(2)
+	topics, data, err := abi.PackEvent("test", value1, value2, value3)
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+
+	name, result, err := abi.DirectUnpackEvent(topics, data)
+	if err != nil {
+		t.Fatalf("pack number failed, %v", err)
+	}
+	hexValue2, _ := types.HexToHash("b728bc01f43abb5cfc587f771a2a7946995125cc827fa4d4232536457867b1b0")
+	if name != "event test(uint8 indexed value1, string indexed value2, uint8 value3)" || len(result) != 3 || result[0] != value1 || result[1] != hexValue2 || result[2] != value3 {
+		t.Fatalf("unpack event failed, got %v", result)
+	}
 }
