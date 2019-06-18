@@ -42,12 +42,11 @@ message SettleActions {
 
 message FeeSumForDividend { // for dividend
     bytes Token = 1;
-    bytes BaseAmount = 2;
     // rolled amount : 99% part of last period BaseAmount rolled to this period +
     // new market fee +
     // new inviter fee +
-    // baseFee of market not allow mine
-    bytes DividendPoolAmount = 3;
+    // trade baseFee[include markets allow mine and not allow mine]
+    bytes DividendPoolAmount = 2;
 }
 
 message FeeSumForMine { // for mine, sum amounts with same quoteTokenType
@@ -70,13 +69,13 @@ message UserFeeAccount { // for vx mine
     bytes InviteBonusAmount = 3;
 }
 
-message UserFeeWithPeriod {
+message UserFeeByPeriod {
     repeated UserFeeAccount userFees = 1;
     uint64 Period = 2;
 }
 
 message UserFees {
-    repeated UserFeeWithPeriod fees = 1;
+    repeated UserFeeByPeriod fees = 1;
 }
 
 message BrokerMarketFee {
@@ -95,18 +94,27 @@ message BrokerFeeSumByPeriod {
     repeated BrokerFeeAccount brokerFees = 1;
 }
 
-message VxFundWithPeriod {
+message VxFundByPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
 }
 
 message VxFunds {
-    repeated VxFundWithPeriod funds = 1;
+    repeated VxFundByPeriod funds = 1;
 }
 
 message PledgeVip {
     int64 Timestamp = 1;
     int32 PledgeTimes = 2; //sum pledge times in case duplicate pledge happen
+}
+
+message PledgeForVxByPeriod {
+    uint64 Period = 1; // last snapshot height in period
+    bytes Amount = 2;
+}
+
+message PledgesForVx {
+    repeated PledgeForVxByPeriod pledges = 1;
 }
 
 //event

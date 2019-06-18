@@ -413,13 +413,13 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 	if amtForFeePerMarket, amtForPledge, amtForViteLabs, vxAmountLeaved, success := dex.GetMindedVxAmt(db, param.PeriodId, vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
-		if err = dex.DoDivideMinedVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
+		if err = dex.DoMineVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoDivideMinedVxForPledge(db, amtForPledge); err != nil {
+		if err = dex.DoMineVxForPledge(db, param.PeriodId, amtForPledge); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoDivideMinedVxForMaintainer(db, amtForViteLabs); err != nil {
+		if err = dex.DoMineVxForMaintainer(db, amtForViteLabs); err != nil {
 			return handleReceiveErr(err)
 		}
 		dex.SaveVxBalance(db, vxAmountLeaved)
@@ -553,20 +553,29 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok {
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
+				// duplicate pledge for vip, cancel pledge
 				return dex.DoCancelPledge(db, block, callbackParam.PledgeAddress, callbackParam.Bid, callbackParam.Amount)
 			} else {
 				pledgeVip.Timestamp = dex.GetTimestampInt64(db)
 				pledgeVip.PledgeTimes = 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
 			}
-			dex.OnPledgeSuccess(db, callbackParam.PledgeAddress, dex.PledgeForVipAmount)
 		} else {
 			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
 			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
 			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
-			dex.OnPledgeSuccess(db, callbackParam.PledgeAddress, callbackParam.Amount)
+			dex.OnPledgeForVxSuccess(db, vm.ConsensusReader(), callbackParam.PledgeAddress, callbackParam.Amount, pledgeAmount)
 		}
 	} else {
+		if callbackParam.Bid == dex.PledgeForVip {
+			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
+		} else {
+			if callbackParam.Amount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
+		}
 		dex.DepositAccount(db, callbackParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
@@ -607,10 +616,10 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 		return handleReceiveErr(err)
 	}
 	if cancelPledgeParam.Success {
-		if sendBlock.Amount.Cmp(cancelPledgeParam.Amount) != 0 {
-			return handleReceiveErr(dex.InvalidAmountForPledgeCallbackErr)
-		}
 		if cancelPledgeParam.Bid == dex.PledgeForVip {
+			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
 			if pledgeVip, ok := dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); ok {
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes - 1
 				if pledgeVip.PledgeTimes == 0 {
@@ -618,11 +627,13 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 				} else {
 					dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip)
 				}
-				dex.OnCancelPledgeSuccess(db, cancelPledgeParam.PledgeAddress, dex.PledgeForVipAmount)
 			} else {
 				return handleReceiveErr(dex.PledgeForVipNotExistsErr)
 			}
 		} else {
+			if cancelPledgeParam.Amount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
 			pledgeAmount := dex.GetPledgeForVx(db, cancelPledgeParam.PledgeAddress)
 			leaved := new(big.Int).Sub(pledgeAmount, sendBlock.Amount)
 			if leaved.Sign() < 0 {
@@ -632,7 +643,7 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 			} else {
 				dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved)
 			}
-			dex.OnCancelPledgeSuccess(db, cancelPledgeParam.PledgeAddress, sendBlock.Amount)
+			dex.OnCancelPledgeForVxSuccess(db, vm.ConsensusReader(), cancelPledgeParam.PledgeAddress, sendBlock.Amount, leaved)
 		}
 		dex.DepositAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
@@ -987,7 +998,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if exceedAmount.Sign() > 0 {
 		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
 	}
-	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
+	dex.SettleFeeSumWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
 		return nil, dex.NewInviteCodeFailErr
 	} else {

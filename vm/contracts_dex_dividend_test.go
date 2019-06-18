@@ -38,11 +38,11 @@ func TestDexDividend(t *testing.T) {
 func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	err := deposit(db, userAddress0, vxTokenId, 10)
 	assert.True(t, err == nil)
-	vxSumFunds, ok := dex.GetVxSumFundsFromDb(db)
+	vxSumFunds, ok := dex.GetVxSumFunds(db)
 	assert.True(t, ok)
 	assert.True(t, vxSumFunds == nil)
 
-	user0VxFunds, ok := dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, ok := dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.True(t, ok)
 	assert.True(t, user0VxFunds == nil)
 
@@ -51,7 +51,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	assert.Equal(t, uint64(1), vxSumFunds.Funds[0].Period)
 	assert.True(t, checkBigEqualToInt(30, vxSumFunds.Funds[0].Amount))
 
-	user0VxFunds, ok = dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, ok = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 1, len(user0VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(30, user0VxFunds.Funds[0].Amount))
 
@@ -74,7 +74,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 
 	deposit(db, userAddress0, vxTokenId, 2)
 	deposit(db, userAddress1, vxTokenId, 23)
-	vxSumFunds, ok = dex.GetVxSumFundsFromDb(db)
+	vxSumFunds, ok = dex.GetVxSumFunds(db)
 	assert.Equal(t, uint64(1), vxSumFunds.Funds[0].Period)
 	assert.Equal(t, uint64(2), vxSumFunds.Funds[1].Period)
 
@@ -82,12 +82,12 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	assert.True(t, checkBigEqualToInt(30, vxSumFunds.Funds[0].Amount))
 	assert.True(t, checkBigEqualToInt(55, vxSumFunds.Funds[1].Amount))
 
-	user0VxFunds, ok = dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, ok = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 2, len(user0VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(30, user0VxFunds.Funds[0].Amount))
 	assert.True(t, checkBigEqualToInt(32, user0VxFunds.Funds[1].Amount))
 
-	user1VxFunds, _ := dex.GetVxFundsFrom(db, userAddress1.Bytes())
+	user1VxFunds, _ := dex.GetVxFunds(db, userAddress1.Bytes())
 	assert.Equal(t, 1, len(user1VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(23, user1VxFunds.Funds[0].Amount))
 
@@ -109,7 +109,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	vxSumFunds = checkVxSumLen(t, db, 3)
 	assert.True(t, checkBigEqualToInt(43, vxSumFunds.Funds[2].Amount))
 
-	user0VxFunds, ok = dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, ok = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 3, len(user0VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(20, user0VxFunds.Funds[2].Amount))
 	// periodId = 3
@@ -124,11 +124,11 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	vxSumFunds = checkVxSumLen(t, db, 4)
 	assert.True(t, checkBigEqualToInt(0, vxSumFunds.Funds[3].Amount))
 
-	user0VxFunds, ok = dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, ok = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 4, len(user0VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(18, user0VxFunds.Funds[3].Amount))
 
-	user1VxFunds, _ = dex.GetVxFundsFrom(db, userAddress1.Bytes())
+	user1VxFunds, _ = dex.GetVxFunds(db, userAddress1.Bytes())
 	assert.Equal(t, 2, len(user1VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(23, user1VxFunds.Funds[0].Amount))
 	assert.True(t, checkBigEqualToInt(17, user1VxFunds.Funds[1].Amount))
@@ -152,7 +152,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	checkAccount(t, db, userAddress0, vxTokenId,19)
 	checkAccount(t, db, userAddress1, vxTokenId,19)
 
-	user0VxFunds, _ = dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	user0VxFunds, _ = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 4, len(user0VxFunds.Funds))
 	// periodId = 5
 	// vxSumFunds 1 -> 30, 2 -> 32, 3 -> 20, 4 -> 0
@@ -165,7 +165,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	checkAccount(t, db, userAddress1, vxTokenId,21)
 	assert.True(t, checkBigEqualToInt(21, vxSumFunds.Funds[4].Amount))
 
-	user1VxFunds, _ = dex.GetVxFundsFrom(db, userAddress1.Bytes())
+	user1VxFunds, _ = dex.GetVxFunds(db, userAddress1.Bytes())
 	assert.Equal(t, 3, len(user1VxFunds.Funds))
 	assert.True(t, checkBigEqualToInt(21, user1VxFunds.Funds[2].Amount))
 	checkVxSumLen(t, db, 5)
@@ -228,7 +228,7 @@ func innerTestFeeDividend(t *testing.T, db *testDatabase) {
 	checkVxSumLen(t, db, 1)
 	checkFeeSum(t, db, 4, 2, true, 2)
 	// if userAddress0 deal first it will be nil, else it will not be changed
-	vxFunds, _ := dex.GetVxFundsFrom(db, userAddress0.Bytes())
+	vxFunds, _ := dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.True(t, vxFunds == nil || len(vxFunds.Funds) == 2)
 
 	checkUserVxLen(t, db, userAddress1.Bytes(), 1)
@@ -241,13 +241,13 @@ func innerTestMinedVxForFee(t *testing.T, db *testDatabase) {
 }
 
 func checkVxSumLen(t *testing.T, db *testDatabase, expectedLen int) *dex.VxFunds {
-	vxSumFunds, _ := dex.GetVxSumFundsFromDb(db)
+	vxSumFunds, _ := dex.GetVxSumFunds(db)
 	assert.Equal(t, expectedLen, len(vxSumFunds.Funds))
 	return vxSumFunds
 }
 
 func checkUserVxLen(t *testing.T, db *testDatabase, address []byte, expectedLen int) *dex.VxFunds {
-	vxFunds, _ := dex.GetVxFundsFrom(db, address)
+	vxFunds, _ := dex.GetVxFunds(db, address)
 	assert.Equal(t, expectedLen, len(vxFunds.Funds))
 	return vxFunds
 }

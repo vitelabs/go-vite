@@ -20,7 +20,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	if feeSumsMap = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
 		return nil
 	}
-	if vxSumFunds, ok = GetVxSumFundsFromDb(db); !ok {
+	if vxSumFunds, ok = GetVxSumFunds(db); !ok {
 		return nil
 	}
 	foundVxSumFunds, vxSumAmtBytes, needUpdateVxSum, _ := MatchVxFundsByPeriod(vxSumFunds, periodId, false)
@@ -29,7 +29,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		return nil
 	}
 	if needUpdateVxSum {
-		SaveVxSumFundsToDb(db, vxSumFunds)
+		SaveVxSumFunds(db, vxSumFunds)
 	}
 	vxSumAmt := new(big.Int).SetBytes(vxSumAmtBytes)
 	if vxSumAmt.Sign() <= 0 {

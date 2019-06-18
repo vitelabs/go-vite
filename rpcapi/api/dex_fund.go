@@ -7,17 +7,19 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 )
 
 type DexFundApi struct {
+	vite  *vite.Vite
 	chain chain.Chain
 	log   log15.Logger
 }
 
 func NewDexFundApi(vite *vite.Vite) *DexFundApi {
 	return &DexFundApi{
+		vite:  vite,
 		chain: vite.Chain(),
 		log:   log15.New("module", "rpc_api/dexfund_api"),
 	}
@@ -33,12 +35,13 @@ type AccountFundInfo struct {
 	Locked    string        `json:"locked"`
 }
 
+type DividendPoolInfo struct {
+	Amount    string        `json:"amount"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
+}
+
 func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -77,11 +80,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
 	}
 
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +109,7 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 }
 
 func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*RpcMarketInfo, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +121,7 @@ func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*Rp
 }
 
 func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return false, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
 	}
@@ -138,12 +129,32 @@ func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
 	return ok, nil
 }
 
-func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
+func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*DividendPoolInfo, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	var pools map[types.TokenTypeId]*DividendPoolInfo
+	if feeSumByPeriod, ok := dex.GetCurrentFeeSum(db, getConsensusReader(f.vite)); !ok {
+		return nil, nil
+	} else {
+		pools = make(map[types.TokenTypeId]*DividendPoolInfo)
+		for _, pool := range feeSumByPeriod.FeesForDividend {
+			tk, _ := types.BytesToTokenTypeId(pool.Token)
+			if tokenInfo, err := f.chain.GetTokenInfoById(tk); err != nil {
+				return nil, err
+			} else {
+				amt := new(big.Int).SetBytes(pool.DividendPoolAmount)
+				pool := &DividendPoolInfo{amt.String(), RawTokenInfoToRpc(tokenInfo, tk)}
+				pools[tk] = pool
+			}
+		}
+	}
+	return pools, nil
+}
+
+func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +162,7 @@ func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 }
 
 func (f DexFundApi) GetOwner() (*types.Address, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +170,7 @@ func (f DexFundApi) GetOwner() (*types.Address, error) {
 }
 
 func (f DexFundApi) GetTime() (int64, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return -1, err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return -1, err
 	}
@@ -175,32 +178,32 @@ func (f DexFundApi) GetTime() (int64, error) {
 }
 
 func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
-	prevHash, err := getPrevBlockHash(f.chain, types.AddressDexFund)
-	if err != nil {
-		return "", err
-	}
-	db, err := vm_db.NewVmDb(f.chain, &types.AddressDexFund, &f.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return "", err
 	}
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
+func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
+	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
+}
+
 type RpcMarketInfo struct {
 	MarketId           int32  `json:"marketId"`
-	MarketSymbol       string  `json:"marketSymbol"`
-	TradeToken         string  `json:"tradeToken"`
-	QuoteToken         string  `json:"quoteToken"`
-	QuoteTokenType     int32   `json:"quoteTokenType"`
-	TradeTokenDecimals int32   `json:"tradeTokenDecimals,omitempty"`
-	QuoteTokenDecimals int32   `json:"quoteTokenDecimals"`
-	TakerBrokerFeeRate int32 `json:"takerBrokerFeeRate,omitempty"`
-	MakerBrokerFeeRate int32 `json:"makerBrokerFeeRate,omitempty"`
-	AllowMine          bool    `json:"allowMine"`
-	Owner              string  `json:"owner"`
-	Creator            string  `json:"creator"`
-	Stopped            bool    `json:"stopped"`
-	Timestamp          int64   `json:"timestamp"`
+	MarketSymbol       string `json:"marketSymbol"`
+	TradeToken         string `json:"tradeToken"`
+	QuoteToken         string `json:"quoteToken"`
+	QuoteTokenType     int32  `json:"quoteTokenType"`
+	TradeTokenDecimals int32  `json:"tradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals int32  `json:"quoteTokenDecimals"`
+	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate,omitempty"`
+	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate,omitempty"`
+	AllowMine          bool   `json:"allowMine"`
+	Owner              string `json:"owner"`
+	Creator            string `json:"creator"`
+	Stopped            bool   `json:"stopped"`
+	Timestamp          int64  `json:"timestamp"`
 }
 
 func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {

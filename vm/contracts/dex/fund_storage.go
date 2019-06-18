@@ -36,22 +36,26 @@ var (
 
 	timerContractAddressKey = []byte("tmA:")
 
-	VxFundKeyPrefix            = []byte("vxF:")  // vxFund:types.Address
-	vxSumFundsKey              = []byte("vxFS:") // vxFundSum
+	VxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
+	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
+
 	lastFeeDividendPeriodIdKey = []byte("lFDPId:")
 	lastMinedVxPeriodIdKey     = []byte("fMVPId:") //
 	firstMinedVxPeriodIdKey    = []byte("fMVPId:")
 	marketInfoKeyPrefix        = []byte("mk:") // market: tradeToke,quoteToken
 
-	pledgeForVipPrefix = []byte("pldVip:") // pledgeForVip: types.Address
-	pledgeForVxPrefix  = []byte("pldVx:")  // pledgeForVx: types.Address
+	pledgeForVipKeyPrefix = []byte("pldVip:") // pledgeForVip: types.Address
 
-	tokenInfoPrefix = []byte("tk:") // token:tokenId
-	vxBalanceKey    = []byte("vxAmt:")
+	pledgesForVxKeyPrefix = []byte("pldsVx:") // pledgesForVx: types.Address
+	pledgesForVxSumKey    = []byte("pldsVxS:")
+	pledgeForVxKeyPrefix  = []byte("pldVx:") // pledgeForVx: types.Address
 
-	codeByInviterPrefix    = []byte("itr2cd:")
-	inviterByCodePrefix    = []byte("cd2itr:")
-	inviterByInviteePrefix = []byte("ite2itr:")
+	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
+	vxBalanceKey       = []byte("vxAmt:")
+
+	codeByInviterKeyPrefix    = []byte("itr2cd:")
+	inviterByCodeKeyPrefix    = []byte("cd2itr:")
+	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
 	VxTokenBytes   = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
 	VxToken, _     = types.BytesToTokenTypeId(VxTokenBytes)
@@ -65,8 +69,10 @@ var (
 	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
 	NewInviterFeeAmount        = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	PledgeForVxMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVxMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+
 	PledgeForVipDuration int64 = 3600 * 24 * 30
 
 	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
@@ -251,42 +257,6 @@ func (df *UserFund) DeSerialize(fundData []byte) (err error) {
 	}
 }
 
-type FeeSumByPeriod struct {
-	dexproto.FeeSumByPeriod
-}
-
-func (df *FeeSumByPeriod) Serialize() (data []byte, err error) {
-	return proto.Marshal(&df.FeeSumByPeriod)
-}
-
-func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (err error) {
-	protoFeeSum := dexproto.FeeSumByPeriod{}
-	if err := proto.Unmarshal(feeSumData, &protoFeeSum); err != nil {
-		return err
-	} else {
-		df.FeeSumByPeriod = protoFeeSum
-		return nil
-	}
-}
-
-type BrokerFeeSumByPeriod struct {
-	dexproto.BrokerFeeSumByPeriod
-}
-
-func (bfs *BrokerFeeSumByPeriod) Serialize() (data []byte, err error) {
-	return proto.Marshal(&bfs.BrokerFeeSumByPeriod)
-}
-
-func (bfs *BrokerFeeSumByPeriod) DeSerialize(data []byte) (err error) {
-	protoBrokerFeeSumByPeriod := dexproto.BrokerFeeSumByPeriod{}
-	if err := proto.Unmarshal(data, &protoBrokerFeeSumByPeriod); err != nil {
-		return err
-	} else {
-		bfs.BrokerFeeSumByPeriod = protoBrokerFeeSumByPeriod
-		return nil
-	}
-}
-
 type VxFunds struct {
 	dexproto.VxFunds
 }
@@ -323,24 +293,6 @@ func (tk *TokenInfo) DeSerialize(data []byte) error {
 	}
 }
 
-type UserFees struct {
-	dexproto.UserFees
-}
-
-func (ufs *UserFees) Serialize() (data []byte, err error) {
-	return proto.Marshal(&ufs.UserFees)
-}
-
-func (ufs *UserFees) DeSerialize(userFeesData []byte) error {
-	protoUserFees := dexproto.UserFees{}
-	if err := proto.Unmarshal(userFeesData, &protoUserFees); err != nil {
-		return err
-	} else {
-		ufs.UserFees = protoUserFees
-		return nil
-	}
-}
-
 type MarketInfo struct {
 	dexproto.MarketInfo
 }
@@ -355,6 +307,78 @@ func (mi *MarketInfo) DeSerialize(data []byte) error {
 		return err
 	} else {
 		mi.MarketInfo = marketInfo
+		return nil
+	}
+}
+
+type OrderIdSerialNo struct {
+	dexproto.OrderIdSerialNo
+}
+
+func (osn *OrderIdSerialNo) Serialize() (data []byte, err error) {
+	return proto.Marshal(&osn.OrderIdSerialNo)
+}
+
+func (osn *OrderIdSerialNo) DeSerialize(data []byte) error {
+	orderIdSerialNo := dexproto.OrderIdSerialNo{}
+	if err := proto.Unmarshal(data, &orderIdSerialNo); err != nil {
+		return err
+	} else {
+		osn.OrderIdSerialNo = orderIdSerialNo
+		return nil
+	}
+}
+
+type FeeSumByPeriod struct {
+	dexproto.FeeSumByPeriod
+}
+
+func (df *FeeSumByPeriod) Serialize() (data []byte, err error) {
+	return proto.Marshal(&df.FeeSumByPeriod)
+}
+
+func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (err error) {
+	protoFeeSum := dexproto.FeeSumByPeriod{}
+	if err := proto.Unmarshal(feeSumData, &protoFeeSum); err != nil {
+		return err
+	} else {
+		df.FeeSumByPeriod = protoFeeSum
+		return nil
+	}
+}
+
+type BrokerFeeSumByPeriod struct {
+	dexproto.BrokerFeeSumByPeriod
+}
+
+func (bfs *BrokerFeeSumByPeriod) Serialize() (data []byte, err error) {
+	return proto.Marshal(&bfs.BrokerFeeSumByPeriod)
+}
+
+func (bfs *BrokerFeeSumByPeriod) DeSerialize(data []byte) (err error) {
+	protoBrokerFeeSumByPeriod := dexproto.BrokerFeeSumByPeriod{}
+	if err := proto.Unmarshal(data, &protoBrokerFeeSumByPeriod); err != nil {
+		return err
+	} else {
+		bfs.BrokerFeeSumByPeriod = protoBrokerFeeSumByPeriod
+		return nil
+	}
+}
+
+type UserFees struct {
+	dexproto.UserFees
+}
+
+func (ufs *UserFees) Serialize() (data []byte, err error) {
+	return proto.Marshal(&ufs.UserFees)
+}
+
+func (ufs *UserFees) DeSerialize(userFeesData []byte) error {
+	protoUserFees := dexproto.UserFees{}
+	if err := proto.Unmarshal(userFeesData, &protoUserFees); err != nil {
+		return err
+	} else {
+		ufs.UserFees = protoUserFees
 		return nil
 	}
 }
@@ -413,24 +437,6 @@ func (psq *PendingTransferTokenOwners) DeSerialize(data []byte) error {
 	}
 }
 
-type OrderIdSerialNo struct {
-	dexproto.OrderIdSerialNo
-}
-
-func (osn *OrderIdSerialNo) Serialize() (data []byte, err error) {
-	return proto.Marshal(&osn.OrderIdSerialNo)
-}
-
-func (osn *OrderIdSerialNo) DeSerialize(data []byte) error {
-	orderIdSerialNo := dexproto.OrderIdSerialNo{}
-	if err := proto.Unmarshal(data, &orderIdSerialNo); err != nil {
-		return err
-	} else {
-		osn.OrderIdSerialNo = orderIdSerialNo
-		return nil
-	}
-}
-
 type PledgeVip struct {
 	dexproto.PledgeVip
 }
@@ -445,6 +451,24 @@ func (pv *PledgeVip) DeSerialize(data []byte) error {
 		return err
 	} else {
 		pv.PledgeVip = pledgeVip
+		return nil
+	}
+}
+
+type PledgesForVx struct {
+	dexproto.PledgesForVx
+}
+
+func (psv *PledgesForVx) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psv.PledgesForVx)
+}
+
+func (psv *PledgesForVx) DeSerialize(data []byte) error {
+	pledgesForVx := dexproto.PledgesForVx{}
+	if err := proto.Unmarshal(data, &pledgesForVx); err != nil {
+		return err
+	} else {
+		psv.PledgesForVx = pledgesForVx
 		return nil
 	}
 }
@@ -660,7 +684,7 @@ func GetUserFeesKey(address []byte) []byte {
 	return append(UserFeeKeyPrefix, address...)
 }
 
-func GetVxFundsFrom(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
+func GetVxFunds(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
 	vxFunds = &VxFunds{}
 	ok = deserializeFromDb(db, GetVxFundsKey(address), vxFunds)
 	return
@@ -710,13 +734,13 @@ func GetVxFundsKey(address []byte) []byte {
 	return append(VxFundKeyPrefix, address...)
 }
 
-func GetVxSumFundsFromDb(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
+func GetVxSumFunds(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
 	vxSumFunds = &VxFunds{}
 	ok = deserializeFromDb(db, vxSumFundsKey, vxSumFunds)
 	return
 }
 
-func SaveVxSumFundsToDb(db vm_db.VmDb, vxSumFunds *VxFunds) {
+func SaveVxSumFunds(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
 }
 
@@ -943,7 +967,7 @@ func SaveTokenInfo(db vm_db.VmDb, token types.TokenTypeId, tokenInfo *TokenInfo)
 }
 
 func GetTokenInfoKey(token types.TokenTypeId) []byte {
-	return append(tokenInfoPrefix, token.Bytes()...)
+	return append(tokenInfoKeyPrefix, token.Bytes()...)
 }
 
 func NewAndSaveMarketId(db vm_db.VmDb) (newId int32) {
@@ -1066,7 +1090,7 @@ func DeletePledgeForVx(db vm_db.VmDb, address types.Address) {
 }
 
 func GetPledgeForVxKey(address types.Address) []byte {
-	return append(pledgeForVxPrefix, address.Bytes()...)
+	return append(pledgeForVxKeyPrefix, address.Bytes()...)
 }
 
 func GetPledgeForVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, ok bool) {
@@ -1084,7 +1108,75 @@ func DeletePledgeForVip(db vm_db.VmDb, address types.Address) {
 }
 
 func GetPledgeForVipKey(address types.Address) []byte {
-	return append(pledgeForVipPrefix, address.Bytes()...)
+	return append(pledgeForVipKeyPrefix, address.Bytes()...)
+}
+
+func GetPledgesForVx(db vm_db.VmDb, address types.Address) (pledgesForVx *PledgesForVx, ok bool) {
+	pledgesForVx = &PledgesForVx{}
+	ok = deserializeFromDb(db, GetPledgesForVxKey(address), pledgesForVx)
+	return
+}
+
+func SavePledgesForVx(db vm_db.VmDb, address types.Address, ps *PledgesForVx) {
+	serializeToDb(db, GetPledgesForVxKey(address), ps)
+}
+
+func DeletePledgesForVx(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetPledgesForVxKey(address), nil)
+}
+
+func GetPledgesForVxKey(address types.Address) []byte {
+	return append(pledgesForVxKeyPrefix, address.Bytes()...)
+}
+
+func GetPledgesForVxSum(db vm_db.VmDb) (pledgesForVx *PledgesForVx, ok bool) {
+	pledgesForVx = &PledgesForVx{}
+	ok = deserializeFromDb(db, pledgesForVxSumKey, pledgesForVx)
+	return
+}
+
+func SavePledgesForVxSum(db vm_db.VmDb, ps *PledgesForVx) {
+	serializeToDb(db, pledgesForVxSumKey, ps)
+}
+
+func IsValidPledgeAmountForVx(amount *big.Int) bool {
+	return amount.Cmp(PledgeForVxThreshold) >= 0
+}
+
+func IsValidPledgeAmountBytesForVx(amount []byte) bool {
+	return new(big.Int).SetBytes(amount).Cmp(PledgeForVxThreshold) >= 0
+}
+
+func MatchPledgeForVxByPeriod(pledgesForVx *PledgesForVx, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
+	var (
+		pledgeAmtBytes         []byte
+		matchIndex             int
+		needUpdatePledgesForVx bool
+	)
+	for i, pledge := range pledgesForVx.Pledges {
+		if periodId >= pledge.Period {
+			pledgeAmtBytes = pledge.Amount
+			matchIndex = i
+		} else {
+			break
+		}
+	}
+	if len(pledgeAmtBytes) == 0 {
+		return false, nil, false, checkDelete && CheckUserPledgesForVxCanBeDelete(pledgesForVx)
+	}
+	if matchIndex > 0 { //remove obsolete items, but leave current matched item
+		pledgesForVx.Pledges = pledgesForVx.Pledges[matchIndex:]
+		needUpdatePledgesForVx = true
+	}
+	if len(pledgesForVx.Pledges) > 1 && pledgesForVx.Pledges[1].Period == periodId+1 {
+		pledgesForVx.Pledges = pledgesForVx.Pledges[1:]
+		needUpdatePledgesForVx = true
+	}
+	return true, pledgeAmtBytes, needUpdatePledgesForVx, checkDelete && CheckUserPledgesForVxCanBeDelete(pledgesForVx)
+}
+
+func CheckUserPledgesForVxCanBeDelete(pledgesForVx *PledgesForVx) bool {
+	return len(pledgesForVx.Pledges) == 1 && !IsValidPledgeAmountBytesForVx(pledgesForVx.Pledges[0].Amount)
 }
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {
@@ -1114,7 +1206,7 @@ func GetTimerTimestamp(db vm_db.VmDb) int64 {
 }
 
 func GetCodeByInviter(db vm_db.VmDb, address types.Address) uint32 {
-	if bs := getValueFromDb(db, append(codeByInviterPrefix, address.Bytes()...)); len(bs) == 4 {
+	if bs := getValueFromDb(db, append(codeByInviterKeyPrefix, address.Bytes()...)); len(bs) == 4 {
 		return BytesToUint32(bs)
 	} else {
 		return 0
@@ -1122,11 +1214,11 @@ func GetCodeByInviter(db vm_db.VmDb, address types.Address) uint32 {
 }
 
 func SaveCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) {
-	setValueToDb(db, append(codeByInviterPrefix, address.Bytes()...), Uint32ToBytes(inviteCode))
+	setValueToDb(db, append(codeByInviterKeyPrefix, address.Bytes()...), Uint32ToBytes(inviteCode))
 }
 
 func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (inviter *types.Address, err error) {
-	if bs := getValueFromDb(db, append(inviterByCodePrefix, Uint32ToBytes(inviteCode)...)); len(bs) == types.AddressSize {
+	if bs := getValueFromDb(db, append(inviterByCodeKeyPrefix, Uint32ToBytes(inviteCode)...)); len(bs) == types.AddressSize {
 		*inviter, err = types.BytesToAddress(bs)
 		return
 	} else {
@@ -1135,15 +1227,15 @@ func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (inviter *types.Address,
 }
 
 func SaveInviterByCode(db vm_db.VmDb, address types.Address, inviteCode uint32) {
-	setValueToDb(db, append(inviterByCodePrefix, Uint32ToBytes(inviteCode)...), address.Bytes())
+	setValueToDb(db, append(inviterByCodeKeyPrefix, Uint32ToBytes(inviteCode)...), address.Bytes())
 }
 
 func SaveInviterByInvitee(db vm_db.VmDb, invitee, inviter types.Address) {
-	setValueToDb(db, append(inviterByInviteePrefix, invitee.Bytes()...), inviter.Bytes())
+	setValueToDb(db, append(inviterByInviteeKeyPrefix, invitee.Bytes()...), inviter.Bytes())
 }
 
 func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (inviter *types.Address, err error) {
-	if bs := getValueFromDb(db, append(inviterByInviteePrefix, address.Bytes()...)); len(bs) == types.AddressSize {
+	if bs := getValueFromDb(db, append(inviterByInviteeKeyPrefix, address.Bytes()...)); len(bs) == types.AddressSize {
 		*inviter, err = types.BytesToAddress(bs)
 		return
 	} else {

@@ -41,7 +41,7 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 	if err != nil {
 		return nil, err
 	}
-	if db, err = f.getDb(types.AddressDexTrade); err != nil {
+	if db, err = getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
 		if matcher = dex.NewRawMatcher(db); err != nil {
@@ -53,13 +53,13 @@ func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken type
 }
 
 func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
-	if fundDb, err := f.getDb(types.AddressDexFund); err != nil {
+	if fundDb, err := getDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
-			if tradeDb, err := f.getDb(types.AddressDexTrade); err != nil {
+			if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 				return nil, err
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
@@ -74,12 +74,12 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	}
 }
 
-func (f DexTradeApi) getDb(address types.Address) (db vm_db.VmDb, err error) {
-	prevHash, err := getPrevBlockHash(f.chain, address)
+func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
+	prevHash, err := getPrevBlockHash(c, address)
 	if err != nil {
 		return nil, err
 	}
-	if db, err := vm_db.NewVmDb(f.chain, &address, &f.chain.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
+	if db, err := vm_db.NewVmDb(c, &address, &c.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
 		return nil, err
 	} else {
 		return db, nil

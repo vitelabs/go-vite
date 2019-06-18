@@ -7,10 +7,10 @@ import (
 	"math/big"
 )
 
-func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *big.Int) error {
+func DoMineVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *big.Int) error {
 	var (
 		feeSum                *FeeSumByPeriod
-		feeSumMap             = make(map[int32]*big.Int)
+		feeSumMap             = make(map[int32]*big.Int)// quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
 		err                   error
@@ -99,15 +99,82 @@ func DoDivideMinedVxForFee(db vm_db.VmDb, periodId uint64, minedVxAmtPerMarket *
 	return nil
 }
 
-func DoDivideMinedVxForPledge(db vm_db.VmDb, minedVxAmt *big.Int) error {
-	// support accumulate history pledge vx
-	if minedVxAmt.Sign() == 0 {
+func DoMineVxForPledge(db vm_db.VmDb, periodId uint64, amtMineForPledge *big.Int) error {
+	var (
+		pledgesForVxSum        *PledgesForVx
+		dividedPledgeAmountSum = big.NewInt(0)
+		amtLeavedToMine        = new(big.Int).Set(amtMineForPledge)
+		ok                     bool
+	)
+	if pledgesForVxSum, ok = GetPledgesForVxSum(db); !ok {
 		return nil
+	}
+	foundPledgesForVxSum, pledgeForVxSumAmtBytes, needUpdatePledgesForVxSum, _ := MatchPledgeForVxByPeriod(pledgesForVxSum, periodId, false)
+	if !foundPledgesForVxSum { // not found vxSumFunds
+		return nil
+	}
+	if needUpdatePledgesForVxSum {
+		SavePledgesForVxSum(db, pledgesForVxSum)
+	}
+	pledgeForVxSumAmt := new(big.Int).SetBytes(pledgeForVxSumAmtBytes)
+	if pledgeForVxSumAmt.Sign() <= 0 {
+		return nil
+	}
+
+	var (
+		pledgesForVxKey, pledgeForVxValue []byte
+	)
+
+	iterator, err := db.NewStorageIterator(pledgesForVxKeyPrefix)
+	if err != nil {
+		return err
+	}
+	defer iterator.Release()
+	for {
+		if ok = iterator.Next(); ok {
+			break
+		} else {
+			pledgesForVxKey = iterator.Key()
+			pledgeForVxValue = iterator.Value()
+			if len(pledgeForVxValue) == 0 {
+				continue
+			}
+		}
+		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
+		address := types.Address{}
+		if err = address.SetBytes(addressBytes); err != nil {
+			return err
+		}
+		pledgesForVx := &PledgesForVx{}
+		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
+			return err
+		}
+		foundPledgesForVx, PledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
+		if !foundPledgesForVx {
+			continue
+		}
+		if needDeletePledgesForVx {
+			DeletePledgesForVx(db, address)
+		} else if needUpdatePledgesForVx {
+			SavePledgesForVx(db, address, pledgesForVx)
+		}
+		pledgeAmount := new(big.Int).SetBytes(PledgesForVxAmtBytes)
+		if !IsValidPledgeAmountForVx(pledgeAmount) {
+			continue
+		}
+		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
+		minedAmt, finished := DivideByProportion(pledgeForVxSumAmt, pledgeAmount, dividedPledgeAmountSum, amtMineForPledge, amtLeavedToMine)
+		vxFunds := make(map[types.TokenTypeId]*big.Int)
+		vxFunds[VxToken] = minedAmt
+		BatchSaveUserFund(db, address, vxFunds)
+		if finished {
+			break
+		}
 	}
 	return nil
 }
 
-func DoDivideMinedVxForMaintainer(db vm_db.VmDb, minedVxAmt *big.Int) error {
+func DoMineVxForMaintainer(db vm_db.VmDb, minedVxAmt *big.Int) error {
 	if minedVxAmt.Sign() == 0 {
 		return nil
 	}
