@@ -40,17 +40,18 @@ func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
 }
 
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
-	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, &sd.addr, prefix)
+	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, sd.addr, prefix)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %s, addr is %s, prefix is %s",
 			sd.snapshotHeight, sd.addr, prefix))
 		return nil, cErr
 	}
 
-	if ss == nil {
-		return nil, nil
-	}
 	return ss, nil
+}
+
+func (sd *StorageDatabase) NewRawStorageIterator(prefix []byte) interfaces.StorageIterator {
+	return sd.stateDb.NewRawSnapshotStorageIteratorByHeight(sd.snapshotHeight, sd.addr, prefix)
 }
 
 func (sd *StorageDatabase) Address() *types.Address {

@@ -237,19 +237,16 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return binary.BigEndian.Uint16(value), nil
 }
 
-func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
+func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
 	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if snapshotHeight <= 0 {
-		return nil, nil
+		return nil
 	}
 
-	balanceMap := make(map[types.Address]*big.Int, len(addrList))
-
 	prefix := chain_utils.BalanceHistoryKeyPrefix
-
 	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
 
@@ -277,7 +274,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrLis
 		}
 
 	}
-	return balanceMap, nil
+	return nil
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {

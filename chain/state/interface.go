@@ -21,6 +21,8 @@ type EventListener interface {
 }
 
 type Chain interface {
+	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)
+
 	QueryLatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 
 	GetLatestSnapshotBlock() *ledger.SnapshotBlock

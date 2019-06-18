@@ -2,18 +2,30 @@ package chain_state
 
 import (
 	"fmt"
+	chain_utils "github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
+	"math/big"
 )
 
 // TODO
 type RoundCacheRedoLogs struct{}
 
+// TODO
+func NewRoundCacheRedoLogs() *RoundCacheRedoLogs {
+	return nil
+}
+
+// TODO filter
+func (redoLogs *RoundCacheRedoLogs) Add(log SnapshotLog) {}
+
 type RedoCacheData struct {
 	CurrentData *db.MemDB
-	RedoLogs    *RoundCacheRedoLogs
+
+	RedoLogs *RoundCacheRedoLogs
 }
 
 func NewRedoCacheData(currentData *db.MemDB, redoLogs *RoundCacheRedoLogs) *RedoCacheData {
@@ -24,14 +36,18 @@ func NewRedoCacheData(currentData *db.MemDB, redoLogs *RoundCacheRedoLogs) *Redo
 }
 
 type RoundCache struct {
+	chain      Chain
+	stateDB    *StateDB
 	roundCount uint64
 	timeIndex  core.TimeIndex // TODO new timeIndex: GetPeriodTimeIndex() TimeIndex
 
 	data map[uint64]*RedoCacheData
 }
 
-func NewRoundCache(roundCount uint8) *RoundCache {
+func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache {
 	return &RoundCache{
+		chain:      chain,
+		stateDB:    stateDB,
 		roundCount: uint64(roundCount),
 		data:       make(map[uint64]*RedoCacheData, roundCount),
 	}
@@ -79,6 +95,11 @@ func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 			return err
 		}
 
+		if redoLogs == nil {
+			// TODO no redo log
+			panic("implementation me")
+		}
+
 		curCurrentData := cache.buildCurrentData(prevCurrentData, redoLogs)
 
 		prevCurrentData = curCurrentData
@@ -92,18 +113,135 @@ func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 // TODO
 func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*db.MemDB, error) {
 	roundData := db.NewMemDB()
+	// get the last snapshot block of round
+	snapshotBlock, err := cache.roundToSnapshotBlock(roundIndex)
+	if err != nil {
+		return nil, err
+	}
+	if snapshotBlock == nil {
+		return nil, errors.New(fmt.Sprintf("snapshot block is nil, roundIndex is %d", roundIndex))
+	}
+
+	// set vote list cache
+	if err := cache.setStorageToCache(roundData, types.AddressConsensusGroup, snapshotBlock.Hash); err != nil {
+		return nil, err
+	}
+
+	// set address balances cache
+	if err := cache.setAllBalanceToCache(roundData, snapshotBlock.Hash); err != nil {
+		return nil, err
+	}
 
 	return roundData, nil
 }
 
 // TODO
 func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, error) {
-	// 1. 查出本轮所有snapshot block
+	roundRedoLogs := NewRoundCacheRedoLogs()
+	// query the snapshot blocks of the round
+	snapshotBlocks, err := cache.getRoundSnapshotBlocks(roundIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(snapshotBlocks) <= 0 {
+		return roundRedoLogs, nil
+	}
+
 	// 2. 根据snapshot block查出所有redoLog，转换为RoundCacheRedoLogs
-	return nil, nil
+	for _, snapshotBlock := range snapshotBlocks {
+		redoLog, hasRedoLog, err := cache.stateDB.redo.QueryLog(snapshotBlock.Height)
+		if err != nil {
+			return nil, err
+		}
+		if !hasRedoLog {
+			return nil, nil
+		}
+
+		roundRedoLogs.Add(redoLog)
+	}
+	return roundRedoLogs, nil
 }
 
 // TODO
 func (cache *RoundCache) buildCurrentData(prevBaseData *db.MemDB, redoLogs *RoundCacheRedoLogs) *db.MemDB {
+	return nil
+}
+
+func (cache *RoundCache) roundToSnapshotBlock(roundIndex uint64) (*ledger.SnapshotBlock, error) {
+	return nil, nil
+}
+
+func (cache *RoundCache) getRoundSnapshotBlocks(roundIndex uint64) ([]*ledger.SnapshotBlock, error) {
+	return nil, nil
+}
+
+func (cache *RoundCache) setAllBalanceToCache(roundData *db.MemDB, snapshotHash types.Hash) error {
+	batchSize := 10000
+	addressList := make([]types.Address, 0, batchSize)
+
+	var iterErr error
+	cache.chain.IterateAccounts(func(addr types.Address, accountId uint64, err error) bool {
+
+		addressList = append(addressList, addr)
+
+		if len(addressList)%batchSize == 0 {
+			if err := cache.setBalanceToCache(roundData, snapshotHash, addressList); err != nil {
+				iterErr = err
+				return false
+			}
+
+			addressList = make([]types.Address, 0, batchSize)
+		}
+
+		return true
+	})
+
+	if iterErr != nil {
+		return iterErr
+	}
+
+	if len(addressList) > 0 {
+		if err := cache.setBalanceToCache(roundData, snapshotHash, addressList); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cache *RoundCache) setBalanceToCache(roundData *db.MemDB, snapshotHash types.Hash, addressList []types.Address) error {
+	balanceMap := make(map[types.Address]*big.Int, len(addressList))
+	if err := cache.stateDB.GetSnapshotBalanceList(balanceMap, snapshotHash, addressList, ledger.ViteTokenId); err != nil {
+		return err
+	}
+
+	for addr, balance := range balanceMap {
+		// balance is zero
+		if balance == nil || len(balance.Bytes()) <= 0 {
+			continue
+		}
+		roundData.Put(append([]byte{chain_utils.BalanceHistoryKeyPrefix}, addr.Bytes()...), balance.Bytes())
+	}
+
+	return nil
+}
+
+func (cache *RoundCache) setStorageToCache(roundData *db.MemDB, contractAddress types.Address, snapshotHash types.Hash) error {
+	storageDatabase, err := cache.stateDB.NewStorageDatabase(snapshotHash, contractAddress)
+	if err != nil {
+		return err
+	}
+	iter := storageDatabase.NewRawStorageIterator(nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		roundData.Put(iter.Key(), iter.Value())
+	}
+
+	if err := iter.Error(); err != nil {
+		return err
+	}
+
 	return nil
 }
