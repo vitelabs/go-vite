@@ -97,7 +97,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, nil, err
+				return nil, nil, iterator.Error()
 			}
 			break
 		}
@@ -128,4 +128,28 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address)
 	amount := new(VariablePledgeBeneficial)
 	ABIPledge.UnpackVariable(amount, VariableNamePledgeBeneficial, v)
 	return amount.Amount, nil
+}
+
+func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr types.Address, agent bool, bid uint8) (*PledgeInfo, error) {
+	iterator, err := db.NewStorageIterator(GetPledgeKeyPrefix(pledgeAddr))
+	util.DealWithErr(err)
+	defer iterator.Release()
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			break
+		}
+		if !IsPledgeKey(iterator.Key()) {
+			continue
+		}
+		pledgeInfo := new(PledgeInfo)
+		ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value())
+		if pledgeInfo.BeneficialAddr == beneficialAddr && pledgeInfo.Agent == agent &&
+			pledgeInfo.AgentAddress == agentAddr && pledgeInfo.Bid == bid {
+			return pledgeInfo, nil
+		}
+	}
+	return nil, nil
 }
