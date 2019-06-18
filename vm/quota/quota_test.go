@@ -647,10 +647,11 @@ func TestCalcUTPS(t *testing.T) {
 		if index >= len(nodeConfig.pledgeAmountList) {
 			break
 		}
-		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v |\n",
+		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v | %v |\n",
 			nodeConfig.sectionList[index-75], nodeConfig.sectionList[index],
 			index*21000,
 			index/75,
+			index,
 			nodeConfig.pledgeAmountList[index],
 			nodeConfig.difficultyList[index/75],
 		)
@@ -679,7 +680,7 @@ func TestPrintQuotaUnder1UTPS(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for i := 1; i < 75; i = i + 1 {
 		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
-		fmt.Printf("| $(%v, %v]$ | %v | %v/75 | %v | %v |\n", nodeConfig.sectionList[i-1], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i, pledgeAmount, nodeConfig.difficultyList[i])
+		fmt.Printf("| $(%v, %v]$ | %v | %v/75 | %v | %v | %v |\n", nodeConfig.sectionList[i-1], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i, i, pledgeAmount, nodeConfig.difficultyList[i])
 	}
 }
 
@@ -687,7 +688,7 @@ func TestPrintQuota(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for i := 75; i < len(nodeConfig.sectionList); i = i + 75 {
 		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
-		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v |\n", nodeConfig.sectionList[i-75], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i/75, pledgeAmount, nodeConfig.difficultyList[i])
+		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v | %v |\n", nodeConfig.sectionList[i-75], nodeConfig.sectionList[i], uint64(i)*quotaForSection, i/75, i, pledgeAmount, nodeConfig.difficultyList[i])
 	}
 }
 
