@@ -150,13 +150,14 @@ func (pl *pool) makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*ledger.Hash
 
 func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlock) error {
 	sum := 0
+	sHash := b.cur.Hash()
 	for {
 		for _, v := range b.addrM {
 			for v.Len() > 0 {
 				ab := v.Peek().(*accountPoolBlock)
-				err := p.AddSItem(ab)
+				err := p.AddAItem(ab, &sHash)
 				if err != nil {
-					if err == batch.MAX_ERROR {
+					if err == batch.ErrorArrivedToMax {
 						pl.log.Info(fmt.Sprintf("account[%s] max. %s\n", ab.Hash(), err))
 						return err
 					}
@@ -176,12 +177,12 @@ func (pl *pool) makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlo
 	if b.isEmpty() {
 		err := p.AddSItem(b.cur)
 		if err != nil {
-			pl.log.Info(fmt.Sprintf("add snapshot[%s] error. %s\n", b.cur.Hash(), err))
+			pl.log.Info(fmt.Sprintf("add snapshot[%s] error. %s\n", sHash, err))
 			return err
 		}
 		return nil
 	}
-	return errors.WithMessage(batch.REFER_ERROR, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
+	return errors.WithMessage(batch.ErrorReference, fmt.Sprintf("snapshot[%s] not finish.", b.cur.block.Hash))
 }
 func (pl *pool) makeQueueFromAccounts(p batch.Batch) {
 	addrOffsets := make(map[types.Address]*offsetInfo)

@@ -41,9 +41,7 @@ func (store *Store) WriteSnapshot(snapshotBatch *leveldb.Batch, accountBlocks []
 // snapshot
 func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashList []types.Hash) {
 	// write store.memDb
-	if snapshotBatch != nil {
-		store.putMemDb(snapshotBatch)
-	}
+	store.putMemDb(snapshotBatch)
 
 	for _, blockHash := range blockHashList {
 		batch, ok := store.unconfirmedBatchs.Get(blockHash)
@@ -59,7 +57,6 @@ func (store *Store) WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashL
 	}
 
 	// write store snapshot batch
-	if snapshotBatch != nil {
-		store.snapshotBatch.Append(snapshotBatch)
-	}
+	store.snapshotBatch.Append(snapshotBatch)
+
 }

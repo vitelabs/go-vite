@@ -185,10 +185,14 @@ func (pl *pool) checkIrreversiblePrinciple(keyPoint *snapshotPoolBlock) error {
 	if info.point.Height < keyPoint.Height() {
 		return nil
 	}
-	return errors.Errorf("check Irreversible Principle Fail, %s, keyPoint:%s"+info.String(), keyPoint.Height())
+	return errors.Errorf("check Irreversible Principle Fail, %s, keyPoint:%d", info.String(), keyPoint.Height())
 }
 
 func (pl *pool) updateIrreversibleBlock() error {
+	nodeCnt := pl.cs.SBPReader().GetNodeCount()
+	if nodeCnt < 3 {
+		return nil
+	}
 	last := pl.pendingSc.irreversible
 	if last == nil {
 		info, err := pl.getLatestIrreversibleBlock(nil)
@@ -238,6 +242,9 @@ func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock)
 }
 
 func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeIndex) (*irreversibleInfo, error) {
+	if nodeCnt < 3 {
+		return nil, nil
+	}
 	irreversibleCnt := uint64(nodeCnt/3*2 + 1)
 
 	head := pl.bc.GetLatestSnapshotBlock()

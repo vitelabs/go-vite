@@ -69,9 +69,12 @@ func (bDB *BlockDB) Prepare() {
 	bDB.fm.SetNextFlushStartLocation(bDB.flushTargetLocation)
 }
 
-// lock write
+// Assume locking writing (lock the insertion and deletion of account block and snapshot block)
+// nextFlushStartLocation is the start location of the next flush.
+// bDB.flushStartLocation is
 func (bDB *BlockDB) CancelPrepare() {
 	nextFlushStartLocation := bDB.fm.NextFlushStartLocation()
+
 	if nextFlushStartLocation.Compare(bDB.flushStartLocation) > 0 {
 		bDB.fm.SetNextFlushStartLocation(bDB.flushStartLocation)
 	}

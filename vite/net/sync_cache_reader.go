@@ -84,6 +84,8 @@ type cacheReader struct {
 
 	downloadRecord map[interfaces.Segment]peerId
 
+	blackBlocks map[types.Hash]struct{}
+
 	wg  sync.WaitGroup
 	log log15.Logger
 }
@@ -211,6 +213,7 @@ func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloade
 		log:            netLog.New("module", "cache"),
 		readable:       1,
 		downloadRecord: make(map[interfaces.Segment]peerId),
+		blackBlocks:    make(map[types.Hash]struct{}),
 	}
 
 	s.cond = sync.NewCond(&s.mu)
@@ -451,6 +454,11 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 		if err != nil {
 			break
 		} else if ab != nil {
+			if _, ok := s.blackBlocks[ab.Hash]; ok {
+				s.log.Warn(fmt.Sprintf("accountblock %s is in blacklist", ab.Hash))
+				break
+			}
+
 			if verified == false {
 				if err = s.verifier.VerifyNetAb(ab); err != nil {
 					break
@@ -462,6 +470,11 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 			}
 
 		} else if sb != nil {
+			if _, ok := s.blackBlocks[sb.Hash]; ok {
+				s.log.Warn(fmt.Sprintf("snapshotblock %s is in blacklist", sb.Hash))
+				break
+			}
+
 			if verified == false {
 				if err = s.verifier.VerifyNetSb(sb); err != nil {
 					break
@@ -593,5 +606,15 @@ Loop:
 		}
 
 		time.Sleep(duration)
+	}
+}
+
+func (s *cacheReader) setBlackHashList(list []string) {
+	for _, str := range list {
+		hash, err := types.HexToHash(str)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
+		}
+		s.blackBlocks[hash] = struct{}{}
 	}
 }

@@ -20,6 +20,7 @@ package net
 
 import (
 	"sync"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
@@ -47,6 +48,7 @@ type sbpn struct {
 	connect   Connector
 	consensus Consensus
 	dialing   map[peerId]struct{}
+	initSBP   map[types.Address]struct{}
 }
 
 func newSbpn(self types.Address, peers *peerSet, connect Connector, consensus Consensus) *sbpn {
@@ -57,8 +59,16 @@ func newSbpn(self types.Address, peers *peerSet, connect Connector, consensus Co
 		connect:   connect,
 		consensus: consensus,
 		dialing:   make(map[peerId]struct{}),
+		initSBP:   make(map[types.Address]struct{}),
 	}
 	consensus.SubscribeProducers(types.SNAPSHOT_GID, "sbpn", sn.receiveProducers)
+
+	details, _, err := consensus.API().ReadVoteMap(time.Now())
+	if err == nil {
+		for _, d := range details {
+			sn.initSBP[d.CurrentAddr] = struct{}{}
+		}
+	}
 
 	return sn
 }
@@ -68,7 +78,15 @@ func (f *sbpn) isSbp(addr types.Address) bool {
 	defer f.rw.RUnlock()
 
 	_, ok := f.targets[addr]
-	return ok
+	if ok {
+		return true
+	}
+	_, ok = f.initSBP[addr]
+	if ok {
+		return true
+	}
+
+	return false
 }
 
 func (f *sbpn) clean() {
@@ -84,6 +102,8 @@ func (f *sbpn) receiveProducers(event consensus.ProducersEvent) {
 	defer f.rw.Unlock()
 
 	for _, addr := range event.Addrs {
+		f.initSBP[addr] = struct{}{}
+
 		if addr == f.self {
 			continue
 		}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/db"
+	"github.com/vitelabs/go-vite/consensus/cdb"
 )
 
 var hash = flag.String("hash", "", "remove consensus result hash")
@@ -23,7 +23,7 @@ func main() {
 
 	hashPanic := types.HexToHashPanic(*hash)
 
-	cDB := consensus_db.NewConsensusDB(db)
+	cDB := cdb.NewConsensusDB(db)
 	addr, err := cDB.GetElectionResultByHash(hashPanic)
 	if err != nil {
 		panic(err)

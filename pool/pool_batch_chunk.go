@@ -102,7 +102,7 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 				block := newAccountPoolBlock(vv, nil, pl.version, source)
 				pl.log.Info("[A]add block to batch.", "account", vv.AccountAddress, "height", vv.Height, "block", vv.Hash, "batchId", b.Id())
 				err := b.AddAItem(block, sHash)
-				if err != nil && err == batch.MAX_ERROR {
+				if err != nil && err == batch.ErrorArrivedToMax {
 					err := b.Batch(pl.insertSnapshotBucketForChunks, pl.insertAccountsBucketForChunks)
 					if err != nil {
 						return err
@@ -128,7 +128,7 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 			block := newSnapshotPoolBlock(v.SnapshotBlock, pl.version, source)
 			pl.log.Info("[S]add block to batch.", "block", v.SnapshotBlock.Hash, "batchId", b.Id())
 			err := b.AddSItem(block)
-			if err != nil && err == batch.MAX_ERROR {
+			if err != nil && err == batch.ErrorArrivedToMax {
 				err := b.Batch(pl.insertSnapshotBucketForChunks, pl.insertAccountsBucketForChunks)
 				if err != nil {
 					return err

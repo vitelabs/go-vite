@@ -2,11 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"runtime/debug"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
@@ -20,8 +22,8 @@ func (api DebugApi) Free() {
 	debug.FreeOSMemory()
 }
 
-func (api DebugApi) PoolInfo(addr *types.Address) string {
-	return api.v.Pool().Info(addr)
+func (api DebugApi) PoolInfo() map[string]interface{} {
+	return api.v.Pool().Info()
 }
 
 func (api DebugApi) PoolSnapshot() map[string]interface{} {
@@ -39,12 +41,12 @@ func (api DebugApi) PoolAccount(addr types.Address) map[string]interface{} {
 	return api.v.Pool().Account(addr)
 }
 
-func (api DebugApi) PoolSnapshotChainDetail(chainId string) map[string]interface{} {
-	return api.v.Pool().SnapshotChainDetail(chainId)
+func (api DebugApi) PoolSnapshotChainDetail(chainId string, height uint64) map[string]interface{} {
+	return api.v.Pool().SnapshotChainDetail(chainId, height)
 }
 
-func (api DebugApi) PoolAccountChainDetail(addr types.Address, chainId string) map[string]interface{} {
-	return api.v.Pool().AccountChainDetail(addr, chainId)
+func (api DebugApi) PoolAccountChainDetail(addr types.Address, chainId string, height uint64) map[string]interface{} {
+	return api.v.Pool().AccountChainDetail(addr, chainId, height)
 }
 
 func (api DebugApi) PoolAccountBlockDetail(addr types.Address, hash types.Hash) map[string]interface{} {
@@ -212,4 +214,26 @@ func (api DebugApi) peersDetails() map[string]interface{} {
 
 func (api DebugApi) GetForkInfo() config.ForkPoints {
 	return fork.GetForkPoints()
+}
+
+func (api DebugApi) GetOnRoadInfoUnconfirmed(addr types.Address) ([]*types.Hash, error) {
+	return api.v.Chain().GetOnRoadInfoUnconfirmedHashList(addr)
+}
+
+func (api DebugApi) UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amountStr *string) error {
+	amount := big.NewInt(0)
+	if amountStr != nil {
+		if _, ok := amount.SetString(*amountStr, 10); !ok {
+			return ErrStrToBigInt
+		}
+	}
+	result := amount.Cmp(helper.Big0)
+	if result < 0 || (number == 0 && result > 0) {
+		return errors.New("amount invalid")
+	}
+	return api.v.Chain().UpdateOnRoadInfo(addr, tkId, number, *amount)
+}
+
+func (api DebugApi) ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error {
+	return api.v.Chain().ClearOnRoadUnconfirmedCache(addr, hashList)
 }

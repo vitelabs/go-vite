@@ -8,7 +8,7 @@ import (
 )
 
 func TestBranch_GetKnotAndBranch(t *testing.T) {
-	root := newMockBranchRoot()
+	root := NewMockBranchRoot()
 
 	for i := 0; i < 2; i++ {
 		root.addHead(newMockKnot(root.Head(), "root"))

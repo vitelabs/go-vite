@@ -3,6 +3,13 @@ package api
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,12 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 type VmDebugApi struct {
@@ -149,7 +150,7 @@ type CreateContractResult struct {
 	AccountPrivateKey string              `json:"accountPrivateKey"`
 	ContractAddr      types.Address       `json:"contractAddr"`
 	SendBlockHash     types.Hash          `json:"sendBlockHash"`
-	MethodList        []CallContractParam `json:"methodList"'`
+	MethodList        []CallContractParam `json:"methodList"`
 }
 
 func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContractResult, error) {
@@ -331,7 +332,7 @@ func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, 
 	for {
 		if !iter.Next() {
 			if iter.Error() != nil {
-				return nil, err
+				return nil, iter.Error()
 			}
 			return m, nil
 		}

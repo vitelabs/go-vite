@@ -2,10 +2,11 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -56,6 +57,23 @@ func (c *chain) GetSnapshotHeightByHash(hash types.Hash) (uint64, error) {
 	}
 
 	return height, nil
+}
+
+func (c *chain) GetSnapshotHashByHeight(height uint64) (*types.Hash, error) {
+	// cache
+	if header := c.cache.GetSnapshotHeaderByHeight(height); header != nil {
+		return &header.Hash, nil
+	}
+
+	// query location
+	hash, _, err := c.indexDB.GetSnapshotBlockByHeight(height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockByHeight failed,  height is %d. Error: %s,",
+			height, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
+		return nil, cErr
+	}
+	return hash, nil
 }
 
 // header without snapshot content
@@ -547,7 +565,7 @@ func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uin
 	return helper.BytesToU64(resultSeed.Bytes()), nil
 }
 
-func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error) {
 	headHeight := c.GetLatestSnapshotBlock().Height
 
 	tailHeight := uint64(1)
@@ -555,13 +573,12 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 	if headHeight > count {
 		tailHeight = headHeight - count
 	}
-
+	seeds := make(map[uint64]struct{})
 	for h := headHeight; h >= tailHeight; h-- {
-
 		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetLastSeedSnapshotHeader")
+			c.log.Error(cErr.Error(), "method", "GetLastUnpublishedSeedSnapshotHeader")
 			return nil, nil
 		}
 
@@ -572,9 +589,32 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 			return nil, nil
 		}
 
-		if snapshotHeader.Producer() == producer && snapshotHeader.SeedHash != nil {
+		if snapshotHeader.Producer() != producer {
+			continue
+		}
+
+		if snapshotHeader.SeedHash == nil {
+			continue
+		}
+
+		if !snapshotHeader.Timestamp.Before(beforeTime) {
+			seeds[snapshotHeader.Seed] = struct{}{}
+			continue
+		}
+
+		published := false
+		for seed := range seeds {
+			seedHash := ledger.ComputeSeedHash(seed, snapshotHeader.PrevHash, snapshotHeader.Timestamp)
+			if seedHash == *snapshotHeader.SeedHash {
+				published = true
+				break
+			}
+		}
+		if !published {
 			return snapshotHeader, nil
 		}
+
+		seeds[snapshotHeader.Seed] = struct{}{}
 	}
 
 	return nil, nil

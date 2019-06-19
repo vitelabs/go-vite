@@ -87,7 +87,7 @@ func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBl
 			}
 		}
 		// consensus
-		if valid &&checkConsensus {
+		if valid && checkConsensus {
 			if isContract, err := c.IsContractAccount(addr); err != nil {
 				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
@@ -125,12 +125,16 @@ func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedC
 	// get quota total
 	quotaUnused, ok := quotaUnusedCache[block.AccountAddress]
 	if !ok {
-		quotaInfo, err := c.GetPledgeQuota(block.AccountAddress)
+
+		amount, err := c.GetPledgeBeneficialAmount(block.AccountAddress)
 		if err != nil {
 			return false, err
 		}
 
-		quotaUnused = quotaInfo.SnapshotCurrent()
+		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount)
+		if err != nil {
+			return false, err
+		}
 		quotaUnusedCache[block.AccountAddress] = quotaUnused
 
 	}
@@ -148,12 +152,17 @@ func (c *chain) computeDependencies(accountBlocks []*ledger.AccountBlock) []*led
 	newAccountBlocks := make([]*ledger.AccountBlock, 0, len(accountBlocks))
 	newAccountBlocks = append(newAccountBlocks, accountBlocks[0])
 
+	firstAccountBlock := accountBlocks[0]
+
 	addrSet := map[types.Address]struct{}{
-		accountBlocks[0].AccountAddress: {},
+		firstAccountBlock.AccountAddress: {},
 	}
 
 	hashSet := map[types.Hash]struct{}{
-		accountBlocks[0].Hash: {},
+		firstAccountBlock.Hash: {},
+	}
+	for _, sendBlock := range firstAccountBlock.SendBlockList {
+		hashSet[sendBlock.Hash] = struct{}{}
 	}
 
 	length := len(accountBlocks)

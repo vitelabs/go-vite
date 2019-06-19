@@ -226,9 +226,8 @@ func (db *memoryDatabase) GetContractMetaInSnapshot(contractAddress types.Addres
 func (db *memoryDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-
 func (db *memoryDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
-	return 1, nil
+	return 0, nil
 }
 func (db *memoryDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	return nil, nil

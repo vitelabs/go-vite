@@ -45,9 +45,9 @@ type AccountBlock struct {
 
 	Data []byte `json:"data"` // 9	hash
 
-	Quota uint64 `json:"quota"`
+	Quota uint64 `json:"quota"` // quotaUsed = quota + pow quota
 
-	QuotaUsed uint64 `json:"quotaUsed"`
+	QuotaUsed uint64 `json:"quotaUsed"` // quotaUsed = quota + pow quota
 
 	Fee *big.Int `json:"fee"` // 10 padding 32 bytes
 
@@ -407,14 +407,22 @@ func (ab *AccountBlock) Deserialize(buf []byte) error {
 }
 
 func (ab *AccountBlock) IsSendBlock() bool {
-	return ab.BlockType == BlockTypeSendCreate ||
-		ab.BlockType == BlockTypeSendCall ||
-		ab.BlockType == BlockTypeSendReward ||
-		ab.BlockType == BlockTypeSendRefund
+	return IsSendBlock(ab.BlockType)
+}
+
+func IsSendBlock(blockType byte) bool {
+	return blockType == BlockTypeSendCreate ||
+		blockType == BlockTypeSendCall ||
+		blockType == BlockTypeSendReward ||
+		blockType == BlockTypeSendRefund
 }
 
 func (ab *AccountBlock) IsReceiveBlock() bool {
-	return ab.BlockType == BlockTypeReceive ||
-		ab.BlockType == BlockTypeReceiveError ||
-		ab.BlockType == BlockTypeGenesisReceive
+	return IsReceiveBlock(ab.BlockType)
+}
+
+func IsReceiveBlock(blockType byte) bool {
+	return blockType == BlockTypeReceive ||
+		blockType == BlockTypeReceiveError ||
+		blockType == BlockTypeGenesisReceive
 }

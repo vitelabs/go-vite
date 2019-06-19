@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -8,23 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/consensus"
-
-	"github.com/vitelabs/go-vite/pool/lock"
-	"github.com/vitelabs/go-vite/vite/net"
-
-	"github.com/vitelabs/go-vite/pool/batch"
-
-	"github.com/vitelabs/go-vite/pool/tree"
-
-	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pool/batch"
+	"github.com/vitelabs/go-vite/pool/lock"
+	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -52,15 +48,15 @@ type Reader interface {
 
 // Debug provide more detail info for BlockPool
 type Debug interface {
-	Info(addr *types.Address) string
+	Info() map[string]interface{}
 	AccountBlockInfo(addr types.Address, hash types.Hash) interface{}
 	SnapshotBlockInfo(hash types.Hash) interface{}
 	Snapshot() map[string]interface{}
 	SnapshotPendingNum() uint64
 	AccountPendingNum() *big.Int
 	Account(addr types.Address) map[string]interface{}
-	SnapshotChainDetail(chainID string) map[string]interface{}
-	AccountChainDetail(addr types.Address, chainID string) map[string]interface{}
+	SnapshotChainDetail(chainID string, height uint64) map[string]interface{}
+	AccountChainDetail(addr types.Address, chainID string, height uint64) map[string]interface{}
 }
 
 // BlockPool is responsible for organizing blocks and inserting it into the chain
@@ -164,7 +160,6 @@ type pool struct {
 
 	stat *recoverStat
 
-	addrCache     *lru.Cache
 	hashBlacklist Blacklist
 	cs            consensus.Consensus
 }
@@ -193,24 +188,19 @@ func (pl *pool) Account(addr types.Address) map[string]interface{} {
 	return pl.selfPendingAc(addr).info()
 }
 
-func (pl *pool) SnapshotChainDetail(chainID string) map[string]interface{} {
-	return pl.pendingSc.detailChain(chainID)
+func (pl *pool) SnapshotChainDetail(chainID string, height uint64) map[string]interface{} {
+	return pl.pendingSc.detailChain(chainID, height)
 }
 
-func (pl *pool) AccountChainDetail(addr types.Address, chainID string) map[string]interface{} {
-	return pl.selfPendingAc(addr).detailChain(chainID)
+func (pl *pool) AccountChainDetail(addr types.Address, chainID string, height uint64) map[string]interface{} {
+	return pl.selfPendingAc(addr).detailChain(chainID, height)
 }
 
 // NewPool create a new BlockPool
 func NewPool(bc chainDb) (BlockPool, error) {
 	self := &pool{bc: bc, version: &common.Version{}, rollbackVersion: &common.Version{}}
 	self.log = log15.New("module", "pool")
-	cache, err := lru.New(1024)
-	if err != nil {
-		panic(err)
-	}
-	self.addrCache = cache
-
+	var err error
 	self.hashBlacklist, err = NewBlacklist()
 	self.newAccBlockCond = common.NewCondTimer()
 	self.newSnapshotBlockCond = common.NewCondTimer()
@@ -244,36 +234,25 @@ func (pl *pool) Init(s syncer,
 	pl.worker.init()
 
 }
-func (pl *pool) Info(addr *types.Address) string {
-	if addr == nil {
-		bp := pl.pendingSc.blockpool
-		cp := pl.pendingSc.chainpool
 
-		freeSize := len(bp.freeBlocks)
-		compoundSize := common.SyncMapLen(&bp.compoundBlocks)
-		snippetSize := len(cp.snippetChains)
-		currentLen := cp.tree.Main().Size()
-		treeSize := cp.tree.Size()
-		chainSize := len(cp.tree.Branches())
-		return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
-			freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
-	}
-	ac := pl.selfPendingAc(*addr)
-	if ac == nil {
-		return "pool not exist."
-	}
-	bp := ac.blockpool
-	cp := ac.chainpool
+func (pl pool) Info() map[string]interface{} {
+	result := make(map[string]interface{})
+	result["snapshot"] = pl.pendingSc.info()
+	accResult := make(map[types.Address]interface{})
+	accSize := 0
+	pl.pendingAc.Range(func(key, value interface{}) bool {
+		k := key.(types.Address)
+		cp := value.(*accountPool)
+		accResult[k] = cp.info()
+		accSize += 1
+		return true
+	})
 
-	freeSize := len(bp.freeBlocks)
-	compoundSize := common.SyncMapLen(&bp.compoundBlocks)
-	snippetSize := len(cp.snippetChains)
-	treeSize := cp.tree.Size()
-	currentLen := cp.tree.Main().Size()
-	chainSize := len(cp.tree.Branches())
-	return fmt.Sprintf("freeSize:%d, compoundSize:%d, snippetSize:%d, treeSize:%d, currentLen:%d, chainSize:%d",
-		freeSize, compoundSize, snippetSize, treeSize, currentLen, chainSize)
+	result["accounts"] = accResult
+	result["accLen"] = accSize
+	return result
 }
+
 func (pl *pool) AccountBlockInfo(addr types.Address, hash types.Hash) interface{} {
 	b, s := pl.selfPendingAc(addr).blockpool.sprint(hash)
 	if b != nil {
@@ -387,6 +366,7 @@ func (pl *pool) AddAccountBlock(address types.Address, block *ledger.AccountBloc
 	ac := pl.selfPendingAc(address)
 	ac.addBlock(newAccountPoolBlock(block, nil, pl.version, source))
 
+	ac.setCompactDirty(true)
 	pl.newAccBlockCond.Broadcast()
 	pl.worker.bus.newABlockEvent()
 }
@@ -411,7 +391,6 @@ func (pl *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAcco
 		return err
 	}
 	ac.f.broadcastBlock(block.AccountBlock)
-	pl.addrCache.Add(address, time.Now().Add(time.Hour*24))
 	return nil
 
 }
@@ -422,8 +401,6 @@ func (pl *pool) AddAccountBlocks(address types.Address, blocks []*ledger.Account
 		pl.AddAccountBlock(address, b, source)
 	}
 
-	pl.newAccBlockCond.Broadcast()
-	pl.worker.bus.newABlockEvent()
 	return nil
 }
 
@@ -537,6 +514,10 @@ func (pl *pool) selfPendingAc(addr types.Address) *accountPool {
 	return chain.(*accountPool)
 }
 
+func (pl *pool) destroyPendingAc(addr types.Address) {
+	pl.pendingAc.Delete(addr)
+}
+
 func (pl *pool) ReadDownloadedChunks() *net.Chunk {
 	chunk := pl.sync.Peek()
 	return chunk
@@ -547,31 +528,12 @@ func (pl *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
 	pl.sync.Pop(hashH.Hash)
 }
 
-func (pl *pool) loopCompact() {
-	pl.wg.Add(1)
-	defer pl.wg.Done()
-
-	sum := 0
-	for {
-		select {
-		case <-pl.closed:
-			return
-		default:
-			if sum == 0 {
-				pl.newAccBlockCond.Wait()
-			}
-			sum = 0
-			sum += pl.accountsCompact()
-		}
-	}
-}
-
 func (pl *pool) broadcastUnConfirmedBlocks() {
-	addrList := pl.listPoolRelAddr()
-	// todo all unconfirmed
-	for _, addr := range addrList {
-		pl.selfPendingAc(addr).broadcastUnConfirmedBlocks()
+	blocks := pl.bc.GetAllUnconfirmedBlocks()
+	for _, v := range blocks {
+		pl.log.Info("broadcast unconfirmed blocks", "address", v.AccountAddress, "Height", v.Height, "Hash", v.Hash)
 	}
+	pl.sync.BroadcastAccountBlocks(blocks)
 }
 
 func (pl *pool) delUseLessChains() {
@@ -593,6 +555,26 @@ func (pl *pool) delUseLessChains() {
 	}
 }
 
+func (pl *pool) destroyAccounts() {
+	var destroyList []types.Address
+	pl.pendingAc.Range(func(key, value interface{}) bool {
+		addr := key.(types.Address)
+
+		accP := value.(*accountPool)
+		if accP.shouldDestroy() {
+			destroyList = append(destroyList, addr)
+		}
+		return true
+	})
+	for _, v := range destroyList {
+		accP := pl.selfPendingAc(v)
+
+		byt, _ := json.Marshal(accP.info())
+		pl.log.Warn("destroy account pool", "addr", v, "Id", string(byt))
+		pl.destroyPendingAc(v)
+	}
+}
+
 func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
 	rollbackV := pl.rollbackVersion.Val()
 	if info == nil || info.point == nil || info.rollbackV != rollbackV {
@@ -601,26 +583,9 @@ func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
 	// todo
 }
 
-func (pl *pool) listPoolRelAddr() []types.Address {
-	var todoAddress []types.Address
-	keys := pl.addrCache.Keys()
-	now := time.Now()
-	for _, k := range keys {
-		value, ok := pl.addrCache.Get(k)
-		if ok {
-			t := value.(time.Time)
-			if t.Before(now) {
-				pl.addrCache.Remove(k)
-			} else {
-				todoAddress = append(todoAddress, k.(types.Address))
-			}
-		}
-	}
-	return todoAddress
-}
 func (pl *pool) compact() int {
 	sum := 0
-	sum += pl.accountsCompact()
+	sum += pl.accountsCompact(true)
 	sum += pl.pendingSc.loopCompactSnapshot()
 	return sum
 }
@@ -628,17 +593,23 @@ func (pl *pool) snapshotCompact() int {
 	return pl.pendingSc.loopCompactSnapshot()
 }
 
-func (pl *pool) accountsCompact() int {
+func (pl *pool) accountsCompact(filterDirty bool) int {
 	sum := 0
 	var pendings []*accountPool
 	pl.pendingAc.Range(func(_, v interface{}) bool {
 		p := v.(*accountPool)
-		pendings = append(pendings, p)
+		if filterDirty && p.compactDirty {
+			pendings = append(pendings, p)
+			p.setCompactDirty(false)
+		} else if !filterDirty {
+			pendings = append(pendings, p)
+		}
 		return true
 	})
 	if len(pendings) > 0 {
 		monitor.LogEventNum("pool", "AccountsCompact", len(pendings))
 		for _, p := range pendings {
+			pl.log.Debug("account compact", "addr", p.address, "filterDirty", filterDirty)
 			sum = sum + p.Compact()
 		}
 	}

@@ -61,6 +61,7 @@ type IrreversibleReader interface {
 type Consensus interface {
 	SubscribeProducers(gid types.Gid, id string, fn func(event consensus.ProducersEvent))
 	UnSubscribe(gid types.Gid, id string)
+	API() consensus.APIReader
 }
 
 type Verifier interface {

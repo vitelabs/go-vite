@@ -1,7 +1,6 @@
 package chain_index
 
 import (
-	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
@@ -33,7 +32,8 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 			}
 
 			if fromAddr == nil {
-				return nil, errors.New(fmt.Sprintf("block hash is %s, fromAddr is %s, height is %d", blockHash, fromAddr, height))
+				iDB.log.Error(fmt.Sprintf("block hash is %s, fromAddr is %s, height is %d", blockHash, fromAddr, height), "method", "Load")
+				continue
 			}
 
 			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{
@@ -89,6 +89,8 @@ func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int)
 	index := 0
 	hashList := make([]types.Hash, 0, pageSize)
 	iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
+	defer iter.Release()
+
 	for iter.Next() {
 		if index >= pageSize*pageNum {
 			if index >= pageSize*(pageNum+1) {
@@ -102,13 +104,11 @@ func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int)
 				return nil, err
 			}
 			hashList = append(hashList, blockHash)
-			index++
 		}
+		index++
 	}
 
 	err := iter.Error()
-	iter.Release()
-
 	if err != nil {
 		return nil, err
 	}

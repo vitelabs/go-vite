@@ -2,28 +2,26 @@ package pool
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
-
-	"github.com/vitelabs/go-vite/common"
-
-	"github.com/vitelabs/go-vite/pool/batch"
-
-	"github.com/vitelabs/go-vite/pool/tree"
 
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pool/batch"
+	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type accountPool struct {
 	BCPool
+	poolContext
 	rw            *accountCh
-	verifyTask    verifyTask
 	loopTime      time.Time
 	loopFetchTime time.Time
 	address       types.Address
@@ -122,18 +120,18 @@ func (accP *accountPool) Compact() int {
 	//	this is a rate limiter
 	now := time.Now()
 	sum := 0
-	if now.After(accP.loopTime.Add(time.Millisecond * 2)) {
-		defer monitor.LogTime("pool", "accountSnippet", now)
-		accP.loopTime = now
-		sum = sum + accP.loopGenSnippetChains()
-		sum = sum + accP.loopAppendChains()
-	}
+
+	defer monitor.LogTime("pool", "accountSnippet", now)
+	accP.loopTime = now
+	sum = sum + accP.loopGenSnippetChains()
+	sum = sum + accP.loopAppendChains()
+
 	if now.After(accP.loopFetchTime.Add(time.Millisecond * 200)) {
 		defer monitor.LogTime("pool", "loopFetchForSnippets", now)
 		accP.loopFetchTime = now
 		sum = sum + accP.loopFetchForSnippets()
+		accP.checkCurrent()
 	}
-	accP.checkCurrent()
 	return sum
 }
 
@@ -204,8 +202,8 @@ func (accP *accountPool) findInTree(hash types.Hash, height uint64) tree.Branch 
 
 func (accP *accountPool) findInTreeDisk(hash types.Hash, height uint64, disk bool) tree.Branch {
 	cur := accP.CurrentChain()
-	block := cur.GetKnot(height, disk)
-	if block != nil && block.Hash() == hash {
+	targetHash := cur.GetHash(height, disk)
+	if targetHash != nil && *targetHash == hash {
 		return cur
 	}
 
@@ -266,11 +264,6 @@ func (accP *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 	}
 }
 
-func (accP *accountPool) broadcastUnConfirmedBlocks() {
-	blocks := accP.rw.getUnConfirmedBlocks()
-	accP.f.broadcastBlocks(blocks)
-}
-
 func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	b := accP.chainpool.tree.Main().GetKnot(i, false)
 	if b != nil {
@@ -278,21 +271,32 @@ func (accP *accountPool) getCurrentBlock(i uint64) *accountPoolBlock {
 	}
 	return nil
 }
+
+var ErrEmptyMain = errors.New("empty chainpool")
+var ErrCurrentChainModify = errors.New("current chain modify")
+var ErrMax = errors.New("arrived to max")
+var ErrBlackList = errors.New("block in blacklist")
+var ErrQuotaNotEnough = errors.New("block quota not enough")
+var ErrAllIn = errors.New("all in")
+
 func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64) (uint64, error) {
 	// if current size is empty, do nothing.
 	if accP.chainpool.tree.Main().Size() <= 0 {
-		return 0, errors.New("empty chainpool")
+		return 0, ErrEmptyMain
 	}
 
 	// lock other chain insert
 	accP.pool.RLockInsert()
 	defer accP.pool.RUnLockInsert()
 
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+
 	accP.chainTailMu.Lock()
 	defer accP.chainTailMu.Unlock()
 
-	cp := accP.chainpool
-	current := cp.tree.Main()
+	// choose current
+	current := accP.chooseAndSwitchCurrentForMake(info)
 
 	if info.offset == nil {
 		tailHeight, tailHash := current.TailHH()
@@ -301,7 +305,7 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	} else {
 		block := current.GetKnot(info.offset.Height+1, false)
 		if block == nil || block.PrevHash() != info.offset.Hash {
-			return uint64(0), errors.New("current chain modify")
+			return uint64(0), ErrCurrentChainModify
 		}
 	}
 
@@ -309,20 +313,20 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 	headH, _ := current.HeadHH()
 	for i := minH; i <= headH; i++ {
 		if i-minH >= max {
-			return uint64(i - minH), errors.New("arrived to max")
+			return uint64(i - minH), ErrMax
 		}
 		block := accP.getCurrentBlock(i)
 		if block == nil {
-			return uint64(i - minH), errors.New("current chain modify")
+			return uint64(i - minH), ErrCurrentChainModify
 		}
 		if accP.hashBlacklist.Exists(block.Hash()) {
-			return uint64(i - minH), errors.New("block in blacklist")
+			return uint64(i - minH), ErrBlackList
 		}
 		// check quota
 		used, unused, enought := info.quotaEnough(block)
 		if !enought {
 			// todo remove
-			return uint64(i - minH), errors.New("block quota not enough")
+			return uint64(i - minH), ErrQuotaNotEnough
 		}
 		accP.log.Debug(fmt.Sprintf("[%s][%d][%s]quota info [used:%d][unused:%d]\n", block.block.AccountAddress, block.Height(), block.Hash(), used, unused))
 		// check request block confirmed time for response block
@@ -339,7 +343,32 @@ func (accP *accountPool) makePackage(q batch.Batch, info *offsetInfo, max uint64
 		info.quotaSub(block)
 	}
 
-	return uint64(headH - minH), errors.New("all in")
+	return uint64(headH - minH), ErrAllIn
+}
+
+// choose branch, add random strategy
+func (accP *accountPool) chooseAndSwitchCurrentForMake(info *offsetInfo) tree.Branch {
+	main := accP.chainpool.tree.Main()
+	if info.offset == nil {
+		return main
+	}
+	uTime := main.UTime()
+	if time.Now().After(uTime.Add(time.Second * 5)) {
+		brothers := accP.chainpool.tree.Brothers(main)
+		if len(brothers) == 0 {
+			return main
+		}
+		randN := rand.Intn(len(brothers))
+		branch := brothers[randN]
+		accP.log.Info("current modify for random", "targetId", branch.ID(), "TargetTail", branch.SprintTail(), "currentId", main.ID(), "CurrentTail", main.SprintTail())
+		err := accP.chainpool.tree.SwitchMainTo(branch)
+		if err != nil {
+			accP.log.Error("switch main fail", "err", err)
+			return accP.chainpool.tree.Main()
+		}
+		return accP.chainpool.tree.Main()
+	}
+	return main
 }
 
 func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, latestSb *ledger.SnapshotBlock, version uint64) error {
@@ -415,22 +444,22 @@ func (accP *accountPool) genForSnapshotContents(p batch.Batch, b *snapshotPoolBl
 	defer accP.chainTailMu.Unlock()
 	acurr := accP.CurrentChain()
 	tailHeight, _ := acurr.TailHH()
-	ab := acurr.GetKnot(v.Height, true)
-	if ab == nil {
+	targetHash := acurr.GetHash(v.Height, true)
+	if targetHash == nil {
 		return true, nil
 	}
-	if ab.Hash() != v.Hash {
+	if *targetHash != v.Hash {
 		accP.log.Info(fmt.Sprintf("account chain has forked. snapshot block[%d-%s], account block[%s-%d][%s<->%s]\n",
-			b.block.Height, b.block.Hash, k, v.Height, v.Hash, ab.Hash()))
+			b.block.Height, b.block.Hash, k, v.Height, v.Hash, *targetHash))
 		// todo switch account chain
 
 		return true, nil
 	}
 
-	if ab.Height() > tailHeight {
+	if v.Height > tailHeight {
 		// account block is in pool.
 		tmp := stack.New()
-		for h := ab.Height(); h > tailHeight; h-- {
+		for h := v.Height; h > tailHeight; h-- {
 			currB := accP.getCurrentBlock(h)
 			if p.Exists(currB.Hash()) {
 				break
@@ -442,4 +471,27 @@ func (accP *accountPool) genForSnapshotContents(p batch.Batch, b *snapshotPoolBl
 		}
 	}
 	return false, nil
+}
+
+func (accP *accountPool) shouldDestroy() bool {
+	accP.chainHeadMu.Lock()
+	defer accP.chainHeadMu.Unlock()
+
+	accP.chainTailMu.Lock()
+	defer accP.chainTailMu.Unlock()
+	if accP.blockpool.size() > 0 {
+		return false
+	}
+
+	if len(accP.chainpool.snippetChains) > 0 {
+		return false
+	}
+
+	if accP.chainpool.tree.Size() > 0 {
+		return false
+	}
+	if !time.Now().After(accP.chainpool.tree.Main().UTime().Add(time.Minute * 8)) {
+		return false
+	}
+	return true
 }
