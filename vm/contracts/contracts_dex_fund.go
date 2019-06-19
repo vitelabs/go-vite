@@ -410,7 +410,7 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		return handleReceiveErr(fmt.Errorf("mined vx period id not equals to expected id %d", lastMinedVxPeriodId+1))
 	}
 	vxBalance = dex.GetVxBalance(db)
-	if amtForFeePerMarket, amtForPledge, amtForViteLabs, vxAmountLeaved, success := dex.GetMindedVxAmt(db, param.PeriodId, vxBalance); !success {
+	if amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxLeaved, success := dex.GetMindedVxAmt(db, param.PeriodId, vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
 		if err = dex.DoMineVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
@@ -419,10 +419,10 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		if err = dex.DoMineVxForPledge(db, param.PeriodId, amtForPledge); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoMineVxForMaintainer(db, amtForViteLabs); err != nil {
+		if err = dex.DoMineVxForMakerMineAndMaintainer(db, amtForMaker, amtForMaintainer); err != nil {
 			return handleReceiveErr(err)
 		}
-		dex.SaveVxBalance(db, vxAmountLeaved)
+		dex.SaveVxBalance(db, vxLeaved)
 	}
 	dex.SaveLastMinedVxPeriodId(db, param.PeriodId)
 	return nil, nil
@@ -759,7 +759,7 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				if param.AllowMine != marketInfo.AllowMine {
 					marketInfo.AllowMine = param.AllowMine
 					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
-					dex.AddMarketEventLog(db, marketInfo)
+					dex.AddMarketEvent(db, marketInfo)
 				} else {
 					if marketInfo.AllowMine {
 						return handleReceiveErr(dex.TradeMarketAllowMineErr)
@@ -790,12 +790,18 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				} else {
 					tokenInfo.QuoteTokenType = int32(param.QuoteTokenType)
 					dex.SaveTokenInfo(db, param.NewQuoteToken, tokenInfo)
-					dex.AddTokenEventLog(db, tokenInfo)
+					dex.AddTokenEvent(db, tokenInfo)
 				}
 			}
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
-			dex.StopViteX(db)
+			dex.SaveViteXStopped(db, param.StopViteX)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMineProxy) {
+			dex.SaveMakerMineProxy(db, param.MakerMineProxy)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMaintainer) {
+			dex.SaveMaintainer(db, param.Maintainer)
 		}
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
@@ -862,7 +868,7 @@ func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.
 			marketInfo.Stopped = param.StopMarket
 		}
 		dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
-		dex.AddMarketEventLog(db, marketInfo)
+		dex.AddMarketEvent(db, marketInfo)
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
@@ -904,7 +910,7 @@ func (md MethodDexFundTransferTokenOwner) DoReceive(db vm_db.VmDb, block *ledger
 		if bytes.Equal(tokenInfo.Owner, sendBlock.AccountAddress.Bytes()) {
 			tokenInfo.Owner = param.Owner.Bytes()
 			dex.SaveTokenInfo(db, param.Token, tokenInfo)
-			dex.AddTokenEventLog(db, tokenInfo)
+			dex.AddTokenEvent(db, tokenInfo)
 		} else {
 			return handleReceiveErr(dex.OnlyOwnerAllowErr)
 		}

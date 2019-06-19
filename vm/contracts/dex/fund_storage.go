@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	ownerKey      = []byte("own:")
-	dexStoppedKey = []byte("dexStp:")
-	fundKeyPrefix = []byte("fd:")  // fund:types.Address
-	timestampKey  = []byte("tts:") // timerTimestamp
+	ownerKey        = []byte("own:")
+	viteXStoppedKey = []byte("dexStp:")
+	fundKeyPrefix   = []byte("fd:")  // fund:types.Address
+	timestampKey    = []byte("tts:") // timerTimestamp
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
@@ -57,13 +57,14 @@ var (
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
 	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
-	VxTokenBytes   = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
-	VxToken, _     = types.BytesToTokenTypeId(VxTokenBytes)
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
-	VxInitAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(100000000))
 
-	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10)) // 10
-	VxMinedAmtFirstPeriod      = new(big.Int).Mul(commonTokenPow, big.NewInt(477210))
+	VxTokenBytes          = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
+	VxTokenId, _          = types.BytesToTokenTypeId(VxTokenBytes)
+	VxInitAmount          = new(big.Int).Mul(commonTokenPow, big.NewInt(100000000))
+	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
+
+	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
 	NewMarketFeeAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
@@ -74,6 +75,9 @@ var (
 	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 
 	PledgeForVipDuration int64 = 3600 * 24 * 30
+
+	maintainerKey     = []byte("mtA:")
+	makerMineProxyKey = []byte("mmpA:")
 
 	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 
@@ -105,11 +109,13 @@ const (
 )
 
 const (
-	OwnerConfigOwner         = 1
-	OwnerConfigTimerAddress  = 2
-	OwnerConfigMineMarket    = 4
-	OwnerConfigNewQuoteToken = 8
-	OwnerConfigStopViteX     = 16
+	OwnerConfigOwner          = 1
+	OwnerConfigTimerAddress   = 2
+	OwnerConfigMineMarket     = 4
+	OwnerConfigNewQuoteToken  = 8
+	OwnerConfigStopViteX      = 16
+	OwnerConfigMakerMineProxy = 32
+	OwnerConfigMaintainer     = 64
 )
 
 const (
@@ -205,14 +211,17 @@ type ParamDexFundGetTokenInfoCallback struct {
 }
 
 type ParamDexFundOwnerConfig struct {
-	OperationCode  uint8 // 1 owner, 2 timerAddress, 4 mineMarket
-	Owner          types.Address
-	TimerAddress   types.Address
-	AllowMine      bool
-	TradeToken     types.TokenTypeId // for new market
-	QuoteToken     types.TokenTypeId // for new market
-	NewQuoteToken  types.TokenTypeId // for set quote token
-	QuoteTokenType uint8             // for set quote token
+	OperationCode  uint8
+	Owner          types.Address     // 1 owner
+	TimerAddress   types.Address     // 2 timerAddress
+	AllowMine      bool              // 4 mineMarket
+	TradeToken     types.TokenTypeId // 4 mineMarket
+	QuoteToken     types.TokenTypeId // 4 mineMarket
+	NewQuoteToken  types.TokenTypeId // 8 new quote token
+	QuoteTokenType uint8             // 8 new quote token
+	StopViteX      bool              // 16 stopViteX
+	MakerMineProxy types.Address     // 32 maker mine proxy
+	Maintainer     types.Address     // 64 maintainer
 }
 
 type ParamDexFundMarketOwnerConfig struct {
@@ -644,10 +653,6 @@ func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker [
 	return getBrokerFeeSumByKey(db, currentBrokerFeeSumKey)
 }
 
-func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, periodId uint64, broker []byte) (*BrokerFeeSumByPeriod, bool) {
-	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId, broker))
-}
-
 func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) []byte {
 	return GetBrokerFeeSumKeyByPeriodIdAndAddress(GetCurrentPeriodId(db, reader), broker)
 }
@@ -1042,10 +1047,10 @@ func GetOwner(db vm_db.VmDb) (*types.Address, error) {
 		if owner, err := types.BytesToAddress(storeOwner); err == nil {
 			return &owner, nil
 		} else {
-			return nil, err
+			panic(err)
 		}
 	} else {
-		return nil, nil
+		panic(FundOwnerNotConfigErr)
 	}
 }
 
@@ -1053,13 +1058,49 @@ func SetOwner(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, ownerKey, address.Bytes())
 }
 
+func GetMakerMineProxy(db vm_db.VmDb) (*types.Address, error) {
+	if mmpBytes := getValueFromDb(db, makerMineProxyKey); len(mmpBytes) == types.AddressSize {
+		if makerMineProxy, err := types.BytesToAddress(mmpBytes); err == nil {
+			return &makerMineProxy, nil
+		} else {
+			panic(err)
+		}
+	} else {
+		return nil, nil
+	}
+}
+
+func SaveMakerMineProxy(db vm_db.VmDb, addr types.Address) {
+	setValueToDb(db, makerMineProxyKey, addr.Bytes())
+}
+
+func GetMaintainer(db vm_db.VmDb) (*types.Address, error) {
+	if mtBytes := getValueFromDb(db, maintainerKey); len(mtBytes) == types.AddressSize {
+		if maintainer, err := types.BytesToAddress(mtBytes); err == nil {
+			return &maintainer, nil
+		} else {
+			panic(err)
+		}
+	} else {
+		return nil, nil
+	}
+}
+
+func SaveMaintainer(db vm_db.VmDb, addr types.Address) {
+	setValueToDb(db, maintainerKey, addr.Bytes())
+}
+
 func IsViteXStopped(db vm_db.VmDb) bool {
-	stopped := getValueFromDb(db, dexStoppedKey)
+	stopped := getValueFromDb(db, viteXStoppedKey)
 	return len(stopped) > 0
 }
 
-func StopViteX(db vm_db.VmDb) {
-	setValueToDb(db, dexStoppedKey, []byte{1})
+func SaveViteXStopped(db vm_db.VmDb, isStopViteX bool) {
+	if isStopViteX {
+		setValueToDb(db, viteXStoppedKey, []byte{1})
+	} else {
+		setValueToDb(db, viteXStoppedKey, nil)
+	}
 }
 
 func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {

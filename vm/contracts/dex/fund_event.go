@@ -8,38 +8,64 @@ import (
 	"math/big"
 )
 
-func AddMinedVxForTradeFeeEventLog(db vm_db.VmDb, address types.Address, quoteTokenType int, feeAmount []byte, vxMined *big.Int) {
-	event := &MinedVxForTradeFeeEvent{}
-	event.Address = address.Bytes()
-	event.QuoteTokenType = int32(quoteTokenType)
-	event.FeeAmount = feeAmount
-	event.MinedAmount = vxMined.Bytes()
-	DoEmitEventLog(db, event)
-}
-
-func AddTokenEventLog(db vm_db.VmDb, tokenInfo *TokenInfo) {
+func AddTokenEvent(db vm_db.VmDb, tokenInfo *TokenInfo) {
 	event := &TokenEvent{}
 	event.TokenInfo = tokenInfo.TokenInfo
-	DoEmitEventLog(db, event)
+	doEmitEventLog(db, event)
 }
 
-func AddMarketEventLog(db vm_db.VmDb, marketInfo *MarketInfo) {
+func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
 	event := &MarketEvent{}
 	event.MarketInfo = marketInfo.MarketInfo
-	DoEmitEventLog(db, event)
+	doEmitEventLog(db, event)
 }
 
-func AddBrokerFeeDividendLog(db vm_db.VmDb, address types.Address, brokerMarketFee *dexproto.BrokerMarketFee) {
+func AddFeeDividendEvent(db vm_db.VmDb, address types.Address, feeToken types.TokenTypeId, vxAmount, feeDividend *big.Int) {
+	event := &FeeDividendEvent{}
+	event.Address = address.Bytes()
+	event.VxAmount = vxAmount.Bytes()
+	event.FeeToken = feeToken.Bytes()
+	event.FeeDividend = feeDividend.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddBrokerFeeDividendEvent(db vm_db.VmDb, address types.Address, brokerMarketFee *dexproto.BrokerMarketFee) {
 	event := &BrokerFeeDividendEvent{}
 	event.Address = address.Bytes()
 	event.MarketId = brokerMarketFee.MarketId
 	event.TakerBrokerFeeRate = brokerMarketFee.TakerBrokerFeeRate
 	event.MakerBrokerFeeRate = brokerMarketFee.MakerBrokerFeeRate
 	event.Amount = brokerMarketFee.Amount
-	DoEmitEventLog(db, event)
+	doEmitEventLog(db, event)
 }
 
-func DoEmitEventLog(db vm_db.VmDb, event DexEvent) {
+func AddMinedVxForTradeFeeEvent(db vm_db.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
+	event := &MinedVxForTradeFeeEvent{}
+	event.Address = address.Bytes()
+	event.QuoteTokenType = quoteTokenType
+	event.FeeAmount = feeAmount
+	event.MinedAmount = vxMined.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddMinedVxForInviteeFeeEvent(db vm_db.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
+	event := &MinedVxForInviteeFeeEvent{}
+	event.Address = address.Bytes()
+	event.QuoteTokenType = quoteTokenType
+	event.FeeAmount = feeAmount
+	event.MinedAmount = vxMined.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddMinedVxForPledgeEvent(db vm_db.VmDb, address types.Address, pledgeAmt, minedAmt *big.Int) {
+	event := &MinedVxForPledgeEvent{}
+	event.Address = address.Bytes()
+	event.PledgeAmount = pledgeAmt.Bytes()
+	event.MinedAmount = minedAmt.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func doEmitEventLog(db vm_db.VmDb, event DexEvent) {
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, event.GetTopicId())
 	log.Data = event.toDataBytes()

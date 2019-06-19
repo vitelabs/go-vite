@@ -60,6 +60,7 @@ var (
 	NewInviteCodeFailErr     = errors.New("new invite code fail")
 	AlreadyQuoteType         = errors.New("already quote type")
 	InvalidQuoteTokenTypeErr = errors.New("invalid quote token type")
+	FundOwnerNotConfigErr    = errors.New("fund owner not config")
 
-	InternalErr = errors.New("internal error")
+	InternalErr              = errors.New("internal error")
 )

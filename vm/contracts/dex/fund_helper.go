@@ -77,7 +77,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenTypeInfo.Decimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	SettleUserFees(db, reader, ViteTokenTypeInfo.Decimals, ViteTokenType, userFee, inviteRelations)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
-	AddMarketEventLog(db, marketInfo)
+	AddMarketEvent(db, marketInfo)
 	var marketBytes, blockData []byte
 	var err error
 	if marketBytes, err = marketInfo.Serialize(); err != nil {
@@ -193,7 +193,7 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
 		tokenInfo.QuoteTokenType = int32(action.QuoteTokenType)
 		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
-		AddTokenEventLog(db, tokenInfo)
+		AddTokenEvent(db, tokenInfo)
 		return nil
 	}
 }
@@ -220,7 +220,7 @@ func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFun
 			tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
 			tokenInfo.Owner = action.New
 			SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
-			AddTokenEventLog(db, tokenInfo)
+			AddTokenEvent(db, tokenInfo)
 			return nil
 		} else {
 			return OnlyOwnerAllowErr

@@ -116,6 +116,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			if finished {
 				delete(feeSumMap, tokenId)
 			}
+			AddFeeDividendEvent(db, address, tokenId, userVxAmount, userFeeDividend[tokenId])
 		}
 		if err = BatchSaveUserFund(db, address, userFeeDividend); err != nil {
 			return err
@@ -176,7 +177,7 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 				} else {
 					userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
 				}
-				AddBrokerFeeDividendLog(db, addr, mkFee)
+				AddBrokerFeeDividendEvent(db, addr, mkFee)
 			}
 		}
 		BatchSaveUserFund(db, addr, userFund)

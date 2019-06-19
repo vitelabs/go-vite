@@ -36,8 +36,9 @@ type AccountFundInfo struct {
 }
 
 type DividendPoolInfo struct {
-	Amount    string        `json:"amount"`
-	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Amount         string           `json:"amount"`
+	QuoteTokenType int32            `json:"quoteTokenType"`
+	TokenInfo      *RpcDexTokenInfo `json:"tokenInfo,omitempty"`
 }
 
 func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
@@ -141,11 +142,11 @@ func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*DividendPo
 		pools = make(map[types.TokenTypeId]*DividendPoolInfo)
 		for _, pool := range feeSumByPeriod.FeesForDividend {
 			tk, _ := types.BytesToTokenTypeId(pool.Token)
-			if tokenInfo, err := f.chain.GetTokenInfoById(tk); err != nil {
-				return nil, err
+			if tokenInfo, ok := dex.GetTokenInfo(db, tk); !ok {
+				return nil, dex.InvalidTokenErr
 			} else {
 				amt := new(big.Int).SetBytes(pool.DividendPoolAmount)
-				pool := &DividendPoolInfo{amt.String(), RawTokenInfoToRpc(tokenInfo, tk)}
+				pool := &DividendPoolInfo{amt.String(), tokenInfo.QuoteTokenType, RawDexTokenInfoToRpc(tokenInfo, tk)}
 				pools[tk] = pool
 			}
 		}
@@ -231,4 +232,27 @@ func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
 		}
 	}
 	return rmk
+}
+
+type RpcDexTokenInfo struct {
+	TokenSymbol string            `json:"tokenSymbol"`
+	Decimals    int32             `json:"decimals"`
+	TokenId     types.TokenTypeId `json:"tokenId"`
+	Index       int32             `json:"index"`
+	Owner       types.Address     `json:"owner"`
+}
+
+func RawDexTokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTokenInfo {
+	var rt *RpcDexTokenInfo = nil
+	if tinfo != nil {
+		owner, _ := types.BytesToAddress(tinfo.Owner)
+		rt = &RpcDexTokenInfo{
+			TokenSymbol: tinfo.Symbol,
+			Decimals:    tinfo.Decimals,
+			TokenId:     tti,
+			Index:       tinfo.Index,
+			Owner:       owner,
+		}
+	}
+	return rt
 }
