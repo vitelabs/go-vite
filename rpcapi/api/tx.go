@@ -72,7 +72,6 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	} else {
 		return errors.New("generator gen an empty block")
 	}
-	return nil
 }
 
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {

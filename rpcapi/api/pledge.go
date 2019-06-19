@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -89,6 +90,18 @@ type PledgeInfo struct {
 	AgentAddress   types.Address `json:"agentAddress"`
 	Bid            uint8         `json:"bid"`
 }
+
+func NewPledgeInfo(info *abi.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
+	return &PledgeInfo{
+		*bigIntToString(info.Amount),
+		Uint64ToString(info.WithdrawHeight),
+		info.BeneficialAddr,
+		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
+		info.Agent,
+		info.AgentAddress,
+		info.Bid}
+}
+
 type byWithdrawHeight []*abi.PledgeInfo
 
 func (a byWithdrawHeight) Len() int      { return len(a) }
@@ -123,14 +136,7 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 		return nil, err
 	}
 	for i, info := range list[startHeight:endHeight] {
-		targetList[i] = &PledgeInfo{
-			*bigIntToString(info.Amount),
-			Uint64ToString(info.WithdrawHeight),
-			info.BeneficialAddr,
-			getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-			info.Agent,
-			info.AgentAddress,
-			info.Bid}
+		targetList[i] = NewPledgeInfo(info, snapshotBlock)
 	}
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
@@ -161,4 +167,30 @@ func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
 		return nil, err
 	}
 	return bigIntToString(amount), nil
+}
+
+type PledgeQueryParams struct {
+	PledgeAddr     types.Address `json:"pledgeAddr"`
+	AgentAddr      types.Address `json:"agentAddr"`
+	BeneficialAddr types.Address `json:"beneficialAddr"`
+	Bid            uint8         `json:"bid"`
+}
+
+func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, error) {
+	db, err := getVmDb(p.chain, types.AddressPledge)
+	if err != nil {
+		return nil, err
+	}
+	snapshotBlock, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	info, err := abi.GetPledgeInfo(db, params.PledgeAddr, params.BeneficialAddr, params.AgentAddr, true, params.Bid)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	return NewPledgeInfo(info, snapshotBlock), nil
 }
