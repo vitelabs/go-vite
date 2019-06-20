@@ -154,6 +154,30 @@ func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*DividendPo
 	return pools, nil
 }
 
+func (f DexFundApi) GetCurrentFeeSum(address types.Address) (*dex.FeeSumByPeriod, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if feeSum, ok := dex.GetCurrentFeeSum(db, getConsensusReader(f.vite)); !ok {
+		return nil, nil
+	} else {
+		return feeSum, nil
+	}
+}
+
+func (f DexFundApi) GetUserFees(address types.Address) (*dex.UserFees, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if userFees, ok := dex.GetUserFees(db, address.Bytes()); !ok {
+		return nil, nil
+	} else {
+		return userFees, nil
+	}
+}
+
 func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {

@@ -25,7 +25,6 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
-
 	return nil
 }
 
@@ -74,8 +73,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
-	inviteRelations := SettleFeeSumWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenTypeInfo.Decimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
-	SettleUserFees(db, reader, ViteTokenTypeInfo.Decimals, ViteTokenType, userFee, inviteRelations)
+	SettleFeesWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenTypeInfo.Decimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEvent(db, marketInfo)
 	var marketBytes, blockData []byte
@@ -292,9 +290,9 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 func isAmountTooSmall(amount []byte, marketInfo *MarketInfo) bool {
 	typeInfo, _ := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
 	if typeInfo.Decimals == marketInfo.QuoteTokenDecimals {
-		return new(big.Int).SetBytes(amount).Cmp(typeInfo.MinAmount) < 0
+		return new(big.Int).SetBytes(amount).Cmp(typeInfo.MinOrderAmount) < 0
 	} else {
-		return AdjustAmountForDecimalsDiff(amount, marketInfo.QuoteTokenDecimals-typeInfo.Decimals).Cmp(typeInfo.MinAmount) < 0
+		return AdjustAmountForDecimalsDiff(amount, marketInfo.QuoteTokenDecimals-typeInfo.Decimals).Cmp(typeInfo.MinOrderAmount) < 0
 	}
 }
 
@@ -437,9 +435,13 @@ func checkPriceChar(price string) bool {
 }
 
 func getDexTokenSymbol(tokenInfo *TokenInfo) string {
-	indexStr := strconv.Itoa(int(tokenInfo.Index))
-	for ; len(indexStr) < 3; {
-		indexStr = "0" + indexStr
+	if tokenInfo.Symbol == "VITE" || tokenInfo.Symbol == "VCP" || tokenInfo.Symbol == "VX" {
+		return tokenInfo.Symbol
+	} else {
+		indexStr := strconv.Itoa(int(tokenInfo.Index))
+		for ; len(indexStr) < 3; {
+			indexStr = "0" + indexStr
+		}
+		return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
 	}
-	return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
 }

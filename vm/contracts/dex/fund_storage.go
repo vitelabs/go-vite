@@ -81,15 +81,21 @@ var (
 
 	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 
-	viteMinAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
-	ethMinAmount        = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
-	bitcoinMinAmount    = big.NewInt(50000)                                 // 0.0005 BTC
-	usdtMinAmount       = big.NewInt(100000000)                             //1 USDT
+	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
+	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
+	usdMinAmount     = big.NewInt(100000000)                             //1 USD
+
+	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(10))   // 10 VITE
+	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(1000)) // 0.001 ETH
+	bitcoinMineThreshold = big.NewInt(5000)                                   // 0.00005 BTC
+	usdMineThreshold     = big.NewInt(10000000)                               // 0.1USD
+
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
-		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, MinAmount: viteMinAmount},
-		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinAmount: bitcoinMinAmount},
-		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, MinAmount: ethMinAmount},
-		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinAmount: usdtMinAmount},
+		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, MinOrderAmount: viteMinAmount, MineThreshold: viteMineThreshold},
+		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, MinOrderAmount: ethMinAmount, MineThreshold: ethMineThreshold},
+		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinOrderAmount: bitcoinMinAmount, MineThreshold: bitcoinMineThreshold},
+		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinOrderAmount: usdMinAmount, MineThreshold: usdMineThreshold},
 	}
 )
 
@@ -139,8 +145,9 @@ const (
 )
 
 type QuoteTokenTypeInfo struct {
-	Decimals  int32
-	MinAmount *big.Int
+	Decimals       int32
+	MinOrderAmount *big.Int
+	MineThreshold  *big.Int
 }
 
 type ParamDexFundWithDraw struct {
@@ -683,6 +690,11 @@ func SaveUserFees(db vm_db.VmDb, address []byte, userFees *UserFees) {
 
 func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
+}
+
+func IsValidFeeForMine(quoteTokenType int32, baseAmount, inviteeAmount []byte) bool {
+	info, _ := QuoteTokenTypeInfos[quoteTokenType]
+	return new(big.Int).Add(new(big.Int).SetBytes(baseAmount), new(big.Int).SetBytes(inviteeAmount)).Cmp(info.MineThreshold) >= 0
 }
 
 func GetUserFeesKey(address []byte) []byte {
