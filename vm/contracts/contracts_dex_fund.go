@@ -749,6 +749,51 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
 			dex.SetTimerAddress(db, param.TimerAddress)
 		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
+			dex.SaveViteXStopped(db, param.StopViteX)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMineProxy) {
+			dex.SaveMakerMineProxy(db, param.MakerMineProxy)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMaintainer) {
+			dex.SaveMaintainer(db, param.Maintainer)
+		}
+	} else {
+		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	}
+	return nil, nil
+}
+
+type MethodDexFundOwnerConfigTrade struct {
+}
+
+func (md *MethodDexFundOwnerConfigTrade) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundOwnerConfigTrade) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundOwnerConfigTrade) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(DexFundOwnerConfigTradeGas, data)
+}
+
+func (md *MethodDexFundOwnerConfigTrade) GetReceiveQuota() uint64 {
+	return DexFundOwnerConfigTradeReceiveGas
+}
+
+func (md *MethodDexFundOwnerConfigTrade) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundOwnerConfigTrade), cabi.MethodNameDexFundOwnerConfigTrade, block.Data)
+}
+
+func (md MethodDexFundOwnerConfigTrade) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var err error
+	var param = new(dex.ParamDexFundOwnerConfigTrade)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundOwnerConfigTrade, sendBlock.Data); err != nil {
+		return handleReceiveErr(err)
+	}
+	if dex.IsOwner(db, sendBlock.AccountAddress) {
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineMarket) {
 			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
 				if param.AllowMine != marketInfo.AllowMine {
@@ -789,20 +834,18 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 				}
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
-			dex.SaveViteXStopped(db, param.StopViteX)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTradeThreshold) {
+			dex.SaveTradeThreshold(db, param.TokenType4TradeThr, param.TradeThreshold)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMineProxy) {
-			dex.SaveMakerMineProxy(db, param.MakerMineProxy)
-		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMaintainer) {
-			dex.SaveMaintainer(db, param.Maintainer)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineThreshold) {
+			dex.SaveMineThreshold(db, param.TokenType4MineThr, param.MineThreshold)
 		}
 	} else {
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	return nil, nil
 }
+
 
 type MethodDexFundMarketOwnerConfig struct {
 }

@@ -15,10 +15,13 @@ import (
 )
 
 var (
-	ownerKey        = []byte("own:")
-	viteXStoppedKey = []byte("dexStp:")
-	fundKeyPrefix   = []byte("fd:")  // fund:types.Address
-	timestampKey    = []byte("tts:") // timerTimestamp
+	ownerKey                = []byte("own:")
+	viteXStoppedKey         = []byte("dexStp:")
+	fundKeyPrefix           = []byte("fd:") // fund:types.Address
+	minTradeAmountKeyPrefix = []byte("mTrAt:")
+	mineThresholdKeyPrefix  = []byte("mTh:")
+
+	timestampKey = []byte("tts:") // timerTimestamp
 
 	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
@@ -85,16 +88,16 @@ var (
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
 	usdMinAmount     = big.NewInt(100000000)                             //1 USD
 
-	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(10))   // 10 VITE
-	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(1000)) // 0.001 ETH
-	bitcoinMineThreshold = big.NewInt(5000)                                   // 0.00005 BTC
-	usdMineThreshold     = big.NewInt(10000000)                               // 0.1USD
+	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 10 VITE
+	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
+	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
+	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
-		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, MinOrderAmount: viteMinAmount, MineThreshold: viteMineThreshold},
-		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, MinOrderAmount: ethMinAmount, MineThreshold: ethMineThreshold},
-		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinOrderAmount: bitcoinMinAmount, MineThreshold: bitcoinMineThreshold},
-		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, MinOrderAmount: usdMinAmount, MineThreshold: usdMineThreshold},
+		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
+		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: ethMinAmount, DefaultMineThreshold: ethMineThreshold},
+		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold},
+		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
 	}
 )
 
@@ -116,11 +119,16 @@ const (
 const (
 	OwnerConfigOwner          = 1
 	OwnerConfigTimerAddress   = 2
-	OwnerConfigMineMarket     = 4
-	OwnerConfigNewQuoteToken  = 8
-	OwnerConfigStopViteX      = 16
-	OwnerConfigMakerMineProxy = 32
-	OwnerConfigMaintainer     = 64
+	OwnerConfigStopViteX      = 4
+	OwnerConfigMakerMineProxy = 8
+	OwnerConfigMaintainer     = 16
+)
+
+const (
+	OwnerConfigMineMarket     = 1
+	OwnerConfigNewQuoteToken  = 2
+	OwnerConfigTradeThreshold = 4
+	OwnerConfigMineThreshold  = 8
 )
 
 const (
@@ -144,9 +152,9 @@ const (
 )
 
 type QuoteTokenTypeInfo struct {
-	Decimals       int32
-	MinOrderAmount *big.Int
-	MineThreshold  *big.Int
+	Decimals              int32
+	DefaultTradeThreshold *big.Int
+	DefaultMineThreshold  *big.Int
 }
 
 type ParamDexFundWithDraw struct {
@@ -218,16 +226,24 @@ type ParamDexFundGetTokenInfoCallback struct {
 
 type ParamDexFundOwnerConfig struct {
 	OperationCode  uint8
-	Owner          types.Address     // 1 owner
-	TimerAddress   types.Address     // 2 timerAddress
-	AllowMine      bool              // 4 mineMarket
-	TradeToken     types.TokenTypeId // 4 mineMarket
-	QuoteToken     types.TokenTypeId // 4 mineMarket
-	NewQuoteToken  types.TokenTypeId // 8 new quote token
-	QuoteTokenType uint8             // 8 new quote token
-	StopViteX      bool              // 16 stopViteX
-	MakerMineProxy types.Address     // 32 maker mine proxy
-	Maintainer     types.Address     // 64 maintainer
+	Owner          types.Address // 1 owner
+	TimerAddress   types.Address // 2 timerAddress
+	StopViteX      bool          // 4 stopViteX
+	MakerMineProxy types.Address // 8 maker mine proxy
+	Maintainer     types.Address // 16 maintainer
+}
+
+type ParamDexFundOwnerConfigTrade struct {
+	OperationCode      uint8
+	TradeToken         types.TokenTypeId // 1 mineMarket
+	QuoteToken         types.TokenTypeId // 1 mineMarket
+	AllowMine          bool              // 1 mineMarket
+	NewQuoteToken      types.TokenTypeId // 2 new quote token
+	QuoteTokenType     uint8             // 2 new quote token
+	TokenType4TradeThr uint8             // 4 maintainer
+	TradeThreshold     *big.Int          // 4 maintainer
+	TokenType4MineThr  uint8             // 8 maintainer
+	MineThreshold      *big.Int          // 8 maintainer
 }
 
 type ParamDexFundMarketOwnerConfig struct {
@@ -691,9 +707,8 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
 }
 
-func IsValidFeeForMine(quoteTokenType int32, baseAmount, inviteeAmount []byte) bool {
-	info, _ := QuoteTokenTypeInfos[quoteTokenType]
-	return new(big.Int).Add(new(big.Int).SetBytes(baseAmount), new(big.Int).SetBytes(inviteeAmount)).Cmp(info.MineThreshold) >= 0
+func IsValidFeeForMine(baseAmount, inviteeAmount []byte, mineThreshold *big.Int) bool {
+	return new(big.Int).Add(new(big.Int).SetBytes(baseAmount), new(big.Int).SetBytes(inviteeAmount)).Cmp(mineThreshold) >= 0
 }
 
 func GetUserFeesKey(address []byte) []byte {
@@ -1067,6 +1082,38 @@ func GetOwner(db vm_db.VmDb) (*types.Address, error) {
 
 func SetOwner(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, ownerKey, address.Bytes())
+}
+
+func GetTradeThreshold(db vm_db.VmDb, quoteTokenType int32) *big.Int {
+	if val := getValueFromDb(db, GetTradeThresholdKey(uint8(quoteTokenType))); len(val) > 0 {
+		return new(big.Int).SetBytes(val)
+	} else {
+		return QuoteTokenTypeInfos[quoteTokenType].DefaultTradeThreshold
+	}
+}
+
+func SaveTradeThreshold(db vm_db.VmDb, quoteTokenType uint8, amount *big.Int) {
+	setValueToDb(db, GetTradeThresholdKey(quoteTokenType), amount.Bytes())
+}
+
+func GetTradeThresholdKey(quoteTokenType uint8) []byte {
+	return append(minTradeAmountKeyPrefix, quoteTokenType)
+}
+
+func GetMineThreshold(db vm_db.VmDb, quoteTokenType int32) *big.Int {
+	if val := getValueFromDb(db, GetMineThresholdKey(uint8(quoteTokenType))); len(val) > 0 {
+		return new(big.Int).SetBytes(val)
+	} else {
+		return QuoteTokenTypeInfos[quoteTokenType].DefaultMineThreshold
+	}
+}
+
+func SaveMineThreshold(db vm_db.VmDb, quoteTokenType uint8, amount *big.Int) {
+	setValueToDb(db, GetMineThresholdKey(quoteTokenType), amount.Bytes())
+}
+
+func GetMineThresholdKey(quoteTokenType uint8) []byte {
+	return append(mineThresholdKeyPrefix, quoteTokenType)
 }
 
 func GetMakerMineProxy(db vm_db.VmDb) (*types.Address, error) {

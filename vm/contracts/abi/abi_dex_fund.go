@@ -20,7 +20,8 @@ const (
         {"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"AgentCancelPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
-        {"type":"function","name":"DexFundOwnerConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"owner","type":"address"}, {"name":"timerAddress","type":"address"}, {"name":"allowMine","type":"bool"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"newQuoteToken","type":"tokenId"}, {"name":"quoteTokenType","type":"uint8"}, {"name":"stopViteX","type":"bool"}, {"name":"makerMineProxy","type":"address"}, {"name":"maintainer","type":"address"}]},
+        {"type":"function","name":"DexFundOwnerConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"owner","type":"address"},{"name":"timerAddress","type":"address"},{"name":"stopViteX","type":"bool"},{"name":"makerMineProxy","type":"address"},{"name":"maintainer","type":"address"}]},
+        {"type":"function","name":"DexFundOwnerConfigTrade", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"},{"name":"allowMine","type":"bool"},{"name":"newQuoteToken","type":"tokenId"},{"name":"quoteTokenType","type":"uint8"},{"name":"tokenType4TradeThr","type":"uint8"},{"name":"tradeThreshold","type":"uint256"},{"name":"tokenType4MineThr","type":"uint8"},{"name":"mineThreshold","type":"uint256"}]},
         {"type":"function","name":"DexFundMarketOwnerConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"},{"name":"owner","type":"address"},{"name":"takerFeeRate","type":"int32"},{"name":"makerFeeRate","type":"int32"},{"name":"stopMarket","type":"bool"}]},
 		{"type":"function","name":"DexFundTransferTokenOwner", "inputs":[{"name":"token","type":"tokenId"}, {"name":"owner","type":"address"}]},
 		{"type":"function","name":"NotifyTime", "inputs":[{"name":"timestamp","type":"int64"}]},
@@ -41,6 +42,7 @@ const (
 	MethodNameDexFundCancelPledgeCallback = "AgentCancelPledgeCallback"
 	MethodNameDexFundGetTokenInfoCallback = "GetTokenInfoCallback"
 	MethodNameDexFundOwnerConfig          = "DexFundOwnerConfig"
+	MethodNameDexFundOwnerConfigTrade     = "DexFundOwnerConfigTrade"
 	MethodNameDexFundMarketOwnerConfig    = "DexFundMarketOwnerConfig"
 	MethodNameDexFundTransferTokenOwner   = "DexFundTransferTokenOwner"
 	MethodNameDexFundNotifyTime           = "NotifyTime"
