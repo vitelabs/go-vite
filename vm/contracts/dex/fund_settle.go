@@ -150,18 +150,19 @@ func innerSettleUserFee(db vm_db.VmDb, reader util.ConsensusReader, address []by
 	feeLen := len(userFees.Fees)
 	addBaseSum = baseFee
 	addInviteeSum = inviteBonusFee
+	mineThreshold := GetMineThreshold(db, quoteTokenType)
 	if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 		var foundToken = false
 		for _, feeAcc := range userFees.Fees[feeLen-1].UserFees {
 			if feeAcc.QuoteTokenType == quoteTokenType {
-				originValid := IsValidFeeForMine(quoteTokenType, feeAcc.BaseAmount, feeAcc.InviteBonusAmount)
+				originValid := IsValidFeeForMine(feeAcc.BaseAmount, feeAcc.InviteBonusAmount, mineThreshold)
 				if baseFee != nil {
 					feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, AdjustAmountToQuoteTokenType(baseFee, tokenDecimals, quoteTokenType).Bytes())
 				}
 				if inviteBonusFee != nil {
 					feeAcc.InviteBonusAmount = AddBigInt(feeAcc.InviteBonusAmount, AdjustAmountToQuoteTokenType(inviteBonusFee, tokenDecimals, quoteTokenType).Bytes())
 				}
-				needAddSum = IsValidFeeForMine(quoteTokenType, feeAcc.BaseAmount, feeAcc.InviteBonusAmount)
+				needAddSum = IsValidFeeForMine(feeAcc.BaseAmount, feeAcc.InviteBonusAmount, mineThreshold)
 				if needAddSum && !originValid {
 					addBaseSum = feeAcc.BaseAmount
 					addInviteeSum = feeAcc.InviteBonusAmount
@@ -172,14 +173,14 @@ func innerSettleUserFee(db vm_db.VmDb, reader util.ConsensusReader, address []by
 		}
 		if !foundToken {
 			userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, newFeeAccount(tokenDecimals, quoteTokenType, baseFee, inviteBonusFee))
-			needAddSum = IsValidFeeForMine(quoteTokenType, baseFee, inviteBonusFee)
+			needAddSum = IsValidFeeForMine(baseFee, inviteBonusFee, mineThreshold)
 		}
 	} else {
 		userFeeByPeriodId := &dexproto.UserFeeByPeriod{}
 		userFeeByPeriodId.Period = periodId
 		userFeeByPeriodId.UserFees = []*dexproto.UserFeeAccount{newFeeAccount(tokenDecimals, quoteTokenType, baseFee, inviteBonusFee)}
 		userFees.Fees = append(userFees.Fees, userFeeByPeriodId)
-		needAddSum = IsValidFeeForMine(quoteTokenType, baseFee, inviteBonusFee)
+		needAddSum = IsValidFeeForMine(baseFee, inviteBonusFee, mineThreshold)
 	}
 	if !needAddSum {
 		addBaseSum = nil

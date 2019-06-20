@@ -110,6 +110,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
 	tradeTokenInfo := newTokenInfoFromCallback(tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
+	AddTokenEvent(db, tradeTokenInfo)
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
 		return
@@ -274,7 +275,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 			order.LockedBuyFee = CalculateAmountForRate(order.Amount, MaxTotalFeeRate(*order))
 		}
 		totalAmount := AddBigInt(order.Amount, order.LockedBuyFee)
-		if isAmountTooSmall(totalAmount, marketInfo) {
+		if isAmountTooSmall(db, totalAmount, marketInfo) {
 			return marketInfo, OrderAmountTooSmallErr
 		}
 	}
@@ -287,12 +288,13 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	return marketInfo, nil
 }
 
-func isAmountTooSmall(amount []byte, marketInfo *MarketInfo) bool {
+func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool {
 	typeInfo, _ := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
+	tradeThreshold := GetTradeThreshold(db, marketInfo.QuoteTokenType)
 	if typeInfo.Decimals == marketInfo.QuoteTokenDecimals {
-		return new(big.Int).SetBytes(amount).Cmp(typeInfo.MinOrderAmount) < 0
+		return new(big.Int).SetBytes(amount).Cmp(tradeThreshold) < 0
 	} else {
-		return AdjustAmountForDecimalsDiff(amount, marketInfo.QuoteTokenDecimals-typeInfo.Decimals).Cmp(typeInfo.MinOrderAmount) < 0
+		return AdjustAmountForDecimalsDiff(amount, marketInfo.QuoteTokenDecimals-typeInfo.Decimals).Cmp(tradeThreshold) < 0
 	}
 }
 

@@ -210,6 +210,14 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
+func (f DexFundApi) GetPeriodId() (uint64, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	return dex.GetCurrentPeriodId(db, getConsensusReader(f.vite)), nil
+}
+
 func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
 	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
 }

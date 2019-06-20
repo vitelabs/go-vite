@@ -46,6 +46,8 @@ const (
 	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
 	DexFundOwnerConfigGas                 uint64 = 300
 	DexFundOwnerConfigReceiveGas          uint64 = 1
+	DexFundOwnerConfigTradeGas            uint64 = 300
+	DexFundOwnerConfigTradeReceiveGas     uint64 = 1
 	DexFundMarketOwnerConfigGas           uint64 = 300
 	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
 	dexFundTransferTokenOwnerGas          uint64 = 300
