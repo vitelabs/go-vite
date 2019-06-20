@@ -332,7 +332,7 @@ func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, 
 	for {
 		if !iter.Next() {
 			if iter.Error() != nil {
-				return nil, err
+				return nil, iter.Error()
 			}
 			return m, nil
 		}

@@ -173,13 +173,14 @@ func (db *testQuotaDb) GetUnconfirmedBlocks(addr types.Address) []*ledger.Accoun
 	return db.unconfirmedBlockList
 }
 func (db *testQuotaDb) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
-	return 1, nil
+	return 0, nil
 }
 func (db *testQuotaDb) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	if len(db.unconfirmedBlockList) > 0 {
 		return db.unconfirmedBlockList[len(db.unconfirmedBlockList)-1], nil
+	} else {
+		return nil, nil
 	}
-	return nil, nil
 }
 
 func TestCalcPoWDifficulty(t *testing.T) {

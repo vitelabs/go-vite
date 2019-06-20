@@ -2,25 +2,28 @@ package dex
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math/big"
+	"strconv"
 	"testing"
 )
 
 func TestGetMindedVxAmt(t *testing.T) {
-	_, _, _, result := GetMindedVxAmt(big.NewInt(0))
+	_, _, _, _, result := GetMindedVxAmt(big.NewInt(0))
 	assert.False(t, result)
 
-	balance, _ := new(big.Float).Mul(new(big.Float).SetPrec(bigFloatPrec).SetFloat64(1.5), new(big.Float).SetInt(VxMinedAmtPerPeriod)).Int(nil)
-	amtFroFeePerMarket, amtForPledge, amtForViteLabs, result := GetMindedVxAmt(balance)
+	balance, _ := new(big.Float).Mul(new(big.Float).SetPrec(bigFloatPrec).SetFloat64(1.5), new(big.Float).SetInt()).Int(nil)
+	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result := GetMindedVxAmt(balance)
 	assert.True(t, result)
 	total := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
 	total.Add(total, amtForPledge)
 	total.Add(total, amtForViteLabs)
-	assert.True(t, total.Cmp(VxMinedAmtPerPeriod) == 0)
+	assert.True(t, total.Cmp() == 0)
 
 	balance1 := big.NewInt(13)
-	amtFroFeePerMarket, amtForPledge, amtForViteLabs, result = GetMindedVxAmt(balance1)
+	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result = GetMindedVxAmt(balance1)
 	assert.True(t, result)
 	assert.True(t, amtFroFeePerMarket.Cmp(big.NewInt(3)) == 0)
 	assert.True(t, amtForViteLabs.Cmp(big.NewInt(1)) == 0)
@@ -82,4 +85,24 @@ func TestPriceConvert(t *testing.T) {
 	assert.Equal(t, 1, bytes.Compare(PriceToBytes("23.001"), PriceToBytes("23")))
 	assert.Equal(t, -1, bytes.Compare(PriceToBytes("23.001"), PriceToBytes("23.1")))
 	assert.Equal(t, -1, bytes.Compare(PriceToBytes("0.021"), PriceToBytes("0.022")))
+}
+
+func TestRandomBytesFromBytes(t *testing.T) {
+	data, err := hex.DecodeString("05672422d783f5b213836e276e865196f9677f78b366ca189c8a11453a67777e")
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 32, len(data))
+	codeBytes := []byte{'0', '0', '0', '0'}
+	resMap := make(map[string]string)
+	for i := 1; i < 3000; i++ {
+		codeBytes, ok := randomBytesFromBytes(data, codeBytes, 0, 32)
+		assert.True(t, ok)
+		resStr := strconv.Itoa(int(BytesToUint32(codeBytes)))
+		_, ok = resMap[resStr]
+		if ok {
+			break
+		}
+		assert.False(t, ok)
+		resMap[resStr] = ""
+		fmt.Printf("%d -> %s\n", i, resStr)
+	}
 }

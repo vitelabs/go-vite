@@ -20,6 +20,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+//storage
 type Account struct {
 	Token                []byte   `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
 	Available            []byte   `protobuf:"bytes,2,opt,name=Available,proto3" json:"Available,omitempty"`
@@ -75,6 +76,7 @@ func (m *Account) GetLocked() []byte {
 	return nil
 }
 
+//storage
 type Fund struct {
 	Address              []byte     `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
 	Accounts             []*Account `protobuf:"bytes,2,rep,name=Accounts,proto3" json:"Accounts,omitempty"`
@@ -123,10 +125,10 @@ func (m *Fund) GetAccounts() []*Account {
 }
 
 type FundSettle struct {
-	Token                []byte   `protobuf:"bytes,2,opt,name=Token,proto3" json:"Token,omitempty"`
-	IncAvailable         []byte   `protobuf:"bytes,3,opt,name=IncAvailable,proto3" json:"IncAvailable,omitempty"`
-	ReduceLocked         []byte   `protobuf:"bytes,4,opt,name=ReduceLocked,proto3" json:"ReduceLocked,omitempty"`
-	ReleaseLocked        []byte   `protobuf:"bytes,5,opt,name=ReleaseLocked,proto3" json:"ReleaseLocked,omitempty"`
+	IsTradeToken         bool     `protobuf:"varint,1,opt,name=isTradeToken,proto3" json:"isTradeToken,omitempty"`
+	IncAvailable         []byte   `protobuf:"bytes,2,opt,name=IncAvailable,proto3" json:"IncAvailable,omitempty"`
+	ReduceLocked         []byte   `protobuf:"bytes,3,opt,name=ReduceLocked,proto3" json:"ReduceLocked,omitempty"`
+	ReleaseLocked        []byte   `protobuf:"bytes,4,opt,name=ReleaseLocked,proto3" json:"ReleaseLocked,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -157,11 +159,11 @@ func (m *FundSettle) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FundSettle proto.InternalMessageInfo
 
-func (m *FundSettle) GetToken() []byte {
+func (m *FundSettle) GetIsTradeToken() bool {
 	if m != nil {
-		return m.Token
+		return m.IsTradeToken
 	}
-	return nil
+	return false
 }
 
 func (m *FundSettle) GetIncAvailable() []byte {
@@ -234,7 +236,8 @@ func (m *UserFundSettle) GetFundSettles() []*FundSettle {
 
 type UserFeeSettle struct {
 	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
-	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	BaseFee              []byte   `protobuf:"bytes,2,opt,name=BaseFee,proto3" json:"BaseFee,omitempty"`
+	BrokerFee            []byte   `protobuf:"bytes,3,opt,name=BrokerFee,proto3" json:"BrokerFee,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -272,63 +275,25 @@ func (m *UserFeeSettle) GetAddress() []byte {
 	return nil
 }
 
-func (m *UserFeeSettle) GetAmount() []byte {
+func (m *UserFeeSettle) GetBaseFee() []byte {
 	if m != nil {
-		return m.Amount
+		return m.BaseFee
 	}
 	return nil
 }
 
-type FeeSettle struct {
-	Token                []byte           `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
-	UserFeeSettles       []*UserFeeSettle `protobuf:"bytes,2,rep,name=userFeeSettles,proto3" json:"userFeeSettles,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
-}
-
-func (m *FeeSettle) Reset()         { *m = FeeSettle{} }
-func (m *FeeSettle) String() string { return proto.CompactTextString(m) }
-func (*FeeSettle) ProtoMessage()    {}
-func (*FeeSettle) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{5}
-}
-
-func (m *FeeSettle) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FeeSettle.Unmarshal(m, b)
-}
-func (m *FeeSettle) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FeeSettle.Marshal(b, m, deterministic)
-}
-func (m *FeeSettle) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FeeSettle.Merge(m, src)
-}
-func (m *FeeSettle) XXX_Size() int {
-	return xxx_messageInfo_FeeSettle.Size(m)
-}
-func (m *FeeSettle) XXX_DiscardUnknown() {
-	xxx_messageInfo_FeeSettle.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FeeSettle proto.InternalMessageInfo
-
-func (m *FeeSettle) GetToken() []byte {
+func (m *UserFeeSettle) GetBrokerFee() []byte {
 	if m != nil {
-		return m.Token
-	}
-	return nil
-}
-
-func (m *FeeSettle) GetUserFeeSettles() []*UserFeeSettle {
-	if m != nil {
-		return m.UserFeeSettles
+		return m.BrokerFee
 	}
 	return nil
 }
 
 type SettleActions struct {
-	FundActions          []*UserFundSettle `protobuf:"bytes,1,rep,name=fundActions,proto3" json:"fundActions,omitempty"`
-	FeeActions           []*FeeSettle      `protobuf:"bytes,2,rep,name=feeActions,proto3" json:"feeActions,omitempty"`
+	TradeToken           []byte            `protobuf:"bytes,1,opt,name=TradeToken,proto3" json:"TradeToken,omitempty"`
+	QuoteToken           []byte            `protobuf:"bytes,2,opt,name=QuoteToken,proto3" json:"QuoteToken,omitempty"`
+	FundActions          []*UserFundSettle `protobuf:"bytes,3,rep,name=fundActions,proto3" json:"fundActions,omitempty"`
+	FeeActions           []*UserFeeSettle  `protobuf:"bytes,4,rep,name=feeActions,proto3" json:"feeActions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -338,7 +303,7 @@ func (m *SettleActions) Reset()         { *m = SettleActions{} }
 func (m *SettleActions) String() string { return proto.CompactTextString(m) }
 func (*SettleActions) ProtoMessage()    {}
 func (*SettleActions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{6}
+	return fileDescriptor_c247044ebb68d1ae, []int{5}
 }
 
 func (m *SettleActions) XXX_Unmarshal(b []byte) error {
@@ -359,6 +324,20 @@ func (m *SettleActions) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SettleActions proto.InternalMessageInfo
 
+func (m *SettleActions) GetTradeToken() []byte {
+	if m != nil {
+		return m.TradeToken
+	}
+	return nil
+}
+
+func (m *SettleActions) GetQuoteToken() []byte {
+	if m != nil {
+		return m.QuoteToken
+	}
+	return nil
+}
+
 func (m *SettleActions) GetFundActions() []*UserFundSettle {
 	if m != nil {
 		return m.FundActions
@@ -366,28 +345,135 @@ func (m *SettleActions) GetFundActions() []*UserFundSettle {
 	return nil
 }
 
-func (m *SettleActions) GetFeeActions() []*FeeSettle {
+func (m *SettleActions) GetFeeActions() []*UserFeeSettle {
 	if m != nil {
 		return m.FeeActions
 	}
 	return nil
 }
 
+type FeeSumForDividend struct {
+	Token []byte `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
+	// rolled amount : 99% part of last period BaseAmount rolled to this period +
+	// new market fee +
+	// new inviter fee +
+	// trade baseFee[include markets allow mine and not allow mine]
+	DividendPoolAmount   []byte   `protobuf:"bytes,2,opt,name=DividendPoolAmount,proto3" json:"DividendPoolAmount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FeeSumForDividend) Reset()         { *m = FeeSumForDividend{} }
+func (m *FeeSumForDividend) String() string { return proto.CompactTextString(m) }
+func (*FeeSumForDividend) ProtoMessage()    {}
+func (*FeeSumForDividend) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{6}
+}
+
+func (m *FeeSumForDividend) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeSumForDividend.Unmarshal(m, b)
+}
+func (m *FeeSumForDividend) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeSumForDividend.Marshal(b, m, deterministic)
+}
+func (m *FeeSumForDividend) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeSumForDividend.Merge(m, src)
+}
+func (m *FeeSumForDividend) XXX_Size() int {
+	return xxx_messageInfo_FeeSumForDividend.Size(m)
+}
+func (m *FeeSumForDividend) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeSumForDividend.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeSumForDividend proto.InternalMessageInfo
+
+func (m *FeeSumForDividend) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+func (m *FeeSumForDividend) GetDividendPoolAmount() []byte {
+	if m != nil {
+		return m.DividendPoolAmount
+	}
+	return nil
+}
+
+type FeeSumForMine struct {
+	QuoteTokenType       int32    `protobuf:"varint,1,opt,name=QuoteTokenType,proto3" json:"QuoteTokenType,omitempty"`
+	BaseAmount           []byte   `protobuf:"bytes,2,opt,name=BaseAmount,proto3" json:"BaseAmount,omitempty"`
+	InviteBonusAmount    []byte   `protobuf:"bytes,3,opt,name=InviteBonusAmount,proto3" json:"InviteBonusAmount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FeeSumForMine) Reset()         { *m = FeeSumForMine{} }
+func (m *FeeSumForMine) String() string { return proto.CompactTextString(m) }
+func (*FeeSumForMine) ProtoMessage()    {}
+func (*FeeSumForMine) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{7}
+}
+
+func (m *FeeSumForMine) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeSumForMine.Unmarshal(m, b)
+}
+func (m *FeeSumForMine) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeSumForMine.Marshal(b, m, deterministic)
+}
+func (m *FeeSumForMine) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeSumForMine.Merge(m, src)
+}
+func (m *FeeSumForMine) XXX_Size() int {
+	return xxx_messageInfo_FeeSumForMine.Size(m)
+}
+func (m *FeeSumForMine) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeSumForMine.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeSumForMine proto.InternalMessageInfo
+
+func (m *FeeSumForMine) GetQuoteTokenType() int32 {
+	if m != nil {
+		return m.QuoteTokenType
+	}
+	return 0
+}
+
+func (m *FeeSumForMine) GetBaseAmount() []byte {
+	if m != nil {
+		return m.BaseAmount
+	}
+	return nil
+}
+
+func (m *FeeSumForMine) GetInviteBonusAmount() []byte {
+	if m != nil {
+		return m.InviteBonusAmount
+	}
+	return nil
+}
+
 type FeeSumByPeriod struct {
-	Fees                 []*FeeAccount `protobuf:"bytes,1,rep,name=fees,proto3" json:"fees,omitempty"`
-	LastValidPeriod      uint64        `protobuf:"varint,2,opt,name=lastValidPeriod,proto3" json:"lastValidPeriod,omitempty"`
-	FeeDivided           bool          `protobuf:"varint,3,opt,name=FeeDivided,proto3" json:"FeeDivided,omitempty"`
-	MinedVxDivided       bool          `protobuf:"varint,4,opt,name=MinedVxDivided,proto3" json:"MinedVxDivided,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	FeesForDividend      []*FeeSumForDividend `protobuf:"bytes,1,rep,name=feesForDividend,proto3" json:"feesForDividend,omitempty"`
+	FeesForMine          []*FeeSumForMine     `protobuf:"bytes,2,rep,name=feesForMine,proto3" json:"feesForMine,omitempty"`
+	LastValidPeriod      uint64               `protobuf:"varint,3,opt,name=lastValidPeriod,proto3" json:"lastValidPeriod,omitempty"`
+	FinishFeeDividend    bool                 `protobuf:"varint,4,opt,name=FinishFeeDividend,proto3" json:"FinishFeeDividend,omitempty"`
+	FinishVxMine         bool                 `protobuf:"varint,5,opt,name=FinishVxMine,proto3" json:"FinishVxMine,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
 func (m *FeeSumByPeriod) Reset()         { *m = FeeSumByPeriod{} }
 func (m *FeeSumByPeriod) String() string { return proto.CompactTextString(m) }
 func (*FeeSumByPeriod) ProtoMessage()    {}
 func (*FeeSumByPeriod) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{7}
+	return fileDescriptor_c247044ebb68d1ae, []int{8}
 }
 
 func (m *FeeSumByPeriod) XXX_Unmarshal(b []byte) error {
@@ -408,9 +494,16 @@ func (m *FeeSumByPeriod) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FeeSumByPeriod proto.InternalMessageInfo
 
-func (m *FeeSumByPeriod) GetFees() []*FeeAccount {
+func (m *FeeSumByPeriod) GetFeesForDividend() []*FeeSumForDividend {
 	if m != nil {
-		return m.Fees
+		return m.FeesForDividend
+	}
+	return nil
+}
+
+func (m *FeeSumByPeriod) GetFeesForMine() []*FeeSumForMine {
+	if m != nil {
+		return m.FeesForMine
 	}
 	return nil
 }
@@ -422,32 +515,134 @@ func (m *FeeSumByPeriod) GetLastValidPeriod() uint64 {
 	return 0
 }
 
-func (m *FeeSumByPeriod) GetFeeDivided() bool {
+func (m *FeeSumByPeriod) GetFinishFeeDividend() bool {
 	if m != nil {
-		return m.FeeDivided
+		return m.FinishFeeDividend
 	}
 	return false
 }
 
-func (m *FeeSumByPeriod) GetMinedVxDivided() bool {
+func (m *FeeSumByPeriod) GetFinishVxMine() bool {
 	if m != nil {
-		return m.MinedVxDivided
+		return m.FinishVxMine
 	}
 	return false
+}
+
+type UserFeeAccount struct {
+	QuoteTokenType       int32    `protobuf:"varint,1,opt,name=QuoteTokenType,proto3" json:"QuoteTokenType,omitempty"`
+	BaseAmount           []byte   `protobuf:"bytes,2,opt,name=BaseAmount,proto3" json:"BaseAmount,omitempty"`
+	InviteBonusAmount    []byte   `protobuf:"bytes,3,opt,name=InviteBonusAmount,proto3" json:"InviteBonusAmount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UserFeeAccount) Reset()         { *m = UserFeeAccount{} }
+func (m *UserFeeAccount) String() string { return proto.CompactTextString(m) }
+func (*UserFeeAccount) ProtoMessage()    {}
+func (*UserFeeAccount) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{9}
+}
+
+func (m *UserFeeAccount) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UserFeeAccount.Unmarshal(m, b)
+}
+func (m *UserFeeAccount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UserFeeAccount.Marshal(b, m, deterministic)
+}
+func (m *UserFeeAccount) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UserFeeAccount.Merge(m, src)
+}
+func (m *UserFeeAccount) XXX_Size() int {
+	return xxx_messageInfo_UserFeeAccount.Size(m)
+}
+func (m *UserFeeAccount) XXX_DiscardUnknown() {
+	xxx_messageInfo_UserFeeAccount.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UserFeeAccount proto.InternalMessageInfo
+
+func (m *UserFeeAccount) GetQuoteTokenType() int32 {
+	if m != nil {
+		return m.QuoteTokenType
+	}
+	return 0
+}
+
+func (m *UserFeeAccount) GetBaseAmount() []byte {
+	if m != nil {
+		return m.BaseAmount
+	}
+	return nil
+}
+
+func (m *UserFeeAccount) GetInviteBonusAmount() []byte {
+	if m != nil {
+		return m.InviteBonusAmount
+	}
+	return nil
+}
+
+type UserFeeByPeriod struct {
+	UserFees             []*UserFeeAccount `protobuf:"bytes,1,rep,name=userFees,proto3" json:"userFees,omitempty"`
+	Period               uint64            `protobuf:"varint,2,opt,name=Period,proto3" json:"Period,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *UserFeeByPeriod) Reset()         { *m = UserFeeByPeriod{} }
+func (m *UserFeeByPeriod) String() string { return proto.CompactTextString(m) }
+func (*UserFeeByPeriod) ProtoMessage()    {}
+func (*UserFeeByPeriod) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{10}
+}
+
+func (m *UserFeeByPeriod) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UserFeeByPeriod.Unmarshal(m, b)
+}
+func (m *UserFeeByPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UserFeeByPeriod.Marshal(b, m, deterministic)
+}
+func (m *UserFeeByPeriod) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UserFeeByPeriod.Merge(m, src)
+}
+func (m *UserFeeByPeriod) XXX_Size() int {
+	return xxx_messageInfo_UserFeeByPeriod.Size(m)
+}
+func (m *UserFeeByPeriod) XXX_DiscardUnknown() {
+	xxx_messageInfo_UserFeeByPeriod.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UserFeeByPeriod proto.InternalMessageInfo
+
+func (m *UserFeeByPeriod) GetUserFees() []*UserFeeAccount {
+	if m != nil {
+		return m.UserFees
+	}
+	return nil
+}
+
+func (m *UserFeeByPeriod) GetPeriod() uint64 {
+	if m != nil {
+		return m.Period
+	}
+	return 0
 }
 
 type UserFees struct {
-	Fees                 []*UserFeeWithPeriod `protobuf:"bytes,1,rep,name=fees,proto3" json:"fees,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
+	Fees                 []*UserFeeByPeriod `protobuf:"bytes,1,rep,name=fees,proto3" json:"fees,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
 func (m *UserFees) Reset()         { *m = UserFees{} }
 func (m *UserFees) String() string { return proto.CompactTextString(m) }
 func (*UserFees) ProtoMessage()    {}
 func (*UserFees) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{8}
+	return fileDescriptor_c247044ebb68d1ae, []int{11}
 }
 
 func (m *UserFees) XXX_Unmarshal(b []byte) error {
@@ -468,101 +663,203 @@ func (m *UserFees) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_UserFees proto.InternalMessageInfo
 
-func (m *UserFees) GetFees() []*UserFeeWithPeriod {
+func (m *UserFees) GetFees() []*UserFeeByPeriod {
 	if m != nil {
 		return m.Fees
 	}
 	return nil
 }
 
-type UserFeeWithPeriod struct {
-	UserFees             []*FeeAccount `protobuf:"bytes,1,rep,name=userFees,proto3" json:"userFees,omitempty"`
-	Period               uint64        `protobuf:"varint,2,opt,name=Period,proto3" json:"Period,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *UserFeeWithPeriod) Reset()         { *m = UserFeeWithPeriod{} }
-func (m *UserFeeWithPeriod) String() string { return proto.CompactTextString(m) }
-func (*UserFeeWithPeriod) ProtoMessage()    {}
-func (*UserFeeWithPeriod) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{9}
-}
-
-func (m *UserFeeWithPeriod) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_UserFeeWithPeriod.Unmarshal(m, b)
-}
-func (m *UserFeeWithPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_UserFeeWithPeriod.Marshal(b, m, deterministic)
-}
-func (m *UserFeeWithPeriod) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UserFeeWithPeriod.Merge(m, src)
-}
-func (m *UserFeeWithPeriod) XXX_Size() int {
-	return xxx_messageInfo_UserFeeWithPeriod.Size(m)
-}
-func (m *UserFeeWithPeriod) XXX_DiscardUnknown() {
-	xxx_messageInfo_UserFeeWithPeriod.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_UserFeeWithPeriod proto.InternalMessageInfo
-
-func (m *UserFeeWithPeriod) GetUserFees() []*FeeAccount {
-	if m != nil {
-		return m.UserFees
-	}
-	return nil
-}
-
-func (m *UserFeeWithPeriod) GetPeriod() uint64 {
-	if m != nil {
-		return m.Period
-	}
-	return 0
-}
-
-type FeeAccount struct {
-	Token                []byte   `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
-	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+type BrokerMarketFee struct {
+	MarketId             int32    `protobuf:"varint,1,opt,name=MarketId,proto3" json:"MarketId,omitempty"`
+	TakerBrokerFeeRate   int32    `protobuf:"varint,2,opt,name=TakerBrokerFeeRate,proto3" json:"TakerBrokerFeeRate,omitempty"`
+	MakerBrokerFeeRate   int32    `protobuf:"varint,3,opt,name=MakerBrokerFeeRate,proto3" json:"MakerBrokerFeeRate,omitempty"`
+	Amount               []byte   `protobuf:"bytes,4,opt,name=Amount,proto3" json:"Amount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *FeeAccount) Reset()         { *m = FeeAccount{} }
-func (m *FeeAccount) String() string { return proto.CompactTextString(m) }
-func (*FeeAccount) ProtoMessage()    {}
-func (*FeeAccount) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{10}
+func (m *BrokerMarketFee) Reset()         { *m = BrokerMarketFee{} }
+func (m *BrokerMarketFee) String() string { return proto.CompactTextString(m) }
+func (*BrokerMarketFee) ProtoMessage()    {}
+func (*BrokerMarketFee) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{12}
 }
 
-func (m *FeeAccount) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FeeAccount.Unmarshal(m, b)
+func (m *BrokerMarketFee) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BrokerMarketFee.Unmarshal(m, b)
 }
-func (m *FeeAccount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FeeAccount.Marshal(b, m, deterministic)
+func (m *BrokerMarketFee) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BrokerMarketFee.Marshal(b, m, deterministic)
 }
-func (m *FeeAccount) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FeeAccount.Merge(m, src)
+func (m *BrokerMarketFee) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BrokerMarketFee.Merge(m, src)
 }
-func (m *FeeAccount) XXX_Size() int {
-	return xxx_messageInfo_FeeAccount.Size(m)
+func (m *BrokerMarketFee) XXX_Size() int {
+	return xxx_messageInfo_BrokerMarketFee.Size(m)
 }
-func (m *FeeAccount) XXX_DiscardUnknown() {
-	xxx_messageInfo_FeeAccount.DiscardUnknown(m)
+func (m *BrokerMarketFee) XXX_DiscardUnknown() {
+	xxx_messageInfo_BrokerMarketFee.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FeeAccount proto.InternalMessageInfo
+var xxx_messageInfo_BrokerMarketFee proto.InternalMessageInfo
 
-func (m *FeeAccount) GetToken() []byte {
+func (m *BrokerMarketFee) GetMarketId() int32 {
+	if m != nil {
+		return m.MarketId
+	}
+	return 0
+}
+
+func (m *BrokerMarketFee) GetTakerBrokerFeeRate() int32 {
+	if m != nil {
+		return m.TakerBrokerFeeRate
+	}
+	return 0
+}
+
+func (m *BrokerMarketFee) GetMakerBrokerFeeRate() int32 {
+	if m != nil {
+		return m.MakerBrokerFeeRate
+	}
+	return 0
+}
+
+func (m *BrokerMarketFee) GetAmount() []byte {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
+type BrokerFeeAccount struct {
+	Token                []byte             `protobuf:"bytes,1,opt,name=Token,proto3" json:"Token,omitempty"`
+	MarketFees           []*BrokerMarketFee `protobuf:"bytes,2,rep,name=MarketFees,proto3" json:"MarketFees,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *BrokerFeeAccount) Reset()         { *m = BrokerFeeAccount{} }
+func (m *BrokerFeeAccount) String() string { return proto.CompactTextString(m) }
+func (*BrokerFeeAccount) ProtoMessage()    {}
+func (*BrokerFeeAccount) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{13}
+}
+
+func (m *BrokerFeeAccount) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BrokerFeeAccount.Unmarshal(m, b)
+}
+func (m *BrokerFeeAccount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BrokerFeeAccount.Marshal(b, m, deterministic)
+}
+func (m *BrokerFeeAccount) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BrokerFeeAccount.Merge(m, src)
+}
+func (m *BrokerFeeAccount) XXX_Size() int {
+	return xxx_messageInfo_BrokerFeeAccount.Size(m)
+}
+func (m *BrokerFeeAccount) XXX_DiscardUnknown() {
+	xxx_messageInfo_BrokerFeeAccount.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BrokerFeeAccount proto.InternalMessageInfo
+
+func (m *BrokerFeeAccount) GetToken() []byte {
 	if m != nil {
 		return m.Token
 	}
 	return nil
 }
 
-func (m *FeeAccount) GetAmount() []byte {
+func (m *BrokerFeeAccount) GetMarketFees() []*BrokerMarketFee {
+	if m != nil {
+		return m.MarketFees
+	}
+	return nil
+}
+
+type BrokerFeeSumByPeriod struct {
+	BrokerFees           []*BrokerFeeAccount `protobuf:"bytes,1,rep,name=brokerFees,proto3" json:"brokerFees,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *BrokerFeeSumByPeriod) Reset()         { *m = BrokerFeeSumByPeriod{} }
+func (m *BrokerFeeSumByPeriod) String() string { return proto.CompactTextString(m) }
+func (*BrokerFeeSumByPeriod) ProtoMessage()    {}
+func (*BrokerFeeSumByPeriod) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{14}
+}
+
+func (m *BrokerFeeSumByPeriod) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BrokerFeeSumByPeriod.Unmarshal(m, b)
+}
+func (m *BrokerFeeSumByPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BrokerFeeSumByPeriod.Marshal(b, m, deterministic)
+}
+func (m *BrokerFeeSumByPeriod) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BrokerFeeSumByPeriod.Merge(m, src)
+}
+func (m *BrokerFeeSumByPeriod) XXX_Size() int {
+	return xxx_messageInfo_BrokerFeeSumByPeriod.Size(m)
+}
+func (m *BrokerFeeSumByPeriod) XXX_DiscardUnknown() {
+	xxx_messageInfo_BrokerFeeSumByPeriod.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BrokerFeeSumByPeriod proto.InternalMessageInfo
+
+func (m *BrokerFeeSumByPeriod) GetBrokerFees() []*BrokerFeeAccount {
+	if m != nil {
+		return m.BrokerFees
+	}
+	return nil
+}
+
+type VxFundByPeriod struct {
+	Period               uint64   `protobuf:"varint,1,opt,name=Period,proto3" json:"Period,omitempty"`
+	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *VxFundByPeriod) Reset()         { *m = VxFundByPeriod{} }
+func (m *VxFundByPeriod) String() string { return proto.CompactTextString(m) }
+func (*VxFundByPeriod) ProtoMessage()    {}
+func (*VxFundByPeriod) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{15}
+}
+
+func (m *VxFundByPeriod) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_VxFundByPeriod.Unmarshal(m, b)
+}
+func (m *VxFundByPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_VxFundByPeriod.Marshal(b, m, deterministic)
+}
+func (m *VxFundByPeriod) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VxFundByPeriod.Merge(m, src)
+}
+func (m *VxFundByPeriod) XXX_Size() int {
+	return xxx_messageInfo_VxFundByPeriod.Size(m)
+}
+func (m *VxFundByPeriod) XXX_DiscardUnknown() {
+	xxx_messageInfo_VxFundByPeriod.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VxFundByPeriod proto.InternalMessageInfo
+
+func (m *VxFundByPeriod) GetPeriod() uint64 {
+	if m != nil {
+		return m.Period
+	}
+	return 0
+}
+
+func (m *VxFundByPeriod) GetAmount() []byte {
 	if m != nil {
 		return m.Amount
 	}
@@ -570,17 +867,17 @@ func (m *FeeAccount) GetAmount() []byte {
 }
 
 type VxFunds struct {
-	Funds                []*VxFundWithPeriod `protobuf:"bytes,1,rep,name=funds,proto3" json:"funds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
+	Funds                []*VxFundByPeriod `protobuf:"bytes,1,rep,name=funds,proto3" json:"funds,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *VxFunds) Reset()         { *m = VxFunds{} }
 func (m *VxFunds) String() string { return proto.CompactTextString(m) }
 func (*VxFunds) ProtoMessage()    {}
 func (*VxFunds) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{11}
+	return fileDescriptor_c247044ebb68d1ae, []int{16}
 }
 
 func (m *VxFunds) XXX_Unmarshal(b []byte) error {
@@ -601,56 +898,9 @@ func (m *VxFunds) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_VxFunds proto.InternalMessageInfo
 
-func (m *VxFunds) GetFunds() []*VxFundWithPeriod {
+func (m *VxFunds) GetFunds() []*VxFundByPeriod {
 	if m != nil {
 		return m.Funds
-	}
-	return nil
-}
-
-type VxFundWithPeriod struct {
-	Period               uint64   `protobuf:"varint,1,opt,name=Period,proto3" json:"Period,omitempty"`
-	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *VxFundWithPeriod) Reset()         { *m = VxFundWithPeriod{} }
-func (m *VxFundWithPeriod) String() string { return proto.CompactTextString(m) }
-func (*VxFundWithPeriod) ProtoMessage()    {}
-func (*VxFundWithPeriod) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{12}
-}
-
-func (m *VxFundWithPeriod) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_VxFundWithPeriod.Unmarshal(m, b)
-}
-func (m *VxFundWithPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_VxFundWithPeriod.Marshal(b, m, deterministic)
-}
-func (m *VxFundWithPeriod) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VxFundWithPeriod.Merge(m, src)
-}
-func (m *VxFundWithPeriod) XXX_Size() int {
-	return xxx_messageInfo_VxFundWithPeriod.Size(m)
-}
-func (m *VxFundWithPeriod) XXX_DiscardUnknown() {
-	xxx_messageInfo_VxFundWithPeriod.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_VxFundWithPeriod proto.InternalMessageInfo
-
-func (m *VxFundWithPeriod) GetPeriod() uint64 {
-	if m != nil {
-		return m.Period
-	}
-	return 0
-}
-
-func (m *VxFundWithPeriod) GetAmount() []byte {
-	if m != nil {
-		return m.Amount
 	}
 	return nil
 }
@@ -667,7 +917,7 @@ func (m *PledgeVip) Reset()         { *m = PledgeVip{} }
 func (m *PledgeVip) String() string { return proto.CompactTextString(m) }
 func (*PledgeVip) ProtoMessage()    {}
 func (*PledgeVip) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c247044ebb68d1ae, []int{13}
+	return fileDescriptor_c247044ebb68d1ae, []int{17}
 }
 
 func (m *PledgeVip) XXX_Unmarshal(b []byte) error {
@@ -702,59 +952,436 @@ func (m *PledgeVip) GetPledgeTimes() int32 {
 	return 0
 }
 
+type PledgeForVxByPeriod struct {
+	Period               uint64   `protobuf:"varint,1,opt,name=Period,proto3" json:"Period,omitempty"`
+	Amount               []byte   `protobuf:"bytes,2,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PledgeForVxByPeriod) Reset()         { *m = PledgeForVxByPeriod{} }
+func (m *PledgeForVxByPeriod) String() string { return proto.CompactTextString(m) }
+func (*PledgeForVxByPeriod) ProtoMessage()    {}
+func (*PledgeForVxByPeriod) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{18}
+}
+
+func (m *PledgeForVxByPeriod) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PledgeForVxByPeriod.Unmarshal(m, b)
+}
+func (m *PledgeForVxByPeriod) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PledgeForVxByPeriod.Marshal(b, m, deterministic)
+}
+func (m *PledgeForVxByPeriod) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PledgeForVxByPeriod.Merge(m, src)
+}
+func (m *PledgeForVxByPeriod) XXX_Size() int {
+	return xxx_messageInfo_PledgeForVxByPeriod.Size(m)
+}
+func (m *PledgeForVxByPeriod) XXX_DiscardUnknown() {
+	xxx_messageInfo_PledgeForVxByPeriod.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PledgeForVxByPeriod proto.InternalMessageInfo
+
+func (m *PledgeForVxByPeriod) GetPeriod() uint64 {
+	if m != nil {
+		return m.Period
+	}
+	return 0
+}
+
+func (m *PledgeForVxByPeriod) GetAmount() []byte {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
+type PledgesForVx struct {
+	Pledges              []*PledgeForVxByPeriod `protobuf:"bytes,1,rep,name=pledges,proto3" json:"pledges,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
+}
+
+func (m *PledgesForVx) Reset()         { *m = PledgesForVx{} }
+func (m *PledgesForVx) String() string { return proto.CompactTextString(m) }
+func (*PledgesForVx) ProtoMessage()    {}
+func (*PledgesForVx) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{19}
+}
+
+func (m *PledgesForVx) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PledgesForVx.Unmarshal(m, b)
+}
+func (m *PledgesForVx) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PledgesForVx.Marshal(b, m, deterministic)
+}
+func (m *PledgesForVx) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PledgesForVx.Merge(m, src)
+}
+func (m *PledgesForVx) XXX_Size() int {
+	return xxx_messageInfo_PledgesForVx.Size(m)
+}
+func (m *PledgesForVx) XXX_DiscardUnknown() {
+	xxx_messageInfo_PledgesForVx.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PledgesForVx proto.InternalMessageInfo
+
+func (m *PledgesForVx) GetPledges() []*PledgeForVxByPeriod {
+	if m != nil {
+		return m.Pledges
+	}
+	return nil
+}
+
+//event
+type FeeDividendForVxHolder struct {
+	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	VxAmount             []byte   `protobuf:"bytes,2,opt,name=VxAmount,proto3" json:"VxAmount,omitempty"`
+	FeeToken             []byte   `protobuf:"bytes,3,opt,name=FeeToken,proto3" json:"FeeToken,omitempty"`
+	FeeDividend          []byte   `protobuf:"bytes,4,opt,name=FeeDividend,proto3" json:"FeeDividend,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FeeDividendForVxHolder) Reset()         { *m = FeeDividendForVxHolder{} }
+func (m *FeeDividendForVxHolder) String() string { return proto.CompactTextString(m) }
+func (*FeeDividendForVxHolder) ProtoMessage()    {}
+func (*FeeDividendForVxHolder) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{20}
+}
+
+func (m *FeeDividendForVxHolder) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FeeDividendForVxHolder.Unmarshal(m, b)
+}
+func (m *FeeDividendForVxHolder) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FeeDividendForVxHolder.Marshal(b, m, deterministic)
+}
+func (m *FeeDividendForVxHolder) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FeeDividendForVxHolder.Merge(m, src)
+}
+func (m *FeeDividendForVxHolder) XXX_Size() int {
+	return xxx_messageInfo_FeeDividendForVxHolder.Size(m)
+}
+func (m *FeeDividendForVxHolder) XXX_DiscardUnknown() {
+	xxx_messageInfo_FeeDividendForVxHolder.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FeeDividendForVxHolder proto.InternalMessageInfo
+
+func (m *FeeDividendForVxHolder) GetAddress() []byte {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *FeeDividendForVxHolder) GetVxAmount() []byte {
+	if m != nil {
+		return m.VxAmount
+	}
+	return nil
+}
+
+func (m *FeeDividendForVxHolder) GetFeeToken() []byte {
+	if m != nil {
+		return m.FeeToken
+	}
+	return nil
+}
+
+func (m *FeeDividendForVxHolder) GetFeeDividend() []byte {
+	if m != nil {
+		return m.FeeDividend
+	}
+	return nil
+}
+
+//event
+type MinedVxForFee struct {
+	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	QuoteTokenType       int32    `protobuf:"varint,2,opt,name=QuoteTokenType,proto3" json:"QuoteTokenType,omitempty"`
+	FeeAmount            []byte   `protobuf:"bytes,3,opt,name=FeeAmount,proto3" json:"FeeAmount,omitempty"`
+	MinedAmount          []byte   `protobuf:"bytes,4,opt,name=MinedAmount,proto3" json:"MinedAmount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *MinedVxForFee) Reset()         { *m = MinedVxForFee{} }
+func (m *MinedVxForFee) String() string { return proto.CompactTextString(m) }
+func (*MinedVxForFee) ProtoMessage()    {}
+func (*MinedVxForFee) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{21}
+}
+
+func (m *MinedVxForFee) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MinedVxForFee.Unmarshal(m, b)
+}
+func (m *MinedVxForFee) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MinedVxForFee.Marshal(b, m, deterministic)
+}
+func (m *MinedVxForFee) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MinedVxForFee.Merge(m, src)
+}
+func (m *MinedVxForFee) XXX_Size() int {
+	return xxx_messageInfo_MinedVxForFee.Size(m)
+}
+func (m *MinedVxForFee) XXX_DiscardUnknown() {
+	xxx_messageInfo_MinedVxForFee.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MinedVxForFee proto.InternalMessageInfo
+
+func (m *MinedVxForFee) GetAddress() []byte {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *MinedVxForFee) GetQuoteTokenType() int32 {
+	if m != nil {
+		return m.QuoteTokenType
+	}
+	return 0
+}
+
+func (m *MinedVxForFee) GetFeeAmount() []byte {
+	if m != nil {
+		return m.FeeAmount
+	}
+	return nil
+}
+
+func (m *MinedVxForFee) GetMinedAmount() []byte {
+	if m != nil {
+		return m.MinedAmount
+	}
+	return nil
+}
+
+//event
+type MinedVxForPledge struct {
+	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	PledgeAmount         []byte   `protobuf:"bytes,2,opt,name=PledgeAmount,proto3" json:"PledgeAmount,omitempty"`
+	MinedAmount          []byte   `protobuf:"bytes,3,opt,name=MinedAmount,proto3" json:"MinedAmount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *MinedVxForPledge) Reset()         { *m = MinedVxForPledge{} }
+func (m *MinedVxForPledge) String() string { return proto.CompactTextString(m) }
+func (*MinedVxForPledge) ProtoMessage()    {}
+func (*MinedVxForPledge) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{22}
+}
+
+func (m *MinedVxForPledge) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_MinedVxForPledge.Unmarshal(m, b)
+}
+func (m *MinedVxForPledge) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MinedVxForPledge.Marshal(b, m, deterministic)
+}
+func (m *MinedVxForPledge) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MinedVxForPledge.Merge(m, src)
+}
+func (m *MinedVxForPledge) XXX_Size() int {
+	return xxx_messageInfo_MinedVxForPledge.Size(m)
+}
+func (m *MinedVxForPledge) XXX_DiscardUnknown() {
+	xxx_messageInfo_MinedVxForPledge.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MinedVxForPledge proto.InternalMessageInfo
+
+func (m *MinedVxForPledge) GetAddress() []byte {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *MinedVxForPledge) GetPledgeAmount() []byte {
+	if m != nil {
+		return m.PledgeAmount
+	}
+	return nil
+}
+
+func (m *MinedVxForPledge) GetMinedAmount() []byte {
+	if m != nil {
+		return m.MinedAmount
+	}
+	return nil
+}
+
+//event
+type BrokerFeeDividend struct {
+	Address              []byte   `protobuf:"bytes,1,opt,name=Address,proto3" json:"Address,omitempty"`
+	MarketId             int32    `protobuf:"varint,2,opt,name=MarketId,proto3" json:"MarketId,omitempty"`
+	TakerBrokerFeeRate   int32    `protobuf:"varint,3,opt,name=TakerBrokerFeeRate,proto3" json:"TakerBrokerFeeRate,omitempty"`
+	MakerBrokerFeeRate   int32    `protobuf:"varint,4,opt,name=MakerBrokerFeeRate,proto3" json:"MakerBrokerFeeRate,omitempty"`
+	Amount               []byte   `protobuf:"bytes,5,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BrokerFeeDividend) Reset()         { *m = BrokerFeeDividend{} }
+func (m *BrokerFeeDividend) String() string { return proto.CompactTextString(m) }
+func (*BrokerFeeDividend) ProtoMessage()    {}
+func (*BrokerFeeDividend) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c247044ebb68d1ae, []int{23}
+}
+
+func (m *BrokerFeeDividend) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BrokerFeeDividend.Unmarshal(m, b)
+}
+func (m *BrokerFeeDividend) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BrokerFeeDividend.Marshal(b, m, deterministic)
+}
+func (m *BrokerFeeDividend) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BrokerFeeDividend.Merge(m, src)
+}
+func (m *BrokerFeeDividend) XXX_Size() int {
+	return xxx_messageInfo_BrokerFeeDividend.Size(m)
+}
+func (m *BrokerFeeDividend) XXX_DiscardUnknown() {
+	xxx_messageInfo_BrokerFeeDividend.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BrokerFeeDividend proto.InternalMessageInfo
+
+func (m *BrokerFeeDividend) GetAddress() []byte {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *BrokerFeeDividend) GetMarketId() int32 {
+	if m != nil {
+		return m.MarketId
+	}
+	return 0
+}
+
+func (m *BrokerFeeDividend) GetTakerBrokerFeeRate() int32 {
+	if m != nil {
+		return m.TakerBrokerFeeRate
+	}
+	return 0
+}
+
+func (m *BrokerFeeDividend) GetMakerBrokerFeeRate() int32 {
+	if m != nil {
+		return m.MakerBrokerFeeRate
+	}
+	return 0
+}
+
+func (m *BrokerFeeDividend) GetAmount() []byte {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Account)(nil), "proto.Account")
 	proto.RegisterType((*Fund)(nil), "proto.Fund")
 	proto.RegisterType((*FundSettle)(nil), "proto.FundSettle")
 	proto.RegisterType((*UserFundSettle)(nil), "proto.UserFundSettle")
 	proto.RegisterType((*UserFeeSettle)(nil), "proto.UserFeeSettle")
-	proto.RegisterType((*FeeSettle)(nil), "proto.FeeSettle")
 	proto.RegisterType((*SettleActions)(nil), "proto.SettleActions")
+	proto.RegisterType((*FeeSumForDividend)(nil), "proto.FeeSumForDividend")
+	proto.RegisterType((*FeeSumForMine)(nil), "proto.FeeSumForMine")
 	proto.RegisterType((*FeeSumByPeriod)(nil), "proto.FeeSumByPeriod")
+	proto.RegisterType((*UserFeeAccount)(nil), "proto.UserFeeAccount")
+	proto.RegisterType((*UserFeeByPeriod)(nil), "proto.UserFeeByPeriod")
 	proto.RegisterType((*UserFees)(nil), "proto.UserFees")
-	proto.RegisterType((*UserFeeWithPeriod)(nil), "proto.UserFeeWithPeriod")
-	proto.RegisterType((*FeeAccount)(nil), "proto.FeeAccount")
+	proto.RegisterType((*BrokerMarketFee)(nil), "proto.BrokerMarketFee")
+	proto.RegisterType((*BrokerFeeAccount)(nil), "proto.BrokerFeeAccount")
+	proto.RegisterType((*BrokerFeeSumByPeriod)(nil), "proto.BrokerFeeSumByPeriod")
+	proto.RegisterType((*VxFundByPeriod)(nil), "proto.VxFundByPeriod")
 	proto.RegisterType((*VxFunds)(nil), "proto.VxFunds")
-	proto.RegisterType((*VxFundWithPeriod)(nil), "proto.VxFundWithPeriod")
 	proto.RegisterType((*PledgeVip)(nil), "proto.PledgeVip")
+	proto.RegisterType((*PledgeForVxByPeriod)(nil), "proto.PledgeForVxByPeriod")
+	proto.RegisterType((*PledgesForVx)(nil), "proto.PledgesForVx")
+	proto.RegisterType((*FeeDividendForVxHolder)(nil), "proto.FeeDividendForVxHolder")
+	proto.RegisterType((*MinedVxForFee)(nil), "proto.MinedVxForFee")
+	proto.RegisterType((*MinedVxForPledge)(nil), "proto.MinedVxForPledge")
+	proto.RegisterType((*BrokerFeeDividend)(nil), "proto.BrokerFeeDividend")
 }
 
 func init() { proto.RegisterFile("dex_fund.proto", fileDescriptor_c247044ebb68d1ae) }
 
 var fileDescriptor_c247044ebb68d1ae = []byte{
-	// 534 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x94, 0xdf, 0x6b, 0x13, 0x41,
-	0x10, 0xc7, 0xb9, 0xfc, 0xce, 0xa4, 0x39, 0x9b, 0xa5, 0xd6, 0x7b, 0x10, 0x09, 0x8b, 0x4a, 0x10,
-	0x5b, 0xc4, 0x3e, 0x58, 0xc4, 0x97, 0x2b, 0x52, 0x10, 0x2b, 0x94, 0xb5, 0x8d, 0xe0, 0x4b, 0xb8,
-	0xde, 0x4e, 0x74, 0xe9, 0xe5, 0x2e, 0x64, 0xef, 0x4a, 0xf4, 0xaf, 0xf0, 0xdf, 0xf0, 0xbf, 0x94,
-	0xdb, 0x1f, 0xb9, 0xbd, 0x68, 0xea, 0x53, 0x32, 0xdf, 0xf9, 0xee, 0xcc, 0x67, 0x66, 0x37, 0x01,
-	0x9f, 0xe3, 0x7a, 0x36, 0x2f, 0x52, 0x7e, 0xbc, 0x5c, 0x65, 0x79, 0x46, 0xda, 0xea, 0x83, 0x5e,
-	0x43, 0x37, 0x8c, 0xe3, 0xac, 0x48, 0x73, 0x72, 0x00, 0xed, 0xab, 0xec, 0x16, 0xd3, 0xc0, 0x1b,
-	0x7b, 0x93, 0x3d, 0xa6, 0x03, 0xf2, 0x18, 0xfa, 0xe1, 0x5d, 0x24, 0x92, 0xe8, 0x26, 0xc1, 0xa0,
-	0xa1, 0x32, 0x95, 0x40, 0x0e, 0xa1, 0x73, 0x91, 0xc5, 0xb7, 0xc8, 0x83, 0xa6, 0x4a, 0x99, 0x88,
-	0x5e, 0x40, 0xeb, 0xbc, 0x48, 0x39, 0x09, 0xa0, 0x1b, 0x72, 0xbe, 0x42, 0x29, 0x4d, 0x55, 0x1b,
-	0x92, 0x17, 0xd0, 0x33, 0x8d, 0x65, 0xd0, 0x18, 0x37, 0x27, 0x83, 0xd7, 0xbe, 0x26, 0x3b, 0x36,
-	0x32, 0xdb, 0xe4, 0xe9, 0x2f, 0x0f, 0xa0, 0x2c, 0xf7, 0x19, 0xf3, 0x3c, 0xc1, 0x0a, 0xb4, 0xe1,
-	0x82, 0x52, 0xd8, 0xfb, 0x90, 0xc6, 0x15, 0xab, 0x06, 0xaa, 0x69, 0xa5, 0x87, 0x21, 0x2f, 0x62,
-	0x34, 0xd0, 0x2d, 0xed, 0x71, 0x35, 0xf2, 0x14, 0x86, 0x0c, 0x13, 0x8c, 0xa4, 0x35, 0xb5, 0x95,
-	0xa9, 0x2e, 0xd2, 0x19, 0xf8, 0xd7, 0x12, 0x57, 0x0e, 0xd5, 0xee, 0x51, 0x4f, 0x60, 0x30, 0xdf,
-	0xf8, 0xec, 0xb4, 0x23, 0x33, 0x6d, 0x55, 0x81, 0xb9, 0x2e, 0x1a, 0xc2, 0x50, 0x35, 0x40, 0xfc,
-	0x6f, 0xfd, 0x43, 0xe8, 0x84, 0x8b, 0x72, 0x53, 0x66, 0x21, 0x26, 0xa2, 0x33, 0xe8, 0x57, 0xc7,
-	0xff, 0x7d, 0xbb, 0xef, 0xc0, 0x2f, 0xdc, 0x2e, 0x96, 0xee, 0xc0, 0xd0, 0xd5, 0x10, 0xd8, 0x96,
-	0x97, 0xfe, 0x84, 0xa1, 0xfe, 0x1a, 0xc6, 0xb9, 0xc8, 0x52, 0x49, 0xde, 0xe8, 0x49, 0x4d, 0x18,
-	0x78, 0xaa, 0xd6, 0x43, 0xb7, 0xd6, 0xd6, 0xb4, 0xf6, 0xe0, 0x2b, 0x80, 0x39, 0xda, 0x32, 0x86,
-	0x61, 0xdf, 0x6e, 0x68, 0xd3, 0xdf, 0xf1, 0xd0, 0xdf, 0x1e, 0xf8, 0x65, 0xa6, 0x58, 0x9c, 0xfd,
-	0xb8, 0xc4, 0x95, 0xc8, 0x38, 0x79, 0x06, 0xad, 0x39, 0xa2, 0x6d, 0x3b, 0xaa, 0x8e, 0xdb, 0x17,
-	0xa5, 0xd2, 0x64, 0x02, 0x0f, 0x92, 0x48, 0xe6, 0xd3, 0x28, 0x11, 0x5c, 0x9f, 0x54, 0x7b, 0x6b,
-	0xb1, 0x6d, 0x99, 0x3c, 0x01, 0x38, 0x47, 0x7c, 0x2f, 0xee, 0x04, 0x37, 0x2f, 0xbc, 0xc7, 0x1c,
-	0x85, 0x3c, 0x07, 0xff, 0x93, 0x48, 0x91, 0x4f, 0xd7, 0xd6, 0xd3, 0x52, 0x9e, 0x2d, 0x95, 0x9e,
-	0x42, 0xcf, 0x2c, 0x52, 0x92, 0x97, 0x35, 0xc8, 0xa0, 0xbe, 0xe7, 0x2f, 0x22, 0xff, 0xae, 0x7b,
-	0x6b, 0x56, 0xfa, 0x15, 0x46, 0x7f, 0xa5, 0xc8, 0x11, 0xf4, 0xcc, 0x45, 0xdc, 0x33, 0xeb, 0xc6,
-	0x52, 0x3e, 0x8f, 0xda, 0x98, 0x26, 0xa2, 0x6f, 0xd5, 0x74, 0xf7, 0xff, 0xfa, 0x77, 0x3d, 0xad,
-	0x53, 0xe8, 0x4e, 0xd7, 0xe5, 0x65, 0x4a, 0x72, 0x04, 0xed, 0xf2, 0x26, 0x2d, 0xca, 0x23, 0x83,
-	0xa2, 0xd3, 0xce, 0x40, 0xda, 0x45, 0xcf, 0x60, 0x7f, 0x3b, 0xe5, 0x10, 0x7a, 0x2e, 0xe1, 0xce,
-	0xee, 0x1f, 0xa1, 0x7f, 0x99, 0x20, 0xff, 0x86, 0x53, 0xb1, 0x2c, 0xff, 0xa0, 0xae, 0xc4, 0x02,
-	0x65, 0x1e, 0x2d, 0x96, 0xea, 0x7c, 0x93, 0x55, 0x02, 0x19, 0xc3, 0x40, 0x5b, 0x95, 0xa4, 0xea,
-	0xb4, 0x99, 0x2b, 0xdd, 0x74, 0x14, 0xef, 0xc9, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1b, 0x73,
-	0x49, 0xc7, 0x21, 0x05, 0x00, 0x00,
+	// 933 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x55, 0xdd, 0x6e, 0x1b, 0x55,
+	0x10, 0xd6, 0xfa, 0xa7, 0x76, 0x26, 0xb6, 0xd3, 0x1c, 0xd2, 0xb0, 0x8a, 0x2a, 0x14, 0x1d, 0x21,
+	0x14, 0x15, 0x14, 0x09, 0x5a, 0xa5, 0xb7, 0xd8, 0x2a, 0x16, 0x11, 0x8d, 0x08, 0x07, 0xc7, 0x12,
+	0x12, 0x52, 0xd9, 0x78, 0xc7, 0xb0, 0xf2, 0x66, 0xd7, 0xda, 0xb3, 0x8e, 0xdc, 0x07, 0x00, 0x71,
+	0xc1, 0x0d, 0x2f, 0xc0, 0x1d, 0xaf, 0x81, 0xc4, 0x9b, 0xa1, 0xf3, 0xbb, 0xe7, 0xac, 0x5d, 0x53,
+	0xb8, 0xe9, 0x95, 0x35, 0xdf, 0x7c, 0x3b, 0x33, 0xdf, 0xcc, 0x99, 0x31, 0x0c, 0x62, 0x5c, 0xbf,
+	0x9a, 0xaf, 0xb2, 0xf8, 0x7c, 0x59, 0xe4, 0x65, 0x4e, 0xda, 0xf2, 0x87, 0xde, 0x40, 0x67, 0x38,
+	0x9b, 0xe5, 0xab, 0xac, 0x24, 0x47, 0xd0, 0x9e, 0xe4, 0x0b, 0xcc, 0xc2, 0xe0, 0x34, 0x38, 0xeb,
+	0x31, 0x65, 0x90, 0xc7, 0xb0, 0x37, 0xbc, 0x8f, 0x92, 0x34, 0xba, 0x4d, 0x31, 0x6c, 0x48, 0x4f,
+	0x05, 0x90, 0x63, 0x78, 0xf0, 0x32, 0x9f, 0x2d, 0x30, 0x0e, 0x9b, 0xd2, 0xa5, 0x2d, 0xfa, 0x12,
+	0x5a, 0xe3, 0x55, 0x16, 0x93, 0x10, 0x3a, 0xc3, 0x38, 0x2e, 0x90, 0x73, 0x1d, 0xd5, 0x98, 0xe4,
+	0x09, 0x74, 0x75, 0x62, 0x1e, 0x36, 0x4e, 0x9b, 0x67, 0xfb, 0x9f, 0x0d, 0x54, 0x65, 0xe7, 0x1a,
+	0x66, 0xd6, 0x4f, 0xff, 0x08, 0x00, 0x44, 0xb8, 0x6f, 0xb1, 0x2c, 0x53, 0x24, 0x14, 0x7a, 0x09,
+	0x9f, 0x14, 0x51, 0x8c, 0x55, 0xbd, 0x5d, 0xe6, 0x61, 0x82, 0x73, 0x99, 0xcd, 0xea, 0x95, 0x7b,
+	0x98, 0xe0, 0x30, 0x8c, 0x57, 0x33, 0xf4, 0x24, 0x78, 0x18, 0xf9, 0x10, 0xfa, 0x0c, 0x53, 0x8c,
+	0xb8, 0x21, 0xb5, 0x24, 0xc9, 0x07, 0xe9, 0x2b, 0x18, 0xdc, 0x70, 0x2c, 0x9c, 0x1a, 0xdf, 0x2c,
+	0xfc, 0x29, 0xec, 0xcf, 0x2d, 0xcf, 0x68, 0x3f, 0xd4, 0xda, 0xab, 0x08, 0xcc, 0x65, 0xd1, 0x08,
+	0xfa, 0x32, 0x01, 0xe2, 0xbf, 0xc6, 0x0f, 0xa1, 0x33, 0x8a, 0x38, 0x8e, 0xd1, 0x88, 0x36, 0xa6,
+	0x18, 0xe5, 0xa8, 0xc8, 0x17, 0x32, 0x8c, 0x16, 0x5b, 0x01, 0xf4, 0xaf, 0x00, 0xfa, 0x2a, 0xf8,
+	0x70, 0x56, 0x26, 0x79, 0xc6, 0xc9, 0x07, 0x00, 0xb5, 0x2e, 0xf7, 0x98, 0x83, 0x08, 0xff, 0x37,
+	0xab, 0xbc, 0xd4, 0x7e, 0x95, 0xcc, 0x41, 0xc8, 0x73, 0xa5, 0x54, 0x87, 0x0b, 0x9b, 0x52, 0xe9,
+	0x23, 0xad, 0xd4, 0xef, 0x17, 0x73, 0x99, 0xe4, 0x19, 0xc0, 0x1c, 0x4d, 0x19, 0x61, 0x4b, 0x7e,
+	0x77, 0xe4, 0x7e, 0x67, 0xda, 0xc0, 0x1c, 0x1e, 0xfd, 0x0e, 0x0e, 0x85, 0x63, 0x75, 0x37, 0xce,
+	0x8b, 0x17, 0xc9, 0x7d, 0x12, 0x63, 0x16, 0xbf, 0xe1, 0x51, 0x9f, 0x03, 0x31, 0x8c, 0xeb, 0x3c,
+	0x4f, 0x87, 0x77, 0xe2, 0x9d, 0x69, 0x05, 0x5b, 0x3c, 0xf4, 0xe7, 0x00, 0xfa, 0x36, 0xf6, 0x55,
+	0x92, 0x21, 0xf9, 0x08, 0x06, 0x95, 0xd2, 0xc9, 0xeb, 0x25, 0xca, 0x04, 0x6d, 0x56, 0x43, 0x45,
+	0x8f, 0x44, 0xfb, 0xbd, 0x0c, 0x0e, 0x42, 0x3e, 0x81, 0xc3, 0xcb, 0xec, 0x3e, 0x29, 0x71, 0x94,
+	0x67, 0x2b, 0xae, 0x69, 0x6a, 0x36, 0x9b, 0x0e, 0xfa, 0x6b, 0x03, 0x06, 0xaa, 0x8e, 0xd1, 0xeb,
+	0x6b, 0x2c, 0x92, 0x3c, 0x26, 0x23, 0x38, 0x98, 0x23, 0x72, 0x47, 0x73, 0x18, 0xc8, 0x86, 0x85,
+	0xe6, 0x49, 0xd5, 0x7b, 0xc2, 0xea, 0x1f, 0x90, 0x0b, 0xd8, 0xd7, 0x90, 0xd0, 0xa6, 0x9f, 0xe4,
+	0x51, 0xfd, 0x7b, 0xe1, 0x63, 0x2e, 0x91, 0x9c, 0xc1, 0x41, 0x1a, 0xf1, 0x72, 0x1a, 0xa5, 0x49,
+	0xac, 0xca, 0x91, 0xa5, 0xb7, 0x58, 0x1d, 0x16, 0x32, 0xc7, 0x49, 0x96, 0xf0, 0x9f, 0xc6, 0x88,
+	0xb6, 0xce, 0x96, 0xdc, 0xdb, 0x4d, 0x87, 0x58, 0x4c, 0x05, 0x4e, 0xd7, 0xb2, 0xa0, 0xb6, 0x5a,
+	0x70, 0x17, 0xa3, 0xbf, 0x04, 0x7a, 0xe7, 0xc4, 0x03, 0x50, 0x07, 0xec, 0xdd, 0xcc, 0xe4, 0x7b,
+	0x38, 0xd0, 0x75, 0xd8, 0x99, 0x7c, 0x0a, 0xdd, 0x95, 0x82, 0xb8, 0x1e, 0xc6, 0x23, 0xff, 0xf5,
+	0xda, 0x13, 0x67, 0x68, 0xe2, 0x90, 0xea, 0x0e, 0x36, 0x64, 0x07, 0xb5, 0x45, 0x2f, 0xa0, 0x7b,
+	0x63, 0x38, 0x4f, 0xa0, 0x35, 0xaf, 0x42, 0x1e, 0xfb, 0x21, 0x4d, 0x72, 0x26, 0x39, 0xf4, 0xcf,
+	0x00, 0x0e, 0xd4, 0x6e, 0x5f, 0x45, 0xc5, 0x02, 0x4b, 0xb1, 0xff, 0x27, 0xd0, 0x55, 0xc6, 0x65,
+	0xac, 0x3b, 0x63, 0x6d, 0xb1, 0x11, 0x93, 0x68, 0x81, 0x85, 0xbd, 0x07, 0x2c, 0x2a, 0xd5, 0x01,
+	0x69, 0xb3, 0x2d, 0x1e, 0xc1, 0xbf, 0xda, 0xe4, 0x37, 0x15, 0x7f, 0xd3, 0x23, 0xf4, 0xe9, 0x46,
+	0xaa, 0x03, 0xaa, 0x2d, 0xfa, 0x03, 0x3c, 0xb4, 0xc4, 0xdd, 0x7f, 0x44, 0x17, 0x00, 0x56, 0x8a,
+	0x39, 0x9b, 0xa6, 0x07, 0x35, 0xa5, 0xcc, 0x61, 0xd2, 0xaf, 0xe1, 0xc8, 0x66, 0x70, 0x17, 0xe7,
+	0x39, 0xc0, 0xad, 0xc1, 0x4d, 0x4f, 0xdf, 0xf7, 0xe2, 0x39, 0x83, 0x72, 0xa8, 0xf4, 0x73, 0x18,
+	0x4c, 0xd7, 0xe2, 0x74, 0xd9, 0x50, 0xd5, 0xf0, 0x02, 0x77, 0x78, 0x8e, 0xe8, 0x86, 0x27, 0xfa,
+	0x02, 0x3a, 0x2a, 0x02, 0x27, 0x1f, 0x43, 0x5b, 0x5c, 0xbe, 0xfa, 0x3b, 0xf1, 0x13, 0x30, 0xc5,
+	0xa1, 0x5f, 0xc1, 0xde, 0x75, 0x8a, 0xf1, 0x8f, 0x38, 0x4d, 0x96, 0xe2, 0x9a, 0x4f, 0x92, 0x3b,
+	0xe4, 0x65, 0x74, 0xb7, 0x94, 0x79, 0x9b, 0xac, 0x02, 0xc8, 0x29, 0xec, 0x2b, 0xaa, 0x84, 0xf4,
+	0x20, 0x5d, 0x88, 0x7e, 0x01, 0xef, 0x29, 0x73, 0x9c, 0x17, 0xd3, 0xf5, 0xff, 0xd6, 0xf2, 0x02,
+	0x7a, 0x2a, 0x0c, 0x97, 0x71, 0xc8, 0x33, 0xe8, 0x2c, 0x95, 0xad, 0x25, 0x9d, 0x68, 0x49, 0x5b,
+	0x92, 0x31, 0x43, 0xa5, 0xbf, 0x05, 0x70, 0xec, 0x5c, 0x00, 0xc9, 0xfa, 0x32, 0x4f, 0x63, 0x2c,
+	0x76, 0xfc, 0xd3, 0x9d, 0x40, 0x77, 0xba, 0xf6, 0x8a, 0xb2, 0xb6, 0xf0, 0x8d, 0x51, 0xff, 0x33,
+	0xa9, 0xd5, 0xb5, 0xb6, 0xe8, 0x4d, 0xfd, 0x0c, 0xf5, 0x98, 0x0b, 0xd1, 0xdf, 0x03, 0xe8, 0x8b,
+	0x2b, 0x13, 0x4f, 0xd7, 0xe3, 0x5c, 0x4c, 0x7d, 0x47, 0x15, 0x9b, 0x57, 0xa7, 0xb1, 0xf5, 0xea,
+	0x3c, 0x86, 0x3d, 0xf1, 0xa0, 0xdc, 0x6b, 0x52, 0x01, 0xa2, 0x26, 0x99, 0xd0, 0x5b, 0x12, 0x17,
+	0xa2, 0x05, 0x3c, 0xac, 0x4a, 0x52, 0xcd, 0xdc, 0x51, 0x15, 0x35, 0x63, 0xf1, 0xfa, 0xe3, 0x61,
+	0xf5, 0x9c, 0xcd, 0xcd, 0x9c, 0x7f, 0x07, 0x70, 0x68, 0x77, 0xc1, 0x9e, 0xe7, 0x9d, 0x13, 0xb1,
+	0x17, 0xa6, 0xf1, 0x56, 0x17, 0xa6, 0xf9, 0x1f, 0x2f, 0x4c, 0xeb, 0x2d, 0x2e, 0x4c, 0xdb, 0x7d,
+	0xa0, 0xb7, 0x0f, 0xe4, 0xf3, 0x7b, 0xfa, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xd5, 0xde, 0x3e,
+	0x47, 0x01, 0x0b, 0x00, 0x00,
 }

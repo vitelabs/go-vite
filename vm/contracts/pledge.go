@@ -84,7 +84,7 @@ func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				util.DealWithErr(err)
+				util.DealWithErr(iterator.Error())
 			}
 			break
 		}

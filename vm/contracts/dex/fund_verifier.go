@@ -31,8 +31,8 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	count, _ := accumulateUserAccount(db, userAmountMap)
 	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
-	accumulateFeeDonate(db, feeAmountMap)
 	accumulatePendingNewMarketFeeSum(db, feeAmountMap)
+	accumulateBrokerFeeAccount(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
 			amount    *big.Int
@@ -119,31 +119,45 @@ func accumulateFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*bi
 		if err = feeSum.DeSerialize(feeSumValue); err != nil {
 			return err
 		}
-		if !feeSum.FeeDivided {
-			for _, fee := range feeSum.Fees {
+		if !feeSum.FinishFeeDividend {
+			for _, fee := range feeSum.FeesForDividend {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
-				accAccount(tokenId, fee.Amount, accumulateRes)
+				accAccount(tokenId, fee.DividendPoolAmount, accumulateRes)
 			}
 		}
 	}
 	return nil
 }
 
-func accumulateFeeDonate(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
-	iterator, err := db.NewStorageIterator(donateFeeSumKeyPrefix)
+func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+	var (
+		brokerFeeSumValue []byte
+		brokerFeeSum      *BrokerFeeSumByPeriod
+		ok                bool
+	)
+	iterator, err := db.NewStorageIterator(brokerFeeSumKeyPrefix)
 	if err != nil {
 		return err
 	}
 	defer iterator.Release()
 	for {
-		if ok := iterator.Next(); ok {
-			feeDonateValue := iterator.Value()
-			if len(feeDonateValue) == 0 {
+		if ok = iterator.Next(); ok {
+			brokerFeeSumValue = iterator.Value()
+			if len(brokerFeeSumValue) == 0 {
 				continue
 			}
-			accAccount(ledger.ViteTokenId, feeDonateValue, accumulateRes)
 		} else {
 			break
+		}
+		brokerFeeSum = &BrokerFeeSumByPeriod{}
+		if err = brokerFeeSum.DeSerialize(brokerFeeSumValue); err != nil {
+			return err
+		}
+		for _, fee := range brokerFeeSum.BrokerFees {
+			for _, brokerFee := range fee.MarketFees {
+				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
+				accAccount(tokenId, brokerFee.Amount, accumulateRes)
+			}
 		}
 	}
 	return nil

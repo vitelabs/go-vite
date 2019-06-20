@@ -38,12 +38,7 @@ func (st FundSettleSorter) Swap(i, j int) {
 }
 
 func (st FundSettleSorter) Less(i, j int) bool {
-	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
-	if tkCmp < 0 {
-		return true
-	} else {
-		return false
-	}
+	return st[i].IsTradeToken
 }
 
 type UserFundSettleSorter []*dexproto.UserFundSettle
@@ -78,25 +73,6 @@ func (st UserFeeSettleSorter) Swap(i, j int) {
 func (st UserFeeSettleSorter) Less(i, j int) bool {
 	addCmp := bytes.Compare(st[i].Address, st[j].Address)
 	if addCmp < 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-type FeeSettleSorter []*dexproto.FeeSettle
-
-func (st FeeSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st FeeSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st FeeSettleSorter) Less(i, j int) bool {
-	tkCmp := bytes.Compare(st[i].Token, st[j].Token)
-	if tkCmp < 0 {
 		return true
 	} else {
 		return false

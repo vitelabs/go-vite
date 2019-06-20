@@ -311,13 +311,13 @@ func (db *testDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error) 
 }
 func (db *testDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	if m, ok := db.accountBlockMap[addr]; ok {
-		var latestBlock *ledger.AccountBlock
+		var block *ledger.AccountBlock
 		for _, b := range m {
-			if latestBlock == nil || latestBlock.Height < b.Height {
-				latestBlock = b
+			if block == nil || block.Height < b.Height {
+				block = b
 			}
 		}
-		return latestBlock, nil
+		return block, nil
 	}
 	return nil, nil
 }
