@@ -60,25 +60,12 @@ func newDexOffchainInstructionSet() [256]operation {
 
 func newSimpleInstructionSet() [256]operation {
 	instructionSet := newBaseInstructionSet()
-	instructionSet[ACCOUNTHEIGHT] = operation{
-		execute:       opAccountHeight,
-		gasCost:       constGasFunc(quickStepGas),
-		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	instructionSet[PREVHASH] = operation{
-		execute:       opAccountHash,
-		gasCost:       constGasFunc(quickStepGas),
-		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
 	instructionSet[FROMHASH] = operation{
 		execute:       opFromHash,
 		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
-
 	instructionSet[SEED] = operation{
 		execute:       opSeed,
 		gasCost:       constGasFunc(quickStepGas),
@@ -95,12 +82,6 @@ func newSimpleInstructionSet() [256]operation {
 		execute:       opCallValue,
 		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	instructionSet[BALANCE] = operation{
-		execute:       opBalance,
-		gasCost:       constGasFunc(balanceGas),
-		validateStack: makeStackFunc(1, 1),
 		valid:         true,
 	}
 	instructionSet[TIMESTAMP] = operation{
@@ -189,18 +170,6 @@ func newSimpleInstructionSet() [256]operation {
 
 func newOffchainSimpleInstructionSet() [256]operation {
 	instructionSet := newBaseInstructionSet()
-	instructionSet[ACCOUNTHEIGHT] = operation{
-		execute:       opOffchainAccountHeight,
-		gasCost:       constGasFunc(quickStepGas),
-		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	instructionSet[PREVHASH] = operation{
-		execute:       opOffchainAccountHash,
-		gasCost:       constGasFunc(extStepGas),
-		validateStack: makeStackFunc(1, 1),
-		valid:         true,
-	}
 	instructionSet[FROMHASH] = operation{
 		execute:       opOffchainFromHash,
 		gasCost:       constGasFunc(quickStepGas),
@@ -223,12 +192,6 @@ func newOffchainSimpleInstructionSet() [256]operation {
 		execute:       opOffchainCallValue,
 		gasCost:       constGasFunc(quickStepGas),
 		validateStack: makeStackFunc(0, 1),
-		valid:         true,
-	}
-	instructionSet[BALANCE] = operation{
-		execute:       opOffchainBalance,
-		gasCost:       constGasFunc(balanceGas),
-		validateStack: makeStackFunc(1, 1),
 		valid:         true,
 	}
 	instructionSet[TIMESTAMP] = operation{
@@ -999,6 +962,24 @@ func newBaseInstructionSet() [256]operation {
 			validateStack: makeStackFunc(2, 0),
 			memorySize:    memoryReturn,
 			halts:         true,
+			valid:         true,
+		},
+		BALANCE: {
+			execute:       opBalance,
+			gasCost:       constGasFunc(balanceGas),
+			validateStack: makeStackFunc(1, 1),
+			valid:         true,
+		},
+		ACCOUNTHEIGHT: {
+			execute:       opAccountHeight,
+			gasCost:       constGasFunc(quickStepGas),
+			validateStack: makeStackFunc(0, 1),
+			valid:         true,
+		},
+		PREVHASH: {
+			execute:       opAccountHash,
+			gasCost:       constGasFunc(quickStepGas),
+			validateStack: makeStackFunc(0, 1),
 			valid:         true,
 		},
 		/*DELEGATECALL: {
