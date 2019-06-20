@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"math/big"
-	"path"
 )
 
 type LogItem struct {
@@ -71,13 +70,8 @@ type Redo struct {
 	log log15.Logger
 }
 
-func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 
-	store, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), "stateDbRedo")
-	if err != nil {
-		return nil, err
-	}
-
+func NewStorageRedoWithStore(chain Chain, store * chain_db.Store) (*Redo, error) {
 	redo := &Redo{
 		store:        store,
 		chain:        chain,
@@ -88,7 +82,7 @@ func NewStorageRedo(chain Chain, chainDir string) (*Redo, error) {
 	}
 
 	if err := redo.initCache(); err != nil {
-		redo.log.Warn("redo.initCache failed, Error: %s", err, "method", "NewStorageRedo")
+		redo.log.Warn("redo.initCache failed, Error: %s", err, "method", "NewStorageRedoWithStore")
 	}
 
 	store.RegisterAfterRecover(func() {
