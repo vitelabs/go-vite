@@ -252,8 +252,13 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 		contractMeta := getContractMeta(db)
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			return vm.receiveCreate(db, blockCopy, sendBlock, contractMeta)
-		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendReward {
+		} else if sendBlock.BlockType == ledger.BlockTypeSendCall {
 			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
+		} else if sendBlock.BlockType == ledger.BlockTypeSendReward {
+			if !fork.IsDexFork(sb.Height) {
+				return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
+			}
+			return vm.receiveReward(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendRefund {
 			return vm.receiveRefund(db, blockCopy, sendBlock, contractMeta)
 		}
@@ -732,6 +737,35 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, q, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, nil
+}
+
+func (vm *VM) receiveReward(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
+	defer monitor.LogTimerConsuming([]string{"vm", "receiveReward"}, time.Now())
+	quotaTotal := uint64(0)
+	quotaLeft := uint64(0)
+	quotaAddition := uint64(0)
+	var err error
+	if !types.IsBuiltinContractAddrInUse(block.AccountAddress) {
+		quotaTotal, quotaAddition, err = quota.CalcQuotaForBlock(
+			db,
+			block.AccountAddress,
+			getPledgeAmount(db),
+			block.Difficulty)
+		util.DealWithErr(err)
+		quotaLeft = quotaTotal
+		cost, err := gasReceive(block, meta)
+		if err != nil {
+			return nil, noRetry, err
+		}
+		quotaLeft, err = util.UseQuota(quotaLeft, cost)
+		if err != nil {
+			return nil, retry, err
+		}
+	}
+	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
+	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, q, qUsed)
+	return &vm_db.VmAccountBlock{block, db}, noRetry, nil
 }
 
 func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
