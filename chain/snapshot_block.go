@@ -530,15 +530,15 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
-	meta, err := c.GetContractMeta(*addr)
+func (c *chain) GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
 	if err != nil {
 		return nil, err
 	}
 	if meta == nil || meta.SendConfirmedTimes == 0 {
 		return nil, nil
 	}
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
 	if err != nil {
 		return nil, err
 	}
@@ -612,7 +612,7 @@ func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uin
 	return helper.BytesToU64(resultSeed.Bytes()), nil
 }
 
-func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error) {
 	headHeight := c.GetLatestSnapshotBlock().Height
 
 	tailHeight := uint64(1)
@@ -620,13 +620,12 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 	if headHeight > count {
 		tailHeight = headHeight - count
 	}
-
+	seeds := make(map[uint64]struct{})
 	for h := headHeight; h >= tailHeight; h-- {
-
 		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetLastSeedSnapshotHeader")
+			c.log.Error(cErr.Error(), "method", "GetLastUnpublishedSeedSnapshotHeader")
 			return nil, nil
 		}
 
@@ -637,9 +636,32 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 			return nil, nil
 		}
 
-		if snapshotHeader.Producer() == producer && snapshotHeader.SeedHash != nil {
+		if snapshotHeader.Producer() != producer {
+			continue
+		}
+
+		if snapshotHeader.SeedHash == nil {
+			continue
+		}
+
+		if !snapshotHeader.Timestamp.Before(beforeTime) {
+			seeds[snapshotHeader.Seed] = struct{}{}
+			continue
+		}
+
+		published := false
+		for seed := range seeds {
+			seedHash := ledger.ComputeSeedHash(seed, snapshotHeader.PrevHash, snapshotHeader.Timestamp)
+			if seedHash == *snapshotHeader.SeedHash {
+				published = true
+				break
+			}
+		}
+		if !published {
 			return snapshotHeader, nil
 		}
+
+		seeds[snapshotHeader.Seed] = struct{}{}
 	}
 
 	return nil, nil

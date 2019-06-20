@@ -172,7 +172,7 @@ func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map
 	for {
 		if !iter.Next() {
 			if iter.Error() != nil {
-				return nil, err
+				return nil, iter.Error()
 			}
 			return m, nil
 		}

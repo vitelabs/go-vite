@@ -169,7 +169,7 @@ func GetActiveConsensusGroupList(db StorageDatabase) ([]*types.ConsensusGroupInf
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}
@@ -263,7 +263,7 @@ func getRegistrationList(db StorageDatabase, gid types.Gid, filter bool) ([]*typ
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}
@@ -304,7 +304,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, pledgeAddr types.Add
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}
@@ -373,7 +373,7 @@ func GetVoteList(db StorageDatabase, gid types.Gid) ([]*types.VoteInfo, error) {
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}

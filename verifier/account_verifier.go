@@ -3,6 +3,7 @@ package verifier
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 
@@ -43,14 +44,14 @@ func (v *AccountVerifier) InitOnRoadPool(manager *onroad.Manager) {
 	v.orManager = manager
 }
 
-func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResult, *AccBlockPendingTask, error) {
+func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock, snapshotHashHeight *ledger.HashHeight) (VerifyResult, *AccBlockPendingTask, error) {
 	pendingTask := &AccBlockPendingTask{}
 
 	if err := v.verifySelf(block); err != nil {
 		return FAIL, pendingTask, err
 	}
 
-	result, err := v.verifyDependency(pendingTask, block)
+	result, err := v.verifyDependency(pendingTask, block, snapshotHashHeight)
 	if result != SUCCESS {
 		if result == PENDING {
 			pendingTask.AccountTask = append(pendingTask.AccountTask, &AccountPendingTask{Addr: &block.AccountAddress, Hash: &block.Hash})
@@ -60,7 +61,7 @@ func (v *AccountVerifier) verifyReferred(block *ledger.AccountBlock) (VerifyResu
 	return SUCCESS, nil, nil
 }
 
-func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock) error {
+func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock, sbHeight uint64) error {
 	meta, err := v.chain.GetContractMeta(recvBlock.AccountAddress)
 	if err != nil {
 		return errors.New("call GetContractMeta failed," + err.Error())
@@ -77,6 +78,15 @@ func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock) e
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
 		return ErrVerifyConfirmedTimesNotEnough
+	}
+	if fork.IsForkPoint(sbHeight) {
+		isSeedCountOk, err := v.chain.IsSeedConfirmedNTimes(recvBlock.FromBlockHash, uint64(meta.SeedConfirmedTimes))
+		if err != nil {
+			return err
+		}
+		if !isSeedCountOk {
+			return errors.New("sendBlock seed confirmedTimes is not ready")
+		}
 	}
 	return nil
 }
@@ -116,7 +126,7 @@ func (v *AccountVerifier) checkAccountAddress(block *ledger.AccountBlock) error 
 	return nil
 }
 
-func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock) (VerifyResult, error) {
+func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, block *ledger.AccountBlock, snapshotHashHeight *ledger.HashHeight) (VerifyResult, error) {
 	// check the prev
 	latestBlock, err := v.chain.GetLatestAccountBlock(block.AccountAddress)
 	if err != nil {
@@ -171,7 +181,7 @@ func (v *AccountVerifier) verifyDependency(pendingTask *AccBlockPendingTask, blo
 			}
 
 			// check confirmedTimes of the send referred
-			if err := v.verifyConfirmedTimes(block); err != nil {
+			if err := v.verifyConfirmedTimes(block, snapshotHashHeight.Height); err != nil {
 				return FAIL, err
 			}
 		}
@@ -359,7 +369,7 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) err
 	return nil
 }
 
-func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
+func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHashHeight *ledger.HashHeight) (*vm_db.VmAccountBlock, error) {
 	var fromBlock *ledger.AccountBlock
 	var recvErr error
 	if block.IsReceiveBlock() {
@@ -371,7 +381,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHash *typ
 			return nil, errors.New("failed to find the recvBlock's fromBlock")
 		}
 	}
-	gen, err := generator.NewGenerator(v.chain, v.consensus, block.AccountAddress, snapshotHash, &block.PrevHash)
+	gen, err := generator.NewGenerator(v.chain, v.consensus, block.AccountAddress, &snapshotHashHeight.Hash, &block.PrevHash)
 	if err != nil {
 		return nil, ErrVerifyForVMGeneratorFailed
 	}
