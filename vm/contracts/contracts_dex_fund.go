@@ -43,7 +43,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountB
 func (md *MethodDexFundUserDeposit) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	account := dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
 	// must do after account updated by deposit
-	if bytes.Equal(sendBlock.TokenId.Bytes(), dex.VxTokenBytes) {
+	if sendBlock.TokenId == dex.VxTokenId {
 		dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account)
 	}
 	return nil, nil
@@ -100,7 +100,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	}
 	account.Available = available.Bytes()
 	// must do after account updated by withdraw
-	if bytes.Equal(param.Token.Bytes(), dex.VxTokenBytes) {
+	if param.Token == dex.VxTokenId {
 		dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, account)
 	}
 	dex.SaveUserFund(db, sendBlock.AccountAddress, dexFund)

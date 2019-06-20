@@ -49,7 +49,7 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 				dexFund.Accounts = append(dexFund.Accounts, account)
 			}
 			// must do after account updated by settle
-			if bytes.Equal(token, VxTokenBytes) {
+			if bytes.Equal(token, VxTokenId.Bytes()) {
 				OnSettleVx(db, reader, action.Address, fundSettle, account)
 			}
 			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())

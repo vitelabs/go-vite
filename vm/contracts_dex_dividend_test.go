@@ -27,7 +27,6 @@ func TestDexDividend(t *testing.T) {
 	db := initDexFundDatabase()
 	registerToken(db, vxTokenInfo)
 	rollPeriod(db)
-	dex.VxTokenBytes = vxTokenId.Bytes()
 	dex.VxDividendThreshold = big.NewInt(20)
 	innerTestVxAccUpdate(t, db)
 	innerTestFeeDividend(t, db)

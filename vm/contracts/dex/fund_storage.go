@@ -40,7 +40,7 @@ var (
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
 	lastFeeDividendPeriodIdKey = []byte("lFDPId:")
-	lastMinedVxPeriodIdKey     = []byte("fMVPId:") //
+	lastMinedVxPeriodIdKey     = []byte("fMVPId:")
 	firstMinedVxPeriodIdKey    = []byte("fMVPId:")
 	marketInfoKeyPrefix        = []byte("mk:") // market: tradeToke,quoteToken
 
@@ -57,10 +57,12 @@ var (
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
 	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
+	maintainerKey     = []byte("mtA:")
+	makerMineProxyKey = []byte("mmpA:")
+
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
-	VxTokenBytes          = []byte{0, 0, 0, 0, 0, 1, 2, 3, 4, 5}
-	VxTokenId, _          = types.BytesToTokenTypeId(VxTokenBytes)
+	VxTokenId, _          = types.HexToTokenTypeId("tti_340b335ce06aa2a0a6db3c0a")
 	VxInitAmount          = new(big.Int).Mul(commonTokenPow, big.NewInt(100000000))
 	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
@@ -75,9 +77,6 @@ var (
 	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 
 	PledgeForVipDuration int64 = 3600 * 24 * 30
-
-	maintainerKey     = []byte("mtA:")
-	makerMineProxyKey = []byte("mmpA:")
 
 	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 

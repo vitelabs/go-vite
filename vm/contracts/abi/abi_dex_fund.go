@@ -25,7 +25,7 @@ const (
 		{"type":"function","name":"DexFundTransferTokenOwner", "inputs":[{"name":"token","type":"tokenId"}, {"name":"owner","type":"address"}]},
 		{"type":"function","name":"NotifyTime", "inputs":[{"name":"timestamp","type":"int64"}]},
 		{"type":"function","name":"DexFundNewInviter", "inputs":[]},
-		{"type":"function","name":"DexFundBindInviteCode", "inputs":[{"name":"code","type":"uint32"}]},
+		{"type":"function","name":"DexFundBindInviteCode", "inputs":[{"name":"code","type":"uint32"}]}
     ]`
 
 	MethodNameDexFundUserDeposit          = "DexFundUserDeposit"
