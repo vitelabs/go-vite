@@ -140,7 +140,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		if err != nil {
 			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", err)
 		}
-		if fork.IsForkPoint(latestSb.Height) {
+		if fork.IsDexFork(latestSb.Height) {
 			limitSeedSb, err := gen.chain.GetSeedConfirmedSnapshotBlock(block.AccountAddress, fromBlock.Hash)
 			if err != nil {
 				return nil, fmt.Errorf("GetSeedConfirmedSnapshotBlock failed", "err", err)
@@ -157,6 +157,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 		if limitSb != nil {
 			state = NewVMGlobalStatus(gen.chain, limitSb, fromBlock.Hash)
+			gen.log.Info("gen GlobalStatus", "hash", limitSb.Hash, "fromHash", fromBlock.Hash)
 		}
 	}
 
