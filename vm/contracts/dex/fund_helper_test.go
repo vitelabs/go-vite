@@ -11,11 +11,11 @@ import (
 )
 
 func TestGetMindedVxAmt(t *testing.T) {
-	_, _, _, _, result := GetMindedVxAmt(big.NewInt(0))
+	_, _, _, _, result := GetVxAmountToMine(big.NewInt(0))
 	assert.False(t, result)
 
 	balance, _ := new(big.Float).Mul(new(big.Float).SetPrec(bigFloatPrec).SetFloat64(1.5), new(big.Float).SetInt()).Int(nil)
-	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result := GetMindedVxAmt(balance)
+	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result := GetVxAmountToMine(balance)
 	assert.True(t, result)
 	total := new(big.Int).Mul(amtFroFeePerMarket, big.NewInt(4))
 	total.Add(total, amtForPledge)
@@ -23,7 +23,7 @@ func TestGetMindedVxAmt(t *testing.T) {
 	assert.True(t, total.Cmp() == 0)
 
 	balance1 := big.NewInt(13)
-	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result = GetMindedVxAmt(balance1)
+	amtFroFeePerMarket, amtForPledge, amtForViteLabs, _, result = GetVxAmountToMine(balance1)
 	assert.True(t, result)
 	assert.True(t, amtFroFeePerMarket.Cmp(big.NewInt(3)) == 0)
 	assert.True(t, amtForViteLabs.Cmp(big.NewInt(1)) == 0)

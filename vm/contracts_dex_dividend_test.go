@@ -357,11 +357,11 @@ func feeDividend(db *testDatabase, periodId uint64) error {
 func vxMinedVxDividend(db *testDatabase, periodId uint64) error {
 	var err error
 	vxMinedVxDividendSendBlock := &ledger.AccountBlock{}
-	if vxMinedVxDividendSendBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundMinedVxDividend, periodId); err != nil {
+	if vxMinedVxDividendSendBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundMineVx, periodId); err != nil {
 		return  err
 	} else {
 		vxMinedVxDividendReceiveBlock := &ledger.AccountBlock{}
-		minedVxDividendMethod := contracts.MethodDexFundMinedVxDividend{}
+		minedVxDividendMethod := contracts.MethodDexFundMineVx{}
 		_, err = minedVxDividendMethod.DoReceive(db, vxMinedVxDividendReceiveBlock, vxMinedVxDividendSendBlock, nil)
 		return err
 	}
