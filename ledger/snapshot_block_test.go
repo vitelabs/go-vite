@@ -174,11 +174,10 @@ func TestForkComputeHash(t *testing.T) {
 	snapshotBlock := createSnapshotBlock(1, 10000000000000)
 	hashold := snapshotBlock.Hash
 	fork.SetForkPoints(&config.ForkPoints{
-		DexFork: &config.ForkPoint{
+		SeedFork: &config.ForkPoint{
 			Height:  90,
 			Version: 1,
 		},
-
 	})
 
 	hashnew := snapshotBlock.ComputeHash()

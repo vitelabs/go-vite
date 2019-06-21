@@ -255,7 +255,7 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall {
 			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendReward {
-			if !fork.IsDexFork(sb.Height) {
+			if !fork.IsSeedFork(sb.Height) {
 				return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 			}
 			return vm.receiveReward(db, blockCopy, sendBlock, contractMeta)
@@ -301,8 +301,8 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 
 	// Check params.
-	isDexFork := fork.IsDexFork(vm.latestSnapshotHeight)
-	if !isDexFork {
+	isSeedFork := fork.IsSeedFork(vm.latestSnapshotHeight)
+	if !isSeedFork {
 		if len(block.Data) < util.CreateContractDataLengthMin {
 			return nil, util.ErrInvalidMethodParam
 		}
@@ -329,7 +329,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	}
 
 	seedCount := confirmTime
-	if !isDexFork {
+	if !isSeedFork {
 		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && confirmTime <= 0 {
 			return nil, util.ErrInvalidConfirmTime
 		}

@@ -52,7 +52,7 @@ func IsValidQuotaRatio(quotaRatio uint8) bool {
 }
 
 func GetCreateContractData(bytecode []byte, contractType uint8, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid, snapshotHeight uint64) []byte {
-	if !fork.IsDexFork(snapshotHeight) {
+	if !fork.IsSeedFork(snapshotHeight) {
 		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
 	} else {
 		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
@@ -80,13 +80,13 @@ func GetSeedCountFromCreateContractData(data []byte) uint8 {
 	return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize])
 }
 func GetQuotaRatioFromCreateContractData(data []byte, snapshotHeight uint64) uint8 {
-	if !fork.IsDexFork(snapshotHeight) {
+	if !fork.IsSeedFork(snapshotHeight) {
 		return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize])
 	}
 	return uint8(data[types.GidSize+contractTypeSize+confirmTimeSize+seedCountSize])
 }
 func GetCodeFromCreateContractData(data []byte, snapshotHeight uint64) []byte {
-	if !fork.IsDexFork(snapshotHeight) {
+	if !fork.IsSeedFork(snapshotHeight) {
 		return data[types.GidSize+contractTypeSize+confirmTimeSize+quotaRatioSize:]
 	}
 	return data[types.GidSize+contractTypeSize+confirmTimeSize+seedCountSize+quotaRatioSize:]

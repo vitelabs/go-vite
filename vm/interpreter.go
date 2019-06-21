@@ -20,7 +20,7 @@ var (
 )
 
 func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
-	if !fork.IsDexFork(blockHeight) {
+	if !fork.IsSeedFork(blockHeight) {
 		if offChain {
 			return offchainSimpleInterpreter
 		}

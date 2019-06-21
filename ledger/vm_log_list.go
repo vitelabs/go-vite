@@ -29,7 +29,7 @@ func (vll VmLogList) Hash(snapshotHeight uint64, address types.Address, prevHash
 		source = append(source, vmLog.Data...)
 	}
 
-	if fork.IsDexFork(snapshotHeight) {
+	if fork.IsSeedFork(snapshotHeight) {
 		// append address bytes
 		source = append(source, address.Bytes()...)
 		source = append(source, prevHash.Bytes()...)

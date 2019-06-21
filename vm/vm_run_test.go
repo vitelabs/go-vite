@@ -409,7 +409,7 @@ func runTest(testCases []RunV2TestCase, t *testing.T) {
 			if len(testCase.data) == 0 && (got.QuotaRatio != testCase.quotaRatio ||
 				got.SendConfirmedTimes != testCase.confirmTimes ||
 				got.Gid != testCase.gid ||
-				(fork.IsDexFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != testCase.seedCount)) {
+				(fork.IsSeedFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != testCase.seedCount)) {
 				t.Fatalf("name: %v, contract meta not match, expected [%v,%v,%v,%v], got [%v,%v,%v,%v]",
 					testCase.caseType,
 					got.QuotaRatio, got.SendConfirmedTimes, got.Gid, got.SeedConfirmedTimes,
@@ -419,7 +419,7 @@ func runTest(testCases []RunV2TestCase, t *testing.T) {
 				(got.QuotaRatio != util.GetQuotaRatioFromCreateContractData(testCase.data, testCase.snapshotHeight) ||
 					got.SendConfirmedTimes != util.GetConfirmTimeFromCreateContractData(testCase.data) ||
 					got.Gid != util.GetGidFromCreateContractData(testCase.data) ||
-					(fork.IsDexFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != util.GetSeedCountFromCreateContractData(testCase.data))) {
+					(fork.IsSeedFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != util.GetSeedCountFromCreateContractData(testCase.data))) {
 				t.Fatalf("name: %v, contract meta not match, expected [%v,%v,%v,%v], got [%v]",
 					testCase.caseType,
 					got.QuotaRatio, got.SendConfirmedTimes, got.Gid, got.SeedConfirmedTimes,

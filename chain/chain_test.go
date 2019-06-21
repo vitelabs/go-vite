@@ -202,9 +202,9 @@ func Clear(c *chain) error {
 func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// set fork point
 
-	if len(fork.GetForkPointList())<=0 {
+	if len(fork.GetForkPointList()) <= 0 {
 		fork.SetForkPoints(&config.ForkPoints{
-			DexFork: &config.ForkPoint{
+			SeedFork: &config.ForkPoint{
 				Version: 1,
 				Height:  10000000,
 			},
@@ -560,7 +560,7 @@ func TestChainForkRollBack(t *testing.T) {
 	// height
 	height := uint64(30)
 	fork.SetForkPoints(&config.ForkPoints{
-		DexFork: &config.ForkPoint{
+		SeedFork: &config.ForkPoint{
 			Height:  height,
 			Version: 1,
 		},
@@ -585,7 +585,7 @@ func TestChainForkRollBack(t *testing.T) {
 
 	InsertAccountBlocks(nil, c, accountMap, 5)
 
-	timeNow := time.Now();
+	timeNow := time.Now()
 	accountBlockList := c.GetAllUnconfirmedBlocks()
 
 	accountBlockListCopy := make([]*ledger.AccountBlock, 2)
@@ -596,7 +596,7 @@ func TestChainForkRollBack(t *testing.T) {
 		sc := make(ledger.SnapshotContent)
 
 		for i := len(accountBlockList) - 3; i >= 0; i-- {
-			if (i == len(accountBlockList)) {
+			if i == len(accountBlockList) {
 				continue
 			}
 			block := accountBlockList[i]
@@ -621,7 +621,7 @@ func TestChainForkRollBack(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if (len(delaccountBlockList) != len(accountBlockListCopy)) {
+	if len(delaccountBlockList) != len(accountBlockListCopy) {
 		t.Fatal(fmt.Sprintf("len must be equal %+v, %+v", delaccountBlockList, accountBlockListCopy))
 
 	}
