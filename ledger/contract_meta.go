@@ -13,10 +13,10 @@ type ContractMeta struct {
 	SeedConfirmedTimes uint8
 }
 
-const LengthBeforeDexFork = types.GidSize + 1 + types.HashSize + 1
+const LengthBeforeSeedFork = types.GidSize + 1 + types.HashSize + 1
 
 func (cm *ContractMeta) Serialize() []byte {
-	buf := make([]byte, 0, LengthBeforeDexFork+1)
+	buf := make([]byte, 0, LengthBeforeSeedFork+1)
 
 	buf = append(buf, cm.Gid.Bytes()...)
 	buf = append(buf, cm.SendConfirmedTimes)
@@ -46,12 +46,12 @@ func (cm *ContractMeta) Deserialize(buf []byte) error {
 	cm.CreateBlockHash = CreateBlockHash
 	cm.QuotaRatio = buf[types.GidSize+1+types.HashSize]
 
-	if len(buf) <= LengthBeforeDexFork {
+	if len(buf) <= LengthBeforeSeedFork {
 		cm.SeedConfirmedTimes = cm.SendConfirmedTimes
 		return nil
 	}
 
-	cm.SeedConfirmedTimes = buf[LengthBeforeDexFork]
+	cm.SeedConfirmedTimes = buf[LengthBeforeSeedFork]
 	return nil
 }
 

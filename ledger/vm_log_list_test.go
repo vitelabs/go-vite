@@ -12,7 +12,7 @@ func TestVmLogList_Hash(t *testing.T) {
 	var vmLogList VmLogList
 
 	fork.SetForkPoints(&config.ForkPoints{
-		DexFork: &config.ForkPoint{
+		SeedFork: &config.ForkPoint{
 			Height:  90,
 			Version: 1,
 		},
@@ -45,7 +45,7 @@ func TestVmLogList_Hash(t *testing.T) {
 	vmLogHash50 := vmLogList.Hash(50, address, prehash)
 	vmLogHash100 := vmLogList.Hash(100, address, prehash)
 
-	if  *vmLogHash1 != *vmLogHash50 {
+	if *vmLogHash1 != *vmLogHash50 {
 		t.Fatal(fmt.Sprintf("vmloghash1 should be equal with vmloghash50 , %+v, %+v", vmLogHash1, vmLogHash50))
 	}
 
@@ -53,7 +53,7 @@ func TestVmLogList_Hash(t *testing.T) {
 		t.Fatal(fmt.Sprintf("vmloghash1 should not be equal with vmloghash100 , %+v, %+v", vmLogHash100, vmLogHash1))
 	}
 	fork.SetForkPoints(&config.ForkPoints{
-		DexFork: &config.ForkPoint{
+		SeedFork: &config.ForkPoint{
 			Height:  101,
 			Version: 1,
 		},
@@ -61,14 +61,13 @@ func TestVmLogList_Hash(t *testing.T) {
 
 	vmLogHash95 := vmLogList.Hash(95, address, prehash)
 
-	if  *vmLogHash50 != *vmLogHash95 {
+	if *vmLogHash50 != *vmLogHash95 {
 		t.Fatal(fmt.Sprintf("vmloghash51 should be equal with vmloghash50 , %+v, %+v", vmLogHash95, vmLogHash50))
 	}
 
 	vmLogHash105 := vmLogList.Hash(105, address, prehash)
-	if  *vmLogHash105 != *vmLogHash100 {
+	if *vmLogHash105 != *vmLogHash100 {
 		t.Fatal(fmt.Sprintf("vmloghash105 should be equal with vmLogHash100 , %+v, %+v", vmLogHash105, vmLogHash100))
 	}
-
 
 }

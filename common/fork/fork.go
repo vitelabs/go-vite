@@ -81,12 +81,12 @@ func CheckForkPoints(points config.ForkPoints) error {
 use by a. xxx eg.
        b. xxx eg.
 */
-func IsDexFork(snapshotHeight uint64) bool {
-	dexForkPoint, ok := forkPointMap["DexFork"]
+func IsSeedFork(snapshotHeight uint64) bool {
+	seedForkPoint, ok := forkPointMap["SeedFork"]
 	if !ok {
-		panic("check dex fork failed. DexFork is not existed.")
+		panic("check seed fork failed. SeedFork is not existed.")
 	}
-	return snapshotHeight >= dexForkPoint.Height
+	return snapshotHeight >= seedForkPoint.Height
 }
 
 func IsForkPoint(snapshotHeight uint64) bool {
