@@ -34,7 +34,7 @@ const (
 	MethodNameDexFundNewOrder             = "DexFundNewOrder"
 	MethodNameDexFundSettleOrders         = "DexFundSettleOrders"
 	MethodNameDexFundFeeDividend          = "DexFundFeeDividend"
-	MethodNameDexFundMinedVxDividend      = "DexFundMinedVxDividend"
+	MethodNameDexFundMineVx               = "DexFundMinedVxDividend"
 	MethodNameDexFundNewMarket            = "DexFundNewMarket"
 	MethodNameDexFundPledgeForVx          = "DexFundPledgeForVx"
 	MethodNameDexFundPledgeForVip         = "DexFundPledgeForVip"

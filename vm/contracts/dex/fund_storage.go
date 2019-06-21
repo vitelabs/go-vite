@@ -573,6 +573,27 @@ func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.Tok
 	return nil
 }
 
+func DepositUserAccount(db vm_db.VmDb, address types.Address, token types.TokenTypeId, amount *big.Int) (updatedAcc *dexproto.Account) {
+	userFund, _ := GetUserFund(db, address)
+	var foundToken bool
+	for _, acc := range userFund.Accounts {
+		if bytes.Equal(acc.Token, token.Bytes()) {
+			acc.Available = AddBigInt(acc.Available, amount.Bytes())
+			updatedAcc = acc
+			foundToken = true
+			break
+		}
+	}
+	if !foundToken {
+		updatedAcc = &dexproto.Account{}
+		updatedAcc.Token = token.Bytes()
+		updatedAcc.Available = amount.Bytes()
+		userFund.Accounts = append(userFund.Accounts, updatedAcc)
+	}
+	SaveUserFund(db, address, userFund)
+	return
+}
+
 func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
@@ -799,7 +820,7 @@ func SaveFirstMinedVxPeriodId(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, firstMinedVxPeriodIdKey, Uint64ToBytes(periodId))
 }
 
-func GetLastMinedVxPeriodId(db vm_db.VmDb) uint64 {
+func GetLastMineVxPeriodId(db vm_db.VmDb) uint64 {
 	if lastMinedVxPeriodIdBytes := getValueFromDb(db, lastMinedVxPeriodIdKey); len(lastMinedVxPeriodIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastMinedVxPeriodIdBytes)
 	} else {
@@ -1367,7 +1388,7 @@ func GetVxBalance(db vm_db.VmDb) *big.Int {
 	if data := getValueFromDb(db, vxBalanceKey); len(data) > 0 {
 		return new(big.Int).SetBytes(data)
 	} else {
-		return VxInitAmount
+		return new(big.Int).Set(VxInitAmount)
 	}
 }
 

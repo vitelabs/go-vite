@@ -32,8 +32,8 @@ const (
 	dexFundSettleOrdersReceiveGas         uint64 = 1
 	dexFundFeeDividendGas                 uint64 = 300
 	dexFundFeeDividendReceiveGas          uint64 = 1
-	dexFundMinedVxDividendGas             uint64 = 300
-	dexFundMinedVxDividendReceiveGas      uint64 = 1
+	dexFundMineVxGas                      uint64 = 300
+	dexFundMineVxReceiveGas               uint64 = 1
 	dexFundPledgeForVxGas                 uint64 = 300
 	dexFundPledgeForVxReceiveGas          uint64 = 1
 	dexFundPledgeForVipGas                uint64 = 300

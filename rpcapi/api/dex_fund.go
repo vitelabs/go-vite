@@ -154,7 +154,7 @@ func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*DividendPo
 	return pools, nil
 }
 
-func (f DexFundApi) GetCurrentFeeSum(address types.Address) (*dex.FeeSumByPeriod, error) {
+func (f DexFundApi) GetCurrentFeeSum() (*dex.FeeSumByPeriod, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -163,6 +163,42 @@ func (f DexFundApi) GetCurrentFeeSum(address types.Address) (*dex.FeeSumByPeriod
 		return nil, nil
 	} else {
 		return feeSum, nil
+	}
+}
+
+func (f DexFundApi) GetFeeSumByPeriod(periodId uint64) (*dex.FeeSumByPeriod, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if feeSum, ok := dex.GetFeeSumByPeriodId(db, periodId); !ok {
+		return nil, nil
+	} else {
+		return feeSum, nil
+	}
+}
+
+func (f DexFundApi) GetVxSumFunds() (*dex.VxFunds, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if vxSumFunds, ok := dex.GetVxSumFunds(db); !ok {
+		return nil, nil
+	} else {
+		return vxSumFunds, nil
+	}
+}
+
+func (f DexFundApi) GetVxFunds(address types.Address) (*dex.VxFunds, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if vxFunds, ok := dex.GetVxFunds(db, address.Bytes()); !ok {
+		return nil, nil
+	} else {
+		return vxFunds, nil
 	}
 }
 
@@ -175,6 +211,18 @@ func (f DexFundApi) GetUserFees(address types.Address) (*dex.UserFees, error) {
 		return nil, nil
 	} else {
 		return userFees, nil
+	}
+}
+
+func (f DexFundApi) GetFeeSum(address types.Address) (*dex.FeeSumByPeriod, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if feeSum, ok := dex.GetCurrentFeeSum(db, getConsensusReader(f.vite)); !ok {
+		return nil, nil
+	} else {
+		return feeSum, nil
 	}
 }
 

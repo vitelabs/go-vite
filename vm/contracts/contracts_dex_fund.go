@@ -363,30 +363,30 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	return nil, nil
 }
 
-type MethodDexFundMinedVxDividend struct {
+type MethodDexFundMineVx struct {
 }
 
-func (md *MethodDexFundMinedVxDividend) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundMineVx) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundMinedVxDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexFundMineVx) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundMinedVxDividend) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundMinedVxDividendGas, data)
+func (md *MethodDexFundMineVx) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundMineVxGas, data)
 }
 
-func (md *MethodDexFundMinedVxDividend) GetReceiveQuota() uint64 {
-	return dexFundMinedVxDividendReceiveGas
+func (md *MethodDexFundMineVx) GetReceiveQuota() uint64 {
+	return dexFundMineVxReceiveGas
 }
 
-func (md *MethodDexFundMinedVxDividend) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundDividend), cabi.MethodNameDexFundMinedVxDividend, block.Data)
+func (md *MethodDexFundMineVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundDividend), cabi.MethodNameDexFundMineVx, block.Data)
 }
 
-func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundMineVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		vxBalance *big.Int
 		err       error
@@ -395,26 +395,26 @@ func (md MethodDexFundMinedVxDividend) DoReceive(db vm_db.VmDb, block *ledger.Ac
 		return handleReceiveErr(dex.OnlyOwnerAllowErr)
 	}
 	param := new(dex.ParamDexFundDividend)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMinedVxDividend, sendBlock.Data); err != nil {
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMineVx, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
 	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
-		return handleReceiveErr(fmt.Errorf("specified periodId for mined vx not before current periodId"))
+		return handleReceiveErr(fmt.Errorf("specified periodId for mine vx not before current periodId"))
 	}
-	if lastMinedVxPeriodId := dex.GetLastMinedVxPeriodId(db); lastMinedVxPeriodId > 0 && param.PeriodId != lastMinedVxPeriodId+1 {
-		return handleReceiveErr(fmt.Errorf("mined vx period id not equals to expected id %d", lastMinedVxPeriodId+1))
+ 	if lastMineVxPeriodId := dex.GetLastMineVxPeriodId(db); lastMineVxPeriodId > 0 && param.PeriodId != lastMineVxPeriodId+1 {
+		return handleReceiveErr(fmt.Errorf("mine vx period id not equals to expected id %d", lastMineVxPeriodId+1))
 	}
 	vxBalance = dex.GetVxBalance(db)
-	if amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxLeaved, success := dex.GetMindedVxAmt(db, param.PeriodId, vxBalance); !success {
+	if amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxLeaved, success := dex.GetVxAmountToMine(db, param.PeriodId, vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
-		if err = dex.DoMineVxForFee(db, param.PeriodId, amtForFeePerMarket); err != nil {
+		if err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForFeePerMarket); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoMineVxForPledge(db, param.PeriodId, amtForPledge); err != nil {
+		if err = dex.DoMineVxForPledge(db, vm.ConsensusReader(), param.PeriodId, amtForPledge); err != nil {
 			return handleReceiveErr(err)
 		}
-		if err = dex.DoMineVxForMakerMineAndMaintainer(db, amtForMaker, amtForMaintainer); err != nil {
+		if err = dex.DoMineVxForMakerMineAndMaintainer(db, vm.ConsensusReader(), amtForMaker, amtForMaintainer); err != nil {
 			return handleReceiveErr(err)
 		}
 		dex.SaveVxBalance(db, vxLeaved)
@@ -812,6 +812,9 @@ func (md MethodDexFundOwnerConfigTrade) DoReceive(db vm_db.VmDb, block *ledger.A
 			}
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigNewQuoteToken) {
+			if param.QuoteTokenType < dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
+				return handleReceiveErr(dex.InvalidQuoteTokenTypeErr)
+			}
 			if tokenInfo, ok := dex.GetTokenInfo(db, param.NewQuoteToken); !ok {
 				getTokenInfoData := dex.OnSetQuoteTokenPending(db, param.NewQuoteToken, param.QuoteTokenType)
 				return []*ledger.AccountBlock{

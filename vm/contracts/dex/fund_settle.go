@@ -220,6 +220,7 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 	}
 	if !foundToken {
 		brokerFeeAcc := &dexproto.BrokerFeeAccount{}
+		brokerFeeAcc.Token = marketInfo.QuoteToken
 		brokerFeeAcc.MarketFees = append(brokerFeeAcc.MarketFees, newBrokerMarketFee(marketInfo, incAmt))
 		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeAcc)
 	}
@@ -349,6 +350,7 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 			if vxSumFunds.Funds[sumFundsLen-1].Period == periodId {
 				vxSumFunds.Funds[sumFundsLen-1].Amount = sumRes.Bytes()
 			} else {
+				// roll new period
 				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
