@@ -32,11 +32,11 @@ type operation struct {
 var (
 	simpleInstructionSet         = newSimpleInstructionSet()
 	offchainSimpleInstructionSet = newOffchainSimpleInstructionSet()
-	dexInstructionSet            = newDexInstructionSet()
-	offchainDexInstructionSet    = newDexOffchainInstructionSet()
+	randInstructionSet           = newRandInstructionSet()
+	offchainRandInstructionSet   = newRandOffchainInstructionSet()
 )
 
-func newDexInstructionSet() [256]operation {
+func newRandInstructionSet() [256]operation {
 	instructionSet := newSimpleInstructionSet()
 	instructionSet[RANDOM] = operation{
 		execute:       opRandom,
@@ -47,7 +47,7 @@ func newDexInstructionSet() [256]operation {
 	return instructionSet
 }
 
-func newDexOffchainInstructionSet() [256]operation {
+func newRandOffchainInstructionSet() [256]operation {
 	instructionSet := newOffchainSimpleInstructionSet()
 	instructionSet[RANDOM] = operation{
 		execute:       opOffchainRandom,
