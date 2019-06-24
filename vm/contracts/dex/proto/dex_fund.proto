@@ -118,6 +118,12 @@ message PledgesForVx {
 }
 
 //event
+message PeriodWithBiz {
+    uint64 Period = 1;
+    int32  BizType = 2;
+}
+
+//event
 message FeeDividendForVxHolder {
     bytes Address = 1;
     bytes VxAmount = 2;

@@ -35,7 +35,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		userFeesKey, userFeesBytes []byte
 	)
 
-	iterator, err := db.NewStorageIterator(UserFeeKeyPrefix)
+	iterator, err := db.NewStorageIterator(userFeeKeyPrefix)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			}
 		}
 
-		addressBytes := userFeesKey[len(UserFeeKeyPrefix):]
+		addressBytes := userFeesKey[len(userFeeKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
 			return err

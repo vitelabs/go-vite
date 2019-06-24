@@ -13,6 +13,7 @@ const orderUpdateEventName = "orderUpdateEvent"
 const txEventName = "txEvent"
 const tokenEventName = "tokenEvent"
 const marketEventName = "marketEvent"
+const periodWithBizEventName = "periodWithBizEvent"
 const feeDividendForVxHolderEventName = "feeDividendForVxHolderEvent"
 const minedVxForTradeFeeEventName = "minedVxForTradeFeeEvent"
 const minedVxForInviteeFeeEventName = "minedVxForInviteeFeeEvent"
@@ -44,6 +45,10 @@ type TokenEvent struct {
 
 type MarketEvent struct {
 	dexproto.MarketInfo
+}
+
+type PeriodWithBizEvent struct {
+	dexproto.PeriodWithBiz
 }
 
 type FeeDividendEvent struct {
@@ -154,6 +159,24 @@ func (me MarketEvent) toDataBytes() []byte {
 func (me MarketEvent) FromBytes(data []byte) interface{} {
 	event := MarketEvent{}
 	if err := proto.Unmarshal(data, &event.MarketInfo); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (pb PeriodWithBizEvent) GetTopicId() types.Hash {
+	return fromNameToHash(periodWithBizEventName)
+}
+
+func (pb PeriodWithBizEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&pb.PeriodWithBiz)
+	return data
+}
+
+func (pb PeriodWithBizEvent) FromBytes(data []byte) interface{} {
+	event := PeriodWithBizEvent{}
+	if err := proto.Unmarshal(data, &event.PeriodWithBiz); err != nil {
 		return nil
 	} else {
 		return event

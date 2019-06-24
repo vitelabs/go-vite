@@ -20,6 +20,13 @@ func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
 	doEmitEventLog(db, event)
 }
 
+func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType int32) {
+	event := &PeriodWithBizEvent{}
+	event.Period = periodId
+	event.BizType = bizType
+	doEmitEventLog(db, event)
+}
+
 func AddFeeDividendEvent(db vm_db.VmDb, address types.Address, feeToken types.TokenTypeId, vxAmount, feeDividend *big.Int) {
 	event := &FeeDividendEvent{}
 	event.Address = address.Bytes()
@@ -62,6 +69,12 @@ func AddMinedVxForPledgeEvent(db vm_db.VmDb, address types.Address, pledgeAmt, m
 	event.Address = address.Bytes()
 	event.PledgeAmount = pledgeAmt.Bytes()
 	event.MinedAmount = minedAmt.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddErrEvent(db vm_db.VmDb, err error) {
+	event := &ErrEvent{}
+	event.error = err
 	doEmitEventLog(db, event)
 }
 
