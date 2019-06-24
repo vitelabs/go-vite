@@ -1005,7 +1005,7 @@ func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if err = cabi.ABIDexFund.UnpackMethod(notifyTimeParam, cabi.MethodNameDexFundNotifyTime, sendBlock.Data); err != nil {
 		return handleReceiveErr(err)
 	}
-	if err = dex.SetTimerTimestamp(db, notifyTimeParam.Timestamp); err != nil {
+	if err = dex.SetTimerTimestamp(db, notifyTimeParam.Timestamp, vm.ConsensusReader()); err != nil {
 		return handleReceiveErr(err)
 	}
 	return nil, nil

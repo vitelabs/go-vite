@@ -657,6 +657,27 @@ func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint
 	}
 }
 
+func RollFeeSumOnNewPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod *FeeSumByPeriod) {
+	formerId := GetFeeSumLastPeriodIdForRoll(db)
+	rolledFeeSumByPeriod = &FeeSumByPeriod{}
+	if formerId > 0 {
+		if formerFeeSumByPeriod, ok := GetFeeSumByPeriodId(db, formerId); !ok { // lastPeriod has been deleted on fee dividend
+			panic(NoFeeSumFoundForValidPeriodErr)
+		} else {
+			rolledFeeSumByPeriod.LastValidPeriod = formerId
+			for _, feeForDividend := range formerFeeSumByPeriod.FeesForDividend {
+				rolledFee := &dexproto.FeeSumForDividend{}
+				rolledFee.Token = feeForDividend.Token
+				_, rolledAmount := splitDividendPool(feeForDividend)
+				rolledFee.DividendPoolAmount = rolledAmount.Bytes()
+				rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
+			}
+		}
+	}
+	SaveFeeSumLastPeriodIdForRoll(db, periodId)
+	return
+}
+
 func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
 	if feeSum.FinishFeeDividend {
 		setValueToDb(db, GetFeeSumKeyByPeriodId(periodId), nil)
@@ -682,8 +703,7 @@ func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 	}
 }
 
-func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, reader util.ConsensusReader) {
-	periodId := GetCurrentPeriodId(db, reader)
+func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, lastFeeSumPeriodKey, Uint64ToBytes(periodId))
 }
 
@@ -841,7 +861,11 @@ func IsValidVxAmountForDividend(amount *big.Int) bool {
 }
 
 func GetCurrentPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
-	return reader.GetIndexByTime(GetTimestampInt64(db), 0)
+	return GetPeriodIdByTimestamp(reader, GetTimestampInt64(db))
+}
+
+func GetPeriodIdByTimestamp(reader util.ConsensusReader, timestamp int64) uint64 {
+	return reader.GetIndexByTime(timestamp, 0)
 }
 
 //handle case on duplicate callback for getTokenInfo
@@ -1308,13 +1332,23 @@ func GetTimestampInt64(db vm_db.VmDb) int64 {
 	}
 }
 
-func SetTimerTimestamp(db vm_db.VmDb, timestamp int64) error {
-	if timestamp > GetTimerTimestamp(db) {
+func SetTimerTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusReader) error {
+	oldTime := GetTimerTimestamp(db)
+	if timestamp > oldTime {
+		oldPeriod := GetPeriodIdByTimestamp(reader, oldTime)
+		newPeriod := GetPeriodIdByTimestamp(reader, timestamp)
+		if newPeriod != oldPeriod {
+			doRollPeriod(db, newPeriod)
+		}
 		setValueToDb(db, timestampKey, Uint64ToBytes(uint64(timestamp)))
 		return nil
 	} else {
 		return InvalidTimestampFromTimerErr
 	}
+}
+
+func doRollPeriod(db vm_db.VmDb, newPeriodId uint64) {
+	RollFeeSumOnNewPeriod(db, newPeriodId)
 }
 
 func GetTimerTimestamp(db vm_db.VmDb) int64 {
