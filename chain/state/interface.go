@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"time"
 )
 
 type EventListener interface {
@@ -32,4 +33,8 @@ type Chain interface {
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+
+	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
 }

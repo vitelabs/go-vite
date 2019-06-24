@@ -5,7 +5,6 @@ import (
 	chain_utils "github.com/vitelabs/go-vite/chain/utils"
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -131,12 +130,12 @@ func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*memdb.DB, error) 
 	roundData := memdb.New(leveldb.NewIComparer(comparer.DefaultComparer), 0)
 
 	// get the last snapshot block of round
-	snapshotBlock, err := cache.roundToSnapshotBlock(roundIndex)
+	snapshotBlock, err := cache.roundToLastSnapshotBlock(roundIndex)
 	if err != nil {
 		return nil, err
 	}
 	if snapshotBlock == nil {
-		return nil, errors.New(fmt.Sprintf("snapshot block is nil, roundIndex is %d", roundIndex))
+		return nil, nil
 	}
 
 	// set vote list cache
@@ -186,29 +185,78 @@ func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *R
 	curCurrentData := prevCurrentData.Copy()
 
 	for _, snapshotLog := range redoLogs.Logs {
-		for _, redoLogs := range snapshotLog {
+		for addr, redoLogs := range snapshotLog {
 			for _, redoLog := range redoLogs {
 				// set storage
 				for _, kv := range redoLog.Storage {
 					curCurrentData.Put(makeStorageKey(kv[0]), kv[1])
 				}
 
-				// TODO set balance
-
+				// set balance
+				for tokenId, balance := range redoLog.BalanceMap {
+					if tokenId == ledger.ViteTokenId {
+						curCurrentData.Put(makeBalanceKey(addr.Bytes()), balance.Bytes())
+					}
+				}
 			}
 
 		}
 
 	}
-	return nil
+	return curCurrentData
 }
 
-func (cache *RoundCache) roundToSnapshotBlock(roundIndex uint64) (*ledger.SnapshotBlock, error) {
+func (cache *RoundCache) roundToLastSnapshotBlock(roundIndex uint64) (*ledger.SnapshotBlock, error) {
+	if roundIndex <= 0 {
+		return nil, nil
+	}
+
+	nextRoundIndex := roundIndex + 1
+
+	startTime, _ := cache.timeIndex.Index2Time(nextRoundIndex)
+
+	sb, err := cache.chain.GetSnapshotHeaderBeforeTime(&startTime)
+	if err != nil {
+		return nil, err
+	}
+	if sb == nil {
+		panic(fmt.Sprintf("startTime is %s, sb is nil", startTime))
+	}
+
+	if sbRoundIndex := cache.timeIndex.Time2Index(*sb.Timestamp); sbRoundIndex == roundIndex {
+		return sb, nil
+	}
+
 	return nil, nil
 }
 
 func (cache *RoundCache) getRoundSnapshotBlocks(roundIndex uint64) ([]*ledger.SnapshotBlock, error) {
-	return nil, nil
+	startTime, _ := cache.timeIndex.Index2Time(roundIndex)
+	nextStartTime, _ := cache.timeIndex.Index2Time(roundIndex + 1)
+
+	currentLastSb, err := cache.chain.GetSnapshotHeaderBeforeTime(&nextStartTime)
+	if err != nil {
+		return nil, err
+	}
+
+	if currentLastSb == nil {
+		panic(fmt.Sprintf("currentLastSb is nil, nextStartTime is %s", nextStartTime))
+	}
+
+	nextFirstSbRoundIndex := cache.timeIndex.Time2Index(*currentLastSb.Timestamp)
+	// means there are no snapshot blocks in the round of roundIndex.
+	if nextFirstSbRoundIndex < roundIndex {
+		return nil, nil
+	}
+
+	if nextFirstSbRoundIndex > roundIndex {
+		panic(fmt.Sprintf("nextFirstSbRoundIndex should be smaller than roundIndex. nextFirstSbRoundIndex: %d, roundIndex: %d", nextFirstSbRoundIndex, roundIndex))
+	}
+
+	return cache.chain.GetSnapshotHeadersAfterOrEqualTime(&ledger.HashHeight{
+		Hash:   currentLastSb.Hash,
+		Height: currentLastSb.Height,
+	}, &startTime, nil)
 }
 
 func (cache *RoundCache) setAllBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash) error {
