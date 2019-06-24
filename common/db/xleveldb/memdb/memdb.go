@@ -270,6 +270,35 @@ func (p *DB) findLast() int {
 	return node
 }
 
+func (p *DB) Copy() *DB {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	newDB := New2(p.cmp, p.Capacity())
+
+	// copy kv data
+	newDB.kvData = make([]byte, len(p.kvData))
+	copy(newDB.kvData, p.kvData)
+
+	// copy nodeData
+	newDB.nodeData = make([]int, len(p.nodeData))
+	copy(newDB.nodeData, p.nodeData)
+
+	// copy prevNode
+	newDB.prevNode = p.prevNode
+
+	// copy maxHeight
+	newDB.maxHeight = p.maxHeight
+
+	// copy n
+	newDB.n = p.n
+
+	// copy kvSize
+	newDB.kvSize = p.kvSize
+
+	return newDB
+}
+
 // Put sets the value for the given key. It overwrites any previous value
 // for that key; a DB is not a multi-map.
 //

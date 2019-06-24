@@ -3,8 +3,10 @@ package chain_state
 import (
 	"fmt"
 	chain_utils "github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common/db"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -12,7 +14,9 @@ import (
 )
 
 // TODO
-type RoundCacheRedoLogs struct{}
+type RoundCacheRedoLogs struct {
+	Logs []SnapshotLog
+}
 
 // TODO
 func NewRoundCacheRedoLogs() *RoundCacheRedoLogs {
@@ -23,12 +27,12 @@ func NewRoundCacheRedoLogs() *RoundCacheRedoLogs {
 func (redoLogs *RoundCacheRedoLogs) Add(log SnapshotLog) {}
 
 type RedoCacheData struct {
-	CurrentData *db.MemDB
+	CurrentData *memdb.DB
 
 	RedoLogs *RoundCacheRedoLogs
 }
 
-func NewRedoCacheData(currentData *db.MemDB, redoLogs *RoundCacheRedoLogs) *RedoCacheData {
+func NewRedoCacheData(currentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *RedoCacheData {
 	return &RedoCacheData{
 		CurrentData: currentData,
 		RedoLogs:    redoLogs,
@@ -69,50 +73,63 @@ func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 
 	startRoundIndex := roundIndex - cache.roundCount + 1
 
-	// [startRoundIndex - roundIndex]
-
-	// init first currentData
-	firstCurrentData, err := cache.queryCurrentData(startRoundIndex)
+	roundsData, err := cache.initRounds(startRoundIndex, roundIndex)
 	if err != nil {
 		return err
 	}
+
+	if roundsData != nil {
+		cache.data = roundsData
+	}
+
+	return nil
+}
+
+func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) (map[uint64]*RedoCacheData, error) {
+	// [startRoundIndex - roundIndex]
+	// init first currentData
+	firstCurrentData, err := cache.queryCurrentData(startRoundIndex)
+	if err != nil {
+		return nil, err
+	}
 	if firstCurrentData == nil {
-		return errors.New(fmt.Sprintf("round index is %d, firstCurrentData is nil", startRoundIndex))
+		return nil, nil
 	}
 
 	// init first redo logs
 	firstRedoLogs, err := cache.queryRedoLogs(startRoundIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	cache.data[startRoundIndex] = NewRedoCacheData(firstCurrentData, firstRedoLogs)
+	roundsData := make(map[uint64]*RedoCacheData)
+
+	roundsData[startRoundIndex] = NewRedoCacheData(firstCurrentData, firstRedoLogs)
 
 	prevCurrentData := firstCurrentData
-	for index := startRoundIndex + 1; index <= roundIndex; index++ {
+	for index := startRoundIndex + 1; index <= endRoundIndex; index++ {
 		redoLogs, err := cache.queryRedoLogs(index)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if redoLogs == nil {
-			// TODO no redo log
-			panic("implementation me")
+			return cache.initRounds(index, endRoundIndex)
 		}
 
 		curCurrentData := cache.buildCurrentData(prevCurrentData, redoLogs)
 
 		prevCurrentData = curCurrentData
 
-		cache.data[startRoundIndex] = NewRedoCacheData(curCurrentData, redoLogs)
+		roundsData[startRoundIndex] = NewRedoCacheData(curCurrentData, redoLogs)
 	}
 
-	return nil
+	return roundsData, nil
 }
 
-// TODO
-func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*db.MemDB, error) {
-	roundData := db.NewMemDB()
+func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*memdb.DB, error) {
+	roundData := memdb.New(leveldb.NewIComparer(comparer.DefaultComparer), 0)
+
 	// get the last snapshot block of round
 	snapshotBlock, err := cache.roundToSnapshotBlock(roundIndex)
 	if err != nil {
@@ -135,7 +152,6 @@ func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*db.MemDB, error) 
 	return roundData, nil
 }
 
-// TODO
 func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, error) {
 	roundRedoLogs := NewRoundCacheRedoLogs()
 	// query the snapshot blocks of the round
@@ -148,7 +164,7 @@ func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, 
 		return roundRedoLogs, nil
 	}
 
-	// 2. 根据snapshot block查出所有redoLog，转换为RoundCacheRedoLogs
+	// assume snapshot blocks is sorted by height asc, query redoLog by snapshot block height
 	for _, snapshotBlock := range snapshotBlocks {
 		redoLog, hasRedoLog, err := cache.stateDB.redo.QueryLog(snapshotBlock.Height)
 		if err != nil {
@@ -160,11 +176,30 @@ func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, 
 
 		roundRedoLogs.Add(redoLog)
 	}
+
 	return roundRedoLogs, nil
 }
 
-// TODO
-func (cache *RoundCache) buildCurrentData(prevBaseData *db.MemDB, redoLogs *RoundCacheRedoLogs) *db.MemDB {
+// TODO optimize: build in parallel
+func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *memdb.DB {
+	// copy
+	curCurrentData := prevCurrentData.Copy()
+
+	for _, snapshotLog := range redoLogs.Logs {
+		for _, redoLogs := range snapshotLog {
+			for _, redoLog := range redoLogs {
+				// set storage
+				for _, kv := range redoLog.Storage {
+					curCurrentData.Put(makeStorageKey(kv[0]), kv[1])
+				}
+
+				// TODO set balance
+
+			}
+
+		}
+
+	}
 	return nil
 }
 
@@ -176,7 +211,7 @@ func (cache *RoundCache) getRoundSnapshotBlocks(roundIndex uint64) ([]*ledger.Sn
 	return nil, nil
 }
 
-func (cache *RoundCache) setAllBalanceToCache(roundData *db.MemDB, snapshotHash types.Hash) error {
+func (cache *RoundCache) setAllBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash) error {
 	batchSize := 10000
 	addressList := make([]types.Address, 0, batchSize)
 
@@ -210,7 +245,7 @@ func (cache *RoundCache) setAllBalanceToCache(roundData *db.MemDB, snapshotHash 
 	return nil
 }
 
-func (cache *RoundCache) setBalanceToCache(roundData *db.MemDB, snapshotHash types.Hash, addressList []types.Address) error {
+func (cache *RoundCache) setBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash, addressList []types.Address) error {
 	balanceMap := make(map[types.Address]*big.Int, len(addressList))
 	if err := cache.stateDB.GetSnapshotBalanceList(balanceMap, snapshotHash, addressList, ledger.ViteTokenId); err != nil {
 		return err
@@ -221,22 +256,26 @@ func (cache *RoundCache) setBalanceToCache(roundData *db.MemDB, snapshotHash typ
 		if balance == nil || len(balance.Bytes()) <= 0 {
 			continue
 		}
-		roundData.Put(append([]byte{chain_utils.BalanceHistoryKeyPrefix}, addr.Bytes()...), balance.Bytes())
+		roundData.Put(makeBalanceKey(addr.Bytes()), balance.Bytes())
 	}
 
 	return nil
 }
 
-func (cache *RoundCache) setStorageToCache(roundData *db.MemDB, contractAddress types.Address, snapshotHash types.Hash) error {
+func (cache *RoundCache) setStorageToCache(roundData *memdb.DB, contractAddress types.Address, snapshotHash types.Hash) error {
 	storageDatabase, err := cache.stateDB.NewStorageDatabase(snapshotHash, contractAddress)
 	if err != nil {
 		return err
 	}
-	iter := storageDatabase.NewRawStorageIterator(nil)
+	iter, err := storageDatabase.NewStorageIterator(nil)
+	if err != nil {
+		return err
+	}
+
 	defer iter.Release()
 
 	for iter.Next() {
-		roundData.Put(iter.Key(), iter.Value())
+		roundData.Put(makeStorageKey(iter.Key()), iter.Value())
 	}
 
 	if err := iter.Error(); err != nil {
@@ -244,4 +283,12 @@ func (cache *RoundCache) setStorageToCache(roundData *db.MemDB, contractAddress 
 	}
 
 	return nil
+}
+
+func makeStorageKey(key []byte) []byte {
+	return append([]byte{chain_utils.StorageKeyPrefix}, key...)
+}
+
+func makeBalanceKey(key []byte) []byte {
+	return append([]byte{chain_utils.BalanceKeyPrefix}, key...)
 }
