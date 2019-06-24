@@ -355,6 +355,7 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	if lastPeriodId := dex.GetLastFeeDividendPeriodId(db); lastPeriodId > 0 && param.PeriodId != lastPeriodId+1 {
 		return handleReceiveErr(fmt.Errorf("fee dividend period id not equals to expected id %d", lastPeriodId+1))
 	}
+	dex.AddPeriodWithBizEvent(db, param.PeriodId, dex.BizForFeeDividend)
 	if err = dex.DoDivideFees(db, param.PeriodId); err != nil {
 		return handleReceiveErr(err)
 	} else {
@@ -408,6 +409,7 @@ func (md MethodDexFundMineVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	if amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxLeaved, success := dex.GetVxAmountToMine(db, param.PeriodId, vxBalance); !success {
 		return handleReceiveErr(fmt.Errorf("no vx available for mine"))
 	} else {
+		dex.AddPeriodWithBizEvent(db, param.PeriodId, dex.BizForMineVx)
 		if err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForFeePerMarket); err != nil {
 			return handleReceiveErr(err)
 		}

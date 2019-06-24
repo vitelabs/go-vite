@@ -146,6 +146,11 @@ const (
 )
 
 const (
+	BizForFeeDividend = iota + 1
+	BizForMineVx
+)
+
+const (
 	GetTokenForNewMarket     = 1
 	GetTokenForSetQuote      = 2
 	GetTokenForTransferOwner = 3
