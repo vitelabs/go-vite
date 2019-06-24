@@ -109,6 +109,18 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	return fundInfoMap, nil
 }
 
+func (f DexFundApi) GetTokenInfo(token types.TokenTypeId) (*RpcDexTokenInfo, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if tokenInfo, ok := dex.GetTokenInfo(db, token); ok {
+		return RawDexTokenInfoToRpc(tokenInfo, token), nil
+	} else {
+		return nil, dex.InvalidTokenErr
+	}
+}
+
 func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*RpcMarketInfo, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -315,11 +327,12 @@ func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
 }
 
 type RpcDexTokenInfo struct {
-	TokenSymbol string            `json:"tokenSymbol"`
-	Decimals    int32             `json:"decimals"`
-	TokenId     types.TokenTypeId `json:"tokenId"`
-	Index       int32             `json:"index"`
-	Owner       types.Address     `json:"owner"`
+	TokenSymbol    string            `json:"tokenSymbol"`
+	Decimals       int32             `json:"decimals"`
+	TokenId        types.TokenTypeId `json:"tokenId"`
+	Index          int32             `json:"index"`
+	Owner          types.Address     `json:"owner"`
+	QuoteTokenType int32             `json:"quoteTokenType"`
 }
 
 func RawDexTokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTokenInfo {
@@ -327,11 +340,12 @@ func RawDexTokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTo
 	if tinfo != nil {
 		owner, _ := types.BytesToAddress(tinfo.Owner)
 		rt = &RpcDexTokenInfo{
-			TokenSymbol: tinfo.Symbol,
-			Decimals:    tinfo.Decimals,
-			TokenId:     tti,
-			Index:       tinfo.Index,
-			Owner:       owner,
+			TokenSymbol:    tinfo.Symbol,
+			Decimals:       tinfo.Decimals,
+			TokenId:        tti,
+			Index:          tinfo.Index,
+			Owner:          owner,
+			QuoteTokenType: tinfo.QuoteTokenType,
 		}
 	}
 	return rt

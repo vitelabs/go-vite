@@ -71,7 +71,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 
 	feeSumByPeriod, ok := GetCurrentFeeSum(db, reader)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = rollFeeSum(db, reader)
+		feeSumByPeriod = RollFeeSumOnNewPeriod(db, GetCurrentPeriodId(db, reader))
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
@@ -239,27 +239,6 @@ func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addr
 func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) {
 	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
 	doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
-}
-
-func rollFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (rolledFeeSumByPeriod *FeeSumByPeriod) {
-	formerId := GetFeeSumLastPeriodIdForRoll(db)
-	rolledFeeSumByPeriod = &FeeSumByPeriod{}
-	if formerId > 0 {
-		if formerFeeSumByPeriod, ok := GetFeeSumByPeriodId(db, formerId); !ok {
-			panic(NoFeeSumFoundForValidPeriodErr)
-		} else {
-			rolledFeeSumByPeriod.LastValidPeriod = formerId
-			for _, feeForDividend := range formerFeeSumByPeriod.FeesForDividend {
-				rolledFee := &dexproto.FeeSumForDividend{}
-				rolledFee.Token = feeForDividend.Token
-				_, rolledAmount := splitDividendPool(feeForDividend)
-				rolledFee.DividendPoolAmount = rolledAmount.Bytes()
-				rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
-			}
-		}
-	}
-	SaveFeeSumLastPeriodIdForRoll(db, reader)
-	return
 }
 
 func splitDividendPool(feeSumAcc *dexproto.FeeSumForDividend) (toDividendAmt, rolledAmount *big.Int) {
