@@ -59,6 +59,8 @@ type RpcClient interface {
 
 	GetRewardByIndex(index uint64) (reward *api.RewardInfo, err error)
 	GetVoteDetailsByIndex(index uint64) (details []*consensus.VoteDetails, err error)
+
+	GetClient() *rpc.Client
 }
 
 func NewRpcClient(rawurl string) (RpcClient, error) {
@@ -73,6 +75,10 @@ func NewRpcClient(rawurl string) (RpcClient, error) {
 
 type rpcClient struct {
 	cc *rpc.Client
+}
+
+func (c rpcClient) GetClient() *rpc.Client {
+	return c.cc
 }
 
 func (c *rpcClient) GetSnapshotLatest() (*BlockHeader, error) {
