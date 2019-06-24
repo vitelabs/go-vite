@@ -15,8 +15,8 @@ type interpreter struct {
 var (
 	simpleInterpreter         = &interpreter{simpleInstructionSet}
 	offchainSimpleInterpreter = &interpreter{offchainSimpleInstructionSet}
-	dexInterpreter            = &interpreter{dexInstructionSet}
-	offchainDexInterpreter    = &interpreter{offchainDexInstructionSet}
+	randInterpreter           = &interpreter{randInstructionSet}
+	offchainRandInterpreter   = &interpreter{offchainRandInstructionSet}
 )
 
 func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
@@ -27,9 +27,9 @@ func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
 		return simpleInterpreter
 	}
 	if offChain {
-		return offchainDexInterpreter
+		return offchainRandInterpreter
 	}
-	return dexInterpreter
+	return randInterpreter
 }
 
 func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
