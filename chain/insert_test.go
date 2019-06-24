@@ -129,7 +129,9 @@ func TestInsertAccountBlocks(t *testing.T) {
 				InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(23))
 				mu.Lock()
 
-				snapshotBlock := createSnapshotBlock(chainInstance, false)
+				snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{
+					SnapshotAll: false,
+				})
 
 				snapshotBlockList = append(snapshotBlockList, snapshotBlock)
 				Snapshot(accounts, snapshotBlock)
@@ -176,7 +178,7 @@ func testRedo(t *testing.T, chainInstance *chain) {
 }
 
 func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
-	sb := createSnapshotBlock(chainInstance, snapshotAll)
+	sb := createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: snapshotAll})
 	invalidBlocks, err := chainInstance.InsertSnapshotBlock(sb)
 	if err != nil {
 		return nil, nil, err
@@ -488,7 +490,12 @@ func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.Snapsh
 	return sc
 }
 
-func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.SnapshotBlock {
+type createSbOption struct {
+	SnapshotAll bool
+	Seed        uint64
+}
+
+func createSnapshotBlock(chainInstance *chain, option createSbOption) *ledger.SnapshotBlock {
 	latestSb := chainInstance.GetLatestSnapshotBlock()
 	var now time.Time
 	randomNum := rand.Intn(100)
@@ -504,7 +511,8 @@ func createSnapshotBlock(chainInstance *chain, snapshotAll bool) *ledger.Snapsho
 		PrevHash:        latestSb.Hash,
 		Height:          latestSb.Height + 1,
 		Timestamp:       &now,
-		SnapshotContent: createSnapshotContent(chainInstance, snapshotAll),
+		SnapshotContent: createSnapshotContent(chainInstance, option.SnapshotAll),
+		Seed:            option.Seed,
 	}
 	sb.Hash = sb.ComputeHash()
 	return sb

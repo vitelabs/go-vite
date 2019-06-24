@@ -3,6 +3,7 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -40,11 +41,17 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	return sc
 }
 
-func (c *chain) filterUnconfirmedBlocks(checkConsensus bool) []*ledger.AccountBlock {
+func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, checkConsensus bool) []*ledger.AccountBlock {
+	// get unconfirmed blocks
 	blocks := c.cache.GetUnconfirmedBlocks()
 	if len(blocks) <= 0 {
 		return nil
 	}
+	// check is fork point
+	if fork.IsForkPoint(snapshotBlock.Height) {
+		return blocks
+	}
+
 	invalidBlocks := make([]*ledger.AccountBlock, 0)
 
 	invalidAddrSet := make(map[types.Address]struct{})

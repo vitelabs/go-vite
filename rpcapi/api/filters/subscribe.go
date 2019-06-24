@@ -26,6 +26,7 @@ type filter struct {
 	blocksWithHeight []*AccountBlockWithHeight
 	logs             []*Logs
 	snapshotBlocks   []*SnapshotBlock
+	onroadMsgs       []*OnroadMsg
 }
 
 type SubscribeApi struct {
@@ -127,6 +128,12 @@ func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
 
 type AccountBlock struct {
 	Hash    types.Hash `json:"hash"`
+	Removed bool       `json:"removed"`
+}
+
+type OnroadMsg struct {
+	Hash    types.Hash `json:"hash"`
+	Closed  bool       `json:"closed"`
 	Removed bool       `json:"removed"`
 }
 
@@ -250,7 +257,7 @@ func (s *SubscribeApi) NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID,
 func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
 	s.log.Info("NewOnroadBlocksByAddrFilter")
 	var (
-		acCh  = make(chan []*AccountBlock)
+		acCh  = make(chan []*OnroadMsg)
 		acSub = s.eventSystem.SubscribeOnroadBlocksByAddr(addr, acCh)
 	)
 
@@ -264,7 +271,7 @@ func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, 
 			case ac := <-acCh:
 				s.filterMapMu.Lock()
 				if f, found := s.filterMap[acSub.ID]; found {
-					f.blocks = append(f.blocks, ac...)
+					f.onroadMsgs = append(f.onroadMsgs, ac...)
 				}
 				s.filterMapMu.Unlock()
 			case <-acSub.Err():
@@ -344,6 +351,11 @@ type LogsMsg struct {
 	Id   rpc.ID  `json:"subscription"`
 }
 
+type OnroadBlocksMsg struct {
+	Blocks []*OnroadMsg `json:"result"`
+	Id     rpc.ID       `json:"subscription"`
+}
+
 type SnapshotBlocksMsg struct {
 	Blocks []*SnapshotBlock `json:"result"`
 	Id     rpc.ID           `json:"subscription"`
@@ -370,9 +382,9 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 			f.blocksWithHeight = nil
 			return AccountBlocksWithHeightMsg{blocks, id}, nil
 		case OnroadBlocksSubscription:
-			blocks := f.blocks
-			f.blocks = nil
-			return AccountBlocksMsg{blocks, id}, nil
+			onroadMsgs := f.onroadMsgs
+			f.onroadMsgs = nil
+			return OnroadBlocksMsg{onroadMsgs, id}, nil
 		case LogsSubscription:
 			logs := f.logs
 			f.logs = nil
@@ -480,7 +492,7 @@ func (s *SubscribeApi) NewOnroadBlocksByAddr(ctx context.Context, addr types.Add
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		accountBlockHashCh := make(chan []*AccountBlock, 128)
+		accountBlockHashCh := make(chan []*OnroadMsg, 128)
 		acSub := s.eventSystem.SubscribeOnroadBlocksByAddr(addr, accountBlockHashCh)
 		for {
 			select {
@@ -562,15 +574,15 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			if err != nil {
 				return nil, err
 			}
-			for _, b := range blocks {
-				if b.LogHash != nil {
-					list, err := s.vite.Chain().GetVmLogList(b.LogHash)
+			for i := len(blocks); i > 0; i-- {
+				if blocks[i-1].LogHash != nil {
+					list, err := s.vite.Chain().GetVmLogList(blocks[i-1].LogHash)
 					if err != nil {
 						return nil, err
 					}
 					for _, l := range list {
 						if filterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, b.Hash, &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, &addr, false})
 						}
 					}
 				}

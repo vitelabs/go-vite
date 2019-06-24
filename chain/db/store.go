@@ -34,13 +34,18 @@ type Store struct {
 }
 
 func NewStore(dataDir string, name string) (*Store, error) {
-	id, _ := types.BytesToHash(crypto.Hash256([]byte(name)))
-
 	diskStore, err := leveldb.OpenFile(dataDir, nil)
 
 	if err != nil {
 		return nil, err
 	}
+
+	return NewStoreWithDb(dataDir, name, diskStore)
+
+}
+
+func NewStoreWithDb(dataDir string, name string, diskStore *leveldb.DB) (*Store, error) {
+	id, _ := types.BytesToHash(crypto.Hash256([]byte(name)))
 
 	store := &Store{
 		id:    id,
@@ -115,6 +120,10 @@ func (store *Store) Close() error {
 func (store *Store) Clean() error {
 	if err := store.Close(); err != nil {
 		return err
+	}
+
+	if len(store.dbDir) <= 0 {
+		return nil
 	}
 
 	if err := os.RemoveAll(store.dbDir); err != nil && err != os.ErrNotExist {

@@ -62,7 +62,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err != nil {
 		return err
 	}
-	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
+	result, err := v.VerifyRPCAccBlock(lb, latestSb)
 	if err != nil {
 		return err
 	}

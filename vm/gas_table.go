@@ -427,6 +427,7 @@ func gasUserSendCall(block *ledger.AccountBlock) (uint64, error) {
 	}
 	return gasNormalSendCall(block)
 }
+
 func gasNormalSendCall(block *ledger.AccountBlock) (uint64, error) {
 	return util.IntrinsicGasCost(block.Data, false, 0)
 }

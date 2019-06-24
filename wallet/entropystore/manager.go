@@ -2,6 +2,7 @@ package entropystore
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
@@ -148,6 +149,14 @@ func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []
 		return nil, nil, walleterrors.ErrAddressNotFound
 	}
 	return key.SignData(data)
+}
+
+func (km *Manager) GetPrivateKey(a types.Address) (ed25519.PrivateKey, error) {
+	key, _, e := FindAddrFromSeed(km.unlockedSeed, a, km.maxSearchIndex)
+	if e != nil {
+		return nil, walleterrors.ErrAddressNotFound
+	}
+	return key.PrivateKey()
 }
 
 func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
