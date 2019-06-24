@@ -28,7 +28,7 @@ func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.Token
 	return nil
 }
 
-func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, address *types.Address) error {
+func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, creator *types.Address) error {
 	quoteTokenInfo, ok := GetTokenInfo(db, quoteToken)
 	if !ok || quoteTokenInfo.QuoteTokenType <= 0 {
 		return TradeMarketInvalidQuoteTokenErr
@@ -49,14 +49,14 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteTo
 		if tradeTokenInfo.QuoteTokenType > quoteTokenInfo.QuoteTokenType {
 			return TradeMarketInvalidTokenPairErr
 		}
-		if !bytes.Equal(tradeTokenInfo.Owner, address.Bytes()) {
+		if !bytes.Equal(tradeTokenInfo.Owner, creator.Bytes()) {
 			return OnlyOwnerAllowErr
 		}
 		renderMarketInfoWithTradeTokenInfo(db, marketInfo, tradeTokenInfo)
 	}
 
 	if marketInfo.Creator == nil {
-		marketInfo.Creator = address.Bytes()
+		marketInfo.Creator = creator.Bytes()
 	}
 	if marketInfo.Timestamp == 0 {
 		marketInfo.Timestamp = GetTimestampInt64(db)
@@ -130,17 +130,18 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 				if marketInfo, ok = GetMarketInfo(db, tradeTokenId, quoteTokenId); !ok || marketInfo.Valid {
 					continue
 				} else {
-					var address types.Address
-					if address, err = types.BytesToAddress(marketInfo.Creator); err != nil {
+					var creator types.Address
+					if creator, err = types.BytesToAddress(marketInfo.Creator); err != nil {
 						panic(err)
 					}
-					if err = RenderMarketInfo(db, marketInfo, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
-						appendBlocks = append(appendBlocks, RefundNewMarketFee(address))
-						AddErrEvent(db, err)
-					} else {
-						appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &address))
-					}
 					SubPendingNewMarketFeeSum(db)
+					if bizErr := RenderMarketInfo(db, marketInfo, tradeTokenId, quoteTokenId, tradeTokenInfo, &creator); bizErr != nil {
+						DeleteMarketInfo(db, tradeTokenId, quoteTokenId)
+						appendBlocks = append(appendBlocks, RefundNewMarketFee(creator))
+						AddErrEvent(db, bizErr)
+					} else {
+						appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &creator))
+					}
 				}
 			}
 		}
