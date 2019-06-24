@@ -574,15 +574,15 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			if err != nil {
 				return nil, err
 			}
-			for _, b := range blocks {
-				if b.LogHash != nil {
-					list, err := s.vite.Chain().GetVmLogList(b.LogHash)
+			for i := len(blocks); i > 0; i-- {
+				if blocks[i-1].LogHash != nil {
+					list, err := s.vite.Chain().GetVmLogList(blocks[i-1].LogHash)
 					if err != nil {
 						return nil, err
 					}
 					for _, l := range list {
 						if filterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, b.Hash, &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, &addr, false})
 						}
 					}
 				}
