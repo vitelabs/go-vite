@@ -49,6 +49,9 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteTo
 		if tradeTokenInfo.QuoteTokenType > quoteTokenInfo.QuoteTokenType {
 			return TradeMarketInvalidTokenPairErr
 		}
+		if !bytes.Equal(tradeTokenInfo.Owner, address.Bytes()) {
+			return OnlyOwnerAllowErr
+		}
 		renderMarketInfoWithTradeTokenInfo(db, marketInfo, tradeTokenInfo)
 	}
 
@@ -132,10 +135,12 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 						panic(err)
 					}
 					if err = RenderMarketInfo(db, marketInfo, tradeTokenId, quoteTokenId, tradeTokenInfo, nil); err != nil {
-						return
+						appendBlocks = append(appendBlocks, RefundNewMarketFee(address))
+						AddErrEvent(db, err)
+					} else {
+						appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &address))
 					}
 					SubPendingNewMarketFeeSum(db)
-					appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &address))
 				}
 			}
 		}
@@ -161,18 +166,22 @@ func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId
 					if address, err := types.BytesToAddress(marketInfo.Creator); err != nil {
 						panic(err)
 					} else {
-						refundBlocks[index] = &ledger.AccountBlock{
-							AccountAddress: types.AddressDexFund,
-							ToAddress:      address,
-							BlockType:      ledger.BlockTypeSendCall,
-							Amount:         NewMarketFeeAmount,
-							TokenId:        ledger.ViteTokenId,
-						}
+						refundBlocks[index] = RefundNewMarketFee(address)
 					}
 				}
 			}
 		}
 		return
+	}
+}
+
+func RefundNewMarketFee(address types.Address) *ledger.AccountBlock {
+	return &ledger.AccountBlock{
+		AccountAddress: types.AddressDexFund,
+		ToAddress:      address,
+		BlockType:      ledger.BlockTypeSendCall,
+		Amount:         NewMarketFeeAmount,
+		TokenId:        ledger.ViteTokenId,
 	}
 }
 

@@ -23,7 +23,7 @@ var (
 
 	timestampKey = []byte("tts:") // timerTimestamp
 
-	UserFeeKeyPrefix = []byte("uF:") // userFee:types.Address
+	userFeeKeyPrefix = []byte("uF:") // userFee:types.Address
 
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
@@ -88,7 +88,7 @@ var (
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
 	usdMinAmount     = big.NewInt(100000000)                             //1 USD
 
-	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 10 VITE
+	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 2 VITE
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
@@ -648,8 +648,11 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]
 }
 
 func SaveCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) {
-	feeSumKey := GetFeeSumCurrentKey(db, reader)
-	serializeToDb(db, feeSumKey, feeSum)
+	serializeToDb(db, GetFeeSumCurrentKey(db, reader), feeSum)
+}
+
+func SaveFeeSumWithPeriodId(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
+	serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 }
 
 //fee sum used both by fee dividend and mined vx dividend
@@ -662,7 +665,7 @@ func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint
 	}
 }
 
-func RollFeeSumOnNewPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod *FeeSumByPeriod) {
+func RollAndGentNewFeeSumByPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod *FeeSumByPeriod) {
 	formerId := GetFeeSumLastPeriodIdForRoll(db)
 	rolledFeeSumByPeriod = &FeeSumByPeriod{}
 	if formerId > 0 {
@@ -678,6 +681,11 @@ func RollFeeSumOnNewPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod
 				rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
 			}
 		}
+	} else {
+		// On startup, save one empty dividendPool for vite to diff db storage empty for serialize result
+		rolledFee := &dexproto.FeeSumForDividend{}
+		rolledFee.Token = ledger.ViteTokenId.Bytes()
+		rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
 	}
 	SaveFeeSumLastPeriodIdForRoll(db, periodId)
 	return
@@ -758,7 +766,7 @@ func IsValidFeeForMine(baseAmount, inviteeAmount []byte, mineThreshold *big.Int)
 }
 
 func GetUserFeesKey(address []byte) []byte {
-	return append(UserFeeKeyPrefix, address...)
+	return append(userFeeKeyPrefix, address...)
 }
 
 func GetVxFunds(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
@@ -1353,7 +1361,8 @@ func SetTimerTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusRead
 }
 
 func doRollPeriod(db vm_db.VmDb, newPeriodId uint64) {
-	RollFeeSumOnNewPeriod(db, newPeriodId)
+	newFeeSum := RollAndGentNewFeeSumByPeriod(db, newPeriodId)
+	SaveFeeSumWithPeriodId(db, newFeeSum, newPeriodId)
 }
 
 func GetTimerTimestamp(db vm_db.VmDb) int64 {

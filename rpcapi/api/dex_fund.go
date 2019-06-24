@@ -293,6 +293,7 @@ type RpcMarketInfo struct {
 	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate,omitempty"`
 	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate,omitempty"`
 	AllowMine          bool   `json:"allowMine"`
+	Valid              bool   `json:"valid"`
 	Owner              string `json:"owner"`
 	Creator            string `json:"creator"`
 	Stopped            bool   `json:"stopped"`
@@ -317,6 +318,7 @@ func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
 			TakerBrokerFeeRate: mkInfo.TakerBrokerFeeRate,
 			MakerBrokerFeeRate: mkInfo.MakerBrokerFeeRate,
 			AllowMine:          mkInfo.AllowMine,
+			Valid:              mkInfo.Valid,
 			Owner:              owner.String(),
 			Creator:            creator.String(),
 			Stopped:            mkInfo.Stopped,

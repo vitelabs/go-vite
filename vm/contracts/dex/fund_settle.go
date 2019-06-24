@@ -71,7 +71,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 
 	feeSumByPeriod, ok := GetCurrentFeeSum(db, reader)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = RollFeeSumOnNewPeriod(db, GetCurrentPeriodId(db, reader))
+		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, GetCurrentPeriodId(db, reader))
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
