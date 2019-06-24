@@ -201,10 +201,12 @@ func (c *client) SubmitRequestTxWithPow(params RequestTxParams, f SignFunc) erro
 	//b.PublicKey = pubkey
 	//
 	//return c.rpc.SubmitRaw(b)
+	panic("implement")
 	return nil
 }
 
 func (c *client) SubmitResponseTx(params ResponseTxParams, f SignFunc) error {
+	panic("implement")
 	//latest, err := c.rpc.GetLatest(params.SelfAddr)
 	//
 	//if err != nil {
@@ -271,6 +273,7 @@ func (c *client) SubmitResponseTx(params ResponseTxParams, f SignFunc) error {
 }
 
 func (c *client) SubmitResponseTxWithPow(params ResponseTxParams, f SignFunc) error {
+	panic("implement")
 	//latest, err := c.rpc.GetLatest(params.SelfAddr)
 	//
 	//if err != nil {
@@ -359,13 +362,16 @@ func (c *client) SubmitResponseTxWithPow(params ResponseTxParams, f SignFunc) er
 }
 
 func (c *client) QueryOnroad(query OnroadQuery) ([]*AccBlockHeader, error) {
+	panic("implement")
 	return c.rpc.GetOnroad(query)
 }
 
 func (c *client) Balance(query BalanceQuery) (*TokenBalance, error) {
+	panic("implement")
 	return c.rpc.Balance(query)
 }
 
 func (c *client) BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error) {
+	panic("implement")
 	return c.rpc.BalanceAll(query)
 }
