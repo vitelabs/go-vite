@@ -41,14 +41,14 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); !ok {
-			break
-		} else {
+		if ok = iterator.Next(); ok {
 			userFeesKey = iterator.Key()
 			userFeesBytes = iterator.Value()
 			if len(userFeesBytes) == 0 {
 				continue
 			}
+		} else {
+			break
 		}
 
 		addressBytes := userFeesKey[len(userFeeKeyPrefix):]
@@ -142,14 +142,14 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); !ok {
-			break
-		} else {
+		if ok = iterator.Next(); ok {
 			pledgesForVxKey = iterator.Key()
 			pledgeForVxValue = iterator.Value()
 			if len(pledgeForVxValue) == 0 {
 				continue
 			}
+		} else {
+			break
 		}
 		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
 		address := types.Address{}

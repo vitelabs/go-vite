@@ -440,6 +440,9 @@ func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeR
 }
 
 func calculateExecutedFee(amount []byte, feeRate int32, side bool, originExecutedFee, totalLockedAmount []byte, usedAmounts ...[]byte) (incFee, newExecutedFee []byte, leaved bool) {
+	if feeRate == 0 {
+		return nil, originExecutedFee, true
+	}
 	incFee = CalculateAmountForRate(amount, feeRate)
 	switch side {
 	case false:
