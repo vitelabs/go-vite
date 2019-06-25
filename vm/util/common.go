@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	AttovPerVite                   = big.NewInt(1e18)
-	CreateContractDataLengthMin    = 13
-	CreateContractDataLengthMinDex = 14
+	AttovPerVite                    = big.NewInt(1e18)
+	CreateContractDataLengthMin     = 13
+	CreateContractDataLengthMinRand = 14
 )
 
 func IsViteToken(tokenId types.TokenTypeId) bool {

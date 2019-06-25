@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"testing"
+	"time"
 )
 
 type twoOperandTest struct {
@@ -15,8 +16,9 @@ type twoOperandTest struct {
 }
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error), args ...string) {
+	ts := time.Now()
 	vm := &VM{
-		globalStatus: NewTestGlobalStatus(100, nil),
+		globalStatus: NewTestGlobalStatus(100, &ledger.SnapshotBlock{Timestamp: &ts, Height: 1, Hash: types.Hash{}}),
 	}
 	//vm.Debug = true
 	sendCallBlock := &ledger.AccountBlock{
@@ -36,6 +38,7 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		Difficulty: big.NewInt(67108863),
 	}
 	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
+	c.returnData, _ = hex.DecodeString("000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000174876e80000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001052654973737561626c6520546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000027274000000000000000000000000000000000000000000000000000000000000")
 	stack := newStack()
 
 	// convert args
@@ -51,7 +54,9 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 			stack.push(a)
 		}
 		op(&pc, vm, c, nil, stack)
-		stack.pop()
+		for i := stack.len(); i > 0; i-- {
+			stack.pop()
+		}
 	}
 	poolOfIntPools.put(c.intPool)
 }
@@ -481,11 +486,49 @@ func BenchmarkCallValue(b *testing.B) {
 	opBenchmark(b, opCallValue)
 }
 func BenchmarkCallDataLoad(b *testing.B) {
-	opBenchmark(b, opCallDataLoad)
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, opCallDataLoad, x)
 }
 func BenchmarkCallDataSize(b *testing.B) {
 	opBenchmark(b, opCallDataSize)
 }
 func BenchmarkCallDataCopy(b *testing.B) {
-	opBenchmark(b, opCallDataCopy)
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000000"
+	z := "000000000000000000000000000000000000000000000000000000000000000a"
+	opBenchmark(b, opCallDataCopy, x, y, z)
 }
+func BenchmarkReturnDataSize(b *testing.B) {
+	opBenchmark(b, opReturnDataSize)
+}
+func BenchmarkReturnDataCopy(b *testing.B) {
+	opBenchmark(b, opReturnDataCopy)
+}
+func BenchmarkCodeSize(b *testing.B) {
+	opBenchmark(b, opCodeSize)
+}
+func BenchmarkCodeCopy(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000000"
+	z := "000000000000000000000000000000000000000000000000000000000000000a"
+	opBenchmark(b, opCodeCopy, x, y, z)
+}
+func BenchmarkBlake2b(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "000000000000000000000000000000000000000000000000000000000000000a"
+	opBenchmark(b, opBlake2b, x, y)
+}
+func BenchmarkTimestamp(b *testing.B) {
+	opBenchmark(b, opTimestamp)
+}
+func BenchmarkHeight(b *testing.B) {
+	opBenchmark(b, opHeight)
+}
+func BenchmarkTokenId(b *testing.B) {
+	opBenchmark(b, opTokenID)
+}
+func BenchmarkAccountHeight(b *testing.B) {
+	opBenchmark(b, opAccountHeight)
+}
+
+// TODO accountHeight,prevHash,fromHash,pop,mload,mstore8,sloar,sstore,jump,jumpi,pc,msize,gas,jumpdest,push,dup,swap,log,call,return,revert
