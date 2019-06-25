@@ -1,7 +1,6 @@
 package abi
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"reflect"
 	"regexp"
@@ -22,8 +21,6 @@ const (
 	TokenIdTy
 	FixedBytesTy
 	BytesTy
-	HashTy
-	FunctionTy
 )
 
 // Type is the reflection of the supported argument type
@@ -40,14 +37,20 @@ type Type struct {
 
 var (
 	// typeRegex parses the abi sub types
-	typeRegex = regexp.MustCompile("([a-zA-Z]+)(([0-9]+)(x([0-9]+))?)?")
+	typeRegex = regexp.MustCompile("([a-zA-Z]+)([0-9]+)?")
 )
 
 // NewType creates a new reflection type of abi type given in t.
 func NewType(t string) (typ Type, err error) {
+	if t == "uint" || t == "int" {
+		// this should fail because it means that there's something wrong with
+		// the abi type (the compiler should always format it to the size...always)
+		return Type{}, errUnsupportedArgType(t)
+	}
+
 	// check that array brackets are equal if they exist
-	if strings.Count(t, "[") != strings.Count(t, "]") {
-		return Type{}, fmt.Errorf("invalid arg type in abi")
+	if strings.Count(t, "[") != strings.Count(t, "]") || strings.Count(t, "[") > 1 {
+		return Type{}, errUnsupportedArgType(t)
 	}
 
 	typ.stringKind = t
@@ -74,17 +77,21 @@ func NewType(t string) (typ Type, err error) {
 			typ.Elem = &embeddedType
 			typ.Type = reflect.SliceOf(embeddedType.Type)
 		} else if len(intz) == 1 {
+			size, err := strconv.Atoi(intz[0])
+			if err != nil {
+				return Type{}, errParsingVariableSize(err)
+			}
+			if size == 0 {
+				return Type{}, errInvalidZeroVariableSize
+			}
 			// is a array
 			typ.T = ArrayTy
 			typ.Kind = reflect.Array
 			typ.Elem = &embeddedType
-			typ.Size, err = strconv.Atoi(intz[0])
-			if err != nil {
-				return Type{}, fmt.Errorf("abi: error parsing variable size: %v", err)
-			}
+			typ.Size = size
 			typ.Type = reflect.ArrayOf(typ.Size, embeddedType.Type)
 		} else {
-			return Type{}, fmt.Errorf("invalid formatting of array type")
+			return Type{}, errInvalidArrayTypeFormatting
 		}
 		return typ, err
 	}
@@ -92,17 +99,14 @@ func NewType(t string) (typ Type, err error) {
 	parsedType := typeRegex.FindAllStringSubmatch(t, -1)[0]
 	// varSize is the size of the variable
 	var varSize int
-	if len(parsedType[3]) > 0 {
+	if len(parsedType[2]) > 0 {
 		var err error
 		varSize, err = strconv.Atoi(parsedType[2])
 		if err != nil {
-			return Type{}, fmt.Errorf("abi: error parsing variable size: %v", err)
+			return Type{}, errParsingVariableSize(err)
 		}
-	} else {
-		if parsedType[0] == "uint" || parsedType[0] == "int" {
-			// this should fail because it means that there's something wrong with
-			// the abi type (the compiler should always format it to the size...always)
-			return Type{}, fmt.Errorf("unsupported arg type: %s", t)
+		if varSize == 0 {
+			return Type{}, errInvalidZeroVariableSize
 		}
 	}
 	// varType is the parsed abi type
@@ -149,13 +153,8 @@ func NewType(t string) (typ Type, err error) {
 			typ.Size = varSize
 			typ.Type = reflect.ArrayOf(varSize, reflect.TypeOf(byte(0)))
 		}
-	case "function":
-		typ.Kind = reflect.Array
-		typ.T = FunctionTy
-		typ.Size = 24
-		typ.Type = reflect.ArrayOf(24, reflect.TypeOf(byte(0)))
 	default:
-		return Type{}, fmt.Errorf("unsupported arg type: %s", t)
+		return Type{}, errUnsupportedArgType(t)
 	}
 
 	return
@@ -185,12 +184,12 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 			packed = append(packed, val...)
 		}
 		if t.T == SliceTy {
-			return packBytesSlice(packed, v.Len()), nil
+			return packBytesSlice(packed, v.Len())
 		} else if t.T == ArrayTy {
 			return packed, nil
 		}
 	}
-	return packElement(t, v), nil
+	return packElement(t, v)
 }
 
 // requireLengthPrefix returns whether the type requires any sort of length

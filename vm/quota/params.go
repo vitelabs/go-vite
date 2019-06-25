@@ -9,6 +9,7 @@ const (
 	quotaLimitForBlock     uint64 = 1000000 // Quota limit for single block
 	//quotaForSection        uint64 = 21000
 	quotaForSection      uint64 = 280
+	quotaForUtps         uint64 = 21000
 	quotaLimitForAccount        = 74025000
 
 	precForFloat        uint   = 64

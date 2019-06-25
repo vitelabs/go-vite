@@ -1,10 +1,9 @@
 package ledger
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"math/big"

@@ -223,3 +223,6 @@ func (db *memoryDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error
 func (db *memoryDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	return nil, nil
 }
+func (db *memoryDatabase) CanWrite() bool {
+	return false
+}

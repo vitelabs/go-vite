@@ -20,14 +20,6 @@ func TestTypeRegexp(t *testing.T) {
 		{"bool", Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}},
 		{"bool[]", Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([]bool(nil)), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[]"}},
 		{"bool[2]", Type{Size: 2, Kind: reflect.Array, T: ArrayTy, Type: reflect.TypeOf([2]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[2]"}},
-		{"bool[2][]", Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([][2]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[2]"}, stringKind: "bool[2][]"}},
-		{"bool[][]", Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([][]bool{}), Elem: &Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[]"}, stringKind: "bool[][]"}},
-		{"bool[][2]", Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][]bool{}), Elem: &Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[]"}, stringKind: "bool[][2]"}},
-		{"bool[2][2]", Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][2]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[2]"}, stringKind: "bool[2][2]"}},
-		{"bool[2][][2]", Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][][2]bool{}), Elem: &Type{Kind: reflect.Slice, T: SliceTy, Type: reflect.TypeOf([][2]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[2]"}, stringKind: "bool[2][]"}, stringKind: "bool[2][][2]"}},
-		{"bool[2][2][2]", Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][2][2]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][2]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[2]"}, stringKind: "bool[2][2]"}, stringKind: "bool[2][2][2]"}},
-		{"bool[][][]", Type{T: SliceTy, Kind: reflect.Slice, Type: reflect.TypeOf([][][]bool{}), Elem: &Type{T: SliceTy, Kind: reflect.Slice, Type: reflect.TypeOf([][]bool{}), Elem: &Type{T: SliceTy, Kind: reflect.Slice, Type: reflect.TypeOf([]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[]"}, stringKind: "bool[][]"}, stringKind: "bool[][][]"}},
-		{"bool[][2][]", Type{T: SliceTy, Kind: reflect.Slice, Type: reflect.TypeOf([][2][]bool{}), Elem: &Type{Kind: reflect.Array, T: ArrayTy, Size: 2, Type: reflect.TypeOf([2][]bool{}), Elem: &Type{T: SliceTy, Kind: reflect.Slice, Type: reflect.TypeOf([]bool{}), Elem: &Type{Kind: reflect.Bool, T: BoolTy, Type: reflect.TypeOf(bool(false)), stringKind: "bool"}, stringKind: "bool[]"}, stringKind: "bool[][2]"}, stringKind: "bool[][2][]"}},
 		{"int8", Type{Kind: reflect.Int8, Type: int8T, Size: 8, T: IntTy, stringKind: "int8"}},
 		{"int16", Type{Kind: reflect.Int16, Type: int16T, Size: 16, T: IntTy, stringKind: "int16"}},
 		{"int32", Type{Kind: reflect.Int32, Type: int32T, Size: 32, T: IntTy, stringKind: "int32"}},
@@ -94,14 +86,9 @@ func TestTypeCheck(t *testing.T) {
 		input interface{}
 		err   string
 	}{
-		{"uint", big.NewInt(1), "unsupported arg type: uint"},
-		{"int", big.NewInt(1), "unsupported arg type: int"},
+		{"uint", big.NewInt(1), "abi: unsupported arg type: uint"},
+		{"int", big.NewInt(1), "abi: unsupported arg type: int"},
 		{"uint256", big.NewInt(1), ""},
-		{"uint256[][3][]", [][3][]*big.Int{{{}}}, ""},
-		{"uint256[][][3]", [3][][]*big.Int{{{}}}, ""},
-		{"uint256[3][][]", [][][3]*big.Int{{{}}}, ""},
-		{"uint256[3][3][3]", [3][3][3]*big.Int{{{}}}, ""},
-		{"uint8[][]", [][]uint8{}, ""},
 		{"int256", big.NewInt(1), ""},
 		{"uint8", uint8(1), ""},
 		{"uint16", uint16(1), ""},
@@ -237,7 +224,6 @@ func TestTypeCheck(t *testing.T) {
 		{"string", string(""), ""},
 		{"string", []byte{}, "abi: cannot use slice as type string as argument"},
 		{"bytes32[]", [][32]byte{{}}, ""},
-		{"function", [24]byte{}, ""},
 		{"bytes21", types.Address{}, ""},
 		{"address", [21]byte{}, ""},
 		{"address", types.Address{}, ""},
@@ -245,9 +231,9 @@ func TestTypeCheck(t *testing.T) {
 		{"gid", types.Gid{}, ""},
 		{"tokenId", [10]byte{}, ""},
 		{"address", types.TokenTypeId{}, ""},
-		{"tokenId[]]", "", "invalid arg type in abi"},
-		{"invalidType", "", "unsupported arg type: invalidType"},
-		{"invalidSlice[]", "", "unsupported arg type: invalidSlice"},
+		{"tokenId[]]", "", "abi: unsupported arg type: tokenId[]]"},
+		{"invalidType", "", "abi: unsupported arg type: invalidType"},
+		{"invalidSlice[]", "", "abi: unsupported arg type: invalidSlice"},
 	} {
 		typ, err := NewType(test.typ)
 		if err != nil && len(test.err) == 0 {

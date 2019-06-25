@@ -226,7 +226,7 @@ func BenchmarkInsert(b *testing.B) {
 
 			latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 			if vmBlock.AccountBlock.Height > 1 {
-				_, blocks, err := verify.VerifyPoolAccBlock(vmBlock.AccountBlock, &latestSnapshotBlock.Hash)
+				_, blocks, err := verify.VerifyPoolAccBlock(vmBlock.AccountBlock, latestSnapshotBlock)
 				if err != nil {
 					panic(err)
 				}
