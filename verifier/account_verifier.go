@@ -79,7 +79,7 @@ func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock, s
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
 		return ErrVerifyConfirmedTimesNotEnough
 	}
-	if fork.IsSeedFork(sbHeight) {
+	if fork.IsSeedFork(sbHeight) && meta.SeedConfirmedTimes > 0 {
 		isSeedCountOk, err := v.chain.IsSeedConfirmedNTimes(recvBlock.FromBlockHash, uint64(meta.SeedConfirmedTimes))
 		if err != nil {
 			return err

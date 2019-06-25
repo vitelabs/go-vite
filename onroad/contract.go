@@ -440,7 +440,7 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 		return errors.New("sendBlock confirmedTimes is not ready")
 	}
 
-	if fork.IsSeedFork(sbHeight) {
+	if fork.IsSeedFork(sbHeight) && meta.SeedConfirmedTimes > 0 {
 		isSeedCountOk, err := w.manager.Chain().IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
 		if err != nil {
 			return err
