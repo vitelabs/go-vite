@@ -342,8 +342,8 @@ func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	var (
 		err error
 	)
-	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	if !dex.ValidTriggerAddress(db, sendBlock.AccountAddress) {
+		return handleReceiveErr(dex.InvalidSourceAddressErr)
 	}
 	param := new(dex.ParamDexFundDividend)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
@@ -392,8 +392,8 @@ func (md MethodDexFundMineVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 		vxBalance *big.Int
 		err       error
 	)
-	if !dex.IsOwner(db, sendBlock.AccountAddress) {
-		return handleReceiveErr(dex.OnlyOwnerAllowErr)
+	if !dex.ValidTriggerAddress(db, sendBlock.AccountAddress) {
+		return handleReceiveErr(dex.InvalidSourceAddressErr)
 	}
 	param := new(dex.ParamDexFundDividend)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMineVx, sendBlock.Data); err != nil {
@@ -748,8 +748,11 @@ func (md MethodDexFundOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigOwner) {
 			dex.SetOwner(db, param.Owner)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimerAddress) {
-			dex.SetTimerAddress(db, param.TimerAddress)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimer) {
+			dex.SetTimerAddress(db, param.Timer)
+		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTrigger) {
+			dex.SetTriggerAddress(db, param.Trigger)
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
 			dex.SaveViteXStopped(db, param.StopViteX)
