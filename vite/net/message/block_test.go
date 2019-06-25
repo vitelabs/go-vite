@@ -2,6 +2,8 @@ package message
 
 import (
 	crand "crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
@@ -323,3 +325,78 @@ func TestNewAccountBlock_Serialize(t *testing.T) {
 //	// Output:
 //	// false
 //}
+
+func TestComputeBlockSize(t *testing.T) {
+	printSendBlock()
+	printReceiveBlock()
+}
+func printSendBlock() {
+	sendCallBlock := &ledger.AccountBlock{
+		BlockType:     ledger.BlockTypeSendCall,
+		Height:        757,
+		FromBlockHash: types.ZERO_HASH,
+		Data:          []byte{},
+		Quota:         21000,
+		QuotaUsed:     21000,
+		Fee:           big.NewInt(0),
+		Difficulty:    big.NewInt(75164738),
+	}
+	sendCallBlock.Hash, _ = types.HexToHash("8f85502f81fc544cb6700ad9ecc44f3eace065ae8e34d2269d7ff8d7c94ac920")
+	sendCallBlock.PrevHash, _ = types.HexToHash("1f1d29452644496dd15117d85d4e4fb395dd5376293eb62e94b81d35f0f19a95")
+	sendCallBlock.AccountAddress, _ = types.HexToAddress("vite_dfac99c41e98784d6e92b5de4428a4106103657b13c1433184")
+	sendCallBlock.PublicKey, _ = hex.DecodeString("0e8a21f65c0ac55702512b426b9057ca4a1d39e260f37daae0c956a5d237a0b3")
+	sendCallBlock.ToAddress, _ = types.HexToAddress("vite_d789431f1d820506c83fd539a0ae9863d6961382f67341a8b5")
+	sendCallBlock.Amount, _ = new(big.Int).SetString("10000000000000000000", 10)
+	sendCallBlock.TokenId, _ = types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
+	sendCallBlock.Nonce, _ = hex.DecodeString("6d2f638c1941473f")
+	sendCallBlock.Signature, _ = hex.DecodeString("3a95df1a01fc006261ac653910fea6523e9e452dddfaeeddf521a1cb083985bfdf1c314132d1f8aa608938edaec7b0dbb9f362dbfcf6d16871f96d46e61a840a")
+	fmt.Println("send call block")
+	bs, _ := sendCallBlock.Serialize()
+	fmt.Println(len(bs)) // 269 bytes
+	netB := &NewAccountBlock{Block: sendCallBlock, TTL: 32}
+	netBs, _ := netB.Serialize()
+	fmt.Println(len(netBs)) // 274 bytes
+}
+func printReceiveBlock() {
+	receiveCallBlock := &ledger.AccountBlock{
+		BlockType: ledger.BlockTypeReceive,
+		Height:    1000215,
+		Quota:     37589,
+		QuotaUsed: 37589,
+		Fee:       big.NewInt(0),
+	}
+	receiveCallBlock.FromBlockHash, _ = types.HexToHash("12fb277325de59489063b40839864aa12df362a6946af6d7da0fcbcd4c8f0c7e")
+	receiveCallBlock.Data, _ = hex.DecodeString("000000000000000000000000000000000000000000000000000000000000000000")
+	receiveCallBlock.Hash, _ = types.HexToHash("8f85502f81fc544cb6700ad9ecc44f3eace065ae8e34d2269d7ff8d7c94ac920")
+	receiveCallBlock.PrevHash, _ = types.HexToHash("75291239501f1671c92f6248a79906c60b18b84ae983eea462e20f23b73013dc")
+	receiveCallBlock.AccountAddress, _ = types.HexToAddress("vite_d789431f1d820506c83fd539a0ae9863d6961382f67341a8b5")
+	receiveCallBlock.PublicKey, _ = hex.DecodeString("d5c8311234f52f7c7e98fccab019d5e0348f894f914e663b6a46eb4c2c5c02b1")
+	receiveCallBlock.Signature, _ = hex.DecodeString("271af4398f9bfeabb1fc8738e182b50e4bb3a3781aba8ac869dc628a7a39f5c30c545adaff8f54741000ebf9d28b7a5cc0549c0c5f7d8949d66c3b1b6abc8305")
+	logHash, _ := types.HexToHash("252d00b215a1e294dff8a61dc8cc926cedb99a18772de764258858c31c101a29")
+	receiveCallBlock.LogHash = &logHash
+	fmt.Println("receive call block")
+	bs, _ := receiveCallBlock.Serialize()
+	fmt.Println(len(bs)) // 310 bytes
+	netB := &NewAccountBlock{Block: receiveCallBlock, TTL: 32}
+	netBs, _ := netB.Serialize()
+	fmt.Println(len(netBs)) // 315 bytes
+
+	sendBlock := &ledger.AccountBlock{
+		BlockType:     ledger.BlockTypeSendCall,
+		FromBlockHash: types.ZERO_HASH,
+		Data:          []byte{},
+		Fee:           big.NewInt(0),
+	}
+	sendBlock.Hash, _ = types.HexToHash("8f85502f81fc544cb6700ad9ecc44f3eace065ae8e34d2269d7ff8d7c94ac920")
+	sendBlock.AccountAddress, _ = types.HexToAddress("vite_dfac99c41e98784d6e92b5de4428a4106103657b13c1433184")
+	sendBlock.ToAddress, _ = types.HexToAddress("vite_d789431f1d820506c83fd539a0ae9863d6961382f67341a8b5")
+	sendBlock.Amount, _ = new(big.Int).SetString("10000000000000000000", 10)
+	sendBlock.TokenId, _ = types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
+	fmt.Println("receive and send call block")
+	receiveCallBlock.SendBlockList = []*ledger.AccountBlock{sendBlock}
+	rsbs, _ := receiveCallBlock.Serialize()
+	fmt.Println(len(rsbs)) // 417 bytes
+	netRb := &NewAccountBlock{Block: receiveCallBlock, TTL: 32}
+	netRbs, _ := netRb.Serialize()
+	fmt.Println(len(netRbs)) // 422 bytes
+}

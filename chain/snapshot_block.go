@@ -530,15 +530,15 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
-	meta, err := c.GetContractMeta(*addr)
+func (c *chain) GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
 	if err != nil {
 		return nil, err
 	}
 	if meta == nil || meta.SendConfirmedTimes == 0 {
 		return nil, nil
 	}
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
 	if err != nil {
 		return nil, err
 	}
@@ -553,6 +553,53 @@ func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *ty
 		return nil, errors.New("fromBlock confirmed times not enough")
 	}
 	return limitSb, nil
+}
+
+func (c *chain) GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	// return nil when meta.SeedConfirmedTimes is nil
+	if meta == nil || meta.SeedConfirmedTimes == 0 {
+		return nil, nil
+	}
+
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
+	if err != nil {
+		return nil, err
+	}
+	if firstConfirmedSb == nil {
+		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+	}
+
+	latestHeight := c.GetLatestSnapshotBlock().Height
+
+	seedCount := uint8(0)
+	for h := firstConfirmedSb.Height; h <= latestHeight; h++ {
+		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
+				h, err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetSeedConfirmedSnapshotBlock")
+			return nil, cErr
+		}
+
+		if snapshotBlock == nil {
+			break
+		}
+
+		if snapshotBlock.Seed > 0 {
+			seedCount += 1
+		}
+
+		if seedCount == meta.SeedConfirmedTimes {
+			return snapshotBlock, nil
+		}
+	}
+
+	return nil, errors.New("fromBlock confirmed times not enough")
 }
 
 func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error) {

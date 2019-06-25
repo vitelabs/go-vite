@@ -15,9 +15,9 @@ import (
 // be flagged `true`.
 // Input specifies the required input parameters for this gives method.
 type Method struct {
-	Name   string
-	Const  bool
-	Inputs Arguments
+	Name    string
+	Inputs  Arguments
+	Outputs Arguments
 }
 
 // Sig returns the methods string signature according to the ABI spec.
@@ -40,11 +40,7 @@ func (method Method) String() string {
 	for i, input := range method.Inputs {
 		inputs[i] = fmt.Sprintf("%v %v", input.Type, input.Name)
 	}
-	constant := ""
-	if method.Const {
-		constant = "constant"
-	}
-	return fmt.Sprintf("function %v(%v) %s", method.Name, strings.Join(inputs, ", "), constant)
+	return fmt.Sprintf("onMessage %v(%v)", method.Name, strings.Join(inputs, ", "))
 }
 
 func (method Method) Id() []byte {

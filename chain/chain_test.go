@@ -2,12 +2,14 @@ package chain
 
 import (
 	"encoding/json"
+	"github.com/vitelabs/go-vite/common/fork"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"encoding/gob"
 	"fmt"
@@ -193,7 +195,22 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	return chainInstance, nil
 }
 
+func Clear(c *chain) error {
+	return os.RemoveAll(c.dataDir)
+}
+
 func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+	// set fork point
+
+	if len(fork.GetForkPointList()) <= 0 {
+		fork.SetForkPoints(&config.ForkPoints{
+			SeedFork: &config.ForkPoint{
+				Version: 1,
+				Height:  10000000,
+			},
+		})
+	}
+
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
@@ -411,7 +428,9 @@ func randomPanic() {
 		//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
 
 		// insert snapshot block
-		snapshotBlock := createSnapshotBlock(chainInstance, false)
+		snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{
+			SnapshotAll: false,
+		})
 
 		mu.Lock()
 		snapshotBlockList = append(snapshotBlockList, snapshotBlock)
@@ -526,4 +545,95 @@ func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.Snaps
 	dec.Decode(&snapshotList)
 
 	return accounts, snapshotList
+}
+
+/**
+  fork  rollback only for one forkpoint
+*/
+func TestChainForkRollBack(t *testing.T) {
+
+	c, accountMap, _ := SetUp(3, 100, 2)
+	curSnapshotBlock := c.GetLatestSnapshotBlock()
+	fmt.Println(curSnapshotBlock.Height)
+	TearDown(c)
+
+	// height
+	height := uint64(30)
+	fork.SetForkPoints(&config.ForkPoints{
+		SeedFork: &config.ForkPoint{
+			Height:  height,
+			Version: 1,
+		},
+	})
+
+	c, accountMap, _ = SetUp(10, 0, 0)
+
+	defer func() {
+		TearDown(c)
+		if err := Clear(c); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	curSnapshotBlocknew := c.GetLatestSnapshotBlock()
+
+	fmt.Println(curSnapshotBlocknew.Height, curSnapshotBlocknew.Height == height-1)
+	if curSnapshotBlocknew.Height != height-1 {
+
+		t.Fatal(fmt.Sprintf("not equal %+v, %d", curSnapshotBlocknew, height-1))
+	}
+
+	InsertAccountBlocks(nil, c, accountMap, 5)
+
+	timeNow := time.Now()
+	accountBlockList := c.GetAllUnconfirmedBlocks()
+
+	accountBlockListCopy := make([]*ledger.AccountBlock, 2)
+	copy(accountBlockListCopy, accountBlockList[len(accountBlockList)-2:])
+
+	var createSnaoshotContent = func() ledger.SnapshotContent {
+
+		sc := make(ledger.SnapshotContent)
+
+		for i := len(accountBlockList) - 3; i >= 0; i-- {
+			if i == len(accountBlockList) {
+				continue
+			}
+			block := accountBlockList[i]
+			if _, ok := sc[block.AccountAddress]; !ok {
+				sc[block.AccountAddress] = &ledger.HashHeight{
+					Hash:   block.Hash,
+					Height: block.Height,
+				}
+			}
+		}
+		return sc
+	}
+	sb := &ledger.SnapshotBlock{
+		PrevHash:        curSnapshotBlocknew.Hash,
+		Height:          curSnapshotBlocknew.Height + 1,
+		Timestamp:       &timeNow,
+		SnapshotContent: createSnaoshotContent(),
+	}
+	sb.Hash = sb.ComputeHash()
+	delaccountBlockList, err := c.InsertSnapshotBlock(sb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(delaccountBlockList) != len(accountBlockListCopy) {
+		t.Fatal(fmt.Sprintf("len must be equal %+v, %+v", delaccountBlockList, accountBlockListCopy))
+
+	}
+	for index, item := range delaccountBlockList {
+		if item.Hash != accountBlockListCopy[index].Hash {
+			t.Fatal(fmt.Sprintf("must be equal %+v, %+v", item, accountBlockListCopy[index]))
+		}
+	}
+
+	accountBlockListNew := c.GetAllUnconfirmedBlocks()
+	if len(accountBlockListNew) != 0 {
+		t.Fatal(fmt.Sprintf("GetAllUnconfirmedBlocks must be 0, but %d", len(accountBlockListNew)))
+	}
+
 }

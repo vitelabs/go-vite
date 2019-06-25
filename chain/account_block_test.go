@@ -368,6 +368,92 @@ func checkAccountBlock(hash types.Hash, getBlock func() (*ledger.AccountBlock, e
 	}
 }
 
+/**
+  1、accountblock is confirmed by N
+
+*/
+func TestChain_IsSeedConfirmedNTimes(t *testing.T) {
+	chainInstance, accounts, _ := SetUp(1, 0, 0)
+	InsertAccountBlocks(nil, chainInstance, accounts, 1)
+	accountBlockList := chainInstance.GetAllUnconfirmedBlocks()
+	if accountBlockList == nil || len(accountBlockList) != 1 {
+		t.Fatal("can not be null, len must be 1")
+	}
+
+	accountBlock := accountBlockList[0]
+
+	flag, err := chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 0)
+	if err == nil || flag != false {
+		t.Fatal(fmt.Sprintf("must be error, when n is 0, flag is %t, err is %+v", flag, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 1)
+	// flag= false and err!=nil
+	if flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+	snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: true, Seed: 1})
+
+	accountBlockListReturn, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
+	if len(accountBlockListReturn) != 0 || err != nil {
+		t.Fatal(fmt.Sprintf("accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 1)
+
+	// flag == true and err ==nil
+	if !flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 2)
+
+	// flag == false and err==nil
+	if flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	snapshotBlock = createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: true})
+	accountBlockListReturn, err = chainInstance.InsertSnapshotBlock(snapshotBlock)
+	if len(accountBlockListReturn) != 0 || err != nil {
+		t.Fatal(fmt.Sprintf("accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 2)
+	// flag == false and err==nil
+	if flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 1)
+
+	// flag == true and err ==nil
+	if !flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	snapshotBlock = createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: true, Seed: 2})
+	accountBlockListReturn, err = chainInstance.InsertSnapshotBlock(snapshotBlock)
+	if len(accountBlockListReturn) != 0 || err != nil {
+		t.Fatal(fmt.Sprintf("accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 2)
+	// flag = true and err ==nil
+	if !flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	flag, err = chainInstance.IsSeedConfirmedNTimes(accountBlock.Hash, 1)
+
+	// flag = true and err =nil
+	if !flag || err != nil {
+		t.Fatal(fmt.Sprintf("flag is %t, err is %+v", flag, err))
+	}
+
+	TearDown(chainInstance)
+}
+
 func testAccountBlockNoTesting(chainInstance *chain, accounts map[types.Address]*Account) {
 
 	GetAccountBlockByHash(chainInstance, accounts)
