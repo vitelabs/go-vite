@@ -37,9 +37,13 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		BlockType:  ledger.BlockTypeReceive,
 		Difficulty: big.NewInt(67108863),
 	}
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock, jumpdests: make(destinations)}
+	code, _ := hex.DecodeString("608060405234801561001057600080fd5b50610141806100206000396000f3fe608060405260043610610041576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806391a6cb4b14610046575b600080fd5b6100896004803603602081101561005c57600080fd5b81019080803574ffffffffffffffffffffffffffffffffffffffffff16906020019092919050505061008b565b005b8074ffffffffffffffffffffffffffffffffffffffffff164669ffffffffffffffffffff163460405160405180820390838587f1505050508074ffffffffffffffffffffffffffffffffffffffffff167faa65281f5df4b4bd3c71f2ba25905b907205fce0809a816ef8e04b4d496a85bb346040518082815260200191505060405180910390a25056fea165627a7a7230582036a610e43120f537e367e329d2835ba4369e3fe2755c8a32f675fe81f4a971db0029")
+	c.setCallCode(sendCallBlock.ToAddress, code)
 	c.returnData, _ = hex.DecodeString("000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000174876e80000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001052654973737561626c6520546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000027274000000000000000000000000000000000000000000000000000000000000")
 	stack := newStack()
+	mem := newMemory()
+	mem.resize(1024)
 
 	// convert args
 	byteArgs := make([][]byte, len(args))
@@ -53,7 +57,7 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 			a := new(big.Int).SetBytes(arg)
 			stack.push(a)
 		}
-		op(&pc, vm, c, nil, stack)
+		op(&pc, vm, c, mem, stack)
 		for i := stack.len(); i > 0; i-- {
 			stack.pop()
 		}
@@ -464,6 +468,25 @@ func BenchmarkOpMstore(bench *testing.B) {
 	}
 	poolOfIntPools.put(c.intPool)
 }
+func BenchmarkOpMstore8(bench *testing.B) {
+	vm := &VM{}
+	//vm.Debug = true
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	stack := newStack()
+	mem := newMemory()
+	mem.resize(64)
+	pc := uint64(0)
+	memStart := big.NewInt(0)
+	value := big.NewInt(0x13)
+
+	bench.ResetTimer()
+	for i := 0; i < bench.N; i++ {
+		stack.push(value)
+		stack.push(memStart)
+		opMstore8(&pc, vm, c, mem, stack)
+	}
+	poolOfIntPools.put(c.intPool)
+}
 
 func BenchmarkRandom(b *testing.B) {
 	opBenchmark(b, opRandom)
@@ -502,7 +525,10 @@ func BenchmarkReturnDataSize(b *testing.B) {
 	opBenchmark(b, opReturnDataSize)
 }
 func BenchmarkReturnDataCopy(b *testing.B) {
-	opBenchmark(b, opReturnDataCopy)
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000000"
+	z := "0000000000000000000000000000000000000000000000000000000000000020"
+	opBenchmark(b, opReturnDataCopy, x, y, z)
 }
 func BenchmarkCodeSize(b *testing.B) {
 	opBenchmark(b, opCodeSize)
@@ -530,5 +556,76 @@ func BenchmarkTokenId(b *testing.B) {
 func BenchmarkAccountHeight(b *testing.B) {
 	opBenchmark(b, opAccountHeight)
 }
+func BenchmarkPrevHash(b *testing.B) {
+	opBenchmark(b, opAccountHash)
+}
+func BenchmarkFromHash(b *testing.B) {
+	opBenchmark(b, opFromHash)
+}
+func BenchmarkPop(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, opPop, x)
+}
+func BenchmarkJump(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000010"
+	opBenchmark(b, opJump, x)
+}
+func BenchmarkJumpi(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000001"
+	y := "0000000000000000000000000000000000000000000000000000000000000010"
+	opBenchmark(b, opJumpi, x, y)
+}
+func BenchmarkPc(b *testing.B) {
+	opBenchmark(b, opPc)
+}
+func BenchmarkMSize(b *testing.B) {
+	opBenchmark(b, opMsize)
+}
+func BenchmarkJumpDest(b *testing.B) {
+	opBenchmark(b, opJumpdest)
+}
+func BenchmarkPush(b *testing.B) {
+	opBenchmark(b, makePush(32, 32))
+}
+func BenchmarkDup(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, makeDup(1), x)
+}
+func BenchmarkSwap(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, makeSwap(1), x, y)
+}
+func BenchmarkReturn(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000020"
+	opBenchmark(b, opReturn, x, y)
+}
+func BenchmarkRevert(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	y := "0000000000000000000000000000000000000000000000000000000000000020"
+	opBenchmark(b, opRevert, x, y)
+}
+func BenchmarkMLoad(b *testing.B) {
+	x := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, opMload, x)
+}
+func BenchmarkLog(b *testing.B) {
+	start := "0000000000000000000000000000000000000000000000000000000000000000"
+	size := "0000000000000000000000000000000000000000000000000000000000000020"
+	topic1 := "0000000000000000000000000000000000000000000000000000000000000000"
+	topic2 := "0000000000000000000000000000000000000000000000000000000000000000"
+	topic3 := "0000000000000000000000000000000000000000000000000000000000000000"
+	topic4 := "0000000000000000000000000000000000000000000000000000000000000000"
+	opBenchmark(b, makeLog(4), start, size, topic1, topic2, topic3, topic4)
+}
+func BenchmarkCall(b *testing.B) {
+	addr := "0000000000000000000000e41be57d38c796984952fad618a9bc91637329b500"
+	tokenID := "000000000000000000000000000000000000000000001949754100b9b491e7d3"
+	amount := "0000000000000000000000000000000000000000000000000000000000000010"
+	offset := "0000000000000000000000000000000000000000000000000000000000000000"
+	size := "0000000000000000000000000000000000000000000000000000000000000020"
+	opBenchmark(b, opCall, addr, tokenID, amount, offset, size)
+}
 
-// TODO accountHeight,prevHash,fromHash,pop,mload,mstore8,sloar,sstore,jump,jumpi,pc,msize,gas,jumpdest,push,dup,swap,log,call,return,revert
+// TODO sload,sstore
