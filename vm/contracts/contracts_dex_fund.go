@@ -157,11 +157,11 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		return nil, err
 	}
 	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
-		return nil, dex.TradeMarketExistsErr
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, dex.TradeMarketExistsErr, sendBlock)
 	}
 	marketInfo := &dex.MarketInfo{}
 	if err = dex.RenderMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
-		return nil, err
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
 	}
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
 	if exceedAmount.Sign() > 0 {
@@ -470,7 +470,11 @@ func (md MethodDexFundPledgeForVx) DoReceive(db vm_db.VmDb, block *ledger.Accoun
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForVx, sendBlock.Data); err != nil {
 		return []*ledger.AccountBlock{}, err
 	}
-	return dex.HandlePledgeAction(db, block, dex.PledgeForVx, param.ActionType, sendBlock.AccountAddress, param.Amount)
+	if appendBlocks, err := dex.HandlePledgeAction(db, block, dex.PledgeForVx, param.ActionType, sendBlock.AccountAddress, param.Amount); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPledgeForVx, err, sendBlock)
+	} else {
+		return appendBlocks, nil
+	}
 }
 
 type MethodDexFundPledgeForVip struct {
@@ -511,7 +515,11 @@ func (md MethodDexFundPledgeForVip) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForVip, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPledgeForVip, err, sendBlock)
 	}
-	return dex.HandlePledgeAction(db, block, dex.PledgeForVip, param.ActionType, sendBlock.AccountAddress, dex.PledgeForVipAmount)
+	if appendBlocks, err := dex.HandlePledgeAction(db, block, dex.PledgeForVip, param.ActionType, sendBlock.AccountAddress, dex.PledgeForVipAmount); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPledgeForVip, err, sendBlock)
+	} else {
+		return appendBlocks, nil
+	}
 }
 
 type MethodDexFundPledgeCallback struct {
@@ -1046,7 +1054,7 @@ func (md *MethodDexFundNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 
 func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
-		return nil, dex.AlreadyIsInviterErr
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.AlreadyIsInviterErr, sendBlock)
 	}
 	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
 	if exceedAmount.Sign() > 0 {
@@ -1054,7 +1062,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	}
 	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
-		return nil, dex.NewInviteCodeFailErr
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.NewInviteCodeFailErr, sendBlock)
 	} else {
 		dex.SaveCodeByInviter(db, sendBlock.AccountAddress, inviteCode)
 		dex.SaveInviterByCode(db, sendBlock.AccountAddress, inviteCode)
