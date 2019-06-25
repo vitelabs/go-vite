@@ -144,43 +144,45 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 			return err
 		}
 		iterators = append(iterators, iterator)
-		if ok = iterator.Next(); ok {
-			brokerFeeSumKey = iterator.Key() //3+8+21
-			brokerFeeSumBytes = iterator.Value()
-			if len(brokerFeeSumBytes) == 0 {
-				continue
+		for {
+			if ok = iterator.Next(); ok {
+				brokerFeeSumKey = iterator.Key() //3+8+21
+				brokerFeeSumBytes = iterator.Value()
+				if len(brokerFeeSumBytes) == 0 {
+					continue
+				}
+				if len(brokerFeeSumKey) != 32 {
+					panic(fmt.Errorf("invalid broker fee type"))
+				}
+				DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
+			} else {
+				break
 			}
-			if len(brokerFeeSumKey) != 32 {
-				panic(fmt.Errorf("invalid broker fee type"))
+			brokerFeeSum := &BrokerFeeSumByPeriod{}
+			if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
+				panic(err)
 			}
-			DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
-		} else {
-			break
-		}
-		brokerFeeSum := &BrokerFeeSumByPeriod{}
-		if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
-			panic(err)
-		}
-		addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
-		if err != nil {
-			panic(err)
-		}
-		userFund := make(map[types.TokenTypeId]*big.Int)
-		for _, feeAcc := range brokerFeeSum.BrokerFees {
-			tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
+			addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
 			if err != nil {
 				panic(err)
 			}
-			for _, mkFee := range feeAcc.MarketFees {
-				if fd, ok1 := userFund[tokenId]; ok1 {
-					userFund[tokenId] = new(big.Int).Add(fd, new(big.Int).SetBytes(mkFee.Amount))
-				} else {
-					userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
+			userFund := make(map[types.TokenTypeId]*big.Int)
+			for _, feeAcc := range brokerFeeSum.BrokerFees {
+				tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
+				if err != nil {
+					panic(err)
 				}
-				AddBrokerFeeDividendEvent(db, addr, mkFee)
+				for _, mkFee := range feeAcc.MarketFees {
+					if fd, hasToken := userFund[tokenId]; hasToken {
+						userFund[tokenId] = new(big.Int).Add(fd, new(big.Int).SetBytes(mkFee.Amount))
+					} else {
+						userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
+					}
+					AddBrokerFeeDividendEvent(db, addr, mkFee)
+				}
 			}
+			BatchSaveUserFund(db, addr, userFund)
 		}
-		BatchSaveUserFund(db, addr, userFund)
 	}
 	return nil
 }

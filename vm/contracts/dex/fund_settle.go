@@ -194,11 +194,18 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 	var (
 		incAmt               []byte
 		brokerFeeSumByPeriod *BrokerFeeSumByPeriod
+		hasValidAmount       bool
 	)
-	for _, feeAction := range feeActions {
-		incAmt = AddBigInt(incAmt, feeAction.BrokerFee)
-	}
 
+	for _, feeAction := range feeActions {
+		if len(feeAction.BrokerFee) > 0 && CmpToBigZero(feeAction.BrokerFee) > 0 {
+			incAmt = AddBigInt(incAmt, feeAction.BrokerFee)
+			hasValidAmount = true
+		}
+	}
+	if !hasValidAmount {
+		return
+	}
 	brokerFeeSumByPeriod, _ = GetCurrentBrokerFeeSum(db, reader, marketInfo.Owner)
 	var foundToken bool
 	for _, brokerFeeSum := range brokerFeeSumByPeriod.BrokerFees {
