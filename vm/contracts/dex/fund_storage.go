@@ -37,7 +37,8 @@ var (
 	marketIdKey                         = []byte("mkId:")
 	orderIdSerialNoKey                  = []byte("orIdSl:")
 
-	timerContractAddressKey = []byte("tmA:")
+	timerAddressKey   = []byte("tmA:")
+	triggerAddressKey = []byte("tgA:")
 
 	VxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
@@ -116,14 +117,17 @@ const (
 	CancelPledge
 )
 
+//MethodNameDexFundOwnerConfig
 const (
 	OwnerConfigOwner          = 1
-	OwnerConfigTimerAddress   = 2
-	OwnerConfigStopViteX      = 4
-	OwnerConfigMakerMineProxy = 8
-	OwnerConfigMaintainer     = 16
+	OwnerConfigTimer          = 2
+	OwnerConfigTrigger        = 4
+	OwnerConfigStopViteX      = 8
+	OwnerConfigMakerMineProxy = 16
+	OwnerConfigMaintainer     = 32
 )
 
+//MethodNameDexFundOwnerConfigTrade
 const (
 	OwnerConfigMineMarket     = 1
 	OwnerConfigNewQuoteToken  = 2
@@ -232,10 +236,11 @@ type ParamDexFundGetTokenInfoCallback struct {
 type ParamDexFundOwnerConfig struct {
 	OperationCode  uint8
 	Owner          types.Address // 1 owner
-	TimerAddress   types.Address // 2 timerAddress
-	StopViteX      bool          // 4 stopViteX
-	MakerMineProxy types.Address // 8 maker mine proxy
-	Maintainer     types.Address // 16 maintainer
+	Timer          types.Address // 2 timerAddress
+	Trigger        types.Address // 4 maintainer
+	StopViteX      bool          // 8 stopViteX
+	MakerMineProxy types.Address // 16 maker mine proxy
+	Maintainer     types.Address // 32 maintainer
 }
 
 type ParamDexFundOwnerConfigTrade struct {
@@ -1220,14 +1225,25 @@ func SaveViteXStopped(db vm_db.VmDb, isStopViteX bool) {
 }
 
 func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
-	if timerAddressBytes := getValueFromDb(db, timerContractAddressKey); bytes.Equal(timerAddressBytes, address.Bytes()) {
+	if timerAddressBytes := getValueFromDb(db, timerAddressKey); bytes.Equal(timerAddressBytes, address.Bytes()) {
 		return true
 	}
 	return false
 }
 
 func SetTimerAddress(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, timerContractAddressKey, address.Bytes())
+	setValueToDb(db, timerAddressKey, address.Bytes())
+}
+
+func ValidTriggerAddress(db vm_db.VmDb, address types.Address) bool {
+	if triggerAddressBytes := getValueFromDb(db, triggerAddressKey); bytes.Equal(triggerAddressBytes, address.Bytes()) {
+		return true
+	}
+	return false
+}
+
+func SetTriggerAddress(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, triggerAddressKey, address.Bytes())
 }
 
 func GetPledgeForVx(db vm_db.VmDb, address types.Address) *big.Int {
