@@ -2,8 +2,12 @@ package chain
 
 import (
 	"encoding/json"
+	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm_db"
 	"log"
+	"math/big"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -28,6 +32,10 @@ import (
 var GenesisJson = `{
   "GenesisAccountAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
   "ForkPoints": {
+	"SeedFork":{
+      "Height":1,
+      "Version":1
+    }
   },
   "ConsensusGroupInfo": {
     "ConsensusGroupInfoMap":{
@@ -182,6 +190,8 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	genesisConfig := &config.Genesis{}
 
 	json.Unmarshal([]byte(GenesisJson), genesisConfig)
+
+	fork.SetForkPoints(genesisConfig.ForkPoints)
 
 	chainInstance := NewChain(dataDir, &config.Chain{}, genesisConfig)
 
@@ -636,4 +646,67 @@ func TestChainForkRollBack(t *testing.T) {
 		t.Fatal(fmt.Sprintf("GetAllUnconfirmedBlocks must be 0, but %d", len(accountBlockListNew)))
 	}
 
+}
+
+func BenchmarkSetValue(b *testing.B) {
+	fmt.Println("helllo")
+	chainInstance, _, _ := SetUp(0, 0, 0)
+	defer TearDown(chainInstance)
+	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
+	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
+	value := helper.Tt256m1.Bytes()
+	bigKey := new(big.Int)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		key := types.DataHash(bigKey.SetInt64(int64(i)).Bytes())
+		err := db.SetValue(key.Bytes(), value)
+		if err != nil {
+			b.Fatalf("db set value failed, err: %v", err)
+		}
+	}
+}
+
+func BenchmarkGetValue(b *testing.B) {
+	chainInstance, _, _ := SetUp(0, 0, 0)
+	defer TearDown(chainInstance)
+	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
+	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
+	value := helper.Tt256m1.Bytes()
+	key := types.DataHash(big.NewInt(1).Bytes())
+	err := db.SetValue(key.Bytes(), value)
+	if err != nil {
+		b.Fatalf("db set value failed, err: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := db.GetValue(key.Bytes())
+		if err != nil {
+			b.Fatalf("db get value failed, err: %v", err)
+		}
+	}
+}
+func BenchmarkGetBalance(b *testing.B) {
+	chainInstance, _, _ := SetUp(0, 0, 0)
+	defer TearDown(chainInstance)
+	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
+	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := db.GetBalance(&ledger.ViteTokenId)
+		if err != nil {
+			b.Fatalf("db get balance failed, err: %v", err)
+		}
+	}
+}
+
+func TestCalcStorageSize(t *testing.T) {
+	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
+	key := types.DataHash(big.NewInt(1).Bytes())
+	skey := chain_utils.CreateStorageValueKey(&addr, key.Bytes())
+	balanceSkey := chain_utils.CreateBalanceKey(addr, ledger.ViteTokenId)
+	fmt.Printf("storage key size(byte): %v, value size(byte): 32, total size(byte):%v\n", len(skey), len(skey)+32)
+	fmt.Printf("balance storage key size(byte): %v, value size(byte): 32, total size(byte):%v\n", len(balanceSkey), len(balanceSkey)+32)
 }
