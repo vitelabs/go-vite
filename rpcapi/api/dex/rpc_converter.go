@@ -120,6 +120,7 @@ func FeeSumByPeriodToRpc(feeSum *dex.FeeSumByPeriod) *RpcFeeSumByPeriod {
 		rpcMine.QuoteTokenType = mine.QuoteTokenType
 		rpcMine.BaseAmount = amountBytesToString(mine.BaseAmount)
 		rpcMine.InviteBonusAmount = amountBytesToString(mine.InviteBonusAmount)
+		rpcFeeSum.FeesForMine = append(rpcFeeSum.FeesForMine, rpcMine)
 	}
 	rpcFeeSum.LastValidPeriod = feeSum.LastValidPeriod
 	rpcFeeSum.FinishFeeDividend = feeSum.FinishFeeDividend
