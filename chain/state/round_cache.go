@@ -5,6 +5,7 @@ import (
 	chain_utils "github.com/vitelabs/go-vite/chain/utils"
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -12,39 +13,89 @@ import (
 	"math/big"
 )
 
+type RoundCacheLogItem struct {
+	Storage    [][2][]byte
+	BalanceMap map[types.TokenTypeId]*big.Int
+}
+
+type RoundCacheSnapshotLog struct {
+	LogMap         map[types.Address][]RoundCacheLogItem
+	SnapshotHeight uint64
+}
+
+func newRoundCacheSnapshotLog(capacity int, snapshotHeight uint64) *RoundCacheSnapshotLog {
+	return &RoundCacheSnapshotLog{
+		LogMap:         make(map[types.Address][]RoundCacheLogItem, capacity),
+		SnapshotHeight: snapshotHeight,
+	}
+}
+
 // TODO
 type RoundCacheRedoLogs struct {
-	Logs []SnapshotLog
+	Logs []*RoundCacheSnapshotLog
 }
 
 // TODO
 func NewRoundCacheRedoLogs() *RoundCacheRedoLogs {
-	return nil
+	return &RoundCacheRedoLogs{}
 }
 
-// TODO filter
-func (redoLogs *RoundCacheRedoLogs) Add(log SnapshotLog) {}
+func (redoLogs *RoundCacheRedoLogs) Add(snapshotHeight uint64, snapshotLog SnapshotLog) {
+	filteredSnapshotLog := newRoundCacheSnapshotLog(len(snapshotLog), snapshotHeight)
+
+	for addr, logList := range snapshotLog {
+		needSetStorage := addr == types.AddressConsensusGroup
+
+		filteredLogList := make([]RoundCacheLogItem, len(logList))
+
+		for index, logItem := range logList {
+			filteredLogItem := RoundCacheLogItem{}
+
+			// set storage
+			if needSetStorage {
+				filteredLogItem.Storage = logItem.Storage
+			}
+
+			// set balance
+			filteredLogItem.BalanceMap = logItem.BalanceMap
+
+			filteredLogList[index] = filteredLogItem
+
+		}
+
+		filteredSnapshotLog.LogMap[addr] = filteredLogList
+	}
+
+	redoLogs.Logs = append(redoLogs.Logs, filteredSnapshotLog)
+
+	// append snapshot height
+
+}
 
 type RedoCacheData struct {
+	RoundIndex uint64
+
 	CurrentData *memdb.DB
 
 	RedoLogs *RoundCacheRedoLogs
 }
 
-func NewRedoCacheData(currentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *RedoCacheData {
+func NewRedoCacheData(roundIndex uint64, currentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *RedoCacheData {
 	return &RedoCacheData{
+		RoundIndex:  roundIndex,
 		CurrentData: currentData,
 		RedoLogs:    redoLogs,
 	}
 }
 
 type RoundCache struct {
-	chain      Chain
-	stateDB    *StateDB
-	roundCount uint64
-	timeIndex  core.TimeIndex // TODO new timeIndex: GetPeriodTimeIndex() TimeIndex
+	chain            Chain
+	stateDB          *StateDB
+	roundCount       uint64
+	timeIndex        core.TimeIndex // TODO new timeIndex: GetPeriodTimeIndex() TimeIndex
+	latestRoundIndex uint64
 
-	data map[uint64]*RedoCacheData
+	data []*RedoCacheData
 }
 
 func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache {
@@ -52,19 +103,22 @@ func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache 
 		chain:      chain,
 		stateDB:    stateDB,
 		roundCount: uint64(roundCount),
-		data:       make(map[uint64]*RedoCacheData, roundCount),
+		data:       make([]*RedoCacheData, 0, roundCount),
 	}
 }
 
 // build data
 func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 	// clean data
-	cache.data = make(map[uint64]*RedoCacheData, cache.roundCount)
+	cache.data = make([]*RedoCacheData, 0, cache.roundCount)
 
 	// get latest round index
 	latestTime := latestSb.Timestamp
 
 	roundIndex := cache.timeIndex.Time2Index(*latestTime)
+
+	// set round index of latest snapshot block
+	cache.latestRoundIndex = roundIndex
 
 	if roundIndex <= cache.roundCount {
 		return nil
@@ -84,7 +138,133 @@ func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 	return nil
 }
 
-func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) (map[uint64]*RedoCacheData, error) {
+func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, snapshotLog SnapshotLog) error {
+	roundIndex := cache.timeIndex.Time2Index(*snapshotBlock.Timestamp)
+
+	if roundIndex < cache.latestRoundIndex {
+		return errors.New(fmt.Sprintf("roundIndex < cache.latestRoundIndex, %d < %d", roundIndex, cache.latestRoundIndex))
+	} else if roundIndex == cache.latestRoundIndex {
+		length := len(cache.data)
+		// there are no redoCacheData when delete too more snapshot blocks not long ago， or there is no redo logs when init
+		if length <= 0 {
+			return nil
+		}
+
+		currentRedoCacheData := cache.data[length-1]
+
+		currentRedoCacheData.RedoLogs.Add(snapshotBlock.Height, snapshotLog)
+		return nil
+	}
+
+	// latestRoundIndex is genesis round index
+	if cache.latestRoundIndex <= 0 {
+		return nil
+	}
+
+	// there are no redoCacheData when delete too more snapshot blocks not long ago， or there is no redo logs when init
+	dataLength := len(cache.data)
+	if dataLength <= 0 {
+		roundData, err := cache.queryCurrentData(cache.latestRoundIndex)
+		if err != nil {
+			return err
+		}
+
+		if roundData == nil {
+			return errors.New(fmt.Sprintf("roundData is nil, cache.latestRoundIndex is %d", cache.latestRoundIndex))
+		}
+
+		cache.data = append(cache.data, NewRedoCacheData(cache.latestRoundIndex, roundData, nil))
+	} else if dataLength == 1 {
+		return errors.New(fmt.Sprintf("len(cache.data) is 1, cache.data[0] is %+v", cache.data[0]))
+	} else {
+		prevRoundData := cache.data[dataLength-1]
+		if prevRoundData.RedoLogs == nil || len(prevRoundData.RedoLogs.Logs) <= 0 {
+			return errors.New(fmt.Sprintf("prevRoundData.RedoLogs == nil || len(prevRoundData.RedoLogs.Logs) <= 0. prevRoundData is %+v", prevRoundData))
+		}
+
+		prevBeforePrevRoundData := cache.data[dataLength-2]
+		if prevBeforePrevRoundData.CurrentData == nil {
+			return errors.New(fmt.Sprintf("prevBeforePrevRoundData.CurrentData == nil, prevBeforePrevRoundData is %+v", prevBeforePrevRoundData))
+		}
+
+		// build
+		prevRoundData.CurrentData = cache.buildCurrentData(prevBeforePrevRoundData.CurrentData, prevRoundData.RedoLogs)
+	}
+
+	redoLogs := NewRoundCacheRedoLogs()
+	redoLogs.Add(snapshotBlock.Height, snapshotLog)
+
+	cache.data = append(cache.data, NewRedoCacheData(roundIndex, nil, redoLogs))
+	cache.latestRoundIndex = roundIndex
+
+	if uint64(len(cache.data)) > cache.roundCount {
+		// remove head
+		cache.data = cache.data[1:]
+	}
+	return nil
+}
+
+func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	firstSnapshotBlock := snapshotBlocks[0]
+	firstRoundIndex := cache.timeIndex.Time2Index(*firstSnapshotBlock.Timestamp)
+
+	end := len(cache.data)
+
+	for i := end - 1; i >= 0; i-- {
+		data := cache.data[i]
+		if data.RoundIndex > firstRoundIndex {
+			// to be deleted
+			end = i
+		} else if data.RoundIndex == firstRoundIndex {
+			data.CurrentData = nil
+
+			if data.RedoLogs == nil || len(data.RedoLogs.Logs) <= 0 {
+				end = i
+			} else {
+				// remove
+				redoLogsEnd := len(data.RedoLogs.Logs)
+				for j := redoLogsEnd - 1; j >= 0; j-- {
+					redoLog := data.RedoLogs.Logs[j]
+					if redoLog.SnapshotHeight >= firstSnapshotBlock.Height {
+						redoLogsEnd = j
+					} else {
+						break
+					}
+				}
+
+				if redoLogsEnd <= 0 {
+					end = i
+				} else {
+					data.RedoLogs.Logs = data.RedoLogs.Logs[:redoLogsEnd]
+				}
+
+			}
+		} else if data.RoundIndex < firstRoundIndex {
+			break
+		}
+	}
+
+	if end <= 1 {
+		cache.data = cache.data[:0]
+	} else {
+		cache.data = cache.data[:end]
+	}
+
+	// update last round index
+	beforeFirstSnapshotBlock, err := cache.chain.GetSnapshotHeaderByHeight(firstSnapshotBlock.Height - 1)
+	if err != nil {
+		return err
+	}
+	if beforeFirstSnapshotBlock == nil {
+		return errors.New(fmt.Sprintf("beforeFirstSnapshotBlock is nil, height is %d", firstSnapshotBlock.Height-1))
+	}
+	newLatestRoundIndex := cache.timeIndex.Time2Index(*beforeFirstSnapshotBlock.Timestamp)
+	cache.latestRoundIndex = newLatestRoundIndex
+
+	return nil
+}
+
+func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) ([]*RedoCacheData, error) {
 	// [startRoundIndex - roundIndex]
 	// init first currentData
 	firstCurrentData, err := cache.queryCurrentData(startRoundIndex)
@@ -101,9 +281,9 @@ func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) (map[
 		return nil, err
 	}
 
-	roundsData := make(map[uint64]*RedoCacheData)
+	roundsData := make([]*RedoCacheData, 0, cache.roundCount)
 
-	roundsData[startRoundIndex] = NewRedoCacheData(firstCurrentData, firstRedoLogs)
+	roundsData = append(roundsData, NewRedoCacheData(startRoundIndex, firstCurrentData, firstRedoLogs))
 
 	prevCurrentData := firstCurrentData
 	for index := startRoundIndex + 1; index <= endRoundIndex; index++ {
@@ -120,7 +300,7 @@ func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) (map[
 
 		prevCurrentData = curCurrentData
 
-		roundsData[startRoundIndex] = NewRedoCacheData(curCurrentData, redoLogs)
+		roundsData = append(roundsData, NewRedoCacheData(index, curCurrentData, redoLogs))
 	}
 
 	return roundsData, nil
@@ -173,7 +353,7 @@ func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, 
 			return nil, nil
 		}
 
-		roundRedoLogs.Add(redoLog)
+		roundRedoLogs.Add(snapshotBlock.Height, redoLog)
 	}
 
 	return roundRedoLogs, nil
@@ -185,7 +365,7 @@ func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *R
 	curCurrentData := prevCurrentData.Copy()
 
 	for _, snapshotLog := range redoLogs.Logs {
-		for addr, redoLogs := range snapshotLog {
+		for addr, redoLogs := range snapshotLog.LogMap {
 			for _, redoLog := range redoLogs {
 				// set storage
 				for _, kv := range redoLog.Storage {

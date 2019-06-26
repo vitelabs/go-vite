@@ -37,4 +37,7 @@ type Chain interface {
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 
 	GetSnapshotHeadersAfterOrEqualTime(endHashHeight *ledger.HashHeight, startTime *time.Time, producer *types.Address) ([]*ledger.SnapshotBlock, error)
+
+	// header without snapshot content
+	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
 }
