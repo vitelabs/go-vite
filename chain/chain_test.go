@@ -702,6 +702,20 @@ func BenchmarkGetBalance(b *testing.B) {
 	}
 }
 
+func BenchmarkGetSeed(b *testing.B) {
+	chainInstance, _, _ := SetUp(0, 0, 100)
+	defer TearDown(chainInstance)
+	sb := chainInstance.GetLatestSnapshotBlock()
+	fromHash, _ := types.HexToHash("e94d63b892e7490d0fed33ac4530f515641bb74935a06a0e76fca72577f0fe82")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := chainInstance.GetSeed(sb, fromHash)
+		if err != nil {
+			b.Fatalf("db get seed failed, err: %v", err)
+		}
+	}
+}
+
 func TestCalcStorageSize(t *testing.T) {
 	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
 	key := types.DataHash(big.NewInt(1).Bytes())

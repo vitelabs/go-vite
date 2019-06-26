@@ -490,11 +490,37 @@ func BenchmarkOpMstore8(bench *testing.B) {
 }
 
 func BenchmarkRandom(b *testing.B) {
-	opBenchmark(b, opRandom)
+	vm := &VM{}
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	stack := newStack()
+	pc := uint64(0)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		vm.globalStatus = NewTestGlobalStatus(100, nil)
+		opRandom(&pc, vm, c, nil, stack)
+		for i := stack.len(); i > 0; i-- {
+			stack.pop()
+		}
+	}
+	poolOfIntPools.put(c.intPool)
 }
 
 func BenchmarkSeed(b *testing.B) {
-	opBenchmark(b, opSeed)
+	vm := &VM{}
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	stack := newStack()
+	pc := uint64(0)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		vm.globalStatus = NewTestGlobalStatus(100, nil)
+		opSeed(&pc, vm, c, nil, stack)
+		for i := stack.len(); i > 0; i-- {
+			stack.pop()
+		}
+	}
+	poolOfIntPools.put(c.intPool)
 }
 func BenchmarkNot(b *testing.B) {
 	x := "ABCDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff"

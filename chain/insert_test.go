@@ -178,7 +178,7 @@ func testRedo(t *testing.T, chainInstance *chain) {
 }
 
 func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
-	sb := createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: snapshotAll})
+	sb := createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: snapshotAll, Seed: 1})
 	invalidBlocks, err := chainInstance.InsertSnapshotBlock(sb)
 	if err != nil {
 		return nil, nil, err
