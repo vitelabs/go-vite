@@ -85,8 +85,10 @@ func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 	if pledgeType == PledgeForVx {
 		available := GetPledgeForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)
-		if leave.Sign() < 0 || leave.Cmp(PledgeForVxMinAmount) < 0 {
+		if leave.Sign() < 0 {
 			return nil, ExceedPledgeAvailableErr
+		} else if leave.Sign() > 0 && leave.Cmp(PledgeForVxMinAmount) < 0 {
+			return nil, PledgeAmountLeavedNotValidErr
 		}
 	} else {
 		if pledgeVip, ok := GetPledgeForVip(db, address); !ok {
