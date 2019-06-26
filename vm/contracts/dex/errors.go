@@ -28,14 +28,15 @@ var (
 
 	OnlyOwnerAllowErr = errors.New("only owner allow")
 
-	ExceedFundAvailableErr     = errors.New("exceed fund available")
-	ExceedFundLockedErr        = errors.New("try release locked amount exceed locked")
-	InvalidPledgeAmountErr     = errors.New("invalid pledge amount")
-	InvalidPledgeActionTypeErr = errors.New("invalid pledge action type")
-	ExceedPledgeAvailableErr   = errors.New("exceed pledge available")
-	PledgeForVipExistsErr      = errors.New("pledge for vip exists")
-	PledgeForVipNotExistsErr   = errors.New("pledge for vip not exists")
-	PledgeForVipNotExpireErr   = errors.New("pledge for vip not expire")
+	ExceedFundAvailableErr        = errors.New("exceed fund available")
+	ExceedFundLockedErr           = errors.New("try release locked amount exceed locked")
+	InvalidPledgeAmountErr        = errors.New("invalid pledge amount")
+	InvalidPledgeActionTypeErr    = errors.New("invalid pledge action type")
+	ExceedPledgeAvailableErr      = errors.New("exceed pledge available")
+	PledgeAmountLeavedNotValidErr = errors.New("pledge amount leaved not valid")
+	PledgeForVipExistsErr         = errors.New("pledge for vip exists")
+	PledgeForVipNotExistsErr      = errors.New("pledge for vip not exists")
+	PledgeForVipNotExpireErr      = errors.New("pledge for vip not expire")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amouznt for pledge callback")
@@ -62,5 +63,5 @@ var (
 	InvalidQuoteTokenTypeErr = errors.New("invalid quote token type")
 	FundOwnerNotConfigErr    = errors.New("fund owner not config")
 
-	InternalErr              = errors.New("internal error")
+	InternalErr = errors.New("internal error")
 )

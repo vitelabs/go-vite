@@ -15,11 +15,6 @@ type DexTradeApi struct {
 	log   log15.Logger
 }
 
-type OrdersRes struct {
-	Orders []*dex.Order `json:"Orders,omitempty"`
-	Size   int        `json:"Size"`
-}
-
 func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
 	return &DexTradeApi{
 		chain: vite.Chain(),
@@ -31,23 +26,23 @@ func (f DexTradeApi) String() string {
 	return "DexTradeApi"
 }
 
-func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken types.TokenTypeId, side bool) (order *dex.Order, err error) {
-	var (
-		orderId []byte
-		db vm_db.VmDb
-		matcher *dex.Matcher
-	)
-	orderId, err = base64.StdEncoding.DecodeString(orderIdStr)
+func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken types.TokenTypeId, side bool) (*RpcOrder, error) {
+
+	orderId, err := base64.StdEncoding.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
 	}
-	if db, err = getDb(f.chain, types.AddressDexTrade); err != nil {
+	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
-		if matcher = dex.NewRawMatcher(db); err != nil {
+		if matcher := dex.NewRawMatcher(db); err != nil {
 			return nil, err
 		} else {
-			return matcher.GetOrderById(orderId)
+			if order, err := matcher.GetOrderById(orderId); err != nil {
+				return nil, err
+			} else {
+				return OrderToRpc(order), nil
+			}
 		}
 	}
 }
@@ -64,10 +59,10 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
 				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &OrdersRes{ods, size}
+					ordersRes = &OrdersRes{OrdersToRpc(ods), size}
 					return ordersRes, err
 				} else {
-					return &OrdersRes{ods, size}, err
+					return &OrdersRes{OrdersToRpc(ods), size}, err
 				}
 			}
 		}
@@ -83,5 +78,32 @@ func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 		return nil, err
 	} else {
 		return db, nil
+	}
+}
+
+
+type RpcOrder struct {
+
+}
+
+type OrdersRes struct {
+	Orders []*RpcOrder `json:"orders,omitempty"`
+	Size   int        `json:"size"`
+}
+
+func OrderToRpc(order *dex.Order) *RpcOrder {
+	if order == nil {
+		return nil
+	}
+	rpcOrder := &RpcOrder{}
+	return rpcOrder
+}
+
+func OrdersToRpc(orders []*dex.Order) []*RpcOrder {
+	if len(orders) == 0 {
+		return nil
+	} else {
+		rpcOrders := make([]*RpcOrder, len(orders))
+		return rpcOrders
 	}
 }
