@@ -244,6 +244,15 @@ func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	return dex.VerifyDexFundBalance(db), nil
 }
 
+func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	_, ok := dex.GetPledgeForVip(db, address)
+	return ok, nil
+}
+
 func (f DexFundApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
