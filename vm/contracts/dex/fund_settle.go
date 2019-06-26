@@ -68,8 +68,8 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	if len(feeActions) == 0 {
 		return
 	}
-
-	feeSumByPeriod, ok := GetCurrentFeeSum(db, reader)
+	periodId := GetCurrentPeriodId(db, reader)
+	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, periodId)
 	if !ok { // need roll period when current period feeSum not saved yet
 		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, GetCurrentPeriodId(db, reader))
 	}
@@ -79,12 +79,17 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	var incBaseSumForDividend []byte
 	var needIncSumForMine bool
 	var incBaseSumForMine, incInviteeSumForMine []byte
+	var mineThreshold *big.Int
+	if allowMine {
+		mineThreshold = GetMineThreshold(db, quoteTokenType)
+	}
+
 	for _, feeAction := range feeActions {
 		incBaseSumForDividend = AddBigInt(incBaseSumForDividend, feeAction.BaseFee)
 		if allowMine {
 			var needAddSum bool
 			var addBaseSum, addInviteeSum []byte
-			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, reader, feeTokenDecimals, quoteTokenType, feeAction, inviteRelations)
+			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, periodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
 			if needAddSum {
 				needIncSumForMine = true
 				incBaseSumForMine = AddBigInt(incBaseSumForMine, addBaseSum)
@@ -128,14 +133,14 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 }
 
 //baseAmount + brokerAmount for vx mine,
-func settleUserFees(db vm_db.VmDb, reader util.ConsensusReader, tokenDecimals, quoteTokenType int32, feeAction *dexproto.UserFeeSettle, inviteRelations map[types.Address]*types.Address) (map[types.Address]*types.Address, bool, []byte, []byte) {
+func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenType int32, mineThreshold *big.Int, feeAction *dexproto.UserFeeSettle, inviteRelations map[types.Address]*types.Address) (map[types.Address]*types.Address, bool, []byte, []byte) {
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
 	}
-	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, reader, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, nil)
+	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, periodId, mineThreshold, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, nil)
 	isInvited, inviter, inviteBonusAmt := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee)
 	if isInvited {
-		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, reader, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviteBonusAmt); neeAddSum1 {
+		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, periodId, mineThreshold, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviteBonusAmt); neeAddSum1 {
 			needAddSum = true
 			addBaseSum = AddBigInt(addBaseSum, addBaseSum1)
 			addInviteeSum = AddBigInt(addInviteeSum, addInviteeSum1)
@@ -144,47 +149,47 @@ func settleUserFees(db vm_db.VmDb, reader util.ConsensusReader, tokenDecimals, q
 	return inviteRelations, needAddSum, addBaseSum, addInviteeSum
 }
 
-func innerSettleUserFee(db vm_db.VmDb, reader util.ConsensusReader, address []byte, tokenDecimals, quoteTokenType int32, baseFee, inviteBonusFee []byte) (needAddSum bool, addBaseSum, addInviteeSum []byte) {
-	periodId := GetCurrentPeriodId(db, reader)
+func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, address []byte, tokenDecimals, quoteTokenType int32, baseTokenFee, inviteBonusTokenFee []byte) (needAddSum bool, addBaseSumNormalAmt, addInviteeSumNormalAmt []byte) {
 	userFees, _ := GetUserFees(db, address)
 	feeLen := len(userFees.Fees)
-	addBaseSum = baseFee
-	addInviteeSum = inviteBonusFee
-	mineThreshold := GetMineThreshold(db, quoteTokenType)
+	addBaseSumNormalAmt = AdjustAmountToQuoteTokenType(baseTokenFee, tokenDecimals, quoteTokenType)
+	addInviteeSumNormalAmt = AdjustAmountToQuoteTokenType(inviteBonusTokenFee, tokenDecimals, quoteTokenType)
 	if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 		var foundToken = false
-		for _, feeAcc := range userFees.Fees[feeLen-1].UserFees {
-			if feeAcc.QuoteTokenType == quoteTokenType {
-				originValid := IsValidFeeForMine(feeAcc.BaseAmount, feeAcc.InviteBonusAmount, mineThreshold)
-				if baseFee != nil {
-					feeAcc.BaseAmount = AddBigInt(feeAcc.BaseAmount, AdjustAmountToQuoteTokenType(baseFee, tokenDecimals, quoteTokenType).Bytes())
+		for _, userFee := range userFees.Fees[feeLen-1].UserFees {
+			if userFee.QuoteTokenType == quoteTokenType {
+				originValid := IsValidFeeForMine(userFee, mineThreshold)
+				if addBaseSumNormalAmt != nil {
+					userFee.BaseAmount = AddBigInt(userFee.BaseAmount, addBaseSumNormalAmt)
 				}
-				if inviteBonusFee != nil {
-					feeAcc.InviteBonusAmount = AddBigInt(feeAcc.InviteBonusAmount, AdjustAmountToQuoteTokenType(inviteBonusFee, tokenDecimals, quoteTokenType).Bytes())
+				if addInviteeSumNormalAmt != nil {
+					userFee.InviteBonusAmount = AddBigInt(userFee.InviteBonusAmount, addInviteeSumNormalAmt)
 				}
-				needAddSum = IsValidFeeForMine(feeAcc.BaseAmount, feeAcc.InviteBonusAmount, mineThreshold)
+				needAddSum = IsValidFeeForMine(userFee, mineThreshold)
 				if needAddSum && !originValid {
-					addBaseSum = feeAcc.BaseAmount
-					addInviteeSum = feeAcc.InviteBonusAmount
+					addBaseSumNormalAmt = userFee.BaseAmount
+					addInviteeSumNormalAmt = userFee.InviteBonusAmount
 				}
 				foundToken = true
 				break
 			}
 		}
 		if !foundToken {
-			userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, newFeeAccount(tokenDecimals, quoteTokenType, baseFee, inviteBonusFee))
-			needAddSum = IsValidFeeForMine(baseFee, inviteBonusFee, mineThreshold)
+			uf := newFeeAccount(quoteTokenType, addBaseSumNormalAmt, addInviteeSumNormalAmt)
+			userFees.Fees[feeLen-1].UserFees = append(userFees.Fees[feeLen-1].UserFees, uf)
+			needAddSum = IsValidFeeForMine(uf, mineThreshold)
 		}
 	} else {
 		userFeeByPeriodId := &dexproto.UserFeeByPeriod{}
 		userFeeByPeriodId.Period = periodId
-		userFeeByPeriodId.UserFees = []*dexproto.UserFeeAccount{newFeeAccount(tokenDecimals, quoteTokenType, baseFee, inviteBonusFee)}
+		uf1 := newFeeAccount(quoteTokenType, addBaseSumNormalAmt, addInviteeSumNormalAmt)
+		userFeeByPeriodId.UserFees = []*dexproto.UserFeeAccount{uf1}
 		userFees.Fees = append(userFees.Fees, userFeeByPeriodId)
-		needAddSum = IsValidFeeForMine(baseFee, inviteBonusFee, mineThreshold)
+		needAddSum = IsValidFeeForMine(uf1, mineThreshold)
 	}
 	if !needAddSum {
-		addBaseSum = nil
-		addInviteeSum = nil
+		addBaseSumNormalAmt = nil
+		addInviteeSumNormalAmt = nil
 	}
 	SaveUserFees(db, address, userFees)
 	return
@@ -369,11 +374,11 @@ func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.A
 	}
 }
 
-func newFeeAccount(tokenDecimals, quoteTokenType int32, baseAmount, inviteBonusAmount []byte) *dexproto.UserFeeAccount {
+func newFeeAccount(quoteTokenType int32, baseAmount, inviteBonusAmount []byte) *dexproto.UserFeeAccount {
 	account := &dexproto.UserFeeAccount{}
 	account.QuoteTokenType = quoteTokenType
-	account.BaseAmount = AdjustAmountToQuoteTokenType(baseAmount, tokenDecimals, quoteTokenType).Bytes()
-	account.InviteBonusAmount = AdjustAmountToQuoteTokenType(inviteBonusAmount, tokenDecimals, quoteTokenType).Bytes()
+	account.BaseAmount = baseAmount
+	account.InviteBonusAmount = inviteBonusAmount
 	return account
 }
 

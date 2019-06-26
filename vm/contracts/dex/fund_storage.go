@@ -766,8 +766,8 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
 }
 
-func IsValidFeeForMine(baseAmount, inviteeAmount []byte, mineThreshold *big.Int) bool {
-	return new(big.Int).Add(new(big.Int).SetBytes(baseAmount), new(big.Int).SetBytes(inviteeAmount)).Cmp(mineThreshold) >= 0
+func IsValidFeeForMine(userFee *dexproto.UserFeeAccount, mineThreshold *big.Int) bool {
+	return new(big.Int).Add(new(big.Int).SetBytes(userFee.BaseAmount), new(big.Int).SetBytes(userFee.InviteBonusAmount)).Cmp(mineThreshold) >= 0
 }
 
 func GetUserFeesKey(address []byte) []byte {
