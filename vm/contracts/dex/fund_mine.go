@@ -14,6 +14,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
+		mineThesholdMap = make(map[int32]*big.Int)
 		err                   error
 		ok                    bool
 	)
@@ -27,6 +28,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
 		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = amtPerMarket
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
+		mineThesholdMap[feeSum.QuoteTokenType] = GetMineThreshold(db, feeSum.QuoteTokenType)
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
@@ -67,6 +69,9 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			var vxMinedForBase = big.NewInt(0)
 			var vxMinedForInvite = big.NewInt(0)
 			for _, userFee := range userFees.Fees[0].UserFees {
+				if !IsValidFeeForMine(userFee, mineThesholdMap[userFee.QuoteTokenType]) {
+					continue
+				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
 					return fmt.Errorf("user with valid userFee, but no valid feeSum")

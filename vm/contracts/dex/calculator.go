@@ -66,11 +66,14 @@ func AdjustAmountForDecimalsDiff(amount []byte, decimalsDiff int32) *big.Int {
 	return RoundAmount(AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount)), decimalsDiff))
 }
 
-func AdjustAmountToQuoteTokenType(amount []byte, tokenDecimals, quoteTokenType int32) *big.Int {
+func AdjustAmountToQuoteTokenType(amount []byte, tokenDecimals, quoteTokenType int32) []byte {
+	if len(amount) == 0 && CmpToBigZero(amount) == 0 {
+		return nil
+	}
 	if info, ok := QuoteTokenTypeInfos[quoteTokenType]; !ok {
 		panic(InvalidQuoteTokenTypeErr)
 	} else {
-		return AdjustAmountForDecimalsDiff(amount, tokenDecimals-info.Decimals)
+		return AdjustAmountForDecimalsDiff(amount, tokenDecimals-info.Decimals).Bytes()
 	}
 }
 
