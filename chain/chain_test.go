@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/vm_db"
 	"log"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	rand2 "crypto/rand"
 	"encoding/gob"
 	"fmt"
 	"github.com/docker/docker/pkg/reexec"
@@ -710,6 +712,76 @@ func BenchmarkGetSeed(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := chainInstance.GetSeed(sb, fromHash)
+		if err != nil {
+			b.Fatalf("db get seed failed, err: %v", err)
+		}
+	}
+}
+
+func BenchmarkCheckConfirmTime(b *testing.B) {
+	chainInstance, _, _ := SetUp(0, 0, 0)
+	defer TearDown(chainInstance)
+
+	pub, pri, err := ed25519.GenerateKey(rand2.Reader)
+	if err != nil {
+		panic(err)
+	}
+	addr := types.PubkeyToAddress(pub)
+	account := NewAccount(chainInstance, pub, pri)
+	accounts := make(map[types.Address]*Account)
+	accounts[addr] = account
+	latestHeight := account.GetLatestHeight()
+	cTxOptions := &CreateTxOptions{
+		MockSignature: true,                         // mock signature
+		KeyValue:      createKeyValue(latestHeight), // create key value
+		VmLogList:     createVmLogList(),            // create vm log list
+		//Quota:         rand.Uint64() % 10000,
+		Quota: rand.Uint64() % 100,
+	}
+	cTxOptions.ContractMeta = &ledger.ContractMeta{
+		SendConfirmedTimes: 1,
+		SeedConfirmedTimes: 1,
+		Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
+	}
+	toAddr := types.CreateContractAddress([]byte{1})
+	toAccount := &Account{
+		Addr:              toAddr,
+		chainInstance:     chainInstance,
+		OnRoadBlocks:      make(map[types.Hash]*ledger.AccountBlock),
+		BlocksMap:         make(map[types.Hash]*ledger.AccountBlock),
+		SendBlocksMap:     make(map[types.Hash]*ledger.AccountBlock),
+		ReceiveBlocksMap:  make(map[types.Hash]*ledger.AccountBlock),
+		ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
+		BalanceMap:        make(map[types.Hash]*big.Int),
+		LogListMap:        make(map[types.Hash]ledger.VmLogList),
+		KvSetMap:          make(map[types.Hash]map[string][]byte),
+		UnconfirmedBlocks: make(map[types.Hash]struct{}),
+	}
+	accounts[toAddr] = toAccount
+	vmBlock, createBlockErr := account.CreateSendBlock(toAccount, cTxOptions)
+	if createBlockErr != nil {
+		b.Fatalf("create send create failed, err: %v", createBlockErr)
+	}
+	// insert vm block
+	account.InsertBlock(vmBlock, accounts)
+
+	// insert vm block to chain
+	if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+		panic(err)
+	}
+	for i := 0; i < 100; i++ {
+		snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true)
+		if err != nil {
+			panic(err)
+		}
+
+		// snapshot
+		Snapshot(accounts, snapshotBlock)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := chainInstance.GetSnapshotBlockByContractMeta(toAddr, vmBlock.AccountBlock.Hash)
 		if err != nil {
 			b.Fatalf("db get seed failed, err: %v", err)
 		}
