@@ -671,15 +671,46 @@ func BenchmarkSetValue(b *testing.B) {
 func BenchmarkGetValue(b *testing.B) {
 	chainInstance, _, _ := SetUp(0, 0, 0)
 	defer TearDown(chainInstance)
-	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
-	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
-	value := helper.Tt256m1.Bytes()
-	key := types.DataHash(big.NewInt(1).Bytes())
-	err := db.SetValue(key.Bytes(), value)
-	if err != nil {
-		b.Fatalf("db set value failed, err: %v", err)
-	}
 
+	pub, pri, err := ed25519.GenerateKey(rand2.Reader)
+	if err != nil {
+		panic(err)
+	}
+	addr := types.PubkeyToAddress(pub)
+	account := NewAccount(chainInstance, pub, pri)
+	toPub, toPri, err := ed25519.GenerateKey(rand2.Reader)
+	if err != nil {
+		panic(err)
+	}
+	toAddr := types.PubkeyToAddress(toPub)
+	toAccount := NewAccount(chainInstance, toPub, toPri)
+	accounts := make(map[types.Address]*Account)
+	accounts[addr] = account
+	accounts[toAddr] = toAccount
+	key := types.DataHash([]byte{1})
+	value := new(big.Int).Set(helper.Tt256m1)
+	cTxOptions := &CreateTxOptions{
+		MockSignature: true, // mock signature
+		KeyValue:      map[string][]byte{(string)(key.Bytes()): value.Bytes()},
+		Quota:         rand.Uint64() % 100,
+	}
+	vmBlock, createBlockErr := account.CreateSendBlock(toAccount, cTxOptions)
+	if createBlockErr != nil {
+		b.Fatalf("create send create failed, err: %v", createBlockErr)
+	}
+	account.InsertBlock(vmBlock, accounts)
+	if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
+		panic(err)
+	}
+	snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true, nil)
+	if err != nil {
+		panic(err)
+	}
+	// snapshot
+	Snapshot(accounts, snapshotBlock)
+	chainInstance.flusher.Flush()
+
+	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := db.GetValue(key.Bytes())
@@ -704,7 +735,7 @@ func BenchmarkGetBalance(b *testing.B) {
 }
 
 func BenchmarkGetSeed(b *testing.B) {
-	chainInstance, _, _ := SetUp(0, 0, 100)
+	chainInstance, _, _ := SetUp(1, 100, 1)
 	defer TearDown(chainInstance)
 	sb := chainInstance.GetLatestSnapshotBlock()
 	fromHash, _ := types.HexToHash("e94d63b892e7490d0fed33ac4530f515641bb74935a06a0e76fca72577f0fe82")
@@ -769,7 +800,7 @@ func BenchmarkCheckConfirmTime(b *testing.B) {
 		panic(err)
 	}
 	for i := 0; i < 100; i++ {
-		snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true)
+		snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -777,6 +808,7 @@ func BenchmarkCheckConfirmTime(b *testing.B) {
 		// snapshot
 		Snapshot(accounts, snapshotBlock)
 	}
+	chainInstance.flusher.Flush()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

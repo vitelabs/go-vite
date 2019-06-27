@@ -1,7 +1,9 @@
 package chain
 
 import (
+	"encoding/binary"
 	"fmt"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -177,8 +179,12 @@ func testRedo(t *testing.T, chainInstance *chain) {
 
 }
 
-func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
-	sb := createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: snapshotAll, Seed: 1})
+func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool, pubKey *ed25519.PublicKey) (*ledger.SnapshotBlock, []*ledger.AccountBlock, error) {
+	sbOption := createSbOption{SnapshotAll: snapshotAll, Seed: 1}
+	if pubKey != nil {
+		sbOption.PublicKey = *pubKey
+	}
+	sb := createSnapshotBlock(chainInstance, sbOption)
 	invalidBlocks, err := chainInstance.InsertSnapshotBlock(sb)
 	if err != nil {
 		return nil, nil, err
@@ -221,7 +227,7 @@ func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum i
 		}
 
 		if snapshotPerBlockNum > 0 && i%snapshotPerBlockNum == 0 {
-			_, _, err := InsertSnapshotBlock(chainInstance, false)
+			_, _, err := InsertSnapshotBlock(chainInstance, false, nil)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -268,7 +274,15 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 
 	countInserted := 0
 
+	var pubKey ed25519.PublicKey
+	producerIndex := 0
+
 	for countInserted < blockCount {
+		if producerIndex%3 == 0 {
+			pubKey = ed25519.PublicKey(randomByte32())
+		}
+		producerIndex = producerIndex + 1
+
 		var insertCount = snapshotPerBlockNum
 
 		if insertCount == 0 {
@@ -284,7 +298,7 @@ func InsertAccountBlockAndSnapshot(chainInstance *chain, accounts map[types.Addr
 		countInserted += insertCount
 
 		// snapshot
-		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false)
+		snapshotBlock, invalidBlocks, err := InsertSnapshotBlock(chainInstance, false, &pubKey)
 		if err != nil {
 			panic(err)
 		}
@@ -437,6 +451,15 @@ func createVmLogList() ledger.VmLogList {
 	return vmLogList
 }
 
+func randomByte32() []byte {
+	randNum := rand.Uint64()
+	randBytes := make([]byte, 32)
+	for i := 0; i < 4; i++ {
+		binary.BigEndian.PutUint64(randBytes[8*i:8*(i+1)], randNum)
+	}
+	return randBytes
+}
+
 func createKeyValue(latestHeight uint64) map[string][]byte {
 	//num := rand.Intn(100)
 	var kv map[string][]byte
@@ -492,6 +515,7 @@ func createSnapshotContent(chainInstance *chain, snapshotAll bool) ledger.Snapsh
 
 type createSbOption struct {
 	SnapshotAll bool
+	PublicKey   ed25519.PublicKey
 	Seed        uint64
 }
 
@@ -512,6 +536,7 @@ func createSnapshotBlock(chainInstance *chain, option createSbOption) *ledger.Sn
 		Height:          latestSb.Height + 1,
 		Timestamp:       &now,
 		SnapshotContent: createSnapshotContent(chainInstance, option.SnapshotAll),
+		PublicKey:       option.PublicKey,
 		Seed:            option.Seed,
 	}
 	sb.Hash = sb.ComputeHash()
