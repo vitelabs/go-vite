@@ -651,7 +651,6 @@ func TestChainForkRollBack(t *testing.T) {
 }
 
 func BenchmarkSetValue(b *testing.B) {
-	fmt.Println("helllo")
 	chainInstance, _, _ := SetUp(0, 0, 0)
 	defer TearDown(chainInstance)
 	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")

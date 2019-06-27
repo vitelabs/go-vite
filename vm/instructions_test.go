@@ -594,13 +594,57 @@ func BenchmarkPop(b *testing.B) {
 	opBenchmark(b, opPop, x)
 }
 func BenchmarkJump(b *testing.B) {
-	x := "0000000000000000000000000000000000000000000000000000000000000010"
-	opBenchmark(b, opJump, x)
+	vm := &VM{}
+	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	code, _ := hex.DecodeString("608060405234801561001057600080fd5b50610141806100206000396000f3fe608060405260043610610041576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806391a6cb4b14610046575b600080fd5b6100896004803603602081101561005c57600080fd5b81019080803574ffffffffffffffffffffffffffffffffffffffffff16906020019092919050505061008b565b005b8074ffffffffffffffffffffffffffffffffffffffffff164669ffffffffffffffffffff163460405160405180820390838587f1505050508074ffffffffffffffffffffffffffffffffffffffffff167faa65281f5df4b4bd3c71f2ba25905b907205fce0809a816ef8e04b4d496a85bb346040518082815260200191505060405180910390a25056fea165627a7a7230582036a610e43120f537e367e329d2835ba4369e3fe2755c8a32f675fe81f4a971db0029")
+	c.setCallCode(addr, code)
+	stack := newStack()
+	mem := newMemory()
+	mem.resize(1024)
+	dest, _ := new(big.Int).SetString("0000000000000000000000000000000000000000000000000000000000000010", 16)
+	pc := uint64(0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		stack.push(new(big.Int).Set(dest))
+		c.jumpdests = make(destinations)
+		_, err := opJump(&pc, vm, c, mem, stack)
+		if err != nil {
+			b.Fatalf("invalid jump destination")
+		}
+		for i := stack.len(); i > 0; i-- {
+			stack.pop()
+		}
+	}
+	poolOfIntPools.put(c.intPool)
 }
 func BenchmarkJumpi(b *testing.B) {
-	x := "0000000000000000000000000000000000000000000000000000000000000001"
-	y := "0000000000000000000000000000000000000000000000000000000000000010"
-	opBenchmark(b, opJumpi, x, y)
+	vm := &VM{}
+	addr, _ := types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	code, _ := hex.DecodeString("608060405234801561001057600080fd5b50610141806100206000396000f3fe608060405260043610610041576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806391a6cb4b14610046575b600080fd5b6100896004803603602081101561005c57600080fd5b81019080803574ffffffffffffffffffffffffffffffffffffffffff16906020019092919050505061008b565b005b8074ffffffffffffffffffffffffffffffffffffffffff164669ffffffffffffffffffff163460405160405180820390838587f1505050508074ffffffffffffffffffffffffffffffffffffffffff167faa65281f5df4b4bd3c71f2ba25905b907205fce0809a816ef8e04b4d496a85bb346040518082815260200191505060405180910390a25056fea165627a7a7230582036a610e43120f537e367e329d2835ba4369e3fe2755c8a32f675fe81f4a971db0029")
+	c.setCallCode(addr, code)
+	stack := newStack()
+	mem := newMemory()
+	mem.resize(1024)
+	condition, _ := new(big.Int).SetString("0000000000000000000000000000000000000000000000000000000000000001", 16)
+	dest, _ := new(big.Int).SetString("0000000000000000000000000000000000000000000000000000000000000010", 16)
+	pc := uint64(0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		stack.push(new(big.Int).Set(condition))
+		stack.push(new(big.Int).Set(dest))
+		c.jumpdests = make(destinations)
+		_, err := opJumpi(&pc, vm, c, mem, stack)
+		if err != nil {
+			b.Fatalf("invalid jump destination")
+		}
+		for i := stack.len(); i > 0; i-- {
+			stack.pop()
+		}
+	}
+	poolOfIntPools.put(c.intPool)
 }
 func BenchmarkPc(b *testing.B) {
 	opBenchmark(b, opPc)
