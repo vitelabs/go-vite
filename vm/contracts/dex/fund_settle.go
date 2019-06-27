@@ -97,6 +97,9 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 			}
 		}
 	}
+	//fmt.Printf("needIncSumForMine %v, incBaseSumForMine %s, incInviteeSumForMine %s\n", needIncSumForMine, new(big.Int).SetBytes(incBaseSumForMine).String(),
+	//	new(big.Int).SetBytes(incInviteeSumForMine).String())
+
 	// settle dividend fee
 	var foundDividendFeeToken bool
 	for _, dividendAcc := range feeSumByPeriod.FeesForDividend {
@@ -150,10 +153,11 @@ func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenTyp
 }
 
 func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, address []byte, tokenDecimals, quoteTokenType int32, baseTokenFee, inviteBonusTokenFee []byte) (needAddSum bool, addBaseSumNormalAmt, addInviteeSumNormalAmt []byte) {
+
 	userFees, _ := GetUserFees(db, address)
 	feeLen := len(userFees.Fees)
-	addBaseSumNormalAmt = AdjustAmountToQuoteTokenType(baseTokenFee, tokenDecimals, quoteTokenType)
-	addInviteeSumNormalAmt = AdjustAmountToQuoteTokenType(inviteBonusTokenFee, tokenDecimals, quoteTokenType)
+	addBaseSumNormalAmt = NormalizeToQuoteTokenTypeAmount(baseTokenFee, tokenDecimals, quoteTokenType)
+	addInviteeSumNormalAmt = NormalizeToQuoteTokenTypeAmount(inviteBonusTokenFee, tokenDecimals, quoteTokenType)
 	if feeLen > 0 && periodId == userFees.Fees[feeLen-1].Period {
 		var foundToken = false
 		for _, userFee := range userFees.Fees[feeLen-1].UserFees {
@@ -192,6 +196,10 @@ func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, 
 		addInviteeSumNormalAmt = nil
 	}
 	SaveUserFees(db, address, userFees)
+	//addr, _ := types.BytesToAddress(address)
+	//fmt.Printf("addr %s, needAddSum %v, addBaseSumNormalAmt %s, addInviteeSumNormalAmt %s\n", addr.String(), needAddSum, new(big.Int).SetBytes(addBaseSumNormalAmt).String(),
+	//	new(big.Int).SetBytes(addInviteeSumNormalAmt).String())
+
 	return
 }
 
@@ -236,7 +244,6 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 		brokerFeeAcc.MarketFees = append(brokerFeeAcc.MarketFees, newBrokerMarketFee(marketInfo, incAmt))
 		brokerFeeSumByPeriod.BrokerFees = append(brokerFeeSumByPeriod.BrokerFees, brokerFeeAcc)
 	}
-
 	SaveCurrentBrokerFeeSum(db, reader, marketInfo.Owner, brokerFeeSumByPeriod)
 }
 

@@ -6,8 +6,6 @@ import (
 	"math/big"
 )
 
-
-
 type DividendPoolInfo struct {
 	Amount         string           `json:"amount"`
 	QuoteTokenType int32            `json:"quoteTokenType"`
@@ -112,14 +110,14 @@ func FeeSumByPeriodToRpc(feeSum *dex.FeeSumByPeriod) *RpcFeeSumByPeriod {
 	for _, dividend := range feeSum.FeesForDividend {
 		rpcDividend := &RpcFeeSumForDividend{}
 		rpcDividend.Token = tokenBytesToString(dividend.Token)
-		rpcDividend.DividendPoolAmount = amountBytesToString(dividend.DividendPoolAmount)
+		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
 		rpcFeeSum.FeesForDividend = append(rpcFeeSum.FeesForDividend, rpcDividend)
 	}
 	for _, mine := range feeSum.FeesForMine {
 		rpcMine := &RpcFeeSumForMine{}
 		rpcMine.QuoteTokenType = mine.QuoteTokenType
-		rpcMine.BaseAmount = amountBytesToString(mine.BaseAmount)
-		rpcMine.InviteBonusAmount = amountBytesToString(mine.InviteBonusAmount)
+		rpcMine.BaseAmount = AmountBytesToString(mine.BaseAmount)
+		rpcMine.InviteBonusAmount = AmountBytesToString(mine.InviteBonusAmount)
 		rpcFeeSum.FeesForMine = append(rpcFeeSum.FeesForMine, rpcMine)
 	}
 	rpcFeeSum.LastValidPeriod = feeSum.LastValidPeriod
@@ -153,8 +151,8 @@ func UserFeesToRpc(userFees *dex.UserFees) *RpcUserFees {
 		for _, acc := range fee.UserFees {
 			rpcAcc := &RpcUserFeeAccount{}
 			rpcAcc.QuoteTokenType = acc.QuoteTokenType
-			rpcAcc.BaseAmount = amountBytesToString(acc.BaseAmount)
-			rpcAcc.InviteBonusAmount = amountBytesToString(acc.InviteBonusAmount)
+			rpcAcc.BaseAmount = AmountBytesToString(acc.BaseAmount)
+			rpcAcc.InviteBonusAmount = AmountBytesToString(acc.InviteBonusAmount)
 			rpcFee.UserFees = append(rpcFee.UserFees, rpcAcc)
 		}
 		rpcFee.Period = fee.Period
@@ -180,13 +178,18 @@ func VxFundsToRpc(funds *dex.VxFunds) *RpcVxFunds {
 	for _, fund := range funds.Funds {
 		rpcFund := &RpcVxFundByPeriod{}
 		rpcFund.Period = fund.Period
-		rpcFund.Amount = amountBytesToString(fund.Amount)
+		rpcFund.Amount = AmountBytesToString(fund.Amount)
 		rpcFunds.Funds = append(rpcFunds.Funds, rpcFund)
 	}
 	return rpcFunds
 }
 
-func amountBytesToString(amt []byte) string {
+type RpcThresholdForTradeAndMine struct {
+	TradeThreshold string `json:"tradeThreshold"`
+	MineThreshold  string `json:"mineThreshold"`
+}
+
+func AmountBytesToString(amt []byte) string {
 	return new(big.Int).SetBytes(amt).String()
 }
 

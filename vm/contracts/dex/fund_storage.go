@@ -573,10 +573,11 @@ func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.Tok
 			}
 		}
 	}
-	for tokenId, amt := range funds {
+	amtWithTks := MapToAmountWithTokens(funds)
+	for _, amtWtTk := range amtWithTks {
 		acc := &dexproto.Account{}
-		acc.Token = tokenId.Bytes()
-		acc.Available = amt.Bytes()
+		acc.Token = amtWtTk.Token.Bytes()
+		acc.Available = amtWtTk.Amount.Bytes()
 		userFund.Accounts = append(userFund.Accounts, acc)
 	}
 	SaveUserFund(db, address, userFund)
