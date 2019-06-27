@@ -1,9 +1,13 @@
 package dex
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -35,7 +39,7 @@ func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price []byte, 
 		return
 	}
 	marketIdBytes := make([]byte, 4)
-	copy(marketIdBytes[1:4], idBytes[:3])
+	copy(marketIdBytes[1:], idBytes[:3])
 	marketId = int32(BytesToUint32(marketIdBytes))
 	side = int8(idBytes[3]) == 1
 	price = make([]byte, 10)
@@ -44,6 +48,7 @@ func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price []byte, 
 		BitwiseNotBytes(price)
 	}
 	timestampBytes := make([]byte, 8)
+	copy(timestampBytes[3:], idBytes[14:19])
 	timestamp = int64(BytesToUint64(timestampBytes))
 	return
 }
@@ -180,3 +185,47 @@ func BitwiseNotBytes(bytes []byte) {
 func IsOperationValidWithMask(operationCode, mask uint8) bool {
 	return uint8(byte(operationCode)&byte(mask)) == mask
 }
+
+type AmountWithTokenSorter []*AmountWithToken
+
+func (st AmountWithTokenSorter) Len() int {
+	return len(st)
+}
+
+func (st AmountWithTokenSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st AmountWithTokenSorter) Less(i, j int) bool {
+	return bytes.Compare(st[i].Token.Bytes(), st[j].Token.Bytes()) >= 0
+}
+
+func MapToAmountWithTokens(mp map[types.TokenTypeId]*big.Int) []*AmountWithToken {
+	if len(mp) == 0 {
+		return nil
+	}
+	amtWithTks := make([]*AmountWithToken, 0, len(mp))
+	var i = 0
+	for tk, amt := range mp {
+		amtWithTks[i] = &AmountWithToken{tk, amt, false}
+		i++
+	}
+	sort.Sort(AmountWithTokenSorter(amtWithTks))
+	return amtWithTks
+}
+
+type Uint64Sorter []uint64
+
+func (st Uint64Sorter) Len() int {
+	return len(st)
+}
+
+func (st Uint64Sorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st Uint64Sorter) Less(i, j int) bool {
+	return st[i] <= st[j]
+}
+
+

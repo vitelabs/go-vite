@@ -11,8 +11,8 @@ var (
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
 	OrderNotExistsErr       = errors.New("order not exists")
 	OrderAmountTooSmallErr  = errors.New("order amount too small")
-	ViteXStoppedErr         = errors.New("viteX stopped")
 
+	ViteXStoppedErr                 = errors.New("viteX stopped")
 	TradeMarketExistsErr            = errors.New("trade market already exists")
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
 	TradeMarketStoppedErr           = errors.New("trade market stopped")

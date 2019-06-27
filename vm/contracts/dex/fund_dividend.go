@@ -6,7 +6,9 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+	"sort"
 )
+
 
 func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	var (
@@ -63,6 +65,8 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	}
 	defer iterator.Release()
 
+	feeSumWithTokens := MapToAmountWithTokens(feeSumMap)
+
 	feeSumLeavedMap := make(map[types.TokenTypeId]*big.Int)
 	dividedVxAmtMap := make(map[types.TokenTypeId]*big.Int)
 	for {
@@ -106,17 +110,21 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		}
 
 		var finished bool
-		for tokenId, feeSumAmount := range feeSumMap {
-			if _, ok = feeSumLeavedMap[tokenId]; !ok {
-				feeSumLeavedMap[tokenId] = new(big.Int).Set(feeSumAmount)
-				dividedVxAmtMap[tokenId] = big.NewInt(0)
+		for _, feeSumWtTk := range feeSumWithTokens {
+			if feeSumWtTk.Deleted {
+				continue
+			}
+			if _, ok = feeSumLeavedMap[feeSumWtTk.Token]; !ok {
+				feeSumLeavedMap[feeSumWtTk.Token] = new(big.Int).Set(feeSumWtTk.Amount)
+				dividedVxAmtMap[feeSumWtTk.Token] = big.NewInt(0)
 			}
 			//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
-			userFeeDividend[tokenId], finished = DivideByProportion(vxSumAmt, userVxAmount, dividedVxAmtMap[tokenId], feeSumAmount, feeSumLeavedMap[tokenId])
+			userFeeDividend[feeSumWtTk.Token], finished = DivideByProportion(vxSumAmt, userVxAmount, dividedVxAmtMap[feeSumWtTk.Token], feeSumWtTk.Amount, feeSumLeavedMap[feeSumWtTk.Token])
 			if finished {
-				delete(feeSumMap, tokenId)
+				feeSumWtTk.Deleted = true
+				delete(feeSumMap, feeSumWtTk.Token)
 			}
-			AddFeeDividendEvent(db, address, tokenId, userVxAmount, userFeeDividend[tokenId])
+			AddFeeDividendEvent(db, address, feeSumWtTk.Token, userVxAmount, userFeeDividend[feeSumWtTk.Token])
 		}
 		if err = BatchSaveUserFund(db, address, userFeeDividend); err != nil {
 			return err
@@ -137,9 +145,14 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 			it.Release()
 		}
 	}()
-
+	periods := make([]uint64, 0, len(periodIdToFeeSum))
+	var i = 0
 	for pId, _ := range periodIdToFeeSum {
-		iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(pId)...))
+		periods[i] = pId
+	}
+	sort.Sort(Uint64Sorter(periods))
+	for _, periodId := range periods {
+		iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...))
 		if err != nil {
 			return err
 		}

@@ -236,6 +236,29 @@ func (f DexFundApi) GetVxFunds(address types.Address) (*apidex.RpcVxFunds, error
 	}
 }
 
+func (f DexFundApi) GetVxBalanceToMine() (string, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return "", err
+	}
+	balance := dex.GetVxBalance(db)
+	return balance.String(), nil
+}
+
+func (f DexFundApi) GetThresholdForTradeAndMine() (map[int32]*apidex.RpcThresholdForTradeAndMine, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	thresholds := make(map[int32]*apidex.RpcThresholdForTradeAndMine, 4)
+	for tokenType := dex.ViteTokenType; tokenType <= dex.UsdTokenType; tokenType++ {
+		tradeThreshold := dex.GetTradeThreshold(db, int32(tokenType))
+		mineThreshold := dex.GetMineThreshold(db, int32(tokenType))
+		thresholds[int32(tokenType)] = &apidex.RpcThresholdForTradeAndMine{TradeThreshold: tradeThreshold.String(), MineThreshold: mineThreshold.String()}
+	}
+	return thresholds, nil
+}
+
 func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {

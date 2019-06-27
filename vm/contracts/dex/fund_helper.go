@@ -457,3 +457,9 @@ func getDexTokenSymbol(tokenInfo *TokenInfo) string {
 		return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
 	}
 }
+
+type AmountWithToken struct {
+	Token   types.TokenTypeId
+	Amount  *big.Int
+	Deleted bool
+}

@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
+	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -81,9 +82,29 @@ func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 	}
 }
 
-
 type RpcOrder struct {
-
+	Id                   string   `json:"Id"`
+	Address              string   `json:"Address"`
+	MarketId             int32    `json:"MarketId"`
+	Side                 bool     `json:"Side"`
+	Type                 int32    `json:"Type"`
+	Price                string   `json:"Price"`
+	TakerFeeRate         int32    `json:"TakerFeeRate"`
+	MakerFeeRate         int32    `json:"MakerFeeRate"`
+	TakerBrokerFeeRate   int32    `json:"TakerBrokerFeeRate"`
+	MakerBrokerFeeRate   int32    `json:"MakerBrokerFeeRate"`
+	Quantity             string   `json:"Quantity"`
+	Amount               string   `json:"Amount"`
+	LockedBuyFee         string   `json:"LockedBuyFee,omitempty"`
+	Status               int32    `json:"Status"`
+	CancelReason         int32    `json:"CancelReason,omitempty"`
+	ExecutedQuantity     string   `json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount       string   `json:"ExecutedAmount,omitempty"`
+	ExecutedBaseFee      string   `json:"ExecutedBaseFee,omitempty"`
+	ExecutedBrokerFee    string   `json:"ExecutedBrokerFee,omitempty"`
+	RefundToken          string   `json:"RefundToken,omitempty"`
+	RefundQuantity       string   `json:"RefundQuantity,omitempty"`
+	Timestamp            int64    `json:"Timestamp"`
 }
 
 type OrdersRes struct {
@@ -95,7 +116,45 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	if order == nil {
 		return nil
 	}
+	address, _ := types.BytesToAddress(order.Address)
 	rpcOrder := &RpcOrder{}
+	rpcOrder.Id = base64.RawStdEncoding.EncodeToString(order.Id)
+	rpcOrder.Address = address.String()
+	rpcOrder.MarketId = order.MarketId
+	rpcOrder.Side = order.Side
+	rpcOrder.Type = order.Type
+	rpcOrder.Price = dex.BytesToPrice(order.Price)
+	rpcOrder.TakerFeeRate = order.TakerFeeRate
+	rpcOrder.MakerFeeRate = order.MakerFeeRate
+	rpcOrder.TakerBrokerFeeRate = order.TakerBrokerFeeRate
+	rpcOrder.MakerBrokerFeeRate = order.MakerBrokerFeeRate
+	rpcOrder.Quantity = apidex.AmountBytesToString(order.Quantity)
+	rpcOrder.Amount = apidex.AmountBytesToString(order.Amount)
+	if len(order.LockedBuyFee) > 0 {
+		rpcOrder.LockedBuyFee = apidex.AmountBytesToString(order.LockedBuyFee)
+	}
+	rpcOrder.Status = order.Status
+	rpcOrder.CancelReason = order.CancelReason
+	if len(order.ExecutedQuantity) > 0 {
+		rpcOrder.ExecutedQuantity = apidex.AmountBytesToString(order.ExecutedQuantity)
+	}
+	if len(order.ExecutedAmount) > 0 {
+		rpcOrder.ExecutedAmount = apidex.AmountBytesToString(order.ExecutedAmount)
+	}
+	if len(order.ExecutedBaseFee) > 0 {
+		rpcOrder.ExecutedBaseFee = apidex.AmountBytesToString(order.ExecutedBaseFee)
+	}
+	if len(order.ExecutedBrokerFee) > 0 {
+		rpcOrder.ExecutedBrokerFee = apidex.AmountBytesToString(order.ExecutedBrokerFee)
+	}
+	if len(order.RefundToken) > 0 {
+		tk, _ := types.BytesToTokenTypeId(order.RefundToken)
+		rpcOrder.RefundToken = tk.String()
+	}
+	if len(order.RefundQuantity) > 0 {
+		rpcOrder.RefundQuantity = apidex.AmountBytesToString(order.RefundQuantity)
+	}
+	rpcOrder.Timestamp = order.Timestamp
 	return rpcOrder
 }
 
@@ -104,6 +163,9 @@ func OrdersToRpc(orders []*dex.Order) []*RpcOrder {
 		return nil
 	} else {
 		rpcOrders := make([]*RpcOrder, len(orders))
+		for i := 0; i < len(orders); i++ {
+			rpcOrders[i] = OrderToRpc(orders[i])
+		}
 		return rpcOrders
 	}
 }
