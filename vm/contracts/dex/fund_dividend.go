@@ -145,10 +145,11 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodIdToFeeSum map[uint64]*FeeSumByPeri
 			it.Release()
 		}
 	}()
-	periods := make([]uint64, 0, len(periodIdToFeeSum))
+	periods := make([]uint64, len(periodIdToFeeSum))
 	var i = 0
 	for pId, _ := range periodIdToFeeSum {
 		periods[i] = pId
+		i++
 	}
 	sort.Sort(Uint64Sorter(periods))
 	for _, periodId := range periods {

@@ -204,7 +204,7 @@ func MapToAmountWithTokens(mp map[types.TokenTypeId]*big.Int) []*AmountWithToken
 	if len(mp) == 0 {
 		return nil
 	}
-	amtWithTks := make([]*AmountWithToken, 0, len(mp))
+	amtWithTks := make([]*AmountWithToken, len(mp))
 	var i = 0
 	for tk, amt := range mp {
 		amtWithTks[i] = &AmountWithToken{tk, amt, false}
@@ -227,5 +227,3 @@ func (st Uint64Sorter) Swap(i, j int) {
 func (st Uint64Sorter) Less(i, j int) bool {
 	return st[i] <= st[j]
 }
-
-
