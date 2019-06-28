@@ -103,7 +103,7 @@ func BenchmarkCancelRegisterReceive(b *testing.B) {
 	benchmarkReceive(b, sendBlock, receiveBlock)
 }
 func makeCancelRegisterSendBlock(addr types.Address) *ledger.AccountBlock {
-	data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, types.SNAPSHOT_GID, "testnode")
+	data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, types.SNAPSHOT_GID, "s1")
 	if err != nil {
 		panic(err)
 	}
