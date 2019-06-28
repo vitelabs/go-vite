@@ -25,9 +25,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/vitelabs/go-vite/tools/bytes_pool"
-
 	"github.com/golang/snappy"
+	"github.com/vitelabs/go-vite/p2p/bytes_pool"
 )
 
 const maxPayloadLength = 3

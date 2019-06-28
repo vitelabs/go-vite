@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/vitelabs/go-vite/tools/bytes_pool"
+	"github.com/vitelabs/go-vite/p2p/bytes_pool"
 )
 
 type Code = byte
