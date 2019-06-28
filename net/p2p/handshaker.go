@@ -11,7 +11,7 @@ import (
 
 	"github.com/vitelabs/go-vite/vitepb"
 
-	"github.com/vitelabs/go-vite/net/p2p/netool"
+	"github.com/vitelabs/go-vite/net/netool"
 
 	"github.com/vitelabs/go-vite/common/types"
 
