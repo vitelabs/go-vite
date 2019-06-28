@@ -11,9 +11,9 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/net/p2p"
+	"github.com/vitelabs/go-vite/net/p2p/vnode"
 	"github.com/vitelabs/go-vite/net/protos"
-	"github.com/vitelabs/go-vite/p2p"
-	"github.com/vitelabs/go-vite/p2p/vnode"
 )
 
 var netLog = log15.New("module", "net")

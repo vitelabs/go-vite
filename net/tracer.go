@@ -25,7 +25,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net/message"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 type Tracer interface {

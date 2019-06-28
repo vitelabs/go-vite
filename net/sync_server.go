@@ -29,7 +29,7 @@ import (
 
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 const fileTimeout = 5 * time.Minute

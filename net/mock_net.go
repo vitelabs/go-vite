@@ -4,7 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 type mockNet struct {

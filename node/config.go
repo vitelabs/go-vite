@@ -3,7 +3,6 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
@@ -20,7 +19,8 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/net/p2p"
+	"github.com/vitelabs/go-vite/net/p2p/discovery"
 	"github.com/vitelabs/go-vite/wallet"
 )
 

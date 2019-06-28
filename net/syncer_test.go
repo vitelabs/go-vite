@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/vite/net/message"
 
-	"github.com/vitelabs/go-vite/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/interfaces"
 

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/p2p/discovery"
 
 	"github.com/vitelabs/go-vite/consensus"
 

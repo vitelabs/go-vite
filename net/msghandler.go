@@ -13,8 +13,8 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/net/message"
+	"github.com/vitelabs/go-vite/net/p2p"
 	"github.com/vitelabs/go-vite/net/protos"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/tools/list"
 )
 
