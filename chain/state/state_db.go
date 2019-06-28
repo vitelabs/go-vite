@@ -35,6 +35,7 @@ type StateDB struct {
 	useCache bool
 
 	consensusCacheLevel uint32
+	roundCache          *RoundCache // TODO new and init
 }
 
 func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
@@ -238,6 +239,11 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 }
 
 func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
+	if sDB.consensusCacheLevel == ConsensusReadCache {
+		// TODO get from cache
+	}
+
+	// get snapshot height
 	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
 	if err != nil {
 		return err
@@ -246,6 +252,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int
 		return nil
 	}
 
+	// prepare iterator
 	prefix := chain_utils.BalanceHistoryKeyPrefix
 	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
 	defer iter.Release()
@@ -256,6 +263,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int
 	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
 	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
 
+	// iterate address list
 	for _, addr := range addrList {
 		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
 
@@ -268,6 +276,7 @@ func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int
 
 		key := iter.Key()
 		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
+			// set balance
 			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
 			// FOR DEBUG
 			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
