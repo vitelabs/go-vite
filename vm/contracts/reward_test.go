@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -381,6 +382,30 @@ func TestGetIndexByEndTime(t *testing.T) {
 		if testCase.endIndex != endIndex || testCase.endTime != endTime || testCase.withinADay != withinADay {
 			t.Fatalf("get index by end time error, param: %v, expected [%v,%v,%v], got [%v,%v,%v]",
 				testCase.t, testCase.endIndex, testCase.endTime, testCase.withinADay, endIndex, endTime, withinADay)
+		}
+	}
+}
+
+func BenchmarkCalcReward(b *testing.B) {
+	InitContractsConfig(true)
+	registration := &types.Registration{"s1", types.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		types.Address{}, nil, 0, genesisTime, 0, nil}
+	detailMap := map[uint64]map[string]*consensusDetail{
+		firstDayIndex: {},
+	}
+	for i := 1; i <= 25; i++ {
+		detailMap[firstDayIndex]["s"+strconv.Itoa(i)] = &consensusDetail{200, 400, big.NewInt(100)}
+	}
+	current := &ledger.SnapshotBlock{Timestamp: &oneDayTime}
+	reader := util.NewVmConsensusReader(newConsensusReaderTest(genesisTime, oneDay, detailMap))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, reward, _, err := calcReward(registration, genesisTime, pledgeAmountForTest, current, reader)
+		if err != nil {
+			panic(err)
+		}
+		if reward == nil || reward.TotalReward.Sign() == 0 {
+			b.Fatalf("reward is nil")
 		}
 	}
 }
